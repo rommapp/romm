@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// InfoGrid — two-column section grid used in the Overview tab.
+// InfoGrid: two-column section grid used in the Overview tab.
 // Each section is `icon + label` on the header line and a row of
 // small chips below (genres, companies, franchises, collections, …).
 // The icon gives each section a semantic anchor instead of relying
@@ -19,7 +19,7 @@ defineOptions({ inheritAttrs: false });
 export type InfoGridSection = {
   label: string;
   items: string[];
-  /** Leading icon for the section header — gives each category a
+  /** Leading icon for the section header: gives each category a
    *  semantic cue (e.g. tags for genres, building for companies). */
   icon?: string;
   /** Gallery filter these items map to. Set it to make the chips
@@ -65,7 +65,7 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
 </template>
 
 <style scoped>
-/* Auto-fill grid spanning the whole details body — sections reflow to a
+/* Auto-fill grid spanning the whole details body: sections reflow to a
    new row when the column would shrink below 240px. Mirrors the
    responsive pattern used by ProviderGrid in the Metadata tab so both
    surfaces feel like siblings. */
@@ -89,7 +89,7 @@ const visible = () => props.sections.filter((s) => s.items.length > 0);
 }
 .r-v2-det-infogrid__label-icon {
   /* Brand-primary keeps the section header readable as a "label" cue
-     against the muted eyebrow text — the icon is the focal point. */
+     against the muted eyebrow text: the icon is the focal point. */
   color: var(--r-color-brand-primary);
 }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PlatformListHeader — column-header strip for the Platforms list-mode
+// PlatformListHeader: column-header strip for the Platforms list-mode
 // view. Mirrors GameListHeader: shared CSS-grid template with every
 // row underneath, clickable sortable columns that toggle asc → desc.
 //

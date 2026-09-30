@@ -285,31 +285,27 @@ function getMappingTypeDescription(type: "alias" | "variant"): string {
             hide-details
           >
             <template #item="{ props, item }">
-              <v-list-item
-                class="py-2"
-                v-bind="props"
-                :title="item.raw.name ?? ''"
-              >
+              <v-list-item class="py-2" v-bind="props" :title="item.name ?? ''">
                 <template #prepend>
                   <PlatformIcon
-                    :key="item.raw.slug"
+                    :key="item.slug"
                     :size="35"
-                    :slug="item.raw.slug"
-                    :name="item.raw.name"
-                    :fs-slug="item.raw.fs_slug"
+                    :slug="item.slug"
+                    :name="item.name"
+                    :fs-slug="item.fs_slug"
                   />
                 </template>
               </v-list-item>
             </template>
             <template #selection="{ item }">
-              <v-list-item class="px-0" :title="item.raw.name ?? ''">
+              <v-list-item class="px-0" :title="item.name ?? ''">
                 <template #prepend>
                   <PlatformIcon
-                    :key="item.raw.slug"
+                    :key="item.slug"
                     :size="35"
-                    :slug="item.raw.slug"
-                    :name="item.raw.name"
-                    :fs-slug="item.raw.fs_slug"
+                    :slug="item.slug"
+                    :name="item.name"
+                    :fs-slug="item.fs_slug"
                   />
                 </template>
               </v-list-item>

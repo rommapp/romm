@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// v2 ChangelogDialog — emitter-driven. Fetches the latest releases from
+// v2 ChangelogDialog: emitter-driven. Fetches the latest releases from
 // the public GitHub API on first open and reuses the cached payload on
 // subsequent opens within the same session. Each release renders as a
 // glass-panel block (tag + date) with the release body rendered through
@@ -269,7 +269,7 @@ function closeDialog() {
   min-width: 0;
   overflow: hidden;
 }
-/* md-editor surface tweaks — the preview ships its own white card; we
+/* md-editor surface tweaks: the preview ships its own white card; we
    strip it and let the tinted body wrapper provide the surface. Same
    approach NotesTab uses. */
 .r-v2-changelog__body :deep(.md-editor),

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// ScanInfoDialog — reference card for the Scan view. Two tabs (same
+// ScanInfoDialog: reference card for the Scan view. Two tabs (same
 // underlined-pill pattern as GameDetails): "Scan types" explains what
 // each scan does in long form (matching v1's reference card); "Metadata
 // providers" lists every provider RomM can talk to with one-line setup
-// notes. Pure static content — it's a lookup card, not a configurator.
+// notes. Pure static content: it's a lookup card, not a configurator.
 //
 // Why static descriptions instead of i18n: the v1 `scan-types-info`
-// key shipped as one HTML blob with `<strong>` + `<br>` — hard to
+// key shipped as one HTML blob with `<strong>` + `<br>`: hard to
 // translate by section and harder to restyle. Embedding the text as
 // typed arrays here keeps the layout flexible. If i18n becomes
 // necessary, each row maps cleanly to a key.
@@ -55,7 +55,7 @@ const docsUrl = computed(() =>
 interface ScanTypeRow {
   id: string;
   title: string;
-  // Long-form description — single paragraph or `\n\n`-separated. The
+  // Long-form description: single paragraph or `\n\n`-separated. The
   // template splits on double-newline so each paragraph gets its own
   // `<p>` for spacing.
   desc: string;
@@ -208,7 +208,7 @@ function paragraphs(text: string): string[] {
   gap: 20px;
 }
 
-/* Section grouping inside the providers tab — header + rows. The
+/* Section grouping inside the providers tab: header + rows. The
    header is intentionally lightweight: small caps, muted icon, and an
    inline hint that explains the section in one sentence. */
 .r-v2-scan-info__section {
@@ -286,7 +286,7 @@ function paragraphs(text: string): string[] {
   text-decoration: underline;
 }
 
-/* Mobile — the 140px column for names gets tight at small widths.
+/* Mobile: the 140px column for names gets tight at small widths.
    Stack name + desc vertically on narrow viewports. */
 html[data-bp~="sm-and-down"] .r-v2-scan-info__row {
   grid-template-columns: 1fr;

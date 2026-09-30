@@ -28,7 +28,7 @@ const { config } = storeToRefs(configStore);
 const authStore = storeAuth();
 const snackbar = useSnackbar();
 
-// Provider brand names are identical across every locale, so not i18n'd.
+// Provider brand names: identical across every locale, so not i18n'd.
 const PROVIDER_LABELS: Record<string, string> = {
   igdb: "IGDB",
   moby: "MobyGames",
@@ -586,7 +586,7 @@ onBeforeUnmount(() =>
       </div>
     </SettingsSection>
 
-    <!-- Sticky save bar, shown once the form diverges from the saved
+    <!-- Sticky save bar: appears once the form diverges from the saved
          config. Hidden entirely when the user can't edit. -->
     <Transition name="r-v2-scan-settings__bar">
       <div v-if="dirty && canEdit" class="r-v2-scan-settings__bar">

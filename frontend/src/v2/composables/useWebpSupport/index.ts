@@ -1,4 +1,4 @@
-// useWebpSupport — single-source resolution of whether the backend serves
+// useWebpSupport: single-source resolution of whether the backend serves
 // .webp covers for this server. The WebP conversion task is what writes the
 // `.webp` sibling next to every cover, so its heartbeat flag is the signal.
 //

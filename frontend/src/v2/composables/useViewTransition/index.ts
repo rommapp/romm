@@ -1,4 +1,4 @@
-// useViewTransition — tiny wrapper around the browser View Transitions API
+// useViewTransition: tiny wrapper around the browser View Transitions API
 // for shared-element morphs (e.g. game card cover → GameDetails cover).
 //
 // Usage at the source side (the element you click):
@@ -14,7 +14,7 @@
 //   }
 //
 // At the destination side, just paint a static `view-transition-name` on
-// the matching element — the browser pairs it with the source by name.
+// the matching element: the browser pairs it with the source by name.
 // One element per name on screen at a time; we tag the source imperatively
 // so two visible cards with the same ROM never collide.
 //
@@ -42,7 +42,7 @@ export interface MorphSource {
   name: string;
 }
 
-// Module-level singleton — when set, source-side tiles in the destination
+// Module-level singleton: when set, source-side tiles in the destination
 // view (GameCard, CollectionTile, PlatformTile, GameList row) reactively
 // paint `view-transition-name: <pending>` on their visual element so the
 // browser can morph from the previous view's hero/cover/icon back into
@@ -91,7 +91,7 @@ export function useViewTransition() {
     // capturing, so the browser skips this one.
     void absorbPreemptionSkip(transition.ready);
 
-    // Clean up the inline style after the transition finishes — the
+    // Clean up the inline style after the transition finishes: the
     // source element usually unmounts during navigate(), but if a route
     // keeps it alive (kept-alive view, error mid-nav, …) we don't want a
     // dangling view-transition-name on the page.
@@ -133,7 +133,7 @@ function morphNameForRoute(route: RouteLocationNormalized): string | null {
 }
 
 // Install a router guard that morphs the leaving view's hero element
-// back into the matching tile in the destination view — covers BackBtn,
+// back into the matching tile in the destination view: covers BackBtn,
 // navbar clicks, and the browser back button (all flow through the same
 // Vue Router pipeline). Source-route mapping lives in `morphNameForRoute`
 // so the guard stays generic across rom/platform/collection.
@@ -156,7 +156,7 @@ export function installBackMorph(router: Router): () => void {
     if (forwardTransitionActive) return true;
     if (!isSupported() || useReducedMotion().enabled.value) return true;
     // No morph between two views of the same kind (e.g. /platform/A →
-    // /platform/B) — that would compete with the in-route transition
+    // /platform/B): that would compete with the in-route transition
     // and there's no shared element to pair anyway.
     if (from.name && to.name === from.name) return true;
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// AuthCard — the translucent card frame used by every auth view
+// AuthCard: the translucent card frame used by every auth view
 // (Login / Register / ResetPassword / Setup). Wraps RCard, the logo,
 // and the padded inner column. Views drop their form content into the
 // default slot.
@@ -26,7 +26,7 @@ defineOptions({ inheritAttrs: false });
 .auth-card {
   width: 100%;
   max-width: 440px;
-  /* Flex item in the centred auth stage — allow it to shrink below its
+  /* Flex item in the centred auth stage: allow it to shrink below its
      content's min width on phones narrower than the card, so it never spills
      past the viewport. */
   min-width: 0;

@@ -27,7 +27,6 @@ from .igdb_handler import (
     IGDBMetadata,
     IGDBMetadataPlatform,
 )
-from .ra_handler import RAMetadata
 
 
 class HasheousMetadata(TypedDict):
@@ -63,8 +62,6 @@ class HasheousRom(BaseRom):
     igdb_id: NotRequired[int | None]
     slug: NotRequired[str]
     igdb_metadata: NotRequired[IGDBMetadata]
-    ra_id: NotRequired[int | None]
-    ra_metadata: NotRequired[RAMetadata]
     tgdb_id: NotRequired[int | None]
     hasheous_metadata: NotRequired[HasheousMetadata]
 
@@ -217,7 +214,6 @@ class HasheousHandler(MetadataHandler):
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
         self.proxy_igdb_game_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Game"
         self.proxy_igdb_cover_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Cover"
-        self.proxy_ra_game_endpoint = f"{self.BASE_URL}/MetadataProxy/RA/Game"
         self.app_api_key = (
             "UUvh9ef_CddMM4xXO1iqxl9FqEt764v33LU-UiGFc0P34odXjMP9M6MTeE4JZRxZ"
             if DEV_MODE
@@ -348,9 +344,7 @@ class HasheousHandler(MetadataHandler):
         an answer (disabled, no hashes to send, or the request failed). Only the
         former is safe to treat as "this ROM is not in any database".
         """
-        fallback_rom = HasheousRom(
-            hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None
-        )
+        fallback_rom = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
 
         if not self.is_enabled():
             return fallback_rom, False
@@ -425,7 +419,6 @@ class HasheousHandler(MetadataHandler):
 
         igdb_id = None
         tgdb_id = None
-        ra_id = None
 
         for meta in metadata:
             if meta["source"] == "IGDB":
@@ -439,8 +432,6 @@ class HasheousHandler(MetadataHandler):
                     pass
             elif meta["source"] == "TheGamesDb":
                 tgdb_id = meta["immutableId"]
-            elif meta["source"] == "RetroAchievements":
-                ra_id = meta["immutableId"]
 
         url_cover = ""
         for attr in attributes:
@@ -458,7 +449,6 @@ class HasheousHandler(MetadataHandler):
                 ),
                 igdb_id=int(igdb_id) if igdb_id else None,
                 tgdb_id=int(tgdb_id) if tgdb_id else None,
-                ra_id=int(ra_id) if ra_id else None,
                 url_cover=url_cover,
                 # Keys are Hasheous' SignatureSourceType names, spelled exactly
                 # as its API returns them.
@@ -521,28 +511,6 @@ class HasheousHandler(MetadataHandler):
                 "igdb_metadata": extract_metadata_from_igdb_rom(igdb_game),
             }
         )
-
-    async def get_ra_game(self, hasheous_rom: HasheousRom) -> HasheousRom:
-        if not self.is_enabled():
-            return hasheous_rom
-
-        ra_id = hasheous_rom.get("ra_id", None)
-
-        if ra_id is None:
-            log.info("No RA ID provided for Hasheous RA game lookup.")
-            return hasheous_rom
-
-        ra_game = await self._request(
-            self.proxy_ra_game_endpoint,
-            params={"Id": ra_id},
-            method="GET",
-        )
-
-        if not ra_game:
-            log.debug(f"No Hasheous game found for RA ID {ra_id}.")
-            return hasheous_rom
-
-        return hasheous_rom
 
 
 class SlugToHasheousId(TypedDict):

@@ -3,7 +3,6 @@ import functools
 import os
 import re
 import socket
-import uuid
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -16,6 +15,13 @@ from hypothesis import settings
 from joserfc import jwt
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
+from tests.factories import (
+    make_firmware,
+    make_rom,
+    make_save,
+    make_screenshot,
+    make_state,
+)
 
 from adapters.services import response_validation
 from config import ROMM_DB_DRIVER
@@ -24,15 +30,10 @@ from handler.auth import auth_handler
 from handler.auth.base_handler import oct_key
 from handler.auth.constants import ALGORITHM
 from handler.database import (
-    db_client_token_handler,
-    db_firmware_handler,
     db_memory_card_handler,
     db_permission_handler,
     db_platform_handler,
     db_rom_handler,
-    db_save_handler,
-    db_screenshot_handler,
-    db_state_handler,
     db_user_handler,
 )
 from handler.database.base_handler import sync_engine
@@ -254,52 +255,20 @@ def other_platform():
 
 
 @pytest.fixture
-def add_firmware():
-    """Factory for firmware rows, defaulting to a file still on disk."""
-
-    def _add(platform: Platform, file_name: str, missing: bool = False) -> Firmware:
-        return db_firmware_handler.add_firmware(
-            Firmware(
-                platform_id=platform.id,
-                file_name=file_name,
-                file_path=f"{platform.fs_slug}/bios",
-                file_size_bytes=1024,
-                crc_hash="crc",
-                md5_hash="md5",
-                sha1_hash="sha1",
-                missing_from_fs=missing,
-            )
-        )
-
-    return _add
-
-
-@pytest.fixture
-def firmware(platform: Platform, add_firmware):
+def firmware(platform: Platform):
     """Firmware whose file is still on disk."""
-    return add_firmware(platform, "present.bin")
+    return make_firmware(platform, "present.bin")
 
 
 @pytest.fixture
-def missing_firmware(platform: Platform, add_firmware):
+def missing_firmware(platform: Platform):
     """Firmware flagged by a scan as gone from the filesystem."""
-    return add_firmware(platform, "gone.bin", missing=True)
+    return make_firmware(platform, "gone.bin", missing=True)
 
 
 @pytest.fixture
 def rom(admin_user: User, platform: Platform):
-    rom = Rom(
-        platform_id=platform.id,
-        name="test_rom",
-        slug="test_rom_slug",
-        fs_name="test_rom.zip",
-        fs_name_no_tags="test_rom",
-        fs_name_no_ext="test_rom",
-        fs_extension="zip",
-        fs_path=f"{platform.slug}/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
-
+    rom = make_rom(platform, "test_rom", slug="test_rom_slug")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     return rom
@@ -308,18 +277,7 @@ def rom(admin_user: User, platform: Platform):
 @pytest.fixture
 def second_rom(admin_user: User, platform: Platform):
     """A second ROM on the same platform, for tests that scope by ROM."""
-    rom = Rom(
-        platform_id=platform.id,
-        name="test_rom_2",
-        slug="test_rom_slug_2",
-        fs_name="test_rom_2.zip",
-        fs_name_no_tags="test_rom_2",
-        fs_name_no_ext="test_rom_2",
-        fs_extension="zip",
-        fs_path=f"{platform.slug}/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
-
+    rom = make_rom(platform, "test_rom_2", slug="test_rom_slug_2")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     return rom
@@ -345,17 +303,12 @@ def multi_file_rom(admin_user: User, platform: Platform):
     derived from `file.rom.full_path` — the back-reference that must remain
     usable after the handler session closes.
     """
-    rom = Rom(
-        platform_id=platform.id,
-        name="test_multi_file_rom",
-        slug="test_multi_file_rom_slug",
-        fs_name="test_multi_file_rom",
-        fs_name_no_tags="test_multi_file_rom",
-        fs_name_no_ext="test_multi_file_rom",
+    rom = make_rom(
+        platform,
+        "test_multi_file_rom",
         fs_extension="",
-        fs_path=f"{platform.slug}/roms",
+        slug="test_multi_file_rom_slug",
     )
-    rom = db_rom_handler.add_rom(rom)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     folder_path = f"{rom.fs_path}/{rom.fs_name}"
@@ -380,37 +333,29 @@ def save(rom: Rom, platform: Platform, admin_user: User):
     saves are treated as web-UI / archival backups. Tests that need to
     represent an archival save should use the `archival_save` fixture.
     """
-    save = Save(
-        rom_id=rom.id,
-        user_id=admin_user.id,
-        file_name="test_save.sav",
-        file_name_no_tags="test_save",
-        file_name_no_ext="test_save",
-        file_extension="sav",
+    return make_save(
+        rom,
+        admin_user,
+        "test_save.sav",
         emulator="test_emulator",
         slot="autosave",
         file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )
-    return db_save_handler.add_save(save)
 
 
 @pytest.fixture
 def second_save(second_rom: Rom, platform: Platform, admin_user: User):
     """Slot-bound save on `second_rom`, to check ROM-scoped queries exclude it."""
-    save = Save(
-        rom_id=second_rom.id,
-        user_id=admin_user.id,
-        file_name="test_save_2.sav",
-        file_name_no_tags="test_save_2",
-        file_name_no_ext="test_save_2",
-        file_extension="sav",
+    return make_save(
+        second_rom,
+        admin_user,
+        "test_save_2.sav",
         emulator="test_emulator",
         slot="autosave",
         file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )
-    return db_save_handler.add_save(save)
 
 
 @pytest.fixture
@@ -419,67 +364,50 @@ def archival_save(rom: Rom, platform: Platform, admin_user: User):
 
     These should never appear in negotiate plans.
     """
-    save = Save(
-        rom_id=rom.id,
-        user_id=admin_user.id,
-        file_name="archival.sav",
-        file_name_no_tags="archival",
-        file_name_no_ext="archival",
-        file_extension="sav",
+    return make_save(
+        rom,
+        admin_user,
+        "archival.sav",
         emulator="test_emulator",
         slot=None,
         file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )
-    return db_save_handler.add_save(save)
 
 
 @pytest.fixture
 def state(rom: Rom, platform: Platform, admin_user: User):
-    state = State(
-        rom_id=rom.id,
-        user_id=admin_user.id,
-        file_name="test_state.state",
-        file_name_no_tags="test_state",
-        file_name_no_ext="test_state",
-        file_extension="state",
+    return make_state(
+        rom,
+        admin_user,
+        "test_state.state",
         emulator="test_emulator",
         file_path=f"{platform.slug}/states/test_emulator",
         file_size_bytes=2.0,
     )
-    return db_state_handler.add_state(state)
 
 
 @pytest.fixture
 def second_state(second_rom: Rom, platform: Platform, admin_user: User):
     """State on `second_rom`, to check ROM-scoped queries exclude it."""
-    state = State(
-        rom_id=second_rom.id,
-        user_id=admin_user.id,
-        file_name="test_state_2.state",
-        file_name_no_tags="test_state_2",
-        file_name_no_ext="test_state_2",
-        file_extension="state",
+    return make_state(
+        second_rom,
+        admin_user,
+        "test_state_2.state",
         emulator="test_emulator",
         file_path=f"{platform.slug}/states/test_emulator",
         file_size_bytes=2.0,
     )
-    return db_state_handler.add_state(state)
 
 
 @pytest.fixture
 def screenshot(rom: Rom, platform: Platform, admin_user: User):
-    screenshot = Screenshot(
-        rom_id=rom.id,
-        user_id=admin_user.id,
-        file_name="test_screenshot.png",
-        file_name_no_tags="test_screenshot",
-        file_name_no_ext="test_screenshot",
-        file_extension="png",
-        file_path=f"{platform.slug}/screenshots",
+    return make_screenshot(
+        rom,
+        admin_user,
+        "test_screenshot.png",
         file_size_bytes=3.0,
     )
-    return db_screenshot_handler.add_screenshot(screenshot)
 
 
 @pytest.fixture
@@ -555,36 +483,6 @@ def viewer_user():
 
 
 @pytest.fixture
-def add_device_token():
-    """Factory for a client token, bound to ``device_id`` unless it is None.
-
-    Returns the stored token and the raw ``rmm_`` credential a client sends.
-    """
-
-    def _add(
-        user: User,
-        device_id: str | None,
-        *,
-        scopes: str = "devices.read devices.write roms.read",
-        expires_at: datetime | None = None,
-    ) -> tuple[ClientToken, str]:
-        raw_token = f"rmm_test_{uuid.uuid4().hex}"
-        token = db_client_token_handler.add_token(
-            ClientToken(
-                user_id=user.id,
-                name="Handheld",
-                hashed_token=auth_handler.hash_client_token(raw_token),
-                scopes=scopes,
-                expires_at=expires_at,
-                device_id=device_id,
-            )
-        )
-        return token, raw_token
-
-    return _add
-
-
-@pytest.fixture
 def expired_refresh_token(admin_user: User) -> str:
     expire = int((datetime.now(timezone.utc) + timedelta(seconds=-1)).timestamp())
 
@@ -626,17 +524,7 @@ def game_folder_on_disk(real_library: Path, game_folder_rom: Rom) -> Path:
 @pytest.fixture
 def game_folder_rom(admin_user: User, platform: Platform) -> Rom:
     """A folder-based ROM with two top-level files (so has_simple_single_file is False)."""
-    rom = Rom(
-        platform_id=platform.id,
-        name="multi_rom",
-        slug="multi_rom_slug",
-        fs_name="multi_rom",
-        fs_name_no_tags="multi_rom",
-        fs_name_no_ext="multi_rom",
-        fs_extension="",
-        fs_path=f"{platform.slug}/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
+    rom = make_rom(platform, "multi_rom", fs_extension="", slug="multi_rom_slug")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     file_path = f"{platform.slug}/roms/multi_rom"
     db_rom_handler.add_rom_file(

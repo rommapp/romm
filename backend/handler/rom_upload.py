@@ -246,6 +246,6 @@ async def commit_upload(
         and rom_file.doc_meta is None
     ):
         db_rom_handler.upsert_doc_meta(
-            rom_file_id=rom_file.id, rom_id=rom.id, values={"source": DocSource.UPLOAD}
+            rom_file_id=rom_file.id, values={"source": DocSource.UPLOAD}
         )
     return rom_file

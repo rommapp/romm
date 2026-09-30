@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pytest
+from tests.factories import make_rom
 from tests.sql_dialects import MARIADB_DIALECT, compile_sql
 
 from handler.database import db_rom_handler
@@ -26,19 +27,13 @@ def _make_rom(
     igdb_id: int | None = None,
 ) -> Rom:
     full_name = f"{name} ({region})" if region else name
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            igdb_id=igdb_id,
-            name=name,
-            slug=full_name,
-            fs_name=f"{full_name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=full_name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            regions=[region] if region else [],
-        )
+    return make_rom(
+        platform,
+        name,
+        fs_stem=full_name,
+        fs_name_no_tags=name,
+        igdb_id=igdb_id,
+        regions=[region] if region else [],
     )
 
 

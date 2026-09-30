@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// WidgetCard — shared shell for Home-page widget cards (the bar that
+// WidgetCard: shared shell for Home-page widget cards (the bar that
 // sits above the dashboard rows). Owns chrome only: title, body slot,
 // loading state, and an absolutely-positioned action slot for top-right
 // affordances like the random-pick reroll button. Individual widgets
@@ -13,7 +13,7 @@ withDefaults(
   defineProps<{
     title: string;
     loading?: boolean;
-    /** Card width — defaults to the mock's 220px. Wider widgets can
+    /** Card width: defaults to the mock's 220px. Wider widgets can
      *  override (e.g. Library Snapshot extended mode). */
     width?: string;
   }>(),
@@ -42,7 +42,7 @@ const slots = useSlots();
 <style scoped>
 .r-v2-widget {
   flex-shrink: 0;
-  /* Fixed height — every widget reads as part of the same rail, so
+  /* Fixed height: every widget reads as part of the same rail, so
      they all share the same vertical footprint. Widgets that need
      more room (LibraryStats extended mode) grow horizontally (card
      `width` prop) rather than taller. Tuned to RandomPick's natural

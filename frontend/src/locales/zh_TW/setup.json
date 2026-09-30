@@ -89,7 +89,7 @@
   "provider-steam-desc": "Steam 上 PC 遊戲的商店中繼資料與美術素材。",
   "provider-steam-setup": "請設定 STEAM_API_ENABLED=true。",
   "proxy-hasheous-caveat": "由社群託管的服務。需要檔案雜湊。請於設定中啟用雜湊計算（預設啟用）。",
-  "proxy-hasheous-desc": "基於雜湊的匹配器，可代理 IGDB 資料並提供 RetroAchievements ID。",
+  "proxy-hasheous-desc": "基於雜湊的匹配器，可代理 IGDB 資料。",
   "proxy-hasheous-setup": "請設定 HASHEOUS_API_ENABLED=true。",
   "proxy-playmatch-caveat": "由社群託管的服務。",
   "proxy-playmatch-desc": "基於雜湊的匹配器，與 IGDB 搭配使用。",

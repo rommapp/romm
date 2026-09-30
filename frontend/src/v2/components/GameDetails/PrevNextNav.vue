@@ -8,7 +8,7 @@
 //
 // Two conditions gate the arrows, and both are needed. The ROM has to be
 // in that list, and the user has to have arrived from the gallery that
-// built it (see useGalleryProvenance) — the store keeps its index alive
+// built it (see useGalleryProvenance): the store keeps its index alive
 // after the gallery is left, so membership alone would hand a stale list
 // to a ROM opened from Home, Activity or a scan result.
 import { RBtn } from "@v2/lib";

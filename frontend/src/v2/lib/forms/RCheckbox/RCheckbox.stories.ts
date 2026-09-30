@@ -141,7 +141,7 @@ export const MultiState: Story = {
   },
 };
 
-// The override flavour cycles through four states — inherit, grant
+// The override flavour cycles through four states: inherit, grant
 // (primary), grant-own (accent), revoke (danger).
 export const MultiStateLadder: Story = {
   name: "Multi-state ladder (4-state override)",
@@ -437,7 +437,7 @@ export const Group: Story = {
   }),
 };
 
-// ── Real-world — "select all" indeterminate ─────────────────────────
+// ── Real-world: "select all" indeterminate ─────────────────────────
 
 export const SelectAll: Story = {
   name: "Select-all (indeterminate header)",

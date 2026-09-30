@@ -1881,6 +1881,34 @@ class TestScanSelectedRoms:
         db_rom.get_missing_rom_ids.assert_not_called()
         db_rom.bulk_mark_present.assert_not_called()
 
+    async def test_reads_only_the_selected_roms_gamelist_entries(
+        self, mocker, platform, rom
+    ):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+        mocker.patch.object(fs_rom_handler, "file_exists", AsyncMock(return_value=True))
+        mocker.patch.object(scan_module, "db_rom_handler")
+        mocker.patch.object(scan_module, "_identify_rom", side_effect=AsyncMock())
+        populate_cache = mocker.patch.object(
+            meta_gamelist_handler, "populate_cache", AsyncMock()
+        )
+
+        await _scan_selected_roms(
+            platform=platform,
+            roms=[rom],
+            scan_type=ScanType.COMPLETE,
+            roms_ids=[rom.id],
+            metadata_sources=[MetadataSource.GAMELIST],
+            launchbox_remote_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
+            files_changed_rom_ids=set(),
+        )
+
+        populate_cache.assert_awaited_once_with(platform, fs_names=["Game.zip"])
+
     async def test_a_rom_whose_file_is_gone_is_marked_missing_not_scanned(
         self, mocker, platform, rom
     ):

@@ -1,4 +1,4 @@
-// romStatus — shared vocabulary for the ROM play-status picker (icons,
+// romStatus: shared vocabulary for the ROM play-status picker (icons,
 // enum/flag groupings). Consumed by the per-ROM status menu
 // (`GameActionBtn`) and the bulk status menu (`SelectionBar`) so both
 // surfaces present the same options, in the same order, with the same
@@ -24,7 +24,7 @@ export const STATUS_ICONS: Record<PlayingStatus, string> = {
 // The dashed-circle "no status set yet" placeholder icon.
 export const STATUS_EMPTY_ICON = "mdi-progress-helper";
 
-// Enum statuses — single-pick (radio-like) on a single ROM.
+// Enum statuses: single-pick (radio-like) on a single ROM.
 export const ENUM_KEYS: RomUserStatus[] = [
   "incomplete",
   "finished",

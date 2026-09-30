@@ -13,6 +13,7 @@ import {
   RETRY_BACKOFF_MIN_MS,
   bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
+  installNetplayHostAudioTap,
   loadEmulatorJSSave,
   patchNetplaySocketIo,
   pollSaveFiles,
@@ -64,6 +65,8 @@ function makeEmulator(defaultOptions: Record<string, unknown>): any {
     rewindEnabled: false,
     videoRotation: undefined,
     webgl2Enabled: null,
+    started: false,
+    menuOptionChanged: vi.fn(),
     getLocalStorageKey() {
       return STORAGE_KEY;
     },
@@ -132,6 +135,98 @@ describe("patchNetplaySocketIo", () => {
     window.io("https://romm.example");
 
     expect(io).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("installNetplayHostAudioTap", () => {
+  class FakeAudioNode {
+    targets: unknown[] = [];
+    gain = { value: 1 };
+    stream = { id: "capture" };
+    context: FakeAudioContext;
+    constructor(context: FakeAudioContext) {
+      this.context = context;
+    }
+    connect(target: unknown) {
+      this.targets.push(target);
+      return target;
+    }
+  }
+  class FakeAudioContext {
+    destination = new FakeAudioNode(this);
+    createGain() {
+      return new FakeAudioNode(this);
+    }
+    createMediaStreamDestination() {
+      return new FakeAudioNode(this);
+    }
+  }
+
+  const nativeConnect = FakeAudioNode.prototype.connect;
+  const fallbackStream = { id: "fallback" } as unknown as MediaStream;
+  function createNetplay() {
+    return {
+      _captureHostAudio: vi.fn((): MediaStream | null => fallbackStream),
+      _hostAudioDest: null as MediaStreamAudioDestinationNode | null,
+      _audioBoostFactor: 1.5,
+    };
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal("AudioNode", FakeAudioNode);
+  });
+
+  afterEach(() => {
+    FakeAudioNode.prototype.connect = nativeConnect;
+    vi.unstubAllGlobals();
+  });
+
+  it("streams what the core plays to the destination", () => {
+    const patch = installNetplayHostAudioTap();
+    const context = new FakeAudioContext();
+    const source = new FakeAudioNode(context);
+    source.connect(context.destination);
+    const netplay = createNetplay();
+    patch(netplay);
+
+    const stream = netplay._captureHostAudio();
+
+    const output = netplay._hostAudioDest as unknown as FakeAudioNode;
+    expect(stream).toBe(output.stream);
+    const [played, boost] = source.targets as FakeAudioNode[];
+    expect(played).toBe(context.destination);
+    expect(boost.targets).toEqual([output]);
+    expect(boost.gain.value).toBe(1.5);
+  });
+
+  it("leaves other connections alone", () => {
+    installNetplayHostAudioTap();
+    const context = new FakeAudioContext();
+    const source = new FakeAudioNode(context);
+    const gain = context.createGain();
+
+    source.connect(gain);
+
+    expect(source.targets).toEqual([gain]);
+  });
+
+  it("falls back to EmulatorJS capture before anything plays", () => {
+    const patch = installNetplayHostAudioTap();
+    const netplay = createNetplay();
+    patch(netplay);
+
+    expect(netplay._captureHostAudio()).toBe(fallbackStream);
+  });
+
+  it("tees each connection once when installed twice", () => {
+    installNetplayHostAudioTap();
+    installNetplayHostAudioTap();
+    const context = new FakeAudioContext();
+    const source = new FakeAudioNode(context);
+
+    source.connect(context.destination);
+
+    expect(source.targets).toHaveLength(2);
   });
 });
 
@@ -257,6 +352,67 @@ describe("installEJSDefaultOptionsTrap", () => {
     warn.mockRestore();
   });
 
+  describe("with a pad at a sparse browser gamepad index", () => {
+    type PadEvent = { gamepadIndex: number; type?: string; label?: string };
+    type Listener = (event: PadEvent) => void;
+
+    // Mirrors the EmulatorJS 4.2.3 GamepadHandler and the listeners
+    // bindListeners registers on it, including their compact-list lookup.
+    function makeGamepadEmulator() {
+      const emulator = makeEmulator({});
+      const pressed: string[] = [];
+      emulator.gamepadSelection = ["", "", "", ""];
+      emulator.gamepad = {
+        gamepads: [{ index: 1, id: "pad" }],
+        listeners: {} as Record<string, Listener>,
+        on(name: string, cb: Listener) {
+          this.listeners[name] = cb;
+        },
+        dispatchEvent(name: string, arg: PadEvent) {
+          arg.type = name;
+          this.listeners[name]?.(arg);
+        },
+      };
+      const selectionFor = (gamepadIndex: number) => {
+        const pad = emulator.gamepad.gamepads[gamepadIndex];
+        return `${pad.id}_${pad.index}`;
+      };
+      emulator.gamepad.on("connected", ({ gamepadIndex }: PadEvent) => {
+        const slot = emulator.gamepadSelection.indexOf("");
+        if (slot !== -1)
+          emulator.gamepadSelection[slot] = selectionFor(gamepadIndex);
+      });
+      emulator.gamepad.on("buttondown", ({ gamepadIndex, label }: PadEvent) => {
+        const player = emulator.gamepadSelection.indexOf(
+          selectionFor(gamepadIndex),
+        );
+        if (player !== -1) pressed.push(`${player}:${label}`);
+      });
+      return { emulator, pressed };
+    }
+
+    it("assigns the pad to a player and routes its buttons", () => {
+      const { emulator, pressed } = makeGamepadEmulator();
+      window.EJS_emulator = emulator;
+
+      expect(emulator.gamepadSelection).toEqual(["pad_1", "", "", ""]);
+      emulator.gamepad.dispatchEvent("buttondown", {
+        gamepadIndex: 1,
+        label: "BUTTON_1",
+      });
+      expect(pressed).toEqual(["0:BUTTON_1"]);
+    });
+
+    it("leaves builds that already look pads up by browser index alone", () => {
+      const { emulator } = makeGamepadEmulator();
+      emulator.getGamepadSelectionValue = () => null;
+      const listener = emulator.gamepad.listeners.buttondown;
+      window.EJS_emulator = emulator;
+
+      expect(emulator.gamepad.listeners.buttondown).toBe(listener);
+    });
+  });
+
   it("hands an FBNeo BIOS archive to the core whole on the 4.2.3 build", () => {
     const emulator = makeEmulator({});
     Object.assign(emulator.config, {
@@ -342,6 +498,43 @@ describe("installEJSDefaultOptionsTrap", () => {
         0,
         true,
         "SLUSZTVS",
+      );
+    });
+  });
+
+  describe("disk selection", () => {
+    it("skips the disk the menu selects while the game boots", () => {
+      // 4.2.3 crashes on it with a multi-disk game (EmulatorJS#1260).
+      const emulator = makeEmulator({});
+      const original = emulator.menuOptionChanged;
+      window.EJS_emulator = emulator;
+
+      emulator.menuOptionChanged("disk", "0");
+
+      expect(original).not.toHaveBeenCalled();
+    });
+
+    it("forwards a disk swap once the game runs", () => {
+      const emulator = makeEmulator({});
+      const original = emulator.menuOptionChanged;
+      window.EJS_emulator = emulator;
+      emulator.started = true;
+
+      emulator.menuOptionChanged("disk", "1");
+
+      expect(original).toHaveBeenCalledExactlyOnceWith("disk", "1");
+    });
+
+    it("forwards other options before the game runs", () => {
+      const emulator = makeEmulator({});
+      const original = emulator.menuOptionChanged;
+      window.EJS_emulator = emulator;
+
+      emulator.menuOptionChanged("shader", "crt-easymode.glslp");
+
+      expect(original).toHaveBeenCalledExactlyOnceWith(
+        "shader",
+        "crt-easymode.glslp",
       );
     });
   });

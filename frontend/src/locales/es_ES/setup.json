@@ -89,7 +89,7 @@
   "provider-steam-desc": "Metadatos y arte de la tienda para juegos de PC en Steam.",
   "provider-steam-setup": "Configura STEAM_API_ENABLED=true.",
   "proxy-hasheous-caveat": "Servicio comunitario. Requiere hashes de archivo. Activa el cálculo de hashes en la configuración (por defecto activado).",
-  "proxy-hasheous-desc": "Emparejador por hash que proxifica datos de IGDB y proporciona IDs de RetroAchievements.",
+  "proxy-hasheous-desc": "Emparejador por hash que proxifica datos de IGDB.",
   "proxy-hasheous-setup": "Configura HASHEOUS_API_ENABLED=true.",
   "proxy-playmatch-caveat": "Servicio comunitario.",
   "proxy-playmatch-desc": "Emparejador por hash combinado con IGDB.",

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ExcludedSection — v2-native rebuild of v1
+// ExcludedSection: v2-native rebuild of v1
 // `Settings/LibraryManagement/Config/Excluded.vue`. Lets the user view and
 // manage scan exclusions (file names, extensions, platforms). Defaults
 // from `DEFAULT_EXCLUDED_*` are listed read-only at the bottom.

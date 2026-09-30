@@ -11,7 +11,7 @@ export type CollectionListSortKey = "name" | "kind" | "rom_count";
 export interface CollectionListColumn {
   /** Unique column id. */
   key: CollectionListSortKey;
-  /** i18n key for the header label — resolved in CollectionListHeader. */
+  /** i18n key for the header label: resolved in CollectionListHeader. */
   labelKey: string;
   /** Sort axis when the column is sortable; omitted for display-only columns. */
   sortKey?: CollectionListSortKey;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// MarkdownViewer (v2) — renders a Markdown (.md) manual with the same v2
+// MarkdownViewer (v2): renders a Markdown (.md) manual with the same v2
 // chrome as PdfViewer. Manuals can be PDF or Markdown; MediaTab picks the
 // viewer by extension. The file is fetched as text and handed to MdPreview
 // (md-editor-v3), the same renderer used by NotesTab.
@@ -43,7 +43,7 @@ const mdTheme = computed<"light" | "dark">(() =>
   isLight.value ? "light" : "dark",
 );
 
-// Filename for the download button — last path segment without the cache-bust
+// Filename for the download button: last path segment without the cache-bust
 // query, decoded back to its human form (e.g. `README.md`).
 const fileName = computed(() => {
   const path = props.url.split("?")[0];
@@ -187,7 +187,7 @@ watch(() => props.url, load, { immediate: true });
   min-height: 0;
 }
 
-/* Toolbar inherits the parent's bg-elevated — no separate background or
+/* Toolbar inherits the parent's bg-elevated: no separate background or
    divider so the surface reads as one continuous panel (mirrors PdfViewer). */
 .r-v2-mdv__toolbar {
   display: flex;
@@ -258,7 +258,7 @@ watch(() => props.url, load, { immediate: true });
   height: 100%;
 }
 
-/* MdPreview paints its own surface — blend it with the surrounding
+/* MdPreview paints its own surface: blend it with the surrounding
    bg-elevated container so there's no visible seam under the toolbar. */
 .r-v2-mdv__preview {
   background: transparent;

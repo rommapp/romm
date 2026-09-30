@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
+from tests.factories import make_device_token, make_rom
 
 from endpoints.device import install as device_install
 from endpoints.responses.device.install import InstallRequestSchema, InstallStatus
@@ -61,10 +62,8 @@ def other_device(admin_user: User) -> Device:
 
 
 @pytest.fixture
-def device_headers(
-    admin_user: User, device: Device, add_device_token
-) -> dict[str, str]:
-    _, raw_token = add_device_token(admin_user, device.id)
+def device_headers(admin_user: User, device: Device) -> dict[str, str]:
+    _, raw_token = make_device_token(admin_user, device.id)
     return {"Authorization": f"Bearer {raw_token}"}
 
 
@@ -203,18 +202,7 @@ class TestCreate:
         platform = db_platform_handler.add_platform(
             Platform(name="Windows", slug="win", fs_slug="win")
         )
-        rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="setup",
-                slug="setup",
-                fs_name="setup.exe",
-                fs_name_no_tags="setup",
-                fs_name_no_ext="setup",
-                fs_extension="exe",
-                fs_path="win/roms",
-            )
-        )
+        rom = make_rom(platform, "setup", fs_extension="exe")
         _add_file(rom, "setup.exe", RomFileCategory.GAME)
 
         response = _create(client, headers, rom.id)
@@ -412,10 +400,10 @@ class TestClaim:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_a_token_that_cannot_download_leaves_requests_pending(
-        self, client, headers, admin_user, device, rom, rom_files, add_device_token
+        self, client, headers, admin_user, device, rom, rom_files
     ):
         request_id = _create(client, headers, rom.id).json()["id"]
-        _, raw = add_device_token(
+        _, raw = make_device_token(
             admin_user, device.id, scopes="devices.read devices.write"
         )
 

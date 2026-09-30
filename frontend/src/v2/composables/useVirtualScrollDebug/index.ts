@@ -1,4 +1,4 @@
-// useVirtualScrollDebug — shared diagnostics bridge from the active
+// useVirtualScrollDebug: shared diagnostics bridge from the active
 // virtualised scroller to the DebugOverlay.
 //
 // Module-level singleton (mirrors the useDebugMode / useUiVersion pattern):
@@ -20,7 +20,7 @@ export interface VirtualScrollStats {
   total: number;
   /** Items currently mounted in the DOM (viewport + overscan both sides). */
   renderedRows: number;
-  /** Cards/rows actually painted inside the rendered window — the real DOM
+  /** Cards/rows actually painted inside the rendered window: the real DOM
    *  weight (grid rows fan out into many cards). */
   renderedCards: number;
   /** Viewport-visible item range (inclusive). `last < first` ⇒ empty. */

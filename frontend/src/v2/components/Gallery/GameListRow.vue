@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// GameListRow — single row of the list-mode gallery.
+// GameListRow: single row of the list-mode gallery.
 //
 // Owns:
-//   * Skeleton ↔ real swap — when `getRomAt(position)` returns null the
+//   * Skeleton ↔ real swap: when `getRomAt(position)` returns null the
 //     row paints skeleton placeholders in every column; once the fetch
 //     resolves it flips to the real cells. Same row height in both
 //     states (no scroll reflow on hydration). Skeleton cells iterate
@@ -64,11 +64,11 @@ interface Props {
    * lookup key into the store's `byPosition` map; the shell drives the
    * windowed fetch that fills it. Pass either this or `rom`, not both. */
   position?: number;
-  /** Static ROM data — used by non-gallery surfaces (Settings → Missing
+  /** Static ROM data: used by non-gallery surfaces (Settings → Missing
    * games) that already own the rom list. When provided, the row skips
    * the galleryRoms position lookup. */
   rom?: SimpleRom | null;
-  /** Cover variant — when the browser supports webp the thumb URL is
+  /** Cover variant: when the browser supports webp the thumb URL is
    * rewritten to .webp before the request. Wired from the shell so the
    * choice is decided once per gallery render, not per row. */
   webp?: boolean;
@@ -218,7 +218,7 @@ const providers = computed(() => {
 });
 
 // Status badge surfaces only when the rom actually has a play status
-// set — otherwise GameActionBtn would render the dashed-circle
+// set: otherwise GameActionBtn would render the dashed-circle
 // "no status set" placeholder on every row, which reads as visual
 // noise across a tall list. Mirrors the flags `useGameActions`
 // inspects in `currentStatusKey`.
@@ -269,7 +269,7 @@ function navigateTo(item: SimpleRom, currentTarget: HTMLElement | null) {
   const navigate = async () => {
     await router.push(`/rom/${item.id}`);
   };
-  // The thumb is the `<GameCard decorative>`'s inner art element —
+  // The thumb is the `<GameCard decorative>`'s inner art element:
   // querying `.r-gc__art` reaches it through the GameCard wrapper.
   // GameCard's own `morphStyle` computed paints the reverse-paint name
   // on the same element when we come back from the detail page, so the
@@ -299,7 +299,7 @@ function onRowClick(e: MouseEvent) {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
     return;
   }
-  // Default click — prevent the anchor's native navigation, run the
+  // Default click: prevent the anchor's native navigation, run the
   // morph, then push the route.
   e.preventDefault();
   navigateTo(item, e.currentTarget as HTMLElement | null);
@@ -894,7 +894,7 @@ function onRowPointerDown(e: PointerEvent) {
   background: var(--r-color-bg-elevated);
 }
 
-/* Selected row — brand-tinted background so the selection reads at
+/* Selected row: brand-tinted background so the selection reads at
    a glance without competing with the per-row hover (`bg-elevated`).
    The two states can overlap (hover on a selected row); we stack the
    hover delta on top of the selected tint via `color-mix`. */
@@ -914,7 +914,7 @@ html[data-input="pad"] .game-list-row:focus-visible {
   box-shadow: inset 0 0 0 var(--r-focus-ring-width) var(--r-color-focus);
 }
 
-/* Select cell — checkbox column. Empty when the row is in skeleton
+/* Select cell: checkbox column. Empty when the row is in skeleton
    mode so the chrome only appears once a real row is loaded. */
 .game-list-row__select {
   display: flex;
@@ -924,7 +924,7 @@ html[data-input="pad"] .game-list-row:focus-visible {
   overflow: visible;
 }
 
-/* RCheckbox carries its own visual language — we only own the row's
+/* RCheckbox carries its own visual language: we only own the row's
    reveal behaviour. Hidden at rest, visible on row hover/focus and
    whenever the row is selected. */
 .game-list-row__check {
@@ -972,7 +972,7 @@ html[data-input="pad"] .game-list-row:focus-visible {
    and let the cover letterbox (contain) within, so the whole cover still
    shows at its true aspect. Portrait/square covers are unaffected (their
    natural width already fits, and contain renders identically to cover when
-   the box matches the cover's ratio). Scoped to the list cover only — the
+   the box matches the cover's ratio). Scoped to the list cover only: the
    gallery grid keeps its natural-width flow. */
 .game-list-row__cover :deep(.r-gc__art) {
   max-width: var(--r-card-art-h);
@@ -1013,7 +1013,7 @@ html[data-input="pad"] .game-list-row:focus-visible {
   flex: 0 1 auto;
 }
 
-/* Inline badges next to the title — status, sibling count, etc.
+/* Inline badges next to the title: status, sibling count, etc.
    `flex-shrink: 0` keeps them visible when the name truncates. The
    SiblingBadge in GameCard absolute-positions itself over the cover;
    inline here it falls back to its natural pill layout. */
@@ -1038,7 +1038,7 @@ html[data-input="pad"] .game-list-row:focus-visible {
   margin-top: 4px;
 }
 
-/* Pills cell — chips wrap to multiple lines inside the cell when they
+/* Pills cell: chips wrap to multiple lines inside the cell when they
    don't fit on a single row, so short language/region lists read as a
    single horizontal strip and longer lists stack vertically. The cell
    keeps `overflow: hidden` (defense against extreme lists) and the

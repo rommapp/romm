@@ -1,6 +1,7 @@
 from typing import Any
 
 import pytest
+from tests.factories import make_rom
 
 from handler.database import db_rom_handler
 from models.platform import Platform
@@ -18,16 +19,14 @@ def test_rom_defaults_to_non_physical(rom: Rom):
 
 
 def test_physical_rom_round_trips(platform: Platform):
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="Sonic the Hedgehog",
-            fs_name="Sonic the Hedgehog",
-            fs_path=f"{platform.slug}/roms/.physical",
-            fs_size_bytes=0,
-            is_physical=True,
-            upc="012345678905",
-        )
+    rom = make_rom(
+        platform,
+        "Sonic the Hedgehog",
+        fs_extension="",
+        fs_path=f"{platform.slug}/roms/.physical",
+        fs_size_bytes=0,
+        is_physical=True,
+        upc="012345678905",
     )
 
     stored = db_rom_handler.get_rom(rom.id)

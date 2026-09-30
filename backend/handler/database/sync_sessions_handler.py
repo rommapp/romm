@@ -221,6 +221,7 @@ class DBSyncSessionsHandler(DBBaseHandler):
         device_id: str | None = None,
         status: SyncSessionStatus | None = None,
         limit: int = 50,
+        offset: int = 0,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[SyncSession]:
         query = select(SyncSession).filter_by(user_id=user_id)
@@ -231,5 +232,9 @@ class DBSyncSessionsHandler(DBBaseHandler):
         if status:
             query = query.filter_by(status=status)
 
-        query = query.order_by(SyncSession.initiated_at.desc()).limit(limit)
+        query = (
+            query.order_by(SyncSession.initiated_at.desc(), SyncSession.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
         return session.scalars(query).all()

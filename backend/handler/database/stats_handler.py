@@ -3,14 +3,20 @@ from __future__ import annotations
 from collections.abc import Collection
 from typing import Any
 
-from sqlalchemy import distinct, func, select
+from sqlalchemy import case, distinct, func, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.sql.selectable import Select
 
 from decorators.database import INJECTED_SESSION, begin_session
 from endpoints.responses.stats import MetadataCoverageItem, RegionBreakdownItem
 from models.assets import Save, Screenshot, State
-from models.rom import METADATA_SOURCE_FACET_COLUMNS, Rom, RomFacets, RomFile
+from models.rom import (
+    METADATA_SOURCE_FACET_COLUMNS,
+    Rom,
+    RomFacets,
+    RomFile,
+)
+from utils.database import is_non_blank
 
 from .base_handler import DBBaseHandler
 
@@ -135,7 +141,7 @@ class DBStatsHandler(DBBaseHandler):
                 select(
                     RomFacets.platform_id,
                     *(
-                        func.count(col).label(key)
+                        func.count(case((is_non_blank(col), 1))).label(key)
                         for key, col in METADATA_SOURCE_FACET_COLUMNS.items()
                     ),
                 ).select_from(RomFacets),
