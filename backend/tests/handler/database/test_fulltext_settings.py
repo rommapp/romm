@@ -2,11 +2,13 @@ from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
+from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import OperationalError
+from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
 from config import ROMM_DB_DRIVER
-from handler.database import roms_handler
+from handler.database import db_rom_handler, roms_handler
 from handler.database.base_handler import sync_engine
 from handler.database.roms_handler import (
     DEFAULT_FULLTEXT_SETTINGS,
@@ -15,6 +17,7 @@ from handler.database.roms_handler import (
     read_fulltext_settings,
     split_fulltext_words,
 )
+from models.rom import Rom
 
 IS_FULLTEXT_ENGINE = ROMM_DB_DRIVER in ("mariadb", "mysql")
 
@@ -139,3 +142,22 @@ def test_split_fulltext_words_follows_the_token_size():
     settings = DEFAULT_FULLTEXT_SETTINGS._replace(min_token_size=2)
 
     assert split_fulltext_words(["ff", "of"], settings) == (["ff"], ["of"])
+
+
+@pytest.mark.parametrize(
+    ("dialect", "like_count", "has_match"),
+    [(MARIADB_DIALECT, 2, True), (POSTGRESQL_DIALECT, 6, False)],
+)
+def test_search_keeps_the_fulltext_index_for_indexable_words(
+    dialect: Dialect, like_count: int, has_match: bool
+):
+    with patch.object(
+        roms_handler, "fulltext_settings", return_value=DEFAULT_FULLTEXT_SETTINGS
+    ):
+        query = db_rom_handler._filter_by_search_term(select(Rom.id), "final fantasy 7")
+
+    sql = compile_sql(query, dialect, literal_binds=True)
+
+    assert ("AGAINST ('+final* +fantasy*' IN BOOLEAN MODE)" in sql) is has_match
+    # MariaDB checks only "7" by LIKE; PostgreSQL checks every word.
+    assert sql.count("LIKE") == like_count
