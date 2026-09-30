@@ -13,10 +13,12 @@ import Pair from "@/v2/views/Pair.vue";
     <main class="r-v2-pair-shell__stage">
       <Pair />
     </main>
-    <div class="r-v2-pair-shell__lang">
-      <LanguageSelector />
-    </div>
-    <VersionTag class="r-v2-pair-shell__version" />
+    <footer>
+      <div class="r-v2-pair-shell__lang">
+        <LanguageSelector />
+      </div>
+      <VersionTag class="r-v2-pair-shell__version" />
+    </footer>
   </div>
 </template>
 
