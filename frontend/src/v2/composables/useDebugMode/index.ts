@@ -1,4 +1,4 @@
-// useDebugMode — master toggle for the v2 debug overlay.
+// useDebugMode: master toggle for the v2 debug overlay.
 //
 // localStorage-only on purpose: the debug overlay is a per-device developer
 // aid, not a preference you want propagated to your account across every

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// OIDCButton — OIDC / SSO login button with the provider's dashboard-icon
+// OIDCButton: OIDC / SSO login button with the provider's dashboard-icon
 // (falls back to a generic key if the icon can't be found).
 import { RBtn, RIcon, RImg } from "@v2/lib";
 import { ref } from "vue";

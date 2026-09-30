@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// CollectionsIndex — full grid of every collection (regular + smart +
+// CollectionsIndex: full grid of every collection (regular + smart +
 // virtual). Same toolbar (search / groupBy / layout) the ROM galleries
 // use, with state shared via `useGalleryMode` so toggling layout here
 // also flips it on the rest of the gallery surfaces. Search is local
-// (per-view URL ?search=) — the collections list is small enough that
+// (per-view URL ?search=): the collections list is small enough that
 // no Pinia store is warranted.
 //
 // Virtual collections are gated on the `showVirtualCollections` UI
@@ -115,7 +115,7 @@ function onListSort(payload: {
   sortDir.value = payload.dir;
 }
 
-// `?kind=` / `?vis=` URL-synced filters — route → ref on every change,
+// `?kind=` / `?vis=` URL-synced filters: route → ref on every change,
 // ref → router.replace on user input, no history entry per click. The
 // default ("all") is omitted from the URL so a clean link doesn't carry
 // a redundant query param.
@@ -158,7 +158,7 @@ watch(
 );
 watch(kindFilter, (next) => {
   writeEnumQuery("kind", next, "all");
-  // Visibility doesn't apply to virtual collections — clear it so the URL
+  // Visibility doesn't apply to virtual collections: clear it so the URL
   // stays clean and the (disabled) cluster reads as inactive.
   if (next === "virtual") visibilityFilter.value = "all";
 });
@@ -222,7 +222,7 @@ const segmentFilters = computed<SegmentFilter[]>(() => [
   },
   {
     key: "visibility",
-    // Virtual collections have no visibility — force a neutral "all" and
+    // Virtual collections have no visibility: force a neutral "all" and
     // disable the cluster while the kind filter is on virtual.
     value: kindFilter.value === "virtual" ? "all" : visibilityFilter.value,
     disabled: kindFilter.value === "virtual",
@@ -337,7 +337,7 @@ const filtered = computed<CollectionTileEntry[]>(() => {
 
 // Sort comparator driven by the active `sortKey` + `sortDir`. Used by
 // both list mode (column-header sort) and grid mode (toolbar dir
-// toggle, axis stays whatever list-mode last set — default "name").
+// toggle, axis stays whatever list-mode last set: default "name").
 // Sort by `name` falls back to localeCompare; ties on `kind` /
 // `rom_count` resolve to name asc so the ordering is deterministic.
 const KIND_ORDER: Record<Kind, number> = { regular: 0, smart: 1, virtual: 2 };
@@ -381,7 +381,7 @@ const noResults = computed(
 // Empty-state payload for the post-load "nothing matches" case. Split
 // by which axis is responsible (search vs. kind filter vs. both) so
 // the message is specific and the empty-search "match ""." footgun
-// stays off the screen — when there's no search term at all the copy
+// stays off the screen: when there's no search term at all the copy
 // shifts to a "no collections of this kind yet" headline.
 const trimmedSearch = computed(() => searchTerm.value.trim());
 const emptyState = computed<{ icon: string; message: string } | null>(() => {
@@ -418,7 +418,7 @@ const emptyState = computed<{ icon: string; message: string } | null>(() => {
 });
 
 type LetterGroup = { letter: string; items: CollectionTileEntry[] };
-// Bucket visual order in asc: `# A…Z @` — `#` (digits) first, `@`
+// Bucket visual order in asc: `# A…Z @`, `#` (digits) first, `@`
 // (other symbols) last; mirrors AlphaStrip's ALPHABET. Desc flips the
 // whole sequence (`@ Z…A #`).
 const COLLECTION_BUCKET_ORDER = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ@";
@@ -429,8 +429,8 @@ function groupByLetter(items: CollectionTileEntry[]): LetterGroup[] {
   //
   // Non-letter first chars split into two distinct buckets so digits
   // and other symbols read as separate sections:
-  //   * "#" — digits (0-9)
-  //   * "@" — anything else
+  //   * "#": digits (0-9)
+  //   * "@": anything else
   const map = new Map<string, CollectionTileEntry[]>();
   for (const c of items) {
     const ch = c.name.charAt(0).toUpperCase();
@@ -485,7 +485,7 @@ const showVirtualLoading = computed(
     curatedTiles.value.length > 0,
 );
 
-// Drives `IndexShell`'s sticky list-header band — only render the
+// Drives `IndexShell`'s sticky list-header band: only render the
 // column header when the list itself is on screen (list layout + a
 // row to show). Skipping it during the skeleton / empty / no-match
 // states keeps an orphan header from floating above an empty viewport.
@@ -568,7 +568,7 @@ const showListHeader = computed(
       </div>
 
       <template v-else>
-        <!-- Curated panel — regular + smart in a translucent container,
+        <!-- Curated panel: regular + smart in a translucent container,
            mirroring the related-games panel surface in the game detail
            view. Stays out of the way when nothing curated matches. -->
         <section v-if="showCuratedSection" class="r-v2-cidx__panel">
@@ -617,7 +617,7 @@ const showListHeader = computed(
           </div>
         </section>
 
-        <!-- Virtual section loading — curated is already on screen, so the
+        <!-- Virtual section loading: curated is already on screen, so the
            top-level skeleton doesn't fire; show one here while a slow
            virtual type ("all") is still being fetched. -->
         <section v-if="showVirtualLoading" class="r-v2-cidx__virtual">
@@ -638,7 +638,7 @@ const showListHeader = computed(
           </div>
         </section>
 
-        <!-- Virtual section — loose grid, no panel. The visual absence of
+        <!-- Virtual section: loose grid, no panel. The visual absence of
            a container is the contrast point against the curated panel
            above. -->
         <section v-else-if="showVirtualSection" class="r-v2-cidx__virtual">
@@ -708,7 +708,7 @@ const showListHeader = computed(
   border-bottom: 0;
 }
 
-/* Curated panel — translucent container (same vocabulary as the
+/* Curated panel: translucent container (same vocabulary as the
    related-games surface in the game detail view via RCollapsible).
    Acts as the visual "this is one cohesive group" cue against the
    loose virtual section that follows. */
@@ -720,7 +720,7 @@ const showListHeader = computed(
   margin-bottom: 24px;
 }
 
-/* Section heading — small uppercase label at the top of each kind
+/* Section heading: small uppercase label at the top of each kind
    block. Same scale/weight as the related-games inner headings. */
 .r-v2-cidx__panel-title,
 .r-v2-cidx__section-title {

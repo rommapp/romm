@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// MoreMenu — dropdown "more actions" for a ROM, anchored to the trigger
+// MoreMenu: dropdown "more actions" for a ROM, anchored to the trigger
 // button you pass in via the `#activator` slot. RMenu hosts the shared
 // GameActionsList so the items match the right-click context menu
 // exactly.

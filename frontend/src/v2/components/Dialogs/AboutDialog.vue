@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// v2 AboutDialog — emitter-driven. Replaces the v1 AboutDialog in the v2
+// v2 AboutDialog: emitter-driven. Replaces the v1 AboutDialog in the v2
 // GlobalDialogs stack so the "About" entry in UserMenu renders the v2 glass
 // panel instead of the legacy card.
 import { RDialog, RIcon, RImg, RTooltip } from "@v2/lib";

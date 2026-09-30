@@ -1,9 +1,9 @@
 /* Demo-only styles for RImg stories. Imported by RImg.stories.ts so
    Storybook + Vite handles them as a normal CSS module. Inline <style>
    blocks inside template strings get parsed inconsistently and the
-   keyframes stop animating — keep the demo CSS in a real file. */
+   keyframes stop animating: keep the demo CSS in a real file. */
 
-/* Loading-slot shimmer — three-stop gradient sliding across the
+/* Loading-slot shimmer: three-stop gradient sliding across the
    container. Visible only while RImg is in `loading` state. */
 @keyframes r-img-story-shimmer {
   0% {

@@ -1,4 +1,4 @@
-// useCanPlay — reactive "can this ROM be played in the browser?" check.
+// useCanPlay: reactive "can this ROM be played in the browser?" check.
 // v1 duplicated this logic across GameCard, GameDetails and the play menu
 // inside PlayBtn.vue; v2 lifts it to a composable so the card overlay
 // and the menu item agree with the details-header CTA.

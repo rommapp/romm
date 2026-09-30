@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// DeleteManualDialog — confirms removing the primary manual from a ROM or
+// DeleteManualDialog: confirms removing the primary manual from a ROM or
 // a single manual file (multi-manual ROMs). The emitter payload picks the
 // scope.
 import { RBtn, RDialog, RIcon } from "@v2/lib";

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ScopeCell — compact summary chip + popover for a token's permissions.
+// ScopeCell: compact summary chip + popover for a token's permissions.
 //
 // In the table the cell renders only a small pill ("3 scopes") so rows
 // stay at the same height as Name / Expires / Last used. Clicking
@@ -69,7 +69,7 @@ const scopeLabel = computed(() =>
       </RBtn>
     </template>
 
-    <!-- Panel width follows its content — ScopeTree's two-column grid
+    <!-- Panel width follows its content: ScopeTree's two-column grid
          is sized to the longest domain row, so the menu hugs the tree
          instead of leaving padding on the sides. -->
     <div class="r-v2-scope-cell__body">
@@ -102,7 +102,7 @@ const scopeLabel = computed(() =>
   color: var(--r-color-fg-muted);
 }
 
-/* Body padding was the RMenuPanel's `padding="12px"` — kept inline so
+/* Body padding was the RMenuPanel's `padding="12px"`: kept inline so
    ScopeTree gets breathing room. */
 .r-v2-scope-cell__body {
   padding: 6px;

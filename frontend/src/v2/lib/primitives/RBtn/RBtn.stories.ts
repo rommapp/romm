@@ -373,7 +373,7 @@ export const FormActions: Story = {
   }),
 };
 
-// Surface modifier — pairs an outlined icon-only RBtn with an
+// Surface modifier: pairs an outlined icon-only RBtn with an
 // `RSliderBtnGroup` segmented cluster so both share the same tinted
 // chrome. Used in `GalleryToolbar` for filter / kebab buttons.
 export const SurfaceWithSlider: Story = {

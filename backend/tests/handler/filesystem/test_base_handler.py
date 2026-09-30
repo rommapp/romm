@@ -1,6 +1,7 @@
 import asyncio
 import errno
 import os
+import re
 import shutil
 import tempfile
 from io import BytesIO
@@ -151,6 +152,47 @@ class TestFSHandler:
                 ValueError, match="Path .* must be relative, not absolute"
             ):
                 handler.validate_path(path)
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "",
+            ".",
+            "test.txt",
+            "dir/test.txt",
+            "dir//sub/./test.txt",
+            "dir/",
+            "linked/test.txt",
+            "dir/../test.txt",
+            "../test.txt",
+            "/etc/passwd",
+        ],
+    )
+    def test_cached_path_validator_matches_validate_path(
+        self, handler: FSHandler, temp_dir: str, tmp_path: Path, path: str
+    ):
+        (Path(temp_dir) / "dir").mkdir()
+        (Path(temp_dir) / "linked").symlink_to(tmp_path, target_is_directory=True)
+        validate = handler.cached_path_validator()
+
+        try:
+            expected = handler.validate_path(path)
+        except ValueError as exc:
+            with pytest.raises(ValueError, match=re.escape(str(exc))):
+                validate(path)
+        else:
+            assert validate(path) == expected
+
+    def test_cached_path_validator_checks_each_directory_once(self, handler: FSHandler):
+        validate = handler.cached_path_validator()
+
+        with patch.object(
+            handler, "validate_path", wraps=handler.validate_path
+        ) as validate_path:
+            paths = [validate(f"dir/{name}.png") for name in ("a", "b", "c")]
+
+        validate_path.assert_called_once_with("dir")
+        assert paths == [handler.base_path / "dir" / f"{n}.png" for n in "abc"]
 
     def test_get_file_name_with_no_extension(self, handler: FSHandler):
         """Test file name extraction without extension"""

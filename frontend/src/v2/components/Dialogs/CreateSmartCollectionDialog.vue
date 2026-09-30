@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CreateSmartCollectionDialog — captures the current galleryFilter state
+// CreateSmartCollectionDialog: captures the current galleryFilter state
 // as a smart collection. v2 replacement for v1's
 // `components/common/Collection/Dialog/CreateSmartCollection.vue`.
 //
@@ -7,7 +7,7 @@
 //   • Emitter fires `showCreateSmartCollectionDialog` (typically from
 //     the FilterDrawer footer CTA).
 //   • If no filters are active we refuse to open and surface a snackbar
-//     hint — same guard v1 had, just routed through the v2 channel.
+//     hint: same guard v1 had, just routed through the v2 channel.
 //   • The dialog snapshots `galleryFilter` once on open (so further
 //     toggles in the gallery don't leak into the preview) and lets the
 //     user name / describe / mark public.
@@ -65,14 +65,14 @@ const isPublic = ref(false);
 
 // Snapshot the criteria once when the dialog opens. We don't want the
 // preview to keep updating as the user toggles filters in the gallery
-// behind the dialog — what the user saw at the moment they clicked the
+// behind the dialog: what the user saw at the moment they clicked the
 // CTA is what gets saved.
 const snapshot = ref<SmartFilterCriteria>({});
 
 const nameRules = [required(t("common.required"))];
 
 const openHandler = () => {
-  // v1 guarded with a snackbar warning here — keep that behaviour so
+  // v1 guarded with a snackbar warning here: keep that behaviour so
   // the user gets a hint instead of an empty preview.
   const next = buildSmartFilterCriteria(
     {
@@ -361,7 +361,7 @@ html[data-bp~="sm-and-up"] .r-v2-csc__grid {
   border-radius: var(--r-radius-md);
   min-height: 200px;
   /* Bound the panel so a filter-heavy snapshot can't stretch the dialog
-     past the viewport — the head stays pinned, the list scrolls. */
+     past the viewport: the head stays pinned, the list scrolls. */
   max-height: clamp(200px, 48vh, 420px);
 }
 

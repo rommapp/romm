@@ -3,7 +3,7 @@ import { ref } from "vue";
 import RSliderBtnGroup from "./RSliderBtnGroup.vue";
 
 // Storybook's Meta<typeof Component> struggles with <script setup generic>,
-// so we widen the component type here — runtime behaviour is unaffected.
+// so we widen the component type here: runtime behaviour is unaffected.
 const meta: Meta = {
   title: "Primitives/RSliderBtnGroup",
   // Cast needed: <script setup generic> types aren't compatible with
@@ -80,7 +80,7 @@ export const Tab: Story = {
   }),
 };
 
-// Vertical tab pill — same aesthetic and sliding indicator as the
+// Vertical tab pill: same aesthetic and sliding indicator as the
 // horizontal tab variant, just stacked.
 export const VerticalTab: Story = {
   args: { variant: "tab", orientation: "vertical" },
@@ -116,7 +116,7 @@ export const VerticalTab: Story = {
   },
 };
 
-// Vertical segmented — icon-only column with the indicator following
+// Vertical segmented: icon-only column with the indicator following
 // the active item. Useful as a side rail for view switchers.
 export const VerticalSegmented: Story = {
   args: { variant: "segmented", orientation: "vertical" },

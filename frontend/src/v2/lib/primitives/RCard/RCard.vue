@@ -1,20 +1,20 @@
 <script setup lang="ts">
-// RCard — plain surface container with six variants, a thin loading
+// RCard: plain surface container with six variants, a thin loading
 // bar, optional title / subtitle header, and the shared rounded /
 // tone / elevation resolvers from the rest of the lib.
 //
-// No default padding — RCard keeps its body slot raw; pad from outside
+// No default padding: RCard keeps its body slot raw; pad from outside
 // or wrap an inner `<div>` (the `auth-card__inner` /
 // `r-v2-ejs__panel-head` patterns already do this).
 //
 // Variants:
-//   • flat        — surface fill + 1px border. The default — matches
+//   • flat        - surface fill + 1px border. The default: matches
 //                   the existing v2 card paint.
-//   • elevated    — surface fill + box-shadow (no border).
-//   • translucent — `color-mix` of the resolved colour over transparent.
-//   • outlined    — transparent fill + 1px coloured border.
-//   • text        — transparent fill, just a tone colour for the text.
-//   • plain       — zero chrome; inherit everything.
+//   • elevated    - surface fill + box-shadow (no border).
+//   • translucent - `color-mix` of the resolved colour over transparent.
+//   • outlined    - transparent fill + 1px coloured border.
+//   • text        - transparent fill, just a tone colour for the text.
+//   • plain       - zero chrome; inherit everything.
 //
 // `elevation` (0–24) maps to discrete box-shadow steps. Off-key values
 // snap down to the nearest tabulated step so a card stays in the
@@ -30,7 +30,7 @@ interface Props {
   rounded?: string | number | boolean;
   title?: string;
   subtitle?: string;
-  /** Thin animated bar at the top of the card — indicator that the
+  /** Thin animated bar at the top of the card: indicator that the
    *  card's content is updating in place. */
   loading?: boolean;
 }
@@ -89,7 +89,7 @@ const resolvedRounded = computed<string>(() => {
   return ROUNDED_MAP[r as string] ?? String(r);
 });
 
-// Elevation map — discrete shadow steps. Off-key values snap down to
+// Elevation map: discrete shadow steps. Off-key values snap down to
 // the nearest tabulated step so a stray `elevation=5` still lands on
 // a system-approved shadow instead of a unique one-off.
 const ELEVATION_MAP: Record<number, string> = {
@@ -178,7 +178,7 @@ const hasHeader = computed(
     color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
-/* ── Variant: flat — surface + 1px border (the v2 default look) ── */
+/* ── Variant: flat, surface + 1px border (the v2 default look) ── */
 .r-card--flat {
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
@@ -189,7 +189,7 @@ const hasHeader = computed(
   border-color: transparent;
 }
 
-/* ── Variant: elevated — surface + drop shadow, no border ─────── */
+/* ── Variant: elevated, surface + drop shadow, no border ─────── */
 .r-card--elevated {
   background: var(--r-color-bg-elevated);
   border: 1px solid transparent;
@@ -203,7 +203,7 @@ const hasHeader = computed(
   color: white;
 }
 
-/* ── Variant: translucent — color-mix tint, coloured text ─────── */
+/* ── Variant: translucent, color-mix tint, coloured text ─────── */
 .r-card--translucent {
   border: 1px solid transparent;
 }
@@ -216,7 +216,7 @@ const hasHeader = computed(
   color: var(--r-color-fg);
 }
 
-/* ── Variant: outlined — transparent + border ──────────────────── */
+/* ── Variant: outlined, transparent + border ──────────────────── */
 .r-card--outlined {
   background: transparent;
 }
@@ -228,7 +228,7 @@ const hasHeader = computed(
   border: 1px solid var(--r-color-border);
 }
 
-/* ── Variant: text — no chrome, just coloured text ─────────────── */
+/* ── Variant: text, no chrome, just coloured text ─────────────── */
 .r-card--text {
   background: transparent;
   border: 1px solid transparent;
@@ -237,7 +237,7 @@ const hasHeader = computed(
   color: var(--r-card-color);
 }
 
-/* ── Variant: plain — fully unstyled ───────────────────────────── */
+/* ── Variant: plain, fully unstyled ───────────────────────────── */
 .r-card--plain {
   background: transparent;
   border: none;
@@ -271,7 +271,7 @@ const hasHeader = computed(
 
 /* Solid-tone variants paint the whole card in --r-card-color, so the
    bar/track must swap to currentColor (white on those variants) to
-   stay visible — without this the loader vanishes into the background. */
+   stay visible: without this the loader vanishes into the background. */
 .r-card--flat.r-card--has-color .r-card__loading,
 .r-card--elevated.r-card--has-color .r-card__loading {
   background: color-mix(in srgb, currentColor 22%, transparent);
@@ -307,12 +307,12 @@ const hasHeader = computed(
 }
 
 /* When loading is on, push the header down a hair so the bar isn't
-   pressed against the title — only when there's actually a header. */
+   pressed against the title: only when there's actually a header. */
 .r-card--loading .r-card__header {
   padding-top: 18px;
 }
 
-/* ── Reduced motion — drop the loading slide ──────────────────── */
+/* ── Reduced motion: drop the loading slide ──────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .r-card__loading-bar {
     animation: none;

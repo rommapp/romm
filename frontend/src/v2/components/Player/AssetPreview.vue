@@ -123,7 +123,7 @@ const emptyText = computed(() =>
         :size="16"
       />
 
-      <!-- Clear button — only when something is selected. -->
+      <!-- Clear button: only when something is selected. -->
       <button
         v-if="asset && clearable"
         type="button"
@@ -236,7 +236,7 @@ const emptyText = computed(() =>
 .r-asset-preview__stage {
   position: relative;
   width: 100%;
-  /* Flatter than 16:9 — the preview is a teaser, not a feature, and
+  /* Flatter than 16:9: the preview is a teaser, not a feature, and
      a shorter stage leaves the AssetList/AssetStrip below more room. */
   aspect-ratio: 5 / 2;
   border-radius: var(--r-radius-md);
@@ -347,7 +347,7 @@ const emptyText = computed(() =>
   color: var(--r-color-fg-muted);
 }
 
-/* Empty-state art — small circular badge with the type's icon. */
+/* Empty-state art: small circular badge with the type's icon. */
 .r-asset-preview__empty-art {
   display: grid;
   place-items: center;

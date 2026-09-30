@@ -34,7 +34,7 @@ export const Row: Story = {
   }),
 };
 
-// Size ladder — `size` binds directly to width/height inline so the
+// Size ladder: `size` binds directly to width/height inline so the
 // icon honours the requested dimension even inside indefinite flex
 // parents (e.g. RBtn's icon slot). Previously the icon was clamped
 // by `max-width: 100% / max-height: 100%` to whatever the parent
@@ -75,7 +75,7 @@ export const SizeLadder: Story = {
   },
 };
 
-// Inside an indefinite flex container — proves the size prop is
+// Inside an indefinite flex container: proves the size prop is
 // honoured even when the parent has no defined cross-axis extent.
 // Regression guard for the GameCard platform badge.
 export const InsideFlexParent: Story = {

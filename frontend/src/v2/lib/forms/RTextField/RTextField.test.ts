@@ -1,5 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import RTextField from "./RTextField.vue";
 
 const POPUP = {
@@ -104,6 +105,44 @@ describe("RTextField autofocus", () => {
   it("leaves the attribute off unless asked", () => {
     const wrapper = mount(RTextField, { props: { modelValue: "" } });
     expect(wrapper.get("input").attributes("autofocus")).toBeUndefined();
+    wrapper.unmount();
+  });
+});
+
+describe("RTextField rules", () => {
+  const required = (v: string) => !!v || "Required";
+
+  function details(wrapper: ReturnType<typeof mount>) {
+    return wrapper.find(".r-text-field__details--error");
+  }
+
+  it("stays quiet until the first blur, then tracks every edit", async () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "", rules: [required] },
+    });
+    expect(details(wrapper).exists()).toBe(false);
+
+    await wrapper.get("input").trigger("blur");
+    expect(details(wrapper).text()).toBe("Required");
+
+    await wrapper.setProps({ modelValue: "RomM" });
+    expect(details(wrapper).exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("re-checks a touched field when its rules change", async () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "abc", rules: [] },
+    });
+    await wrapper.get("input").trigger("blur");
+    expect(details(wrapper).exists()).toBe(false);
+
+    await wrapper.setProps({ rules: [() => "Passwords don't match"] });
+    expect(details(wrapper).text()).toBe("Passwords don't match");
+
+    wrapper.vm.reset();
+    await nextTick();
+    expect(details(wrapper).exists()).toBe(false);
     wrapper.unmount();
   });
 });
