@@ -727,7 +727,9 @@ class TestPlaySessionQuery:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": -1}, {"offset": -1}])
-    def test_rejects_invalid_paging(self, client, access_token: str, params: dict):
+    def test_rejects_invalid_paging(
+        self, client, access_token: str, params: dict[str, int]
+    ):
         response = client.get(
             "/api/play-sessions",
             params=params,
