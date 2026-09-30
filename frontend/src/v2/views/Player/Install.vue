@@ -448,8 +448,8 @@ const downloadSpeedLimitLabel = computed(() =>
             install.autoStatus.value === "needs_manual"
               ? t("rom.install-auto-mode-needs-manual")
               : t("rom.install-auto-mode-running", {
-                action: install.autoDetail.value ?? "…",
-              })
+                  action: install.autoDetail.value ?? "…",
+                })
           }}
         </RAlert>
 
@@ -620,9 +620,7 @@ const downloadSpeedLimitLabel = computed(() =>
   color: var(--r-color-fg-secondary);
 }
 .r-v2-install__pending-label {
-  color: var(--r-color-brand-primary-hover);
-  text-shadow: 0 0 14px
-    color-mix(in srgb, var(--r-color-brand-primary-hover) 55%, transparent);
+  color: var(--r-color-overlay-fg);
 }
 .r-v2-install__dl-progress {
   width: 220px;
