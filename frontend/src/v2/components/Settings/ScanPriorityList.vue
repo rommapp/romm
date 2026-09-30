@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ScanPriorityList — orders a list of scan entries by priority. The model
+// ScanPriorityList: orders a list of scan entries by priority. The model
 // is the ordered list of *enabled* values (first = highest priority);
 // values absent from it are shown in an "add" tray below.
 //

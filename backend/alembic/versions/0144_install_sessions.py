@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0144_install_sessions"
-down_revision = "0144_user_oidc_sub"
+down_revision = "0146_roms_search_aliases"
 branch_labels = None
 depends_on = None
 

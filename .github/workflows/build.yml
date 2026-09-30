@@ -362,6 +362,8 @@ jobs:
       contents: read
       packages: read
       security-events: write
+      # Checked statically for image-scan.yml's own report-failure job, which is skipped here.
+      issues: write
     uses: ./.github/workflows/image-scan.yml
     with:
       images: >-

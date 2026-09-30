@@ -88,13 +88,13 @@ export function matchKey(rom: SearchRom): string {
   return `${rom.igdb_id ?? "_"}-${rom.moby_id ?? "_"}-${rom.ss_id ?? "_"}-${rom.name}`;
 }
 
-// Default cover URL for a search result — used when rendering the
+// Default cover URL for a search result: used when rendering the
 // match as a card. SearchRom carries only `*_url_cover` per provider
 // (no `path_cover_*` / `url_cover` like SimpleRom), so cards fed to
 // GameCard need `cover-src` set explicitly. First available provider
 // cover wins; null means no provider has a cover at all (placeholder).
 // Uses a truthy filter (not `??`) because the backend sometimes returns
-// empty strings for absent providers — `??` would treat "" as "present"
+// empty strings for absent providers: `??` would treat "" as "present"
 // and short-circuit before reaching the actually-populated provider.
 export function firstAvailableCover(r: SearchRom): string | null {
   const candidates: Array<string | undefined> = [

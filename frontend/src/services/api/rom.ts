@@ -529,7 +529,7 @@ async function getRomSimple({
   romId: number;
   signal?: AbortSignal;
 }) {
-  // `/roms/{id}/simple` — returns `SimpleRomSchema` with no eager-loaded
+  // `/roms/{id}/simple`: returns `SimpleRomSchema` with no eager-loaded
   // notes / saves / states / screenshots / collections arrays. Designed
   // for the v2 gallery card's per-card fetch path. Detail-level data is
   // pulled on demand (game details page, quick-note dialog open).

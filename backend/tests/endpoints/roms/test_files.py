@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_rom
 
 from handler.database import db_permission_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
@@ -30,18 +31,7 @@ def _add_file(rom: Rom, name: str, category: RomFileCategory | None) -> RomFile:
 
 
 def _make_rom(admin_user: User, platform: Platform) -> Rom:
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="media_rom",
-            slug="media_rom_slug",
-            fs_name="media_rom",
-            fs_name_no_tags="media_rom",
-            fs_name_no_ext="media_rom",
-            fs_extension="",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    rom = make_rom(platform, "media_rom", fs_extension="")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     return rom
 
@@ -232,6 +222,29 @@ def test_delete_rom_file_success(
     assert not (files_fs / "game.bin").exists()
 
 
+def test_delete_rom_file_shrinks_rom_size(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    files_fs: Path,
+):
+    rom = _make_rom(admin_user, platform)
+    (files_fs / "game.bin").write_bytes(b"\x00" * 16)
+    rom_file = _add_file(rom, "game.bin", RomFileCategory.GAME)
+    _add_file(rom, "manual.pdf", RomFileCategory.MANUAL)
+
+    response = client.delete(
+        f"/api/roms/{rom.id}/files/{rom_file.id}",
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
+    assert after.fs_size_bytes == 10
+
+
 def test_delete_rom_file_wrong_rom_returns_404(
     client: TestClient,
     access_token: str,
@@ -242,18 +255,7 @@ def test_delete_rom_file_wrong_rom_returns_404(
     rom_a = _make_rom(admin_user, platform)
     # Use the game_folder_rom fixture name to avoid a duplicate fs_name constraint;
     # create a second ROM directly with a distinct slug and fs_name.
-    rom_b = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="other_rom",
-            slug="other_rom_slug",
-            fs_name="other_rom",
-            fs_name_no_tags="other_rom",
-            fs_name_no_ext="other_rom",
-            fs_extension="",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    rom_b = make_rom(platform, "other_rom", fs_extension="")
     db_rom_handler.add_rom_user(rom_id=rom_b.id, user_id=admin_user.id)
     rom_file = _add_file(rom_a, "game.bin", RomFileCategory.GAME)
 

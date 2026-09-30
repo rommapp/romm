@@ -1,16 +1,16 @@
 <script setup lang="ts">
-// InfoPanel — hero strip at the top of Platform / Collection gallery
+// InfoPanel: hero strip at the top of Platform / Collection gallery
 // pages (matches the artist mockup's `.plat-info-panel`). Feature
 // composite around Stat, chips, and callsite-provided cover art.
 //
 // Slots: cover, eyebrow, title (defaults to `title` prop), tags, stats,
 // providers, actions.
 //
-// `providers` sits below stats — used by Platform.vue to surface the
+// `providers` sits below stats: used by Platform.vue to surface the
 // external-metadata chip cluster (IGDB / SS / MobyGames / RA / …)
 // inline rather than buried in a drawer.
 //
-// IMPORTANT — no divider here. The gallery shell owns the divider
+// IMPORTANT: no divider here. The gallery shell owns the divider
 // between the hero (header) and the toolbar so all three views
 // (Platform / Collection / Search) get the same separator regardless
 // of which header they render. The InfoPanel just provides the inner
@@ -123,7 +123,7 @@ html[data-bp~="xs"] .info-panel {
   gap: 14px;
   padding: 16px 0;
 }
-/* Drive the vertical rhythm purely from one flex gap on xs — the
+/* Drive the vertical rhythm purely from one flex gap on xs: the
    per-child margins (title / tags / providers) compound with the column
    gap otherwise and the stack reads cramped + uneven. Centre the whole
    hero (cover, title, chip clusters) so it reads as a balanced mobile

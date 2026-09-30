@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ServerStats — v2-native rewrite. Composes the two stat sections
+// ServerStats: v2-native rewrite. Composes the two stat sections
 // (Summary + Platforms breakdown). The summary is fetched on its own first
 // so the six cards paint immediately; the heavier per-platform breakdown
 // loads as a second request.

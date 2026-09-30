@@ -1,4 +1,4 @@
-// useFullscreenPref — shared "start in fullscreen on play?" preference.
+// useFullscreenPref: shared "start in fullscreen on play?" preference.
 // Keyed on `emulation.fullScreenOnPlay` so the toggle stays in sync with v1.
 import { useLocalStorage, type RemovableRef } from "@vueuse/core";
 

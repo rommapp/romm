@@ -106,7 +106,7 @@ watch(
                       />
                     </template>
                     <v-list-item-subtitle class="mt-1">
-                      <FileSelectItem :item="item.raw" />
+                      <FileSelectItem :item="item" />
                     </v-list-item-subtitle>
                   </v-list-item>
                 </template>

@@ -3,7 +3,7 @@
 // and `GameListSkeletonRow` (bootstrap-phase placeholder rows).
 //
 // CSS grid template lives here so all three components pick up the same
-// column geometry — change column widths in one place and the header
+// column geometry: change column widths in one place and the header
 // stays aligned with every row underneath. The fr units in the title
 // column let the row stretch to fill remaining width while the metric
 // columns hold fixed pixel widths so numbers align cleanly.
@@ -49,7 +49,7 @@ export interface ListColumn {
    *  as a grid. */
   numeric?: boolean;
   /** Skeleton placeholder width (px) for this column's loading state.
-   * `undefined` means the column owns a custom skeleton shape — the
+   * `undefined` means the column owns a custom skeleton shape: the
    * title column paints cover + meta lines, the actions column paints
    * nothing. */
   skeletonWidth?: number;
@@ -141,7 +141,7 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
   return cols;
 }
 
-// Fixed track widths (px) — kept as data so the grid template AND the row's
+// Fixed track widths (px): kept as data so the grid template AND the row's
 // natural min-width (below) derive from the same numbers.
 const LIST_SELECT_TRACK_PX = parseInt(layout.listSelectWidth, 10);
 const LIST_PLATFORM_TRACK_PX = 200;
@@ -155,7 +155,7 @@ export const LIST_TITLE_MIN_PX = 200;
 // CSS. Token values are guaranteed to be `<number>px` strings.
 //
 // The list-row avatar is rendered by `<GameCard size="xs" />`, so the
-// cover dimensions come from the shared xs tokens — there's no
+// cover dimensions come from the shared xs tokens: there's no
 // dedicated "list cover" token any more. Keep these JS mirrors so the
 // skeleton placeholder paints at the same footprint as the real card.
 export const LIST_ROW_HEIGHT_PX = parseInt(layout.listRowHeight, 10);
@@ -224,7 +224,7 @@ export function getListMinWidth(showPlatform: boolean): number {
   return tracks + (columnCount - 1) * LIST_GRID_GAP_PX + 2 * LIST_ROW_PAD_X_PX;
 }
 
-/** Default exports — the cross-platform variant. Used by the bootstrap-
+/** Default exports: the cross-platform variant. Used by the bootstrap-
  * phase skeleton/header pair when no consumer-specific override is
  * available; per-view code should always go through the explicit
  * `getListColumns(...)` / `getListGridTemplate(...)` so the column set

@@ -3,7 +3,7 @@ import postcss from "postcss";
 
 /**
  * @typedef {{ root: import("postcss").Root, start: number }} StyleRoot
- * @typedef {{ type: string, name?: string, range: [number, number], children?: SfcNode[], comments?: SfcNode[] }} SfcNode
+ * @typedef {{ type: string, name?: string, range: [number, number], children?: SfcNode[] }} SfcNode
  */
 
 /** @type {WeakMap<import("eslint").SourceCode, StyleRoot[]>} */
@@ -14,7 +14,7 @@ const parsed = new WeakMap();
  * @param {import("eslint").Rule.RuleContext} context
  * @returns {SfcNode | null}
  */
-export function sfcFragment(context) {
+function sfcFragment(context) {
   const services =
     /** @type {{ getDocumentFragment?: () => SfcNode | null }} */ (
       context.sourceCode.parserServices ?? {}

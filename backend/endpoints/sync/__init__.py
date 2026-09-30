@@ -1,13 +1,14 @@
 import asyncio
 from collections import Counter
 from datetime import datetime
+from typing import Annotated
 
-from fastapi import BackgroundTasks, HTTPException, Request, status
+from fastapi import BackgroundTasks, Depends, HTTPException, Request, status
 from pydantic import Field, model_validator
 
 from config import TASK_TIMEOUT
 from decorators.auth import protected_route
-from endpoints.responses.base import BaseModel
+from endpoints.responses.base import PAGE_QUERY, BaseModel, PageParams
 from endpoints.responses.play_session import (
     PlaySessionIngestResponse,
     PlaySessionIngestResult,
@@ -507,14 +508,15 @@ def complete_sync_session(
 @protected_route(router.get, "/sessions", [Scope.DEVICES_READ])
 def get_sync_sessions(
     request: Request,
+    page: Annotated[PageParams, Depends(PAGE_QUERY)],
     device_id: str | None = None,
-    limit: int = 50,
 ) -> list[SyncSessionSchema]:
     """List sync sessions for the current user."""
     sessions = db_sync_session_handler.get_sessions(
         user_id=request.user.id,
         device_id=device_id,
-        limit=limit,
+        limit=page.limit,
+        offset=page.offset,
     )
     return [SyncSessionSchema.model_validate(s) for s in sessions]
 

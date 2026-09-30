@@ -1,4 +1,4 @@
-// useGallerySelectionInput — shared input plumbing that turns
+// useGallerySelectionInput: shared input plumbing that turns
 // raw card/row clicks into selection-store mutations. Used by
 // GameCard and GameListRow so the click semantics stay aligned
 // between grid and list mode.
@@ -12,9 +12,9 @@
 //     enters selection mode: Shift toggles + sets anchor, Ctrl/Cmd
 //     toggles alone.
 //   - Shift-click against an existing anchor selects the range
-//     [anchor, target] inclusive — direction-aware (extends the
+//     [anchor, target] inclusive: direction-aware (extends the
 //     selection if the target was unselected, shrinks if it was
-//     selected). Sparse positions skip silently — ROMs not loaded
+//     selected). Sparse positions skip silently: ROMs not loaded
 //     yet are not toggled.
 //   - On touch, a 500ms long-press enters selection mode without a
 //     modifier key. The subsequent `click` event is swallowed so the
@@ -157,7 +157,7 @@ export function useGallerySelectionInput() {
   const galleryRoms = storeGalleryRoms();
 
   /** Handle a card/row activation (click). Returns `true` if the
-   * event was consumed by the selection logic — caller should skip
+   * event was consumed by the selection logic: caller should skip
    * navigation. Returns `false` to fall through to default. */
   function handleActivate(
     rom: SimpleRom,
@@ -191,7 +191,7 @@ export function useGallerySelectionInput() {
     return false;
   }
 
-  /** Begin tracking a touch for long-press. Mouse events skip this —
+  /** Begin tracking a touch for long-press. Mouse events skip this:
    * desktop users have keyboard modifiers; long-press on mouse would
    * fight click-and-drag selection. */
   function handlePointerDown(
@@ -225,7 +225,7 @@ export function useGallerySelectionInput() {
 
     const state = longPress;
     state.timer = setTimeout(() => {
-      // Re-check the global state — if the user lifted or moved
+      // Re-check the global state: if the user lifted or moved
       // beyond tolerance before the timer fired, `longPress` will
       // have been reset and this branch becomes a no-op.
       if (longPress !== state) return;
@@ -372,7 +372,7 @@ export function useGallerySelectionInput() {
     untrackPointer?.();
     pressActive = false;
     stopEdgeScroll();
-    // If the timer hasn't fired yet, the press was a normal tap —
+    // If the timer hasn't fired yet, the press was a normal tap:
     // cancel so the click event passes through unchanged. If it did
     // fire (`consumed: true`), keep the state so the synthetic click
     // can detect and swallow itself.

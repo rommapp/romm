@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Login — thin orchestrator. Two mutually exclusive panels gated by
+// Login: thin orchestrator. Two mutually exclusive panels gated by
 // `forgotMode`, each animated in/out with RExpandTransition. Login +
 // OIDC sit together; the reset form replaces them when the user clicks
 // "forgot password".

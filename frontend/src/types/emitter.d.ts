@@ -23,21 +23,21 @@ export type Events = {
   showDeletePlatformDialog: Platform;
   showCreateCollectionDialog: null;
   showCreateSmartCollectionDialog: null;
-  /** v1 — opens the legacy AddRoms picker. The v2 equivalent is
+  /** v1: opens the legacy AddRoms picker. The v2 equivalent is
    *  `showManageCollectionsDialog`; this entry stays while v1 still
    *  consumes it.
    *  @deprecated v2 → use `showManageCollectionsDialog`. */
   showAddToCollectionDialog: SimpleRom[];
-  /** v2 — opens ManageCollectionsDialog with the given selection. */
+  /** v2: opens ManageCollectionsDialog with the given selection. */
   showManageCollectionsDialog: SimpleRom[];
-  /** v2 — fired by ManageCollectionsDialog when it closes, so the
+  /** v2: fired by ManageCollectionsDialog when it closes, so the
    *  GameActionBtn that opened it can drop its pinned-hover state. */
   closeManageCollectionsDialog: null;
   showRemoveFromCollectionDialog: SimpleRom[];
   showDeleteCollectionDialog: Collection;
   showDeleteSmartCollectionDialog: SmartCollection;
   showMatchRomDialog: SimpleRom;
-  /** v2 — `rom` is optional; when provided, the dialog also fetches
+  /** v2: `rom` is optional; when provided, the dialog also fetches
    *  per-provider covers via `/search/roms` so the user can pick the
    *  IGDB / MobyGames / Screenscraper / … artwork without going
    *  through the manual-match flow. Collection-cover edits omit it. */
@@ -49,7 +49,7 @@ export type Events = {
   updateUrlCover: string;
   showEditRomDialog: SimpleRom;
   showRefreshMetadataDialog: SimpleRom;
-  /** v2-only — bulk refresh of multiple ROMs from the SelectionBar.
+  /** v2-only: bulk refresh of multiple ROMs from the SelectionBar.
    * The v2 RefreshMetadataDialog listens to both this and the single
    * event; v1 keeps the single-rom contract. */
   showRefreshMetadataDialogBulk: SimpleRom[];
@@ -125,7 +125,7 @@ export type Events = {
     files: File[];
   };
   playGame: number;
-  // v2 only — generic confirmation dialog. Consumers go through
+  // v2 only: generic confirmation dialog. Consumers go through
   // `useConfirm()`; the payload carries an id used to route the result
   // back via the matching `confirmResolved` event.
   showConfirm: {

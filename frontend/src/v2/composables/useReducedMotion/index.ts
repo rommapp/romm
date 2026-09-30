@@ -1,4 +1,4 @@
-// useReducedMotion — the single "reduce motion / effects" control.
+// useReducedMotion: the single "reduce motion / effects" control.
 //
 // Combines the OS `prefers-reduced-motion` signal with a per-device user
 // override into one reactive `enabled` boolean, plus a `toggle()`:
@@ -15,7 +15,7 @@
 //
 // Per-device (localStorage, not backend-synced): whether motion/effects are
 // too heavy depends on the machine RomM is viewed on, not the account. Same
-// singleton rationale as useBreakpoint — the media query listener attaches once
+// singleton rationale as useBreakpoint: the media query listener attaches once
 // at module load and every consumer shares the reactive refs.
 import { useLocalStorage, useMediaQuery } from "@vueuse/core";
 import { computed, type ComputedRef } from "vue";

@@ -8,6 +8,7 @@ import {
   it,
   vi,
 } from "vitest";
+import { installFullscreenFallback } from "@/v2/utils/playerFullscreen";
 import { usePlayerExit } from "./index";
 
 const replace = vi.fn();
@@ -110,6 +111,23 @@ describe("usePlayerExit", () => {
     await exit.guard({ fullPath: "/platform/2" });
 
     expect(settled).toEqual(["settle", "replace"]);
+  });
+
+  it("leaves fullscreen before replacing the document", async () => {
+    setIsolated(true);
+    const dispose = installFullscreenFallback();
+    const stage = document.body.appendChild(document.createElement("div"));
+    await stage.requestFullscreen();
+    let fullscreenAtReplace: Element | null | undefined;
+    locationReplace.mockImplementation(() => {
+      fullscreenAtReplace = document.fullscreenElement;
+    });
+
+    await usePlayerExit().guard({ fullPath: "/platform/2" });
+
+    expect(fullscreenAtReplace).toBeNull();
+    dispose();
+    stage.remove();
   });
 
   it("replaces the document even when settling fails", async () => {

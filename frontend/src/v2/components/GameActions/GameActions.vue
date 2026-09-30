@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// GameActions — the action row in the game-details header.
+// GameActions: the action row in the game-details header.
 // Composes GameActionBtn atoms that are shared with the GameCard hover
 // overlay so both surfaces stay visually and behaviourally in sync.
 // The Play button uses the emphasized + withLabel variant to match the
@@ -8,7 +8,7 @@
 //
 // Right-side group (desktop only): completion + rating + difficulty
 // pickers, separated from the main ribbon by a spacer. All three share
-// MetricMenuBtn — the rating/difficulty trigger an RRating popup,
+// MetricMenuBtn: the rating/difficulty trigger an RRating popup,
 // completion triggers an RSlider popup. On phones these move into the
 // status button's sheet (GameActionBtn `withMetrics`) to save a row.
 // Writes are optimistic via useGameActions.setScore.
@@ -85,7 +85,7 @@ async function chooseInstall() {
   startInstallAndNavigate(romRef.value, router);
 }
 
-// Shrink the ribbon on phones — the large (44px) buttons crowd the narrow
+// Shrink the ribbon on phones: the large (44px) buttons crowd the narrow
 // column; the default (36px) size fits more per row and reads cleaner.
 const { smAndDown } = useBreakpoint();
 const btnSize = computed<"default" | "large">(() =>
@@ -96,7 +96,7 @@ const btnSize = computed<"default" | "large">(() =>
 // itself the row; cells are every action button (`.r-v2-game-btn`) plus
 // the right-side metrics (`.r-v2-metric-btn`), skipping the layout
 // spacer. On pad-modality autofocus, `focusFirst` lands on the first
-// rendered button — Play if available (template renders it first when
+// rendered button: Play if available (template renders it first when
 // `canPlay`), otherwise Download.
 const rootEl = ref<HTMLElement | null>(null);
 useGridNav(rootEl, {

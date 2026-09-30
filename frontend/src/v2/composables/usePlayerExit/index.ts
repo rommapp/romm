@@ -4,6 +4,7 @@
 // twice, so a bound document is replaced rather than navigated away from.
 import { ref, type Ref } from "vue";
 import { useRouter, type RouteLocationNormalized } from "vue-router";
+import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
 
 export function usePlayerExit(
   /** True once the view injected a runtime the document cannot take twice. */
@@ -36,6 +37,7 @@ export function usePlayerExit(
       // The document goes either way; stranding the user in the player is worse.
       console.error("Player exit settle failed", error);
     }
+    await leaveFullscreen();
     window.location.replace(path);
   }
 

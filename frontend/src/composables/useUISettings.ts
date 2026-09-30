@@ -63,7 +63,7 @@ export const UI_SETTINGS_KEYS = {
     key: "settings.libraryStatsMode",
     default: "compact",
   },
-  // Widget render order — comma-separated list of widget IDs.
+  // Widget render order: comma-separated list of widget IDs.
   // Persisted as a string in localStorage (the useUISettings helper
   // only handles primitives; consumers parse/serialize at the edges).
   // Unknown IDs are filtered out on read so removing a widget from

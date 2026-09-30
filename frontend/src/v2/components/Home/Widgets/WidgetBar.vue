@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// WidgetBar — horizontal scrollable rail of Home widgets. The render
+// WidgetBar: horizontal scrollable rail of Home widgets. The render
 // order is driven by `widgetOrder` (user-reorderable from Settings →
 // Home → Widgets), the visible set by per-widget toggles. The rail
-// itself disappears when every widget is off — no empty rail taking
+// itself disappears when every widget is off: no empty rail taking
 // up vertical space.
 import { computed, onMounted } from "vue";
 import { useUISettings } from "@/composables/useUISettings";

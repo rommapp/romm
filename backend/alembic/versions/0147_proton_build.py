@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0145_proton_build"
+revision = "0147_proton_build"
 down_revision = "0144_install_sessions"
 branch_labels = None
 depends_on = None

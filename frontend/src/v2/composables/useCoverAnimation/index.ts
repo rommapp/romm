@@ -1,20 +1,20 @@
-// useCoverAnimation — the "juicy" motion layer for alt-art game covers.
+// useCoverAnimation: the "juicy" motion layer for alt-art game covers.
 //
 // v2 port of v1's `useGameAnimation` (which drove a Vuetify VImg; v2 drives a
 // raw <img>). Three behaviours, all gated by the card's hover/focus `active`
 // signal and the flags `useCoverArt` resolves:
-//   * CD spin     — physical art on a CD platform spins up on hover
+//   * CD spin     - physical art on a CD platform spins up on hover
 //                   (accelerate) and coasts down on leave. The launch
 //                   flourish spins it at max while it slides down into the
 //                   drive and vanishes.
-//   * Cartridge   — physical art on a cartridge platform seats fully into
+//   * Cartridge   - physical art on a cartridge platform seats fully into
 //                   its bay on launch (no hover animation, matching v1).
-//   * Hover video — miximage art crossfades to its `path_video` clip a beat
+//   * Hover video: miximage art crossfades to its `path_video` clip a beat
 //                   after hover, and resets on leave.
 //
 // The v1 trick (kept here because it's the part that makes it feel right):
 // the slide is `margin-top` with an overshoot transition, while the spin is
-// `transform: rotate` — two *different* properties, so they compose. A single
+// `transform: rotate`, two *different* properties, so they compose. A single
 // `transform` for both can't be eased independently (the per-frame spin would
 // fight the eased slide).
 //
@@ -52,7 +52,7 @@ export const SPIN_CONFIG: SpinConfig = {
 // (v1 seated at 1/3 on play). There is no cartridge hover animation.
 const CART_SEAT_FRACTION = 1 / 3;
 
-// How long the player waits (ms) for the launch flourish before booting —
+// How long the player waits (ms) for the launch flourish before booting:
 // the margin transition is 500ms; a little extra lets the motion read.
 const CD_LOAD_MS = 700;
 const CART_LOAD_MS = 600;
@@ -61,7 +61,7 @@ const CART_LOAD_MS = 600;
 // don't fire a burst of <video> loads.
 const VIDEO_HOVER_DELAY_MS = 1000;
 
-/** Pure one-frame integration of the spin physics — exported for tests.
+/** Pure one-frame integration of the spin physics: exported for tests.
  *  `accelerating` is true while the cover is hovered/focused; otherwise the
  *  disc coasts to a stop. Velocity is clamped to `[0, maxSpeed]` and the
  *  angle wraps at 360°. */
@@ -83,7 +83,7 @@ export function stepSpin(
 export interface UseCoverAnimationOptions {
   /** The cover <img> element (the thing that spins / slides). */
   el: Ref<HTMLElement | null>;
-  /** The cover box that clips the slide — used for its `offsetHeight`. */
+  /** The cover box that clips the slide: used for its `offsetHeight`. */
   containerEl: Ref<HTMLElement | null>;
   /** The hover-video <video> element (miximage style), if rendered. */
   videoEl: Ref<HTMLVideoElement | null>;
@@ -95,7 +95,7 @@ export interface UseCoverAnimationOptions {
   videoUrl: ComputedRef<string | null>;
   /** User's animation preference (`!disableAnimations`). */
   motionEnabled: ComputedRef<boolean>;
-  /** Hover / focus state of the card — drives the spin / slot-in / video.
+  /** Hover / focus state of the card: drives the spin / slot-in / video.
    *  The one-shot launch flourish (`playLoad`) is triggered imperatively by
    *  the player view instead. */
   active: Ref<boolean> | ComputedRef<boolean>;
@@ -121,7 +121,7 @@ export function useCoverAnimation(
   );
 
   // The slide (`margin-top`) is eased in CSS (`.game-cover__img`) so it
-  // composes with the per-frame `transform: rotate` written below — the spin
+  // composes with the per-frame `transform: rotate` written below, the spin
   // stays immediate while the slot-in/drop overshoots.
 
   // ── CD spin (+ launch drop) ───────────────────────────────────────
@@ -199,7 +199,7 @@ export function useCoverAnimation(
   );
 
   // ── Cartridge slot-in ─────────────────────────────────────────────
-  // Cartridges only seat on launch (no hover animation — matches v1).
+  // Cartridges only seat on launch (no hover animation: matches v1).
   function cartSlot(depthFraction: number) {
     const img = opts.el.value;
     const container = opts.containerEl.value;

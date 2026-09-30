@@ -348,6 +348,7 @@ backend/
 │
 ├── tests/                     # Test suite
 │   ├── conftest.py            # Pytest fixtures
+│   ├── factories.py           # make_* factories that persist test rows
 │   └── ...                    # Mirrors backend structure
 │
 └── romm_test/                 # Test fixtures & data

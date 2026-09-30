@@ -300,20 +300,16 @@ watch(
                   class="mt-1"
                 >
                   <template #selection="{ item }">
-                    <span>{{
-                      getEmojiForStatus(item.raw as RomUserStatus)
-                    }}</span
+                    <span>{{ getEmojiForStatus(item as RomUserStatus) }}</span
                     ><span class="ml-2">{{
-                      t(getI18nKeyForStatus(item.raw as RomUserStatus) || "")
+                      t(getI18nKeyForStatus(item as RomUserStatus) || "")
                     }}</span>
                   </template>
                   <template #item="{ item }">
-                    <v-list-item link @click="onStatusItemClick(item.raw)">
-                      <span>{{
-                        getEmojiForStatus(item.raw as RomUserStatus)
-                      }}</span
+                    <v-list-item link @click="onStatusItemClick(item)">
+                      <span>{{ getEmojiForStatus(item as RomUserStatus) }}</span
                       ><span class="ml-2">{{
-                        t(getI18nKeyForStatus(item.raw as RomUserStatus) || "")
+                        t(getI18nKeyForStatus(item as RomUserStatus) || "")
                       }}</span>
                     </v-list-item>
                   </template>
@@ -334,7 +330,7 @@ watch(
 </template>
 
 <style>
-.md-editor-dark {
+.md-editor[data-theme="dark"] {
   --md-bk-color: #161b22 !important;
 }
 .md-editor,

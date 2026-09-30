@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0147_install_auto_mode"
-down_revision = "0146_install_source_phase"
+revision = "0149_install_auto_mode"
+down_revision = "0148_install_source_phase"
 branch_labels = None
 depends_on = None
 

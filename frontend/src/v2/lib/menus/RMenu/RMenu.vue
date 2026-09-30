@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RMenu — the only floating-menu primitive: owns the
+// RMenu is the only floating-menu primitive. It owns the
 // glass panel surface, the activator wiring, optional search header,
 // click-outside / Escape / close-on-content-click, and the open
 // transition. Built on `@floating-ui/vue` for positioning, sharing the
@@ -17,7 +17,7 @@
 //   </RMenu>
 //
 // `searchable` adds a sticky `RTextField` at the top of the panel and
-// surfaces `v-model:search` for the query — same pattern as RSelect's
+// surfaces `v-model:search` for the query: same pattern as RSelect's
 // inline search.
 //
 // The previous wrapper trio (RMenuPanel / RMenuHeader / RMenuDivider /
@@ -79,13 +79,13 @@ interface Props {
   closeOnContentClick?: boolean;
   /** Open on hover instead of click (e.g. dropdown menus on a nav). */
   openOnHover?: boolean;
-  /** Anchor — mapped to a floating-ui placement. */
+  /** Anchor: mapped to a floating-ui placement. */
   location?: Anchor;
   /** Px gap between activator and panel. */
   offset?: number;
   /** Override the panel width (default: auto, with a 180 px floor). */
   width?: string | number;
-  /** Cap the panel height — body scrolls beyond it. */
+  /** Cap the panel height: body scrolls beyond it. */
   maxHeight?: string | number;
   /** Selectors for what to focus when the panel opens from a keyboard or a
    *  pad, tried in order. Defaults to the first menu item, which is wrong for
@@ -93,7 +93,7 @@ interface Props {
   initialFocus?: string | readonly string[];
   /** Render a sticky search input at the top. */
   searchable?: boolean;
-  /** v-model:search — current query string. */
+  /** v-model:search: current query string. */
   search?: string;
   searchPlaceholder?: string;
   searchAutoFocus?: boolean;
@@ -103,7 +103,7 @@ interface Props {
   disabled?: boolean;
   /** On `sm-and-down`, dock the panel as a full-width bottom sheet instead
    *  of a floating dropdown (reuses RDialog's mobile sheet vocabulary).
-   *  Opt-in — leave off for small/contextual menus. */
+   *  Opt-in: leave off for small/contextual menus. */
   sheetOnMobile?: boolean;
   /** With `sheetOnMobile`, make the sheet span the full height below the
    *  top navbar (top edge flush against it) instead of hugging its content
@@ -214,7 +214,7 @@ const maxHeightCss = computed(() => {
 
 // When `sheetOnMobile` is set, dock as a full-width bottom sheet on small
 // viewports instead of floating off the activator. Floating-ui still runs
-// (its computed position is simply ignored — we don't bind `floatingStyles`
+// (its computed position is simply ignored: we don't bind `floatingStyles`
 // in sheet mode), and the size middleware caps the sheet height below.
 const { smAndDown } = useBreakpoint();
 const asSheet = computed(() => props.sheetOnMobile && smAndDown.value);
@@ -232,7 +232,7 @@ const { floatingStyles } = useFloating(reference, panelRef, {
     sizeMiddleware({
       apply({ availableHeight, elements }) {
         // Full-height sheet fills the space below the navbar via its top+bottom
-        // insets, so a max-height would only shrink it — leave it uncapped.
+        // insets, so a max-height would only shrink it: leave it uncapped.
         // Bottom sheet caps at most of the viewport; floating menus cap at
         // the space available between the activator and the screen edge.
         let cap: string;
@@ -320,7 +320,7 @@ function onDocPointerDown(evt: PointerEvent) {
 
 // ── Escape / B-button dismissal ────────────────────────────────
 // Register on the shared overlay-escape stack so a single global
-// listener handles Esc across menus, dialogs, drawers — and so
+// listener handles Esc across menus, dialogs, drawers, and so
 // `useGamepad`'s B-back action can close the topmost overlay without
 // reaching into the DOM. LIFO ordering means nested menus close one
 // at a time (the inner-most first), matching the previous per-instance
@@ -372,7 +372,7 @@ watch(
 );
 
 // ── Close-on-content-click ─────────────────────────────────────
-// Fires after the inner element's @click — Vue's natural bubbling
+// Fires after the inner element's @click: Vue's natural bubbling
 // order. Elements marked `data-r-menu-no-close` (e.g. the search
 // header, custom keep-open regions) opt out.
 function onPanelClick(evt: MouseEvent) {
@@ -383,7 +383,7 @@ function onPanelClick(evt: MouseEvent) {
   // A modifier-click on a link is a browser "open in new tab/window"
   // gesture (see opensInNewContext). Closing the menu would unmount the
   // teleported <a> before the browser performs its default action,
-  // swallowing the new tab — so leave the menu open and let it through.
+  // swallowing the new tab: so leave the menu open and let it through.
   if (opensInNewContext(evt) && target.closest("a[href]")) return;
   close();
 }
@@ -400,7 +400,7 @@ const mergedContentClass = computed(() =>
 );
 
 // ── Keyboard / gamepad in-panel navigation ─────────────────────
-// Items are <button> / <router-link> rendered via RMenuItem — they're
+// Items are <button> / <router-link> rendered via RMenuItem: they're
 // natively focusable, but the panel itself doesn't react to ArrowUp /
 // ArrowDown. Add a panel-level handler so D-pad / left-stick (mapped to
 // arrows by `useGamepad`) cycle through the items.
@@ -449,7 +449,7 @@ function onPanelKeydown(evt: KeyboardEvent) {
 }
 
 // Autofocus the first menu item when the panel opens via keyboard or
-// gamepad — mouse users keep the legacy "menu opens, pointer drives"
+// gamepad: mouse users keep the legacy "menu opens, pointer drives"
 // behaviour so an opened-by-hover menu doesn't yank focus away from
 // whatever the user was about to click. Skipped when `searchable` is
 // true (the search input owns initial focus).
@@ -463,7 +463,7 @@ watch(
     if (modality.value !== "pad" && modality.value !== "key") return;
     await nextTick();
     // One more frame so the panel mount + floating-ui's positioning
-    // commit before we try to focus — without it the first item is
+    // commit before we try to focus: without it the first item is
     // measured at (0, 0) and a follow-up `scrollIntoView` would jump
     // the page.
     await new Promise<void>((resolve) =>
@@ -489,7 +489,7 @@ watch(
   <Teleport to="body">
     <Transition :name="asSheet ? 'r-menu-sheet' : 'r-menu-pop'">
       <!-- eslint-disable vuejs-accessibility/mouse-events-have-key-events --
-           hover-bridge mouseenter/mouseleave have no keyboard equivalent —
+           hover-bridge mouseenter/mouseleave have no keyboard equivalent:
            keyboard users navigate the panel via arrow keys + Escape, which
            are already wired up. focusin/focusout don't apply at the panel
            level since menu items own focus, not the panel container. -->
@@ -550,12 +550,12 @@ watch(
   z-index: var(--r-z-menu, 2500);
   display: flex;
   flex-direction: column;
-  /* No hard max-width — the panel grows to fit the widest item so a
+  /* No hard max-width: the panel grows to fit the widest item so a
      horizontal scrollbar never appears. Consumer can pass `width` for a
      fixed shell (e.g. UserMenu's 260px). */
   min-width: 180px;
   width: max-content;
-  /* Never exceed the viewport — on a narrow phone a wide menu would
+  /* Never exceed the viewport: on a narrow phone a wide menu would
      otherwise overflow the screen edge (floating-ui's `shift` keeps it
      in view but can't shrink it). Caps both auto-width and fixed-`width`
      panels; the body already scrolls vertically and clips horizontally. */
@@ -572,7 +572,7 @@ watch(
   font-family: var(--r-font-family-sans);
 }
 
-/* Mobile bottom sheet (opt-in via `sheetOnMobile`) — on small viewports the
+/* Mobile bottom sheet (opt-in via `sheetOnMobile`): on small viewports the
    panel docks full-width at the bottom instead of floating off the
    activator, mirroring RDialog's mobile sheet. The inline floating-ui
    position isn't bound in this mode, so these rules own placement. */
@@ -586,7 +586,7 @@ html[data-bp~="sm-and-down"] .r-menu__panel--sheet {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Full-height variant — the sheet fills the space below the top navbar
+/* Full-height variant: the sheet fills the space below the top navbar
    rather than docking from the bottom. Both edges are pinned so the body
    scrolls internally. Keep the base sheet's rounded top corners (square
    bottom, which reaches the viewport edge). */
@@ -606,7 +606,7 @@ html[data-bp~="sm-and-down"] .r-menu__panel--sheet-full {
   display: flex;
   flex-direction: column;
   padding: 6px;
-  /* Explicit both axes — `overflow-y: auto` alone makes `overflow-x`
+  /* Explicit both axes: `overflow-y: auto` alone makes `overflow-x`
      compute to `auto` (CSS spec), which would paint a horizontal
      scrollbar when content nudges the layout by even a subpixel. */
   overflow-x: hidden;
@@ -649,10 +649,10 @@ html[data-bp~="sm-and-down"] .r-menu__panel--sheet-full {
     transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: top center;
 }
-/* Close is instant — same idiom as RDialog. Removing the leave-active
+/* Close is instant: same idiom as RDialog. Removing the leave-active
    transition means Vue unmounts on the same frame. */
 
-/* Bottom-sheet motion — slide up from the bottom edge instead of the pop.
+/* Bottom-sheet motion: slide up from the bottom edge instead of the pop.
    Unlike the dropdown (instant close), the sheet also slides back down on
    leave: on mobile the panel is large and a hard cut reads as a glitch,
    whereas a floating dropdown vanishing is unremarkable. */

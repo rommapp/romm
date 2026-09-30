@@ -1,4 +1,4 @@
-// Home widget registry — single source of truth for the set of
+// Home widget registry: single source of truth for the set of
 // widgets the rail can render, the toggle that controls each one, and
 // the labels surfaced in the reorder list inside Settings. Adding a
 // new widget is: ship the component, append a `WidgetDef` entry here,
@@ -84,7 +84,7 @@ export function parseWidgetOrder(raw: string): WidgetId[] {
   return result;
 }
 
-/** Inverse of `parseWidgetOrder` — joins back to the storage format. */
+/** Inverse of `parseWidgetOrder`: joins back to the storage format. */
 export function serializeWidgetOrder(order: readonly WidgetId[]): string {
   return order.join(",");
 }
