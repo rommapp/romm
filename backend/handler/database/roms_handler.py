@@ -2444,6 +2444,14 @@ class DBRomsHandler(DBBaseHandler):
 
         return rom_user
 
+    def _lock_rom_file_owner(self, rom_file_id: int, session: Session) -> int | None:
+        """Lock one file row and return the rom that owns it, or None if it is gone."""
+        # Locked before its roms, on every path, so a concurrent move of the same
+        # file cannot leave a total built from an owner that has since changed.
+        return session.scalar(
+            select(RomFile.rom_id).where(RomFile.id == rom_file_id).with_for_update()
+        )
+
     def _lock_rom_rows(self, rom_ids: Iterable[int], session: Session) -> None:
         """Serialise writers of these roms' files so each size total counts the others'."""
         # Taken before the file write, whose foreign key check would otherwise
@@ -2478,7 +2486,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomFile:
         # Merging an existing file under another rom moves it out of the old one.
         previous_rom_id = (
-            session.scalar(select(RomFile.rom_id).where(RomFile.id == rom_file.id))
+            self._lock_rom_file_owner(rom_file.id, session)
             if rom_file.id is not None
             else None
         )
@@ -2726,7 +2734,7 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> RomFile | None:
         current_rom_id = (
-            session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
+            self._lock_rom_file_owner(id, session)
             if data.keys() & {"file_size_bytes", "rom_id"}
             else None
         )
@@ -3372,7 +3380,7 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
-        rom_id = session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
+        rom_id = self._lock_rom_file_owner(id, session)
         if rom_id is None:
             return
         self._lock_rom_rows([rom_id], session)

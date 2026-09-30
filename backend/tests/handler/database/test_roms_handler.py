@@ -831,6 +831,26 @@ class TestRomFileSizeLocking:
 
         self._assert_locked_before(statements, "UPDATE rom_files")
 
+    def test_move_locks_the_file_before_its_roms(
+        self, rom: Rom, second_rom: Rom, statements: list[str]
+    ):
+        game = _add_rom_file(rom)
+        statements.clear()
+
+        db_rom_handler.update_rom_file(game.id, {"rom_id": second_rom.id})
+
+        file_lock = next(
+            i
+            for i, s in enumerate(statements)
+            if s.startswith("SELECT rom_files.rom_id") and s.endswith("FOR UPDATE")
+        )
+        rom_lock = next(
+            i
+            for i, s in enumerate(statements)
+            if s.startswith("SELECT roms.id") and re.search(r"FOR (NO KEY )?UPDATE$", s)
+        )
+        assert file_lock < rom_lock
+
     @pytest.mark.parametrize(
         ("dialect", "clause"),
         [(MARIADB_DIALECT, "FOR UPDATE"), (POSTGRESQL_DIALECT, "FOR NO KEY UPDATE")],
@@ -845,8 +865,8 @@ class TestRomFileSizeLocking:
         assert compile_sql(statement, dialect).endswith(clause)
 
     def test_move_locks_both_roms_in_id_order(self, rom: Rom, second_rom: Rom):
-        # Two opposite moves take the locks in the same order, so neither waits
-        # on the other.
+        # Two opposite moves take the locks in the same order, so they cannot
+        # deadlock.
         session = MagicMock()
 
         db_rom_handler._lock_rom_rows([second_rom.id, rom.id, second_rom.id], session)
