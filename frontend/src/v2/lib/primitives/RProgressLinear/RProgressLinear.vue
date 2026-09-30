@@ -100,7 +100,7 @@ const fillStyle = computed(() =>
 );
 
 const ariaValueNow = computed(() =>
-  props.indeterminate ? undefined : clampedValue.value,
+  props.indeterminate ? undefined : Math.round(clampedValue.value),
 );
 
 const wrapperStyle = computed(() => {
