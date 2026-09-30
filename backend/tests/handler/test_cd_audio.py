@@ -12,7 +12,7 @@ import pytest
 from tests.factories import make_rom
 
 from exceptions.fs_exceptions import RomListedByPlaylistException
-from handler import cd_audio
+from handler import cd_audio, rom_upload
 from handler.cd_audio import (
     CdAudioEncodeException,
     CdAudioNeedsFolderException,
@@ -531,6 +531,32 @@ async def test_starts_no_track_after_a_failure(
     assert _soundtrack_metas(cd_rom.id) == {}
 
 
+async def test_registers_a_track_whose_move_finished_after_a_cancel(
+    cd_rom: Rom, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(cd_audio, "ENCODE_CONCURRENCY", 1)
+    real_move = rom_upload.move_into_place
+    moving = threading.Event()
+    release = threading.Event()
+
+    def slow_move(location: Path, staged: Path, *, overwrite: bool) -> None:
+        moving.set()
+        release.wait(5)
+        real_move(location, staged, overwrite=overwrite)
+
+    monkeypatch.setattr(cd_audio, "move_into_place", slow_move)
+    task = asyncio.create_task(cd_audio.extract_cd_audio(cd_rom))
+    await asyncio.to_thread(moving.wait, 5)
+
+    task.cancel()
+    await asyncio.sleep(0.05)
+    release.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert set(_soundtrack_metas(cd_rom.id)) == {"Disc - Track 02.flac"}
+
+
 async def test_asks_for_a_scan_when_the_tracks_cannot_be_registered(
     cd_rom: Rom, real_library: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -736,6 +762,40 @@ async def test_reads_a_file_named_in_several_cases_once(
     # Split three ways rather than each spanning the whole file.
     assert sum(durations) == pytest.approx(
         TRACK_2_SECTORS / SECTORS_PER_SECOND, abs=0.02
+    )
+
+
+async def test_keeps_files_differing_only_in_case_apart(
+    admin_user: User, platform: Platform, real_library: Path
+):
+    sheet = (
+        'FILE "Track.bin" BINARY\n  TRACK 02 AUDIO\n    INDEX 01 00:00:00\n'
+        'FILE "TRACK.BIN" BINARY\n  TRACK 03 AUDIO\n    INDEX 01 00:00:00\n'
+    )
+    rom = _add_sheet_rom(
+        admin_user,
+        platform,
+        real_library,
+        {
+            "Disc.cue": sheet.encode(),
+            "Track.bin": _tone(TRACK_2_SECTORS),
+            "TRACK.BIN": _tone(TRACK_3_SECTORS),
+        },
+    )
+    if len(list((real_library / rom.full_path).iterdir())) < 3:
+        pytest.skip("the library is on a case-insensitive filesystem")
+
+    await cd_audio.extract_cd_audio(rom)
+
+    metas = _soundtrack_metas(rom.id)
+    durations = {
+        name: meta.duration_seconds for name, meta in metas.items() if meta is not None
+    }
+    assert durations["Disc - Track 02.flac"] == pytest.approx(
+        TRACK_2_SECTORS / SECTORS_PER_SECOND, abs=0.02
+    )
+    assert durations["Disc - Track 03.flac"] == pytest.approx(
+        TRACK_3_SECTORS / SECTORS_PER_SECOND, abs=0.02
     )
 
 

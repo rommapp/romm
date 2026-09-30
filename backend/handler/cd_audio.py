@@ -138,9 +138,13 @@ def _locate_files(folder: Path, names: set[str]) -> dict[str, Path]:
         if folded[name.casefold()] == 1 and (folder / name).is_file()
     }
     if missing := names - located.keys():
-        by_folded = {e.name.casefold(): e for e in folder.iterdir() if e.is_file()}
+        entries = [e for e in folder.iterdir() if e.is_file()]
+        # An exact name wins, so a case-sensitive folder keeps distinct files apart.
+        by_name = {e.name: e for e in entries}
+        by_folded = {e.name.casefold(): e for e in entries}
         for name in missing:
-            if (entry := by_folded.get(name.casefold())) is not None:
+            entry = by_name.get(name) or by_folded.get(name.casefold())
+            if entry is not None:
                 located[name] = entry
     return located
 
@@ -487,9 +491,19 @@ async def _write_track(
         destination = await prepare_upload_destination(rom, folder, track.file_name)
         staged = staging_path(destination.location)
         await encode_track(track.source, staged, rom.name)
-        await asyncio.to_thread(
-            move_into_place, destination.location, staged, overwrite=False
+        move = asyncio.ensure_future(
+            asyncio.to_thread(
+                move_into_place, destination.location, staged, overwrite=False
+            )
         )
+        try:
+            await asyncio.shield(move)
+        except asyncio.CancelledError:
+            # The thread can't be stopped, so a track it lands is still registered.
+            await asyncio.wait([move])
+            if not move.cancelled() and move.exception() is None:
+                result.extracted.append(track.file_name)
+            raise
     except UploadConflictException:
         # Already extracted, or a concurrent extraction got there first.
         result.skipped.append(track.file_name)
