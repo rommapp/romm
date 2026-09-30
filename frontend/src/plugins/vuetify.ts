@@ -1,7 +1,7 @@
 import "@mdi/font/css/materialdesignicons.css";
 import { useLocalStorage } from "@vueuse/core";
 import { createVuetify } from "vuetify";
-import { VDateInput } from "vuetify/labs/VDateInput";
+import { VDateInput } from "vuetify/components/VDateInput";
 import "vuetify/styles";
 import { dark, light } from "@/styles/themes";
 

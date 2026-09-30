@@ -182,17 +182,17 @@ function closeDialog() {
             <template #item="{ props, item }">
               <v-list-item
                 v-bind="props"
-                :title="item.raw.name"
-                :subtitle="item.raw.disabled"
-                :disabled="Boolean(item.raw.disabled)"
+                :title="item.name"
+                :subtitle="item.disabled"
+                :disabled="Boolean(item.disabled)"
               >
                 <template #prepend>
                   <v-avatar size="25" rounded="1">
-                    <v-img :src="item.raw.logo_path" />
+                    <v-img :src="item.logo_path" />
                   </v-avatar>
                 </template>
 
-                <template v-if="item.raw.value === 'launchbox'" #append>
+                <template v-if="item.value === 'launchbox'" #append>
                   <div class="d-flex align-center">
                     <span
                       class="text-caption text-primary text-medium-emphasis mr-4"
@@ -221,7 +221,7 @@ function closeDialog() {
             </template>
             <template #chip="{ item }">
               <v-avatar class="mx-1" size="24" rounded="1">
-                <v-img :src="item.raw.logo_path" />
+                <v-img :src="item.logo_path" />
               </v-avatar>
             </template>
           </v-select>
@@ -239,7 +239,7 @@ function closeDialog() {
             variant="outlined"
           >
             <template #item="{ props, item }">
-              <v-list-item v-bind="props" :subtitle="item.raw.subtitle" />
+              <v-list-item v-bind="props" :subtitle="item.subtitle" />
             </template>
             <template #append-inner>
               <v-menu open-on-hover location="bottom start">
