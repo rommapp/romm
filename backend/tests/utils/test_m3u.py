@@ -1,6 +1,8 @@
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from utils.m3u import (
+    contained_playlist_entries,
     disc_number,
     first_playlist_entry,
     generate_m3u_content,
@@ -78,6 +80,73 @@ class TestFirstPlaylistEntry:
         m3u.write_text("#EXTM3U\n\n")
 
         assert first_playlist_entry(m3u) is None
+
+
+class TestContainedPlaylistEntries:
+    def test_lists_entries_relative_to_playlist_folder(self, tmp_path):
+        discs = tmp_path / "disks"
+        discs.mkdir()
+        (discs / "Game (Disc 1).chd").write_bytes(b"x")
+        (discs / "Game (Disc 2).chd").write_bytes(b"x")
+        m3u = tmp_path / "Game.m3u"
+        m3u.write_text("#EXTM3U\ndisks/Game (Disc 1).chd\r\ndisks\\Game (Disc 2).chd\n")
+
+        assert contained_playlist_entries(m3u) == [
+            "disks/Game (Disc 1).chd",
+            "disks/Game (Disc 2).chd",
+        ]
+
+    def test_skips_entries_outside_the_playlist_folder(self, tmp_path):
+        folder = tmp_path / "roms"
+        folder.mkdir()
+        outside = tmp_path / "secret.bin"
+        outside.write_bytes(b"x")
+        (folder / "disc.chd").write_bytes(b"x")
+        m3u = folder / "Game.m3u"
+        m3u.write_text(f"../secret.bin\n{outside}\ndisc.chd\n")
+
+        assert contained_playlist_entries(m3u) == ["disc.chd"]
+
+    def test_skips_missing_duplicate_and_self_entries(self, tmp_path):
+        (tmp_path / "disc.chd").write_bytes(b"x")
+        m3u = tmp_path / "Game.m3u"
+        m3u.write_text("missing.chd\ndisc.chd\n./disc.chd\nGame.m3u\n")
+
+        assert contained_playlist_entries(m3u) == ["disc.chd"]
+
+    def test_skips_absolute_entry_even_inside_the_folder(self, tmp_path: Path):
+        disc = tmp_path / "disc.chd"
+        disc.write_bytes(b"x")
+        m3u = tmp_path / "Game.m3u"
+        m3u.write_text(f"{disc}\n")
+
+        assert contained_playlist_entries(m3u) == []
+
+    def test_includes_the_tracks_a_gdi_names(self, tmp_path: Path):
+        (tmp_path / "track01.bin").write_bytes(b"x")
+        (tmp_path / "Game (Track 2).raw").write_bytes(b"x")
+        (tmp_path / "Game.gdi").write_text(
+            '2\n1 0 4 2352 track01.bin 0\n2 600 0 2352 "Game (Track 2).raw" 0\n'
+        )
+        m3u = tmp_path / "Game.m3u"
+        m3u.write_text("Game.gdi\n")
+
+        assert contained_playlist_entries(m3u) == [
+            "Game.gdi",
+            "track01.bin",
+            "Game (Track 2).raw",
+        ]
+
+    def test_includes_the_same_stem_tracks_of_a_ccd(self, tmp_path: Path):
+        for name in ("Game.ccd", "Game.img", "Game.sub", "Other.img"):
+            (tmp_path / name).write_bytes(b"x")
+        m3u = tmp_path / "Game.m3u"
+        m3u.write_text("Game.ccd\n")
+
+        assert contained_playlist_entries(m3u) == ["Game.ccd", "Game.img", "Game.sub"]
+
+    def test_returns_empty_for_unreadable_playlist(self, tmp_path):
+        assert contained_playlist_entries(tmp_path / "missing.m3u") == []
 
 
 def _make_file(name: str, extension: str, download_name: str | None = None):

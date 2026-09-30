@@ -20,6 +20,7 @@ from config import LIBRARY_BASE_PATH, ZIP_CACHE_PATH
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.filesystem import SERVED_FILE_MODE
+from utils.m3u import contained_playlist_entries
 
 if TYPE_CHECKING:
     from models.rom import RomFile
@@ -50,6 +51,44 @@ class ZipFileEntry:
             file_size_bytes=file.file_size_bytes,
             updated_at_epoch=file.updated_at.timestamp(),
         )
+
+
+def playlist_zip_entries(m3u: RomFile) -> list[ZipFileEntry]:
+    """An .m3u followed by the files it lists, named relative to the playlist.
+
+    Returns:
+        The entries to zip, or an empty list when no listed file can be served.
+    """
+    m3u_path = Path(LIBRARY_BASE_PATH, m3u.full_path)
+    try:
+        # From disk, so an edited playlist changes the cache key
+        m3u_stat = os.stat(m3u_path)
+    except OSError:
+        return []
+    entries = [
+        ZipFileEntry(
+            download_name=m3u.file_name,
+            full_path=m3u.full_path,
+            file_size_bytes=m3u_stat.st_size,
+            updated_at_epoch=m3u_stat.st_mtime,
+        )
+    ]
+    for name in contained_playlist_entries(m3u_path):
+        full_path = f"{m3u.file_path}/{name}"
+        try:
+            st = os.stat(Path(LIBRARY_BASE_PATH, full_path))
+        except OSError:
+            # Removed since the playlist was read
+            continue
+        entries.append(
+            ZipFileEntry(
+                download_name=name,
+                full_path=full_path,
+                file_size_bytes=st.st_size,
+                updated_at_epoch=st.st_mtime,
+            )
+        )
+    return entries if len(entries) > 1 else []
 
 
 def get_cache_key(

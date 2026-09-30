@@ -46,8 +46,20 @@ export function getDownloadPath({
 
 /** The name the content endpoint serves a whole rom under: the sole file's own
  *  name, or the rom's name with a zip extension, mirroring `get_rom_content`. */
-export function getDownloadFileName(rom: SimpleRom): string {
+export function getDownloadFileName(
+  rom: SimpleRom,
+  { purpose }: { purpose?: "play" } = {},
+): string {
   const files = rom.files ?? [];
+  // A player gets a lone top-level .m3u zipped with the discs it lists
+  if (
+    purpose === "play" &&
+    files.length === 1 &&
+    rom.has_simple_single_file &&
+    files[0].file_name.toLowerCase().endsWith(".m3u")
+  ) {
+    return `${rom.fs_name}.zip`;
+  }
   if (files.length === 1) return files[0].file_name;
   // Nothing to serve; callers gate on a file being on disk.
   if (files.length === 0) return rom.fs_name;

@@ -1,5 +1,6 @@
 import functools
 import json
+import posixpath
 import re
 import secrets
 from collections import Counter, abc
@@ -27,7 +28,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy import literal, not_, or_, select, true, union, update
+from sqlalchemy import literal, not_, or_, select, true, tuple_, union, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     ColumnProperty,
@@ -2615,6 +2616,26 @@ class DBRomsHandler(DBBaseHandler):
             .unique()
             .all()
         )
+
+    @begin_session
+    def get_rom_owners_by_file_path(
+        self,
+        full_paths: list[str],
+        session: Session = INJECTED_SESSION,
+    ) -> dict[str, tuple[int, int]]:
+        """Map each library-relative file path to its rom's (id, platform_id)."""
+        if not full_paths:
+            return {}
+        pairs = [posixpath.split(path) for path in full_paths]
+        rows = session.execute(
+            select(RomFile.file_path, RomFile.file_name, Rom.id, Rom.platform_id)
+            .join(Rom, Rom.id == RomFile.rom_id)
+            .where(tuple_(RomFile.file_path, RomFile.file_name).in_(pairs))
+        )
+        return {
+            f"{file_path}/{file_name}": (rom_id, platform_id)
+            for file_path, file_name, rom_id, platform_id in rows
+        }
 
     @begin_session
     def get_rom_file_by_path(

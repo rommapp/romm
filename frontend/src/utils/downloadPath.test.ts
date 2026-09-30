@@ -151,6 +151,16 @@ describe("download URL encoding", () => {
 });
 
 describe("getDownloadFileName", () => {
+  it("names a lone top-level playlist as the zip a player receives", () => {
+    const rom = makeRom({
+      fs_name: "Game.m3u",
+      has_simple_single_file: true,
+      files: [{ id: 3, file_name: "Game.m3u" }] as SimpleRom["files"],
+    });
+    expect(getDownloadFileName(rom, { purpose: "play" })).toBe("Game.m3u.zip");
+    expect(getDownloadFileName(rom)).toBe("Game.m3u");
+  });
+
   it("names a flat single-file rom by its file", () => {
     const rom = makeRom({
       fs_name: "Maniac Mansion (1989).adf",

@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import os
+import posixpath
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from logger.formatter import highlight as hl
+from logger.logger import log
 
 if TYPE_CHECKING:
     from models.rom import RomFile
@@ -53,20 +58,11 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
         absolute, or None when the playlist can't be read or that entry isn't
         a file on disk.
     """
-    try:
-        lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
-    except OSError:
+    lines = _read_lines(m3u_path)
+    if lines is None:
         return None
-    for line in lines:
-        entry = line.strip()
-        if not entry or entry.startswith("#"):
-            continue
-        # Playlists written on Windows separate folders with backslashes, which
-        # a POSIX file name may also contain, so the literal path is tried first.
-        candidates = [entry]
-        if "\\" in entry:
-            candidates.append(entry.replace("\\", "/"))
-        for candidate in candidates:
+    for entry in _playlist_lines(lines):
+        for candidate in _entry_candidates(entry):
             entry_path = Path(candidate)
             if not entry_path.is_absolute():
                 entry_path = m3u_path.parent / entry_path
@@ -74,6 +70,114 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
                 return entry_path
         return None
     return None
+
+
+def contained_playlist_entries(m3u_path: Path) -> list[str]:
+    """The files an .m3u lists inside its own folder, with the tracks each sheet names.
+
+    Returns:
+        Paths relative to the playlist's folder, POSIX-separated, in playlist
+        order and without duplicates or the playlist itself.
+    """
+    lines = _read_lines(m3u_path)
+    if lines is None:
+        return []
+    root = os.path.normpath(m3u_path.parent)
+    entries: list[str] = []
+    for entry in _playlist_lines(lines):
+        disc = _contained_file(root, entry, m3u_path)
+        if disc is None or disc == m3u_path.name:
+            continue
+        for name in (disc, *_sheet_tracks(root, disc)):
+            if name not in entries:
+                entries.append(name)
+    return entries
+
+
+def _read_lines(path: Path) -> list[str] | None:
+    try:
+        return path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except OSError:
+        return None
+
+
+def _contained_file(root: str, entry: str, source: Path) -> str | None:
+    """Resolve a relative entry of `source` to a file inside `root`.
+
+    Returns:
+        The file's path relative to `root`, or None (logged) when the entry is
+        absolute, escapes `root` or names no file.
+    """
+    contained = False
+    for candidate in _entry_candidates(entry):
+        # Absolute entries are refused: the packaged playlist keeps them verbatim
+        if os.path.isabs(candidate):
+            continue
+        normalized = os.path.normpath(os.path.join(root, candidate))
+        if not normalized.startswith(root + os.sep):
+            continue
+        contained = True
+        if os.path.isfile(normalized):
+            return Path(normalized).relative_to(root).as_posix()
+    reason = "not found" if contained else "not a relative path inside its folder"
+    log.warning(f"Skipping entry {hl(entry)} in {hl(str(source))}: {reason}")
+    return None
+
+
+_CUE_FILE_REGEX = re.compile(r'^\s*FILE\s+(?:"([^"]+)"|(\S+))', re.I)
+_GDI_TRACK_REGEX = re.compile(r'^\s*\d+\s+\d+\s+\d+\s+\d+\s+(?:"([^"]+)"|(\S+))')
+
+
+def _sheet_tracks(root: str, disc: str) -> list[str]:
+    """The track files a disc sheet (.cue, .gdi, .ccd, .mds) needs, relative to `root`."""
+    extension = disc.rsplit(".", 1)[-1].lower()
+    if extension not in DESCRIPTOR_EXTENSIONS:
+        return []
+    sheet = Path(root, disc)
+    if extension in ("cue", "gdi"):
+        regex = _CUE_FILE_REGEX if extension == "cue" else _GDI_TRACK_REGEX
+        names = [
+            quoted or bare
+            for quoted, bare in (
+                match.groups()
+                for match in map(regex.match, _read_lines(sheet) or [])
+                if match
+            )
+        ]
+    else:
+        # CloneCD and Alcohol sheets name no files: their tracks share the stem
+        names = sorted(
+            p.name
+            for p in sheet.parent.iterdir()
+            if p.is_file()
+            and p.stem == sheet.stem
+            and p.suffix[1:].lower() in COMPANION_EXTENSIONS
+        )
+    folder = posixpath.dirname(disc)
+    tracks = []
+    for name in names:
+        track = _contained_file(root, posixpath.join(folder, name), sheet)
+        if track is not None:
+            tracks.append(track)
+    return tracks
+
+
+def _playlist_lines(lines: list[str]) -> list[str]:
+    """A playlist's entries, without blank lines and comments."""
+    return [
+        line.strip()
+        for line in lines
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
+def _entry_candidates(entry: str) -> list[str]:
+    """The paths a playlist entry may mean, the literal one first."""
+    # Windows playlists separate folders with backslashes, which a POSIX name
+    # may also contain
+    if "\\" in entry:
+        return [entry, entry.replace("\\", "/")]
+    return [entry]
 
 
 def playlist_files(files: list[RomFile]) -> list[RomFile]:
