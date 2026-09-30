@@ -17,7 +17,10 @@ withDefaults(
   { launchboxSelected: false },
 );
 const sources = defineModel<MetadataOption[]>({ required: true });
-const launchboxRemote = defineModel<boolean>("launchboxRemote");
+// An explicit default stops Vue casting an unbound boolean model to false.
+const launchboxRemote = defineModel<boolean | undefined>("launchboxRemote", {
+  default: undefined,
+});
 const emit = defineEmits<{ "update:allSelected": [value: boolean] }>();
 
 const { t } = useI18n();
@@ -83,7 +86,11 @@ const { t } = useI18n();
             >
               {{ t("rom.launchbox-local") }}
             </span>
-            <RSwitch v-model="launchboxRemote" :disabled="!launchboxSelected" />
+            <RSwitch
+              v-model="launchboxRemote"
+              :disabled="!launchboxSelected"
+              :aria-label="t('rom.launchbox-cloud-source')"
+            />
             <span
               class="r-v2-provider-select__lb-label"
               :class="{
