@@ -22,6 +22,7 @@ import os
 import random
 import sys
 import time
+from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -830,17 +831,19 @@ def main() -> int:
 
     from handler.auth import auth_handler
     from handler.database.base_handler import sync_engine
+    from utils.database import is_postgresql
 
     # Pin every connection to UTC so the random historical timestamps we
     # generate never land in a local DST gap that TIMESTAMP columns reject.
+    postgresql = is_postgresql(sync_engine)
+
     @event.listens_for(sync_engine, "connect")
     def _session_utc(dbapi_conn: DBAPIConnection, _record: ConnectionPoolEntry) -> None:
         cur = dbapi_conn.cursor()
         try:
-            try:
-                cur.execute("SET time_zone = '+00:00'")  # MySQL/MariaDB
-            except Exception:
-                cur.execute("SET TIME ZONE 'UTC'")  # PostgreSQL
+            cur.execute(
+                "SET TIME ZONE 'UTC'" if postgresql else "SET time_zone = '+00:00'"
+            )
         finally:
             cur.close()
 
@@ -1576,6 +1579,8 @@ def main() -> int:
             bulk_insert(conn, SmartCollection, smart_rows)
             bulk_insert(conn, SyncSession, sync_rows)
             bulk_insert(conn, PlaySession, play_rows)
+            if postgresql:
+                _advance_sequences(conn, id_tables)
     counts["collections"] = len(coll_rows)
     counts["collections_roms"] = len(coll_rom_rows)
     counts["smart_collections"] = len(smart_rows)
@@ -1595,6 +1600,22 @@ def main() -> int:
             "and the password passed via --password (default: 'password')."
         )
     return 0
+
+
+def _advance_sequences(conn: Connection, tables: Iterable[str]) -> None:
+    """Move each PostgreSQL id sequence past the explicit ids inserted here."""
+    # Unlike AUTO_INCREMENT, a sequence ignores explicit ids, so the app's
+    # next insert would collide with a generated row.
+    from sqlalchemy import text
+
+    for t in tables:
+        # nosec B608 - table names are the script's own id_tables keys, not user input
+        conn.execute(
+            text(
+                f"SELECT setval(pg_get_serial_sequence('{t}', 'id'),"  # nosec B608
+                f" COALESCE(MAX(id), 0) + 1, false) FROM {t}"
+            )
+        )
 
 
 def _wipe(conn: Connection) -> None:
