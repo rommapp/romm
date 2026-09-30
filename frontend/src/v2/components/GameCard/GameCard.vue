@@ -375,15 +375,7 @@ function onStaticKeydown(e: KeyboardEvent) {
     ]"
     :style="{ '--r-cover-ratio': coverAspectRatio }"
     :aria-label="decorative ? undefined : title"
-    :aria-pressed="
-      decorative
-        ? undefined
-        : static
-          ? selected
-          : selectable
-            ? isSelected
-            : undefined
-    "
+    :aria-pressed="static && !decorative ? selected : undefined"
     :data-rom-id="rom.id"
     :data-rom-position="selectable ? position : undefined"
     :data-focus-key="!decorative && !static ? `rom-${rom.id}` : undefined"
@@ -421,6 +413,7 @@ function onStaticKeydown(e: KeyboardEvent) {
         v-if="showCheckbox"
         class="r-gc__check"
         :model-value="isSelected"
+        :aria-label="t('rom.select-asset', { name: title })"
         shape="circle"
         size="md"
         color="primary"
