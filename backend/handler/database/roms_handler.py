@@ -45,6 +45,7 @@ from sqlalchemy.sql.selectable import Select
 
 from config.config_manager import config_manager as cm
 from decorators.database import INJECTED_SESSION, begin_session
+from exceptions.database_exceptions import RomFileOwnerChangedError
 from handler.database.rom_filters import (
     ROM_FILTER_SPECS,
     FilterKind,
@@ -2451,24 +2452,25 @@ class DBRomsHandler(DBBaseHandler):
 
         Returns:
             Every rom id locked, or None if the file does not exist.
+
+        Raises:
+            RomFileOwnerChangedError: a concurrent move changed the owner first.
         """
-        # Roms before files, the order folder conversion writes in. The owner
-        # read unlocked is confirmed under the file lock, and locked too if a
-        # concurrent move changed it in between.
+        # All rom locks go in one sorted batch before the file lock, the order
+        # folder conversion writes in, so no two writers can wait on each other.
         owner = session.scalar(select(RomFile.rom_id).where(RomFile.id == rom_file_id))
-        locked: set[int] = set()
-        while owner is not None:
-            pending = ({owner} | set(other_rom_ids)) - locked
-            self._lock_rom_rows(pending, session)
-            locked |= pending
-            owner = session.scalar(
-                select(RomFile.rom_id)
-                .where(RomFile.id == rom_file_id)
-                .with_for_update()
-            )
-            if owner in locked:
-                return locked
-        return None
+        if owner is None:
+            return None
+        locked = {owner, *other_rom_ids}
+        self._lock_rom_rows(locked, session)
+        confirmed = session.scalar(
+            select(RomFile.rom_id).where(RomFile.id == rom_file_id).with_for_update()
+        )
+        if confirmed is None:
+            return None
+        if confirmed not in locked:
+            raise RomFileOwnerChangedError(rom_file_id)
+        return locked
 
     def _lock_rom_rows(self, rom_ids: Iterable[int], session: Session) -> None:
         """Serialise writers of these roms' files so each size total counts the others'."""

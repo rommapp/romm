@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
 from decorators.database import INJECTED_SESSION
+from exceptions.database_exceptions import RomFileOwnerChangedError
 from handler.database import (
     db_platform_handler,
     db_rom_handler,
@@ -854,15 +855,22 @@ class TestRomFileSizeLocking:
         assert len(rom_locks) == 2
         assert max(rom_locks) < file_lock
 
-    def test_an_owner_changed_meanwhile_is_locked_too(self):
+    def test_an_owner_changed_meanwhile_fails_the_write(self):
         session = MagicMock()
-        # Unlocked read, then the owner under the file lock twice: the file
-        # moved from rom 1 to rom 2 before this transaction took rom 1.
-        session.scalar.side_effect = [1, 2, 2]
+        # The file moved from rom 1 to rom 2 before this transaction locked rom 1.
+        session.scalar.side_effect = [1, 2]
+
+        with pytest.raises(RomFileOwnerChangedError):
+            db_rom_handler._lock_rom_file_and_roms(10, [3], session)
+
+    def test_a_move_into_a_locked_rom_needs_no_more_locks(self):
+        session = MagicMock()
+        session.scalar.side_effect = [1, 3]
 
         locked = db_rom_handler._lock_rom_file_and_roms(10, [3], session)
 
-        assert locked == {1, 2, 3}
+        assert locked == {1, 3}
+        assert session.execute.call_count == 2
 
     def test_a_vanished_file_locks_nothing_more(self):
         session = MagicMock()
