@@ -2,8 +2,10 @@
 import {
   RBtn,
   RDivider,
+  REmptyState,
   RProgressCircular,
   RSelect,
+  RSpinner,
   RTextField,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
@@ -306,14 +308,11 @@ const downloadableBuilds = computed(() =>
           @added="loadProtonBuilds"
         />
 
-        <div
+        <REmptyState
           v-if="protonBuilds.length === 0 && !loadingBuilds"
-          class="r-v2-stream-install__no-builds"
-        >
-          <p class="r-v2-stream-install__desc">
-            {{ t("rom.install-proton-no-installs") }}
-          </p>
-        </div>
+          icon="mdi-package-variant"
+          :title="t('rom.install-proton-no-installs')"
+        />
 
         <RDivider class="r-v2-stream-install__builds-divider">
           {{ t("rom.install-proton-available-downloads") }}
@@ -348,10 +347,16 @@ const downloadableBuilds = computed(() =>
             class="r-v2-stream-install__build-progress"
           >
             <RProgressCircular
-              :value="downloadingBuilds[build.id]"
+              :model-value="Math.max(0, downloadingBuilds[build.id]) * 100"
               :indeterminate="downloadingBuilds[build.id] <= 0"
-              size="small"
-              color="primary"
+              :size="16"
+              :label="
+                t('rom.install-proton-downloading', {
+                  progress: Math.round(
+                    Math.max(0, downloadingBuilds[build.id]) * 100,
+                  ),
+                })
+              "
             />
             <span class="r-v2-stream-install__build-progress-text">
               {{ Math.round((downloadingBuilds[build.id] || 0) * 100) }}%
@@ -372,7 +377,7 @@ const downloadableBuilds = computed(() =>
         </div>
 
         <div v-if="loadingBuilds" class="r-v2-stream-install__builds-loading">
-          <RProgressCircular indeterminate size="small" color="primary" />
+          <RSpinner />
         </div>
       </div>
     </SettingsSection>
@@ -515,9 +520,6 @@ const downloadableBuilds = computed(() =>
   transform: translateY(8px);
 }
 
-.r-v2-stream-install__no-builds {
-  margin: 8px 0;
-}
 .r-v2-stream-install__builds-divider {
   margin: 16px 0 8px;
   font-size: 11px;

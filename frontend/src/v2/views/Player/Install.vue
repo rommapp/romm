@@ -11,7 +11,16 @@
 // already in flight by the time this mounts; or a direct visit/bookmark/
 // refresh, where nothing has been requested yet and the start panel's CTA
 // drives the same detect-then-start flow itself.
-import { RAlert, RBtn, RCard, RIcon, RSelect, RSwitch } from "@v2/lib";
+import {
+  RAlert,
+  RBtn,
+  RCard,
+  RIcon,
+  RProgressLinear,
+  RSelect,
+  RSpinner,
+  RSwitch,
+} from "@v2/lib";
 import {
   computed,
   nextTick,
@@ -356,21 +365,17 @@ const downloadSpeedLimitLabel = computed(() =>
         v-else-if="isBusy || install.waitingForWorker.value"
         class="r-v2-install__pending"
       >
-        <div class="r-v2-install__spinner" aria-hidden="true" />
+        <RSpinner :size="40" />
         <p class="r-v2-install__pending-label">
           {{ pendingLabel }}
         </p>
-        <div
+        <RProgressLinear
           v-if="install.protonDownloadProgress.value !== null"
           class="r-v2-install__dl-progress"
-        >
-          <div
-            class="r-v2-install__dl-bar"
-            :style="{
-              width: `${(install.protonDownloadProgress.value || 0) * 100}%`,
-            }"
-          />
-        </div>
+          :model-value="install.protonDownloadProgress.value * 100"
+          :height="6"
+          :aria-label="pendingLabel"
+        />
       </div>
 
       <!-- Idle (nothing requested yet) or terminal (done/failed/expired). -->
@@ -421,11 +426,7 @@ const downloadSpeedLimitLabel = computed(() =>
           @click="onMainButtonClick"
         >
           <template #prepend>
-            <span
-              v-if="isBusy"
-              class="r-v2-install__btn-spinner"
-              aria-hidden="true"
-            />
+            <RSpinner v-if="isBusy" :size="16" color="currentColor" />
             <RIcon v-else icon="mdi-download-box-outline" />
           </template>
           {{ isBusy ? t("rom.install-abort") : startCtaLabel }}
@@ -560,7 +561,7 @@ const downloadSpeedLimitLabel = computed(() =>
   </section>
 
   <section v-else class="r-v2-install__loading">
-    <div class="r-v2-install__spinner" :aria-label="t('common.loading')" />
+    <RSpinner :size="40" :label="t('common.loading')" />
   </section>
 </template>
 
@@ -624,16 +625,6 @@ const downloadSpeedLimitLabel = computed(() =>
 }
 .r-v2-install__dl-progress {
   width: 220px;
-  height: 6px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.r-v2-install__dl-bar {
-  height: 100%;
-  background: var(--r-color-primary);
-  transition: width 0.3s ease;
 }
 .r-v2-install__cover {
   width: 100%;
@@ -663,9 +654,6 @@ const downloadSpeedLimitLabel = computed(() =>
 /* ── Right sidebar ───────────────────────────────────────── */
 .r-v2-install__sidebar {
   grid-area: sidebar;
-  background: var(--r-color-bg-elevated) !important;
-  border: 1px solid var(--r-color-border) !important;
-  border-radius: var(--r-radius-lg) !important;
   backdrop-filter: blur(18px);
   display: flex !important;
   flex-direction: column;
@@ -710,19 +698,6 @@ const downloadSpeedLimitLabel = computed(() =>
   color: var(--r-color-fg-muted);
 }
 
-/* Spinner substitute for RBtn's own `loading` prop, which hides the label
-   entirely - this one needs "Installing…" to stay readable for the whole
-   run, not just show a bare spinner. */
-.r-v2-install__btn-spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
-  border-top-color: currentColor;
-  animation: r-install-spin 0.8s linear infinite;
-}
-
 /* ── Bottom bar ──────────────────────────────────────────── */
 .r-v2-install__bottombar {
   grid-area: bottombar;
@@ -732,21 +707,6 @@ const downloadSpeedLimitLabel = computed(() =>
   gap: 8px;
   border-top: 1px solid var(--r-color-border);
   padding-top: 10px;
-}
-
-/* ── Loading / pending spinner ──────────────────────────────── */
-.r-v2-install__spinner {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2px solid var(--r-color-surface-hover);
-  border-top-color: var(--r-color-brand-primary);
-  animation: r-install-spin 0.8s linear infinite;
-}
-@keyframes r-install-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .r-v2-install__loading {

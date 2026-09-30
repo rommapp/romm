@@ -10,7 +10,7 @@
 import type { SimpleRom } from "@/stores/roms";
 import { ROUTES } from "@/plugins/router";
 import type { InstallSession } from "@/v2/composables/useInstallSession";
-import { RBtn, RIcon, RMenu, RMenuItem } from "@v2/lib";
+import { RBtn, RIcon, RMenu, RMenuItem, RSpinner } from "@v2/lib";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 
@@ -42,7 +42,7 @@ function viewInstall() {
       @click="viewInstall"
     >
       <template #prepend>
-        <span class="install-btn-group__spinner" aria-hidden="true" />
+        <RSpinner :size="14" color="currentColor" />
       </template>
       {{ t("rom.install-installing") }}
     </RBtn>
@@ -85,19 +85,5 @@ function viewInstall() {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
   border-left: 1px solid var(--r-color-border);
-}
-.install-btn-group__spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
-  border-top-color: currentColor;
-  animation: install-btn-spin 0.8s linear infinite;
-}
-@keyframes install-btn-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 </style>
