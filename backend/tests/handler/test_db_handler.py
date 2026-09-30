@@ -276,21 +276,24 @@ def test_filter_by_search_term_with_multiple_terms(platform: Platform):
     assert actual_rom_ids_single == expected_rom_ids_single
 
 
+def _add_named_rom(platform: Platform, name: str, fs_stem: str) -> Rom:
+    return db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name=name,
+            slug=name.lower().replace(" ", "-"),
+            fs_name=f"{fs_stem}.zip",
+            fs_name_no_tags=fs_stem,
+            fs_name_no_ext=fs_stem,
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+
+
 def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
     def _add(name: str) -> Rom:
-        fs = name.replace(" ", "_")
-        return db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name=name,
-                slug=name.lower().replace(" ", "-"),
-                fs_name=f"{fs}.zip",
-                fs_name_no_tags=fs,
-                fs_name_no_ext=fs,
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-            )
-        )
+        return _add_named_rom(platform, name, name.replace(" ", "_"))
 
     ff = _add("Final Fantasy")
     ff7 = _add("Final Fantasy VII")
@@ -357,18 +360,7 @@ def test_filter_by_search_term_words_fulltext_cannot_index(
         "Zelda II The Adventure of Link",
     ):
         # Spaced like a real dump, so the filename splits into the same words.
-        db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name=name,
-                slug=name.lower().replace(" ", "-"),
-                fs_name=f"{name} (USA).zip",
-                fs_name_no_tags=name,
-                fs_name_no_ext=f"{name} (USA)",
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-            )
-        )
+        _add_named_rom(platform, name, f"{name} (USA)")
 
     results = db_rom_handler.get_roms_scalar(search_term=search_term)
 

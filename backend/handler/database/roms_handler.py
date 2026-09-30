@@ -12,6 +12,7 @@ from typing import cast as typing_cast
 from redis.exceptions import WatchError
 from sqlalchemy import (
     ColumnExpressionArgument,
+    Connection,
     DateTime,
     Enum,
     Integer,
@@ -21,13 +22,13 @@ from sqlalchemy import (
     and_,
     case,
     cast,
-    delete,
-    event,
-    false,
-    func,
 )
+from sqlalchemy import column as sql_column
+from sqlalchemy import delete, event, false, func
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy import literal, not_, or_, select, text, true, union, update
+from sqlalchemy import literal, not_, or_, select
+from sqlalchemy import table as sql_table
+from sqlalchemy import text, true, union, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import (
     ColumnProperty,
@@ -87,9 +88,8 @@ from utils.database import (
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
     escape_like,
-    is_mariadb,
-    is_mysql,
     is_non_blank,
+    is_postgresql,
     release_day_ranges,
     rom_unset_flag_column,
 )
@@ -163,38 +163,8 @@ RUFFLE_SUPPORTED_PLATFORMS = [
     UPS.BROWSER,
 ]
 
-# Used to remove native full-text SQL operators
-FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
-
 # The tokens InnoDB's parser reads out of a word: "dr." holds only "dr".
 FULLTEXT_TOKEN_REGEX = re.compile(r"\w+(?:'\w+)*")
-
-# InnoDB's defaults, for when the server's settings can't be read. The index
-# skips stopwords, so a required `+the*` would match nothing.
-FULLTEXT_MIN_TOKEN_SIZE = 3
-FULLTEXT_MAX_TOKEN_SIZE = 84
-FULLTEXT_STOPWORDS = frozenset(
-    {
-        "about",
-        "are",
-        "com",
-        "for",
-        "from",
-        "how",
-        "that",
-        "the",
-        "this",
-        "und",
-        "was",
-        "what",
-        "when",
-        "where",
-        "who",
-        "will",
-        "with",
-        "www",
-    }
-)
 
 # A term reaches the hash columns only when it is hex of exactly a digest
 # length, so an ordinary name search builds no hash SQL at all. Hashes are
@@ -265,51 +235,87 @@ class FulltextSettings(NamedTuple):
     stopwords: frozenset[str]
 
 
+# InnoDB's defaults, for what the server won't report. The index skips
+# stopwords, so a required `+the*` would match nothing.
 DEFAULT_FULLTEXT_SETTINGS = FulltextSettings(
-    FULLTEXT_MIN_TOKEN_SIZE, FULLTEXT_MAX_TOKEN_SIZE, FULLTEXT_STOPWORDS
+    min_token_size=3,
+    max_token_size=84,
+    stopwords=frozenset(
+        {
+            "a",
+            "about",
+            "an",
+            "are",
+            "as",
+            "at",
+            "be",
+            "by",
+            "com",
+            "de",
+            "en",
+            "for",
+            "from",
+            "how",
+            "i",
+            "in",
+            "is",
+            "it",
+            "la",
+            "of",
+            "on",
+            "or",
+            "that",
+            "the",
+            "this",
+            "to",
+            "und",
+            "was",
+            "what",
+            "when",
+            "where",
+            "who",
+            "will",
+            "with",
+            "www",
+        }
+    ),
 )
 
 
-def _stopword_table(setting: str) -> str:
-    """`innodb_ft_server_stopword_table`'s `db/table` as a quoted identifier."""
-    return ".".join(f"`{part.replace('`', '``')}`" for part in setting.split("/", 1))
+def read_fulltext_settings(conn: Connection) -> FulltextSettings:
+    """The server's InnoDB full-text settings; raises if its variables can't be read."""
+    min_size, max_size, stopwords_enabled, server_table = conn.execute(
+        text(
+            "SELECT @@innodb_ft_min_token_size, @@innodb_ft_max_token_size,"
+            " @@innodb_ft_enable_stopword, @@innodb_ft_server_stopword_table"
+        )
+    ).one()
+    stopwords: frozenset[str] = frozenset()
+    if stopwords_enabled:
+        schema, _, name = (
+            server_table or "information_schema/INNODB_FT_DEFAULT_STOPWORD"
+        ).rpartition("/")
+        query = select(sql_column("value", String)).select_from(
+            sql_table(name, schema=schema or None)
+        )
+        try:
+            stopwords = frozenset(word.lower() for word in conn.scalars(query) if word)
+        except SQLAlchemyError as exc:
+            # MySQL needs PROCESS for INNODB_FT_DEFAULT_STOPWORD.
+            log.warning(f"Using InnoDB's default full-text stopwords: {exc}")
+            stopwords = DEFAULT_FULLTEXT_SETTINGS.stopwords
+    return FulltextSettings(int(min_size), int(max_size), stopwords)
 
 
 @functools.cache
 def _server_fulltext_settings() -> FulltextSettings:
-    """The server's InnoDB full-text settings, read once; raises when unreadable."""
     with sync_engine.connect() as conn:
-        min_size, max_size, stopwords_enabled, server_table = conn.execute(
-            text(
-                "SELECT @@innodb_ft_min_token_size, @@innodb_ft_max_token_size,"
-                " @@innodb_ft_enable_stopword, @@innodb_ft_server_stopword_table"
-            )
-        ).one()
-        min_token_size, max_token_size = int(min_size), int(max_size)
-        if not stopwords_enabled:
-            return FulltextSettings(min_token_size, max_token_size, frozenset())
-        source = (
-            _stopword_table(server_table)
-            if server_table
-            else "information_schema.INNODB_FT_DEFAULT_STOPWORD"
-        )
-        query = text(f"SELECT value FROM {source}")  # nosec B608
-        try:
-            stopwords = conn.scalars(query).all()
-        except SQLAlchemyError as exc:
-            # MySQL needs PROCESS for INNODB_FT_DEFAULT_STOPWORD.
-            log.warning(f"Using InnoDB's default full-text stopwords: {exc}")
-            return FulltextSettings(min_token_size, max_token_size, FULLTEXT_STOPWORDS)
-    return FulltextSettings(
-        min_token_size,
-        max_token_size,
-        frozenset(word.lower() for word in stopwords if word),
-    )
+        return read_fulltext_settings(conn)
 
 
 def fulltext_settings() -> FulltextSettings:
     """The server's InnoDB full-text settings, or InnoDB's defaults."""
-    if not (is_mysql(sync_engine) or is_mariadb(sync_engine)):
+    if is_postgresql(sync_engine):
         return DEFAULT_FULLTEXT_SETTINGS
     try:
         return _server_fulltext_settings()
@@ -317,6 +323,25 @@ def fulltext_settings() -> FulltextSettings:
         # Left uncached, so a transient failure is retried on the next search.
         log.warning(f"Using InnoDB's default full-text settings: {exc}")
         return DEFAULT_FULLTEXT_SETTINGS
+
+
+def split_fulltext_words(
+    words: Iterable[str], settings: FulltextSettings
+) -> tuple[list[str], list[str]]:
+    """Words as (tokens a FULLTEXT index holds, words it can't hold)."""
+    indexed: list[str] = []
+    unindexed: list[str] = []
+    for word in words:
+        tokens = FULLTEXT_TOKEN_REGEX.findall(word)
+        if tokens and all(
+            settings.min_token_size <= len(token) <= settings.max_token_size
+            and token.lower() not in settings.stopwords
+            for token in tokens
+        ):
+            indexed.extend(tokens)
+        else:
+            unindexed.append(word)
+    return indexed, unindexed
 
 
 def _name_like(word: str) -> ColumnElement[bool]:
@@ -1208,37 +1233,22 @@ class DBRomsHandler(DBBaseHandler):
             )
         )
 
-    def _split_fulltext_words(self, term: str) -> tuple[list[str], list[str]]:
-        """A term's words as (FULLTEXT-indexable pieces, words to match by LIKE)."""
-        settings = fulltext_settings()
-        indexed: list[str] = []
-        unindexed: list[str] = []
-        for word in term.split():
-            pieces = FULLTEXT_TOKEN_REGEX.findall(word)
-            if pieces and all(
-                settings.min_token_size <= len(piece) <= settings.max_token_size
-                and piece.lower() not in settings.stopwords
-                for piece in pieces
-            ):
-                indexed.extend(pieces)
-            else:
-                unindexed.append(word)
-        return indexed, unindexed
-
     def _build_fulltext_relevance(self, search_term: str) -> str | None:
         parts: list[str] = []
         for term in search_term.split("|"):
-            words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
+            words = FULLTEXT_TOKEN_REGEX.findall(term)
             if len(words) > 1:
                 parts.append('"' + " ".join(words) + '"')
         return " ".join(parts) if parts else None
 
     def _build_name_conditions(self, terms: Sequence[str]) -> list[Any]:
         """One condition per term, matching it against the ROM's name and filename."""
+        settings = fulltext_settings()
         conditions: list[Any] = []
         for term in terms:
-            like = and_(*(_name_like(word) for word in term.split()))
-            indexed, unindexed = self._split_fulltext_words(term)
+            likes = {word: _name_like(word) for word in term.split()}
+            like = and_(*likes.values())
+            indexed, unindexed = split_fulltext_words(likes, settings)
             if not indexed:
                 conditions.append(like)
                 continue
@@ -1248,7 +1258,7 @@ class DBRomsHandler(DBBaseHandler):
             conditions.append(
                 DialectCase(
                     postgresql=like,
-                    mysql=and_(match, *(_name_like(word) for word in unindexed)),
+                    mysql=and_(match, *(likes[word] for word in unindexed)),
                 )
             )
         return conditions
