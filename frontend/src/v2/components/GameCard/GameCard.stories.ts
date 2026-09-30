@@ -19,6 +19,9 @@ const sampleRom = {
 const meta: Meta<typeof GameCard> = {
   title: "Media/GameCard",
   component: GameCard,
+  // Rendered as in the gallery: a link card with the multi-select checkbox,
+  // so the a11y check covers both.
+  args: { selectable: true, position: 0 },
   argTypes: {
     hero: { control: "boolean" },
     focused: { control: "boolean" },
@@ -68,7 +71,7 @@ export const Grid: Story = {
     },
     template: `
       <div style="display:grid;grid-template-columns:repeat(3,180px);gap:1.5rem">
-        <GameCard v-for="rom in roms" :key="rom.id" :rom="rom" />
+        <GameCard v-for="(rom, i) in roms" :key="rom.id" :rom="rom" selectable :position="i" />
       </div>
     `,
   }),
