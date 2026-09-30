@@ -6,6 +6,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
 from tests.audit_events import recorded_events
+from tests.factories import make_rom
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
@@ -642,18 +643,7 @@ class TestPlaySessionRomUserUpdates:
     def test_rom_user_created_if_not_exists(
         self, client, access_token: str, admin_user: User, platform: Platform
     ):
-        new_rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="new_rom",
-                slug="new_rom_slug",
-                fs_name="new_rom.zip",
-                fs_name_no_tags="new_rom",
-                fs_name_no_ext="new_rom",
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-            )
-        )
+        new_rom = make_rom(platform, "new_rom")
 
         assert (
             db_rom_handler.get_rom_user(rom_id=new_rom.id, user_id=admin_user.id)
@@ -675,18 +665,7 @@ class TestPlaySessionQuery:
     def test_filter_by_rom_id(
         self, client, access_token: str, rom: Rom, platform: Platform
     ):
-        other_rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="other_rom",
-                slug="other_rom_slug",
-                fs_name="other_rom.zip",
-                fs_name_no_tags="other_rom",
-                fs_name_no_ext="other_rom",
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-            )
-        )
+        other_rom = make_rom(platform, "other_rom")
 
         client.post(
             "/api/play-sessions",

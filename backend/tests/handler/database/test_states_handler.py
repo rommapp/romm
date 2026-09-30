@@ -5,6 +5,8 @@ This module tests the platform filtering fixes for DBStatesHandler to ensure
 it properly filters by platform_id through the Rom relationship.
 """
 
+from tests.factories import make_state
+
 from handler.database import db_state_handler
 from models.assets import State
 from models.platform import Platform
@@ -68,31 +70,22 @@ class TestDBStatesHandlerPlatformFiltering:
         self, admin_user: User, platform: Platform, rom: Rom
     ):
         """Test filtering with multiple states on the same platform."""
-        state1 = State(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="state1.state",
-            file_name_no_tags="state1",
-            file_name_no_ext="state1",
-            file_extension="state",
+        make_state(
+            rom,
+            admin_user,
+            "state1.state",
             emulator="emulator1",
             file_path=f"{platform.slug}/states/emulator1",
             file_size_bytes=100,
         )
-        state2 = State(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="state2.state",
-            file_name_no_tags="state2",
-            file_name_no_ext="state2",
-            file_extension="state",
+        make_state(
+            rom,
+            admin_user,
+            "state2.state",
             emulator="emulator2",
             file_path=f"{platform.slug}/states/emulator2",
             file_size_bytes=200,
         )
-
-        db_state_handler.add_state(state1)
-        db_state_handler.add_state(state2)
 
         # Filter by platform should return both states
         states = db_state_handler.get_states(
@@ -120,31 +113,22 @@ class TestDBStatesHandlerPlatformFiltering:
         self, admin_user: User, platform: Platform, rom: Rom
     ):
         """Test platform filtering with states from different emulators."""
-        state_emulator1 = State(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="state_emu1.state",
-            file_name_no_tags="state_emu1",
-            file_name_no_ext="state_emu1",
-            file_extension="state",
+        make_state(
+            rom,
+            admin_user,
+            "state_emu1.state",
             emulator="emulator1",
             file_path=f"{platform.slug}/states/emulator1",
             file_size_bytes=100,
         )
-        state_emulator2 = State(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="state_emu2.state",
-            file_name_no_tags="state_emu2",
-            file_name_no_ext="state_emu2",
-            file_extension="state",
+        make_state(
+            rom,
+            admin_user,
+            "state_emu2.state",
             emulator="emulator2",
             file_path=f"{platform.slug}/states/emulator2",
             file_size_bytes=200,
         )
-
-        db_state_handler.add_state(state_emulator1)
-        db_state_handler.add_state(state_emulator2)
 
         # Filter by platform should return both states regardless of emulator
         states = db_state_handler.get_states(

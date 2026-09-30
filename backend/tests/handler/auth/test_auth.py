@@ -7,17 +7,16 @@ from fastapi import status
 from fastapi.exceptions import HTTPException
 from starlette.datastructures import Headers
 from starlette.requests import HTTPConnection
+from tests.factories import make_device_token
 
 from config import OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS
 from handler.auth import auth_handler, oauth_handler
 from handler.auth.constants import EDIT_SCOPES
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.database import (
-    db_client_token_handler,
     db_device_handler,
     db_user_handler,
 )
-from models.client_token import ClientToken
 from models.device import Device
 from models.user import User
 
@@ -322,16 +321,8 @@ async def test_hybrid_auth_backend_scope_subset(editor_user: User):
 
 
 def _issue_client_token(user: User, device_id: str | None = None) -> str:
-    raw_token = auth_handler.generate_client_token()
-    hashed = auth_handler.hash_client_token(raw_token)
-    db_client_token_handler.add_token(
-        ClientToken(
-            user_id=user.id,
-            name="test-token",
-            hashed_token=hashed,
-            scopes=" ".join(user.oauth_scopes[:3]),
-            device_id=device_id,
-        )
+    _, raw_token = make_device_token(
+        user, device_id, scopes=" ".join(user.oauth_scopes[:3])
     )
     return raw_token
 

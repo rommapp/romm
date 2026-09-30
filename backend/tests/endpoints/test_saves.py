@@ -10,6 +10,7 @@ from unittest import mock
 import pytest
 from fastapi import status
 from sqlalchemy import update
+from tests.factories import make_save, make_screenshot, make_state
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints.saves import _apply_datetime_tag
@@ -21,7 +22,6 @@ from handler.database import (
     db_device_save_sync_handler,
     db_save_handler,
     db_screenshot_handler,
-    db_state_handler,
 )
 from handler.database.base_handler import sync_session
 from handler.sync.comparison import compare_save_state
@@ -31,7 +31,6 @@ from models.assets import (
     EMULATOR_MAX_LENGTH,
     Save,
     Screenshot,
-    State,
 )
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
@@ -435,19 +434,14 @@ class TestSaveUploadWithSync:
         """Re-uploading the same filename under a different emulator must move
         the row's file_path/emulator to where the new bytes landed, so the
         stored hash never disagrees with the served content."""
-        existing = db_save_handler.add_save(
-            Save(
-                file_name="test.sav",
-                file_name_no_tags="test",
-                file_name_no_ext="test",
-                file_extension="sav",
-                file_path=f"{platform.slug}/saves/old_emu",
-                file_size_bytes=100,
-                content_hash="0" * 32,
-                emulator="old_emu",
-                rom_id=rom.id,
-                user_id=admin_user.id,
-            )
+        existing = make_save(
+            rom,
+            admin_user,
+            "test.sav",
+            file_path=f"{platform.slug}/saves/old_emu",
+            file_size_bytes=100,
+            content_hash="0" * 32,
+            emulator="old_emu",
         )
 
         new_path = f"{platform.slug}/saves/new_emu"
@@ -1109,20 +1103,13 @@ class TestSaveConflictDetection:
         """
         from datetime import datetime, timedelta, timezone
 
-        from handler.database import db_save_handler
-
-        existing_slot_save = Save(
-            file_name="existing_slot_save.sav",
-            file_name_no_tags="existing_slot_save",
-            file_name_no_ext="existing_slot_save",
-            file_extension="sav",
-            file_path=f"{platform.slug}/saves",
+        db_slot_save = make_save(
+            rom,
+            admin_user,
+            "existing_slot_save.sav",
             file_size_bytes=100,
-            rom_id=rom.id,
-            user_id=admin_user.id,
             slot="TestSlot",
         )
-        db_slot_save = db_save_handler.add_save(existing_slot_save)
 
         old_sync_time = datetime.now(timezone.utc) - timedelta(hours=1)
         db_device_save_sync_handler.upsert_sync(
@@ -1215,20 +1202,10 @@ class TestSaveConflictDetection:
         device: Device,
     ):
         """Upload to slot succeeds when device has synced the latest save."""
-        from handler.database import db_save_handler
 
-        existing_slot_save = Save(
-            file_name="synced_save.sav",
-            file_name_no_tags="synced_save",
-            file_name_no_ext="synced_save",
-            file_extension="sav",
-            file_path=f"{platform.slug}/saves",
-            file_size_bytes=100,
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            slot="SyncedSlot",
+        db_slot_save = make_save(
+            rom, admin_user, "synced_save.sav", file_size_bytes=100, slot="SyncedSlot"
         )
-        db_slot_save = db_save_handler.add_save(existing_slot_save)
 
         db_device_save_sync_handler.upsert_sync(
             device_id=device.id,
@@ -1279,20 +1256,14 @@ class TestSaveConflictDetection:
         device: Device,
     ):
         """Device that never synced any save in slot should get out_of_sync."""
-        from handler.database import db_save_handler
 
-        existing_slot_save = Save(
-            file_name="never_synced.sav",
-            file_name_no_tags="never_synced",
-            file_name_no_ext="never_synced",
-            file_extension="sav",
-            file_path=f"{platform.slug}/saves",
+        make_save(
+            rom,
+            admin_user,
+            "never_synced.sav",
             file_size_bytes=100,
-            rom_id=rom.id,
-            user_id=admin_user.id,
             slot="NeverSyncedSlot",
         )
-        db_save_handler.add_save(existing_slot_save)
 
         mock_scan.return_value = Save(
             file_name="upload_attempt.sav",
@@ -1404,23 +1375,13 @@ class TestSlotFiltering:
     def saves_with_slots(
         self, admin_user: User, rom: Rom, platform: Platform
     ) -> list[Save]:
-        from handler.database import db_save_handler
 
-        saves = []
-        for i, slot in enumerate([None, "Slot 1", "Slot 1", "Slot 2"]):
-            save = Save(
-                file_name=f"save_{i}.sav",
-                file_name_no_tags=f"save_{i}",
-                file_name_no_ext=f"save_{i}",
-                file_extension="sav",
-                file_path=f"{platform.slug}/saves",
-                file_size_bytes=100 + i,
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                slot=slot,
+        return [
+            make_save(
+                rom, admin_user, f"save_{i}.sav", file_size_bytes=100 + i, slot=slot
             )
-            saves.append(db_save_handler.add_save(save))
-        return saves
+            for i, slot in enumerate([None, "Slot 1", "Slot 1", "Slot 2"])
+        ]
 
     def test_get_saves_without_slot_filter(
         self, client, access_token: str, saves_with_slots: list[Save]
@@ -1778,17 +1739,15 @@ class TestSlotValidation:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
-def _seed_slot_saves(
-    admin_user: User, rom: Rom, platform: Platform, slot: str, count: int
-) -> list[Save]:
+def _seed_slot_saves(admin_user: User, rom: Rom, slot: str, count: int) -> list[Save]:
     """``count`` versions of ``slot``, one hour apart, oldest first."""
     from datetime import datetime, timedelta, timezone
 
     saves = []
     base_time = datetime.now(timezone.utc) - timedelta(hours=20)
     for i in range(count):
-        created = db_save_handler.add_save(
-            _slot_save(admin_user, rom, platform, f"{slot}_{i}", slot, 100 + i)
+        created = make_save(
+            rom, admin_user, f"{slot}_{i}.sav", file_size_bytes=100 + i, slot=slot
         )
         db_save_handler.update_save(
             created.id, {"updated_at": base_time + timedelta(hours=i)}
@@ -1820,8 +1779,8 @@ def _slot_save(
 
 class TestAutocleanup:
     @pytest.fixture
-    def slot_saves(self, admin_user: User, rom: Rom, platform: Platform) -> list[Save]:
-        return _seed_slot_saves(admin_user, rom, platform, "autosave", 15)
+    def slot_saves(self, admin_user: User, rom: Rom) -> list[Save]:
+        return _seed_slot_saves(admin_user, rom, "autosave", 15)
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -1956,9 +1915,16 @@ class TestAutocleanup:
 
         def hash_while_another_upload_lands(path: str) -> str:
             if not raced:
-                upload = _slot_save(admin_user, rom, platform, "raced", "autosave")
-                upload.content_hash = "raced"
-                raced.append(db_save_handler.add_save(upload))
+                raced.append(
+                    make_save(
+                        rom,
+                        admin_user,
+                        "raced.sav",
+                        file_size_bytes=100,
+                        slot="autosave",
+                        content_hash="raced",
+                    )
+                )
             return f"hash of {path.rsplit('/', 1)[-1]}"
 
         mock_hash.side_effect = hash_while_another_upload_lands
@@ -2128,10 +2094,8 @@ class TestAutocleanup:
 
 class TestSlotRetention:
     @pytest.fixture
-    def named_slot_saves(
-        self, admin_user: User, rom: Rom, platform: Platform
-    ) -> list[Save]:
-        return _seed_slot_saves(admin_user, rom, platform, "main_quest", 5)
+    def named_slot_saves(self, admin_user: User, rom: Rom) -> list[Save]:
+        return _seed_slot_saves(admin_user, rom, "main_quest", 5)
 
     def _upload(self, client, access_token: str, rom: Rom, query: str = ""):
         return client.post(
@@ -2371,38 +2335,20 @@ class TestAutocleanupScreenshots:
         admin_user: User,
     ):
         from handler.database import db_save_handler, db_screenshot_handler
-        from models.assets import Screenshot
 
         base_time = rom.created_at
         for i in range(3):
-            save = db_save_handler.add_save(
-                Save(
-                    file_name=f"autosave_{i}.sav",
-                    file_name_no_tags=f"autosave_{i}",
-                    file_name_no_ext=f"autosave_{i}",
-                    file_extension="sav",
-                    file_path=f"{platform.slug}/saves",
-                    file_size_bytes=100,
-                    rom_id=rom.id,
-                    user_id=admin_user.id,
-                    slot="autosave",
-                )
+            save = make_save(
+                rom,
+                admin_user,
+                f"autosave_{i}.sav",
+                file_size_bytes=100,
+                slot="autosave",
             )
             db_save_handler.update_save(
                 save.id, {"updated_at": base_time + timedelta(hours=i)}
             )
-            db_screenshot_handler.add_screenshot(
-                Screenshot(
-                    file_name=f"autosave_{i}.png",
-                    file_name_no_tags=f"autosave_{i}",
-                    file_name_no_ext=f"autosave_{i}",
-                    file_extension="png",
-                    file_path=f"{platform.slug}/screenshots",
-                    file_size_bytes=10,
-                    rom_id=rom.id,
-                    user_id=admin_user.id,
-                )
-            )
+            make_screenshot(rom, admin_user, f"autosave_{i}.png", file_size_bytes=10)
 
         mock_scan.return_value = Save(
             file_name="autosave_new.sav",
@@ -2453,17 +2399,9 @@ class TestSaveDeleteThumbnail:
     """Deleting a save takes its thumbnail only when nothing else shows it."""
 
     def _add_thumbnail(
-        self, assets_dir, rom: Rom, user: User, platform: Platform, file_name: str
+        self, assets_dir, rom: Rom, user: User, file_name: str
     ) -> tuple[Screenshot, Path]:
-        thumbnail = db_screenshot_handler.add_screenshot(
-            Screenshot(
-                rom_id=rom.id,
-                user_id=user.id,
-                file_name=file_name,
-                file_path=f"{platform.slug}/screenshots",
-                file_size_bytes=3,
-            )
-        )
+        thumbnail = make_screenshot(rom, user, file_name, file_size_bytes=3)
         path = assets_dir / thumbnail.file_path / thumbnail.file_name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"PNG")
@@ -2487,17 +2425,9 @@ class TestSaveDeleteThumbnail:
         save: Save,
     ):
         # Same stem as the save, so both resolve `test_save.png`.
-        db_state_handler.add_state(
-            State(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_save.state",
-                file_path=f"{platform.slug}/states",
-                file_size_bytes=1,
-            )
-        )
+        make_state(rom, admin_user, "test_save.state", file_size_bytes=1)
         thumbnail, path = self._add_thumbnail(
-            _isolated_assets_dir, rom, admin_user, platform, "test_save.png"
+            _isolated_assets_dir, rom, admin_user, "test_save.png"
         )
 
         response = self._delete(client, access_token, save.id)
@@ -2515,31 +2445,15 @@ class TestSaveDeleteThumbnail:
         platform: Platform,
         admin_user: User,
     ):
-        save = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="Game.01.srm",
-                file_path=f"{platform.slug}/saves",
-                file_size_bytes=1,
-            )
-        )
-        db_state_handler.add_state(
-            State(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="Game.01.p2s",
-                file_path=f"{platform.slug}/states",
-                file_size_bytes=1,
-            )
-        )
+        save = make_save(rom, admin_user, "Game.01.srm", file_size_bytes=1)
+        make_state(rom, admin_user, "Game.01.p2s", file_size_bytes=1)
         thumbnail, path = self._add_thumbnail(
-            _isolated_assets_dir, rom, admin_user, platform, "Game.01.png"
+            _isolated_assets_dir, rom, admin_user, "Game.01.png"
         )
         # The state matches the save's by stem, but its lookup prefers the one
         # named after its whole file name.
         shown, shown_path = self._add_thumbnail(
-            _isolated_assets_dir, rom, admin_user, platform, "Game.01.p2s.png"
+            _isolated_assets_dir, rom, admin_user, "Game.01.p2s.png"
         )
 
         response = self._delete(client, access_token, save.id)
@@ -2643,18 +2557,13 @@ class TestSavesSummaryEndpoint:
         ]
 
         for slot, offset in configs:
-            save = Save(
-                file_name=f"summary_save_{offset}.sav",
-                file_name_no_tags=f"summary_save_{offset}",
-                file_name_no_ext=f"summary_save_{offset}",
-                file_extension="sav",
-                file_path=f"{platform.slug}/saves",
+            created = make_save(
+                rom,
+                admin_user,
+                f"summary_save_{offset}.sav",
                 file_size_bytes=100 + offset,
-                rom_id=rom.id,
-                user_id=admin_user.id,
                 slot=slot,
             )
-            created = db_save_handler.add_save(save)
             db_save_handler.update_save(
                 created.id, {"updated_at": base_time + timedelta(hours=offset)}
             )
@@ -3843,18 +3752,10 @@ class TestSaveVisibilityPropagation:
         admin_user: User,
     ):
         from handler.database import db_screenshot_handler
-        from models.assets import Screenshot
 
         # Thumbnail whose filename stem matches the save (how Save.screenshot links).
-        thumb = db_screenshot_handler.add_screenshot(
-            Screenshot(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_save.png",
-                file_path=f"{platform.slug}/screenshots",
-                file_size_bytes=1,
-                is_public=False,
-            )
+        thumb = make_screenshot(
+            rom, admin_user, "test_save.png", file_size_bytes=1, is_public=False
         )
 
         response = client.put(
@@ -4166,15 +4067,7 @@ class TestSaveRename:
         save_file,
         _isolated_assets_dir,
     ):
-        thumbnail = db_screenshot_handler.add_screenshot(
-            Screenshot(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_save.png",
-                file_path=f"{platform.slug}/screenshots",
-                file_size_bytes=3,
-            )
-        )
+        thumbnail = make_screenshot(rom, admin_user, "test_save.png", file_size_bytes=3)
         screenshots_dir = _isolated_assets_dir / thumbnail.file_path
         screenshots_dir.mkdir(parents=True)
         (screenshots_dir / "test_save.png").write_bytes(b"PNG")
@@ -4203,16 +4096,14 @@ class TestSaveRename:
         save_file,
     ):
         # Slots share a folder on disk, so the name has to be free across them.
-        db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="archived.sav",
-                emulator="test_emulator",
-                slot=None,
-                file_path=save.file_path,
-                file_size_bytes=1,
-            )
+        make_save(
+            rom,
+            admin_user,
+            "archived.sav",
+            emulator="test_emulator",
+            slot=None,
+            file_path=save.file_path,
+            file_size_bytes=1,
         )
 
         response = self._rename(client, access_token, save.id, "archived.sav")
