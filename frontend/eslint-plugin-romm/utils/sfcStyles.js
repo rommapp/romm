@@ -14,7 +14,7 @@ const parsed = new WeakMap();
  * @param {import("eslint").Rule.RuleContext} context
  * @returns {SfcNode | null}
  */
-export function sfcFragment(context) {
+function sfcFragment(context) {
   const services =
     /** @type {{ getDocumentFragment?: () => SfcNode | null }} */ (
       context.sourceCode.parserServices ?? {}
