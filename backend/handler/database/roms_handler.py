@@ -2484,7 +2484,6 @@ class DBRomsHandler(DBBaseHandler):
         rom_file: RomFile,
         session: Session = INJECTED_SESSION,
     ) -> RomFile:
-        # Merging an existing file under another rom moves it out of the old one.
         previous_rom_id = (
             self._lock_rom_file_owner(rom_file.id, session)
             if rom_file.id is not None
@@ -2738,7 +2737,6 @@ class DBRomsHandler(DBBaseHandler):
             if data.keys() & {"file_size_bytes", "rom_id"}
             else None
         )
-        # A new `rom_id` moves the file, so both roms' totals change.
         rom_ids = (
             {current_rom_id, data.get("rom_id", current_rom_id)}
             if current_rom_id is not None
