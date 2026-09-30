@@ -136,15 +136,15 @@ function closeDialog() {
               <template #selection="{ item }">
                 <v-list-item class="pa-0">
                   <v-icon class="mr-2">
-                    {{ getRoleIcon(item.title) }}
+                    {{ getRoleIcon(item) }}
                   </v-icon>
-                  {{ item.title }}
+                  {{ item }}
                 </v-list-item>
               </template>
               <template #item="{ item, props }">
-                <v-list-item v-bind="props" :title="item.title">
+                <v-list-item v-bind="props" :title="item">
                   <template #prepend>
-                    <v-icon>{{ getRoleIcon(item.title) }}</v-icon>
+                    <v-icon>{{ getRoleIcon(item) }}</v-icon>
                   </template>
                 </v-list-item>
               </template>
