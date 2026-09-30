@@ -16,10 +16,12 @@ import DevicePair from "@/v2/views/DevicePair.vue";
     <main class="r-v2-devpair-shell__stage">
       <DevicePair />
     </main>
-    <div class="r-v2-devpair-shell__lang">
-      <LanguageSelector />
-    </div>
-    <VersionTag class="r-v2-devpair-shell__version" />
+    <footer>
+      <div class="r-v2-devpair-shell__lang">
+        <LanguageSelector />
+      </div>
+      <VersionTag class="r-v2-devpair-shell__version" />
+    </footer>
   </div>
 </template>
 
