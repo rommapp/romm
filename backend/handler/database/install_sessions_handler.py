@@ -203,7 +203,11 @@ class DBInstallSessionsHandler(DBBaseHandler):
         self,
         session: Session = None,  # type: ignore
     ) -> list[InstallSession]:
-        """Sessions whose TTL has elapsed (unlimited sessions are never returned)."""
+        """Sessions whose TTL has elapsed (unlimited sessions are never
+        returned). A session still actively running is excluded even past
+        its TTL - evicting its cache out from under the worker would corrupt
+        a write in progress; it becomes eligible once it leaves
+        RUNNING_INSTALL_STATES."""
         now = datetime.now(timezone.utc)
         return list(
             session.scalars(
@@ -211,6 +215,7 @@ class DBInstallSessionsHandler(DBBaseHandler):
                     InstallSession.expires_at.is_not(None),
                     InstallSession.expires_at < now,
                     InstallSession.state != InstallSessionState.EXPIRED,
+                    InstallSession.state.not_in(RUNNING_INSTALL_STATES),
                 )
             ).all()
         )
