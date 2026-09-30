@@ -592,15 +592,21 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 
 Tracks individual files within a ROM (archives can contain multiple files).
 
-| Column                                         | Type        | Notes                                                                                                                              |
-| ---------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                                           | Integer     | PK                                                                                                                                 |
-| `rom_id`                                       | Integer     | FK → roms                                                                                                                          |
-| `file_name`, `file_path`                       | String      | File identity                                                                                                                      |
-| `file_size_bytes`                              | BigInteger  | Size                                                                                                                               |
-| `crc_hash`, `md5_hash`, `sha1_hash`, `ra_hash` | String(100) | Hashes                                                                                                                             |
-| `category`                                     | Enum        | `GAME`, `DLC`, `HACK`, `MANUAL`, `PATCH`, `UPDATE`, `MOD`, `DEMO`, `TRANSLATION`, `PROTOTYPE`, `CHEAT`, `SOUNDTRACK`, `SCREENSHOT` |
-| `missing_from_fs`                              | Boolean     | Sync state                                                                                                                         |
+| Column                                                                    | Type                                          | Notes                                                                                                                              |
+| ------------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                                                      | Integer                                       | PK                                                                                                                                 |
+| `rom_id`                                                                  | Integer                                       | FK → roms                                                                                                                          |
+| `file_name`, `file_path`                                                  | String                                        | File identity                                                                                                                      |
+| `file_size_bytes`                                                         | BigInteger                                    | Size                                                                                                                               |
+| `crc_hash`, `md5_hash`, `sha1_hash`, `ra_hash`                            | String(100)                                   | Hashes                                                                                                                             |
+| `category`                                                                | Enum                                          | `GAME`, `DLC`, `HACK`, `MANUAL`, `PATCH`, `UPDATE`, `MOD`, `DEMO`, `TRANSLATION`, `PROTOTYPE`, `CHEAT`, `SOUNDTRACK`, `SCREENSHOT` |
+| `title_id`, `title_version`                                               | String(100), BigInteger                       | Platform-native id and numeric version read from the binary (rom-converto or sigil)                                                |
+| `title`, `serial`, `publisher`, `display_version`, `min_firmware_version` | String(255)                                   | Read by rom-converto during scans                                                                                                  |
+| `content_type`                                                            | String(20)                                    | `game`, `update`, `dlc`, `demo` or `system`, read by rom-converto                                                                  |
+| `regions`, `languages`                                                    | JSON                                          | Canonical region and language names, read by rom-converto                                                                          |
+| `is_compressed`, `compression`, `file_format`, `uncompressed_size_bytes`  | Boolean, String(255), String(255), BigInteger | Container details read by rom-converto                                                                                             |
+| `icon_path`, `banner_path`, `background_path`                             | String(1024)                                  | Images rom-converto read from the file, under resources at `roms/{platform_id}/{rom_id}/{icons,banners,backgrounds}/{file_id}.png` |
+| `missing_from_fs`                                                         | Boolean                                       | Sync state                                                                                                                         |
 
 **Relationships:** rom (M:1), track_meta (1:1, `SOUNDTRACK` files only)
 

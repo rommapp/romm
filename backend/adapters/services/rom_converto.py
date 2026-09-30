@@ -5,7 +5,7 @@ import os
 import shutil
 import tempfile
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Final
 
@@ -50,6 +50,8 @@ _STDERR_TAIL_BYTES = 400
 # The width of the `rom_files` text columns this metadata is stored into.
 _TEXT_MAX_LENGTH = 255
 
+_PNG_SIGNATURE: Final[bytes] = b"\x89PNG\r\n\x1a\n"
+
 
 class RomConvertoError(Exception): ...
 
@@ -62,6 +64,15 @@ class RomConvertoTimeoutError(RomConvertoError): ...
 
 class RomConvertoOperationError(RomConvertoError):
     """A conversion command exited nonzero."""
+
+
+@dataclass(frozen=True)
+class RomConvertoImages:
+    """The PNG images rom-converto read from a file."""
+
+    icon: bytes | None = None
+    banner: bytes | None = None
+    background: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -88,6 +99,7 @@ class RomConvertoInfo:
     # The format badge rom-converto's GUI shows (NSZ, CIA, RVZ, CHD, DISC, ...).
     file_format: str | None = None
     uncompressed_size_bytes: int | None = None
+    images: RomConvertoImages = field(default_factory=RomConvertoImages)
 
 
 @dataclass(frozen=True)
@@ -270,6 +282,18 @@ def _dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _image(value: Any) -> bytes | None:
+    """The PNG a rom-converto `Image` carries, or None if it holds none."""
+    png_bytes = _dict(value).get("png_bytes")
+    if not isinstance(png_bytes, list):
+        return None
+    try:
+        image = bytes(png_bytes)
+    except TypeError, ValueError:
+        return None
+    return image if image.startswith(_PNG_SIGNATURE) else None
+
+
 def _list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
@@ -445,6 +469,7 @@ def _nx_info(flat: dict[str, Any]) -> RomConvertoInfo:
         is_compressed=compressed if isinstance(compressed, bool) else None,
         compression="zstd" if compressed is True else None,
         file_format=_upper(flat.get("container_kind")),
+        images=RomConvertoImages(icon=_image(control.get("icon"))),
     )
 
 
@@ -464,6 +489,7 @@ def _ctr_info(flat: dict[str, Any]) -> RomConvertoInfo:
         is_compressed=compressed if isinstance(compressed, bool) else None,
         compression="zstd" if compressed is True else None,
         file_format=None if file_format == "UNKNOWN" else file_format,
+        images=RomConvertoImages(icon=_image(flat.get("icon"))),
     )
 
 
@@ -482,6 +508,7 @@ def _wup_info(flat: dict[str, Any]) -> RomConvertoInfo:
         # A .wux disc is compressed and a .wud is not, yet both read as "disc".
         is_compressed={"wua": True, "nus": False, "loadiine": False}.get(source),
         file_format=source.upper() or None,
+        images=RomConvertoImages(icon=_image(flat.get("image"))),
     )
 
 
@@ -509,6 +536,7 @@ def _dol_info(flat: dict[str, Any]) -> RomConvertoInfo:
         publisher=_text(row.get("long_maker")) or _text(flat.get("maker_name")),
         is_compressed=is_compressed,
         file_format=file_format,
+        images=RomConvertoImages(banner=_image(flat.get("banner_image"))),
     )
 
 
@@ -528,6 +556,8 @@ def _rvl_info(flat: dict[str, Any]) -> RomConvertoInfo:
         publisher=_text(flat.get("maker_name")),
         is_compressed=is_compressed,
         file_format=file_format,
+        # The opening.bnr banner, not an icon.
+        images=RomConvertoImages(banner=_image(flat.get("image"))),
     )
 
 
@@ -544,6 +574,8 @@ def _ntr_info(flat: dict[str, Any]) -> RomConvertoInfo:
         publisher=lines[-1] if len(lines) > 1 else None,
         is_compressed=False,
         file_format="NDS",
+        # The icon lives in the banner block, but it is the 32x32 game icon.
+        images=RomConvertoImages(icon=_image(_dict(flat.get("banner")).get("icon"))),
     )
 
 
@@ -561,6 +593,7 @@ def _xbox_info(flat: dict[str, Any]) -> RomConvertoInfo:
         regions=_regions(header.get("region_names")),
         is_compressed=False,
         file_format="DISC",
+        images=RomConvertoImages(icon=_image(header.get("icon"))),
     )
 
 
@@ -581,6 +614,7 @@ def _xenon_info(flat: dict[str, Any]) -> RomConvertoInfo:
         ),
         file_format="ZAR",
         uncompressed_size_bytes=logical_size,
+        images=RomConvertoImages(icon=_image(xex.get("icon"))),
     )
 
 
@@ -595,6 +629,10 @@ def _sony_disc_info(flat: dict[str, Any]) -> RomConvertoInfo:
         min_firmware_version=_text(flat.get("firmware")),
         is_compressed=False,
         file_format="DISC",
+        images=RomConvertoImages(
+            icon=_image(flat.get("icon")),
+            background=_image(flat.get("background")),
+        ),
     )
 
 
@@ -606,6 +644,7 @@ def _pbp_info(flat: dict[str, Any]) -> RomConvertoInfo:
         display_version=_text(flat.get("disc_version")),
         min_firmware_version=_text(flat.get("psp_system_ver")),
         file_format="EBOOT.PBP",
+        images=RomConvertoImages(icon=_image(flat.get("icon"))),
     )
 
 
@@ -617,6 +656,10 @@ def _psn_package_info(flat: dict[str, Any], file_format: str) -> RomConvertoInfo
         content_type=_content_type(flat.get("content_kind")),
         display_version=_text(flat.get("app_ver")),
         file_format=file_format,
+        images=RomConvertoImages(
+            icon=_image(flat.get("icon")),
+            background=_image(flat.get("background")),
+        ),
     )
 
 

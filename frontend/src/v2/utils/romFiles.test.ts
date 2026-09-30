@@ -37,6 +37,9 @@ const file: RomFileSchema = {
   compression: null,
   file_format: null,
   uncompressed_size_bytes: null,
+  icon_path: null,
+  banner_path: null,
+  background_path: null,
   archive_members: null,
   category: "screenshot",
 };

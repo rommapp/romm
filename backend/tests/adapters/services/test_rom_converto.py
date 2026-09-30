@@ -12,6 +12,7 @@ from adapters.services.rom_converto import (
     TARGETS_BY_PLATFORM,
     Operation,
     RomConvertoBinaryNotFoundError,
+    RomConvertoImages,
     RomConvertoInfo,
     RomConvertoOperationError,
     RomConvertoService,
@@ -19,6 +20,8 @@ from adapters.services.rom_converto import (
     resolve_operation,
 )
 from models.rom import ROM_FILE_INFO_MAX_LENGTH, RomFileContentType
+
+_FAKE_PNG = b"\x89PNG\r\n\x1a\nfake"
 
 
 class FakeProc:
@@ -313,6 +316,7 @@ class TestParseInfo:
                         "title_version": 65536,
                         "application_title_id_hex": "0100000000010000",
                         "control": {
+                            "icon": {"png_bytes": list(_FAKE_PNG)},
                             "display_version": "1.0.0",
                             "supported_languages": [
                                 "AmericanEnglish",
@@ -345,6 +349,7 @@ class TestParseInfo:
                     is_compressed=True,
                     compression="zstd",
                     file_format="NSZ",
+                    images=RomConvertoImages(icon=_FAKE_PNG),
                 ),
                 id="nx-reads-the-full-header",
             ),
@@ -366,6 +371,8 @@ class TestParseInfo:
                     "content_kind": "game",
                     "compressed": True,
                     "format": "cia",
+                    "icon": {"png_bytes": list(_FAKE_PNG)},
+                    "small_icon": {"png_bytes": list(_FAKE_PNG + b"2")},
                     "smdh": {
                         "region_names": ["North America", "Japan"],
                         "titles": [
@@ -394,6 +401,7 @@ class TestParseInfo:
                     is_compressed=True,
                     compression="zstd",
                     file_format="CIA",
+                    images=RomConvertoImages(icon=_FAKE_PNG),
                 ),
                 id="ctr-reads-smdh-from-a-compressed-cia",
             ),
@@ -408,6 +416,7 @@ class TestParseInfo:
                     "title_id_hex": "0005000010143500",
                     "title_version": 16,
                     "content_kind": "game",
+                    "image": {"png_bytes": list(_FAKE_PNG)},
                     "source_kind": "disc (GM0005000010143500)",
                     "meta": {
                         "product_code": "WUP-P-ARZE",
@@ -436,6 +445,7 @@ class TestParseInfo:
                     # .wud vs .wux cannot be told apart.
                     is_compressed=None,
                     file_format="DISC",
+                    images=RomConvertoImages(icon=_FAKE_PNG),
                 ),
                 id="wup-reads-the-xml-meta",
             ),
@@ -466,6 +476,7 @@ class TestParseInfo:
                     "disc_version": 2,
                     "region": "Usa",
                     "container": "RVZ",
+                    "banner_image": {"png_bytes": list(_FAKE_PNG)},
                     "banner": {
                         "titles": [
                             {"language": "Default", "long_game_name": "ZELDA"},
@@ -490,6 +501,7 @@ class TestParseInfo:
                     publisher="Nintendo",
                     is_compressed=True,
                     file_format="RVZ",
+                    images=RomConvertoImages(banner=_FAKE_PNG),
                 ),
                 id="dol-reads-the-banner-and-rvz-container",
             ),
@@ -519,6 +531,7 @@ class TestParseInfo:
                         ]
                     },
                     "maker_name": "Nintendo",
+                    "image": {"png_bytes": list(_FAKE_PNG)},
                 },
                 RomConvertoInfo(
                     title_id="534D4E45",
@@ -532,6 +545,7 @@ class TestParseInfo:
                     publisher="Nintendo",
                     is_compressed=False,
                     file_format="DISC",
+                    images=RomConvertoImages(banner=_FAKE_PNG),
                 ),
                 id="rvl-prefers-the-tmd-title-version",
             ),
@@ -554,7 +568,8 @@ class TestParseInfo:
                                 ["Japanese", "ホームブルー\n作者不明"],
                                 ["English", "Homebrew Game\nby TestDev\nfinal release"],
                             ]
-                        }
+                        },
+                        "icon": {"png_bytes": list(_FAKE_PNG)},
                     },
                 },
                 RomConvertoInfo(
@@ -566,6 +581,7 @@ class TestParseInfo:
                     publisher="final release",
                     is_compressed=False,
                     file_format="NDS",
+                    images=RomConvertoImages(icon=_FAKE_PNG),
                 ),
                 id="ntr-splits-the-banner-into-title-and-publisher",
             ),
@@ -577,7 +593,9 @@ class TestParseInfo:
                         "title_name": "Stubbs the Zombie",
                         "version": 1,
                         "region_names": ["NTSC-U"],
+                        "icon": {"png_bytes": list(_FAKE_PNG)},
                     },
+                    "xex": {"icon": {"png_bytes": list(_FAKE_PNG + b"2")}},
                 },
                 RomConvertoInfo(
                     title_id="TT-027",
@@ -588,6 +606,7 @@ class TestParseInfo:
                     regions=("USA",),
                     is_compressed=False,
                     file_format="DISC",
+                    images=RomConvertoImages(icon=_FAKE_PNG),
                 ),
                 id="xbox-reads-the-xbe-header",
             ),
@@ -599,6 +618,7 @@ class TestParseInfo:
                         "title_name": "Halo 3",
                         "version": "1.0.0.0",
                         "region_names": ["NTSC-U", "PAL"],
+                        "icon": {"png_bytes": list(_FAKE_PNG)},
                     },
                 },
                 RomConvertoInfo(
@@ -609,6 +629,7 @@ class TestParseInfo:
                     regions=("USA", "Europe"),
                     is_compressed=False,
                     file_format="DISC",
+                    images=RomConvertoImages(icon=_FAKE_PNG),
                 ),
                 id="xbox-360-iso-reads-the-xex-header",
             ),
@@ -636,6 +657,7 @@ class TestParseInfo:
                         "title_name": "Halo 3",
                         "version": "2.0.4552.0",
                         "region_names": ["RegionFree"],
+                        "icon": {"png_bytes": list(_FAKE_PNG)},
                     },
                 },
                 RomConvertoInfo(
@@ -647,6 +669,7 @@ class TestParseInfo:
                     is_compressed=True,
                     file_format="ZAR",
                     uncompressed_size_bytes=786432000,
+                    images=RomConvertoImages(icon=_FAKE_PNG),
                 ),
                 id="xenon-reads-the-xex-header-and-zar-sizes",
             ),
@@ -698,6 +721,7 @@ class TestParseInfo:
                     "content_kind": "update",
                     "disc_version": "1.00",
                     "psp_system_ver": "5.55",
+                    "icon": {"png_bytes": list(_FAKE_PNG)},
                 },
                 RomConvertoInfo(
                     title="Patapon",
@@ -706,6 +730,7 @@ class TestParseInfo:
                     display_version="1.00",
                     min_firmware_version="5.55",
                     file_format="EBOOT.PBP",
+                    images=RomConvertoImages(icon=_FAKE_PNG),
                 ),
                 id="pbp-reads-the-eboot-header",
             ),
@@ -751,6 +776,8 @@ class TestParseInfo:
                     "content_id": "JM0000-ABCDEF12_00-0000000000000000",
                     "content_kind": "game",
                     "app_ver": "1.02",
+                    "icon": {"png_bytes": list(_FAKE_PNG)},
+                    "background": {"png_bytes": list(_FAKE_PNG)},
                 },
                 RomConvertoInfo(
                     title="Vita Homebrew",
@@ -758,6 +785,7 @@ class TestParseInfo:
                     content_type="game",
                     display_version="1.02",
                     file_format="VPK",
+                    images=RomConvertoImages(icon=_FAKE_PNG, background=_FAKE_PNG),
                 ),
                 id="vpk-reads-the-package-header",
             ),
@@ -787,6 +815,8 @@ class TestParseInfo:
                         "title_id": "UCUS-98718",
                         "content_kind": "game",
                         "version": "1.00",
+                        "icon": {"png_bytes": list(_FAKE_PNG)},
+                        "background": {"png_bytes": list(_FAKE_PNG)},
                     },
                 },
                 RomConvertoInfo(
@@ -799,6 +829,7 @@ class TestParseInfo:
                     compression="zstd",
                     file_format="CHD",
                     uncompressed_size_bytes=1234567890,
+                    images=RomConvertoImages(icon=_FAKE_PNG, background=_FAKE_PNG),
                 ),
                 id="chd-layers-the-container-over-the-inner-psp-disc",
             ),
@@ -977,6 +1008,39 @@ class TestParseInfo:
         stored = {member.value for member in RomFileContentType}
         assert rom_converto._CONTENT_TYPES == stored
         assert set(rom_converto._SWITCH_CONTENT_TYPES.values()) <= stored
+
+
+class TestImage:
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            pytest.param(
+                {"png_bytes": list(_FAKE_PNG)},
+                _FAKE_PNG,
+                id="valid-png-list",
+            ),
+            pytest.param({}, None, id="missing-png-bytes"),
+            pytest.param(
+                {"png_bytes": tuple(_FAKE_PNG)},
+                None,
+                id="png-bytes-not-a-list",
+            ),
+            pytest.param(
+                {"png_bytes": [256]},
+                None,
+                id="byte-out-of-range",
+            ),
+            pytest.param(
+                {"png_bytes": list(b"not png")},
+                None,
+                id="not-png",
+            ),
+        ],
+    )
+    def test_image_returns_only_valid_png_bytes(
+        self, value: Any, expected: bytes | None
+    ) -> None:
+        assert rom_converto._image(value) == expected
 
 
 class TestConvert:

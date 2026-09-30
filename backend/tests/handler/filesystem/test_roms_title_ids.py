@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from adapters.services.rom_converto import (
+    RomConvertoImages,
     RomConvertoInfo,
     rom_converto_service,
 )
@@ -139,6 +140,34 @@ class TestReadConvertoInfos:
         assert (idless.title_id, idless.title_version) == (None, 3)
         assert idless.regions is None
 
+    @pytest.mark.asyncio
+    async def test_returns_images_only_for_files_with_info(self, handler, mocker):
+        with_icon = RomFile(file_name="icon.chd", file_path="psx/roms")
+        without_images = RomFile(file_name="plain.chd", file_path="psx/roms")
+        without_info = RomFile(file_name="missing.chd", file_path="psx/roms")
+        icon_path = Path("/lib/icon.chd")
+        plain_path = Path("/lib/plain.chd")
+        missing_path = Path("/lib/missing.chd")
+        icon_images = RomConvertoImages(icon=b"\x89PNG\r\n\x1a\nicon")
+        empty_images = RomConvertoImages()
+        read_infos = mocker.AsyncMock(
+            return_value={
+                icon_path: _info(images=icon_images),
+                plain_path: _info(images=empty_images),
+            }
+        )
+        _patch_service(mocker, read_infos)
+
+        images = await handler._read_converto_infos(
+            [
+                (icon_path, with_icon),
+                (plain_path, without_images),
+                (missing_path, without_info),
+            ]
+        )
+
+        assert images == {with_icon: icon_images, without_images: empty_images}
+
 
 PS2_PLATFORM = Platform(name="PlayStation 2", slug="ps2", fs_slug="ps2")
 
@@ -266,6 +295,35 @@ class TestGetRomFilesWithConverto:
 
         assert parsed.identity.title_id == "SLUS-00001"
         assert parsed.identity.save_target is None
+
+    @pytest.mark.asyncio
+    async def test_stored_identity_survives_matching_converto_id(
+        self, scan_env, mocker
+    ):
+        stored = RomIdentity(
+            title_id="SLUS-00001",
+            save_target="stored-target",
+            save_target_layout=SaveTargetLayout.FILE_PREFIX,
+        )
+        scan_env.rom.title_id = stored.title_id
+        scan_env.rom.save_target = stored.save_target
+        scan_env.rom.save_target_layout = stored.save_target_layout
+        mocker.patch(
+            "adapters.services.sigil.SigilService.extract_title_id",
+            mocker.AsyncMock(return_value=None),
+        )
+        disc1 = scan_env.rom_dir / "Game (Disc 1).iso"
+        mocker.patch.object(
+            rom_converto_service,
+            "read_infos",
+            mocker.AsyncMock(return_value={disc1: _info(title_id=stored.title_id)}),
+        )
+
+        parsed = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False
+        )
+
+        assert parsed.identity == stored
 
     @pytest.mark.asyncio
     async def test_metadata_lands_on_new_file_rows(self, scan_env, mocker):

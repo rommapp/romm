@@ -281,6 +281,9 @@ class RomFileSchema(BaseModel):
     compression: str | None
     file_format: str | None
     uncompressed_size_bytes: int | None
+    icon_path: str | None
+    banner_path: str | None
+    background_path: str | None
     archive_members: list[RomArchiveMember] | None
     category: RomFileCategory | None
     track_meta: TrackMetaSchema | None = None
