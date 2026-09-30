@@ -39,6 +39,7 @@ import {
 } from "@/utils";
 import { useSnackbar, type SnackbarTone } from "@/v2/composables/useSnackbar";
 import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
+import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
 import {
   saveSave,
   captureScreenshot,
@@ -52,6 +53,7 @@ import {
   loadEmulatorJSState,
   invalidateEmulatorJSRomCacheIfRenamed,
   installEJSDefaultOptionsTrap,
+  installNetplayHostAudioTap,
   patchNetplaySocketIo,
   createQuickLoadButton,
   createSaveQuitButton,
@@ -410,6 +412,9 @@ window.EJS_disableBatchBootup = EJS_DISABLE_BATCH_BOOTUP;
 if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
 
 installEJSDefaultOptionsTrap();
+const patchNetplayHostAudio = EJS_NETPLAY_ENABLED
+  ? installNetplayHostAudioTap()
+  : null;
 
 onMounted(() => {
   window.scrollTo(0, 0);
@@ -603,7 +608,11 @@ async function flushPendingSave() {
     console.error("Save sync on exit failed", error);
   }
 }
-onBeforeRouteLeave(flushPendingSave);
+onBeforeRouteLeave(async () => {
+  await flushPendingSave();
+  // The unmount reloads the page.
+  await leaveFullscreen();
+});
 // A v2 shell that leaves by replacing the document aborts the navigation, so
 // the guard above never runs and the flush has to be asked for. Idempotent.
 defineExpose({ flushPendingSave });
@@ -838,6 +847,7 @@ window.EJS_onGameStart = async () => {
         return {};
       }
     };
+    patchNetplayHostAudio?.(netplay);
   }
 
   patchNetplaySocketIo();
