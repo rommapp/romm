@@ -200,18 +200,7 @@ class TestExportMetadata:
         platform = Platform(name="Game Boy", slug="gb", fs_slug="gb")
         platform = db_platform_handler.add_platform(platform)
 
-        db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name=None,
-                slug="unknown",
-                fs_name="unknown.gb",
-                fs_name_no_tags="unknown",
-                fs_name_no_ext="unknown",
-                fs_extension="gb",
-                fs_path="gb/roms",
-            )
-        )
+        make_rom(platform, "unknown", fs_extension="gb", name=None)
 
         parsed = _parse_pegasus(
             PegasusExporter(local_export=True).export_platform_to_pegasus(

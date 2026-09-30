@@ -5,7 +5,19 @@
 # D3: flake8-docstrings (D3xx).
 # E: pycodestyle errors.
 # F: Pyflakes.
-select = ["ASYNC", "B", "D3", "E", "F"]
+# TID251: banned APIs, scoped to backend tests below.
+select = ["ASYNC", "B", "D3", "E", "F", "TID251"]
 
 # Never enforce `E501` (line length violations). This should be handled by formatters.
 ignore = ["E501"]
+
+# Tests persist rows through the factories in backend/tests/factories.py.
+[lint.flake8-tidy-imports.banned-api]
+"handler.database.db_rom_handler.add_rom".msg = "Use tests.factories.make_rom"
+"handler.database.db_save_handler.add_save".msg = "Use tests.factories.make_save"
+"handler.database.db_state_handler.add_state".msg = "Use tests.factories.make_state"
+"handler.database.db_screenshot_handler.add_screenshot".msg = "Use tests.factories.make_screenshot"
+
+[lint.per-file-ignores]
+"!**/tests/**" = ["TID251"]
+"**/tests/factories.py" = ["TID251"]

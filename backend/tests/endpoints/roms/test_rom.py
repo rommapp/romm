@@ -248,15 +248,13 @@ def test_download_roms_by_platform_skips_roms_without_a_file(
 ):
     """A physical game has no files to zip, so it must not swell the archive's
     ROM count (and therefore its generated name)."""
-    db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="Physical Game",
-            fs_name="Physical Game",
-            fs_path=f"{platform.slug}/roms/.physical",
-            fs_size_bytes=0,
-            is_physical=True,
-        )
+    make_rom(
+        platform,
+        "Physical Game",
+        fs_extension="",
+        fs_path=f"{platform.slug}/roms/.physical",
+        fs_size_bytes=0,
+        is_physical=True,
     )
 
     response = client.get(

@@ -16,7 +16,6 @@ from handler.filesystem import (
 )
 from handler.metadata.gamelist_handler import GamelistHandler
 from models.platform import Platform
-from models.rom import Rom
 from models.user import User
 from utils.gamelist_exporter import GamelistExporter
 
@@ -71,17 +70,7 @@ def platform_with_minimal_rom(admin_user: User):
     platform = Platform(name="Game Boy", slug="gb", fs_slug="gb")
     platform = db_platform_handler.add_platform(platform)
 
-    rom = Rom(
-        platform_id=platform.id,
-        name=None,
-        slug="unknown-rom",
-        fs_name="unknown.gb",
-        fs_name_no_tags="unknown",
-        fs_name_no_ext="unknown",
-        fs_extension="gb",
-        fs_path="gb/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
+    rom = make_rom(platform, "unknown", fs_extension="gb", name=None)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     return platform, [rom]

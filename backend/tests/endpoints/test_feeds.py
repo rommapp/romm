@@ -1,5 +1,6 @@
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_rom
 
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
@@ -51,26 +52,15 @@ def test_webrcade_feed_skips_roms_without_a_file(
         {"name": "Nintendo Entertainment System", "slug": UPS.NES, "fs_slug": UPS.NES},
     )
     db_rom_handler.update_rom(rom.id, {"platform_id": platform.id})
-    db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="Physical Game",
-            fs_name="Physical Game",
-            fs_path=f"{platform.slug}/roms/.physical",
-            fs_size_bytes=0,
-            is_physical=True,
-        )
+    make_rom(
+        platform,
+        "Physical Game",
+        fs_extension="",
+        fs_path=f"{platform.slug}/roms/.physical",
+        fs_size_bytes=0,
+        is_physical=True,
     )
-    db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="Gone Game",
-            fs_name="Gone Game.zip",
-            fs_path=f"{platform.slug}/roms",
-            fs_size_bytes=123,
-            missing_from_fs=True,
-        )
-    )
+    make_rom(platform, "Gone Game", fs_size_bytes=123, missing_from_fs=True)
 
     response = client.get(
         "/api/feeds/webrcade",
