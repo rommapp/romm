@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RForm — native `<form>` that provides a registration context so
+// RForm: native `<form>` that provides a registration context so
 // descendant form fields (RTextField, RSelect, RCheckbox) auto-enroll.
 // The form aggregates their validity into `modelValue` and exposes
 // `validate()` / `reset()` to consumers.
@@ -16,7 +16,7 @@ import { provideRForm } from "./context";
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  /** v-model — true when every registered field passes its rules. */
+  /** v-model: true when every registered field passes its rules. */
   modelValue?: boolean;
   /** Disable the Enter-to-submit shortcut. */
   disableEnterSubmit?: boolean;
@@ -90,7 +90,7 @@ function scrollToFirstError() {
 
 defineExpose({ validate, reset, resetValidation });
 
-// Aggregate validity — flips reactively as any field gains or loses an
+// Aggregate validity: flips reactively as any field gains or loses an
 // error. Initial state is `true` (no errors yet); typing into a field
 // with rules will make it `false` as soon as the first rule fails.
 const allValid = computed(() => fields.value.every((f) => f.validity()));
@@ -131,7 +131,7 @@ function onSubmit(ev: Event) {
 </template>
 
 <style scoped>
-/* RForm renders a transparent native `<form>` — no chrome of its own.
+/* RForm renders a transparent native `<form>`: no chrome of its own.
    Consumers control layout via their own children. */
 .r-form {
   display: contents;

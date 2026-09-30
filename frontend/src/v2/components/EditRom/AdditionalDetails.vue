@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// AdditionalDetails (v2) — manual metadata overrides for the edit-ROM
+// AdditionalDetails (v2): manual metadata overrides for the edit-ROM
 // dialog. Companies / genres / franchises / game modes / age ratings
 // are multi-tag combobox fields; first release date is a date picker;
 // YouTube video ID is a plain text field.
 //
-// All writes go through `manual_metadata` — the backend layer where
+// All writes go through `manual_metadata`: the backend layer where
 // admins override automatic scraper output. Emitting `update:rom` with
 // the merged shape keeps the parent in charge of when to actually
 // commit (Save button on EditRomDialog).
@@ -54,7 +54,7 @@ const GAME_MODE_ITEMS = computed(() => [
 
 const manual = computed(() => props.rom.manual_metadata || {});
 
-// Age ratings are stored as `SYSTEM:RATING` strings — convert to the
+// Age ratings are stored as `SYSTEM:RATING` strings: convert to the
 // human-readable `SYSTEM - RATING` shape the combobox uses, and back.
 const ageRatingsView = computed(() =>
   (manual.value.age_ratings ?? []).map((r) => r.replace(":", " - ")),

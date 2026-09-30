@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// BackgroundArt — the two-layer cross-fading backdrop. Views paint a cover
+// BackgroundArt: the two-layer cross-fading backdrop. Views paint a cover
 // URL via the injected `r-v2-set-background-art` provider; we swap between
 // layer A and layer B so there's always a smooth transition, never a flash.
 

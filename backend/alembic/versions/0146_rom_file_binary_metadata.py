@@ -1,7 +1,7 @@
 """Add the per-file title id and rom-converto metadata columns on rom_files.
 
-Revision ID: 0145_rom_file_binary_metadata
-Revises: 0144_user_oidc_sub
+Revision ID: 0146_rom_file_binary_metadata
+Revises: 0145_drop_derivable_columns
 Create Date: 2026-09-29 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ from alembic import op  # type: ignore[attr-defined]
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0145_rom_file_binary_metadata"
-down_revision = "0144_user_oidc_sub"
+revision = "0146_rom_file_binary_metadata"
+down_revision = "0145_drop_derivable_columns"
 branch_labels = None
 depends_on = None
 

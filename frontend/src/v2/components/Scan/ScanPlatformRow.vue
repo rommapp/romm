@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ScanPlatformRow — single ROM row inside a ScanPlatform body.
+// ScanPlatformRow: single ROM row inside a ScanPlatform body.
 //
 // Extracted so the same row markup can be rendered both inside a plain
 // <ul> (small platforms) and inside an RVirtualScroller slot (large
@@ -34,7 +34,7 @@ const displayName = computed(() => props.rom.name || props.rom.fs_name);
 // "identifying" to "identified" in place (filename → real name). Guarded
 // against the virtual scroller recycling the instance onto a different ROM
 // (id change), so the animation only ever fires on a genuine identification
-// event — never while scrolling.
+// event: never while scrolling.
 const revealing = ref(false);
 // The cover pop is driven by the image's own `load` instead of the
 // identification flip: the real artwork downloads a beat after the metadata
@@ -57,7 +57,7 @@ watch(
 );
 
 function onCoverLoad() {
-  // Only the resolved real artwork pops — not the procedural placeholder
+  // Only the resolved real artwork pops: not the procedural placeholder
   // shown while a ROM is still unidentified.
   if (props.rom.is_identified && props.rom.path_cover_small) {
     coverPop.value = true;
@@ -66,7 +66,7 @@ function onCoverLoad() {
 
 function coverFor(rom: SimpleRom): string {
   if (rom.path_cover_small) return toWebp(rom.path_cover_small);
-  // Fallback procedural cover — distinct artwork for identified vs.
+  // Fallback procedural cover: distinct artwork for identified vs.
   // unmatched ROMs so a glance at the row tells you whether scanning
   // matched anything.
   return rom.is_identified
@@ -156,7 +156,7 @@ function coverFor(rom: SimpleRom): string {
   gap: 12px;
   padding: 8px 16px;
   border-top: 1px solid var(--r-color-border);
-  /* Fixed row height — required for RVirtualScroller's offset table to
+  /* Fixed row height: required for RVirtualScroller's offset table to
      match what the row actually renders at. Padding + 48px cover +
      border = 65px. */
   box-sizing: border-box;
@@ -171,7 +171,7 @@ function coverFor(rom: SimpleRom): string {
   /* Each freshly-scanned row slides in from the left as it streams into
      the log instead of popping in abruptly. `both` keeps it hidden until
      the first frame. (Stable id keys on the scroller ensure only the new
-     row mounts, so this plays once per row — not on every insert.) */
+     row mounts, so this plays once per row: not on every insert.) */
   animation: scan-row-in 440ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @keyframes scan-row-in {
@@ -198,7 +198,7 @@ function coverFor(rom: SimpleRom): string {
   overflow: hidden;
 }
 /* When identification lands, the procedural placeholder swaps for the
-   real artwork — flip it in with a springy pop so the match registers. */
+   real artwork: flip it in with a springy pop so the match registers. */
 .r-v2-scan-platform__cover--reveal {
   animation: scan-cover-in 560ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -291,7 +291,7 @@ function coverFor(rom: SimpleRom): string {
   background: var(--r-color-surface);
   flex-shrink: 0;
   /* Provider chips spring in (staggered via inline animation-delay) the
-     moment a match resolves — same overshoot curve as the cover pop. */
+     moment a match resolves: same overshoot curve as the cover pop. */
   animation: scan-badge-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 /* The "not identified" pill shares the same entrance so a failed match

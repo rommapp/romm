@@ -216,7 +216,6 @@ class SmartCollection(BaseModel):
     name: Mapped[str] = mapped_column(String(length=400))
     description: Mapped[str | None] = mapped_column(Text)
     is_public: Mapped[bool] = mapped_column(default=False)
-    rom_count: Mapped[int] = mapped_column(default=0)
     rom_ids: Mapped[list[int]] = mapped_column(
         CustomJSON(), default=[], doc="Rom IDs that belong to this smart collection"
     )
@@ -237,6 +236,10 @@ class SmartCollection(BaseModel):
     @property
     def owner_username(self) -> str:
         return self.user.username
+
+    @property
+    def rom_count(self) -> int:
+        return len(self.rom_ids)
 
     @property
     def path_cover_small(self) -> str | None:

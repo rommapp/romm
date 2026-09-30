@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// GameListHeader — sticky column-header row for list-mode galleries.
+// GameListHeader: sticky column-header row for list-mode galleries.
 //
 // Layout: a single CSS-grid div sharing `LIST_GRID_TEMPLATE` with every
 // `GameListRow` underneath, so columns line up regardless of viewport.
@@ -8,7 +8,7 @@
 //
 // Sticky positioning is owned by the parent (`GalleryShell` pins this
 // below the toolbar at `top: --r-v2-shell-toolbar-h`). The header
-// itself only paints — it doesn't manage scroll.
+// itself only paints: it doesn't manage scroll.
 import { RCheckbox, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";

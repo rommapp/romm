@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// HiddenGamesPicker — search the library and pick individual games to hide
+// HiddenGamesPicker: search the library and pick individual games to hide
 // from a user. Model is the list of hidden rom ids. A debounced search shows
 // matching games (cover + name); picked games render below as a removable
 // list (cover + name), with their full rom cached so covers resolve even for
@@ -69,7 +69,7 @@ watch(
           const { data } = await romApi.getRomSimple({ romId: id });
           romCache.value[id] = data;
         } catch {
-          /* leave uncached — the row falls back to a placeholder cover */
+          /* leave uncached: the row falls back to a placeholder cover */
         }
       }),
     );
@@ -93,7 +93,7 @@ function add(rom: SimpleRom) {
     romCache.value[rom.id] = rom;
     emit("update:modelValue", [...props.modelValue, rom.id]);
   }
-  // Keep the results open so several games can be added in one go — the added
+  // Keep the results open so several games can be added in one go: the added
   // rom drops out of `addable`, the rest of the matches stay visible.
 }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// VersionSwitcher — RBtn + RMenu pair that lets the user navigate
+// VersionSwitcher: RBtn + RMenu pair that lets the user navigate
 // between sibling ROMs of the same game (different region / revision /
 // language). Renders nothing when the rom has no siblings.
 //

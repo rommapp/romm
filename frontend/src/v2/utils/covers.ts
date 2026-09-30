@@ -1,14 +1,14 @@
-// Procedural "no cover" artwork — v2 port of v1's `utils/covers`.
+// Procedural "no cover" artwork: v2 port of v1's `utils/covers`.
 //
 // When a rom has no cover image we paint a generated SVG keyed off the
 // rom's name: a coloured backdrop with two organic blobs (positioned +
 // rotated by a hash of the name, so every game gets a distinct-but-stable
-// look) and a centred icon — a grid for identified roms ("missing" cover)
+// look) and a centred icon: a grid for identified roms ("missing" cover)
 // or a question mark for unidentified ones ("unmatched").
 //
 // Differences from v1:
 //   * Colours come from the `colorCoverArt` token (no hex literals here).
-//   * Returns a `data:` URI instead of a Blob object URL — cacheable and
+//   * Returns a `data:` URI instead of a Blob object URL: cacheable and
 //     leak-free (v1's `URL.createObjectURL` was never revoked).
 import { colorCoverArt } from "@/v2/tokens";
 
@@ -46,14 +46,14 @@ function buildArt(name: string, inner: string): string {
   return svgToDataUri(svg);
 }
 
-/** Identified rom with no cover — backdrop + grid-of-dots icon. */
+/** Identified rom with no cover: backdrop + grid-of-dots icon. */
 export function getMissingCoverImage(name: string): string {
   const icoR = [90, 0, 270, 180][hashString(name) % 4];
   const icon = `<path d="M204.545 345.455A54.545 54.545 0 0 1 259.091 400a54.545 54.545 0 0 1-54.546 54.545A54.545 54.545 0 0 1 150 400a54.545 54.545 0 0 1 54.545-54.545M300 250a54.545 54.545 0 0 1 54.545 54.545A54.545 54.545 0 0 1 300 359.091a54.545 54.545 0 0 1-54.545-54.546A54.545 54.545 0 0 1 300 250m0 190.91a54.545 54.545 0 0 1 54.545 54.545A54.545 54.545 0 0 1 300 550a54.545 54.545 0 0 1-54.545-54.545A54.545 54.545 0 0 1 300 440.909m95.455-95.454A54.545 54.545 0 0 1 450 400a54.545 54.545 0 0 1-54.545 54.545A54.545 54.545 0 0 1 340.909 400a54.545 54.545 0 0 1 54.546-54.545m-190.91 27.272A27.273 27.273 0 0 0 177.273 400a27.273 27.273 0 0 0 27.272 27.273A27.273 27.273 0 0 0 231.818 400a27.273 27.273 0 0 0-27.273-27.273m190.91 0A27.273 27.273 0 0 0 368.182 400a27.273 27.273 0 0 0 27.273 27.273A27.273 27.273 0 0 0 422.727 400a27.273 27.273 0 0 0-27.272-27.273M300 468.182a27.273 27.273 0 0 0-27.273 27.273A27.273 27.273 0 0 0 300 522.727a27.273 27.273 0 0 0 27.273-27.272A27.273 27.273 0 0 0 300 468.182" style="fill:${colorCoverArt.icon};stroke-width:13.6364;transform-origin:center;transform:rotate(${icoR}deg);"/>`;
   return buildArt(name, icon);
 }
 
-/** Unidentified rom — backdrop + question-mark icon. */
+/** Unidentified rom: backdrop + question-mark icon. */
 export function getUnmatchedCoverImage(name: string): string {
   const icon = `<path d="M300 225c-8.748 0-17.496 3.324-24.669 10.322L135.366 375.287a34.536 34.536 0 0 0 0 49.338L275.331 564.59a34.536 34.536 0 0 0 49.338 0l139.965-139.965a34.536 34.536 0 0 0 0-49.338L324.669 235.322C317.496 228.324 308.748 225 300 225m0 86.603c47.238 1.925 67.708 49.513 39.89 85.03-7.348 8.747-19.07 14.52-25.019 22.044-6.123 7.523-6.123 16.27-6.123 25.018h-26.244c0-14.871 0-27.293 6.124-36.04 5.773-8.748 17.495-13.997 24.844-19.77 21.52-19.77 15.92-47.589-13.472-49.863-14.346 0-26.243 11.722-26.243 26.418h-26.244c0-29.218 23.62-52.837 52.487-52.837m-17.496 149.588h26.244v26.243h-26.244z" style="fill:${colorCoverArt.icon};stroke-width:17.4956"/>`;
   return buildArt(name, icon);
@@ -65,7 +65,7 @@ export function coverPlaceholderArt(name: string, identified: boolean): string {
   return identified ? getMissingCoverImage(name) : getUnmatchedCoverImage(name);
 }
 
-/** Backdrop-only art (no icon) sized to an arbitrary aspect ratio — used
+/** Backdrop-only art (no icon) sized to an arbitrary aspect ratio: used
  *  for non-cover thumbnails (e.g. save / state assets). The viewBox is
  *  re-centred so the blobs stay framed at any ratio. */
 export function getEmptyCoverImage(name: string, aspectRatio = 2 / 3): string {

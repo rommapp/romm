@@ -212,7 +212,6 @@ export default tseslint.config(
     files: ["src/v2/**/*.ts", "src/v2/**/*.vue"],
     plugins: { romm },
     rules: {
-      "romm/no-emdash-in-comment": "error",
       "romm/no-color-literal": "error",
       "romm/no-layout-media-query": "error",
     },

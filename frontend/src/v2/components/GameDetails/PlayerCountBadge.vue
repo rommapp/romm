@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PlayerCountBadge — renders `metadatum.player_count` as a single
+// PlayerCountBadge: renders `metadatum.player_count` as a single
 // semantic badge. The icon swaps with the maximum number of players
 // the string mentions:
 //   1            → mdi-account-outline       ("Single player")
@@ -7,7 +7,7 @@
 //   3–4          → mdi-account-group-outline
 //   5+           → mdi-account-multiple-plus-outline
 // The string the API returns is free-form (the providers feed it as
-// a bare number, a range, or a sentence — "1", "1-4", "Up to 4
+// a bare number, a range, or a sentence: "1", "1-4", "Up to 4
 // players", "Single Player", "Massively Multiplayer" …). We pull
 // the largest integer out as the signal and fall back to a generic
 // group icon when no digit is parseable, so non-numeric descriptors

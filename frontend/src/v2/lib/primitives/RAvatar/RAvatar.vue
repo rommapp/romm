@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// RAvatar — inline-flex container holding one of three contents in
+// RAvatar: inline-flex container holding one of three contents in
 // priority order: `image` (renders an <img>), `icon` (renders an
 // RIcon), or the default slot (initials / arbitrary content).
 // `overflow: hidden` + the rounded radius clips the image to the
-// avatar shape automatically — no per-image border-radius needed.
+// avatar shape automatically: no per-image border-radius needed.
 //
 // `color` resolves through the same tone map RIcon uses (`"primary"` →
 // `var(--r-color-brand-primary)` etc., legacy `romm-*` and CSS colours
@@ -11,7 +11,7 @@
 // solid fill, translucent, outlined, or text-only.
 //
 // `size` keyword ladder (`"small"`, `"large"`, …). The font-size of
-// any text slot scales to ~40% of the avatar height — initials stay
+// any text slot scales to ~40% of the avatar height: initials stay
 // legible at every size without a per-size override.
 import { computed } from "vue";
 import RIcon from "../RIcon/RIcon.vue";
@@ -99,7 +99,7 @@ const resolvedRounded = computed<string>(() => {
 
 // Font-size scales proportionally to the avatar's pixel height so the
 // default slot (initials) stays legible at every size without callers
-// computing per-size CSS. 40% of height is the sweet spot — matches
+// computing per-size CSS. 40% of height is the sweet spot: matches
 // the visual mass of v1's user avatars.
 const fontSize = computed(() => {
   const px = parseFloat(resolvedSize.value);
@@ -163,13 +163,13 @@ const styleObj = computed(() => ({
 }
 
 /* Icon scales to the avatar's font-size so a 24px avatar renders a
-   small icon and a 56px avatar renders a big one — no caller maths. */
+   small icon and a 56px avatar renders a big one: no caller maths. */
 .r-avatar__icon {
   font-size: 1.2em;
   color: inherit;
 }
 
-/* ── Variant: flat — solid colour fill ─────────────────────────── */
+/* ── Variant: flat, solid colour fill ─────────────────────────── */
 .r-avatar--flat.r-avatar--has-color {
   background: var(--r-avatar-color);
   color: white;
@@ -179,7 +179,7 @@ const styleObj = computed(() => ({
   color: var(--r-color-fg);
 }
 
-/* ── Variant: elevated — solid fill + soft shadow ──────────────── */
+/* ── Variant: elevated, solid fill + soft shadow ──────────────── */
 .r-avatar--elevated.r-avatar--has-color {
   background: var(--r-avatar-color);
   color: white;
@@ -191,7 +191,7 @@ const styleObj = computed(() => ({
   box-shadow: 0 2px 8px color-mix(in srgb, black 20%, transparent);
 }
 
-/* ── Variant: translucent — soft tinted fill, coloured text ────── */
+/* ── Variant: translucent, soft tinted fill, coloured text ────── */
 .r-avatar--translucent.r-avatar--has-color {
   background: color-mix(in srgb, var(--r-avatar-color) 18%, transparent);
   color: var(--r-avatar-color);
@@ -201,7 +201,7 @@ const styleObj = computed(() => ({
   color: var(--r-color-fg);
 }
 
-/* ── Variant: outlined — border + coloured text ────────────────── */
+/* ── Variant: outlined, border + coloured text ────────────────── */
 .r-avatar--outlined {
   background: transparent;
 }
@@ -214,7 +214,7 @@ const styleObj = computed(() => ({
   border: 1px solid var(--r-color-border);
 }
 
-/* ── Variant: text — no fill, just coloured glyph/initial ──────── */
+/* ── Variant: text, no fill, just coloured glyph/initial ──────── */
 .r-avatar--text {
   background: transparent;
 }
@@ -225,7 +225,7 @@ const styleObj = computed(() => ({
   color: var(--r-color-fg);
 }
 
-/* ── Variant: plain — fully unstyled (inherit everything) ──────── */
+/* ── Variant: plain, fully unstyled (inherit everything) ──────── */
 .r-avatar--plain {
   background: transparent;
   color: inherit;
