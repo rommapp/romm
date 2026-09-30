@@ -22,6 +22,12 @@
 
 volumes:
   romm_install_cache:
+  # Proton build listing and removal (GET/DELETE /install/proton-builds,
+  # /install/proton/{id}) run in the "romm" container, but builds are
+  # downloaded and extracted by the worker - without a volume shared between
+  # both, "romm" sees an empty PROTON_INSTALL_ROOT and every build looks
+  # not-installed, and a delete silently no-ops instead of freeing space.
+  romm_proton:
 
 services:
   romm:
@@ -40,6 +46,7 @@ services:
       # mount, "Clear Install Cache" clicked in the UI (handled by this
       # container) can't see the files the worker created.
       - romm_install_cache:/romm/cache/installs
+      - romm_proton:/opt/proton
     depends_on:
       - romm-redis
 
@@ -77,23 +84,25 @@ services:
       - DB_NAME=romm # Must match the "romm" service's DB_NAME
       - DB_USER=romm-user # Must match the "romm" service's DB_USER
       - DB_PASSWD= # Must match the "romm" service's DB_PASSWD
-       - INSTALL_VNC_PORT_MIN=6900
-       - INSTALL_VNC_PORT_MAX=6999
-       # Default Proton build for install sessions (auto-downloaded on first
-       # use if not present on disk). See PROTON_INSTALL_ROOT below for the
-       # download/extract root.
-       - INSTALL_DEFAULT_PROTON_BUILD=cachyos-latest
-       # ProtonBuildManager scans this directory (PROTON_INSTALL_ROOT) for
-       # installed Proton builds. Override only to relocate it or mount a
-       # volume for persistence across container rebuilds:
-       # - PROTON_INSTALL_ROOT=/romm/proton
-       # volumes:
-       #   - romm_proton:/romm/proton
-       # When using a persistent volume, uncomment the named volume above
-       # and add it here so downloaded builds survive container rebuilds.
+      # Built into the browser-facing VNC URL by this worker itself (see
+      # handler/install/vnc.py) - must match the "romm" service's own
+      # setting above, or the URL it hands back falls back to this
+      # container's own loopback and is unreachable from outside it.
+      - INSTALL_VNC_PUBLIC_BASE_URL=http://localhost
+      - INSTALL_VNC_PORT_MIN=6900
+      - INSTALL_VNC_PORT_MAX=6999
+      # Default Proton build for install sessions (auto-downloaded on first
+      # use if not present on disk). Extracted under PROTON_INSTALL_ROOT
+      # (default /opt/proton, mounted below).
+      - INSTALL_DEFAULT_PROTON_BUILD=cachyos-latest
     volumes:
       - /path/to/library:/romm/library:ro # Same library path as the "romm" service, read-only
       - romm_install_cache:/romm/cache/installs
+      # Same path both containers read from; without this mount, the "romm"
+      # service's own build listing/removal routes (they run in that
+      # container, not here) see an empty PROTON_INSTALL_ROOT and treat every
+      # build the worker downloaded as not installed.
+      - romm_proton:/opt/proton
     # No ports published: only the "romm" service's own backend reaches this
     # worker's VNC bridge, through its proxied /roms/install/vnc/... route.
     depends_on:
