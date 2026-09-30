@@ -59,14 +59,14 @@ onMounted(installInputModality);
      bits like the RSteps connector lines and dots. CSS custom properties
      inherit into descendants, and the override is scoped to .r-v2-auth so
      those shared components stay theme-driven elsewhere. */
-  --r-color-fg: #ffffff;
-  --r-color-fg-secondary: rgba(255, 255, 255, 0.75);
-  --r-color-fg-muted: rgba(255, 255, 255, 0.45);
-  --r-color-fg-faint: rgba(255, 255, 255, 0.25);
-  --r-color-surface: rgba(255, 255, 255, 0.07);
-  --r-color-surface-hover: rgba(255, 255, 255, 0.12);
-  --r-color-border: rgba(255, 255, 255, 0.07);
-  --r-color-border-strong: rgba(255, 255, 255, 0.15);
+  --r-color-fg: white;
+  --r-color-fg-secondary: color-mix(in srgb, white 75%, transparent);
+  --r-color-fg-muted: color-mix(in srgb, white 45%, transparent);
+  --r-color-fg-faint: color-mix(in srgb, white 25%, transparent);
+  --r-color-surface: color-mix(in srgb, white 7%, transparent);
+  --r-color-surface-hover: color-mix(in srgb, white 12%, transparent);
+  --r-color-border: color-mix(in srgb, white 7%, transparent);
+  --r-color-border-strong: color-mix(in srgb, white 15%, transparent);
 }
 
 .r-v2-auth__bg {
@@ -112,7 +112,7 @@ onMounted(installInputModality);
 .r-v2-auth__version {
   /* Sits directly on the background art with no card behind it, so a soft
      black shadow keeps it legible over the lighter patches. */
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 1px 3px color-mix(in srgb, black 70%, transparent);
 }
 
 /* Phones: lay the card and the bottom bar out in normal flow instead of

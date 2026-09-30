@@ -45,11 +45,11 @@ const entries = computed<Entry[]>(() => {
   <div class="provider-grid">
     <ProviderCard
       v-for="e in entries"
+      :id="e.id"
       :key="e.name"
       :name="e.name"
       :accent="e.accent"
       :logo="e.logo"
-      :id="e.id"
       :href="e.href"
       :rating="e.rating"
     />
