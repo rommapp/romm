@@ -2,6 +2,7 @@ import asyncio
 import ctypes
 import dataclasses
 import functools
+import os
 import shutil
 from collections import Counter
 from collections.abc import Callable, Generator
@@ -24,6 +25,7 @@ from handler.rom_upload import (
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomFile, RomFileCategory
+from utils.archives import is_chd_file
 from utils.chd_cdrom import (
     ChdAudioTrack,
     ChdError,
@@ -45,6 +47,8 @@ FLAC_BINARY = "flac"
 READ_CHUNK_BYTES = 1024 * 1024
 # A 74-minute disc encodes in well under a minute; this only catches a hang.
 ENCODE_TIMEOUT_SECONDS = 600
+# flac is single-threaded, so a few tracks encode at once without taking every core.
+ENCODE_CONCURRENCY = max(1, min(4, os.process_cpu_count() or 1))
 # Sheets (.cue, Dreamcast .gdi) point at separate track files; a CHD holds them.
 DISC_IMAGE_EXTENSIONS = (".cue", ".gdi", ".chd")
 # A 99-track sheet with full CD-Text is a few tens of KiB.
@@ -79,9 +83,14 @@ class AudioSource:
     big_endian: bool
     title: str | None
     performer: str | None
-    pcm: Callable[[], PcmChunks]
+    # The file holding the samples, and how to read them out of it.
+    path: Path
+    read: Callable[[Path], PcmChunks]
     # Set only when the ROM holds more than one disc.
     disc: int | None = None
+
+    def pcm(self) -> PcmChunks:
+        return self.read(self.path)
 
 
 def flac_available() -> bool:
@@ -163,7 +172,8 @@ def _bin_pcm(path: Path, offset: int, length: int) -> PcmChunks:
 
 
 def _chd_pcm(lib: ctypes.CDLL, path: Path, track: ChdAudioTrack) -> PcmChunks:
-    # Hunks are small, so they're batched to keep the round trips down.
+    # Each track opens its own handle: tracks encode concurrently, and a libchdr
+    # handle isn't thread-safe. Hunks are small, so they're read in batches.
     pending: list[bytes] = []
     size = 0
     with ChdImage(lib, path) as image:
@@ -205,7 +215,10 @@ def _sheet_sources(sheet_path: Path) -> list[AudioSource]:
                 big_endian=track.big_endian,
                 title=track.title,
                 performer=track.performer,
-                pcm=functools.partial(_bin_pcm, path, track.offset, track.length),
+                path=path,
+                read=functools.partial(
+                    _bin_pcm, offset=track.offset, length=track.length
+                ),
             )
         )
     return sources
@@ -221,7 +234,8 @@ def _chd_sources(lib: ctypes.CDLL, chd_path: Path) -> list[AudioSource]:
             big_endian=True,
             title=None,
             performer=None,
-            pcm=functools.partial(_chd_pcm, lib, chd_path, track),
+            path=chd_path,
+            read=functools.partial(_chd_pcm, lib, track=track),
         )
         for track in tracks
     ]
@@ -349,9 +363,9 @@ def _disc_sources(images: list[RomFile], lib: ctypes.CDLL | None) -> list[AudioS
     whose track files are gone falls back to the CHD beside it."""
     sources: list[AudioSource] = []
     for image in images:
-        path = fs_rom_handler.validate_path(image.full_path)
+        path = _image_path(image)
         try:
-            if path.suffix.lower() != ".chd":
+            if not is_chd_file(path):
                 sources = _sheet_sources(path)
             elif lib is None:
                 raise CdAudioUnavailableException(
@@ -398,10 +412,13 @@ def _plan_tracks(
     return planned
 
 
+def _image_path(image: RomFile) -> Path:
+    return fs_rom_handler.validate_path(image.full_path)
+
+
 def _lone_sheet(rom: Rom, discs: list[list[RomFile]]) -> bool:
     # A CHD is self-contained, but a lone sheet would leave its tracks behind.
-    first = discs[0][0].file_name.lower()
-    return rom.has_simple_single_file and not first.endswith(".chd")
+    return rom.has_simple_single_file and not is_chd_file(_image_path(discs[0][0]))
 
 
 async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
@@ -441,7 +458,14 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
 
     if rom.has_simple_single_file:
         rom = await promote_single_file_to_folder(rom)
-        planned = await asyncio.to_thread(_plan_tracks, _discs(rom), lib)
+        # A lone ROM is one CHD, so every track now reads from where it moved.
+        moved = _image_path(_discs(rom)[0][0])
+        planned = [
+            dataclasses.replace(
+                track, source=dataclasses.replace(track.source, path=moved)
+            )
+            for track in planned
+        ]
 
     try:
         await _write_tracks(rom, planned, result)
@@ -455,23 +479,55 @@ async def extract_cd_audio(rom: Rom) -> CdAudioExtraction:
     return result
 
 
+async def _write_track(
+    rom: Rom, track: PlannedTrack, result: CdAudioExtraction
+) -> None:
+    folder = CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK]
+    try:
+        destination = await prepare_upload_destination(rom, folder, track.file_name)
+        staged = staging_path(destination.location)
+        await encode_track(track.source, staged, rom.name)
+        await asyncio.to_thread(
+            move_into_place, destination.location, staged, overwrite=False
+        )
+    except UploadConflictException:
+        # Already extracted, or a concurrent extraction got there first.
+        result.skipped.append(track.file_name)
+    else:
+        result.extracted.append(track.file_name)
+
+
 async def _write_tracks(
     rom: Rom, planned: list[PlannedTrack], result: CdAudioExtraction
 ) -> None:
-    folder = CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SOUNDTRACK]
-    for track in planned:
-        try:
-            destination = await prepare_upload_destination(rom, folder, track.file_name)
-            staged = staging_path(destination.location)
-            await encode_track(track.source, staged, rom.name)
-            await asyncio.to_thread(
-                move_into_place, destination.location, staged, overwrite=False
-            )
-        except UploadConflictException:
-            # Already extracted, or a concurrent extraction got there first.
-            result.skipped.append(track.file_name)
-        else:
-            result.extracted.append(track.file_name)
+    """Encode the tracks a few at a time. After a failure no new track starts,
+    but those already encoding finish, and the first failure is raised."""
+    pending = iter(planned)
+    failures: list[Exception] = []
+
+    async def worker() -> None:
+        for track in pending:
+            try:
+                await _write_track(rom, track, result)
+            except Exception as exc:
+                failures.append(exc)
+            if failures:
+                return
+
+    workers = [
+        asyncio.create_task(worker())
+        for _ in range(min(ENCODE_CONCURRENCY, len(planned)))
+    ]
+    try:
+        await asyncio.gather(*workers)
+    finally:
+        # A cancelled gather cancels the workers; wait for them to clean up.
+        await asyncio.gather(*workers, return_exceptions=True)
+        order = {track.file_name: index for index, track in enumerate(planned)}
+        result.extracted.sort(key=order.__getitem__)
+        result.skipped.sort(key=order.__getitem__)
+    if failures:
+        raise failures[0]
 
 
 async def _register(rom: Rom, result: CdAudioExtraction) -> bool:

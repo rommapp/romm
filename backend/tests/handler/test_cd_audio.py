@@ -1,4 +1,5 @@
 import asyncio
+import ctypes
 import math
 import shutil
 import struct
@@ -369,7 +370,11 @@ async def test_refuses_to_move_a_lone_disc_a_playlist_lists(
 
 
 async def test_moves_a_lone_chd_into_its_own_folder(
-    admin_user: User, platform: Platform, real_library: Path, tmp_path: Path
+    admin_user: User,
+    platform: Platform,
+    real_library: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     fs_path = f"{platform.slug}/roms"
     (real_library / fs_path).mkdir(parents=True)
@@ -383,6 +388,16 @@ async def test_moves_a_lone_chd_into_its_own_folder(
         {"Disc Game.chd": chd.stat().st_size},
         fs_path,
     )
+    real_sources = cd_audio._chd_sources
+    reads: list[Path] = []
+
+    def counting_sources(
+        lib: ctypes.CDLL, chd_path: Path
+    ) -> list[cd_audio.AudioSource]:
+        reads.append(chd_path)
+        return real_sources(lib, chd_path)
+
+    monkeypatch.setattr(cd_audio, "_chd_sources", counting_sources)
 
     result = await cd_audio.extract_cd_audio(rom)
 
@@ -393,6 +408,7 @@ async def test_moves_a_lone_chd_into_its_own_folder(
     folder = real_library / fs_path / "Disc Game"
     assert (folder / "Disc Game.chd").is_file()
     assert (folder / "soundtrack" / "Disc Game - Track 02.flac").is_file()
+    assert reads == [chd]
 
 
 async def test_reports_missing_chd_support(
@@ -468,6 +484,51 @@ async def test_registers_the_tracks_written_before_a_failure(
         await cd_audio.extract_cd_audio(cd_rom)
 
     assert set(_soundtrack_metas(cd_rom.id)) == {"Disc - Track 02.flac"}
+
+
+async def test_encodes_the_tracks_concurrently(
+    cd_rom: Rom, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(cd_audio, "ENCODE_CONCURRENCY", 2)
+    real_encode = cd_audio.encode_track
+    started: set[int] = set()
+    both_started = asyncio.Event()
+
+    async def wait_for_each_other(
+        source: cd_audio.AudioSource, output: Path, album: str | None
+    ) -> None:
+        started.add(source.number)
+        if len(started) == 2:
+            both_started.set()
+        await asyncio.wait_for(both_started.wait(), 5)
+        await real_encode(source, output, album)
+
+    monkeypatch.setattr(cd_audio, "encode_track", wait_for_each_other)
+
+    result = await cd_audio.extract_cd_audio(cd_rom)
+
+    assert result.extracted == ["Disc - Track 02.flac", "Disc - Track 03.flac"]
+
+
+async def test_starts_no_track_after_a_failure(
+    cd_rom: Rom, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(cd_audio, "ENCODE_CONCURRENCY", 1)
+    started: list[int] = []
+
+    async def fail_on_second(
+        source: cd_audio.AudioSource, output: Path, album: str | None
+    ) -> None:
+        started.append(source.number)
+        raise CdAudioEncodeException("boom")
+
+    monkeypatch.setattr(cd_audio, "encode_track", fail_on_second)
+
+    with pytest.raises(CdAudioEncodeException):
+        await cd_audio.extract_cd_audio(cd_rom)
+
+    assert started == [2]
+    assert _soundtrack_metas(cd_rom.id) == {}
 
 
 async def test_asks_for_a_scan_when_the_tracks_cannot_be_registered(
@@ -577,7 +638,7 @@ async def test_cancelling_mid_read_closes_the_image_and_cleans_up(tmp_path: Path
     release = threading.Event()
     closed = threading.Event()
 
-    def slow_pcm() -> Generator[bytes, None, None]:
+    def slow_pcm(path: Path) -> Generator[bytes, None, None]:
         try:
             reading.set()
             release.wait(5)
@@ -586,7 +647,12 @@ async def test_cancelling_mid_read_closes_the_image_and_cleans_up(tmp_path: Path
             closed.set()
 
     source = cd_audio.AudioSource(
-        number=2, big_endian=False, title=None, performer=None, pcm=slow_pcm
+        number=2,
+        big_endian=False,
+        title=None,
+        performer=None,
+        path=tmp_path / "Disc.bin",
+        read=slow_pcm,
     )
     output = tmp_path / "Track 02.flac"
     task = asyncio.create_task(cd_audio.encode_track(source, output, None))
@@ -753,11 +819,16 @@ async def test_leaves_a_lone_disc_without_audio_where_it_is(
 
 
 async def test_reports_a_track_flac_cannot_be_started_for(tmp_path: Path):
-    def silence() -> Generator[bytes, None, None]:
+    def silence(path: Path) -> Generator[bytes, None, None]:
         yield b"\0" * 4
 
     source = cd_audio.AudioSource(
-        number=2, big_endian=False, title="Open\0ing", performer=None, pcm=silence
+        number=2,
+        big_endian=False,
+        title="Open\0ing",
+        performer=None,
+        path=tmp_path / "Disc.bin",
+        read=silence,
     )
 
     with pytest.raises(cd_audio.CdAudioEncodeException):
