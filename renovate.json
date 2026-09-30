@@ -26,6 +26,12 @@
       "allowedVersions": "<9.1"
     },
     {
+      "description": "TypeScript 7 ships no JavaScript compiler API, which vue-tsc, typescript-eslint and vue-component-meta load. Raise this bound once they support it.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
+    },
+    {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["postgres"],
       "groupName": "postgres"
