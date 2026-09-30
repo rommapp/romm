@@ -23,7 +23,16 @@ export interface PanelTrack {
   meta?: TrackMetaSchema;
 }
 
-const AUDIO_EXTS = new Set(["mp3", "ogg", "oga", "wav", "flac", "m4a", "opus"]);
+const AUDIO_EXTS = new Set([
+  "mp3",
+  "ogg",
+  "oga",
+  "wav",
+  "flac",
+  "m4a",
+  "aac",
+  "opus",
+]);
 const COVER_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 
 export function getExt(name: string): string {
