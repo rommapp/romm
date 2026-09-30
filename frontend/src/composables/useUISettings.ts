@@ -82,6 +82,8 @@ export const UI_SETTINGS_KEYS = {
   showRegions: { key: "settings.showRegions", default: true },
   showLanguages: { key: "settings.showLanguages", default: true },
   showStatus: { key: "settings.showStatus", default: true },
+  // v2 game page: the scraped logo in place of the title text.
+  showLogoTitle: { key: "settings.showLogoTitle", default: false },
   showActionBar: { key: "settings.showActionBar", default: false },
   showGameTitle: { key: "settings.showGameTitle", default: false },
   enable3DEffect: { key: "settings.enable3DEffect", default: false },

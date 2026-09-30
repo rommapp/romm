@@ -322,6 +322,7 @@
   "media-miximage": "혼합 이미지",
   "media-miximage-v2": "혼합 이미지 (v2)",
   "media-physical": "실물 미디어",
+  "media-physical-disc": "실물 미디어 (디스크 {n})",
   "media-title-screen": "타이틀 화면",
   "media-video": "비디오",
   "media-video-normalized": "비디오 (표준화)",

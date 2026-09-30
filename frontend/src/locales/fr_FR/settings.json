@@ -447,6 +447,8 @@
   "show-home-widgets-desc": "Affiche la barre de widgets au-dessus des lignes du tableau de bord d'accueil. Masquez-la pour supprimer toute la section.",
   "show-languages": "Afficher les langues",
   "show-languages-desc": "Afficher les drapeaux des langues dans la galerie",
+  "show-logo-title": "Afficher le logo comme titre",
+  "show-logo-title-desc": "Afficher le logo du jeu à la place de son nom sur les pages de jeu, lorsqu'il a été récupéré",
   "show-platforms": "Afficher les plateformes",
   "show-platforms-as-grid": "Plateformes en grille",
   "show-platforms-as-grid-desc": "Voir les cartes des plateformes en grille sur la page d'accueil",

@@ -447,6 +447,8 @@
   "show-home-widgets-desc": "Zeigt die Widget-Leiste über den Zeilen des Start-Dashboards an. Ausblenden, um den gesamten Bereich zu entfernen.",
   "show-languages": "Zeige Sprachen",
   "show-languages-desc": "Zeige die Sprachen des ROMs in der Galerie",
+  "show-logo-title": "Logo als Titel anzeigen",
+  "show-logo-title-desc": "Zeige auf Spieleseiten das Logo des Spiels anstelle seines Namens, sofern eines abgerufen wurde",
   "show-platforms": "Zeige Plattformen",
   "show-platforms-as-grid": "Plattformen als Raster darstellen",
   "show-platforms-as-grid-desc": "Plattformen werden als Raster auf der Startseite gezeigt",

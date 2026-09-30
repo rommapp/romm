@@ -322,6 +322,7 @@
   "media-miximage": "Mix image",
   "media-miximage-v2": "Mix image (v2)",
   "media-physical": "Physical media",
+  "media-physical-disc": "Physical media (disc {n})",
   "media-title-screen": "Title screen",
   "media-video": "Video",
   "media-video-normalized": "Video (standardized)",

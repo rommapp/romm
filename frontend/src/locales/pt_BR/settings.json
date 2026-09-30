@@ -447,6 +447,8 @@
   "show-home-widgets-desc": "Exibe a barra de widgets acima das linhas do painel inicial. Oculte para remover a seção inteira.",
   "show-languages": "Mostrar idiomas",
   "show-languages-desc": "Mostrar bandeiras de idiomas na galeria",
+  "show-logo-title": "Mostrar logo como título",
+  "show-logo-title-desc": "Mostrar o logo do jogo no lugar do nome nas páginas de jogos, quando houver um obtido",
   "show-platforms": "Mostrar plataformas",
   "show-platforms-as-grid": "Plataformas como grade",
   "show-platforms-as-grid-desc": "Ver cartões de plataformas como uma grade na página inicial",

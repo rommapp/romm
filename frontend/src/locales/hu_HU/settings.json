@@ -447,6 +447,8 @@
   "show-home-widgets-desc": "Megjeleníti a widgetsávot a kezdőoldal sorai felett. Rejtsd el a teljes szakasz eltávolításához.",
   "show-languages": "Nyelvek megjelenítése",
   "show-languages-desc": "Nyelvi zászlók megjelenítése a galériában",
+  "show-logo-title": "Logó megjelenítése címként",
+  "show-logo-title-desc": "A játékoldalakon a játék neve helyett a logója jelenjen meg, ha letöltésre került",
   "show-platforms": "Platformok megjelenítése",
   "show-platforms-as-grid": "Platformok rácsként",
   "show-platforms-as-grid-desc": "Platformkártyák rácsként való megjelenítése a kezdőlapon",

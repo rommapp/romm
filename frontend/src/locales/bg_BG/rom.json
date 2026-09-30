@@ -322,6 +322,7 @@
   "media-miximage": "Комбинирано изображение",
   "media-miximage-v2": "Комбинирано изображение (v2)",
   "media-physical": "Физически носител",
+  "media-physical-disc": "Физически носител (диск {n})",
   "media-title-screen": "Заглавен екран",
   "media-video": "Видео",
   "media-video-normalized": "Видео (стандартизирано)",

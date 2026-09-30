@@ -447,6 +447,8 @@
   "show-home-widgets-desc": "ホームダッシュボードの行の上にウィジェットバーを表示します。非表示にするとセクション全体が消えます。",
   "show-languages": "言語を表示",
   "show-languages-desc": "ギャラリーに言語を表示",
+  "show-logo-title": "ロゴをタイトルとして表示",
+  "show-logo-title-desc": "ロゴを取得済みの場合、ゲームページでゲーム名の代わりにロゴを表示",
   "show-platforms": "プラットフォームを表示",
   "show-platforms-as-grid": "プラットフォームをグリッドで表示",
   "show-platforms-as-grid-desc": "ホームのプラットフォームをグリッドで表示",

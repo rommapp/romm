@@ -447,6 +447,8 @@
   "show-home-widgets-desc": "Wyświetla pasek widżetów nad wierszami pulpitu głównego. Ukryj, aby usunąć całą sekcję.",
   "show-languages": "Pokaż języki",
   "show-languages-desc": "Pokaż flagi językowe w galerii",
+  "show-logo-title": "Pokaż logo jako tytuł",
+  "show-logo-title-desc": "Pokaż logo gry zamiast jej nazwy na stronach gier, jeśli zostało pobrane",
   "show-platforms": "Pokaż platformy",
   "show-platforms-as-grid": "Platformy w widoku siatki",
   "show-platforms-as-grid-desc": "Wyświetl karty platform w formie siatki na stronie głównej",

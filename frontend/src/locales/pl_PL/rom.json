@@ -322,6 +322,7 @@
   "media-miximage": "Obraz złożony",
   "media-miximage-v2": "Obraz złożony (v2)",
   "media-physical": "Nośnik fizyczny",
+  "media-physical-disc": "Nośnik fizyczny (płyta {n})",
   "media-title-screen": "Ekran tytułowy",
   "media-video": "Wideo",
   "media-video-normalized": "Wideo (znormalizowane)",
