@@ -37,7 +37,7 @@ def hasheous_lookup() -> Iterator[AsyncMock]:
         ) as lookup,
         patch(
             "handler.scan_handler.meta_hasheous_handler.get_igdb_game",
-            new=AsyncMock(return_value=HasheousRom(hasheous_id=1)),
+            new=AsyncMock(return_value=HASHEOUS_MATCH),
         ),
     ):
         yield lookup

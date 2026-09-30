@@ -1017,6 +1017,13 @@ BANJO_REV1_MATCH = {
 }
 
 
+@pytest.mark.parametrize(
+    "metadata_sources",
+    [
+        [MetadataSource.HASHEOUS, MetadataSource.RA],
+        [MetadataSource.HASHEOUS],
+    ],
+)
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
 @patch.object(meta_ra_handler, "_search_rom", new_callable=AsyncMock)
 @patch.object(
@@ -1030,9 +1037,10 @@ async def test_scan_rom_ignores_the_ra_id_hasheous_maps_the_game_to(
     mock_ra_details,
     mock_ra_search,
     mock_playmatch_enabled,
+    metadata_sources,
 ):
     """Hasheous maps an RA game to every dump of a title, so a dump whose hash RA
-    doesn't list must get no RA match even though Hasheous names one."""
+    doesn't list must lose the RA match Hasheous names, RA selected or not."""
     mock_hasheous_request.return_value = BANJO_REV1_MATCH
     mock_ra_search.return_value = None
 
@@ -1056,6 +1064,9 @@ async def test_scan_rom_ignores_the_ra_id_hasheous_maps_the_game_to(
             fs_path="n64",
             name="Banjo-Kazooie",
             ra_hash="b11f476d4bc8e039355241e871dc08cf",
+            # The match an earlier scan took from Hasheous.
+            ra_id=10210,
+            ra_metadata={"achievements": [], "hash_match": False},
             fs_size_bytes=1024,
             tags=[],
         )
@@ -1067,7 +1078,7 @@ async def test_scan_rom_ignores_the_ra_id_hasheous_maps_the_game_to(
         file_size_bytes=1024,
         md5_hash="b11f476d4bc8e039355241e871dc08cf",
     )
-    # Pre-seeded so the file passes the top-level filter without a persisted rom.
+    # Pre-seeded so the file passes the top-level filter without a linked rom.
     rom_file.__dict__["is_top_level"] = True
 
     async with initialize_context():
@@ -1085,11 +1096,14 @@ async def test_scan_rom_ignores_the_ra_id_hasheous_maps_the_game_to(
                 "sha1_hash": "",
                 "ra_hash": "b11f476d4bc8e039355241e871dc08cf",
             },
-            metadata_sources=[MetadataSource.HASHEOUS, MetadataSource.RA],
+            metadata_sources=metadata_sources,
             newly_added=False,
         )
 
-    mock_ra_search.assert_awaited_once_with(ANY, "b11f476d4bc8e039355241e871dc08cf")
+    if MetadataSource.RA in metadata_sources:
+        mock_ra_search.assert_awaited_once_with(ANY, "b11f476d4bc8e039355241e871dc08cf")
+    else:
+        mock_ra_search.assert_not_awaited()
     mock_ra_details.assert_not_awaited()
     assert result.hasheous_id == 119
     assert result.ra_id is None

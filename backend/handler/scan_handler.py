@@ -1139,8 +1139,6 @@ async def scan_rom(
             )
         ):
             attempted_sources.add(MetadataSource.RA)
-            # Hasheous and Playmatch map an RA game to every dump of a title, so
-            # only RA's own hash list says whether this dump can unlock it.
             if (scan_type == ScanType.UPDATE and rom.ra_id) or (
                 scan_type == ScanType.UNMATCHED and rom.ra_id and not rom.ra_metadata
             ):
@@ -1148,6 +1146,8 @@ async def scan_rom(
                     rom=rom, ra_id=rom.ra_id, ra_hash=rom_attrs["ra_hash"]
                 )
             else:
+                # Hasheous maps an RA game to every dump of a title, so only RA's
+                # own hash list says whether this dump can unlock it.
                 return await meta_ra_handler.get_rom(
                     rom=rom, ra_hash=rom_attrs["ra_hash"]
                 )
@@ -1174,8 +1174,7 @@ async def scan_rom(
             # that never answered leaves a complete rescan nothing to redo.
             if MetadataSource.HASHEOUS not in inconclusive_sources:
                 attempted_sources.add(MetadataSource.HASHEOUS)
-            igdb_game = await meta_hasheous_handler.get_igdb_game(hasheous_rom)
-            return HasheousRom({**hasheous_rom, **igdb_game})
+            return await meta_hasheous_handler.get_igdb_game(hasheous_rom)
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
 
