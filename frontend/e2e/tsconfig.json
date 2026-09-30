@@ -10,5 +10,6 @@
     "lib": ["esnext", "dom"],
     "types": ["node"]
   },
-  "include": ["./**/*.ts"]
+  "include": ["./**/*.ts"],
+  "exclude": [".output"]
 }
