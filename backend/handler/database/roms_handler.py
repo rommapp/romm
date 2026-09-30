@@ -677,6 +677,39 @@ def _drop_filter_values_bump(session: Session) -> None:
     session.info.pop(FILTER_VALUES_BUMP_KEY, None)
 
 
+# Per-user cache invalidations queued by `_queue_user_cache_bumps`, keyed by
+# user id; they run once the transaction commits.
+USER_CACHE_BUMPS_KEY = "user_cache_bumps"
+
+
+@event.listens_for(Session, "after_commit")
+def _bump_user_caches_after_commit(session: Session) -> None:
+    bumps: dict[int, set[str]] = session.info.pop(USER_CACHE_BUMPS_KEY, {})
+    # No keys-set bookkeeping: entries under an old version become
+    # unreachable and are reaped by the TTL or the next global bump.
+    for uid, uid_flags in bumps.items():
+        # The write is already durable, so a cache failure only logs; the
+        # stale entry falls to the TTL.
+        try:
+            if "sort" in uid_flags:
+                sync_cache.incr(_user_sort_version_key(uid))
+            if "sib" in uid_flags:
+                sync_cache.incr(_user_sibling_version_key(uid))
+            if "feed" in uid_flags:
+                # Imported here because the recommendation package reads
+                # this module.
+                from handler.recommendation import invalidate_cached_feed
+
+                invalidate_cached_feed(uid)
+        except Exception:
+            log.exception("Failed to bump user %s cache versions", uid)
+
+
+@event.listens_for(Session, "after_rollback")
+def _drop_user_cache_bumps(session: Session) -> None:
+    session.info.pop(USER_CACHE_BUMPS_KEY, None)
+
+
 def _queue_user_cache_bumps(
     session: Session,
     user_id: int,
@@ -688,47 +721,12 @@ def _queue_user_cache_bumps(
     """Queues per-user cache invalidations for after this transaction
     commits, so a rollback bumps nothing and a concurrent reader cannot
     cache pre-commit rows under the new version."""
-    bumps: dict[int, set[str]] = session.info.setdefault("user_cache_bumps", {})
-    flags = bumps.setdefault(user_id, set())
-    flags.update(
+    bumps: dict[int, set[str]] = session.info.setdefault(USER_CACHE_BUMPS_KEY, {})
+    bumps.setdefault(user_id, set()).update(
         flag
         for flag, queued in (("sort", sort_keys), ("sib", siblings), ("feed", feed))
         if queued
     )
-    if "user_cache_bumps_armed" in session.info:
-        return
-    session.info["user_cache_bumps_armed"] = True
-
-    def _consume(ending_session: Session) -> dict[int, set[str]]:
-        # Popping the state re-arms the next transaction on a reused session.
-        ending_session.info.pop("user_cache_bumps_armed", None)
-        bumps: dict[int, set[str]] = ending_session.info.pop("user_cache_bumps", {})
-        return bumps
-
-    @event.listens_for(session, "after_commit", once=True)
-    def _flush(_session: Session) -> None:
-        # No keys-set bookkeeping: entries under an old version become
-        # unreachable and are reaped by the TTL or the next global bump.
-        for uid, uid_flags in _consume(_session).items():
-            # The write is already durable, so a cache failure only logs;
-            # the stale entry falls to the TTL.
-            try:
-                if "sort" in uid_flags:
-                    sync_cache.incr(_user_sort_version_key(uid))
-                if "sib" in uid_flags:
-                    sync_cache.incr(_user_sibling_version_key(uid))
-                if "feed" in uid_flags:
-                    # Imported here because the recommendation package reads
-                    # this module.
-                    from handler.recommendation import invalidate_cached_feed
-
-                    invalidate_cached_feed(uid)
-            except Exception:
-                log.exception("Failed to bump user %s cache versions", uid)
-
-    @event.listens_for(session, "after_rollback", once=True)
-    def _discard(_session: Session) -> None:
-        _consume(_session)
 
 
 class DBRomsHandler(DBBaseHandler):
