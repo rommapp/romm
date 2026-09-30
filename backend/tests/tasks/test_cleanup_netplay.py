@@ -28,7 +28,6 @@ async def test_disabled_cleanup_does_not_access_rooms(monkeypatch):
 
 
 async def test_enabled_cleanup_removes_only_empty_rooms(monkeypatch):
-    monkeypatch.setattr(mod, "ENABLE_SCHEDULED_CLEANUP_NETPLAY", True)
     monkeypatch.setattr(
         netplay_handler,
         "get_all",
