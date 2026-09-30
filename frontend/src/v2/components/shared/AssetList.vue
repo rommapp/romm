@@ -6,9 +6,9 @@
 // ones folded; a save's screenshot, when it has one, is the row thumbnail.
 //
 // Two modes, driven by `selectable`:
-//   * selectable (default) — Play view. Each row is a button; clicking
+//   * selectable (default): Play view. Each row is a button; clicking
 //     emits `select`; the chosen row gets a brand rail + a check icon.
-//   * manage (selectable=false) — Save data subtab. Rows are static; the
+//   * manage (selectable=false): Save data subtab. Rows are static; the
 //     trailing area renders the `#actions` slot (download/delete/toggle),
 //     and `showOwner` adds an author chip for community items.
 import { RBtn, RCheckbox, REmptyState, RIcon } from "@v2/lib";
@@ -438,7 +438,7 @@ const fadeIndex = computed(() =>
   background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
 /* Manage mode: rows are static info containers, not selectable buttons.
-   No pointer cursor, no hover-lift — only the action buttons react. */
+   No pointer cursor, no hover-lift: only the action buttons react. */
 .r-asset-list__row--static {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   cursor: default;

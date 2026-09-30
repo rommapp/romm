@@ -133,7 +133,12 @@ from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.m3u import generate_m3u_content, playlist_files
-from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
+from utils.nginx import (
+    FileRedirectResponse,
+    ZipContentLine,
+    ZipResponse,
+    content_disposition,
+)
 from utils.router import APIRouter, as_query_dependency
 from utils.screenshots import continue_playing_screenshot
 from utils.validation import (
@@ -1082,7 +1087,7 @@ async def download_roms(
     return served(
         ZipResponse(
             content_lines=content_lines,
-            filename=quote(file_name),
+            filename=file_name,
         )
     )
 
@@ -1347,7 +1352,7 @@ async def head_rom_content(
                 path=rom_path,
                 filename=file.file_name,
                 headers={
-                    "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file.file_name)}; filename=\"{quote(file.file_name)}\"",
+                    "Content-Disposition": content_disposition(file.file_name),
                     "Content-Type": "application/octet-stream",
                     "Content-Length": str(file.file_size_bytes),
                 },
@@ -1356,7 +1361,7 @@ async def head_rom_content(
         return Response(
             headers={
                 "Content-Type": "application/zip",
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
+                "Content-Disposition": content_disposition(f"{file_name}.zip"),
             },
         )
 
@@ -1377,14 +1382,14 @@ async def head_rom_content(
                 "Content-Type": "application/zip",
                 "Content-Length": str(cached.stat.st_size),
                 "Accept-Ranges": "bytes",
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
+                "Content-Disposition": content_disposition(f"{file_name}.zip"),
             },
         )
 
     return Response(
         media_type="application/zip",
         headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
+            "Content-Disposition": content_disposition(f"{file_name}.zip"),
         },
     )
 
@@ -1494,7 +1499,7 @@ async def get_rom_content(
                     path=rom_path,
                     filename=file.file_name,
                     headers={
-                        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file.file_name)}; filename=\"{quote(file.file_name)}\"",
+                        "Content-Disposition": content_disposition(file.file_name),
                         "Content-Type": "application/octet-stream",
                         "Content-Length": str(file.file_size_bytes),
                     },
@@ -1558,7 +1563,7 @@ async def get_rom_content(
                 content=zip_data,
                 media_type="application/zip",
                 headers={
-                    "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
+                    "Content-Disposition": content_disposition(f"{file_name}.zip"),
                 },
             )
         )
@@ -1616,7 +1621,7 @@ async def get_rom_content(
     return served(
         ZipResponse(
             content_lines=content_lines,
-            filename=f"{quote(file_name)}.zip",
+            filename=f"{file_name}.zip",
         )
     )
 

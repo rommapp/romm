@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// List view — master/detail layout.
+// List view: master/detail layout.
 //
 // Left column: condensed list of matches (mini cover + title + provider
-// chips). Right column: detail panel for the currently picked match —
+// chips). Right column: detail panel for the currently picked match:
 // summary, source-cover picker, rename toggle and a sticky confirm.
 // In xs the columns stack with the detail panel below the list.
 import { RBtn, REmptyState, RIcon, RProgressCircular } from "@v2/lib";
@@ -45,7 +45,7 @@ const selectedSources = computed<MatchedSource[]>(() =>
   selectedMatch.value ? getMatchSources(selectedMatch.value) : [],
 );
 
-// Confirm gate — `selectedSource` is required only when the picked
+// Confirm gate: `selectedSource` is required only when the picked
 // match actually has covers to choose from. Match results that ship
 // without any provider cover (e.g. IGDB metadata-only entries) would
 // otherwise leave the button permanently disabled.
@@ -322,7 +322,7 @@ watch(
 
 .match-list__row-cover {
   /* Fixed-width alignment column (keeps the row titles aligned) inside which
-     the cover card sits at its natural aspect — same idea as the gallery
+     the cover card sits at its natural aspect: same idea as the gallery
      list view's dedicated cover column. */
   flex-shrink: 0;
   width: 56px;
@@ -401,7 +401,7 @@ watch(
 }
 
 .match-list__detail-scroll {
-  /* Mini-gallery — only the covers area scrolls; head and foot stay
+  /* Mini-gallery: only the covers area scrolls; head and foot stay
      pinned to the top / bottom of the detail panel. Padding gives the
      hover scale on source thumbnails room before the scroll container
      clips them. */
@@ -509,7 +509,7 @@ watch(
 
 .match-list__source-img {
   display: block;
-  /* Fixed height, natural width — the tile takes the cover's true aspect,
+  /* Fixed height, natural width: the tile takes the cover's true aspect,
      never cropped (matches the gallery cards). `max-width` caps the rare
      ultra-wide cover to the tile so it letterboxes instead of overflowing
      and getting clipped by the panel. */
@@ -616,7 +616,7 @@ html[data-bp~="xs"] .match-list__list {
 html[data-bp~="xs"] .match-list__detail {
   min-height: 0;
 }
-/* The desktop inner scroll would collapse to a sliver on a phone — let the
+/* The desktop inner scroll would collapse to a sliver on a phone: let the
    covers flow at full height and scroll the dialog body instead. */
 html[data-bp~="xs"] .match-list__detail-scroll {
   flex: none;

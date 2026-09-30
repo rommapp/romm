@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// EditUserDialog — edit a user's profile AND access in one place. Profile
+// EditUserDialog: edit a user's profile AND access in one place. Profile
 // fields (username/password/email/avatar) plus an Access section that replaces
 // the old role picker: an Admin toggle, and for non-admins the permission
 // group and the platforms hidden from them. Emitter-driven

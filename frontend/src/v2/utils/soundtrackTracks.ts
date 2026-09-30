@@ -7,7 +7,7 @@ import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { romFileUrl } from "@/v2/utils/romFiles";
 
 export interface PanelTrack {
-  /** `rom_file_id`, shared by the songs of one file. */
+  /** `rom_file_id`: shared by the songs of one file. */
   id: number;
   /** The track's own id, once its metadata has loaded. */
   trackId?: number;
@@ -19,7 +19,7 @@ export interface PanelTrack {
   fileName: string;
   /** Display title, already resolved from metadata or the file name. */
   title: string;
-  /** Artist · album · (game · platform), whatever the source could supply. */
+  /** Artist · album · (game · platform): whatever the source could supply. */
   subtitle: string;
   url: string;
   /** The sidecar playlist a chiptune file is played with. */
@@ -31,7 +31,16 @@ export interface PanelTrack {
   meta?: TrackMetaSchema;
 }
 
-const AUDIO_EXTS = new Set(["mp3", "ogg", "oga", "wav", "flac", "m4a", "opus"]);
+const AUDIO_EXTS = new Set([
+  "mp3",
+  "ogg",
+  "oga",
+  "wav",
+  "flac",
+  "m4a",
+  "aac",
+  "opus",
+]);
 // Console sound formats, played through game-music-emu instead of `<audio>`.
 const CHIPTUNE_EXTS = new Set([
   "ay",

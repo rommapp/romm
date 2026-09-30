@@ -4,10 +4,12 @@ from pathlib import Path
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_rom
 
 from handler import rom_conversion
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.redis_handler import async_cache
 from handler.rom_conversion import promote_single_file_to_folder
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
@@ -26,35 +28,24 @@ def _single_file_rom(
     platform: Platform,
     admin_user: User,
     lib: Path,
+    name: str,
     *,
-    fs_name: str,
-    fs_name_no_ext: str,
     fs_extension: str,
 ) -> Rom:
     """A simple single-file ROM with its lone file present on disk."""
-    rom = Rom(
-        platform_id=platform.id,
-        name=fs_name_no_ext,
-        slug=f"{fs_name}_slug",
-        fs_name=fs_name,
-        fs_name_no_tags=fs_name_no_ext,
-        fs_name_no_ext=fs_name_no_ext,
-        fs_extension=fs_extension,
-        fs_path=f"{platform.slug}/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
+    rom = make_rom(platform, name, fs_extension=fs_extension)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     db_rom_handler.add_rom_file(
         RomFile(
             rom_id=rom.id,
-            file_name=fs_name,
+            file_name=rom.fs_name,
             file_path=rom.fs_path,
             file_size_bytes=10,
             last_modified=1700000000.0,
             category=RomFileCategory.GAME,
         )
     )
-    disk = lib / rom.fs_path / fs_name
+    disk = lib / rom.fs_path / rom.fs_name
     disk.parent.mkdir(parents=True, exist_ok=True)
     disk.write_bytes(b"romdata")
     refreshed = db_rom_handler.get_rom(rom.id)
@@ -76,8 +67,7 @@ def test_convert_single_file_promotes_in_place(
         platform,
         admin_user,
         real_library,
-        fs_name="test_rom.zip",
-        fs_name_no_ext="test_rom",
+        "test_rom",
         fs_extension="zip",
     )
     assert rom.has_simple_single_file
@@ -113,8 +103,7 @@ def test_convert_already_folder_is_clean_noop(
         platform,
         admin_user,
         real_library,
-        fs_name="test_rom.zip",
-        fs_name_no_ext="test_rom",
+        "test_rom",
         fs_extension="zip",
     )
     # First call converts; second call is a clean no-op on the now-folder ROM.
@@ -143,8 +132,7 @@ def test_convert_folder_collision_returns_409(
         platform,
         admin_user,
         real_library,
-        fs_name="test_rom.zip",
-        fs_name_no_ext="test_rom",
+        "test_rom",
         fs_extension="zip",
     )
     # A folder already occupies the target name.
@@ -171,8 +159,7 @@ def test_convert_extensionless_uses_staging(
         platform,
         admin_user,
         real_library,
-        fs_name="test_rom",
-        fs_name_no_ext="test_rom",
+        "test_rom",
         fs_extension="",
     )
 
@@ -199,8 +186,7 @@ def test_convert_extensionless_dir_collision_returns_409(
         platform,
         admin_user,
         real_library,
-        fs_name="test_rom",
-        fs_name_no_ext="test_rom",
+        "test_rom",
         fs_extension="",
     )
     # Stale row over a folder the user already created on disk (no rescan).
@@ -232,8 +218,7 @@ def test_convert_rolls_back_fs_on_db_failure(
         platform,
         admin_user,
         real_library,
-        fs_name="test_rom",
-        fs_name_no_ext="test_rom",
+        "test_rom",
         fs_extension="",
     )
 
@@ -271,8 +256,7 @@ def test_soundtrack_upload_auto_converts_single_file_rom(
         platform,
         admin_user,
         real_library,
-        fs_name="test_rom.zip",
-        fs_name_no_ext="test_rom",
+        "test_rom",
         fs_extension="zip",
     )
     response = client.post(
@@ -303,8 +287,7 @@ def test_manual_upload_auto_converts_single_file_rom(
         platform,
         admin_user,
         real_library,
-        fs_name="test_rom.zip",
-        fs_name_no_ext="test_rom",
+        "test_rom",
         fs_extension="zip",
     )
     response = client.post(
@@ -331,8 +314,7 @@ def test_screenshot_upload_auto_converts_single_file_rom(
         platform,
         admin_user,
         real_library,
-        fs_name="test_rom.zip",
-        fs_name_no_ext="test_rom",
+        "test_rom",
         fs_extension="zip",
     )
     response = client.post(
@@ -358,8 +340,7 @@ async def test_second_upload_racing_a_promotion_keeps_the_rom_in_its_folder(
         platform,
         admin_user,
         real_library,
-        fs_name="sf2ce.zip",
-        fs_name_no_ext="sf2ce",
+        "sf2ce",
         fs_extension="zip",
     )
     second = db_rom_handler.get_rom(rom.id)
@@ -401,8 +382,7 @@ async def test_promotion_racing_across_workers_does_not_destroy_the_folder(
         platform,
         admin_user,
         real_library,
-        fs_name="sf2ce.zip",
-        fs_name_no_ext="sf2ce",
+        "sf2ce",
         fs_extension="zip",
     )
     second = db_rom_handler.get_rom(rom.id)
@@ -415,8 +395,8 @@ async def test_promotion_racing_across_workers_does_not_destroy_the_folder(
         async def __aexit__(self, *_: object) -> None:
             return None
 
-    # Separate workers hold separate locks, so neither serializes the other.
-    monkeypatch.setattr(rom_conversion, "_promotion_lock", _NoLock())
+    # The rollback has to hold up even when nothing serializes the two.
+    monkeypatch.setattr(rom_conversion, "redis_lock", lambda *_, **__: _NoLock())
 
     make_directory = fs_rom_handler.make_directory
     barrier = asyncio.Barrier(2)
@@ -439,3 +419,47 @@ async def test_promotion_racing_across_workers_does_not_destroy_the_folder(
     inside = real_library / f"{platform.slug}/roms/sf2ce/sf2ce.zip"
     assert inside.exists(), "the loser destroyed the winner's folder"
     assert inside.read_bytes() == b"romdata"
+
+
+async def test_promotion_waits_for_a_lock_held_by_another_worker(
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+):
+    rom = _single_file_rom(
+        platform, admin_user, real_library, "sf2ce", fs_extension="zip"
+    )
+    lock_key = rom_conversion.promotion_lock_key(rom)
+    await async_cache.set(lock_key, "other-worker")
+
+    promotion = asyncio.create_task(promote_single_file_to_folder(rom))
+    await asyncio.sleep(0.3)
+    beside = real_library / f"{platform.slug}/roms/sf2ce.zip"
+    assert not promotion.done()
+    assert beside.exists()
+
+    await async_cache.delete(lock_key)
+    promoted = await asyncio.wait_for(promotion, 5)
+
+    assert promoted.fs_name == "sf2ce"
+    assert (real_library / f"{platform.slug}/roms/sf2ce/sf2ce.zip").exists()
+    assert not beside.exists()
+
+
+async def test_promotion_ignores_a_lock_held_for_another_folder(
+    platform: Platform,
+    admin_user: User,
+    real_library: Path,
+):
+    busy = _single_file_rom(
+        platform, admin_user, real_library, "sf2ce", fs_extension="zip"
+    )
+    rom = _single_file_rom(
+        platform, admin_user, real_library, "mslug", fs_extension="zip"
+    )
+    await async_cache.set(rom_conversion.promotion_lock_key(busy), "other-worker")
+
+    promoted = await asyncio.wait_for(promote_single_file_to_folder(rom), 5)
+
+    assert promoted.fs_name == "mslug"
+    assert (real_library / f"{platform.slug}/roms/mslug/mslug.zip").exists()

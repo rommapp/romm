@@ -89,7 +89,7 @@
   "provider-steam-desc": "Store-Metadaten und Artwork für PC-Spiele auf Steam.",
   "provider-steam-setup": "Setze STEAM_API_ENABLED=true.",
   "proxy-hasheous-caveat": "Community-gehosteter Dienst. Erfordert Datei-Hashes. Aktiviere die Hash-Berechnung in der Konfiguration (standardmäßig aktiviert).",
-  "proxy-hasheous-desc": "Hash-basierter Matcher, der IGDB-Daten proxyt und RetroAchievements-IDs liefert.",
+  "proxy-hasheous-desc": "Hash-basierter Matcher, der IGDB-Daten proxyt.",
   "proxy-hasheous-setup": "Setze HASHEOUS_API_ENABLED=true.",
   "proxy-playmatch-caveat": "Community-gehosteter Dienst.",
   "proxy-playmatch-desc": "Hash-basierter Matcher gepaart mit IGDB.",

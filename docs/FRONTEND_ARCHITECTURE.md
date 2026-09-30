@@ -36,7 +36,7 @@ Comprehensive documentation of the RomM frontend: a Vue 3 single-page applicatio
 | **Framework**        | Vue 3.5 (Composition API, `<script setup>`)  |
 | **Build Tool**       | Vite 6.4.2                                   |
 | **Language**         | TypeScript 5.9.3 (`noImplicitAny: true`)     |
-| **UI Library**       | Vuetify 3.9.2 (Material Design), v1 only     |
+| **UI Library**       | Vuetify 4.2.1 (Material Design), v1 only     |
 | **CSS**              | Tailwind CSS 4.3.1 + Vuetify themes, v1 only |
 | **State Management** | Pinia 3.0.1 (18 stores)                      |
 | **Routing**          | Vue Router 5.3.1                             |

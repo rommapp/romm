@@ -61,7 +61,7 @@ export const Subtabs: Story = {
   },
 };
 
-// Vertical pill variant — stacked menu items with optional leading
+// Vertical pill variant: stacked menu items with optional leading
 // icon. Used by SaveDataTab for the left-rail subtab nav.
 export const VerticalPill: Story = {
   args: {
@@ -134,7 +134,7 @@ export const HiddenItems: Story = {
   },
 };
 
-// Image variant — items can carry a logo / brand mark via the `image`
+// Image variant: items can carry a logo / brand mark via the `image`
 // field instead of an MDI icon. Mirrors the per-provider raw-metadata
 // tabs in EditRomDialog (IGDB / MobyGames / etc).
 // Keyboard: Tab across the tabs, Enter/Space activates the focused one.

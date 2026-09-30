@@ -57,7 +57,7 @@ CollectionSchemaT = TypeVar(
 def _hide_collection_roms(
     schemas: list[CollectionSchemaT], request: Request
 ) -> list[CollectionSchemaT]:
-    """Drop hidden roms from each collection's `rom_ids`/`rom_count` for the caller.
+    """Drop hidden roms from each collection's `rom_ids` for the caller.
 
     Without this a collection leaks the ids (and inflated count) of roms hidden
     from the user via the opt-out visibility model.
@@ -77,10 +77,7 @@ def _hide_collection_roms(
     if not hidden:
         return schemas
     for s in schemas:
-        visible = set(s.rom_ids) - hidden
-        if len(visible) != len(s.rom_ids):
-            s.rom_ids = visible
-            s.rom_count = len(visible)
+        s.rom_ids = set(s.rom_ids) - hidden
     return schemas
 
 

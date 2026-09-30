@@ -1,4 +1,4 @@
-// usePlayerFullscreen — fullscreen for a player stage, native where the
+// usePlayerFullscreen: fullscreen for a player stage, native where the
 // platform has it and emulated where it does not.
 import { useFullscreen, type MaybeElementRef } from "@vueuse/core";
 import { type ShallowRef } from "vue";

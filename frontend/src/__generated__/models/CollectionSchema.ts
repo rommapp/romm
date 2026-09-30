@@ -6,7 +6,6 @@ export type CollectionSchema = {
     name: string;
     description: string;
     rom_ids: Array<number>;
-    rom_count: number;
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     path_covers_small: Array<string>;
@@ -21,5 +20,6 @@ export type CollectionSchema = {
     url_cover: (string | null);
     user_id: number;
     owner_username: string;
+    readonly rom_count: number;
 };
 

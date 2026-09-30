@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PermissionsMatrix — entity (rows) x action (columns) grid of tri-state
+// PermissionsMatrix: entity (rows) x action (columns) grid of tri-state
 // checkboxes for the group editor. Each cell cycles none -> full -> own ->
 // none: "none" is no grant, "full" is library-wide (primary), "own" limits
 // the grant to the user's own items (accent, own_only). The model is the list

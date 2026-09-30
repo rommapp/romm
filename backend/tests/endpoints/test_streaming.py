@@ -17,6 +17,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from main import app
+from tests.factories import make_rom, make_save, make_screenshot, make_state
 from tests.streaming_stubs import exit_pulls_spawned_inline
 
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
@@ -232,18 +233,7 @@ def _rom_on(slug: str) -> Rom:
     platform = db_platform_handler.add_platform(
         Platform(name=slug, slug=slug, fs_slug=slug)
     )
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=f"{slug}-rom",
-            slug=f"{slug}-rom",
-            fs_name=f"{slug}.zip",
-            fs_name_no_tags=slug,
-            fs_name_no_ext=slug,
-            fs_extension="zip",
-            fs_path=f"{slug}/roms",
-        )
-    )
+    return make_rom(platform, f"{slug}-rom", fs_stem=slug)
 
 
 def _add_rom_file(rom: Rom, file_name: str) -> RomFile:
@@ -1559,18 +1549,7 @@ def test_claim_session_same_container_two_platforms_rejected(
     platform2 = db_platform_handler.add_platform(
         Platform(name="p2", slug="p2_slug", fs_slug="p2_slug")
     )
-    rom2 = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform2.id,
-            name="rom2",
-            slug="rom2",
-            fs_name="rom2.zip",
-            fs_name_no_tags="rom2",
-            fs_name_no_ext="rom2",
-            fs_extension="zip",
-            fs_path=f"{platform2.slug}/roms",
-        )
-    )
+    rom2 = make_rom(platform2, "rom2")
     shared_broker = "http://192.168.1.10:8000"
     with _streaming(
         _container_for(rom, broker_host=shared_broker),
@@ -4292,26 +4271,35 @@ def test_load_state_rejects_slot_between_max_and_autosave(client, access_token):
     assert r.status_code == 422
 
 
+def _state_fields(rom: Rom, emulator: str) -> dict[str, Any]:
+    return {
+        "emulator": emulator,
+        "file_path": f"{rom.platform_slug}/states/{emulator}",
+        "file_size_bytes": 1.0,
+    }
+
+
 def _state_for(rom: Rom, user: User, file_name: str, emulator: str) -> State:
-    name_no_ext, _, extension = file_name.rpartition(".")
+    """An unsaved state, as a patched scan_state returns one."""
     return State(
         rom_id=rom.id,
         user_id=user.id,
         file_name=file_name,
-        file_name_no_tags=name_no_ext,
-        file_name_no_ext=name_no_ext,
-        file_extension=extension,
-        emulator=emulator,
-        file_path=f"{rom.platform_slug}/states/{emulator}",
-        file_size_bytes=1.0,
+        **_state_fields(rom, emulator),
+    )
+
+
+def _add_state(
+    rom: Rom, user: User, file_name: str, emulator: str, **overrides: Any
+) -> State:
+    return make_state(
+        rom, user, file_name, **(_state_fields(rom, emulator) | overrides)
     )
 
 
 def _core_state(rom: Rom, user: User, file_name: str, core: str | None) -> State:
     """A stored RetroArch state recorded as written by `core`."""
-    state = _state_for(rom, user, file_name, "retroarch")
-    state.core = core
-    return db_state_handler.add_state(state)
+    return _add_state(rom, user, file_name, "retroarch", core=core)
 
 
 def test_a_state_keeps_the_core_that_wrote_it(rom: Rom, admin_user: User):
@@ -4863,8 +4851,8 @@ def test_pull_state_rejects_unsanitizable_filename(rom: Rom, admin_user: User):
 def test_hydrate_pushes_only_matching_emulator_states(rom: Rom, admin_user: User):
     """Hydration must push only states saved under this container's emulator
     namespace - EmulatorJS states for the same ROM stay out of the container."""
-    db_state_handler.add_state(_state_for(rom, admin_user, "Game.01.p2s", "pcsx2"))
-    db_state_handler.add_state(_state_for(rom, admin_user, "Game.state", "retroarch"))
+    _add_state(rom, admin_user, "Game.01.p2s", "pcsx2")
+    _add_state(rom, admin_user, "Game.state", "retroarch")
     container = {**_container_for(rom), "label": "PCSX2"}
     with (
         patch(
@@ -4883,7 +4871,7 @@ def test_hydrate_pushes_only_matching_emulator_states(rom: Rom, admin_user: User
 
 def test_hydrate_skips_states_missing_on_disk(rom: Rom, admin_user: User):
     """A DB row whose file vanished from disk is skipped, not fatal."""
-    db_state_handler.add_state(_state_for(rom, admin_user, "Game.01.p2s", "pcsx2"))
+    _add_state(rom, admin_user, "Game.01.p2s", "pcsx2")
     container = {**_container_for(rom), "label": "PCSX2"}
     with (
         patch(
@@ -5071,8 +5059,7 @@ def test_resume_takes_an_unrecorded_state_on_the_default_core(
 
 def _add_state_at(rom: Rom, user: User, file_name: str, day: int) -> State:
     """Add a state with an explicit updated_at, so history order is deterministic."""
-    state = _state_for(rom, user, file_name, "pcsx2")
-    stored = db_state_handler.add_state(state)
+    stored = _add_state(rom, user, file_name, "pcsx2")
     db_state_handler.update_state(
         stored.id, {"updated_at": datetime(2026, 1, day, tzinfo=timezone.utc)}
     )
@@ -5082,7 +5069,7 @@ def _add_state_at(rom: Rom, user: User, file_name: str, day: int) -> State:
 def test_hydrate_skipped_when_resume_state_already_pushed(rom: Rom, admin_user: User):
     """Every history entry collapses to the same container-side name, so pushing
     anything here would overwrite the state the player picked to resume from."""
-    db_state_handler.add_state(_state_for(rom, admin_user, "Game.01.p2s", "pcsx2"))
+    _add_state(rom, admin_user, "Game.01.p2s", "pcsx2")
     container = {**_container_for(rom), "label": "PCSX2"}
     with patch("handler.streaming.states.push_state_file", return_value=True) as push:
         pushed = asyncio.run(
@@ -5106,7 +5093,7 @@ def test_hydrate_pushes_nothing_to_an_exit_state_emulator(
 ):
     """Their broker refuses a state file, and the save archive already carries
     the exit state these library entries were pulled from."""
-    db_state_handler.add_state(_state_for(rom, admin_user, name, emulator))
+    _add_state(rom, admin_user, name, emulator)
     container = {**_container_for(rom), "protocol": "webstation", "emulator": emulator}
     with (
         patch(
@@ -5150,9 +5137,13 @@ def test_pull_state_skips_capture_identical_to_previous(rom: Rom, admin_user: Us
     """Saving twice without playing in between produces the same bytes, and the
     duplicate must not take a history slot."""
     content = b"state-bytes"
-    existing = _state_for(rom, admin_user, "Game.20260101-000000000000.03.p2s", "pcsx2")
-    existing.file_size_bytes = len(content)
-    db_state_handler.add_state(existing)
+    _add_state(
+        rom,
+        admin_user,
+        "Game.20260101-000000000000.03.p2s",
+        "pcsx2",
+        file_size_bytes=len(content),
+    )
     container = {**_container_for(rom), "label": "PCSX2"}
     with (
         patch(
@@ -5200,14 +5191,8 @@ def test_prune_state_history_drops_oldest_past_limit(rom: Rom, admin_user: User)
 def test_prune_state_history_drops_the_pruned_thumbnail(rom: Rom, admin_user: User):
     for day in range(1, 4):
         _add_state_at(rom, admin_user, f"Game.2026010{day}-000000000000.01.p2s", day)
-    thumbnail = db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="Game.20260101-000000000000.01.png",
-            file_path=f"{rom.platform_slug}/screenshots",
-            file_size_bytes=3,
-        )
+    thumbnail = make_screenshot(
+        rom, admin_user, "Game.20260101-000000000000.01.png", file_size_bytes=3
     )
     with (
         patch("handler.streaming.states.STREAMING_STATE_HISTORY_LIMIT", 2),
@@ -5349,7 +5334,7 @@ def test_fetch_state_screenshot_transport_error_returns_none(rom: Rom):
 def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
     """A stored state screenshot lands in the screenshots dir under the state's
     stem, so State.screenshot resolves it as the resume-picker thumbnail."""
-    db_state_handler.add_state(_state_for(rom, admin_user, "Game.03.p2s", "pcsx2"))
+    _add_state(rom, admin_user, "Game.03.p2s", "pcsx2")
     scanned = _screenshot_for(rom, "Game.03")
     with (
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
@@ -5372,7 +5357,7 @@ def test_store_state_screenshot_binds_to_state(admin_user: User, rom: Rom):
 
 def test_store_state_screenshot_rejects_non_png(admin_user: User, rom: Rom):
     """A broker error page must never be written out as a thumbnail."""
-    db_state_handler.add_state(_state_for(rom, admin_user, "Game.05.p2s", "pcsx2"))
+    _add_state(rom, admin_user, "Game.05.p2s", "pcsx2")
     with (
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch("handler.asset_store.scan_screenshot", new=AsyncMock()) as scan,
@@ -5456,7 +5441,7 @@ def test_store_state_asset_collision_keeps_disc_file_id_in_sync(
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
     when = datetime(2026, 1, 1, tzinfo=timezone.utc)
     stamped = states.stamped_state_filename("pcsx2", "Game.03.p2s", when)
-    existing = db_state_handler.add_state(_state_for(rom, admin_user, stamped, "pcsx2"))
+    existing = _add_state(rom, admin_user, stamped, "pcsx2")
     scanned_state = _state_for(rom, admin_user, stamped, "pcsx2")
     scanned_state.file_size_bytes = 999
     with (
@@ -5487,21 +5472,39 @@ def test_store_state_asset_collision_keeps_disc_file_id_in_sync(
 # ── In-game save sync ─────────────────────────────────────────────────────────
 
 
+def _save_fields(
+    rom: Rom, file_name: str, emulator: str, content_hash: str | None
+) -> dict[str, Any]:
+    # Unlike the model's split, a tagged archive keeps `zip` as its extension.
+    name_no_ext, _, extension = file_name.rpartition(".")
+    return {
+        "file_name_no_tags": name_no_ext,
+        "file_name_no_ext": name_no_ext,
+        "file_extension": extension,
+        "emulator": emulator,
+        "content_hash": content_hash,
+        "file_path": f"{rom.platform_slug}/saves/{emulator}",
+        "file_size_bytes": 1.0,
+    }
+
+
 def _save_for(
     rom: Rom, user: User, file_name: str, emulator: str, content_hash: str | None = None
 ) -> Save:
-    name_no_ext, _, extension = file_name.rpartition(".")
+    """An unsaved save, as a patched scan_save returns one."""
     return Save(
         rom_id=rom.id,
         user_id=user.id,
         file_name=file_name,
-        file_name_no_tags=name_no_ext,
-        file_name_no_ext=name_no_ext,
-        file_extension=extension,
-        emulator=emulator,
-        content_hash=content_hash,
-        file_path=f"{rom.platform_slug}/saves/{emulator}",
-        file_size_bytes=1.0,
+        **_save_fields(rom, file_name, emulator, content_hash),
+    )
+
+
+def _add_save(
+    rom: Rom, user: User, file_name: str, emulator: str, content_hash: str | None = None
+) -> Save:
+    return make_save(
+        rom, user, file_name, **_save_fields(rom, file_name, emulator, content_hash)
     )
 
 
@@ -5527,9 +5530,7 @@ def test_pull_saves_stores_new_archive(rom: Rom, admin_user: User):
 def test_pull_saves_dedups_identical_archive(rom: Rom, admin_user: User):
     """Re-pulling an unchanged archive (same content hash) must not add a second
     row, and must delete the just-written duplicate file."""
-    db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [pcsx2 old].saves.zip", "pcsx2", "dup-hash")
-    )
+    _add_save(rom, admin_user, "Game [pcsx2 old].saves.zip", "pcsx2", "dup-hash")
     container = {**_container_for(rom), "label": "PCSX2"}
     scanned = _save_for(
         rom, admin_user, "Game [pcsx2 new].saves.zip", "pcsx2", "dup-hash"
@@ -5567,16 +5568,10 @@ def test_pull_saves_no_changes_returns_false(rom: Rom, admin_user: User):
 def test_hydrate_saves_pushes_newest_matching_zip(rom: Rom, admin_user: User):
     """Hydration pushes the newest .zip save for this container's emulator, and
     ignores non-zip saves and other emulators' saves."""
-    db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
-    )
-    newest = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [pcsx2 b].saves.zip", "pcsx2", "h2")
-    )
-    db_save_handler.add_save(_save_for(rom, admin_user, "loose.mcr", "pcsx2", "h3"))
-    db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [dolphin].saves.zip", "dolphin", "h4")
-    )
+    _add_save(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
+    newest = _add_save(rom, admin_user, "Game [pcsx2 b].saves.zip", "pcsx2", "h2")
+    _add_save(rom, admin_user, "loose.mcr", "pcsx2", "h3")
+    _add_save(rom, admin_user, "Game [dolphin].saves.zip", "dolphin", "h4")
     container = {**_container_for(rom), "label": "PCSX2"}
     with (
         # Path-derived bytes, so the assertion below names which of the four
@@ -5598,7 +5593,7 @@ def test_hydrate_saves_pushes_newest_matching_zip(rom: Rom, admin_user: User):
 
 def test_hydrate_saves_no_matching_save_returns_false(rom: Rom, admin_user: User):
     """No stored zip save for the emulator means nothing to hydrate."""
-    db_save_handler.add_save(_save_for(rom, admin_user, "loose.mcr", "pcsx2", "h1"))
+    _add_save(rom, admin_user, "loose.mcr", "pcsx2", "h1")
     container = {**_container_for(rom), "label": "PCSX2"}
     with patch("handler.streaming.saves.push_save_archive", return_value=True) as push:
         ok = asyncio.run(
@@ -5621,9 +5616,7 @@ def _clearing_webstation(rom: Rom) -> dict[str, Any]:
 def _three_archives(rom: Rom, user: User) -> list[Save]:
     """Three stored retroarch archives, oldest first."""
     return [
-        db_save_handler.add_save(
-            _save_for(rom, user, f"Game [retroarch {tag}].saves.zip", "retroarch", tag)
-        )
+        _add_save(rom, user, f"Game [retroarch {tag}].saves.zip", "retroarch", tag)
         for tag in ("a", "b", "c")
     ]
 
@@ -5698,8 +5691,8 @@ def test_resolve_save_archive_accepts_the_players_own_archive(
     rom: Rom, admin_user: User
 ):
     """The happy path the launch screen's picker produces."""
-    archive = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    archive = _add_save(
+        rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1"
     )
     resolved, is_foreign = saves.resolve_save_archive(
         admin_user.id, rom, _resolved(_clearing_webstation(rom)), archive.id
@@ -5712,8 +5705,8 @@ def test_resolve_save_archive_rejects_a_save_that_is_not_the_players(
     rom: Rom, admin_user: User, viewer_user: User
 ):
     """Saves are private, so another player's archive must not be nameable."""
-    theirs = db_save_handler.add_save(
-        _save_for(rom, viewer_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    theirs = _add_save(
+        rom, viewer_user, "Game [retroarch a].saves.zip", "retroarch", "h1"
     )
     with pytest.raises(HTTPException) as exc:
         saves.resolve_save_archive(
@@ -5727,8 +5720,8 @@ def test_resolve_save_archive_rejects_a_save_from_another_rom(
 ):
     """The pick is scoped to the ROM being launched, so the player's own
     archive for a different game is as unnameable as someone else's."""
-    elsewhere = db_save_handler.add_save(
-        _save_for(second_rom, admin_user, "Other [retroarch a].saves.zip", "retroarch")
+    elsewhere = _add_save(
+        second_rom, admin_user, "Other [retroarch a].saves.zip", "retroarch"
     )
     with pytest.raises(HTTPException) as exc:
         saves.resolve_save_archive(
@@ -5742,9 +5735,7 @@ def test_resolve_save_archive_rejects_another_emulators_archive(
 ):
     """Another emulator's archive lays its members out where this one never
     reads, so the restore would write files the game never opens."""
-    other = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
-    )
+    other = _add_save(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     with patch("handler.streaming.saves.webstation.import_spec", return_value=None):
         with pytest.raises(HTTPException) as exc:
             saves.resolve_save_archive(
@@ -5756,9 +5747,7 @@ def test_resolve_save_archive_rejects_another_emulators_archive(
 
 def test_resolve_save_archive_rejects_a_bare_save_file(rom: Rom, admin_user: User):
     """A loose save carries no layout the broker could restore it from."""
-    loose = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game.srm", "retroarch", "h1")
-    )
+    loose = _add_save(rom, admin_user, "Game.srm", "retroarch", "h1")
     with patch("handler.streaming.saves.webstation.import_spec", return_value=None):
         with pytest.raises(HTTPException) as exc:
             saves.resolve_save_archive(
@@ -5773,9 +5762,7 @@ def test_resolve_save_archive_rejects_a_pick_where_it_would_not_land(
 ):
     """An emulator that keeps the container's own save files skips any member
     it already holds a newer copy of, so honouring the pick would be a lie."""
-    archive = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
-    )
+    archive = _add_save(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     with pytest.raises(HTTPException) as exc:
         saves.resolve_save_archive(
             admin_user.id, rom, _resolved(_webstation_for(rom)), archive.id
@@ -5789,9 +5776,7 @@ def test_resolve_save_archive_accepts_a_foreign_pick_the_broker_will_import(
 ):
     """A pick that fails the native check is not turned away outright: it is
     checked against the broker's own import-spec first."""
-    other = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
-    )
+    other = _add_save(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     spec = webstation.ImportSpec(
         kinds=frozenset({"save"}),
         state_channel="archive",
@@ -5808,9 +5793,7 @@ def test_resolve_save_archive_accepts_a_foreign_pick_the_broker_will_import(
 def test_resolve_save_archive_still_refuses_when_the_broker_has_no_import_spec(
     rom: Rom, admin_user: User
 ):
-    other = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
-    )
+    other = _add_save(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     with patch("handler.streaming.saves.webstation.import_spec", return_value=None):
         with pytest.raises(HTTPException) as exc:
             saves.resolve_save_archive(
@@ -5821,9 +5804,7 @@ def test_resolve_save_archive_still_refuses_when_the_broker_has_no_import_spec(
 
 
 def test_resolve_resume_state_accepts_the_players_own_state(rom: Rom, admin_user: User):
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
-    )
+    state = _add_state(rom, admin_user, "Game.01.p2s", "pcsx2")
     resolved, slot, is_foreign = states.resolve_resume_state(
         admin_user.id, rom, _resolved(_webstation_for(rom)), state.id
     )
@@ -5835,9 +5816,7 @@ def test_resolve_resume_state_accepts_the_players_own_state(rom: Rom, admin_user
 def test_resolve_resume_state_rejects_a_state_that_is_not_visible(
     rom: Rom, admin_user: User, viewer_user: User
 ):
-    state = db_state_handler.add_state(
-        _state_for(rom, viewer_user, "Game.01.p2s", "pcsx2")
-    )
+    state = _add_state(rom, viewer_user, "Game.01.p2s", "pcsx2")
     with pytest.raises(HTTPException) as exc:
         states.resolve_resume_state(
             admin_user.id, rom, _resolved(_webstation_for(rom)), state.id
@@ -5850,9 +5829,7 @@ def test_resolve_resume_state_accepts_a_foreign_pick_on_an_archive_channel(
 ):
     """A pick from an emulator the container does not natively read is not
     turned away: the broker's import-spec supplies the slot to resume from."""
-    other = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
-    )
+    other = _add_state(rom, admin_user, "Game.01.p2s", "pcsx2")
     spec = webstation.ImportSpec(
         kinds=frozenset({"state"}),
         state_channel="archive",
@@ -5870,9 +5847,7 @@ def test_resolve_resume_state_accepts_a_foreign_pick_on_an_archive_channel(
 def test_resolve_resume_state_accepts_a_foreign_pick_on_a_push_channel(
     rom: Rom, admin_user: User
 ):
-    other = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
-    )
+    other = _add_state(rom, admin_user, "Game.01.p2s", "pcsx2")
     spec = webstation.ImportSpec(
         kinds=frozenset({"state"}),
         state_channel="push",
@@ -5889,9 +5864,7 @@ def test_resolve_resume_state_accepts_a_foreign_pick_on_a_push_channel(
 def test_resolve_resume_state_refuses_a_foreign_pick_when_the_channel_is_none(
     rom: Rom, admin_user: User
 ):
-    other = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.01.p2s", "pcsx2")
-    )
+    other = _add_state(rom, admin_user, "Game.01.p2s", "pcsx2")
     spec = webstation.ImportSpec(
         kinds=frozenset(), state_channel="none", state_slot=None
     )
@@ -5909,9 +5882,7 @@ def test_resolve_resume_state_rejects_an_unrecognized_slot_when_no_import_spec(
 ):
     """A same-emulator state whose filename carries no slot, and no broker
     import-spec to fall back on, is refused for its slot."""
-    weird = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.state", "pcsx2")
-    )
+    weird = _add_state(rom, admin_user, "Game.state", "pcsx2")
     with patch("handler.streaming.states.webstation.import_spec", return_value=None):
         with pytest.raises(HTTPException) as exc:
             states.resolve_resume_state(
@@ -6300,9 +6271,7 @@ def test_build_import_archive_rebuilds_a_symlink_entry_as_a_regular_file():
 def test_hydrate_import_archive_uploads_a_foreign_save_with_no_native_base(
     rom: Rom, admin_user: User
 ):
-    save = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
-    )
+    save = _add_save(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     upload = MagicMock(return_value="rom-1.zip")
     with (
         patch(
@@ -6334,12 +6303,8 @@ def test_hydrate_import_archive_falls_back_to_the_newest_native_save_as_base(
 ):
     """A state-only foreign pick (no save_id) still carries the newest
     native save as the base, as a launch with no pick does."""
-    db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
-    )
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.00.pcsx2", "pcsx2")
-    )
+    _add_save(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    state = _add_state(rom, admin_user, "Game.00.pcsx2", "pcsx2")
     upload = MagicMock(return_value="rom-1.zip")
     with (
         patch(
@@ -6371,12 +6336,8 @@ def test_hydrate_import_archive_falls_through_when_the_only_foreign_read_fails(
     """A native save plus a foreign state whose bytes are missing on disk:
     there is nothing foreign to carry, so this must not upload a base-only
     import archive. The caller falls back to ordinary save hydration."""
-    save = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
-    )
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.00.pcsx2", "pcsx2")
-    )
+    save = _add_save(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    state = _add_state(rom, admin_user, "Game.00.pcsx2", "pcsx2")
     upload = MagicMock(return_value="rom-1.zip")
     with (
         patch(
@@ -6402,9 +6363,7 @@ def test_hydrate_import_archive_falls_through_when_the_only_foreign_read_fails(
 def test_hydrate_import_archive_returns_none_when_nothing_is_foreign(
     rom: Rom, admin_user: User
 ):
-    save = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
-    )
+    save = _add_save(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
     result = asyncio.run(
         imports.hydrate_import_archive(
             admin_user.id,
@@ -6450,9 +6409,7 @@ def test_claim_hydrates_a_foreign_save_through_the_import_path(
 ):
     """A foreign save pick must be uploaded through imports.hydrate_import_archive,
     not the native hydrate_saves_to_webstation path."""
-    foreign = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
-    )
+    foreign = _add_save(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     spec = webstation.ImportSpec(
         kinds=frozenset({"save"}),
         state_channel="archive",
@@ -6483,9 +6440,7 @@ def test_claim_hydrates_a_foreign_resume_state_through_the_import_path(
     """A foreign resume pick must actually land in the uploaded archive, not
     just be trusted to: this is what proves resume_via_import is only ever
     set once the state import genuinely succeeded."""
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
-    )
+    state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
     spec = webstation.ImportSpec(
         kinds=frozenset({"state"}),
         state_channel="archive",
@@ -6523,9 +6478,7 @@ def test_a_missing_foreign_state_does_not_falsely_claim_resume_via_import(
     never actually carries it. the resume must not reach run_launch as
     imported on the strength of the pre-win check alone, and the native save
     hydration path must still get its turn."""
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
-    )
+    state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
     spec = webstation.ImportSpec(
         kinds=frozenset({"state"}),
         state_channel="archive",
@@ -6558,9 +6511,7 @@ def test_claim_refuses_a_foreign_save_the_won_container_will_not_import(
 ):
     """The won container's own import-spec decides: a pick it will not take is
     refused and the claim released, never uploaded as a native archive."""
-    foreign = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
-    )
+    foreign = _add_save(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
     spec = webstation.ImportSpec(
         kinds=frozenset({"save"}),
         state_channel="archive",
@@ -6588,9 +6539,7 @@ def test_claim_refuses_a_foreign_state_the_won_container_will_not_import(
 ):
     """A foreign state the won container will not take must not fall through to
     the native push, where the emulator would load another emulator's bytes."""
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
-    )
+    state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
     spec = webstation.ImportSpec(
         kinds=frozenset({"state"}),
         state_channel="archive",
@@ -6616,9 +6565,7 @@ def test_claim_with_an_unrestorable_pick_never_reserves_a_container(
 ):
     """The pick is validated before the claim, so a bad one fails cleanly
     rather than leaving a container wedged behind a refused launch."""
-    loose = db_save_handler.add_save(
-        _save_for(rom, admin_user, "Game.srm", "retroarch", "h1")
-    )
+    loose = _add_save(rom, admin_user, "Game.srm", "retroarch", "h1")
     activate = MagicMock(return_value={"url": "/room/x"})
     with _streaming(_clearing_webstation(rom)):
         with (
@@ -6817,9 +6764,7 @@ def test_run_launch_skips_the_state_push_when_resuming_via_import(
 ):
     """A foreign state folded into the import archive must not also be
     pushed through the ordinary state-file PUT."""
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
-    )
+    state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
     activate = MagicMock(return_value={"url": "/room/x"})
     session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
     push_resume = AsyncMock()
@@ -6869,9 +6814,7 @@ def test_run_launch_sends_no_resume_slot_when_the_import_was_lost(
 ):
     """A pick that never made it into its import archive must not have the
     broker load that slot anyway, from whatever the archive does carry."""
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.00.dolphin", "dolphin")
-    )
+    state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
     activate = MagicMock(return_value={"url": "/room/x"})
     session = {"broker_session_id": "s1", "claimed_at": "t1", "user_id": admin_user.id}
     push_resume = AsyncMock()
@@ -7639,9 +7582,7 @@ def test_claim_with_own_state_pushes_file_and_slot(
 ):
     """A picked state is pushed before launch and its slot rides the launch
     call; hydration must skip that filename so it cannot be overwritten."""
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
-    )
+    state = _add_state(rom, admin_user, "Game.03.p2s", "pcsx2")
     r, ready, push, call_broker, hydrate = _resume_claim(
         client, access_token, rom, state.id
     )
@@ -7658,9 +7599,7 @@ def test_claim_with_other_users_public_state_allowed(
     client, access_token, rom: Rom, viewer_user: User
 ):
     """Resuming from another user's shared state is the sharing feature."""
-    shared = _state_for(rom, viewer_user, "Game.02.p2s", "pcsx2")
-    shared.is_public = True
-    state = db_state_handler.add_state(shared)
+    state = _add_state(rom, viewer_user, "Game.02.p2s", "pcsx2", is_public=True)
     r, ready, push, call_broker, _ = _resume_claim(client, access_token, rom, state.id)
     assert r.status_code == 202
     assert ready["resume"] is True
@@ -7671,9 +7610,7 @@ def test_claim_with_other_users_private_state_404(
     client, access_token, rom: Rom, viewer_user: User
 ):
     """Another user's private state is invisible - same as nonexistent."""
-    state = db_state_handler.add_state(
-        _state_for(rom, viewer_user, "Game.02.p2s", "pcsx2")
-    )
+    state = _add_state(rom, viewer_user, "Game.02.p2s", "pcsx2")
     r = _resume_claim(client, access_token, rom, state.id).response
     assert r.status_code == 404
     # The rejected pick must not have claimed the container.
@@ -7684,9 +7621,7 @@ def test_claim_with_other_users_private_state_404(
 def test_claim_with_wrong_emulator_state_400(
     client, access_token, rom: Rom, admin_user: User
 ):
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.state", "retroarch")
-    )
+    state = _add_state(rom, admin_user, "Game.state", "retroarch")
     with patch("handler.streaming.states.webstation.import_spec", return_value=None):
         r = _resume_claim(client, access_token, rom, state.id).response
     assert r.status_code == 400
@@ -7695,7 +7630,7 @@ def test_claim_with_wrong_emulator_state_400(
 def test_claim_with_unparseable_slot_400(
     client, access_token, rom: Rom, admin_user: User
 ):
-    state = db_state_handler.add_state(_state_for(rom, admin_user, "Game.p2s", "pcsx2"))
+    state = _add_state(rom, admin_user, "Game.p2s", "pcsx2")
     with patch("handler.streaming.states.webstation.import_spec", return_value=None):
         r = _resume_claim(client, access_token, rom, state.id).response
     assert r.status_code == 400
@@ -7706,9 +7641,7 @@ def test_claim_failed_push_launches_fresh(
 ):
     """A push failure must not block the session: launch without load_slot
     and report resume=false so the player can tell the user."""
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
-    )
+    state = _add_state(rom, admin_user, "Game.03.p2s", "pcsx2")
     r, ready, _, call_broker, hydrate = _resume_claim(
         client, access_token, rom, state.id, push_ok=False
     )
@@ -7958,9 +7891,7 @@ def test_webstation_resume_state_is_pushed_after_activate(
     """The state-file route only answers while a session is up, and the session
     starts at activate, so pushing first would be refused. The broker's deferred
     load waits for the file, which is what makes the later push still land."""
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.03.p2s", "pcsx2")
-    )
+    state = _add_state(rom, admin_user, "Game.03.p2s", "pcsx2")
     order = MagicMock()
     order.activate.return_value = {"url": "/room/x"}
     order.push.return_value = True
@@ -8004,7 +7935,7 @@ def test_an_exit_state_resume_is_the_activate_slot_alone(
     """These brokers refuse a state file mid-session and resume from the exit
     state the save archive brings back, so the slot on the activate is the whole
     resume. A push would only be refused and report the resume as lost."""
-    state = db_state_handler.add_state(_state_for(rom, admin_user, name, emulator))
+    state = _add_state(rom, admin_user, name, emulator)
     activate = MagicMock(return_value={"url": "/room/x"})
     push = MagicMock(return_value=False)
     with _streaming({**_webstation_for(rom), "emulator": emulator}):
@@ -8055,10 +7986,8 @@ def test_an_older_exit_state_resume_rides_the_import_archive(
     still reach the game: the save archive on its own only ever carries the
     newest exit state, so an older pick needs the import channel or it is
     silently swapped for a state the player never chose."""
-    older = db_state_handler.add_state(
-        _state_for(rom, admin_user, older_name, emulator)
-    )
-    db_state_handler.add_state(_state_for(rom, admin_user, newer_name, emulator))
+    older = _add_state(rom, admin_user, older_name, emulator)
+    _add_state(rom, admin_user, newer_name, emulator)
     activate = MagicMock(return_value={"url": "/room/x"})
     upload = MagicMock(return_value="rom-1.zip")
     spec = webstation.ImportSpec(
@@ -8093,21 +8022,17 @@ def test_an_older_exit_state_stays_off_the_import_path_without_broker_support(
     """A broker that predates imports would never place an `.import/` member,
     so the archive goes out untouched and the resume is reported lost rather
     than claiming the archive's own exit state was the pick."""
-    older = db_state_handler.add_state(
-        _state_for(
-            rom,
-            admin_user,
-            "SLUS-00594_resume.20260917-010000000000.sav",
-            "duckstation",
-        )
+    older = _add_state(
+        rom,
+        admin_user,
+        "SLUS-00594_resume.20260917-010000000000.sav",
+        "duckstation",
     )
-    db_state_handler.add_state(
-        _state_for(
-            rom,
-            admin_user,
-            "SLUS-00594_resume.20260918-010000000000.sav",
-            "duckstation",
-        )
+    _add_state(
+        rom,
+        admin_user,
+        "SLUS-00594_resume.20260918-010000000000.sav",
+        "duckstation",
     )
     hydrate_import = AsyncMock()
     run_launch_mock = AsyncMock()
@@ -8131,21 +8056,17 @@ def test_an_older_exit_state_stays_off_the_import_path_without_broker_support(
 def test_a_rewritten_older_state_is_still_not_the_archives_capture(
     client, access_token, rom: Rom, admin_user: User
 ):
-    older = db_state_handler.add_state(
-        _state_for(
-            rom,
-            admin_user,
-            "SLUS-00594_resume.20260917-010000000000.sav",
-            "duckstation",
-        )
+    older = _add_state(
+        rom,
+        admin_user,
+        "SLUS-00594_resume.20260917-010000000000.sav",
+        "duckstation",
     )
-    db_state_handler.add_state(
-        _state_for(
-            rom,
-            admin_user,
-            "SLUS-00594_resume.20260918-010000000000.sav",
-            "duckstation",
-        )
+    _add_state(
+        rom,
+        admin_user,
+        "SLUS-00594_resume.20260918-010000000000.sav",
+        "duckstation",
     )
     db_state_handler.update_state(
         older.id, {"updated_at": datetime.now(timezone.utc) + timedelta(days=1)}
@@ -8168,16 +8089,10 @@ def test_a_rewritten_older_state_is_still_not_the_archives_capture(
 def _duckstation_pairing(rom: Rom, user: User) -> tuple[Save, Save, State]:
     """An older and a newer DuckStation archive, plus the newest capture."""
     older, newer = (
-        db_save_handler.add_save(
-            _save_for(
-                rom, user, f"Game [duckstation {tag}].saves.zip", "duckstation", tag
-            )
-        )
+        _add_save(rom, user, f"Game [duckstation {tag}].saves.zip", "duckstation", tag)
         for tag in ("a", "b")
     )
-    state = db_state_handler.add_state(
-        _state_for(rom, user, "SLUS-00594_resume.sav", "duckstation")
-    )
+    state = _add_state(rom, user, "SLUS-00594_resume.sav", "duckstation")
     return older, newer, state
 
 
@@ -8276,9 +8191,7 @@ def test_an_exit_state_resume_with_no_archive_reports_the_resume_lost(
 ):
     """The archive is the whole resume on these brokers, so without one the slot
     would load whatever the container last held and the player would not be told."""
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "SLUS-00594_resume.sav", "duckstation")
-    )
+    state = _add_state(rom, admin_user, "SLUS-00594_resume.sav", "duckstation")
     activate = MagicMock(return_value={"url": "/room/x"})
     with _streaming({**_webstation_for(rom), "emulator": "duckstation"}):
         with (
@@ -10296,18 +10209,7 @@ def test_joinable_lists_sessions_for_different_roms(
             fs_slug="other_platform_slug",
         )
     )
-    other_rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=other_platform.id,
-            name="other_rom",
-            slug="other_rom_slug",
-            fs_name="other_rom.zip",
-            fs_name_no_tags="other_rom",
-            fs_name_no_ext="other_rom",
-            fs_extension="zip",
-            fs_path=f"{other_platform.slug}/roms",
-        )
-    )
+    other_rom = make_rom(other_platform, "other_rom")
     db_rom_handler.add_rom_user(rom_id=other_rom.id, user_id=admin_user.id)
 
     container_a = _ws_for(rom)
@@ -11017,9 +10919,7 @@ def _retroarch_resume(client, token, rom, state_id):
 def test_resuming_a_state_puts_its_disc_back(client, access_token, admin_user: User):
     rom = _rom_on("dc")
     disc = _add_rom_file(rom, "Game (Disc 2).chd")
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.state", "retroarch")
-    )
+    state = _add_state(rom, admin_user, "Game.state", "retroarch")
     db_state_handler.update_state(state.id, {"disc_file_id": disc.id})
 
     r, restore = _retroarch_resume(client, access_token, rom, state.id)
@@ -11032,9 +10932,7 @@ def test_resuming_a_state_with_no_disc_swaps_nothing(
     client, access_token, admin_user: User
 ):
     rom = _rom_on("dc")
-    state = db_state_handler.add_state(
-        _state_for(rom, admin_user, "Game.state", "retroarch")
-    )
+    state = _add_state(rom, admin_user, "Game.state", "retroarch")
 
     r, restore = _retroarch_resume(client, access_token, rom, state.id)
 

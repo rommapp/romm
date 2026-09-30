@@ -10,6 +10,7 @@ from tests.sql_dialects import (
 )
 
 from handler.database.base_handler import sync_engine
+from handler.database.roms_handler import _fulltext_match
 from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
 from models.rom import Rom
 from utils.database import CustomJSON
@@ -285,9 +286,7 @@ class TestFulltextMatch:
         """MySQL and MariaDB refuse a column list no FULLTEXT index spans exactly."""
         condition = DialectCase(
             postgresql=sa.true(),
-            mysql=fulltext_match(
-                Rom.name.expression, Rom.fs_name.expression, boolean_query="+zelda*"
-            ),
+            mysql=_fulltext_match("+zelda*"),
         )
 
         with sync_engine.connect() as connection:

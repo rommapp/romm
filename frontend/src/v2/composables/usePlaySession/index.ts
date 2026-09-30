@@ -1,4 +1,4 @@
-// usePlaySession — records a single play session's wall-clock and ingests it
+// usePlaySession: records a single play session's wall-clock and ingests it
 // on flush. The session is what drives the server-side rom_user update
 // (last_played + now_playing + status), replacing the old optimistic
 // launch-time write.

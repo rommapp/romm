@@ -1,8 +1,19 @@
 """Tests for the nginx response helpers."""
 
+import re
+from pathlib import PurePath
+
 import pytest
 
-from utils.nginx import ZipContentLine, ZipResponse
+from utils.nginx import (
+    FileRedirectResponse,
+    ZipContentLine,
+    ZipResponse,
+    content_disposition,
+)
+
+# The pattern EmulatorJS's downloader names a fetched ROM with.
+EMULATORJS_FILENAME = re.compile(r'filename="?([^";]+)"?')
 
 
 class TestZipContentLine:
@@ -98,3 +109,33 @@ class TestZipResponse:
     def test_rejects_a_caller_supplied_body(self):
         with pytest.raises(ValueError, match="must not be provided"):
             ZipResponse(content_lines=[], filename="roms.zip", content="whatever")
+
+
+class TestContentDisposition:
+    def test_puts_the_plain_filename_first(self):
+        assert (
+            content_disposition("sf2.zip")
+            == "attachment; filename=\"sf2.zip\"; filename*=UTF-8''sf2.zip"
+        )
+
+    def test_a_first_match_parser_reads_the_bare_name(self):
+        """Arcade cores find a romset by its file name, so it must survive intact."""
+        match = EMULATORJS_FILENAME.search(content_disposition("xmcota.zip"))
+
+        assert match is not None
+        assert match.group(1) == "xmcota.zip"
+
+    def test_percent_encodes_the_name_once(self):
+        assert content_disposition("Zoë & co.zip", "inline") == (
+            'inline; filename="Zo%C3%AB%20%26%20co.zip"; '
+            "filename*=UTF-8''Zo%C3%AB%20%26%20co.zip"
+        )
+
+    def test_zip_and_redirect_responses_use_it(self):
+        zipped = ZipResponse(content_lines=[], filename="a b.zip")
+        redirected = FileRedirectResponse(download_path=PurePath("/library/a b.iso"))
+
+        assert zipped.headers["content-disposition"] == content_disposition("a b.zip")
+        assert redirected.headers["content-disposition"] == content_disposition(
+            "a b.iso"
+        )

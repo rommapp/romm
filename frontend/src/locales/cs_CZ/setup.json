@@ -89,7 +89,7 @@
   "provider-steam-desc": "Metadata a obrázky z obchodu pro PC hry na Steamu.",
   "provider-steam-setup": "Nastavte STEAM_API_ENABLED=true.",
   "proxy-hasheous-caveat": "Komunitně hostovaná služba. Vyžaduje hashe souborů. Povolte výpočet hashů v konfiguraci (ve výchozím nastavení zapnuto).",
-  "proxy-hasheous-desc": "Hashový párovač, který proxuje data IGDB a poskytuje ID RetroAchievements.",
+  "proxy-hasheous-desc": "Hashový párovač, který proxuje data IGDB.",
   "proxy-hasheous-setup": "Nastavte HASHEOUS_API_ENABLED=true.",
   "proxy-playmatch-caveat": "Komunitně hostovaná služba.",
   "proxy-playmatch-desc": "Hashový párovač spárovaný s IGDB.",

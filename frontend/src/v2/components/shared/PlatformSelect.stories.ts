@@ -324,3 +324,38 @@ export const PromotedAllLibrariesEmpty: Story = {
     template: `<PlatformSelect v-model="value" :items="items" label="Platforms" :promote-filled="true" />`,
   }),
 };
+
+export const ScanPagePicker: Story = {
+  name: "Scan page picker, promotion on",
+  render: () => ({
+    components: { PlatformSelect },
+    setup() {
+      const value = ref<string[]>([]);
+      const items = ref<Platform[]>([...MIXED_PLATFORM_CATALOG]);
+      return { value, items };
+    },
+    // The same props Scan.vue passes.
+    template: `<PlatformSelect v-model="value" :items="items" item-key="fs_slug" label="Platforms" multiple clearable hide-details chips show-meta mark-unscanned show-all-option promote-filled />`,
+  }),
+  play: async ({ canvasElement, step }) => {
+    await step("open menu", async () => {
+      await openMenu(canvasElement);
+    });
+
+    await step(
+      "platforms with games come first, below the All row",
+      async () => {
+        const { promoted, remaining } = promotePlatformsWithGamesFirst(
+          MIXED_PLATFORM_CATALOG,
+        );
+        expect(menuRowTitles()).toEqual([
+          "All",
+          "---",
+          ...promoted.map((p) => p.display_name),
+          "---",
+          ...remaining.map((p) => p.display_name),
+        ]);
+      },
+    );
+  },
+};

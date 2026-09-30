@@ -630,7 +630,6 @@ class DBCollectionsHandler(DBBaseHandler):
         return self.update_smart_collection(
             id,
             {
-                "rom_count": len(rom_ids),
                 "rom_ids": rom_ids,
                 "path_covers_small": [f"{c}?ts={timestamp}" for c in covers_small],
                 "path_covers_large": [f"{c}?ts={timestamp}" for c in covers_large],

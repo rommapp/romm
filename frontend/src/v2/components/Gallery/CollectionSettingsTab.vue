@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CollectionSettingsTab — collection-scoped settings rendered as the
+// CollectionSettingsTab: collection-scoped settings rendered as the
 // `Settings` tab inside Collection.vue. Same content surface as the
 // previous `CollectionSettingsDrawer`, now lives inline in the
 // collection view. One component, two branches (drawer-era split):
@@ -8,12 +8,12 @@
 //     (SteamGridDB search · file upload · remove), filter_criteria
 //     not applicable.
 //   * smart   → name / description / public, filter_criteria displayed
-//     read-only (editing the criteria isn't surfaced here — happens
+//     read-only (editing the criteria isn't surfaced here: happens
 //     via the create-smart-collection flow).
 //
 // Delete moved into this tab's danger zone (was a kebab menu item in
 // the pre-tabs design). The destructive flow is still owned by the
-// parent view — `@delete` emit triggers the confirm + router
+// parent view: `@delete` emit triggers the confirm + router
 // navigation in `Collection.vue`.
 //
 // Cover artwork flow:
@@ -127,7 +127,7 @@ const dirty = computed(() => {
 // changes (route swap, socket-driven backend update). Keeps the form
 // in sync with the canonical record without trampling in-flight edits
 // while a save is running. Accepts an explicit source so `save()` can
-// re-sync from the update response — `props.collection` only receives
+// re-sync from the update response: `props.collection` only receives
 // the fresh value asynchronously (store swap + parent reassign), so it
 // still holds the pre-save object at the moment `save()` snapshots.
 function snapshot(source: Collection | SmartCollection = props.collection) {
@@ -180,7 +180,7 @@ const mosaicFallback = computed<string[]>(() => {
   return (c.path_covers_small ?? []).slice(0, 4).map(toWebp);
 });
 
-// Smart-collection filter criteria — read-only display. The summary
+// Smart-collection filter criteria: read-only display. The summary
 // helper translates the raw JSON into a structured list of rows.
 function platformLookup(id: number): string | null {
   return allPlatforms.value.find((p) => p.id === id)?.display_name ?? null;
@@ -283,7 +283,7 @@ async function save() {
     snackbar.success(t("collection.updated", "Collection updated"), {
       icon: "mdi-check-bold",
     });
-    // Re-sync from the response, not the prop — the prop hasn't been
+    // Re-sync from the response, not the prop: the prop hasn't been
     // updated yet (see `snapshot` note), so snapshotting it would revert
     // the form to the pre-save values and keep `dirty` true.
     if (syncSaved(saved, target)) snapshot(saved);
@@ -375,7 +375,7 @@ async function setVisibility(next: boolean) {
 
 <template>
   <div class="r-settings-column">
-    <!-- Cover artwork — regular collections only. Smart collections
+    <!-- Cover artwork: regular collections only. Smart collections
          derive their cover from the contained ROMs at runtime, so an
          upload UI here would be misleading. -->
     <section v-if="kind === 'regular'" class="r-v2-coll-set__section">
@@ -432,7 +432,7 @@ async function setVisibility(next: boolean) {
       </div>
     </section>
 
-    <!-- Details (edit form) — both kinds. -->
+    <!-- Details (edit form): both kinds. -->
     <section class="r-v2-coll-set__section">
       <header class="r-section-head">
         <RIcon icon="mdi-information-outline" size="14" />

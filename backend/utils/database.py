@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
+from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql import ColumnElement
 
 # These helpers only read `.engine`, which an Engine answers with itself.
@@ -32,6 +33,7 @@ POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
 )
 
 HLTB_MAIN_STORY_COLUMN = "generated_hltb_main_story"
+SEARCH_ALIASES_COLUMN = "generated_search_aliases"
 
 # The nullable `roms` columns the gallery sorts on. MariaDB and MySQL have no
 # NULLS LAST and cannot index the `IS NULL` term emulating it, so each column
@@ -59,13 +61,20 @@ def rom_desc_index_name(column: str) -> str:
     return f"idx_roms_{column}_desc"
 
 
+# The gallery search's FULLTEXT index on MySQL/MariaDB, whose columns a MATCH
+# must list exactly, and PostgreSQL's pg_trgm index over the aliases.
+ROMS_SEARCH_FULLTEXT_INDEX = "idx_roms_search_fulltext"
+ROMS_SEARCH_FULLTEXT_COLUMNS = ("name", "fs_name", SEARCH_ALIASES_COLUMN)
+ROMS_SEARCH_ALIASES_TRGM_INDEX = "idx_roms_search_aliases_trgm"
+
 # Indexes that exist in some databases but cannot be declared on a model.
 AUTOGENERATE_EXEMPT_INDEX_NAMES = (
     frozenset(
-        # Search indexes built per dialect in 0084: FULLTEXT on MySQL/MariaDB,
-        # pg_trgm GIN on PostgreSQL. No portable model declaration exists.
+        # Search indexes built per dialect: FULLTEXT on MySQL/MariaDB, pg_trgm
+        # GIN on PostgreSQL. No portable model declaration exists.
         {
-            "idx_roms_name_fs_name_fulltext",
+            ROMS_SEARCH_FULLTEXT_INDEX,
+            ROMS_SEARCH_ALIASES_TRGM_INDEX,
             "idx_roms_name_trgm",
             "idx_roms_fs_name_trgm",
         }
@@ -340,3 +349,9 @@ def safe_int(value: Any, default: int = 0) -> int:
         return int(value)
     except ValueError, TypeError:
         return default
+
+
+def is_non_blank(column: InstrumentedAttribute[Any]) -> ColumnElement[bool]:
+    """Whether `column` holds a value other than NULL or its type's blank (0 or "")."""
+    blank: int | str = "" if isinstance(column.type, sa.String) else 0
+    return sa.and_(column.isnot(None), column != blank)

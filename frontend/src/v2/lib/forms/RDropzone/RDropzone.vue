@@ -1,17 +1,17 @@
 <script setup lang="ts">
-// RDropzone — file drag-and-drop target with the shared v2 upload vocabulary
+// RDropzone: file drag-and-drop target with the shared v2 upload vocabulary
 // (dashed brand border, cloud icon, click-to-browse). Two modes:
 //
-//   * CTA (default): renders an empty-state call-to-action — icon, title,
+//   * CTA (default): renders an empty-state call-to-action, icon, title,
 //     hint, and click/keyboard to browse. The whole surface is the drop
 //     target and brightens while dragging over it.
 //     `compact` lays it out as a single row for tight panels.
 //   * Overlay (`overlay` prop): renders the default slot (the consumer's
-//     filled content — a file list, a grid, a card) and floats a "release to
+//     filled content: a file list, a grid, a card) and floats a "release to
 //     upload" overlay over it while dragging. Use the exposed `open()` to wire
 //     an explicit add/replace button.
 //
-// Emits `files` on drop or pick. Primitive: no stores/i18n — all copy comes
+// Emits `files` on drop or pick. Primitive: no stores/i18n, all copy comes
 // from props so consumers pass translated strings.
 import { useDropZone } from "@vueuse/core";
 import { ref } from "vue";
@@ -179,7 +179,7 @@ defineExpose({ open, isOver: isOverDropZone });
   flex: 1 1 auto;
   min-height: 0;
 }
-/* Disabled dims / blocks only the CTA — in overlay mode the slotted content
+/* Disabled dims / blocks only the CTA: in overlay mode the slotted content
    stays fully interactive (drops are no-ops, the overlay never shows). */
 .r-dropzone--disabled .r-dropzone__cta {
   opacity: 0.6;

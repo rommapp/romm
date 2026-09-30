@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PlatformTile — platform card used by the Home dashboard row (variant="row",
+// PlatformTile: platform card used by the Home dashboard row (variant="row",
 // 150px fixed) and the /platforms grid (variant="grid"). Feature composite
 // around PlatformIcon and the shared Tile chrome; not a primitive.
 import { computed, ref } from "vue";

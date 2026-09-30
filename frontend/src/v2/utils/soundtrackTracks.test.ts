@@ -24,6 +24,7 @@ describe("isAudioFile", () => {
   it("recognises the playable extensions only", () => {
     expect(isAudioFile("01 - Theme.mp3")).toBe(true);
     expect(isAudioFile("track.FLAC")).toBe(true);
+    expect(isAudioFile("04 - Ending.aac")).toBe(true);
     expect(isAudioFile("cover.png")).toBe(false);
     expect(isAudioFile("noextension")).toBe(false);
   });

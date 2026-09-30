@@ -11,10 +11,10 @@ import { RSkeletonBlock } from "@v2/lib";
 import { computed } from "vue";
 
 interface Props {
-  /** Hero variant — 16:9 art with a larger label, matching `GameCard`'s
+  /** Hero variant: 16:9 art with a larger label, matching `GameCard`'s
    *  `hero` prop. Scales with `size` (same as GameCard). */
   hero?: boolean;
-  /** Size tier — mirrors `GameCard`'s `size` prop so a skeleton swapped
+  /** Size tier: mirrors `GameCard`'s `size` prop so a skeleton swapped
    *  into a tiered card slot keeps the same footprint and the
    *  virtualiser's measurements stay stable. */
   size?: "xs" | "sm" | "md" | "lg" | "xl";
@@ -72,7 +72,7 @@ const artHeight = computed(() =>
   --r-card-art-h: calc(var(--r-card-art-w) / var(--r-cover-ratio, 0.6667));
 }
 
-/* Hero (16:9) variant — mirrors `GameCard`'s `.r-gc--hero` block. The
+/* Hero (16:9) variant: mirrors `GameCard`'s `.r-gc--hero` block. The
    art skeleton picks up its own larger size via the prop-bound CSS
    vars; here we just widen the container so the centred label sits at
    the right horizontal width, and bump the label's reserved height to
@@ -85,7 +85,7 @@ const artHeight = computed(() =>
   height: 18px;
 }
 
-/* Size tiers — mirror GameCard's `.r-gc--size-*` overrides exactly so
+/* Size tiers: mirror GameCard's `.r-gc--size-*` overrides exactly so
    skeleton + real card occupy the same footprint when one swaps for
    the other in a virtualiser slot. */
 .r-gcs--size-xs {

@@ -8,6 +8,7 @@ taking anything away from the name search.
 
 import pytest
 from sqlalchemy import select
+from tests.factories import make_rom
 
 from handler.database import db_collection_handler, db_rom_handler
 from models.collection import SmartCollection
@@ -27,20 +28,7 @@ SHARED_TRACK_CRC = "beefcafe"
 
 
 def _add_rom(platform: Platform, name: str, **hashes: str) -> Rom:
-    fs_name = f"{name.replace(' ', '_')}.zip"
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=name.lower().replace(" ", "-"),
-            fs_name=fs_name,
-            fs_name_no_tags=fs_name.removesuffix(".zip"),
-            fs_name_no_ext=fs_name.removesuffix(".zip"),
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            **hashes,
-        )
-    )
+    return make_rom(platform, name, fs_stem=name.replace(" ", "_"), **hashes)
 
 
 def _add_files(rom: Rom, files: list[RomFile]) -> None:

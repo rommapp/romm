@@ -368,7 +368,7 @@ describe("galleryRoms windowed fetch", () => {
     }
     expect(store.loadedWindows.has(0)).toBe(false);
 
-    // The fresh context must be able to refetch offset 0 — not skip it as
+    // The fresh context must be able to refetch offset 0: not skip it as
     // "already loaded" and strand its cards as permanent skeletons.
     getRoms.mockClear();
     getRoms.mockImplementation(() => deferred().promise);
