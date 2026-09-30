@@ -20,6 +20,7 @@ from handler.database.base_handler import sync_session
 from models.device import Device
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
+from models.play_session import PlaySession
 from models.rom import Rom, RomUserStatus
 from models.user import User
 from utils.datetime import to_utc
@@ -672,6 +673,71 @@ class TestPlaySessionRomUserUpdates:
 
 
 class TestPlaySessionQuery:
+    @pytest.mark.parametrize("all_devices", [False, True])
+    def test_paired_client_all_devices(
+        self,
+        client,
+        admin_user,
+        editor_user,
+        device,
+        rom,
+        add_device_token,
+        all_devices,
+    ):
+        other_device = db_device_handler.add_device(
+            Device(id=str(uuid.uuid4()), user_id=admin_user.id, name="Other device")
+        )
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        sessions = db_play_session_handler.add_sessions(
+            [
+                PlaySession(
+                    user_id=user_id,
+                    device_id=device_id,
+                    rom_id=rom.id,
+                    start_time=now - timedelta(hours=index + 1),
+                    end_time=now - timedelta(hours=index + 1, minutes=-30),
+                    duration_ms=1800000,
+                )
+                for index, (user_id, device_id) in enumerate(
+                    [
+                        (admin_user.id, device.id),
+                        (admin_user.id, other_device.id),
+                        (admin_user.id, None),
+                        (editor_user.id, None),
+                    ]
+                )
+            ]
+        )
+        _, raw = add_device_token(admin_user, device.id, scopes="roms.user.read")
+        headers = {"Authorization": f"Bearer {raw}"}
+        response = client.get(
+            "/api/play-sessions",
+            params={"rom_id": rom.id, "all_devices": all_devices},
+            headers=headers,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        expected = sessions[:3] if all_devices else sessions[:1]
+        assert {s["id"] for s in response.json()} == {s.id for s in expected}
+
+        # An explicit device filter still narrows the current user's results.
+        response = client.get(
+            "/api/play-sessions",
+            params={"device_id": other_device.id, "all_devices": all_devices},
+            headers=headers,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert [s["id"] for s in response.json()] == [sessions[1].id]
+
+    def test_all_devices_requires_read_scope(
+        self, client, admin_user, device, add_device_token
+    ):
+        _, raw = add_device_token(admin_user, device.id, scopes="devices.read")
+        response = client.get(
+            "/api/play-sessions?all_devices=true",
+            headers={"Authorization": f"Bearer {raw}"},
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
     def test_filter_by_rom_id(
         self, client, access_token: str, rom: Rom, platform: Platform
     ):

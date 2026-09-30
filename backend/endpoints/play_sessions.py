@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, model_validator
 
 from decorators.auth import protected_route
@@ -107,8 +107,14 @@ def get_play_sessions(
     end_before: datetime | None = None,
     limit: int = 50,
     offset: int = 0,
+    all_devices: bool = Query(
+        default=False,
+        description="Include this user's sessions from all devices unless device_id is provided.",
+    ),
 ) -> list[PlaySessionSchema]:
-    effective_device_id = device_id or token_device_id(request)
+    effective_device_id = device_id or (
+        None if all_devices else token_device_id(request)
+    )
     sessions = db_play_session_handler.get_sessions(
         user_id=request.user.id,
         rom_id=rom_id,
