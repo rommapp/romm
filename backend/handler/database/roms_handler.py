@@ -80,7 +80,6 @@ from models.rom import (
     TrackMeta,
     compute_full_path_hash,
     compute_name_sort_key,
-    has_match_id,
 )
 from utils import get_version
 from utils.database import (
@@ -88,6 +87,7 @@ from utils.database import (
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
     escape_like,
+    is_non_blank,
     release_day_ranges,
     rom_unset_flag_column,
 )
@@ -655,6 +655,26 @@ def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
 RECOMMENDATION_SEED_FIELDS = frozenset(
     {"rating", "status", "last_played", "now_playing", "hidden"}
 )
+
+# A write that changes a gallery sort key sets this in `session.info`; the cached
+# filter values are then dropped once, after the transaction commits.
+FILTER_VALUES_BUMP_KEY = "filter_values_bump"
+
+
+@event.listens_for(Session, "after_commit")
+def _bump_filter_values_after_commit(session: Session) -> None:
+    if not session.info.pop(FILTER_VALUES_BUMP_KEY, False):
+        return
+    # The write is already durable; a stale entry falls to the TTL.
+    try:
+        DBRomsHandler.invalidate_filter_values_cache()
+    except Exception:
+        log.exception("Failed to invalidate cached filter values")
+
+
+@event.listens_for(Session, "after_rollback")
+def _drop_filter_values_bump(session: Session) -> None:
+    session.info.pop(FILTER_VALUES_BUMP_KEY, None)
 
 
 def _queue_user_cache_bumps(
@@ -1393,7 +1413,7 @@ class DBRomsHandler(DBBaseHandler):
         if not columns:
             return query
 
-        predicates = [has_match_id(column) for column in columns]
+        predicates = [is_non_blank(column) for column in columns]
         if match_none:
             return query.filter(not_(or_(*predicates)))
         if match_all:
@@ -2449,27 +2469,7 @@ class DBRomsHandler(DBBaseHandler):
             .values(fs_size_bytes=total)
             .execution_options(synchronize_session="fetch")
         )
-        self._queue_filter_values_invalidation(session)
-
-    def _queue_filter_values_invalidation(self, session: Session) -> None:
-        """Queue `invalidate_filter_values_cache` for after this transaction
-        commits, for the same reasons as `_queue_user_cache_bumps`."""
-        if "filter_values_bump_armed" in session.info:
-            return
-        session.info["filter_values_bump_armed"] = True
-
-        @event.listens_for(session, "after_commit", once=True)
-        def _flush(_session: Session) -> None:
-            _session.info.pop("filter_values_bump_armed", None)
-            # The write is already durable; a stale entry falls to the TTL.
-            try:
-                self.invalidate_filter_values_cache()
-            except Exception:
-                log.exception("Failed to invalidate cached filter values")
-
-        @event.listens_for(session, "after_rollback", once=True)
-        def _discard(_session: Session) -> None:
-            _session.info.pop("filter_values_bump_armed", None)
+        session.info[FILTER_VALUES_BUMP_KEY] = True
 
     @begin_session
     def add_rom_file(
@@ -3750,7 +3750,8 @@ class DBRomsHandler(DBBaseHandler):
         """
         session.execute(Analyze(RomIdentityKey.__tablename__))
 
-    def invalidate_filter_values_cache(self) -> None:
+    @staticmethod
+    def invalidate_filter_values_cache() -> None:
         old_version = str(int(sync_cache.incr(ROM_FILTERS_CACHE_VERSION_KEY)) - 1)
         old_keys_set = _filter_values_cache_keys_key(old_version)
         old_cache_keys = [

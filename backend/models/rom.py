@@ -50,7 +50,7 @@ from models.base import (
     compute_file_name_parts,
 )
 from utils import valid_youtube_id
-from utils.database import CustomJSON
+from utils.database import CustomJSON, is_non_blank
 
 # Max length of the precomputed natural-sort key column.
 NAME_SORT_KEY_MAX_LENGTH = 500
@@ -1302,16 +1302,10 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
 }
 
 
-def has_match_id(column: InstrumentedAttribute[Any]) -> ColumnElement[bool]:
-    """Whether a match id column holds a real id, as `Rom.is_identified` reads it."""
-    # A garbled manual edit can store 0 or "", which counts as no match.
-    blank: int | str = "" if isinstance(column.type, String) else 0
-    return and_(column.isnot(None), column != blank)
-
-
-# Query-side twin of `Rom.is_identified`, for the gallery "matched" filter.
+# Query-side twin of `Rom.is_identified`, for the gallery "matched" filter. A
+# garbled manual edit can store a 0 or "" id, which counts as no match.
 ROM_IS_IDENTIFIED: Final[ColumnElement[bool]] = or_(
-    *(has_match_id(column) for column in METADATA_SOURCE_COLUMNS.values())
+    *(is_non_blank(column) for column in METADATA_SOURCE_COLUMNS.values())
 )
 
 # Same slugs mapped to the `roms_facets` mirror columns. The stats coverage

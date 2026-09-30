@@ -15,8 +15,8 @@ from models.rom import (
     Rom,
     RomFacets,
     RomFile,
-    has_match_id,
 )
+from utils.database import is_non_blank
 
 from .base_handler import DBBaseHandler
 
@@ -141,7 +141,7 @@ class DBStatsHandler(DBBaseHandler):
                 select(
                     RomFacets.platform_id,
                     *(
-                        func.count(case((has_match_id(col), 1))).label(key)
+                        func.count(case((is_non_blank(col), 1))).label(key)
                         for key, col in METADATA_SOURCE_FACET_COLUMNS.items()
                     ),
                 ).select_from(RomFacets),
