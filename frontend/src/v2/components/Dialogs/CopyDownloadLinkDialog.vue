@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CopyDownloadLinkDialog — fallback surface for `useGameActions.copyDownloadLink`
+// CopyDownloadLinkDialog: fallback surface for `useGameActions.copyDownloadLink`
 // when the Clipboard API isn't usable (insecure context, denied
 // permission, older browsers). Renders the link in a selectable box so
 // the user can copy it by hand, and offers a Retry button that tries

@@ -805,7 +805,7 @@ export function getNintendoDSFiles(
   rom: DetailedRom | SimpleRom,
 ): RomFileSchema[] {
   // `files` only ships on DetailedRom. Gallery surfaces pass SimpleRom,
-  // where the inner-file check is impossible — return an empty list so
+  // where the inner-file check is impossible: return an empty list so
   // the caller falls back to the extension check.
   const files = (rom as DetailedRom).files;
   if (!files) return [];
@@ -824,8 +824,8 @@ export function getNintendoDSFiles(
  * Check if a ROM is a valid NDS/3DS/DSi game.
  *
  * Accepts both SimpleRom (gallery cards) and DetailedRom (detail view).
- * With SimpleRom the inner-file check is skipped — only the root
- * extension counts — which is what every gallery surface can ever see.
+ * With SimpleRom the inner-file check is skipped, only the root
+ * extension counts, which is what every gallery surface can ever see.
  */
 export function isNintendoDSRom(rom: DetailedRom | SimpleRom): boolean {
   if (

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// GalleryToolbar — the "how should I see these games?" control strip for
+// GalleryToolbar: the "how should I see these games?" control strip for
 // Platform / Collection / Search views.
 //
 // Controlled externally via `useGalleryMode()`; the parent passes the refs
@@ -70,7 +70,7 @@ const props = withDefaults(
     position?: ToolbarPosition;
     /** Show the GroupBy toggle (hide it on views where grouping doesn't make sense). */
     showGroupBy?: boolean;
-    /** Override the GroupBy options — used by index views (Platforms)
+    /** Override the GroupBy options: used by index views (Platforms)
      *  to expose richer modes (family / category / generation) beyond
      *  the default flat / letter pair. */
     groupByItems?: GroupByItem[];
@@ -137,7 +137,7 @@ defineSlots<{
   actions?(): unknown;
 }>();
 
-// Support both a Ref or a plain value — keeps consumption flexible.
+// Support both a Ref or a plain value: keeps consumption flexible.
 function toValue<T>(source: Ref<T> | T): T {
   return source && typeof source === "object" && "value" in (source as object)
     ? ((source as Ref<T>).value as T)
@@ -277,7 +277,7 @@ const { smAndUp } = useBreakpoint();
     </RTextField>
     <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
-    <!-- Filter button — sits flush against the search field. Same disc
+    <!-- Filter button: sits flush against the search field. Same disc
          shape as the kebab (outlined icon-only RBtn); the active-count
          chip is `RBadge` anchored top-end, slightly overlapping the disc. -->
     <RBadge
@@ -312,7 +312,7 @@ const { smAndUp } = useBreakpoint();
       />
     </template>
 
-    <!-- View controls cluster — pushed right via margin-left: auto.
+    <!-- View controls cluster: pushed right via margin-left: auto.
          At ≥ smAndUp the inline sliders carry every option; below that
          they collapse into the kebab menu so the toolbar fits on phones
          without overflowing. -->
@@ -471,7 +471,7 @@ const { smAndUp } = useBreakpoint();
   padding: var(--r-space-2) 0 var(--r-space-5);
 }
 
-/* Floating variant — fixed top-right of the gallery body. */
+/* Floating variant: fixed top-right of the gallery body. */
 .gallery-toolbar--floating {
   position: absolute;
   top: 14px;
@@ -484,7 +484,7 @@ const { smAndUp } = useBreakpoint();
   backdrop-filter: blur(20px);
 }
 
-/* Controls cluster — gets pushed right by its own margin. */
+/* Controls cluster: gets pushed right by its own margin. */
 .gallery-toolbar__controls {
   display: flex;
   align-items: center;
@@ -492,7 +492,7 @@ const { smAndUp } = useBreakpoint();
   margin-left: auto;
 }
 
-/* Search — bounded width so the pills stay visible on wide screens. */
+/* Search: bounded width so the pills stay visible on wide screens. */
 .gallery-toolbar__search {
   flex: 0 1 360px;
   min-width: 0;

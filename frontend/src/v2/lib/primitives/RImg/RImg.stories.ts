@@ -168,12 +168,12 @@ export const LoadingSlot: Story = {
     components: { RImg },
     setup() {
       // The story controls how long the loading state lasts:
-      //   1. Start with `src` empty — RImg renders the loading slot.
+      //   1. Start with `src` empty: RImg renders the loading slot.
       //   2. After `loadingDelay` ms, set a real cache-busted src so
       //      the image fetches and `loaded` takes over.
       //   3. The "Reload" button restarts the cycle on demand.
       // This is how we make a network-fast image visibly demo the
-      // loading state — without a delay proxy we'd flash past it in
+      // loading state: without a delay proxy we'd flash past it in
       // a couple of frames.
       const src = ref<string | undefined>(undefined);
       const loadingDelay = 2500;

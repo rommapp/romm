@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// HiddenPlatformsPicker — pick platforms to hide from a user or group. Model
+// HiddenPlatformsPicker: pick platforms to hide from a user or group. Model
 // is the list of hidden platform ids. The dropdown is the shared
 // PlatformSelect (the same icon + name rows used by Scan), in multi-select
 // mode so several platforms can be toggled without the menu closing each

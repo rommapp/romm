@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// CrtWarmup — a purely cosmetic "CRT phosphor warm-up" easter egg, fired when
+// CrtWarmup: a purely cosmetic "CRT phosphor warm-up" easter egg, fired when
 // CRT mode is switched ON (see useCrtMode / Settings → User Interface → Theme). Plays a fast, glitchy,
 // old-television power-on flash: instant black-out, a bright collapsing
 // scanline, a phosphor bloom with chromatic-aberration tearing, a sync-roll
 // band and jittering scanlines, then a quick settle back to the live app.
 //
-// Chrome-only — no stores/services/domain, no user-visible text (so it stays
+// Chrome-only: no stores/services/domain, no user-visible text (so it stays
 // trivially theme-agnostic). Teleported to <body> so it covers teleported
 // overlays too, and rendered pointer-events:none so it never traps input.
 // Auto-removes when the master timeline ends. Honours prefers-reduced-motion
@@ -14,7 +14,7 @@ import { nextTick, ref } from "vue";
 
 const visible = ref(false);
 // Bumping the key remounts the layer so the CSS animations restart from
-// frame 0 — lets the user re-trigger the gimmick mid-flash.
+// frame 0: lets the user re-trigger the gimmick mid-flash.
 const runId = ref(0);
 
 async function play() {
@@ -24,7 +24,7 @@ async function play() {
   visible.value = true;
 }
 
-// `.self` so only the container's own master animation ends the run — child
+// `.self` so only the container's own master animation ends the run: child
 // layer animations bubble their animationend but must not cut the timeline
 // short. The master animation is the longest, so it fires last.
 function onEnded() {
@@ -78,7 +78,7 @@ defineExpose({ play });
   animation-fill-mode: both;
 }
 
-/* White-hot core fading out to phosphor green — the main "flash". */
+/* White-hot core fading out to phosphor green: the main "flash". */
 .r-crt__bloom {
   background: radial-gradient(
     ellipse at center,
@@ -105,7 +105,7 @@ defineExpose({ play });
   animation-timing-function: ease-in;
 }
 
-/* Chromatic-aberration tearing — red/cyan RGB-split fringes that jump
+/* Chromatic-aberration tearing: red/cyan RGB-split fringes that jump
    sideways in hard steps while the tube "locks on". */
 .r-crt__glitch {
   box-shadow:

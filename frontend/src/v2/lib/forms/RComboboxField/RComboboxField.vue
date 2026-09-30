@@ -491,7 +491,7 @@ const showDetails = computed(
 .r-combobox-field {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   width: 100%;
   --r-cf-h: 40px;
   --r-cf-pad-x: 12px;
@@ -527,7 +527,7 @@ const showDetails = computed(
 .r-combobox-field__label--stacked {
   align-self: flex-start;
   padding-inline-start: 2px;
-  margin-bottom: 4px;
+  margin-bottom: var(--r-space-1);
 }
 .r-combobox-field:not(.r-combobox-field--disabled):focus-within
   .r-combobox-field__label--stacked {

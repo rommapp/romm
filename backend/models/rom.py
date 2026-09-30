@@ -446,12 +446,9 @@ class RomFileDocMeta(BaseModel):
 
     __tablename__ = "rom_file_doc_meta"
 
-    __table_args__ = (Index("idx_rom_file_doc_meta_rom_id", "rom_id"),)
-
     rom_file_id: Mapped[int] = mapped_column(
         ForeignKey("rom_files.id", ondelete="CASCADE"), primary_key=True
     )
-    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     source: Mapped[DocSource] = mapped_column(
         Enum(DocSource), default=DocSource.UPLOAD, nullable=False
     )

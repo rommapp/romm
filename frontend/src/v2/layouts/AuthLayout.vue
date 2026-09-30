@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// AuthLayout — full-viewport blurred background with a centred card stage
+// AuthLayout: full-viewport blurred background with a centred card stage
 // for the auth flows (Login / Register / ResetPassword / Setup). Bottom
 // corners hold the LanguageSelector (left) and VersionTag (right).
 import { onMounted } from "vue";
@@ -42,7 +42,7 @@ onMounted(installInputModality);
   position: relative;
   min-height: 100vh;
   display: grid;
-  /* Bound the single track to the viewport — an `auto` track sizes to the
+  /* Bound the single track to the viewport: an `auto` track sizes to the
      card's max-content and, on a narrow phone, that pushes the centred card
      past the right edge (clipped by `overflow: hidden`). `minmax(0, 1fr)`
      never exceeds the container. */
@@ -54,19 +54,19 @@ onMounted(installInputModality);
   /* The auth background and the AuthCard/Setup glass are always dark
      (--r-color-canvas-bg-deep) regardless of theme, so the light-mode
      foreground/border tokens (near-black) would be unreadable here. Force
-     the dark-mode palette for everything inside the auth layout — the page
+     the dark-mode palette for everything inside the auth layout: the page
      text, the LanguageSelector, the VersionTag, and surface/border-driven
      bits like the RSteps connector lines and dots. CSS custom properties
      inherit into descendants, and the override is scoped to .r-v2-auth so
      those shared components stay theme-driven elsewhere. */
-  --r-color-fg: #ffffff;
-  --r-color-fg-secondary: rgba(255, 255, 255, 0.75);
-  --r-color-fg-muted: rgba(255, 255, 255, 0.45);
-  --r-color-fg-faint: rgba(255, 255, 255, 0.25);
-  --r-color-surface: rgba(255, 255, 255, 0.07);
-  --r-color-surface-hover: rgba(255, 255, 255, 0.12);
-  --r-color-border: rgba(255, 255, 255, 0.07);
-  --r-color-border-strong: rgba(255, 255, 255, 0.15);
+  --r-color-fg: white;
+  --r-color-fg-secondary: color-mix(in srgb, white 75%, transparent);
+  --r-color-fg-muted: color-mix(in srgb, white 45%, transparent);
+  --r-color-fg-faint: color-mix(in srgb, white 25%, transparent);
+  --r-color-surface: color-mix(in srgb, white 7%, transparent);
+  --r-color-surface-hover: color-mix(in srgb, white 12%, transparent);
+  --r-color-border: color-mix(in srgb, white 7%, transparent);
+  --r-color-border-strong: color-mix(in srgb, white 15%, transparent);
 }
 
 .r-v2-auth__bg {
@@ -95,7 +95,7 @@ onMounted(installInputModality);
   justify-content: center;
 }
 
-/* Bottom bar — absolute full-width row on desktop: language selector hugs
+/* Bottom bar is an absolute full-width row on desktop: language selector hugs
    the left, version tag the right (space-between). */
 .r-v2-auth__footer {
   position: absolute;
@@ -112,7 +112,7 @@ onMounted(installInputModality);
 .r-v2-auth__version {
   /* Sits directly on the background art with no card behind it, so a soft
      black shadow keeps it legible over the lighter patches. */
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 1px 3px color-mix(in srgb, black 70%, transparent);
 }
 
 /* Phones: lay the card and the bottom bar out in normal flow instead of
@@ -126,7 +126,7 @@ html[data-bp~="xs"] .r-v2-auth {
   align-items: stretch;
   /* Both height AND min-height in dvh so the layout tracks the mobile browser
      chrome as it shows/hides. The base `min-height: 100vh` uses the LARGE
-     (chrome-hidden) viewport, which — once the address bar reappears — forces
+     (chrome-hidden) viewport, which, once the address bar reappears, forces
      the layout taller than the visible area, pushing the bottom bar below the
      fold and requiring a page scroll. dvh is the dynamic viewport, so it
      shrinks with the bar and the card fills exactly the visible space. */

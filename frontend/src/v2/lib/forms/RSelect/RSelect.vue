@@ -1298,7 +1298,7 @@ const describedBy = computed(() => {
 .r-select {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   width: 100%;
   /* As a flex child, default `min-width: auto` refuses to shrink below the
      selection's content width, so a long value overflows its container.
@@ -1608,6 +1608,7 @@ const describedBy = computed(() => {
   line-height: 1.2;
   align-self: flex-start;
   padding-inline-start: 2px;
+  margin-bottom: var(--r-space-1);
 }
 .r-select__label--inline,
 .r-select__label--append {

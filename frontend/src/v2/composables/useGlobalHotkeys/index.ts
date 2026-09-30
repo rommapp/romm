@@ -1,4 +1,4 @@
-// useGlobalHotkeys — app-wide keyboard shortcuts. Kept intentionally
+// useGlobalHotkeys: app-wide keyboard shortcuts. Kept intentionally
 // narrow so it doesn't fight with input fields or rich-text editors.
 //
 // Current bindings:
@@ -55,7 +55,7 @@ export function useGlobalHotkeys() {
         pendingPrefix = null;
       }
 
-      // Slash / ? — jump to search.
+      // Slash / ?: jump to search.
       if ((e.key === "/" || e.key === "?") && !pendingPrefix) {
         router.push({ name: ROUTES.SEARCH });
         e.preventDefault();

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CollectionListHeader — column-header strip for the Collections
+// CollectionListHeader: column-header strip for the Collections
 // list-mode view. Mirrors GameListHeader's anatomy: each sortable
 // column is a button that toggles asc → desc → asc on the parent's
 // sort state via the `sort` event.
@@ -46,7 +46,7 @@ const sortOptions = computed(() =>
 function handleClick(col: CollectionListColumn) {
   if (!col.sortKey) return;
   // Toggle direction when re-clicking the active column; otherwise
-  // start the new column at ascending — same rule as GameListHeader.
+  // start the new column at ascending: same rule as GameListHeader.
   const nextDir: "asc" | "desc" =
     props.sortKey === col.sortKey && props.sortDir === "asc" ? "desc" : "asc";
   emit("sort", { key: col.sortKey, dir: nextDir });

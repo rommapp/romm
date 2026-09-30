@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// InviteLinkDialog — v2-native rebuild of v1
+// InviteLinkDialog: v2-native rebuild of v1
 // `Settings/Administration/Users/Dialog/InviteLink.vue`. Picks a role +
 // expiry, generates an invite URL, and shows it in a copyable field.
 import { RBtn, RIcon, RSelect } from "@v2/lib";

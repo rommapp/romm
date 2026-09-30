@@ -10,6 +10,13 @@ from fastapi.responses import Response
 from utils.filesystem import CONTROL_CHARS
 
 
+def content_disposition(filename: str, disposition: str = "attachment") -> str:
+    """Build a Content-Disposition value for `filename`, percent-encoded once."""
+    encoded = quote(filename)
+    # Plain `filename` first (RFC 6266 appendix D): EmulatorJS reads the first match.
+    return f"{disposition}; filename=\"{encoded}\"; filename*=UTF-8''{encoded}"
+
+
 @dataclasses.dataclass(frozen=True)
 class ZipContentLine:
     """Dataclass for lines returned in the response body, for usage with the `mod_zip` module.
@@ -58,7 +65,7 @@ class ZipResponse(Response):
         kwargs["content"] = "\n".join(str(line) for line in content_lines)
         kwargs.setdefault("headers", {}).update(
             {
-                "Content-Disposition": f"attachment; filename*=UTF-8''{filename}; filename=\"{filename}\"",
+                "Content-Disposition": content_disposition(filename),
                 "X-Archive-Files": "zip",
                 "X-Archive-Charset": "UTF-8",
             }
@@ -92,7 +99,7 @@ class FileRedirectResponse(Response):
         filename = filename or download_path.name
         kwargs.setdefault("headers", {}).update(
             {
-                "Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(filename)}; filename=\"{quote(filename)}\"",
+                "Content-Disposition": content_disposition(filename, disposition),
                 "X-Accel-Redirect": quote(str(download_path)),
             }
         )

@@ -1,6 +1,6 @@
 // Cover-source resolver for collection mosaic surfaces (tile, list row,
 // info panel header, picker row). Regular collections expose a custom
-// uploaded cover via `path_cover_small` — when set, it wins over the
+// uploaded cover via `path_cover_small`: when set, it wins over the
 // ROM-derived mosaic so the user's chosen artwork actually surfaces.
 // Virtual/smart collections always have a null `path_cover_small` so
 // they fall through to the multi-cover mosaic.

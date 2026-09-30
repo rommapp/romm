@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// NewVersionBanner — checks the GitHub releases API for a newer version
+// NewVersionBanner: checks the GitHub releases API for a newer version
 // than the running build (heartbeat.SYSTEM.VERSION) and surfaces a
 // bottom-center sticky panel with Dismiss / "See what's new" actions.
 //

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// BackendStatusBanner — soft-red connection notice. Invisible while the
+// BackendStatusBanner: soft-red connection notice. Invisible while the
 // backend is healthy; surfaces a compact, centred toast-style card near the
 // top the moment the heartbeat probe (or a request) reports the backend as
 // down/broken. Unlike a redirect to /login, the user can keep navigating
-// wherever the cached state allows — the card just explains the degraded
+// wherever the cached state allows: the card just explains the degraded
 // state and the connection layer auto-recovers.
 //
 // Calling `useServerConnection()` here in <script setup> both gives us the

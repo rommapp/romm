@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ConfirmDialog — single mounted shared composite that renders confirmation
+// ConfirmDialog: single mounted shared composite that renders confirmation
 // prompts on demand. Consumers don't render this directly; they go through
 // `useConfirm()` (src/v2/composables/useConfirm), which emits the
 // `showConfirm` event and resolves a Promise<boolean> when the user picks.
@@ -7,7 +7,7 @@
 // Three friction levels:
 //   * Low:    title + body + Cancel + Confirm. Default focus on Cancel so
 //             a stray Enter cancels.
-//   * High:   `requireTyped` populated — the confirm button stays disabled
+//   * High:   `requireTyped` populated, the confirm button stays disabled
 //             until the user types the matching string. Use for actions
 //             that touch filesystem (per the constitution).
 // Tone defaults to "warning"; pass "danger" for irreversible-and-serious.

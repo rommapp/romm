@@ -1,6 +1,6 @@
 /* Demo-only styles for RAlert stories. Imported by RAlert.stories.ts.
    Inline <style> blocks inside template strings get parsed
-   inconsistently — keep demo CSS in a real file. */
+   inconsistently: keep demo CSS in a real file. */
 
 @keyframes r-alert-story-spin {
   to {

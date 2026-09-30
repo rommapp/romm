@@ -4,7 +4,7 @@
 // body scrollbar while open. They MUST share a single counter and a
 // single saved-overflow value: with per-type counters, a dialog stacked
 // over a drawer (or vice versa) would restore `body` overflow off its
-// own count and clobber the other's lock — leaving the page scrollable
+// own count and clobber the other's lock: leaving the page scrollable
 // while an overlay is still open, or permanently locked after all close.
 //
 // The first overlay to open snapshots whatever overflow was already in

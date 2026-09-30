@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ScanSettings — v2-native editor for the scan.* section of config.yml
+// ScanSettings: v2-native editor for the scan.* section of config.yml
 // (metadata/artwork priority, region & language priority, media types,
 // gamelist/pegasus export). Persists via PUT /config/scan.
 //
@@ -28,7 +28,7 @@ const { config } = storeToRefs(configStore);
 const authStore = storeAuth();
 const snackbar = useSnackbar();
 
-// Provider brand names — identical across every locale, so not i18n'd.
+// Provider brand names: identical across every locale, so not i18n'd.
 const PROVIDER_LABELS: Record<string, string> = {
   igdb: "IGDB",
   moby: "MobyGames",
@@ -570,7 +570,7 @@ onBeforeUnmount(() =>
       </div>
     </SettingsSection>
 
-    <!-- Sticky save bar — appears once the form diverges from the saved
+    <!-- Sticky save bar: appears once the form diverges from the saved
          config. Hidden entirely when the user can't edit. -->
     <Transition name="r-v2-scan-settings__bar">
       <div v-if="dirty && canEdit" class="r-v2-scan-settings__bar">

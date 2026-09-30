@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// TextViewer (v2) — renders a plain-text (.txt) or HTML (.html/.htm) document
+// TextViewer (v2): renders a plain-text (.txt) or HTML (.html/.htm) document
 // with the same v2 chrome as MarkdownViewer/PdfViewer. Used for manuals and
 // walkthroughs. Plain text is fetched and shown in a <pre> (so reading
 // progress can track its scroll); HTML is shown in a sandboxed iframe (the

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// SetupStepAdmin — Step 2 of the setup wizard. Creates the first admin
+// SetupStepAdmin: Step 2 of the setup wizard. Creates the first admin
 // account that owns the library and manages other users.
 //
 // Two-column layout: left side carries the avatar picker + context (what
@@ -233,7 +233,7 @@ html[data-bp~="sm-and-down"] .r-setup-admin {
   grid-template-columns: 1fr;
   gap: var(--r-space-5);
   /* The body clips (overflow: hidden) so this step scrolls its own content,
-     like the other steps — otherwise the stacked intro + form overflow and
+     like the other steps: otherwise the stacked intro + form overflow and
      the last field (with its bottom margin) gets cut off. Align to the top so
      the scroll starts at the first row; the layer promotion keeps the region
      from collapsing when the form re-renders on input. */
@@ -258,7 +258,7 @@ html[data-bp~="sm-and-down"] .r-setup-admin__intro {
   text-align: center;
 }
 
-/* Avatar — clickable round button sits next to a small trash icon that
+/* Avatar: clickable round button sits next to a small trash icon that
    removes the picked photo. The trash button stays disabled until a
    photo is picked so the affordance is discoverable without inviting a
    no-op click. It bottom-aligns next to the avatar so the danger glyph

@@ -88,7 +88,6 @@ async def add_rom_walkthrough_file(
     if rom_file:
         db_rom_handler.upsert_doc_meta(
             rom_file_id=rom_file.id,
-            rom_id=rom.id,
             values={
                 "author": _decode_header(author),
                 "title": _decode_header(title),
@@ -192,7 +191,6 @@ async def add_rom_gamefaqs_walkthrough(
         )
         db_rom_handler.upsert_doc_meta(
             rom_file_id=created.id,
-            rom_id=rom.id,
             values={
                 "source": DocSource.GAMEFAQS,
                 "source_url": url,

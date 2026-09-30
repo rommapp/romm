@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// MetadataIdSection (v2) — provider ID inputs for the edit-ROM dialog.
+// MetadataIdSection (v2): provider ID inputs for the edit-ROM dialog.
 // Each field maps a single metadata provider's ID (IGDB / MobyGames /
 // ScreenScraper / RetroAchievements / LaunchBox / SteamGridDB /
 // Hasheous / Flashpoint / HowLongToBeat) so admins can manually fix
 // up mismatched scrapes.
 //
-// Feature composite — knows UpdateRom; lives under
+// Feature composite: knows UpdateRom; lives under
 // `components/EditRom/` next to its siblings.
 import { RTextField } from "@v2/lib";
 import { computed } from "vue";
@@ -22,7 +22,7 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 // `field` is keyof UpdateRom; the parsed value is `number | string |
-// null` — most providers use numeric ids, Flashpoint stores a string.
+// null`: most providers use numeric ids, Flashpoint stores a string.
 function updateField(field: keyof UpdateRom, value: string | number | null) {
   emit("update:rom", { ...props.rom, [field]: value });
 }
@@ -41,7 +41,7 @@ function parseIdValue(
   return Number.isNaN(n) ? null : n;
 }
 
-// Field config — keeps the markup tight and lets us tweak the layout
+// Field config: keeps the markup tight and lets us tweak the layout
 // without re-hand-writing nine identical RTextField blocks.
 interface IdField {
   key: keyof UpdateRom;

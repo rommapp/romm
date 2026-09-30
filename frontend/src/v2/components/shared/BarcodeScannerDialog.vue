@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// BarcodeScannerDialog — live-camera barcode scanner. Opens the device
+// BarcodeScannerDialog: live-camera barcode scanner. Opens the device
 // camera (rear-facing when available), decodes UPC/EAN barcodes with
 // ZXing, and emits the decoded value. Purely presentational + camera
 // plumbing; the caller owns what to do with the code.
@@ -28,7 +28,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-// Restrict to the retail 1D formats we care about — narrowing the format
+// Restrict to the retail 1D formats we care about: narrowing the format
 // set makes decoding faster and less prone to false positives.
 const hints = new Map();
 hints.set(DecodeHintType.POSSIBLE_FORMATS, [
@@ -179,7 +179,7 @@ onBeforeUnmount(stopCamera);
   inset: 22% 12%;
   border: 2px solid var(--r-color-brand);
   border-radius: var(--r-radius-sm);
-  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 100vmax color-mix(in srgb, black 35%, transparent);
 }
 
 .r-v2-bsc__error {

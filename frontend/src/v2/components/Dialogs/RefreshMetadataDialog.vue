@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RefreshMetadataDialog — kicks off a per-ROM (or bulk) metadata
+// RefreshMetadataDialog: kicks off a per-ROM (or bulk) metadata
 // re-scan. Shares the visual vocabulary of the Scan view config card:
 // provider selects split into General / Specific, hash-matcher proxies
 // rendered as switch pills, and a scan-type select with two per-ROM-
@@ -34,7 +34,7 @@ const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const show = ref(false);
-// Accept either a single rom or an array — the SelectionBar passes
+// Accept either a single rom or an array: the SelectionBar passes
 // many at once, individual menus pass one. Internally we always
 // normalise to an array so the scan emit groups by platform without
 // branching on the input shape.
@@ -147,7 +147,7 @@ const singleRomTitle = computed(() => {
 function onScan() {
   if (roms.value.length === 0) return;
 
-  // Group rom ids by platform — the scan socket event accepts one
+  // Group rom ids by platform: the scan socket event accepts one
   // platform list + one rom-id list, so a selection that spans
   // multiple platforms is fanned into N events, one per platform.
   const byPlatform = new Map<number, number[]>();
@@ -205,7 +205,7 @@ function closeDialog() {
     </template>
     <template #content>
       <div class="r-v2-refresh">
-        <!-- ROM identity row — cover + name for the single-ROM case
+        <!-- ROM identity row: cover + name for the single-ROM case
              (visual consistency with EditRomDialog / DeleteRomDialog),
              count chip for bulk. -->
         <div v-if="singleRom" class="r-v2-refresh__rom">
@@ -237,7 +237,7 @@ function closeDialog() {
           <span>{{ t("rom.selection-count", { n: roms.length }) }}</span>
         </div>
 
-        <!-- 1. Providers section — General + Specific RSelects, sharing
+        <!-- 1. Providers section: General + Specific RSelects, sharing
              one `metadataSources` model. Both render icon-only chips so
              a multi-select stays visually quiet in the activator. -->
         <section class="r-v2-refresh__section">
@@ -298,7 +298,7 @@ function closeDialog() {
                     </div>
                   </div>
 
-                  <!-- LaunchBox Local/Cloud toggle — inline inside its
+                  <!-- LaunchBox Local/Cloud toggle: inline inside its
                        dropdown row, disabled until LaunchBox itself is
                        selected. Same pattern as Scan.vue. -->
                   <div
@@ -394,7 +394,7 @@ function closeDialog() {
           </div>
         </section>
 
-        <!-- 2. Proxies (hash matchers) — compact switch pills, same as
+        <!-- 2. Proxies (hash matchers): compact switch pills, same as
              the Scan view. -->
         <section class="r-v2-refresh__section">
           <h3 class="r-v2-refresh__section-title">
@@ -443,7 +443,7 @@ function closeDialog() {
           </div>
         </section>
 
-        <!-- 3. Scan type — per-ROM friendly options. -->
+        <!-- 3. Scan type: per-ROM friendly options. -->
         <section class="r-v2-refresh__section">
           <h3 class="r-v2-refresh__section-title">
             {{ t("scan.section-scan-type") }}
@@ -508,7 +508,7 @@ function closeDialog() {
   gap: 16px;
 }
 
-/* ROM identity row — cover + name + filename. Mirrors the row layout
+/* ROM identity row: cover + name + filename. Mirrors the row layout
    in DeleteRomDialog so the two "do-something-with-this-ROM" dialogs
    read as siblings. */
 .r-v2-refresh__rom {
@@ -576,7 +576,7 @@ function closeDialog() {
   align-self: flex-start;
 }
 
-/* Section vocabulary — small uppercase label above the controls,
+/* Section vocabulary: small uppercase label above the controls,
    hairline divider between sections. Same rhythm as Scan.vue. */
 .r-v2-refresh__section {
   display: flex;
@@ -598,7 +598,7 @@ function closeDialog() {
   color: var(--r-color-fg-muted);
 }
 
-/* Provider groups (General / Specific) — same layout as Scan.vue: a
+/* Provider groups (General / Specific) use the same layout as Scan.vue: a
    small caption above each RSelect, two groups stacked with a tight
    inter-group margin. */
 .r-v2-refresh__providers-group {
@@ -616,7 +616,7 @@ function closeDialog() {
   color: var(--r-color-fg-faint);
 }
 
-/* Icon-only chip rendered in the activator — keeps the multi-select
+/* Icon-only chip rendered in the activator: keeps the multi-select
    visually quiet when many providers are picked. */
 .r-v2-refresh__provider-chip {
   display: inline-flex;
@@ -624,7 +624,7 @@ function closeDialog() {
   justify-content: center;
 }
 
-/* Hash matcher pills — same compact icon + switch rows as Scan.vue. */
+/* Hash matcher pills: same compact icon + switch rows as Scan.vue. */
 .r-v2-refresh__matchers {
   display: flex;
   flex-direction: row;

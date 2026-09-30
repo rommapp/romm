@@ -639,7 +639,7 @@ function onAppendInnerClick(evt: MouseEvent) {
 .r-text-field {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   width: 100%;
   /* Density-driven field height. Padding hugs the input, adornments
      adjust per-side. */
@@ -1005,7 +1005,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   line-height: 1.2;
   align-self: flex-start;
   padding-inline-start: 2px;
-  margin-bottom: 4px;
+  margin-bottom: var(--r-space-1);
 }
 
 /* ── Inline label: embedded left well ─────────────────────────── */
