@@ -10,6 +10,7 @@ from unittest import mock
 
 import pytest
 from fastapi import status
+from tests.factories import make_save
 
 from handler.database import (
     db_deleted_asset_handler,
@@ -746,19 +747,13 @@ def _negotiate(client, access_token, device_id, saves):
 def _slot_version(
     user: User, rom: Rom, stem: str, content_hash: str, updated_at: datetime
 ) -> Save:
-    save = db_save_handler.add_save(
-        Save(
-            rom_id=rom.id,
-            user_id=user.id,
-            file_name=f"{stem}.sav",
-            file_name_no_tags=stem,
-            file_name_no_ext=stem,
-            file_extension="sav",
-            file_path=f"{rom.platform_slug}/saves",
-            file_size_bytes=100,
-            slot="autosave",
-            content_hash=content_hash,
-        )
+    save = make_save(
+        rom,
+        user,
+        f"{stem}.sav",
+        file_size_bytes=100,
+        slot="autosave",
+        content_hash=content_hash,
     )
     return db_save_handler.update_save(save.id, {"updated_at": updated_at})
 
@@ -1012,20 +1007,15 @@ class TestNegotiateAdvanced:
             Device(id="neg-tagged-dev", user_id=admin_user.id, sync_enabled=True)
         )
         for tag in ("2026-01-01_00-00-00", "2026-02-02_00-00-00"):
-            db_save_handler.add_save(
-                Save(
-                    rom_id=rom.id,
-                    user_id=admin_user.id,
-                    file_name=f"test_save [{tag}].sav",
-                    file_name_no_tags="test_save",
-                    file_name_no_ext=f"test_save [{tag}]",
-                    file_extension="sav",
-                    emulator="test_emulator",
-                    slot="autosave",
-                    content_hash="HASH_MATCH",
-                    file_path=f"{platform.slug}/saves/test_emulator",
-                    file_size_bytes=1.0,
-                )
+            make_save(
+                rom,
+                admin_user,
+                f"test_save [{tag}].sav",
+                emulator="test_emulator",
+                slot="autosave",
+                content_hash="HASH_MATCH",
+                file_path=f"{platform.slug}/saves/test_emulator",
+                file_size_bytes=1.0,
             )
 
         response = client.post(
@@ -1449,19 +1439,14 @@ class TestNegotiateConflictEvents:
         platform: Platform,
     ):
         saves = [
-            db_save_handler.add_save(
-                Save(
-                    rom_id=rom.id,
-                    user_id=admin_user.id,
-                    file_name=f"wide_{index}.sav",
-                    file_name_no_tags=f"wide_{index}",
-                    file_name_no_ext=f"wide_{index}",
-                    file_extension="sav",
-                    emulator="test_emulator",
-                    slot=f"slot-{index}",
-                    file_path=f"{platform.slug}/saves/test_emulator",
-                    file_size_bytes=1.0,
-                )
+            make_save(
+                rom,
+                admin_user,
+                f"wide_{index}.sav",
+                emulator="test_emulator",
+                slot=f"slot-{index}",
+                file_path=f"{platform.slug}/saves/test_emulator",
+                file_size_bytes=1.0,
             )
             for index in range(3)
         ]

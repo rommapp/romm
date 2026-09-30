@@ -1,5 +1,7 @@
 from typing import Any
 
+from tests.factories import make_rom
+
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.collections_handler import MAX_VIRTUAL_COLLECTION_COVERS
 from handler.database.rom_filters import RomFilterParams
@@ -15,20 +17,13 @@ def _add_rom(
     manual_metadata: dict[str, Any],
     cover: str | None = None,
 ) -> Rom:
-    rom = Rom(
-        platform_id=platform.id,
-        name=f"manual_rom_{index}",
-        slug=f"manual_rom_{index}",
-        fs_name=f"manual_rom_{index}.zip",
-        fs_name_no_tags=f"manual_rom_{index}",
-        fs_name_no_ext=f"manual_rom_{index}",
-        fs_extension="zip",
-        fs_path=f"{platform.slug}/roms",
+    return make_rom(
+        platform,
+        f"manual_rom_{index}",
         manual_metadata=manual_metadata,
         path_cover_s=cover or "",
         path_cover_l=cover or "",
     )
-    return db_rom_handler.add_rom(rom)
 
 
 def _criteria(smart_collection: SmartCollection) -> RomFilterParams:

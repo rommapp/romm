@@ -14,6 +14,7 @@ since no index can serve the `ORDER BY <column> IS NULL` that emulated it.
 
 import pytest
 import sqlalchemy as sa
+from tests.factories import make_rom
 from tests.sql_dialects import (
     MARIADB_DIALECT,
     POSTGRESQL_DIALECT,
@@ -36,18 +37,7 @@ from utils.database import (
 
 
 def _make_rom(platform: Platform, fs_name: str, **metadata) -> Rom:
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=fs_name,
-            slug=fs_name,
-            fs_name=f"{fs_name}.zip",
-            fs_name_no_tags=fs_name,
-            fs_name_no_ext=fs_name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    rom = make_rom(platform, fs_name)
     if metadata:
         rom = db_rom_handler.update_rom(rom.id, metadata)
     return rom

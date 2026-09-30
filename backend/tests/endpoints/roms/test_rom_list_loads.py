@@ -3,6 +3,7 @@ from typing import Any, cast
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_rom
 
 from handler.database import db_rom_handler
 from models.platform import Platform
@@ -19,19 +20,10 @@ FILE_STAT_FIELDS = (
 )
 
 
-def _add_rom(admin_user: User, platform: Platform, name: str, fs_name: str) -> Rom:
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=f"{name}_slug",
-            fs_name=fs_name,
-            fs_name_no_tags=name,
-            fs_name_no_ext=name,
-            fs_extension=fs_name.rpartition(".")[2] if "." in fs_name else "",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+def _add_rom(
+    admin_user: User, platform: Platform, name: str, fs_extension: str = "zip"
+) -> Rom:
+    rom = make_rom(platform, name, fs_extension=fs_extension)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     return rom
 
@@ -58,13 +50,13 @@ def _add_file(
 @pytest.fixture
 def fileless_rom(admin_user: User, platform: Platform) -> Rom:
     """A ROM with no file rows at all, as a scan leaves one missing from disk."""
-    return _add_rom(admin_user, platform, "fileless_rom", "fileless_rom.zip")
+    return _add_rom(admin_user, platform, "fileless_rom")
 
 
 @pytest.fixture
 def flat_rom(admin_user: User, platform: Platform) -> Rom:
     """A single file sitting directly in the platform's roms directory."""
-    rom = _add_rom(admin_user, platform, "flat_rom", "flat_rom.zip")
+    rom = _add_rom(admin_user, platform, "flat_rom")
     _add_file(rom, "flat_rom.zip", file_path=rom.fs_path)
     return rom
 
@@ -72,7 +64,7 @@ def flat_rom(admin_user: User, platform: Platform) -> Rom:
 @pytest.fixture
 def folder_rom(admin_user: User, platform: Platform) -> Rom:
     """A folder ROM with two files side by side at its top level."""
-    rom = _add_rom(admin_user, platform, "folder_rom", "folder_rom")
+    rom = _add_rom(admin_user, platform, "folder_rom", fs_extension="")
     for file_name in ("game.bin", "readme.txt"):
         _add_file(rom, file_name, file_path=f"{rom.fs_path}/folder_rom")
     return rom
@@ -81,7 +73,7 @@ def folder_rom(admin_user: User, platform: Platform) -> Rom:
 @pytest.fixture
 def nested_rom(admin_user: User, platform: Platform) -> Rom:
     """A folder ROM whose only content file sits in a subdirectory."""
-    rom = _add_rom(admin_user, platform, "nested_rom", "nested_rom")
+    rom = _add_rom(admin_user, platform, "nested_rom", fs_extension="")
     _add_file(rom, "disc.bin", file_path=f"{rom.fs_path}/nested_rom/data")
     return rom
 
@@ -89,7 +81,7 @@ def nested_rom(admin_user: User, platform: Platform) -> Rom:
 @pytest.fixture
 def soundtrack_rom(admin_user: User, platform: Platform) -> Rom:
     """A folder ROM carrying a game file and a soundtrack track."""
-    rom = _add_rom(admin_user, platform, "ost_rom", "ost_rom")
+    rom = _add_rom(admin_user, platform, "ost_rom", fs_extension="")
     file_path = f"{rom.fs_path}/ost_rom"
     _add_file(rom, "game.bin", file_path=file_path)
     _add_file(
@@ -145,7 +137,7 @@ def test_with_files_query_count_does_not_scale_with_file_count(
     executed_statements: list[str],
 ) -> None:
     """Track metadata is eager-loaded, so files cost a fixed number of queries."""
-    rom = _add_rom(admin_user, platform, "many_files_rom", "many_files_rom")
+    rom = _add_rom(admin_user, platform, "many_files_rom", fs_extension="")
     for index in range(25):
         _add_file(
             rom,
@@ -170,7 +162,7 @@ def test_identifiers_does_not_load_the_roms_it_lists(
     executed_statements: list[str],
 ) -> None:
     """The endpoint answers with ids, so the joins a `Rom` brings are pure cost."""
-    rom = _add_rom(admin_user, platform, "identifiers_rom", "identifiers_rom.zip")
+    rom = _add_rom(admin_user, platform, "identifiers_rom")
 
     executed_statements.clear()
     response = client.get(

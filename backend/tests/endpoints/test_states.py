@@ -7,12 +7,9 @@ from unittest import mock
 import pytest
 from fastapi import status
 from sqlalchemy import select
+from tests.factories import make_save, make_screenshot, make_state
 
-from handler.database import (
-    db_save_handler,
-    db_screenshot_handler,
-    db_state_handler,
-)
+from handler.database import db_screenshot_handler, db_state_handler
 from handler.database.base_handler import sync_session
 from models.assets import (
     ASSET_LABEL_MAX_LENGTH,
@@ -120,19 +117,11 @@ def test_sharing_state_syncs_thumbnail_visibility(
     access_token: str,
     state: State,
     rom: Rom,
-    platform: Platform,
     admin_user: User,
 ):
     # Thumbnail whose filename stem matches the state (how State.screenshot links).
-    thumb = db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="test_state.png",
-            file_path=f"{platform.slug}/screenshots",
-            file_size_bytes=1,
-            is_public=False,
-        )
+    thumb = make_screenshot(
+        rom, admin_user, "test_state.png", file_size_bytes=1, is_public=False
     )
 
     response = client.put(
@@ -274,18 +263,13 @@ def test_reupload_updates_file_path_and_emulator(
     """Re-uploading the same filename under a different emulator must move the
     row's file_path/emulator to where the new bytes landed, so the row never
     serves the previous emulator's state."""
-    existing = db_state_handler.add_state(
-        State(
-            file_name="game.state",
-            file_name_no_tags="game",
-            file_name_no_ext="game",
-            file_extension="state",
-            file_path=f"{platform.slug}/states/old_emu",
-            file_size_bytes=100,
-            emulator="old_emu",
-            rom_id=rom.id,
-            user_id=admin_user.id,
-        )
+    existing = make_state(
+        rom,
+        admin_user,
+        "game.state",
+        file_path=f"{platform.slug}/states/old_emu",
+        file_size_bytes=100,
+        emulator="old_emu",
     )
 
     new_path = f"{platform.slug}/states/new_emu"
@@ -464,22 +448,10 @@ def test_delete_state_removes_file_and_screenshot(
     client,
     access_token: str,
     rom: Rom,
-    platform: Platform,
     admin_user: User,
     state: State,
 ):
-    db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="test_state.png",
-            file_name_no_tags="test_state",
-            file_name_no_ext="test_state",
-            file_extension="png",
-            file_path=f"{platform.slug}/screenshots",
-            file_size_bytes=3,
-        )
-    )
+    make_screenshot(rom, admin_user, "test_state.png", file_size_bytes=3)
 
     response = client.post(
         "/api/states/delete",
@@ -511,18 +483,9 @@ class TestStateDeleteThumbnail:
         return path
 
     def _add_screenshot(
-        self, rom: Rom, user: User, platform: Platform, file_name: str, **fields
+        self, rom: Rom, user: User, file_name: str, **fields
     ) -> Screenshot:
-        return db_screenshot_handler.add_screenshot(
-            Screenshot(
-                rom_id=rom.id,
-                user_id=user.id,
-                file_name=file_name,
-                file_path=f"{platform.slug}/screenshots",
-                file_size_bytes=3,
-                **fields,
-            )
-        )
+        return make_screenshot(rom, user, file_name, file_size_bytes=3, **fields)
 
     def _delete(self, client, token: str, state_id: int):
         return client.post(
@@ -534,21 +497,12 @@ class TestStateDeleteThumbnail:
         client,
         access_token: str,
         rom: Rom,
-        platform: Platform,
         admin_user: User,
         state: State,
         screenshots_dir,
     ):
-        db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_state.srm",
-                file_path=f"{platform.slug}/saves",
-                file_size_bytes=1,
-            )
-        )
-        thumbnail = self._add_screenshot(rom, admin_user, platform, "test_state.png")
+        make_save(rom, admin_user, "test_state.srm", file_size_bytes=1)
+        thumbnail = self._add_screenshot(rom, admin_user, "test_state.png")
         (screenshots_dir / "test_state.png").write_bytes(b"PNG")
 
         response = self._delete(client, access_token, state.id)
@@ -562,13 +516,12 @@ class TestStateDeleteThumbnail:
         client,
         access_token: str,
         rom: Rom,
-        platform: Platform,
         admin_user: User,
         state: State,
         screenshots_dir,
     ):
         gallery = self._add_screenshot(
-            rom, admin_user, platform, "test_state.png", is_gallery=True
+            rom, admin_user, "test_state.png", is_gallery=True
         )
         (screenshots_dir / "test_state.png").write_bytes(b"PNG")
 
@@ -583,14 +536,13 @@ class TestStateDeleteThumbnail:
         client,
         access_token: str,
         rom: Rom,
-        platform: Platform,
         admin_user: User,
         state: State,
         screenshots_dir,
     ):
-        variant = self._add_screenshot(rom, admin_user, platform, "Test_state.png")
+        variant = self._add_screenshot(rom, admin_user, "Test_state.png")
         # Newer, so the state resolves it whether or not lookups ignore case.
-        thumbnail = self._add_screenshot(rom, admin_user, platform, "test_state.png")
+        thumbnail = self._add_screenshot(rom, admin_user, "test_state.png")
         (screenshots_dir / "test_state.png").write_bytes(b"PNG")
         # A second link stands in for a case-insensitive filesystem's alias.
         os.link(screenshots_dir / "test_state.png", screenshots_dir / "Test_state.png")
@@ -869,17 +821,9 @@ class TestStateRename:
         return path
 
     @pytest.fixture
-    def thumbnail(
-        self, _isolated_assets_dir, rom: Rom, platform: Platform, admin_user: User
-    ):
-        screenshot = db_screenshot_handler.add_screenshot(
-            Screenshot(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_state.png",
-                file_path=f"{platform.slug}/screenshots",
-                file_size_bytes=3,
-            )
+    def thumbnail(self, _isolated_assets_dir, rom: Rom, admin_user: User):
+        screenshot = make_screenshot(
+            rom, admin_user, "test_state.png", file_size_bytes=3
         )
         path = _isolated_assets_dir / screenshot.file_path / screenshot.file_name
         path.parent.mkdir(parents=True)
@@ -887,17 +831,9 @@ class TestStateRename:
         return screenshot
 
     @pytest.fixture
-    def shared_save(self, rom: Rom, platform: Platform, admin_user: User) -> Save:
+    def shared_save(self, rom: Rom, admin_user: User) -> Save:
         # Same stem as the state, so both resolve `test_state.png`.
-        return db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_state.srm",
-                file_path=f"{platform.slug}/saves",
-                file_size_bytes=1,
-            )
-        )
+        return make_save(rom, admin_user, "test_state.srm", file_size_bytes=1)
 
     def _rename(self, client, token: str, state_id: int, file_name: str):
         return client.put(
@@ -965,15 +901,13 @@ class TestStateRename:
         state_file,
     ):
         # A different emulator's folder, so only the row makes the name taken.
-        db_state_handler.add_state(
-            State(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="Taken.state",
-                emulator="other_emulator",
-                file_path=f"{platform.slug}/states/other_emulator",
-                file_size_bytes=2,
-            )
+        make_state(
+            rom,
+            admin_user,
+            "Taken.state",
+            emulator="other_emulator",
+            file_path=f"{platform.slug}/states/other_emulator",
+            file_size_bytes=2,
         )
 
         response = self._rename(client, access_token, state.id, "taken.state")

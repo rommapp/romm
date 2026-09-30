@@ -15,15 +15,11 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from tests.factories import make_rom, make_save, make_state
 from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
 from decorators.database import INJECTED_SESSION
-from handler.database import (
-    db_platform_handler,
-    db_rom_handler,
-    db_save_handler,
-    db_state_handler,
-)
+from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_engine, sync_session
 from handler.database.roms_handler import _filter_values_cache_version
 from models.assets import Save, State
@@ -89,18 +85,6 @@ class TestUpdateRomDerivedColumns:
         assert updated.name_sort_key == "pinned"
 
 
-def _make_rom(platform: Platform, fs_name: str) -> Rom:
-    return Rom(
-        platform_id=platform.id,
-        fs_name=fs_name,
-        fs_path=f"{platform.slug}/roms",
-        name=fs_name,
-        url_cover="",
-        url_manual="",
-        url_screenshots=[],
-    )
-
-
 class TestAddRomMergesScannedTags:
     """`add_rom` merges the partially-populated Rom that `scan_rom` returns.
 
@@ -135,7 +119,7 @@ class TestAddRomMergesScannedTags:
             },
         )
 
-        db_rom_handler.add_rom(self._scanned(rom))
+        db_rom_handler.add_rom(self._scanned(rom))  # noqa: TID251
 
         stored = db_rom_handler.get_rom(rom.id)
         assert stored is not None
@@ -148,7 +132,7 @@ class TestAddRomMergesScannedTags:
     def test_columns_the_scan_omits_are_left_alone(self, rom: Rom):
         db_rom_handler.update_rom(rom.id, {"summary": "kept", "slug": "kept-slug"})
 
-        db_rom_handler.add_rom(self._scanned(rom))
+        db_rom_handler.add_rom(self._scanned(rom))  # noqa: TID251
 
         stored = db_rom_handler.get_rom(rom.id)
         assert stored is not None
@@ -163,27 +147,34 @@ class TestUniquePlatformFullPath:
     creating duplicate library entries."""
 
     def test_duplicate_platform_full_path_rejected(self, platform: Platform):
-        db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
+        make_rom(platform, "Patched Game", fs_extension="gba")
 
         with pytest.raises(IntegrityError):
-            db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
+            make_rom(platform, "Patched Game", fs_extension="gba")
 
     def test_same_fs_name_in_another_folder_allowed(self, platform: Platform):
         """What a custom library structure makes ordinary, and what the old
         (platform_id, fs_name) index forbade."""
-        root = db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
-        nested = _make_rom(platform, "Patched Game.gba")
-        nested.fs_path = f"{platform.slug}/roms/Hacks"
+        root = make_rom(platform, "Patched Game", fs_extension="gba")
+        nested = make_rom(
+            platform,
+            "Patched Game",
+            fs_extension="gba",
+            fs_path=f"{platform.slug}/roms/Hacks",
+        )
 
-        assert db_rom_handler.add_rom(nested).id != root.id
+        assert nested.id != root.id
 
     def test_moving_a_rom_onto_an_occupied_path_is_rejected(self, platform: Platform):
         """`update_rom` bypasses the ORM, so it has to resync the digest the
         unique index reads or the collision goes unnoticed."""
-        db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
-        moved = _make_rom(platform, "Other Game.gba")
-        moved.fs_path = f"{platform.slug}/roms/Hacks"
-        moved = db_rom_handler.add_rom(moved)
+        make_rom(platform, "Patched Game", fs_extension="gba")
+        moved = make_rom(
+            platform,
+            "Other Game",
+            fs_extension="gba",
+            fs_path=f"{platform.slug}/roms/Hacks",
+        )
 
         with pytest.raises(IntegrityError):
             db_rom_handler.update_rom(
@@ -196,8 +187,8 @@ class TestUniquePlatformFullPath:
             Platform(name="other", slug="other_slug", fs_slug="other_slug")
         )
 
-        first = db_rom_handler.add_rom(_make_rom(platform, "Patched Game.gba"))
-        second = db_rom_handler.add_rom(_make_rom(other, "Patched Game.gba"))
+        first = make_rom(platform, "Patched Game", fs_extension="gba")
+        second = make_rom(other, "Patched Game", fs_extension="gba")
 
         assert first.id != second.id
 
@@ -206,28 +197,24 @@ class TestHasSavesStatesFilter:
     """The has-saves / has-states filters match a user's own assets plus other
     users' public (community) ones, mirroring the shared-assets visibility."""
 
-    def _add_save(self, rom: Rom, user_id: int, *, is_public: bool) -> Save:
-        return db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=user_id,
-                file_name="filter.sav",
-                file_path=f"{rom.fs_path}/saves",
-                file_size_bytes=1,
-                is_public=is_public,
-            )
+    def _add_save(self, rom: Rom, user: User, *, is_public: bool) -> Save:
+        return make_save(
+            rom,
+            user,
+            "filter.sav",
+            file_path=f"{rom.fs_path}/saves",
+            file_size_bytes=1,
+            is_public=is_public,
         )
 
-    def _add_state(self, rom: Rom, user_id: int, *, is_public: bool) -> State:
-        return db_state_handler.add_state(
-            State(
-                rom_id=rom.id,
-                user_id=user_id,
-                file_name="filter.state",
-                file_path=f"{rom.fs_path}/states",
-                file_size_bytes=1,
-                is_public=is_public,
-            )
+    def _add_state(self, rom: Rom, user: User, *, is_public: bool) -> State:
+        return make_state(
+            rom,
+            user,
+            "filter.state",
+            file_path=f"{rom.fs_path}/states",
+            file_size_bytes=1,
+            is_public=is_public,
         )
 
     def _rom_ids(self, **kwargs) -> set[int]:
@@ -236,25 +223,25 @@ class TestHasSavesStatesFilter:
     # ---- saves ----
 
     def test_own_save_matches(self, rom: Rom, admin_user: User):
-        self._add_save(rom, admin_user.id, is_public=False)
+        self._add_save(rom, admin_user, is_public=False)
         assert rom.id in self._rom_ids(user_id=admin_user.id, has_saves=True)
 
     def test_other_users_private_save_does_not_match(
         self, rom: Rom, admin_user: User, editor_user: User
     ):
-        self._add_save(rom, editor_user.id, is_public=False)
+        self._add_save(rom, editor_user, is_public=False)
         assert rom.id not in self._rom_ids(user_id=admin_user.id, has_saves=True)
 
     def test_other_users_public_save_matches(
         self, rom: Rom, admin_user: User, editor_user: User
     ):
-        self._add_save(rom, editor_user.id, is_public=True)
+        self._add_save(rom, editor_user, is_public=True)
         assert rom.id in self._rom_ids(user_id=admin_user.id, has_saves=True)
 
     def test_has_saves_false_excludes_public(
         self, rom: Rom, admin_user: User, editor_user: User
     ):
-        self._add_save(rom, editor_user.id, is_public=True)
+        self._add_save(rom, editor_user, is_public=True)
         assert rom.id not in self._rom_ids(user_id=admin_user.id, has_saves=False)
 
     # ---- states ----
@@ -262,13 +249,13 @@ class TestHasSavesStatesFilter:
     def test_other_users_public_state_matches(
         self, rom: Rom, admin_user: User, editor_user: User
     ):
-        self._add_state(rom, editor_user.id, is_public=True)
+        self._add_state(rom, editor_user, is_public=True)
         assert rom.id in self._rom_ids(user_id=admin_user.id, has_states=True)
 
     def test_other_users_private_state_does_not_match(
         self, rom: Rom, admin_user: User, editor_user: User
     ):
-        self._add_state(rom, editor_user.id, is_public=False)
+        self._add_state(rom, editor_user, is_public=False)
         assert rom.id not in self._rom_ids(user_id=admin_user.id, has_states=True)
 
 
@@ -315,7 +302,7 @@ class TestHasSoundtrackFilter:
     def test_has_soundtrack_true_matches_only_roms_with_tracks(
         self, rom: Rom, platform: Platform
     ):
-        other = db_rom_handler.add_rom(_make_rom(platform, "No Music.gba"))
+        other = make_rom(platform, "No Music", fs_extension="gba")
         self._with_soundtrack(rom)
 
         ids = {r.id for r in db_rom_handler.get_roms_scalar(has_soundtrack=True)}
@@ -326,7 +313,7 @@ class TestHasSoundtrackFilter:
     def test_has_soundtrack_false_excludes_roms_with_tracks(
         self, rom: Rom, platform: Platform
     ):
-        other = db_rom_handler.add_rom(_make_rom(platform, "No Music.gba"))
+        other = make_rom(platform, "No Music", fs_extension="gba")
         self._with_soundtrack(rom)
 
         ids = {r.id for r in db_rom_handler.get_roms_scalar(has_soundtrack=False)}
@@ -339,14 +326,12 @@ class TestGetRomIds:
     """Pin `get_rom_ids` to `get_roms_scalar`: same ids, same order."""
 
     def _physical_game(self, platform: Platform) -> Rom:
-        return db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="Physical Game",
-                fs_name="Physical Game",
-                fs_path=f"{platform.slug}/roms/.physical",
-                is_physical=True,
-            )
+        return make_rom(
+            platform,
+            "Physical Game",
+            fs_extension="",
+            fs_path=f"{platform.slug}/roms/.physical",
+            is_physical=True,
         )
 
     def test_matches_the_orm_accessor_for_every_scope_that_uses_it(
@@ -357,7 +342,7 @@ class TestGetRomIds:
         admin_user: User,
     ) -> None:
         """Pin the two accessors to each other rather than to a fixed list."""
-        db_rom_handler.add_rom(_make_rom(other_platform, "Other Platform.gba"))
+        make_rom(other_platform, "Other Platform", fs_extension="gba")
         self._physical_game(platform)
 
         for scope in (

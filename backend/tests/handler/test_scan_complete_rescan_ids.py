@@ -111,7 +111,7 @@ async def _rescan(
             platform, rom, scan_type=scan_type, metadata_sources=sources
         )
 
-    return db_rom_handler.add_rom(scanned)
+    return db_rom_handler.add_rom(scanned)  # noqa: TID251
 
 
 async def test_a_searched_source_that_misses_drops_its_stale_id():
