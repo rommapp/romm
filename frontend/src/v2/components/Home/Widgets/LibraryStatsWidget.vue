@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// LibraryStatsWidget — counts overview of what's in RomM.
+// LibraryStatsWidget: counts overview of what's in RomM.
 //
 // Two display modes (driven by `libraryStatsMode` UI setting):
-//   • compact  — games / platforms / favorites (3 rows, mock parity)
-//   • extended — adds saves / states / screenshots / disk size, the
+//   • compact  - games / platforms / favorites (3 rows, mock parity)
+//   • extended - adds saves / states / screenshots / disk size, the
 //                full v1 "Home/Stats" surface, condensed into the
 //                widget vocabulary. The card grows wider (not taller)
 //                and renders the rows in a 2-column grid so every
@@ -143,7 +143,7 @@ onMounted(async () => {
   min-width: 0;
 }
 
-/* Extended mode — same card height as compact, but the card itself
+/* Extended mode: same card height as compact, but the card itself
    grows wider and the rows lay out in a 3-column grid so all 7 stats
    (3 base + 4 extended) fit in 3 rows inside the shared rail height.
    Columns size to their content (`auto`, paired with the card's

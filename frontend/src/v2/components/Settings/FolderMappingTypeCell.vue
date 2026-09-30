@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// FolderMappingTypeCell — editable Type cell (alias / variant) for the
+// FolderMappingTypeCell: editable Type cell (alias / variant) for the
 // folder mappings table.
 //
 // Implementation: a plain `RSelect` with two options. Conceptually
-// this is "pick one", same as PlatformCell — a select reads more
+// this is "pick one", same as PlatformCell: a select reads more
 // honestly than a button-activated menu and keeps the visual
 // vocabulary identical across the table.
 //
@@ -11,7 +11,7 @@
 // auto) can be retyped. Auto rows are listed as the current value
 // but the items array doesn't include "auto", so the dropdown only
 // ever exposes the two user-selectable options (alias, variant).
-// Unmapped rows (no slug) stay non-editable — the user picks a
+// Unmapped rows (no slug) stay non-editable: the user picks a
 // platform first via FolderMappingPlatformCell, which lands the row
 // as `alias` by default.
 //
@@ -56,9 +56,9 @@ const items = computed<TypeItem[]>(() => [
   },
 ]);
 
-// Pass `row.type` straight through — even when it's `auto` (a value
+// Pass `row.type` straight through: even when it's `auto` (a value
 // not in `items`). RSelect drops foreign values from `selectedItems`,
-// so `hasSelection` becomes false and the `#placeholder` slot fires —
+// so `hasSelection` becomes false and the `#placeholder` slot fires:
 // we paint the auto pill there, while alias/variant flow through
 // `#selection` as before.
 const modelType = computed({
@@ -101,7 +101,7 @@ const label = computed(() => {
       <RTag :tone="tagTone" :text="label" size="small" />
     </template>
     <!-- Auto rows aren't in the items list, so RSelect treats them as
-         "no selection" and renders the placeholder slot — paint the
+         "no selection" and renders the placeholder slot: paint the
          auto-detected pill there. -->
     <template #placeholder>
       <RTag :tone="tagTone" :text="label" size="small" />
@@ -122,7 +122,7 @@ const label = computed(() => {
 </template>
 
 <style scoped>
-/* Tint the selection text by current type — keeps the at-a-glance
+/* Tint the selection text by current type: keeps the at-a-glance
    colour cue we had with the chip-style button while letting the
    field do all the heavy lifting. */
 .r-v2-fmtc__label {
@@ -142,7 +142,7 @@ const label = computed(() => {
 <!-- Dropdown items live in `.r-select__menu`, teleported outside the
      scoped subtree. Colour them in an unscoped block so the same
      brand/accent/success vocabulary the field uses extends into the
-     menu — picking "Folder alias" reads as purple in the dropdown
+     menu: picking "Folder alias" reads as purple in the dropdown
      too, "Platform variant" as orange, etc. -->
 <style>
 .r-select__menu .r-v2-fmtc-item--alias {

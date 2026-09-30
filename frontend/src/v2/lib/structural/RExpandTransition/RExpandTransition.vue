@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RExpandTransition — animates the wrapped element's height between
+// RExpandTransition: animates the wrapped element's height between
 // `0` and its natural content height when toggled via `v-if` or
 // `v-show`. Drop-in replacement for the height-collapse transition
 // pattern: the consumer wraps a single child, the wrapper hooks into
@@ -22,7 +22,7 @@
 //     <div v-show="open">Content</div>
 //   </RExpandTransition>
 //
-// Only handles vertical (height) expansion — width transitions are
+// Only handles vertical (height) expansion: width transitions are
 // rare enough to not justify a sibling primitive yet.
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
@@ -41,7 +41,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 // Cache previous inline styles per element so we can restore them
-// after the transition lands — consumers may have set their own
+// after the transition lands: consumers may have set their own
 // `height` / `overflow` for layout reasons and we don't want to clobber.
 type Snapshot = { height: string; overflow: string };
 const snapshots = new WeakMap<HTMLElement, Snapshot>();
@@ -111,7 +111,7 @@ function onLeave(el: Element, done: () => void) {
   const start = e.scrollHeight;
   e.style.overflow = "hidden";
   e.style.height = `${start}px`;
-  // Same single-frame trick as enter — commit the start frame before
+  // Same single-frame trick as enter: commit the start frame before
   // animating to 0, otherwise the browser fast-paths to the end value.
   requestAnimationFrame(() => {
     e.style.transition = buildTransition();

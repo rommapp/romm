@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// RDateField — date picker primitive. The input itself stays minimal
+// RDateField: date picker primitive. The input itself stays minimal
 // (an RTextField shell so it inherits variants, densities, labels, error
-// states), but the calendar popover is fully owned by v2 — same glass
+// states), but the calendar popover is fully owned by v2: same glass
 // panel + spring-in motion as RMenu / RDialog, modality-gated focus
 // rings on day cells, keyboard navigation, locale-aware weekday and
 // month names via `Intl.DateTimeFormat`.
@@ -44,7 +44,7 @@ interface Props {
    *  have to pre-convert. Emitted value is always `Date | null`. */
   modelValue?: Date | number | string | null;
   /** First day of the week shown in the calendar grid. 0=Sunday,
-   *  1=Monday, … Default Monday — matches European locales. */
+   *  1=Monday, … Default Monday: matches European locales. */
   firstDayOfWeek?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
   /** Earliest selectable date. Days before are rendered but disabled. */
   min?: Date | number | string | null;
@@ -56,7 +56,7 @@ interface Props {
   clearLabel?: string;
   /** Hide the today/clear footer row. */
   hideFooter?: boolean;
-  /** Disable opening the picker. RTextField also accepts `disabled` —
+  /** Disable opening the picker. RTextField also accepts `disabled`:
    *  we forward it to the field so it gets the muted look too. */
   disabled?: boolean;
   /** Override the display format. Defaults to `dateStyle: medium`. The
@@ -155,7 +155,7 @@ function toggle() {
 
 // ── Calendar view state ────────────────────────────────────────
 // `viewMonth` is the first day of the displayed month (always day 1).
-// `focusedDay` tracks the keyboard cursor — separate from selection so
+// `focusedDay` tracks the keyboard cursor: separate from selection so
 // users can navigate without committing.
 function startOfMonth(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
@@ -421,7 +421,7 @@ function focusDayCell() {
 // ── Field-level keyboard wiring ────────────────────────────────
 // On the closed field: Space / Enter / ArrowDown opens the popup. Tab
 // behaves natively (moves to next focusable). When open, Escape closes
-// (handled inside the panel — the field doesn't see keydown when focus
+// (handled inside the panel: the field doesn't see keydown when focus
 // has moved into the calendar).
 function onFieldKeydown(evt: KeyboardEvent) {
   if (props.disabled) return;
@@ -457,7 +457,7 @@ onBeforeUnmount(() => {
   <div ref="referenceEl" class="r-date-field" @keydown="onFieldKeydown">
     <!-- Single `@click` on the wrapper is enough: native clicks on
          every part of the field (input, icon, label well) bubble up
-         here. We deliberately don't subscribe to `click:append-inner` —
+         here. We deliberately don't subscribe to `click:append-inner`:
          that would fire alongside the bubbled click and toggle twice. -->
     <RTextField
       v-bind="$attrs"
@@ -476,7 +476,7 @@ onBeforeUnmount(() => {
       @click="toggle"
     >
       <template v-if="clearable && selectedDate" #append-inner>
-        <!-- Inline clear — wipes the value without opening the picker.
+        <!-- Inline clear: wipes the value without opening the picker.
              `mousedown.prevent` keeps focus on the field so subsequent
              keypresses don't surprise the user by reaching the body. -->
         <button
@@ -504,7 +504,7 @@ onBeforeUnmount(() => {
           :aria-label="labels.datePicker"
           @keydown="onPanelKeydown"
         >
-          <!-- Header — month/year title flanked by nav arrows. The
+          <!-- Header: month/year title flanked by nav arrows. The
                outer two step a year, the inner two step a month, so the
                common moves are both one click away. -->
           <div class="r-date-cal__head">
@@ -548,7 +548,7 @@ onBeforeUnmount(() => {
           </div>
 
           <!-- Weekday header. `aria-hidden` because the day cells carry
-               full-date aria-labels — reading the column header twice
+               full-date aria-labels: reading the column header twice
                would be noise. -->
           <div class="r-date-cal__weekdays" aria-hidden="true">
             <span
@@ -614,7 +614,7 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-/* Readonly input — the whole field acts as the popup activator, so it
+/* Readonly input: the whole field acts as the popup activator, so it
    stays clickable end-to-end. The caret is distracting on a value the
    user can't edit, so we hide it. */
 .r-date-field :deep(.r-text-field__field) {
@@ -630,7 +630,7 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 
-/* Clear button — mirrors the X RTextField renders for `clearable`. We
+/* Clear button: mirrors the X RTextField renders for `clearable`. We
    can't reuse the native clearable affordance because RTextField's
    model-value here is a derived display string; clearing has to emit
    `null` upward via the picker's own emit path. */
@@ -778,13 +778,13 @@ onBeforeUnmount(() => {
   transform: scale(0.92);
 }
 
-/* Days that bleed in from the neighbouring months — keep them visible
+/* Days that bleed in from the neighbouring months: keep them visible
    but obviously secondary so the eye reads the in-month block first. */
 .r-date-cal__day--out {
   color: var(--r-color-fg-faint);
 }
 
-/* Today — a small dot under the digit instead of recolouring the cell
+/* Today: a small dot under the digit instead of recolouring the cell
    so a "today + selected" state still reads as selected. */
 .r-date-cal__day--today::after {
   content: "";
@@ -801,7 +801,7 @@ onBeforeUnmount(() => {
   background: white;
 }
 
-/* Selected — full brand fill, white digits. Matches the rest of the
+/* Selected: full brand fill, white digits. Matches the rest of the
    lib (RCheckbox icon, RBtn primary text) which use plain `white`
    against the brand fill. */
 .r-date-cal__day--selected {
@@ -812,7 +812,7 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--r-color-brand-primary) 90%, white);
 }
 
-/* Disabled — past min / after max. */
+/* Disabled: past min / after max. */
 .r-date-cal__day--disabled,
 .r-date-cal__day:disabled {
   cursor: not-allowed;
@@ -832,7 +832,7 @@ onBeforeUnmount(() => {
 }
 
 /* ── Modality-gated focus ──────────────────────────────────────── */
-/* Mirrors the rest of the lib — outline only paints when the user is
+/* Mirrors the rest of the lib: outline only paints when the user is
    on keyboard / gamepad. `:focus` alone would flash on every click. */
 html[data-input="key"] .r-date-cal__day:focus,
 html[data-input="pad"] .r-date-cal__day:focus,
@@ -847,7 +847,7 @@ html[data-input="pad"] .r-date-cal__nav:focus {
 }
 
 /* ── Open / close motion ──────────────────────────────────────── */
-/* Same vocabulary RMenu uses — spring scale-in from top, instant close. */
+/* Same vocabulary RMenu uses: spring scale-in from top, instant close. */
 .r-date-pop-enter-from {
   opacity: 0;
   transform: translateY(-4px) scale(0.98);

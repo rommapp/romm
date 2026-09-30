@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// FirmwareTab — platform-scoped firmware manager rendered as the
+// FirmwareTab: platform-scoped firmware manager rendered as the
 // `Firmware` tab inside Platform.vue. Lists every firmware file
 // associated with the platform and lets admins upload, download, or
 // delete files. Same content surface as the previous
@@ -65,7 +65,7 @@ const {
   toggleAll,
 } = useIdSelection(() => firmwareList.value);
 
-// ── Inline upload (no dialog — the dropzone lives in the tab) ──────
+// ── Inline upload (no dialog: the dropzone lives in the tab) ──────
 const firmwareDz = ref<InstanceType<typeof RDropzone> | null>(null);
 const pendingFiles = ref<File[]>([]);
 const uploading = ref(false);
@@ -141,7 +141,7 @@ function onDeleted(deletedIds: number[]) {
   syncFirmware(firmwareList.value.filter((f) => !deletedIds.includes(f.id)));
 }
 
-// `firmware_count` is a readonly derived field on PlatformSchema —
+// `firmware_count` is a readonly derived field on PlatformSchema:
 // patched locally so the InfoPanel stat reacts instantly; a future
 // refetch reconciles.
 function syncFirmware(next: FirmwareSchema[]) {
@@ -201,7 +201,7 @@ async function performDelete(
     @files="addFiles"
   />
 
-  <!-- Otherwise the whole tab is a drop target (overlay) — dropping anywhere
+  <!-- Otherwise the whole tab is a drop target (overlay): dropping anywhere
        adds files to the pending list. -->
   <RDropzone
     v-else
@@ -215,7 +215,7 @@ async function performDelete(
     @files="addFiles"
   >
     <div class="r-v2-fw">
-      <!-- Pending upload — the files selected / dropped, awaiting upload. -->
+      <!-- Pending upload: the files selected / dropped, awaiting upload. -->
       <section v-if="pendingFiles.length > 0" class="r-v2-fw__pending">
         <header class="r-v2-fw__pending-head">
           <span>{{

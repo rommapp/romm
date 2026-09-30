@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// SettingsLayout — sub-layout shared by every Settings route. Mounts
+// SettingsLayout: sub-layout shared by every Settings route. Mounts
 // the sidebar + content column and renders the active settings view
 // via `<router-view name="v2" />`. Replaces the old
 // `SettingsShell` wrapper-from-the-view pattern: the route tree owns
@@ -7,7 +7,7 @@
 //
 // Layout: two columns sharing a vertical hairline divider. The
 // sidebar is `position: sticky` so it follows the user as the document
-// scrolls — a single document scrollbar drives both columns, matching
+// scrolls: a single document scrollbar drives both columns, matching
 // Home's behaviour (no nested scroll containers). Bounded by
 // `--r-page-max-w` so the layout never stretches beyond the same width
 // budget GameDetails uses.
@@ -25,7 +25,7 @@ import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 defineOptions({ inheritAttrs: false });
 
 const route = useRoute();
-// On `sm-and-down` the sidebar is dropped entirely — the navbar UserMenu
+// On `sm-and-down` the sidebar is dropped entirely: the navbar UserMenu
 // mirrors the same section IA, so a duplicate in-page strip is redundant on
 // phones. Mount-gated (not display:none) so the hidden links never sit in
 // the tab / spatial-nav order.
@@ -53,7 +53,7 @@ setBgArt(null);
     <div class="r-v2-settings__content">
       <!-- Single router-view with a conditional wrapper class. Two
            router-views under v-if/v-else confuse vue-router during
-           the transition — the outgoing branch unmounts before the
+           the transition: the outgoing branch unmounts before the
            new route's view binds, and content goes stale. One
            router-view + class swap keeps the same instance live. -->
       <div
@@ -112,7 +112,7 @@ setBgArt(null);
   gap: 14px;
 }
 
-/* Fill mode — the active view pins to the viewport height and owns its own
+/* Fill mode: the active view pins to the viewport height and owns its own
    internal scroll (the document itself doesn't scroll). The content column
    stretches to the section height; its body flex-fills so the view can grow
    to the bottom, leaving a clean margin equal to the in-view gutters. */
@@ -126,7 +126,7 @@ setBgArt(null);
 }
 /* On phones the fixed bottom tab bar overlays the viewport bottom. A fill
    view scrolls its own content internally, so it doesn't need to run under the
-   bar — reserve the bar's height so the panel stops just above it (no content
+   bar: reserve the bar's height so the panel stops just above it (no content
    trapped behind the bar, no second document-level scroll). */
 html[data-bp~="sm-and-down"] .r-v2-settings--fill {
   height: calc(
@@ -148,14 +148,14 @@ html[data-bp~="sm-and-down"] .r-v2-settings--fill {
 }
 
 /* On sm-and-down the sidebar is unmounted (see script), so the content
-   column fills the row on its own — just tighten the gutters to the
+   column fills the row on its own: just tighten the gutters to the
    responsive page padding. The nav bar right above already separates it. */
 html[data-bp~="sm-and-down"] .r-v2-settings__content {
   padding: var(--r-space-2) var(--r-row-pad) 48px;
 }
 /* Fill views own their height and reserve the bottom bar separately, so the
    generous 48px scroll gutter above just leaves a big empty band under the
-   panel — trim it to a small breather. */
+   panel: trim it to a small breather. */
 html[data-bp~="sm-and-down"] .r-v2-settings--fill .r-v2-settings__content {
   padding-bottom: 12px;
 }

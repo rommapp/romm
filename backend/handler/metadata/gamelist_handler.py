@@ -1,7 +1,7 @@
 import os
 import re
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Collection, Iterator
 from pathlib import Path
 from typing import Final, Literal, NotRequired, TypedDict
 from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
@@ -167,10 +167,15 @@ def gamelist_path_to_rel_path(raw_path: str) -> str:
     return raw_path.removeprefix("./").strip("/")
 
 
-def _make_file_uri(platform_dir: str, raw_text: str) -> str:
+PathValidator = Callable[[str], Path]
+
+
+def _make_file_uri(
+    platform_dir: str, raw_text: str, validate_path: PathValidator
+) -> str:
     cleaned_text = raw_text.replace("./", "")
     joined_path = Path(platform_dir, cleaned_text)
-    fs_platform_handler.validate_path(str(joined_path))
+    validate_path(str(joined_path))
     return f"file://{joined_path.as_posix()}"
 
 
@@ -251,9 +256,13 @@ def build_media_file_index(platform: Platform) -> MediaFileIndex:
 
 
 def extract_media_from_gamelist_rom(
-    game: Element, platform: Platform, media_files: MediaFileIndex
+    game: Element,
+    platform: Platform,
+    media_files: MediaFileIndex,
+    validate_path: PathValidator | None = None,
 ) -> GamelistMetadataMedia:
     platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+    validate_path = validate_path or fs_platform_handler.validate_path
 
     gamelist_media = GamelistMetadataMedia(
         box2d_url=None,
@@ -277,7 +286,9 @@ def extract_media_from_gamelist_rom(
         elem = game.find(xml_tag)
         if elem is not None and elem.text:
             try:
-                gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)
+                gamelist_media[media_key] = _make_file_uri(
+                    platform_dir, elem.text, validate_path
+                )
             except ValueError as e:
                 log.debug(f"Skipping gamelist <{xml_tag}> outside the library: {e}")
 
@@ -298,7 +309,7 @@ def extract_media_from_gamelist_rom(
                 # after its stem, so only a name both could match needs the disk.
                 if is_directory is None:
                     is_directory = _is_directory_entry(
-                        game, platform_dir, path_elem.text
+                        game, platform_dir, path_elem.text, validate_path
                     )
                 name = rom_name if is_directory else rom_stem
             else:
@@ -308,12 +319,14 @@ def extract_media_from_gamelist_rom(
     return gamelist_media
 
 
-def _is_directory_entry(game: Element, platform_dir: str, raw_path: str) -> bool:
+def _is_directory_entry(
+    game: Element, platform_dir: str, raw_path: str, validate_path: PathValidator
+) -> bool:
     """Whether a gamelist entry names a directory rather than a file."""
     if game.tag == "folder":
         return True
     try:
-        return fs_platform_handler.validate_path(
+        return validate_path(
             os.path.join(platform_dir, gamelist_path_to_rel_path(raw_path))
         ).is_dir()
     except ValueError:
@@ -321,7 +334,10 @@ def _is_directory_entry(game: Element, platform_dir: str, raw_path: str) -> bool
 
 
 def extract_metadata_from_gamelist_rom(
-    game: Element, platform: Platform, media_files: MediaFileIndex
+    game: Element,
+    platform: Platform,
+    media_files: MediaFileIndex,
+    validate_path: PathValidator | None = None,
 ) -> GamelistMetadata:
     rating_elem = game.find("rating")
     releasedate_elem = game.find("releasedate")
@@ -386,7 +402,7 @@ def extract_metadata_from_gamelist_rom(
         marquee_path=None,
         title_screen_path=None,
         video_path=None,
-        **extract_media_from_gamelist_rom(game, platform, media_files),
+        **extract_media_from_gamelist_rom(game, platform, media_files, validate_path),
     )
 
 
@@ -464,8 +480,18 @@ class GamelistHandler(MetadataHandler):
     def __init__(self) -> None:
         # Cache for storing parsed gamelist data by platform ID
         self._gamelist_cache: dict[int, dict[str, GamelistRom]] = {}
+        # The file names a platform's cached entries were limited to, absent when complete
+        self._gamelist_cache_scope: dict[int, frozenset[str]] = {}
 
-    async def populate_cache(self, platform: Platform) -> None:
+    async def populate_cache(
+        self, platform: Platform, fs_names: Collection[str] | None = None
+    ) -> None:
+        """Parse a platform's gamelist.xml ahead of the scan's lookups.
+
+        Args:
+            fs_names: Limits the parse to the entries for these file names, since
+                resolving every entry's media is what makes a large gamelist slow.
+        """
         if not self.is_enabled():
             return
 
@@ -474,12 +500,27 @@ class GamelistHandler(MetadataHandler):
         if not gamelist_file_path:
             return
 
-        # Parse the gamelist file
-        self._parse_gamelist_xml(gamelist_file_path, platform)
+        self._parse_gamelist_xml(
+            gamelist_file_path,
+            platform,
+            fs_names=frozenset(fs_names) if fs_names is not None else None,
+        )
 
     def clear_cache(self) -> None:
         """Clear the gamelist cache"""
         self._gamelist_cache.clear()
+        self._gamelist_cache_scope.clear()
+
+    def _cache_covers(self, platform_id: int, fs_names: frozenset[str] | None) -> bool:
+        """Whether the platform's cached entries include every one for `fs_names`.
+
+        Args:
+            fs_names: The file names needed, or None for the whole gamelist.
+        """
+        if platform_id not in self._gamelist_cache:
+            return False
+        scope = self._gamelist_cache_scope.get(platform_id)
+        return scope is None or (fs_names is not None and fs_names <= scope)
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -529,7 +570,10 @@ class GamelistHandler(MetadataHandler):
                 yield elem
 
     def _parse_gamelist_xml(
-        self, gamelist_path: Path, platform: Platform
+        self,
+        gamelist_path: Path,
+        platform: Platform,
+        fs_names: frozenset[str] | None = None,
     ) -> dict[str, GamelistRom]:
         """Parse a gamelist.xml file and return ROM data indexed by <path>.
 
@@ -537,12 +581,26 @@ class GamelistHandler(MetadataHandler):
         identically named roms in different folders keep their own metadata. A bare
         file name stays a fallback key, since that is all some tools write.
         Results are cached by platform ID  to avoid re-parsing the same file multiple times.
+
+        Args:
+            fs_names: Limits the result to the entries for these file names.
         """
-        # Check if we already have cached data for this platform
         cache_key = platform.id
-        if cache_key in self._gamelist_cache:
+        if self._cache_covers(cache_key, fs_names):
             log.debug(f"Using cached gamelist data for platform {platform.id}")
             return self._gamelist_cache[cache_key]
+
+        # A limited cache is widened by reading only the names it lacks
+        wanted = fs_names
+        cached_scope = self._gamelist_cache_scope.get(cache_key)
+        widened_from: dict[str, GamelistRom] | None = None
+        if (
+            fs_names is not None
+            and cached_scope is not None
+            and cache_key in self._gamelist_cache
+        ):
+            wanted = fs_names - cached_scope
+            widened_from = self._gamelist_cache[cache_key]
 
         preferred_media_types = get_preferred_media_types()
         roms_data: dict[str, GamelistRom] = {}
@@ -551,6 +609,7 @@ class GamelistHandler(MetadataHandler):
 
         try:
             media_files = build_media_file_index(platform)
+            validate_path = fs_platform_handler.cached_path_validator()
             for game in self._iter_game_elements(gamelist_path):
                 if game.tag not in ("game", "folder"):
                     continue
@@ -560,6 +619,8 @@ class GamelistHandler(MetadataHandler):
                     continue
 
                 rel_path = gamelist_path_to_rel_path(path_elem.text)
+                if wanted is not None and os.path.basename(rel_path) not in wanted:
+                    continue
                 filename = gamelist_path_to_filename(path_elem.text)
 
                 # Extract metadata
@@ -593,7 +654,7 @@ class GamelistHandler(MetadataHandler):
 
                 # Build ROM data
                 rom_metadata = extract_metadata_from_gamelist_rom(
-                    game, platform, media_files
+                    game, platform, media_files, validate_path
                 )
                 name_sort_key = compute_name_sort_key(sort_name) if sort_name else None
                 rom_data = GamelistRom(
@@ -637,7 +698,15 @@ class GamelistHandler(MetadataHandler):
                     roms_data.setdefault(name, data)
 
             # Cache the parsed data for this platform
+            if widened_from is not None:
+                roms_data = {**widened_from, **roms_data}
             self._gamelist_cache[cache_key] = roms_data
+            if fs_names is None:
+                self._gamelist_cache_scope.pop(cache_key, None)
+            else:
+                self._gamelist_cache_scope[cache_key] = fs_names | (
+                    cached_scope or set()
+                )
         except ET.ParseError as e:
             log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
             # Entries read before the document turned out to be invalid are
@@ -659,8 +728,13 @@ class GamelistHandler(MetadataHandler):
         if not gamelist_file_path:
             return GamelistRom(gamelist_id=None)
 
-        # Parse the gamelist file
-        all_roms_data = self._parse_gamelist_xml(gamelist_file_path, platform)
+        # A cache limited to other file names is widened to this one
+        is_limited = platform.id in self._gamelist_cache_scope
+        all_roms_data = self._parse_gamelist_xml(
+            gamelist_file_path,
+            platform,
+            fs_names=frozenset({fs_name}) if is_limited else None,
+        )
 
         # The rom's own path wins over its bare file name, which a custom library
         # structure can leave shared with a rom in another folder.

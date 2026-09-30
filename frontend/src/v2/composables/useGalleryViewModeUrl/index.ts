@@ -1,9 +1,9 @@
-// useGalleryViewModeUrl — bookmarkable view-mode (groupBy + layout) via
+// useGalleryViewModeUrl: bookmarkable view-mode (groupBy + layout) via
 // URL query params. Sits on top of `useGalleryMode`, which keeps the
 // localStorage default for the next session.
 //
 // Why: per constitution §VI.D, active layout / sort / current-tab
-// choices are bookmarkable session state — the URL holds them so a
+// choices are bookmarkable session state: the URL holds them so a
 // copied link reproduces the same view. The localStorage layer
 // underneath survives navigation between routes that don't carry the
 // param, so the user's preferred default still wins on a fresh view.
@@ -67,7 +67,7 @@ export function useGalleryViewModeUrl() {
   watch(() => route.query.group, applyFromUrl);
   watch(() => route.query.layout, applyFromUrl);
 
-  // Drop the param when the value is the default — keeps URLs clean.
+  // Drop the param when the value is the default: keeps URLs clean.
   watch(groupBy, (next) => {
     syncQueryParam(router, "group", next === "none" ? undefined : next);
   });

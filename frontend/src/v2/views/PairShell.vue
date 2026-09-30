@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PairShell — minimal AuthLayout-equivalent for /pair under v2. We can't
+// PairShell: minimal AuthLayout-equivalent for /pair under v2. We can't
 // reuse AuthLayout directly because /pair is a top-level route with no
 // nested <router-view>; the shell inlines Pair.vue instead.
 import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";

@@ -1,10 +1,10 @@
-// usePlatformPlayable — reactive "can any ROM on this platform run
+// usePlatformPlayable: reactive "can any ROM on this platform run
 // in-browser?" check. Companion to useCanPlay (which takes a rom);
 // platform-level surfaces (PlatformTile, PlatformListRow) only know the
 // slug, so they read this instead. Reuses the same engine-support utils
 // so the marker on the tile and the Play button on the ROM agree.
 //
-// `usePlatformPlayableChecker` is the batch sibling — returns a plain
+// `usePlatformPlayableChecker` is the batch sibling: returns a plain
 // function (no per-call computed) for surfaces that need to test many
 // slugs at once (sort comparators, group-by buckets in PlatformsIndex).
 //
@@ -46,7 +46,7 @@ function resolveMode(playable: boolean, streamable: boolean): PlatformPlayMode {
   return null;
 }
 
-/** Pure helper — picks the engine that would actually run a platform.
+/** Pure helper: picks the engine that would actually run a platform.
  * Shared between the reactive and the batch composables so both surface
  * the same label for the same slug. */
 function resolveEmulator(

@@ -1,11 +1,11 @@
-// useTileSearchUrl — bookmarkable per-view tile search backed by the
+// useTileSearchUrl: bookmarkable per-view tile search backed by the
 // route's `?search=` query param.
 //
 // Used by index views (Platforms, Collections) to filter their tile
 // lists by name. The local-state cousin of `useGalleryFilterUrl`, which
 // sits on top of the v1 galleryFilter Pinia store and is consumed by
 // `GalleryShell`. Tile indexes don't drive a server-side fetch so a
-// shared store would be overkill — a local ref is enough.
+// shared store would be overkill: a local ref is enough.
 //
 // Why: per constitution §VI.D, active filters / search query are
 // bookmarkable session state. The URL holds the value so a copied link

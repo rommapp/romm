@@ -1,4 +1,4 @@
-// useClipboard — copy text to the clipboard with consistent feedback.
+// useClipboard: copy text to the clipboard with consistent feedback.
 // The browser Clipboard API only exists in a secure context (HTTPS or
 // localhost). Over plain HTTP `navigator.clipboard` is undefined, so callers
 // that relied on it silently failed. This centralizes the guard and the error

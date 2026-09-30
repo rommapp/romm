@@ -1,4 +1,4 @@
-// useReadingProgress — tracks how far through a document the reader is, and
+// useReadingProgress: tracks how far through a document the reader is, and
 // persists that position per user. Works for any document-category rom file
 // (manual or walkthrough), in both flavours:
 //

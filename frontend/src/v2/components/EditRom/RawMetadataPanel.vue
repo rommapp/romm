@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// RawMetadataPanel (v2) — textarea + action row for one provider's raw
+// RawMetadataPanel (v2): textarea + action row for one provider's raw
 // metadata payload. The visible "what provider is this" affordance is
 // owned by whoever hosts the panel (today: the active tab in
 // EditRomDialog's RTabNav, which shows the provider logo + label).
 // That lets this component drop a redundant title and keep the surface
-// quiet — the JSON is the content.
+// quiet: the JSON is the content.
 //
-// Feature composite — knows the UpdateRom shape and the emitter event
+// Feature composite: knows the UpdateRom shape and the emitter event
 // bus. Renders nothing if the rom has no stored data for the configured
 // provider.
 import { RBtn, RTextField } from "@v2/lib";
@@ -57,7 +57,7 @@ function cancelEdit() {
 }
 
 function saveMetadata() {
-  // Empty wipe — reset this provider's slot to `{}` in raw_metadata.
+  // Empty wipe: reset this provider's slot to `{}` in raw_metadata.
   if (!metadataJson.value || metadataJson.value.trim() === "") {
     emit("update:rom", {
       ...props.rom,
@@ -90,7 +90,7 @@ function saveMetadata() {
   }
 }
 
-// aria-only — RTextField turns `label` into the input's aria-label when
+// aria-only: RTextField turns `label` into the input's aria-label when
 // no `prefix-label` is set. No visible chrome rendered for it.
 const ariaLabel = computed(() => `${props.label} ${t("rom.metadata")} JSON`);
 </script>

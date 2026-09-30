@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// GroupFormDialog — create/edit a permission group. Emitter-driven
+// GroupFormDialog: create/edit a permission group. Emitter-driven
 // (`showGroupFormDialog` with the group to edit, or null to create), mounted
 // alongside the groups table in Administration. On save it refetches the
 // shared permissionGroups store so every consumer (table, user dialogs)

@@ -1,7 +1,7 @@
 // Permission vocabulary for v2.
 //
 // `ActionKey` is generated from the backend OpenAPI schema (the source of
-// truth) — the catalogue of permission-gated actions, named `domain.action`
+// truth): the catalogue of permission-gated actions, named `domain.action`
 // (rom.upload, rom.delete, library.scan, user.create, app.admin, …). The
 // scope and grant shapes below are frontend-local: `PermissionScope` is a
 // discriminated union (tighter than the generated optional-field schema) so

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// GameListSkeletonRow — bootstrap-phase placeholder row for list-mode.
+// GameListSkeletonRow: bootstrap-phase placeholder row for list-mode.
 //
 // Painted by `GalleryShell` while the first metadata window is in
 // flight (no `total` yet). Self-contained: owns its row geometry +

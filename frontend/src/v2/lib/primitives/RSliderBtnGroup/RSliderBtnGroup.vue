@@ -1,15 +1,15 @@
 <script setup lang="ts" generic="T extends string | number">
-// RSliderBtnGroup — segmented/tab control with a sliding pill indicator.
+// RSliderBtnGroup: segmented/tab control with a sliding pill indicator.
 // One active id at a time; the indicator transitions from the previous button
 // to the new one on modelValue change.
 //
 // Variants:
-//   * "segmented" — 28×28 icon-only buttons (used by GalleryToolbar).
-//   * "tab"       — text-padded tabs (used by AppNav).
+//   * "segmented" - 28×28 icon-only buttons (used by GalleryToolbar).
+//   * "tab"       - text-padded tabs (used by AppNav).
 //
 // Items with `to` render as <router-link> (navigation); items without render
 // as <RBtn> and emit update:modelValue on click. Active id is always driven
-// externally — the consumer decides it from route, prop, or store.
+// externally: the consumer decides it from route, prop, or store.
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 import RBtn from "../RBtn/RBtn.vue";
@@ -25,17 +25,17 @@ const props = withDefaults(
     variant?: "segmented" | "tab";
     /** Stack direction. `vertical` swaps the indicator from translateX/width
      *  to translateY/height and changes the flex axis. Same aesthetic, same
-     *  active-pill slide — just rotated 90°. */
+     *  active-pill slide: just rotated 90°. */
     orientation?: "horizontal" | "vertical";
     ariaLabel?: string;
-    /** Disable the whole cluster — dims the container and blocks clicks on
+    /** Disable the whole cluster: dims the container and blocks clicks on
      *  every item, regardless of per-item `disabled`. */
     disabled?: boolean;
     /** Button size. `small` (default) keeps the existing 28×28
      *  segmented vocabulary so every existing call site stays
      *  identical. `x-small` shrinks to 22×22 so the cluster reads as
      *  a peer to RSwitch default (20px) when placed inline inside a
-     *  toggle row — mirrors RBtn's x-small / small ladder. */
+     *  toggle row: mirrors RBtn's x-small / small ladder. */
     size?: "x-small" | "small";
   }>(),
   {
@@ -53,7 +53,7 @@ const emit = defineEmits<{
 
 const groupEl = ref<HTMLElement | null>(null);
 const btnEls = new Map<T, HTMLElement | null>();
-// Indicator geometry — axis-agnostic. `offset` is translateX on
+// Indicator geometry: axis-agnostic. `offset` is translateX on
 // horizontal and translateY on vertical; `size` is width or height
 // respectively. The orientation prop decides how these map to CSS.
 const rect = ref({ offset: 0, size: 0, visible: false });
@@ -92,7 +92,7 @@ function update() {
   // is rendered inside a parent that runs an enter transform like
   // `scale(0.92)` (e.g. AppNav's sub-pill drop-in animation), the
   // bounding rect is scaled and the resulting translateY/X embeds
-  // the scale factor permanently — the indicator stays misaligned
+  // the scale factor permanently: the indicator stays misaligned
   // once the transition completes. offsetTop is the un-transformed
   // distance from the offsetParent's padding edge, which is also
   // the indicator's containing-block reference (the slider group
@@ -127,7 +127,7 @@ watch(
 // `ResizeObserver` covers two cases the old `window.resize` listener
 // missed: (a) the group's size changing because of layout shifts that
 // don't involve the window (siblings appearing, container resizing);
-// and (b) — the actual reason this exists — going from `display: none`
+// and (b), the actual reason this exists, going from `display: none`
 // (bbox = 0×0) to visible. When a parent toggles `v-show`, mounted
 // children's `getBoundingClientRect()` returned zero on first
 // measure, so the indicator stayed pinned at 0px / width:0. The
@@ -279,7 +279,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   border-radius: var(--r-radius-pill);
 }
 
-/* Vertical variant — stack items on the Y axis, give the container
+/* Vertical variant: stack items on the Y axis, give the container
    the same shape as a small menu. The sliding indicator continues to
    work (just on the Y axis) thanks to the orientation-aware measure
    in update(). Items stretch to the container's width so they align
@@ -290,7 +290,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   border-radius: var(--r-radius-lg);
 }
 
-/* Segmented — thin icon cluster (toolbar-style). 3px padding around the
+/* Segmented: thin icon cluster (toolbar-style). 3px padding around the
    28×28 inner buttons + 1px border puts the outer pill at 36px, which
    matches an `RBtn size="default"` sitting next to it (e.g., the disc
    filter / kebab buttons in `GalleryToolbar`). */
@@ -301,7 +301,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   border: 1px solid var(--r-color-border);
 }
 
-/* Tab — text-padded cluster (top-nav style). */
+/* Tab: text-padded cluster (top-nav style). */
 .r-slider-btn-group--tab {
   padding: 4px;
   gap: 2px;
@@ -335,7 +335,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   bottom: 4px;
 }
 
-/* Vertical indicator — span the container's width minus its padding,
+/* Vertical indicator: span the container's width minus its padding,
    then animate top + height. Mirrors the horizontal case (left/right
    span + animate left + width). `top: 0` is load-bearing: without it,
    the indicator's static position in a column-flex layout sits after
@@ -362,7 +362,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
     opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
-/* Whole-cluster disabled — dim everything and block clicks. Router-link
+/* Whole-cluster disabled: dim everything and block clicks. Router-link
    items don't honour a `disabled` prop, so pointer-events:none is the
    reliable escape hatch. The active indicator is hidden via the inline
    opacity binding (see template); the active button must drop its
@@ -377,7 +377,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   color: var(--r-color-fg-secondary) !important;
 }
 
-/* Button — common. Indicator owns the active background; buttons stay
+/* Button: common. Indicator owns the active background; buttons stay
    transparent so the slide reads cleanly behind them. `transform` + extra
    transitions give the hover/press animation parity with RBtn's
    currentColor overlay + scale press cue. */
@@ -425,7 +425,7 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   color: var(--r-color-overlay-emphasis-fg) !important;
 }
 
-/* x-small segmented — 22×22 button cluster, matches RBtn's x-small
+/* x-small segmented: 22×22 button cluster, matches RBtn's x-small
    token so the segmented control reads as a peer to a 20px RSwitch
    when sitting inline inside a SettingsToggleRow. Default `small`
    (28×28) keeps every existing call site identical. */

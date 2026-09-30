@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// RTabNav — single component, two visual presentations:
-//   * variant="underlined" (default) — horizontal nav with a brand
+// RTabNav: single component, two visual presentations:
+//   * variant="underlined" (default): horizontal nav with a brand
 //     underline on active. Used for primary tabs and tight subtabs.
 //     The underline is a sliding indicator (parallels RSliderBtnGroup)
 //     that translates between buttons on `modelValue` change.
-//   * variant="pill" — stacked menu-like items with a soft rounded
+//   * variant="pill": stacked menu-like items with a soft rounded
 //     fill on active. Pairs naturally with `orientation="vertical"`
 //     for left-rail subtabs (SaveDataTab style).
 //
@@ -316,7 +316,7 @@ onBeforeUnmount(() => {
   /* Scroll horizontally to reach overflowing tabs, but stay OUT of the
      vertical axis: `overflow-y: hidden` (not the `auto` that `overflow-x`
      would otherwise force) means the strip isn't a vertical scroll
-     container, so a vertical-dominant touch swipe isn't latched here — it
+     container, so a vertical-dominant touch swipe isn't latched here: it
      chains to the page scroller and the view still scrolls when the swipe
      starts on the tabs. (`touch-action: pan-x` can't do this: per spec it
      removes vertical panning from the whole gesture, freezing the page.)
@@ -411,7 +411,7 @@ onBeforeUnmount(() => {
 .r-tab-nav__icon {
   flex-shrink: 0;
 }
-/* Image variant — provider logos / brand marks. RImg owns the inner
+/* Image variant: provider logos / brand marks. RImg owns the inner
    <img>; we round its outer wrapper and ride opacity from "muted at
    rest" to "full saturation on hover/active" so the brand mark stands
    out only when it's the focus of the surface. */
@@ -489,7 +489,7 @@ html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
   font-size: var(--r-font-size-xl);
 }
 
-/* Sliding underline — sits on the bottom border line, slides between
+/* Sliding underline: sits on the bottom border line, slides between
    buttons on modelValue change (parallels RSliderBtnGroup's indicator). */
 .r-tab-nav__indicator {
   position: absolute;

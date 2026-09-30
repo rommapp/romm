@@ -1,18 +1,18 @@
 <script setup lang="ts">
-// PlatformsIndex — grid of the library's platforms, with the same toolbar
+// PlatformsIndex: grid of the library's platforms, with the same toolbar
 // (search / groupBy / layout) the ROM galleries use. Toolbar state lives
 // in `useGalleryMode` so toggling layout here also affects Platform /
-// Collection / Search ROM views — one consistent reading mode across
+// Collection / Search ROM views: one consistent reading mode across
 // every main surface. Search is local (per-view URL ?search=) since the
 // platforms list is small enough that no Pinia store is warranted.
 //
 // Group-by axes: "letter" (universal across galleries) plus three
-// platform-specific modes — "family" (PlayStation / Nintendo / …),
+// platform-specific modes: "family" (PlayStation / Nintendo / …),
 // "category" (Console / Portable / Computer / …), "generation" (1st /
 // 2nd / …). Each non-letter mode is implemented as the same shape:
 // list of `{ label, items: Platform[] }` buckets the template iterates
 // blindly. When the global groupBy lands on a value with no usable
-// data on the loaded platforms, the view falls through to flat — the
+// data on the loaded platforms, the view falls through to flat: the
 // toolbar's mode is the user's intent, not a hard requirement.
 import { RDivider, REmptyState, RLetterHeading, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
@@ -104,7 +104,7 @@ const visiblePlatforms = computed<Platform[]>(() =>
 // Spatial 2D arrow / gamepad nav across the wrapping tiles grid. List-mode
 // rows are anchor-based and tab through natively; the spatial nav only
 // targets `.plat-tile` in grid mode (which is the only place tiles render
-// — list mode emits `.plat-list-row`).
+// list mode emits `.plat-list-row`).
 const gridRoot = ref<HTMLElement | null>(null);
 useWrapGridNav(gridRoot, { cellSelector: ".plat-tile" });
 
@@ -150,7 +150,7 @@ function onListSort({
 }
 
 // Sort axis the grid view should use, derived from the active groupBy.
-// Grid has no column headers — the bucket axis is the natural sort axis,
+// Grid has no column headers: the bucket axis is the natural sort axis,
 // the toolbar asc/desc toggle is the only direction control.
 const gridSortKey = computed<PlatformSortKey>(() => {
   switch (groupBy.value) {
@@ -215,7 +215,7 @@ function compareBy(
   }
 }
 
-// Toolbar group-by items — order = visual order in the segmented
+// Toolbar group-by items: order = visual order in the segmented
 // slider (28×28 each, so 5 items still fits the toolbar comfortably on
 // desktop). Tooltips ride on `title`.
 const platformGroupByItems = computed<GroupByItem[]>(() => [
@@ -341,7 +341,7 @@ const noResultsMessage = computed(() =>
     : t("platform.no-platforms-with-games"),
 );
 
-// Generic bucket — every grouping computed produces the same shape so
+// Generic bucket: every grouping computed produces the same shape so
 // the template can iterate one branch per non-letter mode. `key` is the
 // raw bucket discriminator (sortable); `label` is what we show.
 type Bucket = { key: string; label: string; items: Platform[] };
@@ -366,9 +366,9 @@ function bucketBy(
 
 // Letter buckets. Non-letter first chars split into two head buckets so
 // the user can tell digits apart from other symbols at a glance:
-//   * "#" — digits (0-9)
-//   * "@" — anything else (Greek, punctuation, etc.)
-// Order in asc: `# A…Z @` — `#` first, `@` last (matches AlphaStrip's
+//   * "#": digits (0-9)
+//   * "@": anything else (Greek, punctuation, etc.)
+// Order in asc: `# A…Z @`, `#` first, `@` last (matches AlphaStrip's
 // ALPHABET). Desc flips the whole sequence (`@ Z…A #`).
 const BUCKET_ORDER = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ@";
 const letterGroups = computed<Bucket[]>(() => {
@@ -407,7 +407,7 @@ const familyGroups = computed<Bucket[]>(() =>
 );
 
 // Category buckets. IGDB raw values come through as snake_case
-// ("portable_console", "operating_system") — `prettifyPlatformCategory`
+// ("portable_console", "operating_system"): `prettifyPlatformCategory`
 // (shared with PlatformListRow's metadata column) produces a human
 // label without altering the underlying key.
 const categoryGroups = computed<Bucket[]>(() =>
@@ -466,7 +466,7 @@ const playableGroups = computed<Bucket[]>(() =>
 );
 
 // Active bucket list per groupBy mode. When the chosen mode produces
-// only one group ("Other" / "Unknown"), the rendering still works —
+// only one group ("Other" / "Unknown"), the rendering still works:
 // it's just one labelled section, no different from a flat grid with
 // a label on top. The visual answers the user's intent without us
 // needing to second-guess.
@@ -545,7 +545,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         :title="noResultsMessage"
       />
 
-      <!-- List mode — rows underneath the sticky column header (rendered
+      <!-- List mode: rows underneath the sticky column header (rendered
            by IndexShell via the `#listHeader` slot above). Rows surface
            the same family / category / generation axes the toolbar can
            group by, so the user reading the flat list still sees what
@@ -565,7 +565,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         />
       </div>
 
-      <!-- Grid mode, grouped — letter uses RLetterHeading (large
+      <!-- Grid mode, grouped: letter uses RLetterHeading (large
            single-character glyph); family / category / generation use
            a compact section heading so multi-word labels read cleanly. -->
       <div v-else-if="groupedBuckets">
@@ -625,7 +625,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
   border-bottom: 0;
 }
 
-/* Section heading used by family / category / generation grouping —
+/* Section heading used by family / category / generation grouping:
    compact uppercase label with the same vocabulary as
    RLetterHeading's metadata, so the two heading styles read as
    siblings instead of competing surfaces. The single bottom margin

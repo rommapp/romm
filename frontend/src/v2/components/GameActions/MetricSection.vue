@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// MetricSection — inline editor body for a single per-user metric
+// MetricSection: inline editor body for a single per-user metric
 // (rating, difficulty, completion). Shared between MetricMenuBtn's
 // popup (desktop ribbon) and GameMetricsSections' mobile status sheet.
 // Renders a header (icon + label + live value), an RRating for 1..max
