@@ -1,15 +1,16 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, ref } from "vue";
+import { defineComponent, type Ref, ref } from "vue";
 import type { RAGameRomAchievement } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
 import GameDetails from "./GameDetails.vue";
 
-const { route, currentRom, panel } = vi.hoisted(() => ({
+const { route, routeRom, panel } = vi.hoisted(() => ({
   route: { query: {} as Record<string, string>, params: { rom: "1" } },
-  currentRom: { value: null as DetailedRom | null },
+  // The mocked module fills this with the ref the view reads its ROM from.
+  routeRom: { current: null as Ref<DetailedRom | null> | null },
   // Each tab panel renders a marker, so a test can tell which one is open.
   panel: (name: string) => ({
     default: { template: `<div data-test="panel-${name}" />` },
@@ -33,12 +34,9 @@ vi.mock("vue-router", () => ({
 
 vi.mock("@/v2/composables/useRouteRom", async () => {
   const { ref: vueRef } = await import("vue");
-  const rom = vueRef<DetailedRom | null>(null);
+  routeRom.current = vueRef<DetailedRom | null>(null);
   return {
-    useRouteRom: () => {
-      rom.value = currentRom.value;
-      return rom;
-    },
+    useRouteRom: () => routeRom.current,
     romIdFromRoute: () => 1,
   };
 });
@@ -104,7 +102,21 @@ vi.mock("@/v2/components/GameDetails/SaveDataTab.vue", () =>
   panel("save-data"),
 );
 
-const achievement = { ra_id: 1, title: "First" } as RAGameRomAchievement;
+const achievement: RAGameRomAchievement = {
+  ra_id: 1,
+  title: "First",
+  description: null,
+  points: 5,
+  num_awarded: null,
+  num_awarded_hardcore: null,
+  badge_id: "1",
+  badge_url_lock: null,
+  badge_path_lock: null,
+  badge_url: null,
+  badge_path: null,
+  display_order: 1,
+  type: null,
+};
 
 function romWith(achievements: RAGameRomAchievement[] | null): DetailedRom {
   return makeDetailedRom({
@@ -113,9 +125,14 @@ function romWith(achievements: RAGameRomAchievement[] | null): DetailedRom {
   });
 }
 
+function showRom(rom: DetailedRom) {
+  if (!routeRom.current) throw new Error("useRouteRom mock not loaded");
+  routeRom.current.value = rom;
+}
+
 async function mountDetails(rom: DetailedRom, tab?: string) {
   route.query = tab ? { tab } : {};
-  currentRom.value = rom;
+  showRom(rom);
   const wrapper = mount(GameDetails);
   await flushPromises();
   return wrapper;
@@ -153,6 +170,18 @@ describe("GameDetails achievements tab", () => {
     expect(wrapper.find('[data-test="panel-overview"]').exists()).toBe(true);
     expect(wrapper.find('[data-test="panel-achievements"]').exists()).toBe(
       false,
+    );
+  });
+
+  it("reopens the achievements panel when the next ROM has a set", async () => {
+    const wrapper = await mountDetails(romWith(null), "achievements");
+
+    showRom(romWith([achievement]));
+    await flushPromises();
+
+    expect(tabIds(wrapper)).toContain("achievements");
+    expect(wrapper.find('[data-test="panel-achievements"]').exists()).toBe(
+      true,
     );
   });
 

@@ -317,7 +317,6 @@ const tabs = computed<RTabNavItem[]>(() => [
   { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
   { id: "media", label: t("rom.media") },
   { id: "notes", label: t("rom.tab-notes") },
-  // A ROM without an RA set would only offer an empty 0/0 tab.
   ...(achievementsTotal.value > 0
     ? [
         {
