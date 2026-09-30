@@ -2,7 +2,7 @@
 // InstallCacheManager - every install cache on disk with its size and age,
 // plus the total, with per-game and delete-all actions. Backs the "Install
 // cache" block of Settings > Library Management > Stream Install.
-import { RBtn, RIcon, RProgressCircular } from "@v2/lib";
+import { RBtn, REmptyState, RIcon, RSpinner } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import installApi from "@/services/api/install";
@@ -155,11 +155,13 @@ async function removeAll() {
     </div>
 
     <div v-if="loading" class="r-v2-cache__loading">
-      <RProgressCircular indeterminate size="small" color="primary" />
+      <RSpinner />
     </div>
-    <p v-else-if="entries.length === 0" class="r-v2-cache__empty">
-      {{ t("settings.install-cache-empty") }}
-    </p>
+    <REmptyState
+      v-else-if="entries.length === 0"
+      icon="mdi-harddisk"
+      :title="t('settings.install-cache-empty')"
+    />
     <ul v-else class="r-v2-cache__list">
       <li
         v-for="entry in entries"
@@ -219,11 +221,6 @@ async function removeAll() {
   display: flex;
   justify-content: center;
   padding: 12px;
-}
-.r-v2-cache__empty {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: var(--r-color-fg-muted);
 }
 .r-v2-cache__list {
   list-style: none;
