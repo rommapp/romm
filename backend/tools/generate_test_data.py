@@ -1033,6 +1033,8 @@ def main() -> int:
             bulk_insert(conn, Device, device_rows)
             bulk_insert(conn, ClientToken, token_rows)
             bulk_insert(conn, Firmware, firmware_rows)
+            if postgresql:
+                _advance_sequences(conn, (Platform, User, ClientToken, Firmware))
     counts["platforms"] = len(platform_rows)
     counts["users"] = len(user_rows)
     counts["devices"] = len(device_rows)
@@ -1452,6 +1454,10 @@ def main() -> int:
                 bulk_insert(conn, Screenshot, shot_rows)
                 bulk_insert(conn, RomNote, note_rows)
                 bulk_insert(conn, DeviceSaveSync, dss_rows)
+                if postgresql:
+                    _advance_sequences(
+                        conn, (Rom, RomFile, RomUser, Save, State, Screenshot, RomNote)
+                    )
 
         counts["roms"] += len(rom_rows)
         counts["rom_files"] += len(file_rows)
@@ -1582,7 +1588,9 @@ def main() -> int:
             bulk_insert(conn, SyncSession, sync_rows)
             bulk_insert(conn, PlaySession, play_rows)
             if postgresql:
-                _advance_sequences(conn, id_tables)
+                _advance_sequences(
+                    conn, (Collection, SmartCollection, SyncSession, PlaySession)
+                )
     counts["collections"] = len(coll_rows)
     counts["collections_roms"] = len(coll_rom_rows)
     counts["smart_collections"] = len(smart_rows)
@@ -1604,18 +1612,22 @@ def main() -> int:
     return 0
 
 
-def _advance_sequences(conn: Connection, tables: Iterable[str]) -> None:
+def _advance_sequences(conn: Connection, models: Iterable[type[BaseModel]]) -> None:
     """Move each PostgreSQL id sequence past the explicit ids inserted here."""
-    # Unlike AUTO_INCREMENT, a sequence ignores explicit ids, so the app's
-    # next insert would collide with a generated row.
+    # Unlike AUTO_INCREMENT, a sequence ignores explicit ids. The sequence's own
+    # last value keeps this from moving it back past ids the app already drew.
     from sqlalchemy import text
 
-    for t in tables:
-        # nosec B608 - table names are the script's own id_tables keys, not user input
+    for model in models:
+        t = model.__tablename__
+        # nosec B608 - table names come from the script's own models, not user input
         conn.execute(
             text(
-                f"SELECT setval(pg_get_serial_sequence('{t}', 'id'),"  # nosec B608
-                f" COALESCE(MAX(id), 0) + 1, false) FROM {t}"
+                "SELECT setval(s.seq, GREATEST("  # nosec B608
+                f"(SELECT COALESCE(MAX(id), 0) FROM {t}),"
+                " COALESCE(pg_sequence_last_value(s.seq), 0)) + 1, false)"
+                f" FROM (SELECT CAST(pg_get_serial_sequence('{t}', 'id') AS regclass)"
+                " AS seq) AS s"
             )
         )
 
