@@ -61,6 +61,7 @@ from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_FACET_COLUMNS,
+    ROM_IS_IDENTIFIED,
     Rom,
     RomDeletionTarget,
     RomFacets,
@@ -86,6 +87,7 @@ from utils.database import (
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
     escape_like,
+    is_non_blank,
     release_day_ranges,
     rom_unset_flag_column,
 )
@@ -654,6 +656,26 @@ RECOMMENDATION_SEED_FIELDS = frozenset(
     {"rating", "status", "last_played", "now_playing", "hidden"}
 )
 
+# A write that changes a gallery sort key sets this in `session.info`; the cached
+# filter values are then dropped once, after the transaction commits.
+FILTER_VALUES_BUMP_KEY = "filter_values_bump"
+
+
+@event.listens_for(Session, "after_commit")
+def _bump_filter_values_after_commit(session: Session) -> None:
+    if not session.info.pop(FILTER_VALUES_BUMP_KEY, False):
+        return
+    # The write is already durable; a stale entry falls to the TTL.
+    try:
+        DBRomsHandler.invalidate_filter_values_cache()
+    except Exception:
+        log.exception("Failed to invalidate cached filter values")
+
+
+@event.listens_for(Session, "after_rollback")
+def _drop_filter_values_bump(session: Session) -> None:
+    session.info.pop(FILTER_VALUES_BUMP_KEY, None)
+
 
 def _queue_user_cache_bumps(
     session: Session,
@@ -1186,19 +1208,7 @@ class DBRomsHandler(DBBaseHandler):
         Args:
             value: True for matched ROMs, False for unmatched ROMs
         """
-        predicate = or_(
-            Rom.igdb_id.isnot(None),
-            Rom.moby_id.isnot(None),
-            Rom.ss_id.isnot(None),
-            Rom.ra_id.isnot(None),
-            Rom.launchbox_id.isnot(None),
-            Rom.hasheous_id.isnot(None),
-            Rom.tgdb_id.isnot(None),
-            Rom.flashpoint_id.isnot(None),
-        )
-        if not value:
-            predicate = not_(predicate)
-        return query.filter(predicate)
+        return query.filter(ROM_IS_IDENTIFIED if value else not_(ROM_IS_IDENTIFIED))
 
     def _filter_by_favorite[S: Select[Any]](
         self, query: S, value: bool, user_id: int | None
@@ -1403,7 +1413,7 @@ class DBRomsHandler(DBBaseHandler):
         if not columns:
             return query
 
-        predicates = [column.isnot(None) for column in columns]
+        predicates = [is_non_blank(column) for column in columns]
         if match_none:
             return query.filter(not_(or_(*predicates)))
         if match_all:
@@ -2436,14 +2446,41 @@ class DBRomsHandler(DBBaseHandler):
 
         return rom_user
 
+    def _lock_rom_row(self, rom_id: int, session: Session) -> None:
+        """Serialise writers of one rom's files so each size total counts the others'."""
+        # Taken before the file write, whose foreign key check would otherwise
+        # share-lock the row first and deadlock two writers on MariaDB.
+        session.execute(
+            select(Rom.id).where(Rom.id == rom_id).with_for_update(key_share=True)
+        )
+
+    def _recompute_fs_size_bytes(self, rom_id: int, session: Session) -> None:
+        """Re-derive the size the gallery sorts on from the rom's file rows."""
+        # Summed inside the UPDATE, which MariaDB reads with locks rather than
+        # from the transaction snapshot; the caller holds `_lock_rom_row`.
+        total = (
+            select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
+            .where(RomFile.rom_id == rom_id)
+            .scalar_subquery()
+        )
+        session.execute(
+            update(Rom)
+            .where(Rom.id == rom_id)
+            .values(fs_size_bytes=total)
+            .execution_options(synchronize_session="fetch")
+        )
+        session.info[FILTER_VALUES_BUMP_KEY] = True
+
     @begin_session
     def add_rom_file(
         self,
         rom_file: RomFile,
         session: Session = INJECTED_SESSION,
     ) -> RomFile:
+        self._lock_rom_row(rom_file.rom_id, session)
         merged = session.merge(rom_file)
         session.flush()
+        self._recompute_fs_size_bytes(merged.rom_id, session)
         return merged
 
     def _apply_scanned_rom_file(
@@ -2679,6 +2716,14 @@ class DBRomsHandler(DBBaseHandler):
         data: dict[str, Any],
         session: Session = INJECTED_SESSION,
     ) -> RomFile | None:
+        resized_rom_id = (
+            session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
+            if "file_size_bytes" in data
+            else None
+        )
+        if resized_rom_id is not None:
+            self._lock_rom_row(resized_rom_id, session)
+
         session.execute(
             update(RomFile)
             .where(RomFile.id == id)
@@ -2686,6 +2731,8 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
+        if resized_rom_id is not None:
+            self._recompute_fs_size_bytes(resized_rom_id, session)
         return session.scalars(select(RomFile).filter_by(id=id)).one_or_none()
 
     @begin_session
@@ -3311,11 +3358,16 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
+        rom_id = session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
+        if rom_id is None:
+            return
+        self._lock_rom_row(rom_id, session)
         session.execute(
             delete(RomFile)
             .where(RomFile.id == id)
             .execution_options(synchronize_session="evaluate")
         )
+        self._recompute_fs_size_bytes(rom_id, session)
 
     # Note management methods
     def _rom_notes_query(
@@ -3697,7 +3749,8 @@ class DBRomsHandler(DBBaseHandler):
         """
         session.execute(Analyze(RomIdentityKey.__tablename__))
 
-    def invalidate_filter_values_cache(self) -> None:
+    @staticmethod
+    def invalidate_filter_values_cache() -> None:
         old_version = str(int(sync_cache.incr(ROM_FILTERS_CACHE_VERSION_KEY)) - 1)
         old_keys_set = _filter_values_cache_keys_key(old_version)
         old_cache_keys = [

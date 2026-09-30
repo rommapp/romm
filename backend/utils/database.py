@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
+from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql import ColumnElement
 
 # These helpers only read `.engine`, which an Engine answers with itself.
@@ -342,3 +343,9 @@ def safe_int(value: Any, default: int = 0) -> int:
         return int(value)
     except ValueError, TypeError:
         return default
+
+
+def is_non_blank(column: InstrumentedAttribute[Any]) -> ColumnElement[bool]:
+    """Whether `column` holds a value other than NULL or its type's blank (0 or "")."""
+    blank: int | str = "" if isinstance(column.type, sa.String) else 0
+    return sa.and_(column.isnot(None), column != blank)

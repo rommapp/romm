@@ -232,6 +232,29 @@ def test_delete_rom_file_success(
     assert not (files_fs / "game.bin").exists()
 
 
+def test_delete_rom_file_shrinks_rom_size(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    files_fs: Path,
+):
+    rom = _make_rom(admin_user, platform)
+    (files_fs / "game.bin").write_bytes(b"\x00" * 16)
+    rom_file = _add_file(rom, "game.bin", RomFileCategory.GAME)
+    _add_file(rom, "manual.pdf", RomFileCategory.MANUAL)
+
+    response = client.delete(
+        f"/api/roms/{rom.id}/files/{rom_file.id}",
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
+    assert after.fs_size_bytes == 10
+
+
 def test_delete_rom_file_wrong_rom_returns_404(
     client: TestClient,
     access_token: str,
