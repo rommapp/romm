@@ -14,6 +14,7 @@ driver at a time, hence the compiled-SQL check below.
 from typing import Any
 
 import pytest
+from tests.factories import make_rom
 from tests.sql_dialects import POSTGRESQL_DIALECT, compile_sql
 
 from handler.database import db_rom_handler
@@ -43,20 +44,7 @@ def _add_rom(
     metadata: dict[str, Any],
     ra_metadata: dict[str, Any] | None = None,
 ) -> Rom:
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=name,
-            fs_name=f"{name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            hasheous_metadata=metadata,
-            ra_metadata=ra_metadata,
-        )
-    )
+    rom = make_rom(platform, name, hasheous_metadata=metadata, ra_metadata=ra_metadata)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=user.id)
     return rom
 

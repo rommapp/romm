@@ -20,15 +20,18 @@ from sqlalchemy import DefaultClause, FetchedValue, Table, UniqueConstraint
 from sqlalchemy.sql.schema import NULL_UNSPECIFIED
 
 import models
-from handler.database import db_platform_handler
+from handler.database import db_collection_handler, db_platform_handler
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
+from models.collection import SmartCollection
 from models.platform import Platform
 from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
+from models.user import User
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     HLTB_MAIN_STORY_COLUMN,
     POSTGRESQL_FK_INDEXES,
+    SEARCH_ALIASES_COLUMN,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     exact_collation,
     full_path_digest_sql,
@@ -245,6 +248,8 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0142_state_core.py", "states"),
         ("0143_sibling_platform_names.py", "platforms"),
         ("0144_user_oidc_sub.py", "users"),
+        ("0145_drop_derivable_columns.py", "rom_file_doc_meta"),
+        ("0146_roms_search_aliases.py", "roms"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -327,6 +332,60 @@ def test_the_user_oidc_sub_revision_reverses_and_replays():
             migration.upgrade()
 
         assert _schema_of(connection, "users") == before
+
+
+def test_the_derivable_columns_revision_reverses_and_replays(admin_user: User):
+    """0145 drops a foreign key MariaDB and MySQL named for themselves in 0110."""
+    migration = _load_migration("0145_drop_derivable_columns.py")
+    tables = ("smart_collections", "rom_file_doc_meta")
+    smart = db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="Smart",
+            user_id=admin_user.id,
+            rom_ids=[1, 2, 3],
+            filter_criteria={},
+        )
+    )
+
+    with sync_engine.begin() as connection:
+        before = {table: _schema_of(connection, table) for table in tables}
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            columns = {
+                (table, c["name"]): c
+                for table in tables
+                for c in sa.inspect(connection).get_columns(table)
+            }
+            assert not columns[("rom_file_doc_meta", "rom_id")]["nullable"]
+            assert columns[("smart_collections", "rom_count")]["default"] is None
+            rom_count = connection.execute(
+                sa.text("SELECT rom_count FROM smart_collections WHERE id = :id"),
+                {"id": smart.id},
+            ).scalar_one()
+            assert rom_count == 3
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert {table: _schema_of(connection, table) for table in tables} == before
+
+
+def test_the_search_aliases_revision_reverses_and_replays():
+    """0146 swaps the search index, and each step of either direction is guarded."""
+    migration = _load_migration("0146_roms_search_aliases.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "roms", SEARCH_ALIASES_COLUMN)
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "roms") == before
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:
@@ -572,6 +631,19 @@ def test_the_roms_columns_helper_rebuilds_a_narrowed_sort_index():
             spanned,
             False,
         )
+
+
+def test_the_roms_columns_helper_rebuilds_the_search_index_with_the_alias_column():
+    """A rebuild of the alias column must not leave the gallery search unindexed."""
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        connection.execute(
+            sa.text(f"ALTER TABLE roms DROP COLUMN {SEARCH_ALIASES_COLUMN}")
+        )
+
+        ensure_roms_columns(connection)
+
+        assert _schema_of(connection, "roms") == before
 
 
 def test_dropping_the_roms_columns_takes_the_sort_indexes_with_them():

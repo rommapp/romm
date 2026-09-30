@@ -6,7 +6,6 @@ export type VirtualCollectionSchema = {
     name: string;
     description: string;
     rom_ids: Array<number>;
-    rom_count: number;
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     path_covers_small: Array<string>;
@@ -19,5 +18,6 @@ export type VirtualCollectionSchema = {
     updated_at: string;
     id: string;
     type: string;
+    readonly rom_count: number;
 };
 

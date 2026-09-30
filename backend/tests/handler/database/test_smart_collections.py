@@ -8,7 +8,9 @@ memory and writing it back on every read (see #4029).
 from collections.abc import Sequence
 from typing import Any
 
-from handler.database import db_collection_handler, db_rom_handler, db_save_handler
+from tests.factories import make_rom, make_save
+
+from handler.database import db_collection_handler, db_rom_handler
 from models.assets import Save
 from models.collection import Collection, SmartCollection
 from models.platform import Platform
@@ -24,22 +26,14 @@ def _add_rom(
     manual_metadata: dict[str, Any] | None = None,
     regions: list[str] | None = None,
 ) -> Rom:
-    slug = name.lower().replace(" ", "_")
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=slug,
-            fs_name=f"{slug}.zip",
-            fs_name_no_tags=slug,
-            fs_name_no_ext=slug,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            manual_metadata=manual_metadata or {},
-            regions=regions or [],
-            path_cover_s=cover,
-            path_cover_l=cover,
-        )
+    return make_rom(
+        platform,
+        name,
+        fs_stem=name.lower().replace(" ", "_"),
+        manual_metadata=manual_metadata or {},
+        regions=regions or [],
+        path_cover_s=cover,
+        path_cover_l=cover,
     )
 
 
@@ -334,18 +328,15 @@ def test_refresh_for_roms_leaves_untouched_collections_alone(
 
 
 def _add_save(rom: Rom, user: User, name: str = "save.sav") -> Save:
-    return db_save_handler.add_save(
-        Save(
-            rom_id=rom.id,
-            user_id=user.id,
-            file_name=name,
-            file_name_no_tags=name,
-            file_name_no_ext=name,
-            file_extension="sav",
-            emulator="test_emulator",
-            file_path="test/saves",
-            file_size_bytes=1.0,
-        )
+    return make_save(
+        rom,
+        user,
+        name,
+        file_name_no_tags=name,
+        file_name_no_ext=name,
+        emulator="test_emulator",
+        file_path="test/saves",
+        file_size_bytes=1.0,
     )
 
 

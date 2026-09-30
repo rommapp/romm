@@ -89,7 +89,7 @@
   "provider-steam-desc": "Métadonnées et visuels de la boutique pour les jeux PC sur Steam.",
   "provider-steam-setup": "Définissez STEAM_API_ENABLED=true.",
   "proxy-hasheous-caveat": "Service hébergé par la communauté. Nécessite les hachages de fichiers. Activez le calcul des hachages dans la configuration (activé par défaut).",
-  "proxy-hasheous-desc": "Comparateur par hachage qui sert de proxy aux données IGDB et fournit les ID RetroAchievements.",
+  "proxy-hasheous-desc": "Comparateur par hachage qui sert de proxy aux données IGDB.",
   "proxy-hasheous-setup": "Définissez HASHEOUS_API_ENABLED=true.",
   "proxy-playmatch-caveat": "Service hébergé par la communauté.",
   "proxy-playmatch-desc": "Comparateur par hachage associé à IGDB.",
