@@ -688,6 +688,35 @@ class TestRomFileSizeTotal:
 
         assert self._size(rom) == 1000
 
+    def test_moving_a_file_updates_both_roms(self, rom: Rom, second_rom: Rom):
+        _add_rom_file(rom, "game.bin", 1000, RomFileCategory.GAME)
+        manual = _add_rom_file(rom, "manual.pdf", 200, RomFileCategory.MANUAL)
+
+        db_rom_handler.update_rom_file(manual.id, {"rom_id": second_rom.id})
+
+        assert self._size(rom) == 1000
+        assert self._size(second_rom) == 200
+
+    def test_merging_a_file_under_another_rom_updates_both(
+        self, rom: Rom, second_rom: Rom
+    ):
+        _add_rom_file(rom, "game.bin", 1000, RomFileCategory.GAME)
+        manual = _add_rom_file(rom, "manual.pdf", 200, RomFileCategory.MANUAL)
+
+        db_rom_handler.add_rom_file(
+            RomFile(
+                id=manual.id,
+                rom_id=second_rom.id,
+                file_name=manual.file_name,
+                file_path=second_rom.fs_path,
+                file_size_bytes=manual.file_size_bytes,
+                category=manual.category,
+            )
+        )
+
+        assert self._size(rom) == 1000
+        assert self._size(second_rom) == 200
+
 
 class TestRomFileSizeSidecarInvalidation:
     """The size-sorted rom-id and char indexes are cached under the filter
@@ -810,7 +839,20 @@ class TestRomFileSizeLocking:
         # NO KEY UPDATE leaves other tables' foreign key checks on the row free.
         session = MagicMock()
 
-        db_rom_handler._lock_rom_row(7, session)
+        db_rom_handler._lock_rom_rows([7], session)
 
         (statement,) = session.execute.call_args.args
         assert compile_sql(statement, dialect).endswith(clause)
+
+    def test_move_locks_both_roms_in_id_order(self, rom: Rom, second_rom: Rom):
+        # Two opposite moves take the locks in the same order, so neither waits
+        # on the other.
+        session = MagicMock()
+
+        db_rom_handler._lock_rom_rows([second_rom.id, rom.id, second_rom.id], session)
+
+        locked = [
+            call.args[0].compile().params["id_1"]
+            for call in session.execute.call_args_list
+        ]
+        assert locked == sorted({rom.id, second_rom.id})

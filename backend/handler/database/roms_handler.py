@@ -2444,18 +2444,19 @@ class DBRomsHandler(DBBaseHandler):
 
         return rom_user
 
-    def _lock_rom_row(self, rom_id: int, session: Session) -> None:
-        """Serialise writers of one rom's files so each size total counts the others'."""
+    def _lock_rom_rows(self, rom_ids: Iterable[int], session: Session) -> None:
+        """Serialise writers of these roms' files so each size total counts the others'."""
         # Taken before the file write, whose foreign key check would otherwise
-        # share-lock the row first and deadlock two writers on MariaDB.
-        session.execute(
-            select(Rom.id).where(Rom.id == rom_id).with_for_update(key_share=True)
-        )
+        # share-lock the row first; in id order so two moves cannot deadlock.
+        for rom_id in sorted(set(rom_ids)):
+            session.execute(
+                select(Rom.id).where(Rom.id == rom_id).with_for_update(key_share=True)
+            )
 
     def _recompute_fs_size_bytes(self, rom_id: int, session: Session) -> None:
         """Re-derive the size the gallery sorts on from the rom's file rows."""
         # Summed inside the UPDATE, which MariaDB reads with locks rather than
-        # from the transaction snapshot; the caller holds `_lock_rom_row`.
+        # from the transaction snapshot; the caller holds `_lock_rom_rows`.
         total = (
             select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
             .where(RomFile.rom_id == rom_id)
@@ -2475,10 +2476,20 @@ class DBRomsHandler(DBBaseHandler):
         rom_file: RomFile,
         session: Session = INJECTED_SESSION,
     ) -> RomFile:
-        self._lock_rom_row(rom_file.rom_id, session)
+        # Merging an existing file under another rom moves it out of the old one.
+        previous_rom_id = (
+            session.scalar(select(RomFile.rom_id).where(RomFile.id == rom_file.id))
+            if rom_file.id is not None
+            else None
+        )
+        rom_ids = {rom_file.rom_id} | (
+            {previous_rom_id} if previous_rom_id is not None else set()
+        )
+        self._lock_rom_rows(rom_ids, session)
         merged = session.merge(rom_file)
         session.flush()
-        self._recompute_fs_size_bytes(merged.rom_id, session)
+        for rom_id in sorted(rom_ids):
+            self._recompute_fs_size_bytes(rom_id, session)
         return merged
 
     def _apply_scanned_rom_file(
@@ -2714,13 +2725,18 @@ class DBRomsHandler(DBBaseHandler):
         data: dict[str, Any],
         session: Session = INJECTED_SESSION,
     ) -> RomFile | None:
-        resized_rom_id = (
+        current_rom_id = (
             session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
-            if "file_size_bytes" in data
+            if data.keys() & {"file_size_bytes", "rom_id"}
             else None
         )
-        if resized_rom_id is not None:
-            self._lock_rom_row(resized_rom_id, session)
+        # A new `rom_id` moves the file, so both roms' totals change.
+        rom_ids = (
+            {current_rom_id, data.get("rom_id", current_rom_id)}
+            if current_rom_id is not None
+            else set()
+        )
+        self._lock_rom_rows(rom_ids, session)
 
         session.execute(
             update(RomFile)
@@ -2729,8 +2745,8 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        if resized_rom_id is not None:
-            self._recompute_fs_size_bytes(resized_rom_id, session)
+        for rom_id in sorted(rom_ids):
+            self._recompute_fs_size_bytes(rom_id, session)
         return session.scalars(select(RomFile).filter_by(id=id)).one_or_none()
 
     @begin_session
@@ -3359,7 +3375,7 @@ class DBRomsHandler(DBBaseHandler):
         rom_id = session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
         if rom_id is None:
             return
-        self._lock_rom_row(rom_id, session)
+        self._lock_rom_rows([rom_id], session)
         session.execute(
             delete(RomFile)
             .where(RomFile.id == id)
