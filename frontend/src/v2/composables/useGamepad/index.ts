@@ -18,7 +18,7 @@
 //   Start (9)                      → open user menu
 //   LB (4) / RB (5)                → AppNav section prev / next (cyclic)
 //
-// Action buttons (A/B/Back/Start/LB/RB) fire once per press: no repeat:
+// Action buttons (A/B/Back/Start/LB/RB) fire once per press (no repeat),
 // so a held face button doesn't shotgun actions. Synthetic-key buttons
 // (arrows) use the v1 console input cadence: 350ms initial delay, 120ms
 // repeat.

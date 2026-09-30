@@ -11,7 +11,7 @@
 //   if (!ok) return;
 //
 // The composable internally emits `showConfirm` and listens for the matching
-// `confirmResolved` event scoped by id. Always resolves: never rejects:
+// `confirmResolved` event scoped by id. Always resolves (never rejects),
 // so consumers can `if (!ok) return;` without try/catch noise.
 import type { Emitter } from "mitt";
 import { inject } from "vue";

@@ -119,8 +119,8 @@ export interface GalleryFilterSnapshot {
 
 /**
  * Optional route-level context the user is currently navigating in.
- * These aren't toggles in the filter drawer: they come from the URL
- * (`/platform/:slug`, `/collection/:id`, …): but the smart collection
+ * These aren't toggles in the filter drawer (they come from the URL,
+ * `/platform/:slug`, `/collection/:id`, …), but the smart collection
  * still needs to capture them so it stays scoped to that view.
  */
 export interface GalleryContext {
@@ -553,7 +553,7 @@ export interface SummaryLookups {
  * Translate `filter_criteria` into a structured list of rows the UI can
  * render. Callers pass:
  *   - `t`       - vue-i18n composer for labels.
- *   - `lookups`: id → display name resolvers for platforms / collections.
+ *   - `lookups` - id → display name resolvers for platforms / collections.
  *     Each is optional; rows fall back to a `#id` chip when missing.
  *
  * The legacy `(id) => string | null` shape (platforms-only) stays

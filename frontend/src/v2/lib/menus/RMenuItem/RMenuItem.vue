@@ -6,7 +6,7 @@
 // cases: 15px leading-icon slot (left), label, 9px rounded hover bg.
 //
 // Variants:
-//   * default: fg-secondary text, hover background var(--r-color-surface)
+//   * default - fg-secondary text, hover background var(--r-color-surface)
 //   * active  - filled brand accent (radio-like "current" pick)
 //   * danger  - red text, red-tinted hover (destructive actions)
 //

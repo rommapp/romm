@@ -3,7 +3,7 @@ import postcss from "postcss";
 
 /**
  * @typedef {{ root: import("postcss").Root, start: number }} StyleRoot
- * @typedef {{ type: string, name?: string, range: [number, number], children?: SfcNode[], comments?: SfcNode[] }} SfcNode
+ * @typedef {{ type: string, name?: string, range: [number, number], children?: SfcNode[] }} SfcNode
  */
 
 /** @type {WeakMap<import("eslint").SourceCode, StyleRoot[]>} */

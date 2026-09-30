@@ -70,11 +70,11 @@ interface Props {
   /** Card scale tier. Drives the cover art width/height via the shared
    *  `--r-card-art-w/h` tokens, and the hero variant's `--r-hero-w/h`
    *  when `hero` is true.
-   *    xs (48 × 64)  , list-row avatars
-   *    sm (120 × 162), dense pickers
-   *    md (158 × 213), gallery default (no class, keeps the global token)
-   *    lg (200 × 270), edit-dialog preview
-   *    xl (240 × 324), detail page cover
+   *    xs (48 × 64)   - list-row avatars
+   *    sm (120 × 162) - dense pickers
+   *    md (158 × 213) - gallery default (no class, keeps the global token)
+   *    lg (200 × 270) - edit-dialog preview
+   *    xl (240 × 324) - detail page cover
    *  Hero scales linearly with size (it's just an aspect-ratio change,
    *  not a separate scale), so `hero` + any `size` paints the 16:9
    *  shape at that tier's footprint. */
@@ -163,7 +163,7 @@ const coverAspectRatio = art.ratio;
 // covering the rom's own art, and the consumer opted in.
 const showCoverPip = computed(() => props.coverPip && !!props.coverSrc);
 // Alt-art styles (box3d / physical / miximage) drop the card frame so the
-// artwork floats: but only while a real image renders; with no cover the
+// artwork floats, but only while a real image renders; with no cover the
 // placeholder keeps its grey box so the title stays readable.
 const isAltStyle = computed(
   () =>

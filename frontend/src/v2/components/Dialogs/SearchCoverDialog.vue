@@ -247,8 +247,8 @@ async function doSearch() {
     ) {
       const results = providersResult.value.data;
       // Prefer the result that shares the most IDs with our rom (the
-      // same identified game). When no result matches by ID: e.g. an
-      // unidentified rom: fall back to the first one so the user
+      // same identified game). When no result matches by ID (e.g. an
+      // unidentified rom), fall back to the first one so the user
       // still gets something. `0` score with a populated `results`
       // array still picks `results[0]`.
       const best = [...results]

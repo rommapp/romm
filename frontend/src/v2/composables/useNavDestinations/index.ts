@@ -5,7 +5,7 @@
 // labels, icons, ordering, or active-state logic.
 //
 // Highlighting is derived from `route.path` (not route names) so gallery
-// subroutes: e.g. `/rom/:id` reached from a platform, still light up
+// subroutes (e.g. `/rom/:id` reached from a platform) still light up
 // their parent destination.
 import { computed } from "vue";
 import type { ComputedRef } from "vue";

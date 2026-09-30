@@ -11,7 +11,7 @@
 //   • flat        - surface fill + 1px border. The default: matches
 //                   the existing v2 card paint.
 //   • elevated    - surface fill + box-shadow (no border).
-//   • translucent: `color-mix` of the resolved colour over transparent.
+//   • translucent - `color-mix` of the resolved colour over transparent.
 //   • outlined    - transparent fill + 1px coloured border.
 //   • text        - transparent fill, just a tone colour for the text.
 //   • plain       - zero chrome; inherit everything.

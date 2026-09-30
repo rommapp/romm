@@ -3,7 +3,7 @@
 //
 // Two display modes (driven by `libraryStatsMode` UI setting):
 //   • compact  - games / platforms / favorites (3 rows, mock parity)
-//   • extended: adds saves / states / screenshots / disk size, the
+//   • extended - adds saves / states / screenshots / disk size, the
 //                full v1 "Home/Stats" surface, condensed into the
 //                widget vocabulary. The card grows wider (not taller)
 //                and renders the rows in a 2-column grid so every

@@ -3,6 +3,7 @@ import axios from "axios";
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { isCustomScheme } from "@/utils/pairCallback";
+import { errorMessage as apiErrorMessage } from "@/v2/utils/errorMessage";
 
 const route = useRoute();
 
@@ -42,11 +43,10 @@ onMounted(async () => {
       window.location.href = `${callback.value}${separator}token=${encodeURIComponent(token)}`;
     } catch (err: unknown) {
       status.value = "error";
-      const axiosErr = err as {
-        response?: { data?: { detail?: string } };
-      };
-      errorMessage.value =
-        axiosErr.response?.data?.detail || "Failed to exchange pairing code.";
+      errorMessage.value = apiErrorMessage(
+        err,
+        "Failed to exchange pairing code.",
+      );
     }
     return;
   }

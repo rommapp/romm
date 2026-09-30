@@ -8,8 +8,8 @@
 //
 // When the resolved boxart style is the 3D box AND the rom has the full set
 // of flat scans (front + back + spine, from ScreenScraper), the hero
-// upgrades to the interactive RBox3D the user can spin. Anything missing:
-// a different style, an incomplete set, or a failed image: falls straight
+// upgrades to the interactive RBox3D the user can spin. Anything missing
+// (a different style, an incomplete set, or a failed image) falls straight
 // back to the flat GameCover.
 import { RBox3D } from "@v2/lib";
 import { computed, ref } from "vue";

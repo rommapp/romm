@@ -5,8 +5,8 @@
 // RomM platform (alias) or to a parent platform's metadata (variant).
 // Auto-detected mappings are read-only.
 //
-// Renders through the shared `RTable` primitive: sortable headers,
-// hairline rows, hover tint, skeleton loading state: same chrome as
+// Renders through the shared `RTable` primitive (sortable headers,
+// hairline rows, hover tint, skeleton loading state), same chrome as
 // every other table surface in the app (gallery list, missing games,
 // excluded). Editable Platform / Type cells open `RMenu` pickers via
 // `RBtn` activators.

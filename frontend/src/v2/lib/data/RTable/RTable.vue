@@ -124,8 +124,8 @@ const rowStyle = computed(() =>
 );
 
 // Entrance animation plays once: rows fade + rise in on first paint. After
-// it finishes we drop the `--enter` class so re-sorting (which moves: i.e.
-// re-inserts: the keyed DOM nodes, restarting CSS animations) doesn't
+// it finishes we drop the `--enter` class so re-sorting (which moves, i.e.
+// re-inserts, the keyed DOM nodes, restarting CSS animations) doesn't
 // replay it. New rows added later simply appear without the flourish.
 const hasEntered = ref(false);
 let enterTimer: ReturnType<typeof setTimeout> | undefined;
@@ -480,7 +480,7 @@ onBeforeUnmount(() => {
 /* ------------------- Mobile card-stack (xs) ------------------
    A multi-column grid squashes every cell to an ellipsis on a phone. With no
    `minWidth` floor set (`.r-table--mobile-stack`), each row reflows into a
-   stacked card: the header hides, every cell becomes a `caption, value`
+   stacked card: the header hides, every cell becomes a caption/value
    line, and action columns (no label) align their controls to the end.
    Consumers that need the real table keep it by setting `minWidth` (then the
    `__scroll` viewport scrolls horizontally instead). */

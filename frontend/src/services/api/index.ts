@@ -67,7 +67,7 @@ api.interceptors.response.use(
   },
   async (error) => {
     // Mirror the success path's bookkeeping: a settled request, even a failed
-    // or canceled one: leaves the inflight set so `network-quiesced` can still
+    // or canceled one, leaves the inflight set so `network-quiesced` can still
     // fire once the network goes quiet.
     inflightRequests.delete(error.config?.url);
     if (inflightRequests.size === 0) {

@@ -320,7 +320,7 @@ function onDocPointerDown(evt: PointerEvent) {
 
 // ── Escape / B-button dismissal ────────────────────────────────
 // Register on the shared overlay-escape stack so a single global
-// listener handles Esc across menus, dialogs, drawers: and so
+// listener handles Esc across menus, dialogs, drawers, and so
 // `useGamepad`'s B-back action can close the topmost overlay without
 // reaching into the DOM. LIFO ordering means nested menus close one
 // at a time (the inner-most first), matching the previous per-instance

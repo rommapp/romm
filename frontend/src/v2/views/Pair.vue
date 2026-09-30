@@ -13,6 +13,7 @@ import { useRoute } from "vue-router";
 import { isCustomScheme } from "@/utils/pairCallback";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
+import { errorMessage as apiErrorMessage } from "@/v2/utils/errorMessage";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -55,11 +56,10 @@ onMounted(async () => {
       window.location.href = `${callback.value}${separator}token=${encodeURIComponent(token)}`;
     } catch (err: unknown) {
       status.value = "error";
-      const axiosErr = err as {
-        response?: { data?: { detail?: string } };
-      };
-      errorMessage.value =
-        axiosErr.response?.data?.detail ?? t("settings.pair-exchange-failed");
+      errorMessage.value = apiErrorMessage(
+        err,
+        t("settings.pair-exchange-failed"),
+      );
     }
     return;
   }

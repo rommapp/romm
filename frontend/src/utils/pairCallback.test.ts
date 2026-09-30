@@ -14,6 +14,7 @@ describe("isCustomScheme", () => {
     "data:text/html,<script>alert(1)</script>",
     "vbscript:msgbox(1)",
     "blob:https://example.com/uuid",
+    "filesystem:https://example.com/temporary/cb",
     "file:///etc/passwd",
     "not a url",
   ])("rejects %s", (url) => {

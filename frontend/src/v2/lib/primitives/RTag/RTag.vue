@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // RTag: small inline pill used for header tags (region / language /
 // custom tags), hash chips (label + mono value), verification badges
-// (icon + label, tone-coloured by status). Lighter than RChip: no
-// imposed min-height: and tone variants are a single prop, not
+// (icon + label, tone-coloured by status). Lighter than RChip (no
+// imposed min-height), and tone variants are a single prop, not
 // parallel CSS classes.
 //
 // Layout:  [icon]  [LABEL]  [text/slot]

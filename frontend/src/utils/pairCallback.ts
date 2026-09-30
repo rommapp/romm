@@ -6,6 +6,7 @@ const BLOCKED_SCHEMES = new Set([
   "data:",
   "vbscript:",
   "blob:",
+  "filesystem:",
   "file:",
 ]);
 

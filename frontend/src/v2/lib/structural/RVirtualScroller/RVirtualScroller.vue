@@ -263,7 +263,7 @@ onUnmounted(() => {
 });
 
 // Re-emit viewportRange whenever it changes. Computed memoises on
-// shallow equality of its return value: but {first,last} is a fresh
+// shallow equality of its return value, but {first,last} is a fresh
 // object each time, so we need a manual diff.
 let lastEmittedFirst = -2;
 let lastEmittedLast = -2;

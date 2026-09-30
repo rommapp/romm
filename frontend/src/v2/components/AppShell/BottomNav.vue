@@ -3,8 +3,8 @@
 // on phones (xs) so the four destinations sit within thumb reach. AppNav
 // drops its centre pill on xs in turn (see AppNav.vue).
 //
-// This is the SAME RSliderBtnGroup tab pill the top nav uses: same glass
-// surface, same border, same sliding active indicator: just pinned to
+// This is the SAME RSliderBtnGroup tab pill the top nav uses (same glass
+// surface, same border, same sliding active indicator), just pinned to
 // the bottom and stretched full-width. No bespoke nav surface and no
 // alternate layout, so the brand look and feel stay identical top vs
 // bottom. Routing and universal input (keyboard / gamepad roving,
@@ -81,7 +81,7 @@ const { destinations, activeId } = useNavDestinations();
 
 /* Each destination stretches to an equal quarter of the pill so the
    active indicator spans its full cell and reaches close to the pill's
-   rounded background edges: and keeps doing so as the viewport widens,
+   rounded background edges, and keeps doing so as the viewport widens,
    instead of leaving the items bunched in the centre. The indicator sits
    inside the pill's 4px padding, so even with sub-pixel cell rounding it
    never grazes the border. */

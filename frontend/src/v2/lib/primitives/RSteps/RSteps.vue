@@ -5,7 +5,7 @@
 //
 // Three states map cleanly to the dot's `data-state`:
 //   * past    - solid brand fill, white number
-//   * current: solid brand fill, white number, scaled up with a
+//   * current - solid brand fill, white number, scaled up with a
 //               pulsing halo so it stands out from the past dots
 //   * future  - muted outline, faint number
 //

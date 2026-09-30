@@ -4,7 +4,7 @@
 // to the new one on modelValue change.
 //
 // Variants:
-//   * "segmented": 28×28 icon-only buttons (used by GalleryToolbar).
+//   * "segmented" - 28×28 icon-only buttons (used by GalleryToolbar).
 //   * "tab"       - text-padded tabs (used by AppNav).
 //
 // Items with `to` render as <router-link> (navigation); items without render

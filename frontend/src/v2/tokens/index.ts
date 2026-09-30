@@ -419,10 +419,10 @@ export const layout = {
   // Card art size tiers. All maintain ratio ≈ 0.74 (boxart 2:3) so the
   // cover never visually distorts between sizes.
   //   xs (48 × 64)   - list-row avatars
-  //   sm (120 × 162): dense pickers, compact mobile
-  //   md (158 × 213): gallery default (== cardArtWidth / cardArtHeight)
-  //   lg (200 × 270): edit-dialog cover preview
-  //   xl (240 × 324): detail page cover column
+  //   sm (120 × 162) - dense pickers, compact mobile
+  //   md (158 × 213) - gallery default (== cardArtWidth / cardArtHeight)
+  //   lg (200 × 270) - edit-dialog cover preview
+  //   xl (240 × 324) - detail page cover column
   cardArtWidthXs: "48px",
   cardArtHeightXs: "64px",
   cardArtWidthSm: "120px",
