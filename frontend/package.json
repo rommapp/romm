@@ -52,7 +52,7 @@
     "lodash": "^4.18.1",
     "md-editor-v3": "^7.0.0",
     "mitt": "^3.0.1",
-    "pinia": "^3.0.1",
+    "pinia": "^4.0.0",
     "qrcode": "^1.5.4",
     "semver": "^7.6.2",
     "socket.io-client": "^4.7.5",
