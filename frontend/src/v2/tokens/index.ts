@@ -131,9 +131,9 @@ export const colorDark = {
   // theme overrides this to a slightly-muted near-black (white-on-dark titles
   // don't read as harshly as black-on-white ones).
   fgHeading: "#ffffff",
-  fgSecondary: "rgba(255, 255, 255, 0.75)",
-  fgMuted: "rgba(255, 255, 255, 0.45)",
-  fgFaint: "rgba(255, 255, 255, 0.25)",
+  fgSecondary: "rgba(255, 255, 255, 0.83)",
+  fgMuted: "rgba(255, 255, 255, 0.55)",
+  fgFaint: "rgba(255, 255, 255, 0.45)",
   fgFaintHard: "rgba(255, 255, 255, 0.05)",
   border: "rgba(255, 255, 255, 0.07)",
   borderStrong: "rgba(255, 255, 255, 0.15)",
