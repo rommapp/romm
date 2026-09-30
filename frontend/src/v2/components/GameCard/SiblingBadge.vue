@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// SiblingBadge — gallery overlay that exposes a ROM's grouped sibling
+// SiblingBadge: gallery overlay that exposes a ROM's grouped sibling
 // versions. Visible only when `groupRoms` is on (the gallery is showing
 // one card per sibling group); with grouping off every version is its
 // own card and the chip would be redundant noise.
@@ -10,7 +10,7 @@
 //     a router-link to that sibling's detail page. The current rom is
 //     marked as the active row (radio-like) so the user can see which
 //     one they're looking at.
-//   * Click on the chip itself doesn't navigate — the rom's card
+//   * Click on the chip itself doesn't navigate: the rom's card
 //     already handles its own click; the chip is a popover trigger only.
 import { RIcon, RMenu, RMenuItem } from "@v2/lib";
 import { computed, ref } from "vue";
@@ -25,7 +25,7 @@ const props = withDefaults(
     rom: SimpleRom;
     /** Layout direction. Mirrors GameActionBtn's `orientation` prop:
      *  `vertical` stacks icon over count (the GameCard cover-overlay
-     *  default — fits the right-side column of badges), `horizontal`
+     *  default: fits the right-side column of badges), `horizontal`
      *  places them side-by-side (used inline in list rows where the
      *  badge sits next to the title). */
     orientation?: "horizontal" | "vertical";
@@ -36,7 +36,7 @@ const props = withDefaults(
 const { t } = useI18n();
 const { groupRoms } = useUISettings();
 
-// Menu-open state — exposed to the parent surface via the
+// Menu-open state: exposed to the parent surface via the
 // `.sibling-badge--pinned` class on the chip, so the GameCard can keep
 // its hover chrome painted while the version list is open (same
 // "pinned" pattern GameActionBtn uses for `more` / `status` menus).
@@ -44,7 +44,7 @@ const menuOpen = ref(false);
 
 // The scan socket (`scan:scanning_rom`) emits roms with `sibling_roms`
 // stripped from the payload, so it can be undefined here even though the
-// type marks it required. Default to an empty list — otherwise reading
+// type marks it required. Default to an empty list: otherwise reading
 // `.length`/`.map` throws while a scan streams roms and `groupRoms` is on.
 // REST payloads always include it (possibly empty).
 const siblings = computed(() => props.rom.sibling_roms ?? []);
@@ -62,7 +62,7 @@ const tooltipText = computed(() =>
 // `[rom, ...siblings]` mirrors the order v1's VersionSwitcher uses. The
 // current rom always leads so the user immediately reads "the one I'm
 // looking at" before the alternates. `main` flags the user-marked
-// default version — read off `rom_user` for this rom and off the
+// default version: read off `rom_user` for this rom and off the
 // per-sibling `is_main_sibling` field for the rest (the backend
 // resolves it from the request user's RomUser).
 const versions = computed(() => [
@@ -83,7 +83,7 @@ const versions = computed(() => [
 const mainTooltip = computed(() => t("rom.default-version"));
 
 // Prevent the parent card's `router-link` from intercepting clicks on
-// the chip / menu — without this the gallery would navigate to the
+// the chip / menu: without this the gallery would navigate to the
 // current rom instead of opening the menu.
 function stopCard(e: Event) {
   e.stopPropagation();
@@ -138,7 +138,7 @@ function stopCard(e: Event) {
 </template>
 
 <style scoped>
-/* Vertical pill — same visual idiom as `GameActionBtn` with
+/* Vertical pill: same visual idiom as `GameActionBtn` with
    `orientation="vertical"` (icon stacked over the count) so the
    sibling badge reads as a sibling of the status badge in the
    right-side column. Positioning lives on the consuming surface

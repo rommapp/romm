@@ -7,6 +7,10 @@ export async function configureMDEditor() {
         instance: { isEnabled: false },
       },
     },
+    // Release notes and user notes embed raw HTML (e.g. <img>); XSSPlugin sanitizes it.
+    markdownItConfig(md) {
+      md.set({ html: true });
+    },
     markdownItPlugins(plugins) {
       return [
         ...plugins,

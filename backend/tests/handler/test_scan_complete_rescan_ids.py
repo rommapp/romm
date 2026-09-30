@@ -35,7 +35,7 @@ MATCH = IGDBRom(igdb_id=9999, name="A Real Game")
 UNREACHABLE = HTTPException(status_code=503, detail="provider is down")
 SS_MISS = SSRom(ss_id=None)
 SS_SHORT_CIRCUITED = ScreenScraperExhaustedError(SS_MISS)
-HASHEOUS_MISS = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+HASHEOUS_MISS = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
 
 
 def _lookup(result: Any) -> AsyncMock:
@@ -104,10 +104,6 @@ async def _rescan(
         ),
         patch(
             "handler.scan_handler.meta_hasheous_handler.get_igdb_game",
-            new=_lookup(HASHEOUS_MISS),
-        ),
-        patch(
-            "handler.scan_handler.meta_hasheous_handler.get_ra_game",
             new=_lookup(HASHEOUS_MISS),
         ),
     ):

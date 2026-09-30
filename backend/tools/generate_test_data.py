@@ -1509,7 +1509,6 @@ def main() -> int:
                 "name": f"All {genre}",
                 "description": f"Every {genre} game.",
                 "is_public": rng.random() < 0.5,
-                "rom_count": len(members),
                 "rom_ids": members,
                 "path_covers_small": [],
                 "path_covers_large": [],

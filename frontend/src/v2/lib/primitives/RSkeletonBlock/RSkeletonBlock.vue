@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// RSkeletonBlock — shimmer placeholder. Owns shape, sizing, and the
-// animation style directly — no skeleton-loader abstraction.
+// RSkeletonBlock: shimmer placeholder. Owns shape, sizing, and the
+// animation style directly: no skeleton-loader abstraction.
 //
 // `inheritAttrs` stays at the Vue default so a caller's positioning class
 // merges into the root span instead of being silently dropped.

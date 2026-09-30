@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// DebugOverlay — developer-facing diagnostic panel pinned bottom-right
+// DebugOverlay: developer-facing diagnostic panel pinned bottom-right
 // (right side avoids clashing with the browser's own link-preview tooltip).
 //
 // Gated by `useDebugMode().enabled` (a per-device localStorage toggle in
-// Settings → Developer), NOT by `import.meta.env.DEV` — the whole point is
+// Settings → Developer), NOT by `import.meta.env.DEV`: the whole point is
 // being able to flip it on against the deployed build to debug the live
 // webui fast. It absorbs the old dev-only BreakpointBadge as its first row.
 //
@@ -31,7 +31,7 @@ import { useInputModality } from "@/v2/composables/useInputModality";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 
-// — Breakpoint + viewport ------------------------------------------------
+// Breakpoint + viewport ------------------------------------------------
 const { xs, smAndUp, mdAndUp, lgAndUp, xlAndUp } = useBreakpoint();
 const { width, height } = useWindowSize();
 const tier = computed(() => {
@@ -43,20 +43,20 @@ const tier = computed(() => {
   return "—";
 });
 
-// — Input modality -------------------------------------------------------
+// Input modality -------------------------------------------------------
 const { modality } = useInputModality();
 
-// — Theme ----------------------------------------------------------------
+// Theme ----------------------------------------------------------------
 const { isDark } = useThemeMode();
 const themeLabel = computed(() => (isDark.value ? "v2-dark" : "v2-light"));
 
-// — Route ----------------------------------------------------------------
+// Route ----------------------------------------------------------------
 const route = useRoute();
 const routeName = computed(() =>
   typeof route.name === "string" ? route.name : "—",
 );
 
-// — Gamepad + focus ------------------------------------------------------
+// Gamepad + focus ------------------------------------------------------
 const padConnected = ref(false);
 const lastButton = ref("—");
 
@@ -77,7 +77,7 @@ useEventListener(
   },
 );
 
-// Currently focused element — track via focusin (bubbles, unlike focus).
+// Currently focused element: track via focusin (bubbles, unlike focus).
 const focusEl = ref<Element | null>(null);
 function describeFocus(el: Element | null): string {
   if (!el || el === document.body || el === document.documentElement)
@@ -101,13 +101,13 @@ useEventListener(document, "focusout", () => {
   focusEl.value = document.activeElement;
 });
 
-// — Virtual scroll -------------------------------------------------------
+// Virtual scroll -------------------------------------------------------
 // Published by the active virtualised gallery (null elsewhere). If windowing
 // is healthy, `rendered` stays ~constant (viewport + 2×overscan) however far
 // you scroll; a climbing value means the DOM isn't being trimmed.
 const { stats: vstats } = useVirtualScrollDebug();
 
-// — Performance ----------------------------------------------------------
+// Performance ----------------------------------------------------------
 const fps = useFps();
 const { isSupported: memSupported, memory } = useMemory();
 const heapMb = computed(() =>

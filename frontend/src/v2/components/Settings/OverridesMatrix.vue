@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// OverridesMatrix — per-user permission overrides on top of the user's
+// OverridesMatrix: per-user permission overrides on top of the user's
 // group. Each (entity, action) cell is a multi-state checkbox cycling
 // inherit (defer to group) -> grant (force-allow, primary) -> grant-own
 // (force-allow own items, accent) -> revoke (force-deny, danger). The

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// AddPhysicalGameDialog — manually add a game you own physically (cartridge,
+// AddPhysicalGameDialog: manually add a game you own physically (cartridge,
 // disc, boxed copy) that has no file on disk. The backend stores it as a
 // file-less Rom (is_physical=true) and auto-links metadata by name/UPC in a
 // single quick scan.

@@ -42,21 +42,21 @@ const emitter = inject<Emitter<Events>>("emitter");
         <v-list-item
           v-bind="props"
           class="py-4"
-          :title="item.raw.name ?? ''"
-          :subtitle="item.raw.fs_slug"
+          :title="item.name ?? ''"
+          :subtitle="item.fs_slug"
         >
           <template #prepend>
             <PlatformIcon
-              :key="item.raw.slug"
+              :key="item.slug"
               :size="35"
-              :slug="item.raw.slug"
-              :name="item.raw.name"
-              :fs-slug="item.raw.fs_slug"
+              :slug="item.slug"
+              :name="item.name"
+              :fs-slug="item.fs_slug"
             />
           </template>
           <template #append>
             <MissingFromFSIcon
-              v-if="item.raw.missing_from_fs"
+              v-if="item.missing_from_fs"
               :text="t('platform.missing-from-filesystem')"
               chip
               chip-label
@@ -64,7 +64,7 @@ const emitter = inject<Emitter<Events>>("emitter");
               class="ml-2"
             />
             <v-chip class="ml-2" size="x-small" label>
-              {{ item.raw.rom_count }}
+              {{ item.rom_count }}
             </v-chip>
           </template>
         </v-list-item>
@@ -72,14 +72,14 @@ const emitter = inject<Emitter<Events>>("emitter");
       <template #chip="{ item, props }">
         <v-chip v-bind="props">
           <PlatformIcon
-            :key="item.raw.slug"
-            :slug="item.raw.slug"
-            :name="item.raw.name"
-            :fs-slug="item.raw.fs_slug"
+            :key="item.slug"
+            :slug="item.slug"
+            :name="item.name"
+            :fs-slug="item.fs_slug"
             :size="20"
             class="mr-2"
           />
-          {{ item.raw.name }}
+          {{ item.name }}
         </v-chip>
       </template>
     </v-select>

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// ScanPlatform (v2) — one collapsible per scanning platform in the
+// ScanPlatform (v2): one collapsible per scanning platform in the
 // Scan view. Header shows the platform icon + name + per-platform
 // chips (ROM count, firmware count, "not identified" badge).
 //
 // Body: lists every newly-scanned ROM via ScanPlatformRow, rendered
 // inside an RVirtualScroller whose viewport always equals the total
-// content height. No internal scroll — the parent scan log handles
+// content height. No internal scroll: the parent scan log handles
 // overflow. The scroller stays in the loop anyway because its
 // transform-based row positioning avoids reflowing existing rows
 // as new ones stream in during a live scan.
@@ -21,7 +21,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{
   platform: ScanningPlatform;
-  /** Controlled open state — v-model:open from Scan.vue. */
+  /** Controlled open state: v-model:open from Scan.vue. */
   open?: boolean;
 }>();
 
@@ -37,7 +37,7 @@ const { t } = useI18n();
 const ROW_HEIGHT = 65;
 
 // Viewport always matches the cumulative content height so the
-// collapsible body grows naturally with the ROM list — no internal
+// collapsible body grows naturally with the ROM list: no internal
 // scroll. The parent scan log handles overflow. RVirtualScroller is
 // still useful here because its `transform: translateY` positioning
 // avoids reflowing existing rows as new ones stream in.
@@ -51,7 +51,7 @@ function getItemHeight() {
 }
 
 // Key rows by ROM id (not array index) so that prepending a freshly-scanned
-// ROM — the lifecycle unshifts newest-first — only mounts the new row and
+// ROM, the lifecycle unshifts newest-first, only mounts the new row and
 // lets the rest keep their DOM. Index keys would re-patch every row on each
 // insert, killing the per-row entrance animation and flashing the list.
 function getItemKey(item: unknown) {
@@ -95,7 +95,7 @@ function getItemKey(item: unknown) {
       />
     </template>
 
-    <!-- Always virtualised — keeps the body surface flush with its
+    <!-- Always virtualised: keeps the body surface flush with its
          content height regardless of how many rows have streamed in,
          and bounds the DOM size on big platforms. -->
     <div v-if="platform.roms.length === 0" class="r-v2-scan-platform__empty">
@@ -119,7 +119,7 @@ function getItemKey(item: unknown) {
 
 <style scoped>
 /* Row separator is already painted by ScanPlatformRow's own
-   `border-top`, so the virtual scroller itself stays chrome-less —
+   `border-top`, so the virtual scroller itself stays chrome-less:
    no extra border or background would cause its content height to
    mismatch its inline `height:` style (border-box reserves the
    border out of the content area and triggers a spurious scroll). */

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// LoginForm — username + password form. Emits `submit` on valid submission;
+// LoginForm: username + password form. Emits `submit` on valid submission;
 // the parent owns the API call + snackbars so this stays purely presentational.
 import { RBtn, RTextField } from "@v2/lib";
 import { ref } from "vue";

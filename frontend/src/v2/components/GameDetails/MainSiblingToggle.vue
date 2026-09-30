@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// MainSiblingToggle — marks this rom as the "default version" of the
+// MainSiblingToggle: marks this rom as the "default version" of the
 // sibling group: when the gallery groups siblings, the main one is the
-// card that's shown in the user's library. Per-user state — every user
+// card that's shown in the user's library. Per-user state: every user
 // picks their own preferred version.
 //
 // The backend enforces the exclusive constraint (setting this one to

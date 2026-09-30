@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CreateUserDialog — create a user with profile fields plus access: an Admin
+// CreateUserDialog creates a user with profile fields plus access: an Admin
 // toggle and, for non-admins, an initial permission group. Replaces the old
 // role select (roles are superseded by admin-vs-user + groups).
 import { RBtn, RIcon, RSelect, RSwitch, RTextField } from "@v2/lib";

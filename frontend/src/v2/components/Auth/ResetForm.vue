@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ResetForm — username-only form that triggers a password-reset email.
+// ResetForm: username-only form that triggers a password-reset email.
 // Emits `done` on success and `cancel` when the user backs out.
 import { RBtn, RTextField } from "@v2/lib";
 import { ref } from "vue";

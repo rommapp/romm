@@ -1,11 +1,11 @@
 // Props for RCarousel. Kept in its own module (not inline in the SFC) because
-// RCarousel is a generic component (`<T>`) — an inline `interface Props` leaks
+// RCarousel is a generic component (`<T>`): an inline `interface Props` leaks
 // into the compiled default export as a private name (TS4082), and `export`
 // isn't allowed inside `<script setup>`.
 export interface RCarouselProps<TItem> {
   /** Active item index. */
   modelValue: number;
-  /** Items array — the slot decides how each one is rendered. */
+  /** Items array: the slot decides how each one is rendered. */
   items: readonly TItem[];
   /** Render as a viewport-filling overlay with scrim and close button. */
   fullscreen?: boolean;

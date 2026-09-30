@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// SummaryStatsSection — v2-native rebuild of v1
+// SummaryStatsSection: v2-native rebuild of v1
 // `Settings/ServerStats/SummaryStats.vue`. 6-card mock-faithful grid
 // inside a SettingsSection: each card is a simple icon + big number +
 // uppercase label.

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// SettingsTab — platform-scoped settings rendered as the `Settings`
+// SettingsTab: platform-scoped settings rendered as the `Settings`
 // tab inside Platform.vue. Details (editable name + read-only platform
 // fields) with a danger zone underneath holding the destructive
 // "Delete platform" action.
 //
 // Mutation path:
 //   • `custom_name` / `description` → `platformApi.updatePlatform(...)`
-//     Optimistic — the form updates the local platform reactively, a
+//     Optimistic: the form updates the local platform reactively, a
 //     snackbar fires on success/failure.
 //
 // Delete: emitted upward (`@delete`) so the view orchestrator can

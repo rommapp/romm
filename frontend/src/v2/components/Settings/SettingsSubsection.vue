@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// SettingsSubsection — a lighter heading used inside a SettingsSection's
+// SettingsSubsection: a lighter heading used inside a SettingsSection's
 // body when the section logically contains related groups (e.g. Home →
 // Widgets). Reads as a divider + small uppercase label so the visual
 // hierarchy stays clear without nesting another full section card.

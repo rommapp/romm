@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// GameActionBtn — single icon button for the per-ROM action set
+// GameActionBtn: single icon button for the per-ROM action set
 // shared between the GameCard hover overlay and the GameDetails
 // header. One component, three sizes, auto-wires to `useGameActions`
 // so both surfaces stay in sync.
@@ -18,12 +18,12 @@
 //                 current status icon when set, dashed border when empty
 //   more        → open MoreMenu (GameActionsList dropdown)
 //
-// Sizes (controls diameter + icon size + padding) — same vocabulary as
+// Sizes (controls diameter + icon size + padding): same vocabulary as
 // RBtn / RChip / RTag:
 //   x-small → 22px
-//   small   → 28px — GameCard hover overlay
-//   default → 40px — GameDetails header
-//   large   → 44px — larger emphasis (GameActions row)
+//   small   → 28px: GameCard hover overlay
+//   default → 40px: GameDetails header
+//   large   → 44px: larger emphasis (GameActions row)
 //   x-large → 52px
 //
 // Variants:
@@ -133,7 +133,7 @@ const { smAndDown } = useBreakpoint();
 
 const romRef = toRef(props, "rom");
 // Reuse the host's shared instance when one is provided (GameCard provides a
-// single `useGameActions` for all its buttons — see GAME_ACTIONS_KEY). Falls
+// single `useGameActions` for all its buttons: see GAME_ACTIONS_KEY). Falls
 // back to an own instance for standalone use (GameDetails header, list rows).
 // Safe to call conditionally: useGameActions registers no lifecycle hooks, and
 // setup decides the branch once at mount. The provided instance is bound to
@@ -169,7 +169,7 @@ type Preset = {
   image?: string;
 };
 
-// Presentation metadata per action — icon swaps when active, different
+// Presentation metadata per action: icon swaps when active, different
 // aria labels, different click handlers. Written as an if-chain instead
 // of a switch so the linter can see every path returns.
 const preset = computed<Preset>(() => {
@@ -286,7 +286,7 @@ const preset = computed<Preset>(() => {
       active: count > 0,
     };
   }
-  // "more" — the RMenu owns activation; no direct click handler.
+  // "more": the RMenu owns activation; no direct click handler.
   return {
     icon: "mdi-dots-horizontal",
     activeIcon: null,
@@ -326,7 +326,7 @@ onBeforeUnmount(() =>
 );
 
 // Single signal the GameCard `:has()` selectors watch to keep the card's
-// hover state painted while an action is in flight — more menu, status
+// hover state painted while an action is in flight: more menu, status
 // picker, or collection-manage dialog.
 const pinned = computed(() => {
   if (props.action === "more") return moreOpen.value;
@@ -336,14 +336,14 @@ const pinned = computed(() => {
 });
 
 function pickEnum(key: RomUserStatus) {
-  // Re-clicking the active enum clears just the enum — gives the user a
+  // Re-clicking the active enum clears just the enum: gives the user a
   // way to drop the status without also wiping the flags via "Clear all".
   void actions.setStatusEnum(enumStatus.value === key ? null : key);
   statusOpen.value = false;
 }
 
 function toggleFlag(key: StatusFlagKey) {
-  // Don't close — flags are independent toggles, the user may flip several.
+  // Don't close: flags are independent toggles, the user may flip several.
   void actions.setStatus(key);
 }
 
@@ -367,7 +367,7 @@ function onClick(e: MouseEvent) {
 </script>
 
 <template>
-  <!-- More — opens the shared GameActionsList dropdown. On phones it docks
+  <!-- More: opens the shared GameActionsList dropdown. On phones it docks
        as a bottom sheet (content-height) instead of a floating dropdown. -->
   <RMenu
     v-if="action === 'more'"
@@ -407,7 +407,7 @@ function onClick(e: MouseEvent) {
     <GameActionsList :rom="rom" @close="moreOpen = false" />
   </RMenu>
 
-  <!-- Status — enum picker; icon mirrors the current value, dashed
+  <!-- Status: enum picker; icon mirrors the current value, dashed
        border when no status is set. Keeps the per-ROM action set in
        one place instead of a parallel widget. With several states
        active the activator stretches into a multi-icon pill; the
@@ -492,7 +492,7 @@ function onClick(e: MouseEvent) {
 
     <RDivider />
 
-    <!-- Visibility flag — distinct category (controls library
+    <!-- Visibility flag: distinct category (controls library
            visibility, not play state) so it lives in its own section. -->
     <RMenuItem
       v-for="key in VISIBILITY_FLAG_KEYS"
@@ -527,7 +527,7 @@ function onClick(e: MouseEvent) {
     </template>
   </RMenu>
 
-  <!-- Plain action — direct click, or a real anchor for a linked launch. -->
+  <!-- Plain action: direct click, or a real anchor for a linked launch. -->
   <component
     :is="linkHref ? 'a' : 'button'"
     v-else
@@ -575,7 +575,7 @@ function onClick(e: MouseEvent) {
   /* Dark glass so the button still reads when sitting on top of a bright
      or busy cover image in the GameCard overlay. In GameDetails the
      backdrop is already a dark blurred cover so this tone lands neutral
-     there too. Overlay tokens never theme-flip — they stay dark over
+     there too. Overlay tokens never theme-flip: they stay dark over
      any cover artwork. */
   border: 1px solid var(--r-color-overlay-border);
   background: var(--r-color-overlay-scrim-soft);
@@ -605,7 +605,7 @@ function onClick(e: MouseEvent) {
   transform: scale(0.94);
 }
 
-/* Size ladder — circular unless `--labelled`. Matches the
+/* Size ladder: circular unless `--labelled`. Matches the
    x-small/small/default/large/x-large vocabulary used across primitives. */
 .r-v2-game-btn--x-small {
   width: 22px;
@@ -668,7 +668,7 @@ function onClick(e: MouseEvent) {
   height: 26px;
 }
 
-/* Labelled — expands to a pill with text. Used by Play in the
+/* Labelled: expands to a pill with text. Used by Play in the
    GameDetails header. Height stays the same as the circular variant so
    it can live in the same row without visual jumps. */
 .r-v2-game-btn--labelled {
@@ -688,9 +688,9 @@ function onClick(e: MouseEvent) {
   padding: 0 32px;
 }
 
-/* Surface — RTag-style translucent grey. Used in the GameDetails
+/* Surface: RTag-style translucent grey. Used in the GameDetails
    header where buttons sit on the page background (not over cover
-   art) — matches the visual vocabulary of RTag and RSelect there. */
+   art): matches the visual vocabulary of RTag and RSelect there. */
 .r-v2-game-btn--surface {
   background: var(--r-color-surface);
   border-color: var(--r-color-border-strong);
@@ -703,7 +703,7 @@ function onClick(e: MouseEvent) {
   color: var(--r-color-fg);
 }
 
-/* Bare — no chrome. The active-state colour swap (`--active-favorite`
+/* Bare: no chrome. The active-state colour swap (`--active-favorite`
    etc.) still applies because it overrides `color` only. Hover paints a
    subtle surface tint so the hit-target reads. */
 .r-v2-game-btn--bare {
@@ -718,7 +718,7 @@ function onClick(e: MouseEvent) {
   color: var(--r-color-fg);
 }
 
-/* Emphasized — the primary-action look (white on dark). Used by Play. */
+/* Emphasized: the primary-action look (white on dark). Used by Play. */
 .r-v2-game-btn--emphasized {
   background: var(--r-color-overlay-emphasis-bg) !important;
   border-color: var(--r-color-overlay-emphasis-bg) !important;
@@ -755,14 +755,14 @@ function onClick(e: MouseEvent) {
   color: var(--r-color-brand-primary) !important;
 }
 
-/* Status — dashed border when no status is set, signals "click to
+/* Status: dashed border when no status is set, signals "click to
    pick". Once set, the button uses the regular solid border + the
    status icon shows the choice. */
 .r-v2-game-btn--action-status:not(.r-v2-game-btn--active-status) {
   border-style: dashed;
 }
 
-/* Multi-status — the button stretches to fit every active state's
+/* Multi-status: the button stretches to fit every active state's
    icon. Width/height go auto with a min that keeps the single-state
    diameter, so 0/1 active still reads as a circle. The icon row/column
    lives in `__icons`. */

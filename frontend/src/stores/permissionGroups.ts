@@ -1,4 +1,4 @@
-// permissionGroups — Pinia store holding the admin list of permission groups.
+// permissionGroups: Pinia store holding the admin list of permission groups.
 //
 // Single source of truth shared by the groups table, the user create/edit
 // dialogs and the users table, so creating or deleting a group is reflected

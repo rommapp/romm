@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// RelatedGamesGrid — one labelled grid of IGDBRelatedGame tiles.
+// RelatedGamesGrid: one labelled grid of IGDBRelatedGame tiles.
 //
 // Used by both the "Additional content" tab (Expansions / DLC) and the
 // "Related" tab (Remakes / Remasters / Similar). Multiple sections per
-// tab? Render this component multiple times — one per section. Each
+// tab? Render this component multiple times: one per section. Each
 // card is a RelatedGameCard, which owns the per-card cross-reference
-// against the local RomM library — so this grid stays a thin renderer.
+// against the local RomM library: so this grid stays a thin renderer.
 import type { IGDBRelatedGame } from "@/__generated__";
 import RelatedGameCard from "@/v2/components/GameDetails/RelatedGameCard.vue";
 
@@ -38,7 +38,7 @@ defineProps<{
   color: var(--r-color-fg-faint);
 }
 
-/* Flex-wrap (not auto-fill grid) — GameCard has a fixed 158px width
+/* Flex-wrap (not auto-fill grid): GameCard has a fixed 158px width
    and a hard-coded `flex-shrink: 0`, so a `1fr` track would tear the
    layout: the column would compute below 158px on narrow viewports
    and the cards would overflow into the next column. Flex-wrap lets

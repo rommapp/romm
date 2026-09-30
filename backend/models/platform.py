@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from sqlalchemy import Index, Integer, String, Text, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
@@ -13,6 +13,21 @@ if TYPE_CHECKING:
 
 
 DEFAULT_COVER_ASPECT_RATIO = "2 / 3"
+
+# The columns a provider fills when it recognises the platform. sgdb only
+# supplies artwork, so it does not count.
+PLATFORM_MATCH_FIELDS: Final = (
+    "igdb_id",
+    "moby_id",
+    "ss_id",
+    "ra_id",
+    "launchbox_id",
+    "hasheous_id",
+    "tgdb_id",
+    "flashpoint_id",
+    "hltb_slug",
+    "libretro_slug",
+)
 
 # Bounds for the user-authored fields
 CUSTOM_NAME_MAX_LENGTH = 400
@@ -83,18 +98,11 @@ class Platform(BaseModel):
 
     @property
     def is_unidentified(self) -> bool:
-        return (
-            not self.igdb_id
-            and not self.moby_id
-            and not self.ss_id
-            and not self.launchbox_id
-            and not self.ra_id
-            and not self.hasheous_id
-        )
+        return not self.is_identified
 
     @property
     def is_identified(self) -> bool:
-        return not self.is_unidentified
+        return any(getattr(self, field) for field in PLATFORM_MATCH_FIELDS)
 
     def __repr__(self) -> str:
         return f"{self.name} ({self.slug}) ({self.id})"

@@ -39,7 +39,7 @@ describe("useGalleryCoverRatios", () => {
     expect(ratioAt(0)).toBe(0); // rom 101 still unmeasured
   });
 
-  // Distinct rom ids per test — the ratio store is module-level (shared),
+  // Distinct rom ids per test: the ratio store is module-level (shared),
   // so reusing ids across tests would collide. (The `ratioVersion`
   // debounce isn't asserted here: its `setTimeout` doesn't fire under this
   // test harness; the storage / dedup it gates is covered directly below.)

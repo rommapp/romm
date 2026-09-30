@@ -2,7 +2,7 @@ import type { StorybookConfig } from "@storybook/vue3-vite";
 import { fileURLToPath, URL } from "node:url";
 
 const config: StorybookConfig = {
-  // Only pick up v2 stories — the v1 UI is frozen and does not ship stories.
+  // Only pick up v2 stories: the v1 UI is frozen and does not ship stories.
   stories: ["../src/v2/**/*.stories.@(js|jsx|ts|tsx)", "../src/v2/**/*.mdx"],
   addons: [
     "@storybook/addon-docs",

@@ -38,7 +38,7 @@ const meta: Meta<typeof RTag> = {
 export default meta;
 type Story = StoryObj<typeof RTag>;
 
-// Header tags — the "regions / languages / custom tags" row.
+// Header tags: the "regions / languages / custom tags" row.
 export const HeaderRegion: Story = {
   args: { text: "USA", tone: "info", size: "small" },
 };
@@ -49,12 +49,12 @@ export const HeaderCustom: Story = {
   args: { text: "v4.1", size: "small" },
 };
 
-// Hash chip — eyebrow label + monospace value.
+// Hash chip: eyebrow label + monospace value.
 export const Hash: Story = {
   args: { label: "MD5", text: "5d41402abc4b2a76b9719d911017c592", mono: true },
 };
 
-// Verification badges — match uses success tone, miss stays neutral.
+// Verification badges: match uses success tone, miss stays neutral.
 export const VerificationMatch: Story = {
   args: {
     prependIcon: "mdi-check-circle",
@@ -79,7 +79,7 @@ export const SlotContent: Story = {
   args: { tone: "warning" },
 };
 
-// `plain` tone — chrome stripped, used as inline meta rows (icon + text,
+// `plain` tone: chrome stripped, used as inline meta rows (icon + text,
 // no chip surface). Inherits parent text colour so it blends into muted
 // metadata blocks.
 export const Plain: Story = {
