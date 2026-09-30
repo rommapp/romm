@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Provider filter chip — toggleable square that paints a metadata
+// Provider filter chip: toggleable square that paints a metadata
 // provider's logo. Used as a row of filters above the matches grid:
 // click toggles whether matches from that provider show up in the
 // results. Disabled state covers providers the backend isn't
@@ -10,7 +10,7 @@
 // design (image-fills-the-square + opacity-driven muted state +
 // brand-tinted active outline) doesn't fit RBtn's vocabulary
 // (content-padded scale, hover/focus chrome). Wrapping RBtn here
-// would require !important overrides on the primitive — see the
+// would require !important overrides on the primitive: see the
 // "selectable surface" precedent we keep across the dialog flows.
 import { RTooltip } from "@v2/lib";
 import { useI18n } from "vue-i18n";

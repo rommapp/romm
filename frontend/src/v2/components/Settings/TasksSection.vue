@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// TasksSection — v2-native rebuild of v1
+// TasksSection: v2-native rebuild of v1
 // `Settings/Administration/Tasks.vue`. Renders the watcher / scheduled /
 // manual task lists and a "task history" feed below them. Each task
 // list follows the mock's settings-task-row pattern (icon + info + run

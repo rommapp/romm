@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// SettingsSection — the canonical section pattern used inside every
+// SettingsSection: the canonical section pattern used inside every
 // settings view. Mirrors the mock's two-piece structure:
 //
 //   ┌─ header (small uppercase title + optional icon) ────┐
@@ -12,7 +12,7 @@
 // The body slot is the consumer's responsibility; common shapes are:
 //   • SettingsField rows (one per labeled control), or
 //   • a custom block (theme picker grid, provider grid, table).
-// The component takes no opinion — it just provides the chrome.
+// The component takes no opinion: it just provides the chrome.
 import { RIcon } from "@v2/lib";
 
 defineOptions({ inheritAttrs: false });

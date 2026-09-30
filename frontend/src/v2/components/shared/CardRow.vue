@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CardRow — horizontal-scrolling section grouping a row of cards under a
+// CardRow: horizontal-scrolling section grouping a row of cards under a
 // heading. Shared composite: the Home dashboard groups "Continue playing /
 // Recently added / Favorites / Platforms / Collections" with it, and the
 // Jukebox groups its launch tiles.
@@ -8,7 +8,7 @@
 // horizontal track, and gradient left/right arrow buttons that appear
 // only when the track actually overflows in that direction.
 //
-// The icon slot sizes to its content — whatever size the caller's inner
+// The icon slot sizes to its content: whatever size the caller's inner
 // RIcon renders at drives the layout, and the title always stays
 // vertically centred with it (flex align-items:center on the head).
 import { RBtn, RTag } from "@v2/lib";
@@ -24,16 +24,16 @@ interface Props {
   count?: number | string;
   /** Horizontal gap between children in the scroll track. */
   gap?: string;
-  /** Title font size — defaults to 14.5px. Accepts any CSS length. */
+  /** Title font size: defaults to 14.5px. Accepts any CSS length. */
   titleSize?: string | number;
   /**
-   * Title font weight — defaults to semibold. Accepts the named weights
+   * Title font weight: defaults to semibold. Accepts the named weights
    * used elsewhere (regular / medium / semibold / bold) or a raw number.
    */
   titleWeight?: "regular" | "medium" | "semibold" | "bold" | number;
   /** Space between icon and title. Grows naturally as icons get bigger. */
   iconGap?: string;
-  /** Icon opacity — default 0.6 keeps it subdued against the title. Set
+  /** Icon opacity: default 0.6 keeps it subdued against the title. Set
    *  to 1 when you want the icon to read as prominent as the title. */
   iconOpacity?: number;
 }
@@ -84,7 +84,7 @@ function scrollBy(dir: -1 | 1) {
   el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
 }
 
-// Observe both the track and its children for size changes — covers:
+// Observe both the track and its children for size changes: covers:
 //   * initial mount (track measured before children paint)
 //   * skeleton → real card swap (different widths)
 //   * window resize collapsing/widening the track
@@ -100,7 +100,7 @@ function bindObservers() {
   if (!el) return;
   trackObserver = new ResizeObserver(() => updateScroll());
   trackObserver.observe(el);
-  // Observe each child's size too — when a 158px skeleton is replaced
+  // Observe each child's size too: when a 158px skeleton is replaced
   // by a same-width real card the ResizeObserver on the track itself
   // doesn't always fire (scrollWidth changed but clientWidth didn't),
   // and on the first paint the children may not be present yet.
@@ -202,7 +202,7 @@ onBeforeUnmount(() => {
   color: var(--r-color-fg-secondary);
 }
 
-/* Icon slot — sizes to its content so the caller's RIcon `size` drives
+/* Icon slot: sizes to its content so the caller's RIcon `size` drives
    the layout. Flex align-items:center on the head keeps it vertically
    centred with the title at any icon size. */
 .card-row__icon {
@@ -235,7 +235,7 @@ onBeforeUnmount(() => {
 }
 
 /* Vertically centred, anchored to the row edges. The RBtn surface gets
-   a dark scrim so the arrow has contrast over busy cover thumbnails —
+   a dark scrim so the arrow has contrast over busy cover thumbnails:
    translucent alone reads too faint without a brand color. Override
    RBtn's at-rest opacity (0.7) so the 85% reading comes purely from
    the white-secondary token applied to the icon. */

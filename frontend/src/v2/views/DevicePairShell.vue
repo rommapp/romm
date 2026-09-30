@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * DevicePairShell — minimal AuthLayout-equivalent for `/pair/device` under
+ * DevicePairShell: minimal AuthLayout-equivalent for `/pair/device` under
  * v2. Mirrors {@link PairShell}: `/pair/device` is a top-level route with no
  * nested `<router-view>`, so the shell inlines {@link DevicePair} instead of
  * reusing AuthLayout directly.
@@ -34,8 +34,8 @@ import DevicePair from "@/v2/views/DevicePair.vue";
 
   /* The auth background and the glass card are always dark
      (--r-color-canvas-bg-deep) regardless of theme, so pin the foreground and
-     borders to the always-light overlay tokens — the same fixed values that
-     ride over cover art — so text stays legible in v2-light too. */
+     borders to the always-light overlay tokens, the same fixed values that
+     ride over cover art, so text stays legible in v2-light too. */
   --r-color-fg: var(--r-color-overlay-fg);
   --r-color-fg-secondary: var(--r-color-overlay-fg-secondary);
   --r-color-fg-muted: var(--r-color-overlay-fg-muted);

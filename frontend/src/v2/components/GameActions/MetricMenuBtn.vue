@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// MetricMenuBtn — picker for a per-user numeric metric on a ROM.
+// MetricMenuBtn: picker for a per-user numeric metric on a ROM.
 // Powers all three score controls in the GameActions ribbon: rating,
 // difficulty (kind='rating'), and completion (kind='percent').
 //
@@ -88,7 +88,7 @@ const valueLabel = computed(() => {
 </template>
 
 <style scoped>
-/* Trigger — parallels .r-v2-game-btn--surface so it sits in the
+/* Trigger: parallels .r-v2-game-btn--surface so it sits in the
    action row without visual breaks. Translucent grey RTag-style
    surface, not the dark cover-overlay scrim. */
 .r-v2-metric-btn {

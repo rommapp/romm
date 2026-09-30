@@ -5,7 +5,7 @@ import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RCarousel from "./RCarousel.vue";
 
 // RCarousel is generic (`<T>`), so its component-typed shape doesn't fit
-// Storybook's `component` slot or `Meta<typeof RCarousel>` — Vue narrows T
+// Storybook's `component` slot or `Meta<typeof RCarousel>`: Vue narrows T
 // to `unknown` here. The casts below are narrow + intentional.
 //
 // The generic's fixed named slots also don't reconcile with Storybook's
@@ -13,7 +13,7 @@ import RCarousel from "./RCarousel.vue";
 // render stories register the carousel through this cast alias.
 const RCarouselStory = RCarousel as unknown as Component;
 
-// Sample images — picsum is deterministic by seed and works offline through
+// Sample images: picsum is deterministic by seed and works offline through
 // the Storybook CDN cache.
 const SAMPLES = [
   "https://picsum.photos/seed/r-carousel-1/1280/720",

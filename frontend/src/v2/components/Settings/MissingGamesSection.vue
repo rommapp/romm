@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// MissingGamesSection — Settings tab listing every ROM whose file is
+// MissingGamesSection: Settings tab listing every ROM whose file is
 // missing from disk. Shares the gallery's list-mode loading pipeline
 // (galleryRoms store + per-row lazy fetch) so a library of any size
 // loads in O(viewport) rather than bulk-pulling every match up front.
@@ -77,7 +77,7 @@ const { total, initialFetching, metadataLoaded, orderBy, orderDir } =
 const { selectedPlatforms } = storeToRefs(galleryFilter);
 
 // Caller's filter state captured on mount so we can restore it on
-// unmount — leaving `filterMissing=true` active would silently filter
+// unmount: leaving `filterMissing=true` active would silently filter
 // the next gallery view to missing rows only.
 let prevFilterMissing: boolean | null = null;
 let prevSelectedPlatforms: Platform[] = [];
@@ -102,7 +102,7 @@ const platformItems = computed<PlatformItem[]>(() =>
 // Bridge between the chip multi-select (id[]) and the gallery filter
 // store (Platform[]). Mirrors the pattern used inside `FilterDrawer`
 // so the wire format stays consistent across surfaces. Refetch is
-// wired through the setter so it fires only on user-driven changes —
+// wired through the setter so it fires only on user-driven changes:
 // the mount-time reset (`setSelectedFilterPlatforms([])`) writes the
 // store directly and skips this path, avoiding a double-bootstrap.
 const selectedPlatformIds = computed<number[]>({
@@ -193,7 +193,7 @@ function onListSort({ key, dir }: { key: ListSortKey; dir: "asc" | "desc" }) {
 
 // Viewport-driven windowed fetch. Unlike the real gallery this section
 // owns the scroller directly (no GalleryShell), so it must translate the
-// scroller's visible range into window fetches itself — otherwise every
+// scroller's visible range into window fetches itself: otherwise every
 // row's `getRomAt(position)` stays null and the list shows skeletons
 // forever. Mirrors GalleryShell's debounced sync + re-sync-on-items-change.
 const FETCH_DEBOUNCE_MS = 80;
@@ -426,7 +426,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 14px;
   /* Definite (NOT min-) height. `height: 100%` on `RVirtualScroller`'s
-     wrapper resolves against the parent's `height` per the CSS spec —
+     wrapper resolves against the parent's `height` per the CSS spec:
      `min-height` doesn't count, the percentage falls back to `auto` and
      the scroller's `overflow-y` never engages, so every row mounts at
      once. Same trick GalleryShell uses with `height: calc(100vh - nav-h)`.
@@ -437,7 +437,7 @@ onBeforeUnmount(() => {
      edge reads as the visual sibling of its left/right edges. The
      section's bottom overshoots `body`'s inner-bottom by ~20px, which
      consumes part of `.r-v2-settings__content`'s `padding-bottom: 60px`
-     — content intrinsic still fits within `min-height: 100vh - nav-h`
+     content intrinsic still fits within `min-height: 100vh - nav-h`
      so the page doesn't grow a document scroll. */
   height: calc(100dvh - 226px);
   min-height: 320px;
@@ -479,7 +479,7 @@ onBeforeUnmount(() => {
   border-radius: var(--r-radius-pill);
 }
 
-/* List frame — the column header sits at the top, the virtualiser
+/* List frame: the column header sits at the top, the virtualiser
    takes the remaining height. `min-height: 0` is load-bearing: without
    it the flex child would refuse to shrink below its scroll content
    and the scroller would grow the whole page instead of clipping. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assignFlatRowLetters } from "./index";
 
-// Reference (the pre-restructure per-row scan) — each row collects every range
+// Reference (the pre-restructure per-row scan): each row collects every range
 // it overlaps. The linear `assignFlatRowLetters` must match this exactly.
 function naive(
   rows: ReadonlyArray<{ start: number; end: number }>,

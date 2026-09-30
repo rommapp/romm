@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// CollectionHead — the collection-context strip that sits above the
+// CollectionHead: the collection-context strip that sits above the
 // gallery / settings tab body. Mirrors `PlatformHead` in shape: an
 // InfoPanel (4-cover mosaic + eyebrow + name + description chip +
 // stats) plus the RTabNav underneath. Re-used in two render branches
 // inside Collection.vue:
 //
-//   1. Library tab — passed to `GalleryShell`'s `#header` slot so the
+//   1. Library tab: passed to `GalleryShell`'s `#header` slot so the
 //      head scrolls naturally with the cards (and the toolbar pins
 //      below it).
 //
@@ -121,7 +121,7 @@ defineEmits<{
 }
 
 /* Match the collection-index card covers (which fill a ~150px grid cell on
-   phones) — the InfoPanel stacks and centres the cover on xs, so there's room
+   phones): the InfoPanel stacks and centres the cover on xs, so there's room
    for a proper hero instead of the old cramped 100px thumbnail. */
 html[data-bp~="xs"] .r-v2-coll__panel-cover {
   width: var(--r-coll-cover-w-xs);
@@ -130,7 +130,7 @@ html[data-bp~="xs"] .r-v2-coll__panel-cover {
 
 .r-v2-coll__tabs {
   /* Tuck the nav up against the InfoPanel's bottom padding so the
-     two read as a single head band — same vocabulary as PlatformHead. */
+     two read as a single head band: same vocabulary as PlatformHead. */
   margin-top: -8px;
 }
 </style>

@@ -1,5 +1,5 @@
 /**
- * build-tokens — emits src/v2/styles/tokens.css from src/v2/tokens/index.ts.
+ * build-tokens: emits src/v2/styles/tokens.css from src/v2/tokens/index.ts.
  *
  * The TypeScript module is the single source of truth. This script declares
  * the JS-path → CSS-variable mapping and writes the CSS file. Run it via
@@ -102,7 +102,7 @@ const NAME_OVERRIDES = {
     rommGold: "--r-color-romm-gold",
   },
   // Stacking-layer tokens drop the "-index" suffix the default generator
-  // would produce — components consume `--r-z-menu` etc., shorter and
+  // would produce: components consume `--r-z-menu` etc., shorter and
   // matches the convention from §VI of the constitution.
   zIndex: {
     drawer: "--r-z-drawer",
@@ -192,15 +192,15 @@ const LIGHT: Entry[] = [
 ];
 
 const HEADER = `/*
- * RomM v2 Design Tokens — CSS Custom Properties
+ * RomM v2 Design Tokens, CSS Custom Properties
  *
- * GENERATED FILE — do not hand-edit. Source: src/v2/tokens/index.ts
+ * GENERATED FILE, do not hand-edit. Source: src/v2/tokens/index.ts
  * Regenerate with: npm run build:tokens
  *
  * Scoped under .r-v2 so v1 styling is unaffected. Theme palettes live under
  * .r-v2.r-v2-dark and .r-v2.r-v2-light. The classes are toggled on <html>
- * by RomM.vue so teleported overlays (RDialog, RMenu, RTooltip) — which
- * land in <body> outside the app root — still resolve var(--r-color-*).
+ * by RomM.vue so teleported overlays (RDialog, RMenu, RTooltip), which
+ * land in <body> outside the app root, still resolve var(--r-color-*).
  */
 `;
 
@@ -218,12 +218,12 @@ const css = [
   block(
     ".r-v2.r-v2-dark",
     DARK,
-    "Dark surface palette — translucent white over the near-black base.",
+    "Dark surface palette: translucent white over the near-black base.",
   ),
   block(
     ".r-v2.r-v2-light",
     LIGHT,
-    "Light surface palette — translucent black over the off-white base.",
+    "Light surface palette: translucent black over the off-white base.",
   ),
 ].join("\n");
 

@@ -19,7 +19,7 @@ export type FilterType =
 
 export type FilterLogicOperator = "any" | "all" | "none";
 
-// Built lazily so `romStatusMap` isn't read at module-evaluation time —
+// Built lazily so `romStatusMap` isn't read at module-evaluation time:
 // utils ↔ stores have a circular import chain (utils → navigation → router →
 // roms → galleryFilter → utils) that's harmless in the app shell because
 // main.ts loads router first, but trips Storybook (no router boot) with a

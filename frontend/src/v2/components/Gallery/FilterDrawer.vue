@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// FilterDrawer (v2) — gallery filter side panel. v2-native replacement
+// FilterDrawer (v2): gallery filter side panel. v2-native replacement
 // for `src/components/Gallery/AppBar/common/FilterDrawer/Base.vue`.
 //
 // Surface area (matches v1 1:1 so URLs stay compatible):
@@ -10,15 +10,15 @@
 //     where you can mix platforms).
 //   • 11 multi-select filter groups (genres / franchises / collections /
 //     companies / age-ratings / regions / languages / tags /
-//     player-counts / metadata-providers / statuses) — each paired with
+//     player-counts / metadata-providers / statuses): each paired with
 //     an AND/OR/NONE logic toggle.
 //   • Game length: an open-ended HowLongToBeat main-story range in hours.
 //   • Reset button at the bottom.
 //
-// Apply is implicit — the URL composable + galleryRoms watcher refresh
+// Apply is implicit: the URL composable + galleryRoms watcher refresh
 // results on every store change. There is no "Apply" button.
 //
-// Feature composite — knows the galleryFilter store layout and v2
+// Feature composite: knows the galleryFilter store layout and v2
 // primitives. Mounted by GalleryShell so it's available everywhere a
 // gallery is rendered. The shell controls `modelValue` and forwards
 // `showPlatformsFilter`.
@@ -503,7 +503,7 @@ function resetAll() {
   filter.setSelectedFilterLengthHours(null, null);
 }
 
-// Hand off to CreateSmartCollectionDialog — closing the drawer first
+// Hand off to CreateSmartCollectionDialog: closing the drawer first
 // keeps focus management clean (the drawer's escape stack pops before
 // the dialog pushes its own).
 function saveAsSmartCollection() {
