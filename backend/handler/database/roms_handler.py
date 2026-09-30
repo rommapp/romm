@@ -85,6 +85,7 @@ from models.rom import (
 from utils import get_version
 from utils.database import (
     LIKE_ESCAPE_CHAR,
+    ROMS_SEARCH_FULLTEXT_COLUMNS,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
     escape_like,
@@ -351,18 +352,27 @@ def split_fulltext_words(
     return indexed, unindexed
 
 
+# What a gallery search term is matched against, on every engine.
+ROM_SEARCH_COLUMNS: tuple[QueryableAttribute[Any], ...] = tuple(
+    getattr(Rom, column) for column in ROMS_SEARCH_FULLTEXT_COLUMNS
+)
+
+
 def _name_like(word: str) -> ColumnElement[bool]:
     pattern = f"%{escape_like(word)}%"
     return or_(
-        Rom.fs_name.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
-        Rom.name.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
+        *(
+            column.ilike(pattern, escape=LIKE_ESCAPE_CHAR)
+            for column in ROM_SEARCH_COLUMNS
+        )
     )
 
 
 def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
-    """A MariaDB/MySQL FULLTEXT match of the ROM's name and filename."""
+    """A MariaDB/MySQL FULLTEXT match of the ROM's name, filename and aliases."""
     return fulltext_match(
-        Rom.name.expression, Rom.fs_name.expression, boolean_query=boolean_query
+        *(column.expression for column in ROM_SEARCH_COLUMNS),
+        boolean_query=boolean_query,
     )
 
 
@@ -1249,7 +1259,7 @@ class DBRomsHandler(DBBaseHandler):
         return " ".join(parts) if parts else None
 
     def _build_name_conditions(self, terms: Sequence[str]) -> list[Any]:
-        """One condition per term, matching it against the ROM's name and filename."""
+        """One condition per term, matching it against the ROM's name, filename and aliases."""
         settings = fulltext_settings()
         conditions: list[Any] = []
         for term in terms:

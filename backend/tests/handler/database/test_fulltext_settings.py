@@ -156,7 +156,7 @@ def test_split_fulltext_words_follows_the_token_size():
 
 @pytest.mark.parametrize(
     ("dialect", "like_count", "has_match"),
-    [(MARIADB_DIALECT, 2, True), (POSTGRESQL_DIALECT, 6, False)],
+    [(MARIADB_DIALECT, 3, True), (POSTGRESQL_DIALECT, 9, False)],
 )
 def test_search_keeps_the_fulltext_index_for_indexable_words(
     dialect: Dialect, like_count: int, has_match: bool
