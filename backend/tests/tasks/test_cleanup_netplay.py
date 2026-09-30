@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock
 
 import tasks.scheduled.cleanup_netplay as mod
+from handler.netplay_handler import netplay_handler
 from tasks.scheduled.cleanup_netplay import CleanupNetplayTask
 
 
@@ -19,7 +20,7 @@ def test_custom_schedule(monkeypatch):
 async def test_disabled_cleanup_does_not_access_rooms(monkeypatch):
     monkeypatch.setattr(mod, "ENABLE_SCHEDULED_CLEANUP_NETPLAY", False)
     get_all = AsyncMock()
-    monkeypatch.setattr(mod.netplay_handler, "get_all", get_all)
+    monkeypatch.setattr(netplay_handler, "get_all", get_all)
     task = CleanupNetplayTask()
     assert task.enabled is False
     await task.run()
@@ -29,7 +30,7 @@ async def test_disabled_cleanup_does_not_access_rooms(monkeypatch):
 async def test_enabled_cleanup_removes_only_empty_rooms(monkeypatch):
     monkeypatch.setattr(mod, "ENABLE_SCHEDULED_CLEANUP_NETPLAY", True)
     monkeypatch.setattr(
-        mod.netplay_handler,
+        netplay_handler,
         "get_all",
         AsyncMock(
             return_value={
@@ -39,6 +40,6 @@ async def test_enabled_cleanup_removes_only_empty_rooms(monkeypatch):
         ),
     )
     delete = AsyncMock()
-    monkeypatch.setattr(mod.netplay_handler, "delete", delete)
+    monkeypatch.setattr(netplay_handler, "delete", delete)
     await CleanupNetplayTask().run()
     delete.assert_awaited_once_with(["empty"])
