@@ -1,4 +1,4 @@
-// focusRestoration (v2) — remembers each route's last focused tile so
+// focusRestoration (v2): remembers each route's last focused tile so
 // going back from a detail view (gallery, game detail, …) lands the
 // user on the tile they clicked instead of the first cell.
 //
@@ -8,7 +8,7 @@
 // focusin and, on mount, look it up to seed the autofocus target.
 //
 // Identifier: opaque string per consumer (`rom-{id}`, `platform-{id}`,
-// `collection-{kind}-{id}`, …). Stable across renders — the composables
+// `collection-{kind}-{id}`, …). Stable across renders: the composables
 // match the saved key against any `[data-focus-key]` element in the
 // view's root.
 //

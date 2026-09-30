@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RSpinner — small indeterminate progress indicator. Thin convenience wrapper
+// RSpinner: small indeterminate progress indicator. Thin convenience wrapper
 // over RProgressCircular with compact defaults suitable for inline loading
 // states (buttons, list items, toolbars).
 import RProgressCircular from "@/v2/lib/primitives/RProgressCircular/RProgressCircular.vue";

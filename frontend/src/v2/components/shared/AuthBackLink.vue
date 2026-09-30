@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// AuthBackLink — small right-aligned "← Back to login" link used by
+// AuthBackLink: small right-aligned "← Back to login" link used by
 // Register / ResetPassword / Setup. Points at `/login` by default;
 // override via `to` for other destinations.
 import { useI18n } from "vue-i18n";

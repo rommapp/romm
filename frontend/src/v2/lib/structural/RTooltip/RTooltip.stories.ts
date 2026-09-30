@@ -7,7 +7,7 @@ import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTooltip from "./RTooltip.vue";
 
-// Dispatch a pointerenter with an explicit `pointerType` — `userEvent.hover`
+// Dispatch a pointerenter with an explicit `pointerType`: `userEvent.hover`
 // can't set it, and the touch-gating branch keys off exactly that.
 function firePointerEnter(el: Element, pointerType: "mouse" | "touch") {
   let ev: Event;
@@ -424,7 +424,7 @@ export const TouchGating: Story = {
   },
 };
 
-// `open-on-tap` — a standalone info affordance that must reveal on touch too
+// `open-on-tap`: a standalone info affordance that must reveal on touch too
 // (tap toggles; a mouse click opens rather than closing a hover-revealed tip).
 export const OpenOnTap: Story = {
   name: "Open on tap (play)",

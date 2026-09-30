@@ -64,3 +64,19 @@ describe("PlatformIcon source", () => {
     ]);
   });
 });
+
+describe("PlatformIcon load failure", () => {
+  it("gives a new source a fresh try", async () => {
+    const wrapper = mount(PlatformIcon, {
+      props: { showTooltip: false, src: "/a.png" },
+    });
+    await wrapper.find("img").trigger("error");
+    expect(wrapper.find("img").attributes("src")).toBe(
+      "/assets/platforms/default.ico",
+    );
+
+    await wrapper.setProps({ src: "/b.png" });
+    expect(wrapper.find("img").attributes("src")).toBe("/b.png");
+    wrapper.unmount();
+  });
+});

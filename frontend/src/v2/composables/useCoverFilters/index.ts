@@ -134,7 +134,7 @@ export function useCoverFilters(
     for (const r of allResources.value) {
       if (r.width > 0 && r.height > 0) set.add(`${r.width}x${r.height}`);
     }
-    // Largest area first — the highest-res covers are what users usually want.
+    // Largest area first: the highest-res covers are what users usually want.
     return [...set].sort((a, b) => {
       const [aw, ah] = a.split("x").map(Number);
       const [bw, bh] = b.split("x").map(Number);
@@ -190,7 +190,7 @@ export function useCoverFilters(
 
   // Filter (and optionally re-sort by votes) the fetched list without
   // re-hitting the API. SGDB sometimes returns a game entry with an empty
-  // `resources` array — or one emptied by the active filters — so we drop
+  // `resources` array, or one emptied by the active filters, so we drop
   // those so the accordion doesn't render an empty section.
   const filteredCovers = computed<SearchCoverSchema[]>(() => {
     return covers.value
@@ -207,7 +207,7 @@ export function useCoverFilters(
 
   const hasGridCovers = computed(() => allResources.value.length > 0);
   const hasProviderCovers = computed(() => providerCovers.value.length > 0);
-  // Provider covers (IGDB / Moby / SS / …) are static artwork only — they
+  // Provider covers (IGDB / Moby / SS / …) are static artwork only: they
   // don't carry an animated variant, so hide them when filtering to
   // "animated".
   const visibleProviderCovers = computed<MatchedSource[]>(() =>
@@ -218,7 +218,7 @@ export function useCoverFilters(
   const showProviderCovers = computed(
     () => visibleProviderCovers.value.length > 0,
   );
-  // Raw results present (pre-filter) — drives whether the filter bar shows,
+  // Raw results present (pre-filter): drives whether the filter bar shows,
   // so filtering everything out never hides the controls needed to undo it.
   const hasRawResults = computed(
     () => hasGridCovers.value || hasProviderCovers.value,

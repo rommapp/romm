@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// FileRow — a single file entry inside the FilesTab list.
+// FileRow: a single file entry inside the FilesTab list.
 //
 // Owns the row layout: leading selection checkbox, filename block
 // (icon + path), meta line (category chip + size + audio metadata),
@@ -9,7 +9,7 @@
 // API calls.
 //
 // The parent also decides whether to render the category-icon at the
-// row's leading edge and the category chip in the meta line — both
+// row's leading edge and the category chip in the meta line: both
 // are redundant inside folder subtabs where every row shares the same
 // category, so we toggle them off there.
 import { RBtn, RCheckbox, RChip, RIcon } from "@v2/lib";
@@ -31,7 +31,7 @@ const props = defineProps<{
   /** Filename rendered in the row; the parent strips the folder
    *  prefix inside folder subtabs and passes the result here. */
   displayPath: string;
-  /** Full relative path — used for native title / aria-label so the
+  /** Full relative path: used for native title / aria-label so the
    *  context isn't lost when the displayed name is short. */
   relativePath: string;
   selected: boolean;
@@ -52,7 +52,7 @@ const emit = defineEmits<{
   (e: "delete"): void;
 }>();
 
-// Shared category metadata — kept inline (instead of importing from
+// Shared category metadata: kept inline (instead of importing from
 // FilesTab) so this row is self-contained. The chip / icon are only
 // rendered when the parent says so, so the lookup stays cheap.
 const CATEGORY_META = computed<
@@ -294,7 +294,7 @@ const hasAnyHash = computed(
 .r-v2-file-row__check {
   /* Mirror the filename's line box so the checkbox aligns with the
      filename's optical centre instead of the row's top edge. The
-     filename uses `font-size: 13px` (see __row-path) — multiplying
+     filename uses `font-size: 13px` (see __row-path), multiplying
      by the inherited body line-height (~1.5) yields ~19.5px, which
      we round to 20px here. `align-items: center` then drops the
      16px sm-checkbox box on the line centre. */

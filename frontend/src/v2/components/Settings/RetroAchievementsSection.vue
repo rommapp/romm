@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RetroAchievementsSection — links a RomM account to a RetroAchievements
+// RetroAchievementsSection: links a RomM account to a RetroAchievements
 // profile and triggers a re-sync. Single primary button does both:
 // updates the username on the user record AND kicks off a sync of the
 // linked profile (full sync after a username change, incremental

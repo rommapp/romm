@@ -5,7 +5,7 @@ import RMenuItem from "./RMenuItem.vue";
 
 // Regression guard: a `:to` item must render a real `<a href>`. RMenuItem
 // previously rendered RouterLink via `<component :is="'router-link'">` while
-// also blindly binding `:href="undefined"` — a fallthrough `href` attribute
+// also blindly binding `:href="undefined"`: a fallthrough `href` attribute
 // clobbers the href RouterLink computes from `to`, producing an href-less
 // <a>. Such an anchor offers no "open in new tab" context menu and Ctrl/⌘-
 // click silently no-ops. Keep the rendered href intact.

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ControllerPad — renders a single connected Gamepad as the silhouette of
+// ControllerPad: renders a single connected Gamepad as the silhouette of
 // a generic controller: triggers + shoulders top corners, D-pad bottom-
 // left, face buttons in a diamond bottom-right, sticks below their
 // respective halves, and Back / Home / Start in the centre. Each element
@@ -277,7 +277,7 @@ function magnitude(x: number, y: number) {
 </template>
 
 <style scoped>
-/* Outer wrapper centres the silhouette and caps its width — at full
+/* Outer wrapper centres the silhouette and caps its width: at full
    container width the layout starts looking sparse. */
 .r-v2-pad__wrap {
   padding: 24px 16px;

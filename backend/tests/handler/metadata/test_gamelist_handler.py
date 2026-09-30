@@ -1,3 +1,4 @@
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
@@ -9,6 +10,7 @@ from defusedxml import ElementTree as ET
 from config.config_manager import MetadataMediaType
 from handler.filesystem import fs_platform_handler
 from handler.metadata.gamelist_handler import (
+    ESDE_MEDIA_MAP,
     GamelistHandler,
     GamelistMetadataMedia,
     build_media_file_index,
@@ -190,6 +192,81 @@ async def test_get_rom_matches_the_folder_the_rom_sits_in(
             matched[folder] = result.get("name")
 
     assert matched == {"USA": "USA Release", "Japan": "Japan Release"}
+
+
+def test_parse_gamelist_xml_limited_to_file_names_skips_other_entries(
+    tmp_path: Path, platform: Platform
+):
+    gamelist_path = _write_gamelist(
+        tmp_path,
+        platform,
+        "<game><path>./USA/shared.zip</path><name>USA</name></game>"
+        "<game><path>./Japan/shared.zip</path><name>Japan</name></game>"
+        "<game><path>./Other.zip</path><name>Other</name></game>",
+    )
+    handler = GamelistHandler()
+
+    with (
+        patch(
+            "handler.metadata.gamelist_handler.extract_metadata_from_gamelist_rom",
+            return_value=MOCK_METADATA,
+        ) as extract,
+        patch(
+            "handler.metadata.gamelist_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+    ):
+        roms_data = handler._parse_gamelist_xml(
+            gamelist_path, platform, fs_names=frozenset({"shared.zip"})
+        )
+
+    assert extract.call_count == 2
+    assert set(roms_data) == {"USA/shared.zip", "Japan/shared.zip"}
+
+
+@pytest.mark.asyncio
+async def test_get_rom_outside_a_limited_cache_widens_it_to_that_rom(
+    tmp_path: Path, platform: Platform
+):
+    gamelist_path = _write_gamelist(
+        tmp_path,
+        platform,
+        "<game><path>./One.zip</path><name>One</name></game>"
+        "<game><path>./Two.zip</path><name>Two</name></game>"
+        "<game><path>./Three.zip</path><name>Three</name></game>",
+    )
+    handler = GamelistHandler()
+    platform_fs_path = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
+
+    def rom_named(fs_name: str) -> Rom:
+        return Rom(platform_id=platform.id, fs_name=fs_name, fs_path=platform_fs_path)
+
+    with (
+        patch(
+            "handler.metadata.gamelist_handler.extract_metadata_from_gamelist_rom",
+            return_value=MOCK_METADATA,
+        ) as extract,
+        patch(
+            "handler.metadata.gamelist_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+        patch.object(handler, "_find_gamelist_file", return_value=gamelist_path),
+    ):
+        await handler.populate_cache(platform, fs_names=["One.zip"])
+        one = await handler.get_rom("One.zip", platform, rom_named("One.zip"))
+        assert extract.call_count == 1
+
+        two = await handler.get_rom("Two.zip", platform, rom_named("Two.zip"))
+        assert extract.call_count == 2
+
+        await handler.get_rom("One.zip", platform, rom_named("One.zip"))
+        await handler.populate_cache(platform, fs_names=["Two.zip"])
+        assert extract.call_count == 2
+
+    assert set(handler._gamelist_cache[platform.id]) == {"One.zip", "Two.zip"}
+
+    assert one.get("name") == "One"
+    assert two.get("name") == "Two"
 
 
 def test_parse_gamelist_xml_title_screen_not_in_screenshots(
@@ -430,6 +507,77 @@ def test_parse_gamelist_xml_skips_media_tags_outside_the_library(
 
     assert roms_data["One.zip"].get("url_cover", "").endswith("/covers/One.png")
     assert "Two.zip" in roms_data
+
+
+def test_parse_gamelist_xml_follows_media_symlinked_out_of_the_library(
+    tmp_path: Path, platform: Platform
+):
+    library = tmp_path / "library"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "One.png").write_bytes(b"")
+    platform_dir = library / _platform_dir(platform)
+    platform_dir.mkdir(parents=True)
+    (platform_dir / "linked").symlink_to(outside, target_is_directory=True)
+    gamelist_path = _write_gamelist(
+        library,
+        platform,
+        "<game><path>./One.zip</path><cover>./linked/One.png</cover></game>",
+    )
+
+    with (
+        patch.object(fs_platform_handler, "base_path", library),
+        patch(
+            "handler.metadata.gamelist_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+    ):
+        roms_data = GamelistHandler()._parse_gamelist_xml(gamelist_path, platform)
+        # The parse must agree with validate_path, which trusts in-library symlinks
+        fs_platform_handler.validate_path(f"{_platform_dir(platform)}/linked/One.png")
+
+    assert roms_data["One.zip"].get("url_cover") == (
+        f"file://{_platform_dir(platform)}/linked/One.png"
+    )
+
+
+def test_parse_gamelist_xml_validates_each_media_folder_once(
+    tmp_path: Path, platform: Platform
+):
+    gamelist_path = _write_gamelist(
+        tmp_path,
+        platform,
+        "".join(
+            f"<game><path>./{name}.zip</path><cover>./covers/{name}.png</cover>"
+            f"<video>./videos/{name}.mp4</video></game>"
+            for name in ("One", "Two", "Three")
+        ),
+    )
+
+    with (
+        patch.object(fs_platform_handler, "base_path", tmp_path),
+        patch(
+            "handler.metadata.gamelist_handler.get_preferred_media_types",
+            return_value=[],
+        ),
+        patch(
+            "handler.metadata.gamelist_handler.build_media_file_index",
+            return_value={key: {} for key in ESDE_MEDIA_MAP},
+        ),
+        patch.object(
+            fs_platform_handler,
+            "validate_path",
+            wraps=fs_platform_handler.validate_path,
+        ) as validate_path,
+    ):
+        roms_data = GamelistHandler()._parse_gamelist_xml(gamelist_path, platform)
+
+    platform_dir = _platform_dir(platform)
+    assert Counter(call.args[0] for call in validate_path.call_args_list) == {
+        f"{platform_dir}/covers": 1,
+        f"{platform_dir}/videos": 1,
+    }
+    assert roms_data["Three.zip"].get("url_cover", "").endswith("/covers/Three.png")
 
 
 @pytest.mark.parametrize(

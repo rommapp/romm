@@ -45,7 +45,7 @@ describe("RecommendationReason", () => {
   });
 
   // The sentence is too wide for the cover, so the tooltip is the only place
-  // it survives — an assertion on the caption text would not catch losing it.
+  // it survives: an assertion on the caption text would not catch losing it.
   it("keeps the full sentence, with its game name, in the tooltip", () => {
     const wrapper = mountReason({ reasons: [], seedRomName: "Metroid Fusion" });
 

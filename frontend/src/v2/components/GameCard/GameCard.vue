@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// GameCard — portrait game cover with hover overlay.
+// GameCard: portrait game cover with hover overlay.
 //
 // Feature composite (not a lib primitive): depends on SimpleRom,
 // useGameActions (via GameActionBtn), useBackgroundArt, and the store
 // layer. Lives under `components/` instead of `lib/` for
-// that reason — the library is reserved for truly generic primitives
+// that reason: the library is reserved for truly generic primitives
 // that a Storybook reader can drop into a page without wiring stores or
 // a router.
 //
@@ -12,15 +12,15 @@
 //   * 158×213 card art, 8px radius
 //   * Rating badge top-right (appear on hover)
 //   * Platform icon (TR, always visible): semi-transparent circle with the
-//     platform's icon — toggle via `showPlatformIcon`.
+//     platform's icon: toggle via `showPlatformIcon`.
 //   * Hover overlay: play (center) · action row (BL: download, collection,
-//     favorite, more) — action buttons are the shared GameActionBtn atom
+//     favorite, more): action buttons are the shared GameActionBtn atom
 //     so the card and the GameDetails header stay visually + behaviourally
 //     in sync.
 //   * Label below the card, 11.5px, truncated
 //   * Optional `hero` variant: 300×169 (16:9) + larger multi-line label
 //
-// Static mode (`static`) strips the gallery chrome — no router-link,
+// Static mode (`static`) strips the gallery chrome: no router-link,
 // no action overlay, no rating / status / platform-icon badges, no
 // background-art highlight on hover. Click emits `@click` instead of
 // navigating. Hover scale stays by default (suppress with `noHover` for
@@ -30,9 +30,9 @@
 // they have no destination.
 //
 // Other static-friendly props:
-//   * `coverSrc` overrides the cover URL chain — used for preview blobs
+//   * `coverSrc` overrides the cover URL chain: used for preview blobs
 //     (edit dialog) and external provider URLs (match dialog).
-//   * `showTitle` toggles the label below the cover — defaults true.
+//   * `showTitle` toggles the label below the cover: defaults true.
 //   * `selected` paints a brand-coloured outline on the cover art for
 //     pickers (match-flow source variants, multi-select galleries).
 //   * `#overlay` slot renders content on top of the cover for badges
@@ -70,11 +70,11 @@ interface Props {
   /** Card scale tier. Drives the cover art width/height via the shared
    *  `--r-card-art-w/h` tokens, and the hero variant's `--r-hero-w/h`
    *  when `hero` is true.
-   *    xs (48 × 64)   — list-row avatars
-   *    sm (120 × 162) — dense pickers
-   *    md (158 × 213) — gallery default (no class — keeps the global token)
-   *    lg (200 × 270) — edit-dialog preview
-   *    xl (240 × 324) — detail page cover
+   *    xs (48 × 64)   - list-row avatars
+   *    sm (120 × 162) - dense pickers
+   *    md (158 × 213) - gallery default (no class, keeps the global token)
+   *    lg (200 × 270) - edit-dialog preview
+   *    xl (240 × 324) - detail page cover
    *  Hero scales linearly with size (it's just an aspect-ratio change,
    *  not a separate scale), so `hero` + any `size` paints the 16:9
    *  shape at that tier's footprint. */
@@ -82,12 +82,12 @@ interface Props {
   focused?: boolean;
   webp?: boolean;
   showPlatformIcon?: boolean;
-  /** Passive mode — root is `<article role="button">` instead of a
+  /** Passive mode: root is `<article role="button">` instead of a
    *  router-link; action overlay / rating / status / platform-icon /
    *  bg-art highlight are all suppressed. Click emits `@click` for the
    *  consumer to handle. Hover scale stays unless `noHover` is set. */
   static?: boolean;
-  /** Fully decorative — root is a plain `<div>` with no role, no
+  /** Fully decorative: root is a plain `<div>` with no role, no
    *  tabindex, no router wiring, no own click handlers. The whole
    *  card is visual content; the parent (typically an `<a>` or row
    *  button) owns interactivity and navigation. Avoids the nested-
@@ -112,7 +112,7 @@ interface Props {
   coverPip?: boolean;
   /** Paint a brand-coloured outline to mark the card as selected
    *  (cover-variant picker, multi-select gallery). When `selectable`
-   *  is true this prop is ignored — the card subscribes directly to
+   *  is true this prop is ignored: the card subscribes directly to
    *  `gallerySelection` so a single source of truth (the store)
    *  drives every selected card across the gallery. */
   selected?: boolean;
@@ -125,7 +125,7 @@ interface Props {
    *  gallery consumers (pickers, edit-dialog previews) keep their
    *  prop-driven behaviour. */
   selectable?: boolean;
-  /** Sparse position of the rom inside the gallery — the anchor that
+  /** Sparse position of the rom inside the gallery: the anchor that
    *  shift-range selection uses. Provided by `GalleryShell`. Required
    *  when `selectable` is true (the composable needs a position to
    *  store/restore the range anchor). */
@@ -159,11 +159,11 @@ const art = useCoverArt(() => props.rom, {
 const coverUrl = art.coverUrl;
 const fallbackUrl = art.fallbackUrl;
 const coverAspectRatio = art.ratio;
-// Cover-art PIP — only when an override image (a screenshot) is actually
+// Cover-art PIP: only when an override image (a screenshot) is actually
 // covering the rom's own art, and the consumer opted in.
 const showCoverPip = computed(() => props.coverPip && !!props.coverSrc);
 // Alt-art styles (box3d / physical / miximage) drop the card frame so the
-// artwork floats — but only while a real image renders; with no cover the
+// artwork floats, but only while a real image renders; with no cover the
 // placeholder keeps its grey box so the title stays readable.
 const isAltStyle = computed(
   () =>
@@ -172,7 +172,7 @@ const isAltStyle = computed(
 // Forward view-transition morph targets the GameCover's box element.
 const coverRef = ref<InstanceType<typeof GameCover> | null>(null);
 
-// Synthetic roms (id = 0 / null / undefined) have no destination — skip
+// Synthetic roms (id = 0 / null / undefined) have no destination: skip
 // the entire view-transition wiring so we never try to morph to a
 // non-existent /rom/0 detail page.
 const isSynthetic = computed(() => !props.rom.id);
@@ -187,7 +187,7 @@ const href = computed(() => props.to ?? `/rom/${props.rom.id}`);
 
 const setBgArt = useBackgroundArt();
 // Same handler fires on hover AND focus so keyboard/gamepad users get
-// the background cross-fade to the focused cover — mirrors what mouse
+// the background cross-fade to the focused cover: mirrors what mouse
 // users see when they rest a pointer on the card. Suppressed in static
 // mode (the card isn't part of a gallery surface where the background
 // reads as the focused cover).
@@ -239,7 +239,7 @@ const { morphTransition } = useViewTransition();
 // thumbnails, dialog tiles) render no overlay, so creating the composable for
 // them is pure waste. When present, share this single instance with every
 // GameActionBtn in the overlay (play / download / collection / favorite /
-// status / more) instead of each button spinning up its own — the difference
+// status / more) instead of each button spinning up its own: the difference
 // between ~1 and ~7 live `useGameActions` per card, which dominates a
 // virtualised grid's cost. Safe to call conditionally (no lifecycle hooks).
 const actions =
@@ -261,12 +261,12 @@ function onPlatformClick(e: MouseEvent) {
 const emit = defineEmits<{
   (e: "click", event: MouseEvent): void;
   /** The cover's natural aspect ratio (width / height) once its image
-   *  loads — forwarded from GameCover so the gallery can flow-pack cards
+   *  loads: forwarded from GameCover so the gallery can flow-pack cards
    *  at their true shape. Carries the rom id so the consumer can key it. */
   (e: "ratio", payload: { romId: number; ratio: number }): void;
 }>();
 
-// Gallery selection — only wired when the consumer opts in via
+// Gallery selection: only wired when the consumer opts in via
 // `selectable`. Outside the gallery (pickers, previews) the store
 // stays untouched so a stray match-dialog selection can't leak into
 // the gallery's selection bar.
@@ -293,7 +293,7 @@ const checkboxAlwaysOn = computed(
 
 function onCheckboxClick(e: MouseEvent) {
   // The checkbox itself is a deliberate selection gesture. We bind
-  // RCheckbox in "controlled" mode (only `:model-value` — no v-model),
+  // RCheckbox in "controlled" mode (only `:model-value`: no v-model),
   // so the native input change is purely visual; `preventDefault`
   // here cancels the label → input click default so the input never
   // toggles itself, and our store mutation drives the next render.
@@ -313,10 +313,10 @@ function onCardClickCapture(e: MouseEvent) {
 function onCardClick(e: MouseEvent) {
   // Decorative mode: the card has no behaviour of its own. Let the
   // event bubble untouched so the parent (typically an anchor or row
-  // button) handles navigation / selection — no emit, no morph.
+  // button) handles navigation / selection: no emit, no morph.
   if (props.decorative) return;
   // Static mode: consumer owns the click. No router push, no forward
-  // morph — just hand the event off.
+  // morph: just hand the event off.
   if (props.static) {
     emit("click", e);
     return;
@@ -409,7 +409,7 @@ function onStaticKeydown(e: KeyboardEvent) {
       :morph-id="isSynthetic ? null : rom.id"
       @ratio="emit('ratio', { romId: rom.id, ratio: $event })"
     >
-      <!-- Selection checkbox — top-left, drawn over the cover. Hidden
+      <!-- Selection checkbox: top-left, drawn over the cover. Hidden
            at rest; appears on hover for discoverability, and stays
            pinned whenever the gallery is in selection mode so the
            user always knows which cards are picked. Uses RCheckbox
@@ -430,19 +430,19 @@ function onStaticKeydown(e: KeyboardEvent) {
         @click="onCheckboxClick"
       />
 
-      <!-- Consumer-driven overlay slot — sits above the cover, below
+      <!-- Consumer-driven overlay slot: sits above the cover, below
            the gallery chrome. Use for badges that aren't part of the
            default overlay set (provider logos, custom status pills). -->
       <div v-if="$slots.overlay" class="r-gc__overlay-slot">
         <slot name="overlay" />
       </div>
 
-      <!-- Cover-art PIP — small box-art thumbnail floated bottom-right while a
+      <!-- Cover-art PIP: small box-art thumbnail floated bottom-right while a
            screenshot covers the rom's own art. Fades out on hover (below) so
            it never collides with the action overlay. -->
       <CoverArtPip v-if="showCoverPip" :rom="rom" :title="title" :webp="webp" />
 
-      <!-- Gallery chrome — all suppressed in static / decorative mode. -->
+      <!-- Gallery chrome: all suppressed in static / decorative mode. -->
       <template v-if="!static && !decorative">
         <div v-if="ratingLabel" class="r-gc__rating">★ {{ ratingLabel }}</div>
 
@@ -474,11 +474,11 @@ function onStaticKeydown(e: KeyboardEvent) {
 
         <SiblingBadge :rom="rom" />
 
-        <!-- Region / language flags — bottom-left, gated by the
+        <!-- Region / language flags: bottom-left, gated by the
              showRegions / showLanguages UI settings. -->
         <CardFlags :rom="rom" />
 
-        <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
+        <!-- Hover overlay: action buttons are the shared GameActionBtn. -->
         <div class="r-gc__overlay">
           <div class="r-gc__overlay-center">
             <GameActionBtn
@@ -512,7 +512,7 @@ function onStaticKeydown(e: KeyboardEvent) {
     <div v-if="showTitle" class="r-gc__label">
       {{ title }}
     </div>
-    <!-- Full-name tooltip — the label below the cover truncates at one
+    <!-- Full-name tooltip: the label below the cover truncates at one
          line (two on hero variant), so a hover reveal is the only way
          to see the full title without navigating in. `activator="parent"`
          attaches to the root card element so the tooltip fires no
@@ -537,7 +537,7 @@ function onStaticKeydown(e: KeyboardEvent) {
   position: relative;
   outline: none;
   width: var(--r-card-art-w);
-  /* Width is the card-art token exactly — never let a stray border /
+  /* Width is the card-art token exactly: never let a stray border /
      padding push the rendered box past it (which would eat the grid gap
      and make neighbouring covers appear to touch). */
   box-sizing: border-box;
@@ -545,7 +545,7 @@ function onStaticKeydown(e: KeyboardEvent) {
   color: var(--r-color-fg);
 }
 
-/* Non-hero cards render at a FIXED HEIGHT with NATURAL WIDTH — same height,
+/* Non-hero cards render at a FIXED HEIGHT with NATURAL WIDTH: same height,
    varying widths, never cropped. `size` just picks the height (the default
    derives it from the reference width; tiers set it directly). Only `hero`
    (16:9) keeps a fixed w×h footprint. */
@@ -575,7 +575,7 @@ function onStaticKeydown(e: KeyboardEvent) {
 
 /* The art box IS the shared <GameCover> (this class lands on its root).
    GameCover owns the radius / overflow / background / image; the card
-   keeps only the gallery-level box concerns: footprint (height — width
+   keeps only the gallery-level box concerns: footprint (height, width
    comes from `.r-gc`), the focus outline, and the hover/focus transition. */
 .r-gc__art {
   height: var(--r-card-art-h);
@@ -591,14 +591,14 @@ function onStaticKeydown(e: KeyboardEvent) {
    artwork floats: GameCover already makes its own background transparent;
    here we kill the hover / focus / selected DROP SHADOW so a transparent
    disc doesn't get a rectangular shadow around empty space (most obvious
-   on the wide hero — Home "continue playing"). The hover scale + the
+   on the wide hero: Home "continue playing"). The hover scale + the
    focus/selected brand OUTLINE (the `outline` property, not the shadow)
    stay. `!important` beats the multi-state shadow selectors without
    duplicating their whole list. */
 .r-gc--alt-art .r-gc__art {
   box-shadow: none !important;
 }
-/* …and no darkening scrim on hover — the gradient would paint a dark
+/* …and no darkening scrim on hover: the gradient would paint a dark
    rectangle around a floating disc / cartridge. The overlay's controls
    still appear (the emphasized Play CTA carries its own background). */
 .r-gc--alt-art .r-gc__overlay {
@@ -648,7 +648,7 @@ function onStaticKeydown(e: KeyboardEvent) {
   right: 7px;
   z-index: 2;
   /* Shrink-wrap around the platform icon. RBtn's size classes try to
-     impose a fixed `height` / `width: var(--r-btn-rest-h)` — we have
+     impose a fixed `height` / `width: var(--r-btn-rest-h)`, we have
      to defeat those so the badge always fits whatever `:size` the
      PlatformIcon was given (icon + 3px padding all around). */
   width: auto !important;
@@ -661,7 +661,7 @@ function onStaticKeydown(e: KeyboardEvent) {
   border: 1px solid var(--r-color-overlay-border) !important;
   color: var(--r-color-overlay-fg) !important;
   /* Override RBtn's at-rest opacity (0.7) so the 78% scrim reads at
-     full strength — without this the bg modulates down to ~55% and
+     full strength: without this the bg modulates down to ~55% and
      reads faint over busy cover art. */
   opacity: 1 !important;
   transition:
@@ -720,7 +720,7 @@ function onStaticKeydown(e: KeyboardEvent) {
   transition: opacity 0.12s ease;
 }
 
-/* Hover-driven art scale gated to mouse/touch — a cursor parked from a
+/* Hover-driven art scale gated to mouse/touch: a cursor parked from a
    previous mouse session shouldn't compete with the focused card when
    the user is on a gamepad. Focus / pinned / sibling-pinned states
    trigger the same effect in every modality. */
@@ -752,7 +752,7 @@ html:not([data-input="pad"]) .r-gc:hover .r-gc__overlay,
   opacity: 1;
 }
 
-/* Consumer-driven `#overlay` slot — top-right anchor by default so
+/* Consumer-driven `#overlay` slot: top-right anchor by default so
    provider logos / status pills sit out of the way of the rating
    centred above. `pointer-events: none` lets clicks pass through to
    the card so the consumer doesn't have to opt out per-element. */
@@ -767,7 +767,7 @@ html:not([data-input="pad"]) .r-gc:hover .r-gc__overlay,
   pointer-events: none;
 }
 
-/* Cover-art PIP (CoverArtPip) — fades out under the hover overlay so it never
+/* Cover-art PIP (CoverArtPip): fades out under the hover overlay so it never
    overlaps the action row. The footprint / chrome live in the component. */
 html:not([data-input="pad"]) .r-gc:hover :deep(.cover-art-pip),
 .r-gc:focus-visible :deep(.cover-art-pip),
@@ -795,7 +795,7 @@ html:not([data-input="pad"]) .r-gc:hover .r-gc__rating,
   opacity: 1;
 }
 
-/* Status badge — corner of the cover that mirrors the platform
+/* Status badge: corner of the cover that mirrors the platform
    icon. The actual <button> lives inside GameActionBtn's RMenu
    activator slot, so we reach it via `:deep` matching the action
    class. Default position (no platform icon shown): top-left.
@@ -829,7 +829,7 @@ html:not([data-input="pad"]) .r-gc:hover :deep(.r-v2-game-btn--action-status),
   opacity: 1;
 }
 
-/* Sibling-versions badge — right-side stack with the platform icon
+/* Sibling-versions badge: right-side stack with the platform icon
    and status badge. With a platform icon present (the normal gallery
    layout) the chip drops below it; without one it takes the top-right
    corner. When the sibling badge IS present, the status badge slides
@@ -852,7 +852,7 @@ html:not([data-input="pad"]) .r-gc:hover :deep(.r-v2-game-btn--action-status),
   top: 80px;
 }
 
-/* Keyboard / gamepad focus — paint the outline in the brand colour and
+/* Keyboard / gamepad focus: paint the outline in the brand colour and
    stack a drop-shadow + outer bloom on top so the focused card reads
    distinctly from hover. Mirrors the v1 console GameCard pattern. */
 .r-gc:focus-visible {
@@ -866,7 +866,7 @@ html:not([data-input="pad"]) .r-gc:hover :deep(.r-v2-game-btn--action-status),
     0 0 18px color-mix(in srgb, var(--r-color-brand-primary) 60%, transparent);
 }
 
-/* `selected` — same brand-outline language as focus, but persistent.
+/* `selected`: same brand-outline language as focus, but persistent.
    Used by cover-variant pickers and multi-select galleries to mark the
    currently-picked card without relying on focus state. No flush `0 0 0 Npx`
    ring here: the `outline` above already draws that border, and stacking a
@@ -923,7 +923,7 @@ html:not([data-input="pad"]) .r-gc:hover .r-gc__label,
 
 /* ── Selection checkbox ────────────────────────────────────
    Top-left affordance. The visible chrome (box, fill, draw-in
-   tick, press squash) all comes from RCheckbox — this rule
+   tick, press squash) all comes from RCheckbox: this rule
    only owns the positioning and the visibility fade.
    At rest the checkbox is invisible; it fades in on hover or
    focus, and stays pinned whenever the gallery is in selection
@@ -947,7 +947,7 @@ html:not([data-input="pad"]) .r-gc:hover .r-gc__check,
 }
 
 /* Glassy scrim under the unchecked box so the outline reads over
-   busy cover art — RCheckbox's default border colour assumes a
+   busy cover art: RCheckbox's default border colour assumes a
    plain page background, here it sits on photos. Once checked the
    primitive's brand fill takes over and we step out of the way. */
 .r-gc__check :deep(.r-checkbox__box) {
@@ -956,7 +956,7 @@ html:not([data-input="pad"]) .r-gc:hover .r-gc__check,
 }
 .r-gc__check.r-checkbox--checked :deep(.r-checkbox__box),
 .r-gc__check.r-checkbox--indeterminate :deep(.r-checkbox__box) {
-  /* Let RCheckbox's checked styles win — clear our scrim overrides
+  /* Let RCheckbox's checked styles win: clear our scrim overrides
      so the brand fill + glow apply unmodified. */
   background: var(--r-color-brand-primary);
   border-color: var(--r-color-brand-primary);
@@ -967,7 +967,7 @@ html:not([data-input="pad"]) .r-gc:hover .r-gc__check,
    locally on the card, so every downstream rule that already reads
    those vars (`.r-gc { width }`, `.r-gc__art { width / height }`,
    `.r-gc--hero .r-gc__art`) picks up the new values without
-   duplication. "md" is the default — no class — so the gallery
+   duplication. "md" is the default, no class, so the gallery
    grid (which reads the global `--r-card-art-w`) stays in lock-step
    with the un-tiered card. */
 .r-gc--size-xs {
@@ -997,7 +997,7 @@ html:not([data-input="pad"]) .r-gc:hover .r-gc__check,
 
 /* ── Mobile ───────────────────────────────────────────────────
    Forces a tighter footprint on phones. Only applies to the
-   default (md) card — explicit size tiers are intentional choices
+   default (md) card: explicit size tiers are intentional choices
    from the consumer (an `xs` list-row avatar should stay 48px even
    on mobile). Sets the vars instead of `width` directly so the
    inner `.r-gc__art` rule picks them up too. */

@@ -7,13 +7,13 @@ import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { romFileUrl } from "@/v2/utils/romFiles";
 
 export interface PanelTrack {
-  /** `rom_file_id`, unique across the catalog. */
+  /** `rom_file_id`: unique across the catalog. */
   id: number;
   romId: number;
   fileName: string;
   /** Display title, already resolved from metadata or the file name. */
   title: string;
-  /** Artist · album · (game · platform), whatever the source could supply. */
+  /** Artist · album · (game · platform): whatever the source could supply. */
   subtitle: string;
   url: string;
   durationSeconds?: number;
@@ -23,16 +23,7 @@ export interface PanelTrack {
   meta?: TrackMetaSchema;
 }
 
-const AUDIO_EXTS = new Set([
-  "mp3",
-  "ogg",
-  "oga",
-  "wav",
-  "flac",
-  "m4a",
-  "aac",
-  "opus",
-]);
+const AUDIO_EXTS = new Set(["mp3", "ogg", "oga", "wav", "flac", "m4a", "opus"]);
 const COVER_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 
 export function getExt(name: string): string {
