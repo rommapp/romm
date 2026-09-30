@@ -10,14 +10,13 @@
 import { RAlert, RBtn, RSpinner } from "@v2/lib";
 import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { isAxiosError } from "axios";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import streamingApi, {
   type ContainerBusyDetail,
 } from "@/services/api/streaming";
-import storePlaying from "@/stores/playing";
 import { type SessionTermination, useStreamingStore } from "@/stores/streaming";
 import SessionEndedReason from "@/v2/components/Player/SessionEndedReason.vue";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
@@ -25,13 +24,13 @@ import { useConfirm } from "@/v2/composables/useConfirm";
 import { useExitChord } from "@/v2/composables/useExitChord";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
+import { usePlayingWhile } from "@/v2/composables/useStageActive";
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const confirm = useConfirm();
 const streamingStore = useStreamingStore();
-const playingStore = storePlaying();
 
 const containerName = computed(() => String(route.query.container ?? ""));
 // The claim's key, which the session routes and notices name; the URL may
@@ -65,9 +64,7 @@ usePageTitle(() => t("play.desktop-title"));
 const sessionActive = computed(
   () => state.value === "loading" || state.value === "running",
 );
-watch(sessionActive, (active) => playingStore.setPlaying(active), {
-  immediate: true,
-});
+usePlayingWhile(sessionActive);
 // With B muted, holding Select+Start is the pad's way to the exit dialog.
 useExitChord(sessionActive, () => void handleExit());
 
@@ -84,26 +81,16 @@ async function openDesktop(): Promise<void> {
   }
   try {
     const { data } = await streamingApi.claimDesktop(containerName.value);
-    if (disposed) {
-      streamingApi
-        .releaseSession(
-          data.platform,
-          undefined,
-          data.container,
-          undefined,
-          data.claimed_at,
-        )
-        .catch((err: unknown) =>
-          console.warn("[streaming] Could not release a desktop claim:", err),
-        );
-      return;
-    }
     containerKey.value = data.container;
     containerHost.value = data.host;
     label.value = data.label;
     platform.value = data.platform;
     claimedAt.value = data.claimed_at;
     holdsClaim.value = true;
+    if (disposed) {
+      void release();
+      return;
+    }
     state.value = "running";
   } catch (err: unknown) {
     state.value = "error";
@@ -256,7 +243,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   disposed = true;
-  playingStore.setPlaying(false);
 });
 </script>
 

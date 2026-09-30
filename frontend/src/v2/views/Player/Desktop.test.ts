@@ -97,6 +97,26 @@ let mounted: VueWrapper | null = null;
 
 const CLAIMED_AT = "2026-09-17T10:00:00";
 const KEY = "http://webstation-dev:8000";
+const CLAIM = {
+  data: {
+    container: KEY,
+    host: "http://webstation-dev:8080",
+    label: "PS2",
+    platform: "ps2",
+    claimed_at: CLAIMED_AT,
+  },
+};
+
+// Unstamped, a release reaches whichever session took the container.
+function expectReleasedOwnClaim(): void {
+  expect(mocks.releaseSession).toHaveBeenCalledWith(
+    "ps2",
+    undefined,
+    KEY,
+    undefined,
+    CLAIMED_AT,
+  );
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -117,15 +137,7 @@ async function mountDesktop(): Promise<VueWrapper> {
 }
 
 async function openDesktop(): Promise<VueWrapper> {
-  mocks.claimDesktop.mockResolvedValue({
-    data: {
-      container: KEY,
-      host: "http://webstation-dev:8080",
-      label: "PS2",
-      platform: "ps2",
-      claimed_at: CLAIMED_AT,
-    },
-  });
+  mocks.claimDesktop.mockResolvedValue(CLAIM);
   return mountDesktop();
 }
 
@@ -270,20 +282,13 @@ describe("Desktop heartbeats", () => {
 });
 
 describe("Desktop releases", () => {
-  // Unstamped, a release reaches whichever session took the container.
   it("names the claim it releases on exit", async () => {
     mocks.releaseSession.mockResolvedValue({});
     await openDesktop();
 
     expect(await mocks.routeLeave?.()).toBe(true);
 
-    expect(mocks.releaseSession).toHaveBeenCalledWith(
-      "ps2",
-      undefined,
-      KEY,
-      undefined,
-      CLAIMED_AT,
-    );
+    expectReleasedOwnClaim();
   });
 
   it("names the claim it releases when the tab closes", async () => {
@@ -419,13 +424,7 @@ describe("Desktop controller ownership", () => {
     mocks.exitChord?.();
     await flushPromises();
 
-    expect(mocks.releaseSession).toHaveBeenCalledWith(
-      "ps2",
-      undefined,
-      KEY,
-      undefined,
-      CLAIMED_AT,
-    );
+    expectReleasedOwnClaim();
     expect(vmOf(wrapper).state).toBe("exited");
   });
 });
@@ -443,23 +442,9 @@ describe("Desktop claims that outlive the view", () => {
 
     wrapper.unmount();
     mounted = null;
-    answer({
-      data: {
-        container: KEY,
-        host: "http://webstation-dev:8080",
-        label: "PS2",
-        platform: "ps2",
-        claimed_at: CLAIMED_AT,
-      },
-    });
+    answer(CLAIM);
     await flushPromises();
 
-    expect(mocks.releaseSession).toHaveBeenCalledWith(
-      "ps2",
-      undefined,
-      KEY,
-      undefined,
-      CLAIMED_AT,
-    );
+    expectReleasedOwnClaim();
   });
 });

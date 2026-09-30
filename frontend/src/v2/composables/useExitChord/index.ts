@@ -5,10 +5,11 @@
 // the exit reachable by pad if a claim hangs.
 //
 // The 1.5s hold filters out anything a game itself binds to Select+Start.
-// Only standard-mapped pads participate: elsewhere indices 8/9 are not
-// guaranteed to be Select+Start.
+// Only standard-mapped pads participate: elsewhere the Back/Start indices are
+// not guaranteed to be Select+Start.
 import { useIntervalFn } from "@vueuse/core";
 import { toValue, watch, type MaybeRefOrGetter } from "vue";
+import { isUsablePad, PAD_BUTTON } from "@/v2/composables/useGamepad";
 
 const HOLD_MS = 1500;
 // A 1.5s hold needs nowhere near frame resolution, and this runs on the thread
@@ -27,10 +28,10 @@ export function useExitChord(
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const held = Array.from(pads).some(
       (pad) =>
-        pad &&
+        isUsablePad(pad) &&
         pad.mapping === "standard" &&
-        pad.buttons[8]?.pressed &&
-        pad.buttons[9]?.pressed,
+        pad.buttons[PAD_BUTTON.back]?.pressed &&
+        pad.buttons[PAD_BUTTON.start]?.pressed,
     );
     const now = performance.now();
     if (!held) {

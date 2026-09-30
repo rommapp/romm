@@ -15,6 +15,20 @@ export function useStageActive(running: MaybeRefOrGetter<boolean>): void {
   onScopeDispose(() => playingStore.setStageActive(false));
 }
 
+/** Mirrors a session's lifetime into the global playing flag, which mutes
+ *  useGamepad's UI translation (the session owns the controller) along with
+ *  the other "a game is running" behaviour keyed off it. Unlike the stage
+ *  flag it spans pre-stage phases such as a launch or a pending claim. */
+export function usePlayingWhile(active: MaybeRefOrGetter<boolean>): void {
+  const playingStore = storePlaying();
+  watch(
+    () => toValue(active),
+    (on) => playingStore.setPlaying(on),
+    { immediate: true },
+  );
+  onScopeDispose(() => playingStore.setPlaying(false));
+}
+
 /** Mirrors the flag onto <html> (next to the theme classes) so
  *  body-teleported overlays resolve the zeroed nav-height tokens too. */
 export function installStageActiveClass(): void {

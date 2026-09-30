@@ -1,10 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { effectScope, nextTick, ref } from "vue";
+import { PAD_BUTTON } from "@/v2/composables/useGamepad";
 import { useExitChord } from "./index";
 
-function pad(held: number[], mapping: GamepadMappingType = "standard") {
+const CHORD = [PAD_BUTTON.back, PAD_BUTTON.start];
+
+function pad(
+  held: number[],
+  mapping: GamepadMappingType = "standard",
+  connected = true,
+) {
   return {
     mapping,
+    connected,
     buttons: Array.from({ length: 17 }, (_, i) => ({
       pressed: held.includes(i),
     })),
@@ -38,7 +46,7 @@ function listen(active: () => boolean) {
 describe("useExitChord", () => {
   it("fires once Select+Start has been held for the full hold", () => {
     const { onChord, scope } = listen(() => true);
-    pads = [pad([8, 9])];
+    pads = [pad(CHORD)];
 
     vi.advanceTimersByTime(1400);
     expect(onChord).not.toHaveBeenCalled();
@@ -49,12 +57,23 @@ describe("useExitChord", () => {
 
   it("starts the hold over when either button is let go", () => {
     const { onChord, scope } = listen(() => true);
-    pads = [pad([8, 9])];
+    pads = [pad(CHORD)];
     vi.advanceTimersByTime(1000);
-    pads = [pad([8])];
+    pads = [pad([PAD_BUTTON.back])];
     vi.advanceTimersByTime(200);
-    pads = [pad([8, 9])];
+    pads = [pad(CHORD)];
     vi.advanceTimersByTime(1000);
+
+    expect(onChord).not.toHaveBeenCalled();
+    scope.stop();
+  });
+
+  it("ignores a disconnected pad's stale buttons", () => {
+    // Firefox keeps disconnected entries in getGamepads() (#3851).
+    const { onChord, scope } = listen(() => true);
+    pads = [pad(CHORD, "standard", false)];
+
+    vi.advanceTimersByTime(3000);
 
     expect(onChord).not.toHaveBeenCalled();
     scope.stop();
@@ -62,7 +81,7 @@ describe("useExitChord", () => {
 
   it("ignores pads without the standard mapping", () => {
     const { onChord, scope } = listen(() => true);
-    pads = [pad([8, 9], "")];
+    pads = [pad(CHORD, "")];
 
     vi.advanceTimersByTime(3000);
 
@@ -73,7 +92,7 @@ describe("useExitChord", () => {
   it("only listens while the session is active", async () => {
     const active = ref(false);
     const { onChord, scope } = listen(() => active.value);
-    pads = [pad([8, 9])];
+    pads = [pad(CHORD)];
 
     vi.advanceTimersByTime(3000);
     expect(onChord).not.toHaveBeenCalled();
@@ -88,7 +107,7 @@ describe("useExitChord", () => {
   it("stops polling with its owning scope", () => {
     const { onChord, scope } = listen(() => true);
     scope.stop();
-    pads = [pad([8, 9])];
+    pads = [pad(CHORD)];
 
     vi.advanceTimersByTime(3000);
 
