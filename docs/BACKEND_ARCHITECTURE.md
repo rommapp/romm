@@ -1678,7 +1678,8 @@ Toggled via environment variables:
 | `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`          | `0 4 * * *`        | Image optimization     |
 | `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
 | `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
-| `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
+| `cleanup_netplay`                 | `ENABLE_SCHEDULED_CLEANUP_NETPLAY` (default on)    | `*/30 * * * *`     | Clean empty rooms      |
+| `cleanup_upload_tmp`              | `ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP` (default on) | `0 * * * *`        | Drop stale uploads     |
 | `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup     | `* * * * *`        | Stop abandoned streams |
 | `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)    | `30 4 * * *`       | Prune old audit events |
 

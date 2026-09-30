@@ -298,13 +298,15 @@ ENABLE_SCHEDULED_CLEANUP_NETPLAY: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_CLEANUP_NETPLAY", "true")
 )
 SCHEDULED_CLEANUP_NETPLAY_CRON: Final[str] = _get_env(
-    "SCHEDULED_CLEANUP_NETPLAY_CRON", "*/30 * * * *"
+    "SCHEDULED_CLEANUP_NETPLAY_CRON",
+    "*/30 * * * *",  # Every 30 minutes
 )
 ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP", "true")
 )
 SCHEDULED_CLEANUP_UPLOAD_TMP_CRON: Final[str] = _get_env(
-    "SCHEDULED_CLEANUP_UPLOAD_TMP_CRON", "0 * * * *"
+    "SCHEDULED_CLEANUP_UPLOAD_TMP_CRON",
+    "0 * * * *",  # Every hour
 )
 ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES")
