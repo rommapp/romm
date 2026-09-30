@@ -38,6 +38,7 @@ const open = ref(false);
 const payload = ref<Payload | null>(null);
 const typed = ref("");
 const cancelButtonRef = ref<InstanceType<typeof RBtn> | null>(null);
+const confirmButtonRef = ref<InstanceType<typeof RBtn> | null>(null);
 
 const tone = computed(() => payload.value?.tone ?? "warning");
 const dangerColor = computed(() =>
@@ -78,7 +79,13 @@ function onShow(p: Payload) {
   typed.value = "";
   open.value = true;
   nextTick(() => {
-    cancelButtonRef.value?.$el?.focus?.();
+    // Default focus goes on the safe action so a stray Enter can't trigger
+    // the dangerous one - normally that's Cancel, but dangerSide: "cancel"
+    // moves the dangerous button into that slot instead, so the safe
+    // default is the confirm slot in that case.
+    const safeButtonRef =
+      dangerSide.value === "cancel" ? confirmButtonRef : cancelButtonRef;
+    safeButtonRef.value?.$el?.focus?.();
   });
 }
 
@@ -144,6 +151,7 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
     </template>
     <template v-if="payload" #footer>
       <RBtn
+        ref="confirmButtonRef"
         :color="confirmColor"
         :disabled="confirmDisabled"
         @click="onConfirm"
