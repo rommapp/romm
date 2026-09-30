@@ -80,3 +80,28 @@ class TestCleanupUploadTmpTask:
         await task.run()
 
         assert stale_file.exists()
+
+
+def test_custom_schedule(monkeypatch):
+    import tasks.scheduled.cleanup_upload_tmp as mod
+
+    monkeypatch.setattr(mod, "SCHEDULED_CLEANUP_UPLOAD_TMP_CRON", "0 2 * * *")
+    assert CleanupUploadTmpTask().cron_string == "0 2 * * *"
+
+
+async def test_disabled_cleanup_keeps_expired_upload(monkeypatch, tmp_path):
+    import os
+
+    import tasks.scheduled.cleanup_upload_tmp as mod
+
+    uploads = tmp_path / "uploads"
+    uploads.mkdir()
+    expired = uploads / "expired"
+    expired.mkdir()
+    os.utime(expired, (0, 0))
+    monkeypatch.setattr(mod, "ROM_UPLOAD_TMP_BASE", uploads)
+    monkeypatch.setattr(mod, "ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP", False)
+    task = CleanupUploadTmpTask()
+    assert task.enabled is False
+    await task.run()
+    assert expired.exists()
