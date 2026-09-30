@@ -1146,8 +1146,6 @@ async def scan_rom(
                     rom=rom, ra_id=rom.ra_id, ra_hash=rom_attrs["ra_hash"]
                 )
             else:
-                # Hasheous maps an RA game to every dump of a title, so only RA's
-                # own hash list says whether this dump can unlock it.
                 return await meta_ra_handler.get_rom(
                     rom=rom, ra_hash=rom_attrs["ra_hash"]
                 )

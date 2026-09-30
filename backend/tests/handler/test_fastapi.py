@@ -6,6 +6,7 @@ from unittest.mock import ANY, AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException, status
+from tests.handler.scan_stubs import add_n64_platform, add_rom
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from handler.database import db_platform_handler, db_rom_handler
@@ -1018,10 +1019,10 @@ BANJO_REV1_MATCH = {
 
 
 @pytest.mark.parametrize(
-    "metadata_sources",
+    ("metadata_sources", "ra_searched"),
     [
-        [MetadataSource.HASHEOUS, MetadataSource.RA],
-        [MetadataSource.HASHEOUS],
+        ([MetadataSource.HASHEOUS, MetadataSource.RA], True),
+        ([MetadataSource.HASHEOUS], False),
     ],
 )
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
@@ -1038,48 +1039,27 @@ async def test_scan_rom_ignores_the_ra_id_hasheous_maps_the_game_to(
     mock_ra_search,
     mock_playmatch_enabled,
     metadata_sources,
+    ra_searched,
 ):
     """Hasheous maps an RA game to every dump of a title, so a dump whose hash RA
     doesn't list must lose the RA match Hasheous names, RA selected or not."""
     mock_hasheous_request.return_value = BANJO_REV1_MATCH
     mock_ra_search.return_value = None
+    ra_hash = "b11f476d4bc8e039355241e871dc08cf"
 
-    platform = db_platform_handler.add_platform(
-        Platform(
-            id=1,
-            slug="n64",
-            fs_slug="n64",
-            name="Nintendo 64",
-            ra_id=2,
-            hasheous_id=64,
-        )
+    platform = add_n64_platform(ra_id=2, hasheous_id=64)
+    rom = add_rom(
+        platform,
+        "Banjo-Kazooie (USA) (Rev 1).z64",
+        "Banjo-Kazooie",
+        ra_hash=ra_hash,
+        # The match an earlier scan took from Hasheous.
+        ra_id=10210,
+        ra_metadata={"achievements": [], "hash_match": False},
     )
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            fs_name="Banjo-Kazooie (USA) (Rev 1).z64",
-            fs_name_no_tags="Banjo-Kazooie",
-            fs_name_no_ext="Banjo-Kazooie (USA) (Rev 1)",
-            fs_extension="z64",
-            fs_path="n64",
-            name="Banjo-Kazooie",
-            ra_hash="b11f476d4bc8e039355241e871dc08cf",
-            # The match an earlier scan took from Hasheous.
-            ra_id=10210,
-            ra_metadata={"achievements": [], "hash_match": False},
-            fs_size_bytes=1024,
-            tags=[],
-        )
+    rom_file = _top_level_rom_file(
+        file_name=rom.fs_name, file_size_bytes=1024, md5_hash=ra_hash
     )
-    rom_file = RomFile(
-        rom_id=rom.id,
-        file_name=rom.fs_name,
-        file_path=rom.fs_path,
-        file_size_bytes=1024,
-        md5_hash="b11f476d4bc8e039355241e871dc08cf",
-    )
-    # Pre-seeded so the file passes the top-level filter without a linked rom.
-    rom_file.__dict__["is_top_level"] = True
 
     async with initialize_context():
         result = await scan_rom(
@@ -1094,16 +1074,13 @@ async def test_scan_rom_ignores_the_ra_id_hasheous_maps_the_game_to(
                 "crc_hash": "",
                 "md5_hash": "",
                 "sha1_hash": "",
-                "ra_hash": "b11f476d4bc8e039355241e871dc08cf",
+                "ra_hash": ra_hash,
             },
             metadata_sources=metadata_sources,
             newly_added=False,
         )
 
-    if MetadataSource.RA in metadata_sources:
-        mock_ra_search.assert_awaited_once_with(ANY, "b11f476d4bc8e039355241e871dc08cf")
-    else:
-        mock_ra_search.assert_not_awaited()
+    assert mock_ra_search.await_count == int(ra_searched)
     mock_ra_details.assert_not_awaited()
     assert result.hasheous_id == 119
     assert result.ra_id is None
