@@ -327,7 +327,7 @@ class TestKeyPromptsAndExit:
 
 
 class TestKeyFocus:
-    # Real layout of the DODI "press up to unlock" splash under IceWM.
+    # Real layout of the "press up to unlock" splash under IceWM.
     WINDOWS = {
         "1": ("Frame", "0,63,800,448"),
         "2": ("Container", "0,63,800,448"),

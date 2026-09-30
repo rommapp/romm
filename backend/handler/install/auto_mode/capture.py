@@ -128,7 +128,7 @@ def end_window_move(display: str) -> None:
     """Leave IceWM's window-move mode if it is active.
 
     Wine turns a click that misses every control of a custom-drawn installer
-    (DODI repacks) into a drag of the window, and IceWM then stays in move
+    into a drag of the window, and IceWM then stays in move
     mode (an "IceStatus" window shows the position) until the next pointer
     event, which would move the window instead of pressing the button. IceWM
     grabs the keyboard in that mode, so Escape cancels it without reaching
