@@ -2399,14 +2399,6 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_rom_user_by_id(
-        self,
-        id: int,
-        session: Session = INJECTED_SESSION,
-    ) -> RomUser | None:
-        return session.scalar(select(RomUser).filter_by(id=id).limit(1))
-
-    @begin_session
     def update_rom_user(
         self,
         id: int,
@@ -2762,14 +2754,6 @@ class DBRomsHandler(DBBaseHandler):
         session.add(track)
         session.flush()
         return track
-
-    @begin_session
-    def delete_track_meta(
-        self,
-        rom_file_id: int,
-        session: Session = INJECTED_SESSION,
-    ) -> None:
-        session.execute(delete(TrackMeta).where(TrackMeta.rom_file_id == rom_file_id))
 
     # ------------------------------------------------------- document metadata
 

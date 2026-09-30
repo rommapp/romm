@@ -337,14 +337,6 @@ def safe_str_to_bool(value: Any, default: bool = False) -> bool:
         return default
 
 
-def safe_float(value: Any, default: float = 0.0) -> float:
-    """Safely convert a value to float, returning default if conversion fails."""
-    try:
-        return float(value)
-    except ValueError, TypeError:
-        return default
-
-
 def safe_int(value: Any, default: int = 0) -> int:
     """Safely convert a value to int, returning default if conversion fails."""
     try:
