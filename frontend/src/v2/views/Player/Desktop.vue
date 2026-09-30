@@ -10,13 +10,14 @@
 import { RAlert, RBtn, RSpinner } from "@v2/lib";
 import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { isAxiosError } from "axios";
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import streamingApi, {
   type ContainerBusyDetail,
 } from "@/services/api/streaming";
+import storePlaying from "@/stores/playing";
 import { type SessionTermination, useStreamingStore } from "@/stores/streaming";
 import SessionEndedReason from "@/v2/components/Player/SessionEndedReason.vue";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
@@ -29,6 +30,7 @@ const route = useRoute();
 const router = useRouter();
 const confirm = useConfirm();
 const streamingStore = useStreamingStore();
+const playingStore = storePlaying();
 
 const containerName = computed(() => String(route.query.container ?? ""));
 // The claim's key, which the session routes and notices name; the URL may
@@ -54,6 +56,17 @@ const holdsClaim = ref(false);
 const claimedAt = ref("");
 
 usePageTitle(() => t("play.desktop-title"));
+
+// While the desktop is open (or opening) the emulator inside it owns the
+// controller, as it does in a game session: the global playing flag mutes
+// useGamepad's UI translation, which would otherwise turn B into
+// history-back and D-pad presses into focus moves behind the stream.
+const sessionActive = computed(
+  () => state.value === "loading" || state.value === "running",
+);
+watch(sessionActive, (active) => playingStore.setPlaying(active), {
+  immediate: true,
+});
 
 async function openDesktop(): Promise<void> {
   if (!containerName.value) {
@@ -217,6 +230,10 @@ useEventListener(window, "pagehide", onPageHide);
 
 onMounted(() => {
   void openDesktop();
+});
+
+onBeforeUnmount(() => {
+  playingStore.setPlaying(false);
 });
 </script>
 

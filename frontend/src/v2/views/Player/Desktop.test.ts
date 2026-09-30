@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   heartbeatTick: null as (() => Promise<void>) | null,
   routeLeave: null as (() => Promise<boolean> | boolean) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
+  setPlaying: vi.fn(),
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -47,6 +48,10 @@ vi.mock("@/services/api/streaming", () => ({
     releaseSession: mocks.releaseSession,
     releaseSessionKeepalive: mocks.releaseSessionKeepalive,
   },
+}));
+
+vi.mock("@/stores/playing", () => ({
+  default: () => ({ setPlaying: mocks.setPlaying }),
 }));
 
 vi.mock("@/stores/streaming", () => ({
@@ -343,5 +348,39 @@ describe("Desktop container naming", () => {
       KEY,
       CLAIMED_AT,
     );
+  });
+});
+
+describe("Desktop controller ownership", () => {
+  // The emulator inside the container reads the pad, so RomM's gamepad
+  // navigation must stay muted or B pops history out of the session.
+  it("mutes pad navigation while the desktop is claimed", async () => {
+    await openDesktop();
+
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(true);
+  });
+
+  it("hands the pad back once a notice ends the claim", async () => {
+    await openDesktop();
+
+    endSession({ platform: "ps2", container: KEY });
+    await flushPromises();
+
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
+  });
+
+  it("hands the pad back when the claim is refused", async () => {
+    await refuseDesktop({ rom_name: null, claimed_at: null, draining: true });
+
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
+  });
+
+  it("hands the pad back when the view unmounts", async () => {
+    const wrapper = await openDesktop();
+
+    wrapper.unmount();
+    mounted = null;
+
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
   });
 });
