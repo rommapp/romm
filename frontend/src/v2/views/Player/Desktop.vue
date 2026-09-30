@@ -10,7 +10,7 @@
 import { RAlert, RBtn, RSpinner } from "@v2/lib";
 import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { isAxiosError } from "axios";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -22,6 +22,7 @@ import SessionEndedReason from "@/v2/components/Player/SessionEndedReason.vue";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useExitChord } from "@/v2/composables/useExitChord";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import { usePlayingWhile } from "@/v2/composables/useStageActive";
@@ -68,7 +69,7 @@ useExitChord(sessionActive, () => void handleExit());
 
 // Leaving mid-claim is allowed, so a claim that answers after unmount is handed
 // straight back instead of standing unbeaten until it goes stale.
-let disposed = false;
+const alive = useIsAlive();
 
 async function openDesktop(): Promise<void> {
   if (!containerName.value) {
@@ -84,7 +85,7 @@ async function openDesktop(): Promise<void> {
     platform.value = data.platform;
     claimedAt.value = data.claimed_at;
     holdsClaim.value = true;
-    if (disposed) {
+    if (!alive.value) {
       void release();
       return;
     }
@@ -236,10 +237,6 @@ useEventListener(window, "pagehide", onPageHide);
 
 onMounted(() => {
   void openDesktop();
-});
-
-onBeforeUnmount(() => {
-  disposed = true;
 });
 </script>
 

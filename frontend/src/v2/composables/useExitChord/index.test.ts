@@ -55,6 +55,21 @@ describe("useExitChord", () => {
     scope.stop();
   });
 
+  it("waits for a release before a held chord can fire again", () => {
+    const { onChord, scope } = listen(() => true);
+    pads = [pad(CHORD)];
+
+    vi.advanceTimersByTime(5000);
+    expect(onChord).toHaveBeenCalledTimes(1);
+
+    pads = [pad([])];
+    vi.advanceTimersByTime(100);
+    pads = [pad(CHORD)];
+    vi.advanceTimersByTime(1700);
+    expect(onChord).toHaveBeenCalledTimes(2);
+    scope.stop();
+  });
+
   it("starts the hold over when either button is let go", () => {
     const { onChord, scope } = listen(() => true);
     pads = [pad(CHORD)];

@@ -15,6 +15,9 @@ export function useExitChord(
   onChord: () => void,
 ): void {
   let heldSince = 0;
+  // Set once a hold fires, so a chord still held after the dialog is cancelled
+  // waits for a release instead of reopening it.
+  let fired = false;
 
   function poll(): void {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -29,10 +32,13 @@ export function useExitChord(
     const now = performance.now();
     if (!held) {
       heldSince = 0;
+      fired = false;
+    } else if (fired) {
+      return;
     } else if (!heldSince) {
       heldSince = now;
     } else if (now - heldSince >= HOLD_MS) {
-      heldSince = 0;
+      fired = true;
       onChord();
     }
   }
@@ -47,6 +53,7 @@ export function useExitChord(
       } else {
         pause();
         heldSince = 0;
+        fired = false;
       }
     },
     { immediate: true },
