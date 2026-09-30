@@ -605,7 +605,7 @@ const downloadSpeedLimitLabel = computed(() =>
   width: 100%;
   height: 100%;
   border: 0;
-  background: #000;
+  background: var(--r-color-canvas-bg-deep);
 }
 
 .r-v2-install__start,
@@ -620,8 +620,9 @@ const downloadSpeedLimitLabel = computed(() =>
   color: var(--r-color-fg-secondary);
 }
 .r-v2-install__pending-label {
-  color: #b880ff;
-  text-shadow: 0 0 14px rgba(184, 128, 255, 0.55);
+  color: var(--r-color-brand-primary-hover);
+  text-shadow: 0 0 14px
+    color-mix(in srgb, var(--r-color-brand-primary-hover) 55%, transparent);
 }
 .r-v2-install__dl-progress {
   width: 220px;
