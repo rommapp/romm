@@ -2378,6 +2378,7 @@ dependencies = [
     { name = "bcrypt" },
     { name = "certifi" },
     { name = "colorama" },
+    { name = "croniter" },
     { name = "cryptography" },
     { name = "defusedxml" },
     { name = "fastapi", extra = ["standard-no-fastapi-cloud-cli"] },
@@ -2427,6 +2428,7 @@ dev = [
     { name = "pyinstrument" },
     { name = "types-authlib" },
     { name = "types-colorama" },
+    { name = "types-croniter" },
     { name = "types-defusedxml" },
     { name = "types-passlib" },
     { name = "types-pyyaml" },
@@ -2454,6 +2456,7 @@ requires-dist = [
     { name = "bcrypt", specifier = "<5" },
     { name = "certifi", specifier = ">=2024.7.4" },
     { name = "colorama", specifier = "~=0.4" },
+    { name = "croniter", specifier = "~=6.2" },
     { name = "cryptography", specifier = ">=49,<51" },
     { name = "defusedxml", specifier = "~=0.7" },
     { name = "fakeredis", marker = "extra == 'test'", specifier = "~=2.38" },
@@ -2501,6 +2504,7 @@ requires-dist = [
     { name = "strsimpy", specifier = "~=0.2" },
     { name = "types-authlib", marker = "extra == 'dev'", specifier = "~=1.8.0" },
     { name = "types-colorama", marker = "extra == 'dev'", specifier = "~=0.4" },
+    { name = "types-croniter", marker = "extra == 'dev'", specifier = "~=6.2" },
     { name = "types-defusedxml", marker = "extra == 'dev'", specifier = "~=0.7" },
     { name = "types-passlib", marker = "extra == 'dev'", specifier = "~=1.7" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = "~=6.0" },
@@ -2753,6 +2757,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/59/73/0fb0b9fe4964b45b2a06ed41b60c352752626db46aa0fb70a49a9e283a75/types-colorama-0.4.15.20240311.tar.gz", hash = "sha256:a28e7f98d17d2b14fb9565d32388e419f4108f557a7d939a66319969b2b99c7a", size = 5608, upload-time = "2024-03-11T02:15:51.557Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/83/6944b4fa01efb2e63ac62b791a8ddf0fee358f93be9f64b8f152648ad9d3/types_colorama-0.4.15.20240311-py3-none-any.whl", hash = "sha256:6391de60ddc0db3f147e31ecb230006a6823e81e380862ffca1e4695c13a0b8e", size = 5840, upload-time = "2024-03-11T02:15:50.43Z" },
+]
+
+[[package]]
+name = "types-croniter"
+version = "6.2.4.20260711"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c0/e1/ef8900515a103efa41b29ce81e59efb18e72bc9642139c5a3a17f6022641/types_croniter-6.2.4.20260711.tar.gz", hash = "sha256:807793e109f4e0d51ec18f6277a1a5f1d133e425ac6bee3a7c3254ab1793e0ea", size = 12164, upload-time = "2026-07-11T04:51:18.624Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c8/3f/896a98180a55f855bd068b97e8c99fd4ce1885a4b43f68fd7b29641084f6/types_croniter-6.2.4.20260711-py3-none-any.whl", hash = "sha256:601b68139a47fe1b2177f433132cc81fd91155f3059a49c5cb63404c389dff01", size = 9746, upload-time = "2026-07-11T04:51:17.662Z" },
 ]
 
 [[package]]

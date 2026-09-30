@@ -116,6 +116,13 @@ class TestCronConfig:
     def test_skips_a_task_with_no_cron_string(self, mocker, registered):
         assert registered({"no_cron": _task(mocker, cron_string="")}).call_count == 0
 
+    def test_skips_a_task_with_an_invalid_cron_string(self, mocker, registered):
+        register = registered(
+            {"bad": _task(mocker, cron_string="hourly"), "good": _task(mocker)}
+        )
+
+        assert [call.kwargs["name"] for call in register.call_args_list] == ["good"]
+
     def test_registers_the_real_schedule(self, mocker):
         # Guards the actual catalog: every enabled task with a cron string is
         # registered, because nothing else schedules them any more.
