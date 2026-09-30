@@ -83,6 +83,16 @@ otel_prefix() {
 	out_arr=(opentelemetry-instrument --service_name "${OTEL_SERVICE_NAME_PREFIX-}$2")
 }
 
+# Fails only when config.yml leaves streaming off, so a crash reading it still
+# starts the worker. The streaming section is only read at startup.
+streaming_enabled() {
+	local status=0
+	PYTHONPATH="/backend:${PYTHONPATH-}" python3 -c \
+		'from config.config_manager import config_manager as cm; raise SystemExit(0 if cm.get_config().STREAMING_ENABLED else 3)' ||
+		status=$?
+	[[ ${status} -ne 3 ]]
+}
+
 # Commands to run initial startup tasks
 run_startup() {
 	local -a wrap=()
@@ -414,6 +424,13 @@ fi
 # Startup process requires database and cache to be already available
 run_startup
 
+# The streaming worker only runs streaming teardowns and exit save pulls.
+START_STREAMING_WORKER=true
+if ! streaming_enabled; then
+	info_log "Streaming is disabled, not starting the RQ streaming worker"
+	START_STREAMING_WORKER=false
+fi
+
 # main loop
 while ! ((exited)); do
 	watchdog_process_pid gunicorn
@@ -425,7 +442,9 @@ while ! ((exited)); do
 
 	watchdog_process_pid rq_scan_worker
 
-	watchdog_process_pid rq_streaming_worker
+	if [[ ${START_STREAMING_WORKER} == "true" ]]; then
+		watchdog_process_pid rq_streaming_worker
+	fi
 
 	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
