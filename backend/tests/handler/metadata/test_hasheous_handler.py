@@ -234,7 +234,8 @@ class TestLookupRom:
 
         assert conclusive
         assert rom["hasheous_id"] == 262307
-        assert (rom["igdb_id"], rom["tgdb_id"], rom["ra_id"]) == (427, 525, 11242)
+        assert (rom["igdb_id"], rom["tgdb_id"]) == (427, 525)
+        assert "ra_id" not in rom
         assert rom["hasheous_metadata"]["mame_redump_match"]
 
     @pytest.mark.asyncio

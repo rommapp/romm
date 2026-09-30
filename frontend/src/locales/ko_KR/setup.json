@@ -89,7 +89,7 @@
   "provider-steam-desc": "Steam의 PC 게임 상점 메타데이터와 아트워크.",
   "provider-steam-setup": "STEAM_API_ENABLED=true를 설정하세요.",
   "proxy-hasheous-caveat": "커뮤니티 호스팅 서비스. 파일 해시가 필요합니다. 구성에서 해시 계산을 활성화하세요 (기본적으로 켜져 있음).",
-  "proxy-hasheous-desc": "IGDB 데이터를 프록시하고 RetroAchievements ID를 제공하는 해시 기반 매처.",
+  "proxy-hasheous-desc": "IGDB 데이터를 프록시하는 해시 기반 매처.",
   "proxy-hasheous-setup": "HASHEOUS_API_ENABLED=true를 설정하세요.",
   "proxy-playmatch-caveat": "커뮤니티 호스팅 서비스.",
   "proxy-playmatch-desc": "IGDB와 함께 사용하는 해시 기반 매처.",

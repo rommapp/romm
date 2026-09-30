@@ -6,6 +6,7 @@ from unittest.mock import ANY, AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException, status
+from tests.handler.scan_stubs import add_n64_platform, add_rom
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from handler.database import db_platform_handler, db_rom_handler
@@ -131,11 +132,10 @@ async def test_scan_rom():
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
-@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
 async def test_scan_rom_complete_clears_unselected_metadata(
-    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+    mock_lookup, mock_get_igdb, mock_playmatch_enabled
 ):
     """COMPLETE rescan with newly_added=False must clear id and *_metadata
     fields for sources that are no longer in metadata_sources."""
@@ -143,12 +143,10 @@ async def test_scan_rom_complete_clears_unselected_metadata(
         hasheous_id=999,
         igdb_id=None,
         tgdb_id=None,
-        ra_id=None,
         name="Mock Hasheous Game",
     )
     mock_lookup.return_value = (hasheous_result, True)
     mock_get_igdb.return_value = hasheous_result
-    mock_get_ra.return_value = hasheous_result
 
     platform = Platform(
         id=1,
@@ -408,11 +406,10 @@ async def test_scan_rom_unmatched_skips_ra_when_id_and_metadata_exist(
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
-@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
 async def test_scan_rom_unmatched_replaces_placeholder_name(
-    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+    mock_lookup, mock_get_igdb, mock_playmatch_enabled
 ):
     """UNMATCHED scan must replace the placeholder name (the raw filename set
     when the ROM is first created) with a freshly matched provider name,
@@ -421,12 +418,10 @@ async def test_scan_rom_unmatched_replaces_placeholder_name(
         hasheous_id=999,
         igdb_id=None,
         tgdb_id=None,
-        ra_id=None,
         name="Snow Bros.",
     )
     mock_lookup.return_value = (hasheous_result, True)
     mock_get_igdb.return_value = hasheous_result
-    mock_get_ra.return_value = hasheous_result
 
     platform = Platform(
         id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
@@ -472,11 +467,10 @@ async def test_scan_rom_unmatched_replaces_placeholder_name(
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
-@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
 async def test_scan_rom_unmatched_preserves_custom_name(
-    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+    mock_lookup, mock_get_igdb, mock_playmatch_enabled
 ):
     """UNMATCHED scan must keep a user-set name (one that differs from the raw
     filename) rather than overwriting it with a provider name."""
@@ -484,12 +478,10 @@ async def test_scan_rom_unmatched_preserves_custom_name(
         hasheous_id=999,
         igdb_id=None,
         tgdb_id=None,
-        ra_id=None,
         name="Snow Bros.",
     )
     mock_lookup.return_value = (hasheous_result, True)
     mock_get_igdb.return_value = hasheous_result
-    mock_get_ra.return_value = hasheous_result
 
     platform = Platform(
         id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
@@ -535,19 +527,17 @@ async def test_scan_rom_unmatched_preserves_custom_name(
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
-@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
 async def test_scan_rom_unmatched_no_match_uses_parsed_name(
-    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+    mock_lookup, mock_get_igdb, mock_playmatch_enabled
 ):
     """UNMATCHED scan that still finds no provider match must heal a raw-filename
     placeholder into the parsed name (tags and extension stripped), so the title
     is clean and a follow-up search uses the parsed name."""
-    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
     mock_lookup.return_value = (no_match, True)
     mock_get_igdb.return_value = no_match
-    mock_get_ra.return_value = no_match
 
     platform = Platform(
         id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
@@ -746,11 +736,10 @@ async def test_update_scan_keeps_name_summary_and_manual(
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
-@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
 async def test_scan_rom_hashes_rematches_hasheous(
-    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+    mock_lookup, mock_get_igdb, mock_playmatch_enabled
 ):
     """A HASHES rescan must re-run the Hasheous hash lookup, so a ROM whose
     hashes were wrong picks up its signature matches (the verified flags)
@@ -759,7 +748,6 @@ async def test_scan_rom_hashes_rematches_hasheous(
         hasheous_id=999,
         igdb_id=None,
         tgdb_id=None,
-        ra_id=None,
         name="Snow Bros.",
         hasheous_metadata=HasheousMetadata(
             tosec_match=False,
@@ -776,7 +764,6 @@ async def test_scan_rom_hashes_rematches_hasheous(
     )
     mock_lookup.return_value = (hasheous_result, True)
     mock_get_igdb.return_value = hasheous_result
-    mock_get_ra.return_value = hasheous_result
 
     platform = Platform(
         id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
@@ -848,20 +835,18 @@ def _stale_hasheous_rom(platform: Platform) -> Rom:
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
-@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
 async def test_scan_rom_hashes_clears_stale_hasheous_match(
-    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+    mock_lookup, mock_get_igdb, mock_playmatch_enabled
 ):
     """A HASHES rescan whose new hashes no longer match must drop the previous
     Hasheous match, so the ROM stops reporting verification flags it earned with
     hashes it no longer has."""
-    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
     # Hasheous answered and knows nothing about the new hashes.
     mock_lookup.return_value = (no_match, True)
     mock_get_igdb.return_value = no_match
-    mock_get_ra.return_value = no_match
 
     platform = db_platform_handler.add_platform(
         Platform(
@@ -899,19 +884,17 @@ async def test_scan_rom_hashes_clears_stale_hasheous_match(
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
-@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
 async def test_scan_rom_hashes_keeps_match_when_hasheous_unreachable(
-    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+    mock_lookup, mock_get_igdb, mock_playmatch_enabled
 ):
     """An inconclusive lookup (Hasheous down, no hashes to send) must leave the
     existing match alone, so an outage can't silently de-verify a library."""
-    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
     # Same empty match, but we never got an answer.
     mock_lookup.return_value = (no_match, False)
     mock_get_igdb.return_value = no_match
-    mock_get_ra.return_value = no_match
 
     platform = db_platform_handler.add_platform(
         Platform(
@@ -953,13 +936,11 @@ async def test_scan_rom_hashes_keeps_match_when_hasheous_unreachable(
 @patch.object(
     meta_ra_handler.ra_service, "get_game_extended_details", new_callable=AsyncMock
 )
-@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
 async def test_scan_rom_marks_an_ra_hash_match_hasheous_cannot_see(
     mock_lookup,
     mock_get_igdb,
-    mock_get_ra,
     mock_ra_details,
     mock_ra_search,
     mock_playmatch_enabled,
@@ -970,12 +951,10 @@ async def test_scan_rom_marks_an_ra_hash_match_hasheous_cannot_see(
         hasheous_id=123,
         igdb_id=None,
         tgdb_id=None,
-        ra_id=17353,
         hasheous_metadata=HasheousMetadata(nointro_match=True, ra_match=False),  # type: ignore[typeddict-item]
     )
     mock_lookup.return_value = (hasheous_match, True)
     mock_get_igdb.return_value = hasheous_match
-    mock_get_ra.return_value = hasheous_match
     mock_ra_details.return_value = {"ID": 17353, "Title": "Game", "Achievements": {}}
     mock_ra_search.return_value = 17353
 
@@ -1027,6 +1006,85 @@ async def test_scan_rom_marks_an_ra_hash_match_hasheous_cannot_see(
     assert result.ra_id == 17353
     assert (result.hasheous_metadata or {}).get("ra_match") is False
     assert (result.ra_metadata or {}).get("hash_match") is True
+
+
+# Trimmed from Hasheous' answer for "Banjo-Kazooie (USA) (Rev 1).z64", a dump RA
+# does not list as compatible with the game Hasheous maps it to.
+BANJO_REV1_MATCH = {
+    "id": 119,
+    "name": "Banjo-Kazooie",
+    "metadata": [{"source": "RetroAchievements", "immutableId": "10210"}],
+    "signatures": {"NoIntros": [{"rom": {"country": {"US": "United States"}}}]},
+}
+
+
+@pytest.mark.parametrize(
+    ("metadata_sources", "ra_searched"),
+    [
+        ([MetadataSource.HASHEOUS, MetadataSource.RA], True),
+        ([MetadataSource.HASHEOUS], False),
+    ],
+)
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ra_handler, "_search_rom", new_callable=AsyncMock)
+@patch.object(
+    meta_ra_handler.ra_service, "get_game_extended_details", new_callable=AsyncMock
+)
+@patch.object(meta_hasheous_handler, "_request", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "is_enabled", return_value=True)
+async def test_scan_rom_ignores_the_ra_id_hasheous_maps_the_game_to(
+    mock_hasheous_enabled,
+    mock_hasheous_request,
+    mock_ra_details,
+    mock_ra_search,
+    mock_playmatch_enabled,
+    metadata_sources,
+    ra_searched,
+):
+    """Hasheous maps an RA game to every dump of a title, so a dump whose hash RA
+    doesn't list must lose the RA match Hasheous names, RA selected or not."""
+    mock_hasheous_request.return_value = BANJO_REV1_MATCH
+    mock_ra_search.return_value = None
+    ra_hash = "b11f476d4bc8e039355241e871dc08cf"
+
+    platform = add_n64_platform(ra_id=2, hasheous_id=64)
+    rom = add_rom(
+        platform,
+        "Banjo-Kazooie (USA) (Rev 1).z64",
+        "Banjo-Kazooie",
+        ra_hash=ra_hash,
+        # The match an earlier scan took from Hasheous.
+        ra_id=10210,
+        ra_metadata={"achievements": [], "hash_match": False},
+    )
+    rom_file = _top_level_rom_file(
+        file_name=rom.fs_name, file_size_bytes=1024, md5_hash=ra_hash
+    )
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.COMPLETE,
+            rom=rom,
+            fs_rom={
+                "fs_name": rom.fs_name,
+                "fs_path": rom.fs_path,
+                "flat": True,
+                "files": [rom_file],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": ra_hash,
+            },
+            metadata_sources=metadata_sources,
+            newly_added=False,
+        )
+
+    assert mock_ra_search.await_count == int(ra_searched)
+    mock_ra_details.assert_not_awaited()
+    assert result.hasheous_id == 119
+    assert result.ra_id is None
+    assert not result.ra_metadata
 
 
 @pytest.mark.parametrize(
@@ -1138,23 +1196,20 @@ async def _scan_unmatched_rom(platform: Platform, metadata_sources: list[str]) -
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
 @patch.object(meta_hasheous_handler, "is_enabled", return_value=True)
-@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
 async def test_scan_rom_says_an_unanswered_miss_is_not_confirmed(
     mock_lookup,
     mock_get_igdb,
-    mock_get_ra,
     mock_hasheous_enabled,
     mock_playmatch_enabled,
     caplog,
 ):
     """A provider that never answered has ruled nothing out, so the outcome
     must not read as a coverage gap the provider confirmed."""
-    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
     mock_lookup.return_value = (no_match, False)
     mock_get_igdb.return_value = no_match
-    mock_get_ra.return_value = no_match
 
     platform = db_platform_handler.add_platform(
         Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", hasheous_id=64)
@@ -1170,17 +1225,15 @@ async def test_scan_rom_says_an_unanswered_miss_is_not_confirmed(
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
-@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
 async def test_scan_rom_still_reports_a_confirmed_miss_plainly(
-    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled, caplog
+    mock_lookup, mock_get_igdb, mock_playmatch_enabled, caplog
 ):
     """Hasheous answering "I don't know these hashes" is a real coverage gap."""
-    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
     mock_lookup.return_value = (no_match, True)
     mock_get_igdb.return_value = no_match
-    mock_get_ra.return_value = no_match
 
     platform = db_platform_handler.add_platform(
         Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", hasheous_id=64)
@@ -1196,23 +1249,20 @@ async def test_scan_rom_still_reports_a_confirmed_miss_plainly(
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
 @patch.object(meta_hasheous_handler, "is_enabled", return_value=False)
-@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
 async def test_scan_rom_does_not_blame_a_disabled_hasheous(
     mock_lookup,
     mock_get_igdb,
-    mock_get_ra,
     mock_hasheous_enabled,
     mock_playmatch_enabled,
     caplog,
 ):
     """A disabled Hasheous reports the same flag as an outage, but it was never
     consulted, so the miss is not waiting on it."""
-    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
     mock_lookup.return_value = (no_match, False)
     mock_get_igdb.return_value = no_match
-    mock_get_ra.return_value = no_match
 
     platform = db_platform_handler.add_platform(
         Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", hasheous_id=64)

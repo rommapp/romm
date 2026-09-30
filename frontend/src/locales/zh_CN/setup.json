@@ -89,7 +89,7 @@
   "provider-steam-desc": "Steam 上 PC 游戏的商店元数据与美术资源。",
   "provider-steam-setup": "设置 STEAM_API_ENABLED=true。",
   "proxy-hasheous-caveat": "社区托管服务。需要文件哈希值。请在配置中启用哈希值计算（默认开启）。",
-  "proxy-hasheous-desc": "基于哈希值的匹配器，代理 IGDB 数据并提供 RetroAchievements ID。",
+  "proxy-hasheous-desc": "基于哈希值的匹配器，代理 IGDB 数据。",
   "proxy-hasheous-setup": "设置 HASHEOUS_API_ENABLED=true。",
   "proxy-playmatch-caveat": "社区托管服务。",
   "proxy-playmatch-desc": "基于哈希值的匹配器，与 IGDB 配合使用。",
