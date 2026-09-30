@@ -308,7 +308,7 @@ def test_facet_years_typeahead(client: TestClient, access_token: str, music_libr
 def test_facet_search_matches_wildcards_literally(
     client: TestClient,
     access_token: str,
-    music_library,
+    music_library: dict[str, Platform | Rom],
     path: str,
     key: str,
     wildcard: str,
