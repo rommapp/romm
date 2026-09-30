@@ -21,8 +21,8 @@ import {
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
-import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import ScanProviderSelect from "@/v2/components/Scan/ScanProviderSelect.vue";
+import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
