@@ -8,6 +8,7 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
+from tests.factories import make_rom
 
 from exceptions.fs_exceptions import RomListedByPlaylistException
 from handler import cd_audio
@@ -96,17 +97,12 @@ def add_disc_rom(
     files: dict[str, int],
     file_path: str,
 ) -> Rom:
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="Disc Game",
-            slug="disc_game",
-            fs_name=fs_name,
-            fs_name_no_tags="Disc Game",
-            fs_name_no_ext="Disc Game",
-            fs_extension=fs_name.rpartition(".")[2] if "." in fs_name else "",
-            fs_path=f"{platform.slug}/roms",
-        )
+    rom = make_rom(
+        platform,
+        "Disc Game",
+        fs_extension=fs_name.rpartition(".")[2] if "." in fs_name else "",
+        slug="disc_game",
+        fs_name=fs_name,
     )
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     for name, size in files.items():

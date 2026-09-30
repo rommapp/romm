@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from rq.job import Job
+from tests.factories import make_rom
 from tests.handler.test_cd_audio import add_disc_rom, write_cue_disc
 
 from handler import cd_audio
@@ -144,18 +145,7 @@ async def test_a_disc_it_cannot_extract_does_not_stop_the_rest(
 
 
 def _add_rom(platform: Platform, fs_name: str, files: list[RomFile]) -> Rom:
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=fs_name,
-            slug=fs_name,
-            fs_name=fs_name,
-            fs_name_no_tags=fs_name,
-            fs_name_no_ext=fs_name,
-            fs_extension="",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    rom = make_rom(platform, fs_name, fs_extension="")
     for file in files:
         file.rom_id = rom.id
         file.file_path = f"{platform.slug}/roms/{fs_name}"
