@@ -154,3 +154,23 @@ class TestBuildBwrapCommand:
     def test_no_extra_env_by_default(self):
         argv = build_bwrap_command(_spec(), ["true"])
         assert "STEAM_COMPAT_DATA_PATH" not in " ".join(argv)
+
+    def test_no_games_bind_by_default(self):
+        argv = build_bwrap_command(_spec(), ["true"])
+        assert "/Games" not in argv
+
+    def test_games_fallback_dir_binds_to_the_fixed_games_path(self):
+        # Some installers default their own destination to a top-level
+        # "Games" folder regardless of which drives are actually available
+        # - z:\\ resolves that to nothing backed by anything real (not one
+        # of this spec's own explicit binds), gone the moment the sandbox
+        # exits. A targeted, single-path workaround for that one
+        # convention: give /Games specifically a real backing.
+        spec = _spec(games_fallback_dir="/cache/installs/1/Games")
+        argv = build_bwrap_command(spec, ["true"])
+        bind_pairs = [
+            (argv[i + 1], argv[i + 2])
+            for i, a in enumerate(argv)
+            if a == "--bind" and i + 2 < len(argv)
+        ]
+        assert ("/cache/installs/1/Games", "/Games") in bind_pairs

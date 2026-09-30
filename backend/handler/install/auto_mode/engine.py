@@ -57,15 +57,31 @@ def same_screen(a: frozenset[str], b: frozenset[str]) -> bool:
     return similarity(a, b) >= SAME_SCREEN_THRESHOLD
 
 
+def _phrase_present(lines: list[str], keywords: tuple[str, ...]) -> bool:
+    """A keyword can sit on its own OCR line, or straddle a wrap between two
+    adjacent ones - normalize() already strips spaces, so concatenating
+    consecutive lines reads a wrapped phrase the same as an unwrapped one.
+    Caught live: "Do you wish to continue?" wrapped right between "do you"
+    and "wish to continue" - each line read perfectly on its own, but
+    requiring the whole phrase on a single line silently dropped the match,
+    even with "Yes" itself read at high confidence right underneath.
+    """
+    if any(k in line for line in lines for k in keywords):
+        return True
+    return any(
+        k in (lines[i] + lines[i + 1]) for i in range(len(lines) - 1) for k in keywords
+    )
+
+
 def is_license_page(lines: list[str], catalog: Catalog) -> bool:
-    return any(k in line for line in lines for k in catalog.license_keywords)
+    return _phrase_present(lines, catalog.license_keywords)
 
 
 def is_confirm_page(lines: list[str], catalog: Catalog) -> bool:
     """A plain Yes/No prerequisite prompt ("Do you want to install
     DirectX?"), not a EULA, but just as safe to answer Yes to - see
     buttons.yml's own "confirm" keyword list."""
-    return any(k in line for line in lines for k in catalog.confirm_keywords)
+    return _phrase_present(lines, catalog.confirm_keywords)
 
 
 def _priority(match: Match) -> int:

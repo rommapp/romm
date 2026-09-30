@@ -1,4 +1,5 @@
 from handler.install.windows_output import (
+    collect_extra_work_dir_files,
     collect_windows_install_files,
     resolve_install_root,
     snapshot_windows_content_files,
@@ -183,3 +184,62 @@ class TestResolveInstallRoot:
     def test_empty_files_falls_back_to_drive_c(self, tmp_path):
         drive_c = tmp_path / "drive_c"
         assert resolve_install_root(drive_c, []) == drive_c
+
+
+class TestCollectExtraWorkDirFiles:
+    """Regression coverage for a real gap: z:\\ can't actually be removed
+    (Proton recreates it on every real launch regardless of what it's told
+    to run - see runner._configure_drive_letters), so an installer that
+    resolves its own location through it and writes "next to itself" -
+    into work_dir, the one thing z:\\ exposes that's actually recoverable
+    (a real bind mount, unlike the sandboxed installer's own /tmp: a fresh
+    tmpfs private to its mount namespace, gone the moment its process
+    exits) - was possible in principle and went completely untracked.
+    """
+
+    def test_finds_a_file_written_directly_into_work_dir(self, tmp_path):
+        work_dir = tmp_path / "work"
+        work_dir.mkdir()
+        (work_dir / "stray.dat").write_bytes(b"x")
+
+        found = collect_extra_work_dir_files(work_dir)
+
+        assert {p.name for p in found} == {"stray.dat"}
+
+    def test_finds_files_under_a_stray_subfolder(self, tmp_path):
+        work_dir = tmp_path / "work"
+        game_dir = work_dir / "SomeGame"
+        game_dir.mkdir(parents=True)
+        (game_dir / "data.bin").write_bytes(b"x")
+
+        found = collect_extra_work_dir_files(work_dir)
+
+        assert {p.name for p in found} == {"data.bin"}
+
+    def test_ignores_the_wine_prefix_and_its_own_drive_c_content(self, tmp_path):
+        work_dir = tmp_path / "work"
+        drive_c = work_dir / "prefix" / "pfx" / "drive_c"
+        drive_c.mkdir(parents=True)
+        (drive_c / "Program Files" / "MyGame").mkdir(parents=True)
+        (drive_c / "Program Files" / "MyGame" / "game.exe").write_bytes(b"x")
+        (work_dir / "prefix" / "pfx" / "system.reg").write_bytes(b"wine state")
+
+        assert collect_extra_work_dir_files(work_dir) == []
+
+    def test_ignores_the_proton_stub_client_dir(self, tmp_path):
+        work_dir = tmp_path / "work"
+        (work_dir / "steam-client" / "steamclient.dll").parent.mkdir(parents=True)
+        (work_dir / "steam-client" / "steamclient.dll").write_bytes(b"x")
+
+        assert collect_extra_work_dir_files(work_dir) == []
+
+    def test_ignores_this_sessions_own_manifest_files(self, tmp_path):
+        work_dir = tmp_path / "work"
+        work_dir.mkdir()
+        (work_dir / ".romm-install-manifest.json").write_bytes(b"{}")
+        (work_dir / ".romm-install-manifest.live.json").write_bytes(b"{}")
+
+        assert collect_extra_work_dir_files(work_dir) == []
+
+    def test_missing_work_dir_returns_empty(self, tmp_path):
+        assert collect_extra_work_dir_files(tmp_path / "does-not-exist") == []

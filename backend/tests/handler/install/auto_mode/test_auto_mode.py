@@ -160,6 +160,22 @@ class TestPlanner:
         assert action.match.entry.category == "agree"
         assert action.match.label.lower() == "yes"
 
+    def test_confirm_prompt_wrapped_across_two_lines_still_matches(self):
+        # Real false negative: "This will install Microsoft DirectX 6.1
+        # Runtime. Do you wish to continue?" wraps right between "do you"
+        # and "wish to continue" - each half read perfectly on its own, but
+        # requiring the whole phrase on one OCR line dropped the match even
+        # though "Yes" itself was read at high confidence right underneath.
+        words = screen(
+            line("This will install Microsoft DirectX 6.1 Runtime. Do you", 20, 20, 1),
+            line("wish to continue?", 20, 40, 2),
+            line("Yes", 300, 400, 3),
+            line("No", 400, 400, 4),
+        )
+        action, _ = plan_action(words, CATALOG, ScreenMemory())
+        assert action.match.entry.category == "agree"
+        assert action.match.label.lower() == "yes"
+
     def test_click_then_mnemonic_then_next_candidate(self):
         words = screen(
             line("License Agreement", 20, 20, 1),

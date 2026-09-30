@@ -25,6 +25,17 @@ class SandboxSpec:
     display: str
     # Read-only paths the sandbox additionally needs (e.g. the Proton runtime).
     ro_binds: tuple[str, ...] = field(default_factory=tuple)
+    # Real, persistent host path bound at the fixed sandbox path /Games -
+    # some installers default their own destination to a top-level "Games"
+    # folder regardless of which drives are actually available, landing
+    # wherever z:\\ (the whole sandboxed filesystem, not backed by anything
+    # real for a path that isn't one of this spec's own explicit binds)
+    # resolves that to - gone the moment this process exits, same as
+    # anything else that lands there. Giving /Games specifically a real
+    # backing (a subdirectory of work_dir, so the usual discovery already
+    # covers it) is a targeted, single-path workaround for that one
+    # convention, not a general fix - see runner.py's own caller.
+    games_fallback_dir: str | None = None
     # Extra env vars on top of DISPLAY/WINEPREFIX (e.g. Proton's own
     # STEAM_COMPAT_DATA_PATH/STEAM_COMPAT_CLIENT_INSTALL_PATH - it computes
     # its real wine prefix from the former rather than WINEPREFIX itself).
@@ -118,6 +129,8 @@ def build_bwrap_command(
     # Writable, isolated per-session paths.
     args += ["--bind", spec.work_dir, spec.work_dir]
     args += ["--bind", spec.proton_prefix, spec.proton_prefix]
+    if spec.games_fallback_dir is not None:
+        args += ["--bind", spec.games_fallback_dir, "/Games"]
 
     # Point Wine/Proton and X clients at the sandboxed prefix and virtual display.
     args += ["--setenv", "DISPLAY", spec.display]

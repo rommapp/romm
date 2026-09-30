@@ -59,6 +59,7 @@ from handler.install.sandbox import SandboxSpec, build_bwrap_command
 from handler.install.streaming_mode import stream_uncompleted_files_enabled
 from handler.install.vnc import VncSession, start_vnc_session
 from handler.install.windows_output import (
+    collect_extra_work_dir_files,
     collect_windows_install_files,
     load_baseline,
     resolve_install_root,
@@ -187,6 +188,19 @@ def _is_proton(proton_or_wine: str) -> bool:
     return Path(proton_or_wine).name == "proton"
 
 
+def _windows_installer_path(
+    installer_abs: Path, installer_search_root: Path, disc_source: Path | None
+) -> str:
+    """The installer's own path, translated to a drive Wine actually has
+    (see _configure_drive_letters), instead of the bare Unix path Wine
+    would otherwise only be able to resolve through z: - the entire reason
+    z: gets removed there in the first place.
+    """
+    rel = installer_abs.relative_to(installer_search_root).as_posix().replace("/", "\\")
+    root = "D:" if disc_source is not None else f"C:\\{_SOURCE_LINK_NAME}"
+    return f"{root}\\{rel}"
+
+
 def _build_inner_command(installer_abs_path: str, proton_or_wine: str) -> list[str]:
     """Command that Proton/Wine uses to run the installer.
 
@@ -288,6 +302,112 @@ def _init_wine_prefix(
 
     assert last_error is not None
     raise last_error
+
+
+# Where a plain (non-disc) install's source gets linked to inside drive_c,
+# so it stays reachable purely via c: once z: is gone (see
+# _configure_drive_letters and _windows_installer_path).
+_SOURCE_LINK_NAME = ".romm-source"
+
+
+def _configure_drive_letters(
+    prefix_dir: Path,
+    proton_or_wine: str,
+    installer_search_root: Path,
+    disc_source: Path | None,
+) -> None:
+    """Trim the fresh prefix down to what a real disc-based install would see.
+
+    wineboot --init also maps z:\\ to the whole host filesystem - handy for
+    desktop use, not for a sandboxed, untrusted installer: it hands it
+    visibility (write access, wherever a bwrap bind happens to be writable)
+    into everything bound in, and lets an installer that defaults its own
+    destination to "next to its source" (some multi-part .bin/.iso releases
+    do) land somewhere windows_output.py never scans - caught live,
+    installing a real game, as a session marked DONE with nothing but a
+    desktop shortcut in it.
+
+    Safe to drop outright, rather than something Wine has to fall back to
+    recreating on its own: _windows_installer_path never hands it a bare
+    Unix path to translate in the first place, since the installer itself
+    is always reachable through a drive this function sets up first - d:
+    stands in for a real CD-ROM/DVD drive, pointed at the same read-only
+    source bwrap already binds in for the installer to find its own sibling
+    files, when ``disc_source`` is given (the ROM actually came from an
+    archive/disc image). A plain single-file install has no real "disc" to
+    speak of, so it gets linked into c:\\ instead, at _SOURCE_LINK_NAME,
+    rather than an entirely unnecessary extra drive letter of its own.
+    No a: at all: the only installers that would ever check for one don't
+    exist in this library, and an extra drive is exactly the kind of thing
+    this function exists to avoid handing out for free.
+    """
+    wineprefix = _wine_drive_c_root(prefix_dir, proton_or_wine)
+    dosdevices = wineprefix / "dosdevices"
+    (dosdevices / "z:").unlink(missing_ok=True)
+
+    d_link = dosdevices / "d:"
+    d_link.unlink(missing_ok=True)
+    source_link = wineprefix / "drive_c" / _SOURCE_LINK_NAME
+    source_link.unlink(missing_ok=True)
+    if disc_source is not None:
+        d_link.symlink_to(disc_source)
+    else:
+        source_link.symlink_to(installer_search_root)
+
+
+def _mark_d_drive_as_cdrom(
+    proton_or_wine: str,
+    *,
+    installer_abs: str,
+    work_dir: str,
+    prefix_dir: str,
+    display: str,
+    extra_env: tuple[tuple[str, str], ...] = (),
+) -> None:
+    """Tell Wine's own drive-type registry that d: is removable media.
+
+    Only called when _configure_drive_letters actually added a d: (a real
+    disc/archive source). Without this, an unconfigured extra drive is
+    reported as a plain hard disk - indistinguishable, to an installer's
+    own "pick a default install folder" logic, from a normal writable
+    secondary drive. Caught live: an installer defaulted its destination to
+    D:\\Games, which is read-only (d: stands in for the disc source) and
+    the install failed outright - a real CD-ROM drive would have been
+    skipped as a target instead, the same way c:\\ actually gets picked.
+
+    Best-effort: a failure here still leaves d: present and readable, just
+    not correctly typed, so it's logged and swallowed rather than failing
+    the whole install over a registry tweak.
+    """
+    reg_cmd = (
+        [proton_or_wine, "run", "reg"]
+        if _is_proton(proton_or_wine)
+        else [proton_or_wine, "reg"]
+    )
+    argv = _wrap_for_sandbox(
+        [
+            *reg_cmd,
+            "add",
+            r"HKEY_LOCAL_MACHINE\Software\Wine\Drives",
+            "/v",
+            "D:",
+            "/d",
+            "cdrom",
+            "/f",
+        ],
+        installer_abs=installer_abs,
+        work_dir=work_dir,
+        proton_prefix=prefix_dir,
+        display=display,
+        proton_or_wine=proton_or_wine,
+        extra_env=extra_env,
+    )
+    try:
+        subprocess.run(
+            argv, timeout=WINE_PREFIX_INIT_TIMEOUT, check=True, capture_output=True
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+        log.warning(f"Could not mark d: as a cdrom drive, leaving it untyped: {e}")
 
 
 def run_install(install_session_id: int) -> None:
@@ -435,6 +555,17 @@ def _run_install(install_session_id: int) -> None:
         if not installer_search_root.is_dir():
             installer_search_root = installer_search_root.parent
 
+    # Only a source this session actually mounted/extracted gets a d: (see
+    # _configure_drive_letters): a plain single-file install has no real
+    # "disc" to represent, and handing it a d: anyway just gives its own
+    # "default next to the source" logic an extra drive letter to land on
+    # instead of c:. Deliberately not content-based (e.g. a ".bin" sitting
+    # next to the installer): that extension means a real CD-ROM dump for a
+    # console ROM, but a repack's own multi-part payload format for a PC
+    # installer that reads it directly itself - the same suffix, two
+    # unrelated things, and nothing here ever mounts the second kind.
+    disc_source: Path | None = extract_root if extract_temp_dir is not None else None
+
     work_dir = ensure_session_cache_dir(install_session_id)
     prefix_dir = _proton_prefix_dir(work_dir)
     proton_or_wine = _wine_or_proton(session.proton_build)
@@ -468,6 +599,7 @@ def _run_install(install_session_id: int) -> None:
         )
 
         windows_baseline: frozenset[Path] = frozenset()
+        installer_arg = installer_abs
         if _uses_wine(installer_abs):
             _init_wine_prefix(
                 proton_or_wine,
@@ -476,6 +608,23 @@ def _run_install(install_session_id: int) -> None:
                 prefix_dir=str(prefix_dir),
                 display=vnc.display,
                 extra_env=extra_env,
+            )
+            _configure_drive_letters(
+                prefix_dir, proton_or_wine, installer_search_root, disc_source
+            )
+            if disc_source is not None:
+                _mark_d_drive_as_cdrom(
+                    proton_or_wine,
+                    installer_abs=installer_abs,
+                    work_dir=str(work_dir),
+                    prefix_dir=str(prefix_dir),
+                    display=vnc.display,
+                    extra_env=extra_env,
+                )
+            # Never the bare Unix path from here on: see
+            # _windows_installer_path for why.
+            installer_arg = _windows_installer_path(
+                Path(installer_abs), installer_search_root, disc_source
             )
             # Wine's own bootstrap seeds Program Files with real stock stub
             # apps (wmplayer.exe, iexplore.exe, Common Files DLLs, ...) -
@@ -490,7 +639,16 @@ def _run_install(install_session_id: int) -> None:
             else:
                 windows_baseline = saved_baseline
 
-        inner = _build_inner_command(installer_abs, proton_or_wine)
+        # Some installers default their own destination to a top-level
+        # "Games" folder regardless of which drives are actually available
+        # - a targeted, single-path workaround for that one convention (see
+        # SandboxSpec.games_fallback_dir). A subdirectory of work_dir, so
+        # the usual discovery (collect_extra_work_dir_files) already covers
+        # whatever lands here without any extra code.
+        games_dir = work_dir / "Games"
+        games_dir.mkdir(exist_ok=True)
+
+        inner = _build_inner_command(installer_arg, proton_or_wine)
         argv = _wrap_for_sandbox(
             inner,
             installer_abs=installer_abs,
@@ -500,6 +658,7 @@ def _run_install(install_session_id: int) -> None:
             proton_or_wine=proton_or_wine,
             extra_env=extra_env,
             installer_search_root=str(installer_search_root),
+            games_fallback_dir=str(games_dir),
         )
 
         log.info(
@@ -618,6 +777,36 @@ def _relocate_under(files: list[Path], root: Path, dest_root: Path) -> list[Path
     return relocated
 
 
+def _exclude_known_inodes(known: list[Path], candidates: list[Path]) -> list[Path]:
+    """``candidates`` minus anything that's a hardlink (shares an inode) of
+    something already in ``known``.
+
+    Not a path comparison: c:\\'s own content can end up hardlinked into
+    work_dir more than once, at *different* relative paths, if
+    resolve_install_root resolves a different root on different calls (the
+    live loop's own first scan vs. a later one, or _finalize_install's own
+    fresh, complete scan) - its own docstring warns the result is meant to
+    be resolved once and held fixed, but every caller here does its own. A
+    hardlink of an already-known file shares its inode no matter which
+    directory entry it sits behind, so that's what catches it instead.
+    """
+    known_inodes = set()
+    for f in known:
+        try:
+            known_inodes.add(f.stat().st_ino)
+        except OSError:
+            pass
+    result = []
+    for f in candidates:
+        try:
+            if f.stat().st_ino in known_inodes:
+                continue
+        except OSError:
+            continue
+        result.append(f)
+    return result
+
+
 def _live_manifest_loop(
     work_dir: Path,
     prefix_dir: Path,
@@ -654,8 +843,8 @@ def _live_manifest_loop(
             candidates = collect_windows_install_files(prefix_dir, windows_baseline)
             if root is None and candidates:
                 root = resolve_install_root(drive_c, candidates)
+            live_paths = []
             if root is not None:
-                live_paths = []
                 for f in _files_under(candidates, root):
                     dest = work_dir / f.relative_to(root)
                     if not dest.exists():
@@ -666,6 +855,18 @@ def _live_manifest_loop(
                             continue  # transient (e.g. not sealed onto disk
                             # yet) - retry next scan
                     live_paths.append(dest)
+            # z:\\ can't actually be removed (see _configure_drive_letters),
+            # so an installer that writes "next to itself" - into work_dir,
+            # the one thing z:\\ exposes that's actually recoverable, see
+            # collect_extra_work_dir_files - remains possible in principle,
+            # streamed the same as anything found through c:\\. Already
+            # sitting in work_dir, so nothing to hardlink here, only to
+            # fold in (deduped by inode, not path - see
+            # _exclude_known_inodes) so it isn't sealed twice.
+            live_paths += _exclude_known_inodes(
+                live_paths, collect_extra_work_dir_files(work_dir)
+            )
+            if live_paths:
                 # Checked fresh every scan (cheap, one Redis lookup) rather
                 # than once at loop start, so toggling the setting mid-install
                 # takes effect on the very next tick.
@@ -716,11 +917,6 @@ def _finalize_install(
     FAILED instead of finishing "successfully" with an empty manifest.
     """
     files = collect_windows_install_files(prefix_dir, windows_baseline)
-    if not files:
-        raise RuntimeError(
-            "Installer finished but no files were found under drive_c "
-            "(it may have installed to a blacklisted or unrecognized path)"
-        )
 
     # One-time computation over the complete final file set - no flip-flop
     # risk the way the live loop's per-scan version would have, since this
@@ -732,6 +928,21 @@ def _finalize_install(
     # layout - see _relocate_under's own docstring for why this has to
     # happen, not just be recorded.
     files = _relocate_under(files, root, work_dir)
+
+    # z:\\ can't actually be removed (Proton re-creates it on every real
+    # launch regardless of what it's told to run - see
+    # _configure_drive_letters), so an installer that resolves its own
+    # location through it and writes "next to itself" - into work_dir, the
+    # one thing z:\\ exposes that's actually recoverable, see
+    # collect_extra_work_dir_files - remains possible in principle.
+    files += _exclude_known_inodes(files, collect_extra_work_dir_files(work_dir))
+
+    if not files:
+        raise RuntimeError(
+            "Installer finished but no files were found under drive_c or "
+            "work_dir (it may have installed to a blacklisted or "
+            "unrecognized path)"
+        )
 
     report = ThrottledProgress(
         lambda hashed: db_install_session_handler.update_session(
@@ -762,6 +973,7 @@ def _wrap_for_sandbox(
     proton_or_wine: str,
     extra_env: tuple[tuple[str, str], ...] = (),
     installer_search_root: str | None = None,
+    games_fallback_dir: str | None = None,
 ) -> list[str]:
     """Wrap the inner command in bubblewrap unless the sandbox is disabled."""
     if not INSTALL_SANDBOX_ENABLED:
@@ -793,6 +1005,7 @@ def _wrap_for_sandbox(
         display=display,
         ro_binds=ro_binds,
         extra_env=extra_env,
+        games_fallback_dir=games_fallback_dir,
     )
     return build_bwrap_command(spec, inner)
 
@@ -825,6 +1038,17 @@ def _run_installer(
         )
     try:
         proc.wait(timeout=INSTALL_TIMEOUT)
+        # The only signal available after the fact for "did the installer
+        # actually finish, or just give up/crash very early" - caught live,
+        # an install exiting with nothing to show for it a few seconds
+        # after Install was clicked, with nothing else in the log to say
+        # why. A non-zero code at least narrows that down next time.
+        if proc.returncode != 0:
+            log.warning(
+                f"Installer process exited with code {proc.returncode} "
+                "(not necessarily a failure - some installers use this for "
+                "e.g. 'reboot needed')"
+            )
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait()

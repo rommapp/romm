@@ -24,6 +24,22 @@ Three layers handle that:
   whether the exposed/stored path should start at `drive_c` or one level
   further in, inside a known vendor folder (e.g. `GOG Games`) - the vendor
   folder's own name isn't part of the game's identity.
+
+`collect_extra_work_dir_files` is a separate, best-effort fallback for the
+same underlying problem one level up: z:\\ (Wine's own fallback mapping for
+the whole sandboxed filesystem, see runner._configure_drive_letters) can't
+actually be removed - Proton re-creates it on every real launch regardless
+of what's passed as the installer's own argument - so an installer that
+still resolves its own location through it, and decides to write "next to
+itself", remains possible in principle. Only work_dir is worth checking for
+that, not the rest of z:\\: it's a real bind mount, the same directory
+whether read from inside the sandbox or, like this whole module, from the
+outer worker process afterward. Nothing else z:\\ exposes is - the
+sandboxed installer's own /tmp is a fresh tmpfs private to bwrap's mount
+namespace, gone the moment its process exits, well before this ever runs;
+the rest is read-only binds nothing can write to in the first place.
+Treated as part of the same disk as c:\\ (no separate root in the exposed
+manifest): merged into the same file list, relocated the same way.
 """
 
 from __future__ import annotations
@@ -132,3 +148,38 @@ def resolve_install_root(drive_c: Path, files: Iterable[Path]) -> Path:
         if only in KNOWN_VENDOR_DIR_NAMES:
             return drive_c / only
     return drive_c
+
+
+# Entries directly under work_dir that are never installed game content:
+# the Wine prefix (drive_c already covered separately by
+# collect_windows_install_files - the rest of it is Wine/Proton's own
+# bookkeeping: system.reg, dosdevices, ...), Proton's own stub client dir,
+# and this session's own manifest files.
+_SESSION_OWNED_TOP_LEVEL_NAMES = frozenset(
+    (
+        "prefix",
+        "steam-client",
+        ".romm-install-manifest.json",
+        ".romm-install-manifest.live.json",
+    )
+)
+
+
+def collect_extra_work_dir_files(work_dir: Path) -> list[Path]:
+    """Files an installer wrote directly into its own session's writable
+    area (work_dir) instead of through c:\\/d:\\ - see this module's own
+    docstring for why work_dir specifically, and nothing else z:\\ exposes.
+    """
+    try:
+        entries = list(work_dir.iterdir())
+    except OSError:
+        return []
+    found: list[Path] = []
+    for entry in entries:
+        if entry.name in _SESSION_OWNED_TOP_LEVEL_NAMES:
+            continue
+        if entry.is_file():
+            found.append(entry)
+        elif entry.is_dir():
+            found.extend(p for p in entry.rglob("*") if p.is_file())
+    return found

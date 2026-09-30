@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0144_install_sessions"
-down_revision = "0143_sibling_platform_names"
+down_revision = "0144_user_oidc_sub"
 branch_labels = None
 depends_on = None
 

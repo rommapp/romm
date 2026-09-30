@@ -495,6 +495,7 @@ def download_all_files(
     # the delta itself instead of just summing every return value.
     progress: dict[str, int] = {}
     last_manifest = 0.0
+    last_logged: tuple[int, int] | None = None
     while not stop_event.is_set():
         now = time.time()
         if now - last_manifest < MANIFEST_INTERVAL and done_paths:
@@ -519,10 +520,16 @@ def download_all_files(
         files = manifest.get("files", [])
         viewers = manifest.get("viewer_count", 0)
         limit = manifest.get("download_speed_limit_bytes_per_sec") or speed_limit
-        log(
-            f"manifest: {len(files)} file(s), {viewers} viewer(s)"
-            + (f", limit {fmt_bytes(limit)}/s" if limit else "")
-        )
+        # Only when the count actually changes - printed every
+        # MANIFEST_INTERVAL otherwise, drowning out everything else for an
+        # install that runs minutes with nothing new sealed in between.
+        current = (len(files), viewers)
+        if current != last_logged:
+            last_logged = current
+            log(
+                f"manifest: {len(files)} file(s), {viewers} viewer(s)"
+                + (f", limit {fmt_bytes(limit)}/s" if limit else "")
+            )
         new_done = 0
         for f in files:
             if stop_event.is_set():

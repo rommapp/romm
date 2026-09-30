@@ -268,6 +268,45 @@ class TestWrapForSandbox:
         )
         assert result == ["true"]
 
+    def test_passes_games_fallback_dir_through_to_the_spec(self, monkeypatch):
+        captured = []
+        monkeypatch.setattr(
+            runner,
+            "build_bwrap_command",
+            lambda spec, inner: captured.append(spec.games_fallback_dir) or inner,
+        )
+
+        runner._wrap_for_sandbox(
+            ["true"],
+            installer_abs="/library/win/game/setup.exe",
+            work_dir="/work",
+            proton_prefix="/prefix",
+            display=":50",
+            proton_or_wine="wine",
+            games_fallback_dir="/work/Games",
+        )
+
+        assert captured == ["/work/Games"]
+
+    def test_no_games_fallback_dir_by_default(self, monkeypatch):
+        captured = []
+        monkeypatch.setattr(
+            runner,
+            "build_bwrap_command",
+            lambda spec, inner: captured.append(spec.games_fallback_dir) or inner,
+        )
+
+        runner._wrap_for_sandbox(
+            ["true"],
+            installer_abs="/library/win/game/setup.exe",
+            work_dir="/work",
+            proton_prefix="/prefix",
+            display=":50",
+            proton_or_wine="wine",
+        )
+
+        assert captured == [None]
+
 
 class TestInitWinePrefix:
     def test_runs_wineboot_init_wrapped_in_the_sandbox(self, monkeypatch):
@@ -408,6 +447,224 @@ class TestInitWinePrefix:
                 prefix_dir="/cache/1/prefix",
                 display=":99",
             )
+
+
+class TestConfigureDriveLetters:
+    """Regression coverage for three real bugs, all about how an
+    installer's own "pick a default install folder" logic can land
+    somewhere other than c:, the only drive windows_output.py ever scans:
+
+    - wineboot --init's own z: (the whole host filesystem) - caught live
+      installing a real game, DONE with nothing but a desktop shortcut in
+      it, its ~1GB of actual files sitting untracked on z:.
+    - a d: handed out unconditionally, even to a plain single-file install
+      with no real disc/archive source to represent - caught live, an
+      installer defaulted its destination to D:\\Games (read-only, so the
+      install failed outright) on a title that was never a disc release at
+      all.
+    - z: dropped without giving the installer any other way to be *run* in
+      the first place: _run_install always used to pass its bare Unix path
+      to Wine, which only z: (or an equivalent drive mapping) can resolve -
+      see _windows_installer_path, which this sets up c:\\.romm-source for.
+    """
+
+    def _prefix(self, tmp_path):
+        prefix_dir = tmp_path / "prefix"
+        dosdevices = prefix_dir / "dosdevices"
+        dosdevices.mkdir(parents=True)
+        (prefix_dir / "drive_c").mkdir()
+        # Mirror what a real wineboot --init prefix already has: c: is its
+        # own drive_c, z: a symlink to "/" (not a plain file).
+        (dosdevices / "c:").symlink_to("../drive_c")
+        (dosdevices / "z:").symlink_to("/")
+        return prefix_dir
+
+    def test_removes_z_and_adds_d_when_theres_a_disc_source(self, tmp_path):
+        prefix_dir = self._prefix(tmp_path)
+        source = tmp_path / "library" / "game"
+        source.mkdir(parents=True)
+
+        runner._configure_drive_letters(prefix_dir, "wine", source, source)
+
+        dosdevices = prefix_dir / "dosdevices"
+        assert not (dosdevices / "z:").exists()
+        assert (dosdevices / "d:").resolve() == source.resolve()
+        assert not (prefix_dir / "drive_c" / runner._SOURCE_LINK_NAME).exists()
+
+    def test_links_the_source_into_c_without_a_disc_source(self, tmp_path):
+        # A plain single-file install (most of the library): no archive was
+        # extracted, so there's no real "disc" to stand d: in for - but it
+        # still needs to be reachable purely through c:, now that z: is gone.
+        prefix_dir = self._prefix(tmp_path)
+        source = tmp_path / "library" / "game"
+        source.mkdir(parents=True)
+
+        runner._configure_drive_letters(prefix_dir, "wine", source, None)
+
+        dosdevices = prefix_dir / "dosdevices"
+        assert not (dosdevices / "z:").exists()
+        assert not (dosdevices / "d:").exists()
+        assert not (dosdevices / "a:").exists()
+        assert sorted(p.name for p in dosdevices.iterdir()) == ["c:"]
+        source_link = prefix_dir / "drive_c" / runner._SOURCE_LINK_NAME
+        assert source_link.resolve() == source.resolve()
+
+    def test_proton_looks_under_pfx(self, tmp_path):
+        prefix_dir = tmp_path / "prefix"
+        dosdevices = prefix_dir / "pfx" / "dosdevices"
+        dosdevices.mkdir(parents=True)
+        (prefix_dir / "pfx" / "drive_c").mkdir()
+        (dosdevices / "z:").symlink_to("/")
+        source = tmp_path / "src"
+        source.mkdir()
+
+        runner._configure_drive_letters(
+            prefix_dir, "/opt/proton/GE-Proton/proton", source, source
+        )
+
+        assert not (dosdevices / "z:").exists()
+        assert (dosdevices / "d:").is_symlink()
+
+    def test_missing_z_is_not_an_error(self, tmp_path):
+        prefix_dir = self._prefix(tmp_path)
+        (prefix_dir / "dosdevices" / "z:").unlink()
+        source = tmp_path / "src"
+        source.mkdir()
+
+        runner._configure_drive_letters(prefix_dir, "wine", source, source)
+
+        assert (prefix_dir / "dosdevices" / "d:").is_symlink()
+
+    def test_rerunning_replaces_stale_links(self, tmp_path):
+        # ensure_session_cache_dir/load_baseline reuse an existing prefix
+        # across retries - neither link may fail on its own leftovers, in
+        # either direction (a new source, or no disc source this time).
+        prefix_dir = self._prefix(tmp_path)
+        old_source = tmp_path / "old-src"
+        old_source.mkdir()
+        new_source = tmp_path / "new-src"
+        new_source.mkdir()
+
+        runner._configure_drive_letters(prefix_dir, "wine", old_source, old_source)
+        runner._configure_drive_letters(prefix_dir, "wine", new_source, new_source)
+        assert (prefix_dir / "dosdevices" / "d:").resolve() == new_source.resolve()
+
+        runner._configure_drive_letters(prefix_dir, "wine", new_source, None)
+        assert not (prefix_dir / "dosdevices" / "d:").exists()
+        source_link = prefix_dir / "drive_c" / runner._SOURCE_LINK_NAME
+        assert source_link.resolve() == new_source.resolve()
+
+        runner._configure_drive_letters(prefix_dir, "wine", old_source, old_source)
+        assert (prefix_dir / "dosdevices" / "d:").resolve() == old_source.resolve()
+        assert not source_link.exists()
+
+
+class TestWindowsInstallerPath:
+    """Regression coverage for the bug _SOURCE_LINK_NAME/d: exist to fix:
+    _run_install used to pass the installer's bare Unix path straight to
+    Wine, which can only resolve one through z: (the whole host
+    filesystem) - the very drive _configure_drive_letters removes. Without
+    a translated, Wine-native path to launch instead, removing z: there
+    would have just made every install fail to even start.
+    """
+
+    def test_disc_source_resolves_through_d(self):
+        root = Path("/library/game")
+        installer = root / "SETUP.EXE"
+
+        assert runner._windows_installer_path(installer, root, root) == "D:\\SETUP.EXE"
+
+    def test_nested_disc_path_keeps_its_subfolders(self):
+        root = Path("/library/game")
+        installer = root / "bin" / "install.exe"
+
+        assert (
+            runner._windows_installer_path(installer, root, root)
+            == "D:\\bin\\install.exe"
+        )
+
+    def test_no_disc_source_resolves_through_c_romm_source(self):
+        root = Path("/library/game")
+        installer = root / "setup.exe"
+
+        assert runner._windows_installer_path(installer, root, None) == (
+            f"C:\\{runner._SOURCE_LINK_NAME}\\setup.exe"
+        )
+
+
+class TestMarkDDriveAsCdrom:
+    """Regression coverage for a real bug: with d: present but untyped, an
+    installer defaulting its own destination to D:\\Games (thinking it's a
+    normal writable drive) failed outright - d: is read-only, it's meant to
+    stand in for the disc source (see TestConfigureDriveLetters). A real
+    CD-ROM drive would have been skipped as an install target instead.
+    """
+
+    def test_runs_reg_add_wrapped_in_the_sandbox(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            runner, "_wrap_for_sandbox", lambda inner, **kw: ["bwrap", "--", *inner]
+        )
+        monkeypatch.setattr(
+            runner.subprocess, "run", lambda argv, **kw: calls.append((argv, kw))
+        )
+
+        runner._mark_d_drive_as_cdrom(
+            "wine",
+            installer_abs="/library/win/game/setup.exe",
+            work_dir="/cache/1",
+            prefix_dir="/cache/1/prefix",
+            display=":99",
+        )
+
+        argv, kwargs = calls[0]
+        assert argv == [
+            "bwrap",
+            "--",
+            "wine",
+            "reg",
+            "add",
+            r"HKEY_LOCAL_MACHINE\Software\Wine\Drives",
+            "/v",
+            "D:",
+            "/d",
+            "cdrom",
+            "/f",
+        ]
+        assert kwargs["check"] is True
+
+    def test_runs_reg_add_through_proton_run(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(runner, "_wrap_for_sandbox", lambda inner, **kw: inner)
+        monkeypatch.setattr(
+            runner.subprocess, "run", lambda argv, **kw: calls.append(argv)
+        )
+
+        runner._mark_d_drive_as_cdrom(
+            "/opt/proton/GE-Proton/proton",
+            installer_abs="/library/win/game/setup.exe",
+            work_dir="/cache/1",
+            prefix_dir="/cache/1/prefix",
+            display=":99",
+        )
+
+        assert calls[0][:3] == ["/opt/proton/GE-Proton/proton", "run", "reg"]
+
+    def test_a_failure_is_logged_and_swallowed_not_raised(self, monkeypatch):
+        monkeypatch.setattr(runner, "_wrap_for_sandbox", lambda inner, **kw: inner)
+
+        def fail(argv, **kw):
+            raise subprocess.CalledProcessError(1, argv, stderr=b"boom")
+
+        monkeypatch.setattr(runner.subprocess, "run", fail)
+
+        runner._mark_d_drive_as_cdrom(
+            "wine",
+            installer_abs="/library/win/game/setup.exe",
+            work_dir="/cache/1",
+            prefix_dir="/cache/1/prefix",
+            display=":99",
+        )  # must not raise
 
 
 class TestFocusMaintenanceLoop:
@@ -618,6 +875,8 @@ class TestRunInstaller:
         events: list[str] = []
 
         class FakeProc:
+            returncode = 0
+
             def wait(self, timeout=None):
                 events.append("wait")
                 return 0
@@ -641,6 +900,46 @@ class TestRunInstaller:
         assert events[0] == ("popen", ["true"])
         assert "wait" in events
         assert stopped_with == [":50"]
+
+    def test_logs_a_warning_on_a_nonzero_exit_code(self, monkeypatch):
+        # The only signal available after the fact for an installer that
+        # exits on its own, early, with nothing else in the log to say why
+        # - caught live, a real install ending a few seconds after Install
+        # was clicked with no error anywhere.
+        class FakeProc:
+            returncode = 1
+
+            def wait(self, timeout=None):
+                return None
+
+        monkeypatch.setattr(runner.subprocess, "Popen", lambda argv: FakeProc())
+        monkeypatch.setattr(
+            runner, "_focus_maintenance_loop", lambda display, stop: None
+        )
+        warnings: list[str] = []
+        monkeypatch.setattr(runner.log, "warning", warnings.append)
+
+        runner._run_installer(["setup.exe"], ":50")
+
+        assert any("exited with code 1" in w for w in warnings)
+
+    def test_no_warning_on_a_clean_exit(self, monkeypatch):
+        class FakeProc:
+            returncode = 0
+
+            def wait(self, timeout=None):
+                return None
+
+        monkeypatch.setattr(runner.subprocess, "Popen", lambda argv: FakeProc())
+        monkeypatch.setattr(
+            runner, "_focus_maintenance_loop", lambda display, stop: None
+        )
+        warnings: list[str] = []
+        monkeypatch.setattr(runner.log, "warning", warnings.append)
+
+        runner._run_installer(["setup.exe"], ":50")
+
+        assert warnings == []
 
     def test_kills_process_and_reraises_on_timeout(self, monkeypatch):
         class FakeProc:
@@ -841,6 +1140,78 @@ class TestFinalizeInstall:
         with pytest.raises(RuntimeError, match="no files were found"):
             runner._finalize_install(1, prefix_dir, work_dir)
 
+    def test_includes_a_file_written_directly_into_work_dir(
+        self, tmp_path, monkeypatch
+    ):
+        # Regression: an installer that resolves its own location through
+        # z:\\ (see _configure_drive_letters) and writes "next to itself"
+        # lands directly in work_dir, not under drive_c at all - the c:\\
+        # side alone finding nothing must not stop that from surfacing.
+        work_dir, prefix_dir, _drive_c = self._setup(tmp_path, monkeypatch)
+        stray = work_dir / "SomeGame" / "data.bin"
+        stray.parent.mkdir(parents=True)
+        stray.write_bytes(b"payload")
+
+        runner._finalize_install(1, prefix_dir, work_dir)
+
+        from handler.install.manifest import read_manifest
+
+        entries = read_manifest(work_dir)
+        assert entries is not None
+        assert {e.path for e in entries} == {"SomeGame/data.bin"}
+
+    def test_does_not_double_count_c_files_already_relocated_into_work_dir(
+        self, tmp_path, monkeypatch
+    ):
+        # Regression: collect_extra_work_dir_files must run before
+        # _relocate_under moves the drive_c find into work_dir, or it just
+        # re-discovers that same output as if it were new, duplicating it.
+        work_dir, prefix_dir, drive_c = self._setup(tmp_path, monkeypatch)
+        game_file = drive_c / "Program Files" / "MyGame" / "game.exe"
+        game_file.parent.mkdir(parents=True)
+        game_file.write_bytes(b"payload")
+
+        runner._finalize_install(1, prefix_dir, work_dir)
+
+        from handler.install.manifest import read_manifest
+
+        entries = read_manifest(work_dir)
+        assert entries is not None
+        assert len(entries) == 1
+
+    def test_does_not_double_count_a_stale_live_loop_hardlink_at_a_different_path(
+        self, tmp_path, monkeypatch
+    ):
+        # Real bug: resolve_install_root is meant to be resolved once and
+        # held fixed for a whole session (its own docstring says so), but
+        # the live loop and _finalize_install each call it independently -
+        # if the live loop's first scan saw fewer files and picked a
+        # different root than this fresh, complete one does, its hardlink
+        # sits at a *different* relative path than the one this call
+        # relocates the same original file to. A same-content-different-
+        # path file is still the exact same file (a hardlink shares its
+        # inode), so a path-based dedup would miss it and double-count the
+        # game's entire size. Caught live: a real install reporting
+        # bytes_written exactly double the actual game's size.
+        work_dir, prefix_dir, drive_c = self._setup(tmp_path, monkeypatch)
+        game_file = drive_c / "GOG Games" / "MyGame" / "game.exe"
+        game_file.parent.mkdir(parents=True)
+        game_file.write_bytes(b"payload")
+        # The live loop's own earlier hardlink, at the untrimmed root it
+        # resolved on some earlier, less complete scan.
+        stale = work_dir / "GOG Games" / "MyGame" / "game.exe"
+        stale.parent.mkdir(parents=True)
+        stale.hardlink_to(game_file)
+
+        runner._finalize_install(1, prefix_dir, work_dir)
+
+        from handler.install.manifest import read_manifest
+
+        entries = read_manifest(work_dir)
+        assert entries is not None
+        assert len(entries) == 1
+        assert entries[0].path == "MyGame/game.exe"
+
 
 class TestLiveManifestLoop:
     """Regression coverage for a real bug: while an install was still
@@ -886,6 +1257,51 @@ class TestLiveManifestLoop:
         live = read_live_manifest(work_dir)
         assert live is not None
         assert "Some Game/data.bin" in live
+
+    def test_includes_a_file_written_directly_into_work_dir(
+        self, tmp_path, monkeypatch
+    ):
+        # z:\\ can't actually be removed (see _configure_drive_letters), so
+        # an installer that writes "next to itself" into work_dir directly
+        # - never through drive_c at all - must still show up live, not
+        # only once _finalize_install's own end-of-run fallback scan runs.
+        monkeypatch.setattr(runner, "LIVE_MANIFEST_INTERVAL", 0)
+        work_dir, prefix_dir, _drive_c = self._setup(tmp_path)
+        stray = work_dir / "SomeGame" / "data.bin"
+        stray.parent.mkdir(parents=True)
+        stray.write_bytes(b"partial")
+
+        stop = threading.Event()
+        stop.set()
+        runner._live_manifest_loop(work_dir, prefix_dir, frozenset(), stop)
+
+        from handler.install.manifest import read_live_manifest
+
+        live = read_live_manifest(work_dir)
+        assert live is not None
+        assert "SomeGame/data.bin" in live
+
+    def test_does_not_double_count_a_file_already_hardlinked_this_scan(
+        self, tmp_path, monkeypatch
+    ):
+        # The same file must never be sealed twice in one scan just because
+        # it's reachable both as this scan's own fresh drive_c hardlink and
+        # as a "stray work_dir file" by a path-blind view of work_dir.
+        monkeypatch.setattr(runner, "LIVE_MANIFEST_INTERVAL", 0)
+        work_dir, prefix_dir, drive_c = self._setup(tmp_path)
+        game_file = drive_c / "Some Game" / "data.bin"
+        game_file.parent.mkdir(parents=True)
+        game_file.write_bytes(b"partial")
+
+        stop = threading.Event()
+        stop.set()
+        runner._live_manifest_loop(work_dir, prefix_dir, frozenset(), stop)
+
+        from handler.install.manifest import read_live_manifest
+
+        live = read_live_manifest(work_dir)
+        assert live is not None
+        assert list(live.keys()) == ["Some Game/data.bin"]
 
     def test_a_file_keeps_growing_at_its_hardlinked_path_across_scans(
         self, tmp_path, monkeypatch
@@ -957,6 +1373,8 @@ class TestRunInstallerAutoMode:
         started = []
 
         class FakeProc:
+            returncode = 0
+
             def wait(self, timeout=None):
                 return 0
 
