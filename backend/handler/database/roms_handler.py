@@ -40,7 +40,7 @@ from sqlalchemy.orm import (
     selectinload,
     undefer,
 )
-from sqlalchemy.sql.elements import ClauseList, ColumnElement, UnaryExpression
+from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
 
 from config.config_manager import config_manager as cm
@@ -243,6 +243,22 @@ def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
     return fulltext_match(
         *(column.expression for column in ROM_SEARCH_COLUMNS),
         boolean_query=boolean_query,
+    )
+
+
+def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
+    """How well the ROM's name, filename or aliases hold the phrases, words in order."""
+    # Trigram similarity ignores word order, so PostgreSQL checks for the phrase.
+    holds_a_phrase = or_(
+        *(
+            column.icontains(phrase, autoescape=True)
+            for phrase in phrases
+            for column in ROM_SEARCH_COLUMNS
+        )
+    )
+    return DialectCase(
+        postgresql=case((holds_a_phrase, 1), else_=0),
+        mysql=_fulltext_match(" ".join(f'"{phrase}"' for phrase in phrases)),
     )
 
 
@@ -1124,13 +1140,14 @@ class DBRomsHandler(DBBaseHandler):
             return None
         return " ".join(f"+{word}*" for word in words)
 
-    def _build_fulltext_relevance(self, search_term: str) -> str | None:
-        parts: list[str] = []
+    def _build_search_phrases(self, search_term: str) -> list[str]:
+        """The multi-word terms of a search, which relevance ranks by."""
+        phrases: list[str] = []
         for term in search_term.split("|"):
             words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
             if len(words) > 1:
-                parts.append('"' + " ".join(words) + '"')
-        return " ".join(parts) if parts else None
+                phrases.append(" ".join(words))
+        return phrases
 
     def _build_name_conditions(self, terms: Sequence[str]) -> list[Any]:
         """One condition per term, matching it against the ROM's name, filename and aliases."""
@@ -1834,23 +1851,20 @@ class DBRomsHandler(DBBaseHandler):
         # mixed-direction pair forces a filesort.
         tiebreaker = Rom.id.desc() if descending else Rom.id.asc()
 
-        relevance = self._build_fulltext_relevance(search_term) if search_term else None
-        if relevance:
-            relevance_clause = _fulltext_match(relevance).desc()
-            # Only the FULLTEXT engines rank: relevance breaks an explicit sort's
-            # ties, or leads (with name breaking its ties) when no sort is picked.
-            order_clause = DialectCase(
-                postgresql=order_clause,
-                mysql=(
-                    ClauseList(order_clause, relevance_clause)
-                    if order_by
-                    else ClauseList(relevance_clause, order_clause)
-                ),
-            )
+        sort_clauses: list[Any] = [order_clause]
+        phrases = self._build_search_phrases(search_term) if search_term else []
+        if phrases:
+            # Relevance breaks an explicit sort's ties, or leads (with name
+            # breaking its ties) when no sort is picked.
+            relevance_clause = _search_relevance(phrases).desc()
+            if order_by:
+                sort_clauses.append(relevance_clause)
+            else:
+                sort_clauses.insert(0, relevance_clause)
 
         return [
             clause
-            for clause in (nulls_last_clause, order_clause, tiebreaker)
+            for clause in (nulls_last_clause, *sort_clauses, tiebreaker)
             if clause is not None
         ]
 
