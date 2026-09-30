@@ -7,6 +7,7 @@ from urllib.parse import unquote
 import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
+from tests.factories import make_rom
 
 from config.config_manager import MetadataMediaType
 from handler.database import db_collection_handler, db_rom_handler
@@ -425,18 +426,7 @@ def test_get_roms_sorted_by_user_field_keeps_all_roms(
     db_rom_handler.update_rom_user(
         rom_user.id, {"last_played": datetime(2024, 1, 1, tzinfo=timezone.utc)}
     )
-    never_played = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="never_played",
-            slug="never_played",
-            fs_name="never_played.zip",
-            fs_name_no_tags="never_played",
-            fs_name_no_ext="never_played",
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    never_played = make_rom(platform, "never_played")
 
     response = client.get(
         "/api/roms",
@@ -457,18 +447,10 @@ def test_get_roms_sorted_by_user_field_keeps_all_roms(
 def test_get_roms_filter_by_metadata_providers(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):
-    rom_igdb = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="rom_igdb",
-            slug="rom_igdb",
-            fs_name="rom_igdb.zip",
-            fs_name_no_tags="rom_igdb",
-            fs_name_no_ext="rom_igdb",
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            igdb_id=MOCK_IGDB_ID,
-        )
+    rom_igdb = make_rom(
+        platform,
+        "rom_igdb",
+        igdb_id=MOCK_IGDB_ID,
     )
 
     response = client.get(
@@ -502,18 +484,10 @@ def test_get_roms_filter_by_hltb_main_story(
 ):
     """`rom` carries no HowLongToBeat time, so a length range must drop it."""
     ten_hours = 10 * 3600
-    rom_ten_hours = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="rom_ten_hours",
-            slug="rom_ten_hours",
-            fs_name="rom_ten_hours.zip",
-            fs_name_no_tags="rom_ten_hours",
-            fs_name_no_ext="rom_ten_hours",
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            hltb_metadata={"main_story": ten_hours},
-        )
+    rom_ten_hours = make_rom(
+        platform,
+        "rom_ten_hours",
+        hltb_metadata={"main_story": ten_hours},
     )
 
     response = client.get(
@@ -550,19 +524,7 @@ def test_get_roms_filter_by_duplicate(
 ):
     """The gallery's "Versions" filter, which reads `sibling_roms`."""
     siblings = [
-        db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name=name,
-                slug=name,
-                fs_name=f"{name}.zip",
-                fs_name_no_tags=name,
-                fs_name_no_ext=name,
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-                igdb_id=MOCK_IGDB_ID,
-            )
-        )
+        make_rom(platform, name, igdb_id=MOCK_IGDB_ID)
         for name in ("rom_usa", "rom_japan")
     ]
 
@@ -590,20 +552,7 @@ def test_get_rom_sibling_matched_by_two_providers_appears_once(
 ):
     """`sibling_roms` has a row per matching provider; the response has one."""
     roms = [
-        db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name=name,
-                slug=name,
-                fs_name=f"{name}.zip",
-                fs_name_no_tags=name,
-                fs_name_no_ext=name,
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-                igdb_id=MOCK_IGDB_ID,
-                ss_id=MOCK_SS_ID,
-            )
-        )
+        make_rom(platform, name, igdb_id=MOCK_IGDB_ID, ss_id=MOCK_SS_ID)
         for name in ("twin_usa", "twin_japan")
     ]
 
@@ -628,18 +577,10 @@ def test_get_rom_sibling_matched_by_two_providers_appears_once(
 def test_get_roms_filter_by_tags(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):
-    rom_proto = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="rom_proto",
-            slug="rom_proto",
-            fs_name="rom_proto.zip",
-            fs_name_no_tags="rom_proto",
-            fs_name_no_ext="rom_proto",
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            tags=["Proto"],
-        )
+    rom_proto = make_rom(
+        platform,
+        "rom_proto",
+        tags=["Proto"],
     )
 
     response = client.get(
@@ -1381,20 +1322,7 @@ def test_delete_roms_from_fs_nested(
     from pathlib import Path
     from unittest.mock import MagicMock
 
-    from handler.database import db_rom_handler
-    from models.rom import Rom
-
-    nested_rom = Rom(
-        platform_id=platform.id,
-        name="Nested Game",
-        slug="nested-game",
-        fs_name="Nested Game",
-        fs_name_no_tags="Nested Game",
-        fs_name_no_ext="Nested Game",
-        fs_extension="",
-        fs_path=f"{platform.slug}/roms",
-    )
-    nested_rom = db_rom_handler.add_rom(nested_rom)
+    nested_rom = make_rom(platform, "Nested Game", fs_extension="")
 
     mock_path = MagicMock(spec=Path)
     mock_path.is_dir.return_value = True

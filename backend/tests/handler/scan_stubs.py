@@ -2,7 +2,9 @@
 
 from typing import Any
 
-from handler.database import db_platform_handler, db_rom_handler
+from tests.factories import make_rom
+
+from handler.database import db_platform_handler
 from handler.scan_handler import ScanType, scan_rom
 from models.platform import Platform
 from models.rom import Rom
@@ -20,17 +22,14 @@ def add_rom(platform: Platform, fs_name: str, title: str, **overrides: Any) -> R
     """Persist a single-file ROM whose filename tags are already split out."""
     stem, _, extension = fs_name.rpartition(".")
     attrs: dict[str, Any] = {
-        "platform_id": platform.id,
-        "fs_name": fs_name,
         "fs_name_no_tags": title,
-        "fs_name_no_ext": stem,
-        "fs_extension": extension,
         "fs_path": platform.fs_slug,
-        "name": title,
         "fs_size_bytes": 1024,
         "tags": [],
     }
-    return db_rom_handler.add_rom(Rom(**{**attrs, **overrides}))
+    return make_rom(
+        platform, title, fs_stem=stem, fs_extension=extension, **(attrs | overrides)
+    )
 
 
 async def run_scan(

@@ -3,6 +3,7 @@ from typing import TypedDict, cast
 from unittest.mock import MagicMock
 
 import pytest
+from tests.factories import make_rom
 
 from config.config_manager import PLATFORM_MEDIA_DIRS
 from handler.database import db_platform_handler, db_rom_handler
@@ -115,21 +116,17 @@ class TestExportMetadata:
         )
         platform = db_platform_handler.add_platform(platform)
 
-        rom = Rom(
-            platform_id=platform.id,
-            name="Super Mario World",
-            slug="super-mario-world",
-            fs_name="Super Mario World (USA).sfc",
-            fs_name_no_tags="Super Mario World",
-            fs_name_no_ext="Super Mario World (USA)",
+        rom = make_rom(
+            platform,
+            "Super Mario World",
+            fs_stem="Super Mario World (USA)",
             fs_extension="sfc",
-            fs_path="snes/roms",
+            fs_name_no_tags="Super Mario World",
             summary="A classic platformer game.",
             regions=["USA"],
             languages=["en"],
             tags=["Retro"],
         )
-        rom = db_rom_handler.add_rom(rom)
         db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
         db_rom_handler.update_rom(
@@ -174,17 +171,7 @@ class TestExportMetadata:
         platform = Platform(name="NES", slug="nes", fs_slug="nes")
         platform = db_platform_handler.add_platform(platform)
 
-        rom = Rom(
-            platform_id=platform.id,
-            name="Test Game",
-            slug="test-game",
-            fs_name="test.nes",
-            fs_name_no_tags="test",
-            fs_name_no_ext="test",
-            fs_extension="nes",
-            fs_path="nes/roms",
-        )
-        rom = db_rom_handler.add_rom(rom)
+        rom = make_rom(platform, "Test Game", fs_stem="test", fs_extension="nes")
         db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
         # companies order would give developer=Atari / publisher=Artech; the
@@ -241,18 +228,12 @@ class TestExportMetadata:
         platform = Platform(name="NES", slug="nes", fs_slug="nes")
         platform = db_platform_handler.add_platform(platform)
 
-        db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="missing.nes",
-                slug="missing",
-                fs_name="missing.nes",
-                fs_name_no_tags="missing",
-                fs_name_no_ext="missing",
-                fs_extension="nes",
-                fs_path="nes/roms",
-                missing_from_fs=True,
-            )
+        make_rom(
+            platform,
+            "missing.nes",
+            fs_stem="missing",
+            fs_extension="nes",
+            missing_from_fs=True,
         )
 
         parsed = _parse_pegasus(
@@ -266,18 +247,12 @@ class TestExportMetadata:
         platform = Platform(name="NES", slug="nes", fs_slug="nes")
         platform = db_platform_handler.add_platform(platform)
 
-        db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="Boxed Copy",
-                slug="boxed-copy",
-                fs_name="Boxed Copy",
-                fs_name_no_tags="Boxed Copy",
-                fs_name_no_ext="Boxed Copy",
-                fs_extension="",
-                fs_path="nes/roms/.physical",
-                is_physical=True,
-            )
+        make_rom(
+            platform,
+            "Boxed Copy",
+            fs_extension="",
+            fs_path="nes/roms/.physical",
+            is_physical=True,
         )
 
         parsed = _parse_pegasus(
@@ -353,18 +328,12 @@ class TestExportMetadata:
         platform = Platform(name="GBA", slug="gba", fs_slug="gba")
         platform = db_platform_handler.add_platform(platform)
 
-        db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="Test",
-                slug="test",
-                fs_name="test.gba",
-                fs_name_no_tags="test",
-                fs_name_no_ext="test",
-                fs_extension="gba",
-                fs_path="gba/roms",
-                summary="First line.\n\nThird line.",
-            )
+        make_rom(
+            platform,
+            "Test",
+            fs_stem="test",
+            fs_extension="gba",
+            summary="First line.\n\nThird line.",
         )
 
         content = PegasusExporter(local_export=True).export_platform_to_pegasus(
@@ -505,18 +474,13 @@ def snes_platform(admin_user: User) -> Platform:
     platform = db_platform_handler.add_platform(
         Platform(name="Super Nintendo", slug="snes", fs_slug="snes")
     )
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="Super Mario World",
-            slug="super-mario-world",
-            fs_name="Super Mario World (USA).sfc",
-            fs_name_no_tags="Super Mario World",
-            fs_name_no_ext="Super Mario World (USA)",
-            fs_extension="sfc",
-            fs_path="snes/roms",
-            summary="A classic platformer game.",
-        )
+    rom = make_rom(
+        platform,
+        "Super Mario World",
+        fs_stem="Super Mario World (USA)",
+        fs_extension="sfc",
+        fs_name_no_tags="Super Mario World",
+        summary="A classic platformer game.",
     )
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     db_rom_handler.update_rom(
@@ -699,18 +663,13 @@ file: hack.sfc
     ):
         """A block listing the discs of a game folder merges into RomM's entry
         for that folder instead of being duplicated."""
-        rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=snes_platform.id,
-                name="Multi Disc Game",
-                slug="multi-disc-game",
-                fs_name="Multi Disc Game (USA)",
-                fs_name_no_tags="Multi Disc Game",
-                fs_name_no_ext="Multi Disc Game (USA)",
-                fs_extension="",
-                fs_path="snes/roms",
-                multi_file=True,
-            )
+        rom = make_rom(
+            snes_platform,
+            "Multi Disc Game",
+            fs_stem="Multi Disc Game (USA)",
+            fs_extension="",
+            fs_name_no_tags="Multi Disc Game",
+            multi_file=True,
         )
         db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
         _write_metadata(
@@ -838,17 +797,12 @@ asset.wheel: keep-logo.png
         platform = db_platform_handler.add_platform(
             Platform(name="Super Nintendo", slug="snes", fs_slug="snes")
         )
-        rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="Super Mario World",
-                slug="super-mario-world",
-                fs_name="Super Mario World (USA).sfc",
-                fs_name_no_tags="Super Mario World",
-                fs_name_no_ext="Super Mario World (USA)",
-                fs_extension="sfc",
-                fs_path="snes/roms",
-            )
+        rom = make_rom(
+            platform,
+            "Super Mario World",
+            fs_stem="Super Mario World (USA)",
+            fs_extension="sfc",
+            fs_name_no_tags="Super Mario World",
         )
         db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
         db_rom_handler.update_rom(rom.id, rom_fields)
@@ -973,17 +927,13 @@ def structured_platform(tmp_path, monkeypatch, admin_user: User) -> Platform:
     (fs_platform_handler.base_path / platform_fs_path).mkdir(parents=True)
 
     for rel_folder in ("USA", "Disks/Set A"):
-        rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="Zany Golf",
-                slug="zany-golf",
-                fs_name="Zany Golf (USA).2mg",
-                fs_name_no_tags="Zany Golf",
-                fs_name_no_ext="Zany Golf (USA)",
-                fs_extension="2mg",
-                fs_path=f"{platform_fs_path}/{rel_folder}",
-            )
+        rom = make_rom(
+            platform,
+            "Zany Golf",
+            fs_stem="Zany Golf (USA)",
+            fs_extension="2mg",
+            fs_name_no_tags="Zany Golf",
+            fs_path=f"{platform_fs_path}/{rel_folder}",
         )
         db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 

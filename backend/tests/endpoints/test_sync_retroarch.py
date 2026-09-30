@@ -7,11 +7,11 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from redis.exceptions import RedisError
+from tests.factories import make_rom
 
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
-    db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
@@ -460,18 +460,7 @@ class TestRetroArchSyncManifest:
         synced_save: Save,
         other_platform: Platform,
     ):
-        shadowed_rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=other_platform.id,
-                name="test_rom",
-                slug="test_rom_slug_other",
-                fs_name="test_rom.zip",
-                fs_name_no_tags="test_rom",
-                fs_name_no_ext="test_rom",
-                fs_extension="zip",
-                fs_path=f"{other_platform.slug}/roms",
-            )
-        )
+        shadowed_rom = make_rom(other_platform, "test_rom")
         db_save_handler.add_save(
             Save(
                 rom_id=shadowed_rom.id,

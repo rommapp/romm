@@ -8,6 +8,8 @@ memory and writing it back on every read (see #4029).
 from collections.abc import Sequence
 from typing import Any
 
+from tests.factories import make_rom
+
 from handler.database import db_collection_handler, db_rom_handler, db_save_handler
 from models.assets import Save
 from models.collection import Collection, SmartCollection
@@ -24,22 +26,14 @@ def _add_rom(
     manual_metadata: dict[str, Any] | None = None,
     regions: list[str] | None = None,
 ) -> Rom:
-    slug = name.lower().replace(" ", "_")
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=slug,
-            fs_name=f"{slug}.zip",
-            fs_name_no_tags=slug,
-            fs_name_no_ext=slug,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            manual_metadata=manual_metadata or {},
-            regions=regions or [],
-            path_cover_s=cover,
-            path_cover_l=cover,
-        )
+    return make_rom(
+        platform,
+        name,
+        fs_stem=name.lower().replace(" ", "_"),
+        manual_metadata=manual_metadata or {},
+        regions=regions or [],
+        path_cover_s=cover,
+        path_cover_l=cover,
     )
 
 

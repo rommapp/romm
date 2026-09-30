@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
+from tests.factories import make_rom
 
 from endpoints.device import install as device_install
 from endpoints.responses.device.install import InstallRequestSchema, InstallStatus
@@ -203,18 +204,7 @@ class TestCreate:
         platform = db_platform_handler.add_platform(
             Platform(name="Windows", slug="win", fs_slug="win")
         )
-        rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="setup",
-                slug="setup",
-                fs_name="setup.exe",
-                fs_name_no_tags="setup",
-                fs_name_no_ext="setup",
-                fs_extension="exe",
-                fs_path="win/roms",
-            )
-        )
+        rom = make_rom(platform, "setup", fs_extension="exe")
         _add_file(rom, "setup.exe", RomFileCategory.GAME)
 
         response = _create(client, headers, rom.id)

@@ -16,6 +16,7 @@ the sargable form.
 import pytest
 from sqlalchemy import inspect
 from tests.conftest import engine
+from tests.factories import make_rom
 
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams
@@ -33,18 +34,7 @@ def missing_rom(rom: Rom) -> Rom:
 
 @pytest.fixture
 def present_rom(platform: Platform) -> Rom:
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="present_rom",
-            slug="present_rom",
-            fs_name="present_rom.zip",
-            fs_name_no_tags="present_rom",
-            fs_name_no_ext="present_rom",
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    return make_rom(platform, "present_rom")
 
 
 class TestMissingFromFsIndex:

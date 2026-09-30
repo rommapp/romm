@@ -17,6 +17,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from main import app
+from tests.factories import make_rom
 from tests.streaming_stubs import exit_pulls_spawned_inline
 
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
@@ -232,18 +233,7 @@ def _rom_on(slug: str) -> Rom:
     platform = db_platform_handler.add_platform(
         Platform(name=slug, slug=slug, fs_slug=slug)
     )
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=f"{slug}-rom",
-            slug=f"{slug}-rom",
-            fs_name=f"{slug}.zip",
-            fs_name_no_tags=slug,
-            fs_name_no_ext=slug,
-            fs_extension="zip",
-            fs_path=f"{slug}/roms",
-        )
-    )
+    return make_rom(platform, f"{slug}-rom", fs_stem=slug)
 
 
 def _add_rom_file(rom: Rom, file_name: str) -> RomFile:
@@ -1559,18 +1549,7 @@ def test_claim_session_same_container_two_platforms_rejected(
     platform2 = db_platform_handler.add_platform(
         Platform(name="p2", slug="p2_slug", fs_slug="p2_slug")
     )
-    rom2 = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform2.id,
-            name="rom2",
-            slug="rom2",
-            fs_name="rom2.zip",
-            fs_name_no_tags="rom2",
-            fs_name_no_ext="rom2",
-            fs_extension="zip",
-            fs_path=f"{platform2.slug}/roms",
-        )
-    )
+    rom2 = make_rom(platform2, "rom2")
     shared_broker = "http://192.168.1.10:8000"
     with _streaming(
         _container_for(rom, broker_host=shared_broker),
@@ -10296,18 +10275,7 @@ def test_joinable_lists_sessions_for_different_roms(
             fs_slug="other_platform_slug",
         )
     )
-    other_rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=other_platform.id,
-            name="other_rom",
-            slug="other_rom_slug",
-            fs_name="other_rom.zip",
-            fs_name_no_tags="other_rom",
-            fs_name_no_ext="other_rom",
-            fs_extension="zip",
-            fs_path=f"{other_platform.slug}/roms",
-        )
-    )
+    other_rom = make_rom(other_platform, "other_rom")
     db_rom_handler.add_rom_user(rom_id=other_rom.id, user_id=admin_user.id)
 
     container_a = _ws_for(rom)

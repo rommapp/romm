@@ -15,6 +15,7 @@ from hypothesis import settings
 from joserfc import jwt
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
+from tests.factories import make_rom
 
 from adapters.services import response_validation
 from config import ROMM_DB_DRIVER
@@ -286,18 +287,7 @@ def missing_firmware(platform: Platform, add_firmware):
 
 @pytest.fixture
 def rom(admin_user: User, platform: Platform):
-    rom = Rom(
-        platform_id=platform.id,
-        name="test_rom",
-        slug="test_rom_slug",
-        fs_name="test_rom.zip",
-        fs_name_no_tags="test_rom",
-        fs_name_no_ext="test_rom",
-        fs_extension="zip",
-        fs_path=f"{platform.slug}/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
-
+    rom = make_rom(platform, "test_rom", slug="test_rom_slug")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     return rom
@@ -306,18 +296,7 @@ def rom(admin_user: User, platform: Platform):
 @pytest.fixture
 def second_rom(admin_user: User, platform: Platform):
     """A second ROM on the same platform, for tests that scope by ROM."""
-    rom = Rom(
-        platform_id=platform.id,
-        name="test_rom_2",
-        slug="test_rom_slug_2",
-        fs_name="test_rom_2.zip",
-        fs_name_no_tags="test_rom_2",
-        fs_name_no_ext="test_rom_2",
-        fs_extension="zip",
-        fs_path=f"{platform.slug}/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
-
+    rom = make_rom(platform, "test_rom_2", slug="test_rom_slug_2")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     return rom
@@ -343,17 +322,12 @@ def multi_file_rom(admin_user: User, platform: Platform):
     derived from `file.rom.full_path` — the back-reference that must remain
     usable after the handler session closes.
     """
-    rom = Rom(
-        platform_id=platform.id,
-        name="test_multi_file_rom",
-        slug="test_multi_file_rom_slug",
-        fs_name="test_multi_file_rom",
-        fs_name_no_tags="test_multi_file_rom",
-        fs_name_no_ext="test_multi_file_rom",
+    rom = make_rom(
+        platform,
+        "test_multi_file_rom",
         fs_extension="",
-        fs_path=f"{platform.slug}/roms",
+        slug="test_multi_file_rom_slug",
     )
-    rom = db_rom_handler.add_rom(rom)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     folder_path = f"{rom.fs_path}/{rom.fs_name}"

@@ -6,6 +6,7 @@ from unittest.mock import ANY, AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException, status
+from tests.factories import make_rom
 from tests.handler.scan_stubs import add_n64_platform, add_rom
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
@@ -159,14 +160,12 @@ async def test_scan_rom_complete_clears_unselected_metadata(
     )
     platform = db_platform_handler.add_platform(platform)
 
-    rom = Rom(
-        platform_id=platform.id,
-        fs_name="Paper Mario (USA).z64",
-        fs_name_no_tags="Paper Mario",
-        fs_name_no_ext="Paper Mario",
+    rom = make_rom(
+        platform,
+        "Paper Mario",
         fs_extension="z64",
+        fs_name="Paper Mario (USA).z64",
         fs_path="n64/Paper Mario (USA)",
-        name="Paper Mario",
         igdb_id=3340,
         igdb_metadata={"summary": "stale IGDB metadata"},
         ra_id=1234,
@@ -175,7 +174,6 @@ async def test_scan_rom_complete_clears_unselected_metadata(
         fs_size_bytes=1024,
         tags=[],
     )
-    rom = db_rom_handler.add_rom(rom)
 
     async with initialize_context():
         result = await scan_rom(
@@ -302,20 +300,16 @@ async def test_scan_rom_unmatched_fetches_ra_when_id_set_but_no_metadata(
     platform = db_platform_handler.add_platform(platform)
 
     # ROM has ra_id set manually but no ra_metadata (never fetched before)
-    rom = Rom(
-        platform_id=platform.id,
-        fs_name="Jak and Daxter.chd",
-        fs_name_no_tags="Jak and Daxter",
-        fs_name_no_ext="Jak and Daxter",
+    rom = make_rom(
+        platform,
+        "Jak and Daxter",
         fs_extension="chd",
         fs_path="ps2",
-        name="Jak and Daxter",
         ra_id=2774,
         ra_metadata={},  # empty - never fetched
         fs_size_bytes=1024,
         tags=[],
     )
-    rom = db_rom_handler.add_rom(rom)
 
     async with initialize_context():
         result = await scan_rom(
@@ -364,20 +358,16 @@ async def test_scan_rom_unmatched_skips_ra_when_id_and_metadata_exist(
     platform = db_platform_handler.add_platform(platform)
 
     # ROM has both ra_id and ra_metadata populated
-    rom = Rom(
-        platform_id=platform.id,
-        fs_name="Jak and Daxter.chd",
-        fs_name_no_tags="Jak and Daxter",
-        fs_name_no_ext="Jak and Daxter",
+    rom = make_rom(
+        platform,
+        "Jak and Daxter",
         fs_extension="chd",
         fs_path="ps2",
-        name="Jak and Daxter",
         ra_id=2774,
         ra_metadata={"achievements_count": 60},  # already populated
         fs_size_bytes=1024,
         tags=[],
     )
-    rom = db_rom_handler.add_rom(rom)
 
     async with initialize_context():
         result = await scan_rom(
@@ -429,18 +419,15 @@ async def test_scan_rom_unmatched_replaces_placeholder_name(
     platform = db_platform_handler.add_platform(platform)
 
     # Never-matched ROM: name defaults to the raw filename and no provider ids set.
-    rom = Rom(
-        platform_id=platform.id,
-        fs_name="Snow Brothers (USA).zip",
+    rom = make_rom(
+        platform,
+        "Snow Brothers (USA).zip",
+        fs_stem="Snow Brothers (USA)",
         fs_name_no_tags="Snow Brothers",
-        fs_name_no_ext="Snow Brothers (USA)",
-        fs_extension="zip",
         fs_path="n64/Snow Brothers (USA)",
-        name="Snow Brothers (USA).zip",
         fs_size_bytes=1024,
         tags=[],
     )
-    rom = db_rom_handler.add_rom(rom)
 
     async with initialize_context():
         result = await scan_rom(
@@ -489,18 +476,15 @@ async def test_scan_rom_unmatched_preserves_custom_name(
     platform = db_platform_handler.add_platform(platform)
 
     # ROM with a custom name that differs from its filename.
-    rom = Rom(
-        platform_id=platform.id,
-        fs_name="Snow Brothers (USA).zip",
+    rom = make_rom(
+        platform,
+        "My Custom Title",
+        fs_stem="Snow Brothers (USA)",
         fs_name_no_tags="Snow Brothers",
-        fs_name_no_ext="Snow Brothers (USA)",
-        fs_extension="zip",
         fs_path="n64/Snow Brothers (USA)",
-        name="My Custom Title",
         fs_size_bytes=1024,
         tags=[],
     )
-    rom = db_rom_handler.add_rom(rom)
 
     async with initialize_context():
         result = await scan_rom(
@@ -545,18 +529,15 @@ async def test_scan_rom_unmatched_no_match_uses_parsed_name(
     platform = db_platform_handler.add_platform(platform)
 
     # Legacy ROM created before the fix: name holds the raw filename.
-    rom = Rom(
-        platform_id=platform.id,
-        fs_name="Snow Brothers (USA).zip",
+    rom = make_rom(
+        platform,
+        "Snow Brothers (USA).zip",
+        fs_stem="Snow Brothers (USA)",
         fs_name_no_tags="Snow Brothers",
-        fs_name_no_ext="Snow Brothers (USA)",
-        fs_extension="zip",
         fs_path="n64/Snow Brothers (USA)",
-        name="Snow Brothers (USA).zip",
         fs_size_bytes=1024,
         tags=[],
     )
-    rom = db_rom_handler.add_rom(rom)
 
     async with initialize_context():
         result = await scan_rom(
@@ -771,20 +752,18 @@ async def test_scan_rom_hashes_rematches_hasheous(
     platform = db_platform_handler.add_platform(platform)
 
     # ROM that never matched Hasheous because its hashes were wrong.
-    rom = Rom(
-        platform_id=platform.id,
-        fs_name="Snow Brothers (USA).7z",
-        fs_name_no_tags="Snow Brothers",
-        fs_name_no_ext="Snow Brothers (USA)",
+    rom = make_rom(
+        platform,
+        "My Custom Title",
+        fs_stem="Snow Brothers (USA)",
         fs_extension="7z",
+        fs_name_no_tags="Snow Brothers",
         fs_path="n64/Snow Brothers (USA)",
-        name="My Custom Title",
         hasheous_id=None,
         hasheous_metadata={},
         fs_size_bytes=1024,
         tags=[],
     )
-    rom = db_rom_handler.add_rom(rom)
 
     async with initialize_context():
         result = await scan_rom(
@@ -817,20 +796,17 @@ async def test_scan_rom_hashes_rematches_hasheous(
 def _stale_hasheous_rom(platform: Platform) -> Rom:
     """A ROM carrying a Hasheous match (and its verification flags) earned by
     hashes it is about to lose."""
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            fs_name="Snow Brothers (USA).7z",
-            fs_name_no_tags="Snow Brothers",
-            fs_name_no_ext="Snow Brothers (USA)",
-            fs_extension="7z",
-            fs_path="n64/Snow Brothers (USA)",
-            name="Snow Bros.",
-            hasheous_id=999,
-            hasheous_metadata={"nointro_match": True, "ra_match": True},
-            fs_size_bytes=1024,
-            tags=[],
-        )
+    return make_rom(
+        platform,
+        "Snow Bros.",
+        fs_stem="Snow Brothers (USA)",
+        fs_extension="7z",
+        fs_name_no_tags="Snow Brothers",
+        fs_path="n64/Snow Brothers (USA)",
+        hasheous_id=999,
+        hasheous_metadata={"nointro_match": True, "ra_match": True},
+        fs_size_bytes=1024,
+        tags=[],
     )
 
 
@@ -968,19 +944,16 @@ async def test_scan_rom_marks_an_ra_hash_match_hasheous_cannot_see(
             hasheous_id=20,
         )
     )
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            fs_name="Game (USA).7z",
-            fs_name_no_tags="Game",
-            fs_name_no_ext="Game (USA)",
-            fs_extension="7z",
-            fs_path="nds",
-            name="Game",
-            ra_hash="fedcba9876543210fedcba9876543210",
-            fs_size_bytes=1024,
-            tags=[],
-        )
+    rom = make_rom(
+        platform,
+        "Game",
+        fs_stem="Game (USA)",
+        fs_extension="7z",
+        fs_name_no_tags="Game",
+        fs_path="nds",
+        ra_hash="fedcba9876543210fedcba9876543210",
+        fs_size_bytes=1024,
+        tags=[],
     )
 
     async with initialize_context():
@@ -1102,21 +1075,18 @@ async def test_scan_rom_hashes_drops_an_ra_hash_match_the_new_hash_lost(
     platform = db_platform_handler.add_platform(
         Platform(id=1, slug="nds", fs_slug="nds", name="Nintendo DS", ra_id=18)
     )
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            fs_name="Game (USA).nds",
-            fs_name_no_tags="Game",
-            fs_name_no_ext="Game (USA)",
-            fs_extension="nds",
-            fs_path="nds",
-            name="Game",
-            ra_id=17353,
-            ra_hash="fedcba9876543210fedcba9876543210",
-            ra_metadata={"achievements": [], "hash_match": True},
-            fs_size_bytes=1024,
-            tags=[],
-        )
+    rom = make_rom(
+        platform,
+        "Game",
+        fs_stem="Game (USA)",
+        fs_extension="nds",
+        fs_name_no_tags="Game",
+        fs_path="nds",
+        ra_id=17353,
+        ra_hash="fedcba9876543210fedcba9876543210",
+        ra_metadata={"achievements": [], "hash_match": True},
+        fs_size_bytes=1024,
+        tags=[],
     )
 
     async with initialize_context():
