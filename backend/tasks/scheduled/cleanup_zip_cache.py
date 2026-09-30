@@ -1,3 +1,4 @@
+from config import ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE, SCHEDULED_CLEANUP_ZIP_CACHE_CRON
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
 from utils.zip_cache import cleanup_stale_zips
@@ -9,9 +10,9 @@ class CleanupZipCacheTask(PeriodicTask):
             title="Scheduled ZIP cache cleanup",
             description="Removes stale cached ZIP files based on tiered TTL",
             task_type=TaskType.CLEANUP,
-            enabled=True,
+            enabled=ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE,
             manual_run=False,
-            cron_string="0 4 * * *",
+            cron_string=SCHEDULED_CLEANUP_ZIP_CACHE_CRON,
         )
 
     async def run(self) -> None:
