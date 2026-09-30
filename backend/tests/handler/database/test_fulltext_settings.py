@@ -66,14 +66,21 @@ def test_postgresql_uses_the_defaults():
     assert fulltext_settings() == DEFAULT_FULLTEXT_SETTINGS
 
 
-def test_falls_back_and_retries_when_the_server_is_unreachable():
+def _engine_connecting(conn: MagicMock) -> MagicMock:
+    engine = MagicMock()
+    engine.engine.name = "mariadb"
+    engine.connect.return_value.__enter__.return_value = conn
+    return engine
+
+
+def test_skips_fulltext_and_retries_when_the_server_is_unreachable():
     engine = MagicMock()
     engine.engine.name = "mariadb"
     engine.connect.side_effect = OperationalError("SELECT", {}, Exception("2013"))
 
     with patch.object(roms_handler, "sync_engine", engine):
-        assert fulltext_settings() == DEFAULT_FULLTEXT_SETTINGS
-        assert fulltext_settings() == DEFAULT_FULLTEXT_SETTINGS
+        assert fulltext_settings().stopwords is None
+        assert fulltext_settings().stopwords is None
 
     assert engine.connect.call_count == 2
 
@@ -105,14 +112,17 @@ def test_prefers_the_user_stopword_table():
     assert "FROM romm.mine" in str(conn.scalars.call_args.args[0])
 
 
-def test_unreadable_custom_stopwords_skip_fulltext():
+def test_unreadable_custom_stopwords_skip_fulltext_and_retry():
     conn = _conn_reporting(server_table="romm/stopwords")
     conn.scalars.side_effect = OperationalError("SELECT", {}, Exception("1142"))
 
-    settings = read_fulltext_settings(conn)
+    with patch.object(roms_handler, "sync_engine", _engine_connecting(conn)):
+        settings = fulltext_settings()
+        fulltext_settings()
 
     assert settings.stopwords is None
     assert split_fulltext_words(["zelda", "7"], settings) == ([], ["zelda", "7"])
+    assert conn.scalars.call_count == 2
 
 
 def test_disabled_stopwords_leave_none():

@@ -232,7 +232,7 @@ def _nulls_last_ordering(
 class FulltextSettings(NamedTuple):
     min_token_size: int
     max_token_size: int
-    # None when a custom stopword table is unreadable, so FULLTEXT is skipped.
+    # None when the stopwords are unknown, so FULLTEXT is skipped.
     stopwords: frozenset[str] | None
 
 
@@ -284,7 +284,7 @@ DEFAULT_FULLTEXT_SETTINGS = FulltextSettings(
 
 
 def read_fulltext_settings(conn: Connection) -> FulltextSettings:
-    """The server's InnoDB full-text settings; raises if its variables can't be read."""
+    """The server's InnoDB full-text settings; raises if they can't be read."""
     min_size, max_size, stopwords_enabled, user_table, server_table = conn.execute(
         text(
             "SELECT @@innodb_ft_min_token_size, @@innodb_ft_max_token_size,"
@@ -304,9 +304,11 @@ def read_fulltext_settings(conn: Connection) -> FulltextSettings:
         try:
             stopwords = frozenset(word.lower() for word in conn.scalars(query) if word)
         except SQLAlchemyError as exc:
-            # MySQL needs PROCESS for INNODB_FT_DEFAULT_STOPWORD.
-            log.warning(f"Can't read the full-text stopwords: {exc}")
-            stopwords = None if custom_table else DEFAULT_FULLTEXT_SETTINGS.stopwords
+            if custom_table:
+                raise
+            # MySQL needs PROCESS for INNODB_FT_DEFAULT_STOPWORD, which holds these.
+            log.warning(f"Using InnoDB's default full-text stopwords: {exc}")
+            stopwords = DEFAULT_FULLTEXT_SETTINGS.stopwords
     return FulltextSettings(int(min_size), int(max_size), stopwords)
 
 
@@ -317,15 +319,15 @@ def _server_fulltext_settings() -> FulltextSettings:
 
 
 def fulltext_settings() -> FulltextSettings:
-    """The server's InnoDB full-text settings, or InnoDB's defaults."""
+    """The server's InnoDB full-text settings, or unknown stopwords while unreadable."""
     if is_postgresql(sync_engine):
         return DEFAULT_FULLTEXT_SETTINGS
     try:
         return _server_fulltext_settings()
     except SQLAlchemyError as exc:
         # Left uncached, so a transient failure is retried on the next search.
-        log.warning(f"Using InnoDB's default full-text settings: {exc}")
-        return DEFAULT_FULLTEXT_SETTINGS
+        log.warning(f"Can't read the full-text settings: {exc}")
+        return DEFAULT_FULLTEXT_SETTINGS._replace(stopwords=None)
 
 
 def split_fulltext_words(
