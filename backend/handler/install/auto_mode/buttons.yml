@@ -168,6 +168,17 @@ buttons:
       - "Press any key to continue"
       - "Press space to continue"
       - "Premi un tasto per continuare"
+  # Some installers run an archive-integrity check first, in its own small
+  # window titled "Finished" once done - no OCR-visible button of its own
+  # (the window can be taller than the sandbox's fixed resolution and isn't
+  # resizable, so the rest of its chrome may not even be on screen), closed
+  # the same way a person would: Alt+F4. "All files OK" is that tool's own
+  # wording, specific enough not to fire on a real installer's finish page.
+  - category: key
+    key: "F4"
+    alt: true
+    labels:
+      - "All files OK"
   - category: deny
     labels:
       - "Cancel"

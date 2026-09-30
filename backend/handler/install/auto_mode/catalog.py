@@ -39,6 +39,10 @@ class ButtonEntry:
     toggle: bool = False
     # ``key`` entries: xdotool key name pressed when the label is on screen.
     key: str | None = None
+    # ``key`` entries only: send the key combined with Alt (e.g. Alt+F4 to
+    # close a window that has no OCR-visible button of its own), instead of
+    # the bare key a text prompt like "Press Enter to continue" needs.
+    key_alt: bool = False
     # Only used once the install has written files (e.g. "Exit" must never be
     # pressed on a start screen).
     late: bool = False
@@ -72,6 +76,7 @@ def _parse_entry(raw: dict) -> ButtonEntry | None:
         mnemonic=str(mnemonic).lower()[:1] if mnemonic else None,
         toggle=bool(raw.get("toggle", False)) and category in _TOGGLE_CATEGORIES,
         key=str(raw["key"]) if category == "key" and raw.get("key") else None,
+        key_alt=bool(raw.get("alt", False)) and category == "key",
         late=bool(raw.get("late", False)),
     )
 

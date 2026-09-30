@@ -109,7 +109,10 @@ def plan_action(
 
     _, match, key, attempts = min(ranked, key=lambda r: r[0])
     if match.entry.category == "key":
-        return Action("key", 0, 0, match.entry.key, match, key, alt=False), matches
+        return (
+            Action("key", 0, 0, match.entry.key, match, key, alt=match.entry.key_alt),
+            matches,
+        )
     if attempts >= 1 and match.entry.mnemonic:
         return Action("key", 0, 0, match.entry.mnemonic, match, key), matches
     x, y = match.center

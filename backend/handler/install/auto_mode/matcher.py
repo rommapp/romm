@@ -22,6 +22,11 @@ MIN_WORD_CONF = 30
 # Button and checkbox labels are UI-font sized; a taller match is a page
 # title ("Installation") or artwork text, and clicking it does nothing.
 MAX_LABEL_HEIGHT = 30
+# A real button never appears this many times on one screen. A short,
+# generic label ("OK") repeated past this is a status column in a data
+# table (a file-verification tool's per-row "OK", not a button) - see
+# find_matches's own filtering.
+MAX_PLAUSIBLE_REPEATS = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,7 +159,27 @@ def find_matches(words: list[Word], catalog: Catalog) -> list[Match]:
             found = _match_line(line, line_text, entry)
             if found is not None and found.height <= MAX_LABEL_HEIGHT:
                 matches.append(found)
-    return matches
+    return _drop_implausible_repeats(matches)
+
+
+def _drop_implausible_repeats(matches: list[Match]) -> list[Match]:
+    """Discard every match for a label that showed up too many times.
+
+    Caught live: a file-verification tool's result table, one "OK" per row
+    (975 of them), each individually isolated enough on its own line to
+    read as the "next" button - auto mode clicked one at essentially random
+    coordinates every few seconds, never actually the real control, while
+    reporting "running" the whole time.
+    """
+    counts: dict[tuple[str, str], int] = {}
+    for m in matches:
+        key = (m.entry.category, m.label)
+        counts[key] = counts.get(key, 0) + 1
+    return [
+        m
+        for m in matches
+        if counts[(m.entry.category, m.label)] <= MAX_PLAUSIBLE_REPEATS
+    ]
 
 
 def _match_line(line: list[Word], line_text: str, entry: ButtonEntry) -> Match | None:

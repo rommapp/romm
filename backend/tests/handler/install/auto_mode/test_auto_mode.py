@@ -53,6 +53,18 @@ class TestMatcher:
         matches = find_matches(screen(line("Next >", 300, 400, 1)), CATALOG)
         assert [m.entry.category for m in matches] == ["next"]
 
+    def test_a_status_column_full_of_ok_is_not_dozens_of_buttons(self):
+        # Real false positive: a file-verification tool's result table, one
+        # isolated "OK" per checked-file row - auto mode kept clicking a
+        # different row's coordinates every few seconds, never the real
+        # control, while the install sat there making no progress at all.
+        rows = [line("OK", 600, 40 + i * 15, i + 1) for i in range(20)]
+        assert find_matches(screen(*rows), CATALOG) == []
+        # A couple of genuine repeats (e.g. OCR splitting one button into
+        # two nearby reads) still has to work.
+        few = [line("OK", 600, 40 + i * 15, i + 1) for i in range(2)]
+        assert len(find_matches(screen(*few), CATALOG)) == 2
+
     def test_short_label_inside_body_text_is_not_a_button(self):
         body = line("Il programma si installera nella cartella", 20, 50, 1)
         assert find_matches(screen(body), CATALOG) == []
