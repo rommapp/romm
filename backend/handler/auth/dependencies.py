@@ -15,7 +15,6 @@ Typical use inside a handler::
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
 from fastapi import HTTPException, Request, status
@@ -75,22 +74,6 @@ def assert_can(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions",
         )
-
-
-def require_permission(
-    entity: PermEntity, action: PermAction
-) -> Callable[[Request], ResolvedPermissions]:
-    """FastAPI dependency factory for library-wide gating of a route.
-
-    Returns the resolved permissions so the handler can reuse them.
-    """
-
-    def _dependency(request: Request) -> ResolvedPermissions:
-        perms = get_permissions(request)
-        assert_can(perms, entity, action)
-        return perms
-
-    return _dependency
 
 
 def assert_admin(request: Request) -> ResolvedPermissions:

@@ -1,29 +1,24 @@
 from dataclasses import asdict, dataclass
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from endpoints.responses import MissingRomsCleanupStats
 from handler.database import db_collection_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
-from tasks.tasks import Task, TaskType, update_job_meta
+from tasks.tasks import JobMetaStats, Task, TaskType
 from utils.context import initialize_context
 
 
 @dataclass
-class CleanupMissingRomsStats:
+class CleanupMissingRomsStats(JobMetaStats):
     """Statistics for missing ROMs cleanup operations."""
+
+    meta_key: ClassVar[str] = "cleanup_stats"
 
     platform_ids: list[int] | None = None
     roms_found: int = 0
     roms_deleted: int = 0
     errors: int = 0
-
-    def update(self, **kwargs: object) -> None:
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-
-        update_job_meta({"cleanup_stats": self.to_dict()})
 
     def to_dict(self) -> MissingRomsCleanupStats:
         return cast(MissingRomsCleanupStats, asdict(self))

@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections.abc import Iterable
 from enum import Enum
-from typing import Any, Final, Literal, NotRequired, TypedDict, TypeIs, get_args
+from typing import Any, Final, Literal, TypedDict, TypeIs, get_args
 
 import httpx2
 import yarl
@@ -21,16 +21,6 @@ from utils.rate_limiter import RateLimiter
 PLAYMATCH_MAX_REQUESTS_PER_SECOND: Final[float] = 4
 PLAYMATCH_MAX_REQUEST_ATTEMPTS: Final[int] = 2
 _rate_limiter = RateLimiter(PLAYMATCH_MAX_REQUESTS_PER_SECOND)
-
-
-class PlaymatchProvider(str, Enum):
-    IGDB = "IGDB"
-    STEAM_GRID_DB = "SteamGridDB"
-    SCREEN_SCRAPER = "ScreenScraper"
-    MOBY_GAMES = "MobyGames"
-    LAUNCH_BOX = "LaunchBox"
-    EMU_READY = "EmuReady"
-    OPEN_VGDB = "OpenVGDB"
 
 
 # Tag is the uppercased Playmatch MetadataProvider name.
@@ -92,16 +82,6 @@ class GameMatchType(str, Enum):
     CRC = "CRC"
     FILE_NAME_AND_SIZE = "FileNameAndSize"
     NO_MATCH = "NoMatch"
-
-
-class PlaymatchExternalMetadata(TypedDict):
-    automaticMatchReason: NotRequired[str]
-    comment: NotRequired[str]
-    failedMatchReason: NotRequired[str]
-    manualMatchType: NotRequired[str]
-    matchType: NotRequired[str]
-    providerId: NotRequired[str]
-    providerName: NotRequired[str]
 
 
 class PlaymatchRomMatch(TypedDict):

@@ -2024,11 +2024,9 @@ Exception
 ├── CollectionNotFoundInDatabaseException  # 404
 ├── CollectionPermissionError              # 403
 ├── CollectionAlreadyExistsException       # 500
-├── RomNotFoundInRetroAchievementsException # 404
 ├── SGDBInvalidAPIKeyException             # 401
 │
 ├── FolderStructureNotMatchException  # Invalid library layout
-├── PlatformNotFoundException         # Platform not found in FS
 ├── PlatformAlreadyExistsException    # Duplicate platform
 ├── RomsNotFoundException             # No ROMs for platform
 ├── RomAlreadyExistsException         # Duplicate ROM

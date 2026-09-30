@@ -1,7 +1,8 @@
 import asyncio
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx2
 from rq import get_current_job
@@ -131,6 +132,22 @@ def update_job_meta(metadata: dict[str, Any]) -> None:
     except Exception as e:
         # Silently fail if we can't update meta (e.g., not running in RQ context)
         log.debug(f"Could not update job meta: {e}")
+
+
+class JobMetaStats(ABC):
+    """Task counters mirrored into the RQ job meta under `meta_key`."""
+
+    meta_key: ClassVar[str]
+
+    def update(self, **kwargs: object) -> None:
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
+        update_job_meta({self.meta_key: self.to_dict()})
+
+    @abstractmethod
+    def to_dict(self) -> Mapping[str, object]: ...
 
 
 class TaskType(str, Enum):

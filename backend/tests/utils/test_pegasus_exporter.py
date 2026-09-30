@@ -418,24 +418,7 @@ class TestCollectAssets:
         assert assets[expected_pegasus_key] == f
 
 
-class TestCopyAndEntry:
-    def test_copy_asset(self, tmp_path):
-        source = tmp_path / "source.png"
-        source.write_bytes(b"data")
-        dest = tmp_path / "out" / "dest.png"
-
-        assert PegasusExporter(local_export=True)._copy_asset(source, dest)
-        assert dest.read_bytes() == b"data"
-
-    def test_copy_asset_skips_existing(self, tmp_path):
-        source = tmp_path / "source.png"
-        source.write_bytes(b"new")
-        dest = tmp_path / "dest.png"
-        dest.write_bytes(b"old")
-
-        assert PegasusExporter(local_export=True)._copy_asset(source, dest)
-        assert dest.read_bytes() == b"old"
-
+class TestGameEntry:
     def test_game_entry_with_assets(self):
         metadatum = MagicMock()
         metadatum.companies = metadatum.genres = metadatum.player_count = None

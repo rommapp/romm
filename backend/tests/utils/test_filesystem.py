@@ -11,6 +11,7 @@ from hypothesis import strategies as st
 from utils.filesystem import (
     join_rel_path,
     link_or_copy_file,
+    place_export_asset,
     rel_platform_folder,
     sanitize_filename,
 )
@@ -189,6 +190,39 @@ class TestLinkOrCopyFile:
         assert args[0] == source
         assert args[1].parent == dest.parent
         assert args[1].name.startswith(".romm_link_tmp_")
+
+
+class TestPlaceExportAsset:
+    def test_places_asset_in_new_directory(self, tmp_path):
+        source = tmp_path / "source.png"
+        source.write_bytes(b"data")
+        dest = tmp_path / "out" / "dest.png"
+
+        assert place_export_asset(source, dest)
+        assert dest.read_bytes() == b"data"
+
+    def test_keeps_existing_dest(self, tmp_path):
+        source = tmp_path / "source.png"
+        source.write_bytes(b"new")
+        dest = tmp_path / "dest.png"
+        dest.write_bytes(b"old")
+
+        assert place_export_asset(source, dest)
+        assert dest.read_bytes() == b"old"
+
+    def test_missing_source_leaves_no_directory(self, tmp_path):
+        dest = tmp_path / "out" / "dest.png"
+
+        assert not place_export_asset(tmp_path / "missing.png", dest)
+        assert not dest.parent.exists()
+
+    def test_copy_failure_returns_false(self, tmp_path):
+        source = tmp_path / "source.png"
+        source.write_bytes(b"data")
+        dest = tmp_path / "dest.png"
+
+        with patch("utils.filesystem.link_or_copy_file", side_effect=OSError):
+            assert not place_export_asset(source, dest)
 
 
 class TestSanitizeFilename:
