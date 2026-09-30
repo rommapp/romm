@@ -127,7 +127,7 @@ class TestPurgeSuperseded:
         deleted = []
         fake = SimpleNamespace(
             get_sessions_for_rom=lambda rom_id: [
-                SimpleNamespace(id=i, state=st) for i, st in rows.items()
+                SimpleNamespace(id=i, state=st, user_id=7) for i, st in rows.items()
             ],
             delete_session=deleted.append,
         )
@@ -136,8 +136,35 @@ class TestPurgeSuperseded:
         monkeypatch.setattr(db, "db_install_session_handler", fake)
         for i in rows:
             ensure_session_cache_dir(i)
-        removed = install_cache.purge_superseded_sessions(10, keep_session_id=4)
+        removed = install_cache.purge_superseded_sessions(
+            10, keep_session_id=4, owner_user_id=7
+        )
         assert removed == 2
         assert sorted(deleted) == [1, 2]
         assert not session_cache_dir(1).exists()
         assert session_cache_dir(3).exists() and session_cache_dir(4).exists()
+
+    def test_never_touches_a_different_users_session(self, cache_root, monkeypatch):
+        from types import SimpleNamespace
+
+        from models.install_session import InstallSessionState as S
+
+        deleted = []
+        fake = SimpleNamespace(
+            get_sessions_for_rom=lambda rom_id: [
+                SimpleNamespace(id=1, state=S.DONE, user_id=7),
+                SimpleNamespace(id=2, state=S.DONE, user_id=8),
+            ],
+            delete_session=deleted.append,
+        )
+        import handler.database as db
+
+        monkeypatch.setattr(db, "db_install_session_handler", fake)
+        for i in (1, 2):
+            ensure_session_cache_dir(i)
+        removed = install_cache.purge_superseded_sessions(
+            10, keep_session_id=99, owner_user_id=7
+        )
+        assert removed == 0
+        assert deleted == []
+        assert session_cache_dir(2).exists()

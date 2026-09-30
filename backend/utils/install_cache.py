@@ -87,17 +87,25 @@ def cache_root_dirs() -> list[Path]:
 
 
 def purge_superseded_sessions(
-    rom_id: int, keep_session_id: int, only_states: frozenset | None = None
+    rom_id: int,
+    keep_session_id: int,
+    owner_user_id: int,
+    only_states: frozenset | None = None,
 ) -> int:
     """Delete the other sessions (and their caches) of a ROM, so a game keeps
-    at most one install cache. Running sessions are never touched;
-    `only_states` narrows which of the rest are removed."""
+    at most one install cache per user. Running sessions, and sessions owned
+    by a different user, are never touched; `only_states` narrows which of
+    the rest are removed."""
     from handler.database import db_install_session_handler
     from models.install_session import RUNNING_INSTALL_STATES
 
     removed = 0
     for old in db_install_session_handler.get_sessions_for_rom(rom_id):
-        if old.id == keep_session_id or old.state in RUNNING_INSTALL_STATES:
+        if (
+            old.id == keep_session_id
+            or old.state in RUNNING_INSTALL_STATES
+            or old.user_id != owner_user_id
+        ):
             continue
         if only_states is not None and old.state not in only_states:
             continue
