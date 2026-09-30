@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 import pytest
+from tests.factories import make_save
 
 from handler.database import (
     db_device_handler,
@@ -38,18 +39,12 @@ class TestGetSyncsForDeviceAndSaves:
         )
         saves = []
         for i in range(3):
-            s = db_save_handler.add_save(
-                Save(
-                    rom_id=rom.id,
-                    user_id=admin_user.id,
-                    file_name=f"bulk_{i}.sav",
-                    file_name_no_tags=f"bulk_{i}",
-                    file_name_no_ext=f"bulk_{i}",
-                    file_extension="sav",
-                    emulator="emu",
-                    file_path=f"{rom.platform_slug}/saves",
-                    file_size_bytes=100,
-                )
+            s = make_save(
+                rom,
+                admin_user,
+                f"bulk_{i}.sav",
+                emulator="emu",
+                file_size_bytes=100,
             )
             saves.append(s)
             db_device_save_sync_handler.upsert_sync(device.id, s.id)
@@ -94,18 +89,12 @@ class TestGetSyncsForSaves:
         )
         saves = []
         for i in range(3):
-            s = db_save_handler.add_save(
-                Save(
-                    rom_id=rom.id,
-                    user_id=admin_user.id,
-                    file_name=f"multi_{i}.sav",
-                    file_name_no_tags=f"multi_{i}",
-                    file_name_no_ext=f"multi_{i}",
-                    file_extension="sav",
-                    emulator="emu",
-                    file_path=f"{rom.platform_slug}/saves",
-                    file_size_bytes=100,
-                )
+            s = make_save(
+                rom,
+                admin_user,
+                f"multi_{i}.sav",
+                emulator="emu",
+                file_size_bytes=100,
             )
             saves.append(s)
             db_device_save_sync_handler.upsert_sync(device.id, s.id)
@@ -126,19 +115,13 @@ class TestOriginDeviceCascade:
         device = db_device_handler.add_device(
             Device(id="origin-dev", user_id=admin_user.id, name="Origin")
         )
-        save = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="origin_cascade.sav",
-                file_name_no_tags="origin_cascade",
-                file_name_no_ext="origin_cascade",
-                file_extension="sav",
-                emulator="emu",
-                file_path=f"{rom.platform_slug}/saves",
-                file_size_bytes=100,
-                origin_device_id=device.id,
-            )
+        save = make_save(
+            rom,
+            admin_user,
+            "origin_cascade.sav",
+            emulator="emu",
+            file_size_bytes=100,
+            origin_device_id=device.id,
         )
         assert save.origin_device_id == device.id
 
@@ -436,18 +419,12 @@ class TestDeleteSyncsForDevice:
             Device(id="del-dev-1", user_id=admin_user.id)
         )
         for i in range(3):
-            s = db_save_handler.add_save(
-                Save(
-                    rom_id=rom.id,
-                    user_id=admin_user.id,
-                    file_name=f"del_{i}.sav",
-                    file_name_no_tags=f"del_{i}",
-                    file_name_no_ext=f"del_{i}",
-                    file_extension="sav",
-                    emulator="emu",
-                    file_path=f"{rom.platform_slug}/saves",
-                    file_size_bytes=100,
-                )
+            s = make_save(
+                rom,
+                admin_user,
+                f"del_{i}.sav",
+                emulator="emu",
+                file_size_bytes=100,
             )
             db_device_save_sync_handler.upsert_sync(device.id, s.id)
 

@@ -8,9 +8,9 @@ memory and writing it back on every read (see #4029).
 from collections.abc import Sequence
 from typing import Any
 
-from tests.factories import make_rom
+from tests.factories import make_rom, make_save
 
-from handler.database import db_collection_handler, db_rom_handler, db_save_handler
+from handler.database import db_collection_handler, db_rom_handler
 from models.assets import Save
 from models.collection import Collection, SmartCollection
 from models.platform import Platform
@@ -328,18 +328,15 @@ def test_refresh_for_roms_leaves_untouched_collections_alone(
 
 
 def _add_save(rom: Rom, user: User, name: str = "save.sav") -> Save:
-    return db_save_handler.add_save(
-        Save(
-            rom_id=rom.id,
-            user_id=user.id,
-            file_name=name,
-            file_name_no_tags=name,
-            file_name_no_ext=name,
-            file_extension="sav",
-            emulator="test_emulator",
-            file_path="test/saves",
-            file_size_bytes=1.0,
-        )
+    return make_save(
+        rom,
+        user,
+        name,
+        file_name_no_tags=name,
+        file_name_no_ext=name,
+        emulator="test_emulator",
+        file_path="test/saves",
+        file_size_bytes=1.0,
     )
 
 

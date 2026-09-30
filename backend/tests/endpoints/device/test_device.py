@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
+from tests.factories import make_save
 
 from endpoints import device as device_endpoints
 from handler.database import db_device_handler
@@ -550,8 +551,7 @@ class TestDeviceDuplicateHandling:
     def test_allow_existing_with_reset_syncs(
         self, client, access_token: str, admin_user: User, rom
     ):
-        from handler.database import db_device_save_sync_handler, db_save_handler
-        from models.assets import Save
+        from handler.database import db_device_save_sync_handler
 
         existing = db_device_handler.add_device(
             Device(
@@ -562,17 +562,12 @@ class TestDeviceDuplicateHandling:
             )
         )
 
-        save = db_save_handler.add_save(
-            Save(
-                file_name="test.sav",
-                file_name_no_tags="test",
-                file_name_no_ext="test",
-                file_extension="sav",
-                file_path="/saves",
-                file_size_bytes=100,
-                rom_id=rom.id,
-                user_id=admin_user.id,
-            )
+        save = make_save(
+            rom,
+            admin_user,
+            "test.sav",
+            file_path="/saves",
+            file_size_bytes=100,
         )
         db_device_save_sync_handler.upsert_sync(device_id=existing.id, save_id=save.id)
 

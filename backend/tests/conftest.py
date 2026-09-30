@@ -15,7 +15,7 @@ from hypothesis import settings
 from joserfc import jwt
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
-from tests.factories import make_rom
+from tests.factories import make_rom, make_save, make_screenshot, make_state
 
 from adapters.services import response_validation
 from config import ROMM_DB_DRIVER
@@ -30,9 +30,6 @@ from handler.database import (
     db_permission_handler,
     db_platform_handler,
     db_rom_handler,
-    db_save_handler,
-    db_screenshot_handler,
-    db_state_handler,
     db_user_handler,
 )
 from handler.database.base_handler import sync_engine
@@ -352,37 +349,29 @@ def save(rom: Rom, platform: Platform, admin_user: User):
     saves are treated as web-UI / archival backups. Tests that need to
     represent an archival save should use the `archival_save` fixture.
     """
-    save = Save(
-        rom_id=rom.id,
-        user_id=admin_user.id,
-        file_name="test_save.sav",
-        file_name_no_tags="test_save",
-        file_name_no_ext="test_save",
-        file_extension="sav",
+    return make_save(
+        rom,
+        admin_user,
+        "test_save.sav",
         emulator="test_emulator",
         slot="autosave",
         file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )
-    return db_save_handler.add_save(save)
 
 
 @pytest.fixture
 def second_save(second_rom: Rom, platform: Platform, admin_user: User):
     """Slot-bound save on `second_rom`, to check ROM-scoped queries exclude it."""
-    save = Save(
-        rom_id=second_rom.id,
-        user_id=admin_user.id,
-        file_name="test_save_2.sav",
-        file_name_no_tags="test_save_2",
-        file_name_no_ext="test_save_2",
-        file_extension="sav",
+    return make_save(
+        second_rom,
+        admin_user,
+        "test_save_2.sav",
         emulator="test_emulator",
         slot="autosave",
         file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )
-    return db_save_handler.add_save(save)
 
 
 @pytest.fixture
@@ -391,67 +380,50 @@ def archival_save(rom: Rom, platform: Platform, admin_user: User):
 
     These should never appear in negotiate plans.
     """
-    save = Save(
-        rom_id=rom.id,
-        user_id=admin_user.id,
-        file_name="archival.sav",
-        file_name_no_tags="archival",
-        file_name_no_ext="archival",
-        file_extension="sav",
+    return make_save(
+        rom,
+        admin_user,
+        "archival.sav",
         emulator="test_emulator",
         slot=None,
         file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )
-    return db_save_handler.add_save(save)
 
 
 @pytest.fixture
 def state(rom: Rom, platform: Platform, admin_user: User):
-    state = State(
-        rom_id=rom.id,
-        user_id=admin_user.id,
-        file_name="test_state.state",
-        file_name_no_tags="test_state",
-        file_name_no_ext="test_state",
-        file_extension="state",
+    return make_state(
+        rom,
+        admin_user,
+        "test_state.state",
         emulator="test_emulator",
         file_path=f"{platform.slug}/states/test_emulator",
         file_size_bytes=2.0,
     )
-    return db_state_handler.add_state(state)
 
 
 @pytest.fixture
 def second_state(second_rom: Rom, platform: Platform, admin_user: User):
     """State on `second_rom`, to check ROM-scoped queries exclude it."""
-    state = State(
-        rom_id=second_rom.id,
-        user_id=admin_user.id,
-        file_name="test_state_2.state",
-        file_name_no_tags="test_state_2",
-        file_name_no_ext="test_state_2",
-        file_extension="state",
+    return make_state(
+        second_rom,
+        admin_user,
+        "test_state_2.state",
         emulator="test_emulator",
         file_path=f"{platform.slug}/states/test_emulator",
         file_size_bytes=2.0,
     )
-    return db_state_handler.add_state(state)
 
 
 @pytest.fixture
 def screenshot(rom: Rom, platform: Platform, admin_user: User):
-    screenshot = Screenshot(
-        rom_id=rom.id,
-        user_id=admin_user.id,
-        file_name="test_screenshot.png",
-        file_name_no_tags="test_screenshot",
-        file_name_no_ext="test_screenshot",
-        file_extension="png",
-        file_path=f"{platform.slug}/screenshots",
+    return make_screenshot(
+        rom,
+        admin_user,
+        "test_screenshot.png",
         file_size_bytes=3.0,
     )
-    return db_screenshot_handler.add_screenshot(screenshot)
 
 
 @pytest.fixture

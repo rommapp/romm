@@ -7,7 +7,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from redis.exceptions import RedisError
-from tests.factories import make_rom
+from tests import factories
+from tests.factories import make_rom, make_save, make_screenshot
 
 from handler.database import (
     db_deleted_asset_handler,
@@ -86,16 +87,14 @@ def saves_path(admin_user: User, rom: Rom):
 @pytest.fixture
 def synced_save(admin_user: User, rom: Rom, saves_path: str):
     """A save where `saves/Snes9x/test_rom.srm` resolves, unlike the shared fixture's legacy layout."""
-    return db_save_handler.add_save(
-        Save(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="test_rom.srm",
-            file_path=saves_path,
-            file_size_bytes=4,
-            emulator="snes9x",
-            slot=None,
-        )
+    return make_save(
+        rom,
+        admin_user,
+        "test_rom.srm",
+        file_path=saves_path,
+        file_size_bytes=4,
+        emulator="snes9x",
+        slot=None,
     )
 
 
@@ -112,15 +111,13 @@ def states_path(admin_user: User, rom: Rom):
 @pytest.fixture
 def make_state(admin_user: User, rom: Rom, states_path: str):
     def make(file_name: str) -> State:
-        return db_state_handler.add_state(
-            State(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=file_name,
-                file_path=states_path,
-                file_size_bytes=4,
-                emulator="snes9x",
-            )
+        return factories.make_state(
+            rom,
+            admin_user,
+            file_name,
+            file_path=states_path,
+            file_size_bytes=4,
+            emulator="snes9x",
         )
 
     return make
@@ -135,14 +132,12 @@ def synced_state(make_state):
 @pytest.fixture
 def synced_state_screenshot(admin_user: User, rom: Rom, synced_state: State):
     """The `<state file name>.png` screenshot RetroArch syncs next to a state."""
-    return db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name=f"{synced_state.file_name}.png",
-            file_path=sync_handler.state_screenshot_dir(admin_user, rom, "snes9x"),
-            file_size_bytes=8,
-        )
+    return make_screenshot(
+        rom,
+        admin_user,
+        f"{synced_state.file_name}.png",
+        file_path=sync_handler.state_screenshot_dir(admin_user, rom, "snes9x"),
+        file_size_bytes=8,
     )
 
 
@@ -461,21 +456,19 @@ class TestRetroArchSyncManifest:
         other_platform: Platform,
     ):
         shadowed_rom = make_rom(other_platform, "test_rom")
-        db_save_handler.add_save(
-            Save(
+        make_save(
+            shadowed_rom,
+            admin_user,
+            "test_rom.srm",
+            file_path=fs_asset_handler.build_saves_file_path(
+                user=admin_user,
+                platform_fs_slug=other_platform.fs_slug,
                 rom_id=shadowed_rom.id,
-                user_id=admin_user.id,
-                file_name="test_rom.srm",
-                file_path=fs_asset_handler.build_saves_file_path(
-                    user=admin_user,
-                    platform_fs_slug=other_platform.fs_slug,
-                    rom_id=shadowed_rom.id,
-                    emulator="snes9x",
-                ),
-                file_size_bytes=4,
                 emulator="snes9x",
-                slot=None,
-            )
+            ),
+            file_size_bytes=4,
+            emulator="snes9x",
+            slot=None,
         )
 
         response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
@@ -592,20 +585,18 @@ class TestRetroArchSyncStateScreenshots:
     def test_same_named_states_under_two_cores_keep_separate_screenshots(
         self, client, admin_user: User, rom: Rom, synced_state: State
     ):
-        db_state_handler.add_state(
-            State(
+        factories.make_state(
+            rom,
+            admin_user,
+            synced_state.file_name,
+            file_path=fs_asset_handler.build_states_file_path(
+                user=admin_user,
+                platform_fs_slug=rom.platform.fs_slug,
                 rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=synced_state.file_name,
-                file_path=fs_asset_handler.build_states_file_path(
-                    user=admin_user,
-                    platform_fs_slug=rom.platform.fs_slug,
-                    rom_id=rom.id,
-                    emulator="bsnes",
-                ),
-                file_size_bytes=4,
                 emulator="bsnes",
-            )
+            ),
+            file_size_bytes=4,
+            emulator="bsnes",
         )
 
         for core, content in (("Snes9x", b"snes9x-png"), ("bsnes", b"bsnes-png")):
@@ -924,15 +915,13 @@ class TestRetroArchSyncUpload:
         rom: Rom,
         states_path: str,
     ):
-        legacy_state = db_state_handler.add_state(
-            State(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_rom.state",
-                file_path="legacy/states/snes9x",
-                file_size_bytes=4,
-                emulator="snes9x",
-            )
+        legacy_state = factories.make_state(
+            rom,
+            admin_user,
+            "test_rom.state",
+            file_path="legacy/states/snes9x",
+            file_size_bytes=4,
+            emulator="snes9x",
         )
         mock_scan_state.return_value = State(
             file_name="test_rom.state", file_path=states_path, file_size_bytes=8
@@ -1029,17 +1018,15 @@ class TestRetroArchSyncDelete:
         saves_path: str,
     ):
         """A device still holding the save must be told it was deleted, not asked for it."""
-        db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="test_rom.srm",
-                file_path=saves_path,
-                file_size_bytes=4,
-                emulator="snes9x",
-                slot="autosave",
-                content_hash="0123456789abcdef0123456789abcdef",
-            )
+        make_save(
+            rom,
+            admin_user,
+            "test_rom.srm",
+            file_path=saves_path,
+            file_size_bytes=4,
+            emulator="snes9x",
+            slot="autosave",
+            content_hash="0123456789abcdef0123456789abcdef",
         )
 
         response = client.request(
@@ -1268,16 +1255,14 @@ class TestRetroArchSyncPsp:
         disk_path = fs_asset_handler.validate_path(f"{tagged_path}/{tagged_name}")
         disk_path.parent.mkdir(parents=True, exist_ok=True)
         disk_path.write_bytes(zip_bytes)
-        db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=tagged_name,
-                file_path=tagged_path,
-                file_size_bytes=len(zip_bytes),
-                emulator="ppsspp",
-                slot=None,
-            )
+        make_save(
+            rom,
+            admin_user,
+            tagged_name,
+            file_path=tagged_path,
+            file_size_bytes=len(zip_bytes),
+            emulator="ppsspp",
+            slot=None,
         )
 
         response = client.put(
@@ -1314,16 +1299,14 @@ class TestRetroArchSyncPsp:
         zip_bytes = psp._write_bundle({"SAVE.BIN": b"history"})
         disk_path = fs_asset_handler.validate_path(f"{slotted_path}/{slotted_name}")
         disk_path.write_bytes(zip_bytes)
-        db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=slotted_name,
-                file_path=slotted_path,
-                file_size_bytes=len(zip_bytes),
-                emulator="ppsspp",
-                slot="Slot 1",
-            )
+        make_save(
+            rom,
+            admin_user,
+            slotted_name,
+            file_path=slotted_path,
+            file_size_bytes=len(zip_bytes),
+            emulator="ppsspp",
+            slot="Slot 1",
         )
 
         get_data = client.get(

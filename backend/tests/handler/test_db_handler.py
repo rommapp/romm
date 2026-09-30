@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
-from tests.factories import make_rom
+from tests.factories import make_rom, make_save, make_screenshot, make_state
 
 from config import ROMM_DB_DRIVER
 from handler.auth import auth_handler
@@ -949,26 +949,21 @@ def test_users(admin_user):
         )
 
 
-def test_saves(save: Save, platform: Platform, admin_user: User):
-    db_save_handler.add_save(
-        Save(
-            rom_id=save.rom_id,
-            user_id=admin_user.id,
-            file_name="test_save_2.sav",
-            file_name_no_tags="test_save_2",
-            file_name_no_ext="test_save_2",
-            file_extension="sav",
-            emulator="test_emulator",
-            file_path=f"{platform.slug}/saves/test_emulator",
-            file_size_bytes=1.0,
-        )
+def test_saves(save: Save, rom: Rom, platform: Platform, admin_user: User):
+    make_save(
+        rom,
+        admin_user,
+        "test_save_2.sav",
+        emulator="test_emulator",
+        file_path=f"{platform.slug}/saves/test_emulator",
+        file_size_bytes=1.0,
     )
 
-    rom = db_rom_handler.get_rom(save.rom_id)
-    assert rom is not None
-    assert len(rom.saves) == 2
+    refreshed = db_rom_handler.get_rom(save.rom_id)
+    assert refreshed is not None
+    assert len(refreshed.saves) == 2
 
-    new_save = db_save_handler.get_save(user_id=admin_user.id, id=rom.saves[0].id)
+    new_save = db_save_handler.get_save(user_id=admin_user.id, id=refreshed.saves[0].id)
     assert new_save is not None
     assert new_save.file_name == "test_save.sav"
 
@@ -979,30 +974,21 @@ def test_saves(save: Save, platform: Platform, admin_user: User):
 
     db_save_handler.delete_save(new_save.id)
 
-    rom = db_rom_handler.get_rom(save.rom_id)
-    assert rom is not None
-    assert len(rom.saves) == 1
+    refreshed = db_rom_handler.get_rom(save.rom_id)
+    assert refreshed is not None
+    assert len(refreshed.saves) == 1
 
 
-def test_states(state: State, platform: Platform, admin_user: User):
-    db_state_handler.add_state(
-        State(
-            rom_id=state.rom_id,
-            user_id=admin_user.id,
-            file_name="test_state_2.state",
-            file_name_no_tags="test_state_2",
-            file_name_no_ext="test_state_2",
-            file_extension="state",
-            file_path=f"{platform.slug}/states",
-            file_size_bytes=1.0,
-        )
+def test_states(state: State, rom: Rom, admin_user: User):
+    make_state(rom, admin_user, "test_state_2.state", file_size_bytes=1.0)
+
+    refreshed = db_rom_handler.get_rom(id=state.rom_id)
+    assert refreshed is not None
+    assert len(refreshed.states) == 2
+
+    new_state = db_state_handler.get_state(
+        user_id=admin_user.id, id=refreshed.states[0].id
     )
-
-    rom = db_rom_handler.get_rom(id=state.rom_id)
-    assert rom is not None
-    assert len(rom.states) == 2
-
-    new_state = db_state_handler.get_state(user_id=admin_user.id, id=rom.states[0].id)
     assert new_state is not None
     assert new_state.file_name == "test_state.state"
 
@@ -1013,28 +999,17 @@ def test_states(state: State, platform: Platform, admin_user: User):
 
     db_state_handler.delete_state(id=new_state.id)
 
-    rom = db_rom_handler.get_rom(id=state.rom_id)
-    assert rom is not None
-    assert len(rom.states) == 1
+    refreshed = db_rom_handler.get_rom(id=state.rom_id)
+    assert refreshed is not None
+    assert len(refreshed.states) == 1
 
 
-def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: User):
-    db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=screenshot.rom_id,
-            user_id=admin_user.id,
-            file_name="test_screenshot_2.png",
-            file_name_no_tags="test_screenshot_2",
-            file_name_no_ext="test_screenshot_2",
-            file_extension="png",
-            file_path=f"{platform.slug}/screenshots",
-            file_size_bytes=1.0,
-        )
-    )
+def test_screenshots(screenshot: Screenshot, rom: Rom, admin_user: User):
+    make_screenshot(rom, admin_user, "test_screenshot_2.png", file_size_bytes=1.0)
 
-    rom = db_rom_handler.get_rom(screenshot.rom_id)
-    assert rom is not None
-    assert len(rom.screenshots) == 2
+    refreshed = db_rom_handler.get_rom(screenshot.rom_id)
+    assert refreshed is not None
+    assert len(refreshed.screenshots) == 2
 
     # Fetch the original screenshot by its known id; rom.screenshots has no
     # guaranteed order, so indexing into it is nondeterministic across backends.
@@ -1051,9 +1026,9 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
 
     db_screenshot_handler.delete_screenshot(id=new_screenshot.id)
 
-    rom = db_rom_handler.get_rom(id=screenshot.rom_id)
-    assert rom is not None
-    assert len(rom.screenshots) == 1
+    refreshed = db_rom_handler.get_rom(id=screenshot.rom_id)
+    assert refreshed is not None
+    assert len(refreshed.screenshots) == 1
 
 
 def test_filter_by_metadata_providers(rom: Rom, platform: Platform):
