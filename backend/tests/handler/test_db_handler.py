@@ -339,6 +339,10 @@ def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
         ("legend of zelda", {"The Legend of Zelda"}),
         # No word the index holds, so LIKE alone decides.
         ("x-2", {"Final Fantasy X-2"}),
+        # The index holds "dr." as "dr", too short to require.
+        ("dr. mario", {"Dr. Mario"}),
+        # `_` is literal, not a LIKE wildcard.
+        ("x_2", set()),
     ],
 )
 def test_filter_by_search_term_words_fulltext_cannot_index(
@@ -348,6 +352,7 @@ def test_filter_by_search_term_words_fulltext_cannot_index(
         "Final Fantasy 7",
         "Final Fantasy X-2",
         "Final Fantasy",
+        "Dr. Mario",
         "The Legend of Zelda",
         "Zelda II The Adventure of Link",
     ):

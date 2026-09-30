@@ -87,6 +87,8 @@ from utils.database import (
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
     escape_like,
+    is_mariadb,
+    is_mysql,
     is_non_blank,
     release_day_ranges,
     rom_unset_flag_column,
@@ -164,10 +166,13 @@ RUFFLE_SUPPORTED_PLATFORMS = [
 # Used to remove native full-text SQL operators
 FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
 
-# InnoDB's defaults, for when the server's own settings can't be read (MySQL
-# needs PROCESS for its stopword table). The index skips stopwords, so a
-# required `+the*` would match nothing.
+# The tokens InnoDB's parser reads out of a word: "dr." holds only "dr".
+FULLTEXT_TOKEN_REGEX = re.compile(r"\w+(?:'\w+)*")
+
+# InnoDB's defaults, for when the server's settings can't be read. The index
+# skips stopwords, so a required `+the*` would match nothing.
 FULLTEXT_MIN_TOKEN_SIZE = 3
+FULLTEXT_MAX_TOKEN_SIZE = 84
 FULLTEXT_STOPWORDS = frozenset(
     {
         "about",
@@ -256,11 +261,12 @@ def _nulls_last_ordering(
 
 class FulltextSettings(NamedTuple):
     min_token_size: int
+    max_token_size: int
     stopwords: frozenset[str]
 
 
 DEFAULT_FULLTEXT_SETTINGS = FulltextSettings(
-    FULLTEXT_MIN_TOKEN_SIZE, FULLTEXT_STOPWORDS
+    FULLTEXT_MIN_TOKEN_SIZE, FULLTEXT_MAX_TOKEN_SIZE, FULLTEXT_STOPWORDS
 )
 
 
@@ -270,37 +276,55 @@ def _stopword_table(setting: str) -> str:
 
 
 @functools.cache
-def fulltext_settings() -> FulltextSettings:
-    """The server's InnoDB full-text token size and stopwords, read once."""
-    if sync_engine.name not in ("mariadb", "mysql"):
-        return DEFAULT_FULLTEXT_SETTINGS
-    try:
-        with sync_engine.connect() as conn:
-            min_token_size, stopwords_enabled, server_table = conn.execute(
-                text(
-                    "SELECT @@innodb_ft_min_token_size, @@innodb_ft_enable_stopword,"
-                    " @@innodb_ft_server_stopword_table"
-                )
-            ).one()
-            if not stopwords_enabled:
-                return FulltextSettings(int(min_token_size), frozenset())
-            source = (
-                _stopword_table(server_table)
-                if server_table
-                else "information_schema.INNODB_FT_DEFAULT_STOPWORD"
+def _server_fulltext_settings() -> FulltextSettings:
+    """The server's InnoDB full-text settings, read once; raises when unreadable."""
+    with sync_engine.connect() as conn:
+        min_size, max_size, stopwords_enabled, server_table = conn.execute(
+            text(
+                "SELECT @@innodb_ft_min_token_size, @@innodb_ft_max_token_size,"
+                " @@innodb_ft_enable_stopword, @@innodb_ft_server_stopword_table"
             )
-            query = text(f"SELECT value FROM {source}")  # nosec B608
+        ).one()
+        min_token_size, max_token_size = int(min_size), int(max_size)
+        if not stopwords_enabled:
+            return FulltextSettings(min_token_size, max_token_size, frozenset())
+        source = (
+            _stopword_table(server_table)
+            if server_table
+            else "information_schema.INNODB_FT_DEFAULT_STOPWORD"
+        )
+        query = text(f"SELECT value FROM {source}")  # nosec B608
+        try:
             stopwords = conn.scalars(query).all()
-    except SQLAlchemyError as exc:
-        log.warning(f"Using InnoDB's default full-text settings: {exc}")
-        return DEFAULT_FULLTEXT_SETTINGS
+        except SQLAlchemyError as exc:
+            # MySQL needs PROCESS for INNODB_FT_DEFAULT_STOPWORD.
+            log.warning(f"Using InnoDB's default full-text stopwords: {exc}")
+            return FulltextSettings(min_token_size, max_token_size, FULLTEXT_STOPWORDS)
     return FulltextSettings(
-        int(min_token_size), frozenset(word.lower() for word in stopwords)
+        min_token_size,
+        max_token_size,
+        frozenset(word.lower() for word in stopwords if word),
     )
 
 
+def fulltext_settings() -> FulltextSettings:
+    """The server's InnoDB full-text settings, or InnoDB's defaults."""
+    if not (is_mysql(sync_engine) or is_mariadb(sync_engine)):
+        return DEFAULT_FULLTEXT_SETTINGS
+    try:
+        return _server_fulltext_settings()
+    except SQLAlchemyError as exc:
+        # Left uncached, so a transient failure is retried on the next search.
+        log.warning(f"Using InnoDB's default full-text settings: {exc}")
+        return DEFAULT_FULLTEXT_SETTINGS
+
+
 def _name_like(word: str) -> ColumnElement[bool]:
-    return or_(Rom.fs_name.ilike(f"%{word}%"), Rom.name.ilike(f"%{word}%"))
+    pattern = f"%{escape_like(word)}%"
+    return or_(
+        Rom.fs_name.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
+        Rom.name.ilike(pattern, escape=LIKE_ESCAPE_CHAR),
+    )
 
 
 def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
@@ -1190,9 +1214,9 @@ class DBRomsHandler(DBBaseHandler):
         indexed: list[str] = []
         unindexed: list[str] = []
         for word in term.split():
-            pieces = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", word).split()
+            pieces = FULLTEXT_TOKEN_REGEX.findall(word)
             if pieces and all(
-                len(piece) >= settings.min_token_size
+                settings.min_token_size <= len(piece) <= settings.max_token_size
                 and piece.lower() not in settings.stopwords
                 for piece in pieces
             ):
@@ -1219,8 +1243,7 @@ class DBRomsHandler(DBBaseHandler):
                 conditions.append(like)
                 continue
             # PostgreSQL's pg_trgm indexes serve the ILIKE. On MariaDB and MySQL
-            # the FULLTEXT index drives the query, and the words it can't hold
-            # (too short, or stopwords) filter its matches.
+            # FULLTEXT drives the query and LIKE checks the words it can't hold.
             match = _fulltext_match(" ".join(f"+{word}*" for word in indexed))
             conditions.append(
                 DialectCase(
