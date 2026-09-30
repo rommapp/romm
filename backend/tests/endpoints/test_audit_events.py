@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import status
+from fastapi.testclient import TestClient
 
 from handler.auth import oauth_handler
 from handler.database import db_audit_event_handler, db_user_handler
@@ -189,7 +190,9 @@ class TestFilters:
         assert _ids(target) == [zelda.id]
         assert _ids(address) == [from_lan.id]
 
-    def test_search_matches_wildcards_literally(self, client, access_token):
+    def test_search_matches_wildcards_literally(
+        self, client: TestClient, access_token: str
+    ):
         full_run = _add(None, target_name="100% run")
         _add(None, target_name="1000 coins")
 
