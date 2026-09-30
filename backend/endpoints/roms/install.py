@@ -1,4 +1,5 @@
 import asyncio
+import time
 import zipfile
 from io import BytesIO
 from pathlib import Path
@@ -87,6 +88,7 @@ from models.install_session import (
     InstallSession,
     InstallSessionState,
 )
+from utils.context import ctx_aiohttp_session
 from utils.install_cache import (
     cache_root_dirs,
     clear_session_cache,
@@ -148,6 +150,33 @@ def _session_schema(rom_id: int, session: InstallSession) -> InstallSessionSchem
     if schema.state == InstallSessionState.AWAITING_INSTALLER:
         schema.manual_install_url = f"{ROMM_BASE_URL}/rom/{rom_id}/install"
     return schema
+
+
+_CONCURRENCY_LOCK_KEY = "install:concurrency-reservation"
+_CONCURRENCY_LOCK_TTL_SECONDS = 30
+_CONCURRENCY_LOCK_POLL_INTERVAL_SECONDS = 0.05
+
+
+def _acquire_concurrency_lock(timeout: float = 10.0) -> bool:
+    """A short-lived, coarse mutual-exclusion lock around the
+    count-then-transition below, so two concurrent start requests can't both
+    pass the concurrency check before either reserves its slot.
+
+    Plain ``SET NX EX`` + ``DELETE`` rather than a Lua-script-backed lock
+    (e.g. ``redis_client.lock()``), matching this codebase's other Redis
+    flags: the tiny window where a slow caller's key could be deleted by a
+    later one after its own TTL expired is an accepted trade-off for a
+    concurrency guard that isn't a data-integrity boundary.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        if redis_client.set(
+            _CONCURRENCY_LOCK_KEY, "1", nx=True, ex=_CONCURRENCY_LOCK_TTL_SECONDS
+        ):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(_CONCURRENCY_LOCK_POLL_INTERVAL_SECONDS)
 
 
 def _pick_reusable_session(sessions: list[InstallSession]) -> InstallSession | None:
@@ -274,39 +303,25 @@ async def start_install_session(
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     data: Annotated[InstallStartForm, Body()],
 ) -> InstallSessionSchema:
-    """Create (or return) the install session for a ROM - the single
-    entrypoint every client (web UI, CLI, ...) drives to get from "nothing
-    yet" to "streamable", so they all get the exact same behavior for free
-    instead of each re-implementing it:
+    """Create (or return) the install session for a ROM.
 
-    - Already running (INSTALLING/STREAMING)? Handed back as-is - never
-      starts a second run.
-    - Already installed (latest session is DONE)? A plain POST here still
-      starts a genuinely new attempt (a fresh session, a fresh cache
-      directory) - there's no separate "Reinstall" concept, pressing
-      Install always tries to install. A client that wants "already have
-      it, just stream what's there, don't touch the worker at all" (the
-      CLI's own default behavior) checks `GET /{id}/install` itself first
-      and only calls this when that isn't already DONE - see
-      cli/romm-install-cli.py's own docstring. A client that wants the old
-      cache gone first calls `DELETE /{id}/install` before this, same as
-      always.
-    - No installer chosen? Behaves as if Install was pressed on the web
-      Install page: the top-ranked candidate is used (`pick_default_installer`),
-      including an archive or disc image, whose executable is then picked
-      after unpacking it (`source_path` records the archive). Only a ROM
-      with no candidate at all sits in AWAITING_INSTALLER with
-      `manual_install_url` set - "manual mode": a person has to pick a file
-      through the web Install page.
-    - `manual_mode` forces AWAITING_INSTALLER even when candidates exist,
-      so the user can pick the installer themselves. Does not change the
-      global setting.
-    - `auto_mode` (default from the settings, off unless enabled) makes the
-      worker OCR the installer and press its buttons (see
-      handler.install.auto_mode); it can be flipped later through
-      `PATCH /{id}/install/auto-mode`.
-    - Otherwise (Windows with a resolved path, or any non-Windows ROM): the
-      sandbox runner (or stream-copy) is enqueued immediately.
+    Idempotent: an already-running session (INSTALLING/STREAMING) is
+    returned as-is. Otherwise this always starts a fresh attempt (new
+    session, new cache) even if the ROM was already installed - there is no
+    separate "Reinstall" concept. A client that only wants to resume
+    streaming an already-DONE install without touching the worker should
+    check `GET /{id}/install` itself first instead of calling this.
+
+    With no installer_path/source_path, the top-ranked candidate is picked
+    automatically (`pick_default_installer`, unpacking an archive/disc image
+    first if needed). A ROM with no candidate at all, or `manual_mode=True`,
+    sits in AWAITING_INSTALLER with `manual_install_url` set instead.
+    `auto_mode` (default from Settings) has the worker OCR the installer and
+    press its own buttons; it can be flipped later via
+    `PATCH /{id}/install/auto-mode`.
+
+    Otherwise (Windows with a resolved path, or any non-Windows ROM): the
+    sandbox runner (or stream-copy) is enqueued immediately.
     """
     rom = db_rom_handler.get_rom(id)
     if not rom:
@@ -319,7 +334,11 @@ async def start_install_session(
     running = next((x for x in rom_sessions if x.state in RUNNING_INSTALL_STATES), None)
     if running:
         return _session_schema(rom.id, running)
-    existing = _pick_reusable_session(rom_sessions)
+    # Only this user's own sessions are candidates for reuse - a session (and
+    # its cache) started by someone else is never picked up and reassigned,
+    # even if it's the only one around for this ROM.
+    own_sessions = [x for x in rom_sessions if x.user_id == request.user.id]
+    existing = _pick_reusable_session(own_sessions)
 
     is_installable = rom.platform.slug in INSTALLABLE_PLATFORM_SLUGS
 
@@ -410,8 +429,9 @@ async def start_install_session(
         else:
             db_install_session_handler.delete_session(session.id)
 
-    # Duplicates left by older versions (one cache per attempt).
-    purge_superseded_sessions(rom.id, session.id)
+    # Duplicates left by older versions (one cache per attempt), scoped to
+    # this user - never touches another user's sessions or caches.
+    purge_superseded_sessions(rom.id, session.id, request.user.id)
 
     # A ROM in INSTALLABLE_PLATFORM_SLUGS with a resolved installer can start
     # running immediately; one still awaiting a manual pick stays in
@@ -420,30 +440,46 @@ async def start_install_session(
     if needs_manual_pick:
         return _session_schema(rom.id, session)
 
-    if db_install_session_handler.count_running_sessions() >= INSTALL_MAX_CONCURRENCY:
+    # Checking count_running_sessions() and then transitioning this session
+    # into a running state are two separate steps; without a lock around
+    # both, two concurrent requests can each see room under
+    # INSTALL_MAX_CONCURRENCY and both proceed, together exceeding it (and,
+    # if they share a reused cache, race to overwrite each other's job_id
+    # while both workers write into the same directory). The lock serializes
+    # the whole reserve-and-enqueue critical section across requests.
+    if not _acquire_concurrency_lock():
         _abandon()
         raise InstallConcurrencyLimitException(INSTALL_MAX_CONCURRENCY)
+    try:
+        if (
+            db_install_session_handler.count_running_sessions()
+            >= INSTALL_MAX_CONCURRENCY
+        ):
+            _abandon()
+            raise InstallConcurrencyLimitException(INSTALL_MAX_CONCURRENCY)
 
-    # Without this, enqueueing onto an unattended queue leaves the session
-    # stuck "installing"/"streaming" forever: nothing ever touches its job to
-    # trigger a failure, so the client polls indefinitely for a state change
-    # that will never come.
-    if not has_install_worker():
-        _abandon()
-        raise InstallWorkerUnavailableException()
+        # Without this, enqueueing onto an unattended queue leaves the session
+        # stuck "installing"/"streaming" forever: nothing ever touches its job to
+        # trigger a failure, so the client polls indefinitely for a state change
+        # that will never come.
+        if not has_install_worker():
+            _abandon()
+            raise InstallWorkerUnavailableException()
 
-    if is_installable:
-        job_id = enqueue_install(session.id)
-        session = db_install_session_handler.update_session(
-            session.id,
-            {"state": InstallSessionState.INSTALLING, "job_id": job_id},
-        )
-    else:
-        job_id = enqueue_stream_copy(session.id)
-        session = db_install_session_handler.update_session(
-            session.id,
-            {"state": InstallSessionState.STREAMING, "job_id": job_id},
-        )
+        if is_installable:
+            job_id = enqueue_install(session.id)
+            session = db_install_session_handler.update_session(
+                session.id,
+                {"state": InstallSessionState.INSTALLING, "job_id": job_id},
+            )
+        else:
+            job_id = enqueue_stream_copy(session.id)
+            session = db_install_session_handler.update_session(
+                session.id,
+                {"state": InstallSessionState.STREAMING, "job_id": job_id},
+            )
+    finally:
+        redis_client.delete(_CONCURRENCY_LOCK_KEY)
 
     return _session_schema(rom.id, session)
 
@@ -785,7 +821,7 @@ async def get_proton_download_progress(
 @protected_route(
     router.delete,
     "/install/proton/{build_id}",
-    [Scope.ROMS_INSTALL],
+    [Scope.PLATFORMS_WRITE],
 )
 async def delete_proton_build(
     request: Request,
@@ -1008,7 +1044,11 @@ async def install_vnc_http(
         if k.lower() not in _VNC_PROXY_DROP_REQUEST_HEADERS
     }
 
-    session = aiohttp.ClientSession()
+    # The shared per-request session from utils/context.py, not a fresh
+    # ClientSession per call - this proxy is hit once per noVNC asset, and a
+    # new session (and its own connection pool) for each would add needless
+    # connection/TLS-handshake churn.
+    session = ctx_aiohttp_session.get()
     try:
         upstream_response = await session.request(
             request.method,
@@ -1018,7 +1058,6 @@ async def install_vnc_http(
             data=await request.body(),
         )
     except aiohttp.ClientError as e:
-        await session.close()
         raise InstallWorkerUnavailableException() from e
 
     async def body_stream():
@@ -1027,7 +1066,6 @@ async def install_vnc_http(
                 yield chunk
         finally:
             upstream_response.close()
-            await session.close()
 
     response_headers = {
         k: v
@@ -1085,48 +1123,53 @@ async def install_vnc_ws(
     # which websockify doesn't know about. Strip to just the websockify endpoint.
     upstream_url = f"ws://{INSTALL_WORKER_HOST}:{port}/websockify"
 
-    async with aiohttp.ClientSession() as session:
-        try:
-            async with session.ws_connect(
-                upstream_url,
-                params=list(websocket.query_params.multi_items()),
-                protocols=requested_protocols or (),
-            ) as upstream:
-                await websocket.accept(subprotocol=upstream.protocol)
+    # utils/context.py's shared session, reached directly from app.state:
+    # set_context_middleware (and the ctx_aiohttp_session var it populates)
+    # only runs for the HTTP request/response cycle, not for a websocket
+    # connection, so ctx_aiohttp_session.get() would raise here instead of
+    # returning it - this is the same underlying ClientSession either way.
+    session = websocket.app.state.aiohttp_session
+    try:
+        async with session.ws_connect(
+            upstream_url,
+            params=list(websocket.query_params.multi_items()),
+            protocols=requested_protocols or (),
+        ) as upstream:
+            await websocket.accept(subprotocol=upstream.protocol)
 
-                async def client_to_upstream():
-                    while True:
-                        message = await websocket.receive()
-                        if message["type"] == "websocket.disconnect":
-                            return
-                        if message.get("bytes") is not None:
-                            await upstream.send_bytes(message["bytes"])
-                        elif message.get("text") is not None:
-                            await upstream.send_str(message["text"])
+            async def client_to_upstream():
+                while True:
+                    message = await websocket.receive()
+                    if message["type"] == "websocket.disconnect":
+                        return
+                    if message.get("bytes") is not None:
+                        await upstream.send_bytes(message["bytes"])
+                    elif message.get("text") is not None:
+                        await upstream.send_str(message["text"])
 
-                async def upstream_to_client():
-                    async for message in upstream:
-                        if message.type == aiohttp.WSMsgType.BINARY:
-                            await websocket.send_bytes(message.data)
-                        elif message.type == aiohttp.WSMsgType.TEXT:
-                            await websocket.send_text(message.data)
-                        else:
-                            return
+            async def upstream_to_client():
+                async for message in upstream:
+                    if message.type == aiohttp.WSMsgType.BINARY:
+                        await websocket.send_bytes(message.data)
+                    elif message.type == aiohttp.WSMsgType.TEXT:
+                        await websocket.send_text(message.data)
+                    else:
+                        return
 
-                first_done, pending = await asyncio.wait(
-                    [
-                        asyncio.create_task(client_to_upstream()),
-                        asyncio.create_task(upstream_to_client()),
-                    ],
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-                for task in pending:
-                    task.cancel()
-        except aiohttp.ClientError:
-            log.debug(f"Couldn't reach install-worker VNC bridge on port {port}")
-        finally:
-            if websocket.client_state == WebSocketState.CONNECTED:
-                await websocket.close()
+            first_done, pending = await asyncio.wait(
+                [
+                    asyncio.create_task(client_to_upstream()),
+                    asyncio.create_task(upstream_to_client()),
+                ],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for task in pending:
+                task.cancel()
+    except aiohttp.ClientError:
+        log.debug(f"Couldn't reach install-worker VNC bridge on port {port}")
+    finally:
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.close()
 
 
 @protected_route(
