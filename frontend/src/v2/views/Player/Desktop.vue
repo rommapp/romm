@@ -57,10 +57,8 @@ const claimedAt = ref("");
 
 usePageTitle(() => t("play.desktop-title"));
 
-// While the desktop is open (or opening) the emulator inside it owns the
-// controller, as it does in a game session: the global playing flag mutes
-// useGamepad's UI translation, which would otherwise turn B into
-// history-back and D-pad presses into focus moves behind the stream.
+// The emulator inside the desktop owns the controller, so pad presses must not
+// also drive RomM behind the stream (B would go back and prompt to end it).
 const sessionActive = computed(
   () => state.value === "loading" || state.value === "running",
 );
@@ -68,9 +66,8 @@ usePlayingWhile(sessionActive);
 // With B muted, holding Select+Start is the pad's way to the exit dialog.
 useExitChord(sessionActive, () => void handleExit());
 
-// Set once the view is gone. Leaving while the claim is in flight is allowed
-// (nothing is held yet), so a claim that answers afterwards is handed straight
-// back rather than left standing, unbeaten, until it goes stale.
+// Leaving mid-claim is allowed, so a claim that answers after unmount is handed
+// straight back instead of standing unbeaten until it goes stale.
 let disposed = false;
 
 async function openDesktop(): Promise<void> {

@@ -1,19 +1,11 @@
-// useExitChord: the pad's way out of a streaming session. A stream mutes
-// useGamepad for as long as it owns the controller (launch included), so B
-// can no longer reach the route-leave guard; holding Select+Start is read
-// straight from the Gamepad API instead. Polling through the launch keeps
-// the exit reachable by pad if a claim hangs.
-//
-// The 1.5s hold filters out anything a game itself binds to Select+Start.
-// Only standard-mapped pads participate: elsewhere the Back/Start indices are
-// not guaranteed to be Select+Start.
+// The pad's way out of a stream, which mutes useGamepad (B included) while it
+// owns the controller. The hold outlasts a game's own Select+Start binds.
 import { useIntervalFn } from "@vueuse/core";
 import { toValue, watch, type MaybeRefOrGetter } from "vue";
 import { isUsablePad, PAD_BUTTON } from "@/v2/composables/useGamepad";
 
 const HOLD_MS = 1500;
-// A 1.5s hold needs nowhere near frame resolution, and this runs on the thread
-// compositing the stream for as long as the session lasts.
+// Coarse on purpose: this shares the thread compositing the stream.
 const POLL_MS = 100;
 
 export function useExitChord(
@@ -28,6 +20,7 @@ export function useExitChord(
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const held = Array.from(pads).some(
       (pad) =>
+        // Other mappings don't guarantee the Back/Start indices.
         isUsablePad(pad) &&
         pad.mapping === "standard" &&
         pad.buttons[PAD_BUTTON.back]?.pressed &&
