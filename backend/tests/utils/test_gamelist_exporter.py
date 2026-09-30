@@ -4,6 +4,7 @@ from pathlib import Path
 from xml.etree.ElementTree import fromstring
 
 import pytest
+from tests.factories import make_rom
 
 from config import FRONTEND_RESOURCES_PATH
 from config.config_manager import PLATFORM_MEDIA_DIRS
@@ -15,7 +16,6 @@ from handler.filesystem import (
 )
 from handler.metadata.gamelist_handler import GamelistHandler
 from models.platform import Platform
-from models.rom import Rom
 from models.user import User
 from utils.gamelist_exporter import GamelistExporter
 
@@ -25,22 +25,18 @@ def platform_with_roms(admin_user: User):
     platform = Platform(name="Super Nintendo", slug="snes", fs_slug="snes")
     platform = db_platform_handler.add_platform(platform)
 
-    rom = Rom(
-        platform_id=platform.id,
-        name="Super Mario World",
-        slug="super-mario-world",
-        fs_name="Super Mario World (USA).sfc",
-        fs_name_no_tags="Super Mario World",
-        fs_name_no_ext="Super Mario World (USA)",
+    rom = make_rom(
+        platform,
+        "Super Mario World",
+        fs_stem="Super Mario World (USA)",
         fs_extension="sfc",
-        fs_path="snes/roms",
+        fs_name_no_tags="Super Mario World",
         summary="A classic platformer game.",
         regions=["USA"],
         languages=["en"],
         gamelist_id="12345",
         gamelist_metadata={"player_count": "2"},
     )
-    rom = db_rom_handler.add_rom(rom)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     db_rom_handler.update_rom(
@@ -74,17 +70,7 @@ def platform_with_minimal_rom(admin_user: User):
     platform = Platform(name="Game Boy", slug="gb", fs_slug="gb")
     platform = db_platform_handler.add_platform(platform)
 
-    rom = Rom(
-        platform_id=platform.id,
-        name=None,
-        slug="unknown-rom",
-        fs_name="unknown.gb",
-        fs_name_no_tags="unknown",
-        fs_name_no_ext="unknown",
-        fs_extension="gb",
-        fs_path="gb/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
+    rom = make_rom(platform, "unknown", fs_extension="gb", name=None)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     return platform, [rom]
@@ -217,18 +203,13 @@ def test_export_gamelist_xml_skips_missing_roms(admin_user: User):
     platform = Platform(name="NES", slug="nes", fs_slug="nes")
     platform = db_platform_handler.add_platform(platform)
 
-    rom = Rom(
-        platform_id=platform.id,
-        name="Missing ROM",
-        slug="missing-rom",
-        fs_name="missing.nes",
-        fs_name_no_tags="missing",
-        fs_name_no_ext="missing",
+    make_rom(
+        platform,
+        "Missing ROM",
+        fs_stem="missing",
         fs_extension="nes",
-        fs_path="nes/roms",
         missing_from_fs=True,
     )
-    db_rom_handler.add_rom(rom)
 
     exporter = GamelistExporter(local_export=True)
     xml_str = exporter.export_platform_to_xml(platform.id, request=None)
@@ -241,18 +222,13 @@ def test_export_gamelist_xml_skips_physical_roms(admin_user: User):
     platform = Platform(name="NES", slug="nes", fs_slug="nes")
     platform = db_platform_handler.add_platform(platform)
 
-    rom = Rom(
-        platform_id=platform.id,
-        name="Boxed Copy",
-        slug="boxed-copy",
-        fs_name="Boxed Copy",
-        fs_name_no_tags="Boxed Copy",
-        fs_name_no_ext="Boxed Copy",
+    make_rom(
+        platform,
+        "Boxed Copy",
         fs_extension="",
         fs_path="nes/roms/.physical",
         is_physical=True,
     )
-    db_rom_handler.add_rom(rom)
 
     exporter = GamelistExporter(local_export=True)
     xml_str = exporter.export_platform_to_xml(platform.id, request=None)
@@ -932,17 +908,13 @@ def platform_with_structured_roms(admin_user: User):
 
     roms = []
     for rel_folder in ("USA", "Disks/Set A"):
-        rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="Zany Golf",
-                slug="zany-golf",
-                fs_name="Zany Golf (USA).2mg",
-                fs_name_no_tags="Zany Golf",
-                fs_name_no_ext="Zany Golf (USA)",
-                fs_extension="2mg",
-                fs_path=f"{platform_fs_path}/{rel_folder}",
-            )
+        rom = make_rom(
+            platform,
+            "Zany Golf",
+            fs_stem="Zany Golf (USA)",
+            fs_extension="2mg",
+            fs_name_no_tags="Zany Golf",
+            fs_path=f"{platform_fs_path}/{rel_folder}",
         )
         db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
         roms.append(rom)

@@ -1,6 +1,7 @@
 """Tests for CleanupMissingFirmwareTask."""
 
 import pytest
+from tests.factories import make_firmware
 
 from handler.database import db_firmware_handler
 from tasks.manual.cleanup_missing_firmware import (
@@ -23,9 +24,9 @@ class TestCleanupMissingFirmwareTask:
         assert task.can_run_manually is True
         assert task.cron_string is None
 
-    async def test_deletes_only_missing_firmware(self, task, platform, add_firmware):
-        present = add_firmware(platform, "present.bin")
-        gone = add_firmware(platform, "gone.bin", missing=True)
+    async def test_deletes_only_missing_firmware(self, task, platform):
+        present = make_firmware(platform, "present.bin")
+        gone = make_firmware(platform, "gone.bin", missing=True)
 
         stats = await task.run()
 
@@ -35,11 +36,9 @@ class TestCleanupMissingFirmwareTask:
         assert db_firmware_handler.get_firmware(gone.id) is None
         assert db_firmware_handler.get_firmware(present.id) is not None
 
-    async def test_scopes_to_the_given_platforms(
-        self, task, platform, other_platform, add_firmware
-    ):
-        mine = add_firmware(platform, "gone.bin", missing=True)
-        theirs = add_firmware(other_platform, "other-gone.bin", missing=True)
+    async def test_scopes_to_the_given_platforms(self, task, platform, other_platform):
+        mine = make_firmware(platform, "gone.bin", missing=True)
+        theirs = make_firmware(other_platform, "other-gone.bin", missing=True)
 
         stats = await task.run(platform_ids=[platform.id])
 
@@ -49,10 +48,10 @@ class TestCleanupMissingFirmwareTask:
         assert db_firmware_handler.get_firmware(theirs.id) is not None
 
     async def test_scopes_to_several_platforms_at_once(
-        self, task, platform, other_platform, add_firmware
+        self, task, platform, other_platform
     ):
-        mine = add_firmware(platform, "gone.bin", missing=True)
-        theirs = add_firmware(other_platform, "other-gone.bin", missing=True)
+        mine = make_firmware(platform, "gone.bin", missing=True)
+        theirs = make_firmware(other_platform, "other-gone.bin", missing=True)
 
         stats = await task.run(platform_ids=[platform.id, other_platform.id])
 
@@ -60,9 +59,9 @@ class TestCleanupMissingFirmwareTask:
         assert db_firmware_handler.get_firmware(mine.id) is None
         assert db_firmware_handler.get_firmware(theirs.id) is None
 
-    async def test_counts_delete_failures(self, task, platform, mocker, add_firmware):
-        add_firmware(platform, "gone-a.bin", missing=True)
-        add_firmware(platform, "gone-b.bin", missing=True)
+    async def test_counts_delete_failures(self, task, platform, mocker):
+        make_firmware(platform, "gone-a.bin", missing=True)
+        make_firmware(platform, "gone-b.bin", missing=True)
         mocker.patch(
             "tasks.manual.cleanup_missing_firmware.db_firmware_handler.delete_firmware",
             side_effect=RuntimeError("boom"),
@@ -74,8 +73,8 @@ class TestCleanupMissingFirmwareTask:
         assert stats["firmware_deleted"] == 0
         assert stats["errors"] == 2
 
-    async def test_no_missing_firmware_is_a_no_op(self, task, platform, add_firmware):
-        add_firmware(platform, "present.bin")
+    async def test_no_missing_firmware_is_a_no_op(self, task, platform):
+        make_firmware(platform, "present.bin")
 
         stats = await task.run()
 

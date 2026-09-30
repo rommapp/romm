@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from tests.factories import make_rom
 
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
@@ -33,17 +34,7 @@ def game_folder_on_disk(real_library: Path, game_folder_rom: Rom) -> Path:
 @pytest.fixture
 def game_folder_rom(admin_user: User, platform: Platform) -> Rom:
     """A folder-based ROM with two top-level files (so has_simple_single_file is False)."""
-    rom = Rom(
-        platform_id=platform.id,
-        name="multi_rom",
-        slug="multi_rom_slug",
-        fs_name="multi_rom",
-        fs_name_no_tags="multi_rom",
-        fs_name_no_ext="multi_rom",
-        fs_extension="",
-        fs_path=f"{platform.slug}/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
+    rom = make_rom(platform, "multi_rom", fs_extension="", slug="multi_rom_slug")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     file_path = f"{platform.slug}/roms/multi_rom"
     db_rom_handler.add_rom_file(

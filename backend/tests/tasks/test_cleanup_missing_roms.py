@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from pytest_mock import MockerFixture
+from tests.factories import make_rom
 
 from handler.database import db_collection_handler, db_rom_handler
 from models.collection import SmartCollection
@@ -17,19 +18,7 @@ from tasks.manual.cleanup_missing_roms import (
 
 
 def _add_rom(platform: Platform, name: str, *, missing: bool) -> Rom:
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=name,
-            fs_name=f"{name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            missing_from_fs=missing,
-        )
-    )
+    return make_rom(platform, name, missing_from_fs=missing)
 
 
 class TestCleanupMissingRomsTask:

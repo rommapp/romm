@@ -3,6 +3,7 @@ from typing import cast
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_rom
 
 from config import FRONTEND_RESOURCES_PATH
 from endpoints.responses.music import MusicTrackSchema
@@ -36,19 +37,7 @@ def _make_track(
     cover_path: str | None = None,
     path_cover_l: str | None = None,
 ) -> Rom:
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=f"{name}-slug",
-            fs_name=f"{name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            path_cover_l=path_cover_l,
-        )
-    )
+    rom = make_rom(platform, name, path_cover_l=path_cover_l)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_id)
     db_rom_handler.add_rom_file(
         RomFile(
@@ -113,18 +102,7 @@ def music_library(admin_user: User):
         duration=90.0,
     )
     # A rom with no soundtrack, to exercise the has_soundtrack filter.
-    no_st = db_rom_handler.add_rom(
-        Rom(
-            platform_id=pb.id,
-            name="Tetris",
-            slug="tetris-slug",
-            fs_name="Tetris.gb",
-            fs_name_no_tags="Tetris",
-            fs_name_no_ext="Tetris",
-            fs_extension="gb",
-            fs_path=f"{pb.slug}/roms",
-        )
-    )
+    no_st = make_rom(pb, "Tetris", fs_extension="gb")
     db_rom_handler.add_rom_user(rom_id=no_st.id, user_id=admin_user.id)
     return {"platform_a": pa, "platform_b": pb, "sonic": sonic, "no_soundtrack": no_st}
 
@@ -252,18 +230,7 @@ def test_tracks_sort_null_keys_last(
 ):
     """An untagged track (NULL duration) trails both sort directions."""
     pa = music_library["platform_a"]
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=pa.id,
-            name="Untagged",
-            slug="untagged-slug",
-            fs_name="Untagged.zip",
-            fs_name_no_tags="Untagged",
-            fs_name_no_ext="Untagged",
-            fs_extension="zip",
-            fs_path=f"{pa.slug}/roms",
-        )
-    )
+    rom = make_rom(pa, "Untagged")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     db_rom_handler.add_rom_file(
         RomFile(
