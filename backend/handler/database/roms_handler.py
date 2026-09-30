@@ -167,6 +167,31 @@ FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
 # 3 is the default minimum size in InnoDB
 FULLTEXT_MIN_TOKEN_SIZE = 3
 
+# InnoDB's default stopwords of indexable length. The index skips them, so a
+# required `+the*` would match nothing.
+FULLTEXT_STOPWORDS = frozenset(
+    {
+        "about",
+        "are",
+        "com",
+        "for",
+        "from",
+        "how",
+        "that",
+        "the",
+        "this",
+        "und",
+        "was",
+        "what",
+        "when",
+        "where",
+        "who",
+        "will",
+        "with",
+        "www",
+    }
+)
+
 # A term reaches the hash columns only when it is hex of exactly a digest
 # length, so an ordinary name search builds no hash SQL at all. Hashes are
 # stored lowercase, which keeps the lookup an indexed equality.
@@ -228,6 +253,10 @@ def _nulls_last_ordering(
         if flag is not None:
             return flag, sort_key.asc()
     return None, nulls_last(sort_key, descending)
+
+
+def _name_like(word: str) -> ColumnElement[bool]:
+    return or_(Rom.fs_name.ilike(f"%{word}%"), Rom.name.ilike(f"%{word}%"))
 
 
 def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
@@ -1111,11 +1140,21 @@ class DBRomsHandler(DBBaseHandler):
             )
         )
 
-    def _build_fulltext_boolean_query(self, term: str) -> str | None:
-        words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
-        if not words or any(len(word) < FULLTEXT_MIN_TOKEN_SIZE for word in words):
-            return None
-        return " ".join(f"+{word}*" for word in words)
+    def _split_fulltext_words(self, term: str) -> tuple[list[str], list[str]]:
+        """A term's words as (FULLTEXT-indexable pieces, words to match by LIKE)."""
+        indexed: list[str] = []
+        unindexed: list[str] = []
+        for word in term.split():
+            pieces = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", word).split()
+            if pieces and all(
+                len(piece) >= FULLTEXT_MIN_TOKEN_SIZE
+                and piece.lower() not in FULLTEXT_STOPWORDS
+                for piece in pieces
+            ):
+                indexed.extend(pieces)
+            else:
+                unindexed.append(word)
+        return indexed, unindexed
 
     def _build_fulltext_relevance(self, search_term: str) -> str | None:
         parts: list[str] = []
@@ -1127,31 +1166,24 @@ class DBRomsHandler(DBBaseHandler):
 
     def _build_name_conditions(self, terms: Sequence[str]) -> list[Any]:
         """One condition per term, matching it against the ROM's name and filename."""
-        # PostgreSQL's pg_trgm indexes serve the ILIKE; MariaDB and MySQL use
-        # their FULLTEXT index unless a word is too short for it.
-        like_conditions = [
-            and_(
-                *(
-                    or_(Rom.fs_name.ilike(f"%{word}%"), Rom.name.ilike(f"%{word}%"))
-                    for word in term.split()
+        conditions: list[Any] = []
+        for term in terms:
+            like = and_(*(_name_like(word) for word in term.split()))
+            indexed, unindexed = self._split_fulltext_words(term)
+            if not indexed:
+                conditions.append(like)
+                continue
+            # PostgreSQL's pg_trgm indexes serve the ILIKE. On MariaDB and MySQL
+            # the FULLTEXT index drives the query, and the words it can't hold
+            # (too short, or stopwords) filter its matches.
+            match = _fulltext_match(" ".join(f"+{word}*" for word in indexed))
+            conditions.append(
+                DialectCase(
+                    postgresql=like,
+                    mysql=and_(match, *(_name_like(word) for word in unindexed)),
                 )
             )
-            for term in terms
-        ]
-        boolean_queries = [
-            query
-            for term in terms
-            if (query := self._build_fulltext_boolean_query(term)) is not None
-        ]
-        if len(boolean_queries) < len(terms):
-            return like_conditions
-
-        return [
-            DialectCase(postgresql=like, mysql=_fulltext_match(boolean_query))
-            for boolean_query, like in zip(
-                boolean_queries, like_conditions, strict=True
-            )
-        ]
+        return conditions
 
     def _build_hash_selects(self, terms: Iterable[str]) -> list[Select[tuple[int]]]:
         """Id-yielding selects for terms shaped like a hash digest.

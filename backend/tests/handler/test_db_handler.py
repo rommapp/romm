@@ -329,6 +329,47 @@ def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
     assert explicit_ids.index(fantasy_final.id) < explicit_ids.index(ff.id)
 
 
+@pytest.mark.parametrize(
+    ("search_term", "expected"),
+    [
+        # "7" is too short for the FULLTEXT index.
+        ("final fantasy 7", {"Final Fantasy 7"}),
+        # "the" is an InnoDB stopword, "of" both short and a stopword.
+        ("the legend zelda", {"The Legend of Zelda"}),
+        ("legend of zelda", {"The Legend of Zelda"}),
+        # No word the index holds, so LIKE alone decides.
+        ("x-2", {"Final Fantasy X-2"}),
+    ],
+)
+def test_filter_by_search_term_words_fulltext_cannot_index(
+    platform: Platform, search_term: str, expected: set[str]
+):
+    for name in (
+        "Final Fantasy 7",
+        "Final Fantasy X-2",
+        "Final Fantasy",
+        "The Legend of Zelda",
+        "Zelda II The Adventure of Link",
+    ):
+        # Spaced like a real dump, so the filename splits into the same words.
+        db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name=name,
+                slug=name.lower().replace(" ", "-"),
+                fs_name=f"{name} (USA).zip",
+                fs_name_no_tags=name,
+                fs_name_no_ext=f"{name} (USA)",
+                fs_extension="zip",
+                fs_path=f"{platform.slug}/roms",
+            )
+        )
+
+    results = db_rom_handler.get_roms_scalar(search_term=search_term)
+
+    assert {r.name for r in results} == expected
+
+
 def test_sibling_roms_empty_fs_name_no_tags_not_matched(platform: Platform):
     """ROMs with empty fs_name_no_tags should NOT be matched as siblings.
 
