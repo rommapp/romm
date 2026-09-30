@@ -232,7 +232,8 @@ def _nulls_last_ordering(
 class FulltextSettings(NamedTuple):
     min_token_size: int
     max_token_size: int
-    stopwords: frozenset[str]
+    # None when a custom stopword table is unreadable, so FULLTEXT is skipped.
+    stopwords: frozenset[str] | None
 
 
 # InnoDB's defaults, for what the server won't report. The index skips
@@ -284,16 +285,18 @@ DEFAULT_FULLTEXT_SETTINGS = FulltextSettings(
 
 def read_fulltext_settings(conn: Connection) -> FulltextSettings:
     """The server's InnoDB full-text settings; raises if its variables can't be read."""
-    min_size, max_size, stopwords_enabled, server_table = conn.execute(
+    min_size, max_size, stopwords_enabled, user_table, server_table = conn.execute(
         text(
             "SELECT @@innodb_ft_min_token_size, @@innodb_ft_max_token_size,"
-            " @@innodb_ft_enable_stopword, @@innodb_ft_server_stopword_table"
+            " @@innodb_ft_enable_stopword, @@innodb_ft_user_stopword_table,"
+            " @@innodb_ft_server_stopword_table"
         )
     ).one()
-    stopwords: frozenset[str] = frozenset()
+    stopwords: frozenset[str] | None = frozenset()
     if stopwords_enabled:
+        custom_table = user_table or server_table
         schema, _, name = (
-            server_table or "information_schema/INNODB_FT_DEFAULT_STOPWORD"
+            custom_table or "information_schema/INNODB_FT_DEFAULT_STOPWORD"
         ).rpartition("/")
         query = select(sql_column("value", String)).select_from(
             sql_table(name, schema=schema or None)
@@ -302,8 +305,8 @@ def read_fulltext_settings(conn: Connection) -> FulltextSettings:
             stopwords = frozenset(word.lower() for word in conn.scalars(query) if word)
         except SQLAlchemyError as exc:
             # MySQL needs PROCESS for INNODB_FT_DEFAULT_STOPWORD.
-            log.warning(f"Using InnoDB's default full-text stopwords: {exc}")
-            stopwords = DEFAULT_FULLTEXT_SETTINGS.stopwords
+            log.warning(f"Can't read the full-text stopwords: {exc}")
+            stopwords = None if custom_table else DEFAULT_FULLTEXT_SETTINGS.stopwords
     return FulltextSettings(int(min_size), int(max_size), stopwords)
 
 
@@ -329,6 +332,8 @@ def split_fulltext_words(
     words: Iterable[str], settings: FulltextSettings
 ) -> tuple[list[str], list[str]]:
     """Words as (tokens a FULLTEXT index holds, words it can't hold)."""
+    if settings.stopwords is None:
+        return [], list(words)
     indexed: list[str] = []
     unindexed: list[str] = []
     for word in words:

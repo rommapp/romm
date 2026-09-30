@@ -30,6 +30,7 @@ def _conn_reporting(
     min_token_size: int = 3,
     *,
     stopwords_enabled: bool = True,
+    user_table: str | None = None,
     server_table: str | None = None,
 ) -> MagicMock:
     conn = MagicMock()
@@ -37,6 +38,7 @@ def _conn_reporting(
         min_token_size,
         84,
         int(stopwords_enabled),
+        user_table,
         server_table,
     )
     conn.scalars.return_value = ["Foo", "bar", None]
@@ -52,6 +54,7 @@ def test_reads_the_servers_settings():
         settings = read_fulltext_settings(conn)
 
     assert settings.min_token_size == min_token_size
+    assert settings.stopwords is not None
     assert "the" in settings.stopwords
 
 
@@ -89,6 +92,24 @@ def test_reads_a_custom_stopword_table():
     query = conn.scalars.call_args.args[0]
     assert "FROM romm.stopwords" in str(query)
     assert settings == FulltextSettings(2, 84, frozenset({"foo", "bar"}))
+
+
+def test_prefers_the_user_stopword_table():
+    conn = _conn_reporting(user_table="romm/mine", server_table="romm/stopwords")
+
+    read_fulltext_settings(conn)
+
+    assert "FROM romm.mine" in str(conn.scalars.call_args.args[0])
+
+
+def test_unreadable_custom_stopwords_skip_fulltext():
+    conn = _conn_reporting(server_table="romm/stopwords")
+    conn.scalars.side_effect = OperationalError("SELECT", {}, Exception("1142"))
+
+    settings = read_fulltext_settings(conn)
+
+    assert settings.stopwords is None
+    assert split_fulltext_words(["zelda", "7"], settings) == ([], ["zelda", "7"])
 
 
 def test_disabled_stopwords_leave_none():
