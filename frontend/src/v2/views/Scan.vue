@@ -1,16 +1,16 @@
 <script setup lang="ts">
-// Scan — library scan control + live log. Two-column master/detail
+// Scan: library scan control + live log. Two-column master/detail
 // layout (mirrors MatchRomBodyList):
 //
-//   Left  — Config card: glass panel with the four scan inputs
+//   Left:  Config card, a glass panel with the four scan inputs
 //           (platforms, providers, hash-matcher pills, scan type) plus
 //           a prominent "Start scan" CTA. Inline warnings sit under
 //           the CTA. While a scan runs, the inputs and button stay
-//           visible but locked (disabled) — the user reads them as
+//           visible but locked (disabled); the user reads them as
 //           the "what we're doing" summary. Sticks to the top of the
 //           viewport when the page scrolls past it.
 //
-//   Right — Live area: tall surface that fills the viewport down to
+//   Right: Live area, a tall surface that fills the viewport down to
 //           the layout's bottom padding. Its header doubles as the
 //           live status bar (pulse + label + per-class counter chips
 //           + abort button + indeterminate/determinate progress bar
@@ -183,7 +183,7 @@ const canStartScan = computed(
     (!needsMetadataSource.value || effectiveMetadataSources.value.length > 0),
 );
 
-// Live status header — pulled in from the (now retired) floating
+// Live status header: pulled in from the (now retired) floating
 // ScanStatsBar. Counters live in the scanning store; `total` lags
 // `scanned` during platform discovery, so we clamp to avoid showing
 // a >100% bar or counters that visually go backwards.
@@ -234,7 +234,7 @@ const liveStatusLabel = computed(() => {
   return t("scan.live-progress");
 });
 
-// Progress bar — determinate once totals are known, indeterminate
+// Progress bar: determinate once totals are known, indeterminate
 // during initial platform discovery. Clamps to 100% so the bar never
 // goes past full.
 const progressTotal = computed(() =>
@@ -321,7 +321,7 @@ function stopScan() {
           />
         </section>
 
-        <!-- 2. Metadata controls — providers (2.1) + proxies (2.2)
+        <!-- 2. Metadata controls: providers (2.1) + proxies (2.2)
              share one section so it reads as "data we pull from
              external sources". -->
         <section class="r-v2-scan-card__section">
@@ -329,7 +329,7 @@ function stopScan() {
             {{ t("scan.section-metadata") }}
           </h3>
 
-          <!-- 2.1 providers — two RSelects sharing the same
+          <!-- 2.1 providers: two RSelects sharing the same
                `metadataSources` model, one per category. The
                primitive's `show-all-option` is subset-safe so the
                "All" toggle in one group only affects that group's
@@ -573,7 +573,7 @@ function stopScan() {
         </section>
       </div>
 
-      <!-- 4. Action buttons — untitled; the divider above marks the
+      <!-- 4. Action buttons: untitled; the divider above marks the
            boundary between "config" and "actions" without a label. -->
       <footer class="r-v2-scan-card__section r-v2-scan-card__cta">
         <div class="r-v2-scan-card__hints">
@@ -818,7 +818,7 @@ function stopScan() {
 <style scoped>
 .r-v2-scan {
   /* Master/detail: controls left, live log right. `align-items: start`
-     keeps the sticky behaviour intact — the left card sticks within
+     keeps the sticky behaviour intact; the left card sticks within
      its grid cell once the page scrolls past the layout's top padding. */
   display: grid;
   grid-template-columns: minmax(360px, 1fr) minmax(0, 1.6fr);
@@ -851,7 +851,7 @@ function stopScan() {
   opacity: 0.78;
 }
 
-/* Top row — info button anchored top-right above the platform select. */
+/* Top row: info button anchored top-right above the platform select. */
 .r-v2-scan-card__head {
   display: flex;
   justify-content: flex-end;
@@ -863,8 +863,8 @@ function stopScan() {
 .r-v2-scan-card__fields {
   display: flex;
   flex-direction: column;
-  /* Matches the parent card's 18px gap so every divider — between
-     fields-internal sections AND between __fields/__cta — has the
+  /* Matches the parent card's 18px gap so every divider, between
+     fields-internal sections AND between __fields/__cta, has the
      same breathing room above and below. */
   gap: 18px;
 }
@@ -952,7 +952,7 @@ function stopScan() {
 }
 
 /* Providers split into General / Specific groups. Each group has a
-   tiny inline caption above its RSelect — same visual rhythm as the
+   tiny inline caption above its RSelect, the same visual rhythm as the
    subsection label, indented one level deeper. */
 .r-v2-scan-card__providers-group {
   display: flex;
@@ -969,7 +969,7 @@ function stopScan() {
   color: var(--r-color-fg-faint);
 }
 
-/* Provider chip in the activator — icon-only avatar so a multi-select
+/* Provider chip in the activator: icon-only avatar so a multi-select
    doesn't drown the field in coloured pills. The `#chip` slot renders
    into RSelect's RTag. */
 .r-v2-scan-card__provider-chip {
@@ -978,7 +978,7 @@ function stopScan() {
   justify-content: center;
 }
 
-/* Hash-matcher proxies — compact icon + switch pills (kept as direct
+/* Hash-matcher proxies: compact icon + switch pills (kept as direct
    pills since there are only two and a select would be overkill). */
 .r-v2-scan-card__matchers {
   display: flex;
@@ -1044,7 +1044,7 @@ function stopScan() {
   min-height: 540px;
 }
 
-/* Header — three columns (status / counters / actions) with a
+/* Header: three columns (status / counters / actions) with a
    progress bar pinned to the bottom edge. Layout is grid-based so
    the status label / counter chip widths can fluctuate without the
    actions slot drifting. */
@@ -1074,7 +1074,7 @@ function stopScan() {
   letter-spacing: 0.02em;
 }
 
-/* Pulse — shown only while actively scanning. */
+/* Pulse: shown only while actively scanning. */
 .r-v2-scan-live__pulse {
   width: 8px;
   height: 8px;
@@ -1100,7 +1100,7 @@ function stopScan() {
   }
 }
 
-/* Counter chips — sit in the middle grid track, right-aligned against
+/* Counter chips: sit in the middle grid track, right-aligned against
    the actions. Each chip has a min-width so 1 → 2 → 3-digit transitions
    don't reflow neighbouring chips. */
 .r-v2-scan-live__counters {
@@ -1146,7 +1146,7 @@ function stopScan() {
   width: 36px;
 }
 
-/* Progress bar — pinned to the bottom edge of the header so it reads
+/* Progress bar: pinned to the bottom edge of the header so it reads
    as the boundary between "what's happening" and "what's been done". */
 .r-v2-scan-live__progress {
   position: absolute;
@@ -1163,7 +1163,7 @@ function stopScan() {
   padding: 12px;
 }
 
-/* Empty state — calm, centred, brand-orbed icon. The orb provides the
+/* Empty state: calm, centred, brand-orbed icon. The orb provides the
    focal point so the panel doesn't read as a featureless rectangle. */
 .r-v2-scan-live__empty {
   display: flex;
@@ -1213,7 +1213,7 @@ function stopScan() {
   background: transparent;
 }
 
-/* TransitionGroup entrance — slide-in from below + fade. Cards that
+/* TransitionGroup entrance: slide-in from below + fade. Cards that
    are already on screen stay put; only new arrivals animate. */
 .r-v2-scan-panel-enter-active {
   transition:
@@ -1271,7 +1271,7 @@ html[data-bp~="sm-and-down"] .r-v2-scan-card {
   gap: 14px;
 }
 
-/* On xs, the status label takes too much width — collapse it and let
+/* On xs, the status label takes too much width; collapse it and let
    the counter chips claim the row. */
 html[data-bp~="xs"] .r-v2-scan-live__status {
   min-width: 0;
