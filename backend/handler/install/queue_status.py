@@ -10,14 +10,23 @@ not hang.
 
 from __future__ import annotations
 
-from rq import Worker
+from rq import worker_registration
 
-from handler.redis_handler import install_queue, redis_client
+from handler.redis_handler import install_queue
 
 
 def has_install_worker() -> bool:
-    """True if at least one worker is currently registered on the install queue."""
-    return any(
-        install_queue.name in worker.queue_names()
-        for worker in Worker.all(connection=redis_client)
-    )
+    """True if at least one worker is currently registered on the install queue.
+
+    Queries the queue-scoped registry set directly (``rq:workers:install``,
+    via ``worker_registration.get_keys``), not each worker's own metadata
+    hash: RQ's periodic heartbeat only ever refreshes that hash's
+    ``last_heartbeat`` field, so a worker whose key briefly expired between
+    two heartbeats (its TTL is tied to the currently running job's timeout,
+    and our install jobs run long) comes back with everything else,
+    including ``queues``, missing - looking dead to ``Worker.queue_names()``
+    while it is, in fact, still very much alive and listening. Caught live:
+    a worker that had been up for 44 minutes reported unavailable here
+    despite actively processing jobs the whole time.
+    """
+    return bool(worker_registration.get_keys(queue=install_queue))
