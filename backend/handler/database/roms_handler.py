@@ -248,7 +248,6 @@ def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
 
 def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
     """How well the ROM's name, filename or aliases hold the phrases, words in order."""
-    # Trigram similarity ignores word order, so PostgreSQL checks for the phrase.
     holds_a_phrase = or_(
         *(
             column.icontains(phrase, autoescape=True)

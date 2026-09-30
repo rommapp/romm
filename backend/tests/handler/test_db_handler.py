@@ -240,7 +240,10 @@ def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
     grouped = db_rom_handler.get_roms_scalar(
         search_term="final fantasy", group_by_meta_id=True
     )
-    assert {r.id for r in grouped} == {ff.id, ff7.id, fantasy_final.id}
+    grouped_ids = [r.id for r in grouped]
+    assert set(grouped_ids) == {ff.id, ff7.id, fantasy_final.id}
+    assert grouped_ids.index(ff.id) < grouped_ids.index(fantasy_final.id)
+    assert grouped_ids.index(ff7.id) < grouped_ids.index(fantasy_final.id)
 
     # An explicit sort takes priority over relevance: ordering by name asc puts
     # "Fantasy Final" first (relevance is only the tiebreaker here).
