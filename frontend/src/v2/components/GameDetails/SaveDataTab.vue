@@ -28,7 +28,6 @@ import stateApi from "@/services/api/state";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import { getSupportedEJSCores } from "@/utils";
-import AssetActions from "@/v2/components/GameDetails/AssetActions.vue";
 import AssetEditDialog, {
   type AssetEdit,
 } from "@/v2/components/GameDetails/AssetEditDialog.vue";
@@ -40,6 +39,7 @@ import SubtabNav, {
 import UploadAssetDialog, {
   type UploadAssetPayload,
 } from "@/v2/components/GameDetails/UploadAssetDialog.vue";
+import AssetActions from "@/v2/components/shared/AssetActions.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
 import AssetStrip from "@/v2/components/shared/AssetStrip.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
@@ -247,7 +247,7 @@ async function onStateUpload(files: File[], emulator: string | null) {
 }
 
 // ---------- Per-row actions ----------
-// Both saves and states ship `download_path` from the backend: fire
+// Both saves and states ship `download_path` from the backend, so fire
 // a synthesized anchor click rather than a window.open so the browser
 // uses the right filename and skips the new-tab affordance.
 function downloadAsset(asset: { download_path: string; file_name: string }) {

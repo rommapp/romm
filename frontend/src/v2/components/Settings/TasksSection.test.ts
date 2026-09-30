@@ -33,6 +33,16 @@ const CLEANUP_TASK: TaskInfo = {
   cron_string: "",
 };
 
+const SCHEDULED_TASK: TaskInfo = {
+  name: "scheduled_cleanup_zip_cache",
+  type: "cleanup",
+  title: "Scheduled ZIP cache cleanup",
+  description: "Removes stale cached ZIP files",
+  enabled: true,
+  manual_run: false,
+  cron_string: "0 4 * * *",
+};
+
 function status(
   overrides: Partial<CleanupTaskStatusResponse> = {},
 ): CleanupTaskStatusResponse {
@@ -134,6 +144,19 @@ describe("TasksSection", () => {
     await flushPromises();
 
     expect(getTaskStatus).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  it("describes a scheduled task's cron expression in words", async () => {
+    getTasks.mockResolvedValue({
+      data: { watcher: [], scheduled: [SCHEDULED_TASK], manual: [] },
+    });
+
+    const wrapper = await mountSection();
+
+    expect(wrapper.get(".r-v2-tasks__schedule").text()).toBe(
+      "· at 04:00 AM, every day",
+    );
     wrapper.unmount();
   });
 

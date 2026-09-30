@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // RTextField: native `<input>` wrapped in a styled
-// field container. Four visual variants: `outlined` (default),
-// `filled`, `underlined`, `plain`: and three densities driving the
+// field container. Four visual variants (`outlined` (default),
+// `filled`, `underlined`, `plain`) and three densities driving the
 // row height via CSS vars.
 //
 // `prefix-label` keeps the two v2-specific label layouts working:
@@ -26,7 +26,6 @@ import {
   ref,
   useAttrs,
   useSlots,
-  watch,
   watchEffect,
 } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
@@ -81,7 +80,7 @@ interface Props {
   autofocus?: boolean;
   error?: boolean;
   errorMessages?: string | string[];
-  /** "stacked": label above; "inline", label as a left well. */
+  /** "stacked": label above; "inline": label as a left well. */
   prefixLabel?: "stacked" | "inline";
   /** Accent for focus + clearable hover. Defaults to brand-primary. */
   color?: string;
@@ -99,7 +98,7 @@ interface Props {
   /** Switch the input's typography to a monospaced "code surface" look
    *  (mono family + tighter font-size). Use when the field holds code,
    *  JSON, hashes, or any payload where character-aligned reading
-   *  matters. Affects the input/textarea only: labels keep the regular
+   *  matters. Affects the input/textarea only, labels keep the regular
    *  family so the chrome still reads as a normal form field. */
   mono?: boolean;
   /** Small context line rendered just below the field box (above the
@@ -231,35 +230,28 @@ function onBlur(evt: FocusEvent) {
   // First blur dirties the field; from then on, rules run live so the
   // user gets responsive feedback (rather than waiting for another blur).
   dirty.value = true;
-  runRules();
   emit("blur", evt);
 }
 
 // ── Validation ──────────────────────────────────────────────────
 const dirty = ref(false);
-const internalErrors = ref<string[]>([]);
-
-function runRules() {
-  const out: string[] = [];
+const internalErrors = computed<string[]>(() => {
+  if (!dirty.value) return [];
   for (const r of props.rules ?? []) {
     const v = r(props.modelValue);
-    if (v !== true && typeof v === "string" && v.length) {
-      out.push(v);
-      break; // Show only the first failing rule.
-    }
+    // Show only the first failing rule.
+    if (v !== true && typeof v === "string" && v.length) return [v];
   }
-  internalErrors.value = out;
-}
+  return [];
+});
 
 /** Returns true if the field is valid right now; safe to call from RForm. */
 function validate(): boolean {
   dirty.value = true;
-  runRules();
   return internalErrors.value.length === 0 && !props.error;
 }
 function reset() {
   dirty.value = false;
-  internalErrors.value = [];
 }
 defineExpose({ validate, reset, focus: () => inputRef.value?.focus() });
 
@@ -271,16 +263,6 @@ useRFormRegistration({
   el: () => inputRef.value,
   validity: () => !hasError.value,
 });
-
-watch(
-  () => props.modelValue,
-  () => {
-    // Once the user has touched the field once (blur), keep validating
-    // on every change. Skipping while clean avoids the "errors flash
-    // immediately on form mount" antipattern.
-    if (dirty.value) runRules();
-  },
-);
 
 // ── Derived state ───────────────────────────────────────────────
 const externalMessages = computed<string[]>(() => {
@@ -335,7 +317,7 @@ function clear() {
 
 onMounted(() => {
   // `preventScroll` because an autofocused field often lives in a panel
-  // that a positioner (floating-ui) only places after mount: letting the
+  // that a positioner (floating-ui) only places after mount, letting the
   // UA scroll to its pre-placement box would yank the page.
   if (props.autofocus) inputRef.value?.focus({ preventScroll: true });
 });
@@ -371,7 +353,7 @@ const effectiveAriaLabel = computed(() =>
 
 // True when the parent is subscribed to a click on the adornment.
 // `click:prepend-inner` / `click:append-inner` are declared emits, so
-// Vue strips them from `useAttrs()`: we have to look at the raw
+// Vue strips them from `useAttrs()`, we have to look at the raw
 // vnode props (which always carry the parent's listener regardless of
 // whether the child declared the event). We check several casing
 // variants in case the parent passed the handler programmatically with
@@ -657,9 +639,9 @@ function onAppendInnerClick(evt: MouseEvent) {
 .r-text-field {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   width: 100%;
-  /* Density-driven field height. Padding hugs the input: adornments
+  /* Density-driven field height. Padding hugs the input, adornments
      adjust per-side. */
   --r-tf-h: 40px;
   --r-tf-pad-x: 12px;
@@ -726,7 +708,7 @@ function onAppendInnerClick(evt: MouseEvent) {
 .r-text-field--variant-outlined:not(.r-text-field--disabled):hover
   .r-text-field__field {
   border-color: var(--r-color-border-strong);
-  /* Whisper-thin currentColor halo on hover: felt more than seen.
+  /* Whisper-thin currentColor halo on hover, felt more than seen.
      Stays neutral (no brand) because the user hasn't committed yet. */
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--r-color-fg) 6%, transparent);
 }
@@ -836,7 +818,7 @@ function onAppendInnerClick(evt: MouseEvent) {
 /* Drop the fixed row height in favour of a `rows`-driven min-height.
    The textarea itself takes full width and is vertically resizable so
    power users can grow the body when editing long values. The append
-   column anchors to the top corner: placing a clearable X mid-textarea
+   column anchors to the top corner, placing a clearable X mid-textarea
    would obscure the user's last line. */
 .r-text-field--multiline .r-text-field__field {
   height: auto;
@@ -854,7 +836,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   resize: vertical;
   min-height: 60px;
   line-height: 1.5;
-  /* Padding here owns top/bottom spacing: the field box covers left/
+  /* Padding here owns top/bottom spacing, the field box covers left/
      right via the existing `--r-tf-pad-x`. */
   padding-block: 0;
   /* Textareas don't ellipsis; let the user scroll. */
@@ -876,7 +858,7 @@ function onAppendInnerClick(evt: MouseEvent) {
 
 /* Trim inner padding when an adornment owns the side gap. Each side is
    handled independently so an append adornment (clearable X, loading
-   spinner, custom #append-inner) only collapses end-padding: never
+   spinner, custom #append-inner) only collapses end-padding, never
    start-padding. The earlier `:has(+ .r-text-field__adornment)` rule
    matched the input *adjacent to an append adornment* and incorrectly
    shrank start-padding, causing typed text to jump left the moment a
@@ -1023,7 +1005,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   line-height: 1.2;
   align-self: flex-start;
   padding-inline-start: 2px;
-  margin-bottom: 4px;
+  margin-bottom: var(--r-space-1);
 }
 
 /* ── Inline label: embedded left well ─────────────────────────── */
@@ -1067,7 +1049,7 @@ function onAppendInnerClick(evt: MouseEvent) {
    the spring transition). For keyboard / gamepad users we layer a
    thin outline on top so the ring meets WCAG's "visible focus" bar
    without changing the smooth box-shadow bloom. Outline is used
-   intentionally here: it doesn't transition, but it doesn't need to:
+   intentionally here; it doesn't transition, but it doesn't need to:
    the box-shadow halo carries the motion. */
 html[data-input="key"]
   .r-text-field:has(.r-text-field__input:focus)

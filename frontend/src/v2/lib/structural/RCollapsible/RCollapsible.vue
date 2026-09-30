@@ -19,7 +19,7 @@
 // flush with a trigger element placed directly above it (the trigger
 // is responsible for dropping its own bottom radius).
 //
-// Body content is rendered flush with the panel edges: no built-in
+// Body content is rendered flush with the panel edges, no built-in
 // inset. Consumers add their own padding to the slotted content (a
 // wrapper `<div class="...">` works fine). This keeps lists and
 // virtual scrollers edge-to-edge by default while text-heavy bodies
@@ -27,7 +27,7 @@
 //
 // Animation uses a CSS-only grid-row trick (no JS height measurement)
 // so it works for content of any height.
-import { computed, ref, useSlots, watch } from "vue";
+import { computed, ref, useSlots } from "vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -64,14 +64,7 @@ const open = computed(() =>
   isControlled.value ? Boolean(props.modelValue) : localOpen.value,
 );
 
-watch(
-  () => props.modelValue,
-  (v) => {
-    if (v !== undefined) localOpen.value = v;
-  },
-);
-
-// Headless only when no header-shaped content is present: title prop
+// Headless only when no header-shaped content is present, title prop
 // or slot, icon, full #header override, or any header-prepend /
 // header-append slot all count as "the consumer wants a header row".
 // (Previously we only checked `slots.header` + `props.title` + props.icon,
@@ -159,7 +152,7 @@ function toggle() {
     background var(--r-motion-med) var(--r-motion-ease-out),
     border-color var(--r-motion-med) var(--r-motion-ease-out);
 }
-/* Headless mode has an external trigger: the panel itself shouldn't
+/* Headless mode has an external trigger, the panel itself shouldn't
    paint anything when closed (otherwise a stray 1px line lives under
    every inactive sidebar tab). Surface fades in alongside the height
    when the consumer opens it. */
@@ -220,7 +213,7 @@ function toggle() {
   color: var(--r-color-fg-muted);
 }
 
-/* Smooth open via grid-row trick: content height interpolates without
+/* Smooth open via grid-row trick, content height interpolates without
    a measured pixel value, so it works for any content.
    Wrap stays overflow:hidden in both states so partial-frame content
    never bleeds during the transition. */
@@ -237,7 +230,7 @@ function toggle() {
   min-height: 0;
 }
 
-/* The body sits flush against the panel edges by default: consumers
+/* The body sits flush against the panel edges by default, consumers
    own any inset they want, applied to the slotted content. Padding on
    the grid item itself is intentionally avoided: it would force
    `min-content >= 0`, leaking the first line under the header during

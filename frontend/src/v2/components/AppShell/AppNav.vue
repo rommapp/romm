@@ -32,8 +32,8 @@ const { destinations: tabs, activeId: activeTab } = useNavDestinations();
 // bg / cover art reads cleanly. Once the user scrolls, a `::before`
 // pseudo-element fades in carrying the glass surface (bg + blur). The
 // blur is **static** on the pseudo, with only `opacity` transitioning
-// transitioning `backdrop-filter` directly kept the blur layer alive
-// and any hover repaint nearby would flash it.
+// (transitioning `backdrop-filter` directly kept the blur layer alive
+// and any hover repaint nearby would flash it).
 const { innerScrolled, innerGlass, handoff, threshold } = useNavGlass();
 const windowScrolled = ref(false);
 const scrolled = computed(() => windowScrolled.value || innerScrolled.value);
@@ -111,7 +111,8 @@ onBeforeUnmount(() => {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
+  /* Clears a gallery scroller's scrollbar, which runs up under the bar. */
+  right: var(--r-v2-shell-scrollbar-w, 0px);
   z-index: 100;
   height: var(--r-nav-h);
   background: transparent;
@@ -211,7 +212,7 @@ onBeforeUnmount(() => {
    centre pill is dropped from the top nav and the bar keeps only the
    logo (far left) + user cluster (far right). With just those two
    children, collapse to a 2-column grid so the cluster tracks the right
-   edge: the default `1fr auto 1fr` would auto-place it into the now-
+   edge; the default `1fr auto 1fr` would auto-place it into the now-
    empty centre column instead of the trailing one. The gutter follows
    `--r-row-pad` (20px sm, 14px xs) so logo + user line up with the Home
    sections' content edge. */

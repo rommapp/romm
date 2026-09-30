@@ -257,6 +257,7 @@
   "media-miximage": "Комбинированное изображение",
   "media-miximage-v2": "Комбинированное изображение (v2)",
   "media-physical": "Физический носитель",
+  "media-physical-disc": "Физический носитель (диск {n})",
   "media-title-screen": "Титульный экран",
   "media-video": "Видео",
   "media-video-normalized": "Видео (стандартизированное)",

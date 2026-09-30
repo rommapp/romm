@@ -89,6 +89,10 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ["src/v2/utils/pico8AudioWorklet.js"],
+    languageOptions: { globals: globals.audioWorklet },
+  },
   // Import cycles. The resolver has to be the one that reads tsconfig `paths`,
   // or `@/*` and `@v2/*` go unresolved and the rule silently passes.
   {

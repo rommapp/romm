@@ -161,7 +161,7 @@ const { floatingStyles } = useFloating(fieldRef, panelRef, {
 function commit(raw: string) {
   const trimmed = raw.trim();
   if (!trimmed) return;
-  // Allow comma-separated paste (`tag1, tag2, tag3`): split, dedupe
+  // Allow comma-separated paste (`tag1, tag2, tag3`), split, dedupe
   // against the current set, and commit them in one update.
   const parts = trimmed
     .split(",")
@@ -218,7 +218,7 @@ function onFocus() {
 }
 
 function onBlur() {
-  // Commit anything still typed when the user tabs away: match the
+  // Commit anything still typed when the user tabs away, match the
   // expected "leave the field with what you wrote" behaviour.
   if (query.value.trim()) commit(query.value);
   // Defer close so a click on a suggestion isn't swallowed.
@@ -317,22 +317,19 @@ const showClear = computed(
 
 // ── Validation (mirrors RSelect) ────────────────────────────────
 const dirty = ref(false);
-const internalErrors = ref<string[]>([]);
-
-function runRules() {
+const internalErrors = computed<string[]>(() => {
+  if (!dirty.value) return [];
   const failed = props.rules
     .map((rule) => rule(props.modelValue))
     .find((result) => result !== true);
-  internalErrors.value = failed ? [failed] : [];
-}
+  return failed ? [failed] : [];
+});
 function validate(): boolean {
   dirty.value = true;
-  runRules();
   return internalErrors.value.length === 0;
 }
 function reset() {
   dirty.value = false;
-  internalErrors.value = [];
 }
 defineExpose({ validate, reset });
 
@@ -342,13 +339,6 @@ useRFormRegistration({
   el: () => inputRef.value,
   validity: () => !hasError.value,
 });
-
-watch(
-  () => props.modelValue,
-  () => {
-    if (dirty.value) runRules();
-  },
-);
 
 const errorList = computed<string[]>(() => [
   ...(Array.isArray(props.errorMessages)
@@ -501,7 +491,7 @@ const showDetails = computed(
 .r-combobox-field {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   width: 100%;
   --r-cf-h: 40px;
   --r-cf-pad-x: 12px;
@@ -537,7 +527,7 @@ const showDetails = computed(
 .r-combobox-field__label--stacked {
   align-self: flex-start;
   padding-inline-start: 2px;
-  margin-bottom: 4px;
+  margin-bottom: var(--r-space-1);
 }
 .r-combobox-field:not(.r-combobox-field--disabled):focus-within
   .r-combobox-field__label--stacked {

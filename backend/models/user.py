@@ -4,14 +4,14 @@ import enum
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Final
 
-from sqlalchemy import TIMESTAMP, Enum, ForeignKey, String
+from sqlalchemy import TIMESTAMP, Enum, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
 
 from handler.auth.constants import Scope
 from models.base import BaseModel
 from models.permission import PermissionGroup
-from utils.database import CustomJSON
+from utils.database import CustomJSON, ExactString
 
 if TYPE_CHECKING:
     from models.assets import MemoryCard, Save, Screenshot, State
@@ -47,7 +47,10 @@ KIOSK_USER_ID: Final = -1
 
 class User(BaseModel, SimpleUser):
     __tablename__ = "users"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        Index("ix_users_oidc_identity", "oidc_issuer", "oidc_sub", unique=True),
+        {"extend_existing": True},
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
@@ -60,6 +63,10 @@ class User(BaseModel, SimpleUser):
     email: Mapped[str | None] = mapped_column(
         String(length=TEXT_FIELD_LENGTH), unique=True, index=True
     )
+    # The provider's `iss` and `sub` claims: a stable identity that survives an
+    # email change. Exact, since a `sub` is case-sensitive.
+    oidc_issuer: Mapped[str | None] = mapped_column(ExactString(TEXT_FIELD_LENGTH))
+    oidc_sub: Mapped[str | None] = mapped_column(ExactString(TEXT_FIELD_LENGTH))
     enabled: Mapped[bool] = mapped_column(default=True)
     # VARCHAR-backed (native_enum=False) storing the lowercase value, so the
     # vocabulary stays portable across SQLite/MariaDB/Postgres.

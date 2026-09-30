@@ -3418,6 +3418,22 @@ class TestIncrementalRomFiles:
             == hashlib.md5(b"hack bytes", usedforsecurity=False).hexdigest()
         )
 
+    async def test_unchanged_empty_file_is_reused(
+        self, handler, platform, patched, mocker
+    ):
+        rom, rows = self._folder_rom(handler, platform)
+        empty = self._write(handler, f"{self.ROM_DIR}/game.msu", b"")
+        rows.append(self._row(rom, self.ROM_DIR, "game.msu", empty, hashed=False))
+        hasher = mocker.spy(handler, "_calculate_rom_hashes")
+
+        parsed = await handler.get_rom_files(rom, existing_files=rows)
+
+        assert {id(f) for f in parsed.rom_files} == {id(r) for r in rows}
+        assert parsed.top_level_changed is False
+        assert parsed.md5_hash == "stored-md5"
+        hasher.assert_not_called()
+        patched.ra.assert_not_called()
+
     async def test_row_without_hashes_is_reused_when_hashing_is_disabled(
         self, handler, platform, mocker
     ):

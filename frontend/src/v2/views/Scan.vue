@@ -2,15 +2,15 @@
 // Scan: library scan control + live log. Two-column master/detail
 // layout (mirrors MatchRomBodyList):
 //
-//   Left  - Config card: glass panel with the four scan inputs
+//   Left:  Config card, a glass panel with the four scan inputs
 //           (platforms, providers, hash-matcher pills, scan type) plus
 //           a prominent "Start scan" CTA. Inline warnings sit under
 //           the CTA. While a scan runs, the inputs and button stay
-//           visible but locked (disabled): the user reads them as
+//           visible but locked (disabled); the user reads them as
 //           the "what we're doing" summary. Sticks to the top of the
 //           viewport when the page scrolls past it.
 //
-//   Right (Live area): tall surface that fills the viewport down to
+//   Right: Live area, a tall surface that fills the viewport down to
 //           the layout's bottom padding. Its header doubles as the
 //           live status bar (pulse + label + per-class counter chips
 //           + abort button + indeterminate/determinate progress bar
@@ -317,6 +317,7 @@ function stopScan() {
             mark-unscanned
             :unscanned-label="t('scan.folder-not-scanned')"
             show-all-option
+            promote-filled
           />
         </section>
 
@@ -817,7 +818,7 @@ function stopScan() {
 <style scoped>
 .r-v2-scan {
   /* Master/detail: controls left, live log right. `align-items: start`
-     keeps the sticky behaviour intact: the left card sticks within
+     keeps the sticky behaviour intact; the left card sticks within
      its grid cell once the page scrolls past the layout's top padding. */
   display: grid;
   grid-template-columns: minmax(360px, 1fr) minmax(0, 1.6fr);
@@ -951,7 +952,7 @@ function stopScan() {
 }
 
 /* Providers split into General / Specific groups. Each group has a
-   tiny inline caption above its RSelect: same visual rhythm as the
+   tiny inline caption above its RSelect, the same visual rhythm as the
    subsection label, indented one level deeper. */
 .r-v2-scan-card__providers-group {
   display: flex;
@@ -1270,7 +1271,7 @@ html[data-bp~="sm-and-down"] .r-v2-scan-card {
   gap: 14px;
 }
 
-/* On xs, the status label takes too much width: collapse it and let
+/* On xs, the status label takes too much width; collapse it and let
    the counter chips claim the row. */
 html[data-bp~="xs"] .r-v2-scan-live__status {
   min-width: 0;

@@ -5,12 +5,12 @@
 // glass language.
 //
 // Single + multi-select. Items normalise via `itemTitle` / `itemValue`
-// (string key or function) so any shape: strings, numbers, plain
-// objects: fits without per-call-site shimming. `searchable` adds a
+// (string key or function) so any shape (strings, numbers, plain
+// objects) fits without per-call-site shimming. `searchable` adds a
 // sticky search input at the top of the panel.
 //
 // Slots `#selection` and `#item`. The `#item` slot's `props` bag is
-// spread on any element you want: it carries `class` (including the
+// spread on any element you want, it carries `class` (including the
 // active/selected/disabled state), `role`, `aria-*`, click/hover
 // handlers, and the index data attribute. The row default is a `<li>`
 // styled by `.r-select__item`. `dividerAfter` draws a divider below the
@@ -53,7 +53,7 @@ defineOptions({ inheritAttrs: false });
 type Rule = (value: any) => true | string;
 
 interface NormalisedItem {
-  // `raw` + `value` are the consumer's source item / its key: we don't
+  // `raw` + `value` are the consumer's source item / its key, we don't
   // know their shape but they do. Typing as `any` so `#selection` /
   // `#item` slot consumers can read fields off them without spamming
   // `as` casts.
@@ -95,7 +95,7 @@ interface Props {
   hint?: string;
   error?: boolean;
   errorMessages?: string | string[];
-  /** "stacked": label above; "inline", label as a left well. */
+  /** "stacked": label above; "inline": label as a left well. */
   prefixLabel?: "stacked" | "inline";
   /** Accent for focus + selected items. Defaults to brand-primary. */
   color?: string;
@@ -129,7 +129,7 @@ interface Props {
   /** Multi-select only: render a synthetic "All" row at the top of the
    *  menu (with a divider below) that toggles every item on / off. When
    *  no items are selected and this is on, the activator displays the
-   *  `allOptionLabel` text instead of the placeholder: the empty
+   *  `allOptionLabel` text instead of the placeholder, the empty
    *  selection reads as "every item" rather than "nothing picked". */
   showAllOption?: boolean;
   /** Label used by the "All" row in the menu and as the activator
@@ -262,7 +262,7 @@ const normalisedItems = computed<NormalisedItem[]>(() => {
 // every change; if not, internal state is the sole source of truth.
 // Either way, `update:search` is always emitted on every keystroke so
 // parents that care can observe. This means `:searchable` just works
-// on its own, no v-model needed, and filtering survives unrelated
+// on its own (no v-model needed) and filtering survives unrelated
 // re-renders (e.g. `mouseenter` on a row updating `activeIndex`).
 const internalSearch = ref(props.search);
 watch(
@@ -299,7 +299,7 @@ const selectedValues = computed<unknown[]>(() => {
 // `return-object` mode the modelValue holds the raw objects; we
 // extract the same key the items expose via `itemValue` so matching
 // survives even when the source array recomputes to fresh object refs
-// (e.g. a computed that maps `.map(o => ({ ...o, disabled }))`: the
+// (e.g. a computed that maps `.map(o => ({ ...o, disabled }))`, the
 // raw identities change every tick but the underlying key doesn't).
 // For primitive modelValues this is a no-op.
 function valueOf(v: unknown): unknown {
@@ -404,7 +404,7 @@ function recomputeFit() {
     used += w + gapNow;
     count++;
   }
-  // Always render at least one chip if any are selected: better to
+  // Always render at least one chip if any are selected, better to
   // clip one chip with text-overflow than to show only "+N" on its own.
   if (count === 0 && chips.length > 0) count = 1;
   fitChipCount.value = count;
@@ -418,7 +418,7 @@ watch(
   { flush: "post" },
 );
 
-// What goes into the model when this select pushes an item: the raw
+// What goes into the model when this select pushes an item, the raw
 // object in returnObject mode, the primitive value otherwise. Read
 // paths always re-extract the key via `valueOf` so the model can
 // be mixed (e.g., consumer-seeded with one shape, user-toggled in
@@ -478,7 +478,7 @@ function selectItem(item: NormalisedItem) {
 // the same backend meaning either way; this state only governs the
 // menu / chip UX.
 //
-// Hidden while the user is filtering: choosing "All" in a filtered
+// Hidden while the user is filtering, choosing "All" in a filtered
 // menu would silently reach outside the visible rows.
 const showAllRow = computed(
   () => props.multiple && props.showAllOption && !internalSearch.value.trim(),
@@ -586,27 +586,20 @@ function clear() {
 
 // ── Validation (mirrors RTextField) ─────────────────────────────
 const dirty = ref(false);
-const internalErrors = ref<string[]>([]);
-
-function runRules() {
-  const out: string[] = [];
+const internalErrors = computed<string[]>(() => {
+  if (!dirty.value) return [];
   for (const r of props.rules ?? []) {
     const v = r(props.modelValue);
-    if (v !== true && typeof v === "string" && v.length) {
-      out.push(v);
-      break;
-    }
+    if (v !== true && typeof v === "string" && v.length) return [v];
   }
-  internalErrors.value = out;
-}
+  return [];
+});
 function validate(): boolean {
   dirty.value = true;
-  runRules();
   return internalErrors.value.length === 0 && !props.error;
 }
 function reset() {
   dirty.value = false;
-  internalErrors.value = [];
 }
 defineExpose({
   validate,
@@ -622,13 +615,6 @@ useRFormRegistration({
   el: () => activatorRef.value,
   validity: () => !hasError.value,
 });
-
-watch(
-  () => props.modelValue,
-  () => {
-    if (dirty.value) runRules();
-  },
-);
 
 const externalMessages = computed<string[]>(() => {
   const m = props.errorMessages;
@@ -730,10 +716,9 @@ function closeMenu() {
   if (!isOpen.value) return;
   isOpen.value = false;
   emit("close");
-  // Run rules on close (acts as a "blur" for the field).
+  // Closing acts as a "blur" for the field.
   dirty.value = true;
-  runRules();
-  // Clear the search buffer so the next open starts fresh: matches
+  // Clear the search buffer so the next open starts fresh, matches
   // user expectation for "open select → type → pick → close → reopen"
   // not leaving a stale query that hides most rows.
   if (props.searchable && internalSearch.value) setSearch("");
@@ -760,7 +745,7 @@ onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", onDocPointerDown, true);
 });
 
-// Close when search is changed externally? No: keep open while
+// Close when search is changed externally? No, keep open while
 // editing search. Reset active index to 0 when filter changes so
 // keyboard nav stays sensible.
 watch(filteredItems, () => {
@@ -973,7 +958,7 @@ const describedBy = computed(() => {
              compute how many chips actually fit in `valueRef`'s
              current width. Absolutely positioned so it doesn't push
              the visible row. The `#chip` slot is rendered here as
-             well so its visible width matches the real row exactly
+             well so its visible width matches the real row exactly;
              without it the icon-only PlatformSelect chips would
              measure as the bare title text. -->
         <span
@@ -1313,7 +1298,7 @@ const describedBy = computed(() => {
 .r-select {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   width: 100%;
   /* As a flex child, default `min-width: auto` refuses to shrink below the
      selection's content width, so a long value overflows its container.
@@ -1476,13 +1461,13 @@ const describedBy = computed(() => {
   color: var(--r-color-fg-faint);
 }
 
-/* Synthetic "All" row in the menu: slightly emphasised so it reads
+/* Synthetic "All" row in the menu, slightly emphasised so it reads
    as a meta action rather than just another item. The divider sits
    on a non-interactive li with reset padding. */
 .r-select__item--all {
   font-weight: var(--r-font-weight-semibold);
 }
-/* The All row is hovered via CSS: `activeIndex` is reserved for the
+/* The All row is hovered via CSS, `activeIndex` is reserved for the
    filtered-items list (keyboard navigation), so we can't piggyback on
    the `--active` class here. */
 .r-select__item--all:hover {
@@ -1623,6 +1608,7 @@ const describedBy = computed(() => {
   line-height: 1.2;
   align-self: flex-start;
   padding-inline-start: 2px;
+  margin-bottom: var(--r-space-1);
 }
 .r-select__label--inline,
 .r-select__label--append {
@@ -1793,7 +1779,7 @@ html[data-input="pad"] .r-select__field:focus {
 }
 .r-select__item-stack .r-select__item-title {
   /* Inside the stack the title is no longer the flex slot, so drop the
-     `flex: 1`, let it size to its line height. */
+     `flex: 1`: let it size to its line height. */
   flex: 0 0 auto;
 }
 /* A description never widens the menu past the activator; it wraps instead. */

@@ -7,7 +7,7 @@
 //
 // Visibility: bound to `gallerySelection.enabled`. Slides up from
 // `bottom: 0` when the first ROM is selected and slides back down
-// when the count drops to zero: the panel stays mounted so its
+// when the count drops to zero, the panel stays mounted so its
 // buttons keep their ripple state cleanly between cycles.
 //
 // Actions wire-up:
@@ -117,7 +117,7 @@ const canEditRom = useCan("rom.edit");
 // Bulk delete hits `POST /roms/delete`, which gates on ROMS_WRITE
 const canDelete = computed(() => hasDeleteGrant.value && canEditRom.value);
 
-// `favorite` is the favourite collection: used to compute "are all
+// `favorite` is the favourite collection, used to compute "are all
 // selected ROMs in favorites?" so the button can toggle between
 // "add to" / "remove from" instead of forcing a separate unfavorite
 // action. Same model as the per-card favourite button.
@@ -160,10 +160,9 @@ async function bulkFavorite() {
       ? await collectionApi.removeRomsFromCollection(fav.id, ids)
       : await collectionApi.addRomsToCollection(fav.id, ids);
     collectionsStore.updateCollection(data);
-    collectionsStore.setFavoriteCollection(data);
     if (wasAllFavorited && galleryRomsStore.currentCollection?.id === fav.id) {
       // We were on the favourites collection view and just removed
-      // every selected rom from it: drop them from the visible
+      // every selected rom from it, drop them from the visible
       // roms so the UI reflects the new membership immediately.
       removeCachedRoms(roms);
     }
@@ -410,7 +409,7 @@ function clear() {
       <!-- Default slot: action buttons. Order mirrors the v1 FAB:
            download → favourite → collections → refresh → delete.
            Every button is wrapped in RTooltip so the user gets a
-           consistent hover hint and gamepad users see the label:
+           consistent hover hint and gamepad users see the label,
            the v2 visual vocabulary for icon-only buttons. -->
       <RTooltip
         v-if="canDownload && !hideDownload"

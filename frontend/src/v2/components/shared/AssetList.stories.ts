@@ -1,78 +1,24 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
-import type { SaveSchema, ScreenshotSchema } from "@/__generated__";
+import AssetActions from "@/v2/components/shared/AssetActions.vue";
+import type { Asset, AssetType } from "@/v2/utils/assets";
+import {
+  IDENTICAL_STATE_PREFIX,
+  identicalPrefixStates,
+  makeSave,
+  makeSaveSlot,
+  manyStates,
+  saveScreenshot,
+  saveSlotLibrary,
+  toUserSave,
+} from "@/v2/utils/saveStates.fixtures";
+import {
+  deleteButtons,
+  downloadButtons,
+  selectableItems,
+} from "@/v2/utils/saveStates.plays";
 import AssetList from "./AssetList.vue";
-
-// ── Mock builders ────────────────────────────────────────────────
-
-const NOW = new Date("2026-05-25T20:00:00Z").getTime();
-const HOUR = 3600 * 1000;
-
-// 16:9 SVG stand-in for the screenshot a browser-player save carries.
-function shot(hue: number): ScreenshotSchema {
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='64' height='36'><rect width='64' height='36' fill='hsl(${hue} 60% 40%)'/><rect x='8' y='8' width='48' height='20' fill='hsl(${hue} 70% 65%)'/></svg>`;
-  return {
-    download_path: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
-  } as ScreenshotSchema;
-}
-
-// One version in `slot`, `hoursAgo` old. Pass `slot: null` for an archive.
-function makeSave(
-  id: number,
-  slot: string | null,
-  hoursAgo: number,
-  overrides: Partial<SaveSchema> = {},
-): SaveSchema {
-  const at = new Date(NOW - hoursAgo * HOUR).toISOString();
-  // Slotted uploads carry the backend's datetime tag; archives keep their name.
-  const stem = slot
-    ? `chrono_trigger [${at.slice(0, 19).replace("T", "_").replace(/:/g, "-")}]`
-    : `chrono_trigger_backup_${id}`;
-  return {
-    id,
-    rom_id: 1,
-    user_id: 1,
-    file_name: `${stem}.srm`,
-    file_name_no_tags: "chrono_trigger.srm",
-    file_name_no_ext: stem,
-    file_extension: "srm",
-    file_path: "/saves/snes",
-    file_size_bytes: 8 * 1024,
-    full_path: `/saves/snes/${stem}.srm`,
-    download_path: `/api/saves/${id}/content`,
-    missing_from_fs: false,
-    created_at: at,
-    updated_at: at,
-    emulator: "snes9x",
-    slot,
-    screenshot: null,
-    ...overrides,
-  } as SaveSchema;
-}
-
-// A slot with `count` versions from `firstId`, newest `hoursAgo` old.
-function makeSlot(
-  slot: string,
-  count: number,
-  hoursAgo: number,
-  firstId: number,
-): SaveSchema[] {
-  return Array.from({ length: count }).map((_, i) =>
-    makeSave(firstId + i, slot, hoursAgo + i * 26, {
-      screenshot: shot((i * 47 + slot.length * 31) % 360),
-    }),
-  );
-}
-
-function library(): SaveSchema[] {
-  return [
-    ...makeSlot("autosave", 4, 1, 1),
-    ...makeSlot("main_quest", 6, 30, 5),
-    ...makeSlot("speedrun", 1, 200, 11),
-    makeSave(12, null, 500),
-    makeSave(13, null, 900, { emulator: null }),
-  ];
-}
 
 const meta: Meta<typeof AssetList> = {
   title: "Shared/AssetList",
@@ -97,47 +43,72 @@ const meta: Meta<typeof AssetList> = {
 export default meta;
 type Story = StoryObj<typeof AssetList>;
 
-function selectable(saves: SaveSchema[], selected: number | null) {
+function selectableList(
+  assets: Asset[],
+  type: AssetType,
+  selected: number | null,
+  extra: Partial<InstanceType<typeof AssetList>["$props"]> = {},
+) {
   return {
     components: { AssetList },
     setup() {
       const selectedId = ref<number | null>(selected);
       return {
-        saves,
+        assets,
+        type,
         selectedId,
-        onSelect: (a: SaveSchema) => (selectedId.value = a.id),
+        extra,
+        onSelect: (a: Asset) => (selectedId.value = a.id),
       };
     },
     template: `
-      <AssetList :assets="saves" type="save" :selected-id="selectedId" @select="onSelect" />
+      <AssetList
+        :assets="assets"
+        :type="type"
+        :selected-id="selectedId"
+        v-bind="extra"
+        @select="onSelect"
+      />
     `,
   };
 }
 
-// ── Stories ──────────────────────────────────────────────────────
-
-// Autosave history, two named slots and two archives: the full slot model.
 export const SlotLibrary: Story = {
-  name: "Slots · autosave, named, archive",
+  name: "Saves · slots (selectable)",
   render: () => {
-    const saves = library();
-    return selectable(saves, saves[0].id);
+    const saves = saveSlotLibrary();
+    return selectableList(saves, "save", saves[0].id);
+  },
+  play: async ({ canvasElement, step }) => {
+    const ui = within(canvasElement);
+    await step("named slot groups are visible", async () => {
+      expect(ui.getByText("autosave")).toBeTruthy();
+      expect(ui.getByText("main_quest")).toBeTruthy();
+    });
+    await step("clicking a row updates selection", async () => {
+      const target = selectableItems(canvasElement).find(
+        (r) => r.getAttribute("aria-pressed") === "false",
+      );
+      expect(target).toBeTruthy();
+      await userEvent.click(target!);
+      expect(target).toHaveAttribute("aria-pressed", "true");
+    });
   },
 };
 
 // Selecting an older version unfolds its slot so the pick stays visible.
 export const OlderVersionSelected: Story = {
-  name: "Older version selected",
+  name: "Saves · older version selected",
   render: () => {
-    const saves = library();
+    const saves = saveSlotLibrary();
     const olderMainQuest = saves.filter((s) => s.slot === "main_quest")[3];
-    return selectable(saves, olderMainQuest.id);
+    return selectableList(saves, "save", olderMainQuest.id);
   },
 };
 
 // Only manual uploads, no screenshots: the pre-slot shape of a library.
 export const ArchiveOnly: Story = {
-  name: "Archive only (no slots)",
+  name: "Saves · archive only",
   render: () => {
     const saves = [
       makeSave(1, null, 3),
@@ -147,44 +118,188 @@ export const ArchiveOnly: Story = {
       }),
       makeSave(3, null, 400, { emulator: null }),
     ];
-    return selectable(saves, null);
+    return selectableList(saves, "save", null);
+  },
+};
+
+// Flat list ordered by upload time, as the player's stream picker shows it.
+export const StreamArchives: Story = {
+  name: "Saves · stream (created, flat)",
+  render: () => {
+    const saves = [
+      makeSave(1, null, 10, { screenshot: saveScreenshot(120) }),
+      makeSave(2, null, 20),
+      makeSave(3, null, 30, { screenshot: saveScreenshot(200) }),
+    ];
+    return selectableList(saves, "save", saves[0].id, {
+      timestamp: "created",
+      groupBySlot: false,
+    });
   },
 };
 
 // One slot, one version, the most common case for new players.
 export const SingleSave: Story = {
-  name: "Single save",
+  name: "Saves · single",
   render: () => {
-    const saves = makeSlot("autosave", 1, 2, 1);
-    return selectable(saves, saves[0].id);
+    const saves = makeSaveSlot("autosave", 1, 2, 1);
+    return selectableList(saves, "save", saves[0].id);
+  },
+};
+
+export const StatesSelectable: Story = {
+  name: "States · selectable",
+  render: () => {
+    const states = manyStates(5);
+    return selectableList(states, "state", states[0].id);
+  },
+};
+
+export const IdenticalPrefixStates: Story = {
+  name: "States · identical prefix",
+  render: () => {
+    const states = identicalPrefixStates(4);
+    return selectableList(states, "state", states[0].id);
+  },
+  play: async ({ canvasElement, step }) => {
+    await step("each row keeps the full filename in the DOM", async () => {
+      const rows = selectableItems(canvasElement);
+      expect(rows).toHaveLength(4);
+      for (const el of rows) {
+        expect(el.textContent).toContain(IDENTICAL_STATE_PREFIX);
+      }
+    });
   },
 };
 
 // Management mode: static rows hosting the actions slot.
-export const Manage: Story = {
-  name: "Manage (actions slot)",
+export const ManageSaves: Story = {
+  name: "Saves · manage + actions",
   render: () => ({
-    components: { AssetList },
+    components: { AssetList, AssetActions },
     setup() {
-      return { saves: library() };
+      return { saves: saveSlotLibrary() };
     },
     template: `
       <AssetList :assets="saves" type="save" :selectable="false" :scrollable="false">
         <template #actions="{ asset }">
-          <span style="font-size: 10px; color: var(--r-color-fg-muted)">#{{ asset.id }}</span>
+          <AssetActions :asset="asset" type="save" own />
+        </template>
+      </AssetList>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    await step(
+      "manage rows are list items, not selectable buttons",
+      async () => {
+        const ui = within(canvasElement);
+        const rows = ui.getAllByRole("listitem");
+        expect(
+          rows.some((r) => r.textContent?.includes("chrono_trigger")),
+        ).toBe(true);
+        expect(
+          ui.queryAllByRole("button", { name: /^chrono_trigger/ }),
+        ).toEqual([]);
+      },
+    );
+    await step("own-item actions include download and delete", async () => {
+      expect(downloadButtons(canvasElement).length).toBeGreaterThan(0);
+      expect(deleteButtons(canvasElement).length).toBeGreaterThan(0);
+    });
+  },
+};
+
+export const ManageStates: Story = {
+  name: "States · manage + actions",
+  render: () => ({
+    components: { AssetList, AssetActions },
+    setup() {
+      return { states: identicalPrefixStates(3) };
+    },
+    template: `
+      <AssetList :assets="states" type="state" :selectable="false" :scrollable="false">
+        <template #actions="{ asset }">
+          <AssetActions :asset="asset" type="state" own />
         </template>
       </AssetList>
     `,
   }),
 };
 
-// Empty: distinct from "no save selected".
-export const Empty: Story = {
-  name: "Empty (no saves)",
+// Other users' public saves show an owner chip and only a download action.
+export const CommunitySaves: Story = {
+  name: "Saves · community (show owner)",
+  play: async ({ canvasElement, step }) => {
+    const ui = within(canvasElement);
+    await step("community author chips render", async () => {
+      expect(ui.getByText("speedrunner42")).toBeTruthy();
+      expect(ui.getByText("archivist")).toBeTruthy();
+    });
+    await step("community rows offer download only", async () => {
+      expect(downloadButtons(canvasElement).length).toBe(2);
+      expect(ui.queryByRole("button", { name: /^Delete /i })).toBeNull();
+    });
+  },
+  render: () => ({
+    components: { AssetList, AssetActions },
+    setup() {
+      const saves = [
+        toUserSave(makeSave(50, "route_a", 12), "speedrunner42", {
+          user_id: 2,
+        }),
+        toUserSave(makeSave(51, "route_b", 24), "archivist", {
+          user_id: 3,
+        }),
+      ];
+      return { saves };
+    },
+    template: `
+      <AssetList
+        :assets="saves"
+        type="save"
+        :selectable="false"
+        :scrollable="false"
+        show-owner
+      >
+        <template #actions="{ asset }">
+          <AssetActions :asset="asset" type="save" />
+        </template>
+      </AssetList>
+    `,
+  }),
+};
+
+// Empty, distinct from "no save selected".
+export const EmptySaves: Story = {
+  name: "Empty · saves",
   render: () => ({
     components: { AssetList },
     template: `
       <AssetList :assets="[]" type="save" :selected-id="null" />
     `,
   }),
+  play: async ({ canvasElement, step }) => {
+    await step("empty saves message", async () => {
+      expect(
+        within(canvasElement).getByText("No saves available"),
+      ).toBeTruthy();
+    });
+  },
+};
+
+export const EmptyStates: Story = {
+  name: "Empty · states",
+  render: () => ({
+    components: { AssetList },
+    template: `
+      <AssetList :assets="[]" type="state" :selected-id="null" />
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    await step("empty states message", async () => {
+      expect(
+        within(canvasElement).getByText("No states available"),
+      ).toBeTruthy();
+    });
+  },
 };
