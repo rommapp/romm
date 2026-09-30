@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import HTTPException, Query, Request, status
+from fastapi import Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, model_validator
 
 from decorators.auth import protected_route
+from endpoints.responses.base import PAGE_QUERY, PageParams
 from endpoints.responses.play_session import (
     PlaySessionIngestResponse,
     PlaySessionIngestResult,
@@ -102,34 +103,31 @@ def ingest_play_sessions(
 @protected_route(router.get, "", [Scope.ROMS_USER_READ])
 def get_play_sessions(
     request: Request,
+    page: Annotated[PageParams, Depends(PAGE_QUERY)],
     rom_id: int | None = None,
     device_id: str | None = None,
     start_after: datetime | None = None,
     end_before: datetime | None = None,
-    limit: Annotated[int, Query(ge=0)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
     all_devices: Annotated[
         bool,
         Query(
             description=(
-                "For a device-bound client token, include sessions from all of "
-                "this user's devices instead of only the token's. "
-                "Ignored when device_id is provided."
+                "Device-bound tokens: include every device's sessions, not only "
+                "the token's. Ignored when device_id is set."
             )
         ),
     ] = False,
 ) -> list[PlaySessionSchema]:
-    effective_device_id = device_id or (
-        None if all_devices else token_device_id(request)
-    )
+    if not device_id:
+        device_id = None if all_devices else token_device_id(request)
     sessions = db_play_session_handler.get_sessions(
         user_id=request.user.id,
         rom_id=rom_id,
-        device_id=effective_device_id,
+        device_id=device_id,
         start_after=start_after,
         end_before=end_before,
-        limit=limit if start_after is None and end_before is None else None,
-        offset=offset,
+        limit=page.limit if start_after is None and end_before is None else None,
+        offset=page.offset,
     )
     return [PlaySessionSchema.model_validate(s) for s in sessions]
 

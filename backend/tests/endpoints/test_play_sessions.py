@@ -6,7 +6,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
 from tests.audit_events import recorded_events
-from tests.factories import make_rom
+from tests.factories import make_device_token, make_rom
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
@@ -671,7 +671,6 @@ class TestPlaySessionQuery:
         editor_user,
         device,
         rom,
-        add_device_token,
         all_devices,
     ):
         other_device = db_device_handler.add_device(
@@ -697,7 +696,7 @@ class TestPlaySessionQuery:
                 for hours, (user_id, device_id) in enumerate(owners, start=1)
             ]
         )
-        _, raw = add_device_token(admin_user, device.id, scopes="roms.user.read")
+        _, raw = make_device_token(admin_user, device.id, scopes="roms.user.read")
         headers = {"Authorization": f"Bearer {raw}"}
         # None leaves the flag off the query so the default is exercised.
         flag = {} if all_devices is None else {"all_devices": all_devices}
@@ -719,21 +718,19 @@ class TestPlaySessionQuery:
         assert response.status_code == status.HTTP_200_OK
         assert [s["id"] for s in response.json()] == [sessions[1].id]
 
-    def test_all_devices_requires_read_scope(
-        self, client, admin_user, device, add_device_token
-    ):
-        _, raw = add_device_token(admin_user, device.id, scopes="devices.read")
+    def test_all_devices_requires_read_scope(self, client, admin_user, device):
+        _, raw = make_device_token(admin_user, device.id, scopes="devices.read")
         response = client.get(
             "/api/play-sessions?all_devices=true",
             headers={"Authorization": f"Bearer {raw}"},
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    @pytest.mark.parametrize("param", ["limit", "offset"])
-    def test_rejects_negative_paging(self, client, access_token: str, param: str):
+    @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": -1}, {"offset": -1}])
+    def test_rejects_invalid_paging(self, client, access_token: str, params: dict):
         response = client.get(
             "/api/play-sessions",
-            params={param: -1},
+            params=params,
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
