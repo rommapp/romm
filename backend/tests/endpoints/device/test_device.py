@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
-from tests.factories import make_save
+from tests.factories import make_device_token, make_save
 
 from endpoints import device as device_endpoints
 from handler.database import db_device_handler
@@ -178,12 +178,12 @@ class TestDeviceEndpoints:
         assert response.json()["client_device_identifier"] == "install-uuid-abc123"
 
     def test_deleting_a_device_closes_its_token_sockets(
-        self, mocker, client, access_token: str, admin_user: User, add_device_token
+        self, mocker, client, access_token: str, admin_user: User
     ):
         device = db_device_handler.add_device(
             Device(id="test-device-sockets", user_id=admin_user.id, name="Handheld")
         )
-        token, _ = add_device_token(admin_user, device.id, scopes="devices.read")
+        token, _ = make_device_token(admin_user, device.id, scopes="devices.read")
         close = mocker.patch.object(
             device_endpoints, "close_client_token_sockets", AsyncMock()
         )

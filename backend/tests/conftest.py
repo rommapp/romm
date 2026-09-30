@@ -3,7 +3,6 @@ import functools
 import os
 import re
 import socket
-import uuid
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -15,7 +14,13 @@ from hypothesis import settings
 from joserfc import jwt
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
-from tests.factories import make_rom, make_save, make_screenshot, make_state
+from tests.factories import (
+    make_firmware,
+    make_rom,
+    make_save,
+    make_screenshot,
+    make_state,
+)
 
 from adapters.services import response_validation
 from config import ROMM_DB_DRIVER
@@ -24,8 +29,6 @@ from handler.auth import auth_handler
 from handler.auth.base_handler import oct_key
 from handler.auth.constants import ALGORITHM
 from handler.database import (
-    db_client_token_handler,
-    db_firmware_handler,
     db_memory_card_handler,
     db_permission_handler,
     db_platform_handler,
@@ -250,36 +253,15 @@ def other_platform():
 
 
 @pytest.fixture
-def add_firmware():
-    """Factory for firmware rows, defaulting to a file still on disk."""
-
-    def _add(platform: Platform, file_name: str, missing: bool = False) -> Firmware:
-        return db_firmware_handler.add_firmware(
-            Firmware(
-                platform_id=platform.id,
-                file_name=file_name,
-                file_path=f"{platform.fs_slug}/bios",
-                file_size_bytes=1024,
-                crc_hash="crc",
-                md5_hash="md5",
-                sha1_hash="sha1",
-                missing_from_fs=missing,
-            )
-        )
-
-    return _add
-
-
-@pytest.fixture
-def firmware(platform: Platform, add_firmware):
+def firmware(platform: Platform):
     """Firmware whose file is still on disk."""
-    return add_firmware(platform, "present.bin")
+    return make_firmware(platform, "present.bin")
 
 
 @pytest.fixture
-def missing_firmware(platform: Platform, add_firmware):
+def missing_firmware(platform: Platform):
     """Firmware flagged by a scan as gone from the filesystem."""
-    return add_firmware(platform, "gone.bin", missing=True)
+    return make_firmware(platform, "gone.bin", missing=True)
 
 
 @pytest.fixture
@@ -496,36 +478,6 @@ def viewer_user():
         permission_group_id=group.id if group else None,
     )
     return db_user_handler.add_user(user)
-
-
-@pytest.fixture
-def add_device_token():
-    """Factory for a client token, bound to ``device_id`` unless it is None.
-
-    Returns the stored token and the raw ``rmm_`` credential a client sends.
-    """
-
-    def _add(
-        user: User,
-        device_id: str | None,
-        *,
-        scopes: str = "devices.read devices.write roms.read",
-        expires_at: datetime | None = None,
-    ) -> tuple[ClientToken, str]:
-        raw_token = f"rmm_test_{uuid.uuid4().hex}"
-        token = db_client_token_handler.add_token(
-            ClientToken(
-                user_id=user.id,
-                name="Handheld",
-                hashed_token=auth_handler.hash_client_token(raw_token),
-                scopes=scopes,
-                expires_at=expires_at,
-                device_id=device_id,
-            )
-        )
-        return token, raw_token
-
-    return _add
 
 
 @pytest.fixture

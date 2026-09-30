@@ -17,6 +17,8 @@ ignore = ["E501"]
 "handler.database.db_save_handler.add_save".msg = "Use tests.factories.make_save"
 "handler.database.db_state_handler.add_state".msg = "Use tests.factories.make_state"
 "handler.database.db_screenshot_handler.add_screenshot".msg = "Use tests.factories.make_screenshot"
+"handler.database.db_firmware_handler.add_firmware".msg = "Use tests.factories.make_firmware"
+"handler.database.db_client_token_handler.add_token".msg = "Use tests.factories.make_device_token"
 
 [lint.per-file-ignores]
 "!**/tests/**" = ["TID251"]
