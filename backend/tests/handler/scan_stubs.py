@@ -1,5 +1,6 @@
 """Scaffolding shared by the tests that drive `scan_rom` end to end."""
 
+import os
 from typing import Any
 
 from tests.factories import make_rom
@@ -20,7 +21,7 @@ def add_n64_platform(**overrides: Any) -> Platform:
 
 def add_rom(platform: Platform, fs_name: str, title: str, **overrides: Any) -> Rom:
     """Persist a single-file ROM whose filename tags are already split out."""
-    stem, _, extension = fs_name.rpartition(".")
+    stem, extension = os.path.splitext(fs_name)
     attrs: dict[str, Any] = {
         "fs_name_no_tags": title,
         "fs_path": platform.fs_slug,
@@ -28,7 +29,11 @@ def add_rom(platform: Platform, fs_name: str, title: str, **overrides: Any) -> R
         "tags": [],
     }
     return make_rom(
-        platform, title, fs_stem=stem, fs_extension=extension, **(attrs | overrides)
+        platform,
+        title,
+        fs_stem=stem,
+        fs_extension=extension.removeprefix("."),
+        **(attrs | overrides),
     )
 
 
