@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Query, Request, status
+from fastapi import Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, model_validator
 
 from decorators.auth import protected_route
@@ -108,18 +108,12 @@ def get_play_sessions(
     device_id: str | None = None,
     start_after: datetime | None = None,
     end_before: datetime | None = None,
-    all_devices: Annotated[
-        bool,
-        Query(
-            description=(
-                "Device-bound tokens: include every device's sessions, not only "
-                "the token's. Ignored when device_id is set."
-            )
-        ),
-    ] = False,
 ) -> list[PlaySessionSchema]:
-    if not device_id:
-        device_id = None if all_devices else token_device_id(request)
+    # A device-bound client may read its own device with roms.user.read alone.
+    if (
+        device_id is None or device_id != token_device_id(request)
+    ) and Scope.DEVICES_READ not in request.auth.scopes:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     sessions = db_play_session_handler.get_sessions(
         user_id=request.user.id,
         rom_id=rom_id,

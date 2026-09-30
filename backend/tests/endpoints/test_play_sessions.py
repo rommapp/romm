@@ -663,15 +663,26 @@ class TestPlaySessionRomUserUpdates:
 
 
 class TestPlaySessionQuery:
-    @pytest.mark.parametrize("all_devices", [None, False, True])
-    def test_paired_client_all_devices(
+    @pytest.mark.parametrize(
+        "scopes, target, expected",
+        [
+            ("roms.user.read devices.read", None, [0, 1, 2]),
+            ("roms.user.read devices.read", "other", [1]),
+            ("roms.user.read", "own", [0]),
+            ("roms.user.read", None, None),
+            ("roms.user.read", "other", None),
+        ],
+    )
+    def test_device_token_reads(
         self,
         client,
         admin_user,
         editor_user,
         device,
         rom,
-        all_devices,
+        scopes: str,
+        target: str | None,
+        expected: list[int] | None,
     ):
         other_device = db_device_handler.add_device(
             Device(id=str(uuid.uuid4()), user_id=admin_user.id, name="Other device")
@@ -696,35 +707,23 @@ class TestPlaySessionQuery:
                 for hours, (user_id, device_id) in enumerate(owners, start=1)
             ]
         )
-        _, raw = make_device_token(admin_user, device.id, scopes="roms.user.read")
-        headers = {"Authorization": f"Bearer {raw}"}
-        # None leaves the flag off the query so the default is exercised.
-        flag = {} if all_devices is None else {"all_devices": all_devices}
+        _, raw = make_device_token(admin_user, device.id, scopes=scopes)
+        params = {
+            "own": {"device_id": device.id},
+            "other": {"device_id": other_device.id},
+        }
+
         response = client.get(
             "/api/play-sessions",
-            params={"rom_id": rom.id, **flag},
-            headers=headers,
-        )
-        assert response.status_code == status.HTTP_200_OK
-        expected = sessions[:3] if all_devices else sessions[:1]
-        assert {s["id"] for s in response.json()} == {s.id for s in expected}
-
-        # An explicit device filter still narrows the current user's results.
-        response = client.get(
-            "/api/play-sessions",
-            params={"device_id": other_device.id, **flag},
-            headers=headers,
-        )
-        assert response.status_code == status.HTTP_200_OK
-        assert [s["id"] for s in response.json()] == [sessions[1].id]
-
-    def test_all_devices_requires_read_scope(self, client, admin_user, device):
-        _, raw = make_device_token(admin_user, device.id, scopes="devices.read")
-        response = client.get(
-            "/api/play-sessions?all_devices=true",
+            params=params.get(target or "", {}),
             headers={"Authorization": f"Bearer {raw}"},
         )
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+        if expected is None:
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            return
+        assert response.status_code == status.HTTP_200_OK
+        assert [s["id"] for s in response.json()] == [sessions[i].id for i in expected]
 
     @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": -1}, {"offset": -1}])
     def test_rejects_invalid_paging(
