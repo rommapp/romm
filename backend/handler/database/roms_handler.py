@@ -2444,13 +2444,31 @@ class DBRomsHandler(DBBaseHandler):
 
         return rom_user
 
-    def _lock_rom_file_owner(self, rom_file_id: int, session: Session) -> int | None:
-        """Lock one file row and return the rom that owns it, or None if it is gone."""
-        # Locked before its roms, on every path, so a concurrent move of the same
-        # file cannot leave a total built from an owner that has since changed.
-        return session.scalar(
-            select(RomFile.rom_id).where(RomFile.id == rom_file_id).with_for_update()
-        )
+    def _lock_rom_file_and_roms(
+        self, rom_file_id: int, other_rom_ids: Iterable[int], session: Session
+    ) -> set[int] | None:
+        """Lock a file's owning rom and `other_rom_ids`, then the file row.
+
+        Returns:
+            Every rom id locked, or None if the file does not exist.
+        """
+        # Roms before files, the order folder conversion writes in. The owner
+        # read unlocked is confirmed under the file lock, and locked too if a
+        # concurrent move changed it in between.
+        owner = session.scalar(select(RomFile.rom_id).where(RomFile.id == rom_file_id))
+        locked: set[int] = set()
+        while owner is not None:
+            pending = ({owner} | set(other_rom_ids)) - locked
+            self._lock_rom_rows(pending, session)
+            locked |= pending
+            owner = session.scalar(
+                select(RomFile.rom_id)
+                .where(RomFile.id == rom_file_id)
+                .with_for_update()
+            )
+            if owner in locked:
+                return locked
+        return None
 
     def _lock_rom_rows(self, rom_ids: Iterable[int], session: Session) -> None:
         """Serialise writers of these roms' files so each size total counts the others'."""
@@ -2484,15 +2502,14 @@ class DBRomsHandler(DBBaseHandler):
         rom_file: RomFile,
         session: Session = INJECTED_SESSION,
     ) -> RomFile:
-        previous_rom_id = (
-            self._lock_rom_file_owner(rom_file.id, session)
+        rom_ids = (
+            self._lock_rom_file_and_roms(rom_file.id, [rom_file.rom_id], session)
             if rom_file.id is not None
             else None
         )
-        rom_ids = {rom_file.rom_id} | (
-            {previous_rom_id} if previous_rom_id is not None else set()
-        )
-        self._lock_rom_rows(rom_ids, session)
+        if rom_ids is None:
+            rom_ids = {rom_file.rom_id}
+            self._lock_rom_rows(rom_ids, session)
         merged = session.merge(rom_file)
         session.flush()
         for rom_id in sorted(rom_ids):
@@ -2732,17 +2749,10 @@ class DBRomsHandler(DBBaseHandler):
         data: dict[str, Any],
         session: Session = INJECTED_SESSION,
     ) -> RomFile | None:
-        current_rom_id = (
-            self._lock_rom_file_owner(id, session)
-            if data.keys() & {"file_size_bytes", "rom_id"}
-            else None
-        )
-        rom_ids = (
-            {current_rom_id, data.get("rom_id", current_rom_id)}
-            if current_rom_id is not None
-            else set()
-        )
-        self._lock_rom_rows(rom_ids, session)
+        rom_ids: set[int] = set()
+        if data.keys() & {"file_size_bytes", "rom_id"}:
+            new_owner = [data["rom_id"]] if "rom_id" in data else []
+            rom_ids = self._lock_rom_file_and_roms(id, new_owner, session) or set()
 
         session.execute(
             update(RomFile)
@@ -3378,16 +3388,16 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
-        rom_id = self._lock_rom_file_owner(id, session)
-        if rom_id is None:
+        rom_ids = self._lock_rom_file_and_roms(id, [], session)
+        if rom_ids is None:
             return
-        self._lock_rom_rows([rom_id], session)
         session.execute(
             delete(RomFile)
             .where(RomFile.id == id)
             .execution_options(synchronize_session="evaluate")
         )
-        self._recompute_fs_size_bytes(rom_id, session)
+        for rom_id in sorted(rom_ids):
+            self._recompute_fs_size_bytes(rom_id, session)
 
     # Note management methods
     def _rom_notes_query(

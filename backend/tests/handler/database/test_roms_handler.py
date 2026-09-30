@@ -831,9 +831,11 @@ class TestRomFileSizeLocking:
 
         self._assert_locked_before(statements, "UPDATE rom_files")
 
-    def test_move_locks_the_file_before_its_roms(
+    def test_move_locks_its_roms_before_the_file(
         self, rom: Rom, second_rom: Rom, statements: list[str]
     ):
+        # Folder conversion writes the rom row before its file rows, so file
+        # writes lock in the same order.
         game = _add_rom_file(rom)
         statements.clear()
 
@@ -844,12 +846,30 @@ class TestRomFileSizeLocking:
             for i, s in enumerate(statements)
             if s.startswith("SELECT rom_files.rom_id") and s.endswith("FOR UPDATE")
         )
-        rom_lock = next(
+        rom_locks = [
             i
             for i, s in enumerate(statements)
             if s.startswith("SELECT roms.id") and re.search(r"FOR (NO KEY )?UPDATE$", s)
-        )
-        assert file_lock < rom_lock
+        ]
+        assert len(rom_locks) == 2
+        assert max(rom_locks) < file_lock
+
+    def test_an_owner_changed_meanwhile_is_locked_too(self):
+        session = MagicMock()
+        # Unlocked read, then the owner under the file lock twice: the file
+        # moved from rom 1 to rom 2 before this transaction took rom 1.
+        session.scalar.side_effect = [1, 2, 2]
+
+        locked = db_rom_handler._lock_rom_file_and_roms(10, [3], session)
+
+        assert locked == {1, 2, 3}
+
+    def test_a_vanished_file_locks_nothing_more(self):
+        session = MagicMock()
+        session.scalar.side_effect = [None]
+
+        assert db_rom_handler._lock_rom_file_and_roms(10, [3], session) is None
+        session.execute.assert_not_called()
 
     @pytest.mark.parametrize(
         ("dialect", "clause"),
