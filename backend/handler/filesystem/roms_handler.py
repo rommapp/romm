@@ -11,7 +11,11 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Final, NotRequired, TypedDict
 
-from adapters.services.rom_converto import CONVERTO_PLATFORM_SLUGS, rom_converto_service
+from adapters.services.rom_converto import (
+    CONVERTO_PLATFORM_SLUGS,
+    RomConvertoImages,
+    rom_converto_service,
+)
 from adapters.services.sigil import (
     SIGIL_PLATFORM_SLUGS,
     SWITCH_PLATFORM_SLUGS,
@@ -123,6 +127,7 @@ class FSRom(TypedDict):
     sha1_hash: str
     ra_hash: str
     identity: NotRequired[RomIdentity]
+    images: NotRequired[dict[RomFile, RomConvertoImages]]
 
 
 def build_empty_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
@@ -253,6 +258,7 @@ class ParsedRomFiles:
     # Files whose name can carry their Switch title id. Renaming is a separate
     # step (`embed_switch_title_ids`) so parsing stays a read.
     embed_candidates: list[TitleIdEmbedCandidate] = field(default_factory=list)
+    images: dict[RomFile, RomConvertoImages] = field(default_factory=dict)
 
 
 RomFileKey = tuple[str, str]
@@ -644,15 +650,19 @@ class FSRomsHandler(FSHandler):
             and await rom_converto_service.is_enabled()
         )
 
-    async def _read_converto_infos(self, sources: list[tuple[Path, RomFile]]) -> None:
-        """Write rom-converto's per-file metadata onto new or changed files from one batch."""
+    async def _read_converto_infos(
+        self, sources: list[tuple[Path, RomFile]]
+    ) -> dict[RomFile, RomConvertoImages]:
+        """Write rom-converto's per-file metadata and return its images."""
         if not sources:
-            return
+            return {}
         infos = await rom_converto_service.read_infos([p for p, _ in sources])
+        images: dict[RomFile, RomConvertoImages] = {}
         for path, rom_file in sources:
             info = infos.get(path)
             if info is None:
                 continue
+            images[rom_file] = info.images
             rom_file.title_id = info.title_id
             rom_file.title_version = info.title_version
             rom_file.title = info.title
@@ -669,6 +679,7 @@ class FSRomsHandler(FSHandler):
             rom_file.compression = info.compression
             rom_file.file_format = info.file_format
             rom_file.uncompressed_size_bytes = info.uncompressed_size_bytes
+        return images
 
     async def get_rom_files(
         self,
@@ -1048,7 +1059,7 @@ class FSRomsHandler(FSHandler):
             _record_title_id_source(rom_dir, rom_file)
             _record_converto_source(rom_dir, rom_file)
 
-        await self._read_converto_infos(converto_sources)
+        images = await self._read_converto_infos(converto_sources)
 
         # Listings come in no fixed order; a ROM is identified by its first disc,
         # and only Switch reads past it for each file's content type.
@@ -1093,6 +1104,7 @@ class FSRomsHandler(FSHandler):
                 RomIdentity.from_rom(rom),
             ),
             embed_candidates=embed_candidates,
+            images=images,
         )
 
     def _calculate_rom_hashes(

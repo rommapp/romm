@@ -479,6 +479,20 @@ class TestSyncRomFiles:
         assert second.id == first.id
         assert second.file_name == "b.bin"
 
+    def test_renamed_reused_row_keeps_its_id_and_icon_path(self, rom: Rom):
+        (first,) = _sync(rom, [_scanned_file(rom, "old.nsp")])
+        icon_path = f"roms/{rom.platform_id}/{rom.id}/icons/{first.id}.png"
+        db_rom_handler.update_rom_file(first.id, {"icon_path": icon_path})
+        first.file_name = "new.nsp"
+
+        synced = db_rom_handler.sync_rom_files(rom.id, [first])
+
+        stored = db_rom_handler.get_rom_file_by_id(first.id)
+        assert stored is not None
+        assert synced.files[0].id == first.id
+        assert stored.icon_path == icon_path
+        assert icon_path not in synced.orphaned_cover_paths
+
     def test_moved_file_is_matched_by_content(self, rom: Rom):
         (first,) = _sync(rom, [_scanned_file(rom, "a.bin")])
         (second,) = _sync(
@@ -577,6 +591,44 @@ class TestSyncRomFiles:
         reloaded = db_rom_handler.get_rom_file_by_id(first.id)
         assert reloaded is not None
         assert reloaded.track_meta is None
+
+    def test_rescan_preserves_stored_file_image_paths(self, rom: Rom):
+        (first,) = _sync(rom, [_scanned_file(rom, "game.bin")])
+        image_paths = {
+            "icon_path": f"roms/{rom.platform_id}/{rom.id}/icons/{first.id}.png",
+            "banner_path": f"roms/{rom.platform_id}/{rom.id}/banners/{first.id}.png",
+            "background_path": (
+                f"roms/{rom.platform_id}/{rom.id}/backgrounds/{first.id}.png"
+            ),
+        }
+        db_rom_handler.update_rom_file(first.id, image_paths)
+
+        synced = db_rom_handler.sync_rom_files(rom.id, [_scanned_file(rom, "game.bin")])
+
+        stored = db_rom_handler.get_rom_file_by_id(first.id)
+        assert stored is not None
+        assert synced.files[0].id == first.id
+        assert {
+            "icon_path": stored.icon_path,
+            "banner_path": stored.banner_path,
+            "background_path": stored.background_path,
+        } == image_paths
+
+    def test_vanished_file_reports_its_orphaned_images(self, rom: Rom):
+        (first,) = _sync(rom, [_scanned_file(rom, "game.bin")])
+        image_paths = {
+            "icon_path": f"roms/{rom.platform_id}/{rom.id}/icons/{first.id}.png",
+            "banner_path": f"roms/{rom.platform_id}/{rom.id}/banners/{first.id}.png",
+            "background_path": (
+                f"roms/{rom.platform_id}/{rom.id}/backgrounds/{first.id}.png"
+            ),
+        }
+        db_rom_handler.update_rom_file(first.id, image_paths)
+
+        synced = db_rom_handler.sync_rom_files(rom.id, [])
+
+        assert synced.files == []
+        assert set(synced.orphaned_cover_paths) == set(image_paths.values())
 
     def test_vanished_soundtrack_reports_its_orphaned_cover(self, rom: Rom):
         (first,) = _sync(

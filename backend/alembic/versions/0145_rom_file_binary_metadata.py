@@ -36,6 +36,9 @@ def _columns() -> list[sa.Column]:
         sa.Column("compression", sa.String(length=255), nullable=True),
         sa.Column("file_format", sa.String(length=255), nullable=True),
         sa.Column("uncompressed_size_bytes", sa.BigInteger(), nullable=True),
+        sa.Column("icon_path", sa.String(length=1024), nullable=True),
+        sa.Column("banner_path", sa.String(length=1024), nullable=True),
+        sa.Column("background_path", sa.String(length=1024), nullable=True),
     ]
 
 

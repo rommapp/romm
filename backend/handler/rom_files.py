@@ -12,7 +12,7 @@ from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.filesystem.roms_handler import RomFileKey, rom_file_key
 from handler.redis_handler import async_cache
-from handler.scan_handler import persist_soundtrack_cover
+from handler.scan_handler import persist_rom_file_images, persist_soundtrack_cover
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomFile, RomIdentity
@@ -125,9 +125,11 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
         synced = db_rom_handler.sync_rom_files(rom.id, parsed.rom_files)
         for cover_path in synced.orphaned_cover_paths:
             remove_persisted_cover(cover_path)
-        for saved in synced.files:
+        for scanned, saved in zip(parsed.rom_files, synced.files, strict=True):
             if rom_file_key(saved) in new_keys or rom_file_key(saved) in updated_keys:
                 persist_soundtrack_cover(saved, rom)
+            if scanned in parsed.images:
+                await persist_rom_file_images(saved, parsed.images[scanned], rom)
 
     rom_updates: dict[str, Any] = {}
     fs_size_bytes = sum(f.file_size_bytes for f in parsed.rom_files)

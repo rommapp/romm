@@ -37,6 +37,9 @@ export type RomFileSchema = {
     compression: (string | null);
     file_format: (string | null);
     uncompressed_size_bytes: (number | null);
+    icon_path: (string | null);
+    banner_path: (string | null);
+    background_path: (string | null);
     archive_members: (Array<RomArchiveMember> | null);
     category: (RomFileCategory | null);
     track_meta?: (TrackMetaSchema | null);

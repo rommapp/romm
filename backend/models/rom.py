@@ -356,6 +356,13 @@ class RomFile(BaseModel):
     uncompressed_size_bytes: Mapped[int | None] = mapped_column(
         BigInteger, default=None
     )
+    # Where the images rom-converto read from the file are stored, relative
+    # to RESOURCES_BASE_PATH. Written after the scan, never by it.
+    icon_path: Mapped[str | None] = mapped_column(String(length=1024), default=None)
+    banner_path: Mapped[str | None] = mapped_column(String(length=1024), default=None)
+    background_path: Mapped[str | None] = mapped_column(
+        String(length=1024), default=None
+    )
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
     )

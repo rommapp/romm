@@ -2513,8 +2513,7 @@ class DBRomsHandler(DBBaseHandler):
         are deleted, and only columns that actually changed are written, so
         re-scanning an unchanged ROM issues no updates.
 
-        Returns the persisted rows in scan order, plus the soundtrack covers
-        left behind by dropped track metadata for the caller to unlink.
+        Returns the persisted rows in scan order, plus resource paths to unlink.
         """
         existing = (
             session.scalars(
@@ -2534,6 +2533,9 @@ class DBRomsHandler(DBBaseHandler):
 
         for scanned in scanned_files:
             row = by_path.get((scanned.file_path, scanned.file_name))
+            if row is None and scanned.id is not None and scanned.id in unmatched:
+                # A reused row renamed in place is still that row.
+                row = unmatched[scanned.id]
             if row is not None and row.id in unmatched:
                 del unmatched[row.id]
                 pairs.append((scanned, row))
@@ -2574,8 +2576,14 @@ class DBRomsHandler(DBBaseHandler):
             saved.append(row)
 
         if unmatched:
-            # Deleting a row cascades its track metadata, so its cover would
-            # otherwise be left on disk with nothing pointing at it.
+            # Deleting a row drops its image paths and cascades its track
+            # metadata, so their files would otherwise stay on disk unreferenced.
+            orphaned_cover_paths.extend(
+                path
+                for row in unmatched.values()
+                for path in (row.icon_path, row.banner_path, row.background_path)
+                if path is not None
+            )
             orphaned_cover_paths.extend(
                 row.track_meta.cover_path
                 for row in unmatched.values()

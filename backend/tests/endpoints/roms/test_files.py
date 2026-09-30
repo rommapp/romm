@@ -1,3 +1,4 @@
+from base64 import b64decode
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -5,6 +6,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+import config
 from handler.database import db_permission_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
 from models.permission import PermAction, PermEntity
@@ -230,6 +232,40 @@ def test_delete_rom_file_success(
     assert response.status_code == status.HTTP_200_OK
     assert db_rom_handler.get_rom_file_by_id(rom_file.id) is None
     assert not (files_fs / "game.bin").exists()
+
+
+def test_delete_rom_file_removes_persisted_icon(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    files_fs: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    rom = _make_rom(admin_user, platform)
+    (files_fs / "game.bin").write_bytes(b"\x00" * 16)
+    rom_file = _add_file(rom, "game.bin", RomFileCategory.GAME)
+    icon_path = f"roms/{rom.platform_id}/{rom.id}/icons/{rom_file.id}.png"
+    db_rom_handler.update_rom_file(rom_file.id, {"icon_path": icon_path})
+    monkeypatch.setattr(config, "RESOURCES_BASE_PATH", str(tmp_path))
+    icon_file = tmp_path / icon_path
+    icon_file.parent.mkdir(parents=True)
+    icon_file.write_bytes(
+        b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/"
+            "x8AAwMCAO+jLhoAAAAASUVORK5CYII="
+        )
+    )
+
+    response = client.delete(
+        f"/api/roms/{rom.id}/files/{rom_file.id}",
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert db_rom_handler.get_rom_file_by_id(rom_file.id) is None
+    assert not icon_file.exists()
 
 
 def test_delete_rom_file_wrong_rom_returns_404(
