@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   releaseSessionKeepalive: vi.fn(),
   heartbeatSession: vi.fn(),
   heartbeatTick: null as (() => Promise<void>) | null,
+  exitChord: null as (() => void) | null,
   routeLeave: null as (() => Promise<boolean> | boolean) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
   setPlaying: vi.fn(),
@@ -35,6 +36,14 @@ vi.mock("@vueuse/core", async (importOriginal) => ({
   // The beat is driven by hand; the pagehide listener stays real.
   useIntervalFn: (tick: () => Promise<void>) => {
     mocks.heartbeatTick = tick;
+  },
+}));
+
+// The chord's own timing is useExitChord's to test; here only what a completed
+// hold does.
+vi.mock("@/v2/composables/useExitChord", () => ({
+  useExitChord: (_active: unknown, onChord: () => void) => {
+    mocks.exitChord = onChord;
   },
 }));
 
@@ -382,5 +391,75 @@ describe("Desktop controller ownership", () => {
     mounted = null;
 
     expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
+  });
+
+  it("mutes pad navigation while the claim is still in flight", async () => {
+    mocks.claimDesktop.mockReturnValue(new Promise(() => {}));
+    const wrapper = await mountDesktop();
+
+    expect(vmOf(wrapper).state).toBe("loading");
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(true);
+  });
+
+  it("hands the pad back once the desktop is exited", async () => {
+    mocks.releaseSession.mockResolvedValue({});
+    await openDesktop();
+
+    expect(await mocks.routeLeave?.()).toBe(true);
+    await flushPromises();
+
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
+  });
+
+  it("ends the desktop from the pad's exit chord", async () => {
+    // B is muted with the rest of the pad, so the chord is the pad's way out.
+    mocks.releaseSession.mockResolvedValue({});
+    const wrapper = await openDesktop();
+
+    mocks.exitChord?.();
+    await flushPromises();
+
+    expect(mocks.releaseSession).toHaveBeenCalledWith(
+      "ps2",
+      undefined,
+      KEY,
+      undefined,
+      CLAIMED_AT,
+    );
+    expect(vmOf(wrapper).state).toBe("exited");
+  });
+});
+
+describe("Desktop claims that outlive the view", () => {
+  it("hands back a claim that answers after the view is gone", async () => {
+    let answer = (_: unknown) => {};
+    mocks.claimDesktop.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    mocks.releaseSession.mockResolvedValue({});
+    const wrapper = await mountDesktop();
+
+    wrapper.unmount();
+    mounted = null;
+    answer({
+      data: {
+        container: KEY,
+        host: "http://webstation-dev:8080",
+        label: "PS2",
+        platform: "ps2",
+        claimed_at: CLAIMED_AT,
+      },
+    });
+    await flushPromises();
+
+    expect(mocks.releaseSession).toHaveBeenCalledWith(
+      "ps2",
+      undefined,
+      KEY,
+      undefined,
+      CLAIMED_AT,
+    );
   });
 });

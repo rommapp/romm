@@ -72,6 +72,7 @@ import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useActivityPresence } from "@/v2/composables/useActivityPresence";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
+import { useExitChord } from "@/v2/composables/useExitChord";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useMultiplayerPref } from "@/v2/composables/useMultiplayerPref";
@@ -1283,50 +1284,10 @@ function onExitDialogKeydown(event: KeyboardEvent): void {
 }
 
 // ── Select+Start exit chord ────────────────────────────────────────
-// useGamepad is muted for the whole session (launch included), so the
-// chord is read straight from the Gamepad API here; polling while
-// "loading" keeps the cancel dialog reachable by pad if a launch hangs.
-// The 1.5s hold filters out anything a game itself binds to Select+Start.
-// Only standard-mapped pads participate: elsewhere indices 8/9 are not
-// guaranteed to be Select+Start.
-const EXIT_CHORD_HOLD_MS = 1500;
-// A 1.5s hold needs nowhere near frame resolution, and this runs on the thread
-// compositing the stream for as long as the session lasts.
-const EXIT_CHORD_POLL_MS = 100;
-let chordHeldSince = 0;
-
-function pollExitChord(): void {
-  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-  const held = Array.from(pads).some(
-    (pad) =>
-      pad &&
-      pad.mapping === "standard" &&
-      pad.buttons[8]?.pressed &&
-      pad.buttons[9]?.pressed,
-  );
-  const now = performance.now();
-  if (!held) {
-    chordHeldSince = 0;
-  } else if (!chordHeldSince) {
-    chordHeldSince = now;
-  } else if (now - chordHeldSince >= EXIT_CHORD_HOLD_MS) {
-    chordHeldSince = 0;
-    if (!exitDialogOpen.value) void openExitDialog();
-  }
-}
-
-const exitChordPoll = useIntervalFn(pollExitChord, EXIT_CHORD_POLL_MS, {
-  immediate: false,
-});
-
-function stopExitChordPoll(): void {
-  exitChordPoll.pause();
-  chordHeldSince = 0;
-}
-
-watch(sessionActive, (active) => {
-  if (active) exitChordPoll.resume();
-  else stopExitChordPoll();
+// useGamepad is muted for the whole session (launch included), so this is
+// the pad's only way to the exit dialog.
+useExitChord(sessionActive, () => {
+  if (!exitDialogOpen.value) void openExitDialog();
 });
 
 function formatTime(iso: string): string {

@@ -22,6 +22,7 @@ import { type SessionTermination, useStreamingStore } from "@/stores/streaming";
 import SessionEndedReason from "@/v2/components/Player/SessionEndedReason.vue";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useExitChord } from "@/v2/composables/useExitChord";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 
@@ -67,6 +68,13 @@ const sessionActive = computed(
 watch(sessionActive, (active) => playingStore.setPlaying(active), {
   immediate: true,
 });
+// With B muted, holding Select+Start is the pad's way to the exit dialog.
+useExitChord(sessionActive, () => void handleExit());
+
+// Set once the view is gone. Leaving while the claim is in flight is allowed
+// (nothing is held yet), so a claim that answers afterwards is handed straight
+// back rather than left standing, unbeaten, until it goes stale.
+let disposed = false;
 
 async function openDesktop(): Promise<void> {
   if (!containerName.value) {
@@ -76,6 +84,20 @@ async function openDesktop(): Promise<void> {
   }
   try {
     const { data } = await streamingApi.claimDesktop(containerName.value);
+    if (disposed) {
+      streamingApi
+        .releaseSession(
+          data.platform,
+          undefined,
+          data.container,
+          undefined,
+          data.claimed_at,
+        )
+        .catch((err: unknown) =>
+          console.warn("[streaming] Could not release a desktop claim:", err),
+        );
+      return;
+    }
     containerKey.value = data.container;
     containerHost.value = data.host;
     label.value = data.label;
@@ -233,6 +255,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  disposed = true;
   playingStore.setPlaying(false);
 });
 </script>
