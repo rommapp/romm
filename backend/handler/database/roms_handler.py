@@ -45,6 +45,7 @@ from sqlalchemy.sql.selectable import Select
 
 from config.config_manager import config_manager as cm
 from decorators.database import INJECTED_SESSION, begin_session
+from exceptions.database_exceptions import RomFileOwnerChangedError
 from handler.database.rom_filters import (
     ROM_FILTER_SPECS,
     FilterKind,
@@ -685,6 +686,39 @@ def _drop_filter_values_bump(session: Session) -> None:
     session.info.pop(FILTER_VALUES_BUMP_KEY, None)
 
 
+# Per-user cache invalidations queued by `_queue_user_cache_bumps`, keyed by
+# user id; they run once the transaction commits.
+USER_CACHE_BUMPS_KEY = "user_cache_bumps"
+
+
+@event.listens_for(Session, "after_commit")
+def _bump_user_caches_after_commit(session: Session) -> None:
+    bumps: dict[int, set[str]] = session.info.pop(USER_CACHE_BUMPS_KEY, {})
+    # No keys-set bookkeeping: entries under an old version become
+    # unreachable and are reaped by the TTL or the next global bump.
+    for uid, uid_flags in bumps.items():
+        # The write is already durable, so a cache failure only logs; the
+        # stale entry falls to the TTL.
+        try:
+            if "sort" in uid_flags:
+                sync_cache.incr(_user_sort_version_key(uid))
+            if "sib" in uid_flags:
+                sync_cache.incr(_user_sibling_version_key(uid))
+            if "feed" in uid_flags:
+                # Imported here because the recommendation package reads
+                # this module.
+                from handler.recommendation import invalidate_cached_feed
+
+                invalidate_cached_feed(uid)
+        except Exception:
+            log.exception("Failed to bump user %s cache versions", uid)
+
+
+@event.listens_for(Session, "after_rollback")
+def _drop_user_cache_bumps(session: Session) -> None:
+    session.info.pop(USER_CACHE_BUMPS_KEY, None)
+
+
 def _queue_user_cache_bumps(
     session: Session,
     user_id: int,
@@ -696,47 +730,12 @@ def _queue_user_cache_bumps(
     """Queues per-user cache invalidations for after this transaction
     commits, so a rollback bumps nothing and a concurrent reader cannot
     cache pre-commit rows under the new version."""
-    bumps: dict[int, set[str]] = session.info.setdefault("user_cache_bumps", {})
-    flags = bumps.setdefault(user_id, set())
-    flags.update(
+    bumps: dict[int, set[str]] = session.info.setdefault(USER_CACHE_BUMPS_KEY, {})
+    bumps.setdefault(user_id, set()).update(
         flag
         for flag, queued in (("sort", sort_keys), ("sib", siblings), ("feed", feed))
         if queued
     )
-    if "user_cache_bumps_armed" in session.info:
-        return
-    session.info["user_cache_bumps_armed"] = True
-
-    def _consume(ending_session: Session) -> dict[int, set[str]]:
-        # Popping the state re-arms the next transaction on a reused session.
-        ending_session.info.pop("user_cache_bumps_armed", None)
-        bumps: dict[int, set[str]] = ending_session.info.pop("user_cache_bumps", {})
-        return bumps
-
-    @event.listens_for(session, "after_commit", once=True)
-    def _flush(_session: Session) -> None:
-        # No keys-set bookkeeping: entries under an old version become
-        # unreachable and are reaped by the TTL or the next global bump.
-        for uid, uid_flags in _consume(_session).items():
-            # The write is already durable, so a cache failure only logs;
-            # the stale entry falls to the TTL.
-            try:
-                if "sort" in uid_flags:
-                    sync_cache.incr(_user_sort_version_key(uid))
-                if "sib" in uid_flags:
-                    sync_cache.incr(_user_sibling_version_key(uid))
-                if "feed" in uid_flags:
-                    # Imported here because the recommendation package reads
-                    # this module.
-                    from handler.recommendation import invalidate_cached_feed
-
-                    invalidate_cached_feed(uid)
-            except Exception:
-                log.exception("Failed to bump user %s cache versions", uid)
-
-    @event.listens_for(session, "after_rollback", once=True)
-    def _discard(_session: Session) -> None:
-        _consume(_session)
 
 
 class DBRomsHandler(DBBaseHandler):
@@ -2446,18 +2445,46 @@ class DBRomsHandler(DBBaseHandler):
 
         return rom_user
 
-    def _lock_rom_row(self, rom_id: int, session: Session) -> None:
-        """Serialise writers of one rom's files so each size total counts the others'."""
-        # Taken before the file write, whose foreign key check would otherwise
-        # share-lock the row first and deadlock two writers on MariaDB.
-        session.execute(
-            select(Rom.id).where(Rom.id == rom_id).with_for_update(key_share=True)
+    def _lock_rom_file_and_roms(
+        self, rom_file_id: int, other_rom_ids: Iterable[int], session: Session
+    ) -> set[int] | None:
+        """Lock a file's owning rom and `other_rom_ids`, then the file row.
+
+        Returns:
+            Every rom id locked, or None if the file does not exist.
+
+        Raises:
+            RomFileOwnerChangedError: a concurrent move changed the owner first.
+        """
+        # All rom locks go in one sorted batch before the file lock, the order
+        # folder conversion writes in, so no two writers can wait on each other.
+        owner = session.scalar(select(RomFile.rom_id).where(RomFile.id == rom_file_id))
+        if owner is None:
+            return None
+        locked = {owner, *other_rom_ids}
+        self._lock_rom_rows(locked, session)
+        confirmed = session.scalar(
+            select(RomFile.rom_id).where(RomFile.id == rom_file_id).with_for_update()
         )
+        if confirmed is None:
+            return None
+        if confirmed not in locked:
+            raise RomFileOwnerChangedError(rom_file_id)
+        return locked
+
+    def _lock_rom_rows(self, rom_ids: Iterable[int], session: Session) -> None:
+        """Serialise writers of these roms' files so each size total counts the others'."""
+        # Taken before the file write, whose foreign key check would otherwise
+        # share-lock the row first; in id order so two moves cannot deadlock.
+        for rom_id in sorted(set(rom_ids)):
+            session.execute(
+                select(Rom.id).where(Rom.id == rom_id).with_for_update(key_share=True)
+            )
 
     def _recompute_fs_size_bytes(self, rom_id: int, session: Session) -> None:
         """Re-derive the size the gallery sorts on from the rom's file rows."""
         # Summed inside the UPDATE, which MariaDB reads with locks rather than
-        # from the transaction snapshot; the caller holds `_lock_rom_row`.
+        # from the transaction snapshot; the caller holds `_lock_rom_rows`.
         total = (
             select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
             .where(RomFile.rom_id == rom_id)
@@ -2477,10 +2504,18 @@ class DBRomsHandler(DBBaseHandler):
         rom_file: RomFile,
         session: Session = INJECTED_SESSION,
     ) -> RomFile:
-        self._lock_rom_row(rom_file.rom_id, session)
+        rom_ids = (
+            self._lock_rom_file_and_roms(rom_file.id, [rom_file.rom_id], session)
+            if rom_file.id is not None
+            else None
+        )
+        if rom_ids is None:
+            rom_ids = {rom_file.rom_id}
+            self._lock_rom_rows(rom_ids, session)
         merged = session.merge(rom_file)
         session.flush()
-        self._recompute_fs_size_bytes(merged.rom_id, session)
+        for rom_id in sorted(rom_ids):
+            self._recompute_fs_size_bytes(rom_id, session)
         return merged
 
     def _apply_scanned_rom_file(
@@ -2716,13 +2751,10 @@ class DBRomsHandler(DBBaseHandler):
         data: dict[str, Any],
         session: Session = INJECTED_SESSION,
     ) -> RomFile | None:
-        resized_rom_id = (
-            session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
-            if "file_size_bytes" in data
-            else None
-        )
-        if resized_rom_id is not None:
-            self._lock_rom_row(resized_rom_id, session)
+        rom_ids: set[int] = set()
+        if data.keys() & {"file_size_bytes", "rom_id"}:
+            new_owner = [data["rom_id"]] if "rom_id" in data else []
+            rom_ids = self._lock_rom_file_and_roms(id, new_owner, session) or set()
 
         session.execute(
             update(RomFile)
@@ -2731,8 +2763,8 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        if resized_rom_id is not None:
-            self._recompute_fs_size_bytes(resized_rom_id, session)
+        for rom_id in sorted(rom_ids):
+            self._recompute_fs_size_bytes(rom_id, session)
         return session.scalars(select(RomFile).filter_by(id=id)).one_or_none()
 
     @begin_session
@@ -3350,16 +3382,16 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
-        rom_id = session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
-        if rom_id is None:
+        rom_ids = self._lock_rom_file_and_roms(id, [], session)
+        if rom_ids is None:
             return
-        self._lock_rom_row(rom_id, session)
         session.execute(
             delete(RomFile)
             .where(RomFile.id == id)
             .execution_options(synchronize_session="evaluate")
         )
-        self._recompute_fs_size_bytes(rom_id, session)
+        for rom_id in sorted(rom_ids):
+            self._recompute_fs_size_bytes(rom_id, session)
 
     # Note management methods
     def _rom_notes_query(
