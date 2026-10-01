@@ -75,6 +75,9 @@ def __get_sync_cache() -> Redis:
     return client
 
 
+_LOOP_CLIENT_ATTR: Final = "_romm_fake_async_redis"
+
+
 class _PerLoopFakeAsyncRedis:
     """A fake async client per event loop, all over the one fake server."""
 
@@ -101,10 +104,10 @@ class _PerLoopFakeAsyncRedis:
             return client
         # Held on the loop, not in a map keyed by it: the client's asyncio
         # objects reference the loop, so such a map would never let one go.
-        client = getattr(loop, "_romm_fake_async_redis", None)
+        client = getattr(loop, _LOOP_CLIENT_ATTR, None)
         if client is None:
             client = self._new_client()
-            loop._romm_fake_async_redis = client
+            setattr(loop, _LOOP_CLIENT_ATTR, client)
         return client
 
     def __getattr__(self, name: str) -> Any:
