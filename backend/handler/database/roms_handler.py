@@ -91,6 +91,11 @@ from utils.database import (
     release_day_ranges,
     rom_unset_flag_column,
 )
+from utils.fulltext import (
+    FULLTEXT_TOKEN_REGEX,
+    fulltext_settings,
+    split_fulltext_words,
+)
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.sql_dialect import (
     Analyze,
@@ -102,7 +107,7 @@ from utils.sql_dialect import (
     nulls_last,
 )
 
-from .base_handler import DBBaseHandler, affected_rows
+from .base_handler import DBBaseHandler, affected_rows, sync_engine
 
 type RomSelect = Select[tuple[Rom]]
 
@@ -160,12 +165,6 @@ EJS_SUPPORTED_PLATFORMS = [
 RUFFLE_SUPPORTED_PLATFORMS = [
     UPS.BROWSER,
 ]
-
-# Used to remove native full-text SQL operators
-FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
-
-# 3 is the default minimum size in InnoDB
-FULLTEXT_MIN_TOKEN_SIZE = 3
 
 # A term reaches the hash columns only when it is hex of exactly a digest
 # length, so an ordinary name search builds no hash SQL at all. Hashes are
@@ -236,6 +235,12 @@ ROM_SEARCH_COLUMNS: tuple[QueryableAttribute[Any], ...] = tuple(
 )
 
 
+def _name_like(word: str) -> ColumnElement[bool]:
+    return or_(
+        *(column.icontains(word, autoescape=True) for column in ROM_SEARCH_COLUMNS)
+    )
+
+
 def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
     """A MariaDB/MySQL FULLTEXT match of the ROM's name, filename and aliases."""
     return fulltext_match(
@@ -246,13 +251,7 @@ def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
 
 def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
     """How well the ROM's name, filename or aliases hold the phrases, words in order."""
-    holds_a_phrase = or_(
-        *(
-            column.icontains(phrase, autoescape=True)
-            for phrase in phrases
-            for column in ROM_SEARCH_COLUMNS
-        )
-    )
+    holds_a_phrase = or_(*(_name_like(phrase) for phrase in phrases))
     return DialectCase(
         postgresql=case((holds_a_phrase, 1), else_=0),
         mysql=_fulltext_match(" ".join(f'"{phrase}"' for phrase in phrases)),
@@ -1131,48 +1130,40 @@ class DBRomsHandler(DBBaseHandler):
             )
         )
 
-    def _build_fulltext_boolean_query(self, term: str) -> str | None:
-        words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
-        if not words or any(len(word) < FULLTEXT_MIN_TOKEN_SIZE for word in words):
-            return None
-        return " ".join(f"+{word}*" for word in words)
-
     def _build_search_phrases(self, search_term: str) -> list[str]:
         """The multi-word terms of a search, which relevance ranks by."""
         phrases: list[str] = []
         for term in search_term.split("|"):
-            words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
+            words = FULLTEXT_TOKEN_REGEX.findall(term)
             if len(words) > 1:
                 phrases.append(" ".join(words))
         return phrases
 
     def _build_name_conditions(self, terms: Sequence[str]) -> list[Any]:
         """One condition per term, matching it against the ROM's name, filename and aliases."""
-        # PostgreSQL's pg_trgm indexes serve the ILIKE; MariaDB and MySQL use
-        # their FULLTEXT index unless a word is too short for it.
-        like_conditions = [
-            and_(
-                *(
-                    or_(*(column.ilike(f"%{word}%") for column in ROM_SEARCH_COLUMNS))
-                    for word in term.split()
+        settings = fulltext_settings(sync_engine)
+        conditions: list[Any] = []
+        for term in terms:
+            words = term.split()
+            likes = {word: _name_like(word) for word in words}
+            like = and_(*likes.values())
+            # Unreadable settings leave LIKE alone to decide.
+            indexed, unindexed = (
+                split_fulltext_words(words, settings) if settings else ([], words)
+            )
+            if not indexed:
+                conditions.append(like)
+                continue
+            # PostgreSQL's pg_trgm indexes serve the ILIKE. On MariaDB and MySQL
+            # FULLTEXT drives the query and LIKE checks the words it can't hold.
+            match = _fulltext_match(" ".join(f"+{word}*" for word in indexed))
+            conditions.append(
+                DialectCase(
+                    postgresql=like,
+                    mysql=and_(match, *(likes[word] for word in unindexed)),
                 )
             )
-            for term in terms
-        ]
-        boolean_queries = [
-            query
-            for term in terms
-            if (query := self._build_fulltext_boolean_query(term)) is not None
-        ]
-        if len(boolean_queries) < len(terms):
-            return like_conditions
-
-        return [
-            DialectCase(postgresql=like, mysql=_fulltext_match(boolean_query))
-            for boolean_query, like in zip(
-                boolean_queries, like_conditions, strict=True
-            )
-        ]
+        return conditions
 
     def _build_hash_selects(self, terms: Iterable[str]) -> list[Select[tuple[int]]]:
         """Id-yielding selects for terms shaped like a hash digest.
