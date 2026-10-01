@@ -488,6 +488,37 @@ describe("galleryRoms length filter", () => {
   });
 });
 
+describe("galleryRoms relevanceLeads", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  function loaded(charIndex: Record<string, number>) {
+    const store = storeGalleryRoms();
+    store.setOrderBy(null);
+    store.metadataLoaded = true;
+    store.total = 5;
+    store.charIndex = charIndex;
+    return store;
+  }
+
+  it("reads an unset sort answered without letters as relevance", () => {
+    expect(loaded({}).relevanceLeads).toBe(true);
+  });
+
+  it("reads letters, a picked sort or an empty result as no relevance", () => {
+    expect(loaded({ a: 0 }).relevanceLeads).toBe(false);
+
+    const sorted = loaded({});
+    sorted.setOrderBy("fs_size_bytes");
+    expect(sorted.relevanceLeads).toBe(false);
+
+    const empty = loaded({});
+    empty.total = 0;
+    expect(empty.relevanceLeads).toBe(false);
+  });
+});
+
 describe("orderSupportsLetters", () => {
   // The backend indexes first letters off a text column only, so every other
   // order answers with an empty char_index. Spelling out every key means a new

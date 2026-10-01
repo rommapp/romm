@@ -131,6 +131,42 @@ describe("GalleryToolbar sort axis", () => {
     wrapper.unmount();
   });
 
+  it("offers the unsorted order and emits a null key for it", async () => {
+    const wrapper = mountWithSortOptions({ unsortedLabel: "Relevance" });
+
+    const relevance = wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .find((item) => item.props("label") === "Relevance");
+    expect(relevance?.props("variant")).toBe("default");
+    await relevance!.trigger("click");
+
+    expect(wrapper.emitted("update:sortKey")).toEqual([[null]]);
+    wrapper.unmount();
+  });
+
+  // Relevance has no direction, so the toggle would claim one it can't apply.
+  it("hides the direction toggle while the unsorted order is active", () => {
+    const sorted = mountWithSortOptions({ unsortedLabel: "Relevance" });
+    const togglesWhenSorted = sorted.findAllComponents({
+      name: "RSliderBtnGroup",
+    }).length;
+    sorted.unmount();
+
+    const wrapper = mountWithSortOptions({
+      unsortedLabel: "Relevance",
+      sortKey: null,
+    });
+
+    expect(wrapper.findAllComponents({ name: "RSliderBtnGroup" })).toHaveLength(
+      togglesWhenSorted - 1,
+    );
+    const relevance = wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .find((item) => item.props("label") === "Relevance");
+    expect(relevance?.props("variant")).toBe("active");
+    wrapper.unmount();
+  });
+
   // List mode sorts through the column headers, so the toolbar's axis
   // control steps aside rather than offer a second, competing one.
   it("drops the control in list mode only", () => {

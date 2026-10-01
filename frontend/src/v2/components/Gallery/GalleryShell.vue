@@ -81,6 +81,7 @@ import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, {
   DEFAULT_ORDER_BY,
+  DEFAULT_ORDER_DIR,
   type GalleryOrderKey,
   orderSupportsLetters,
 } from "@/v2/stores/galleryRoms";
@@ -316,9 +317,8 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
-// A jump to "M" means nothing when the gallery is sorted by size or date, so
-// the letter affordances go away with the letters themselves. An unset sort
-// leaves the order to the backend, which sends no letters when relevance leads.
+// A jump to "M" means nothing unless the gallery is in letter order. The
+// backend omits letter positions when relevance leads an unset sort.
 const lettersSupported = computed(() =>
   orderBy.value === null
     ? Object.keys(charIndex.value).length > 0
@@ -804,6 +804,16 @@ function onListSort(payload: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderDir(payload.dir);
 }
 
+// Search's relevance has no sort key; the other views have no unsorted order.
+const unsortedLabel = computed(() =>
+  props.defaultOrderBy === null ? t("gallery.sort-relevance") : undefined,
+);
+
+function onUnsort() {
+  galleryRoms.setOrderBy(null);
+  galleryRoms.setOrderDir(DEFAULT_ORDER_DIR);
+}
+
 // The toolbar's sort axes, matching the list column headers.
 const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
 
@@ -1066,6 +1076,7 @@ defineExpose({
               :sort-dir="orderDir"
               :sort-key="listSortKey"
               :sort-key-items="sortOptions"
+              :unsorted-label="unsortedLabel"
               show-search
               :search="searchInput"
               :search-placeholder="searchPlaceholder"
@@ -1108,7 +1119,9 @@ defineExpose({
             :sort-key="listSortKey"
             :sort-dir="orderDir"
             :show-platform-column="showPlatformColumn"
+            :unsorted-label="unsortedLabel"
             @sort="onListSort"
+            @unsort="onUnsort"
           />
         </template>
       </template>
@@ -1126,7 +1139,9 @@ defineExpose({
           :sort-dir="orderDir"
           :show-platform-column="showPlatformColumn"
           aria-rowindex="1"
+          :unsorted-label="unsortedLabel"
           @sort="onListSort"
+          @unsort="onUnsort"
         />
       </template>
 
@@ -1253,6 +1268,7 @@ defineExpose({
       :sort-dir="orderDir"
       :sort-key="listSortKey"
       :sort-key-items="sortOptions"
+      :unsorted-label="unsortedLabel"
       show-filter
       :filter-active-count="filterActiveCount"
       @update:group-by="groupBy = $event"

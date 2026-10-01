@@ -293,6 +293,13 @@ export default defineStore("v2GalleryRoms", {
       ),
     /** True when at least the first window has loaded. */
     hasInitial: (state) => state.loadedWindows.size > 0,
+    /** Whether the backend ranked an unset sort by relevance, which it
+     * signals by sending no letter positions for a non-empty result. */
+    relevanceLeads: (state) =>
+      state.orderBy === null &&
+      state.metadataLoaded &&
+      state.total > 0 &&
+      Object.keys(state.charIndex).length === 0,
     /** The full ordered id list of the current filtered result, or null
      * while it is unknown (off the gallery view, or bootstrap pending). */
     filteredRomIds(): number[] | null {

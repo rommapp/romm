@@ -11,10 +11,13 @@ const props = defineProps<{
   /** Null when the list's order is one the columns don't carry. */
   sortKey: K | null;
   sortDir: "asc" | "desc";
+  /** Offers the list's order without a sort key (Search's relevance) under this name. */
+  unsortedLabel?: string;
 }>();
 
 const emit = defineEmits<{
   (e: "sort", payload: { key: K; dir: "asc" | "desc" }): void;
+  (e: "unsort"): void;
 }>();
 
 const { t } = useI18n();
@@ -26,6 +29,7 @@ const dirIcon = computed(() =>
 const label = computed(
   () =>
     props.options.find((option) => option.key === props.sortKey)?.label ??
+    (props.sortKey === null ? props.unsortedLabel : undefined) ??
     t("gallery.sort-by"),
 );
 
@@ -43,9 +47,20 @@ function pick(key: K) {
     <template #activator="{ props: activatorProps }">
       <button v-bind="activatorProps" type="button" class="list-sort-menu">
         <span class="list-sort-menu__label">{{ label }}</span>
-        <RIcon :icon="dirIcon" size="14" class="list-sort-menu__icon" />
+        <RIcon
+          v-if="sortKey !== null || !unsortedLabel"
+          :icon="dirIcon"
+          size="14"
+          class="list-sort-menu__icon"
+        />
       </button>
     </template>
+    <RMenuItem
+      v-if="unsortedLabel"
+      :label="unsortedLabel"
+      :variant="sortKey === null ? 'active' : 'default'"
+      @click="emit('unsort')"
+    />
     <RMenuItem
       v-for="option in options"
       :key="option.key"

@@ -4,7 +4,8 @@
 // Layout: a single CSS-grid div sharing `LIST_GRID_TEMPLATE` with every
 // `GameListRow` underneath, so columns line up regardless of viewport.
 // Click on a sortable column toggles asc → desc → asc (single-key sort,
-// matching the rest of the gallery surface).
+// matching the rest of the gallery surface), or asc → desc → unsorted when
+// the gallery has an order of its own to fall back to.
 //
 // Sticky positioning is owned by the parent (`GalleryShell` pins this
 // below the toolbar at `top: --r-v2-shell-toolbar-h`). The header
@@ -36,14 +37,19 @@ interface Props {
    * name on `GameListRow` + `GameListSkeletonRow` so all three stay in
    * lockstep. */
   showPlatformColumn?: boolean;
+  /** Names the gallery's order without a sort key (Search's relevance), and
+   * lets a third click on a column return to it. */
+  unsortedLabel?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showPlatformColumn: true,
+  unsortedLabel: undefined,
 });
 
 const emit = defineEmits<{
   (e: "sort", payload: { key: ListSortKey; dir: "asc" | "desc" }): void;
+  (e: "unsort"): void;
 }>();
 
 const { t } = useI18n();
@@ -82,6 +88,14 @@ function ariaSort(col: ListColumn) {
 
 function handleClick(col: ListColumn) {
   if (!isSortableColumn(col)) return;
+  if (
+    props.unsortedLabel &&
+    props.sortKey === col.key &&
+    props.sortDir === "desc"
+  ) {
+    emit("unsort");
+    return;
+  }
   // Toggle direction when re-clicking the active column; otherwise start the
   // new one ascending, like every other sortable table in the app.
   const nextDir: "asc" | "desc" =
@@ -113,7 +127,9 @@ function handleClick(col: ListColumn) {
       :options="sortOptions"
       :sort-key="sortKey"
       :sort-dir="sortDir"
+      :unsorted-label="unsortedLabel"
       @sort="emit('sort', $event)"
+      @unsort="emit('unsort')"
     />
   </div>
 
