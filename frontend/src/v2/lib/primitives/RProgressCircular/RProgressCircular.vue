@@ -122,7 +122,7 @@ const dashOffset = computed(() => 100 - progressValue.value);
     :aria-valuemin="decorative ? undefined : 0"
     :aria-valuemax="decorative ? undefined : 100"
     :aria-valuenow="
-      !decorative && !indeterminate ? Math.round(progressValue) : undefined
+      !decorative && !indeterminate ? Math.floor(progressValue) : undefined
     "
     :aria-busy="!decorative && indeterminate ? true : undefined"
   >
