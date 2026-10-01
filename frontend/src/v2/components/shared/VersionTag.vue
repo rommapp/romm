@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Renders the running RomM version, shared by AuthLayout, DevicePairShell,
-// and PairShell. Pass `link` to render as an anchor to the release/branch page.
+// Renders the running RomM version. Pass `link` to render as an anchor to
+// the release/branch page.
 import { useVersionDisplay } from "@/v2/composables/useVersionDisplay";
 
 defineOptions({ inheritAttrs: false });

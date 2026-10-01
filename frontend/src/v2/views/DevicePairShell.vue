@@ -5,8 +5,7 @@
  * nested `<router-view>`, so the shell inlines {@link DevicePair} instead of
  * reusing AuthLayout directly.
  */
-import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
-import VersionTag from "@/v2/components/shared/VersionTag.vue";
+import AuthFooter from "@/v2/components/shared/AuthFooter.vue";
 import DevicePair from "@/v2/views/DevicePair.vue";
 </script>
 
@@ -16,10 +15,7 @@ import DevicePair from "@/v2/views/DevicePair.vue";
     <main class="r-v2-devpair-shell__stage">
       <DevicePair />
     </main>
-    <footer class="r-v2-devpair-shell__footer">
-      <LanguageSelector />
-      <VersionTag />
-    </footer>
+    <AuthFooter class="r-v2-devpair-shell__footer" />
   </div>
 </template>
 
@@ -75,9 +71,5 @@ import DevicePair from "@/v2/views/DevicePair.vue";
   right: var(--r-space-4);
   bottom: var(--r-space-3);
   z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--r-space-3);
 }
 </style>
