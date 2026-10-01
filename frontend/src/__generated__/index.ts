@@ -82,6 +82,8 @@ export type { ContainerSessionSchema } from './models/ContainerSessionSchema';
 export type { ConversionStats } from './models/ConversionStats';
 export type { ConversionTaskMeta } from './models/ConversionTaskMeta';
 export type { ConversionTaskStatusResponse } from './models/ConversionTaskStatusResponse';
+export type { ConvertoConfig } from './models/ConvertoConfig';
+export type { ConvertoSettingsPayload } from './models/ConvertoSettingsPayload';
 export type { CoverResource } from './models/CoverResource';
 export type { CsdbCredit } from './models/CsdbCredit';
 export type { CustomLimitOffsetPage_SimpleRomSchema_ } from './models/CustomLimitOffsetPage_SimpleRomSchema_';

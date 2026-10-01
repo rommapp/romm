@@ -12,7 +12,7 @@ from .base_handler import DBBaseHandler
 
 
 class DBUsersHandler(DBBaseHandler):
-    def filter[QueryT: (Select[tuple[User]], Update, Delete)](
+    def filter[QueryT: (Select[User], Update, Delete)](
         self,
         query: QueryT,
         *,
@@ -127,7 +127,7 @@ class DBUsersHandler(DBBaseHandler):
         self,
         id: int,
         session: Session = INJECTED_SESSION,
-    ) -> Result[Any]:
+    ) -> Result[*tuple[Any, ...]]:
         return session.execute(
             delete(User)
             .where(User.id == id)

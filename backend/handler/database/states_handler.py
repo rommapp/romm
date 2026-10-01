@@ -49,7 +49,7 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
-    ) -> Select[tuple[State]]:
+    ) -> Select[State]:
         query = select(State).filter_by(user_id=user_id)
 
         # An empty collection is an explicit empty scope, not an absent filter.

@@ -65,6 +65,19 @@ ROM_PATCHER_MAX_CONCURRENCY: Final[int] = max(
     1, safe_int(_get_env("ROM_PATCHER_MAX_CONCURRENCY"), 2)
 )
 
+# ROM CONVERTO
+ROM_CONVERTO_ENABLED: Final[bool] = safe_str_to_bool(_get_env("ROM_CONVERTO_ENABLED"))
+# Seconds per rom-converto CLI operation.
+ROM_CONVERTO_TIMEOUT: Final[int] = max(
+    1, safe_int(_get_env("ROM_CONVERTO_TIMEOUT"), 600)
+)
+# Concurrent conversion subprocesses per process (each web and RQ worker).
+ROM_CONVERTO_MAX_CONCURRENCY: Final[int] = max(
+    1, safe_int(_get_env("ROM_CONVERTO_MAX_CONCURRENCY"), 2)
+)
+# Disk cache for converted downloads, under the tree nginx serves at /cache/.
+ROM_CONVERTO_CACHE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/converts"
+
 # DATABASE
 DB_HOST: Final[str | None] = _get_env("DB_HOST")
 DB_PORT: Final[int] = safe_int(_get_env("DB_PORT"), 3306)

@@ -113,6 +113,15 @@ CLEANUP_ZIP_CACHE_SPEC: Final = TaskSpec(
     cron_string=SCHEDULED_CLEANUP_ZIP_CACHE_CRON,
 )
 
+CLEANUP_CONVERSION_CACHE_SPEC: Final = TaskSpec(
+    implementation="tasks.scheduled.cleanup_conversion_cache.cleanup_conversion_cache_task",
+    title="Scheduled conversion cache cleanup",
+    description="Removes stale converted download files based on TTL",
+    task_type=TaskType.CLEANUP,
+    enabled=True,
+    cron_string="0 4 * * *",
+)
+
 CLEANUP_ORPHANED_RESOURCES_SPEC: Final = TaskSpec(
     implementation="tasks.scheduled.cleanup_orphaned_resources.cleanup_orphaned_resources_task",
     title="Cleanup orphaned resources",
@@ -232,6 +241,20 @@ RECOMPUTE_SAVE_CONTENT_HASHES_SPEC: Final = TaskSpec(
     manual_run=True,
 )
 
+CONVERT_LIBRARY_SPEC: Final = TaskSpec(
+    implementation="tasks.manual.convert_library.convert_library_task",
+    title="Convert library",
+    description=(
+        "Convert each matched ROM to its platform's library format, "
+        "replacing the original files"
+    ),
+    task_type=TaskType.CONVERSION,
+    enabled=True,
+    manual_run=True,
+    # One conversion after another, each up to ROM_CONVERTO_TIMEOUT.
+    timeout=SCAN_TIMEOUT,
+)
+
 # The keys are the names the API and the cron schedule address a task by, and
 # they end up in the job payload, so they outlive any given release. Every task
 # that runs on a schedule belongs here; which of them the API surfaces is the
@@ -243,6 +266,7 @@ SCHEDULED_TASKS: Final[dict[str, TaskSpec]] = {
     "build_recommendations": BUILD_RECOMMENDATIONS_SPEC,
     "convert_images_to_webp": CONVERT_IMAGES_TO_WEBP_SPEC,
     "cleanup_zip_cache": CLEANUP_ZIP_CACHE_SPEC,
+    "cleanup_conversion_cache": CLEANUP_CONVERSION_CACHE_SPEC,
     "cleanup_orphaned_resources": CLEANUP_ORPHANED_RESOURCES_SPEC,
     "cleanup_netplay": CLEANUP_NETPLAY_SPEC,
     "cleanup_upload_tmp": CLEANUP_UPLOAD_TMP_SPEC,
@@ -258,6 +282,7 @@ MANUAL_TASKS: Final[dict[str, TaskSpec]] = {
     "cleanup_missing_firmware": CLEANUP_MISSING_FIRMWARE_SPEC,
     "sync_folder_scan": SYNC_FOLDER_SCAN_SPEC,
     "recompute_save_content_hashes": RECOMPUTE_SAVE_CONTENT_HASHES_SPEC,
+    "convert_library": CONVERT_LIBRARY_SPEC,
 }
 
 

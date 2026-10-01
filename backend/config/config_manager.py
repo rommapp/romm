@@ -1,3 +1,4 @@
+import dataclasses
 import enum
 import functools
 import glob
@@ -14,6 +15,7 @@ import yaml
 from sqlalchemy import URL
 from yaml.loader import SafeLoader
 
+from adapters.services.rom_converto import normalize_platform_formats
 from config import (
     DB_HOST,
     DB_NAME,
@@ -401,6 +403,22 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
 VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 
 
+@dataclasses.dataclass
+class ConvertoConfig:
+    download_conversion_enabled: bool = False
+    cache_ttl_hours: int = 24
+    # 0 leaves the cache unbounded.
+    cache_max_size_gb: int = 20
+    platform_formats: dict[str, str] = dataclasses.field(default_factory=dict)
+
+
+# The smallest value each integer converto.* setting accepts.
+CONVERTO_INT_MINIMUMS: Final[dict[str, int]] = {
+    "cache_ttl_hours": 1,
+    "cache_max_size_gb": 0,
+}
+
+
 class EjsControls(TypedDict):
     _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
     _1: dict[int, EjsControlsButton]
@@ -506,6 +524,7 @@ class Config:
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
     STREAMING_ENABLED: bool
     STREAMING_CONTAINERS: list[StreamingContainer]
+    CONVERTO: ConvertoConfig
 
     def __init__(self, **entries: Any) -> None:
         self.__dict__.update(entries)
@@ -878,6 +897,12 @@ class ConfigManager:
             STREAMING_ENABLED=pydash.get(self._raw_config, "streaming.enabled", False),
             STREAMING_CONTAINERS=pydash.get(
                 self._raw_config, "streaming.containers", []
+            ),
+            CONVERTO=ConvertoConfig(
+                **{
+                    key: pydash.get(self._raw_config, f"converto.{key}", default)
+                    for key, default in dataclasses.asdict(ConvertoConfig()).items()
+                }
             ),
             STRUCTURE_TEMPLATES=pydash.get(
                 self._raw_config, "filesystem.structure", {}
@@ -1281,6 +1306,31 @@ class ConfigManager:
                 len(legacy_containers),
             )
 
+        if not isinstance(self.config.CONVERTO.download_conversion_enabled, bool):
+            log.critical(
+                "Invalid config.yml: converto.download_conversion_enabled must be a boolean"
+            )
+            sys.exit(3)
+
+        for key, minimum in CONVERTO_INT_MINIMUMS.items():
+            value = getattr(self.config.CONVERTO, key)
+            if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+                log.critical(
+                    f"Invalid config.yml: converto.{key} must be an integer >= {minimum}"
+                )
+                sys.exit(3)
+
+        try:
+            self.config.CONVERTO.platform_formats = normalize_platform_formats(
+                self._validated_platform_map(
+                    self.config.CONVERTO.platform_formats or {},
+                    "converto.platform_formats",
+                )
+            )
+        except ValueError as exc:
+            log.critical(f"Invalid config.yml: converto.platform_formats: {exc}")
+            sys.exit(3)
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r") as config_file:
@@ -1366,6 +1416,7 @@ class ConfigManager:
                     "export": self.config.PEGASUS_AUTO_EXPORT_ON_SCAN,
                 },
             },
+            "converto": dataclasses.asdict(self.config.CONVERTO),
         }
 
         # The streaming section isn't editable at runtime, but it must survive
@@ -1498,6 +1549,11 @@ class ConfigManager:
         self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType(gamelist_thumbnail)
         self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType(gamelist_image)
         self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
+        self._update_config_file()
+
+    def update_converto_settings(self, converto: ConvertoConfig) -> None:
+        """Replace the whole converto.* section and persist it to config.yml."""
+        self.config.CONVERTO = converto
         self._update_config_file()
 
 

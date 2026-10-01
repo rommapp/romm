@@ -71,7 +71,8 @@ def load_igdb_ids(limit: int | None) -> dict[int, list[int]]:
     grouped: dict[int, list[int]] = {}
     with sync_session.begin() as session:
         for igdb_id, rom_id in session.execute(stmt).all():
-            grouped.setdefault(igdb_id, []).append(rom_id)
+            if igdb_id is not None:
+                grouped.setdefault(igdb_id, []).append(rom_id)
 
     return grouped
 
