@@ -38,9 +38,9 @@ import {
   watch,
 } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
+import { useEscapable } from "@/v2/lib/overlays/RDialog/useEscapable";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTag from "@/v2/lib/primitives/RTag/RTag.vue";
-import { useEscapable } from "@/v2/lib/overlays/RDialog/useEscapable";
 import { useRFormRegistration } from "../RForm/context";
 
 defineOptions({ inheritAttrs: false });
