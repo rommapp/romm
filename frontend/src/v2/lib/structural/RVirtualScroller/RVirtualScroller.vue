@@ -73,6 +73,10 @@ interface Props {
    * instead of squashing / clipping). The virtualised inner gets this as
    * `min-width` and the container gets `overflow-x: auto`. Number = px. */
   minContentWidth?: number | string;
+  /** Attributes for the element wrapping `#head` and the items, e.g. a
+   *  `role="grid"` that must own a header row and the rows but not the
+   *  `#prepend` band. */
+  bodyAttrs?: Record<string, string | number | boolean | undefined>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -81,6 +85,7 @@ const props = withDefaults(defineProps<Props>(), {
   offsetShift: undefined,
   getItemKey: undefined,
   minContentWidth: undefined,
+  bodyAttrs: undefined,
 });
 
 const emit = defineEmits<{
@@ -96,6 +101,8 @@ defineSlots<{
   prepend(): unknown;
   /** Flow content between `#prepend` and the inner, position: sticky. */
   sticky(): unknown;
+  /** Flow content right above the items, inside the `bodyAttrs` element. */
+  head(): unknown;
 }>();
 
 const containerEl = ref<HTMLElement | null>(null);
@@ -246,11 +253,13 @@ onMounted(() => {
   // bubbles up via the container's own size or the inner's offsetTop.
   if (innerEl.value) {
     innerObserver = new ResizeObserver(syncInnerOffset);
-    // Observe siblings above the inner: that's what shifts `innerOffsetTop`.
-    let prev = innerEl.value.previousElementSibling;
-    while (prev) {
-      innerObserver.observe(prev);
-      prev = prev.previousElementSibling;
+    // Observe siblings above the inner and the body: they shift `innerOffsetTop`.
+    for (const start of [innerEl.value, innerEl.value.parentElement]) {
+      let prev = start?.previousElementSibling;
+      while (prev) {
+        innerObserver.observe(prev);
+        prev = prev.previousElementSibling;
+      }
     }
   }
 });
@@ -350,14 +359,17 @@ const innerStyle = computed(() => {
     <div v-if="$slots.sticky" class="r-virtual-scroller__sticky">
       <slot name="sticky" />
     </div>
-    <div ref="innerEl" class="r-virtual-scroller__inner" :style="innerStyle">
-      <div
-        v-for="entry in renderedItems"
-        :key="entry.key"
-        class="r-virtual-scroller__item"
-        :style="{ transform: `translateY(${entry.top}px)` }"
-      >
-        <slot :item="entry.item" :index="entry.index" />
+    <div class="r-virtual-scroller__body" v-bind="bodyAttrs">
+      <slot name="head" />
+      <div ref="innerEl" class="r-virtual-scroller__inner" :style="innerStyle">
+        <div
+          v-for="entry in renderedItems"
+          :key="entry.key"
+          class="r-virtual-scroller__item"
+          :style="{ transform: `translateY(${entry.top}px)` }"
+        >
+          <slot :item="entry.item" :index="entry.index" />
+        </div>
       </div>
     </div>
   </div>

@@ -1,4 +1,4 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
@@ -108,27 +108,48 @@ describe("list row selection", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     smAndDown.value = false;
-    vi.spyOn(storeGalleryRoms(), "getRomAt").mockReturnValue(rom());
   });
 
-  it("is a plain link while nothing is selected", () => {
-    const row = mountRow({ rom: undefined, position: 0 }).find("a");
+  // Seeded after mounting: the first gallery row to mount resets the store.
+  async function mountGalleryRow(attrs: Record<string, unknown> = {}) {
+    const wrapper = mountRow({ rom: undefined, position: 0, ...attrs });
+    storeGalleryRoms().byPosition.set(0, rom());
+    await flushPromises();
+    return wrapper;
+  }
 
-    expect(row.attributes("aria-describedby")).toBeUndefined();
+  it("selects on Space from its name link", async () => {
+    const wrapper = await mountGalleryRow();
+
+    await wrapper.get("a.game-list-row__name").trigger("keydown", { key: " " });
+
+    expect(storeGallerySelection().ids).toEqual([rom().id]);
+    expect(wrapper.get("[role=row]").attributes("aria-selected")).toBe("true");
   });
 
-  it("describes its selection state in selection mode, and Space toggles it", async () => {
-    const selection = storeGallerySelection();
-    selection.toggle({ ...rom(), id: 99 }, 5);
-    const wrapper = mountRow({ rom: undefined, position: 0 });
-    const row = wrapper.find("a");
-    const state = () =>
-      wrapper.find(`#${row.attributes("aria-describedby")}`).text();
+  it("is a row with one cell on phones", async () => {
+    smAndDown.value = true;
+    const row = (await mountGalleryRow()).get("[role=row]");
 
-    expect(state()).toBe("rom.selection-state-off");
+    expect(
+      Array.from(row.element.children).map((c) => c.getAttribute("role")),
+    ).toEqual(["gridcell"]);
+  });
+  it("is a grid row of cells, with the name as its link", async () => {
+    const wrapper = await mountGalleryRow({ "aria-rowindex": 4 });
+    const row = wrapper.get("[role=row]");
 
-    await row.trigger("keydown", { key: " " });
-
-    expect(state()).toBe("rom.selection-state-on");
+    expect(row.attributes("aria-rowindex")).toBe("4");
+    expect(row.attributes("aria-selected")).toBe("false");
+    expect(
+      row.element.children.length,
+      "every column is a cell",
+    ).toBeGreaterThan(1);
+    for (const child of Array.from(row.element.children)) {
+      expect(child.getAttribute("role")).toBe("gridcell");
+    }
+    expect(row.get("a.game-list-row__name").attributes("href")).toBe(
+      `/rom/${rom().id}`,
+    );
   });
 });

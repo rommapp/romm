@@ -435,8 +435,6 @@
   "select-file": "Selectează {path}",
   "selected-of": "{selected} din {total} selectate",
   "selection-count": "{n} jocuri",
-  "selection-state-off": "Neselectat",
-  "selection-state-on": "Selectat",
   "set-as-default": "Setează ca ROM implicit",
   "set-as-default-version": "Setează ca versiune implicită",
   "set-status": "Setează starea",

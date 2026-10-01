@@ -435,8 +435,6 @@
   "select-file": "Vybrat {path}",
   "selected-of": "{selected} z {total} vybráno",
   "selection-count": "{n} her",
-  "selection-state-off": "Nevybráno",
-  "selection-state-on": "Vybráno",
   "set-as-default": "Nastavit ROM jako výchozí",
   "set-as-default-version": "Nastavit jako výchozí verzi",
   "set-status": "Nastavit stav",

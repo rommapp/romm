@@ -87,31 +87,31 @@ describe("GameCard selection", () => {
     expect(selection.ids).toEqual([2, 1]);
   });
 
-  it("is a plain link with a decorative checkbox while nothing is selected", async () => {
+  it("is a plain link with a decorative checkbox", async () => {
     const wrapper = await mountCard(1, makeRouter());
     const card = wrapper.find(".r-gc");
 
     expect(card.attributes("role")).toBeUndefined();
     expect(card.attributes("aria-pressed")).toBeUndefined();
-    expect(card.attributes("aria-describedby")).toBeUndefined();
     expect(wrapper.find(".r-gc__check input").exists()).toBe(false);
   });
 
-  it("describes its selection state in selection mode, and Space toggles it", async () => {
-    const selection = storeGallerySelection();
-    selection.toggle(rom(2), 1);
+  it("selects on Space, even before anything is selected", async () => {
+    const wrapper = await mountCard(1, makeRouter());
 
+    await wrapper.find(".r-gc").trigger("keydown", { key: " " });
+
+    expect(storeGallerySelection().ids).toEqual([1]);
+  });
+
+  it("leaves Space on its own buttons to them", async () => {
     const wrapper = await mountCard(1, makeRouter());
     const card = wrapper.find(".r-gc");
-    const state = () =>
-      wrapper.find(`#${card.attributes("aria-describedby")}`).text();
+    const button = card.find("button");
 
-    expect(state()).toBe("rom.selection-state-off");
+    await button.trigger("keydown", { key: " " });
 
-    await card.trigger("keydown", { key: " " });
-
-    expect(selection.ids).toEqual([2, 1]);
-    expect(state()).toBe("rom.selection-state-on");
+    expect(storeGallerySelection().ids).toEqual([]);
   });
 
   it("consumes a modifier click on the checkbox", async () => {

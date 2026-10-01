@@ -50,6 +50,7 @@ import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
 import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import {
+  getListColumns,
   getListMinWidth,
   getSortOptions,
   isListSortKey,
@@ -387,10 +388,11 @@ watch(
 // and only the matching one actually moves focus, so they don't fight.
 // Virtualised rows past the overscan window simply aren't in the DOM, so
 // nav clamps at the boundary; scrolling past mounts more rows.
-useGridNav(sectionEl, { rowSelector: ".r-v2-shell__row" });
+useGridNav(sectionEl, { rowSelector: ".r-v2-shell__row", roving: true });
 useGridNav(sectionEl, {
   rowSelector: ".game-list-row",
   getCells: (row) => [row],
+  roving: true,
 });
 
 const loadingInitial = computed(
@@ -911,6 +913,53 @@ const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
 
+// The desktop list header is the grid's first row; the compact one is a
+// toolbar above the grid.
+const listHeaderInGrid = computed(
+  () => layout.value === "list" && !smAndDown.value,
+);
+
+// The rows form one ARIA grid, which leaves out the page header and toolbar.
+const gridAttrs = computed(() => {
+  const items = virtualItems.value;
+  if (items.length === 0 && !listHeaderInGrid.value) return undefined;
+  const loaded = items.some((i) => i.kind === "row" || i.kind === "list-row");
+  return {
+    role: "grid",
+    "aria-label": t("common.games"),
+    "aria-multiselectable": true,
+    "aria-busy": !loaded && !items.some((i) => i.kind === "empty"),
+    "aria-rowcount": items.length + (listHeaderInGrid.value ? 1 : 0),
+    "aria-colcount": listHeaderInGrid.value
+      ? getListColumns(props.showPlatformColumn).length
+      : undefined,
+  };
+});
+
+function rowIndex(index: number): number {
+  return index + 1 + (listHeaderInGrid.value ? 1 : 0);
+}
+
+// A list row is its own `role="row"`; skeletons stay out of the grid.
+function itemAttrs(item: GalleryItem, index: number) {
+  switch (item.kind) {
+    case "letter-header":
+    case "row":
+    case "empty":
+      return { role: "row", "aria-rowindex": rowIndex(index) };
+    case "skeleton-row":
+    case "skeleton-list-row":
+      return { "aria-hidden": true };
+    default:
+      return {};
+  }
+}
+
+function isRomSelected(position: number): boolean {
+  const rom = getRomAt(position);
+  return !!rom && gallerySelection.isSelected(rom.id);
+}
+
 // Stable identity for the virtualiser. Each GalleryItem carries a content-
 // derived `key` (`row-${start}`, `lh-${letter}`, `lr-${p}`, …); feeding it to
 // RVirtualScroller as `get-item-key` lets Vue MATCH rows across a re-pack and
@@ -960,6 +1009,7 @@ defineExpose({
         layout === 'list' && !smAndDown ? listMinWidth : undefined
       "
       class="r-v2-shell__scroller"
+      :body-attrs="gridAttrs"
       :tabindex="-1"
       @wheel.passive="endLetterJump"
       @pointerdown.passive="endLetterJump"
@@ -1023,7 +1073,7 @@ defineExpose({
              Shares `LIST_GRID_TEMPLATE` with every GameListRow underneath
              so columns align. Header click cycles asc/desc into the
              store's orderBy/orderDir. -->
-        <template v-if="layout === 'list'">
+        <template v-if="layout === 'list' && !listHeaderInGrid">
           <div
             v-if="toolbarPosition === 'floating'"
             ref="listHeaderSentinel"
@@ -1040,15 +1090,36 @@ defineExpose({
         </template>
       </template>
 
+      <template v-if="listHeaderInGrid" #head>
+        <div
+          v-if="toolbarPosition === 'floating'"
+          ref="listHeaderSentinel"
+          aria-hidden="true"
+        />
+        <GameListHeader
+          class="r-v2-shell__list-header"
+          :class="{ 'r-pinned-list-header': listHeaderPinned }"
+          :sort-key="listSortKey"
+          :sort-dir="orderDir"
+          :show-platform-column="showPlatformColumn"
+          aria-rowindex="1"
+          @sort="onListSort"
+        />
+      </template>
+
       <!-- GRID / TABLE (Section 3): letter-headers + rows of cards in
            grid/grouped mode, or a single RTable in list mode. Skeleton
            rows render while the first window is in flight. The empty
            / not-found state replaces everything below the toolbar
            with a single message. -->
-      <template #default="{ item }">
-        <div class="r-v2-shell__item">
+      <template #default="{ item, index }">
+        <div
+          class="r-v2-shell__item"
+          v-bind="itemAttrs(item as GalleryItem, index)"
+        >
           <RLetterHeading
             v-if="itemKind(item as GalleryItem) === 'letter-header'"
+            role="rowheader"
             :label="asLetterHeader(item as GalleryItem).letter"
           />
 
@@ -1056,9 +1127,12 @@ defineExpose({
             v-else-if="itemKind(item as GalleryItem) === 'row'"
             class="r-v2-shell__row"
           >
-            <template
+            <div
               v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
               :key="p"
+              role="gridcell"
+              class="r-v2-shell__cell"
+              :aria-selected="getRomAt(p) ? isRomSelected(p) : undefined"
             >
               <GameCard
                 v-if="getRomAt(p)"
@@ -1072,11 +1146,12 @@ defineExpose({
                 @ratio="onCardRatio"
               />
               <GameCardSkeleton v-else />
-            </template>
+            </div>
           </div>
 
           <GameListRow
             v-else-if="itemKind(item as GalleryItem) === 'list-row'"
+            :aria-rowindex="rowIndex(index)"
             :position="asListRow(item as GalleryItem).position"
             :webp="supportsWebp"
             :show-platform-column="showPlatformColumn"
@@ -1100,6 +1175,7 @@ defineExpose({
 
           <div
             v-else-if="itemKind(item as GalleryItem) === 'empty'"
+            role="gridcell"
             class="r-v2-shell__empty"
           >
             <REmptyState
@@ -1308,7 +1384,11 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
 /* Never shrink: float rounding can push a "just fits" row a hair over, and
    shrinking a fixed-height card would crop its cover. Take ragged overflow
    instead (also keeps skeletons, default shrink:1, at their packed width). */
-.r-v2-shell__row > * {
+/* A cell has no box of its own, so the card inside is the flex item. */
+.r-v2-shell__cell {
+  display: contents;
+}
+.r-v2-shell__cell > * {
   flex-shrink: 0;
 }
 

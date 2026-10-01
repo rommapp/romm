@@ -435,8 +435,6 @@
   "select-file": "Sélectionner {path}",
   "selected-of": "{selected} sur {total} sélectionné(s)",
   "selection-count": "{n} jeux",
-  "selection-state-off": "Non sélectionné",
-  "selection-state-on": "Sélectionné",
   "set-as-default": "Définir une ROM par défaut",
   "set-as-default-version": "Définir comme version par défaut",
   "set-status": "Définir le statut",

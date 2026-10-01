@@ -38,13 +38,16 @@ import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
 import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import {
+  getListColumns,
   isListSortKey,
   LIST_ROW_HEIGHT_PX,
   type ListSortKey,
 } from "@/v2/components/Gallery/listColumns";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
+import { useGridNav } from "@/v2/composables/useGridNav";
 import { useListExpansion } from "@/v2/composables/useListExpansion";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -183,6 +186,27 @@ function rowPosition(item: unknown): number {
   const v = item as VItem;
   return isListRow(v) ? v.position : -1;
 }
+
+// The rows form an ARIA grid. On desktop the column header is its first row;
+// the compact header is a toolbar, so there the grid starts at the rows.
+const { smAndDown } = useBreakpoint();
+const listEl = ref<HTMLElement | null>(null);
+const gridAttrs = computed(() => {
+  const headerRows = smAndDown.value ? 0 : 1;
+  return {
+    role: "grid",
+    "aria-label": t("common.games"),
+    "aria-multiselectable": true,
+    "aria-busy": !virtualItems.value.some(isListRow),
+    "aria-rowcount": virtualItems.value.length + headerRows,
+    "aria-colcount": smAndDown.value ? undefined : getListColumns(true).length,
+  };
+});
+useGridNav(listEl, {
+  rowSelector: ".game-list-row",
+  getCells: (row) => [row],
+  roving: true,
+});
 
 function onListSort({ key, dir }: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderBy(key);
@@ -387,10 +411,16 @@ onBeforeUnmount(() => {
       icon="mdi-folder-question-outline"
       :title="t('settings.missing-games-none')"
     />
-    <div v-else-if="phase !== 'idle'" class="r-v2-missing__list">
+    <div
+      v-else-if="phase !== 'idle'"
+      ref="listEl"
+      class="r-v2-missing__list"
+      v-bind="smAndDown ? undefined : gridAttrs"
+    >
       <GameListHeader
         :sort-key="listSortKey"
         :sort-dir="orderDir"
+        :aria-rowindex="smAndDown ? undefined : 1"
         @sort="onListSort"
       />
       <RVirtualScroller
@@ -398,12 +428,14 @@ onBeforeUnmount(() => {
         :get-item-height="vItemHeight"
         :offset-shift="offsetShift"
         :overscan="25"
+        :body-attrs="smAndDown ? gridAttrs : undefined"
         class="r-v2-missing__scroller"
         @update:viewport-range="onViewportRange"
       >
-        <template #default="{ item }">
+        <template #default="{ item, index }">
           <GameListRow
             v-if="isListRow(item as VItem)"
+            :aria-rowindex="index + (smAndDown ? 1 : 2)"
             :position="rowPosition(item)"
             :webp="supportsWebp"
             expandable

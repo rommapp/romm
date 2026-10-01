@@ -435,8 +435,6 @@
   "select-file": "{path} kiválasztása",
   "selected-of": "{selected} / {total} kiválasztva",
   "selection-count": "{n} játék",
-  "selection-state-off": "Nincs kijelölve",
-  "selection-state-on": "Kijelölve",
   "set-as-default": "ROM beállítása alapértelmezettként",
   "set-as-default-version": "Beállítás alapértelmezett verzióként",
   "set-status": "Állapot beállítása",

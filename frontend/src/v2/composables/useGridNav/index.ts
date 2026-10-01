@@ -51,7 +51,24 @@ export interface UseGridNavOptions {
    *  element itself is the single focusable cell, or a custom selector
    *  to skip non-focusable spacers / dividers. */
   getCells?: (row: HTMLElement) => HTMLElement[];
+  /** Keep a single tab stop in the grid, as the ARIA grid pattern asks:
+   *  the controls of the active cell stay tabbable and every other cell's
+   *  get `tabindex="-1"`, including cells that mount later. */
+  roving?: boolean;
 }
+
+// Controls the roving mode may take out of the tab order. Unlike
+// FOCUSABLE_SELECTOR, this still matches them once they are at -1.
+const ROVING_CANDIDATES = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]",
+].join(",");
+// The tabindex a control had before the roving mode touched it.
+const ROVING_ORIGINAL = "data-grid-roving";
 
 export function useGridNav(
   rootRef: Ref<HTMLElement | null>,
@@ -68,6 +85,7 @@ export function useGridNav(
   const route = useRoute();
   const focusStore = storeFocusRestoration();
   let preferredCol = 0;
+  let activeKey: string | null = null;
 
   // Walk up from `node` looking for a `[data-focus-key]` carrier. Tiles
   // mark their root with this so focus can survive navigation.
@@ -81,6 +99,15 @@ export function useGridNav(
     return null;
   }
 
+  // A cell's own `[data-focus-key]`, or that of the tile inside it.
+  function cellKey(cell: HTMLElement): string | null {
+    return (
+      cell.getAttribute("data-focus-key") ??
+      cell.querySelector("[data-focus-key]")?.getAttribute("data-focus-key") ??
+      null
+    );
+  }
+
   function rows(): HTMLElement[] {
     if (options.getRows) return options.getRows();
     if (!rootRef.value) return [];
@@ -92,9 +119,50 @@ export function useGridNav(
   }
 
   function focusableIn(el: HTMLElement): HTMLElement {
-    if (el.matches(FOCUSABLE_SELECTOR)) return el;
-    const inner = el.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+    const selector = options.roving ? ROVING_CANDIDATES : FOCUSABLE_SELECTOR;
+    if (el.matches(selector)) return el;
+    const inner = el.querySelector<HTMLElement>(selector);
     return inner ?? el;
+  }
+
+  // The controls of a cell that are tabbable on their own, so the roving
+  // mode leaves alone the ones a component already took out of the order.
+  function rovingControls(cell: HTMLElement): HTMLElement[] {
+    const found = Array.from(
+      cell.querySelectorAll<HTMLElement>(ROVING_CANDIDATES),
+    );
+    if (cell.matches(ROVING_CANDIDATES)) found.unshift(cell);
+    return found.filter((el) => {
+      if (!el.hasAttribute(ROVING_ORIGINAL)) {
+        el.setAttribute(ROVING_ORIGINAL, el.getAttribute("tabindex") ?? "");
+      }
+      return el.getAttribute(ROVING_ORIGINAL) !== "-1";
+    });
+  }
+
+  function syncRoving() {
+    if (!options.roving) return;
+    const allCells = rows().flatMap((row) => cells(row));
+    const active =
+      allCells.find((cell) => activeKey && cellKey(cell) === activeKey) ??
+      allCells.find((cell) => rovingControls(cell).length > 0);
+    for (const cell of allCells) {
+      for (const el of rovingControls(cell)) {
+        const original = el.getAttribute(ROVING_ORIGINAL) ?? "";
+        if (cell !== active) el.setAttribute("tabindex", "-1");
+        else if (original) el.setAttribute("tabindex", original);
+        else el.removeAttribute("tabindex");
+      }
+    }
+  }
+
+  let syncFrame = 0;
+  function scheduleSyncRoving() {
+    if (!options.roving || syncFrame) return;
+    syncFrame = requestAnimationFrame(() => {
+      syncFrame = 0;
+      syncRoving();
+    });
   }
 
   function current(): { rowIdx: number; colIdx: number } | null {
@@ -132,15 +200,20 @@ export function useGridNav(
     // cell sets tabindex="-1". Lets the user land on the last focused
     // card via Tab from outside the grid, and keeps Shift+Tab escape
     // behaviour clean. Borrowed from the v1 console useRovingDom.
-    const previous = rootRef.value?.querySelectorAll<HTMLElement>(
-      "[data-grid-nav-cell]",
-    );
-    previous?.forEach((other) => {
-      other.setAttribute("tabindex", "-1");
-      other.removeAttribute("data-grid-nav-cell");
-    });
-    target.setAttribute("data-grid-nav-cell", "");
-    target.setAttribute("tabindex", "0");
+    if (options.roving) {
+      activeKey = cellKey(cell);
+      syncRoving();
+    } else {
+      const previous = rootRef.value?.querySelectorAll<HTMLElement>(
+        "[data-grid-nav-cell]",
+      );
+      previous?.forEach((other) => {
+        other.setAttribute("tabindex", "-1");
+        other.removeAttribute("data-grid-nav-cell");
+      });
+      target.setAttribute("data-grid-nav-cell", "");
+      target.setAttribute("tabindex", "0");
+    }
 
     target.focus({ preventScroll: true });
 
@@ -184,7 +257,7 @@ export function useGridNav(
     for (let r = 0; r < rs.length; r++) {
       const cs = cells(rs[r]);
       for (let c = 0; c < cs.length; c++) {
-        if (focusKeyOf(cs[c]) === savedKey) {
+        if (cellKey(cs[c]) === savedKey) {
           preferredCol = c;
           focusAt(r, c, { verticalJump: true });
           return true;
@@ -264,16 +337,30 @@ export function useGridNav(
     if (!rootRef.value?.contains(target)) return;
     const key = focusKeyOf(target);
     if (key) focusStore.save(route.fullPath, key);
+    if (options.roving) {
+      const cell = rows()
+        .flatMap((row) => cells(row))
+        .find((c) => c.contains(target));
+      const cellFocusKey = cell ? cellKey(cell) : null;
+      if (cellFocusKey && cellFocusKey !== activeKey) {
+        activeKey = cellFocusKey;
+        syncRoving();
+      }
+    }
   }
 
   onMounted(() => {
     document.addEventListener("keydown", onKey);
     window.addEventListener("focusin", onFocusIn);
     if (rootRef.value) {
-      observer = new MutationObserver(() => maybeAutofocus());
+      observer = new MutationObserver(() => {
+        scheduleSyncRoving();
+        maybeAutofocus();
+      });
       observer.observe(rootRef.value, { childList: true, subtree: true });
     }
     requestAnimationFrame(maybeAutofocus);
+    scheduleSyncRoving();
   });
 
   onBeforeUnmount(() => {
@@ -281,6 +368,7 @@ export function useGridNav(
     window.removeEventListener("focusin", onFocusIn);
     observer?.disconnect();
     observer = null;
+    cancelAnimationFrame(syncFrame);
   });
 
   // Reactively autofocus when modality becomes "pad". Useful when the

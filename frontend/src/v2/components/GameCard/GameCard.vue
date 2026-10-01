@@ -38,7 +38,7 @@
 //   * `#overlay` slot renders content on top of the cover for badges
 //     that aren't part of the default gallery overlay (e.g. metadata
 //     provider logos in the match-flow source picker).
-import { computed, provide, ref, useId } from "vue";
+import { computed, provide, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
@@ -291,13 +291,6 @@ const showCheckbox = computed(
 const checkboxAlwaysOn = computed(
   () => props.selectable && !props.decorative && selectionStore.enabled,
 );
-// While the gallery is selecting, Enter toggles the card instead of opening
-// it, so the link describes its selection state.
-const describesSelection = computed(
-  () => checkboxAlwaysOn.value && !props.static,
-);
-const selectionStateId = useId();
-
 function onCheckboxClick(e: MouseEvent) {
   // The box is decorative and the store drives its state. Stop the click
   // here so the enclosing link doesn't navigate.
@@ -351,11 +344,13 @@ function onCardKeydown(e: KeyboardEvent) {
     emit("click", e as unknown as MouseEvent);
     return;
   }
-  // Space toggles a selecting card the way it toggles a native checkbox.
-  if (e.key === " " && checkboxAlwaysOn.value && props.position != null) {
-    e.preventDefault();
-    selectionStore.toggle(props.rom, props.position);
-  }
+  // Space on the card selects it, Shift+Space the range from the last one
+  // toggled. Keys from the card's own buttons are theirs.
+  if (e.key !== " " || e.target !== e.currentTarget) return;
+  if (!props.selectable || props.position == null) return;
+  e.preventDefault();
+  if (e.shiftKey) selectionInput.handleActivate(props.rom, props.position, e);
+  else selectionStore.toggle(props.rom, props.position);
 }
 
 // Reverse-morph (paint the view-transition-name when GameDetails is
@@ -386,12 +381,6 @@ function onCardKeydown(e: KeyboardEvent) {
     :style="{ '--r-cover-ratio': coverAspectRatio }"
     :aria-label="decorative ? undefined : title"
     :aria-pressed="static && !decorative ? selected : undefined"
-    :aria-describedby="describesSelection ? selectionStateId : undefined"
-    :aria-keyshortcuts="
-      selectable && !static && !decorative
-        ? 'Control+Enter Meta+Enter'
-        : undefined
-    "
     :data-rom-id="rom.id"
     :data-rom-position="selectable ? position : undefined"
     :data-focus-key="!decorative && !static ? `rom-${rom.id}` : undefined"
@@ -405,15 +394,6 @@ function onCardKeydown(e: KeyboardEvent) {
     @pointerdown="onCardPointerDown"
     @contextmenu="selectionInput.handleContextMenu"
   >
-    <span
-      v-if="describesSelection"
-      :id="selectionStateId"
-      class="r-gc__selection-state"
-    >
-      {{
-        isSelected ? t("rom.selection-state-on") : t("rom.selection-state-off")
-      }}
-    </span>
     <GameCover
       ref="coverRef"
       class="r-gc__art"
@@ -546,16 +526,6 @@ function onCardKeydown(e: KeyboardEvent) {
 </template>
 
 <style scoped>
-/* Visually hidden, still read as the item's description. */
-.r-gc__selection-state {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 .r-gc {
   /* The long press selects the card; iOS would offer its link callout too. */
   -webkit-touch-callout: none;

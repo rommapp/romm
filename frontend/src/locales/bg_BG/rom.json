@@ -435,8 +435,6 @@
   "select-file": "Избери {path}",
   "selected-of": "{selected} от {total} избрани",
   "selection-count": "{n} игри",
-  "selection-state-off": "Не е избрано",
-  "selection-state-on": "Избрано",
   "set-as-default": "Задай ROM-а като основен",
   "set-as-default-version": "Задай като версия по подразбиране",
   "set-status": "Задай статус",
