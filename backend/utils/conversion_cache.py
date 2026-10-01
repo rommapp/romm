@@ -211,11 +211,7 @@ async def resolve_format_download(
     start: bool,
     touch: bool,
 ) -> FormatResolution:
-    """What a `?format=` download of a single file serves.
-
-    The stored file wins whenever its format is listed. Otherwise the first
-    listed format with a cached copy is served, then the first a conversion
-    can produce.
+    """What a `?format=` download serves: the stored file if listed, else the first cached, then the first convertible format.
 
     Args:
         allowed: The caller may start a conversion.

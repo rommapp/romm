@@ -301,7 +301,6 @@ class ConvertLibraryTask(Task):
                 try:
                     await self._convert_rom(rom, target, stats)
                 except Exception as exc:
-                    # One rom's failure must not stop the rest of the library.
                     log.exception(f"Could not convert {hl(rom.fs_name)}: {exc}")
                     stats.failed += 1
             progress.update(processed=index + 1, errors=stats.failed)
