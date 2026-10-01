@@ -159,6 +159,13 @@ def check_filename_length(filename: str) -> None:
         )
 
 
+def fit_filename(name: str, tail: str) -> str:
+    """`name` cut so `name + tail` fits in FILE_NAME_MAX_BYTES, never splitting
+    a character."""
+    room = max(FILE_NAME_MAX_BYTES - len(tail.encode()), 0)
+    return name.encode()[:room].decode(errors="ignore") + tail
+
+
 def sanitize_filename(filename: str) -> str:
     """
     Replace invalid characters in the filename to make it valid across common filesystems

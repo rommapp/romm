@@ -909,12 +909,13 @@ async def test_version_filename_fits_a_long_multibyte_card_name(
 ):
     """A card name within the column limit can still be far over the 255-byte
     filename limit once encoded; the version file must still be writable."""
-    memory_card = db_memory_card_handler.update_card(
+    renamed = db_memory_card_handler.update_card(
         memory_card.id, {"name": "メモリーカード" * 30}
     )
+    assert renamed is not None
 
     assert await store_memory_card_version(
-        admin_user, memory_card, b"card data", deduplicate=False
+        admin_user, renamed, b"card data", deduplicate=False
     )
 
     latest = db_memory_card_handler.get_latest_version(memory_card.id)

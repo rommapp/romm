@@ -1636,6 +1636,48 @@ class TestDatetimeTagging:
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
     )
     @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_upload_with_slot_rejects_a_screenshot_name_over_255_bytes(
+        self,
+        mock_scan,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+    ):
+        # The tagged save fills all 255 bytes; the screenshot takes its stem
+        # but keeps its own longer extension.
+        save_name = "a" * 229 + ".srm"
+        mock_scan.return_value = Save(
+            file_name=save_name,
+            file_name_no_tags="a" * 229,
+            file_name_no_ext="a" * 229,
+            file_extension="srm",
+            file_path=f"{platform.slug}/saves",
+            file_size_bytes=100,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            slot="main",
+        )
+
+        response = client.post(
+            f"/api/saves?rom_id={rom.id}&slot=main",
+            files={
+                "saveFile": (save_name, BytesIO(b"save"), "application/octet-stream"),
+                "screenshotFile": ("shot.jpeg", BytesIO(b"jpg"), "image/jpeg"),
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "255 bytes" in response.json()["detail"]
+        assert mock_write.call_count == 1
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
     def test_upload_without_slot_no_datetime_tag(
         self,
         mock_scan,
@@ -4112,6 +4154,34 @@ class TestSaveRename:
         assert save_file.read_bytes() == b"SAVE_DATA"
         refreshed = db_save_handler.get_save_by_id(save.id)
         assert refreshed is not None and refreshed.file_name == "test_save.sav"
+
+    @pytest.mark.parametrize("shared", [False, True], ids=["moved", "copied"])
+    def test_name_over_255_bytes_is_rejected_before_any_move(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        admin_user: User,
+        save: Save,
+        save_file,
+        _isolated_assets_dir,
+        shared: bool,
+    ):
+        # The save's name fits, but the screenshot keeps its longer extension.
+        thumbnail = make_screenshot(rom, admin_user, "test_save.jpeg")
+        if shared:
+            # A state of the same stem keeps the thumbnail, so it is copied.
+            make_state(rom, admin_user, "test_save.state", file_size_bytes=1)
+        screenshots_dir = _isolated_assets_dir / thumbnail.file_path
+        screenshots_dir.mkdir(parents=True)
+        (screenshots_dir / "test_save.jpeg").write_bytes(b"JPG")
+
+        response = self._rename(client, access_token, save.id, "a" * 251 + ".srm")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "255 bytes" in response.json()["detail"]
+        assert save_file.read_bytes() == b"SAVE_DATA"
+        assert (screenshots_dir / "test_save.jpeg").read_bytes() == b"JPG"
 
     def test_unchanged_name_is_a_no_op(
         self, client, access_token: str, save: Save, save_file

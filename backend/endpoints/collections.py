@@ -32,6 +32,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.audit_event import AuditAction
 from models.collection import (
+    COLLECTION_NAME_MAX_LENGTH,
     Collection,
     SmartCollection,
     VirtualCollection,
@@ -99,7 +100,7 @@ async def add_collection(
     is_public: bool | None = None,
     is_favorite: bool | None = None,
     artwork: UploadFile | None = COLLECTION_ARTWORK_FILE,
-    name: str = Form(default=""),
+    name: str = Form(default="", max_length=COLLECTION_NAME_MAX_LENGTH),
     description: str = Form(default=""),
     url_cover: str = Form(
         default="", description="Remote URL to fetch and use as cover artwork."
@@ -171,7 +172,7 @@ async def add_collection(
 async def add_smart_collection(
     request: Request,
     is_public: bool | None = None,
-    name: str = Form(default=""),
+    name: str = Form(default="", max_length=COLLECTION_NAME_MAX_LENGTH),
     description: str = Form(default=""),
     filter_criteria: str = Form(
         default="{}",
@@ -439,7 +440,7 @@ async def update_collection(
         ...,
         description="Collection ROM IDs as a JSON array string (e.g. [1,2,3]).",
     ),
-    name: str | None = Form(default=None),
+    name: str | None = Form(default=None, max_length=COLLECTION_NAME_MAX_LENGTH),
     description: str | None = Form(default=None),
     url_cover: str | None = Form(default=None, description="Updated remote cover URL."),
 ) -> CollectionSchema:
@@ -662,7 +663,7 @@ async def update_smart_collection(
     request: Request,
     id: int,
     is_public: bool | None = None,
-    name: str | None = Form(default=None),
+    name: str | None = Form(default=None, max_length=COLLECTION_NAME_MAX_LENGTH),
     description: str | None = Form(default=None),
     filter_criteria: str | None = Form(
         default=None,

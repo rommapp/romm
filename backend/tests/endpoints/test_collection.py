@@ -9,7 +9,7 @@ from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.database import db_collection_handler
 from handler.filesystem.resources_handler import FSResourcesHandler
-from models.collection import Collection, SmartCollection
+from models.collection import COLLECTION_NAME_MAX_LENGTH, Collection, SmartCollection
 from models.rom import Rom
 from models.user import User
 
@@ -123,6 +123,15 @@ class TestCreateCollection:
         )
 
         assert response.status_code == status.HTTP_409_CONFLICT
+
+    def test_name_over_column_length_is_rejected(self, client, access_token: str):
+        response = client.post(
+            "/api/collections",
+            data={"name": "a" * (COLLECTION_NAME_MAX_LENGTH + 1)},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_requires_auth(self, client):
         response = client.post("/api/collections", data={"name": "No Auth"})

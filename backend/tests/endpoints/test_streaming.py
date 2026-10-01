@@ -11038,3 +11038,26 @@ def test_restore_session_disc_does_not_record_on_broker_failure(admin_user: User
     assert ok is False
     raw = _session_raw(container)
     assert "disc_file_id" not in json.loads(raw)
+
+
+async def test_store_save_asset_fits_a_long_multibyte_rom_name(
+    admin_user: User, rom: Rom
+):
+    """A ROM name can be far over the 255-byte filename limit once encoded;
+    the pulled archive must still be stored rather than dropped."""
+    rom.fs_name_no_ext = "ゲーム" * 50
+    scanned = Save(file_name="pulled.saves.zip")
+    with (
+        patch(
+            "handler.streaming.saves.fs_asset_handler.write_file", new=AsyncMock()
+        ) as write,
+        patch.object(saves, "scan_save", new=AsyncMock(return_value=scanned)),
+        patch("handler.streaming.saves.db_save_handler.add_save") as add_save,
+    ):
+        assert await saves.store_save_asset(admin_user, rom, "pcsx2", b"zip")
+
+    filename = write.call_args.kwargs["filename"]
+    assert len(filename.encode()) <= 255
+    assert filename.startswith("ゲーム")
+    assert filename.endswith("].saves.zip")
+    add_save.assert_called_once()

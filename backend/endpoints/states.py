@@ -108,6 +108,7 @@ async def add_state(
     if screenshotFile and screenshotFile.filename:
         try:
             sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+            check_filename_length(sanitized_screenshot_filename)
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -249,6 +250,7 @@ async def update_state(
     if screenshotFile and screenshotFile.filename:
         try:
             sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+            check_filename_length(sanitized_screenshot_filename)
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

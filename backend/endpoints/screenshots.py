@@ -17,7 +17,7 @@ from handler.scan_handler import scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from utils.filesystem import sanitize_filename
+from utils.filesystem import check_filename_length, sanitize_filename
 from utils.media_types import (
     ALLOWED_IMAGE_EXTENSIONS,
     is_allowed_image_file,
@@ -67,6 +67,7 @@ async def add_screenshot(
 
     try:
         sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+        check_filename_length(sanitized_screenshot_filename)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

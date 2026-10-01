@@ -80,6 +80,26 @@ def test_upload_rejects_invalid_extension(
     assert "Unsupported image file type" in response.json()["detail"]
 
 
+@mock.patch(
+    "endpoints.screenshots.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+)
+def test_upload_rejects_a_name_over_255_bytes(
+    mock_write,
+    client,
+    access_token: str,
+    rom: Rom,
+):
+    response = client.post(
+        f"/api/screenshots?rom_id={rom.id}",
+        files={"screenshotFile": ("あ" * 86 + ".png", BytesIO(b"png"), "image/png")},
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "255 bytes" in response.json()["detail"]
+    mock_write.assert_not_called()
+
+
 # ---------- PUT /api/screenshots/{id} (visibility) ----------
 
 

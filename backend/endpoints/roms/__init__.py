@@ -130,7 +130,7 @@ from models.rom import (
 from utils import switch
 from utils.background_tasks import fire_and_forget
 from utils.database import safe_int, safe_str_to_bool
-from utils.filesystem import sanitize_filename
+from utils.filesystem import check_filename_length, sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.m3u import generate_m3u_content, playlist_files
 from utils.nginx import (
@@ -2111,8 +2111,17 @@ async def update_rom(
                 submitted or name_value
             )
 
-    new_fs_name = str(form_data.fs_name or rom.fs_name)
-    new_fs_name = sanitize_filename(new_fs_name)
+    # Rejected before the row changes: a name the filesystem refuses would
+    # leave the row pointing at a file the move never made.
+    try:
+        new_fs_name = sanitize_filename(str(form_data.fs_name or rom.fs_name))
+        if new_fs_name != rom.fs_name:
+            check_filename_length(new_fs_name)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file name: {exc}",
+        ) from exc
     cleaned_data.update({"fs_name": new_fs_name})
 
     # Re-parse tags from the filename so region/language/revision/version/tags

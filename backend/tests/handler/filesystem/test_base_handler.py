@@ -105,7 +105,7 @@ class TestFSHandler:
     def test_sanitize_filename_too_long(self, handler: FSHandler):
         """Test filename sanitization with too long filenames"""
         long_name = "a" * (FILE_NAME_MAX_LENGTH + 1)
-        with pytest.raises(ValueError, match="Filename .* exceeds maximum length"):
+        with pytest.raises(ValueError, match="255 bytes"):
             handler._sanitize_filename(long_name)
 
     def test_validate_path_valid(self, handler: FSHandler):

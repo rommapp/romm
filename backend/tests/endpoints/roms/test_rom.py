@@ -916,6 +916,30 @@ def test_update_rom_reparses_tags_on_fs_name_change(
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_rejects_fs_name_over_255_bytes(
+    _get_rom_by_id_mock: AsyncMock,
+    rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    """The row must not take a name the filesystem would refuse to move to."""
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"fs_name": "あ" * 86 + ".zip"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "255 bytes" in response.json()["detail"]
+    rename_fs_rom_mock.assert_not_called()
+
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    assert refreshed.fs_name == rom.fs_name
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom_adds_region_tag_on_rename(
     rename_fs_rom_mock: AsyncMock,
     get_rom_by_id_mock: AsyncMock,
