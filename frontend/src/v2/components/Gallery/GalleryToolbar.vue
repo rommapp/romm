@@ -83,6 +83,11 @@ const props = withDefaults(
     /** Axes for the sort selector. Empty hides the control, as on index
      *  views, which sort their tiles themselves. */
     sortKeyItems?: readonly SortOption[];
+    /** Offers the gallery's order without a sort key (Search's relevance)
+     *  under this name; it has no direction, so the toggle hides under it. */
+    unsortedLabel?: string;
+    /** Whether that order is the one applied. */
+    unsorted?: boolean;
     /** Show the search field on the left. v-model:search controls its value. */
     showSearch?: boolean;
     search?: string;
@@ -112,6 +117,8 @@ const props = withDefaults(
     sortDir: "asc",
     sortKey: null,
     sortKeyItems: () => [],
+    unsortedLabel: undefined,
+    unsorted: false,
     showSearch: false,
     search: "",
     searchPlaceholder: "",
@@ -126,7 +133,7 @@ const emit = defineEmits<{
   (e: "update:groupBy", value: GroupByMode): void;
   (e: "update:layout", value: LayoutMode): void;
   (e: "update:sortDir", value: "asc" | "desc"): void;
-  (e: "update:sortKey", value: ListSortKey): void;
+  (e: "update:sortKey", value: ListSortKey | null): void;
   (e: "update:search", value: string): void;
   (e: "update:segmentFilter", payload: { key: string; value: string }): void;
   (e: "click:filter"): void;
@@ -148,6 +155,7 @@ const groupByValue = computed(() => toValue(props.groupBy));
 const layoutValue = computed(() => toValue(props.layout));
 const sortDirValue = computed(() => toValue(props.sortDir));
 const sortKeyValue = computed(() => toValue(props.sortKey));
+const unsorted = computed(() => !!props.unsortedLabel && props.unsorted);
 // List mode sorts from its own column header, so the toolbar's sort and
 // grouping controls step aside rather than sit there inert.
 const listMode = computed(() => layoutValue.value === "list");
@@ -239,7 +247,7 @@ function selectionMark(selected: boolean) {
   };
 }
 
-function setSortKey(value: ListSortKey) {
+function setSortKey(value: ListSortKey | null) {
   emit("update:sortKey", value);
 }
 
@@ -354,6 +362,12 @@ const { smAndUp } = useBreakpoint();
             />
           </template>
           <RMenuItem
+            v-if="unsortedLabel"
+            :label="unsortedLabel"
+            v-bind="selectionMark(unsorted)"
+            @click="setSortKey(null)"
+          />
+          <RMenuItem
             v-for="item in sortKeyItems"
             :key="item.key"
             :label="item.label"
@@ -363,6 +377,7 @@ const { smAndUp } = useBreakpoint();
         </RMenu>
 
         <RSliderBtnGroup
+          v-if="!unsorted"
           :model-value="sortDirValue"
           :items="sortDirItems"
           variant="segmented"
@@ -426,6 +441,12 @@ const { smAndUp } = useBreakpoint();
         </template>
         <template v-if="!listMode">
           <RMenuItem
+            v-if="unsortedLabel && sortKeyItems.length > 0"
+            :label="unsortedLabel"
+            v-bind="selectionMark(unsorted)"
+            @click="setSortKey(null)"
+          />
+          <RMenuItem
             v-for="item in sortKeyItems"
             :key="item.key"
             :label="item.label"
@@ -433,19 +454,21 @@ const { smAndUp } = useBreakpoint();
             @click="setSortKey(item.key)"
           />
           <RDivider v-if="sortKeyItems.length > 0" />
-          <RMenuItem
-            :label="t('gallery.sort-ascending')"
-            icon="mdi-sort-ascending"
-            :variant="sortDirValue === 'asc' ? 'active' : 'default'"
-            @click="setSortDir('asc')"
-          />
-          <RMenuItem
-            :label="t('gallery.sort-descending')"
-            icon="mdi-sort-descending"
-            :variant="sortDirValue === 'desc' ? 'active' : 'default'"
-            @click="setSortDir('desc')"
-          />
-          <RDivider />
+          <template v-if="!unsorted">
+            <RMenuItem
+              :label="t('gallery.sort-ascending')"
+              icon="mdi-sort-ascending"
+              :variant="sortDirValue === 'asc' ? 'active' : 'default'"
+              @click="setSortDir('asc')"
+            />
+            <RMenuItem
+              :label="t('gallery.sort-descending')"
+              icon="mdi-sort-descending"
+              :variant="sortDirValue === 'desc' ? 'active' : 'default'"
+              @click="setSortDir('desc')"
+            />
+            <RDivider />
+          </template>
         </template>
         <RMenuItem
           :label="t('gallery.view-grid')"

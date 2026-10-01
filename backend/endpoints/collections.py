@@ -32,6 +32,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.audit_event import AuditAction
 from models.collection import (
+    COLLECTION_NAME_MAX_LENGTH,
     Collection,
     SmartCollection,
     VirtualCollection,
@@ -99,7 +100,7 @@ async def add_collection(
     is_public: bool | None = None,
     is_favorite: bool | None = None,
     artwork: UploadFile | None = COLLECTION_ARTWORK_FILE,
-    name: str = Form(default=""),
+    name: str = Form(default="", max_length=COLLECTION_NAME_MAX_LENGTH),
     description: str = Form(default=""),
     url_cover: str = Form(
         default="", description="Remote URL to fetch and use as cover artwork."
@@ -171,7 +172,7 @@ async def add_collection(
 async def add_smart_collection(
     request: Request,
     is_public: bool | None = None,
-    name: str = Form(default=""),
+    name: str = Form(default="", max_length=COLLECTION_NAME_MAX_LENGTH),
     description: str = Form(default=""),
     filter_criteria: str = Form(
         default="{}",
@@ -439,7 +440,7 @@ async def update_collection(
         ...,
         description="Collection ROM IDs as a JSON array string (e.g. [1,2,3]).",
     ),
-    name: str | None = Form(default=None),
+    name: str | None = Form(default=None, max_length=COLLECTION_NAME_MAX_LENGTH),
     description: str | None = Form(default=None),
     url_cover: str | None = Form(default=None, description="Updated remote cover URL."),
 ) -> CollectionSchema:
@@ -458,8 +459,10 @@ async def update_collection(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
+    if name is not None:
+        namesake = db_collection_handler.get_collection_by_name(name, request.user.id)
+        if namesake and namesake.id != collection.id:
+            raise CollectionAlreadyExistsException(name)
 
     try:
         parsed_rom_ids = json.loads(rom_ids)
@@ -662,7 +665,7 @@ async def update_smart_collection(
     request: Request,
     id: int,
     is_public: bool | None = None,
-    name: str | None = Form(default=None),
+    name: str | None = Form(default=None, max_length=COLLECTION_NAME_MAX_LENGTH),
     description: str | None = Form(default=None),
     filter_criteria: str | None = Form(
         default=None,
@@ -684,6 +687,13 @@ async def update_smart_collection(
 
     if smart_collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
+
+    if name is not None:
+        namesake = db_collection_handler.get_smart_collection_by_name(
+            name, request.user.id
+        )
+        if namesake and namesake.id != smart_collection.id:
+            raise CollectionAlreadyExistsException(name)
 
     # Parse filter criteria if provided
     parsed_filter_criteria = smart_collection.filter_criteria

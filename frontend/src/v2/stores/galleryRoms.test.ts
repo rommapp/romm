@@ -72,6 +72,17 @@ describe("galleryRoms windowed fetch", () => {
     vi.unstubAllGlobals();
   });
 
+  // The backend ranks a search by relevance only when no sort key is sent.
+  it("sends an empty sort key when no sort is set", () => {
+    getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
+    const store = storeGalleryRoms();
+    store.setOrderBy(null);
+
+    store.syncVisibleWindows([0]);
+
+    expect(getRoms.mock.calls[0][0].orderBy).toBe("");
+  });
+
   it("collapses many visible positions into one request per 72-item window", async () => {
     getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
     const store = storeGalleryRoms();
@@ -474,6 +485,71 @@ describe("galleryRoms length filter", () => {
 
     expect(getRoms.mock.calls[0][0].hltbMainStoryMin).toBeNull();
     expect(getRoms.mock.calls[0][0].hltbMainStoryMax).toBe(10 * 3600);
+  });
+});
+
+describe("galleryRoms relevance order", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    getRoms.mockReset();
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function answeredWith(charIndex: Record<string, number>, total = 5) {
+    getRoms.mockResolvedValue({
+      data: { total, items: [], char_index: charIndex, rom_id_index: [] },
+    });
+    setActivePinia(createPinia());
+    const store = storeGalleryRoms();
+    store.setOrderBy(null);
+    await store.fetchInitialMetadata();
+    return store;
+  }
+
+  it("reads an unset sort answered without letters as relevance", async () => {
+    const store = await answeredWith({});
+
+    expect(store.effectiveOrderBy).toBeNull();
+  });
+
+  it("reads an unset sort answered with letters as the name order", async () => {
+    const store = await answeredWith({ a: 0 });
+
+    expect(store.effectiveOrderBy).toBe("name");
+  });
+
+  it("keeps the answer through a refetch, so the controls don't flicker", async () => {
+    const store = await answeredWith({});
+
+    store.invalidateWindows();
+
+    expect(store.effectiveOrderBy).toBeNull();
+  });
+
+  it("reads an empty result or a picked sort as no relevance", async () => {
+    expect((await answeredWith({}, 0)).effectiveOrderBy).toBe("name");
+
+    const sorted = await answeredWith({});
+    sorted.setOrderBy("fs_size_bytes");
+    expect(sorted.effectiveOrderBy).toBe("fs_size_bytes");
+  });
+
+  it("clears the direction along with the sort key", () => {
+    const store = storeGalleryRoms();
+    store.setOrderBy("name");
+    store.setOrderDir("desc");
+
+    store.setOrderBy(null);
+
+    expect(store.orderBy).toBeNull();
+    expect(store.orderDir).toBe("asc");
   });
 });
 

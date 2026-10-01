@@ -275,6 +275,6 @@ const LIST_SORT_KEYS: ReadonlySet<string> = new Set<string>(
 );
 
 /** Whether the gallery's current order key is one list mode can sort by. */
-export function isListSortKey(key: string): key is ListSortKey {
-  return LIST_SORT_KEYS.has(key);
+export function isListSortKey(key: string | null): key is ListSortKey {
+  return key !== null && LIST_SORT_KEYS.has(key);
 }
