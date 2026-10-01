@@ -4848,6 +4848,24 @@ def test_pull_state_rejects_unsanitizable_filename(rom: Rom, admin_user: User):
     wf.assert_not_awaited()
 
 
+def test_pull_state_rejects_a_name_too_long_once_stamped(rom: Rom, admin_user: User):
+    """A 237-byte name fits on its own, but not with the 22-byte capture stamp."""
+    container = {**_container_for(rom), "label": "PCSX2"}
+    with (
+        patch(
+            "handler.streaming.states.fetch_state_file",
+            return_value=states.PulledState("a" * 230 + ".03.p2s", b"bytes"),
+        ),
+        patch("handler.streaming.states.fetch_state_screenshot", return_value=None),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+    ):
+        ok = asyncio.run(
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 3)
+        )
+    assert ok is False
+    wf.assert_not_awaited()
+
+
 def test_hydrate_pushes_only_matching_emulator_states(rom: Rom, admin_user: User):
     """Hydration must push only states saved under this container's emulator
     namespace - EmulatorJS states for the same ROM stay out of the container."""
@@ -11129,3 +11147,26 @@ def test_restore_session_disc_does_not_record_on_broker_failure(admin_user: User
     assert ok is False
     raw = _session_raw(container)
     assert "disc_file_id" not in json.loads(raw)
+
+
+async def test_store_save_asset_fits_a_long_multibyte_rom_name(
+    admin_user: User, rom: Rom
+):
+    """A ROM name can be far over the 255-byte filename limit once encoded;
+    the pulled archive must still be stored rather than dropped."""
+    rom.fs_name_no_ext = "ゲーム" * 50
+    scanned = Save(file_name="pulled.saves.zip")
+    with (
+        patch(
+            "handler.streaming.saves.fs_asset_handler.write_file", new=AsyncMock()
+        ) as write,
+        patch.object(saves, "scan_save", new=AsyncMock(return_value=scanned)),
+        patch("handler.streaming.saves.db_save_handler.add_save") as add_save,
+    ):
+        assert await saves.store_save_asset(admin_user, rom, "pcsx2", b"zip")
+
+    filename = write.call_args.kwargs["filename"]
+    assert len(filename.encode()) <= 255
+    assert filename.startswith("ゲーム")
+    assert filename.endswith("].saves.zip")
+    add_save.assert_called_once()

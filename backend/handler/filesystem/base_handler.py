@@ -20,7 +20,6 @@ from starlette.datastructures import UploadFile
 
 from config.config_manager import config_manager as cm
 from models.base import (
-    FILE_NAME_MAX_LENGTH,
     compute_file_extension,
     compute_file_name_no_ext,
     compute_file_name_no_tags,
@@ -28,6 +27,7 @@ from models.base import (
 from utils.filesystem import (
     LINK_FALLBACK_ERRNOS,
     SERVED_FILE_MODE,
+    check_filename_length,
     iter_directories,
     iter_files,
     link_or_copy_file,
@@ -392,11 +392,7 @@ class FSHandler:
         # Remove path components and get basename only
         filename = os.path.basename(filename)
 
-        # Limit filename length
-        if len(filename) > FILE_NAME_MAX_LENGTH:
-            raise ValueError(
-                f"Filename {filename} exceeds maximum length of {FILE_NAME_MAX_LENGTH} characters"
-            )
+        check_filename_length(filename)
 
         # Ensure we have a valid filename
         if not filename or filename == "." or filename == "..":

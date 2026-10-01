@@ -17,7 +17,7 @@ from handler.scan_handler import scan_memory_card_version
 from logger.logger import log
 from models.assets import MemoryCard, MemoryCardVersion
 from models.user import User
-from utils.filesystem import sanitize_filename
+from utils.filesystem import fit_filename, sanitize_filename
 
 # The broker caps card transfers at the same figure. Raising one side alone
 # just moves where the transfer fails.
@@ -131,7 +131,10 @@ async def _free_version_filename(cards_path: str, card_name: str, ts: str) -> st
     """
     for attempt in range(1, _FILENAME_COLLISION_ATTEMPTS + 1):
         suffix = "" if attempt == 1 else f" ({attempt})"
-        filename = sanitize_filename(f"{card_name} [{ts}{suffix}].card.zip")
+        # A 255-character card name can still overflow the 255-byte name limit.
+        filename = sanitize_filename(
+            fit_filename(card_name, f" [{ts}{suffix}].card.zip")
+        )
         if not await fs_asset_handler.file_exists(f"{cards_path}/{filename}"):
             return filename
     raise RuntimeError(f"could not find a free filename for card {card_name}")
