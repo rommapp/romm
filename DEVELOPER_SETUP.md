@@ -236,7 +236,8 @@ _Migrations will be run automatically when running the tests._
 cd backend
 # path or test file can be passed as argument to test only a subset
 uv run pytest [path/file]
-# or run the following command to run all tests
-# the -vv switch increases the verbosity of the output, providing more detailed information during test execution.
-uv run pytest -vv
+# or run the following command to run all tests, one worker per CPU core
+uv run pytest -n auto
 ```
+
+_Each `-n` worker gets its own database (`romm_test_gw0`, `romm_test_gw1`, ...), created and migrated on demand; `setup.sql` grants the test user the rights to create them. On a machine with many cores, cap the workers with `--maxprocesses 4` (CI's count) to keep the load on the database down. A serial run of the whole suite takes 20+ minutes. Drop `-n auto` when debugging with `--pdb` or `-s`, which don't work under parallel workers._
