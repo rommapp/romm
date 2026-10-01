@@ -10,7 +10,6 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_FILES,
     DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
     DEFAULT_EXCLUDED_PLATFORM_DIRS,
-    EXCLUDE_LIST_PATHS,
     ConfigManager,
     parse_firmware_template,
     parse_platform_templates,
@@ -703,6 +702,16 @@ def critical(mocker):
     """The last message the config manager logged before exiting."""
     spy = mocker.patch("config.config_manager.log.critical")
     return lambda: str(spy.call_args[0][0])
+
+
+EXCLUDE_LIST_PATHS = (
+    "exclude.platforms",
+    "exclude.roms.single_file.extensions",
+    "exclude.roms.single_file.names",
+    "exclude.roms.multi_file.names",
+    "exclude.roms.multi_file.parts.extensions",
+    "exclude.roms.multi_file.parts.names",
+)
 
 
 def _write_exclude_config(tmp_path: Path, path: str, value: str) -> ConfigManager:

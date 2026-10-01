@@ -303,14 +303,6 @@ PLATFORM_MEDIA_DIRS: Final = {
 DEFAULT_EXCLUDED_MULTI_FILE_DIRS: Final = sorted(
     {*DEFAULT_EXCLUDED_PLATFORM_DIRS, *PLATFORM_MEDIA_DIRS.values()}
 )
-EXCLUDE_LIST_PATHS: Final = (
-    "exclude.platforms",
-    "exclude.roms.single_file.extensions",
-    "exclude.roms.single_file.names",
-    "exclude.roms.multi_file.names",
-    "exclude.roms.multi_file.parts.extensions",
-    "exclude.roms.multi_file.parts.names",
-)
 
 
 class ExclusionType(enum.StrEnum):
@@ -688,11 +680,21 @@ class ConfigManager:
         )
 
     def _raw_exclude_list(self, path: str) -> list[str]:
-        """Read a user exclude list; `_validate_config` rejects non-strings."""
+        """Read a user exclude list, exiting on anything but a list of strings."""
         value = pydash.get(self._raw_config, path)
-        if not isinstance(value, list):
+        if value is None:
             return []
-        return [item for item in value if isinstance(item, str)]
+        if not isinstance(value, list):
+            log.critical(f"Invalid config.yml: {path} must be a list")
+            sys.exit(3)
+        # YAML reads an unquoted 001 or 1942 as a number.
+        if not all(isinstance(item, str) for item in value):
+            log.critical(
+                f"Invalid config.yml: {path} must only hold strings, "
+                "quote numeric entries such as '001'"
+            )
+            sys.exit(3)
+        return value
 
     def _parse_config(self) -> None:
         """Parses each entry in the config.yml"""
@@ -1002,21 +1004,6 @@ class ConfigManager:
     def _validate_config(self) -> None:
         """Validates the config.yml file"""
         self._check_retired_filesystem_keys()
-
-        for path in EXCLUDE_LIST_PATHS:
-            value = pydash.get(self._raw_config, path)
-            if value is None:
-                continue
-            if not isinstance(value, list):
-                log.critical(f"Invalid config.yml: {path} must be a list")
-                sys.exit(3)
-            # YAML reads an unquoted 001 or 1942 as a number.
-            if not all(isinstance(item, str) for item in value):
-                log.critical(
-                    f"Invalid config.yml: {path} must only hold strings, "
-                    "quote numeric entries such as '001'"
-                )
-                sys.exit(3)
 
         if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
             log.critical("Invalid config.yml: scan.gamelist.export must be a boolean")

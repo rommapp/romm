@@ -3,7 +3,7 @@ import {
   type EscapableEntry,
   popEscapable,
   pushEscapable,
-} from "./escapeStack";
+} from "@/v2/lib/overlays/RDialog/escapeStack";
 
 /** Keep a popover on the escape stack while `isOpen`, so Escape and pad B
  *  close it before any overlay it sits in. Returns the stack entry. */

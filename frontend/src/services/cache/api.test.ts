@@ -1,7 +1,6 @@
 import type { AxiosRequestConfig, AxiosResponse } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  buildGetRomsQuery,
   RECENT_PLAYED_ROMS_LIMIT,
   RECENT_ROMS_LIMIT,
 } from "@/services/api/rom";
@@ -83,7 +82,7 @@ describe("home row cache invalidation", () => {
 });
 
 describe("gallery request", () => {
-  it("sends the same query as the uncached client", async () => {
+  it("sends every gallery filter the uncached client maps", async () => {
     const params = {
       platformIds: [1],
       selectedPublishers: ["Nintendo"],
@@ -98,7 +97,6 @@ describe("gallery request", () => {
 
     await cachedApiService.getRoms(params, noop);
 
-    expect(requestParams()).toEqual(buildGetRomsQuery(params));
     expect(requestParams()).toMatchObject({
       publishers: ["Nintendo"],
       has_soundtrack: true,

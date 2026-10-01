@@ -36,9 +36,9 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { useEscapable } from "@/v2/composables/useEscapable";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
-import { useEscapable } from "@/v2/lib/overlays/RDialog/useEscapable";
 import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
 import RDivider from "../../primitives/RDivider/RDivider.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
@@ -813,12 +813,6 @@ function onActivatorKey(evt: KeyboardEvent) {
         if (item) selectItem(item);
       }
       break;
-    case "Escape":
-      if (isOpen.value) {
-        evt.preventDefault();
-        closeMenu();
-      }
-      break;
     case "Tab":
       if (isOpen.value) closeMenu();
       break;
@@ -841,11 +835,6 @@ function onSearchKey(evt: KeyboardEvent) {
       if (item) selectItem(item);
       break;
     }
-    case "Escape":
-      evt.preventDefault();
-      closeMenu();
-      activatorRef.value?.focus();
-      break;
   }
 }
 

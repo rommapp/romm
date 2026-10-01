@@ -44,15 +44,11 @@ import {
   watch,
 } from "vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useEscapable } from "@/v2/composables/useEscapable";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { opensInNewContext } from "@/v2/utils/mouseGestures";
 import RTextField from "../../forms/RTextField/RTextField.vue";
-import {
-  type EscapableEntry,
-  isInsideEscapableAbove,
-  popEscapable,
-  pushEscapable,
-} from "../../overlays/RDialog/escapeStack.js";
+import { isInsideEscapableAbove } from "../../overlays/RDialog/escapeStack.js";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import { RMenuCloseKey } from "./context";
 
@@ -333,23 +329,7 @@ watch(
   },
 );
 
-const escEntry: EscapableEntry = {
-  close: () => close(),
-  persistent: false,
-  panel: () => panelRef.value,
-};
-
-watch(
-  () => isOpen.value,
-  (open) => {
-    if (open) pushEscapable(escEntry);
-    else popEscapable(escEntry);
-  },
-  // `immediate: true` so a menu that mounts already open registers too, the
-  // same reason RDialog does it: otherwise the watch never sees the initial
-  // `true` and Esc, gamepad-back and tooltip suppression all miss the panel.
-  { immediate: true },
-);
+const escEntry = useEscapable(isOpen, close, () => panelRef.value);
 
 onMounted(() => {
   reference.value = activatorWrapper.value?.firstElementChild ?? null;
@@ -357,10 +337,6 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", onDocPointerDown, true);
-  // Safety: if we unmount while open (route change while the menu is
-  // visible) drop our entry so the stack doesn't dereference a dead
-  // close function.
-  popEscapable(escEntry);
 });
 
 // Re-read the reference if the slot content changes (e.g., v-if flips).
