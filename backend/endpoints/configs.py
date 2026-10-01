@@ -125,10 +125,9 @@ class ScanSettingsPayload(BaseModel):
 
 
 class ConvertoSettingsPayload(BaseModel):
-    """The converto.* settings editable at runtime; `cache_ttl_hours` stays config.yml-only."""
+    """Runtime-editable converto.* settings; `cache_ttl_hours` and `scan_metadata` stay in config.yml."""
 
     download_conversion_enabled: bool
-    scan_metadata: bool
     cache_max_size_gb: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_max_size_gb"])
     platform_formats: dict[str, str]
 
@@ -377,7 +376,9 @@ async def update_converto_settings(
     try:
         cm.update_converto_settings(
             ConvertoConfig(
-                **payload.model_dump(), cache_ttl_hours=current.cache_ttl_hours
+                **payload.model_dump(),
+                cache_ttl_hours=current.cache_ttl_hours,
+                scan_metadata=current.scan_metadata,
             )
         )
     except ConfigNotWritableException as exc:

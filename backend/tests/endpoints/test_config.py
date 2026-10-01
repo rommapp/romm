@@ -269,7 +269,6 @@ def test_update_scan_settings_normalizes_codes(client, access_token: str):
 def _converto_payload(**overrides):
     payload = {
         "download_conversion_enabled": True,
-        "scan_metadata": True,
         "cache_max_size_gb": 20,
         "platform_formats": {"psp": "cso"},
     }
@@ -280,7 +279,9 @@ def _converto_payload(**overrides):
 def test_update_converto_settings_normalizes_formats_and_keeps_the_ttl(
     client, access_token: str
 ):
-    current = SimpleNamespace(CONVERTO=ConvertoConfig(cache_ttl_hours=72))
+    current = SimpleNamespace(
+        CONVERTO=ConvertoConfig(cache_ttl_hours=72, scan_metadata=False)
+    )
     with (
         patch.object(cm, "get_config", return_value=current),
         patch.object(cm, "update_converto_settings") as update_converto_settings,
@@ -295,7 +296,7 @@ def test_update_converto_settings_normalizes_formats_and_keeps_the_ttl(
     update_converto_settings.assert_called_once_with(
         ConvertoConfig(
             download_conversion_enabled=True,
-            scan_metadata=True,
+            scan_metadata=False,
             cache_ttl_hours=72,
             cache_max_size_gb=20,
             platform_formats={"psp": "cso"},
