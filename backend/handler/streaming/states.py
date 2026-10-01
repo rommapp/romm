@@ -45,7 +45,7 @@ from logger.logger import log
 from models.assets import State
 from models.rom import Rom
 from models.user import User
-from utils.filesystem import sanitize_filename
+from utils.filesystem import check_filename_length, sanitize_filename
 
 # Slot number encoded in each emulator's state filename, e.g. PCSX2 writes
 # "SERIAL (CRC).03.p2s" for slot 3 and Dolphin writes "GAMEID.s03". Resuming
@@ -494,6 +494,7 @@ async def pull_state_to_library(
         filename, content, core = result
         try:
             filename = sanitize_filename(filename)
+            check_filename_length(filename)
         except ValueError:
             log.warning("broker returned invalid state filename")
             return False

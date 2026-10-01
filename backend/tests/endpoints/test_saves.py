@@ -1672,7 +1672,7 @@ class TestDatetimeTagging:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "255 bytes" in response.json()["detail"]
-        assert mock_write.call_count == 1
+        mock_write.assert_not_called()
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -4500,18 +4500,17 @@ class TestSyncBaselineWriteSites:
 
 
 @pytest.mark.parametrize(
-    "params",
+    ("params", "name"),
     [
-        {},
-        # 240 bytes fits on its own, but the slot's datetime tag adds 22.
-        {"slot": "Slot 1"},
+        ({}, "a" * 300 + ".srm"),
+        # 240 bytes, pushed over the limit by the 22-byte datetime tag.
+        ({"slot": "Slot 1"}, "a" * 236 + ".srm"),
     ],
     ids=["plain", "tagged"],
 )
 def test_upload_save_over_255_bytes_rejected(
-    client, access_token: str, rom: Rom, params
+    client, access_token: str, rom: Rom, params, name
 ):
-    name = ("a" * 300 if not params else "a" * 236) + ".srm"
     response = client.post(
         "/api/saves",
         params={"rom_id": rom.id, **params},

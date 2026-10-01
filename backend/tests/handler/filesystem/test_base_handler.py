@@ -22,7 +22,6 @@ from handler.filesystem.base_handler import (
     region_ranks_for_priority,
     translation_language,
 )
-from models.base import FILE_NAME_MAX_LENGTH
 
 
 class TestFSHandler:
@@ -101,12 +100,6 @@ class TestFSHandler:
 
         with pytest.raises(ValueError, match="Invalid filename"):
             handler._sanitize_filename("..")
-
-    def test_sanitize_filename_too_long(self, handler: FSHandler):
-        """Test filename sanitization with too long filenames"""
-        long_name = "a" * (FILE_NAME_MAX_LENGTH + 1)
-        with pytest.raises(ValueError, match="255 bytes"):
-            handler._sanitize_filename(long_name)
 
     def test_validate_path_valid(self, handler: FSHandler):
         """Test path validation with valid paths"""

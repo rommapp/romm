@@ -248,6 +248,25 @@ async def add_save(
             detail=f"Invalid save filename: {str(exc)}",
         ) from exc
 
+    # Named and checked before the save is stored, so a bad screenshot name
+    # cannot fail the request after the save has been committed.
+    sanitized_screenshot_filename = ""
+    if screenshotFile and screenshotFile.filename:
+        try:
+            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+            # Save.screenshot is matched by stem, so a slotted upload names the
+            # screenshot after the tagged save whatever the client called it.
+            if slot:
+                save_stem, _ = os.path.splitext(actual_filename)
+                _, screenshot_ext = os.path.splitext(sanitized_screenshot_filename)
+                sanitized_screenshot_filename = f"{save_stem}{screenshot_ext}"
+            check_filename_length(sanitized_screenshot_filename)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid screenshot filename: {str(exc)}",
+            ) from exc
+
     check_emulator_folder_name(emulator)
 
     saves_path = fs_asset_handler.build_saves_file_path(
@@ -396,22 +415,7 @@ async def add_save(
     if slot and keep is not None:
         await prune_save_slot(request.user.id, rom.id, slot, keep)
 
-    if screenshotFile and screenshotFile.filename:
-        try:
-            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
-            # Save.screenshot is matched by stem, so a slotted upload names the
-            # screenshot after the tagged save whatever the client called it.
-            if slot:
-                save_stem, _ = os.path.splitext(actual_filename)
-                _, screenshot_ext = os.path.splitext(sanitized_screenshot_filename)
-                sanitized_screenshot_filename = f"{save_stem}{screenshot_ext}"
-            check_filename_length(sanitized_screenshot_filename)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid screenshot filename: {str(exc)}",
-            ) from exc
-
+    if screenshotFile and sanitized_screenshot_filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
         )

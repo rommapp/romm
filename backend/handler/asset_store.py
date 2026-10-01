@@ -259,16 +259,26 @@ async def _restore_asset_files(
         pass
 
 
+def _invalid_name(exc: ValueError) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid filename: {exc}"
+    )
+
+
+def _check_name_length(name: str) -> None:
+    try:
+        check_filename_length(name)
+    except ValueError as exc:
+        raise _invalid_name(exc) from exc
+
+
 async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> AssetT:
     """Rename a save's or state's file and row, taking its thumbnail along."""
     try:
         new_name = sanitize_filename(file_name)
-        check_filename_length(new_name)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid filename: {exc}",
-        ) from exc
+        raise _invalid_name(exc) from exc
+    _check_name_length(new_name)
     if new_name == asset.file_name:
         return asset
     # The thumbnail follows the stem, so a bare extension would strand it.
@@ -323,13 +333,7 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
         thumbnail = None
     # The thumbnail keeps its own extension, which can outrun the asset's.
     if thumbnail:
-        try:
-            check_filename_length(thumbnail_name)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid filename: {exc}",
-            ) from exc
+        _check_name_length(thumbnail_name)
     # A filesystem that ignores case already answers to the copy's name, so
     # only its row is new.
     thumbnail_file = thumbnail

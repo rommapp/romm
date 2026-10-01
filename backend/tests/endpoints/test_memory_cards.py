@@ -875,20 +875,14 @@ async def test_a_failed_scan_leaves_no_archive_behind(
     assert db_memory_card_handler.get_versions(memory_card.id) == []
 
 
-def test_create_memory_card_overlong_name_rejected(client, access_token: str):
+@pytest.mark.parametrize(
+    "payload",
+    [{"name": "x" * 256, "emulator": "pcsx2"}, {"name": "card", "emulator": "x" * 51}],
+    ids=["name", "emulator"],
+)
+def test_create_memory_card_overlong_field_rejected(client, access_token: str, payload):
     response = client.post(
-        "/api/memory-cards",
-        json={"name": "x" * 256, "emulator": "pcsx2"},
-        headers=_auth(access_token),
-    )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
-
-
-def test_create_memory_card_overlong_emulator_rejected(client, access_token: str):
-    response = client.post(
-        "/api/memory-cards",
-        json={"name": "card", "emulator": "x" * 51},
-        headers=_auth(access_token),
+        "/api/memory-cards", json=payload, headers=_auth(access_token)
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
