@@ -83,16 +83,6 @@ otel_prefix() {
 	out_arr=(opentelemetry-instrument --service_name "${OTEL_SERVICE_NAME_PREFIX-}$2")
 }
 
-# Fails only when config.yml leaves streaming off, so a crash reading it still
-# starts the worker. The streaming section is only read at startup.
-streaming_enabled() {
-	local status=0
-	PYTHONPATH="/backend:${PYTHONPATH-}" python3 -c \
-		'from config.config_manager import config_manager as cm; raise SystemExit(0 if cm.get_config().STREAMING_ENABLED else 3)' ||
-		status=$?
-	[[ ${status} -ne 3 ]]
-}
-
 # Commands to run initial startup tasks
 run_startup() {
 	local -a wrap=()
@@ -273,7 +263,7 @@ start_bin_rq_cron() {
 # Commands to start RQ worker
 start_bin_rq_worker() {
 	info_log "Starting RQ worker"
-	start_rq_worker rq_worker high default low
+	start_rq_worker rq_worker "${RQ_WORKER_QUEUES[@]}"
 }
 
 # Scans get a worker of their own, see SCAN_QUEUE_NAME.
@@ -424,11 +414,20 @@ fi
 # Startup process requires database and cache to be already available
 run_startup
 
-# The streaming worker only runs streaming teardowns and exit save pulls.
+# The streaming worker only runs streaming teardowns and exit save pulls. With
+# streaming off at boot (exit status 3) the general worker drains that queue
+# instead, since config.yml can turn streaming on without a restart and pulls
+# queued before it went off still need a consumer.
+RQ_WORKER_QUEUES=(high default low)
 START_STREAMING_WORKER=true
-if ! streaming_enabled; then
-	info_log "Streaming is disabled, not starting the RQ streaming worker"
+streaming_status=0
+PYTHONPATH="/backend:${PYTHONPATH-}" python3 -c \
+	'from config.config_manager import config_manager as cm; raise SystemExit(0 if cm.get_config().STREAMING_ENABLED else 3)' ||
+	streaming_status=$?
+if [[ ${streaming_status} -eq 3 ]]; then
+	info_log "Streaming is disabled, the RQ worker takes the streaming queue"
 	START_STREAMING_WORKER=false
+	RQ_WORKER_QUEUES+=(streaming)
 fi
 
 # main loop
