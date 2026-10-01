@@ -58,7 +58,7 @@ burns a huge number of tokens on output. Don't do it, even to "double check" at 
 
 Instead, select the tests affected by the change and run only those. Add `-n auto` when the
 selection spans a directory or more: the suite is set up for `pytest-xdist` (one database per
-worker), and on 4 cores it cuts `tests/endpoints/` from about 5 minutes to about a minute and a half.
+worker).
 
 ```bash
 cd backend
