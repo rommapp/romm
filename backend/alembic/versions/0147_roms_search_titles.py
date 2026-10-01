@@ -9,11 +9,7 @@ Create Date: 2026-10-01 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op
 
-from models.rom import (
-    ALTERNATIVE_NAME_SOURCES,
-    SEARCH_TEXT_MAX_LENGTH,
-    compute_search_titles,
-)
+from models.rom import compute_search_titles
 from utils.database import (
     ROMS_SEARCH_FULLTEXT_INDEX,
     SEARCH_TITLES_COLUMN,
@@ -34,9 +30,18 @@ down_revision = "0146_roms_search_aliases"
 branch_labels = None
 depends_on = None
 
-# 0146's alias column and its index, which `search_titles` replaces.
+# 0146's alias column and its index, which the downgrade rebuilds.
 SEARCH_ALIASES_COLUMN = "generated_search_aliases"
 SEARCH_ALIASES_TRGM_INDEX = "idx_roms_search_aliases_trgm"
+SEARCH_ALIASES_MAX_LENGTH = 16000
+
+# (column, key) of each provider's titles, a frozen snapshot of
+# `ALTERNATIVE_NAME_SOURCES` so a later provider can't change this revision.
+ALIAS_SOURCES = (
+    ("igdb_metadata", "alternative_names"),
+    ("moby_metadata", "alternate_titles"),
+    ("ss_metadata", "alternative_names"),
+)
 
 BATCH_SIZE = 1000
 
@@ -45,20 +50,15 @@ ROMS = sa.table(
     sa.column("id", sa.Integer()),
     sa.column("name", sa.String()),
     sa.column(SEARCH_TITLES_COLUMN, sa.Text()),
-    *(sa.column(column, CustomJSON()) for column, _ in ALTERNATIVE_NAME_SOURCES),
+    *(sa.column(column, CustomJSON()) for column, _ in ALIAS_SOURCES),
 )
 
 
-def _fill_search_titles(conn: sa.Connection) -> bool:
-    """Fill the rows still without titles, so an interrupted run resumes.
-
-    Returns:
-        Whether any row was filled.
-    """
+def _fill_search_titles(conn: sa.Connection) -> None:
+    """Fill the rows still without titles, so an interrupted run resumes."""
     # Only each provider's titles are read, not the whole metadata blob.
-    titles = [ROMS.c[column][key] for column, key in ALTERNATIVE_NAME_SOURCES]
+    titles = [ROMS.c[column][key] for column, key in ALIAS_SOURCES]
     last_id = 0
-    filled_any = False
     while rows := conn.execute(
         sa.select(ROMS.c.id, ROMS.c.name, *titles)
         .where(ROMS.c[SEARCH_TITLES_COLUMN].is_(None), ROMS.c.id > last_id)
@@ -71,7 +71,7 @@ def _fill_search_titles(conn: sa.Connection) -> bool:
                 {
                     column: {key: names}
                     for (column, key), names in zip(
-                        ALTERNATIVE_NAME_SOURCES, provider_titles, strict=True
+                        ALIAS_SOURCES, provider_titles, strict=True
                     )
                 },
             )
@@ -84,8 +84,6 @@ def _fill_search_titles(conn: sa.Connection) -> bool:
             .values({SEARCH_TITLES_COLUMN: sa.case(filled, value=ROMS.c.id)})
         )
         last_id = rows[-1][0]
-        filled_any = True
-    return filled_any
 
 
 def _titles_text(json_array_text: str) -> str:
@@ -104,35 +102,35 @@ def _search_aliases_column(pg: bool) -> GeneratedColumn:
         arrays = [
             f"COALESCE(CASE WHEN jsonb_typeof({src} -> '{key}') = 'array' "
             f"THEN {_titles_text(f"NULLIF({src} -> '{key}', '[]'::jsonb)::text")} || ' ' END, '')"
-            for src, key in ALTERNATIVE_NAME_SOURCES
+            for src, key in ALIAS_SOURCES
         ]
         expression = "NULLIF(rtrim(" + " || ".join(arrays) + "), '')"
     else:
-        values = [
-            f"JSON_EXTRACT({src}, '$.{key}')" for src, key in ALTERNATIVE_NAME_SOURCES
-        ]
+        values = [f"JSON_EXTRACT({src}, '$.{key}')" for src, key in ALIAS_SOURCES]
         arrays = [
             f"CASE WHEN CAST(JSON_TYPE({value}) AS CHAR) = 'ARRAY' "
             f"THEN NULLIF({_titles_text(f'CAST({value} AS CHAR)')}, '[]') END"
             for value in values
         ]
         joined = "CONCAT_WS(' ', " + ", ".join(arrays) + ")"
-        expression = f"NULLIF(LEFT({joined}, {SEARCH_TEXT_MAX_LENGTH}), '')"
+        expression = f"NULLIF(LEFT({joined}, {SEARCH_ALIASES_MAX_LENGTH}), '')"
     return GeneratedColumn(SEARCH_ALIASES_COLUMN, "TEXT", expression)
 
 
 def upgrade() -> None:
     conn = op.get_bind()
-    # Moves the search index onto `search_titles` before the old column goes.
+    # The search index moves onto `search_titles` first, so the DROP below
+    # can't narrow it.
     ensure_roms_columns(conn)
     if is_postgresql(conn):
         op.execute(f"DROP INDEX IF EXISTS {SEARCH_ALIASES_TRGM_INDEX}")
     # MySQL has no DROP COLUMN IF EXISTS.
     if SEARCH_ALIASES_COLUMN in column_names(conn, "roms"):
         op.execute(f"ALTER TABLE roms DROP COLUMN {SEARCH_ALIASES_COLUMN}")
-    # Growing every row in place leaves InnoDB's pages split and the search
-    # slower, and nothing compacts them later; one rebuild does.
-    if _fill_search_titles(conn) and not is_postgresql(conn):
+    _fill_search_titles(conn)
+    # The fill grows rows in place, which splits InnoDB's pages and nothing
+    # compacts later. A resumed run may find them filled, so it rebuilds too.
+    if not is_postgresql(conn):
         op.execute("ALTER TABLE roms FORCE")
 
 
