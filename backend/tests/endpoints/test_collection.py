@@ -122,7 +122,7 @@ class TestCreateCollection:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.status_code == status.HTTP_409_CONFLICT
 
     def test_requires_auth(self, client):
         response = client.post("/api/collections", data={"name": "No Auth"})

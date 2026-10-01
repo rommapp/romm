@@ -875,6 +875,35 @@ async def test_a_failed_scan_leaves_no_archive_behind(
     assert db_memory_card_handler.get_versions(memory_card.id) == []
 
 
+def test_create_memory_card_overlong_name_rejected(client, access_token: str):
+    response = client.post(
+        "/api/memory-cards",
+        json={"name": "x" * 256, "emulator": "pcsx2"},
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_create_memory_card_overlong_emulator_rejected(client, access_token: str):
+    response = client.post(
+        "/api/memory-cards",
+        json={"name": "card", "emulator": "x" * 51},
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_rename_overlong_name_rejected(
+    client, access_token: str, memory_card: MemoryCard
+):
+    response = client.put(
+        f"/api/memory-cards/{memory_card.id}",
+        json={"name": "x" * 256},
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
 async def test_version_filename_fits_a_long_multibyte_card_name(
     admin_user: User, memory_card: MemoryCard, _isolated_assets_dir
 ):
