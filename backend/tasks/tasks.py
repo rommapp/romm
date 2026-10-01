@@ -1,10 +1,9 @@
-import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, ClassVar
 
-import httpx2
 from rq import get_current_job
 from rq.exceptions import AbandonedJobError
 from rq.job import Job
@@ -12,10 +11,9 @@ from rq.timeouts import JobTimeoutException
 
 from config import TASK_RESULT_TTL, TASK_TIMEOUT
 from exceptions.task_exceptions import TaskNotFoundException
-from handler.redis_handler import QueuePrio
+from handler.redis_handler import QueuePrio, default_queue
 from logger.logger import log
 from utils.background_tasks import wait_for_background_tasks
-from utils.context import ctx_httpx_client
 
 
 async def run_task_by_name(
@@ -39,8 +37,7 @@ async def run_task_by_name(
     Returns:
         Whatever the task returns.
     """
-    # Imported here because the registry imports every task module, and those
-    # modules import this one.
+    # Imported here because the task modules the registry resolves import this one.
     from tasks.registry import get_task
 
     task = get_task(name)
@@ -52,7 +49,7 @@ async def run_task_by_name(
     finally:
         # RQ runs the job on a loop that never runs again once it returns.
         await wait_for_background_tasks()
-    await _notify_task_end(name, task, run_by_user_id)
+    await _notify_task_end(name, task.spec, run_by_user_id)
     return result
 
 
@@ -72,38 +69,53 @@ def report_task_failure(
     except Exception:  # noqa: BLE001 - a job that won't deserialize is RQ's to log
         return
 
-    from tasks.registry import get_task
+    from tasks.registry import get_task_spec
 
-    task = get_task(name)
-    if task is None:
+    spec = get_task_spec(name)
+    if spec is None:
         return
 
     if issubclass(exc_type, AbandonedJobError):
         reason = "The worker running it stopped unexpectedly"
     elif issubclass(exc_type, JobTimeoutException):
-        reason = f"It ran past its {task.timeout}s timeout"
+        reason = f"It ran past its {spec.timeout}s timeout"
     else:
         reason = str(exc_value) or repr(exc_value)
 
     try:
-        asyncio.run(_notify_task_end(name, task, run_by_user_id, error=reason))
+        # A job of its own, as this may run in the worker parent, which must not
+        # load the notification stack.
+        default_queue.enqueue(
+            notify_task_failure, name, run_by_user_id, reason, result_ttl=0
+        )
     except Exception:  # noqa: BLE001
         # Raising would stop the worker's sweep of the other orphaned jobs.
         log.error(f"Could not report failed task {job.id}", exc_info=True)
 
 
+async def notify_task_failure(
+    name: str, run_by_user_id: int | None, reason: str
+) -> None:
+    """Tell whoever ran a task, or the admins, why it failed."""
+    from tasks.registry import get_task_spec
+
+    spec = get_task_spec(name)
+    if spec is not None:
+        await _notify_task_end(name, spec, run_by_user_id, error=reason)
+
+
 async def _notify_task_end(
-    name: str, task: "Task", run_by_user_id: int | None, error: str | None = None
+    name: str, spec: "TaskSpec", run_by_user_id: int | None, error: str | None = None
 ) -> None:
     # A scan notifies of its own end, with the counts a task result lacks.
-    if task.task_type is TaskType.SCAN:
+    if spec.task_type is TaskType.SCAN:
         return
 
     # Imported here because the notification schemas import this module.
     from handler.notification_handler import notify_user_or_admins
     from models.notification import NotificationKind, NotificationLevel
 
-    data: dict[str, Any] = {"task": name, "title": task.title}
+    data: dict[str, Any] = {"task": name, "title": spec.title}
     if error is None:
         await notify_user_or_admins(
             run_by_user_id,
@@ -162,45 +174,32 @@ class TaskType(str, Enum):
     GENERIC = "generic"
 
 
-class Task(ABC):
-    """Base class for all RQ tasks."""
+@dataclass(frozen=True)
+class TaskSpec:
+    """What the scheduler, the API and the worker know of a task without importing it.
 
+    Args:
+        implementation: Dotted path to the `Task` instance that runs it.
+        manual_run_when_disabled: Lets an admin run it with the schedule off,
+            for a task that fills a store nothing else fills.
+    """
+
+    implementation: str
     title: str
     description: str
-    enabled: bool
-    manual_run: bool
-    cron_string: str | None = None
     task_type: TaskType
-    timeout: int
-    result_ttl: int
-    queue_name: str
-
-    def __init__(
-        self,
-        title: str,
-        description: str,
-        task_type: TaskType,
-        enabled: bool = False,
-        manual_run: bool = False,
-        cron_string: str | None = None,
-        timeout: int = TASK_TIMEOUT,
-        result_ttl: int = TASK_RESULT_TTL,
-        queue_name: str = QueuePrio.LOW.value,
-    ):
-        self.title = title
-        self.description = description or title
-        self.task_type = task_type
-        self.enabled = enabled
-        self.manual_run = manual_run
-        self.cron_string = cron_string
-        self.timeout = timeout
-        self.result_ttl = result_ttl
-        self.queue_name = queue_name
+    enabled: bool = False
+    manual_run: bool = False
+    manual_run_when_disabled: bool = False
+    cron_string: str | None = None
+    timeout: int = TASK_TIMEOUT
+    result_ttl: int = TASK_RESULT_TTL
+    queue_name: str = QueuePrio.LOW.value
 
     @property
     def can_run_manually(self) -> bool:
         """Whether an admin can trigger this task on demand."""
-        return self.manual_run and self.enabled
+        return self.manual_run and (self.enabled or self.manual_run_when_disabled)
 
     def job_meta(self, key: str) -> dict[str, Any]:
         """What a job of this task carries so the API can describe it.
@@ -213,6 +212,13 @@ class Task(ABC):
             "task_name": self.title,
             "task_type": self.task_type.value,
         }
+
+
+class Task(ABC):
+    """Base class for all RQ tasks."""
+
+    def __init__(self, spec: TaskSpec):
+        self.spec = spec
 
     @abstractmethod
     async def run(self, *args: Any, **kwargs: Any) -> Any: ...
@@ -231,7 +237,13 @@ class RemoteFilePullTask(PeriodicTask, ABC):
 
     async def run(self) -> Any:
         """Download the file, raising a failure worded for the user notified of it."""
-        log.info(f"Scheduled {self.description} started...")
+        log.info(f"Scheduled {self.spec.description} started...")
+
+        # Imported here because the HTTP client stack would otherwise load in
+        # every process that reads the task catalog, the cron scheduler included.
+        import httpx2
+
+        from utils.context import ctx_httpx_client
 
         httpx_client = ctx_httpx_client.get()
         try:

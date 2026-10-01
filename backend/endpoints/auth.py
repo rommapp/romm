@@ -34,7 +34,7 @@ from handler.audit_handler import (
     release_claim,
     within_budget,
 )
-from handler.auth import auth_handler, oauth_handler, oidc_handler
+from handler.auth.base_handler import auth_handler, oauth_handler, oidc_handler
 from handler.database import db_user_handler
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl

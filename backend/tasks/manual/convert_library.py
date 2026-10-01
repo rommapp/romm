@@ -17,7 +17,6 @@ from adapters.services.rom_converto import (
     resolve_operation,
     rom_converto_service,
 )
-from config import SCAN_TIMEOUT
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
@@ -26,8 +25,9 @@ from handler.rom_files import refresh_rom_files
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomFile, RomFileCategory
+from tasks.registry import CONVERT_LIBRARY_SPEC
 from tasks.scheduled.convert_images_to_webp import ConversionStats
-from tasks.tasks import Task, TaskType
+from tasks.tasks import Task
 from utils.context import initialize_context
 
 _CUE_FILE_LINE: Final = re.compile(r'^\s*FILE\s+(?:"([^"]+)"|(\S+))', re.IGNORECASE)
@@ -136,19 +136,7 @@ def _game_files(rom: Rom) -> list[RomFile]:
 
 class ConvertLibraryTask(Task):
     def __init__(self) -> None:
-        super().__init__(
-            title="Convert library",
-            description=(
-                "Convert each matched ROM to its platform's library format, "
-                "replacing the original files"
-            ),
-            task_type=TaskType.CONVERSION,
-            enabled=True,
-            manual_run=True,
-            cron_string=None,
-            # One conversion after another, each up to ROM_CONVERTO_TIMEOUT.
-            timeout=SCAN_TIMEOUT,
-        )
+        super().__init__(CONVERT_LIBRARY_SPEC)
 
     @staticmethod
     def _name_taken(rom: Rom, operation: Operation, input_ext: str) -> bool:
@@ -216,10 +204,12 @@ class ConvertLibraryTask(Task):
     @initialize_context()
     async def run(self, platform_id: int | None = None) -> dict[str, int]:
         """Convert every matched ROM on platforms that have a library format."""
-        log.info(f"Starting {self.title} task...")
+        log.info(f"Starting {self.spec.title} task...")
         stats = ConvertLibraryStats()
         if not await rom_converto_service.is_enabled():
-            log.warning(f"{self.title} needs rom-converto; set ROM_CONVERTO_ENABLED")
+            log.warning(
+                f"{self.spec.title} needs rom-converto; set ROM_CONVERTO_ENABLED"
+            )
             return asdict(stats)
 
         formats = cm.get_config().CONVERTO.platform_formats
@@ -245,7 +235,7 @@ class ConvertLibraryTask(Task):
             progress.update(processed=index + 1, errors=stats.failed)
 
         log.info(
-            f"{self.title} completed: {stats.converted} converted, "
+            f"{self.spec.title} completed: {stats.converted} converted, "
             f"{stats.failed} failed, {stats.bytes_saved} bytes saved"
         )
         return asdict(stats)

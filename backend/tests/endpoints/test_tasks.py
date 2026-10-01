@@ -8,7 +8,7 @@ from rq.exceptions import DeserializationError, NoSuchJobError
 from handler.redis_handler import low_prio_queue, redis_client
 from tasks.manual.cleanup_missing_firmware import CleanupMissingFirmwareStats
 from tasks.manual.cleanup_missing_roms import CleanupMissingRomsStats
-from tasks.tasks import Task, TaskType
+from tasks.tasks import TaskSpec, TaskType
 
 
 def _job_with_meta(meta: dict[str, Any]) -> Mock:
@@ -35,7 +35,7 @@ def task_worker_listening():
 @pytest.fixture
 def mock_task():
     """Create a mock task for testing"""
-    task = Mock(spec=Task)
+    task = Mock(spec=TaskSpec)
     task.title = "Test Task"
     task.description = "A test task for unit testing"
     task.task_type = TaskType.CLEANUP
@@ -44,14 +44,13 @@ def mock_task():
     task.can_run_manually = True
     task.cron_string = "0 0 * * *"
     task.timeout = 300
-    task.run = Mock()
     return task
 
 
 @pytest.fixture
 def mock_disabled_task():
     """Create a mock disabled task for testing"""
-    task = Mock(spec=Task)
+    task = Mock(spec=TaskSpec)
     task.title = "Disabled Task"
     task.description = "A disabled task for testing"
     task.task_type = TaskType.CLEANUP
@@ -60,14 +59,13 @@ def mock_disabled_task():
     task.can_run_manually = False
     task.cron_string = None
     task.timeout = 300
-    task.run = Mock()
     return task
 
 
 @pytest.fixture
 def mock_non_manual_task():
     """Create a mock task that cannot be run manually"""
-    task = Mock(spec=Task)
+    task = Mock(spec=TaskSpec)
     task.title = "Non-Manual Task"
     task.description = "A task that cannot be run manually"
     task.task_type = TaskType.CLEANUP
@@ -76,7 +74,6 @@ def mock_non_manual_task():
     task.can_run_manually = False
     task.cron_string = "0 0 * * *"
     task.timeout = 300
-    task.run = Mock()
     return task
 
 
@@ -109,7 +106,7 @@ class TestListTasks:
         "endpoints.tasks.MANUAL_TASKS",
         {
             "test_manual": Mock(
-                spec=Task,
+                spec=TaskSpec,
                 task_type=TaskType.CLEANUP,
                 title="Manual Task",
                 description="Manual task",
@@ -125,7 +122,7 @@ class TestListTasks:
         "endpoints.tasks.VISIBLE_SCHEDULED_TASKS",
         {
             "test_scheduled": Mock(
-                spec=Task,
+                spec=TaskSpec,
                 task_type=TaskType.UPDATE,
                 title="Scheduled Task",
                 description="Scheduled task",
@@ -223,7 +220,7 @@ class TestListTasks:
         # Create a token without TASKS_RUN scope
         from datetime import timedelta
 
-        from handler.auth import oauth_handler
+        from handler.auth.base_handler import oauth_handler
 
         data = {
             "sub": admin_user.username,
@@ -312,7 +309,7 @@ class TestRunSingleTask:
         "endpoints.tasks.RUNNABLE_TASKS",
         {
             "disabled_task": Mock(
-                spec=Task,
+                spec=TaskSpec,
                 task_type=TaskType.CLEANUP,
                 title="Disabled Task",
                 description="Disabled Description",
@@ -320,7 +317,6 @@ class TestRunSingleTask:
                 manual_run=True,
                 can_run_manually=False,
                 timeout=300,
-                run=Mock(),
             ),
         },
     )
@@ -340,7 +336,7 @@ class TestRunSingleTask:
         "endpoints.tasks.RUNNABLE_TASKS",
         {
             "non_manual_task": Mock(
-                spec=Task,
+                spec=TaskSpec,
                 task_type=TaskType.CLEANUP,
                 title="Non-Manual Task",
                 description="Non-Manual Description",
@@ -348,7 +344,6 @@ class TestRunSingleTask:
                 manual_run=False,
                 can_run_manually=False,
                 timeout=300,
-                run=Mock(),
             ),
         },
     )
@@ -693,7 +688,7 @@ class TestTaskInfoBuilding:
             "endpoints.tasks.MANUAL_TASKS",
             {
                 "test_task": Mock(
-                    spec=Task,
+                    spec=TaskSpec,
                     title="Test Task",
                     description="Test Description",
                     enabled=True,
@@ -732,7 +727,7 @@ class TestIntegration:
             "endpoints.tasks.RUNNABLE_TASKS",
             {
                 "workflow_task": Mock(
-                    spec=Task,
+                    spec=TaskSpec,
                     task_type=TaskType.CLEANUP,
                     title="Workflow Task",
                     description="Workflow Description",
@@ -740,7 +735,6 @@ class TestIntegration:
                     manual_run=True,
                     can_run_manually=True,
                     timeout=300,
-                    run=Mock(),
                 ),
             },
         ):
@@ -769,7 +763,7 @@ class TestRunSingleTaskArgumentHandling:
         "endpoints.tasks.RUNNABLE_TASKS",
         {
             "allowed_task": Mock(
-                spec=Task,
+                spec=TaskSpec,
                 task_type=TaskType.CLEANUP,
                 title="Allowed Task",
                 description="Allowed",

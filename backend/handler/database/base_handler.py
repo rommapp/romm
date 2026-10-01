@@ -7,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from config import DB_POOL_RECYCLE_SECONDS, DEV_SQL_ECHO
 from config.config_manager import ConfigManager
+from models import load_all_models
 
 # A ping on a socket the server already closed blocks the worker until TCP gives
 # up, so `pool_pre_ping` alone is not enough.
@@ -59,3 +60,8 @@ def affected_rows(result: Result[Any]) -> int:
     """How many rows an UPDATE or DELETE run through `Session.execute` matched."""
     # Session.execute is typed to return Result, but DML gets a CursorResult.
     return cast(CursorResult[Any], result).rowcount
+
+
+# A process may load one model, whose relationships name others by string, and
+# the mappers configure only once every one of them is loaded.
+load_all_models()

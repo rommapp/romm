@@ -7,35 +7,23 @@ import pytest
 import tasks.scheduled.cleanup_orphaned_resources as mod
 from config import SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON
 from handler.database import db_platform_handler, db_rom_handler
+from tasks.registry import CLEANUP_ORPHANED_RESOURCES_SPEC
 from tasks.scheduled.cleanup_orphaned_resources import CleanupOrphanedResourcesTask
 
 
 class TestCleanupOrphanedResourcesTask:
-    @pytest.fixture
-    def task(self):
-        return CleanupOrphanedResourcesTask()
-
-    def test_disabled_by_default(self, task):
+    def test_disabled_by_default(self):
         # The run-task endpoint rejects a task unless both flags are set, so a
         # disabled schedule also means no manual runs.
-        assert task.enabled is False
-        assert task.manual_run is True
-        assert task.can_run_manually is False
+        assert CLEANUP_ORPHANED_RESOURCES_SPEC.enabled is False
+        assert CLEANUP_ORPHANED_RESOURCES_SPEC.manual_run is True
+        assert CLEANUP_ORPHANED_RESOURCES_SPEC.can_run_manually is False
 
-    def test_enabled_follows_config_flag(self):
-        with patch.object(mod, "ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES", True):
-            task = CleanupOrphanedResourcesTask()
-            assert task.enabled is True
-            assert task.can_run_manually is True
-
-    def test_cron_string_uses_configured_schedule(self, task):
-        assert task.cron_string == SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON
-
-    def test_cron_string_follows_config_override(self):
-        with patch.object(
-            mod, "SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON", "30 2 * * *"
-        ):
-            assert CleanupOrphanedResourcesTask().cron_string == "30 2 * * *"
+    def test_cron_string_uses_configured_schedule(self):
+        assert (
+            CLEANUP_ORPHANED_RESOURCES_SPEC.cron_string
+            == SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON
+        )
 
 
 class TestCleanupOrphanedResourcesRun:
