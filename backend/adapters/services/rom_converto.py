@@ -14,6 +14,7 @@ from config import (
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.filesystem import SERVED_FILE_MODE
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # The capabilities probe must never hang download paths; a real
@@ -136,8 +137,7 @@ LIBRARY_TARGETS_BY_PLATFORM: Final[dict[str, frozenset[str]]] = {
 }
 
 
-def download_formats() -> dict[str, dict[str, list[str]]]:
-    """Platform slug -> input extension -> the targets a download of it can be converted to."""
+def _download_formats() -> dict[str, dict[str, list[str]]]:
     table: dict[str, dict[str, set[str]]] = {}
     for op in OPERATIONS:
         for slug in op.platforms:
@@ -147,6 +147,10 @@ def download_formats() -> dict[str, dict[str, list[str]]]:
         slug: {ext: sorted(targets) for ext, targets in sorted(exts.items())}
         for slug, exts in sorted(table.items())
     }
+
+
+# Platform slug -> input extension -> the targets a download of it can be converted to.
+DOWNLOAD_FORMATS: Final[dict[str, dict[str, list[str]]]] = _download_formats()
 
 
 # Extensions whose format goes by another name than the extension itself.
@@ -163,28 +167,18 @@ _KNOWN_EXTS: Final[frozenset[str]] = frozenset(
 )
 
 
-def _known_ext(name: str) -> str | None:
-    return max((e for e in _KNOWN_EXTS if name.endswith(e)), key=len, default=None)
-
-
-def _ext_format(name: str, ext: str | None) -> str:
-    if ext is None:
-        return Path(name).suffix.lstrip(".")
-    return ext.lstrip(".").replace(".", "-")
-
-
 def file_format(file_name: str) -> str:
     """The format `file_name` is in, as a target name or its extension (`nkit-iso`)."""
     name = file_name.lower()
-    ext = _known_ext(name)
-    return _FORMAT_ALIASES.get(ext or "", _ext_format(name, ext))
+    ext = max((e for e in _KNOWN_EXTS if name.endswith(e)), key=len, default=None)
+    if ext is None:
+        return Path(name).suffix.lstrip(".")
+    return _FORMAT_ALIASES.get(ext, ext.lstrip(".").replace(".", "-"))
 
 
-def file_formats(file_name: str) -> frozenset[str]:
-    """The names a client may list for `file_name`'s format, an alias's extension (`3ds`) included."""
-    name = file_name.lower()
-    ext = _known_ext(name)
-    return frozenset({file_format(file_name), _ext_format(name, ext)})
+def canonical_format(name: str) -> str:
+    """The target name a client means by `name`, so `3ds` reads as `cci`."""
+    return _FORMAT_ALIASES.get(f".{name}", name)
 
 
 def normalize_platform_formats(raw: dict[str, str]) -> dict[str, str]:
@@ -271,6 +265,16 @@ async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
     )
 
 
+def _settle_output(operation: Operation, out: Path) -> None:
+    """Check `out` is all the command wrote beside it, and make it servable."""
+    if [p.name for p in out.parent.iterdir()] != [out.name]:
+        raise RomConvertoOperationError(
+            f"rom-converto {' '.join(operation.argv)} did not write exactly {out.name}"
+        )
+    # rom-converto may write an owner-only file, which nginx can't serve.
+    out.chmod(SERVED_FILE_MODE)
+
+
 def _kill(proc: asyncio.subprocess.Process) -> None:
     with contextlib.suppress(ProcessLookupError):
         proc.kill()
@@ -286,6 +290,8 @@ class RomConvertoService:
     async def is_enabled(self) -> bool:
         if not ROM_CONVERTO_ENABLED:
             return False
+        if self._available is not None:
+            return self._available
         async with self._probe_lock:
             if self._available is not None:
                 return self._available
@@ -310,10 +316,10 @@ class RomConvertoService:
             try:
                 manifest = json.loads(stdout)
             except json.JSONDecodeError:
-                manifest = {}
-            if not isinstance(manifest, dict):
-                manifest = {}
-            version = manifest.get("version") or "unknown version"
+                manifest = None
+            version = (
+                manifest.get("version") if isinstance(manifest, dict) else None
+            ) or "unknown version"
             log.info(
                 f"Detected {hl('rom-converto', color=LIGHTMAGENTA)} {hl(str(version))}"
             )
@@ -321,7 +327,11 @@ class RomConvertoService:
             return True
 
     async def convert(self, operation: Operation, src: Path, out: Path) -> None:
-        """Run `operation` on `src`, writing `out`."""
+        """Run `operation` on `src`, writing `out`, which must be alone in its directory.
+
+        Raises:
+            RomConvertoOperationError: The command failed or wrote more than `out`.
+        """
         argv = [*operation.argv, str(src), str(out)]
         code, stdout, stderr = await _run(argv, ROM_CONVERTO_TIMEOUT)
         if code != 0:
@@ -329,6 +339,7 @@ class RomConvertoService:
             raise RomConvertoOperationError(
                 f"rom-converto {' '.join(operation.argv)} failed with code {code}: {diagnostic}"
             )
+        await asyncio.to_thread(_settle_output, operation, out)
 
 
 rom_converto_service = RomConvertoService()

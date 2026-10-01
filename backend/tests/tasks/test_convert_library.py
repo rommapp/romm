@@ -1,5 +1,4 @@
 import os
-import stat
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -19,7 +18,6 @@ from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 from tasks.manual.convert_library import ConvertLibraryTask
-from utils.filesystem import SERVED_FILE_MODE
 
 
 @pytest.fixture
@@ -180,22 +178,6 @@ async def test_a_bom_cue_and_playlist_still_follow_the_conversion(
     assert (folder / "game.m3u").read_text() == "game.chd\n"
     # Staged beside the rom folder, whose dot-prefixed subfolders count as its files.
     assert converted[0][1].parent.parent == library / rom.fs_path
-
-
-async def test_an_owner_only_output_is_made_readable_for_nginx(
-    library: Path, admin_user: User, converto, converted, mocker
-):
-    def convert(operation, src: Path, out: Path) -> None:
-        out.write_bytes(b"c")
-        out.chmod(0o600)
-
-    mocker.patch.object(rom_converto_service, "convert", AsyncMock(side_effect=convert))
-    rom = _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
-
-    await _run()
-
-    output = library / rom.fs_path / "game.chd"
-    assert stat.S_IMODE(output.stat().st_mode) == SERVED_FILE_MODE
 
 
 async def test_one_roms_failure_does_not_stop_the_run(

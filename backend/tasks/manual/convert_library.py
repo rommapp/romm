@@ -16,7 +16,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from adapters.services.rom_converto import (
     Operation,
     RomConvertoError,
-    RomConvertoOperationError,
     file_format,
     resolve_operation,
     rom_converto_service,
@@ -33,7 +32,7 @@ from tasks.registry import CONVERT_LIBRARY_SPEC
 from tasks.scheduled.convert_images_to_webp import ConversionStats
 from tasks.tasks import Task
 from utils.context import initialize_context
-from utils.filesystem import SERVED_FILE_MODE
+from utils.filesystem import LINK_FALLBACK_ERRNOS
 
 _CUE_FILE_LINE: Final = re.compile(r'^\s*FILE\s+(?:"([^"]+)"|(\S+))', re.IGNORECASE)
 _CUE_EXT: Final = ".cue"
@@ -78,26 +77,30 @@ def _shared_tracks(cue: Path, tracks: list[Path]) -> set[Path]:
     return set(tracks) & others
 
 
-def _write_atomically(path: Path, text: str) -> None:
-    staged = path.with_name(f"{STAGE_PREFIX}{path.name}")
-    staged.write_text(text)
-    os.replace(staged, path)
-
-
 def _renamed_entry(line: str, renames: dict[str, str]) -> str:
     entry = line.strip()
     return renames.get(os.path.normpath(entry), line) if entry else line
 
 
-def _rewrite_playlists(folder: Path, renames: dict[str, str]) -> None:
-    """Point each playlist entry for a converted file at its new name."""
+def _rewritten_playlists(folder: Path, renames: dict[str, str]) -> dict[Path, str]:
+    """The playlists in `folder` that name a renamed file, with their new text."""
+    rewrites: dict[Path, str] = {}
     for playlist in folder.iterdir():
         if playlist.suffix.lower() != _PLAYLIST_EXT or not playlist.is_file():
             continue
         lines = playlist.read_text(encoding="utf-8-sig", errors="replace").splitlines()
         rewritten = [_renamed_entry(line, renames) for line in lines]
         if rewritten != lines:
-            _write_atomically(playlist, "\n".join(rewritten) + "\n")
+            rewrites[playlist] = "\n".join(rewritten) + "\n"
+    return rewrites
+
+
+async def _rewrite_playlists(folder: Path, renames: dict[str, str]) -> None:
+    """Point each playlist entry for a converted file at its new name."""
+    rewrites = await asyncio.to_thread(_rewritten_playlists, folder, renames)
+    for playlist, text in rewrites.items():
+        async with fs_rom_handler._atomic_write(playlist) as staged:
+            await asyncio.to_thread(staged.write_text, text)
 
 
 def _sources(src: Path, final: Path, input_ext: str) -> list[Path]:
@@ -125,19 +128,12 @@ def _drop_stale_stages(folder: Path) -> None:
 
 def _publish(stage_dir: Path, final: Path) -> None:
     """Move the staged output to `final`, never replacing a file that appeared there."""
-    if [p.name for p in stage_dir.iterdir()] != [final.name]:
-        raise RomConvertoOperationError(
-            f"rom-converto did not write exactly {final.name}"
-        )
     staged = stage_dir / final.name
-    # rom-converto may write an owner-only file, which nginx can't serve.
-    os.chmod(staged, SERVED_FILE_MODE)
     try:
         os.link(staged, final)
-    except FileExistsError:
-        raise
-    except OSError:
-        # Some network and FUSE mounts have no hard links.
+    except OSError as exc:
+        if exc.errno not in LINK_FALLBACK_ERRNOS:
+            raise
         if final.exists():
             raise FileExistsError(f"{final.name} already exists") from None
         os.replace(staged, final)
@@ -160,7 +156,6 @@ async def _convert_beside(
     src: Path, final: Path, operation: Operation, stage_parent: Path
 ) -> None:
     """Convert `src` to `final` beside it, staging in `stage_parent` and leaving `src` in place."""
-    await asyncio.to_thread(_drop_stale_stages, stage_parent)
     stage_dir = Path(
         await asyncio.to_thread(
             tempfile.mkdtemp, prefix=_CONVERT_STAGE_PREFIX, dir=stage_parent
@@ -173,6 +168,14 @@ async def _convert_beside(
         await asyncio.to_thread(_publish, stage_dir, final)
     finally:
         await asyncio.to_thread(shutil.rmtree, stage_dir, True)
+
+
+def _names_taken(rom: Rom, names: list[str]) -> list[str]:
+    """The `names` another rom row beside `rom` already holds."""
+    if not names:
+        return []
+    owned = db_rom_handler.get_roms_by_fs_name(rom.platform_id, names)
+    return sorted(n for n in names if f"{rom.fs_path}/{n}" in owned)
 
 
 def _game_files(rom: Rom) -> list[RomFile]:
@@ -189,33 +192,10 @@ class ConvertLibraryTask(Task):
     def __init__(self) -> None:
         super().__init__(CONVERT_LIBRARY_SPEC)
 
-    @staticmethod
-    def _name_taken(rom: Rom, operation: Operation, input_ext: str) -> bool:
-        """Whether another rom row already holds the name this rom converts to."""
-        name = operation.output_name(Path(rom.fs_name), input_ext)
-        taken = f"{rom.fs_path}/{name}" in db_rom_handler.get_roms_by_fs_name(
-            rom.platform_id, [name]
-        )
-        if taken:
-            log.warning(f"Not converting {hl(rom.fs_name)}: a rom named {name} exists")
-        return taken
-
-    @staticmethod
-    def _check_tracks_unowned(rom: Rom, tracks: list[Path]) -> None:
-        """Refuse to delete a cue track that another rom row holds."""
-        if not tracks:
-            return
-        owned = db_rom_handler.get_roms_by_fs_name(
-            rom.platform_id, [t.name for t in tracks]
-        )
-        if taken := sorted(
-            t.name for t in tracks if f"{rom.fs_path}/{t.name}" in owned
-        ):
-            raise ValueError(f"{taken} belong to other roms")
-
     async def _convert_rom(
         self, rom: Rom, target: str, stats: ConvertLibraryStats
     ) -> None:
+        single_file = rom.has_simple_single_file
         planned: list[tuple[RomFile, Operation, str]] = []
         for rom_file in _game_files(rom):
             if file_format(rom_file.file_name) == target:
@@ -227,7 +207,11 @@ class ConvertLibraryTask(Task):
             if resolved is None:
                 stats.unsupported += 1
                 continue
-            if rom.has_simple_single_file and self._name_taken(rom, *resolved):
+            name = resolved[0].output_name(Path(rom.fs_name), resolved[1])
+            if single_file and _names_taken(rom, [name]):
+                log.warning(
+                    f"Not converting {hl(rom.fs_name)}: a rom named {name} exists"
+                )
                 stats.failed += 1
                 continue
             planned.append((rom_file, *resolved))
@@ -239,6 +223,7 @@ class ConvertLibraryTask(Task):
 
         # A rom folder lists dot-prefixed subfolders as its files, so stage beside it.
         stage_parent = fs_rom_handler.validate_path(rom.fs_path)
+        await asyncio.to_thread(_drop_stale_stages, stage_parent)
         # Originals go only once the rom and its playlists point at the new files.
         published: list[tuple[Path, Path, list[Path]]] = []
         for rom_file, operation, input_ext in planned:
@@ -246,8 +231,10 @@ class ConvertLibraryTask(Task):
             final = src.with_name(operation.output_name(src, input_ext))
             try:
                 sources = await asyncio.to_thread(_sources, src, final, input_ext)
-                if rom.has_simple_single_file:
-                    self._check_tracks_unowned(rom, sources[1:])
+                if single_file and (
+                    taken := _names_taken(rom, [t.name for t in sources[1:]])
+                ):
+                    raise ValueError(f"{taken} belong to other roms")
                 await _convert_beside(src, final, operation, stage_parent)
             except (RomConvertoError, OSError, ValueError) as exc:
                 log.warning(f"Could not convert {hl(rom_file.file_name)}: {exc}")
@@ -259,18 +246,16 @@ class ConvertLibraryTask(Task):
             return
         renames = {src.name: final.name for src, final, _ in published}
         try:
-            if rom.has_simple_single_file:
+            if single_file:
                 db_rom_handler.update_rom(rom.id, {"fs_name": renames[rom.fs_name]})
             else:
-                await asyncio.to_thread(
-                    _rewrite_playlists,
-                    fs_rom_handler.validate_path(rom.full_path),
-                    renames,
+                await _rewrite_playlists(
+                    fs_rom_handler.validate_path(rom.full_path), renames
                 )
         except (OSError, SQLAlchemyError) as exc:
             log.warning(f"Kept the originals of {hl(rom.fs_name)}: {exc}")
             stats.failed += len(published)
-            if rom.has_simple_single_file:
+            if single_file:
                 for _, final, _ in published:
                     final.unlink(missing_ok=True)
             return
@@ -317,7 +302,7 @@ class ConvertLibraryTask(Task):
                     await self._convert_rom(rom, target, stats)
                 except Exception as exc:
                     # One rom's failure must not stop the rest of the library.
-                    log.error(f"Could not convert {hl(rom.fs_name)}: {exc}")
+                    log.exception(f"Could not convert {hl(rom.fs_name)}: {exc}")
                     stats.failed += 1
             progress.update(processed=index + 1, errors=stats.failed)
 

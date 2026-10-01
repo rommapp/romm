@@ -899,12 +899,8 @@ class ConfigManager:
             ),
             CONVERTO=ConvertoConfig(
                 **{
-                    field.name: pydash.get(
-                        self._raw_config,
-                        f"converto.{field.name}",
-                        getattr(ConvertoConfig(), field.name),
-                    )
-                    for field in dataclasses.fields(ConvertoConfig)
+                    key: pydash.get(self._raw_config, f"converto.{key}", default)
+                    for key, default in dataclasses.asdict(ConvertoConfig()).items()
                 }
             ),
             STRUCTURE_TEMPLATES=pydash.get(

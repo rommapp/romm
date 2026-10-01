@@ -18,7 +18,8 @@ from adapters.services.rom_converto import (
     Operation,
     RomConvertoOperationError,
     RomConvertoTimeoutError,
-    file_formats,
+    canonical_format,
+    file_format,
     resolve_operation,
     rom_converto_service,
 )
@@ -32,7 +33,6 @@ from config.config_manager import config_manager as cm
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.background_tasks import fire_and_forget
-from utils.filesystem import SERVED_FILE_MODE
 from utils.zip_cache import CACHE_KEY_LENGTH, SECONDS_PER_HOUR
 
 if TYPE_CHECKING:
@@ -105,6 +105,12 @@ def _try_lock(key_dir: Path, *, shared: bool = False) -> Generator[bool]:
         yield current_dir
     finally:
         os.close(fd)
+
+
+def _stat_files(key_dir: Path) -> tuple[dict[str, os.stat_result], float]:
+    """The stats of `key_dir`'s files and the newest mtime among them."""
+    stats = {p.name: p.stat() for p in _files(key_dir)}
+    return stats, max((st.st_mtime for st in stats.values()), default=0.0)
 
 
 def cache_size_bytes() -> int:
@@ -180,8 +186,8 @@ _UNAVAILABLE: Final = FormatResolution(FormatOutcome.UNAVAILABLE)
 
 
 def parse_formats(raw: str) -> tuple[str, ...]:
-    """The comma-separated `?format=` list, lowercased and deduplicated in order."""
-    formats = (f.strip().lower() for f in raw.split(","))
+    """The comma-separated `?format=` list, canonical, lowercased and deduplicated in order."""
+    formats = (canonical_format(f.strip().lower()) for f in raw.split(","))
     return tuple(dict.fromkeys(f for f in formats if f))
 
 
@@ -216,7 +222,7 @@ async def resolve_format_download(
         start: Start it now, rather than only report that one would run.
         touch: Refresh a served copy's mtime so TTL cleanup measures demand.
     """
-    if not file_formats(file.file_name).isdisjoint(formats):
+    if file_format(file.file_name) in formats:
         return FormatResolution(FormatOutcome.ORIGINAL)
 
     converto = cm.get_config().CONVERTO
@@ -227,17 +233,17 @@ async def resolve_format_download(
         return _UNAVAILABLE
 
     candidates = [
-        (target, found)
+        (target, found[1])
         for target in formats
         if (found := _lookup(rom.id, file, rom.platform_slug, target))
     ]
-    for _, (_, final_path) in candidates:
+    for _, final_path in candidates:
         if cached := _serve_cached(final_path, touch=touch):
             return FormatResolution(FormatOutcome.CONVERTED, cached)
     if not allowed:
         return _UNAVAILABLE
 
-    for target, (_, final_path) in candidates:
+    for target, final_path in candidates:
         if (final_path.parent / FAILED_FILE).exists():
             continue
         if (
@@ -332,14 +338,6 @@ async def _convert(
         await rom_converto_service.convert(
             operation, src=Path(LIBRARY_BASE_PATH) / rom_file.full_path, out=produced
         )
-        if any(p != produced for p in _files(partial_dir)):
-            log.warning(
-                f"Conversion output split into several files for ROM {rom_id} (target {hl(target)})"
-            )
-            (final_path.parent / FAILED_FILE).touch()
-            return None
-        # rom-converto may write an owner-only file, which nginx can't serve.
-        os.chmod(produced, SERVED_FILE_MODE)
         os.replace(produced, final_path)
     except Exception as e:
         log.warning(f"Conversion failed for ROM {rom_id} (target {hl(target)}): {e}")
@@ -358,8 +356,8 @@ def cleanup_stale_conversions(reserve_bytes: int = 0) -> int:
         return 0
 
     converto = cm.get_config().CONVERTO
-    ttl_seconds = converto.cache_ttl_hours * SECONDS_PER_HOUR
     now = time.time()
+    expired_before = now - converto.cache_ttl_hours * SECONDS_PER_HOUR
     deleted = 0
     # (last served, size) of the final copies in each dir that survives the TTL pass.
     kept: list[tuple[float, int, Path]] = []
@@ -368,17 +366,13 @@ def cleanup_stale_conversions(reserve_bytes: int = 0) -> int:
         if not key_dir.is_dir():
             continue
         with contextlib.suppress(FileNotFoundError):
-            stats = {p.name: p.stat() for p in _files(key_dir)}
-            last_served = max((st.st_mtime for st in stats.values()), default=0.0)
+            stats, last_served = _stat_files(key_dir)
             partial_dir = key_dir / PARTIAL_DIR
-            if last_served < now - ttl_seconds or partial_dir.exists():
+            if last_served < expired_before or partial_dir.exists():
                 with _try_lock(key_dir) as locked:
                     if locked:
-                        stats = {p.name: p.stat() for p in _files(key_dir)}
-                        last_served = max(
-                            (st.st_mtime for st in stats.values()), default=0.0
-                        )
-                        if last_served < now - ttl_seconds:
+                        stats, last_served = _stat_files(key_dir)
+                        if last_served < expired_before:
                             shutil.rmtree(key_dir, ignore_errors=True)
                             deleted += 1
                             continue

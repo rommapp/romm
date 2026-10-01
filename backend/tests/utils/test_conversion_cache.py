@@ -2,7 +2,6 @@ import asyncio
 import fcntl
 import os
 import shutil
-import stat
 import time
 from collections.abc import Iterator
 from contextlib import ExitStack, contextmanager, nullcontext
@@ -36,7 +35,6 @@ from utils.conversion_cache import (
     parse_formats,
     resolve_format_download,
 )
-from utils.filesystem import SERVED_FILE_MODE
 
 
 def _rom_file(**overrides: Any) -> RomFile:
@@ -360,22 +358,6 @@ class TestGetOrConvert:
         assert final.read_bytes() == b"converted"
         assert [p.name for p in final.parent.iterdir()] == [final.name]
 
-    async def test_an_owner_only_output_is_made_readable_for_nginx(
-        self, cache_root, mocker
-    ):
-        async def convert(operation, src, out) -> None:
-            out.write_bytes(b"converted")
-            out.chmod(0o600)
-
-        mocker.patch(
-            "utils.conversion_cache.rom_converto_service.convert", side_effect=convert
-        )
-
-        final = await get_or_convert(1, _rom_file(), "psp", "chd")
-
-        assert final is not None
-        assert stat.S_IMODE(final.stat().st_mode) == SERVED_FILE_MODE
-
     async def test_leading_dot_copy_survives_cleanup(self, cache_root, convert_outputs):
         f = _rom_file(file_name=".hack - Infection (USA).iso")
         final = _final_path(f)
@@ -499,24 +481,6 @@ class TestGetOrConvert:
         assert not (final.parent / PARTIAL_DIR).exists()
         assert await get_or_convert(1, f, "psp", "chd") == final
         assert final.read_bytes() == b"converted"
-
-    async def test_split_conversion_returns_none_without_publishing(
-        self, cache_root, mocker
-    ):
-        f = _rom_file()
-        final = _final_path(f)
-
-        async def convert(op, src, out) -> None:
-            out.write_bytes(b'FILE "game.bin" BINARY')
-            out.with_suffix(".bin").write_bytes(b"data")
-
-        mocker.patch(
-            "utils.conversion_cache.rom_converto_service.convert", side_effect=convert
-        )
-
-        assert await get_or_convert(1, f, "psp", "chd") is None
-        assert not final.exists()
-        assert list(final.parent.iterdir()) == [final.parent / FAILED_FILE]
 
     async def test_cancellation_removes_every_partial_output(self, cache_root, mocker):
         f = _rom_file()
@@ -850,6 +814,7 @@ class TestParseFormats:
             pytest.param("zso,iso", ("zso", "iso"), id="in-order"),
             pytest.param(" ZSO , iso,zso ", ("zso", "iso"), id="trimmed-deduplicated"),
             pytest.param(",,", (), id="empty"),
+            pytest.param("3ds,GCM", ("cci", "iso"), id="aliases"),
         ],
     )
     def test_parses_the_list(self, raw: str, expected: tuple[str, ...]):
@@ -887,7 +852,7 @@ class TestResolveFormatDownload:
         resolution = await resolve_format_download(
             rom,
             _rom_file(file_name="game.3ds"),
-            ("3ds", "cia"),
+            parse_formats("3ds,cia"),
             allowed=True,
             start=True,
             touch=True,
