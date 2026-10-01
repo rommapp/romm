@@ -4,8 +4,6 @@ import re
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
 
-import alembic.config
-import sentry_sdk
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,7 +26,6 @@ from config import (
     ROMM_AUTH_SECRET_KEY,
     ROMM_CORS_ALLOWED_ORIGINS,
     ROMM_SESSION_SECURE_COOKIE,
-    SENTRY_DSN,
     cors_allow_credentials,
 )
 from endpoints.activity import router as activity_router
@@ -82,6 +79,7 @@ from utils.context import (
 )
 from utils.memory_cards import MEMORY_CARD_MAX_BYTES
 from utils.openapi import publish_socket_payloads
+from utils.sentry import init_sentry
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -111,10 +109,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
                     await log_forwarder_task
 
 
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    release="romm@" + get_version(),
-)
+init_sentry()
 
 app = FastAPI(
     title="RomM API",
@@ -231,6 +226,8 @@ publish_socket_payloads(app, STREAMING_SOCKET_PAYLOADS)
 # NOTE: This code is only executed when running the application directly,
 # not by deployments using gunicorn.
 if __name__ == "__main__":
+    import alembic.config
+
     # Run migrations
     alembic.config.main(argv=["upgrade", "head"])
 

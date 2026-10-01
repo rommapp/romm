@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   heartbeatTick: null as (() => Promise<void>) | null,
   routeLeave: null as (() => Promise<boolean> | boolean) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
+  setPlaying: vi.fn(),
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -49,6 +50,10 @@ vi.mock("@/services/api/streaming", () => ({
   },
 }));
 
+vi.mock("@/stores/playing", () => ({
+  default: () => ({ setPlaying: mocks.setPlaying }),
+}));
+
 vi.mock("@/stores/streaming", () => ({
   useStreamingStore: () => ({ heartbeatSession: mocks.heartbeatSession }),
 }));
@@ -83,6 +88,35 @@ let mounted: VueWrapper | null = null;
 
 const CLAIMED_AT = "2026-09-17T10:00:00";
 const KEY = "http://webstation-dev:8000";
+const CLAIM = {
+  data: {
+    container: KEY,
+    host: "http://webstation-dev:8080",
+    label: "PS2",
+    platform: "ps2",
+    claimed_at: CLAIMED_AT,
+  },
+};
+
+// A pending call the test answers by hand.
+function deferred() {
+  let answer = (_: unknown) => {};
+  const promise = new Promise((resolve) => {
+    answer = resolve;
+  });
+  return { promise, answer };
+}
+
+// Unstamped, a release reaches whichever session took the container.
+function expectReleasedOwnClaim(): void {
+  expect(mocks.releaseSession).toHaveBeenCalledWith(
+    "ps2",
+    undefined,
+    KEY,
+    undefined,
+    CLAIMED_AT,
+  );
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -103,15 +137,7 @@ async function mountDesktop(): Promise<VueWrapper> {
 }
 
 async function openDesktop(): Promise<VueWrapper> {
-  mocks.claimDesktop.mockResolvedValue({
-    data: {
-      container: KEY,
-      host: "http://webstation-dev:8080",
-      label: "PS2",
-      platform: "ps2",
-      claimed_at: CLAIMED_AT,
-    },
-  });
+  mocks.claimDesktop.mockResolvedValue(CLAIM);
   return mountDesktop();
 }
 
@@ -229,12 +255,8 @@ describe("Desktop heartbeats", () => {
   it("keeps the exit a release made while a beat was in flight", async () => {
     const wrapper = await openDesktop();
     mocks.releaseSession.mockResolvedValue({});
-    let answer = (_: unknown) => {};
-    mocks.heartbeatSession.mockReturnValue(
-      new Promise((resolve) => {
-        answer = resolve;
-      }),
-    );
+    const { promise, answer } = deferred();
+    mocks.heartbeatSession.mockReturnValue(promise);
 
     const beat = mocks.heartbeatTick?.();
     expect(await mocks.routeLeave?.()).toBe(true);
@@ -256,20 +278,13 @@ describe("Desktop heartbeats", () => {
 });
 
 describe("Desktop releases", () => {
-  // Unstamped, a release reaches whichever session took the container.
   it("names the claim it releases on exit", async () => {
     mocks.releaseSession.mockResolvedValue({});
     await openDesktop();
 
     expect(await mocks.routeLeave?.()).toBe(true);
 
-    expect(mocks.releaseSession).toHaveBeenCalledWith(
-      "ps2",
-      undefined,
-      KEY,
-      undefined,
-      CLAIMED_AT,
-    );
+    expectReleasedOwnClaim();
   });
 
   it("names the claim it releases when the tab closes", async () => {
@@ -343,5 +358,101 @@ describe("Desktop container naming", () => {
       KEY,
       CLAIMED_AT,
     );
+  });
+});
+
+describe("Desktop controller ownership", () => {
+  // The emulator inside the container reads the pad, so RomM's gamepad
+  // navigation must stay muted or B pops history out of the session.
+  it("mutes pad navigation while the desktop is claimed", async () => {
+    await openDesktop();
+
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(true);
+  });
+
+  it("hands the pad back once a notice ends the claim", async () => {
+    await openDesktop();
+
+    endSession({ platform: "ps2", container: KEY });
+    await flushPromises();
+
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
+  });
+
+  it("hands the pad back when the claim is refused", async () => {
+    await refuseDesktop({ rom_name: null, claimed_at: null, draining: true });
+
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
+  });
+
+  it("hands the pad back when the view unmounts", async () => {
+    const wrapper = await openDesktop();
+
+    wrapper.unmount();
+    mounted = null;
+
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
+  });
+
+  it("mutes pad navigation while the claim is still in flight", async () => {
+    mocks.claimDesktop.mockReturnValue(new Promise(() => {}));
+    const wrapper = await mountDesktop();
+
+    expect(vmOf(wrapper).state).toBe("loading");
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(true);
+  });
+
+  it("hands the pad back once the desktop is exited", async () => {
+    mocks.releaseSession.mockResolvedValue({});
+    await openDesktop();
+
+    expect(await mocks.routeLeave?.()).toBe(true);
+    await flushPromises();
+
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
+  });
+
+  it("ends the desktop from the pad's exit chord", async () => {
+    // B is muted with the rest of the pad, so the chord is the pad's way out.
+    mocks.releaseSession.mockResolvedValue({});
+    const wrapper = await openDesktop();
+
+    window.dispatchEvent(new Event("gamepad:exitchord"));
+    await flushPromises();
+
+    expectReleasedOwnClaim();
+    expect(vmOf(wrapper).state).toBe("exited");
+  });
+});
+
+describe("Desktop claims that outlive the view", () => {
+  it("hands back a claim that answers after the view is gone", async () => {
+    const { promise, answer } = deferred();
+    mocks.claimDesktop.mockReturnValue(promise);
+    mocks.releaseSession.mockResolvedValue({});
+    const wrapper = await mountDesktop();
+
+    wrapper.unmount();
+    mounted = null;
+    answer(CLAIM);
+    await flushPromises();
+
+    expectReleasedOwnClaim();
+  });
+
+  it("hands back a claim that answers while the leave is still resolving", async () => {
+    const { promise, answer } = deferred();
+    mocks.claimDesktop.mockReturnValue(promise);
+    mocks.releaseSession.mockResolvedValue({});
+    const wrapper = await mountDesktop();
+
+    expect(await mocks.routeLeave?.()).toBe(true);
+    answer(CLAIM);
+    await flushPromises();
+    wrapper.unmount();
+    mounted = null;
+    await flushPromises();
+
+    expectReleasedOwnClaim();
   });
 });

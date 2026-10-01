@@ -3,7 +3,6 @@
 import asyncio
 from typing import cast
 
-import sentry_sdk
 from opentelemetry import trace
 from rq.exceptions import DuplicateJobError
 from rq.job import Job
@@ -12,7 +11,6 @@ from rq.utils import as_text
 from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     LAUNCHBOX_API_ENABLED,
-    SENTRY_DSN,
     SMTP_HOST,
     SMTP_SECURITY,
     SMTP_SECURITY_MODES,
@@ -41,9 +39,9 @@ from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
 from tasks.registry import enqueue_task
 from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
-from utils import get_version
 from utils.cache import conditionally_set_cache, drop_stale_cache_store
 from utils.context import initialize_context
+from utils.sentry import init_sentry
 
 tracer = trace.get_tracer(__name__)
 
@@ -237,9 +235,6 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        release=f"romm@{get_version()}",
-    )
+    init_sentry()
 
     asyncio.run(main())
