@@ -27,7 +27,6 @@ from models.collection import Collection, SmartCollection
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import (
-    BULK_DOWNLOAD_MAX_ROMS,
     PINNED_MEDIA_KEY_MAX_LENGTH,
     PINNED_MEDIA_MAX_ITEMS,
     Rom,
@@ -295,101 +294,6 @@ def test_download_roms_by_collection(
     assert response.status_code == status.HTTP_200_OK
     assert response.headers["X-Archive-Files"] == "zip"
     assert rom_file.file_name in response.text
-
-
-def test_download_roms_by_selection(
-    client: TestClient, access_token: str, rom_file: RomFile
-):
-    """A stored selection carries the ID list in a body rather than the URL."""
-    headers = {"Authorization": f"Bearer {access_token}"}
-    created = client.post(
-        "/api/roms/download/selection",
-        headers=headers,
-        json={"rom_ids": [rom_file.rom_id]},
-    )
-    assert created.status_code == status.HTTP_200_OK
-    token = created.json()["token"]
-
-    response = client.get(
-        f"/api/roms/download?selection={token}",
-        headers=headers,
-    )
-
-    assert response.status_code == status.HTTP_200_OK
-    assert response.headers["X-Archive-Files"] == "zip"
-    assert rom_file.file_name in response.text
-
-
-def test_download_roms_by_unknown_selection_is_not_found(
-    client: TestClient, access_token: str
-):
-    response = client.get(
-        "/api/roms/download?selection=missing",
-        headers={"Authorization": f"Bearer {access_token}"},
-    )
-
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-
-
-def test_download_selection_is_bound_to_its_creator(
-    client: TestClient,
-    access_token: str,
-    editor_access_token: str,
-    rom_file: RomFile,
-):
-    created = client.post(
-        "/api/roms/download/selection",
-        headers={"Authorization": f"Bearer {access_token}"},
-        json={"rom_ids": [rom_file.rom_id]},
-    )
-    token = created.json()["token"]
-
-    response = client.get(
-        f"/api/roms/download?selection={token}",
-        headers={"Authorization": f"Bearer {editor_access_token}"},
-    )
-
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-
-
-def test_download_selection_requires_rom_ids(client: TestClient, access_token: str):
-    response = client.post(
-        "/api/roms/download/selection",
-        headers={"Authorization": f"Bearer {access_token}"},
-        json={"rom_ids": []},
-    )
-
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
-
-
-def test_download_selection_is_bounded(client: TestClient, access_token: str):
-    response = client.post(
-        "/api/roms/download/selection",
-        headers={"Authorization": f"Bearer {access_token}"},
-        json={"rom_ids": list(range(1, BULK_DOWNLOAD_MAX_ROMS + 2))},
-    )
-
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
-
-
-def test_a_new_download_selection_replaces_the_previous_one(
-    client: TestClient, access_token: str, rom_file: RomFile
-):
-    headers = {"Authorization": f"Bearer {access_token}"}
-    first, second = (
-        client.post(
-            "/api/roms/download/selection",
-            headers=headers,
-            json={"rom_ids": [rom_file.rom_id]},
-        ).json()["token"]
-        for _ in range(2)
-    )
-
-    stale = client.get(f"/api/roms/download?selection={first}", headers=headers)
-    fresh = client.get(f"/api/roms/download?selection={second}", headers=headers)
-
-    assert stale.status_code == status.HTTP_404_NOT_FOUND
-    assert fresh.status_code == status.HTTP_200_OK
 
 
 def test_download_roms_without_selector_is_bad_request(

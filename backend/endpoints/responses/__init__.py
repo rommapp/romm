@@ -166,7 +166,3 @@ class BulkOperationResponse(TypedDict):
     successful_items: int
     failed_ids: list[int]
     errors: list[str]
-
-
-class BulkDownloadSelectionSchema(TypedDict):
-    token: str

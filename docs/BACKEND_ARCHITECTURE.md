@@ -900,8 +900,6 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 | PUT    | `/{id}/user`                 | ME_WRITE   | Update user-specific ROM data                    |
 | DELETE | `/{id}`                      | ROMS_WRITE | Delete ROM                                       |
 | POST   | `/delete`                    | ROMS_WRITE | Bulk delete                                      |
-| GET    | `/download`                  | ROMS_READ  | Bulk download as a zip (ids, selector, or token) |
-| POST   | `/download/selection`        | ROMS_READ  | Store an id list, returning a download token     |
 | POST   | `/download/{id}/{file_name}` | ROMS_READ  | Download ROM                                     |
 | POST   | `/unidentified`              | ROMS_READ  | Get unidentified ROMs                            |
 

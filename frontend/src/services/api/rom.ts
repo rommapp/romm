@@ -3,7 +3,6 @@ import Bowser from "bowser";
 import type {
   Body_delete_roms_api_roms_delete_post as DeleteRomsInput,
   Body_update_rom_api_roms__id__put as UpdateRomInput,
-  BulkDownloadSelectionSchema,
   BulkOperationResponse,
   DetailedRomSchema,
   ManualMetadata,
@@ -633,8 +632,9 @@ async function downloadRom({
 }
 
 // A platform/collection selector is expanded server-side into the full ROM
-// list. Pass exactly one selector; `romIDs` is the fallback for ad-hoc
-// multi-selections and is posted first, since the list can overflow a URL.
+// list, keeping the URL short (an explicit `romIDs` list can overflow the
+// browser's URL length limit for large libraries). Pass exactly one selector;
+// `romIDs` stays the fallback for ad-hoc multi-selections.
 async function bulkDownloadRoms({
   romIDs,
   platformId,
@@ -660,11 +660,7 @@ async function bulkDownloadRoms({
   } else if (smartCollectionId != null) {
     queryParams.append("smart_collection_id", String(smartCollectionId));
   } else if (romIDs && romIDs.length > 0) {
-    const { data } = await api.post<BulkDownloadSelectionSchema>(
-      "/roms/download/selection",
-      { rom_ids: romIDs },
-    );
-    queryParams.append("selection", data.token);
+    queryParams.append("rom_ids", romIDs.join(","));
   } else {
     return;
   }

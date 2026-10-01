@@ -10,7 +10,6 @@ import SelectionBar from "./SelectionBar.vue";
 
 const {
   addRomsToCollection,
-  bulkDownloadRoms,
   createCollection,
   getCollections,
   removeRomsFromCollection,
@@ -20,7 +19,6 @@ const {
   updateUserRomProps,
 } = vi.hoisted(() => ({
   addRomsToCollection: vi.fn(),
-  bulkDownloadRoms: vi.fn(),
   createCollection: vi.fn(),
   getCollections: vi.fn(),
   removeRomsFromCollection: vi.fn(),
@@ -69,7 +67,7 @@ vi.mock("@/services/api/collection", () => ({
 vi.mock("@/services/api/rom", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/services/api/rom")>();
   return {
-    default: { ...actual.default, bulkDownloadRoms, updateUserRomProps },
+    default: { ...actual.default, updateUserRomProps },
   };
 });
 
@@ -322,22 +320,6 @@ describe("SelectionBar download", () => {
         .find('[aria-label="gallery.selection-download"]')
         .exists(),
     ).toBe(false);
-  });
-
-  it("reports a bulk download that could not be started", async () => {
-    bulkDownloadRoms.mockRejectedValue(new Error("offline"));
-    select(rom(1), rom(2));
-    const wrapper = mountBar();
-
-    await wrapper
-      .get('[aria-label="gallery.selection-download"]')
-      .trigger("click");
-    await flushPromises();
-
-    expect(bulkDownloadRoms).toHaveBeenCalledWith({ romIDs: [1, 2] });
-    expect(snackbarError).toHaveBeenCalledWith(
-      "gallery.selection-download-fail",
-    );
   });
 });
 

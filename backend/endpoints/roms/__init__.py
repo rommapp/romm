@@ -33,7 +33,7 @@ from config import (
     LIBRARY_BASE_PATH,
 )
 from decorators.auth import protected_route
-from endpoints.responses import BulkDownloadSelectionSchema, BulkOperationResponse
+from endpoints.responses import BulkOperationResponse
 from endpoints.responses.base import PAGE_QUERY, LimitOffsetPage, PageParams
 from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
@@ -72,10 +72,6 @@ from handler.database.roms_handler import (
     sorts_by_rom_user_column,
     user_sibling_cache_version,
     user_sort_cache_version,
-)
-from handler.download_selection_handler import (
-    resolve_download_selection,
-    store_download_selection,
 )
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.assets_handler import validate_image_upload
@@ -119,7 +115,6 @@ from models.audit_event import AuditAction, AuditTargetType
 from models.collection import Collection, SmartCollection, VirtualCollection
 from models.permission import PermAction, PermEntity
 from models.rom import (
-    BULK_DOWNLOAD_MAX_ROMS,
     HAS_FILE_ON_DISK_FILTERS,
     PINNED_MEDIA_KEY_MAX_LENGTH,
     PINNED_MEDIA_KEY_PATTERN,
@@ -917,28 +912,6 @@ def _bulk_download_target(
 
 
 @protected_route(
-    router.post,
-    "/download/selection",
-    [Scope.ROMS_READ],
-)
-async def create_download_selection(
-    request: Request,
-    rom_ids: Annotated[
-        list[int],
-        Body(
-            description="ROM IDs to download as a zip file.",
-            embed=True,
-            min_length=1,
-            max_length=BULK_DOWNLOAD_MAX_ROMS,
-        ),
-    ],
-) -> BulkDownloadSelectionSchema:
-    """Store a list of ROM IDs too long for a URL, for `GET /roms/download?selection=`."""
-    user_id = request.user.id if request.user.is_authenticated else None
-    return {"token": await store_download_selection(user_id, rom_ids)}
-
-
-@protected_route(
     router.get,
     "/download",
     [Scope.ROMS_READ],
@@ -972,12 +945,6 @@ async def download_roms(
             ge=1,
         ),
     ] = None,
-    selection: Annotated[
-        str | None,
-        Query(
-            description="Token from `POST /roms/download/selection` naming the ROMs to download.",
-        ),
-    ] = None,
     filename: Annotated[
         str | None,
         Query(
@@ -1004,15 +971,6 @@ async def download_roms(
             hidden_rom_ids=list(perms.hidden_rom_ids),
             **HAS_FILE_ON_DISK_FILTERS,
         )
-    elif selection:
-        user_id = request.user.id if request.user.is_authenticated else None
-        selected = await resolve_download_selection(user_id, selection)
-        if selected is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Download selection not found or expired",
-            )
-        rom_id_list = selected
     elif rom_ids:
         try:
             rom_id_list = parse_comma_separated_ids(rom_ids, "ROM ID")

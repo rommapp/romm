@@ -297,7 +297,7 @@ function manageCollections() {
   emitter?.emit("showManageCollectionsDialog", selection.roms);
 }
 
-async function bulkDownload() {
+function bulkDownload() {
   const roms = selection.roms;
   if (roms.length === 0) return;
   if (roms.length === 1) {
@@ -306,12 +306,8 @@ async function bulkDownload() {
   }
   // Bundle multi-selections into a single zip server-side; firing one
   // anchor download per ROM trips browser multi-download blocking.
-  try {
-    await romApi.bulkDownloadRoms({ romIDs: roms.map((r) => r.id) });
-    snackbar.info(t("gallery.selection-download-many", { n: roms.length }));
-  } catch {
-    snackbar.error(t("gallery.selection-download-fail"));
-  }
+  void romApi.bulkDownloadRoms({ romIDs: roms.map((r) => r.id) });
+  snackbar.info(t("gallery.selection-download-many", { n: roms.length }));
 }
 
 function bulkRefresh() {

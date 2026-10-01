@@ -64,8 +64,6 @@ TITLE_ID_MAX_LENGTH = 100
 PINNED_MEDIA_MAX_ITEMS = 100
 PINNED_MEDIA_KEY_MAX_LENGTH = 1024
 PINNED_MEDIA_KEY_PATTERN = r"^(scraped|file|screenshot|artwork):\S"
-# Most ROMs one bulk download selection may name.
-BULK_DOWNLOAD_MAX_ROMS = 100_000
 # Articles ignored when sorting or bucketing a title, across the languages
 # No-Intro and LaunchBox name games in. Both patterns built from this are
 # anchored on the right, so "la" preceding "las" costs nothing.

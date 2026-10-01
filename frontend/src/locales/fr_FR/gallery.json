@@ -11,7 +11,6 @@
   "selection-delete": "Supprimer",
   "selection-deselect-all": "Tout désélectionner",
   "selection-download": "Télécharger",
-  "selection-download-fail": "Échec du lancement du téléchargement",
   "selection-download-many": "Téléchargement de {n} jeux…",
   "selection-favorite": "Ajouter aux favoris",
   "selection-favorite-fail": "Échec de la mise à jour des favoris",
