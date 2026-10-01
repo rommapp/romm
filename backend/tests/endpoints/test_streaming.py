@@ -9024,6 +9024,55 @@ def test_claim_aborts_when_card_hydration_fails(
     assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
 
 
+def test_claim_aborts_on_an_unexpected_error_after_the_blank_card(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """An error no step planned for still frees the container and its blank card,
+    rather than wedging the container for every player until the claim goes stale."""
+    with _streaming(_mc_container_for(rom)):
+        with (
+            patch("handler.streaming.commands.launch") as launch,
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
+            patch(
+                "handler.streaming.saves.wait_for_save_pull",
+                new=AsyncMock(side_effect=RuntimeError("redis went away")),
+            ),
+            _spawns_nothing(),
+            pytest.raises(RuntimeError, match="redis went away"),
+        ):
+            _mc_claim(client, access_token, rom.id)
+    launch.assert_not_called()
+    assert (
+        asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
+    )
+    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+
+
+def test_claim_aborts_on_an_unexpected_error_keeps_the_players_card(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """Only a blank this claim created is discarded: the player's own card stays."""
+    card = memory_cards.create_blank_card(admin_user.id, "pcsx2", rom.platform_id)
+    with _streaming(_mc_container_for(rom)):
+        with (
+            patch("handler.streaming.commands.launch"),
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
+            patch(
+                "handler.streaming.saves.wait_for_save_pull",
+                new=AsyncMock(side_effect=RuntimeError("redis went away")),
+            ),
+            _spawns_nothing(),
+            pytest.raises(RuntimeError),
+        ):
+            _mc_claim(client, access_token, rom.id, memory_card_id=card.id)
+    assert (
+        asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
+    )
+    assert [c.id for c in db_memory_card_handler.get_cards(admin_user.id, "pcsx2")] == [
+        card.id
+    ]
+
+
 def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
     with _streaming(_mc_container_for(rom)):
         with (
