@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RouteLocationNormalized } from "vue-router";
+import { useUiVersion } from "@/composables/useUiVersion";
 import i18n, { localesReady } from "@/locales";
 import router, { applyRouteTitle, ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
@@ -8,14 +9,17 @@ import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
 
-const { getRom, stubView } = vi.hoisted(() => ({
+const { getRom, loadMdEditor, stubView } = vi.hoisted(() => ({
   getRom: vi.fn(),
+  loadMdEditor: vi.fn(),
   stubView: () => ({ default: { render: () => null } }),
 }));
 
 vi.mock("@/services/api/rom", () => ({
   default: { getRom },
 }));
+
+vi.mock("@/plugins/mdeditor", () => ({ loadMdEditor }));
 
 // Navigating resolves the route's lazy views, which import most of the app and
 // outlast the test timeout when the whole suite transforms in parallel.
@@ -112,5 +116,51 @@ describe("the rom route", () => {
     expect(getRom).toHaveBeenCalledWith({ romId: 9 });
     expect(roms.currentRom?.name).toBe("after the session");
     expect(roms.getDetailedRom(9)?.name).toBe("after the session");
+  });
+});
+
+describe("the Markdown editor on v1", () => {
+  beforeAll(async () => {
+    setActivePinia(createPinia());
+    await localesReady;
+    storeAuth().setCurrentUser({ id: 1 } as User);
+  });
+
+  beforeEach(() => {
+    loadMdEditor.mockReset().mockResolvedValue({});
+    getRom.mockImplementation(({ romId }: { romId: number }) =>
+      Promise.resolve({ data: makeRom({ id: romId }) }),
+    );
+  });
+
+  it("is loaded before a v1 page renders", async () => {
+    useUiVersion().value = "v1";
+
+    await router.push({ name: ROUTES.ROM, params: { rom: 21 } });
+
+    expect(loadMdEditor).toHaveBeenCalled();
+  });
+
+  it("is left alone on v2", async () => {
+    useUiVersion().value = "v2";
+
+    await router.push({ name: ROUTES.ROM, params: { rom: 22 } });
+
+    expect(loadMdEditor).not.toHaveBeenCalled();
+  });
+
+  it("doesn't block navigation when the chunk fails to load", async () => {
+    useUiVersion().value = "v1";
+    loadMdEditor.mockRejectedValue(new Error("chunk failed"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    await router.push({ name: ROUTES.ROM, params: { rom: 23 } });
+
+    expect(router.currentRoute.value.params.rom).toBe("23");
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+    useUiVersion().value = "v2";
   });
 });

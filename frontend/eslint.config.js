@@ -207,6 +207,31 @@ export default tseslint.config(
       "vue/define-emits-declaration": ["error", "type-based"],
     },
   },
+  // md-editor-v3 (with CodeMirror and markdown-it) loads on demand. A static
+  // import pulls it back into the entry chunk and skips its XSS config.
+  {
+    files: ["src/**/*.ts", "src/**/*.vue"],
+    ignores: [
+      "src/views/**",
+      "src/components/**",
+      "src/console/**",
+      "src/layouts/**",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["md-editor-v3", "md-editor-v3/*"],
+              message:
+                "Load it through loadMdEditor() in src/plugins/mdeditor.ts, or use MarkdownPreview / MarkdownEditor in src/v2/components/shared/.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Repo rules without a stock equivalent live in ./eslint-plugin-romm.
   {
     files: ["src/v2/**/*.ts", "src/v2/**/*.vue"],

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // NotesTab: per-ROM notes with a left index (own + community sections;
 // a grouped note picker on phones) and a right pane that swaps between
-// MdPreview (read) and MdEditor (edit-in-place). Visibility is set in the
+// MarkdownPreview (read) and MarkdownEditor (edit-in-place). Visibility is set in the
 // editor, edits save inline, and the active note is URL-persistent via
 // `?note=<id>` so links deep-link straight to a specific note.
 import {
@@ -12,8 +12,6 @@ import {
   RTooltip,
   RDivider,
 } from "@v2/lib";
-import { MdEditor, MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -25,13 +23,14 @@ import type { DetailedRom } from "@/stores/roms";
 import SubtabNav, {
   type SubtabNavItem,
 } from "@/v2/components/GameDetails/SubtabNav.vue";
+import MarkdownEditor from "@/v2/components/shared/MarkdownEditor.vue";
+import MarkdownPreview from "@/v2/components/shared/MarkdownPreview.vue";
 import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { syncQueryParam } from "@/v2/utils/routeQuery";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
@@ -46,13 +45,8 @@ const authStore = storeAuth();
 const { refetchRom } = useRomSync();
 const route = useRoute();
 const router = useRouter();
-const { isLight: isLightTheme } = useThemeMode();
 const { user } = storeToRefs(authStore);
 const { smAndDown } = useBreakpoint();
-
-const mdTheme = computed<"light" | "dark">(() =>
-  isLightTheme.value ? "light" : "dark",
-);
 
 const allNotes = computed<UserNoteSchema[]>(
   () => props.rom.all_user_notes ?? [],
@@ -436,17 +430,8 @@ function fmtDate(iso: string): string {
               </div>
             </div>
           </header>
-          <MdEditor
+          <MarkdownEditor
             v-model="editForm.content"
-            no-highlight
-            no-katex
-            no-mermaid
-            no-prettier
-            no-upload-img
-            :theme="mdTheme"
-            language="en-US"
-            :preview="false"
-            :toolbars-exclude="['save', 'github']"
             class="r-v2-notes__editor"
           />
         </template>
@@ -494,15 +479,8 @@ function fmtDate(iso: string): string {
               </RTooltip>
             </div>
           </header>
-          <MdPreview
-            no-highlight
-            no-katex
-            no-mermaid
+          <MarkdownPreview
             :model-value="selectedNote.content"
-            :theme="mdTheme"
-            language="en-US"
-            preview-theme="vuepress"
-            code-theme="github"
             class="r-v2-notes__preview"
           />
           <footer class="r-v2-notes__pane-foot">

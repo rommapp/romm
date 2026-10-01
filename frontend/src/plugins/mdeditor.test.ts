@@ -1,10 +1,10 @@
 // @vitest-environment-options { "settings": { "disableCSSFileLoading": true, "disableJavaScriptFileLoading": true } }
 import { flushPromises, mount } from "@vue/test-utils";
-import { MdPreview } from "md-editor-v3";
-import { beforeAll, describe, expect, it, vi } from "vitest";
-import { configureMDEditor } from "./mdeditor";
+import { describe, expect, it, vi } from "vitest";
+import { loadMdEditor } from "./mdeditor";
 
 async function render(markdown: string): Promise<HTMLElement> {
+  const { MdPreview } = await loadMdEditor();
   const wrapper = mount(MdPreview, {
     props: { id: "mdeditor-test", modelValue: markdown },
     attachTo: document.body,
@@ -18,9 +18,11 @@ async function render(markdown: string): Promise<HTMLElement> {
   return preview;
 }
 
-describe("configureMDEditor", () => {
-  beforeAll(async () => {
-    await configureMDEditor();
+describe("loadMdEditor", () => {
+  it("loads and configures the library once", async () => {
+    const first = loadMdEditor();
+    expect(loadMdEditor()).toBe(first);
+    expect(await first).toBe(await loadMdEditor());
   });
 
   it("renders raw HTML in markdown", async () => {

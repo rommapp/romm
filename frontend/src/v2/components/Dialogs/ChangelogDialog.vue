@@ -3,15 +3,13 @@
 // the public GitHub API on first open and reuses the cached payload on
 // subsequent opens within the same session. Each release renders as a
 // glass-panel block (tag + date) with the release body rendered through
-// MdPreview, the same markdown surface NotesTab uses.
+// MarkdownPreview, the same markdown surface NotesTab uses.
 import { RBtn, RDialog, REmptyState, RIcon, RSpinner } from "@v2/lib";
-import { MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
-import { useThemeMode } from "@/v2/composables/useThemeMode";
+import MarkdownPreview from "@/v2/components/shared/MarkdownPreview.vue";
 import { shortenGithubLinks } from "@/v2/utils/githubLinks";
 
 defineOptions({ inheritAttrs: false });
@@ -32,7 +30,6 @@ const RELEASES_PAGE_URL = `https://github.com/${REPO}/releases`;
 
 const { t, locale } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
-const { isLight: isLightTheme } = useThemeMode();
 
 const show = ref(false);
 const loading = ref(false);
@@ -41,10 +38,6 @@ const error = ref(false);
 // mounted once in GlobalDialogs, so an instance ref is enough and keeps
 // teardown trivial.
 const releases = ref<Release[]>([]);
-
-const mdTheme = computed<"light" | "dark">(() =>
-  isLightTheme.value ? "light" : "dark",
-);
 
 const dateFormatter = computed(
   () =>
@@ -161,17 +154,7 @@ function closeDialog() {
               fmtDate(r.published_at)
             }}</span>
           </header>
-          <MdPreview
-            no-highlight
-            no-katex
-            no-mermaid
-            :model-value="r.body"
-            :theme="mdTheme"
-            language="en-US"
-            preview-theme="vuepress"
-            code-theme="github"
-            class="r-v2-changelog__body"
-          />
+          <MarkdownPreview :model-value="r.body" class="r-v2-changelog__body" />
         </article>
       </div>
     </template>
