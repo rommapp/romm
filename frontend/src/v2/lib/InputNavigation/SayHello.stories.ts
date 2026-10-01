@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { RIcon } from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { isPadEvent, PAD_BUTTON } from "@/v2/composables/useGamepad";
+import { PAD_BUTTON } from "@/v2/composables/useGamepad";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { PlaygroundCallout } from "./playground.fixtures";
 
@@ -26,7 +26,6 @@ const meta: Meta = {
         () => MODALITY_UI[modality.value as keyof typeof MODALITY_UI],
       );
       const lastKey = ref<string | null>(null);
-      const lastFromPad = ref(false);
       const pad = ref<{
         id: string;
         mapping: string;
@@ -37,7 +36,6 @@ const meta: Meta = {
 
       function onKey(e: KeyboardEvent) {
         lastKey.value = e.key;
-        lastFromPad.value = isPadEvent(e);
       }
 
       // Story-local poll: reads raw state for the lens, separate from useGamepad's loop.
@@ -67,7 +65,7 @@ const meta: Meta = {
         cancelAnimationFrame(raf);
       });
 
-      return { ui, lastKey, lastFromPad, pad, BUTTONS };
+      return { ui, lastKey, pad, BUTTONS };
     },
     template: `
       <div style="display: grid; gap: var(--r-space-6); max-width: 720px">
@@ -85,8 +83,7 @@ const meta: Meta = {
         </section>
 
         <p data-testid="last-key" style="margin: 0; color: var(--r-color-fg-secondary)">
-          <template v-if="lastKey">Last key: <strong>{{ lastKey }}</strong>
-            {{ lastFromPad ? "from your controller's D-pad" : "from your keyboard" }}</template>
+          <template v-if="lastKey">Last key: <strong>{{ lastKey }}</strong></template>
           <template v-else>No keys yet. Try an arrow.</template>
         </p>
 

@@ -9,8 +9,8 @@ import {
   useFocusReadout,
 } from "./playground.fixtures";
 
-// Pad arrows can't be reproduced in a play() -- isPadEvent only tags useGamepad's own events.
-// The pad code path is interactive only. For the unit test side, see useSpatialNav/index.test.ts.
+// Pad arrows can't be reproduced in a play() -- the pad branch in useSpatialNav only fires for
+// events dispatched by useGamepad. The pad path stays interactive only.
 
 const meta: Meta = {
   title: "Input Navigation/Text fields",

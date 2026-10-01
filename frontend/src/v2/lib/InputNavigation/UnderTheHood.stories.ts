@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { RBtn } from "@v2/lib";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import {
-  isPadEvent,
   PAD_BUTTON,
   type GamepadButtonEventDetail,
 } from "@/v2/composables/useGamepad";
@@ -12,12 +11,13 @@ import { PlaygroundCallout } from "./playground.fixtures";
 
 const BUTTONS = Object.entries(PAD_BUTTON);
 
-// Snippet for views that want to react to a specific button:
+// Snippet for views that want to react to a specific button press:
 //
 //   import type { GamepadButtonEventDetail } from "@/v2/composables/useGamepad";
 //   useEventListener(window, "gamepad:buttondown", (e: CustomEvent<GamepadButtonEventDetail>) => {
 //     if (e.detail.name === "y") openContextMenu();
 //   });
+//   useEventListener(window, "gamepad:exitchord", () => exitFullscreen());
 
 const meta: Meta = {
   title: "Input Navigation/Under the hood",
@@ -42,9 +42,7 @@ const meta: Meta = {
         if (!e.key.startsWith("Arrow")) return;
         // Read after grids and useSpatialNav have had their turn
         setTimeout(() =>
-          push(
-            `keydown ${e.key}  isPadEvent=${isPadEvent(e)}  claimed=${e.defaultPrevented}`,
-          ),
+          push(`keydown ${e.key}  claimed=${e.defaultPrevented}`),
         );
       }
 
