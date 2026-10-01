@@ -141,6 +141,57 @@ class TestCreateCollection:
         )
 
 
+class TestRenameCollection:
+    def test_taken_name_returns_conflict(
+        self,
+        client,
+        access_token: str,
+        collection: Collection,
+        favorite_collection: Collection,
+    ):
+        response = client.put(
+            f"/api/collections/{collection.id}",
+            data={"rom_ids": "[]", "name": favorite_collection.name},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        refreshed = db_collection_handler.get_collection(collection.id)
+        assert refreshed is not None and refreshed.name == "Test Collection"
+
+    def test_own_name_in_another_case_is_allowed(
+        self, client, access_token: str, collection: Collection
+    ):
+        response = client.put(
+            f"/api/collections/{collection.id}",
+            data={"rom_ids": "[]", "name": "TEST COLLECTION"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["name"] == "TEST COLLECTION"
+
+    def test_taken_smart_collection_name_returns_conflict(
+        self, client, access_token: str, admin_user: User
+    ):
+        first, second = (
+            db_collection_handler.add_smart_collection(
+                SmartCollection(
+                    name=name, description="", user_id=admin_user.id, filter_criteria={}
+                )
+            )
+            for name in ("First", "Second")
+        )
+
+        response = client.put(
+            f"/api/collections/smart/{second.id}",
+            data={"name": first.name},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+
+
 class TestGetCollections:
     def test_returns_own_collections(
         self, client, access_token: str, collection: Collection

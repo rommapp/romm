@@ -459,8 +459,10 @@ async def update_collection(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
+    if name is not None:
+        namesake = db_collection_handler.get_collection_by_name(name, request.user.id)
+        if namesake and namesake.id != collection.id:
+            raise CollectionAlreadyExistsException(name)
 
     try:
         parsed_rom_ids = json.loads(rom_ids)
@@ -685,6 +687,13 @@ async def update_smart_collection(
 
     if smart_collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
+
+    if name is not None:
+        namesake = db_collection_handler.get_smart_collection_by_name(
+            name, request.user.id
+        )
+        if namesake and namesake.id != smart_collection.id:
+            raise CollectionAlreadyExistsException(name)
 
     # Parse filter criteria if provided
     parsed_filter_criteria = smart_collection.filter_criteria
