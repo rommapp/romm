@@ -232,6 +232,8 @@ async def add_save(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
+    assert_rom_visible(request, rom)
+
     if not saveFile.filename:
         log.error("Save file has no filename")
         raise HTTPException(

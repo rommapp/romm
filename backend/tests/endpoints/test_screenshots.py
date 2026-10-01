@@ -329,3 +329,21 @@ def test_hidden_platform_masks_public_screenshot_download(
 def test_download_screenshot_not_found(client, access_token: str):
     response = client.get("/api/screenshots/99999/content", headers=_auth(access_token))
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@mock.patch(
+    "endpoints.screenshots.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+)
+def test_hidden_rom_masks_screenshot_upload(
+    mock_write, client, viewer_access_token: str, viewer_user: User, rom: Rom
+):
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+    response = client.post(
+        f"/api/screenshots?rom_id={rom.id}",
+        files={"screenshotFile": ("shot.png", BytesIO(b"png"), "image/png")},
+        headers=_auth(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    mock_write.assert_not_awaited()

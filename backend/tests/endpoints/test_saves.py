@@ -4537,3 +4537,19 @@ def test_update_save_rejects_a_screenshot_name_over_255_bytes_before_writing(
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "255 bytes" in response.json()["detail"]
     mock_write.assert_not_called()
+
+
+@mock.patch("endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock)
+def test_hidden_rom_masks_save_upload(
+    mock_write, client, viewer_access_token: str, viewer_user: User, rom: Rom
+):
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+
+    response = client.post(
+        f"/api/saves?rom_id={rom.id}",
+        files={"saveFile": ("game.srm", BytesIO(b"save"), "application/octet-stream")},
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    mock_write.assert_not_awaited()

@@ -50,6 +50,8 @@ async def add_screenshot(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
+    assert_rom_visible(request, rom)
+
     current_user = request.user
     log.info(f"Uploading screenshot to {hl(str(rom.name), color=BLUE)}")
 
