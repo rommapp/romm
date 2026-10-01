@@ -39,9 +39,12 @@ from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.assets import normalize_asset_labels
 from utils.datetime import to_utc
-from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
-from utils.uploads import check_asset_upload_size, check_emulator_folder_name
+from utils.uploads import (
+    check_asset_upload_size,
+    check_emulator_folder_name,
+    sanitize_asset_filename,
+)
 from utils.validation import RomIdScope, narrow_rom_id_scope
 
 
@@ -229,25 +232,36 @@ async def add_save(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
+    assert_rom_visible(request, rom)
+
     if not saveFile.filename:
         log.error("Save file has no filename")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Save file has no filename"
         )
 
-    try:
-        sanitized_save_filename = sanitize_filename(saveFile.filename)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid save filename: {str(exc)}",
-        ) from exc
+    actual_filename = sanitize_asset_filename(saveFile.filename, "save")
+    if slot:
+        # Checked again because the tag adds 22 bytes.
+        actual_filename = sanitize_asset_filename(
+            _apply_datetime_tag(actual_filename), "save"
+        )
+
+    sanitized_screenshot_filename = ""
+    if screenshotFile and screenshotFile.filename:
+        sanitized_screenshot_filename = sanitize_asset_filename(
+            screenshotFile.filename, "screenshot"
+        )
+        # Save.screenshot is matched by stem, so a slotted upload names the
+        # screenshot after the tagged save whatever the client called it.
+        if slot:
+            save_stem, _ = os.path.splitext(actual_filename)
+            _, screenshot_ext = os.path.splitext(sanitized_screenshot_filename)
+            sanitized_screenshot_filename = sanitize_asset_filename(
+                f"{save_stem}{screenshot_ext}", "screenshot"
+            )
 
     check_emulator_folder_name(emulator)
-
-    actual_filename = sanitized_save_filename
-    if slot:
-        actual_filename = _apply_datetime_tag(sanitized_save_filename)
 
     saves_path = fs_asset_handler.build_saves_file_path(
         user=request.user,
@@ -395,21 +409,7 @@ async def add_save(
     if slot and keep is not None:
         await prune_save_slot(request.user.id, rom.id, slot, keep)
 
-    if screenshotFile and screenshotFile.filename:
-        try:
-            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid screenshot filename: {str(exc)}",
-            ) from exc
-        # Save.screenshot is matched by stem, so a slotted upload names the
-        # screenshot after the tagged save whatever the client called it.
-        if slot:
-            save_stem, _ = os.path.splitext(actual_filename)
-            _, screenshot_ext = os.path.splitext(sanitized_screenshot_filename)
-            sanitized_screenshot_filename = f"{save_stem}{screenshot_ext}"
-
+    if screenshotFile and sanitized_screenshot_filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
         )
@@ -652,6 +652,12 @@ async def update_save(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+    sanitized_screenshot_filename = (
+        sanitize_asset_filename(screenshotFile.filename, "screenshot")
+        if screenshotFile and screenshotFile.filename
+        else ""
+    )
+
     if saveFile:
         replaced_hash = await fs_asset_handler.unrecorded_hash(db_save)
         await fs_asset_handler.write_file(
@@ -673,15 +679,7 @@ async def update_save(
             replaced_hash=replaced_hash,
         )
 
-    if screenshotFile and screenshotFile.filename:
-        try:
-            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid screenshot filename: {str(exc)}",
-            ) from exc
-
+    if screenshotFile and sanitized_screenshot_filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user,
             platform_fs_slug=db_save.rom.platform_slug,

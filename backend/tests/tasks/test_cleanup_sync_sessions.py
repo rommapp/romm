@@ -1,23 +1,19 @@
-import tasks.scheduled.cleanup_sync_sessions as mod
+from dataclasses import replace
+
 from handler.database import db_sync_session_handler
+from tasks.registry import CLEANUP_SYNC_SESSIONS_SPEC
 from tasks.scheduled.cleanup_sync_sessions import CleanupSyncSessionsTask
 
 
 class TestCleanupSyncSessionsTask:
     def test_default_schedule(self):
-        task = CleanupSyncSessionsTask()
-        assert task.enabled is True
-        assert task.cron_string == "23 * * * *"
+        assert CLEANUP_SYNC_SESSIONS_SPEC.enabled is True
+        assert CLEANUP_SYNC_SESSIONS_SPEC.cron_string == "23 * * * *"
 
-    def test_custom_schedule(self, monkeypatch):
-        monkeypatch.setattr(mod, "SCHEDULED_CLEANUP_SYNC_SESSIONS_CRON", "0 2 * * *")
-        assert CleanupSyncSessionsTask().cron_string == "0 2 * * *"
-
-    async def test_disabled_cleanup_leaves_sessions_open(self, monkeypatch, mocker):
-        monkeypatch.setattr(mod, "ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS", False)
+    async def test_disabled_cleanup_leaves_sessions_open(self, mocker):
         fail_stale = mocker.patch.object(db_sync_session_handler, "fail_stale_sessions")
         task = CleanupSyncSessionsTask()
-        assert task.enabled is False
+        task.spec = replace(task.spec, enabled=False)
         await task.run()
         fail_stale.assert_not_called()
 

@@ -18,6 +18,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy import DefaultClause, FetchedValue, Table, UniqueConstraint
 from sqlalchemy.sql.schema import NULL_UNSPECIFIED
+from tests.factories import make_rom
 
 import models
 from handler.database import (
@@ -263,9 +264,9 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0144_user_oidc_sub.py", "users"),
         ("0145_drop_derivable_columns.py", "rom_file_doc_meta"),
         ("0146_roms_search_aliases.py", "roms"),
-        ("0147_track_meta_songs.py", "track_meta"),
-        ("0147_track_meta_songs.py", "music_favorite_tracks"),
-        ("0147_track_meta_songs.py", "music_playlist_tracks"),
+        ("0148_track_meta_songs.py", "track_meta"),
+        ("0148_track_meta_songs.py", "music_favorite_tracks"),
+        ("0148_track_meta_songs.py", "music_playlist_tracks"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -404,6 +405,43 @@ def test_the_search_aliases_revision_reverses_and_replays():
         assert _schema_of(connection, "roms") == before
 
 
+def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platform):
+    """0147 fills existing rows, and resumes a run that stopped part-way."""
+    migration = _load_migration("0147_roms_search_titles.py")
+    first = make_rom(
+        platform, "Final Fantasy VII", igdb_metadata={"alternative_names": ["FF7"]}
+    )
+    second = make_rom(platform, "Chrono Trigger")
+
+    def titles(connection: sa.Connection) -> dict[int, str | None]:
+        rows = connection.execute(
+            sa.text("SELECT id, search_titles FROM roms WHERE id IN (:a, :b)"),
+            {"a": first.id, "b": second.id},
+        )
+        return dict(rows.tuples().all())
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        expected = titles(connection)
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "roms", "search_titles")
+            migration.downgrade()
+
+            migration.upgrade()
+            assert titles(connection) == expected
+
+            connection.execute(
+                sa.text("UPDATE roms SET search_titles = NULL WHERE id = :id"),
+                {"id": second.id},
+            )
+            migration.upgrade()
+            assert titles(connection) == expected
+
+        assert _schema_of(connection, "roms") == before
+    assert expected[first.id] == "\x1ffinal fantasy vii\x1fff7\x1f"
+
+
 def _track_keys(connection: sa.Connection) -> dict[str, tuple[str, ...]]:
     inspector = sa.inspect(connection)
     keys = {
@@ -432,7 +470,7 @@ def _referenced_files(connection: sa.Connection) -> dict[str, set[int]]:
 
 
 def test_the_track_meta_songs_revision_reverses_and_replays(rom: Rom, admin_user: User):
-    """0147 moves favorites and playlist entries between file and track keys.
+    """0148 moves favorites and playlist entries between file and track keys.
 
     Going back keeps only what a file's first song held; each step checks the
     current schema, so both directions replay.
@@ -465,7 +503,7 @@ def test_the_track_meta_songs_revision_reverses_and_replays(rom: Rom, admin_user
         playlist.id, [tracks[chips, 0], tracks[chips, 1]]
     )
 
-    migration = _load_migration("0147_track_meta_songs.py")
+    migration = _load_migration("0148_track_meta_songs.py")
     tables = ("track_meta", "music_favorite_tracks", "music_playlist_tracks")
     with sync_engine.begin() as connection:
         before = {table: _schema_of(connection, table) for table in tables}

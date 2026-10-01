@@ -1,9 +1,11 @@
 import os
 import time
+from dataclasses import replace
 
 import pytest
 
 import tasks.scheduled.cleanup_upload_tmp as mod
+from tasks.registry import CLEANUP_UPLOAD_TMP_SPEC
 from tasks.scheduled.cleanup_upload_tmp import CleanupUploadTmpTask
 
 
@@ -12,14 +14,9 @@ class TestCleanupUploadTmpTask:
     def task(self):
         return CleanupUploadTmpTask()
 
-    def test_init(self, task):
-        """Test task initialization"""
-        assert task.enabled is True
-        assert task.cron_string == "0 * * * *"
-
-    def test_custom_schedule(self, monkeypatch):
-        monkeypatch.setattr(mod, "SCHEDULED_CLEANUP_UPLOAD_TMP_CRON", "0 2 * * *")
-        assert CleanupUploadTmpTask().cron_string == "0 2 * * *"
+    def test_default_schedule(self):
+        assert CLEANUP_UPLOAD_TMP_SPEC.enabled is True
+        assert CLEANUP_UPLOAD_TMP_SPEC.cron_string == "0 * * * *"
 
     async def test_run_no_tmp_dir(self, task, monkeypatch, tmp_path):
         """Task is a no-op when the uploads tmp directory does not exist."""
@@ -82,8 +79,7 @@ class TestCleanupUploadTmpTask:
         expired.mkdir()
         os.utime(expired, (0, 0))
         monkeypatch.setattr(mod, "ROM_UPLOAD_TMP_BASE", uploads)
-        monkeypatch.setattr(mod, "ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP", False)
         task = CleanupUploadTmpTask()
-        assert task.enabled is False
+        task.spec = replace(task.spec, enabled=False)
         await task.run()
         assert expired.exists()

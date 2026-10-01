@@ -148,7 +148,7 @@ uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-sc
 
 ```sh
 cd backend
-uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-scheduler streaming
+uv run rq worker -c config --worker-class handler.rq_worker.PreloadingWorker --with-scheduler streaming
 ```
 
 `--with-scheduler` releases delayed jobs, such as the rescans the filesystem watcher waits out, so each worker needs it. The recurring schedule is registered by the RQ cron process, which the workers then execute:

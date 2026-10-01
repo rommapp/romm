@@ -17,9 +17,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import cast
 
-import sentry_sdk
-
-from config import ENABLE_SYNC_FOLDER_WATCHER, SENTRY_DSN
+from config import ENABLE_SYNC_FOLDER_WATCHER
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
@@ -34,12 +32,9 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.device import Device, SyncMode
 from models.sync_session import SyncSessionStatus
-from utils import get_version
+from utils.sentry import init_sentry
 
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    release=f"romm@{get_version()}",
-)
+init_sentry()
 
 Change = tuple[str, str]
 

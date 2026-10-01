@@ -263,19 +263,20 @@ start_bin_rq_cron() {
 # Commands to start RQ worker
 start_bin_rq_worker() {
 	info_log "Starting RQ worker"
-	start_rq_worker rq_worker high default low
+	start_rq_worker rq_worker RomMWorker high default low
 }
 
 # Scans get a worker of their own, see SCAN_QUEUE_NAME.
 start_bin_rq_scan_worker() {
 	info_log "Starting RQ scan worker"
-	start_rq_worker rq_scan_worker scans
+	start_rq_worker rq_scan_worker RomMWorker scans
 }
 
-# Streaming teardowns get a worker of their own, see STREAMING_QUEUE_NAME.
+# Streaming teardowns get a worker of their own, see STREAMING_QUEUE_NAME. It
+# preloads the reaper, which runs every minute when streaming is on.
 start_bin_rq_streaming_worker() {
 	info_log "Starting RQ streaming worker"
-	start_rq_worker rq_streaming_worker streaming
+	start_rq_worker rq_streaming_worker PreloadingWorker streaming
 }
 
 # Set PYTHONPATH so RQ can find the tasks module.
@@ -286,7 +287,8 @@ start_bin_rq_streaming_worker() {
 # wait out their delay.
 start_rq_worker() {
 	local name="$1"
-	shift
+	local worker_class="$2"
+	shift 2
 
 	local redis_url
 	redis_url="$(build_redis_url)"
@@ -295,7 +297,7 @@ start_rq_worker() {
 		RQ_REDIS_URL="${redis_url}" \
 		rq worker \
 		--path /backend \
-		--worker-class handler.rq_worker.RomMWorker \
+		--worker-class "handler.rq_worker.${worker_class}" \
 		--results-ttl "${TASK_RESULT_TTL:-86400}" \
 		--logging_level "${LOGLEVEL}" \
 		--with-scheduler \

@@ -1,6 +1,8 @@
 {
   "all-loaded": "Всички игри са заредени",
   "back-to-top": "Към началото",
+  "column-actions": "Действия",
+  "column-cover": "Корица",
   "filters": "Филтри",
   "firmware-files-count": "{count} файла",
   "firmware-selected-count": "{count} избрани",
@@ -30,6 +32,7 @@
   "sort-ascending": "Сортирай възходящо",
   "sort-by": "Сортирай по",
   "sort-descending": "Сортирай низходящо",
+  "sort-relevance": "Уместност",
   "view-flat": "Плосък изглед",
   "view-grid": "Решетка",
   "view-grouped": "Групирай по буква",

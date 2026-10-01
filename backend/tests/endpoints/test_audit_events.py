@@ -4,7 +4,7 @@ from typing import Any
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from handler.auth import oauth_handler
+from handler.auth.base_handler import oauth_handler
 from handler.database import db_audit_event_handler, db_user_handler
 from models.audit_event import AuditAction, AuditActorKind, AuditEvent
 from models.user import User

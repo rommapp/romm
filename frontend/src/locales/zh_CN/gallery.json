@@ -1,6 +1,8 @@
 {
   "all-loaded": "所有游戏已加载",
   "back-to-top": "返回顶部",
+  "column-actions": "操作",
+  "column-cover": "封面",
   "filters": "筛选器",
   "firmware-files-count": "{count} 个文件",
   "firmware-selected-count": "已选择 {count} 个",
@@ -30,6 +32,7 @@
   "sort-ascending": "升序排列",
   "sort-by": "排序方式",
   "sort-descending": "降序排列",
+  "sort-relevance": "相关性",
   "view-flat": "平铺视图",
   "view-grid": "网格",
   "view-grouped": "按字母分组",

@@ -1,20 +1,13 @@
-import tasks.scheduled.cleanup_zip_cache as mod
+from dataclasses import replace
+
+from tasks.registry import CLEANUP_ZIP_CACHE_SPEC
 from tasks.scheduled.cleanup_zip_cache import CleanupZipCacheTask
 
 
 class TestCleanupZipCacheTask:
     def test_configuration(self):
-        task = CleanupZipCacheTask()
-        assert task.enabled is True
-        assert task.cron_string == "0 4 * * *"
-
-    def test_custom_schedule(self, monkeypatch):
-        monkeypatch.setattr(mod, "SCHEDULED_CLEANUP_ZIP_CACHE_CRON", "0 2 * * *")
-        assert CleanupZipCacheTask().cron_string == "0 2 * * *"
-
-    def test_disabled_by_env(self, monkeypatch):
-        monkeypatch.setattr(mod, "ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE", False)
-        assert CleanupZipCacheTask().enabled is False
+        assert CLEANUP_ZIP_CACHE_SPEC.enabled is True
+        assert CLEANUP_ZIP_CACHE_SPEC.cron_string == "0 4 * * *"
 
     async def test_run_calls_cleanup(self, mocker):
         task = CleanupZipCacheTask()
@@ -27,7 +20,7 @@ class TestCleanupZipCacheTask:
 
     async def test_run_disabled_skips_the_cleanup(self, mocker):
         task = CleanupZipCacheTask()
-        task.enabled = False
+        task.spec = replace(task.spec, enabled=False)
         mock_cleanup = mocker.patch(
             "tasks.scheduled.cleanup_zip_cache.cleanup_stale_zips",
         )

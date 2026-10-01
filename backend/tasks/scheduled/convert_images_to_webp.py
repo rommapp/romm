@@ -9,12 +9,11 @@ from typing import Any, ClassVar, List
 from PIL import Image, UnidentifiedImageError
 
 from config import (
-    ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     RESOURCES_BASE_PATH,
-    SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
 )
 from logger.logger import log
-from tasks.tasks import JobMetaStats, PeriodicTask, TaskType
+from tasks.registry import CONVERT_IMAGES_TO_WEBP_SPEC
+from tasks.tasks import JobMetaStats, PeriodicTask
 from utils.images import frame_durations, webp_loop
 from utils.media_types import ALLOWED_IMAGE_EXTENSIONS
 
@@ -122,14 +121,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
     """Task to convert existing images to WebP format."""
 
     def __init__(self) -> None:
-        super().__init__(
-            title="Convert images to WebP",
-            description="Convert existing image files (PNG, JPG, BMP, TIFF, GIF) to WebP format for better performance",
-            task_type=TaskType.CONVERSION,
-            enabled=ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
-            manual_run=True,
-            cron_string=SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
-        )
+        super().__init__(CONVERT_IMAGES_TO_WEBP_SPEC)
         self.resources_path = Path(RESOURCES_BASE_PATH)
         self.converter = ImageConverter()
         self._reset_counters()

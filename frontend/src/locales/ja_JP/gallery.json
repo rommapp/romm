@@ -1,6 +1,8 @@
 {
   "all-loaded": "すべてのゲームが読み込まれました",
   "back-to-top": "トップへ戻る",
+  "column-actions": "操作",
+  "column-cover": "カバー",
   "filters": "フィルタ",
   "firmware-files-count": "{count}件のファイル",
   "firmware-selected-count": "{count}件選択中",
@@ -30,6 +32,7 @@
   "sort-ascending": "昇順に並び替え",
   "sort-by": "並び替え基準",
   "sort-descending": "降順に並び替え",
+  "sort-relevance": "関連度",
   "view-flat": "フラット表示",
   "view-grid": "グリッド",
   "view-grouped": "文字でグループ化",

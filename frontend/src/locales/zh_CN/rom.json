@@ -152,6 +152,7 @@
   "edit-save": "编辑存档",
   "edit-screenshot": "编辑截图",
   "edit-state": "编辑状态",
+  "exclude-failed": "无法将 {n} 个已删除的游戏排除在扫描之外",
   "favorite": "收藏",
   "favorites-updated-n": "已更新 {n} 个项目",
   "file": "文件",

@@ -1,6 +1,8 @@
 {
   "all-loaded": "Tüm oyunlar yüklendi",
   "back-to-top": "Başa dön",
+  "column-actions": "İşlemler",
+  "column-cover": "Kapak",
   "filters": "Filtreler",
   "firmware-files-count": "{count} dosya",
   "firmware-selected-count": "{count} seçildi",
@@ -30,6 +32,7 @@
   "sort-ascending": "Artan sırala",
   "sort-by": "Sıralama ölçütü",
   "sort-descending": "Azalan sırala",
+  "sort-relevance": "İlgi düzeyi",
   "view-flat": "Düz görünüm",
   "view-grid": "Izgara",
   "view-grouped": "Harfe göre grupla",

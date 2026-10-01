@@ -6,12 +6,6 @@ from typing import Any, Final
 from defusedxml import ElementTree as ET
 from redis.asyncio.client import Pipeline
 
-from config import (
-    ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
-    LAUNCHBOX_API_ENABLED,
-    SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
-    TASK_TIMEOUT,
-)
 from handler.dump_cache import encode
 from handler.metadata import meta_launchbox_handler
 from handler.metadata.launchbox_handler.types import (
@@ -32,7 +26,8 @@ from handler.metadata.launchbox_handler.types import (
 from handler.metadata.launchbox_handler.utils import fold_title
 from handler.redis_handler import async_binary_cache, async_cache
 from logger.logger import log
-from tasks.tasks import RemoteFilePullTask, TaskType
+from tasks.registry import UPDATE_LAUNCHBOX_METADATA_SPEC
+from tasks.tasks import RemoteFilePullTask
 from utils.cache import drop_stale_cache_store, stamp_cache_schema
 from utils.context import initialize_context
 
@@ -42,9 +37,6 @@ from . import UpdateStats
 # well over a gigabyte of memory and discards everything if the job dies, so
 # writes go out in batches instead.
 CACHE_WRITE_BATCH_SIZE: Final[int] = 2000
-
-# Downloading ~100MB and parsing it takes far longer than an ordinary task.
-LAUNCHBOX_TASK_TIMEOUT: Final[int] = max(TASK_TIMEOUT, 30 * 60)
 
 
 class BatchedCacheWriter:
@@ -103,22 +95,9 @@ def _iter_elements(source: Any) -> Iterator[Any]:
 class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
     def __init__(self) -> None:
         super().__init__(
-            title="Scheduled LaunchBox metadata update",
-            description="Updates the LaunchBox metadata store",
-            task_type=TaskType.UPDATE,
-            enabled=ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
-            cron_string=SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
-            manual_run=True,
+            UPDATE_LAUNCHBOX_METADATA_SPEC,
             url="https://gamesdb.launchbox-app.com/Metadata.zip",
-            timeout=LAUNCHBOX_TASK_TIMEOUT,
         )
-
-    @property
-    def can_run_manually(self) -> bool:
-        # The store lives only in the cache, so admins need a way to fill it
-        # even when the scheduled update is off. Otherwise turning LaunchBox on
-        # leaves a provider that silently matches nothing.
-        return self.manual_run and (self.enabled or LAUNCHBOX_API_ENABLED)
 
     @initialize_context()
     async def run(self) -> dict[str, Any]:

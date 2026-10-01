@@ -25,8 +25,7 @@ from tests.factories import (
 from adapters.services import response_validation
 from config import ROMM_DB_DRIVER
 from config.config_manager import ConfigManager
-from handler.auth import auth_handler
-from handler.auth.base_handler import oct_key
+from handler.auth.base_handler import auth_handler, oct_key
 from handler.auth.constants import ALGORITHM
 from handler.database import (
     db_memory_card_handler,
@@ -36,7 +35,7 @@ from handler.database import (
     db_user_handler,
 )
 from handler.database.base_handler import sync_engine
-from handler.metadata.base_handler import SENSITIVE_KEYS
+from logger.formatter import SENSITIVE_KEYS
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.audit_event import AuditEvent
 from models.client_token import ClientToken

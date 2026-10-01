@@ -1,16 +1,13 @@
 """Rebuilds the item-item similarity graph that backs recommendations."""
 
-from config import (
-    ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS,
-    SCHEDULED_BUILD_RECOMMENDATIONS_CRON,
-)
 from handler.recommendation import (
     BuildStats,
     SimilarityBuilder,
     invalidate_all_cached_feeds,
 )
 from logger.logger import log
-from tasks.tasks import PeriodicTask, TaskType
+from tasks.registry import BUILD_RECOMMENDATIONS_SPEC
+from tasks.tasks import PeriodicTask
 from utils.context import initialize_context
 
 from . import UpdateStats
@@ -18,22 +15,12 @@ from . import UpdateStats
 
 class BuildRecommendationsTask(PeriodicTask):
     def __init__(self) -> None:
-        super().__init__(
-            title="Build recommendations index",
-            description=(
-                "Rebuilds the similar-games index from library metadata, "
-                "play history and collections"
-            ),
-            task_type=TaskType.UPDATE,
-            enabled=ENABLE_SCHEDULED_BUILD_RECOMMENDATIONS,
-            manual_run=True,
-            cron_string=SCHEDULED_BUILD_RECOMMENDATIONS_CRON,
-        )
+        super().__init__(BUILD_RECOMMENDATIONS_SPEC)
 
     @initialize_context()
     async def run(self, force: bool = False) -> dict[str, int]:
-        if not self.enabled and not force:
-            log.info(f"Scheduled {self.description} not enabled, skipping...")
+        if not self.spec.enabled and not force:
+            log.info(f"Scheduled {self.spec.description} not enabled, skipping...")
             return UpdateStats().to_dict()
 
         log.info("Building recommendations index...")

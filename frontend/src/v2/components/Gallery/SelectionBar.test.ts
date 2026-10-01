@@ -19,6 +19,7 @@ const {
   selectAll,
   snackbarError,
   snackbarSuccess,
+  updateUserRomProps,
 } = vi.hoisted(() => ({
   addRomsToCollection: vi.fn(),
   createCollection: vi.fn(),
@@ -27,6 +28,7 @@ const {
   selectAll: vi.fn(),
   snackbarError: vi.fn(),
   snackbarSuccess: vi.fn(),
+  updateUserRomProps: vi.fn(),
 }));
 
 // The whole-result behavior is covered by the composable's own tests;
@@ -65,6 +67,13 @@ vi.mock("@/services/api/collection", () => ({
   },
 }));
 
+vi.mock("@/services/api/rom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/api/rom")>();
+  return {
+    default: { ...actual.default, updateUserRomProps },
+  };
+});
+
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({
     success: snackbarSuccess,
@@ -100,7 +109,10 @@ function select(...roms: SimpleRom[]) {
   roms.forEach((r, i) => selection.toggle(r, i));
 }
 
-function mountBar(props: { hideDownload?: boolean } = {}) {
+function mountBar(
+  props: { hideDownload?: boolean } = {},
+  extraStubs: Record<string, unknown> = {},
+) {
   return mount(SelectionBar, {
     props,
     global: {
@@ -120,6 +132,7 @@ function mountBar(props: { hideDownload?: boolean } = {}) {
         RMenuItem: true,
         RIcon: true,
         RDivider: true,
+        ...extraStubs,
       },
     },
   });
@@ -335,5 +348,43 @@ describe("SelectionBar select all", () => {
         .find("[aria-label='gallery.selection-select-all-count::{\"n\":42}']")
         .exists(),
     ).toBe(true);
+  });
+});
+
+describe("SelectionBar bulk status", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+  });
+
+  it("ignores a status choice while the previous batch is running", async () => {
+    let finish: () => void = () => {};
+    updateUserRomProps.mockImplementation(
+      () => new Promise<void>((resolve) => (finish = resolve)),
+    );
+    select(rom(1));
+    const wrapper = mountBar(
+      {},
+      {
+        RMenu: { template: "<div><slot /></div>" },
+        RMenuItem: {
+          props: { disabled: Boolean },
+          emits: ["click"],
+          template:
+            "<button class='status-item' :disabled='disabled' @click=\"$emit('click')\"><slot /></button>",
+        },
+      },
+    );
+    const [first, second] = wrapper.findAll(".status-item");
+
+    await first.trigger("click");
+    await second.trigger("click");
+    expect(updateUserRomProps).toHaveBeenCalledTimes(1);
+    expect(second.attributes("disabled")).toBeDefined();
+
+    finish();
+    await flushPromises();
+    await second.trigger("click");
+    expect(updateUserRomProps).toHaveBeenCalledTimes(2);
   });
 });

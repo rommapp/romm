@@ -2,7 +2,11 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
 import { effectScope, nextTick, ref } from "vue";
 import storePlaying from "@/stores/playing";
-import { installStageActiveClass, useStageActive } from "./index";
+import {
+  installStageActiveClass,
+  usePlayingWhile,
+  useStageActive,
+} from "./index";
 
 beforeEach(() => {
   setActivePinia(createPinia());
@@ -47,6 +51,31 @@ describe("useStageActive", () => {
     store.setPlaying(true);
     expect(store.stageActive).toBe(false);
     scope.stop();
+  });
+});
+
+describe("usePlayingWhile", () => {
+  it("mirrors the active source into the playing flag", async () => {
+    const active = ref(true);
+    const scope = effectScope();
+    scope.run(() => usePlayingWhile(active));
+    const store = storePlaying();
+    expect(store.playing).toBe(true);
+
+    active.value = false;
+    await nextTick();
+    expect(store.playing).toBe(false);
+    scope.stop();
+  });
+
+  it("clears the flag when its owning scope is disposed", () => {
+    const scope = effectScope();
+    scope.run(() => usePlayingWhile(() => true));
+    const store = storePlaying();
+    expect(store.playing).toBe(true);
+
+    scope.stop();
+    expect(store.playing).toBe(false);
   });
 });
 

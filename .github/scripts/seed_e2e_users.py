@@ -28,7 +28,7 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
 )
 
-from handler.auth import auth_handler  # noqa: E402
+from handler.auth.base_handler import auth_handler  # noqa: E402
 from handler.database import db_permission_handler, db_user_handler  # noqa: E402
 from models.permission import SystemGroupKey  # noqa: E402
 from models.user import Role, User  # noqa: E402

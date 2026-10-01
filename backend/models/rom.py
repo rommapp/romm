@@ -5,7 +5,7 @@ import enum
 import hashlib
 import re
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
@@ -26,7 +26,9 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     and_,
+    event,
     func,
+    inspect,
     or_,
     select,
 )
@@ -111,6 +113,44 @@ def compute_full_path_hash(fs_path: str | None, fs_name: str | None) -> str:
     return hashlib.sha256(
         f"{fs_path or ''}/{fs_name or ''}".encode(), usedforsecurity=False
     ).hexdigest()
+
+
+# Closes every title in `Rom.search_titles`; a control character no title holds.
+SEARCH_TITLE_SEPARATOR = "\x1f"
+# In characters: a utf8mb4 TEXT holds 65535 bytes, and a longer value would
+# fail the INSERT under strict mode.
+SEARCH_TEXT_MAX_LENGTH = 16000
+
+
+def fold_search_title(title: str) -> str:
+    """`title` as search ranking compares it: lowercased, whitespace collapsed."""
+    return " ".join(title.replace(SEARCH_TITLE_SEPARATOR, " ").split()).lower()
+
+
+def compute_search_titles(name: str | None, metadata: Mapping[str, Any]) -> str:
+    """Precompute `Rom.search_titles`: the folded name, then each folded alias.
+
+    Args:
+        metadata: Each `ALTERNATIVE_NAME_SOURCES` column's value, by column name.
+    """
+    sep = SEARCH_TITLE_SEPARATOR
+    aliases = (
+        title
+        for column, key in ALTERNATIVE_NAME_SOURCES
+        if isinstance(blob := metadata.get(column), dict)
+        and isinstance(names := blob.get(key), list)
+        for title in names
+        if isinstance(title, str)
+    )
+    folded_name = fold_search_title(name or "")
+    value = sep + folded_name + sep
+    for alias in dict.fromkeys(fold_search_title(title) for title in aliases):
+        if not alias or alias == folded_name:
+            continue
+        if len(value) + len(alias) + len(sep) > SEARCH_TEXT_MAX_LENGTH:
+            continue
+        value += alias + sep
+    return value
 
 
 def _ra_achievement_sort_key(achievement: dict[str, Any]) -> tuple[int, int]:
@@ -941,6 +981,9 @@ class Rom(BaseModel):
         server_onupdate=FetchedValue(),
         deferred=True,
     )
+    # The folded name and aliases, kept by `compute_search_titles` on every
+    # write; search ranking matches whole titles against it.
+    search_titles: Mapped[str | None] = mapped_column(Text(), deferred=True)
 
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
@@ -1295,6 +1338,31 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
         "has_soundtrack",
         any(f.category == RomFileCategory.SOUNDTRACK for f in files),
     )
+
+
+SEARCH_TITLE_COLUMNS = ("name", *(column for column, _ in ALTERNATIVE_NAME_SOURCES))
+
+
+def rom_search_titles(rom: Rom) -> str:
+    """`compute_search_titles` over the ROM's current name and metadata."""
+    return compute_search_titles(
+        rom.name,
+        {column: getattr(rom, column) for column, _ in ALTERNATIVE_NAME_SOURCES},
+    )
+
+
+@event.listens_for(Rom, "before_insert")
+def _set_search_titles(_mapper: Any, _connection: Any, rom: Rom) -> None:
+    rom.search_titles = rom_search_titles(rom)
+
+
+@event.listens_for(Rom, "before_update")
+def _refresh_search_titles(_mapper: Any, _connection: Any, rom: Rom) -> None:
+    state = inspect(rom)
+    if any(
+        state.attrs[column].history.has_changes() for column in SEARCH_TITLE_COLUMNS
+    ):
+        rom.search_titles = rom_search_titles(rom)
 
 
 class HasFileOnDiskFilters(TypedDict):

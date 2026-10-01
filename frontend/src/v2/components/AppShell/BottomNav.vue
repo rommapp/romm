@@ -28,15 +28,14 @@ const { destinations, activeId } = useNavDestinations();
 
 <template>
   <div v-if="smAndDown" class="r-v2-bottom-nav-anchor">
-    <div class="r-v2-bottom-nav">
+    <nav class="r-v2-bottom-nav" :aria-label="t('common.primary-navigation')">
       <RSliderBtnGroup
         :model-value="activeId"
         :items="destinations"
         variant="tab"
         class="r-v2-bottom-nav__group"
-        :aria-label="t('common.primary-navigation')"
       />
-    </div>
+    </nav>
   </div>
 </template>
 

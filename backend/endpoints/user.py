@@ -18,7 +18,7 @@ from handler.audit_handler import (
     client_ip,
     record,
 )
-from handler.auth import auth_handler
+from handler.auth.base_handler import auth_handler
 from handler.auth.constants import Scope
 from handler.database import (
     db_client_token_handler,

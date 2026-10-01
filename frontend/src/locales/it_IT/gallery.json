@@ -1,6 +1,8 @@
 {
   "all-loaded": "Tutti i giochi sono stati caricati",
   "back-to-top": "Torna su",
+  "column-actions": "Azioni",
+  "column-cover": "Copertina",
   "filters": "Filtri",
   "firmware-files-count": "{count} file",
   "firmware-selected-count": "{count} selezionati",
@@ -30,6 +32,7 @@
   "sort-ascending": "Ordina in ordine crescente",
   "sort-by": "Ordina per",
   "sort-descending": "Ordina in ordine decrescente",
+  "sort-relevance": "Rilevanza",
   "view-flat": "Vista piatta",
   "view-grid": "Griglia",
   "view-grouped": "Raggruppa per lettera",
