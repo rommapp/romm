@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import storePlaying from "@/stores/playing";
 import { useInputModality } from "@/v2/composables/useInputModality";
-import { AXIS_THRESHOLD, PAD_BUTTON, useGamepad } from "./index";
+import { AXIS_THRESHOLD, isPadEvent, PAD_BUTTON, useGamepad } from "./index";
 
 vi.mock("vue-router", () => ({
   useRoute: () => ({ path: "/platforms" }),
@@ -143,5 +143,20 @@ describe("useGamepad", () => {
 
     expect(keys).toEqual([]);
     expect(modality.value).toBe("mouse");
+  });
+
+  it("flags the arrows it dispatches as pad input", () => {
+    const flags: boolean[] = [];
+    const record = (e: KeyboardEvent) => flags.push(isPadEvent(e));
+    window.addEventListener("keydown", record);
+    installOnMouse(padHolding(PAD_BUTTON["dpad-up"]));
+
+    step();
+    window.removeEventListener("keydown", record);
+
+    expect(flags).toEqual([true]);
+    expect(isPadEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }))).toBe(
+      false,
+    );
   });
 });

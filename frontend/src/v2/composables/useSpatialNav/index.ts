@@ -3,6 +3,7 @@
 // The grids listen on `document`, which an event reaches before `window`.
 import { onBeforeUnmount } from "vue";
 import storePlaying from "@/stores/playing";
+import { isPadEvent } from "@/v2/composables/useGamepad";
 import { hasOpenEscapable } from "@/v2/lib/overlays/RDialog/escapeStack";
 import {
   ARROW_DIRECTIONS,
@@ -13,6 +14,16 @@ import {
 
 // Input types whose arrow keys move a caret or change the value.
 const BUTTON_LIKE_INPUTS = new Set(["button", "checkbox", "reset", "submit"]);
+
+// Single-line inputs whose arrows only move a caret.
+const TEXT_INPUTS = new Set([
+  "email",
+  "password",
+  "search",
+  "tel",
+  "text",
+  "url",
+]);
 
 // Roles whose arrow keys belong to the widget itself.
 const ARROW_OWNING_ROLES = new Set([
@@ -32,22 +43,57 @@ const ARROW_OWNING_ROLES = new Set([
   "treeitem",
 ]);
 
-function ownsArrowKeys(el: HTMLElement): boolean {
-  if (el.isContentEditable) return true;
-  // An open popup's activator, such as RSelect's, steers its list by arrow.
+// An open popup's activator, such as RSelect's, steers its list by arrow.
+function hasOpenPopup(el: HTMLElement): boolean {
   const popup = el.getAttribute("aria-haspopup");
-  if (
-    popup &&
-    popup !== "false" &&
-    el.getAttribute("aria-expanded") === "true"
-  ) {
-    return true;
-  }
+  return (
+    !!popup && popup !== "false" && el.getAttribute("aria-expanded") === "true"
+  );
+}
+
+function ownsArrowKeys(el: HTMLElement): boolean {
+  if (el.isContentEditable || hasOpenPopup(el)) return true;
   if (el instanceof HTMLInputElement) return !BUTTON_LIKE_INPUTS.has(el.type);
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
     return true;
   }
   return ARROW_OWNING_ROLES.has(el.getAttribute("role") ?? "");
+}
+
+function isTextField(
+  el: HTMLElement,
+): el is HTMLInputElement | HTMLTextAreaElement {
+  if (hasOpenPopup(el)) return false;
+  if (el instanceof HTMLTextAreaElement) return true;
+  return el instanceof HTMLInputElement && TEXT_INPUTS.has(el.type);
+}
+
+// Steps a text field's caret for a D-pad press, which the browser won't do for
+// a synthetic key. False at the text's edge in `dir`, and always for up and
+// down, so those presses move focus instead.
+function stepCaret(
+  el: HTMLInputElement | HTMLTextAreaElement,
+  dir: SpatialDirection,
+): boolean {
+  if (dir === "up" || dir === "down") return false;
+  let start: number | null;
+  let end: number | null;
+  // Some input types (email) report null, older engines throw.
+  try {
+    ({ selectionStart: start, selectionEnd: end } = el);
+  } catch {
+    return false;
+  }
+  if (start === null || end === null) return false;
+  if (start !== end) {
+    const edge = dir === "left" ? start : end;
+    el.setSelectionRange(edge, edge);
+    return true;
+  }
+  const next = dir === "left" ? start - 1 : start + 1;
+  if (next < 0 || next > el.value.length) return false;
+  el.setSelectionRange(next, next);
+  return true;
 }
 
 function isNavigable(el: HTMLElement): boolean {
@@ -122,7 +168,14 @@ export function useSpatialNav() {
       if (playingStore.playing || hasOpenEscapable()) return;
       const active = document.activeElement;
       if (!(active instanceof HTMLElement) || active === document.body) return;
-      if (ownsArrowKeys(active)) return;
+      if (isPadEvent(e) && isTextField(active)) {
+        if (stepCaret(active, dir)) {
+          e.preventDefault();
+          return;
+        }
+      } else if (ownsArrowKeys(active)) {
+        return;
+      }
       if (moveFocus(active, dir)) e.preventDefault();
     }
 

@@ -123,6 +123,13 @@ export function isUsablePad(pad: Gamepad | null): pad is Gamepad {
   return pad !== null && pad.connected;
 }
 
+const padEvents = new WeakSet<Event>();
+
+/** True when `event` is a key useGamepad dispatched for the D-pad or stick. */
+export function isPadEvent(event: Event): boolean {
+  return padEvents.has(event);
+}
+
 function dispatchKey(binding: Binding) {
   const target =
     (document.activeElement as HTMLElement | null) ?? document.body;
@@ -132,8 +139,11 @@ function dispatchKey(binding: Binding) {
     bubbles: true,
     cancelable: true,
   };
-  target.dispatchEvent(new KeyboardEvent("keydown", init));
-  target.dispatchEvent(new KeyboardEvent("keyup", init));
+  for (const type of ["keydown", "keyup"]) {
+    const event = new KeyboardEvent(type, init);
+    padEvents.add(event);
+    target.dispatchEvent(event);
+  }
 }
 
 type ButtonState = { pressed: boolean; nextRepeatAt: number };
