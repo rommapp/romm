@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from enum import Enum
@@ -80,25 +81,31 @@ class _PerLoopFakeAsyncRedis:
 
     # Tests reach the cache from the TestClient's loop and from their own
     # asyncio.run loops at once, and a shared pool's asyncio.Lock binds to one.
+    # Outside a loop, as in asyncio.run(async_cache.get(...)), each thread gets
+    # its own client: one thread's loops run one at a time, so never contend.
     def __init__(self, server: Any) -> None:
-        from fakeredis import FakeAsyncRedis
-
         self._server = server
-        self._unbound = FakeAsyncRedis(server=server)
+        self._by_thread = threading.local()
         self._by_loop: WeakKeyDictionary[asyncio.AbstractEventLoop, Any] = (
             WeakKeyDictionary()
         )
 
-    def _client(self) -> Any:
+    def _new_client(self) -> Any:
         from fakeredis import FakeAsyncRedis
 
+        return FakeAsyncRedis(server=self._server)
+
+    def _client(self) -> Any:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            return self._unbound
+            client = getattr(self._by_thread, "client", None)
+            if client is None:
+                client = self._by_thread.client = self._new_client()
+            return client
         client = self._by_loop.get(loop)
         if client is None:
-            client = self._by_loop[loop] = FakeAsyncRedis(server=self._server)
+            client = self._by_loop[loop] = self._new_client()
         return client
 
     def __getattr__(self, name: str) -> Any:

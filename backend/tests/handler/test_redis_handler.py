@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from typing import Any
 from unittest.mock import MagicMock, PropertyMock, patch
 
@@ -153,16 +154,31 @@ class TestHasLiveWorker:
 
 
 class TestAsyncCacheUnderTests:
-    def test_each_event_loop_gets_its_own_pool_over_one_keyspace(self):
-        async def write() -> Any:
-            await async_cache.set("per-loop", "1")
+    def test_concurrent_threads_and_loops_never_share_a_pool(self):
+        """The TestClient's loop and a test's asyncio.run overlap across threads."""
+
+        async def running_loop_pool() -> Any:
             return async_cache.connection_pool
 
-        async def read() -> tuple[Any, Any]:
-            return async_cache.connection_pool, await async_cache.get("per-loop")
+        pools: dict[str, Any] = {}
 
-        first_pool = asyncio.run(write())
-        second_pool, value = asyncio.run(read())
+        def other_thread() -> None:
+            pools["other thread, no loop"] = async_cache.connection_pool
+            pools["other thread, in a loop"] = asyncio.run(running_loop_pool())
 
-        assert first_pool is not second_pool
+        thread = threading.Thread(target=other_thread)
+        thread.start()
+        thread.join()
+        pools["this thread, no loop"] = async_cache.connection_pool
+        pools["this thread, in a loop"] = asyncio.run(running_loop_pool())
+
+        assert len({id(pool) for pool in pools.values()}) == len(pools)
+
+    def test_every_client_reads_the_one_keyspace(self):
+        async def read() -> Any:
+            return await async_cache.get("per-loop")
+
+        asyncio.run(async_cache.set("per-loop", "1"))
+        value = asyncio.run(read())
+
         assert value in ("1", b"1")
