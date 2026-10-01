@@ -70,6 +70,7 @@ import {
   type StatusFlagKey,
   VISIBILITY_FLAG_KEYS,
 } from "@/v2/utils/romStatus";
+import { settleWithLimit } from "@/v2/utils/settleWithLimit";
 import {
   FILLET_PX,
   NOTCH_RADIUS_PX,
@@ -188,7 +189,9 @@ async function bulkFavorite() {
 // ROM is missing it) sets it on all. The per-rom `updateUserRomProps` is
 // the only endpoint (no bulk variant), so we fan out one request per ROM,
 // optimistically write the store, and revert only the ROMs whose request
-// failed.
+// failed. The fan-out is bounded so a whole-library selection doesn't queue
+// thousands of requests on a single-worker backend.
+const STATUS_CONCURRENCY = 4;
 //
 // `enumAllActive` / `flagAllActive` mirror `allFavorited`: keyed by
 // status so each menu row can paint its active state and decide its
@@ -218,10 +221,24 @@ const hasAnyStatus = computed(() => {
   );
 });
 
+// One batch at a time, so a slower earlier batch can't land after a newer choice.
+const applyingStatus = ref(false);
+
 async function applyStatus(data: Partial<RomUserData>) {
   const roms = selection.roms;
-  if (roms.length === 0) return;
+  if (roms.length === 0 || applyingStatus.value) return;
+  applyingStatus.value = true;
+  try {
+    await applyStatusTo(roms, data);
+  } finally {
+    applyingStatus.value = false;
+  }
+}
 
+async function applyStatusTo(
+  roms: typeof selection.roms,
+  data: Partial<RomUserData>,
+) {
   const before = new Map<number, RomUserData>();
   for (const rom of roms) {
     if (!rom.rom_user) continue;
@@ -230,8 +247,8 @@ async function applyStatus(data: Partial<RomUserData>) {
     syncCachedRom(rom);
   }
 
-  const results = await Promise.allSettled(
-    roms.map((rom) => romApi.updateUserRomProps({ romId: rom.id, data })),
+  const results = await settleWithLimit(roms, STATUS_CONCURRENCY, (rom) =>
+    romApi.updateUserRomProps({ romId: rom.id, data }),
   );
   const failed = roms.filter((_, i) => results[i].status === "rejected");
   for (const rom of failed) {
@@ -469,6 +486,7 @@ function clear() {
           :key="key"
           :icon="STATUS_ICONS[key]"
           :variant="enumAllActive[key] ? 'active' : 'default'"
+          :disabled="applyingStatus"
           @click="toggleEnumStatus(key)"
         >
           {{ t(romStatusMap[key].i18nKey) }}
@@ -485,6 +503,7 @@ function clear() {
           :icon="STATUS_ICONS[key]"
           :text-color="flagAllActive[key] ? 'brand-primary' : undefined"
           :icon-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          :disabled="applyingStatus"
           @click="toggleFlagStatus(key)"
         >
           {{ t(romStatusMap[key].i18nKey) }}
@@ -503,6 +522,7 @@ function clear() {
           :icon="STATUS_ICONS[key]"
           :text-color="flagAllActive[key] ? 'brand-primary' : undefined"
           :icon-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          :disabled="applyingStatus"
           @click="toggleFlagStatus(key)"
         >
           {{ t(romStatusMap[key].i18nKey) }}
@@ -516,6 +536,7 @@ function clear() {
           <RMenuItem
             icon="mdi-close-circle-outline"
             variant="danger"
+            :disabled="applyingStatus"
             @click="clearStatus"
           >
             {{ t("rom.clear-all") }}

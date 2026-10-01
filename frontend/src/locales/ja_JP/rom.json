@@ -152,6 +152,7 @@
   "edit-save": "セーブを編集",
   "edit-screenshot": "スクリーンショットを編集",
   "edit-state": "ステートセーブを編集",
+  "exclude-failed": "削除した{n}件のゲームをスキャン対象から除外できませんでした",
   "favorite": "お気に入り",
   "favorites-updated-n": "{n} 件を更新しました",
   "file": "ファイル",
