@@ -13,6 +13,8 @@ import taskApi from "@/services/api/task";
 import storeAuth from "@/stores/auth";
 import storeConfig, { type Config } from "@/stores/config";
 import storePlatforms from "@/stores/platforms";
+import ConfigFileAlerts from "@/v2/components/Settings/ConfigFileAlerts.vue";
+import SettingsSaveBar from "@/v2/components/Settings/SettingsSaveBar.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
@@ -211,7 +213,7 @@ onMounted(loadConfig);
         {{ t("settings.conversion-settings-load-error-title") }}
       </template>
       {{ t("settings.conversion-settings-load-error-desc") }}
-      <template #append>
+      <template #actions>
         <RBtn variant="text" :loading="loading" @click="loadConfig">
           {{ t("common.try-again") }}
         </RBtn>
@@ -219,34 +221,7 @@ onMounted(loadConfig);
     </RAlert>
   </div>
   <div v-else class="r-v2-section-stack r-v2-conversion-settings">
-    <RAlert v-if="!config.CONFIG_FILE_MOUNTED" type="error">
-      <template #title>
-        {{ t("settings.config-file-not-mounted-title") }}
-      </template>
-      {{ t("settings.config-file-not-mounted-desc") }}
-    </RAlert>
-    <RAlert
-      v-if="config.CONFIG_FILE_MOUNTED && config.CONFIG_FILE_PARSE_ERROR"
-      type="error"
-    >
-      <template #title>
-        {{ t("settings.config-file-parse-error-title") }}
-      </template>
-      {{
-        t("settings.config-file-parse-error-desc", {
-          error: config.CONFIG_FILE_PARSE_ERROR,
-        })
-      }}
-    </RAlert>
-    <RAlert
-      v-if="config.CONFIG_FILE_MOUNTED && !config.CONFIG_FILE_WRITABLE"
-      type="warning"
-    >
-      <template #title>
-        {{ t("settings.config-file-not-writable-title") }}
-      </template>
-      {{ t("settings.config-file-not-writable-desc") }}
-    </RAlert>
+    <ConfigFileAlerts />
 
     <!-- Download conversion -->
     <SettingsSection
@@ -328,28 +303,14 @@ onMounted(loadConfig);
       </div>
     </SettingsSection>
 
-    <Transition name="r-v2-conversion-settings__bar">
-      <div v-if="dirty && canEdit" class="r-v2-conversion-settings__bar">
-        <span class="r-v2-conversion-settings__bar-label">
-          {{ t("settings.conversion-unsaved-changes") }}
-        </span>
-        <div class="r-v2-conversion-settings__bar-actions">
-          <RBtn variant="text" :disabled="saving" @click="onReset">
-            {{ t("common.discard") }}
-          </RBtn>
-          <RBtn
-            variant="flat"
-            color="primary"
-            prepend-icon="mdi-content-save-outline"
-            :loading="saving"
-            :disabled="!cacheMaxSizeValid"
-            @click="onSave"
-          >
-            {{ t("common.save") }}
-          </RBtn>
-        </div>
-      </div>
-    </Transition>
+    <SettingsSaveBar
+      :visible="dirty && canEdit"
+      :label="t('settings.conversion-unsaved-changes')"
+      :saving="saving"
+      :save-disabled="!cacheMaxSizeValid"
+      @save="onSave"
+      @discard="onReset"
+    />
   </div>
 </template>
 
@@ -411,50 +372,5 @@ html[data-bp~="xs"] .r-v2-conversion-settings__format-row {
 .r-v2-conversion-settings__format-label {
   font-size: 13px;
   color: var(--r-color-fg-secondary);
-}
-
-/* Sticky save bar pinned to the bottom of the content column. */
-.r-v2-conversion-settings__bar {
-  position: sticky;
-  bottom: 16px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 8px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: var(--r-color-panel);
-  border: 1px solid var(--r-color-panel-border);
-  box-shadow: 0 12px 32px color-mix(in srgb, black 32%, transparent);
-}
-.r-v2-conversion-settings__bar-label {
-  font-size: 13px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-secondary);
-}
-.r-v2-conversion-settings__bar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.r-v2-conversion-settings__bar-enter-active,
-.r-v2-conversion-settings__bar-leave-active {
-  transition:
-    opacity var(--r-motion-med) var(--r-motion-ease-out),
-    transform var(--r-motion-med) var(--r-motion-ease-out);
-}
-.r-v2-conversion-settings__bar-enter-from,
-.r-v2-conversion-settings__bar-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-@media (prefers-reduced-motion: reduce) {
-  .r-v2-conversion-settings__bar-enter-from,
-  .r-v2-conversion-settings__bar-leave-to {
-    transform: none;
-  }
 }
 </style>

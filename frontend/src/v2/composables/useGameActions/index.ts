@@ -125,9 +125,12 @@ export function useGameActions(
   // Only a single file converts, and only while the server has it turned on.
   const downloadFormats = computed<string[]>(() => {
     const rom = getRom();
-    const file = rom && canDownload.value ? getSoleRomFile(rom) : null;
     const { CONVERTO, CONVERTO_DOWNLOAD_FORMATS } = configStore.config;
-    if (!rom || !file || !CONVERTO.download_conversion_enabled) return [];
+    if (!rom || !canDownload.value || !CONVERTO.download_conversion_enabled) {
+      return [];
+    }
+    const file = getSoleRomFile(rom);
+    if (!file) return [];
     return getDownloadFormats(
       file.file_name,
       CONVERTO_DOWNLOAD_FORMATS[rom.platform_slug],
@@ -455,11 +458,8 @@ export function useGameActions(
       if (probe.status === 202) {
         snackbar.info(t("rom.download-as-preparing", { format: label }));
       }
-      for (
-        let poll = 0;
-        probe.status === 202 && poll < FORMAT_POLL_LIMIT;
-        poll++
-      ) {
+      let polls = 0;
+      while (probe.status === 202 && polls++ < FORMAT_POLL_LIMIT) {
         const seconds = probe.retryAfterSeconds ?? FORMAT_POLL_SECONDS;
         await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
         probe = await romApi.probeFormatDownload(href);

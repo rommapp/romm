@@ -73,13 +73,14 @@ export function getDownloadFormats(
   fileName: string,
   formatsByExtension: Record<string, string[]> | undefined,
 ): string[] {
+  const table = formatsByExtension ?? {};
   const name = fileName.toLowerCase();
   let match = "";
-  for (const ext of Object.keys(formatsByExtension ?? {})) {
+  for (const ext of Object.keys(table)) {
     // The longest match wins so `.nkit.iso` is not read as `.iso`.
     if (name.endsWith(ext) && ext.length > match.length) match = ext;
   }
-  return match ? (formatsByExtension?.[match] ?? []) : [];
+  return match ? table[match] : [];
 }
 
 export function getDownloadLink({
