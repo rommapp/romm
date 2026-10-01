@@ -64,18 +64,3 @@ export function getUnmatchedCoverImage(name: string): string {
 export function coverPlaceholderArt(name: string, identified: boolean): string {
   return identified ? getMissingCoverImage(name) : getUnmatchedCoverImage(name);
 }
-
-/** Backdrop-only art (no icon) sized to an arbitrary aspect ratio: used
- *  for non-cover thumbnails (e.g. save / state assets). The viewBox is
- *  re-centred so the blobs stay framed at any ratio. */
-export function getEmptyCoverImage(name: string, aspectRatio = 2 / 3): string {
-  const t = translatedBGs(name);
-  const r = bgRotation(name);
-  const { base, shade, warm } = colorCoverArt;
-  const width = 600;
-  const height = width / aspectRatio;
-  const designHeight = 800;
-  const yOffset = (designHeight - height) / 2;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ${yOffset} ${width} ${height}"><g fill="none" mask="url(#a)"><path fill="${base}" d="M0 0h${width}v${designHeight}H0z"/><path fill="${shade}" d="M0 580c120 10 180-130 270-190s220-70 290-150c80-90 140-210 120-320S520-250 420-310C340 30 250 0 160-20S-10-50-90-20s-150 70-200 140-60 150-85 230c-30 100-130 200-90 290s190 70 270 130c45-340 85-200 195-190" style="transform-origin:center;transform:translate(${t.left.x}px,${t.left.y}px) rotate(${r}deg);"/><path fill="${warm}" d="M600 1060c100 30 230 40 310-40s30-210 70-310c35-90 130-150 140-240 10-100-10-220-90-290s-200-40-300-60c-90-20-180-60-270-30S310 200 240 260C170 330 50 380 40 480s110 160 170 240c50 70 90 130 150 180 70 60 140 140 230 160" style="transform-origin:center;transform:translate(${t.right.x}px,${t.right.y}px) rotate(${r}deg);"/></g><defs><mask id="a"><path fill="white" d="M0 0h${width}v${designHeight}H0z"/></mask></defs></svg>`;
-  return svgToDataUri(svg);
-}

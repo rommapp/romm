@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
+from tests.factories import make_device_token, make_save
 
 from endpoints import device as device_endpoints
 from handler.database import db_device_handler
@@ -177,12 +178,12 @@ class TestDeviceEndpoints:
         assert response.json()["client_device_identifier"] == "install-uuid-abc123"
 
     def test_deleting_a_device_closes_its_token_sockets(
-        self, mocker, client, access_token: str, admin_user: User, add_device_token
+        self, mocker, client, access_token: str, admin_user: User
     ):
         device = db_device_handler.add_device(
             Device(id="test-device-sockets", user_id=admin_user.id, name="Handheld")
         )
-        token, _ = add_device_token(admin_user, device.id, scopes="devices.read")
+        token, _ = make_device_token(admin_user, device.id, scopes="devices.read")
         close = mocker.patch.object(
             device_endpoints, "close_client_token_sockets", AsyncMock()
         )
@@ -550,8 +551,7 @@ class TestDeviceDuplicateHandling:
     def test_allow_existing_with_reset_syncs(
         self, client, access_token: str, admin_user: User, rom
     ):
-        from handler.database import db_device_save_sync_handler, db_save_handler
-        from models.assets import Save
+        from handler.database import db_device_save_sync_handler
 
         existing = db_device_handler.add_device(
             Device(
@@ -562,17 +562,12 @@ class TestDeviceDuplicateHandling:
             )
         )
 
-        save = db_save_handler.add_save(
-            Save(
-                file_name="test.sav",
-                file_name_no_tags="test",
-                file_name_no_ext="test",
-                file_extension="sav",
-                file_path="/saves",
-                file_size_bytes=100,
-                rom_id=rom.id,
-                user_id=admin_user.id,
-            )
+        save = make_save(
+            rom,
+            admin_user,
+            "test.sav",
+            file_path="/saves",
+            file_size_bytes=100,
         )
         db_device_save_sync_handler.upsert_sync(device_id=existing.id, save_id=save.id)
 

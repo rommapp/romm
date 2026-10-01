@@ -10,6 +10,7 @@ from datetime import timedelta
 
 import pytest
 from fastapi import status
+from tests.factories import make_rom
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import roms as rom_endpoints
@@ -26,7 +27,7 @@ from models.permission import (
     PermissionGroup,
     PermissionGroupGrant,
 )
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import RomFile, RomFileCategory
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
 
@@ -368,18 +369,7 @@ def test_note_on_hidden_rom_not_reachable_via_visible_rom_path(
 ):
     # The path rom only authorizes itself: a note belonging to a hidden rom must
     # not be reachable by pairing its id with a visible rom in the path.
-    hidden = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="hidden_rom",
-            slug="hidden_rom_slug",
-            fs_name="hidden_rom.zip",
-            fs_name_no_tags="hidden_rom",
-            fs_name_no_ext="hidden_rom",
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    hidden = make_rom(platform, "hidden_rom")
     note = db_rom_handler.create_rom_note(
         rom_id=hidden.id, user_id=viewer_user.id, title="secret"
     )

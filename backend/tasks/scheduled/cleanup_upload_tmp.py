@@ -1,7 +1,12 @@
 import shutil
 import time
 
-from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
+from config import (
+    ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP,
+    ROM_UPLOAD_TMP_BASE,
+    ROM_UPLOAD_TTL,
+    SCHEDULED_CLEANUP_UPLOAD_TMP_CRON,
+)
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
 
@@ -12,9 +17,9 @@ class CleanupUploadTmpTask(PeriodicTask):
             title="Scheduled upload tmp cleanup",
             description="Cleans up orphaned chunked-upload temp directories",
             task_type=TaskType.CLEANUP,
-            enabled=True,
+            enabled=ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP,
             manual_run=False,
-            cron_string="0 * * * *",  # Every hour
+            cron_string=SCHEDULED_CLEANUP_UPLOAD_TMP_CRON,
         )
 
     async def run(self) -> None:

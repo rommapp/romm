@@ -90,19 +90,6 @@ class HLTBGame(TypedDict):
     release_world: int
 
 
-class HLTBSearchResponse(TypedDict):
-    color: str
-    title: str
-    category: str
-    count: int
-    pageCurrent: int
-    pageTotal: int
-    pageSize: int
-    data: list[HLTBGame]
-    userData: list[Any]
-    displayModifier: str | None
-
-
 class HLTBMetadata(TypedDict):
     main_story: NotRequired[int]
     main_story_count: NotRequired[int]
@@ -117,28 +104,6 @@ class HLTBMetadata(TypedDict):
     review_count: NotRequired[int]
     popularity: NotRequired[int]
     completions: NotRequired[int]
-
-
-class HLTBPriceCheckRequest(TypedDict):
-    steamId: int
-    itchId: int
-
-
-class HLTBStorePrice(TypedDict):
-    id: NotRequired[int]
-    url: NotRequired[str]
-    symbol: NotRequired[str]
-    basePrice: NotRequired[float]
-    price: NotRequired[float]
-    onSale: NotRequired[bool]
-    discount: NotRequired[str]
-
-
-class HLTBPriceCheckResponse(TypedDict):
-    region: str
-    gog: HLTBStorePrice
-    steam: HLTBStorePrice
-    itch: HLTBStorePrice
 
 
 class HLTBRom(BaseRom):
@@ -773,65 +738,6 @@ class HLTBHandler(MetadataHandler):
             raise _format_changed("the game record is not in the expected shape")
 
         return game_data
-
-    async def price_check(
-        self, hltb_id: int, steam_id: int = 0, itch_id: int = 0
-    ) -> HLTBPriceCheckResponse | None:
-        """
-        Check prices for a game on different platforms.
-
-        :param hltb_id: The HowLongToBeat game ID.
-        :param steam_id: The Steam app ID (optional).
-        :param itch_id: The Itch.io game ID (optional).
-        :return: A HLTBPriceCheckResponse object or None if the request fails.
-        """
-        if not HLTB_API_ENABLED:
-            log.debug("HowLongToBeat API is disabled")
-            return None
-
-        if not hltb_id:
-            log.debug("No HLTB ID provided for price check")
-            return None
-
-        price_check_url = f"{self.base_url}/api/price-checks/{hltb_id}"
-
-        payload = {"steamId": steam_id, "itchId": itch_id}
-
-        try:
-            log.debug(
-                "HowLongToBeat price check request: HLTB_ID=%s, Steam_ID=%s, Itch_ID=%s",
-                hltb_id,
-                steam_id,
-                itch_id,
-            )
-
-            response = await self._request(price_check_url, payload)
-
-            if not response:
-                log.debug(f"No price data returned for HLTB ID: {hltb_id}")
-                return None
-
-            # Validate response structure
-            if not isinstance(response, dict) or "region" not in response:
-                log.warning(
-                    f"Invalid price check response format for HLTB ID: {hltb_id}"
-                )
-                return None
-
-            # Create typed response with defaults for missing store data
-            price_response = HLTBPriceCheckResponse(
-                region=response.get("region", ""),
-                gog=response.get("gog", {}),
-                steam=response.get("steam", {}),
-                itch=response.get("itch", {}),
-            )
-
-            log.debug(f"Successfully retrieved price data for HLTB ID: {hltb_id}")
-            return price_response
-
-        except Exception as exc:
-            log.error("Error fetching price data from HowLongToBeat API: %s", exc)
-            return None
 
 
 class SlugToHLTBPlatform(TypedDict):

@@ -6,7 +6,6 @@ from typing import Annotated
 from fastapi import File, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, UploadFile, status
-from pydantic import BaseModel
 from starlette.background import BackgroundTask
 from starlette.responses import FileResponse
 
@@ -34,12 +33,6 @@ router = APIRouter()
 # Read the uploaded patch in bounded chunks so a large upload can't be held
 # fully in memory before the size check kicks in.
 _UPLOAD_CHUNK_SIZE = 1024 * 1024
-
-
-class PatchResponse(BaseModel):
-    message: str
-    output_file_name: str
-    output_file_size: int
 
 
 @protected_route(

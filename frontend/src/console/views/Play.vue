@@ -11,7 +11,7 @@ import {
   nextTick,
 } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute, useRouter } from "vue-router";
+import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import type { FirmwareSchema } from "@/__generated__";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
@@ -33,6 +33,7 @@ import {
   getDownloadPath,
 } from "@/utils";
 import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
+import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
 import {
   buildStateFormData,
   resolveScreenshot,
@@ -750,6 +751,9 @@ onMounted(async () => {
   detachKey = attachKeyboardExit();
   detachPad = attachGamepadExit();
 });
+
+// The unmount below reloads the page.
+onBeforeRouteLeave(leaveFullscreen);
 
 onBeforeUnmount(() => {
   window.EJS_emulator?.callEvent?.("exit");

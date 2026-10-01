@@ -23,6 +23,7 @@ dependencies = [
   "bcrypt ~= 5.0",
   "certifi >= 2024.7.4",
   "colorama ~= 0.4",
+  "croniter ~= 6.2",
   "cryptography>=49,<51",
   "defusedxml ~= 0.7",
   "fastapi[standard-no-fastapi-cloud-cli] ~= 0.141.1",
@@ -68,6 +69,7 @@ dev = [
   "pyinstrument ~= 5.0",
   "types-authlib ~= 1.8.0",
   "types-colorama ~= 0.4",
+  "types-croniter ~= 6.2",
   "types-defusedxml ~= 0.7",
   "types-pyyaml ~= 6.0",
 ]

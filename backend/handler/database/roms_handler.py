@@ -40,11 +40,12 @@ from sqlalchemy.orm import (
     selectinload,
     undefer,
 )
-from sqlalchemy.sql.elements import ClauseList, ColumnElement, UnaryExpression
+from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
 
 from config.config_manager import config_manager as cm
 from decorators.database import INJECTED_SESSION, begin_session
+from exceptions.database_exceptions import RomFileOwnerChangedError
 from handler.database.rom_filters import (
     ROM_FILTER_SPECS,
     FilterKind,
@@ -83,13 +84,17 @@ from models.rom import (
 )
 from utils import get_version
 from utils.database import (
-    LIKE_ESCAPE_CHAR,
+    ROMS_SEARCH_FULLTEXT_COLUMNS,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
-    escape_like,
     is_non_blank,
     release_day_ranges,
     rom_unset_flag_column,
+)
+from utils.fulltext import (
+    FULLTEXT_TOKEN_REGEX,
+    fulltext_settings,
+    split_fulltext_words,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.sql_dialect import (
@@ -102,7 +107,7 @@ from utils.sql_dialect import (
     nulls_last,
 )
 
-from .base_handler import DBBaseHandler, affected_rows
+from .base_handler import DBBaseHandler, affected_rows, sync_engine
 
 type RomSelect = Select[tuple[Rom]]
 
@@ -160,12 +165,6 @@ EJS_SUPPORTED_PLATFORMS = [
 RUFFLE_SUPPORTED_PLATFORMS = [
     UPS.BROWSER,
 ]
-
-# Used to remove native full-text SQL operators
-FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
-
-# 3 is the default minimum size in InnoDB
-FULLTEXT_MIN_TOKEN_SIZE = 3
 
 # A term reaches the hash columns only when it is hex of exactly a digest
 # length, so an ordinary name search builds no hash SQL at all. Hashes are
@@ -230,10 +229,32 @@ def _nulls_last_ordering(
     return None, nulls_last(sort_key, descending)
 
 
+# What a gallery search term is matched against, on every engine.
+ROM_SEARCH_COLUMNS: tuple[QueryableAttribute[Any], ...] = tuple(
+    getattr(Rom, column) for column in ROMS_SEARCH_FULLTEXT_COLUMNS
+)
+
+
+def _name_like(word: str) -> ColumnElement[bool]:
+    return or_(
+        *(column.icontains(word, autoescape=True) for column in ROM_SEARCH_COLUMNS)
+    )
+
+
 def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
-    """A MariaDB/MySQL FULLTEXT match of the ROM's name and filename."""
+    """A MariaDB/MySQL FULLTEXT match of the ROM's name, filename and aliases."""
     return fulltext_match(
-        Rom.name.expression, Rom.fs_name.expression, boolean_query=boolean_query
+        *(column.expression for column in ROM_SEARCH_COLUMNS),
+        boolean_query=boolean_query,
+    )
+
+
+def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
+    """How well the ROM's name, filename or aliases hold the phrases, words in order."""
+    holds_a_phrase = or_(*(_name_like(phrase) for phrase in phrases))
+    return DialectCase(
+        postgresql=case((holds_a_phrase, 1), else_=0),
+        mysql=_fulltext_match(" ".join(f'"{phrase}"' for phrase in phrases)),
     )
 
 
@@ -691,6 +712,39 @@ def _drop_filter_values_bump(session: Session) -> None:
     session.info.pop(FILTER_VALUES_BUMP_KEY, None)
 
 
+# Per-user cache invalidations queued by `_queue_user_cache_bumps`, keyed by
+# user id; they run once the transaction commits.
+USER_CACHE_BUMPS_KEY = "user_cache_bumps"
+
+
+@event.listens_for(Session, "after_commit")
+def _bump_user_caches_after_commit(session: Session) -> None:
+    bumps: dict[int, set[str]] = session.info.pop(USER_CACHE_BUMPS_KEY, {})
+    # No keys-set bookkeeping: entries under an old version become
+    # unreachable and are reaped by the TTL or the next global bump.
+    for uid, uid_flags in bumps.items():
+        # The write is already durable, so a cache failure only logs; the
+        # stale entry falls to the TTL.
+        try:
+            if "sort" in uid_flags:
+                sync_cache.incr(_user_sort_version_key(uid))
+            if "sib" in uid_flags:
+                sync_cache.incr(_user_sibling_version_key(uid))
+            if "feed" in uid_flags:
+                # Imported here because the recommendation package reads
+                # this module.
+                from handler.recommendation import invalidate_cached_feed
+
+                invalidate_cached_feed(uid)
+        except Exception:
+            log.exception("Failed to bump user %s cache versions", uid)
+
+
+@event.listens_for(Session, "after_rollback")
+def _drop_user_cache_bumps(session: Session) -> None:
+    session.info.pop(USER_CACHE_BUMPS_KEY, None)
+
+
 def _queue_user_cache_bumps(
     session: Session,
     user_id: int,
@@ -702,47 +756,12 @@ def _queue_user_cache_bumps(
     """Queues per-user cache invalidations for after this transaction
     commits, so a rollback bumps nothing and a concurrent reader cannot
     cache pre-commit rows under the new version."""
-    bumps: dict[int, set[str]] = session.info.setdefault("user_cache_bumps", {})
-    flags = bumps.setdefault(user_id, set())
-    flags.update(
+    bumps: dict[int, set[str]] = session.info.setdefault(USER_CACHE_BUMPS_KEY, {})
+    bumps.setdefault(user_id, set()).update(
         flag
         for flag, queued in (("sort", sort_keys), ("sib", siblings), ("feed", feed))
         if queued
     )
-    if "user_cache_bumps_armed" in session.info:
-        return
-    session.info["user_cache_bumps_armed"] = True
-
-    def _consume(ending_session: Session) -> dict[int, set[str]]:
-        # Popping the state re-arms the next transaction on a reused session.
-        ending_session.info.pop("user_cache_bumps_armed", None)
-        bumps: dict[int, set[str]] = ending_session.info.pop("user_cache_bumps", {})
-        return bumps
-
-    @event.listens_for(session, "after_commit", once=True)
-    def _flush(_session: Session) -> None:
-        # No keys-set bookkeeping: entries under an old version become
-        # unreachable and are reaped by the TTL or the next global bump.
-        for uid, uid_flags in _consume(_session).items():
-            # The write is already durable, so a cache failure only logs;
-            # the stale entry falls to the TTL.
-            try:
-                if "sort" in uid_flags:
-                    sync_cache.incr(_user_sort_version_key(uid))
-                if "sib" in uid_flags:
-                    sync_cache.incr(_user_sibling_version_key(uid))
-                if "feed" in uid_flags:
-                    # Imported here because the recommendation package reads
-                    # this module.
-                    from handler.recommendation import invalidate_cached_feed
-
-                    invalidate_cached_feed(uid)
-            except Exception:
-                log.exception("Failed to bump user %s cache versions", uid)
-
-    @event.listens_for(session, "after_rollback", once=True)
-    def _discard(_session: Session) -> None:
-        _consume(_session)
 
 
 class DBRomsHandler(DBBaseHandler):
@@ -1125,47 +1144,40 @@ class DBRomsHandler(DBBaseHandler):
             )
         )
 
-    def _build_fulltext_boolean_query(self, term: str) -> str | None:
-        words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
-        if not words or any(len(word) < FULLTEXT_MIN_TOKEN_SIZE for word in words):
-            return None
-        return " ".join(f"+{word}*" for word in words)
-
-    def _build_fulltext_relevance(self, search_term: str) -> str | None:
-        parts: list[str] = []
+    def _build_search_phrases(self, search_term: str) -> list[str]:
+        """The multi-word terms of a search, which relevance ranks by."""
+        phrases: list[str] = []
         for term in search_term.split("|"):
-            words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
+            words = FULLTEXT_TOKEN_REGEX.findall(term)
             if len(words) > 1:
-                parts.append('"' + " ".join(words) + '"')
-        return " ".join(parts) if parts else None
+                phrases.append(" ".join(words))
+        return phrases
 
     def _build_name_conditions(self, terms: Sequence[str]) -> list[Any]:
-        """One condition per term, matching it against the ROM's name and filename."""
-        # PostgreSQL's pg_trgm indexes serve the ILIKE; MariaDB and MySQL use
-        # their FULLTEXT index unless a word is too short for it.
-        like_conditions = [
-            and_(
-                *(
-                    or_(Rom.fs_name.ilike(f"%{word}%"), Rom.name.ilike(f"%{word}%"))
-                    for word in term.split()
+        """One condition per term, matching it against the ROM's name, filename and aliases."""
+        settings = fulltext_settings(sync_engine)
+        conditions: list[Any] = []
+        for term in terms:
+            words = term.split()
+            likes = {word: _name_like(word) for word in words}
+            like = and_(*likes.values())
+            # Unreadable settings leave LIKE alone to decide.
+            indexed, unindexed = (
+                split_fulltext_words(words, settings) if settings else ([], words)
+            )
+            if not indexed:
+                conditions.append(like)
+                continue
+            # PostgreSQL's pg_trgm indexes serve the ILIKE. On MariaDB and MySQL
+            # FULLTEXT drives the query and LIKE checks the words it can't hold.
+            match = _fulltext_match(" ".join(f"+{word}*" for word in indexed))
+            conditions.append(
+                DialectCase(
+                    postgresql=like,
+                    mysql=and_(match, *(likes[word] for word in unindexed)),
                 )
             )
-            for term in terms
-        ]
-        boolean_queries = [
-            query
-            for term in terms
-            if (query := self._build_fulltext_boolean_query(term)) is not None
-        ]
-        if len(boolean_queries) < len(terms):
-            return like_conditions
-
-        return [
-            DialectCase(postgresql=like, mysql=_fulltext_match(boolean_query))
-            for boolean_query, like in zip(
-                boolean_queries, like_conditions, strict=True
-            )
-        ]
+        return conditions
 
     def _build_hash_selects(self, terms: Iterable[str]) -> list[Select[tuple[int]]]:
         """Id-yielding selects for terms shaped like a hash digest.
@@ -1841,23 +1853,20 @@ class DBRomsHandler(DBBaseHandler):
         # mixed-direction pair forces a filesort.
         tiebreaker = Rom.id.desc() if descending else Rom.id.asc()
 
-        relevance = self._build_fulltext_relevance(search_term) if search_term else None
-        if relevance:
-            relevance_clause = _fulltext_match(relevance).desc()
-            # Only the FULLTEXT engines rank: relevance breaks an explicit sort's
-            # ties, or leads (with name breaking its ties) when no sort is picked.
-            order_clause = DialectCase(
-                postgresql=order_clause,
-                mysql=(
-                    ClauseList(order_clause, relevance_clause)
-                    if order_by
-                    else ClauseList(relevance_clause, order_clause)
-                ),
-            )
+        sort_clauses: list[Any] = [order_clause]
+        phrases = self._build_search_phrases(search_term) if search_term else []
+        if phrases:
+            # Relevance breaks an explicit sort's ties, or leads (with name
+            # breaking its ties) when no sort is picked.
+            relevance_clause = _search_relevance(phrases).desc()
+            if order_by:
+                sort_clauses.append(relevance_clause)
+            else:
+                sort_clauses.insert(0, relevance_clause)
 
         return [
             clause
-            for clause in (nulls_last_clause, order_clause, tiebreaker)
+            for clause in (nulls_last_clause, *sort_clauses, tiebreaker)
             if clause is not None
         ]
 
@@ -2405,14 +2414,6 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_rom_user_by_id(
-        self,
-        id: int,
-        session: Session = INJECTED_SESSION,
-    ) -> RomUser | None:
-        return session.scalar(select(RomUser).filter_by(id=id).limit(1))
-
-    @begin_session
     def update_rom_user(
         self,
         id: int,
@@ -2460,18 +2461,46 @@ class DBRomsHandler(DBBaseHandler):
 
         return rom_user
 
-    def _lock_rom_row(self, rom_id: int, session: Session) -> None:
-        """Serialise writers of one rom's files so each size total counts the others'."""
-        # Taken before the file write, whose foreign key check would otherwise
-        # share-lock the row first and deadlock two writers on MariaDB.
-        session.execute(
-            select(Rom.id).where(Rom.id == rom_id).with_for_update(key_share=True)
+    def _lock_rom_file_and_roms(
+        self, rom_file_id: int, other_rom_ids: Iterable[int], session: Session
+    ) -> set[int] | None:
+        """Lock a file's owning rom and `other_rom_ids`, then the file row.
+
+        Returns:
+            Every rom id locked, or None if the file does not exist.
+
+        Raises:
+            RomFileOwnerChangedError: a concurrent move changed the owner first.
+        """
+        # All rom locks go in one sorted batch before the file lock, the order
+        # folder conversion writes in, so no two writers can wait on each other.
+        owner = session.scalar(select(RomFile.rom_id).where(RomFile.id == rom_file_id))
+        if owner is None:
+            return None
+        locked = {owner, *other_rom_ids}
+        self._lock_rom_rows(locked, session)
+        confirmed = session.scalar(
+            select(RomFile.rom_id).where(RomFile.id == rom_file_id).with_for_update()
         )
+        if confirmed is None:
+            return None
+        if confirmed not in locked:
+            raise RomFileOwnerChangedError(rom_file_id)
+        return locked
+
+    def _lock_rom_rows(self, rom_ids: Iterable[int], session: Session) -> None:
+        """Serialise writers of these roms' files so each size total counts the others'."""
+        # Taken before the file write, whose foreign key check would otherwise
+        # share-lock the row first; in id order so two moves cannot deadlock.
+        for rom_id in sorted(set(rom_ids)):
+            session.execute(
+                select(Rom.id).where(Rom.id == rom_id).with_for_update(key_share=True)
+            )
 
     def _recompute_fs_size_bytes(self, rom_id: int, session: Session) -> None:
         """Re-derive the size the gallery sorts on from the rom's file rows."""
         # Summed inside the UPDATE, which MariaDB reads with locks rather than
-        # from the transaction snapshot; the caller holds `_lock_rom_row`.
+        # from the transaction snapshot; the caller holds `_lock_rom_rows`.
         total = (
             select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
             .where(RomFile.rom_id == rom_id)
@@ -2491,10 +2520,18 @@ class DBRomsHandler(DBBaseHandler):
         rom_file: RomFile,
         session: Session = INJECTED_SESSION,
     ) -> RomFile:
-        self._lock_rom_row(rom_file.rom_id, session)
+        rom_ids = (
+            self._lock_rom_file_and_roms(rom_file.id, [rom_file.rom_id], session)
+            if rom_file.id is not None
+            else None
+        )
+        if rom_ids is None:
+            rom_ids = {rom_file.rom_id}
+            self._lock_rom_rows(rom_ids, session)
         merged = session.merge(rom_file)
         session.flush()
-        self._recompute_fs_size_bytes(merged.rom_id, session)
+        for rom_id in sorted(rom_ids):
+            self._recompute_fs_size_bytes(rom_id, session)
         return merged
 
     def _apply_scanned_rom_file(
@@ -2738,13 +2775,10 @@ class DBRomsHandler(DBBaseHandler):
         data: dict[str, Any],
         session: Session = INJECTED_SESSION,
     ) -> RomFile | None:
-        resized_rom_id = (
-            session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
-            if "file_size_bytes" in data
-            else None
-        )
-        if resized_rom_id is not None:
-            self._lock_rom_row(resized_rom_id, session)
+        rom_ids: set[int] = set()
+        if data.keys() & {"file_size_bytes", "rom_id"}:
+            new_owner = [data["rom_id"]] if "rom_id" in data else []
+            rom_ids = self._lock_rom_file_and_roms(id, new_owner, session) or set()
 
         session.execute(
             update(RomFile)
@@ -2753,8 +2787,8 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        if resized_rom_id is not None:
-            self._recompute_fs_size_bytes(resized_rom_id, session)
+        for rom_id in sorted(rom_ids):
+            self._recompute_fs_size_bytes(rom_id, session)
         return session.scalars(select(RomFile).filter_by(id=id)).one_or_none()
 
     @begin_session
@@ -2776,14 +2810,6 @@ class DBRomsHandler(DBBaseHandler):
         session.add(track)
         session.flush()
         return track
-
-    @begin_session
-    def delete_track_meta(
-        self,
-        rom_file_id: int,
-        session: Session = INJECTED_SESSION,
-    ) -> None:
-        session.execute(delete(TrackMeta).where(TrackMeta.rom_file_id == rom_file_id))
 
     # ------------------------------------------------------- document metadata
 
@@ -2888,12 +2914,11 @@ class DBRomsHandler(DBBaseHandler):
         if rom_id is not None:
             clauses.append(Rom.id == rom_id)
         if search:
-            like = f"%{escape_like(search.lower())}%"
             clauses.append(
                 or_(
-                    func.lower(TrackMeta.title).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.artist).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.album).like(like, escape=LIKE_ESCAPE_CHAR),
+                    TrackMeta.title.icontains(search, autoescape=True),
+                    TrackMeta.artist.icontains(search, autoescape=True),
+                    TrackMeta.album.icontains(search, autoescape=True),
                 )
             )
         if artist and exclude_field != "artist":
@@ -3085,11 +3110,7 @@ class DBRomsHandler(DBBaseHandler):
             where.append(func.length(func.trim(col)) > 0)
         if search:
             target = cast(col, String) if field == "years" else col
-            where.append(
-                func.lower(target).like(
-                    f"%{escape_like(search.lower())}%", escape=LIKE_ESCAPE_CHAR
-                )
-            )
+            where.append(target.icontains(search, autoescape=True))
         count_col = func.count().label("count")
         base = (
             select(col.label("value"), count_col)
@@ -3267,11 +3288,7 @@ class DBRomsHandler(DBBaseHandler):
             max_duration=max_duration,
         )
         if search:
-            where.append(
-                func.lower(Platform.name).like(
-                    f"%{escape_like(search.lower())}%", escape=LIKE_ESCAPE_CHAR
-                )
-            )
+            where.append(Platform.name.icontains(search, autoescape=True))
         count_col = func.count().label("count")
         base = self._music_facet_joins(
             select(
@@ -3334,13 +3351,12 @@ class DBRomsHandler(DBBaseHandler):
             max_duration=max_duration,
         )
         if search:
-            like = f"%{escape_like(search.lower())}%"
             where.append(
                 or_(
-                    func.lower(Rom.name).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.title).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.artist).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.album).like(like, escape=LIKE_ESCAPE_CHAR),
+                    Rom.name.icontains(search, autoescape=True),
+                    TrackMeta.title.icontains(search, autoescape=True),
+                    TrackMeta.artist.icontains(search, autoescape=True),
+                    TrackMeta.album.icontains(search, autoescape=True),
                 )
             )
         count_col = func.count().label("count")
@@ -3380,16 +3396,16 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
-        rom_id = session.scalar(select(RomFile.rom_id).where(RomFile.id == id))
-        if rom_id is None:
+        rom_ids = self._lock_rom_file_and_roms(id, [], session)
+        if rom_ids is None:
             return
-        self._lock_rom_row(rom_id, session)
         session.execute(
             delete(RomFile)
             .where(RomFile.id == id)
             .execution_options(synchronize_session="evaluate")
         )
-        self._recompute_fs_size_bytes(rom_id, session)
+        for rom_id in sorted(rom_ids):
+            self._recompute_fs_size_bytes(rom_id, session)
 
     # Note management methods
     def _rom_notes_query(
@@ -3411,7 +3427,10 @@ class DBRomsHandler(DBBaseHandler):
 
         if search:
             query = query.filter(
-                or_(RomNote.title.contains(search), RomNote.content.contains(search))
+                or_(
+                    RomNote.title.contains(search, autoescape=True),
+                    RomNote.content.contains(search, autoescape=True),
+                )
             )
 
         if tags:

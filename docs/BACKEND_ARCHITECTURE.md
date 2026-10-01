@@ -348,6 +348,7 @@ backend/
 │
 ├── tests/                     # Test suite
 │   ├── conftest.py            # Pytest fixtures
+│   ├── factories.py           # make_* factories that persist test rows
 │   └── ...                    # Mirrors backend structure
 │
 └── romm_test/                 # Test fixtures & data
@@ -437,6 +438,10 @@ collation default. MySQL has no CI coverage.
 Query SQL that differs between engines lives in `utils/sql_dialect.py`
 (`DialectCase` and the helpers built on it), which picks each engine's spelling
 when the statement compiles. Handlers don't branch on `ROMM_DB_DRIVER`.
+
+`utils/fulltext.py` reads InnoDB's full-text token sizes and stopwords from the
+server and splits search words the way its parser does, so a search can require
+the words a FULLTEXT index holds and check the rest with `LIKE`.
 
 ### Engine & Session Setup
 
@@ -1676,17 +1681,20 @@ failure callback and a scan needs one to report a worker that died mid-scan.
 
 Toggled via environment variables:
 
-| Task                              | Env Toggle                                         | Default Cron       | Description            |
-| --------------------------------- | -------------------------------------------------- | ------------------ | ---------------------- |
-| `scan_library`                    | `ENABLE_SCHEDULED_RESCAN`                          | `0 3 * * *` (3 AM) | Full library rescan    |
-| `update_switch_titledb`           | `ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB`           | `0 4 * * *`        | Update Switch game DB  |
-| `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`       | `0 4 * * *`        | Refresh LaunchBox data |
-| `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`          | `0 4 * * *`        | Image optimization     |
-| `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
-| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
-| `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
-| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup     | `* * * * *`        | Stop abandoned streams |
-| `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)    | `30 4 * * *`       | Prune old audit events |
+| Task                              | Env Toggle                                            | Default Cron       | Description            |
+| --------------------------------- | ----------------------------------------------------- | ------------------ | ---------------------- |
+| `scan_library`                    | `ENABLE_SCHEDULED_RESCAN`                             | `0 3 * * *` (3 AM) | Full library rescan    |
+| `update_switch_titledb`           | `ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB`              | `0 4 * * *`        | Update Switch game DB  |
+| `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`          | `0 4 * * *`        | Refresh LaunchBox data |
+| `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`             | `0 4 * * *`        | Image optimization     |
+| `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC`    | `0 4 * * *`        | Sync RA user progress  |
+| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`         | `0 5 * * *`        | Remove unused artwork  |
+| `cleanup_netplay`                 | `ENABLE_SCHEDULED_CLEANUP_NETPLAY` (default on)       | `*/30 * * * *`     | Clean empty rooms      |
+| `cleanup_upload_tmp`              | `ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP` (default on)    | `0 * * * *`        | Drop stale uploads     |
+| `cleanup_zip_cache`               | `ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE` (default on)     | `0 4 * * *`        | Drop stale cached ZIPs |
+| `cleanup_sync_sessions`           | `ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS` (default on) | `23 * * * *`       | Fail abandoned syncs   |
+| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup        | `* * * * *`        | Stop abandoned streams |
+| `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)       | `30 4 * * *`       | Prune old audit events |
 
 ### Manual Tasks
 
@@ -2026,11 +2034,9 @@ Exception
 ├── CollectionNotFoundInDatabaseException  # 404
 ├── CollectionPermissionError              # 403
 ├── CollectionAlreadyExistsException       # 500
-├── RomNotFoundInRetroAchievementsException # 404
 ├── SGDBInvalidAPIKeyException             # 401
 │
 ├── FolderStructureNotMatchException  # Invalid library layout
-├── PlatformNotFoundException         # Platform not found in FS
 ├── PlatformAlreadyExistsException    # Duplicate platform
 ├── RomsNotFoundException             # No ROMs for platform
 ├── RomAlreadyExistsException         # Duplicate ROM
