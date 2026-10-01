@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 from enum import Enum
 from typing import Any, Final, cast
 from uuid import uuid4
-from weakref import WeakKeyDictionary
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
@@ -86,9 +85,6 @@ class _PerLoopFakeAsyncRedis:
     def __init__(self, server: Any) -> None:
         self._server = server
         self._by_thread = threading.local()
-        self._by_loop: WeakKeyDictionary[asyncio.AbstractEventLoop, Any] = (
-            WeakKeyDictionary()
-        )
 
     def _new_client(self) -> Any:
         from fakeredis import FakeAsyncRedis
@@ -103,9 +99,12 @@ class _PerLoopFakeAsyncRedis:
             if client is None:
                 client = self._by_thread.client = self._new_client()
             return client
-        client = self._by_loop.get(loop)
+        # Held on the loop, not in a map keyed by it: the client's asyncio
+        # objects reference the loop, so such a map would never let one go.
+        client = getattr(loop, "_romm_fake_async_redis", None)
         if client is None:
-            client = self._by_loop[loop] = self._new_client()
+            client = self._new_client()
+            loop._romm_fake_async_redis = client
         return client
 
     def __getattr__(self, name: str) -> Any:
