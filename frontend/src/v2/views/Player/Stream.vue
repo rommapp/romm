@@ -1266,23 +1266,6 @@ async function exitWithoutSaving(): Promise<void> {
   (leave ?? backToRom)();
 }
 
-// Dialogs have no automatic spatial navigation, so cycle focus between
-// the action buttons on arrow keys (the d-pad arrives as synthetic
-// ArrowLeft/ArrowRight keydowns from useGamepad).
-function onExitDialogKeydown(event: KeyboardEvent): void {
-  const arrows = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
-  if (!arrows.includes(event.key)) return;
-  const root = event.currentTarget as HTMLElement;
-  const buttons = Array.from(
-    root.querySelectorAll<HTMLElement>("button:not([disabled])"),
-  );
-  if (buttons.length === 0) return;
-  const idx = buttons.indexOf(document.activeElement as HTMLElement);
-  const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1;
-  buttons[(idx + step + buttons.length) % buttons.length]?.focus();
-  event.preventDefault();
-}
-
 // useGamepad is muted for the whole session (launch included), so its
 // Select+Start hold is the pad's only way to the exit dialog.
 useEventListener(window, "gamepad:exitchord", () => void openExitDialog());
@@ -1837,7 +1820,7 @@ onBeforeUnmount(() => {
       </template>
       <template #footer>
         <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- arrow keys rove focus between this container's real buttons, which stay the interactive elements; the listener sits here to catch keydowns bubbling from either of them -->
-        <div class="r-v2-stream__exit-actions" @keydown="onExitDialogKeydown">
+        <div class="r-v2-stream__exit-actions">
           <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and the least destructive action is the intended target -->
           <RBtn
             autofocus
