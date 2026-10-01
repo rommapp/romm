@@ -61,6 +61,7 @@ from models.collection import Collection, CollectionRom, SmartCollection
 from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
 from models.rom import (
+    ALTERNATIVE_NAME_SOURCES,
     METADATA_SOURCE_FACET_COLUMNS,
     ROM_IS_IDENTIFIED,
     Rom,
@@ -104,6 +105,7 @@ from utils.sql_dialect import (
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
+    json_titles_contain_folded,
     nulls_last,
 )
 
@@ -247,6 +249,37 @@ def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
         *(column.expression for column in ROM_SEARCH_COLUMNS),
         boolean_query=boolean_query,
     )
+
+
+def _search_terms(search_term: str) -> list[str]:
+    """The `|`-separated alternatives of a search, blanks dropped."""
+    return [term for term in (part.strip() for part in search_term.split("|")) if term]
+
+
+def _search_rank(terms: Sequence[str]) -> ColumnElement[int]:
+    """2 when the name or an alias equals a term, 1 when the name starts with one, else 0."""
+    folded = [" ".join(term.split()).lower() for term in terms]
+    exact = or_(
+        *(
+            or_(
+                func.lower(Rom.name) == term,
+                # The joined aliases sit in the row; the provider blobs they come
+                # from are only read when they can hold the term.
+                and_(
+                    Rom.generated_search_aliases.icontains(term, autoescape=True),
+                    or_(
+                        *(
+                            json_titles_contain_folded(getattr(Rom, column), key, term)
+                            for column, key in ALTERNATIVE_NAME_SOURCES
+                        )
+                    ),
+                ),
+            )
+            for term in folded
+        )
+    )
+    prefix = or_(*(Rom.name.istartswith(term, autoescape=True) for term in folded))
+    return case((exact, 2), (prefix, 1), else_=0)
 
 
 def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
@@ -1195,8 +1228,7 @@ class DBRomsHandler(DBBaseHandler):
         ]
 
     def _filter_by_search_term[S: Select[Any]](self, query: S, search_term: str) -> S:
-        terms = [term.strip() for term in search_term.split("|")]
-        terms = [term for term in terms if term]
+        terms = _search_terms(search_term)
         if not terms:
             return query
 
@@ -1847,14 +1879,16 @@ class DBRomsHandler(DBBaseHandler):
 
         sort_clauses: list[Any] = [order_clause]
         phrases = self._build_search_phrases(search_term) if search_term else []
-        if phrases:
+        if search_term and phrases:
             # Relevance breaks an explicit sort's ties, or leads (with name
-            # breaking its ties) when no sort is picked.
+            # breaking its ties) when no sort is picked. The rank, which reads
+            # provider metadata, joins it only in the lead.
             relevance_clause = _search_relevance(phrases).desc()
             if order_by:
                 sort_clauses.append(relevance_clause)
             else:
-                sort_clauses.insert(0, relevance_clause)
+                rank_clause = _search_rank(_search_terms(search_term)).desc()
+                sort_clauses[:0] = [rank_clause, relevance_clause]
 
         return [
             clause

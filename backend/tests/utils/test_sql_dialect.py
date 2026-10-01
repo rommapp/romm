@@ -23,6 +23,7 @@ from utils.sql_dialect import (
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
+    json_titles_contain_folded,
     nulls_last,
 )
 
@@ -220,6 +221,55 @@ class TestJsonArrayContainsOnTheRunningEngine:
         statement = (
             sa.select(tagged.c.id).where(build(tagged.c.tags)).order_by(tagged.c.id)
         )
+
+        with sync_engine.connect() as connection:
+            assert list(connection.scalars(statement)) == expected
+
+
+class TestJsonTitlesContainFoldedOnTheRunningEngine:
+    @pytest.fixture
+    def titled(self) -> Iterator[sa.Table]:
+        table = sa.Table(
+            "sql_dialect_titled",
+            sa.MetaData(),
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("meta", CustomJSON()),
+        )
+        with sync_engine.begin() as connection:
+            # An interrupted run can leave the table behind in the shared test DB.
+            table.drop(connection, checkfirst=True)
+            table.create(connection)
+            connection.execute(
+                table.insert(),
+                [
+                    {"id": 1, "meta": {"titles": ["Final Fantasy 7", "FF7"]}},
+                    {"id": 2, "meta": {"titles": ["Crisis Core: Final Fantasy 7"]}},
+                    {"id": 3, "meta": {"titles": "Final Fantasy 7"}},
+                    {"id": 4, "meta": {}},
+                    {"id": 5, "meta": None},
+                    {"id": 6, "meta": {"titles": ['Say "Final Fantasy 7"', "Pokémon"]}},
+                ],
+            )
+        yield table
+        with sync_engine.begin() as connection:
+            table.drop(connection)
+
+    @pytest.mark.parametrize(
+        ("title", "expected"),
+        [
+            # Whole titles only: a title that merely holds the words is no match.
+            ("final fantasy 7", [1, 3]),
+            ("ff7", [1]),
+            ('say "final fantasy 7"', [6]),
+            ("pokémon", [6]),
+            ("final fantasy", []),
+        ],
+    )
+    def test_matches_whole_titles_ignoring_case(
+        self, titled: sa.Table, title: str, expected: list[int]
+    ):
+        condition = json_titles_contain_folded(titled.c.meta, "titles", title)
+        statement = sa.select(titled.c.id).where(condition).order_by(titled.c.id)
 
         with sync_engine.connect() as connection:
             assert list(connection.scalars(statement)) == expected

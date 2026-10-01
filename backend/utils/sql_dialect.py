@@ -181,6 +181,33 @@ def json_array_contains_all(
     )
 
 
+def json_titles_contain_folded(
+    column: SQLColumnExpression[Any], key: str, title: str
+) -> ColumnElement[bool]:
+    """Whether a JSON object's `key` array of titles holds `title`, ignoring case.
+
+    Args:
+        title: Already lowercased.
+    """
+    needle = json.dumps(title)
+    return DialectCase(
+        postgresql=func.coalesce(
+            sa.cast(
+                func.lower(sa.cast(_jsonb(column)[key], sa.Text)), sa_pg.JSONB
+            ).contains(sa.cast(sa.literal(needle), sa_pg.JSONB)),
+            sa.false(),
+        ),
+        # JSON_CONTAINS compares the parsed values, so lowering the JSON text
+        # leaves its escapes intact.
+        mysql=func.coalesce(
+            func.json_contains(
+                func.lower(func.json_extract(column, f"$.{key}")), needle
+            ),
+            0,
+        ),
+    )
+
+
 class Analyze(ExecutableDDLElement):
     """Refresh the planner statistics of `table`."""
 
