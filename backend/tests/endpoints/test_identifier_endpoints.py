@@ -113,7 +113,7 @@ def test_firmware_identifiers_selects_only_the_id_column(
     missing_firmware: Firmware,
     executed_statements: list[str],
 ) -> None:
-    """`list_firmware` noloads the platform, so only the projection is under test."""
+    """`list_firmware` skips loading the platform, so only the projection is under test."""
     executed_statements.clear()
     response = client.get("/api/firmware/identifiers", headers=_headers(access_token))
 
