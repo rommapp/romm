@@ -30,7 +30,6 @@ import {
 } from "@v2/lib";
 import { useEventListener, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
 import {
   computed,
   defineAsyncComponent,
@@ -49,7 +48,6 @@ import romApi from "@/services/api/rom";
 import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
 import storeConfig from "@/stores/config";
 import { useNativeStore } from "@/stores/native";
-import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
@@ -77,7 +75,10 @@ import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { useSaveStateTabs } from "@/v2/composables/useSaveStateTabs";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { useStageActive } from "@/v2/composables/useStageActive";
+import {
+  usePlayingWhile,
+  useStageActive,
+} from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { AssetType } from "@/v2/utils/assets";
 import { joinNames } from "@/v2/utils/lists";
@@ -135,10 +136,8 @@ const Player = defineAsyncComponent(
 const { t, locale } = useI18n();
 const snackbar = useSnackbar();
 const emitter = inject<Emitter<Events>>("emitter");
-const playingStore = storePlaying();
 const configStore = storeConfig();
 const nativeStore = useNativeStore();
-const { playing } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
 const playSession = usePlaySession();
@@ -199,6 +198,7 @@ const exit = usePlayerExit(
 // quiet for the full navigation it turns into.
 useUnloadGuard(() => gameRunning.value && !exit.departing.value);
 useStageActive(gameRunning);
+usePlayingWhile(gameRunning);
 onBeforeRouteLeave(exit.guard);
 
 // Stage-scoped so the non-passive listener never taxes touches elsewhere.
@@ -471,7 +471,6 @@ async function onPlay() {
 
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
-  playing.value = true;
 
   const { EJS_NETPLAY_ENABLED } = configStore.config;
   const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
@@ -500,7 +499,6 @@ async function onPlay() {
     // No emulator booted, so drop back to the config screen instead of
     // leaving the unload guard and the input mute armed.
     gameRunning.value = false;
-    playing.value = false;
   }
 }
 
@@ -674,9 +672,6 @@ onBeforeUnmount(() => {
   // the user never exited the game to the config screen first. flush() is
   // idempotent, so an exit that already flushed via the watch is a no-op.
   endSession();
-  // Hand the keyboard and gamepad back to the UI; the flag otherwise
-  // stays true and pad/hotkey navigation is dead until a reload.
-  playing.value = false;
   exitEmulatorOnce();
   emitter?.off("saveSelected", selectSave);
   emitter?.off("stateSelected", selectState);

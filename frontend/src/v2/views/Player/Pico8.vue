@@ -5,7 +5,6 @@ import { useEventListener } from "@vueuse/core";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
-import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
 import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
@@ -15,6 +14,7 @@ import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { usePlayingWhile } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { createPico8Audio, type Pico8Audio } from "@/v2/utils/pico8Audio";
 import { createPico8Input } from "@/v2/utils/pico8Input";
@@ -29,7 +29,6 @@ import {
 } from "@/v2/utils/pico8Runtime";
 
 const { t } = useI18n();
-const playingStore = storePlaying();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const { fullscreenOnPlay } = useFullscreenPref();
@@ -37,6 +36,7 @@ const alive = useIsAlive();
 
 const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
+usePlayingWhile(gameRunning);
 const loading = ref(false);
 const stage = ref<HTMLDivElement | null>(null);
 const canvas = ref<HTMLCanvasElement | null>(null);
@@ -186,7 +186,6 @@ function releaseGame() {
   audio = null;
   input.reset();
   playSession.flush();
-  playingStore.setPlaying(false);
   gameRunning.value = false;
   loading.value = false;
 }
@@ -211,7 +210,6 @@ async function onPlay() {
 
   gameRunning.value = true;
   loading.value = true;
-  playingStore.setPlaying(true);
   await nextTick();
 
   if (!gameRunning.value) return;
