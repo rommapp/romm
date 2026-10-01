@@ -12,6 +12,7 @@ from tests.streaming_stubs import exit_pulls_spawned_inline
 from handler.redis_handler import STREAMING_QUEUE_NAME, async_cache
 from handler.streaming import commands, session_store
 from handler.streaming.config import (
+    HOLD_CEILING_SECONDS,
     ResolvedContainer,
     reset_cache,
     resolve_entry,
@@ -114,9 +115,7 @@ def test_the_reaper_is_scheduled_only_with_streaming_on():
 def test_the_job_outlives_a_slow_teardown():
     """RQ kills a job at its timeout, and a teardown may hold its marker right
     up to the ceiling."""
-    assert (
-        reap_streaming_sessions_task.spec.timeout >= session_store.HOLD_CEILING_SECONDS
-    )
+    assert reap_streaming_sessions_task.spec.timeout >= HOLD_CEILING_SECONDS
 
 
 def test_the_reaper_has_a_worker_of_its_own():

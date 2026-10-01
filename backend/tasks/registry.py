@@ -1,8 +1,4 @@
-"""The catalog of tasks an admin can see, run, or have run on a schedule.
-
-It holds no task code, so a process that only schedules or lists tasks never
-imports what they run.
-"""
+"""The catalog of tasks, kept free of task code so scheduling or listing them imports none."""
 
 import importlib
 from typing import Any, Final
@@ -65,9 +61,8 @@ UPDATE_LAUNCHBOX_METADATA_SPEC: Final = TaskSpec(
     enabled=ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
     cron_string=SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     manual_run=True,
-    # The store lives only in the cache, so admins need a way to fill it even
-    # when the scheduled update is off. Otherwise turning LaunchBox on leaves a
-    # provider that silently matches nothing.
+    # The store lives only in the cache, so with LaunchBox on admins must be
+    # able to fill it even while the scheduled update is off.
     manual_run_when_disabled=LAUNCHBOX_API_ENABLED,
     # Downloading ~100MB and parsing it takes far longer than an ordinary task.
     timeout=max(TASK_TIMEOUT, 30 * 60),

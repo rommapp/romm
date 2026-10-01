@@ -39,10 +39,8 @@ from handler.streaming.protocol import (
 )
 from logger.logger import log
 
-# How long a marker or a claim may be kept alive by the work behind it. Past
-# this the refresh stops and the container ages back out on its own: every step
-# under a keepalive carries its own timeout, so overrunning this means something
-# is wedged, and a wedged step must not reserve a container indefinitely.
+# How long work may keep a marker or claim alive, so a wedged step cannot
+# reserve a container indefinitely.
 HOLD_CEILING_SECONDS = 15 * 60
 
 # Keys a `platforms:` block may override for the one platform it names.

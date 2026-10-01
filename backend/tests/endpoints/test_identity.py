@@ -18,9 +18,8 @@ from tests.factories import make_device_token
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import permissions as permissions_endpoints
 from endpoints import user as user_endpoints
-from handler.auth.base_handler import auth_handler
 from handler.auth import base_handler as auth_handler_module
-from handler.auth.base_handler import oauth_handler
+from handler.auth.base_handler import auth_handler, oauth_handler
 from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import (
