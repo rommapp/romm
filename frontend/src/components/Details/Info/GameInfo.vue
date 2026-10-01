@@ -9,6 +9,7 @@ import RDialog from "@/components/common/RDialog.vue";
 import { ROUTES } from "@/plugins/router";
 import { type FilterType } from "@/stores/galleryFilter";
 import type { DetailedRom } from "@/stores/roms";
+import MarkdownPreview from "@/v2/components/shared/MarkdownPreview.vue";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
@@ -299,9 +300,10 @@ function getFilterValues(path: string): string[] {
       <template v-if="rom.summary">
         <v-row no-gutters class="mt-4">
           <v-col class="text-caption">
-            <div class="py-4 px-6" style="white-space: pre-wrap">
-              {{ rom.summary }}
-            </div>
+            <MarkdownPreview
+              class="py-4 px-6"
+              :model-value="rom.summary ?? ''"
+            />
           </v-col>
         </v-row>
       </template>

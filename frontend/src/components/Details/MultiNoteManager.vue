@@ -8,6 +8,8 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import { toBrowserLocale } from "@/utils";
+import MarkdownEditor from "@/v2/components/shared/MarkdownEditor.vue";
+import MarkdownPreview from "@/v2/components/shared/MarkdownPreview.vue";
 
 const { t, locale } = useI18n();
 const auth = storeAuth();
@@ -348,16 +350,16 @@ watch(
                 </div>
               </v-expansion-panel-title>
               <v-expansion-panel-text class="bg-surface">
-                <v-textarea
+                <MarkdownEditor
                   v-if="editingNotes[note.title]"
                   v-model="editableNotes[note.title].content"
                   :disabled="!scopes.includes('roms.user.write')"
-                  auto-grow
-                  hide-details
                 />
-                <div v-else class="py-4 px-6" style="white-space: pre-wrap">
-                  {{ note.content }}
-                </div>
+                <MarkdownPreview
+                  v-else
+                  class="py-4 px-6"
+                  :model-value="note.content"
+                />
                 <v-card-subtitle
                   v-if="note.updated_at"
                   class="text-caption mt-2 mb-2"
@@ -412,9 +414,7 @@ watch(
               </div>
             </v-expansion-panel-title>
             <v-expansion-panel-text class="bg-surface">
-              <div class="py-4 px-6" style="white-space: pre-wrap">
-                {{ note.content }}
-              </div>
+              <MarkdownPreview class="py-4 px-6" :model-value="note.content" />
               <v-card-subtitle
                 v-if="note.updated_at"
                 class="text-caption mt-2 mb-2"
@@ -456,11 +456,9 @@ watch(
             <v-card-subtitle class="px-0 pb-2">{{
               t("rom.note-content")
             }}</v-card-subtitle>
-            <v-textarea
+            <MarkdownEditor
               v-model="newNoteContent"
-              rows="8"
-              auto-grow
-              hide-details
+              style="min-height: 200px"
             />
           </v-card>
           <v-btn
@@ -534,6 +532,42 @@ watch(
 .multi-note-manager {
   width: 100%;
 }
+
+.md-editor[data-theme="dark"] {
+  --md-bk-color: #161b22 !important;
+}
+
+.md-editor,
+.md-preview {
+  line-height: 1.25 !important;
+}
+
+.md-editor-preview {
+  word-break: break-word !important;
+}
+
+.md-editor-preview blockquote {
+  border-left-color: rgba(var(--v-theme-secondary));
+}
+
+.md-editor-preview .md-editor-code-flag {
+  visibility: hidden;
+}
+
+.md-editor-preview .md-editor-admonition {
+  border-color: rgba(var(--v-theme-secondary));
+  background-color: rgba(var(--v-theme-toplayer)) !important;
+}
+
+.md-editor-preview .md-editor-code summary,
+.md-editor-preview .md-editor-code code {
+  background-color: rgba(var(--v-theme-toplayer)) !important;
+}
+
+.vuepress-theme pre code {
+  background-color: #0d1117;
+}
+
 .v-expansion-panel-text__wrapper {
   padding: 0px !important;
 }

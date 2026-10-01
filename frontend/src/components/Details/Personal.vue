@@ -328,6 +328,38 @@ watch(
 </template>
 
 <style>
+.md-editor[data-theme="dark"] {
+  --md-bk-color: #161b22 !important;
+}
+.md-editor,
+.md-preview {
+  line-height: 1.25 !important;
+}
+.md-editor-preview {
+  word-break: break-word !important;
+
+  blockquote {
+    border-left-color: rgba(var(--v-theme-secondary));
+  }
+
+  .md-editor-code-flag {
+    visibility: hidden;
+  }
+
+  .md-editor-admonition {
+    border-color: rgba(var(--v-theme-secondary));
+    background-color: rgba(var(--v-theme-toplayer)) !important;
+  }
+
+  .md-editor-code summary,
+  .md-editor-code code {
+    background-color: rgba(var(--v-theme-toplayer)) !important;
+  }
+}
+
+.vuepress-theme pre code {
+  background-color: #0d1117;
+}
 .v-expansion-panel-text__wrapper {
   padding: 0px !important;
 }
