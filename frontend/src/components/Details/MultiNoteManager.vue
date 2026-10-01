@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import { MdEditor, MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
 import { computed, ref, reactive, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useTheme } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
@@ -13,7 +10,6 @@ import type { DetailedRom } from "@/stores/roms";
 import { toBrowserLocale } from "@/utils";
 
 const { t, locale } = useI18n();
-const theme = useTheme();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
 
@@ -352,31 +348,16 @@ watch(
                 </div>
               </v-expansion-panel-title>
               <v-expansion-panel-text class="bg-surface">
-                <MdEditor
+                <v-textarea
                   v-if="editingNotes[note.title]"
                   v-model="editableNotes[note.title].content"
-                  no-highlight
-                  no-katex
-                  no-mermaid
-                  no-prettier
-                  no-upload-img
                   :disabled="!scopes.includes('roms.user.write')"
-                  :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
-                  language="en-US"
-                  :preview="false"
+                  auto-grow
+                  hide-details
                 />
-                <MdPreview
-                  v-else
-                  no-highlight
-                  no-katex
-                  no-mermaid
-                  :model-value="note.content"
-                  :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
-                  language="en-US"
-                  preview-theme="vuepress"
-                  code-theme="github"
-                  class="py-4 px-6"
-                />
+                <div v-else class="py-4 px-6" style="white-space: pre-wrap">
+                  {{ note.content }}
+                </div>
                 <v-card-subtitle
                   v-if="note.updated_at"
                   class="text-caption mt-2 mb-2"
@@ -431,17 +412,9 @@ watch(
               </div>
             </v-expansion-panel-title>
             <v-expansion-panel-text class="bg-surface">
-              <MdPreview
-                no-highlight
-                no-katex
-                no-mermaid
-                :model-value="note.content"
-                :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
-                language="en-US"
-                preview-theme="vuepress"
-                code-theme="github"
-                class="py-4 px-6"
-              />
+              <div class="py-4 px-6" style="white-space: pre-wrap">
+                {{ note.content }}
+              </div>
               <v-card-subtitle
                 v-if="note.updated_at"
                 class="text-caption mt-2 mb-2"
@@ -483,17 +456,11 @@ watch(
             <v-card-subtitle class="px-0 pb-2">{{
               t("rom.note-content")
             }}</v-card-subtitle>
-            <MdEditor
+            <v-textarea
               v-model="newNoteContent"
-              no-highlight
-              no-katex
-              no-mermaid
-              no-prettier
-              no-upload-img
-              :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
-              language="en-US"
-              :preview="false"
-              style="min-height: 200px"
+              rows="8"
+              auto-grow
+              hide-details
             />
           </v-card>
           <v-btn
@@ -567,42 +534,6 @@ watch(
 .multi-note-manager {
   width: 100%;
 }
-
-.md-editor[data-theme="dark"] {
-  --md-bk-color: #161b22 !important;
-}
-
-.md-editor,
-.md-preview {
-  line-height: 1.25 !important;
-}
-
-.md-editor-preview {
-  word-break: break-word !important;
-}
-
-.md-editor-preview blockquote {
-  border-left-color: rgba(var(--v-theme-secondary));
-}
-
-.md-editor-preview .md-editor-code-flag {
-  visibility: hidden;
-}
-
-.md-editor-preview .md-editor-admonition {
-  border-color: rgba(var(--v-theme-secondary));
-  background-color: rgba(var(--v-theme-toplayer)) !important;
-}
-
-.md-editor-preview .md-editor-code summary,
-.md-editor-preview .md-editor-code code {
-  background-color: rgba(var(--v-theme-toplayer)) !important;
-}
-
-.vuepress-theme pre code {
-  background-color: #0d1117;
-}
-
 .v-expansion-panel-text__wrapper {
   padding: 0px !important;
 }
