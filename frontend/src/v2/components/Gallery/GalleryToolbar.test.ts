@@ -7,8 +7,9 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
+const smAndUp = ref(true);
 vi.mock("@/v2/composables/useBreakpoint", () => ({
-  useBreakpoint: () => ({ smAndUp: ref(true) }),
+  useBreakpoint: () => ({ smAndUp }),
 }));
 
 const modality = ref<"mouse" | "pad">("mouse");
@@ -101,8 +102,11 @@ describe("GalleryToolbar sort axis", () => {
     wrapper.unmount();
   });
 
-  // The check carries the selection beyond the active colour alone.
-  it("marks the active axis with a check", () => {
+  it.each([
+    ["the toolbar menu", true],
+    ["the phone-width menu", false],
+  ])("marks the active axis with a check in %s", (_, wide) => {
+    smAndUp.value = wide;
     const wrapper = mountWithSortOptions({ sortKey: "fs_size_bytes" });
 
     const marks = Object.fromEntries(
@@ -112,11 +116,12 @@ describe("GalleryToolbar sort axis", () => {
       ]),
     );
 
-    expect(marks).toMatchObject({
+    expect(marks).toEqual({
       Size: ["active", "mdi-check"],
       Title: ["default", undefined],
     });
     wrapper.unmount();
+    smAndUp.value = true;
   });
 
   // Index views (Platforms / Collections) sort their own tiles and pass

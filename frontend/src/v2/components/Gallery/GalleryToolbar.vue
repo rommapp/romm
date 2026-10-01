@@ -232,6 +232,14 @@ function setSortDir(value: "asc" | "desc") {
   emit("update:sortDir", value);
 }
 
+// Marks the chosen entry beyond its colour, as the version switcher does.
+function selectionMark(selected: boolean) {
+  return {
+    variant: selected ? ("active" as const) : ("default" as const),
+    icon: selected ? "mdi-check" : undefined,
+  };
+}
+
 function setSortKey(value: ListSortKey) {
   emit("update:sortKey", value);
 }
@@ -350,8 +358,7 @@ const { smAndUp } = useBreakpoint();
             v-for="item in sortKeyItems"
             :key="item.key"
             :label="item.label"
-            :variant="sortKeyValue === item.key ? 'active' : 'default'"
-            :icon="sortKeyValue === item.key ? 'mdi-check' : undefined"
+            v-bind="selectionMark(sortKeyValue === item.key)"
             @click="setSortKey(item.key)"
           />
         </RMenu>
@@ -423,8 +430,7 @@ const { smAndUp } = useBreakpoint();
             v-for="item in sortKeyItems"
             :key="item.key"
             :label="item.label"
-            :variant="sortKeyValue === item.key ? 'active' : 'default'"
-            :icon="sortKeyValue === item.key ? 'mdi-check' : undefined"
+            v-bind="selectionMark(sortKeyValue === item.key)"
             @click="setSortKey(item.key)"
           />
           <RDivider v-if="sortKeyItems.length > 0" />
