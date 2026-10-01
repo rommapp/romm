@@ -210,7 +210,7 @@
   "manual": "Manuale",
   "manual-empty": "Nessun manuale ancora disponibile",
   "manual-file-remove-failed": "Rimozione file di manuale fallita: {error}",
-  "manual-file-removed": "File di manuale rimosso con successo file",
+  "manual-file-removed": "File di manuale rimosso con successo",
   "manual-files-upload-failed": "Impossibile caricare files di manuale: {error}",
   "manual-files-upload-skipped": "Tutti i file manuale saltati, niente da caricare.",
   "manual-files-upload-success": "{count} file di manuale caricato con successo ({failed} saltato/fallito). | {count} files di manuale caricati con successo ({failed} saltati/falliti).",

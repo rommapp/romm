@@ -198,7 +198,7 @@
   "session-ended": "La tua sessione di streaming è stata terminata.",
   "session-ended-by": "Un amministratore ({user}) ha terminato la tua sessione di streaming.",
   "session-ended-reason-label": "Motivazione fornita",
-  "session-ended-title": "Session terminata",
+  "session-ended-title": "Sessione terminata",
   "show-bezel": "Mostra cornice",
   "show-older-versions": "Mostra {count} versione precedente | Mostra {count} versioni precedenti",
   "slot": "Slot",
