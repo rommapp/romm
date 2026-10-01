@@ -15,7 +15,7 @@ import {
   type SpatialDirection,
 } from "@/v2/utils/spatialNav";
 
-// Input types whose arrow keys move a caret or change the value.
+// Input types whose arrow keys don't belong to the field.
 const BUTTON_LIKE_INPUTS = new Set(["button", "checkbox", "reset", "submit"]);
 
 // Single-line inputs whose arrows only move a caret.
@@ -71,14 +71,28 @@ function isTextField(
   return el instanceof HTMLInputElement && TEXT_INPUTS.has(el.type);
 }
 
-// Steps a text field's caret for a D-pad press, which the browser won't do for
-// a synthetic key. False at the text's edge in `dir`, and always for up and
-// down, so those presses move focus instead.
+const graphemes =
+  typeof Intl.Segmenter === "function"
+    ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
+    : null;
+
+// The caret one character over in `dir`, or -1 past the text's edge. Steps
+// whole graphemes so it never splits an emoji or an accent.
+function nextCaret(text: string, at: number, dir: "left" | "right"): number {
+  if (dir === "left" ? at <= 0 : at >= text.length) return -1;
+  const seg = graphemes?.segment(text).containing(dir === "left" ? at - 1 : at);
+  if (!seg) return dir === "left" ? at - 1 : at + 1;
+  return dir === "left" ? seg.index : seg.index + seg.segment.length;
+}
+
+// Steps the caret for a D-pad press, which the browser won't do for a synthetic
+// key. False when the press should move focus instead.
 function stepCaret(
   el: HTMLInputElement | HTMLTextAreaElement,
   dir: SpatialDirection,
 ): boolean {
-  if (dir === "up" || dir === "down") return false;
+  // A read-only field, such as RDateField's, shows no caret to step.
+  if (dir === "up" || dir === "down" || el.readOnly) return false;
   let start: number | null;
   let end: number | null;
   // Some input types (email) report null, older engines throw.
@@ -93,8 +107,8 @@ function stepCaret(
     el.setSelectionRange(edge, edge);
     return true;
   }
-  const next = dir === "left" ? start - 1 : start + 1;
-  if (next < 0 || next > el.value.length) return false;
+  const next = nextCaret(el.value, start, dir);
+  if (next < 0) return false;
   el.setSelectionRange(next, next);
   return true;
 }
@@ -172,6 +186,16 @@ export function useSpatialNav() {
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const active = document.activeElement;
       if (!(active instanceof HTMLElement) || active === document.body) return;
+      // Ahead of the overlay check: RComboboxField's suggestions panel is an
+      // overlay that doesn't contain its input.
+      if (isPadEvent(e) && isTextField(active)) {
+        if (stepCaret(active, dir)) {
+          e.preventDefault();
+          return;
+        }
+      } else if (ownsArrowKeys(active)) {
+        return;
+      }
       // An open overlay, a dialog over a game included, keeps focus inside
       // its own panel; otherwise a running game reads the arrows itself.
       let scope: ParentNode = document;
@@ -180,14 +204,6 @@ export function useSpatialNav() {
         if (!panel?.contains(active)) return;
         scope = panel;
       } else if (playingStore.playing) {
-        return;
-      }
-      if (isPadEvent(e) && isTextField(active)) {
-        if (stepCaret(active, dir)) {
-          e.preventDefault();
-          return;
-        }
-      } else if (ownsArrowKeys(active)) {
         return;
       }
       if (moveFocus(active, dir, scope)) e.preventDefault();

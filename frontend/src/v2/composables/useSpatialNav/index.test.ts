@@ -79,7 +79,8 @@ describe("useSpatialNav", () => {
     return event;
   }
 
-  // A focused text field below the page's tab, between two buttons.
+  // A focused text field below the page's tab, between two buttons and above
+  // a third.
   const extras: HTMLElement[] = [];
   function field(
     tag: "input" | "textarea",
@@ -87,22 +88,25 @@ describe("useSpatialNav", () => {
     caretAt: number,
     type = "text",
   ): HTMLInputElement | HTMLTextAreaElement {
-    const place = (node: HTMLElement, x: number) => {
+    const place = (node: HTMLElement, x: number, y = 700) => {
       node.dataset.x = String(x);
-      node.dataset.y = "700";
+      node.dataset.y = String(y);
       document.body.append(node);
       extras.push(node);
     };
-    const before = document.createElement("button");
-    before.id = "before";
-    place(before, 0);
+    for (const [id, x, y] of [
+      ["before", 0, 700],
+      ["after", 500, 700],
+      ["below", 200, 900],
+    ] as const) {
+      const button = document.createElement("button");
+      button.id = id;
+      place(button, x, y);
+    }
     const input = document.createElement(tag);
     if (input instanceof HTMLInputElement) input.type = type;
     input.value = value;
     place(input, 200);
-    const after = document.createElement("button");
-    after.id = "after";
-    place(after, 500);
     input.focus();
     if (caretAt >= 0) input.setSelectionRange(caretAt, caretAt);
     return input;
@@ -234,15 +238,19 @@ describe("useSpatialNav", () => {
     it("keeps every keyboard arrow in a text field", () => {
       const input = field("input", "abc", 3);
 
-      for (const key of ["ArrowUp", "ArrowDown", "ArrowRight"]) {
+      for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) {
         expect(press(key).defaultPrevented).toBe(false);
         expect(document.activeElement).toBe(input);
+        expect(input.selectionStart).toBe(3);
       }
     });
 
     it("leaves a single-line field by D-pad up or down from any caret", () => {
       const input = field("input", "abc", 1);
 
+      expect(press("ArrowDown", { pad: true }).defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(el("below"));
+      input.focus();
       expect(press("ArrowUp", { pad: true }).defaultPrevented).toBe(true);
       expect(document.activeElement).not.toBe(input);
     });
@@ -250,6 +258,9 @@ describe("useSpatialNav", () => {
     it("leaves a textarea by D-pad up or down from any caret", () => {
       const area = field("textarea", "one\ntwo", 5);
 
+      expect(press("ArrowDown", { pad: true }).defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(el("below"));
+      area.focus();
       expect(press("ArrowUp", { pad: true }).defaultPrevented).toBe(true);
       expect(document.activeElement).not.toBe(area);
     });
@@ -262,6 +273,35 @@ describe("useSpatialNav", () => {
       press("ArrowLeft", { pad: true });
       press("ArrowLeft", { pad: true });
       expect(input.selectionStart).toBe(0);
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("steps over a whole emoji by D-pad", () => {
+      const input = field("input", "a🎮b", 1);
+
+      press("ArrowRight", { pad: true });
+      expect(input.selectionStart).toBe(3);
+      press("ArrowLeft", { pad: true });
+      expect(input.selectionStart).toBe(1);
+    });
+
+    it("leaves a read-only field by D-pad left or right", () => {
+      const input = field("input", "abc", 1);
+      input.readOnly = true;
+
+      press("ArrowRight", { pad: true });
+
+      expect(document.activeElement).toBe(el("after"));
+    });
+
+    it("steps the caret while a popover outside the field is open", () => {
+      const input = field("input", "abc", 1);
+      openDialog();
+
+      expect(press("ArrowRight", { pad: true }).defaultPrevented).toBe(true);
+      expect(input.selectionStart).toBe(2);
+      press("ArrowRight", { pad: true });
+      press("ArrowRight", { pad: true });
       expect(document.activeElement).toBe(input);
     });
 
@@ -286,12 +326,15 @@ describe("useSpatialNav", () => {
       input.setSelectionRange(1, 3);
 
       press("ArrowLeft", { pad: true });
-
       expect([input.selectionStart, input.selectionEnd]).toEqual([1, 1]);
+
+      input.setSelectionRange(1, 3);
+      press("ArrowRight", { pad: true });
+      expect([input.selectionStart, input.selectionEnd]).toEqual([3, 3]);
       expect(document.activeElement).toBe(input);
     });
 
-    it("leaves a field that hides its caret by D-pad left or right", () => {
+    it("leaves a field without a selection API by D-pad left or right", () => {
       const input = field("input", "", -1, "email");
       vi.spyOn(input, "selectionStart", "get").mockReturnValue(null);
 
