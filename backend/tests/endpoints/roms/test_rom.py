@@ -2650,6 +2650,35 @@ class TestUnmatchMetadata:
         assert body["name"] == rom.fs_name
         assert body["summary"] == ""
 
+    def test_update_rom_unmatch_metadata_clears_every_match_id(
+        self, client: TestClient, access_token: str, rom: Rom
+    ):
+        """Ids the edit form doesn't expose (gamelist) still keep a rom identified."""
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "gamelist_id": "./Mario Kart 64.z64",
+                "libretro_id": "Mario Kart 64 (USA)",
+                "csdb_id": 42,
+            },
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"unmatch_metadata": True},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["gamelist_id"] is None
+        assert body["libretro_id"] is None
+        assert body["csdb_id"] is None
+
+        unmatched = db_rom_handler.get_rom(rom.id)
+        assert unmatched is not None
+        assert not unmatched.is_identified
+
 
 def test_rom_filters_stay_individual_query_parameters(client: TestClient):
     """The filter model must reach clients as one parameter per field.

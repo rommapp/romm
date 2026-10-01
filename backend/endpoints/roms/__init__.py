@@ -116,6 +116,7 @@ from models.collection import Collection, SmartCollection, VirtualCollection
 from models.permission import PermAction, PermEntity
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
+    METADATA_SOURCE_COLUMNS,
     PINNED_MEDIA_KEY_MAX_LENGTH,
     PINNED_MEDIA_KEY_PATTERN,
     PINNED_MEDIA_MAX_ITEMS,
@@ -303,6 +304,11 @@ class RomUpdateForm(BaseModel):
 # The provider ids the edit form sets; changing one rematches the rom.
 MATCH_ID_FIELDS: Final = tuple(
     f for f in RomUpdateForm.model_fields if f.endswith("_id")
+)
+# Every id a match can set, including ones the form doesn't expose (gamelist).
+UNMATCH_ID_FIELDS: Final = (
+    "sgdb_id",
+    *(column.key for column in METADATA_SOURCE_COLUMNS.values()),
 )
 # What an edit reports as changed, each read off one or more columns.
 _EDIT_AUDIT_FIELDS: Final[dict[str, tuple[str, ...]]] = {
@@ -1781,26 +1787,12 @@ async def update_rom(
     assert_rom_visible(request, rom)
 
     if unmatch_metadata:
-        unmatched = {f: getattr(rom, f) for f in MATCH_ID_FIELDS if getattr(rom, f)}
+        unmatched = {f: getattr(rom, f) for f in UNMATCH_ID_FIELDS if getattr(rom, f)}
         unmatch_target = AuditTarget.of_rom(rom)
         db_rom_handler.update_rom(
             id,
             {
-                "igdb_id": None,
-                "sgdb_id": None,
-                "moby_id": None,
-                "ss_id": None,
-                "ra_id": None,
-                "launchbox_id": None,
-                "hasheous_id": None,
-                "tgdb_id": None,
-                "flashpoint_id": None,
-                "hltb_id": None,
-                "demozoo_id": None,
-                "pouet_id": None,
-                "csdb_id": None,
-                "steam_id": None,
-                "libretro_id": None,
+                **dict.fromkeys(UNMATCH_ID_FIELDS),
                 "name": rom.fs_name,
                 "name_sort_key": compute_name_sort_key(rom.fs_name),
                 "summary": "",

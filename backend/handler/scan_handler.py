@@ -77,7 +77,13 @@ from logger.logger import log
 from models.assets import MemoryCardVersion, Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
+from models.rom import (
+    METADATA_SOURCE_COLUMNS,
+    Rom,
+    RomFile,
+    RomFileCategory,
+    RomIdentity,
+)
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
@@ -1616,20 +1622,8 @@ async def scan_rom(
             rom_attrs["url_cover"] = pico8_url
 
     # If not found in any metadata source, we return the rom with the default values
-    if (
-        not rom_attrs.get("igdb_id")
-        and not rom_attrs.get("moby_id")
-        and not rom_attrs.get("ss_id")
-        and not rom_attrs.get("ra_id")
-        and not rom_attrs.get("launchbox_id")
-        and not rom_attrs.get("hasheous_id")
-        and not rom_attrs.get("flashpoint_id")
-        and not rom_attrs.get("hltb_id")
-        and not rom_attrs.get("demozoo_id")
-        and not rom_attrs.get("pouet_id")
-        and not rom_attrs.get("csdb_id")
-        and not rom_attrs.get("steam_id")
-        and not rom_attrs.get("gamelist_id")
+    if not any(
+        rom_attrs.get(column.key) for column in METADATA_SOURCE_COLUMNS.values()
     ):
         if inconclusive_sources:
             # Reporting a plain "not identified" here writes the ROM up as a

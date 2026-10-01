@@ -236,7 +236,8 @@ export interface GetRomsParams {
   signal?: AbortSignal;
 }
 
-async function getRoms({
+/** The `/roms` query string for `params`, shared with the cached client. */
+export function buildGetRomsQuery({
   platformIds = null,
   collectionId = null,
   virtualCollectionId = null,
@@ -293,9 +294,8 @@ async function getRoms({
   withFilterValues = undefined,
   withRomIdIndex = undefined,
   withTotal = undefined,
-  signal = undefined,
-}: GetRomsParams) {
-  const params = {
+}: Omit<GetRomsParams, "signal">) {
+  return {
     platform_ids:
       platformIds && platformIds.length > 0 ? platformIds : undefined,
     collection_id: collectionId,
@@ -436,9 +436,11 @@ async function getRoms({
       : {}),
     ...(withTotal !== undefined ? { with_total: withTotal } : {}),
   };
+}
 
+async function getRoms({ signal, ...params }: GetRomsParams) {
   return api.get<GetRomsResponse>(`/roms`, {
-    params,
+    params: buildGetRomsQuery(params),
     signal,
   });
 }
