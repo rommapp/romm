@@ -236,7 +236,7 @@
   "stream-release-failed": "Non è stato possibile liberare questa sessione. Il container potrebbe essere ancora in uso.",
   "stream-save-and-exit": "Salva ed esci",
   "stream-save-state": "Salva stato",
-  "stream-save-state-failed": "Non è stato possibile salvare lo stato",
+  "stream-save-state-failed": "Non è stato possibile salvare lo stato.",
   "stream-save-unconfirmed": "L'emulatore non ha confermato il salvataggio. I progressi recenti potrebbero andare persi.",
   "stream-stop": "Ferma",
   "stream-subtitle": "Streaming",
