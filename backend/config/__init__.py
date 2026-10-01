@@ -67,7 +67,6 @@ ROM_PATCHER_MAX_CONCURRENCY: Final[int] = max(
 
 # ROM CONVERTO
 ROM_CONVERTO_ENABLED: Final[bool] = safe_str_to_bool(_get_env("ROM_CONVERTO_ENABLED"))
-ROM_CONVERTO_PATH: Final[str] = _get_env("ROM_CONVERTO_PATH", "/usr/bin/rom-converto")
 # Seconds per rom-converto CLI operation.
 ROM_CONVERTO_TIMEOUT: Final[int] = max(
     1, safe_int(_get_env("ROM_CONVERTO_TIMEOUT"), 600)

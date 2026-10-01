@@ -6,11 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from config import (
-    ROM_CONVERTO_ENABLED,
-    ROM_CONVERTO_PATH,
-    ROM_CONVERTO_TIMEOUT,
-)
+from config import ROM_CONVERTO_ENABLED, ROM_CONVERTO_TIMEOUT
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -22,6 +18,8 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 _PROBE_TIMEOUT_SECONDS = 30
 
 _STDERR_TAIL_BYTES = 400
+
+_BINARY: Final = "rom-converto"
 
 
 class RomConvertoError(Exception): ...
@@ -230,11 +228,9 @@ def _tail(text: str) -> str:
 
 async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
     """Run a rom-converto subcommand and return (returncode, stdout, stderr)."""
-    binary = await asyncio.to_thread(shutil.which, ROM_CONVERTO_PATH)
+    binary = await asyncio.to_thread(shutil.which, _BINARY)
     if binary is None:
-        raise RomConvertoBinaryNotFoundError(
-            f"rom-converto binary not found at {ROM_CONVERTO_PATH}"
-        )
+        raise RomConvertoBinaryNotFoundError(f"{_BINARY} binary not found on PATH")
     # The CLI otherwise asks api.github.com for a newer release on every run.
     proc = await asyncio.create_subprocess_exec(
         binary,
@@ -308,7 +304,7 @@ class RomConvertoService:
                 failure = f"code {code}" if code != 0 else None
             if failure is not None:
                 log.warning(
-                    f"rom-converto at {hl(ROM_CONVERTO_PATH)} failed its capability "
+                    f"{hl(_BINARY)} failed its capability "
                     f"probe ({failure}); disabling integration until restart"
                 )
                 self._available = False
