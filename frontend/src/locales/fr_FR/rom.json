@@ -152,6 +152,7 @@
   "edit-save": "Modifier la sauvegarde",
   "edit-screenshot": "Modifier la capture d'écran",
   "edit-state": "Modifier l'état",
+  "exclude-failed": "Impossible d'exclure {n} jeux supprimés des analyses",
   "favorite": "Favori",
   "favorites-updated-n": "{n} élément mis à jour | {n} éléments mis à jour",
   "file": "Fichier",

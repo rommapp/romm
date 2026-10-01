@@ -152,6 +152,7 @@
   "edit-save": "Kaydı düzenle",
   "edit-screenshot": "Ekran görüntüsünü düzenle",
   "edit-state": "Durum kaydını düzenle",
+  "exclude-failed": "Silinen {n} oyun taramalardan hariç tutulamadı",
   "favorite": "Favori",
   "favorites-updated-n": "{n} öge güncellendi",
   "file": "Dosya",
