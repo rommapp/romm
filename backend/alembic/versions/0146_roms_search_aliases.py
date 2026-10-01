@@ -96,8 +96,8 @@ def _fill_search_titles(conn: sa.Connection) -> None:
 
 def upgrade() -> None:
     conn = op.get_bind()
-    # With no FULLTEXT index on the table, the column is added in place and the
-    # fill updates no index; the search index is then built over filled rows.
+    # Added and filled ahead of `ensure_roms_columns`, which builds the search
+    # index, so the fill has no FULLTEXT or trigram index to maintain.
     _drop_search_indexes(conn)
     if SEARCH_TITLES_COLUMN not in column_names(conn, "roms"):
         op.add_column("roms", sa.Column(SEARCH_TITLES_COLUMN, sa.Text()))
