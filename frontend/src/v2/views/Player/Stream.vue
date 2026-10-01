@@ -71,7 +71,6 @@ import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useActivityPresence } from "@/v2/composables/useActivityPresence";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
-import { useExitChord } from "@/v2/composables/useExitChord";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useMultiplayerPref } from "@/v2/composables/useMultiplayerPref";
@@ -1284,12 +1283,9 @@ function onExitDialogKeydown(event: KeyboardEvent): void {
   event.preventDefault();
 }
 
-// ── Select+Start exit chord ────────────────────────────────────────
-// useGamepad is muted for the whole session (launch included), so this is
-// the pad's only way to the exit dialog.
-useExitChord(sessionActive, () => {
-  if (!exitDialogOpen.value) void openExitDialog();
-});
+// useGamepad is muted for the whole session (launch included), so its
+// Select+Start hold is the pad's only way to the exit dialog.
+useEventListener(window, "gamepad:exitchord", () => void openExitDialog());
 
 function formatTime(iso: string): string {
   try {

@@ -10,7 +10,6 @@ const mocks = vi.hoisted(() => ({
   releaseSessionKeepalive: vi.fn(),
   heartbeatSession: vi.fn(),
   heartbeatTick: null as (() => Promise<void>) | null,
-  exitChord: null as (() => void) | null,
   routeLeave: null as (() => Promise<boolean> | boolean) | null,
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
   setPlaying: vi.fn(),
@@ -36,14 +35,6 @@ vi.mock("@vueuse/core", async (importOriginal) => ({
   // The beat is driven by hand; the pagehide listener stays real.
   useIntervalFn: (tick: () => Promise<void>) => {
     mocks.heartbeatTick = tick;
-  },
-}));
-
-// The chord's own timing is useExitChord's to test; here only what a completed
-// hold does.
-vi.mock("@/v2/composables/useExitChord", () => ({
-  useExitChord: (_active: unknown, onChord: () => void) => {
-    mocks.exitChord = onChord;
   },
 }));
 
@@ -421,7 +412,7 @@ describe("Desktop controller ownership", () => {
     mocks.releaseSession.mockResolvedValue({});
     const wrapper = await openDesktop();
 
-    mocks.exitChord?.();
+    window.dispatchEvent(new Event("gamepad:exitchord"));
     await flushPromises();
 
     expectReleasedOwnClaim();

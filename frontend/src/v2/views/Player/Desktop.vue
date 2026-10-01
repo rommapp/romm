@@ -21,7 +21,6 @@ import { type SessionTermination, useStreamingStore } from "@/stores/streaming";
 import SessionEndedReason from "@/v2/components/Player/SessionEndedReason.vue";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
-import { useExitChord } from "@/v2/composables/useExitChord";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
@@ -64,8 +63,8 @@ const sessionActive = computed(
   () => state.value === "loading" || state.value === "running",
 );
 usePlayingWhile(sessionActive);
-// With B muted, holding Select+Start is the pad's way to the exit dialog.
-useExitChord(sessionActive, () => void handleExit());
+// With B muted, useGamepad's Select+Start hold is the pad's way out.
+useEventListener(window, "gamepad:exitchord", () => void handleExit());
 
 // Leaving mid-claim is allowed, so a claim that answers after unmount is handed
 // straight back instead of standing unbeaten until it goes stale.
