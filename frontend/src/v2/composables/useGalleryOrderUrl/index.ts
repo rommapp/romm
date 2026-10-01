@@ -1,6 +1,6 @@
 // useGalleryOrderUrl - bookmarkable gallery sort via URL query params.
 //
-//   ?orderBy=fs_size_bytes  (omitted at the view's default, "name" unless set)
+//   ?orderBy=fs_size_bytes  (omitted at the view's default)
 //   ?orderDir=desc          (omitted at "asc",  the default)
 //
 // A `null` default (Search) leaves the order to the backend, which ranks
@@ -14,7 +14,6 @@ import { storeToRefs } from "pinia";
 import { watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import storeGalleryRoms, {
-  DEFAULT_ORDER_BY,
   DEFAULT_ORDER_DIR,
   type GalleryOrderDir,
   type GalleryOrderKey,
@@ -38,9 +37,7 @@ function parseOrderDir(value: unknown): GalleryOrderDir {
     : DEFAULT_ORDER_DIR;
 }
 
-export function useGalleryOrderUrl(
-  defaultOrderBy: GalleryOrderKey | null = DEFAULT_ORDER_BY,
-) {
+export function useGalleryOrderUrl(defaultOrderBy: GalleryOrderKey | null) {
   const route = useRoute();
   const router = useRouter();
   const galleryRoms = storeGalleryRoms();

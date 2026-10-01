@@ -72,6 +72,17 @@ describe("galleryRoms windowed fetch", () => {
     vi.unstubAllGlobals();
   });
 
+  // The backend ranks a search by relevance only when no sort key is sent.
+  it("sends an empty sort key when no sort is set", () => {
+    getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
+    const store = storeGalleryRoms();
+    store.setOrderBy(null);
+
+    store.syncVisibleWindows([0]);
+
+    expect(getRoms.mock.calls[0][0].orderBy).toBe("");
+  });
+
   it("collapses many visible positions into one request per 72-item window", async () => {
     getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
     const store = storeGalleryRoms();
@@ -474,32 +485,6 @@ describe("galleryRoms length filter", () => {
 
     expect(getRoms.mock.calls[0][0].hltbMainStoryMin).toBeNull();
     expect(getRoms.mock.calls[0][0].hltbMainStoryMax).toBe(10 * 3600);
-  });
-});
-
-describe("galleryRoms relevance order", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-    getRoms.mockReset();
-    getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
-    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
-      cb(0);
-      return 0;
-    });
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  // The backend ranks a search by relevance only when no sort key is sent.
-  it("sends an empty sort key when no sort is set", () => {
-    const store = storeGalleryRoms();
-    store.setOrderBy(null);
-
-    store.syncVisibleWindows([0]);
-
-    expect(getRoms.mock.calls[0][0].orderBy).toBe("");
   });
 });
 

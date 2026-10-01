@@ -8,32 +8,31 @@ import {
   type Router,
   RouterView,
 } from "vue-router";
-import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGalleryRoms, {
+  DEFAULT_ORDER_BY,
+  type GalleryOrderKey,
+} from "@/v2/stores/galleryRoms";
 import { useGalleryOrderUrl } from "./index";
 
 const Blank = { template: "<div />" };
 
-const Host = {
-  setup() {
-    useGalleryOrderUrl();
-  },
-  template: "<div />",
-};
-
-async function mountAt(router: Router, path: string) {
+async function mountAt(
+  router: Router,
+  path: string,
+  defaultOrderBy: GalleryOrderKey | null = DEFAULT_ORDER_BY,
+) {
   await router.push(path);
   await router.isReady();
+  const Host = {
+    setup() {
+      useGalleryOrderUrl(defaultOrderBy);
+    },
+    template: "<div />",
+  };
   const wrapper = mount(Host, { global: { plugins: [router] } });
   await nextTick();
   return wrapper;
 }
-
-const RelevanceHost = {
-  setup() {
-    useGalleryOrderUrl(null);
-  },
-  template: "<div />",
-};
 
 function makeRouter() {
   return createRouter({
@@ -156,12 +155,8 @@ describe("useGalleryOrderUrl with a relevance default", () => {
     setActivePinia(createPinia());
   });
 
-  async function mountSearch(router: Router, path: string) {
-    await router.push(path);
-    await router.isReady();
-    mount(RelevanceHost, { global: { plugins: [router] } });
-    await nextTick();
-  }
+  const mountSearch = (router: Router, path: string) =>
+    mountAt(router, path, null);
 
   it("leaves the sort unset when the URL names none", async () => {
     const gallery = storeGalleryRoms();
@@ -209,7 +204,7 @@ describe("useGalleryOrderUrl on a cold load", () => {
     const seenAtSetup: (string | null)[] = [];
     const GalleryView = {
       setup() {
-        useGalleryOrderUrl();
+        useGalleryOrderUrl(DEFAULT_ORDER_BY);
         seenAtSetup.push(storeGalleryRoms().orderBy);
         return () => h("div");
       },

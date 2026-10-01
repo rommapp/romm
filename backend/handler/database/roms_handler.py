@@ -1851,10 +1851,10 @@ class DBRomsHandler(DBBaseHandler):
             # Relevance breaks an explicit sort's ties, or leads (with name
             # breaking its ties) when no sort is picked.
             relevance_clause = _search_relevance(phrases).desc()
-            if self.search_relevance_leads(order_by, search_term):
-                sort_clauses.insert(0, relevance_clause)
-            else:
+            if order_by:
                 sort_clauses.append(relevance_clause)
+            else:
+                sort_clauses.insert(0, relevance_clause)
 
         return [
             clause

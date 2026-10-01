@@ -13,6 +13,7 @@ import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import storeGalleryRoms, {
+  DEFAULT_ORDER_BY,
   type GalleryOrderKey,
 } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -99,7 +100,7 @@ export function useRomSync() {
     // Relevance also weighs the filename and search aliases, which the row
     // doesn't carry, so only the server can place it.
     if (key === null && galleryFilter.searchTerm) return true;
-    const resolve = SORT_VALUE[key ?? "name"];
+    const resolve = SORT_VALUE[key ?? DEFAULT_ORDER_BY];
     return resolve(previous) !== resolve(next);
   }
 
