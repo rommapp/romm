@@ -148,19 +148,21 @@ class TestMetadataSortQueryShape:
             (
                 POSTGRESQL_DIALECT,
                 "asc",
-                "roms.generated_player_count ASC NULLS LAST, roms.id ASC",
+                "roms.generated_player_count ASC NULLS LAST, "
+                "CASE WHEN ((roms.name ILIKE",
             ),
             (
                 POSTGRESQL_DIALECT,
                 "desc",
-                "roms.generated_player_count DESC NULLS LAST, roms.id DESC",
+                "roms.generated_player_count DESC NULLS LAST, "
+                "CASE WHEN ((roms.name ILIKE",
             ),
         ],
     )
     def test_search_relevance_follows_the_null_placement_terms(
         self, dialect: sa.Dialect, order_dir: str, expected: str
     ):
-        """Relevance only ranks on the FULLTEXT engines, after the explicit sort."""
+        """Relevance ranks after the explicit sort, on every engine."""
         query, _ = db_rom_handler.get_roms_query(
             order_by="player_count", order_dir=order_dir, search_term="final fantasy"
         )
