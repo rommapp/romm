@@ -660,9 +660,11 @@ def get_roms(
         request.user.id, order_by, order_dir, filters.group_by_meta_id, is_unscoped
     )
 
-    # Get the char index for the roms
+    # Get the char index for the roms. Relevance order has no letter runs.
     char_index_dict = {}
-    if with_char_index:
+    if with_char_index and not db_rom_handler.search_relevance_leads(
+        order_by, filters.search_term
+    ):
         char_index = db_rom_handler.with_char_index(
             query=query,
             order_by_attr=sort_key.column,

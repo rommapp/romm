@@ -523,8 +523,4 @@ describe("orderSupportsLetters", () => {
   it.each(Object.entries(EXPECTED))("answers for %s", (key, expected) => {
     expect(orderSupportsLetters(key as GalleryOrderKey)).toBe(expected);
   });
-
-  it("answers no for a relevance order", () => {
-    expect(orderSupportsLetters(null)).toBe(false);
-  });
 });

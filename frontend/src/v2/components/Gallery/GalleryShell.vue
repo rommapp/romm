@@ -318,11 +318,11 @@ const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
 // A jump to "M" means nothing when the gallery is sorted by size or date, so
 // the letter affordances go away with the letters themselves. An unset sort
-// with no search term is ordered by name.
+// leaves the order to the backend, which sends no letters when relevance leads.
 const lettersSupported = computed(() =>
-  orderSupportsLetters(
-    orderBy.value ?? (searchTerm.value ? null : DEFAULT_ORDER_BY),
-  ),
+  orderBy.value === null
+    ? Object.keys(charIndex.value).length > 0
+    : orderSupportsLetters(orderBy.value),
 );
 const stripVisible = computed(() => !smAndDown.value && lettersSupported.value);
 const jumpMenuVisible = computed(

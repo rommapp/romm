@@ -74,8 +74,8 @@ export function isGalleryOrderKey(value: string): value is GalleryOrderKey {
  * which is also what an unfetched gallery looks like. */
 const LEXICAL_ORDER_KEYS: ReadonlySet<string> = new Set(["name", "fs_name"]);
 
-export function orderSupportsLetters(key: GalleryOrderKey | null): boolean {
-  return key !== null && LEXICAL_ORDER_KEYS.has(key);
+export function orderSupportsLetters(key: GalleryOrderKey): boolean {
+  return LEXICAL_ORDER_KEYS.has(key);
 }
 
 export function isGalleryOrderDir(value: string): value is GalleryOrderDir {

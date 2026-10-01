@@ -1815,6 +1815,12 @@ class DBRomsHandler(DBBaseHandler):
 
         return query
 
+    def search_relevance_leads(self, order_by: str, search_term: str | None) -> bool:
+        """Whether a gallery query orders by search relevance ahead of its sort key."""
+        return not order_by and bool(
+            search_term and self._build_search_phrases(search_term)
+        )
+
     def _gallery_order_clauses(
         self,
         *,
@@ -1845,10 +1851,10 @@ class DBRomsHandler(DBBaseHandler):
             # Relevance breaks an explicit sort's ties, or leads (with name
             # breaking its ties) when no sort is picked.
             relevance_clause = _search_relevance(phrases).desc()
-            if order_by:
-                sort_clauses.append(relevance_clause)
-            else:
+            if self.search_relevance_leads(order_by, search_term):
                 sort_clauses.insert(0, relevance_clause)
+            else:
+                sort_clauses.append(relevance_clause)
 
         return [
             clause
