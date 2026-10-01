@@ -256,6 +256,21 @@ def _search_terms(search_term: str) -> list[str]:
     return [term for term in (part.strip() for part in search_term.split("|")) if term]
 
 
+def _aliases_hold(term: str) -> ColumnElement[bool]:
+    """Whether the joined aliases, which keep each title's JSON escapes, hold `term`."""
+    # MariaDB keeps the ASCII-only escapes the blobs were written with; the
+    # other engines print non-ASCII characters as they are.
+    escaped = dict.fromkeys(
+        json.dumps(term, ensure_ascii=ascii_only)[1:-1] for ascii_only in (True, False)
+    )
+    return or_(
+        *(
+            Rom.generated_search_aliases.icontains(text, autoescape=True)
+            for text in escaped
+        )
+    )
+
+
 def _search_rank(terms: Sequence[str]) -> ColumnElement[int]:
     """2 when the name or an alias equals a term, 1 when the name starts with one, else 0."""
     folded = [" ".join(term.split()).lower() for term in terms]
@@ -266,7 +281,7 @@ def _search_rank(terms: Sequence[str]) -> ColumnElement[int]:
                 # The joined aliases sit in the row; the provider blobs they come
                 # from are only read when they can hold the term.
                 and_(
-                    Rom.generated_search_aliases.icontains(term, autoescape=True),
+                    _aliases_hold(term),
                     or_(
                         *(
                             json_titles_contain_folded(getattr(Rom, column), key, term)
@@ -1166,7 +1181,7 @@ class DBRomsHandler(DBBaseHandler):
     def _build_search_phrases(self, search_term: str) -> list[str]:
         """The multi-word terms of a search, which relevance ranks by."""
         phrases: list[str] = []
-        for term in search_term.split("|"):
+        for term in _search_terms(search_term):
             words = FULLTEXT_TOKEN_REGEX.findall(term)
             if len(words) > 1:
                 phrases.append(" ".join(words))

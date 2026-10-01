@@ -246,10 +246,11 @@ class TestJsonTitlesContainFoldedOnTheRunningEngine:
                     {"id": 2, "meta": {"titles": ["Crisis Core: Final Fantasy 7"]}},
                     {"id": 3, "meta": {"titles": "Final Fantasy 7"}},
                     {"id": 4, "meta": {}},
-                    {"id": 5, "meta": None},
                     {"id": 6, "meta": {"titles": ['Say "Final Fantasy 7"', "Pokémon"]}},
                 ],
             )
+            # A plain None would be stored as JSON null, not SQL NULL.
+            connection.execute(table.insert().values(id=5, meta=sa.null()))
         yield table
         with sync_engine.begin() as connection:
             table.drop(connection)

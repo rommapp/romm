@@ -298,6 +298,24 @@ def test_search_ranks_exact_titles_then_name_prefixes(platform: Platform):
     ]
 
 
+@pytest.mark.parametrize("alias", ['Say "Cheese"', "Pokémon Rouge"])
+def test_search_ranks_exact_aliases_with_escaped_characters(
+    platform: Platform, alias: str
+):
+    titled = make_rom(
+        platform, f"{alias} Edition", igdb_metadata={"alternative_names": [alias]}
+    )
+    untitled = make_rom(
+        platform,
+        f"{alias} Advent",
+        igdb_metadata={"alternative_names": [f"{alias} Advent"]},
+    )
+
+    roms = db_rom_handler.get_roms_scalar(search_term=alias.lower())
+
+    assert [rom.id for rom in roms] == [titled.id, untitled.id]
+
+
 @pytest.mark.parametrize(
     ("search_term", "expected"),
     [

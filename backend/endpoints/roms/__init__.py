@@ -570,9 +570,9 @@ def get_roms(
         str,
         Query(
             description=(
-                "Field to order results by. Leave empty to order by search "
-                "relevance when a search term is given on MySQL/MariaDB; other "
-                "databases fall back to name."
+                "Field to order results by. Leave empty to order a search of "
+                "two or more words by relevance: exact name or alias matches "
+                "first, then names starting with the term."
             ),
         ),
     ] = "",
