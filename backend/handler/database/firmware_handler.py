@@ -34,7 +34,7 @@ class DBFirmwareHandler(DBBaseHandler):
         platform_ids: Sequence[int] | None = None,
         missing: bool | None = None,
         hidden_platform_ids: Collection[int] | None = None,
-    ) -> Select[tuple[Firmware]]:
+    ) -> Select[Firmware]:
         query = select(Firmware).order_by(Firmware.file_name.asc())
 
         if platform_ids:

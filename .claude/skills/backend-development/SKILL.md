@@ -1,11 +1,11 @@
 ---
 name: backend-development
-description: Working on the RomM Python backend (backend/), a FastAPI app with SQLAlchemy 2.0, Alembic, RQ/Redis, and Socket.IO. Use when adding or changing API endpoints, handlers, ORM models, response schemas, metadata-provider adapters, background tasks, database migrations, or backend tests. Covers the layered architecture, conventions, auth/scopes, the OpenAPI→frontend type pipeline, and the uv/pytest/alembic/trunk workflow. Trigger on any work under backend/.
+description: Working on the RomM Python backend (backend/), a FastAPI app with SQLAlchemy 2.1, Alembic, RQ/Redis, and Socket.IO. Use when adding or changing API endpoints, handlers, ORM models, response schemas, metadata-provider adapters, background tasks, database migrations, or backend tests. Covers the layered architecture, conventions, auth/scopes, the OpenAPI→frontend type pipeline, and the uv/pytest/alembic/trunk workflow. Trigger on any work under backend/.
 ---
 
 # RomM Backend: FastAPI / SQLAlchemy
 
-Python 3.14+, FastAPI, SQLAlchemy 2.0 (MariaDB default; MySQL/PostgreSQL supported), Alembic, Redis + RQ for jobs/cache/sessions, Socket.IO for real-time. Managed with **uv**.
+Python 3.14+, FastAPI, SQLAlchemy 2.1 (MariaDB default; MySQL/PostgreSQL supported), Alembic, Redis + RQ for jobs/cache/sessions, Socket.IO for real-time. Managed with **uv**.
 
 Full reference: **`docs/BACKEND_ARCHITECTURE.md`** (directory map, ER diagram, every endpoint, auth flows). Read it before non-trivial changes.
 
@@ -42,6 +42,7 @@ alembic/          Migrations (env.py + versions/)
 - **Imports:** stdlib → third-party → local; explicit (no wildcards); `TYPE_CHECKING` blocks to break circular imports.
 - **Errors:** raise the custom exceptions in `exceptions/` (e.g. `RomNotFoundInDatabaseException`), not bare `HTTPException`, where a typed one exists.
 - **Validation/SSRF:** sanitize filenames/paths before filesystem use (`utils/`); paths are rooted at `LIBRARY_BASE_PATH`/`RESOURCES_BASE_PATH`/`ASSETS_BASE_PATH` from config.
+- **Statement types:** type a statement by its columns, as SQLAlchemy 2.1 does: `Select[Rom]`, `Row[int, str]`, not 2.0's `Select[tuple[Rom]]`. A helper that takes a select of any shape uses `Select[*tuple[Any, ...]]`; `Select[Any]` means one column.
 - **Engine-specific query SQL:** reach for a portable SQLAlchemy expression first. If the engines need different SQL, build both with `DialectCase(postgresql=..., mysql=...)` from `utils/sql_dialect.py` (or add a helper or `@compiles` construct there) rather than branching on `ROMM_DB_DRIVER` in a handler. `@compiles(..., "mysql")` alone misses MariaDB; use `_compiles_on_mysql_family`. Pin each spelling in tests by compiling for `MARIADB_DIALECT`/`POSTGRESQL_DIALECT` from `tests/sql_dialects.py`.
 
 ## Auth & scopes

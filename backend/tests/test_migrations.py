@@ -181,7 +181,7 @@ def test_the_migrated_full_path_digest_matches_the_models(
     A mismatch would make every pre-existing rom look new to the unique index.
     """
     with sync_engine.connect() as connection:
-        digest = connection.execute(
+        digest: str = connection.execute(
             sa.text(
                 f"SELECT {full_path_digest_sql(connection)} FROM "
                 "(SELECT :fs_path AS fs_path, :fs_name AS fs_name) AS one_rom"
@@ -358,7 +358,7 @@ def test_the_derivable_columns_revision_reverses_and_replays(admin_user: User):
             }
             assert not columns[("rom_file_doc_meta", "rom_id")]["nullable"]
             assert columns[("smart_collections", "rom_count")]["default"] is None
-            rom_count = connection.execute(
+            rom_count: int = connection.execute(
                 sa.text("SELECT rom_count FROM smart_collections WHERE id = :id"),
                 {"id": smart.id},
             ).scalar_one()
@@ -522,7 +522,7 @@ def test_the_full_path_hash_migration_resumes_an_interrupted_run(rom: Rom):
             migration.upgrade()
 
         columns, indexes = _schema_of(connection, "roms")
-        digest = connection.execute(
+        digest: str = connection.execute(
             sa.text(
                 f"SELECT {migration.COLUMN_NAME} FROM roms WHERE id = :rom_id"
             ),  # nosec B608
@@ -789,7 +789,7 @@ def test_the_roms_columns_helper_fills_the_full_path_digest_where_it_can(rom: Ro
             assert columns[FULL_PATH_HASH_COLUMN] is not is_mariadb(connection)
             assert not has_server_default(connection, FULL_PATH_HASH_COLUMN)
             if is_mariadb(connection):
-                digest = connection.execute(
+                digest: str = connection.execute(
                     sa.text(
                         f"SELECT {FULL_PATH_HASH_COLUMN} FROM roms WHERE id = :rom_id"  # nosec B608
                     ),

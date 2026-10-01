@@ -69,7 +69,7 @@ def _grouped_query(order_by: str = "", user_id: int | None = None):
 
 def _dedup_window_subquery(
     order_by: str = "", user_id: int | None = None
-) -> Select[Any]:
+) -> Select[*tuple[Any, ...]]:
     """The narrow `roms` subquery the grouped query materializes for its window."""
     for subquery in _subqueries(_grouped_query(order_by, user_id)):
         if not isinstance(subquery.element, Select):
@@ -83,7 +83,9 @@ def _dedup_window_subquery(
     raise AssertionError("the grouped query no longer materializes a roms subquery")
 
 
-def _dedup_window_select(order_by: str = "", user_id: int | None = None) -> Select[Any]:
+def _dedup_window_select(
+    order_by: str = "", user_id: int | None = None
+) -> Select[*tuple[Any, ...]]:
     """The SELECT that computes `row_num` (and any group aggregate)."""
     for subquery in _subqueries(_grouped_query(order_by, user_id)):
         if not isinstance(subquery.element, Select):

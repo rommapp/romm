@@ -549,7 +549,7 @@ def drop_save_target_layout_type(conn: sa.Connection) -> None:
 
 
 # The stored columns in the catalog, minus `full_path_hash`.
-PLAIN_COLUMNS = [
+PLAIN_COLUMNS: list[sa.Column[Any]] = [
     sa.Column("is_physical", sa.Boolean(), nullable=False, server_default=sa.false()),
     sa.Column("upc", sa.String(length=64)),
     sa.Column("locked_fields", CustomJSON()),
