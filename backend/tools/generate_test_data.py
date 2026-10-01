@@ -829,7 +829,7 @@ def main() -> int:
 
     from sqlalchemy import event, func, select
 
-    from handler.auth import auth_handler
+    from handler.auth.base_handler import auth_handler
     from handler.database.base_handler import sync_engine
     from utils.database import is_postgresql
 

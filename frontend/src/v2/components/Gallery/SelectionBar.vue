@@ -350,7 +350,7 @@ function clear() {
     ref="barEl"
     class="selection-bar"
     :class="{ 'selection-bar--visible': selection.enabled }"
-    :aria-hidden="!selection.enabled"
+    :inert="!selection.enabled"
   >
     <!-- One stroke around bar, hill and fillets, since three boxes cannot
          share a border without seams where their edges meet. -->

@@ -6,7 +6,6 @@ from typing import Annotated
 from fastapi import BackgroundTasks, Depends, HTTPException, Request, status
 from pydantic import Field
 
-from config import TASK_TIMEOUT
 from decorators.auth import protected_route
 from endpoints.play_sessions import PlaySessionEntry
 from endpoints.responses.base import PAGE_QUERY, BaseModel, PageParams
@@ -42,6 +41,7 @@ from models.assets import Save
 from models.deleted_asset import DeletedAsset
 from models.device import SyncMode
 from models.sync_session import SyncSessionStatus
+from tasks.registry import SYNC_PUSH_PULL_SPEC
 from utils.auth import token_device_id
 from utils.datetime import to_utc
 from utils.router import APIRouter
@@ -567,12 +567,8 @@ def trigger_push_pull(
         device_id=device.id,
         session_id=sync_session.id,
         force=True,
-        job_timeout=TASK_TIMEOUT,
-        meta={
-            "task_key": "sync_push_pull",
-            "task_name": "Push-Pull Sync",
-            "task_type": "sync",
-        },
+        job_timeout=SYNC_PUSH_PULL_SPEC.timeout,
+        meta=SYNC_PUSH_PULL_SPEC.job_meta("sync_push_pull"),
     )
 
     log.info(f"Enqueued push-pull sync for device {device.id}")

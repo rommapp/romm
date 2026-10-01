@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import cast
 
-import sentry_sdk
 from opentelemetry import trace
 
 from config import (
@@ -15,7 +14,6 @@ from config import (
     LIBRARY_BASE_PATH,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCAN_TIMEOUT,
-    SENTRY_DSN,
     TASK_RESULT_TTL,
 )
 from config.config_manager import config_manager as cm
@@ -27,12 +25,9 @@ from handler.scan_jobs import get_pending_scan_jobs
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
-from utils import get_version
+from utils.sentry import init_sentry
 
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    release=f"romm@{get_version()}",
-)
+init_sentry()
 tracer = trace.get_tracer(__name__)
 
 

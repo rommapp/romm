@@ -5,7 +5,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.auth import oauth_handler
+from handler.auth.base_handler import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from models.rom import Rom, RomFile, RomFileCategory

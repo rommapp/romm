@@ -397,6 +397,34 @@ export const Bare: Story = {
   },
 };
 
+export const Decorative: Story = {
+  render: () => ({
+    components: { RCheckbox },
+    setup: () => ({ checked: ref(true) }),
+    template: `
+      <button
+        type="button"
+        role="checkbox"
+        :aria-checked="checked"
+        aria-label="Chrono Trigger"
+        style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px"
+        @click="checked = !checked"
+      >
+        <RCheckbox :model-value="checked" decorative bare hide-details shape="circle" />
+        Chrono Trigger
+      </button>
+    `,
+  }),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Use `decorative` when an enclosing control owns the state, such as a selectable card: the box mirrors it with no input of its own.",
+      },
+    },
+  },
+};
+
 // ── Motion ──────────────────────────────────────────────────────────
 
 export const Toggle: Story = {

@@ -178,7 +178,7 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
 </script>
 
 <template>
-  <main class="jukebox__home">
+  <div class="jukebox__home">
     <CardRow
       v-for="row in launchRows"
       :key="row.title"
@@ -200,7 +200,7 @@ const launchRows = computed<{ title: string; tiles: LaunchTile[] }[]>(() => [
         <template #count>{{ tile.count }}</template>
       </Tile>
     </CardRow>
-  </main>
+  </div>
 </template>
 
 <style scoped>

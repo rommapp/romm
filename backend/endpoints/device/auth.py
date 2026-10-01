@@ -28,7 +28,7 @@ from endpoints.responses.device.auth import (
     DeviceAuthTokenResponse,
 )
 from handler.audit_handler import AuditTarget, record
-from handler.auth import auth_handler
+from handler.auth.base_handler import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_client_token_handler, db_device_handler
 from handler.database.base_handler import sync_session

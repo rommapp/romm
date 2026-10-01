@@ -66,7 +66,9 @@ class TestSyncRetroAchievementsProgressTask:
 
     def test_task_initialization(self, task):
         """Test task initialization with correct parameters."""
-        assert task.description == "Updates RetroAchievements progress for all users"
+        assert (
+            task.spec.description == "Updates RetroAchievements progress for all users"
+        )
 
     async def test_run_when_retroachievements_api_disabled(self, task, mocker):
         """Test run method when RetroAchievements API is disabled."""

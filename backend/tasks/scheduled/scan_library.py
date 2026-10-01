@@ -1,31 +1,18 @@
-from config import (
-    ENABLE_SCHEDULED_RESCAN,
-    SCAN_TIMEOUT,
-    SCHEDULED_RESCAN_CRON,
-)
 from endpoints.sockets.scan import ScanStats, scan_platforms
 from handler.scan_handler import ScanType, get_enabled_metadata_sources
 from logger.logger import log
-from tasks.tasks import PeriodicTask, TaskType
+from tasks.registry import SCAN_LIBRARY_SPEC
+from tasks.tasks import PeriodicTask
 
 
 class ScanLibraryTask(PeriodicTask):
     def __init__(self) -> None:
-        super().__init__(
-            title="Scheduled rescan",
-            description="Rescans the entire library",
-            task_type=TaskType.SCAN,
-            enabled=ENABLE_SCHEDULED_RESCAN,
-            manual_run=False,
-            cron_string=SCHEDULED_RESCAN_CRON,
-            # A library scan is not a five-minute task like the rest.
-            timeout=SCAN_TIMEOUT,
-        )
+        super().__init__(SCAN_LIBRARY_SPEC)
 
     async def run(self) -> dict[str, str]:
         scan_stats = ScanStats()
 
-        if not ENABLE_SCHEDULED_RESCAN:
+        if not self.spec.enabled:
             log.info("Scheduled library scan not enabled, skipping...")
             return scan_stats.to_dict()
 

@@ -8,7 +8,7 @@ from tests.factories import make_device_token
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import permissions as permissions_endpoints
-from handler.auth import oauth_handler
+from handler.auth.base_handler import oauth_handler
 from handler.database import db_user_handler
 from handler.database.base_handler import sync_session
 from handler.database.permissions_handler import DBPermissionsHandler

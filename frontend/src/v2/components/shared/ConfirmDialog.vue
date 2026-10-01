@@ -13,14 +13,7 @@
 // Tone defaults to "warning"; pass "danger" for irreversible-and-serious.
 import { RBtn, RDialog, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
-import {
-  computed,
-  inject,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-} from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
 
@@ -34,7 +27,6 @@ const emitter = inject<Emitter<Events>>("emitter");
 const open = ref(false);
 const payload = ref<Payload | null>(null);
 const typed = ref("");
-const cancelButtonRef = ref<InstanceType<typeof RBtn> | null>(null);
 
 const tone = computed(() => payload.value?.tone ?? "warning");
 const confirmColor = computed(() =>
@@ -66,9 +58,6 @@ function onShow(p: Payload) {
   payload.value = p;
   typed.value = "";
   open.value = true;
-  nextTick(() => {
-    cancelButtonRef.value?.$el?.focus?.();
-  });
 }
 
 // Closing without picking (header X, route change) counts as a cancel.
@@ -122,9 +111,11 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
       </div>
     </template>
     <template v-if="payload" #footer-start>
-      <RBtn ref="cancelButtonRef" variant="outlined" @click="onCancel">
+      <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and Cancel is the safe default -->
+      <RBtn autofocus variant="outlined" @click="onCancel">
         {{ payload.cancelText ?? t("common.cancel") }}
       </RBtn>
+      <!-- eslint-enable vuejs-accessibility/no-autofocus -->
     </template>
     <template v-if="payload" #footer>
       <RBtn

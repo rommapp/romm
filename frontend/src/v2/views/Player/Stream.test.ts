@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   container: null as Record<string, unknown> | null,
   capabilities: {} as Record<string, unknown>,
   presenceTick: null as (() => Promise<void>) | null,
+  playSession: { start: vi.fn(), flush: vi.fn() },
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
   query: {} as Record<string, string>,
   snackbar: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
@@ -139,7 +140,7 @@ vi.mock("@/v2/composables/useInputModality", async () => {
 vi.mock("@/v2/composables/usePageTitle", () => ({ usePageTitle: vi.fn() }));
 
 vi.mock("@/v2/composables/usePlaySession", () => ({
-  usePlaySession: () => ({ start: vi.fn(), flush: vi.fn() }),
+  usePlaySession: () => mocks.playSession,
 }));
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
@@ -154,6 +155,7 @@ vi.mock("@/v2/composables/useSocketEvent", () => ({
 
 vi.mock("@/v2/composables/useStageActive", () => ({
   useStageActive: vi.fn(),
+  usePlayingWhile: vi.fn(),
 }));
 
 vi.mock("@/v2/composables/useUnloadGuard", () => ({
@@ -476,6 +478,7 @@ type StreamVm = {
   claimedAt: string | null;
   playerState: string;
   endedDialogOpen: boolean;
+  exitDialogOpen: boolean;
   holdsClaim: boolean;
   containerHost: string;
   errorMessage: string;
@@ -623,6 +626,26 @@ describe("Stream session-ended notices", () => {
     expect(vmOf(wrapper).playerState).toBe("loading");
     claimed(CLAIM);
     await playing;
+  });
+});
+
+describe("Stream exit chord", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.claimSession.mockResolvedValue(CLAIM);
+  });
+
+  it("opens the exit dialog from the pad's exit chord", async () => {
+    // B is muted with the rest of the pad, so the chord is the pad's way out.
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    expect(vmOf(wrapper).playerState).toBe("playing");
+
+    window.dispatchEvent(new Event("gamepad:exitchord"));
+    await flushPromises();
+
+    expect(vmOf(wrapper).exitDialogOpen).toBe(true);
   });
 });
 
@@ -963,6 +986,16 @@ describe("Stream launch recovery", () => {
     });
   });
 
+  it("leaves the claim holder's play session to the backend", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("playing");
+    expect(mocks.playSession.start).not.toHaveBeenCalled();
+  });
+
   it("warns of the core once when launch-ready follows the poll", async () => {
     const wrapper = await launch({ picker: false });
     await vmOf(wrapper).onPlay();
@@ -1181,6 +1214,16 @@ describe("Stream join", () => {
     await flushPromises();
 
     expect(mocks.joinSession).toHaveBeenCalledWith("gba", undefined);
+  });
+
+  it("times the joiner's play session once the stream runs", async () => {
+    await launch({ picker: false });
+    await flushPromises();
+
+    expect(mocks.playSession.start).toHaveBeenCalledOnce();
+    expect(mocks.playSession.start).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 3 }),
+    );
   });
 });
 
