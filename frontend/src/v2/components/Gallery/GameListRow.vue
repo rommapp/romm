@@ -367,6 +367,9 @@ function onRowPointerDown(e: PointerEvent) {
               v-if="!isStatic"
               class="game-list-row__check"
               :model-value="isSelected"
+              :aria-label="
+                t('rom.select-asset', { name: rom.name ?? rom.fs_name_no_ext })
+              "
               shape="circle"
               size="sm"
               color="primary"
@@ -505,6 +508,9 @@ function onRowPointerDown(e: PointerEvent) {
             v-if="!isStatic"
             class="game-list-row__check"
             :model-value="isSelected"
+            :aria-label="
+              t('rom.select-asset', { name: rom.name ?? rom.fs_name_no_ext })
+            "
             shape="circle"
             size="sm"
             color="primary"

@@ -13,7 +13,7 @@ import Pair from "@/v2/views/Pair.vue";
     <main class="r-v2-pair-shell__stage">
       <Pair />
     </main>
-    <footer>
+    <footer class="r-v2-pair-shell__footer">
       <div class="r-v2-pair-shell__lang">
         <LanguageSelector />
       </div>
@@ -55,6 +55,13 @@ import Pair from "@/v2/views/Pair.vue";
   z-index: 1;
   width: 100%;
   max-width: 440px;
+}
+
+/* Out of the grid flow, or it adds a second row and pulls the stage off
+   centre. */
+.r-v2-pair-shell__footer {
+  position: absolute;
+  inset: auto 0 0;
 }
 
 .r-v2-pair-shell__lang {

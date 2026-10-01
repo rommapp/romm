@@ -121,7 +121,9 @@ const dashOffset = computed(() => 100 - progressValue.value);
     "
     :aria-valuemin="decorative ? undefined : 0"
     :aria-valuemax="decorative ? undefined : 100"
-    :aria-valuenow="!decorative && !indeterminate ? progressValue : undefined"
+    :aria-valuenow="
+      !decorative && !indeterminate ? Math.round(progressValue) : undefined
+    "
     :aria-busy="!decorative && indeterminate ? true : undefined"
   >
     <svg class="r-pc__svg" :viewBox="`0 0 ${diameter} ${diameter}`">

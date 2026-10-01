@@ -87,6 +87,15 @@ describe("GameCard selection", () => {
     expect(selection.ids).toEqual([2, 1]);
   });
 
+  it("keeps aria-pressed off the link and names its checkbox", async () => {
+    const wrapper = await mountCard(1, makeRouter());
+
+    expect(wrapper.find(".r-gc").attributes("aria-pressed")).toBeUndefined();
+    expect(wrapper.find(".r-gc__check input").attributes("aria-label")).toBe(
+      "rom.select-asset",
+    );
+  });
+
   it("consumes a modifier click on the checkbox", async () => {
     const router = makeRouter();
     const wrapper = await mountCard(1, router);
@@ -96,5 +105,17 @@ describe("GameCard selection", () => {
 
     expect(router.currentRoute.value.fullPath).toBe("/");
     expect(storeGallerySelection().ids).toEqual([1]);
+  });
+});
+
+describe("GameCard static", () => {
+  it("is a plain button unless the consumer passes selected", () => {
+    const plain = mount(GameCard, { props: { rom: rom(1), static: true } });
+    expect(plain.find(".r-gc").attributes("aria-pressed")).toBeUndefined();
+
+    const toggle = mount(GameCard, {
+      props: { rom: rom(1), static: true, selected: false },
+    });
+    expect(toggle.find(".r-gc").attributes("aria-pressed")).toBe("false");
   });
 });

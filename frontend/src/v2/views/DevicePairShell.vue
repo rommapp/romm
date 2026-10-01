@@ -16,7 +16,7 @@ import DevicePair from "@/v2/views/DevicePair.vue";
     <main class="r-v2-devpair-shell__stage">
       <DevicePair />
     </main>
-    <footer>
+    <footer class="r-v2-devpair-shell__footer">
       <div class="r-v2-devpair-shell__lang">
         <LanguageSelector />
       </div>
@@ -68,6 +68,13 @@ import DevicePair from "@/v2/views/DevicePair.vue";
   z-index: 1;
   width: 100%;
   max-width: 460px;
+}
+
+/* Out of the grid flow, or it adds a second row and pulls the stage off
+   centre. */
+.r-v2-devpair-shell__footer {
+  position: absolute;
+  inset: auto 0 0;
 }
 
 .r-v2-devpair-shell__lang {
