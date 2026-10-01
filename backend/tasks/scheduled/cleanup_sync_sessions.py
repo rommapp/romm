@@ -1,5 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
+from config import (
+    ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS,
+    SCHEDULED_CLEANUP_SYNC_SESSIONS_CRON,
+)
 from handler.database import db_sync_session_handler
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
@@ -15,9 +19,9 @@ class CleanupSyncSessionsTask(PeriodicTask):
             title="Scheduled sync session cleanup",
             description="Fails sync sessions no client ever completed",
             task_type=TaskType.CLEANUP,
-            enabled=True,
+            enabled=ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS,
             manual_run=False,
-            cron_string="23 * * * *",  # Hourly, off the hour
+            cron_string=SCHEDULED_CLEANUP_SYNC_SESSIONS_CRON,
         )
 
     async def run(self) -> None:

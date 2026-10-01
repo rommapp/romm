@@ -8,6 +8,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from httpx2 import Response
+from tests.factories import make_device_token
 
 from handler.auth.constants import Scope
 from handler.database import db_client_token_handler, db_device_handler
@@ -676,7 +677,7 @@ class TestBoundTokenInference:
 
         list_resp = client.get(
             f"/api/play-sessions?device_id={other.id}",
-            headers={"Authorization": f"Bearer {creds['access_token']}"},
+            headers={"Authorization": f"Bearer {access_token}"},
         )
         assert list_resp.status_code == status.HTTP_200_OK
         assert len(list_resp.json()) >= 1
@@ -687,18 +688,8 @@ class TestBoundTokenInference:
         admin_user: User,
     ):
         # Simulate the legacy manual token path
-        from handler.auth import auth_handler
-        from models.client_token import ClientToken
-
-        raw = auth_handler.generate_client_token()
-        db_client_token_handler.add_token(
-            ClientToken(
-                user_id=admin_user.id,
-                name="legacy",
-                hashed_token=auth_handler.hash_client_token(raw),
-                scopes="roms.user.write roms.user.read",
-                device_id=None,
-            )
+        _, raw = make_device_token(
+            admin_user, None, scopes="roms.user.write roms.user.read"
         )
 
         resp = client.post(
@@ -859,19 +850,7 @@ class TestWhoAmIForBoundToken:
         client: TestClient,
         admin_user: User,
     ):
-        from handler.auth import auth_handler
-        from models.client_token import ClientToken
-
-        raw = auth_handler.generate_client_token()
-        db_client_token_handler.add_token(
-            ClientToken(
-                user_id=admin_user.id,
-                name="legacy",
-                hashed_token=auth_handler.hash_client_token(raw),
-                scopes="me.read",
-                device_id=None,
-            )
-        )
+        _, raw = make_device_token(admin_user, None, scopes="me.read")
 
         resp = client.get("/api/users/me", headers={"Authorization": f"Bearer {raw}"})
         assert resp.status_code == status.HTTP_200_OK
@@ -910,19 +889,7 @@ class TestSyncNegotiateBoundTokenInference:
     def test_negotiate_without_bound_or_payload_device_id_is_400(
         self, client: TestClient, admin_user: User
     ):
-        from handler.auth import auth_handler
-        from models.client_token import ClientToken
-
-        raw = auth_handler.generate_client_token()
-        db_client_token_handler.add_token(
-            ClientToken(
-                user_id=admin_user.id,
-                name="legacy-sync",
-                hashed_token=auth_handler.hash_client_token(raw),
-                scopes="assets.read devices.read",
-                device_id=None,
-            )
-        )
+        _, raw = make_device_token(admin_user, None, scopes="assets.read devices.read")
 
         resp = client.post(
             "/api/sync/negotiate",

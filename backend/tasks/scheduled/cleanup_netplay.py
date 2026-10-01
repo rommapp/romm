@@ -1,3 +1,4 @@
+from config import ENABLE_SCHEDULED_CLEANUP_NETPLAY, SCHEDULED_CLEANUP_NETPLAY_CRON
 from handler.netplay_handler import netplay_handler
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
@@ -9,9 +10,9 @@ class CleanupNetplayTask(PeriodicTask):
             title="Scheduled netplay cleanup",
             description="Cleans up empty netplay rooms",
             task_type=TaskType.CLEANUP,
-            enabled=True,
+            enabled=ENABLE_SCHEDULED_CLEANUP_NETPLAY,
             manual_run=False,
-            cron_string="*/30 * * * *",  # Every 30 minutes
+            cron_string=SCHEDULED_CLEANUP_NETPLAY_CRON,
         )
 
     async def run(self) -> None:

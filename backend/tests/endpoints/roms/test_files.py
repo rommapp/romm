@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_rom
 
 import config
 from handler.database import db_permission_handler, db_rom_handler
@@ -32,18 +33,7 @@ def _add_file(rom: Rom, name: str, category: RomFileCategory | None) -> RomFile:
 
 
 def _make_rom(admin_user: User, platform: Platform) -> Rom:
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="media_rom",
-            slug="media_rom_slug",
-            fs_name="media_rom",
-            fs_name_no_tags="media_rom",
-            fs_name_no_ext="media_rom",
-            fs_extension="",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    rom = make_rom(platform, "media_rom", fs_extension="")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     return rom
 
@@ -301,18 +291,7 @@ def test_delete_rom_file_wrong_rom_returns_404(
     rom_a = _make_rom(admin_user, platform)
     # Use the game_folder_rom fixture name to avoid a duplicate fs_name constraint;
     # create a second ROM directly with a distinct slug and fs_name.
-    rom_b = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="other_rom",
-            slug="other_rom_slug",
-            fs_name="other_rom",
-            fs_name_no_tags="other_rom",
-            fs_name_no_ext="other_rom",
-            fs_extension="",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    rom_b = make_rom(platform, "other_rom", fs_extension="")
     db_rom_handler.add_rom_user(rom_id=rom_b.id, user_id=admin_user.id)
     rom_file = _add_file(rom_a, "game.bin", RomFileCategory.GAME)
 

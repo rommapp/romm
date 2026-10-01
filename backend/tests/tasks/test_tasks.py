@@ -1,4 +1,6 @@
 import asyncio
+from dataclasses import asdict, dataclass
+from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx2
@@ -9,6 +11,7 @@ from rq.timeouts import JobTimeoutException
 from exceptions.task_exceptions import TaskNotFoundException
 from models.notification import NotificationKind, NotificationLevel
 from tasks.tasks import (
+    JobMetaStats,
     PeriodicTask,
     RemoteFilePullTask,
     TaskType,
@@ -377,3 +380,25 @@ class TestReportTaskFailure:
         )
 
         report_task_failure(_job(), RuntimeError, RuntimeError("boom"), None)
+
+
+@dataclass
+class _CountStats(JobMetaStats):
+    meta_key: ClassVar[str] = "count_stats"
+
+    found: int = 0
+
+    def to_dict(self) -> dict[str, int]:
+        return asdict(self)
+
+
+class TestJobMetaStats:
+    def test_update_sets_known_fields_and_publishes_under_meta_key(self):
+        stats = _CountStats()
+
+        with patch("tasks.tasks.update_job_meta") as update_job_meta:
+            stats.update(found=3, unknown=1)
+
+        assert stats.found == 3
+        assert not hasattr(stats, "unknown")
+        update_job_meta.assert_called_once_with({"count_stats": {"found": 3}})

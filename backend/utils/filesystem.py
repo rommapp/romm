@@ -5,6 +5,8 @@ import shutil
 from collections.abc import Iterator
 from pathlib import Path
 
+from logger.logger import log
+
 # Container file extensions treated as compressed archives across modules
 # (roms_handler for hashing decisions, rahasher for skipping disc-platform
 # buffer-hash attempts, feeds for PKGi passthrough).
@@ -110,6 +112,30 @@ def link_or_copy_file(source: Path, dest: Path) -> None:
         except OSError:
             pass
         raise
+
+
+def place_export_asset(source: Path, dest: Path) -> bool:
+    """Link or copy an exported asset to ``dest``, keeping one already there.
+
+    Returns: whether ``dest`` holds the asset afterwards.
+    """
+    if dest.exists():
+        return True
+
+    # Metadata scanned before unfetched media paths were cleared can still
+    # point at files that were never downloaded.
+    if not source.is_file():
+        log.debug(f"Skipping asset {source}: source file is missing")
+        return False
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        link_or_copy_file(source, dest)
+        return True
+    except OSError as e:
+        log.warning(f"Failed to copy {source} -> {dest}: {e}")
+        return False
 
 
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")

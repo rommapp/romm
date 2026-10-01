@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import status
+from fastapi.testclient import TestClient
 
 from handler.auth import oauth_handler
 from handler.database import db_audit_event_handler, db_user_handler
@@ -188,6 +189,26 @@ class TestFilters:
         assert _ids(viewer) == [by_viewer.id]
         assert _ids(target) == [zelda.id]
         assert _ids(address) == [from_lan.id]
+
+    def test_search_matches_wildcards_literally(
+        self, client: TestClient, access_token: str
+    ):
+        full_run = _add(None, target_name="100% run")
+        _add(None, target_name="1000 coins")
+
+        percent = client.get(
+            "/api/audit-events",
+            params={"search": "100%"},
+            headers=_auth(access_token),
+        )
+        underscore = client.get(
+            "/api/audit-events",
+            params={"search": "1_0"},
+            headers=_auth(access_token),
+        )
+
+        assert _ids(percent) == [full_run.id]
+        assert _ids(underscore) == []
 
     def test_pages_stay_pinned_to_max_id(self, client, access_token, admin_user):
         newest = _add(admin_user, minutes_ago=1)
