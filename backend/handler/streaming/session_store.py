@@ -27,6 +27,7 @@ from redis.exceptions import WatchError
 from handler.notification_handler import notify
 from handler.redis_handler import as_text, async_cache
 from handler.socket_handler import socket_handler
+from handler.streaming.config import HOLD_CEILING_SECONDS
 from logger.logger import log
 from models.notification import NotificationKind, NotificationLevel
 
@@ -70,12 +71,6 @@ _STREAMING_SESSION_STALE_SECONDS = 180
 # How often backend-side work running under a claim restamps it. Well inside the
 # stale window, so a single missed refresh cannot hand the container away.
 _CLAIM_REFRESH_SECONDS = _STREAMING_SESSION_STALE_SECONDS // 3
-
-# How long a marker or a claim may be kept alive by the work behind it. Past
-# this the refresh stops and the container ages back out on its own: every step
-# under a keepalive carries its own timeout, so overrunning this means something
-# is wedged, and a wedged step must not reserve a container indefinitely.
-HOLD_CEILING_SECONDS = 15 * 60
 
 
 def session_redis_key(session_key: str) -> str:

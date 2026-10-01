@@ -53,3 +53,20 @@ class RomMWorker(Worker):
         with contextlib.suppress(Exception):
             job.execute_failure_callback(self.death_penalty_class, *exc_info)
         self.handle_exception(job, *exc_info)
+
+
+class PreloadingWorker(RomMWorker):
+    """RomMWorker that imports the enabled scheduled tasks of its queues up front.
+
+    For a dedicated queue whose tasks run often enough that every work horse
+    importing its task again costs more than holding it in the parent.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        from tasks.registry import SCHEDULED_TASKS, get_task
+
+        queues = set(self.queue_names())
+        for name, spec in SCHEDULED_TASKS.items():
+            if spec.enabled and spec.queue_name in queues:
+                get_task(name)

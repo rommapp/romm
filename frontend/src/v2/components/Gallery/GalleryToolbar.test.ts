@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import GalleryToolbar from "./GalleryToolbar.vue";
 
@@ -7,8 +7,9 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
+const smAndUp = ref(true);
 vi.mock("@/v2/composables/useBreakpoint", () => ({
-  useBreakpoint: () => ({ smAndUp: ref(true) }),
+  useBreakpoint: () => ({ smAndUp }),
 }));
 
 const modality = ref<"mouse" | "pad">("mouse");
@@ -88,6 +89,10 @@ describe("GalleryToolbar search autofocus", () => {
 });
 
 describe("GalleryToolbar sort axis", () => {
+  afterEach(() => {
+    smAndUp.value = true;
+  });
+
   it("emits the picked axis so grid mode can change the sort key", async () => {
     const wrapper = mountWithSortOptions();
 
@@ -101,17 +106,24 @@ describe("GalleryToolbar sort axis", () => {
     wrapper.unmount();
   });
 
-  it("marks the active axis", () => {
+  it.each([
+    ["the toolbar menu", true],
+    ["the phone-width menu", false],
+  ])("marks the active axis with a check in %s", (_, wide) => {
+    smAndUp.value = wide;
     const wrapper = mountWithSortOptions({ sortKey: "fs_size_bytes" });
 
-    const variants = Object.fromEntries(
+    const marks = Object.fromEntries(
       sortItems(wrapper).map((item) => [
         item.props("label"),
-        item.props("variant"),
+        [item.props("variant"), item.props("icon")],
       ]),
     );
 
-    expect(variants).toMatchObject({ Size: "active", Title: "default" });
+    expect(marks).toEqual({
+      Size: ["active", "mdi-check"],
+      Title: ["default", undefined],
+    });
     wrapper.unmount();
   });
 

@@ -239,6 +239,13 @@ function setSortDir(value: "asc" | "desc") {
   emit("update:sortDir", value);
 }
 
+function selectionMark(selected: boolean) {
+  return {
+    variant: selected ? ("active" as const) : ("default" as const),
+    icon: selected ? "mdi-check" : undefined,
+  };
+}
+
 function setSortKey(value: ListSortKey | null) {
   emit("update:sortKey", value);
 }
@@ -356,15 +363,14 @@ const { smAndUp } = useBreakpoint();
           <RMenuItem
             v-if="unsortedLabel"
             :label="unsortedLabel"
-            :variant="unsorted ? 'active' : 'default'"
-            :icon="unsorted ? 'mdi-check' : undefined"
+            v-bind="selectionMark(unsorted)"
             @click="setSortKey(null)"
           />
           <RMenuItem
             v-for="item in sortKeyItems"
             :key="item.key"
             :label="item.label"
-            :variant="sortKeyValue === item.key ? 'active' : 'default'"
+            v-bind="selectionMark(sortKeyValue === item.key)"
             @click="setSortKey(item.key)"
           />
         </RMenu>
@@ -436,15 +442,14 @@ const { smAndUp } = useBreakpoint();
           <RMenuItem
             v-if="unsortedLabel && sortKeyItems.length > 0"
             :label="unsortedLabel"
-            :variant="unsorted ? 'active' : 'default'"
-            :icon="unsorted ? 'mdi-check' : undefined"
+            v-bind="selectionMark(unsorted)"
             @click="setSortKey(null)"
           />
           <RMenuItem
             v-for="item in sortKeyItems"
             :key="item.key"
             :label="item.label"
-            :variant="sortKeyValue === item.key ? 'active' : 'default'"
+            v-bind="selectionMark(sortKeyValue === item.key)"
             @click="setSortKey(item.key)"
           />
           <RDivider v-if="sortKeyItems.length > 0" />
