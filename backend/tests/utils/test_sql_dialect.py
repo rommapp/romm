@@ -1,6 +1,4 @@
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
-from typing import Any
 
 import pytest
 import sqlalchemy as sa
@@ -25,7 +23,6 @@ from utils.sql_dialect import (
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
-    json_titles_contain_folded,
     nulls_last,
 )
 
@@ -177,39 +174,30 @@ class TestJsonArrayContainsSpelling:
         )
 
 
-@contextmanager
-def _scratch_json_table(
-    name: str, column: str, rows: list[dict[str, Any]]
-) -> Iterator[sa.Table]:
-    """A table of `id` and a JSON `column` holding `rows`, dropped on exit."""
-    table = sa.Table(
-        name,
-        sa.MetaData(),
-        sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column(column, CustomJSON()),
-    )
-    with sync_engine.begin() as connection:
-        # An interrupted run can leave the table behind in the shared test DB.
-        table.drop(connection, checkfirst=True)
-        table.create(connection)
-        connection.execute(table.insert(), rows)
-    try:
-        yield table
-    finally:
-        with sync_engine.begin() as connection:
-            table.drop(connection)
-
-
 class TestJsonArrayContainsOnTheRunningEngine:
     @pytest.fixture
     def tagged(self) -> Iterator[sa.Table]:
-        rows = [
-            {"id": 1, "tags": ["rpg", "puzzle"]},
-            {"id": 2, "tags": ["rpg"]},
-            {"id": 3, "tags": [7, 9]},
-        ]
-        with _scratch_json_table("sql_dialect_tagged", "tags", rows) as table:
-            yield table
+        table = sa.Table(
+            "sql_dialect_tagged",
+            sa.MetaData(),
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("tags", CustomJSON()),
+        )
+        with sync_engine.begin() as connection:
+            # An interrupted run can leave the table behind in the shared test DB.
+            table.drop(connection, checkfirst=True)
+            table.create(connection)
+            connection.execute(
+                table.insert(),
+                [
+                    {"id": 1, "tags": ["rpg", "puzzle"]},
+                    {"id": 2, "tags": ["rpg"]},
+                    {"id": 3, "tags": [7, 9]},
+                ],
+            )
+        yield table
+        with sync_engine.begin() as connection:
+            table.drop(connection)
 
     @pytest.mark.parametrize(
         ("build", "expected"),
@@ -235,51 +223,6 @@ class TestJsonArrayContainsOnTheRunningEngine:
 
         with sync_engine.connect() as connection:
             assert list(connection.scalars(statement)) == expected
-
-
-class TestJsonTitlesContainFoldedOnTheRunningEngine:
-    @pytest.fixture
-    def titled(self) -> Iterator[sa.Table]:
-        rows = [
-            {"id": 1, "meta": {"titles": ["Final Fantasy 7", "FF7"]}},
-            {"id": 2, "meta": {"titles": ["Crisis Core: Final Fantasy 7"]}},
-            {"id": 3, "meta": {"titles": ["ŌKAMI  Den"]}},
-            {"id": 4, "meta": {}},
-            {"id": 6, "meta": {"titles": ['Say "Final Fantasy 7"', "Pokémon"]}},
-        ]
-        with _scratch_json_table("sql_dialect_titled", "meta", rows) as table:
-            # A plain None would be stored as JSON null, not SQL NULL.
-            with sync_engine.begin() as connection:
-                connection.execute(table.insert().values(id=5, meta=sa.null()))
-            yield table
-
-    @pytest.mark.parametrize(
-        ("title", "expected"),
-        [
-            # Whole titles only: a title that merely holds the words is no match.
-            ("final fantasy 7", [1]),
-            ("FF7", [1]),
-            ('say "final fantasy 7"', [6]),
-            ("pokémon", [6]),
-            ("final fantasy", []),
-            # Accented capitals fold, and runs of spaces count as one.
-            ("ōkami den", [3]),
-        ],
-    )
-    def test_matches_whole_titles_ignoring_case(
-        self, titled: sa.Table, title: str, expected: list[int]
-    ):
-        condition = json_titles_contain_folded(titled.c.meta, "titles", title)
-        statement = sa.select(titled.c.id).where(condition).order_by(titled.c.id)
-
-        with sync_engine.connect() as connection:
-            assert list(connection.scalars(statement)) == expected
-
-
-def test_json_titles_contain_folded_refuses_a_key_outside_a_plain_name():
-    """JSON_TABLE takes the key inside a literal path, so it can't carry quotes."""
-    with pytest.raises(ValueError):
-        json_titles_contain_folded(_T.c.tags, "titles') OR 1=1 --", "x")
 
 
 class TestAnalyze:

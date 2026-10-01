@@ -64,6 +64,8 @@ from models.rom import (
     ALTERNATIVE_NAME_SOURCES,
     METADATA_SOURCE_FACET_COLUMNS,
     ROM_IS_IDENTIFIED,
+    SEARCH_TITLE_COLUMNS,
+    SEARCH_TITLE_SEPARATOR,
     Rom,
     RomDeletionTarget,
     RomFacets,
@@ -82,6 +84,8 @@ from models.rom import (
     TrackMeta,
     compute_full_path_hash,
     compute_name_sort_key,
+    compute_search_titles,
+    fold_search_title,
 )
 from utils import get_version
 from utils.database import (
@@ -101,12 +105,10 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.sql_dialect import (
     Analyze,
     DialectCase,
-    collapse_whitespace,
     fulltext_match,
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
-    json_titles_contain_folded,
     nulls_last,
 )
 
@@ -262,65 +264,21 @@ def _search_terms(search_term: str) -> list[str]:
     return [term for term in (part.strip() for part in search_term.split("|")) if term]
 
 
-def _aliases_hold(term: str) -> ColumnElement[bool]:
-    """Whether the joined aliases, which keep each title's JSON escapes, can hold `term`."""
-
-    def holds(escaped: Callable[[str], str | None]) -> ColumnElement[bool]:
-        # Word by word, since a stored title may space its words differently.
-        texts = [text for word in term.split() if (text := escaped(word)) is not None]
-        return and_(
-            true(),
-            *(
-                Rom.generated_search_aliases.icontains(text, autoescape=True)
-                for text in texts
-            ),
-        )
-
-    def raw(word: str) -> str:
-        return json.dumps(word, ensure_ascii=False)[1:-1]
-
-    def ascii_only(word: str) -> str | None:
-        # MariaDB stores non-ASCII characters as `\uXXXX`, whose case LOWER
-        # can't fold, so such a word can't narrow the match.
-        return raw(word) if word.isascii() else None
-
-    return DialectCase(postgresql=holds(raw), mysql=holds(ascii_only))
-
-
-def _provider_titles_hold(term: str) -> ColumnElement[bool]:
-    """Whether a provider's alternative titles include `term`, ignoring case."""
-    return or_(
-        *(
-            json_titles_contain_folded(getattr(Rom, column), key, term)
-            for column, key in ALTERNATIVE_NAME_SOURCES
-        )
-    )
-
-
 def _search_rank(terms: Sequence[str]) -> ColumnElement[int]:
     """2 when the name or an alias equals a term, 1 when the name starts with one, else 0."""
-    folded = [" ".join(term.split()).lower() for term in terms]
-    # The joined aliases sit in the row; the provider blobs they come from are
-    # only read when they can hold the term.
-    alias_exact = or_(
-        *(and_(_aliases_hold(term), _provider_titles_hold(term)) for term in folded)
-    )
-    name = func.lower(Rom.name, type_=Text)
-    # Collapsing costs a regex per row, so only names with a double space pay it.
-    has_double_space = Rom.name.contains("  ")
-    spaced_name = collapse_whitespace(name)
+    sep = SEARCH_TITLE_SEPARATOR
+    folded = [title for term in terms if (title := fold_search_title(term))]
     exact = or_(
-        name.in_(folded),
-        and_(has_double_space, spaced_name.in_(folded)),
-        alias_exact,
+        *(
+            Rom.search_titles.contains(f"{sep}{title}{sep}", autoescape=True)
+            for title in folded
+        )
     )
+    # The name comes first, so it is the title the column starts with.
     prefix = or_(
         *(
-            or_(
-                name.startswith(term, autoescape=True),
-                and_(has_double_space, spaced_name.startswith(term, autoescape=True)),
-            )
-            for term in folded
+            Rom.search_titles.startswith(f"{sep}{title}", autoescape=True)
+            for title in folded
         )
     )
     return case((exact, 2), (prefix, 1), else_=0)
@@ -2281,6 +2239,20 @@ class DBRomsHandler(DBBaseHandler):
                 or existing.name_sort_key == compute_name_sort_key(existing.name)
             ):
                 data = {**data, "name_sort_key": compute_name_sort_key(data["name"])}
+
+        if data.keys() & set(SEARCH_TITLE_COLUMNS):
+            # The bulk update() skips the mapper event that keeps this in sync.
+            stored = session.scalars(select(Rom).filter_by(id=id)).one()
+            data = {
+                **data,
+                "search_titles": compute_search_titles(
+                    data.get("name", stored.name),
+                    {
+                        column: data.get(column, getattr(stored, column))
+                        for column, _ in ALTERNATIVE_NAME_SOURCES
+                    },
+                ),
+            }
 
         if "fs_name" in data:
             parts = compute_file_name_parts(data["fs_name"])

@@ -18,6 +18,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy import DefaultClause, FetchedValue, Table, UniqueConstraint
 from sqlalchemy.sql.schema import NULL_UNSPECIFIED
+from tests.factories import make_rom
 
 import models
 from handler.database import db_collection_handler, db_platform_handler
@@ -386,6 +387,43 @@ def test_the_search_aliases_revision_reverses_and_replays():
             migration.upgrade()
 
         assert _schema_of(connection, "roms") == before
+
+
+def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platform):
+    """0147 fills existing rows, and resumes a run that stopped part-way."""
+    migration = _load_migration("0147_roms_search_titles.py")
+    first = make_rom(
+        platform, "Final Fantasy VII", igdb_metadata={"alternative_names": ["FF7"]}
+    )
+    second = make_rom(platform, "Chrono Trigger")
+
+    def titles(connection: sa.Connection) -> dict[int, str | None]:
+        rows = connection.execute(
+            sa.text("SELECT id, search_titles FROM roms WHERE id IN (:a, :b)"),
+            {"a": first.id, "b": second.id},
+        )
+        return dict(rows.tuples().all())
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        expected = titles(connection)
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "roms", "search_titles")
+            migration.downgrade()
+
+            migration.upgrade()
+            assert titles(connection) == expected
+
+            connection.execute(
+                sa.text("UPDATE roms SET search_titles = NULL WHERE id = :id"),
+                {"id": second.id},
+            )
+            migration.upgrade()
+            assert titles(connection) == expected
+
+        assert _schema_of(connection, "roms") == before
+    assert expected[first.id] == "\x1ffinal fantasy vii\x1fff7\x1f"
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:
