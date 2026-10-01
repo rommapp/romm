@@ -87,13 +87,31 @@ describe("GameCard selection", () => {
     expect(selection.ids).toEqual([2, 1]);
   });
 
-  it("keeps aria-pressed off the link and names its checkbox", async () => {
+  it("is a plain link with a decorative checkbox while nothing is selected", async () => {
     const wrapper = await mountCard(1, makeRouter());
+    const card = wrapper.find(".r-gc");
 
-    expect(wrapper.find(".r-gc").attributes("aria-pressed")).toBeUndefined();
-    expect(wrapper.find(".r-gc__check input").attributes("aria-label")).toBe(
-      "rom.select-asset",
-    );
+    expect(card.attributes("role")).toBeUndefined();
+    expect(card.attributes("aria-pressed")).toBeUndefined();
+    expect(card.attributes("aria-describedby")).toBeUndefined();
+    expect(wrapper.find(".r-gc__check input").exists()).toBe(false);
+  });
+
+  it("describes its selection state in selection mode, and Space toggles it", async () => {
+    const selection = storeGallerySelection();
+    selection.toggle(rom(2), 1);
+
+    const wrapper = await mountCard(1, makeRouter());
+    const card = wrapper.find(".r-gc");
+    const state = () =>
+      wrapper.find(`#${card.attributes("aria-describedby")}`).text();
+
+    expect(state()).toBe("rom.selection-state-off");
+
+    await card.trigger("keydown", { key: " " });
+
+    expect(selection.ids).toEqual([2, 1]);
+    expect(state()).toBe("rom.selection-state-on");
   });
 
   it("consumes a modifier click on the checkbox", async () => {

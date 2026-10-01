@@ -2,6 +2,8 @@ import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 import GameListRow from "./GameListRow.vue";
 import { rom } from "./listRowFixture";
 
@@ -99,5 +101,34 @@ describe("list row on phones and tablets", () => {
     expect(fields).toContain("9.1");
     expect(fields).toContain("USA");
     expect(fields).toContain("en");
+  });
+});
+
+describe("list row selection", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    smAndDown.value = false;
+    vi.spyOn(storeGalleryRoms(), "getRomAt").mockReturnValue(rom());
+  });
+
+  it("is a plain link while nothing is selected", () => {
+    const row = mountRow({ rom: undefined, position: 0 }).find("a");
+
+    expect(row.attributes("aria-describedby")).toBeUndefined();
+  });
+
+  it("describes its selection state in selection mode, and Space toggles it", async () => {
+    const selection = storeGallerySelection();
+    selection.toggle({ ...rom(), id: 99 }, 5);
+    const wrapper = mountRow({ rom: undefined, position: 0 });
+    const row = wrapper.find("a");
+    const state = () =>
+      wrapper.find(`#${row.attributes("aria-describedby")}`).text();
+
+    expect(state()).toBe("rom.selection-state-off");
+
+    await row.trigger("keydown", { key: " " });
+
+    expect(state()).toBe("rom.selection-state-on");
   });
 });

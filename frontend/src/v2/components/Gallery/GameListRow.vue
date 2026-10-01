@@ -21,7 +21,7 @@ import {
   RTooltip,
 } from "@v2/lib";
 import { formatPlaytime, formatReleaseDate, releaseYear } from "@v2/utils/time";
-import { computed, ref } from "vue";
+import { computed, ref, useId } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
@@ -127,13 +127,24 @@ const rom = computed<SimpleRom | null>(() => {
 const romName = computed(() =>
   rom.value ? (rom.value.name ?? rom.value.fs_name_no_ext) : "",
 );
-const checkLabel = computed(() =>
-  t("rom.select-asset", { name: romName.value }),
-);
-
 const isSelected = computed(() =>
   !isStatic.value && rom.value ? selection.isSelected(rom.value.id) : false,
 );
+// While the gallery is selecting, Enter toggles the row instead of opening
+// it, so the link describes its selection state.
+const selectingRow = computed(
+  () => !isStatic.value && !!rom.value && selection.enabled,
+);
+const selectionStateId = useId();
+
+// Space toggles a selecting row the way it toggles a native checkbox.
+function onRowKeydown(e: KeyboardEvent) {
+  const item = rom.value;
+  if (e.key !== " " || !selectingRow.value || !item) return;
+  if (props.position === undefined) return;
+  e.preventDefault();
+  selection.toggle(item, props.position);
+}
 
 function onCheckboxClick(e: MouseEvent) {
   e.preventDefault();
@@ -350,16 +361,30 @@ function onRowPointerDown(e: PointerEvent) {
     :style="[smAndDown ? undefined : gridStyle, entranceStyle]"
     :href="rom ? `/rom/${rom.id}` : undefined"
     :aria-label="rom ? t('common.open-item', { name: romName }) : undefined"
+    :aria-describedby="selectingRow ? selectionStateId : undefined"
+    :aria-keyshortcuts="
+      rom && !isStatic ? 'Control+Enter Meta+Enter' : undefined
+    "
     :data-rom-position="position"
     :data-rom-id="rom?.id"
     :data-focus-key="rom ? `rom-${rom.id}` : undefined"
     @click="onRowClick"
+    @keydown="onRowKeydown"
     @mouseenter="onRowHighlight"
     @focus="onRowHighlight"
     @pointerdown="onRowPointerDown"
     @contextmenu="selectionInput.handleContextMenu"
     @animationend.self="endEntrance"
   >
+    <span
+      v-if="selectingRow"
+      :id="selectionStateId"
+      class="game-list-row__selection-state"
+    >
+      {{
+        isSelected ? t("rom.selection-state-on") : t("rom.selection-state-off")
+      }}
+    </span>
     <template v-if="rom">
       <!-- COMPACT (phones / tablets): two lines plus the chevron; the
            columns move into the detail panel below. -->
@@ -370,13 +395,12 @@ function onRowPointerDown(e: PointerEvent) {
               v-if="!isStatic"
               class="game-list-row__check"
               :model-value="isSelected"
-              :aria-label="checkLabel"
               shape="circle"
               size="sm"
               color="primary"
               bare
               hide-details
-              tabindex="-1"
+              decorative
               @click="onCheckboxClick"
             />
           </div>
@@ -509,13 +533,12 @@ function onRowPointerDown(e: PointerEvent) {
             v-if="!isStatic"
             class="game-list-row__check"
             :model-value="isSelected"
-            :aria-label="checkLabel"
             shape="circle"
             size="sm"
             color="primary"
             bare
             hide-details
-            tabindex="-1"
+            decorative
             @click="onCheckboxClick"
           />
         </div>
@@ -763,6 +786,16 @@ function onRowPointerDown(e: PointerEvent) {
 </template>
 
 <style scoped>
+/* Visually hidden, still read as the item's description. */
+.game-list-row__selection-state {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .game-list-row {
   /* An inline <a> would shrink-wrap its content and swallow the bleed. */
   display: block;

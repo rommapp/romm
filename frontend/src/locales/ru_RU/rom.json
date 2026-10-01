@@ -435,6 +435,8 @@
   "select-file": "Выбрать {path}",
   "selected-of": "{selected} из {total} выбрано",
   "selection-count": "{n} игр",
+  "selection-state-off": "Не выбрано",
+  "selection-state-on": "Выбрано",
   "set-as-default": "Установить ром по умолчанию",
   "set-as-default-version": "Установить как версию по умолчанию",
   "set-status": "Задать статус",

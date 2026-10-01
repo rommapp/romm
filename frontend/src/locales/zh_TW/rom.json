@@ -435,6 +435,8 @@
   "select-file": "選擇 {path}",
   "selected-of": "已選擇 {selected} / {total}",
   "selection-count": "{n} 個遊戲",
+  "selection-state-off": "未選取",
+  "selection-state-on": "已選取",
   "set-as-default": "將 ROM 設為預設",
   "set-as-default-version": "設為預設版本",
   "set-status": "設定狀態",

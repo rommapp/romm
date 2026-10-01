@@ -435,6 +435,8 @@
   "select-file": "{path} 선택",
   "selected-of": "{total}개 중 {selected}개 선택됨",
   "selection-count": "{n}개 게임",
+  "selection-state-off": "선택 안 됨",
+  "selection-state-on": "선택됨",
   "set-as-default": "기본 롬으로 설정",
   "set-as-default-version": "기본 버전으로 설정",
   "set-status": "상태 설정",

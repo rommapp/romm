@@ -435,6 +435,8 @@
   "select-file": "{path} seç",
   "selected-of": "{total} dosyadan {selected} seçildi",
   "selection-count": "{n} oyun",
+  "selection-state-off": "Seçilmedi",
+  "selection-state-on": "Seçildi",
   "set-as-default": "ROM'u varsayılan yap",
   "set-as-default-version": "Varsayılan sürüm olarak ayarla",
   "set-status": "Durum ayarla",

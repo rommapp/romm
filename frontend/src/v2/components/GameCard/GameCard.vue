@@ -38,7 +38,7 @@
 //   * `#overlay` slot renders content on top of the cover for badges
 //     that aren't part of the default gallery overlay (e.g. metadata
 //     provider logos in the match-flow source picker).
-import { computed, provide, ref } from "vue";
+import { computed, provide, ref, useId } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
@@ -291,13 +291,16 @@ const showCheckbox = computed(
 const checkboxAlwaysOn = computed(
   () => props.selectable && !props.decorative && selectionStore.enabled,
 );
+// While the gallery is selecting, Enter toggles the card instead of opening
+// it, so the link describes its selection state.
+const describesSelection = computed(
+  () => checkboxAlwaysOn.value && !props.static,
+);
+const selectionStateId = useId();
 
 function onCheckboxClick(e: MouseEvent) {
-  // The checkbox itself is a deliberate selection gesture. We bind
-  // RCheckbox in "controlled" mode (only `:model-value`: no v-model),
-  // so the native input change is purely visual; `preventDefault`
-  // here cancels the label → input click default so the input never
-  // toggles itself, and our store mutation drives the next render.
+  // The box is decorative and the store drives its state. Stop the click
+  // here so the enclosing link doesn't navigate.
   e.preventDefault();
   e.stopPropagation();
   if (props.position == null) return;
@@ -340,12 +343,18 @@ function onCardPointerDown(e: PointerEvent) {
   selectionInput.handlePointerDown(props.rom, props.position, e);
 }
 
-function onStaticKeydown(e: KeyboardEvent) {
-  // Enter / Space activate the card when it's rendered as a plain
-  // <article role="button"> instead of a router-link.
-  if (e.key === "Enter" || e.key === " ") {
+function onCardKeydown(e: KeyboardEvent) {
+  if (props.decorative || (e.key !== "Enter" && e.key !== " ")) return;
+  // A static card is an <article role="button">, so Enter / Space activate it.
+  if (props.static) {
     e.preventDefault();
     emit("click", e as unknown as MouseEvent);
+    return;
+  }
+  // Space toggles a selecting card the way it toggles a native checkbox.
+  if (e.key === " " && checkboxAlwaysOn.value && props.position != null) {
+    e.preventDefault();
+    selectionStore.toggle(props.rom, props.position);
   }
 }
 
@@ -377,12 +386,18 @@ function onStaticKeydown(e: KeyboardEvent) {
     :style="{ '--r-cover-ratio': coverAspectRatio }"
     :aria-label="decorative ? undefined : title"
     :aria-pressed="static && !decorative ? selected : undefined"
+    :aria-describedby="describesSelection ? selectionStateId : undefined"
+    :aria-keyshortcuts="
+      selectable && !static && !decorative
+        ? 'Control+Enter Meta+Enter'
+        : undefined
+    "
     :data-rom-id="rom.id"
     :data-rom-position="selectable ? position : undefined"
     :data-focus-key="!decorative && !static ? `rom-${rom.id}` : undefined"
     @click.capture="onCardClickCapture"
     @click="onCardClick"
-    @keydown="static && !decorative ? onStaticKeydown($event) : undefined"
+    @keydown="onCardKeydown"
     @mouseenter="onCoverEnter"
     @mouseleave="onCoverLeave"
     @focus="onCoverFocus"
@@ -390,6 +405,15 @@ function onStaticKeydown(e: KeyboardEvent) {
     @pointerdown="onCardPointerDown"
     @contextmenu="selectionInput.handleContextMenu"
   >
+    <span
+      v-if="describesSelection"
+      :id="selectionStateId"
+      class="r-gc__selection-state"
+    >
+      {{
+        isSelected ? t("rom.selection-state-on") : t("rom.selection-state-off")
+      }}
+    </span>
     <GameCover
       ref="coverRef"
       class="r-gc__art"
@@ -414,13 +438,12 @@ function onStaticKeydown(e: KeyboardEvent) {
         v-if="showCheckbox"
         class="r-gc__check"
         :model-value="isSelected"
-        :aria-label="t('rom.select-asset', { name: title })"
         shape="circle"
         size="md"
         color="primary"
         bare
         hide-details
-        tabindex="-1"
+        decorative
         @click="onCheckboxClick"
       />
 
@@ -523,6 +546,16 @@ function onStaticKeydown(e: KeyboardEvent) {
 </template>
 
 <style scoped>
+/* Visually hidden, still read as the item's description. */
+.r-gc__selection-state {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .r-gc {
   /* The long press selects the card; iOS would offer its link callout too. */
   -webkit-touch-callout: none;
@@ -935,8 +968,7 @@ html:not([data-input="pad"]) .r-gc:hover .r-gc__check,
 .r-gc:focus-visible .r-gc__check,
 .r-gc--focused .r-gc__check,
 .r-gc--checkbox-on .r-gc__check,
-.r-gc--selected .r-gc__check,
-.r-gc__check:has(:focus-visible) {
+.r-gc--selected .r-gc__check {
   opacity: 1;
   pointer-events: auto;
 }
