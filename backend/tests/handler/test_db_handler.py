@@ -7,8 +7,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
 from tests.factories import make_rom, make_save, make_screenshot, make_state
 
-from config import ROMM_DB_DRIVER
-from handler.auth import auth_handler
+from handler.auth.base_handler import auth_handler
 from handler.database import (
     db_platform_handler,
     db_rom_handler,
@@ -232,20 +231,19 @@ def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
     # Only titles containing BOTH words appear (AND semantics).
     assert set(result_ids) == {ff.id, ff7.id, fantasy_final.id}
 
-    # Relevance ordering uses MATCH ... AGAINST, which only runs on
-    # MySQL/MariaDB; PostgreSQL falls back to name ordering, so the
-    # phrase-ranking assertions only hold on those drivers.
-    if ROMM_DB_DRIVER in ("mariadb", "mysql"):
-        # Exact-order phrase matches rank above the reversed-order match.
-        assert result_ids.index(ff.id) < result_ids.index(fantasy_final.id)
-        assert result_ids.index(ff7.id) < result_ids.index(fantasy_final.id)
+    # Exact-order phrase matches rank above the reversed-order match.
+    assert result_ids.index(ff.id) < result_ids.index(fantasy_final.id)
+    assert result_ids.index(ff7.id) < result_ids.index(fantasy_final.id)
 
     # The relevance ORDER BY must also survive the group_by_meta_id subquery
     # wrapping used by the gallery (each ROM here is its own group).
     grouped = db_rom_handler.get_roms_scalar(
         search_term="final fantasy", group_by_meta_id=True
     )
-    assert {r.id for r in grouped} == {ff.id, ff7.id, fantasy_final.id}
+    grouped_ids = [r.id for r in grouped]
+    assert set(grouped_ids) == {ff.id, ff7.id, fantasy_final.id}
+    assert grouped_ids.index(ff.id) < grouped_ids.index(fantasy_final.id)
+    assert grouped_ids.index(ff7.id) < grouped_ids.index(fantasy_final.id)
 
     # An explicit sort takes priority over relevance: ordering by name asc puts
     # "Fantasy Final" first (relevance is only the tiebreaker here).
@@ -254,6 +252,41 @@ def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
     )
     explicit_ids = [r.id for r in explicit]
     assert explicit_ids.index(fantasy_final.id) < explicit_ids.index(ff.id)
+
+
+@pytest.mark.parametrize(
+    ("search_term", "expected"),
+    [
+        # "7" is too short for the FULLTEXT index.
+        ("final fantasy 7", {"Final Fantasy 7"}),
+        # "the" is an InnoDB stopword, "of" both short and a stopword.
+        ("the legend zelda", {"The Legend of Zelda"}),
+        ("legend of zelda", {"The Legend of Zelda"}),
+        # No word the index holds, so LIKE alone decides.
+        ("x-2", {"Final Fantasy X-2"}),
+        # The index holds "dr." as "dr", too short to require.
+        ("dr. mario", {"Dr. Mario"}),
+        # `_` is literal, not a LIKE wildcard.
+        ("x_2", set()),
+    ],
+)
+def test_filter_by_search_term_words_fulltext_cannot_index(
+    platform: Platform, search_term: str, expected: set[str]
+):
+    for name in (
+        "Final Fantasy 7",
+        "Final Fantasy X-2",
+        "Final Fantasy",
+        "Dr. Mario",
+        "The Legend of Zelda",
+        "Zelda II The Adventure of Link",
+    ):
+        # Spaced like a real dump, so the filename splits into the same words.
+        make_rom(platform, name, fs_stem=f"{name} (USA)")
+
+    results = db_rom_handler.get_roms_scalar(search_term=search_term)
+
+    assert {r.name for r in results} == expected
 
 
 def test_sibling_roms_empty_fs_name_no_tags_not_matched(platform: Platform):

@@ -40,7 +40,7 @@ from sqlalchemy.orm import (
     selectinload,
     undefer,
 )
-from sqlalchemy.sql.elements import ClauseList, ColumnElement, UnaryExpression
+from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
 
 from config.config_manager import config_manager as cm
@@ -84,14 +84,17 @@ from models.rom import (
 )
 from utils import get_version
 from utils.database import (
-    LIKE_ESCAPE_CHAR,
     ROMS_SEARCH_FULLTEXT_COLUMNS,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
-    escape_like,
     is_non_blank,
     release_day_ranges,
     rom_unset_flag_column,
+)
+from utils.fulltext import (
+    FULLTEXT_TOKEN_REGEX,
+    fulltext_settings,
+    split_fulltext_words,
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.sql_dialect import (
@@ -104,7 +107,7 @@ from utils.sql_dialect import (
     nulls_last,
 )
 
-from .base_handler import DBBaseHandler, affected_rows
+from .base_handler import DBBaseHandler, affected_rows, sync_engine
 
 type RomSelect = Select[tuple[Rom]]
 
@@ -162,12 +165,6 @@ EJS_SUPPORTED_PLATFORMS = [
 RUFFLE_SUPPORTED_PLATFORMS = [
     UPS.BROWSER,
 ]
-
-# Used to remove native full-text SQL operators
-FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
-
-# 3 is the default minimum size in InnoDB
-FULLTEXT_MIN_TOKEN_SIZE = 3
 
 # A term reaches the hash columns only when it is hex of exactly a digest
 # length, so an ordinary name search builds no hash SQL at all. Hashes are
@@ -238,11 +235,26 @@ ROM_SEARCH_COLUMNS: tuple[QueryableAttribute[Any], ...] = tuple(
 )
 
 
+def _name_like(word: str) -> ColumnElement[bool]:
+    return or_(
+        *(column.icontains(word, autoescape=True) for column in ROM_SEARCH_COLUMNS)
+    )
+
+
 def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
     """A MariaDB/MySQL FULLTEXT match of the ROM's name, filename and aliases."""
     return fulltext_match(
         *(column.expression for column in ROM_SEARCH_COLUMNS),
         boolean_query=boolean_query,
+    )
+
+
+def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
+    """How well the ROM's name, filename or aliases hold the phrases, words in order."""
+    holds_a_phrase = or_(*(_name_like(phrase) for phrase in phrases))
+    return DialectCase(
+        postgresql=case((holds_a_phrase, 1), else_=0),
+        mysql=_fulltext_match(" ".join(f'"{phrase}"' for phrase in phrases)),
     )
 
 
@@ -1118,47 +1130,40 @@ class DBRomsHandler(DBBaseHandler):
             )
         )
 
-    def _build_fulltext_boolean_query(self, term: str) -> str | None:
-        words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
-        if not words or any(len(word) < FULLTEXT_MIN_TOKEN_SIZE for word in words):
-            return None
-        return " ".join(f"+{word}*" for word in words)
-
-    def _build_fulltext_relevance(self, search_term: str) -> str | None:
-        parts: list[str] = []
+    def _build_search_phrases(self, search_term: str) -> list[str]:
+        """The multi-word terms of a search, which relevance ranks by."""
+        phrases: list[str] = []
         for term in search_term.split("|"):
-            words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
+            words = FULLTEXT_TOKEN_REGEX.findall(term)
             if len(words) > 1:
-                parts.append('"' + " ".join(words) + '"')
-        return " ".join(parts) if parts else None
+                phrases.append(" ".join(words))
+        return phrases
 
     def _build_name_conditions(self, terms: Sequence[str]) -> list[Any]:
         """One condition per term, matching it against the ROM's name, filename and aliases."""
-        # PostgreSQL's pg_trgm indexes serve the ILIKE; MariaDB and MySQL use
-        # their FULLTEXT index unless a word is too short for it.
-        like_conditions = [
-            and_(
-                *(
-                    or_(*(column.ilike(f"%{word}%") for column in ROM_SEARCH_COLUMNS))
-                    for word in term.split()
+        settings = fulltext_settings(sync_engine)
+        conditions: list[Any] = []
+        for term in terms:
+            words = term.split()
+            likes = {word: _name_like(word) for word in words}
+            like = and_(*likes.values())
+            # Unreadable settings leave LIKE alone to decide.
+            indexed, unindexed = (
+                split_fulltext_words(words, settings) if settings else ([], words)
+            )
+            if not indexed:
+                conditions.append(like)
+                continue
+            # PostgreSQL's pg_trgm indexes serve the ILIKE. On MariaDB and MySQL
+            # FULLTEXT drives the query and LIKE checks the words it can't hold.
+            match = _fulltext_match(" ".join(f"+{word}*" for word in indexed))
+            conditions.append(
+                DialectCase(
+                    postgresql=like,
+                    mysql=and_(match, *(likes[word] for word in unindexed)),
                 )
             )
-            for term in terms
-        ]
-        boolean_queries = [
-            query
-            for term in terms
-            if (query := self._build_fulltext_boolean_query(term)) is not None
-        ]
-        if len(boolean_queries) < len(terms):
-            return like_conditions
-
-        return [
-            DialectCase(postgresql=like, mysql=_fulltext_match(boolean_query))
-            for boolean_query, like in zip(
-                boolean_queries, like_conditions, strict=True
-            )
-        ]
+        return conditions
 
     def _build_hash_selects(self, terms: Iterable[str]) -> list[Select[tuple[int]]]:
         """Id-yielding selects for terms shaped like a hash digest.
@@ -1834,23 +1839,20 @@ class DBRomsHandler(DBBaseHandler):
         # mixed-direction pair forces a filesort.
         tiebreaker = Rom.id.desc() if descending else Rom.id.asc()
 
-        relevance = self._build_fulltext_relevance(search_term) if search_term else None
-        if relevance:
-            relevance_clause = _fulltext_match(relevance).desc()
-            # Only the FULLTEXT engines rank: relevance breaks an explicit sort's
-            # ties, or leads (with name breaking its ties) when no sort is picked.
-            order_clause = DialectCase(
-                postgresql=order_clause,
-                mysql=(
-                    ClauseList(order_clause, relevance_clause)
-                    if order_by
-                    else ClauseList(relevance_clause, order_clause)
-                ),
-            )
+        sort_clauses: list[Any] = [order_clause]
+        phrases = self._build_search_phrases(search_term) if search_term else []
+        if phrases:
+            # Relevance breaks an explicit sort's ties, or leads (with name
+            # breaking its ties) when no sort is picked.
+            relevance_clause = _search_relevance(phrases).desc()
+            if order_by:
+                sort_clauses.append(relevance_clause)
+            else:
+                sort_clauses.insert(0, relevance_clause)
 
         return [
             clause
-            for clause in (nulls_last_clause, order_clause, tiebreaker)
+            for clause in (nulls_last_clause, *sort_clauses, tiebreaker)
             if clause is not None
         ]
 
@@ -2890,12 +2892,11 @@ class DBRomsHandler(DBBaseHandler):
         if rom_id is not None:
             clauses.append(Rom.id == rom_id)
         if search:
-            like = f"%{escape_like(search.lower())}%"
             clauses.append(
                 or_(
-                    func.lower(TrackMeta.title).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.artist).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.album).like(like, escape=LIKE_ESCAPE_CHAR),
+                    TrackMeta.title.icontains(search, autoescape=True),
+                    TrackMeta.artist.icontains(search, autoescape=True),
+                    TrackMeta.album.icontains(search, autoescape=True),
                 )
             )
         if artist and exclude_field != "artist":
@@ -3087,11 +3088,7 @@ class DBRomsHandler(DBBaseHandler):
             where.append(func.length(func.trim(col)) > 0)
         if search:
             target = cast(col, String) if field == "years" else col
-            where.append(
-                func.lower(target).like(
-                    f"%{escape_like(search.lower())}%", escape=LIKE_ESCAPE_CHAR
-                )
-            )
+            where.append(target.icontains(search, autoescape=True))
         count_col = func.count().label("count")
         base = (
             select(col.label("value"), count_col)
@@ -3269,11 +3266,7 @@ class DBRomsHandler(DBBaseHandler):
             max_duration=max_duration,
         )
         if search:
-            where.append(
-                func.lower(Platform.name).like(
-                    f"%{escape_like(search.lower())}%", escape=LIKE_ESCAPE_CHAR
-                )
-            )
+            where.append(Platform.name.icontains(search, autoescape=True))
         count_col = func.count().label("count")
         base = self._music_facet_joins(
             select(
@@ -3336,13 +3329,12 @@ class DBRomsHandler(DBBaseHandler):
             max_duration=max_duration,
         )
         if search:
-            like = f"%{escape_like(search.lower())}%"
             where.append(
                 or_(
-                    func.lower(Rom.name).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.title).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.artist).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.album).like(like, escape=LIKE_ESCAPE_CHAR),
+                    Rom.name.icontains(search, autoescape=True),
+                    TrackMeta.title.icontains(search, autoescape=True),
+                    TrackMeta.artist.icontains(search, autoescape=True),
+                    TrackMeta.album.icontains(search, autoescape=True),
                 )
             )
         count_col = func.count().label("count")
@@ -3413,7 +3405,10 @@ class DBRomsHandler(DBBaseHandler):
 
         if search:
             query = query.filter(
-                or_(RomNote.title.contains(search), RomNote.content.contains(search))
+                or_(
+                    RomNote.title.contains(search, autoescape=True),
+                    RomNote.content.contains(search, autoescape=True),
+                )
             )
 
         if tags:

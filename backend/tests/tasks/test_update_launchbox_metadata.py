@@ -1,11 +1,12 @@
 import os
+from dataclasses import replace
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import anyio
 import pytest
 
-from config import TASK_TIMEOUT
+from config import LAUNCHBOX_API_ENABLED, TASK_TIMEOUT
 from handler.dump_cache import decode
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.types import (
@@ -55,7 +56,7 @@ class TestUpdateLaunchboxMetadataTask:
 
     def test_task_initialization(self, task):
         """Test task initialization with correct parameters"""
-        assert task.description == "Updates the LaunchBox metadata store"
+        assert task.spec.description == "Updates the LaunchBox metadata store"
         assert task.url == "https://gamesdb.launchbox-app.com/Metadata.zip"
 
     @patch.object(RemoteFilePullTask, "run")
@@ -513,27 +514,19 @@ class TestManualRunGate:
     def test_runnable_when_only_the_provider_is_enabled(self, task):
         """Enabling LaunchBox without the cron must still leave a way to fill
         the store, otherwise the provider silently matches nothing."""
-        task.enabled = False
-        with patch(
-            "tasks.scheduled.update_launchbox_metadata.LAUNCHBOX_API_ENABLED", True
-        ):
-            assert task.can_run_manually is True
+        assert task.spec.manual_run_when_disabled is LAUNCHBOX_API_ENABLED
+        spec = replace(task.spec, enabled=False, manual_run_when_disabled=True)
+        assert spec.can_run_manually is True
 
     def test_runnable_when_scheduled(self, task):
-        task.enabled = True
-        with patch(
-            "tasks.scheduled.update_launchbox_metadata.LAUNCHBOX_API_ENABLED", False
-        ):
-            assert task.can_run_manually is True
+        spec = replace(task.spec, enabled=True, manual_run_when_disabled=False)
+        assert spec.can_run_manually is True
 
     def test_not_runnable_when_launchbox_is_off(self, task):
-        task.enabled = False
-        with patch(
-            "tasks.scheduled.update_launchbox_metadata.LAUNCHBOX_API_ENABLED", False
-        ):
-            assert task.can_run_manually is False
+        spec = replace(task.spec, enabled=False, manual_run_when_disabled=False)
+        assert spec.can_run_manually is False
 
     def test_timeout_is_generous(self, task):
         """Downloading ~100MB and parsing ~500MB overruns the default timeout."""
-        assert task.timeout >= 30 * 60
-        assert task.timeout >= TASK_TIMEOUT
+        assert task.spec.timeout >= 30 * 60
+        assert task.spec.timeout >= TASK_TIMEOUT

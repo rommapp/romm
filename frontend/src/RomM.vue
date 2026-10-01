@@ -117,7 +117,7 @@ watch(
 
 <template>
   <v-app id="application" :class="{ 'mouse-hidden': consoleMode && mouseIdle }">
-    <v-main id="main" class="no-transition">
+    <v-main id="main" class="no-transition" :tag="isV2 ? 'div' : 'main'">
       <router-view v-if="!isV2" v-slot="{ Component }">
         <component :is="Component" />
         <!-- Fade out the app loading logo -->

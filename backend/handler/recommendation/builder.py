@@ -18,6 +18,7 @@ from typing import Any, Final
 from handler.database import db_recommendation_handler
 from handler.database.recommendations_handler import RomFeatureRow
 from logger.logger import log
+from tasks.registry import enqueue_task
 
 from .feed import invalidate_all_cached_feeds
 from .scoring import (
@@ -583,10 +584,6 @@ def top_up_similarity(rom_ids: Collection[int]) -> None:
         return
 
     if len(unique_ids) > MAX_TOP_UP_ROMS:
-        # Deferred: the task registry imports every task module, and one of
-        # them imports this package.
-        from tasks.registry import enqueue_task
-
         log.info(
             f"{len(unique_ids)} ROMs scanned, more than a recommendations top-up "
             "is worth; queueing a full rebuild instead"

@@ -48,7 +48,11 @@ const { smAndDown } = useBreakpoint();
 </script>
 
 <template>
-  <div v-if="smAndDown" class="r-glr-skel r-glr-skel--compact r-list-compact">
+  <div
+    v-if="smAndDown"
+    class="r-glr-skel r-glr-skel--compact r-list-compact"
+    aria-hidden="true"
+  >
     <!-- Stands in for the compact row's tick column, or the cover would start
          further left here than in the row this replaces. -->
     <div class="r-glr-skel__select" />
@@ -68,7 +72,12 @@ const { smAndDown } = useBreakpoint();
     </div>
   </div>
 
-  <div v-else class="r-glr-skel r-glr-skel--columns" :style="gridStyle">
+  <div
+    v-else
+    class="r-glr-skel r-glr-skel--columns"
+    :style="gridStyle"
+    aria-hidden="true"
+  >
     <template v-for="col in columns" :key="String(col.key)">
       <div v-if="col.key === 'select'" class="r-glr-skel__cell" />
       <div

@@ -179,7 +179,7 @@ function onDelete(fileId: number, romId: number) {
     </div>
   </aside>
 
-  <main class="jukebox__main">
+  <div class="jukebox__main">
     <SoundtrackPanel
       :key="selected"
       :tracks="panelTracks"
@@ -194,7 +194,7 @@ function onDelete(fileId: number, romId: number) {
       @reached="pager.loadMoreIfNear"
       @delete-track="onDelete"
     />
-  </main>
+  </div>
 </template>
 
 <style scoped>

@@ -74,6 +74,12 @@ function onSelectAllClick(e: MouseEvent) {
   }
 }
 
+function ariaSort(col: ListColumn) {
+  if (!col.sortable) return undefined;
+  if (props.sortKey !== col.key) return "none";
+  return props.sortDir === "asc" ? "ascending" : "descending";
+}
+
 function handleClick(col: ListColumn) {
   if (!isSortableColumn(col)) return;
   // Toggle direction when re-clicking the active column; otherwise start the
@@ -85,11 +91,7 @@ function handleClick(col: ListColumn) {
 </script>
 
 <template>
-  <div
-    v-if="smAndDown"
-    class="game-list-header game-list-header--compact"
-    role="row"
-  >
+  <div v-if="smAndDown" class="game-list-header game-list-header--compact">
     <RCheckbox
       class="game-list-header__check"
       :model-value="selectionState === 'all'"
@@ -116,7 +118,14 @@ function handleClick(col: ListColumn) {
   </div>
 
   <div v-else class="game-list-header" :style="gridStyle" role="row">
-    <template v-for="col in columns" :key="String(col.key)">
+    <div
+      v-for="col in columns"
+      :key="String(col.key)"
+      role="columnheader"
+      class="game-list-header__col"
+      :class="{ 'game-list-header__col--center': col.key === 'select' }"
+      :aria-sort="ariaSort(col)"
+    >
       <!-- Tri-state select-all checkbox (off → some → all), judged
            against the whole filtered result. -->
       <RCheckbox
@@ -137,24 +146,26 @@ function handleClick(col: ListColumn) {
         @click="onSelectAllClick"
       />
 
+      <span
+        v-else-if="!col.sortable"
+        class="game-list-header__cell"
+        :class="{ 'game-list-header__cell--end': col.align === 'end' }"
+      >
+        <span v-if="col.label" class="game-list-header__label">
+          {{ col.label }}
+        </span>
+        <span v-else class="game-list-header__hidden">
+          {{ col.hiddenLabel }}
+        </span>
+      </span>
       <button
         v-else
         type="button"
-        class="game-list-header__cell"
+        class="game-list-header__cell game-list-header__cell--sortable"
         :class="{
-          'game-list-header__cell--sortable': col.sortable,
           'game-list-header__cell--end': col.align === 'end',
-          'game-list-header__cell--active': col.sortable && sortKey === col.key,
+          'game-list-header__cell--active': sortKey === col.key,
         }"
-        :aria-sort="
-          col.sortable && sortKey === col.key
-            ? sortDir === 'asc'
-              ? 'ascending'
-              : 'descending'
-            : 'none'
-        "
-        :tabindex="col.sortable ? 0 : -1"
-        :disabled="!col.sortable"
         @click="handleClick(col)"
       >
         <span class="game-list-header__label">{{ col.label }}</span>
@@ -167,7 +178,7 @@ function handleClick(col: ListColumn) {
           class="game-list-header__icon"
         />
       </button>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -194,7 +205,17 @@ function handleClick(col: ListColumn) {
   width: var(--r-list-select-w);
 }
 
+.game-list-header__col {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+}
+.game-list-header__col--center {
+  justify-content: center;
+}
+
 .game-list-header__cell {
+  flex: 1;
   appearance: none;
   background: transparent;
   border: 0;
@@ -254,6 +275,15 @@ function handleClick(col: ListColumn) {
 /* Select-all checkbox in the leading column: RCheckbox bare/circle, matching the
    GameCard and GameListRow ticks, and centred over every row's tick. */
 .game-list-header__check {
-  justify-self: center;
+  align-self: center;
+}
+
+.game-list-header__hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 </style>

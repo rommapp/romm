@@ -60,9 +60,9 @@ class TestRecomputeSaveContentHashesTask:
         )
 
     def test_init(self, task: RecomputeSaveContentHashesTask):
-        assert task.title == "Recompute save content hashes"
-        assert task.manual_run is True
-        assert task.cron_string is None
+        assert task.spec.title == "Recompute save content hashes"
+        assert task.spec.manual_run is True
+        assert task.spec.cron_string is None
 
     async def test_correct_hash_is_unchanged(
         self,

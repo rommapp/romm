@@ -10,7 +10,7 @@ from starlette.requests import HTTPConnection
 from tests.factories import make_device_token
 
 from config import OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS
-from handler.auth import auth_handler, oauth_handler
+from handler.auth.base_handler import auth_handler, oauth_handler
 from handler.auth.constants import EDIT_SCOPES
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.database import (
