@@ -128,6 +128,7 @@ class ConvertoSettingsPayload(BaseModel):
     """The converto.* settings editable at runtime; `cache_ttl_hours` stays config.yml-only."""
 
     download_conversion_enabled: bool
+    scan_metadata: bool
     cache_max_size_gb: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_max_size_gb"])
     platform_formats: dict[str, str]
 

@@ -269,6 +269,7 @@ def test_update_scan_settings_normalizes_codes(client, access_token: str):
 def _converto_payload(**overrides):
     payload = {
         "download_conversion_enabled": True,
+        "scan_metadata": True,
         "cache_max_size_gb": 20,
         "platform_formats": {"psp": "cso"},
     }
@@ -294,6 +295,7 @@ def test_update_converto_settings_normalizes_formats_and_keeps_the_ttl(
     update_converto_settings.assert_called_once_with(
         ConvertoConfig(
             download_conversion_enabled=True,
+            scan_metadata=True,
             cache_ttl_hours=72,
             cache_max_size_gb=20,
             platform_formats={"psp": "cso"},

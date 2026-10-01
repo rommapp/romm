@@ -406,6 +406,7 @@ VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 @dataclasses.dataclass
 class ConvertoConfig:
     download_conversion_enabled: bool = False
+    scan_metadata: bool = True
     cache_ttl_hours: int = 24
     # 0 leaves the cache unbounded.
     cache_max_size_gb: int = 20
@@ -1347,6 +1348,10 @@ class ConfigManager:
             log.critical(
                 "Invalid config.yml: converto.download_conversion_enabled must be a boolean"
             )
+            sys.exit(3)
+
+        if not isinstance(self.config.CONVERTO.scan_metadata, bool):
+            log.critical("Invalid config.yml: converto.scan_metadata must be a boolean")
             sys.exit(3)
 
         for key, minimum in CONVERTO_INT_MINIMUMS.items():

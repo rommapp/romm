@@ -60,6 +60,8 @@ FULL_PATH_HASH_LENGTH = 64
 AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
+# Max length of the per-file rom-converto metadata text columns on `rom_files`.
+ROM_FILE_INFO_MAX_LENGTH = 255
 
 # (metadata column, key) of each provider's alternative titles, in precedence order.
 ALTERNATIVE_NAME_SOURCES = (
@@ -154,6 +156,14 @@ class SaveTargetLayout(enum.StrEnum):
     FILE_EXACT = "file-exact"
     FILE_PREFIX = "file-prefix"
     FOLDER_SPLIT = "folder-split"
+
+
+class RomFileContentType(enum.StrEnum):
+    GAME = "game"
+    UPDATE = "update"
+    DLC = "dlc"
+    DEMO = "demo"
+    SYSTEM = "system"
 
 
 @dataclass(frozen=True)
@@ -299,6 +309,7 @@ class RomFile(BaseModel):
         Index("idx_rom_files_sha1_hash", "sha1_hash"),
         Index("idx_rom_files_ra_hash", "ra_hash"),
         Index("idx_rom_files_chd_sha1_hash", "chd_sha1_hash"),
+        Index("idx_rom_files_title_id", "title_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -312,6 +323,55 @@ class RomFile(BaseModel):
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    title_id: Mapped[str | None] = mapped_column(String(length=TITLE_ID_MAX_LENGTH))
+    # BigInteger because Switch title versions exceed int32
+    title_version: Mapped[int | None] = mapped_column(BigInteger, default=None)
+    # Per-file metadata rom-converto reads during scans.
+    title: Mapped[str | None] = mapped_column(String(length=ROM_FILE_INFO_MAX_LENGTH))
+    serial: Mapped[str | None] = mapped_column(String(length=ROM_FILE_INFO_MAX_LENGTH))
+    # VARCHAR-backed like `User.role`, so a new rom-converto kind needs no
+    # PostgreSQL `ALTER TYPE`.
+    content_type: Mapped[RomFileContentType | None] = mapped_column(
+        Enum(
+            RomFileContentType,
+            native_enum=False,
+            length=20,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        default=None,
+    )
+    display_version: Mapped[str | None] = mapped_column(
+        String(length=ROM_FILE_INFO_MAX_LENGTH)
+    )
+    regions: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(none_as_null=True), default=None, nullable=True
+    )
+    languages: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(none_as_null=True), default=None, nullable=True
+    )
+    publisher: Mapped[str | None] = mapped_column(
+        String(length=ROM_FILE_INFO_MAX_LENGTH)
+    )
+    min_firmware_version: Mapped[str | None] = mapped_column(
+        String(length=ROM_FILE_INFO_MAX_LENGTH)
+    )
+    is_compressed: Mapped[bool | None] = mapped_column(Boolean, default=None)
+    compression: Mapped[str | None] = mapped_column(
+        String(length=ROM_FILE_INFO_MAX_LENGTH)
+    )
+    file_format: Mapped[str | None] = mapped_column(
+        String(length=ROM_FILE_INFO_MAX_LENGTH)
+    )
+    uncompressed_size_bytes: Mapped[int | None] = mapped_column(
+        BigInteger, default=None
+    )
+    # Where the images rom-converto read from the file are stored, relative
+    # to RESOURCES_BASE_PATH. Written after the scan, never by it.
+    icon_path: Mapped[str | None] = mapped_column(String(length=1024), default=None)
+    banner_path: Mapped[str | None] = mapped_column(String(length=1024), default=None)
+    background_path: Mapped[str | None] = mapped_column(
+        String(length=1024), default=None
+    )
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
     )

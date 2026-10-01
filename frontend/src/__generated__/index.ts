@@ -225,6 +225,7 @@ export type { RomArchiveMember } from './models/RomArchiveMember';
 export type { RomCsdbMetadata } from './models/RomCsdbMetadata';
 export type { RomDemozooMetadata } from './models/RomDemozooMetadata';
 export type { RomFileCategory } from './models/RomFileCategory';
+export type { RomFileContentType } from './models/RomFileContentType';
 export type { RomFileSchema } from './models/RomFileSchema';
 export type { RomFileUserSchema } from './models/RomFileUserSchema';
 export type { RomFiltersDict } from './models/RomFiltersDict';

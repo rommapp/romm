@@ -7,10 +7,15 @@ import re
 import struct
 import zlib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Final, NotRequired, TypedDict
 
+from adapters.services.rom_converto import (
+    CONVERTO_PLATFORM_SLUGS,
+    RomConvertoImages,
+    rom_converto_service,
+)
 from adapters.services.sigil import (
     SIGIL_PLATFORM_SLUGS,
     SWITCH_PLATFORM_SLUGS,
@@ -37,6 +42,7 @@ from models.rom import (
     Rom,
     RomFile,
     RomFileCategory,
+    RomFileContentType,
     RomIdentity,
     SaveTargetLayout,
     TrackMeta,
@@ -69,6 +75,8 @@ from .base_handler import (
     TRANSLATION_TAG,
     FSHandler,
     normalize_language,
+    normalize_provider_languages,
+    normalize_provider_regions,
     normalize_region,
     translation_language,
 )
@@ -119,6 +127,8 @@ class FSRom(TypedDict):
     sha1_hash: str
     ra_hash: str
     identity: NotRequired[RomIdentity]
+    # The files rom-converto read this pass.
+    images: NotRequired[dict[RomFile, RomConvertoImages]]
 
 
 def build_empty_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
@@ -249,6 +259,8 @@ class ParsedRomFiles:
     # Files whose name can carry their Switch title id. Renaming is a separate
     # step (`embed_switch_title_ids`) so parsing stays a read.
     embed_candidates: list[TitleIdEmbedCandidate] = field(default_factory=list)
+    # The files rom-converto read this pass.
+    images: dict[RomFile, RomConvertoImages] = field(default_factory=dict)
 
 
 RomFileKey = tuple[str, str]
@@ -342,6 +354,12 @@ class _TitleIdSource:
         return self.path.parent, compute_name_sort_key(self.path.name), self.path.name
 
 
+def _rom_file_order(rom_file: RomFile) -> tuple[str, str, str]:
+    """`_TitleIdSource.order` for a row, so a multi-disc ROM falls back to its first disc."""
+    name = rom_file.file_name
+    return rom_file.file_path, compute_name_sort_key(name), name
+
+
 # Exclusion patterns holding one of these need fnmatch; the rest match literally.
 _GLOB_CHARS_RE: Final = re.compile(r"[*?\[]")
 
@@ -357,22 +375,42 @@ def _parse_save_target_layout(usage: str) -> SaveTargetLayout | None:
 def _rom_level_identity(
     platform_slug: str,
     extractions: list[SigilExtractionResult],
+    rom_files: list[RomFile],
+    stored: RomIdentity,
 ) -> RomIdentity:
-    """The rom's identity, from the base game's file where the family has one."""
-    if not extractions:
-        return RomIdentity()
-
-    chosen = next(
-        (e for e in extractions if switch.is_base_title_id(e.title_id)), extractions[0]
-    )
-    return switch.normalize_identity(
-        platform_slug in SWITCH_PLATFORM_SLUGS,
-        RomIdentity(
+    """The rom's identity: sigil's extraction (holding rom-converto's id where it read one), else rom-converto's file ids."""
+    is_switch = platform_slug in SWITCH_PLATFORM_SLUGS
+    if extractions:
+        chosen = next(
+            (e for e in extractions if switch.is_base_title_id(e.title_id)),
+            extractions[0],
+        )
+        identity = RomIdentity(
             title_id=chosen.title_id,
             save_target=chosen.save_target,
             save_target_layout=_parse_save_target_layout(chosen.usage),
-        ),
-    )
+        )
+    else:
+        title_ids = [
+            f.title_id for f in sorted(rom_files, key=_rom_file_order) if f.title_id
+        ]
+        identity = RomIdentity(
+            title_id=next(
+                (t for t in title_ids if is_switch and switch.is_base_title_id(t)),
+                title_ids[0] if title_ids else None,
+            )
+        )
+    identity = switch.normalize_identity(is_switch, identity)
+    # rom-converto reads no save target, so when sigil read nothing this pass
+    # the one it stored for the same id stands.
+    if (
+        not extractions
+        and not identity.save_target
+        and identity.title_id
+        and identity.title_id == stored.title_id
+    ):
+        return stored
+    return identity
 
 
 class FSRomsHandler(FSHandler):
@@ -607,6 +645,45 @@ class FSRomsHandler(FSHandler):
                 log.warning(f"Skipping unreadable file {f_path / file_name}: {exc}")
         return entries
 
+    async def _converto_active(self, rom: Rom) -> bool:
+        """Whether rom-converto should inspect this rom's files during scan."""
+        return (
+            rom.platform_slug in CONVERTO_PLATFORM_SLUGS
+            and cm.get_config().CONVERTO.scan_metadata
+            and await rom_converto_service.is_enabled()
+        )
+
+    async def _read_converto_infos(
+        self, sources: list[tuple[Path, RomFile]]
+    ) -> dict[RomFile, RomConvertoImages]:
+        """Write metadata and return images for the files rom-converto read this pass."""
+        if not sources:
+            return {}
+        infos = await rom_converto_service.read_infos([p for p, _ in sources])
+        images: dict[RomFile, RomConvertoImages] = {}
+        for path, rom_file in sources:
+            info = infos.get(path)
+            if info is None:
+                continue
+            images[rom_file] = info.images
+            rom_file.title_id = info.title_id
+            rom_file.title_version = info.title_version
+            rom_file.title = info.title
+            rom_file.serial = info.serial
+            rom_file.content_type = (
+                RomFileContentType(info.content_type) if info.content_type else None
+            )
+            rom_file.display_version = info.display_version
+            rom_file.regions = normalize_provider_regions(info.regions) or None
+            rom_file.languages = normalize_provider_languages(info.languages) or None
+            rom_file.publisher = info.publisher
+            rom_file.min_firmware_version = info.min_firmware_version
+            rom_file.is_compressed = info.is_compressed
+            rom_file.compression = info.compression
+            rom_file.file_format = info.file_format
+            rom_file.uncompressed_size_bytes = info.uncompressed_size_bytes
+        return images
+
     async def get_rom_files(
         self,
         rom: Rom,
@@ -642,6 +719,10 @@ class FSRomsHandler(FSHandler):
         # non-hashable platforms like Switch.
         sigil_platform = extract_title_ids and rom.platform_slug in SIGIL_PLATFORM_SLUGS
         is_switch = rom.platform_slug in SWITCH_PLATFORM_SLUGS
+        # rom-converto reads new or changed files' metadata and per-file ids
+        # even when sigil extraction is skipped; sigil owns save targets.
+        converto_active = await self._converto_active(rom)
+        converto_sources: list[tuple[Path, RomFile]] = []
         is_multi_part = await self.directory_exists(rom.full_path)
         sigil_extractions: list[SigilExtractionResult] = []
         embed_candidates: list[TitleIdEmbedCandidate] = []
@@ -653,6 +734,14 @@ class FSRomsHandler(FSHandler):
             if sigil_platform and _may_hold_title_id(path, rom_file.category):
                 title_id_sources.append(_TitleIdSource(path, rom_file))
 
+        def _record_converto_source(path: Path, rom_file: RomFile) -> None:
+            if (
+                converto_active
+                and rom_file.category not in NON_BINARY_FILE_CATEGORIES
+                and rom_converto_service.can_inspect(path)
+            ):
+                converto_sources.append((path, rom_file))
+
         async def _extract_title_id(source: _TitleIdSource) -> None:
             """Read the source's title id, recording it and any category it settles."""
             extraction = await sigil_service.extract_title_id(
@@ -660,6 +749,20 @@ class FSRomsHandler(FSHandler):
             )
             if extraction is None:
                 return
+            if source.rom_file.title_id:
+                # rom-converto's id wins; sigil keeps its save target and content type.
+                extraction = replace(
+                    extraction,
+                    title_id=source.rom_file.title_id,
+                    version=(
+                        source.rom_file.title_version
+                        if source.rom_file.title_version is not None
+                        else extraction.version
+                    ),
+                )
+            else:
+                source.rom_file.title_id = extraction.title_id or None
+                source.rom_file.title_version = extraction.version
             if extraction.content_type is not None:
                 category = switch.CONTENT_TYPE_CATEGORIES.get(extraction.content_type)
                 if category is not None:
@@ -799,6 +902,7 @@ class FSRomsHandler(FSHandler):
                 # Every ROM file is a candidate (base, updates and DLC in
                 # subfolders), not just the top-level one.
                 _record_title_id_source(abs_file_path, rom_file)
+                _record_converto_source(abs_file_path, rom_file)
                 rom_files.append(rom_file)
         elif (
             existing_by_key is not None
@@ -883,6 +987,7 @@ class FSRomsHandler(FSHandler):
                         archive_members=members,
                     )
                 )
+                _record_converto_source(rom_dir, rom_files[-1])
             else:
                 # Empty, malformed, unreadable, or all-excluded archive: hash the archive
                 # file's raw bytes. We avoid `_calculate_rom_hashes` here because
@@ -907,6 +1012,7 @@ class FSRomsHandler(FSHandler):
                         file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
                     )
                 )
+                _record_converto_source(rom_dir, rom_files[-1])
         else:
             if hashable_platform:
                 try:
@@ -954,6 +1060,9 @@ class FSRomsHandler(FSHandler):
             )
             rom_files.append(rom_file)
             _record_title_id_source(rom_dir, rom_file)
+            _record_converto_source(rom_dir, rom_file)
+
+        images = await self._read_converto_infos(converto_sources)
 
         # Listings come in no fixed order; a ROM is identified by its first disc,
         # and only Switch reads past it for each file's content type.
@@ -989,8 +1098,16 @@ class FSRomsHandler(FSHandler):
             sha1_hash=sha1_hash,
             ra_hash=ra_hash,
             top_level_changed=top_level_changed,
-            identity=_rom_level_identity(rom.platform_slug, sigil_extractions),
+            # rom-converto's file ids stand in only when extraction ran, so a
+            # pass that skipped it can't blank the save target sigil wrote.
+            identity=_rom_level_identity(
+                rom.platform_slug,
+                sigil_extractions,
+                rom_files if converto_active and extract_title_ids else [],
+                RomIdentity.from_rom(rom),
+            ),
             embed_candidates=embed_candidates,
+            images=images,
         )
 
     def _calculate_rom_hashes(

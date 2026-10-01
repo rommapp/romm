@@ -8,6 +8,7 @@ import pydash
 import socketio
 
 from adapters.services.igdb import IGDB_PLATFORM_LIST
+from adapters.services.rom_converto import RomConvertoImages
 from adapters.services.screenscraper import ScreenScraperRateLimitError
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
@@ -342,6 +343,40 @@ def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
         db_rom_handler.upsert_track_meta(
             rom_file.id, rom.id, {"has_embedded_cover": False}
         )
+
+
+async def persist_rom_file_images(
+    rom_file: RomFile, images: RomConvertoImages, rom: Rom
+) -> None:
+    """Write the images rom-converto read from a file under the rom's resources
+    and record their paths, removing any the file no longer carries."""
+    updates: dict[str, str | None] = {}
+    for kind in ("icon", "banner", "background"):
+        column = f"{kind}_path"
+        current_path = getattr(rom_file, column)
+        image = getattr(images, kind)
+        if image is None:
+            # Keep the path when the unlink fails, so the next scan retries it.
+            if current_path and remove_persisted_cover(current_path):
+                updates[column] = None
+            continue
+
+        image_dir = f"{rom.fs_resources_path}/{kind}s"
+        image_path = f"{image_dir}/{rom_file.id}.png"
+        try:
+            await fs_resource_handler.write_file(image, image_dir, f"{rom_file.id}.png")
+        except OSError as exc:
+            log.warning(
+                f"Unable to persist {kind} image for {rom_file.full_path}: {exc}"
+            )
+            continue
+        if image_path != current_path:
+            # A path stored elsewhere (the rom moved platforms) is stale now.
+            remove_persisted_cover(current_path)
+            updates[column] = image_path
+
+    if updates:
+        db_rom_handler.update_rom_file(rom_file.id, updates)
 
 
 async def scan_platform(

@@ -7,6 +7,7 @@
  */
 export type ConvertoSettingsPayload = {
     download_conversion_enabled: boolean;
+    scan_metadata: boolean;
     cache_max_size_gb: number;
     platform_formats: Record<string, string>;
 };
