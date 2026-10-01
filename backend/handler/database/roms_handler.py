@@ -236,12 +236,8 @@ ROM_SEARCH_COLUMNS: tuple[QueryableAttribute[Any], ...] = tuple(
 
 
 def _name_like(word: str) -> ColumnElement[bool]:
-    pattern = f"%{escape_like(word)}%"
     return or_(
-        *(
-            column.ilike(pattern, escape=LIKE_ESCAPE_CHAR)
-            for column in ROM_SEARCH_COLUMNS
-        )
+        *(column.icontains(word, autoescape=True) for column in ROM_SEARCH_COLUMNS)
     )
 
 
