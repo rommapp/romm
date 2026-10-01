@@ -248,8 +248,7 @@ async def add_save(
             detail=f"Invalid save filename: {str(exc)}",
         ) from exc
 
-    # Named and checked before the save is stored, so a bad screenshot name
-    # cannot fail the request after the save has been committed.
+    # Checked before the save is stored, so a bad name cannot fail after commit.
     sanitized_screenshot_filename = ""
     if screenshotFile and screenshotFile.filename:
         try:

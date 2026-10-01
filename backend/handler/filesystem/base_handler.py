@@ -392,7 +392,6 @@ class FSHandler:
         # Remove path components and get basename only
         filename = os.path.basename(filename)
 
-        # The filesystem's byte limit binds before the column's character one.
         check_filename_length(filename)
 
         # Ensure we have a valid filename

@@ -152,8 +152,6 @@ async def store_save_asset(user: User, rom: Rom, emulator: str, content: bytes) 
     deduplicated by hash so idle exits do not pile up copies.
     """
     ts = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
-    # A long or multibyte ROM name would push the archive past the filesystem's
-    # 255-byte name limit, so it gives up what the tail needs.
     filename = sanitize_filename(
         fit_filename(rom.fs_name_no_ext, f" [{emulator} {ts}].saves.zip")
     )

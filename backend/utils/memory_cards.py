@@ -131,8 +131,7 @@ async def _free_version_filename(cards_path: str, card_name: str, ts: str) -> st
     """
     for attempt in range(1, _FILENAME_COLLISION_ATTEMPTS + 1):
         suffix = "" if attempt == 1 else f" ({attempt})"
-        # A card name can be 255 characters, but the file name is capped at
-        # 255 bytes, so cut the name to whatever room the tail leaves.
+        # A 255-character card name can still overflow the 255-byte name limit.
         filename = sanitize_filename(
             fit_filename(card_name, f" [{ts}{suffix}].card.zip")
         )
