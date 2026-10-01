@@ -13,7 +13,6 @@ import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import storeGalleryRoms, {
-  DEFAULT_ORDER_BY,
   type GalleryOrderKey,
 } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -98,9 +97,9 @@ export function useRomSync() {
     if (!previous) return false;
     // Relevance also weighs the filename and search aliases, which the row
     // doesn't carry, so only the server can place it.
-    if (galleryRomsStore.relevanceLeads) return true;
-    const resolve = SORT_VALUE[galleryRomsStore.orderBy ?? DEFAULT_ORDER_BY];
-    return resolve(previous) !== resolve(next);
+    const key = galleryRomsStore.effectiveOrderBy;
+    if (key === null) return true;
+    return SORT_VALUE[key](previous) !== SORT_VALUE[key](next);
   }
 
   /** Sync a deliberate metadata write (the edit / match dialogs) and refetch

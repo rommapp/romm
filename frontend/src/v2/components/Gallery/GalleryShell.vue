@@ -316,13 +316,11 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
-// A jump to "M" means nothing unless the gallery is in letter order. The
-// backend omits letter positions when relevance leads an unset sort.
-const lettersSupported = computed(() =>
-  orderBy.value === null
-    ? Object.keys(charIndex.value).length > 0
-    : orderSupportsLetters(orderBy.value),
-);
+// A jump to "M" means nothing unless the gallery is in letter order.
+const lettersSupported = computed(() => {
+  const key = galleryRoms.effectiveOrderBy;
+  return key !== null && orderSupportsLetters(key);
+});
 const stripVisible = computed(() => !smAndDown.value && lettersSupported.value);
 const jumpMenuVisible = computed(
   () => smAndDown.value && lettersSupported.value,
@@ -808,11 +806,6 @@ const unsortedLabel = computed(() =>
   props.defaultOrderBy === null ? t("gallery.sort-relevance") : undefined,
 );
 
-function onToolbarSortKey(key: ListSortKey | null) {
-  if (key === null) galleryRoms.clearOrder();
-  else galleryRoms.setOrderBy(key);
-}
-
 // The toolbar's sort axes, matching the list column headers.
 const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
 
@@ -1085,7 +1078,7 @@ defineExpose({
               @update:group-by="groupBy = $event"
               @update:layout="layout = $event"
               @update:sort-dir="galleryRoms.setOrderDir"
-              @update:sort-key="onToolbarSortKey"
+              @update:sort-key="galleryRoms.setOrderBy"
               @update:search="setSearch"
               @click:filter="filterDrawerOpen = true"
             >
@@ -1120,7 +1113,7 @@ defineExpose({
             :show-platform-column="showPlatformColumn"
             :unsorted-label="unsortedLabel"
             @sort="onListSort"
-            @unsort="galleryRoms.clearOrder"
+            @unsort="galleryRoms.setOrderBy(null)"
           />
         </template>
       </template>
@@ -1140,7 +1133,7 @@ defineExpose({
           aria-rowindex="1"
           :unsorted-label="unsortedLabel"
           @sort="onListSort"
-          @unsort="galleryRoms.clearOrder"
+          @unsort="galleryRoms.setOrderBy(null)"
         />
       </template>
 
@@ -1273,7 +1266,7 @@ defineExpose({
       @update:group-by="groupBy = $event"
       @update:layout="layout = $event"
       @update:sort-dir="galleryRoms.setOrderDir"
-      @update:sort-key="onToolbarSortKey"
+      @update:sort-key="galleryRoms.setOrderBy"
       @click:filter="filterDrawerOpen = true"
     >
       <template #actions>

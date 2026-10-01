@@ -71,8 +71,7 @@ export function isGalleryOrderKey(value: string): value is GalleryOrderKey {
 
 /** The keys the backend answers with a `char_index`: it indexes first letters
  * only for a text column. Listed rather than read off an empty `charIndex`,
- * which is also what an unfetched gallery looks like; only an unset sort,
- * whose order the backend picks, has to read it. */
+ * which is also what an unfetched gallery looks like. */
 const LEXICAL_ORDER_KEYS: ReadonlySet<string> = new Set(["name", "fs_name"]);
 
 export function orderSupportsLetters(key: GalleryOrderKey): boolean {
@@ -297,9 +296,8 @@ export default defineStore("v2GalleryRoms", {
       ),
     /** True when at least the first window has loaded. */
     hasInitial: (state) => state.loadedWindows.size > 0,
-    /** Whether the backend ranked an unset sort by relevance. */
-    relevanceLeads: (state) => state.orderBy === null && state.relevanceLed,
-    /** The order the backend applied: an unset sort it kept by name reads as name. */
+    /** The order the backend applied: null for relevance, and an unset sort
+     * it kept by name reads as name. */
     effectiveOrderBy: (state): GalleryOrderKey | null =>
       state.orderBy ?? (state.relevanceLed ? null : DEFAULT_ORDER_BY),
     /** The full ordered id list of the current filtered result, or null
@@ -323,16 +321,13 @@ export default defineStore("v2GalleryRoms", {
       this.currentSmartCollection = collection;
     },
 
+    /** An unset sort orders by relevance, which has no direction. */
     setOrderBy(key: GalleryOrderKey | null) {
       this.orderBy = key;
+      if (key === null) this.orderDir = DEFAULT_ORDER_DIR;
     },
     setOrderDir(dir: GalleryOrderDir) {
       this.orderDir = dir;
-    },
-    /** Back to the unset sort, whose relevance order has no direction. */
-    clearOrder() {
-      this.orderBy = null;
-      this.orderDir = DEFAULT_ORDER_DIR;
     },
 
     /** Read a ROM at a position, or null if its window hasn't been

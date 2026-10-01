@@ -516,14 +516,12 @@ describe("galleryRoms relevance order", () => {
   it("reads an unset sort answered without letters as relevance", async () => {
     const store = await answeredWith({});
 
-    expect(store.relevanceLeads).toBe(true);
     expect(store.effectiveOrderBy).toBeNull();
   });
 
   it("reads an unset sort answered with letters as the name order", async () => {
     const store = await answeredWith({ a: 0 });
 
-    expect(store.relevanceLeads).toBe(false);
     expect(store.effectiveOrderBy).toBe("name");
   });
 
@@ -536,11 +534,10 @@ describe("galleryRoms relevance order", () => {
   });
 
   it("reads an empty result or a picked sort as no relevance", async () => {
-    expect((await answeredWith({}, 0)).relevanceLeads).toBe(false);
+    expect((await answeredWith({}, 0)).effectiveOrderBy).toBe("name");
 
     const sorted = await answeredWith({});
     sorted.setOrderBy("fs_size_bytes");
-    expect(sorted.relevanceLeads).toBe(false);
     expect(sorted.effectiveOrderBy).toBe("fs_size_bytes");
   });
 
@@ -549,7 +546,7 @@ describe("galleryRoms relevance order", () => {
     store.setOrderBy("name");
     store.setOrderDir("desc");
 
-    store.clearOrder();
+    store.setOrderBy(null);
 
     expect(store.orderBy).toBeNull();
     expect(store.orderDir).toBe("asc");
