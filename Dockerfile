@@ -111,6 +111,22 @@ RUN make HAVE_CHD=1 -f ./Makefile.RAHasher \
     && cp ./bin64/RAHasher /usr/bin/RAHasher
 RUN rm -rf /tmp/RALibretro
 
+# Install rom-converto (optional); its static musl build runs on this glibc image.
+# Keep the version and both sums in sync with docker/Dockerfile.
+ARG TARGETARCH
+RUN ROM_CONVERTO_VERSION=v0.23.0 \
+    && arch="${TARGETARCH:-$(dpkg --print-architecture)}" \
+    && case "${arch}" in \
+        amd64) rc="linux-x64-musl"; sum="37d03a67ad97fc02768890e763b4c80072fdfd15f2c5b97e44f9a2b50fc40876" ;; \
+        arm64) rc="linux-arm64-musl"; sum="8abe37ca2d1a0e3d719fb8e795e011c672e3f1c088521cf0bb1e467dc658dc3c" ;; \
+        *) echo "unsupported architecture: ${arch}" && exit 1 ;; \
+    esac \
+    && curl -fsSL -o "/tmp/rom-converto-cli-${rc}" \
+        "https://github.com/DevYukine/rom-converto/releases/download/${ROM_CONVERTO_VERSION}/rom-converto-cli-${rc}" \
+    && echo "${sum}  /tmp/rom-converto-cli-${rc}" | sha256sum -c --status \
+    && install -m 0755 "/tmp/rom-converto-cli-${rc}" /usr/bin/rom-converto \
+    && rm -f "/tmp/rom-converto-cli-${rc}"
+
 # Install frontend dependencies
 COPY frontend/package.json /app/frontend/
 WORKDIR /app/frontend

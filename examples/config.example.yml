@@ -253,3 +253,24 @@
 #           core: parallel_n64
 #           # Lets a core listed as broken by the broker run anyway.
 #           # experimental_cores: true
+
+# converto:
+#   # Convert a single-file download into a format the client lists with
+#   # ?format=, e.g. ?format=zso,iso (needs ROM_CONVERTO_ENABLED)
+#   download_conversion_enabled: false
+#   # Hours a converted download stays cached after it was last downloaded
+#   cache_ttl_hours: 24
+#   # Cache size before the least recently downloaded copies are evicted (0: unbounded)
+#   cache_max_size_gb: 20
+#   # Platform slug -> the format the "Convert library" task stores its matched
+#   # roms in, replacing the original files. Formats per platform:
+#   #   3ds: cci, cia, z3ds
+#   #   psp, ps2: chd, cso, iso, zso
+#   #   psx, saturn, segacd, dc: chd
+#   #   ngc: iso, rvz
+#   #   wii: iso, rvz, wbfs
+#   #   switch, switch-2: nsp, nsz, xci, xcz
+#   #   xbox360: zar
+#   platform_formats:
+#     psx: chd
+#     ngc: rvz

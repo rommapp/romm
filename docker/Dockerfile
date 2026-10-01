@@ -5,6 +5,7 @@
 #   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
 #   - rahasher-build: Build RAHasher
 #   - sigil-build: Build sigil Python bindings (title ID extraction)
+#   - rom-converto-fetch: Fetch the rom-converto CLI (ROM conversion and metadata)
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
@@ -144,6 +145,22 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
     cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
 
 
+# ROM-CONVERTO CLI
+# Keep the version and both sums in sync with the dev image's copy in ../Dockerfile.
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rom-converto-fetch
+ARG TARGETARCH
+ARG ROM_CONVERTO_VERSION=v0.23.0
+RUN case "${TARGETARCH}" in \
+        amd64) rc="linux-x64-musl"; sum="37d03a67ad97fc02768890e763b4c80072fdfd15f2c5b97e44f9a2b50fc40876" ;; \
+        arm64) rc="linux-arm64-musl"; sum="8abe37ca2d1a0e3d719fb8e795e011c672e3f1c088521cf0bb1e467dc658dc3c" ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    wget -qO /rom-converto \
+        "https://github.com/DevYukine/rom-converto/releases/download/${ROM_CONVERTO_VERSION}/rom-converto-cli-${rc}" && \
+    echo "${sum}  /rom-converto" | sha256sum -c - && \
+    chmod 0755 /rom-converto
+
+
 # FETCH EMULATORJS, RUFFLE, JS-DOS AND FAKE-08
 # Keep the pins below in sync with the dev image's copies in ../Dockerfile.
 # checkov:skip=CKV_DOCKER_4:every ADD below is a remote URL pinned by --checksum
@@ -258,6 +275,7 @@ COPY --from=python-runtime /usr/local/lib/libpython* /usr/local/lib/
 COPY --from=python-runtime /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
+COPY --from=rom-converto-fetch /rom-converto /usr/bin/rom-converto
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 COPY --from=backend-node-build /backend-node/rom_patcher/node_modules/rom-patcher/rom-patcher-js /backend/utils/rom_patcher/rom-patcher-js
