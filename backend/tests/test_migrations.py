@@ -456,7 +456,7 @@ def _track_keys(connection: sa.Connection) -> dict[str, tuple[str, ...]]:
 
 def _referenced_files(connection: sa.Connection) -> dict[str, set[int]]:
     """The files each favorite and playlist entry points at, by either column."""
-    files = {}
+    files: dict[str, set[int]] = {}
     for table in ("music_favorite_tracks", "music_playlist_tracks"):
         if has_column(connection, table, "track_id"):
             query = (
