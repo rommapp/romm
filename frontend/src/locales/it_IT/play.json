@@ -32,7 +32,7 @@
   "desktop-error-no-container": "Questo container streaming non è configurato.",
   "desktop-error-occupied": "Questo container è già in uso. Termina prima la sessione che lo sta occupando.",
   "desktop-error-occupied-by": "{rom} è in esecuzione su questo container. Termina prima quella sessione.",
-  "desktop-error-release": "Non è stato possibile liberare la sessione desktop. Il container potrebbe essere ancora in esecuzione.",
+  "desktop-error-release": "Non è stato possibile liberare la sessione desktop. Il container potrebbe essere ancora in uso.",
   "desktop-error-server": "Non è stato possibile aprire la sessione desktop.",
   "desktop-exit": "Chiudi sessione desktop",
   "desktop-exit-body": "Il container verrà liberato e qualunque programma aperto sul desktop verrà terminato. Le impostazioni dell'emulatore che hai salvato saranno conservate.",
