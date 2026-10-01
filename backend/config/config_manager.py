@@ -409,8 +409,6 @@ class ConvertoConfig:
     cache_ttl_hours: int = 24
     # 0 leaves the cache unbounded.
     cache_max_size_gb: int = 20
-    # Largest file a download waits on while it converts; 0 never waits.
-    max_sync_size_mb: int = 512
     platform_formats: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
@@ -418,7 +416,6 @@ class ConvertoConfig:
 CONVERTO_INT_MINIMUMS: Final[dict[str, int]] = {
     "cache_ttl_hours": 1,
     "cache_max_size_gb": 0,
-    "max_sync_size_mb": 0,
 }
 
 

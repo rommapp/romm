@@ -123,6 +123,29 @@ TARGETS_BY_PLATFORM: Final[dict[str, frozenset[str]]] = {
 }
 
 
+# Extensions whose format goes by another name than the extension itself.
+_FORMAT_ALIASES: Final[dict[str, str]] = {
+    ".3ds": "cci",
+    ".gcm": "iso",
+    ".zcci": "z3ds",
+    ".zcia": "z3ds",
+    ".zcxi": "z3ds",
+}
+_KNOWN_EXTS: Final[frozenset[str]] = frozenset(
+    {ext for op in OPERATIONS for ext in (*op.input_exts, op.output_ext)}
+    | _FORMAT_ALIASES.keys()
+)
+
+
+def file_format(file_name: str) -> str:
+    """The format `file_name` is in, as a target name or its extension (`nkit-iso`)."""
+    name = file_name.lower()
+    ext = max((e for e in _KNOWN_EXTS if name.endswith(e)), key=len, default=None)
+    if ext is None:
+        return Path(name).suffix.lstrip(".")
+    return _FORMAT_ALIASES.get(ext, ext.lstrip(".").replace(".", "-"))
+
+
 def normalize_platform_formats(raw: dict[str, str]) -> dict[str, str]:
     """`raw` with slugs and targets trimmed and lowercased.
 

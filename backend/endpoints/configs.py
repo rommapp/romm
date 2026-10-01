@@ -124,12 +124,10 @@ class ScanSettingsPayload(BaseModel):
 
 
 class ConvertoSettingsPayload(BaseModel):
-    """Full replacement of the converto.* config section."""
+    """The converto.* settings editable at runtime; `cache_ttl_hours` stays config.yml-only."""
 
     download_conversion_enabled: bool
-    cache_ttl_hours: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_ttl_hours"])
     cache_max_size_gb: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_max_size_gb"])
-    max_sync_size_mb: int = Field(ge=CONVERTO_INT_MINIMUMS["max_sync_size_mb"])
     platform_formats: dict[str, str]
 
     @field_validator("platform_formats")
@@ -369,10 +367,15 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
 async def update_converto_settings(
     request: Request, payload: ConvertoSettingsPayload
 ) -> None:
-    """Replace the converto.* section of the configuration"""
+    """Update the runtime-editable converto.* settings"""
 
+    current = cm.get_config().CONVERTO
     try:
-        cm.update_converto_settings(ConvertoConfig(**payload.model_dump()))
+        cm.update_converto_settings(
+            ConvertoConfig(
+                **payload.model_dump(), cache_ttl_hours=current.cache_ttl_hours
+            )
+        )
     except ConfigNotWritableException as exc:
         log.critical(exc.message)
         raise HTTPException(

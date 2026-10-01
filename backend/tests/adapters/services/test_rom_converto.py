@@ -12,6 +12,7 @@ from adapters.services.rom_converto import (
     RomConvertoOperationError,
     RomConvertoService,
     RomConvertoTimeoutError,
+    file_format,
     resolve_operation,
 )
 
@@ -219,6 +220,23 @@ class TestConvert:
             await service.convert(self._op(), src, out)
 
         assert "bad disc key" in str(exc_info.value)
+
+
+class TestFileFormat:
+    @pytest.mark.parametrize(
+        ("file_name", "expected"),
+        [
+            pytest.param("Game.ISO", "iso", id="target-extension"),
+            pytest.param("game.zcia", "z3ds", id="compressed-3ds"),
+            pytest.param("game.3ds", "cci", id="alias"),
+            pytest.param("game.nkit.iso", "nkit-iso", id="compound-extension"),
+            pytest.param("game.pbp", "pbp", id="input-only-extension"),
+            pytest.param("game.zip", "zip", id="unknown-extension"),
+            pytest.param("README", "", id="no-extension"),
+        ],
+    )
+    def test_names_the_format(self, file_name: str, expected: str):
+        assert file_format(file_name) == expected
 
 
 class TestResolveOperation:

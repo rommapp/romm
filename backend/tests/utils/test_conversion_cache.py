@@ -7,7 +7,8 @@ from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -19,16 +20,20 @@ from adapters.services.rom_converto import (
 )
 from config import ROMM_BASE_PATH
 from config.config_manager import ConvertoConfig
-from models.rom import RomFile
+from models.rom import Rom, RomFile
 from utils import conversion_cache
 from utils.conversion_cache import (
     FAILED_FILE,
     PARTIAL_DIR,
     SERVE_GRACE_SECONDS,
+    FormatOutcome,
+    FormatResolution,
     converted_file_path,
     get_cached_converted,
     get_or_convert,
     get_redirect_path,
+    parse_formats,
+    resolve_format_download,
 )
 
 
@@ -127,7 +132,7 @@ class TestGetOrConvert:
         assert final.stat().st_mtime > time.time() - 60
         assert convert_outputs == []
 
-    async def test_oversized_conversion_serves_original_without_converting(
+    async def test_oversized_conversion_returns_none_without_converting(
         self, cache_root, converto, convert_outputs, mocker
     ):
         converto.cache_max_size_gb = 1
@@ -268,7 +273,7 @@ class TestGetOrConvert:
         assert await get_or_convert(1, f, "psp", "chd") == final
         assert final.read_bytes() == b"converted"
 
-    async def test_locked_key_dir_serves_original(self, cache_root, convert_outputs):
+    async def test_locked_key_dir_returns_none(self, cache_root, convert_outputs):
         f = _rom_file()
         key_dir = _final_path(f).parent
         key_dir.mkdir(parents=True)
@@ -277,7 +282,7 @@ class TestGetOrConvert:
             assert await get_or_convert(1, f, "psp", "chd") is None
         assert convert_outputs == []
 
-    async def test_concurrent_request_serves_original_while_one_converts(
+    async def test_concurrent_request_returns_none_while_one_converts(
         self, cache_root, mocker
     ):
         f = _rom_file()
@@ -477,7 +482,7 @@ class TestGetOrConvert:
         assert await get_or_convert(1, f, "psp", "chd") == final
         assert final.read_bytes() == b"converted"
 
-    async def test_split_conversion_serves_original_without_publishing(
+    async def test_split_conversion_returns_none_without_publishing(
         self, cache_root, mocker
     ):
         f = _rom_file()
@@ -565,7 +570,7 @@ class TestGetCachedConverted:
         assert get_cached_converted(1, f, "psp", "chd", touch=True) == final
         assert final.read_bytes() == b"cached"
 
-    def test_lock_open_failure_serves_original(self, cache_root, mocker):
+    def test_lock_open_failure_returns_none(self, cache_root, mocker):
         f = _rom_file()
         _seed_cached(f)
         mocker.patch("os.open", side_effect=PermissionError)
@@ -818,3 +823,88 @@ class TestCleanupStaleConversions:
 
         assert conversion_cache.cleanup_stale_conversions() == 0
         assert final.read_bytes() == b"x" * 120
+
+
+class TestParseFormats:
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            pytest.param("zso,iso", ("zso", "iso"), id="in-order"),
+            pytest.param(" ZSO , iso,zso ", ("zso", "iso"), id="trimmed-deduplicated"),
+            pytest.param(",,", (), id="empty"),
+        ],
+    )
+    def test_parses_the_list(self, raw: str, expected: tuple[str, ...]):
+        assert parse_formats(raw) == expected
+
+
+class TestResolveFormatDownload:
+    @pytest.fixture(autouse=True)
+    def enabled(self, converto, mocker):
+        converto.download_conversion_enabled = True
+        mocker.patch(
+            "utils.conversion_cache.rom_converto_service.is_enabled",
+            AsyncMock(return_value=True),
+        )
+
+    @staticmethod
+    def _rom() -> Rom:
+        return cast(Rom, SimpleNamespace(id=1, platform_slug="psp"))
+
+    async def test_a_listed_stored_format_wins_over_a_cached_copy(self, cache_root):
+        f = _rom_file()
+        _seed_cached(f)
+
+        resolution = await resolve_format_download(
+            self._rom(), f, ("chd", "iso"), allowed=True, start=True, touch=True
+        )
+
+        assert resolution == FormatResolution(FormatOutcome.ORIGINAL)
+
+    async def test_a_cached_copy_wins_over_an_earlier_uncached_format(
+        self, cache_root, convert_outputs
+    ):
+        f = _rom_file()
+        final = _seed_cached(f)
+
+        resolution = await resolve_format_download(
+            self._rom(), f, ("cso", "chd"), allowed=True, start=True, touch=True
+        )
+
+        assert resolution == FormatResolution(FormatOutcome.CONVERTED, final)
+        assert convert_outputs == []
+
+    async def test_converts_to_the_first_listed_format_it_can_produce(
+        self, cache_root, convert_outputs
+    ):
+        f = _rom_file()
+
+        resolution = await resolve_format_download(
+            self._rom(), f, ("rvz", "cso", "chd"), allowed=True, start=True, touch=True
+        )
+
+        assert resolution.outcome == FormatOutcome.CONVERTED
+        assert resolution.path is not None and resolution.path.suffix == ".cso"
+        assert [out.suffix for out in convert_outputs] == [".cso"]
+
+    async def test_skips_a_format_whose_conversion_failed(
+        self, cache_root, convert_outputs
+    ):
+        f = _rom_file()
+        failed = _final_path(f).parent
+        failed.mkdir(parents=True)
+        (failed / FAILED_FILE).touch()
+
+        resolution = await resolve_format_download(
+            self._rom(), f, ("chd", "cso"), allowed=True, start=True, touch=True
+        )
+
+        assert resolution.path is not None and resolution.path.suffix == ".cso"
+
+    async def test_reports_pending_without_starting(self, cache_root, convert_outputs):
+        resolution = await resolve_format_download(
+            self._rom(), _rom_file(), ("chd",), allowed=True, start=False, touch=False
+        )
+
+        assert resolution.outcome == FormatOutcome.PENDING
+        assert convert_outputs == []

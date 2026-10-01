@@ -688,7 +688,6 @@ def test_converto_config_from_yaml(tmp_path):
         "  download_conversion_enabled: true\n"
         "  cache_ttl_hours: 48\n"
         "  cache_max_size_gb: 0\n"
-        "  max_sync_size_mb: 128\n"
         "  platform_formats:\n"
         "    PSP: iso\n"
         "    ngc: rvz\n"
@@ -700,7 +699,6 @@ def test_converto_config_from_yaml(tmp_path):
         download_conversion_enabled=True,
         cache_ttl_hours=48,
         cache_max_size_gb=0,
-        max_sync_size_mb=128,
         platform_formats={"psp": "iso", "ngc": "rvz"},
     )
 
@@ -720,7 +718,6 @@ def test_update_converto_settings_round_trip(tmp_path):
         download_conversion_enabled=True,
         cache_ttl_hours=72,
         cache_max_size_gb=50,
-        max_sync_size_mb=1024,
         platform_formats={"psp": "iso", "ngc": "rvz"},
     )
 
@@ -736,7 +733,7 @@ def test_update_converto_settings_round_trip(tmp_path):
         "  platform_formats:\n    psp: rvz\n",
         "  cache_ttl_hours: 0\n",
         "  cache_max_size_gb: -1\n",
-        "  max_sync_size_mb: true\n",
+        "  cache_max_size_gb: true\n",
     ],
 )
 def test_invalid_converto_setting_exits(tmp_path, block):

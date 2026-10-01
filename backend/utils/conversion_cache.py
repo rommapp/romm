@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import enum
 import fcntl
 import hashlib
 import os
 import shutil
 import time
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -16,6 +18,7 @@ from adapters.services.rom_converto import (
     Operation,
     RomConvertoOperationError,
     RomConvertoTimeoutError,
+    file_format,
     resolve_operation,
     rom_converto_service,
 )
@@ -35,8 +38,9 @@ if TYPE_CHECKING:
     from models.rom import Rom, RomFile
 
 BYTES_PER_GB = 1024**3
-# Kept under the proxy_read_timeout nginx applies to /api (300s).
-SYNC_CONVERSION_DEADLINE_SECONDS = 240
+# How long a download waits on a conversion it started before answering 202.
+CONVERSION_WAIT_SECONDS: Final = 15
+RETRY_AFTER_SECONDS: Final = 30
 PARTIAL_DIR: Final = ".partial"
 FAILED_FILE: Final = ".failed"
 # Give nginx time to open a copy after the X-Accel-Redirect response.
@@ -153,40 +157,99 @@ def get_cached_converted(
     return _serve_cached(found[1], touch=touch) if found else None
 
 
-async def resolve_converted_download(
-    rom: Rom, file: RomFile, *, touch: bool, start_conversion: bool
-) -> Path | None:
-    """The converted copy of a single-file download, or None to serve the original.
+class FormatOutcome(enum.StrEnum):
+    ORIGINAL = "original"
+    CONVERTED = "converted"
+    PENDING = "pending"
+    UNAVAILABLE = "unavailable"
+
+
+@dataclass(frozen=True)
+class FormatResolution:
+    outcome: FormatOutcome
+    # The cached copy to serve when `outcome` is CONVERTED.
+    path: Path | None = None
+
+
+_PENDING: Final = FormatResolution(FormatOutcome.PENDING)
+_UNAVAILABLE: Final = FormatResolution(FormatOutcome.UNAVAILABLE)
+
+
+def parse_formats(raw: str) -> tuple[str, ...]:
+    """The comma-separated `?format=` list, lowercased and deduplicated in order."""
+    formats = (f.strip().lower() for f in raw.split(","))
+    return tuple(dict.fromkeys(f for f in formats if f))
+
+
+def _is_converting(final_path: Path) -> bool:
+    """Whether a worker holds `final_path`'s key dir while it converts into it."""
+    if not (final_path.parent / PARTIAL_DIR).exists():
+        return False
+    with contextlib.suppress(OSError), _try_lock(final_path.parent) as locked:
+        return not locked
+    return False
+
+
+async def resolve_format_download(
+    rom: Rom,
+    file: RomFile,
+    formats: Sequence[str],
+    *,
+    allowed: bool,
+    start: bool,
+    touch: bool,
+) -> FormatResolution:
+    """What a `?format=` download of a single file serves.
+
+    The stored file wins whenever its format is listed. Otherwise the first
+    listed format with a cached copy is served, then the first a conversion
+    can produce.
 
     Args:
-        touch: Refresh a cached copy's mtime when serving a download.
-        start_conversion: Convert when nothing is cached, waiting for files
-            within `converto.max_sync_size_mb` and converting larger ones
-            in the background for the next download.
+        allowed: The caller may start a conversion.
+        start: Start it now, rather than only report that one would run.
+        touch: Refresh a served copy's mtime so TTL cleanup measures demand.
     """
+    if file_format(file.file_name) in formats:
+        return FormatResolution(FormatOutcome.ORIGINAL)
+
     converto = cm.get_config().CONVERTO
-    target = converto.platform_formats.get(rom.platform_slug)
     if (
         not converto.download_conversion_enabled
-        or not target
         or not await rom_converto_service.is_enabled()
     ):
-        return None
+        return _UNAVAILABLE
 
-    cached = get_cached_converted(rom.id, file, rom.platform_slug, target, touch=touch)
-    if cached or not start_conversion:
-        return cached
-    # The conversion always finishes into the cache; past the size cap or
-    # the deadline the original is served meanwhile, instead of a 504.
-    conversion = fire_and_forget(
-        get_or_convert(rom.id, file, rom.platform_slug, target)
-    )
-    if (
-        file.file_size_bytes or rom.fs_size_bytes
-    ) > converto.max_sync_size_mb * 1024 * 1024:
-        return None
-    done, _ = await asyncio.wait({conversion}, timeout=SYNC_CONVERSION_DEADLINE_SECONDS)
-    return conversion.result() if done else None
+    candidates = [
+        (target, found)
+        for target in formats
+        if (found := _lookup(rom.id, file, rom.platform_slug, target))
+    ]
+    for _, (_, final_path) in candidates:
+        if cached := _serve_cached(final_path, touch=touch):
+            return FormatResolution(FormatOutcome.CONVERTED, cached)
+    if not allowed:
+        return _UNAVAILABLE
+
+    for target, (_, final_path) in candidates:
+        if (final_path.parent / FAILED_FILE).exists():
+            continue
+        if not start or _is_converting(final_path):
+            return _PENDING
+        # The conversion finishes into the cache even when this request stops waiting.
+        conversion = fire_and_forget(
+            get_or_convert(rom.id, file, rom.platform_slug, target)
+        )
+        done, _ = await asyncio.wait({conversion}, timeout=CONVERSION_WAIT_SECONDS)
+        if not done or _is_converting(final_path):
+            return _PENDING
+        converted = conversion.result()
+        return (
+            FormatResolution(FormatOutcome.CONVERTED, converted)
+            if converted
+            else _UNAVAILABLE
+        )
+    return _UNAVAILABLE
 
 
 async def get_or_convert(
@@ -195,7 +258,7 @@ async def get_or_convert(
     platform_slug: str,
     target: str,
 ) -> Path | None:
-    """The converted file, converting it under a lock on its key dir, or None to serve the original."""
+    """The converted file, converting it under a lock on its key dir, or None when it can't be."""
     found = _lookup(rom_id, rom_file, platform_slug, target)
     if found is None:
         return None
@@ -208,7 +271,7 @@ async def get_or_convert(
         final_path.parent.mkdir(parents=True, exist_ok=True)
         with _try_lock(final_path.parent) as locked:
             if not locked:
-                # Another worker is converting; serve the original meanwhile.
+                # Another worker is converting it.
                 return None
             # A conversion may have finished between the check above and the lock.
             if final_path.exists():
@@ -243,7 +306,7 @@ async def get_or_convert(
         return converted
     except Exception as e:
         log.warning(
-            f"Conversion cache unavailable for ROM {rom_id} (target {hl(target)}): {e}; serving original"
+            f"Conversion cache unavailable for ROM {rom_id} (target {hl(target)}): {e}"
         )
         return None
 
@@ -261,15 +324,13 @@ async def _convert(
         )
         if any(p != produced for p in _files(partial_dir)):
             log.warning(
-                f"Conversion output split into several files for ROM {rom_id} (target {hl(target)}); serving original"
+                f"Conversion output split into several files for ROM {rom_id} (target {hl(target)})"
             )
             (final_path.parent / FAILED_FILE).touch()
             return None
         os.replace(produced, final_path)
     except Exception as e:
-        log.warning(
-            f"Conversion failed for ROM {rom_id} (target {hl(target)}): {e}; serving original"
-        )
+        log.warning(f"Conversion failed for ROM {rom_id} (target {hl(target)}): {e}")
         if isinstance(e, (RomConvertoOperationError, RomConvertoTimeoutError)):
             (final_path.parent / FAILED_FILE).touch()
         return None
