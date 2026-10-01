@@ -706,6 +706,52 @@ def critical(mocker):
     return lambda: str(spy.call_args[0][0])
 
 
+EXCLUDE_LIST_PATHS = (
+    "exclude.platforms",
+    "exclude.roms.single_file.extensions",
+    "exclude.roms.single_file.names",
+    "exclude.roms.multi_file.names",
+    "exclude.roms.multi_file.parts.extensions",
+    "exclude.roms.multi_file.parts.names",
+)
+
+
+def _write_exclude_config(tmp_path: Path, path: str, value: str) -> ConfigManager:
+    """Write `value` at the dotted `path`, nesting one YAML level per segment."""
+    lines = [f"{'  ' * depth}{key}:" for depth, key in enumerate(path.split("."))]
+    lines[-1] += f" {value}"
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("\n".join(lines) + "\n")
+    return ConfigManager(str(config_file))
+
+
+@pytest.mark.parametrize("path", EXCLUDE_LIST_PATHS)
+@pytest.mark.parametrize("value", ["ps2", "5", "{ps2: true}"])
+def test_exclude_list_rejects_a_non_list(tmp_path, critical, path, value):
+    """A bare string would otherwise be split into one exclusion per character."""
+    with pytest.raises(SystemExit) as excinfo:
+        _write_exclude_config(tmp_path, path, value)
+
+    assert excinfo.value.code == 3
+    assert critical() == f"Invalid config.yml: {path} must be a list"
+
+
+@pytest.mark.parametrize("path", EXCLUDE_LIST_PATHS)
+@pytest.mark.parametrize("value", ["[7z, 001]", "[ps2, ~]"])
+def test_exclude_list_rejects_a_non_string_entry(tmp_path, critical, path, value):
+    with pytest.raises(SystemExit) as excinfo:
+        _write_exclude_config(tmp_path, path, value)
+
+    assert excinfo.value.code == 3
+    assert critical().startswith(f"Invalid config.yml: {path} must only hold strings")
+
+
+def test_empty_exclude_list_keeps_the_defaults(tmp_path):
+    loader = _write_exclude_config(tmp_path, "exclude.platforms", "")
+
+    assert loader.config.EXCLUDED_PLATFORMS == sorted(DEFAULT_EXCLUDED_PLATFORM_DIRS)
+
+
 def _write_filesystem_config(tmp_path: Path, block: str) -> ConfigManager:
     config_file = tmp_path / "config.yml"
     config_file.write_text(f"filesystem:\n{block}")

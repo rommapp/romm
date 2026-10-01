@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -57,7 +58,7 @@ class TestUpdateSwitchTitleDBTask:
 
     def test_init(self, task):
         """Test task initialization"""
-        assert task.description == "Updates the Nintendo Switch TitleDB file"
+        assert task.spec.description == "Updates the Nintendo Switch TitleDB file"
         assert (
             task.url
             == "https://raw.githubusercontent.com/blawar/titledb/master/US.en.json"
@@ -270,9 +271,7 @@ class TestUpdateSwitchTitleDBTask:
 
     def test_runnable_with_the_scheduled_update_off(self, task):
         """The setting ships false, and a failed rebuild is not queued again."""
-        task.enabled = False
-
-        assert task.can_run_manually is True
+        assert replace(task.spec, enabled=False).can_run_manually is True
 
     def test_task_instance(self):
         """Test that the module-level task instance is created correctly"""

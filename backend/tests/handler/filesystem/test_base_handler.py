@@ -22,7 +22,6 @@ from handler.filesystem.base_handler import (
     region_ranks_for_priority,
     translation_language,
 )
-from models.base import FILE_NAME_MAX_LENGTH
 
 
 class TestFSHandler:
@@ -82,6 +81,15 @@ class TestFSHandler:
         assert handler._sanitize_filename("/etc/passwd") == "passwd"
         assert handler._sanitize_filename("dir/../test.txt") == "test.txt"
 
+    def test_sanitize_filename_over_255_bytes(self, handler: FSHandler):
+        """The filesystem caps a name at 255 bytes, well under the column's
+        450 characters, so a multibyte name hits it first."""
+        assert handler._sanitize_filename("あ" * 85) == "あ" * 85
+        with pytest.raises(ValueError, match="255 bytes"):
+            handler._sanitize_filename("あ" * 86)
+        with pytest.raises(ValueError, match="255 bytes"):
+            handler._sanitize_filename("a" * 256)
+
     def test_sanitize_filename_invalid(self, handler: FSHandler):
         """Test filename sanitization with invalid filenames"""
         with pytest.raises(ValueError, match="Empty filename"):
@@ -92,12 +100,6 @@ class TestFSHandler:
 
         with pytest.raises(ValueError, match="Invalid filename"):
             handler._sanitize_filename("..")
-
-    def test_sanitize_filename_too_long(self, handler: FSHandler):
-        """Test filename sanitization with too long filenames"""
-        long_name = "a" * (FILE_NAME_MAX_LENGTH + 1)
-        with pytest.raises(ValueError, match="Filename .* exceeds maximum length"):
-            handler._sanitize_filename(long_name)
 
     def test_validate_path_valid(self, handler: FSHandler):
         """Test path validation with valid paths"""

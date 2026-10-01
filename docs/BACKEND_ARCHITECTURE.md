@@ -308,8 +308,8 @@ backend/
 │       └── known_bios_files.json    # Verified BIOS hashes
 │
 ├── tasks/                     # Background job system
-│   ├── tasks.py               # Base Task, PeriodicTask, run_task_by_name
-│   ├── registry.py            # Name -> task catalog, the API and cron address
+│   ├── tasks.py               # TaskSpec, base Task, PeriodicTask, run_task_by_name
+│   ├── registry.py            # Name -> TaskSpec catalog, the API and cron address
 │   ├── cron_config.py         # Schedule the `rq cron` process loads
 │   ├── scheduled/             # Cron-scheduled tasks
 │   │   ├── scan_library.py                    # Nightly library rescan
@@ -438,6 +438,10 @@ collation default. MySQL has no CI coverage.
 Query SQL that differs between engines lives in `utils/sql_dialect.py`
 (`DialectCase` and the helpers built on it), which picks each engine's spelling
 when the statement compiles. Handlers don't branch on `ROMM_DB_DRIVER`.
+
+`utils/fulltext.py` reads InnoDB's full-text token sizes and stopwords from the
+server and splits search words the way its parser does, so a search can require
+the words a FULLTEXT index holds and check the rest with `LIKE`.
 
 ### Engine & Session Setup
 
@@ -1441,7 +1445,7 @@ await notify_admins("custom", NotificationLevel.WARNING, title="Disk almost full
 
 A `NotificationKind` is translated by the client from `data`; a new one needs a describer in `frontend/src/v2/utils/notifications.ts` and locale keys. Until then, or for a one-off, pass any other kind with `title`/`body`/`link`/`icon`. Both helpers log and swallow failures, so a job never fails over reporting itself.
 
-A task reports its success from `run_task_by_name`. Its failure is reported by `report_task_failure`, an exception handler `RomMWorker` installs, so a timeout, a killed work horse or a dead worker notifies too, for cron runs as well as manual ones.
+A task reports its success from `run_task_by_name`. Its failure is reported by `report_task_failure`, an exception handler `RomMWorker` installs, so a timeout, a killed work horse or a dead worker notifies too, for cron runs as well as manual ones. The handler can run in the worker parent, so it enqueues `notify_task_failure` on the default queue rather than loading the notification stack there.
 
 ---
 
@@ -1660,7 +1664,11 @@ the device's live requests.
 ### Scheduled Tasks
 
 Declared in `tasks/registry.py` and registered with RQ's cron scheduler by
-`tasks/cron_config.py`, which the `rq cron` process loads at start. A task is
+`tasks/cron_config.py`, which the `rq cron` process loads at start. The registry
+holds each task's `TaskSpec` (title, schedule, queue, timeout) and the dotted
+path to the `Task` that runs it, which `get_task` imports only when a job runs.
+The scheduler, the tasks API and the worker's failure reporting read specs
+alone, so they never load task code. A task is
 registered only when it is enabled and has a cron string, so turning one off is
 a restart rather than an unschedule. Delayed jobs, which is how the filesystem
 watcher defers a rescan, are released by the worker itself (`--with-scheduler`).
@@ -1671,17 +1679,20 @@ failure callback and a scan needs one to report a worker that died mid-scan.
 
 Toggled via environment variables:
 
-| Task                              | Env Toggle                                         | Default Cron       | Description            |
-| --------------------------------- | -------------------------------------------------- | ------------------ | ---------------------- |
-| `scan_library`                    | `ENABLE_SCHEDULED_RESCAN`                          | `0 3 * * *` (3 AM) | Full library rescan    |
-| `update_switch_titledb`           | `ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB`           | `0 4 * * *`        | Update Switch game DB  |
-| `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`       | `0 4 * * *`        | Refresh LaunchBox data |
-| `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`          | `0 4 * * *`        | Image optimization     |
-| `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
-| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
-| `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
-| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup     | `* * * * *`        | Stop abandoned streams |
-| `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)    | `30 4 * * *`       | Prune old audit events |
+| Task                              | Env Toggle                                            | Default Cron       | Description            |
+| --------------------------------- | ----------------------------------------------------- | ------------------ | ---------------------- |
+| `scan_library`                    | `ENABLE_SCHEDULED_RESCAN`                             | `0 3 * * *` (3 AM) | Full library rescan    |
+| `update_switch_titledb`           | `ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB`              | `0 4 * * *`        | Update Switch game DB  |
+| `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`          | `0 4 * * *`        | Refresh LaunchBox data |
+| `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`             | `0 4 * * *`        | Image optimization     |
+| `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC`    | `0 4 * * *`        | Sync RA user progress  |
+| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`         | `0 5 * * *`        | Remove unused artwork  |
+| `cleanup_netplay`                 | `ENABLE_SCHEDULED_CLEANUP_NETPLAY` (default on)       | `*/30 * * * *`     | Clean empty rooms      |
+| `cleanup_upload_tmp`              | `ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP` (default on)    | `0 * * * *`        | Drop stale uploads     |
+| `cleanup_zip_cache`               | `ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE` (default on)     | `0 4 * * *`        | Drop stale cached ZIPs |
+| `cleanup_sync_sessions`           | `ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS` (default on) | `23 * * * *`       | Fail abandoned syncs   |
+| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup        | `* * * * *`        | Stop abandoned streams |
+| `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)       | `30 4 * * *`       | Prune old audit events |
 
 ### Manual Tasks
 
@@ -2021,11 +2032,9 @@ Exception
 ├── CollectionNotFoundInDatabaseException  # 404
 ├── CollectionPermissionError              # 403
 ├── CollectionAlreadyExistsException       # 500
-├── RomNotFoundInRetroAchievementsException # 404
 ├── SGDBInvalidAPIKeyException             # 401
 │
 ├── FolderStructureNotMatchException  # Invalid library layout
-├── PlatformNotFoundException         # Platform not found in FS
 ├── PlatformAlreadyExistsException    # Duplicate platform
 ├── RomsNotFoundException             # No ROMs for platform
 ├── RomAlreadyExistsException         # Duplicate ROM

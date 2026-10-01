@@ -2,7 +2,7 @@ import functools
 from collections.abc import Callable, Collection, Mapping, Sequence
 from typing import Any, Literal
 
-from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select, update
+from sqlalchemy import Select, asc, delete, desc, func, or_, select, update
 from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
@@ -464,39 +464,6 @@ class DBSavesHandler(DBBaseHandler):
             .where(Save.id == id)
             .execution_options(synchronize_session="evaluate")
         )
-
-    @begin_session
-    def mark_missing_saves(
-        self,
-        rom_id: int,
-        user_id: int,
-        saves_to_keep: list[str],
-        session: Session = INJECTED_SESSION,
-    ) -> Sequence[Save]:
-        missing_saves = session.scalars(
-            select(Save).filter(
-                and_(
-                    Save.rom_id == rom_id,
-                    Save.user_id == user_id,
-                    Save.file_name.not_in(saves_to_keep),
-                )
-            )
-        ).all()
-
-        session.execute(
-            update(Save)
-            .where(
-                and_(
-                    Save.rom_id == rom_id,
-                    Save.user_id == user_id,
-                    Save.file_name.not_in(saves_to_keep),
-                )
-            )
-            .values(**{"missing_from_fs": True})
-            .execution_options(synchronize_session="evaluate")
-        )
-
-        return missing_saves
 
     @begin_session
     def get_saves_summary(

@@ -4,8 +4,16 @@ import pytest
 from tests.factories import make_rom
 
 from handler.database import db_rom_handler
+from handler.database.base_handler import sync_session
 from models.platform import Platform
-from models.rom import LookupHashes, Rom, RomFile, compute_full_path_hash
+from models.rom import (
+    SEARCH_TEXT_MAX_LENGTH,
+    LookupHashes,
+    Rom,
+    RomFile,
+    compute_full_path_hash,
+    compute_search_titles,
+)
 
 
 def test_rom(rom: Rom):
@@ -338,3 +346,72 @@ class TestMergedRAMetadata:
         assert merged is not None
         assert [a["ra_id"] for a in stored["achievements"]] == [2, 1]
         assert stored["achievements"][0]["badge_path"] == "2.png"
+
+
+def test_search_titles_fold_the_name_then_each_alias():
+    titles = compute_search_titles(
+        "Final  Fantasy\tVII",
+        {
+            "igdb_metadata": {"alternative_names": ["FF7", "ŌKAMI Den", "ff7", ""]},
+            "moby_metadata": {"alternate_titles": ["Final Fantasy 7"]},
+            "ss_metadata": {"alternative_names": ["FINAL FANTASY VII"]},
+        },
+    )
+
+    assert titles == "\x1ffinal fantasy vii\x1fff7\x1fōkami den\x1ffinal fantasy 7\x1f"
+
+
+def test_search_titles_skip_a_hand_edited_blob_that_is_not_an_object():
+    titles = compute_search_titles(
+        "Name", {"igdb_metadata": ["FF7"], "moby_metadata": "FF7"}
+    )
+
+    assert titles == "\x1fname\x1f"
+
+
+def test_search_titles_keep_the_name_slot_without_a_name_or_metadata():
+    assert compute_search_titles(None, {"igdb_metadata": None}) == "\x1f\x1f"
+
+
+def test_search_titles_drop_aliases_past_the_length_cap():
+    aliases = [f"alias {i:05d} " + "x" * 100 for i in range(500)]
+
+    titles = compute_search_titles(
+        "Name", {"igdb_metadata": {"alternative_names": aliases}}
+    )
+
+    assert len(titles) <= SEARCH_TEXT_MAX_LENGTH
+    assert titles.endswith("\x1f")
+
+
+def test_search_titles_keep_a_short_alias_after_one_past_the_cap():
+    titles = compute_search_titles(
+        "Name",
+        {"igdb_metadata": {"alternative_names": ["x" * SEARCH_TEXT_MAX_LENGTH, "FF7"]}},
+    )
+
+    assert titles == "\x1fname\x1fff7\x1f"
+
+
+def test_search_titles_follow_orm_and_bulk_writes(platform: Platform):
+    rom = make_rom(
+        platform, "Final Fantasy VII", igdb_metadata={"alternative_names": ["FF7"]}
+    )
+
+    def stored() -> str | None:
+        with sync_session.begin() as session:
+            return session.get_one(Rom, rom.id).search_titles
+
+    assert stored() == "\x1ffinal fantasy vii\x1fff7\x1f"
+
+    db_rom_handler.update_rom(rom.id, {"name": "Final Fantasy VII (PAL)"})
+    assert stored() == "\x1ffinal fantasy vii (pal)\x1fff7\x1f"
+
+    db_rom_handler.update_rom(
+        rom.id, {"moby_metadata": {"alternate_titles": ["FFVII"]}}
+    )
+    assert stored() == "\x1ffinal fantasy vii (pal)\x1fff7\x1fffvii\x1f"
+
+    with sync_session.begin() as session:
+        session.get_one(Rom, rom.id).name = "Final Fantasy VII International"
+    assert stored() == "\x1ffinal fantasy vii international\x1fff7\x1fffvii\x1f"

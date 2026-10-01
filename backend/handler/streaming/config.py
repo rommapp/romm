@@ -39,6 +39,10 @@ from handler.streaming.protocol import (
 )
 from logger.logger import log
 
+# How long work may keep a marker or claim alive, so a wedged step cannot
+# reserve a container indefinitely.
+HOLD_CEILING_SECONDS = 15 * 60
+
 # Keys a `platforms:` block may override for the one platform it names.
 PLATFORM_OVERRIDE_KEYS = (
     "emulator",

@@ -108,23 +108,6 @@ class DBStatsHandler(DBBaseHandler):
         return session.scalar(query) or 0
 
     @begin_session
-    def get_platform_filesize(
-        self,
-        platform_id: int,
-        session: Session = INJECTED_SESSION,
-    ) -> int:
-        """Get the total filesize of all roms in the database, in bytes."""
-        return (
-            session.scalar(
-                select(func.sum(RomFile.file_size_bytes))
-                .select_from(RomFile)
-                .join(Rom)
-                .filter(Rom.platform_id == platform_id)
-            )
-            or 0
-        )
-
-    @begin_session
     def get_metadata_coverage_by_platform(
         self,
         hidden_platform_ids: Collection[int] | None = None,

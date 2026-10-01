@@ -45,7 +45,7 @@ from logger.logger import log
 from models.assets import State
 from models.rom import Rom
 from models.user import User
-from utils.filesystem import sanitize_filename
+from utils.filesystem import check_filename_length, sanitize_filename
 
 # Slot number encoded in each emulator's state filename, e.g. PCSX2 writes
 # "SERIAL (CRC).03.p2s" for slot 3 and Dolphin writes "GAMEID.s03". Resuming
@@ -494,8 +494,12 @@ async def pull_state_to_library(
         filename, content, core = result
         try:
             filename = sanitize_filename(filename)
+            # The library stores the name with a capture stamp, so that must fit.
+            check_filename_length(
+                stamped_state_filename(emulator, filename, datetime.now(timezone.utc))
+            )
         except ValueError:
-            log.warning("broker returned invalid state filename")
+            log.warning("broker returned a state filename the library cannot store")
             return False
         # The container's capture is the frame the player saw, and it is the
         # same route for every emulator; an embedded frame only fills a 404.

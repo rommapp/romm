@@ -1,6 +1,8 @@
 {
   "all-loaded": "Alle Spiele wurden geladen",
   "back-to-top": "Nach oben",
+  "column-actions": "Aktionen",
+  "column-cover": "Cover",
   "filters": "Filter",
   "firmware-files-count": "{count} Dateien",
   "firmware-selected-count": "{count} ausgewählt",
@@ -30,6 +32,7 @@
   "sort-ascending": "Aufsteigend sortieren",
   "sort-by": "Sortieren nach",
   "sort-descending": "Absteigend sortieren",
+  "sort-relevance": "Relevanz",
   "view-flat": "Flache Ansicht",
   "view-grid": "Raster",
   "view-grouped": "Nach Buchstaben gruppieren",

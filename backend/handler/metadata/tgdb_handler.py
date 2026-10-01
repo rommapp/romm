@@ -14,10 +14,6 @@ class TGDBPlatform(TypedDict):
     url_logo: NotRequired[str | None]
 
 
-class TGDBGameRom(TypedDict):
-    tgdb_id: int
-
-
 class TGDBHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = "https://api.thegamesdb.net/v1"

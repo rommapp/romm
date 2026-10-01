@@ -1,4 +1,4 @@
-"""Author identity on the note responses, which no note row stores itself."""
+"""Note responses: author identity, deletion and search."""
 
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -58,3 +58,25 @@ def test_delete_note_removes_it_once(client: TestClient, access_token: str, rom:
     # Nothing left to match, so the handler reports no rows deleted.
     again = client.delete(url, headers=_auth(access_token))
     assert again.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_note_search_matches_wildcards_literally(
+    client: TestClient, access_token: str, rom: Rom
+):
+    for title in ("100% run", "1000 coins"):
+        client.post(
+            f"/api/roms/{rom.id}/notes",
+            headers=_auth(access_token),
+            json={"title": title, "content": "", "is_public": False},
+        )
+
+    def search(term: str) -> list[str]:
+        listed = client.get(
+            f"/api/roms/{rom.id}/notes",
+            headers=_auth(access_token),
+            params={"search": term},
+        )
+        return sorted(n["title"] for n in listed.json())
+
+    assert search("100%") == ["100% run"]
+    assert search("1_0") == []

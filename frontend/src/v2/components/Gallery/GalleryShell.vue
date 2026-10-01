@@ -50,6 +50,7 @@ import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
 import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import {
+  getListColumns,
   getListMinWidth,
   getSortOptions,
   isListSortKey,
@@ -60,6 +61,7 @@ import {
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/v2/composables/useCoverArt";
+import { useDebouncedSearch } from "@/v2/composables/useDebouncedSearch";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
@@ -79,6 +81,8 @@ import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, {
+  DEFAULT_ORDER_BY,
+  type GalleryOrderKey,
   orderSupportsLetters,
 } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -114,6 +118,9 @@ interface Props {
    * (every row shares the same platform); true on cross-platform views
    * (Search, Collection, Missing games) where the column carries info. */
   showPlatformColumn?: boolean;
+  /** Sort applied while the URL names none. `null` orders by search
+   * relevance (Search). */
+  defaultOrderBy?: GalleryOrderKey | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -125,6 +132,7 @@ const props = withDefaults(defineProps<Props>(), {
   skeletonRowCount: 4,
   showPlatformsInFilter: true,
   showPlatformColumn: true,
+  defaultOrderBy: DEFAULT_ORDER_BY,
 });
 
 defineSlots<{
@@ -136,7 +144,7 @@ defineSlots<{
 }>();
 
 useGalleryFilterUrl();
-useGalleryOrderUrl();
+useGalleryOrderUrl(props.defaultOrderBy);
 useGalleryViewModeUrl();
 
 const { t } = useI18n();
@@ -237,13 +245,11 @@ const filterActiveCount = computed(() => {
   return n;
 });
 
-// Filter changes → refetch the gallery. Mirrors the search debounced
-// path (invalidate windows + bootstrap initial metadata). The watch
-// fires only on subsequent changes; the initial hydration done by
-// `useGalleryFilterUrl` happens before this watch is set up and so
-// does not echo here.
+// The initial URL hydration in `useGalleryFilterUrl` runs before this watch
+// is set up, so it does not echo here.
 watch(
   [
+    searchTerm,
     filterMatched,
     filterFavorites,
     filterDuplicates,
@@ -309,9 +315,11 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
-// A jump to "M" means nothing when the gallery is sorted by size or date, so
-// the letter affordances go away with the letters themselves.
-const lettersSupported = computed(() => orderSupportsLetters(orderBy.value));
+// A jump to "M" means nothing unless the gallery is in letter order.
+const lettersSupported = computed(() => {
+  const key = galleryRoms.effectiveOrderBy;
+  return key !== null && orderSupportsLetters(key);
+});
 const stripVisible = computed(() => !smAndDown.value && lettersSupported.value);
 const jumpMenuVisible = computed(
   () => smAndDown.value && lettersSupported.value,
@@ -387,10 +395,19 @@ watch(
 // and only the matching one actually moves focus, so they don't fight.
 // Virtualised rows past the overscan window simply aren't in the DOM, so
 // nav clamps at the boundary; scrolling past mounts more rows.
-useGridNav(sectionEl, { rowSelector: ".r-v2-shell__row" });
+function revealEdge(edge: "first" | "last") {
+  scrollToItem(edge === "first" ? 0 : virtualItems.value.length - 1, false);
+}
+useGridNav(sectionEl, {
+  rowSelector: ".r-v2-shell__row",
+  roving: true,
+  revealEdge,
+});
 useGridNav(sectionEl, {
   rowSelector: ".game-list-row",
   getCells: (row) => [row],
+  roving: true,
+  revealEdge,
 });
 
 const loadingInitial = computed(
@@ -687,6 +704,10 @@ let jumpDeadline = 0;
 function anchorLetter(letter: string, smooth: boolean) {
   const idx = letterToIndex.value.get(letter);
   if (idx == null) return;
+  scrollToItem(idx, smooth);
+}
+
+function scrollToItem(idx: number, smooth: boolean) {
   // The section runs under the top bar, so rows land below it in either dock.
   const section = sectionEl.value;
   const navHeight = section
@@ -747,30 +768,14 @@ watch(
 );
 
 // ── Search filter (debounced) ───────────────────────────────────────
-const searchInput = ref(searchTerm.value ?? "");
-let searchDebounce: ReturnType<typeof setTimeout> | null = null;
-function setSearch(value: string) {
-  searchInput.value = value;
-  if (searchDebounce) clearTimeout(searchDebounce);
-  searchDebounce = setTimeout(() => {
-    const normalized = value.trim();
-    if (normalized === (searchTerm.value ?? "")) return;
-    searchTerm.value = normalized || null;
-    // Both layouts share the same loading model: invalidate and
-    // bootstrap metadata only; rows hydrate per-position via the row
-    // component's mount lifecycle (grid: GameCard via shell-level
-    // viewport-sync; list: GameListRow via its own onMounted).
-    galleryRoms.invalidateWindows();
-    void galleryRoms.fetchInitialMetadata();
-  }, 300);
-}
+const { input: searchInput, setSearch } = useDebouncedSearch(searchTerm);
 
 // ── Sort ──────────────────────────────────────────────────────────
 // Both affordances (list column headers, grid direction toggle) only
 // write the store; `useGalleryOrderUrl` mirrors it to the URL and the
 // watch below owns the refetch.
 const listSortKey = computed<ListSortKey | null>(() => {
-  const key = orderBy.value;
+  const key = galleryRoms.effectiveOrderBy;
   return isListSortKey(key) ? key : null;
 });
 
@@ -778,6 +783,11 @@ function onListSort(payload: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderBy(payload.key);
   galleryRoms.setOrderDir(payload.dir);
 }
+
+// Search's relevance has no sort key; the other views have no unsorted order.
+const unsortedLabel = computed(() =>
+  props.defaultOrderBy === null ? t("gallery.sort-relevance") : undefined,
+);
 
 // The toolbar's sort axes, matching the list column headers.
 const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
@@ -873,7 +883,6 @@ onBeforeUnmount(() => {
   // navigation back to a non-gallery view (Home, Settings) doesn't
   // keep stale picks alive.
   gallerySelection.clear();
-  if (searchDebounce) clearTimeout(searchDebounce);
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
   // When leaving the gallery entirely, stop any in-flight window fetches so
   // navigating away mid-scroll doesn't keep the network / backend busy.
@@ -910,6 +919,53 @@ const asLetterHeader = (i: GalleryItem) => i as LetterHeaderItem;
 const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
+
+// The desktop list header is the grid's first row; the compact one is a
+// toolbar above the grid.
+const listHeaderInGrid = computed(
+  () => layout.value === "list" && !smAndDown.value,
+);
+
+// The rows form one ARIA grid, which leaves out the page header and toolbar.
+const gridAttrs = computed(() => {
+  const items = virtualItems.value;
+  if (items.length === 0 && !listHeaderInGrid.value) return undefined;
+  const loaded = items.some((i) => i.kind === "row" || i.kind === "list-row");
+  return {
+    role: "grid",
+    "aria-label": t("common.games"),
+    "aria-multiselectable": true,
+    "aria-busy": !loaded && !items.some((i) => i.kind === "empty"),
+    "aria-rowcount": items.length + (listHeaderInGrid.value ? 1 : 0),
+    "aria-colcount": listHeaderInGrid.value
+      ? getListColumns(props.showPlatformColumn).length
+      : undefined,
+  };
+});
+
+function rowIndex(index: number): number {
+  return index + 1 + (listHeaderInGrid.value ? 1 : 0);
+}
+
+// A list row is its own `role="row"`; skeletons stay out of the grid.
+function itemAttrs(item: GalleryItem, index: number) {
+  switch (item.kind) {
+    case "letter-header":
+    case "row":
+    case "empty":
+      return { role: "row", "aria-rowindex": rowIndex(index) };
+    case "skeleton-row":
+    case "skeleton-list-row":
+      return { "aria-hidden": true };
+    default:
+      return {};
+  }
+}
+
+function isRomSelected(position: number): boolean {
+  const rom = getRomAt(position);
+  return !!rom && gallerySelection.isSelected(rom.id);
+}
 
 // Stable identity for the virtualiser. Each GalleryItem carries a content-
 // derived `key` (`row-${start}`, `lh-${letter}`, `lr-${p}`, …); feeding it to
@@ -960,6 +1016,7 @@ defineExpose({
         layout === 'list' && !smAndDown ? listMinWidth : undefined
       "
       class="r-v2-shell__scroller"
+      :body-attrs="gridAttrs"
       :tabindex="-1"
       @wheel.passive="endLetterJump"
       @pointerdown.passive="endLetterJump"
@@ -993,6 +1050,8 @@ defineExpose({
               :sort-dir="orderDir"
               :sort-key="listSortKey"
               :sort-key-items="sortOptions"
+              :unsorted-label="unsortedLabel"
+              :unsorted="galleryRoms.effectiveOrderBy === null"
               show-search
               :search="searchInput"
               :search-placeholder="searchPlaceholder"
@@ -1023,7 +1082,7 @@ defineExpose({
              Shares `LIST_GRID_TEMPLATE` with every GameListRow underneath
              so columns align. Header click cycles asc/desc into the
              store's orderBy/orderDir. -->
-        <template v-if="layout === 'list'">
+        <template v-if="layout === 'list' && !listHeaderInGrid">
           <div
             v-if="toolbarPosition === 'floating'"
             ref="listHeaderSentinel"
@@ -1035,9 +1094,32 @@ defineExpose({
             :sort-key="listSortKey"
             :sort-dir="orderDir"
             :show-platform-column="showPlatformColumn"
+            :unsorted-label="unsortedLabel"
+            :unsorted="galleryRoms.effectiveOrderBy === null"
             @sort="onListSort"
+            @unsort="galleryRoms.setOrderBy(null)"
           />
         </template>
+      </template>
+
+      <template v-if="listHeaderInGrid" #head>
+        <div
+          v-if="toolbarPosition === 'floating'"
+          ref="listHeaderSentinel"
+          aria-hidden="true"
+        />
+        <GameListHeader
+          class="r-v2-shell__list-header"
+          :class="{ 'r-pinned-list-header': listHeaderPinned }"
+          :sort-key="listSortKey"
+          :sort-dir="orderDir"
+          :show-platform-column="showPlatformColumn"
+          aria-rowindex="1"
+          :unsorted-label="unsortedLabel"
+          :unsorted="galleryRoms.effectiveOrderBy === null"
+          @sort="onListSort"
+          @unsort="galleryRoms.setOrderBy(null)"
+        />
       </template>
 
       <!-- GRID / TABLE (Section 3): letter-headers + rows of cards in
@@ -1045,10 +1127,14 @@ defineExpose({
            rows render while the first window is in flight. The empty
            / not-found state replaces everything below the toolbar
            with a single message. -->
-      <template #default="{ item }">
-        <div class="r-v2-shell__item">
+      <template #default="{ item, index }">
+        <div
+          class="r-v2-shell__item"
+          v-bind="itemAttrs(item as GalleryItem, index)"
+        >
           <RLetterHeading
             v-if="itemKind(item as GalleryItem) === 'letter-header'"
+            role="rowheader"
             :label="asLetterHeader(item as GalleryItem).letter"
           />
 
@@ -1056,9 +1142,12 @@ defineExpose({
             v-else-if="itemKind(item as GalleryItem) === 'row'"
             class="r-v2-shell__row"
           >
-            <template
+            <div
               v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
               :key="p"
+              role="gridcell"
+              class="r-v2-shell__cell"
+              :aria-selected="getRomAt(p) ? isRomSelected(p) : undefined"
             >
               <GameCard
                 v-if="getRomAt(p)"
@@ -1072,11 +1161,12 @@ defineExpose({
                 @ratio="onCardRatio"
               />
               <GameCardSkeleton v-else />
-            </template>
+            </div>
           </div>
 
           <GameListRow
             v-else-if="itemKind(item as GalleryItem) === 'list-row'"
+            :aria-rowindex="rowIndex(index)"
             :position="asListRow(item as GalleryItem).position"
             :webp="supportsWebp"
             :show-platform-column="showPlatformColumn"
@@ -1100,6 +1190,7 @@ defineExpose({
 
           <div
             v-else-if="itemKind(item as GalleryItem) === 'empty'"
+            role="gridcell"
             class="r-v2-shell__empty"
           >
             <REmptyState
@@ -1154,6 +1245,8 @@ defineExpose({
       :sort-dir="orderDir"
       :sort-key="listSortKey"
       :sort-key-items="sortOptions"
+      :unsorted-label="unsortedLabel"
+      :unsorted="galleryRoms.effectiveOrderBy === null"
       show-filter
       :filter-active-count="filterActiveCount"
       @update:group-by="groupBy = $event"
@@ -1308,7 +1401,11 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
 /* Never shrink: float rounding can push a "just fits" row a hair over, and
    shrinking a fixed-height card would crop its cover. Take ragged overflow
    instead (also keeps skeletons, default shrink:1, at their packed width). */
-.r-v2-shell__row > * {
+/* A cell has no box of its own, so the card inside is the flex item. */
+.r-v2-shell__cell {
+  display: contents;
+}
+.r-v2-shell__cell > * {
   flex-shrink: 0;
 }
 

@@ -4,10 +4,10 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import BackgroundTasks, Depends, HTTPException, Request, status
-from pydantic import Field, model_validator
+from pydantic import Field
 
-from config import TASK_TIMEOUT
 from decorators.auth import protected_route
+from endpoints.play_sessions import PlaySessionEntry
 from endpoints.responses.base import PAGE_QUERY, BaseModel, PageParams
 from endpoints.responses.play_session import (
     PlaySessionIngestResponse,
@@ -41,6 +41,7 @@ from models.assets import Save
 from models.deleted_asset import DeletedAsset
 from models.device import SyncMode
 from models.sync_session import SyncSessionStatus
+from tasks.registry import SYNC_PUSH_PULL_SPEC
 from utils.auth import token_device_id
 from utils.datetime import to_utc
 from utils.router import APIRouter
@@ -110,20 +111,9 @@ class SyncNegotiatePayload(BaseModel):
     )
 
 
-class SyncPlaySessionEntry(BaseModel):
-    rom_id: int | None = None
-    save_slot: str | None = None
-    start_time: datetime
-    end_time: datetime
-    duration_ms: int = Field(ge=0)
-
-    @model_validator(mode="after")
-    def validate_times(self) -> "SyncPlaySessionEntry":
-        self.start_time = self.start_time.replace(microsecond=0)
-        self.end_time = self.end_time.replace(microsecond=0)
-        if self.end_time <= self.start_time:
-            raise ValueError("end_time must be after start_time")
-        return self
+# Its own class so the OpenAPI schema keeps the name clients generate from.
+class SyncPlaySessionEntry(PlaySessionEntry):
+    pass
 
 
 class SyncCompletePayload(BaseModel):
@@ -577,12 +567,8 @@ def trigger_push_pull(
         device_id=device.id,
         session_id=sync_session.id,
         force=True,
-        job_timeout=TASK_TIMEOUT,
-        meta={
-            "task_key": "sync_push_pull",
-            "task_name": "Push-Pull Sync",
-            "task_type": "sync",
-        },
+        job_timeout=SYNC_PUSH_PULL_SPEC.timeout,
+        meta=SYNC_PUSH_PULL_SPEC.job_meta("sync_push_pull"),
     )
 
     log.info(f"Enqueued push-pull sync for device {device.id}")

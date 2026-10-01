@@ -19,10 +19,10 @@ class TestCleanupMissingFirmwareTask:
         assert isinstance(cleanup_missing_firmware_task, CleanupMissingFirmwareTask)
 
     def test_configuration(self, task):
-        assert task.enabled is True
-        assert task.manual_run is True
-        assert task.can_run_manually is True
-        assert task.cron_string is None
+        assert task.spec.enabled is True
+        assert task.spec.manual_run is True
+        assert task.spec.can_run_manually is True
+        assert task.spec.cron_string is None
 
     async def test_deletes_only_missing_firmware(self, task, platform):
         present = make_firmware(platform, "present.bin")

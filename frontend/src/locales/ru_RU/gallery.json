@@ -1,6 +1,8 @@
 {
   "all-loaded": "Все игры загружены",
   "back-to-top": "Наверх",
+  "column-actions": "Действия",
+  "column-cover": "Обложка",
   "filters": "Фильтры",
   "firmware-files-count": "{count} файлов",
   "firmware-selected-count": "{count} выбрано",
@@ -30,6 +32,7 @@
   "sort-ascending": "Сортировать по возрастанию",
   "sort-by": "Сортировать по",
   "sort-descending": "Сортировать по убыванию",
+  "sort-relevance": "Релевантность",
   "view-flat": "Плоский вид",
   "view-grid": "Сетка",
   "view-grouped": "Группировать по буквам",

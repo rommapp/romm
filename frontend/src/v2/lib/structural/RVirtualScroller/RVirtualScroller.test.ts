@@ -86,3 +86,30 @@ describe("RVirtualScroller offsetShift", () => {
     wrapper.unmount();
   });
 });
+
+describe("RVirtualScroller body", () => {
+  it("wraps the head and the rows, but not the prepend, in bodyAttrs", async () => {
+    const wrapper = mount(RVirtualScroller, {
+      attachTo: document.body,
+      props: {
+        items,
+        getItemHeight: () => ROW_H,
+        height: VIEWPORT_H,
+        bodyAttrs: { role: "grid", "aria-rowcount": 6 },
+      },
+      slots: {
+        prepend: `<div class="toolbar" />`,
+        head: `<div class="header-row" />`,
+        default: `<div class="row" />`,
+      },
+    });
+    await nextTick();
+
+    const body = wrapper.get("[role=grid]");
+    expect(body.attributes("aria-rowcount")).toBe("6");
+    expect(body.find(".header-row").exists()).toBe(true);
+    expect(body.findAll(".row")).toHaveLength(items.length);
+    expect(body.find(".toolbar").exists()).toBe(false);
+    wrapper.unmount();
+  });
+});

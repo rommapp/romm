@@ -6,7 +6,6 @@ import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
-import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
 import type { JsDosProps } from "@/types/js-dos";
 import { getDownloadPath } from "@/utils";
@@ -23,12 +22,12 @@ import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { usePlayingWhile } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { loadJsDosRuntime } from "./jsDosRuntime";
 
 const { t } = useI18n();
 const authStore = storeAuth();
-const playingStore = storePlaying();
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
 const playSession = usePlaySession();
@@ -41,6 +40,7 @@ const exit = usePlayerExit(() => runtimeBound);
 
 const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
+usePlayingWhile(gameRunning);
 const quitting = ref(false);
 const stage = ref<HTMLDivElement | null>(null);
 
@@ -81,13 +81,10 @@ async function onPlay() {
     return;
   }
   gameRunning.value = true;
-  // Let the emulator own keyboard input while running.
-  playingStore.setPlaying(true);
 
   await nextTick();
   if (!stage.value) {
     gameRunning.value = false;
-    playingStore.setPlaying(false);
     return;
   }
 
@@ -136,7 +133,6 @@ async function saveQuietly(handle: JsDosProps) {
 
 function teardown() {
   playSession.flush();
-  playingStore.setPlaying(false);
   stopDos();
 }
 

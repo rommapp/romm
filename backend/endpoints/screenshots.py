@@ -17,13 +17,12 @@ from handler.scan_handler import scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from utils.filesystem import sanitize_filename
 from utils.media_types import (
     ALLOWED_IMAGE_EXTENSIONS,
     is_allowed_image_file,
 )
 from utils.router import APIRouter
-from utils.uploads import check_asset_upload_size
+from utils.uploads import check_asset_upload_size, sanitize_asset_filename
 
 router = APIRouter(
     prefix="/screenshots",
@@ -51,6 +50,8 @@ async def add_screenshot(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
+    assert_rom_visible(request, rom)
+
     current_user = request.user
     log.info(f"Uploading screenshot to {hl(str(rom.name), color=BLUE)}")
 
@@ -65,13 +66,9 @@ async def add_screenshot(
             detail="Screenshot file has no filename",
         )
 
-    try:
-        sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid screenshot filename: {str(exc)}",
-        ) from exc
+    sanitized_screenshot_filename = sanitize_asset_filename(
+        screenshotFile.filename, "screenshot"
+    )
 
     if not is_allowed_image_file(sanitized_screenshot_filename):
         raise HTTPException(

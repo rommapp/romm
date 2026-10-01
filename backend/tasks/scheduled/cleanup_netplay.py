@@ -1,21 +1,15 @@
 from handler.netplay_handler import netplay_handler
 from logger.logger import log
-from tasks.tasks import PeriodicTask, TaskType
+from tasks.registry import CLEANUP_NETPLAY_SPEC
+from tasks.tasks import PeriodicTask
 
 
 class CleanupNetplayTask(PeriodicTask):
     def __init__(self) -> None:
-        super().__init__(
-            title="Scheduled netplay cleanup",
-            description="Cleans up empty netplay rooms",
-            task_type=TaskType.CLEANUP,
-            enabled=True,
-            manual_run=False,
-            cron_string="*/30 * * * *",  # Every 30 minutes
-        )
+        super().__init__(CLEANUP_NETPLAY_SPEC)
 
     async def run(self) -> None:
-        if not self.enabled:
+        if not self.spec.enabled:
             return
 
         netplay_rooms = await netplay_handler.get_all()

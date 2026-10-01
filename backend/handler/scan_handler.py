@@ -77,7 +77,13 @@ from logger.logger import log
 from models.assets import MemoryCardVersion, Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
+from models.rom import (
+    METADATA_SOURCE_COLUMNS,
+    Rom,
+    RomFile,
+    RomFileCategory,
+    RomIdentity,
+)
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
@@ -286,6 +292,29 @@ def get_priority_ordered_metadata_sources(
     ]
 
     return ordered_sources + remaining_sources
+
+
+def get_enabled_metadata_sources() -> list[str]:
+    """The metadata sources a library scan can use, per their provider's config."""
+    handlers = {
+        MetadataSource.IGDB: meta_igdb_handler,
+        MetadataSource.SS: meta_ss_handler,
+        MetadataSource.MOBY: meta_moby_handler,
+        MetadataSource.RA: meta_ra_handler,
+        MetadataSource.LAUNCHBOX: meta_launchbox_handler,
+        MetadataSource.HASHEOUS: meta_hasheous_handler,
+        MetadataSource.PLAYMATCH: meta_playmatch_handler,
+        MetadataSource.SGDB: meta_sgdb_handler,
+        MetadataSource.FLASHPOINT: meta_flashpoint_handler,
+        MetadataSource.HLTB: meta_hltb_handler,
+        MetadataSource.DEMOZOO: meta_demozoo_handler,
+        MetadataSource.POUET: meta_pouet_handler,
+        MetadataSource.CSDB: meta_csdb_handler,
+        MetadataSource.STEAM: meta_steam_handler,
+        MetadataSource.TGDB: meta_tgdb_handler,
+        MetadataSource.LIBRETRO: meta_libretro_handler,
+    }
+    return [source for source, handler in handlers.items() if handler.is_enabled()]
 
 
 def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
@@ -1593,20 +1622,8 @@ async def scan_rom(
             rom_attrs["url_cover"] = pico8_url
 
     # If not found in any metadata source, we return the rom with the default values
-    if (
-        not rom_attrs.get("igdb_id")
-        and not rom_attrs.get("moby_id")
-        and not rom_attrs.get("ss_id")
-        and not rom_attrs.get("ra_id")
-        and not rom_attrs.get("launchbox_id")
-        and not rom_attrs.get("hasheous_id")
-        and not rom_attrs.get("flashpoint_id")
-        and not rom_attrs.get("hltb_id")
-        and not rom_attrs.get("demozoo_id")
-        and not rom_attrs.get("pouet_id")
-        and not rom_attrs.get("csdb_id")
-        and not rom_attrs.get("steam_id")
-        and not rom_attrs.get("gamelist_id")
+    if not any(
+        rom_attrs.get(column.key) for column in METADATA_SOURCE_COLUMNS.values()
     ):
         if inconclusive_sources:
             # Reporting a plain "not identified" here writes the ROM up as a

@@ -6,7 +6,7 @@
 // over the body with cover-source picker + rename + confirm. Click
 // the backdrop or press Esc to close.
 import { RBtn, REmptyState, RIcon, RProgressCircular } from "@v2/lib";
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SearchRom, SimpleRom } from "@/stores/roms";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
@@ -18,11 +18,7 @@ import {
   matchKey,
   type MatchedSource,
 } from "@/v2/components/MatchRom/types";
-import {
-  type EscapableEntry,
-  popEscapable,
-  pushEscapable,
-} from "@/v2/lib/overlays/RDialog/escapeStack";
+import { useEscapable } from "@/v2/composables/useEscapable";
 
 defineOptions({ inheritAttrs: false });
 
@@ -88,15 +84,10 @@ function confirm() {
 // RDialog open (the user can press Esc again to close that). Without
 // the stack, the dialog's own global Esc listener would fire first
 // and close everything at once.
-const overlayEscEntry: EscapableEntry = {
-  close: () => close(),
-  persistent: false,
-};
-watch(activeKey, (value) => {
-  if (value !== null) pushEscapable(overlayEscEntry);
-  else popEscapable(overlayEscEntry);
-});
-onBeforeUnmount(() => popEscapable(overlayEscEntry));
+useEscapable(
+  computed(() => activeKey.value !== null),
+  () => close(),
+);
 
 watch(
   () => props.results,

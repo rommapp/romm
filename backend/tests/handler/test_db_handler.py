@@ -7,8 +7,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
 from tests.factories import make_rom, make_save, make_screenshot, make_state
 
-from config import ROMM_DB_DRIVER
-from handler.auth import auth_handler
+from handler.auth.base_handler import auth_handler
 from handler.database import (
     db_platform_handler,
     db_rom_handler,
@@ -232,20 +231,19 @@ def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
     # Only titles containing BOTH words appear (AND semantics).
     assert set(result_ids) == {ff.id, ff7.id, fantasy_final.id}
 
-    # Relevance ordering uses MATCH ... AGAINST, which only runs on
-    # MySQL/MariaDB; PostgreSQL falls back to name ordering, so the
-    # phrase-ranking assertions only hold on those drivers.
-    if ROMM_DB_DRIVER in ("mariadb", "mysql"):
-        # Exact-order phrase matches rank above the reversed-order match.
-        assert result_ids.index(ff.id) < result_ids.index(fantasy_final.id)
-        assert result_ids.index(ff7.id) < result_ids.index(fantasy_final.id)
+    # Exact-order phrase matches rank above the reversed-order match.
+    assert result_ids.index(ff.id) < result_ids.index(fantasy_final.id)
+    assert result_ids.index(ff7.id) < result_ids.index(fantasy_final.id)
 
     # The relevance ORDER BY must also survive the group_by_meta_id subquery
     # wrapping used by the gallery (each ROM here is its own group).
     grouped = db_rom_handler.get_roms_scalar(
         search_term="final fantasy", group_by_meta_id=True
     )
-    assert {r.id for r in grouped} == {ff.id, ff7.id, fantasy_final.id}
+    grouped_ids = [r.id for r in grouped]
+    assert set(grouped_ids) == {ff.id, ff7.id, fantasy_final.id}
+    assert grouped_ids.index(ff.id) < grouped_ids.index(fantasy_final.id)
+    assert grouped_ids.index(ff7.id) < grouped_ids.index(fantasy_final.id)
 
     # An explicit sort takes priority over relevance: ordering by name asc puts
     # "Fantasy Final" first (relevance is only the tiebreaker here).
@@ -254,6 +252,171 @@ def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
     )
     explicit_ids = [r.id for r in explicit]
     assert explicit_ids.index(fantasy_final.id) < explicit_ids.index(ff.id)
+
+
+def _ranked(search_term: str, order_by: str = "", order_dir: str = "asc") -> list[int]:
+    roms = db_rom_handler.get_roms_scalar(
+        search_term=search_term, order_by=order_by, order_dir=order_dir
+    )
+    return [rom.id for rom in roms]
+
+
+def test_search_ranks_exact_titles_then_name_prefixes(platform: Platform):
+    def _add(name: str, aliases: list[str]) -> Rom:
+        return make_rom(platform, name, igdb_metadata={"alternative_names": aliases})
+
+    crisis_core = _add(
+        "Crisis Core: Final Fantasy VII", ["Crisis Core: Final Fantasy 7"]
+    )
+    dirge = _add("Dirge of Cerberus: Final Fantasy VII", [])
+    ff7 = _add("Final Fantasy VII", ["FF7", "Final Fantasy 7"])
+    remake = _add("Final Fantasy VII Remake", ["Final Fantasy 7 Remake"])
+    moby_titled = make_rom(
+        platform,
+        "Seventh Fantasy",
+        moby_metadata={"alternate_titles": ["FINAL FANTASY VII"]},
+    )
+
+    # An alias equal to the search beats one that only holds it.
+    assert _ranked("final fantasy 7") == [ff7.id, crisis_core.id, remake.id]
+
+    # Exact name or alias first, then names the search starts, then the rest.
+    assert _ranked("Final  Fantasy VII") == [
+        ff7.id,
+        moby_titled.id,
+        remake.id,
+        crisis_core.id,
+        dirge.id,
+    ]
+
+    # The rank only leads; an explicit sort keeps its order.
+    assert _ranked("final fantasy vii", order_by="name") == [
+        crisis_core.id,
+        dirge.id,
+        ff7.id,
+        remake.id,
+        moby_titled.id,
+    ]
+
+    # A one-word search ranks too, though it has no phrase to score.
+    fan_mod = _add("A FF7 Fan Mod", [])
+    assert _ranked("ff7") == [ff7.id, fan_mod.id]
+
+
+def test_search_ranks_a_name_prefix_only_where_a_word_ends(platform: Platform):
+    ff7 = make_rom(platform, "Final Fantasy VII")
+    ff8 = make_rom(platform, "Final Fantasy VIII")
+    advent_children = make_rom(platform, "Final Fantasy VII: Advent Children")
+    crisis_core = make_rom(platform, "Crisis Core: Final Fantasy VII")
+
+    assert _ranked("final fantasy vii") == [
+        ff7.id,
+        advent_children.id,
+        crisis_core.id,
+        ff8.id,
+    ]
+
+
+@pytest.mark.parametrize(
+    ("name", "search_term"),
+    [
+        ("Dr. Mario 64", "dr. mario"),
+        ("Mario + Rabbids Kingdom Battle", "mario + rabbids"),
+    ],
+)
+def test_search_ranks_a_name_prefix_holding_regex_characters(
+    platform: Platform, name: str, search_term: str
+):
+    prefixed = make_rom(platform, name)
+    # Ahead by name, so only the prefix rank puts the other first.
+    holder = make_rom(platform, f"A {name} Fan Game")
+
+    assert _ranked(search_term) == [prefixed.id, holder.id]
+
+
+def test_search_relevance_ignores_the_sort_direction(platform: Platform):
+    make_rom(platform, "Final Fantasy VII")
+    make_rom(platform, "Crisis Core: Final Fantasy VII")
+    make_rom(platform, "Dirge of Cerberus: Final Fantasy VII")
+
+    assert _ranked("final fantasy vii", order_dir="desc") == _ranked(
+        "final fantasy vii", order_dir="asc"
+    )
+
+
+def test_search_ranks_a_name_prefix_ending_in_punctuation(platform: Platform):
+    prefixed = make_rom(platform, "Mr.Driller")
+    holder = make_rom(platform, "Adventures of Mr. Driller")
+
+    assert _ranked("mr.") == [prefixed.id, holder.id]
+
+
+@pytest.mark.parametrize(
+    "alias", ['Say "Cheese"', "Pokémon Rouge", "ŌKAMI Den", "Chrono\tTrigger"]
+)
+def test_search_ranks_exact_aliases_with_escaped_characters(
+    platform: Platform, alias: str
+):
+    titled = make_rom(
+        platform, f"{alias} Edition", igdb_metadata={"alternative_names": [alias]}
+    )
+    untitled = make_rom(
+        platform,
+        f"{alias} Advent",
+        igdb_metadata={"alternative_names": [f"{alias} Advent"]},
+    )
+
+    roms = db_rom_handler.get_roms_scalar(search_term=" ".join(alias.lower().split()))
+
+    assert [rom.id for rom in roms] == [titled.id, untitled.id]
+
+
+@pytest.mark.parametrize("stored", ["Final  Fantasy  VII", "Final\tFantasy\nVII"])
+def test_search_ranks_exact_titles_stored_with_uneven_spacing(
+    platform: Platform, stored: str
+):
+    spaced = make_rom(platform, stored)
+    longer = make_rom(platform, "Final Fantasy VII Remake")
+    contains = make_rom(platform, "Crisis Core: Final Fantasy VII")
+
+    roms = db_rom_handler.get_roms_scalar(search_term="final fantasy vii")
+
+    assert [rom.id for rom in roms] == [spaced.id, longer.id, contains.id]
+
+
+@pytest.mark.parametrize(
+    ("search_term", "expected"),
+    [
+        # "7" is too short for the FULLTEXT index.
+        ("final fantasy 7", {"Final Fantasy 7"}),
+        # "the" is an InnoDB stopword, "of" both short and a stopword.
+        ("the legend zelda", {"The Legend of Zelda"}),
+        ("legend of zelda", {"The Legend of Zelda"}),
+        # No word the index holds, so LIKE alone decides.
+        ("x-2", {"Final Fantasy X-2"}),
+        # The index holds "dr." as "dr", too short to require.
+        ("dr. mario", {"Dr. Mario"}),
+        # `_` is literal, not a LIKE wildcard.
+        ("x_2", set()),
+    ],
+)
+def test_filter_by_search_term_words_fulltext_cannot_index(
+    platform: Platform, search_term: str, expected: set[str]
+):
+    for name in (
+        "Final Fantasy 7",
+        "Final Fantasy X-2",
+        "Final Fantasy",
+        "Dr. Mario",
+        "The Legend of Zelda",
+        "Zelda II The Adventure of Link",
+    ):
+        # Spaced like a real dump, so the filename splits into the same words.
+        make_rom(platform, name, fs_stem=f"{name} (USA)")
+
+    results = db_rom_handler.get_roms_scalar(search_term=search_term)
+
+    assert {r.name for r in results} == expected
 
 
 def test_sibling_roms_empty_fs_name_no_tags_not_matched(platform: Platform):
