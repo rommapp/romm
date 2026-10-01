@@ -98,6 +98,15 @@ const CLAIM = {
   },
 };
 
+// A pending call the test answers by hand.
+function deferred() {
+  let answer = (_: unknown) => {};
+  const promise = new Promise((resolve) => {
+    answer = resolve;
+  });
+  return { promise, answer };
+}
+
 // Unstamped, a release reaches whichever session took the container.
 function expectReleasedOwnClaim(): void {
   expect(mocks.releaseSession).toHaveBeenCalledWith(
@@ -246,12 +255,8 @@ describe("Desktop heartbeats", () => {
   it("keeps the exit a release made while a beat was in flight", async () => {
     const wrapper = await openDesktop();
     mocks.releaseSession.mockResolvedValue({});
-    let answer = (_: unknown) => {};
-    mocks.heartbeatSession.mockReturnValue(
-      new Promise((resolve) => {
-        answer = resolve;
-      }),
-    );
+    const { promise, answer } = deferred();
+    mocks.heartbeatSession.mockReturnValue(promise);
 
     const beat = mocks.heartbeatTick?.();
     expect(await mocks.routeLeave?.()).toBe(true);
@@ -422,12 +427,8 @@ describe("Desktop controller ownership", () => {
 
 describe("Desktop claims that outlive the view", () => {
   it("hands back a claim that answers after the view is gone", async () => {
-    let answer = (_: unknown) => {};
-    mocks.claimDesktop.mockReturnValue(
-      new Promise((resolve) => {
-        answer = resolve;
-      }),
-    );
+    const { promise, answer } = deferred();
+    mocks.claimDesktop.mockReturnValue(promise);
     mocks.releaseSession.mockResolvedValue({});
     const wrapper = await mountDesktop();
 
@@ -440,12 +441,8 @@ describe("Desktop claims that outlive the view", () => {
   });
 
   it("hands back a claim that answers while the leave is still resolving", async () => {
-    let answer = (_: unknown) => {};
-    mocks.claimDesktop.mockReturnValue(
-      new Promise((resolve) => {
-        answer = resolve;
-      }),
-    );
+    const { promise, answer } = deferred();
+    mocks.claimDesktop.mockReturnValue(promise);
     mocks.releaseSession.mockResolvedValue({});
     const wrapper = await mountDesktop();
 

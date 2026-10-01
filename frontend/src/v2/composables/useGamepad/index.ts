@@ -27,8 +27,8 @@
 //   * Game running (storePlaying.playing): the emulator reads the pad
 //     itself, so all translation is off. Otherwise B (shared by Circle /
 //     Nintendo-A in the standard mapping) would quit the game. Holding
-//     Select+Start instead fires `gamepad:exitchord` for the player to
-//     open its exit dialog.
+//     Select+Start instead fires `gamepad:exitchord`; a player opts into
+//     a pad exit by listening for it.
 //   * Controller-test screen (ACTIONS_DISABLED_PATHS): built-in actions
 //     are muted so every button can be pressed and inspected in place.
 import { onBeforeUnmount } from "vue";
