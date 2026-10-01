@@ -19,6 +19,7 @@ from tests.factories import make_rom, make_save, make_state
 from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
 from decorators.database import INJECTED_SESSION
+from exceptions.database_exceptions import RomFileOwnerChangedError
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_engine, sync_session
 from handler.database.roms_handler import _filter_values_cache_version
@@ -673,6 +674,35 @@ class TestRomFileSizeTotal:
 
         assert self._size(rom) == 1000
 
+    def test_moving_a_file_updates_both_roms(self, rom: Rom, second_rom: Rom):
+        _add_rom_file(rom, "game.bin", 1000, RomFileCategory.GAME)
+        manual = _add_rom_file(rom, "manual.pdf", 200, RomFileCategory.MANUAL)
+
+        db_rom_handler.update_rom_file(manual.id, {"rom_id": second_rom.id})
+
+        assert self._size(rom) == 1000
+        assert self._size(second_rom) == 200
+
+    def test_merging_a_file_under_another_rom_updates_both(
+        self, rom: Rom, second_rom: Rom
+    ):
+        _add_rom_file(rom, "game.bin", 1000, RomFileCategory.GAME)
+        manual = _add_rom_file(rom, "manual.pdf", 200, RomFileCategory.MANUAL)
+
+        db_rom_handler.add_rom_file(
+            RomFile(
+                id=manual.id,
+                rom_id=second_rom.id,
+                file_name=manual.file_name,
+                file_path=second_rom.fs_path,
+                file_size_bytes=manual.file_size_bytes,
+                category=manual.category,
+            )
+        )
+
+        assert self._size(rom) == 1000
+        assert self._size(second_rom) == 200
+
 
 class TestRomFileSizeSidecarInvalidation:
     """The size-sorted rom-id and char indexes are cached under the filter
@@ -787,6 +817,53 @@ class TestRomFileSizeLocking:
 
         self._assert_locked_before(statements, "UPDATE rom_files")
 
+    def test_move_locks_its_roms_before_the_file(
+        self, rom: Rom, second_rom: Rom, statements: list[str]
+    ):
+        # Folder conversion writes the rom row before its file rows, so file
+        # writes lock in the same order.
+        game = _add_rom_file(rom)
+        statements.clear()
+
+        db_rom_handler.update_rom_file(game.id, {"rom_id": second_rom.id})
+
+        file_lock = next(
+            i
+            for i, s in enumerate(statements)
+            if s.startswith("SELECT rom_files.rom_id") and s.endswith("FOR UPDATE")
+        )
+        rom_locks = [
+            i
+            for i, s in enumerate(statements)
+            if s.startswith("SELECT roms.id") and re.search(r"FOR (NO KEY )?UPDATE$", s)
+        ]
+        assert len(rom_locks) == 2
+        assert max(rom_locks) < file_lock
+
+    def test_an_owner_changed_meanwhile_fails_the_write(self):
+        session = MagicMock()
+        # The file moved from rom 1 to rom 2 before this transaction locked rom 1.
+        session.scalar.side_effect = [1, 2]
+
+        with pytest.raises(RomFileOwnerChangedError):
+            db_rom_handler._lock_rom_file_and_roms(10, [3], session)
+
+    def test_a_move_into_a_locked_rom_needs_no_more_locks(self):
+        session = MagicMock()
+        session.scalar.side_effect = [1, 3]
+
+        locked = db_rom_handler._lock_rom_file_and_roms(10, [3], session)
+
+        assert locked == {1, 3}
+        assert session.execute.call_count == 2
+
+    def test_a_vanished_file_locks_nothing_more(self):
+        session = MagicMock()
+        session.scalar.side_effect = [None]
+
+        assert db_rom_handler._lock_rom_file_and_roms(10, [3], session) is None
+        session.execute.assert_not_called()
+
     @pytest.mark.parametrize(
         ("dialect", "clause"),
         [(MARIADB_DIALECT, "FOR UPDATE"), (POSTGRESQL_DIALECT, "FOR NO KEY UPDATE")],
@@ -795,7 +872,20 @@ class TestRomFileSizeLocking:
         # NO KEY UPDATE leaves other tables' foreign key checks on the row free.
         session = MagicMock()
 
-        db_rom_handler._lock_rom_row(7, session)
+        db_rom_handler._lock_rom_rows([7], session)
 
         (statement,) = session.execute.call_args.args
         assert compile_sql(statement, dialect).endswith(clause)
+
+    def test_move_locks_both_roms_in_id_order(self, rom: Rom, second_rom: Rom):
+        # Two opposite moves take the locks in the same order, so they cannot
+        # deadlock.
+        session = MagicMock()
+
+        db_rom_handler._lock_rom_rows([second_rom.id, rom.id, second_rom.id], session)
+
+        locked = [
+            call.args[0].compile().params["id_1"]
+            for call in session.execute.call_args_list
+        ]
+        assert locked == sorted({rom.id, second_rom.id})

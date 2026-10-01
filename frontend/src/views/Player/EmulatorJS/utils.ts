@@ -528,6 +528,32 @@ function installDefaultOptionsFallback(emulator: any) {
   }
 }
 
+// EmulatorJS 4.2.3 indexes its compact pad list by browser gamepad index, which
+// throws and stops polling when Chromium puts a lone pad at index 1.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function lookUpGamepadsByBrowserIndex(emulator: any) {
+  const handler = emulator.gamepad;
+  if (
+    emulator.__rommGamepadLookupPatched ||
+    // Builds with this method already look pads up by browser index.
+    typeof emulator.getGamepadSelectionValue === "function" ||
+    !handler?.listeners
+  )
+    return;
+  emulator.__rommGamepadLookupPatched = true;
+  for (const name of ["connected", "axischanged", "buttondown", "buttonup"]) {
+    const listener = handler.listeners[name];
+    if (typeof listener !== "function") continue;
+    handler.listeners[name] = (event: { gamepadIndex: number }) => {
+      const position = (handler.gamepads ?? []).findIndex(
+        (pad: { index: number } | null) => pad?.index === event.gamepadIndex,
+      );
+      if (position === -1) return;
+      listener({ ...event, gamepadIndex: position });
+    };
+  }
+}
+
 // GamepadHandler polls before EmulatorJS registers its "connected" listener,
 // so pads it already saw (e.g. the one that pressed Play) get no player.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -570,6 +596,20 @@ function applyOnlyEnabledCheats(emulator: any) {
   };
 }
 
+// Building the disks menu re-selects the current disk before boot, which 4.2.3
+// crashes on (no allSettings yet) and PUAE traps on (EmulatorJS#1260).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function skipDiskSelectionBeforeStart(emulator: any) {
+  if (emulator.__rommDiskPatched) return;
+  emulator.__rommDiskPatched = true;
+
+  const originalMenuOptionChanged = emulator.menuOptionChanged.bind(emulator);
+  emulator.menuOptionChanged = (option: string, value: unknown) => {
+    if (option === "disk" && !emulator.started) return;
+    originalMenuOptionChanged(option, value);
+  };
+}
+
 // Trap the window.EJS_emulator assignment so the instance is patched right
 // after the constructor returns, before the async core download and boot
 // consume any of the patched values. Patching later (e.g. in EJS_onGameStart)
@@ -585,9 +625,11 @@ export function installEJSDefaultOptionsTrap() {
       instance = value;
       if (!value) return;
       installDefaultOptionsFallback(value);
+      lookUpGamepadsByBrowserIndex(value);
       replayConnectedGamepads(value);
       keepArcadeBiosWhole(value);
       applyOnlyEnabledCheats(value);
+      skipDiskSelectionBeforeStart(value);
     },
   });
 }
@@ -606,6 +648,76 @@ export function patchNetplaySocketIo() {
     })) as NonNullable<Window["io"]>;
   patchedIo.__rommNetplayPatched = true;
   window.io = patchedIo;
+}
+
+interface NetplayHostAudio {
+  _captureHostAudio: () => MediaStream | null;
+  _hostAudioDest: MediaStreamAudioDestinationNode | null;
+  _audioBoostFactor?: number;
+}
+
+interface AudioCapture {
+  boost: GainNode;
+  output: MediaStreamAudioDestinationNode;
+}
+
+type PatchNetplayHostAudio = (netplay: NetplayHostAudio) => void;
+
+let hostAudioTap: {
+  connect: AudioNode["connect"];
+  patch: PatchNetplayHostAudio;
+} | null = null;
+
+// Netplay only captures OpenAL nodes, but nightly cores' rwebaudio driver
+// connects each buffer straight to `destination`. Install before the core boots.
+/** Tees audio bound for any destination into a stream netplay sends guests. */
+export function installNetplayHostAudioTap(): PatchNetplayHostAudio {
+  // A second tee would double the captured volume.
+  if (hostAudioTap?.connect === AudioNode.prototype.connect) {
+    return hostAudioTap.patch;
+  }
+  const captures = new WeakMap<AudioContext, AudioCapture>();
+  let lastContext: AudioContext | null = null;
+  const nativeConnect = AudioNode.prototype.connect;
+  const nativeConnectNode = (node: AudioNode, target: AudioNode) =>
+    Reflect.apply(nativeConnect, node, [target]);
+
+  const captureFor = (context: AudioContext) => {
+    let capture = captures.get(context);
+    if (!capture) {
+      capture = {
+        boost: context.createGain(),
+        output: context.createMediaStreamDestination(),
+      };
+      nativeConnectNode(capture.boost, capture.output);
+      captures.set(context, capture);
+    }
+    return capture;
+  };
+
+  const connect = function (this: AudioNode, ...args: unknown[]) {
+    const result = Reflect.apply(nativeConnect, this, args);
+    const context = this.context as AudioContext;
+    if (args[0] === context.destination) {
+      nativeConnectNode(this, captureFor(context).boost);
+      lastContext = context;
+    }
+    return result;
+  } as AudioNode["connect"];
+  AudioNode.prototype.connect = connect;
+
+  const patch: PatchNetplayHostAudio = (netplay) => {
+    const captureHostAudio = netplay._captureHostAudio.bind(netplay);
+    netplay._captureHostAudio = () => {
+      if (!lastContext) return captureHostAudio();
+      const capture = captureFor(lastContext);
+      capture.boost.gain.value = netplay._audioBoostFactor ?? 1;
+      netplay._hostAudioDest = capture.output;
+      return capture.output.stream;
+    };
+  };
+  hostAudioTap = { connect, patch };
+  return patch;
 }
 
 const IOS_FULLSCREEN_NAV_SELECTOR =

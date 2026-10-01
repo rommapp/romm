@@ -88,19 +88,6 @@ export function getRoleIcon(role: string) {
 export const defaultAvatarPath = "/assets/default/user.svg";
 
 /**
- * Normalize a string by converting it to lowercase and removing diacritics.
- *
- * @param s The string to normalize.
- * @returns The normalized string.
- */
-export function normalizeString(s: string) {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-/**
  * Convert a cron expression to a human-readable string.
  *
  * @param expression The cron expression to convert.
@@ -421,8 +408,8 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   amiga: ["puae"],
   "amiga-cd32": ["puae"],
   arcade: [
-    "mame2003",
     "mame2003_plus",
+    "mame2003",
     "fbneo",
     "fbalpha2012_cps1",
     "fbalpha2012_cps2",

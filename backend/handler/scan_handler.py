@@ -288,6 +288,29 @@ def get_priority_ordered_metadata_sources(
     return ordered_sources + remaining_sources
 
 
+def get_enabled_metadata_sources() -> list[str]:
+    """The metadata sources a library scan can use, per their provider's config."""
+    handlers = {
+        MetadataSource.IGDB: meta_igdb_handler,
+        MetadataSource.SS: meta_ss_handler,
+        MetadataSource.MOBY: meta_moby_handler,
+        MetadataSource.RA: meta_ra_handler,
+        MetadataSource.LAUNCHBOX: meta_launchbox_handler,
+        MetadataSource.HASHEOUS: meta_hasheous_handler,
+        MetadataSource.PLAYMATCH: meta_playmatch_handler,
+        MetadataSource.SGDB: meta_sgdb_handler,
+        MetadataSource.FLASHPOINT: meta_flashpoint_handler,
+        MetadataSource.HLTB: meta_hltb_handler,
+        MetadataSource.DEMOZOO: meta_demozoo_handler,
+        MetadataSource.POUET: meta_pouet_handler,
+        MetadataSource.CSDB: meta_csdb_handler,
+        MetadataSource.STEAM: meta_steam_handler,
+        MetadataSource.TGDB: meta_tgdb_handler,
+        MetadataSource.LIBRETRO: meta_libretro_handler,
+    }
+    return [source for source, handler in handlers.items() if handler.is_enabled()]
+
+
 def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
     """Persist a scanned soundtrack file's embedded cover and record its path on
     the track_meta row. No-op for non-soundtrack files or ones without a cover."""

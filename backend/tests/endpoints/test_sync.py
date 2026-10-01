@@ -551,6 +551,39 @@ class TestSyncSessions:
         assert len(data) == 1
         assert data[0]["device_id"] == dev_a.id
 
+    def test_list_sessions_paginates(self, client, access_token: str, admin_user: User):
+        device = db_device_handler.add_device(
+            Device(id="session-dev-page", user_id=admin_user.id)
+        )
+        created = [
+            db_sync_session_handler.create_session(
+                device_id=device.id, user_id=admin_user.id
+            )
+            for _ in range(3)
+        ]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        first = client.get("/api/sync/sessions?limit=2&offset=0", headers=headers)
+        rest = client.get("/api/sync/sessions?limit=2&offset=2", headers=headers)
+
+        assert first.status_code == status.HTTP_200_OK
+        assert rest.status_code == status.HTTP_200_OK
+        ids = [s["id"] for s in first.json() + rest.json()]
+        assert sorted(ids) == sorted(s.id for s in created)
+
+    @pytest.mark.parametrize(
+        "params", [{"limit": 0}, {"limit": 10_001}, {"offset": -1}]
+    )
+    def test_list_sessions_rejects_invalid_paging(
+        self, client, access_token: str, params: dict[str, int]
+    ):
+        response = client.get(
+            "/api/sync/sessions",
+            params=params,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
     def test_get_session(self, client, access_token: str, admin_user: User):
         device = db_device_handler.add_device(
             Device(id="session-dev-get", user_id=admin_user.id)
