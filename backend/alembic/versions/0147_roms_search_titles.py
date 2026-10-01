@@ -130,8 +130,8 @@ def upgrade() -> None:
     # MySQL has no DROP COLUMN IF EXISTS.
     if SEARCH_ALIASES_COLUMN in column_names(conn, "roms"):
         op.execute(f"ALTER TABLE roms DROP COLUMN {SEARCH_ALIASES_COLUMN}")
-    # Growing every row in place leaves InnoDB's pages split, which nothing
-    # compacts later; one rebuild keeps the search as fast as before.
+    # Growing every row in place leaves InnoDB's pages split and the search
+    # slower, and nothing compacts them later; one rebuild does.
     if _fill_search_titles(conn) and not is_postgresql(conn):
         op.execute("ALTER TABLE roms FORCE")
 
