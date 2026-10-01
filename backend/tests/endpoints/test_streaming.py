@@ -9072,6 +9072,49 @@ def test_claim_aborts_on_an_unexpected_error_keeps_the_players_card(
     ]
 
 
+def test_claim_aborted_after_adopt_keeps_the_adopted_card(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """The adoption stays recorded, so the next claim must mount the adopted card."""
+    card_bytes = _gci_card_bytes()
+    container = _mc_container_for(rom)
+    with _streaming(container):
+        with (
+            _adoption_storage(card_bytes),
+            patch("handler.streaming.memory_cards.fetch_card", return_value=card_bytes),
+            patch("handler.streaming.commands.launch"),
+            patch(
+                "handler.streaming.saves.wait_for_save_pull",
+                new=AsyncMock(side_effect=RuntimeError("redis went away")),
+            ),
+            _spawns_nothing(),
+            pytest.raises(RuntimeError),
+        ):
+            _mc_claim(client, access_token, rom.id, card_import="adopt")
+
+        assert asyncio.run(session_store.get_session(_key_of(container))) is None
+        cards = db_memory_card_handler.get_cards(admin_user.id, "pcsx2")
+        assert len(cards) == 1
+        assert db_memory_card_handler.get_latest_version(cards[0].id) is not None
+
+        with (
+            _adoption_storage(card_bytes),
+            patch("handler.streaming.memory_cards.fetch_card") as fetch,
+            patch(
+                "handler.streaming.memory_cards.push_card", return_value=True
+            ) as push,
+            patch("handler.streaming.commands.launch"),
+            _spawns_nothing(),
+        ):
+            r = _mc_claim(client, access_token, rom.id)
+    assert r.status_code == 202
+    fetch.assert_not_called()
+    assert push.call_args[0][1] == card_bytes
+    assert [c.id for c in db_memory_card_handler.get_cards(admin_user.id, "pcsx2")] == [
+        cards[0].id
+    ]
+
+
 def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
     with _streaming(_mc_container_for(rom)):
         with (
