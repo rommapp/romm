@@ -692,7 +692,24 @@ describe("useGameActions.downloadAs", () => {
 
     expect(downloadRom).not.toHaveBeenCalled();
     expect(snackbarError).toHaveBeenCalledWith("rom.download-as-unavailable", {
-      persist: true,
+      persist: { body: "Game", link: "/rom/1" },
     });
+  });
+
+  it("ignores a second click while the first is still waiting", async () => {
+    vi.useFakeTimers();
+    probeFormatDownload
+      .mockResolvedValueOnce({ status: 202, retryAfterSeconds: 5 })
+      .mockResolvedValueOnce({ status: 206, retryAfterSeconds: null });
+    const rom = pspRom([{ id: 7, file_name: "game.chd" }]);
+    const actions = useGameActions(() => rom);
+
+    const first = actions.downloadAs("iso");
+    await actions.downloadAs("iso");
+    await vi.advanceTimersByTimeAsync(5000);
+    await first;
+
+    expect(probeFormatDownload).toHaveBeenCalledTimes(2);
+    expect(downloadRom).toHaveBeenCalledOnce();
   });
 });

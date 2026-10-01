@@ -239,6 +239,13 @@ async function onLogout() {
         @click="open = false"
       />
       <RMenuItem
+        v-if="canSeeScanSettings"
+        :to="{ name: ROUTES.CONVERSION_SETTINGS }"
+        icon="mdi-swap-horizontal"
+        :label="t('settings.conversion-settings')"
+        @click="open = false"
+      />
+      <RMenuItem
         v-if="isAdmin"
         :to="{ name: ROUTES.METADATA_SOURCES }"
         icon="mdi-database-cog-outline"

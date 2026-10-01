@@ -4,7 +4,7 @@
 // which the convert library task stores matched games in.
 import { RAlert, RIcon, RSelect, RTextField, RBtn, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
 import type { ConvertoSettingsPayload } from "@/__generated__";
@@ -17,6 +17,7 @@ import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
 const { t } = useI18n();
@@ -30,25 +31,19 @@ const snackbar = useSnackbar();
 // Platforms and their targets come from the backend, which owns the
 // rom-converto operation table.
 const platforms = computed(() =>
-  Object.keys(config.value.CONVERTO_LIBRARY_TARGETS)
-    .sort()
-    .map((slug) => ({
+  Object.entries(config.value.CONVERTO_LIBRARY_TARGETS)
+    .map(([slug, targets]) => ({
       slug,
       label:
         platformsStore.allPlatforms.find((p) => p.slug === slug)
           ?.display_name ?? slug,
-    })),
+      items: [
+        { title: t("settings.conversion-library-format-leave"), value: "" },
+        ...targets.map((value) => ({ title: value, value })),
+      ],
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label)),
 );
-
-function formatItems(slug: string) {
-  return [
-    { title: t("settings.conversion-library-format-leave"), value: "" },
-    ...(config.value.CONVERTO_LIBRARY_TARGETS[slug] ?? []).map((value) => ({
-      title: value,
-      value,
-    })),
-  ];
-}
 
 interface ConversionForm {
   downloadConversionEnabled: boolean;
@@ -67,7 +62,7 @@ function configToForm(cfg: Config): ConversionForm {
   return {
     downloadConversionEnabled:
       cfg.CONVERTO.download_conversion_enabled ?? false,
-    cacheMaxSizeGb: cfg.CONVERTO.cache_max_size_gb ?? 20,
+    cacheMaxSizeGb: cfg.CONVERTO.cache_max_size_gb ?? null,
     formats,
   };
 }
@@ -141,10 +136,11 @@ function onReset() {
 async function onSave() {
   saving.value = true;
   try {
-    await configApi.updateConvertoSettings(formToPayload(form));
-    // The backend normalizes slugs and targets; snapshot what it stored.
-    resetForm(await configStore.fetchConfig({ rethrow: true }));
+    const payload = formToPayload(form);
+    await configApi.updateConvertoSettings(payload);
+    savedSnapshot.value = JSON.stringify(payload);
     snackbar.success(t("settings.conversion-settings-saved"));
+    await configStore.fetchConfig();
   } catch (err) {
     const detail = errorMessage(err, t("common.unknown-error"));
     snackbar.error(t("settings.conversion-settings-save-error", { detail }));
@@ -180,8 +176,9 @@ async function onConvertLibrary() {
 }
 
 function setCacheMaxSize(value: unknown) {
-  const parsed = Number.parseInt(String(value), 10);
-  form.cacheMaxSizeGb = Number.isNaN(parsed) ? null : parsed;
+  const raw = String(value ?? "").trim();
+  const parsed = Number(raw);
+  form.cacheMaxSizeGb = raw === "" || Number.isNaN(parsed) ? null : parsed;
 }
 
 const hasPendingEdits = () => dirty.value && canEdit.value;
@@ -196,20 +193,9 @@ onBeforeRouteLeave(async () => {
   });
 });
 
-function onBeforeUnload(e: BeforeUnloadEvent) {
-  if (!hasPendingEdits()) return;
-  e.preventDefault();
-  // Legacy browsers require returnValue to be set to trigger the prompt.
-  e.returnValue = "";
-}
+useUnloadGuard(hasPendingEdits);
 
-onMounted(() => {
-  window.addEventListener("beforeunload", onBeforeUnload);
-  void loadConfig();
-});
-onBeforeUnmount(() =>
-  window.removeEventListener("beforeunload", onBeforeUnload),
-);
+onMounted(loadConfig);
 </script>
 
 <template>
@@ -315,7 +301,7 @@ onBeforeUnmount(() =>
           </span>
           <RSelect
             v-model="form.formats[platform.slug]"
-            :items="formatItems(platform.slug)"
+            :items="platform.items"
             :label="platform.label"
             :disabled="!canEdit"
             hide-details

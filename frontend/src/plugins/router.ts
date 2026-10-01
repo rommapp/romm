@@ -597,6 +597,7 @@ const routePermissions: RoutePermissions[] = [
   { path: ROUTES.UPLOAD, requiredScopes: ["roms.write"] },
   { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },
   { path: ROUTES.SCAN_SETTINGS, requiredScopes: ["platforms.write"] },
+  { path: ROUTES.CONVERSION_SETTINGS, requiredScopes: ["platforms.write"] },
   { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
   { path: ROUTES.LOGS, requiredScopes: ["logs.read"] },
 ];

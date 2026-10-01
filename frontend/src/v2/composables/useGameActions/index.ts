@@ -49,6 +49,8 @@ type PlayerSlug = "stream" | "jsdos" | "ejs" | "pico8" | "ruffle";
 // A conversion can take a while on large discs; stop polling after about an hour.
 const FORMAT_POLL_SECONDS = 30;
 const FORMAT_POLL_LIMIT = 120;
+// Shared across menus so a second click doesn't start another poll and download.
+const pendingFormatDownloads = new Set<string>();
 
 // Validate flashpoint game IDs are UUIDs
 const FLASHPOINT_ID_RE =
@@ -446,6 +448,8 @@ export function useGameActions(
     if (!rom || !file) return;
     const label = format.toUpperCase();
     const href = getDownloadPath({ rom, fileIDs: [file.id], format });
+    if (pendingFormatDownloads.has(href)) return;
+    pendingFormatDownloads.add(href);
     try {
       let probe = await romApi.probeFormatDownload(href);
       if (probe.status === 202) {
@@ -466,9 +470,11 @@ export function useGameActions(
       }
     } catch {
       // A failed probe is reported like a format that can't be served.
+    } finally {
+      pendingFormatDownloads.delete(href);
     }
     snackbar.error(t("rom.download-as-unavailable", { format: label }), {
-      persist: true,
+      persist: { body: rom.name ?? rom.fs_name, link: `/rom/${rom.id}` },
     });
   }
 

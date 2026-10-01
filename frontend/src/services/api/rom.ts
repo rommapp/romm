@@ -648,7 +648,8 @@ async function probeFormatDownload(href: string) {
   const retryAfter = Number(response.headers["retry-after"]);
   return {
     status: response.status,
-    retryAfterSeconds: Number.isFinite(retryAfter) ? retryAfter : null,
+    retryAfterSeconds:
+      Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
   };
 }
 
