@@ -5,9 +5,9 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 
-from config import ROMM_DB_DRIVER
 from handler.database.base_handler import sync_engine
 from utils import fulltext
+from utils.database import is_postgresql
 from utils.fulltext import (
     DEFAULT_FULLTEXT_SETTINGS,
     FulltextSettings,
@@ -16,7 +16,7 @@ from utils.fulltext import (
     split_fulltext_words,
 )
 
-IS_FULLTEXT_ENGINE = ROMM_DB_DRIVER in ("mariadb", "mysql")
+IS_FULLTEXT_ENGINE = not is_postgresql(sync_engine)
 
 
 @pytest.fixture(autouse=True)
@@ -45,6 +45,13 @@ def _conn_reporting(
     return conn
 
 
+def _engine_connecting(conn: MagicMock) -> MagicMock:
+    engine = MagicMock()
+    engine.engine.name = "mariadb"
+    engine.connect.return_value.__enter__.return_value = conn
+    return engine
+
+
 @pytest.mark.skipif(not IS_FULLTEXT_ENGINE, reason="InnoDB full-text only")
 def test_reads_the_servers_settings():
     with sync_engine.connect() as conn:
@@ -54,7 +61,6 @@ def test_reads_the_servers_settings():
         settings = read_fulltext_settings(conn)
 
     assert settings.min_token_size == min_token_size
-    assert settings.stopwords is not None
     assert "the" in settings.stopwords
 
 
@@ -63,20 +69,12 @@ def test_postgresql_uses_the_defaults():
     assert fulltext_settings(sync_engine) == DEFAULT_FULLTEXT_SETTINGS
 
 
-def _engine_connecting(conn: MagicMock) -> MagicMock:
-    engine = MagicMock()
-    engine.engine.name = "mariadb"
-    engine.connect.return_value.__enter__.return_value = conn
-    return engine
-
-
 def test_skips_fulltext_and_retries_when_the_server_is_unreachable():
-    engine = MagicMock()
-    engine.engine.name = "mariadb"
+    engine = _engine_connecting(MagicMock())
     engine.connect.side_effect = OperationalError("SELECT", {}, Exception("2013"))
 
-    assert fulltext_settings(engine).stopwords is None
-    assert fulltext_settings(engine).stopwords is None
+    assert fulltext_settings(engine) is None
+    assert fulltext_settings(engine) is None
 
     assert engine.connect.call_count == 2
 
@@ -113,11 +111,9 @@ def test_unreadable_custom_stopwords_skip_fulltext_and_retry():
     conn.scalars.side_effect = OperationalError("SELECT", {}, Exception("1142"))
 
     engine = _engine_connecting(conn)
-    settings = fulltext_settings(engine)
-    fulltext_settings(engine)
 
-    assert settings.stopwords is None
-    assert split_fulltext_words(["zelda", "7"], settings) == ([], ["zelda", "7"])
+    assert fulltext_settings(engine) is None
+    assert fulltext_settings(engine) is None
     assert conn.scalars.call_count == 2
 
 

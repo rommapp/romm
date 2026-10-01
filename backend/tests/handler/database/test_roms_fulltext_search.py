@@ -27,3 +27,13 @@ def test_search_keeps_the_fulltext_index_for_indexable_words(
     assert ("AGAINST ('+final* +fantasy*' IN BOOLEAN MODE)" in sql) is has_match
     # MariaDB checks only "7" by LIKE; PostgreSQL checks every word.
     assert sql.count("LIKE") == like_count
+
+
+def test_search_uses_like_alone_while_the_settings_are_unreadable():
+    with patch.object(roms_handler, "fulltext_settings", return_value=None):
+        query = db_rom_handler._filter_by_search_term(select(Rom.id), "final fantasy")
+
+    sql = compile_sql(query, MARIADB_DIALECT, literal_binds=True)
+
+    assert "+final*" not in sql
+    assert sql.count("LIKE") == 6

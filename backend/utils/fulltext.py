@@ -22,8 +22,7 @@ FULLTEXT_TOKEN_REGEX = re.compile(r"\w+(?:'\w+)*")
 class FulltextSettings(NamedTuple):
     min_token_size: int
     max_token_size: int
-    # None when the stopwords are unknown, so FULLTEXT is skipped.
-    stopwords: frozenset[str] | None
+    stopwords: frozenset[str]
 
 
 # InnoDB's defaults, for what the server won't report. The index skips
@@ -32,43 +31,8 @@ DEFAULT_FULLTEXT_SETTINGS = FulltextSettings(
     min_token_size=3,
     max_token_size=84,
     stopwords=frozenset(
-        {
-            "a",
-            "about",
-            "an",
-            "are",
-            "as",
-            "at",
-            "be",
-            "by",
-            "com",
-            "de",
-            "en",
-            "for",
-            "from",
-            "how",
-            "i",
-            "in",
-            "is",
-            "it",
-            "la",
-            "of",
-            "on",
-            "or",
-            "that",
-            "the",
-            "this",
-            "to",
-            "und",
-            "was",
-            "what",
-            "when",
-            "where",
-            "who",
-            "will",
-            "with",
-            "www",
-        }
+        "a about an are as at be by com de en for from how i in is it la of on or"
+        " that the this to und was what when where who will with www".split()
     ),
 )
 
@@ -82,7 +46,7 @@ def read_fulltext_settings(conn: Connection) -> FulltextSettings:
             " @@innodb_ft_server_stopword_table"
         )
     ).one()
-    stopwords: frozenset[str] | None = frozenset()
+    stopwords: frozenset[str] = frozenset()
     if stopwords_enabled:
         custom_table = user_table or server_table
         schema, _, name = (
@@ -108,8 +72,8 @@ def _server_fulltext_settings(engine: Engine) -> FulltextSettings:
         return read_fulltext_settings(conn)
 
 
-def fulltext_settings(engine: Engine) -> FulltextSettings:
-    """The server's InnoDB full-text settings, or unknown stopwords while unreadable."""
+def fulltext_settings(engine: Engine) -> FulltextSettings | None:
+    """The server's InnoDB full-text settings, or None while they can't be read."""
     if is_postgresql(engine):
         return DEFAULT_FULLTEXT_SETTINGS
     try:
@@ -117,15 +81,13 @@ def fulltext_settings(engine: Engine) -> FulltextSettings:
     except SQLAlchemyError as exc:
         # Left uncached, so a transient failure is retried on the next search.
         log.warning(f"Can't read the full-text settings: {exc}")
-        return DEFAULT_FULLTEXT_SETTINGS._replace(stopwords=None)
+        return None
 
 
 def split_fulltext_words(
     words: Iterable[str], settings: FulltextSettings
 ) -> tuple[list[str], list[str]]:
     """Words as (tokens a FULLTEXT index holds, words it can't hold)."""
-    if settings.stopwords is None:
-        return [], list(words)
     indexed: list[str] = []
     unindexed: list[str] = []
     for word in words:

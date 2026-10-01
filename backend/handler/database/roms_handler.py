@@ -251,13 +251,7 @@ def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
 
 def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
     """How well the ROM's name, filename or aliases hold the phrases, words in order."""
-    holds_a_phrase = or_(
-        *(
-            column.icontains(phrase, autoescape=True)
-            for phrase in phrases
-            for column in ROM_SEARCH_COLUMNS
-        )
-    )
+    holds_a_phrase = or_(*(_name_like(phrase) for phrase in phrases))
     return DialectCase(
         postgresql=case((holds_a_phrase, 1), else_=0),
         mysql=_fulltext_match(" ".join(f'"{phrase}"' for phrase in phrases)),
@@ -1150,9 +1144,13 @@ class DBRomsHandler(DBBaseHandler):
         settings = fulltext_settings(sync_engine)
         conditions: list[Any] = []
         for term in terms:
-            likes = {word: _name_like(word) for word in term.split()}
+            words = term.split()
+            likes = {word: _name_like(word) for word in words}
             like = and_(*likes.values())
-            indexed, unindexed = split_fulltext_words(likes, settings)
+            # Unreadable settings leave LIKE alone to decide.
+            indexed, unindexed = (
+                split_fulltext_words(words, settings) if settings else ([], words)
+            )
             if not indexed:
                 conditions.append(like)
                 continue
