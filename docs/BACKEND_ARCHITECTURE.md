@@ -308,8 +308,8 @@ backend/
 │       └── known_bios_files.json    # Verified BIOS hashes
 │
 ├── tasks/                     # Background job system
-│   ├── tasks.py               # Base Task, PeriodicTask, run_task_by_name
-│   ├── registry.py            # Name -> task catalog, the API and cron address
+│   ├── tasks.py               # TaskSpec, base Task, PeriodicTask, run_task_by_name
+│   ├── registry.py            # Name -> TaskSpec catalog, the API and cron address
 │   ├── cron_config.py         # Schedule the `rq cron` process loads
 │   ├── scheduled/             # Cron-scheduled tasks
 │   │   ├── scan_library.py                    # Nightly library rescan
@@ -1660,7 +1660,11 @@ the device's live requests.
 ### Scheduled Tasks
 
 Declared in `tasks/registry.py` and registered with RQ's cron scheduler by
-`tasks/cron_config.py`, which the `rq cron` process loads at start. A task is
+`tasks/cron_config.py`, which the `rq cron` process loads at start. The registry
+holds each task's `TaskSpec` (title, schedule, queue, timeout) and the dotted
+path to the `Task` that runs it, which `get_task` imports only when a job runs.
+The scheduler, the tasks API and the worker's failure reporting read specs
+alone, so they never load task code. A task is
 registered only when it is enabled and has a cron string, so turning one off is
 a restart rather than an unschedule. Delayed jobs, which is how the filesystem
 watcher defers a rescan, are released by the worker itself (`--with-scheduler`).

@@ -36,7 +36,7 @@ from handler.database import (
     db_user_handler,
 )
 from handler.database.base_handler import sync_engine
-from handler.metadata.base_handler import SENSITIVE_KEYS
+from logger.formatter import SENSITIVE_KEYS
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.audit_event import AuditEvent
 from models.client_token import ClientToken

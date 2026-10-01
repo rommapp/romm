@@ -28,7 +28,7 @@ class TestScanLibraryTask:
 
     def test_init(self, task):
         """Test task initialization"""
-        assert task.description == "Rescans the entire library"
+        assert task.spec.description == "Rescans the entire library"
 
     async def test_run_enabled(self, task, mocker, providers):
         """Test run when scheduled rescan is enabled"""
@@ -75,4 +75,4 @@ class TestScanLibraryTask:
 
 def test_scheduled_rescan_gets_the_scan_timeout():
     """It inherits the five-minute task timeout otherwise, which kills it."""
-    assert scan_library_task.timeout == SCAN_TIMEOUT
+    assert scan_library_task.spec.timeout == SCAN_TIMEOUT

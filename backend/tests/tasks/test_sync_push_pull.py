@@ -33,9 +33,9 @@ class TestSyncPushPullTaskInit:
         return SyncPushPullTask()
 
     def test_init(self, task: SyncPushPullTask):
-        assert task.title == "Push-Pull Sync"
-        assert task.description == "Sync saves with devices via SSH/SFTP"
-        assert task.task_type == TaskType.SYNC
+        assert task.spec.title == "Push-Pull Sync"
+        assert task.spec.description == "Sync saves with devices via SSH/SFTP"
+        assert task.spec.task_type == TaskType.SYNC
 
     def test_is_periodic_task(self, task: SyncPushPullTask):
         assert isinstance(task, PeriodicTask)
@@ -45,7 +45,7 @@ class TestSyncPushPullTaskInit:
         assert isinstance(sync_push_pull_task, SyncPushPullTask)
 
     def test_cron_string_set(self, task: SyncPushPullTask):
-        assert task.cron_string is not None
+        assert task.spec.cron_string is not None
 
 
 class TestRunPushPullSync:

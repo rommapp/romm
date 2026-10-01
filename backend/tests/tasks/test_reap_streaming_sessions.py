@@ -11,8 +11,13 @@ from tests.streaming_stubs import exit_pulls_spawned_inline
 
 from handler.redis_handler import STREAMING_QUEUE_NAME, async_cache
 from handler.streaming import commands, session_store
-from handler.streaming.config import ResolvedContainer, reset_cache, resolve_entry
-from tasks.registry import SCHEDULED_TASKS
+from handler.streaming.config import (
+    ResolvedContainer,
+    reset_cache,
+    resolve_entry,
+    streaming_enabled,
+)
+from tasks.registry import REAP_STREAMING_SESSIONS_SPEC, SCHEDULED_TASKS
 from tasks.scheduled.reap_streaming_sessions import (
     ReapStreamingSessionsTask,
     reap_streaming_sessions_task,
@@ -97,31 +102,32 @@ STALE = session_store._STREAMING_SESSION_STALE_SECONDS + 60
 
 
 def test_the_reaper_runs_every_minute():
-    assert SCHEDULED_TASKS["reap_streaming_sessions"] is reap_streaming_sessions_task
-    assert reap_streaming_sessions_task.cron_string == "* * * * *"
+    assert SCHEDULED_TASKS["reap_streaming_sessions"] is REAP_STREAMING_SESSIONS_SPEC
+    assert reap_streaming_sessions_task.spec is REAP_STREAMING_SESSIONS_SPEC
+    assert REAP_STREAMING_SESSIONS_SPEC.cron_string == "* * * * *"
 
 
-@pytest.mark.parametrize("enabled", [True, False])
-def test_the_reaper_is_scheduled_only_with_streaming_on(enabled: bool):
-    with _streaming(N64, enabled=enabled):
-        assert ReapStreamingSessionsTask().enabled is enabled
+def test_the_reaper_is_scheduled_only_with_streaming_on():
+    assert REAP_STREAMING_SESSIONS_SPEC.enabled is streaming_enabled()
 
 
 def test_the_job_outlives_a_slow_teardown():
     """RQ kills a job at its timeout, and a teardown may hold its marker right
     up to the ceiling."""
-    assert reap_streaming_sessions_task.timeout >= session_store.HOLD_CEILING_SECONDS
+    assert (
+        reap_streaming_sessions_task.spec.timeout >= session_store.HOLD_CEILING_SECONDS
+    )
 
 
 def test_the_reaper_has_a_worker_of_its_own():
     """A teardown can hold its job for minutes, and the shared worker would
     make every other task wait behind it."""
-    assert reap_streaming_sessions_task.queue_name == STREAMING_QUEUE_NAME
+    assert reap_streaming_sessions_task.spec.queue_name == STREAMING_QUEUE_NAME
 
 
 def test_a_run_keeps_no_job_history():
     """At one run a minute, a day of kept results would bury every other task."""
-    assert reap_streaming_sessions_task.result_ttl == 0
+    assert reap_streaming_sessions_task.spec.result_ttl == 0
 
 
 async def test_a_stale_session_goes_through_the_abandoned_teardown():
@@ -280,8 +286,6 @@ async def test_a_reaped_session_queues_its_exit_save_pull(exit_pull_queue: Magic
                 new=AsyncMock(return_value=commands.StopOutcome()),
             ),
             patch("handler.streaming.lifecycle.record_play_session"),
-            # The registry's instance read the config at import, with streaming off.
-            patch.object(reap_streaming_sessions_task, "enabled", True),
         ):
             await run_task_by_name("reap_streaming_sessions")
 

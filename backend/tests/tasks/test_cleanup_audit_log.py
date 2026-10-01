@@ -1,22 +1,17 @@
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
+from config import AUDIT_LOG_RETENTION_DAYS
 from handler.database import db_audit_event_handler
+from tasks.registry import CLEANUP_AUDIT_LOG_SPEC
 from tasks.scheduled import cleanup_audit_log
 from tasks.scheduled.cleanup_audit_log import CleanupAuditLogTask
 
 
 class TestCleanupAuditLogTask:
-    def test_runs_daily_when_events_expire(self, mocker):
-        mocker.patch.object(cleanup_audit_log, "AUDIT_LOG_RETENTION_DAYS", 90)
-        task = CleanupAuditLogTask()
-
-        assert task.enabled is True
-        assert task.cron_string == "30 4 * * *"
-
-    def test_is_off_when_events_are_kept_forever(self, mocker):
-        mocker.patch.object(cleanup_audit_log, "AUDIT_LOG_RETENTION_DAYS", 0)
-
-        assert CleanupAuditLogTask().enabled is False
+    def test_runs_daily_unless_events_are_kept_forever(self):
+        assert CLEANUP_AUDIT_LOG_SPEC.enabled is (AUDIT_LOG_RETENTION_DAYS > 0)
+        assert CLEANUP_AUDIT_LOG_SPEC.cron_string == "30 4 * * *"
 
     async def test_deletes_batches_until_one_comes_back_short(self, mocker):
         mocker.patch.object(cleanup_audit_log, "AUDIT_LOG_RETENTION_DAYS", 90)
@@ -27,6 +22,7 @@ class TestCleanupAuditLogTask:
             side_effect=[2, 2, 1],
         )
         task = CleanupAuditLogTask()
+        task.spec = replace(task.spec, enabled=True)
 
         deleted = await task.run()
 
@@ -39,7 +35,7 @@ class TestCleanupAuditLogTask:
     async def test_run_disabled_skips_the_cleanup(self, mocker):
         delete = mocker.patch.object(db_audit_event_handler, "delete_batch_before")
         task = CleanupAuditLogTask()
-        task.enabled = False
+        task.spec = replace(task.spec, enabled=False)
 
         assert await task.run() == 0
         delete.assert_not_called()

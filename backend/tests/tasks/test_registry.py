@@ -9,26 +9,31 @@ from tasks.registry import (
     enqueue_scheduled_scan,
     enqueue_task,
     get_task,
+    get_task_spec,
 )
-from tasks.tasks import PeriodicTask, run_task_by_name
+from tasks.tasks import PeriodicTask, Task, run_task_by_name
 
 
 class TestRegistry:
     """A job payload carries only a name, so the catalog has to resolve it."""
 
     @pytest.mark.parametrize("name", sorted(SCHEDULED_TASKS | MANUAL_TASKS))
-    def test_every_name_resolves(self, name: str):
-        assert get_task(name) is not None
+    def test_every_name_resolves_to_a_task_built_from_its_spec(self, name: str):
+        task = get_task(name)
+
+        assert isinstance(task, Task)
+        assert task.spec is get_task_spec(name)
 
     def test_a_name_is_never_registered_twice(self):
         assert not SCHEDULED_TASKS.keys() & MANUAL_TASKS.keys()
 
     def test_scheduled_tasks_can_be_scheduled(self):
-        for name, task in SCHEDULED_TASKS.items():
-            assert isinstance(task, PeriodicTask), name
+        for name in SCHEDULED_TASKS:
+            assert isinstance(get_task(name), PeriodicTask), name
 
     def test_an_unknown_name_resolves_to_nothing(self):
         assert get_task("no_such_task") is None
+        assert get_task_spec("no_such_task") is None
 
 
 class TestEnqueueTask:

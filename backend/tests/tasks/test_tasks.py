@@ -14,11 +14,42 @@ from tasks.tasks import (
     JobMetaStats,
     PeriodicTask,
     RemoteFilePullTask,
+    TaskSpec,
     TaskType,
     report_task_failure,
     run_task_by_name,
 )
 from utils.background_tasks import fire_and_forget
+
+
+def _spec(**overrides) -> TaskSpec:
+    fields = {
+        "implementation": "tests.tasks.test_tasks.task",
+        "title": "Test Task",
+        "description": "test task",
+        "task_type": TaskType.GENERIC,
+        **overrides,
+    }
+    return TaskSpec(**fields)
+
+
+class TestTaskSpec:
+    def test_a_manual_task_runs_by_hand_only_while_enabled(self):
+        assert _spec(manual_run=True, enabled=True).can_run_manually is True
+        assert _spec(manual_run=True, enabled=False).can_run_manually is False
+        assert _spec(manual_run=False, enabled=True).can_run_manually is False
+
+    def test_a_task_can_stay_runnable_by_hand_with_its_schedule_off(self):
+        spec = _spec(manual_run=True, enabled=False, manual_run_when_disabled=True)
+
+        assert spec.can_run_manually is True
+
+    def test_the_job_meta_names_the_key_the_task_is_registered_under(self):
+        assert _spec(task_type=TaskType.CLEANUP).job_meta("key") == {
+            "task_key": "key",
+            "task_name": "Test Task",
+            "task_type": "cleanup",
+        }
 
 
 class ConcretePeriodicTask(PeriodicTask):
@@ -31,30 +62,17 @@ class ConcretePeriodicTask(PeriodicTask):
 class TestPeriodicTask:
     @pytest.fixture
     def task(self):
-        return ConcretePeriodicTask(
-            title="Test Task",
-            description="test task",
-            task_type=TaskType.GENERIC,
-            enabled=True,
-            cron_string="0 0 * * *",
-        )
+        return ConcretePeriodicTask(_spec(enabled=True, cron_string="0 0 * * *"))
 
     @pytest.fixture
     def disabled_task(self):
-        return ConcretePeriodicTask(
-            title="Disabled Task",
-            description="disabled task",
-            task_type=TaskType.GENERIC,
-            enabled=False,
-            cron_string="0 0 * * *",
-        )
+        return ConcretePeriodicTask(_spec(enabled=False, cron_string="0 0 * * *"))
 
     def test_init(self, task):
         """Test task initialization"""
-        assert task.title == "Test Task"
-        assert task.description == "test task"
-        assert task.enabled is True
-        assert task.cron_string == "0 0 * * *"
+        assert task.spec.title == "Test Task"
+        assert task.spec.enabled is True
+        assert task.spec.cron_string == "0 0 * * *"
 
     async def test_run_abstract_method(self, task):
         """Test that run method works in concrete implementation"""
@@ -66,32 +84,29 @@ class TestRemoteFilePullTask:
     @pytest.fixture
     def task(self):
         return RemoteFilePullTask(
-            title="Remote Test Task",
-            task_type=TaskType.UPDATE,
-            description="remote test task",
-            enabled=True,
-            cron_string="0 0 * * *",
+            _spec(
+                title="Remote Test Task",
+                description="remote test task",
+                task_type=TaskType.UPDATE,
+                enabled=True,
+                cron_string="0 0 * * *",
+            ),
             url="https://example.com/data.json",
         )
 
     @pytest.fixture
     def disabled_task(self):
         return RemoteFilePullTask(
-            title="Disabled Remote Task",
-            task_type=TaskType.UPDATE,
-            description="disabled remote task",
-            enabled=False,
+            _spec(title="Disabled Remote Task", task_type=TaskType.UPDATE),
             url="https://example.com/data.json",
         )
 
     def test_init(self, task):
         """Test RemoteFilePullTask initialization"""
-        assert task.task_type == TaskType.UPDATE
-        assert task.description == "remote test task"
-        assert task.enabled is True
+        assert task.spec.task_type == TaskType.UPDATE
         assert task.url == "https://example.com/data.json"
 
-    @patch("tasks.tasks.ctx_httpx_client")
+    @patch("utils.context.ctx_httpx_client")
     @patch("tasks.tasks.log")
     async def test_run_success(self, mock_log, mock_ctx_httpx_client, task):
         """Test successful remote file pull"""
@@ -110,7 +125,7 @@ class TestRemoteFilePullTask:
         mock_log.info.assert_called_once_with("Scheduled remote test task started...")
         assert result == b"test content"
 
-    @patch("tasks.tasks.ctx_httpx_client")
+    @patch("utils.context.ctx_httpx_client")
     async def test_run_http_error(self, mock_ctx_httpx_client, task):
         """A download that never lands fails the run, saying why."""
         mock_client = AsyncMock()
@@ -123,7 +138,7 @@ class TestRemoteFilePullTask:
         ):
             await task.run()
 
-    @patch("tasks.tasks.ctx_httpx_client")
+    @patch("utils.context.ctx_httpx_client")
     async def test_run_response_error(self, mock_ctx_httpx_client, task):
         """A refused download fails the run with the status."""
         mock_client = AsyncMock()
@@ -139,7 +154,7 @@ class TestRemoteFilePullTask:
         ):
             await task.run()
 
-    @patch("tasks.tasks.ctx_httpx_client")
+    @patch("utils.context.ctx_httpx_client")
     async def test_run_disabled_still_pulls(self, mock_ctx_httpx_client, disabled_task):
         """A caller that got this far wants the pull, whatever the setting says."""
         mock_client = AsyncMock()
@@ -223,9 +238,12 @@ def notify_admins(mocker):
 
 
 def _task(mocker, task_type=TaskType.CLEANUP, **run_kwargs):
-    task = MagicMock(title="Cleanup Missing ROMs", task_type=task_type, timeout=300)
+    spec = _spec(title="Cleanup Missing ROMs", task_type=task_type, timeout=300)
+    task = MagicMock()
+    task.spec = spec
     task.run = AsyncMock(**run_kwargs)
     mocker.patch("tasks.registry.get_task", return_value=task)
+    mocker.patch("tasks.registry.get_task_spec", return_value=spec)
     return task
 
 
@@ -360,7 +378,7 @@ class TestReportTaskFailure:
         notify_admins.assert_not_awaited()
 
     def test_ignores_a_job_that_is_not_a_task(self, mocker, notify, notify_admins):
-        get_task = mocker.patch("tasks.registry.get_task")
+        get_task_spec = mocker.patch("tasks.registry.get_task_spec")
 
         report_task_failure(
             _job(func_name="endpoints.sockets.scan.scan_platforms"),
@@ -369,7 +387,7 @@ class TestReportTaskFailure:
             None,
         )
 
-        get_task.assert_not_called()
+        get_task_spec.assert_not_called()
         notify.assert_not_awaited()
 
     def test_never_raises_into_the_worker(self, mocker):

@@ -55,7 +55,7 @@ alembic/          Migrations (env.py + versions/)
 - **Endpoint:** add the route in the right `endpoints/*` router, a response schema in `endpoints/responses/`, enforce scopes, delegate to a handler. If the response shape changes, the frontend must regenerate types (below).
 - **Model / schema change:** edit `models/`, then create a migration (below). Update the matching response schema so OpenAPI stays accurate.
 - **Metadata provider:** add a typed client in `adapters/services/<name>.py` (+ `<name>_types.py`) and a `handler/metadata/<name>_handler.py` that normalizes into the common shape and slots into the priority order.
-- **Background job:** subclass `Task`/`PeriodicTask` in `tasks/scheduled/` or `tasks/manual/`; register scheduled jobs in `startup.py`.
+- **Background job:** declare its `TaskSpec` (title, schedule, queue, timeout, implementation path) in `tasks/registry.py`, then subclass `Task`/`PeriodicTask` in `tasks/scheduled/` or `tasks/manual/` and pass that spec to `super().__init__`. The cron process and the RQ worker parents read only the registry, so keep it free of task code.
 - **Telling a user something happened:** `notify()` / `notify_admins()` in `handler/notification_handler.py`, from a request or a worker. A `NotificationKind` is translated client-side from `data` (add its describer and locale keys); for anything else pass a free-form kind with `title`/`body`/`link`.
 
 ## Database migrations (Alembic)

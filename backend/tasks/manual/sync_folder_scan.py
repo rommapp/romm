@@ -7,28 +7,22 @@ Triggered on demand, not scheduled automatically.
 
 from typing import Any
 
-from config import ENABLE_SYNC_FOLDER_WATCHER
 from handler.database import db_device_handler
 from handler.filesystem import get_fs_sync_handler
 from logger.logger import log
 from models.device import SyncMode
-from tasks.tasks import Task, TaskType
+from tasks.registry import SYNC_FOLDER_SCAN_SPEC
+from tasks.tasks import Task
 
 
 class SyncFolderScanTask(Task):
     """Scan device sync folders for unprocessed incoming files."""
 
     def __init__(self) -> None:
-        super().__init__(
-            title="Sync Folder Scan",
-            description="Scan device sync folders for new save files",
-            task_type=TaskType.SYNC,
-            enabled=ENABLE_SYNC_FOLDER_WATCHER,
-            manual_run=True,
-        )
+        super().__init__(SYNC_FOLDER_SCAN_SPEC)
 
     async def run(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        if not self.enabled:
+        if not self.spec.enabled:
             log.info("Sync folder scan not enabled, skipping")
             return {"status": "disabled"}
 
