@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, waitFor } from "storybook/test";
+import { MD_EDITOR_LOADER } from "@/plugins/mdeditor";
 import MarkdownPreview from "@/v2/components/shared/MarkdownPreview.vue";
 
 const SAMPLE = `# Chrono Trigger
@@ -77,4 +78,23 @@ export const RawHtml: Story = {
 
 export const LongDocument: Story = {
   args: { modelValue: LONG },
+};
+
+// Shows the skeleton placeholder while the md-editor chunk is loading.
+export const Loading: Story = {
+  decorators: [
+    (story) => ({
+      components: { story },
+      provide: { [MD_EDITOR_LOADER as symbol]: () => new Promise(() => {}) },
+      template: "<story />",
+    }),
+  ],
+  play: async ({ canvasElement }) => {
+    // The skeleton renders immediately (after the 200ms delay built into
+    // defineAsyncComponent); the real preview never appears.
+    await waitFor(() =>
+      expect(canvasElement.querySelector(".r-skeleton")).not.toBeNull(),
+    );
+    await expect(canvasElement.querySelector(".md-editor-preview")).toBeNull();
+  },
 };

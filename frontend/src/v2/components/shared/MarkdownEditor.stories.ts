@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, waitFor } from "storybook/test";
 import { ref } from "vue";
+import { MD_EDITOR_LOADER } from "@/plugins/mdeditor";
 import MarkdownEditor from "@/v2/components/shared/MarkdownEditor.vue";
 
 const meta: Meta<typeof MarkdownEditor> = {
   title: "Shared/MarkdownEditor",
   component: MarkdownEditor,
+  parameters: { layout: "padded" },
   render: () => ({
     components: { MarkdownEditor },
     setup: () => ({
@@ -33,5 +35,22 @@ export const Default: Story = {
       { timeout: 5000 },
     );
     await expect(canvasElement.textContent).toContain("My note");
+  },
+};
+
+// Shows the skeleton placeholder while the md-editor chunk is loading.
+export const Loading: Story = {
+  decorators: [
+    (story) => ({
+      components: { story },
+      provide: { [MD_EDITOR_LOADER as symbol]: () => new Promise(() => {}) },
+      template: "<story />",
+    }),
+  ],
+  play: async ({ canvasElement }) => {
+    await waitFor(() =>
+      expect(canvasElement.querySelector(".r-skeleton")).not.toBeNull(),
+    );
+    await expect(canvasElement.querySelector(".md-editor-toolbar")).toBeNull();
   },
 };

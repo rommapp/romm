@@ -1,4 +1,13 @@
+import type { InjectionKey } from "vue";
+
 type MdEditorModule = typeof import("md-editor-v3");
+
+export type MdEditorLoader = () => Promise<MdEditorModule>;
+
+// Wrappers inject this so stories can swap in a never-resolving loader to
+// show the skeleton. The app never provides it, so the real loader is used.
+export const MD_EDITOR_LOADER: InjectionKey<MdEditorLoader> =
+  Symbol("MD_EDITOR_LOADER");
 
 let loading: Promise<MdEditorModule> | null = null;
 
