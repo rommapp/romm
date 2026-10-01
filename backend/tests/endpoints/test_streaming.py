@@ -11079,3 +11079,4 @@ async def test_store_save_asset_fits_a_long_multibyte_rom_name(
     assert filename.startswith("ゲーム")
     assert filename.endswith("].saves.zip")
     add_save.assert_called_once()
+

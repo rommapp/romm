@@ -4519,3 +4519,21 @@ def test_upload_save_over_255_bytes_rejected(
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "255 bytes" in response.json()["detail"]
+
+
+@mock.patch("endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock)
+def test_update_save_rejects_a_screenshot_name_over_255_bytes_before_writing(
+    mock_write, client, access_token: str, save: Save
+):
+    response = client.put(
+        f"/api/saves/{save.id}",
+        files={
+            "saveFile": (save.file_name, BytesIO(b"v2"), "application/octet-stream"),
+            "screenshotFile": ("あ" * 86 + ".png", BytesIO(b"png"), "image/png"),
+        },
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "255 bytes" in response.json()["detail"]
+    mock_write.assert_not_called()

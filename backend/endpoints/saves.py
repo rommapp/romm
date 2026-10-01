@@ -41,7 +41,11 @@ from utils.assets import normalize_asset_labels
 from utils.datetime import to_utc
 from utils.filesystem import check_filename_length, sanitize_filename
 from utils.router import APIRouter
-from utils.uploads import check_asset_upload_size, check_emulator_folder_name
+from utils.uploads import (
+    check_asset_upload_size,
+    check_emulator_folder_name,
+    sanitize_asset_filename,
+)
 from utils.validation import RomIdScope, narrow_rom_id_scope
 
 
@@ -657,6 +661,13 @@ async def update_save(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+    # Checked before the save is written, so a bad name cannot fail after commit.
+    sanitized_screenshot_filename = (
+        sanitize_asset_filename(screenshotFile.filename, "screenshot")
+        if screenshotFile and screenshotFile.filename
+        else ""
+    )
+
     if saveFile:
         replaced_hash = await fs_asset_handler.unrecorded_hash(db_save)
         await fs_asset_handler.write_file(
@@ -678,16 +689,7 @@ async def update_save(
             replaced_hash=replaced_hash,
         )
 
-    if screenshotFile and screenshotFile.filename:
-        try:
-            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
-            check_filename_length(sanitized_screenshot_filename)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid screenshot filename: {str(exc)}",
-            ) from exc
-
+    if screenshotFile and sanitized_screenshot_filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user,
             platform_fs_slug=db_save.rom.platform_slug,

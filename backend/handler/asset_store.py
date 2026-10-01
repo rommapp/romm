@@ -278,9 +278,9 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
         new_name = sanitize_filename(file_name)
     except ValueError as exc:
         raise _invalid_name(exc) from exc
-    _check_name_length(new_name)
     if new_name == asset.file_name:
         return asset
+    _check_name_length(new_name)
     # The thumbnail follows the stem, so a bare extension would strand it.
     new_stem = compute_file_name_no_ext(new_name)
     if not new_stem:

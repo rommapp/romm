@@ -1137,3 +1137,43 @@ def test_upload_state_over_255_bytes_rejected(client, access_token: str, rom: Ro
         headers=_auth(access_token),
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@mock.patch(
+    "handler.asset_store.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+)
+def test_add_state_rejects_a_screenshot_name_over_255_bytes_before_storing(
+    mock_write, client, access_token: str, rom: Rom
+):
+    response = client.post(
+        "/api/states",
+        params={"rom_id": rom.id},
+        files={
+            "stateFile": ("game.state", b"STATE!", "application/octet-stream"),
+            "screenshotFile": ("あ" * 86 + ".png", b"png", "image/png"),
+        },
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "255 bytes" in response.json()["detail"]
+    mock_write.assert_not_awaited()
+
+
+@mock.patch(
+    "handler.asset_store.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+)
+def test_update_state_rejects_a_screenshot_name_over_255_bytes_before_writing(
+    mock_write, client, access_token: str, state: State
+):
+    response = client.put(
+        f"/api/states/{state.id}",
+        files={
+            "stateFile": (state.file_name, b"STATE!", "application/octet-stream"),
+            "screenshotFile": ("あ" * 86 + ".png", b"png", "image/png"),
+        },
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    mock_write.assert_not_awaited()

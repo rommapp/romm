@@ -1840,6 +1840,18 @@ async def update_rom(
         )
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
+    # Rejected before any provider fetch, download or row change: a name the
+    # filesystem refuses would leave the row pointing at a file the move never made.
+    try:
+        new_fs_name = sanitize_filename(str(form_data.fs_name or rom.fs_name))
+        if new_fs_name != rom.fs_name:
+            check_filename_length(new_fs_name)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file name: {exc}",
+        ) from exc
+
     provided_fields = form_data.model_fields_set
     cleaned_data: dict[str, Any] = {
         "igdb_id": (
@@ -2111,16 +2123,6 @@ async def update_rom(
                 submitted or name_value
             )
 
-    # Checked before the row update, since the file only moves after it.
-    try:
-        new_fs_name = sanitize_filename(str(form_data.fs_name or rom.fs_name))
-        if new_fs_name != rom.fs_name:
-            check_filename_length(new_fs_name)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file name: {exc}",
-        ) from exc
     cleaned_data.update({"fs_name": new_fs_name})
 
     # Re-parse tags from the filename so region/language/revision/version/tags

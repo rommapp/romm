@@ -190,7 +190,7 @@ def validate_email(email: str) -> None:
     validate_ascii_only(email, "Email")
 
     if len(email) > TEXT_FIELD_LENGTH:
-        msg = "Email must be no more than 255 characters long"
+        msg = f"Email must be no more than {TEXT_FIELD_LENGTH} characters long"
         log.error(msg)
         raise ValidationError(msg, "Email")
 

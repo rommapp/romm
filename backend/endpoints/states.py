@@ -26,9 +26,12 @@ from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, State
 from models.base import FILE_NAME_MAX_LENGTH
 from utils.assets import normalize_asset_labels
-from utils.filesystem import check_filename_length, sanitize_filename
 from utils.router import APIRouter
-from utils.uploads import check_asset_upload_size, check_emulator_folder_name
+from utils.uploads import (
+    check_asset_upload_size,
+    check_emulator_folder_name,
+    sanitize_asset_filename,
+)
 from utils.validation import RomIdScope, narrow_rom_id_scope
 
 
@@ -86,14 +89,13 @@ async def add_state(
             status_code=status.HTTP_400_BAD_REQUEST, detail="State file has no filename"
         )
 
-    try:
-        sanitized_state_filename = sanitize_filename(stateFile.filename)
-        check_filename_length(sanitized_state_filename)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid state filename: {str(exc)}",
-        ) from exc
+    sanitized_state_filename = sanitize_asset_filename(stateFile.filename, "state")
+    # Checked before the state is stored, so a bad name cannot fail after commit.
+    sanitized_screenshot_filename = (
+        sanitize_asset_filename(screenshotFile.filename, "screenshot")
+        if screenshotFile and screenshotFile.filename
+        else ""
+    )
 
     check_emulator_folder_name(emulator)
 
@@ -105,16 +107,7 @@ async def add_state(
         request.user, rom, emulator, stateFile, sanitized_state_filename
     )
 
-    if screenshotFile and screenshotFile.filename:
-        try:
-            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
-            check_filename_length(sanitized_screenshot_filename)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid screenshot filename: {str(exc)}",
-            ) from exc
-
+    if screenshotFile and sanitized_screenshot_filename:
         await store_screenshot(
             request.user, rom, screenshotFile, sanitized_screenshot_filename
         )
@@ -240,6 +233,13 @@ async def update_state(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+    # Checked before the state is written, so a bad name cannot fail after commit.
+    sanitized_screenshot_filename = (
+        sanitize_asset_filename(screenshotFile.filename, "screenshot")
+        if screenshotFile and screenshotFile.filename
+        else ""
+    )
+
     if stateFile:
         await fs_asset_handler.write_file(
             file=stateFile, path=db_state.file_path, filename=db_state.file_name
@@ -247,16 +247,7 @@ async def update_state(
         db_state = db_state_handler.update_state(
             db_state.id, {"file_size_bytes": stateFile.size}
         )
-    if screenshotFile and screenshotFile.filename:
-        try:
-            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
-            check_filename_length(sanitized_screenshot_filename)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid screenshot filename: {str(exc)}",
-            ) from exc
-
+    if screenshotFile and sanitized_screenshot_filename:
         await store_screenshot(
             request.user,
             db_state.rom,
