@@ -114,10 +114,10 @@ RUN rm -rf /tmp/RALibretro
 # Install rom-converto (optional); its static musl build runs on this glibc image.
 # Keep the version and both sums in sync with docker/Dockerfile.
 ARG TARGETARCH
-RUN ROM_CONVERTO_VERSION=v0.21.0 \
+RUN ROM_CONVERTO_VERSION=v0.23.0 \
     && case "${TARGETARCH}" in \
-        amd64) rc="linux-x64-musl"; sum="d6446fac50ca2dae2a3702351bc2c409a19f8a4f7a91ae838283ebf5f151e578" ;; \
-        arm64) rc="linux-arm64-musl"; sum="3ef3414ad425fb222f647ef0f3e74122077721a046eb07256c6d870b007b3c2e" ;; \
+        amd64) rc="linux-x64-musl"; sum="37d03a67ad97fc02768890e763b4c80072fdfd15f2c5b97e44f9a2b50fc40876" ;; \
+        arm64) rc="linux-arm64-musl"; sum="8abe37ca2d1a0e3d719fb8e795e011c672e3f1c088521cf0bb1e467dc658dc3c" ;; \
         *) echo "unsupported TARGETARCH: ${TARGETARCH}" && exit 1 ;; \
     esac \
     && curl -fsSL -o "/tmp/rom-converto-cli-${rc}" \
