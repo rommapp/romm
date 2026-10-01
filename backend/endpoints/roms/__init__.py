@@ -570,9 +570,10 @@ def get_roms(
         str,
         Query(
             description=(
-                "Field to order results by. Leave empty to order by search "
-                "relevance when a search term is given on MySQL/MariaDB; other "
-                "databases fall back to name."
+                "Field to order results by. Leave empty to order a search of "
+                "two or more words, or of at least three characters, by "
+                "relevance: exact name or alias matches first, then names "
+                "starting with the term, then phrase matches."
             ),
         ),
     ] = "",
@@ -796,7 +797,10 @@ def get_roms(
             )
 
         if page_ids:
-            page_rows = session.scalars(query.where(Rom.id.in_(page_ids))).all()
+            # The rows are reordered by `page_ids` below, so the sort is dropped.
+            page_rows = session.scalars(
+                query.where(Rom.id.in_(page_ids)).order_by(None)
+            ).all()
             rows_by_id = {rom.id: rom for rom in page_rows}
             page_items = [rows_by_id[i] for i in page_ids if i in rows_by_id]
         else:
