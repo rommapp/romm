@@ -414,10 +414,11 @@ def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platfor
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
             assert not has_column(connection, "roms", SEARCH_TITLES_COLUMN)
-            assert has_column(connection, "roms", "generated_search_aliases")
+            aliases = migration.SEARCH_ALIASES_COLUMN
+            assert has_column(connection, "roms", aliases)
             assert (
                 connection.execute(
-                    sa.text("SELECT generated_search_aliases FROM roms WHERE id = :id"),
+                    sa.text(f"SELECT {aliases} FROM roms WHERE id = :id"),  # nosec B608
                     {"id": first.id},
                 ).scalar()
                 == "FF7"
