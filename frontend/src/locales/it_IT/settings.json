@@ -463,7 +463,7 @@
   "streaming": "Streaming",
   "streaming-by": "({user})",
   "streaming-desktop-session": "Sessione desktop",
-  "streaming-disabled": "Streaming dell'emulatore è disattivato su questo server.",
+  "streaming-disabled": "Lo streaming dell'emulatore è disattivato su questo server.",
   "streaming-draining": "Chiusura della sessione precedente",
   "streaming-idle": "Inattivo",
   "streaming-load-failed": "Non è stato possibile caricare i container di streaming.",
