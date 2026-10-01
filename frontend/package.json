@@ -90,7 +90,7 @@
     "eslint-plugin-vuejs-accessibility": "^2.5.0",
     "globals": "^17.0.0",
     "happy-dom": "^20.9.0",
-    "openapi-typescript-codegen": "^0.31.0",
+    "openapi-typescript-codegen": "^0.29.0",
     "postcss": "^8.5.23",
     "storybook": "^10.2.19",
     "tsx": "^4.21.0",
