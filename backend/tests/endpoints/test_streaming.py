@@ -9027,8 +9027,7 @@ def test_claim_aborts_when_card_hydration_fails(
 def test_claim_aborts_on_an_unexpected_error_after_the_blank_card(
     client, access_token, admin_user: User, rom: Rom
 ):
-    """An error no step planned for still frees the container and its blank card,
-    rather than wedging the container for every player until the claim goes stale."""
+    """An error no step planned for still frees the container and its blank card."""
     with _streaming(_mc_container_for(rom)):
         with (
             patch("handler.streaming.commands.launch") as launch,
