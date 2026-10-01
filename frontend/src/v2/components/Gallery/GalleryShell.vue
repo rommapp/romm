@@ -81,7 +81,6 @@ import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, {
   DEFAULT_ORDER_BY,
-  DEFAULT_ORDER_DIR,
   type GalleryOrderKey,
   orderSupportsLetters,
 } from "@/v2/stores/galleryRoms";
@@ -795,7 +794,7 @@ function setSearch(value: string) {
 // write the store; `useGalleryOrderUrl` mirrors it to the URL and the
 // watch below owns the refetch.
 const listSortKey = computed<ListSortKey | null>(() => {
-  const key = orderBy.value;
+  const key = galleryRoms.effectiveOrderBy;
   return isListSortKey(key) ? key : null;
 });
 
@@ -809,9 +808,9 @@ const unsortedLabel = computed(() =>
   props.defaultOrderBy === null ? t("gallery.sort-relevance") : undefined,
 );
 
-function onUnsort() {
-  galleryRoms.setOrderBy(null);
-  galleryRoms.setOrderDir(DEFAULT_ORDER_DIR);
+function onToolbarSortKey(key: ListSortKey | null) {
+  if (key === null) galleryRoms.clearOrder();
+  else galleryRoms.setOrderBy(key);
 }
 
 // The toolbar's sort axes, matching the list column headers.
@@ -1086,7 +1085,7 @@ defineExpose({
               @update:group-by="groupBy = $event"
               @update:layout="layout = $event"
               @update:sort-dir="galleryRoms.setOrderDir"
-              @update:sort-key="galleryRoms.setOrderBy"
+              @update:sort-key="onToolbarSortKey"
               @update:search="setSearch"
               @click:filter="filterDrawerOpen = true"
             >
@@ -1121,7 +1120,7 @@ defineExpose({
             :show-platform-column="showPlatformColumn"
             :unsorted-label="unsortedLabel"
             @sort="onListSort"
-            @unsort="onUnsort"
+            @unsort="galleryRoms.clearOrder"
           />
         </template>
       </template>
@@ -1141,7 +1140,7 @@ defineExpose({
           aria-rowindex="1"
           :unsorted-label="unsortedLabel"
           @sort="onListSort"
-          @unsort="onUnsort"
+          @unsort="galleryRoms.clearOrder"
         />
       </template>
 
@@ -1274,7 +1273,7 @@ defineExpose({
       @update:group-by="groupBy = $event"
       @update:layout="layout = $event"
       @update:sort-dir="galleryRoms.setOrderDir"
-      @update:sort-key="galleryRoms.setOrderBy"
+      @update:sort-key="onToolbarSortKey"
       @click:filter="filterDrawerOpen = true"
     >
       <template #actions>

@@ -488,34 +488,71 @@ describe("galleryRoms length filter", () => {
   });
 });
 
-describe("galleryRoms relevanceLeads", () => {
+describe("galleryRoms relevance order", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    getRoms.mockReset();
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
   });
 
-  function loaded(charIndex: Record<string, number>) {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function answeredWith(charIndex: Record<string, number>, total = 5) {
+    getRoms.mockResolvedValue({
+      data: { total, items: [], char_index: charIndex, rom_id_index: [] },
+    });
+    setActivePinia(createPinia());
     const store = storeGalleryRoms();
     store.setOrderBy(null);
-    store.metadataLoaded = true;
-    store.total = 5;
-    store.charIndex = charIndex;
+    await store.fetchInitialMetadata();
     return store;
   }
 
-  it("reads an unset sort answered without letters as relevance", () => {
-    expect(loaded({}).relevanceLeads).toBe(true);
+  it("reads an unset sort answered without letters as relevance", async () => {
+    const store = await answeredWith({});
+
+    expect(store.relevanceLeads).toBe(true);
+    expect(store.effectiveOrderBy).toBeNull();
   });
 
-  it("reads letters, a picked sort or an empty result as no relevance", () => {
-    expect(loaded({ a: 0 }).relevanceLeads).toBe(false);
+  it("reads an unset sort answered with letters as the name order", async () => {
+    const store = await answeredWith({ a: 0 });
 
-    const sorted = loaded({});
+    expect(store.relevanceLeads).toBe(false);
+    expect(store.effectiveOrderBy).toBe("name");
+  });
+
+  it("keeps the answer through a refetch, so the controls don't flicker", async () => {
+    const store = await answeredWith({});
+
+    store.invalidateWindows();
+
+    expect(store.effectiveOrderBy).toBeNull();
+  });
+
+  it("reads an empty result or a picked sort as no relevance", async () => {
+    expect((await answeredWith({}, 0)).relevanceLeads).toBe(false);
+
+    const sorted = await answeredWith({});
     sorted.setOrderBy("fs_size_bytes");
     expect(sorted.relevanceLeads).toBe(false);
+    expect(sorted.effectiveOrderBy).toBe("fs_size_bytes");
+  });
 
-    const empty = loaded({});
-    empty.total = 0;
-    expect(empty.relevanceLeads).toBe(false);
+  it("clears the direction along with the sort key", () => {
+    const store = storeGalleryRoms();
+    store.setOrderBy("name");
+    store.setOrderDir("desc");
+
+    store.clearOrder();
+
+    expect(store.orderBy).toBeNull();
+    expect(store.orderDir).toBe("asc");
   });
 });
 

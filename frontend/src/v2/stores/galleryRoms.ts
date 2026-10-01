@@ -248,6 +248,9 @@ interface State {
   metadataLoaded: boolean;
   // True while a whole-result select-all fetch is in flight.
   selectingAll: boolean;
+  // Whether the last answer to an unset sort came back in relevance order,
+  // which the backend signals with no letter positions. Kept across refetches.
+  relevanceLed: boolean;
   // Order params: gallery-list scoped (separate from v1's localStorage
   // keys so v1/v2 don't fight over the same value). `null` leaves the
   // order to the backend, which ranks a search by relevance.
@@ -271,6 +274,7 @@ const defaults = (): State => ({
   initialFetching: false,
   metadataLoaded: false,
   selectingAll: false,
+  relevanceLed: false,
   orderBy: DEFAULT_ORDER_BY,
   orderDir: DEFAULT_ORDER_DIR,
 });
@@ -293,13 +297,11 @@ export default defineStore("v2GalleryRoms", {
       ),
     /** True when at least the first window has loaded. */
     hasInitial: (state) => state.loadedWindows.size > 0,
-    /** Whether the backend ranked an unset sort by relevance, which it
-     * signals by sending no letter positions for a non-empty result. */
-    relevanceLeads: (state) =>
-      state.orderBy === null &&
-      state.metadataLoaded &&
-      state.total > 0 &&
-      Object.keys(state.charIndex).length === 0,
+    /** Whether the backend ranked an unset sort by relevance. */
+    relevanceLeads: (state) => state.orderBy === null && state.relevanceLed,
+    /** The order the backend applied: an unset sort it kept by name reads as name. */
+    effectiveOrderBy: (state): GalleryOrderKey | null =>
+      state.orderBy ?? (state.relevanceLed ? null : DEFAULT_ORDER_BY),
     /** The full ordered id list of the current filtered result, or null
      * while it is unknown (off the gallery view, or bootstrap pending). */
     filteredRomIds(): number[] | null {
@@ -326,6 +328,11 @@ export default defineStore("v2GalleryRoms", {
     },
     setOrderDir(dir: GalleryOrderDir) {
       this.orderDir = dir;
+    },
+    /** Back to the unset sort, whose relevance order has no direction. */
+    clearOrder() {
+      this.orderBy = null;
+      this.orderDir = DEFAULT_ORDER_DIR;
     },
 
     /** Read a ROM at a position, or null if its window hasn't been
@@ -365,6 +372,7 @@ export default defineStore("v2GalleryRoms", {
       this.initialFetching = false;
       this.metadataLoaded = false;
       this.selectingAll = false;
+      this.relevanceLed = false;
     },
 
     /** Drop the loaded windows but keep the gallery context. Used when
@@ -475,6 +483,10 @@ export default defineStore("v2GalleryRoms", {
       // guards with `withAggregations`).
       if (sidecars.withCharIndex !== false && data.char_index) {
         this.charIndex = data.char_index;
+        this.relevanceLed =
+          this.orderBy === null &&
+          this.total > 0 &&
+          Object.keys(data.char_index).length === 0;
       }
       if (sidecars.withRomIdIndex !== false && data.rom_id_index) {
         this.romIdIndex = data.rom_id_index;

@@ -124,11 +124,10 @@ describe("useRomSync", () => {
     expect(getRoms).not.toHaveBeenCalled();
   });
 
-  // The backend signals a relevance order by sending no letter positions.
   it("applyRomWrite refetches a search ranked by relevance", () => {
     const gallery = seedGallery(makeRom({ name_sort_key: "chrono trigger" }));
     gallery.setOrderBy(null);
-    gallery.charIndex = {};
+    gallery.relevanceLed = true;
 
     useRomSync().applyRomWrite(
       makeRom({ name_sort_key: "chrono trigger", fs_name: "renamed.sfc" }),
@@ -141,7 +140,7 @@ describe("useRomSync", () => {
   it("applyRomWrite reads an unset sort the backend kept in name order as the name", () => {
     const gallery = seedGallery(makeRom({ name_sort_key: "chrono trigger" }));
     gallery.setOrderBy(null);
-    gallery.charIndex = { c: 0 };
+    gallery.relevanceLed = false;
 
     useRomSync().applyRomWrite(
       makeRom({ name_sort_key: "chrono trigger", summary: "edited" }),
