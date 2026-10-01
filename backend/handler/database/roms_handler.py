@@ -1501,7 +1501,7 @@ class DBRomsHandler(DBBaseHandler):
         from handler.scan_handler import MetadataSource
 
         filters = filters or RomFilterParams()
-        order_dir = self._effective_order_dir(order_by, order_dir, filters.search_term)
+        order_dir = order_dir.lower()
 
         # Callers that select bare columns (a membership subquery) pass
         # include_related=False: loader options can't apply without an entity.
@@ -1865,14 +1865,6 @@ class DBRomsHandler(DBBaseHandler):
             len(term) >= SEARCH_RANK_MIN_LENGTH for term in _search_terms(search_term)
         )
 
-    def _effective_order_dir(
-        self, order_by: str, order_dir: str, search_term: str | None
-    ) -> str:
-        """The direction the query applies; relevance has none, so its ties run A to Z."""
-        if self.search_relevance_leads(order_by, search_term):
-            return "asc"
-        return order_dir.lower()
-
     def _gallery_order_clauses(
         self,
         *,
@@ -1882,7 +1874,9 @@ class DBRomsHandler(DBBaseHandler):
         nulls_last: bool,
         search_term: str | None,
     ) -> list[Any]:
-        descending = order_dir == "desc"
+        relevance_leads = self.search_relevance_leads(order_by, search_term)
+        # Relevance has no direction, so its ties always run A to Z.
+        descending = order_dir == "desc" and not relevance_leads
         if nulls_last:
             nulls_last_clause, order_clause = _nulls_last_ordering(
                 sort_column, descending
@@ -1898,15 +1892,17 @@ class DBRomsHandler(DBBaseHandler):
         tiebreaker = Rom.id.desc() if descending else Rom.id.asc()
 
         sort_clauses: list[Any] = [order_clause]
-        terms = _search_terms(search_term) if search_term else []
         phrases = self._build_search_phrases(search_term) if search_term else []
         relevance = [_search_relevance(phrases).desc()] if phrases else []
         # Phrase relevance breaks an explicit sort's ties. With no sort, the rank
         # (which reads provider metadata) and relevance lead, and name breaks ties.
         if order_by:
             sort_clauses.extend(relevance)
-        elif self.search_relevance_leads(order_by, search_term):
-            sort_clauses[:0] = [_search_rank(terms).desc(), *relevance]
+        elif relevance_leads and search_term:
+            sort_clauses[:0] = [
+                _search_rank(_search_terms(search_term)).desc(),
+                *relevance,
+            ]
 
         return [
             clause
@@ -1923,7 +1919,7 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int | None = None,
     ) -> tuple[RomSelect, _GallerySortKey]:
         query = self._join_rom_user(select(Rom), user_id)
-        order_dir = self._effective_order_dir(order_by, order_dir, search_term)
+        order_dir = order_dir.lower()
 
         sort_key = _resolve_gallery_sort_key(order_by, user_id)
         if sort_key.source == "rom_metadata":
@@ -2256,7 +2252,7 @@ class DBRomsHandler(DBBaseHandler):
             ):
                 data = {**data, "name_sort_key": compute_name_sort_key(data["name"])}
 
-        if data.keys() & set(SEARCH_TITLE_COLUMNS):
+        if data.keys() & SEARCH_TITLE_COLUMNS:
             # The bulk update() skips the mapper event that keeps this in sync.
             stored = session.get_one(Rom, id)
             data = {

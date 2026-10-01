@@ -254,6 +254,13 @@ def test_filter_by_search_term_multi_word_and_ranking(platform: Platform):
     assert explicit_ids.index(fantasy_final.id) < explicit_ids.index(ff.id)
 
 
+def _ranked(search_term: str, order_by: str = "", order_dir: str = "asc") -> list[int]:
+    roms = db_rom_handler.get_roms_scalar(
+        search_term=search_term, order_by=order_by, order_dir=order_dir
+    )
+    return [rom.id for rom in roms]
+
+
 def test_search_ranks_exact_titles_then_name_prefixes(platform: Platform):
     def _add(name: str, aliases: list[str]) -> Rom:
         return make_rom(platform, name, igdb_metadata={"alternative_names": aliases})
@@ -270,17 +277,11 @@ def test_search_ranks_exact_titles_then_name_prefixes(platform: Platform):
         moby_metadata={"alternate_titles": ["FINAL FANTASY VII"]},
     )
 
-    def ranked(search_term: str, order_by: str = "") -> list[int]:
-        roms = db_rom_handler.get_roms_scalar(
-            search_term=search_term, order_by=order_by
-        )
-        return [rom.id for rom in roms]
-
     # An alias equal to the search beats one that only holds it.
-    assert ranked("final fantasy 7") == [ff7.id, crisis_core.id, remake.id]
+    assert _ranked("final fantasy 7") == [ff7.id, crisis_core.id, remake.id]
 
     # Exact name or alias first, then names the search starts, then the rest.
-    assert ranked("Final  Fantasy VII") == [
+    assert _ranked("Final  Fantasy VII") == [
         ff7.id,
         moby_titled.id,
         remake.id,
@@ -289,7 +290,7 @@ def test_search_ranks_exact_titles_then_name_prefixes(platform: Platform):
     ]
 
     # The rank only leads; an explicit sort keeps its order.
-    assert ranked("final fantasy vii", order_by="name") == [
+    assert _ranked("final fantasy vii", order_by="name") == [
         crisis_core.id,
         dirge.id,
         ff7.id,
@@ -299,11 +300,7 @@ def test_search_ranks_exact_titles_then_name_prefixes(platform: Platform):
 
     # A one-word search ranks too, though it has no phrase to score.
     fan_mod = _add("A FF7 Fan Mod", [])
-    assert ranked("ff7") == [ff7.id, fan_mod.id]
-
-
-def _ranked(search_term: str) -> list[int]:
-    return [rom.id for rom in db_rom_handler.get_roms_scalar(search_term=search_term)]
+    assert _ranked("ff7") == [ff7.id, fan_mod.id]
 
 
 def test_search_ranks_a_name_prefix_only_where_a_word_ends(platform: Platform):
@@ -342,13 +339,9 @@ def test_search_relevance_ignores_the_sort_direction(platform: Platform):
     make_rom(platform, "Crisis Core: Final Fantasy VII")
     make_rom(platform, "Dirge of Cerberus: Final Fantasy VII")
 
-    def ranked(order_dir: str) -> list[int]:
-        roms = db_rom_handler.get_roms_scalar(
-            search_term="final fantasy vii", order_dir=order_dir
-        )
-        return [rom.id for rom in roms]
-
-    assert ranked("desc") == ranked("asc")
+    assert _ranked("final fantasy vii", order_dir="desc") == _ranked(
+        "final fantasy vii", order_dir="asc"
+    )
 
 
 def test_search_ranks_a_name_prefix_ending_in_punctuation(platform: Platform):
