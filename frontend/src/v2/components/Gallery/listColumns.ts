@@ -40,6 +40,8 @@ export interface ListColumn {
   /** Column header label. Empty string renders no text (used for the
    * leading select column + trailing actions column). */
   label: string;
+  /** Header text for assistive tech when `label` is empty. */
+  hiddenLabel?: string;
   /** Whether the column header is clickable to toggle sort. */
   sortable: boolean;
   /** Column alignment, read by the header label, the value cells and the
@@ -64,7 +66,13 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
     { key: "select", label: "", sortable: false, align: "start" },
     // Cover gets its own fixed-width column so the title/meta column starts
     // at the same x on every row, regardless of the cover's natural width.
-    { key: "cover", label: "", sortable: false, align: "start" },
+    {
+      key: "cover",
+      label: "",
+      hiddenLabel: t("gallery.column-cover"),
+      sortable: false,
+      align: "start",
+    },
     {
       key: "name",
       label: t("settings.title-header"),
@@ -136,7 +144,13 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
       align: "start",
       skeletonWidth: 80,
     },
-    { key: "actions", label: "", sortable: false, align: "end" },
+    {
+      key: "actions",
+      label: "",
+      hiddenLabel: t("gallery.column-actions"),
+      sortable: false,
+      align: "end",
+    },
   );
   return cols;
 }

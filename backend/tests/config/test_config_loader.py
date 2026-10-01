@@ -190,7 +190,6 @@ def test_empty_config_loader():
     assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box2d"
     assert loader.config.GAMELIST_MEDIA_IMAGE == "screenshot"
     assert not loader.config.CONVERTO.download_conversion_enabled
-    assert loader.config.CONVERTO.scan_metadata
     assert loader.config.CONVERTO.cache_ttl_hours == 24
     assert loader.config.CONVERTO.platform_formats == {}
     assert loader.config.STRUCTURE_TEMPLATES == {}
@@ -687,10 +686,8 @@ def test_converto_config_from_yaml(tmp_path):
     config_file.write_text(
         "converto:\n"
         "  download_conversion_enabled: true\n"
-        "  scan_metadata: false\n"
         "  cache_ttl_hours: 48\n"
         "  cache_max_size_gb: 0\n"
-        "  max_sync_size_mb: 128\n"
         "  platform_formats:\n"
         "    PSP: iso\n"
         "    ngc: rvz\n"
@@ -700,12 +697,17 @@ def test_converto_config_from_yaml(tmp_path):
     # Slugs and targets are normalized to lowercase.
     assert loader.config.CONVERTO == ConvertoConfig(
         download_conversion_enabled=True,
-        scan_metadata=False,
         cache_ttl_hours=48,
         cache_max_size_gb=0,
-        max_sync_size_mb=128,
         platform_formats={"psp": "iso", "ngc": "rvz"},
     )
+
+
+def test_null_converto_platform_formats_means_empty(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("converto:\n  platform_formats:\n")
+
+    assert ConfigManager(str(config_file)).config.CONVERTO.platform_formats == {}
 
 
 def test_update_converto_settings_round_trip(tmp_path):
@@ -714,10 +716,8 @@ def test_update_converto_settings_round_trip(tmp_path):
     loader = ConfigManager(str(config_file))
     converto = ConvertoConfig(
         download_conversion_enabled=True,
-        scan_metadata=True,
         cache_ttl_hours=72,
         cache_max_size_gb=50,
-        max_sync_size_mb=1024,
         platform_formats={"psp": "iso", "ngc": "rvz"},
     )
 
@@ -731,9 +731,10 @@ def test_update_converto_settings_round_trip(tmp_path):
     [
         "  platform_formats:\n    psvita: iso\n",
         "  platform_formats:\n    psp: rvz\n",
+        "  platform_formats:\n    xbox: xiso\n",
         "  cache_ttl_hours: 0\n",
         "  cache_max_size_gb: -1\n",
-        "  max_sync_size_mb: true\n",
+        "  cache_max_size_gb: true\n",
     ],
 )
 def test_invalid_converto_setting_exits(tmp_path, block):

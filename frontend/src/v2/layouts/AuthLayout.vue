@@ -1,11 +1,10 @@
 <script setup lang="ts">
 // AuthLayout: full-viewport blurred background with a centred card stage
 // for the auth flows (Login / Register / ResetPassword / Setup). Bottom
-// corners hold the LanguageSelector (left) and VersionTag (right).
+// bar is the shared AuthFooter.
 import { onMounted } from "vue";
 import NotificationHost from "@/v2/components/Notifications/NotificationHost.vue";
-import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
-import VersionTag from "@/v2/components/shared/VersionTag.vue";
+import AuthFooter from "@/v2/components/shared/AuthFooter.vue";
 import { installBreakpointAttribute } from "@/v2/composables/useBreakpoint";
 import { useInputModality } from "@/v2/composables/useInputModality";
 
@@ -24,15 +23,8 @@ onMounted(installInputModality);
     <main class="r-v2-auth__stage">
       <router-view name="v2" />
     </main>
-    <!-- Bottom bar: language selector pinned left, version tag right. A
-         single row so the "one on each side" split holds at every width
-         (absolute on desktop, in normal flow below the card on phones). -->
-    <div class="r-v2-auth__footer">
-      <div class="r-v2-auth__lang">
-        <LanguageSelector />
-      </div>
-      <VersionTag class="r-v2-auth__version" />
-    </div>
+    <!-- Absolute on desktop, in normal flow below the card on phones. -->
+    <AuthFooter class="r-v2-auth__footer" />
     <NotificationHost />
   </div>
 </template>
@@ -95,24 +87,12 @@ onMounted(installInputModality);
   justify-content: center;
 }
 
-/* Bottom bar is an absolute full-width row on desktop: language selector hugs
-   the left, version tag the right (space-between). */
 .r-v2-auth__footer {
   position: absolute;
   left: var(--r-space-4);
   right: var(--r-space-4);
   bottom: var(--r-space-3);
   z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--r-space-3);
-}
-
-.r-v2-auth__version {
-  /* Sits directly on the background art with no card behind it, so a soft
-     black shadow keeps it legible over the lighter patches. */
-  text-shadow: 0 1px 3px color-mix(in srgb, black 70%, transparent);
 }
 
 /* Phones: lay the card and the bottom bar out in normal flow instead of

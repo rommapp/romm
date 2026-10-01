@@ -2,7 +2,8 @@ from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 
 from adapters.services.rom_converto import (
-    TARGETS_BY_PLATFORM,
+    LIBRARY_TARGETS_BY_PLATFORM,
+    download_formats,
     normalize_platform_formats,
 )
 from config.config_manager import (
@@ -124,13 +125,10 @@ class ScanSettingsPayload(BaseModel):
 
 
 class ConvertoSettingsPayload(BaseModel):
-    """Full replacement of the converto.* config section."""
+    """The converto.* settings editable at runtime; `cache_ttl_hours` stays config.yml-only."""
 
     download_conversion_enabled: bool
-    scan_metadata: bool
-    cache_ttl_hours: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_ttl_hours"])
     cache_max_size_gb: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_max_size_gb"])
-    max_sync_size_mb: int = Field(ge=CONVERTO_INT_MINIMUMS["max_sync_size_mb"])
     platform_formats: dict[str, str]
 
     @field_validator("platform_formats")
@@ -192,9 +190,11 @@ def get_config(request: Request) -> ConfigResponse:
         GAMELIST_MEDIA_IMAGE=cfg.GAMELIST_MEDIA_IMAGE,
         PEGASUS_AUTO_EXPORT_ON_SCAN=cfg.PEGASUS_AUTO_EXPORT_ON_SCAN,
         CONVERTO=cfg.CONVERTO,
-        CONVERTO_TARGETS={
-            slug: sorted(targets) for slug, targets in TARGETS_BY_PLATFORM.items()
+        CONVERTO_LIBRARY_TARGETS={
+            slug: sorted(targets)
+            for slug, targets in LIBRARY_TARGETS_BY_PLATFORM.items()
         },
+        CONVERTO_DOWNLOAD_FORMATS=download_formats(),
     )
 
 
@@ -370,12 +370,18 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
 async def update_converto_settings(
     request: Request, payload: ConvertoSettingsPayload
 ) -> None:
-    """Replace the converto.* section of the configuration"""
+    """Update the runtime-editable converto.* settings"""
 
+    current = cm.get_config().CONVERTO
     try:
-        cm.update_converto_settings(ConvertoConfig(**payload.model_dump()))
+        cm.update_converto_settings(
+            ConvertoConfig(
+                **payload.model_dump(), cache_ttl_hours=current.cache_ttl_hours
+            )
+        )
     except ConfigNotWritableException as exc:
         log.critical(exc.message)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "converto_settings", "update")

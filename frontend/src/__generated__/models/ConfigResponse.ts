@@ -44,6 +44,7 @@ export type ConfigResponse = {
     GAMELIST_MEDIA_IMAGE: MetadataMediaType;
     PEGASUS_AUTO_EXPORT_ON_SCAN: boolean;
     CONVERTO: ConvertoConfig;
-    CONVERTO_TARGETS: Record<string, Array<string>>;
+    CONVERTO_LIBRARY_TARGETS: Record<string, Array<string>>;
+    CONVERTO_DOWNLOAD_FORMATS: Record<string, Record<string, Array<string>>>;
 };
 

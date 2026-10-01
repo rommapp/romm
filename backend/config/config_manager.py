@@ -406,12 +406,9 @@ VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 @dataclasses.dataclass
 class ConvertoConfig:
     download_conversion_enabled: bool = False
-    scan_metadata: bool = True
     cache_ttl_hours: int = 24
     # 0 leaves the cache unbounded.
     cache_max_size_gb: int = 20
-    # Largest file a download waits on while it converts; 0 never waits.
-    max_sync_size_mb: int = 512
     platform_formats: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
@@ -419,7 +416,6 @@ class ConvertoConfig:
 CONVERTO_INT_MINIMUMS: Final[dict[str, int]] = {
     "cache_ttl_hours": 1,
     "cache_max_size_gb": 0,
-    "max_sync_size_mb": 0,
 }
 
 
@@ -1353,10 +1349,6 @@ class ConfigManager:
             )
             sys.exit(3)
 
-        if not isinstance(self.config.CONVERTO.scan_metadata, bool):
-            log.critical("Invalid config.yml: converto.scan_metadata must be a boolean")
-            sys.exit(3)
-
         for key, minimum in CONVERTO_INT_MINIMUMS.items():
             value = getattr(self.config.CONVERTO, key)
             if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
@@ -1368,7 +1360,8 @@ class ConfigManager:
         try:
             self.config.CONVERTO.platform_formats = normalize_platform_formats(
                 self._validated_platform_map(
-                    self.config.CONVERTO.platform_formats, "converto.platform_formats"
+                    self.config.CONVERTO.platform_formats or {},
+                    "converto.platform_formats",
                 )
             )
         except ValueError as exc:

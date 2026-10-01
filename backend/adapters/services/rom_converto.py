@@ -1,17 +1,13 @@
 import asyncio
 import contextlib
 import json
-import os
 import shutil
-import tempfile
-from collections.abc import Callable
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final
+from typing import Final
 
 from config import (
     ROM_CONVERTO_ENABLED,
-    ROM_CONVERTO_MAX_CONCURRENCY,
     ROM_CONVERTO_PATH,
     ROM_CONVERTO_TIMEOUT,
 )
@@ -20,37 +16,11 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-# Wider than the conversion targets: `info` only reads headers, so every
-# platform it can pull a title id or serial from counts.
-CONVERTO_PLATFORM_SLUGS: Final[frozenset[str]] = frozenset(
-    {
-        UPS.N3DS,
-        UPS.NDS,
-        UPS.PSP,
-        UPS.PSVITA,
-        UPS.PSX,
-        UPS.PS2,
-        UPS.PS3,
-        UPS.NGC,
-        UPS.WII,
-        UPS.WIIU,
-        UPS.SWITCH,
-        UPS.SWITCH_2,
-        UPS.XBOX,
-        UPS.XBOX360,
-    }
-)
-
-# The capabilities probe must never hang scan/download paths; a real
+# The capabilities probe must never hang download paths; a real
 # manifest print is instant.
 _PROBE_TIMEOUT_SECONDS = 30
 
 _STDERR_TAIL_BYTES = 400
-
-# The width of the `rom_files` text columns this metadata is stored into.
-_TEXT_MAX_LENGTH = 255
-
-_PNG_SIGNATURE: Final[bytes] = b"\x89PNG\r\n\x1a\n"
 
 
 class RomConvertoError(Exception): ...
@@ -66,40 +36,8 @@ class RomConvertoOperationError(RomConvertoError):
     """A conversion command exited nonzero."""
 
 
-@dataclass(frozen=True)
-class RomConvertoImages:
-    """The PNG images rom-converto read from a file."""
-
-    icon: bytes | None = None
-    banner: bytes | None = None
-    background: bytes | None = None
-
-
-@dataclass(frozen=True)
-class RomConvertoInfo:
-    # Rendered the way sigil renders the same platform's id, so either
-    # extractor can fill `Rom.title_id` interchangeably.
-    title_id: str | None = None
-    title_version: int | None = None
-    title: str | None = None
-    serial: str | None = None
-    # rom-converto's `ContentKind`: "game", "update", "dlc", "demo" or "system".
-    content_type: str | None = None
-    display_version: str | None = None
-    # RomM spellings where rom-converto's differ ("NorthAmerica" -> "USA").
-    regions: tuple[str, ...] = ()
-    # Regional variants folded ("AmericanEnglish" -> "English").
-    languages: tuple[str, ...] = ()
-    publisher: str | None = None
-    min_firmware_version: str | None = None
-    # None when the container can't tell.
-    is_compressed: bool | None = None
-    # Only when rom-converto names the method.
-    compression: str | None = None
-    # The format badge rom-converto's GUI shows (NSZ, CIA, RVZ, CHD, DISC, ...).
-    file_format: str | None = None
-    uncompressed_size_bytes: int | None = None
-    images: RomConvertoImages = field(default_factory=RomConvertoImages)
+# `xbox convert` keeps only a dump's game partition, so a library never stores its output.
+_LOSSY_ARGV: Final[frozenset[tuple[str, ...]]] = frozenset({("xbox", "convert")})
 
 
 @dataclass(frozen=True)
@@ -111,6 +49,10 @@ class Operation:
     argv: tuple[str, ...]
     input_exts: frozenset[str]
     output_ext: str
+
+    @property
+    def lossless(self) -> bool:
+        return self.argv not in _LOSSY_ARGV
 
     def output_name(self, src: Path, input_ext: str) -> str:
         """`src` renamed from the matched lowercase `input_ext` to the output extension."""
@@ -151,7 +93,7 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     _op("iso", _DVD_PLATFORMS, "cso decompress", ".cso .zso .dax", ".iso"),
     # CD-mode CHDs extract to .bin/.cue, so only DVD platforms get this.
     _op("iso", _DVD_PLATFORMS, "chd extract", ".chd", ".iso"),
-    _op("iso", _DVD_PLATFORMS | _CD_PLATFORMS, "cue to-iso", ".cue", ".iso"),
+    _op("iso", _DVD_PLATFORMS, "cue to-iso", ".cue", ".iso"),
     _op("iso", {UPS.PSP}, "psp to-iso", ".pbp", ".iso"),
     _op("cso", _DVD_PLATFORMS, "cso compress --format cso", ".iso", ".cso"),
     _op("cso", _DVD_PLATFORMS, "chd to-cso --format cso", ".chd", ".cso"),
@@ -177,29 +119,75 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     _op("zar", {UPS.XBOX360}, "xenon compress", ".iso", ".zar"),
 )
 
-# Platform slug -> the targets it can be configured with.
-TARGETS_BY_PLATFORM: Final[dict[str, frozenset[str]]] = {
-    slug: frozenset(op.target for op in OPERATIONS if slug in op.platforms)
-    for slug in sorted({slug for op in OPERATIONS for slug in op.platforms})
+# Targets that store the image as-is, so converting to one can grow the file.
+UNCOMPRESSED_TARGETS: Final[frozenset[str]] = frozenset(
+    {"cci", "cia", "iso", "nsp", "wbfs", "xci", "xiso"}
+)
+
+
+# Platform slug -> the targets a library can be stored in.
+LIBRARY_TARGETS_BY_PLATFORM: Final[dict[str, frozenset[str]]] = {
+    slug: frozenset(
+        op.target for op in OPERATIONS if slug in op.platforms and op.lossless
+    )
+    for slug in sorted(
+        {slug for op in OPERATIONS if op.lossless for slug in op.platforms}
+    )
 }
 
 
+def download_formats() -> dict[str, dict[str, list[str]]]:
+    """Platform slug -> input extension -> the targets a download of it can be converted to."""
+    table: dict[str, dict[str, set[str]]] = {}
+    for op in OPERATIONS:
+        for slug in op.platforms:
+            for ext in op.input_exts:
+                table.setdefault(slug, {}).setdefault(ext, set()).add(op.target)
+    return {
+        slug: {ext: sorted(targets) for ext, targets in sorted(exts.items())}
+        for slug, exts in sorted(table.items())
+    }
+
+
+# Extensions whose format goes by another name than the extension itself.
+_FORMAT_ALIASES: Final[dict[str, str]] = {
+    ".3ds": "cci",
+    ".gcm": "iso",
+    ".zcci": "z3ds",
+    ".zcia": "z3ds",
+    ".zcxi": "z3ds",
+}
+_KNOWN_EXTS: Final[frozenset[str]] = frozenset(
+    {ext for op in OPERATIONS for ext in (*op.input_exts, op.output_ext)}
+    | _FORMAT_ALIASES.keys()
+)
+
+
+def file_format(file_name: str) -> str:
+    """The format `file_name` is in, as a target name or its extension (`nkit-iso`)."""
+    name = file_name.lower()
+    ext = max((e for e in _KNOWN_EXTS if name.endswith(e)), key=len, default=None)
+    if ext is None:
+        return Path(name).suffix.lstrip(".")
+    return _FORMAT_ALIASES.get(ext, ext.lstrip(".").replace(".", "-"))
+
+
 def normalize_platform_formats(raw: dict[str, str]) -> dict[str, str]:
-    """`raw` with slugs and targets trimmed and lowercased.
+    """`raw` with slugs and library targets trimmed and lowercased.
 
     Raises:
-        ValueError: A platform has no conversions, or a target isn't one of them.
+        ValueError: A platform has no library targets, or a target isn't one of them.
     """
     cleaned = {
         str(slug).strip().lower(): str(target).strip().lower()
         for slug, target in raw.items()
     }
     for slug, target in cleaned.items():
-        targets = TARGETS_BY_PLATFORM.get(slug)
+        targets = LIBRARY_TARGETS_BY_PLATFORM.get(slug)
         if targets is None:
             raise ValueError(
-                f"rom-converto has no conversions for {slug!r}. "
-                f"Supported: {sorted(TARGETS_BY_PLATFORM)}."
+                f"rom-converto has no library formats for {slug!r}. "
+                f"Supported: {sorted(LIBRARY_TARGETS_BY_PLATFORM)}."
             )
         if target not in targets:
             raise ValueError(
@@ -210,13 +198,15 @@ def normalize_platform_formats(raw: dict[str, str]) -> dict[str, str]:
 
 
 def resolve_operation(
-    platform_slug: str, target: str, file_name: str
+    platform_slug: str, target: str, file_name: str, *, lossless: bool = False
 ) -> tuple[Operation, str] | None:
     """The operation and matched extension bringing `file_name` to `target`, or None if none applies."""
     name = file_name.lower()
     best: tuple[Operation, str] | None = None
     for op in OPERATIONS:
         if op.target != target or platform_slug not in op.platforms:
+            continue
+        if lossless and not op.lossless:
             continue
         for ext in op.input_exts:
             # Prefer the longer extension so `.nkit.iso` is not read as `.iso`.
@@ -270,494 +260,12 @@ def _kill(proc: asyncio.subprocess.Process) -> None:
         proc.kill()
 
 
-def _first_str(data: dict[str, Any], *keys: str) -> str | None:
-    for key in keys:
-        value = data.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return None
-
-
-def _dict(value: Any) -> dict[str, Any]:
-    return value if isinstance(value, dict) else {}
-
-
-def _image(value: Any) -> bytes | None:
-    """The PNG a rom-converto `Image` carries, or None if it holds none."""
-    png_bytes = _dict(value).get("png_bytes")
-    if not isinstance(png_bytes, list):
-        return None
-    try:
-        image = bytes(png_bytes)
-    except TypeError, ValueError:
-        return None
-    return image if image.startswith(_PNG_SIGNATURE) else None
-
-
-def _list(value: Any) -> list[Any]:
-    return value if isinstance(value, list) else []
-
-
-def _int(value: Any) -> int | None:
-    """The value when it is an int a signed BIGINT column holds, else None.
-
-    A corrupt header's u64 would otherwise overflow the column and fail the row.
-    """
-    if isinstance(value, bool) or not isinstance(value, int):
-        return None
-    return value if 0 <= value < 2**63 else None
-
-
-def _text(value: Any) -> str | None:
-    """The text on one line, clipped to the `rom_files` column width, or None if empty."""
-    if not isinstance(value, str):
-        return None
-    text = " ".join(value.replace("\x00", "").split())
-    return text[:_TEXT_MAX_LENGTH].rstrip() or None
-
-
-def _upper(value: Any) -> str | None:
-    text = _text(value)
-    return text.upper() if text else None
-
-
-def _version_tag(value: Any) -> str | None:
-    """`v<n>` for a numeric disc or ROM revision, else None."""
-    number = _int(value)
-    return None if number is None else f"v{number}"
-
-
-def _lang_key(language: Any) -> str:
-    """`AmericanEnglish` and `american_english` both as `americanenglish`."""
-    return "".join(str(language).split()).replace("_", "").lower()
-
-
-def _english_first(items: list[Any], language_of: Callable[[Any], Any]) -> Any:
-    """The American, plain, then British English item, else the first, or None if there is none."""
-    for key in ("americanenglish", "english", "britishenglish"):
-        for item in items:
-            if _lang_key(language_of(item)) == key:
-                return item
-    return items[0] if items else None
-
-
-def _row_language(row: Any) -> Any:
-    return _dict(row).get("language")
-
-
-def _entries(value: Any) -> list[list[Any]]:
-    """The `[language, text]` pairs of a rom-converto MultilingualString."""
-    entries = _list(_dict(value).get("entries"))
-    return [e for e in entries if isinstance(e, list) and len(e) >= 2]
-
-
-def _english_entry(value: Any) -> Any:
-    """The raw text of the MultilingualString entry `_english_first` picks, or None."""
-    entry = _english_first(_entries(value), lambda e: e[0])
-    return entry[1] if entry else None
-
-
-_REGION_ALIASES: Final[dict[str, str]] = {
-    "northamerica": "USA",
-    "north america": "USA",
-    "ntsc-u": "USA",
-    "pal": "Europe",
-    "rest of world": "Europe",
-    "regionfree": "World",
-    "ntsc-j japan": "Japan",
-    "ntsc-j china": "China",
-    "ntsc-j": "Asia",
-    "pal australia/new zealand": "Australia",
-}
-
-
-def _is_region(label: str) -> bool:
-    key = label.lower()
-    return key not in ("manufacturing", "other") and not key.startswith("unknown")
-
-
-def _regions(labels: Any) -> tuple[str, ...]:
-    """The region labels in RomM's spelling where rom-converto's differs, non-regions dropped."""
-    texts = (_text(label) for label in _list(labels))
-    return tuple(
-        _REGION_ALIASES.get(text.lower(), text)
-        for text in texts
-        if text and _is_region(text)
-    )
-
-
-_LANGUAGE_FOLDS: Final[dict[str, str]] = {
-    "americanenglish": "English",
-    "britishenglish": "English",
-    "canadianfrench": "French",
-    "latinamericanspanish": "Spanish",
-    "brazilianportuguese": "Portuguese",
-    "simplifiedchinese": "Chinese",
-    "traditionalchinese": "Chinese",
-    "taiwanesechinese": "Chinese",
-}
-
-
-def _languages(names: Any) -> tuple[str, ...]:
-    """The language names with regional variants folded.
-
-    A GameCube BNR1 banner's one slot is named `Default`, which is no language.
-    """
-    texts = (_text(name) for name in _list(names))
-    return tuple(
-        _LANGUAGE_FOLDS.get(_lang_key(text), text)
-        for text in texts
-        if text and _lang_key(text) != "default"
-    )
-
-
-# rom-converto's `ContentKind`, which `RomFileContentType` mirrors.
-_CONTENT_TYPES: Final[frozenset[str]] = frozenset(
-    {"game", "update", "dlc", "demo", "system"}
-)
-
-_SWITCH_CONTENT_TYPES: Final[dict[str, str]] = {
-    "application": "game",
-    "patch": "update",
-    "add_on_content": "dlc",
-    "delta": "update",
-    "system_program": "system",
-    "system_data": "system",
-    "system_update": "system",
-}
-
-
-def _content_type(value: Any) -> str | None:
-    return value if isinstance(value, str) and value in _CONTENT_TYPES else None
-
-
-def _switch_firmware(value: Any) -> str | None:
-    """The packed `required_system_version` as major.minor.micro, or None when unset."""
-    version = _int(value)
-    if not version:
-        return None
-    return f"{(version >> 26) & 0x3F}.{(version >> 20) & 0x3F}.{(version >> 16) & 0xF}"
-
-
-def _nintendo_disc(flat: dict[str, Any]) -> tuple[bool | None, str | None]:
-    """GameCube/Wii `(is_compressed, file_format)`: RVZ, WIA and GCZ compress, ISO shows as DISC."""
-    container = _upper(flat.get("container"))
-    if container is None:
-        return None, None
-    return container in ("RVZ", "WIA", "GCZ"), (
-        "DISC" if container == "ISO" else container
-    )
-
-
-def _nx_info(flat: dict[str, Any]) -> RomConvertoInfo:
-    """Switch; everything but the container comes from `full`, which needs prod.keys."""
-    control = _dict(flat.get("control"))
-    row = _dict(_english_first(_list(control.get("titles")), _row_language))
-    title_kind = flat.get("title_kind")
-    compressed = flat.get("is_compressed")
-    return RomConvertoInfo(
-        title=_text(row.get("name")),
-        content_type=(
-            _SWITCH_CONTENT_TYPES.get(title_kind)
-            if isinstance(title_kind, str)
-            else None
-        ),
-        display_version=_text(control.get("display_version")),
-        languages=_languages(control.get("supported_languages")),
-        publisher=_text(row.get("publisher")),
-        min_firmware_version=_switch_firmware(flat.get("required_system_version")),
-        is_compressed=compressed if isinstance(compressed, bool) else None,
-        compression="zstd" if compressed is True else None,
-        file_format=_upper(flat.get("container_kind")),
-        images=RomConvertoImages(icon=_image(control.get("icon"))),
-    )
-
-
-def _ctr_info(flat: dict[str, Any]) -> RomConvertoInfo:
-    smdh = _dict(flat.get("smdh"))
-    titles = _list(smdh.get("titles"))
-    row = _dict(_english_first(titles, _row_language))
-    compressed = flat.get("compressed")
-    file_format = _upper(flat.get("format"))
-    return RomConvertoInfo(
-        title=_text(row.get("long_description")) or _text(row.get("short_description")),
-        serial=_text(flat.get("product_code")),
-        content_type=_content_type(flat.get("content_kind")),
-        regions=_regions(smdh.get("region_names")),
-        languages=_languages([_row_language(title) for title in titles]),
-        publisher=_text(row.get("publisher")) or _text(flat.get("maker_name")),
-        is_compressed=compressed if isinstance(compressed, bool) else None,
-        compression="zstd" if compressed is True else None,
-        file_format=None if file_format == "UNKNOWN" else file_format,
-        images=RomConvertoImages(icon=_image(flat.get("icon"))),
-    )
-
-
-def _wup_info(flat: dict[str, Any]) -> RomConvertoInfo:
-    meta = _dict(flat.get("meta"))
-    # "nus", "loadiine", "disc (<partition>)" or "wua (<title>)".
-    source = (_text(flat.get("source_kind")) or "").split(" ")[0].lower()
-    return RomConvertoInfo(
-        title=_text(_english_entry(meta.get("long_names"))),
-        serial=_text(meta.get("product_code")),
-        content_type=_content_type(flat.get("content_kind")),
-        regions=_regions(meta.get("region_names")),
-        languages=_languages([e[0] for e in _entries(meta.get("long_names"))]),
-        publisher=_text(_english_entry(meta.get("publishers")))
-        or _text(meta.get("company_name")),
-        # A .wux disc is compressed and a .wud is not, yet both read as "disc".
-        is_compressed={"wua": True, "nus": False, "loadiine": False}.get(source),
-        file_format=source.upper() or None,
-        images=RomConvertoImages(icon=_image(flat.get("image"))),
-    )
-
-
-def _dol_info(flat: dict[str, Any]) -> RomConvertoInfo:
-    titles = _list(_dict(flat.get("banner")).get("titles"))
-    row = _dict(_english_first(titles, _row_language))
-    is_compressed, file_format = _nintendo_disc(flat)
-    return RomConvertoInfo(
-        title=_text(row.get("long_game_name"))
-        or _text(row.get("short_game_name"))
-        or _text(flat.get("game_name")),
-        serial=_text(flat.get("game_id")),
-        content_type="game",
-        display_version=_version_tag(flat.get("disc_version")),
-        regions=_regions([flat.get("region")]),
-        # A BNR2 banner lists all six slots, filled or not.
-        languages=_languages(
-            [
-                _row_language(title)
-                for title in titles
-                if _text(_dict(title).get("long_game_name"))
-                or _text(_dict(title).get("short_game_name"))
-            ]
-        ),
-        publisher=_text(row.get("long_maker")) or _text(flat.get("maker_name")),
-        is_compressed=is_compressed,
-        file_format=file_format,
-        images=RomConvertoImages(banner=_image(flat.get("banner_image"))),
-    )
-
-
-def _rvl_info(flat: dict[str, Any]) -> RomConvertoInfo:
-    tmd = _dict(flat.get("tmd"))
-    is_compressed, file_format = _nintendo_disc(flat)
-    return RomConvertoInfo(
-        title=_text(_english_entry(flat.get("imet_names")))
-        or _text(flat.get("game_name")),
-        serial=_text(flat.get("game_id")),
-        content_type="game",
-        display_version=_version_tag(
-            tmd.get("title_version") if tmd else flat.get("disc_version")
-        ),
-        regions=_regions([flat.get("region")]),
-        languages=_languages([e[0] for e in _entries(flat.get("imet_names"))]),
-        publisher=_text(flat.get("maker_name")),
-        is_compressed=is_compressed,
-        file_format=file_format,
-        # The opening.bnr banner, not an icon.
-        images=RomConvertoImages(banner=_image(flat.get("image"))),
-    )
-
-
-def _ntr_info(flat: dict[str, Any]) -> RomConvertoInfo:
-    """DS; the banner text holds the title, an optional subtitle, then the publisher, one per line."""
-    banner = _english_entry(_dict(flat.get("banner")).get("titles"))
-    text = banner if isinstance(banner, str) else ""
-    lines = [line for line in map(_text, text.splitlines()) if line]
-    return RomConvertoInfo(
-        title=lines[0] if lines else _text(flat.get("game_title")),
-        serial=_text(flat.get("game_code")),
-        content_type="game",
-        display_version=_version_tag(flat.get("rom_version")),
-        publisher=lines[-1] if len(lines) > 1 else None,
-        is_compressed=False,
-        file_format="NDS",
-        # The icon lives in the banner block, but it is the 32x32 game icon.
-        images=RomConvertoImages(icon=_image(_dict(flat.get("banner")).get("icon"))),
-    )
-
-
-def _xbox_info(flat: dict[str, Any]) -> RomConvertoInfo:
-    """Xbox and Xbox 360 disc images; an original Xbox game carries `xbe`, a 360 one `xex`."""
-    xbe, xex = _dict(flat.get("xbe")), _dict(flat.get("xex"))
-    header = xbe or xex
-    # An XBE version is a plain integer, an XEX one a dotted string.
-    version = header.get("version")
-    return RomConvertoInfo(
-        title=_text(xbe.get("title_name")) or _text(xex.get("title_name")),
-        serial=_text(xbe.get("title_id_code")),
-        content_type="game",
-        display_version=str(version) if _int(version) is not None else _text(version),
-        regions=_regions(header.get("region_names")),
-        is_compressed=False,
-        file_format="DISC",
-        images=RomConvertoImages(icon=_image(header.get("icon"))),
-    )
-
-
-def _xenon_info(flat: dict[str, Any]) -> RomConvertoInfo:
-    """An Xbox 360 ZArchive."""
-    xex = _dict(flat.get("xex"))
-    compressed_size = _int(flat.get("compressed_size"))
-    logical_size = _int(flat.get("logical_size"))
-    return RomConvertoInfo(
-        title=_text(xex.get("title_name")),
-        content_type="game",
-        display_version=_text(xex.get("version")),
-        regions=_regions(xex.get("region_names")),
-        is_compressed=(
-            None
-            if compressed_size is None or logical_size is None
-            else compressed_size < logical_size
-        ),
-        file_format="ZAR",
-        uncompressed_size_bytes=logical_size,
-        images=RomConvertoImages(icon=_image(xex.get("icon"))),
-    )
-
-
-def _sony_disc_info(flat: dict[str, Any]) -> RomConvertoInfo:
-    """PS1, PS2, PSP and PS3 disc images, whose title id is the serial."""
-    return RomConvertoInfo(
-        title=_text(flat.get("title")),
-        serial=_text(flat.get("title_id")),
-        content_type=_content_type(flat.get("content_kind")) or "game",
-        display_version=_text(flat.get("version")),
-        regions=_regions([flat.get("region")]),
-        min_firmware_version=_text(flat.get("firmware")),
-        is_compressed=False,
-        file_format="DISC",
-        images=RomConvertoImages(
-            icon=_image(flat.get("icon")),
-            background=_image(flat.get("background")),
-        ),
-    )
-
-
-def _pbp_info(flat: dict[str, Any]) -> RomConvertoInfo:
-    return RomConvertoInfo(
-        title=_text(flat.get("title")),
-        serial=_text(flat.get("disc_id")),
-        content_type=_content_type(flat.get("content_kind")),
-        display_version=_text(flat.get("disc_version")),
-        min_firmware_version=_text(flat.get("psp_system_ver")),
-        file_format="EBOOT.PBP",
-        images=RomConvertoImages(icon=_image(flat.get("icon"))),
-    )
-
-
-def _psn_package_info(flat: dict[str, Any], file_format: str) -> RomConvertoInfo:
-    """Vita VPKs and PS3/PSP/Vita PKGs, whose content id is the serial."""
-    return RomConvertoInfo(
-        title=_text(flat.get("title")),
-        serial=_text(flat.get("content_id")),
-        content_type=_content_type(flat.get("content_kind")),
-        display_version=_text(flat.get("app_ver")),
-        file_format=file_format,
-        images=RomConvertoImages(
-            icon=_image(flat.get("icon")),
-            background=_image(flat.get("background")),
-        ),
-    )
-
-
-# Kinds outside this map only get the title id their payload carries, if any.
-_KIND_PARSERS: Final[dict[str, Callable[[dict[str, Any]], RomConvertoInfo]]] = {
-    "nx": _nx_info,
-    "ctr": _ctr_info,
-    "wup": _wup_info,
-    "dol": _dol_info,
-    "rvl": _rvl_info,
-    "ntr": _ntr_info,
-    "xbox": _xbox_info,
-    "xenon": _xenon_info,
-    "psx": _sony_disc_info,
-    "psp": _sony_disc_info,
-    "ps3": _sony_disc_info,
-    "pbp": _pbp_info,
-    "vpk": lambda flat: _psn_package_info(flat, "VPK"),
-    "pkg": lambda flat: _psn_package_info(flat, "PKG"),
-}
-
-
-def _container_info(kind: str, payload: dict[str, Any]) -> RomConvertoInfo:
-    """CHD and CSO: the nested disc's info with the container's own fields on top."""
-    content = payload.get("content")
-    # rom-converto only nests a PS1/PS2 or PSP disc here.
-    disc = (
-        _parse_info(content)
-        if isinstance(content, dict) and content.get("kind") not in ("chd", "cso")
-        else RomConvertoInfo()
-    )
-    if kind == "chd":
-        compressors = _list(payload.get("compressors"))
-        names = [name for name in map(_text, compressors) if name]
-        return replace(
-            disc,
-            is_compressed=bool(names),
-            compression=_text(", ".join(names)),
-            file_format="CHD",
-            uncompressed_size_bytes=_int(payload.get("logical_bytes")),
-        )
-    return replace(
-        disc,
-        is_compressed=True,
-        compression=None,
-        file_format=_upper(payload.get("format")),
-        uncompressed_size_bytes=_int(payload.get("uncompressed_size")),
-    )
-
-
-def _title_id(kind: str, flat: dict[str, Any]) -> str | None:
-    if kind in ("dol", "rvl"):
-        # Sigil keys GameCube and Wii by the hex-encoded 4-char game id.
-        game_id = flat.get("game_id")
-        if isinstance(game_id, str) and len(game_id) >= 4:
-            return game_id[:4].encode("ascii", "replace").hex().upper()
-        return None
-    if kind == "wup":
-        title_id_hex = flat.get("title_id_hex")
-        return title_id_hex[-8:] if isinstance(title_id_hex, str) else None
-    if kind == "xbox":
-        # An Xbox 360 disc image carries only the `xex` header, keyed by hex.
-        return _first_str(flat, "title_id_code", "title_id_hex")
-    if kind == "xenon":
-        return _first_str(flat, "title_id_hex")
-    return _first_str(flat, "application_title_id_hex", "title_id", "game_code")
-
-
-def _parse_info(payload: dict[str, Any]) -> RomConvertoInfo:
-    kind = str(payload.get("kind") or "")
-    if kind in ("chd", "cso"):
-        # Their own `version` and `kind` would shadow the disc's inside `content`.
-        return _container_info(kind, payload)
-    # Consoles nest their header (Xbox `xbe`, 360 `xex`, Switch `full`, the Wii
-    # `tmd` holding its title version); top-level keys win on conflict.
-    flat = dict(payload)
-    for key in ("xbe", "xex", "full", "tmd"):
-        nested = payload.get(key)
-        if isinstance(nested, dict):
-            flat = {**nested, **flat}
-    parser = _KIND_PARSERS.get(kind)
-    return replace(
-        parser(flat) if parser else RomConvertoInfo(),
-        title_id=_title_id(kind, flat),
-        title_version=_int(flat.get("title_version")),
-    )
-
-
 class RomConvertoService:
-    """Service to inspect and convert ROMs using the rom-converto CLI."""
+    """Service to convert ROMs using the rom-converto CLI."""
 
     def __init__(self) -> None:
         self._available: bool | None = None
-        # None when the manifest predates `info_extensions`: inspect everything.
-        self._info_extensions: frozenset[str] | None = None
         self._probe_lock = asyncio.Lock()
-        # Each conversion reads and writes whole disc images.
-        self._convert_semaphore = asyncio.Semaphore(ROM_CONVERTO_MAX_CONCURRENCY)
 
     async def is_enabled(self) -> bool:
         if not ROM_CONVERTO_ENABLED:
@@ -790,73 +298,16 @@ class RomConvertoService:
             if not isinstance(manifest, dict):
                 manifest = {}
             version = manifest.get("version") or "unknown version"
-            extensions = manifest.get("info_extensions")
-            if isinstance(extensions, list):
-                self._info_extensions = frozenset(
-                    f".{ext.lower()}" for ext in extensions if isinstance(ext, str)
-                )
             log.info(
                 f"Detected {hl('rom-converto', color=LIGHTMAGENTA)} {hl(str(version))}"
             )
             self._available = True
             return True
 
-    def can_inspect(self, path: Path) -> bool:
-        """Whether `info` recognizes this file's extension."""
-        if self._info_extensions is None:
-            return True
-        return path.suffix.lower() in self._info_extensions
-
-    async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]:
-        """Inspect files in one `info --paths-file` run, keyed by the paths it recognized; never raises."""
-        # The paths file is line-based, so a name holding a newline can't be listed.
-        paths = [p for p in paths if "\n" not in str(p)]
-        if not paths:
-            return {}
-        log.debug(
-            f"Executing {hl('rom-converto', color=LIGHTMAGENTA)} info on {len(paths)} file(s)"
-        )
-        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as fh:
-            fh.write("".join(f"{p}\n" for p in paths))
-        try:
-            code, stdout, stderr = await _run(
-                ["info", "--json", "--paths-file", fh.name], ROM_CONVERTO_TIMEOUT
-            )
-        except (RomConvertoError, OSError) as exc:
-            log.warning(f"rom-converto info failed: {exc}")
-            return {}
-        finally:
-            os.unlink(fh.name)
-        if code != 0:
-            log.warning(f"rom-converto info failed (code {code}): {_tail(stderr)}")
-            return {}
-        try:
-            records = json.loads(stdout)
-        except json.JSONDecodeError:
-            log.warning("rom-converto info returned non-JSON output")
-            return {}
-        if not isinstance(records, list):
-            return {}
-
-        infos: dict[Path, RomConvertoInfo] = {}
-        for record in records:
-            if not isinstance(record, dict):
-                continue
-            payload = record.get("info")
-            if record.get("ok") and isinstance(payload, dict):
-                infos[Path(str(record.get("path")))] = _parse_info(payload)
-            else:
-                log.debug(
-                    f"rom-converto did not recognize {record.get('path')}: "
-                    f"{record.get('error')}"
-                )
-        return infos
-
     async def convert(self, operation: Operation, src: Path, out: Path) -> None:
         """Run `operation` on `src`, writing `out`."""
         argv = [*operation.argv, str(src), str(out)]
-        async with self._convert_semaphore:
-            code, stdout, stderr = await _run(argv, ROM_CONVERTO_TIMEOUT)
+        code, stdout, stderr = await _run(argv, ROM_CONVERTO_TIMEOUT)
         if code != 0:
             diagnostic = _tail(stderr) or _tail(stdout)
             raise RomConvertoOperationError(

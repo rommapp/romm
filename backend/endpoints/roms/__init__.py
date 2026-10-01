@@ -121,6 +121,7 @@ from models.rom import (
     PINNED_MEDIA_MAX_ITEMS,
     TITLE_ID_MAX_LENGTH,
     Rom,
+    RomFile,
     RomIdentity,
     RomUserStatus,
     SaveTargetLayout,
@@ -129,7 +130,13 @@ from models.rom import (
 )
 from utils import switch
 from utils.background_tasks import fire_and_forget
-from utils.conversion_cache import get_redirect_path, resolve_converted_download
+from utils.conversion_cache import (
+    RETRY_AFTER_SECONDS,
+    FormatOutcome,
+    get_redirect_path,
+    parse_formats,
+    resolve_format_download,
+)
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
@@ -1301,21 +1308,86 @@ def get_rom(
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
-ConvertedQuery = Annotated[
-    bool,
+CONTENT_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_202_ACCEPTED: {
+        "description": "The requested format is converting; retry after Retry-After."
+    },
+    status.HTTP_404_NOT_FOUND: {},
+    status.HTTP_406_NOT_ACCEPTABLE: {
+        "description": "No requested format can be served for this download."
+    },
+}
+
+FormatQuery = Annotated[
+    str | None,
     Query(
-        description="Serve a single-file rom in the format the admin configured "
-        "for its platform, when download conversion is enabled. Falls back to "
-        "the original file whenever a converted copy can't be served."
+        alias="format",
+        description="Comma-separated formats the client can read, such as "
+        "`zso,iso`. The stored file is served when its format is listed, else "
+        "a converted copy: 202 with Retry-After while it converts, 406 when no "
+        "listed format can be produced. Single-file downloads only.",
     ),
 ]
+
+
+async def _negotiate_format(
+    request: Request,
+    rom: Rom,
+    files: list[RomFile],
+    raw_formats: str | None,
+    *,
+    start: bool,
+) -> Response | None:
+    """The response a `?format=` download gets, or None to serve the stored file."""
+    formats = parse_formats(raw_formats or "")
+    if not formats:
+        return None
+    if len(files) != 1:
+        raise HTTPException(
+            status_code=status.HTTP_406_NOT_ACCEPTABLE,
+            detail="A format can only be requested for a single file",
+        )
+
+    file = files[0]
+    # DISABLE_DOWNLOAD_ENDPOINT_AUTH and KIOSK_MODE open this route to visitors,
+    # and a conversion is minutes of CPU.
+    allowed = request.user.is_authenticated and not request.user.is_kiosk_guest
+    resolution = await resolve_format_download(
+        rom, file, formats, allowed=allowed, start=start, touch=start
+    )
+    if resolution.outcome == FormatOutcome.ORIGINAL:
+        return None
+    if resolution.outcome == FormatOutcome.PENDING:
+        return Response(
+            status_code=status.HTTP_202_ACCEPTED,
+            headers={"Retry-After": str(RETRY_AFTER_SECONDS)},
+        )
+    if resolution.outcome == FormatOutcome.UNAVAILABLE or resolution.path is None:
+        raise HTTPException(
+            status_code=status.HTTP_406_NOT_ACCEPTABLE,
+            detail=f"{file.file_name} can't be served as {', '.join(formats)}",
+        )
+
+    converted = resolution.path
+    if DEV_MODE:
+        return FileResponse(
+            path=converted,
+            filename=converted.name,
+            headers={
+                "Content-Disposition": content_disposition(converted.name),
+                "Content-Type": "application/octet-stream",
+            },
+        )
+    return FileRedirectResponse(
+        download_path=get_redirect_path(converted), filename=converted.name
+    )
 
 
 @protected_route(
     router.head,
     "/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses=CONTENT_RESPONSES,
 )
 async def head_rom_content(
     request: Request,
@@ -1327,7 +1399,7 @@ async def head_rom_content(
             description="Comma-separated list of file ids to download for multi-part roms."
         ),
     ] = None,
-    converted: ConvertedQuery = False,
+    formats: FormatQuery = None,
 ) -> Response:
     """Retrieve head information for a rom file download."""
 
@@ -1349,6 +1421,10 @@ async def head_rom_content(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No files found for ROM {id}",
         )
+
+    # Report what a GET would serve, but never start a conversion.
+    if negotiated := await _negotiate_format(request, rom, files, formats, start=False):
+        return negotiated
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
@@ -1379,18 +1455,6 @@ async def head_rom_content(
 
     # Otherwise proxy through nginx
     if len(files) == 1:
-        # Report a cached conversion, but never start one: HEAD may be
-        # unauthenticated and a conversion is minutes of CPU.
-        converted_path = (
-            await resolve_converted_download(rom, files[0], start_conversion=False)
-            if converted
-            else None
-        )
-        if converted_path:
-            return FileRedirectResponse(
-                download_path=get_redirect_path(converted_path),
-                filename=converted_path.name,
-            )
         return FileRedirectResponse(
             download_path=Path(f"/library/{files[0].full_path}"),
         )
@@ -1422,7 +1486,7 @@ async def head_rom_content(
     router.get,
     "/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses=CONTENT_RESPONSES,
 )
 async def get_rom_content(
     request: Request,
@@ -1441,7 +1505,7 @@ async def get_rom_content(
             "recorded as a player load rather than a download."
         ),
     ] = "download",
-    converted: ConvertedQuery = False,
+    formats: FormatQuery = None,
 ) -> Response:
     """Download a rom.
 
@@ -1506,6 +1570,13 @@ async def get_rom_content(
             ),
         )
         return response
+
+    if negotiated := await _negotiate_format(request, rom, files, formats, start=True):
+        return (
+            served(negotiated)
+            if negotiated.status_code == status.HTTP_200_OK
+            else negotiated
+        )
 
     m3u_files = playlist_files(files)
 
@@ -1595,26 +1666,9 @@ async def get_rom_content(
 
     # Otherwise proxy through nginx
     if len(files) == 1:
-        file = files[0]
-        # Only an authenticated caller may spend minutes of CPU on a
-        # conversion, since DISABLE_DOWNLOAD_ENDPOINT_AUTH opens this route.
-        converted_path = (
-            await resolve_converted_download(
-                rom, file, start_conversion=request.user.is_authenticated
-            )
-            if converted
-            else None
-        )
-        if converted_path:
-            return served(
-                FileRedirectResponse(
-                    download_path=get_redirect_path(converted_path),
-                    filename=converted_path.name,
-                )
-            )
         return served(
             FileRedirectResponse(
-                download_path=Path(f"/library/{file.full_path}"),
+                download_path=Path(f"/library/{files[0].full_path}"),
             )
         )
 

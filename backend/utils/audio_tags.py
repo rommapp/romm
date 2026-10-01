@@ -354,8 +354,8 @@ def persist_embedded_cover(
 
 
 def remove_persisted_cover(cover_path: str | None) -> bool:
-    """Delete a persisted soundtrack cover or rom file image (relative path
-    under RESOURCES_BASE_PATH). Silently ignores missing files.
+    """Delete a persisted soundtrack cover (relative path under
+    RESOURCES_BASE_PATH). Silently ignores missing files.
 
     Returns whether the file is gone, so a caller that is about to drop the
     only reference to it can keep that reference and retry later instead.

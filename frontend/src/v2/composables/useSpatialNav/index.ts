@@ -3,7 +3,10 @@
 // The grids listen on `document`, which an event reaches before `window`.
 import { onBeforeUnmount } from "vue";
 import storePlaying from "@/stores/playing";
-import { hasOpenEscapable } from "@/v2/lib/overlays/RDialog/escapeStack";
+import {
+  hasOpenEscapable,
+  topEscapablePanel,
+} from "@/v2/lib/overlays/RDialog/escapeStack";
 import {
   ARROW_DIRECTIONS,
   FOCUSABLE_SELECTOR,
@@ -77,10 +80,14 @@ function isInView(el: HTMLElement): boolean {
   return !hit || el.contains(hit) || hit.contains(el);
 }
 
-/** Moves focus from `from` to the nearest control in `dir`, if any. */
-export function moveFocus(from: HTMLElement, dir: SpatialDirection): boolean {
+/** Moves focus from `from` to the nearest control in `dir` under `scope`. */
+export function moveFocus(
+  from: HTMLElement,
+  dir: SpatialDirection,
+  scope: ParentNode = document,
+): boolean {
   const candidates = Array.from(
-    document.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+    scope.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
   )
     .filter((el) => el !== from && !el.contains(from) && isNavigable(el))
     .map((el) => ({ item: el, box: el.getBoundingClientRect() }));
@@ -117,13 +124,20 @@ export function useSpatialNav() {
       const dir = ARROW_DIRECTIONS[e.key];
       if (!dir || e.defaultPrevented) return;
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-      // A running game reads the arrows itself, and an open overlay keeps
-      // focus inside its own panel.
-      if (playingStore.playing || hasOpenEscapable()) return;
       const active = document.activeElement;
       if (!(active instanceof HTMLElement) || active === document.body) return;
       if (ownsArrowKeys(active)) return;
-      if (moveFocus(active, dir)) e.preventDefault();
+      // An open overlay, a dialog over a game included, keeps focus inside
+      // its own panel; otherwise a running game reads the arrows itself.
+      let scope: ParentNode = document;
+      if (hasOpenEscapable()) {
+        const panel = topEscapablePanel();
+        if (!panel?.contains(active)) return;
+        scope = panel;
+      } else if (playingStore.playing) {
+        return;
+      }
+      if (moveFocus(active, dir, scope)) e.preventDefault();
     }
 
     window.addEventListener("keydown", onKey);

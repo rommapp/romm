@@ -26,7 +26,9 @@
 // Two contexts suppress this translation:
 //   * Game running (storePlaying.playing): the emulator reads the pad
 //     itself, so all translation is off. Otherwise B (shared by Circle /
-//     Nintendo-A in the standard mapping) would quit the game.
+//     Nintendo-A in the standard mapping) would quit the game. Holding
+//     Select+Start instead fires `gamepad:exitchord`; a player opts into
+//     a pad exit by listening for it.
 //   * Controller-test screen (ACTIONS_DISABLED_PATHS): built-in actions
 //     are muted so every button can be pressed and inspected in place.
 import { onBeforeUnmount } from "vue";
@@ -51,6 +53,8 @@ const ACTIONS_DISABLED_PATHS = new Set<string>(["/controller-debug"]);
 const INITIAL_DELAY_MS = 350;
 const REPEAT_MS = 120;
 export const AXIS_THRESHOLD = 0.5;
+// Outlasts anything a game itself binds to Select+Start.
+export const EXIT_CHORD_HOLD_MS = 1500;
 
 // Short symbolic name → W3C standard-mapping button index, so a view can
 // read raw pad state without memorising indices. Exhaustive over the standard
@@ -92,6 +96,7 @@ export interface GamepadButtonEventDetail {
 declare global {
   interface WindowEventMap {
     "gamepad:buttondown": CustomEvent<GamepadButtonEventDetail>;
+    "gamepad:exitchord": Event;
   }
 }
 
@@ -121,6 +126,15 @@ const BUTTON_MAP: Record<number, Binding | undefined> = {
 // firing index-based actions with no user input. #3851.
 export function isUsablePad(pad: Gamepad | null): pad is Gamepad {
   return pad !== null && pad.connected;
+}
+
+// Other mappings don't guarantee the Back/Start indices.
+function holdsExitChord(pad: Gamepad): boolean {
+  return (
+    pad.mapping === "standard" &&
+    !!pad.buttons[PAD_BUTTON.back]?.pressed &&
+    !!pad.buttons[PAD_BUTTON.start]?.pressed
+  );
 }
 
 function dispatchKey(binding: Binding) {
@@ -242,6 +256,10 @@ export function useGamepad() {
     const { setModality } = useInputModality();
     let rafId = 0;
     let everSawPad = false;
+    let chordHeldSince: number | null = null;
+    // Cleared only on release, so a chord still held after its dialog is
+    // cancelled doesn't reopen it.
+    let chordFired = false;
 
     const onAnyInput = () => setModality("pad");
     const onConnect = () => setModality("pad");
@@ -285,10 +303,12 @@ export function useGamepad() {
       // On the controller-test screen the built-in actions are muted so
       // every button can be pressed and inspected without side effects.
       const actionsDisabled = ACTIONS_DISABLED_PATHS.has(route.path);
+      let chordHeld = false;
 
       for (const pad of pads) {
         // Skip disconnected phantom gamepads.
         if (!isUsablePad(pad)) continue;
+        chordHeld ||= holdsExitChord(pad);
         const key = `${pad.index}:${pad.id}`;
         const st = (states[key] ||= {
           buttons: {},
@@ -350,6 +370,20 @@ export function useGamepad() {
             prev.pressed = false;
             prev.nextRepeatAt = 0;
           }
+        }
+      }
+
+      // B is muted during play, so a long Select+Start hold is the pad's exit.
+      if (!chordHeld) {
+        chordHeldSince = null;
+        chordFired = false;
+      } else if (!gameOwnsInput) {
+        chordHeldSince = null;
+      } else if (!chordFired) {
+        chordHeldSince ??= t;
+        if (t - chordHeldSince >= EXIT_CHORD_HOLD_MS) {
+          chordFired = true;
+          window.dispatchEvent(new Event("gamepad:exitchord"));
         }
       }
 

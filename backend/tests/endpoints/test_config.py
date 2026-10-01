@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -268,18 +269,21 @@ def test_update_scan_settings_normalizes_codes(client, access_token: str):
 def _converto_payload(**overrides):
     payload = {
         "download_conversion_enabled": True,
-        "scan_metadata": True,
-        "cache_ttl_hours": 24,
         "cache_max_size_gb": 20,
-        "max_sync_size_mb": 512,
         "platform_formats": {"psp": "cso"},
     }
     payload.update(overrides)
     return payload
 
 
-def test_update_converto_settings_normalizes_formats(client, access_token: str):
-    with patch.object(cm, "update_converto_settings") as update_converto_settings:
+def test_update_converto_settings_normalizes_formats_and_keeps_the_ttl(
+    client, access_token: str
+):
+    current = SimpleNamespace(CONVERTO=ConvertoConfig(cache_ttl_hours=72))
+    with (
+        patch.object(cm, "get_config", return_value=current),
+        patch.object(cm, "update_converto_settings") as update_converto_settings,
+    ):
         response = client.put(
             "/api/config/converto_settings",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -290,10 +294,8 @@ def test_update_converto_settings_normalizes_formats(client, access_token: str):
     update_converto_settings.assert_called_once_with(
         ConvertoConfig(
             download_conversion_enabled=True,
-            scan_metadata=True,
-            cache_ttl_hours=24,
+            cache_ttl_hours=72,
             cache_max_size_gb=20,
-            max_sync_size_mb=512,
             platform_formats={"psp": "cso"},
         )
     )
@@ -309,9 +311,8 @@ def test_update_converto_settings_requires_auth(client):
     [
         {"platform_formats": {"psp": "rvz"}},
         {"platform_formats": {"psvita": "iso"}},
-        {"cache_ttl_hours": 0},
+        {"platform_formats": {"xbox": "xiso"}},
         {"cache_max_size_gb": -1},
-        {"max_sync_size_mb": -1},
     ],
 )
 def test_update_converto_settings_rejects_invalid_values(

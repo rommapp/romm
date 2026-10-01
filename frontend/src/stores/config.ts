@@ -53,13 +53,12 @@ const defaultConfig = {
   PEGASUS_AUTO_EXPORT_ON_SCAN: false,
   CONVERTO: {
     download_conversion_enabled: false,
-    scan_metadata: true,
     cache_ttl_hours: 24,
     cache_max_size_gb: 20,
-    max_sync_size_mb: 512,
     platform_formats: {},
   },
-  CONVERTO_TARGETS: {},
+  CONVERTO_LIBRARY_TARGETS: {},
+  CONVERTO_DOWNLOAD_FORMATS: {},
 } as ConfigResponse;
 
 export default defineStore("config", {

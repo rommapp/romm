@@ -74,6 +74,11 @@ export function onEscapableOpen(listener: () => void): () => void {
   return () => openListeners.delete(listener);
 }
 
+/** The topmost overlay's panel; null when none is open or it has no panel. */
+export function topEscapablePanel(): HTMLElement | null {
+  return stack[stack.length - 1]?.panel?.() ?? null;
+}
+
 /** True when `el` is covered by the topmost overlay rather than living
  *  inside it. A panel-less entry has no opinion and covers nothing. */
 export function isUnderOpenEscapable(el: Node | null): boolean {

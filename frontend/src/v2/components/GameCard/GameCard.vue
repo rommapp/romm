@@ -114,7 +114,8 @@ interface Props {
    *  (cover-variant picker, multi-select gallery). When `selectable`
    *  is true this prop is ignored: the card subscribes directly to
    *  `gallerySelection` so a single source of truth (the store)
-   *  drives every selected card across the gallery. */
+   *  drives every selected card across the gallery. Left unset, a static
+   *  card gets no `aria-pressed`. */
   selected?: boolean;
   /** Opt the card into the gallery's multi-select store. When true:
    *  the card reads its selected state from `gallerySelection`,
@@ -142,7 +143,7 @@ const props = withDefaults(defineProps<Props>(), {
   showTitle: true,
   coverSrc: undefined,
   coverPip: false,
-  selected: false,
+  selected: undefined,
   selectable: false,
   position: undefined,
 });
@@ -290,13 +291,9 @@ const showCheckbox = computed(
 const checkboxAlwaysOn = computed(
   () => props.selectable && !props.decorative && selectionStore.enabled,
 );
-
 function onCheckboxClick(e: MouseEvent) {
-  // The checkbox itself is a deliberate selection gesture. We bind
-  // RCheckbox in "controlled" mode (only `:model-value`: no v-model),
-  // so the native input change is purely visual; `preventDefault`
-  // here cancels the label → input click default so the input never
-  // toggles itself, and our store mutation drives the next render.
+  // The box is decorative and the store drives its state. Stop the click
+  // here so the enclosing link doesn't navigate.
   e.preventDefault();
   e.stopPropagation();
   if (props.position == null) return;
@@ -339,13 +336,21 @@ function onCardPointerDown(e: PointerEvent) {
   selectionInput.handlePointerDown(props.rom, props.position, e);
 }
 
-function onStaticKeydown(e: KeyboardEvent) {
-  // Enter / Space activate the card when it's rendered as a plain
-  // <article role="button"> instead of a router-link.
-  if (e.key === "Enter" || e.key === " ") {
+function onCardKeydown(e: KeyboardEvent) {
+  if (props.decorative || (e.key !== "Enter" && e.key !== " ")) return;
+  // A static card is an <article role="button">, so Enter / Space activate it.
+  if (props.static) {
     e.preventDefault();
     emit("click", e as unknown as MouseEvent);
+    return;
   }
+  // Space on the card selects it, Shift+Space the range from the last one
+  // toggled. Keys from the card's own buttons are theirs.
+  if (e.key !== " " || e.target !== e.currentTarget) return;
+  if (!props.selectable || props.position == null) return;
+  e.preventDefault();
+  if (e.shiftKey) selectionInput.handleActivate(props.rom, props.position, e);
+  else selectionStore.toggle(props.rom, props.position);
 }
 
 // Reverse-morph (paint the view-transition-name when GameDetails is
@@ -375,21 +380,13 @@ function onStaticKeydown(e: KeyboardEvent) {
     ]"
     :style="{ '--r-cover-ratio': coverAspectRatio }"
     :aria-label="decorative ? undefined : title"
-    :aria-pressed="
-      decorative
-        ? undefined
-        : static
-          ? selected
-          : selectable
-            ? isSelected
-            : undefined
-    "
+    :aria-pressed="static && !decorative ? selected : undefined"
     :data-rom-id="rom.id"
     :data-rom-position="selectable ? position : undefined"
     :data-focus-key="!decorative && !static ? `rom-${rom.id}` : undefined"
     @click.capture="onCardClickCapture"
     @click="onCardClick"
-    @keydown="static && !decorative ? onStaticKeydown($event) : undefined"
+    @keydown="onCardKeydown"
     @mouseenter="onCoverEnter"
     @mouseleave="onCoverLeave"
     @focus="onCoverFocus"
@@ -426,7 +423,7 @@ function onStaticKeydown(e: KeyboardEvent) {
         color="primary"
         bare
         hide-details
-        tabindex="-1"
+        decorative
         @click="onCheckboxClick"
       />
 
