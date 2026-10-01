@@ -4,6 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, ref } from "vue";
 import storePlaying from "@/stores/playing";
 import { useGridNav } from "@/v2/composables/useGridNav";
+import {
+  type EscapableEntry,
+  popEscapable,
+  pushEscapable,
+} from "@/v2/lib/overlays/RDialog/escapeStack";
 import { useSpatialNav } from "./index";
 
 vi.mock("vue-router", () => ({
@@ -86,7 +91,38 @@ describe("useSpatialNav", () => {
     wrapper = mount(Page, { attachTo: document.body });
   });
 
+  // A dialog below the page with Cancel and Confirm side by side.
+  let dialog: EscapableEntry | null = null;
+  let dialogPanel: HTMLElement | null = null;
+  function openDialog(withPanel = true): void {
+    const panel = document.createElement("div");
+    for (const [id, x] of [
+      ["cancel", 0],
+      ["confirm", 100],
+    ] as const) {
+      const button = document.createElement("button");
+      button.id = id;
+      button.dataset.x = String(x);
+      button.dataset.y = "600";
+      panel.append(button);
+    }
+    document.body.append(panel);
+    dialogPanel = panel;
+    dialog = {
+      close: () => {},
+      persistent: true,
+      panel: withPanel ? () => panel : undefined,
+    };
+    pushEscapable(dialog);
+  }
+
   afterEach(() => {
+    if (dialog) {
+      popEscapable(dialog);
+      dialog = null;
+    }
+    dialogPanel?.remove();
+    dialogPanel = null;
     wrapper?.unmount();
     wrapper = null;
     restores.splice(0).forEach((restore) => restore());
@@ -156,5 +192,41 @@ describe("useSpatialNav", () => {
     press("ArrowUp");
 
     expect(document.activeElement).toBe(el("play"));
+  });
+
+  it("moves between an open dialog's buttons", () => {
+    openDialog();
+    el("cancel").focus();
+
+    expect(press("ArrowRight").defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(el("confirm"));
+  });
+
+  it("keeps focus inside the open dialog", () => {
+    openDialog();
+    el("cancel").focus();
+
+    press("ArrowUp");
+
+    expect(document.activeElement).toBe(el("cancel"));
+  });
+
+  it("moves inside a dialog opened over a running game", () => {
+    storePlaying().setPlaying(true);
+    openDialog();
+    el("cancel").focus();
+
+    press("ArrowRight");
+
+    expect(document.activeElement).toBe(el("confirm"));
+  });
+
+  it("leaves an overlay without a panel to its owner", () => {
+    openDialog(false);
+    el("tab").focus();
+
+    press("ArrowUp");
+
+    expect(document.activeElement).toBe(el("tab"));
   });
 });

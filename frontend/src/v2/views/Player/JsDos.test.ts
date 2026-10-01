@@ -344,9 +344,9 @@ describe("JsDos player exit", () => {
     expect(mocks.locationReplace).toHaveBeenCalledWith("/rom/1");
     expect(mocks.routerReplace).not.toHaveBeenCalled();
     expect(mocks.flushPlaySession).toHaveBeenCalledOnce();
-    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
     wrapper.unmount();
     expect(handle.stop).toHaveBeenCalledOnce();
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
   });
 
   // A player document opened directly is cross-origin isolated, and the rest
@@ -402,7 +402,7 @@ describe("JsDos player exit", () => {
     expect(mocks.routerReplace).not.toHaveBeenCalled();
     expect(mocks.locationReplace).not.toHaveBeenCalled();
     expect(mocks.flushPlaySession).not.toHaveBeenCalled();
-    expect(mocks.setPlaying).not.toHaveBeenCalledWith(false);
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(true);
     expect(
       wrapper.get(".r-v2-player__quit").attributes("disabled"),
     ).toBeUndefined();
@@ -419,9 +419,9 @@ describe("JsDos player exit", () => {
 
     expect(handle.stop).toHaveBeenCalledOnce();
     expect(mocks.flushPlaySession).toHaveBeenCalledOnce();
-    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
     expect(mocks.locationReplace).toHaveBeenCalledWith("/rom/1");
     wrapper.unmount();
+    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
   });
 
   it("keeps the player open when the final save fails", async () => {
