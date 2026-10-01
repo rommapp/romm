@@ -1815,6 +1815,12 @@ class DBRomsHandler(DBBaseHandler):
 
         return query
 
+    def search_relevance_leads(self, order_by: str, search_term: str | None) -> bool:
+        """Whether a gallery query orders by search relevance ahead of its sort key."""
+        return not order_by and bool(
+            search_term and self._build_search_phrases(search_term)
+        )
+
     def _gallery_order_clauses(
         self,
         *,

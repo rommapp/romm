@@ -30,6 +30,7 @@ from typing import Any, cast
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_rom
 
 from endpoints.roms import (
     build_unscoped_filter_values_cache_key,
@@ -236,6 +237,31 @@ def test_unfiltered_request_still_reads_unscoped_char_index_cache(
     body = _get_roms(client, access_token)
 
     assert body["char_index"] == {"Z": 41}
+
+
+@pytest.mark.parametrize(
+    ("params", "expected"),
+    [
+        # Relevance leads, so the rows run in no letter order.
+        ({"search_term": "final fantasy"}, {}),
+        ({"search_term": "final fantasy", "order_by": "name"}, {"f": 0}),
+        # One word has no phrase to rank by, so the name order stands.
+        ({"search_term": "fantasy"}, {"f": 0}),
+    ],
+)
+def test_char_index_follows_whether_relevance_leads(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    params: dict[str, str],
+    expected: dict[str, int],
+):
+    make_rom(platform, "Final Fantasy")
+    make_rom(platform, "Final Fantasy VII")
+
+    body = _get_roms(client, access_token, **params)
+
+    assert body["char_index"] == expected
 
 
 def _put_props(

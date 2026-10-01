@@ -32,6 +32,7 @@
   "sort-ascending": "오름차순 정렬",
   "sort-by": "정렬 기준",
   "sort-descending": "내림차순 정렬",
+  "sort-relevance": "관련성",
   "view-flat": "단일 보기",
   "view-grid": "그리드",
   "view-grouped": "글자별 그룹화",
