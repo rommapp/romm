@@ -5,7 +5,7 @@ import enum
 import hashlib
 import re
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
@@ -302,14 +302,31 @@ class SiblingRom(BaseModel):
 
     A database view, not a table, over `RomIdentityKey` self-joined on its
     (provider, platform, provider id). A pair matched by several providers
-    appears once per provider, which `get_siblings_for_roms` and the relationship
-    loaders both collapse.
+    appears once per provider, which `get_siblings_for_roms` and
+    `UniqueSiblingList` both collapse.
     """
 
     __tablename__ = "sibling_roms"
 
     rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sibling_rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+
+class UniqueSiblingList(list["Rom"]):
+    """`Rom.sibling_roms`, holding each sibling once though the view repeats it."""
+
+    def __init__(self, roms: Iterable[Rom] = ()) -> None:
+        super().__init__(roms)
+        self._held = {id(rom) for rom in self}
+
+    # selectinload hands the collection every view row, duplicates included.
+    def append(self, rom: Rom, /) -> None:
+        # A list method other than this one changed the contents.
+        if len(self._held) != len(self):
+            self._held = {id(held) for held in self}
+        if id(rom) not in self._held:
+            self._held.add(id(rom))
+            super().append(rom)
 
 
 class RomArchiveMember(TypedDict):
@@ -1000,6 +1017,7 @@ class Rom(BaseModel):
         secondary="sibling_roms",
         primaryjoin="Rom.id == SiblingRom.rom_id",
         secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
+        collection_class=UniqueSiblingList,
         lazy="raise",
     )
     files: Mapped[list[RomFile]] = relationship(lazy="raise", back_populates="rom")

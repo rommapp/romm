@@ -55,7 +55,7 @@ def _engine_connecting(conn: MagicMock) -> MagicMock:
 @pytest.mark.skipif(not IS_FULLTEXT_ENGINE, reason="InnoDB full-text only")
 def test_reads_the_servers_settings():
     with sync_engine.connect() as conn:
-        min_token_size = conn.execute(
+        min_token_size: int = conn.execute(
             text("SELECT @@innodb_ft_min_token_size")
         ).scalar_one()
         settings = read_fulltext_settings(conn)

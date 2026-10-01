@@ -108,7 +108,7 @@ class DBRecommendationsHandler(DBBaseHandler):
             .where(Rom.missing_from_fs.is_(False))
         )
 
-        return [RomFeatureRow(*row) for row in session.execute(stmt).all()]
+        return [RomFeatureRow._make(row) for row in session.execute(stmt).all()]
 
     @begin_session
     def get_rom_igdb_ids(self, session: Session = INJECTED_SESSION) -> dict[int, int]:
@@ -116,7 +116,11 @@ class DBRecommendationsHandler(DBBaseHandler):
         stmt = select(RomFacets.rom_id, RomFacets.igdb_id).where(
             RomFacets.igdb_id.is_not(None)
         )
-        return {rom_id: igdb_id for rom_id, igdb_id in session.execute(stmt).all()}
+        return {
+            rom_id: igdb_id
+            for rom_id, igdb_id in session.execute(stmt).all()
+            if igdb_id is not None
+        }
 
     @begin_session
     def get_rom_identity_ids(
