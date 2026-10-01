@@ -1,0 +1,26 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Input Navigation/Introduction" />
+
+# Put the mouse down
+
+Everything in RomM can be driven from a keyboard or a game controller. Grab one and work down this section:
+it starts with a hello and ends with the plumbing.
+
+## The stack
+
+| Piece              | Job                                                                 |
+| ------------------ | ------------------------------------------------------------------- |
+| `useInputModality` | Knows whether you're on mouse, touch, keyboard, or controller       |
+| `useGamepad`       | Turns the D-pad and stick into arrow keys, and buttons into actions |
+| `useGridNav`       | Rows of cards by position in the list (Home, lists, ribbons)        |
+| `useWrapGridNav`   | Wrapping grids by on-screen position (Platforms, Collections)       |
+| `useSpatialNav`    | The fallback: nearest control in the direction you pressed          |
+
+## Which one do I use?
+
+- A stack of horizontal rows, or a single row: `useGridNav` (with `getRows`/`getCells` for custom shapes).
+- A CSS grid that wraps: `useWrapGridNav`.
+- Anything else: nothing. `useSpatialNav` is installed app-wide.
+
+**Rule:** claim the keys you handle with `preventDefault()`, and leave edges unclaimed so focus can move on.

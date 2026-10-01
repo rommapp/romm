@@ -4,6 +4,7 @@ import { ref } from "vue";
 import { useSpatialNav } from "@/v2/composables/useSpatialNav";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
+import { PlaygroundCallout } from "./InputNavigation/playground.fixtures";
 
 // Pick an input in the toolbar: "Keyboard" / "Gamepad" show the focus rings;
 // "Gamepad" and "Live" drive the grid from a connected controller (D-pad moves, A clicks).
@@ -22,10 +23,10 @@ const TITLES = [
 ];
 
 const meta: Meta = {
-  title: "Input Navigation",
+  title: "Input Navigation/Wrap grid",
   parameters: { layout: "padded" },
   render: () => ({
-    components: { RBtn },
+    components: { RBtn, PlaygroundCallout },
     setup() {
       const gridRoot = ref<HTMLElement | null>(null);
       const lastPicked = ref<string | null>(null);
@@ -35,6 +36,7 @@ const meta: Meta = {
     },
     template: `
       <div style="display: grid; gap: 16px; max-width: 560px">
+        <PlaygroundCallout title="Try:" :keys="['←','↑','→','↓','Enter']">Arrow around the grid, then press Enter to pick a game.</PlaygroundCallout>
         <div style="display: flex; gap: 8px">
           <RBtn variant="text" @click="lastPicked = 'Home'">Home</RBtn>
           <RBtn variant="text" @click="lastPicked = 'Search'">Search</RBtn>
