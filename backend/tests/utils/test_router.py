@@ -11,9 +11,11 @@ from utils.router import APIRouter, as_query_dependency
 
 @pytest.mark.parametrize(
     "method, route_path",
-    itertools.product(
-        ("get", "post", "put", "delete", "patch"),
-        ("/test", "/test/"),
+    list(
+        itertools.product(
+            ("get", "post", "put", "delete", "patch"),
+            ("/test", "/test/"),
+        )
     ),
 )
 def test_route_path_with_trailing_slash(method, route_path):
