@@ -147,7 +147,7 @@ def compute_search_titles(name: str | None, metadata: Mapping[str, Any]) -> str:
         if not alias:
             continue
         if len(value) + len(alias) + len(sep) > SEARCH_TEXT_MAX_LENGTH:
-            break
+            continue
         value += alias + sep
     return value
 

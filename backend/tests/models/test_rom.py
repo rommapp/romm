@@ -384,6 +384,15 @@ def test_search_titles_drop_aliases_past_the_length_cap():
     assert titles.endswith("\x1f")
 
 
+def test_search_titles_keep_a_short_alias_after_one_past_the_cap():
+    titles = compute_search_titles(
+        "Name",
+        {"igdb_metadata": {"alternative_names": ["x" * SEARCH_TEXT_MAX_LENGTH, "FF7"]}},
+    )
+
+    assert titles == "\x1fname\x1fff7\x1f"
+
+
 def test_search_titles_follow_orm_and_bulk_writes(platform: Platform):
     rom = make_rom(
         platform, "Final Fantasy VII", igdb_metadata={"alternative_names": ["FF7"]}
