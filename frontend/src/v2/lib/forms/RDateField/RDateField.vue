@@ -32,6 +32,7 @@ import {
   useId,
   watch,
 } from "vue";
+import { useEscapable } from "@/v2/composables/useEscapable";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "../../primitives/RBtn/RBtn.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
@@ -363,18 +364,6 @@ function onPanelKeydown(evt: KeyboardEvent) {
       evt.preventDefault();
       selectDay(new Date(focusedDay.value));
       break;
-    case "Escape":
-      evt.preventDefault();
-      evt.stopPropagation();
-      close();
-      // Send focus back to the field so tab order doesn't get stranded
-      // on a teleported panel that just unmounted.
-      nextTick(() => {
-        (
-          referenceEl.value?.querySelector("input") as HTMLElement | null
-        )?.focus();
-      });
-      break;
     default:
       break;
   }
@@ -420,9 +409,8 @@ function focusDayCell() {
 
 // ── Field-level keyboard wiring ────────────────────────────────
 // On the closed field: Space / Enter / ArrowDown opens the popup. Tab
-// behaves natively (moves to next focusable). When open, Escape closes
-// (handled inside the panel: the field doesn't see keydown when focus
-// has moved into the calendar).
+// behaves natively (moves to next focusable). When open, the escape stack
+// owns Escape.
 function onFieldKeydown(evt: KeyboardEvent) {
   if (props.disabled) return;
   if (isOpen.value) return;
@@ -448,10 +436,21 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", onDocPointerDown, true);
 });
+
+function dismiss() {
+  close();
+  // Send focus back to the field so tab order doesn't get stranded
+  // on a teleported panel that just unmounted.
+  nextTick(() => {
+    (referenceEl.value?.querySelector("input") as HTMLElement | null)?.focus();
+  });
+}
+
+useEscapable(isOpen, dismiss, () => panelRef.value);
 </script>
 
 <template>
-  <!-- Keydown sits here so Escape and the arrows work wherever focus is
+  <!-- Keydown sits here so the opening keys work wherever focus is
        inside the field; the combobox role goes on the input via `popup`. -->
   <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -->
   <div ref="referenceEl" class="r-date-field" @keydown="onFieldKeydown">

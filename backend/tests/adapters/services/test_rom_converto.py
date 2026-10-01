@@ -1,4 +1,5 @@
 import asyncio
+import stat
 from pathlib import Path
 from unittest.mock import patch
 
@@ -6,16 +7,18 @@ import pytest
 
 from adapters.services import rom_converto
 from adapters.services.rom_converto import (
+    DOWNLOAD_FORMATS,
     LIBRARY_TARGETS_BY_PLATFORM,
     Operation,
     RomConvertoBinaryNotFoundError,
     RomConvertoOperationError,
     RomConvertoService,
     RomConvertoTimeoutError,
-    download_formats,
+    canonical_format,
     file_format,
     resolve_operation,
 )
+from utils.filesystem import SERVED_FILE_MODE
 
 
 class FakeProc:
@@ -195,16 +198,55 @@ class TestConvert:
     ):
         recorded: list[list[str]] = []
 
+        src = tmp_path / "game.iso"
+        out = tmp_path / "stage" / "game.chd"
+        out.parent.mkdir()
+
         async def fake_run(argv: list[str], timeout_seconds: float):
             recorded.append(argv)
+            out.write_bytes(b"converted")
             return 0, "", ""
 
-        src = tmp_path / "game.iso"
-        out = tmp_path / "game.chd"
         with patch.object(rom_converto, "_run", fake_run):
             await service.convert(self._op(), src, out)
 
         assert recorded == [["chd", "compress", str(src), str(out)]]
+
+    async def test_an_owner_only_output_is_made_readable_for_nginx(
+        self, service: RomConvertoService, tmp_path: Path
+    ):
+        out = tmp_path / "game.chd"
+
+        async def fake_run(argv: list[str], timeout_seconds: float):
+            out.write_bytes(b"converted")
+            out.chmod(0o600)
+            return 0, "", ""
+
+        with patch.object(rom_converto, "_run", fake_run):
+            await service.convert(self._op(), tmp_path / "src" / "game.iso", out)
+
+        assert stat.S_IMODE(out.stat().st_mode) == SERVED_FILE_MODE
+
+    @pytest.mark.parametrize(
+        "written",
+        [
+            pytest.param(["game.chd", "game.bin"], id="split"),
+            pytest.param([], id="nothing"),
+        ],
+    )
+    async def test_output_other_than_out_raises_operation_error(
+        self, service: RomConvertoService, tmp_path: Path, written: list[str]
+    ):
+        async def fake_run(argv: list[str], timeout_seconds: float):
+            for name in written:
+                (tmp_path / name).write_bytes(b"x")
+            return 0, "", ""
+
+        with (
+            patch.object(rom_converto, "_run", fake_run),
+            pytest.raises(RomConvertoOperationError, match="did not write exactly"),
+        ):
+            await service.convert(self._op(), tmp_path / "x.iso", tmp_path / "game.chd")
 
     async def test_nonzero_raises_operation_error_with_diagnostic(
         self, service: RomConvertoService, tmp_path: Path
@@ -238,6 +280,18 @@ class TestFileFormat:
     )
     def test_names_the_format(self, file_name: str, expected: str):
         assert file_format(file_name) == expected
+
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [
+            pytest.param("iso", "iso", id="plain"),
+            pytest.param("3ds", "cci", id="alias"),
+            pytest.param("zcia", "z3ds", id="compressed-alias"),
+            pytest.param("nkit-iso", "nkit-iso", id="compound-not-iso"),
+        ],
+    )
+    def test_canonical_format_reads_aliases(self, name: str, expected: str):
+        assert canonical_format(name) == expected
 
 
 class TestResolveOperation:
@@ -323,7 +377,7 @@ class TestLibraryTargetsByPlatform:
 
 class TestDownloadFormats:
     def test_maps_each_input_extension_to_its_targets(self):
-        formats = download_formats()
+        formats = DOWNLOAD_FORMATS
 
         assert formats["psp"][".chd"] == ["cso", "iso", "zso"]
         assert formats["xbox"][".iso"] == ["xiso"]
@@ -331,7 +385,7 @@ class TestDownloadFormats:
     def test_no_decrypt_or_encrypt_targets(self):
         targets = {
             target
-            for exts in download_formats().values()
+            for exts in DOWNLOAD_FORMATS.values()
             for ext_targets in exts.values()
             for target in ext_targets
         }

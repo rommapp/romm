@@ -95,8 +95,11 @@ export function useRomSync() {
    * case there's no row on screen to reorder. */
   function sortValueChanged(previous: SimpleRom | null, next: SimpleRom) {
     if (!previous) return false;
-    const resolve = SORT_VALUE[galleryRomsStore.orderBy];
-    return resolve(previous) !== resolve(next);
+    // Relevance also weighs the filename and search aliases, which the row
+    // doesn't carry, so only the server can place it.
+    const key = galleryRomsStore.effectiveOrderBy;
+    if (key === null) return true;
+    return SORT_VALUE[key](previous) !== SORT_VALUE[key](next);
   }
 
   /** Sync a deliberate metadata write (the edit / match dialogs) and refetch

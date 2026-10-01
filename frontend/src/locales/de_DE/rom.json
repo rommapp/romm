@@ -155,6 +155,7 @@
   "edit-save": "Spielstand bearbeiten",
   "edit-screenshot": "Screenshot bearbeiten",
   "edit-state": "Zustand bearbeiten",
+  "exclude-failed": "{n} gelöschte Spiele konnten nicht von Scans ausgeschlossen werden",
   "favorite": "Favorit",
   "favorites-updated-n": "{n} Element aktualisiert | {n} Elemente aktualisiert",
   "file": "Datei",

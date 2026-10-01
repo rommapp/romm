@@ -155,6 +155,7 @@
   "edit-save": "Upravit uloženou pozici",
   "edit-screenshot": "Upravit screenshot",
   "edit-state": "Upravit stav",
+  "exclude-failed": "{n} smazaných her se nepodařilo vyloučit ze skenování",
   "favorite": "Oblíbené",
   "favorites-updated-n": "{n} položka aktualizována | {n} položek aktualizováno",
   "file": "Soubor",

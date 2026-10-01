@@ -15,6 +15,11 @@ vi.mock("vue-router", () => ({
   useRoute: () => ({ fullPath: "/rom/1" }),
 }));
 
+const padEvents = vi.hoisted(() => new WeakSet<Event>());
+vi.mock("@/v2/composables/useGamepad", () => ({
+  isPadEvent: (event: Event) => padEvents.has(event),
+}));
+
 // Laid out by data attributes since jsdom has no layout engine: a top bar
 // link, the game page's action ribbon (a single-row useGridNav) under it,
 // and a tab below the ribbon.
@@ -63,14 +68,48 @@ describe("useSpatialNav", () => {
     return document.getElementById(id)!;
   }
 
-  function press(key: string): KeyboardEvent {
+  function press(key: string, { pad = false } = {}): KeyboardEvent {
     const event = new KeyboardEvent("keydown", {
       key,
       bubbles: true,
       cancelable: true,
     });
+    if (pad) padEvents.add(event);
     document.activeElement!.dispatchEvent(event);
     return event;
+  }
+
+  // A focused text field below the page's tab, between two buttons and above
+  // a third.
+  const extras: HTMLElement[] = [];
+  function field(
+    tag: "input" | "textarea",
+    value: string,
+    caretAt: number,
+    type = "text",
+  ): HTMLInputElement | HTMLTextAreaElement {
+    const place = (node: HTMLElement, x: number, y = 700) => {
+      node.dataset.x = String(x);
+      node.dataset.y = String(y);
+      document.body.append(node);
+      extras.push(node);
+    };
+    for (const [id, x, y] of [
+      ["before", 0, 700],
+      ["after", 500, 700],
+      ["below", 200, 900],
+    ] as const) {
+      const button = document.createElement("button");
+      button.id = id;
+      place(button, x, y);
+    }
+    const input = document.createElement(tag);
+    if (input instanceof HTMLInputElement) input.type = type;
+    input.value = value;
+    place(input, 200);
+    input.focus();
+    if (caretAt >= 0) input.setSelectionRange(caretAt, caretAt);
+    return input;
   }
 
   beforeEach(() => {
@@ -117,6 +156,7 @@ describe("useSpatialNav", () => {
   }
 
   afterEach(() => {
+    extras.splice(0).forEach((node) => node.remove());
     if (dialog) {
       popEscapable(dialog);
       dialog = null;
@@ -192,6 +232,133 @@ describe("useSpatialNav", () => {
     press("ArrowUp");
 
     expect(document.activeElement).toBe(el("play"));
+  });
+
+  describe("text fields", () => {
+    it("keeps every keyboard arrow in a text field", () => {
+      const input = field("input", "abc", 3);
+
+      for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) {
+        expect(press(key).defaultPrevented).toBe(false);
+        expect(document.activeElement).toBe(input);
+        expect(input.selectionStart).toBe(3);
+      }
+    });
+
+    it("leaves a single-line field by D-pad up or down from any caret", () => {
+      const input = field("input", "abc", 1);
+
+      expect(press("ArrowDown", { pad: true }).defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(el("below"));
+      input.focus();
+      expect(press("ArrowUp", { pad: true }).defaultPrevented).toBe(true);
+      expect(document.activeElement).not.toBe(input);
+    });
+
+    it("leaves a textarea by D-pad up or down from any caret", () => {
+      const area = field("textarea", "one\ntwo", 5);
+
+      expect(press("ArrowDown", { pad: true }).defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(el("below"));
+      area.focus();
+      expect(press("ArrowUp", { pad: true }).defaultPrevented).toBe(true);
+      expect(document.activeElement).not.toBe(area);
+    });
+
+    it("steps the caret by D-pad inside the text", () => {
+      const input = field("input", "abc", 1);
+
+      expect(press("ArrowRight", { pad: true }).defaultPrevented).toBe(true);
+      expect(input.selectionStart).toBe(2);
+      press("ArrowLeft", { pad: true });
+      press("ArrowLeft", { pad: true });
+      expect(input.selectionStart).toBe(0);
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("steps over a whole emoji by D-pad", () => {
+      const input = field("input", "a🎮b", 1);
+
+      press("ArrowRight", { pad: true });
+      expect(input.selectionStart).toBe(3);
+      press("ArrowLeft", { pad: true });
+      expect(input.selectionStart).toBe(1);
+    });
+
+    it("leaves a read-only field by D-pad left or right", () => {
+      const input = field("input", "abc", 1);
+      input.readOnly = true;
+
+      press("ArrowRight", { pad: true });
+
+      expect(document.activeElement).toBe(el("after"));
+    });
+
+    it("steps the caret while a popover outside the field is open", () => {
+      const input = field("input", "abc", 1);
+      openDialog();
+
+      expect(press("ArrowRight", { pad: true }).defaultPrevented).toBe(true);
+      expect(input.selectionStart).toBe(2);
+      press("ArrowRight", { pad: true });
+      press("ArrowRight", { pad: true });
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("leaves past the end of the text by D-pad right", () => {
+      field("input", "abc", 3);
+
+      press("ArrowRight", { pad: true });
+
+      expect(document.activeElement).toBe(el("after"));
+    });
+
+    it("leaves past the start of the text by D-pad left", () => {
+      field("input", "abc", 0);
+
+      press("ArrowLeft", { pad: true });
+
+      expect(document.activeElement).toBe(el("before"));
+    });
+
+    it("collapses a selection toward the D-pad's side first", () => {
+      const input = field("input", "abc", -1);
+      input.setSelectionRange(1, 3);
+
+      press("ArrowLeft", { pad: true });
+      expect([input.selectionStart, input.selectionEnd]).toEqual([1, 1]);
+
+      input.setSelectionRange(1, 3);
+      press("ArrowRight", { pad: true });
+      expect([input.selectionStart, input.selectionEnd]).toEqual([3, 3]);
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("leaves a field without a selection API by D-pad left or right", () => {
+      const input = field("input", "", -1, "email");
+      vi.spyOn(input, "selectionStart", "get").mockReturnValue(null);
+
+      press("ArrowRight", { pad: true });
+
+      expect(document.activeElement).toBe(el("after"));
+    });
+
+    it("keeps the D-pad's up and down in a number field", () => {
+      const input = field("input", "4", -1, "number");
+
+      press("ArrowUp", { pad: true });
+
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("leaves a field's open popup the D-pad", () => {
+      const input = field("input", "abc", 1);
+      input.setAttribute("aria-haspopup", "listbox");
+      input.setAttribute("aria-expanded", "true");
+
+      expect(press("ArrowDown", { pad: true }).defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(input);
+    });
   });
 
   it("moves between an open dialog's buttons", () => {

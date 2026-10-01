@@ -27,6 +27,7 @@ SAVE_SLOT_MAX_LENGTH = 255
 # A slot's versions, newest last: pruning locks exactly these rows through it.
 SAVE_SLOT_VERSIONS_INDEX = "ix_saves_rom_user_slot_updated"
 EMULATOR_MAX_LENGTH = 50
+MEMORY_CARD_NAME_MAX_LENGTH = 255
 ASSET_LABEL_MAX_LENGTH = 255
 ASSET_LABELS_MAX = 20
 CONTENT_HASH_MAX_LENGTH = 32
@@ -213,7 +214,7 @@ class MemoryCard(BaseModel):
         ForeignKey("platforms.id", ondelete="SET NULL"),
         default=None,
     )
-    name: Mapped[str] = mapped_column(String(length=255))
+    name: Mapped[str] = mapped_column(String(length=MEMORY_CARD_NAME_MAX_LENGTH))
     # Only slot 1 is used today; kept so a future multi-slot layout needs no
     # schema change.
     slot: Mapped[int] = mapped_column(default=1)

@@ -13,11 +13,19 @@ vi.mock("@/v2/composables/useBreakpoint", () => ({
   useBreakpoint: () => ({ smAndDown }),
 }));
 
-function mountHeader() {
+function mountHeader(props: Record<string, unknown> = {}) {
   return mount(GameListHeader, {
-    props: { sortKey: "name", sortDir: "asc" },
+    props: { sortKey: "name", sortDir: "asc", ...props },
     global: { stubs: { RIcon: true, ListSortMenu: true } },
   });
+}
+
+function nameHeader(wrapper: ReturnType<typeof mountHeader>) {
+  const header = wrapper
+    .findAll("[role=columnheader]")
+    .find((h) => h.attributes("aria-sort") === "descending");
+  if (!header) throw new Error("no descending column header");
+  return header.find("button");
 }
 
 describe("GameListHeader", () => {
@@ -49,6 +57,27 @@ describe("GameListHeader", () => {
       const name = header.text() || header.find("[aria-label]").exists();
       expect(name, header.html()).toBeTruthy();
     }
+  });
+
+  it("returns a descending column to the unsorted order when one is offered", async () => {
+    const wrapper = mountHeader({
+      sortDir: "desc",
+      unsortedLabel: "gallery.sort-relevance",
+    });
+
+    await nameHeader(wrapper).trigger("click");
+
+    expect(wrapper.emitted("unsort")).toHaveLength(1);
+    expect(wrapper.emitted("sort")).toBeUndefined();
+  });
+
+  it("flips a descending column back to ascending otherwise", async () => {
+    const wrapper = mountHeader({ sortDir: "desc" });
+
+    await nameHeader(wrapper).trigger("click");
+
+    expect(wrapper.emitted("sort")).toEqual([[{ key: "name", dir: "asc" }]]);
+    expect(wrapper.emitted("unsort")).toBeUndefined();
   });
 
   it("is a plain toolbar on phones, outside any grid", () => {

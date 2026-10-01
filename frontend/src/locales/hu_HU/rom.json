@@ -155,6 +155,7 @@
   "edit-save": "Mentés szerkesztése",
   "edit-screenshot": "Képernyőkép szerkesztése",
   "edit-state": "Állás szerkesztése",
+  "exclude-failed": "{n} törölt játékot nem sikerült kizárni a keresésekből",
   "favorite": "Kedvenc",
   "favorites-updated-n": "{n} elem frissítve | {n} elem frissítve",
   "file": "Fájl",

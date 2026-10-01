@@ -61,8 +61,11 @@ from models.collection import Collection, CollectionRom, SmartCollection
 from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
 from models.rom import (
+    ALTERNATIVE_NAME_SOURCES,
     METADATA_SOURCE_FACET_COLUMNS,
     ROM_IS_IDENTIFIED,
+    SEARCH_TITLE_COLUMNS,
+    SEARCH_TITLE_SEPARATOR,
     Rom,
     RomDeletionTarget,
     RomFacets,
@@ -81,6 +84,8 @@ from models.rom import (
     TrackMeta,
     compute_full_path_hash,
     compute_name_sort_key,
+    compute_search_titles,
+    fold_search_title,
 )
 from utils import get_version
 from utils.database import (
@@ -247,6 +252,44 @@ def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
         *(column.expression for column in ROM_SEARCH_COLUMNS),
         boolean_query=boolean_query,
     )
+
+
+# A shorter one-word search matches most of a library, and ranking it would
+# sort every match instead of walking the name index.
+SEARCH_RANK_MIN_LENGTH = 3
+
+
+def _search_terms(search_term: str) -> list[str]:
+    """The `|`-separated alternatives of a search, blanks dropped."""
+    return [term for term in (part.strip() for part in search_term.split("|")) if term]
+
+
+def _name_starts_with(title: str) -> ColumnElement[bool]:
+    """Whether the ROM's folded name starts with `title`, ending a word there."""
+    sep = SEARCH_TITLE_SEPARATOR
+    # The name comes first, so it is the title the column starts with.
+    starts = Rom.search_titles.startswith(f"{sep}{title}", autoescape=True)
+    # A title ending in punctuation has already ended its word.
+    if not title[-1].isalnum():
+        return starts
+    # Both engines' regex dialects read a backslash before a non-alphanumeric
+    # character as that character. The LIKE narrows the rows the regex reads.
+    escaped = "".join(char if char.isalnum() else f"\\{char}" for char in title)
+    return and_(starts, Rom.search_titles.regexp_match(f"^{sep}{escaped}[^[:alnum:]]"))
+
+
+def _search_rank(terms: Sequence[str]) -> ColumnElement[int]:
+    """2 when the name or an alias equals a term, 1 when the name starts with one, else 0."""
+    sep = SEARCH_TITLE_SEPARATOR
+    folded = [title for term in terms if (title := fold_search_title(term))]
+    exact = or_(
+        *(
+            Rom.search_titles.contains(f"{sep}{title}{sep}", autoescape=True)
+            for title in folded
+        )
+    )
+    prefix = or_(*(_name_starts_with(title) for title in folded))
+    return case((exact, 2), (prefix, 1), else_=0)
 
 
 def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
@@ -1133,7 +1176,7 @@ class DBRomsHandler(DBBaseHandler):
     def _build_search_phrases(self, search_term: str) -> list[str]:
         """The multi-word terms of a search, which relevance ranks by."""
         phrases: list[str] = []
-        for term in search_term.split("|"):
+        for term in _search_terms(search_term):
             words = FULLTEXT_TOKEN_REGEX.findall(term)
             if len(words) > 1:
                 phrases.append(" ".join(words))
@@ -1195,8 +1238,7 @@ class DBRomsHandler(DBBaseHandler):
         ]
 
     def _filter_by_search_term[S: Select[Any]](self, query: S, search_term: str) -> S:
-        terms = [term.strip() for term in search_term.split("|")]
-        terms = [term for term in terms if term]
+        terms = _search_terms(search_term)
         if not terms:
             return query
 
@@ -1815,6 +1857,14 @@ class DBRomsHandler(DBBaseHandler):
 
         return query
 
+    def search_relevance_leads(self, order_by: str, search_term: str | None) -> bool:
+        """Whether a gallery query orders by search relevance ahead of its sort key."""
+        if order_by or not search_term:
+            return False
+        return bool(self._build_search_phrases(search_term)) or any(
+            len(term) >= SEARCH_RANK_MIN_LENGTH for term in _search_terms(search_term)
+        )
+
     def _gallery_order_clauses(
         self,
         *,
@@ -1824,7 +1874,9 @@ class DBRomsHandler(DBBaseHandler):
         nulls_last: bool,
         search_term: str | None,
     ) -> list[Any]:
-        descending = order_dir == "desc"
+        relevance_leads = self.search_relevance_leads(order_by, search_term)
+        # Relevance has no direction, so its ties always run A to Z.
+        descending = order_dir == "desc" and not relevance_leads
         if nulls_last:
             nulls_last_clause, order_clause = _nulls_last_ordering(
                 sort_column, descending
@@ -1841,14 +1893,16 @@ class DBRomsHandler(DBBaseHandler):
 
         sort_clauses: list[Any] = [order_clause]
         phrases = self._build_search_phrases(search_term) if search_term else []
-        if phrases:
-            # Relevance breaks an explicit sort's ties, or leads (with name
-            # breaking its ties) when no sort is picked.
-            relevance_clause = _search_relevance(phrases).desc()
-            if order_by:
-                sort_clauses.append(relevance_clause)
-            else:
-                sort_clauses.insert(0, relevance_clause)
+        relevance = [_search_relevance(phrases).desc()] if phrases else []
+        # Phrase relevance breaks an explicit sort's ties. With no sort, the rank
+        # (which reads provider metadata) and relevance lead, and name breaks ties.
+        if order_by:
+            sort_clauses.extend(relevance)
+        elif relevance_leads and search_term:
+            sort_clauses[:0] = [
+                _search_rank(_search_terms(search_term)).desc(),
+                *relevance,
+            ]
 
         return [
             clause
@@ -2191,12 +2245,26 @@ class DBRomsHandler(DBBaseHandler):
             # Re-derive the key from the new name, but only when the stored key
             # is still the derived value (i.e. not a manual override). Mirrors
             # the `@validates` logic, which the bulk update() bypasses.
-            existing = session.scalars(select(Rom).filter_by(id=id)).one()
+            existing = session.get_one(Rom, id)
             if (
                 existing.name_sort_key is None
                 or existing.name_sort_key == compute_name_sort_key(existing.name)
             ):
                 data = {**data, "name_sort_key": compute_name_sort_key(data["name"])}
+
+        if data.keys() & SEARCH_TITLE_COLUMNS:
+            # The bulk update() skips the mapper event that keeps this in sync.
+            stored = session.get_one(Rom, id)
+            data = {
+                **data,
+                "search_titles": compute_search_titles(
+                    data.get("name", stored.name),
+                    {
+                        column: data.get(column, getattr(stored, column))
+                        for column, _ in ALTERNATIVE_NAME_SOURCES
+                    },
+                ),
+            }
 
         if "fs_name" in data:
             parts = compute_file_name_parts(data["fs_name"])
@@ -2210,7 +2278,7 @@ class DBRomsHandler(DBBaseHandler):
         if "fs_name" in data or "fs_path" in data:
             # The unique index reads the digest, so whichever half the caller
             # left out has to come from the stored row.
-            stored = session.scalars(select(Rom).filter_by(id=id)).one()
+            stored = session.get_one(Rom, id)
             data = {
                 **data,
                 "full_path_hash": compute_full_path_hash(

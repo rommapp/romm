@@ -61,6 +61,7 @@ import {
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/v2/composables/useCoverArt";
+import { useDebouncedSearch } from "@/v2/composables/useDebouncedSearch";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
@@ -80,6 +81,8 @@ import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, {
+  DEFAULT_ORDER_BY,
+  type GalleryOrderKey,
   orderSupportsLetters,
 } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -115,6 +118,9 @@ interface Props {
    * (every row shares the same platform); true on cross-platform views
    * (Search, Collection, Missing games) where the column carries info. */
   showPlatformColumn?: boolean;
+  /** Sort applied while the URL names none. `null` orders by search
+   * relevance (Search). */
+  defaultOrderBy?: GalleryOrderKey | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -126,6 +132,7 @@ const props = withDefaults(defineProps<Props>(), {
   skeletonRowCount: 4,
   showPlatformsInFilter: true,
   showPlatformColumn: true,
+  defaultOrderBy: DEFAULT_ORDER_BY,
 });
 
 defineSlots<{
@@ -137,7 +144,7 @@ defineSlots<{
 }>();
 
 useGalleryFilterUrl();
-useGalleryOrderUrl();
+useGalleryOrderUrl(props.defaultOrderBy);
 useGalleryViewModeUrl();
 
 const { t } = useI18n();
@@ -238,13 +245,11 @@ const filterActiveCount = computed(() => {
   return n;
 });
 
-// Filter changes → refetch the gallery. Mirrors the search debounced
-// path (invalidate windows + bootstrap initial metadata). The watch
-// fires only on subsequent changes; the initial hydration done by
-// `useGalleryFilterUrl` happens before this watch is set up and so
-// does not echo here.
+// The initial URL hydration in `useGalleryFilterUrl` runs before this watch
+// is set up, so it does not echo here.
 watch(
   [
+    searchTerm,
     filterMatched,
     filterFavorites,
     filterDuplicates,
@@ -310,9 +315,11 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
-// A jump to "M" means nothing when the gallery is sorted by size or date, so
-// the letter affordances go away with the letters themselves.
-const lettersSupported = computed(() => orderSupportsLetters(orderBy.value));
+// A jump to "M" means nothing unless the gallery is in letter order.
+const lettersSupported = computed(() => {
+  const key = galleryRoms.effectiveOrderBy;
+  return key !== null && orderSupportsLetters(key);
+});
 const stripVisible = computed(() => !smAndDown.value && lettersSupported.value);
 const jumpMenuVisible = computed(
   () => smAndDown.value && lettersSupported.value,
@@ -761,30 +768,14 @@ watch(
 );
 
 // ── Search filter (debounced) ───────────────────────────────────────
-const searchInput = ref(searchTerm.value ?? "");
-let searchDebounce: ReturnType<typeof setTimeout> | null = null;
-function setSearch(value: string) {
-  searchInput.value = value;
-  if (searchDebounce) clearTimeout(searchDebounce);
-  searchDebounce = setTimeout(() => {
-    const normalized = value.trim();
-    if (normalized === (searchTerm.value ?? "")) return;
-    searchTerm.value = normalized || null;
-    // Both layouts share the same loading model: invalidate and
-    // bootstrap metadata only; rows hydrate per-position via the row
-    // component's mount lifecycle (grid: GameCard via shell-level
-    // viewport-sync; list: GameListRow via its own onMounted).
-    galleryRoms.invalidateWindows();
-    void galleryRoms.fetchInitialMetadata();
-  }, 300);
-}
+const { input: searchInput, setSearch } = useDebouncedSearch(searchTerm);
 
 // ── Sort ──────────────────────────────────────────────────────────
 // Both affordances (list column headers, grid direction toggle) only
 // write the store; `useGalleryOrderUrl` mirrors it to the URL and the
 // watch below owns the refetch.
 const listSortKey = computed<ListSortKey | null>(() => {
-  const key = orderBy.value;
+  const key = galleryRoms.effectiveOrderBy;
   return isListSortKey(key) ? key : null;
 });
 
@@ -792,6 +783,11 @@ function onListSort(payload: { key: ListSortKey; dir: "asc" | "desc" }) {
   galleryRoms.setOrderBy(payload.key);
   galleryRoms.setOrderDir(payload.dir);
 }
+
+// Search's relevance has no sort key; the other views have no unsorted order.
+const unsortedLabel = computed(() =>
+  props.defaultOrderBy === null ? t("gallery.sort-relevance") : undefined,
+);
 
 // The toolbar's sort axes, matching the list column headers.
 const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
@@ -887,7 +883,6 @@ onBeforeUnmount(() => {
   // navigation back to a non-gallery view (Home, Settings) doesn't
   // keep stale picks alive.
   gallerySelection.clear();
-  if (searchDebounce) clearTimeout(searchDebounce);
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
   // When leaving the gallery entirely, stop any in-flight window fetches so
   // navigating away mid-scroll doesn't keep the network / backend busy.
@@ -1055,6 +1050,8 @@ defineExpose({
               :sort-dir="orderDir"
               :sort-key="listSortKey"
               :sort-key-items="sortOptions"
+              :unsorted-label="unsortedLabel"
+              :unsorted="galleryRoms.effectiveOrderBy === null"
               show-search
               :search="searchInput"
               :search-placeholder="searchPlaceholder"
@@ -1097,7 +1094,10 @@ defineExpose({
             :sort-key="listSortKey"
             :sort-dir="orderDir"
             :show-platform-column="showPlatformColumn"
+            :unsorted-label="unsortedLabel"
+            :unsorted="galleryRoms.effectiveOrderBy === null"
             @sort="onListSort"
+            @unsort="galleryRoms.setOrderBy(null)"
           />
         </template>
       </template>
@@ -1115,7 +1115,10 @@ defineExpose({
           :sort-dir="orderDir"
           :show-platform-column="showPlatformColumn"
           aria-rowindex="1"
+          :unsorted-label="unsortedLabel"
+          :unsorted="galleryRoms.effectiveOrderBy === null"
           @sort="onListSort"
+          @unsort="galleryRoms.setOrderBy(null)"
         />
       </template>
 
@@ -1242,6 +1245,8 @@ defineExpose({
       :sort-dir="orderDir"
       :sort-key="listSortKey"
       :sort-key-items="sortOptions"
+      :unsorted-label="unsortedLabel"
+      :unsorted="galleryRoms.effectiveOrderBy === null"
       show-filter
       :filter-active-count="filterActiveCount"
       @update:group-by="groupBy = $event"

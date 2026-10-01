@@ -1000,3 +1000,12 @@ def test_update_user_ui_settings_nested_object(
 
     user = response.json()
     assert user["ui_settings"] == nested_settings
+
+
+def test_overlong_ra_username_rejected(client, access_token: str, admin_user: User):
+    response = client.put(
+        f"/api/users/{admin_user.id}",
+        data={"ra_username": "x" * 256},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT

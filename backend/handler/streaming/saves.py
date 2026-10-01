@@ -25,7 +25,7 @@ from logger.logger import log
 from models.assets import Save
 from models.rom import Rom
 from models.user import User
-from utils.filesystem import sanitize_filename
+from utils.filesystem import fit_filename, sanitize_filename
 
 # An exit files its archive in the background, so a claim landing behind it would
 # hydrate from the archive before last. The exit leaves a marker a claim waits out.
@@ -152,7 +152,9 @@ async def store_save_asset(user: User, rom: Rom, emulator: str, content: bytes) 
     deduplicated by hash so idle exits do not pile up copies.
     """
     ts = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
-    filename = sanitize_filename(f"{rom.fs_name_no_ext} [{emulator} {ts}].saves.zip")
+    filename = sanitize_filename(
+        fit_filename(rom.fs_name_no_ext, f" [{emulator} {ts}].saves.zip")
+    )
 
     saves_path = fs_asset_handler.build_saves_file_path(
         user=user,

@@ -155,6 +155,7 @@
   "edit-save": "Editar partida",
   "edit-screenshot": "Editar captura",
   "edit-state": "Editar estado",
+  "exclude-failed": "No se pudieron excluir {n} juegos eliminados de los escaneos",
   "favorite": "Favorito",
   "favorites-updated-n": "{n} elemento actualizado | {n} elementos actualizados",
   "file": "Archivo",

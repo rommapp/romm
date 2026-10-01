@@ -266,7 +266,7 @@
 #   # roms in, replacing the original files. Formats per platform:
 #   #   3ds: cci, cia, z3ds
 #   #   psp, ps2: chd, cso, iso, zso
-#   #   psx, saturn, segacd, dc: chd, iso
+#   #   psx, saturn, segacd, dc: chd
 #   #   ngc: iso, rvz
 #   #   wii: iso, rvz, wbfs
 #   #   switch, switch-2: nsp, nsz, xci, xcz
