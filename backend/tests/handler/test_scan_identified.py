@@ -1,8 +1,4 @@
-"""Which provider matches count as an identified ROM during a scan.
-
-A scan that finds no match returns early and skips the SteamGridDB lookup, so
-every source `Rom.is_identified` counts must keep the scan going.
-"""
+"""Every source `Rom.is_identified` counts must keep a scan past its no-match exit."""
 
 from unittest.mock import AsyncMock, patch
 

@@ -38,8 +38,8 @@ import {
 } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
+import { useEscapable } from "@/v2/lib/overlays/RDialog/useEscapable";
 import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
-import { useEscapable } from "../../overlays/RDialog/useEscapable";
 import RDivider from "../../primitives/RDivider/RDivider.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";

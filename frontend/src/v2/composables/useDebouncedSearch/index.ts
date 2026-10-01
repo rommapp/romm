@@ -1,8 +1,7 @@
 import { onScopeDispose, type Ref, ref, watch } from "vue";
 
-/** A search box bound to a store term: typing writes the trimmed term after
- *  `delayMs`, and a term set elsewhere (back/forward, a pasted link) shows up
- *  in the box straight away. */
+/** A search box bound to a store term, debounced one way and immediate the
+ *  other, so a term set by navigation shows up in the box. */
 export function useDebouncedSearch(term: Ref<string | null>, delayMs = 300) {
   const input = ref(term.value ?? "");
   let pending: ReturnType<typeof setTimeout> | null = null;

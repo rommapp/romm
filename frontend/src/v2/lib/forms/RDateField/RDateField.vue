@@ -33,7 +33,7 @@ import {
   watch,
 } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
-import { useEscapable } from "../../overlays/RDialog/useEscapable";
+import { useEscapable } from "@/v2/lib/overlays/RDialog/useEscapable";
 import RBtn from "../../primitives/RBtn/RBtn.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RTextField from "../RTextField/RTextField.vue";

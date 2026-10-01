@@ -784,9 +784,7 @@ async function onVisibilityChange(): Promise<void> {
   await pollSessionStatus();
 }
 
-// Timed from the moment the stream is live, which on a claim is the socket's
-// launch-ready push rather than anything `onPlay` awaits. Ingesting the session
-// updates last_played / now_playing / status server-side.
+// A claim's stream goes live on the launch-ready push, after `onPlay` returns.
 watch(gameRunning, (running, prev) => {
   if (running && !prev) {
     presence.start();

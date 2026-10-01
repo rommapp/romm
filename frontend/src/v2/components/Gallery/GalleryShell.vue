@@ -238,10 +238,8 @@ const filterActiveCount = computed(() => {
   return n;
 });
 
-// Search and filter changes → refetch the gallery: invalidate windows and
-// bootstrap metadata only, since rows hydrate per-position as they mount.
-// The initial hydration done by `useGalleryFilterUrl` happens before this
-// watch is set up and so does not echo here.
+// The initial URL hydration in `useGalleryFilterUrl` runs before this watch
+// is set up, so it does not echo here.
 watch(
   [
     searchTerm,
