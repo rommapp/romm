@@ -39,7 +39,6 @@ from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.assets import normalize_asset_labels
 from utils.datetime import to_utc
-from utils.filesystem import check_filename_length, sanitize_filename
 from utils.router import APIRouter
 from utils.uploads import (
     check_asset_upload_size,
@@ -239,36 +238,26 @@ async def add_save(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Save file has no filename"
         )
 
-    try:
-        sanitized_save_filename = sanitize_filename(saveFile.filename)
-        actual_filename = sanitized_save_filename
-        if slot:
-            actual_filename = _apply_datetime_tag(sanitized_save_filename)
-        # Checked after tagging: the tag adds 22 bytes.
-        check_filename_length(actual_filename)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid save filename: {str(exc)}",
-        ) from exc
+    actual_filename = sanitize_asset_filename(saveFile.filename, "save")
+    if slot:
+        # Checked again because the tag adds 22 bytes.
+        actual_filename = sanitize_asset_filename(
+            _apply_datetime_tag(actual_filename), "save"
+        )
 
-    # Checked before the save is stored, so a bad name cannot fail after commit.
     sanitized_screenshot_filename = ""
     if screenshotFile and screenshotFile.filename:
-        try:
-            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
-            # Save.screenshot is matched by stem, so a slotted upload names the
-            # screenshot after the tagged save whatever the client called it.
-            if slot:
-                save_stem, _ = os.path.splitext(actual_filename)
-                _, screenshot_ext = os.path.splitext(sanitized_screenshot_filename)
-                sanitized_screenshot_filename = f"{save_stem}{screenshot_ext}"
-            check_filename_length(sanitized_screenshot_filename)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid screenshot filename: {str(exc)}",
-            ) from exc
+        sanitized_screenshot_filename = sanitize_asset_filename(
+            screenshotFile.filename, "screenshot"
+        )
+        # Save.screenshot is matched by stem, so a slotted upload names the
+        # screenshot after the tagged save whatever the client called it.
+        if slot:
+            save_stem, _ = os.path.splitext(actual_filename)
+            _, screenshot_ext = os.path.splitext(sanitized_screenshot_filename)
+            sanitized_screenshot_filename = sanitize_asset_filename(
+                f"{save_stem}{screenshot_ext}", "screenshot"
+            )
 
     check_emulator_folder_name(emulator)
 
@@ -661,7 +650,6 @@ async def update_save(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    # Checked before the save is written, so a bad name cannot fail after commit.
     sanitized_screenshot_filename = (
         sanitize_asset_filename(screenshotFile.filename, "screenshot")
         if screenshotFile and screenshotFile.filename

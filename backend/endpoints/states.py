@@ -90,7 +90,6 @@ async def add_state(
         )
 
     sanitized_state_filename = sanitize_asset_filename(stateFile.filename, "state")
-    # Checked before the state is stored, so a bad name cannot fail after commit.
     sanitized_screenshot_filename = (
         sanitize_asset_filename(screenshotFile.filename, "screenshot")
         if screenshotFile and screenshotFile.filename
@@ -233,7 +232,6 @@ async def update_state(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    # Checked before the state is written, so a bad name cannot fail after commit.
     sanitized_screenshot_filename = (
         sanitize_asset_filename(screenshotFile.filename, "screenshot")
         if screenshotFile and screenshotFile.filename

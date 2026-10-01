@@ -5,7 +5,8 @@ from utils.filesystem import check_filename_length, sanitize_filename
 
 
 def sanitize_asset_filename(filename: str, label: str) -> str:
-    """`filename` made safe to write, or a 400 naming the `label` upload."""
+    """`filename` made safe to write, or a 400 naming the `label` upload, so a
+    caller can reject a bad name before it stores anything."""
     try:
         sanitized = sanitize_filename(filename)
         check_filename_length(sanitized)
