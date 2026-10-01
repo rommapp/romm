@@ -1,7 +1,9 @@
 import asyncio
 import contextlib
 import json
+import os
 import shutil
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -21,6 +23,8 @@ _STDERR_TAIL_BYTES = 400
 
 _BINARY: Final = "rom-converto"
 
+CUE_EXT: Final = ".cue"
+
 
 class RomConvertoError(Exception): ...
 
@@ -33,6 +37,10 @@ class RomConvertoTimeoutError(RomConvertoError): ...
 
 class RomConvertoOperationError(RomConvertoError):
     """A conversion command exited nonzero."""
+
+
+class RomConvertoUnsafeSourceError(RomConvertoError):
+    """A cue sheet references a track outside its own folder."""
 
 
 # `xbox convert` keeps only a dump's game partition, so a library never stores its output.
@@ -222,6 +230,54 @@ def resolve_operation(
     return best
 
 
+def _cue_file_name(line: str) -> str | None:
+    """The track a cue `FILE` line names, read the way the CLI reads it, or None for another line."""
+    parts = line.split()
+    if not parts or parts[0].upper() != "FILE":
+        return None
+    # The CLI takes everything between the first and last quote, or the bare second word.
+    start, end = line.find('"'), line.rfind('"')
+    if start != -1:
+        return line[start + 1 : end] if start < end else ""
+    return parts[1] if len(parts) >= 3 else ""
+
+
+def cue_tracks(cue: Path) -> list[Path]:
+    """The track files a cue sheet references, all beside it.
+
+    Raises:
+        RomConvertoUnsafeSourceError: A track is not a plain file name in the cue's folder.
+    """
+    tracks: list[Path] = []
+    for line in cue.read_text(encoding="utf-8-sig", errors="replace").splitlines():
+        name = _cue_file_name(line)
+        if name is None:
+            continue
+        # The CLI joins the name onto the cue's folder, so `..` or `/` would read any file.
+        if name in ("", ".", "..") or Path(name).name != name:
+            raise RomConvertoUnsafeSourceError(
+                f"{cue.name} references a track outside its folder"
+            )
+        tracks.append(cue.with_name(name))
+    return tracks
+
+
+def _convert_argv(operation: Operation, src: Path, out: Path) -> list[str]:
+    """The arguments running `operation` on `src`, refusing a cue that reaches outside its folder."""
+    if src.name.lower().endswith(CUE_EXT):
+        cue_tracks(src)
+    # Absolute, since the CLI runs from its own dir.
+    return [*operation.argv, os.path.abspath(src), os.path.abspath(out)]
+
+
+def _make_sandbox() -> tuple[Path, Path]:
+    """A new empty dir to run the CLI from, and the empty config file inside it."""
+    sandbox = Path(tempfile.mkdtemp(prefix="rom-converto-"))
+    config = sandbox / "config.toml"
+    config.touch()
+    return sandbox, config
+
+
 def _tail(text: str) -> str:
     return text.strip()[-_STDERR_TAIL_BYTES:]
 
@@ -231,15 +287,31 @@ async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
     binary = await asyncio.to_thread(shutil.which, _BINARY)
     if binary is None:
         raise RomConvertoBinaryNotFoundError(f"{_BINARY} binary not found on PATH")
-    # The CLI otherwise asks api.github.com for a newer release on every run.
-    proc = await asyncio.create_subprocess_exec(
-        binary,
-        "--no-update-check",
-        *argv,
-        stdin=asyncio.subprocess.DEVNULL,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
+    # The CLI reads `.env`, `rom-converto.toml` and its hash cache from the cwd and
+    # home, so it runs from an empty dir with an empty config and no cache.
+    sandbox, config = await asyncio.to_thread(_make_sandbox)
+    try:
+        # The CLI otherwise asks api.github.com for a newer release on every run.
+        proc = await asyncio.create_subprocess_exec(
+            binary,
+            "--no-update-check",
+            "--no-cache",
+            "--config",
+            str(config),
+            *argv,
+            cwd=sandbox,
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        return await _communicate(proc, argv, timeout_seconds)
+    finally:
+        await asyncio.to_thread(shutil.rmtree, sandbox, True)
+
+
+async def _communicate(
+    proc: asyncio.subprocess.Process, argv: list[str], timeout_seconds: float
+) -> tuple[int, str, str]:
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout_seconds)
     except TimeoutError as err:
@@ -326,9 +398,10 @@ class RomConvertoService:
         """Run `operation` on `src`, writing `out`, which must be alone in its directory.
 
         Raises:
+            RomConvertoUnsafeSourceError: `src` is a cue sheet reaching outside its folder.
             RomConvertoOperationError: The command failed or wrote more than `out`.
         """
-        argv = [*operation.argv, str(src), str(out)]
+        argv = await asyncio.to_thread(_convert_argv, operation, src, out)
         code, stdout, stderr = await _run(argv, ROM_CONVERTO_TIMEOUT)
         if code != 0:
             diagnostic = _tail(stderr) or _tail(stdout)

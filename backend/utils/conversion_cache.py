@@ -18,6 +18,7 @@ from adapters.services.rom_converto import (
     Operation,
     RomConvertoOperationError,
     RomConvertoTimeoutError,
+    RomConvertoUnsafeSourceError,
     canonical_format,
     file_format,
     resolve_operation,
@@ -337,7 +338,14 @@ async def _convert(
         os.replace(produced, final_path)
     except Exception as e:
         log.warning(f"Conversion failed for ROM {rom_id} (target {hl(target)}): {e}")
-        if isinstance(e, (RomConvertoOperationError, RomConvertoTimeoutError)):
+        if isinstance(
+            e,
+            (
+                RomConvertoOperationError,
+                RomConvertoTimeoutError,
+                RomConvertoUnsafeSourceError,
+            ),
+        ):
             (final_path.parent / FAILED_FILE).touch()
         return None
     finally:
