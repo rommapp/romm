@@ -39,12 +39,8 @@ async def run_task_by_name(
         Whatever the task returns.
     """
     # Imported here because the task modules the registry resolves import this one.
-    from models import load_all_models
     from tasks.registry import get_task
 
-    # A task module may load a model whose relationships name models it doesn't
-    # import, and the mappers configure only once every one of them is loaded.
-    load_all_models()
     task = get_task(name)
     if task is None:
         raise TaskNotFoundException(name)

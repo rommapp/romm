@@ -1,10 +1,10 @@
 """The catalog of tasks, kept free of task code so scheduling or listing them imports none."""
 
-import importlib
-from typing import Any, Final
+from typing import Any, Final, cast
 
-from rq.job import Job
+from rq.job import Callback, Job
 from rq.queue import Queue
+from rq.utils import import_attribute
 
 from config import (
     AUDIT_LOG_RETENTION_DAYS,
@@ -271,9 +271,7 @@ def get_task(name: str) -> Task | None:
     spec = get_task_spec(name)
     if spec is None:
         return None
-    module, _, attribute = spec.implementation.rpartition(".")
-    task: Task = getattr(importlib.import_module(module), attribute)
-    return task
+    return cast(Task, import_attribute(spec.implementation))
 
 
 def enqueue_task(
@@ -327,8 +325,6 @@ def enqueue_scheduled_scan(name: str) -> str:
     Returns:
         The id of the enqueued scan job.
     """
-    # Imported here because the cron process registers this function and must
-    # not load the scan stack to do it.
-    from endpoints.sockets.scan import report_scan_failure
-
-    return enqueue_task(name, queue=scan_queue, on_failure=report_scan_failure).id
+    # By path, so the dispatch job doesn't load the scan stack to reference it.
+    on_failure = Callback("endpoints.sockets.scan.report_scan_failure")
+    return enqueue_task(name, queue=scan_queue, on_failure=on_failure).id

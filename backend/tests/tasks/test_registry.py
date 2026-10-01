@@ -1,4 +1,5 @@
 import pytest
+from rq.utils import import_attribute
 
 from config import TASK_RESULT_TTL
 from endpoints.sockets.scan import report_scan_failure
@@ -98,7 +99,7 @@ class TestEnqueueScheduledScan:
         args, kwargs = scan_queue.enqueue.call_args
         assert args[0] is run_task_by_name
         assert kwargs["kwargs"]["name"] == "scan_library"
-        assert kwargs["on_failure"] is report_scan_failure
+        assert import_attribute(kwargs["on_failure"].func) is report_scan_failure
 
     def test_the_scan_carries_its_own_timeout(self, scan_queue):
         # The dispatch itself runs on the ordinary task timeout, so the scan

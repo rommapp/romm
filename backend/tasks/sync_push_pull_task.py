@@ -11,7 +11,6 @@ import asyncssh
 from anyio import Path as AnyioPath
 from anyio import open_file
 
-from config import ENABLE_SYNC_PUSH_PULL
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
@@ -37,7 +36,7 @@ async def run_push_pull_sync(
     force: bool = False,
 ) -> dict[str, Any]:
     """Execute push-pull sync for one or all push_pull devices."""
-    if not ENABLE_SYNC_PUSH_PULL and not force:
+    if not SYNC_PUSH_PULL_SPEC.enabled and not force:
         log.info("Push-pull sync not enabled, skipping")
         return {"status": "disabled"}
 
