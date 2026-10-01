@@ -10,9 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 from utils.database import (
-    ROMS_SEARCH_ALIASES_TRGM_INDEX,
     ROMS_SEARCH_FULLTEXT_INDEX,
-    SEARCH_ALIASES_COLUMN,
+    ROMS_SEARCH_TITLES_TRGM_INDEX,
     has_column,
     is_postgresql,
 )
@@ -26,6 +25,9 @@ depends_on = None
 
 # 0084's FULLTEXT index, over the name columns alone.
 NAME_FULLTEXT_INDEX = "idx_roms_name_fs_name_fulltext"
+# The alias column and index a database migrated before 0147 still carries.
+SEARCH_ALIASES_COLUMN = "generated_search_aliases"
+SEARCH_ALIASES_TRGM_INDEX = "idx_roms_search_aliases_trgm"
 
 
 def _index_names(conn: sa.Connection) -> set[str | None]:
@@ -46,7 +48,8 @@ def downgrade() -> None:
     conn = op.get_bind()
 
     if is_postgresql(conn):
-        op.execute(f"DROP INDEX IF EXISTS {ROMS_SEARCH_ALIASES_TRGM_INDEX}")
+        for index in (SEARCH_ALIASES_TRGM_INDEX, ROMS_SEARCH_TITLES_TRGM_INDEX):
+            op.execute(f"DROP INDEX IF EXISTS {index}")
     else:
         existing = _index_names(conn)
         if NAME_FULLTEXT_INDEX not in existing:

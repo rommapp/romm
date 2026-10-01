@@ -19,18 +19,13 @@ from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.engine.interfaces import ReflectedColumn
 from sqlalchemy.schema import CreateColumn
 
-from models.rom import (
-    ALTERNATIVE_NAME_SOURCES,
-    FULL_PATH_HASH_LENGTH,
-    SEARCH_TEXT_MAX_LENGTH,
-    TITLE_ID_MAX_LENGTH,
-)
+from models.rom import FULL_PATH_HASH_LENGTH, TITLE_ID_MAX_LENGTH
 from utils.database import (
     HLTB_MAIN_STORY_COLUMN,
-    ROMS_SEARCH_ALIASES_TRGM_INDEX,
     ROMS_SEARCH_FULLTEXT_COLUMNS,
     ROMS_SEARCH_FULLTEXT_INDEX,
-    SEARCH_ALIASES_COLUMN,
+    ROMS_SEARCH_TITLES_TRGM_INDEX,
+    SEARCH_TITLES_COLUMN,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     CustomJSON,
     column_names,
@@ -49,7 +44,6 @@ PRIMARY_REGION_COLUMN = "generated_primary_region"
 PRIMARY_REGION_LENGTH = 50
 FULL_PATH_HASH_COLUMN = "full_path_hash"
 RATING_COUNT_COLUMN = "generated_rating_count"
-SEARCH_TITLES_COLUMN = "search_titles"
 
 SAVE_TARGET_LAYOUT_COLUMN = "save_target_layout"
 SAVE_TARGET_LAYOUT_ENUM = "savetargetlayout"
@@ -210,17 +204,6 @@ class GeneratedColumn:
         )
 
 
-def _titles_text(json_array_text: str) -> str:
-    """A JSON array of strings as its titles separated by spaces."""
-    # Both engines print an array as `["a", "b"]`, however it was stored, and
-    # search terms split on whitespace, so a space never matches on its own.
-    separator, opening, closing = '", "', '["', '"]'
-    return (
-        f"REPLACE(REPLACE(REPLACE({json_array_text}, '{separator}', ' '), "
-        f"'{opening}', ''), '{closing}', '')"
-    )
-
-
 # ---------------------------------------------------------------------------
 # MariaDB / MySQL expressions (0098's, with 0112, 0123 and 0128's additions)
 # ---------------------------------------------------------------------------
@@ -350,20 +333,6 @@ _MARIA_PRIMARY_REGION = (
 )
 
 
-def _maria_alias_array(source: str, key: str) -> str:
-    value = f"JSON_EXTRACT({source}, '$.{key}')"
-    return (
-        f"CASE WHEN {_maria_char(f'JSON_TYPE({value})')} = 'ARRAY' "
-        f"THEN NULLIF({_titles_text(_maria_char(value))}, '[]') END"
-    )
-
-
-def _maria_search_aliases() -> str:
-    arrays = [_maria_alias_array(src, key) for src, key in ALTERNATIVE_NAME_SOURCES]
-    joined = "CONCAT_WS(' ', " + ", ".join(arrays) + ")"
-    return f"NULLIF(LEFT({joined}, {SEARCH_TEXT_MAX_LENGTH}), '')"
-
-
 # ---------------------------------------------------------------------------
 # PostgreSQL expressions
 # ---------------------------------------------------------------------------
@@ -437,17 +406,6 @@ def _postgres_hltb_main_story() -> str:
 
 
 _POSTGRES_PRIMARY_REGION = f"left(regions ->> 0, {PRIMARY_REGION_LENGTH})"
-
-
-def _postgres_search_aliases() -> str:
-    # concat_ws is only STABLE, which a generated column refuses, so each array
-    # carries its own separator and a missing one contributes nothing.
-    arrays = [
-        f"COALESCE(CASE WHEN jsonb_typeof({src} -> '{key}') = 'array' "
-        f"THEN {_titles_text(f"NULLIF({src} -> '{key}', '[]'::jsonb)::text")} || ' ' END, '')"
-        for src, key in ALTERNATIVE_NAME_SOURCES
-    ]
-    return "NULLIF(rtrim(" + " || ".join(arrays) + "), '')"
 
 
 # ---------------------------------------------------------------------------
@@ -527,11 +485,6 @@ def generated_columns(pg: bool) -> list[GeneratedColumn]:
         ),
         hltb_main_story,
         hltb_main_story.unset_flag,
-        GeneratedColumn(
-            SEARCH_ALIASES_COLUMN,
-            "TEXT",
-            _postgres_search_aliases() if pg else _maria_search_aliases(),
-        ),
     ]
 
 
@@ -643,10 +596,10 @@ def _generated_column_indexes(conn: sa.Connection) -> list[tuple[str, list[str],
     if pg:
         indexes.append(
             (
-                ROMS_SEARCH_ALIASES_TRGM_INDEX,
-                [SEARCH_ALIASES_COLUMN],
-                f"CREATE INDEX {ROMS_SEARCH_ALIASES_TRGM_INDEX} ON {TABLE} "
-                f"USING gin ({SEARCH_ALIASES_COLUMN} gin_trgm_ops)",
+                ROMS_SEARCH_TITLES_TRGM_INDEX,
+                [SEARCH_TITLES_COLUMN],
+                f"CREATE INDEX {ROMS_SEARCH_TITLES_TRGM_INDEX} ON {TABLE} "
+                f"USING gin ({SEARCH_TITLES_COLUMN} gin_trgm_ops)",
             )
         )
     else:

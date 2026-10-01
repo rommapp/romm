@@ -32,7 +32,9 @@ from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     HLTB_MAIN_STORY_COLUMN,
     POSTGRESQL_FK_INDEXES,
-    SEARCH_ALIASES_COLUMN,
+    ROMS_SEARCH_FULLTEXT_INDEX,
+    ROMS_SEARCH_TITLES_TRGM_INDEX,
+    SEARCH_TITLES_COLUMN,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     exact_collation,
     full_path_digest_sql,
@@ -380,7 +382,9 @@ def test_the_search_aliases_revision_reverses_and_replays():
         before = _schema_of(connection, "roms")
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
-            assert not has_column(connection, "roms", SEARCH_ALIASES_COLUMN)
+            indexes = _schema_of(connection, "roms")[1]
+            assert ROMS_SEARCH_FULLTEXT_INDEX not in indexes
+            assert ROMS_SEARCH_TITLES_TRGM_INDEX not in indexes
 
             migration.downgrade()
             migration.upgrade()
@@ -409,7 +413,15 @@ def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platfor
         expected = titles(connection)
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
-            assert not has_column(connection, "roms", "search_titles")
+            assert not has_column(connection, "roms", SEARCH_TITLES_COLUMN)
+            assert has_column(connection, "roms", "generated_search_aliases")
+            assert (
+                connection.execute(
+                    sa.text("SELECT generated_search_aliases FROM roms WHERE id = :id"),
+                    {"id": first.id},
+                ).scalar()
+                == "FF7"
+            )
             migration.downgrade()
 
             migration.upgrade()
@@ -671,12 +683,12 @@ def test_the_roms_columns_helper_rebuilds_a_narrowed_sort_index():
         )
 
 
-def test_the_roms_columns_helper_rebuilds_the_search_index_with_the_alias_column():
-    """A rebuild of the alias column must not leave the gallery search unindexed."""
+def test_the_roms_columns_helper_rebuilds_the_search_index_with_the_titles_column():
+    """A rebuild of the titles column must not leave the gallery search unindexed."""
     with sync_engine.begin() as connection:
         before = _schema_of(connection, "roms")
         connection.execute(
-            sa.text(f"ALTER TABLE roms DROP COLUMN {SEARCH_ALIASES_COLUMN}")
+            sa.text(f"ALTER TABLE roms DROP COLUMN {SEARCH_TITLES_COLUMN}")
         )
 
         ensure_roms_columns(connection)
