@@ -14,10 +14,8 @@ import Pair from "@/v2/views/Pair.vue";
       <Pair />
     </main>
     <footer class="r-v2-pair-shell__footer">
-      <div class="r-v2-pair-shell__lang">
-        <LanguageSelector />
-      </div>
-      <VersionTag class="r-v2-pair-shell__version" />
+      <LanguageSelector />
+      <VersionTag />
     </footer>
   </div>
 </template>
@@ -57,24 +55,16 @@ import Pair from "@/v2/views/Pair.vue";
   max-width: 440px;
 }
 
-/* Out of the grid flow, or it adds a second row and pulls the stage off
-   centre. */
+/* Absolute so it stays out of the grid and the stage keeps its centring. */
 .r-v2-pair-shell__footer {
   position: absolute;
-  inset: auto 0 0;
-}
-
-.r-v2-pair-shell__lang {
-  position: absolute;
   left: var(--r-space-4);
-  bottom: var(--r-space-3);
-  z-index: 1;
-}
-
-.r-v2-pair-shell__version {
-  position: absolute;
   right: var(--r-space-4);
   bottom: var(--r-space-3);
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r-space-3);
 }
 </style>

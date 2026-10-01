@@ -124,6 +124,13 @@ const rom = computed<SimpleRom | null>(() => {
     : null;
 });
 
+const romName = computed(() =>
+  rom.value ? (rom.value.name ?? rom.value.fs_name_no_ext) : "",
+);
+const checkLabel = computed(() =>
+  t("rom.select-asset", { name: romName.value }),
+);
+
 const isSelected = computed(() =>
   !isStatic.value && rom.value ? selection.isSelected(rom.value.id) : false,
 );
@@ -342,11 +349,7 @@ function onRowPointerDown(e: PointerEvent) {
     ]"
     :style="[smAndDown ? undefined : gridStyle, entranceStyle]"
     :href="rom ? `/rom/${rom.id}` : undefined"
-    :aria-label="
-      rom
-        ? t('common.open-item', { name: rom.name ?? rom.fs_name_no_ext })
-        : undefined
-    "
+    :aria-label="rom ? t('common.open-item', { name: romName }) : undefined"
     :data-rom-position="position"
     :data-rom-id="rom?.id"
     :data-focus-key="rom ? `rom-${rom.id}` : undefined"
@@ -367,9 +370,7 @@ function onRowPointerDown(e: PointerEvent) {
               v-if="!isStatic"
               class="game-list-row__check"
               :model-value="isSelected"
-              :aria-label="
-                t('rom.select-asset', { name: rom.name ?? rom.fs_name_no_ext })
-              "
+              :aria-label="checkLabel"
               shape="circle"
               size="sm"
               color="primary"
@@ -394,7 +395,7 @@ function onRowPointerDown(e: PointerEvent) {
 
           <div class="r-list-compact__stack">
             <div class="game-list-row__name">
-              {{ rom.name ?? rom.fs_name_no_ext }}
+              {{ romName }}
             </div>
             <div class="r-list-compact__facts">
               <template v-if="platformName">
@@ -508,9 +509,7 @@ function onRowPointerDown(e: PointerEvent) {
             v-if="!isStatic"
             class="game-list-row__check"
             :model-value="isSelected"
-            :aria-label="
-              t('rom.select-asset', { name: rom.name ?? rom.fs_name_no_ext })
-            "
+            :aria-label="checkLabel"
             shape="circle"
             size="sm"
             color="primary"
@@ -537,7 +536,7 @@ function onRowPointerDown(e: PointerEvent) {
           <div class="game-list-row__meta">
             <div class="game-list-row__name-row">
               <div class="game-list-row__name">
-                {{ rom.name ?? rom.fs_name_no_ext }}
+                {{ romName }}
               </div>
               <div class="game-list-row__badges" @click.stop>
                 <GameActionBtn

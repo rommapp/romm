@@ -115,7 +115,7 @@ interface Props {
    *  is true this prop is ignored: the card subscribes directly to
    *  `gallerySelection` so a single source of truth (the store)
    *  drives every selected card across the gallery. Left unset, a static
-   *  card is a plain button rather than a toggle (no `aria-pressed`). */
+   *  card is a plain button rather than a toggle. */
   selected?: boolean;
   /** Opt the card into the gallery's multi-select store. When true:
    *  the card reads its selected state from `gallerySelection`,
