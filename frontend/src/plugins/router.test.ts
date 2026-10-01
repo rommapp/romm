@@ -6,8 +6,8 @@ import i18n, { localesReady } from "@/locales";
 import router, { applyRouteTitle, ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
-import type { User } from "@/stores/users";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { userFixture } from "@/utils/user.fixtures";
 
 const { getRom, loadMdEditor, stubView } = vi.hoisted(() => ({
   getRom: vi.fn(),
@@ -105,7 +105,7 @@ describe("the rom route", () => {
   // matching the route is not proof the store's copy is current.
   it("re-reads a rom the store already holds", async () => {
     const roms = storeRoms();
-    storeAuth().setCurrentUser({ id: 1 } as User);
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
     roms.setCurrentRom(makeRom({ id: 9, name: "before the session" }));
     getRom.mockResolvedValue({
       data: makeRom({ id: 9, name: "after the session" }),
@@ -123,7 +123,7 @@ describe("the Markdown editor on v1", () => {
   beforeAll(async () => {
     setActivePinia(createPinia());
     await localesReady;
-    storeAuth().setCurrentUser({ id: 1 } as User);
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
   });
 
   beforeEach(() => {

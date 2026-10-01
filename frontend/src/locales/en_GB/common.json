@@ -96,6 +96,7 @@
   "logout-error": "Could not log out. Please try again.",
   "logout-success": "Logged out",
   "logs": "Logs",
+  "markdown-load-error": "Couldn't load Markdown content.",
   "minutes-n": "{n} min",
   "music-by-album": "Soundtracks by Album",
   "music-by-artist": "Soundtracks by Artist",

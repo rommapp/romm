@@ -96,6 +96,7 @@
   "logout-error": "No se pudo cerrar la sesión. Inténtalo de nuevo.",
   "logout-success": "Sesión cerrada",
   "logs": "Logs",
+  "markdown-load-error": "No se pudo cargar el contenido Markdown.",
   "minutes-n": "{n} min",
   "music-by-album": "Bandas sonoras por álbum",
   "music-by-artist": "Bandas sonoras por artista",

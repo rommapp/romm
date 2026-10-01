@@ -96,6 +96,7 @@
   "logout-error": "Odhlášení se nezdařilo. Zkuste to znovu.",
   "logout-success": "Odhlášeno",
   "logs": "Logs",
+  "markdown-load-error": "Obsah Markdown se nepodařilo načíst.",
   "minutes-n": "{n} min",
   "music-by-album": "Soundtracky podle alba",
   "music-by-artist": "Soundtracky podle interpreta",

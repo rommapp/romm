@@ -96,6 +96,7 @@
   "logout-error": "Échec de la déconnexion. Veuillez réessayer.",
   "logout-success": "Déconnecté",
   "logs": "Logs",
+  "markdown-load-error": "Impossible de charger le contenu Markdown.",
   "minutes-n": "{n} min",
   "music-by-album": "Bandes-son par album",
   "music-by-artist": "Bandes-son par artiste",

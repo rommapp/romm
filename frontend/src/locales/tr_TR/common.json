@@ -96,6 +96,7 @@
   "logout-error": "Çıkış yapılamadı. Tekrar dene.",
   "logout-success": "Çıkış yapıldı",
   "logs": "Günlükler",
+  "markdown-load-error": "Markdown içeriği yüklenemedi.",
   "minutes-n": "{n} dk",
   "music-by-album": "Albüme göre oyun müzikleri",
   "music-by-artist": "Sanatçıya göre oyun müzikleri",

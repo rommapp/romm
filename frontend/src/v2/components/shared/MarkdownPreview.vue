@@ -1,23 +1,15 @@
 <script setup lang="ts">
 // MarkdownPreview: read-only Markdown surface. md-editor-v3 loads on first
 // render (see loadMdEditor), so it stays out of the entry chunk.
-import { RSkeletonBlock } from "@v2/lib";
-import { computed, defineAsyncComponent, h, inject } from "vue";
-import { MD_EDITOR_LOADER, loadMdEditor } from "@/plugins/mdeditor";
+import { computed } from "vue";
+import { useLazyMarkdown } from "@/v2/composables/useLazyMarkdown";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 
 defineOptions({ inheritAttrs: false });
 
 defineProps<{ modelValue: string }>();
 
-const loader = inject(MD_EDITOR_LOADER, loadMdEditor);
-
-const MdPreview = defineAsyncComponent({
-  loader: () => loader().then((m) => m.MdPreview),
-  loadingComponent: { render: () => h(RSkeletonBlock, { height: "4rem" }) },
-  // Only show the skeleton when the chunk is slow to arrive.
-  delay: 200,
-});
+const MdPreview = useLazyMarkdown("MdPreview", "4rem");
 
 const { isLight } = useThemeMode();
 const theme = computed(() => (isLight.value ? "light" : "dark"));
@@ -34,7 +26,8 @@ function headingId({ text, index }: { text: string; index: number }) {
 </script>
 
 <template>
-  <MdPreview
+  <component
+    :is="MdPreview"
     v-bind="$attrs"
     no-highlight
     no-katex

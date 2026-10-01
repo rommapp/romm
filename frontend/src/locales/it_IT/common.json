@@ -96,6 +96,7 @@
   "logout-error": "Disconnessione non riuscita. Riprova.",
   "logout-success": "Disconnesso",
   "logs": "Logs",
+  "markdown-load-error": "Impossibile caricare il contenuto Markdown.",
   "minutes-n": "{n} min",
   "music-by-album": "Colonne sonore per album",
   "music-by-artist": "Colonne sonore per artista",

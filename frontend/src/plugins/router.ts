@@ -715,18 +715,6 @@ watch(i18n.global.locale, async (locale) => {
   if (route.meta.title) applyRouteTitle(route);
 });
 
-// Prefetch the md-editor chunk once the first page is up and the browser is
-// idle, so the download doesn't compete with critical resources but the chunk
-// is warm by the time anyone opens a markdown surface.
-{
-  const removeHook = router.afterEach(() => {
-    removeHook();
-    const schedule =
-      window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 2000));
-    schedule(() => loadMdEditor().catch(() => {}));
-  });
-}
-
 router.beforeResolve(async (to, from) => {
   // Query/hash-only changes (same path: e.g. the v2 GameDetails `?tab=`
   // param) aren't a real view change. Running a view transition would

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, waitFor } from "storybook/test";
-import { MD_EDITOR_LOADER } from "@/plugins/mdeditor";
+import { getCurrentInstance } from "vue";
+import { MD_EDITOR_LOADER, loadMdEditor } from "@/plugins/mdeditor";
 import MarkdownPreview from "@/v2/components/shared/MarkdownPreview.vue";
 
 const SAMPLE = `# Chrono Trigger
@@ -94,6 +95,36 @@ export const Loading: Story = {
     // defineAsyncComponent); the real preview never appears.
     await waitFor(() =>
       expect(canvasElement.querySelector(".r-skeleton")).not.toBeNull(),
+    );
+    await expect(canvasElement.querySelector(".md-editor-preview")).toBeNull();
+  },
+};
+
+// The first load fails; click Try again to load the real chunk.
+export const Failed: Story = {
+  decorators: [
+    (story) => {
+      let attempts = 0;
+      return {
+        components: { story },
+        provide: {
+          [MD_EDITOR_LOADER as symbol]: () =>
+            attempts++ === 0
+              ? Promise.reject(new Error("chunk failed"))
+              : loadMdEditor(),
+        },
+        setup() {
+          // Vue reports a failed async load to the app handler, which would fail the story.
+          const config = getCurrentInstance()!.appContext.config;
+          config.errorHandler = () => {};
+        },
+        template: "<story />",
+      };
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    await waitFor(() =>
+      expect(canvasElement.querySelector("[role='alert']")).not.toBeNull(),
     );
     await expect(canvasElement.querySelector(".md-editor-preview")).toBeNull();
   },

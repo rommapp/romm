@@ -96,6 +96,7 @@
   "logout-error": "ログアウトできませんでした。再試行してください。",
   "logout-success": "ログアウトしました",
   "logs": "Logs",
+  "markdown-load-error": "Markdownコンテンツを読み込めませんでした。",
   "minutes-n": "{n}分",
   "music-by-album": "アルバム別サウンドトラック",
   "music-by-artist": "アーティスト別サウンドトラック",

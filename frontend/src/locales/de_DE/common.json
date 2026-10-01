@@ -96,6 +96,7 @@
   "logout-error": "Abmelden fehlgeschlagen. Bitte erneut versuchen.",
   "logout-success": "Abgemeldet",
   "logs": "Logs",
+  "markdown-load-error": "Markdown-Inhalt konnte nicht geladen werden.",
   "minutes-n": "{n} Min.",
   "music-by-album": "Soundtracks nach Album",
   "music-by-artist": "Soundtracks nach Künstler",

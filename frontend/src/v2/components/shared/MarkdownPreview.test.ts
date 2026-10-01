@@ -1,7 +1,8 @@
 // @vitest-environment-options { "settings": { "disableCSSFileLoading": true, "disableJavaScriptFileLoading": true } }
 import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { MD_EDITOR_LOADER } from "@/plugins/mdeditor";
+import i18n from "@/locales";
+import { MD_EDITOR_LOADER, loadMdEditor } from "@/plugins/mdeditor";
 import MarkdownPreview from "@/v2/components/shared/MarkdownPreview.vue";
 
 async function render(
@@ -65,5 +66,32 @@ describe("MarkdownPreview", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("shows a retry when the loader fails and recovers on retry", async () => {
+    const loader = vi
+      .fn<() => ReturnType<typeof loadMdEditor>>()
+      .mockRejectedValueOnce(new Error("chunk failed"))
+      .mockImplementation(loadMdEditor);
+    const wrapper = mount(MarkdownPreview, {
+      props: { modelValue: "# Title" },
+      attachTo: document.body,
+      global: {
+        plugins: [i18n],
+        provide: { [MD_EDITOR_LOADER as symbol]: loader },
+      },
+    });
+    await vi.waitFor(() => {
+      expect(wrapper.find("[role='alert']").exists()).toBe(true);
+    });
+    expect(wrapper.find(".md-editor-preview").exists()).toBe(false);
+
+    await wrapper.find("button").trigger("click");
+
+    await vi.waitFor(() => {
+      expect(wrapper.find(".md-editor-preview").exists()).toBe(true);
+    });
+    expect(loader).toHaveBeenCalledTimes(2);
+    wrapper.unmount();
   });
 });

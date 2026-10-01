@@ -96,6 +96,7 @@
   "logout-error": "登出失敗，請重試。",
   "logout-success": "已登出",
   "logs": "Logs",
+  "markdown-load-error": "無法載入 Markdown 內容。",
   "minutes-n": "{n} 分鐘",
   "music-by-album": "依專輯瀏覽原聲音樂",
   "music-by-artist": "依藝人瀏覽原聲音樂",
