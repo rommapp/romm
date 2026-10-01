@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import json
 import os
+import re
 import shutil
 import tempfile
 from collections.abc import Callable
@@ -11,13 +12,13 @@ from typing import Any, Final
 
 from config import (
     ROM_CONVERTO_ENABLED,
-    ROM_CONVERTO_MAX_CONCURRENCY,
     ROM_CONVERTO_PATH,
     ROM_CONVERTO_TIMEOUT,
 )
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.rom import ROM_FILE_INFO_MAX_LENGTH
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # Wider than the conversion targets: `info` only reads headers, so every
@@ -47,10 +48,8 @@ _PROBE_TIMEOUT_SECONDS = 30
 
 _STDERR_TAIL_BYTES = 400
 
-# The width of the `rom_files` text columns this metadata is stored into.
-_TEXT_MAX_LENGTH = 255
-
 _PNG_SIGNATURE: Final[bytes] = b"\x89PNG\r\n\x1a\n"
+_PSP_TITLE_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Z]{4}[0-9]{5}")
 
 
 class RomConvertoError(Exception): ...
@@ -151,7 +150,7 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     _op("iso", _DVD_PLATFORMS, "cso decompress", ".cso .zso .dax", ".iso"),
     # CD-mode CHDs extract to .bin/.cue, so only DVD platforms get this.
     _op("iso", _DVD_PLATFORMS, "chd extract", ".chd", ".iso"),
-    _op("iso", _DVD_PLATFORMS | _CD_PLATFORMS, "cue to-iso", ".cue", ".iso"),
+    _op("iso", _DVD_PLATFORMS, "cue to-iso", ".cue", ".iso"),
     _op("iso", {UPS.PSP}, "psp to-iso", ".pbp", ".iso"),
     _op("cso", _DVD_PLATFORMS, "cso compress --format cso", ".iso", ".cso"),
     _op("cso", _DVD_PLATFORMS, "chd to-cso --format cso", ".chd", ".cso"),
@@ -313,7 +312,7 @@ def _text(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
     text = " ".join(value.replace("\x00", "").split())
-    return text[:_TEXT_MAX_LENGTH].rstrip() or None
+    return text[:ROM_FILE_INFO_MAX_LENGTH].rstrip() or None
 
 
 def _upper(value: Any) -> str | None:
@@ -725,7 +724,12 @@ def _title_id(kind: str, flat: dict[str, Any]) -> str | None:
         return _first_str(flat, "title_id_code", "title_id_hex")
     if kind == "xenon":
         return _first_str(flat, "title_id_hex")
-    return _first_str(flat, "application_title_id_hex", "title_id", "game_code")
+    title_id = _first_str(flat, "application_title_id_hex", "title_id", "game_code")
+    if kind in ("psp", "pbp"):
+        title_id = title_id or _first_str(flat, "disc_id")
+        if title_id and _PSP_TITLE_ID_PATTERN.fullmatch(title_id):
+            return f"{title_id[:4]}-{title_id[4:]}"
+    return title_id
 
 
 def _parse_info(payload: dict[str, Any]) -> RomConvertoInfo:
@@ -756,8 +760,6 @@ class RomConvertoService:
         # None when the manifest predates `info_extensions`: inspect everything.
         self._info_extensions: frozenset[str] | None = None
         self._probe_lock = asyncio.Lock()
-        # Each conversion reads and writes whole disc images.
-        self._convert_semaphore = asyncio.Semaphore(ROM_CONVERTO_MAX_CONCURRENCY)
 
     async def is_enabled(self) -> bool:
         if not ROM_CONVERTO_ENABLED:
@@ -808,7 +810,7 @@ class RomConvertoService:
         return path.suffix.lower() in self._info_extensions
 
     async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]:
-        """Inspect files in one `info --paths-file` run, keyed by the paths it recognized; never raises."""
+        """Inspect files in one `info` run, keyed by the paths it recognized; never raises."""
         # The paths file is line-based, so a name holding a newline can't be listed.
         paths = [p for p in paths if "\n" not in str(p)]
         if not paths:
@@ -855,8 +857,7 @@ class RomConvertoService:
     async def convert(self, operation: Operation, src: Path, out: Path) -> None:
         """Run `operation` on `src`, writing `out`."""
         argv = [*operation.argv, str(src), str(out)]
-        async with self._convert_semaphore:
-            code, stdout, stderr = await _run(argv, ROM_CONVERTO_TIMEOUT)
+        code, stdout, stderr = await _run(argv, ROM_CONVERTO_TIMEOUT)
         if code != 0:
             diagnostic = _tail(stderr) or _tail(stdout)
             raise RomConvertoOperationError(

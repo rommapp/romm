@@ -1368,7 +1368,8 @@ class ConfigManager:
         try:
             self.config.CONVERTO.platform_formats = normalize_platform_formats(
                 self._validated_platform_map(
-                    self.config.CONVERTO.platform_formats, "converto.platform_formats"
+                    self.config.CONVERTO.platform_formats or {},
+                    "converto.platform_formats",
                 )
             )
         except ValueError as exc:

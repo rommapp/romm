@@ -708,6 +708,13 @@ def test_converto_config_from_yaml(tmp_path):
     )
 
 
+def test_null_converto_platform_formats_means_empty(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("converto:\n  platform_formats:\n")
+
+    assert ConfigManager(str(config_file)).config.CONVERTO.platform_formats == {}
+
+
 def test_update_converto_settings_round_trip(tmp_path):
     config_file = tmp_path / "config.yml"
     config_file.write_text("converto:\n  cache_ttl_hours: 12\n")

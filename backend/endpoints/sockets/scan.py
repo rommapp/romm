@@ -797,10 +797,12 @@ async def _identify_rom(
         # Reconcile against the existing rows instead of replacing them, so file
         # ids survive a rescan and anything keyed on them (track metadata,
         # persisted soundtrack covers and file images) stays valid.
-        synced = db_rom_handler.sync_rom_files(_added_rom.id, fs_rom["files"])
+        images = fs_rom.get("images", {})
+        synced = db_rom_handler.sync_rom_files(
+            _added_rom.id, fs_rom["files"], inspected=images
+        )
         for cover_path in synced.orphaned_cover_paths:
             remove_persisted_cover(cover_path)
-        images = fs_rom.get("images", {})
         for scanned, saved in zip(fs_rom["files"], synced.files, strict=True):
             persist_soundtrack_cover(saved, _added_rom)
             if scanned in images:

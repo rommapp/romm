@@ -1382,7 +1382,9 @@ async def head_rom_content(
         # Report a cached conversion, but never start one: HEAD may be
         # unauthenticated and a conversion is minutes of CPU.
         converted_path = (
-            await resolve_converted_download(rom, files[0], start_conversion=False)
+            await resolve_converted_download(
+                rom, files[0], touch=False, start_conversion=False
+            )
             if converted
             else None
         )
@@ -1596,11 +1598,15 @@ async def get_rom_content(
     # Otherwise proxy through nginx
     if len(files) == 1:
         file = files[0]
-        # Only an authenticated caller may spend minutes of CPU on a
-        # conversion, since DISABLE_DOWNLOAD_ENDPOINT_AUTH opens this route.
+        # Only a signed-in user may spend minutes of CPU on a conversion, since
+        # DISABLE_DOWNLOAD_ENDPOINT_AUTH and KIOSK_MODE open this route to visitors.
         converted_path = (
             await resolve_converted_download(
-                rom, file, start_conversion=request.user.is_authenticated
+                rom,
+                file,
+                touch=True,
+                start_conversion=request.user.is_authenticated
+                and not request.user.is_kiosk_guest,
             )
             if converted
             else None

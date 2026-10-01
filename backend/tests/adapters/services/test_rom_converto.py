@@ -12,6 +12,7 @@ from adapters.services.rom_converto import (
     TARGETS_BY_PLATFORM,
     Operation,
     RomConvertoBinaryNotFoundError,
+    RomConvertoError,
     RomConvertoImages,
     RomConvertoInfo,
     RomConvertoOperationError,
@@ -236,11 +237,30 @@ class TestReadInfos:
         ):
             assert await service.read_infos([Path("/roms/game.iso")]) == {}
 
-    async def test_non_json_output_returns_empty(self, service: RomConvertoService):
-        proc = FakeProc(stdout=b"not json at all")
+    @pytest.mark.parametrize(
+        "stdout",
+        [
+            pytest.param(b"not json at all", id="non-json"),
+            pytest.param(b"{}", id="object"),
+            pytest.param(b"null", id="null"),
+        ],
+    )
+    async def test_invalid_output_returns_empty(
+        self, service: RomConvertoService, stdout: bytes
+    ):
+        proc = FakeProc(stdout=stdout)
         with (
             patch("shutil.which", return_value="rc"),
             patch("asyncio.create_subprocess_exec", return_value=proc),
+        ):
+            assert await service.read_infos([Path("/roms/game.iso")]) == {}
+
+    async def test_unrecognized_files_return_an_empty_dict(
+        self, service: RomConvertoService
+    ):
+        records = [{"path": "/roms/game.iso", "ok": False, "error": "could not detect"}]
+        with patch.object(
+            rom_converto, "_run", return_value=(0, json.dumps(records), "")
         ):
             assert await service.read_infos([Path("/roms/game.iso")]) == {}
 
@@ -254,7 +274,12 @@ class TestReadInfos:
 
 class TestReadInfosFailures:
     @pytest.mark.parametrize(
-        "error", [RomConvertoTimeoutError("slow"), OSError(8, "Exec format error")]
+        "error",
+        [
+            pytest.param(RomConvertoError("failed"), id="run-error"),
+            pytest.param(RomConvertoTimeoutError("slow"), id="timeout"),
+            pytest.param(OSError(8, "Exec format error"), id="os-error"),
+        ],
     )
     async def test_run_failure_returns_empty(
         self, service: RomConvertoService, error: Exception
@@ -696,7 +721,7 @@ class TestParseInfo:
                 {
                     "kind": "psp",
                     "title": "Patapon",
-                    "title_id": "UCUS-98696",
+                    "title_id": "UCUS98696",
                     "content_kind": "game",
                     "version": "1.0",
                     "firmware": "5.00",
@@ -704,7 +729,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title_id="UCUS-98696",
                     title="Patapon",
-                    serial="UCUS-98696",
+                    serial="UCUS98696",
                     content_type="game",
                     display_version="1.0",
                     min_firmware_version="5.00",
@@ -717,15 +742,16 @@ class TestParseInfo:
                 {
                     "kind": "pbp",
                     "title": "Patapon",
-                    "disc_id": "UCUS-98696",
+                    "disc_id": "UCUS98696",
                     "content_kind": "update",
                     "disc_version": "1.00",
                     "psp_system_ver": "5.55",
                     "icon": {"png_bytes": list(_FAKE_PNG)},
                 },
                 RomConvertoInfo(
+                    title_id="UCUS-98696",
                     title="Patapon",
-                    serial="UCUS-98696",
+                    serial="UCUS98696",
                     content_type="update",
                     display_version="1.00",
                     min_firmware_version="5.55",
@@ -733,6 +759,28 @@ class TestParseInfo:
                     images=RomConvertoImages(icon=_FAKE_PNG),
                 ),
                 id="pbp-reads-the-eboot-header",
+            ),
+            pytest.param(
+                {"kind": "psp", "title_id": "HOMEBREW"},
+                RomConvertoInfo(
+                    title_id="HOMEBREW",
+                    serial="HOMEBREW",
+                    content_type="game",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="psp-keeps-nonmatching-title-id",
+            ),
+            pytest.param(
+                {"kind": "psp", "title_id": "ulus10041"},
+                RomConvertoInfo(
+                    title_id="ulus10041",
+                    serial="ulus10041",
+                    content_type="game",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="psp-keeps-lowercase-title-id",
             ),
             pytest.param(
                 {
@@ -812,7 +860,7 @@ class TestParseInfo:
                     "content": {
                         "kind": "psp",
                         "title": "Daxter",
-                        "title_id": "UCUS-98718",
+                        "title_id": "UCUS98718",
                         "content_kind": "game",
                         "version": "1.00",
                         "icon": {"png_bytes": list(_FAKE_PNG)},
@@ -822,7 +870,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title_id="UCUS-98718",
                     title="Daxter",
-                    serial="UCUS-98718",
+                    serial="UCUS98718",
                     content_type="game",
                     display_version="1.00",
                     is_compressed=True,
@@ -1126,12 +1174,31 @@ class TestResolveOperation:
         [
             pytest.param("psp", "iso", "Game.iso", id="already-in-target-format"),
             pytest.param("psx", "iso", "Game.chd", id="cd-chd-has-no-extract"),
+            pytest.param("psx", "iso", "Game.cue", id="psx-cue-can-have-audio"),
+            pytest.param("saturn", "iso", "Game.cue", id="saturn-cue-can-have-audio"),
+            pytest.param("segacd", "iso", "Game.cue", id="segacd-cue-can-have-audio"),
+            pytest.param("dc", "iso", "Game.cue", id="dc-cue-can-have-audio"),
         ],
     )
     def test_returns_none_when_nothing_applies(
         self, platform: str, target: str, file_name: str
     ):
         assert resolve_operation(platform, target, file_name) is None
+
+    @pytest.mark.parametrize(
+        "platform",
+        [
+            pytest.param("psp", id="psp"),
+            pytest.param("ps2", id="ps2"),
+        ],
+    )
+    def test_dvd_cue_still_converts_to_iso(self, platform: str):
+        resolved = resolve_operation(platform, "iso", "Game.cue")
+
+        assert resolved is not None
+        op, ext = resolved
+        assert op.argv == ("cue", "to-iso")
+        assert op.output_name(Path("Game.cue"), ext) == "Game.iso"
 
 
 class TestTargetsByPlatform:

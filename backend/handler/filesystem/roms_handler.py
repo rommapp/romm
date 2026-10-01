@@ -127,6 +127,7 @@ class FSRom(TypedDict):
     sha1_hash: str
     ra_hash: str
     identity: NotRequired[RomIdentity]
+    # The files rom-converto read this pass.
     images: NotRequired[dict[RomFile, RomConvertoImages]]
 
 
@@ -258,6 +259,7 @@ class ParsedRomFiles:
     # Files whose name can carry their Switch title id. Renaming is a separate
     # step (`embed_switch_title_ids`) so parsing stays a read.
     embed_candidates: list[TitleIdEmbedCandidate] = field(default_factory=list)
+    # The files rom-converto read this pass.
     images: dict[RomFile, RomConvertoImages] = field(default_factory=dict)
 
 
@@ -654,7 +656,7 @@ class FSRomsHandler(FSHandler):
     async def _read_converto_infos(
         self, sources: list[tuple[Path, RomFile]]
     ) -> dict[RomFile, RomConvertoImages]:
-        """Write rom-converto's per-file metadata and return its images."""
+        """Write metadata and return images for the files rom-converto read this pass."""
         if not sources:
             return {}
         infos = await rom_converto_service.read_infos([p for p, _ in sources])

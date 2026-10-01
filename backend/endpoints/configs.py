@@ -379,3 +379,4 @@ async def update_converto_settings(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "converto_settings", "update")

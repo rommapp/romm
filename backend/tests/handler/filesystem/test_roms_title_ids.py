@@ -123,8 +123,19 @@ class TestReadConvertoInfos:
 
     @pytest.mark.asyncio
     async def test_idless_info_still_sets_version(self, handler, mocker):
-        unknown = RomFile(file_name="a.chd", file_path="psx/roms")
-        idless = RomFile(file_name="b.chd", file_path="psx/roms")
+        unknown = RomFile(
+            file_name="a.chd",
+            file_path="psx/roms",
+            title_id="old-id",
+            title_version=2,
+            title="Old title",
+        )
+        idless = RomFile(
+            file_name="b.chd",
+            file_path="psx/roms",
+            title_id="old-id",
+            title_version=2,
+        )
         read_infos = mocker.AsyncMock(
             return_value={Path("/lib/b.chd"): _info(title_id=None, title_version=3)}
         )
@@ -134,14 +145,12 @@ class TestReadConvertoInfos:
             [(Path("/lib/a.chd"), unknown), (Path("/lib/b.chd"), idless)]
         )
 
-        # A file rom-converto returned nothing for stays untouched; an idless
-        # info still carries its version and unset fields stay None.
-        assert (unknown.title_id, unknown.title_version) == (None, None)
+        assert (unknown.title_id, unknown.title_version) == ("old-id", 2)
+        assert unknown.title == "Old title"
         assert (idless.title_id, idless.title_version) == (None, 3)
-        assert idless.regions is None
 
     @pytest.mark.asyncio
-    async def test_returns_images_only_for_files_with_info(self, handler, mocker):
+    async def test_returns_images_only_for_recognized_files(self, handler, mocker):
         with_icon = RomFile(file_name="icon.chd", file_path="psx/roms")
         without_images = RomFile(file_name="plain.chd", file_path="psx/roms")
         without_info = RomFile(file_name="missing.chd", file_path="psx/roms")
@@ -166,7 +175,10 @@ class TestReadConvertoInfos:
             ]
         )
 
-        assert images == {with_icon: icon_images, without_images: empty_images}
+        assert images == {
+            with_icon: icon_images,
+            without_images: empty_images,
+        }
 
 
 PS2_PLATFORM = Platform(name="PlayStation 2", slug="ps2", fs_slug="ps2")

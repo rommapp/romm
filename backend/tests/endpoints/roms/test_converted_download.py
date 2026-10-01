@@ -1,4 +1,6 @@
 import asyncio
+import os
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -8,9 +10,12 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from adapters.services.rom_converto import resolve_operation
 from config import ROM_CONVERTO_CACHE_PATH
 from config.config_manager import ConvertoConfig
 from models.rom import Rom
+from utils import conversion_cache
+from utils.conversion_cache import get_cached_converted
 
 CONVERTED = Path(ROM_CONVERTO_CACHE_PATH) / "1-abc" / "test_rom.chd"
 
@@ -39,6 +44,24 @@ def conversion(mocker):
             "utils.conversion_cache.get_or_convert", AsyncMock(return_value=CONVERTED)
         ),
     )
+
+
+@pytest.fixture
+def cached_copy(tmp_path: Path, conversion, mocker) -> Path:
+    final = tmp_path / "cache/converts/1-abc/test_rom.chd"
+    final.parent.mkdir(parents=True)
+    final.write_bytes(b"x" * 120)
+    served = time.time() - 3600
+    os.utime(final, (served, served))
+    resolved = resolve_operation("psp", "chd", "test_rom.iso")
+    assert resolved is not None
+    mocker.patch.object(conversion_cache, "ROMM_BASE_PATH", str(tmp_path))
+    mocker.patch.object(
+        conversion_cache, "ROM_CONVERTO_CACHE_PATH", str(final.parent.parent)
+    )
+    mocker.patch.object(conversion_cache, "_lookup", return_value=(resolved[0], final))
+    conversion.cached.side_effect = get_cached_converted
+    return final
 
 
 def _redirect(response) -> str:
@@ -90,7 +113,6 @@ def test_opt_in_serves_a_cached_copy_over_the_sync_cap(
     )
 
     assert _redirect(response) == "/cache/converts/1-abc/test_rom.chd"
-    assert conversion.cached.call_args.kwargs == {"touch": True}
     conversion.convert.assert_not_called()
 
 
@@ -144,5 +166,69 @@ def test_head_reports_a_cached_copy_but_never_converts(
 
     assert _redirect(uncached) == f"/library/{rom_file.full_path}"
     assert _redirect(cached) == "/cache/converts/1-abc/test_rom.chd"
-    assert conversion.cached.call_args.kwargs == {"touch": False}
+    conversion.convert.assert_not_called()
+
+
+def test_a_kiosk_visitor_never_starts_a_conversion(
+    client: TestClient, rom: Rom, rom_file, conversion, mocker
+):
+    mocker.patch("handler.auth.hybrid_auth.KIOSK_MODE", True)
+    mocker.patch("handler.auth.permissions.KIOSK_MODE", True)
+
+    response = client.get(
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        params={"converted": "true"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert _redirect(response) == f"/library/{rom_file.full_path}"
+    conversion.convert.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("method", "visitor"),
+    [
+        pytest.param("get", "authenticated", id="authenticated-download"),
+        pytest.param("get", "kiosk", id="kiosk-download"),
+        pytest.param("get", "public", id="download-auth-disabled"),
+        pytest.param("head", "authenticated", id="metadata"),
+    ],
+)
+def test_get_refreshes_a_cached_copy_but_head_does_not(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    rom_file,
+    conversion,
+    cached_copy: Path,
+    mocker,
+    method,
+    visitor,
+):
+    headers = {"Authorization": f"Bearer {access_token}"}
+    if visitor == "kiosk":
+        mocker.patch("handler.auth.hybrid_auth.KIOSK_MODE", True)
+        mocker.patch("handler.auth.permissions.KIOSK_MODE", True)
+        headers = {}
+    elif visitor == "public":
+        # Download scopes are fixed when the route decorators are evaluated.
+        mocker.patch("decorators.auth.has_required_scope", return_value=True)
+        headers = {}
+    conversion.converto.cache_max_size_gb = 1
+    mocker.patch.object(conversion_cache, "BYTES_PER_GB", 100)
+
+    response = client.request(
+        method,
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        headers=headers,
+        params={"converted": "true"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert _redirect(response) == "/cache/converts/1-abc/test_rom.chd"
+    assert (cached_copy.stat().st_mtime > time.time() - 60) is (method == "get")
+    assert conversion_cache.cleanup_stale_conversions() == (0 if method == "get" else 1)
+    assert cached_copy.exists() is (method == "get")
     conversion.convert.assert_not_called()
