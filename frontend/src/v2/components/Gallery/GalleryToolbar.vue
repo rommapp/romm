@@ -232,7 +232,6 @@ function setSortDir(value: "asc" | "desc") {
   emit("update:sortDir", value);
 }
 
-// Marks the chosen entry beyond its colour, as the version switcher does.
 function selectionMark(selected: boolean) {
   return {
     variant: selected ? ("active" as const) : ("default" as const),

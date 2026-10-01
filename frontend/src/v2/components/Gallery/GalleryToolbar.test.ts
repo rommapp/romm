@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import GalleryToolbar from "./GalleryToolbar.vue";
 
@@ -89,6 +89,10 @@ describe("GalleryToolbar search autofocus", () => {
 });
 
 describe("GalleryToolbar sort axis", () => {
+  afterEach(() => {
+    smAndUp.value = true;
+  });
+
   it("emits the picked axis so grid mode can change the sort key", async () => {
     const wrapper = mountWithSortOptions();
 
@@ -121,7 +125,6 @@ describe("GalleryToolbar sort axis", () => {
       Title: ["default", undefined],
     });
     wrapper.unmount();
-    smAndUp.value = true;
   });
 
   // Index views (Platforms / Collections) sort their own tiles and pass
