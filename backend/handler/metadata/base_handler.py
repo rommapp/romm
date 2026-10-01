@@ -12,6 +12,7 @@ from strsimpy.jaro_winkler import JaroWinkler
 
 from handler.dump_cache import hget_json
 from handler.redis_handler import async_cache
+from logger.formatter import SENSITIVE_KEYS
 from logger.logger import log
 from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
@@ -98,25 +99,6 @@ class CoverResource(TypedDict):
 class CoverResult(TypedDict):
     name: str
     resources: list[CoverResource]
-
-
-SENSITIVE_KEYS = {
-    "Authorization",
-    "Client-ID",
-    "Client-Secret",
-    "client_id",
-    "client_secret",
-    "api_key",
-    "ssid",
-    "sspassword",
-    "devid",
-    "devpassword",
-    "y",
-}
-SENSITIVE_KEYS_REGEX = re.compile(
-    rf"({'|'.join(re.escape(k) for k in SENSITIVE_KEYS)})=[^&\s\"]*",
-    re.IGNORECASE,
-)
 
 
 # This caches results to avoid repeated normalization of the same search term

@@ -19,7 +19,8 @@ from dataclasses import dataclass
 from handler.database import db_save_handler
 from handler.filesystem import fs_asset_handler
 from logger.logger import log
-from tasks.tasks import Task, TaskType, update_job_meta
+from tasks.registry import RECOMPUTE_SAVE_CONTENT_HASHES_SPEC
+from tasks.tasks import Task, update_job_meta
 from utils.context import initialize_context
 
 META_FLUSH_EVERY = 100
@@ -52,22 +53,11 @@ class RecomputeSaveHashesStats:
 
 class RecomputeSaveContentHashesTask(Task):
     def __init__(self) -> None:
-        super().__init__(
-            title="Recompute save content hashes",
-            description=(
-                "Re-scan every save row and rewrite content_hash with the "
-                "current compute_content_hash algorithm. One-time recovery "
-                "after the zip-hash dispatch fix."
-            ),
-            task_type=TaskType.CLEANUP,
-            enabled=True,
-            manual_run=True,
-            cron_string=None,
-        )
+        super().__init__(RECOMPUTE_SAVE_CONTENT_HASHES_SPEC)
 
     @initialize_context()
     async def run(self) -> dict[str, int]:
-        log.info(f"Starting {self.title} task...")
+        log.info(f"Starting {self.spec.title} task...")
         stats = RecomputeSaveHashesStats()
 
         # Keyset-paginate by primary key instead of loading every Save row
@@ -131,7 +121,7 @@ class RecomputeSaveContentHashesTask(Task):
 
         stats.flush()
         log.info(
-            f"{self.title} complete: scanned={stats.saves_scanned}, "
+            f"{self.spec.title} complete: scanned={stats.saves_scanned}, "
             f"updated={stats.saves_updated}, unchanged={stats.saves_unchanged}, "
             f"missing_fs={stats.saves_missing_fs}, errors={stats.errors}"
         )

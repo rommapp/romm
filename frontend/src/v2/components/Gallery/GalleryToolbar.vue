@@ -232,6 +232,13 @@ function setSortDir(value: "asc" | "desc") {
   emit("update:sortDir", value);
 }
 
+function selectionMark(selected: boolean) {
+  return {
+    variant: selected ? ("active" as const) : ("default" as const),
+    icon: selected ? "mdi-check" : undefined,
+  };
+}
+
 function setSortKey(value: ListSortKey) {
   emit("update:sortKey", value);
 }
@@ -350,7 +357,7 @@ const { smAndUp } = useBreakpoint();
             v-for="item in sortKeyItems"
             :key="item.key"
             :label="item.label"
-            :variant="sortKeyValue === item.key ? 'active' : 'default'"
+            v-bind="selectionMark(sortKeyValue === item.key)"
             @click="setSortKey(item.key)"
           />
         </RMenu>
@@ -422,7 +429,7 @@ const { smAndUp } = useBreakpoint();
             v-for="item in sortKeyItems"
             :key="item.key"
             :label="item.label"
-            :variant="sortKeyValue === item.key ? 'active' : 'default'"
+            v-bind="selectionMark(sortKeyValue === item.key)"
             @click="setSortKey(item.key)"
           />
           <RDivider v-if="sortKeyItems.length > 0" />

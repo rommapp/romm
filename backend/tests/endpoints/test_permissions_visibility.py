@@ -15,7 +15,7 @@ from tests.factories import make_rom
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import roms as rom_endpoints
 from endpoints.roms import walkthrough as walkthrough_endpoints
-from handler.auth import oauth_handler
+from handler.auth.base_handler import oauth_handler
 from handler.database import db_collection_handler, db_rom_handler, db_user_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler

@@ -9,7 +9,7 @@ from tests.audit_events import recorded_events
 from tests.factories import make_device_token, make_rom
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.auth import oauth_handler
+from handler.auth.base_handler import oauth_handler
 from handler.database import (
     db_audit_event_handler,
     db_device_handler,

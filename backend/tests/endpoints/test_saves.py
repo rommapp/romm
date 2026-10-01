@@ -14,7 +14,7 @@ from tests.factories import make_save, make_screenshot, make_state
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints.saves import _apply_datetime_tag
-from handler.auth import oauth_handler
+from handler.auth.base_handler import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import (
     db_deleted_asset_handler,

@@ -674,7 +674,7 @@ class TestTopUpPolicy:
         enqueued: list[tuple[str, dict[str, Any]]] = []
         monkeypatch.setattr(builder, "MAX_TOP_UP_ROMS", 2)
         monkeypatch.setattr(
-            "tasks.registry.enqueue_task",
+            "handler.recommendation.builder.enqueue_task",
             lambda name, **kwargs: enqueued.append((name, kwargs)),
         )
         monkeypatch.setattr(

@@ -11,7 +11,6 @@ import asyncssh
 from anyio import Path as AnyioPath
 from anyio import open_file
 
-from config import ENABLE_SYNC_PUSH_PULL, SYNC_PUSH_PULL_CRON
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
@@ -27,7 +26,8 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.device import Device, SyncMode
 from models.sync_session import SyncSessionStatus
-from tasks.tasks import PeriodicTask, TaskType
+from tasks.registry import SYNC_PUSH_PULL_SPEC
+from tasks.tasks import PeriodicTask
 
 
 async def run_push_pull_sync(
@@ -36,7 +36,7 @@ async def run_push_pull_sync(
     force: bool = False,
 ) -> dict[str, Any]:
     """Execute push-pull sync for one or all push_pull devices."""
-    if not ENABLE_SYNC_PUSH_PULL and not force:
+    if not SYNC_PUSH_PULL_SPEC.enabled and not force:
         log.info("Push-pull sync not enabled, skipping")
         return {"status": "disabled"}
 
@@ -448,13 +448,7 @@ class SyncPushPullTask(PeriodicTask):
     """Periodic task to run push-pull sync for all configured devices."""
 
     def __init__(self) -> None:
-        super().__init__(
-            title="Push-Pull Sync",
-            description="Sync saves with devices via SSH/SFTP",
-            task_type=TaskType.SYNC,
-            enabled=ENABLE_SYNC_PUSH_PULL,
-            cron_string=SYNC_PUSH_PULL_CRON,
-        )
+        super().__init__(SYNC_PUSH_PULL_SPEC)
 
     async def run(self, *args: Any, **kwargs: Any) -> Any:
         return await run_push_pull_sync(**kwargs)

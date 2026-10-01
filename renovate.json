@@ -32,6 +32,12 @@
       "allowedVersions": "<7"
     },
     {
+      "description": "From 0.30, json-schema-ref-parser 14 refuses localhost URLs, so `npm run generate` can't read the schema from the local backend. The CLI has no flag to allow them.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["openapi-typescript-codegen"],
+      "allowedVersions": "<0.30"
+    },
+    {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["postgres"],
       "groupName": "postgres"

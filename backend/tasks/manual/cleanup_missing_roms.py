@@ -5,7 +5,8 @@ from endpoints.responses import MissingRomsCleanupStats
 from handler.database import db_collection_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
-from tasks.tasks import JobMetaStats, Task, TaskType
+from tasks.registry import CLEANUP_MISSING_ROMS_SPEC
+from tasks.tasks import JobMetaStats, Task
 from utils.context import initialize_context
 
 
@@ -42,21 +43,14 @@ def _refresh_after_delete(rom_ids: list[int]) -> None:
 
 class CleanupMissingRomsTask(Task):
     def __init__(self) -> None:
-        super().__init__(
-            title="Cleanup missing ROMs",
-            description="Delete all ROMs flagged as missing from the filesystem from the database",
-            task_type=TaskType.CLEANUP,
-            enabled=True,
-            manual_run=True,
-            cron_string=None,
-        )
+        super().__init__(CLEANUP_MISSING_ROMS_SPEC)
 
     @initialize_context()
     async def run(
         self, platform_ids: list[int] | None = None
     ) -> MissingRomsCleanupStats:
         """Clean up ROMs that are flagged as missing from the filesystem."""
-        log.info(f"Starting {self.title} task...")
+        log.info(f"Starting {self.spec.title} task...")
 
         stats = CleanupMissingRomsStats(platform_ids=platform_ids)
 

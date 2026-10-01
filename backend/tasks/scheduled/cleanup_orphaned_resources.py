@@ -7,13 +7,12 @@ from typing import ClassVar
 from anyio import Path as AnyioPath
 
 from config import (
-    ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
     RESOURCES_BASE_PATH,
-    SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON,
 )
 from handler.database import db_platform_handler, db_rom_handler
 from logger.logger import log
-from tasks.tasks import JobMetaStats, PeriodicTask, TaskType
+from tasks.registry import CLEANUP_ORPHANED_RESOURCES_SPEC
+from tasks.tasks import JobMetaStats, PeriodicTask
 from utils.context import initialize_context
 
 
@@ -71,14 +70,7 @@ class CleanupStats(JobMetaStats):
 
 class CleanupOrphanedResourcesTask(PeriodicTask):
     def __init__(self) -> None:
-        super().__init__(
-            title="Cleanup orphaned resources",
-            description="Clean up orphaned resources in the ROMs directory",
-            task_type=TaskType.CLEANUP,
-            enabled=ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
-            manual_run=True,
-            cron_string=SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON,
-        )
+        super().__init__(CLEANUP_ORPHANED_RESOURCES_SPEC)
 
     @initialize_context()
     async def run(self, force: bool = False) -> dict[str, int]:
@@ -87,7 +79,7 @@ class CleanupOrphanedResourcesTask(PeriodicTask):
         Args:
             force: Clean up even when the database reports an empty library.
         """
-        log.info(f"Starting {self.title} task...")
+        log.info(f"Starting {self.spec.title} task...")
 
         cleanup_stats = CleanupStats()
 
