@@ -245,8 +245,10 @@ def test_unfiltered_request_still_reads_unscoped_char_index_cache(
         # Relevance leads, so the rows run in no letter order.
         ({"search_term": "final fantasy"}, {}),
         ({"search_term": "final fantasy", "order_by": "name"}, {"f": 0}),
-        # One word has no phrase to rank by, so the name order stands.
-        ({"search_term": "fantasy"}, {"f": 0}),
+        ({"search_term": "fantasy"}, {}),
+        # Too short to rank, so the name order stands.
+        ({"search_term": "fa"}, {"f": 0}),
+        ({}, {"f": 0}),
     ],
 )
 def test_char_index_follows_whether_relevance_leads(

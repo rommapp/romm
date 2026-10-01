@@ -297,6 +297,10 @@ def test_search_ranks_exact_titles_then_name_prefixes(platform: Platform):
         moby_titled.id,
     ]
 
+    # A one-word search ranks too, though it has no phrase to score.
+    fan_mod = _add("A FF7 Fan Mod", [])
+    assert ranked("ff7") == [ff7.id, fan_mod.id]
+
 
 @pytest.mark.parametrize("alias", ['Say "Cheese"', "Pokémon Rouge"])
 def test_search_ranks_exact_aliases_with_escaped_characters(

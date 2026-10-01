@@ -571,8 +571,9 @@ def get_roms(
         Query(
             description=(
                 "Field to order results by. Leave empty to order a search of "
-                "two or more words by relevance: exact name or alias matches "
-                "first, then names starting with the term."
+                "two or more words, or of at least three characters, by "
+                "relevance: exact name or alias matches first, then names "
+                "starting with the term, then phrase matches."
             ),
         ),
     ] = "",

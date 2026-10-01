@@ -251,6 +251,11 @@ def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
     )
 
 
+# A shorter one-word search matches most of a library, and ranking it would
+# sort every match instead of walking the name index.
+SEARCH_RANK_MIN_LENGTH = 3
+
+
 def _search_terms(search_term: str) -> list[str]:
     """The `|`-separated alternatives of a search, blanks dropped."""
     return [term for term in (part.strip() for part in search_term.split("|")) if term]
@@ -1862,8 +1867,10 @@ class DBRomsHandler(DBBaseHandler):
 
     def search_relevance_leads(self, order_by: str, search_term: str | None) -> bool:
         """Whether a gallery query orders by search relevance ahead of its sort key."""
-        return not order_by and bool(
-            search_term and self._build_search_phrases(search_term)
+        if order_by or not search_term:
+            return False
+        return bool(self._build_search_phrases(search_term)) or any(
+            len(term) >= SEARCH_RANK_MIN_LENGTH for term in _search_terms(search_term)
         )
 
     def _gallery_order_clauses(
@@ -1891,16 +1898,15 @@ class DBRomsHandler(DBBaseHandler):
         tiebreaker = Rom.id.desc() if descending else Rom.id.asc()
 
         sort_clauses: list[Any] = [order_clause]
+        terms = _search_terms(search_term) if search_term else []
         phrases = self._build_search_phrases(search_term) if search_term else []
-        if search_term and phrases:
-            # Relevance breaks an explicit sort's ties. With no sort, the rank (which
-            # reads provider metadata) then relevance lead, and name breaks ties.
-            relevance_clause = _search_relevance(phrases).desc()
-            if order_by:
-                sort_clauses.append(relevance_clause)
-            else:
-                rank_clause = _search_rank(_search_terms(search_term)).desc()
-                sort_clauses[:0] = [rank_clause, relevance_clause]
+        relevance = [_search_relevance(phrases).desc()] if phrases else []
+        # Phrase relevance breaks an explicit sort's ties. With no sort, the rank
+        # (which reads provider metadata) and relevance lead, and name breaks ties.
+        if order_by:
+            sort_clauses.extend(relevance)
+        elif self.search_relevance_leads(order_by, search_term):
+            sort_clauses[:0] = [_search_rank(terms).desc(), *relevance]
 
         return [
             clause
