@@ -4509,7 +4509,7 @@ class TestSyncBaselineWriteSites:
     ids=["plain", "tagged"],
 )
 def test_upload_save_over_255_bytes_rejected(
-    client, access_token: str, rom: Rom, params, name
+    client, access_token: str, rom: Rom, params: dict[str, str], name: str
 ):
     response = client.post(
         "/api/saves",

@@ -4848,6 +4848,24 @@ def test_pull_state_rejects_unsanitizable_filename(rom: Rom, admin_user: User):
     wf.assert_not_awaited()
 
 
+def test_pull_state_rejects_a_name_too_long_once_stamped(rom: Rom, admin_user: User):
+    """A 237-byte name fits on its own, but not with the 22-byte capture stamp."""
+    container = {**_container_for(rom), "label": "PCSX2"}
+    with (
+        patch(
+            "handler.streaming.states.fetch_state_file",
+            return_value=states.PulledState("a" * 230 + ".03.p2s", b"bytes"),
+        ),
+        patch("handler.streaming.states.fetch_state_screenshot", return_value=None),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+    ):
+        ok = asyncio.run(
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 3)
+        )
+    assert ok is False
+    wf.assert_not_awaited()
+
+
 def test_hydrate_pushes_only_matching_emulator_states(rom: Rom, admin_user: User):
     """Hydration must push only states saved under this container's emulator
     namespace - EmulatorJS states for the same ROM stay out of the container."""

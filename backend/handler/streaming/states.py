@@ -494,7 +494,10 @@ async def pull_state_to_library(
         filename, content, core = result
         try:
             filename = sanitize_filename(filename)
-            check_filename_length(filename)
+            # The library stores the name with a capture stamp, so that must fit.
+            check_filename_length(
+                stamped_state_filename(emulator, filename, datetime.now(timezone.utc))
+            )
         except ValueError:
             log.warning("broker returned invalid state filename")
             return False

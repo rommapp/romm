@@ -1127,7 +1127,7 @@ class TestStateRename:
         assert state_file.exists()
 
 
-def test_upload_state_over_255_bytes_rejected(client, access_token: str, rom):
+def test_upload_state_over_255_bytes_rejected(client, access_token: str, rom: Rom):
     response = client.post(
         "/api/states",
         params={"rom_id": rom.id, "emulator": "retroarch"},

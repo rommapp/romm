@@ -2111,8 +2111,7 @@ async def update_rom(
                 submitted or name_value
             )
 
-    # Rejected before the row changes: a name the filesystem refuses would
-    # leave the row pointing at a file the move never made.
+    # Checked before the row update, since the file only moves after it.
     try:
         new_fs_name = sanitize_filename(str(form_data.fs_name or rom.fs_name))
         if new_fs_name != rom.fs_name:

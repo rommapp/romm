@@ -880,7 +880,9 @@ async def test_a_failed_scan_leaves_no_archive_behind(
     [{"name": "x" * 256, "emulator": "pcsx2"}, {"name": "card", "emulator": "x" * 51}],
     ids=["name", "emulator"],
 )
-def test_create_memory_card_overlong_field_rejected(client, access_token: str, payload):
+def test_create_memory_card_overlong_field_rejected(
+    client, access_token: str, payload: dict[str, str]
+):
     response = client.post(
         "/api/memory-cards", json=payload, headers=_auth(access_token)
     )
