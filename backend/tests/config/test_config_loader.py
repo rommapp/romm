@@ -725,6 +725,16 @@ def test_exclude_list_rejects_a_non_list(tmp_path, critical, path, value):
     assert critical() == f"Invalid config.yml: {path} must be a list"
 
 
+@pytest.mark.parametrize("path", EXCLUDE_LIST_PATHS)
+@pytest.mark.parametrize("value", ["[7z, 001]", "[ps2, ~]"])
+def test_exclude_list_rejects_a_non_string_entry(tmp_path, critical, path, value):
+    with pytest.raises(SystemExit) as excinfo:
+        _write_exclude_config(tmp_path, path, value)
+
+    assert excinfo.value.code == 3
+    assert critical().startswith(f"Invalid config.yml: {path} must only hold strings")
+
+
 def test_empty_exclude_list_keeps_the_defaults(tmp_path):
     loader = _write_exclude_config(tmp_path, "exclude.platforms", "")
 

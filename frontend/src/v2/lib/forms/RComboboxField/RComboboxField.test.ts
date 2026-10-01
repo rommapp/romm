@@ -44,7 +44,10 @@ describe("RComboboxField rules", () => {
 describe("RComboboxField inside an overlay", () => {
   const dialog: EscapableEntry = { close: vi.fn(), persistent: false };
 
-  afterEach(() => popEscapable(dialog));
+  afterEach(() => {
+    popEscapable(dialog);
+    vi.mocked(dialog.close).mockClear();
+  });
 
   function pressEscape(el: Element) {
     el.dispatchEvent(

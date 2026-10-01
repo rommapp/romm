@@ -964,35 +964,14 @@ describe("Stream launch recovery", () => {
     });
   });
 
-  it("times the play session from launch-ready, not from the claim answering", async () => {
+  it("leaves the claim holder's play session to the backend", async () => {
     const wrapper = await launch({ picker: false });
     await vmOf(wrapper).onPlay();
+    await launchReady();
     await flushPromises();
 
-    expect(vmOf(wrapper).playerState).toBe("loading");
+    expect(vmOf(wrapper).playerState).toBe("playing");
     expect(mocks.playSession.start).not.toHaveBeenCalled();
-
-    await launchReady();
-    await flushPromises();
-
-    expect(mocks.playSession.start).toHaveBeenCalledOnce();
-    expect(mocks.playSession.start).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 3 }),
-    );
-  });
-
-  it("ends the play session when the stream stops running", async () => {
-    const wrapper = await launch({ picker: false });
-    await vmOf(wrapper).onPlay();
-    await launchReady();
-    await flushPromises();
-    expect(mocks.playSession.flush).not.toHaveBeenCalled();
-
-    endSession({ platform: "gba", container: "WEBSTATION-DEV" });
-    await flushPromises();
-
-    expect(vmOf(wrapper).playerState).toBe("exited");
-    expect(mocks.playSession.flush).toHaveBeenCalled();
   });
 
   it("warns of the core once when launch-ready follows the poll", async () => {
@@ -1213,6 +1192,16 @@ describe("Stream join", () => {
     await flushPromises();
 
     expect(mocks.joinSession).toHaveBeenCalledWith("gba", undefined);
+  });
+
+  it("times the joiner's play session once the stream runs", async () => {
+    await launch({ picker: false });
+    await flushPromises();
+
+    expect(mocks.playSession.start).toHaveBeenCalledOnce();
+    expect(mocks.playSession.start).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 3 }),
+    );
   });
 });
 

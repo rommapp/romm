@@ -784,11 +784,12 @@ async function onVisibilityChange(): Promise<void> {
   await pollSessionStatus();
 }
 
-// A claim's stream goes live on the launch-ready push, after `onPlay` returns.
+// The backend records the claim holder's session on release, so only a
+// joiner's playtime is timed here.
 watch(gameRunning, (running, prev) => {
   if (running && !prev) {
     presence.start();
-    if (rom.value) playSession.start(rom.value);
+    if (rom.value && isJoining) playSession.start(rom.value);
     nextTick(focusStream);
   }
   if (prev && !running) {

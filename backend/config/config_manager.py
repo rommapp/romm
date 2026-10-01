@@ -688,9 +688,11 @@ class ConfigManager:
         )
 
     def _raw_exclude_list(self, path: str) -> list[str]:
-        """Read a user exclude list; non-lists are rejected by `_validate_config`."""
+        """Read a user exclude list; `_validate_config` rejects non-strings."""
         value = pydash.get(self._raw_config, path)
-        return value if isinstance(value, list) else []
+        if not isinstance(value, list):
+            return []
+        return [item for item in value if isinstance(item, str)]
 
     def _parse_config(self) -> None:
         """Parses each entry in the config.yml"""
@@ -1003,8 +1005,17 @@ class ConfigManager:
 
         for path in EXCLUDE_LIST_PATHS:
             value = pydash.get(self._raw_config, path)
-            if value is not None and not isinstance(value, list):
+            if value is None:
+                continue
+            if not isinstance(value, list):
                 log.critical(f"Invalid config.yml: {path} must be a list")
+                sys.exit(3)
+            # YAML reads an unquoted 001 or 1942 as a number.
+            if not all(isinstance(item, str) for item in value):
+                log.critical(
+                    f"Invalid config.yml: {path} must only hold strings, "
+                    "quote numeric entries such as '001'"
+                )
                 sys.exit(3)
 
         if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
