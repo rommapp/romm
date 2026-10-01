@@ -40,5 +40,5 @@
   "upload-errors": " (con alcuni errori)",
   "upload-success": "ROM patchata caricata con successo{errors}. Avvio scansione...",
   "upload-to-romm": "Carica su RomM",
-  "validation-warning": "Checksum della sorgente della patch non corrispondeva alla ROM; il file patchato potrebbe non essere corretto."
+  "validation-warning": "Il checksum sorgente della patch non corrisponde alla ROM; il file patchato potrebbe non essere corretto."
 }
