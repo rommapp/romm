@@ -33,6 +33,7 @@ import {
   watch,
 } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
+import { useEscapable } from "../../overlays/RDialog/useEscapable";
 import RBtn from "../../primitives/RBtn/RBtn.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RTextField from "../RTextField/RTextField.vue";
@@ -366,14 +367,7 @@ function onPanelKeydown(evt: KeyboardEvent) {
     case "Escape":
       evt.preventDefault();
       evt.stopPropagation();
-      close();
-      // Send focus back to the field so tab order doesn't get stranded
-      // on a teleported panel that just unmounted.
-      nextTick(() => {
-        (
-          referenceEl.value?.querySelector("input") as HTMLElement | null
-        )?.focus();
-      });
+      dismiss();
       break;
     default:
       break;
@@ -448,6 +442,17 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", onDocPointerDown, true);
 });
+
+function dismiss() {
+  close();
+  // Send focus back to the field so tab order doesn't get stranded
+  // on a teleported panel that just unmounted.
+  nextTick(() => {
+    (referenceEl.value?.querySelector("input") as HTMLElement | null)?.focus();
+  });
+}
+
+useEscapable(isOpen, dismiss, () => panelRef.value);
 </script>
 
 <template>
