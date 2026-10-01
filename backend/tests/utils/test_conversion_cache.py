@@ -908,3 +908,52 @@ class TestResolveFormatDownload:
 
         assert resolution.outcome == FormatOutcome.PENDING
         assert convert_outputs == []
+
+    async def test_falls_back_to_a_later_format_when_a_conversion_fails(
+        self, cache_root, mocker
+    ):
+        async def convert(operation, src, out) -> None:
+            if out.suffix == ".cso":
+                raise RomConvertoOperationError("bad image")
+            out.write_bytes(b"converted")
+
+        mocker.patch(
+            "utils.conversion_cache.rom_converto_service.convert", side_effect=convert
+        )
+
+        resolution = await resolve_format_download(
+            self._rom(),
+            _rom_file(),
+            ("cso", "chd"),
+            allowed=True,
+            start=True,
+            touch=True,
+        )
+
+        assert resolution.path is not None and resolution.path.suffix == ".chd"
+
+    async def test_a_locked_key_dir_without_partial_output_is_pending(
+        self, cache_root, convert_outputs
+    ):
+        key_dir = _final_path(_rom_file()).parent
+        key_dir.mkdir(parents=True)
+
+        with _held_lock(key_dir):
+            resolution = await resolve_format_download(
+                self._rom(), _rom_file(), ("chd",), allowed=True, start=True, touch=True
+            )
+
+        assert resolution.outcome == FormatOutcome.PENDING
+        assert convert_outputs == []
+
+    async def test_is_pending_without_starting_once_too_many_conversions_run(
+        self, cache_root, convert_outputs, mocker
+    ):
+        mocker.patch.object(conversion_cache, "MAX_STARTED_CONVERSIONS", 0)
+
+        resolution = await resolve_format_download(
+            self._rom(), _rom_file(), ("chd",), allowed=True, start=True, touch=True
+        )
+
+        assert resolution.outcome == FormatOutcome.PENDING
+        assert convert_outputs == []

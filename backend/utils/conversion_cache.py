@@ -48,9 +48,12 @@ SERVE_GRACE_SECONDS: Final = 60
 # Room a conversion to an uncompressed target reserves per input byte; the
 # cleanup pass after it evicts any overshoot.
 EXPANSION_RESERVE_FACTOR: Final = 4
+# Downloads may start conversions until this many wait for or hold the semaphore.
+MAX_STARTED_CONVERSIONS: Final = ROM_CONVERTO_MAX_CONCURRENCY * 4
 
 # Each conversion reads and writes whole disc images.
 _convert_semaphore = asyncio.Semaphore(ROM_CONVERTO_MAX_CONCURRENCY)
+_started_conversions: set[asyncio.Task[Path | None]] = set()
 
 
 def converted_file_path(
@@ -182,9 +185,7 @@ def parse_formats(raw: str) -> tuple[str, ...]:
 
 
 def _is_converting(final_path: Path) -> bool:
-    """Whether a worker holds `final_path`'s key dir while it converts into it."""
-    if not (final_path.parent / PARTIAL_DIR).exists():
-        return False
+    """Whether a worker holds `final_path`'s key dir, which it locks before converting."""
     with contextlib.suppress(OSError), _try_lock(final_path.parent) as locked:
         return not locked
     return False
@@ -234,21 +235,23 @@ async def resolve_format_download(
     for target, (_, final_path) in candidates:
         if (final_path.parent / FAILED_FILE).exists():
             continue
-        if not start or _is_converting(final_path):
+        if (
+            not start
+            or _is_converting(final_path)
+            or len(_started_conversions) >= MAX_STARTED_CONVERSIONS
+        ):
             return _PENDING
         # The conversion finishes into the cache even when this request stops waiting.
         conversion = fire_and_forget(
             get_or_convert(rom.id, file, rom.platform_slug, target)
         )
+        _started_conversions.add(conversion)
+        conversion.add_done_callback(_started_conversions.discard)
         done, _ = await asyncio.wait({conversion}, timeout=CONVERSION_WAIT_SECONDS)
         if not done or _is_converting(final_path):
             return _PENDING
-        converted = conversion.result()
-        return (
-            FormatResolution(FormatOutcome.CONVERTED, converted)
-            if converted
-            else _UNAVAILABLE
-        )
+        if converted := conversion.result():
+            return FormatResolution(FormatOutcome.CONVERTED, converted)
     return _UNAVAILABLE
 
 
