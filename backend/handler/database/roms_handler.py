@@ -84,11 +84,9 @@ from models.rom import (
 )
 from utils import get_version
 from utils.database import (
-    LIKE_ESCAPE_CHAR,
     ROMS_SEARCH_FULLTEXT_COLUMNS,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
-    escape_like,
     is_non_blank,
     release_day_ranges,
     rom_unset_flag_column,
@@ -2890,12 +2888,11 @@ class DBRomsHandler(DBBaseHandler):
         if rom_id is not None:
             clauses.append(Rom.id == rom_id)
         if search:
-            like = f"%{escape_like(search.lower())}%"
             clauses.append(
                 or_(
-                    func.lower(TrackMeta.title).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.artist).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.album).like(like, escape=LIKE_ESCAPE_CHAR),
+                    TrackMeta.title.icontains(search, autoescape=True),
+                    TrackMeta.artist.icontains(search, autoescape=True),
+                    TrackMeta.album.icontains(search, autoescape=True),
                 )
             )
         if artist and exclude_field != "artist":
@@ -3087,11 +3084,7 @@ class DBRomsHandler(DBBaseHandler):
             where.append(func.length(func.trim(col)) > 0)
         if search:
             target = cast(col, String) if field == "years" else col
-            where.append(
-                func.lower(target).like(
-                    f"%{escape_like(search.lower())}%", escape=LIKE_ESCAPE_CHAR
-                )
-            )
+            where.append(target.icontains(search, autoescape=True))
         count_col = func.count().label("count")
         base = (
             select(col.label("value"), count_col)
@@ -3269,11 +3262,7 @@ class DBRomsHandler(DBBaseHandler):
             max_duration=max_duration,
         )
         if search:
-            where.append(
-                func.lower(Platform.name).like(
-                    f"%{escape_like(search.lower())}%", escape=LIKE_ESCAPE_CHAR
-                )
-            )
+            where.append(Platform.name.icontains(search, autoescape=True))
         count_col = func.count().label("count")
         base = self._music_facet_joins(
             select(
@@ -3336,13 +3325,12 @@ class DBRomsHandler(DBBaseHandler):
             max_duration=max_duration,
         )
         if search:
-            like = f"%{escape_like(search.lower())}%"
             where.append(
                 or_(
-                    func.lower(Rom.name).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.title).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.artist).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.album).like(like, escape=LIKE_ESCAPE_CHAR),
+                    Rom.name.icontains(search, autoescape=True),
+                    TrackMeta.title.icontains(search, autoescape=True),
+                    TrackMeta.artist.icontains(search, autoescape=True),
+                    TrackMeta.album.icontains(search, autoescape=True),
                 )
             )
         count_col = func.count().label("count")
@@ -3413,7 +3401,10 @@ class DBRomsHandler(DBBaseHandler):
 
         if search:
             query = query.filter(
-                or_(RomNote.title.contains(search), RomNote.content.contains(search))
+                or_(
+                    RomNote.title.contains(search, autoescape=True),
+                    RomNote.content.contains(search, autoescape=True),
+                )
             )
 
         if tags:
