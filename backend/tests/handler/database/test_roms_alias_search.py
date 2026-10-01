@@ -125,7 +125,7 @@ def test_the_titles_are_stored_folded(platform: Platform):
 @pytest.mark.parametrize(
     ("alias", "term"),
     [
-        # Stored escaped as JSON, these words were out of the search's reach.
+        # JSON stores these characters escaped, which the titles must not keep.
         ("ŌKAMI Den", "ōkami den"),
         ("Chrono\tTrigger", "chrono trigger"),
         ('Say "Cheese"', 'say "cheese"'),
