@@ -42,8 +42,8 @@
     "@floating-ui/vue": "^2.0.0",
     "@mdi/font": "7.4.47",
     "@vueuse/core": "^15.0.0",
-    "@zxing/browser": "^0.1.5",
-    "@zxing/library": "^0.21.3",
+    "@zxing/browser": "^0.2.0",
+    "@zxing/library": "^0.23.0",
     "axios": "^1.18.1",
     "bowser": "^2.14.1",
     "cronstrue": "^3.0.0",
@@ -90,7 +90,7 @@
     "eslint-plugin-vuejs-accessibility": "^2.5.0",
     "globals": "^17.0.0",
     "happy-dom": "^20.9.0",
-    "openapi-typescript-codegen": "^0.29.0",
+    "openapi-typescript-codegen": "^0.31.0",
     "postcss": "^8.5.23",
     "storybook": "^10.2.19",
     "tsx": "^4.21.0",
@@ -104,7 +104,7 @@
     "vue-tsc": "^3.3.11"
   },
   "overrides": {
-    "rolldown": "1.0.1",
+    "rolldown": "1.2.11",
     "esbuild": "^0.28.1",
     "form-data": "^4.0.6"
   },
@@ -112,5 +112,5 @@
     "node": "24",
     "npm": ">=11.10"
   },
-  "packageManager": "npm@11.13.0"
+  "packageManager": "npm@11.20.0"
 }
