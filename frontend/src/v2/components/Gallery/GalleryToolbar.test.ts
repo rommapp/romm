@@ -164,6 +164,7 @@ describe("GalleryToolbar sort axis", () => {
       .findAllComponents({ name: "RMenuItem" })
       .find((item) => item.props("label") === "Relevance");
     expect(relevance?.props("variant")).toBe("active");
+    expect(relevance?.props("icon")).toBe("mdi-check");
     wrapper.unmount();
   });
 

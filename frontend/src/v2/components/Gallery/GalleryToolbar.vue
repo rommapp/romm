@@ -357,6 +357,7 @@ const { smAndUp } = useBreakpoint();
             v-if="unsortedLabel"
             :label="unsortedLabel"
             :variant="unsorted ? 'active' : 'default'"
+            :icon="unsorted ? 'mdi-check' : undefined"
             @click="setSortKey(null)"
           />
           <RMenuItem
@@ -436,6 +437,7 @@ const { smAndUp } = useBreakpoint();
             v-if="unsortedLabel && sortKeyItems.length > 0"
             :label="unsortedLabel"
             :variant="unsorted ? 'active' : 'default'"
+            :icon="unsorted ? 'mdi-check' : undefined"
             @click="setSortKey(null)"
           />
           <RMenuItem
