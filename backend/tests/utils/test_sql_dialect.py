@@ -1,4 +1,6 @@
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from typing import Any
 
 import pytest
 import sqlalchemy as sa
@@ -175,30 +177,39 @@ class TestJsonArrayContainsSpelling:
         )
 
 
+@contextmanager
+def _scratch_json_table(
+    name: str, column: str, rows: list[dict[str, Any]]
+) -> Iterator[sa.Table]:
+    """A table of `id` and a JSON `column` holding `rows`, dropped on exit."""
+    table = sa.Table(
+        name,
+        sa.MetaData(),
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column(column, CustomJSON()),
+    )
+    with sync_engine.begin() as connection:
+        # An interrupted run can leave the table behind in the shared test DB.
+        table.drop(connection, checkfirst=True)
+        table.create(connection)
+        connection.execute(table.insert(), rows)
+    try:
+        yield table
+    finally:
+        with sync_engine.begin() as connection:
+            table.drop(connection)
+
+
 class TestJsonArrayContainsOnTheRunningEngine:
     @pytest.fixture
     def tagged(self) -> Iterator[sa.Table]:
-        table = sa.Table(
-            "sql_dialect_tagged",
-            sa.MetaData(),
-            sa.Column("id", sa.Integer, primary_key=True),
-            sa.Column("tags", CustomJSON()),
-        )
-        with sync_engine.begin() as connection:
-            # An interrupted run can leave the table behind in the shared test DB.
-            table.drop(connection, checkfirst=True)
-            table.create(connection)
-            connection.execute(
-                table.insert(),
-                [
-                    {"id": 1, "tags": ["rpg", "puzzle"]},
-                    {"id": 2, "tags": ["rpg"]},
-                    {"id": 3, "tags": [7, 9]},
-                ],
-            )
-        yield table
-        with sync_engine.begin() as connection:
-            table.drop(connection)
+        rows = [
+            {"id": 1, "tags": ["rpg", "puzzle"]},
+            {"id": 2, "tags": ["rpg"]},
+            {"id": 3, "tags": [7, 9]},
+        ]
+        with _scratch_json_table("sql_dialect_tagged", "tags", rows) as table:
+            yield table
 
     @pytest.mark.parametrize(
         ("build", "expected"),
@@ -229,31 +240,18 @@ class TestJsonArrayContainsOnTheRunningEngine:
 class TestJsonTitlesContainFoldedOnTheRunningEngine:
     @pytest.fixture
     def titled(self) -> Iterator[sa.Table]:
-        table = sa.Table(
-            "sql_dialect_titled",
-            sa.MetaData(),
-            sa.Column("id", sa.Integer, primary_key=True),
-            sa.Column("meta", CustomJSON()),
-        )
-        with sync_engine.begin() as connection:
-            # An interrupted run can leave the table behind in the shared test DB.
-            table.drop(connection, checkfirst=True)
-            table.create(connection)
-            connection.execute(
-                table.insert(),
-                [
-                    {"id": 1, "meta": {"titles": ["Final Fantasy 7", "FF7"]}},
-                    {"id": 2, "meta": {"titles": ["Crisis Core: Final Fantasy 7"]}},
-                    {"id": 3, "meta": {"titles": "Final Fantasy 7"}},
-                    {"id": 4, "meta": {}},
-                    {"id": 6, "meta": {"titles": ['Say "Final Fantasy 7"', "Pokémon"]}},
-                ],
-            )
+        rows = [
+            {"id": 1, "meta": {"titles": ["Final Fantasy 7", "FF7"]}},
+            {"id": 2, "meta": {"titles": ["Crisis Core: Final Fantasy 7"]}},
+            {"id": 3, "meta": {"titles": "Final Fantasy 7"}},
+            {"id": 4, "meta": {}},
+            {"id": 6, "meta": {"titles": ['Say "Final Fantasy 7"', "Pokémon"]}},
+        ]
+        with _scratch_json_table("sql_dialect_titled", "meta", rows) as table:
             # A plain None would be stored as JSON null, not SQL NULL.
-            connection.execute(table.insert().values(id=5, meta=sa.null()))
-        yield table
-        with sync_engine.begin() as connection:
-            table.drop(connection)
+            with sync_engine.begin() as connection:
+                connection.execute(table.insert().values(id=5, meta=sa.null()))
+            yield table
 
     @pytest.mark.parametrize(
         ("title", "expected"),

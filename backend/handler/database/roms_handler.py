@@ -258,15 +258,26 @@ def _search_terms(search_term: str) -> list[str]:
 
 def _aliases_hold(term: str) -> ColumnElement[bool]:
     """Whether the joined aliases, which keep each title's JSON escapes, hold `term`."""
-    # MariaDB keeps the ASCII-only escapes the blobs were written with; the
-    # other engines print non-ASCII characters as they are.
-    escaped = dict.fromkeys(
-        json.dumps(term, ensure_ascii=ascii_only)[1:-1] for ascii_only in (True, False)
-    )
+
+    def holds(*texts: str) -> ColumnElement[bool]:
+        return or_(
+            *(
+                Rom.generated_search_aliases.icontains(text, autoescape=True)
+                for text in dict.fromkeys(texts)
+            )
+        )
+
+    raw = json.dumps(term, ensure_ascii=False)[1:-1]
+    # MariaDB keeps the blobs' ASCII-only escapes; PostgreSQL prints characters as is.
+    return DialectCase(postgresql=holds(raw), mysql=holds(raw, json.dumps(term)[1:-1]))
+
+
+def _provider_titles_hold(term: str) -> ColumnElement[bool]:
+    """Whether a provider's alternative titles include `term`, ignoring case."""
     return or_(
         *(
-            Rom.generated_search_aliases.icontains(text, autoescape=True)
-            for text in escaped
+            json_titles_contain_folded(getattr(Rom, column), key, term)
+            for column, key in ALTERNATIVE_NAME_SOURCES
         )
     )
 
@@ -274,25 +285,12 @@ def _aliases_hold(term: str) -> ColumnElement[bool]:
 def _search_rank(terms: Sequence[str]) -> ColumnElement[int]:
     """2 when the name or an alias equals a term, 1 when the name starts with one, else 0."""
     folded = [" ".join(term.split()).lower() for term in terms]
-    exact = or_(
-        *(
-            or_(
-                func.lower(Rom.name) == term,
-                # The joined aliases sit in the row; the provider blobs they come
-                # from are only read when they can hold the term.
-                and_(
-                    _aliases_hold(term),
-                    or_(
-                        *(
-                            json_titles_contain_folded(getattr(Rom, column), key, term)
-                            for column, key in ALTERNATIVE_NAME_SOURCES
-                        )
-                    ),
-                ),
-            )
-            for term in folded
-        )
+    # The joined aliases sit in the row; the provider blobs they come from are
+    # only read when they can hold the term.
+    alias_exact = or_(
+        *(and_(_aliases_hold(term), _provider_titles_hold(term)) for term in folded)
     )
+    exact = or_(func.lower(Rom.name).in_(folded), alias_exact)
     prefix = or_(*(Rom.name.istartswith(term, autoescape=True) for term in folded))
     return case((exact, 2), (prefix, 1), else_=0)
 
@@ -1895,9 +1893,8 @@ class DBRomsHandler(DBBaseHandler):
         sort_clauses: list[Any] = [order_clause]
         phrases = self._build_search_phrases(search_term) if search_term else []
         if search_term and phrases:
-            # Relevance breaks an explicit sort's ties, or leads (with name
-            # breaking its ties) when no sort is picked. The rank, which reads
-            # provider metadata, joins it only in the lead.
+            # Relevance breaks an explicit sort's ties. With no sort, the rank (which
+            # reads provider metadata) then relevance lead, and name breaks ties.
             relevance_clause = _search_relevance(phrases).desc()
             if order_by:
                 sort_clauses.append(relevance_clause)
