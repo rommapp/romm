@@ -114,7 +114,7 @@
   "device-auth-device-name": "Nome del dispositivo",
   "device-auth-disallowed-label": "Il tuo account non ha i permessi per:",
   "device-auth-expires-in": "Token scade tra",
-  "device-auth-fetch-failed": "Impossibile caricare la richiesta di accoppiamento.",
+  "device-auth-fetch-failed": "Impossibile caricare la richiesta di associazione.",
   "device-auth-heading": "Autorizza dispositivo",
   "device-auth-loading": "Caricamento richiesta di accoppiamento...",
   "device-auth-no-code": "Non è stato fornito alcun codice di accoppiamento.",
