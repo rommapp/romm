@@ -61,6 +61,7 @@ import {
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/v2/composables/useCoverArt";
+import { useDebouncedSearch } from "@/v2/composables/useDebouncedSearch";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
@@ -238,13 +239,11 @@ const filterActiveCount = computed(() => {
   return n;
 });
 
-// Filter changes → refetch the gallery. Mirrors the search debounced
-// path (invalidate windows + bootstrap initial metadata). The watch
-// fires only on subsequent changes; the initial hydration done by
-// `useGalleryFilterUrl` happens before this watch is set up and so
-// does not echo here.
+// The initial URL hydration in `useGalleryFilterUrl` runs before this watch
+// is set up, so it does not echo here.
 watch(
   [
+    searchTerm,
     filterMatched,
     filterFavorites,
     filterDuplicates,
@@ -761,23 +760,7 @@ watch(
 );
 
 // ── Search filter (debounced) ───────────────────────────────────────
-const searchInput = ref(searchTerm.value ?? "");
-let searchDebounce: ReturnType<typeof setTimeout> | null = null;
-function setSearch(value: string) {
-  searchInput.value = value;
-  if (searchDebounce) clearTimeout(searchDebounce);
-  searchDebounce = setTimeout(() => {
-    const normalized = value.trim();
-    if (normalized === (searchTerm.value ?? "")) return;
-    searchTerm.value = normalized || null;
-    // Both layouts share the same loading model: invalidate and
-    // bootstrap metadata only; rows hydrate per-position via the row
-    // component's mount lifecycle (grid: GameCard via shell-level
-    // viewport-sync; list: GameListRow via its own onMounted).
-    galleryRoms.invalidateWindows();
-    void galleryRoms.fetchInitialMetadata();
-  }, 300);
-}
+const { input: searchInput, setSearch } = useDebouncedSearch(searchTerm);
 
 // ── Sort ──────────────────────────────────────────────────────────
 // Both affordances (list column headers, grid direction toggle) only
@@ -887,7 +870,6 @@ onBeforeUnmount(() => {
   // navigation back to a non-gallery view (Home, Settings) doesn't
   // keep stale picks alive.
   gallerySelection.clear();
-  if (searchDebounce) clearTimeout(searchDebounce);
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
   // When leaving the gallery entirely, stop any in-flight window fetches so
   // navigating away mid-scroll doesn't keep the network / backend busy.

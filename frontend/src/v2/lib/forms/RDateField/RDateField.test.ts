@@ -1,5 +1,11 @@
 import { enableAutoUnmount, mount } from "@vue/test-utils";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
+import {
+  type EscapableEntry,
+  popEscapable,
+  pushEscapable,
+} from "@/v2/lib/overlays/RDialog/escapeStack";
 import RDateField from "./RDateField.vue";
 
 // Runs in a timezone west of UTC on purpose: the picker emits UTC midnight,
@@ -136,5 +142,27 @@ describe("RDateField", () => {
       "role",
       "dialog",
     );
+  });
+});
+
+describe("RDateField inside an overlay", () => {
+  const dialog: EscapableEntry = { close: vi.fn(), persistent: false };
+
+  afterEach(() => popEscapable(dialog));
+
+  it("closes the calendar on Escape and refocuses the field, leaving the dialog open", async () => {
+    pushEscapable(dialog);
+    const wrapper = await openPicker();
+    expect(dayCell(15)).not.toBeNull();
+
+    dayCell(15)!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    await nextTick();
+    await nextTick();
+
+    expect(dayCell(15)).toBeNull();
+    expect(dialog.close).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(wrapper.get("input").element);
   });
 });

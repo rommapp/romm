@@ -6,7 +6,7 @@ import type {
   Method,
 } from "axios";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
-import type { GetRomsParams } from "@/services/api/rom";
+import { buildGetRomsQuery, type GetRomsParams } from "@/services/api/rom";
 import cacheService from "@/services/cache";
 
 // The home rows render a fixed number of covers and never show a total, so they
@@ -54,135 +54,11 @@ class CachedApiService {
     params: GetRomsParams,
     onBackgroundUpdate: (data: GetRomsResponse) => void,
   ): Promise<AxiosResponse<GetRomsResponse>> {
-    const config = this.createRequestConfig("GET", "/roms", {
-      platform_ids:
-        params.platformIds && params.platformIds.length > 0
-          ? params.platformIds
-          : undefined,
-      collection_id: params.collectionId,
-      virtual_collection_id: params.virtualCollectionId,
-      smart_collection_id: params.smartCollectionId,
-      search_term: params.searchTerm,
-      limit: params.limit,
-      offset: params.offset,
-      order_by: params.orderBy,
-      order_dir: params.orderDir,
-      group_by_meta_id: params.groupByMetaId,
-      genres:
-        params.selectedGenres && params.selectedGenres.length > 0
-          ? params.selectedGenres
-          : undefined,
-      franchises:
-        params.selectedFranchises && params.selectedFranchises.length > 0
-          ? params.selectedFranchises
-          : undefined,
-      collections:
-        params.selectedCollections && params.selectedCollections.length > 0
-          ? params.selectedCollections
-          : undefined,
-      companies:
-        params.selectedCompanies && params.selectedCompanies.length > 0
-          ? params.selectedCompanies
-          : undefined,
-      age_ratings:
-        params.selectedAgeRatings && params.selectedAgeRatings.length > 0
-          ? params.selectedAgeRatings
-          : undefined,
-      statuses:
-        params.selectedStatuses && params.selectedStatuses.length > 0
-          ? params.selectedStatuses
-          : undefined,
-      regions:
-        params.selectedRegions && params.selectedRegions.length > 0
-          ? params.selectedRegions
-          : undefined,
-      languages:
-        params.selectedLanguages && params.selectedLanguages.length > 0
-          ? params.selectedLanguages
-          : undefined,
-      player_counts:
-        params.selectedPlayerCounts && params.selectedPlayerCounts.length > 0
-          ? params.selectedPlayerCounts
-          : undefined,
-      metadata_providers:
-        params.selectedMetadataProviders &&
-        params.selectedMetadataProviders.length > 0
-          ? params.selectedMetadataProviders
-          : undefined,
-      tags:
-        params.selectedTags && params.selectedTags.length > 0
-          ? params.selectedTags
-          : undefined,
-      // Logic operators
-      genres_logic:
-        params.selectedGenres && params.selectedGenres.length > 0
-          ? params.genresLogic || "any"
-          : undefined,
-      franchises_logic:
-        params.selectedFranchises && params.selectedFranchises.length > 0
-          ? params.franchisesLogic || "any"
-          : undefined,
-      collections_logic:
-        params.selectedCollections && params.selectedCollections.length > 0
-          ? params.collectionsLogic || "any"
-          : undefined,
-      companies_logic:
-        params.selectedCompanies && params.selectedCompanies.length > 0
-          ? params.companiesLogic || "any"
-          : undefined,
-      age_ratings_logic:
-        params.selectedAgeRatings && params.selectedAgeRatings.length > 0
-          ? params.ageRatingsLogic || "any"
-          : undefined,
-      regions_logic:
-        params.selectedRegions && params.selectedRegions.length > 0
-          ? params.regionsLogic || "any"
-          : undefined,
-      languages_logic:
-        params.selectedLanguages && params.selectedLanguages.length > 0
-          ? params.languagesLogic || "any"
-          : undefined,
-      statuses_logic:
-        params.selectedStatuses && params.selectedStatuses.length > 0
-          ? params.statusesLogic || "any"
-          : undefined,
-      player_counts_logic:
-        params.selectedPlayerCounts && params.selectedPlayerCounts.length > 0
-          ? params.playerCountsLogic || "any"
-          : undefined,
-      metadata_providers_logic:
-        params.selectedMetadataProviders &&
-        params.selectedMetadataProviders.length > 0
-          ? params.metadataProvidersLogic || "any"
-          : undefined,
-      tags_logic:
-        params.selectedTags && params.selectedTags.length > 0
-          ? params.tagsLogic || "any"
-          : undefined,
-      ...(params.filterMatched !== null
-        ? { matched: params.filterMatched }
-        : {}),
-      ...(params.filterFavorites !== null
-        ? { favorite: params.filterFavorites }
-        : {}),
-      ...(params.filterDuplicates !== null
-        ? { duplicate: params.filterDuplicates }
-        : {}),
-      ...(params.filterPlayables !== null
-        ? { playable: params.filterPlayables }
-        : {}),
-      ...(params.filterMissing !== null
-        ? { missing: params.filterMissing }
-        : {}),
-      ...(params.filterRA !== null ? { has_ra: params.filterRA } : {}),
-      ...(params.filterSaves !== null ? { has_saves: params.filterSaves } : {}),
-      ...(params.filterStates !== null
-        ? { has_states: params.filterStates }
-        : {}),
-      ...(params.filterVerified !== null
-        ? { verified: params.filterVerified }
-        : {}),
-    });
+    const config = this.createRequestConfig(
+      "GET",
+      "/roms",
+      buildGetRomsQuery(params),
+    );
 
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
   }

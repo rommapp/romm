@@ -785,12 +785,18 @@ async function onVisibilityChange(): Promise<void> {
   await pollSessionStatus();
 }
 
+// The backend records the claim holder's session on release, so only a
+// joiner's playtime is timed here.
 watch(gameRunning, (running, prev) => {
   if (running && !prev) {
     presence.start();
+    if (rom.value && isJoining) playSession.start(rom.value);
     nextTick(focusStream);
   }
-  if (prev && !running) presence.stop();
+  if (prev && !running) {
+    presence.stop();
+    playSession.flush();
+  }
 });
 
 // ── Stage ──────────────────────────────────────────────────────────
@@ -1016,13 +1022,6 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
           ? detail
           : hintForStatus(status);
     }
-  }
-
-  // Start timing the session once the claim succeeds and playback is live.
-  // The session is ingested on unmount, which updates last_played /
-  // now_playing / status server-side.
-  if (rom.value && (playerState.value as PlayerState) === "playing") {
-    playSession.start(rom.value);
   }
 }
 
