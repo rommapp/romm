@@ -354,7 +354,7 @@ def test_search_titles_fold_the_name_then_each_alias():
         {
             "igdb_metadata": {"alternative_names": ["FF7", "ŌKAMI Den", "ff7", ""]},
             "moby_metadata": {"alternate_titles": ["Final Fantasy 7"]},
-            "ss_metadata": {"alternative_names": "not a list"},
+            "ss_metadata": {"alternative_names": ["FINAL FANTASY VII"]},
         },
     )
 

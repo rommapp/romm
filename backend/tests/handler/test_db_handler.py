@@ -337,6 +337,27 @@ def test_search_ranks_a_name_prefix_holding_regex_characters(
     assert _ranked(search_term) == [prefixed.id, holder.id]
 
 
+def test_search_relevance_ignores_the_sort_direction(platform: Platform):
+    make_rom(platform, "Final Fantasy VII")
+    make_rom(platform, "Crisis Core: Final Fantasy VII")
+    make_rom(platform, "Dirge of Cerberus: Final Fantasy VII")
+
+    def ranked(order_dir: str) -> list[int]:
+        roms = db_rom_handler.get_roms_scalar(
+            search_term="final fantasy vii", order_dir=order_dir
+        )
+        return [rom.id for rom in roms]
+
+    assert ranked("desc") == ranked("asc")
+
+
+def test_search_ranks_a_name_prefix_ending_in_punctuation(platform: Platform):
+    prefixed = make_rom(platform, "Mr.Driller")
+    holder = make_rom(platform, "Adventures of Mr. Driller")
+
+    assert _ranked("mr.") == [prefixed.id, holder.id]
+
+
 @pytest.mark.parametrize(
     "alias", ['Say "Cheese"', "Pokémon Rouge", "ŌKAMI Den", "Chrono\tTrigger"]
 )

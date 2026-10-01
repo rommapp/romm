@@ -142,9 +142,10 @@ def compute_search_titles(name: str | None, metadata: Mapping[str, Any]) -> str:
         for title in names
         if isinstance(title, str)
     )
-    value = sep + fold_search_title(name or "") + sep
+    folded_name = fold_search_title(name or "")
+    value = sep + folded_name + sep
     for alias in dict.fromkeys(fold_search_title(title) for title in aliases):
-        if not alias:
+        if not alias or alias == folded_name:
             continue
         if len(value) + len(alias) + len(sep) > SEARCH_TEXT_MAX_LENGTH:
             continue

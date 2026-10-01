@@ -267,15 +267,15 @@ def _search_terms(search_term: str) -> list[str]:
 def _name_starts_with(title: str) -> ColumnElement[bool]:
     """Whether the ROM's folded name starts with `title`, ending a word there."""
     sep = SEARCH_TITLE_SEPARATOR
+    # The name comes first, so it is the title the column starts with.
+    starts = Rom.search_titles.startswith(f"{sep}{title}", autoescape=True)
+    # A title ending in punctuation has already ended its word.
+    if not title[-1].isalnum():
+        return starts
     # Both engines' regex dialects read a backslash before a non-alphanumeric
-    # character as that character.
+    # character as that character. The LIKE narrows the rows the regex reads.
     escaped = "".join(char if char.isalnum() else f"\\{char}" for char in title)
-    # The name comes first, so it is the title the column starts with. The LIKE
-    # narrows the rows the regex has to read.
-    return and_(
-        Rom.search_titles.startswith(f"{sep}{title}", autoescape=True),
-        Rom.search_titles.regexp_match(f"^{sep}{escaped}[^[:alnum:]]"),
-    )
+    return and_(starts, Rom.search_titles.regexp_match(f"^{sep}{escaped}[^[:alnum:]]"))
 
 
 def _search_rank(terms: Sequence[str]) -> ColumnElement[int]:
@@ -1501,7 +1501,7 @@ class DBRomsHandler(DBBaseHandler):
         from handler.scan_handler import MetadataSource
 
         filters = filters or RomFilterParams()
-        order_dir = order_dir.lower()
+        order_dir = self._effective_order_dir(order_by, order_dir, filters.search_term)
 
         # Callers that select bare columns (a membership subquery) pass
         # include_related=False: loader options can't apply without an entity.
@@ -1865,6 +1865,14 @@ class DBRomsHandler(DBBaseHandler):
             len(term) >= SEARCH_RANK_MIN_LENGTH for term in _search_terms(search_term)
         )
 
+    def _effective_order_dir(
+        self, order_by: str, order_dir: str, search_term: str | None
+    ) -> str:
+        """The direction the query applies; relevance has none, so its ties run A to Z."""
+        if self.search_relevance_leads(order_by, search_term):
+            return "asc"
+        return order_dir.lower()
+
     def _gallery_order_clauses(
         self,
         *,
@@ -1915,7 +1923,7 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int | None = None,
     ) -> tuple[RomSelect, _GallerySortKey]:
         query = self._join_rom_user(select(Rom), user_id)
-        order_dir = order_dir.lower()
+        order_dir = self._effective_order_dir(order_by, order_dir, search_term)
 
         sort_key = _resolve_gallery_sort_key(order_by, user_id)
         if sort_key.source == "rom_metadata":
@@ -2241,7 +2249,7 @@ class DBRomsHandler(DBBaseHandler):
             # Re-derive the key from the new name, but only when the stored key
             # is still the derived value (i.e. not a manual override). Mirrors
             # the `@validates` logic, which the bulk update() bypasses.
-            existing = session.scalars(select(Rom).filter_by(id=id)).one()
+            existing = session.get_one(Rom, id)
             if (
                 existing.name_sort_key is None
                 or existing.name_sort_key == compute_name_sort_key(existing.name)
@@ -2250,7 +2258,7 @@ class DBRomsHandler(DBBaseHandler):
 
         if data.keys() & set(SEARCH_TITLE_COLUMNS):
             # The bulk update() skips the mapper event that keeps this in sync.
-            stored = session.scalars(select(Rom).filter_by(id=id)).one()
+            stored = session.get_one(Rom, id)
             data = {
                 **data,
                 "search_titles": compute_search_titles(
@@ -2274,7 +2282,7 @@ class DBRomsHandler(DBBaseHandler):
         if "fs_name" in data or "fs_path" in data:
             # The unique index reads the digest, so whichever half the caller
             # left out has to come from the stored row.
-            stored = session.scalars(select(Rom).filter_by(id=id)).one()
+            stored = session.get_one(Rom, id)
             data = {
                 **data,
                 "full_path_hash": compute_full_path_hash(
