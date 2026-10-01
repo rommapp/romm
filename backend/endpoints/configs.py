@@ -2,7 +2,8 @@ from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 
 from adapters.services.rom_converto import (
-    TARGETS_BY_PLATFORM,
+    LIBRARY_TARGETS_BY_PLATFORM,
+    download_formats,
     normalize_platform_formats,
 )
 from config.config_manager import (
@@ -189,9 +190,11 @@ def get_config(request: Request) -> ConfigResponse:
         GAMELIST_MEDIA_IMAGE=cfg.GAMELIST_MEDIA_IMAGE,
         PEGASUS_AUTO_EXPORT_ON_SCAN=cfg.PEGASUS_AUTO_EXPORT_ON_SCAN,
         CONVERTO=cfg.CONVERTO,
-        CONVERTO_TARGETS={
-            slug: sorted(targets) for slug, targets in TARGETS_BY_PLATFORM.items()
+        CONVERTO_LIBRARY_TARGETS={
+            slug: sorted(targets)
+            for slug, targets in LIBRARY_TARGETS_BY_PLATFORM.items()
         },
+        CONVERTO_DOWNLOAD_FORMATS=download_formats(),
     )
 
 

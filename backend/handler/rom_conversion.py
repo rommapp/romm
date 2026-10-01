@@ -7,7 +7,8 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom
 
-_STAGE_PREFIX = ".romm_tmp_"
+# Scans and the watcher skip dot-prefixed entries, so staged files stay unseen.
+STAGE_PREFIX = ".romm_tmp_"
 
 # Parallel uploads each promote the ROM, maybe on different gunicorn workers.
 # Keyed by the target folder, since lone files sharing a stem promote into one.
@@ -39,7 +40,7 @@ async def _promote(rom: Rom) -> Rom:
     origin = f"{fs_path}/{fs_name}"
     dest_dir = f"{fs_path}/{folder}"
     final = f"{dest_dir}/{fs_name}"
-    staged = f"{fs_path}/{_STAGE_PREFIX}{fs_name}"
+    staged = f"{fs_path}/{STAGE_PREFIX}{fs_name}"
     extensionless = folder == fs_name
 
     # Extensionless dest_dir is the file's own path; only a directory collides.

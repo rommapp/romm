@@ -262,15 +262,15 @@
 #   cache_ttl_hours: 24
 #   # Cache size before the least recently downloaded copies are evicted (0: unbounded)
 #   cache_max_size_gb: 20
-#   # Platform slug -> target format. Targets per platform:
+#   # Platform slug -> the format the "Convert library" task stores its matched
+#   # roms in, replacing the original files. Formats per platform:
 #   #   3ds: cci, cia, z3ds
 #   #   psp, ps2: chd, cso, iso, zso
 #   #   psx, saturn, segacd, dc: chd, iso
 #   #   ngc: iso, rvz
 #   #   wii: iso, rvz, wbfs
 #   #   switch, switch-2: nsp, nsz, xci, xcz
-#   #   xbox: xiso
 #   #   xbox360: zar
 #   platform_formats:
-#     psp: cso
+#     psx: chd
 #     ngc: rvz

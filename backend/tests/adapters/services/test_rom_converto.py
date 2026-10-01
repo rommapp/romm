@@ -6,12 +6,13 @@ import pytest
 
 from adapters.services import rom_converto
 from adapters.services.rom_converto import (
-    TARGETS_BY_PLATFORM,
+    LIBRARY_TARGETS_BY_PLATFORM,
     Operation,
     RomConvertoBinaryNotFoundError,
     RomConvertoOperationError,
     RomConvertoService,
     RomConvertoTimeoutError,
+    download_formats,
     file_format,
     resolve_operation,
 )
@@ -306,14 +307,32 @@ class TestResolveOperation:
         assert op.output_name(Path("Game.cue"), ext) == "Game.iso"
 
 
-class TestTargetsByPlatform:
+class TestLibraryTargetsByPlatform:
     def test_psp_targets(self):
-        assert TARGETS_BY_PLATFORM["psp"] == {"chd", "cso", "iso", "zso"}
+        assert LIBRARY_TARGETS_BY_PLATFORM["psp"] == {"chd", "cso", "iso", "zso"}
 
     def test_platforms_without_format_conversions(self):
         for slug in ("wiiu", "psvita", "nds", "ps3"):
-            assert slug not in TARGETS_BY_PLATFORM
+            assert slug not in LIBRARY_TARGETS_BY_PLATFORM
+
+    def test_a_lossy_conversion_is_no_library_target(self):
+        assert "xbox" not in LIBRARY_TARGETS_BY_PLATFORM
+        assert resolve_operation("xbox", "xiso", "game.iso") is not None
+        assert resolve_operation("xbox", "xiso", "game.iso", lossless=True) is None
+
+
+class TestDownloadFormats:
+    def test_maps_each_input_extension_to_its_targets(self):
+        formats = download_formats()
+
+        assert formats["psp"][".chd"] == ["cso", "iso", "zso"]
+        assert formats["xbox"][".iso"] == ["xiso"]
 
     def test_no_decrypt_or_encrypt_targets(self):
-        targets = set().union(*TARGETS_BY_PLATFORM.values())
+        targets = {
+            target
+            for exts in download_formats().values()
+            for ext_targets in exts.values()
+            for target in ext_targets
+        }
         assert not targets & {"decrypted", "encrypted"}

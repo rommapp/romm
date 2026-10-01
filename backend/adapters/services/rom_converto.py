@@ -36,6 +36,10 @@ class RomConvertoOperationError(RomConvertoError):
     """A conversion command exited nonzero."""
 
 
+# `xbox convert` keeps only a dump's game partition, so a library never stores its output.
+_LOSSY_ARGV: Final[frozenset[tuple[str, ...]]] = frozenset({("xbox", "convert")})
+
+
 @dataclass(frozen=True)
 class Operation:
     """A subcommand bringing `input_exts` files to `target`; source and output are appended to `argv`."""
@@ -45,6 +49,10 @@ class Operation:
     argv: tuple[str, ...]
     input_exts: frozenset[str]
     output_ext: str
+
+    @property
+    def lossless(self) -> bool:
+        return self.argv not in _LOSSY_ARGV
 
     def output_name(self, src: Path, input_ext: str) -> str:
         """`src` renamed from the matched lowercase `input_ext` to the output extension."""
@@ -116,11 +124,29 @@ UNCOMPRESSED_TARGETS: Final[frozenset[str]] = frozenset(
     {"cci", "cia", "iso", "nsp", "wbfs", "xci", "xiso"}
 )
 
-# Platform slug -> the targets it can be configured with.
-TARGETS_BY_PLATFORM: Final[dict[str, frozenset[str]]] = {
-    slug: frozenset(op.target for op in OPERATIONS if slug in op.platforms)
-    for slug in sorted({slug for op in OPERATIONS for slug in op.platforms})
+
+# Platform slug -> the targets a library can be stored in.
+LIBRARY_TARGETS_BY_PLATFORM: Final[dict[str, frozenset[str]]] = {
+    slug: frozenset(
+        op.target for op in OPERATIONS if slug in op.platforms and op.lossless
+    )
+    for slug in sorted(
+        {slug for op in OPERATIONS if op.lossless for slug in op.platforms}
+    )
 }
+
+
+def download_formats() -> dict[str, dict[str, list[str]]]:
+    """Platform slug -> input extension -> the targets a download of it can be converted to."""
+    table: dict[str, dict[str, set[str]]] = {}
+    for op in OPERATIONS:
+        for slug in op.platforms:
+            for ext in op.input_exts:
+                table.setdefault(slug, {}).setdefault(ext, set()).add(op.target)
+    return {
+        slug: {ext: sorted(targets) for ext, targets in sorted(exts.items())}
+        for slug, exts in sorted(table.items())
+    }
 
 
 # Extensions whose format goes by another name than the extension itself.
@@ -147,21 +173,21 @@ def file_format(file_name: str) -> str:
 
 
 def normalize_platform_formats(raw: dict[str, str]) -> dict[str, str]:
-    """`raw` with slugs and targets trimmed and lowercased.
+    """`raw` with slugs and library targets trimmed and lowercased.
 
     Raises:
-        ValueError: A platform has no conversions, or a target isn't one of them.
+        ValueError: A platform has no library targets, or a target isn't one of them.
     """
     cleaned = {
         str(slug).strip().lower(): str(target).strip().lower()
         for slug, target in raw.items()
     }
     for slug, target in cleaned.items():
-        targets = TARGETS_BY_PLATFORM.get(slug)
+        targets = LIBRARY_TARGETS_BY_PLATFORM.get(slug)
         if targets is None:
             raise ValueError(
-                f"rom-converto has no conversions for {slug!r}. "
-                f"Supported: {sorted(TARGETS_BY_PLATFORM)}."
+                f"rom-converto has no library formats for {slug!r}. "
+                f"Supported: {sorted(LIBRARY_TARGETS_BY_PLATFORM)}."
             )
         if target not in targets:
             raise ValueError(
@@ -172,13 +198,15 @@ def normalize_platform_formats(raw: dict[str, str]) -> dict[str, str]:
 
 
 def resolve_operation(
-    platform_slug: str, target: str, file_name: str
+    platform_slug: str, target: str, file_name: str, *, lossless: bool = False
 ) -> tuple[Operation, str] | None:
     """The operation and matched extension bringing `file_name` to `target`, or None if none applies."""
     name = file_name.lower()
     best: tuple[Operation, str] | None = None
     for op in OPERATIONS:
         if op.target != target or platform_slug not in op.platforms:
+            continue
+        if lossless and not op.lossless:
             continue
         for ext in op.input_exts:
             # Prefer the longer extension so `.nkit.iso` is not read as `.iso`.

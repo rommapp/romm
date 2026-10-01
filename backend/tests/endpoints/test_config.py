@@ -311,6 +311,7 @@ def test_update_converto_settings_requires_auth(client):
     [
         {"platform_formats": {"psp": "rvz"}},
         {"platform_formats": {"psvita": "iso"}},
+        {"platform_formats": {"xbox": "xiso"}},
         {"cache_max_size_gb": -1},
     ],
 )

@@ -57,7 +57,8 @@ const defaultConfig = {
     cache_max_size_gb: 20,
     platform_formats: {},
   },
-  CONVERTO_TARGETS: {},
+  CONVERTO_LIBRARY_TARGETS: {},
+  CONVERTO_DOWNLOAD_FORMATS: {},
 } as ConfigResponse;
 
 export default defineStore("config", {

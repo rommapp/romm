@@ -46,5 +46,7 @@ class ConfigResponse(TypedDict):
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
     PEGASUS_AUTO_EXPORT_ON_SCAN: bool
     CONVERTO: ConvertoConfig
-    # Platform slug -> the targets rom-converto can convert it to.
-    CONVERTO_TARGETS: dict[str, list[str]]
+    # Platform slug -> the formats its library can be stored in.
+    CONVERTO_LIBRARY_TARGETS: dict[str, list[str]]
+    # Platform slug -> input extension -> the formats a download can be converted to.
+    CONVERTO_DOWNLOAD_FORMATS: dict[str, dict[str, list[str]]]

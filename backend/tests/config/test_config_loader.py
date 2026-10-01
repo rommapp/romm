@@ -731,6 +731,7 @@ def test_update_converto_settings_round_trip(tmp_path):
     [
         "  platform_formats:\n    psvita: iso\n",
         "  platform_formats:\n    psp: rvz\n",
+        "  platform_formats:\n    xbox: xiso\n",
         "  cache_ttl_hours: 0\n",
         "  cache_max_size_gb: -1\n",
         "  cache_max_size_gb: true\n",
