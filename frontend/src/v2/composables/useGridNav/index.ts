@@ -15,6 +15,9 @@
 //     focusable selector, otherwise the first focusable descendant.
 //   * ArrowLeft / ArrowRight → prev / next cell in the current row.
 //   * ArrowUp / ArrowDown → same column in the prev / next row (clamped).
+//   * Home / End → first / last cell in the row; with Ctrl (or a row of
+//     one cell), the first cell of the grid / the last.
+//   * PageUp / PageDown → same column, one viewport of rows up / down.
 //   * On autofocus we remember a "preferred column" and restore it when
 //     moving up/down through rows of different lengths, a common media-UI
 //     pattern so row switching doesn't permanently lose horizontal place.
@@ -55,6 +58,33 @@ export interface UseGridNavOptions {
    *  the controls of the active cell stay tabbable and every other cell's
    *  get `tabindex="-1"`, including cells that mount later. */
   roving?: boolean;
+  /** Renders the grid's first or last row when it virtualises its rows, so
+   *  Ctrl+Home / Ctrl+End can reach rows that aren't mounted. */
+  revealEdge?: (edge: "first" | "last") => void;
+}
+
+const GRID_KEYS = new Set([
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Home",
+  "End",
+  "PageUp",
+  "PageDown",
+]);
+
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+// Height of the box the grid scrolls in, which is one page of rows.
+function pageHeight(el: HTMLElement): number {
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    const overflow = getComputedStyle(node).overflowY;
+    if (overflow === "auto" || overflow === "scroll") return node.clientHeight;
+  }
+  return window.innerHeight;
 }
 
 // Controls the roving mode may take out of the tab order. Unlike
@@ -86,6 +116,9 @@ export function useGridNav(
   const focusStore = storeFocusRestoration();
   let preferredCol = 0;
   let activeKey: string | null = null;
+  // The cell this composable last focused, to tell when focus arrived another
+  // way (a click) and the remembered column no longer applies.
+  let navCell: HTMLElement | null = null;
 
   // Walk up from `node` looking for a `[data-focus-key]` carrier. Tiles
   // mark their root with this so focus can survive navigation.
@@ -195,6 +228,7 @@ export function useGridNav(
     const clamped = Math.min(Math.max(colIdx, 0), cs.length - 1);
     const cell = cs[clamped];
     const target = focusableIn(cell);
+    navCell = cell;
 
     // Roving tabindex: only the current cell is a tab stop, every other
     // cell sets tabindex="-1". Lets the user land on the last focused
@@ -267,15 +301,67 @@ export function useGridNav(
     return false;
   }
 
-  function onKey(e: KeyboardEvent) {
-    if (
-      e.key !== "ArrowLeft" &&
-      e.key !== "ArrowRight" &&
-      e.key !== "ArrowUp" &&
-      e.key !== "ArrowDown"
-    ) {
-      return;
+  function hasControl(cell: HTMLElement): boolean {
+    const selector = options.roving ? ROVING_CANDIDATES : FOCUSABLE_SELECTOR;
+    return focusableIn(cell) !== cell || cell.matches(selector);
+  }
+
+  // Focuses the first or last cell that holds a control, skipping skeletons.
+  function focusEdge(edge: "first" | "last") {
+    const rs = rows();
+    const order = edge === "first" ? rs.keys() : [...rs.keys()].reverse();
+    for (const r of order) {
+      const cs = cells(rs[r]);
+      const cols = edge === "first" ? cs.keys() : [...cs.keys()].reverse();
+      for (const c of cols) {
+        if (!hasControl(cs[c])) continue;
+        preferredCol = c;
+        focusAt(r, c, { verticalJump: true });
+        return;
+      }
     }
+  }
+
+  // Whether the outermost cell on `edge` holds a loaded control yet.
+  function edgeLoaded(edge: "first" | "last"): boolean {
+    const rs = rows();
+    const row = edge === "first" ? rs[0] : rs[rs.length - 1];
+    if (!row) return false;
+    const cs = cells(row);
+    const cell = edge === "first" ? cs[0] : cs[cs.length - 1];
+    return !!cell && hasControl(cell);
+  }
+
+  async function jumpToEdge(edge: "first" | "last") {
+    if (options.revealEdge) {
+      options.revealEdge(edge);
+      // Two frames for the scroll to mount the edge rows, then up to about
+      // two seconds for their data to load.
+      await nextFrame();
+      await nextFrame();
+      for (let i = 0; i < 120 && !edgeLoaded(edge); i++) await nextFrame();
+    }
+    focusEdge(edge);
+  }
+
+  // The row about one viewport above or below `from`, clamped to the rows
+  // that are mounted.
+  function pageRow(rs: HTMLElement[], from: number, dir: 1 | -1): number {
+    const top = rs[from].getBoundingClientRect().top;
+    const target = top + dir * pageHeight(rs[from]);
+    let best = from;
+    for (let r = from + dir; r >= 0 && r < rs.length; r += dir) {
+      const rowTop = rs[r].getBoundingClientRect().top;
+      if (dir === 1 ? rowTop > target : rowTop < target) break;
+      best = r;
+    }
+    return best === from
+      ? Math.min(Math.max(from + dir, 0), rs.length - 1)
+      : best;
+  }
+
+  function onKey(e: KeyboardEvent) {
+    if (!GRID_KEYS.has(e.key)) return;
     if (!rootRef.value) return;
     // Only steer when focus is already inside the grid; don't hijack
     // arrow keys meant for input fields, menus, or other widgets.
@@ -288,6 +374,7 @@ export function useGridNav(
     let { rowIdx, colIdx } = cur;
     const rs = rows();
     const rowCells = cells(rs[rowIdx]);
+    if (rowCells[colIdx] !== navCell) preferredCol = colIdx;
     let verticalJump = false;
 
     if (e.key === "ArrowLeft") {
@@ -306,6 +393,20 @@ export function useGridNav(
     } else if (e.key === "ArrowDown") {
       if (rowIdx === rs.length - 1) return;
       rowIdx += 1;
+      colIdx = preferredCol;
+      verticalJump = true;
+    } else if (e.key === "Home" || e.key === "End") {
+      // A row of one cell has nowhere to go inside it, so it moves through
+      // the grid instead.
+      if (e.ctrlKey || e.metaKey || rowCells.length === 1) {
+        e.preventDefault();
+        void jumpToEdge(e.key === "Home" ? "first" : "last");
+        return;
+      }
+      colIdx = e.key === "Home" ? 0 : rowCells.length - 1;
+      preferredCol = colIdx;
+    } else if (e.key === "PageUp" || e.key === "PageDown") {
+      rowIdx = pageRow(rs, rowIdx, e.key === "PageDown" ? 1 : -1);
       colIdx = preferredCol;
       verticalJump = true;
     }

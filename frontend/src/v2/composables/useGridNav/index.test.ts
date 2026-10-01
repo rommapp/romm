@@ -33,6 +33,18 @@ function tabbable(wrapper: ReturnType<typeof mount>): string[] {
     .map((el) => el.attributes("href") ?? el.classes()[0]);
 }
 
+function focusLink(id: number) {
+  (document.querySelector(`a[href='/rom/${id}']`) as HTMLElement).focus();
+}
+
+function press(key: string, init: KeyboardEventInit = {}) {
+  document.dispatchEvent(new KeyboardEvent("keydown", { key, ...init }));
+}
+
+function focusedHref(): string | null | undefined {
+  return document.activeElement?.getAttribute("href");
+}
+
 async function frame() {
   await new Promise((resolve) => requestAnimationFrame(resolve));
   await nextTick();
@@ -70,6 +82,34 @@ describe("useGridNav roving", () => {
     await nextTick();
 
     expect(tabbable(wrapper)).toEqual(["/rom/4", "fav"]);
+  });
+
+  it("moves to the row's ends on Home and End", async () => {
+    focusLink(1);
+    press("End");
+    expect(focusedHref()).toBe("/rom/2");
+    press("Home");
+    expect(focusedHref()).toBe("/rom/1");
+  });
+
+  it("moves to the grid's ends on Ctrl+Home and Ctrl+End", async () => {
+    focusLink(1);
+    press("End", { ctrlKey: true });
+    await frame();
+    await frame();
+    expect(focusedHref()).toBe("/rom/4");
+    press("Home", { ctrlKey: true });
+    await frame();
+    await frame();
+    expect(focusedHref()).toBe("/rom/1");
+  });
+
+  it("keeps the column on PageDown and PageUp", async () => {
+    focusLink(2);
+    press("PageDown");
+    expect(focusedHref()).toBe("/rom/4");
+    press("PageUp");
+    expect(focusedHref()).toBe("/rom/2");
   });
 
   it("never puts a control its component excluded back in the order", async () => {

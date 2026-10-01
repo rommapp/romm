@@ -131,11 +131,10 @@ const isSelected = computed(() =>
   !isStatic.value && rom.value ? selection.isSelected(rom.value.id) : false,
 );
 // Space on the name link selects the row, Shift+Space the range from the
-// last one toggled. Keys from the row's buttons are theirs.
+// last one toggled.
 function onRowKeydown(e: KeyboardEvent) {
   const item = rom.value;
   if (e.key !== " " || !item || isStatic.value) return;
-  if (!(e.target as Element).matches(".game-list-row__name")) return;
   if (props.position === undefined) return;
   e.preventDefault();
   if (e.shiftKey) selectionInput.handleActivate(item, props.position, e);
@@ -316,7 +315,7 @@ function onRowClick(e: MouseEvent) {
   // Default click: prevent the anchor's native navigation, run the
   // morph, then push the route.
   e.preventDefault();
-  navigateTo(item, e.currentTarget as HTMLElement | null);
+  navigateTo(item, rowEl.value);
 }
 
 // Mirror of GameCard's onHighlight: swap the AppLayout backdrop to the
@@ -342,7 +341,6 @@ function onRowPointerDown(e: PointerEvent) {
 </script>
 
 <template>
-  <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -- in an ARIA grid the row is not a focus target: its name link is -->
   <div
     ref="rowEl"
     v-bind="$attrs"
@@ -362,12 +360,9 @@ function onRowPointerDown(e: PointerEvent) {
     :data-rom-position="position"
     :data-rom-id="rom?.id"
     :data-focus-key="rom ? `rom-${rom.id}` : undefined"
-    @click="onRowClick"
-    @keydown="onRowKeydown"
-    @mouseenter="onRowHighlight"
+    @pointerenter="onRowHighlight"
     @focusin="onRowHighlight"
     @pointerdown="onRowPointerDown"
-    @contextmenu="selectionInput.handleContextMenu"
     @animationend.self="endEntrance"
   >
     <template v-if="rom">
@@ -403,7 +398,13 @@ function onRowPointerDown(e: PointerEvent) {
           </div>
 
           <div class="r-list-compact__stack">
-            <a :href="`/rom/${rom.id}`" class="game-list-row__name">
+            <a
+              :href="`/rom/${rom.id}`"
+              class="game-list-row__name"
+              @click="onRowClick"
+              @keydown="onRowKeydown"
+              @contextmenu="selectionInput.handleContextMenu"
+            >
               {{ romName }}
             </a>
             <div class="r-list-compact__facts">
@@ -544,7 +545,13 @@ function onRowPointerDown(e: PointerEvent) {
         <div role="gridcell" class="game-list-row__cell game-list-row__title">
           <div class="game-list-row__meta">
             <div class="game-list-row__name-row">
-              <a :href="`/rom/${rom.id}`" class="game-list-row__name">
+              <a
+                :href="`/rom/${rom.id}`"
+                class="game-list-row__name"
+                @click="onRowClick"
+                @keydown="onRowKeydown"
+                @contextmenu="selectionInput.handleContextMenu"
+              >
                 {{ romName }}
               </a>
               <div class="game-list-row__badges" @click.stop>

@@ -388,11 +388,19 @@ watch(
 // and only the matching one actually moves focus, so they don't fight.
 // Virtualised rows past the overscan window simply aren't in the DOM, so
 // nav clamps at the boundary; scrolling past mounts more rows.
-useGridNav(sectionEl, { rowSelector: ".r-v2-shell__row", roving: true });
+function revealEdge(edge: "first" | "last") {
+  scrollToItem(edge === "first" ? 0 : virtualItems.value.length - 1, false);
+}
+useGridNav(sectionEl, {
+  rowSelector: ".r-v2-shell__row",
+  roving: true,
+  revealEdge,
+});
 useGridNav(sectionEl, {
   rowSelector: ".game-list-row",
   getCells: (row) => [row],
   roving: true,
+  revealEdge,
 });
 
 const loadingInitial = computed(
@@ -689,6 +697,10 @@ let jumpDeadline = 0;
 function anchorLetter(letter: string, smooth: boolean) {
   const idx = letterToIndex.value.get(letter);
   if (idx == null) return;
+  scrollToItem(idx, smooth);
+}
+
+function scrollToItem(idx: number, smooth: boolean) {
   // The section runs under the top bar, so rows land below it in either dock.
   const section = sectionEl.value;
   const navHeight = section

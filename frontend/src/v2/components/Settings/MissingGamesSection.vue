@@ -202,10 +202,15 @@ const gridAttrs = computed(() => {
     "aria-colcount": smAndDown.value ? undefined : getListColumns(true).length,
   };
 });
+const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
 useGridNav(listEl, {
   rowSelector: ".game-list-row",
   getCells: (row) => [row],
   roving: true,
+  revealEdge: (edge) =>
+    scrollerRef.value?.scrollToIndex(
+      edge === "first" ? 0 : virtualItems.value.length - 1,
+    ),
 });
 
 function onListSort({ key, dir }: { key: ListSortKey; dir: "asc" | "desc" }) {
@@ -424,6 +429,7 @@ onBeforeUnmount(() => {
         @sort="onListSort"
       />
       <RVirtualScroller
+        ref="scrollerRef"
         :items="virtualItems"
         :get-item-height="vItemHeight"
         :offset-shift="offsetShift"
