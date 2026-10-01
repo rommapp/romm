@@ -252,7 +252,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0143_sibling_platform_names.py", "platforms"),
         ("0144_user_oidc_sub.py", "users"),
         ("0145_drop_derivable_columns.py", "rom_file_doc_meta"),
-        ("0146_roms_search_aliases.py", "roms"),
+        ("0146_roms_search_titles.py", "roms"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -374,28 +374,9 @@ def test_the_derivable_columns_revision_reverses_and_replays(admin_user: User):
         assert {table: _schema_of(connection, table) for table in tables} == before
 
 
-def test_the_search_aliases_revision_reverses_and_replays():
-    """0146 swaps the search index, and each step of either direction is guarded."""
-    migration = _load_migration("0146_roms_search_aliases.py")
-
-    with sync_engine.begin() as connection:
-        before = _schema_of(connection, "roms")
-        with Operations.context(MigrationContext.configure(connection)):
-            migration.downgrade()
-            indexes = _schema_of(connection, "roms")[1]
-            assert ROMS_SEARCH_FULLTEXT_INDEX not in indexes
-            assert ROMS_SEARCH_TITLES_TRGM_INDEX not in indexes
-
-            migration.downgrade()
-            migration.upgrade()
-            migration.upgrade()
-
-        assert _schema_of(connection, "roms") == before
-
-
 def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platform):
-    """0147 fills existing rows, and resumes a run that stopped part-way."""
-    migration = _load_migration("0147_roms_search_titles.py")
+    """0146 swaps the search index and fills existing rows, resuming a partial run."""
+    migration = _load_migration("0146_roms_search_titles.py")
     first = make_rom(
         platform, "Final Fantasy VII", igdb_metadata={"alternative_names": ["FF7"]}
     )
@@ -414,15 +395,9 @@ def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platfor
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
             assert not has_column(connection, "roms", SEARCH_TITLES_COLUMN)
-            aliases = migration.SEARCH_ALIASES_COLUMN
-            assert has_column(connection, "roms", aliases)
-            assert (
-                connection.execute(
-                    sa.text(f"SELECT {aliases} FROM roms WHERE id = :id"),  # nosec B608
-                    {"id": first.id},
-                ).scalar()
-                == "FF7"
-            )
+            indexes = _schema_of(connection, "roms")[1]
+            assert ROMS_SEARCH_FULLTEXT_INDEX not in indexes
+            assert ROMS_SEARCH_TITLES_TRGM_INDEX not in indexes
             migration.downgrade()
 
             migration.upgrade()
