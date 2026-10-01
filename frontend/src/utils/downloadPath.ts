@@ -2,15 +2,18 @@ import type { RomFileSchema } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 
 /** Build the `/api` path that serves a ROM's content.
- *  `purpose: "play"` marks a player's fetch, which is logged as a player load. */
+ *  `purpose: "play"` marks a player's fetch, which is logged as a player load.
+ *  `format` asks for a single file in that format, converting it if needed. */
 export function getDownloadPath({
   rom,
   fileIDs = [],
   purpose,
+  format,
 }: {
   rom: SimpleRom;
   fileIDs?: number[];
   purpose?: "play";
+  format?: string;
 }) {
   const queryParams = new URLSearchParams();
   if (fileIDs.length > 0) {
@@ -18,6 +21,9 @@ export function getDownloadPath({
   }
   if (purpose) {
     queryParams.append("purpose", purpose);
+  }
+  if (format) {
+    queryParams.append("format", format);
   }
   const queryString = queryParams.toString();
 
@@ -59,6 +65,21 @@ export function getDownloadFileName(rom: SimpleRom): string {
 export function getSoleRomFile(rom: SimpleRom): RomFileSchema | null {
   const files = rom.files ?? [];
   return files.length === 1 ? files[0] : null;
+}
+
+/** The formats a file can be converted to on download, from the backend's
+ *  input extension table for its platform. */
+export function getDownloadFormats(
+  fileName: string,
+  formatsByExtension: Record<string, string[]> | undefined,
+): string[] {
+  const name = fileName.toLowerCase();
+  let match = "";
+  for (const ext of Object.keys(formatsByExtension ?? {})) {
+    // The longest match wins so `.nkit.iso` is not read as `.iso`.
+    if (name.endsWith(ext) && ext.length > match.length) match = ext;
+  }
+  return match ? (formatsByExtension?.[match] ?? []) : [];
 }
 
 export function getDownloadLink({

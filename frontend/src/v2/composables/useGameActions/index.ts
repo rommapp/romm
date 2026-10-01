@@ -7,13 +7,20 @@ import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import { useUISettings } from "@/composables/useUISettings";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
-import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
+import {
+  getDownloadFormats,
+  getDownloadLink,
+  getDownloadPath,
+  getSoleRomFile,
+  isNintendoDSRom,
+} from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useClipboard } from "@/v2/composables/useClipboard";
@@ -39,6 +46,10 @@ export type PlayTarget = "auto" | "local" | "stream";
 
 type PlayerSlug = "stream" | "jsdos" | "ejs" | "pico8" | "ruffle";
 
+// A conversion can take a while on large discs; stop polling after about an hour.
+const FORMAT_POLL_SECONDS = 30;
+const FORMAT_POLL_LIMIT = 120;
+
 // Validate flashpoint game IDs are UUIDs
 const FLASHPOINT_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -59,6 +70,7 @@ export function useGameActions(
   const { syncCachedRom, refreshAfterUserStateChange, refreshIfOrderedBy } =
     useRomSync();
   const auth = storeAuth();
+  const configStore = storeConfig();
   const heartbeat = storeHeartbeat();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
@@ -107,6 +119,18 @@ export function useGameActions(
   // Download, the copied link and the QR code all resolve to the download
   // endpoint, which has nothing to serve without a file behind the rom.
   const canDownload = computed(() => Boolean(getRom()?.has_file_on_disk));
+
+  // Only a single file converts, and only while the server has it turned on.
+  const downloadFormats = computed<string[]>(() => {
+    const rom = getRom();
+    const file = rom && canDownload.value ? getSoleRomFile(rom) : null;
+    const { CONVERTO, CONVERTO_DOWNLOAD_FORMATS } = configStore.config;
+    if (!rom || !file || !CONVERTO.download_conversion_enabled) return [];
+    return getDownloadFormats(
+      file.file_name,
+      CONVERTO_DOWNLOAD_FORMATS[rom.platform_slug],
+    );
+  });
 
   // Names the box the session runs on, so a library served by more than one
   // container says which the button reaches.
@@ -416,6 +440,38 @@ export function useGameActions(
     a.remove();
   }
 
+  async function downloadAs(format: string) {
+    const rom = getRom();
+    const file = rom ? getSoleRomFile(rom) : null;
+    if (!rom || !file) return;
+    const label = format.toUpperCase();
+    const href = getDownloadPath({ rom, fileIDs: [file.id], format });
+    try {
+      let probe = await romApi.probeFormatDownload(href);
+      if (probe.status === 202) {
+        snackbar.info(t("rom.download-as-preparing", { format: label }));
+      }
+      for (
+        let poll = 0;
+        probe.status === 202 && poll < FORMAT_POLL_LIMIT;
+        poll++
+      ) {
+        const seconds = probe.retryAfterSeconds ?? FORMAT_POLL_SECONDS;
+        await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+        probe = await romApi.probeFormatDownload(href);
+      }
+      if (probe.status === 200 || probe.status === 206) {
+        await romApi.downloadRom({ rom, fileIDs: [file.id], format });
+        return;
+      }
+    } catch {
+      // A failed probe is reported like a format that can't be served.
+    }
+    snackbar.error(t("rom.download-as-unavailable", { format: label }), {
+      persist: true,
+    });
+  }
+
   async function favorite() {
     const rom = getRom();
     if (!rom) return;
@@ -582,6 +638,7 @@ export function useGameActions(
     canInstallOnDevice,
     canOpenInFlashpoint,
     canDownload,
+    downloadFormats,
     canPlay,
     canPlayStream,
     canPlayLocally,
@@ -606,6 +663,7 @@ export function useGameActions(
     goToPlatform,
     platformPath,
     download,
+    downloadAs,
     favorite,
     share,
     shareQR,
