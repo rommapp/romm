@@ -402,7 +402,7 @@ def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platfor
             sa.text("SELECT id, search_titles FROM roms WHERE id IN (:a, :b)"),
             {"a": first.id, "b": second.id},
         )
-        return dict(rows.tuples().all())
+        return dict(rows.all())
 
     with sync_engine.begin() as connection:
         before = _schema_of(connection, "roms")

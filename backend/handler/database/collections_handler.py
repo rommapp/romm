@@ -20,7 +20,7 @@ from sqlalchemy.orm import (
     QueryableAttribute,
     Session,
     load_only,
-    noload,
+    raiseload,
     selectinload,
 )
 
@@ -54,7 +54,7 @@ def _roms_load_options() -> list[Any]:
             Rom.path_cover_s,
             Rom.path_cover_l,
         )
-        .options(noload(Rom.platform), noload(Rom.metadatum))
+        .options(raiseload(Rom.platform), raiseload(Rom.metadatum))
     ]
 
 
