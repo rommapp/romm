@@ -1,5 +1,6 @@
 """Tests for SyncPushPullTask initialization and configuration."""
 
+from dataclasses import replace
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -18,6 +19,7 @@ from models.device import Device, SyncMode
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from tasks.registry import SYNC_PUSH_PULL_SPEC
 from tasks.sync_push_pull_task import (
     SyncPushPullTask,
     _process_remote_save,
@@ -33,9 +35,9 @@ class TestSyncPushPullTaskInit:
         return SyncPushPullTask()
 
     def test_init(self, task: SyncPushPullTask):
-        assert task.title == "Push-Pull Sync"
-        assert task.description == "Sync saves with devices via SSH/SFTP"
-        assert task.task_type == TaskType.SYNC
+        assert task.spec.title == "Push-Pull Sync"
+        assert task.spec.description == "Sync saves with devices via SSH/SFTP"
+        assert task.spec.task_type == TaskType.SYNC
 
     def test_is_periodic_task(self, task: SyncPushPullTask):
         assert isinstance(task, PeriodicTask)
@@ -45,18 +47,24 @@ class TestSyncPushPullTaskInit:
         assert isinstance(sync_push_pull_task, SyncPushPullTask)
 
     def test_cron_string_set(self, task: SyncPushPullTask):
-        assert task.cron_string is not None
+        assert task.spec.cron_string is not None
 
 
 class TestRunPushPullSync:
-    @patch("tasks.sync_push_pull_task.ENABLE_SYNC_PUSH_PULL", False)
+    @patch(
+        "tasks.sync_push_pull_task.SYNC_PUSH_PULL_SPEC",
+        replace(SYNC_PUSH_PULL_SPEC, enabled=False),
+    )
     async def test_run_disabled_returns_disabled(self):
         from tasks.sync_push_pull_task import run_push_pull_sync
 
         result = await run_push_pull_sync()
         assert result["status"] == "disabled"
 
-    @patch("tasks.sync_push_pull_task.ENABLE_SYNC_PUSH_PULL", True)
+    @patch(
+        "tasks.sync_push_pull_task.SYNC_PUSH_PULL_SPEC",
+        replace(SYNC_PUSH_PULL_SPEC, enabled=True),
+    )
     @patch("tasks.sync_push_pull_task.db_device_handler")
     async def test_run_no_devices(self, mock_device_handler):
         from tasks.sync_push_pull_task import run_push_pull_sync
@@ -66,7 +74,10 @@ class TestRunPushPullSync:
         result = await run_push_pull_sync()
         assert result["status"] == "no_devices"
 
-    @patch("tasks.sync_push_pull_task.ENABLE_SYNC_PUSH_PULL", True)
+    @patch(
+        "tasks.sync_push_pull_task.SYNC_PUSH_PULL_SPEC",
+        replace(SYNC_PUSH_PULL_SPEC, enabled=True),
+    )
     @patch("tasks.sync_push_pull_task.db_device_handler")
     async def test_run_device_not_found(self, mock_device_handler):
         from tasks.sync_push_pull_task import run_push_pull_sync
@@ -77,7 +88,10 @@ class TestRunPushPullSync:
         assert result["status"] == "error"
         assert "not found" in result["message"]
 
-    @patch("tasks.sync_push_pull_task.ENABLE_SYNC_PUSH_PULL", False)
+    @patch(
+        "tasks.sync_push_pull_task.SYNC_PUSH_PULL_SPEC",
+        replace(SYNC_PUSH_PULL_SPEC, enabled=False),
+    )
     async def test_run_force_override(self):
         from tasks.sync_push_pull_task import run_push_pull_sync
 

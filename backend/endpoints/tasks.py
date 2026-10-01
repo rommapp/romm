@@ -37,7 +37,7 @@ from handler.redis_handler import (
 )
 from models.audit_event import AuditAction, AuditTargetType
 from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS, enqueue_task
-from tasks.tasks import Task, TaskType
+from tasks.tasks import TaskSpec, TaskType
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -47,7 +47,7 @@ router = APIRouter(
 
 # Scheduled tasks an admin can see and trigger. The rest of the catalog runs on
 # its schedule without being surfaced.
-VISIBLE_SCHEDULED_TASKS: Final[dict[str, Task]] = {
+VISIBLE_SCHEDULED_TASKS: Final[dict[str, TaskSpec]] = {
     name: SCHEDULED_TASKS[name]
     for name in (
         "scan_library",
@@ -61,10 +61,10 @@ VISIBLE_SCHEDULED_TASKS: Final[dict[str, Task]] = {
     )
 }
 
-RUNNABLE_TASKS: Final[dict[str, Task]] = {**MANUAL_TASKS, **VISIBLE_SCHEDULED_TASKS}
+RUNNABLE_TASKS: Final[dict[str, TaskSpec]] = {**MANUAL_TASKS, **VISIBLE_SCHEDULED_TASKS}
 
 
-def _build_task_info(name: str, task: Task) -> TaskInfo:
+def _build_task_info(name: str, task: TaskSpec) -> TaskInfo:
     """Builds a TaskInfo object from task details."""
     return TaskInfo(
         name=name,

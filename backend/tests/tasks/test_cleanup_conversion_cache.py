@@ -1,11 +1,13 @@
+from dataclasses import replace
+
+from tasks.registry import CLEANUP_CONVERSION_CACHE_SPEC
 from tasks.scheduled.cleanup_conversion_cache import CleanupConversionCacheTask
 
 
 class TestCleanupConversionCacheTask:
     def test_configuration(self):
-        task = CleanupConversionCacheTask()
-        assert task.enabled is True
-        assert task.cron_string == "0 4 * * *"
+        assert CLEANUP_CONVERSION_CACHE_SPEC.enabled is True
+        assert CLEANUP_CONVERSION_CACHE_SPEC.cron_string == "0 4 * * *"
 
     async def test_run_calls_cleanup(self, mocker):
         task = CleanupConversionCacheTask()
@@ -18,7 +20,7 @@ class TestCleanupConversionCacheTask:
 
     async def test_run_disabled_skips_the_cleanup(self, mocker):
         task = CleanupConversionCacheTask()
-        task.enabled = False
+        task.spec = replace(task.spec, enabled=False)
         mock_cleanup = mocker.patch(
             "tasks.scheduled.cleanup_conversion_cache.cleanup_stale_conversions",
         )

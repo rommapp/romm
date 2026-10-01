@@ -26,7 +26,7 @@ from endpoints.responses.assets import StateSchema
 from endpoints.responses.streaming import ImportRefusalSchema
 from endpoints.streaming import platform_capabilities
 from handler.activity_handler import activity_handler
-from handler.auth import oauth_handler
+from handler.auth.base_handler import oauth_handler
 from handler.database import (
     db_container_adoption_handler,
     db_memory_card_handler,

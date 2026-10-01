@@ -1,11 +1,10 @@
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from contextvars import ContextVar, Token
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 import aiohttp
 import httpx2
-from fastapi import Request, Response
 
 from config import has_proxy_env
 from utils.ssrf import (
@@ -13,6 +12,9 @@ from utils.ssrf import (
     install_sync_ssrf_protection,
     validate_url_for_http_request,
 )
+
+if TYPE_CHECKING:
+    from fastapi import Request, Response
 
 _T = TypeVar("_T")
 

@@ -4,7 +4,8 @@ from typing import ClassVar, cast
 from endpoints.responses import MissingFirmwareCleanupStats
 from handler.database import db_firmware_handler
 from logger.logger import log
-from tasks.tasks import JobMetaStats, Task, TaskType
+from tasks.registry import CLEANUP_MISSING_FIRMWARE_SPEC
+from tasks.tasks import JobMetaStats, Task
 from utils.context import initialize_context
 
 
@@ -25,21 +26,14 @@ class CleanupMissingFirmwareStats(JobMetaStats):
 
 class CleanupMissingFirmwareTask(Task):
     def __init__(self) -> None:
-        super().__init__(
-            title="Cleanup missing firmware",
-            description="Delete all firmware flagged as missing from the filesystem from the database",
-            task_type=TaskType.CLEANUP,
-            enabled=True,
-            manual_run=True,
-            cron_string=None,
-        )
+        super().__init__(CLEANUP_MISSING_FIRMWARE_SPEC)
 
     @initialize_context()
     async def run(
         self, platform_ids: list[int] | None = None
     ) -> MissingFirmwareCleanupStats:
         """Clean up firmware that is flagged as missing from the filesystem."""
-        log.info(f"Starting {self.title} task...")
+        log.info(f"Starting {self.spec.title} task...")
 
         stats = CleanupMissingFirmwareStats(platform_ids=platform_ids)
 

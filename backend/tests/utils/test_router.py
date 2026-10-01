@@ -1,4 +1,3 @@
-import itertools
 from typing import Annotated, Any, cast
 
 import pytest
@@ -9,13 +8,8 @@ from pydantic import BaseModel, Field, create_model
 from utils.router import APIRouter, as_query_dependency
 
 
-@pytest.mark.parametrize(
-    "method, route_path",
-    itertools.product(
-        ("get", "post", "put", "delete", "patch"),
-        ("/test", "/test/"),
-    ),
-)
+@pytest.mark.parametrize("route_path", ("/test", "/test/"))
+@pytest.mark.parametrize("method", ("get", "post", "put", "delete", "patch"))
 def test_route_path_with_trailing_slash(method, route_path):
     router = APIRouter()
 

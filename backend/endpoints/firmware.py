@@ -72,33 +72,47 @@ async def add_firmware(
         not_found_detail=f"Platform with ID {platform_id} not found",
     )
 
-    uploaded_firmware = []
-    firmware_path = fs_firmware_handler.get_firmware_fs_structure(db_platform.fs_slug)
-
+    # write_file stores each upload under its sanitized basename, so the lookup,
+    # scan and row must use that same name. Check them all before writing any.
+    uploads: list[tuple[UploadFile, str]] = []
     for file in files:
         if not file.filename:
             log.warning("Empty filename, skipping")
             continue
+        try:
+            file_name = fs_firmware_handler._sanitize_filename(file.filename)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid upload filename: {exc}",
+            ) from exc
+        uploads.append((file, file_name))
 
+    uploaded_firmware = []
+    firmware_path = fs_firmware_handler.get_firmware_fs_structure(db_platform.fs_slug)
+
+    for file, file_name in uploads:
         log.info(
-            f"Uploading firmware {hl(file.filename)} to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}"
+            f"Uploading firmware {hl(file_name)} to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}"
         )
 
-        await fs_firmware_handler.write_file(file=file, path=firmware_path)
+        await fs_firmware_handler.write_file(
+            file=file, path=firmware_path, filename=file_name
+        )
 
         db_firmware = db_firmware_handler.get_firmware_by_filename(
-            platform_id=db_platform.id, file_name=file.filename
+            platform_id=db_platform.id, file_name=file_name
         )
         # Scan or update firmware
         scanned_firmware = await scan_firmware(
             platform=db_platform,
-            file_name=file.filename,
+            file_name=file_name,
             firmware=db_firmware,
         )
 
         is_verified = Firmware.verify_file_hashes(
             platform_slug=db_platform.slug,
-            file_name=file.filename,
+            file_name=file_name,
             file_size_bytes=scanned_firmware.file_size_bytes,
             md5_hash=scanned_firmware.md5_hash,
             sha1_hash=scanned_firmware.sha1_hash,
@@ -124,7 +138,7 @@ async def add_firmware(
         AuditAction.FIRMWARE_UPLOAD,
         request,
         AuditTarget.of_platform(db_platform),
-        {"file_names": [file.filename for file in files if file.filename]},
+        {"file_names": [file_name for _, file_name in uploads]},
     )
 
     return {
