@@ -23,7 +23,7 @@ from logger.logger import log
 from models.audit_event import AuditAction
 from models.permission import PermAction, PermEntity
 from models.rom import DOCUMENT_CATEGORIES, RomFileCategory
-from utils.audio_tags import guess_audio_media_type, remove_persisted_cover
+from utils.audio_tags import guess_audio_media_type
 from utils.media_types import (
     guess_media_file_type,
     is_allowed_document_file,
@@ -232,12 +232,6 @@ async def delete_rom_file(
         ) from exc
 
     db_rom_handler.delete_rom_file(file_id)
-    for image_path in (
-        rom_file.icon_path,
-        rom_file.banner_path,
-        rom_file.background_path,
-    ):
-        remove_persisted_cover(image_path)
 
     log.info(
         f"Deleted file {hl(rom_file.file_name)} from "

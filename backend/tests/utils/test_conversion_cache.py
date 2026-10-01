@@ -139,14 +139,14 @@ class TestGetOrConvert:
         )
         assert convert_outputs == []
 
-    async def test_admission_counts_uncompressed_size(
+    async def test_admission_reserves_room_for_a_decompression(
         self, cache_root, converto, convert_outputs, mocker
     ):
         converto.cache_max_size_gb = 1
         mocker.patch.object(conversion_cache, "BYTES_PER_GB", 100)
-        f = _rom_file(file_size_bytes=50, uncompressed_size_bytes=101)
+        f = _rom_file(file_name="game.chd", file_size_bytes=30)
 
-        assert await get_or_convert(1, f, "psp", "chd") is None
+        assert await get_or_convert(1, f, "psp", "iso") is None
         assert convert_outputs == []
 
     async def test_admission_evicts_an_older_copy_to_make_room(

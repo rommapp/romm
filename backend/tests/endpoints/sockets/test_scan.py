@@ -1170,6 +1170,18 @@ class TestIdentifyRomReassociation:
             title_id="0100ABCD12340000",
         )
 
+    async def test_files_are_reconciled_in_place(self, patched):
+        db, platform = patched
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=[]
+        )
+
+        await self._run(platform)
+
+        # Rows are reconciled against the scan, so file ids survive the rescan.
+        db.sync_rom_files.assert_called_once_with(99, [])
+
     async def test_orphaned_soundtrack_covers_are_unlinked(self, patched, mocker):
         db, platform = patched
         db.get_matching_missing_rom.return_value = None
@@ -1269,7 +1281,7 @@ class TestIdentifyRomPersistsFileCategory:
         # The persist loop calls this per saved file; keep it inert.
         mocker.patch.object(scan_module, "persist_soundtrack_cover")
         db.get_matching_missing_rom.return_value = None
-        db.sync_rom_files.side_effect = lambda rom_id, files, **_: SyncedRomFiles(
+        db.sync_rom_files.side_effect = lambda rom_id, files: SyncedRomFiles(
             files=list(files), orphaned_cover_paths=[]
         )
         return db, platform

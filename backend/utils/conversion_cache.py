@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from adapters.services.rom_converto import (
+    UNCOMPRESSED_TARGETS,
     Operation,
     RomConvertoOperationError,
     RomConvertoTimeoutError,
@@ -40,6 +41,9 @@ PARTIAL_DIR: Final = ".partial"
 FAILED_FILE: Final = ".failed"
 # Give nginx time to open a copy after the X-Accel-Redirect response.
 SERVE_GRACE_SECONDS: Final = 60
+# Room a conversion to an uncompressed target reserves per input byte; the
+# cleanup pass after it evicts any overshoot.
+EXPANSION_RESERVE_FACTOR: Final = 4
 
 # Each conversion reads and writes whole disc images.
 _convert_semaphore = asyncio.Semaphore(ROM_CONVERTO_MAX_CONCURRENCY)
@@ -215,9 +219,10 @@ async def get_or_convert(
                 return None
             async with _convert_semaphore:
                 shutil.rmtree(final_path.parent / PARTIAL_DIR, ignore_errors=True)
-                # Decompression writes the uncompressed size of CHD, CSO and ZAR.
-                size_bytes = (
-                    rom_file.uncompressed_size_bytes or rom_file.file_size_bytes or 0
+                size_bytes = (rom_file.file_size_bytes or 0) * (
+                    EXPANSION_RESERVE_FACTOR
+                    if operation.target in UNCOMPRESSED_TARGETS
+                    else 1
                 )
                 await asyncio.to_thread(cleanup_stale_conversions, size_bytes)
                 if not await asyncio.to_thread(has_room_for, size_bytes):

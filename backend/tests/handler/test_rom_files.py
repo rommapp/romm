@@ -6,12 +6,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from tests.factories import make_rom
 
-import handler.rom_files as rom_files_handler
-from adapters.services.rom_converto import (
-    RomConvertoImages,
-    RomConvertoTimeoutError,
-    rom_converto_service,
-)
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.filesystem.roms_handler import ParsedRomFiles, category_for_path_parts
@@ -21,7 +15,6 @@ from models.rom import (
     Rom,
     RomFile,
     RomFileCategory,
-    RomFileContentType,
     RomIdentity,
     SaveTargetLayout,
 )
@@ -318,121 +311,3 @@ async def test_a_category_settled_on_a_reused_row_is_persisted(
 
     assert result.updated_files == 1
     assert _files_by_name(rom.id)["game.bin"].category == RomFileCategory.DLC
-
-
-async def test_a_title_id_read_off_a_reused_row_is_persisted(
-    platform, admin_user, library
-):
-    """Extraction writes a file's title id onto the row it reused."""
-    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
-
-    async def read_title_id(*_args, **_kwargs) -> ParsedRomFiles:
-        parsed = _unchanged_parse(rom, RomIdentity())
-        parsed.rom_files[0].title_id = "ULUS-10041"
-        parsed.rom_files[0].title_version = 1
-        return parsed
-
-    with patch.object(fs_rom_handler, "get_rom_files", read_title_id):
-        result = await refresh_rom_files(rom)
-
-    stored = _files_by_name(rom.id)["game.bin"]
-    assert result.updated_files == 1
-    assert (stored.title_id, stored.title_version) == ("ULUS-10041", 1)
-
-
-async def test_refresh_persists_images_for_the_saved_file(
-    platform, admin_user, library, mocker
-):
-    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
-    stored_file = rom.files[0]
-    scanned_file = RomFile(
-        rom_id=rom.id,
-        file_name=stored_file.file_name,
-        file_path=stored_file.file_path,
-        file_size_bytes=stored_file.file_size_bytes,
-        last_modified=stored_file.last_modified,
-        crc_hash=stored_file.crc_hash,
-        md5_hash=stored_file.md5_hash,
-        sha1_hash=stored_file.sha1_hash,
-        category=stored_file.category,
-    )
-    images = RomConvertoImages(icon=b"\x89PNG\r\n\x1a\nicon")
-    parsed = ParsedRomFiles(
-        rom_files=[scanned_file],
-        crc_hash=rom.crc_hash or "",
-        md5_hash=rom.md5_hash or "",
-        sha1_hash=rom.sha1_hash or "",
-        ra_hash="",
-        images={scanned_file: images},
-    )
-    persist = mocker.patch.object(
-        rom_files_handler, "persist_rom_file_images", new=AsyncMock()
-    )
-    mocker.patch.object(fs_rom_handler, "get_rom_files", AsyncMock(return_value=parsed))
-
-    await refresh_rom_files(rom)
-    persist.assert_awaited_once()
-
-    saved_file, saved_images, saved_rom = persist.await_args.args
-    assert saved_file.id == stored_file.id
-    assert saved_images == images
-    assert saved_rom.id == rom.id
-
-
-async def test_failed_info_run_keeps_stored_file_metadata(platform, library, mocker):
-    file_path = f"{platform.fs_slug}/roms/{FOLDER}"
-    st = _write(library, f"{file_path}/game.iso", b"game")
-    metadata = {
-        "title_id": "ULUS-10041",
-        "title_version": 1,
-        "title": "Lumines",
-        "serial": "ULUS10041",
-        "content_type": RomFileContentType.GAME,
-        "display_version": "1.00",
-        "regions": ["USA"],
-        "languages": ["English"],
-        "publisher": "Ubisoft",
-        "min_firmware_version": "1.50",
-        "is_compressed": False,
-        "compression": "none",
-        "file_format": "DISC",
-        "uncompressed_size_bytes": 1 << 20,
-        "icon_path": "icons/game.png",
-        "banner_path": "banners/game.png",
-        "background_path": "backgrounds/game.png",
-    }
-    rom = make_rom(
-        platform,
-        FOLDER,
-        fs_extension="",
-        fs_path=f"{platform.fs_slug}/roms",
-        fs_size_bytes=st.st_size,
-        files=[
-            RomFile(
-                file_name="game.iso",
-                file_path=file_path,
-                file_size_bytes=st.st_size,
-                last_modified=st.st_mtime,
-                **metadata,
-            )
-        ],
-    )
-    rom = _reload(rom.id)
-    file_id = rom.files[0].id
-    _write(library, f"{file_path}/new.iso", b"new-game")
-    mocker.patch.object(
-        fs_rom_handler, "_converto_active", AsyncMock(return_value=True)
-    )
-    mocker.patch.object(rom_converto_service, "_info_extensions", frozenset({".iso"}))
-    mocker.patch(
-        "adapters.services.rom_converto._run",
-        side_effect=RomConvertoTimeoutError("slow"),
-    )
-
-    result = await refresh_rom_files(rom)
-
-    stored = _files_by_name(rom.id)["game.iso"]
-    assert result.new_files == 1
-    assert stored.id == file_id
-    assert stored.file_size_bytes == st.st_size
-    assert {column: getattr(stored, column) for column in metadata} == metadata

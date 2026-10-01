@@ -268,7 +268,6 @@ def test_update_scan_settings_normalizes_codes(client, access_token: str):
 def _converto_payload(**overrides):
     payload = {
         "download_conversion_enabled": True,
-        "scan_metadata": True,
         "cache_ttl_hours": 24,
         "cache_max_size_gb": 20,
         "max_sync_size_mb": 512,
@@ -290,7 +289,6 @@ def test_update_converto_settings_normalizes_formats(client, access_token: str):
     update_converto_settings.assert_called_once_with(
         ConvertoConfig(
             download_conversion_enabled=True,
-            scan_metadata=True,
             cache_ttl_hours=24,
             cache_max_size_gb=20,
             max_sync_size_mb=512,

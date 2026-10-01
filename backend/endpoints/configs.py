@@ -127,7 +127,6 @@ class ConvertoSettingsPayload(BaseModel):
     """Full replacement of the converto.* config section."""
 
     download_conversion_enabled: bool
-    scan_metadata: bool
     cache_ttl_hours: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_ttl_hours"])
     cache_max_size_gb: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_max_size_gb"])
     max_sync_size_mb: int = Field(ge=CONVERTO_INT_MINIMUMS["max_sync_size_mb"])
