@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from config import SCAN_TIMEOUT
+from handler import metadata
 from handler.scan_handler import MetadataSource, ScanType
-from tasks.scheduled import scan_library
 from tasks.scheduled.scan_library import ScanLibraryTask, scan_library_task
 
 
@@ -15,11 +15,11 @@ class TestScanLibraryTask:
 
     @pytest.fixture
     def providers(self, mocker):
-        """Every metadata provider off, read from the task itself so one
-        configured in the environment cannot add itself to the scan."""
+        """Every metadata provider off, so one configured in the environment
+        cannot add itself to the scan."""
         handlers = {
             name: handler
-            for name, handler in vars(scan_library).items()
+            for name, handler in vars(metadata).items()
             if name.startswith("meta_") and hasattr(handler, "is_enabled")
         }
         for handler in handlers.values():

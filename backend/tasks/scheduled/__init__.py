@@ -1,21 +1,17 @@
 from dataclasses import dataclass
+from typing import ClassVar
 
-from tasks.tasks import update_job_meta
+from tasks.tasks import JobMetaStats
 
 
 @dataclass
-class UpdateStats:
+class UpdateStats(JobMetaStats):
     """Statistics for LaunchBox metadata update operations."""
+
+    meta_key: ClassVar[str] = "update_stats"
 
     processed: int = 0
     total: int = 0
-
-    def update(self, **kwargs: int) -> None:
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-
-        update_job_meta({"update_stats": self.to_dict()})
 
     def to_dict(self) -> dict[str, int]:
         return {

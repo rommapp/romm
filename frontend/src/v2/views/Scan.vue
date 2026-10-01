@@ -45,6 +45,7 @@ import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
+import ScanProviderSelect from "@/v2/components/Scan/ScanProviderSelect.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
@@ -339,160 +340,23 @@ function stopScan() {
               {{ t("scan.section-providers") }}
             </span>
 
-            <div class="r-v2-scan-card__providers-group">
-              <span class="r-v2-scan-card__providers-group-label">
-                {{ t("scan.section-providers-general") }}
-              </span>
-              <RSelect
-                v-model="metadataSources"
-                :items="generalProviders"
-                :label="t('scan.section-providers-general')"
-                item-title="name"
-                prepend-inner-icon="mdi-database-search"
-                variant="outlined"
-                multiple
-                return-object
-                clearable
-                hide-details
-                chips
-                chip-tone="plain"
-                show-all-option
-                @update:all-selected="generalAllSelected = $event"
-              >
-                <template #chip="{ item }">
-                  <RTooltip :text="item.raw.name" location="bottom">
-                    <template #activator="{ props: tipProps }">
-                      <span
-                        v-bind="tipProps"
-                        class="r-v2-scan-card__provider-chip"
-                        :aria-label="item.raw.name"
-                      >
-                        <RAvatar
-                          :image="item.raw.logo_path"
-                          size="18"
-                          rounded="sm"
-                        />
-                      </span>
-                    </template>
-                  </RTooltip>
-                </template>
-                <template #item="{ props: itemProps, item }">
-                  <li v-bind="itemProps">
-                    <RAvatar
-                      :image="item.raw.logo_path"
-                      size="22"
-                      rounded="sm"
-                    />
-                    <div class="r-select__item-stack">
-                      <div class="r-select__item-title">
-                        {{ item.raw.name }}
-                      </div>
-                      <div
-                        v-if="item.raw.disabled"
-                        class="r-select__item-subtitle"
-                      >
-                        {{ item.raw.disabled }}
-                      </div>
-                    </div>
-
-                    <!-- LaunchBox: Local/Cloud inline toggle inside its
-                       dropdown row. Disabled until LaunchBox itself
-                       is selected. -->
-                    <div
-                      v-if="item.raw.value === 'launchbox'"
-                      class="r-v2-scan-card__lb-toggle"
-                      @click.stop
-                      @mousedown.stop
-                    >
-                      <span
-                        class="r-v2-scan-card__lb-label"
-                        :class="{
-                          'r-v2-scan-card__lb-inactive': launchboxRemoteEnabled,
-                        }"
-                      >
-                        {{ t("rom.launchbox-local") }}
-                      </span>
-                      <RSwitch
-                        v-model="launchboxRemoteEnabled"
-                        :disabled="!isLaunchboxSelected"
-                      />
-                      <span
-                        class="r-v2-scan-card__lb-label"
-                        :class="{
-                          'r-v2-scan-card__lb-inactive':
-                            !launchboxRemoteEnabled,
-                        }"
-                      >
-                        {{ t("rom.launchbox-cloud") }}
-                      </span>
-                    </div>
-                  </li>
-                </template>
-              </RSelect>
-            </div>
-
-            <div
+            <ScanProviderSelect
+              v-model="metadataSources"
+              v-model:launchbox-remote="launchboxRemoteEnabled"
+              :items="generalProviders"
+              :label="t('scan.section-providers-general')"
+              icon="mdi-database-search"
+              :launchbox-selected="isLaunchboxSelected"
+              @update:all-selected="generalAllSelected = $event"
+            />
+            <ScanProviderSelect
               v-if="specificProviders.length"
-              class="r-v2-scan-card__providers-group"
-            >
-              <span class="r-v2-scan-card__providers-group-label">
-                {{ t("scan.section-providers-specific") }}
-              </span>
-              <RSelect
-                v-model="metadataSources"
-                :items="specificProviders"
-                :label="t('scan.section-providers-specific')"
-                item-title="name"
-                prepend-inner-icon="mdi-trophy-outline"
-                variant="outlined"
-                multiple
-                return-object
-                clearable
-                hide-details
-                chips
-                chip-tone="plain"
-                show-all-option
-                @update:all-selected="specificAllSelected = $event"
-              >
-                <template #chip="{ item }">
-                  <RTooltip :text="item.raw.name" location="bottom">
-                    <template #activator="{ props: tipProps }">
-                      <span
-                        v-bind="tipProps"
-                        class="r-v2-scan-card__provider-chip"
-                        :aria-label="item.raw.name"
-                      >
-                        <RAvatar
-                          :image="item.raw.logo_path"
-                          size="18"
-                          rounded="sm"
-                        />
-                      </span>
-                    </template>
-                  </RTooltip>
-                </template>
-                <template #item="{ props: itemProps, item }">
-                  <li v-bind="itemProps">
-                    <RAvatar
-                      :image="item.raw.logo_path"
-                      size="22"
-                      rounded="sm"
-                    />
-                    <div class="r-select__item-stack">
-                      <div class="r-select__item-title">
-                        {{ item.raw.name }}
-                      </div>
-                      <div
-                        v-if="item.raw.disabled"
-                        class="r-select__item-subtitle"
-                      >
-                        {{ item.raw.disabled }}
-                      </div>
-                    </div>
-                  </li>
-                </template>
-              </RSelect>
-            </div>
+              v-model="metadataSources"
+              :items="specificProviders"
+              :label="t('scan.section-providers-specific')"
+              icon="mdi-trophy-outline"
+              @update:all-selected="specificAllSelected = $event"
+            />
           </div>
 
           <!-- 2.2 proxies (hash matchers) -->
@@ -954,29 +818,10 @@ function stopScan() {
 /* Providers split into General / Specific groups. Each group has a
    tiny inline caption above its RSelect, the same visual rhythm as the
    subsection label, indented one level deeper. */
-.r-v2-scan-card__providers-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.r-v2-scan-card__providers-group + .r-v2-scan-card__providers-group {
-  margin-top: 8px;
-}
-.r-v2-scan-card__providers-group-label {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-medium);
-  letter-spacing: 0.04em;
-  color: var(--r-color-fg-faint);
-}
 
 /* Provider chip in the activator: icon-only avatar so a multi-select
    doesn't drown the field in coloured pills. The `#chip` slot renders
    into RSelect's RTag. */
-.r-v2-scan-card__provider-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
 
 /* Hash-matcher proxies: compact icon + switch pills (kept as direct
    pills since there are only two and a select would be overkill). */
@@ -1006,20 +851,6 @@ function stopScan() {
 }
 
 /* LaunchBox Local/Cloud toggle inline inside its dropdown item. */
-.r-v2-scan-card__lb-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-}
-.r-v2-scan-card__lb-label {
-  font-size: 11px;
-  color: var(--r-color-fg);
-  white-space: nowrap;
-}
-.r-v2-scan-card__lb-inactive {
-  color: var(--r-color-fg-muted);
-}
 
 /* === Live area (right column) ================================
    Same flat surface vocabulary as the config card (Profile-style).

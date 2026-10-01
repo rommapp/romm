@@ -511,7 +511,7 @@ async def test_export_platform_to_file_keeps_miximage_variants_separate(
 async def test_export_platform_to_file_omits_tags_when_copy_fails(
     platform_with_roms, isolated_filesystem
 ):
-    """When a source resource is missing, _copy_asset returns False; the
+    """When a source resource is missing, place_export_asset returns False; the
     corresponding tag must be omitted from gamelist.xml and no asset file
     must be written for it. Other assets still export normally."""
     platform, _ = platform_with_roms

@@ -6,7 +6,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
 from tests.audit_events import recorded_events
-from tests.factories import make_rom
+from tests.factories import make_device_token, make_rom
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
@@ -21,6 +21,7 @@ from handler.database.base_handler import sync_session
 from models.device import Device
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
+from models.play_session import PlaySession
 from models.rom import Rom, RomUserStatus
 from models.user import User
 from utils.datetime import to_utc
@@ -662,6 +663,79 @@ class TestPlaySessionRomUserUpdates:
 
 
 class TestPlaySessionQuery:
+    @pytest.mark.parametrize(
+        "scopes, target, expected",
+        [
+            ("roms.user.read devices.read", None, [0, 1, 2]),
+            ("roms.user.read devices.read", "other", [1]),
+            ("roms.user.read", "own", [0]),
+            ("roms.user.read", None, None),
+            ("roms.user.read", "other", None),
+        ],
+    )
+    def test_device_token_reads(
+        self,
+        client,
+        admin_user,
+        editor_user,
+        device,
+        rom,
+        scopes: str,
+        target: str | None,
+        expected: list[int] | None,
+    ):
+        other_device = db_device_handler.add_device(
+            Device(id=str(uuid.uuid4()), user_id=admin_user.id, name="Other device")
+        )
+        owners = [
+            (admin_user.id, device.id),
+            (admin_user.id, other_device.id),
+            (admin_user.id, None),
+            (editor_user.id, None),
+        ]
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        sessions = db_play_session_handler.add_sessions(
+            [
+                PlaySession(
+                    user_id=user_id,
+                    device_id=device_id,
+                    rom_id=rom.id,
+                    start_time=now - timedelta(hours=hours),
+                    end_time=now - timedelta(hours=hours) + timedelta(minutes=30),
+                    duration_ms=30 * 60 * 1000,
+                )
+                for hours, (user_id, device_id) in enumerate(owners, start=1)
+            ]
+        )
+        _, raw = make_device_token(admin_user, device.id, scopes=scopes)
+        params = {
+            "own": {"device_id": device.id},
+            "other": {"device_id": other_device.id},
+        }
+
+        response = client.get(
+            "/api/play-sessions",
+            params=params.get(target or "", {}),
+            headers={"Authorization": f"Bearer {raw}"},
+        )
+
+        if expected is None:
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            return
+        assert response.status_code == status.HTTP_200_OK
+        assert [s["id"] for s in response.json()] == [sessions[i].id for i in expected]
+
+    @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": -1}, {"offset": -1}])
+    def test_rejects_invalid_paging(
+        self, client, access_token: str, params: dict[str, int]
+    ):
+        response = client.get(
+            "/api/play-sessions",
+            params=params,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
     def test_filter_by_rom_id(
         self, client, access_token: str, rom: Rom, platform: Platform
     ):

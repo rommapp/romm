@@ -1,8 +1,10 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from handler import metadata
 from handler.scan_handler import (
     MetadataSource,
+    get_enabled_metadata_sources,
     get_priority_ordered_metadata_sources,
     scene_apply_sources,
 )
@@ -122,3 +124,16 @@ def test_persisted_scene_lock_survives_an_empty_scene_lookup():
 def test_scene_lock_keeps_this_scans_match():
     available = [MetadataSource.IGDB, MetadataSource.DEMOZOO]
     assert scene_apply_sources(available, scene_locked=True) == [MetadataSource.DEMOZOO]
+
+
+def test_enabled_metadata_sources_follow_provider_config(mocker):
+    for name, handler in vars(metadata).items():
+        if name.startswith("meta_") and hasattr(handler, "is_enabled"):
+            mocker.patch.object(handler, "is_enabled", return_value=False)
+    for handler in (metadata.meta_ss_handler, metadata.meta_libretro_handler):
+        mocker.patch.object(handler, "is_enabled", return_value=True)
+
+    assert get_enabled_metadata_sources() == [
+        MetadataSource.SS,
+        MetadataSource.LIBRETRO,
+    ]

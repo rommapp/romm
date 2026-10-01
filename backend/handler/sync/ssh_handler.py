@@ -217,16 +217,6 @@ class SSHSyncHandler:
             await sftp.put(local_path, remote_path)
             log.info(f"Uploaded {local_path} -> {remote_path}")
 
-    async def delete_remote_save(
-        self,
-        conn: asyncssh.SSHClientConnection,
-        remote_path: str,
-    ) -> None:
-        """Delete a save file from a remote device."""
-        async with conn.start_sftp_client() as sftp:
-            await sftp.remove(remote_path)
-            log.info(f"Deleted remote file: {remote_path}")
-
 
 @functools.cache
 def get_ssh_sync_handler() -> SSHSyncHandler:

@@ -353,18 +353,6 @@ class GameLocalization(IGDBEntity, total=False):
     updated_at: int  # timestamp
 
 
-# https://api-docs.igdb.com/#game-time-to-beat
-class GameTimeToBeat(IGDBEntity, total=False):
-    checksum: str  # uuid
-    completely: int
-    count: int
-    created_at: int  # timestamp
-    game_id: int
-    hastily: int
-    normally: int
-    updated_at: int  # timestamp
-
-
 # https://api-docs.igdb.com/#game-video
 class GameVideo(IGDBEntity, total=False):
     checksum: str  # uuid

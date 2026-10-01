@@ -294,6 +294,34 @@ SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON: Final[str] = _get_env(
     "SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+ENABLE_SCHEDULED_CLEANUP_NETPLAY: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_CLEANUP_NETPLAY", "true")
+)
+SCHEDULED_CLEANUP_NETPLAY_CRON: Final[str] = _get_env(
+    "SCHEDULED_CLEANUP_NETPLAY_CRON",
+    "*/30 * * * *",  # Every 30 minutes
+)
+ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP", "true")
+)
+SCHEDULED_CLEANUP_UPLOAD_TMP_CRON: Final[str] = _get_env(
+    "SCHEDULED_CLEANUP_UPLOAD_TMP_CRON",
+    "0 * * * *",  # Every hour
+)
+ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE", "true")
+)
+SCHEDULED_CLEANUP_ZIP_CACHE_CRON: Final[str] = _get_env(
+    "SCHEDULED_CLEANUP_ZIP_CACHE_CRON",
+    "0 4 * * *",  # At 4:00 AM every day
+)
+ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS", "true")
+)
+SCHEDULED_CLEANUP_SYNC_SESSIONS_CRON: Final[str] = _get_env(
+    "SCHEDULED_CLEANUP_SYNC_SESSIONS_CRON",
+    "23 * * * *",  # Hourly, off the hour
+)
 ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES")
 )

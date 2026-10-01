@@ -13,15 +13,6 @@ class FolderStructureNotMatchException(Exception):
         return self.message
 
 
-class PlatformNotFoundException(Exception):
-    def __init__(self, platform: str) -> None:
-        self.message = f"Platform {platform} not found"
-        super().__init__(self.message)
-
-    def __repr__(self) -> str:
-        return self.message
-
-
 class PlatformAlreadyExistsException(Exception):
     def __init__(self, fs_slug: str) -> None:
         self.message = f"Platform {fs_slug} already exists"

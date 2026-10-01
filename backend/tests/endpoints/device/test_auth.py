@@ -677,7 +677,7 @@ class TestBoundTokenInference:
 
         list_resp = client.get(
             f"/api/play-sessions?device_id={other.id}",
-            headers={"Authorization": f"Bearer {creds['access_token']}"},
+            headers={"Authorization": f"Bearer {access_token}"},
         )
         assert list_resp.status_code == status.HTTP_200_OK
         assert len(list_resp.json()) >= 1
