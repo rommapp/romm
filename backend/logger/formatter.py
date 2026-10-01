@@ -2,6 +2,7 @@ import logging
 import os
 import re
 from pprint import pformat
+from typing import Final
 
 from colorama import Fore, Style, init
 
@@ -68,17 +69,27 @@ def strip_ansi(text: str) -> str:
     return _ANSI_RE.sub("", text)
 
 
-def redact_sensitive(text: str) -> str:
-    """Mask sensitive values (api keys, tokens, …) in a log string.
+SENSITIVE_KEYS: Final = {
+    "Authorization",
+    "Client-ID",
+    "Client-Secret",
+    "client_id",
+    "client_secret",
+    "api_key",
+    "ssid",
+    "sspassword",
+    "devid",
+    "devpassword",
+    "y",
+}
+SENSITIVE_KEYS_REGEX: Final = re.compile(
+    rf"({'|'.join(re.escape(k) for k in SENSITIVE_KEYS)})=[^&\s\"]*",
+    re.IGNORECASE,
+)
 
-    The redaction regex lives in ``handler.metadata.base_handler``, which pulls
-    a heavy import chain that isn't importable during the first few boot lines —
-    skip redaction until it is, exactly like the Formatter does.
-    """
-    try:
-        from handler.metadata.base_handler import SENSITIVE_KEYS_REGEX
-    except ImportError:
-        return text
+
+def redact_sensitive(text: str) -> str:
+    """Mask sensitive values (api keys, tokens, …) in a log string."""
     return SENSITIVE_KEYS_REGEX.sub(r"\1=***", text)
 
 

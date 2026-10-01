@@ -6,7 +6,7 @@ import pytest
 from fastapi import status
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.auth import oauth_handler
+from handler.auth.base_handler import oauth_handler
 from handler.database import db_collection_handler
 from handler.filesystem.resources_handler import FSResourcesHandler
 from models.collection import Collection, SmartCollection

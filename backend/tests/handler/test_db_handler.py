@@ -7,7 +7,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
 from tests.factories import make_rom, make_save, make_screenshot, make_state
 
-from handler.auth import auth_handler
+from handler.auth.base_handler import auth_handler
 from handler.database import (
     db_platform_handler,
     db_rom_handler,

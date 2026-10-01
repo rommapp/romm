@@ -1,3 +1,4 @@
+from dataclasses import replace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -28,13 +29,13 @@ class TestScanLibraryTask:
 
     def test_init(self, task):
         """Test task initialization"""
-        assert task.description == "Rescans the entire library"
+        assert task.spec.description == "Rescans the entire library"
 
     async def test_run_enabled(self, task, mocker, providers):
         """Test run when scheduled rescan is enabled"""
         for name in ("meta_ra_handler", "meta_launchbox_handler"):
             mocker.patch.object(providers[name], "is_enabled", return_value=True)
-        mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", True)
+        task.spec = replace(task.spec, enabled=True)
 
         scan_result = MagicMock()
         mock_scan_platforms = mocker.patch(
@@ -55,7 +56,7 @@ class TestScanLibraryTask:
 
     async def test_run_disabled(self, task, mocker):
         """Test run when scheduled rescan is disabled"""
-        mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", False)
+        task.spec = replace(task.spec, enabled=False)
         mock_scan_platforms = mocker.patch(
             "tasks.scheduled.scan_library.scan_platforms"
         )
@@ -75,4 +76,4 @@ class TestScanLibraryTask:
 
 def test_scheduled_rescan_gets_the_scan_timeout():
     """It inherits the five-minute task timeout otherwise, which kills it."""
-    assert scan_library_task.timeout == SCAN_TIMEOUT
+    assert scan_library_task.spec.timeout == SCAN_TIMEOUT
