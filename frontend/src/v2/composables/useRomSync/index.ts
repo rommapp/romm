@@ -95,7 +95,8 @@ export function useRomSync() {
    * case there's no row on screen to reorder. */
   function sortValueChanged(previous: SimpleRom | null, next: SimpleRom) {
     if (!previous) return false;
-    const resolve = SORT_VALUE[galleryRomsStore.orderBy];
+    // Relevance ranks on the name too, and breaks its ties by it.
+    const resolve = SORT_VALUE[galleryRomsStore.orderBy ?? "name"];
     return resolve(previous) !== resolve(next);
   }
 

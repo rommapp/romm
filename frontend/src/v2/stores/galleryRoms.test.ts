@@ -477,6 +477,32 @@ describe("galleryRoms length filter", () => {
   });
 });
 
+describe("galleryRoms relevance order", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    getRoms.mockReset();
+    getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  // The backend ranks a search by relevance only when no sort key is sent.
+  it("sends an empty sort key when no sort is set", () => {
+    const store = storeGalleryRoms();
+    store.setOrderBy(null);
+
+    store.syncVisibleWindows([0]);
+
+    expect(getRoms.mock.calls[0][0].orderBy).toBe("");
+  });
+});
+
 describe("orderSupportsLetters", () => {
   // The backend indexes first letters off a text column only, so every other
   // order answers with an empty char_index. Spelling out every key means a new
@@ -496,5 +522,9 @@ describe("orderSupportsLetters", () => {
 
   it.each(Object.entries(EXPECTED))("answers for %s", (key, expected) => {
     expect(orderSupportsLetters(key as GalleryOrderKey)).toBe(expected);
+  });
+
+  it("answers no for a relevance order", () => {
+    expect(orderSupportsLetters(null)).toBe(false);
   });
 });

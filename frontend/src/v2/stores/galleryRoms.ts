@@ -74,8 +74,8 @@ export function isGalleryOrderKey(value: string): value is GalleryOrderKey {
  * which is also what an unfetched gallery looks like. */
 const LEXICAL_ORDER_KEYS: ReadonlySet<string> = new Set(["name", "fs_name"]);
 
-export function orderSupportsLetters(key: GalleryOrderKey): boolean {
-  return LEXICAL_ORDER_KEYS.has(key);
+export function orderSupportsLetters(key: GalleryOrderKey | null): boolean {
+  return key !== null && LEXICAL_ORDER_KEYS.has(key);
 }
 
 export function isGalleryOrderDir(value: string): value is GalleryOrderDir {
@@ -248,8 +248,9 @@ interface State {
   // True while a whole-result select-all fetch is in flight.
   selectingAll: boolean;
   // Order params: gallery-list scoped (separate from v1's localStorage
-  // keys so v1/v2 don't fight over the same value).
-  orderBy: GalleryOrderKey;
+  // keys so v1/v2 don't fight over the same value). `null` leaves the
+  // order to the backend, which ranks a search by relevance.
+  orderBy: GalleryOrderKey | null;
   orderDir: GalleryOrderDir;
 }
 
@@ -312,7 +313,7 @@ export default defineStore("v2GalleryRoms", {
       this.currentSmartCollection = collection;
     },
 
-    setOrderBy(key: GalleryOrderKey) {
+    setOrderBy(key: GalleryOrderKey | null) {
       this.orderBy = key;
     },
     setOrderDir(dir: GalleryOrderDir) {
@@ -399,7 +400,7 @@ export default defineStore("v2GalleryRoms", {
         smartCollectionId: this.currentSmartCollection?.id ?? null,
         limit: WINDOW_SIZE,
         offset,
-        orderBy: this.orderBy,
+        orderBy: this.orderBy ?? "",
         orderDir: this.orderDir,
         groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
         filterMatched: galleryFilter.filterMatched,

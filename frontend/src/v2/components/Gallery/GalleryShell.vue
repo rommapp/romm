@@ -80,6 +80,8 @@ import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useVirtualScrollDebug } from "@/v2/composables/useVirtualScrollDebug";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms, {
+  DEFAULT_ORDER_BY,
+  type GalleryOrderKey,
   orderSupportsLetters,
 } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -115,6 +117,9 @@ interface Props {
    * (every row shares the same platform); true on cross-platform views
    * (Search, Collection, Missing games) where the column carries info. */
   showPlatformColumn?: boolean;
+  /** Sort applied while the URL names none. `null` orders by search
+   * relevance (Search). */
+  defaultOrderBy?: GalleryOrderKey | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -126,6 +131,7 @@ const props = withDefaults(defineProps<Props>(), {
   skeletonRowCount: 4,
   showPlatformsInFilter: true,
   showPlatformColumn: true,
+  defaultOrderBy: DEFAULT_ORDER_BY,
 });
 
 defineSlots<{
@@ -137,7 +143,7 @@ defineSlots<{
 }>();
 
 useGalleryFilterUrl();
-useGalleryOrderUrl();
+useGalleryOrderUrl(props.defaultOrderBy);
 useGalleryViewModeUrl();
 
 const { t } = useI18n();
@@ -311,8 +317,13 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
 // A jump to "M" means nothing when the gallery is sorted by size or date, so
-// the letter affordances go away with the letters themselves.
-const lettersSupported = computed(() => orderSupportsLetters(orderBy.value));
+// the letter affordances go away with the letters themselves. An unset sort
+// with no search term is ordered by name.
+const lettersSupported = computed(() =>
+  orderSupportsLetters(
+    orderBy.value ?? (searchTerm.value ? null : DEFAULT_ORDER_BY),
+  ),
+);
 const stripVisible = computed(() => !smAndDown.value && lettersSupported.value);
 const jumpMenuVisible = computed(
   () => smAndDown.value && lettersSupported.value,
