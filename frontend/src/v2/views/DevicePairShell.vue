@@ -64,6 +64,7 @@ import DevicePair from "@/v2/views/DevicePair.vue";
   max-width: 460px;
 }
 
+/* Absolute so it stays out of the grid and the stage keeps its centring. */
 .r-v2-devpair-shell__footer {
   position: absolute;
   left: var(--r-space-4);

@@ -194,7 +194,7 @@ With `uiVersion = "v2"`:
 
 Run from `backend/`:
 
-1. `uv run pytest <path/file>`: zero failures on the tests affected by the diff. Never run the whole suite locally (20+ minutes); see [AGENTS.md](../../../AGENTS.md) for how to pick targets. CI runs it in full.
+1. `uv run pytest <path/file>`: zero failures on the tests affected by the diff. Add `-n auto` when the targets span a directory or more. Never run the whole suite locally (20+ minutes serially); see [AGENTS.md](../../../AGENTS.md) for how to pick targets. CI runs it in full.
 2. `trunk fmt && trunk check`: ruff/black/isort/bandit clean (CI enforces Trunk).
 3. `uv run mypy --config-file ../.trunk/configs/mypy.ini .`: zero errors across the backend (CI enforces it).
 4. **If you added a migration:** `uv run alembic upgrade head` then `uv run alembic downgrade -1` to prove both directions; it must work on MariaDB **and** PostgreSQL (CI runs both).

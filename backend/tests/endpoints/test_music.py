@@ -297,6 +297,31 @@ def test_facet_years_typeahead(client: TestClient, access_token: str, music_libr
 
 
 @pytest.mark.parametrize(
+    ("path", "key", "wildcard", "literal", "expected"),
+    [
+        ("/api/music/artists", "value", "k_shiro", "oshi", {"Koshiro"}),
+        ("/api/music/years", "value", "19_1", "991", {1991}),
+        ("/api/music/platforms", "name", "g_nesis", "enes", {"genesis"}),
+        ("/api/music/games", "name", "s_nic", "oni", {"Sonic"}),
+    ],
+)
+def test_facet_search_matches_wildcards_literally(
+    client: TestClient,
+    access_token: str,
+    music_library: dict[str, Platform | Rom],
+    path: str,
+    key: str,
+    wildcard: str,
+    literal: str,
+    expected: set[str | int],
+):
+    wild = client.get(path, params={"search": wildcard}, headers=_auth(access_token))
+    assert wild.json()["total"] == 0
+    found = client.get(path, params={"search": literal}, headers=_auth(access_token))
+    assert {i[key] for i in found.json()["items"]} == expected
+
+
+@pytest.mark.parametrize(
     "path", ["/api/roms", "/api/music/tracks", "/api/music/artists"]
 )
 @pytest.mark.parametrize("query", ["limit=0", "limit=10001", "offset=-1"])

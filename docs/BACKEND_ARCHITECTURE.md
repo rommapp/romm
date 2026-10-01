@@ -439,6 +439,10 @@ Query SQL that differs between engines lives in `utils/sql_dialect.py`
 (`DialectCase` and the helpers built on it), which picks each engine's spelling
 when the statement compiles. Handlers don't branch on `ROMM_DB_DRIVER`.
 
+`utils/fulltext.py` reads InnoDB's full-text token sizes and stopwords from the
+server and splits search words the way its parser does, so a search can require
+the words a FULLTEXT index holds and check the rest with `LIKE`.
+
 ### Engine & Session Setup
 
 **Location:** `handler/database/base_handler.py`

@@ -124,9 +124,22 @@ const rom = computed<SimpleRom | null>(() => {
     : null;
 });
 
+const romName = computed(() =>
+  rom.value ? (rom.value.name ?? rom.value.fs_name_no_ext) : "",
+);
 const isSelected = computed(() =>
   !isStatic.value && rom.value ? selection.isSelected(rom.value.id) : false,
 );
+// Space on the name link selects the row, Shift+Space the range from the
+// last one toggled.
+function onRowKeydown(e: KeyboardEvent) {
+  const item = rom.value;
+  if (e.key !== " " || !item || isStatic.value) return;
+  if (props.position === undefined) return;
+  e.preventDefault();
+  if (e.shiftKey) selectionInput.handleActivate(item, props.position, e);
+  else selection.toggle(item, props.position);
+}
 
 function onCheckboxClick(e: MouseEvent) {
   e.preventDefault();
@@ -302,7 +315,7 @@ function onRowClick(e: MouseEvent) {
   // Default click: prevent the anchor's native navigation, run the
   // morph, then push the route.
   e.preventDefault();
-  navigateTo(item, e.currentTarget as HTMLElement | null);
+  navigateTo(item, rowEl.value);
 }
 
 // Mirror of GameCard's onHighlight: swap the AppLayout backdrop to the
@@ -328,8 +341,10 @@ function onRowPointerDown(e: PointerEvent) {
 </script>
 
 <template>
-  <a
+  <div
     ref="rowEl"
+    v-bind="$attrs"
+    role="row"
     class="game-list-row"
     :class="[
       {
@@ -341,27 +356,20 @@ function onRowPointerDown(e: PointerEvent) {
       entranceClass,
     ]"
     :style="[smAndDown ? undefined : gridStyle, entranceStyle]"
-    :href="rom ? `/rom/${rom.id}` : undefined"
-    :aria-label="
-      rom
-        ? t('common.open-item', { name: rom.name ?? rom.fs_name_no_ext })
-        : undefined
-    "
+    :aria-selected="rom && !isStatic ? isSelected : undefined"
     :data-rom-position="position"
     :data-rom-id="rom?.id"
     :data-focus-key="rom ? `rom-${rom.id}` : undefined"
-    @click="onRowClick"
-    @mouseenter="onRowHighlight"
-    @focus="onRowHighlight"
+    @pointerenter="onRowHighlight"
+    @focusin="onRowHighlight"
     @pointerdown="onRowPointerDown"
-    @contextmenu="selectionInput.handleContextMenu"
     @animationend.self="endEntrance"
   >
     <template v-if="rom">
       <!-- COMPACT (phones / tablets): two lines plus the chevron; the
            columns move into the detail panel below. -->
       <template v-if="smAndDown">
-        <div class="game-list-row__compact r-list-compact">
+        <div class="game-list-row__compact r-list-compact" role="gridcell">
           <div class="game-list-row__select">
             <RCheckbox
               v-if="!isStatic"
@@ -372,7 +380,7 @@ function onRowPointerDown(e: PointerEvent) {
               color="primary"
               bare
               hide-details
-              tabindex="-1"
+              decorative
               @click="onCheckboxClick"
             />
           </div>
@@ -390,9 +398,15 @@ function onRowPointerDown(e: PointerEvent) {
           </div>
 
           <div class="r-list-compact__stack">
-            <div class="game-list-row__name">
-              {{ rom.name ?? rom.fs_name_no_ext }}
-            </div>
+            <a
+              :href="`/rom/${rom.id}`"
+              class="game-list-row__name"
+              @click="onRowClick"
+              @keydown="onRowKeydown"
+              @contextmenu="selectionInput.handleContextMenu"
+            >
+              {{ romName }}
+            </a>
             <div class="r-list-compact__facts">
               <template v-if="platformName">
                 <PlatformIcon
@@ -457,6 +471,7 @@ function onRowPointerDown(e: PointerEvent) {
 
         <div
           v-if="expanded"
+          role="gridcell"
           class="game-list-row__detail"
           :style="{ height: `${detailHeight}px` }"
           @click.stop
@@ -500,7 +515,7 @@ function onRowPointerDown(e: PointerEvent) {
            picked. RCheckbox provides the box / fill / draw animations
            (same animation language as the GameCard checkbox in grid
            mode). -->
-        <div class="game-list-row__cell game-list-row__select">
+        <div role="gridcell" class="game-list-row__cell game-list-row__select">
           <RCheckbox
             v-if="!isStatic"
             class="game-list-row__check"
@@ -510,12 +525,12 @@ function onRowPointerDown(e: PointerEvent) {
             color="primary"
             bare
             hide-details
-            tabindex="-1"
+            decorative
             @click="onCheckboxClick"
           />
         </div>
 
-        <div class="game-list-row__cell game-list-row__cover">
+        <div role="gridcell" class="game-list-row__cell game-list-row__cover">
           <GameCard
             :rom="rom"
             size="xs"
@@ -527,12 +542,18 @@ function onRowPointerDown(e: PointerEvent) {
           />
         </div>
 
-        <div class="game-list-row__cell game-list-row__title">
+        <div role="gridcell" class="game-list-row__cell game-list-row__title">
           <div class="game-list-row__meta">
             <div class="game-list-row__name-row">
-              <div class="game-list-row__name">
-                {{ rom.name ?? rom.fs_name_no_ext }}
-              </div>
+              <a
+                :href="`/rom/${rom.id}`"
+                class="game-list-row__name"
+                @click="onRowClick"
+                @keydown="onRowKeydown"
+                @contextmenu="selectionInput.handleContextMenu"
+              >
+                {{ romName }}
+              </a>
               <div class="game-list-row__badges" @click.stop>
                 <GameActionBtn
                   v-if="hasStatus"
@@ -556,6 +577,7 @@ function onRowPointerDown(e: PointerEvent) {
 
         <div
           v-if="showPlatformColumn"
+          role="gridcell"
           class="game-list-row__cell game-list-row__platform"
         >
           <PlatformIcon
@@ -569,34 +591,45 @@ function onRowPointerDown(e: PointerEvent) {
         </div>
 
         <div
+          role="gridcell"
           class="game-list-row__cell"
           :class="cellModifiers('fs_size_bytes')"
         >
           {{ formatBytes(rom.fs_size_bytes) }}
         </div>
-        <div class="game-list-row__cell" :class="cellModifiers('created_at')">
+        <div
+          role="gridcell"
+          class="game-list-row__cell"
+          :class="cellModifiers('created_at')"
+        >
           {{ formatDate(rom.created_at) }}
         </div>
         <div
+          role="gridcell"
           class="game-list-row__cell"
           :class="cellModifiers('first_release_date')"
         >
           {{ releaseDate(rom) }}
         </div>
         <div
+          role="gridcell"
           class="game-list-row__cell"
           :class="cellModifiers('average_rating')"
         >
           {{ ratingValue(rom) }}
         </div>
         <div
+          role="gridcell"
           class="game-list-row__cell"
           :class="cellModifiers('hltb_main_story')"
         >
           {{ lengthValue(rom) }}
         </div>
 
-        <div class="game-list-row__cell game-list-row__cell--pills">
+        <div
+          role="gridcell"
+          class="game-list-row__cell game-list-row__cell--pills"
+        >
           <div class="game-list-row__pills">
             <RChip
               v-for="l in (rom.languages ?? []).slice(0, PILLS_VISIBLE)"
@@ -621,7 +654,10 @@ function onRowPointerDown(e: PointerEvent) {
             location="top"
           />
         </div>
-        <div class="game-list-row__cell game-list-row__cell--pills">
+        <div
+          role="gridcell"
+          class="game-list-row__cell game-list-row__cell--pills"
+        >
           <div class="game-list-row__pills">
             <RChip
               v-for="r in (rom.regions ?? []).slice(0, PILLS_VISIBLE)"
@@ -647,7 +683,11 @@ function onRowPointerDown(e: PointerEvent) {
           />
         </div>
 
-        <div class="game-list-row__cell" :class="cellModifiers('actions')">
+        <div
+          role="gridcell"
+          class="game-list-row__cell"
+          :class="cellModifiers('actions')"
+        >
           <div class="game-list-row__actions" @click.stop>
             <GameActionBtn
               :rom="rom"
@@ -754,12 +794,13 @@ function onRowPointerDown(e: PointerEvent) {
         </template>
       </template>
     </template>
-  </a>
+  </div>
 </template>
 
 <style scoped>
 .game-list-row {
-  /* An inline <a> would shrink-wrap its content and swallow the bleed. */
+  /* Contains the name link's stretched hit area. */
+  position: relative;
   display: block;
   /* The long press selects the row; iOS would offer its link callout too. */
   -webkit-touch-callout: none;
@@ -906,11 +947,13 @@ function onRowPointerDown(e: PointerEvent) {
 }
 
 /* The scroller clips an outline past the row's screen edge, so key and pad
-   focus paint inside the row. */
-html:not([data-input]) .game-list-row:focus-visible,
-html[data-input="key"] .game-list-row:focus-visible,
-html[data-input="pad"] .game-list-row:focus-visible {
+   focus on the name link paint around the whole row. */
+.game-list-row__name:focus-visible {
   outline: none;
+}
+html:not([data-input]) .game-list-row:has(.game-list-row__name:focus-visible),
+html[data-input="key"] .game-list-row:has(.game-list-row__name:focus-visible),
+html[data-input="pad"] .game-list-row:has(.game-list-row__name:focus-visible) {
   box-shadow: inset 0 0 0 var(--r-focus-ring-width) var(--r-color-focus);
 }
 
@@ -1002,7 +1045,26 @@ html[data-input="pad"] .game-list-row:focus-visible {
   min-width: 0;
 }
 
+/* The name link covers the row, so a click anywhere opens the game, and the
+   row's own controls sit above it. */
+.game-list-row__name::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.game-list-row__check,
+.game-list-row__badges,
+.game-list-row__providers,
+.game-list-row__actions,
+.game-list-row__detail {
+  position: relative;
+  z-index: 1;
+}
+
 .game-list-row__name {
+  display: block;
+  color: inherit;
+  text-decoration: none;
   font-size: var(--r-font-size-md);
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg);

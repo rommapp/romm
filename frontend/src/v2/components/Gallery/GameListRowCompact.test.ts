@@ -1,7 +1,9 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 import GameListRow from "./GameListRow.vue";
 import { rom } from "./listRowFixture";
 
@@ -99,5 +101,55 @@ describe("list row on phones and tablets", () => {
     expect(fields).toContain("9.1");
     expect(fields).toContain("USA");
     expect(fields).toContain("en");
+  });
+});
+
+describe("list row selection", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    smAndDown.value = false;
+  });
+
+  // Seeded after mounting: the first gallery row to mount resets the store.
+  async function mountGalleryRow(attrs: Record<string, unknown> = {}) {
+    const wrapper = mountRow({ rom: undefined, position: 0, ...attrs });
+    storeGalleryRoms().byPosition.set(0, rom());
+    await flushPromises();
+    return wrapper;
+  }
+
+  it("selects on Space from its name link", async () => {
+    const wrapper = await mountGalleryRow();
+
+    await wrapper.get("a.game-list-row__name").trigger("keydown", { key: " " });
+
+    expect(storeGallerySelection().ids).toEqual([rom().id]);
+    expect(wrapper.get("[role=row]").attributes("aria-selected")).toBe("true");
+  });
+
+  it("is a row with one cell on phones", async () => {
+    smAndDown.value = true;
+    const row = (await mountGalleryRow()).get("[role=row]");
+
+    expect(
+      Array.from(row.element.children).map((c) => c.getAttribute("role")),
+    ).toEqual(["gridcell"]);
+  });
+  it("is a grid row of cells, with the name as its link", async () => {
+    const wrapper = await mountGalleryRow({ "aria-rowindex": 4 });
+    const row = wrapper.get("[role=row]");
+
+    expect(row.attributes("aria-rowindex")).toBe("4");
+    expect(row.attributes("aria-selected")).toBe("false");
+    expect(
+      row.element.children.length,
+      "every column is a cell",
+    ).toBeGreaterThan(1);
+    for (const child of Array.from(row.element.children)) {
+      expect(child.getAttribute("role")).toBe("gridcell");
+    }
+    expect(row.get("a.game-list-row__name").attributes("href")).toBe(
+      `/rom/${rom().id}`,
+    );
   });
 });

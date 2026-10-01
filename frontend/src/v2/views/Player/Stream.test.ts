@@ -154,6 +154,7 @@ vi.mock("@/v2/composables/useSocketEvent", () => ({
 
 vi.mock("@/v2/composables/useStageActive", () => ({
   useStageActive: vi.fn(),
+  usePlayingWhile: vi.fn(),
 }));
 
 vi.mock("@/v2/composables/useUnloadGuard", () => ({
@@ -476,6 +477,7 @@ type StreamVm = {
   claimedAt: string | null;
   playerState: string;
   endedDialogOpen: boolean;
+  exitDialogOpen: boolean;
   holdsClaim: boolean;
   containerHost: string;
   errorMessage: string;
@@ -623,6 +625,26 @@ describe("Stream session-ended notices", () => {
     expect(vmOf(wrapper).playerState).toBe("loading");
     claimed(CLAIM);
     await playing;
+  });
+});
+
+describe("Stream exit chord", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.claimSession.mockResolvedValue(CLAIM);
+  });
+
+  it("opens the exit dialog from the pad's exit chord", async () => {
+    // B is muted with the rest of the pad, so the chord is the pad's way out.
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    expect(vmOf(wrapper).playerState).toBe("playing");
+
+    window.dispatchEvent(new Event("gamepad:exitchord"));
+    await flushPromises();
+
+    expect(vmOf(wrapper).exitDialogOpen).toBe(true);
   });
 });
 

@@ -59,6 +59,7 @@ import Pair from "@/v2/views/Pair.vue";
   max-width: 440px;
 }
 
+/* Absolute so it stays out of the grid and the stage keeps its centring. */
 .r-v2-pair-shell__footer {
   position: absolute;
   left: var(--r-space-4);

@@ -51,7 +51,6 @@ import streamingApi, {
   type MemoryCardImportDetail,
 } from "@/services/api/streaming";
 import storeAuth from "@/stores/auth";
-import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import {
   type SessionStatus,
@@ -82,7 +81,10 @@ import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { romIdFromRoute } from "@/v2/composables/useRouteRom";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
-import { useStageActive } from "@/v2/composables/useStageActive";
+import {
+  usePlayingWhile,
+  useStageActive,
+} from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -97,7 +99,6 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const auth = storeAuth();
-const playingStore = storePlaying();
 const streamingStore = useStreamingStore();
 const snackbar = useSnackbar();
 const { fullscreenOnPlay } = useFullscreenPref();
@@ -160,8 +161,8 @@ const holdsClaim = ref(false);
 const sessionActive = computed(
   () => playerState.value === "playing" || playerState.value === "loading",
 );
+usePlayingWhile(sessionActive);
 watch(sessionActive, (active) => {
-  playingStore.setPlaying(active);
   if (active) startSessionPoll();
   else stopSessionPoll();
 });
@@ -1265,69 +1266,9 @@ async function exitWithoutSaving(): Promise<void> {
   (leave ?? backToRom)();
 }
 
-// Dialogs have no automatic spatial navigation, so cycle focus between
-// the action buttons on arrow keys (the d-pad arrives as synthetic
-// ArrowLeft/ArrowRight keydowns from useGamepad).
-function onExitDialogKeydown(event: KeyboardEvent): void {
-  const arrows = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
-  if (!arrows.includes(event.key)) return;
-  const root = event.currentTarget as HTMLElement;
-  const buttons = Array.from(
-    root.querySelectorAll<HTMLElement>("button:not([disabled])"),
-  );
-  if (buttons.length === 0) return;
-  const idx = buttons.indexOf(document.activeElement as HTMLElement);
-  const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1;
-  buttons[(idx + step + buttons.length) % buttons.length]?.focus();
-  event.preventDefault();
-}
-
-// ── Select+Start exit chord ────────────────────────────────────────
-// useGamepad is muted for the whole session (launch included), so the
-// chord is read straight from the Gamepad API here; polling while
-// "loading" keeps the cancel dialog reachable by pad if a launch hangs.
-// The 1.5s hold filters out anything a game itself binds to Select+Start.
-// Only standard-mapped pads participate: elsewhere indices 8/9 are not
-// guaranteed to be Select+Start.
-const EXIT_CHORD_HOLD_MS = 1500;
-// A 1.5s hold needs nowhere near frame resolution, and this runs on the thread
-// compositing the stream for as long as the session lasts.
-const EXIT_CHORD_POLL_MS = 100;
-let chordHeldSince = 0;
-
-function pollExitChord(): void {
-  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-  const held = Array.from(pads).some(
-    (pad) =>
-      pad &&
-      pad.mapping === "standard" &&
-      pad.buttons[8]?.pressed &&
-      pad.buttons[9]?.pressed,
-  );
-  const now = performance.now();
-  if (!held) {
-    chordHeldSince = 0;
-  } else if (!chordHeldSince) {
-    chordHeldSince = now;
-  } else if (now - chordHeldSince >= EXIT_CHORD_HOLD_MS) {
-    chordHeldSince = 0;
-    if (!exitDialogOpen.value) void openExitDialog();
-  }
-}
-
-const exitChordPoll = useIntervalFn(pollExitChord, EXIT_CHORD_POLL_MS, {
-  immediate: false,
-});
-
-function stopExitChordPoll(): void {
-  exitChordPoll.pause();
-  chordHeldSince = 0;
-}
-
-watch(sessionActive, (active) => {
-  if (active) exitChordPoll.resume();
-  else stopExitChordPoll();
-});
+// useGamepad is muted for the whole session (launch included), so its
+// Select+Start hold is the pad's only way to the exit dialog.
+useEventListener(window, "gamepad:exitchord", () => void openExitDialog());
 
 function formatTime(iso: string): string {
   try {
@@ -1405,7 +1346,6 @@ onBeforeUnmount(() => {
   // Every exit path (Stop, Save & Exit, back nav) unmounts the view, so this
   // is the single choke point for recording the session.
   playSession.flush();
-  playingStore.setPlaying(false);
   if (volumeDebounce) clearTimeout(volumeDebounce);
   // The polls clear themselves with the scope; the presence board does not
   // know the player has gone until it is told.
@@ -1880,7 +1820,7 @@ onBeforeUnmount(() => {
       </template>
       <template #footer>
         <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- arrow keys rove focus between this container's real buttons, which stay the interactive elements; the listener sits here to catch keydowns bubbling from either of them -->
-        <div class="r-v2-stream__exit-actions" @keydown="onExitDialogKeydown">
+        <div class="r-v2-stream__exit-actions">
           <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and the least destructive action is the intended target -->
           <RBtn
             autofocus
