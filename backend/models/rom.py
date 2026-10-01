@@ -39,6 +39,7 @@ from sqlalchemy.orm import (
     validates,
 )
 from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
+from sqlalchemy.orm.collections import collection
 from sqlalchemy.sql.elements import ColumnElement
 
 from config import FRONTEND_RESOURCES_PATH
@@ -262,14 +263,24 @@ class SiblingRom(BaseModel):
 
     A database view, not a table, over `RomIdentityKey` self-joined on its
     (provider, platform, provider id). A pair matched by several providers
-    appears once per provider, which `get_siblings_for_roms` and the relationship
-    loaders both collapse.
+    appears once per provider, which `get_siblings_for_roms` and
+    `UniqueSiblingList` both collapse.
     """
 
     __tablename__ = "sibling_roms"
 
     rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sibling_rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+
+class UniqueSiblingList(list["Rom"]):
+    """`Rom.sibling_roms`, holding each sibling once though the view repeats it."""
+
+    # selectinload hands the collection every view row, duplicates included.
+    @collection.appender  # type: ignore[untyped-decorator]
+    def _append_once(self, rom: Rom) -> None:
+        if rom not in self:
+            super().append(rom)
 
 
 class RomArchiveMember(TypedDict):
@@ -957,6 +968,7 @@ class Rom(BaseModel):
         secondary="sibling_roms",
         primaryjoin="Rom.id == SiblingRom.rom_id",
         secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
+        collection_class=UniqueSiblingList,
         lazy="raise",
     )
     files: Mapped[list[RomFile]] = relationship(lazy="raise", back_populates="rom")
