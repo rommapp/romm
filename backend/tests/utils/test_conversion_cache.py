@@ -2,9 +2,10 @@ import asyncio
 import fcntl
 import os
 import shutil
+import stat
 import time
 from collections.abc import Iterator
-from contextlib import contextmanager, nullcontext
+from contextlib import ExitStack, contextmanager, nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -35,6 +36,7 @@ from utils.conversion_cache import (
     parse_formats,
     resolve_format_download,
 )
+from utils.filesystem import SERVED_FILE_MODE
 
 
 def _rom_file(**overrides: Any) -> RomFile:
@@ -357,6 +359,22 @@ class TestGetOrConvert:
         assert convert_outputs == [_partial_path(final)]
         assert final.read_bytes() == b"converted"
         assert [p.name for p in final.parent.iterdir()] == [final.name]
+
+    async def test_an_owner_only_output_is_made_readable_for_nginx(
+        self, cache_root, mocker
+    ):
+        async def convert(operation, src, out) -> None:
+            out.write_bytes(b"converted")
+            out.chmod(0o600)
+
+        mocker.patch(
+            "utils.conversion_cache.rom_converto_service.convert", side_effect=convert
+        )
+
+        final = await get_or_convert(1, _rom_file(), "psp", "chd")
+
+        assert final is not None
+        assert stat.S_IMODE(final.stat().st_mode) == SERVED_FILE_MODE
 
     async def test_leading_dot_copy_survives_cleanup(self, cache_root, convert_outputs):
         f = _rom_file(file_name=".hack - Infection (USA).iso")
@@ -861,6 +879,23 @@ class TestResolveFormatDownload:
 
         assert resolution == FormatResolution(FormatOutcome.ORIGINAL)
 
+    async def test_an_aliased_files_own_extension_serves_the_original(
+        self, cache_root, convert_outputs
+    ):
+        rom = cast(Rom, SimpleNamespace(id=1, platform_slug="3ds"))
+
+        resolution = await resolve_format_download(
+            rom,
+            _rom_file(file_name="game.3ds"),
+            ("3ds", "cia"),
+            allowed=True,
+            start=True,
+            touch=True,
+        )
+
+        assert resolution == FormatResolution(FormatOutcome.ORIGINAL)
+        assert convert_outputs == []
+
     async def test_a_cached_copy_wins_over_an_earlier_uncached_format(
         self, cache_root, convert_outputs
     ):
@@ -945,6 +980,33 @@ class TestResolveFormatDownload:
 
         assert resolution.outcome == FormatOutcome.PENDING
         assert convert_outputs == []
+
+    async def test_a_finished_conversion_is_served_while_a_download_holds_its_dir(
+        self, cache_root, mocker
+    ):
+        f = _rom_file()
+        final = _final_path(f)
+
+        async def convert(operation, src, out) -> None:
+            out.write_bytes(b"converted")
+
+        async def convert_then_serve(*args) -> Path | None:
+            converted = await get_or_convert(*args)
+            stack.enter_context(_held_lock(final.parent, shared=True))
+            return converted
+
+        mocker.patch(
+            "utils.conversion_cache.rom_converto_service.convert", side_effect=convert
+        )
+        mocker.patch.object(
+            conversion_cache, "get_or_convert", side_effect=convert_then_serve
+        )
+        with ExitStack() as stack:
+            resolution = await resolve_format_download(
+                self._rom(), f, ("chd",), allowed=True, start=True, touch=True
+            )
+
+        assert resolution == FormatResolution(FormatOutcome.CONVERTED, final)
 
     async def test_is_pending_without_starting_once_too_many_conversions_run(
         self, cache_root, convert_outputs, mocker

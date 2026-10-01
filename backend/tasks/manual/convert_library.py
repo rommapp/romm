@@ -33,6 +33,7 @@ from tasks.registry import CONVERT_LIBRARY_SPEC
 from tasks.scheduled.convert_images_to_webp import ConversionStats
 from tasks.tasks import Task
 from utils.context import initialize_context
+from utils.filesystem import SERVED_FILE_MODE
 
 _CUE_FILE_LINE: Final = re.compile(r'^\s*FILE\s+(?:"([^"]+)"|(\S+))', re.IGNORECASE)
 _CUE_EXT: Final = ".cue"
@@ -54,7 +55,7 @@ class ConvertLibraryStats:
 def _cue_tracks(cue: Path) -> list[Path]:
     """The track files a cue sheet references, all beside it."""
     tracks: list[Path] = []
-    for line in cue.read_text(errors="replace").splitlines():
+    for line in cue.read_text(encoding="utf-8-sig", errors="replace").splitlines():
         match = _CUE_FILE_LINE.match(line)
         if match is None:
             continue
@@ -83,13 +84,18 @@ def _write_atomically(path: Path, text: str) -> None:
     os.replace(staged, path)
 
 
+def _renamed_entry(line: str, renames: dict[str, str]) -> str:
+    entry = line.strip()
+    return renames.get(os.path.normpath(entry), line) if entry else line
+
+
 def _rewrite_playlists(folder: Path, renames: dict[str, str]) -> None:
     """Point each playlist entry for a converted file at its new name."""
     for playlist in folder.iterdir():
         if playlist.suffix.lower() != _PLAYLIST_EXT or not playlist.is_file():
             continue
-        lines = playlist.read_text(errors="replace").splitlines()
-        rewritten = [renames.get(line.strip(), line) for line in lines]
+        lines = playlist.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+        rewritten = [_renamed_entry(line, renames) for line in lines]
         if rewritten != lines:
             _write_atomically(playlist, "\n".join(rewritten) + "\n")
 
@@ -124,6 +130,8 @@ def _publish(stage_dir: Path, final: Path) -> None:
             f"rom-converto did not write exactly {final.name}"
         )
     staged = stage_dir / final.name
+    # rom-converto may write an owner-only file, which nginx can't serve.
+    os.chmod(staged, SERVED_FILE_MODE)
     try:
         os.link(staged, final)
     except FileExistsError:
@@ -148,12 +156,14 @@ def _replace_sources(sources: list[Path], final: Path) -> int:
     return saved
 
 
-async def _convert_beside(src: Path, final: Path, operation: Operation) -> None:
-    """Convert `src` to `final` beside it, leaving `src` in place."""
-    await asyncio.to_thread(_drop_stale_stages, src.parent)
+async def _convert_beside(
+    src: Path, final: Path, operation: Operation, stage_parent: Path
+) -> None:
+    """Convert `src` to `final` beside it, staging in `stage_parent` and leaving `src` in place."""
+    await asyncio.to_thread(_drop_stale_stages, stage_parent)
     stage_dir = Path(
         await asyncio.to_thread(
-            tempfile.mkdtemp, prefix=_CONVERT_STAGE_PREFIX, dir=src.parent
+            tempfile.mkdtemp, prefix=_CONVERT_STAGE_PREFIX, dir=stage_parent
         )
     )
     try:
@@ -227,6 +237,8 @@ class ConvertLibraryTask(Task):
             stats.unmatched += 1
             return
 
+        # A rom folder lists dot-prefixed subfolders as its files, so stage beside it.
+        stage_parent = fs_rom_handler.validate_path(rom.fs_path)
         # Originals go only once the rom and its playlists point at the new files.
         published: list[tuple[Path, Path, list[Path]]] = []
         for rom_file, operation, input_ext in planned:
@@ -236,7 +248,7 @@ class ConvertLibraryTask(Task):
                 sources = await asyncio.to_thread(_sources, src, final, input_ext)
                 if rom.has_simple_single_file:
                     self._check_tracks_unowned(rom, sources[1:])
-                await _convert_beside(src, final, operation)
+                await _convert_beside(src, final, operation, stage_parent)
             except (RomConvertoError, OSError, ValueError) as exc:
                 log.warning(f"Could not convert {hl(rom_file.file_name)}: {exc}")
                 stats.failed += 1
@@ -292,10 +304,8 @@ class ConvertLibraryTask(Task):
             target = formats.get(platform.slug)
             if target:
                 rom_ids.extend(
-                    (rom.id, target)
-                    for rom in db_rom_handler.get_roms_scalar(
-                        platform_ids=[platform.id]
-                    )
+                    (rom_id, target)
+                    for rom_id in db_rom_handler.get_rom_ids(platform_ids=[platform.id])
                 )
 
         progress = ConversionStats()
@@ -303,7 +313,12 @@ class ConvertLibraryTask(Task):
         for index, (rom_id, target) in enumerate(rom_ids):
             rom = db_rom_handler.get_rom(rom_id)
             if rom is not None:
-                await self._convert_rom(rom, target, stats)
+                try:
+                    await self._convert_rom(rom, target, stats)
+                except Exception as exc:
+                    # One rom's failure must not stop the rest of the library.
+                    log.error(f"Could not convert {hl(rom.fs_name)}: {exc}")
+                    stats.failed += 1
             progress.update(processed=index + 1, errors=stats.failed)
 
         log.info(

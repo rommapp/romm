@@ -14,6 +14,7 @@ from adapters.services.rom_converto import (
     RomConvertoTimeoutError,
     download_formats,
     file_format,
+    file_formats,
     resolve_operation,
 )
 
@@ -238,6 +239,18 @@ class TestFileFormat:
     )
     def test_names_the_format(self, file_name: str, expected: str):
         assert file_format(file_name) == expected
+
+    @pytest.mark.parametrize(
+        ("file_name", "expected"),
+        [
+            pytest.param("game.iso", {"iso"}, id="plain"),
+            pytest.param("game.3ds", {"cci", "3ds"}, id="alias"),
+            pytest.param("game.zcia", {"z3ds", "zcia"}, id="compressed-alias"),
+            pytest.param("game.nkit.iso", {"nkit-iso"}, id="compound-not-iso"),
+        ],
+    )
+    def test_lists_every_name_of_the_format(self, file_name: str, expected: set[str]):
+        assert file_formats(file_name) == expected
 
 
 class TestResolveOperation:

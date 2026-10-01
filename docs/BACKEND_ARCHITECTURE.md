@@ -1709,7 +1709,7 @@ Triggered via `POST /api/tasks/run/{task_name}`, which enqueues on `low_prio_que
 | `sync_folder_scan`     | Scan sync folder for new device saves                                                 |
 | `convert_library`      | Convert matched ROMs to `converto.platform_formats` in place, replacing the originals |
 
-`convert_library` only converts losslessly (no xiso) and only identified ROMs, since a converted file no longer hash-matches a DAT. It stages each output under a `.romm_tmp_` directory beside the original, deletes the originals (and a cue's tracks) once the output is in place, rewrites `.m3u` entries in folder ROMs, and refreshes the ROM's files, so the ROM keeps its id, saves and collections.
+`convert_library` only converts losslessly (no xiso) and only identified ROMs, since a converted file no longer hash-matches a DAT. It stages each output under a `.romm_tmp_` directory beside the ROM, deletes the originals (and a cue's tracks) once the output is in place, rewrites `.m3u` entries in folder ROMs, and refreshes the ROM's files, so the ROM keeps its id, saves and collections.
 
 `cleanup_orphaned_resources` is also runnable this way; it is listed under
 Scheduled Tasks because it additionally supports an opt-in cron schedule. It

@@ -18,7 +18,7 @@ from adapters.services.rom_converto import (
     Operation,
     RomConvertoOperationError,
     RomConvertoTimeoutError,
-    file_format,
+    file_formats,
     resolve_operation,
     rom_converto_service,
 )
@@ -32,6 +32,7 @@ from config.config_manager import config_manager as cm
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.background_tasks import fire_and_forget
+from utils.filesystem import SERVED_FILE_MODE
 from utils.zip_cache import CACHE_KEY_LENGTH, SECONDS_PER_HOUR
 
 if TYPE_CHECKING:
@@ -186,7 +187,11 @@ def parse_formats(raw: str) -> tuple[str, ...]:
 
 def _is_converting(final_path: Path) -> bool:
     """Whether a worker holds `final_path`'s key dir, which it locks before converting."""
-    with contextlib.suppress(OSError), _try_lock(final_path.parent) as locked:
+    # A shared probe leaves downloads serving a cached copy undisturbed.
+    with (
+        contextlib.suppress(OSError),
+        _try_lock(final_path.parent, shared=True) as locked,
+    ):
         return not locked
     return False
 
@@ -211,7 +216,7 @@ async def resolve_format_download(
         start: Start it now, rather than only report that one would run.
         touch: Refresh a served copy's mtime so TTL cleanup measures demand.
     """
-    if file_format(file.file_name) in formats:
+    if not file_formats(file.file_name).isdisjoint(formats):
         return FormatResolution(FormatOutcome.ORIGINAL)
 
     converto = cm.get_config().CONVERTO
@@ -248,10 +253,10 @@ async def resolve_format_download(
         _started_conversions.add(conversion)
         conversion.add_done_callback(_started_conversions.discard)
         done, _ = await asyncio.wait({conversion}, timeout=CONVERSION_WAIT_SECONDS)
+        if done and (converted := conversion.result()):
+            return FormatResolution(FormatOutcome.CONVERTED, converted)
         if not done or _is_converting(final_path):
             return _PENDING
-        if converted := conversion.result():
-            return FormatResolution(FormatOutcome.CONVERTED, converted)
     return _UNAVAILABLE
 
 
@@ -284,7 +289,9 @@ async def get_or_convert(
             if (final_path.parent / FAILED_FILE).exists():
                 return None
             async with _convert_semaphore:
-                shutil.rmtree(final_path.parent / PARTIAL_DIR, ignore_errors=True)
+                await asyncio.to_thread(
+                    shutil.rmtree, final_path.parent / PARTIAL_DIR, True
+                )
                 size_bytes = (rom_file.file_size_bytes or 0) * (
                     EXPANSION_RESERVE_FACTOR
                     if operation.target in UNCOMPRESSED_TARGETS
@@ -331,6 +338,8 @@ async def _convert(
             )
             (final_path.parent / FAILED_FILE).touch()
             return None
+        # rom-converto may write an owner-only file, which nginx can't serve.
+        os.chmod(produced, SERVED_FILE_MODE)
         os.replace(produced, final_path)
     except Exception as e:
         log.warning(f"Conversion failed for ROM {rom_id} (target {hl(target)}): {e}")
@@ -338,7 +347,7 @@ async def _convert(
             (final_path.parent / FAILED_FILE).touch()
         return None
     finally:
-        shutil.rmtree(partial_dir, ignore_errors=True)
+        await asyncio.to_thread(shutil.rmtree, partial_dir, True)
     return final_path
 
 

@@ -163,13 +163,28 @@ _KNOWN_EXTS: Final[frozenset[str]] = frozenset(
 )
 
 
+def _known_ext(name: str) -> str | None:
+    return max((e for e in _KNOWN_EXTS if name.endswith(e)), key=len, default=None)
+
+
+def _ext_format(name: str, ext: str | None) -> str:
+    if ext is None:
+        return Path(name).suffix.lstrip(".")
+    return ext.lstrip(".").replace(".", "-")
+
+
 def file_format(file_name: str) -> str:
     """The format `file_name` is in, as a target name or its extension (`nkit-iso`)."""
     name = file_name.lower()
-    ext = max((e for e in _KNOWN_EXTS if name.endswith(e)), key=len, default=None)
-    if ext is None:
-        return Path(name).suffix.lstrip(".")
-    return _FORMAT_ALIASES.get(ext, ext.lstrip(".").replace(".", "-"))
+    ext = _known_ext(name)
+    return _FORMAT_ALIASES.get(ext or "", _ext_format(name, ext))
+
+
+def file_formats(file_name: str) -> frozenset[str]:
+    """The names a client may list for `file_name`'s format, an alias's extension (`3ds`) included."""
+    name = file_name.lower()
+    ext = _known_ext(name)
+    return frozenset({file_format(file_name), _ext_format(name, ext)})
 
 
 def normalize_platform_formats(raw: dict[str, str]) -> dict[str, str]:
@@ -231,6 +246,7 @@ async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
         binary,
         "--no-update-check",
         *argv,
+        stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
