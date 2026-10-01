@@ -243,7 +243,7 @@ class TestJsonTitlesContainFoldedOnTheRunningEngine:
         rows = [
             {"id": 1, "meta": {"titles": ["Final Fantasy 7", "FF7"]}},
             {"id": 2, "meta": {"titles": ["Crisis Core: Final Fantasy 7"]}},
-            {"id": 3, "meta": {"titles": "Final Fantasy 7"}},
+            {"id": 3, "meta": {"titles": ["ŌKAMI  Den"]}},
             {"id": 4, "meta": {}},
             {"id": 6, "meta": {"titles": ['Say "Final Fantasy 7"', "Pokémon"]}},
         ]
@@ -257,11 +257,13 @@ class TestJsonTitlesContainFoldedOnTheRunningEngine:
         ("title", "expected"),
         [
             # Whole titles only: a title that merely holds the words is no match.
-            ("final fantasy 7", [1, 3]),
-            ("ff7", [1]),
+            ("final fantasy 7", [1]),
+            ("FF7", [1]),
             ('say "final fantasy 7"', [6]),
             ("pokémon", [6]),
             ("final fantasy", []),
+            # Accented capitals fold, and runs of spaces count as one.
+            ("ōkami den", [3]),
         ],
     )
     def test_matches_whole_titles_ignoring_case(
@@ -272,6 +274,12 @@ class TestJsonTitlesContainFoldedOnTheRunningEngine:
 
         with sync_engine.connect() as connection:
             assert list(connection.scalars(statement)) == expected
+
+
+def test_json_titles_contain_folded_refuses_a_key_outside_a_plain_name():
+    """JSON_TABLE takes the key inside a literal path, so it can't carry quotes."""
+    with pytest.raises(ValueError):
+        json_titles_contain_folded(_T.c.tags, "titles') OR 1=1 --", "x")
 
 
 class TestAnalyze:

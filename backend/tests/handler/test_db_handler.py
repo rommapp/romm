@@ -302,7 +302,7 @@ def test_search_ranks_exact_titles_then_name_prefixes(platform: Platform):
     assert ranked("ff7") == [ff7.id, fan_mod.id]
 
 
-@pytest.mark.parametrize("alias", ['Say "Cheese"', "Pokémon Rouge"])
+@pytest.mark.parametrize("alias", ['Say "Cheese"', "Pokémon Rouge", "ŌKAMI Den"])
 def test_search_ranks_exact_aliases_with_escaped_characters(
     platform: Platform, alias: str
 ):
@@ -318,6 +318,16 @@ def test_search_ranks_exact_aliases_with_escaped_characters(
     roms = db_rom_handler.get_roms_scalar(search_term=alias.lower())
 
     assert [rom.id for rom in roms] == [titled.id, untitled.id]
+
+
+def test_search_ranks_exact_titles_stored_with_extra_spaces(platform: Platform):
+    spaced = make_rom(platform, "Final  Fantasy  VII")
+    longer = make_rom(platform, "Final Fantasy VII Remake")
+    contains = make_rom(platform, "Crisis Core: Final Fantasy VII")
+
+    roms = db_rom_handler.get_roms_scalar(search_term="final fantasy vii")
+
+    assert [rom.id for rom in roms] == [spaced.id, longer.id, contains.id]
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,7 @@
 """Per-engine SQL spellings, chosen when the statement compiles."""
 
 import json
+import re
 from collections.abc import Callable, Collection, Sequence
 from typing import Any
 
@@ -181,19 +182,88 @@ def json_array_contains_all(
     )
 
 
+_WHITESPACE_RUN = r"\s+"
+_JSON_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def collapse_whitespace(expression: ColumnElement[Any]) -> ColumnElement[str]:
+    """`expression` with each run of whitespace turned into one space."""
+    return DialectCase(
+        postgresql=func.regexp_replace(
+            expression, _WHITESPACE_RUN, " ", "g", type_=sa.Text
+        ),
+        mysql=func.regexp_replace(expression, _WHITESPACE_RUN, " ", type_=sa.Text),
+    )
+
+
+class _JsonTableTitlesHold(ColumnElement[bool]):
+    """MySQL/MariaDB: whether a JSON object's `key` array holds `title` once decoded."""
+
+    inherit_cache = True
+    _traverse_internals = [
+        ("column", InternalTraversal.dp_clauseelement),
+        ("key", InternalTraversal.dp_string),
+        ("title", InternalTraversal.dp_clauseelement),
+        ("pattern", InternalTraversal.dp_clauseelement),
+    ]
+    type = sa.Boolean()
+
+    def __init__(self, column: SQLColumnExpression[Any], key: str, title: str) -> None:
+        self.column = sa.type_coerce(column, sa.JSON())
+        self.key = key
+        self.title = sa.bindparam(None, title, type_=sa.Text)
+        self.pattern = sa.bindparam(None, _WHITESPACE_RUN, type_=sa.Text)
+
+
+@_compiles_on_mysql_family(_JsonTableTitlesHold)
+def _json_table_titles_hold_mysql(
+    element: _JsonTableTitlesHold, compiler: SQLCompiler, **kw: Any
+) -> str:
+    column = compiler.process(element.column, **kw)
+    title = compiler.process(element.title, **kw)
+    pattern = compiler.process(element.pattern, **kw)
+    # JSON_TABLE decodes `\uXXXX` escapes, which LOWER on the raw text can't
+    # fold. Both sides take one explicit collation, so neither side's default wins.
+    folded = f"REGEXP_REPLACE(LOWER(titles.title), {pattern}, ' ')"
+    # Every interpolation is a compiled bind or a key checked against _JSON_KEY.
+    return (
+        f"EXISTS (SELECT 1 FROM JSON_TABLE({column}, '$.{element.key}[*]' "  # nosec B608
+        "COLUMNS (title TEXT PATH '$')) AS titles "
+        f"WHERE CONVERT({folded} USING utf8mb4) COLLATE utf8mb4_bin "
+        f"= CONVERT({title} USING utf8mb4) COLLATE utf8mb4_bin)"
+    )
+
+
 def json_titles_contain_folded(
     column: SQLColumnExpression[Any], key: str, title: str
 ) -> ColumnElement[bool]:
-    """Whether a JSON object's `key` array of titles holds `title`, ignoring case."""
-    # Both engines compare the parsed values, so lowering the JSON text leaves
-    # its escapes intact.
-    lowered: DialectCase[Any] = DialectCase(
-        postgresql=sa.cast(
-            func.lower(sa.cast(_jsonb(column)[key], sa.Text)), sa_pg.JSONB
-        ),
-        mysql=func.lower(func.json_extract(column, f"$.{key}")),
+    """Whether a JSON object's `key` array of titles holds `title`, ignoring case and spacing."""
+    # The key lands inside a literal JSON path, so it must be a plain name.
+    if not _JSON_KEY.fullmatch(key):
+        raise ValueError(f"Not a plain JSON key: {key!r}")
+    folded = " ".join(title.split()).lower()
+    # jsonb keeps characters decoded, so lowering its text is safe there.
+    lowered = sa.cast(
+        collapse_whitespace(func.lower(sa.cast(_jsonb(column)[key], sa.Text))),
+        sa_pg.JSONB,
     )
-    return func.coalesce(json_array_contains_value(lowered, title.lower()), sa.false())
+    # MariaDB's text keeps `\uXXXX` escapes, whose case LOWER can't fold; an
+    # ASCII title can only equal ASCII titles, so only others need JSON_TABLE.
+    mysql = (
+        func.coalesce(
+            func.json_contains(
+                collapse_whitespace(func.lower(func.json_extract(column, f"$.{key}"))),
+                json.dumps(folded),
+            ),
+            0,
+        )
+        if folded.isascii()
+        else _JsonTableTitlesHold(column, key, folded)
+    )
+    return DialectCase(
+        postgresql=func.coalesce(_jsonb(lowered).has_key(folded), sa.false()),
+        mysql=mysql,
+    )
 
 
 class Analyze(ExecutableDDLElement):

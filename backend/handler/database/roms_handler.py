@@ -101,6 +101,7 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.sql_dialect import (
     Analyze,
     DialectCase,
+    collapse_whitespace,
     fulltext_match,
     json_array_contains_all,
     json_array_contains_any,
@@ -262,19 +263,28 @@ def _search_terms(search_term: str) -> list[str]:
 
 
 def _aliases_hold(term: str) -> ColumnElement[bool]:
-    """Whether the joined aliases, which keep each title's JSON escapes, hold `term`."""
+    """Whether the joined aliases, which keep each title's JSON escapes, can hold `term`."""
 
-    def holds(*texts: str) -> ColumnElement[bool]:
-        return or_(
+    def holds(escaped: Callable[[str], str | None]) -> ColumnElement[bool]:
+        # Word by word, since a stored title may space its words differently.
+        texts = [text for word in term.split() if (text := escaped(word)) is not None]
+        return and_(
+            true(),
             *(
                 Rom.generated_search_aliases.icontains(text, autoescape=True)
-                for text in dict.fromkeys(texts)
-            )
+                for text in texts
+            ),
         )
 
-    raw = json.dumps(term, ensure_ascii=False)[1:-1]
-    # MariaDB keeps the blobs' ASCII-only escapes; PostgreSQL prints characters as is.
-    return DialectCase(postgresql=holds(raw), mysql=holds(raw, json.dumps(term)[1:-1]))
+    def raw(word: str) -> str:
+        return json.dumps(word, ensure_ascii=False)[1:-1]
+
+    def ascii_only(word: str) -> str | None:
+        # MariaDB stores non-ASCII characters as `\uXXXX`, whose case LOWER
+        # can't fold, so such a word can't narrow the match.
+        return raw(word) if word.isascii() else None
+
+    return DialectCase(postgresql=holds(raw), mysql=holds(ascii_only))
 
 
 def _provider_titles_hold(term: str) -> ColumnElement[bool]:
@@ -295,8 +305,24 @@ def _search_rank(terms: Sequence[str]) -> ColumnElement[int]:
     alias_exact = or_(
         *(and_(_aliases_hold(term), _provider_titles_hold(term)) for term in folded)
     )
-    exact = or_(func.lower(Rom.name).in_(folded), alias_exact)
-    prefix = or_(*(Rom.name.istartswith(term, autoescape=True) for term in folded))
+    name = func.lower(Rom.name, type_=Text)
+    # Collapsing costs a regex per row, so only names with a double space pay it.
+    has_double_space = Rom.name.contains("  ")
+    spaced_name = collapse_whitespace(name)
+    exact = or_(
+        name.in_(folded),
+        and_(has_double_space, spaced_name.in_(folded)),
+        alias_exact,
+    )
+    prefix = or_(
+        *(
+            or_(
+                name.startswith(term, autoescape=True),
+                and_(has_double_space, spaced_name.startswith(term, autoescape=True)),
+            )
+            for term in folded
+        )
+    )
     return case((exact, 2), (prefix, 1), else_=0)
 
 
