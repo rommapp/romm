@@ -98,6 +98,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
+            // this makes tracking dynamically loaded libraries much easier.
             if (id.includes("md-editor-v3")) return "md-editor";
           },
         },
