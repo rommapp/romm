@@ -79,10 +79,13 @@ const graphemes =
 // The caret one character over in `dir`, or -1 past the text's edge. Steps
 // whole graphemes so it never splits an emoji or an accent.
 function nextCaret(text: string, at: number, dir: "left" | "right"): number {
-  if (dir === "left" ? at <= 0 : at >= text.length) return -1;
-  const seg = graphemes?.segment(text).containing(dir === "left" ? at - 1 : at);
-  if (!seg) return dir === "left" ? at - 1 : at + 1;
-  return dir === "left" ? seg.index : seg.index + seg.segment.length;
+  if (dir === "left") {
+    if (at <= 0) return -1;
+    return graphemes?.segment(text).containing(at - 1)?.index ?? at - 1;
+  }
+  if (at >= text.length) return -1;
+  const seg = graphemes?.segment(text).containing(at);
+  return seg ? seg.index + seg.segment.length : at + 1;
 }
 
 // Steps the caret for a D-pad press, which the browser won't do for a synthetic
