@@ -10,7 +10,7 @@ from tests.audit_events import recorded_events
 
 from endpoints import auth as auth_endpoints
 from endpoints import permissions as permission_endpoints
-from handler.auth import auth_handler
+from handler.auth.base_handler import auth_handler
 from models.user import User
 from tasks.tasks import Task, TaskType
 

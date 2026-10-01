@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from handler.auth import auth_handler
+from handler.auth.base_handler import auth_handler
 from handler.database import (
     db_client_token_handler,
     db_firmware_handler,

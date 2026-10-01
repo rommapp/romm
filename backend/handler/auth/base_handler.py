@@ -774,3 +774,8 @@ class OpenIDHandler:
 
         log.info("User successfully authenticated: %s", hl(email, color=CYAN))
         return user, userinfo
+
+
+auth_handler = AuthHandler()
+oauth_handler = OAuthHandler()
+oidc_handler = OpenIDHandler()

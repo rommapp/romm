@@ -25,7 +25,7 @@ from tests.factories import (
 from adapters.services import response_validation
 from config import ROMM_DB_DRIVER
 from config.config_manager import ConfigManager
-from handler.auth import auth_handler
+from handler.auth.base_handler import auth_handler
 from handler.auth.base_handler import oct_key
 from handler.auth.constants import ALGORITHM
 from handler.database import (

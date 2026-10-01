@@ -223,7 +223,7 @@ class TestListTasks:
         # Create a token without TASKS_RUN scope
         from datetime import timedelta
 
-        from handler.auth import oauth_handler
+        from handler.auth.base_handler import oauth_handler
 
         data = {
             "sub": admin_user.username,

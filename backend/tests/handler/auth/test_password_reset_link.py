@@ -3,7 +3,8 @@ from unittest.mock import MagicMock
 import pytest
 from fakeredis import FakeRedis
 
-from handler.auth import auth_handler, base_handler
+from handler.auth import base_handler
+from handler.auth.base_handler import auth_handler
 from handler.email_handler import EmailError
 
 
