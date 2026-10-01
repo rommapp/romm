@@ -1,3 +1,8 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 from rq.utils import import_attribute
 
@@ -77,6 +82,18 @@ class TestEnqueueTask:
         assert kwargs["job_id"] == "fixed"
         assert kwargs["unique"] is True
 
+    @pytest.mark.parametrize(
+        "name,queue_name",
+        [("cleanup_zip_cache", "low"), ("reap_streaming_sessions", "streaming")],
+    )
+    def test_defaults_to_the_queue_the_spec_names(self, mocker, name, queue_name):
+        queue = mocker.MagicMock()
+        mocker.patch.dict("tasks.registry.QUEUES_BY_NAME", {queue_name: queue})
+
+        enqueue_task(name)
+
+        queue.enqueue.assert_called_once()
+
     def test_an_unknown_name_is_refused_before_it_reaches_redis(self, queue):
         with pytest.raises(TaskNotFoundException):
             enqueue_task("no_such_task", queue=queue)
@@ -108,3 +125,59 @@ class TestEnqueueScheduledScan:
 
         job_timeout = scan_queue.enqueue.call_args.kwargs["job_timeout"]
         assert job_timeout == SCHEDULED_TASKS["scan_library"].timeout
+
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.mark.parametrize(
+    "env,name,field,expected",
+    [
+        ({"AUDIT_LOG_RETENTION_DAYS": "0"}, "cleanup_audit_log", "enabled", False),
+        ({"AUDIT_LOG_RETENTION_DAYS": "30"}, "cleanup_audit_log", "enabled", True),
+        (
+            {"SCHEDULED_RESCAN_CRON": "5 4 * * 1"},
+            "scan_library",
+            "cron_string",
+            "5 4 * * 1",
+        ),
+        (
+            {
+                "LAUNCHBOX_API_ENABLED": "true",
+                "ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA": "false",
+            },
+            "update_launchbox_metadata",
+            "can_run_manually",
+            True,
+        ),
+        (
+            {
+                "LAUNCHBOX_API_ENABLED": "false",
+                "ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA": "false",
+            },
+            "update_launchbox_metadata",
+            "can_run_manually",
+            False,
+        ),
+    ],
+)
+def test_specs_follow_the_config_they_start_with(env, name, field, expected):
+    """Specs read config once at import, so each case needs a fresh interpreter."""
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys\n"
+            "from tasks.registry import get_task_spec\n"
+            "print(repr(getattr(get_task_spec(sys.argv[1]), sys.argv[2])))\n",
+            name,
+            field,
+        ],
+        cwd=BACKEND_ROOT,
+        env={**os.environ, "PYTHONPATH": str(BACKEND_ROOT), **env},
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip().splitlines()[-1] == repr(expected)

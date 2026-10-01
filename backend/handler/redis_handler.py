@@ -46,6 +46,7 @@ ALL_QUEUES: Final = (
     default_queue,
     low_prio_queue,
 )
+QUEUES_BY_NAME: Final = {queue.name: queue for queue in ALL_QUEUES}
 
 
 def __get_fake_server() -> Any:

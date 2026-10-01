@@ -1,4 +1,3 @@
-import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -12,7 +11,7 @@ from rq.timeouts import JobTimeoutException
 
 from config import TASK_RESULT_TTL, TASK_TIMEOUT
 from exceptions.task_exceptions import TaskNotFoundException
-from handler.redis_handler import QueuePrio
+from handler.redis_handler import QueuePrio, default_queue
 from logger.logger import log
 from utils.background_tasks import wait_for_background_tasks
 
@@ -84,10 +83,25 @@ def report_task_failure(
         reason = str(exc_value) or repr(exc_value)
 
     try:
-        asyncio.run(_notify_task_end(name, spec, run_by_user_id, error=reason))
+        # A job of its own, as this may run in the worker parent, which must not
+        # load the notification stack.
+        default_queue.enqueue(
+            notify_task_failure, name, run_by_user_id, reason, result_ttl=0
+        )
     except Exception:  # noqa: BLE001
         # Raising would stop the worker's sweep of the other orphaned jobs.
         log.error(f"Could not report failed task {job.id}", exc_info=True)
+
+
+async def notify_task_failure(
+    name: str, run_by_user_id: int | None, reason: str
+) -> None:
+    """Tell whoever ran a task, or the admins, why it failed."""
+    from tasks.registry import get_task_spec
+
+    spec = get_task_spec(name)
+    if spec is not None:
+        await _notify_task_end(name, spec, run_by_user_id, error=reason)
 
 
 async def _notify_task_end(

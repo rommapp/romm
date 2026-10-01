@@ -1441,7 +1441,7 @@ await notify_admins("custom", NotificationLevel.WARNING, title="Disk almost full
 
 A `NotificationKind` is translated by the client from `data`; a new one needs a describer in `frontend/src/v2/utils/notifications.ts` and locale keys. Until then, or for a one-off, pass any other kind with `title`/`body`/`link`/`icon`. Both helpers log and swallow failures, so a job never fails over reporting itself.
 
-A task reports its success from `run_task_by_name`. Its failure is reported by `report_task_failure`, an exception handler `RomMWorker` installs, so a timeout, a killed work horse or a dead worker notifies too, for cron runs as well as manual ones.
+A task reports its success from `run_task_by_name`. Its failure is reported by `report_task_failure`, an exception handler `RomMWorker` installs, so a timeout, a killed work horse or a dead worker notifies too, for cron runs as well as manual ones. The handler can run in the worker parent, so it enqueues `notify_task_failure` on the default queue rather than loading the notification stack there.
 
 ---
 

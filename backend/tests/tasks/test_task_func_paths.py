@@ -11,6 +11,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 # run_task_by_name, which resolves it from the registry.
 JOB_FUNC_PATHS = (
     "tasks.tasks.run_task_by_name",
+    "tasks.tasks.notify_task_failure",
     "endpoints.sockets.scan.scan_platforms",
     "tasks.registry.enqueue_scheduled_scan",
 )

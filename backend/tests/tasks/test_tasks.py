@@ -16,6 +16,7 @@ from tasks.tasks import (
     RemoteFilePullTask,
     TaskSpec,
     TaskType,
+    notify_task_failure,
     report_task_failure,
     run_task_by_name,
 )
@@ -319,6 +320,24 @@ def _job(name="cleanup_missing_roms", run_by_user_id=None, **overrides):
 class TestReportTaskFailure:
     """The worker's exception handler reports every way a task can fail."""
 
+    @pytest.fixture(autouse=True)
+    def queue(self, mocker):
+        """Runs the enqueued notification inline, as a work horse would."""
+        queue = mocker.patch("tasks.tasks.default_queue")
+        queue.enqueue.side_effect = lambda func, *args, **_: asyncio.run(func(*args))
+        return queue
+
+    def test_notifies_from_a_job_of_its_own(self, mocker, queue):
+        _task(mocker)
+
+        report_task_failure(
+            _job(run_by_user_id=4), RuntimeError, RuntimeError("disk full"), None
+        )
+
+        queue.enqueue.assert_called_once_with(
+            notify_task_failure, "cleanup_missing_roms", 4, "disk full", result_ttl=0
+        )
+
     def test_tells_the_runner_why_it_failed(self, mocker, notify, notify_admins):
         _task(mocker)
 
@@ -390,12 +409,9 @@ class TestReportTaskFailure:
         get_task_spec.assert_not_called()
         notify.assert_not_awaited()
 
-    def test_never_raises_into_the_worker(self, mocker):
+    def test_never_raises_into_the_worker(self, mocker, queue):
         _task(mocker)
-        mocker.patch(
-            "handler.notification_handler.notify_admins",
-            AsyncMock(side_effect=RuntimeError("redis gone")),
-        )
+        queue.enqueue.side_effect = RuntimeError("redis gone")
 
         report_task_failure(_job(), RuntimeError, RuntimeError("boom"), None)
 

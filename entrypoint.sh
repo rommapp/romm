@@ -96,13 +96,14 @@ PYTHONPATH="/app/backend:${PYTHONPATH-}" \
 # wait out their delay.
 start_rq_worker() {
 	local name="$1"
-	shift
+	local worker_class="$2"
+	shift 2
 
 	PYTHONPATH="/app/backend:${PYTHONPATH-}" \
 		RQ_REDIS_URL="${REDIS_URL}" \
 		rq worker \
 		--path /app/backend \
-		--worker-class handler.rq_worker.RomMWorker \
+		--worker-class "handler.rq_worker.${worker_class}" \
 		--pid "/tmp/${name}.pid" \
 		--logging_level "${LOGLEVEL:-INFO}" \
 		--with-scheduler \
@@ -110,15 +111,16 @@ start_rq_worker() {
 }
 
 echo "Starting RQ worker..."
-start_rq_worker rq_worker high default low
+start_rq_worker rq_worker RomMWorker high default low
 
 # Scans get a worker of their own, see SCAN_QUEUE_NAME.
 echo "Starting RQ scan worker..."
-start_rq_worker rq_scan_worker scans
+start_rq_worker rq_scan_worker RomMWorker scans
 
-# Streaming teardowns get a worker of their own, see STREAMING_QUEUE_NAME.
+# Streaming teardowns get a worker of their own, see STREAMING_QUEUE_NAME. It
+# preloads the reaper, which runs every minute when streaming is on.
 echo "Starting RQ streaming worker..."
-start_rq_worker rq_streaming_worker streaming
+start_rq_worker rq_streaming_worker PreloadingWorker streaming
 
 echo "Starting watcher..."
 watchfiles \

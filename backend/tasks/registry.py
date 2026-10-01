@@ -38,7 +38,7 @@ from config import (
     TASK_TIMEOUT,
 )
 from exceptions.task_exceptions import TaskNotFoundException
-from handler.redis_handler import STREAMING_QUEUE_NAME, low_prio_queue, scan_queue
+from handler.redis_handler import QUEUES_BY_NAME, STREAMING_QUEUE_NAME, scan_queue
 from handler.streaming.config import HOLD_CEILING_SECONDS, streaming_enabled
 from tasks.tasks import Task, TaskSpec, TaskType, run_task_by_name
 
@@ -277,7 +277,7 @@ def get_task(name: str) -> Task | None:
 def enqueue_task(
     name: str,
     *,
-    queue: Queue = low_prio_queue,
+    queue: Queue | None = None,
     task_kwargs: dict[str, Any] | None = None,
     run_by_user_id: int | None = None,
     **job_options: Any,
@@ -286,7 +286,7 @@ def enqueue_task(
 
     Args:
         name: The key the task is registered under.
-        queue: Which queue to enqueue on.
+        queue: Which queue to enqueue on, the one the spec names by default.
         task_kwargs: Forwarded to the task's ``run``, nested so that they cannot
             collide with the name of the task to run.
         run_by_user_id: Who ran it by hand, notified when it ends.
@@ -299,6 +299,7 @@ def enqueue_task(
     if spec is None:
         raise TaskNotFoundException(name)
 
+    queue = queue or QUEUES_BY_NAME[spec.queue_name]
     return queue.enqueue(
         run_task_by_name,
         kwargs={

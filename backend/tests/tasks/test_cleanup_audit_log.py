@@ -1,7 +1,6 @@
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
-from config import AUDIT_LOG_RETENTION_DAYS
 from handler.database import db_audit_event_handler
 from tasks.registry import CLEANUP_AUDIT_LOG_SPEC
 from tasks.scheduled import cleanup_audit_log
@@ -9,8 +8,7 @@ from tasks.scheduled.cleanup_audit_log import CleanupAuditLogTask
 
 
 class TestCleanupAuditLogTask:
-    def test_runs_daily_unless_events_are_kept_forever(self):
-        assert CLEANUP_AUDIT_LOG_SPEC.enabled is (AUDIT_LOG_RETENTION_DAYS > 0)
+    def test_runs_daily(self):
         assert CLEANUP_AUDIT_LOG_SPEC.cron_string == "30 4 * * *"
 
     async def test_deletes_batches_until_one_comes_back_short(self, mocker):
