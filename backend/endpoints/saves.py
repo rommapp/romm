@@ -39,7 +39,7 @@ from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.assets import normalize_asset_labels
 from utils.datetime import to_utc
-from utils.filesystem import sanitize_filename
+from utils.filesystem import check_filename_length, sanitize_filename
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size, check_emulator_folder_name
 from utils.validation import RomIdScope, narrow_rom_id_scope
@@ -237,6 +237,11 @@ async def add_save(
 
     try:
         sanitized_save_filename = sanitize_filename(saveFile.filename)
+        actual_filename = sanitized_save_filename
+        if slot:
+            actual_filename = _apply_datetime_tag(sanitized_save_filename)
+        # Checked after tagging: the tag adds 22 bytes.
+        check_filename_length(actual_filename)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -244,10 +249,6 @@ async def add_save(
         ) from exc
 
     check_emulator_folder_name(emulator)
-
-    actual_filename = sanitized_save_filename
-    if slot:
-        actual_filename = _apply_datetime_tag(sanitized_save_filename)
 
     saves_path = fs_asset_handler.build_saves_file_path(
         user=request.user,

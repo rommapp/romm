@@ -26,7 +26,7 @@ from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, State
 from models.base import FILE_NAME_MAX_LENGTH
 from utils.assets import normalize_asset_labels
-from utils.filesystem import sanitize_filename
+from utils.filesystem import check_filename_length, sanitize_filename
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size, check_emulator_folder_name
 from utils.validation import RomIdScope, narrow_rom_id_scope
@@ -88,6 +88,7 @@ async def add_state(
 
     try:
         sanitized_state_filename = sanitize_filename(stateFile.filename)
+        check_filename_length(sanitized_state_filename)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

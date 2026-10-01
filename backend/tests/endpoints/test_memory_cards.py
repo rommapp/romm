@@ -873,3 +873,23 @@ async def test_a_failed_scan_leaves_no_archive_behind(
 
     remove_file.assert_awaited_once()
     assert db_memory_card_handler.get_versions(memory_card.id) == []
+
+
+async def test_version_filename_fits_a_long_multibyte_card_name(
+    admin_user: User, memory_card: MemoryCard, _isolated_assets_dir
+):
+    """A card name within the column limit can still be far over the 255-byte
+    filename limit once encoded; the version file must still be writable."""
+    memory_card = db_memory_card_handler.update_card(
+        memory_card.id, {"name": "メモリーカード" * 30}
+    )
+
+    assert await store_memory_card_version(
+        admin_user, memory_card, b"card data", deduplicate=False
+    )
+
+    latest = db_memory_card_handler.get_latest_version(memory_card.id)
+    assert latest is not None
+    assert len(latest.file_name.encode()) <= 255
+    assert latest.file_name.startswith("メモリーカード")
+    assert latest.file_name.endswith(".card.zip")

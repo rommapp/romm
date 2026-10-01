@@ -146,6 +146,18 @@ INVALID_CHARS_EMPTY = re.compile(r'[*?"<>]')
 # the record it sits in.
 CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 
+# NAME_MAX on ext4, XFS, Btrfs and ZFS. The limit is in bytes, so a CJK name
+# reaches it at about 85 characters.
+FILE_NAME_MAX_BYTES = 255
+
+
+def check_filename_length(filename: str) -> None:
+    """Raise ValueError if `filename` is too long for the filesystem to create."""
+    if len(filename.encode()) > FILE_NAME_MAX_BYTES:
+        raise ValueError(
+            f"Filename exceeds the filesystem limit of {FILE_NAME_MAX_BYTES} bytes"
+        )
+
 
 def sanitize_filename(filename: str) -> str:
     """

@@ -1125,3 +1125,15 @@ class TestStateRename:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert state_file.exists()
+
+
+def test_upload_state_over_255_bytes_rejected(client, access_token: str, rom):
+    response = client.post(
+        "/api/states",
+        params={"rom_id": rom.id, "emulator": "retroarch"},
+        files={
+            "stateFile": ("あ" * 86 + ".state", b"state", "application/octet-stream")
+        },
+        headers=_auth(access_token),
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST

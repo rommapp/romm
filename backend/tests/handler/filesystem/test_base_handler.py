@@ -82,6 +82,15 @@ class TestFSHandler:
         assert handler._sanitize_filename("/etc/passwd") == "passwd"
         assert handler._sanitize_filename("dir/../test.txt") == "test.txt"
 
+    def test_sanitize_filename_over_255_bytes(self, handler: FSHandler):
+        """The filesystem caps a name at 255 bytes, well under the column's
+        450 characters, so a multibyte name hits it first."""
+        assert handler._sanitize_filename("あ" * 85) == "あ" * 85
+        with pytest.raises(ValueError, match="255 bytes"):
+            handler._sanitize_filename("あ" * 86)
+        with pytest.raises(ValueError, match="255 bytes"):
+            handler._sanitize_filename("a" * 256)
+
     def test_sanitize_filename_invalid(self, handler: FSHandler):
         """Test filename sanitization with invalid filenames"""
         with pytest.raises(ValueError, match="Empty filename"):

@@ -28,6 +28,7 @@ from models.base import (
 from utils.filesystem import (
     LINK_FALLBACK_ERRNOS,
     SERVED_FILE_MODE,
+    check_filename_length,
     iter_directories,
     iter_files,
     link_or_copy_file,
@@ -397,6 +398,7 @@ class FSHandler:
             raise ValueError(
                 f"Filename {filename} exceeds maximum length of {FILE_NAME_MAX_LENGTH} characters"
             )
+        check_filename_length(filename)
 
         # Ensure we have a valid filename
         if not filename or filename == "." or filename == "..":

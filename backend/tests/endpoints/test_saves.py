@@ -4427,3 +4427,26 @@ class TestSyncBaselineWriteSites:
         assert sync.is_untracked is False
         assert sync.last_sync_hash is None
         assert sync.last_sync_server_hash is None
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {},
+        # 240 bytes fits on its own, but the slot's datetime tag adds 22.
+        {"slot": "Slot 1"},
+    ],
+    ids=["plain", "tagged"],
+)
+def test_upload_save_over_255_bytes_rejected(
+    client, access_token: str, rom: Rom, params
+):
+    name = ("a" * 300 if not params else "a" * 236) + ".srm"
+    response = client.post(
+        "/api/saves",
+        params={"rom_id": rom.id, **params},
+        files={"saveFile": (name, BytesIO(b"save"), "application/octet-stream")},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "255 bytes" in response.json()["detail"]
