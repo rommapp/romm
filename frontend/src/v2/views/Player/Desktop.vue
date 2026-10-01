@@ -10,7 +10,7 @@
 import { RAlert, RBtn, RSpinner } from "@v2/lib";
 import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { isAxiosError } from "axios";
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -236,6 +236,12 @@ useEventListener(window, "pagehide", onPageHide);
 
 onMounted(() => {
   void openDesktop();
+});
+
+// A claim that answered after the leave guard let navigation through, while
+// the next route was still resolving, is still held here.
+onBeforeUnmount(() => {
+  if (holdsClaim.value) void release();
 });
 </script>
 

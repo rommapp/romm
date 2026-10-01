@@ -256,7 +256,7 @@ export function useGamepad() {
     const { setModality } = useInputModality();
     let rafId = 0;
     let everSawPad = false;
-    let chordHeldSince = 0;
+    let chordHeldSince: number | null = null;
     // Cleared only on release, so a chord still held after its dialog is
     // cancelled doesn't reopen it.
     let chordFired = false;
@@ -375,12 +375,12 @@ export function useGamepad() {
 
       // The game's pad gets no B, so a long Select+Start hold is the way out.
       if (!chordHeld) {
-        chordHeldSince = 0;
+        chordHeldSince = null;
         chordFired = false;
       } else if (!gameOwnsInput) {
-        chordHeldSince = 0;
+        chordHeldSince = null;
       } else if (!chordFired) {
-        if (!chordHeldSince) chordHeldSince = t;
+        chordHeldSince ??= t;
         if (t - chordHeldSince >= EXIT_CHORD_HOLD_MS) {
           chordFired = true;
           window.dispatchEvent(new Event("gamepad:exitchord"));

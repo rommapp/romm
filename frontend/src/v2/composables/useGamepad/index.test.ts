@@ -246,12 +246,34 @@ describe("useGamepad", () => {
     it("holds off while an overlay sits over the game", () => {
       const dialog = { close: () => {}, persistent: true };
       pushEscapable(dialog);
-      pads = [padHolding(...CHORD)];
-      stepAt(0);
-      stepAt(EXIT_CHORD_HOLD_MS * 2);
-      popEscapable(dialog);
+      try {
+        pads = [padHolding(...CHORD)];
+        stepAt(0);
+        stepAt(EXIT_CHORD_HOLD_MS * 2);
+      } finally {
+        popEscapable(dialog);
+      }
 
       expect(chords).toBe(0);
+    });
+
+    it("stays fired after its dialog closes while the chord is still held", () => {
+      const dialog = { close: () => {}, persistent: false };
+      pads = [padHolding(...CHORD)];
+      stepAt(0);
+      stepAt(EXIT_CHORD_HOLD_MS);
+      expect(chords).toBe(1);
+
+      pushEscapable(dialog);
+      try {
+        stepAt(EXIT_CHORD_HOLD_MS + 100);
+      } finally {
+        popEscapable(dialog);
+      }
+      stepAt(EXIT_CHORD_HOLD_MS * 3);
+      stepAt(EXIT_CHORD_HOLD_MS * 5);
+
+      expect(chords).toBe(1);
     });
   });
 });

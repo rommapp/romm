@@ -438,4 +438,24 @@ describe("Desktop claims that outlive the view", () => {
 
     expectReleasedOwnClaim();
   });
+
+  it("hands back a claim that answers while the leave is still resolving", async () => {
+    let answer = (_: unknown) => {};
+    mocks.claimDesktop.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    mocks.releaseSession.mockResolvedValue({});
+    const wrapper = await mountDesktop();
+
+    expect(await mocks.routeLeave?.()).toBe(true);
+    answer(CLAIM);
+    await flushPromises();
+    wrapper.unmount();
+    mounted = null;
+    await flushPromises();
+
+    expectReleasedOwnClaim();
+  });
 });
