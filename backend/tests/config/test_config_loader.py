@@ -10,6 +10,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_FILES,
     DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
     DEFAULT_EXCLUDED_PLATFORM_DIRS,
+    EXCLUDE_LIST_PATHS,
     ConfigManager,
     parse_firmware_template,
     parse_platform_templates,
@@ -702,6 +703,32 @@ def critical(mocker):
     """The last message the config manager logged before exiting."""
     spy = mocker.patch("config.config_manager.log.critical")
     return lambda: str(spy.call_args[0][0])
+
+
+def _write_exclude_config(tmp_path: Path, path: str, value: str) -> ConfigManager:
+    """Write `value` at the dotted `path`, nesting one YAML level per segment."""
+    lines = [f"{'  ' * depth}{key}:" for depth, key in enumerate(path.split("."))]
+    lines[-1] += f" {value}"
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("\n".join(lines) + "\n")
+    return ConfigManager(str(config_file))
+
+
+@pytest.mark.parametrize("path", EXCLUDE_LIST_PATHS)
+@pytest.mark.parametrize("value", ["ps2", "5", "{ps2: true}"])
+def test_exclude_list_rejects_a_non_list(tmp_path, critical, path, value):
+    """A bare string would otherwise be split into one exclusion per character."""
+    with pytest.raises(SystemExit) as excinfo:
+        _write_exclude_config(tmp_path, path, value)
+
+    assert excinfo.value.code == 3
+    assert critical() == f"Invalid config.yml: {path} must be a list"
+
+
+def test_empty_exclude_list_keeps_the_defaults(tmp_path):
+    loader = _write_exclude_config(tmp_path, "exclude.platforms", "")
+
+    assert loader.config.EXCLUDED_PLATFORMS == sorted(DEFAULT_EXCLUDED_PLATFORM_DIRS)
 
 
 def _write_filesystem_config(tmp_path: Path, block: str) -> ConfigManager:
