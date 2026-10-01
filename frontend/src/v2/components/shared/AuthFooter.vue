@@ -21,6 +21,10 @@ import VersionTag from "@/v2/components/shared/VersionTag.vue";
 }
 
 .r-v2-auth-footer__version {
+  /* Branch names have no spaces, so allow breaks anywhere to stay on screen. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: end;
   /* Sits directly on the background art with no card behind it, so a soft
      black shadow keeps it legible over the lighter patches. */
   text-shadow: 0 1px 3px color-mix(in srgb, black 70%, transparent);

@@ -24,6 +24,14 @@ import Pair from "@/v2/views/Pair.vue";
   place-items: center;
   padding: var(--r-space-6);
   overflow: hidden;
+
+  /* The background and the Pair card are always dark, so pin text and
+     borders to the always-light overlay tokens for v2-light. */
+  --r-color-fg: var(--r-color-overlay-fg);
+  --r-color-fg-secondary: var(--r-color-overlay-fg-secondary);
+  --r-color-fg-muted: var(--r-color-overlay-fg-muted);
+  --r-color-border: var(--r-color-overlay-border);
+  --r-color-border-strong: var(--r-color-overlay-border-strong);
 }
 
 .r-v2-pair-shell__bg {
@@ -51,7 +59,6 @@ import Pair from "@/v2/views/Pair.vue";
   max-width: 440px;
 }
 
-/* Absolute so it stays out of the grid and the stage keeps its centring. */
 .r-v2-pair-shell__footer {
   position: absolute;
   left: var(--r-space-4);
