@@ -79,12 +79,10 @@ _LOOP_CLIENT_ATTR: Final = "_romm_fake_async_redis"
 
 
 class _PerLoopFakeAsyncRedis:
-    """A fake async client per event loop, all over the one fake server."""
+    """A fake async client per event loop, or per thread outside one, over one fake server."""
 
-    # Tests reach the cache from the TestClient's loop and from their own
-    # asyncio.run loops at once, and a shared pool's asyncio.Lock binds to one.
-    # Outside a loop, as in asyncio.run(async_cache.get(...)), each thread gets
-    # its own client: one thread's loops run one at a time, so never contend.
+    # The TestClient's loop and a test's asyncio.run loop use the cache at once,
+    # and an asyncio.Lock in a pool they share binds to just one of them.
     def __init__(self, server: Any) -> None:
         self._server = server
         self._by_thread = threading.local()
