@@ -101,17 +101,21 @@ describe("GalleryToolbar sort axis", () => {
     wrapper.unmount();
   });
 
-  it("marks the active axis", () => {
+  // The check carries the selection beyond the active colour alone.
+  it("marks the active axis with a check", () => {
     const wrapper = mountWithSortOptions({ sortKey: "fs_size_bytes" });
 
-    const variants = Object.fromEntries(
+    const marks = Object.fromEntries(
       sortItems(wrapper).map((item) => [
         item.props("label"),
-        item.props("variant"),
+        [item.props("variant"), item.props("icon")],
       ]),
     );
 
-    expect(variants).toMatchObject({ Size: "active", Title: "default" });
+    expect(marks).toMatchObject({
+      Size: ["active", "mdi-check"],
+      Title: ["default", undefined],
+    });
     wrapper.unmount();
   });
 

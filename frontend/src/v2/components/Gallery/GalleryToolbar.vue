@@ -351,6 +351,7 @@ const { smAndUp } = useBreakpoint();
             :key="item.key"
             :label="item.label"
             :variant="sortKeyValue === item.key ? 'active' : 'default'"
+            :icon="sortKeyValue === item.key ? 'mdi-check' : undefined"
             @click="setSortKey(item.key)"
           />
         </RMenu>
@@ -423,6 +424,7 @@ const { smAndUp } = useBreakpoint();
             :key="item.key"
             :label="item.label"
             :variant="sortKeyValue === item.key ? 'active' : 'default'"
+            :icon="sortKeyValue === item.key ? 'mdi-check' : undefined"
             @click="setSortKey(item.key)"
           />
           <RDivider v-if="sortKeyItems.length > 0" />
