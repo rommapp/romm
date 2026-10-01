@@ -1840,8 +1840,7 @@ async def update_rom(
         )
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
-    # Rejected before any provider fetch, download or row change: a name the
-    # filesystem refuses would leave the row pointing at a file the move never made.
+    # Rejected before any provider fetch or download, which a refused name would waste.
     try:
         new_fs_name = sanitize_filename(str(form_data.fs_name or rom.fs_name))
         if new_fs_name != rom.fs_name:
@@ -2266,16 +2265,7 @@ async def update_rom(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"
     )
 
-    try:
-        db_rom_handler.update_rom(id, cleaned_data)
-    except IntegrityError as exc:
-        log.error(f"Failed to update ROM {id}: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update ROM {id}: {exc}",
-        ) from exc
-
-    # Rename the file/folder if the name has changed
+    # The file moves first so a failed move leaves the row untouched.
     should_update_fs = new_fs_name != rom.fs_name
     if should_update_fs:
         try:
@@ -2287,10 +2277,29 @@ async def update_rom(
         except RomAlreadyExistsException as exc:
             log.error(exc)
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Can't rename: {new_fs_name} already exists",
+            ) from exc
+        except (OSError, ValueError) as exc:
+            log.error(f"Failed to rename ROM {id} on disk: {exc}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to rename ROM {id} on disk",
             ) from exc
 
-    # Update the rom files with the new fs_name
+    try:
+        db_rom_handler.update_rom(id, cleaned_data)
+    except IntegrityError as exc:
+        log.error(f"Failed to update ROM {id}: {exc}")
+        if should_update_fs:
+            await fs_rom_handler.rename_fs_rom(
+                old_name=new_fs_name, new_name=rom.fs_name, fs_path=rom.fs_path
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update ROM {id}: {exc}",
+        ) from exc
+
     if should_update_fs:
         for file in rom.files:
             db_rom_handler.update_rom_file(
