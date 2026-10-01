@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, timezone
 
 from handler.database import db_sync_session_handler
 from logger.logger import log
-from tasks.tasks import PeriodicTask, TaskType
+from tasks.registry import CLEANUP_SYNC_SESSIONS_SPEC
+from tasks.tasks import PeriodicTask
 
 # Longer than any launch, since nothing else closes a session: one killed, put
 # to sleep or taken off the network would otherwise stay open for good.
@@ -11,17 +12,10 @@ STALE_AFTER_HOURS = 24
 
 class CleanupSyncSessionsTask(PeriodicTask):
     def __init__(self) -> None:
-        super().__init__(
-            title="Scheduled sync session cleanup",
-            description="Fails sync sessions no client ever completed",
-            task_type=TaskType.CLEANUP,
-            enabled=True,
-            manual_run=False,
-            cron_string="23 * * * *",  # Hourly, off the hour
-        )
+        super().__init__(CLEANUP_SYNC_SESSIONS_SPEC)
 
     async def run(self) -> None:
-        if not self.enabled:
+        if not self.spec.enabled:
             return
 
         cutoff = datetime.now(timezone.utc) - timedelta(hours=STALE_AFTER_HOURS)

@@ -88,19 +88,6 @@ export function getRoleIcon(role: string) {
 export const defaultAvatarPath = "/assets/default/user.svg";
 
 /**
- * Normalize a string by converting it to lowercase and removing diacritics.
- *
- * @param s The string to normalize.
- * @returns The normalized string.
- */
-export function normalizeString(s: string) {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-/**
  * Convert a cron expression to a human-readable string.
  *
  * @param expression The cron expression to convert.
@@ -421,8 +408,8 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   amiga: ["puae"],
   "amiga-cd32": ["puae"],
   arcade: [
-    "mame2003",
     "mame2003_plus",
+    "mame2003",
     "fbneo",
     "fbalpha2012_cps1",
     "fbalpha2012_cps2",
@@ -805,7 +792,7 @@ export function getNintendoDSFiles(
   rom: DetailedRom | SimpleRom,
 ): RomFileSchema[] {
   // `files` only ships on DetailedRom. Gallery surfaces pass SimpleRom,
-  // where the inner-file check is impossible — return an empty list so
+  // where the inner-file check is impossible: return an empty list so
   // the caller falls back to the extension check.
   const files = (rom as DetailedRom).files;
   if (!files) return [];
@@ -824,8 +811,8 @@ export function getNintendoDSFiles(
  * Check if a ROM is a valid NDS/3DS/DSi game.
  *
  * Accepts both SimpleRom (gallery cards) and DetailedRom (detail view).
- * With SimpleRom the inner-file check is skipped — only the root
- * extension counts — which is what every gallery surface can ever see.
+ * With SimpleRom the inner-file check is skipped, only the root
+ * extension counts, which is what every gallery surface can ever see.
  */
 export function isNintendoDSRom(rom: DetailedRom | SimpleRom): boolean {
   if (

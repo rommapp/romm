@@ -55,7 +55,7 @@ alembic/          Migrations (env.py + versions/)
 - **Endpoint:** add the route in the right `endpoints/*` router, a response schema in `endpoints/responses/`, enforce scopes, delegate to a handler. If the response shape changes, the frontend must regenerate types (below).
 - **Model / schema change:** edit `models/`, then create a migration (below). Update the matching response schema so OpenAPI stays accurate.
 - **Metadata provider:** add a typed client in `adapters/services/<name>.py` (+ `<name>_types.py`) and a `handler/metadata/<name>_handler.py` that normalizes into the common shape and slots into the priority order.
-- **Background job:** subclass `Task`/`PeriodicTask` in `tasks/scheduled/` or `tasks/manual/`; register scheduled jobs in `startup.py`.
+- **Background job:** declare its `TaskSpec` (title, schedule, queue, timeout, implementation path) in `tasks/registry.py`, then subclass `Task`/`PeriodicTask` in `tasks/scheduled/` or `tasks/manual/` and pass that spec to `super().__init__`. The cron process and the RQ worker parents read only the registry, so keep it free of task code.
 - **Telling a user something happened:** `notify()` / `notify_admins()` in `handler/notification_handler.py`, from a request or a worker. A `NotificationKind` is translated client-side from `data` (add its describer and locale keys); for anything else pass a free-form kind with `title`/`body`/`link`.
 
 ## Database migrations (Alembic)
@@ -99,9 +99,11 @@ npm run generate     # writes src/__generated__/ via openapi-typescript-codegen
 cd backend
 uv run python3 main.py            # run (migrations auto-apply on startup)
 uv run pytest <path/file>         # tests - affected files only, NEVER the whole suite
+uv run pytest -n auto <dir>       # same, in parallel; use for directories, not single files
 ```
 
 - Tests: pytest + pytest-asyncio, isolated per `pytest-xdist` worker (per-worker DBs); `fakeredis`; `pytest-recording` VCR cassettes mock external APIs; Hypothesis for property tests. Mirror the `backend/<area>/` layout under `backend/tests/`. First-time test DB setup: `docker exec -i romm-db-dev mariadb -uroot -p<pw> < backend/romm_test/setup.sql`.
 - **Lint / format run through Trunk** (ruff, black, isort, bandit): `trunk fmt && trunk check`. CI enforces Trunk on every PR. Never bypass with `--no-verify`.
 - **Type-check with mypy**, outside Trunk so it sees the project's packages: `uv run mypy --config-file ../.trunk/configs/mypy.ini .` from `backend/`. CI's `mypy.yml` requires zero errors. The config is `strict = True` minus the flags it lists as not yet clean: every function outside `tests/` needs full annotations, every `# type: ignore` names its error code, and a name is imported from the module that defines it, not one that merely imports it.
+- Persist test rows with the `make_*` factories in `tests/factories.py` (ROMs, saves, states, screenshots, firmware, client tokens), passing only the columns the test cares about. Ruff's `TID251` bans calling the handlers' `add_*` directly in tests.
 - New/changed logic needs a test; new endpoints need endpoint tests.

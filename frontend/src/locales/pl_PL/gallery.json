@@ -1,5 +1,8 @@
 {
   "all-loaded": "Wszystkie gry zostały załadowane",
+  "back-to-top": "Powrót na górę",
+  "column-actions": "Akcje",
+  "column-cover": "Okładka",
   "filters": "Filtry",
   "firmware-files-count": "{count} plików",
   "firmware-selected-count": "{count} wybrano",

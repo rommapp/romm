@@ -1,4 +1,4 @@
-// useSnackbar — typed convenience wrapper around the global `snackbarShow`
+// useSnackbar: typed convenience wrapper around the global `snackbarShow`
 // emitter event. Removes the per-call boilerplate of importing the emitter
 // and constructing a SnackbarStatus payload. The actual rendering still
 // happens in `Notifications/NotificationHost.vue`, which stacks toasts.
@@ -24,7 +24,7 @@ export interface SnackbarOptions {
   timeout?: number;
   /** Override the default icon for the tone. */
   icon?: string;
-  /** Stable id — useful when deduplicating repeated notifications. */
+  /** Stable id: useful when deduplicating repeated notifications. */
   id?: number;
   /** Artwork shown in place of the icon, e.g. the cover of the game it concerns. */
   image?: string | null;

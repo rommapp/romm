@@ -1,17 +1,19 @@
 <script setup lang="ts">
-// Pair — device pairing target. Lands here via a pairing link from a
+// Pair: device pairing target. Lands here via a pairing link from a
 // native client; either displays the code for manual entry or auto-exchanges
 // it and redirects to the client's custom URL scheme.
 //
-// Ported verbatim from src/views/Pair.vue — the token-exchange flow is the
+// Ported verbatim from src/views/Pair.vue: the token-exchange flow is the
 // contract with the client device and must not drift.
 import { RBtn, RIcon } from "@v2/lib";
 import axios from "axios";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
+import { isCustomScheme } from "@/utils/pairCallback";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
+import { errorMessage as apiErrorMessage } from "@/v2/utils/errorMessage";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -24,15 +26,6 @@ const callback = computed(() => (route.query.callback as string) || "");
 
 const status = ref<"idle" | "exchanging" | "error">("idle");
 const errorMessage = ref("");
-
-function isCustomScheme(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol !== "http:" && parsed.protocol !== "https:";
-  } catch {
-    return false;
-  }
-}
 
 async function exchange(pairCode: string): Promise<string> {
   const resp = await axios.post<{ raw_token: string }>(
@@ -63,11 +56,10 @@ onMounted(async () => {
       window.location.href = `${callback.value}${separator}token=${encodeURIComponent(token)}`;
     } catch (err: unknown) {
       status.value = "error";
-      const axiosErr = err as {
-        response?: { data?: { detail?: string } };
-      };
-      errorMessage.value =
-        axiosErr.response?.data?.detail ?? t("settings.pair-exchange-failed");
+      errorMessage.value = apiErrorMessage(
+        err,
+        t("settings.pair-exchange-failed"),
+      );
     }
     return;
   }

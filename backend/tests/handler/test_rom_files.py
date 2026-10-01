@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from tests.factories import make_rom
 
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
@@ -41,13 +42,9 @@ def _folder_rom(
     platform: Platform, admin_user: User, lib: Path, files: dict[str, bytes]
 ) -> Rom:
     """A folder ROM whose rows describe the files on disk, with stored hashes."""
-    rom = Rom(
-        platform_id=platform.id,
-        name=FOLDER,
-        slug=f"{FOLDER}_slug",
-        fs_name=FOLDER,
-        fs_name_no_tags=FOLDER,
-        fs_name_no_ext=FOLDER,
+    rom = make_rom(
+        platform,
+        FOLDER,
         fs_extension="",
         fs_path=f"{platform.fs_slug}/roms",
         fs_size_bytes=sum(len(data) for data in files.values()),
@@ -55,7 +52,6 @@ def _folder_rom(
         md5_hash="stored-md5",
         sha1_hash="stored-sha1",
     )
-    rom = db_rom_handler.add_rom(rom)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     for rel, data in files.items():
         st = _write(lib, f"{rom.fs_path}/{FOLDER}/{rel}", data)

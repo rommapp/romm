@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// RComboboxField — free-text multi-select with chips. Users can type
+// RComboboxField: free-text multi-select with chips. Users can type
 // any value (commit on Enter / blur / comma), remove chips with
 // Backspace at the empty input or by clicking their close button, and
 // pick from an optional `items` autocomplete dropdown of suggestions.
 //
 // Differs from RSelect: there's no enforced item set. `items` is
-// suggestion-only — typed values that don't match are still committed.
+// suggestion-only: typed values that don't match are still committed.
 // Used by surfaces that capture user-defined tags (companies / genres
 // / franchises in the edit-ROM dialog) or curate from a known list
 // without locking the input (game modes, age ratings).
@@ -13,7 +13,7 @@
 // The autocomplete dropdown is rendered with `@floating-ui/vue` so it
 // shares the same positioning vocabulary as RMenu / RSelect / RTooltip.
 //
-// `prefix-label` mirrors RTextField — `"stacked"` puts the label above,
+// `prefix-label` mirrors RTextField: `"stacked"` puts the label above,
 // `"inline"` puts it as a left-side chip on the field. Pass-through
 // `density` / `variant` / `disabled` / `placeholder` styling, plus
 // `closable-chips` (default true) to drop the X button if the consumer
@@ -37,6 +37,7 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { useEscapable } from "@/v2/composables/useEscapable";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTag from "@/v2/lib/primitives/RTag/RTag.vue";
@@ -49,7 +50,7 @@ type Rule = (value: string[]) => true | string;
 interface Props {
   modelValue?: string[];
   /** Optional suggestion list. Typed values that don't match are still
-   *  committed — this is autocomplete, not enforcement. */
+   *  committed: this is autocomplete, not enforcement. */
   items?: string[];
   label?: string;
   placeholder?: string;
@@ -161,7 +162,7 @@ const { floatingStyles } = useFloating(fieldRef, panelRef, {
 function commit(raw: string) {
   const trimmed = raw.trim();
   if (!trimmed) return;
-  // Allow comma-separated paste (`tag1, tag2, tag3`) — split, dedupe
+  // Allow comma-separated paste (`tag1, tag2, tag3`), split, dedupe
   // against the current set, and commit them in one update.
   const parts = trimmed
     .split(",")
@@ -218,7 +219,7 @@ function onFocus() {
 }
 
 function onBlur() {
-  // Commit anything still typed when the user tabs away — match the
+  // Commit anything still typed when the user tabs away, match the
   // expected "leave the field with what you wrote" behaviour.
   if (query.value.trim()) commit(query.value);
   // Defer close so a click on a suggestion isn't swallowed.
@@ -243,7 +244,7 @@ function onKeyDown(e: KeyboardEvent) {
       break;
     }
     case ",": {
-      // Comma also commits — matches the paste-friendly contract.
+      // Comma also commits: matches the paste-friendly contract.
       e.preventDefault();
       commit(query.value);
       break;
@@ -282,7 +283,7 @@ function pickSuggestion(item: string) {
   nextTick(() => inputRef.value?.focus());
 }
 
-// Outside-click closes the panel — mirrors RMenu / RSelect.
+// Outside-click closes the panel: mirrors RMenu / RSelect.
 function onDocPointerDown(evt: PointerEvent) {
   if (!isOpen.value) return;
   const target = evt.target as Node | null;
@@ -298,6 +299,12 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", onDocPointerDown, true);
 });
+
+useEscapable(
+  computed(() => isOpen.value && hasSuggestions.value),
+  closePanel,
+  () => panelRef.value,
+);
 
 // Reset active highlight when the suggestion set changes.
 watch(suggestions, () => {
@@ -317,22 +324,19 @@ const showClear = computed(
 
 // ── Validation (mirrors RSelect) ────────────────────────────────
 const dirty = ref(false);
-const internalErrors = ref<string[]>([]);
-
-function runRules() {
+const internalErrors = computed<string[]>(() => {
+  if (!dirty.value) return [];
   const failed = props.rules
     .map((rule) => rule(props.modelValue))
     .find((result) => result !== true);
-  internalErrors.value = failed ? [failed] : [];
-}
+  return failed ? [failed] : [];
+});
 function validate(): boolean {
   dirty.value = true;
-  runRules();
   return internalErrors.value.length === 0;
 }
 function reset() {
   dirty.value = false;
-  internalErrors.value = [];
 }
 defineExpose({ validate, reset });
 
@@ -342,13 +346,6 @@ useRFormRegistration({
   el: () => inputRef.value,
   validity: () => !hasError.value,
 });
-
-watch(
-  () => props.modelValue,
-  () => {
-    if (dirty.value) runRules();
-  },
-);
 
 const errorList = computed<string[]>(() => [
   ...(Array.isArray(props.errorMessages)
@@ -432,7 +429,7 @@ const showDetails = computed(
         />
       </div>
 
-      <!-- Field-level clearable — wipes the whole chip set at once. The
+      <!-- Field-level clearable: wipes the whole chip set at once. The
            per-chip X (`closableChips`) still removes individual chips;
            this is the "reset the field" affordance that mirrors
            RTextField's clearable. -->
@@ -458,7 +455,7 @@ const showDetails = computed(
           :style="floatingStyles"
           role="listbox"
         >
-          <!-- Listbox items — keyboard activation is handled by the
+          <!-- Listbox items: keyboard activation is handled by the
                input's ArrowDown / Enter wiring, not by per-item key
                handlers. The lint rule expects per-item keydown which
                isn't the listbox pattern. -->
@@ -501,7 +498,7 @@ const showDetails = computed(
 .r-combobox-field {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   width: 100%;
   --r-cf-h: 40px;
   --r-cf-pad-x: 12px;
@@ -537,7 +534,7 @@ const showDetails = computed(
 .r-combobox-field__label--stacked {
   align-self: flex-start;
   padding-inline-start: 2px;
-  margin-bottom: 4px;
+  margin-bottom: var(--r-space-1);
 }
 .r-combobox-field:not(.r-combobox-field--disabled):focus-within
   .r-combobox-field__label--stacked {
@@ -605,7 +602,7 @@ const showDetails = computed(
   border-color: transparent;
 }
 
-/* Hover — neutral fg halo on outlined, brand-tinted fill on filled.
+/* Hover: neutral fg halo on outlined, brand-tinted fill on filled.
    Mirrors RTextField so the two primitives read as siblings. */
 .r-combobox-field--variant-outlined:not(.r-combobox-field--disabled)
   .r-combobox-field__field:hover {
@@ -706,7 +703,7 @@ const showDetails = computed(
   color: var(--r-color-fg-muted);
 }
 
-/* Field-level X — same vocabulary as RTextField's clearable. Sits at
+/* Field-level X: same vocabulary as RTextField's clearable. Sits at
    the right edge of the field, vertically centred on the chip row. */
 .r-combobox-field__clear {
   appearance: none;
@@ -801,7 +798,7 @@ const showDetails = computed(
   color: var(--r-color-fg);
 }
 
-/* Pop motion — same vocabulary as RMenu / RSelect. */
+/* Pop motion: same vocabulary as RMenu / RSelect. */
 .r-combobox-pop-enter-from {
   opacity: 0;
   transform: translateY(-4px) scale(0.98);

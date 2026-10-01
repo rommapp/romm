@@ -11,7 +11,6 @@ from models.audit_event import AuditCategory, AuditEvent, actions_in
 from models.device import Device
 from models.rom import Rom
 from models.user import User
-from utils.database import LIKE_ESCAPE_CHAR, escape_like
 
 from .base_handler import DBBaseHandler, affected_rows
 
@@ -94,11 +93,10 @@ class DBAuditEventsHandler(DBBaseHandler):
         if filters.max_id is not None:
             clauses.append(AuditEvent.id <= filters.max_id)
         if filters.search:
-            like = f"%{escape_like(filters.search.lower())}%"
             clauses.append(
                 or_(
                     *(
-                        func.lower(column).like(like, escape=LIKE_ESCAPE_CHAR)
+                        column.icontains(filters.search, autoescape=True)
                         for column in (
                             AuditEvent.actor_name,
                             AuditEvent.target_name,

@@ -1,5 +1,8 @@
 {
   "all-loaded": "Все игры загружены",
+  "back-to-top": "Наверх",
+  "column-actions": "Действия",
+  "column-cover": "Обложка",
   "filters": "Фильтры",
   "firmware-files-count": "{count} файлов",
   "firmware-selected-count": "{count} выбрано",

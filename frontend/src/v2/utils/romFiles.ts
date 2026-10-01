@@ -1,4 +1,5 @@
 import type { RomFileSchema } from "@/__generated__";
+import { FRONTEND_RESOURCES_PATH } from "@/utils";
 
 export function romFileUrl(fileId: number, fileName: string): string {
   return `/api/roms/${fileId}/files/content/${encodeURIComponent(fileName)}`;
@@ -8,4 +9,12 @@ export function romFileUrl(fileId: number, fileName: string): string {
 // bumps its row without necessarily touching the ROM.
 export function versionedRomFileUrl(file: RomFileSchema): string {
   return `${romFileUrl(file.id, file.file_name)}?v=${encodeURIComponent(file.updated_at)}`;
+}
+
+// Scraped media is keyed on the ROM's timestamp, which a metadata refresh bumps.
+export function versionedResourceUrl(
+  path: string,
+  romUpdatedAt: string,
+): string {
+  return `${FRONTEND_RESOURCES_PATH}/${path}?v=${encodeURIComponent(romUpdatedAt)}`;
 }

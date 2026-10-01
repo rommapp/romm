@@ -39,6 +39,7 @@ from sqlalchemy.orm import (
     validates,
 )
 from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
+from sqlalchemy.sql.elements import ColumnElement
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import (
@@ -49,7 +50,7 @@ from models.base import (
     compute_file_name_parts,
 )
 from utils import valid_youtube_id
-from utils.database import CustomJSON
+from utils.database import CustomJSON, is_non_blank
 
 # Max length of the precomputed natural-sort key column.
 NAME_SORT_KEY_MAX_LENGTH = 500
@@ -59,6 +60,14 @@ FULL_PATH_HASH_LENGTH = 64
 AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
+
+# (metadata column, key) of each provider's alternative titles, in precedence order.
+ALTERNATIVE_NAME_SOURCES = (
+    ("igdb_metadata", "alternative_names"),
+    ("moby_metadata", "alternate_titles"),
+    ("ss_metadata", "alternative_names"),
+)
+
 # Limits on `RomUser.pinned_media`, a list of keys like `file:12` naming the
 # media shown on the user's overview.
 PINNED_MEDIA_MAX_ITEMS = 100
@@ -438,12 +447,9 @@ class RomFileDocMeta(BaseModel):
 
     __tablename__ = "rom_file_doc_meta"
 
-    __table_args__ = (Index("idx_rom_file_doc_meta_rom_id", "rom_id"),)
-
     rom_file_id: Mapped[int] = mapped_column(
         ForeignKey("rom_files.id", ondelete="CASCADE"), primary_key=True
     )
-    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     source: Mapped[DocSource] = mapped_column(
         Enum(DocSource), default=DocSource.UPLOAD, nullable=False
     )
@@ -907,6 +913,15 @@ class Rom(BaseModel):
         server_default=FetchedValue(),
         server_onupdate=FetchedValue(),
     )
+    # STORED generated column over every provider's alternative titles. Only the
+    # gallery search reads it, so loading a ROM leaves it behind.
+    generated_search_aliases: Mapped[str | None] = mapped_column(
+        Text(),
+        nullable=True,
+        server_default=FetchedValue(),
+        server_onupdate=FetchedValue(),
+        deferred=True,
+    )
 
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
@@ -1120,26 +1135,13 @@ class Rom(BaseModel):
 
     @property
     def is_unidentified(self) -> bool:
-        return (
-            not self.igdb_id
-            and not self.moby_id
-            and not self.ss_id
-            and not self.ra_id
-            and not self.launchbox_id
-            and not self.hasheous_id
-            and not self.flashpoint_id
-            and not self.hltb_id
-            and not self.demozoo_id
-            and not self.pouet_id
-            and not self.csdb_id
-            and not self.steam_id
-            and not self.gamelist_id
-            and not self.libretro_id
-        )
+        return not self.is_identified
 
     @property
     def is_identified(self) -> bool:
-        return not self.is_unidentified
+        return any(
+            getattr(self, column.key) for column in METADATA_SOURCE_COLUMNS.values()
+        )
 
     @property
     def has_file_on_disk(self) -> bool:
@@ -1176,12 +1178,11 @@ class Rom(BaseModel):
 
     @property
     def alternative_names(self) -> list[str]:
-        return (
-            (self.igdb_metadata or {}).get("alternative_names", None)
-            or (self.moby_metadata or {}).get("alternate_titles", None)
-            or (self.ss_metadata or {}).get("alternative_names", None)
-            or []
-        )
+        for column, key in ALTERNATIVE_NAME_SOURCES:
+            names: list[str] | None = (getattr(self, column) or {}).get(key)
+            if names:
+                return names
+        return []
 
     @cached_property
     def merged_ra_metadata(self) -> dict[str, Any] | None:
@@ -1292,9 +1293,9 @@ HAS_FILE_ON_DISK_FILTERS: Final[HasFileOnDiskFilters] = {
 
 # Maps a metadata-source slug (matching the MetadataSource enum) to the Rom
 # column holding that source's match id. A populated column means the ROM
-# matched that source. Shared by the stats coverage breakdown and the gallery
-# "metadata provider" filter. Sources without a per-ROM match id (e.g. sgdb
-# covers, playmatch) are intentionally absent.
+# matched that source, and a ROM that matched any of them is identified.
+# Sources without a per-ROM match id (e.g. sgdb covers, playmatch) are
+# intentionally absent.
 METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
     "igdb": Rom.igdb_id,
     "ss": Rom.ss_id,
@@ -1312,6 +1313,13 @@ METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
     "gamelist": Rom.gamelist_id,
     "libretro": Rom.libretro_id,
 }
+
+
+# Query-side twin of `Rom.is_identified`, for the gallery "matched" filter. A
+# garbled manual edit can store a 0 or "" id, which counts as no match.
+ROM_IS_IDENTIFIED: Final[ColumnElement[bool]] = or_(
+    *(is_non_blank(column) for column in METADATA_SOURCE_COLUMNS.values())
+)
 
 # Same slugs mapped to the `roms_facets` mirror columns. The stats coverage
 # breakdown counts these off the narrow mirror instead of scanning `roms`.

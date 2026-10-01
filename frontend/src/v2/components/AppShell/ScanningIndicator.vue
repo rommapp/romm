@@ -85,7 +85,7 @@ const counterLabel = computed(() => {
 
           <!-- Live progress bar pinned to the pill's bottom edge.
                Determinate when totals are known, indeterminate
-               otherwise — both modes keep the bar visually busy. -->
+               otherwise: both modes keep the bar visually busy. -->
           <RProgressLinear
             class="r-scan-indicator__progress"
             :indeterminate="!hasTotal"
@@ -156,7 +156,7 @@ const counterLabel = computed(() => {
   white-space: nowrap;
 }
 
-/* Radar glyph stands in for the label on phones — hidden by default so
+/* Radar glyph stands in for the label on phones: hidden by default so
    the desktop pill keeps its word. */
 .r-scan-indicator__icon {
   display: none;
@@ -178,7 +178,7 @@ html[data-bp~="xs"] .r-scan-indicator__icon {
   bottom: 0;
 }
 
-/* Enter / leave — opacity + slide-in from the right side, matching
+/* Enter / leave: opacity + slide-in from the right side, matching
    the prior implementation so navbar micro-interactions feel related. */
 .r-scan-indicator-enter-active {
   transition:

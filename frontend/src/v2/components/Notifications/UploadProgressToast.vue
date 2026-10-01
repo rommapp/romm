@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// UploadProgressToast — persistent bottom-right panel tracking every
+// UploadProgressToast: persistent bottom-right panel tracking every
 // active upload in the shared `storeUpload`. Shows filename, progress bar
 // + speed + bytes for in-flight files, a check for completed files, and
 // the failure reason for failed files. Collapses to a pill when nothing

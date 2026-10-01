@@ -1,5 +1,8 @@
 {
   "all-loaded": "Minden játék betöltődött",
+  "back-to-top": "Vissza a tetejére",
+  "column-actions": "Műveletek",
+  "column-cover": "Borító",
   "filters": "Szűrők",
   "firmware-files-count": "{count} fájl",
   "firmware-selected-count": "{count} kiválasztva",

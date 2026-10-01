@@ -1,5 +1,8 @@
 {
   "all-loaded": "Tüm oyunlar yüklendi",
+  "back-to-top": "Başa dön",
+  "column-actions": "İşlemler",
+  "column-cover": "Kapak",
   "filters": "Filtreler",
   "firmware-files-count": "{count} dosya",
   "firmware-selected-count": "{count} seçildi",

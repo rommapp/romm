@@ -120,3 +120,22 @@ export function installFullscreenFallback(): () => void {
     }
   };
 }
+
+// Caps the wait so an exit that never settles cannot strand the user.
+const LEAVE_FULLSCREEN_TIMEOUT_MS = 1000;
+
+/**
+ * Exits fullscreen and waits for it, since Safari crashes when a reload or
+ * document replace lands mid-transition (#3726).
+ */
+export async function leaveFullscreen(): Promise<void> {
+  if (!document.fullscreenElement) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    document.exitFullscreen().catch(() => undefined),
+    new Promise((resolve) => {
+      timer = setTimeout(resolve, LEAVE_FULLSCREEN_TIMEOUT_MS);
+    }),
+  ]);
+  clearTimeout(timer);
+}

@@ -34,7 +34,6 @@ const { removeCachedRoms } = useRomSync();
 const roms = ref<SimpleRom[]>([]);
 const romsToDeleteFromFs = ref<number[]>([]);
 const excludeOnDelete = ref(false);
-const platformId = ref<number>(0);
 const deleting = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
@@ -48,7 +47,6 @@ const rowKey = (rom: unknown) => (rom as SimpleRom).id;
 
 const openHandler = (romsToDelete: SimpleRom[]) => {
   roms.value = romsToDelete;
-  platformId.value = romsToDelete[0]?.platform_id ?? 0;
   show.value = true;
 };
 emitter?.on("showDeleteRomDialog", openHandler);
@@ -91,7 +89,7 @@ async function deleteRoms() {
   // request is in flight. Acting on the snapshot keeps the response tied
   // to the ROMs it actually processed.
   const targetRoms = roms.value;
-  const targetPlatformId = platformId.value;
+  const targetPlatformId = targetRoms[0]?.platform_id ?? 0;
   const deleteFromFs = romsToDeleteFromFs.value;
   const exclude = excludeOnDelete.value;
 

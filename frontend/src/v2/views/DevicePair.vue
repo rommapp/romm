@@ -2,8 +2,8 @@
 /**
  * Device authorization approval target (RFC 8628 style). A signed-in user
  * lands here from a pairing link (`/pair/device?user_code=…`), reviews the
- * requesting device, then approves it — granting a scoped, device-bound
- * client token — or denies the request.
+ * requesting device, then approves it, granting a scoped, device-bound
+ * client token, or denies the request.
  *
  * v2-only: rendered inside {@link DevicePairShell}, which owns the
  * AuthLayout-style chrome and the `.r-v2` token scope.

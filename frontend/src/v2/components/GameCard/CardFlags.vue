@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CardFlags — region / language emoji chips over the cover's bottom-left
+// CardFlags: region / language emoji chips over the cover's bottom-left
 // corner, the v2 counterpart of v1's cover flags. Visibility is driven by
 // the showRegions / showLanguages UI settings; each chip caps at three
 // emoji and carries the full list in its hover title. Purely informational:

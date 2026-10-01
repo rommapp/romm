@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Any
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, computed_field
 
 from models.collection import Collection, SmartCollection
 
@@ -12,7 +12,6 @@ class BaseCollectionSchema(BaseModel):
     name: str
     description: str
     rom_ids: set[int]
-    rom_count: int
     path_cover_small: str | None
     path_cover_large: str | None
     path_covers_small: list[str]
@@ -23,6 +22,12 @@ class BaseCollectionSchema(BaseModel):
     is_smart: bool = False
     created_at: UTCDatetime
     updated_at: UTCDatetime
+
+    # Derived from `rom_ids` so it stays right after hidden roms are dropped.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def rom_count(self) -> int:
+        return len(self.rom_ids)
 
 
 class CollectionSchema(BaseCollectionSchema):

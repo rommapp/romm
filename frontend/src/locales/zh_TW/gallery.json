@@ -1,5 +1,8 @@
 {
   "all-loaded": "所有遊戲已載入",
+  "back-to-top": "回到頂端",
+  "column-actions": "操作",
+  "column-cover": "封面",
   "filters": "篩選器",
   "firmware-files-count": "{count} 個檔案",
   "firmware-selected-count": "已選擇 {count} 個",

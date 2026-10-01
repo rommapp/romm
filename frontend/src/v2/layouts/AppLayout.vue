@@ -123,15 +123,21 @@ watch(
 // notice. Re-asked when the window comes back, which is when whatever did the
 // installing has just been in front. Throttled because alt-tabbing is cheap
 // and the shell answers this off the filesystem; a no-op outside the shell.
+// No trailing call: a refocus inside the window would queue a second forced
+// probe of every platform.
 const NATIVE_REPROBE_THROTTLE_MS = 10_000;
 useEventListener(
   window,
   "focus",
-  useThrottleFn(() => {
-    const slugs = platformsStore.allPlatforms.map((p) => p.slug);
-    if (slugs.length === 0) return;
-    void nativeStore.probe(slugs, { force: true });
-  }, NATIVE_REPROBE_THROTTLE_MS),
+  useThrottleFn(
+    () => {
+      const slugs = platformsStore.allPlatforms.map((p) => p.slug);
+      if (slugs.length === 0) return;
+      void nativeStore.probe(slugs, { force: true });
+    },
+    NATIVE_REPROBE_THROTTLE_MS,
+    false,
+  ),
 );
 
 // Developer debug overlay: opt-in via Settings → Developer (per-device).

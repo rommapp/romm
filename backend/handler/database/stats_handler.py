@@ -3,14 +3,20 @@ from __future__ import annotations
 from collections.abc import Collection
 from typing import Any
 
-from sqlalchemy import distinct, func, select
+from sqlalchemy import case, distinct, func, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.sql.selectable import Select
 
 from decorators.database import INJECTED_SESSION, begin_session
 from endpoints.responses.stats import MetadataCoverageItem, RegionBreakdownItem
 from models.assets import Save, Screenshot, State
-from models.rom import METADATA_SOURCE_FACET_COLUMNS, Rom, RomFacets, RomFile
+from models.rom import (
+    METADATA_SOURCE_FACET_COLUMNS,
+    Rom,
+    RomFacets,
+    RomFile,
+)
+from utils.database import is_non_blank
 
 from .base_handler import DBBaseHandler
 
@@ -102,23 +108,6 @@ class DBStatsHandler(DBBaseHandler):
         return session.scalar(query) or 0
 
     @begin_session
-    def get_platform_filesize(
-        self,
-        platform_id: int,
-        session: Session = INJECTED_SESSION,
-    ) -> int:
-        """Get the total filesize of all roms in the database, in bytes."""
-        return (
-            session.scalar(
-                select(func.sum(RomFile.file_size_bytes))
-                .select_from(RomFile)
-                .join(Rom)
-                .filter(Rom.platform_id == platform_id)
-            )
-            or 0
-        )
-
-    @begin_session
     def get_metadata_coverage_by_platform(
         self,
         hidden_platform_ids: Collection[int] | None = None,
@@ -135,7 +124,7 @@ class DBStatsHandler(DBBaseHandler):
                 select(
                     RomFacets.platform_id,
                     *(
-                        func.count(col).label(key)
+                        func.count(case((is_non_blank(col), 1))).label(key)
                         for key, col in METADATA_SOURCE_FACET_COLUMNS.items()
                     ),
                 ).select_from(RomFacets),

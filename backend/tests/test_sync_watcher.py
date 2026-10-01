@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from tests._zipfile_shim import reload_zipfile
+from tests.factories import make_save
 
 from handler.database import (
     db_deleted_asset_handler,
@@ -181,20 +182,15 @@ class TestProcessIncomingFileFilenameOnlyMatching:
         """
         from sync_watcher import _process_incoming_file
 
-        archival = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="collision.sav",
-                file_name_no_tags="collision",
-                file_name_no_ext="collision",
-                file_extension="sav",
-                emulator="test_emulator",
-                slot=None,
-                file_path=f"{platform.slug}/saves/test_emulator",
-                file_size_bytes=12345,
-                content_hash="archival_pinned_hash",
-            )
+        archival = make_save(
+            rom,
+            admin_user,
+            "collision.sav",
+            emulator="test_emulator",
+            slot=None,
+            file_path=f"{platform.slug}/saves/test_emulator",
+            file_size_bytes=12345,
+            content_hash="archival_pinned_hash",
         )
 
         # Force a server-side overwrite path if the bug picks the archival.
@@ -236,35 +232,25 @@ class TestProcessIncomingFileFilenameOnlyMatching:
         from sync_watcher import _process_incoming_file
 
         # Insert archival FIRST so unfiltered iteration order favours it.
-        archival = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="collision.sav",
-                file_name_no_tags="collision",
-                file_name_no_ext="collision",
-                file_extension="sav",
-                emulator="test_emulator",
-                slot=None,
-                file_path=f"{platform.slug}/saves/test_emulator",
-                file_size_bytes=12345,
-                content_hash="archival_pinned_hash",
-            )
+        archival = make_save(
+            rom,
+            admin_user,
+            "collision.sav",
+            emulator="test_emulator",
+            slot=None,
+            file_path=f"{platform.slug}/saves/test_emulator",
+            file_size_bytes=12345,
+            content_hash="archival_pinned_hash",
         )
-        slotted = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="collision.sav",
-                file_name_no_tags="collision",
-                file_name_no_ext="collision",
-                file_extension="sav",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=f"{platform.slug}/saves/test_emulator",
-                file_size_bytes=99,
-                content_hash="slotted_old_hash",
-            )
+        slotted = make_save(
+            rom,
+            admin_user,
+            "collision.sav",
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=f"{platform.slug}/saves/test_emulator",
+            file_size_bytes=99,
+            content_hash="slotted_old_hash",
         )
 
         with (
@@ -306,20 +292,15 @@ class TestProcessIncomingFileFilenameOnlyMatching:
     ):
         from sync_watcher import _process_incoming_file
 
-        db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="collision.sav",
-                file_name_no_tags="collision",
-                file_name_no_ext="collision",
-                file_extension="sav",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=f"{platform.slug}/saves/test_emulator",
-                file_size_bytes=99,
-                content_hash="current",
-            )
+        make_save(
+            rom,
+            admin_user,
+            "collision.sav",
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=f"{platform.slug}/saves/test_emulator",
+            file_size_bytes=99,
+            content_hash="current",
         )
         db_deleted_asset_handler.record_deletion(
             admin_user.id, rom.id, "autosave", "removed_here"
@@ -387,21 +368,16 @@ class TestProcessIncomingFileBaseline:
         content_hash: str,
         updated_at: datetime | None = None,
     ) -> Save:
-        return db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="baseline.sav",
-                file_name_no_tags="baseline",
-                file_name_no_ext="baseline",
-                file_extension="sav",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=f"{platform.slug}/saves/test_emulator",
-                file_size_bytes=100,
-                content_hash=content_hash,
-                updated_at=updated_at or datetime(2026, 1, 1, tzinfo=timezone.utc),
-            )
+        return make_save(
+            rom,
+            admin_user,
+            "baseline.sav",
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=f"{platform.slug}/saves/test_emulator",
+            file_size_bytes=100,
+            content_hash=content_hash,
+            updated_at=updated_at or datetime(2026, 1, 1, tzinfo=timezone.utc),
         )
 
     def test_comparison_receives_the_recorded_baseline(

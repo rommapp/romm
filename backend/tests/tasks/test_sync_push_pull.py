@@ -1,9 +1,11 @@
 """Tests for SyncPushPullTask initialization and configuration."""
 
+from dataclasses import replace
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from tests.factories import make_save
 
 from handler.database import (
     db_deleted_asset_handler,
@@ -17,6 +19,7 @@ from models.device import Device, SyncMode
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from tasks.registry import SYNC_PUSH_PULL_SPEC
 from tasks.sync_push_pull_task import (
     SyncPushPullTask,
     _process_remote_save,
@@ -32,9 +35,9 @@ class TestSyncPushPullTaskInit:
         return SyncPushPullTask()
 
     def test_init(self, task: SyncPushPullTask):
-        assert task.title == "Push-Pull Sync"
-        assert task.description == "Sync saves with devices via SSH/SFTP"
-        assert task.task_type == TaskType.SYNC
+        assert task.spec.title == "Push-Pull Sync"
+        assert task.spec.description == "Sync saves with devices via SSH/SFTP"
+        assert task.spec.task_type == TaskType.SYNC
 
     def test_is_periodic_task(self, task: SyncPushPullTask):
         assert isinstance(task, PeriodicTask)
@@ -44,18 +47,24 @@ class TestSyncPushPullTaskInit:
         assert isinstance(sync_push_pull_task, SyncPushPullTask)
 
     def test_cron_string_set(self, task: SyncPushPullTask):
-        assert task.cron_string is not None
+        assert task.spec.cron_string is not None
 
 
 class TestRunPushPullSync:
-    @patch("tasks.sync_push_pull_task.ENABLE_SYNC_PUSH_PULL", False)
+    @patch(
+        "tasks.sync_push_pull_task.SYNC_PUSH_PULL_SPEC",
+        replace(SYNC_PUSH_PULL_SPEC, enabled=False),
+    )
     async def test_run_disabled_returns_disabled(self):
         from tasks.sync_push_pull_task import run_push_pull_sync
 
         result = await run_push_pull_sync()
         assert result["status"] == "disabled"
 
-    @patch("tasks.sync_push_pull_task.ENABLE_SYNC_PUSH_PULL", True)
+    @patch(
+        "tasks.sync_push_pull_task.SYNC_PUSH_PULL_SPEC",
+        replace(SYNC_PUSH_PULL_SPEC, enabled=True),
+    )
     @patch("tasks.sync_push_pull_task.db_device_handler")
     async def test_run_no_devices(self, mock_device_handler):
         from tasks.sync_push_pull_task import run_push_pull_sync
@@ -65,7 +74,10 @@ class TestRunPushPullSync:
         result = await run_push_pull_sync()
         assert result["status"] == "no_devices"
 
-    @patch("tasks.sync_push_pull_task.ENABLE_SYNC_PUSH_PULL", True)
+    @patch(
+        "tasks.sync_push_pull_task.SYNC_PUSH_PULL_SPEC",
+        replace(SYNC_PUSH_PULL_SPEC, enabled=True),
+    )
     @patch("tasks.sync_push_pull_task.db_device_handler")
     async def test_run_device_not_found(self, mock_device_handler):
         from tasks.sync_push_pull_task import run_push_pull_sync
@@ -76,7 +88,10 @@ class TestRunPushPullSync:
         assert result["status"] == "error"
         assert "not found" in result["message"]
 
-    @patch("tasks.sync_push_pull_task.ENABLE_SYNC_PUSH_PULL", False)
+    @patch(
+        "tasks.sync_push_pull_task.SYNC_PUSH_PULL_SPEC",
+        replace(SYNC_PUSH_PULL_SPEC, enabled=False),
+    )
     async def test_run_force_override(self):
         from tasks.sync_push_pull_task import run_push_pull_sync
 
@@ -161,20 +176,15 @@ class TestNullSlotLeakInProcessRemoteSave:
         # Create an additional archival (null-slot) save with the same filename
         # as the slotted `save` fixture (test_save.sav). Insert it FIRST so the
         # unfiltered iteration order favours it under the current bug.
-        archival = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=save.file_name,
-                file_name_no_tags=save.file_name_no_tags,
-                file_name_no_ext=save.file_name_no_ext,
-                file_extension=save.file_extension,
-                emulator=save.emulator,
-                slot=None,
-                file_path=save.file_path,
-                file_size_bytes=42,
-                content_hash="archival_hash_unique",
-            )
+        archival = make_save(
+            rom,
+            admin_user,
+            save.file_name,
+            emulator=save.emulator,
+            slot=None,
+            file_path=save.file_path,
+            file_size_bytes=42,
+            content_hash="archival_hash_unique",
         )
 
         remote_save = RemoteSaveInfo(
@@ -386,20 +396,15 @@ class TestBaselineInProcessRemoteSave:
     def _save(
         admin_user: User, rom: Rom, platform: Platform, content_hash: str
     ) -> Save:
-        return db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="pp_baseline.sav",
-                file_name_no_tags="pp_baseline",
-                file_name_no_ext="pp_baseline",
-                file_extension="sav",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=f"{platform.slug}/saves/test_emulator",
-                file_size_bytes=100,
-                content_hash=content_hash,
-            )
+        return make_save(
+            rom,
+            admin_user,
+            "pp_baseline.sav",
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=f"{platform.slug}/saves/test_emulator",
+            file_size_bytes=100,
+            content_hash=content_hash,
         )
 
     @staticmethod

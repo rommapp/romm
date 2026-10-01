@@ -1,7 +1,12 @@
+import asyncio
 import os
 import sys
+import threading
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from enum import Enum
-from typing import Any, Final
+from typing import Any, Final, cast
+from uuid import uuid4
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
@@ -42,6 +47,7 @@ ALL_QUEUES: Final = (
     default_queue,
     low_prio_queue,
 )
+QUEUES_BY_NAME: Final = {queue.name: queue for queue in ALL_QUEUES}
 
 
 def __get_fake_server() -> Any:
@@ -70,11 +76,46 @@ def __get_sync_cache() -> Redis:
     return client
 
 
-def __get_async_cache() -> AsyncRedis:
-    if IS_PYTEST_RUN:
+_LOOP_CLIENT_ATTR: Final = "_romm_fake_async_redis"
+
+
+class _PerLoopFakeAsyncRedis:
+    """A fake async client per event loop, or per thread outside one, over one fake server."""
+
+    # The TestClient's loop and a test's asyncio.run loop use the cache at once,
+    # and an asyncio.Lock in a pool they share binds to just one of them.
+    def __init__(self, server: Any) -> None:
+        self._server = server
+        self._by_thread = threading.local()
+
+    def _new_client(self) -> Any:
         from fakeredis import FakeAsyncRedis
 
-        return FakeAsyncRedis(server=_fake_server)
+        return FakeAsyncRedis(server=self._server)
+
+    def _client(self) -> Any:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            client = getattr(self._by_thread, "client", None)
+            if client is None:
+                client = self._by_thread.client = self._new_client()
+            return client
+        # Held on the loop, not in a map keyed by it: the client's asyncio
+        # objects reference the loop, so such a map would never let one go.
+        client = getattr(loop, _LOOP_CLIENT_ATTR, None)
+        if client is None:
+            client = self._new_client()
+            setattr(loop, _LOOP_CLIENT_ATTR, client)
+        return client
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._client(), name)
+
+
+def __get_async_cache() -> AsyncRedis:
+    if IS_PYTEST_RUN:
+        return cast(AsyncRedis, _PerLoopFakeAsyncRedis(_fake_server))
 
     # A separate client that auto-decodes responses is needed
     client = AsyncRedis.from_url(REDIS_URL, decode_responses=True)
@@ -99,6 +140,31 @@ def __get_async_binary_cache() -> AsyncRedis:
 
 
 async_binary_cache = __get_async_binary_cache()
+
+
+@asynccontextmanager
+async def redis_lock(
+    key: str, *, timeout_seconds: int, poll_seconds: float = 0.1
+) -> AsyncIterator[None]:
+    """Hold `key` as a mutex across gunicorn workers, via SET NX (no Lua needed).
+
+    Raises:
+        TimeoutError: The key stayed held for `timeout_seconds`.
+    """
+    token = uuid4().hex
+    for _ in range(int(timeout_seconds / poll_seconds)):
+        if await async_cache.set(key, token, nx=True, ex=timeout_seconds):
+            break
+        await asyncio.sleep(poll_seconds)
+    else:
+        raise TimeoutError(f"Timed out waiting for lock {key}")
+    try:
+        yield
+    finally:
+        # Only the owner releases; an expired lock may belong to someone else.
+        held = await async_cache.get(key)
+        if held in (token, token.encode()):
+            await async_cache.delete(key)
 
 
 def as_text(value: bytes | str) -> str:

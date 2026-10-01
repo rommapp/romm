@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// v2 EmulatorJSCacheDialog — confirmation for clearing the EJS IndexedDB
+// v2 EmulatorJSCacheDialog: confirmation for clearing the EJS IndexedDB
 // caches (saves / roms / core / states). Emitter-driven.
 import { RBtn, RDialog, RIcon } from "@v2/lib";
 import type { Emitter } from "mitt";

@@ -165,7 +165,10 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   }),
 }));
 
-vi.mock("@/v2/composables/useStageActive", () => ({ useStageActive: vi.fn() }));
+vi.mock("@/v2/composables/useStageActive", () => ({
+  useStageActive: vi.fn(),
+  usePlayingWhile: vi.fn(),
+}));
 
 vi.mock("@/v2/composables/useUnloadGuard", () => ({ useUnloadGuard: vi.fn() }));
 

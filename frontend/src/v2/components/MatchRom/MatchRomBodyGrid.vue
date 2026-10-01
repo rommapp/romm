@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// Grid view — gallery-style layout.
+// Grid view: gallery-style layout.
 //
 // Grid of result cards stays visible at all times. Clicking a card
 // lifts it, blurs the rest of the grid and overlays a focused panel
 // over the body with cover-source picker + rename + confirm. Click
 // the backdrop or press Esc to close.
 import { RBtn, REmptyState, RIcon, RProgressCircular } from "@v2/lib";
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SearchRom, SimpleRom } from "@/stores/roms";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
@@ -18,11 +18,7 @@ import {
   matchKey,
   type MatchedSource,
 } from "@/v2/components/MatchRom/types";
-import {
-  type EscapableEntry,
-  popEscapable,
-  pushEscapable,
-} from "@/v2/lib/overlays/RDialog/escapeStack";
+import { useEscapable } from "@/v2/composables/useEscapable";
 
 defineOptions({ inheritAttrs: false });
 
@@ -51,7 +47,7 @@ const activeSources = computed<MatchedSource[]>(() =>
   activeMatch.value ? getMatchSources(activeMatch.value) : [],
 );
 
-// Confirm gate — `selectedSource` is required only when the picked
+// Confirm gate: `selectedSource` is required only when the picked
 // match actually has covers to choose from. Match results that ship
 // without any provider cover (e.g. IGDB metadata-only entries) would
 // otherwise leave the button permanently disabled.
@@ -84,19 +80,14 @@ function confirm() {
 }
 
 // When the focus overlay is open it registers on the shared escape
-// stack — pressing Esc dismisses just the overlay, leaving the parent
+// stack: pressing Esc dismisses just the overlay, leaving the parent
 // RDialog open (the user can press Esc again to close that). Without
 // the stack, the dialog's own global Esc listener would fire first
 // and close everything at once.
-const overlayEscEntry: EscapableEntry = {
-  close: () => close(),
-  persistent: false,
-};
-watch(activeKey, (value) => {
-  if (value !== null) pushEscapable(overlayEscEntry);
-  else popEscapable(overlayEscEntry);
-});
-onBeforeUnmount(() => popEscapable(overlayEscEntry));
+useEscapable(
+  computed(() => activeKey.value !== null),
+  () => close(),
+);
 
 watch(
   () => props.results,
@@ -133,7 +124,7 @@ watch(
       <!-- Wrapper carries the stagger animation. We can't paint it
            directly on GameCard because its root is a dynamic
            `<component :is>` and the scoped `data-v` hash doesn't
-           always reach the inner element — the animation rule never
+           always reach the inner element: the animation rule never
            matches. A plain <div> in this template's own scope
            sidesteps that and acts as the grid cell, while GameCard
            sits inside at its natural width. -->
@@ -273,7 +264,7 @@ watch(
 }
 
 .match-grid__grid {
-  /* Grid is the scroller — body itself doesn't scroll, so the overlay
+  /* Grid is the scroller: body itself doesn't scroll, so the overlay
      (absolute, anchored to the variant root) stays put while the user
      scrolls cards behind it. Padding gives GameCard's hover scale +
      brand outline room before the scroll container clips it. */
@@ -285,7 +276,7 @@ watch(
   scrollbar-color: var(--r-color-border-strong) transparent;
   padding: 10px 8px 6px;
   /* Flow-pack of natural-width cards (like the gallery) rather than a rigid
-     uniform-width grid — each GameCard renders at its cover's true aspect, so
+     uniform-width grid: each GameCard renders at its cover's true aspect, so
      a wide cover would spill out of a fixed grid cell. */
   display: flex;
   flex-wrap: wrap;
@@ -315,7 +306,7 @@ watch(
      to the container so it scales down to fit instead. */
   max-width: 100%;
   min-width: 0;
-  /* Stagger entrance — same vocabulary the cover-source picker uses,
+  /* Stagger entrance: same vocabulary the cover-source picker uses,
      so opening the dialog and selecting a match share a consistent
      "cascading reveal" feel. `--i` is the card's index, set inline. */
   animation: match-grid-card-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1)
@@ -344,7 +335,7 @@ watch(
   transition: opacity 220ms ease;
 }
 .match-grid__card--active {
-  /* The active card stays unblurred under the panel — useful as the
+  /* The active card stays unblurred under the panel: useful as the
      spatial anchor. We bump its z-index above the dim layer and let
      the overlay overlay above it carry the conversation. */
   position: relative;
@@ -495,7 +486,7 @@ watch(
 
 .match-grid__source-img {
   display: block;
-  /* Fixed height, natural width — the tile takes the cover's true aspect,
+  /* Fixed height, natural width: the tile takes the cover's true aspect,
      never cropped (matches the gallery cards). `max-width` caps the rare
      ultra-wide cover to the tile so it letterboxes instead of overflowing
      and getting clipped by the panel. */
@@ -564,7 +555,7 @@ watch(
   justify-content: flex-end;
 }
 
-/* Overlay enter/leave — scrim fades, panel scales + lifts. */
+/* Overlay enter/leave: scrim fades, panel scales + lifts. */
 .match-grid-enter-active,
 .match-grid-leave-active {
   transition:

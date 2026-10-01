@@ -39,7 +39,7 @@ describe("createBodyScrollLock", () => {
     expect(overlayCount()).toBe(2);
     expect(document.body.style.overflow).toBe("hidden");
 
-    // Close the first-opened overlay first — the body must STAY locked.
+    // Close the first-opened overlay first: the body must STAY locked.
     dialog.unlock();
     expect(overlayCount()).toBe(1);
     expect(document.body.style.overflow).toBe("hidden");

@@ -89,7 +89,7 @@
   "provider-steam-desc": "Metadane i grafiki ze sklepu dla gier PC na Steamie.",
   "provider-steam-setup": "Ustaw STEAM_API_ENABLED=true.",
   "proxy-hasheous-caveat": "Usługa hostowana przez społeczność. Wymaga hashy plików. Włącz obliczanie hashy w konfiguracji (domyślnie włączone).",
-  "proxy-hasheous-desc": "Dopasowywacz oparty na hashach, który stanowi proxy dla danych IGDB i dostarcza ID-y RetroAchievements.",
+  "proxy-hasheous-desc": "Dopasowywacz oparty na hashach, który stanowi proxy dla danych IGDB.",
   "proxy-hasheous-setup": "Ustaw HASHEOUS_API_ENABLED=true.",
   "proxy-playmatch-caveat": "Usługa hostowana przez społeczność.",
   "proxy-playmatch-desc": "Dopasowywacz oparty na hashach sparowany z IGDB.",

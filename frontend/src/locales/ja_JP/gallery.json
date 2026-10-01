@@ -1,5 +1,8 @@
 {
   "all-loaded": "すべてのゲームが読み込まれました",
+  "back-to-top": "トップへ戻る",
+  "column-actions": "操作",
+  "column-cover": "カバー",
   "filters": "フィルタ",
   "firmware-files-count": "{count}件のファイル",
   "firmware-selected-count": "{count}件選択中",

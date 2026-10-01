@@ -7,7 +7,7 @@
 //
 // Visibility: bound to `gallerySelection.enabled`. Slides up from
 // `bottom: 0` when the first ROM is selected and slides back down
-// when the count drops to zero; the panel stays mounted so its
+// when the count drops to zero, the panel stays mounted so its
 // buttons keep their ripple state cleanly between cycles.
 //
 // Actions wire-up:
@@ -161,10 +161,9 @@ async function bulkFavorite() {
       ? await collectionApi.removeRomsFromCollection(fav.id, ids)
       : await collectionApi.addRomsToCollection(fav.id, ids);
     collectionsStore.updateCollection(data);
-    collectionsStore.setFavoriteCollection(data);
     if (wasAllFavorited && galleryRomsStore.currentCollection?.id === fav.id) {
       // We were on the favourites collection view and just removed
-      // every selected rom from it; drop them from the visible
+      // every selected rom from it, drop them from the visible
       // roms so the UI reflects the new membership immediately.
       removeCachedRoms(roms);
     }
@@ -368,7 +367,7 @@ function clear() {
     ref="barEl"
     class="selection-bar"
     :class="{ 'selection-bar--visible': selection.enabled }"
-    :aria-hidden="!selection.enabled"
+    :inert="!selection.enabled"
   >
     <!-- One stroke around bar, hill and fillets, since three boxes cannot
          share a border without seams where their edges meet. -->

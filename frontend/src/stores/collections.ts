@@ -29,13 +29,20 @@ export default defineStore("collections", {
     virtualCollectionType: null as string | null,
     virtualCollectionsStale: false as boolean,
     smartCollections: [] as SmartCollection[],
-    favoriteCollection: undefined as Collection | undefined,
     filterText: "" as string,
     fetchingCollections: false as boolean,
     fetchingSmartCollections: false as boolean,
     fetchingVirtualCollections: false as boolean,
   }),
   getters: {
+    // Another user's public favorites collection is in this list too,
+    // and writing to it is a 403, so ours is the only valid target.
+    favoriteCollection: ({ allCollections }): Collection | undefined => {
+      const authStore = storeAuth();
+      return allCollections.find(
+        (c) => c.is_favorite && c.user_id === authStore.user?.id,
+      );
+    },
     filteredCollections: ({ allCollections, filterText }) =>
       allCollections.filter((p) =>
         p.name.toLowerCase().includes(filterText.toLowerCase()),
@@ -82,15 +89,6 @@ export default defineStore("collections", {
           .getCollections()
           .then(({ data: collections }) => {
             this.allCollections = collections;
-
-            // Another user's public favorites collection is in this list too,
-            // and writing to it is a 403, so ours is the only valid target.
-            const authStore = storeAuth();
-            const fav = collections.find(
-              (c) => c.is_favorite && c.user_id === authStore.user?.id,
-            );
-            this.favoriteCollection = fav;
-
             resolve(collections);
           })
           .catch((error) => {
@@ -172,9 +170,6 @@ export default defineStore("collections", {
       } catch (error) {
         if (isGone(error)) {
           this.allCollections = this.allCollections.filter((c) => c.id !== id);
-          if (this.favoriteCollection?.id === id) {
-            this.favoriteCollection = undefined;
-          }
         } else {
           console.error(error);
         }
@@ -215,8 +210,21 @@ export default defineStore("collections", {
         return null;
       }
     },
+    /** @deprecated `favoriteCollection` is derived from `allCollections`;
+     * write the list through `addCollection`/`updateCollection` instead. */
     setFavoriteCollection(favoriteCollection: Collection | undefined) {
-      this.favoriteCollection = favoriteCollection;
+      if (favoriteCollection) {
+        if (this.getCollection(favoriteCollection.id)) {
+          this.updateCollection(favoriteCollection);
+        } else {
+          this.addCollection(favoriteCollection);
+        }
+      } else {
+        const favoriteId = this.favoriteCollection?.id;
+        this.allCollections = this.allCollections.filter(
+          (c) => c.id !== favoriteId,
+        );
+      }
     },
     setCollections(collections: Collection[]) {
       this.allCollections = collections;
@@ -308,7 +316,6 @@ export default defineStore("collections", {
       this.virtualCollectionType = null;
       this.virtualCollectionsStale = false;
       this.smartCollections = [];
-      this.favoriteCollection = undefined;
       this.filterText = "";
     },
   },

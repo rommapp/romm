@@ -4,17 +4,17 @@
 // panels like the grid-view focus inside MatchRomBodyGrid) pushes
 // itself here while open. A single window capture-phase listener
 // consults the top of the stack so Esc always closes the most recent
-// context first — outer surfaces stay open until inner ones are
+// context first: outer surfaces stay open until inner ones are
 // dismissed.
 //
 // Per-instance `@keydown` on the panel only fires when the event
-// happens to bubble to it — which fails whenever a child stops
+// happens to bubble to it, which fails whenever a child stops
 // propagation, or whenever focus lives outside the panel (a teleported
 // listbox, the body itself). A single capture-phase listener on
 // `window` sidesteps both.
 //
 // The stack also doubles as the "is any v2 overlay currently open?"
-// registry — `useGamepad`'s B/back action calls `hasOpenEscapable()`
+// registry: `useGamepad`'s B/back action calls `hasOpenEscapable()`
 // to decide between "close the top overlay" and "router.back()", so
 // gamepad dismiss and Esc share the same source of truth.
 //
@@ -25,7 +25,7 @@ export interface EscapableEntry {
   close: () => void;
   /** When true, this entry stays at the top of the stack but Esc
    *  becomes a no-op for it. Outer entries do not get a chance to
-   *  respond either — a persistent layer effectively swallows Esc. */
+   *  respond either: a persistent layer effectively swallows Esc. */
   persistent: boolean;
   /** The surface this entry paints, when it owns one. Read lazily: the
    *  entry outlives the panel, which mounts only while open. */
@@ -74,6 +74,11 @@ export function onEscapableOpen(listener: () => void): () => void {
   return () => openListeners.delete(listener);
 }
 
+/** The topmost overlay's panel; null when none is open or it has no panel. */
+export function topEscapablePanel(): HTMLElement | null {
+  return stack[stack.length - 1]?.panel?.() ?? null;
+}
+
 /** True when `el` is covered by the topmost overlay rather than living
  *  inside it. A panel-less entry has no opinion and covers nothing. */
 export function isUnderOpenEscapable(el: Node | null): boolean {
@@ -96,7 +101,7 @@ export function isInsideEscapableAbove(
 }
 
 /** True when at least one non-persistent escapable overlay is open.
- *  Persistent layers still count as "open" — they block back-style
+ *  Persistent layers still count as "open": they block back-style
  *  dismiss the same way Esc is a no-op for them, so the user gets
  *  consistent behaviour across both keys. */
 export function hasOpenEscapable(): boolean {

@@ -1,5 +1,4 @@
 from collections.abc import Collection, Sequence
-from functools import partial
 from typing import Any
 
 import pydash
@@ -199,28 +198,3 @@ class DBScreenshotsHandler(DBBaseHandler):
             .where(Screenshot.id == id)
             .execution_options(synchronize_session="evaluate")
         )
-
-    @begin_session
-    def mark_missing_screenshots(
-        self,
-        rom_id: int,
-        user_id: int,
-        screenshots_to_keep: list[str],
-        session: Session = INJECTED_SESSION,
-    ) -> Sequence[Screenshot]:
-        query_fn = partial(
-            self.filter,
-            rom_id=rom_id,
-            user_id=user_id,
-            exclude_filenames=screenshots_to_keep,
-        )
-
-        missing_screenshots = session.scalars(query_fn(query=select(Screenshot))).all()
-
-        session.execute(
-            query_fn(query=update(Screenshot))
-            .values(**{"missing_from_fs": True})
-            .execution_options(synchronize_session="evaluate")
-        )
-
-        return missing_screenshots

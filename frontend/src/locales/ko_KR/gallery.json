@@ -1,5 +1,8 @@
 {
   "all-loaded": "모든 게임이 불러와졌습니다",
+  "back-to-top": "맨 위로",
+  "column-actions": "작업",
+  "column-cover": "커버",
   "filters": "필터",
   "firmware-files-count": "{count}개 파일",
   "firmware-selected-count": "{count}개 선택됨",

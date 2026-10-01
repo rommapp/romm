@@ -4,7 +4,7 @@ import { computeBoxFaces, type BoxFacesRom } from "./index";
 
 const RES = "/assets/romm/resources";
 
-// Minimal rom factory — computeBoxFaces only reads the cover chain and the
+// Minimal rom factory: computeBoxFaces only reads the cover chain and the
 // three ss_metadata box-face path fields. Single cast scoped to the test.
 function rom(over: Partial<SimpleRom>): BoxFacesRom {
   const base: Partial<SimpleRom> = {

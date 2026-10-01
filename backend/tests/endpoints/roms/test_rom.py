@@ -7,6 +7,7 @@ from urllib.parse import unquote
 import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
+from tests.factories import make_rom
 
 from config.config_manager import MetadataMediaType
 from handler.database import db_collection_handler, db_rom_handler
@@ -247,15 +248,13 @@ def test_download_roms_by_platform_skips_roms_without_a_file(
 ):
     """A physical game has no files to zip, so it must not swell the archive's
     ROM count (and therefore its generated name)."""
-    db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="Physical Game",
-            fs_name="Physical Game",
-            fs_path=f"{platform.slug}/roms/.physical",
-            fs_size_bytes=0,
-            is_physical=True,
-        )
+    make_rom(
+        platform,
+        "Physical Game",
+        fs_extension="",
+        fs_path=f"{platform.slug}/roms/.physical",
+        fs_size_bytes=0,
+        is_physical=True,
     )
 
     response = client.get(
@@ -425,18 +424,7 @@ def test_get_roms_sorted_by_user_field_keeps_all_roms(
     db_rom_handler.update_rom_user(
         rom_user.id, {"last_played": datetime(2024, 1, 1, tzinfo=timezone.utc)}
     )
-    never_played = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="never_played",
-            slug="never_played",
-            fs_name="never_played.zip",
-            fs_name_no_tags="never_played",
-            fs_name_no_ext="never_played",
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    never_played = make_rom(platform, "never_played")
 
     response = client.get(
         "/api/roms",
@@ -457,18 +445,10 @@ def test_get_roms_sorted_by_user_field_keeps_all_roms(
 def test_get_roms_filter_by_metadata_providers(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):
-    rom_igdb = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="rom_igdb",
-            slug="rom_igdb",
-            fs_name="rom_igdb.zip",
-            fs_name_no_tags="rom_igdb",
-            fs_name_no_ext="rom_igdb",
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            igdb_id=MOCK_IGDB_ID,
-        )
+    rom_igdb = make_rom(
+        platform,
+        "rom_igdb",
+        igdb_id=MOCK_IGDB_ID,
     )
 
     response = client.get(
@@ -502,18 +482,10 @@ def test_get_roms_filter_by_hltb_main_story(
 ):
     """`rom` carries no HowLongToBeat time, so a length range must drop it."""
     ten_hours = 10 * 3600
-    rom_ten_hours = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="rom_ten_hours",
-            slug="rom_ten_hours",
-            fs_name="rom_ten_hours.zip",
-            fs_name_no_tags="rom_ten_hours",
-            fs_name_no_ext="rom_ten_hours",
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            hltb_metadata={"main_story": ten_hours},
-        )
+    rom_ten_hours = make_rom(
+        platform,
+        "rom_ten_hours",
+        hltb_metadata={"main_story": ten_hours},
     )
 
     response = client.get(
@@ -550,19 +522,7 @@ def test_get_roms_filter_by_duplicate(
 ):
     """The gallery's "Versions" filter, which reads `sibling_roms`."""
     siblings = [
-        db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name=name,
-                slug=name,
-                fs_name=f"{name}.zip",
-                fs_name_no_tags=name,
-                fs_name_no_ext=name,
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-                igdb_id=MOCK_IGDB_ID,
-            )
-        )
+        make_rom(platform, name, igdb_id=MOCK_IGDB_ID)
         for name in ("rom_usa", "rom_japan")
     ]
 
@@ -590,20 +550,7 @@ def test_get_rom_sibling_matched_by_two_providers_appears_once(
 ):
     """`sibling_roms` has a row per matching provider; the response has one."""
     roms = [
-        db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name=name,
-                slug=name,
-                fs_name=f"{name}.zip",
-                fs_name_no_tags=name,
-                fs_name_no_ext=name,
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-                igdb_id=MOCK_IGDB_ID,
-                ss_id=MOCK_SS_ID,
-            )
-        )
+        make_rom(platform, name, igdb_id=MOCK_IGDB_ID, ss_id=MOCK_SS_ID)
         for name in ("twin_usa", "twin_japan")
     ]
 
@@ -628,18 +575,10 @@ def test_get_rom_sibling_matched_by_two_providers_appears_once(
 def test_get_roms_filter_by_tags(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):
-    rom_proto = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="rom_proto",
-            slug="rom_proto",
-            fs_name="rom_proto.zip",
-            fs_name_no_tags="rom_proto",
-            fs_name_no_ext="rom_proto",
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            tags=["Proto"],
-        )
+    rom_proto = make_rom(
+        platform,
+        "rom_proto",
+        tags=["Proto"],
     )
 
     response = client.get(
@@ -1381,20 +1320,7 @@ def test_delete_roms_from_fs_nested(
     from pathlib import Path
     from unittest.mock import MagicMock
 
-    from handler.database import db_rom_handler
-    from models.rom import Rom
-
-    nested_rom = Rom(
-        platform_id=platform.id,
-        name="Nested Game",
-        slug="nested-game",
-        fs_name="Nested Game",
-        fs_name_no_tags="Nested Game",
-        fs_name_no_ext="Nested Game",
-        fs_extension="",
-        fs_path=f"{platform.slug}/roms",
-    )
-    nested_rom = db_rom_handler.add_rom(nested_rom)
+    nested_rom = make_rom(platform, "Nested Game", fs_extension="")
 
     mock_path = MagicMock(spec=Path)
     mock_path.is_dir.return_value = True
@@ -1689,6 +1615,54 @@ class TestUpdateMetadataIDs:
         body = response.json()
         assert body["ss_id"] == MOCK_SS_ID
         assert get_rom_by_id_mock.called
+
+    @patch.object(FSResourcesHandler, "remove_file", new_callable=AsyncMock)
+    @patch.object(
+        FSResourcesHandler, "remove_media_resources_path", new_callable=AsyncMock
+    )
+    @patch(
+        "endpoints.roms.get_preferred_media_types",
+        return_value=[MetadataMediaType.PHYSICAL],
+    )
+    @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=MOCK_SS_ID))
+    def test_update_rom_ss_id_clears_later_disc_art(
+        self,
+        _get_rom_by_id_mock: AsyncMock,
+        _get_preferred_media_mock: AsyncMock,
+        remove_media_mock: AsyncMock,
+        remove_file_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A rematch deletes the old game's later-disc files but keeps the shared folder."""
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "ss_metadata": {
+                    "physical_path": None,
+                    "physical_extra_discs": [
+                        {
+                            "disc": 2,
+                            "url": "https://example.com/disc2.png",
+                            "path": f"roms/{rom.platform_id}/{rom.id}/physical/physical_disc2.png",
+                        }
+                    ],
+                }
+            },
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"ss_id": str(MOCK_SS_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        remove_media_mock.assert_not_awaited()
+        remove_file_mock.assert_awaited_once_with(
+            f"roms/{rom.platform_id}/{rom.id}/physical/physical_disc2.png"
+        )
 
     @patch.object(RAHandler, "get_rom_by_id", return_value=RAGameRom(ra_id=MOCK_RA_ID))
     def test_update_rom_ra_id(
@@ -2675,6 +2649,35 @@ class TestUnmatchMetadata:
         assert body["igdb_id"] is None
         assert body["name"] == rom.fs_name
         assert body["summary"] == ""
+
+    def test_update_rom_unmatch_metadata_clears_every_match_id(
+        self, client: TestClient, access_token: str, rom: Rom
+    ):
+        """Ids the edit form doesn't expose (gamelist) still keep a rom identified."""
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "gamelist_id": "./Mario Kart 64.z64",
+                "libretro_id": "Mario Kart 64 (USA)",
+                "csdb_id": 42,
+            },
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"unmatch_metadata": True},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["gamelist_id"] is None
+        assert body["libretro_id"] is None
+        assert body["csdb_id"] is None
+
+        unmatched = db_rom_handler.get_rom(rom.id)
+        assert unmatched is not None
+        assert not unmatched.is_identified
 
 
 def test_rom_filters_stay_individual_query_parameters(client: TestClient):

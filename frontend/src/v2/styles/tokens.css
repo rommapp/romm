@@ -1,13 +1,13 @@
 /*
- * RomM v2 Design Tokens — CSS Custom Properties
+ * RomM v2 Design Tokens, CSS Custom Properties
  *
- * GENERATED FILE — do not hand-edit. Source: src/v2/tokens/index.ts
+ * GENERATED FILE, do not hand-edit. Source: src/v2/tokens/index.ts
  * Regenerate with: npm run build:tokens
  *
  * Scoped under .r-v2 so v1 styling is unaffected. Theme palettes live under
  * .r-v2.r-v2-dark and .r-v2.r-v2-light. The classes are toggled on <html>
- * by RomM.vue so teleported overlays (RDialog, RMenu, RTooltip) — which
- * land in <body> outside the app root — still resolve var(--r-color-*).
+ * by RomM.vue so teleported overlays (RDialog, RMenu, RTooltip), which
+ * land in <body> outside the app root, still resolve var(--r-color-*).
  */
 
 .r-v2 {
@@ -174,7 +174,7 @@ html[data-input="pad"] .r-v2 {
   --r-focus-ring-width: 3.5px;
 }
 
-/* Dark surface palette — translucent white over the near-black base. */
+/* Dark surface palette: translucent white over the near-black base. */
 .r-v2.r-v2-dark {
   color-scheme: dark;
   --r-color-bg: #07070f;
@@ -183,9 +183,9 @@ html[data-input="pad"] .r-v2 {
   --r-color-surface-hover: rgba(255, 255, 255, 0.12);
   --r-color-fg: #ffffff;
   --r-color-fg-heading: #ffffff;
-  --r-color-fg-secondary: rgba(255, 255, 255, 0.75);
-  --r-color-fg-muted: rgba(255, 255, 255, 0.45);
-  --r-color-fg-faint: rgba(255, 255, 255, 0.25);
+  --r-color-fg-secondary: rgba(255, 255, 255, 0.83);
+  --r-color-fg-muted: rgba(255, 255, 255, 0.55);
+  --r-color-fg-faint: rgba(255, 255, 255, 0.45);
   --r-color-fg-faint-hard: rgba(255, 255, 255, 0.05);
   --r-color-border: rgba(255, 255, 255, 0.07);
   --r-color-border-strong: rgba(255, 255, 255, 0.15);
@@ -203,7 +203,7 @@ html[data-input="pad"] .r-v2 {
   --r-color-title-shadow: rgba(0, 0, 0, 0.5);
 }
 
-/* Light surface palette — translucent black over the off-white base. */
+/* Light surface palette: translucent black over the off-white base. */
 .r-v2.r-v2-light {
   color-scheme: light;
   --r-color-bg: #f5f5fa;

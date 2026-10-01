@@ -1,7 +1,7 @@
 import asyncio
 import enum
 import functools
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Final, NotRequired, TypedDict
 
 import pydash
@@ -77,7 +77,13 @@ from logger.logger import log
 from models.assets import MemoryCardVersion, Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
+from models.rom import (
+    METADATA_SOURCE_COLUMNS,
+    Rom,
+    RomFile,
+    RomFileCategory,
+    RomIdentity,
+)
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
@@ -288,6 +294,29 @@ def get_priority_ordered_metadata_sources(
     return ordered_sources + remaining_sources
 
 
+def get_enabled_metadata_sources() -> list[str]:
+    """The metadata sources a library scan can use, per their provider's config."""
+    handlers = {
+        MetadataSource.IGDB: meta_igdb_handler,
+        MetadataSource.SS: meta_ss_handler,
+        MetadataSource.MOBY: meta_moby_handler,
+        MetadataSource.RA: meta_ra_handler,
+        MetadataSource.LAUNCHBOX: meta_launchbox_handler,
+        MetadataSource.HASHEOUS: meta_hasheous_handler,
+        MetadataSource.PLAYMATCH: meta_playmatch_handler,
+        MetadataSource.SGDB: meta_sgdb_handler,
+        MetadataSource.FLASHPOINT: meta_flashpoint_handler,
+        MetadataSource.HLTB: meta_hltb_handler,
+        MetadataSource.DEMOZOO: meta_demozoo_handler,
+        MetadataSource.POUET: meta_pouet_handler,
+        MetadataSource.CSDB: meta_csdb_handler,
+        MetadataSource.STEAM: meta_steam_handler,
+        MetadataSource.TGDB: meta_tgdb_handler,
+        MetadataSource.LIBRETRO: meta_libretro_handler,
+    }
+    return [source for source, handler in handlers.items() if handler.is_enabled()]
+
+
 def persist_soundtrack_cover(rom_file: RomFile, rom: Rom) -> None:
     """Persist a scanned soundtrack file's embedded cover and record its path on
     the track_meta row. No-op for non-soundtrack files or ones without a cover."""
@@ -403,18 +432,10 @@ async def scan_platform(
         }
     )
 
-    if (
-        platform_attrs["igdb_id"]
-        or platform_attrs["moby_id"]
-        or platform_attrs["ss_id"]
-        or platform_attrs["ra_id"]
-        or platform_attrs["launchbox_id"]
-        or hasheous_platform["hasheous_id"]
-        or tgdb_platform["tgdb_id"]
-        or flashpoint_platform["flashpoint_id"]
-        or hltb_platform["hltb_slug"]
-        or libretro_platform["libretro_slug"]
-    ):
+    platform_attrs["missing_from_fs"] = False
+    scanned_platform = Platform(**platform_attrs)
+
+    if scanned_platform.is_identified:
         log.info(
             f"Folder {hl(platform_attrs['slug'])}[{hl(fs_slug, color=LIGHTYELLOW)}] identified as {hl(platform_attrs['name'], color=BLUE)} {emoji.EMOJI_VIDEO_GAME}",
             extra={"module_name": "scan"},
@@ -425,8 +446,7 @@ async def scan_platform(
             extra=LOGGER_MODULE_NAME,
         )
 
-    platform_attrs["missing_from_fs"] = False
-    return Platform(**platform_attrs)
+    return scanned_platform
 
 
 async def scan_firmware(
@@ -751,7 +771,7 @@ async def scan_rom(
             return match, conclusive
 
         return (
-            HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
+            HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None),
             False,
         )
 
@@ -1122,7 +1142,7 @@ async def scan_rom(
 
         return LaunchboxRom(launchbox_id=None)
 
-    async def fetch_ra_rom(hasheous_rom: HasheousRom) -> RAGameRom:
+    async def fetch_ra_rom() -> RAGameRom:
         if (
             MetadataSource.RA in metadata_sources
             and platform.ra_id
@@ -1139,18 +1159,6 @@ async def scan_rom(
             )
         ):
             attempted_sources.add(MetadataSource.RA)
-            # Use Hasheous match to get the RA ID
-            h_ra_id = hasheous_rom.get("ra_id")
-            if h_ra_id:
-                log.debug(
-                    f"{hl(rom_attrs['fs_name'])} identified by Hasheous as "
-                    f"{hl(str(h_ra_id), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
-                    extra=LOGGER_MODULE_NAME,
-                )
-                return await meta_ra_handler.get_rom_by_id(
-                    rom=rom, ra_id=h_ra_id, ra_hash=rom_attrs["ra_hash"]
-                )
-
             if (scan_type == ScanType.UPDATE and rom.ra_id) or (
                 scan_type == ScanType.UNMATCHED and rom.ra_id and not rom.ra_metadata
             ):
@@ -1184,23 +1192,9 @@ async def scan_rom(
             # that never answered leaves a complete rescan nothing to redo.
             if MetadataSource.HASHEOUS not in inconclusive_sources:
                 attempted_sources.add(MetadataSource.HASHEOUS)
-            (
-                igdb_game,
-                ra_game,
-            ) = await asyncio.gather(
-                meta_hasheous_handler.get_igdb_game(hasheous_rom),
-                meta_hasheous_handler.get_ra_game(hasheous_rom),
-            )
+            return await meta_hasheous_handler.get_igdb_game(hasheous_rom)
 
-            return HasheousRom(
-                {
-                    **hasheous_rom,
-                    **ra_game,
-                    **igdb_game,
-                }
-            )
-
-        return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+        return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
 
     # Run metadata fetches concurrently. One provider raising must not discard the
     # others' results for this ROM, so each failure falls back to an empty match.
@@ -1216,7 +1210,7 @@ async def scan_rom(
             MobyGamesRom(moby_id=None),
         ),
         (MetadataSource.SS, fetch_ss_rom(playmatch_hash_match), SSRom(ss_id=None)),
-        (MetadataSource.RA, fetch_ra_rom(hasheous_hash_match), RAGameRom(ra_id=None)),
+        (MetadataSource.RA, fetch_ra_rom(), RAGameRom(ra_id=None)),
         (
             MetadataSource.LAUNCHBOX,
             fetch_launchbox_rom(platform.slug, playmatch_hash_match),
@@ -1225,7 +1219,7 @@ async def scan_rom(
         (
             MetadataSource.HASHEOUS,
             fetch_hasheous_rom(hasheous_hash_match),
-            HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None),
+            HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None),
         ),
         (
             MetadataSource.FLASHPOINT,
@@ -1628,20 +1622,8 @@ async def scan_rom(
             rom_attrs["url_cover"] = pico8_url
 
     # If not found in any metadata source, we return the rom with the default values
-    if (
-        not rom_attrs.get("igdb_id")
-        and not rom_attrs.get("moby_id")
-        and not rom_attrs.get("ss_id")
-        and not rom_attrs.get("ra_id")
-        and not rom_attrs.get("launchbox_id")
-        and not rom_attrs.get("hasheous_id")
-        and not rom_attrs.get("flashpoint_id")
-        and not rom_attrs.get("hltb_id")
-        and not rom_attrs.get("demozoo_id")
-        and not rom_attrs.get("pouet_id")
-        and not rom_attrs.get("csdb_id")
-        and not rom_attrs.get("steam_id")
-        and not rom_attrs.get("gamelist_id")
+    if not any(
+        rom_attrs.get(column.key) for column in METADATA_SOURCE_COLUMNS.values()
     ):
         if inconclusive_sources:
             # Reporting a plain "not identified" here writes the ROM up as a
@@ -1757,11 +1739,16 @@ async def download_rom_resources(
     previous_url_manual: str | None,
     previous_url_screenshots: list[str] | None,
     metadata_sources: list[str],
+    previous_media: Mapping[str, dict[str, Any] | None] | None = None,
 ) -> None:
     """Download and persist cover, manual, screenshots and provider media for a rom.
 
     Shared by the scan socket flow and the manual physical-game endpoint. Only
     re-downloads when the source URL changed, then stores the resulting paths.
+
+    Args:
+        previous_media: Each provider column's metadata before this scan, keyed
+            like ``ss_metadata``, so media whose source changed is fetched again.
     """
     screenshots_changed = pydash.xor(
         added_rom.url_screenshots or [], previous_url_screenshots or []
@@ -1769,22 +1756,30 @@ async def download_rom_resources(
     url_screenshots = added_rom.url_screenshots or []
 
     preferred_media_types = get_preferred_media_types()
-    provider_media: list[tuple[str, dict[str, Any], Callable[[str], str] | None]] = []
-    if added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
-        provider_media.append(
-            ("ss_metadata", added_rom.ss_metadata, add_ss_auth_to_url)
-        )
-    if added_rom.gamelist_metadata and MetadataSource.GAMELIST in metadata_sources:
-        provider_media.append(("gamelist_metadata", added_rom.gamelist_metadata, None))
-    if added_rom.launchbox_metadata and MetadataSource.LAUNCHBOX in metadata_sources:
-        provider_media.append(
-            ("launchbox_metadata", added_rom.launchbox_metadata, None)
-        )
+    # Highest priority first, the order their files land in shared paths.
+    providers: tuple[tuple[str, str, Callable[[str], str] | None], ...] = (
+        ("ss_metadata", MetadataSource.SS, add_ss_auth_to_url),
+        ("gamelist_metadata", MetadataSource.GAMELIST, None),
+        ("launchbox_metadata", MetadataSource.LAUNCHBOX, None),
+    )
+    provider_media: list[tuple[str, dict[str, Any], Callable[[str], str] | None]] = [
+        (column, metadata, url_transform)
+        for column, source, url_transform in providers
+        if (metadata := getattr(added_rom, column)) and source in metadata_sources
+    ]
 
     # Filled as each provider finishes, so a later one failing keeps the rest.
     media_updates: dict[str, dict[str, Any]] = {}
 
     async def store_provider_media() -> None:
+        # Compared across every provider at once, before any stores, since a
+        # shared path's file belongs to whichever provider records it first.
+        if previous_media:
+            await fs_resource_handler.remove_stale_media(
+                [previous_media.get(column) for column, *_ in providers],
+                [getattr(added_rom, column) for column, *_ in providers],
+                preferred_media_types,
+            )
         # Providers share media paths, so they take turns: a later one finds the
         # file an earlier one landed on disk and keeps it.
         for column, metadata, url_transform in provider_media:

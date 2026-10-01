@@ -89,7 +89,7 @@
   "provider-steam-desc": "Метаданни и изображения от магазина за PC игри в Steam.",
   "provider-steam-setup": "Задай STEAM_API_ENABLED=true.",
   "proxy-hasheous-caveat": "Услуга, поддържана от общността. Изисква хешове на файлове. Активирай изчисляването на хешове в конфигурацията (включено по подразбиране).",
-  "proxy-hasheous-desc": "Разпознавач, базиран на хешове, който проксира данни от IGDB и предоставя RetroAchievements ID-та.",
+  "proxy-hasheous-desc": "Разпознавач, базиран на хешове, който проксира данни от IGDB.",
   "proxy-hasheous-setup": "Задай HASHEOUS_API_ENABLED=true.",
   "proxy-playmatch-caveat": "Услуга, поддържана от общността.",
   "proxy-playmatch-desc": "Разпознавач, базиран на хешове, в комбинация с IGDB.",

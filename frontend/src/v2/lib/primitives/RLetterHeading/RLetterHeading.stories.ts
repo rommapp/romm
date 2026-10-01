@@ -25,7 +25,7 @@ export const Digits: Story = {
   args: { label: "#" },
 };
 
-// Default slot wins over the prop — useful when the label needs custom
+// Default slot wins over the prop: useful when the label needs custom
 // content (extra spacing, a count, etc.).
 export const SlotContent: Story = {
   render: (args) => ({

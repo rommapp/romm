@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PermissionGroupsSection — v2 admin table of permission groups. Mirrors
+// PermissionGroupsSection: v2 admin table of permission groups. Mirrors
 // UsersSection's layout (table + bottom action button). Reads the shared
 // permissionGroups store; create/edit go through GroupFormDialog (which
 // refetches the store), delete removes from the store via useConfirm.

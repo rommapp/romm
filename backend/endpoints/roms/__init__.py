@@ -116,6 +116,7 @@ from models.collection import Collection, SmartCollection, VirtualCollection
 from models.permission import PermAction, PermEntity
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
+    METADATA_SOURCE_COLUMNS,
     PINNED_MEDIA_KEY_MAX_LENGTH,
     PINNED_MEDIA_KEY_PATTERN,
     PINNED_MEDIA_MAX_ITEMS,
@@ -133,7 +134,12 @@ from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.m3u import generate_m3u_content, playlist_files
-from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
+from utils.nginx import (
+    FileRedirectResponse,
+    ZipContentLine,
+    ZipResponse,
+    content_disposition,
+)
 from utils.router import APIRouter, as_query_dependency
 from utils.screenshots import continue_playing_screenshot
 from utils.validation import (
@@ -298,6 +304,11 @@ class RomUpdateForm(BaseModel):
 # The provider ids the edit form sets; changing one rematches the rom.
 MATCH_ID_FIELDS: Final = tuple(
     f for f in RomUpdateForm.model_fields if f.endswith("_id")
+)
+# Every id a match can set, including ones the form doesn't expose (gamelist).
+UNMATCH_ID_FIELDS: Final = (
+    "sgdb_id",
+    *(column.key for column in METADATA_SOURCE_COLUMNS.values()),
 )
 # What an edit reports as changed, each read off one or more columns.
 _EDIT_AUDIT_FIELDS: Final[dict[str, tuple[str, ...]]] = {
@@ -1082,7 +1093,7 @@ async def download_roms(
     return served(
         ZipResponse(
             content_lines=content_lines,
-            filename=quote(file_name),
+            filename=file_name,
         )
     )
 
@@ -1347,7 +1358,7 @@ async def head_rom_content(
                 path=rom_path,
                 filename=file.file_name,
                 headers={
-                    "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file.file_name)}; filename=\"{quote(file.file_name)}\"",
+                    "Content-Disposition": content_disposition(file.file_name),
                     "Content-Type": "application/octet-stream",
                     "Content-Length": str(file.file_size_bytes),
                 },
@@ -1356,7 +1367,7 @@ async def head_rom_content(
         return Response(
             headers={
                 "Content-Type": "application/zip",
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
+                "Content-Disposition": content_disposition(f"{file_name}.zip"),
             },
         )
 
@@ -1377,14 +1388,14 @@ async def head_rom_content(
                 "Content-Type": "application/zip",
                 "Content-Length": str(cached.stat.st_size),
                 "Accept-Ranges": "bytes",
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
+                "Content-Disposition": content_disposition(f"{file_name}.zip"),
             },
         )
 
     return Response(
         media_type="application/zip",
         headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
+            "Content-Disposition": content_disposition(f"{file_name}.zip"),
         },
     )
 
@@ -1494,7 +1505,7 @@ async def get_rom_content(
                     path=rom_path,
                     filename=file.file_name,
                     headers={
-                        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file.file_name)}; filename=\"{quote(file.file_name)}\"",
+                        "Content-Disposition": content_disposition(file.file_name),
                         "Content-Type": "application/octet-stream",
                         "Content-Length": str(file.file_size_bytes),
                     },
@@ -1558,7 +1569,7 @@ async def get_rom_content(
                 content=zip_data,
                 media_type="application/zip",
                 headers={
-                    "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}.zip; filename=\"{quote(file_name)}.zip\"",
+                    "Content-Disposition": content_disposition(f"{file_name}.zip"),
                 },
             )
         )
@@ -1616,7 +1627,7 @@ async def get_rom_content(
     return served(
         ZipResponse(
             content_lines=content_lines,
-            filename=f"{quote(file_name)}.zip",
+            filename=f"{file_name}.zip",
         )
     )
 
@@ -1774,26 +1785,12 @@ async def update_rom(
     assert_rom_visible(request, rom)
 
     if unmatch_metadata:
-        unmatched = {f: getattr(rom, f) for f in MATCH_ID_FIELDS if getattr(rom, f)}
+        unmatched = {f: getattr(rom, f) for f in UNMATCH_ID_FIELDS if getattr(rom, f)}
         unmatch_target = AuditTarget.of_rom(rom)
         db_rom_handler.update_rom(
             id,
             {
-                "igdb_id": None,
-                "sgdb_id": None,
-                "moby_id": None,
-                "ss_id": None,
-                "ra_id": None,
-                "launchbox_id": None,
-                "hasheous_id": None,
-                "tgdb_id": None,
-                "flashpoint_id": None,
-                "hltb_id": None,
-                "demozoo_id": None,
-                "pouet_id": None,
-                "csdb_id": None,
-                "steam_id": None,
-                "libretro_id": None,
+                **dict.fromkeys(UNMATCH_ID_FIELDS),
                 "name": rom.fs_name,
                 "name_sort_key": compute_name_sort_key(rom.fs_name),
                 "summary": "",
@@ -2218,14 +2215,10 @@ async def update_rom(
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
         preferred_media_types = get_preferred_media_types()
 
-        for media_type in preferred_media_types:
-            # Remove old media files if the ss_id is changing
-            if rom.ss_metadata and rom.ss_metadata.get(f"{media_type.value}_path"):
-                await fs_resource_handler.remove_media_resources_path(
-                    rom.platform_id,
-                    rom.id,
-                    media_type,
-                )
+        # Remove old media files if the ss_id is changing
+        await fs_resource_handler.remove_recorded_media(
+            rom.platform_id, rom.id, rom.ss_metadata or {}, preferred_media_types
+        )
 
         ss_metadata = cleaned_data.get("ss_metadata")
         if ss_metadata:
@@ -2240,16 +2233,10 @@ async def update_rom(
     ):
         preferred_media_types = get_preferred_media_types()
 
-        for media_type in preferred_media_types:
-            # Remove old media files if the launchbox_id is changing
-            if rom.launchbox_metadata and rom.launchbox_metadata.get(
-                f"{media_type.value}_path"
-            ):
-                await fs_resource_handler.remove_media_resources_path(
-                    rom.platform_id,
-                    rom.id,
-                    media_type,
-                )
+        # Remove old media files if the launchbox_id is changing
+        await fs_resource_handler.remove_recorded_media(
+            rom.platform_id, rom.id, rom.launchbox_metadata or {}, preferred_media_types
+        )
 
         launchbox_metadata = cleaned_data.get("launchbox_metadata")
         if launchbox_metadata:

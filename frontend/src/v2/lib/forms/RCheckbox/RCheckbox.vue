@@ -64,6 +64,9 @@ interface Props {
   /** Error tone: red box + red label. */
   error?: boolean;
   errorMessages?: string | string[];
+  /** Draw the box only, with no input, for a mirror of state that an
+   *  enclosing control already exposes. Hidden from assistive tech. */
+  decorative?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -83,6 +86,7 @@ const props = withDefaults(defineProps<Props>(), {
   bare: false,
   error: false,
   errorMessages: () => [],
+  decorative: false,
 });
 
 const emit = defineEmits<{
@@ -204,11 +208,15 @@ const hasLabel = computed(
       '--r-cb-fill': fillColor,
     }"
   >
-    <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- the native checkbox input is nested inside this label, a valid control association -->
-    <label class="r-checkbox">
+    <component
+      :is="decorative ? 'span' : 'label'"
+      class="r-checkbox"
+      :aria-hidden="decorative || undefined"
+    >
       <!-- Native input: visually hidden but kept in the layout for
            form submission, keyboard, and screen reader support. -->
       <input
+        v-if="!decorative"
         ref="inputRef"
         type="checkbox"
         class="r-checkbox__input"
@@ -267,7 +275,7 @@ const hasLabel = computed(
           <slot name="subtitle">{{ subtitle }}</slot>
         </span>
       </span>
-    </label>
+    </component>
 
     <div v-if="showDetailsRow" class="r-checkbox__details">
       <span v-for="(m, i) in messages" :key="i" class="r-checkbox__message">

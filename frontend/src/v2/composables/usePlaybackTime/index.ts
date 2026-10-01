@@ -1,4 +1,4 @@
-// usePlaybackTime — the playing track's position, advanced every frame from
+// usePlaybackTime: the playing track's position, advanced every frame from
 // the audio's coarse time reports so progress UI moves continuously.
 import { storeToRefs } from "pinia";
 import { onScopeDispose, ref, watch, type Ref } from "vue";

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// UsersSection — v2-native users table.
+// UsersSection: v2-native users table.
 //
 // Layout mirrors LibraryManagement's tabs: a search bar at the top,
 // the table itself (RTable), and the action buttons (Add + Invite)
-// pinned at the bottom of the section. No SettingsSection wrapper —
+// pinned at the bottom of the section. No SettingsSection wrapper:
 // the tab in Administration owns the page chrome now.
 //
 // Create / edit / invite dialogs are emitter-driven; their components
@@ -72,7 +72,7 @@ function groupPillColor(user: User): string {
 }
 
 // The pill mirrors the admin RTag chrome (same shape/size) but tinted with
-// the group's colour — override RTag's tone vars with the group hue.
+// the group's colour: override RTag's tone vars with the group hue.
 function groupPillStyle(user: User) {
   const c = groupPillColor(user);
   return {
@@ -88,7 +88,7 @@ function accessText(user: User): string {
   return user.role === "admin" ? t("settings.administrator") : groupLabel(user);
 }
 
-// Same nullable-string compare we use in ClientApiTokens — keeps users
+// Same nullable-string compare we use in ClientApiTokens: keeps users
 // with no email / no last-active timestamp at the end on `asc`.
 function compareNullable(
   a: string | null | undefined,
@@ -439,7 +439,7 @@ html[data-bp~="xs"]
   padding-inline-start: 0;
 }
 
-/* Keep the admin pill the same height as the icon-less group pills — the
+/* Keep the admin pill the same height as the icon-less group pills: the
    prepend icon's vertical margin would otherwise make it a touch taller. */
 .r-v2-users :deep(.r-v2-users__access-pill .r-tag__icon) {
   margin-block: 0;

@@ -20,7 +20,6 @@ HASHEOUS_MATCH = HasheousRom(
     name="Mario Kart 64",
     igdb_id=None,
     tgdb_id=None,
-    ra_id=None,
     regions=["Japan"],
     languages=["Japanese"],
 )
@@ -30,7 +29,7 @@ SS_TRANSLATED = SSRom(ss_id=42, name="Mario Kart 64", tags=["Translation"])
 
 @pytest.fixture
 def hasheous_lookup() -> Iterator[AsyncMock]:
-    """Patch the Hasheous hash lookup and the two proxied catalog fetches."""
+    """Patch the Hasheous hash lookup and the proxied IGDB fetch."""
     with (
         patch(
             "handler.scan_handler.meta_hasheous_handler.lookup_rom",
@@ -38,11 +37,7 @@ def hasheous_lookup() -> Iterator[AsyncMock]:
         ) as lookup,
         patch(
             "handler.scan_handler.meta_hasheous_handler.get_igdb_game",
-            new=AsyncMock(return_value=HasheousRom(hasheous_id=1)),
-        ),
-        patch(
-            "handler.scan_handler.meta_hasheous_handler.get_ra_game",
-            new=AsyncMock(return_value=HasheousRom(hasheous_id=1)),
+            new=AsyncMock(return_value=HASHEOUS_MATCH),
         ),
     ):
         yield lookup
@@ -91,7 +86,7 @@ def ss_match_by_id() -> Iterator[AsyncMock]:
 @pytest.fixture
 def hasheous_no_match() -> Iterator[AsyncMock]:
     """Patch a Hasheous hash lookup that answers and finds nothing."""
-    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+    no_match = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
     with (
         patch(
             "handler.scan_handler.meta_hasheous_handler.lookup_rom",
@@ -99,10 +94,6 @@ def hasheous_no_match() -> Iterator[AsyncMock]:
         ) as lookup,
         patch(
             "handler.scan_handler.meta_hasheous_handler.get_igdb_game",
-            new=AsyncMock(return_value=no_match),
-        ),
-        patch(
-            "handler.scan_handler.meta_hasheous_handler.get_ra_game",
             new=AsyncMock(return_value=no_match),
         ),
     ):

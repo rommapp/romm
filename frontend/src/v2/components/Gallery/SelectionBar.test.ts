@@ -2,8 +2,11 @@ import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
+import storeAuth from "@/stores/auth";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import { collectionFixture } from "@/utils/collection.fixtures";
+import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import SelectionBar from "./SelectionBar.vue";
@@ -93,13 +96,12 @@ function rom(id: number): SimpleRom {
 }
 
 function favorites(romIds: number[]): Collection {
-  return {
+  return collectionFixture({
     id: 7,
-    name: "Favorites",
     is_favorite: true,
     rom_ids: romIds,
     rom_count: romIds.length,
-  } as Collection;
+  });
 }
 
 function select(...roms: SimpleRom[]) {
@@ -152,6 +154,7 @@ async function clickHeart(wrapper: VueWrapper) {
 describe("SelectionBar bulk favorite", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    storeAuth().setCurrentUser(userFixture());
     vi.clearAllMocks();
   });
 
@@ -174,7 +177,6 @@ describe("SelectionBar bulk favorite", () => {
   it("reports an add as added, not removed", async () => {
     const collections = storeCollections();
     collections.setCollections([favorites([])]);
-    collections.setFavoriteCollection(favorites([]));
     addRomsToCollection.mockResolvedValue({ data: favorites([1, 2]) });
     select(rom(1), rom(2));
 
@@ -189,7 +191,6 @@ describe("SelectionBar bulk favorite", () => {
   it("reports a removal as removed, not added", async () => {
     const collections = storeCollections();
     collections.setCollections([favorites([1, 2])]);
-    collections.setFavoriteCollection(favorites([1, 2]));
     removeRomsFromCollection.mockResolvedValue({ data: favorites([]) });
     select(rom(1), rom(2));
 
@@ -204,7 +205,6 @@ describe("SelectionBar bulk favorite", () => {
   it("adds when only some of the selection is favourited", async () => {
     const collections = storeCollections();
     collections.setCollections([favorites([1])]);
-    collections.setFavoriteCollection(favorites([1]));
     addRomsToCollection.mockResolvedValue({ data: favorites([1, 2]) });
     select(rom(1), rom(2));
 
@@ -220,7 +220,6 @@ describe("SelectionBar bulk favorite", () => {
   it("drops the roms from the grid when unfavouriting inside the favourites collection", async () => {
     const collections = storeCollections();
     collections.setCollections([favorites([1, 2])]);
-    collections.setFavoriteCollection(favorites([1, 2]));
     removeRomsFromCollection.mockResolvedValue({ data: favorites([]) });
     const gallery = storeGalleryRoms();
     gallery.setCurrentCollection(favorites([1, 2]));
@@ -242,7 +241,6 @@ describe("SelectionBar bulk favorite", () => {
   it("keeps the roms on screen when unfavouriting from a platform gallery", async () => {
     const collections = storeCollections();
     collections.setCollections([favorites([1, 2])]);
-    collections.setFavoriteCollection(favorites([1, 2]));
     removeRomsFromCollection.mockResolvedValue({ data: favorites([]) });
     const gallery = storeGalleryRoms();
     const galleryRemove = vi.spyOn(gallery, "remove");

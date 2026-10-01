@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// RDivider — three render modes:
+// RDivider: three render modes:
 //
-//   • Horizontal plain — a block element with `border-top` (no inner
+//   • Horizontal plain: a block element with `border-top` (no inner
 //     children; the border itself paints the line so the divider takes
 //     zero height + zero baseline impact in a flex column).
-//   • Vertical plain — same trick but `border-left` + `align-self:
+//   • Vertical plain: same trick but `border-left` + `align-self:
 //     stretch` so the divider matches its flex parent's cross-axis.
-//   • With text (default slot present) — flex container with two
+//   • With text (default slot present): flex container with two
 //     flex-grown line segments flanking the slot content. The "or"
 //     pattern from Auth / inline section breaks.
 //
@@ -97,7 +97,7 @@ const lineStyle = computed(() => {
 
 <style scoped>
 .r-divider {
-  /* Defaults propagate to content via inheritance — overridable from
+  /* Defaults propagate to content via inheritance: overridable from
      the consumer side by setting `color` / `font-size` on the root. */
   color: var(--r-color-fg-muted);
   font-size: var(--r-font-size-xs);

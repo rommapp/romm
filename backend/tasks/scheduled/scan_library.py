@@ -1,72 +1,22 @@
-from config import (
-    ENABLE_SCHEDULED_RESCAN,
-    SCAN_TIMEOUT,
-    SCHEDULED_RESCAN_CRON,
-)
 from endpoints.sockets.scan import ScanStats, scan_platforms
-from handler.metadata import (
-    meta_csdb_handler,
-    meta_demozoo_handler,
-    meta_flashpoint_handler,
-    meta_hasheous_handler,
-    meta_hltb_handler,
-    meta_igdb_handler,
-    meta_launchbox_handler,
-    meta_libretro_handler,
-    meta_moby_handler,
-    meta_playmatch_handler,
-    meta_pouet_handler,
-    meta_ra_handler,
-    meta_sgdb_handler,
-    meta_ss_handler,
-    meta_steam_handler,
-    meta_tgdb_handler,
-)
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan_handler import ScanType, get_enabled_metadata_sources
 from logger.logger import log
-from tasks.tasks import PeriodicTask, TaskType
+from tasks.registry import SCAN_LIBRARY_SPEC
+from tasks.tasks import PeriodicTask
 
 
 class ScanLibraryTask(PeriodicTask):
     def __init__(self) -> None:
-        super().__init__(
-            title="Scheduled rescan",
-            description="Rescans the entire library",
-            task_type=TaskType.SCAN,
-            enabled=ENABLE_SCHEDULED_RESCAN,
-            manual_run=False,
-            cron_string=SCHEDULED_RESCAN_CRON,
-            # A library scan is not a five-minute task like the rest.
-            timeout=SCAN_TIMEOUT,
-        )
+        super().__init__(SCAN_LIBRARY_SPEC)
 
     async def run(self) -> dict[str, str]:
         scan_stats = ScanStats()
 
-        if not ENABLE_SCHEDULED_RESCAN:
+        if not self.spec.enabled:
             log.info("Scheduled library scan not enabled, skipping...")
             return scan_stats.to_dict()
 
-        source_mapping: dict[str, bool] = {
-            MetadataSource.IGDB: meta_igdb_handler.is_enabled(),
-            MetadataSource.SS: meta_ss_handler.is_enabled(),
-            MetadataSource.MOBY: meta_moby_handler.is_enabled(),
-            MetadataSource.RA: meta_ra_handler.is_enabled(),
-            MetadataSource.LAUNCHBOX: meta_launchbox_handler.is_enabled(),
-            MetadataSource.HASHEOUS: meta_hasheous_handler.is_enabled(),
-            MetadataSource.PLAYMATCH: meta_playmatch_handler.is_enabled(),
-            MetadataSource.SGDB: meta_sgdb_handler.is_enabled(),
-            MetadataSource.FLASHPOINT: meta_flashpoint_handler.is_enabled(),
-            MetadataSource.HLTB: meta_hltb_handler.is_enabled(),
-            MetadataSource.DEMOZOO: meta_demozoo_handler.is_enabled(),
-            MetadataSource.POUET: meta_pouet_handler.is_enabled(),
-            MetadataSource.CSDB: meta_csdb_handler.is_enabled(),
-            MetadataSource.STEAM: meta_steam_handler.is_enabled(),
-            MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
-            MetadataSource.LIBRETRO: meta_libretro_handler.is_enabled(),
-        }
-
-        metadata_sources = [source for source, flag in source_mapping.items() if flag]
+        metadata_sources = get_enabled_metadata_sources()
         if not metadata_sources:
             log.warning("No metadata sources enabled, unscheduling library scan")
             return scan_stats.to_dict()

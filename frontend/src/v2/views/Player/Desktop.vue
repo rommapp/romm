@@ -10,7 +10,7 @@
 import { RAlert, RBtn, RSpinner } from "@v2/lib";
 import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { isAxiosError } from "axios";
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -21,8 +21,10 @@ import { type SessionTermination, useStreamingStore } from "@/stores/streaming";
 import SessionEndedReason from "@/v2/components/Player/SessionEndedReason.vue";
 import StreamStage from "@/v2/components/Player/StreamStage.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
+import { usePlayingWhile } from "@/v2/composables/useStageActive";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -55,6 +57,19 @@ const claimedAt = ref("");
 
 usePageTitle(() => t("play.desktop-title"));
 
+// The emulator inside the desktop owns the controller, so pad presses must not
+// also drive RomM behind the stream (B would go back and prompt to end it).
+const sessionActive = computed(
+  () => state.value === "loading" || state.value === "running",
+);
+usePlayingWhile(sessionActive);
+// With B muted, useGamepad's Select+Start hold is the pad's way out.
+useEventListener(window, "gamepad:exitchord", () => void handleExit());
+
+// Leaving mid-claim is allowed, so a claim that answers after unmount is
+// released at once; otherwise it would hold the container until it went stale.
+const alive = useIsAlive();
+
 async function openDesktop(): Promise<void> {
   if (!containerName.value) {
     state.value = "error";
@@ -69,6 +84,10 @@ async function openDesktop(): Promise<void> {
     platform.value = data.platform;
     claimedAt.value = data.claimed_at;
     holdsClaim.value = true;
+    if (!alive.value) {
+      void release();
+      return;
+    }
     state.value = "running";
   } catch (err: unknown) {
     state.value = "error";
@@ -217,6 +236,12 @@ useEventListener(window, "pagehide", onPageHide);
 
 onMounted(() => {
   void openDesktop();
+});
+
+// A claim that answered after the leave guard let navigation through, while
+// the next route was still resolving, is still held here.
+onBeforeUnmount(() => {
+  if (holdsClaim.value) void release();
 });
 </script>
 

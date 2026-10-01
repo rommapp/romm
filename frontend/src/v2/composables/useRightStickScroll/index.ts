@@ -2,15 +2,15 @@
 //
 // Lets a view's scroll container be driven by the right analog stick of
 // any connected gamepad. Runs its own per-frame `getGamepads()` poll
-// (cheap — one syscall per frame) and pushes the stick value past a
+// (cheap: one syscall per frame) and pushes the stick value past a
 // deadzone into the element's scrollTop / scrollLeft. Independent of
 // `useGamepad`'s left-stick → ArrowKey emulator, so the user can scroll
 // the tab content with the right stick while D-pad / left stick keep
 // navigating focusable elements.
 //
-// Tunables (constants — no consumer needs to override these yet):
-//   * DEADZONE — ignore stick noise around the centre.
-//   * SCROLL_PER_FRAME — pixels scrolled at full stick deflection per
+// Tunables (constants: no consumer needs to override these yet):
+//   * DEADZONE: ignore stick noise around the centre.
+//   * SCROLL_PER_FRAME: pixels scrolled at full stick deflection per
 //     frame; at 60fps full-up gives ~1500 px/s, which matches the feel
 //     of "page down via dpad" without overshoot.
 import { onBeforeUnmount, onMounted, type Ref } from "vue";

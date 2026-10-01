@@ -1,5 +1,8 @@
 {
   "all-loaded": "Všechny hry byly načteny",
+  "back-to-top": "Zpět nahoru",
+  "column-actions": "Akce",
+  "column-cover": "Obal",
   "filters": "Filtry",
   "firmware-files-count": "{count} souborů",
   "firmware-selected-count": "{count} vybráno",
