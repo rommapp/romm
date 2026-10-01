@@ -99,6 +99,7 @@ npm run generate     # writes src/__generated__/ via openapi-typescript-codegen
 cd backend
 uv run python3 main.py            # run (migrations auto-apply on startup)
 uv run pytest <path/file>         # tests - affected files only, NEVER the whole suite
+uv run pytest -n auto <dir>       # same, in parallel; use for directories, not single files
 ```
 
 - Tests: pytest + pytest-asyncio, isolated per `pytest-xdist` worker (per-worker DBs); `fakeredis`; `pytest-recording` VCR cassettes mock external APIs; Hypothesis for property tests. Mirror the `backend/<area>/` layout under `backend/tests/`. First-time test DB setup: `docker exec -i romm-db-dev mariadb -uroot -p<pw> < backend/romm_test/setup.sql`.

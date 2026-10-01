@@ -1,10 +1,11 @@
 import asyncio
 import os
 import sys
+import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from enum import Enum
-from typing import Any, Final
+from typing import Any, Final, cast
 from uuid import uuid4
 
 from redis import Redis
@@ -74,11 +75,46 @@ def __get_sync_cache() -> Redis:
     return client
 
 
-def __get_async_cache() -> AsyncRedis:
-    if IS_PYTEST_RUN:
+_LOOP_CLIENT_ATTR: Final = "_romm_fake_async_redis"
+
+
+class _PerLoopFakeAsyncRedis:
+    """A fake async client per event loop, or per thread outside one, over one fake server."""
+
+    # The TestClient's loop and a test's asyncio.run loop use the cache at once,
+    # and an asyncio.Lock in a pool they share binds to just one of them.
+    def __init__(self, server: Any) -> None:
+        self._server = server
+        self._by_thread = threading.local()
+
+    def _new_client(self) -> Any:
         from fakeredis import FakeAsyncRedis
 
-        return FakeAsyncRedis(server=_fake_server)
+        return FakeAsyncRedis(server=self._server)
+
+    def _client(self) -> Any:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            client = getattr(self._by_thread, "client", None)
+            if client is None:
+                client = self._by_thread.client = self._new_client()
+            return client
+        # Held on the loop, not in a map keyed by it: the client's asyncio
+        # objects reference the loop, so such a map would never let one go.
+        client = getattr(loop, _LOOP_CLIENT_ATTR, None)
+        if client is None:
+            client = self._new_client()
+            setattr(loop, _LOOP_CLIENT_ATTR, client)
+        return client
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._client(), name)
+
+
+def __get_async_cache() -> AsyncRedis:
+    if IS_PYTEST_RUN:
+        return cast(AsyncRedis, _PerLoopFakeAsyncRedis(_fake_server))
 
     # A separate client that auto-decodes responses is needed
     client = AsyncRedis.from_url(REDIS_URL, decode_responses=True)

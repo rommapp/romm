@@ -1,3 +1,6 @@
+import asyncio
+import threading
+from typing import Any
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
@@ -6,6 +9,7 @@ from rq.exceptions import DeserializationError, InvalidJobOperation, NoSuchJobEr
 from rq.job import Job, JobStatus
 
 from handler.redis_handler import (
+    async_cache,
     cancel_job,
     get_job_func_name,
     get_job_kwargs,
@@ -147,3 +151,34 @@ class TestHasLiveWorker:
             assert has_live_worker(low_prio_queue) is expected
 
         mock_all.assert_called_once_with(queue=low_prio_queue)
+
+
+class TestAsyncCacheUnderTests:
+    def test_concurrent_threads_and_loops_never_share_a_pool(self):
+        """The TestClient's loop and a test's asyncio.run overlap across threads."""
+
+        async def running_loop_pool() -> Any:
+            return async_cache.connection_pool
+
+        pools: dict[str, Any] = {}
+
+        def other_thread() -> None:
+            pools["other thread, no loop"] = async_cache.connection_pool
+            pools["other thread, in a loop"] = asyncio.run(running_loop_pool())
+
+        thread = threading.Thread(target=other_thread)
+        thread.start()
+        thread.join()
+        pools["this thread, no loop"] = async_cache.connection_pool
+        pools["this thread, in a loop"] = asyncio.run(running_loop_pool())
+
+        assert len({id(pool) for pool in pools.values()}) == len(pools)
+
+    def test_every_client_reads_the_one_keyspace(self):
+        async def read() -> Any:
+            return await async_cache.get("per-loop")
+
+        asyncio.run(async_cache.set("per-loop", "1"))
+        value = asyncio.run(read())
+
+        assert value in ("1", b"1")
