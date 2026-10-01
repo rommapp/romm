@@ -53,18 +53,23 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 
 ## Never run the full backend test suite locally
 
-A bare `uv run pytest` (or `pytest -vv`) over `backend/` takes 20+ minutes and burns a
-huge number of tokens on output. Don't do it, even to "double check" at the end.
+A bare `uv run pytest` (or `pytest -vv`) over `backend/` runs serially, takes 20+ minutes, and
+burns a huge number of tokens on output. Don't do it, even to "double check" at the end.
 
-Instead, select the tests affected by the change and run only those:
+Instead, select the tests affected by the change and run only those. Add `-n auto` when the
+selection spans a directory or more: the suite is set up for `pytest-xdist` (one database per
+worker), and on 4 cores it cuts `tests/endpoints/` from about 5 minutes to about a minute and a half.
 
 ```bash
 cd backend
 uv run pytest tests/path/to/test_file.py                # one file
 uv run pytest tests/path/to/test_file.py::test_name     # one test
-uv run pytest tests/handler/ tests/endpoints/           # affected areas
+uv run pytest -n auto tests/handler/ tests/endpoints/   # affected areas, in parallel
 uv run pytest -k "scan or queue"                        # by name pattern
 ```
+
+It gains nothing on a single file or test, and `--pdb` and `-s` don't work under it, so drop it
+when debugging.
 
 Pick the targets from the diff: the test file mirroring each changed module
 (`backend/<area>/x.py` → `backend/tests/<area>/test_x.py`), plus the tests of the
