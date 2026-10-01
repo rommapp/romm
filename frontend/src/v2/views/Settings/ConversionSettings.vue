@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// Editor for the converto.* section of config.yml: download-time
-// conversion and its cache limit, and each platform's library format,
-// which the convert library task stores matched games in.
+// Editor for the converto.* section of config.yml: download conversion, its
+// cache limit, and the per-platform library format the convert task applies.
 import { RAlert, RIcon, RSelect, RTextField, RBtn, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, reactive, ref } from "vue";
@@ -30,8 +29,6 @@ const authStore = storeAuth();
 const platformsStore = storePlatforms();
 const snackbar = useSnackbar();
 
-// Platforms and their targets come from the backend, which owns the
-// rom-converto operation table.
 const platforms = computed(() =>
   Object.entries(config.value.CONVERTO_LIBRARY_TARGETS)
     .map(([slug, targets]) => ({
@@ -223,7 +220,6 @@ onMounted(loadConfig);
   <div v-else class="r-v2-section-stack r-v2-conversion-settings">
     <ConfigFileAlerts />
 
-    <!-- Download conversion -->
     <SettingsSection
       :title="t('settings.conversion-download-title')"
       icon="mdi-swap-horizontal"

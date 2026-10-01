@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// SettingsSaveBar: sticky Discard/Save bar for a settings form with
-// unsaved edits. The page needs ~72px of bottom padding so the bar never
-// covers its last controls.
+// SettingsSaveBar: sticky Discard/Save bar for a settings form with unsaved
+// edits. Pad the page bottom ~72px so it never covers the last controls.
 import { RBtn } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 
