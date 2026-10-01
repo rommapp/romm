@@ -4,8 +4,9 @@ import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from enum import Enum
-from typing import Any, Final
+from typing import Any, Final, cast
 from uuid import uuid4
+from weakref import WeakKeyDictionary
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
@@ -74,11 +75,39 @@ def __get_sync_cache() -> Redis:
     return client
 
 
-def __get_async_cache() -> AsyncRedis:
-    if IS_PYTEST_RUN:
+class _PerLoopFakeAsyncRedis:
+    """A fake async client per event loop, all over the one fake server."""
+
+    # Tests reach the cache from the TestClient's loop and from their own
+    # asyncio.run loops at once, and a shared pool's asyncio.Lock binds to one.
+    def __init__(self, server: Any) -> None:
         from fakeredis import FakeAsyncRedis
 
-        return FakeAsyncRedis(server=_fake_server)
+        self._server = server
+        self._unbound = FakeAsyncRedis(server=server)
+        self._by_loop: WeakKeyDictionary[asyncio.AbstractEventLoop, Any] = (
+            WeakKeyDictionary()
+        )
+
+    def _client(self) -> Any:
+        from fakeredis import FakeAsyncRedis
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return self._unbound
+        client = self._by_loop.get(loop)
+        if client is None:
+            client = self._by_loop[loop] = FakeAsyncRedis(server=self._server)
+        return client
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._client(), name)
+
+
+def __get_async_cache() -> AsyncRedis:
+    if IS_PYTEST_RUN:
+        return cast(AsyncRedis, _PerLoopFakeAsyncRedis(_fake_server))
 
     # A separate client that auto-decodes responses is needed
     client = AsyncRedis.from_url(REDIS_URL, decode_responses=True)

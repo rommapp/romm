@@ -1,3 +1,5 @@
+import asyncio
+from typing import Any
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
@@ -6,6 +8,7 @@ from rq.exceptions import DeserializationError, InvalidJobOperation, NoSuchJobEr
 from rq.job import Job, JobStatus
 
 from handler.redis_handler import (
+    async_cache,
     cancel_job,
     get_job_func_name,
     get_job_kwargs,
@@ -147,3 +150,19 @@ class TestHasLiveWorker:
             assert has_live_worker(low_prio_queue) is expected
 
         mock_all.assert_called_once_with(queue=low_prio_queue)
+
+
+class TestAsyncCacheUnderTests:
+    def test_each_event_loop_gets_its_own_pool_over_one_keyspace(self):
+        async def write() -> Any:
+            await async_cache.set("per-loop", "1")
+            return async_cache.connection_pool
+
+        async def read() -> tuple[Any, Any]:
+            return async_cache.connection_pool, await async_cache.get("per-loop")
+
+        first_pool = asyncio.run(write())
+        second_pool, value = asyncio.run(read())
+
+        assert first_pool is not second_pool
+        assert value in ("1", b"1")
