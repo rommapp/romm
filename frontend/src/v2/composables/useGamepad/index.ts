@@ -373,7 +373,7 @@ export function useGamepad() {
         }
       }
 
-      // The game's pad gets no B, so a long Select+Start hold is the way out.
+      // B is muted during play, so a long Select+Start hold is the pad's exit.
       if (!chordHeld) {
         chordHeldSince = null;
         chordFired = false;

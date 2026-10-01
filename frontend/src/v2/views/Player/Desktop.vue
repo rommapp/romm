@@ -66,8 +66,8 @@ usePlayingWhile(sessionActive);
 // With B muted, useGamepad's Select+Start hold is the pad's way out.
 useEventListener(window, "gamepad:exitchord", () => void handleExit());
 
-// Leaving mid-claim is allowed, so a claim that answers after unmount is handed
-// straight back instead of standing unbeaten until it goes stale.
+// Leaving mid-claim is allowed, so a claim that answers after unmount is
+// released at once; otherwise it would hold the container until it went stale.
 const alive = useIsAlive();
 
 async function openDesktop(): Promise<void> {
