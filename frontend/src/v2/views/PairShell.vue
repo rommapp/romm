@@ -13,10 +13,10 @@ import Pair from "@/v2/views/Pair.vue";
     <main class="r-v2-pair-shell__stage">
       <Pair />
     </main>
-    <div class="r-v2-pair-shell__lang">
+    <footer class="r-v2-pair-shell__footer">
       <LanguageSelector />
-    </div>
-    <VersionTag class="r-v2-pair-shell__version" />
+      <VersionTag />
+    </footer>
   </div>
 </template>
 
@@ -55,17 +55,16 @@ import Pair from "@/v2/views/Pair.vue";
   max-width: 440px;
 }
 
-.r-v2-pair-shell__lang {
+/* Absolute so it stays out of the grid and the stage keeps its centring. */
+.r-v2-pair-shell__footer {
   position: absolute;
   left: var(--r-space-4);
-  bottom: var(--r-space-3);
-  z-index: 1;
-}
-
-.r-v2-pair-shell__version {
-  position: absolute;
   right: var(--r-space-4);
   bottom: var(--r-space-3);
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r-space-3);
 }
 </style>

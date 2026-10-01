@@ -16,10 +16,10 @@ import DevicePair from "@/v2/views/DevicePair.vue";
     <main class="r-v2-devpair-shell__stage">
       <DevicePair />
     </main>
-    <div class="r-v2-devpair-shell__lang">
+    <footer class="r-v2-devpair-shell__footer">
       <LanguageSelector />
-    </div>
-    <VersionTag class="r-v2-devpair-shell__version" />
+      <VersionTag />
+    </footer>
   </div>
 </template>
 
@@ -68,17 +68,16 @@ import DevicePair from "@/v2/views/DevicePair.vue";
   max-width: 460px;
 }
 
-.r-v2-devpair-shell__lang {
+/* Absolute so it stays out of the grid and the stage keeps its centring. */
+.r-v2-devpair-shell__footer {
   position: absolute;
   left: var(--r-space-4);
-  bottom: var(--r-space-3);
-  z-index: 1;
-}
-
-.r-v2-devpair-shell__version {
-  position: absolute;
   right: var(--r-space-4);
   bottom: var(--r-space-3);
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r-space-3);
 }
 </style>

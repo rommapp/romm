@@ -27,12 +27,12 @@ onMounted(installInputModality);
     <!-- Bottom bar: language selector pinned left, version tag right. A
          single row so the "one on each side" split holds at every width
          (absolute on desktop, in normal flow below the card on phones). -->
-    <div class="r-v2-auth__footer">
+    <footer class="r-v2-auth__footer">
       <div class="r-v2-auth__lang">
         <LanguageSelector />
       </div>
       <VersionTag class="r-v2-auth__version" />
-    </div>
+    </footer>
     <NotificationHost />
   </div>
 </template>
