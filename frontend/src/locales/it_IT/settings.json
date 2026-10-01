@@ -280,9 +280,9 @@
   "password-updated": "Password aggiornata",
   "passwords-must-match": "Le password devono corrispondere",
   "perm-action": {
-    "delete": "Cancellare",
-    "read": "Leggere",
-    "write": "Scrivere"
+    "delete": "Eliminazione",
+    "read": "Lettura",
+    "write": "Scrittura"
   },
   "perm-entity": {
     "assets": "Salvataggi & stati",
