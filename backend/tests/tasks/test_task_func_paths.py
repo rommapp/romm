@@ -40,8 +40,16 @@ def test_task_func_resolves_in_a_fresh_interpreter(func):
 
 
 # Loaded only by the jobs that need them, so the long-lived scheduler and
-# worker parents stay small.
-APP_STACK_MODULES = ("handler.database", "handler.auth.base_handler", "fastapi")
+# worker parents stay small. Each name covers its submodules too.
+JOB_ONLY_MODULES = (
+    "tasks.scheduled",
+    "tasks.manual",
+    "tasks.sync_push_pull_task",
+    "handler.database",
+    "handler.auth.base_handler",
+    "fastapi",
+    "httpx2",
+)
 
 
 @pytest.mark.parametrize("module", ["tasks.cron_config", "handler.rq_worker"])
@@ -52,9 +60,11 @@ def test_the_scheduler_and_worker_load_no_task_code(module):
             "-c",
             "import importlib, sys\n"
             "importlib.import_module(sys.argv[1])\n"
-            "print('LOADED:' + ','.join(m for m in sys.argv[2:] if m in sys.modules))\n",
+            "watched = sys.argv[2:]\n"
+            "print('LOADED:' + ','.join(m for m in sys.modules\n"
+            "    if any(m == w or m.startswith(w + '.') for w in watched)))\n",
             module,
-            *APP_STACK_MODULES,
+            *JOB_ONLY_MODULES,
         ],
         cwd=BACKEND_ROOT,
         env={**os.environ, "PYTHONPATH": str(BACKEND_ROOT)},

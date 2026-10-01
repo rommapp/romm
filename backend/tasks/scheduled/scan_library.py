@@ -1,6 +1,3 @@
-from config import (
-    ENABLE_SCHEDULED_RESCAN,
-)
 from endpoints.sockets.scan import ScanStats, scan_platforms
 from handler.scan_handler import ScanType, get_enabled_metadata_sources
 from logger.logger import log
@@ -15,7 +12,7 @@ class ScanLibraryTask(PeriodicTask):
     async def run(self) -> dict[str, str]:
         scan_stats = ScanStats()
 
-        if not ENABLE_SCHEDULED_RESCAN:
+        if not self.spec.enabled:
             log.info("Scheduled library scan not enabled, skipping...")
             return scan_stats.to_dict()
 
