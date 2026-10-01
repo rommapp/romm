@@ -5,7 +5,7 @@ import enum
 import hashlib
 import re
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
@@ -41,7 +41,6 @@ from sqlalchemy.orm import (
     validates,
 )
 from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
-from sqlalchemy.orm.collections import collection
 from sqlalchemy.sql.elements import ColumnElement
 
 from config import FRONTEND_RESOURCES_PATH
@@ -316,10 +315,17 @@ class SiblingRom(BaseModel):
 class UniqueSiblingList(list["Rom"]):
     """`Rom.sibling_roms`, holding each sibling once though the view repeats it."""
 
+    def __init__(self, roms: Iterable[Rom] = ()) -> None:
+        super().__init__(roms)
+        self._held = {id(rom) for rom in self}
+
     # selectinload hands the collection every view row, duplicates included.
-    @collection.appender  # type: ignore[untyped-decorator]
-    def _append_once(self, rom: Rom) -> None:
-        if rom not in self:
+    def append(self, rom: Rom, /) -> None:
+        # A list method other than this one changed the contents.
+        if len(self._held) != len(self):
+            self._held = {id(held) for held in self}
+        if id(rom) not in self._held:
+            self._held.add(id(rom))
             super().append(rom)
 
 
