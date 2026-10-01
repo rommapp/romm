@@ -252,7 +252,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0143_sibling_platform_names.py", "platforms"),
         ("0144_user_oidc_sub.py", "users"),
         ("0145_drop_derivable_columns.py", "rom_file_doc_meta"),
-        ("0146_roms_search_titles.py", "roms"),
+        ("0146_roms_search_aliases.py", "roms"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -376,7 +376,7 @@ def test_the_derivable_columns_revision_reverses_and_replays(admin_user: User):
 
 def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platform):
     """0146 swaps the search index and fills existing rows, resuming a partial run."""
-    migration = _load_migration("0146_roms_search_titles.py")
+    migration = _load_migration("0146_roms_search_aliases.py")
     first = make_rom(
         platform, "Final Fantasy VII", igdb_metadata={"alternative_names": ["FF7"]}
     )

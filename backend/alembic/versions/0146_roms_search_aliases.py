@@ -1,6 +1,6 @@
 """Search and rank on each ROM's folded name and aliases
 
-Revision ID: 0146_roms_search_titles
+Revision ID: 0146_roms_search_aliases
 Revises: 0145_drop_derivable_columns
 Create Date: 2026-09-29 00:00:00.000000
 
@@ -21,7 +21,7 @@ from utils.database import (
 from utils.roms_columns import ensure_roms_columns
 
 # revision identifiers, used by Alembic.
-revision = "0146_roms_search_titles"
+revision = "0146_roms_search_aliases"
 down_revision = "0145_drop_derivable_columns"
 branch_labels = None
 depends_on = None
