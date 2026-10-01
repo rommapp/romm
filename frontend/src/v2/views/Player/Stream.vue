@@ -784,12 +784,19 @@ async function onVisibilityChange(): Promise<void> {
   await pollSessionStatus();
 }
 
+// Timed from the moment the stream is live, which on a claim is the socket's
+// launch-ready push rather than anything `onPlay` awaits. Ingesting the session
+// updates last_played / now_playing / status server-side.
 watch(gameRunning, (running, prev) => {
   if (running && !prev) {
     presence.start();
+    if (rom.value) playSession.start(rom.value);
     nextTick(focusStream);
   }
-  if (prev && !running) presence.stop();
+  if (prev && !running) {
+    presence.stop();
+    playSession.flush();
+  }
 });
 
 // ── Stage ──────────────────────────────────────────────────────────
@@ -1015,13 +1022,6 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
           ? detail
           : hintForStatus(status);
     }
-  }
-
-  // Start timing the session once the claim succeeds and playback is live.
-  // The session is ingested on unmount, which updates last_played /
-  // now_playing / status server-side.
-  if (rom.value && (playerState.value as PlayerState) === "playing") {
-    playSession.start(rom.value);
   }
 }
 

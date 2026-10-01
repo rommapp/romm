@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   container: null as Record<string, unknown> | null,
   capabilities: {} as Record<string, unknown>,
   presenceTick: null as (() => Promise<void>) | null,
+  playSession: { start: vi.fn(), flush: vi.fn() },
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
   query: {} as Record<string, string>,
   snackbar: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
@@ -139,7 +140,7 @@ vi.mock("@/v2/composables/useInputModality", async () => {
 vi.mock("@/v2/composables/usePageTitle", () => ({ usePageTitle: vi.fn() }));
 
 vi.mock("@/v2/composables/usePlaySession", () => ({
-  usePlaySession: () => ({ start: vi.fn(), flush: vi.fn() }),
+  usePlaySession: () => mocks.playSession,
 }));
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
@@ -961,6 +962,37 @@ describe("Stream launch recovery", () => {
     expect(mocks.t).toHaveBeenCalledWith("play.core-untested", {
       core: "bsnes",
     });
+  });
+
+  it("times the play session from launch-ready, not from the claim answering", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("loading");
+    expect(mocks.playSession.start).not.toHaveBeenCalled();
+
+    await launchReady();
+    await flushPromises();
+
+    expect(mocks.playSession.start).toHaveBeenCalledOnce();
+    expect(mocks.playSession.start).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 3 }),
+    );
+  });
+
+  it("ends the play session when the stream stops running", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    await flushPromises();
+    expect(mocks.playSession.flush).not.toHaveBeenCalled();
+
+    endSession({ platform: "gba", container: "WEBSTATION-DEV" });
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("exited");
+    expect(mocks.playSession.flush).toHaveBeenCalled();
   });
 
   it("warns of the core once when launch-ready follows the poll", async () => {
