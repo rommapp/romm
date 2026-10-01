@@ -49,11 +49,16 @@ ROMS = sa.table(
 )
 
 
-def _fill_search_titles(conn: sa.Connection) -> None:
-    """Fill the rows still without titles, so an interrupted run resumes."""
+def _fill_search_titles(conn: sa.Connection) -> bool:
+    """Fill the rows still without titles, so an interrupted run resumes.
+
+    Returns:
+        Whether any row was filled.
+    """
     # Only each provider's titles are read, not the whole metadata blob.
     titles = [ROMS.c[column][key] for column, key in ALTERNATIVE_NAME_SOURCES]
     last_id = 0
+    filled_any = False
     while rows := conn.execute(
         sa.select(ROMS.c.id, ROMS.c.name, *titles)
         .where(ROMS.c[SEARCH_TITLES_COLUMN].is_(None), ROMS.c.id > last_id)
@@ -79,6 +84,8 @@ def _fill_search_titles(conn: sa.Connection) -> None:
             .values({SEARCH_TITLES_COLUMN: sa.case(filled, value=ROMS.c.id)})
         )
         last_id = rows[-1][0]
+        filled_any = True
+    return filled_any
 
 
 def _titles_text(json_array_text: str) -> str:
@@ -123,7 +130,10 @@ def upgrade() -> None:
     # MySQL has no DROP COLUMN IF EXISTS.
     if SEARCH_ALIASES_COLUMN in column_names(conn, "roms"):
         op.execute(f"ALTER TABLE roms DROP COLUMN {SEARCH_ALIASES_COLUMN}")
-    _fill_search_titles(conn)
+    # Growing every row in place leaves InnoDB's pages split, which nothing
+    # compacts later; one rebuild keeps the search as fast as before.
+    if _fill_search_titles(conn) and not is_postgresql(conn):
+        op.execute("ALTER TABLE roms FORCE")
 
 
 def downgrade() -> None:
