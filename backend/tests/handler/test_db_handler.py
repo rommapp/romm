@@ -302,6 +302,41 @@ def test_search_ranks_exact_titles_then_name_prefixes(platform: Platform):
     assert ranked("ff7") == [ff7.id, fan_mod.id]
 
 
+def _ranked(search_term: str) -> list[int]:
+    return [rom.id for rom in db_rom_handler.get_roms_scalar(search_term=search_term)]
+
+
+def test_search_ranks_a_name_prefix_only_where_a_word_ends(platform: Platform):
+    ff7 = make_rom(platform, "Final Fantasy VII")
+    ff8 = make_rom(platform, "Final Fantasy VIII")
+    advent_children = make_rom(platform, "Final Fantasy VII: Advent Children")
+    crisis_core = make_rom(platform, "Crisis Core: Final Fantasy VII")
+
+    assert _ranked("final fantasy vii") == [
+        ff7.id,
+        advent_children.id,
+        crisis_core.id,
+        ff8.id,
+    ]
+
+
+@pytest.mark.parametrize(
+    ("name", "search_term"),
+    [
+        ("Dr. Mario 64", "dr. mario"),
+        ("Mario + Rabbids Kingdom Battle", "mario + rabbids"),
+    ],
+)
+def test_search_ranks_a_name_prefix_holding_regex_characters(
+    platform: Platform, name: str, search_term: str
+):
+    prefixed = make_rom(platform, name)
+    # Ahead by name, so only the prefix rank puts the other first.
+    holder = make_rom(platform, f"A {name} Fan Game")
+
+    assert _ranked(search_term) == [prefixed.id, holder.id]
+
+
 @pytest.mark.parametrize(
     "alias", ['Say "Cheese"', "Pokémon Rouge", "ŌKAMI Den", "Chrono\tTrigger"]
 )

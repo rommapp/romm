@@ -264,6 +264,20 @@ def _search_terms(search_term: str) -> list[str]:
     return [term for term in (part.strip() for part in search_term.split("|")) if term]
 
 
+def _name_starts_with(title: str) -> ColumnElement[bool]:
+    """Whether the ROM's folded name starts with `title`, ending a word there."""
+    sep = SEARCH_TITLE_SEPARATOR
+    # Both engines' regex dialects read a backslash before a non-alphanumeric
+    # character as that character.
+    escaped = "".join(char if char.isalnum() else f"\\{char}" for char in title)
+    # The name comes first, so it is the title the column starts with. The LIKE
+    # narrows the rows the regex has to read.
+    return and_(
+        Rom.search_titles.startswith(f"{sep}{title}", autoescape=True),
+        Rom.search_titles.regexp_match(f"^{sep}{escaped}[^[:alnum:]]"),
+    )
+
+
 def _search_rank(terms: Sequence[str]) -> ColumnElement[int]:
     """2 when the name or an alias equals a term, 1 when the name starts with one, else 0."""
     sep = SEARCH_TITLE_SEPARATOR
@@ -274,13 +288,7 @@ def _search_rank(terms: Sequence[str]) -> ColumnElement[int]:
             for title in folded
         )
     )
-    # The name comes first, so it is the title the column starts with.
-    prefix = or_(
-        *(
-            Rom.search_titles.startswith(f"{sep}{title}", autoescape=True)
-            for title in folded
-        )
-    )
+    prefix = or_(*(_name_starts_with(title) for title in folded))
     return case((exact, 2), (prefix, 1), else_=0)
 
 
