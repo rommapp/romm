@@ -1051,6 +1051,7 @@ defineExpose({
               :sort-key="listSortKey"
               :sort-key-items="sortOptions"
               :unsorted-label="unsortedLabel"
+              :unsorted="galleryRoms.effectiveOrderBy === null"
               show-search
               :search="searchInput"
               :search-placeholder="searchPlaceholder"
@@ -1094,6 +1095,7 @@ defineExpose({
             :sort-dir="orderDir"
             :show-platform-column="showPlatformColumn"
             :unsorted-label="unsortedLabel"
+            :unsorted="galleryRoms.effectiveOrderBy === null"
             @sort="onListSort"
             @unsort="galleryRoms.setOrderBy(null)"
           />
@@ -1114,6 +1116,7 @@ defineExpose({
           :show-platform-column="showPlatformColumn"
           aria-rowindex="1"
           :unsorted-label="unsortedLabel"
+          :unsorted="galleryRoms.effectiveOrderBy === null"
           @sort="onListSort"
           @unsort="galleryRoms.setOrderBy(null)"
         />
@@ -1243,6 +1246,7 @@ defineExpose({
       :sort-key="listSortKey"
       :sort-key-items="sortOptions"
       :unsorted-label="unsortedLabel"
+      :unsorted="galleryRoms.effectiveOrderBy === null"
       show-filter
       :filter-active-count="filterActiveCount"
       @update:group-by="groupBy = $event"

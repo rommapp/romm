@@ -40,11 +40,14 @@ interface Props {
   /** Names the gallery's order without a sort key (Search's relevance), and
    * lets a third click on a column return to it. */
   unsortedLabel?: string;
+  /** Whether that order is the one applied. */
+  unsorted?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showPlatformColumn: true,
   unsortedLabel: undefined,
+  unsorted: false,
 });
 
 const emit = defineEmits<{
@@ -128,6 +131,7 @@ function handleClick(col: ListColumn) {
       :sort-key="sortKey"
       :sort-dir="sortDir"
       :unsorted-label="unsortedLabel"
+      :unsorted="unsorted"
       @sort="emit('sort', $event)"
       @unsort="emit('unsort')"
     />

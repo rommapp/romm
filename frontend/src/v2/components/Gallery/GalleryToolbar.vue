@@ -86,6 +86,8 @@ const props = withDefaults(
     /** Offers the gallery's order without a sort key (Search's relevance)
      *  under this name; it has no direction, so the toggle hides under it. */
     unsortedLabel?: string;
+    /** Whether that order is the one applied. */
+    unsorted?: boolean;
     /** Show the search field on the left. v-model:search controls its value. */
     showSearch?: boolean;
     search?: string;
@@ -116,6 +118,7 @@ const props = withDefaults(
     sortKey: null,
     sortKeyItems: () => [],
     unsortedLabel: undefined,
+    unsorted: false,
     showSearch: false,
     search: "",
     searchPlaceholder: "",
@@ -152,9 +155,7 @@ const groupByValue = computed(() => toValue(props.groupBy));
 const layoutValue = computed(() => toValue(props.layout));
 const sortDirValue = computed(() => toValue(props.sortDir));
 const sortKeyValue = computed(() => toValue(props.sortKey));
-const unsorted = computed(
-  () => !!props.unsortedLabel && sortKeyValue.value === null,
-);
+const unsorted = computed(() => !!props.unsortedLabel && props.unsorted);
 // List mode sorts from its own column header, so the toolbar's sort and
 // grouping controls step aside rather than sit there inert.
 const listMode = computed(() => layoutValue.value === "list");

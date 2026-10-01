@@ -167,6 +167,7 @@ describe("GalleryToolbar sort axis", () => {
     const wrapper = mountWithSortOptions({
       unsortedLabel: "Relevance",
       sortKey: null,
+      unsorted: true,
     });
 
     expect(wrapper.findAllComponents({ name: "RSliderBtnGroup" })).toHaveLength(
@@ -177,6 +178,38 @@ describe("GalleryToolbar sort axis", () => {
       .find((item) => item.props("label") === "Relevance");
     expect(relevance?.props("variant")).toBe("active");
     expect(relevance?.props("icon")).toBe("mdi-check");
+    wrapper.unmount();
+  });
+
+  // A sort the selector doesn't offer (`last_played`) leaves no axis key, but
+  // it is still a sort.
+  it("ticks nothing and keeps the toggle for a sort it doesn't offer", () => {
+    const sorted = mountWithSortOptions({ unsortedLabel: "Relevance" });
+    const togglesWhenSorted = sorted.findAllComponents({
+      name: "RSliderBtnGroup",
+    }).length;
+    sorted.unmount();
+
+    const wrapper = mountWithSortOptions({
+      unsortedLabel: "Relevance",
+      sortKey: null,
+      unsorted: false,
+    });
+
+    expect(wrapper.findAllComponents({ name: "RSliderBtnGroup" })).toHaveLength(
+      togglesWhenSorted,
+    );
+    const ticked = wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .filter(
+        (item) =>
+          item.props("variant") === "active" &&
+          (item.props("label") === "Relevance" ||
+            SORT_OPTIONS.some(
+              (option) => option.label === item.props("label"),
+            )),
+      );
+    expect(ticked).toHaveLength(0);
     wrapper.unmount();
   });
 

@@ -13,6 +13,8 @@ const props = defineProps<{
   sortDir: "asc" | "desc";
   /** Offers the list's order without a sort key (Search's relevance) under this name. */
   unsortedLabel?: string;
+  /** Whether that order is the one applied. */
+  unsorted?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -29,7 +31,7 @@ const dirIcon = computed(() =>
 const label = computed(
   () =>
     props.options.find((option) => option.key === props.sortKey)?.label ??
-    (props.sortKey === null ? props.unsortedLabel : undefined) ??
+    (props.unsorted ? props.unsortedLabel : undefined) ??
     t("gallery.sort-by"),
 );
 
@@ -48,7 +50,7 @@ function pick(key: K) {
       <button v-bind="activatorProps" type="button" class="list-sort-menu">
         <span class="list-sort-menu__label">{{ label }}</span>
         <RIcon
-          v-if="sortKey !== null || !unsortedLabel"
+          v-if="!unsorted || !unsortedLabel"
           :icon="dirIcon"
           size="14"
           class="list-sort-menu__icon"
@@ -58,7 +60,7 @@ function pick(key: K) {
     <RMenuItem
       v-if="unsortedLabel"
       :label="unsortedLabel"
-      :variant="sortKey === null ? 'active' : 'default'"
+      :variant="unsorted ? 'active' : 'default'"
       @click="emit('unsort')"
     />
     <RMenuItem
