@@ -253,7 +253,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0144_user_oidc_sub.py", "users"),
         ("0145_drop_derivable_columns.py", "rom_file_doc_meta"),
         ("0146_roms_search_aliases.py", "roms"),
-        ("0148_rom_file_binary_metadata.py", "rom_files"),
+        ("0147_rom_file_binary_metadata.py", "rom_files"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -416,7 +416,7 @@ def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platfor
 
 
 def test_the_rom_file_binary_metadata_revision_reverses_and_replays():
-    migration = _load_migration("0148_rom_file_binary_metadata.py")
+    migration = _load_migration("0147_rom_file_binary_metadata.py")
 
     with sync_engine.begin() as connection:
         before = _schema_of(connection, "rom_files")
