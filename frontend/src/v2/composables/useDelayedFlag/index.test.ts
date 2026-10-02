@@ -42,6 +42,16 @@ describe("useDelayedFlag", () => {
     expect(flag.value).toBe(false);
   });
 
+  it("drops a pending turn-on once its scope is disposed", async () => {
+    const flag = setup(ref(true), 200);
+
+    scopes.splice(0).forEach((scope) => scope.stop());
+
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(flag.value).toBe(false);
+  });
+
   it("follows the source immediately with no delay", async () => {
     const source = ref(false);
     const flag = setup(source, 0);

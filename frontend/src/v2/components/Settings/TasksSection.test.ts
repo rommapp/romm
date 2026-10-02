@@ -1,5 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import { taskStatusFixture as status } from "@/utils/tasks.fixtures";
 import TasksSection from "./TasksSection.vue";
@@ -197,15 +198,18 @@ describe("TasksSection", () => {
 
   it("skips the poll while the tab is hidden and catches up on return", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("hidden");
     const wrapper = await mountSection();
     getTaskStatus.mockClear();
 
     vi.advanceTimersByTime(10_000);
     expect(getTaskStatus).not.toHaveBeenCalled();
 
-    hidden.mockReturnValue(false);
+    visibility.mockReturnValue("visible");
     document.dispatchEvent(new Event("visibilitychange"));
+    await nextTick();
     expect(getTaskStatus).toHaveBeenCalledTimes(1);
 
     wrapper.unmount();

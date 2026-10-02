@@ -390,6 +390,35 @@ describe("Home", () => {
     expect(wrapper.text()).not.toContain("home.empty-headline");
   });
 
+  it("polls live sessions only while the tab is visible and streaming is on", async () => {
+    stubHomeFetches(true);
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("hidden");
+    const streaming = useStreamingStore();
+    const fetchJoinable = vi
+      .spyOn(streaming, "fetchJoinableSessions")
+      .mockResolvedValue(undefined);
+    streaming.config.enabled = true;
+    mountHome();
+    await flushPromises();
+    fetchJoinable.mockClear();
+
+    vi.advanceTimersByTime(60_000);
+    expect(fetchJoinable).not.toHaveBeenCalled();
+
+    visibility.mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await flushPromises();
+    expect(fetchJoinable).toHaveBeenCalledTimes(1);
+
+    streaming.config.enabled = false;
+    await flushPromises();
+    vi.advanceTimersByTime(60_000);
+    expect(fetchJoinable).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the live row only while someone hosts a multiplayer session", async () => {
     stubHomeFetches(true);
     const streaming = useStreamingStore();
