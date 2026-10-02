@@ -65,6 +65,16 @@ describe("useDebouncedSearch", () => {
     expect(input.value).toBe("zelda");
   });
 
+  it("drops a pending keystroke when its scope stops", () => {
+    const { term, setSearch } = setup(null);
+
+    setSearch("mario");
+    scope.stop();
+    vi.advanceTimersByTime(300);
+
+    expect(term.value).toBeNull();
+  });
+
   it("commits straight away on flush, dropping the pending keystroke", () => {
     const { term, setSearch, flush } = setup(null);
 

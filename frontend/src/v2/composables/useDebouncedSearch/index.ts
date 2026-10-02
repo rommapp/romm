@@ -1,5 +1,5 @@
-import { useTimeoutFn } from "@vueuse/core";
-import { type Ref, ref, watch } from "vue";
+import { useDebounceFn } from "@vueuse/core";
+import { onScopeDispose, type Ref, ref, watch } from "vue";
 
 /** A search box bound to a store term, debounced one way and immediate the
  *  other, so a term set by navigation shows up in the box. */
@@ -13,25 +13,27 @@ export function useDebouncedSearch(term: Ref<string | null>, delayMs = 300) {
     return true;
   }
 
-  const commit = useTimeoutFn(apply, delayMs, { immediate: false });
+  const commit = useDebounceFn(apply, delayMs);
 
   function setSearch(value: string) {
     input.value = value;
-    commit.start(value);
+    void commit(value);
   }
 
   /** Commits the box without waiting. Returns whether the term changed. */
   function flush(): boolean {
-    commit.stop();
+    commit.cancel();
     return apply(input.value);
   }
 
   watch(term, (value) => {
     if (input.value.trim() === (value ?? "")) return;
     // A keystroke still waiting would overwrite the term just navigated to.
-    commit.stop();
+    commit.cancel();
     input.value = value ?? "";
   });
+
+  onScopeDispose(commit.cancel);
 
   return { input, setSearch, flush };
 }
