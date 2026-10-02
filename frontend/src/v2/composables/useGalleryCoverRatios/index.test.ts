@@ -60,22 +60,18 @@ describe("useGalleryCoverRatios", () => {
   // never reflowed off its default ratio and wide covers overflowed the row.
   it("schedules a re-pack when the shared store was pre-seeded by the cover", () => {
     vi.useFakeTimers();
-    try {
-      storeGalleryRoms().romIdIndex = [501];
-      const { ratioVersion, onCardRatio } = withComposable(() =>
-        useGalleryCoverRatios(),
-      );
+    storeGalleryRoms().romIdIndex = [501];
+    const { ratioVersion, onCardRatio } = withComposable(() =>
+      useGalleryCoverRatios(),
+    );
 
-      // Cover paints first: seed the shared map, then emit the same ratio.
-      setCoverRatio({ romId: 501 }, 1.0);
-      const before = ratioVersion.value;
-      onCardRatio({ romId: 501, ratio: 1.0 });
+    // Cover paints first: seed the shared map, then emit the same ratio.
+    setCoverRatio({ romId: 501 }, 1.0);
+    const before = ratioVersion.value;
+    onCardRatio({ romId: 501, ratio: 1.0 });
 
-      vi.advanceTimersByTime(400);
-      expect(ratioVersion.value).toBe(before + 1);
-    } finally {
-      vi.useRealTimers();
-    }
+    vi.advanceTimersByTime(400);
+    expect(ratioVersion.value).toBe(before + 1);
   });
 });
 

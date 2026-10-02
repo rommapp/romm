@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, reactive, ref } from "vue";
 import type {
   PendingAssetKind,
@@ -65,12 +65,9 @@ vi.mock("@/v2/composables/useServerConnection", () => ({
   useServerConnection: () => ({ isOffline, retryNow: vi.fn() }),
 }));
 
-// The composable only runs inside a component scope, like AppLayout's. The
-// wrapper is kept so each test's watcher dies with it, rather than answering
-// the next test's reconnect.
-let wrapper: ReturnType<typeof mount> | null = null;
+// The composable only runs inside a component scope, like AppLayout's.
 function install() {
-  wrapper = mount(
+  mount(
     defineComponent({
       setup() {
         installPendingAssetSync();
@@ -93,12 +90,6 @@ describe("installPendingAssetSync", () => {
     isOffline.value = false;
     syncPendingAssets.mockReset();
     syncPendingAssets.mockImplementation(acceptAll);
-  });
-
-  afterEach(() => {
-    wrapper?.unmount();
-    wrapper = null;
-    vi.useRealTimers();
   });
 
   it("hands over what the browser is holding as soon as it installs", async () => {

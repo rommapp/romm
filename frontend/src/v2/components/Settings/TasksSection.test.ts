@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import { taskStatusFixture as status } from "@/utils/tasks.fixtures";
 import TasksSection from "./TasksSection.vue";
@@ -80,8 +80,6 @@ describe("TasksSection", () => {
     runTask.mockResolvedValue({ data: { task_id: "job-1" } });
     confirm.mockReset();
   });
-
-  afterEach(() => vi.useRealTimers());
 
   it("runs a destructive task only once its typed confirmation passes", async () => {
     getTasks.mockResolvedValue({

@@ -89,8 +89,6 @@ describe("useWrapGridNav", () => {
   });
 
   afterEach(() => {
-    wrapper?.unmount();
-    wrapper = null;
     restores.splice(0).forEach((restore) => restore());
   });
 

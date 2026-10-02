@@ -1,5 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import { serverError } from "@/test-utils/serverError";
 import Desktop from "./Desktop.vue";
@@ -82,10 +82,6 @@ const StreamStageStub = defineComponent({
 
 type DesktopVm = { state: string; errorMessage: string; endedReason: string };
 
-// The view listens on window, so a mount left standing would answer the next
-// test's pagehide too.
-let mounted: VueWrapper | null = null;
-
 const CLAIMED_AT = "2026-09-17T10:00:00";
 const KEY = "http://webstation-dev:8000";
 const CLAIM = {
@@ -118,18 +114,13 @@ function expectReleasedOwnClaim(): void {
   );
 }
 
-afterEach(() => {
-  mounted?.unmount();
-  mounted = null;
-});
-
 async function mountDesktop(): Promise<VueWrapper> {
-  mounted = mount(Desktop, {
+  const wrapper = mount(Desktop, {
     shallow: true,
     global: { stubs: { StreamStage: StreamStageStub } },
   });
   await flushPromises();
-  return mounted;
+  return wrapper;
 }
 
 async function openDesktop(): Promise<VueWrapper> {
@@ -385,7 +376,6 @@ describe("Desktop controller ownership", () => {
     const wrapper = await openDesktop();
 
     wrapper.unmount();
-    mounted = null;
 
     expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
   });
@@ -429,7 +419,6 @@ describe("Desktop claims that outlive the view", () => {
     const wrapper = await mountDesktop();
 
     wrapper.unmount();
-    mounted = null;
     answer(CLAIM);
     await flushPromises();
 
@@ -446,7 +435,6 @@ describe("Desktop claims that outlive the view", () => {
     answer(CLAIM);
     await flushPromises();
     wrapper.unmount();
-    mounted = null;
     await flushPromises();
 
     expectReleasedOwnClaim();

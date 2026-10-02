@@ -125,10 +125,6 @@ describe("installFullscreenFallback", () => {
 });
 
 describe("leaveFullscreen", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   it("does nothing outside fullscreen", async () => {
     dispose = installFullscreenFallback();
     const exit = vi.spyOn(document, "exitFullscreen");

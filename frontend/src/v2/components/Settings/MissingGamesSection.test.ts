@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 import { serverError } from "@/test-utils/serverError";
@@ -165,8 +165,6 @@ describe("MissingGamesSection", () => {
       scroller.vm.$emit("update:viewport-range", range);
       return { wrapper, sync };
     }
-
-    afterEach(() => vi.useRealTimers());
 
     it("syncs once the scroller settles", async () => {
       const { sync } = await mountScrolled();

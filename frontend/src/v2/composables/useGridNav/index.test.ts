@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { useGridNav } from "./index";
 
@@ -56,8 +56,6 @@ describe("useGridNav roving", () => {
     wrapper = mount(Grid, { attachTo: document.body });
     await frame();
   });
-
-  afterEach(() => wrapper.unmount());
 
   it("leaves only the first cell's controls in the tab order", () => {
     expect(tabbable(wrapper)).toEqual(["/rom/1", "fav"]);

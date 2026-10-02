@@ -1,8 +1,7 @@
 import { RTooltip } from "@v2/lib";
 import { mount } from "@vue/test-utils";
 import mitt from "mitt";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
@@ -59,8 +58,6 @@ async function layOut(
 }
 
 describe("AboutDialog", () => {
-  beforeEach(() => setActivePinia(createPinia()));
-
   // Ready before any hover, as RTooltip decides on the pointer's arrival.
   it("shows a value cut off by its tile in a tooltip", async () => {
     const wrapper = await open();

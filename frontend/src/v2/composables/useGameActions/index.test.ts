@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionKey } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import { makeRom as baseRom } from "@/utils/rom.fixtures";
@@ -623,10 +623,6 @@ describe("useGameActions.downloadAs", () => {
       download_formats: downloadFormats,
     } as SimpleRom;
   }
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
 
   it("offers the formats the detailed rom lists", () => {
     const rom = pspRom([{ id: 1, file_name: "Game.CHD" }]);

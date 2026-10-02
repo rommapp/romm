@@ -1,6 +1,6 @@
 /* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import BrowseMode from "./BrowseMode.vue";
 
@@ -41,7 +41,6 @@ vi.mock("@/v2/components/shared/PlatformIcon.vue", () => ({
 
 describe("BrowseMode search", () => {
   beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
 
   function mountBrowse() {
     const loadEntries = vi.fn().mockResolvedValue([]);

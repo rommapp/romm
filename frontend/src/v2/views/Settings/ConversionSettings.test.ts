@@ -1,6 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import storeConfig, { type Config } from "@/stores/config";
@@ -93,7 +92,6 @@ describe("ConversionSettings", () => {
     runTask.mockReset();
     snackbarSuccess.mockReset();
     scopes.splice(0, scopes.length, "platforms.write", "tasks.run");
-    setActivePinia(createPinia());
     storeHeartbeat().value.CONVERTO.ENABLED = true;
     useConfig({ psx: "chd" });
   });

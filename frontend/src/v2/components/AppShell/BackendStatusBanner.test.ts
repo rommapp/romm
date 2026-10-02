@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import storePlaying from "@/stores/playing";
 import BackendStatusBanner from "./BackendStatusBanner.vue";
@@ -44,12 +44,6 @@ describe("BackendStatusBanner", () => {
     vi.useFakeTimers();
     isOffline.value = false;
     isWebSocketDegraded.value = false;
-  });
-
-  afterEach(() => {
-    wrapper?.unmount();
-    wrapper = null;
-    vi.useRealTimers();
   });
 
   it("stays out of sight while the server answers", async () => {

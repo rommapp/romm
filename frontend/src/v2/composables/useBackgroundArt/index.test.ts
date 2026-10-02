@@ -1,6 +1,6 @@
 /* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h } from "vue";
 import {
   provideBackgroundArt,
@@ -35,7 +35,6 @@ describe("provideBackgroundArt", () => {
   beforeEach(() =>
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }),
   );
-  afterEach(() => vi.useRealTimers());
 
   it("cross-fades to the latest art once the pointer dwells", () => {
     const { set, shown } = mountLayout();

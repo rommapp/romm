@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt from "mitt";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import type { ScanStats } from "@/__generated__";
 import platformApi from "@/services/api/platform";
@@ -132,15 +132,12 @@ function runningScanTask(stats: ScanStats | null) {
 }
 
 // The lifecycle uses `inject` and `onScopeDispose`, so it needs a host
-// component instance. Tracked so `afterEach` can unmount it: the auth state
-// is reactive and shared, so a leaked host would keep watching it and
-// reconcile again during later tests.
-let host: ReturnType<typeof mount> | null = null;
+// component instance.
 
 const emitter = mitt<Events>();
 
 function install() {
-  host = mount(
+  mount(
     defineComponent({
       setup() {
         installScanLifecycle();
@@ -161,11 +158,6 @@ describe("installScanLifecycle", () => {
     getTaskStatus.mockReset();
     getTaskStatus.mockResolvedValue({ data: [] } as never);
     authState.user = { id: 1, oauth_scopes: ["tasks.run"] };
-  });
-
-  afterEach(() => {
-    host?.unmount();
-    host = null;
   });
 
   it("treats a stats event as proof a scan is running", () => {

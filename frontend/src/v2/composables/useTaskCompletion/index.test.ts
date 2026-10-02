@@ -1,5 +1,5 @@
 import { AxiosError, type AxiosResponse } from "axios";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { effectScope } from "vue";
 import { useTaskCompletion } from "./index";
 
@@ -26,10 +26,6 @@ describe("useTaskCompletion", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     getTaskById.mockReset();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("resolves without waiting when the job already finished", async () => {

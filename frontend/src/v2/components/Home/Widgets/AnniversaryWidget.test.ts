@@ -1,6 +1,6 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 import { makeRom } from "@/utils/rom.fixtures";
@@ -105,10 +105,6 @@ describe("AnniversaryWidget", () => {
     // known calendar day rather than whenever the suite happens to run.
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 8, 8, 12, 0, 0));
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("asks the shared list for its own local day, one page, no sidecars", async () => {

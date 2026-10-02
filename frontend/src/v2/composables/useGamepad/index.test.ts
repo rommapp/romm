@@ -51,7 +51,6 @@ function padHolding(...held: number[]): Gamepad {
 
 describe("useGamepad", () => {
   const { modality, setModality } = useInputModality();
-  let wrapper: ReturnType<typeof mount> | null = null;
   let frame: FrameRequestCallback | null = null;
   let keys: string[] = [];
 
@@ -73,7 +72,7 @@ describe("useGamepad", () => {
       value: typeof pad === "function" ? pad : () => [pad],
       configurable: true,
     });
-    wrapper = mount(
+    mount(
       defineComponent({
         setup() {
           useGamepad().install();
@@ -99,8 +98,6 @@ describe("useGamepad", () => {
 
   afterEach(() => {
     window.removeEventListener("keydown", onKeydown);
-    wrapper?.unmount();
-    wrapper = null;
   });
 
   it("steers with the left stick", () => {

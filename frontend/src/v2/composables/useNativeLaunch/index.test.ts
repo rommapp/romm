@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type {
   LaunchErrorCode,
@@ -37,11 +37,9 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 const t = vi.fn((key: string) => key);
 vi.mock("vue-i18n", () => ({ useI18n: () => ({ t }) }));
 
-// The composable only runs inside a component scope, like AppLayout's. The
-// wrapper is kept so each test's subscription dies with it.
-let wrapper: ReturnType<typeof mount> | null = null;
+// The composable only runs inside a component scope, like AppLayout's.
 function feedback() {
-  wrapper = mount(
+  mount(
     defineComponent({
       setup() {
         installNativeLaunchFeedback();
@@ -56,11 +54,6 @@ describe("installNativeLaunchFeedback", () => {
     emit = null;
     nameFor.mockImplementation(() => "Chrono Trigger");
     vi.spyOn(console, "error").mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    wrapper?.unmount();
-    wrapper = null;
   });
 
   it("subscribes on install", () => {

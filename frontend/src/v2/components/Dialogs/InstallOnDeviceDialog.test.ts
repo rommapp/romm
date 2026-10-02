@@ -1,6 +1,6 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import type { DeviceSchema, InstallRequestSchema } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
@@ -136,10 +136,6 @@ describe("InstallOnDeviceDialog", () => {
     cancelInstall.mockResolvedValue({
       data: installRequest({ status: "cancelled" }),
     });
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("keeps a reopened dialog's send busy when an earlier one finishes", async () => {

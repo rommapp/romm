@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, ref, type Ref } from "vue";
 import romApi from "@/services/api/rom";
 import { useReadingProgress } from "./index";
@@ -40,10 +40,6 @@ beforeEach(() => {
   updateFileProgress.mockReset();
   getFileProgress.mockResolvedValue({ data: { progress: 0 } } as never);
   updateFileProgress.mockResolvedValue({ data: {} } as never);
-});
-
-afterEach(() => {
-  vi.useRealTimers();
 });
 
 describe("useReadingProgress", () => {

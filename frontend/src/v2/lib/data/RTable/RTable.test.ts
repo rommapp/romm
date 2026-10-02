@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import RTable from "./RTable.vue";
 
 const columns = [{ key: "name", label: "Name" }];
@@ -20,7 +20,6 @@ describe("RTable entrance", () => {
   beforeEach(() =>
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }),
   );
-  afterEach(() => vi.useRealTimers());
 
   // Re-sorting re-inserts rows, which would replay the animation if the class
   // stayed on.

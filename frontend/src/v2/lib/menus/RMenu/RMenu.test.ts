@@ -113,8 +113,6 @@ describe("RMenu", () => {
       return wrapper;
     }
 
-    afterEach(() => vi.useRealTimers());
-
     it("closes a moment after the pointer leaves", async () => {
       const wrapper = await openByHover();
 

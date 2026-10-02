@@ -1,5 +1,4 @@
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import storeTasks from "@/stores/tasks";
 import type { TaskStatusResponse } from "@/utils/tasks";
 import { taskStatusFixture } from "@/utils/tasks.fixtures";
@@ -18,8 +17,6 @@ const OLD: TaskStatusResponse[] = [taskStatusFixture({ task_id: "old" })];
 const NEW: TaskStatusResponse[] = [taskStatusFixture({ task_id: "new" })];
 
 describe("tasks store fetchTaskStatus", () => {
-  beforeEach(() => setActivePinia(createPinia()));
-
   it("keeps the newest response when an older one settles last", async () => {
     const older = deferred<{ data: TaskStatusResponse[] }>();
     const newer = deferred<{ data: TaskStatusResponse[] }>();
