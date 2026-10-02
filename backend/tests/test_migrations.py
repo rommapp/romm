@@ -266,9 +266,9 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0144_user_oidc_sub.py", "users"),
         ("0145_drop_derivable_columns.py", "rom_file_doc_meta"),
         ("0146_roms_search_aliases.py", "roms"),
-        ("0148_track_meta_songs.py", "track_meta"),
-        ("0148_track_meta_songs.py", "music_favorite_tracks"),
-        ("0148_track_meta_songs.py", "music_playlist_tracks"),
+        ("0147_track_meta_songs.py", "track_meta"),
+        ("0147_track_meta_songs.py", "music_favorite_tracks"),
+        ("0147_track_meta_songs.py", "music_playlist_tracks"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -458,7 +458,7 @@ def _referenced_files(connection: sa.Connection) -> dict[str, set[int]]:
 
 
 def test_the_track_meta_songs_revision_reverses_and_replays(rom: Rom, admin_user: User):
-    """0148 moves favorites and playlist entries between file and track keys.
+    """0147 moves favorites and playlist entries between file and track keys.
 
     Going back keeps only what a file's first song held; each step checks the
     current schema, so both directions replay.
@@ -491,7 +491,7 @@ def test_the_track_meta_songs_revision_reverses_and_replays(rom: Rom, admin_user
         playlist.id, [tracks[chips, 0], tracks[chips, 1]]
     )
 
-    migration = _load_migration("0148_track_meta_songs.py")
+    migration = _load_migration("0147_track_meta_songs.py")
     tables = ("track_meta", "music_favorite_tracks", "music_playlist_tracks")
     with sync_engine.begin() as connection:
         before = {table: _schema_of(connection, table) for table in tables}

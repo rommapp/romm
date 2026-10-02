@@ -1,7 +1,7 @@
 """give each soundtrack song its own track row, so a file can hold several
 
-Revision ID: 0148_track_meta_songs
-Revises: 0147_roms_search_titles
+Revision ID: 0147_track_meta_songs
+Revises: 0146_roms_search_aliases
 Create Date: 2026-09-28 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ from alembic import op
 from utils.database import has_column, is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0148_track_meta_songs"
-down_revision = "0147_roms_search_titles"
+revision = "0147_track_meta_songs"
+down_revision = "0146_roms_search_aliases"
 branch_labels = None
 depends_on = None
 
