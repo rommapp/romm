@@ -123,8 +123,9 @@ frontend/
 ├── index.html                     # HTML entry point (<div id="app">)
 ├── package.json                   # Dependencies & scripts
 ├── vite.config.js                 # Vite build config with plugins
-├── tsconfig.json                  # Vue app TypeScript (vue-tsc)
-├── tsconfig.node.json             # Node/Vite tooling TypeScript (tsc -p)
+├── tsconfig.json                  # References app + node (vue-tsc --build)
+├── tsconfig.app.json              # Vue app TypeScript
+├── tsconfig.node.json             # Node tooling and tool configs TypeScript
 ├── eslint.config.js               # ESLint flat config
 ├── .nvmrc                         # Node 24
 │
@@ -1100,14 +1101,14 @@ Procedural SVG generation for:
 
 ### Scripts
 
-| Script              | Command                              | Purpose                                              |
-| ------------------- | ------------------------------------ | ---------------------------------------------------- |
-| `dev`               | `vite --host`                        | Development server                                   |
-| `build`             | `vite build`                         | Production build                                     |
-| `preview`           | `vite preview`                       | Preview production build                             |
-| `typecheck`         | `vue-tsc --noEmit`                   | App SFCs (`tsconfig.json`)                           |
-| `typecheck:scripts` | `tsc --noEmit -p tsconfig.node.json` | Node tooling in `scripts/` and `eslint-plugin-romm/` |
-| `generate`          | `openapi-typescript-codegen`         | Generate types from backend OpenAPI                  |
+| Script              | Command                          | Purpose                                                |
+| ------------------- | -------------------------------- | ------------------------------------------------------ |
+| `dev`               | `vite --host`                    | Development server                                     |
+| `build`             | `vite build`                     | Production build                                       |
+| `preview`           | `vite preview`                   | Preview production build                               |
+| `typecheck`         | `vue-tsc --build`                | App and Node tooling (both `tsconfig.json` references) |
+| `typecheck:scripts` | `tsc --build tsconfig.node.json` | Node tooling, `eslint-plugin-romm/` and tool configs   |
+| `generate`          | `openapi-typescript-codegen`     | Generate types from backend OpenAPI                    |
 
 ### OpenAPI Code Generation
 
