@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useIdle, useLocalStorage } from "@vueuse/core";
+import { useIdle, useLocalStorage, usePreferredLanguages } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -33,12 +33,21 @@ const vuetifyTheme = useTheme();
 const { consoleMode } = storeToRefs(consoleStore);
 const { languages } = storeToRefs(languageStore);
 const storedLocale = useLocalStorage("settings.locale", "");
-const selectedLanguage = ref(
-  languages.value.find((lang) => lang.value === storedLocale.value) ||
-    languageStore.detectBrowserLanguage(),
+const preferredLanguages = usePreferredLanguages();
+// Until a language is picked manually, follow the browser's, live.
+const selectedLanguage = computed(
+  () =>
+    languages.value.find((lang) => lang.value === storedLocale.value) ??
+    languageStore.detectBrowserLanguage(preferredLanguages.value),
 );
-locale.value = selectedLanguage.value.value;
-languageStore.setLanguage(selectedLanguage.value);
+watch(
+  selectedLanguage,
+  (lang) => {
+    locale.value = lang.value;
+    languageStore.setLanguage(lang);
+  },
+  { immediate: true },
+);
 
 // NOTE: uiVersion uses a module-level singleton ref (useUiVersion) so a write
 // from the settings page is the SAME ref RomM.vue reads, triggering a gate

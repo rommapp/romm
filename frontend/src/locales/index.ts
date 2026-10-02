@@ -38,6 +38,25 @@ const i18n = createI18n({
   },
 });
 
+// Picks the first available locale matching the browser's preferences, exact
+// region first ("en-GB" -> "en_GB"), then language only ("fr" -> "fr_FR").
+export function matchPreferredLocale(
+  preferred: readonly string[],
+  available: readonly string[],
+): string | undefined {
+  for (const pref of preferred) {
+    const normalized = pref.replaceAll("-", "_").toLowerCase();
+    const exact = available.find((l) => l.toLowerCase() === normalized);
+    if (exact) return exact;
+    const base = normalized.split("_")[0];
+    const partial = available.find(
+      (l) => l.toLowerCase().split("_")[0] === base,
+    );
+    if (partial) return partial;
+  }
+  return undefined;
+}
+
 const pendingLocales = new Map<string, Promise<void>>();
 
 // Fetches every namespace of a language and registers them as one message
@@ -83,7 +102,11 @@ export function loadLocale(locale: string): Promise<void> {
 // write the raw key to the tab. Other languages load when switched to.
 export const localesReady = Promise.all([
   loadLocale(FALLBACK_LOCALE),
-  loadLocale(localStorage.getItem(STORED_LOCALE_KEY) ?? FALLBACK_LOCALE),
+  loadLocale(
+    localStorage.getItem(STORED_LOCALE_KEY) ||
+      matchPreferredLocale(navigator.languages, [...modulesByLocale.keys()]) ||
+      FALLBACK_LOCALE,
+  ),
 ]);
 
 watch(i18n.global.locale, (locale) => {
