@@ -1,4 +1,6 @@
+import asyncio
 import time
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock
@@ -10,7 +12,7 @@ from rq.exceptions import (
     DeserializationError,
     InvalidJobOperation,
 )
-from rq.job import JobStatus
+from rq.job import Job, JobStatus
 from rq.timeouts import JobTimeoutException
 from tests.scan_job_stubs import (
     NON_SCAN_FUNC,
@@ -53,7 +55,7 @@ from handler.filesystem.roms_handler import (
     ParsedTags,
 )
 from handler.metadata import meta_gamelist_handler
-from handler.redis_handler import scan_queue
+from handler.redis_handler import async_cache, redis_lock, scan_queue
 from handler.rom_files import RomFilesRefresh
 from handler.scan_handler import MetadataSource, ScanType
 from handler.scan_jobs import SCAN_PLATFORMS_FUNC
@@ -2261,6 +2263,62 @@ class TestScanConcurrency:
 
         enqueue.assert_not_called()
         emit.assert_awaited_once()
+        assert emit.await_args.args[0] == "scan:done_ko"
+
+    async def test_checks_again_once_another_request_has_queued_its_scan(
+        self, mocker, emit
+    ):
+        # Two requests on different web workers must not both pass the check.
+        queued: list[Job] = []
+        mocker.patch.object(
+            scan_module,
+            "get_blocking_library_scans",
+            side_effect=lambda: (None, list(queued)),
+        )
+        enqueue = mocker.patch.object(scan_queue, "enqueue")
+
+        async with redis_lock(scan_module.LIBRARY_SCAN_REQUEST_LOCK, timeout_seconds=5):
+            request = asyncio.create_task(scan_handler("sid", {"type": "quick"}))
+            # Without the lock the request would have queued its scan by now.
+            await asyncio.sleep(0.2)
+            queued.append(make_job(SCAN_PLATFORMS_FUNC))
+        await request
+
+        enqueue.assert_not_called()
+        assert emit.await_args.args[0] == "scan:done_ko"
+
+    async def test_refuses_when_the_request_lock_stays_held(self, mocker, emit):
+        @asynccontextmanager
+        async def held_lock(*args, **kwargs):
+            raise TimeoutError
+            yield
+
+        mocker.patch.object(scan_module, "redis_lock", held_lock)
+        patch_scan_jobs(mocker)
+        enqueue = mocker.patch.object(scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        enqueue.assert_not_called()
+        assert emit.await_args.args[0] == "scan:done_ko"
+
+    async def test_releases_the_request_lock_once_queued(self, mocker, emit):
+        patch_scan_jobs(mocker)
+        mocker.patch.object(scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick"})
+
+        assert not await async_cache.exists(scan_module.LIBRARY_SCAN_REQUEST_LOCK)
+
+    @pytest.mark.parametrize("scan_type", ["deep", None])
+    async def test_refuses_an_unknown_scan_type(self, mocker, emit, scan_type):
+        # Otherwise the handler raises and the client waits on a scan forever.
+        patch_scan_jobs(mocker)
+        enqueue = mocker.patch.object(scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": scan_type})
+
+        enqueue.assert_not_called()
         assert emit.await_args.args[0] == "scan:done_ko"
 
     async def test_refuses_when_a_scan_is_queued(self, mocker, emit):

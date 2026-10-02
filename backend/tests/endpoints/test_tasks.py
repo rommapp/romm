@@ -4,9 +4,14 @@ from unittest.mock import Mock, PropertyMock, patch
 import pytest
 from fastapi import status
 from rq.exceptions import DeserializationError, NoSuchJobError
+from tests.factories import make_device_token
+from tests.scan_job_stubs import make_job, make_scoped_job, patch_scan_jobs
 
+from endpoints.sockets.scan import scan_platforms
 from endpoints.tasks import SINGLE_INSTANCE_LOCK_PREFIX
-from handler.redis_handler import low_prio_queue, redis_client
+from handler.redis_handler import low_prio_queue, redis_client, scan_queue
+from handler.scan_handler import ScanType
+from handler.scan_jobs import SCAN_PLATFORMS_FUNC
 from tasks.manual.cleanup_missing_firmware import CleanupMissingFirmwareStats
 from tasks.manual.cleanup_missing_roms import CleanupMissingRomsStats
 from tasks.tasks import TaskSpec, TaskType
@@ -832,3 +837,153 @@ class TestRunSingleTaskArgumentHandling:
         assert mock_enqueue.call_args.kwargs["task_kwargs"] == {
             "name": "sync_push_pull"
         }
+
+
+class TestStartScan:
+    """Test suite for the start_scan endpoint"""
+
+    @pytest.fixture
+    def enqueue(self, mocker):
+        # No scan in flight unless a test patches the scan jobs again.
+        patch_scan_jobs(mocker)
+        return mocker.patch.object(
+            scan_queue, "enqueue", return_value=create_mock_job("scan-job")
+        )
+
+    @pytest.fixture
+    def post_scan(self, client, access_token):
+        def post(token=access_token, **kwargs):
+            return client.post(
+                "/api/tasks/scan",
+                headers={"Authorization": f"Bearer {token}"},
+                **kwargs,
+            )
+
+        return post
+
+    def test_queues_the_scan_it_was_asked_for(
+        self, enqueue, post_scan, admin_user, task_worker_listening
+    ):
+        response = post_scan(
+            json={
+                "type": "update",
+                "platforms": [1, 2],
+                "apis": ["igdb", "ss"],
+                "launchbox_remote_enabled": False,
+            },
+        )
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        data = response.json()
+        assert data["task_id"] == "scan-job"
+        assert data["task_key"] is None
+        assert data["task_name"] == "Update Scan"
+        assert data["status"] == "queued"
+
+        task_worker_listening.assert_called_once_with(scan_queue)
+        assert enqueue.call_args.args == (scan_platforms,)
+        kwargs = enqueue.call_args.kwargs
+        assert kwargs["platform_ids"] == [1, 2]
+        assert kwargs["metadata_sources"] == ["igdb", "ss"]
+        assert kwargs["scan_type"] == ScanType.UPDATE
+        assert kwargs["roms_ids"] == []
+        assert kwargs["platform_fs_slugs"] == []
+        assert kwargs["launchbox_remote_enabled"] is False
+        assert kwargs["started_by_user_id"] == admin_user.id
+        assert kwargs["at_front"] is False
+
+    @pytest.mark.parametrize("body", [{"json": {}}, {}], ids=["empty", "missing"])
+    def test_no_options_queue_a_quick_scan_of_everything(
+        self, enqueue, post_scan, body
+    ):
+        response = post_scan(**body)
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        kwargs = enqueue.call_args.kwargs
+        assert kwargs["scan_type"] == ScanType.QUICK
+        assert kwargs["platform_ids"] == []
+        assert kwargs["metadata_sources"] == []
+        assert kwargs["launchbox_remote_enabled"] is True
+
+    @pytest.mark.parametrize(
+        ("scopes", "expected"),
+        [
+            ("tasks.run", status.HTTP_202_ACCEPTED),
+            ("roms.read", status.HTTP_403_FORBIDDEN),
+        ],
+    )
+    def test_a_client_token_needs_tasks_run(
+        self, enqueue, post_scan, admin_user, scopes, expected
+    ):
+        _, raw_token = make_device_token(admin_user, None, scopes=scopes)
+
+        response = post_scan(token=raw_token, json={})
+
+        assert response.status_code == expected
+        assert enqueue.called == (expected == status.HTTP_202_ACCEPTED)
+
+    def test_a_library_scan_in_flight_is_refused(self, mocker, enqueue, post_scan):
+        patch_scan_jobs(
+            mocker,
+            running=make_job(SCAN_PLATFORMS_FUNC, task_name="Quick Scan"),
+        )
+
+        response = post_scan(json={})
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.json()["detail"] == "Quick Scan is already running"
+        enqueue.assert_not_called()
+
+    def test_a_rom_scan_is_accepted_while_a_library_scan_runs(
+        self, mocker, enqueue, post_scan
+    ):
+        patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))
+
+        response = post_scan(json={"roms_ids": [7]})
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        assert enqueue.call_args.kwargs["at_front"] is True
+
+    def test_a_running_rom_scan_does_not_block_a_library_scan(
+        self, mocker, enqueue, post_scan
+    ):
+        patch_scan_jobs(mocker, running=make_scoped_job())
+
+        response = post_scan(json={})
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        enqueue.assert_called_once()
+
+    def test_without_a_scan_worker_is_refused(
+        self, enqueue, post_scan, task_worker_listening
+    ):
+        task_worker_listening.return_value = False
+
+        response = post_scan(json={})
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "worker" in response.json()["detail"]
+        enqueue.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"type": "deep"},
+            {"apis": ["not-a-source"]},
+            {"platforms": ["x"]},
+            # The names scan_platforms takes, which would otherwise scan everything.
+            {"platform_ids": [1]},
+            {"scan_type": "complete"},
+        ],
+    )
+    def test_an_invalid_body_is_rejected(self, enqueue, post_scan, body):
+        response = post_scan(json=body)
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        enqueue.assert_not_called()
+
+    def test_unauthenticated_is_rejected(self, enqueue, client):
+        response = client.post("/api/tasks/scan", json={})
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        enqueue.assert_not_called()

@@ -1111,6 +1111,13 @@ Register and update take `capabilities`, boolean flags such as `{"remote_install
 | GET    | `/status`     | TASKS_RUN | Status of all tasks      |
 | GET    | `/{id}`       | TASKS_RUN | Status of specific task  |
 | POST   | `/run/{name}` | TASKS_RUN | Trigger task execution   |
+| POST   | `/scan`       | TASKS_RUN | Queue a scan             |
+
+`POST /scan` takes the options of the `scan` socket event and answers 202 with the queued job, which `GET /{id}` then follows.
+A missing body means a quick scan of the whole library, and an unknown key answers 422.
+A scan of named `roms_ids` goes ahead of a queued library scan, any other scan answers 409 while a library scan is queued or running.
+It answers 503 when no worker listens on the scan queue.
+Progress still streams over the socket.
 
 ### 6.16 Notifications (`/api/notifications`)
 

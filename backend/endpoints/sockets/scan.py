@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
@@ -27,7 +28,7 @@ from exceptions.fs_exceptions import (
     FolderStructureNotMatchException,
     RomsNotFoundException,
 )
-from exceptions.socket_exceptions import ScanStoppedException
+from exceptions.socket_exceptions import ScanInFlightException, ScanStoppedException
 from handler.audit_handler import AuditActor, record
 from handler.auth.constants import Scope
 from handler.database import (
@@ -59,6 +60,7 @@ from handler.redis_handler import (
     get_job_kwargs,
     get_job_status,
     redis_client,
+    redis_lock,
     scan_queue,
 )
 from handler.rom_files import loaded_rom_files, refresh_rom_files
@@ -1482,6 +1484,65 @@ async def scan_platforms(
     return scan_stats
 
 
+# Held from the in-flight check to the enqueue, so two requests landing on
+# different web workers cannot both queue a library scan.
+LIBRARY_SCAN_REQUEST_LOCK: Final = "romm:library-scan-request-lock"
+LIBRARY_SCAN_REQUEST_LOCK_SECONDS: Final = 5
+
+
+async def queue_scan(
+    *,
+    platform_ids: list[int],
+    metadata_sources: list[str],
+    scan_type: ScanType,
+    roms_ids: list[int],
+    launchbox_remote_enabled: bool,
+    platform_fs_slugs: list[str],
+    started_by_user_id: int,
+) -> Job:
+    """Queue a scan a user asked for on the scan worker.
+
+    Raises:
+        ScanInFlightException: A library scan is already queued or running.
+    """
+    # A scan of named roms is not a second pass over the library, so it may queue.
+    slot = (
+        nullcontext()
+        if roms_ids
+        else redis_lock(
+            LIBRARY_SCAN_REQUEST_LOCK,
+            timeout_seconds=LIBRARY_SCAN_REQUEST_LOCK_SECONDS,
+        )
+    )
+    try:
+        async with slot:
+            if not roms_ids:
+                running_job, queued_jobs = get_blocking_library_scans()
+                if running_job is not None or queued_jobs:
+                    raise ScanInFlightException(
+                        _scan_in_flight_message(running_job, queued_jobs)
+                    )
+            return scan_queue.enqueue(
+                scan_platforms,
+                # A scan of named roms resolves its work from the database and is done
+                # in seconds, so it goes ahead of any library scan already waiting.
+                at_front=bool(roms_ids),
+                on_failure=report_scan_failure,
+                platform_ids=platform_ids,
+                metadata_sources=metadata_sources,
+                scan_type=scan_type,
+                roms_ids=roms_ids,
+                launchbox_remote_enabled=launchbox_remote_enabled,
+                platform_fs_slugs=platform_fs_slugs,
+                started_by_user_id=started_by_user_id,
+                job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
+                result_ttl=TASK_RESULT_TTL,
+                meta=scan_job_meta(scan_type),
+            )
+    except TimeoutError as e:
+        raise ScanInFlightException("Another library scan is being queued") from e
+
+
 async def authorize_scan(sid: str) -> User | None:
     """Return the socket's user if they may run scans, else tell the caller and return None.
 
@@ -1516,29 +1577,21 @@ async def scan_handler(sid: str, options: dict[str, Any]) -> None:
 
     platform_ids = options.get("platforms", [])
     platform_fs_slugs = options.get("platform_fs_slugs", [])
-    scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
-
-    # Pressing scan again after losing the progress socket would queue a second
-    # pass over the library; a scan of named roms is not that, so it may queue.
-    if not DEV_MODE and not roms_ids:
-        running_job, queued_jobs = get_blocking_library_scans()
-        if running_job is not None or queued_jobs:
-            message = _scan_in_flight_message(running_job, queued_jobs)
-            log.info(f"{emoji.EMOJI_STOP_SIGN} {message}, ignoring request")
-            await socket_handler.socket_server.emit(
-                "scan:done_ko",
-                message,
-                to=sid,
-            )
-            return
-
-    log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
-
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
 
+    requested_type = options.get("type", "quick")
+    try:
+        scan_type = ScanType[str(requested_type).upper()]
+    except KeyError:
+        message = f"Unknown scan type {requested_type!r}"
+        log.warning(f"{emoji.EMOJI_STOP_SIGN} {message}, ignoring request")
+        await socket_handler.socket_server.emit("scan:done_ko", message, to=sid)
+        return
+
     if DEV_MODE:
+        log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
         await scan_platforms(
             platform_ids=platform_ids,
             metadata_sources=metadata_sources,
@@ -1550,23 +1603,22 @@ async def scan_handler(sid: str, options: dict[str, Any]) -> None:
         )
         return
 
-    scan_queue.enqueue(
-        scan_platforms,
-        # A scan of named roms resolves its work from the database and is done
-        # in seconds, so it goes ahead of any library scan already waiting.
-        at_front=bool(roms_ids),
-        on_failure=report_scan_failure,
-        platform_ids=platform_ids,
-        metadata_sources=metadata_sources,
-        scan_type=scan_type,
-        roms_ids=roms_ids,
-        launchbox_remote_enabled=launchbox_remote_enabled,
-        platform_fs_slugs=platform_fs_slugs,
-        started_by_user_id=user.id,
-        job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
-        result_ttl=TASK_RESULT_TTL,
-        meta=scan_job_meta(scan_type),
-    )
+    try:
+        await queue_scan(
+            platform_ids=platform_ids,
+            metadata_sources=metadata_sources,
+            scan_type=scan_type,
+            roms_ids=roms_ids,
+            launchbox_remote_enabled=launchbox_remote_enabled,
+            platform_fs_slugs=platform_fs_slugs,
+            started_by_user_id=user.id,
+        )
+    except ScanInFlightException as e:
+        log.info(f"{emoji.EMOJI_STOP_SIGN} {e}, ignoring request")
+        await socket_handler.socket_server.emit("scan:done_ko", str(e), to=sid)
+        return
+
+    log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
 
 @socket_handler.on("scan:stop")

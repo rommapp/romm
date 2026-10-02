@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Any, Final, Mapping, cast
 
 from fastapi import Body, HTTPException, Request, status
+from pydantic import BaseModel, ConfigDict
 from rq import Worker
 from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
@@ -24,6 +25,8 @@ from endpoints.responses import (
     WatcherTaskStatusResponse,
 )
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
+from endpoints.sockets.scan import queue_scan, scan_job_meta
+from exceptions.socket_exceptions import ScanInFlightException
 from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.redis_handler import (
@@ -34,7 +37,9 @@ from handler.redis_handler import (
     has_live_worker,
     low_prio_queue,
     redis_client,
+    scan_queue,
 )
+from handler.scan_handler import MetadataSource, ScanType
 from models.audit_event import AuditAction, AuditTargetType
 from tasks.registry import (
     MANUAL_TASKS,
@@ -114,6 +119,24 @@ def _fill_cleanup_stats(stats: Mapping[str, Any] | None) -> CleanupStats | None:
     platform_id = legacy.pop("platform_id")
     legacy["platform_ids"] = [platform_id] if platform_id is not None else None
     return cast(CleanupStats, legacy)
+
+
+def _build_task_execution_response(
+    job: Job, task_key: str | None, task_name: str
+) -> TaskExecutionResponse:
+    """Describe a job that was just queued."""
+    return {
+        "task_key": task_key,
+        "task_name": task_name,
+        "task_id": job.id,
+        "status": job.get_status() or JobStatus.QUEUED,
+        "created_at": (
+            job.created_at.isoformat()
+            if job.created_at
+            else datetime.now(timezone.utc).isoformat()
+        ),
+        "enqueued_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
+    }
 
 
 def _build_task_status_response(
@@ -371,15 +394,63 @@ async def run_single_task(
         {"job_id": job.id, "kwargs": task_kwargs or {}},
     )
 
-    return {
-        "task_key": task_name,
-        "task_name": task_instance.title,
-        "task_id": job.id,
-        "status": job.get_status() or JobStatus.QUEUED,
-        "created_at": (
-            job.created_at.isoformat()
-            if job.created_at
-            else datetime.now(timezone.utc).isoformat()
-        ),
-        "enqueued_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
-    }
+    return _build_task_execution_response(job, task_name, task_instance.title)
+
+
+class ScanPayload(BaseModel):
+    """The options of the `scan` socket event."""
+
+    # A misspelt key would otherwise fall back to a scan of the whole library.
+    model_config = ConfigDict(extra="forbid")
+
+    type: ScanType = ScanType.QUICK
+    platforms: list[int] = []
+    platform_fs_slugs: list[str] = []
+    roms_ids: list[int] = []
+    apis: list[MetadataSource] = []
+    launchbox_remote_enabled: bool = True
+
+
+SCAN_PAYLOAD = Body(default_factory=ScanPayload)
+
+
+@protected_route(
+    router.post,
+    "/scan",
+    [Scope.TASKS_RUN],
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def start_scan(
+    request: Request, payload: ScanPayload = SCAN_PAYLOAD
+) -> TaskExecutionResponse:
+    """Queue a scan, for clients that authenticate without a session cookie.
+
+    Args:
+        request (Request): FastAPI Request object
+        payload (ScanPayload): What to scan and which metadata sources to use,
+            a quick scan of the whole library when the body is left out
+    Returns:
+        TaskExecutionResponse: The queued scan, to follow on `GET /api/tasks/{task_id}`
+    """
+    if not has_live_worker(scan_queue):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No scan worker is listening, so the scan cannot be queued",
+        )
+
+    try:
+        job = await queue_scan(
+            platform_ids=payload.platforms,
+            metadata_sources=[source.value for source in payload.apis],
+            scan_type=payload.type,
+            roms_ids=payload.roms_ids,
+            launchbox_remote_enabled=payload.launchbox_remote_enabled,
+            platform_fs_slugs=payload.platform_fs_slugs,
+            started_by_user_id=request.user.id,
+        )
+    except ScanInFlightException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+
+    return _build_task_execution_response(
+        job, None, scan_job_meta(payload.type)["task_name"]
+    )
