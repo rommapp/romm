@@ -8,6 +8,7 @@ on:
       - frontend/package.json
       - frontend/package-lock.json
       - ".github/workflows/api-types.yml"
+      - ".github/actions/setup-frontend/**"
       - pyproject.toml
       - uv.lock
       - .python-version
@@ -20,6 +21,7 @@ on:
       - frontend/package.json
       - frontend/package-lock.json
       - ".github/workflows/api-types.yml"
+      - ".github/actions/setup-frontend/**"
       - pyproject.toml
       - uv.lock
       - .python-version
