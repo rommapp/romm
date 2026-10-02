@@ -1,8 +1,9 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
 import { AxiosError } from "axios";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, ref } from "vue";
+import storeAuth from "@/stores/auth";
 import storeCollections, {
   type Collection,
   type SmartCollection,
@@ -18,6 +19,7 @@ const {
   getRoms,
   getVirtualCollection,
   push,
+  replace,
   routeGuards,
   snackbarError,
   snackbarInfo,
@@ -27,6 +29,7 @@ const {
   getRoms: vi.fn(),
   getVirtualCollection: vi.fn(),
   push: vi.fn(),
+  replace: vi.fn(),
   routeGuards: [] as ((
     to: { name: string; path: string; params: Record<string, string> },
     from: { name: string; path: string; params: Record<string, string> },
@@ -49,7 +52,7 @@ const { routeState } = vi.hoisted(() => ({
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => routeState,
-  useRouter: () => ({ push, replace: vi.fn() }),
+  useRouter: () => ({ push, replace, currentRoute: { value: routeState } }),
   // Captured rather than dropped: calling the guard is how a test moves
   // the view to another collection, which is what the stale check watches.
   onBeforeRouteUpdate: vi.fn((guard) => routeGuards.push(guard)),
@@ -94,7 +97,7 @@ vi.mock("@/v2/components/Gallery/CollectionHead.vue", () => ({
 }));
 
 vi.mock("@/v2/components/Gallery/CollectionSettingsTab.vue", () => ({
-  default: defineComponent({ template: "<div />" }),
+  default: defineComponent({ template: "<div class='settings-tab' />" }),
 }));
 
 vi.mock("@/v2/composables/useCan", () => ({
@@ -487,5 +490,47 @@ describe("Collection view query-only navigation", () => {
     expect(getCollection).not.toHaveBeenCalled();
     expect(resetGallery).not.toHaveBeenCalled();
     expect(wrapper.get(".rom-count").text()).toBe("9000");
+  });
+});
+
+describe("Collection view settings deep link", () => {
+  beforeEach(() => {
+    routeGuards.length = 0;
+    routeState.name = "collection";
+    routeState.params = { collection: "1" };
+    routeState.query = { tab: "settings" };
+    getRoms.mockResolvedValue({ data: { items: [], total: 0 } });
+    storeAuth().setCurrentUser({
+      id: 5,
+      oauth_scopes: ["collections.write"],
+    } as never);
+  });
+
+  afterEach(() => {
+    routeState.query = {};
+  });
+
+  function openOwnedBy(userId: number) {
+    const owned = { ...collection(1), user_id: userId } as Collection;
+    storeCollections().setCollections([owned]);
+    getCollection.mockResolvedValue({ data: owned });
+  }
+
+  it("opens Settings once an owned collection loads", async () => {
+    openOwnedBy(5);
+
+    const wrapper = await mountView();
+
+    expect(wrapper.find(".settings-tab").exists()).toBe(true);
+  });
+
+  it("falls back to Library on a collection the user doesn't own", async () => {
+    openOwnedBy(6);
+
+    const wrapper = await mountView();
+
+    expect(wrapper.find(".settings-tab").exists()).toBe(false);
+    expect(wrapper.find(".rom-count").exists()).toBe(true);
+    expect(replace).toHaveBeenCalledWith({ path: "/collection/1", query: {} });
   });
 });

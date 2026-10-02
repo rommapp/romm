@@ -103,11 +103,12 @@ const TAB_IDS: readonly TabId[] = ["library", "settings"];
 
 const tab = useRouteQueryParam("tab", "library", TAB_IDS);
 // Virtual collections and ones the user can't edit have no Settings tab, so
-// a link or a switch landing there falls back to Library.
+// a link or a switch landing there falls back to Library. Until the
+// collection settles, ownership reads false and would bounce a valid link.
 watch(
-  [tab, showSettingsTab],
-  ([current, allowed]) => {
-    if (current === "settings" && !allowed) tab.value = "library";
+  [tab, showSettingsTab, () => !!currentCollection.value || notFound.value],
+  ([current, allowed, settled]) => {
+    if (settled && current === "settings" && !allowed) tab.value = "library";
   },
   { immediate: true },
 );
