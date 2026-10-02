@@ -40,6 +40,16 @@ class RomFilesRefresh:
         )
 
 
+def _extracted_state(rom_file: RomFile) -> tuple[Any, ...]:
+    """The columns title id extraction and rom-converto write onto a reused row."""
+    return (
+        rom_file.category,
+        rom_file.title_id,
+        rom_file.title_version,
+        rom_file.converto_read_at,
+    )
+
+
 def loaded_rom_files(rom: Rom) -> list[RomFile]:
     """The ROM's file rows, fetched on demand when the relationship is unloaded."""
     if "files" not in sa_inspect(rom).unloaded:
@@ -64,9 +74,9 @@ async def refresh_rom_files(rom: Rom) -> RomFilesRefresh:
 
 async def _refresh(rom: Rom) -> RomFilesRefresh:
     existing = loaded_rom_files(rom)
-    # Extraction can settle a reused row's category in place, so that row is
-    # compared against the category it was loaded with.
-    reused_categories = {id(f): f.category for f in existing}
+    # Extraction can settle a reused row's category, title id and read time in
+    # place, so that row is compared against the values it was loaded with.
+    reused_state = {id(f): _extracted_state(f) for f in existing}
     cnfg = cm.get_config()
     calculate_hashes = not cnfg.SKIP_HASH_CALCULATION
     parsed = await fs_rom_handler.get_rom_files(
@@ -87,10 +97,7 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
     new_keys: set[RomFileKey] = set()
     updated_keys: set[RomFileKey] = set()
     for scanned in parsed.rom_files:
-        if (
-            id(scanned) in reused_categories
-            and reused_categories[id(scanned)] == scanned.category
-        ):
+        if reused_state.get(id(scanned)) == _extracted_state(scanned):
             continue
         key = rom_file_key(scanned)
         (updated_keys if key in existing_keys else new_keys).add(key)

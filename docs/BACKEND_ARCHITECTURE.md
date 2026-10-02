@@ -598,15 +598,17 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 
 Tracks individual files within a ROM (archives can contain multiple files).
 
-| Column                                         | Type        | Notes                                                                                                                              |
-| ---------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                                           | Integer     | PK                                                                                                                                 |
-| `rom_id`                                       | Integer     | FK → roms                                                                                                                          |
-| `file_name`, `file_path`                       | String      | File identity                                                                                                                      |
-| `file_size_bytes`                              | BigInteger  | Size                                                                                                                               |
-| `crc_hash`, `md5_hash`, `sha1_hash`, `ra_hash` | String(100) | Hashes                                                                                                                             |
-| `category`                                     | Enum        | `GAME`, `DLC`, `HACK`, `MANUAL`, `PATCH`, `UPDATE`, `MOD`, `DEMO`, `TRANSLATION`, `PROTOTYPE`, `CHEAT`, `SOUNDTRACK`, `SCREENSHOT` |
-| `missing_from_fs`                              | Boolean     | Sync state                                                                                                                         |
+| Column                                         | Type                    | Notes                                                                                                                              |
+| ---------------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                           | Integer                 | PK                                                                                                                                 |
+| `rom_id`                                       | Integer                 | FK → roms                                                                                                                          |
+| `file_name`, `file_path`                       | String                  | File identity                                                                                                                      |
+| `file_size_bytes`                              | BigInteger              | Size                                                                                                                               |
+| `crc_hash`, `md5_hash`, `sha1_hash`, `ra_hash` | String(100)             | Hashes                                                                                                                             |
+| `category`                                     | Enum                    | `GAME`, `DLC`, `HACK`, `MANUAL`, `PATCH`, `UPDATE`, `MOD`, `DEMO`, `TRANSLATION`, `PROTOTYPE`, `CHEAT`, `SOUNDTRACK`, `SCREENSHOT` |
+| `title_id`, `title_version`                    | String(100), BigInteger | Platform-native id and numeric version read from the binary (rom-converto or sigil)                                                |
+| `converto_read_at`                             | Timestamp               | Last time rom-converto read the file; NULL queues it on the next scan                                                              |
+| `missing_from_fs`                              | Boolean                 | Sync state                                                                                                                         |
 
 **Relationships:** rom (M:1), track_meta (1:1, `SOUNDTRACK` files only)
 

@@ -1,10 +1,13 @@
 import asyncio
+import json
 import os
 import stat
 import threading
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
+import anyio
 import pytest
 
 from adapters.services import rom_converto
@@ -13,6 +16,8 @@ from adapters.services.rom_converto import (
     OPERATIONS,
     Operation,
     RomConvertoBinaryNotFoundError,
+    RomConvertoError,
+    RomConvertoInfo,
     RomConvertoOperationError,
     RomConvertoService,
     RomConvertoTimeoutError,
@@ -23,7 +28,11 @@ from adapters.services.rom_converto import (
     file_format,
     resolve_operation,
 )
+from models.rom import TITLE_ID_MAX_LENGTH
 from utils.filesystem import SERVED_FILE_MODE
+
+# rom-converto carries the images a file embeds in its info output.
+_FAKE_PNG = b"\x89PNG\r\n\x1a\nfake"
 
 
 class FakeProc:
@@ -172,6 +181,179 @@ def _capture_spawn(proc: FakeProc, calls: list[tuple[str, ...]]):
     return spawn
 
 
+class TestReadInfos:
+    async def test_batches_paths_and_keys_recognized_files(
+        self, service: RomConvertoService
+    ):
+        records = [
+            {
+                "path": "/roms/game.nsp",
+                "ok": True,
+                "info": {
+                    "kind": "nx",
+                    "full": {
+                        "application_title_id_hex": "0100ABCD12345000",
+                        "title_version": 65536,
+                    },
+                },
+            },
+            {"path": "/roms/junk.bin", "ok": False, "error": "could not detect"},
+        ]
+        calls: list[tuple[str, ...]] = []
+        listed: list[str] = []
+        proc = FakeProc(stdout=json.dumps(records).encode())
+
+        async def spawn(*args, **kwargs):
+            calls.append(args)
+            paths_file = anyio.Path(args[args.index("--paths-file") + 1])
+            listed.extend((await paths_file.read_text()).split())
+            return proc
+
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch("asyncio.create_subprocess_exec", spawn),
+        ):
+            infos = await service.read_infos(
+                [Path("/roms/game.nsp"), Path("/roms/junk.bin")]
+            )
+
+        assert len(calls) == 1
+        assert listed == ["/roms/game.nsp", "/roms/junk.bin"]
+        assert infos == {
+            Path("/roms/game.nsp"): RomConvertoInfo(
+                title_id="0100ABCD12345000", title_version=65536
+            )
+        }
+
+    async def test_splits_paths_into_runs_of_the_run_limit(
+        self, service: RomConvertoService
+    ):
+        runs: list[list[str]] = []
+
+        async def spawn(*args, **kwargs):
+            paths_file = anyio.Path(args[args.index("--paths-file") + 1])
+            listed = (await paths_file.read_text()).split()
+            runs.append(listed)
+            records = [
+                {"path": p, "ok": True, "info": {"kind": "psx", "title_id": p}}
+                for p in listed
+            ]
+            return FakeProc(stdout=json.dumps(records).encode())
+
+        paths = [Path("/roms/a.chd"), Path("/roms/b.chd"), Path("/roms/c.chd")]
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch("asyncio.create_subprocess_exec", spawn),
+            patch.object(rom_converto, "INFO_RUN_MAX_FILES", 2),
+        ):
+            infos = await service.read_infos(paths)
+
+        assert runs == [["/roms/a.chd", "/roms/b.chd"], ["/roms/c.chd"]]
+        assert set(infos) == set(paths)
+
+    async def test_paths_file_is_removed(self, service: RomConvertoService):
+        calls: list[tuple[str, ...]] = []
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch(
+                "asyncio.create_subprocess_exec",
+                _capture_spawn(FakeProc(stdout=b"[]"), calls),
+            ),
+        ):
+            await service.read_infos([Path("/roms/game.iso")])
+
+        paths_file = calls[0][calls[0].index("--paths-file") + 1]
+        assert not await anyio.Path(paths_file).exists()
+
+    async def test_nonzero_returns_empty(self, service: RomConvertoService):
+        proc = FakeProc(returncode=2, stderr=b"error: bad arguments")
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+        ):
+            assert await service.read_infos([Path("/roms/game.iso")]) == {}
+
+    @pytest.mark.parametrize(
+        "stdout",
+        [
+            pytest.param(b"not json at all", id="non-json"),
+            pytest.param(b"{}", id="object"),
+            pytest.param(b"null", id="null"),
+        ],
+    )
+    async def test_invalid_output_returns_empty(
+        self, service: RomConvertoService, stdout: bytes
+    ):
+        proc = FakeProc(stdout=stdout)
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+        ):
+            assert await service.read_infos([Path("/roms/game.iso")]) == {}
+
+    async def test_unrecognized_files_return_an_empty_dict(
+        self, service: RomConvertoService
+    ):
+        records = [{"path": "/roms/game.iso", "ok": False, "error": "could not detect"}]
+        with patch.object(
+            rom_converto, "_run", return_value=(0, json.dumps(records), "")
+        ):
+            assert await service.read_infos([Path("/roms/game.iso")]) == {}
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            pytest.param(Path("/roms/bad\nname.iso"), id="newline"),
+            pytest.param(Path(os.fsdecode(b"/roms/\xff.iso")), id="not-utf8"),
+            pytest.param(Path("/roms/game.iso "), id="trailing-space"),
+        ],
+    )
+    async def test_no_listable_paths_skips_the_subprocess(
+        self, service: RomConvertoService, path: Path
+    ):
+        with patch("asyncio.create_subprocess_exec") as spawn:
+            assert await service.read_infos([path]) == {}
+        spawn.assert_not_called()
+
+    async def test_a_cue_reaching_outside_its_folder_is_not_listed(
+        self, service: RomConvertoService, tmp_path: Path
+    ):
+        unsafe = tmp_path / "unsafe.cue"
+        unsafe.write_text('FILE "../secret.bin" BINARY\n')
+        safe = tmp_path / "safe.cue"
+        safe.write_text('FILE "safe.bin" BINARY\n')
+        listed: list[str] = []
+
+        async def spawn(*args, **kwargs):
+            paths_file = anyio.Path(args[args.index("--paths-file") + 1])
+            listed.extend((await paths_file.read_text()).split())
+            return FakeProc(stdout=b"[]")
+
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch("asyncio.create_subprocess_exec", spawn),
+        ):
+            await service.read_infos([unsafe, safe])
+
+        assert listed == [str(safe)]
+
+
+class TestReadInfosFailures:
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(RomConvertoError("failed"), id="run-error"),
+            pytest.param(RomConvertoTimeoutError("slow"), id="timeout"),
+            pytest.param(OSError(8, "Exec format error"), id="os-error"),
+        ],
+    )
+    async def test_run_failure_returns_empty(
+        self, service: RomConvertoService, error: Exception
+    ):
+        with patch.object(rom_converto, "_run", side_effect=error):
+            assert await service.read_infos([Path("/roms/game.iso")]) == {}
+
+
 class TestIsolation:
     async def test_every_run_skips_the_update_check_config_and_cache(self):
         calls: list[tuple[str, ...]] = []
@@ -239,6 +421,401 @@ class TestIsolation:
 
         assert made
         assert not await asyncio.to_thread(made[0].exists)
+
+
+class TestCanInspect:
+    async def test_manifest_extensions_gate_inspection(
+        self, service: RomConvertoService
+    ):
+        proc = FakeProc(
+            stdout=b'{"version": "0.21.0", "info_extensions": ["ISO", "nsp"]}'
+        )
+        with (
+            patch.object(rom_converto, "ROM_CONVERTO_ENABLED", True),
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", return_value=proc),
+        ):
+            assert await service.is_enabled() is True
+
+        assert service.can_inspect(Path("/roms/Game.iso")) is True
+        assert service.can_inspect(Path("/roms/game.NSP")) is True
+        assert service.can_inspect(Path("/roms/readme.nfo")) is False
+
+    def test_unknown_manifest_inspects_everything(self, service: RomConvertoService):
+        assert service.can_inspect(Path("/roms/anything.xyz")) is True
+
+
+class TestParseInfo:
+
+    @pytest.mark.parametrize(
+        ("payload", "expected"),
+        [
+            pytest.param(
+                {
+                    "kind": "nx",
+                    "container_kind": "nsz",
+                    "is_compressed": True,
+                    "full": {
+                        "title_kind": "application",
+                        "required_system_version": 1073741824,
+                        "title_version": 65536,
+                        "application_title_id_hex": "0100000000010000",
+                        "control": {
+                            "icon": {"png_bytes": list(_FAKE_PNG)},
+                            "display_version": "1.0.0",
+                            "supported_languages": [
+                                "AmericanEnglish",
+                                "CanadianFrench",
+                            ],
+                            "titles": [
+                                {
+                                    "language": "Japanese",
+                                    "name": "ゼルダの伝説",
+                                    "publisher": "任天堂",
+                                },
+                                {
+                                    "language": "AmericanEnglish",
+                                    "name": "The Legend of Zelda",
+                                    "publisher": "Nintendo",
+                                },
+                            ],
+                        },
+                    },
+                },
+                RomConvertoInfo(title_id="0100000000010000", title_version=65536),
+                id="nx-reads-the-application-id",
+            ),
+            pytest.param(
+                {"kind": "nx", "container_kind": "nsp"},
+                RomConvertoInfo(),
+                id="nx-without-prod-keys-has-no-title-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "ctr",
+                    "title_id": "0004000000123456",
+                    "product_code": "CTR-P-AZRE",
+                    "content_kind": "game",
+                    "compressed": True,
+                    "format": "cia",
+                    "icon": {"png_bytes": list(_FAKE_PNG)},
+                    "small_icon": {"png_bytes": list(_FAKE_PNG + b"2")},
+                    "smdh": {
+                        "region_names": ["North America", "Japan"],
+                        "titles": [
+                            {
+                                "language": "Japanese",
+                                "short_description": "ロックマンゼロ",
+                                "publisher": "カプコン",
+                            },
+                            {
+                                "language": "English",
+                                "short_description": "Mega Man Zero",
+                                "long_description": "Mega Man Zero",
+                                "publisher": "Capcom",
+                            },
+                        ],
+                    },
+                },
+                RomConvertoInfo(title_id="0004000000123456"),
+                id="ctr-reads-the-title-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "wup",
+                    "title_id_hex": "0005000010143500",
+                    "title_version": 16,
+                    "content_kind": "game",
+                    "image": {"png_bytes": list(_FAKE_PNG)},
+                    "source_kind": "disc (GM0005000010143500)",
+                    "meta": {
+                        "product_code": "WUP-P-ARZE",
+                        "company_name": "Nintendo",
+                        "region_names": ["Europe", "Australia"],
+                        "long_names": {
+                            "entries": [
+                                ["japanese", "ゼルダの伝説"],
+                                ["english", "The Legend of Zelda"],
+                            ]
+                        },
+                        "publishers": {
+                            "entries": [["japanese", "任天堂"], ["english", "Nintendo"]]
+                        },
+                    },
+                },
+                RomConvertoInfo(title_id="10143500", title_version=16),
+                id="wup-reads-the-title-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "wup",
+                    "title_id_hex": "0005000010143500",
+                    "title_version": 16,
+                },
+                RomConvertoInfo(title_id="10143500", title_version=16),
+                id="wup-last-8-of-title-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "dol",
+                    "game_id": "GZLE01",
+                    "game_name": "The Legend of Zelda",
+                    "disc_version": 2,
+                    "region": "Usa",
+                    "container": "RVZ",
+                    "banner_image": {"png_bytes": list(_FAKE_PNG)},
+                    "banner": {
+                        "titles": [
+                            {"language": "Default", "long_game_name": "ZELDA"},
+                            {"language": "German", "long_game_name": ""},
+                            {
+                                "language": "English",
+                                "long_game_name": "The Legend of Zelda",
+                                "short_game_name": "Zelda",
+                                "long_maker": "Nintendo",
+                            },
+                        ]
+                    },
+                },
+                RomConvertoInfo(title_id="475A4C45"),
+                id="dol-reads-the-game-id",
+            ),
+            pytest.param(
+                {"kind": "dol", "game_id": "GZLE01"},
+                RomConvertoInfo(title_id="475A4C45"),
+                id="dol-hex-encodes-game-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "rvl",
+                    "game_id": "SMNE01",
+                    "game_name": "New Super Mario Bros. Wii",
+                    "disc_version": 1,
+                    "region": "PAL",
+                    "container": "iso",
+                    "tmd": {"title_version": 3},
+                    "imet_names": {
+                        "entries": [
+                            ["Japanese", "ニュースーパーマリオブラザーズWii"],
+                            ["English", "New Super Mario Bros. Wii"],
+                        ]
+                    },
+                    "maker_name": "Nintendo",
+                    "image": {"png_bytes": list(_FAKE_PNG)},
+                },
+                RomConvertoInfo(title_id="534D4E45", title_version=3),
+                id="rvl-prefers-the-tmd-title-version",
+            ),
+            pytest.param(
+                {"kind": "rvl", "game_id": "RZTE01"},
+                RomConvertoInfo(title_id="525A5445"),
+                id="rvl-hex-encodes-game-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "ntr",
+                    "game_code": "ARZE",
+                    "game_title": "Single Line",
+                    "rom_version": 2,
+                    "banner": {
+                        "titles": {
+                            "entries": [
+                                ["Japanese", "ホームブルー\n作者不明"],
+                                ["English", "Homebrew Game\nby TestDev\nfinal release"],
+                            ]
+                        },
+                        "icon": {"png_bytes": list(_FAKE_PNG)},
+                    },
+                },
+                RomConvertoInfo(title_id="ARZE"),
+                id="ntr-reads-the-game-code",
+            ),
+            pytest.param(
+                {
+                    "kind": "xbox",
+                    "xbe": {
+                        "title_id_code": "TT-027",
+                        "title_name": "Stubbs the Zombie",
+                        "version": 1,
+                        "region_names": ["NTSC-U"],
+                        "icon": {"png_bytes": list(_FAKE_PNG)},
+                    },
+                    "xex": {"icon": {"png_bytes": list(_FAKE_PNG + b"2")}},
+                },
+                RomConvertoInfo(title_id="TT-027"),
+                id="xbox-reads-the-xbe-title-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "xbox",
+                    "xex": {
+                        "title_id_hex": "4D5307E6",
+                        "title_name": "Halo 3",
+                        "version": "1.0.0.0",
+                        "region_names": ["NTSC-U", "PAL"],
+                        "icon": {"png_bytes": list(_FAKE_PNG)},
+                    },
+                },
+                RomConvertoInfo(title_id="4D5307E6"),
+                id="xbox-360-iso-reads-the-xex-title-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "xbox",
+                    "xbe": {"title_id_code": "TT-027", "title_id_hex": "5454001B"},
+                },
+                RomConvertoInfo(title_id="TT-027"),
+                id="xbox-nested-xbe-code",
+            ),
+            pytest.param(
+                {
+                    "kind": "xenon",
+                    "compressed_size": 725614592,
+                    "logical_size": 786432000,
+                    "xex": {
+                        "title_id_hex": "4D5307DC",
+                        "title_name": "Halo 3",
+                        "version": "2.0.4552.0",
+                        "region_names": ["RegionFree"],
+                        "icon": {"png_bytes": list(_FAKE_PNG)},
+                    },
+                },
+                RomConvertoInfo(title_id="4D5307DC"),
+                id="xenon-reads-the-xex-title-id",
+            ),
+            pytest.param(
+                {"kind": "xenon", "xex": {"title_id_hex": "4D5307DC"}},
+                RomConvertoInfo(title_id="4D5307DC"),
+                id="xenon-nested-xex-hex",
+            ),
+            pytest.param(
+                {"kind": "psx", "title_id": "SCUS-94163", "version": "1.1"},
+                RomConvertoInfo(title_id="SCUS-94163"),
+                id="psx-reads-the-disc-serial",
+            ),
+            pytest.param(
+                {
+                    "kind": "psp",
+                    "title": "Patapon",
+                    "title_id": "UCUS98696",
+                    "content_kind": "game",
+                    "version": "1.0",
+                    "firmware": "5.00",
+                },
+                RomConvertoInfo(title_id="UCUS-98696"),
+                id="psp-reads-the-disc-serial",
+            ),
+            pytest.param(
+                {
+                    "kind": "pbp",
+                    "title": "Patapon",
+                    "disc_id": "UCUS98696",
+                    "content_kind": "update",
+                    "disc_version": "1.00",
+                    "psp_system_ver": "5.55",
+                    "icon": {"png_bytes": list(_FAKE_PNG)},
+                },
+                RomConvertoInfo(title_id="UCUS-98696"),
+                id="pbp-reads-the-disc-id",
+            ),
+            pytest.param(
+                {"kind": "psp", "title_id": "HOMEBREW"},
+                RomConvertoInfo(title_id="HOMEBREW"),
+                id="psp-keeps-nonmatching-title-id",
+            ),
+            pytest.param(
+                {"kind": "psp", "title_id": "ulus10041"},
+                RomConvertoInfo(title_id="ulus10041"),
+                id="psp-keeps-lowercase-title-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "ps3",
+                    "title": "Gran Turismo 5",
+                    "title_id": "BCUS98114",
+                    "content_kind": "dlc",
+                    "version": "01.02",
+                    "region": "USA",
+                    "firmware": "3.50",
+                },
+                RomConvertoInfo(title_id="BCUS98114"),
+                id="ps3-reads-the-disc-serial",
+            ),
+            pytest.param(
+                {
+                    "kind": "chd",
+                    "compressors": ["zstd"],
+                    "logical_bytes": 1234567890,
+                    "content": {
+                        "kind": "psp",
+                        "title": "Daxter",
+                        "title_id": "UCUS98718",
+                        "content_kind": "game",
+                        "version": "1.00",
+                        "icon": {"png_bytes": list(_FAKE_PNG)},
+                        "background": {"png_bytes": list(_FAKE_PNG)},
+                    },
+                },
+                RomConvertoInfo(title_id="UCUS-98718"),
+                id="chd-reads-the-inner-psp-disc",
+            ),
+            pytest.param(
+                {"kind": "chd", "compressors": [], "logical_bytes": 786432000},
+                RomConvertoInfo(),
+                id="chd-without-an-inner-disc-has-no-title-id",
+            ),
+            pytest.param(
+                {
+                    "kind": "cso",
+                    "format": "zso",
+                    "uncompressed_size": 456789012,
+                    "content": {
+                        "kind": "psx",
+                        "title_id": "SCUS-94163",
+                        "version": "1.1",
+                    },
+                },
+                RomConvertoInfo(title_id="SCUS-94163"),
+                id="cso-reads-the-inner-psx-disc",
+            ),
+            pytest.param(
+                {"kind": "nds", "game_code": "AXXE"},
+                RomConvertoInfo(title_id="AXXE", title_version=None),
+                id="nds-falls-back-to-game-code",
+            ),
+            pytest.param(
+                {"kind": "ps3", "title_id": "BLUS31426\x00\x00" + "X" * 150},
+                RomConvertoInfo(
+                    title_id=("BLUS31426" + "X" * 150)[:TITLE_ID_MAX_LENGTH]
+                ),
+                id="title-id-drops-nul-bytes-and-clips-at-its-column-limit",
+            ),
+            pytest.param(
+                {"kind": "psp", "title_id": "UCUS98696\x00"},
+                RomConvertoInfo(title_id="UCUS-98696"),
+                id="psp-title-id-is-cleaned-before-it-is-formatted",
+            ),
+            pytest.param(
+                {"kind": "wup", "title_id_hex": ""},
+                RomConvertoInfo(),
+                id="wup-empty-title-id-is-none",
+            ),
+            pytest.param(
+                {
+                    "kind": "nx",
+                    "is_compressed": "yes",
+                    "full": {
+                        "title_kind": ["patch"],
+                        "control": {"titles": {"language": "English"}},
+                    },
+                },
+                RomConvertoInfo(),
+                id="malformed-shapes-yield-nothing",
+            ),
+        ],
+    )
+    def test_parse_info(self, payload: dict[str, Any], expected: RomConvertoInfo):
+        assert rom_converto._parse_info(payload) == expected
 
 
 class TestConvert:

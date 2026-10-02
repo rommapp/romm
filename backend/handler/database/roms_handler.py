@@ -53,6 +53,7 @@ from handler.database.rom_filters import (
     RomFiltersDict,
     RomFilterSpec,
 )
+from handler.filesystem.roms_handler import rom_file_unchanged
 from handler.redis_handler import sync_cache
 from logger.logger import log
 from models.assets import Save, Screenshot, State
@@ -337,6 +338,9 @@ ROM_FILE_SCANNED_COLUMNS = (
     "sha1_hash",
     "ra_hash",
     "chd_sha1_hash",
+    "title_id",
+    "title_version",
+    "converto_read_at",
     "archive_members",
     "category",
 )
@@ -399,6 +403,21 @@ def _rom_file_content_key(rom_file: RomFile) -> tuple[str, str, str] | None:
     if not (rom_file.crc_hash and rom_file.md5_hash and rom_file.sha1_hash):
         return None
     return (rom_file.crc_hash, rom_file.md5_hash, rom_file.sha1_hash)
+
+
+def _same_content(row: RomFile, scanned: RomFile) -> bool:
+    """Whether a rescanned file still holds the bytes its row was written from."""
+    content_key = _rom_file_content_key(scanned)
+    stored_key = _rom_file_content_key(row)
+    # Fresh hashes outrank a size and mtime a copy can preserve.
+    if content_key is not None and stored_key is not None:
+        return content_key == stored_key
+    return scanned.last_modified is not None and rom_file_unchanged(
+        row,
+        size=scanned.file_size_bytes,
+        mtime=scanned.last_modified,
+        hashable=False,
+    )
 
 
 def _cache_value_to_str(value: Any) -> str | None:
@@ -2614,7 +2633,20 @@ class DBRomsHandler(DBBaseHandler):
 
         Returns the cover path this update orphaned, if any.
         """
-        _copy_scanned_columns(scanned, row, ROM_FILE_SCANNED_COLUMNS, RomFile)
+        # Title ids rom-converto didn't read this pass are reusable only when
+        # they still describe the same content.
+        keep_converto = scanned.converto_read_at is None and _same_content(row, scanned)
+        _copy_scanned_columns(
+            scanned,
+            row,
+            ROM_FILE_SCANNED_COLUMNS,
+            RomFile,
+            keep_when_unset=(
+                frozenset({"title_id", "title_version", "converto_read_at"})
+                if keep_converto
+                else frozenset()
+            ),
+        )
 
         if row.missing_from_fs:
             row.missing_from_fs = False
@@ -2678,6 +2710,9 @@ class DBRomsHandler(DBBaseHandler):
 
         for scanned in scanned_files:
             row = by_path.get((scanned.file_path, scanned.file_name))
+            if row is None and scanned.id is not None and scanned.id in unmatched:
+                # A reused row renamed in place is still that row.
+                row = unmatched[scanned.id]
             if row is not None and row.id in unmatched:
                 del unmatched[row.id]
                 pairs.append((scanned, row))

@@ -5,7 +5,9 @@ the columns derived from `name` / `fs_name` / `fs_path` in sync explicitly.
 """
 
 import re
+import struct
 from collections.abc import Iterator
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -401,6 +403,125 @@ class TestSyncRomFiles:
         assert reloaded.file_size_bytes == 200
         assert reloaded.sha1_hash == "new-sha1"
 
+    @pytest.mark.parametrize(
+        ("inspected", "size", "mtime", "sigil_title_id", "keep_metadata"),
+        [
+            pytest.param(False, 200, 1000.0, None, True, id="unchanged-keeps-metadata"),
+            pytest.param(False, 300, 1000.0, None, False, id="size-change-clears"),
+            pytest.param(False, 200, 2000.0, None, False, id="mtime-change-clears"),
+            pytest.param(True, 200, 1000.0, None, False, id="inspected-clears"),
+            pytest.param(
+                False,
+                300,
+                1000.0,
+                "0100ABCD12345000",
+                False,
+                id="changed-writes-sigil-id-and-clears-metadata",
+            ),
+            pytest.param(
+                False,
+                200,
+                1000.0,
+                "0100ABCD12345000",
+                True,
+                id="unchanged-writes-sigil-id-and-keeps-metadata",
+            ),
+        ],
+    )
+    def test_converto_metadata_tracks_content_and_inspection(
+        self,
+        rom: Rom,
+        inspected: bool,
+        size: int,
+        mtime: float,
+        sigil_title_id: str | None,
+        keep_metadata: bool,
+    ):
+        metadata = {"title_id": "0100ABCD12340000", "title_version": 65536}
+        (first,) = _sync(rom, [_scanned_file(rom, "a.bin")])
+        scanned = _scanned_file(rom, "a.bin", size=200)
+        scanned.last_modified = 1000.0
+        for column, value in metadata.items():
+            setattr(scanned, column, value)
+        scanned.converto_read_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+        (second,) = _sync(rom, [scanned])
+
+        assert second.id == first.id
+        stored = db_rom_handler.get_rom_file_by_id(first.id)
+        assert stored is not None
+        assert {column: getattr(stored, column) for column in metadata} == metadata
+
+        scanned = _scanned_file(rom, "a.bin", size=size, sha1=None)
+        scanned.last_modified = mtime
+        scanned.title_id = sigil_title_id
+        if inspected:
+            scanned.converto_read_at = datetime(2026, 2, 1, tzinfo=timezone.utc)
+        db_rom_handler.sync_rom_files(rom.id, [scanned])
+
+        stored = db_rom_handler.get_rom_file_by_id(first.id)
+        assert stored is not None
+        assert stored.file_size_bytes == size
+        assert stored.last_modified == mtime
+        expected = dict(metadata) if keep_metadata else dict.fromkeys(metadata)
+        if sigil_title_id is not None:
+            expected["title_id"] = sigil_title_id
+        assert {column: getattr(stored, column) for column in metadata} == expected
+        assert (stored.converto_read_at is not None) == (keep_metadata or inspected)
+
+    @pytest.mark.parametrize(
+        ("stored_mtime", "scanned_mtime", "matching_hashes"),
+        [
+            pytest.param(
+                struct.unpack("f", struct.pack("f", 1700000000.123))[0],
+                1700000000.123,
+                False,
+                id="legacy-single-precision-mtime",
+            ),
+            pytest.param(1000.0, 2000.0, True, id="matching-content-with-new-mtime"),
+        ],
+    )
+    def test_unread_title_ids_survive_equivalent_content(
+        self,
+        rom: Rom,
+        stored_mtime: float,
+        scanned_mtime: float,
+        matching_hashes: bool,
+    ):
+        metadata = {"title_id": "SCUS-94163", "title_version": 1}
+        scanned = _scanned_file(
+            rom, "game.chd", sha1="sha1" if matching_hashes else None
+        )
+        scanned.last_modified = stored_mtime
+        for column, value in metadata.items():
+            setattr(scanned, column, value)
+        (first,) = _sync(rom, [scanned])
+        scanned = _scanned_file(
+            rom, "game.chd", sha1="sha1" if matching_hashes else None
+        )
+        scanned.last_modified = scanned_mtime
+
+        db_rom_handler.sync_rom_files(rom.id, [scanned])
+
+        stored = db_rom_handler.get_rom_file_by_id(first.id)
+        assert stored is not None
+        assert stored.last_modified == scanned_mtime
+        assert {column: getattr(stored, column) for column in metadata} == metadata
+
+    def test_new_hashes_clear_unread_title_ids_despite_a_kept_mtime(self, rom: Rom):
+        scanned = _scanned_file(rom, "game.chd")
+        scanned.last_modified = 1000.0
+        scanned.title_id = "SCUS-94163"
+        (first,) = _sync(rom, [scanned])
+        rehashed = _scanned_file(rom, "game.chd", sha1="other-sha1")
+        rehashed.last_modified = 1000.0
+
+        db_rom_handler.sync_rom_files(rom.id, [rehashed])
+
+        stored = db_rom_handler.get_rom_file_by_id(first.id)
+        assert stored is not None
+        assert stored.title_id is None
+
     def test_retagged_track_meta_is_updated_in_place(self, rom: Rom):
         def scanned(title: str, year: int) -> RomFile:
             return _scanned_file(
@@ -438,6 +559,17 @@ class TestSyncRomFiles:
 
         assert second.id == first.id
         assert second.file_name == "b.bin"
+
+    def test_renamed_reused_row_keeps_its_id(self, rom: Rom):
+        (first,) = _sync(rom, [_scanned_file(rom, "old.nsp")])
+        first.file_name = "new.nsp"
+
+        synced = db_rom_handler.sync_rom_files(rom.id, [first])
+
+        stored = db_rom_handler.get_rom_file_by_id(first.id)
+        assert stored is not None
+        assert synced.files[0].id == first.id
+        assert stored.file_name == "new.nsp"
 
     def test_moved_file_is_matched_by_content(self, rom: Rom):
         (first,) = _sync(rom, [_scanned_file(rom, "a.bin")])
