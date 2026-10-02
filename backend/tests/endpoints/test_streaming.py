@@ -9090,6 +9090,59 @@ def test_claim_aborts_on_an_unexpected_error_keeps_the_players_card(
     ]
 
 
+def test_claim_releases_once_on_an_http_error_from_a_step(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """A step that raises an HTTPException without releasing anything still frees
+    the container and its blank card, through a single release."""
+    with _streaming(_mc_container_for(rom)):
+        with (
+            patch("handler.streaming.commands.launch") as launch,
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
+            patch(
+                "handler.streaming.saves.wait_for_save_pull",
+                new=AsyncMock(side_effect=HTTPException(status_code=503)),
+            ),
+            patch(
+                "handler.streaming.lifecycle.abort_claim",
+                new=AsyncMock(wraps=lifecycle.abort_claim),
+            ) as abort_claim,
+            _spawns_nothing(),
+        ):
+            r = _mc_claim(client, access_token, rom.id)
+    assert r.status_code == 503
+    launch.assert_not_called()
+    abort_claim.assert_awaited_once()
+    assert (
+        asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
+    )
+    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+
+
+def test_claim_releases_once_when_card_hydration_fails(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """A helper's own refusal is released by the claim alone, never twice."""
+    with _streaming(_mc_container_for(rom)):
+        with (
+            patch("handler.streaming.commands.launch"),
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
+            patch(
+                "handler.streaming.memory_cards.hydrate_card_to_broker",
+                new=AsyncMock(return_value=False),
+            ),
+            patch(
+                "handler.streaming.lifecycle.abort_claim",
+                new=AsyncMock(wraps=lifecycle.abort_claim),
+            ) as abort_claim,
+            _spawns_nothing(),
+        ):
+            r = _mc_claim(client, access_token, rom.id)
+    assert r.status_code == 502
+    abort_claim.assert_awaited_once()
+    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+
+
 def test_claim_aborted_after_adopt_keeps_the_adopted_card(
     client, access_token, admin_user: User, rom: Rom
 ):
