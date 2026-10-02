@@ -479,20 +479,65 @@ async def test_converto_active_for_supported_platform(
 ):
     _patch_service(mocker, **service_state)
 
-    assert await handler._converto_active(psx_rom) is expected
+    assert await handler._converto_active(psx_rom.platform_slug) is expected
 
 
 async def test_converto_active_false_for_unsupported_platform(handler, mocker):
-    rom = Rom(
-        id=1,
-        fs_name="Paper Mario (USA).z64",
-        fs_path="n64/roms",
-        fs_extension="z64",
-        platform=Platform(name="Nintendo 64", slug="n64", fs_slug="n64"),
-    )
     _patch_service(mocker)
 
-    assert await handler._converto_active(rom) is False
+    assert await handler._converto_active("n64") is False
+
+
+class TestConvertoCandidates:
+    @pytest.fixture
+    def library(self, handler, mocker, tmp_path: Path) -> Path:
+        handler.base_path = tmp_path
+        mocker.patch.object(
+            rom_converto_service, "is_enabled", mocker.AsyncMock(return_value=True)
+        )
+        mocker.patch.object(
+            rom_converto_service,
+            "can_inspect",
+            lambda path: path.suffix in (".chd", ".nsp"),
+        )
+        mocker.patch(
+            "handler.filesystem.roms_handler.cm.get_config",
+            lambda: SimpleNamespace(
+                CONVERTO=SimpleNamespace(scan_metadata=True),
+                EXCLUDED_MULTI_PARTS_EXT=[],
+                EXCLUDED_MULTI_PARTS_FILES=[],
+            ),
+        )
+        roms = tmp_path / "switch" / "roms"
+        roms.mkdir(parents=True)
+        return roms
+
+    async def test_a_single_file_rom_is_its_own_candidate(self, handler, library):
+        (library / "game.nsp").write_bytes(b"rom")
+
+        assert await handler.converto_candidates(
+            "switch", "switch/roms", "game.nsp"
+        ) == [library / "game.nsp"]
+
+    async def test_a_folder_lists_its_binaries_outside_document_folders(
+        self, handler, library
+    ):
+        game = library / "Game"
+        (game / "dlc").mkdir(parents=True)
+        (game / "manual").mkdir()
+        (game / "base.nsp").write_bytes(b"rom")
+        (game / "dlc" / "extra.nsp").write_bytes(b"rom")
+        (game / "manual" / "guide.nsp").write_bytes(b"doc")
+        (game / "readme.txt").write_bytes(b"txt")
+
+        candidates = await handler.converto_candidates("switch", "switch/roms", "Game")
+
+        assert sorted(candidates) == [game / "base.nsp", game / "dlc" / "extra.nsp"]
+
+    async def test_an_unsupported_platform_has_none(self, handler, library):
+        (library / "game.nsp").write_bytes(b"rom")
+
+        assert await handler.converto_candidates("n64", "switch/roms", "game.nsp") == []
 
 
 def _fs_rom(

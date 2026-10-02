@@ -5,10 +5,10 @@ import os
 import re
 import shutil
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, Protocol
 
 from config import ROM_CONVERTO_ENABLED, ROM_CONVERTO_TIMEOUT
 from logger.formatter import LIGHTMAGENTA
@@ -1040,6 +1040,86 @@ class RomConvertoService:
                 f"rom-converto {' '.join(operation.argv)} failed with code {code}: {diagnostic}"
             )
         await asyncio.to_thread(_settle_output, operation, out)
+
+
+# Bounds one run's output, which carries every file's images as JSON.
+INFO_BATCH_SIZE: Final = 64
+
+_StatKey = tuple[int, int]
+
+
+class _InfoReader(Protocol):
+    async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]: ...
+
+
+def _stat_key(path: Path) -> _StatKey | None:
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return st.st_size, st.st_mtime_ns
+
+
+class RomConvertoInfoBatch:
+    """`read_infos` over a scan's known files, shared across roms in runs of `INFO_BATCH_SIZE`.
+
+    The first request for a known file starts one run over it and the next
+    unread files in scan order, so the roms after it find theirs already read.
+    """
+
+    def __init__(self, service: _InfoReader, paths: Sequence[Path]) -> None:
+        self._service = service
+        self._order = list(dict.fromkeys(paths))
+        self._index = {path: i for i, path in enumerate(self._order)}
+        self._runs: dict[
+            Path, asyncio.Task[dict[Path, tuple[_StatKey | None, RomConvertoInfo]]]
+        ] = {}
+
+    def _chunk(self, requested: list[Path]) -> list[Path]:
+        chunk = [path for path in requested if path not in self._runs]
+        start = min(self._index[path] for path in chunk)
+        for path in self._order[start:]:
+            if len(chunk) >= INFO_BATCH_SIZE:
+                break
+            if path not in self._runs and path not in chunk:
+                chunk.append(path)
+        return chunk
+
+    async def _read(
+        self, chunk: list[Path]
+    ) -> dict[Path, tuple[_StatKey | None, RomConvertoInfo]]:
+        stats = await asyncio.to_thread(lambda: [_stat_key(path) for path in chunk])
+        infos = await self._service.read_infos(chunk)
+        return {
+            path: (stat, infos[path])
+            for path, stat in zip(chunk, stats, strict=True)
+            if path in infos
+        }
+
+    async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]:
+        """The same result `RomConvertoService.read_infos` gives, from the shared runs."""
+        known = [path for path in paths if path in self._index]
+        if any(path not in self._runs for path in known):
+            chunk = self._chunk(known)
+            run = asyncio.create_task(self._read(chunk))
+            for path in chunk:
+                self._runs[path] = run
+        infos: dict[Path, RomConvertoInfo] = {}
+        unread = [path for path in paths if path not in self._index]
+        for path in known:
+            entry = (await self._runs.pop(path)).pop(path, None)
+            if entry is None:
+                # Not a file rom-converto recognized.
+                continue
+            stat, info = entry
+            # A file rewritten since the run is read again below.
+            if stat is not None and stat == await asyncio.to_thread(_stat_key, path):
+                infos[path] = info
+            else:
+                unread.append(path)
+        if unread:
+            infos.update(await self._service.read_infos(unread))
+        return infos
 
 
 rom_converto_service = RomConvertoService()

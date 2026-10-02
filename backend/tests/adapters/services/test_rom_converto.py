@@ -19,6 +19,7 @@ from adapters.services.rom_converto import (
     RomConvertoError,
     RomConvertoImages,
     RomConvertoInfo,
+    RomConvertoInfoBatch,
     RomConvertoOperationError,
     RomConvertoService,
     RomConvertoTimeoutError,
@@ -314,6 +315,101 @@ class TestReadInfos:
             await service.read_infos([unsafe, safe])
 
         assert listed == [str(safe)]
+
+
+class _FakeInfoService:
+    """Answers `read_infos` with each file's name as its title, recording each run."""
+
+    def __init__(self) -> None:
+        self.runs: list[list[Path]] = []
+
+    async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]:
+        self.runs.append(list(paths))
+        return {path: RomConvertoInfo(title=path.name) for path in paths}
+
+
+def _files(tmp_path: Path, *names: str) -> list[Path]:
+    paths = [tmp_path / name for name in names]
+    for path in paths:
+        path.write_bytes(b"rom")
+    return paths
+
+
+class TestRomConvertoInfoBatch:
+    async def test_later_roms_reuse_the_first_run(self, tmp_path: Path):
+        first, second = _files(tmp_path, "a.chd", "b.chd")
+        service = _FakeInfoService()
+        batch = RomConvertoInfoBatch(service, [first, second])
+
+        assert await batch.read_infos([first]) == {
+            first: RomConvertoInfo(title="a.chd")
+        }
+        assert await batch.read_infos([second]) == {
+            second: RomConvertoInfo(title="b.chd")
+        }
+        assert service.runs == [[first, second]]
+
+    async def test_concurrent_roms_share_one_run(self, tmp_path: Path):
+        first, second = _files(tmp_path, "a.chd", "b.chd")
+        service = _FakeInfoService()
+        batch = RomConvertoInfoBatch(service, [first, second])
+
+        results = await asyncio.gather(
+            batch.read_infos([first]), batch.read_infos([second])
+        )
+
+        assert results == [
+            {first: RomConvertoInfo(title="a.chd")},
+            {second: RomConvertoInfo(title="b.chd")},
+        ]
+        assert service.runs == [[first, second]]
+
+    async def test_runs_hold_at_most_the_batch_size(self, tmp_path: Path):
+        paths = _files(tmp_path, "a.chd", "b.chd", "c.chd")
+        service = _FakeInfoService()
+        batch = RomConvertoInfoBatch(service, paths)
+
+        with patch.object(rom_converto, "INFO_BATCH_SIZE", 2):
+            for path in paths:
+                await batch.read_infos([path])
+
+        assert service.runs == [paths[:2], paths[2:]]
+
+    async def test_a_rom_larger_than_the_batch_size_reads_all_its_files(
+        self, tmp_path: Path
+    ):
+        paths = _files(tmp_path, "a.chd", "b.chd", "c.chd")
+        service = _FakeInfoService()
+        batch = RomConvertoInfoBatch(service, paths)
+
+        with patch.object(rom_converto, "INFO_BATCH_SIZE", 2):
+            infos = await batch.read_infos(paths)
+
+        assert set(infos) == set(paths)
+        assert service.runs == [paths]
+
+    async def test_unknown_files_are_read_directly(self, tmp_path: Path):
+        known, unknown = _files(tmp_path, "a.chd", "b.chd")
+        service = _FakeInfoService()
+        batch = RomConvertoInfoBatch(service, [known])
+
+        infos = await batch.read_infos([known, unknown])
+
+        assert set(infos) == {known, unknown}
+        assert service.runs == [[known], [unknown]]
+
+    async def test_a_file_rewritten_after_its_run_is_read_again(self, tmp_path: Path):
+        first, second = _files(tmp_path, "a.chd", "b.chd")
+        service = _FakeInfoService()
+        batch = RomConvertoInfoBatch(service, [first, second])
+
+        await batch.read_infos([first])
+        second.write_bytes(b"a longer rom")
+
+        assert await batch.read_infos([second]) == {
+            second: RomConvertoInfo(title="b.chd")
+        }
+        assert service.runs == [[first, second], [second]]
 
 
 class TestReadInfosFailures:

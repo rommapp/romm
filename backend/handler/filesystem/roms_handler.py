@@ -14,6 +14,7 @@ from typing import Any, Final, NotRequired, TypedDict
 from adapters.services.rom_converto import (
     CONVERTO_PLATFORM_SLUGS,
     RomConvertoImages,
+    RomConvertoInfoBatch,
     rom_converto_service,
 )
 from adapters.services.sigil import (
@@ -564,7 +565,10 @@ class FSRomsHandler(FSHandler):
     @staticmethod
     def _folder_category(rom: Rom, rom_path: Path) -> RomFileCategory | None:
         """The category a file's folder gives it, relative to the ROM's own root."""
-        rom_root = Path(rom.full_path)
+        return FSRomsHandler._category_under(Path(rom.full_path), rom_path)
+
+    @staticmethod
+    def _category_under(rom_root: Path, rom_path: Path) -> RomFileCategory | None:
         rom_relative_parts = (
             rom_path.relative_to(rom_root).parts
             if rom_path.is_relative_to(rom_root)
@@ -649,21 +653,43 @@ class FSRomsHandler(FSHandler):
                 log.warning(f"Skipping unreadable file {f_path / file_name}: {exc}")
         return entries
 
-    async def _converto_active(self, rom: Rom) -> bool:
-        """Whether rom-converto should inspect this rom's files during scan."""
+    async def _converto_active(self, platform_slug: str) -> bool:
+        """Whether rom-converto should inspect a platform's files during scan."""
         return (
-            rom.platform_slug in CONVERTO_PLATFORM_SLUGS
+            platform_slug in CONVERTO_PLATFORM_SLUGS
             and cm.get_config().CONVERTO.scan_metadata
             and await rom_converto_service.is_enabled()
         )
 
+    async def converto_candidates(
+        self, platform_slug: str, fs_path: str, fs_name: str
+    ) -> list[Path]:
+        """The files `get_rom_files` hands rom-converto for a rom when it reuses no row."""
+        if not await self._converto_active(platform_slug):
+            return []
+        rom_root = Path(fs_path, fs_name)
+        rom_dir = Path(self.validate_path(fs_path), fs_name)
+        if not await self.directory_exists(str(rom_root)):
+            return [rom_dir] if rom_converto_service.can_inspect(rom_dir) else []
+        entries = await asyncio.to_thread(self._list_rom_dir, rom_dir, cm.get_config())
+        return [
+            path
+            for f_path, file_name, _ in entries
+            if rom_converto_service.can_inspect(path := Path(f_path, file_name))
+            and self._category_under(rom_root, f_path.relative_to(self.base_path))
+            not in NON_BINARY_FILE_CATEGORIES
+        ]
+
     async def _read_converto_infos(
-        self, sources: list[tuple[Path, RomFile]]
+        self,
+        sources: list[tuple[Path, RomFile]],
+        info_batch: RomConvertoInfoBatch | None = None,
     ) -> dict[RomFile, RomConvertoImages]:
         """Write metadata and return images for the files rom-converto read this pass."""
         if not sources:
             return {}
-        infos = await rom_converto_service.read_infos([p for p, _ in sources])
+        reader = info_batch or rom_converto_service
+        infos = await reader.read_infos([p for p, _ in sources])
         images: dict[RomFile, RomConvertoImages] = {}
         for path, rom_file in sources:
             info = infos.get(path)
@@ -683,6 +709,7 @@ class FSRomsHandler(FSHandler):
         extract_title_ids: bool = True,
         *,
         existing_files: Sequence[RomFile] | None = None,
+        info_batch: RomConvertoInfoBatch | None = None,
     ) -> ParsedRomFiles:
         """Build the ROM's file rows from disk.
 
@@ -691,6 +718,7 @@ class FSRomsHandler(FSHandler):
                 files whose size and mtime still match are returned as those
                 very rows with their hashes untouched, and the ROM-level hashes
                 are only recomputed when a top-level file changed.
+            info_batch: Shares rom-converto runs with the other roms of a scan.
         """
         from adapters.services.rahasher import RAHasherService
         from handler.metadata import meta_ra_handler
@@ -713,7 +741,7 @@ class FSRomsHandler(FSHandler):
         is_switch = rom.platform_slug in SWITCH_PLATFORM_SLUGS
         # rom-converto reads new or changed files' metadata and per-file ids
         # even when sigil extraction is skipped; sigil owns save targets.
-        converto_active = await self._converto_active(rom)
+        converto_active = await self._converto_active(rom.platform_slug)
         converto_sources: list[tuple[Path, RomFile]] = []
         is_multi_part = await self.directory_exists(rom.full_path)
         sigil_extractions: list[SigilExtractionResult] = []
@@ -1054,7 +1082,7 @@ class FSRomsHandler(FSHandler):
             _record_title_id_source(rom_dir, rom_file)
             _record_converto_source(rom_dir, rom_file)
 
-        images = await self._read_converto_infos(converto_sources)
+        images = await self._read_converto_infos(converto_sources, info_batch)
 
         # Listings come in no fixed order; a ROM is identified by its first disc,
         # and only Switch reads past it for each file's content type.
