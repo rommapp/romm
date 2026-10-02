@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, ref } from "vue";
 import storePlaying from "@/stores/playing";
@@ -113,7 +112,6 @@ describe("useSpatialNav", () => {
   }
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     scrollIntoView.mockClear();
     stub("getBoundingClientRect", {
       value(this: HTMLElement) {

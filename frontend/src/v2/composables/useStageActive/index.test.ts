@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
 import { effectScope, nextTick, ref } from "vue";
 import storePlaying from "@/stores/playing";
@@ -9,7 +8,6 @@ import {
 } from "./index";
 
 beforeEach(() => {
-  setActivePinia(createPinia());
   document.documentElement.classList.remove("r-v2-stage-active");
 });
 

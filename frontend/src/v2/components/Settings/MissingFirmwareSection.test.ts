@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storePlatforms from "@/stores/platforms";
 import { serverError } from "@/test-utils/serverError";
@@ -94,7 +93,6 @@ async function selectPlatforms(
 
 describe("MissingFirmwareSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     seedPlatforms();
     runTask.mockReset();
     runTask.mockResolvedValue({ data: { task_id: "job-1" } });

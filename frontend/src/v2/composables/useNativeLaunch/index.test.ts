@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type {
@@ -54,7 +53,6 @@ function feedback() {
 
 describe("installNativeLaunchFeedback", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     emit = null;
     install.mockClear();
     nameFor.mockClear();

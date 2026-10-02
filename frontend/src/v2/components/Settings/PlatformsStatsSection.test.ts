@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createI18n } from "vue-i18n";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
@@ -172,7 +171,6 @@ function duplicateSlugLibrary(): Platform[] {
 
 describe("PlatformsStatsSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     push.mockClear();
   });
 

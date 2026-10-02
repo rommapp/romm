@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import type {
@@ -92,7 +91,6 @@ function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
 }
 
 beforeEach(() => {
-  setActivePinia(createPinia());
   shellPresent.value = true;
   emit = null;
   fetchPlatformSupport.mockClear();

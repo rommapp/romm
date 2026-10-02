@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CleanupTaskStatusResponse } from "@/__generated__/models/CleanupTaskStatusResponse";
 import type { TaskInfo } from "@/__generated__/models/TaskInfo";
@@ -89,7 +88,6 @@ function runButton(wrapper: Awaited<ReturnType<typeof mountSection>>) {
 
 describe("TasksSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getTasks.mockReset();
     getTasks.mockResolvedValue({
       data: { watcher: [], scheduled: [], manual: [CLEANUP_TASK] },

@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
@@ -58,7 +57,6 @@ function mountTab() {
 
 describe("CollectionSettingsTab visibility", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
     storeAuth().setCurrentUser(
       userFixture({ id: 1, oauth_scopes: ["collections.write"] }),

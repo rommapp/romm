@@ -1,6 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent, type Ref, ref } from "vue";
 import type { RAGameRomAchievement } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
@@ -142,10 +141,6 @@ const tabIds = (wrapper: Awaited<ReturnType<typeof mountDetails>>) =>
   wrapper.findAll('[data-test="tab"]').map((tab) => tab.text());
 
 describe("GameDetails achievements tab", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("offers the tab when the ROM has achievements", async () => {
     const wrapper = await mountDetails(romWith([achievement]));
 

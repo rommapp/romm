@@ -1,5 +1,4 @@
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import storeRoms, { DETAILED_ROM_CACHE_SIZE } from "@/stores/roms";
 import { makeDetailedRom, makeRom } from "@/utils/rom.fixtures";
 
@@ -8,10 +7,6 @@ function detailed(id: number, summary?: string) {
 }
 
 describe("detailed rom cache", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("keeps each game under its own id", () => {
     const roms = storeRoms();
 

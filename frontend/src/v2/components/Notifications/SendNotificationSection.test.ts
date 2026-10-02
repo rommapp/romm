@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SendNotificationSection from "./SendNotificationSection.vue";
 
@@ -39,7 +38,6 @@ async function fill(
 
 describe("SendNotificationSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
     fetchUsers.mockResolvedValue({ data: [] });
     create.mockResolvedValue({ data: [{ id: 1 }, { id: 2 }] });

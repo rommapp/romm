@@ -1,5 +1,4 @@
 import { flushPromises } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
@@ -62,7 +61,6 @@ function setupGallery({
 
 describe("useGallerySelectAll", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
   });
 

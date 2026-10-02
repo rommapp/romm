@@ -1,6 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
@@ -145,7 +144,6 @@ function platform(
 
 describe("PlatformsIndex", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     routeState.query = {};
     galleryModeState.groupBy = "none";
     galleryModeState.layout = "grid";

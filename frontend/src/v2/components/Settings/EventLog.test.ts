@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import type { AuditEventSchema } from "@/__generated__";
@@ -70,7 +69,6 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  setActivePinia(createPinia());
   route.query = {};
   getAuditEvents.mockReset();
   getAuditEvents.mockResolvedValue({
