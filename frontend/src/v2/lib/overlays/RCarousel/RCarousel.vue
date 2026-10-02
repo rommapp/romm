@@ -22,14 +22,8 @@
 //     vs `r-carousel-prev`), so going forward and going back read
 //     differently: no ambiguous crossfade.
 //   * On fullscreen mount the panel scale-pops with spring easing.
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from "vue";
+import { useEventListener } from "@vueuse/core";
+import { computed, nextTick, ref, watch } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
@@ -164,13 +158,11 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
-  if (props.fullscreen) window.addEventListener("keydown", onKeydown);
-});
-
-onBeforeUnmount(() => {
-  if (props.fullscreen) window.removeEventListener("keydown", onKeydown);
-});
+useEventListener(
+  () => (props.fullscreen ? window : null),
+  "keydown",
+  onKeydown,
+);
 
 // ---- Thumbnail scroll-into-view -------------------------------------------
 
@@ -202,7 +194,7 @@ function onBackdropClick(event: MouseEvent) {
        transformed ancestor. Scoped class lookup still works because the
        teleported root keeps its data-v attribute.
        Backdrop click dismisses; keyboard equivalent is the window-level
-         Escape listener wired in onMounted. The `role="dialog"` makes the
+         Escape listener. The `role="dialog"` makes the
          element semantically interactive but the lint rule only recognises
          button/link-shaped roles, hence the disables. -->
   <Teleport v-if="fullscreen" to="body">
