@@ -1905,6 +1905,12 @@ async def update_rom(
                 "path_cover_l": "",
                 "url_cover": "",
                 "url_manual": "",
+                # A scan reads a manual left with no url as an upload and keeps it.
+                "path_manual": (
+                    ""
+                    if rom.url_manual and not rom.is_field_locked("url_manual")
+                    else rom.path_manual
+                ),
                 "slug": "",
                 "igdb_metadata": {},
                 "moby_metadata": {},

@@ -2791,6 +2791,44 @@ class TestUnmatchMetadata:
         assert unmatched is not None
         assert not unmatched.is_identified
 
+    @pytest.mark.parametrize(
+        "manual, kept_path",
+        [
+            ({"url_manual": "https://ss.fr/manual?id=1"}, ""),
+            (
+                {
+                    "url_manual": "https://ss.fr/manual?id=1",
+                    "locked_fields": ["url_manual"],
+                },
+                "roms/1/1/manual/1.pdf",
+            ),
+            ({"url_manual": ""}, "roms/1/1/manual/1.pdf"),
+        ],
+        ids=["scraped", "uploaded-over-scraped", "uploaded"],
+    )
+    def test_update_rom_unmatch_metadata_drops_only_a_scraped_manual(
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+        manual: dict[str, Any],
+        kept_path: str,
+    ):
+        db_rom_handler.update_rom(
+            rom.id, {"path_manual": "roms/1/1/manual/1.pdf", **manual}
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"unmatch_metadata": True},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["url_manual"] == ""
+        assert body["path_manual"] == kept_path
+
 
 def test_rom_filters_stay_individual_query_parameters(client: TestClient):
     """The filter model must reach clients as one parameter per field.

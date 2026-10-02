@@ -35,6 +35,7 @@ from handler.scan_handler import (
     MetadataSource,
     ScanType,
     build_hashless_fs_rom,
+    download_rom_resources,
     scan_platform,
     scan_rom,
 )
@@ -739,6 +740,28 @@ async def test_update_scan_keeps_uploaded_manual_with_no_source_url(
     result = await _update_scan(platform, rom)
 
     assert not result.url_manual
+
+    store_manual = AsyncMock()
+    with (
+        patch("handler.scan_handler.db_rom_handler.update_rom"),
+        patch.multiple(
+            "handler.scan_handler.fs_resource_handler",
+            get_cover=AsyncMock(return_value=(None, None)),
+            get_rom_screenshots=AsyncMock(return_value=[]),
+            store_metadata_media=AsyncMock(return_value=False),
+            _store_manual=store_manual,
+        ),
+    ):
+        await download_rom_resources(
+            added_rom=result,
+            previous_url_cover=rom.url_cover,
+            previous_url_manual=rom.url_manual,
+            previous_url_screenshots=rom.url_screenshots,
+            metadata_sources=[MetadataSource.SS],
+        )
+
+    store_manual.assert_not_awaited()
+    assert result.path_manual == (rom.path_manual or None)
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)

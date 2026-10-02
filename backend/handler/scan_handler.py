@@ -1599,9 +1599,8 @@ async def scan_rom(
             {
                 "name": existing_name or matched_name or fs_name_no_tags or None,
                 "summary": rom.summary or rom_attrs.get("summary") or None,
-                # Only a locked slot resists the freshly resolved url. Manuals
-                # are pinned regardless: rows predating the lock carry none, and
-                # a stored manual with no url can only have been uploaded.
+                # Only a locked slot resists the freshly resolved url. A stored
+                # manual is pinned regardless, since one with no url was uploaded.
                 "url_cover": (
                     ""
                     if rom.is_field_locked("url_cover")
