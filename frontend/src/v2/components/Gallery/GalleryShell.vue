@@ -26,6 +26,7 @@ import {
   RVirtualScroller,
 } from "@v2/lib";
 import {
+  useDebounceFn,
   useEventListener,
   useIntersectionObserver,
   useResizeObserver,
@@ -533,7 +534,7 @@ const viewportRange = ref<{ first: number; last: number }>({
 });
 function onViewportRangeChange(range: { first: number; last: number }) {
   viewportRange.value = range;
-  scheduleFetchSync(range);
+  void scheduleFetchSync(range);
 }
 
 // Rows kept rendered beyond the viewport. Adaptive so the rendered CARD count
@@ -642,8 +643,6 @@ const currentLetter = computed<string>(() => {
 // `FETCH_DEBOUNCE_MS` do we sync. Both layouts share this one path, so the
 // list is debounced too (list rows no longer self-fetch on mount).
 const FETCH_DEBOUNCE_MS = 80;
-let fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-let pendingRange: { first: number; last: number } | null = null;
 
 function collectVisiblePositions(range: {
   first: number;
@@ -670,28 +669,14 @@ function syncFetches(range: { first: number; last: number }) {
   galleryRoms.syncVisibleWindows(collectVisiblePositions(range));
 }
 
-function scheduleFetchSync(range: { first: number; last: number }) {
-  pendingRange = range;
-  if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
-  fetchDebounceTimer = setTimeout(() => {
-    fetchDebounceTimer = null;
-    if (pendingRange) {
-      syncFetches(pendingRange);
-      pendingRange = null;
-    }
-  }, FETCH_DEBOUNCE_MS);
-}
+const scheduleFetchSync = useDebounceFn(syncFetches, FETCH_DEBOUNCE_MS);
 
 // When the virtualItems list itself changes (gallery context switch,
 // search invalidate), drop the pending debounced sync. The store's
 // `invalidateWindows` / `resetGallery` already aborts every in-flight
 // request, so we just clear local state.
 watch(virtualItems, () => {
-  if (fetchDebounceTimer) {
-    clearTimeout(fetchDebounceTimer);
-    fetchDebounceTimer = null;
-  }
-  pendingRange = null;
+  scheduleFetchSync.cancel();
   // Re-sync against the current viewport so visible rows in the new
   // context start fetching immediately (no debounce: items just
   // changed, the user is staring at skeletons).
@@ -886,7 +871,7 @@ onBeforeUnmount(() => {
   // navigation back to a non-gallery view (Home, Settings) doesn't
   // keep stale picks alive.
   gallerySelection.clear();
-  if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
+  scheduleFetchSync.cancel();
   // When leaving the gallery entirely, stop any in-flight window fetches so
   // navigating away mid-scroll doesn't keep the network / backend busy.
   // Keeps the hydrated cache so returning to the same gallery is instant.

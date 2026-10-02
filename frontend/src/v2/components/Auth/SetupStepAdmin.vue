@@ -13,7 +13,8 @@
 // to Step 1 and back preserves what the user typed). This component is
 // pure UI: bind props in, emit input/validity out.
 import { RBtn, RForm, RIcon, RTextField, RTooltip } from "@v2/lib";
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { useObjectUrl } from "@vueuse/core";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { defaultAvatarPath } from "@/utils";
 import PasswordField from "@/v2/components/shared/PasswordField.vue";
@@ -56,31 +57,8 @@ const repeatPasswordRules = computed(() => [
 ]);
 
 // ── Avatar picker ──────────────────────────────────────────────────
-//
-// Hold the preview URL alongside the File so the user can see what they
-// picked even after they navigate away from this step and back. We use
-// an object URL (cheaper than a base64 reader) and revoke it whenever
-// the file changes or the component unmounts.
 const fileInputRef = ref<HTMLInputElement | null>(null);
-const previewUrl = ref<string>("");
-
-watch(
-  () => draft.value.avatar,
-  (file, prev) => {
-    if (previewUrl.value) {
-      URL.revokeObjectURL(previewUrl.value);
-      previewUrl.value = "";
-    }
-    if (file && file !== prev) {
-      previewUrl.value = URL.createObjectURL(file);
-    }
-  },
-  { immediate: true },
-);
-
-onBeforeUnmount(() => {
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
-});
+const previewUrl = useObjectUrl(() => draft.value.avatar);
 
 const avatarSrc = computed(() => previewUrl.value || defaultAvatarPath);
 

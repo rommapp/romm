@@ -18,9 +18,10 @@ import {
   RSelect,
   RTextField,
 } from "@v2/lib";
+import { useCountdown } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import qrcode from "qrcode";
-import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { computed, inject, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import clientTokenApi, {
   type ClientTokenSchema,
@@ -55,10 +56,17 @@ const rawToken = ref("");
 const tokenId = ref<number | null>(null);
 
 const pairCode = ref("");
-const pairCountdown = ref(0);
 const pairStatus = ref<PairStatus>("pending");
 const pairLoading = ref(false);
-let pairTimer: ReturnType<typeof setInterval> | null = null;
+const {
+  remaining: pairCountdown,
+  start: startPairCountdown,
+  pause: stopPairPolling,
+  stop: resetPairCountdown,
+} = useCountdown(0, {
+  onTick: pollPairStatus,
+  onComplete: () => (pairStatus.value = "expired"),
+});
 
 const regenerateToken = ref<ClientTokenSchema | null>(null);
 const isRegenerate = computed(() => regenerateToken.value !== null);
@@ -183,17 +191,9 @@ function resetDialog() {
   tokenId.value = null;
   pairCode.value = "";
   pairStatus.value = "pending";
-  pairCountdown.value = 0;
   loading.value = false;
   pairLoading.value = false;
-  clearPairTimer();
-}
-
-function clearPairTimer() {
-  if (pairTimer) {
-    clearInterval(pairTimer);
-    pairTimer = null;
-  }
+  resetPairCountdown();
 }
 
 async function createToken() {
@@ -262,11 +262,10 @@ async function startPairing() {
   try {
     const { data } = await clientTokenApi.pairToken(tokenId.value);
     pairCode.value = data.code;
-    pairCountdown.value = data.expires_in;
     pairLoading.value = false;
+    startPairCountdown(data.expires_in);
     await nextTick();
     renderQR(data.code);
-    startPairPolling();
   } catch (err) {
     pairLoading.value = false;
     const e = err as { response?: { data?: { detail?: string } } };
@@ -279,33 +278,23 @@ async function startPairing() {
   }
 }
 
-function startPairPolling() {
-  clearPairTimer();
-  pairTimer = setInterval(async () => {
-    pairCountdown.value -= 1;
-    if (pairCountdown.value <= 0) {
-      clearPairTimer();
+async function pollPairStatus() {
+  if (pairCountdown.value <= 0 || pairCountdown.value % 3 !== 0) return;
+  try {
+    await clientTokenApi.pollPairStatus(pairCode.value);
+  } catch {
+    // The poll throws when the code has been claimed (4xx); treat
+    // it as "claimed" if there's still time, "expired" otherwise.
+    stopPairPolling();
+    if (pairCountdown.value > 0) {
+      pairStatus.value = "claimed";
+      snackbar.success(t("settings.client-token-pair-claimed"), {
+        icon: "mdi-check-bold",
+      });
+    } else {
       pairStatus.value = "expired";
-      return;
     }
-    if (pairCountdown.value % 3 === 0) {
-      try {
-        await clientTokenApi.pollPairStatus(pairCode.value);
-      } catch {
-        // The poll throws when the code has been claimed (4xx); treat
-        // it as "claimed" if there's still time, "expired" otherwise.
-        clearPairTimer();
-        if (pairCountdown.value > 0) {
-          pairStatus.value = "claimed";
-          snackbar.success(t("settings.client-token-pair-claimed"), {
-            icon: "mdi-check-bold",
-          });
-        } else {
-          pairStatus.value = "expired";
-        }
-      }
-    }
-  }, 1000);
+  }
 }
 
 async function regeneratePairCode() {
@@ -315,11 +304,10 @@ async function regeneratePairCode() {
   try {
     const { data } = await clientTokenApi.pairToken(tokenId.value);
     pairCode.value = data.code;
-    pairCountdown.value = data.expires_in;
     pairLoading.value = false;
+    startPairCountdown(data.expires_in);
     await nextTick();
     renderQR(data.code);
-    startPairPolling();
   } catch (err) {
     pairLoading.value = false;
     const e = err as { response?: { data?: { detail?: string } } };
@@ -371,16 +359,12 @@ function renderQR(code: string) {
 }
 
 function closeDialog() {
-  clearPairTimer();
+  stopPairPolling();
   show.value = false;
 }
 
 watch(show, (val) => {
-  if (!val) clearPairTimer();
-});
-
-onBeforeUnmount(() => {
-  clearPairTimer();
+  if (!val) stopPairPolling();
 });
 </script>
 
