@@ -467,8 +467,14 @@ def collect_ra_login(container: ResolvedContainer, session: dict[str, Any]) -> N
                 change,
                 user_id,
             )
-    except Exception:  # noqa: BLE001 - a teardown finishes whatever this did
-        log.warning("session %s: ra login collect failed", session_id, exc_info=False)
+    except Exception as exc:  # noqa: BLE001 - a teardown finishes whatever this did
+        # The type alone: the message or a traceback could carry the reply.
+        log.warning(
+            "session %s: ra login collect failed, %s",
+            session_id,
+            type(exc).__name__,
+            exc_info=False,
+        )
 
 
 def upload_archive(

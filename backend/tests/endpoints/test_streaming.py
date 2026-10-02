@@ -7579,7 +7579,10 @@ def test_collect_never_raises_out_of_teardown(rom: Rom, caplog):
                     container, {"broker_session_id": "abc", "user_id": 1}
                 ),
             )
-    assert "ra login collect failed" in caplog.text
+    assert "ra login collect failed, RuntimeError" in caplog.text
+    # The type names the cause; the message could carry anything.
+    assert "db gone" not in caplog.text
+    assert "Traceback" not in caplog.text
     assert RA_TOKEN not in caplog.text
 
 
