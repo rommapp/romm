@@ -1,6 +1,7 @@
 // useSpatialNav: moves focus by arrow key (and so by D-pad) for keys no grid
 // or widget claimed with preventDefault, such as a move off a grid's edge.
 // The grids listen on `document`, which an event reaches before `window`.
+import { useEventListener } from "@vueuse/core";
 import { onBeforeUnmount } from "vue";
 import storePlaying from "@/stores/playing";
 import { isPadEvent } from "@/v2/composables/useGamepad";
@@ -212,10 +213,9 @@ export function useSpatialNav() {
       if (moveFocus(active, dir, scope)) e.preventDefault();
     }
 
-    window.addEventListener("keydown", onKey);
+    useEventListener(window, "keydown", onKey);
 
     onBeforeUnmount(() => {
-      window.removeEventListener("keydown", onKey);
       installed = false;
     });
   }
