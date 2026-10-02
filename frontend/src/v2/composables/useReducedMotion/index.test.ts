@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 
 const KEY = "settings.v2.reducedMotion";
@@ -23,16 +23,19 @@ let store: Storage;
 
 // Force the OS `prefers-reduced-motion` result the next fresh import will read.
 function stubReducedMotion(matches: boolean) {
-  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-    matches,
-    media: query,
-    onchange: null,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  }));
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  );
 }
 
 // `override` / `systemPreference` / `enabled` are module-level singletons
@@ -45,22 +48,10 @@ async function loadFresh() {
   return useReducedMotion();
 }
 
-const realMatchMedia = window.matchMedia;
-
 beforeEach(() => {
   store = makeStorage();
   vi.stubGlobal("localStorage", store);
-  Object.defineProperty(window, "localStorage", {
-    value: store,
-    configurable: true,
-    writable: true,
-  });
   stubReducedMotion(false);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-  window.matchMedia = realMatchMedia;
 });
 
 describe("useReducedMotion", () => {

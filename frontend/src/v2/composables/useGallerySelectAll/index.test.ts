@@ -1,5 +1,5 @@
 import { flushPromises } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -23,9 +23,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   }),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 function rom(id: number): SimpleRom {
   return { id, name: `Game ${id}`, platform_id: 1 } as SimpleRom;
@@ -60,15 +58,6 @@ function setupGallery({
 }
 
 describe("useGallerySelectAll", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    // Un-stub the console.error spy from the failure-path test.
-    vi.restoreAllMocks();
-  });
-
   it("selects the whole filtered result, not just the loaded windows", async () => {
     setupGallery({ ids: [1, 2, 3, 4], loaded: [rom(1), rom(2)] });
     const selection = storeGallerySelection();

@@ -14,9 +14,7 @@ const { uploadRoms, refetchRom, confirmFn, snackbar } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/services/api/rom", () => ({
   default: { uploadRoms },
 }));
@@ -37,7 +35,6 @@ const exists = { isAxiosError: true, response: { status: 409 } };
 
 describe("useRomFileUpload", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     uploadRoms.mockResolvedValue([{ status: "fulfilled", value: null }]);
     confirmFn.mockResolvedValue(true);
   });

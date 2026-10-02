@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import storeScanning from "@/stores/scanning";
 import { useScanTrigger } from "./index";
 
@@ -8,9 +8,7 @@ const { emit, connect, warning } = vi.hoisted(() => ({
   warning: vi.fn(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/services/socket", () => ({
   default: { connected: false, connect, emit },
 }));
@@ -19,12 +17,6 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 describe("useScanTrigger", () => {
-  beforeEach(() => {
-    emit.mockClear();
-    connect.mockClear();
-    warning.mockClear();
-  });
-
   it("flips the store, connects and emits one event per payload", () => {
     const { startScan } = useScanTrigger();
 

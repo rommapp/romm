@@ -1,4 +1,4 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import mitt from "mitt";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
@@ -53,9 +53,6 @@ vi.mock("@/stores/auth", () => ({
 }));
 
 const getTaskStatus = vi.mocked(taskApi.getTaskStatus);
-
-/** Drain pending microtasks so the reconcile's promise chain has settled. */
-const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** Outlast the handler's 100ms batching debounce for `scan:scanning_rom`. */
 const drainRomBatch = () => new Promise((resolve) => setTimeout(resolve, 150));

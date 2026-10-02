@@ -1,12 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useJoinStreamConfirm } from "./index";
 
 const push = vi.fn();
 const confirmFn = vi.fn();
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", () => ({
   useRouter: () => ({ push }),
 }));
@@ -22,11 +20,6 @@ const target = {
 };
 
 describe("useJoinStreamConfirm", () => {
-  beforeEach(() => {
-    push.mockClear();
-    confirmFn.mockClear();
-  });
-
   it("does not navigate until the user confirms", async () => {
     confirmFn.mockResolvedValue(false);
     const { joinStream } = useJoinStreamConfirm();

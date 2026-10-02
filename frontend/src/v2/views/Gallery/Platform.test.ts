@@ -38,9 +38,7 @@ const {
   snackbarInfo: vi.fn(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const { routeState } = vi.hoisted(() => ({
   routeState: {
@@ -205,7 +203,6 @@ async function mountView() {
 
 describe("Platform view random rom", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     routeState.name = "platform";
     routeState.path = "/platform/1";
     routeState.params = { platform: "1" };

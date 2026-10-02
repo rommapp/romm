@@ -20,9 +20,7 @@ import {
   SETUP_GROUP_LABELS,
 } from "./metadataProviderGroups";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/services/api", () => ({
   default: { get: vi.fn().mockResolvedValue({ data: {} }) },

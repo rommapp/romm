@@ -26,9 +26,7 @@ const {
   },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
@@ -161,8 +159,6 @@ describe("Upload platform selection", () => {
 describe("Upload follow-up scan", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["setTimeout"] });
-    emit.mockClear();
-    warning.mockClear();
     scanning.scanning = false;
     scanning.startedInThisTab = false;
     getSupportedPlatforms.mockResolvedValueOnce({

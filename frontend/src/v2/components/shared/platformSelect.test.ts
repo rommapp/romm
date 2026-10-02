@@ -8,9 +8,7 @@ import {
   promotePlatformsWithGamesFirst,
 } from "./platformSelect";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 type Row = Pick<Platform, "rom_count" | "display_name">;
 

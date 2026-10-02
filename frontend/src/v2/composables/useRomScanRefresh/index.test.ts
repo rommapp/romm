@@ -48,7 +48,6 @@ async function install(path: string) {
 describe("useRomScanRefresh", () => {
   beforeEach(() => {
     handlers.clear();
-    refetchRom.mockClear();
   });
 
   it("refetches the open rom when a scan finishes", async () => {

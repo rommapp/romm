@@ -9,9 +9,7 @@ const { showLogoTitle, xs } = vi.hoisted(() => ({
   xs: { value: false },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/composables/useUISettings", () => ({
   useUISettings: () => ({ showLogoTitle }),

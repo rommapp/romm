@@ -37,7 +37,6 @@ let contextThrows = false;
 
 beforeEach(() => {
   posted.length = 0;
-  vi.clearAllMocks();
   contextThrows = false;
   sampleRateAsked = undefined;
   port.onmessage = null;

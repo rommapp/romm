@@ -4,9 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { defineComponent, h } from "vue";
 import AlphaJumpMenu from "./AlphaJumpMenu.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useWrapGridNav", () => ({
   useWrapGridNav: vi.fn(),

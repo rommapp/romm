@@ -24,9 +24,7 @@ const heartbeat = {
 };
 const config = ref({ SKIP_HASH_CALCULATION: false });
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("pinia", () => ({
   storeToRefs: () => ({ config }),
 }));

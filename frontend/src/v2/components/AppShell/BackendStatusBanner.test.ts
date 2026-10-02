@@ -4,9 +4,7 @@ import { ref } from "vue";
 import storePlaying from "@/stores/playing";
 import BackendStatusBanner from "./BackendStatusBanner.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const isOffline = ref(false);
 const isWebSocketDegraded = ref(false);
@@ -46,8 +44,6 @@ describe("BackendStatusBanner", () => {
     vi.useFakeTimers();
     isOffline.value = false;
     isWebSocketDegraded.value = false;
-    retryNow.mockClear();
-    retryWebSocket.mockClear();
   });
 
   afterEach(() => {

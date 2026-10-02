@@ -1,5 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
 import storeAuth from "@/stores/auth";
 import storeCollections, { type Collection } from "@/stores/collections";
@@ -155,7 +155,6 @@ async function clickHeart(wrapper: VueWrapper) {
 describe("SelectionBar bulk favorite", () => {
   beforeEach(() => {
     storeAuth().setCurrentUser(userFixture());
-    vi.clearAllMocks();
   });
 
   it("creates the favourites collection when the instance has none", async () => {
@@ -295,10 +294,6 @@ describe("SelectionBar bulk favorite", () => {
 });
 
 describe("SelectionBar download", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("offers the download action by default", () => {
     select(rom(1));
 
@@ -321,10 +316,6 @@ describe("SelectionBar download", () => {
 });
 
 describe("SelectionBar select all", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("triggers the whole-result select-all", async () => {
     select(rom(1));
     const wrapper = mountBar();
@@ -350,10 +341,6 @@ describe("SelectionBar select all", () => {
 });
 
 describe("SelectionBar bulk status", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("ignores a status choice while the previous batch is running", async () => {
     let finish: () => void = () => {};
     updateUserRomProps.mockImplementation(
@@ -390,7 +377,6 @@ describe("SelectionBar outline", () => {
   beforeEach(() => {
     storeAuth().setCurrentUser(userFixture());
   });
-  afterEach(() => vi.unstubAllGlobals());
 
   it("draws the outline from the bar's and notch's measured sizes", async () => {
     const observer = stubResizeObserver();

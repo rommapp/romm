@@ -1,13 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { RuffleSourceAPI } from "@/types/ruffle";
 import Ruffle from "./Ruffle.vue";
@@ -21,9 +13,7 @@ const mocks = vi.hoisted(() => ({
   setStageActive: vi.fn(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("vue-router", () => ({
   useRoute: () => ({ params: { rom: "1" } }),
@@ -92,19 +82,14 @@ const rom = {
 
 // Swallow the Ruffle runtime <script> injections; the test drives
 // window.RufflePlayer directly.
-beforeAll(() => {
+beforeEach(() => {
   const appendChild = document.body.appendChild.bind(document.body);
   vi.spyOn(document.body, "appendChild").mockImplementation((node) =>
     (node as Element).tagName === "SCRIPT" ? node : appendChild(node),
   );
 });
 
-afterAll(() => {
-  vi.restoreAllMocks();
-});
-
 beforeEach(() => {
-  vi.clearAllMocks();
   mocks.getRom.mockResolvedValue({ data: rom });
   window.RufflePlayer = {
     newest: () => null,

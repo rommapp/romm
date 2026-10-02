@@ -95,7 +95,6 @@ describe("useMediaSession", () => {
   afterEach(() => {
     scope.stop();
     Reflect.deleteProperty(navigator, "mediaSession");
-    vi.unstubAllGlobals();
   });
 
   function start(blocked?: () => boolean) {

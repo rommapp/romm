@@ -101,7 +101,6 @@ function loadingOf(wrapper: ReturnType<typeof mountWidget>) {
 
 describe("AnniversaryWidget", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     // 8 September 2026, local time, so the request is asserted against a
     // known calendar day rather than whenever the suite happens to run.
     vi.useFakeTimers();

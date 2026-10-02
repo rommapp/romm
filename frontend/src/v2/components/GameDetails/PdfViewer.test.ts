@@ -1,11 +1,9 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
 import PdfViewer from "./PdfViewer.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue3-pdf-app", () => ({
   default: { name: "VuePdfApp", template: `<div class="pdf-app-stub" />` },
 }));
@@ -34,10 +32,6 @@ beforeEach(() => {
       disconnect() {}
     },
   );
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
 });
 
 describe("PdfViewer", () => {

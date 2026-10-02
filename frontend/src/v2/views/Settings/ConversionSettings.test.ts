@@ -30,9 +30,7 @@ function useConfig(platformFormats: Record<string, string>) {
   vi.spyOn(store, "fetchConfig").mockResolvedValue(config);
 }
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", () => ({
   onBeforeRouteLeave: vi.fn(),
 }));

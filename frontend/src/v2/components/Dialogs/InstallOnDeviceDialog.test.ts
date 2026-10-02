@@ -23,11 +23,7 @@ const {
   socketHandlers: new Map<string, (payload: unknown) => void>(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string) => key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/services/api/device", () => ({
   default: { fetchDevices, fetchOnlineDeviceIds },
@@ -131,7 +127,6 @@ async function toggle(wrapper: VueWrapper, checked: boolean) {
 describe("InstallOnDeviceDialog", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.clearAllMocks();
     socketHandlers.clear();
     fetchOnlineDeviceIds.mockResolvedValue({ data: [] });
     fetchRomInstalls.mockResolvedValue({ data: [] });

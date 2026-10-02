@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import RTextField from "./RTextField.vue";
 
@@ -8,10 +8,6 @@ const POPUP = {
   expanded: false,
   kind: "dialog",
 } as const;
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
 
 describe("RTextField popup wiring", () => {
   it("puts the combobox role on the input, not the outer element", () => {

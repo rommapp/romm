@@ -1,6 +1,6 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import ManualUploadTargetDialog from "./ManualUploadTargetDialog.vue";
@@ -15,9 +15,7 @@ const { uploadManuals, uploadFiles, getRom } = vi.hoisted(() => ({
   getRom: vi.fn(() => Promise.resolve({ data: {} })),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/services/api/rom", () => ({
   default: { uploadManuals, getRom },
@@ -104,10 +102,6 @@ async function upload(target: DetailedRom): Promise<VueWrapper> {
 }
 
 describe("ManualUploadTargetDialog", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("sends a single-file ROM's manual to resources without asking", async () => {
     const wrapper = await upload(rom({ has_simple_single_file: true }));
 

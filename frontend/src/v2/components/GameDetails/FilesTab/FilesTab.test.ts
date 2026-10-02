@@ -26,9 +26,7 @@ const {
   grants: { upload: true, delete: false },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => ({ query: routeQuery, path: "/rom/1", params: {} }),
@@ -141,7 +139,6 @@ async function pickFile(wrapper: ReturnType<typeof mountTab>, name: string) {
 
 describe("FilesTab uploads", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     routeQuery.subtab = undefined;
     grants.upload = true;
     uploadRoms.mockResolvedValue([{ status: "fulfilled", value: null }]);
@@ -250,7 +247,6 @@ describe("FilesTab uploads", () => {
 
 describe("FilesTab on a rom missing from the filesystem", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     routeQuery.subtab = undefined;
     grants.upload = true;
   });
@@ -283,7 +279,6 @@ describe("FilesTab on a rom missing from the filesystem", () => {
 
 describe("FilesTab selection", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     routeQuery.subtab = undefined;
     grants.upload = true;
   });
@@ -329,10 +324,7 @@ describe("FilesTab copy link", () => {
     writeText: ((text: string) => Promise<void>) | null,
     secure = true,
   ) {
-    Object.defineProperty(window, "isSecureContext", {
-      configurable: true,
-      value: secure,
-    });
+    vi.stubGlobal("isSecureContext", secure);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: writeText ? { writeText } : undefined,

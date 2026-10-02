@@ -11,9 +11,7 @@ const { create, fetchUsers, success } = vi.hoisted(() => ({
 vi.mock("@/services/api/notification", () => ({ default: { create } }));
 vi.mock("@/services/api/user", () => ({ default: { fetchUsers } }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useSnackbar", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/v2/composables/useSnackbar")>()),

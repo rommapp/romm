@@ -46,7 +46,6 @@ describe("RComboboxField inside an overlay", () => {
 
   afterEach(() => {
     popEscapable(dialog);
-    vi.mocked(dialog.close).mockClear();
   });
 
   function pressEscape(el: Element) {

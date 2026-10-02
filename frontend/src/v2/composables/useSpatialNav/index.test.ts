@@ -112,7 +112,6 @@ describe("useSpatialNav", () => {
   }
 
   beforeEach(() => {
-    scrollIntoView.mockClear();
     stub("getBoundingClientRect", {
       value(this: HTMLElement) {
         if (this.dataset.x === undefined) return new DOMRect(0, 0, 0, 0);
@@ -203,7 +202,6 @@ describe("useSpatialNav", () => {
     expect(scrollIntoView).toHaveBeenCalledWith(
       expect.objectContaining({ block: "center" }),
     );
-    vi.unstubAllGlobals();
   });
 
   it("skips controls a roving tabindex has taken out of the tab order", () => {

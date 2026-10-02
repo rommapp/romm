@@ -5,9 +5,7 @@ import { defineComponent } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 import MetadataSources from "./MetadataSources.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/services/api", () => ({
   default: { get: vi.fn().mockResolvedValue({ data: true }) },

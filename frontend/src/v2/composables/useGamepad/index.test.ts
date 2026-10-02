@@ -101,8 +101,6 @@ describe("useGamepad", () => {
     window.removeEventListener("keydown", onKeydown);
     wrapper?.unmount();
     wrapper = null;
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
   });
 
   it("steers with the left stick", () => {

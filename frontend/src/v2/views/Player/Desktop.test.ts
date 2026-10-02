@@ -1,5 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import { serverError } from "@/test-utils/serverError";
 import Desktop from "./Desktop.vue";
@@ -117,10 +117,6 @@ function expectReleasedOwnClaim(): void {
     CLAIMED_AT,
   );
 }
-
-beforeEach(() => {
-  vi.clearAllMocks();
-});
 
 afterEach(() => {
   mounted?.unmount();

@@ -1,13 +1,4 @@
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, reactive } from "vue";
 import { shouldRefreshOnReconnect } from "./index";
 
@@ -30,7 +21,6 @@ vi.mock("@/stores/heartbeat", () => ({ default: () => heartbeatStore }));
 vi.mock("@/stores/playing", () => ({ default: () => playingStore }));
 
 const reload = vi.fn();
-let originalLocation: Location;
 
 // `installed` is module state, so each test needs a fresh module to install
 // its own watchers.
@@ -61,24 +51,9 @@ function quiesce() {
   document.dispatchEvent(new CustomEvent("network-quiesced"));
 }
 
-beforeAll(() => {
-  originalLocation = window.location;
-  Object.defineProperty(window, "location", {
-    configurable: true,
-    value: { ...originalLocation, reload },
-  });
-});
-
-afterAll(() => {
-  Object.defineProperty(window, "location", {
-    configurable: true,
-    value: originalLocation,
-  });
-});
-
 beforeEach(() => {
+  vi.stubGlobal("location", { ...window.location, reload });
   vi.useFakeTimers();
-  reload.mockClear();
   heartbeatStore = makeHeartbeatStore();
   playingStore = reactive({ playing: false });
 });

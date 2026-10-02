@@ -1,3 +1,4 @@
+import { flushPromises } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { expectNoUnhandledRejection } from "@/test-utils/unhandledRejection";
@@ -65,7 +66,7 @@ describe("morphTransition", () => {
     morphTransition({ el, name: "rom-cover-1" }, () => {});
     expect(el.style.viewTransitionName).toBe("rom-cover-1");
     await finished;
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flushPromises();
 
     expect(el.style.viewTransitionName).toBe("");
     el.remove();

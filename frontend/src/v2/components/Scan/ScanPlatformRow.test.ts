@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { makeRom } from "@/utils/rom.fixtures";
 import ScanPlatformRow from "./ScanPlatformRow.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/v2/composables/useWebpSupport", () => ({
   useWebpSupport: () => ({ toWebp: (src: string) => src }),
 }));

@@ -35,9 +35,7 @@ const {
   snackbarInfo: vi.fn(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const { routeState } = vi.hoisted(() => ({
   routeState: {
@@ -179,7 +177,6 @@ function runRouteGuards(name: string, collection: string) {
 
 describe("Collection view random rom", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     routeGuards.length = 0;
     routeState.name = "collection";
     routeState.params = { collection: "1" };
@@ -372,12 +369,9 @@ describe("Collection view random rom", () => {
   });
 });
 
-// The store's lists load once per session, so a cached ROM count disagrees
-// with the gallery below it.
 // Opens collection 1. `collection()` caches 9000 ROMs, so any other count came
 // from the server.
 function openCachedCollection() {
-  vi.clearAllMocks();
   routeGuards.length = 0;
   routeState.name = "collection";
   routeState.params = { collection: "1" };
@@ -388,6 +382,8 @@ function openCachedCollection() {
   storeCollections().setCollections([collection(1)]);
 }
 
+// The store's lists load once per session, so a cached ROM count disagrees
+// with the gallery below it.
 describe("Collection view freshness", () => {
   beforeEach(openCachedCollection);
 

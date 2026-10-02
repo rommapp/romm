@@ -6,9 +6,7 @@ import type { DetailedRom } from "@/stores/roms";
 import type { MediaShelfItem } from "./MediaShelf.vue";
 import OverviewTab from "./OverviewTab.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const showRecommendations = ref(true);
 

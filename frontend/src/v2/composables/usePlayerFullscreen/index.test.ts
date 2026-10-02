@@ -49,7 +49,6 @@ describe("usePlayerFullscreen", () => {
     await expect(value.exit()).resolves.toBeUndefined();
 
     expect(error).toHaveBeenCalledOnce();
-    error.mockRestore();
   });
 
   it("swallows a denied request instead of rejecting", async () => {

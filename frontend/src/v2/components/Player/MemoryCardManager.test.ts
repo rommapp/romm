@@ -4,9 +4,7 @@ import type { MemoryCardSchema } from "@/__generated__";
 import memoryCardApi from "@/services/api/memory-card";
 import MemoryCardManager from "./MemoryCardManager.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/services/api/memory-card", () => ({
   default: {
     getMemoryCards: vi.fn(),
@@ -58,7 +56,6 @@ async function openEdit() {
 
 describe("MemoryCardManager edit", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     vi.mocked(memoryCardApi.getMemoryCards).mockResolvedValue({
       data: [card],
     } as never);

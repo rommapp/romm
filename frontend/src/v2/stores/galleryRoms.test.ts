@@ -1,6 +1,6 @@
 import { flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 // Import after the mock so the store binds to the mocked rom API.
@@ -65,10 +65,6 @@ describe("galleryRoms windowed fetch", () => {
       cb(0);
       return 0;
     });
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
   });
 
   // The backend ranks a search by relevance only when no sort key is sent.
@@ -462,10 +458,6 @@ describe("galleryRoms length filter", () => {
     });
   });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it("sends the hour bounds to the API as seconds", () => {
     storeGalleryFilter().setSelectedFilterLengthHours(5, 20);
 
@@ -492,10 +484,6 @@ describe("galleryRoms relevance order", () => {
       cb(0);
       return 0;
     });
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
   });
 
   async function answeredWith(charIndex: Record<string, number>, total = 5) {
