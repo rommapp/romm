@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import MiniPlayer from "./MiniPlayer.vue";
@@ -30,7 +30,6 @@ describe("MiniPlayer buffering", () => {
   beforeEach(() =>
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }),
   );
-  afterEach(() => vi.useRealTimers());
 
   it("reports buffering only once a wait outlasts a second", () => {
     const { audio, store } = mountPlayer();

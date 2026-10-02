@@ -231,16 +231,6 @@ function romWith(saves: SaveSchema[], states: StateSchema[] = []): DetailedRom {
   });
 }
 
-// The view listens on document and window, so a mount left standing would
-// answer the next test's visibilitychange and pagehide too.
-const mounted: VueWrapper[] = [];
-
-afterEach(() => {
-  for (const wrapper of mounted.splice(0)) {
-    if (wrapper.exists()) wrapper.unmount();
-  }
-});
-
 async function launch(opts: {
   picker: boolean;
   saves?: SaveSchema[];
@@ -272,7 +262,6 @@ async function launch(opts: {
       stubs: { GameCover: GameCoverStub, StreamStage: StreamStageStub },
     },
   });
-  mounted.push(wrapper);
   await flushPromises();
   return wrapper;
 }

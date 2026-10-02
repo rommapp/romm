@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import DevicePair from "./DevicePair.vue";
 
 const { getPending, approve } = vi.hoisted(() => ({
@@ -57,8 +57,6 @@ describe("DevicePair auto-close", () => {
     });
     approve.mockResolvedValue({ data: {} });
   });
-
-  afterEach(() => vi.useRealTimers());
 
   it("counts down and closes the window once approved", async () => {
     const wrapper = await mountApproved();

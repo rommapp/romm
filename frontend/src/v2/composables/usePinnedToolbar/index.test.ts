@@ -1,4 +1,4 @@
-import { mount, type VueWrapper } from "@vue/test-utils";
+import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { useNavGlass } from "@/v2/composables/useNavGlass";
@@ -6,8 +6,6 @@ import { usePinnedToolbar } from "./index";
 
 const NAV_H = 58;
 const NATURAL_TOP = 300;
-
-const wrappers: VueWrapper[] = [];
 
 function setup({ page = false } = {}) {
   const scrollTop = ref(0);
@@ -20,7 +18,6 @@ function setup({ page = false } = {}) {
       },
     }),
   );
-  wrappers.push(wrapper);
   return { scrollTop, api, wrapper };
 }
 
@@ -50,7 +47,6 @@ function bindShell(api: ReturnType<typeof usePinnedToolbar>) {
 
 describe("usePinnedToolbar", () => {
   afterEach(() => {
-    wrappers.splice(0).forEach((wrapper) => wrapper.unmount());
     document.body.innerHTML = "";
     setPageScroll(0);
   });
@@ -107,7 +103,6 @@ describe("usePinnedToolbar", () => {
     expect(innerGlass.value).toBe(true);
 
     wrapper.unmount();
-    wrappers.splice(wrappers.indexOf(wrapper), 1);
     expect(innerScrolled.value).toBe(false);
     expect(innerGlass.value).toBe(false);
     expect(useNavGlass().handoff.value).toBe(false);

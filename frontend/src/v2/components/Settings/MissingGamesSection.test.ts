@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 import { serverError } from "@/test-utils/serverError";
@@ -22,12 +22,7 @@ vi.mock("@/services/api/task", () => ({
   default: { runTask, getTaskById },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string, params?: Record<string, unknown>) =>
-      params ? `${key}::${JSON.stringify(params)}` : key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirm,
@@ -123,7 +118,7 @@ describe("MissingGamesSection", () => {
     await flushPromises();
 
     expect(snackbarError).toHaveBeenCalledWith(
-      'settings.couldnt-queue-cleanup::{"error":"No task worker is listening"}',
+      'settings.couldnt-queue-cleanup:{"error":"No task worker is listening"}',
     );
   });
 
@@ -165,8 +160,6 @@ describe("MissingGamesSection", () => {
       scroller.vm.$emit("update:viewport-range", range);
       return { wrapper, sync };
     }
-
-    afterEach(() => vi.useRealTimers());
 
     it("syncs once the scroller settles", async () => {
       const { sync } = await mountScrolled();

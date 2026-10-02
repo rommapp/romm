@@ -17,7 +17,6 @@ describe("useDelayedFlag", () => {
 
   afterEach(() => {
     scopes.splice(0).forEach((scope) => scope.stop());
-    vi.useRealTimers();
   });
 
   it("turns on only once the source has stayed on for the delay", async () => {

@@ -12,7 +12,6 @@ describe("useDebouncedSearch", () => {
 
   afterEach(() => {
     scope.stop();
-    vi.useRealTimers();
   });
 
   function setup(initial: string | null) {

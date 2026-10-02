@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, reactive } from "vue";
 import { shouldRefreshOnReconnect } from "./index";
 
@@ -56,10 +56,6 @@ beforeEach(() => {
   vi.useFakeTimers();
   heartbeatStore = makeHeartbeatStore();
   playingStore = reactive({ playing: false });
-});
-
-afterEach(() => {
-  vi.useRealTimers();
 });
 
 describe("shouldRefreshOnReconnect", () => {

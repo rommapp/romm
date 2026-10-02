@@ -1,6 +1,6 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 
@@ -42,7 +42,6 @@ describe("HiddenGamesPicker search", () => {
     vi.useFakeTimers();
     getRoms.mockReset();
   });
-  afterEach(() => vi.useRealTimers());
 
   function mountPicker() {
     return mount(HiddenGamesPicker, { props: { modelValue: [] } });

@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, reactive, ref } from "vue";
 import type {
   PendingAssetKind,
@@ -65,12 +65,9 @@ vi.mock("@/v2/composables/useServerConnection", () => ({
   useServerConnection: () => ({ isOffline, retryNow: vi.fn() }),
 }));
 
-// The composable only runs inside a component scope, like AppLayout's. The
-// wrapper is kept so each test's watcher dies with it, rather than answering
-// the next test's reconnect.
-let wrapper: ReturnType<typeof mount> | null = null;
+// The composable only runs inside a component scope, like AppLayout's.
 function install() {
-  wrapper = mount(
+  mount(
     defineComponent({
       setup() {
         installPendingAssetSync();
@@ -93,12 +90,6 @@ describe("installPendingAssetSync", () => {
     isOffline.value = false;
     syncPendingAssets.mockReset();
     syncPendingAssets.mockImplementation(acceptAll);
-  });
-
-  afterEach(() => {
-    wrapper?.unmount();
-    wrapper = null;
-    vi.useRealTimers();
   });
 
   it("hands over what the browser is holding as soon as it installs", async () => {
@@ -177,7 +168,7 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(success).toHaveBeenCalledWith(
-      "play.last-save-synced",
+      'play.last-save-synced:{"game":"Game"}',
       expect.objectContaining({ image: null }),
     );
   });
@@ -189,7 +180,7 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(success).toHaveBeenCalledWith(
-      "play.last-state-synced",
+      'play.last-state-synced:{"game":"Game"}',
       expect.anything(),
     );
   });
@@ -217,7 +208,7 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(error).toHaveBeenCalledWith(
-      "play.save-sync-refused",
+      'play.save-sync-refused:{"game":"Game","reason":"Slot has a newer save"}',
       expect.anything(),
     );
     expect(success).not.toHaveBeenCalled();
@@ -246,7 +237,7 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(warning).toHaveBeenCalledWith(
-      "play.save-kept-apart",
+      'play.save-kept-apart:{"game":"Game"}',
       expect.anything(),
     );
     expect(success).not.toHaveBeenCalled();

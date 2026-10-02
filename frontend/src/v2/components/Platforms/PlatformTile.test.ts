@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import PlatformTile from "./PlatformTile.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en" } }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),

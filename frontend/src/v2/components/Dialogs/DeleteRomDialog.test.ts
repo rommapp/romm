@@ -162,7 +162,7 @@ describe("DeleteRomDialog with a large selection", () => {
 
     expect(addExclusion).toHaveBeenCalledTimes(2);
     expect(snackbarError).toHaveBeenCalledWith(
-      "rom.exclude-failed",
+      'rom.exclude-failed:{"n":1}',
       expect.anything(),
     );
   });

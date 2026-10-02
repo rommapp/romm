@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt from "mitt";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClientTokenSchema } from "@/__generated__";
 import type { Events } from "@/types/emitter";
 import CreateClientTokenDialog from "./CreateClientTokenDialog.vue";
@@ -84,8 +84,6 @@ describe("CreateClientTokenDialog pairing", () => {
     regenerateToken.mockResolvedValue({ data: { id: 5, raw_token: "rmm_x" } });
     pollPairStatus.mockResolvedValue({ data: {} });
   });
-
-  afterEach(() => vi.useRealTimers());
 
   it("counts down, polling every third second, then expires", async () => {
     const { wrapper } = await openPairing(6);

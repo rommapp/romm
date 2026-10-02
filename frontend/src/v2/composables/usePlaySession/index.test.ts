@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import playSessionApi from "@/services/api/play-session";
 import type { SimpleRom } from "@/stores/roms";
 import { makeRom as baseRom } from "@/utils/rom.fixtures";
@@ -31,10 +31,6 @@ beforeEach(() => {
   authState.user = { current_device_id: "device-1" };
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-07-21T10:00:00.000Z"));
-});
-
-afterEach(() => {
-  vi.useRealTimers();
 });
 
 describe("usePlaySession", () => {

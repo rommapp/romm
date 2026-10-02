@@ -55,7 +55,9 @@ describe("useJoinStreamConfirm", () => {
 
     await joinStream(target);
 
-    expect(confirmFn.mock.calls[0][0].title).toBe("rom.confirm-join-title-of");
+    expect(confirmFn.mock.calls[0][0].title).toBe(
+      'rom.confirm-join-title-of:{"user":"ada"}',
+    );
   });
 
   it("falls back to an unnamed prompt when the host is unknown", async () => {

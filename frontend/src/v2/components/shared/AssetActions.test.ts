@@ -36,7 +36,7 @@ describe("AssetActions", () => {
     const buttons = wrapper.findAll(".btn");
 
     expect(buttons.map((b) => b.attributes("aria-label"))).toEqual([
-      "rom.download-named",
+      'rom.download-named:{"name":"a.srm"}',
       "rom.edit-state",
       "rom.add-to-favorites",
       "rom.delete-state",

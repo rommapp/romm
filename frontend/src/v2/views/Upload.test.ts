@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { Platform } from "@/stores/platforms";
 import Upload from "./Upload.vue";
@@ -165,10 +165,6 @@ describe("Upload follow-up scan", () => {
       data: [{ ...threeDo, id: 7, missing_from_fs: false }],
     });
     uploadRoms.mockResolvedValueOnce([{ status: "fulfilled" }]);
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("scans the platform once the upload lands", async () => {

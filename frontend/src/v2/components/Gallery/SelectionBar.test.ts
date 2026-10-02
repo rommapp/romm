@@ -44,12 +44,7 @@ vi.mock("@/v2/composables/useGallerySelectAll", () => ({
 
 // `t` echoes the key plus its params so a test can assert *which* message was
 // shown -- the whole point of the add/remove polarity cases.
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string, params?: Record<string, unknown>) =>
-      params ? `${key}::${JSON.stringify(params)}` : key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 // Importing the real router also pulls in its lazy auth views, which can still
 // be loading when the test environment tears down.
@@ -168,7 +163,7 @@ describe("SelectionBar bulk favorite", () => {
     expect(createCollection).toHaveBeenCalledTimes(1);
     expect(addRomsToCollection).toHaveBeenCalledWith(7, [1, 2]);
     expect(snackbarSuccess).toHaveBeenCalledWith(
-      'gallery.selection-favorite-success::{"n":2}',
+      'gallery.selection-favorite-success:{"n":2}',
     );
     expect(snackbarError).not.toHaveBeenCalled();
   });
@@ -183,7 +178,7 @@ describe("SelectionBar bulk favorite", () => {
 
     expect(addRomsToCollection).toHaveBeenCalledWith(7, [1, 2]);
     expect(snackbarSuccess).toHaveBeenCalledWith(
-      'gallery.selection-favorite-success::{"n":2}',
+      'gallery.selection-favorite-success:{"n":2}',
     );
   });
 
@@ -197,7 +192,7 @@ describe("SelectionBar bulk favorite", () => {
 
     expect(removeRomsFromCollection).toHaveBeenCalledWith(7, [1, 2]);
     expect(snackbarSuccess).toHaveBeenCalledWith(
-      'gallery.selection-unfavorite-success::{"n":2}',
+      'gallery.selection-unfavorite-success:{"n":2}',
     );
   });
 
@@ -212,7 +207,7 @@ describe("SelectionBar bulk favorite", () => {
     expect(addRomsToCollection).toHaveBeenCalledWith(7, [1, 2]);
     expect(removeRomsFromCollection).not.toHaveBeenCalled();
     expect(snackbarSuccess).toHaveBeenCalledWith(
-      'gallery.selection-favorite-success::{"n":2}',
+      'gallery.selection-favorite-success:{"n":2}',
     );
   });
 
@@ -334,7 +329,7 @@ describe("SelectionBar select all", () => {
 
     expect(
       wrapper
-        .find("[aria-label='gallery.selection-select-all-count::{\"n\":42}']")
+        .find("[aria-label='gallery.selection-select-all-count:{\"n\":42}']")
         .exists(),
     ).toBe(true);
   });

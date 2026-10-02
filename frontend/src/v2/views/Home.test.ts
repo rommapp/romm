@@ -282,19 +282,15 @@ describe("Home", () => {
   it("paints neither the sections nor the empty library while a load is still quick", async () => {
     holdRowsLoading();
     vi.useFakeTimers();
-    try {
-      const wrapper = mountHome();
-      await vi.advanceTimersByTimeAsync(SKELETON_DELAY_MS - 1);
+    const wrapper = mountHome();
+    await vi.advanceTimersByTimeAsync(SKELETON_DELAY_MS - 1);
 
-      expect(findRow(wrapper, "home.recently-added")).toBeUndefined();
-      expect(wrapper.text()).not.toContain("home.empty-headline");
+    expect(findRow(wrapper, "home.recently-added")).toBeUndefined();
+    expect(wrapper.text()).not.toContain("home.empty-headline");
 
-      await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(1);
 
-      expect(findRow(wrapper, "home.recently-added")).toBeDefined();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(findRow(wrapper, "home.recently-added")).toBeDefined();
   });
 
   it("renders the recommendations row with its per-card reason", async () => {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionKey } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import { makeRom as baseRom } from "@/utils/rom.fixtures";
@@ -256,7 +256,9 @@ describe("useGameActions.joinStream", () => {
 
     await actions.joinStream();
 
-    expect(confirmFn.mock.calls[0][0].title).toBe("rom.confirm-join-title-of");
+    expect(confirmFn.mock.calls[0][0].title).toBe(
+      'rom.confirm-join-title-of:{"user":"ada"}',
+    );
   });
 
   it("falls back to an unnamed prompt when the host is unknown", async () => {
@@ -287,7 +289,9 @@ describe("useGameActions — stream and join action labels", () => {
     streamContainer.value = { label: "Dreamcast box", emulator: "flycast" };
     const actions = useGameActions(() => makeRom());
 
-    expect(actions.streamActionLabel.value).toBe("rom.stream-on");
+    expect(actions.streamActionLabel.value).toBe(
+      'rom.stream-on:{"container":"Dreamcast box"}',
+    );
   });
 
   it("says only 'stream' when no container is configured", () => {
@@ -302,7 +306,9 @@ describe("useGameActions — stream and join action labels", () => {
     joinableSession.value = { host_username: "ada" };
     const actions = useGameActions(() => makeRom());
 
-    expect(actions.joinActionLabel.value).toBe("rom.join-session-of");
+    expect(actions.joinActionLabel.value).toBe(
+      'rom.join-session-of:{"user":"ada"}',
+    );
   });
 
   it("falls back to the plain join label when the host is unknown", () => {
@@ -594,7 +600,7 @@ describe("useGameActions.refreshFiles", () => {
       { platforms: [7], roms_ids: [1], type: "quick", apis: [] },
     ]);
     expect(snackbarInfo).toHaveBeenCalledWith(
-      "rom.refreshing-files",
+      'rom.refreshing-files:{"name":"Chrono Trigger"}',
       expect.anything(),
     );
   });
@@ -623,10 +629,6 @@ describe("useGameActions.downloadAs", () => {
       download_formats: downloadFormats,
     } as SimpleRom;
   }
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
 
   it("offers the formats the detailed rom lists", () => {
     const rom = pspRom([{ id: 1, file_name: "Game.CHD" }]);
@@ -673,7 +675,9 @@ describe("useGameActions.downloadAs", () => {
     await vi.advanceTimersByTimeAsync(5000);
     await pending;
 
-    expect(snackbarInfo).toHaveBeenCalledWith("rom.download-as-preparing");
+    expect(snackbarInfo).toHaveBeenCalledWith(
+      'rom.download-as-preparing:{"format":"ISO"}',
+    );
     expect(probeFormatDownload).toHaveBeenCalledTimes(2);
     expect(downloadRom).toHaveBeenCalledOnce();
   });
@@ -688,9 +692,12 @@ describe("useGameActions.downloadAs", () => {
     await useGameActions(() => rom).downloadAs("iso");
 
     expect(downloadRom).not.toHaveBeenCalled();
-    expect(snackbarError).toHaveBeenCalledWith("rom.download-as-unavailable", {
-      persist: { body: "Game", link: "/rom/1" },
-    });
+    expect(snackbarError).toHaveBeenCalledWith(
+      'rom.download-as-unavailable:{"format":"ISO"}',
+      {
+        persist: { body: "Game", link: "/rom/1" },
+      },
+    );
   });
 
   it("ignores a second click while the first is still waiting", async () => {
