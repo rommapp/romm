@@ -1,4 +1,8 @@
-<script setup lang="ts">
+<script
+  setup
+  lang="ts"
+  generic="Model extends number | string | number[] | string[] | null"
+>
 // PlatformSelect: shared composite that wraps RSelect with the
 // platform-row visual language used across v2 (icon + display name,
 // optional category / family / missing-fs / rom-count meta).
@@ -81,16 +85,26 @@ defineOptions({ inheritAttrs: false });
 
 type PlatformKey = "id" | "slug" | "fs_slug";
 
+// Same model checks as RSelect, which these props pass through to.
+type IsArrayModel = [NonNullable<Model>] extends [readonly unknown[]]
+  ? true
+  : false;
+type ClearableAllowed = null extends Model
+  ? unknown
+  : IsArrayModel extends true
+    ? unknown
+    : false;
+
 interface Props {
-  modelValue?: number | string | number[] | string[] | null;
+  modelValue?: Model;
   items: Platform[];
   /** Which Platform field the v-model binds to. Default `id`.
    *  `slug` is used by FolderMapping (the table works in slug space)
    *  `fs_slug` is used by Scan (mixes database platforms and folders) */
   itemKey?: PlatformKey;
-  multiple?: boolean;
+  multiple?: boolean & (IsArrayModel extends true ? unknown : false);
   searchable?: boolean;
-  clearable?: boolean;
+  clearable?: boolean & ClearableAllowed;
   /** When `multiple`, render each selection as a small icon-only RTag
    *  with an automatic "+N" overflow pill. Defaults to `true` so the
    *  visual is consistent across every multi-platform picker; pass
@@ -120,7 +134,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  modelValue: null,
+  modelValue: undefined,
   itemKey: "id",
   multiple: false,
   searchable: true,
@@ -145,10 +159,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  (
-    e: "update:modelValue",
-    value: number | string | number[] | string[] | null,
-  ): void;
+  (e: "update:modelValue", value: Model): void;
 }>();
 
 const { t } = useI18n();
@@ -202,7 +213,7 @@ function platformForValue(value: unknown): Platform | undefined {
 }
 
 function onUpdate(v: unknown) {
-  emit("update:modelValue", v as number | string | number[] | string[] | null);
+  emit("update:modelValue", v as Model);
 }
 
 function onPanelSearch(query: string) {
@@ -220,9 +231,10 @@ function showPromoteRomBadge(platform: Platform): boolean {
 </script>
 
 <template>
+  <!-- Model checks happen on this component's props; RSelect sees unknown. -->
   <RSelect
     v-bind="$attrs"
-    :model-value="modelValue"
+    :model-value="modelValue as unknown"
     :items="listItems"
     item-title="display_name"
     :item-value="itemKey"

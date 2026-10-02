@@ -23,7 +23,7 @@ const user = ref({
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const usersStore = storeUsers();
-const validForm = ref(false);
+const validForm = ref<boolean | null>(false);
 
 async function createUser() {
   await userApi

@@ -28,9 +28,11 @@ const PLATFORMS = [
   { title: "PC", value: "pc" },
 ];
 
-const meta: Meta<typeof RSelect> = {
+// Generic components can't fill Storybook's `component` slot, so it's cast;
+// the instantiation types the stories' args.
+const meta: Meta<typeof RSelect<unknown, unknown>> = {
   title: "Forms/RSelect",
-  component: RSelect,
+  component: RSelect as never,
   argTypes: {
     variant: {
       control: "inline-radio",
@@ -86,7 +88,7 @@ const meta: Meta<typeof RSelect> = {
 
 export default meta;
 
-type Story = StoryObj<typeof RSelect>;
+type Story = StoryObj<typeof RSelect<unknown, unknown>>;
 
 // ── Defaults ────────────────────────────────────────────────────────
 

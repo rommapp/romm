@@ -396,7 +396,8 @@ watch(show, (val) => {
               <v-checkbox
                 v-for="scope in group.scopes"
                 :key="scope"
-                v-model="selectedScopes"
+                :model-value="selectedScopes"
+                @update:model-value="selectedScopes = $event ?? []"
                 :label="scope"
                 :value="scope"
                 density="compact"
@@ -412,7 +413,8 @@ watch(show, (val) => {
               <v-checkbox
                 v-for="scope in group.scopes"
                 :key="scope"
-                v-model="selectedScopes"
+                :model-value="selectedScopes"
+                @update:model-value="selectedScopes = $event ?? []"
                 :label="scope"
                 :value="scope"
                 density="compact"

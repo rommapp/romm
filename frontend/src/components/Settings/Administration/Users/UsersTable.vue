@@ -160,7 +160,8 @@ onMounted(() => {
         </template>
         <template #item.enabled="{ item }">
           <v-switch
-            v-model="item.enabled"
+            :model-value="item.enabled"
+            @update:model-value="item.enabled = !!$event"
             inset
             color="primary"
             :disabled="item.id == auth.user?.id"

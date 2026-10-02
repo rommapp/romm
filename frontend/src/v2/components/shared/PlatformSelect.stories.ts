@@ -155,9 +155,11 @@ async function openMenu(canvasElement: HTMLElement) {
   });
 }
 
-const meta: Meta<typeof PlatformSelect> = {
+// Generic components can't fill Storybook's `component` slot, so it's cast;
+// the instantiation types the stories' args.
+const meta: Meta<typeof PlatformSelect<number | null>> = {
   title: "Shared/PlatformSelect",
-  component: PlatformSelect,
+  component: PlatformSelect as never,
   parameters: {
     layout: "padded",
   },

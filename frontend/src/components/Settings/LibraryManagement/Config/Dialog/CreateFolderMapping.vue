@@ -218,7 +218,11 @@ function getMappingTypeDescription(type: "alias" | "variant"): string {
             <p class="text-romm-gray mb-3">
               {{ t("settings.add-mapping-type") }}
             </p>
-            <v-radio-group v-model="mappingType" class="mt-2">
+            <v-radio-group
+              :model-value="mappingType"
+              class="mt-2"
+              @update:model-value="$event && (mappingType = $event)"
+            >
               <v-radio value="alias" class="mb-2">
                 <template #label>
                   <div class="ml-2">

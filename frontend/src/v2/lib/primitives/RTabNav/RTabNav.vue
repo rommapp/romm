@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="Id extends string">
 // RTabNav: single component, two visual presentations:
 //   * variant="underlined" (default): horizontal nav with a brand
 //     underline on active. Used for primary tabs and tight subtabs.
@@ -28,8 +28,8 @@ const EDGE_PX = 40;
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  modelValue: string;
-  items: RTabNavItem[];
+  modelValue: Id;
+  items: RTabNavItem<Id>[];
   /** Size ladder shared with RBtn / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
   variant?: "underlined" | "pill";
@@ -43,7 +43,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 defineEmits<{
-  (e: "update:modelValue", v: string): void;
+  (e: "update:modelValue", v: Id): void;
 }>();
 
 const visibleItems = computed(() =>

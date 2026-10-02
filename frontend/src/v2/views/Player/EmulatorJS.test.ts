@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { DetailedRom } from "@/stores/roms";
+import { propOf } from "@/test-utils/propOf";
 import type { LaunchState, SaveSyncOutcome } from "@/types/rommNative";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
 import EmulatorJS from "./EmulatorJS.vue";
@@ -360,7 +361,7 @@ describe("EmulatorJS launch screen — play routes", () => {
 
     const discs = wrapper
       .findAllComponents(RSelect)
-      .filter((select) => select.props("label") === "rom.file");
+      .filter((select) => propOf(select, "label") === "rom.file");
     await discs[0].setValue(102);
     await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
 
@@ -574,8 +575,8 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
   function slotItems(wrapper: VueWrapper): unknown[] {
     const select = wrapper
       .findAllComponents(RSelect)
-      .find((c) => c.props("info") === "play.slot-tooltip");
-    return (select?.props("items") as unknown[]) ?? [];
+      .find((c) => propOf(c, "info") === "play.slot-tooltip");
+    return select ? (propOf(select, "items") as unknown[]) : [];
   }
 
   // Not the call count: earlier wrappers' watchers are still live on the same
@@ -599,7 +600,7 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
     const wrapper = await launchScreen();
     const slot = wrapper
       .findAllComponents(RSelect)
-      .find((c) => c.props("info") === "play.slot-tooltip");
+      .find((c) => propOf(c, "info") === "play.slot-tooltip");
     await slot?.setValue({ kind: "existing", slot: "slots/2" });
     await flushPromises();
 
@@ -610,7 +611,7 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
     await flushPromises();
 
     expect(slotItems(wrapper)).toHaveLength(2);
-    expect(slot?.props("modelValue")).toEqual({
+    expect(slot && propOf(slot, "modelValue")).toEqual({
       kind: "existing",
       slot: "slots/2",
     });

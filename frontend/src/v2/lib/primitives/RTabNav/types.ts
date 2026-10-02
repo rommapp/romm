@@ -1,5 +1,5 @@
-export type RTabNavItem = {
-  id: string;
+export type RTabNavItem<Id extends string = string> = {
+  id: Id;
   label: string;
   /** Optional MDI icon name shown before the label. */
   icon?: string;

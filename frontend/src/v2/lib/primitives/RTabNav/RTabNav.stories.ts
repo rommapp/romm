@@ -3,9 +3,11 @@ import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import RTabNav from "./RTabNav.vue";
 
-const meta: Meta<typeof RTabNav> = {
+// Generic components can't fill Storybook's `component` slot, so it's cast;
+// the instantiation types the stories' args.
+const meta: Meta<typeof RTabNav<string>> = {
   title: "Primitives/RTabNav",
-  component: RTabNav,
+  component: RTabNav as never,
   argTypes: {
     size: {
       control: "select",
@@ -25,7 +27,7 @@ const meta: Meta<typeof RTabNav> = {
 };
 
 export default meta;
-type Story = StoryObj<typeof RTabNav>;
+type Story = StoryObj<typeof RTabNav<string>>;
 
 export const Default: Story = {
   args: {
