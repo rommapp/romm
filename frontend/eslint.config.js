@@ -100,7 +100,7 @@ export default tseslint.config(
     settings: {
       "import-x/resolver-next": [
         createTypeScriptImportResolver({
-          project: "./tsconfig.json",
+          project: "./tsconfig.app.json",
           extensions: [".ts", ".d.ts", ".tsx", ".vue", ".js", ".mjs", ".json"],
         }),
       ],

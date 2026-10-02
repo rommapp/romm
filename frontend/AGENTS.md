@@ -12,8 +12,8 @@ v2 has a detailed constitution, split across the `frontend-v2-*` skills in `.cla
 ```bash
 npm install                         # install (Node 24)
 npm run dev                         # dev server :3000
-npm run typecheck                   # vue-tsc
-npm run typecheck:scripts           # tsc on the Node/Vite tooling in scripts/
+npm run typecheck                   # vue-tsc --build: the app and the Node tooling
+npm run typecheck:scripts           # Node tooling only: scripts/, eslint-plugin-romm/, tool configs
 npm run test                        # vitest (+ Storybook play() tests)
 npm run test:e2e                    # playwright (needs a running app + seeded e2e users)
 npm run build                       # production build
