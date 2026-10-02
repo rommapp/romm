@@ -92,7 +92,7 @@ const resolvedRounded = computed<string>(() => {
 // Elevation map: discrete shadow steps. Off-key values snap down to
 // the nearest tabulated step so a stray `elevation=5` still lands on
 // a system-approved shadow instead of a unique one-off.
-const ELEVATION_MAP: Record<number, string> = {
+const ELEVATION_MAP: Record<number, string> & { 0: string } = {
   0: "none",
   1: "0 1px 2px color-mix(in srgb, black 14%, transparent)",
   2: "0 2px 4px color-mix(in srgb, black 16%, transparent)",
@@ -114,7 +114,7 @@ const resolvedElevation = computed<string | undefined>(() => {
   if (!Number.isFinite(n)) return undefined;
   if (n <= 0) return ELEVATION_MAP[0];
   // Snap down to the largest tabulated key ≤ n.
-  let best = ELEVATION_KEYS[0];
+  let best = 0;
   for (const k of ELEVATION_KEYS) {
     if (k <= n) best = k;
   }

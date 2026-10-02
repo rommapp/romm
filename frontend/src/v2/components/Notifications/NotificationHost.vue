@@ -65,9 +65,8 @@ function push(status: SnackbarStatus) {
 }
 
 function dismiss(id: number) {
-  const idx = toasts.value.findIndex((t) => t.id === id);
-  if (idx < 0) return;
-  const toast = toasts.value[idx];
+  const toast = toasts.value.find((t) => t.id === id);
+  if (!toast) return;
   if (toast.timer) window.clearTimeout(toast.timer);
   toasts.value = toasts.value.filter((t) => t.id !== id);
   notificationStore.remove(id);

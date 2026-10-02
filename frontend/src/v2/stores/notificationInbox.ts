@@ -103,7 +103,8 @@ export default defineStore("v2NotificationInbox", {
         ...payload,
         data: { ...payload.data, origin_tab: TAB_ID },
       });
-      this.receive(data[0]);
+      const [created] = data;
+      if (created) this.receive(created);
     },
 
     sentFromThisTab(notification: NotificationSchema): boolean {

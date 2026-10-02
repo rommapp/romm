@@ -39,7 +39,7 @@ const props = withDefaults(defineProps<Props>(), {
   variant: "flat",
 });
 
-const SIZE_MAP: Record<string, string> = {
+const SIZE_MAP: Record<string, string> & { default: string } = {
   "x-small": "24px",
   small: "32px",
   default: "40px",

@@ -29,11 +29,11 @@ const openHandler = async (romToView: SimpleRom) => {
   await nextTick();
 
   const isNDSFile = isNintendoDSFile(romToView);
-  const matchingFiles = getNintendoDSFiles(romToView);
+  const [dsFile] = getNintendoDSFiles(romToView);
 
   const downloadLink = getDownloadLink({
     rom: romToView,
-    fileIDs: isNDSFile ? [] : [matchingFiles[0].id],
+    fileIDs: isNDSFile || !dsFile ? [] : [dsFile.id],
   });
 
   if (canvasRef.value) {

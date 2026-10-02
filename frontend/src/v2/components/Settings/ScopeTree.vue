@@ -53,13 +53,13 @@ const groups = computed<Group[]>(() => {
     const parts = raw.split(".");
     // Single-segment permission (`invite`, `reset`): its own group, no leaves.
     if (parts.length < 2) {
-      const key = parts[0];
+      const key = parts[0]!;
       if (!map.has(key)) {
         map.set(key, { label: key.toUpperCase(), sortKey: key, leaves: [] });
       }
       continue;
     }
-    const action = parts[parts.length - 1];
+    const action = parts[parts.length - 1]!;
     const scopePath = parts.slice(0, -1);
     const sortKey = scopePath.join(".");
     if (!map.has(sortKey)) {

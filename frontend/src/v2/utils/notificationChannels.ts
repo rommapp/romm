@@ -69,7 +69,7 @@ function isBlank(value: AppriseFieldValue | undefined): boolean {
   );
 }
 
-function emptyValue(field: AppriseFieldSchema): AppriseFieldValue {
+export function emptyValue(field: AppriseFieldSchema): AppriseFieldValue {
   if (field.type === "list") return [];
   if (field.type === "bool") return field.default === true;
   if (field.type === "choice") return String(field.default ?? "");
@@ -100,7 +100,7 @@ export function appriseFieldsPayload(
   for (const field of service.fields) {
     const value = values[field.key];
     if (removed.includes(field.key)) payload[field.key] = "";
-    else if (isBlank(value)) continue;
+    else if (value === undefined || isBlank(value)) continue;
     else if (field.type === "int" || field.type === "float") {
       payload[field.key] = Number(value);
     } else payload[field.key] = value;

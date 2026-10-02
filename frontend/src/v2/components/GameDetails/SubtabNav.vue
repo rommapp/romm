@@ -59,7 +59,7 @@ watch(menuOpen, (open) => {
 });
 
 function startsGroup(list: I[], index: number): boolean {
-  const group = list[index].group;
+  const group = list[index]!.group;
   return !!group && group !== list[index - 1]?.group;
 }
 

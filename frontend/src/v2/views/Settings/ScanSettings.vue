@@ -33,7 +33,7 @@ const authStore = storeAuth();
 const snackbar = useSnackbar();
 
 // Provider brand names: identical across every locale, so not i18n'd.
-const PROVIDER_LABELS: Record<string, string> = {
+const PROVIDER_LABELS = {
   igdb: "IGDB",
   moby: "MobyGames",
   ss: "ScreenScraper",
@@ -51,45 +51,49 @@ const PROVIDER_LABELS: Record<string, string> = {
   gamelist: "ES-DE gamelist",
   libretro: "Libretro",
   playmatch: "Playmatch",
-};
-const METADATA_SOURCES = [
-  "igdb",
-  "moby",
-  "ss",
-  "ra",
-  "launchbox",
-  "gamelist",
-  "hasheous",
-  "tgdb",
-  "flashpoint",
-  "steam",
-  "hltb",
-  "demozoo",
-  "pouet",
-  "csdb",
-  "sgdb",
-  "libretro",
-  "playmatch",
-].map((value) => ({ value, label: PROVIDER_LABELS[value] }));
-const ARTWORK_SOURCES = [
-  "sgdb",
-  "igdb",
-  "moby",
-  "ss",
-  "libretro",
-  "ra",
-  "launchbox",
-  "gamelist",
-  "hasheous",
-  "tgdb",
-  "flashpoint",
-  "steam",
-  "hltb",
-  "demozoo",
-  "pouet",
-  "csdb",
-  "playmatch",
-].map((value) => ({ value, label: PROVIDER_LABELS[value] }));
+} satisfies Record<string, string>;
+const METADATA_SOURCES = (
+  [
+    "igdb",
+    "moby",
+    "ss",
+    "ra",
+    "launchbox",
+    "gamelist",
+    "hasheous",
+    "tgdb",
+    "flashpoint",
+    "steam",
+    "hltb",
+    "demozoo",
+    "pouet",
+    "csdb",
+    "sgdb",
+    "libretro",
+    "playmatch",
+  ] as const
+).map((value) => ({ value, label: PROVIDER_LABELS[value] }));
+const ARTWORK_SOURCES = (
+  [
+    "sgdb",
+    "igdb",
+    "moby",
+    "ss",
+    "libretro",
+    "ra",
+    "launchbox",
+    "gamelist",
+    "hasheous",
+    "tgdb",
+    "flashpoint",
+    "steam",
+    "hltb",
+    "demozoo",
+    "pouet",
+    "csdb",
+    "playmatch",
+  ] as const
+).map((value) => ({ value, label: PROVIDER_LABELS[value] }));
 
 // Common provider region / language codes, offered as one-click
 // suggestions. Users may still type any provider-defined code.

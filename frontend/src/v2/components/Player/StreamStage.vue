@@ -140,7 +140,7 @@ function sameOriginFrames(win: Window | null, found: Window[] = []): Window[] {
   }
   found.push(win);
   for (let i = 0; i < win.frames.length; i += 1) {
-    sameOriginFrames(win.frames[i], found);
+    sameOriginFrames(win.frames[i]!, found);
   }
   return found;
 }

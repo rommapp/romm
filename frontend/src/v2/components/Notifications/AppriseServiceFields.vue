@@ -6,7 +6,10 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { AppriseFieldSchema, AppriseServiceSchema } from "@/__generated__";
 import AppriseFieldInput from "@/v2/components/Notifications/AppriseFieldInput.vue";
-import type { AppriseFieldValue } from "@/v2/utils/notificationChannels";
+import {
+  type AppriseFieldValue,
+  emptyValue,
+} from "@/v2/utils/notificationChannels";
 
 const props = defineProps<{
   service: AppriseServiceSchema;
@@ -39,7 +42,7 @@ function set(key: string, value: AppriseFieldValue) {
 function inputProps(field: AppriseFieldSchema) {
   return {
     field,
-    modelValue: values.value[field.key],
+    modelValue: values.value[field.key] ?? emptyValue(field),
     stored: props.stored.includes(field.key),
     highlight: props.highlighted.includes(field.key),
     removed: removed.value.includes(field.key),

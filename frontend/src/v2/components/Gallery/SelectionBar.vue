@@ -251,7 +251,7 @@ async function applyStatusTo(
   const results = await settleWithLimit(roms, STATUS_CONCURRENCY, (rom) =>
     romApi.updateUserRomProps({ romId: rom.id, data }),
   );
-  const failed = roms.filter((_, i) => results[i].status === "rejected");
+  const failed = roms.filter((_, i) => results[i]!.status === "rejected");
   for (const rom of failed) {
     const snapshot = before.get(rom.id);
     if (rom.rom_user && snapshot) {
@@ -301,7 +301,7 @@ function bulkDownload() {
   const roms = selection.roms;
   if (roms.length === 0) return;
   if (roms.length === 1) {
-    void romApi.downloadRom({ rom: roms[0] });
+    void romApi.downloadRom({ rom: roms[0]! });
     return;
   }
   // Bundle multi-selections into a single zip server-side; firing one

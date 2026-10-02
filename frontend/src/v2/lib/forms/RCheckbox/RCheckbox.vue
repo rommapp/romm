@@ -126,7 +126,7 @@ watch([() => props.indeterminate, showMultiIcon], syncIndeterminate);
 
 function onChange(evt: Event) {
   if (isMulti.value && props.states) {
-    const next = props.states[(currentIndex.value + 1) % props.states.length];
+    const next = props.states[(currentIndex.value + 1) % props.states.length]!;
     emit("update:stateValue", next.value);
     return;
   }

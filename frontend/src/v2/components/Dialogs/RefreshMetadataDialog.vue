@@ -133,7 +133,7 @@ onBeforeUnmount(() => {
 });
 
 const singleRom = computed<SimpleRom | null>(() =>
-  roms.value.length === 1 ? roms.value[0] : null,
+  roms.value.length === 1 ? roms.value[0]! : null,
 );
 const singleRomCover = computed<string | null>(() => {
   const r = singleRom.value;

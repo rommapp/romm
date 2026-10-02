@@ -364,17 +364,17 @@ function hasListener(name: string): boolean {
   const props = instance?.vnode.props as Record<string, unknown> | null;
   if (!props) return false;
   // verbatim → onClick:append-inner (Vue's actual template output)
-  const verbatim = `on${name[0].toUpperCase()}${name.slice(1)}`;
+  const verbatim = `on${name.charAt(0).toUpperCase()}${name.slice(1)}`;
   // kebab→camel inside the arg → onClick:appendInner
-  const argCamel = `on${name[0].toUpperCase()}${name
+  const argCamel = `on${name.charAt(0).toUpperCase()}${name
     .slice(1)
     .replace(/-(\w)/g, (_, c) => c.toUpperCase())}`;
   // capitalised after the colon → onClick:Append-inner
-  const colonCap = `on${name[0].toUpperCase()}${name
+  const colonCap = `on${name.charAt(0).toUpperCase()}${name
     .slice(1)
     .replace(/:(\w)/g, (_, c) => `:${c.toUpperCase()}`)}`;
   // no colon, camelCase tail → onClickAppend-inner
-  const flat = `on${name[0].toUpperCase()}${name
+  const flat = `on${name.charAt(0).toUpperCase()}${name
     .slice(1)
     .replace(/:(\w)/g, (_, c) => c.toUpperCase())}`;
   return (

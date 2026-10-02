@@ -195,7 +195,7 @@ export function useGamepad() {
     }
     const nextIndex =
       (matchIndex + step + NAV_SECTIONS.length) % NAV_SECTIONS.length;
-    const target = NAV_SECTIONS[nextIndex];
+    const target = NAV_SECTIONS[nextIndex]!;
     if (target !== currentPath) router.push(target);
   }
 
@@ -345,8 +345,7 @@ export function useGamepad() {
         //     the saves/states tab).
         // A button can be in any combination; press-edge always emits the
         // CustomEvent regardless of built-in semantics.
-        for (let i = 0; i < pad.buttons.length; i++) {
-          const button = pad.buttons[i];
+        for (const [i, button] of pad.buttons.entries()) {
           const binding = BUTTON_MAP[i];
           const action = BUTTON_ACTIONS[i];
           const prev = (st.buttons[i] ||= { pressed: false, nextRepeatAt: 0 });
