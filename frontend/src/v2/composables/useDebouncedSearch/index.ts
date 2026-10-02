@@ -6,18 +6,24 @@ import { type Ref, ref, watch } from "vue";
 export function useDebouncedSearch(term: Ref<string | null>, delayMs = 300) {
   const input = ref(term.value ?? "");
 
-  const commit = useTimeoutFn(
-    (value: string) => {
-      const normalized = value.trim();
-      if (normalized !== (term.value ?? "")) term.value = normalized || null;
-    },
-    delayMs,
-    { immediate: false },
-  );
+  function apply(value: string): boolean {
+    const normalized = value.trim();
+    if (normalized === (term.value ?? "")) return false;
+    term.value = normalized || null;
+    return true;
+  }
+
+  const commit = useTimeoutFn(apply, delayMs, { immediate: false });
 
   function setSearch(value: string) {
     input.value = value;
     commit.start(value);
+  }
+
+  /** Commits the box without waiting. Returns whether the term changed. */
+  function flush(): boolean {
+    commit.stop();
+    return apply(input.value);
   }
 
   watch(term, (value) => {
@@ -27,5 +33,5 @@ export function useDebouncedSearch(term: Ref<string | null>, delayMs = 300) {
     input.value = value ?? "";
   });
 
-  return { input, setSearch };
+  return { input, setSearch, flush };
 }

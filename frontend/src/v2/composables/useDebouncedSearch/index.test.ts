@@ -65,6 +65,25 @@ describe("useDebouncedSearch", () => {
     expect(input.value).toBe("zelda");
   });
 
+  it("commits straight away on flush, dropping the pending keystroke", () => {
+    const { term, setSearch, flush } = setup(null);
+
+    setSearch(" mario ");
+    expect(flush()).toBe(true);
+    expect(term.value).toBe("mario");
+
+    term.value = "zelda";
+    vi.advanceTimersByTime(300);
+    expect(term.value).toBe("zelda");
+  });
+
+  it("reports an unchanged term on flush", () => {
+    const { setSearch, flush } = setup("mario");
+
+    setSearch("mario ");
+    expect(flush()).toBe(false);
+  });
+
   it("keeps what the user typed when the term it settled on echoes back", async () => {
     const { term, input, setSearch } = setup(null);
 
