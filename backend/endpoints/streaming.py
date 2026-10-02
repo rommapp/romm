@@ -597,15 +597,12 @@ async def _settle_memory_card(
     rom: Rom,
     probe: _ContainerCard,
 ) -> MemoryCard | None:
-    """The card this session mounts.
-
-    A blank is made only now, so a lost race (409) never leaves an orphan card
-    behind; its id goes on `undo` so a failed claim deletes it again.
-    """
+    """Return the card this session mounts."""
     if not container.memory_card_sync:
         return card
 
     if card is None:
+        # Made only after the claim is won, so a lost race (409) leaves no orphan.
         card = memory_cards.create_blank_card(
             request.user.id, container.emulator, rom.platform_id
         )
