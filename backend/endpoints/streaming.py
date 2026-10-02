@@ -1085,8 +1085,8 @@ async def save_and_exit_session(
 
     await lifecycle.record_play_session(session)
     await lifecycle.clear_session_activity(session_key, session)
-    # Before the key goes, like every other exit: a claim that wins it next
-    # activates, and the broker drops the change then.
+    # Before the key goes, as on every other exit: the broker drops the change
+    # when the next claim activates.
     await lifecycle.collect_ra_login(container, session)
     # Before the key goes, so a claim that wins it next waits for the pull.
     await lifecycle.start_exit_save_pull(container, session, settled=settled)

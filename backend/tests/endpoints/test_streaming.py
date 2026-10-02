@@ -7294,7 +7294,7 @@ def test_a_204_from_collect_changes_nothing(
     client, access_token, admin_user: User, rom: Rom, caplog
 ):
     """`broker.request` answers an empty body with {}: the true 204 shape,
-    distinct from a malformed reply, and it must stay completely silent."""
+    distinct from a malformed reply, and it must stay silent."""
     store_ra_login(admin_user.id, "alice", RA_TOKEN)
     romm_logger = logging.getLogger("romm")
     romm_logger.addHandler(caplog.handler)
