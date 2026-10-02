@@ -20,6 +20,7 @@ const ERROR_KEYS: Record<LaunchErrorCode, string> = {
   "no-emulator-configured": "play.native-error-no-emulator",
   "emulator-not-found": "play.native-error-no-emulator",
   "download-failed": "play.native-error-download",
+  "session-expired": "play.native-error-session-expired",
   "already-running": "play.native-error-running",
   "invalid-request": "play.native-launch-failed",
   "launch-failed": "play.native-launch-failed",
@@ -33,6 +34,7 @@ const SAVE_KEYS: Record<SaveSyncAction, string> = {
   downloaded: "play.native-save-downloaded",
   uploaded: "play.native-save-uploaded",
   archived: "play.native-save-archived",
+  deleted: "play.native-save-deleted",
   failed: "play.native-save-failed",
 };
 
@@ -40,6 +42,7 @@ const SAVE_ICONS: Record<SaveSyncAction, string> = {
   downloaded: "mdi-download-outline",
   uploaded: "mdi-upload-outline",
   archived: "mdi-archive-outline",
+  deleted: "mdi-delete-outline",
   failed: "mdi-alert-circle-outline",
 };
 
@@ -58,7 +61,8 @@ export function installNativeLaunchFeedback(): void {
     // launch the page is finished with.
     if (state.status === "sync") {
       const outcome = state.sync;
-      if (!outcome) return;
+      // An action this copy of the contract predates has no message to show.
+      if (!outcome || !Object.hasOwn(SAVE_KEYS, outcome.action)) return;
       if (outcome.detail) {
         console.error("[native] Save sync failed:", outcome.detail);
       }
@@ -68,6 +72,8 @@ export function installNativeLaunchFeedback(): void {
         snackbar.error(message, { icon });
       } else if (outcome.action === "archived") {
         snackbar.warning(message, { icon });
+      } else if (outcome.action === "deleted") {
+        snackbar.info(message, { icon });
       } else {
         snackbar.success(message, { icon });
       }
@@ -96,12 +102,15 @@ export function installNativeLaunchFeedback(): void {
     if (state.error?.message) {
       console.error("[native] Launch failed:", state.error.message);
     }
-    snackbar.error(
-      t(ERROR_KEYS[state.error?.code ?? "launch-failed"], { name }),
-      {
-        icon: "mdi-alert-circle-outline",
-      },
-    );
+    // A code newer than this copy of the contract gets the generic message.
+    const code = state.error?.code;
+    const key =
+      code && Object.hasOwn(ERROR_KEYS, code)
+        ? ERROR_KEYS[code]
+        : ERROR_KEYS["launch-failed"];
+    snackbar.error(t(key, { name }), {
+      icon: "mdi-alert-circle-outline",
+    });
   });
 
   onScopeDispose(unsubscribe);
