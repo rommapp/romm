@@ -541,6 +541,7 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 | `last_login`      | Timestamp                         | Nullable                                        |
 | `last_active`     | Timestamp                         | Nullable                                        |
 | `ra_username`     | String(255)                       | RetroAchievements username                      |
+| `ra_login_sealed` | Text                              | Sealed RetroAchievements login, nullable        |
 | `ra_progression`  | JSON                              | RetroAchievements data                          |
 | `ui_settings`     | JSON                              | User preferences                                |
 
