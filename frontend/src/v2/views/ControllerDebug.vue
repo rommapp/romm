@@ -10,10 +10,11 @@
 // Polling is independent of `useGamepad`: this view is its own read
 // path; the real input loop keeps running in the background.
 import { RBtn, RIcon } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useEventListener, useRafFn } from "@vueuse/core";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/routeNames";
 import ControllerPad from "@/v2/components/ControllerDebug/ControllerPad.vue";
 import type { GamepadSnapshot } from "@/v2/components/ControllerDebug/types";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
@@ -33,6 +34,8 @@ const BACK_BUTTON_INDICES = [1, 8];
 const HOLD_TO_EXIT_MS = 700;
 const exitHoldStart = ref<number | null>(null);
 const exitHoldProgress = ref(0);
+// Fires once per hold, so a back that goes nowhere leaves the inspector live.
+let exitFired = false;
 
 // useGamepad's mapping legend: keep in sync with the composable.
 const KEYBIND_LEGEND: { button: string; key: string }[] = [
@@ -50,7 +53,6 @@ const KEYBIND_LEGEND: { button: string; key: string }[] = [
 ];
 
 const pads = ref<GamepadSnapshot[]>([]);
-const rafId = ref<number>(0);
 
 interface LogEntry {
   id: number;
@@ -94,22 +96,28 @@ function tick() {
   const backHeld = list.some(
     (p) => p && BACK_BUTTON_INDICES.some((i) => p.buttons[i]?.pressed),
   );
-  if (backHeld) {
-    if (exitHoldStart.value === null) exitHoldStart.value = performance.now();
-    const held = performance.now() - exitHoldStart.value;
-    exitHoldProgress.value = Math.min(1, held / HOLD_TO_EXIT_MS);
-    if (held >= HOLD_TO_EXIT_MS) {
-      exitHoldStart.value = null;
-      exitHoldProgress.value = 0;
-      router.back();
-      return;
-    }
-  } else {
+  if (!backHeld) {
+    exitFired = false;
     exitHoldStart.value = null;
     exitHoldProgress.value = 0;
+    return;
   }
+  if (exitFired) return;
+  if (exitHoldStart.value === null) exitHoldStart.value = performance.now();
+  const held = performance.now() - exitHoldStart.value;
+  exitHoldProgress.value = Math.min(1, held / HOLD_TO_EXIT_MS);
+  if (held >= HOLD_TO_EXIT_MS) {
+    exitFired = true;
+    exitHoldStart.value = null;
+    exitHoldProgress.value = 0;
+    leave();
+  }
+}
 
-  rafId.value = requestAnimationFrame(tick);
+// Opened straight into a fresh tab, there is no entry to go back to.
+function leave() {
+  if (window.history.state?.back) router.back();
+  else void router.push({ name: ROUTES.HOME });
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -126,8 +134,7 @@ function clearLog() {
   keyLog.value = [];
 }
 
-onMounted(tick);
-onBeforeUnmount(() => cancelAnimationFrame(rafId.value));
+useRafFn(tick);
 useEventListener(window, "keydown", onKeydown);
 
 function formatTime(t: number) {

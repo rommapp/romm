@@ -1,3 +1,4 @@
+/* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
@@ -131,5 +132,44 @@ describe("useWrapGridNav", () => {
     expect(scrollIntoView).toHaveBeenLastCalledWith(
       expect.objectContaining({ block: "center" }),
     );
+  });
+});
+
+describe("useWrapGridNav autofocus", () => {
+  const { setModality } = useInputModality();
+  const tiles = ref(0);
+
+  // Tiles that arrive after mount, as a fetch resolving would add them.
+  const LateGrid = defineComponent({
+    setup() {
+      const root = ref<HTMLElement | null>(null);
+      useWrapGridNav(root, { cellSelector: ".cell" });
+      return () =>
+        h(
+          "div",
+          { ref: root },
+          Array.from({ length: tiles.value }, (_, i) =>
+            h("button", { class: "cell", "data-focus-key": `tile-${i}` }),
+          ),
+        );
+    },
+  });
+
+  afterEach(() => {
+    tiles.value = 0;
+    setModality("mouse");
+  });
+
+  it("lands pad focus on the first tile once late tiles arrive", async () => {
+    setModality("pad");
+    const wrapper = mount(LateGrid, { attachTo: document.body });
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(document.activeElement).toBe(document.body);
+
+    tiles.value = 2;
+    await nextTick();
+    await Promise.resolve();
+
+    expect(document.activeElement).toBe(wrapper.find(".cell").element);
   });
 });
