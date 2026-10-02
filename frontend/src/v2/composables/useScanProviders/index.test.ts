@@ -127,8 +127,8 @@ describe("useScanProviders Playmatch gate", () => {
 
 describe("useScanProviders scan payload", () => {
   it("sends the expanded provider list and both hash matchers", () => {
-    const { buildScanPayload } = useScanProviders();
-    expect(buildScanPayload()).toEqual({
+    const { buildScanSourceOptions } = useScanProviders();
+    expect(buildScanSourceOptions()).toEqual({
       apis: ["igdb", "ss", "moby", "ra", "hasheous", "playmatch"],
       launchbox_remote_enabled: true,
     });
@@ -136,8 +136,8 @@ describe("useScanProviders scan payload", () => {
 
   it("drops both hash matchers when hashing is disabled", () => {
     config.value.SKIP_HASH_CALCULATION = true;
-    const { buildScanPayload } = useScanProviders();
-    const payload = buildScanPayload();
+    const { buildScanSourceOptions } = useScanProviders();
+    const payload = buildScanSourceOptions();
     expect(payload.apis).not.toContain("hasheous");
     expect(payload.apis).not.toContain("playmatch");
   });

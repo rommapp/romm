@@ -46,7 +46,7 @@ export interface HashMatcher {
   switchEnabled: boolean;
 }
 
-export interface ScanPayload {
+export interface ScanSourceOptions {
   apis: string[];
   launchbox_remote_enabled: boolean;
 }
@@ -67,7 +67,7 @@ export interface UseScanProviders {
   hashMatchers: ComputedRef<HashMatcher[]>;
   setHashMatcher: (value: HashMatcherKey, next: boolean) => void;
   isHashMatcherOn: (matcher: HashMatcher) => boolean;
-  buildScanPayload: () => ScanPayload;
+  buildScanSourceOptions: () => ScanSourceOptions;
   persistSelection: () => void;
 }
 
@@ -237,7 +237,7 @@ export function useScanProviders(): UseScanProviders {
     return matcher ? isHashMatcherOn(matcher) : false;
   }
 
-  function buildScanPayload(): ScanPayload {
+  function buildScanSourceOptions(): ScanSourceOptions {
     const apis = effectiveMetadataSources.value.map((s) => s.value);
     if (isOn("hasheous")) apis.push("hasheous");
     if (isOn("playmatch")) apis.push("playmatch");
@@ -267,7 +267,7 @@ export function useScanProviders(): UseScanProviders {
     hashMatchers,
     setHashMatcher,
     isHashMatcherOn,
-    buildScanPayload,
+    buildScanSourceOptions,
     persistSelection,
   };
 }

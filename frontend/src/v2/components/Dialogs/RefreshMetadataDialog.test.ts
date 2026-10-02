@@ -44,7 +44,7 @@ vi.mock("@/v2/composables/useScanProviders", async () => {
       hashMatchers: ref([]),
       setHashMatcher: vi.fn(),
       isHashMatcherOn: () => false,
-      buildScanPayload: () => ({
+      buildScanSourceOptions: () => ({
         apis: sources.value.map((s) => s.value),
         launchbox_remote_enabled: false,
       }),
