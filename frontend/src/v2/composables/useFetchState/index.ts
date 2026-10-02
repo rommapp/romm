@@ -4,7 +4,7 @@ import { useAsyncState } from "@vueuse/core";
 import type { Ref } from "vue";
 
 export interface UseFetchStateOptions<T> {
-  /** Run the fetcher on setup. Defaults to true; turn off when it needs args. */
+  /** Run the fetcher on setup. Defaults to true. */
   immediate?: boolean;
   onSuccess?: (data: T) => void;
   onError?: (error: unknown) => void;
@@ -18,11 +18,22 @@ export interface UseFetchState<T, Args extends unknown[]> {
   execute: (...args: Args) => Promise<T | undefined>;
 }
 
-export function useFetchState<T, Args extends unknown[] = []>(
+export function useFetchState<T>(
+  fetcher: () => Promise<T>,
+  initial: T,
+  options?: UseFetchStateOptions<T>,
+): UseFetchState<T, []>;
+// A fetcher that takes arguments can't run on setup, so it must opt out.
+export function useFetchState<T, Args extends unknown[]>(
   fetcher: (...args: Args) => Promise<T>,
   initial: T,
+  options: UseFetchStateOptions<T> & { immediate: false },
+): UseFetchState<T, Args>;
+export function useFetchState<T>(
+  fetcher: (...args: unknown[]) => Promise<T>,
+  initial: T,
   options: UseFetchStateOptions<T> = {},
-): UseFetchState<T, Args> {
+): UseFetchState<T, unknown[]> {
   const { state, isLoading, error, executeImmediate } = useAsyncState(
     fetcher,
     initial,
@@ -32,7 +43,7 @@ export function useFetchState<T, Args extends unknown[] = []>(
   let latest = 0;
 
   // Callbacks run after the newest call has written `state` and `error`.
-  async function execute(...args: Args): Promise<T | undefined> {
+  async function execute(...args: unknown[]): Promise<T | undefined> {
     const call = ++latest;
     const data = await executeImmediate(...args);
     if (call !== latest) return data;
@@ -41,7 +52,7 @@ export function useFetchState<T, Args extends unknown[] = []>(
     return data;
   }
 
-  if (options.immediate ?? true) void execute(...([] as unknown as Args));
+  if (options.immediate ?? true) void execute();
 
   return { state, isLoading, error, execute };
 }

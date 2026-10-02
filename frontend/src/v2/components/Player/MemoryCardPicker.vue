@@ -37,9 +37,7 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const snackbar = useSnackbar();
 
-// Fetch the caller's cards for this emulator whenever the emulator changes,
-// then preselect the newest (first) so Play resumes the last-used card.
-// Best-effort: a fetch failure leaves the list empty (blank card at claim)
+// Best-effort: a failed fetch leaves the list empty (a blank card at claim)
 // rather than blocking launch.
 const {
   state: cards,

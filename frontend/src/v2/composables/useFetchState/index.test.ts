@@ -1,17 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { effectScope, type EffectScope } from "vue";
-import { useFetchState, type UseFetchStateOptions } from "./index";
+import { useFetchState } from "./index";
 
 const scopes: EffectScope[] = [];
 
-function setup<T, Args extends unknown[] = []>(
-  fetcher: (...args: Args) => Promise<T>,
-  initial: T,
-  options?: UseFetchStateOptions<T>,
-) {
+function setup<R>(create: () => R): R {
   const scope = effectScope();
   scopes.push(scope);
-  return scope.run(() => useFetchState(fetcher, initial, options))!;
+  return scope.run(create)!;
 }
 
 function deferred<T>() {
@@ -32,7 +28,9 @@ describe("useFetchState", () => {
   it("fetches on setup and exposes the result", async () => {
     const onSuccess = vi.fn();
     const fetcher = vi.fn(() => Promise.resolve([1, 2]));
-    const fetch = setup(fetcher, [] as number[], { onSuccess });
+    const fetch = setup(() =>
+      useFetchState(fetcher, [] as number[], { onSuccess }),
+    );
 
     expect(fetch.isLoading.value).toBe(true);
     await vi.waitFor(() => expect(fetch.isLoading.value).toBe(false));
@@ -45,7 +43,7 @@ describe("useFetchState", () => {
 
   it("waits for execute when immediate is off and passes its args", async () => {
     const fetcher = vi.fn((id: number) => Promise.resolve(id * 2));
-    const fetch = setup(fetcher, 0, { immediate: false });
+    const fetch = setup(() => useFetchState(fetcher, 0, { immediate: false }));
 
     expect(fetcher).not.toHaveBeenCalled();
     await fetch.execute(21);
@@ -60,7 +58,7 @@ describe("useFetchState", () => {
       .fn<() => Promise<string>>()
       .mockResolvedValueOnce("first")
       .mockReturnValueOnce(next.promise);
-    const fetch = setup(fetcher, "", { immediate: false });
+    const fetch = setup(() => useFetchState(fetcher, "", { immediate: false }));
     await fetch.execute();
 
     const refetch = fetch.execute();
@@ -79,7 +77,9 @@ describe("useFetchState", () => {
       .fn<() => Promise<string>>()
       .mockReturnValueOnce(older.promise)
       .mockResolvedValueOnce("newer");
-    const fetch = setup(fetcher, "", { immediate: false, onSuccess });
+    const fetch = setup(() =>
+      useFetchState(fetcher, "", { immediate: false, onSuccess }),
+    );
 
     const stale = fetch.execute();
     await fetch.execute();
@@ -93,16 +93,20 @@ describe("useFetchState", () => {
 
   it("runs onSuccess after the new data is in state", async () => {
     const seen: string[] = [];
-    const fetch = setup(() => Promise.resolve("fresh"), "old", {
-      onSuccess: () => seen.push(fetch.state.value),
-    });
+    const fetch = setup(() =>
+      useFetchState(() => Promise.resolve("fresh"), "old", {
+        onSuccess: () => seen.push(fetch.state.value),
+      }),
+    );
     await vi.waitFor(() => expect(seen).toEqual(["fresh"]));
   });
 
   it("reports the newest failure through error and onError", async () => {
     const failure = new Error("boom");
     const onError = vi.fn();
-    const fetch = setup(() => Promise.reject(failure), "kept", { onError });
+    const fetch = setup(() =>
+      useFetchState(() => Promise.reject(failure), "kept", { onError }),
+    );
     await vi.waitFor(() => expect(fetch.isLoading.value).toBe(false));
 
     expect(fetch.error.value).toBe(failure);
@@ -117,7 +121,9 @@ describe("useFetchState", () => {
       .fn<() => Promise<string>>()
       .mockReturnValueOnce(older.promise)
       .mockResolvedValueOnce("newer");
-    const fetch = setup(fetcher, "", { immediate: false, onError });
+    const fetch = setup(() =>
+      useFetchState(fetcher, "", { immediate: false, onError }),
+    );
 
     const stale = fetch.execute();
     await fetch.execute();
