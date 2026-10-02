@@ -2630,15 +2630,14 @@ class DBRomsHandler(DBBaseHandler):
         row: RomFile,
         scanned: RomFile,
         rom_id: int,
-        *,
-        inspected: bool,
     ) -> str | None:
         """Copy a scanned file onto its row, with its track metadata.
 
         Returns the cover path this update orphaned, if any.
         """
-        # Unread title ids are reusable only when they still describe the same content.
-        keep_converto = not inspected and _same_content(row, scanned)
+        # Title ids rom-converto didn't read this pass are reusable only when
+        # they still describe the same content.
+        keep_converto = scanned.converto_read_at is None and _same_content(row, scanned)
         _copy_scanned_columns(
             scanned,
             row,
@@ -2679,8 +2678,6 @@ class DBRomsHandler(DBBaseHandler):
         rom_id: int,
         scanned_files: Sequence[RomFile],
         session: Session = INJECTED_SESSION,
-        *,
-        inspected: Container[RomFile] = frozenset(),
     ) -> SyncedRomFiles:
         """Reconcile a ROM's file rows against a fresh scan, preserving row ids.
 
@@ -2690,12 +2687,8 @@ class DBRomsHandler(DBBaseHandler):
         are deleted, and only columns that actually changed are written, so
         re-scanning an unchanged ROM issues no updates.
 
-        Args:
-            inspected: The scanned files rom-converto read this pass.
-
-        Returns:
-            The persisted rows in scan order, plus the soundtrack covers left
-            behind by dropped track metadata for the caller to unlink.
+        Returns the persisted rows in scan order, plus the soundtrack covers
+        left behind by dropped track metadata for the caller to unlink.
         """
         existing = (
             session.scalars(
@@ -2752,9 +2745,7 @@ class DBRomsHandler(DBBaseHandler):
             if row is None:
                 row = RomFile(rom_id=rom_id)
                 session.add(row)
-            orphaned = self._apply_scanned_rom_file(
-                row, scanned, rom_id, inspected=scanned in inspected
-            )
+            orphaned = self._apply_scanned_rom_file(row, scanned, rom_id)
             if orphaned:
                 orphaned_cover_paths.append(orphaned)
             saved.append(row)

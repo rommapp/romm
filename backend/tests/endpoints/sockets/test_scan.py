@@ -1,5 +1,4 @@
 import time
-from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock
@@ -772,7 +771,7 @@ class TestConvertoInfoBatch:
     @pytest.fixture
     def candidates(self, mocker) -> AsyncMock:
         candidates = AsyncMock(
-            side_effect=lambda _slug, fs_path, fs_name: [f"{fs_path}/{fs_name}"]
+            side_effect=lambda fs_path, fs_name: [f"{fs_path}/{fs_name}"]
         )
         mocker.patch.object(fs_rom_handler, "converto_candidates", candidates)
         return candidates
@@ -804,28 +803,7 @@ class TestConvertoInfoBatch:
         )
 
         assert batch is not None
-        assert [call.args[2] for call in candidates.await_args_list] == expected
-
-    async def test_a_failed_listing_leaves_the_other_roms_batched(self, mocker):
-        async def candidates(_slug: str, fs_path: str, fs_name: str) -> list[Path]:
-            if fs_name == "bad.chd":
-                raise OSError("unreadable")
-            return [Path(fs_path, fs_name)]
-
-        mocker.patch.object(
-            fs_rom_handler, "converto_candidates", AsyncMock(side_effect=candidates)
-        )
-        platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
-
-        batch = await scan_module._converto_info_batch(
-            platform,
-            [(self._fs_rom("bad.chd"), None), (self._fs_rom("good.chd"), None)],
-            ScanType.COMPLETE,
-            [],
-        )
-
-        assert batch is not None
-        assert list(batch._index) == [Path("psx/roms/good.chd")]
+        assert [call.args[1] for call in candidates.await_args_list] == expected
 
     async def test_no_candidates_gives_no_batch(self, mocker):
         mocker.patch.object(
@@ -1284,7 +1262,7 @@ class TestIdentifyRomReassociation:
         await self._run(platform)
 
         # Rows are reconciled against the scan, so file ids survive the rescan.
-        db.sync_rom_files.assert_called_once_with(99, [], inspected=set())
+        db.sync_rom_files.assert_called_once_with(99, [])
 
     async def test_orphaned_soundtrack_covers_are_unlinked(self, patched, mocker):
         db, platform = patched

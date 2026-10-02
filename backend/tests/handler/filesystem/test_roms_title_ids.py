@@ -102,18 +102,17 @@ class TestReadConvertoInfos:
         assert (idless.title_id, idless.title_version) == (None, 3)
 
     @pytest.mark.asyncio
-    async def test_returns_and_marks_only_recognized_files(self, handler, mocker):
+    async def test_marks_only_recognized_files(self, handler, mocker):
         recognized = RomFile(file_name="game.chd", file_path="psx/roms")
         unrecognized = RomFile(file_name="missing.chd", file_path="psx/roms")
         recognized_path = Path("/lib/game.chd")
         read_infos = mocker.AsyncMock(return_value={recognized_path: _info()})
         _patch_service(mocker, read_infos)
 
-        read = await handler._read_converto_infos(
+        await handler._read_converto_infos(
             [(recognized_path, recognized), (Path("/lib/missing.chd"), unrecognized)]
         )
 
-        assert read == {recognized}
         assert recognized.converto_read_at is not None
         assert unrecognized.converto_read_at is None
 
@@ -496,9 +495,12 @@ class TestConvertoCandidates:
     async def test_a_single_file_rom_is_its_own_candidate(self, handler, library):
         (library / "game.nsp").write_bytes(b"rom")
 
-        assert await handler.converto_candidates(
-            "switch", "switch/roms", "game.nsp"
-        ) == [library / "game.nsp"]
+        assert await handler.converto_candidates("switch/roms", "game.nsp") == [
+            library / "game.nsp"
+        ]
+
+    async def test_a_rom_it_cannot_list_has_no_candidates(self, handler, library):
+        assert await handler.converto_candidates("switch/../..", "Game") == []
 
     async def test_a_folder_lists_its_binaries_outside_document_folders(
         self, handler, library
@@ -511,7 +513,7 @@ class TestConvertoCandidates:
         (game / "manual" / "guide.nsp").write_bytes(b"doc")
         (game / "readme.txt").write_bytes(b"txt")
 
-        candidates = await handler.converto_candidates("switch", "switch/roms", "Game")
+        candidates = await handler.converto_candidates("switch/roms", "Game")
 
         assert sorted(candidates) == [game / "base.nsp", game / "dlc" / "extra.nsp"]
 

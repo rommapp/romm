@@ -104,9 +104,7 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
     removed_keys = existing_keys - {rom_file_key(f) for f in parsed.rom_files}
 
     if new_keys or updated_keys or removed_keys:
-        synced = db_rom_handler.sync_rom_files(
-            rom.id, parsed.rom_files, inspected=parsed.converto_read
-        )
+        synced = db_rom_handler.sync_rom_files(rom.id, parsed.rom_files)
         for cover_path in synced.orphaned_cover_paths:
             remove_persisted_cover(cover_path)
         for saved in synced.files:

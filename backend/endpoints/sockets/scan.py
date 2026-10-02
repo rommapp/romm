@@ -5,7 +5,6 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import batched
-from pathlib import Path
 from typing import Any, Final
 
 import socketio
@@ -554,22 +553,11 @@ async def _converto_info_batch(
     ]
     candidates = await asyncio.gather(
         *(
-            fs_rom_handler.converto_candidates(
-                platform.slug, fs_rom["fs_path"], fs_rom["fs_name"]
-            )
+            fs_rom_handler.converto_candidates(fs_rom["fs_path"], fs_rom["fs_name"])
             for fs_rom in rebuilt
-        ),
-        return_exceptions=True,
+        )
     )
-    paths: list[Path] = []
-    for fs_rom, rom_paths in zip(rebuilt, candidates, strict=True):
-        # A rom whose listing failed reads its own files during its scan.
-        if isinstance(rom_paths, BaseException):
-            log.warning(
-                f"Couldn't list {hl(fs_rom['fs_name'])} for rom-converto: {rom_paths}"
-            )
-            continue
-        paths.extend(rom_paths)
+    paths = [path for rom_paths in candidates for path in rom_paths]
     return RomConvertoInfoBatch(rom_converto_service, paths) if paths else None
 
 
@@ -603,7 +591,6 @@ async def _rebuild_rom_files(
             "sha1_hash": parsed.sha1_hash,
             "ra_hash": parsed.ra_hash,
             "identity": parsed.identity,
-            "converto_read": parsed.converto_read,
         }
     )
     if renamed_rom_fs_name:
@@ -844,11 +831,7 @@ async def _identify_rom(
         # Reconcile against the existing rows instead of replacing them, so file
         # ids survive a rescan and anything keyed on them (track metadata,
         # persisted soundtrack covers) stays valid.
-        synced = db_rom_handler.sync_rom_files(
-            _added_rom.id,
-            fs_rom["files"],
-            inspected=fs_rom.pop("converto_read", set()),
-        )
+        synced = db_rom_handler.sync_rom_files(_added_rom.id, fs_rom["files"])
         for cover_path in synced.orphaned_cover_paths:
             remove_persisted_cover(cover_path)
         for saved in synced.files:

@@ -355,7 +355,7 @@ async def test_a_read_that_confirms_a_reused_rows_title_id_is_persisted(
     assert _files_by_name(rom.id)["game.bin"].converto_read_at is not None
 
 
-async def test_refresh_hands_the_files_rom_converto_read_to_the_sync(
+async def test_refresh_writes_a_fresh_rom_converto_read(
     platform, admin_user, library, mocker
 ):
     rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
@@ -371,6 +371,7 @@ async def test_refresh_hands_the_files_rom_converto_read_to_the_sync(
         sha1_hash=stored_file.sha1_hash,
         category=stored_file.category,
         title_id="ULUS-10041",
+        converto_read_at=datetime.now(timezone.utc),
     )
     parsed = ParsedRomFiles(
         rom_files=[scanned_file],
@@ -378,15 +379,14 @@ async def test_refresh_hands_the_files_rom_converto_read_to_the_sync(
         md5_hash=rom.md5_hash or "",
         sha1_hash=rom.sha1_hash or "",
         ra_hash="",
-        converto_read={scanned_file},
     )
-    sync = mocker.spy(db_rom_handler, "sync_rom_files")
     mocker.patch.object(fs_rom_handler, "get_rom_files", AsyncMock(return_value=parsed))
 
     await refresh_rom_files(rom)
 
-    assert sync.call_args.kwargs["inspected"] == {scanned_file}
-    assert _files_by_name(rom.id)["game.bin"].title_id == "ULUS-10041"
+    stored = _files_by_name(rom.id)["game.bin"]
+    assert stored.title_id == "ULUS-10041"
+    assert stored.converto_read_at is not None
 
 
 async def test_failed_info_run_keeps_stored_title_ids(platform, library, mocker):

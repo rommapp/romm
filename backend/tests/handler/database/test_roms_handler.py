@@ -455,9 +455,9 @@ class TestSyncRomFiles:
         scanned = _scanned_file(rom, "a.bin", size=size, sha1=None)
         scanned.last_modified = mtime
         scanned.title_id = sigil_title_id
-        db_rom_handler.sync_rom_files(
-            rom.id, [scanned], inspected=[scanned] if inspected else ()
-        )
+        if inspected:
+            scanned.converto_read_at = datetime(2026, 2, 1, tzinfo=timezone.utc)
+        db_rom_handler.sync_rom_files(rom.id, [scanned])
 
         stored = db_rom_handler.get_rom_file_by_id(first.id)
         assert stored is not None
@@ -467,7 +467,7 @@ class TestSyncRomFiles:
         if sigil_title_id is not None:
             expected["title_id"] = sigil_title_id
         assert {column: getattr(stored, column) for column in metadata} == expected
-        assert (stored.converto_read_at is not None) == keep_metadata
+        assert (stored.converto_read_at is not None) == (keep_metadata or inspected)
 
     @pytest.mark.parametrize(
         ("stored_mtime", "scanned_mtime", "matching_hashes"),
