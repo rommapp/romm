@@ -750,6 +750,24 @@ class TestConvertoInfoBatch:
         rom.id = rom_id
         return cast(Rom, rom)
 
+    @pytest.fixture(autouse=True)
+    def active(self, mocker) -> AsyncMock:
+        active = AsyncMock(return_value=True)
+        mocker.patch.object(fs_rom_handler, "converto_active", active)
+        return active
+
+    async def test_an_inactive_platform_lists_nothing(self, active, candidates):
+        active.return_value = False
+        platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
+
+        assert (
+            await scan_module._converto_info_batch(
+                platform, [(self._fs_rom("new.chd"), None)], ScanType.COMPLETE, []
+            )
+            is None
+        )
+        candidates.assert_not_awaited()
+
     @pytest.fixture
     def candidates(self, mocker) -> AsyncMock:
         candidates = AsyncMock(

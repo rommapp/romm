@@ -420,9 +420,7 @@ async def test_failed_info_run_keeps_stored_file_metadata(platform, library, moc
     rom = _reload(rom.id)
     file_id = rom.files[0].id
     _write(library, f"{file_path}/new.iso", b"new-game")
-    mocker.patch.object(
-        fs_rom_handler, "_converto_active", AsyncMock(return_value=True)
-    )
+    mocker.patch.object(fs_rom_handler, "converto_active", AsyncMock(return_value=True))
     mocker.patch.object(rom_converto_service, "_info_extensions", frozenset({".iso"}))
     mocker.patch(
         "adapters.services.rom_converto._run",

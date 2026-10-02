@@ -649,7 +649,7 @@ class FSRomsHandler(FSHandler):
                 log.warning(f"Skipping unreadable file {f_path / file_name}: {exc}")
         return entries
 
-    async def _converto_active(self, platform_slug: str) -> bool:
+    async def converto_active(self, platform_slug: str) -> bool:
         """Whether rom-converto should inspect a platform's files during scan."""
         return (
             platform_slug in CONVERTO_PLATFORM_SLUGS
@@ -660,21 +660,27 @@ class FSRomsHandler(FSHandler):
     async def converto_candidates(
         self, platform_slug: str, fs_path: str, fs_name: str
     ) -> list[Path]:
-        """The files `get_rom_files` hands rom-converto for a rom when it reuses no row."""
-        if not await self._converto_active(platform_slug):
-            return []
+        """The files `get_rom_files` hands rom-converto for a rom when it reuses no row.
+
+        Callers check `converto_active` first, once for the platform.
+        """
         rom_root = Path(fs_path, fs_name)
         rom_dir = Path(self.validate_path(fs_path), fs_name)
         if not await self.directory_exists(str(rom_root)):
             return [rom_dir] if rom_converto_service.can_inspect(rom_dir) else []
-        entries = await asyncio.to_thread(self._list_rom_dir, rom_dir, cm.get_config())
-        return [
-            path
-            for f_path, file_name, _ in entries
-            if rom_converto_service.can_inspect(path := Path(f_path, file_name))
-            and self._category_under(rom_root, f_path.relative_to(self.base_path))
-            not in NON_BINARY_FILE_CATEGORIES
-        ]
+        cnfg = cm.get_config()
+
+        def _list() -> list[Path]:
+            return [
+                path
+                for f_path, file_name in iter_files(str(rom_dir), recursive=True)
+                if not self.is_excluded_multi_part(file_name, cnfg)
+                and rom_converto_service.can_inspect(path := Path(f_path, file_name))
+                and self._category_under(rom_root, f_path.relative_to(self.base_path))
+                not in NON_BINARY_FILE_CATEGORIES
+            ]
+
+        return await asyncio.to_thread(_list)
 
     async def _read_converto_infos(
         self,
@@ -737,7 +743,7 @@ class FSRomsHandler(FSHandler):
         is_switch = rom.platform_slug in SWITCH_PLATFORM_SLUGS
         # rom-converto reads new or changed files' metadata and per-file ids
         # even when sigil extraction is skipped; sigil owns save targets.
-        converto_active = await self._converto_active(rom.platform_slug)
+        converto_active = await self.converto_active(rom.platform_slug)
         converto_sources: list[tuple[Path, RomFile]] = []
         is_multi_part = await self.directory_exists(rom.full_path)
         sigil_extractions: list[SigilExtractionResult] = []

@@ -885,7 +885,12 @@ class TestNormalizeProviderLanguages:
 
     @pytest.mark.parametrize(
         "spelling",
-        ["Brazilian Portuguese", "BrazilianPortuguese", "brazilian_portuguese"],
+        [
+            "Brazilian Portuguese",
+            "BrazilianPortuguese",
+            "brazilian_portuguese",
+            "Brazilian_ Portuguese",
+        ],
     )
     def test_regional_variants_fold_into_their_language(self, spelling: str):
         assert normalize_provider_languages([spelling]) == ["Portuguese"]

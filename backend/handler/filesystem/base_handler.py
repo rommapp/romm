@@ -316,26 +316,21 @@ PROVIDER_LANGUAGES: Final = (
     ("vi", "Vietnamese"),
 )
 
-# Regional variants fold into their language, however the words are joined.
-_LANGUAGE_VARIANTS: Final = {
-    "american english": "English",
-    "british english": "English",
-    "canadian french": "French",
-    "latin american spanish": "Spanish",
-    "brazilian portuguese": "Portuguese",
-    "simplified chinese": "Chinese",
-    "traditional chinese": "Chinese",
-    "taiwanese chinese": "Chinese",
-}
-
 _LANGUAGE_BY_PROVIDER_ALIAS = {
     **{name.lower(): name for _, name in PROVIDER_LANGUAGES},
     **{code: name for code, name in PROVIDER_LANGUAGES},
-    **{
-        variant.replace(" ", joiner): name
-        for variant, name in _LANGUAGE_VARIANTS.items()
-        for joiner in (" ", "", "_")
-    },
+}
+
+# Regional variants, keyed with spaces and underscores removed so any joining matches.
+_LANGUAGE_BY_VARIANT: Final = {
+    "americanenglish": "English",
+    "britishenglish": "English",
+    "canadianfrench": "French",
+    "latinamericanspanish": "Spanish",
+    "brazilianportuguese": "Portuguese",
+    "simplifiedchinese": "Chinese",
+    "traditionalchinese": "Chinese",
+    "taiwanesechinese": "Chinese",
 }
 
 # Region shortcodes a filename can also carry, as TOSEC and similar sets write
@@ -353,8 +348,11 @@ _REGION_BY_ALIAS.update(
 
 def provider_language_name(value: str) -> str | None:
     """Resolve a metadata provider's language spelling to its canonical name."""
-    return normalize_language(value) or _LANGUAGE_BY_PROVIDER_ALIAS.get(
-        value.strip().lower()
+    key = value.strip().lower()
+    return (
+        normalize_language(value)
+        or _LANGUAGE_BY_PROVIDER_ALIAS.get(key)
+        or _LANGUAGE_BY_VARIANT.get(re.sub(r"[\s_]+", "", key))
     )
 
 

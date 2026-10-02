@@ -539,6 +539,8 @@ async def _converto_info_batch(
     roms_ids: list[int],
 ) -> RomConvertoInfoBatch | None:
     """One rom-converto reader shared by the roms whose files this scan rebuilds."""
+    if not await fs_rom_handler.converto_active(platform.slug):
+        return None
     # A rom reusing unchanged rows inspects only the changed ones, so it reads on its own.
     rebuilt = [
         fs_rom

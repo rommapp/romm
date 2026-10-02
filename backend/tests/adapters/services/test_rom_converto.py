@@ -388,6 +388,30 @@ class TestRomConvertoInfoBatch:
         assert set(infos) == set(paths)
         assert service.runs == [paths]
 
+    async def test_an_earlier_rom_asking_later_skips_files_already_handed_out(
+        self, tmp_path: Path
+    ):
+        first, second, third = _files(tmp_path, "a.chd", "b.chd", "c.chd")
+        service = _FakeInfoService()
+        batch = RomConvertoInfoBatch(service, [first, second, third])
+
+        await batch.read_infos([second])
+        await batch.read_infos([first])
+
+        assert service.runs == [[second, third], [first]]
+
+    async def test_a_file_asked_for_again_is_read_directly(self, tmp_path: Path):
+        (path,) = _files(tmp_path, "a.chd")
+        service = _FakeInfoService()
+        batch = RomConvertoInfoBatch(service, [path])
+
+        await batch.read_infos([path])
+        assert await batch.read_infos([path, path]) == {
+            path: RomConvertoInfo(title="a.chd")
+        }
+
+        assert service.runs == [[path], [path]]
+
     async def test_unknown_files_are_read_directly(self, tmp_path: Path):
         known, unknown = _files(tmp_path, "a.chd", "b.chd")
         service = _FakeInfoService()
@@ -410,6 +434,28 @@ class TestRomConvertoInfoBatch:
             second: RomConvertoInfo(title="b.chd")
         }
         assert service.runs == [[first, second], [second]]
+
+    async def test_a_failed_shared_run_lets_each_rom_retry(self, tmp_path: Path):
+        first, second = _files(tmp_path, "a.chd", "b.chd")
+        service = _FakeInfoService()
+        batch = RomConvertoInfoBatch(service, [first, second])
+        real_read = service.read_infos
+
+        async def fail_first_run(paths: list[Path]) -> dict[Path, RomConvertoInfo]:
+            if not service.runs:
+                service.runs.append(list(paths))
+                return {}
+            return await real_read(paths)
+
+        service.read_infos = fail_first_run  # type: ignore[method-assign]
+
+        assert await batch.read_infos([first]) == {
+            first: RomConvertoInfo(title="a.chd")
+        }
+        assert await batch.read_infos([second]) == {
+            second: RomConvertoInfo(title="b.chd")
+        }
+        assert service.runs == [[first, second], [first], [second]]
 
 
 class TestReadInfosFailures:
