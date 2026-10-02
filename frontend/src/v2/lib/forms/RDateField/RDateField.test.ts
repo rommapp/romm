@@ -1,4 +1,4 @@
-import { enableAutoUnmount, mount } from "@vue/test-utils";
+import { mount } from "@vue/test-utils";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import {
@@ -15,8 +15,6 @@ process.env.TZ = "America/New_York";
 
 // The calendar teleports to <body>, so a wrapper left mounted by a failing
 // assertion would leak its panel into the next test's queries.
-enableAutoUnmount(afterEach);
-
 async function openPicker() {
   const wrapper = mount(RDateField, {
     props: { modelValue: Date.UTC(2024, 2, 15) },
