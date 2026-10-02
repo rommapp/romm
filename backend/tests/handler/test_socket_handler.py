@@ -7,7 +7,7 @@ import socketio
 from tests.redis_stubs import fail_expire, record_pipelines
 
 from handler.database import db_user_handler
-from handler.redis_handler import async_cache, sync_cache
+from handler.redis_handler import REDIS_CLIENT_OPTIONS, async_cache, sync_cache
 from handler.socket_handler import (
     DEVICES_NAMESPACE,
     LOGIN_SESSION_ID_KEY,
@@ -41,6 +41,7 @@ class TestEmitToUser:
             "channel": "test-channel",
             "write_only": True,
             "json": json_module,
+            "redis_options": REDIS_CLIENT_OPTIONS,
         }
         manager.emit.assert_awaited_once_with(
             "notifications:read", {"ids": None}, room="user:5"

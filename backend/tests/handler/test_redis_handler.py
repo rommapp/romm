@@ -17,6 +17,7 @@ from handler.redis_handler import (
     get_worker_current_job,
     has_live_worker,
     low_prio_queue,
+    redis_client,
 )
 
 
@@ -182,3 +183,7 @@ class TestAsyncCacheUnderTests:
         value = asyncio.run(read())
 
         assert value in ("1", b"1")
+
+
+def test_the_queue_client_skips_the_maintenance_notifications_probe():
+    assert not redis_client.connection_pool.maint_notifications_enabled()
