@@ -13,16 +13,8 @@ import {
 } from "@v2/lib";
 import { useEventListener, useResizeObserver } from "@vueuse/core";
 import { isToday, isYesterday } from "date-fns";
-import { debounce } from "lodash";
 import { storeToRefs } from "pinia";
-import {
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  shallowRef,
-  watch,
-} from "vue";
+import { computed, onMounted, ref, shallowRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { AuditCategory, AuditEventSchema } from "@/__generated__";
@@ -37,6 +29,7 @@ import {
 } from "@/v2/components/Settings/eventLogLayout";
 import { useAuditLog } from "@/v2/composables/useAuditLog";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useDebouncedSearch } from "@/v2/composables/useDebouncedSearch";
 import { useGridNav } from "@/v2/composables/useGridNav";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
@@ -72,8 +65,7 @@ function queryDay(key: string): string | undefined {
 
 const userFilter = ref<string>(queryString("user") ?? ALL);
 const categoryFilter = ref<string>(queryString("category") ?? ALL);
-const search = ref(queryString("q") ?? "");
-const appliedSearch = ref(search.value);
+const appliedSearch = ref<string | null>(queryString("q") ?? null);
 const since = ref<string | undefined>(queryDay("from"));
 const until = ref<string | undefined>(queryDay("to"));
 
@@ -117,11 +109,11 @@ const untilDate = computed({
 });
 
 // Typing searches once it pauses.
-const applySearch = debounce(() => {
-  appliedSearch.value = search.value.trim();
-}, 300);
-watch(search, applySearch);
-onBeforeUnmount(() => applySearch.cancel());
+const {
+  input: search,
+  setSearch,
+  flush: flushSearch,
+} = useDebouncedSearch(appliedSearch);
 
 const hasFilters = computed(
   () =>
@@ -146,7 +138,7 @@ async function refresh() {
         categoryFilter.value === ALL
           ? undefined
           : [categoryFilter.value as AuditCategory],
-      search: appliedSearch.value,
+      search: appliedSearch.value ?? undefined,
       since: since.value ? localMidnight(since.value) : undefined,
       // Inclusive of the whole day picked.
       until: until.value ? localMidnight(until.value, 1) : undefined,
@@ -157,11 +149,8 @@ async function refresh() {
 }
 
 function searchNow() {
-  applySearch.cancel();
-  const next = search.value.trim();
   // Searching the same text again reloads, picking up newer events.
-  if (next === appliedSearch.value) void refresh();
-  else appliedSearch.value = next;
+  if (!flushSearch()) void refresh();
 }
 
 async function showMore() {
@@ -182,12 +171,7 @@ watch(
     categoryFilter.value = queryString("category") ?? ALL;
     since.value = queryDay("from");
     until.value = queryDay("to");
-    const q = queryString("q") ?? "";
-    if (q !== appliedSearch.value) {
-      applySearch.cancel();
-      search.value = q;
-      appliedSearch.value = q;
-    }
+    appliedSearch.value = queryString("q") ?? null;
   },
 );
 
@@ -491,7 +475,7 @@ useEventListener(document.fonts, "loadingdone", (event) => {
             </div>
           </div>
           <RTextField
-            v-model="search"
+            :model-value="search"
             class="r-v2-audit__search"
             density="compact"
             clearable
@@ -499,6 +483,7 @@ useEventListener(document.fonts, "loadingdone", (event) => {
             prepend-inner-icon="mdi-magnify"
             :placeholder="t('audit.search-placeholder')"
             :aria-label="t('audit.search-placeholder')"
+            @update:model-value="setSearch"
             @keyup.enter="searchNow"
           />
         </div>

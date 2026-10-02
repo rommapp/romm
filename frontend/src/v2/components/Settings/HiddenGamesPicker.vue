@@ -5,12 +5,12 @@
 // list (cover + name), with their full rom cached so covers resolve even for
 // ids that were hidden before this session.
 import { RBtn, RIcon, RSpinner, RTextField } from "@v2/lib";
-import { debounce } from "lodash";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";
 import GameCover from "@/v2/components/shared/GameCover.vue";
+import { useDebouncedSearch } from "@/v2/composables/useDebouncedSearch";
 
 defineOptions({ inheritAttrs: false });
 
@@ -19,9 +19,15 @@ const emit = defineEmits<{ "update:modelValue": [number[]] }>();
 
 const { t } = useI18n();
 
-const query = ref("");
+const term = ref<string | null>(null);
+const { input: query, setSearch } = useDebouncedSearch(term);
 const results = ref<SimpleRom[]>([]);
-const loading = ref(false);
+const fetching = ref(false);
+// The spinner covers the debounce wait too, so stale matches don't linger.
+const loading = computed(() => {
+  const typed = query.value.trim();
+  return fetching.value || (!!typed && typed !== (term.value ?? ""));
+});
 // Full rom objects keyed by id so both the results and the selected list can
 // render covers (selected ids hidden in a past session are fetched on demand).
 const romCache = ref<Record<number, SimpleRom>>({});
@@ -35,27 +41,26 @@ function nameFor(id: number): string {
   return rom ? romName(rom) : `#${id}`;
 }
 
-const runSearch = debounce(async (term: string) => {
-  if (!term.trim()) {
+let searchToken = 0;
+
+watch(term, async (searchTerm) => {
+  const token = ++searchToken;
+  if (!searchTerm) {
     results.value = [];
-    loading.value = false;
+    fetching.value = false;
     return;
   }
-  loading.value = true;
+  fetching.value = true;
   try {
-    const { data } = await romApi.getRoms({ searchTerm: term, limit: 15 });
+    const { data } = await romApi.getRoms({ searchTerm, limit: 15 });
+    if (token !== searchToken) return;
     results.value = data.items;
     for (const rom of data.items) romCache.value[rom.id] = rom;
   } catch (err) {
-    console.error("Game search failed", err);
+    if (token === searchToken) console.error("Game search failed", err);
   } finally {
-    loading.value = false;
+    if (token === searchToken) fetching.value = false;
   }
-}, 300);
-
-watch(query, (q) => {
-  loading.value = !!q.trim();
-  runSearch(q);
 });
 
 // Resolve full roms for already-hidden ids so their covers and names render.
@@ -108,11 +113,12 @@ function remove(id: number) {
 <template>
   <div class="r-v2-hgames">
     <RTextField
-      v-model="query"
+      :model-value="query"
       prefix-label="inline"
       density="compact"
       hide-details
       :placeholder="t('settings.hidden-games-search')"
+      @update:model-value="setSearch"
     >
       <template #prefix-label>
         <RIcon icon="mdi-magnify" size="15" />
