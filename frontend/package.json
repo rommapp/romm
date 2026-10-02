@@ -42,6 +42,7 @@
     "@floating-ui/vue": "^2.0.0",
     "@mdi/font": "7.4.47",
     "@vueuse/core": "^15.0.0",
+    "@vueuse/integrations": "^15.0.0",
     "@zxing/browser": "^0.2.0",
     "@zxing/library": "^0.23.0",
     "axios": "^1.18.1",
