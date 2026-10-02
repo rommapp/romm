@@ -11,9 +11,8 @@
 //
 // The abbreviation is all that reaches the DOM, so when a copy cannot
 // land the value would be unreachable. Clicking reveals the full string
-// as selectable text instead: outside a secure context the clipboard
-// API does not exist at all, so the click never attempts a copy, and a
-// copy that fails for any other reason falls back to the same reveal.
+// as selectable text instead: with no way to copy at all the click never
+// attempts one, and a copy that fails falls back to the same reveal.
 //
 // `compact` switches to the `x-small` size: useful for in-row
 // hash clusters where vertical breathing room is tight. The trailing
