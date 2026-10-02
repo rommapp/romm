@@ -5,6 +5,7 @@ import pytest
 from fastapi import status
 from rq.exceptions import DeserializationError, NoSuchJobError
 
+from endpoints.tasks import SINGLE_INSTANCE_LOCK_PREFIX
 from handler.redis_handler import low_prio_queue, redis_client
 from tasks.manual.cleanup_missing_firmware import CleanupMissingFirmwareStats
 from tasks.manual.cleanup_missing_roms import CleanupMissingRomsStats
@@ -44,6 +45,8 @@ def mock_task():
     task.can_run_manually = True
     task.cron_string = "0 0 * * *"
     task.timeout = 300
+    task.destructive = False
+    task.single_instance = False
     return task
 
 
@@ -113,6 +116,7 @@ class TestListTasks:
                 enabled=True,
                 manual_run=True,
                 can_run_manually=True,
+                destructive=True,
                 timeout=300,
                 cron_string=None,
             ),
@@ -129,6 +133,7 @@ class TestListTasks:
                 enabled=True,
                 manual_run=False,
                 can_run_manually=False,
+                destructive=False,
                 timeout=300,
                 cron_string="0 0 * * *",
             ),
@@ -156,6 +161,7 @@ class TestListTasks:
         assert scheduled_task["description"] == "Scheduled task"
         assert scheduled_task["enabled"] is True
         assert scheduled_task["manual_run"] is False
+        assert scheduled_task["destructive"] is False
         assert scheduled_task["cron_string"] == "0 0 * * *"
 
         # Check manual tasks
@@ -166,6 +172,7 @@ class TestListTasks:
         assert manual_task["description"] == "Manual task"
         assert manual_task["enabled"] is True
         assert manual_task["manual_run"] is True
+        assert manual_task["destructive"] is True
         assert manual_task["cron_string"] == ""
 
         # Check watcher task
@@ -291,6 +298,42 @@ class TestRunSingleTask:
         assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         assert "worker" in response.json()["detail"]
         mock_enqueue.assert_not_called()
+
+    @patch("endpoints.tasks.enqueue_task")
+    @patch("endpoints.tasks.get_active_task_job", return_value=create_mock_job())
+    def test_a_single_instance_task_already_active_is_refused(
+        self, _active, mock_enqueue, client, access_token, mock_task
+    ):
+        mock_task.single_instance = True
+        with patch("endpoints.tasks.RUNNABLE_TASKS", {"test_task": mock_task}):
+            response = client.post(
+                "/api/tasks/run/test_task",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert "already queued or running" in response.json()["detail"]
+        mock_enqueue.assert_not_called()
+
+    @patch("endpoints.tasks.enqueue_task", return_value=create_mock_job())
+    @patch("endpoints.tasks.get_active_task_job", return_value=None)
+    def test_a_second_run_racing_the_first_is_refused(
+        self, _active, mock_enqueue, client, access_token, mock_task
+    ):
+        mock_task.single_instance = True
+        redis_client.delete(f"{SINGLE_INSTANCE_LOCK_PREFIX}test_task")
+        with patch("endpoints.tasks.RUNNABLE_TASKS", {"test_task": mock_task}):
+            statuses = [
+                client.post(
+                    "/api/tasks/run/test_task",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                ).status_code
+                for _ in range(2)
+            ]
+        redis_client.delete(f"{SINGLE_INSTANCE_LOCK_PREFIX}test_task")
+
+        assert statuses == [status.HTTP_200_OK, status.HTTP_409_CONFLICT]
+        mock_enqueue.assert_called_once()
 
     @patch("endpoints.tasks.RUNNABLE_TASKS", {})
     def test_run_single_task_not_found(self, client, access_token):
@@ -681,6 +724,7 @@ class TestTaskInfoBuilding:
             "description": "Test Description",
             "enabled": True,
             "manual_run": True,
+            "destructive": False,
             "cron_string": "0 0 * * *",
         }
 

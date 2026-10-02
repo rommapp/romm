@@ -124,5 +124,6 @@ export type DetailedRomSchema = {
     all_user_screenshots: Array<UserScreenshotSchema>;
     user_collections: Array<UserCollectionSchema>;
     all_user_notes: Array<UserNoteSchema>;
+    download_formats: Array<string>;
 };
 

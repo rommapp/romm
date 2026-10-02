@@ -912,7 +912,7 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 | GET    | `/{id}/content/{file_name}`  | ROMS_READ  | Download ROM, in a listed `?format=` when asked  |
 | POST   | `/unidentified`              | ROMS_READ  | Get unidentified ROMs                            |
 
-With rom-converto enabled (`ROM_CONVERTO_ENABLED`, `converto.download_conversion_enabled`), `?format=zso,iso` lists the formats a client can read. A single-file download whose stored format is listed is served as-is. Otherwise the first listed format with a copy cached under `/romm/cache/converts` is served, then the first one rom-converto can produce: answered by the same request if it converts within a few seconds, else `202` with `Retry-After` while it finishes. `406` means no listed format can be served, and `HEAD` reports the same without starting a conversion. Only signed-in, non-kiosk users start conversions. `CONVERTO_DOWNLOAD_FORMATS` in `/api/config` lists the formats each input extension converts to.
+With rom-converto enabled (`ROM_CONVERTO_ENABLED`, `converto.download_conversion_enabled`), `?format=zso,iso` lists the formats a client can read. A single-file download whose stored format is listed is served as-is. Otherwise the first listed format with a copy cached under `/romm/cache/converts` is served, then the first one rom-converto can produce: answered by the same request if it converts within a few seconds, else `202` with `Retry-After` while it finishes. `406` means no listed format can be served, and `HEAD` reports the same without starting a conversion. Only signed-in, non-kiosk users start conversions. A rom's detail response lists the formats its single file can be converted to in `download_formats`, empty when the caller can't start a conversion.
 
 #### ROM Upload (Chunked)
 
@@ -1708,6 +1708,8 @@ Triggered via `POST /api/tasks/run/{task_name}`, which enqueues on `low_prio_que
 | `cleanup_missing_roms` | Remove DB entries for files no longer on disk                                         |
 | `sync_folder_scan`     | Scan sync folder for new device saves                                                 |
 | `convert_library`      | Convert matched ROMs to `converto.platform_formats` in place, replacing the originals |
+
+A spec marked `destructive` asks for a typed confirmation before the UI runs it, and one marked `single_instance` answers 409 while a job of it is queued or running. `convert_library` is both, and runs only with `ROM_CONVERTO_ENABLED` set.
 
 `convert_library` only converts losslessly (no xiso) and only identified ROMs, since a converted file no longer hash-matches a DAT. It stages each output under a `.romm_tmp_` directory beside the ROM, deletes the originals (and a cue's tracks) once the output is in place, rewrites `.m3u` entries in folder ROMs, and refreshes the ROM's files, so the ROM keeps its id, saves and collections.
 

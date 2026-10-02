@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import storeConfig, { type Config } from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 import ConversionSettings from "./ConversionSettings.vue";
 
 const confirmFn = vi.fn();
@@ -95,6 +96,7 @@ describe("ConversionSettings", () => {
     snackbarSuccess.mockReset();
     scopes.splice(0, scopes.length, "platforms.write", "tasks.run");
     setActivePinia(createPinia());
+    storeHeartbeat().value.CONVERTO.ENABLED = true;
     useConfig({ psx: "chd" });
   });
 
@@ -139,6 +141,14 @@ describe("ConversionSettings", () => {
     const wrapper = await mountSettings();
 
     expect(convertButton(wrapper)?.attributes("disabled")).toBeDefined();
+  });
+
+  it("warns and hides the convert button without rom-converto", async () => {
+    storeHeartbeat().value.CONVERTO.ENABLED = false;
+    const wrapper = await mountSettings();
+
+    expect(wrapper.text()).toContain("settings.conversion-unavailable-desc");
+    expect(convertButton(wrapper)).toBeUndefined();
   });
 
   it("is hidden without the tasks.run scope", async () => {

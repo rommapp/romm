@@ -10,6 +10,7 @@ class TaskInfo(TypedDict):
     title: str
     description: str
     enabled: bool
+    destructive: bool
     cron_string: str
 
 

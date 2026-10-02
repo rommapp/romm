@@ -5,6 +5,7 @@ from typing import Any, Final, cast
 from rq.job import Callback, Job
 from rq.queue import Queue
 from rq.utils import import_attribute
+from rq.worker import Worker
 
 from config import (
     AUDIT_LOG_RETENTION_DAYS,
@@ -22,6 +23,7 @@ from config import (
     ENABLE_SYNC_FOLDER_WATCHER,
     ENABLE_SYNC_PUSH_PULL,
     LAUNCHBOX_API_ENABLED,
+    ROM_CONVERTO_ENABLED,
     SCAN_TIMEOUT,
     SCHEDULED_BUILD_RECOMMENDATIONS_CRON,
     SCHEDULED_CLEANUP_NETPLAY_CRON,
@@ -38,7 +40,14 @@ from config import (
     TASK_TIMEOUT,
 )
 from exceptions.task_exceptions import TaskNotFoundException
-from handler.redis_handler import QUEUES_BY_NAME, STREAMING_QUEUE_NAME, scan_queue
+from handler.redis_handler import (
+    ALL_QUEUES,
+    QUEUES_BY_NAME,
+    STREAMING_QUEUE_NAME,
+    get_worker_current_job,
+    redis_client,
+    scan_queue,
+)
 from handler.streaming.config import HOLD_CEILING_SECONDS, streaming_enabled
 from tasks.tasks import Task, TaskSpec, TaskType, run_task_by_name
 
@@ -249,8 +258,10 @@ CONVERT_LIBRARY_SPEC: Final = TaskSpec(
         "replacing the original files"
     ),
     task_type=TaskType.CONVERSION,
-    enabled=True,
+    enabled=ROM_CONVERTO_ENABLED,
     manual_run=True,
+    destructive=True,
+    single_instance=True,
     # One conversion after another, each up to ROM_CONVERTO_TIMEOUT.
     timeout=SCAN_TIMEOUT,
 )
@@ -337,6 +348,19 @@ def enqueue_task(
         meta=spec.job_meta(name),
         **job_options,
     )
+
+
+def get_active_task_job(name: str) -> Job | None:
+    """A job of the task registered as `name` that a worker holds or a queue waits on."""
+    for worker in Worker.all(connection=redis_client):
+        job = get_worker_current_job(worker)
+        if job is not None and job.meta.get("task_key") == name:
+            return job
+    for queue in ALL_QUEUES:
+        for job in queue.get_jobs():
+            if job.meta.get("task_key") == name:
+                return job
+    return None
 
 
 def enqueue_scheduled_scan(name: str) -> str:

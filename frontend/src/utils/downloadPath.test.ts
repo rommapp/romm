@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import {
   getDownloadFileName,
-  getDownloadFormats,
   getDownloadLink,
   getDownloadPath,
   getSoleRomFile,
@@ -214,24 +213,6 @@ describe("getSoleRomFile", () => {
     expect(getSoleRomFile(makeRom({}))).toBeNull();
   });
 });
-
-describe("getDownloadFormats", () => {
-  const table = {
-    ".iso": ["chd", "cso"],
-    ".nkit.iso": ["rvz"],
-  };
-
-  it("matches the longest extension, ignoring case", () => {
-    expect(getDownloadFormats("Game.NKIT.iso", table)).toEqual(["rvz"]);
-    expect(getDownloadFormats("Game.ISO", table)).toEqual(["chd", "cso"]);
-  });
-
-  it("is empty for an unknown extension or platform", () => {
-    expect(getDownloadFormats("game.zip", table)).toEqual([]);
-    expect(getDownloadFormats("game.iso", undefined)).toEqual([]);
-  });
-});
-
 describe("getDownloadPath format", () => {
   it("adds the requested format to the query", () => {
     const rom = makeRom({

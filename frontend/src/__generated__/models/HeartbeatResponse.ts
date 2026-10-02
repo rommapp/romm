@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ConvertoDict } from './ConvertoDict';
 import type { DeviceInstallDict } from './DeviceInstallDict';
 import type { EmulationDict } from './EmulationDict';
 import type { FilesystemDict } from './FilesystemDict';
@@ -20,6 +21,7 @@ export type HeartbeatResponse = {
     OIDC: OIDCDict;
     NOTIFICATIONS: NotificationsDict;
     DEVICE_INSTALL: DeviceInstallDict;
+    CONVERTO: ConvertoDict;
     TASKS: TasksDict;
 };
 

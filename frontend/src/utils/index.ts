@@ -11,7 +11,6 @@ import type { DetailedRom, SimpleRom } from "@/stores/roms";
 
 export {
   getDownloadFileName,
-  getDownloadFormats,
   getDownloadLink,
   getDownloadPath,
   getSoleRomFile,

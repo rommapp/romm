@@ -12,12 +12,6 @@ const snackbarInfo = vi.fn();
 const snackbarError = vi.fn();
 const probeFormatDownload = vi.fn();
 const downloadRom = vi.fn();
-const converto = {
-  CONVERTO: { download_conversion_enabled: true },
-  CONVERTO_DOWNLOAD_FORMATS: {
-    psp: { ".chd": ["cso", "iso", "zso"] },
-  } as Record<string, Record<string, string[]>>,
-};
 const confirmProtectedLaunch = { value: true };
 const canPlayEJS = { value: true };
 const canPlayJsDos = { value: false };
@@ -52,9 +46,7 @@ vi.mock("@/services/api/rom", () => ({
     downloadRom: (opts: unknown) => downloadRom(opts),
   },
 }));
-vi.mock("@/stores/config", () => ({
-  default: () => ({ config: converto }),
-}));
+
 const authScopes: string[] = [];
 const deviceInstall = {
   ENABLED: true,
@@ -89,7 +81,6 @@ vi.mock("@/utils", async () => {
     "@/utils/downloadPath",
   );
   return {
-    getDownloadFormats: actual.getDownloadFormats,
     getDownloadLink: vi.fn(),
     getDownloadPath: vi.fn(() => "/api/roms/1/content/game.chd?format=iso"),
     getSoleRomFile: actual.getSoleRomFile,
@@ -169,7 +160,6 @@ beforeEach(() => {
   snackbarError.mockClear();
   probeFormatDownload.mockReset();
   downloadRom.mockReset();
-  converto.CONVERTO.download_conversion_enabled = true;
   confirmProtectedLaunch.value = true;
   canPlayEJS.value = true;
   canPlayJsDos.value = false;
@@ -615,19 +605,25 @@ describe("useGameActions.refreshFiles", () => {
 });
 
 describe("useGameActions.downloadAs", () => {
-  function pspRom(files: { id: number; file_name: string }[]): SimpleRom {
-    return baseRom({
-      platform_slug: "psp",
-      has_file_on_disk: true,
-      files: files as SimpleRom["files"],
-    });
+  function pspRom(
+    files: { id: number; file_name: string }[],
+    downloadFormats = ["cso", "iso", "zso"],
+  ): SimpleRom {
+    return {
+      ...baseRom({
+        platform_slug: "psp",
+        has_file_on_disk: true,
+        files: files as SimpleRom["files"],
+      }),
+      download_formats: downloadFormats,
+    } as SimpleRom;
   }
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("offers the formats the sole file converts to", () => {
+  it("offers the formats the detailed rom lists", () => {
     const rom = pspRom([{ id: 1, file_name: "Game.CHD" }]);
     expect(useGameActions(() => rom).downloadFormats.value).toEqual([
       "cso",
@@ -636,16 +632,12 @@ describe("useGameActions.downloadAs", () => {
     ]);
   });
 
-  it("offers nothing for several files or with conversion off", () => {
-    const several = pspRom([
-      { id: 1, file_name: "a.chd" },
-      { id: 2, file_name: "b.chd" },
-    ]);
-    expect(useGameActions(() => several).downloadFormats.value).toEqual([]);
+  it("offers nothing for a rom without the list or without a file", () => {
+    const simple = baseRom({ platform_slug: "psp", has_file_on_disk: true });
+    expect(useGameActions(() => simple).downloadFormats.value).toEqual([]);
 
-    converto.CONVERTO.download_conversion_enabled = false;
-    const single = pspRom([{ id: 1, file_name: "a.chd" }]);
-    expect(useGameActions(() => single).downloadFormats.value).toEqual([]);
+    const missing = { ...pspRom([]), has_file_on_disk: false } as SimpleRom;
+    expect(useGameActions(() => missing).downloadFormats.value).toEqual([]);
   });
 
   it("downloads straight away when the format can be served", async () => {

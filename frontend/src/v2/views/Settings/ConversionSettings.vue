@@ -11,6 +11,7 @@ import configApi from "@/services/api/config";
 import taskApi from "@/services/api/task";
 import storeAuth from "@/stores/auth";
 import storeConfig, { type Config } from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import ConfigFileAlerts from "@/v2/components/Settings/ConfigFileAlerts.vue";
 import SettingsSaveBar from "@/v2/components/Settings/SettingsSaveBar.vue";
@@ -26,6 +27,7 @@ const confirm = useConfirm();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const authStore = storeAuth();
+const heartbeat = storeHeartbeat();
 const platformsStore = storePlatforms();
 const snackbar = useSnackbar();
 
@@ -104,7 +106,10 @@ const canEdit = computed(
     config.value.CONFIG_FILE_WRITABLE,
 );
 
-const canRunTasks = computed(() => authStore.scopes.includes("tasks.run"));
+const convertoEnabled = computed(() => heartbeat.value.CONVERTO.ENABLED);
+const canRunTasks = computed(
+  () => convertoEnabled.value && authStore.scopes.includes("tasks.run"),
+);
 // The task reads the saved formats, so unsaved edits must not look like they apply.
 const canConvertLibrary = computed(
   () =>
@@ -219,6 +224,12 @@ onMounted(loadConfig);
   </div>
   <div v-else class="r-v2-section-stack r-v2-conversion-settings">
     <ConfigFileAlerts />
+    <RAlert v-if="!convertoEnabled" type="warning">
+      <template #title>
+        {{ t("settings.conversion-unavailable-title") }}
+      </template>
+      {{ t("settings.conversion-unavailable-desc") }}
+    </RAlert>
 
     <SettingsSection
       :title="t('settings.conversion-download-title')"

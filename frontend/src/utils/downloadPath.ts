@@ -67,22 +67,6 @@ export function getSoleRomFile(rom: SimpleRom): RomFileSchema | null {
   return files.length === 1 ? files[0] : null;
 }
 
-/** The formats a file can be converted to on download, from the backend's
- *  input extension table for its platform. */
-export function getDownloadFormats(
-  fileName: string,
-  formatsByExtension: Record<string, string[]> | undefined,
-): string[] {
-  const table = formatsByExtension ?? {};
-  const name = fileName.toLowerCase();
-  let match = "";
-  for (const ext of Object.keys(table)) {
-    // The longest match wins so `.nkit.iso` is not read as `.iso`.
-    if (name.endsWith(ext) && ext.length > match.length) match = ext;
-  }
-  return match ? table[match] : [];
-}
-
 export function getDownloadLink({
   rom,
   fileIDs = [],

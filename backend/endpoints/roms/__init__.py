@@ -135,6 +135,7 @@ from utils.conversion_cache import (
     RETRY_AFTER_SECONDS,
     FormatOutcome,
     get_redirect_path,
+    may_start_conversion,
     parse_formats,
     resolve_format_download,
 )
@@ -1361,11 +1362,13 @@ async def _negotiate_format(
         )
 
     file = files[0]
-    # DISABLE_DOWNLOAD_ENDPOINT_AUTH and KIOSK_MODE open this route to visitors,
-    # and a conversion is minutes of CPU.
-    allowed = request.user.is_authenticated and not request.user.is_kiosk_guest
     resolution = await resolve_format_download(
-        rom, file, formats, allowed=allowed, start=start, touch=start
+        rom,
+        file,
+        formats,
+        allowed=may_start_conversion(request),
+        start=start,
+        touch=start,
     )
     if resolution.outcome == FormatOutcome.ORIGINAL:
         return None

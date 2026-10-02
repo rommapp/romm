@@ -135,22 +135,6 @@ LIBRARY_TARGETS_BY_PLATFORM: Final[dict[str, frozenset[str]]] = {
 }
 
 
-def _download_formats() -> dict[str, dict[str, list[str]]]:
-    table: dict[str, dict[str, set[str]]] = {}
-    for op in OPERATIONS:
-        for slug in op.platforms:
-            for ext in op.input_exts:
-                table.setdefault(slug, {}).setdefault(ext, set()).add(op.target)
-    return {
-        slug: {ext: sorted(targets) for ext, targets in sorted(exts.items())}
-        for slug, exts in sorted(table.items())
-    }
-
-
-# Platform slug -> input extension -> the targets a download of it can be converted to.
-DOWNLOAD_FORMATS: Final[dict[str, dict[str, list[str]]]] = _download_formats()
-
-
 # Extensions whose format goes by another name than the extension itself.
 _FORMAT_ALIASES: Final[dict[str, str]] = {
     ".3ds": "cci",
@@ -220,6 +204,17 @@ def resolve_operation(
             if name.endswith(ext) and (best is None or len(ext) > len(best[1])):
                 best = (op, ext)
     return best
+
+
+def download_targets(platform_slug: str, file_name: str) -> list[str]:
+    """The formats a download of `file_name` can be converted to, not counting the one it is stored in."""
+    stored = file_format(file_name)
+    targets = {op.target for op in OPERATIONS if platform_slug in op.platforms}
+    return sorted(
+        target
+        for target in targets
+        if target != stored and resolve_operation(platform_slug, target, file_name)
+    )
 
 
 def _tail(text: str) -> str:

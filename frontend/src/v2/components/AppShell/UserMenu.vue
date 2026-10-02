@@ -34,6 +34,7 @@ import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -48,6 +49,7 @@ const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const { user, scopes } = storeToRefs(authStore);
+const heartbeat = storeHeartbeat();
 const { unreadCount } = storeToRefs(storeNotificationInbox());
 
 const open = ref(false);
@@ -75,6 +77,9 @@ const canSeeLibraryMgmt = computed(() =>
 );
 const canSeeScanSettings = computed(() =>
   scopes.value.includes("platforms.write"),
+);
+const canSeeConversionSettings = computed(
+  () => canSeeScanSettings.value && heartbeat.value.CONVERTO.ENABLED,
 );
 const canSeeApiTokens = computed(() => scopes.value.includes("me.write"));
 const canSeeAdmin = computed(() => scopes.value.includes("users.write"));
@@ -239,7 +244,7 @@ async function onLogout() {
         @click="open = false"
       />
       <RMenuItem
-        v-if="canSeeScanSettings"
+        v-if="canSeeConversionSettings"
         :to="{ name: ROUTES.CONVERSION_SETTINGS }"
         icon="mdi-swap-horizontal"
         :label="t('settings.conversion-settings')"

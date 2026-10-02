@@ -23,6 +23,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import { useCan } from "@/v2/composables/useCan";
 import storeNotificationInbox from "@/v2/stores/notificationInbox";
 
@@ -32,6 +33,7 @@ const { t } = useI18n();
 const auth = storeAuth();
 const { user, scopes } = storeToRefs(auth);
 const isAdmin = useCan("app.admin");
+const heartbeat = storeHeartbeat();
 const { unreadCount } = storeToRefs(storeNotificationInbox());
 interface Entry {
   icon: string;
@@ -112,7 +114,9 @@ const groups = computed<Group[]>(() => {
           icon: "mdi-swap-horizontal",
           label: t("settings.conversion-settings"),
           to: { name: ROUTES.CONVERSION_SETTINGS },
-          visible: scopes.value.includes("platforms.write"),
+          visible:
+            scopes.value.includes("platforms.write") &&
+            heartbeat.value.CONVERTO.ENABLED,
         },
         {
           icon: "mdi-database-cog-outline",

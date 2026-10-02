@@ -7,15 +7,13 @@ import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import { useUISettings } from "@/composables/useUISettings";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
-import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
-import type { SimpleRom } from "@/stores/roms";
+import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
 import {
-  getDownloadFormats,
   getDownloadLink,
   getDownloadPath,
   getSoleRomFile,
@@ -72,7 +70,6 @@ export function useGameActions(
   const { syncCachedRom, refreshAfterUserStateChange, refreshIfOrderedBy } =
     useRomSync();
   const auth = storeAuth();
-  const configStore = storeConfig();
   const heartbeat = storeHeartbeat();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
@@ -122,19 +119,12 @@ export function useGameActions(
   // endpoint, which has nothing to serve without a file behind the rom.
   const canDownload = computed(() => Boolean(getRom()?.has_file_on_disk));
 
-  // Only a single file converts, and only while the server has it turned on.
+  // Only the detailed rom carries them, already narrowed to what this caller
+  // can convert its single file to.
   const downloadFormats = computed<string[]>(() => {
-    const rom = getRom();
-    const { CONVERTO, CONVERTO_DOWNLOAD_FORMATS } = configStore.config;
-    if (!rom || !canDownload.value || !CONVERTO.download_conversion_enabled) {
-      return [];
-    }
-    const file = getSoleRomFile(rom);
-    if (!file) return [];
-    return getDownloadFormats(
-      file.file_name,
-      CONVERTO_DOWNLOAD_FORMATS[rom.platform_slug],
-    );
+    const rom = getRom() as Partial<DetailedRom> | null | undefined;
+    if (!rom || !canDownload.value) return [];
+    return rom.download_formats ?? [];
   });
 
   // Names the box the session runs on, so a library served by more than one

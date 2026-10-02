@@ -182,6 +182,10 @@ class TaskSpec:
         implementation: Dotted path to the `Task` instance that runs it.
         manual_run_when_disabled: Lets an admin run it with the schedule off,
             for a task that fills a store nothing else fills.
+        destructive: It deletes or rewrites library files, so running it by
+            hand needs a typed confirmation.
+        single_instance: A run is refused while another job of it is queued
+            or running.
     """
 
     implementation: str
@@ -191,6 +195,8 @@ class TaskSpec:
     enabled: bool = False
     manual_run: bool = False
     manual_run_when_disabled: bool = False
+    destructive: bool = False
+    single_instance: bool = False
     cron_string: str | None = None
     timeout: int = TASK_TIMEOUT
     result_ttl: int = TASK_RESULT_TTL

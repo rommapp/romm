@@ -32,6 +32,7 @@ from utils.conversion_cache import (
     get_cached_converted,
     get_or_convert,
     get_redirect_path,
+    offered_download_formats,
     parse_formats,
     resolve_format_download,
 )
@@ -506,6 +507,57 @@ class TestGetOrConvert:
 
         assert not final.exists()
         assert list(final.parent.iterdir()) == []
+
+
+class TestOfferedDownloadFormats:
+    @staticmethod
+    def _request(*, authenticated: bool = True, kiosk_guest: bool = False) -> Any:
+        return SimpleNamespace(
+            user=SimpleNamespace(
+                is_authenticated=authenticated, is_kiosk_guest=kiosk_guest
+            )
+        )
+
+    @pytest.fixture(autouse=True)
+    def enabled(self, mocker, converto):
+        mocker.patch.object(conversion_cache, "ROM_CONVERTO_ENABLED", True)
+        converto.download_conversion_enabled = True
+
+    def test_lists_what_the_single_file_converts_to(self):
+        files = [_rom_file(file_name="game.chd")]
+
+        assert offered_download_formats("psp", files, self._request()) == [
+            "cso",
+            "iso",
+            "zso",
+        ]
+
+    @pytest.mark.parametrize(
+        "request_kwargs",
+        [{"authenticated": False}, {"kiosk_guest": True}],
+    )
+    def test_nothing_for_a_caller_who_cannot_start_one(self, request_kwargs):
+        files = [_rom_file(file_name="game.chd")]
+
+        assert (
+            offered_download_formats("psp", files, self._request(**request_kwargs))
+            == []
+        )
+
+    def test_nothing_for_several_files(self):
+        files = [_rom_file(file_name="a.chd"), _rom_file(file_name="b.chd")]
+
+        assert offered_download_formats("psp", files, self._request()) == []
+
+    def test_nothing_with_download_conversion_off(self, converto):
+        converto.download_conversion_enabled = False
+
+        assert offered_download_formats("psp", [_rom_file()], self._request()) == []
+
+    def test_nothing_without_rom_converto(self, mocker):
+        mocker.patch.object(conversion_cache, "ROM_CONVERTO_ENABLED", False)
+
+        assert offered_download_formats("psp", [_rom_file()], self._request()) == []
 
 
 class TestGetCachedConverted:

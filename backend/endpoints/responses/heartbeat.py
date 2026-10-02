@@ -66,6 +66,11 @@ class DeviceInstallDict(TypedDict):
     EXCLUDED_PLATFORM_SLUGS: list[str]
 
 
+class ConvertoDict(TypedDict):
+    # ROM_CONVERTO_ENABLED is set and the rom-converto binary answers.
+    ENABLED: bool
+
+
 class TasksDict(TypedDict):
     ENABLE_SCHEDULED_RESCAN: bool
     SCHEDULED_RESCAN_CRON: str
@@ -86,6 +91,7 @@ class HeartbeatResponse(TypedDict):
     OIDC: OIDCDict
     NOTIFICATIONS: NotificationsDict
     DEVICE_INSTALL: DeviceInstallDict
+    CONVERTO: ConvertoDict
     TASKS: TasksDict
 
 
