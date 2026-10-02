@@ -1,6 +1,7 @@
 import asyncio
 import os
 import stat
+import threading
 from pathlib import Path
 from unittest.mock import patch
 
@@ -206,6 +207,37 @@ class TestIsolation:
         assert listing == ["config.toml"]
         assert config_size == 0
         assert not await asyncio.to_thread(cwd.exists)
+
+    async def test_a_run_cancelled_while_making_its_dir_still_removes_it(self):
+        made: list[Path] = []
+        release = threading.Event()
+
+        def slow_sandbox() -> tuple[Path, Path]:
+            release.wait(timeout=5)
+            sandbox, config = make_sandbox()
+            made.append(sandbox)
+            return sandbox, config
+
+        make_sandbox = rom_converto._make_sandbox
+        with (
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch.object(rom_converto, "_make_sandbox", slow_sandbox),
+        ):
+            run = asyncio.create_task(
+                rom_converto._run(["capabilities"], timeout_seconds=1)
+            )
+            await asyncio.sleep(0.05)
+            run.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await run
+            release.set()
+            for _ in range(100):
+                if made and not await asyncio.to_thread(made[0].exists):
+                    break
+                await asyncio.sleep(0.01)
+
+        assert made
+        assert not await asyncio.to_thread(made[0].exists)
 
 
 class TestConvert:

@@ -278,6 +278,11 @@ def _make_sandbox() -> tuple[Path, Path]:
     return sandbox, config
 
 
+def _discard_sandbox(creating: "asyncio.Future[tuple[Path, Path]]") -> None:
+    if not creating.cancelled() and creating.exception() is None:
+        shutil.rmtree(creating.result()[0], ignore_errors=True)
+
+
 def _tail(text: str) -> str:
     return text.strip()[-_STDERR_TAIL_BYTES:]
 
@@ -289,7 +294,13 @@ async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
         raise RomConvertoBinaryNotFoundError(f"{_BINARY} binary not found on PATH")
     # The CLI reads `.env`, `rom-converto.toml` and its hash cache from the cwd and
     # home, so it runs from an empty dir with an empty config and no cache.
-    sandbox, config = await asyncio.to_thread(_make_sandbox)
+    creating = asyncio.ensure_future(asyncio.to_thread(_make_sandbox))
+    try:
+        sandbox, config = await asyncio.shield(creating)
+    except asyncio.CancelledError:
+        # The thread still finishes making the dir, so remove it once it has.
+        creating.add_done_callback(_discard_sandbox)
+        raise
     try:
         # The CLI otherwise asks api.github.com for a newer release on every run.
         proc = await asyncio.create_subprocess_exec(
