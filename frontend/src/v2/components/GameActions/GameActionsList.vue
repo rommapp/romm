@@ -59,6 +59,13 @@ function run(fn: () => void | Promise<void>) {
     @click="run(actions.download)"
   />
   <RMenuItem
+    v-for="format in actions.downloadFormats.value"
+    :key="format"
+    :label="t('rom.download-as', { format: format.toUpperCase() })"
+    icon="mdi-file-download-outline"
+    @click="run(() => actions.downloadAs(format))"
+  />
+  <RMenuItem
     v-if="actions.canDownload.value"
     :label="t('rom.copy-link')"
     icon="mdi-share-variant-outline"

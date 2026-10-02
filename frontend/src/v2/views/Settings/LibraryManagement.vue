@@ -2,12 +2,11 @@
 // LibraryManagement: v2-native rewrite. Uses the shared `RTabNav`
 // primitive for the underline tabs (same component Game Details uses)
 // and keeps the `?tab=` query param so deep links still work.
-import { RAlert, RTabNav, type RTabNavItem } from "@v2/lib";
-import { storeToRefs } from "pinia";
+import { RTabNav, type RTabNavItem } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import storeConfig from "@/stores/config";
+import ConfigFileAlerts from "@/v2/components/Settings/ConfigFileAlerts.vue";
 import ExcludedSection from "@/v2/components/Settings/ExcludedSection.vue";
 import FolderMappingsSection from "@/v2/components/Settings/FolderMappingsSection.vue";
 import MissingFirmwareSection from "@/v2/components/Settings/MissingFirmwareSection.vue";
@@ -26,8 +25,6 @@ const tab = ref<Tab>(
     ? (route.query.tab as Tab)
     : "mapping",
 );
-const configStore = storeConfig();
-const { config } = storeToRefs(configStore);
 
 watch(tab, (newTab) => syncQueryParam(router, "tab", newTab));
 
@@ -79,34 +76,7 @@ const tabModel = computed<string>({
 
 <template>
   <div class="r-v2-section-stack">
-    <RAlert v-if="!config.CONFIG_FILE_MOUNTED" type="error">
-      <template #title>
-        {{ t("settings.config-file-not-mounted-title") }}
-      </template>
-      {{ t("settings.config-file-not-mounted-desc") }}
-    </RAlert>
-    <RAlert
-      v-if="config.CONFIG_FILE_MOUNTED && config.CONFIG_FILE_PARSE_ERROR"
-      type="error"
-    >
-      <template #title>
-        {{ t("settings.config-file-parse-error-title") }}
-      </template>
-      {{
-        t("settings.config-file-parse-error-desc", {
-          error: config.CONFIG_FILE_PARSE_ERROR,
-        })
-      }}
-    </RAlert>
-    <RAlert
-      v-if="config.CONFIG_FILE_MOUNTED && !config.CONFIG_FILE_WRITABLE"
-      type="warning"
-    >
-      <template #title>
-        {{ t("settings.config-file-not-writable-title") }}
-      </template>
-      {{ t("settings.config-file-not-writable-desc") }}
-    </RAlert>
+    <ConfigFileAlerts />
 
     <RTabNav v-model="tabModel" :items="tabs" />
 

@@ -9,11 +9,16 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
-import type { SimpleRom } from "@/stores/roms";
+import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
-import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
+import {
+  getDownloadLink,
+  getDownloadPath,
+  getSoleRomFile,
+  isNintendoDSRom,
+} from "@/utils";
 import { useCan } from "@/v2/composables/useCan";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useClipboard } from "@/v2/composables/useClipboard";
@@ -38,6 +43,12 @@ export interface GameActionsOptions {
 export type PlayTarget = "auto" | "local" | "stream";
 
 type PlayerSlug = "stream" | "jsdos" | "ejs" | "pico8" | "ruffle";
+
+// A conversion can take a while on large discs; stop polling after about an hour.
+const FORMAT_POLL_SECONDS = 30;
+const FORMAT_POLL_LIMIT = 120;
+// Shared across menus so a second click doesn't start another poll and download.
+const pendingFormatDownloads = new Set<string>();
 
 // Validate flashpoint game IDs are UUIDs
 const FLASHPOINT_ID_RE =
@@ -107,6 +118,14 @@ export function useGameActions(
   // Download, the copied link and the QR code all resolve to the download
   // endpoint, which has nothing to serve without a file behind the rom.
   const canDownload = computed(() => Boolean(getRom()?.has_file_on_disk));
+
+  // Only the detailed rom carries them, already narrowed to what this caller
+  // can convert its single file to.
+  const downloadFormats = computed<string[]>(() => {
+    const rom = getRom() as Partial<DetailedRom> | null | undefined;
+    if (!rom || !canDownload.value) return [];
+    return rom.download_formats ?? [];
+  });
 
   // Names the box the session runs on, so a library served by more than one
   // container says which the button reaches.
@@ -416,6 +435,39 @@ export function useGameActions(
     a.remove();
   }
 
+  async function downloadAs(format: string) {
+    const rom = getRom();
+    const file = rom ? getSoleRomFile(rom) : null;
+    if (!rom || !file) return;
+    const label = format.toUpperCase();
+    const href = getDownloadPath({ rom, fileIDs: [file.id], format });
+    if (pendingFormatDownloads.has(href)) return;
+    pendingFormatDownloads.add(href);
+    try {
+      let probe = await romApi.probeFormatDownload(href);
+      if (probe.status === 202) {
+        snackbar.info(t("rom.download-as-preparing", { format: label }));
+      }
+      let polls = 0;
+      while (probe.status === 202 && polls++ < FORMAT_POLL_LIMIT) {
+        const seconds = probe.retryAfterSeconds ?? FORMAT_POLL_SECONDS;
+        await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+        probe = await romApi.probeFormatDownload(href);
+      }
+      if (probe.status === 200 || probe.status === 206) {
+        await romApi.downloadRom({ rom, fileIDs: [file.id], format });
+        return;
+      }
+    } catch {
+      // A failed probe is reported like a format that can't be served.
+    } finally {
+      pendingFormatDownloads.delete(href);
+    }
+    snackbar.error(t("rom.download-as-unavailable", { format: label }), {
+      persist: { body: rom.name ?? rom.fs_name, link: `/rom/${rom.id}` },
+    });
+  }
+
   async function favorite() {
     const rom = getRom();
     if (!rom) return;
@@ -582,6 +634,7 @@ export function useGameActions(
     canInstallOnDevice,
     canOpenInFlashpoint,
     canDownload,
+    downloadFormats,
     canPlay,
     canPlayStream,
     canPlayLocally,
@@ -606,6 +659,7 @@ export function useGameActions(
     goToPlatform,
     platformPath,
     download,
+    downloadAs,
     favorite,
     share,
     shareQR,

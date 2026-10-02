@@ -67,6 +67,9 @@ const defaultHeartbeat: Heartbeat = {
     ENABLED: false,
     EXCLUDED_PLATFORM_SLUGS: [],
   },
+  CONVERTO: {
+    ENABLED: false,
+  },
   TASKS: {
     ENABLE_SCHEDULED_RESCAN: false,
     SCHEDULED_RESCAN_CRON: "",

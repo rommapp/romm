@@ -61,6 +61,34 @@ def test_get_rom(client: TestClient, access_token: str, rom: Rom):
     assert body["id"] == rom.id
 
 
+def test_get_rom_lists_no_download_formats_by_default(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.get(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.json()["download_formats"] == []
+
+
+def test_get_rom_lists_the_download_formats_offered(
+    client: TestClient, access_token: str, rom: Rom, rom_file: RomFile
+):
+    with patch(
+        "endpoints.responses.rom.offered_download_formats", return_value=["iso"]
+    ) as offered:
+        response = client.get(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.json()["download_formats"] == ["iso"]
+    platform_slug, files, _request = offered.call_args.args
+    assert platform_slug == rom.platform_slug
+    assert [f.id for f in files] == [rom_file.id]
+
+
 def test_get_rom_simple(client: TestClient, access_token: str, rom: Rom):
     response = client.get(
         f"/api/roms/{rom.id}/simple",
@@ -73,6 +101,7 @@ def test_get_rom_simple(client: TestClient, access_token: str, rom: Rom):
     # SimpleRomSchema stays lightweight: none of the detail-only arrays are
     # present, so the endpoint must not eager-load them.
     assert "user_saves" not in body
+    assert "download_formats" not in body
     assert "user_states" not in body
     assert "user_screenshots" not in body
     assert "user_collections" not in body

@@ -213,3 +213,15 @@ describe("getSoleRomFile", () => {
     expect(getSoleRomFile(makeRom({}))).toBeNull();
   });
 });
+describe("getDownloadPath format", () => {
+  it("adds the requested format to the query", () => {
+    const rom = makeRom({
+      id: 3,
+      fs_name: "game.chd",
+      files: [{ id: 5, file_name: "game.chd" }] as SimpleRom["files"],
+    });
+    expect(getDownloadPath({ rom, fileIDs: [5], format: "iso" })).toBe(
+      "/api/roms/3/content/game.chd?file_ids=5&format=iso",
+    );
+  });
+});

@@ -20,6 +20,7 @@ from adapters.services.rom_converto import (
     RomConvertoTimeoutError,
     RomConvertoUnsafeSourceError,
     canonical_format,
+    download_targets,
     file_format,
     resolve_operation,
     rom_converto_service,
@@ -27,6 +28,7 @@ from adapters.services.rom_converto import (
 from config import (
     LIBRARY_BASE_PATH,
     ROM_CONVERTO_CACHE_PATH,
+    ROM_CONVERTO_ENABLED,
     ROM_CONVERTO_MAX_CONCURRENCY,
     ROMM_BASE_PATH,
 )
@@ -37,6 +39,8 @@ from utils.background_tasks import fire_and_forget
 from utils.zip_cache import CACHE_KEY_LENGTH, SECONDS_PER_HOUR
 
 if TYPE_CHECKING:
+    from starlette.requests import Request
+
     from models.rom import Rom, RomFile
 
 BYTES_PER_GB = 1024**3
@@ -201,6 +205,28 @@ def _is_converting(final_path: Path) -> bool:
     ):
         return not locked
     return False
+
+
+def may_start_conversion(request: Request) -> bool:
+    """Whether the caller may start a conversion, which is minutes of CPU.
+
+    DISABLE_DOWNLOAD_ENDPOINT_AUTH and KIOSK_MODE let visitors download, not convert.
+    """
+    return request.user.is_authenticated and not request.user.is_kiosk_guest
+
+
+def offered_download_formats(
+    platform_slug: str, files: Sequence[RomFile], request: Request
+) -> list[str]:
+    """The formats the caller can ask a single-file download to be converted to."""
+    if (
+        len(files) != 1
+        or not ROM_CONVERTO_ENABLED
+        or not cm.get_config().CONVERTO.download_conversion_enabled
+        or not may_start_conversion(request)
+    ):
+        return []
+    return download_targets(platform_slug, files[0].file_name)
 
 
 async def resolve_format_download(

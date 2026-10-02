@@ -36,7 +36,12 @@ from handler.redis_handler import (
     redis_client,
 )
 from models.audit_event import AuditAction, AuditTargetType
-from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS, enqueue_task
+from tasks.registry import (
+    MANUAL_TASKS,
+    SCHEDULED_TASKS,
+    enqueue_task,
+    get_active_task_job,
+)
 from tasks.tasks import TaskSpec, TaskType
 from utils.router import APIRouter
 
@@ -61,6 +66,9 @@ VISIBLE_SCHEDULED_TASKS: Final[dict[str, TaskSpec]] = {
     )
 }
 
+SINGLE_INSTANCE_LOCK_PREFIX: Final = "romm:task-run-lock:"
+SINGLE_INSTANCE_LOCK_SECONDS: Final = 5
+
 RUNNABLE_TASKS: Final[dict[str, TaskSpec]] = {**MANUAL_TASKS, **VISIBLE_SCHEDULED_TASKS}
 
 
@@ -73,6 +81,7 @@ def _build_task_info(name: str, task: TaskSpec) -> TaskInfo:
         description=task.description,
         enabled=task.enabled,
         manual_run=task.can_run_manually,
+        destructive=task.destructive,
         cron_string=task.cron_string or "",
     )
 
@@ -219,6 +228,7 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
             description=f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minute delay",
             enabled=ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
             manual_run=False,
+            destructive=False,
             cron_string="",
         )
     )
@@ -329,6 +339,21 @@ async def run_single_task(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="No task worker is listening, so the task cannot be queued",
+        )
+
+    # The lock covers two requests landing before either job is queued.
+    if task_instance.single_instance and (
+        not redis_client.set(
+            f"{SINGLE_INSTANCE_LOCK_PREFIX}{task_name}",
+            1,
+            nx=True,
+            ex=SINGLE_INSTANCE_LOCK_SECONDS,
+        )
+        or get_active_task_job(task_name) is not None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{task_instance.title} is already queued or running",
         )
 
     # The caller's arguments are nested rather than spread, so a body cannot

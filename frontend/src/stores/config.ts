@@ -58,7 +58,6 @@ const defaultConfig = {
     platform_formats: {},
   },
   CONVERTO_LIBRARY_TARGETS: {},
-  CONVERTO_DOWNLOAD_FORMATS: {},
 } as ConfigResponse;
 
 export default defineStore("config", {

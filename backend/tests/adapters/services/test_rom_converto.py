@@ -9,8 +9,8 @@ import pytest
 
 from adapters.services import rom_converto
 from adapters.services.rom_converto import (
-    DOWNLOAD_FORMATS,
     LIBRARY_TARGETS_BY_PLATFORM,
+    OPERATIONS,
     Operation,
     RomConvertoBinaryNotFoundError,
     RomConvertoOperationError,
@@ -19,6 +19,7 @@ from adapters.services.rom_converto import (
     RomConvertoUnsafeSourceError,
     canonical_format,
     cue_tracks,
+    download_targets,
     file_format,
     resolve_operation,
 )
@@ -487,18 +488,31 @@ class TestLibraryTargetsByPlatform:
         assert resolve_operation("xbox", "xiso", "game.iso", lossless=True) is None
 
 
-class TestDownloadFormats:
-    def test_maps_each_input_extension_to_its_targets(self):
-        formats = DOWNLOAD_FORMATS
+class TestDownloadTargets:
+    @pytest.mark.parametrize(
+        "platform_slug, file_name, expected",
+        [
+            ("psp", "game.chd", ["cso", "iso", "zso"]),
+            ("psp", "game.iso", ["chd", "cso", "zso"]),
+            ("xbox", "game.iso", ["xiso"]),
+            ("psp", "game.txt", []),
+            ("gb", "game.gb", []),
+        ],
+    )
+    def test_lists_the_targets_a_file_converts_to(
+        self, platform_slug: str, file_name: str, expected: list[str]
+    ):
+        assert download_targets(platform_slug, file_name) == expected
 
-        assert formats["psp"][".chd"] == ["cso", "iso", "zso"]
-        assert formats["xbox"][".iso"] == ["xiso"]
+    def test_leaves_out_the_stored_format(self):
+        assert "iso" not in download_targets("psp", "GAME.ISO")
 
     def test_no_decrypt_or_encrypt_targets(self):
         targets = {
             target
-            for exts in DOWNLOAD_FORMATS.values()
-            for ext_targets in exts.values()
-            for target in ext_targets
+            for op in OPERATIONS
+            for slug in op.platforms
+            for ext in op.input_exts
+            for target in download_targets(slug, f"game{ext}")
         }
         assert not targets & {"decrypted", "encrypted"}
