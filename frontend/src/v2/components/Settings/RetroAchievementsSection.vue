@@ -47,17 +47,19 @@ async function syncProfile(incremental: boolean) {
 }
 
 async function saveAndSync() {
-  if (!auth.user) return;
+  // Enter in the field reaches here without the button's disabled state.
+  if (!auth.user || !canSubmit.value || !username.value.trim()) return;
   submitting.value = true;
   const trimmed = username.value.trim();
   const usernameChanged = trimmed !== linkedUsername.value;
 
   try {
     if (usernameChanged) {
-      await userApi.updateUser({
+      const { data } = await userApi.updateUser({
         id: auth.user.id,
         ra_username: trimmed,
       });
+      auth.setCurrentUser(data);
     }
     // Username change → full sync; same username → incremental refresh.
     await syncProfile(!usernameChanged);

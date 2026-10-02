@@ -94,13 +94,10 @@ def drop_ra_login_not_for(
     user = db_user_handler.get_user(user_id)
     if user is None or user.ra_login_sealed is None:
         return False
-    login = ra_login_for_activate(user)
-    if (
-        login is not None
-        and ra_username is not None
-        and login["username"].casefold() == ra_username.casefold()
-    ):
-        return False
+    if ra_username is not None:
+        login = ra_login_for_activate(user)
+        if login is not None and login["username"].casefold() == ra_username.casefold():
+            return False
     # Only the value judged here, so a login stored since then survives.
     if not db_user_handler.clear_ra_login_sealed(user_id, user.ra_login_sealed):
         return False

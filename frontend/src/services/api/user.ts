@@ -3,6 +3,7 @@ import type {
   Body_create_user_from_invite_api_users_register_post as RegisterUserInput,
   Body_refresh_retro_achievements_api_users__id__ra_refresh_post as RefreshRetroAchievementsInput,
   InviteLinkSchema,
+  UserForm,
   UserSchema,
 } from "@/__generated__";
 import api from "@/services/api";
@@ -64,11 +65,11 @@ async function updateUser({
   id,
   avatar,
   ...attrs
-}: Partial<UserSchema> & {
-  avatar?: File;
-  password?: string;
-  clear_ra_username?: boolean;
-}) {
+}: Partial<UserSchema> &
+  Pick<UserForm, "clear_ra_username"> & {
+    avatar?: File;
+    password?: string;
+  }) {
   return api.put<UserSchema>(
     `/users/${id}`,
     {

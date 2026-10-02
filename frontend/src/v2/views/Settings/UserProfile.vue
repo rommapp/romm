@@ -111,7 +111,10 @@ async function applyChanges() {
   if (!userToEdit.value || !isDirty.value) return;
   submitting.value = true;
   try {
-    const { data } = await userApi.updateUser(userToEdit.value);
+    // Only this form's fields: the snapshot's ra_username goes stale once
+    // the RetroAchievements section links or unlinks.
+    const { id, username, email, avatar } = userToEdit.value;
+    const { data } = await userApi.updateUser({ id, username, email, avatar });
     snackbar.success(
       t("settings.user-updated-successfully", { username: data.username }),
       { icon: "mdi-check-bold" },

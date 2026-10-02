@@ -34,6 +34,14 @@ const RBtnStub = {
     "<button :disabled='disabled' @click=\"$emit('click')\"><slot /></button>",
 };
 
+const RTextFieldStub = {
+  name: "RTextField",
+  props: ["modelValue"],
+  emits: ["update:modelValue"],
+  template:
+    "<input :value='modelValue' @input=\"$emit('update:modelValue', $event.target.value)\" />",
+};
+
 function user(raUsername: string | null): User {
   return { id: 7, ra_username: raUsername } as unknown as User;
 }
@@ -45,7 +53,7 @@ function mountSection(raUsername: string | null) {
       stubs: {
         RBtn: RBtnStub,
         RTag: true,
-        RTextField: true,
+        RTextField: RTextFieldStub,
         SettingsSection: { template: "<div><slot /></div>" },
       },
     },
@@ -58,14 +66,15 @@ function unlinkButton(wrapper: ReturnType<typeof mountSection>) {
     .find((btn) => btn.props("prependIcon") === "mdi-link-variant-off");
 }
 
-describe("RetroAchievementsSection unlink", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-    updateUser.mockReset();
-    success.mockReset();
-    error.mockReset();
-  });
+beforeEach(() => {
+  setActivePinia(createPinia());
+  updateUser.mockReset();
+  refreshRetroAchievements.mockReset();
+  success.mockReset();
+  error.mockReset();
+});
 
+describe("RetroAchievementsSection unlink", () => {
   it("is offered only while an account is linked", () => {
     expect(unlinkButton(mountSection(null))).toBeUndefined();
     expect(unlinkButton(mountSection("alice"))).toBeDefined();
@@ -101,5 +110,32 @@ describe("RetroAchievementsSection unlink", () => {
     expect(error).toHaveBeenCalledWith("settings.ra-update-failed", {
       icon: "mdi-close-circle",
     });
+  });
+});
+
+describe("RetroAchievementsSection save", () => {
+  it("offers Unlink once a new username is saved", async () => {
+    updateUser.mockResolvedValue({ data: user("alice") });
+    refreshRetroAchievements.mockResolvedValue({});
+    const wrapper = mountSection(null);
+
+    await wrapper.find("input").setValue("alice");
+    await wrapper.find("input").trigger("keyup", { key: "Enter" });
+    await flushPromises();
+
+    expect(updateUser).toHaveBeenCalledWith({ id: 7, ra_username: "alice" });
+    expect(storeAuth().user?.ra_username).toBe("alice");
+    expect(unlinkButton(wrapper)).toBeDefined();
+  });
+
+  it("ignores Enter on an empty field", async () => {
+    const wrapper = mountSection("alice");
+
+    await wrapper.find("input").setValue("  ");
+    await wrapper.find("input").trigger("keyup", { key: "Enter" });
+    await flushPromises();
+
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(refreshRetroAchievements).not.toHaveBeenCalled();
   });
 });
