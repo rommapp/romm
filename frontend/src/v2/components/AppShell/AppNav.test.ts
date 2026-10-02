@@ -1,4 +1,4 @@
-import { mount } from "@vue/test-utils";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { computed, nextTick, ref } from "vue";
 import AppNav from "./AppNav.vue";
@@ -40,6 +40,8 @@ function mountNav() {
 }
 
 const SCROLLED = "r-v2-nav-bar--scrolled";
+
+enableAutoUnmount(afterEach);
 
 describe("AppNav glass", () => {
   afterEach(() => {
