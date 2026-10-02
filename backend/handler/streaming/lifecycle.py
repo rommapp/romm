@@ -253,11 +253,7 @@ async def collect_exit_state(
 async def collect_ra_login(
     container: ResolvedContainer, session: dict[str, Any]
 ) -> None:
-    """File the RetroAchievements login change the session ended with.
-
-    Every exit calls it while the claim still guards the container, as with
-    collect_exit_state; urllib is synchronous, hence the thread.
-    """
+    """File the RetroAchievements login change the session ended with, in a thread like collect_exit_state."""
     if container.is_webstation:
         await asyncio.to_thread(webstation.collect_ra_login, container, session)
 

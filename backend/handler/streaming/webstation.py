@@ -32,13 +32,8 @@ from urllib.parse import quote, urlencode
 from fastapi import HTTPException
 
 from config import STREAMING_LAUNCH_TIMEOUT, STREAMING_SAVE_TIMEOUT
+from handler import ra_login
 from handler.database import db_user_handler
-from handler.ra_login import (
-    clear_ra_login,
-    ra_login_for_activate,
-    store_ra_login,
-    usable_login,
-)
 from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.protocol import ACK_TIMEOUT, WebstationProtocol
@@ -216,7 +211,7 @@ def _with_ra_login(body: dict[str, Any], user: User) -> dict[str, Any]:
 def _current_ra_login(user: User) -> dict[str, str] | None:
     """The user's stored login as the database holds it now, not as `user` was loaded."""
     fresh = db_user_handler.get_user(user.id)
-    return ra_login_for_activate(fresh if fresh is not None else user)
+    return None if fresh is None else ra_login.ra_login_for_activate(fresh)
 
 
 def _send_activate(
@@ -430,11 +425,7 @@ def exit_session(
 
 
 def collect_ra_login(container: ResolvedContainer, session: dict[str, Any]) -> None:
-    """POST /retroachievements/collect: file the login change the session ended with.
-
-    Best-effort, while the claim holds the container: the broker drops the
-    change at its next activate. The token never reaches a log.
-    """
+    """POST /retroachievements/collect: file the login change the session ended with, best-effort."""
     session_id = broker_session_id(session)
     user_id = session.get("user_id")
     if (
@@ -474,16 +465,16 @@ def collect_ra_login(container: ResolvedContainer, session: dict[str, Any]) -> N
             return
         change = reply.get("change")
         if change == "set":
-            login = usable_login(reply.get("retroachievements"))
+            login = ra_login.usable_login(reply.get("retroachievements"))
             if login is None:
                 log.warning(
                     "session %s: ra login collect answered a set change without a login",
                     session_id,
                 )
                 return
-            filed = store_ra_login(user_id, login["username"], login["token"])
+            filed = ra_login.store_ra_login(user_id, login["username"], login["token"])
         elif change == "cleared":
-            filed = clear_ra_login(user_id)
+            filed = ra_login.clear_ra_login(user_id)
         else:
             log.warning(
                 "session %s: ra login collect answered an unknown change", session_id

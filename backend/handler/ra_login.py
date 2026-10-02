@@ -12,7 +12,7 @@ def store_ra_login(user_id: int, username: str, token: str) -> bool:
     """Seal and store the login the user's session ended with, filling only an empty `ra_username`."""
     user = db_user_handler.get_user(user_id)
     if user is None:
-        log.warning("ra login: no user %s to store a login for", user_id)
+        log.warning("no user %s to store a RetroAchievements login for", user_id)
         return False
     db_user_handler.update_user(
         user_id, {"ra_login_sealed": seal({"username": username, "token": token})}
@@ -29,7 +29,7 @@ def store_ra_login(user_id: int, username: str, token: str) -> bool:
         )
     elif user.ra_username and user.ra_username != username:
         log.info(
-            "ra login: user %s plays as an account other than their profile's",
+            "user %s plays RetroAchievements as an account other than their profile's",
             user_id,
         )
     return True
@@ -39,7 +39,7 @@ def clear_ra_login(user_id: int) -> bool:
     """Drop the stored login after the user logged out in the emulator; `ra_username` stays."""
     user = db_user_handler.get_user(user_id)
     if user is None:
-        log.warning("ra login: no user %s to clear a login for", user_id)
+        log.warning("no user %s to clear a RetroAchievements login for", user_id)
         return False
     if user.ra_login_sealed is None:
         return False
@@ -54,17 +54,20 @@ def clear_ra_login(user_id: int) -> bool:
 
 def ra_login_for_activate(user: User) -> dict[str, str] | None:
     """The login to send on activate, or None when there is none usable."""
-    sealed = getattr(user, "ra_login_sealed", None)
-    if not isinstance(sealed, str) or not sealed:
+    if not user.ra_login_sealed:
         return None
     try:
-        value = unseal(sealed)
+        value = unseal(user.ra_login_sealed)
     except UnsealError:
-        log.warning("ra login: could not unseal the stored login of user %s", user.id)
+        log.warning(
+            "could not unseal the stored RetroAchievements login of user %s", user.id
+        )
         return None
     login = usable_login(value)
     if login is None:
-        log.warning("ra login: the stored login of user %s is not usable", user.id)
+        log.warning(
+            "the stored RetroAchievements login of user %s is not usable", user.id
+        )
     return login
 
 

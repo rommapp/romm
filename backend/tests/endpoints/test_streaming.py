@@ -7609,11 +7609,9 @@ def test_collect_is_skipped_for_a_desktop_or_an_ownerless_session(rom: Rom):
 
 
 def test_collect_never_raises_out_of_teardown(rom: Rom, caplog):
-    """`store_ra_login` is imported into `webstation`'s own namespace, so the
-    patch must target it there, not on `handler.ra_login`."""
     container = _resolved(_webstation_for(rom))
     with patch(
-        "handler.streaming.webstation.store_ra_login",
+        "handler.ra_login.store_ra_login",
         side_effect=RuntimeError("db gone"),
     ):
         with patch(
@@ -7657,7 +7655,7 @@ def test_a_raising_collect_does_not_skip_the_exit_save_pull(
                     return_value={"state_saved": False},
                 ),
                 patch(
-                    "handler.streaming.webstation.store_ra_login",
+                    "handler.ra_login.store_ra_login",
                     side_effect=RuntimeError("db gone"),
                 ),
                 patch("handler.streaming.broker.request_safe", return_value=reply),
