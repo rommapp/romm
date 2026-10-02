@@ -3,7 +3,7 @@ import json
 import re
 import secrets
 from collections import Counter, abc
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Container, Iterable, Sequence
 from datetime import datetime
 from types import SimpleNamespace
 from typing import Any, Literal, NamedTuple
@@ -53,6 +53,7 @@ from handler.database.rom_filters import (
     RomFiltersDict,
     RomFilterSpec,
 )
+from handler.filesystem.roms_handler import rom_file_unchanged
 from handler.redis_handler import sync_cache
 from logger.logger import log
 from models.assets import Save, Screenshot, State
@@ -63,6 +64,7 @@ from models.platform import Platform
 from models.rom import (
     ALTERNATIVE_NAME_SOURCES,
     METADATA_SOURCE_FACET_COLUMNS,
+    ROM_FILE_CONVERTO_COLUMNS,
     ROM_IS_IDENTIFIED,
     SEARCH_TITLE_COLUMNS,
     SEARCH_TITLE_SEPARATOR,
@@ -326,6 +328,9 @@ ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
 ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
 ROM_FILTERS_CACHE_SCHEMA_VERSION = get_version().replace(".", "_")
 
+# What a scan carries over from a file's previous rom-converto read.
+ROM_FILE_CONVERTO_KEPT_COLUMNS = (*ROM_FILE_CONVERTO_COLUMNS, "converto_read_at")
+
 # Columns copied from a scanned (transient) RomFile onto its database row.
 ROM_FILE_SCANNED_COLUMNS = (
     "file_name",
@@ -337,6 +342,7 @@ ROM_FILE_SCANNED_COLUMNS = (
     "sha1_hash",
     "ra_hash",
     "chd_sha1_hash",
+    *ROM_FILE_CONVERTO_KEPT_COLUMNS,
     "archive_members",
     "category",
 )
@@ -366,7 +372,7 @@ def _copy_scanned_columns(
     target: RomFile | TrackMeta,
     columns: Sequence[str],
     model: type,
-    keep_when_unset: frozenset[str] = frozenset(),
+    keep_when_unset: Container[str] = frozenset(),
 ) -> None:
     """Copy scanned values onto a row, writing only the columns that changed.
 
@@ -2609,12 +2615,34 @@ class DBRomsHandler(DBBaseHandler):
         row: RomFile,
         scanned: RomFile,
         rom_id: int,
+        *,
+        inspected: bool,
     ) -> str | None:
         """Copy a scanned file onto its row, with its track metadata.
 
         Returns the cover path this update orphaned, if any.
         """
-        _copy_scanned_columns(scanned, row, ROM_FILE_SCANNED_COLUMNS, RomFile)
+        # Unread metadata is reusable only when it still describes the same content.
+        content_key = _rom_file_content_key(scanned)
+        keep_converto = not inspected and (
+            (
+                scanned.last_modified is not None
+                and rom_file_unchanged(
+                    row,
+                    size=scanned.file_size_bytes,
+                    mtime=scanned.last_modified,
+                    hashable=False,
+                )
+            )
+            or (content_key is not None and content_key == _rom_file_content_key(row))
+        )
+        _copy_scanned_columns(
+            scanned,
+            row,
+            ROM_FILE_SCANNED_COLUMNS,
+            RomFile,
+            keep_when_unset=ROM_FILE_CONVERTO_KEPT_COLUMNS if keep_converto else (),
+        )
 
         if row.missing_from_fs:
             row.missing_from_fs = False
@@ -2648,6 +2676,8 @@ class DBRomsHandler(DBBaseHandler):
         rom_id: int,
         scanned_files: Sequence[RomFile],
         session: Session = INJECTED_SESSION,
+        *,
+        inspected: Container[RomFile] = frozenset(),
     ) -> SyncedRomFiles:
         """Reconcile a ROM's file rows against a fresh scan, preserving row ids.
 
@@ -2657,8 +2687,12 @@ class DBRomsHandler(DBBaseHandler):
         are deleted, and only columns that actually changed are written, so
         re-scanning an unchanged ROM issues no updates.
 
-        Returns the persisted rows in scan order, plus the soundtrack covers
-        left behind by dropped track metadata for the caller to unlink.
+        Args:
+            inspected: The scanned files rom-converto read this pass.
+
+        Returns:
+            The persisted rows in scan order, plus the soundtrack covers left
+            behind by dropped track metadata for the caller to unlink.
         """
         existing = (
             session.scalars(
@@ -2678,6 +2712,9 @@ class DBRomsHandler(DBBaseHandler):
 
         for scanned in scanned_files:
             row = by_path.get((scanned.file_path, scanned.file_name))
+            if row is None and scanned.id is not None and scanned.id in unmatched:
+                # A reused row renamed in place is still that row.
+                row = unmatched[scanned.id]
             if row is not None and row.id in unmatched:
                 del unmatched[row.id]
                 pairs.append((scanned, row))
@@ -2712,7 +2749,9 @@ class DBRomsHandler(DBBaseHandler):
             if row is None:
                 row = RomFile(rom_id=rom_id)
                 session.add(row)
-            orphaned = self._apply_scanned_rom_file(row, scanned, rom_id)
+            orphaned = self._apply_scanned_rom_file(
+                row, scanned, rom_id, inspected=scanned in inspected
+            )
             if orphaned:
                 orphaned_cover_paths.append(orphaned)
             saved.append(row)
