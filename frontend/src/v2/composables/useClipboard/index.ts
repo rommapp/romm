@@ -26,12 +26,11 @@ export interface UseClipboard {
   /**
    * Copies `text` to the clipboard. Shows the optional success toast and
    * returns true on success; shows an error toast (or runs `fallback`) and
-   * returns false when the clipboard is unavailable or the write throws.
+   * returns false when neither the Clipboard API nor the fallback copies.
    */
   copy: (text: string, opts?: CopyOptions) => Promise<boolean>;
 }
 
-// Unlike VueUse's `legacy` mode, this reports whether the copy happened.
 function legacyCopy(text: string): boolean {
   const previous = document.activeElement as HTMLElement | null;
   const area = document.createElement("textarea");
@@ -41,6 +40,7 @@ function legacyCopy(text: string): boolean {
   area.style.top = "0";
   area.style.opacity = "0";
   document.body.appendChild(area);
+  area.focus({ preventScroll: true });
   area.select();
   let ok = false;
   try {
