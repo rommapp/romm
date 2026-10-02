@@ -36,11 +36,9 @@ import {
   computed,
   nextTick,
   onBeforeUnmount,
-  onMounted,
   provide,
   ref,
   useAttrs,
-  useSlots,
   watch,
 } from "vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
@@ -133,7 +131,6 @@ const emit = defineEmits<{
   (e: "close"): void;
 }>();
 
-const slots = useSlots();
 const attrs = useAttrs();
 
 // ── Open state ──────────────────────────────────────────────────
@@ -169,11 +166,13 @@ function toggle() {
 provide(RMenuCloseKey, close);
 
 // ── Refs ────────────────────────────────────────────────────────
-// The activator slot renders inside a `display: contents` span; we
-// read its first child as the floating-ui reference (the actual
-// activator element the user passed in).
+// The activator slot renders inside a `display: contents` span, so its
+// first child is the floating-ui reference. Re-read on each open, since
+// a `v-if` in the slot can swap that element and slots are not reactive.
 const activatorWrapper = ref<HTMLElement | null>(null);
-const reference = ref<Element | null>(null);
+const reference = computed(() =>
+  isOpen.value ? (activatorWrapper.value?.firstElementChild ?? null) : null,
+);
 const panelRef = ref<HTMLElement | null>(null);
 
 // ── Placement translation ───────────────────────────────────────
@@ -312,18 +311,6 @@ usePopoverDismiss(isOpen, close, {
   reference: () => reference.value,
   panel: () => panelRef.value,
 });
-
-onMounted(() => {
-  reference.value = activatorWrapper.value?.firstElementChild ?? null;
-});
-
-// Re-read the reference if the slot content changes (e.g., v-if flips).
-watch(
-  () => slots.activator,
-  () => {
-    reference.value = activatorWrapper.value?.firstElementChild ?? null;
-  },
-);
 
 // ── Close-on-content-click ─────────────────────────────────────
 // Fires after the inner element's @click: Vue's natural bubbling
