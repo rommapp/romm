@@ -1,5 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { ref } from "vue";
+import RMenu from "@/v2/lib/menus/RMenu/RMenu.vue";
+import RMenuItem from "@/v2/lib/menus/RMenuItem/RMenuItem.vue";
+import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RSelect from "./RSelect.vue";
 
@@ -512,4 +516,68 @@ export const FormRow: Story = {
       </div>
     `,
   }),
+};
+
+// A menu opened from inside the panel teleports outside it; using that
+// menu must not count as a press outside the select.
+export const NestedMenu: Story = {
+  name: "Menu inside the panel",
+  render: () => ({
+    components: { RSelect, RMenu, RMenuItem, RBtn },
+    setup: () => {
+      const value = ref<string | null>(null);
+      const items = ref<{ title: string; value: string }[]>([]);
+      function add(title: string) {
+        items.value.push({ title, value: title.toLowerCase() });
+      }
+      return { value, items, add };
+    },
+    template: `
+      <div style="width:340px">
+        <RSelect v-model="value" :items="items" placeholder="Pick a collection">
+          <template #no-data>
+            <RMenu>
+              <template #activator="{ props }">
+                <RBtn v-bind="props" size="small" variant="translucent" append-icon="mdi-chevron-down">
+                  Add a collection
+                </RBtn>
+              </template>
+              <RMenuItem label="Favourites" @click="add('Favourites')" />
+              <RMenuItem label="Backlog" @click="add('Backlog')" />
+            </RMenu>
+          </template>
+        </RSelect>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    // The panel and the menu teleport to <body>, outside the story canvas.
+    const body = within(document.body);
+    const field = canvasElement.querySelector<HTMLElement>(".r-select__field");
+
+    await step(
+      "Open the select, then the menu in its empty state",
+      async () => {
+        await userEvent.click(field!);
+        await userEvent.click(
+          await body.findByRole("button", { name: "Add a collection" }),
+        );
+      },
+    );
+
+    await step("Picking from the menu keeps the select open", async () => {
+      await userEvent.click(await body.findByText("Backlog"));
+      await waitFor(() =>
+        expect(body.getByRole("option", { name: "Backlog" })).toBeTruthy(),
+      );
+      expect(document.querySelector(".r-select__panel")).not.toBeNull();
+    });
+
+    await step("A press outside both closes the select", async () => {
+      await userEvent.click(document.body);
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+    });
+  },
 };

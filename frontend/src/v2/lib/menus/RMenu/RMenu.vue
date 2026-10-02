@@ -44,11 +44,10 @@ import {
   watch,
 } from "vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
-import { useEscapable } from "@/v2/composables/useEscapable";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
 import { opensInNewContext } from "@/v2/utils/mouseGestures";
 import RTextField from "../../forms/RTextField/RTextField.vue";
-import { isInsideEscapableAbove } from "../../overlays/RDialog/escapeStack.js";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import { RMenuCloseKey } from "./context";
 
@@ -298,29 +297,7 @@ const activatorProps = computed(() => {
   return out;
 });
 
-// ── Click-outside ──────────────────────────────────────────────
-function onDocPointerDown(evt: PointerEvent) {
-  if (!isOpen.value) return;
-  const target = evt.target as Node | null;
-  if (!target) return;
-  if (
-    reference.value &&
-    (reference.value as HTMLElement).contains(target as HTMLElement)
-  )
-    return;
-  if (panelRef.value?.contains(target)) return;
-  // A nested menu's panel is teleported outside this one.
-  if (isInsideEscapableAbove(escEntry, target)) return;
-  close();
-}
-
-// ── Escape / B-button dismissal ────────────────────────────────
-// Register on the shared overlay-escape stack so a single global
-// listener handles Esc across menus, dialogs, drawers, and so
-// `useGamepad`'s B-back action can close the topmost overlay without
-// reaching into the DOM. LIFO ordering means nested menus close one
-// at a time (the inner-most first), matching the previous per-instance
-// `document.keydown` behaviour.
+// ── Dismissal ──────────────────────────────────────────────────
 // `disabled` only blocks opening, so a menu disabled while open closes too.
 watch(
   () => props.disabled,
@@ -329,14 +306,15 @@ watch(
   },
 );
 
-const escEntry = useEscapable(isOpen, close, () => panelRef.value);
+// The escape stack is LIFO, so nested menus close one at a time,
+// innermost first.
+usePopoverDismiss(isOpen, close, {
+  reference: () => reference.value,
+  panel: () => panelRef.value,
+});
 
 onMounted(() => {
   reference.value = activatorWrapper.value?.firstElementChild ?? null;
-  document.addEventListener("pointerdown", onDocPointerDown, true);
-});
-onBeforeUnmount(() => {
-  document.removeEventListener("pointerdown", onDocPointerDown, true);
 });
 
 // Re-read the reference if the slot content changes (e.g., v-if flips).
