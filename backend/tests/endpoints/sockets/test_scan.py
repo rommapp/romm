@@ -2345,7 +2345,6 @@ class TestScanConcurrency:
 
     @pytest.mark.parametrize("scan_type", ["deep", None])
     async def test_refuses_an_unknown_scan_type(self, mocker, emit, scan_type):
-        # Otherwise the handler raises and the client waits on a scan forever.
         patch_scan_jobs(mocker)
         enqueue = mocker.patch.object(scan_queue, "enqueue")
 
