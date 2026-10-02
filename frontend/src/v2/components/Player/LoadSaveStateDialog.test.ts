@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -84,10 +84,6 @@ function openDialog() {
 }
 
 describe("LoadSaveStateDialog", () => {
-  beforeEach(() => {
-    confirm.mockClear();
-  });
-
   it("opens on States and loads a state once confirmed", async () => {
     const { wrapper, open, stateSelected, saveSelected } = openDialog();
     await open();

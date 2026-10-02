@@ -101,7 +101,6 @@ function rom(): DetailedRomSchema {
 
 describe("PatcherTab", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     post.mockResolvedValue({ data: new Blob(["patched"]), headers: {} });
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   });

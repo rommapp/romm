@@ -72,7 +72,6 @@ describe("useWrapGridNav", () => {
 
   beforeEach(() => {
     setModality("mouse");
-    scrollIntoView.mockClear();
     stub("offsetParent", {
       get(this: HTMLElement) {
         return this.parentElement;

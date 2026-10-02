@@ -117,7 +117,6 @@ function mountDialog(
 
 describe("ManageCollectionsDialog gallery reconcile", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     storeAuth().setCurrentUser({ id: USER_ID } as User);
   });
 
@@ -216,7 +215,6 @@ describe("ManageCollectionsDialog gallery reconcile", () => {
 
 describe("ManageCollectionsDialog create", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     storeAuth().setCurrentUser(userFixture({ id: USER_ID }));
   });
 

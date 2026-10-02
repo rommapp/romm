@@ -35,7 +35,6 @@ const exists = { isAxiosError: true, response: { status: 409 } };
 
 describe("useRomFileUpload", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     uploadRoms.mockResolvedValue([{ status: "fulfilled", value: null }]);
     confirmFn.mockResolvedValue(true);
   });

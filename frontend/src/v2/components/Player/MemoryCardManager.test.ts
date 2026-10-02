@@ -56,7 +56,6 @@ async function openEdit() {
 
 describe("MemoryCardManager edit", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     vi.mocked(memoryCardApi.getMemoryCards).mockResolvedValue({
       data: [card],
     } as never);

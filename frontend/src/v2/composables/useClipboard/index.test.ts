@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { useClipboard } from "./index";
 
 const success = vi.fn();
@@ -16,10 +16,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 function setSecureContext(value: boolean) {
-  Object.defineProperty(window, "isSecureContext", {
-    configurable: true,
-    value,
-  });
+  vi.stubGlobal("isSecureContext", value);
 }
 
 function setClipboard(writeText: ((text: string) => Promise<void>) | null) {
@@ -28,11 +25,6 @@ function setClipboard(writeText: ((text: string) => Promise<void>) | null) {
     value: writeText ? { writeText } : undefined,
   });
 }
-
-beforeEach(() => {
-  success.mockClear();
-  error.mockClear();
-});
 
 afterEach(() => {
   setClipboard(null);

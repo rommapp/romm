@@ -127,7 +127,6 @@ async function toggle(wrapper: VueWrapper, checked: boolean) {
 describe("InstallOnDeviceDialog", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.clearAllMocks();
     socketHandlers.clear();
     fetchOnlineDeviceIds.mockResolvedValue({ data: [] });
     fetchRomInstalls.mockResolvedValue({ data: [] });

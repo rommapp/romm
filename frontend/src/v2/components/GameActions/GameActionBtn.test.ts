@@ -54,7 +54,6 @@ function click(el: Element, init: MouseEventInit = {}): boolean {
 }
 
 beforeEach(() => {
-  play.mockClear();
   needsLaunchConfirm.value = false;
 });
 

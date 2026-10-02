@@ -1,5 +1,5 @@
 import { flushPromises } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -58,15 +58,6 @@ function setupGallery({
 }
 
 describe("useGallerySelectAll", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    // Un-stub the console.error spy from the failure-path test.
-    vi.restoreAllMocks();
-  });
-
   it("selects the whole filtered result, not just the loaded windows", async () => {
     setupGallery({ ids: [1, 2, 3, 4], loaded: [rom(1), rom(2)] });
     const selection = storeGallerySelection();

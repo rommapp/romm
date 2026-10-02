@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import type { SearchRom, SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -68,10 +68,6 @@ function match(overrides: Partial<SearchRom> = {}): SearchRom {
 }
 
 describe("MatchRomDialog", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("drops a search left running when the dialog closes", async () => {
     let finishStale: (value: { data: SearchRom[] }) => void = () => {};
     searchRom

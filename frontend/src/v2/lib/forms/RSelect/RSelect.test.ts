@@ -207,7 +207,6 @@ describe("RSelect inside an overlay", () => {
 
   afterEach(() => {
     popEscapable(dialog);
-    vi.mocked(dialog.close).mockClear();
   });
 
   it("closes only its own menu on Escape, leaving the dialog open", async () => {

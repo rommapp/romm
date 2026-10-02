@@ -37,7 +37,6 @@ function installBridge(bridge: Partial<RommNativeBridge>): void {
 
 beforeEach(() => {
   delete window.rommNative;
-  vi.restoreAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 

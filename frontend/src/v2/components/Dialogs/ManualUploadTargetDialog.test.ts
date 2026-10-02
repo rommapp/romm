@@ -1,6 +1,6 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import ManualUploadTargetDialog from "./ManualUploadTargetDialog.vue";
@@ -102,10 +102,6 @@ async function upload(target: DetailedRom): Promise<VueWrapper> {
 }
 
 describe("ManualUploadTargetDialog", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("sends a single-file ROM's manual to resources without asking", async () => {
     const wrapper = await upload(rom({ has_simple_single_file: true }));
 

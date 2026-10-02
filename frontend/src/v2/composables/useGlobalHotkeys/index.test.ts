@@ -42,7 +42,6 @@ function press(key: string, target: EventTarget = document.body) {
 }
 
 beforeEach(() => {
-  push.mockClear();
   playingStore.playing = false;
   document.body.innerHTML = "";
 });

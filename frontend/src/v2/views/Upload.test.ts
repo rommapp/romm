@@ -159,8 +159,6 @@ describe("Upload platform selection", () => {
 describe("Upload follow-up scan", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["setTimeout"] });
-    emit.mockClear();
-    warning.mockClear();
     scanning.scanning = false;
     scanning.startedInThisTab = false;
     getSupportedPlatforms.mockResolvedValueOnce({

@@ -307,7 +307,6 @@ function deferClaim(): (claim: typeof CLAIM) => void {
 
 describe("Stream save picker", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -529,7 +528,6 @@ async function launchFailed(
 
 describe("Stream session-ended notices", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -631,7 +629,6 @@ describe("Stream session-ended notices", () => {
 
 describe("Stream exit chord", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -651,7 +648,6 @@ describe("Stream exit chord", () => {
 
 describe("Stream claim hygiene", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
     mocks.releaseSession.mockResolvedValue(true);
   });
@@ -857,7 +853,6 @@ describe("Stream claim hygiene", () => {
 
 describe("Stream state controls", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
     mocks.capabilities = { maxSlots: 0, hasAutosave: true, autosaveSlot: 10 };
   });
@@ -899,7 +894,6 @@ async function pollStatus(): Promise<void> {
 
 describe("Stream launch recovery", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -1189,7 +1183,6 @@ describe("Stream launch recovery", () => {
 
 describe("Stream join", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.joinSession.mockResolvedValue({ host: "http://box:3000/room/x" });
     mocks.query = { join: "1", container: "http://box:8000" };
   });
@@ -1229,7 +1222,6 @@ describe("Stream join", () => {
 
 describe("Stream state picker", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 

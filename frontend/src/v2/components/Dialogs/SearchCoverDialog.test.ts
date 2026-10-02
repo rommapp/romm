@@ -127,7 +127,6 @@ function gridThumbs(
 
 describe("SearchCoverDialog", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     searchRom.mockResolvedValue({ data: [] });
   });
 

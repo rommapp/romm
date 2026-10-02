@@ -1,6 +1,6 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Events } from "@/types/emitter";
 import ConfirmDialog from "./ConfirmDialog.vue";
 
@@ -51,10 +51,6 @@ function confirmButton(wrapper: VueWrapper) {
 }
 
 describe("ConfirmDialog typed confirmation", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("keeps the action disabled until the phrase is typed", async () => {
     const wrapper = await promptFor("Philips Videopac+");
     expect(confirmButton(wrapper).attributes("disabled")).toBeDefined();

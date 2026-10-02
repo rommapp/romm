@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import streamingApi from "@/services/api/streaming";
 
 const post = vi.hoisted(() => vi.fn());
@@ -13,11 +13,6 @@ describe("releaseSessionKeepalive", () => {
 
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    fetchMock.mockClear();
   });
 
   it("names the container and the claim where URLSearchParams has no size", async () => {
@@ -49,10 +44,6 @@ describe("saveAndExitKeepalive", () => {
 
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
-  });
-
-  afterEach(() => {
-    fetchMock.mockClear();
   });
 
   it("names the container and the claim it saves", async () => {

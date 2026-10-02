@@ -54,22 +54,13 @@ function feedback() {
 describe("installNativeLaunchFeedback", () => {
   beforeEach(() => {
     emit = null;
-    install.mockClear();
-    nameFor.mockClear();
     nameFor.mockImplementation(() => "Chrono Trigger");
-    consumeCancelled.mockClear();
-    success.mockClear();
-    error.mockClear();
-    warning.mockClear();
-    info.mockClear();
-    t.mockClear();
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
     wrapper?.unmount();
     wrapper = null;
-    vi.restoreAllMocks();
   });
 
   it("subscribes on install", () => {

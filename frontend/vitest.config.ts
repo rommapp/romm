@@ -26,8 +26,12 @@ export default defineConfig({
           environment: "happy-dom",
           globals: true,
           setupFiles: ["./vitest.setup.ts"],
-          // `vi.stubGlobal` stubs are undone before each test.
+          // Each test starts with fresh mock call history, original `vi.spyOn`
+          // targets, globals and env.
+          clearMocks: true,
+          restoreMocks: true,
           unstubGlobals: true,
+          unstubEnvs: true,
           include: ["src/**/*.{test,spec}.ts", "test/**/*.{test,spec}.ts"],
         },
       },

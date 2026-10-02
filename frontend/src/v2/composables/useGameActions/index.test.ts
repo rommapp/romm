@@ -161,11 +161,6 @@ function makeRom(status: SimpleRom["rom_user"]["status"] = null): SimpleRom {
 }
 
 beforeEach(() => {
-  push.mockClear();
-  confirmFn.mockClear();
-  startScan.mockClear();
-  snackbarInfo.mockClear();
-  snackbarError.mockClear();
   probeFormatDownload.mockReset();
   downloadRom.mockReset();
   clipboardCopy.mockReset();

@@ -33,10 +33,6 @@ describe("pendingAssetStore without IndexedDB", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   // A private window looks the same: the player must hear nothing was kept.
   it("says a write kept nothing rather than throwing", async () => {
     await expect(
@@ -232,8 +228,6 @@ describe("syncPendingAssets", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.restoreAllMocks();
     romApiMocks.getRom.mockReset();
     saveApiMocks.uploadSaves.mockReset();
     stateApiMocks.uploadStates.mockReset();

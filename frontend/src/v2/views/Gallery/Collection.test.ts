@@ -177,7 +177,6 @@ function runRouteGuards(name: string, collection: string) {
 
 describe("Collection view random rom", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     routeGuards.length = 0;
     routeState.name = "collection";
     routeState.params = { collection: "1" };
@@ -373,7 +372,6 @@ describe("Collection view random rom", () => {
 // Opens collection 1. `collection()` caches 9000 ROMs, so any other count came
 // from the server.
 function openCachedCollection() {
-  vi.clearAllMocks();
   routeGuards.length = 0;
   routeState.name = "collection";
   routeState.params = { collection: "1" };

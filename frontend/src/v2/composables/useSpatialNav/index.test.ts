@@ -112,7 +112,6 @@ describe("useSpatialNav", () => {
   }
 
   beforeEach(() => {
-    scrollIntoView.mockClear();
     stub("getBoundingClientRect", {
       value(this: HTMLElement) {
         if (this.dataset.x === undefined) return new DOMRect(0, 0, 0, 0);

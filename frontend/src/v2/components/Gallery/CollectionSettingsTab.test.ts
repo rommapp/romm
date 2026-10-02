@@ -57,7 +57,6 @@ function mountTab() {
 
 describe("CollectionSettingsTab visibility", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     storeAuth().setCurrentUser(
       userFixture({ id: 1, oauth_scopes: ["collections.write"] }),
     );

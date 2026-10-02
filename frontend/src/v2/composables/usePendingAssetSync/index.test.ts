@@ -93,10 +93,6 @@ describe("installPendingAssetSync", () => {
     isOffline.value = false;
     syncPendingAssets.mockReset();
     syncPendingAssets.mockImplementation(acceptAll);
-    refetchRom.mockClear();
-    success.mockClear();
-    error.mockClear();
-    warning.mockClear();
   });
 
   afterEach(() => {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useJoinStreamConfirm } from "./index";
 
 const push = vi.fn();
@@ -20,11 +20,6 @@ const target = {
 };
 
 describe("useJoinStreamConfirm", () => {
-  beforeEach(() => {
-    push.mockClear();
-    confirmFn.mockClear();
-  });
-
   it("does not navigate until the user confirms", async () => {
     confirmFn.mockResolvedValue(false);
     const { joinStream } = useJoinStreamConfirm();

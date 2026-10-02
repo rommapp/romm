@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import storeScanning from "@/stores/scanning";
 import { useScanTrigger } from "./index";
 
@@ -17,12 +17,6 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 describe("useScanTrigger", () => {
-  beforeEach(() => {
-    emit.mockClear();
-    connect.mockClear();
-    warning.mockClear();
-  });
-
   it("flips the store, connects and emits one event per payload", () => {
     const { startScan } = useScanTrigger();
 

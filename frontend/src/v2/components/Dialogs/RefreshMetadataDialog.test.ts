@@ -107,7 +107,6 @@ function scanButton(wrapper: Awaited<ReturnType<typeof openDialog>>) {
 
 describe("RefreshMetadataDialog", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     startScan.mockReturnValue(true);
     sources.value = [];
   });

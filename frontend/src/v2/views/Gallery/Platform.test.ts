@@ -203,7 +203,6 @@ async function mountView() {
 
 describe("Platform view random rom", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     routeState.name = "platform";
     routeState.path = "/platform/1";
     routeState.params = { platform: "1" };

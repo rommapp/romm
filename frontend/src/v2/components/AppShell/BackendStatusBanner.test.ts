@@ -44,8 +44,6 @@ describe("BackendStatusBanner", () => {
     vi.useFakeTimers();
     isOffline.value = false;
     isWebSocketDegraded.value = false;
-    retryNow.mockClear();
-    retryWebSocket.mockClear();
   });
 
   afterEach(() => {
