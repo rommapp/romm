@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { rom } from "@/v2/components/Gallery/listRowFixture";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -51,7 +50,6 @@ function lift(): PointerEvent {
 
 describe("useGallerySelectionInput long press", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.useFakeTimers();
   });
 

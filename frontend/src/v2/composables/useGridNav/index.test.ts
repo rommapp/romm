@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { useGridNav } from "./index";
@@ -54,7 +53,6 @@ describe("useGridNav roving", () => {
   let wrapper: ReturnType<typeof mount>;
 
   beforeEach(async () => {
-    setActivePinia(createPinia());
     wrapper = mount(Grid, { attachTo: document.body });
     await frame();
   });

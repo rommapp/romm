@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
@@ -72,7 +71,6 @@ describe("useWrapGridNav", () => {
   }
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     setModality("mouse");
     scrollIntoView.mockClear();
     stub("offsetParent", {

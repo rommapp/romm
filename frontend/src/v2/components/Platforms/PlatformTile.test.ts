@@ -1,6 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import PlatformTile from "./PlatformTile.vue";
 
@@ -26,10 +25,6 @@ vi.mock("@/v2/composables/usePlatformPlayable", () => ({
 }));
 
 describe("PlatformTile", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   // The class is the cell selector PlatformsIndex hands useWrapGridNav; losing
   // it takes arrow and gamepad navigation off the whole platforms grid.
   it("marks its root as a spatial-nav cell", () => {

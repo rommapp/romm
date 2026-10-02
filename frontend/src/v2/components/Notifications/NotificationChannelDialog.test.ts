@@ -1,6 +1,5 @@
 import { RCheckbox, RComboboxField, RSelect } from "@v2/lib";
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import type { NotificationChannelSchema } from "@/__generated__";
@@ -95,7 +94,6 @@ async function save(wrapper: Wrapper) {
 
 describe("NotificationChannelDialog", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
     api.getAppriseServices.mockResolvedValue({ data: [makeAppriseService()] });
   });

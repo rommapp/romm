@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { SimpleRom } from "@/stores/roms";
@@ -68,7 +67,6 @@ function mountSection() {
 
 describe("MissingGamesSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getRoms.mockReset();
     getRoms.mockResolvedValue({
       data: { total: 1, items: [], char_index: {}, rom_id_index: [] },

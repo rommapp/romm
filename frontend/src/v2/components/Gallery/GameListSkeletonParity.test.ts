@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import GameListRow from "./GameListRow.vue";
@@ -73,7 +72,6 @@ function mountHydratedRow() {
 
 describe("list-mode skeleton row", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     smAndDown.value = false;
   });
 

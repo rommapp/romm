@@ -1,5 +1,4 @@
 import { AxiosError } from "axios";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeAuth from "@/stores/auth";
 import storeCollections, {
@@ -45,7 +44,6 @@ function deferred() {
 
 describe("collections store virtual refresh", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getVirtualCollection.mockReset();
     getVirtualCollections.mockReset();
   });
@@ -128,7 +126,6 @@ function favoriteCollection(id: number, userId: number): Collection {
 
 describe("collections store favorites", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getCollections.mockReset();
     storeAuth().setCurrentUser(userFixture({ id: 7 }));
   });

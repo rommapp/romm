@@ -1,6 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -106,7 +105,6 @@ async function upload(target: DetailedRom): Promise<VueWrapper> {
 
 describe("ManualUploadTargetDialog", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
   });
 

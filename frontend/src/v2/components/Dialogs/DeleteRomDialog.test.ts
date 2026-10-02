@@ -1,6 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import storeRoms from "@/stores/roms";
@@ -88,7 +87,6 @@ async function deleteShownGame() {
 
 describe("DeleteRomDialog", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
     route.name = "rom";
     route.params = { rom: "5" };
@@ -126,7 +124,6 @@ describe("DeleteRomDialog", () => {
 
 describe("DeleteRomDialog with a large selection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
     deleteRoms.mockResolvedValue({
       data: { failed_ids: [], successful_items: 120 },

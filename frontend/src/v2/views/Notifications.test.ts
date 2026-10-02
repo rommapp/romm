@@ -1,6 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, reactive } from "vue";
 import storePermissions from "@/stores/permissions";
@@ -54,7 +53,6 @@ function signIn(isAdmin: boolean) {
 
 describe("Notifications view", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     route.query = {};
     replace.mockReset();
     replace.mockImplementation(

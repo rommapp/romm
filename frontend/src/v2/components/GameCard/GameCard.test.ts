@@ -1,6 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createMemoryHistory, createRouter, type Router } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -32,10 +31,6 @@ async function mountCard(romId: number, router: Router) {
     global: { plugins: [router] },
   });
 }
-
-beforeEach(() => {
-  setActivePinia(createPinia());
-});
 
 describe("GameCard selection", () => {
   it("navigates on a plain click when nothing is selected", async () => {

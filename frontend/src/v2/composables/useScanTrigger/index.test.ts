@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeScanning from "@/stores/scanning";
 import { useScanTrigger } from "./index";
@@ -21,7 +20,6 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 
 describe("useScanTrigger", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     emit.mockClear();
     connect.mockClear();
     warning.mockClear();

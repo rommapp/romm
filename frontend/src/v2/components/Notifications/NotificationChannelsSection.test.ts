@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { NotificationChannelSchema } from "@/__generated__";
@@ -50,7 +49,6 @@ function button(wrapper: Awaited<ReturnType<typeof mountWith>>, label: string) {
 
 describe("NotificationChannelsSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
   });
 

@@ -1,6 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import { createMemoryHistory, createRouter, type Router } from "vue-router";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
@@ -86,10 +85,6 @@ async function selectSubtab(subtab: string) {
 }
 
 describe("MediaTab PDF viewer ownership", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("lets only the visited PDF subtab mount a viewer", async () => {
     const wrapper = await mountTab();
     expect(pdfActive(wrapper)).toEqual({ manual: true, walkthrough: false });

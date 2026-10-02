@@ -1,6 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import storeCollections, {
@@ -151,7 +150,6 @@ function seed() {
 
 describe("CollectionsIndex", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     routeState.query = {};
     routerState.replace = vi.fn();
     searchState.term = "";

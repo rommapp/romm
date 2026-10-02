@@ -1,6 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import storeAuth from "@/stores/auth";
@@ -59,7 +58,6 @@ function signIn({
 
 describe("Logs view", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     route.query = {};
   });
 

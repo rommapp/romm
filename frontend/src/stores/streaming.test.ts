@@ -108,7 +108,6 @@ describe("joinable sessions", () => {
   }
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     listJoinableSessions.mockReset();
     listJoinableSessions.mockResolvedValue(sessions(7));
   });
@@ -165,7 +164,6 @@ describe("save-and-exit", () => {
     streamingApi.saveAndExitKeepalive as unknown as Mock;
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     saveAndExit.mockReset();
     saveAndExitKeepalive.mockReset();
   });

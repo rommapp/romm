@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeAuth from "@/stores/auth";
 import storeCollections from "@/stores/collections";
@@ -39,7 +38,6 @@ function seedGallery(rom: SimpleRom, position = 3) {
 
 describe("useRomSync", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getRoms.mockReset();
     getRom.mockReset();
     getRoms.mockResolvedValue({

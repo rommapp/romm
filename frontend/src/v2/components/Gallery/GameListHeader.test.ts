@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import GameListHeader from "./GameListHeader.vue";
@@ -30,7 +29,6 @@ function nameHeader(wrapper: ReturnType<typeof mountHeader>) {
 
 describe("GameListHeader", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     smAndDown.value = false;
   });
 

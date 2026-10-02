@@ -1,6 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { getCoverRatio, setCoverRatio, useGalleryCoverRatios } from "./index";
@@ -21,10 +20,6 @@ function withComposable<T>(fn: () => T): T {
 }
 
 describe("useGalleryCoverRatios", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("ratioAt maps position → rom id → measured ratio, else 0", () => {
     storeGalleryRoms().romIdIndex = [101, 102, 103];
     const { ratioAt, onCardRatio } = withComposable(() =>
