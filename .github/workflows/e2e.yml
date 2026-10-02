@@ -6,6 +6,7 @@ on:
       - "frontend/**"
       - "backend/**"
       - ".github/workflows/e2e.yml"
+      - ".github/actions/setup-frontend/**"
       - ".github/scripts/**"
       - pyproject.toml
       - uv.lock
@@ -17,6 +18,7 @@ on:
       - "frontend/**"
       - "backend/**"
       - ".github/workflows/e2e.yml"
+      - ".github/actions/setup-frontend/**"
       - ".github/scripts/**"
       - pyproject.toml
       - uv.lock

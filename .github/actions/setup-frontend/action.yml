@@ -10,7 +10,7 @@ runs:
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: frontend/node_modules
-        key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/.nvmrc', 'frontend/package-lock.json') }}
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/.nvmrc', 'frontend/.npmrc', 'frontend/package-lock.json') }}
 
     # npm's download cache only feeds npm ci, which a restored node_modules skips.
     - name: Set up Node.js

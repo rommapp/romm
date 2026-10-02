@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - ".github/actions/setup-frontend/**"
   push:
     branches:
       - "master"
     paths:
       - "frontend/**"
+      - ".github/actions/setup-frontend/**"
 
 # A new push cancels a PR's superseded run; each master commit keeps its own.
 concurrency:
