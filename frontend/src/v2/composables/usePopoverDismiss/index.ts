@@ -1,4 +1,5 @@
-import { onBeforeUnmount, type Ref, watch } from "vue";
+import { useEventListener } from "@vueuse/core";
+import type { Ref } from "vue";
 import { useEscapable } from "@/v2/composables/useEscapable";
 import { isInsideEscapableAbove } from "@/v2/lib/overlays/RDialog/escapeStack";
 
@@ -30,18 +31,10 @@ export function usePopoverDismiss(
     close();
   }
 
-  function detach() {
-    document.removeEventListener("pointerdown", onDocPointerDown, true);
-  }
-
-  watch(
-    isOpen,
-    (open) => {
-      if (open)
-        document.addEventListener("pointerdown", onDocPointerDown, true);
-      else detach();
-    },
-    { immediate: true },
+  useEventListener<"pointerdown", PointerEvent>(
+    () => (isOpen.value ? document : null),
+    "pointerdown",
+    onDocPointerDown,
+    { capture: true },
   );
-  onBeforeUnmount(detach);
 }
