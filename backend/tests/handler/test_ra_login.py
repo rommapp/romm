@@ -114,6 +114,25 @@ def test_clearing_nulls_the_column_and_keeps_ra_username(admin_user: User):
     assert recorded_events()[0].data == {}
 
 
+def test_clearing_keeps_a_login_stored_after_the_read(
+    admin_user: User, monkeypatch: pytest.MonkeyPatch
+):
+    """Another exit can store a fresh login between the read and the clear."""
+    store_ra_login(admin_user.id, "alice", TOKEN)
+    stale = _user(admin_user.id)
+    store_ra_login(admin_user.id, "alice", "fresh-token")
+    monkeypatch.setattr(db_user_handler, "get_user", lambda _id: stale)
+
+    assert clear_ra_login(admin_user.id) is False
+
+    monkeypatch.undo()
+    assert ra_login_for_activate(_user(admin_user.id)) == {
+        "username": "alice",
+        "token": "fresh-token",
+    }
+    assert "user.ra_login_clear" not in [e.action for e in recorded_events()]
+
+
 def test_clearing_nothing_records_nothing(admin_user: User):
     assert clear_ra_login(admin_user.id) is False
 

@@ -41,9 +41,11 @@ def clear_ra_login(user_id: int) -> bool:
     if user is None:
         log.warning("no user %s to clear a RetroAchievements login for", user_id)
         return False
-    if user.ra_login_sealed is None:
+    # Compare-and-clear, so a login another exit stored since the read survives.
+    if user.ra_login_sealed is None or not db_user_handler.clear_ra_login_sealed(
+        user_id, user.ra_login_sealed
+    ):
         return False
-    db_user_handler.update_user(user_id, {"ra_login_sealed": None})
     record(
         AuditAction.USER_RA_LOGIN_CLEAR,
         AuditActor.for_user(user),
