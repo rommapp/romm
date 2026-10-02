@@ -11,7 +11,8 @@
 // destinations: they live in the user menu's Library group, keeping the
 // primary nav focused on browsing destinations.
 import { RSliderBtnGroup, RImg } from "@v2/lib";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useWindowScroll } from "@vueuse/core";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
@@ -35,21 +36,10 @@ const { destinations: tabs, activeId: activeTab } = useNavDestinations();
 // (transitioning `backdrop-filter` directly kept the blur layer alive
 // and any hover repaint nearby would flash it).
 const { innerScrolled, innerGlass, handoff, threshold } = useNavGlass();
-const windowScrolled = ref(false);
-const scrolled = computed(() => windowScrolled.value || innerScrolled.value);
-
-function onScroll() {
-  windowScrolled.value = window.scrollY > threshold;
-}
-
-onMounted(() => {
-  window.addEventListener("scroll", onScroll, { passive: true });
-  onScroll();
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("scroll", onScroll);
-});
+const { y: windowScrollY } = useWindowScroll();
+const scrolled = computed(
+  () => windowScrollY.value > threshold || innerScrolled.value,
+);
 </script>
 
 <template>
