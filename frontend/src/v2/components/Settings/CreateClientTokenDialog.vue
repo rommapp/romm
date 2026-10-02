@@ -278,7 +278,6 @@ async function startPairing() {
   }
 }
 
-// Polls every third second of the countdown.
 async function pollPairStatus() {
   if (pairCountdown.value <= 0 || pairCountdown.value % 3 !== 0) return;
   try {

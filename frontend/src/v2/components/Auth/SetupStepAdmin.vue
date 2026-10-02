@@ -57,9 +57,6 @@ const repeatPasswordRules = computed(() => [
 ]);
 
 // ── Avatar picker ──────────────────────────────────────────────────
-//
-// An object URL is cheaper than a base64 reader; it's revoked whenever the
-// file changes or the step unmounts.
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const previewUrl = useObjectUrl(() => draft.value.avatar);
 

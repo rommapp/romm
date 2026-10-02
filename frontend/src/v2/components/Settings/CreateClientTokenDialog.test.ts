@@ -28,11 +28,15 @@ vi.mock("@/v2/composables/useClipboard", () => ({
   useClipboard: () => ({ copy: vi.fn() }),
 }));
 
-const token = {
+const token: ClientTokenSchema = {
   id: 5,
   name: "Deck",
   scopes: [],
-} as unknown as ClientTokenSchema;
+  expires_at: null,
+  last_used_at: null,
+  created_at: "2026-01-01T00:00:00Z",
+  user_id: 1,
+};
 
 async function openPairing(expiresIn: number) {
   pairToken.mockResolvedValue({
@@ -44,7 +48,7 @@ async function openPairing(expiresIn: number) {
       provide: { emitter },
       stubs: {
         RDialog: {
-          props: ["modelValue"],
+          props: { modelValue: { type: Boolean, default: false } },
           template:
             '<div v-if="modelValue"><slot name="content" /><slot name="footer" /></div>',
         },
