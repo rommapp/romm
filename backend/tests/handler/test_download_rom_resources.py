@@ -203,7 +203,9 @@ async def test_screenshots_are_redownloaded_when_their_order_changes(
         metadata_sources=[],
     )
 
-    assert resources.get_rom_screenshots.await_args.kwargs["overwrite"] is expected
+    screenshot_call = resources.get_rom_screenshots.await_args
+    assert screenshot_call is not None
+    assert screenshot_call.kwargs["overwrite"] is expected
 
 
 @pytest.mark.asyncio
