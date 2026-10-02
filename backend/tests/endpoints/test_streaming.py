@@ -17,10 +17,15 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from main import app
+from tests.audit_events import recorded_events
 from tests.factories import make_rom, make_save, make_screenshot, make_state
 from tests.streaming_stubs import exit_pulls_spawned_inline
 
-from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from config import (
+    LIBRARY_BASE_PATH,
+    OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
+    STREAMING_SAVE_TIMEOUT,
+)
 from endpoints import streaming
 from endpoints.responses.assets import StateSchema
 from endpoints.responses.streaming import ImportRefusalSchema
@@ -40,7 +45,7 @@ from handler.database import (
     db_user_handler,
 )
 from handler.database.base_handler import sync_session
-from handler.ra_login import store_ra_login
+from handler.ra_login import ra_login_for_activate, store_ra_login
 from handler.redis_handler import async_cache
 from handler.streaming import (
     access,
@@ -83,6 +88,7 @@ from handler.streaming.session_store import (
     StreamingSessionContended,
     release_own_session,
 )
+from logger.logger import log
 from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
 from models.notification import NotificationKind
 from models.permission import HiddenEntity, PermEntity
@@ -7016,6 +7022,393 @@ def test_an_abandoned_teardown_marks_its_save_pull_before_stopping_the_emulator(
         spawn.call_args[0][0].close()
     assert torn is True
     assert at_stop == [True]
+
+
+# ── RetroAchievements login collection ───────────────────────────────────────
+
+RA_TOKEN = "tok456secret"  # nosec B105
+
+
+def _collect_reply(
+    session_id: str, change: str, login: dict[str, str] | None
+) -> dict[str, Any]:
+    return {"session_id": session_id, "change": change, "retroachievements": login}
+
+
+def _stored_login(user_id: int) -> dict[str, str] | None:
+    user = db_user_handler.get_user(user_id)
+    assert user is not None
+    return ra_login_for_activate(user)
+
+
+def _release_with_collect(
+    client, token, rom: Rom, collect_result: Any, *, side_effect=None
+):
+    """Release a webstation game with exit stubbed and collect answering
+    `collect_result`; returns the collect mock."""
+    container = _webstation_for(rom)
+    with _streaming(container):
+        _claim_webstation_ok(client, token, rom.id)
+        with (
+            patch(
+                "handler.streaming.webstation.exit_session",
+                return_value={"state_saved": False},
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.broker.request_safe",
+                return_value=collect_result,
+                side_effect=side_effect,
+            ) as request_safe,
+        ):
+            response = client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}", headers=_auth(token)
+            )
+            assert response.status_code == 200, response.text
+            for spawned in (c.args[0] for c in spawn.call_args_list):
+                spawned.close()
+    return request_safe
+
+
+def _collect_calls(request_safe) -> list[Any]:
+    return [c for c in request_safe.call_args_list if c.args[2] == "ra login collect"]
+
+
+def test_a_released_session_collects_a_set_login_and_stores_it(
+    client, access_token, admin_user: User, rom: Rom
+):
+    container = _webstation_for(rom)
+    with _streaming(container):
+        _claim_webstation_ok(client, access_token, rom.id)
+        session = json.loads(_session_raw(container))
+    request_safe = _release_with_collect(
+        client,
+        access_token,
+        rom,
+        _collect_reply(
+            session["broker_session_id"],
+            "set",
+            {"username": "alice", "token": RA_TOKEN},
+        ),
+    )
+
+    [call] = _collect_calls(request_safe)
+    assert call.args[1].endswith("/api/session/retroachievements/collect")
+    assert call.kwargs["body"] == {"session_id": session["broker_session_id"]}
+    assert call.kwargs["timeout"] == STREAMING_SAVE_TIMEOUT
+    assert _stored_login(admin_user.id) == {"username": "alice", "token": RA_TOKEN}
+    [event] = [e for e in recorded_events() if e.action == "user.ra_login_set"]
+    assert event.target_id == str(admin_user.id)
+    assert event.data == {}
+
+
+def test_a_released_session_collects_a_cleared_login_and_drops_it(
+    client, access_token, admin_user: User, rom: Rom
+):
+    store_ra_login(admin_user.id, "alice", RA_TOKEN)
+    container = _webstation_for(rom)
+    with _streaming(container):
+        _claim_webstation_ok(client, access_token, rom.id)
+        session = json.loads(_session_raw(container))
+    _release_with_collect(
+        client,
+        access_token,
+        rom,
+        _collect_reply(session["broker_session_id"], "cleared", None),
+    )
+
+    assert _stored_login(admin_user.id) is None
+    assert db_user_handler.get_user(admin_user.id).ra_username == "alice"
+    assert [
+        e.action for e in recorded_events() if e.action.startswith("user.ra_login")
+    ] == [
+        "user.ra_login_clear",
+        "user.ra_login_set",
+    ]
+
+
+def test_collect_runs_after_the_exit_state_while_the_claim_is_held(
+    client, access_token, admin_user: User, rom: Rom
+):
+    order: list[Any] = []
+    container = _webstation_for(rom)
+
+    async def state(_container, _session, _state_slot):
+        order.append("state")
+
+    def collect(_container, _session):
+        order.append(("collect", _session_raw(container) is not None))
+
+    with _streaming(container):
+        _claim_webstation_ok(client, access_token, rom.id)
+        with (
+            patch(
+                "handler.streaming.webstation.exit_session",
+                return_value={"state_saved": False},
+            ),
+            patch("handler.streaming.lifecycle.collect_exit_state", new=state),
+            patch("handler.streaming.webstation.collect_ra_login", new=collect),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+            for spawned in (c.args[0] for c in spawn.call_args_list):
+                spawned.close()
+        assert _session_raw(container) is None
+
+    assert order == ["state", ("collect", True)]
+
+
+def test_an_abandoned_session_collects_the_login_too(
+    client, access_token, admin_user: User, rom: Rom
+):
+    container = _webstation_for(rom)
+    with _streaming(container):
+        _claim_webstation_ok(client, access_token, rom.id)
+        _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
+        session = json.loads(_session_raw(container))
+        reply = _collect_reply(
+            session["broker_session_id"],
+            "set",
+            {"username": "alice", "token": RA_TOKEN},
+        )
+        with (
+            patch(
+                "handler.streaming.lifecycle.quiesce_container",
+                new=AsyncMock(return_value=commands.StopOutcome()),
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.broker.request_safe", return_value=reply
+            ) as request_safe,
+        ):
+            torn = asyncio.run(
+                lifecycle.teardown_abandoned_session(
+                    _resolved(container),
+                    _key_of(container),
+                    session,
+                    claimed_by=admin_user.id,
+                )
+            )
+        for spawned in (c.args[0] for c in spawn.call_args_list):
+            spawned.close()
+
+    assert torn is True
+    assert len(_collect_calls(request_safe)) == 1
+    assert _stored_login(admin_user.id) == {"username": "alice", "token": RA_TOKEN}
+
+
+def test_a_204_from_collect_changes_nothing(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """`broker.request` answers an empty body with {}."""
+    store_ra_login(admin_user.id, "alice", RA_TOKEN)
+    _release_with_collect(client, access_token, rom, {})
+
+    assert _stored_login(admin_user.id) == {"username": "alice", "token": RA_TOKEN}
+    assert [
+        e.action for e in recorded_events() if e.action.startswith("user.ra_login")
+    ] == ["user.ra_login_set"]
+
+
+def test_a_collect_reply_for_another_session_is_discarded(
+    client, access_token, admin_user: User, rom: Rom, caplog
+):
+    reply = _collect_reply(
+        "someone-elses", "set", {"username": "mallory", "token": RA_TOKEN}
+    )
+
+    _warnings_of(
+        caplog, lambda: _release_with_collect(client, access_token, rom, reply)
+    )
+
+    assert _stored_login(admin_user.id) is None
+    assert "someone-elses" in caplog.text
+    assert RA_TOKEN not in caplog.text
+    assert "mallory" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        {"session_id": "{sid}", "change": "set", "retroachievements": None},
+        {
+            "session_id": "{sid}",
+            "change": "set",
+            "retroachievements": {"username": "", "token": RA_TOKEN},
+        },
+        {
+            "session_id": "{sid}",
+            "change": "set",
+            "retroachievements": {"username": "alice"},
+        },
+        {"session_id": "{sid}", "change": "rotated", "retroachievements": None},
+        {
+            "session_id": "{sid}",
+            "change": "set",
+            "retroachievements": "alice:" + RA_TOKEN,
+        },
+        ["not", "a", "dict"],
+    ],
+)
+def test_a_malformed_collect_reply_changes_nothing(
+    client, access_token, admin_user: User, rom: Rom, caplog, reply
+):
+    container = _webstation_for(rom)
+    with _streaming(container):
+        _claim_webstation_ok(client, access_token, rom.id)
+        sid = json.loads(_session_raw(container))["broker_session_id"]
+    if isinstance(reply, dict):
+        reply = {**reply, "session_id": sid}
+
+    _warnings_of(
+        caplog, lambda: _release_with_collect(client, access_token, rom, reply)
+    )
+
+    assert _stored_login(admin_user.id) is None
+    assert "ra login" in caplog.text
+    assert RA_TOKEN not in caplog.text
+    assert recorded_events() == [
+        e for e in recorded_events() if not e.action.startswith("user.ra_login")
+    ]
+
+
+@pytest.mark.parametrize("code", [409, 500])
+def test_a_collect_the_broker_refuses_is_logged_and_the_teardown_still_completes(
+    client, access_token, admin_user: User, rom: Rom, caplog, code
+):
+    """request_safe already turns the HTTPError into a warning and None."""
+    container = _webstation_for(rom)
+
+    def refuse(_container, path, label, **_kwargs):
+        if label == "ra login collect":
+            log.warning("broker %s failed, HTTP Error %d: err", label, code)
+            return None
+        return {}
+
+    _warnings_of(
+        caplog,
+        lambda: _release_with_collect(
+            client, access_token, rom, None, side_effect=refuse
+        ),
+    )
+
+    with _streaming(container):
+        assert _session_raw(container) is None
+    assert f"HTTP Error {code}" in caplog.text
+    assert _stored_login(admin_user.id) is None
+
+
+def test_a_collect_that_times_out_is_logged_and_the_teardown_still_completes(
+    client, access_token, admin_user: User, rom: Rom, caplog
+):
+    container = _webstation_for(rom)
+
+    def slow(_container, path, label, **_kwargs):
+        if label == "ra login collect":
+            log.warning("broker %s failed, timed out", label)
+            return None
+        return {}
+
+    _warnings_of(
+        caplog,
+        lambda: _release_with_collect(
+            client, access_token, rom, None, side_effect=slow
+        ),
+    )
+
+    with _streaming(container):
+        assert _session_raw(container) is None
+    assert "ra login collect failed" in caplog.text
+
+
+def test_collect_is_skipped_for_a_desktop_or_an_ownerless_session(rom: Rom):
+    container = _resolved(_webstation_for(rom))
+    with patch("handler.streaming.broker.request_safe") as request_safe:
+        webstation.collect_ra_login(
+            container, {"broker_session_id": "abc", "user_id": 1, "desktop": True}
+        )
+        webstation.collect_ra_login(
+            container, {"broker_session_id": "abc", "user_id": "1"}
+        )
+        webstation.collect_ra_login(container, {"broker_session_id": "abc"})
+        webstation.collect_ra_login(container, {"user_id": 1})
+    request_safe.assert_not_called()
+
+
+def test_collect_never_raises_out_of_teardown(rom: Rom, caplog):
+    container = _resolved(_webstation_for(rom))
+    with patch("handler.ra_login.store_ra_login", side_effect=RuntimeError("db gone")):
+        with patch(
+            "handler.streaming.broker.request_safe",
+            return_value=_collect_reply(
+                "abc", "set", {"username": "alice", "token": RA_TOKEN}
+            ),
+        ):
+            _warnings_of(
+                caplog,
+                lambda: webstation.collect_ra_login(
+                    container, {"broker_session_id": "abc", "user_id": 1}
+                ),
+            )
+    assert "ra login" in caplog.text
+    assert RA_TOKEN not in caplog.text
+
+
+def test_the_ra_token_never_leaves_through_logs_audit_or_responses(
+    client, access_token, admin_user: User, rom: Rom, caplog
+):
+    """Sentinel sweep over the whole round trip: activate, release, collect."""
+    container = _webstation_for(rom)
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.DEBUG, logger="romm"):
+            with _streaming(container):
+                _claim_webstation_ok(client, access_token, rom.id)
+                sid = json.loads(_session_raw(container))["broker_session_id"]
+            _release_with_collect(
+                client,
+                access_token,
+                rom,
+                _collect_reply(sid, "set", {"username": "alice", "token": RA_TOKEN}),
+            )
+            with _streaming(container):
+                body = _activate_body(client, access_token, rom)
+            me = client.get("/api/users/me", headers=_auth(access_token))
+            events = client.get("/api/audit-events", headers=_auth(access_token))
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+
+    assert body["retroachievements"]["token"] == RA_TOKEN
+    assert RA_TOKEN not in caplog.text
+    assert RA_TOKEN not in me.text
+    assert events.status_code == 200
+    assert RA_TOKEN not in events.text
+    for event in recorded_events():
+        assert RA_TOKEN not in str(event.data)
+
+
+def test_a_mod_container_is_never_asked_to_collect(
+    client, access_token, admin_user: User, rom: Rom
+):
+    with _streaming(_container_for(rom)):
+        _claim_ok(client, access_token, rom.id)
+        with (
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.broker.request_safe", return_value={}
+            ) as request_safe,
+        ):
+            client.delete(
+                f"/api/streaming/sessions/{rom.platform_slug}",
+                headers=_auth(access_token),
+            )
+            for spawned in (c.args[0] for c in spawn.call_args_list):
+                spawned.close()
+    assert _collect_calls(request_safe) == []
 
 
 def test_a_release_that_fails_before_its_pull_leaves_nothing_pending(

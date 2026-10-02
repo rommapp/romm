@@ -32,10 +32,11 @@ from urllib.parse import quote, urlencode
 from fastapi import HTTPException
 
 from config import STREAMING_LAUNCH_TIMEOUT, STREAMING_SAVE_TIMEOUT
-from handler.ra_login import ra_login_for_activate
+from handler.ra_login import clear_ra_login, ra_login_for_activate, store_ra_login
 from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.protocol import ACK_TIMEOUT, WebstationProtocol
+from handler.streaming.session_store import broker_session_id, session_is_desktop
 from logger.logger import log
 from models.user import User
 
@@ -365,6 +366,83 @@ def exit_session(
         timeout=STREAMING_SAVE_TIMEOUT,
     )
     return body if isinstance(body, dict) else None
+
+
+def collect_ra_login(container: ResolvedContainer, session: dict[str, Any]) -> None:
+    """POST /retroachievements/collect: file the login change the session ended with.
+
+    Runs while the claim still holds the container: the broker drops the
+    change at its next activate, and releasing the claim is what allows one.
+    Best-effort like exit_session; nothing here raises out of a teardown. The
+    token is only ever in the reply and the sealed column, never in a log.
+    """
+    session_id = broker_session_id(session)
+    user_id = session.get("user_id")
+    if (
+        session_is_desktop(session)
+        or session_id is None
+        or not isinstance(user_id, int)
+    ):
+        return
+    try:
+        reply = broker.request_safe(
+            container,
+            container.protocol.session_route("/retroachievements/collect"),
+            "ra login collect",
+            body={"session_id": session_id},
+            timeout=STREAMING_SAVE_TIMEOUT,
+        )
+        if reply is None:
+            # request_safe logged the failure, status code included.
+            return
+        if reply == {}:
+            # The 204: nothing pending.
+            return
+        if not isinstance(reply, dict) or "change" not in reply:
+            log.warning(
+                "session %s: ra login collect answered something unexpected", session_id
+            )
+            return
+        if reply.get("session_id") != session_id:
+            log.warning(
+                "session %s: ra login collect answered for session %s, discarded",
+                session_id,
+                reply.get("session_id"),
+            )
+            return
+        change = reply.get("change")
+        login = reply.get("retroachievements")
+        if change == "set":
+            username = login.get("username") if isinstance(login, dict) else None
+            token = login.get("token") if isinstance(login, dict) else None
+            if not (
+                isinstance(username, str)
+                and username
+                and isinstance(token, str)
+                and token
+            ):
+                log.warning(
+                    "session %s: ra login collect answered a set change without a login",
+                    session_id,
+                )
+                return
+            filed = store_ra_login(user_id, username, token)
+        elif change == "cleared":
+            filed = clear_ra_login(user_id)
+        else:
+            log.warning(
+                "session %s: ra login collect answered an unknown change", session_id
+            )
+            return
+        if filed:
+            log.info(
+                "session %s: ra login %s collected for user %s",
+                session_id,
+                change,
+                user_id,
+            )
+    except Exception:  # noqa: BLE001 - a teardown finishes whatever this did
+        log.warning("session %s: ra login collect failed", session_id, exc_info=False)
 
 
 def upload_archive(
