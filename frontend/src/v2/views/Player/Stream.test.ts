@@ -1,7 +1,7 @@
 import { RBtn } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, type Slots, type VNodeChild } from "vue";
+import { defineComponent, nextTick, type Slots, type VNodeChild } from "vue";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   saveAndExitKeepalive: vi.fn(),
   loadState: vi.fn(),
   saveState: vi.fn(),
+  setVolume: vi.fn(),
   container: null as Record<string, unknown> | null,
   capabilities: {} as Record<string, unknown>,
   presenceTick: null as (() => Promise<void>) | null,
@@ -56,6 +57,7 @@ vi.mock("@/services/api/streaming", () => ({
   default: {
     loadState: mocks.loadState,
     saveState: mocks.saveState,
+    setVolume: mocks.setVolume,
   },
   isMemoryCardImportDetail: () => false,
 }));
@@ -187,6 +189,8 @@ const StreamStageStub = exposingStub(
     enterFullscreen: () => Promise.resolve(),
     leaveFullscreen: () => Promise.resolve(),
     focusStream: () => {},
+    // Declines, as a cross-origin container does, so volume goes to the broker.
+    postToStream: () => false,
   },
   (slots) => slots.bar?.({ isFullscreen: false, toggleFullscreen: () => {} }),
 );
@@ -1283,5 +1287,42 @@ describe("Stream state picker", () => {
     });
 
     expect(pickableStateIds(wrapper)).toEqual([5, 8]);
+  });
+});
+
+describe("Stream volume over the broker", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    mocks.setVolume.mockResolvedValue({});
+  });
+
+  async function slide(wrapper: VueWrapper, ...levels: number[]) {
+    const vm = wrapper.vm as unknown as { volume: number };
+    for (const level of levels) {
+      vm.volume = level;
+      await nextTick();
+    }
+  }
+
+  it("hands the broker a volume only once it settles", async () => {
+    const wrapper = await launch({ picker: false });
+
+    await slide(wrapper, 40, 30);
+    await vi.advanceTimersByTimeAsync(149);
+    expect(mocks.setVolume).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocks.setVolume).toHaveBeenCalledOnce();
+    expect(mocks.setVolume.mock.calls[0][1]).toBe(30);
+  });
+
+  it("drops a volume still settling when the view unmounts", async () => {
+    const wrapper = await launch({ picker: false });
+
+    await slide(wrapper, 40);
+    wrapper.unmount();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(mocks.setVolume).not.toHaveBeenCalled();
   });
 });

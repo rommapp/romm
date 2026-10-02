@@ -9,7 +9,6 @@
 // history feed updates in real time. Manual + scheduled tasks expose a
 // run button that posts to /tasks/{name}/run.
 import { RBtn, RIcon, RSpinner } from "@v2/lib";
-import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -21,6 +20,7 @@ import { TaskStatusItem, type TaskStatusResponse } from "@/utils/tasks";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useVisiblePoll } from "@/v2/composables/useVisiblePoll";
 
 defineOptions({ inheritAttrs: false });
 
@@ -122,15 +122,7 @@ onMounted(() => {
   void fetchTaskStatus();
 });
 
-// Nobody sees a backgrounded tab's statuses, so it skips the poll and
-// catches up when it becomes visible again.
-useIntervalFn(() => {
-  if (!document.hidden) void fetchTaskStatus();
-}, 5000);
-
-useEventListener(document, "visibilitychange", () => {
-  if (!document.hidden) void fetchTaskStatus();
-});
+useVisiblePoll(() => void fetchTaskStatus(), 5000);
 
 function statusInfo(task: TaskStatusResponse) {
   return TaskStatusItem[task.status] ?? TaskStatusItem.queued;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useEventListener } from "@vueuse/core";
+import { useEventListener, useTimeoutFn } from "@vueuse/core";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
 
@@ -56,17 +56,21 @@ const sameOrigin = ref(false);
 // The origin a room page announced from, empty until it does.
 const roomOrigin = ref("");
 
-let uiTimeout: ReturnType<typeof setTimeout> | null = null;
 let attachTimeouts: ReturnType<typeof setTimeout>[] = [];
 let frameCleanups: (() => void)[] = [];
 
-function showUI(): void {
-  isUIVisible.value = true;
-  if (uiTimeout) clearTimeout(uiTimeout);
-  uiTimeout = setTimeout(() => {
+const { start: scheduleHideUI } = useTimeoutFn(
+  () => {
     isUIVisible.value = false;
     reclaimStreamFocus();
-  }, 2500);
+  },
+  2500,
+  { immediate: false },
+);
+
+function showUI(): void {
+  isUIVisible.value = true;
+  scheduleHideUI();
 }
 
 // Browsers only deliver gamepad input to the focused frame, so the Selkies
@@ -274,7 +278,6 @@ useEventListener(window, "resize", resetStageTop);
 useEventListener(window, "message", onFrameAnnounce);
 
 onBeforeUnmount(() => {
-  if (uiTimeout) clearTimeout(uiTimeout);
   clearAttachTimeouts();
   detachFrameListeners();
 });

@@ -37,14 +37,8 @@ import {
   useFloating,
 } from "@floating-ui/vue";
 import type { Placement } from "@floating-ui/vue";
-import {
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  useSlots,
-  watch,
-} from "vue";
+import { useEventListener, useTimeoutFn } from "@vueuse/core";
+import { computed, onBeforeUnmount, ref, useSlots } from "vue";
 import {
   isUnderOpenEscapable,
   onEscapableOpen,
@@ -161,38 +155,30 @@ function setOpen(v: boolean) {
 }
 
 // Cancellable timers so hover-flicker doesn't open/close repeatedly.
-let openTimer: number | null = null;
-let closeTimer: number | null = null;
+const openDelayMs = computed(() => Number(props.openDelay) || 0);
+const closeDelayMs = computed(() => Number(props.closeDelay) || 0);
+const openTimer = useTimeoutFn(() => setOpen(true), openDelayMs, {
+  immediate: false,
+});
+const closeTimer = useTimeoutFn(() => setOpen(false), closeDelayMs, {
+  immediate: false,
+});
 function clearTimers() {
-  if (openTimer !== null) {
-    clearTimeout(openTimer);
-    openTimer = null;
-  }
-  if (closeTimer !== null) {
-    clearTimeout(closeTimer);
-    closeTimer = null;
-  }
+  openTimer.stop();
+  closeTimer.stop();
 }
 function show() {
   if (props.disabled || !hasContent.value) return;
   // A tip whose activator the overlay covers would paint on top of it.
   if (isUnderOpenEscapable(activatorEl())) return;
   clearTimers();
-  const d = Number(props.openDelay) || 0;
-  if (d <= 0) {
-    setOpen(true);
-  } else {
-    openTimer = window.setTimeout(() => setOpen(true), d);
-  }
+  if (openDelayMs.value <= 0) setOpen(true);
+  else openTimer.start();
 }
 function hide() {
   clearTimers();
-  const d = Number(props.closeDelay) || 0;
-  if (d <= 0) {
-    setOpen(false);
-  } else {
-    closeTimer = window.setTimeout(() => setOpen(false), d);
-  }
+  if (closeDelayMs.value <= 0) setOpen(false);
+  else closeTimer.start();
 }
 
 const hasContent = computed(
@@ -328,60 +314,30 @@ const activatorProps = computed(() => ({
 // close on the next pointer-down outside the activator / body. Registered
 // only while open in `openOnTap` mode; the opening tap's own pointer-down
 // has already fired, so this never self-closes.
-let outsideCloseHandler: ((e: Event) => void) | null = null;
-function teardownOutsideClose() {
-  if (!outsideCloseHandler) return;
-  document.removeEventListener("pointerdown", outsideCloseHandler, true);
-  outsideCloseHandler = null;
-}
-watch(isOpen, (open) => {
-  if (open && props.openOnTap) {
-    if (outsideCloseHandler) return;
-    outsideCloseHandler = (e: Event) => {
-      const target = e.target as Node | null;
-      if (!target) return;
-      if (reference.value?.contains(target)) return;
-      if (floating.value?.contains(target)) return;
-      hide();
-    };
-    document.addEventListener("pointerdown", outsideCloseHandler, true);
-  } else {
-    teardownOutsideClose();
-  }
-});
+useEventListener(
+  () => (isOpen.value && props.openOnTap ? document : null),
+  "pointerdown",
+  (e: PointerEvent) => {
+    const target = e.target as Node | null;
+    if (!target) return;
+    if (reference.value?.contains(target)) return;
+    if (floating.value?.contains(target)) return;
+    hide();
+  },
+  true,
+);
 
-// For the parent-attach pattern we sit silently in the parent's DOM
-// and register listeners on `$el.parentElement` at mount. We deliberately
-// use a comment node as `$el` so the tooltip itself doesn't take up
-// flow space inside the parent.
-function attachToParent() {
-  if (props.activator !== "parent") return;
-  const parent = root.value?.parentElement;
-  if (!parent) return;
-  parent.addEventListener(
-    "pointerdown",
-    onActivatorPointerDown as EventListener,
-  );
-  parent.addEventListener("pointerenter", onPointerEnter as EventListener);
-  parent.addEventListener("pointerleave", onPointerLeave as EventListener);
-  parent.addEventListener("focusin", onFocusReveal as EventListener);
-  parent.addEventListener("focusout", hide);
-  parent.addEventListener("click", onActivatorClick);
-}
-function detachFromParent() {
-  if (props.activator !== "parent") return;
-  const parent = root.value?.parentElement;
-  if (!parent) return;
-  parent.removeEventListener(
-    "pointerdown",
-    onActivatorPointerDown as EventListener,
-  );
-  parent.removeEventListener("pointerenter", onPointerEnter as EventListener);
-  parent.removeEventListener("pointerleave", onPointerLeave as EventListener);
-  parent.removeEventListener("focusin", onFocusReveal as EventListener);
-  parent.removeEventListener("focusout", hide);
-  parent.removeEventListener("click", onActivatorClick);
-}
+// For the parent-attach pattern we sit silently in the parent's DOM and
+// listen on the anchor span's parent, so the tooltip itself takes up no
+// flow space inside it.
+const parentEl = () =>
+  props.activator === "parent" ? (root.value?.parentElement ?? null) : null;
+useEventListener(parentEl, "pointerdown", onActivatorPointerDown);
+useEventListener(parentEl, "pointerenter", onPointerEnter);
+useEventListener(parentEl, "pointerleave", onPointerLeave);
+useEventListener(parentEl, "focusin", onFocusReveal);
+useEventListener(parentEl, "focusout", hide);
+useEventListener(parentEl, "click", onActivatorClick);
 
 // A tip paints above every overlay in the z-index ladder, so an overlay
 // opening dismisses it outright, ignoring `closeDelay`.
@@ -390,13 +346,7 @@ const unsubscribeOverlayDismiss = onEscapableOpen(() => {
   if (isOpen.value) setOpen(false);
 });
 
-onMounted(attachToParent);
-onBeforeUnmount(() => {
-  detachFromParent();
-  clearTimers();
-  teardownOutsideClose();
-  unsubscribeOverlayDismiss();
-});
+onBeforeUnmount(unsubscribeOverlayDismiss);
 
 // Side bucket: used by the open animation to grow the tooltip out of
 // the activator (transform-origin + a tiny "from" translate from that
