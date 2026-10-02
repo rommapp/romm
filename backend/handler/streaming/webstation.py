@@ -199,6 +199,19 @@ def default_core(container: ResolvedContainer) -> str | None:
     return core
 
 
+def _with_ra_login(body: dict[str, Any], user: User) -> dict[str, Any]:
+    """`body` plus the user's stored login when it activates a game.
+
+    Every game session gets it, whatever the emulator: the broker pins it where
+    it can and ignores it elsewhere. Kept out of `user`, which the broker's
+    status route echoes, and out of activate's locals, which a traceback keeps.
+    """
+    if "rom" not in body:
+        return body
+    login = ra_login_for_activate(user)
+    return body if login is None else {**body, "retroachievements": login}
+
+
 def activate(
     container: ResolvedContainer,
     *,
@@ -237,12 +250,6 @@ def activate(
         body["rom"] = {**rom, "core": core} if core else rom
         if core and container.experimental_cores:
             body["rom"]["experimental_cores"] = True
-        # Every game session, whatever the emulator: the broker pins it where
-        # it can and ignores it elsewhere. Out of `user`, which the broker's
-        # status route echoes.
-        login = ra_login_for_activate(user)
-        if login is not None:
-            body["retroachievements"] = login
     if gui_language:
         # Describes the player, not the rom, so it goes alongside `rom` rather
         # than inside it and is sent for a romless launch too.
@@ -260,20 +267,38 @@ def activate(
         body["save"] = save
 
     path = container.protocol.session_route("/activate")
+    failure: Exception | None = None
     try:
         resp = broker.request(
-            container, path, body=body, timeout=STREAMING_LAUNCH_TIMEOUT
+            container,
+            path,
+            body=_with_ra_login(body, user),
+            timeout=STREAMING_LAUNCH_TIMEOUT,
         )
     except urllib.error.HTTPError as exc:
-        broker.raise_http_error(exc)
+        failure = broker.http_error(exc)
     except (urllib.error.URLError, OSError) as exc:
-        broker.raise_unreachable(
+        failure = broker.unreachable_error(
             exc,
             "the webstation broker",
             broker.broker_url(container, path),
             "Check that the container is running and its broker port is "
             "reachable from the RomM host.",
         )
+    except HTTPException as exc:
+        failure = HTTPException(
+            status_code=exc.status_code, detail=exc.detail, headers=exc.headers
+        )
+    except Exception as exc:  # noqa: BLE001 - a non-JSON or oversized reply
+        log.error("webstation broker activate failed, %s", type(exc).__name__)
+        failure = HTTPException(
+            status_code=502,
+            detail="The webstation broker answered activate with an unreadable reply.",
+        )
+    if failure is not None:
+        # Raised fresh, outside the handler: the request's frames hold the
+        # login, and Sentry reads the locals of every frame in the chain.
+        raise failure from None
 
     resp = resp if isinstance(resp, dict) else {}
     log.info("broker activated session, %s", resp)

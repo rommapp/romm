@@ -324,6 +324,11 @@ def _str_or_none(value: Any) -> str | None:
 def raise_http_error(exc: urllib.error.HTTPError) -> NoReturn:
     """Translate a broker error response into the 502 the frontend parses, or
     an ImportRefusedError when the broker refused a declared import."""
+    raise http_error(exc) from exc
+
+
+def http_error(exc: urllib.error.HTTPError) -> HTTPException | ImportRefusedError:
+    """What raise_http_error raises, for a caller that must not chain to `exc`."""
     error_body = broker_error_body(exc)
     log.error(
         "broker HTTP error %d: %s", exc.code, error_body[:_BROKER_ERROR_SHOWN_CHARS]
@@ -354,18 +359,25 @@ def raise_http_error(exc: urllib.error.HTTPError) -> NoReturn:
         ]
         truncated_raw = refusal.get("truncated", 0)
         truncated = truncated_raw if isinstance(truncated_raw, int) else 0
-        raise ImportRefusedError(refusals, truncated) from exc
-    raise HTTPException(
+        return ImportRefusedError(refusals, truncated)
+    return HTTPException(
         status_code=502,
         detail=f"Broker returned {exc.code}: {str(detail)[:_BROKER_ERROR_SHOWN_CHARS]}",
-    ) from exc
+    )
 
 
 def raise_unreachable(
     exc: BaseException, subject: str, url: str, hint: str
 ) -> NoReturn:
     """Translate a transport failure into a 503 naming what to check."""
+    raise unreachable_error(exc, subject, url, hint) from exc
+
+
+def unreachable_error(
+    exc: BaseException, subject: str, url: str, hint: str
+) -> HTTPException:
+    """What raise_unreachable raises, for a caller that must not chain to `exc`."""
     log.error("broker unreachable at %s: %s", url, exc)
-    raise HTTPException(
+    return HTTPException(
         status_code=503, detail=f"Could not reach {subject} at {url}. {hint}"
-    ) from exc
+    )

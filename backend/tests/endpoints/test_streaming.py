@@ -1,10 +1,12 @@
 import asyncio
+import http.client
 import io
 import json
 import logging
 import re
 import threading
 import time
+import urllib.error
 import zipfile
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -10908,6 +10910,150 @@ def test_activate_logs_the_broker_reply_and_never_the_login(
         romm_logger.removeHandler(caplog.handler)
 
     assert "tok456secret" not in caplog.text
+
+
+def _holds(value: Any, secret: str, depth: int = 0) -> bool:
+    """Whether `value`, walked the way Sentry serializes a frame's locals,
+    shows `secret`: containers are entered, anything else is its repr."""
+    if isinstance(value, str):
+        return secret in value
+    if isinstance(value, bytes | bytearray):
+        return secret.encode() in value
+    if depth < 8 and isinstance(value, dict):
+        return any(
+            _holds(k, secret, depth + 1) or _holds(v, secret, depth + 1)
+            for k, v in value.items()
+        )
+    if depth < 8 and isinstance(value, list | tuple | set | frozenset):
+        return any(_holds(v, secret, depth + 1) for v in value)
+    return secret in repr(value)
+
+
+def _leaks_through(exc: BaseException, secret: str) -> list[str]:
+    """Every place along `exc`'s chain and tracebacks that shows `secret`."""
+    leaks: list[str] = []
+    pending: list[BaseException] = [exc]
+    seen: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if _holds(
+            [current.args, str(current), getattr(current, "detail", None)], secret
+        ):
+            leaks.append(f"{type(current).__name__} itself")
+        tb = current.__traceback__
+        while tb is not None:
+            frame = tb.tb_frame
+            if _holds(dict(frame.f_locals), secret):
+                leaks.append(f"{frame.f_code.co_name} locals")
+            tb = tb.tb_next
+        if current.__cause__ is not None:
+            pending.append(current.__cause__)
+        if current.__context__ is not None and not current.__suppress_context__:
+            pending.append(current.__context__)
+    return leaks
+
+
+def _activate_failure(container: ResolvedContainer, user_id: int) -> BaseException:
+    """Run activate for a user with a stored login; return what it raised."""
+    user = db_user_handler.get_user(user_id)
+    assert user is not None
+    try:
+        webstation.activate(
+            container,
+            session_id="s",
+            user=user,
+            emulator="retroarch",
+            rom={"id": 1, "name": "Game", "platform": "snes"},
+        )
+    except BaseException as exc:  # noqa: BLE001 - the test inspects any of them
+        return exc
+    raise AssertionError("activate did not fail")
+
+
+def _unreadable_reply() -> MagicMock:
+    response = MagicMock()
+    response.__enter__.return_value.read.side_effect = [b"<html>oops</html>", b""]
+    return response
+
+
+def _broker_http_error() -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        "http://broker/activate",
+        500,
+        "err",
+        http.client.HTTPMessage(),
+        io.BytesIO(b'{"detail": "boom"}'),
+    )
+
+
+@pytest.mark.parametrize(
+    ("transport", "status"),
+    [
+        pytest.param({"return_value": _unreadable_reply()}, 502, id="not-json"),
+        pytest.param({"side_effect": _broker_http_error}, 502, id="http-error"),
+        pytest.param(
+            {"side_effect": urllib.error.URLError("refused")}, 503, id="url-error"
+        ),
+        pytest.param(
+            {"side_effect": http.client.BadStatusLine("garbage")},
+            502,
+            id="http-client",
+        ),
+        pytest.param({"side_effect": RuntimeError("bug")}, 502, id="unexpected"),
+    ],
+)
+def test_a_failed_activate_carries_no_ra_token_anywhere(
+    admin_user: User, transport: dict[str, Any], status: int
+):
+    """Sentry records every frame's locals and the whole exception chain, so
+    nothing raised out of activate may reach the request it sent."""
+    store_ra_login(admin_user.id, "alice", RA_TOKEN)
+    effect = transport.get("side_effect")
+    if callable(effect) and not isinstance(effect, BaseException):
+        transport = {"side_effect": effect()}
+
+    with patch("handler.streaming.broker.urllib.request.urlopen", **transport):
+        exc = _activate_failure(_snes("retroarch"), admin_user.id)
+
+    assert isinstance(exc, HTTPException)
+    assert exc.status_code == status
+    assert _leaks_through(exc, RA_TOKEN) == []
+
+
+def test_a_wrong_core_activate_carries_no_ra_token_anywhere(admin_user: User):
+    store_ra_login(admin_user.id, "alice", RA_TOKEN)
+
+    with (
+        patch("handler.streaming.broker.request", return_value={"url": "/room/x"}),
+        patch(
+            "handler.streaming.webstation.exit_session",
+            return_value={"state_saved": False},
+        ),
+    ):
+        exc = _activate_failure(_snes("retroarch:bsnes"), admin_user.id)
+
+    assert isinstance(exc, HTTPException)
+    assert exc.status_code == 502
+    assert _leaks_through(exc, RA_TOKEN) == []
+
+
+def test_an_activate_that_fails_after_sending_still_sent_the_login(
+    admin_user: User,
+):
+    store_ra_login(admin_user.id, "alice", RA_TOKEN)
+
+    with patch(
+        "handler.streaming.broker.request", side_effect=ValueError("not json")
+    ) as request:
+        _activate_failure(_snes("retroarch"), admin_user.id)
+
+    assert request.call_args.kwargs["body"]["retroachievements"] == {
+        "username": "alice",
+        "token": RA_TOKEN,
+    }
 
 
 def test_the_rom_language_is_reduced_to_an_iso_code(client, access_token, rom: Rom):
