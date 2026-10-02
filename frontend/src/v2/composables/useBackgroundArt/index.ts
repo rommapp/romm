@@ -17,9 +17,8 @@ export function useBackgroundArt(): SetBackgroundArt {
   return inject<SetBackgroundArt>(BACKGROUND_ART_KEY, () => undefined);
 }
 
-// Dwell before applying a backdrop swap. Without it, dragging the cursor
-// across the gallery would trigger one cross-fade per card and the
-// 700ms fades collide as flashes; the latest call wins after the dwell.
+// Without a dwell, a cursor crossing the gallery starts one 700ms fade per
+// card and they collide as flashes; the latest call wins after it.
 const BG_HOVER_DWELL_MS = 80;
 
 /** Provides the setter to descendants and returns the two cross-fading layers. */
