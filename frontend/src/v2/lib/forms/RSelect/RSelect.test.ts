@@ -238,4 +238,35 @@ describe("RSelect inside an overlay", () => {
     expect(dialog.close).toHaveBeenCalledOnce();
     wrapper.unmount();
   });
+
+  it("stays open for a press inside an overlay opened above it", async () => {
+    const wrapper = mount(RSelect, {
+      props: { items: ["a", "b"], modelValue: "a", hideDetails: true },
+      attachTo: document.body,
+    });
+    await wrapper.get(".r-select__field").trigger("keydown", { key: "Enter" });
+    expect(document.querySelector(".r-select__panel")).not.toBeNull();
+
+    const nested = document.createElement("div");
+    document.body.append(nested);
+    const menu: EscapableEntry = {
+      close: vi.fn(),
+      persistent: false,
+      panel: () => nested,
+    };
+    pushEscapable(menu);
+
+    nested.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    await nextTick();
+    expect(document.querySelector(".r-select__panel")).not.toBeNull();
+
+    popEscapable(menu);
+    nested.remove();
+    document.body.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }),
+    );
+    await nextTick();
+    expect(document.querySelector(".r-select__panel")).toBeNull();
+    wrapper.unmount();
+  });
 });

@@ -176,7 +176,7 @@ function clearTimers() {
 function show() {
   if (props.disabled || !hasContent.value) return;
   // A tip whose activator the overlay covers would paint on top of it.
-  if (isUnderOpenEscapable(reference.value)) return;
+  if (isUnderOpenEscapable(activatorEl())) return;
   clearTimers();
   const d = Number(props.openDelay) || 0;
   if (d <= 0) {
@@ -200,7 +200,18 @@ const hasContent = computed(
 );
 
 // ── Floating-ui refs ────────────────────────────────────────────
-const reference = ref<Element | null>(null);
+// Slot pattern: the activator renders inside a `display: contents` span.
+// Parent pattern: a hidden anchor span sits in the parent's DOM.
+const activatorWrapper = ref<HTMLElement | null>(null);
+const root = ref<HTMLElement | null>(null);
+
+// Read on demand, since a `v-if` in the slot can swap the element and
+// slots are not reactive.
+function activatorEl(): Element | null {
+  if (props.activator === "parent") return root.value?.parentElement ?? null;
+  return activatorWrapper.value?.firstElementChild ?? null;
+}
+const reference = computed(() => (isOpen.value ? activatorEl() : null));
 const floating = ref<HTMLElement | null>(null);
 const arrowEl = ref<HTMLElement | null>(null);
 
@@ -343,12 +354,10 @@ watch(isOpen, (open) => {
 // and register listeners on `$el.parentElement` at mount. We deliberately
 // use a comment node as `$el` so the tooltip itself doesn't take up
 // flow space inside the parent.
-const root = ref<HTMLElement | null>(null);
 function attachToParent() {
   if (props.activator !== "parent") return;
   const parent = root.value?.parentElement;
   if (!parent) return;
-  reference.value = parent;
   parent.addEventListener(
     "pointerdown",
     onActivatorPointerDown as EventListener,
@@ -381,37 +390,13 @@ const unsubscribeOverlayDismiss = onEscapableOpen(() => {
   if (isOpen.value) setOpen(false);
 });
 
-onMounted(() => {
-  // For the slot pattern, the reference is the first child rendered
-  // by the slot: we read it from the wrapper span on mount.
-  if (props.activator !== "parent") {
-    reference.value = activatorWrapper.value?.firstElementChild ?? null;
-  } else {
-    attachToParent();
-  }
-});
+onMounted(attachToParent);
 onBeforeUnmount(() => {
   detachFromParent();
   clearTimers();
   teardownOutsideClose();
   unsubscribeOverlayDismiss();
 });
-
-// ── Slot activator wrapper ──────────────────────────────────────
-// We render a `display: contents` span around the activator slot so
-// we have a stable DOM handle for `firstElementChild` without
-// disturbing layout.
-const activatorWrapper = ref<HTMLElement | null>(null);
-
-// Re-read the reference if the slot content changes (e.g., v-if flips).
-watch(
-  () => slots.activator,
-  () => {
-    if (props.activator !== "parent") {
-      reference.value = activatorWrapper.value?.firstElementChild ?? null;
-    }
-  },
-);
 
 // Side bucket: used by the open animation to grow the tooltip out of
 // the activator (transform-origin + a tiny "from" translate from that
