@@ -2,11 +2,10 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import RTabNav from "./RTabNav.vue";
-import type { RTabNavProps } from "./types";
 
-// RTabNav is generic over its tab ids, which Meta<typeof RTabNav> can't
-// resolve, so the component is cast for Storybook's `component` slot.
-const meta: Meta = {
+// Generic components can't fill Storybook's `component` slot, so it's cast;
+// the instantiation types the stories' args.
+const meta: Meta<typeof RTabNav<string>> = {
   title: "Primitives/RTabNav",
   component: RTabNav as never,
   argTypes: {
@@ -28,7 +27,7 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj<RTabNavProps<string>>;
+type Story = StoryObj<typeof RTabNav<string>>;
 
 export const Default: Story = {
   args: {

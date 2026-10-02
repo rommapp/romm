@@ -28,9 +28,9 @@ const PLATFORMS = [
   { title: "PC", value: "pc" },
 ];
 
-// RSelect is generic (`<Item, Model>`), which Meta<typeof RSelect> can't
-// resolve, so the component is cast for Storybook's `component` slot.
-const meta: Meta = {
+// Generic components can't fill Storybook's `component` slot, so it's cast;
+// the instantiation types the stories' args.
+const meta: Meta<typeof RSelect<unknown, unknown>> = {
   title: "Forms/RSelect",
   component: RSelect as never,
   argTypes: {
@@ -88,7 +88,7 @@ const meta: Meta = {
 
 export default meta;
 
-type Story = StoryObj;
+type Story = StoryObj<typeof RSelect<unknown, unknown>>;
 
 // ── Defaults ────────────────────────────────────────────────────────
 

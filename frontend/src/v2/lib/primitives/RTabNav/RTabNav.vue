@@ -19,7 +19,7 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RImg from "../../primitives/RImg/RImg.vue";
-import type { RTabNavProps } from "./types";
+import type { RTabNavItem } from "./types";
 
 // Width of the faded edge, also the margin kept when scrolling a tab into view
 // so it never lands under the fade.
@@ -27,7 +27,16 @@ const EDGE_PX = 40;
 
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(defineProps<RTabNavProps<Id>>(), {
+interface Props {
+  modelValue: Id;
+  items: RTabNavItem<Id>[];
+  /** Size ladder shared with RBtn / RChip / RTag. */
+  size?: "x-small" | "small" | "default" | "large" | "x-large";
+  variant?: "underlined" | "pill";
+  orientation?: "horizontal" | "vertical";
+}
+
+const props = withDefaults(defineProps<Props>(), {
   size: "default",
   variant: "underlined",
   orientation: "horizontal",

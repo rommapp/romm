@@ -11,12 +11,3 @@ export type RTabNavItem<Id extends string = string> = {
   badge?: string | number | null;
   show?: boolean;
 };
-
-export interface RTabNavProps<Id extends string> {
-  modelValue: Id;
-  items: RTabNavItem<Id>[];
-  /** Size ladder shared with RBtn / RChip / RTag. */
-  size?: "x-small" | "small" | "default" | "large" | "x-large";
-  variant?: "underlined" | "pill";
-  orientation?: "horizontal" | "vertical";
-}
