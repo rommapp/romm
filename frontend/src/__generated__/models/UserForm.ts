@@ -9,6 +9,7 @@ export type UserForm = {
     role?: (string | null);
     enabled?: (boolean | null);
     ra_username?: (string | null);
+    clear_ra_username?: boolean;
     avatar?: (string | null);
     ui_settings?: (string | null);
 };

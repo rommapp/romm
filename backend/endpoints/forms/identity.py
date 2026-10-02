@@ -12,6 +12,7 @@ class UserForm(BaseModel):
     role: str | None = None
     enabled: bool | None = None
     ra_username: str | None = Field(default=None, max_length=TEXT_FIELD_LENGTH)
+    clear_ra_username: bool = False
     avatar: UploadFile | None = None
     ui_settings: str | None = None
 

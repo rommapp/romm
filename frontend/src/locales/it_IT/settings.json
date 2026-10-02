@@ -352,6 +352,8 @@
   "ra-not-linked": "Non collegato",
   "ra-saved-and-synced": "Collegato e sincronizzazione avviata",
   "ra-sync-failed": "Impossibile sincronizzare il tuo profilo RetroAchievements",
+  "ra-unlink": "Scollega",
+  "ra-unlinked": "Account RetroAchievements scollegato",
   "ra-update-failed": "Impossibile aggiornare il tuo username RetroAchievements",
   "rating-header": "Valutazione",
   "recently-added-as-grid": "Rom aggiunte di recente come griglia",

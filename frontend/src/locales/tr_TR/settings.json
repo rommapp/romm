@@ -352,6 +352,8 @@
   "ra-not-linked": "Bağlı değil",
   "ra-saved-and-synced": "Bağlandı ve senkronizasyon başladı",
   "ra-sync-failed": "RetroAchievements profiliniz senkronize edilemedi",
+  "ra-unlink": "Bağlantıyı kaldır",
+  "ra-unlinked": "RetroAchievements hesabının bağlantısı kaldırıldı",
   "ra-update-failed": "RetroAchievements kullanıcı adınız güncellenemedi",
   "rating-header": "Puan",
   "recently-added-as-grid": "Son eklenen ROM'lar ızgara olarak",

@@ -352,6 +352,8 @@
   "ra-not-linked": "Nepropojeno",
   "ra-saved-and-synced": "Propojeno a synchronizace spuštěna",
   "ra-sync-failed": "Nepodařilo se synchronizovat profil RetroAchievements",
+  "ra-unlink": "Odpojit",
+  "ra-unlinked": "Účet RetroAchievements byl odpojen",
   "ra-update-failed": "Nepodařilo se aktualizovat uživatelské jméno RetroAchievements",
   "rating-header": "Hodnocení",
   "recently-added-as-grid": "Nedávno přidané ROM jako mřížka",

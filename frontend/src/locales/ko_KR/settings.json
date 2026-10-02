@@ -352,6 +352,8 @@
   "ra-not-linked": "연결되지 않음",
   "ra-saved-and-synced": "연결되었고 동기화가 시작되었습니다",
   "ra-sync-failed": "RetroAchievements 프로필을 동기화할 수 없습니다",
+  "ra-unlink": "연결 해제",
+  "ra-unlinked": "RetroAchievements 계정 연결을 해제했습니다",
   "ra-update-failed": "RetroAchievements 사용자 이름을 업데이트할 수 없습니다",
   "rating-header": "평가",
   "recently-added-as-grid": "최근에 추가된 롬을 그리드 뷰로",

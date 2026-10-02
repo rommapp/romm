@@ -14,6 +14,7 @@ def store_ra_login(user_id: int, username: str, token: str) -> bool:
     if user is None:
         log.warning("no user %s to store a RetroAchievements login for", user_id)
         return False
+    # Last write wins: one player's exits on two platforms collect in exit order.
     db_user_handler.update_user(
         user_id, {"ra_login_sealed": seal({"username": username, "token": token})}
     )
@@ -86,13 +87,22 @@ def usable_login(value: object) -> dict[str, str] | None:
     return {"username": username, "token": token}
 
 
-def drop_ra_login_not_for(user_id: int, ra_username: str) -> bool:
+def drop_ra_login_not_for(
+    user_id: int, ra_username: str | None, actor: AuditActor
+) -> bool:
     """Drop the stored login unless it is for `ra_username`; RA names ignore case."""
     user = db_user_handler.get_user(user_id)
     if user is None or user.ra_login_sealed is None:
         return False
     login = ra_login_for_activate(user)
-    if login is not None and login["username"].casefold() == ra_username.casefold():
+    if (
+        login is not None
+        and ra_username is not None
+        and login["username"].casefold() == ra_username.casefold()
+    ):
         return False
     # Only the value judged here, so a login stored since then survives.
-    return db_user_handler.clear_ra_login_sealed(user_id, user.ra_login_sealed)
+    if not db_user_handler.clear_ra_login_sealed(user_id, user.ra_login_sealed):
+        return False
+    record(AuditAction.USER_RA_LOGIN_CLEAR, actor, AuditTarget.of_user(user))
+    return True

@@ -352,6 +352,8 @@
   "ra-not-linked": "Не привязано",
   "ra-saved-and-synced": "Привязано и синхронизация запущена",
   "ra-sync-failed": "Не удалось синхронизировать профиль RetroAchievements",
+  "ra-unlink": "Отвязать",
+  "ra-unlinked": "Аккаунт RetroAchievements отвязан",
   "ra-update-failed": "Не удалось обновить имя пользователя RetroAchievements",
   "rating-header": "Рейтинг",
   "recently-added-as-grid": "Недавно добавленные ромы в виде сетки",

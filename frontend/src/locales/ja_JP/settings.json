@@ -352,6 +352,8 @@
   "ra-not-linked": "未連携",
   "ra-saved-and-synced": "連携して同期を開始しました",
   "ra-sync-failed": "RetroAchievementsプロフィールを同期できませんでした",
+  "ra-unlink": "連携を解除",
+  "ra-unlinked": "RetroAchievements アカウントの連携を解除しました",
   "ra-update-failed": "RetroAchievementsのユーザー名を更新できませんでした",
   "rating-header": "評価",
   "recently-added-as-grid": "最近追加されたromをグリッドで表示",

@@ -4,6 +4,7 @@ import pytest
 from cryptography.fernet import Fernet
 from tests.audit_events import recorded_events
 
+from handler.audit_handler import AuditActor
 from handler.database import db_user_handler
 from handler.ra_login import (
     clear_ra_login,
@@ -185,10 +186,25 @@ def test_a_sealed_value_without_a_usable_login_is_none(admin_user: User, caplog,
     assert TOKEN not in caplog.text
 
 
+def _actor(user: User) -> AuditActor:
+    return AuditActor.for_user(user)
+
+
 def test_dropping_for_another_account_clears_the_login(admin_user: User):
     store_ra_login(admin_user.id, "alice", TOKEN)
 
-    assert drop_ra_login_not_for(admin_user.id, "bob") is True
+    assert drop_ra_login_not_for(admin_user.id, "bob", _actor(admin_user)) is True
+
+    assert _user(admin_user.id).ra_login_sealed is None
+    [event] = [e for e in recorded_events() if e.action == "user.ra_login_clear"]
+    assert event.actor_id == admin_user.id
+    assert event.target_id == str(admin_user.id)
+
+
+def test_dropping_for_no_account_clears_the_login(admin_user: User):
+    store_ra_login(admin_user.id, "alice", TOKEN)
+
+    assert drop_ra_login_not_for(admin_user.id, None, _actor(admin_user)) is True
 
     assert _user(admin_user.id).ra_login_sealed is None
 
@@ -196,7 +212,7 @@ def test_dropping_for_another_account_clears_the_login(admin_user: User):
 def test_dropping_for_the_logins_own_account_keeps_it(admin_user: User):
     store_ra_login(admin_user.id, "Alice", TOKEN)
 
-    assert drop_ra_login_not_for(admin_user.id, "alice") is False
+    assert drop_ra_login_not_for(admin_user.id, "alice", _actor(admin_user)) is False
 
     assert ra_login_for_activate(_user(admin_user.id)) == {
         "username": "Alice",
@@ -213,10 +229,11 @@ def test_dropping_keeps_a_login_stored_after_the_read(
     store_ra_login(admin_user.id, "bob", "fresh-token")
     monkeypatch.setattr(db_user_handler, "get_user", lambda _id: stale)
 
-    assert drop_ra_login_not_for(admin_user.id, "bob") is False
+    assert drop_ra_login_not_for(admin_user.id, "bob", _actor(admin_user)) is False
 
     monkeypatch.undo()
     assert ra_login_for_activate(_user(admin_user.id)) == {
         "username": "bob",
         "token": "fresh-token",
     }
+    assert [e for e in recorded_events() if e.action == "user.ra_login_clear"] == []

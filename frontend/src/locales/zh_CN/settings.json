@@ -352,6 +352,8 @@
   "ra-not-linked": "未关联",
   "ra-saved-and-synced": "已关联并开始同步",
   "ra-sync-failed": "无法同步您的 RetroAchievements 个人资料",
+  "ra-unlink": "取消关联",
+  "ra-unlinked": "已取消关联 RetroAchievements 账号",
   "ra-update-failed": "无法更新您的 RetroAchievements 用户名",
   "rating-header": "评分",
   "recently-added-as-grid": "显示最近添加的 Rom 文件（网格）",

@@ -352,6 +352,8 @@
   "ra-not-linked": "Not linked",
   "ra-saved-and-synced": "Linked & sync started",
   "ra-sync-failed": "Couldn't sync your RetroAchievements profile",
+  "ra-unlink": "Unlink",
+  "ra-unlinked": "RetroAchievements account unlinked",
   "ra-update-failed": "Couldn't update your RetroAchievements username",
   "rating-header": "Rating",
   "recently-added-as-grid": "Recently added ROMs as grid",

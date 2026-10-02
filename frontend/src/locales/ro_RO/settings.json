@@ -352,6 +352,8 @@
   "ra-not-linked": "Neasociat",
   "ra-saved-and-synced": "Asociat și sincronizare începută",
   "ra-sync-failed": "Profilul RetroAchievements nu a putut fi sincronizat",
+  "ra-unlink": "Deconectează",
+  "ra-unlinked": "Contul RetroAchievements a fost deconectat",
   "ra-update-failed": "Numele de utilizator RetroAchievements nu a putut fi actualizat",
   "rating-header": "Evaluare",
   "recently-added-as-grid": "Rom-uri adăugate recent în grilă",

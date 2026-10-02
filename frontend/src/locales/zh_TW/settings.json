@@ -352,6 +352,8 @@
   "ra-not-linked": "未連結",
   "ra-saved-and-synced": "已連結並開始同步",
   "ra-sync-failed": "無法同步您的 RetroAchievements 個人資料",
+  "ra-unlink": "取消連結",
+  "ra-unlinked": "已取消連結 RetroAchievements 帳號",
   "ra-update-failed": "無法更新您的 RetroAchievements 使用者名稱",
   "rating-header": "評分",
   "recently-added-as-grid": "顯示最近新增的 Rom 卡片",

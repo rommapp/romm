@@ -21,6 +21,7 @@ const snackbar = useSnackbar();
 
 const username = ref(auth.user?.ra_username ?? "");
 const submitting = ref(false);
+const unlinking = ref(false);
 
 watch(
   () => auth.user?.ra_username,
@@ -33,7 +34,8 @@ const linkedUsername = computed(() => auth.user?.ra_username ?? "");
 const isLinked = computed(() => linkedUsername.value.length > 0);
 const isDirty = computed(() => username.value.trim() !== linkedUsername.value);
 const canSubmit = computed(
-  () => !submitting.value && (isDirty.value || isLinked.value),
+  () =>
+    !submitting.value && !unlinking.value && (isDirty.value || isLinked.value),
 );
 
 async function syncProfile(incremental: boolean) {
@@ -77,6 +79,26 @@ async function saveAndSync() {
     submitting.value = false;
   }
 }
+
+async function unlink() {
+  if (!auth.user) return;
+  unlinking.value = true;
+  try {
+    const { data } = await userApi.updateUser({
+      id: auth.user.id,
+      clear_ra_username: true,
+    });
+    auth.setCurrentUser(data);
+    snackbar.success(t("settings.ra-unlinked"), { icon: "mdi-check-bold" });
+  } catch (err) {
+    console.error(err);
+    snackbar.error(t("settings.ra-update-failed"), {
+      icon: "mdi-close-circle",
+    });
+  } finally {
+    unlinking.value = false;
+  }
+}
 </script>
 
 <template>
@@ -114,6 +136,16 @@ async function saveAndSync() {
         @click="saveAndSync"
       >
         {{ isDirty ? t("common.save") : t("common.sync") }}
+      </RBtn>
+      <RBtn
+        v-if="isLinked"
+        variant="text"
+        :loading="unlinking"
+        :disabled="submitting"
+        prepend-icon="mdi-link-variant-off"
+        @click="unlink"
+      >
+        {{ t("settings.ra-unlink") }}
       </RBtn>
     </div>
   </SettingsSection>

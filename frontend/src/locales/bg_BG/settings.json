@@ -352,6 +352,8 @@
   "ra-not-linked": "Не е свързан",
   "ra-saved-and-synced": "Свързано и синхронизацията започна",
   "ra-sync-failed": "Профилът ти в RetroAchievements не можа да бъде синхронизиран",
+  "ra-unlink": "Прекрати връзката",
+  "ra-unlinked": "Връзката с акаунта в RetroAchievements е прекратена",
   "ra-update-failed": "Потребителското ти име в RetroAchievements не можа да бъде обновено",
   "rating-header": "Оценка",
   "recently-added-as-grid": "Наскоро добавени ROM-ове като решетка",

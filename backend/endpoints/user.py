@@ -501,7 +501,12 @@ async def update_user(
     if form_data.enabled is not None and request.user.id != id:
         cleaned_data["enabled"] = form_data.enabled
 
-    if form_data.ra_username and form_data.ra_username != db_user.ra_username:
+    # An empty form value reaches the endpoint as None, so unlinking needs its own flag.
+    if form_data.clear_ra_username:
+        if db_user.ra_username:
+            cleaned_data["ra_username"] = None
+            cleaned_data["ra_progression"] = None
+    elif form_data.ra_username and form_data.ra_username != db_user.ra_username:
         cleaned_data["ra_username"] = form_data.ra_username
 
     if form_data.ui_settings is not None:
@@ -551,7 +556,9 @@ async def update_user(
 
         # The stored login belongs to the account the emulator logged in to.
         if "ra_username" in cleaned_data:
-            drop_ra_login_not_for(id, cleaned_data["ra_username"])
+            drop_ra_login_not_for(
+                id, cleaned_data["ra_username"], AuditActor.from_request(request)
+            )
 
         if creds_updated and request.user.id == id:
             request.session.clear()

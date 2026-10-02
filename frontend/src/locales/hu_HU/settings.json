@@ -352,6 +352,8 @@
   "ra-not-linked": "Nincs összekötve",
   "ra-saved-and-synced": "Összekötve és szinkronizálás elindítva",
   "ra-sync-failed": "A RetroAchievements profil szinkronizálása sikertelen",
+  "ra-unlink": "Leválasztás",
+  "ra-unlinked": "RetroAchievements-fiók leválasztva",
   "ra-update-failed": "A RetroAchievements felhasználónév frissítése sikertelen",
   "rating-header": "Értékelés",
   "recently-added-as-grid": "Legutóbb hozzáadott ROM-ok rácsnézetben",
