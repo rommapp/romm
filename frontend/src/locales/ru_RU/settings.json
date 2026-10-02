@@ -237,6 +237,7 @@
   "invite-link": "Пригласительная ссылка",
   "invite-link-created": "Пригласительная ссылка создана",
   "language": "Язык",
+  "language-auto": "Авто ({language})",
   "length-header": "Длительность",
   "link-copied": "Ссылка скопирована в буфер обмена",
   "main-platform": "Основная платформа",

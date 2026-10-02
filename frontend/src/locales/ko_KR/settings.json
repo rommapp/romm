@@ -237,6 +237,7 @@
   "invite-link": "초대 링크",
   "invite-link-created": "초대 링크가 생성되었습니다",
   "language": "언어",
+  "language-auto": "자동 ({language})",
   "length-header": "플레이 시간",
   "link-copied": "링크가 클립보드에 복사되었습니다",
   "main-platform": "메인 플랫폼",

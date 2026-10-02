@@ -237,6 +237,7 @@
   "invite-link": "Линк за покана",
   "invite-link-created": "Линкът за покана е създаден",
   "language": "Език",
+  "language-auto": "Автоматично ({language})",
   "length-header": "Продължителност",
   "link-copied": "Линкът е копиран в клипборда",
   "main-platform": "Основна платформа",
