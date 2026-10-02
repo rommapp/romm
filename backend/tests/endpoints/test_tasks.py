@@ -883,8 +883,10 @@ class TestStartScan:
         assert data["status"] == "queued"
 
         task_worker_listening.assert_called_once_with(scan_queue)
-        assert enqueue.call_args.args == (scan_platforms,)
-        kwargs = enqueue.call_args.kwargs
+        call = enqueue.call_args
+        assert call is not None
+        assert call.args == (scan_platforms,)
+        kwargs = call.kwargs
         assert kwargs["platform_ids"] == [1, 2]
         assert kwargs["metadata_sources"] == ["igdb", "ss"]
         assert kwargs["scan_type"] == ScanType.UPDATE
@@ -905,6 +907,7 @@ class TestStartScan:
         response = post_scan(**body)
 
         assert response.status_code == status.HTTP_202_ACCEPTED
+        assert enqueue.call_args is not None
         kwargs = enqueue.call_args.kwargs
         assert kwargs["scan_type"] == ScanType.QUICK
         assert kwargs["platform_ids"] == []
@@ -919,6 +922,7 @@ class TestStartScan:
         response = post_scan(json={"apis": []})
 
         assert response.status_code == status.HTTP_202_ACCEPTED
+        assert enqueue.call_args is not None
         assert enqueue.call_args.kwargs["metadata_sources"] == []
 
     @pytest.mark.parametrize(
@@ -971,6 +975,7 @@ class TestStartScan:
         response = post_scan(json={"roms_ids": [7]})
 
         assert response.status_code == status.HTTP_202_ACCEPTED
+        assert enqueue.call_args is not None
         assert enqueue.call_args.kwargs["at_front"] is True
 
     def test_a_running_rom_scan_does_not_block_a_library_scan(

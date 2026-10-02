@@ -2271,6 +2271,7 @@ class TestScanConcurrency:
 
         await scan_handler("sid", {"type": "quick", **options})
 
+        assert enqueue.call_args is not None
         assert enqueue.call_args.kwargs["metadata_sources"] == expected
 
     async def test_refuses_when_a_scan_is_running(self, mocker, emit):
@@ -2303,6 +2304,7 @@ class TestScanConcurrency:
         await request
 
         enqueue.assert_not_called()
+        assert emit.await_args is not None
         assert emit.await_args.args[0] == "scan:done_ko"
 
     async def test_refuses_when_the_request_lock_stays_held(self, mocker, emit):
@@ -2318,6 +2320,7 @@ class TestScanConcurrency:
         await scan_handler("sid", {"type": "quick"})
 
         enqueue.assert_not_called()
+        assert emit.await_args is not None
         assert emit.await_args.args[0] == "scan:done_ko"
 
     async def test_releases_the_request_lock_once_queued(self, mocker, emit):
@@ -2337,6 +2340,7 @@ class TestScanConcurrency:
         await scan_handler("sid", {"type": scan_type})
 
         enqueue.assert_not_called()
+        assert emit.await_args is not None
         assert emit.await_args.args[0] == "scan:done_ko"
 
     async def test_refuses_when_a_scan_is_queued(self, mocker, emit):
