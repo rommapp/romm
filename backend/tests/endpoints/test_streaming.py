@@ -148,6 +148,13 @@ def clear_default_core_cache():
 
 
 @pytest.fixture(autouse=True)
+def clear_missing_routes_reported():
+    """Isolate the once-per-container missing-route warning per test."""
+    with patch.object(broker, "_missing_routes_reported", set()):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def exit_pull_queue():
     with exit_pulls_spawned_inline() as queue:
         yield queue
@@ -7497,30 +7504,34 @@ def test_a_collect_the_broker_refuses_is_logged_and_the_teardown_still_completes
     assert _stored_login(admin_user.id) is None
 
 
-def test_a_broker_without_the_collect_route_is_only_a_debug_line(
+def test_a_broker_without_the_collect_route_warns_once_then_logs_at_debug(
     client, access_token, admin_user: User, rom: Rom, caplog
 ):
-    """A broker older than the route answers 404 on every teardown; that is
-    expected, not something to warn about."""
+    """A broker older than the route answers 404 on every teardown, so only the
+    first one per container is worth a warning."""
     container = _webstation_for(rom)
-    error = urllib.error.HTTPError(
-        "http://broker/api/session/retroachievements/collect",
-        404,
-        "Not Found",
-        http.client.HTTPMessage(),
-        io.BytesIO(json.dumps({"token": RA_TOKEN}).encode()),
-    )
+
+    def not_found() -> urllib.error.HTTPError:
+        return urllib.error.HTTPError(
+            "http://broker/api/session/retroachievements/collect",
+            404,
+            "Not Found",
+            http.client.HTTPMessage(),
+            io.BytesIO(json.dumps({"token": RA_TOKEN}).encode()),
+        )
+
     romm_logger = logging.getLogger("romm")
     romm_logger.addHandler(caplog.handler)
     try:
         with caplog.at_level(logging.DEBUG, logger="romm"):
-            _release_with_urlopen_error(client, access_token, rom, error)
+            _release_with_urlopen_error(client, access_token, rom, not_found())
+            _release_with_urlopen_error(client, access_token, rom, not_found())
     finally:
         romm_logger.removeHandler(caplog.handler)
 
     collect_lines = [r for r in caplog.records if "ra login collect" in r.getMessage()]
-    assert len(collect_lines) == 1
-    assert collect_lines[0].levelno == logging.DEBUG
+    assert [r.levelno for r in collect_lines] == [logging.WARNING, logging.DEBUG]
+    assert "reported once per container" in collect_lines[0].getMessage()
     assert RA_TOKEN not in caplog.text
     with _streaming(container):
         assert _session_raw(container) is None

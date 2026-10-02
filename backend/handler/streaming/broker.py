@@ -175,6 +175,10 @@ def request(
     return json.loads(raw) if raw else {}
 
 
+# (container key, path) of each missing_ok route already reported missing.
+_missing_routes_reported: set[tuple[str, str]] = set()
+
+
 def request_safe(
     container: ResolvedContainer,
     path: str,
@@ -188,15 +192,25 @@ def request_safe(
     """
     Best-effort variant of request: returns the parsed body, or None if
     the broker is unreachable or errors. Never raises, control ops must not 500
-    on a broker hiccup. `missing_ok` logs a 404 at debug, for a route an older
-    broker does not serve.
+    on a broker hiccup. `missing_ok` warns once per container about a 404, for
+    a route an older broker does not serve, and logs it at debug after that.
     """
     try:
         return request(container, path, method=method, body=body, timeout=timeout)
     except Exception as exc:
         missing = isinstance(exc, urllib.error.HTTPError) and exc.code == 404
         if missing_ok and missing:
-            log.debug("broker %s failed, %s", label, exc)
+            route = (container.key, path)
+            if route in _missing_routes_reported:
+                log.debug("broker %s failed, %s", label, exc)
+            else:
+                _missing_routes_reported.add(route)
+                log.warning(
+                    "broker %s failed, %s; the broker may predate this route, "
+                    "reported once per container",
+                    label,
+                    exc,
+                )
         else:
             log.warning("broker %s failed, %s", label, exc)
         # An HTTPError is an open response, and these routes are called often.
