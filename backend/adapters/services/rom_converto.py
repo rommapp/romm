@@ -20,6 +20,7 @@ from models.rom import (
     RomFileContentType,
 )
 from utils.filesystem import SERVED_FILE_MODE
+from utils.images import PNG_SIGNATURE
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # Wider than the conversion targets: `info` only reads headers, so every
@@ -53,7 +54,6 @@ _BINARY: Final = "rom-converto"
 
 CUE_EXT: Final = ".cue"
 
-_PNG_SIGNATURE: Final[bytes] = b"\x89PNG\r\n\x1a\n"
 _PSP_TITLE_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Z]{4}[0-9]{5}")
 
 
@@ -98,9 +98,8 @@ class RomConvertoInfo:
     # rom-converto's `ContentKind`: "game", "update", "dlc", "demo" or "system".
     content_type: RomFileContentType | None = None
     display_version: str | None = None
-    # RomM spellings where rom-converto's differ ("NorthAmerica" -> "USA").
+    # Region and language names as rom-converto spells them.
     regions: tuple[str, ...] = ()
-    # Regional variants folded ("AmericanEnglish" -> "English").
     languages: tuple[str, ...] = ()
     publisher: str | None = None
     min_firmware_version: str | None = None
@@ -452,7 +451,7 @@ def _image(value: Any) -> bytes | None:
         image = bytes(png_bytes)
     except TypeError, ValueError:
         return None
-    return image if image.startswith(_PNG_SIGNATURE) else None
+    return image if image.startswith(PNG_SIGNATURE) else None
 
 
 def _list(value: Any) -> list[Any]:
@@ -516,13 +515,10 @@ def _english_entry(value: Any) -> Any:
     return entry[1] if entry else None
 
 
+# Readings of rom-converto's own region labels; normalize_provider_regions
+# handles the spellings other sources share.
 _REGION_ALIASES: Final[dict[str, str]] = {
-    "northamerica": "USA",
-    "north america": "USA",
-    "ntsc-u": "USA",
-    "pal": "Europe",
     "rest of world": "Europe",
-    "regionfree": "World",
     "ntsc-j japan": "Japan",
     "ntsc-j china": "China",
     "ntsc-j": "Asia",
@@ -545,27 +541,11 @@ def _regions(labels: Any) -> tuple[str, ...]:
     )
 
 
-_LANGUAGE_FOLDS: Final[dict[str, str]] = {
-    "americanenglish": "English",
-    "britishenglish": "English",
-    "canadianfrench": "French",
-    "latinamericanspanish": "Spanish",
-    "brazilianportuguese": "Portuguese",
-    "simplifiedchinese": "Chinese",
-    "traditionalchinese": "Chinese",
-    "taiwanesechinese": "Chinese",
-}
-
-
 def _languages(names: Any) -> tuple[str, ...]:
-    """The language names with regional variants folded."""
+    """The language names, with no `Default` slot."""
     # A GameCube BNR1 banner's one slot is named `Default`, which is no language.
     texts = (_text(name) for name in _list(names))
-    return tuple(
-        _LANGUAGE_FOLDS.get(_lang_key(text), text)
-        for text in texts
-        if text and _lang_key(text) != "default"
-    )
+    return tuple(text for text in texts if text and _lang_key(text) != "default")
 
 
 _SWITCH_CONTENT_TYPES: Final[dict[str, RomFileContentType]] = {

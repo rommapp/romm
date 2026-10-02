@@ -861,6 +861,11 @@ class TestNormalizeProviderRegions:
     def test_duplicate_spellings_collapse_to_one_value(self):
         assert normalize_provider_regions(["us", "USA", "U"]) == ["USA"]
 
+    def test_header_and_video_standard_spellings_resolve(self):
+        assert normalize_provider_regions(
+            ["NorthAmerica", "North America", "NTSC-U", "PAL", "RegionFree"]
+        ) == ["USA", "Europe", "World"]
+
     def test_unknown_value_is_kept_as_given(self):
         assert normalize_provider_regions([" Neptune "]) == ["Neptune"]
 
@@ -877,6 +882,26 @@ class TestNormalizeProviderLanguages:
             "French",
             "Japanese",
         ]
+
+    @pytest.mark.parametrize(
+        "spelling",
+        ["Brazilian Portuguese", "BrazilianPortuguese", "brazilian_portuguese"],
+    )
+    def test_regional_variants_fold_into_their_language(self, spelling: str):
+        assert normalize_provider_languages([spelling]) == ["Portuguese"]
+
+    def test_every_variant_folds(self):
+        assert normalize_provider_languages(
+            [
+                "AmericanEnglish",
+                "BritishEnglish",
+                "CanadianFrench",
+                "LatinAmericanSpanish",
+                "SimplifiedChinese",
+                "TraditionalChinese",
+                "TaiwaneseChinese",
+            ]
+        ) == ["English", "French", "Spanish", "Chinese"]
 
     def test_duplicate_spellings_collapse_to_one_value(self):
         assert normalize_provider_languages(["en", "English", "EN"]) == ["English"]

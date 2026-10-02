@@ -209,6 +209,13 @@ def region_ranks_for_priority(shortcodes: Sequence[str]) -> dict[str, int]:
 _REGION_BY_PROVIDER_ALIAS = {
     **{name.lower(): name for name in REGION_NAME_TO_PROVIDER_SHORTCODE},
     **{code: names[0] for code, names in _REGION_NAMES_BY_PROVIDER_SHORTCODE.items()},
+    # Console header and video-standard spellings.
+    "north america": "USA",
+    "northamerica": "USA",
+    "ntsc-u": "USA",
+    "pal": "Europe",
+    "region free": "World",
+    "regionfree": "World",
 }
 
 
@@ -309,9 +316,26 @@ PROVIDER_LANGUAGES: Final = (
     ("vi", "Vietnamese"),
 )
 
+# Regional variants fold into their language, however the words are joined.
+_LANGUAGE_VARIANTS: Final = {
+    "american english": "English",
+    "british english": "English",
+    "canadian french": "French",
+    "latin american spanish": "Spanish",
+    "brazilian portuguese": "Portuguese",
+    "simplified chinese": "Chinese",
+    "traditional chinese": "Chinese",
+    "taiwanese chinese": "Chinese",
+}
+
 _LANGUAGE_BY_PROVIDER_ALIAS = {
     **{name.lower(): name for _, name in PROVIDER_LANGUAGES},
     **{code: name for code, name in PROVIDER_LANGUAGES},
+    **{
+        variant.replace(" ", joiner): name
+        for variant, name in _LANGUAGE_VARIANTS.items()
+        for joiner in (" ", "", "_")
+    },
 }
 
 # Region shortcodes a filename can also carry, as TOSEC and similar sets write

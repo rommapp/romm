@@ -88,6 +88,7 @@ from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile, SaveTargetLayout
 from models.user import User
+from utils.images import PNG_SIGNATURE
 from utils.memory_cards import content_hash_of_bytes
 
 # ── Fixtures / helpers ────────────────────────────────────────────────────────
@@ -4754,7 +4755,7 @@ def test_pull_state_prefers_broker_screenshot_over_embedded(rom: Rom, admin_user
     container = {**_container_for(rom), "label": "PCSX2"}
     scanned = _state_for(rom, admin_user, "Game.05.p2s", "pcsx2")
     scanned_shot = _screenshot_for(rom, "Game.05")
-    embedded = states.PNG_MAGIC + b"embedded-frame"
+    embedded = PNG_SIGNATURE + b"embedded-frame"
     with (
         patch(
             "handler.streaming.states.fetch_state_file",

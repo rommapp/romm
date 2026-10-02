@@ -14,6 +14,7 @@ from mutagen.oggopus import OggOpus
 from mutagen.oggvorbis import OggVorbis
 
 from logger.logger import log
+from utils.images import PNG_SIGNATURE
 from utils.media_types import IMAGE_EXT_BY_MIME_TYPE
 
 ALLOWED_AUDIO_EXTENSIONS = frozenset(
@@ -143,7 +144,7 @@ def _mp4_track_tuple(value: object) -> str | None:
 
 def _allowed_mime_types(data: bytes) -> str:
     """Return MIME type for embedded cover bytes; only JPEG and PNG are allowed."""
-    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+    if data.startswith(PNG_SIGNATURE):
         return "image/png"
     if data.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"

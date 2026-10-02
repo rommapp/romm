@@ -358,7 +358,7 @@ class TestRomConvertoInfoBatch:
             batch.read_infos([first]), batch.read_infos([second])
         )
 
-        assert results == [
+        assert list(results) == [
             {first: RomConvertoInfo(title="a.chd")},
             {second: RomConvertoInfo(title="b.chd")},
         ]
@@ -561,7 +561,7 @@ class TestParseInfo:
                     title="The Legend of Zelda",
                     content_type=RomFileContentType.GAME,
                     display_version="1.0.0",
-                    languages=("English", "French"),
+                    languages=("AmericanEnglish", "CanadianFrench"),
                     publisher="Nintendo",
                     min_firmware_version="16.0.0",
                     is_compressed=True,
@@ -613,7 +613,7 @@ class TestParseInfo:
                     title="Mega Man Zero",
                     serial="CTR-P-AZRE",
                     content_type=RomFileContentType.GAME,
-                    regions=("USA", "Japan"),
+                    regions=("North America", "Japan"),
                     languages=("Japanese", "English"),
                     publisher="Capcom",
                     is_compressed=True,
@@ -760,7 +760,7 @@ class TestParseInfo:
                     serial="SMNE01",
                     content_type=RomFileContentType.GAME,
                     display_version="v3",
-                    regions=("Europe",),
+                    regions=("PAL",),
                     languages=("Japanese", "English"),
                     publisher="Nintendo",
                     is_compressed=False,
@@ -825,7 +825,7 @@ class TestParseInfo:
                     serial="TT-027",
                     content_type=RomFileContentType.GAME,
                     display_version="1",
-                    regions=("USA",),
+                    regions=("NTSC-U",),
                     is_compressed=False,
                     file_format="DISC",
                     images=RomConvertoImages(icon=_FAKE_PNG),
@@ -848,7 +848,7 @@ class TestParseInfo:
                     title="Halo 3",
                     content_type=RomFileContentType.GAME,
                     display_version="1.0.0.0",
-                    regions=("USA", "Europe"),
+                    regions=("NTSC-U", "PAL"),
                     is_compressed=False,
                     file_format="DISC",
                     images=RomConvertoImages(icon=_FAKE_PNG),
@@ -887,7 +887,7 @@ class TestParseInfo:
                     title="Halo 3",
                     content_type=RomFileContentType.GAME,
                     display_version="2.0.4552.0",
-                    regions=("World",),
+                    regions=("RegionFree",),
                     is_compressed=True,
                     file_format="ZAR",
                     uncompressed_size_bytes=786432000,
@@ -1207,12 +1207,11 @@ class TestParseInfo:
                     },
                 },
                 RomConvertoInfo(
-                    # The scan handler drops the duplicates once names are canonical.
                     regions=(
-                        "USA",
+                        "NorthAmerica",
+                        "PAL",
                         "Europe",
-                        "Europe",
-                        "World",
+                        "RegionFree",
                         "Japan",
                         "China",
                         "Asia",
@@ -1220,7 +1219,7 @@ class TestParseInfo:
                         "Korea",
                     )
                 ),
-                id="region-names-map-aliases-and-drop-junk",
+                id="region-names-read-converto-labels-and-drop-junk",
             ),
             pytest.param(
                 {
@@ -1245,19 +1244,19 @@ class TestParseInfo:
                 },
                 RomConvertoInfo(
                     languages=(
-                        "English",
-                        "English",
-                        "French",
-                        "Spanish",
-                        "Portuguese",
-                        "Chinese",
-                        "Chinese",
-                        "Chinese",
+                        "AmericanEnglish",
+                        "BritishEnglish",
+                        "CanadianFrench",
+                        "LatinAmericanSpanish",
+                        "BrazilianPortuguese",
+                        "SimplifiedChinese",
+                        "TraditionalChinese",
+                        "TaiwaneseChinese",
                         "Japanese",
                         "german",
                     )
                 ),
-                id="language-variants-fold-and-default-drops",
+                id="languages-drop-the-default-slot",
             ),
             pytest.param(
                 {

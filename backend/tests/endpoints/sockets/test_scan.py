@@ -752,13 +752,11 @@ class TestConvertoInfoBatch:
 
     @pytest.fixture
     def candidates(self, mocker) -> AsyncMock:
-        return mocker.patch.object(
-            fs_rom_handler,
-            "converto_candidates",
-            AsyncMock(
-                side_effect=lambda _slug, fs_path, fs_name: [f"{fs_path}/{fs_name}"]
-            ),
+        candidates = AsyncMock(
+            side_effect=lambda _slug, fs_path, fs_name: [f"{fs_path}/{fs_name}"]
         )
+        mocker.patch.object(fs_rom_handler, "converto_candidates", candidates)
+        return candidates
 
     @pytest.mark.parametrize(
         ("scan_type", "roms_ids", "expected"),

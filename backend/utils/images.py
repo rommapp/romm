@@ -1,6 +1,9 @@
 from collections.abc import Callable
+from typing import Final
 
 from PIL import Image, ImageSequence
+
+PNG_SIGNATURE: Final = b"\x89PNG\r\n\x1a\n"
 
 # Multi-frame formats browsers play as animations (MPO/TIFF pages are not)
 ANIMATED_FORMATS = frozenset({"GIF", "PNG", "WEBP"})
