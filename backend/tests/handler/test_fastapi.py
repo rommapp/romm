@@ -713,6 +713,51 @@ async def test_update_scan_keeps_name_summary_and_manual(
     assert result.url_manual == "https://www.screenscraper.fr/manual?id=old"
 
 
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"path_manual": "roms/1/1/manual/1.pdf", "locked_fields": ["url_manual"]},
+        {"path_manual": "roms/1/1/manual/1.pdf"},
+        {"path_manual": "", "locked_fields": ["url_manual"]},
+    ],
+    ids=["locked", "upload-predating-lock", "locked-file-unreadable"],
+)
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom_by_id", new_callable=AsyncMock)
+async def test_update_scan_keeps_uploaded_manual_with_no_source_url(
+    mock_ss_get_by_id, mock_playmatch_enabled, overrides
+):
+    """A manual uploaded to a rom with no scraped one has no url to pin, so the
+    provider's url would otherwise win and its download overwrite the upload."""
+    mock_ss_get_by_id.return_value = SSRom(
+        ss_id=321, name="Game", url_manual="https://www.screenscraper.fr/manual?id=1"
+    )
+
+    platform = _ss_quota_platform()
+    rom = _scraped_cover_rom(platform, url_manual="", **overrides)
+
+    result = await _update_scan(platform, rom)
+
+    assert not result.url_manual
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom_by_id", new_callable=AsyncMock)
+async def test_update_scan_adopts_manual_url_when_rom_has_no_manual(
+    mock_ss_get_by_id, mock_playmatch_enabled
+):
+    mock_ss_get_by_id.return_value = SSRom(
+        ss_id=321, name="Game", url_manual="https://www.screenscraper.fr/manual?id=1"
+    )
+
+    platform = _ss_quota_platform()
+    rom = _scraped_cover_rom(platform, url_manual="", path_manual="")
+
+    result = await _update_scan(platform, rom)
+
+    assert result.url_manual == "https://www.screenscraper.fr/manual?id=1"
+
+
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
 @patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
 @patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
