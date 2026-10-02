@@ -163,7 +163,7 @@ start_bin_nginx() {
 		nginx -g 'user romm;'
 	fi
 
-	: "${ROMM_BASE_URL:=http://0.0.0.0:8080}"
+	: "${ROMM_BASE_URL:=http://0.0.0.0:${ROMM_PORT:-8080}}"
 	info_log "🚀 RomM is now available at ${ROMM_BASE_URL}"
 }
 
