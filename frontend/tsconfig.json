@@ -8,13 +8,14 @@
     "playwright.config.ts"
   ],
   "exclude": ["node_modules"],
-  "types": ["node", "lodash", "js-cookie", "vue-router", "vue"],
   "compilerOptions": {
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "lib": ["dom", "esnext"],
     "erasableSyntaxOnly": true,
     "noImplicitAny": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],
       "@v2/*": ["./src/v2/*"]
@@ -24,5 +25,10 @@
       "./src/types/main.d.ts",
       "vite/client"
     ]
+  },
+  "vueCompilerOptions": {
+    "checkUnknownComponents": true,
+    "checkUnknownDirectives": true,
+    "checkUnknownEvents": true
   }
 }
