@@ -31,7 +31,7 @@ function tabbable(wrapper: ReturnType<typeof mount>): string[] {
   return wrapper
     .findAll("a, button")
     .filter((el) => el.attributes("tabindex") !== "-1")
-    .map((el) => el.attributes("href") ?? el.classes()[0]);
+    .map((el) => el.attributes("href") ?? el.classes()[0]!);
 }
 
 function focusLink(id: number) {
@@ -73,7 +73,7 @@ describe("useGridNav roving", () => {
   });
 
   it("follows focus that arrives another way, such as a click", async () => {
-    const fav = wrapper.findAll("button.fav")[3].element as HTMLElement;
+    const fav = wrapper.findAll("button.fav")[3]!.element as HTMLElement;
     fav.focus();
     // happy-dom's focus() fires no focusin.
     fav.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
