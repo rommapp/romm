@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { listPlatformIcons } from "../scripts/platformIconManifest";
 
@@ -28,5 +28,15 @@ describe("listPlatformIcons", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("the shipped platform icons", () => {
+  it("are found in public/, so a plain build copies them into dist", () => {
+    const icons = listPlatformIcons(resolve("public/assets/platforms"));
+
+    expect(icons.size).toBeGreaterThan(100);
+    expect(icons.has("default")).toBe(true);
+    expect(icons.has("snes")).toBe(true);
   });
 });
