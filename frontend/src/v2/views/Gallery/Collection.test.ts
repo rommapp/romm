@@ -10,6 +10,7 @@ import storeCollections, {
   type VirtualCollection,
 } from "@/stores/collections";
 import type { SimpleRom } from "@/stores/roms";
+import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import CollectionView from "./Collection.vue";
 
@@ -91,8 +92,8 @@ vi.mock("@/v2/components/Gallery/GalleryShell.vue", () => ({
 vi.mock("@/v2/components/Gallery/CollectionHead.vue", () => ({
   default: defineComponent({
     props: { collection: { type: Object, default: null } },
-    emits: ["random"],
-    template: `<header><span class="rom-count">{{ collection?.rom_count }}</span><button class="random" @click="$emit('random')" /></header>`,
+    emits: ["random", "update:tab"],
+    template: `<header><span class="rom-count">{{ collection?.rom_count }}</span><button class="random" @click="$emit('random')" /><button class="to-settings" @click="$emit('update:tab', 'settings')" /></header>`,
   }),
 }));
 
@@ -500,18 +501,21 @@ describe("Collection view settings deep link", () => {
     routeState.params = { collection: "1" };
     routeState.query = { tab: "settings" };
     getRoms.mockResolvedValue({ data: { items: [], total: 0 } });
-    storeAuth().setCurrentUser({
-      id: 5,
-      oauth_scopes: ["collections.write"],
-    } as never);
+    storeAuth().setCurrentUser(
+      userFixture({ id: 5, oauth_scopes: ["collections.write"] }),
+    );
   });
 
   afterEach(() => {
     routeState.query = {};
   });
 
+  function ownedBy(id: number, userId: number): Collection {
+    return { ...collection(id), user_id: userId } as Collection;
+  }
+
   function openOwnedBy(userId: number) {
-    const owned = { ...collection(1), user_id: userId } as Collection;
+    const owned = ownedBy(1, userId);
     storeCollections().setCollections([owned]);
     getCollection.mockResolvedValue({ data: owned });
   }
@@ -532,5 +536,26 @@ describe("Collection view settings deep link", () => {
     expect(wrapper.find(".settings-tab").exists()).toBe(false);
     expect(wrapper.find(".rom-count").exists()).toBe(true);
     expect(replace).toHaveBeenCalledWith({ path: "/collection/1", query: {} });
+  });
+
+  it("keeps Settings picked while the next collection is still loading", async () => {
+    routeState.query = {};
+    const notOwned = ownedBy(1, 6);
+    const owned = ownedBy(2, 5);
+    storeCollections().setCollections([notOwned, owned]);
+    let resolveNext!: (value: { data: Collection }) => void;
+    getCollection.mockImplementation((id: number) =>
+      id === 1
+        ? Promise.resolve({ data: notOwned })
+        : new Promise((resolve) => (resolveNext = resolve)),
+    );
+
+    const wrapper = await mountView();
+    runRouteGuards("collection", "2");
+    await wrapper.get("button.to-settings").trigger("click");
+    resolveNext({ data: owned });
+    await flushPromises();
+
+    expect(wrapper.find(".settings-tab").exists()).toBe(true);
   });
 });

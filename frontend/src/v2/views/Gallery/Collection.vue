@@ -56,6 +56,7 @@ const galleryRoms = storeGalleryRoms();
 const { toWebp } = useWebpSupport();
 
 const notFound = ref(false);
+const loading = ref(true);
 const currentKind = ref<CollectionKind>("regular");
 const currentCollection = ref<AnyCollection | null>(null);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
@@ -102,13 +103,12 @@ type TabId = "library" | "settings";
 const TAB_IDS: readonly TabId[] = ["library", "settings"];
 
 const tab = useRouteQueryParam("tab", "library", TAB_IDS);
-// Virtual collections and ones the user can't edit have no Settings tab, so
-// a link or a switch landing there falls back to Library. Until the
-// collection settles, ownership reads false and would bounce a valid link.
+// Collections without a Settings tab fall back to Library, judged only once
+// the routed collection loads: ownership is unknown until then.
 watch(
-  [tab, showSettingsTab, () => !!currentCollection.value || notFound.value],
-  ([current, allowed, settled]) => {
-    if (settled && current === "settings" && !allowed) tab.value = "library";
+  [tab, showSettingsTab, loading],
+  ([current, allowed, pending]) => {
+    if (!pending && current === "settings" && !allowed) tab.value = "library";
   },
   { immediate: true },
 );
@@ -207,6 +207,7 @@ function refreshFromServer(
 
 async function loadForRoute(kind: CollectionKind, id: string) {
   const token = ++loadToken;
+  loading.value = true;
   currentKind.value = kind;
   // The list is unused here, but the surfaces reachable from this page read it
   // (the add-to-collection dialog).
@@ -215,6 +216,7 @@ async function loadForRoute(kind: CollectionKind, id: string) {
     ensureLoaded(kind),
   ]);
   if (token !== loadToken || !alive.value) return;
+  loading.value = false;
   const collection = fresh ?? findById(kind, id);
   if (!collection) {
     notFound.value = true;
