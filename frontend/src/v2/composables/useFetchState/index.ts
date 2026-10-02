@@ -23,27 +23,25 @@ export function useFetchState<T, Args extends unknown[] = []>(
   initial: T,
   options: UseFetchStateOptions<T> = {},
 ): UseFetchState<T, Args> {
-  let latest = 0;
-
   const { state, isLoading, error, executeImmediate } = useAsyncState(
-    async (...args: Args) => {
-      const call = ++latest;
-      try {
-        const data = await fetcher(...args);
-        if (call === latest) options.onSuccess?.(data);
-        return data;
-      } catch (err) {
-        if (call === latest) options.onError?.(err);
-        throw err;
-      }
-    },
+    fetcher,
     initial,
-    {
-      immediate: options.immediate ?? true,
-      resetOnExecute: false,
-      onError: () => {},
-    },
+    { immediate: false, resetOnExecute: false, onError: () => {} },
   );
 
-  return { state, isLoading, error, execute: executeImmediate };
+  let latest = 0;
+
+  // Callbacks run after the newest call has written `state` and `error`.
+  async function execute(...args: Args): Promise<T | undefined> {
+    const call = ++latest;
+    const data = await executeImmediate(...args);
+    if (call !== latest) return data;
+    if (error.value !== undefined) options.onError?.(error.value);
+    else options.onSuccess?.(data as T);
+    return data;
+  }
+
+  if (options.immediate ?? true) void execute(...([] as unknown as Args));
+
+  return { state, isLoading, error, execute };
 }

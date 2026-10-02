@@ -8,7 +8,7 @@
 // an admin needs: open its desktop to configure the emulator inside it, and
 // end whatever session is holding it.
 import { RBtn, REmptyState, RIcon, RSpinner } from "@v2/lib";
-import { computed, onMounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -18,6 +18,7 @@ import streamingApi, {
 import { formatTimestamp } from "@/utils";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -27,12 +28,26 @@ const router = useRouter();
 const confirm = useConfirm();
 const snackbar = useSnackbar();
 
-const loading = ref(true);
-const enabled = ref(false);
+const {
+  state: listing,
+  isLoading: loading,
+  error,
+  execute: load,
+} = useFetchState(
+  () => streamingApi.adminListContainers().then(({ data }) => data),
+  { enabled: false, containers: [] as AdminStreamingContainer[] },
+  {
+    onError: (err) => {
+      console.warn("[streaming] Could not load containers:", err);
+      snackbar.error(t("settings.streaming-load-failed"));
+    },
+  },
+);
+const enabled = computed(() => listing.value.enabled);
+const containers = computed(() => listing.value.containers);
 // A failed listing is not a configuration answer: without this the panel
 // reports streaming as disabled over what was a 403 or a server error.
-const loadFailed = ref(false);
-const containers = ref<AdminStreamingContainer[]>([]);
+const loadFailed = computed(() => error.value !== undefined);
 const releasing = ref<string | null>(null);
 
 const emptyState = computed<{ icon: string; title: string } | null>(() => {
@@ -53,22 +68,6 @@ const emptyState = computed<{ icon: string; title: string } | null>(() => {
   }
   return null;
 });
-
-async function load(): Promise<void> {
-  loading.value = true;
-  loadFailed.value = false;
-  try {
-    const { data } = await streamingApi.adminListContainers();
-    enabled.value = data.enabled;
-    containers.value = data.containers;
-  } catch (err) {
-    console.warn("[streaming] Could not load containers:", err);
-    loadFailed.value = true;
-    snackbar.error(t("settings.streaming-load-failed"));
-  } finally {
-    loading.value = false;
-  }
-}
 
 function openDesktop(container: AdminStreamingContainer): void {
   router.push({
@@ -128,8 +127,6 @@ function sessionState(container: AdminStreamingContainer): string {
     .filter(Boolean)
     .join(" ");
 }
-
-onMounted(load);
 </script>
 
 <template>

@@ -23,6 +23,7 @@ import MemoryCardDialog, {
 } from "@/v2/components/Player/MemoryCardDialog.vue";
 import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
@@ -40,21 +41,26 @@ const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 
-const cards = ref<MemoryCardSchema[]>([]);
-const loading = ref(false);
+const {
+  state: cards,
+  isLoading: loading,
+  execute: fetchCards,
+} = useFetchState(
+  (emulator: string) =>
+    memoryCardApi.getMemoryCards({ emulator }).then(({ data }) => data),
+  [],
+  {
+    immediate: false,
+    onError: (err) => {
+      console.warn("[memory-cards] Could not fetch cards:", err);
+      cards.value = [];
+    },
+  },
+);
 
 async function load(emulator: string): Promise<void> {
   if (!emulator) return;
-  loading.value = true;
-  try {
-    const { data } = await memoryCardApi.getMemoryCards({ emulator });
-    cards.value = data;
-  } catch (err) {
-    console.warn("[memory-cards] Could not fetch cards:", err);
-    cards.value = [];
-  } finally {
-    loading.value = false;
-  }
+  await fetchCards(emulator);
 }
 
 watch(() => props.emulator, load, { immediate: true });

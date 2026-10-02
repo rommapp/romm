@@ -11,6 +11,7 @@ import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { shortenGithubLinks } from "@/v2/utils/githubLinks";
 
@@ -35,12 +36,32 @@ const emitter = inject<Emitter<Events>>("emitter");
 const { isLight: isLightTheme } = useThemeMode();
 
 const show = ref(false);
-const loading = ref(false);
-const error = ref(false);
 // Module-level cache would share across instances, but the dialog is
 // mounted once in GlobalDialogs, so an instance ref is enough and keeps
 // teardown trivial.
-const releases = ref<Release[]>([]);
+const {
+  state: releases,
+  isLoading: loading,
+  error: fetchError,
+  execute: fetchReleases,
+} = useFetchState(
+  async () => {
+    const res = await fetch(RELEASES_URL, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!res.ok) throw new Error(`GitHub ${res.status}`);
+    const data: Release[] = await res.json();
+    return data
+      .filter((r) => !r.draft && !r.prerelease)
+      .map((r) => ({ ...r, body: shortenGithubLinks(r.body ?? "", REPO) }));
+  },
+  [],
+  {
+    immediate: false,
+    onError: (e) => console.error("Changelog fetch failed", e),
+  },
+);
+const error = computed(() => fetchError.value !== undefined);
 
 const mdTheme = computed<"light" | "dark">(() =>
   isLightTheme.value ? "light" : "dark",
@@ -59,26 +80,6 @@ function fmtDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return dateFormatter.value.format(d);
-}
-
-async function fetchReleases() {
-  loading.value = true;
-  error.value = false;
-  try {
-    const res = await fetch(RELEASES_URL, {
-      headers: { Accept: "application/vnd.github+json" },
-    });
-    if (!res.ok) throw new Error(`GitHub ${res.status}`);
-    const data: Release[] = await res.json();
-    releases.value = data
-      .filter((r) => !r.draft && !r.prerelease)
-      .map((r) => ({ ...r, body: shortenGithubLinks(r.body ?? "", REPO) }));
-  } catch (e) {
-    console.error("Changelog fetch failed", e);
-    error.value = true;
-  } finally {
-    loading.value = false;
-  }
 }
 
 const openHandler = () => {

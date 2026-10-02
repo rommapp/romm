@@ -91,6 +91,14 @@ describe("useFetchState", () => {
     expect(onSuccess).toHaveBeenCalledWith("newer");
   });
 
+  it("runs onSuccess after the new data is in state", async () => {
+    const seen: string[] = [];
+    const fetch = setup(() => Promise.resolve("fresh"), "old", {
+      onSuccess: () => seen.push(fetch.state.value),
+    });
+    await vi.waitFor(() => expect(seen).toEqual(["fresh"]));
+  });
+
   it("reports the newest failure through error and onError", async () => {
     const failure = new Error("boom");
     const onError = vi.fn();
