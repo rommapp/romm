@@ -65,8 +65,9 @@ export default defineConfig({
     ? {}
     : {
         webServer: {
+          // Vite skips `assets/`; the Docker image copies it over `dist`, so do the same.
           command: process.env.CI
-            ? "npm run build && npm run preview -- --port 3000 --strictPort --host 127.0.0.1"
+            ? "npm run build && cp -R assets/. dist/assets/ && npm run preview -- --port 3000 --strictPort --host 127.0.0.1"
             : "npm run dev",
           url: "http://127.0.0.1:3000",
           reuseExistingServer: !process.env.CI,
