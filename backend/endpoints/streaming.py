@@ -1085,6 +1085,9 @@ async def save_and_exit_session(
 
     await lifecycle.record_play_session(session)
     await lifecycle.clear_session_activity(session_key, session)
+    # Before the key goes, like every other exit: a claim that wins it next
+    # activates, and the broker drops the change then.
+    await lifecycle.collect_ra_login(container, session)
     # Before the key goes, so a claim that wins it next waits for the pull.
     await lifecycle.start_exit_save_pull(container, session, settled=settled)
 
@@ -1791,10 +1794,7 @@ async def force_release_all(
                         container, session, stopped.state_slot
                     )
                     # Before the key goes; files it under the session's owner.
-                    if container.is_webstation:
-                        await asyncio.to_thread(
-                            webstation.collect_ra_login, container, session
-                        )
+                    await lifecycle.collect_ra_login(container, session)
                     await lifecycle.start_exit_save_pull(
                         container, session, settled=stopped.settled
                     )

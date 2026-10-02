@@ -1071,6 +1071,31 @@ def test_resaving_the_same_ra_username_keeps_the_stored_login(
     assert [e for e in recorded_events() if e.action == "user.edit"] == []
 
 
+def test_correcting_ra_username_to_the_stored_logins_account_keeps_it(
+    client, access_token: str, editor_user: User
+):
+    """The emulator can log in to another account than the profile names, and
+    bringing the profile in line with it must not log the player out; RA
+    usernames ignore case."""
+    DBUsersHandler().update_user(editor_user.id, {"ra_username": "bob"})
+    store_ra_login(editor_user.id, "Alice", "tok456secret")
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"ra_username": "alice"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    db_user = DBUsersHandler().get_user(editor_user.id)
+    assert db_user is not None
+    assert db_user.ra_username == "alice"
+    assert ra_login_for_activate(db_user) == {
+        "username": "Alice",
+        "token": "tok456secret",
+    }
+
+
 def test_an_empty_ra_username_is_still_a_no_op(
     client, access_token: str, editor_user: User
 ):

@@ -250,6 +250,20 @@ async def collect_exit_state(
     )
 
 
+async def collect_ra_login(
+    container: ResolvedContainer, session: dict[str, Any]
+) -> None:
+    """File the RetroAchievements login change the session ended with.
+
+    Every exit calls it while the claim still guards the container, as with
+    collect_exit_state: the broker forgets the change at its next activate.
+    Only a webstation broker serves the route; urllib is synchronous, hence
+    the thread.
+    """
+    if container.is_webstation:
+        await asyncio.to_thread(webstation.collect_ra_login, container, session)
+
+
 # Streaming sessions shorter than this are treated as accidental (a claim that
 # was released almost immediately) and not recorded as playtime.
 _MIN_PLAY_SESSION_MS = 5_000
@@ -443,11 +457,7 @@ async def teardown_released_session(
 
         # Awaited, not spawned: the claim is released below.
         await collect_exit_state(container, session, stopped.state_slot)
-        # Also while the claim is held: the broker forgets the change at its
-        # next activate. Only a webstation broker serves the route; urllib is
-        # synchronous, hence the thread.
-        if container.is_webstation:
-            await asyncio.to_thread(webstation.collect_ra_login, container, session)
+        await collect_ra_login(container, session)
         await collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
         # The pull clears it from here.
         pull_mark = None
@@ -526,11 +536,7 @@ async def teardown_abandoned_session(
         await record_play_session(session)
         await clear_session_activity(session_key, session)
         await collect_exit_state(container, session, stopped.state_slot)
-        # Also while the claim is held: the broker forgets the change at its
-        # next activate. Only a webstation broker serves the route; urllib is
-        # synchronous, hence the thread.
-        if container.is_webstation:
-            await asyncio.to_thread(webstation.collect_ra_login, container, session)
+        await collect_ra_login(container, session)
         await collect_exit_saves(container, session, pull_mark, settled=stopped.settled)
         pull_mark = None
     except Exception:

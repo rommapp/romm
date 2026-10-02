@@ -23,11 +23,7 @@ from tests.audit_events import recorded_events
 from tests.factories import make_rom, make_save, make_screenshot, make_state
 from tests.streaming_stubs import exit_pulls_spawned_inline
 
-from config import (
-    LIBRARY_BASE_PATH,
-    OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
-    STREAMING_SAVE_TIMEOUT,
-)
+from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import streaming
 from endpoints.responses.assets import StateSchema
 from endpoints.responses.streaming import ImportRefusalSchema
@@ -83,7 +79,7 @@ from handler.streaming.config import (
     resolve_containers,
     resolve_entry,
 )
-from handler.streaming.protocol import protocol_for
+from handler.streaming.protocol import ACK_TIMEOUT, protocol_for
 from handler.streaming.session_store import (
     STREAMING_SESSION_DRAIN_SECONDS,
     STREAMING_SESSION_TTL_SECONDS,
@@ -7103,7 +7099,7 @@ def test_a_released_session_collects_a_set_login_and_stores_it(
     [call] = _collect_calls(request_safe)
     assert call.args[1].endswith("/api/session/retroachievements/collect")
     assert call.kwargs["body"] == {"session_id": session["broker_session_id"]}
-    assert call.kwargs["timeout"] == STREAMING_SAVE_TIMEOUT
+    assert call.kwargs["timeout"] == ACK_TIMEOUT
     assert _stored_login(admin_user.id) == {"username": "alice", "token": RA_TOKEN}
     [event] = [e for e in recorded_events() if e.action == "user.ra_login_set"]
     assert event.target_id == str(admin_user.id)
@@ -7247,6 +7243,50 @@ def test_an_abandoned_session_collects_the_login_too(
 
     assert torn is True
     assert len(_collect_calls(request_safe)) == 1
+    assert _stored_login(admin_user.id) == {"username": "alice", "token": RA_TOKEN}
+
+
+@pytest.mark.parametrize("wait", [True, False], ids=["button", "navigate-away"])
+def test_save_and_exit_collects_the_login_while_the_claim_is_held(
+    client, access_token, admin_user: User, rom: Rom, wait: bool
+):
+    """The exit button and leaving the page both go out through save-and-exit,
+    and the broker drops the change at the next activate."""
+    container = _webstation_for(rom)
+    held: list[bool] = []
+    with _streaming(container):
+        _claim_webstation_ok(client, access_token, rom.id)
+        session = json.loads(_session_raw(container))
+        reply = _collect_reply(
+            session["broker_session_id"],
+            "set",
+            {"username": "alice", "token": RA_TOKEN},
+        )
+
+        def request_safe(_container, _path, operation, **_kwargs):
+            if operation != "ra login collect":
+                return None
+            held.append(_session_raw(container) is not None)
+            return reply
+
+        with (
+            patch(
+                "handler.streaming.webstation.exit_session",
+                return_value={"state_saved": False},
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch("handler.streaming.broker.request_safe", side_effect=request_safe),
+        ):
+            response = client.post(
+                f"/api/streaming/sessions/{rom.platform_slug}/save-and-exit",
+                json={"wait": wait},
+                headers=_auth(access_token),
+            )
+            assert response.status_code == 200, response.text
+            for spawned in (c.args[0] for c in spawn.call_args_list):
+                spawned.close()
+
+    assert held == [True]
     assert _stored_login(admin_user.id) == {"username": "alice", "token": RA_TOKEN}
 
 
@@ -9497,6 +9537,21 @@ def test_http_error_redacts_a_secret_in_both_its_raw_and_json_escaped_form(caplo
     assert escaped not in caplog.text
 
 
+def test_http_error_redacts_a_secret_the_broker_escaped_another_way():
+    """JSON lets any character be a unicode escape, which json.dumps never
+    writes for a letter; the parsed detail decodes it back to the secret."""
+    secret = "tok456secret"  # nosec B105
+    body = b'{"detail": "bad login \\u0074ok456secret"}'
+    exc = _http_error(422)
+    with patch.object(exc, "read", side_effect=_reads(body)):
+        result = broker.http_error(exc, redact=(secret,))
+
+    assert isinstance(result, HTTPException)
+    assert "bad login" in result.detail
+    assert "[redacted]" in result.detail
+    assert secret not in result.detail
+
+
 def test_broker_error_body_gives_up_on_a_slow_body():
     exc = _http_error(500)
     with (
@@ -11128,6 +11183,30 @@ def test_a_truncated_broker_error_carries_no_ra_token_anywhere(admin_user: User)
     assert isinstance(exc, HTTPException)
     assert exc.status_code == 502
     assert _leaks_through(exc, RA_TOKEN) == []
+
+
+def test_activate_sends_a_login_stored_after_the_user_was_loaded(admin_user: User):
+    """A stale-session takeover collects the abandoned session's login on the
+    claim request, after that request loaded the user it launches for."""
+    user = db_user_handler.get_user(admin_user.id)
+    assert user is not None
+    store_ra_login(admin_user.id, "alice", RA_TOKEN)
+
+    with patch(
+        "handler.streaming.broker.request", return_value={"url": "/room/x"}
+    ) as request:
+        webstation.activate(
+            _snes("retroarch"),
+            session_id="s",
+            user=user,
+            emulator="retroarch",
+            rom={"id": 1, "name": "Game", "platform": "snes"},
+        )
+
+    assert request.call_args.kwargs["body"]["retroachievements"] == {
+        "username": "alice",
+        "token": RA_TOKEN,
+    }
 
 
 def _echoing_broker_http_error(

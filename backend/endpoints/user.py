@@ -34,6 +34,7 @@ from handler.filesystem.assets_handler import (
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
+from handler.ra_login import ra_login_is_for
 from handler.socket_handler import close_client_token_sockets
 from logger.logger import log
 from models.audit_event import AuditAction
@@ -504,8 +505,10 @@ async def update_user(
         cleaned_data["ra_username"] = form_data.ra_username
         # The stored RetroAchievements login belongs to the account the
         # emulator logged in to; a profile that now names another one drops it
-        # in the same update. Recorded by the user.edit row below.
-        cleaned_data["ra_login_sealed"] = None
+        # in the same update. Recorded by the user.edit row below. One
+        # corrected to name that account (RA names ignore case) keeps it.
+        if not ra_login_is_for(db_user, form_data.ra_username):
+            cleaned_data["ra_login_sealed"] = None
 
     if form_data.ui_settings is not None:
         try:

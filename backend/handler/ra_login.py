@@ -5,7 +5,7 @@ collected and hands it back on the next launch. The token is never logged,
 never returned by an API, and never in audit data.
 """
 
-from handler.audit_handler import AuditActor, AuditDraft, AuditTarget, record_many
+from handler.audit_handler import AuditActor, AuditTarget, record
 from handler.database import db_user_handler
 from logger.logger import log
 from models.audit_event import AuditAction
@@ -34,14 +34,10 @@ def store_ra_login(user_id: int, username: str, token: str) -> bool:
             user_id,
         )
     db_user_handler.update_user(user_id, data)
-    record_many(
-        [
-            AuditDraft(
-                AuditAction.USER_RA_LOGIN_SET,
-                AuditActor.for_user_id(user_id),
-                AuditTarget.of_user(user),
-            )
-        ]
+    record(
+        AuditAction.USER_RA_LOGIN_SET,
+        AuditActor.for_user(user),
+        AuditTarget.of_user(user),
     )
     return True
 
@@ -55,14 +51,10 @@ def clear_ra_login(user_id: int) -> bool:
     if user.ra_login_sealed is None:
         return False
     db_user_handler.update_user(user_id, {"ra_login_sealed": None})
-    record_many(
-        [
-            AuditDraft(
-                AuditAction.USER_RA_LOGIN_CLEAR,
-                AuditActor.for_user_id(user_id),
-                AuditTarget.of_user(user),
-            )
-        ]
+    record(
+        AuditAction.USER_RA_LOGIN_CLEAR,
+        AuditActor.for_user(user),
+        AuditTarget.of_user(user),
     )
     return True
 
@@ -82,11 +74,26 @@ def ra_login_for_activate(user: User) -> dict[str, str] | None:
     except UnsealError:
         log.warning("ra login: could not unseal the stored login of user %s", user.id)
         return None
+    login = usable_login(value)
+    if login is None:
+        log.warning("ra login: the stored login of user %s is not usable", user.id)
+    return login
+
+
+def usable_login(value: object) -> dict[str, str] | None:
+    """`value` as a login, or None unless its username and token are non-empty strings."""
+    if not isinstance(value, dict):
+        return None
     username = value.get("username")
     token = value.get("token")
     if not (
         isinstance(username, str) and username and isinstance(token, str) and token
     ):
-        log.warning("ra login: the stored login of user %s is not usable", user.id)
         return None
     return {"username": username, "token": token}
+
+
+def ra_login_is_for(user: User, ra_username: str) -> bool:
+    """Whether the user's stored login is for `ra_username`; RA names ignore case."""
+    login = ra_login_for_activate(user)
+    return login is not None and login["username"].casefold() == ra_username.casefold()

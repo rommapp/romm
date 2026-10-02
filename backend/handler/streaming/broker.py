@@ -393,10 +393,9 @@ def http_error(
         truncated_raw = refusal.get("truncated", 0)
         truncated = truncated_raw if isinstance(truncated_raw, int) else 0
         return ImportRefusedError(refusals, truncated)
-    return HTTPException(
-        status_code=502,
-        detail=f"Broker returned {exc.code}: {str(detail)[:_BROKER_ERROR_SHOWN_CHARS]}",
-    )
+    # Again once parsed: an escape json.dumps never writes decodes to the secret.
+    shown = _redacted(str(detail), redact)[:_BROKER_ERROR_SHOWN_CHARS]
+    return HTTPException(status_code=502, detail=f"Broker returned {exc.code}: {shown}")
 
 
 def _redacted(text: str, secrets: Sequence[str]) -> str:

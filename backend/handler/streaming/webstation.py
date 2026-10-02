@@ -32,7 +32,13 @@ from urllib.parse import quote, urlencode
 from fastapi import HTTPException
 
 from config import STREAMING_LAUNCH_TIMEOUT, STREAMING_SAVE_TIMEOUT
-from handler.ra_login import clear_ra_login, ra_login_for_activate, store_ra_login
+from handler.database import db_user_handler
+from handler.ra_login import (
+    clear_ra_login,
+    ra_login_for_activate,
+    store_ra_login,
+    usable_login,
+)
 from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.protocol import ACK_TIMEOUT, WebstationProtocol
@@ -208,8 +214,18 @@ def _with_ra_login(body: dict[str, Any], user: User) -> dict[str, Any]:
     """
     if "rom" not in body:
         return body
-    login = ra_login_for_activate(user)
+    login = _current_ra_login(user)
     return body if login is None else {**body, "retroachievements": login}
+
+
+def _current_ra_login(user: User) -> dict[str, str] | None:
+    """The user's stored login as the database holds it now.
+
+    `user` came with the request, and a stale-session takeover on that same
+    request collects the abandoned session's login after it was loaded.
+    """
+    fresh = db_user_handler.get_user(user.id)
+    return ra_login_for_activate(fresh if fresh is not None else user)
 
 
 def _activate_failure(
@@ -223,7 +239,7 @@ def _activate_failure(
         if isinstance(exc, urllib.error.HTTPError):
             # The error body may quote the request, and this one carried the
             # token; the login lives in this frame, which returns, not activate's.
-            login = ra_login_for_activate(user)
+            login = _current_ra_login(user)
             return broker.http_error(
                 exc, redact=() if login is None else (login["token"],)
             )
@@ -441,7 +457,9 @@ def collect_ra_login(container: ResolvedContainer, session: dict[str, Any]) -> N
             container.protocol.session_route("/retroachievements/collect"),
             "ra login collect",
             body={"session_id": session_id},
-            timeout=STREAMING_SAVE_TIMEOUT,
+            # The broker pops the change or refuses at once; a hung one must
+            # not hold the teardown, which still owes the save pull.
+            timeout=ACK_TIMEOUT,
             missing_ok=True,
         )
         if reply is None:
@@ -463,22 +481,15 @@ def collect_ra_login(container: ResolvedContainer, session: dict[str, Any]) -> N
             )
             return
         change = reply.get("change")
-        login = reply.get("retroachievements")
         if change == "set":
-            username = login.get("username") if isinstance(login, dict) else None
-            token = login.get("token") if isinstance(login, dict) else None
-            if not (
-                isinstance(username, str)
-                and username
-                and isinstance(token, str)
-                and token
-            ):
+            login = usable_login(reply.get("retroachievements"))
+            if login is None:
                 log.warning(
                     "session %s: ra login collect answered a set change without a login",
                     session_id,
                 )
                 return
-            filed = store_ra_login(user_id, username, token)
+            filed = store_ra_login(user_id, login["username"], login["token"])
         elif change == "cleared":
             filed = clear_ra_login(user_id)
         else:
