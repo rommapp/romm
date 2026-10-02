@@ -1,8 +1,4 @@
-"""The RetroAchievements login a user's emulator ended with, kept sealed on the user.
-
-Players log in inside the emulator only; this stores what the broker collected
-for the next launch. The token never reaches a log, a response or audit data.
-"""
+"""The RetroAchievements login a user's emulator ended with, kept sealed on the user."""
 
 from handler.audit_handler import AuditActor, AuditTarget, record
 from handler.database import db_user_handler
@@ -13,11 +9,7 @@ from utils.secret_box import UnsealError, seal, unseal
 
 
 def store_ra_login(user_id: int, username: str, token: str) -> bool:
-    """Seal and store the login the user's session ended with.
-
-    `ra_username` is filled in only when it was empty: it also drives the
-    progression sync, so a profile that names another account keeps it.
-    """
+    """Seal and store the login the user's session ended with, filling only an empty `ra_username`."""
     user = db_user_handler.get_user(user_id)
     if user is None:
         log.warning("ra login: no user %s to store a login for", user_id)
@@ -61,11 +53,7 @@ def clear_ra_login(user_id: int) -> bool:
 
 
 def ra_login_for_activate(user: User) -> dict[str, str] | None:
-    """The login to send on activate, or None when there is none usable.
-
-    An unsealable value (the auth secret changed) or an incomplete one starts
-    the player logged out until their next in-emulator login.
-    """
+    """The login to send on activate, or None when there is none usable."""
     sealed = getattr(user, "ra_login_sealed", None)
     if not isinstance(sealed, str) or not sealed:
         return None
@@ -93,7 +81,13 @@ def usable_login(value: object) -> dict[str, str] | None:
     return {"username": username, "token": token}
 
 
-def ra_login_is_for(user: User, ra_username: str) -> bool:
-    """Whether the user's stored login is for `ra_username`; RA names ignore case."""
+def drop_ra_login_not_for(user_id: int, ra_username: str) -> bool:
+    """Drop the stored login unless it is for `ra_username`; RA names ignore case."""
+    user = db_user_handler.get_user(user_id)
+    if user is None or user.ra_login_sealed is None:
+        return False
     login = ra_login_for_activate(user)
-    return login is not None and login["username"].casefold() == ra_username.casefold()
+    if login is not None and login["username"].casefold() == ra_username.casefold():
+        return False
+    # Only the value judged here, so a login stored since then survives.
+    return db_user_handler.clear_ra_login_sealed(user_id, user.ra_login_sealed)

@@ -206,11 +206,7 @@ def default_core(container: ResolvedContainer) -> str | None:
 
 
 def _with_ra_login(body: dict[str, Any], user: User) -> dict[str, Any]:
-    """`body` plus the user's stored login when it activates a game.
-
-    Sent for every game whatever the emulator, outside `user` (the status route
-    echoes it) and outside activate's locals (a traceback keeps those).
-    """
+    """`body` plus the user's stored login when it activates a game, for any emulator."""
     if "rom" not in body:
         return body
     login = _current_ra_login(user)
@@ -218,30 +214,42 @@ def _with_ra_login(body: dict[str, Any], user: User) -> dict[str, Any]:
 
 
 def _current_ra_login(user: User) -> dict[str, str] | None:
-    """The user's stored login as the database holds it now.
-
-    `user` came with the request, and a stale-session takeover on that same
-    request collects the abandoned session's login after it was loaded.
-    """
+    """The user's stored login as the database holds it now, not as `user` was loaded."""
     fresh = db_user_handler.get_user(user.id)
     return ra_login_for_activate(fresh if fresh is not None else user)
 
 
-def _activate_failure(
-    exc: Exception, container: ResolvedContainer, path: str, user: User
-) -> Exception:
-    """The reply to a failed activate request, as commands.launch would give.
+def _send_activate(
+    container: ResolvedContainer, path: str, body: dict[str, Any], user: User
+) -> tuple[Any, Exception | None]:
+    """The broker's reply to activate, or the error to raise in its place."""
+    # The sent login stays in this frame, which returns, not in activate's.
+    sent = _with_ra_login(body, user)
+    caught: Exception
+    try:
+        return (
+            broker.request(
+                container, path, body=sent, timeout=STREAMING_LAUNCH_TIMEOUT
+            ),
+            None,
+        )
+    except Exception as exc:  # noqa: BLE001 - answered below, outside the handler
+        caught = exc
+    # Sentry reads every chained frame's locals, and the request's hold the login.
+    caught.__traceback__ = None
+    login = sent.get("retroachievements")
+    redact = () if login is None else (login["token"],)
+    return None, _activate_failure(caught, container, path, redact)
 
-    Never raises: what building the reply raises would chain to `exc`.
-    """
+
+def _activate_failure(
+    exc: Exception, container: ResolvedContainer, path: str, redact: tuple[str, ...]
+) -> Exception:
+    """The reply to a failed activate request, as commands.launch would give; never raises."""
     try:
         if isinstance(exc, urllib.error.HTTPError):
-            # The error body may quote the request, and this one carried the
-            # token; the login lives in this frame, which returns, not activate's.
-            login = _current_ra_login(user)
-            return broker.http_error(
-                exc, redact=() if login is None else (login["token"],)
-            )
+            # The error body may quote the request, and this one carried the token.
+            return broker.http_error(exc, redact=redact)
         if isinstance(exc, urllib.error.URLError | OSError):
             return broker.unreachable_error(
                 exc,
@@ -324,21 +332,9 @@ def activate(
         body["save"] = save
 
     path = container.protocol.session_route("/activate")
-    caught: Exception | None = None
-    try:
-        resp = broker.request(
-            container,
-            path,
-            body=_with_ra_login(body, user),
-            timeout=STREAMING_LAUNCH_TIMEOUT,
-        )
-    except Exception as exc:  # noqa: BLE001 - answered below, outside the handler
-        caught = exc
-    if caught is not None:
-        # Sentry reads every chained frame's locals and the request's hold the
-        # login, so the reply is raised outside the handler, traceback dropped.
-        caught.__traceback__ = None
-        raise _activate_failure(caught, container, path, user) from None
+    resp, failure = _send_activate(container, path, body, user)
+    if failure is not None:
+        raise failure from None
 
     resp = resp if isinstance(resp, dict) else {}
     log.info("broker activated session, %s", resp)

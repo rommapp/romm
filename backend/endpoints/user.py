@@ -34,7 +34,7 @@ from handler.filesystem.assets_handler import (
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from handler.notification_handler import notify
-from handler.ra_login import ra_login_is_for
+from handler.ra_login import drop_ra_login_not_for
 from handler.socket_handler import close_client_token_sockets
 from logger.logger import log
 from models.audit_event import AuditAction
@@ -503,10 +503,6 @@ async def update_user(
 
     if form_data.ra_username and form_data.ra_username != db_user.ra_username:
         cleaned_data["ra_username"] = form_data.ra_username
-        # The stored login belongs to the account the emulator logged in to: a
-        # profile naming another drops it (RA names ignore case), via user.edit.
-        if not ra_login_is_for(db_user, form_data.ra_username):
-            cleaned_data["ra_login_sealed"] = None
 
     if form_data.ui_settings is not None:
         try:
@@ -552,6 +548,10 @@ async def update_user(
             cleaned_data,
             revoke_sessions_for=previous_username if creds_updated else None,
         )
+
+        # The stored login belongs to the account the emulator logged in to.
+        if "ra_username" in cleaned_data:
+            drop_ra_login_not_for(id, cleaned_data["ra_username"])
 
         if creds_updated and request.user.id == id:
             request.session.clear()

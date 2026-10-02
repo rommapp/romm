@@ -356,13 +356,7 @@ def raise_http_error(exc: urllib.error.HTTPError) -> NoReturn:
 def http_error(
     exc: urllib.error.HTTPError, *, redact: Sequence[str] = ()
 ) -> HTTPException | ImportRefusedError:
-    """What raise_http_error raises, for a caller that must not chain to `exc`.
-
-    `redact` is what the request carried that the broker's text may echo (a
-    stock FastAPI 422 quotes each failing value); it is taken out of every
-    decoded string of a JSON body, or out of a plain one as sent and as JSON
-    escapes it, before the log line and the 502 detail.
-    """
+    """What raise_http_error raises, unchained from `exc`, with each `redact` value taken out of the body."""
     error_body = broker_error_body(exc)
     try:
         detail: Any = _redacted_json(json.loads(error_body), redact)

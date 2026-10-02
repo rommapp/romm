@@ -117,6 +117,22 @@ class DBUsersHandler(DBBaseHandler):
         return affected_rows(result) > 0
 
     @begin_session
+    def clear_ra_login_sealed(
+        self,
+        id: int,
+        sealed: str,
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Null `ra_login_sealed` only while it still holds `sealed`; whether it did."""
+        result = session.execute(
+            update(User)
+            .where(User.id == id, User.ra_login_sealed == sealed)
+            .values(ra_login_sealed=None)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) > 0
+
+    @begin_session
     def get_users(
         self,
         *,

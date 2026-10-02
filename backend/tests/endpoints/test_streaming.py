@@ -43,7 +43,7 @@ from handler.database import (
     db_user_handler,
 )
 from handler.database.base_handler import sync_session
-from handler.ra_login import ra_login_for_activate, store_ra_login
+from handler.ra_login import clear_ra_login, ra_login_for_activate, store_ra_login
 from handler.redis_handler import async_cache
 from handler.streaming import (
     access,
@@ -11267,6 +11267,39 @@ def test_a_broker_error_that_echoes_the_activate_body_is_relayed_without_the_tok
     assert RA_TOKEN not in exc.detail
     assert "broker HTTP error 422" in caplog.text
     assert "Field required" in caplog.text
+    assert RA_TOKEN not in caplog.text
+    assert _leaks_through(exc, RA_TOKEN) == []
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        pytest.param(clear_ra_login, id="cleared"),
+        pytest.param(
+            lambda user_id: store_ra_login(user_id, "bob", "other-token"),
+            id="replaced",
+        ),
+    ],
+)
+def test_an_echoed_token_is_redacted_when_the_stored_login_changed_meanwhile(
+    admin_user: User, caplog, change: Any
+):
+    """Another session's exit can clear or replace the login while activate waits."""
+    store_ra_login(admin_user.id, "alice", RA_TOKEN)
+    echoed = {"detail": [{"msg": "Field required", "input": {"token": RA_TOKEN}}]}
+
+    def broker_request(*_args: Any, **_kwargs: Any) -> Any:
+        change(admin_user.id)
+        raise _echoing_broker_http_error(422, echoed)
+
+    with patch("handler.streaming.broker.request", side_effect=broker_request):
+        exc = _warnings_of(
+            caplog, lambda: _activate_failure(_snes("retroarch"), admin_user.id)
+        )
+
+    assert isinstance(exc, HTTPException)
+    assert "Field required" in exc.detail
+    assert RA_TOKEN not in exc.detail
     assert RA_TOKEN not in caplog.text
     assert _leaks_through(exc, RA_TOKEN) == []
 

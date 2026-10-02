@@ -1032,6 +1032,7 @@ def test_the_user_schema_has_no_field_for_the_sealed_login(
 def test_changing_ra_username_drops_the_stored_login(
     client, access_token: str, editor_user: User
 ):
+    DBUsersHandler().update_user(editor_user.id, {"ra_username": "alice"})
     store_ra_login(editor_user.id, "alice", "tok456secret")
 
     response = client.put(
@@ -1053,6 +1054,7 @@ def test_changing_ra_username_drops_the_stored_login(
 def test_resaving_the_same_ra_username_keeps_the_stored_login(
     client, access_token: str, editor_user: User
 ):
+    DBUsersHandler().update_user(editor_user.id, {"ra_username": "alice"})
     store_ra_login(editor_user.id, "alice", "tok456secret")
 
     response = client.put(

@@ -5,7 +5,12 @@ from cryptography.fernet import Fernet
 from tests.audit_events import recorded_events
 
 from handler.database import db_user_handler
-from handler.ra_login import clear_ra_login, ra_login_for_activate, store_ra_login
+from handler.ra_login import (
+    clear_ra_login,
+    drop_ra_login_not_for,
+    ra_login_for_activate,
+    store_ra_login,
+)
 from models.user import User
 from utils.secret_box import seal
 
@@ -159,3 +164,40 @@ def test_a_sealed_value_without_a_usable_login_is_none(admin_user: User, caplog,
         assert ra_login_for_activate(_user(admin_user.id)) is None
 
     assert TOKEN not in caplog.text
+
+
+def test_dropping_for_another_account_clears_the_login(admin_user: User):
+    store_ra_login(admin_user.id, "alice", TOKEN)
+
+    assert drop_ra_login_not_for(admin_user.id, "bob") is True
+
+    assert _user(admin_user.id).ra_login_sealed is None
+
+
+def test_dropping_for_the_logins_own_account_keeps_it(admin_user: User):
+    store_ra_login(admin_user.id, "Alice", TOKEN)
+
+    assert drop_ra_login_not_for(admin_user.id, "alice") is False
+
+    assert ra_login_for_activate(_user(admin_user.id)) == {
+        "username": "Alice",
+        "token": TOKEN,
+    }
+
+
+def test_dropping_keeps_a_login_stored_after_the_read(
+    admin_user: User, monkeypatch: pytest.MonkeyPatch
+):
+    """An exit can store a login for the new name between the read and the clear."""
+    store_ra_login(admin_user.id, "alice", TOKEN)
+    stale = _user(admin_user.id)
+    store_ra_login(admin_user.id, "bob", "fresh-token")
+    monkeypatch.setattr(db_user_handler, "get_user", lambda _id: stale)
+
+    assert drop_ra_login_not_for(admin_user.id, "bob") is False
+
+    monkeypatch.undo()
+    assert ra_login_for_activate(_user(admin_user.id)) == {
+        "username": "bob",
+        "token": "fresh-token",
+    }
