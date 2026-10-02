@@ -9,9 +9,8 @@
 // endpoint is admin-only. Users tab is always visible to anyone who can
 // reach this route (route-level guard already checks `app.admin`).
 import { RTabNav, type RTabNavItem } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute, useRouter } from "vue-router";
 import storeAuth from "@/stores/auth";
 import storePermissions from "@/stores/permissions";
 import CreateUserDialog from "@/v2/components/Settings/CreateUserDialog.vue";
@@ -23,39 +22,17 @@ import StreamingSection from "@/v2/components/Settings/StreamingSection.vue";
 import TasksSection from "@/v2/components/Settings/TasksSection.vue";
 import UsersSection from "@/v2/components/Settings/UsersSection.vue";
 import { useCan } from "@/v2/composables/useCan";
-import { syncQueryParam } from "@/v2/utils/routeQuery";
+import { useRouteQueryParam } from "@/v2/composables/useRouteQueryParam";
 
 const { t } = useI18n();
-const route = useRoute();
-const router = useRouter();
 const auth = storeAuth();
 const permissions = storePermissions();
 const isAdmin = useCan("app.admin");
 
 type Tab = "users" | "groups" | "tasks" | "streaming";
-const validTabs: Tab[] = ["users", "groups", "tasks", "streaming"];
+const validTabs: readonly Tab[] = ["users", "groups", "tasks", "streaming"];
 
-const tab = ref<Tab>(
-  (validTabs as string[]).includes(route.query.tab as string)
-    ? (route.query.tab as Tab)
-    : "users",
-);
-
-watch(tab, (newTab) => syncQueryParam(router, "tab", newTab));
-
-watch(
-  () => route.query.tab,
-  (newTab) => {
-    if (
-      newTab &&
-      (validTabs as string[]).includes(newTab as string) &&
-      tab.value !== newTab
-    ) {
-      tab.value = newTab as Tab;
-    }
-  },
-  { immediate: true },
-);
+const tab = useRouteQueryParam("tab", "users", validTabs);
 
 const tabs = computed<RTabNavItem[]>(() => {
   const items: RTabNavItem[] = [
@@ -105,7 +82,7 @@ watch(
 const tabModel = computed<string>({
   get: () => tab.value,
   set: (v) => {
-    if ((validTabs as string[]).includes(v)) tab.value = v as Tab;
+    if ((validTabs as readonly string[]).includes(v)) tab.value = v as Tab;
   },
 });
 </script>

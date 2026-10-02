@@ -37,11 +37,11 @@ import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
+import { useRouteQueryParam } from "@/v2/composables/useRouteQueryParam";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
-import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 
@@ -98,34 +98,19 @@ const editableCollection = computed<Collection | SmartCollection | null>(() =>
 );
 
 // ── Tabs ─────────────────────────────────────────────────────────
-// URL-persistent via `?tab=` (mirrors Platform / GameDetails). Virtual
-// collections never see the Settings tab, so clamp invalid persisted
-// values back to `library`.
 type TabId = "library" | "settings";
-const VALID_TABS = new Set<TabId>(["library", "settings"]);
+const TAB_IDS: readonly TabId[] = ["library", "settings"];
 
-function parseTab(v: unknown): TabId {
-  if (typeof v !== "string") return "library";
-  if (!VALID_TABS.has(v as TabId)) return "library";
-  if (v === "settings" && !showSettingsTab.value) return "library";
-  return v as TabId;
-}
-
-const tab = ref<TabId>(parseTab(route.query.tab));
-watch(tab, (value) => syncQueryParam(router, "tab", value));
+const tab = useRouteQueryParam("tab", "library", TAB_IDS);
+// Virtual collections and ones the user can't edit have no Settings tab, so
+// a link or a switch landing there falls back to Library.
 watch(
-  () => route.query.tab,
-  (value) => {
-    const next = parseTab(value);
-    if (next !== tab.value) tab.value = next;
+  [tab, showSettingsTab],
+  ([current, allowed]) => {
+    if (current === "settings" && !allowed) tab.value = "library";
   },
+  { immediate: true },
 );
-// Switching to a virtual collection (no Settings tab) while sitting on
-// `settings`: bounce back to Library so the user isn't staring at an
-// empty body.
-watch(showSettingsTab, (allowed) => {
-  if (!allowed && tab.value === "settings") tab.value = "library";
-});
 
 const tabs = computed<RTabNavItem[]>(() => {
   const out: RTabNavItem[] = [{ id: "library", label: t("common.library") }];
@@ -136,7 +121,7 @@ const tabs = computed<RTabNavItem[]>(() => {
 });
 
 function onTabChange(next: string) {
-  tab.value = parseTab(next);
+  tab.value = next as TabId;
 }
 
 function onSaved(updated: Collection | SmartCollection) {
