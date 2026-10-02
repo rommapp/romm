@@ -973,3 +973,51 @@ class TestCompanyRoleDeduplication:
             "Crystal Dynamics",
             "Nixxes Software",
         ]
+
+
+class TestExecutables:
+    """IGDB's `executables` field, split out of `alternative_names`."""
+
+    def test_executables_carry_name_store_path_and_platform(self):
+        metadata = _extract_metadata(
+            executables=[
+                {
+                    "id": 1,
+                    "name": "WorldOfGoo.exe",
+                    "file_path": "WorldOfGoo/WorldOfGoo.exe",
+                    "store": "Steam",
+                    "platform": {"id": 6, "name": "PC (Microsoft Windows)"},
+                }
+            ]
+        )
+
+        assert metadata["executables"] == [
+            {
+                "name": "WorldOfGoo.exe",
+                "file_path": "WorldOfGoo/WorldOfGoo.exe",
+                "store": "Steam",
+                "platform": {"igdb_id": 6, "name": "PC (Microsoft Windows)"},
+            }
+        ]
+
+    def test_missing_fields_default_to_empty(self):
+        metadata = _extract_metadata(executables=[{"id": 1, "name": "goo.exe"}])
+
+        assert metadata["executables"] == [
+            {"name": "goo.exe", "file_path": "", "store": "", "platform": None}
+        ]
+
+    def test_a_game_without_executables_has_none(self):
+        assert _extract_metadata()["executables"] == []
+
+    def test_executable_names_are_dropped_from_alternative_names(self):
+        """IGDB keeps the migrated entries in `alternative_names` for a while."""
+        metadata = _extract_metadata(
+            alternative_names=[
+                {"id": 1, "name": "WoG"},
+                {"id": 2, "name": "worldofgoo.exe"},
+            ],
+            executables=[{"id": 1, "name": "WorldOfGoo.exe"}],
+        )
+
+        assert metadata["alternative_names"] == ["WoG"]

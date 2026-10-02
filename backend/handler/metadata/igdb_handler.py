@@ -12,6 +12,7 @@ from adapters.services.igdb import (
     IGDBService,
 )
 from adapters.services.igdb_types import (
+    Executable,
     Game,
     GameType,
     mark_expanded,
@@ -116,6 +117,13 @@ class IGDBMetadataMultiplayerMode(TypedDict):
     platform: IGDBMetadataPlatform
 
 
+class IGDBMetadataExecutable(TypedDict):
+    name: str
+    file_path: str
+    store: str
+    platform: IGDBMetadataPlatform | None
+
+
 class IGDBMetadata(TypedDict):
     total_rating: str | None
     # 9/10 from a thousand > 10/10 from one
@@ -129,6 +137,7 @@ class IGDBMetadata(TypedDict):
     player_perspectives: list[str]
     franchises: list[str]
     alternative_names: list[str]
+    executables: list[IGDBMetadataExecutable]
     collections: list[str]
     companies: list[str]
     publishers: list[str]
@@ -182,6 +191,20 @@ def _expanded_names(entries: Sequence[Any]) -> list[str]:
     ]
 
 
+def _build_executable(executable: Executable) -> IGDBMetadataExecutable:
+    platform = executable.get("platform")
+    return IGDBMetadataExecutable(
+        name=executable.get("name", ""),
+        file_path=executable.get("file_path", ""),
+        store=executable.get("store", ""),
+        platform=(
+            IGDBMetadataPlatform(igdb_id=platform["id"], name=platform.get("name", ""))
+            if isinstance(platform, dict)
+            else None
+        ),
+    )
+
+
 def extract_metadata_from_igdb_rom(
     self: MetadataHandler, rom: Game, platform_igdb_id: int | None
 ) -> IGDBMetadata:
@@ -189,6 +212,7 @@ def extract_metadata_from_igdb_rom(
     alternative_names = rom.get("alternative_names", [])
     collections = rom.get("collections", [])
     dlcs = rom.get("dlcs", [])
+    executables = rom.get("executables", [])
     expanded_games = rom.get("expanded_games", [])
     expansions = rom.get("expansions", [])
     franchise = rom.get("franchise", None)
@@ -212,6 +236,7 @@ def extract_metadata_from_igdb_rom(
     assert mark_list_expanded(alternative_names)
     assert mark_list_expanded(collections)
     assert mark_list_expanded(dlcs)
+    assert mark_list_expanded(executables)
     assert mark_list_expanded(expanded_games)
     assert mark_list_expanded(expansions)
     assert mark_list_expanded(franchises)
@@ -225,6 +250,11 @@ def extract_metadata_from_igdb_rom(
     assert mark_list_expanded(remasters)
     assert mark_list_expanded(similar_games)
     assert mark_list_expanded(videos)
+
+    executables_metadata = [_build_executable(e) for e in executables]
+    # IGDB is migrating executables (e.g. "game.exe") out of alternative names;
+    # until it finishes, drop the leftovers so they don't become search aliases.
+    executable_names = {e["name"].casefold() for e in executables_metadata}
 
     multiplayer_modes_metadata = []
 
@@ -280,7 +310,12 @@ def extract_metadata_from_igdb_rom(
                     ]
                 )
             ),
-            "alternative_names": _expanded_names(alternative_names),
+            "alternative_names": [
+                name
+                for name in _expanded_names(alternative_names)
+                if name.casefold() not in executable_names
+            ],
+            "executables": executables_metadata,
             "collections": _expanded_names(collections),
             "game_modes": _expanded_names(game_modes),
             "companies": [
@@ -1097,6 +1132,11 @@ GAMES_FIELDS = (
     "dlcs.name",
     "dlcs.slug",
     "dlcs.cover.url",
+    "executables.name",
+    "executables.file_path",
+    "executables.store",
+    "executables.platform.id",
+    "executables.platform.name",
     "remakes.id",
     "remakes.slug",
     "remakes.name",

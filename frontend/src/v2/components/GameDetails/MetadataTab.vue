@@ -6,7 +6,8 @@
 //   3. Verification: RTag per database; tone="success" for match,
 //      neutral for miss. Same source of truth as the "Verified" badge in
 //      the header, via `VERIFICATION_DATABASES`.
-//   4. Metadata sources: ProviderGrid (linked + unlinked).
+//   4. Executables: IGDB's game.exe entries, one row each, when present.
+//   5. Metadata sources: ProviderGrid (linked + unlinked).
 import { RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -68,6 +69,17 @@ const verifications = computed<Verification[]>(() =>
   VERIFICATION_DATABASES.map((db) => ({
     label: db.label,
     match: db.matches(props.rom),
+  })),
+);
+
+type ExecutableRow = { key: string; label: string; name: string; path: string };
+
+const executableRows = computed<ExecutableRow[]>(() =>
+  (props.rom.igdb_metadata?.executables ?? []).map((e, i) => ({
+    key: `${i}-${e.name}`,
+    label: [e.store, e.platform?.name].filter(Boolean).join(" · "),
+    name: e.name,
+    path: e.file_path && e.file_path !== e.name ? e.file_path : "",
   })),
 );
 
@@ -133,7 +145,26 @@ const downloadUrls = computed(() => {
       </div>
     </section>
 
-    <!-- 4. Provider links -->
+    <section v-if="executableRows.length" class="metadata-tab__section">
+      <h3 class="metadata-tab__heading">{{ t("rom.executables") }}</h3>
+      <div class="metadata-tab__rows">
+        <div
+          v-for="row in executableRows"
+          :key="row.key"
+          class="metadata-tab__row"
+        >
+          <div v-if="row.label" class="metadata-tab__label">
+            {{ row.label }}
+          </div>
+          <div class="metadata-tab__value metadata-tab__value--mono">
+            {{ row.name }}
+          </div>
+          <div v-if="row.path" class="metadata-tab__path">{{ row.path }}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Provider links -->
     <section class="metadata-tab__section">
       <h3 class="metadata-tab__heading">
         {{ t("rom.metadata-sources-label") }}
@@ -194,6 +225,16 @@ const downloadUrls = computed(() => {
 .metadata-tab__value {
   font-size: 13px;
   color: var(--r-color-fg-secondary);
+  word-break: break-all;
+}
+
+.metadata-tab__value--mono {
+  font-family: var(--r-font-family-mono);
+}
+.metadata-tab__path {
+  font-family: var(--r-font-family-mono);
+  font-size: 12px;
+  color: var(--r-color-fg-faint);
   word-break: break-all;
 }
 

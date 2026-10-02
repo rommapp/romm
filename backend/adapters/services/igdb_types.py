@@ -241,6 +241,16 @@ class Cover(IGDBEntity, total=False):
     width: int
 
 
+# https://api-docs.igdb.com/#executable
+class Executable(IGDBEntity, total=False):
+    checksum: str  # uuid
+    file_path: str
+    game: ExpandableField[Game]
+    name: str
+    platform: ExpandableField[Platform]
+    store: str
+
+
 # https://api-docs.igdb.com/#franchise
 class Franchise(IGDBEntity, total=False):
     checksum: str  # uuid
@@ -297,6 +307,7 @@ class Game(IGDBEntity, total=False):
     cover: ExpandableField[Cover]
     created_at: int  # timestamp
     dlcs: list[ExpandableField[Game]]
+    executables: list[ExpandableField[Executable]]
     expanded_games: list[ExpandableField[Game]]
     expansions: list[ExpandableField[Game]]
     external_games: list[ExpandableField[ExternalGame]]

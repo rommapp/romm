@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { IGDBAgeRating } from './IGDBAgeRating';
+import type { IGDBMetadataExecutable } from './IGDBMetadataExecutable';
 import type { IGDBMetadataMultiplayerMode } from './IGDBMetadataMultiplayerMode';
 import type { IGDBMetadataPlatform } from './IGDBMetadataPlatform';
 import type { IGDBRelatedGame } from './IGDBRelatedGame';
@@ -18,6 +19,7 @@ export type RomIGDBMetadata = {
     player_perspectives?: Array<string>;
     franchises?: Array<string>;
     alternative_names?: Array<string>;
+    executables?: Array<IGDBMetadataExecutable>;
     collections?: Array<string>;
     companies?: Array<string>;
     publishers?: Array<string>;

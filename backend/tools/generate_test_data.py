@@ -540,6 +540,7 @@ def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]
         "genres": f["genres"],
         "franchises": f["franchises"],
         "alternative_names": [f["title"].split(":")[0]],
+        "executables": [],
         "collections": [f["franchises"][0]] if f["franchises"] else [],
         "companies": f["companies"],
         "game_modes": f["game_modes"],

@@ -163,6 +163,8 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
                 + pydash.map_(rom.get("franchises", {}), "name")
             ),
             "alternative_names": pydash.map_(rom.get("alternative_names", {}), "name"),
+            # Not in `expandColumns`, so the proxy returns no executables.
+            "executables": [],
             "collections": pydash.map_(rom.get("collections", {}), "name"),
             "game_modes": pydash.map_(rom.get("game_modes", {}), "name"),
             # Not in `expandColumns`, so the proxy returns bare ids with no names.

@@ -132,6 +132,7 @@ export type { HiddenEntityCreate } from './models/HiddenEntityCreate';
 export type { HiddenEntitySchema } from './models/HiddenEntitySchema';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { IGDBAgeRating } from './models/IGDBAgeRating';
+export type { IGDBMetadataExecutable } from './models/IGDBMetadataExecutable';
 export type { IGDBMetadataMultiplayerMode } from './models/IGDBMetadataMultiplayerMode';
 export type { IGDBMetadataPlatform } from './models/IGDBMetadataPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';

@@ -77,3 +77,48 @@ describe("MetadataTab verification chips", () => {
     expect(raChipTone(linkedOnly)).toBe("neutral");
   });
 });
+
+describe("MetadataTab executables", () => {
+  function executables(r: DetailedRom) {
+    return shallowMount(MetadataTab, { props: { rom: r } })
+      .findAll(".metadata-tab__row")
+      .filter((row) => row.find(".metadata-tab__value--mono").exists())
+      .map((row) => row.text());
+  }
+
+  it("lists each IGDB executable with its store, platform and path", () => {
+    const r = rom({
+      igdb_metadata: {
+        executables: [
+          {
+            name: "WorldOfGoo.exe",
+            file_path: "WorldOfGoo/WorldOfGoo.exe",
+            store: "Steam",
+            platform: { igdb_id: 6, name: "PC (Microsoft Windows)" },
+          },
+        ],
+      },
+    });
+
+    const [row] = executables(r);
+    expect(row).toContain("Steam · PC (Microsoft Windows)");
+    expect(row).toContain("WorldOfGoo.exe");
+    expect(row).toContain("WorldOfGoo/WorldOfGoo.exe");
+  });
+
+  it("skips the path when it is just the file name", () => {
+    const r = rom({
+      igdb_metadata: {
+        executables: [
+          { name: "goo.exe", file_path: "goo.exe", store: "", platform: null },
+        ],
+      },
+    });
+
+    expect(executables(r)).toEqual(["goo.exe"]);
+  });
+
+  it("hides the section when IGDB lists no executables", () => {
+    expect(executables(rom({ igdb_metadata: null }))).toEqual([]);
+  });
+});
