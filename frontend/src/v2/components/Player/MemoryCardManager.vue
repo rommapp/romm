@@ -52,7 +52,7 @@ const {
   {
     immediate: false,
     onError: (err) => {
-      console.warn("[memory-cards] Could not fetch cards:", err);
+      console.error("[memory-cards] Could not fetch cards:", err);
       cards.value = [];
     },
   },

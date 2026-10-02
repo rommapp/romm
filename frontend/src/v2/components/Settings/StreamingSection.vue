@@ -38,7 +38,7 @@ const {
   { enabled: false, containers: [] as AdminStreamingContainer[] },
   {
     onError: (err) => {
-      console.warn("[streaming] Could not load containers:", err);
+      console.error("[streaming] Could not load containers:", err);
       snackbar.error(t("settings.streaming-load-failed"));
     },
   },
