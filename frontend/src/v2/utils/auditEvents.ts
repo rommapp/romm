@@ -339,6 +339,14 @@ const DESCRIBERS: Record<AuditAction, Describer> = {
     "audit.action-user-permissions-edit",
     (e) => text(e.data.group),
   ),
+  "user.ra_login_set": simple(
+    "mdi-trophy-outline",
+    "audit.action-user-ra-login-set",
+  ),
+  "user.ra_login_clear": simple(
+    "mdi-trophy-broken",
+    "audit.action-user-ra-login-clear",
+  ),
   "permission_group.create": simple(
     "mdi-shield-plus-outline",
     "audit.action-permission-group-create",

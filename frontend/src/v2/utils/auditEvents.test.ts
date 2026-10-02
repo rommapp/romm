@@ -116,6 +116,33 @@ describe("describeAuditEvent", () => {
     expect(view.detail).toContain("Role:");
   });
 
+  it("names the RetroAchievements username in a profile edit", () => {
+    const view = describeAuditEvent(
+      event("user.edit", {
+        target_type: "user",
+        target_name: "kid",
+        data: { changed: ["ra_username"] },
+      }),
+    );
+
+    expect(view.detail).toBe("Changed: RetroAchievements username");
+  });
+
+  it("tells a stored RetroAchievements login from a cleared one", () => {
+    const user = { target_type: "user", target_name: "kid", data: {} };
+
+    expect(describeAuditEvent(event("user.ra_login_set", user))).toMatchObject({
+      title: "Stored a RetroAchievements login for kid",
+      detail: null,
+    });
+    expect(
+      describeAuditEvent(event("user.ra_login_clear", user)),
+    ).toMatchObject({
+      title: "Cleared the stored RetroAchievements login of kid",
+      detail: null,
+    });
+  });
+
   it("falls back to an id when the target has no name", () => {
     const view = describeAuditEvent(event("rom.create", { target_name: null }));
 
