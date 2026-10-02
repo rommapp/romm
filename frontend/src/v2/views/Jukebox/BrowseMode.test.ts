@@ -85,6 +85,16 @@ describe("BrowseMode search", () => {
     expect(loadEntries).toHaveBeenCalledTimes(2);
   });
 
+  it("refreshes with the typed text when a search is still pending", async () => {
+    const { wrapper, loadEntries } = mountBrowse();
+
+    await wrapper.find("input").setValue("koji");
+    await wrapper.setProps({ refreshToken: 1 });
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(loadEntries.mock.calls).toEqual([[""], ["koji"]]);
+  });
+
   it("drops a pending search when the view unmounts", async () => {
     const { wrapper, loadEntries } = mountBrowse();
 

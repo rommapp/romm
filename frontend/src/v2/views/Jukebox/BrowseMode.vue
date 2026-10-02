@@ -55,7 +55,11 @@ const entries = ref<BrowseEntry[]>([]);
 const loadingEntries = ref(true);
 const entriesFailed = ref(false);
 const searchTerm = ref<string | null>(null);
-const { input: search, setSearch } = useDebouncedSearch(searchTerm, 250);
+const {
+  input: search,
+  setSearch,
+  flush: flushSearch,
+} = useDebouncedSearch(searchTerm, 250);
 const entriesPhase = useLoadingPhase(
   loadingEntries,
   () => entriesFailed.value || !entries.value.length,
@@ -100,11 +104,13 @@ watch(
   { immediate: true },
 );
 
-// A delete also changes the sidebar's counts, and may empty the picked
-// entry entirely (fetchEntries then falls back to the first one).
+// A delete changes the sidebar's counts and may empty the picked entry. The
+// reload uses the text in the box, so a pending keystroke can't be undone.
 watch(
   () => props.refreshToken,
-  () => void fetchEntries(searchTerm.value ?? ""),
+  () => {
+    if (!flushSearch()) void fetchEntries(searchTerm.value ?? "");
+  },
 );
 
 void fetchEntries("");
