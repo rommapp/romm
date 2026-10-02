@@ -1,6 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { type ComputedRef, defineComponent } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
@@ -45,10 +44,6 @@ describe("romIdFromRoute", () => {
 });
 
 describe("useRouteRom", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("is the cached record for the route's rom", async () => {
     storeRoms().cacheDetailedRom(detailed(1));
     const { rom } = await mountAt("/rom/1");

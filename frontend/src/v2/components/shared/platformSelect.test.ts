@@ -1,10 +1,5 @@
-import {
-  DOMWrapper,
-  flushPromises,
-  mount,
-  enableAutoUnmount,
-} from "@vue/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { DOMWrapper, flushPromises, mount } from "@vue/test-utils";
+import { describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { Platform } from "@/stores/platforms";
 import PlatformSelect from "./PlatformSelect.vue";
@@ -16,8 +11,6 @@ import {
 vi.mock("vue-i18n");
 
 type Row = Pick<Platform, "rom_count" | "display_name">;
-
-enableAutoUnmount(afterEach);
 
 describe("PlatformSelect promoteFilled + search", () => {
   function makePlatform(

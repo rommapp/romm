@@ -1,7 +1,6 @@
 import { mount } from "@vue/test-utils";
 import mitt from "mitt";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { Events } from "@/types/emitter";
 import AuthLayout from "./AuthLayout.vue";
@@ -17,10 +16,6 @@ vi.mock("@/v2/composables/useInputModality", () => ({
 }));
 
 describe("AuthLayout", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("renders snackbar events from auth views", async () => {
     const emitter = mitt<Events>();
     const wrapper = mount(AuthLayout, {

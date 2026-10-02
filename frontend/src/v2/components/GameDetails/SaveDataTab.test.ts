@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, UserStateSchema } from "@/__generated__";
 import storeAuth from "@/stores/auth";
@@ -60,7 +59,6 @@ function mountTab(states: UserStateSchema[]) {
 
 describe("SaveDataTab upload cores", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     storeAuth().setCurrentUser({ id: 1 } as User);
   });
 

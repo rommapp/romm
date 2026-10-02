@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, reactive, ref } from "vue";
 import type {
@@ -88,7 +87,6 @@ async function settle() {
 
 describe("installPendingAssetSync", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.useFakeTimers();
     route.params = {};
     queue.entries = [];

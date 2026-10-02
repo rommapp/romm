@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import storePlaying from "@/stores/playing";
@@ -42,7 +41,6 @@ const body = () => wrapper!.find(".r-backend-banner__body");
 
 describe("BackendStatusBanner", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.useFakeTimers();
     isOffline.value = false;
     isWebSocketDegraded.value = false;

@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import i18n, { loadLocale } from "@/locales";
@@ -43,7 +42,6 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  setActivePinia(createPinia());
   copy.mockReset();
   copy.mockResolvedValue(true);
 });

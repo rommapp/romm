@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { effectScope, nextTick, type EffectScope } from "vue";
 import useSoundtrackPlayer, {
@@ -84,7 +83,6 @@ describe("useMediaSession", () => {
   let scope: EffectScope;
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     session = new FakeMediaSession();
     Object.defineProperty(navigator, "mediaSession", {
       configurable: true,

@@ -1,7 +1,6 @@
 /* eslint-disable vue/one-component-per-file */
 import { type DOMWrapper, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 import MetadataSources from "./MetadataSources.vue";
@@ -48,10 +47,6 @@ function mountWith(devCredentialsSet: boolean, loaded = true) {
 }
 
 describe("MetadataSources", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("warns when the build carries no ScreenScraper developer credentials", () => {
     const wrapper = mountWith(false);
 

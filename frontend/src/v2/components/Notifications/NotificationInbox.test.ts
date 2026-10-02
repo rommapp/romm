@@ -1,6 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { NotificationSchema } from "@/__generated__";
@@ -76,7 +75,6 @@ function mountWith(notifications: NotificationSchema[]) {
 
 describe("NotificationInbox", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
     api.markRead.mockResolvedValue({});
     api.dismiss.mockResolvedValue({});

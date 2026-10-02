@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeUpload from "@/stores/upload";
 import { ROM_UPLOAD_FOLDERS, useRomFileUpload } from "./index";
@@ -36,7 +35,6 @@ const exists = { isAxiosError: true, response: { status: 409 } };
 
 describe("useRomFileUpload", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
     uploadRoms.mockResolvedValue([{ status: "fulfilled", value: null }]);
     confirmFn.mockResolvedValue(true);

@@ -1,6 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createApp, h, nextTick } from "vue";
 import {
   createMemoryHistory,
@@ -52,10 +51,6 @@ async function flushQueryWrite() {
 }
 
 describe("useGalleryOrderUrl", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("hydrates the store from the URL before the first fetch", async () => {
     const router = makeRouter();
     await mountAt(router, "/platform/1?orderBy=fs_size_bytes&orderDir=desc");
@@ -151,10 +146,6 @@ describe("useGalleryOrderUrl", () => {
 });
 
 describe("useGalleryOrderUrl with a relevance default", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   const mountSearch = (router: Router, path: string) =>
     mountAt(router, path, null);
 
@@ -196,10 +187,6 @@ describe("useGalleryOrderUrl with a relevance default", () => {
 // hydration holds solely because RouterView withholds the matched component
 // until the initial navigation resolves.
 describe("useGalleryOrderUrl on a cold load", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("sees the URL in setup() without awaiting router.isReady", async () => {
     const seenAtSetup: (string | null)[] = [];
     const GalleryView = {

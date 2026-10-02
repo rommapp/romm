@@ -1,5 +1,4 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
 import storeAuth from "@/stores/auth";
@@ -155,7 +154,6 @@ async function clickHeart(wrapper: VueWrapper) {
 
 describe("SelectionBar bulk favorite", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     storeAuth().setCurrentUser(userFixture());
     vi.clearAllMocks();
   });
@@ -298,7 +296,6 @@ describe("SelectionBar bulk favorite", () => {
 
 describe("SelectionBar download", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
   });
 
@@ -325,7 +322,6 @@ describe("SelectionBar download", () => {
 
 describe("SelectionBar select all", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
   });
 
@@ -355,7 +351,6 @@ describe("SelectionBar select all", () => {
 
 describe("SelectionBar bulk status", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
   });
 
@@ -393,7 +388,6 @@ describe("SelectionBar bulk status", () => {
 
 describe("SelectionBar outline", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     storeAuth().setCurrentUser(userFixture());
   });
 

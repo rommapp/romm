@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
 import FilesTab from "./FilesTab.vue";
@@ -140,7 +139,6 @@ async function pickFile(wrapper: ReturnType<typeof mountTab>, name: string) {
 
 describe("FilesTab uploads", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
     routeQuery.subtab = undefined;
     grants.upload = true;
@@ -250,7 +248,6 @@ describe("FilesTab uploads", () => {
 
 describe("FilesTab on a rom missing from the filesystem", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
     routeQuery.subtab = undefined;
     grants.upload = true;
@@ -284,7 +281,6 @@ describe("FilesTab on a rom missing from the filesystem", () => {
 
 describe("FilesTab selection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
     routeQuery.subtab = undefined;
     grants.upload = true;
@@ -348,7 +344,6 @@ describe("FilesTab copy link", () => {
   }
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     routeQuery.subtab = undefined;
     snackbar.success.mockReset();
     snackbar.error.mockReset();

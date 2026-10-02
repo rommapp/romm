@@ -1,6 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt from "mitt";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import type { ScanStats } from "@/__generated__";
@@ -158,7 +157,6 @@ function fire(event: string, payload: unknown) {
 
 describe("installScanLifecycle", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     handlers.clear();
     getTaskStatus.mockReset();
     getTaskStatus.mockResolvedValue({ data: [] } as never);

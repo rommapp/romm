@@ -58,7 +58,6 @@ function windowResponse(total: number | null = 1000, items: unknown[] = []) {
 
 describe("galleryRoms windowed fetch", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getRoms.mockReset();
     // Resolve the batched-apply frame yield synchronously so a window's
     // `finally` (which drains the queue) runs without waiting a real frame.
@@ -386,7 +385,6 @@ describe("galleryRoms windowed fetch", () => {
 
 describe("galleryRoms whole-result fetch", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getRoms.mockReset();
   });
 
@@ -452,7 +450,6 @@ describe("galleryRoms whole-result fetch", () => {
 
 describe("galleryRoms length filter", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getRoms.mockReset();
     getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
@@ -482,7 +479,6 @@ describe("galleryRoms length filter", () => {
 
 describe("galleryRoms relevance order", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getRoms.mockReset();
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
       cb(0);

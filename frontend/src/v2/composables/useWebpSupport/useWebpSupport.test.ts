@@ -1,5 +1,4 @@
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import storeHeartbeat from "@/stores/heartbeat";
 import { toWebpUrl, useWebpSupport } from ".";
 
@@ -13,10 +12,6 @@ function setWebpTask(enabled: boolean) {
     },
   };
 }
-
-beforeEach(() => {
-  setActivePinia(createPinia());
-});
 
 describe("useWebpSupport", () => {
   it("is off until the heartbeat says the conversion task runs", () => {

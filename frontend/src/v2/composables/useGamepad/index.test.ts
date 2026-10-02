@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import storePlaying from "@/stores/playing";
@@ -86,7 +85,6 @@ describe("useGamepad", () => {
   }
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     keys = [];
     frame = null;
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {

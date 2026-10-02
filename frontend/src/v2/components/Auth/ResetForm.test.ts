@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeHeartbeat from "@/stores/heartbeat";
 import ResetForm from "./ResetForm.vue";
@@ -28,7 +27,6 @@ async function requestFor(username: string) {
 
 describe("ResetForm", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
     requestPasswordReset.mockResolvedValue({});
   });

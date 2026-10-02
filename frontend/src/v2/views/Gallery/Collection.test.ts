@@ -1,7 +1,6 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
 import { AxiosError } from "axios";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, ref } from "vue";
 import storeCollections, {
@@ -178,7 +177,6 @@ function runRouteGuards(name: string, collection: string) {
 
 describe("Collection view random rom", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.clearAllMocks();
     routeGuards.length = 0;
     routeState.name = "collection";
@@ -374,20 +372,22 @@ describe("Collection view random rom", () => {
 
 // The store's lists load once per session, so a cached ROM count disagrees
 // with the gallery below it.
+// Opens collection 1. `collection()` caches 9000 ROMs, so any other count came
+// from the server.
+function openCachedCollection() {
+  vi.clearAllMocks();
+  routeGuards.length = 0;
+  routeState.name = "collection";
+  routeState.params = { collection: "1" };
+  getRoms.mockResolvedValue({ data: { items: [], total: 0 } });
+  getCollection.mockImplementation((id: number) =>
+    Promise.resolve({ data: collection(id) }),
+  );
+  storeCollections().setCollections([collection(1)]);
+}
+
 describe("Collection view freshness", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
-    routeGuards.length = 0;
-    routeState.name = "collection";
-    routeState.params = { collection: "1" };
-    getRoms.mockResolvedValue({ data: { items: [], total: 0 } });
-    getCollection.mockImplementation((id: number) =>
-      Promise.resolve({ data: collection(id) }),
-    );
-    // `collection()` caches 9000 ROMs, so any other count came from the server.
-    storeCollections().setCollections([collection(1)]);
-  });
+  beforeEach(openCachedCollection);
 
   it("renders the count the server returns, not the cached one", async () => {
     getCollection.mockResolvedValue({
@@ -475,6 +475,8 @@ describe("Collection view freshness", () => {
 });
 
 describe("Collection view query-only navigation", () => {
+  beforeEach(openCachedCollection);
+
   it("does not re-read or reset the collection when only the query changes", async () => {
     const galleryRoms = storeGalleryRoms();
     const wrapper = await mountView();

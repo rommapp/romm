@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
 import PdfViewer from "./PdfViewer.vue";
@@ -21,7 +20,6 @@ type ResizeCallback = (entries: { contentRect: { width: number } }[]) => void;
 let resize: ResizeCallback | undefined;
 
 beforeEach(() => {
-  setActivePinia(createPinia());
   resize = undefined;
   vi.stubGlobal(
     "ResizeObserver",

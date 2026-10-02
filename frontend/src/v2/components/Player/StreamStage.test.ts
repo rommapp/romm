@@ -1,10 +1,6 @@
-import { enableAutoUnmount, mount } from "@vue/test-utils";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { mount } from "@vue/test-utils";
+import { beforeAll, describe, expect, it } from "vitest";
 import StreamStage from "./StreamStage.vue";
-
-// The stage listens on window and runs attach timers, so a mount left standing
-// would answer the next test's events.
-enableAutoUnmount(afterEach);
 
 function mountStage(src: string) {
   return mount(StreamStage, {
