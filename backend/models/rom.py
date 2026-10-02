@@ -444,6 +444,10 @@ class RomFile(BaseModel):
     uncompressed_size_bytes: Mapped[int | None] = mapped_column(
         BigInteger, default=None
     )
+    # When rom-converto last recognized the file; NULL queues it on the next scan.
+    converto_read_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), default=None
+    )
     # Where the images rom-converto read from the file are stored, relative
     # to RESOURCES_BASE_PATH. Written after the scan, never by it.
     icon_path: Mapped[str | None] = mapped_column(String(length=1024), default=None)

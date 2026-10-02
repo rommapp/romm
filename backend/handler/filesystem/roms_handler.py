@@ -8,6 +8,7 @@ import struct
 import zlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final, NotRequired, TypedDict
 
@@ -692,12 +693,14 @@ class FSRomsHandler(FSHandler):
             return {}
         reader = info_batch or rom_converto_service
         infos = await reader.read_infos([p for p, _ in sources])
+        read_at = datetime.now(timezone.utc)
         images: dict[RomFile, RomConvertoImages] = {}
         for path, rom_file in sources:
             info = infos.get(path)
             if info is None:
                 continue
             images[rom_file] = info.images
+            rom_file.converto_read_at = read_at
             for column in ROM_FILE_CONVERTO_COLUMNS:
                 setattr(rom_file, column, getattr(info, column))
             rom_file.regions = normalize_provider_regions(info.regions) or None
@@ -873,6 +876,8 @@ class FSRomsHandler(FSHandler):
                     row.category = self._folder_category(rom, rel_dir)
                     rom_files.append(row)
                     _record_title_id_source(abs_file_path, row)
+                    if row.converto_read_at is None:
+                        _record_converto_source(abs_file_path, row)
                     continue
 
                 if hashable_platform:
@@ -935,6 +940,8 @@ class FSRomsHandler(FSHandler):
             rom_files.append(flat_row)
             top_level_changed = False
             _record_title_id_source(rom_dir, flat_row)
+            if flat_row.converto_read_at is None:
+                _record_converto_source(rom_dir, flat_row)
         elif hashable_platform and rom_ext in ARCHIVE_READERS:
             # Multi-file archive: compute a composite hash across all
             # internal entries (in ASCII path order) for hash-database

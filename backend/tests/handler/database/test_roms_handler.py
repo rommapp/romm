@@ -7,6 +7,7 @@ the columns derived from `name` / `fs_name` / `fs_path` in sync explicitly.
 import re
 import struct
 from collections.abc import Iterator
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -458,6 +459,7 @@ class TestSyncRomFiles:
         scanned.last_modified = 1000.0
         for column, value in metadata.items():
             setattr(scanned, column, value)
+        scanned.converto_read_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
         (second,) = _sync(rom, [scanned])
 
@@ -481,6 +483,7 @@ class TestSyncRomFiles:
         if sigil_title_id is not None:
             expected["title_id"] = sigil_title_id
         assert {column: getattr(stored, column) for column in metadata} == expected
+        assert (stored.converto_read_at is not None) == keep_metadata
 
     @pytest.mark.parametrize(
         ("stored_mtime", "scanned_mtime", "matching_hashes"),

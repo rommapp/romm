@@ -329,6 +329,9 @@ ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
 ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
 ROM_FILTERS_CACHE_SCHEMA_VERSION = get_version().replace(".", "_")
 
+# What a scan carries over from a file's previous rom-converto read.
+ROM_FILE_CONVERTO_KEPT_COLUMNS = (*ROM_FILE_CONVERTO_COLUMNS, "converto_read_at")
+
 # Columns copied from a scanned (transient) RomFile onto its database row.
 ROM_FILE_SCANNED_COLUMNS = (
     "file_name",
@@ -340,7 +343,7 @@ ROM_FILE_SCANNED_COLUMNS = (
     "sha1_hash",
     "ra_hash",
     "chd_sha1_hash",
-    *ROM_FILE_CONVERTO_COLUMNS,
+    *ROM_FILE_CONVERTO_KEPT_COLUMNS,
     "archive_members",
     "category",
 )
@@ -2643,7 +2646,7 @@ class DBRomsHandler(DBBaseHandler):
             row,
             ROM_FILE_SCANNED_COLUMNS,
             RomFile,
-            keep_when_unset=ROM_FILE_CONVERTO_COLUMNS if keep_converto else (),
+            keep_when_unset=ROM_FILE_CONVERTO_KEPT_COLUMNS if keep_converto else (),
         )
 
         if row.missing_from_fs:

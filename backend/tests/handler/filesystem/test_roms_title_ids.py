@@ -447,7 +447,8 @@ class TestGetRomFilesWithConverto:
 
     @pytest.mark.asyncio
     async def test_unchanged_rows_are_not_reread(self, scan_env, sigil_reads, mocker):
-        read_infos = mocker.AsyncMock(return_value={})
+        discs = [scan_env.rom_dir / f"Game (Disc {n}).iso" for n in (1, 2)]
+        read_infos = mocker.AsyncMock(return_value={disc: _info() for disc in discs})
         mocker.patch.object(rom_converto_service, "read_infos", read_infos)
         first = await scan_env.handler.get_rom_files(
             scan_env.rom, calculate_hashes=False
@@ -464,6 +465,33 @@ class TestGetRomFilesWithConverto:
             "Game (Disc 2).iso",
             "readme.nfo",
         }
+
+    @pytest.mark.asyncio
+    async def test_unchanged_rows_rom_converto_never_read_are_backfilled(
+        self, scan_env, sigil_reads, mocker
+    ):
+        disc1 = scan_env.rom_dir / "Game (Disc 1).iso"
+        read_infos = mocker.AsyncMock(return_value={})
+        mocker.patch.object(rom_converto_service, "read_infos", read_infos)
+        first = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False
+        )
+        read_infos.reset_mock()
+        read_infos.return_value = {disc1: _info(title="PaRappa the Rapper")}
+
+        rescan = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False, existing_files=first.rom_files
+        )
+
+        read_infos.assert_awaited_once()
+        assert set(read_infos.await_args.args[0]) == {
+            disc1,
+            scan_env.rom_dir / "Game (Disc 2).iso",
+        }
+        by_name = {f.file_name: f for f in rescan.rom_files}
+        assert by_name["Game (Disc 1).iso"].title == "PaRappa the Rapper"
+        assert by_name["Game (Disc 1).iso"].converto_read_at is not None
+        assert by_name["Game (Disc 2).iso"].converto_read_at is None
 
 
 @pytest.mark.parametrize(
