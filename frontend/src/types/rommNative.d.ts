@@ -13,9 +13,7 @@ export type LaunchErrorCode =
   | "no-emulator-configured"
   | "emulator-not-found"
   | "download-failed"
-  /** The server no longer recognises the session the window holds. Its own code
-   *  because it is the one launch failure the user can fix, and the fix is not
-   *  the one every other download failure asks for. */
+  /** The server no longer recognises the session the window holds. */
   | "session-expired"
   | "already-running"
   | "invalid-request"
@@ -72,8 +70,7 @@ export type SaveSyncAction =
   /** Nothing was replaced. The local bytes were kept as an archival save
    *  because the slot held progress this device had not seen. */
   | "archived"
-  /** The slot it came from was emptied on the server, so the local copy went
-   *  with it. Nothing was sent: the save is gone because its owner said so. */
+  /** The slot was emptied on the server, so the local copy was removed too. */
   | "deleted"
   /** It was tried and did not work. The local file is untouched. */
   | "failed";
@@ -129,9 +126,8 @@ export interface LaunchState {
   error?: { code: LaunchErrorCode; message: string };
   /** Process exit code, set when status is "exited". */
   exitCode?: number | null;
-  /** The play session this launch just finished, set when status is "exited"
-   *  and the run was long enough to count as one. Absent means nothing was
-   *  recorded: tracking off, or an emulator that exited too quickly. */
+  /** The play session this launch recorded, set on "exited". Absent when
+   *  tracking is off or the run was too short to count. */
   play?: PlaySessionSummary;
   /** What happened to a save, set when status is "sync". */
   sync?: SaveSyncOutcome;
@@ -185,9 +181,8 @@ export type ShellCapability =
   /** `LaunchRequest.disc` is honoured, so the page's disc selector covers a
    *  native launch too: one disc of a set is fetched and booted on its own. */
   | "disc-choice"
-  /** How long the emulator ran is reported to RomM's play session list, and
-   *  carried on the "exited" state as `play`. A shell without this leaves a
-   *  native launch out of the server's playtime entirely. */
+  /** How long the emulator ran is reported to RomM's play sessions, and carried
+   *  on the "exited" state as `play`. */
   | "play-sessions"
   /** `LaunchRequest.fullscreen` is honoured, so the page's own full-screen
    *  choice covers a native launch as well as the in-browser one. */

@@ -130,18 +130,22 @@ describe("installNativeLaunchFeedback", () => {
     expect(success).not.toHaveBeenCalled();
   });
 
-  it("stays quiet on a save action a newer shell added", () => {
+  it("logs, but does not toast, a save action a newer shell added", () => {
     feedback();
 
     emit?.({
       romId: 7,
       status: "sync",
-      sync: { action: "renamed" as SaveSyncAction },
+      sync: { action: "renamed" as SaveSyncAction, detail: "slot moved" },
     });
 
     expect(success).not.toHaveBeenCalled();
     expect(info).not.toHaveBeenCalled();
     expect(t).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(
+      "[native] Save sync failed:",
+      "slot moved",
+    );
   });
 
   it("reports a save the shell could not move, and its reason", () => {

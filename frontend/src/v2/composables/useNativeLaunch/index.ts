@@ -61,11 +61,12 @@ export function installNativeLaunchFeedback(): void {
     // launch the page is finished with.
     if (state.status === "sync") {
       const outcome = state.sync;
-      // An action this copy of the contract predates has no message to show.
-      if (!outcome || !Object.hasOwn(SAVE_KEYS, outcome.action)) return;
+      if (!outcome) return;
       if (outcome.detail) {
         console.error("[native] Save sync failed:", outcome.detail);
       }
+      // An action this copy of the contract predates has no message to show.
+      if (!Object.hasOwn(SAVE_KEYS, outcome.action)) return;
       const message = t(SAVE_KEYS[outcome.action], { name });
       const icon = SAVE_ICONS[outcome.action];
       if (outcome.action === "failed") {

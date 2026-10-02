@@ -138,7 +138,7 @@
   "native-preparing": "Setting up {emulator}",
   "native-running": "{name} is running",
   "native-save-archived": "Kept {name}'s save aside, RomM has newer progress",
-  "native-save-deleted": "Removed {name}'s save, it was deleted in RomM",
+  "native-save-deleted": "Removed {name}'s save because it was deleted in RomM",
   "native-save-downloaded": "Loaded {name}'s save from RomM",
   "native-save-failed": "Could not sync {name}'s save",
   "native-save-uploaded": "Sent {name}'s save to RomM",
