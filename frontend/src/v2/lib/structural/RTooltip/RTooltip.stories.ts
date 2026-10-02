@@ -94,8 +94,8 @@ export const Default: Story = {
   }),
 };
 
-// An icon-only RBtn renders no default slot, so buttons get this via RBtn's
-// own `tooltip` prop; parent-attach is for plain elements like this badge.
+// An RBtn with a string `icon` drops its default slot, so icon buttons use
+// RBtn's own `tooltip` prop; parent-attach is for plain elements like this.
 export const ParentAttach: Story = {
   name: "Parent attach (no slot)",
   render: () => ({
