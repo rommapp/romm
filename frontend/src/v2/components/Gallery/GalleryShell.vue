@@ -305,7 +305,7 @@ watch(
 
 const { supportsWebp } = useWebpSupport();
 
-const { total, charIndex, initialFetching, orderBy, orderDir } =
+const { total, reorderTotal, charIndex, initialFetching, orderBy, orderDir } =
   storeToRefs(galleryRoms);
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
@@ -444,6 +444,7 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     notFound: notFoundRef,
     notFoundMessage: notFoundMessageRef,
     skeletonRowCount: props.skeletonRowCount,
+    skeletonTotal: reorderTotal,
     cardHeight,
     rowWidth: usableWidth,
     gap: CARD_GAP_PX,
@@ -584,8 +585,7 @@ watchEffect(() => {
     const it = items[i];
     if (!it) continue;
     if (it.kind === "row") renderedCards += it.endPosition - it.startPosition;
-    else if (it.kind === "skeleton-row")
-      renderedCards += Math.max(1, columns.value);
+    else if (it.kind === "skeleton-row") renderedCards += it.cards;
     else renderedCards += 1;
   }
   virtualDebug.publish({
@@ -786,7 +786,7 @@ const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
 // initial URL hydration runs before this watch is set up, so it does
 // not echo here.
 watch([orderBy, orderDir], () => {
-  galleryRoms.invalidateWindows();
+  galleryRoms.invalidateWindows({ reorder: true });
   void galleryRoms.fetchInitialMetadata();
 });
 
@@ -902,10 +902,12 @@ type RowItem = Extract<GalleryItem, { kind: "row" }>;
 type LetterHeaderItem = Extract<GalleryItem, { kind: "letter-header" }>;
 type EmptyItem = Extract<GalleryItem, { kind: "empty" }>;
 type ListRowItem = Extract<GalleryItem, { kind: "list-row" }>;
+type SkeletonRowItem = Extract<GalleryItem, { kind: "skeleton-row" }>;
 const asRow = (i: GalleryItem) => i as RowItem;
 const asLetterHeader = (i: GalleryItem) => i as LetterHeaderItem;
 const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
+const asSkeletonRow = (i: GalleryItem) => i as SkeletonRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
 
 // The desktop list header is the grid's first row; the compact one is a
@@ -1192,7 +1194,7 @@ defineExpose({
             class="r-v2-shell__row"
           >
             <GameCardSkeleton
-              v-for="n in Math.max(1, columns)"
+              v-for="n in asSkeletonRow(item as GalleryItem).cards"
               :key="`sk-${n}`"
             />
           </div>

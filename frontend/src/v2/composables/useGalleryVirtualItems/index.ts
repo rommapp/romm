@@ -135,6 +135,9 @@ interface Options {
   notFoundMessage?: Ref<string> | ComputedRef<string>;
   /** Skeleton row count while loading the first window. */
   skeletonRowCount?: number;
+  /** Result count already known while loading (null when unknown); caps the
+   *  skeleton at that many placeholders. */
+  skeletonTotal?: Ref<number | null> | ComputedRef<number | null>;
   /** Fixed card-art height in px, shared by every card so every row has the
    *  same height. Defaults to the md footprint (158px / (2/3) → 237px). */
   cardHeight?: MaybeRefOrGetter<number>;
@@ -233,6 +236,11 @@ export function useGalleryVirtualItems(opts: Options) {
     opts.cardHeight != null
       ? toValue(opts.cardHeight)
       : Math.round(REFERENCE_COVER_WIDTH_PX / DEFAULT_COVER_RATIO);
+
+  const cappedSkeletons = (count: number) => {
+    const known = opts.skeletonTotal?.value ?? null;
+    return known === null ? count : Math.min(count, known);
+  };
 
   // Uniform row height (cards share one fixed art height) keeps the scroller
   // exact-offset regardless of how many variable-width cards a row holds.
@@ -340,7 +348,9 @@ export function useGalleryVirtualItems(opts: Options) {
       if (opts.loadingInitial.value && opts.total.value === 0) {
         // Bootstrap phase: placeholder rows give the scroller a shape while
         // metadata is in flight. Enough to fill a typical viewport.
-        const skeletonListRows = Math.max(skeletonRows * 4, 12);
+        const skeletonListRows = cappedSkeletons(
+          Math.max(skeletonRows * 4, 12),
+        );
         for (let i = 0; i < skeletonListRows; i++) {
           items.push({
             kind: "skeleton-list-row",
@@ -348,7 +358,7 @@ export function useGalleryVirtualItems(opts: Options) {
             index: i,
           });
         }
-        return items;
+        if (items.length > 0) return items;
       }
       if (opts.total.value === 0) {
         items.push({
@@ -378,10 +388,19 @@ export function useGalleryVirtualItems(opts: Options) {
     // Grid + first-window-loading: skeleton rows until the server returns
     // `total` and `charIndex`.
     if (opts.loadingInitial.value && opts.total.value === 0) {
-      for (let i = 0; i < skeletonRows; i++) {
-        items.push({ kind: "skeleton-row", key: `skel-${i}`, index: i });
+      const columns = Math.max(1, opts.columns.value);
+      let cards = cappedSkeletons(skeletonRows * columns);
+      for (let i = 0; cards > 0; i++) {
+        const rowCards = Math.min(columns, cards);
+        items.push({
+          kind: "skeleton-row",
+          key: `skel-${i}`,
+          index: i,
+          cards: rowCards,
+        });
+        cards -= rowCards;
       }
-      return items;
+      if (items.length > 0) return items;
     }
 
     if (opts.total.value === 0) {

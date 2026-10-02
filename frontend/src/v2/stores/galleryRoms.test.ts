@@ -537,6 +537,58 @@ describe("galleryRoms relevance order", () => {
   });
 });
 
+describe("galleryRoms reorder count", () => {
+  it("keeps the count through a re-sort", () => {
+    const store = storeGalleryRoms();
+    store.total = 3;
+    store.metadataLoaded = true;
+
+    store.invalidateWindows({ reorder: true });
+
+    expect(store.total).toBe(0);
+    expect(store.reorderTotal).toBe(3);
+  });
+
+  it("keeps the count through a second re-sort before the first lands", () => {
+    const store = storeGalleryRoms();
+    store.total = 3;
+    store.metadataLoaded = true;
+
+    store.invalidateWindows({ reorder: true });
+    store.invalidateWindows({ reorder: true });
+
+    expect(store.reorderTotal).toBe(3);
+  });
+
+  it("drops the count on any other invalidation", () => {
+    const store = storeGalleryRoms();
+    store.total = 3;
+    store.metadataLoaded = true;
+    store.invalidateWindows({ reorder: true });
+
+    store.invalidateWindows();
+
+    expect(store.reorderTotal).toBeNull();
+  });
+
+  it("keeps a known empty result through a re-sort", () => {
+    const store = storeGalleryRoms();
+    store.metadataLoaded = true;
+
+    store.invalidateWindows({ reorder: true });
+
+    expect(store.reorderTotal).toBe(0);
+  });
+
+  it("knows no count for a re-sort before the first load lands", () => {
+    const store = storeGalleryRoms();
+
+    store.invalidateWindows({ reorder: true });
+
+    expect(store.reorderTotal).toBeNull();
+  });
+});
+
 describe("orderSupportsLetters", () => {
   // The backend indexes first letters off a text column only, so every other
   // order answers with an empty char_index. Spelling out every key means a new

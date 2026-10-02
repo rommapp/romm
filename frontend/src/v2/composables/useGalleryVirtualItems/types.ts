@@ -48,6 +48,13 @@ export type GalleryItem =
   | { kind: "skeleton-list-row"; key: string; index: number }
   | { kind: "load-more"; key: string; remaining: number; loading: boolean }
   | { kind: "empty"; key: string; message: string }
-  | { kind: "skeleton-row"; key: string; index: number };
+  | {
+      kind: "skeleton-row";
+      key: string;
+      index: number;
+      /** Placeholder cards in this row: a full row, or the tail of a known
+       * count. */
+      cards: number;
+    };
 
 export type GalleryItemKind = GalleryItem["kind"];
