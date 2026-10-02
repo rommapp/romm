@@ -14,7 +14,6 @@ from typing import Any, Final, NotRequired, TypedDict
 
 from adapters.services.rom_converto import (
     CONVERTO_PLATFORM_SLUGS,
-    RomConvertoInfoBatch,
     rom_converto_service,
 )
 from adapters.services.sigil import (
@@ -35,7 +34,6 @@ from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomsNotFoundException,
 )
-from logger.formatter import highlight as hl
 from logger.logger import log
 from models.base import compute_file_extension, compute_file_name_no_ext
 from models.platform import Platform
@@ -563,10 +561,7 @@ class FSRomsHandler(FSHandler):
     @staticmethod
     def _folder_category(rom: Rom, rom_path: Path) -> RomFileCategory | None:
         """The category a file's folder gives it, relative to the ROM's own root."""
-        return FSRomsHandler._category_under(Path(rom.full_path), rom_path)
-
-    @staticmethod
-    def _category_under(rom_root: Path, rom_path: Path) -> RomFileCategory | None:
+        rom_root = Path(rom.full_path)
         rom_relative_parts = (
             rom_path.relative_to(rom_root).parts
             if rom_path.is_relative_to(rom_root)
@@ -659,41 +654,11 @@ class FSRomsHandler(FSHandler):
             and await rom_converto_service.is_enabled()
         )
 
-    async def converto_candidates(self, fs_path: str, fs_name: str) -> list[Path]:
-        """The files `get_rom_files` hands rom-converto for a rom reusing no row, or none if it can't list them."""
-        rom_root = Path(fs_path, fs_name)
-        cnfg = cm.get_config()
-
-        def _list() -> list[Path]:
-            rom_dir = Path(self.validate_path(fs_path), fs_name)
-            if not rom_dir.is_dir():
-                return [rom_dir] if _converto_may_read(rom_dir, None) else []
-            return [
-                path
-                for f_path, file_name, _ in self._list_rom_dir(rom_dir, cnfg)
-                if _converto_may_read(
-                    path := Path(f_path, file_name),
-                    self._category_under(rom_root, f_path.relative_to(self.base_path)),
-                )
-            ]
-
-        try:
-            return await asyncio.to_thread(_list)
-        except (OSError, ValueError) as exc:
-            # The rom then reads its own files during its scan.
-            log.warning(f"Couldn't list {hl(fs_name)} for rom-converto: {exc}")
-            return []
-
-    async def _read_converto_infos(
-        self,
-        sources: list[tuple[Path, RomFile]],
-        info_batch: RomConvertoInfoBatch | None = None,
-    ) -> None:
+    async def _read_converto_infos(self, sources: list[tuple[Path, RomFile]]) -> None:
         """Write title ids and the read time onto the files rom-converto recognized."""
         if not sources:
             return
-        reader = info_batch or rom_converto_service
-        infos = await reader.read_infos([p for p, _ in sources])
+        infos = await rom_converto_service.read_infos([p for p, _ in sources])
         read_at = datetime.now(timezone.utc)
         for path, rom_file in sources:
             info = infos.get(path)
@@ -710,7 +675,6 @@ class FSRomsHandler(FSHandler):
         extract_title_ids: bool = True,
         *,
         existing_files: Sequence[RomFile] | None = None,
-        info_batch: RomConvertoInfoBatch | None = None,
     ) -> ParsedRomFiles:
         """Build the ROM's file rows from disk.
 
@@ -719,7 +683,6 @@ class FSRomsHandler(FSHandler):
                 files whose size and mtime still match are returned as those
                 very rows with their hashes untouched, and the ROM-level hashes
                 are only recomputed when a top-level file changed.
-            info_batch: Shares rom-converto runs with the other roms of a scan.
         """
         from adapters.services.rahasher import RAHasherService
         from handler.metadata import meta_ra_handler
@@ -1083,7 +1046,7 @@ class FSRomsHandler(FSHandler):
                 rom_file.category,
             )
         ]
-        await self._read_converto_infos(converto_sources, info_batch)
+        await self._read_converto_infos(converto_sources)
 
         # Listings come in no fixed order; a ROM is identified by its first disc,
         # and only Switch reads past it for each file's content type.

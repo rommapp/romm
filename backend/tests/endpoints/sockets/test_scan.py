@@ -737,88 +737,6 @@ class TestShouldReparseTags:
         assert _should_reparse_tags(ScanType.QUICK, rom, [rom.id + 99]) is False
 
 
-class TestConvertoInfoBatch:
-    """Which roms of a scan batch share one rom-converto reader."""
-
-    @staticmethod
-    def _fs_rom(fs_name: str) -> FSRom:
-        return cast(FSRom, {"fs_path": "psx/roms", "fs_name": fs_name})
-
-    @staticmethod
-    def _rom(rom_id: int) -> Rom:
-        rom = Mock(spec=Rom)
-        rom.id = rom_id
-        return cast(Rom, rom)
-
-    @pytest.fixture(autouse=True)
-    def active(self, mocker) -> AsyncMock:
-        active = AsyncMock(return_value=True)
-        mocker.patch.object(fs_rom_handler, "converto_active", active)
-        return active
-
-    async def test_an_inactive_platform_lists_nothing(self, active, candidates):
-        active.return_value = False
-        platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
-
-        assert (
-            await scan_module._converto_info_batch(
-                platform, [(self._fs_rom("new.chd"), None)], ScanType.COMPLETE, []
-            )
-            is None
-        )
-        candidates.assert_not_awaited()
-
-    @pytest.fixture
-    def candidates(self, mocker) -> AsyncMock:
-        candidates = AsyncMock(
-            side_effect=lambda fs_path, fs_name: [f"{fs_path}/{fs_name}"]
-        )
-        mocker.patch.object(fs_rom_handler, "converto_candidates", candidates)
-        return candidates
-
-    @pytest.mark.parametrize(
-        ("scan_type", "roms_ids", "expected"),
-        [
-            pytest.param(ScanType.COMPLETE, [], ["new.chd", "old.chd"], id="complete"),
-            pytest.param(ScanType.QUICK, [], ["new.chd"], id="quick-only-new"),
-            pytest.param(
-                ScanType.UPDATE, [], ["new.chd"], id="update-skips-unselected"
-            ),
-            pytest.param(
-                ScanType.UPDATE, [7], ["new.chd"], id="incremental-reads-on-its-own"
-            ),
-        ],
-    )
-    async def test_selects_roms_whose_files_are_rebuilt(
-        self, candidates, scan_type: ScanType, roms_ids: list[int], expected
-    ):
-        platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
-        roms_to_scan = [
-            (self._fs_rom("new.chd"), None),
-            (self._fs_rom("old.chd"), self._rom(7)),
-        ]
-
-        batch = await scan_module._converto_info_batch(
-            platform, roms_to_scan, scan_type, roms_ids
-        )
-
-        assert batch is not None
-        assert [call.args[1] for call in candidates.await_args_list] == expected
-
-    async def test_no_candidates_gives_no_batch(self, mocker):
-        mocker.patch.object(
-            fs_rom_handler, "converto_candidates", AsyncMock(return_value=[])
-        )
-        platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
-
-        assert (
-            await scan_module._converto_info_batch(
-                platform, [(self._fs_rom("new.chd"), None)], ScanType.COMPLETE, []
-            )
-            is None
-        )
-
-
 class TestShouldExtractTitleIds:
     """Which rescans pay for another native parse of a rom's binaries."""
 
@@ -1363,7 +1281,7 @@ class TestIdentifyRomPersistsFileCategory:
         # The persist loop calls this per saved file; keep it inert.
         mocker.patch.object(scan_module, "persist_soundtrack_cover")
         db.get_matching_missing_rom.return_value = None
-        db.sync_rom_files.side_effect = lambda rom_id, files, **_: SyncedRomFiles(
+        db.sync_rom_files.side_effect = lambda rom_id, files: SyncedRomFiles(
             files=list(files), orphaned_cover_paths=[]
         )
         return db, platform

@@ -15,7 +15,6 @@ from rq.job import Job, JobStatus
 from rq.timeouts import JobTimeoutException
 from sqlalchemy.exc import IntegrityError
 
-from adapters.services.rom_converto import RomConvertoInfoBatch, rom_converto_service
 from adapters.services.sigil import SWITCH_PLATFORM_SLUGS
 from config import DEV_MODE, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from config.config_manager import MetadataMediaType
@@ -531,36 +530,6 @@ def _should_hash_firmware(
     )
 
 
-async def _converto_info_batch(
-    platform: Platform,
-    roms_to_scan: list[tuple[FSRom, Rom | None]],
-    scan_type: ScanType,
-    roms_ids: list[int],
-) -> RomConvertoInfoBatch | None:
-    """One rom-converto reader shared by the roms whose files this scan rebuilds."""
-    if not await fs_rom_handler.converto_active(platform.slug):
-        return None
-    # A rom reusing unchanged rows inspects only the changed ones, so it reads on its own.
-    rebuilt = [
-        fs_rom
-        for fs_rom, rom in roms_to_scan
-        if rom is None
-        or (
-            scan_type != ScanType.QUICK
-            and _should_get_rom_files(scan_type, rom, False, roms_ids)
-            and not _should_hash_incrementally(scan_type, rom, roms_ids)
-        )
-    ]
-    candidates = await asyncio.gather(
-        *(
-            fs_rom_handler.converto_candidates(fs_rom["fs_path"], fs_rom["fs_name"])
-            for fs_rom in rebuilt
-        )
-    )
-    paths = [path for rom_paths in candidates for path in rom_paths]
-    return RomConvertoInfoBatch(rom_converto_service, paths) if paths else None
-
-
 async def _rebuild_rom_files(
     rom: Rom,
     fs_rom: FSRom,
@@ -568,7 +537,6 @@ async def _rebuild_rom_files(
     extract_title_ids: bool,
     embed_title_ids: bool,
     existing_files: Sequence[RomFile] | None = None,
-    info_batch: RomConvertoInfoBatch | None = None,
 ) -> ParsedRomFiles:
     """Re-read a rom's files onto `fs_rom`, embedding title ids when enabled."""
     parsed = await fs_rom_handler.get_rom_files(
@@ -576,7 +544,6 @@ async def _rebuild_rom_files(
         calculate_hashes=calculate_hashes,
         extract_title_ids=extract_title_ids,
         existing_files=existing_files,
-        info_batch=info_batch,
     )
 
     renamed_rom_fs_name = (
@@ -616,7 +583,6 @@ async def _identify_rom(
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     scanned_rom_ids: set[int],
-    info_batch: RomConvertoInfoBatch | None = None,
 ) -> None:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -687,7 +653,6 @@ async def _identify_rom(
             calculate_hashes=calculate_hashes,
             extract_title_ids=extract_title_ids,
             embed_title_ids=embed_title_ids,
-            info_batch=info_batch,
         )
         # The new-entry insert reads its name from rom_attrs, not fs_rom.
         rom_attrs["fs_name"] = fs_rom["fs_name"]
@@ -767,7 +732,6 @@ async def _identify_rom(
                 if _should_hash_incrementally(scan_type, rom, roms_ids)
                 else None
             ),
-            info_batch=info_batch,
         )
         # Keep the in-memory rom's name matching the renamed file.
         rom.fs_name = fs_rom["fs_name"]
@@ -1054,9 +1018,7 @@ async def _identify_platform(
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
 
-    async def scan_rom_with_semaphore(
-        fs_rom: FSRom, rom: Rom | None, info_batch: RomConvertoInfoBatch | None
-    ) -> None:
+    async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> None:
         """Scan a single ROM with semaphore limiting"""
         async with scan_semaphore:
             await _identify_rom(
@@ -1070,7 +1032,6 @@ async def _identify_platform(
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
                 scanned_rom_ids=scanned_rom_ids,
-                info_batch=info_batch,
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
@@ -1126,11 +1087,8 @@ async def _identify_platform(
             await emit_scanning_rom(socket_manager, hydrated_rom, is_new=False)
 
         # Process only ROMs that actually need scanning
-        info_batch = await _converto_info_batch(
-            platform, roms_to_scan, scan_type, roms_ids
-        )
         scan_tasks = [
-            scan_rom_with_semaphore(fs_rom=fs_rom, rom=rom, info_batch=info_batch)
+            scan_rom_with_semaphore(fs_rom=fs_rom, rom=rom)
             for fs_rom, rom in roms_to_scan
         ]
 

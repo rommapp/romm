@@ -472,56 +472,6 @@ async def test_converto_active_false_for_unsupported_platform(handler, mocker):
     assert await handler.converto_active("n64") is False
 
 
-class TestConvertoCandidates:
-    @pytest.fixture
-    def library(self, handler, mocker, tmp_path: Path) -> Path:
-        handler.base_path = tmp_path
-        mocker.patch.object(
-            rom_converto_service, "is_enabled", mocker.AsyncMock(return_value=True)
-        )
-        mocker.patch.object(
-            rom_converto_service,
-            "can_inspect",
-            lambda path: path.suffix in (".chd", ".nsp"),
-        )
-        mocker.patch(
-            "handler.filesystem.roms_handler.cm.get_config",
-            lambda: SimpleNamespace(
-                CONVERTO=SimpleNamespace(scan_metadata=True),
-                EXCLUDED_MULTI_PARTS_EXT=[],
-                EXCLUDED_MULTI_PARTS_FILES=[],
-            ),
-        )
-        roms = tmp_path / "switch" / "roms"
-        roms.mkdir(parents=True)
-        return roms
-
-    async def test_a_single_file_rom_is_its_own_candidate(self, handler, library):
-        (library / "game.nsp").write_bytes(b"rom")
-
-        assert await handler.converto_candidates("switch/roms", "game.nsp") == [
-            library / "game.nsp"
-        ]
-
-    async def test_a_rom_it_cannot_list_has_no_candidates(self, handler, library):
-        assert await handler.converto_candidates("switch/../..", "Game") == []
-
-    async def test_a_folder_lists_its_binaries_outside_document_folders(
-        self, handler, library
-    ):
-        game = library / "Game"
-        (game / "dlc").mkdir(parents=True)
-        (game / "manual").mkdir()
-        (game / "base.nsp").write_bytes(b"rom")
-        (game / "dlc" / "extra.nsp").write_bytes(b"rom")
-        (game / "manual" / "guide.nsp").write_bytes(b"doc")
-        (game / "readme.txt").write_bytes(b"txt")
-
-        candidates = await handler.converto_candidates("switch/roms", "Game")
-
-        assert sorted(candidates) == [game / "base.nsp", game / "dlc" / "extra.nsp"]
-
-
 def _fs_rom(
     files: list[RomFile], sha1_hash: str, identity: RomIdentity | None = None
 ) -> FSRom:
