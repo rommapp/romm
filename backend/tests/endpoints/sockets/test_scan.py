@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock
 
 import pytest
 import socketio
+from rq import Worker
 from rq.exceptions import (
     AbandonedJobError,
     DeserializationError,
@@ -27,6 +28,7 @@ from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
 from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
+    ScanPayload,
     ScanStats,
     _identify_rom,
     _scan_selected_roms,
@@ -2289,10 +2291,11 @@ class TestScanConcurrency:
     ):
         # Two requests on different web workers must not both pass the check.
         queued: list[Job] = []
+        patch_scan_jobs(mocker)
         mocker.patch.object(
             scan_module,
             "get_blocking_library_scans",
-            side_effect=lambda: (None, list(queued)),
+            side_effect=lambda workers: (None, list(queued)),
         )
         enqueue = mocker.patch.object(scan_queue, "enqueue")
 
@@ -2323,15 +2326,7 @@ class TestScanConcurrency:
         mocker.patch.object(scan_queue, "enqueue", side_effect=TimeoutError)
 
         with pytest.raises(TimeoutError):
-            await scan_module.queue_scan(
-                platform_ids=[],
-                metadata_sources=[],
-                scan_type=ScanType.QUICK,
-                roms_ids=[],
-                launchbox_remote_enabled=True,
-                platform_fs_slugs=[],
-                started_by_user_id=1,
-            )
+            await scan_module.queue_scan(ScanPayload(apis=[]), started_by_user_id=1)
 
         assert not await async_cache.exists(scan_module.LIBRARY_SCAN_REQUEST_LOCK)
 
@@ -2343,16 +2338,41 @@ class TestScanConcurrency:
 
         assert not await async_cache.exists(scan_module.LIBRARY_SCAN_REQUEST_LOCK)
 
-    @pytest.mark.parametrize("scan_type", ["deep", None])
-    async def test_refuses_an_unknown_scan_type(self, mocker, emit, scan_type):
+    @pytest.mark.parametrize(
+        "options",
+        [
+            {"type": "deep"},
+            {"type": None},
+            {"platform": [1]},
+            {"apis": ["nope"]},
+            {"platforms": [None]},
+        ],
+        ids=["unknown-type", "no-type", "misspelt-key", "unknown-source", "null-id"],
+    )
+    async def test_refuses_options_the_payload_does_not_take(
+        self, mocker, emit, options
+    ):
         patch_scan_jobs(mocker)
         enqueue = mocker.patch.object(scan_queue, "enqueue")
 
-        await scan_handler("sid", {"type": scan_type})
+        await scan_handler("sid", options)
 
         enqueue.assert_not_called()
         assert emit.await_args is not None
         assert emit.await_args.args[0] == "scan:done_ko"
+        assert emit.await_args.args[1].startswith("Invalid scan options: ")
+
+    async def test_refuses_when_no_scan_worker_listens(self, mocker, emit):
+        patch_scan_jobs(mocker)
+        mocker.patch.object(Worker, "all", return_value=[])
+        enqueue = mocker.patch.object(scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick", "roms_ids": [7]})
+
+        enqueue.assert_not_called()
+        assert emit.await_args is not None
+        assert emit.await_args.args[0] == "scan:done_ko"
+        assert "worker" in emit.await_args.args[1]
 
     async def test_refuses_when_a_scan_is_queued(self, mocker, emit):
         patch_scan_jobs(mocker, scan_queued=[make_job(SCAN_PLATFORMS_FUNC)])

@@ -2,7 +2,7 @@ import asyncio
 import os
 import sys
 import threading
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from enum import Enum
 from typing import Any, Final, cast
@@ -264,11 +264,20 @@ def get_worker_current_job(worker: BaseWorker) -> Job | None:
         return None
 
 
-def has_live_worker(queue: Queue) -> bool:
-    """Whether a job enqueued on ``queue`` would be picked up."""
+def has_live_worker(queue: Queue, workers: Iterable[BaseWorker] | None = None) -> bool:
+    """Whether a job enqueued on ``queue`` would be picked up.
+
+    Args:
+        workers: Every registered worker, when the caller has already listed them
+    """
+    listening = (
+        Worker.all(queue=queue)
+        if workers is None
+        else [worker for worker in workers if queue.name in worker.queue_names()]
+    )
     # A worker that crashed without announcing it stays registered until its
     # key TTL lapses, so this can still say yes for a few minutes after a kill.
     return any(
         worker.death_date is None and worker.get_state() != WorkerStatus.SUSPENDED
-        for worker in Worker.all(queue=queue)
+        for worker in listening
     )

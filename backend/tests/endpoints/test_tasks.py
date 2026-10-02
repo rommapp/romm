@@ -1,8 +1,9 @@
-from typing import Any
-from unittest.mock import Mock, PropertyMock, patch
+from typing import Any, cast
+from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
 import pytest
 from fastapi import status
+from rq import Worker
 from rq.exceptions import DeserializationError, NoSuchJobError
 from tests.factories import make_device_token
 from tests.scan_job_stubs import (
@@ -870,9 +871,7 @@ class TestStartScan:
 
         return post
 
-    def test_queues_the_scan_it_was_asked_for(
-        self, enqueue, post_scan, admin_user, task_worker_listening
-    ):
+    def test_queues_the_scan_it_was_asked_for(self, enqueue, post_scan, admin_user):
         response = post_scan(
             json={
                 "type": "update",
@@ -890,7 +889,8 @@ class TestStartScan:
         assert data["task_name"] == "Update Scan"
         assert data["status"] == "queued"
 
-        task_worker_listening.assert_called_once_with(scan_queue)
+        # The worker check and the in-flight check share one listing.
+        cast(MagicMock, Worker.all).assert_called_once()
         call = enqueue.call_args
         assert call is not None
         assert call.args == (scan_platforms,)
@@ -913,7 +913,8 @@ class TestStartScan:
         self, mocker, enqueue, post_scan, body, sources
     ):
         mocker.patch(
-            "endpoints.tasks.get_enabled_metadata_sources", return_value=["igdb"]
+            "endpoints.sockets.scan.get_enabled_metadata_sources",
+            return_value=["igdb"],
         )
 
         response = post_scan(**body)
@@ -984,10 +985,8 @@ class TestStartScan:
         assert response.status_code == status.HTTP_202_ACCEPTED
         enqueue.assert_called_once()
 
-    def test_without_a_scan_worker_is_refused(
-        self, enqueue, post_scan, task_worker_listening
-    ):
-        task_worker_listening.return_value = False
+    def test_without_a_scan_worker_is_refused(self, mocker, enqueue, post_scan):
+        mocker.patch.object(Worker, "all", return_value=[])
 
         response = post_scan(json={})
 

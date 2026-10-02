@@ -153,6 +153,18 @@ class TestHasLiveWorker:
 
         mock_all.assert_called_once_with(queue=low_prio_queue)
 
+    def test_reads_a_listing_the_caller_already_has(self):
+        elsewhere = self._worker("idle")
+        elsewhere.queue_names.return_value = ["other"]
+        listening = self._worker("busy")
+        listening.queue_names.return_value = [low_prio_queue.name]
+
+        with patch("handler.redis_handler.Worker.all") as mock_all:
+            assert has_live_worker(low_prio_queue, [elsewhere]) is False
+            assert has_live_worker(low_prio_queue, [elsewhere, listening]) is True
+
+        mock_all.assert_not_called()
+
 
 class TestAsyncCacheUnderTests:
     def test_concurrent_threads_and_loops_never_share_a_pool(self):

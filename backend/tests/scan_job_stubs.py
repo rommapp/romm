@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 from rq import Worker
 from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
+from rq.worker import WorkerStatus
 
 import handler.scan_jobs as scan_jobs_module
 from handler.redis_handler import high_prio_queue, low_prio_queue, scan_queue
@@ -70,6 +71,9 @@ def patch_scan_jobs(
     Returns the patched scheduled-scan registry.
     """
     worker = MagicMock()
+    worker.death_date = None
+    worker.get_state.return_value = WorkerStatus.IDLE
+    worker.queue_names.return_value = [scan_queue.name]
     if worker_lost:
         worker.get_current_job.side_effect = NoSuchJobError
     else:

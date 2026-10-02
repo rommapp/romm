@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from typing import Any, Final, Mapping, cast
 
 from fastapi import Body, HTTPException, Request, status
-from pydantic import BaseModel, ConfigDict
 from rq import Worker
 from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
@@ -25,8 +24,8 @@ from endpoints.responses import (
     WatcherTaskStatusResponse,
 )
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
-from endpoints.sockets.scan import queue_scan
-from exceptions.socket_exceptions import ScanInFlightException
+from endpoints.sockets.scan import ScanPayload, queue_scan
+from exceptions.socket_exceptions import NoScanWorkerException, ScanInFlightException
 from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.redis_handler import (
@@ -37,12 +36,6 @@ from handler.redis_handler import (
     has_live_worker,
     low_prio_queue,
     redis_client,
-    scan_queue,
-)
-from handler.scan_handler import (
-    MetadataSource,
-    ScanType,
-    get_enabled_metadata_sources,
 )
 from models.audit_event import AuditAction, AuditTargetType
 from tasks.registry import (
@@ -401,21 +394,6 @@ async def run_single_task(
     return _build_task_execution_response(job, task_name, task_instance.title)
 
 
-class ScanPayload(BaseModel):
-    """What to scan, with the options the `scan` socket event takes."""
-
-    # A misspelt key would otherwise fall back to a scan of the whole library.
-    model_config = ConfigDict(extra="forbid")
-
-    type: ScanType = ScanType.QUICK
-    platforms: list[int] = []
-    platform_fs_slugs: list[str] = []
-    roms_ids: list[int] = []
-    # Left out, the scan uses every enabled source, as a scheduled scan does.
-    apis: list[MetadataSource] | None = None
-    launchbox_remote_enabled: bool = True
-
-
 SCAN_PAYLOAD = Body(default_factory=ScanPayload)
 
 
@@ -437,26 +415,12 @@ async def start_scan(
     Returns:
         TaskExecutionResponse: The queued scan, to follow on `GET /api/tasks/{task_id}`
     """
-    if not has_live_worker(scan_queue):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="No scan worker is listening, so the scan cannot be queued",
-        )
-
     try:
-        job = await queue_scan(
-            platform_ids=payload.platforms,
-            metadata_sources=(
-                get_enabled_metadata_sources()
-                if payload.apis is None
-                else [source.value for source in payload.apis]
-            ),
-            scan_type=payload.type,
-            roms_ids=payload.roms_ids,
-            launchbox_remote_enabled=payload.launchbox_remote_enabled,
-            platform_fs_slugs=payload.platform_fs_slugs,
-            started_by_user_id=request.user.id,
-        )
+        job = await queue_scan(payload, started_by_user_id=request.user.id)
+    except NoScanWorkerException as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        ) from e
     except ScanInFlightException as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 

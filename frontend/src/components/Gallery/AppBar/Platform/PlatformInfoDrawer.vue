@@ -98,12 +98,14 @@ async function updatePlatform() {
 }
 
 async function scan() {
+  if (!currentPlatform.value) return;
+
   scanningStore.setScanning(true);
 
   if (!socket.connected) socket.connect();
 
   socket.emit("scan", {
-    platforms: [romsStore.currentPlatform?.id],
+    platforms: [currentPlatform.value.id],
     type: "quick",
     apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
   });

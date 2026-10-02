@@ -224,7 +224,7 @@ backend/
 │   ├── fs_exceptions.py       # Filesystem errors
 │   ├── config_exceptions.py   # Config write errors
 │   ├── task_exceptions.py     # Scheduler errors
-│   └── socket_exceptions.py   # Scan stopped
+│   └── socket_exceptions.py   # Scan stopped or refused
 │
 ├── handler/                   # Business logic layer
 │   ├── scan_handler.py        # Library scan orchestration
