@@ -1,7 +1,5 @@
-// useClipboard: copy text to the clipboard with consistent feedback.
-// The browser Clipboard API only exists in a secure context (HTTPS or
-// localhost), so over plain HTTP the copy falls back to `execCommand("copy")`.
-// A copy that still can't happen surfaces an error instead of doing nothing.
+// The Clipboard API needs a secure context, so plain HTTP falls back to
+// `execCommand("copy")`; a copy that still fails shows an error toast.
 //
 // Usage:
 //   const clipboard = useClipboard();

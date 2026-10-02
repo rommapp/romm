@@ -3,9 +3,8 @@ import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import tasksApi from "@/services/api/task";
 import type { TaskStatusResponse } from "@/utils/tasks";
 
-// Several triggers (poll, visibility, a run button) can overlap status
-// requests, so only the newest one may write the list. A failure keeps the
-// last known statuses rather than claiming nothing is running.
+// Status requests can overlap, so only the newest writes the list; a failure
+// keeps the last known statuses rather than claiming nothing is running.
 let latestStatusRequest = 0;
 
 export default defineStore("tasks", {
