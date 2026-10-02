@@ -416,6 +416,7 @@ def collect_ra_login(container: ResolvedContainer, session: dict[str, Any]) -> N
             "ra login collect",
             body={"session_id": session_id},
             timeout=STREAMING_SAVE_TIMEOUT,
+            missing_ok=True,
         )
         if reply is None:
             # request_safe logged the failure, status code included.

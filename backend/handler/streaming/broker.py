@@ -177,16 +177,22 @@ def request_safe(
     method: str = "POST",
     body: dict[str, Any] | None = None,
     timeout: float,
+    missing_ok: bool = False,
 ) -> Any | None:
     """
     Best-effort variant of request: returns the parsed body, or None if
     the broker is unreachable or errors. Never raises, control ops must not 500
-    on a broker hiccup.
+    on a broker hiccup. `missing_ok` logs a 404 at debug, for a route an older
+    broker does not serve.
     """
     try:
         return request(container, path, method=method, body=body, timeout=timeout)
     except Exception as exc:
-        log.warning("broker %s failed, %s", label, exc)
+        missing = isinstance(exc, urllib.error.HTTPError) and exc.code == 404
+        if missing_ok and missing:
+            log.debug("broker %s failed, %s", label, exc)
+        else:
+            log.warning("broker %s failed, %s", label, exc)
         # An HTTPError is an open response, and these routes are called often.
         if isinstance(exc, urllib.error.HTTPError):
             exc.close()

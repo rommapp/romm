@@ -7497,6 +7497,36 @@ def test_a_collect_the_broker_refuses_is_logged_and_the_teardown_still_completes
     assert _stored_login(admin_user.id) is None
 
 
+def test_a_broker_without_the_collect_route_is_only_a_debug_line(
+    client, access_token, admin_user: User, rom: Rom, caplog
+):
+    """A broker older than the route answers 404 on every teardown; that is
+    expected, not something to warn about."""
+    container = _webstation_for(rom)
+    error = urllib.error.HTTPError(
+        "http://broker/api/session/retroachievements/collect",
+        404,
+        "Not Found",
+        http.client.HTTPMessage(),
+        io.BytesIO(json.dumps({"token": RA_TOKEN}).encode()),
+    )
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.DEBUG, logger="romm"):
+            _release_with_urlopen_error(client, access_token, rom, error)
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+
+    collect_lines = [r for r in caplog.records if "ra login collect" in r.getMessage()]
+    assert len(collect_lines) == 1
+    assert collect_lines[0].levelno == logging.DEBUG
+    assert RA_TOKEN not in caplog.text
+    with _streaming(container):
+        assert _session_raw(container) is None
+    assert _stored_login(admin_user.id) is None
+
+
 def test_a_collect_that_times_out_is_logged_and_the_teardown_still_completes(
     client, access_token, admin_user: User, rom: Rom, caplog
 ):
