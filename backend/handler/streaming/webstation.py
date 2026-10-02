@@ -32,6 +32,7 @@ from urllib.parse import quote, urlencode
 from fastapi import HTTPException
 
 from config import STREAMING_LAUNCH_TIMEOUT, STREAMING_SAVE_TIMEOUT
+from handler.ra_login import ra_login_for_activate
 from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.protocol import ACK_TIMEOUT, WebstationProtocol
@@ -235,6 +236,12 @@ def activate(
         body["rom"] = {**rom, "core": core} if core else rom
         if core and container.experimental_cores:
             body["rom"]["experimental_cores"] = True
+        # Every game session, whatever the emulator: the broker pins it where
+        # it can and ignores it elsewhere. Out of `user`, which the broker's
+        # status route echoes.
+        login = ra_login_for_activate(user)
+        if login is not None:
+            body["retroachievements"] = login
     if gui_language:
         # Describes the player, not the rom, so it goes alongside `rom` rather
         # than inside it and is sent for a romless launch too.

@@ -40,6 +40,7 @@ from handler.database import (
     db_user_handler,
 )
 from handler.database.base_handler import sync_session
+from handler.ra_login import store_ra_login
 from handler.redis_handler import async_cache
 from handler.streaming import (
     access,
@@ -10196,6 +10197,81 @@ def test_the_activate_body_carries_the_rom_language(client, access_token, rom: R
     db_rom_handler.update_rom(rom.id, {"languages": ["French"]})
 
     assert _activate_body(client, access_token, rom)["rom"]["language"] == "fr"
+
+
+def test_the_activate_body_carries_the_stored_ra_login(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """Every game session gets the login, whatever the emulator: the broker
+    decides which emulator can use it."""
+    store_ra_login(admin_user.id, "alice", "tok456secret")
+
+    body = _activate_body(client, access_token, rom)
+
+    assert body["retroachievements"] == {"username": "alice", "token": "tok456secret"}
+    assert "retroachievements" not in body["user"]
+
+
+def test_the_activate_body_carries_the_login_for_a_retroarch_platform(
+    client, access_token, admin_user: User, rom: Rom
+):
+    store_ra_login(admin_user.id, "alice", "tok456secret")
+    with _streaming(_webstation(platforms={rom.platform_slug: "retroarch"})):
+        with patch(
+            "handler.streaming.broker.request", return_value={"url": "/room/x"}
+        ) as request:
+            client.post(
+                "/api/streaming/sessions",
+                json={"rom_id": rom.id},
+                headers=_auth(access_token),
+            )
+
+    activate = next(
+        c for c in request.call_args_list if c.args[1].endswith("/activate")
+    )
+    body = activate.kwargs["body"]
+    assert body["emulator"] == "retroarch"
+    assert body["retroachievements"] == {"username": "alice", "token": "tok456secret"}
+
+
+def test_the_activate_body_has_no_login_block_when_none_is_stored(
+    client, access_token, rom: Rom
+):
+    assert "retroachievements" not in _activate_body(client, access_token, rom)
+
+
+def test_the_desktop_activate_carries_no_ra_login(
+    client, access_token, admin_user: User
+):
+    store_ra_login(admin_user.id, "alice", "tok456secret")
+    with _streaming(_webstation()):
+        with patch(
+            "handler.streaming.broker.request", return_value={"url": "/room/x"}
+        ) as request:
+            response = client.post(
+                "/api/streaming/desktop",
+                json={"container": _key_of(_webstation())},
+                headers=_auth(access_token),
+            )
+
+    assert response.status_code == 200, response.text
+    assert request.call_args.kwargs["body"]["emulator"] == "desktop"
+    assert "retroachievements" not in request.call_args.kwargs["body"]
+
+
+def test_activate_logs_the_broker_reply_and_never_the_login(
+    client, access_token, admin_user: User, rom: Rom, caplog
+):
+    store_ra_login(admin_user.id, "alice", "tok456secret")
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.DEBUG, logger="romm"):
+            _activate_body(client, access_token, rom)
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+
+    assert "tok456secret" not in caplog.text
 
 
 def test_the_rom_language_is_reduced_to_an_iso_code(client, access_token, rom: Rom):
