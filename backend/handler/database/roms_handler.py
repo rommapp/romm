@@ -409,15 +409,17 @@ def _rom_file_content_key(rom_file: RomFile) -> tuple[str, str, str] | None:
 
 def _same_content(row: RomFile, scanned: RomFile) -> bool:
     """Whether a rescanned file still holds the bytes its row was written from."""
-    if scanned.last_modified is not None and rom_file_unchanged(
+    content_key = _rom_file_content_key(scanned)
+    stored_key = _rom_file_content_key(row)
+    # Fresh hashes outrank a size and mtime a copy can preserve.
+    if content_key is not None and stored_key is not None:
+        return content_key == stored_key
+    return scanned.last_modified is not None and rom_file_unchanged(
         row,
         size=scanned.file_size_bytes,
         mtime=scanned.last_modified,
         hashable=False,
-    ):
-        return True
-    content_key = _rom_file_content_key(scanned)
-    return content_key is not None and content_key == _rom_file_content_key(row)
+    )
 
 
 def _cache_value_to_str(value: Any) -> str | None:

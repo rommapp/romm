@@ -541,7 +541,7 @@ class RomConvertoService:
         """Inspect files in `info` runs of up to `INFO_BATCH_SIZE`, keyed by the paths it recognized; never raises."""
         listed = await asyncio.to_thread(lambda: [p for p in paths if _listable(p)])
         infos: dict[Path, RomConvertoInfo] = {}
-        for chunk in batched(listed, INFO_BATCH_SIZE):
+        for chunk in batched(listed, INFO_BATCH_SIZE, strict=False):
             infos.update(await self._read_run(list(chunk)))
         return infos
 
@@ -564,7 +564,8 @@ class RomConvertoService:
             return {}
         finally:
             if paths_file is not None:
-                os.unlink(paths_file)
+                with contextlib.suppress(OSError):
+                    os.unlink(paths_file)
         if code != 0:
             log.warning(f"rom-converto info failed (code {code}): {_tail(stderr)}")
             return {}
@@ -624,11 +625,7 @@ def _stat_key(path: Path) -> _StatKey | None:
 
 
 class RomConvertoInfoBatch:
-    """`read_infos` over a scan's known files, shared across roms in runs of `INFO_BATCH_SIZE`.
-
-    The first request for a known file starts one run over it and the next
-    unread files in scan order, so the roms after it find theirs already read.
-    """
+    """`read_infos` over a scan's known files, each run also reading the next unread ones in scan order."""
 
     def __init__(self, service: _InfoReader, paths: Sequence[Path]) -> None:
         self._service = service

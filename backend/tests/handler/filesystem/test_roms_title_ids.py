@@ -226,6 +226,27 @@ class TestGetRomFilesWithConverto:
         assert parsed.identity.title_id == "SLUS-00001"
 
     @pytest.mark.asyncio
+    async def test_a_stored_sigil_id_yields_to_a_fresh_extraction(
+        self, scan_env, sigil_reads, mocker
+    ):
+        mocker.patch.object(
+            rom_converto_service, "read_infos", mocker.AsyncMock(return_value={})
+        )
+        first = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False
+        )
+        by_name = {f.file_name: f for f in first.rom_files}
+        by_name["Game (Disc 1).iso"].title_id = "SLUS-99999"
+
+        rescan = await scan_env.handler.get_rom_files(
+            scan_env.rom, calculate_hashes=False, existing_files=first.rom_files
+        )
+
+        ids = {f.file_name: f.title_id for f in rescan.rom_files}
+        assert ids["Game (Disc 1).iso"] == "SLUS-00001"
+        assert rescan.identity.title_id == "SLUS-00001"
+
+    @pytest.mark.asyncio
     async def test_converto_identity_when_sigil_reads_nothing(self, scan_env, mocker):
         mocker.patch(
             "adapters.services.sigil.SigilService.extract_title_id",

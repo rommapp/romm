@@ -353,10 +353,10 @@ class _TitleIdSource:
         return self.path.parent, compute_name_sort_key(self.path.name), self.path.name
 
 
-def _rom_file_order(rom_file: RomFile) -> tuple[str, str, str]:
+def _rom_file_order(rom_file: RomFile) -> tuple[Path, str, str]:
     """`_TitleIdSource.order` for a row, so a multi-disc ROM falls back to its first disc."""
     name = rom_file.file_name
-    return rom_file.file_path, compute_name_sort_key(name), name
+    return Path(rom_file.file_path), compute_name_sort_key(name), name
 
 
 # Exclusion patterns holding one of these need fnmatch; the rest match literally.
@@ -658,10 +658,7 @@ class FSRomsHandler(FSHandler):
     async def converto_candidates(
         self, platform_slug: str, fs_path: str, fs_name: str
     ) -> list[Path]:
-        """The files `get_rom_files` hands rom-converto for a rom when it reuses no row.
-
-        Callers check `converto_active` first, once for the platform.
-        """
+        """The files `get_rom_files` hands rom-converto for a rom reusing no row, once `converto_active` passed."""
         rom_root = Path(fs_path, fs_name)
         rom_dir = Path(self.validate_path(fs_path), fs_name)
         if not await self.directory_exists(str(rom_root)):
@@ -760,7 +757,7 @@ class FSRomsHandler(FSHandler):
             )
             if extraction is None:
                 return
-            if source.rom_file.title_id:
+            if source.rom_file.title_id and source.rom_file.converto_read_at:
                 # rom-converto's id wins; sigil keeps its save target and content type.
                 extraction = replace(
                     extraction,

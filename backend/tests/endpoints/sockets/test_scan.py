@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock
@@ -805,6 +806,27 @@ class TestConvertoInfoBatch:
         assert batch is not None
         assert [call.args[2] for call in candidates.await_args_list] == expected
 
+    async def test_a_failed_listing_leaves_the_other_roms_batched(self, mocker):
+        async def candidates(_slug: str, fs_path: str, fs_name: str) -> list[Path]:
+            if fs_name == "bad.chd":
+                raise OSError("unreadable")
+            return [Path(fs_path, fs_name)]
+
+        mocker.patch.object(
+            fs_rom_handler, "converto_candidates", AsyncMock(side_effect=candidates)
+        )
+        platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
+
+        batch = await scan_module._converto_info_batch(
+            platform,
+            [(self._fs_rom("bad.chd"), None), (self._fs_rom("good.chd"), None)],
+            ScanType.COMPLETE,
+            [],
+        )
+
+        assert batch is not None
+        assert list(batch._index) == [Path("psx/roms/good.chd")]
+
     async def test_no_candidates_gives_no_batch(self, mocker):
         mocker.patch.object(
             fs_rom_handler, "converto_candidates", AsyncMock(return_value=[])
@@ -1251,6 +1273,18 @@ class TestIdentifyRomReassociation:
             sha1_hash="",
             title_id="0100ABCD12340000",
         )
+
+    async def test_files_are_reconciled_in_place(self, patched):
+        db, platform = patched
+        db.get_matching_missing_rom.return_value = None
+        db.sync_rom_files.return_value = SyncedRomFiles(
+            files=[], orphaned_cover_paths=[]
+        )
+
+        await self._run(platform)
+
+        # Rows are reconciled against the scan, so file ids survive the rescan.
+        db.sync_rom_files.assert_called_once_with(99, [], inspected=set())
 
     async def test_orphaned_soundtrack_covers_are_unlinked(self, patched, mocker):
         db, platform = patched

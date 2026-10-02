@@ -508,6 +508,20 @@ class TestSyncRomFiles:
         assert stored.last_modified == scanned_mtime
         assert {column: getattr(stored, column) for column in metadata} == metadata
 
+    def test_new_hashes_clear_unread_title_ids_despite_a_kept_mtime(self, rom: Rom):
+        scanned = _scanned_file(rom, "game.chd")
+        scanned.last_modified = 1000.0
+        scanned.title_id = "SCUS-94163"
+        (first,) = _sync(rom, [scanned])
+        rehashed = _scanned_file(rom, "game.chd", sha1="other-sha1")
+        rehashed.last_modified = 1000.0
+
+        db_rom_handler.sync_rom_files(rom.id, [rehashed])
+
+        stored = db_rom_handler.get_rom_file_by_id(first.id)
+        assert stored is not None
+        assert stored.title_id is None
+
     def test_retagged_track_meta_is_updated_in_place(self, rom: Rom):
         def scanned(title: str, year: int) -> RomFile:
             return _scanned_file(
