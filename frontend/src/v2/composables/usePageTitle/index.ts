@@ -9,7 +9,7 @@
 // already set the next route's title by the time a view tears down.
 import { useTitle } from "@vueuse/core";
 
-const DEFAULT_TITLE = "RomM";
+export const DEFAULT_TITLE = "RomM";
 
 export function usePageTitle(source: () => string | null | undefined) {
   useTitle(() => source() || DEFAULT_TITLE, { restoreOnUnmount: false });
