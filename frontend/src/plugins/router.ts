@@ -6,9 +6,7 @@ import {
   type NavigationGuardWithThis,
   type RouteLocationNormalized,
 } from "vue-router";
-import { useUiVersion } from "@/composables/useUiVersion";
 import i18n, { loadLocale } from "@/locales";
-import { loadMdEditor } from "@/plugins/mdeditor";
 import {
   isAuthExemptRoute,
   ROUTES,
@@ -632,16 +630,6 @@ router.beforeEach(async (to, from, next) => {
   const auth = storeAuth();
   const { user } = storeToRefs(auth);
   const currentRoute = to.name?.toString();
-
-  // v1 imports md-editor-v3 statically and relies on its config (raw HTML plus
-  // XSS sanitizing), so apply it before any v1 page renders.
-  if (useUiVersion().value === "v1") {
-    try {
-      await loadMdEditor();
-    } catch (error) {
-      console.error("Failed to load the Markdown editor", error);
-    }
-  }
 
   try {
     // Backend unreachable/broken: we can't trust the setup/auth state, and

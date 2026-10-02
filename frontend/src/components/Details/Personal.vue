@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { debounce } from "lodash";
-import { MdEditor, MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
 import { ref, watch, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";

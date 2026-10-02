@@ -1,20 +1,19 @@
 <script setup lang="ts">
 import { get } from "lodash";
-import { MdPreview } from "md-editor-v3";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 import MediaCarousel from "@/components/Details/Info/MediaCarousel.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import { ROUTES } from "@/plugins/router";
 import { type FilterType } from "@/stores/galleryFilter";
 import type { DetailedRom } from "@/stores/roms";
+import MarkdownPreview from "@/v2/components/shared/MarkdownPreview.vue";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const { xs } = useDisplay();
-const theme = useTheme();
 const showDialog = ref(false);
 const carouselValue = ref(0);
 const router = useRouter();
@@ -301,17 +300,9 @@ function getFilterValues(path: string): string[] {
       <template v-if="rom.summary">
         <v-row no-gutters class="mt-4">
           <v-col class="text-caption">
-            <MdPreview
-              no-highlight
-              no-katex
-              no-mermaid
+            <MarkdownPreview
               class="py-4 px-6"
               :model-value="rom.summary ?? ''"
-              :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-              language="en-US"
-              preview-theme="vuepress"
-              code-theme="github"
-              :readonly="true"
             />
           </v-col>
         </v-row>

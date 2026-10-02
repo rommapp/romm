@@ -95,14 +95,6 @@ export default defineConfig(({ mode }) => {
       // inlines any asset under 4KB as a data: URI, so keep the worklet out.
       assetsInlineLimit: (filePath) =>
         filePath.endsWith("pico8AudioWorklet.js") ? false : undefined,
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            // this makes tracking dynamically loaded libraries much easier.
-            if (id.includes("md-editor-v3")) return "md-editor";
-          },
-        },
-      },
     },
     plugins: [
       tailwindcss(),

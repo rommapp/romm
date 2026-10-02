@@ -1,19 +1,17 @@
 <script setup lang="ts">
-import { MdEditor, MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
 import { computed, ref, reactive, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useTheme } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import { toBrowserLocale } from "@/utils";
+import MarkdownEditor from "@/v2/components/shared/MarkdownEditor.vue";
+import MarkdownPreview from "@/v2/components/shared/MarkdownPreview.vue";
 
 const { t, locale } = useI18n();
-const theme = useTheme();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
 
@@ -352,30 +350,15 @@ watch(
                 </div>
               </v-expansion-panel-title>
               <v-expansion-panel-text class="bg-surface">
-                <MdEditor
+                <MarkdownEditor
                   v-if="editingNotes[note.title]"
                   v-model="editableNotes[note.title].content"
-                  no-highlight
-                  no-katex
-                  no-mermaid
-                  no-prettier
-                  no-upload-img
                   :disabled="!scopes.includes('roms.user.write')"
-                  :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
-                  language="en-US"
-                  :preview="false"
                 />
-                <MdPreview
+                <MarkdownPreview
                   v-else
-                  no-highlight
-                  no-katex
-                  no-mermaid
-                  :model-value="note.content"
-                  :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
-                  language="en-US"
-                  preview-theme="vuepress"
-                  code-theme="github"
                   class="py-4 px-6"
+                  :model-value="note.content"
                 />
                 <v-card-subtitle
                   v-if="note.updated_at"
@@ -431,17 +414,7 @@ watch(
               </div>
             </v-expansion-panel-title>
             <v-expansion-panel-text class="bg-surface">
-              <MdPreview
-                no-highlight
-                no-katex
-                no-mermaid
-                :model-value="note.content"
-                :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
-                language="en-US"
-                preview-theme="vuepress"
-                code-theme="github"
-                class="py-4 px-6"
-              />
+              <MarkdownPreview class="py-4 px-6" :model-value="note.content" />
               <v-card-subtitle
                 v-if="note.updated_at"
                 class="text-caption mt-2 mb-2"
@@ -483,16 +456,8 @@ watch(
             <v-card-subtitle class="px-0 pb-2">{{
               t("rom.note-content")
             }}</v-card-subtitle>
-            <MdEditor
+            <MarkdownEditor
               v-model="newNoteContent"
-              no-highlight
-              no-katex
-              no-mermaid
-              no-prettier
-              no-upload-img
-              :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
-              language="en-US"
-              :preview="false"
               style="min-height: 200px"
             />
           </v-card>
