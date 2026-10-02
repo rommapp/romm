@@ -45,8 +45,9 @@ import {
   RTooltip,
   RDivider,
 } from "@v2/lib";
+import { useElementSize } from "@vueuse/core";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
@@ -332,26 +333,15 @@ const notchStyle = {
 
 const barEl = ref<HTMLElement | null>(null);
 const notchEl = ref<HTMLElement | null>(null);
-const barSize = ref({ w: 0, h: 0 });
-const notchSize = ref({ w: 0, h: 0 });
-
-function measure() {
-  const bar = barEl.value;
-  const notch = notchEl.value;
-  if (bar) barSize.value = { w: bar.offsetWidth, h: bar.offsetHeight };
-  if (notch) notchSize.value = { w: notch.offsetWidth, h: notch.offsetHeight };
-}
-
 // The bar's width follows its buttons and the hill's follows the digit count,
 // so both are watched rather than measured once.
-let sizeObserver: ResizeObserver | null = null;
-onMounted(() => {
-  measure();
-  sizeObserver = new ResizeObserver(measure);
-  if (barEl.value) sizeObserver.observe(barEl.value);
-  if (notchEl.value) sizeObserver.observe(notchEl.value);
-});
-onBeforeUnmount(() => sizeObserver?.disconnect());
+const bar = useElementSize(barEl, undefined, { box: "border-box" });
+const notch = useElementSize(notchEl, undefined, { box: "border-box" });
+const barSize = computed(() => ({ w: bar.width.value, h: bar.height.value }));
+const notchSize = computed(() => ({
+  w: notch.width.value,
+  h: notch.height.value,
+}));
 
 const outline = computed(() =>
   selectionBarOutline(barSize.value, notchSize.value),

@@ -25,12 +25,11 @@ import {
   useFloating,
 } from "@floating-ui/vue";
 import type { Placement } from "@floating-ui/vue";
+import { useElementSize } from "@vueuse/core";
 import {
   computed,
   getCurrentInstance,
   nextTick,
-  onBeforeUnmount,
-  onMounted,
   ref,
   useAttrs,
   useSlots,
@@ -341,7 +340,7 @@ const hasSelection = computed(() => selectedItems.value.length > 0);
 // `fitChipCount` of them. ResizeObserver re-measures on width changes.
 const valueRef = ref<HTMLElement | null>(null);
 const measureRef = ref<HTMLElement | null>(null);
-const containerWidth = ref(0);
+const { width: containerWidth } = useElementSize(valueRef);
 const fitChipCount = ref<number>(Number.POSITIVE_INFINITY);
 
 const visibleChips = computed<NormalisedItem[]>(() => {
@@ -351,20 +350,6 @@ const visibleChips = computed<NormalisedItem[]>(() => {
 const overflowCount = computed(() =>
   Math.max(0, selectedItems.value.length - visibleChips.value.length),
 );
-
-let resizeObserver: ResizeObserver | null = null;
-onMounted(() => {
-  if (!valueRef.value) return;
-  containerWidth.value = valueRef.value.clientWidth;
-  resizeObserver = new ResizeObserver((entries) => {
-    for (const e of entries) containerWidth.value = e.contentRect.width;
-  });
-  resizeObserver.observe(valueRef.value);
-});
-onBeforeUnmount(() => {
-  resizeObserver?.disconnect();
-  resizeObserver = null;
-});
 
 // Walk through the mirror's chips and stop when the next one (plus
 // the reserved overflow-pill width) would overflow the visible row.
