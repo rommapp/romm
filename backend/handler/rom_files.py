@@ -42,7 +42,12 @@ class RomFilesRefresh:
 
 def _extracted_state(rom_file: RomFile) -> tuple[Any, ...]:
     """The columns title id extraction writes onto a row."""
-    return rom_file.category, rom_file.title_id, rom_file.title_version
+    return (
+        rom_file.category,
+        rom_file.title_id,
+        rom_file.title_version,
+        rom_file.converto_read_at,
+    )
 
 
 def loaded_rom_files(rom: Rom) -> list[RomFile]:
@@ -69,8 +74,8 @@ async def refresh_rom_files(rom: Rom) -> RomFilesRefresh:
 
 async def _refresh(rom: Rom) -> RomFilesRefresh:
     existing = loaded_rom_files(rom)
-    # Extraction can settle a reused row's category and title id in place, so
-    # that row is compared against the values it was loaded with.
+    # Extraction can settle a reused row's category, title id and read time in
+    # place, so that row is compared against the values it was loaded with.
     reused_state = {id(f): _extracted_state(f) for f in existing}
     cnfg = cm.get_config()
     calculate_hashes = not cnfg.SKIP_HASH_CALCULATION

@@ -1,5 +1,6 @@
 import hashlib
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -335,6 +336,23 @@ async def test_a_title_id_read_off_a_reused_row_is_persisted(
     stored = _files_by_name(rom.id)["game.bin"]
     assert result.updated_files == 1
     assert (stored.title_id, stored.title_version) == ("ULUS-10041", 1)
+
+
+async def test_a_read_that_confirms_a_reused_rows_title_id_is_persisted(
+    platform, admin_user, library
+):
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+
+    async def confirm_title_id(*_args, **_kwargs) -> ParsedRomFiles:
+        parsed = _unchanged_parse(rom, RomIdentity())
+        parsed.rom_files[0].converto_read_at = datetime.now(timezone.utc)
+        return parsed
+
+    with patch.object(fs_rom_handler, "get_rom_files", confirm_title_id):
+        result = await refresh_rom_files(rom)
+
+    assert result.updated_files == 1
+    assert _files_by_name(rom.id)["game.bin"].converto_read_at is not None
 
 
 async def test_refresh_hands_the_files_rom_converto_read_to_the_sync(

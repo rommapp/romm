@@ -7,6 +7,7 @@ import shutil
 import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
+from itertools import batched
 from pathlib import Path
 from typing import Any, Final, Protocol
 
@@ -48,6 +49,9 @@ _STDERR_TAIL_BYTES = 400
 _BINARY: Final = "rom-converto"
 
 CUE_EXT: Final = ".cue"
+
+# Bounds one run's output, which carries every file's embedded images as JSON.
+INFO_BATCH_SIZE: Final = 64
 
 _PSP_TITLE_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Z]{4}[0-9]{5}")
 
@@ -534,10 +538,14 @@ class RomConvertoService:
         return path.suffix.lower() in self._info_extensions
 
     async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]:
-        """Inspect files in one `info` run, keyed by the paths it recognized; never raises."""
+        """Inspect files in `info` runs of up to `INFO_BATCH_SIZE`, keyed by the paths it recognized; never raises."""
         listed = await asyncio.to_thread(lambda: [p for p in paths if _listable(p)])
-        if not listed:
-            return {}
+        infos: dict[Path, RomConvertoInfo] = {}
+        for chunk in batched(listed, INFO_BATCH_SIZE):
+            infos.update(await self._read_run(list(chunk)))
+        return infos
+
+    async def _read_run(self, listed: list[Path]) -> dict[Path, RomConvertoInfo]:
         log.debug(
             f"Executing {hl('rom-converto', color=LIGHTMAGENTA)} info on {len(listed)} file(s)"
         )
@@ -598,9 +606,6 @@ class RomConvertoService:
             )
         await asyncio.to_thread(_settle_output, operation, out)
 
-
-# Bounds one run's output, which carries every file's embedded images as JSON.
-INFO_BATCH_SIZE: Final = 64
 
 _StatKey = tuple[int, int]
 _ChunkInfos = dict[Path, tuple[_StatKey | None, RomConvertoInfo]]

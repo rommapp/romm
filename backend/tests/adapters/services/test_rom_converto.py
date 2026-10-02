@@ -226,6 +226,32 @@ class TestReadInfos:
             )
         }
 
+    async def test_splits_paths_into_runs_of_the_batch_size(
+        self, service: RomConvertoService
+    ):
+        runs: list[list[str]] = []
+
+        async def spawn(*args, **kwargs):
+            paths_file = anyio.Path(args[args.index("--paths-file") + 1])
+            listed = (await paths_file.read_text()).split()
+            runs.append(listed)
+            records = [
+                {"path": p, "ok": True, "info": {"kind": "psx", "title_id": p}}
+                for p in listed
+            ]
+            return FakeProc(stdout=json.dumps(records).encode())
+
+        paths = [Path("/roms/a.chd"), Path("/roms/b.chd"), Path("/roms/c.chd")]
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch("asyncio.create_subprocess_exec", spawn),
+            patch.object(rom_converto, "INFO_BATCH_SIZE", 2),
+        ):
+            infos = await service.read_infos(paths)
+
+        assert runs == [["/roms/a.chd", "/roms/b.chd"], ["/roms/c.chd"]]
+        assert set(infos) == set(paths)
+
     async def test_paths_file_is_removed(self, service: RomConvertoService):
         calls: list[tuple[str, ...]] = []
         with (
