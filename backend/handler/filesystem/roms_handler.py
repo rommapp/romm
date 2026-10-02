@@ -39,7 +39,6 @@ from models.base import compute_file_extension, compute_file_name_no_ext
 from models.platform import Platform
 from models.rom import (
     DOCUMENT_CATEGORIES,
-    ROM_FILE_CONVERTO_COLUMNS,
     Rom,
     RomFile,
     RomFileCategory,
@@ -664,9 +663,9 @@ class FSRomsHandler(FSHandler):
             info = infos.get(path)
             if info is None:
                 continue
+            rom_file.title_id = info.title_id
+            rom_file.title_version = info.title_version
             rom_file.converto_read_at = read_at
-            for column in ROM_FILE_CONVERTO_COLUMNS:
-                setattr(rom_file, column, getattr(info, column))
 
     async def get_rom_files(
         self,

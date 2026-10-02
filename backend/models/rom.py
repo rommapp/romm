@@ -196,10 +196,6 @@ class SaveTargetLayout(enum.StrEnum):
     FOLDER_SPLIT = "folder-split"
 
 
-# What rom-converto reads from a file's header (sigil can also fill the title id).
-ROM_FILE_CONVERTO_COLUMNS: Final = ("title_id", "title_version")
-
-
 @dataclass(frozen=True)
 class RomIdentity:
     """A ROM's platform-native identity, as read from its binary.

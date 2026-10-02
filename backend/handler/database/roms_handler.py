@@ -3,7 +3,7 @@ import json
 import re
 import secrets
 from collections import Counter, abc
-from collections.abc import Callable, Container, Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime
 from types import SimpleNamespace
 from typing import Any, Literal, NamedTuple
@@ -64,7 +64,6 @@ from models.platform import Platform
 from models.rom import (
     ALTERNATIVE_NAME_SOURCES,
     METADATA_SOURCE_FACET_COLUMNS,
-    ROM_FILE_CONVERTO_COLUMNS,
     ROM_IS_IDENTIFIED,
     SEARCH_TITLE_COLUMNS,
     SEARCH_TITLE_SEPARATOR,
@@ -328,9 +327,6 @@ ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
 ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
 ROM_FILTERS_CACHE_SCHEMA_VERSION = get_version().replace(".", "_")
 
-# What a scan carries over from a file's previous rom-converto read.
-ROM_FILE_CONVERTO_KEPT_COLUMNS = (*ROM_FILE_CONVERTO_COLUMNS, "converto_read_at")
-
 # Columns copied from a scanned (transient) RomFile onto its database row.
 ROM_FILE_SCANNED_COLUMNS = (
     "file_name",
@@ -342,7 +338,9 @@ ROM_FILE_SCANNED_COLUMNS = (
     "sha1_hash",
     "ra_hash",
     "chd_sha1_hash",
-    *ROM_FILE_CONVERTO_KEPT_COLUMNS,
+    "title_id",
+    "title_version",
+    "converto_read_at",
     "archive_members",
     "category",
 )
@@ -372,7 +370,7 @@ def _copy_scanned_columns(
     target: RomFile | TrackMeta,
     columns: Sequence[str],
     model: type,
-    keep_when_unset: Container[str] = frozenset(),
+    keep_when_unset: frozenset[str] = frozenset(),
 ) -> None:
     """Copy scanned values onto a row, writing only the columns that changed.
 
@@ -2643,7 +2641,11 @@ class DBRomsHandler(DBBaseHandler):
             row,
             ROM_FILE_SCANNED_COLUMNS,
             RomFile,
-            keep_when_unset=ROM_FILE_CONVERTO_KEPT_COLUMNS if keep_converto else (),
+            keep_when_unset=(
+                frozenset({"title_id", "title_version", "converto_read_at"})
+                if keep_converto
+                else frozenset()
+            ),
         )
 
         if row.missing_from_fs:
