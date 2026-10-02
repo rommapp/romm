@@ -4,10 +4,9 @@ import tasksApi from "@/services/api/task";
 import type { TaskStatusResponse } from "@/utils/tasks";
 
 // Several triggers (poll, visibility, a run button) can overlap status
-// requests. A success applies unless a newer one already has, and a failure
-// clears the list only when no newer request is pending.
+// requests, so only the newest one may write the list. A failure keeps the
+// last known statuses rather than claiming nothing is running.
 let latestStatusRequest = 0;
-let latestAppliedStatus = 0;
 
 export default defineStore("tasks", {
   state: () => ({
@@ -47,14 +46,10 @@ export default defineStore("tasks", {
       const request = ++latestStatusRequest;
       try {
         const response = await tasksApi.getTaskStatus();
-        if (request > latestAppliedStatus) {
-          latestAppliedStatus = request;
-          this.taskStatuses = response.data;
-        }
+        if (request === latestStatusRequest) this.taskStatuses = response.data;
         return response.data;
       } catch (error) {
         console.error("Error fetching task status: ", error);
-        if (request === latestStatusRequest) this.taskStatuses = [];
         return [];
       }
     },

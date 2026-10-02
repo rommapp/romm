@@ -56,19 +56,34 @@ describe("tasks store fetchTaskStatus", () => {
     expect(store.taskStatuses).toEqual(NEW);
   });
 
-  it("applies an older success that settles after a newer failure", async () => {
+  it("keeps the last known statuses when the newest request fails", async () => {
+    getTaskStatus
+      .mockResolvedValueOnce({ data: OLD })
+      .mockRejectedValueOnce(new Error("x"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = storeTasks();
+
+    await store.fetchTaskStatus();
+    await store.fetchTaskStatus();
+
+    expect(store.taskStatuses).toEqual(OLD);
+  });
+
+  it("drops an older success that settles after a newer failure", async () => {
     const older = deferred<{ data: TaskStatusResponse[] }>();
     getTaskStatus
+      .mockResolvedValueOnce({ data: NEW })
       .mockReturnValueOnce(older.promise)
       .mockRejectedValueOnce(new Error("x"));
     vi.spyOn(console, "error").mockImplementation(() => {});
     const store = storeTasks();
 
-    const first = store.fetchTaskStatus();
+    await store.fetchTaskStatus();
+    const stale = store.fetchTaskStatus();
     await store.fetchTaskStatus();
     older.resolve({ data: OLD });
-    await first;
+    await stale;
 
-    expect(store.taskStatuses).toEqual(OLD);
+    expect(store.taskStatuses).toEqual(NEW);
   });
 });
