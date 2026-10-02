@@ -94,18 +94,37 @@ export const Default: Story = {
   }),
 };
 
+// An RBtn with a string `icon` drops its default slot, so icon buttons use
+// RBtn's own `tooltip` prop; parent-attach is for plain elements like this.
 export const ParentAttach: Story = {
   name: "Parent attach (no slot)",
   render: () => ({
-    components: { RTooltip, RBtn },
+    components: { RTooltip, RIcon },
     template: `
       <div style="padding:48px;display:flex;justify-content:center">
-        <RBtn icon="mdi-delete" variant="translucent" aria-label="Delete this item">
-          <RTooltip activator="parent" text="Delete this item" location="top" />
-        </RBtn>
+        <span
+          tabindex="0"
+          style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--r-color-border);border-radius:999px;font:12px sans-serif;color:var(--r-color-fg-muted)"
+        >
+          <RIcon icon="mdi-cloud-check" size="x-small" />
+          Synced
+          <RTooltip activator="parent" text="Saves synced 2 minutes ago" location="top" />
+        </span>
       </div>
     `,
   }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const body = within(document.body);
+    const badge = canvas.getByText("Synced");
+
+    await step("hovering the parent reveals the tooltip", async () => {
+      firePointerEnter(badge, "mouse");
+      expect(await body.findByRole("tooltip")).toHaveTextContent(
+        "Saves synced 2 minutes ago",
+      );
+    });
+  },
 };
 
 // ── Placements ──────────────────────────────────────────────────────
