@@ -59,6 +59,8 @@ class AuditAction(enum.StrEnum):
     USER_EDIT = "user.edit"
     USER_DELETE = "user.delete"
     USER_PERMISSIONS_EDIT = "user.permissions_edit"
+    USER_RA_LOGIN_SET = "user.ra_login_set"
+    USER_RA_LOGIN_CLEAR = "user.ra_login_clear"
     PERMISSION_GROUP_CREATE = "permission_group.create"
     PERMISSION_GROUP_EDIT = "permission_group.edit"
     PERMISSION_GROUP_DELETE = "permission_group.delete"
