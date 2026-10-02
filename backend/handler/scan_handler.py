@@ -80,6 +80,8 @@ from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_COLUMNS,
+    ROM_FILE_IMAGE_COLUMNS,
+    ROM_FILE_IMAGE_KINDS,
     Rom,
     RomFile,
     RomFileCategory,
@@ -357,8 +359,7 @@ async def persist_rom_file_images(
     """Write the images rom-converto read from a file under the rom's resources
     and record their paths, removing any the file no longer carries."""
     updates: dict[str, str | None] = {}
-    for kind in ("icon", "banner", "background"):
-        column = f"{kind}_path"
+    for kind, column in zip(ROM_FILE_IMAGE_KINDS, ROM_FILE_IMAGE_COLUMNS, strict=True):
         current_path = getattr(rom_file, column)
         image = getattr(images, kind)
         if image is None:
@@ -368,9 +369,10 @@ async def persist_rom_file_images(
             continue
 
         image_dir = f"{rom.fs_resources_path}/{kind}s"
-        image_path = f"{image_dir}/{rom_file.id}.png"
+        image_name = f"{rom_file.id}.png"
+        image_path = f"{image_dir}/{image_name}"
         try:
-            await fs_resource_handler.write_file(image, image_dir, f"{rom_file.id}.png")
+            await fs_resource_handler.write_file(image, image_dir, image_name)
         except OSError as exc:
             log.warning(
                 f"Unable to persist {kind} image for {rom_file.full_path}: {exc}"

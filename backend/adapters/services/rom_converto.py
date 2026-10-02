@@ -14,7 +14,11 @@ from config import ROM_CONVERTO_ENABLED, ROM_CONVERTO_TIMEOUT
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import ROM_FILE_INFO_MAX_LENGTH, TITLE_ID_MAX_LENGTH
+from models.rom import (
+    ROM_FILE_INFO_MAX_LENGTH,
+    TITLE_ID_MAX_LENGTH,
+    RomFileContentType,
+)
 from utils.filesystem import SERVED_FILE_MODE
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -92,7 +96,7 @@ class RomConvertoInfo:
     title: str | None = None
     serial: str | None = None
     # rom-converto's `ContentKind`: "game", "update", "dlc", "demo" or "system".
-    content_type: str | None = None
+    content_type: RomFileContentType | None = None
     display_version: str | None = None
     # RomM spellings where rom-converto's differ ("NorthAmerica" -> "USA").
     regions: tuple[str, ...] = ()
@@ -564,24 +568,23 @@ def _languages(names: Any) -> tuple[str, ...]:
     )
 
 
-# rom-converto's `ContentKind`, which `RomFileContentType` mirrors.
-_CONTENT_TYPES: Final[frozenset[str]] = frozenset(
-    {"game", "update", "dlc", "demo", "system"}
-)
-
-_SWITCH_CONTENT_TYPES: Final[dict[str, str]] = {
-    "application": "game",
-    "patch": "update",
-    "add_on_content": "dlc",
-    "delta": "update",
-    "system_program": "system",
-    "system_data": "system",
-    "system_update": "system",
+_SWITCH_CONTENT_TYPES: Final[dict[str, RomFileContentType]] = {
+    "application": RomFileContentType.GAME,
+    "patch": RomFileContentType.UPDATE,
+    "add_on_content": RomFileContentType.DLC,
+    "delta": RomFileContentType.UPDATE,
+    "system_program": RomFileContentType.SYSTEM,
+    "system_data": RomFileContentType.SYSTEM,
+    "system_update": RomFileContentType.SYSTEM,
 }
 
 
-def _content_type(value: Any) -> str | None:
-    return value if isinstance(value, str) and value in _CONTENT_TYPES else None
+def _content_type(value: Any) -> RomFileContentType | None:
+    """rom-converto's `ContentKind`, which `RomFileContentType` mirrors."""
+    try:
+        return RomFileContentType(value)
+    except ValueError:
+        return None
 
 
 def _switch_firmware(value: Any) -> str | None:
@@ -674,7 +677,7 @@ def _dol_info(flat: dict[str, Any]) -> RomConvertoInfo:
         or _text(row.get("short_game_name"))
         or _text(flat.get("game_name")),
         serial=_text(flat.get("game_id")),
-        content_type="game",
+        content_type=RomFileContentType.GAME,
         display_version=_version_tag(flat.get("disc_version")),
         regions=_regions([flat.get("region")]),
         # A BNR2 banner lists all six slots, filled or not.
@@ -700,7 +703,7 @@ def _rvl_info(flat: dict[str, Any]) -> RomConvertoInfo:
         title=_text(_english_entry(flat.get("imet_names")))
         or _text(flat.get("game_name")),
         serial=_text(flat.get("game_id")),
-        content_type="game",
+        content_type=RomFileContentType.GAME,
         display_version=_version_tag(
             tmd.get("title_version") if tmd else flat.get("disc_version")
         ),
@@ -722,7 +725,7 @@ def _ntr_info(flat: dict[str, Any]) -> RomConvertoInfo:
     return RomConvertoInfo(
         title=lines[0] if lines else _text(flat.get("game_title")),
         serial=_text(flat.get("game_code")),
-        content_type="game",
+        content_type=RomFileContentType.GAME,
         display_version=_version_tag(flat.get("rom_version")),
         publisher=lines[-1] if len(lines) > 1 else None,
         is_compressed=False,
@@ -741,7 +744,7 @@ def _xbox_info(flat: dict[str, Any]) -> RomConvertoInfo:
     return RomConvertoInfo(
         title=_text(xbe.get("title_name")) or _text(xex.get("title_name")),
         serial=_text(xbe.get("title_id_code")),
-        content_type="game",
+        content_type=RomFileContentType.GAME,
         display_version=str(version) if _int(version) is not None else _text(version),
         regions=_regions(header.get("region_names")),
         is_compressed=False,
@@ -757,7 +760,7 @@ def _xenon_info(flat: dict[str, Any]) -> RomConvertoInfo:
     logical_size = _int(flat.get("logical_size"))
     return RomConvertoInfo(
         title=_text(xex.get("title_name")),
-        content_type="game",
+        content_type=RomFileContentType.GAME,
         display_version=_text(xex.get("version")),
         regions=_regions(xex.get("region_names")),
         is_compressed=(
@@ -776,7 +779,7 @@ def _sony_disc_info(flat: dict[str, Any]) -> RomConvertoInfo:
     return RomConvertoInfo(
         title=_text(flat.get("title")),
         serial=_text(flat.get("title_id")),
-        content_type=_content_type(flat.get("content_kind")) or "game",
+        content_type=_content_type(flat.get("content_kind")) or RomFileContentType.GAME,
         display_version=_text(flat.get("version")),
         regions=_regions([flat.get("region")]),
         min_firmware_version=_text(flat.get("firmware")),
@@ -952,7 +955,7 @@ class RomConvertoService:
             try:
                 manifest = json.loads(stdout)
             except json.JSONDecodeError:
-                manifest = {}
+                manifest = None
             if not isinstance(manifest, dict):
                 manifest = {}
             version = manifest.get("version") or "unknown version"

@@ -198,6 +198,28 @@ class SaveTargetLayout(enum.StrEnum):
     FOLDER_SPLIT = "folder-split"
 
 
+# What rom-converto reads from a file's header (sigil can also fill the title id).
+ROM_FILE_CONVERTO_COLUMNS: Final = (
+    "title_id",
+    "title_version",
+    "title",
+    "serial",
+    "content_type",
+    "display_version",
+    "regions",
+    "languages",
+    "publisher",
+    "min_firmware_version",
+    "is_compressed",
+    "compression",
+    "file_format",
+    "uncompressed_size_bytes",
+)
+
+ROM_FILE_IMAGE_KINDS: Final = ("icon", "banner", "background")
+ROM_FILE_IMAGE_COLUMNS: Final = tuple(f"{kind}_path" for kind in ROM_FILE_IMAGE_KINDS)
+
+
 class RomFileContentType(enum.StrEnum):
     GAME = "game"
     UPDATE = "update"

@@ -39,10 +39,10 @@ from models.base import compute_file_extension, compute_file_name_no_ext
 from models.platform import Platform
 from models.rom import (
     DOCUMENT_CATEGORIES,
+    ROM_FILE_CONVERTO_COLUMNS,
     Rom,
     RomFile,
     RomFileCategory,
-    RomFileContentType,
     RomIdentity,
     SaveTargetLayout,
     TrackMeta,
@@ -394,30 +394,26 @@ def _rom_level_identity(
         title_ids = [
             f.title_id for f in sorted(rom_files, key=_rom_file_order) if f.title_id
         ]
-        title_id = next(
-            (t for t in title_ids if is_switch and switch.is_base_title_id(t)),
-            title_ids[0] if title_ids else None,
-        )
-        # Switch saves are keyed by the base id, as normalize_identity keys a derived one.
-        identity = (
-            RomIdentity(
-                title_id=title_id,
-                save_target=title_id,
-                save_target_layout=SaveTargetLayout.FOLDER_EXACT,
+        identity = RomIdentity(
+            title_id=next(
+                (t for t in title_ids if is_switch and switch.is_base_title_id(t)),
+                title_ids[0] if title_ids else None,
             )
-            if is_switch and title_id and switch.is_base_title_id(title_id)
-            else RomIdentity(title_id=title_id)
         )
     identity = switch.normalize_identity(is_switch, identity)
+    if extractions or identity.save_target or not identity.title_id:
+        return identity
     # rom-converto reads no save target, so when sigil read nothing this pass
     # the one it stored for the same id stands.
-    if (
-        not extractions
-        and not identity.save_target
-        and identity.title_id
-        and identity.title_id == stored.title_id
-    ):
+    if identity.title_id == stored.title_id:
         return stored
+    # Switch saves are keyed by the base id, as normalize_identity keys a derived one.
+    if is_switch and switch.is_base_title_id(identity.title_id):
+        return RomIdentity(
+            title_id=identity.title_id,
+            save_target=identity.title_id,
+            save_target_layout=SaveTargetLayout.FOLDER_EXACT,
+        )
     return identity
 
 
@@ -674,22 +670,10 @@ class FSRomsHandler(FSHandler):
             if info is None:
                 continue
             images[rom_file] = info.images
-            rom_file.title_id = info.title_id
-            rom_file.title_version = info.title_version
-            rom_file.title = info.title
-            rom_file.serial = info.serial
-            rom_file.content_type = (
-                RomFileContentType(info.content_type) if info.content_type else None
-            )
-            rom_file.display_version = info.display_version
+            for column in ROM_FILE_CONVERTO_COLUMNS:
+                setattr(rom_file, column, getattr(info, column))
             rom_file.regions = normalize_provider_regions(info.regions) or None
             rom_file.languages = normalize_provider_languages(info.languages) or None
-            rom_file.publisher = info.publisher
-            rom_file.min_firmware_version = info.min_firmware_version
-            rom_file.is_compressed = info.is_compressed
-            rom_file.compression = info.compression
-            rom_file.file_format = info.file_format
-            rom_file.uncompressed_size_bytes = info.uncompressed_size_bytes
         return images
 
     async def get_rom_files(

@@ -90,7 +90,7 @@ class TestReadConvertoInfos:
                     title_version=2,
                     title="PaRappa the Rapper",
                     serial="SCUS-94163",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="1.01",
                     regions=("Usa", "Japan", "Usa"),
                     languages=("En", "Japanese", "En"),
@@ -644,6 +644,15 @@ class TestRomLevelIdentity:
         assert switch.is_base_title_id(identity.title_id)
         assert identity.save_target == "0100ABCD12340000"
         assert identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
+
+    def test_switch_base_id_keeps_the_stored_save_target(self):
+        stored = RomIdentity(
+            title_id="0100ABCD12340000",
+            save_target="stored-target",
+            save_target_layout=SaveTargetLayout.FOLDER_EXACT,
+        )
+        files = [_rom_file("base.nsp", title_id="0100ABCD12340000")]
+        assert _rom_level_identity("switch", [], files, stored) == stored
 
     def test_switch_derives_base_id_when_only_update_id_present(self):
         files = [_rom_file("update.nsp", title_id="0100ABCD12340800")]

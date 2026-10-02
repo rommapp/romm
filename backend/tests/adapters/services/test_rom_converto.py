@@ -463,7 +463,7 @@ class TestParseInfo:
                     title_id="0100000000010000",
                     title_version=65536,
                     title="The Legend of Zelda",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="1.0.0",
                     languages=("English", "French"),
                     publisher="Nintendo",
@@ -482,7 +482,7 @@ class TestParseInfo:
             ),
             pytest.param(
                 {"kind": "nx", "full": {"title_kind": "add_on_content"}},
-                RomConvertoInfo(content_type="dlc"),
+                RomConvertoInfo(content_type=RomFileContentType.DLC),
                 id="nx-title-kind-maps-to-content-type",
             ),
             pytest.param(
@@ -516,7 +516,7 @@ class TestParseInfo:
                     title_id="0004000000123456",
                     title="Mega Man Zero",
                     serial="CTR-P-AZRE",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     regions=("USA", "Japan"),
                     languages=("Japanese", "English"),
                     publisher="Capcom",
@@ -560,7 +560,7 @@ class TestParseInfo:
                     title_version=16,
                     title="The Legend of Zelda",
                     serial="WUP-P-ARZE",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     regions=("Europe", "Australia"),
                     languages=("japanese", "english"),
                     publisher="Nintendo",
@@ -616,7 +616,7 @@ class TestParseInfo:
                     title_id="475A4C45",
                     title="The Legend of Zelda",
                     serial="GZLE01",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="v2",
                     regions=("Usa",),
                     languages=("English",),
@@ -633,7 +633,9 @@ class TestParseInfo:
                     "game_id": "GZLE01",
                 },
                 RomConvertoInfo(
-                    title_id="475A4C45", serial="GZLE01", content_type="game"
+                    title_id="475A4C45",
+                    serial="GZLE01",
+                    content_type=RomFileContentType.GAME,
                 ),
                 id="dol-hex-encodes-game-id",
             ),
@@ -660,7 +662,7 @@ class TestParseInfo:
                     title_version=3,
                     title="New Super Mario Bros. Wii",
                     serial="SMNE01",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="v3",
                     regions=("Europe",),
                     languages=("Japanese", "English"),
@@ -674,7 +676,9 @@ class TestParseInfo:
             pytest.param(
                 {"kind": "rvl", "game_id": "RZTE01"},
                 RomConvertoInfo(
-                    title_id="525A5445", serial="RZTE01", content_type="game"
+                    title_id="525A5445",
+                    serial="RZTE01",
+                    content_type=RomFileContentType.GAME,
                 ),
                 id="rvl-hex-encodes-game-id",
             ),
@@ -698,7 +702,7 @@ class TestParseInfo:
                     title_id="ARZE",
                     title="Homebrew Game",
                     serial="ARZE",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="v2",
                     publisher="final release",
                     is_compressed=False,
@@ -723,7 +727,7 @@ class TestParseInfo:
                     title_id="TT-027",
                     title="Stubbs the Zombie",
                     serial="TT-027",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="1",
                     regions=("USA",),
                     is_compressed=False,
@@ -746,7 +750,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title_id="4D5307E6",
                     title="Halo 3",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="1.0.0.0",
                     regions=("USA", "Europe"),
                     is_compressed=False,
@@ -763,7 +767,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title_id="TT-027",
                     serial="TT-027",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     is_compressed=False,
                     file_format="DISC",
                 ),
@@ -785,7 +789,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title_id="4D5307DC",
                     title="Halo 3",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="2.0.4552.0",
                     regions=("World",),
                     is_compressed=True,
@@ -798,7 +802,9 @@ class TestParseInfo:
             pytest.param(
                 {"kind": "xenon", "xex": {"title_id_hex": "4D5307DC"}},
                 RomConvertoInfo(
-                    title_id="4D5307DC", content_type="game", file_format="ZAR"
+                    title_id="4D5307DC",
+                    content_type=RomFileContentType.GAME,
+                    file_format="ZAR",
                 ),
                 id="xenon-nested-xex-hex",
             ),
@@ -807,7 +813,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title_id="SCUS-94163",
                     serial="SCUS-94163",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="1.1",
                     is_compressed=False,
                     file_format="DISC",
@@ -827,7 +833,7 @@ class TestParseInfo:
                     title_id="UCUS-98696",
                     title="Patapon",
                     serial="UCUS98696",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="1.0",
                     min_firmware_version="5.00",
                     is_compressed=False,
@@ -849,7 +855,7 @@ class TestParseInfo:
                     title_id="UCUS-98696",
                     title="Patapon",
                     serial="UCUS98696",
-                    content_type="update",
+                    content_type=RomFileContentType.UPDATE,
                     display_version="1.00",
                     min_firmware_version="5.55",
                     file_format="EBOOT.PBP",
@@ -862,7 +868,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title_id="HOMEBREW",
                     serial="HOMEBREW",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     is_compressed=False,
                     file_format="DISC",
                 ),
@@ -873,7 +879,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title_id="ulus10041",
                     serial="ulus10041",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     is_compressed=False,
                     file_format="DISC",
                 ),
@@ -893,7 +899,7 @@ class TestParseInfo:
                     title_id="BCUS98114",
                     title="Gran Turismo 5",
                     serial="BCUS98114",
-                    content_type="dlc",
+                    content_type=RomFileContentType.DLC,
                     display_version="01.02",
                     regions=("USA",),
                     min_firmware_version="3.50",
@@ -907,7 +913,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title_id="BLUS31426",
                     serial="BLUS31426",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="01.00",
                     is_compressed=False,
                     file_format="DISC",
@@ -927,7 +933,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title="Vita Homebrew",
                     serial="JM0000-ABCDEF12_00-0000000000000000",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="1.02",
                     file_format="VPK",
                     images=RomConvertoImages(icon=_FAKE_PNG, background=_FAKE_PNG),
@@ -944,7 +950,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title="Journey",
                     serial="UP9000-CUSA00264_00-JOURNEY00000000",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     file_format="PKG",
                 ),
                 id="pkg-reads-the-package-header",
@@ -968,7 +974,7 @@ class TestParseInfo:
                     title_id="UCUS-98718",
                     title="Daxter",
                     serial="UCUS98718",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="1.00",
                     is_compressed=True,
                     compression="zstd",
@@ -1014,7 +1020,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title_id="SCUS-94163",
                     serial="SCUS-94163",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     display_version="1.1",
                     is_compressed=True,
                     file_format="ZSO",
@@ -1031,7 +1037,7 @@ class TestParseInfo:
                 {"kind": "psp", "title": "Gran\n\nTurismo\t5"},
                 RomConvertoInfo(
                     title="Gran Turismo 5",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     is_compressed=False,
                     file_format="DISC",
                 ),
@@ -1041,7 +1047,7 @@ class TestParseInfo:
                 {"kind": "psp", "title": "Home\x00brew\x00\x00"},
                 RomConvertoInfo(
                     title="Homebrew",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     is_compressed=False,
                     file_format="DISC",
                 ),
@@ -1051,7 +1057,7 @@ class TestParseInfo:
                 {"kind": "psp", "title": "A" * 300},
                 RomConvertoInfo(
                     title="A" * ROM_FILE_INFO_MAX_LENGTH,
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     is_compressed=False,
                     file_format="DISC",
                 ),
@@ -1062,7 +1068,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title_id=("BLUS31426" + "X" * 150)[:TITLE_ID_MAX_LENGTH],
                     serial="BLUS31426" + "X" * 150,
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     is_compressed=False,
                     file_format="DISC",
                 ),
@@ -1073,7 +1079,7 @@ class TestParseInfo:
                 RomConvertoInfo(
                     title_id="UCUS-98696",
                     serial="UCUS98696",
-                    content_type="game",
+                    content_type=RomFileContentType.GAME,
                     is_compressed=False,
                     file_format="DISC",
                 ),
@@ -1173,13 +1179,6 @@ class TestParseInfo:
     )
     def test_parse_info(self, payload: dict[str, Any], expected: RomConvertoInfo):
         assert rom_converto._parse_info(payload) == expected
-
-    def test_every_content_type_is_a_stored_enum_value(self):
-        # The scan builds a `RomFileContentType` from each one; a value the
-        # enum lacks would abort the whole platform scan.
-        stored = {member.value for member in RomFileContentType}
-        assert rom_converto._CONTENT_TYPES == stored
-        assert set(rom_converto._SWITCH_CONTENT_TYPES.values()) <= stored
 
 
 class TestImage:

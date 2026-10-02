@@ -53,7 +53,7 @@ from handler.database.rom_filters import (
     RomFiltersDict,
     RomFilterSpec,
 )
-from handler.filesystem.roms_handler import mtime_matches
+from handler.filesystem.roms_handler import rom_file_unchanged
 from handler.redis_handler import sync_cache
 from logger.logger import log
 from models.assets import Save, Screenshot, State
@@ -64,6 +64,8 @@ from models.platform import Platform
 from models.rom import (
     ALTERNATIVE_NAME_SOURCES,
     METADATA_SOURCE_FACET_COLUMNS,
+    ROM_FILE_CONVERTO_COLUMNS,
+    ROM_FILE_IMAGE_COLUMNS,
     ROM_IS_IDENTIFIED,
     SEARCH_TITLE_COLUMNS,
     SEARCH_TITLE_SEPARATOR,
@@ -326,24 +328,6 @@ _FILTER_VALUES_SELECT = select(
 ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
 ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
 ROM_FILTERS_CACHE_SCHEMA_VERSION = get_version().replace(".", "_")
-
-# What rom-converto reads from a file's header (sigil can also fill the title id).
-ROM_FILE_CONVERTO_COLUMNS = (
-    "title_id",
-    "title_version",
-    "title",
-    "serial",
-    "content_type",
-    "display_version",
-    "regions",
-    "languages",
-    "publisher",
-    "min_firmware_version",
-    "is_compressed",
-    "compression",
-    "file_format",
-    "uncompressed_size_bytes",
-)
 
 # Columns copied from a scanned (transient) RomFile onto its database row.
 ROM_FILE_SCANNED_COLUMNS = (
@@ -2634,17 +2618,22 @@ class DBRomsHandler(DBBaseHandler):
     ) -> list[str]:
         """Copy a scanned file onto its row and return its orphaned resource paths."""
         # Unread metadata is reusable only when it still describes the same content.
-        keep_converto = False
-        if not inspected:
-            content_key = _rom_file_content_key(scanned)
-            keep_converto = (
-                scanned.file_size_bytes == row.file_size_bytes
-                and scanned.last_modified is not None
-                and mtime_matches(row.last_modified, scanned.last_modified)
-            ) or (content_key is not None and content_key == _rom_file_content_key(row))
+        content_key = _rom_file_content_key(scanned)
+        keep_converto = not inspected and (
+            (
+                scanned.last_modified is not None
+                and rom_file_unchanged(
+                    row,
+                    size=scanned.file_size_bytes,
+                    mtime=scanned.last_modified,
+                    hashable=False,
+                )
+            )
+            or (content_key is not None and content_key == _rom_file_content_key(row))
+        )
         orphaned_paths: list[str] = []
         if not inspected and not keep_converto:
-            for column in ("icon_path", "banner_path", "background_path"):
+            for column in ROM_FILE_IMAGE_COLUMNS:
                 path = getattr(row, column)
                 if path is not None:
                     orphaned_paths.append(path)
@@ -2774,8 +2763,8 @@ class DBRomsHandler(DBBaseHandler):
             orphaned_cover_paths.extend(
                 path
                 for row in unmatched.values()
-                for path in (row.icon_path, row.banner_path, row.background_path)
-                if path is not None
+                for column in ROM_FILE_IMAGE_COLUMNS
+                if (path := getattr(row, column)) is not None
             )
             orphaned_cover_paths.extend(
                 row.track_meta.cover_path
