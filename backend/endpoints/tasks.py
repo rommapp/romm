@@ -25,7 +25,7 @@ from endpoints.responses import (
     WatcherTaskStatusResponse,
 )
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
-from endpoints.sockets.scan import queue_scan, scan_job_meta
+from endpoints.sockets.scan import queue_scan
 from exceptions.socket_exceptions import ScanInFlightException
 from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
@@ -133,7 +133,7 @@ def _build_task_execution_response(
         "task_key": task_key,
         "task_name": task_name,
         "task_id": job.id,
-        "status": job.get_status() or JobStatus.QUEUED,
+        "status": job.get_status(refresh=False) or JobStatus.QUEUED,
         "created_at": (
             job.created_at.isoformat()
             if job.created_at
@@ -460,6 +460,4 @@ async def start_scan(
     except ScanInFlightException as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
-    return _build_task_execution_response(
-        job, None, scan_job_meta(payload.type)["task_name"]
-    )
+    return _build_task_execution_response(job, None, job.meta["task_name"])

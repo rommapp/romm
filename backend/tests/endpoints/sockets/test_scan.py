@@ -1,6 +1,5 @@
 import asyncio
 import time
-from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock
@@ -19,6 +18,7 @@ from tests.scan_job_stubs import (
     make_job,
     make_scoped_job,
     make_task_job,
+    patch_held_scan_request_lock,
     patch_scan_jobs,
 )
 
@@ -2308,12 +2308,7 @@ class TestScanConcurrency:
         assert emit.await_args.args[0] == "scan:done_ko"
 
     async def test_refuses_when_the_request_lock_stays_held(self, mocker, emit):
-        @asynccontextmanager
-        async def held_lock(*args, **kwargs):
-            raise TimeoutError
-            yield
-
-        mocker.patch.object(scan_module, "redis_lock", held_lock)
+        patch_held_scan_request_lock(mocker)
         patch_scan_jobs(mocker)
         enqueue = mocker.patch.object(scan_queue, "enqueue")
 

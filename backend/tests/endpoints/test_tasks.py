@@ -1,4 +1,3 @@
-from contextlib import asynccontextmanager
 from typing import Any
 from unittest.mock import Mock, PropertyMock, patch
 
@@ -6,7 +5,12 @@ import pytest
 from fastapi import status
 from rq.exceptions import DeserializationError, NoSuchJobError
 from tests.factories import make_device_token
-from tests.scan_job_stubs import make_job, make_scoped_job, patch_scan_jobs
+from tests.scan_job_stubs import (
+    make_job,
+    make_scoped_job,
+    patch_held_scan_request_lock,
+    patch_scan_jobs,
+)
 
 from endpoints.sockets.scan import scan_platforms
 from endpoints.tasks import SINGLE_INSTANCE_LOCK_PREFIX
@@ -847,9 +851,13 @@ class TestStartScan:
     def enqueue(self, mocker):
         # No scan in flight unless a test patches the scan jobs again.
         patch_scan_jobs(mocker)
-        return mocker.patch.object(
-            scan_queue, "enqueue", return_value=create_mock_job("scan-job")
-        )
+        job = create_mock_job("scan-job")
+
+        def enqueue(*args, meta, **kwargs):
+            job.meta = meta
+            return job
+
+        return mocker.patch.object(scan_queue, "enqueue", side_effect=enqueue)
 
     @pytest.fixture
     def post_scan(self, client, access_token):
@@ -896,9 +904,13 @@ class TestStartScan:
         assert kwargs["started_by_user_id"] == admin_user.id
         assert kwargs["at_front"] is False
 
-    @pytest.mark.parametrize("body", [{"json": {}}, {}], ids=["empty", "missing"])
+    @pytest.mark.parametrize(
+        ("body", "sources"),
+        [({"json": {}}, ["igdb"]), ({}, ["igdb"]), ({"json": {"apis": []}}, [])],
+        ids=["empty", "missing", "no-apis"],
+    )
     def test_no_options_queue_a_quick_scan_of_everything(
-        self, mocker, enqueue, post_scan, body
+        self, mocker, enqueue, post_scan, body, sources
     ):
         mocker.patch(
             "endpoints.tasks.get_enabled_metadata_sources", return_value=["igdb"]
@@ -911,19 +923,8 @@ class TestStartScan:
         kwargs = enqueue.call_args.kwargs
         assert kwargs["scan_type"] == ScanType.QUICK
         assert kwargs["platform_ids"] == []
-        assert kwargs["metadata_sources"] == ["igdb"]
+        assert kwargs["metadata_sources"] == sources
         assert kwargs["launchbox_remote_enabled"] is True
-
-    def test_an_empty_apis_list_scans_without_sources(self, mocker, enqueue, post_scan):
-        mocker.patch(
-            "endpoints.tasks.get_enabled_metadata_sources", return_value=["igdb"]
-        )
-
-        response = post_scan(json={"apis": []})
-
-        assert response.status_code == status.HTTP_202_ACCEPTED
-        assert enqueue.call_args is not None
-        assert enqueue.call_args.kwargs["metadata_sources"] == []
 
     @pytest.mark.parametrize(
         ("scopes", "expected"),
@@ -955,12 +956,7 @@ class TestStartScan:
         enqueue.assert_not_called()
 
     def test_a_held_request_lock_is_refused(self, mocker, enqueue, post_scan):
-        @asynccontextmanager
-        async def held_lock(*args, **kwargs):
-            raise TimeoutError
-            yield
-
-        mocker.patch("endpoints.sockets.scan.redis_lock", held_lock)
+        patch_held_scan_request_lock(mocker)
 
         response = post_scan(json={})
 

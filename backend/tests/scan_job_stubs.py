@@ -1,5 +1,6 @@
 """Job stubs and Redis patching shared by the scan job discovery tests."""
 
+from contextlib import asynccontextmanager
 from itertools import count
 from typing import Any
 from unittest.mock import MagicMock
@@ -109,3 +110,14 @@ def patch_scan_jobs(
         side_effect=lambda job_ids, **kwargs: [by_id.get(i) for i in job_ids],
     )
     return registry
+
+
+def patch_held_scan_request_lock(mocker):
+    """Make the library scan request lock look held by another web worker."""
+
+    @asynccontextmanager
+    async def held_lock(*args, **kwargs):
+        raise TimeoutError
+        yield
+
+    mocker.patch("endpoints.sockets.scan.redis_lock", held_lock)
