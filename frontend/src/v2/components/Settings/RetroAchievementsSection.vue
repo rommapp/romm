@@ -35,7 +35,10 @@ const isLinked = computed(() => linkedUsername.value.length > 0);
 const isDirty = computed(() => username.value.trim() !== linkedUsername.value);
 const canSubmit = computed(
   () =>
-    !submitting.value && !unlinking.value && (isDirty.value || isLinked.value),
+    !submitting.value &&
+    !unlinking.value &&
+    username.value.trim().length > 0 &&
+    (isDirty.value || isLinked.value),
 );
 
 async function syncProfile(incremental: boolean) {
@@ -48,7 +51,7 @@ async function syncProfile(incremental: boolean) {
 
 async function saveAndSync() {
   // Enter in the field reaches here without the button's disabled state.
-  if (!auth.user || !canSubmit.value || !username.value.trim()) return;
+  if (!auth.user || !canSubmit.value) return;
   submitting.value = true;
   const trimmed = username.value.trim();
   const usernameChanged = trimmed !== linkedUsername.value;
@@ -133,7 +136,7 @@ async function unlink() {
         variant="flat"
         color="primary"
         :loading="submitting"
-        :disabled="!canSubmit || !username.trim()"
+        :disabled="!canSubmit"
         :prepend-icon="isDirty ? 'mdi-link-variant' : 'mdi-sync'"
         @click="saveAndSync"
       >

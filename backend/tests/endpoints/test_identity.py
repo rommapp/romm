@@ -1030,7 +1030,7 @@ def test_the_user_schema_has_no_field_for_the_sealed_login(
 
 
 def test_changing_ra_username_drops_the_stored_login(
-    client, access_token: str, editor_user: User
+    client, access_token: str, admin_user: User, editor_user: User
 ):
     DBUsersHandler().update_user(editor_user.id, {"ra_username": "alice"})
     store_ra_login(editor_user.id, "alice", "tok456secret")
@@ -1049,6 +1049,10 @@ def test_changing_ra_username_drops_the_stored_login(
     [event] = [e for e in recorded_events() if e.action == "user.edit"]
     assert event.data["changed"] == ["ra_username"]
     assert "alice" not in str(event.data)
+    [clear] = [e for e in recorded_events() if e.action == "user.ra_login_clear"]
+    assert clear.actor_id == admin_user.id
+    assert clear.target_id == str(editor_user.id)
+    assert not clear.data
 
 
 def test_resaving_the_same_ra_username_keeps_the_stored_login(
@@ -1094,6 +1098,7 @@ def test_correcting_ra_username_to_the_stored_logins_account_keeps_it(
         "username": "Alice",
         "token": "tok456secret",
     }
+    assert [e for e in recorded_events() if e.action == "user.ra_login_clear"] == []
 
 
 def test_an_empty_ra_username_is_still_a_no_op(
@@ -1116,41 +1121,6 @@ def test_an_empty_ra_username_is_still_a_no_op(
         "username": "alice",
         "token": "tok456secret",
     }
-
-
-def test_a_profile_edit_that_drops_the_login_records_the_clear(
-    client, access_token: str, admin_user: User, editor_user: User
-):
-    DBUsersHandler().update_user(editor_user.id, {"ra_username": "alice"})
-    store_ra_login(editor_user.id, "alice", "tok456secret")
-
-    response = client.put(
-        f"/api/users/{editor_user.id}",
-        data={"ra_username": "someone-else"},
-        headers={"Authorization": f"Bearer {access_token}"},
-    )
-
-    assert response.status_code == HTTPStatus.OK
-    [event] = [e for e in recorded_events() if e.action == "user.ra_login_clear"]
-    assert event.actor_id == admin_user.id
-    assert event.target_id == str(editor_user.id)
-    assert not event.data
-
-
-def test_a_profile_edit_that_keeps_the_login_records_no_clear(
-    client, access_token: str, editor_user: User
-):
-    DBUsersHandler().update_user(editor_user.id, {"ra_username": "bob"})
-    store_ra_login(editor_user.id, "alice", "tok456secret")
-
-    response = client.put(
-        f"/api/users/{editor_user.id}",
-        data={"ra_username": "alice"},
-        headers={"Authorization": f"Bearer {access_token}"},
-    )
-
-    assert response.status_code == HTTPStatus.OK
-    assert [e for e in recorded_events() if e.action == "user.ra_login_clear"] == []
 
 
 def test_unlinking_ra_username_clears_it_with_the_login_and_progression(

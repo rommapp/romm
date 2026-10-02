@@ -190,23 +190,18 @@ def _actor(user: User) -> AuditActor:
     return AuditActor.for_user(user)
 
 
-def test_dropping_for_another_account_clears_the_login(admin_user: User):
+@pytest.mark.parametrize("ra_username", ["bob", None])
+def test_dropping_for_another_or_no_account_clears_the_login(
+    admin_user: User, ra_username: str | None
+):
     store_ra_login(admin_user.id, "alice", TOKEN)
 
-    assert drop_ra_login_not_for(admin_user.id, "bob", _actor(admin_user)) is True
+    assert drop_ra_login_not_for(admin_user.id, ra_username, _actor(admin_user)) is True
 
     assert _user(admin_user.id).ra_login_sealed is None
     [event] = [e for e in recorded_events() if e.action == "user.ra_login_clear"]
     assert event.actor_id == admin_user.id
     assert event.target_id == str(admin_user.id)
-
-
-def test_dropping_for_no_account_clears_the_login(admin_user: User):
-    store_ra_login(admin_user.id, "alice", TOKEN)
-
-    assert drop_ra_login_not_for(admin_user.id, None, _actor(admin_user)) is True
-
-    assert _user(admin_user.id).ra_login_sealed is None
 
 
 def test_dropping_for_the_logins_own_account_keeps_it(admin_user: User):
