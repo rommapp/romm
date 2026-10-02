@@ -10,7 +10,6 @@ from typing import Annotated, Any, Final, Literal, Sequence, cast
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
-import pydash
 from anyio import Path, open_file
 from fastapi import (
     Body,
@@ -2175,12 +2174,13 @@ async def update_rom(
         cleaned_data.update({"hltb_id": None, "hltb_metadata": {}})
 
     url_screenshots = cleaned_data.get("url_screenshots", [])
-    screenshots_changed = pydash.xor(url_screenshots, rom.url_screenshots or [])
+    # Files are named by position, so a reorder is a change too.
+    screenshots_changed = url_screenshots != (rom.url_screenshots or [])
     if url_screenshots:
         try:
             path_screenshots = await fs_resource_handler.get_rom_screenshots(
                 rom=rom,
-                overwrite=bool(screenshots_changed),
+                overwrite=screenshots_changed,
                 url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
             )
             cleaned_data.update(

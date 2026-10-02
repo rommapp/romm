@@ -4,7 +4,6 @@ import functools
 from collections.abc import Callable, Mapping
 from typing import Any, Final, NotRequired, TypedDict
 
-import pydash
 import socketio
 
 from adapters.services.igdb import IGDB_PLATFORM_LIST
@@ -1750,10 +1749,9 @@ async def download_rom_resources(
         previous_media: Each provider column's metadata before this scan, keyed
             like ``ss_metadata``, so media whose source changed is fetched again.
     """
-    screenshots_changed = pydash.xor(
-        added_rom.url_screenshots or [], previous_url_screenshots or []
-    )
     url_screenshots = added_rom.url_screenshots or []
+    # Files are named by position, so a reorder is a change too.
+    screenshots_changed = url_screenshots != (previous_url_screenshots or [])
 
     preferred_media_types = get_preferred_media_types()
     # Highest priority first, the order their files land in shared paths.
@@ -1811,7 +1809,7 @@ async def download_rom_resources(
             ),
             fs_resource_handler.get_rom_screenshots(
                 rom=added_rom,
-                overwrite=bool(screenshots_changed),
+                overwrite=screenshots_changed,
                 url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
             ),
         ),
