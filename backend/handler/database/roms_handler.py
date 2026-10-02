@@ -37,7 +37,7 @@ from sqlalchemy.orm import (
     aliased,
     joinedload,
     load_only,
-    noload,
+    raiseload,
     selectinload,
     undefer,
 )
@@ -672,20 +672,20 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
             # Ensure platform is loaded for main ROM objects
             selectinload(Rom.platform),
             selectinload(Rom.saves).options(
-                noload(Save.rom),
-                noload(Save.user),
+                raiseload(Save.rom),
+                raiseload(Save.user),
             ),
             selectinload(Rom.states).options(
-                noload(State.rom),
-                noload(State.user),
+                raiseload(State.rom),
+                raiseload(State.user),
             ),
             selectinload(Rom.screenshots).options(
-                noload(Screenshot.rom),
+                raiseload(Screenshot.rom),
             ),
             selectinload(Rom.rom_users).options(
-                noload(RomUser.rom), noload(RomUser.user)
+                raiseload(RomUser.rom), raiseload(RomUser.user)
             ),
-            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
+            selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
             # Multi-file downloads, 3DS QR codes, and metadata matching
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
@@ -693,14 +693,14 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
                 selectinload(RomFile.doc_meta),
             ),
             selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform),
-                noload(Rom.metadatum),
+                raiseload(Rom.platform),
+                raiseload(Rom.metadatum),
                 # Per-sibling is_main_sibling resolution for the
                 # SiblingRomSchema needs each sibling's RomUser for the
                 # request user; the relationship is `lazy="raise"`, so
                 # it has to be eager-loaded here.
                 selectinload(Rom.rom_users).options(
-                    noload(RomUser.rom), noload(RomUser.user)
+                    raiseload(RomUser.rom), raiseload(RomUser.user)
                 ),
                 load_only(
                     Rom.id,
@@ -736,21 +736,21 @@ def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
         kwargs["query"] = select(Rom).options(
             selectinload(Rom.platform),
             selectinload(Rom.rom_users).options(
-                noload(RomUser.rom), noload(RomUser.user)
+                raiseload(RomUser.rom), raiseload(RomUser.user)
             ),
-            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
+            selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
                 selectinload(RomFile.track_metas),
                 selectinload(RomFile.doc_meta),
             ),
             selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform),
-                noload(Rom.metadatum),
+                raiseload(Rom.platform),
+                raiseload(Rom.metadatum),
                 # Per-sibling is_main_sibling resolution needs each sibling's
                 # RomUser (relationship is `lazy="raise"`).
                 selectinload(Rom.rom_users).options(
-                    noload(RomUser.rom), noload(RomUser.user)
+                    raiseload(RomUser.rom), raiseload(RomUser.user)
                 ),
                 load_only(
                     Rom.id,
@@ -1083,8 +1083,8 @@ class DBRomsHandler(DBBaseHandler):
             .options(
                 # Both default to `lazy="joined"`, and `load_only` narrows
                 # columns but not relationships.
-                noload(Rom.platform),
-                noload(Rom.metadatum),
+                raiseload(Rom.platform),
+                raiseload(Rom.metadatum),
                 load_only(
                     Rom.name,
                     Rom.fs_name_no_tags,
@@ -1584,21 +1584,21 @@ class DBRomsHandler(DBBaseHandler):
                 selectinload(Rom.platform),
                 # Display properties for the current user (last_played)
                 selectinload(Rom.rom_users).options(
-                    noload(RomUser.rom), noload(RomUser.user)
+                    raiseload(RomUser.rom), raiseload(RomUser.user)
                 ),
                 # Sort table by metadata (first_release_date)
-                selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
+                selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
             )
 
             # Show sibling rom badges on cards
             if include_siblings:
                 query = query.options(
                     selectinload(Rom.sibling_roms).options(
-                        noload(Rom.platform),
-                        noload(Rom.metadatum),
+                        raiseload(Rom.platform),
+                        raiseload(Rom.metadatum),
                         # is_main_sibling needs each sibling's RomUser.
                         selectinload(Rom.rom_users).options(
-                            noload(RomUser.rom), noload(RomUser.user)
+                            raiseload(RomUser.rom), raiseload(RomUser.user)
                         ),
                     )
                 )

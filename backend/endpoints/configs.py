@@ -2,7 +2,6 @@ from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 
 from adapters.services.rom_converto import (
-    DOWNLOAD_FORMATS,
     LIBRARY_TARGETS_BY_PLATFORM,
     normalize_platform_formats,
 )
@@ -194,7 +193,6 @@ def get_config(request: Request) -> ConfigResponse:
             slug: sorted(targets)
             for slug, targets in LIBRARY_TARGETS_BY_PLATFORM.items()
         },
-        CONVERTO_DOWNLOAD_FORMATS=DOWNLOAD_FORMATS,
     )
 
 

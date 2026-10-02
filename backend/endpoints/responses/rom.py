@@ -41,6 +41,7 @@ from models.rom import (
     RomUserStatus,
     SaveTargetLayout,
 )
+from utils.conversion_cache import offered_download_formats
 
 from .base import BaseModel, UTCDatetime
 
@@ -633,6 +634,8 @@ class DetailedRomSchema(RomSchema):
     all_user_screenshots: list[UserScreenshotSchema]
     user_collections: list[UserCollectionSchema]
     all_user_notes: list[UserNoteSchema]
+    # What the caller can ask a `?format=` download of the rom's single file for.
+    download_formats: list[str]
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
@@ -654,6 +657,9 @@ class DetailedRomSchema(RomSchema):
         )
         db_rom.included_sibling_roms = sorted_siblings  # type: ignore[attr-defined]
         db_rom.included_files = sorted(db_rom.files, key=lambda x: x.file_name)  # type: ignore[attr-defined]
+        db_rom.download_formats = offered_download_formats(  # type: ignore[attr-defined]
+            db_rom.platform_slug, db_rom.files, request
+        )
 
         db_rom.user_saves = [  # type: ignore[attr-defined]
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id

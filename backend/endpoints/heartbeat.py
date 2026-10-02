@@ -6,6 +6,7 @@ from typing import Final
 from anyio import Path as AnyioPath
 from fastapi import HTTPException, Request, status
 
+from adapters.services.rom_converto import rom_converto_service
 from adapters.services.sigil import SigilService
 from config import (
     DEVICE_INSTALL_ENABLED,
@@ -190,6 +191,7 @@ async def heartbeat() -> HeartbeatResponse:
             "ENABLED": DEVICE_INSTALL_ENABLED,
             "EXCLUDED_PLATFORM_SLUGS": sorted(DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS),
         },
+        "CONVERTO": {"ENABLED": await rom_converto_service.is_enabled()},
         "TASKS": {
             "ENABLE_SCHEDULED_RESCAN": ENABLE_SCHEDULED_RESCAN,
             "SCHEDULED_RESCAN_CRON": SCHEDULED_RESCAN_CRON,

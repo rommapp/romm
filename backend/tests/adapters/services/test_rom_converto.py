@@ -1,5 +1,7 @@
 import asyncio
+import os
 import stat
+import threading
 from pathlib import Path
 from unittest.mock import patch
 
@@ -7,14 +9,17 @@ import pytest
 
 from adapters.services import rom_converto
 from adapters.services.rom_converto import (
-    DOWNLOAD_FORMATS,
     LIBRARY_TARGETS_BY_PLATFORM,
+    OPERATIONS,
     Operation,
     RomConvertoBinaryNotFoundError,
     RomConvertoOperationError,
     RomConvertoService,
     RomConvertoTimeoutError,
+    RomConvertoUnsafeSourceError,
     canonical_format,
+    cue_tracks,
+    download_targets,
     file_format,
     resolve_operation,
 )
@@ -167,8 +172,8 @@ def _capture_spawn(proc: FakeProc, calls: list[tuple[str, ...]]):
     return spawn
 
 
-class TestUpdateCheck:
-    async def test_every_run_disables_the_update_check(self):
+class TestIsolation:
+    async def test_every_run_skips_the_update_check_config_and_cache(self):
         calls: list[tuple[str, ...]] = []
         with (
             patch("shutil.which", return_value="/usr/bin/rom-converto"),
@@ -176,11 +181,64 @@ class TestUpdateCheck:
         ):
             await rom_converto._run(["capabilities"], timeout_seconds=1)
 
-        assert calls[0][:3] == (
-            "/usr/bin/rom-converto",
-            "--no-update-check",
-            "capabilities",
-        )
+        binary, *flags, config, subcommand = calls[0]
+        assert binary == "/usr/bin/rom-converto"
+        assert flags == ["--no-update-check", "--no-cache", "--config"]
+        assert subcommand == "capabilities"
+        assert Path(config).name == "config.toml"
+
+    async def test_runs_from_an_empty_dir_it_removes_after(self):
+        seen: list[tuple[Path, list[str], int]] = []
+
+        def record(cwd: Path, config: str) -> None:
+            assert Path(config).parent == cwd
+            seen.append((cwd, os.listdir(cwd), Path(config).stat().st_size))
+
+        async def spawn(*args, cwd, **kwargs):
+            record(Path(cwd), args[args.index("--config") + 1])
+            return FakeProc()
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", spawn),
+        ):
+            await rom_converto._run(["capabilities"], timeout_seconds=1)
+
+        [(cwd, listing, config_size)] = seen
+        assert listing == ["config.toml"]
+        assert config_size == 0
+        assert not await asyncio.to_thread(cwd.exists)
+
+    async def test_a_run_cancelled_while_making_its_dir_still_removes_it(self):
+        made: list[Path] = []
+        release = threading.Event()
+
+        def slow_sandbox() -> tuple[Path, Path]:
+            release.wait(timeout=5)
+            sandbox, config = make_sandbox()
+            made.append(sandbox)
+            return sandbox, config
+
+        make_sandbox = rom_converto._make_sandbox
+        with (
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch.object(rom_converto, "_make_sandbox", slow_sandbox),
+        ):
+            run = asyncio.create_task(
+                rom_converto._run(["capabilities"], timeout_seconds=1)
+            )
+            await asyncio.sleep(0.05)
+            run.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await run
+            release.set()
+            for _ in range(100):
+                if made and not await asyncio.to_thread(made[0].exists):
+                    break
+                await asyncio.sleep(0.01)
+
+        assert made
+        assert not await asyncio.to_thread(made[0].exists)
 
 
 class TestConvert:
@@ -263,6 +321,61 @@ class TestConvert:
             await service.convert(self._op(), src, out)
 
         assert "bad disc key" in str(exc_info.value)
+
+    async def test_a_cue_reaching_outside_its_folder_never_runs(
+        self, service: RomConvertoService, tmp_path: Path
+    ):
+        cue = tmp_path / "game.cue"
+        cue.write_text('FILE "/romm/config/config.yml" BINARY\n')
+
+        async def fake_run(argv: list[str], timeout_seconds: float):
+            raise AssertionError("rom-converto must not run")
+
+        with (
+            patch.object(rom_converto, "_run", fake_run),
+            pytest.raises(RomConvertoUnsafeSourceError),
+        ):
+            await service.convert(self._op(), cue, tmp_path / "stage" / "game.chd")
+
+
+class TestCueTracks:
+    @pytest.mark.parametrize(
+        "line",
+        [
+            pytest.param('FILE "game (Track 1).bin" BINARY', id="quoted"),
+            pytest.param("FILE track.bin BINARY", id="bare"),
+            pytest.param('  file "track.bin" BINARY', id="lowercase-indented"),
+        ],
+    )
+    def test_reads_a_track_beside_the_cue(self, tmp_path: Path, line: str):
+        cue = tmp_path / "game.cue"
+        cue.write_text(f'REM FILE "../ignored.bin" BINARY\n{line}\n  TRACK 01 AUDIO\n')
+
+        [track] = cue_tracks(cue)
+
+        assert track.parent == tmp_path
+        assert track.name in ("game (Track 1).bin", "track.bin")
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            pytest.param('FILE "../other.bin" BINARY', id="parent"),
+            pytest.param('FILE "/etc/passwd" BINARY', id="absolute"),
+            pytest.param("FILE ../other.bin BINARY", id="bare-parent"),
+            pytest.param('FILE "sub/track.bin" BINARY', id="subfolder"),
+            pytest.param('FILE ".." BINARY', id="dotdot"),
+            pytest.param('FILE "" BINARY', id="empty"),
+            pytest.param('FILE "track.bin BINARY', id="unbalanced-quote"),
+            # The CLI reads from the first quote to the last, not the first pair.
+            pytest.param('FILE "a.bin" "/../../etc/passwd" BINARY', id="two-quoted"),
+        ],
+    )
+    def test_refuses_a_track_outside_the_cue_folder(self, tmp_path: Path, line: str):
+        cue = tmp_path / "game.cue"
+        cue.write_text(f"{line}\n")
+
+        with pytest.raises(RomConvertoUnsafeSourceError):
+            cue_tracks(cue)
 
 
 class TestFileFormat:
@@ -375,18 +488,31 @@ class TestLibraryTargetsByPlatform:
         assert resolve_operation("xbox", "xiso", "game.iso", lossless=True) is None
 
 
-class TestDownloadFormats:
-    def test_maps_each_input_extension_to_its_targets(self):
-        formats = DOWNLOAD_FORMATS
+class TestDownloadTargets:
+    @pytest.mark.parametrize(
+        "platform_slug, file_name, expected",
+        [
+            ("psp", "game.chd", ["cso", "iso", "zso"]),
+            ("psp", "game.iso", ["chd", "cso", "zso"]),
+            ("xbox", "game.iso", ["xiso"]),
+            ("psp", "game.txt", []),
+            ("gb", "game.gb", []),
+        ],
+    )
+    def test_lists_the_targets_a_file_converts_to(
+        self, platform_slug: str, file_name: str, expected: list[str]
+    ):
+        assert download_targets(platform_slug, file_name) == expected
 
-        assert formats["psp"][".chd"] == ["cso", "iso", "zso"]
-        assert formats["xbox"][".iso"] == ["xiso"]
+    def test_leaves_out_the_stored_format(self):
+        assert "iso" not in download_targets("psp", "GAME.ISO")
 
     def test_no_decrypt_or_encrypt_targets(self):
         targets = {
             target
-            for exts in DOWNLOAD_FORMATS.values()
-            for ext_targets in exts.values()
-            for target in ext_targets
+            for op in OPERATIONS
+            for slug in op.platforms
+            for ext in op.input_exts
+            for target in download_targets(slug, f"game{ext}")
         }
         assert not targets & {"decrypted", "encrypted"}

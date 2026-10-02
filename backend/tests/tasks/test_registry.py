@@ -14,6 +14,7 @@ from tasks.registry import (
     SCHEDULED_TASKS,
     enqueue_scheduled_scan,
     enqueue_task,
+    get_active_task_job,
     get_task,
     get_task_spec,
 )
@@ -101,6 +102,43 @@ class TestEnqueueTask:
         queue.enqueue.assert_not_called()
 
 
+class TestGetActiveTaskJob:
+    """A run is refused while one of these is found, so both places count."""
+
+    @staticmethod
+    def _job(mocker, task_key: str):
+        return mocker.MagicMock(meta={"task_key": task_key})
+
+    @pytest.fixture
+    def workers(self, mocker):
+        return mocker.patch("tasks.registry.Worker.all", return_value=[])
+
+    @pytest.fixture
+    def queue(self, mocker):
+        queue = mocker.MagicMock()
+        queue.get_jobs.return_value = []
+        mocker.patch("tasks.registry.ALL_QUEUES", (queue,))
+        return queue
+
+    def test_finds_the_job_a_worker_holds(self, mocker, workers, queue):
+        running = self._job(mocker, "convert_library")
+        workers.return_value = [mocker.MagicMock()]
+        mocker.patch("tasks.registry.get_worker_current_job", return_value=running)
+
+        assert get_active_task_job("convert_library") is running
+
+    def test_finds_a_queued_job(self, mocker, workers, queue):
+        queued = self._job(mocker, "convert_library")
+        queue.get_jobs.return_value = [self._job(mocker, "scan_library"), queued]
+
+        assert get_active_task_job("convert_library") is queued
+
+    def test_ignores_other_tasks(self, mocker, workers, queue):
+        queue.get_jobs.return_value = [self._job(mocker, "scan_library")]
+
+        assert get_active_task_job("convert_library") is None
+
+
 class TestEnqueueScheduledScan:
     """Cron cannot attach a failure callback, so a dispatch job does it."""
 
@@ -156,6 +194,13 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
                 "ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA": "false",
             },
             "update_launchbox_metadata",
+            "can_run_manually",
+            False,
+        ),
+        ({"ROM_CONVERTO_ENABLED": "true"}, "convert_library", "can_run_manually", True),
+        (
+            {"ROM_CONVERTO_ENABLED": "false"},
+            "convert_library",
             "can_run_manually",
             False,
         ),

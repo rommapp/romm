@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { defineComponent, nextTick, ref } from "vue";
 import RMenu from "./RMenu.vue";
 
 const modality = ref<"mouse" | "key">("mouse");
@@ -59,6 +59,36 @@ describe("RMenu", () => {
 
     expect(document.activeElement).toBe(document.querySelector(".pick-me"));
     modality.value = "mouse";
+    wrapper.unmount();
+  });
+
+  it("anchors to the activator a `v-if` swapped in", async () => {
+    const swapped = ref(false);
+    const Host = defineComponent({
+      components: { RMenu },
+      setup: () => ({ swapped }),
+      template: `
+        <RMenu>
+          <template #activator="{ props }">
+            <button v-if="!swapped" type="button" class="a" v-bind="props">A</button>
+            <button v-else type="button" class="b" v-bind="props">B</button>
+          </template>
+          <div class="item">Item</div>
+        </RMenu>`,
+    });
+    const wrapper = mount(Host, { attachTo: document.body });
+    swapped.value = true;
+    await nextTick();
+    const activator = wrapper.get("button.b");
+    await activator.trigger("click");
+    await flushPromises();
+
+    activator.element.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }),
+    );
+    await flushPromises();
+
+    expect(document.querySelector('[role="menu"]')).not.toBeNull();
     wrapper.unmount();
   });
 });

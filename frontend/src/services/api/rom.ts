@@ -626,11 +626,31 @@ function triggerFileDownload(href: string) {
 async function downloadRom({
   rom,
   fileIDs = [],
+  format,
 }: {
   rom: SimpleRom;
   fileIDs?: number[];
+  format?: string;
 }) {
-  return triggerFileDownload(getDownloadPath({ rom, fileIDs }));
+  return triggerFileDownload(getDownloadPath({ rom, fileIDs, format }));
+}
+
+/** Ask for one byte of a `?format=` download, which starts its conversion.
+ *  206/200 once it can be served, 202 while it converts, 406 when it can't be. */
+async function probeFormatDownload(href: string) {
+  const response = await api.get(href, {
+    // `href` is a full `/api` path.
+    baseURL: "",
+    headers: { Range: "bytes=0-0" },
+    responseType: "blob",
+    validateStatus: (status) => status < 500,
+  });
+  const retryAfter = Number(response.headers["retry-after"]);
+  return {
+    status: response.status,
+    retryAfterSeconds:
+      Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
+  };
 }
 
 // A platform/collection selector is expanded server-side into the full ROM
@@ -1082,6 +1102,7 @@ export default {
   getRandomRom,
   getRomByMetadataProvider,
   downloadRom,
+  probeFormatDownload,
   bulkDownloadRoms,
   searchRom,
   createPhysicalRom,

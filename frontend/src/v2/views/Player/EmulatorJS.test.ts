@@ -108,6 +108,7 @@ vi.mock("@/v2/composables/useActivityPresence", () => ({
     start: vi.fn(),
     stopHeartbeat: vi.fn(),
     emitStop: vi.fn(),
+    stop: vi.fn(),
   }),
 }));
 
@@ -643,5 +644,26 @@ describe("the native affordances' icons", () => {
     // Matched on the rule the font actually declares, not the bare name, or
     // "mdi-play" would be satisfied by "mdi-playlist-play".
     expect(MDI_CSS).toMatch(new RegExp(`\\.${name}::?before`));
+  });
+});
+
+describe("EmulatorJS window listeners", () => {
+  it("drops the keyboard-lock listener when the player closes", async () => {
+    const keyboard = { lock: vi.fn(), unlock: vi.fn() };
+    Object.defineProperty(navigator, "keyboard", {
+      value: keyboard,
+      configurable: true,
+    });
+    try {
+      const wrapper = await launchScreen();
+      document.dispatchEvent(new Event("fullscreenchange"));
+      expect(keyboard.unlock).toHaveBeenCalledOnce();
+
+      wrapper.unmount();
+      document.dispatchEvent(new Event("fullscreenchange"));
+      expect(keyboard.unlock).toHaveBeenCalledOnce();
+    } finally {
+      Reflect.deleteProperty(navigator, "keyboard");
+    }
   });
 });

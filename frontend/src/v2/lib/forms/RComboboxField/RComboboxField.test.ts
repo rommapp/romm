@@ -88,4 +88,35 @@ describe("RComboboxField inside an overlay", () => {
     expect(dialog.close).toHaveBeenCalledOnce();
     wrapper.unmount();
   });
+
+  it("stays open for a press inside an overlay opened above it", async () => {
+    const wrapper = mount(RComboboxField, {
+      props: { modelValue: [], items: ["rpg", "racing"] },
+      attachTo: document.body,
+    });
+    await wrapper.get("input").trigger("focus");
+    expect(document.querySelector(".r-combobox-field__panel")).not.toBeNull();
+
+    const nested = document.createElement("div");
+    document.body.append(nested);
+    const menu: EscapableEntry = {
+      close: vi.fn(),
+      persistent: false,
+      panel: () => nested,
+    };
+    pushEscapable(menu);
+
+    nested.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    await nextTick();
+    expect(document.querySelector(".r-combobox-field__panel")).not.toBeNull();
+
+    popEscapable(menu);
+    nested.remove();
+    document.body.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }),
+    );
+    await nextTick();
+    expect(document.querySelector(".r-combobox-field__panel")).toBeNull();
+    wrapper.unmount();
+  });
 });

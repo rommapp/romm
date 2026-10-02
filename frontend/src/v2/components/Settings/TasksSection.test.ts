@@ -5,10 +5,11 @@ import type { CleanupTaskStatusResponse } from "@/__generated__/models/CleanupTa
 import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import TasksSection from "./TasksSection.vue";
 
-const { getTasks, getTaskStatus, runTask } = vi.hoisted(() => ({
+const { getTasks, getTaskStatus, runTask, confirm } = vi.hoisted(() => ({
   getTasks: vi.fn(),
   getTaskStatus: vi.fn(),
   runTask: vi.fn(),
+  confirm: vi.fn(),
 }));
 
 vi.mock("@/services/api/task", () => ({
@@ -17,6 +18,10 @@ vi.mock("@/services/api/task", () => ({
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key, locale: { value: "en_US" } }),
+}));
+
+vi.mock("@/v2/composables/useConfirm", () => ({
+  useConfirm: () => confirm,
 }));
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
@@ -30,6 +35,7 @@ const CLEANUP_TASK: TaskInfo = {
   description: "Removes stale cached ZIP files",
   enabled: true,
   manual_run: true,
+  destructive: false,
   cron_string: "",
 };
 
@@ -40,6 +46,7 @@ const SCHEDULED_TASK: TaskInfo = {
   description: "Removes stale cached ZIP files",
   enabled: true,
   manual_run: false,
+  destructive: false,
   cron_string: "0 4 * * *",
 };
 
@@ -91,6 +98,56 @@ describe("TasksSection", () => {
     getTaskStatus.mockResolvedValue({ data: [] });
     runTask.mockReset();
     runTask.mockResolvedValue({ data: { task_id: "job-1" } });
+    confirm.mockReset();
+  });
+
+  it("runs a destructive task only once its typed confirmation passes", async () => {
+    getTasks.mockResolvedValue({
+      data: {
+        watcher: [],
+        scheduled: [],
+        manual: [{ ...CLEANUP_TASK, destructive: true }],
+      },
+    });
+    const wrapper = await mountSection();
+
+    confirm.mockResolvedValueOnce(false);
+    await runButton(wrapper).trigger("click");
+    await flushPromises();
+    expect(runTask).not.toHaveBeenCalled();
+    expect(confirm.mock.calls[0][0]).toMatchObject({
+      requireTyped: "rom.delete-keyword",
+    });
+
+    confirm.mockResolvedValueOnce(true);
+    await runButton(wrapper).trigger("click");
+    await flushPromises();
+    expect(runTask).toHaveBeenCalledWith("cleanup_zip_cache");
+    wrapper.unmount();
+  });
+
+  it("runs an ordinary task without asking", async () => {
+    const wrapper = await mountSection();
+    await runButton(wrapper).trigger("click");
+    await flushPromises();
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(runTask).toHaveBeenCalledWith("cleanup_zip_cache");
+    wrapper.unmount();
+  });
+
+  it("hides a manual task the server can't run", async () => {
+    getTasks.mockResolvedValue({
+      data: {
+        watcher: [],
+        scheduled: [],
+        manual: [{ ...CLEANUP_TASK, manual_run: false }],
+      },
+    });
+    const wrapper = await mountSection();
+
+    expect(wrapper.find("button.r-v2-tasks__run-btn").exists()).toBe(false);
+    wrapper.unmount();
   });
 
   it("disables the run button while that task's job is in flight", async () => {

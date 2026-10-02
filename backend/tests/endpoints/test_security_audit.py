@@ -159,6 +159,7 @@ def test_a_manual_task_run_is_recorded(
     task.title = "Cleanup"
     task.task_type = TaskType.CLEANUP
     task.can_run_manually = True
+    task.single_instance = False
     with patch("endpoints.tasks.RUNNABLE_TASKS", {"cleanup": task}):
         client.post("/api/tasks/run/cleanup", headers=_auth(access_token))
 
