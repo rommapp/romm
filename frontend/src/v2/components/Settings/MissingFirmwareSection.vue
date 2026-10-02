@@ -10,7 +10,6 @@ import {
   RSkeletonBlock,
   RTag,
 } from "@v2/lib";
-import { useAsyncState } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -21,6 +20,7 @@ import { formatBytes } from "@/utils";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useTaskCompletion } from "@/v2/composables/useTaskCompletion";
@@ -43,12 +43,10 @@ const {
   state: missingFirmware,
   isLoading: loading,
   execute: fetchMissingFirmware,
-} = useAsyncState(
+} = useFetchState(
   () => firmwareApi.getFirmware({ missing: true }).then(({ data }) => data),
   [],
   {
-    // Keeps the current rows up while a refetch is in flight.
-    resetOnExecute: false,
     onSuccess: (data) => {
       // A cleanup can leave a selected platform with nothing left to show.
       const stillAffected = new Set(data.map((f) => f.platform_id));
