@@ -370,8 +370,6 @@ describe("Collection view random rom", () => {
   });
 });
 
-// The store's lists load once per session, so a cached ROM count disagrees
-// with the gallery below it.
 // Opens collection 1. `collection()` caches 9000 ROMs, so any other count came
 // from the server.
 function openCachedCollection() {
@@ -386,6 +384,8 @@ function openCachedCollection() {
   storeCollections().setCollections([collection(1)]);
 }
 
+// The store's lists load once per session, so a cached ROM count disagrees
+// with the gallery below it.
 describe("Collection view freshness", () => {
   beforeEach(openCachedCollection);
 
