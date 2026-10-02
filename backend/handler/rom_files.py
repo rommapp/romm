@@ -41,7 +41,7 @@ class RomFilesRefresh:
 
 
 def _extracted_state(rom_file: RomFile) -> tuple[Any, ...]:
-    """The columns title id extraction writes onto a row."""
+    """The columns title id extraction and rom-converto write onto a reused row."""
     return (
         rom_file.category,
         rom_file.title_id,

@@ -197,7 +197,9 @@ class TestGetRomFilesWithConverto:
         )
 
         # The nfo has no inspectable extension, so it is never listed.
-        (listed,) = read_infos.await_args.args
+        await_args = read_infos.await_args
+        assert await_args is not None
+        (listed,) = await_args.args
         assert sorted(listed) == [disc1, disc2]
         ids = {f.file_name: (f.title_id, f.title_version) for f in parsed.rom_files}
         assert ids["Game (Disc 1).iso"] == ("SLUS-10001", 2)
@@ -436,7 +438,9 @@ class TestGetRomFilesWithConverto:
         )
 
         read_infos.assert_awaited_once()
-        assert set(read_infos.await_args.args[0]) == {
+        await_args = read_infos.await_args
+        assert await_args is not None
+        assert set(await_args.args[0]) == {
             disc1,
             scan_env.rom_dir / "Game (Disc 2).iso",
         }
