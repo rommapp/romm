@@ -14,6 +14,7 @@ import { useEventListener, useRafFn } from "@vueuse/core";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/routeNames";
 import ControllerPad from "@/v2/components/ControllerDebug/ControllerPad.vue";
 import type { GamepadSnapshot } from "@/v2/components/ControllerDebug/types";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
@@ -33,6 +34,8 @@ const BACK_BUTTON_INDICES = [1, 8];
 const HOLD_TO_EXIT_MS = 700;
 const exitHoldStart = ref<number | null>(null);
 const exitHoldProgress = ref(0);
+// Fires once per hold, so a back that goes nowhere leaves the inspector live.
+let exitFired = false;
 
 // useGamepad's mapping legend: keep in sync with the composable.
 const KEYBIND_LEGEND: { button: string; key: string }[] = [
@@ -93,21 +96,28 @@ function tick() {
   const backHeld = list.some(
     (p) => p && BACK_BUTTON_INDICES.some((i) => p.buttons[i]?.pressed),
   );
-  if (backHeld) {
-    if (exitHoldStart.value === null) exitHoldStart.value = performance.now();
-    const held = performance.now() - exitHoldStart.value;
-    exitHoldProgress.value = Math.min(1, held / HOLD_TO_EXIT_MS);
-    if (held >= HOLD_TO_EXIT_MS) {
-      exitHoldStart.value = null;
-      exitHoldProgress.value = 0;
-      pause();
-      router.back();
-      return;
-    }
-  } else {
+  if (!backHeld) {
+    exitFired = false;
     exitHoldStart.value = null;
     exitHoldProgress.value = 0;
+    return;
   }
+  if (exitFired) return;
+  if (exitHoldStart.value === null) exitHoldStart.value = performance.now();
+  const held = performance.now() - exitHoldStart.value;
+  exitHoldProgress.value = Math.min(1, held / HOLD_TO_EXIT_MS);
+  if (held >= HOLD_TO_EXIT_MS) {
+    exitFired = true;
+    exitHoldStart.value = null;
+    exitHoldProgress.value = 0;
+    leave();
+  }
+}
+
+// Opened straight into a fresh tab, there is no entry to go back to.
+function leave() {
+  if (window.history.state?.back) router.back();
+  else void router.push({ name: ROUTES.HOME });
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -124,7 +134,7 @@ function clearLog() {
   keyLog.value = [];
 }
 
-const { pause } = useRafFn(tick);
+useRafFn(tick);
 useEventListener(window, "keydown", onKeydown);
 
 function formatTime(t: number) {

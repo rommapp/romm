@@ -1,25 +1,17 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { buttonsHolding, gamepadFixture } from "@/utils/gamepad.fixtures";
 import ControllerDebug from "./ControllerDebug.vue";
 
 const back = vi.fn();
-vi.mock("vue-router", () => ({ useRouter: () => ({ back }) }));
+const push = vi.fn();
+vi.mock("vue-router", () => ({ useRouter: () => ({ back, push }) }));
 vi.mock("vue-i18n");
 
 function padHoldingB(held: boolean): Gamepad {
-  const buttons = Array.from({ length: 17 }, (_, i) => ({
-    pressed: held && i === 1,
-    touched: held && i === 1,
-    value: held && i === 1 ? 1 : 0,
-  }));
-  return {
-    index: 0,
-    id: "test-pad",
-    connected: true,
-    mapping: "standard",
-    axes: [0, 0, 0, 0],
-    buttons,
-  } as unknown as Gamepad;
+  return gamepadFixture({
+    buttons: held ? buttonsHolding(1) : buttonsHolding(),
+  });
 }
 
 describe("ControllerDebug", () => {
@@ -50,6 +42,7 @@ describe("ControllerDebug", () => {
       value: () => pads,
       configurable: true,
     });
+    window.history.replaceState({ back: "/settings" }, "");
   });
 
   function render() {
@@ -69,6 +62,35 @@ describe("ControllerDebug", () => {
     step(2100);
 
     expect(back).toHaveBeenCalledOnce();
+  });
+
+  it("keeps polling after leaving, firing again only on a fresh hold", () => {
+    render();
+    pads = [padHoldingB(true)];
+    step(0);
+    step(700);
+    step(1400);
+    expect(back).toHaveBeenCalledOnce();
+
+    pads = [padHoldingB(false)];
+    step(1500);
+    pads = [padHoldingB(true)];
+    step(1600);
+    step(2300);
+
+    expect(back).toHaveBeenCalledTimes(2);
+  });
+
+  it("goes home when there is no page to go back to", () => {
+    window.history.replaceState(null, "");
+    render();
+    pads = [padHoldingB(true)];
+
+    step(0);
+    step(700);
+
+    expect(back).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith({ name: "home" });
   });
 
   it("starts the hold over when B is let go", () => {

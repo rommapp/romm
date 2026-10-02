@@ -2,6 +2,7 @@ import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import storePlaying from "@/stores/playing";
+import { buttonsHolding, gamepadFixture } from "@/utils/gamepad.fixtures";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import {
   popEscapable,
@@ -22,31 +23,12 @@ vi.mock("vue-router", () => ({
 
 const PUSHED = AXIS_THRESHOLD + 0.2;
 
-const noHaptics: GamepadHapticActuator = {
-  playEffect: () => Promise.resolve("complete"),
-  reset: () => Promise.resolve("complete"),
-};
-
 function padWithStick(x: number, y: number): Gamepad {
-  return {
-    index: 0,
-    id: "test-pad",
-    connected: true,
-    mapping: "standard",
-    axes: [x, y],
-    buttons: [],
-    timestamp: 0,
-    vibrationActuator: noHaptics,
-  };
+  return gamepadFixture({ axes: [x, y] });
 }
 
 function padHolding(...held: number[]): Gamepad {
-  const buttons = Array.from({ length: 17 }, (_, i) => ({
-    pressed: held.includes(i),
-    touched: held.includes(i),
-    value: held.includes(i) ? 1 : 0,
-  }));
-  return { ...padWithStick(0, 0), buttons };
+  return gamepadFixture({ buttons: buttonsHolding(...held) });
 }
 
 describe("useGamepad", () => {

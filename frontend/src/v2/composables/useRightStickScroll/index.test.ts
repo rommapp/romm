@@ -1,10 +1,11 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
+import { gamepadFixture } from "@/utils/gamepad.fixtures";
 import { useRightStickScroll } from "./index";
 
 function padWithRightStick(x: number, y: number): Gamepad {
-  return { axes: [0, 0, x, y] } as unknown as Gamepad;
+  return gamepadFixture({ axes: [0, 0, x, y] });
 }
 
 describe("useRightStickScroll", () => {
