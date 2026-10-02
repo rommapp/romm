@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Sequence
-from contextlib import nullcontext
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
@@ -1508,43 +1508,43 @@ async def queue_scan(
     Raises:
         ScanInFlightException: A library scan is already queued or running.
     """
-    # A scan of named roms is not a second pass over the library, so it may queue.
-    slot = (
-        nullcontext()
-        if roms_ids
-        else redis_lock(
-            LIBRARY_SCAN_REQUEST_LOCK,
-            timeout_seconds=LIBRARY_SCAN_REQUEST_LOCK_SECONDS,
-            lease_seconds=LIBRARY_SCAN_REQUEST_LOCK_LEASE_SECONDS,
-        )
-    )
-    try:
-        async with slot:
-            if not roms_ids:
-                running_job, queued_jobs = get_blocking_library_scans()
-                if running_job is not None or queued_jobs:
-                    raise ScanInFlightException(
-                        _scan_in_flight_message(running_job, queued_jobs)
+    async with AsyncExitStack() as stack:
+        # A scan of named roms is not a second pass over the library, so it may queue.
+        if not roms_ids:
+            try:
+                await stack.enter_async_context(
+                    redis_lock(
+                        LIBRARY_SCAN_REQUEST_LOCK,
+                        timeout_seconds=LIBRARY_SCAN_REQUEST_LOCK_SECONDS,
+                        lease_seconds=LIBRARY_SCAN_REQUEST_LOCK_LEASE_SECONDS,
                     )
-            return scan_queue.enqueue(
-                scan_platforms,
-                # A scan of named roms resolves its work from the database and is done
-                # in seconds, so it goes ahead of any library scan already waiting.
-                at_front=bool(roms_ids),
-                on_failure=report_scan_failure,
-                platform_ids=platform_ids,
-                metadata_sources=metadata_sources,
-                scan_type=scan_type,
-                roms_ids=roms_ids,
-                launchbox_remote_enabled=launchbox_remote_enabled,
-                platform_fs_slugs=platform_fs_slugs,
-                started_by_user_id=started_by_user_id,
-                job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
-                result_ttl=TASK_RESULT_TTL,
-                meta=scan_job_meta(scan_type),
-            )
-    except TimeoutError as e:
-        raise ScanInFlightException("Another library scan is being queued") from e
+                )
+            except TimeoutError as e:
+                raise ScanInFlightException(
+                    "Another library scan is being queued"
+                ) from e
+            running_job, queued_jobs = get_blocking_library_scans()
+            if running_job is not None or queued_jobs:
+                raise ScanInFlightException(
+                    _scan_in_flight_message(running_job, queued_jobs)
+                )
+        return scan_queue.enqueue(
+            scan_platforms,
+            # A scan of named roms resolves its work from the database and is done
+            # in seconds, so it goes ahead of any library scan already waiting.
+            at_front=bool(roms_ids),
+            on_failure=report_scan_failure,
+            platform_ids=platform_ids,
+            metadata_sources=metadata_sources,
+            scan_type=scan_type,
+            roms_ids=roms_ids,
+            launchbox_remote_enabled=launchbox_remote_enabled,
+            platform_fs_slugs=platform_fs_slugs,
+            started_by_user_id=started_by_user_id,
+            job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
+            result_ttl=TASK_RESULT_TTL,
+            meta=scan_job_meta(scan_type),
+        )
 
 
 async def authorize_scan(sid: str) -> User | None:

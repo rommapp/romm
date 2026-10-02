@@ -2323,6 +2323,23 @@ class TestScanConcurrency:
         assert emit.await_args is not None
         assert emit.await_args.args[0] == "scan:done_ko"
 
+    async def test_a_timeout_past_the_lock_is_not_a_scan_in_flight(self, mocker):
+        patch_scan_jobs(mocker)
+        mocker.patch.object(scan_queue, "enqueue", side_effect=TimeoutError)
+
+        with pytest.raises(TimeoutError):
+            await scan_module.queue_scan(
+                platform_ids=[],
+                metadata_sources=[],
+                scan_type=ScanType.QUICK,
+                roms_ids=[],
+                launchbox_remote_enabled=True,
+                platform_fs_slugs=[],
+                started_by_user_id=1,
+            )
+
+        assert not await async_cache.exists(scan_module.LIBRARY_SCAN_REQUEST_LOCK)
+
     async def test_releases_the_request_lock_once_queued(self, mocker, emit):
         patch_scan_jobs(mocker)
         mocker.patch.object(scan_queue, "enqueue")
