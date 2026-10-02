@@ -10,10 +10,10 @@ import {
   RSkeletonBlock,
   RTag,
 } from "@v2/lib";
+import { useAsyncState } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { FirmwareSchema } from "@/__generated__";
 import firmwareApi from "@/services/api/firmware";
 import taskApi from "@/services/api/task";
 import storePlatforms, { type Platform } from "@/stores/platforms";
@@ -36,10 +36,35 @@ const { awaitTask } = useTaskCompletion();
 
 const { allPlatforms } = storeToRefs(platformsStore);
 
-const missingFirmware = ref<FirmwareSchema[]>([]);
-const loading = ref(true);
 const cleaningUp = ref(false);
 const selectedPlatformIds = ref<number[]>([]);
+
+const {
+  state: missingFirmware,
+  isLoading: loading,
+  execute: fetchMissingFirmware,
+} = useAsyncState(
+  () => firmwareApi.getFirmware({ missing: true }).then(({ data }) => data),
+  [],
+  {
+    // Keeps the current rows up while a refetch is in flight.
+    resetOnExecute: false,
+    onSuccess: (data) => {
+      // A cleanup can leave a selected platform with nothing left to show.
+      const stillAffected = new Set(data.map((f) => f.platform_id));
+      selectedPlatformIds.value = selectedPlatformIds.value.filter((id) =>
+        stillAffected.has(id),
+      );
+    },
+    onError: (err) => {
+      snackbar.error(
+        t("settings.couldnt-fetch-missing-firmware", {
+          error: errorMessage(err),
+        }),
+      );
+    },
+  },
+);
 
 // Offering an unaffected platform would filter the list down to nothing.
 const affectedPlatforms = computed<Platform[]>(() => {
@@ -76,27 +101,6 @@ const selectedPlatformsLabel = computed(() =>
     .join(", "),
 );
 
-async function fetchMissingFirmware() {
-  loading.value = true;
-  try {
-    const { data } = await firmwareApi.getFirmware({ missing: true });
-    missingFirmware.value = data;
-    // A cleanup can leave a selected platform with nothing left to show.
-    const stillAffected = new Set(data.map((f) => f.platform_id));
-    selectedPlatformIds.value = selectedPlatformIds.value.filter((id) =>
-      stillAffected.has(id),
-    );
-  } catch (err) {
-    snackbar.error(
-      t("settings.couldnt-fetch-missing-firmware", {
-        error: errorMessage(err),
-      }),
-    );
-  } finally {
-    loading.value = false;
-  }
-}
-
 async function cleanupAll() {
   const platformLabel = selectedPlatformsLabel.value
     ? ` ${t("common.for")} ${selectedPlatformsLabel.value}`
@@ -126,10 +130,6 @@ async function cleanupAll() {
     cleaningUp.value = false;
   }
 }
-
-onMounted(() => {
-  void fetchMissingFirmware();
-});
 </script>
 
 <template>
