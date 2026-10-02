@@ -100,7 +100,7 @@ def nulls_last[T](sort_key: SQLColumnExpression[T], descending: bool) -> Dialect
     )
 
 
-def force_index_on_mysql[S: Select[Any]](
+def force_index_on_mysql[S: Select[*tuple[Any, ...]]](
     statement: S, table: FromClause | type[Any], index_name: str
 ) -> S:
     """Make MySQL and MariaDB read `table` through `index_name`; PostgreSQL plans freely."""

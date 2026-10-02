@@ -21,7 +21,7 @@ from utils.database import is_non_blank
 from .base_handler import DBBaseHandler
 
 
-def _exclude_hidden[S: Select[Any]](
+def _exclude_hidden[S: Select[*tuple[Any, ...]]](
     query: S,
     hidden_platform_ids: Collection[int] | None,
     hidden_rom_ids: Collection[int] | None,
