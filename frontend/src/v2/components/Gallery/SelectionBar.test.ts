@@ -1,15 +1,17 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick, ref } from "vue";
 import storeAuth from "@/stores/auth";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import { stubResizeObserver } from "@/test-utils/resizeObserver";
 import { collectionFixture } from "@/utils/collection.fixtures";
 import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import SelectionBar from "./SelectionBar.vue";
+import { selectionBarOutline } from "./selectionBarOutline";
 
 const {
   addRomsToCollection,
@@ -386,5 +388,37 @@ describe("SelectionBar bulk status", () => {
     await flushPromises();
     await second.trigger("click");
     expect(updateUserRomProps).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("SelectionBar outline", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    storeAuth().setCurrentUser(userFixture());
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("draws the outline from the bar's and notch's measured sizes", async () => {
+    const observer = stubResizeObserver();
+    const wrapper = mountBar();
+    await flushPromises();
+    expect(wrapper.find(".selection-bar__outline").exists()).toBe(false);
+
+    // Padding makes each border box bigger than its content box; the outline
+    // has to trace the border box.
+    observer.resize(wrapper.get(".selection-bar").element, 580, 40, {
+      width: 600,
+      height: 48,
+    });
+    observer.resize(wrapper.get(".selection-bar__notch").element, 48, 32, {
+      width: 64,
+      height: 40,
+    });
+    await nextTick();
+
+    const expected = selectionBarOutline({ w: 600, h: 48 }, { w: 64, h: 40 });
+    const svg = wrapper.get(".selection-bar__outline");
+    expect(svg.attributes("width")).toBe(String(expected?.width));
+    expect(svg.get("path").attributes("d")).toBe(expected?.d);
   });
 });

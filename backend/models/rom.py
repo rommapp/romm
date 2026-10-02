@@ -1052,17 +1052,8 @@ class Rom(BaseModel):
         server_default=FetchedValue(),
         server_onupdate=FetchedValue(),
     )
-    # STORED generated column over every provider's alternative titles. Only the
-    # gallery search reads it, so loading a ROM leaves it behind.
-    generated_search_aliases: Mapped[str | None] = mapped_column(
-        Text(),
-        nullable=True,
-        server_default=FetchedValue(),
-        server_onupdate=FetchedValue(),
-        deferred=True,
-    )
     # The folded name and aliases, kept by `compute_search_titles` on every
-    # write; search ranking matches whole titles against it.
+    # write. The gallery search filters on it and ranks whole titles against it.
     search_titles: Mapped[str | None] = mapped_column(Text(), deferred=True)
 
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))

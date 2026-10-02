@@ -1126,7 +1126,7 @@ def test_saves(save: Save, rom: Rom, platform: Platform, admin_user: User):
     assert refreshed is not None
     assert len(refreshed.saves) == 2
 
-    new_save = db_save_handler.get_save(user_id=admin_user.id, id=refreshed.saves[0].id)
+    new_save = db_save_handler.get_save(user_id=admin_user.id, id=save.id)
     assert new_save is not None
     assert new_save.file_name == "test_save.sav"
 
@@ -1149,9 +1149,7 @@ def test_states(state: State, rom: Rom, admin_user: User):
     assert refreshed is not None
     assert len(refreshed.states) == 2
 
-    new_state = db_state_handler.get_state(
-        user_id=admin_user.id, id=refreshed.states[0].id
-    )
+    new_state = db_state_handler.get_state(user_id=admin_user.id, id=state.id)
     assert new_state is not None
     assert new_state.file_name == "test_state.state"
 

@@ -23,16 +23,8 @@ import {
   shift,
   useFloating,
 } from "@floating-ui/vue";
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  useId,
-  watch,
-} from "vue";
-import { useEscapable } from "@/v2/composables/useEscapable";
+import { computed, nextTick, ref, useId, watch } from "vue";
+import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "../../primitives/RBtn/RBtn.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
@@ -420,23 +412,6 @@ function onFieldKeydown(evt: KeyboardEvent) {
   }
 }
 
-// ── Click-outside ──────────────────────────────────────────────
-function onDocPointerDown(evt: PointerEvent) {
-  if (!isOpen.value) return;
-  const target = evt.target as Node | null;
-  if (!target) return;
-  if (referenceEl.value?.contains(target as HTMLElement)) return;
-  if (panelRef.value?.contains(target)) return;
-  close();
-}
-
-onMounted(() => {
-  document.addEventListener("pointerdown", onDocPointerDown, true);
-});
-onBeforeUnmount(() => {
-  document.removeEventListener("pointerdown", onDocPointerDown, true);
-});
-
 function dismiss() {
   close();
   // Send focus back to the field so tab order doesn't get stranded
@@ -446,7 +421,11 @@ function dismiss() {
   });
 }
 
-useEscapable(isOpen, dismiss, () => panelRef.value);
+usePopoverDismiss(isOpen, close, {
+  reference: () => referenceEl.value,
+  panel: () => panelRef.value,
+  onEscape: dismiss,
+});
 </script>
 
 <template>

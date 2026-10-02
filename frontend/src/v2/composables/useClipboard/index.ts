@@ -17,6 +17,8 @@ export interface CopyOptions {
   successIcon?: string;
   /** Override the error toast shown for either failure. */
   errorMessage?: string;
+  /** Called instead of the error toast on either failure, e.g. to show the text for a manual copy. */
+  fallback?: () => void;
 }
 
 export interface UseClipboard {
@@ -24,8 +26,8 @@ export interface UseClipboard {
   isSupported: boolean;
   /**
    * Copies `text` to the clipboard. Shows the optional success toast and
-   * returns true on success; shows an error toast and returns false when the
-   * clipboard is unavailable (non-secure context) or the write throws.
+   * returns true on success; shows an error toast (or runs `fallback`) and
+   * returns false when the clipboard is unavailable or the write throws.
    */
   copy: (text: string, opts?: CopyOptions) => Promise<boolean>;
 }
@@ -42,6 +44,10 @@ export function useClipboard(): UseClipboard {
 
   async function copy(text: string, opts: CopyOptions = {}): Promise<boolean> {
     const fail = (defaultKey: string) => {
+      if (opts.fallback) {
+        opts.fallback();
+        return false;
+      }
       snackbar.error(opts.errorMessage ?? t(defaultKey), {
         icon: "mdi-close-circle",
       });

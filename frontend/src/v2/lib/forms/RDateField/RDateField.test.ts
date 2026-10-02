@@ -165,4 +165,31 @@ describe("RDateField inside an overlay", () => {
     expect(dialog.close).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(wrapper.get("input").element);
   });
+
+  it("stays open for a press inside an overlay opened above it", async () => {
+    const wrapper = await openPicker();
+    expect(document.querySelector(".r-date-cal")).not.toBeNull();
+
+    const nested = document.createElement("div");
+    document.body.append(nested);
+    const menu: EscapableEntry = {
+      close: vi.fn(),
+      persistent: false,
+      panel: () => nested,
+    };
+    pushEscapable(menu);
+
+    nested.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    await nextTick();
+    expect(document.querySelector(".r-date-cal")).not.toBeNull();
+
+    popEscapable(menu);
+    nested.remove();
+    document.body.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }),
+    );
+    await nextTick();
+    expect(document.querySelector(".r-date-cal")).toBeNull();
+    wrapper.unmount();
+  });
 });

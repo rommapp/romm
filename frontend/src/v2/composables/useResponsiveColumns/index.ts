@@ -5,14 +5,8 @@
 // virtualiser. The breakpoint logic mirrors the existing CSS grid
 // (`grid-template-columns: repeat(auto-fill, var(--r-card-art-w))`) so the
 // virtual rows visually match what the non-virtualised CSS grid would draw.
-import {
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-  type Ref,
-  type ShallowRef,
-} from "vue";
+import { useResizeObserver } from "@vueuse/core";
+import { onMounted, ref, watch, type Ref, type ShallowRef } from "vue";
 
 /** A value that may be a constant or a reactive getter. Getters let the
  *  caller vary card width / inset by breakpoint and have the column count
@@ -48,7 +42,6 @@ export function useResponsiveColumns(
   // Observed content width minus `inset`: px available to a row of cards,
   // for consumers that flow-pack by width rather than a fixed column count.
   const usableWidth = ref<number>(0);
-  let observer: ResizeObserver | null = null;
   // Last observed width: kept so a change in a reactive option (card
   // width / inset flipping at a breakpoint) can recompute without waiting
   // for the next resize event.
@@ -80,30 +73,16 @@ export function useResponsiveColumns(
     },
   );
 
-  function attach(el: HTMLElement) {
-    compute(el.clientWidth);
-    observer = new ResizeObserver((entries) => {
-      for (const entry of entries) compute(entry.contentRect.width);
-    });
-    observer.observe(el);
-  }
+  // Re-observes on its own if the bound ref swaps.
+  useResizeObserver(containerRef, (entries) => {
+    for (const entry of entries) compute(entry.contentRect.width);
+  });
 
-  function detach() {
-    observer?.disconnect();
-    observer = null;
-  }
-
+  // Measure now so the first render has a column count before the observer's
+  // first callback.
   onMounted(() => {
-    if (containerRef.value) attach(containerRef.value);
+    if (containerRef.value) compute(containerRef.value.clientWidth);
   });
-
-  // Re-attach if the bound ref swaps (rare, but safe).
-  watch(containerRef, (next, prev) => {
-    if (prev) detach();
-    if (next) attach(next);
-  });
-
-  onBeforeUnmount(detach);
 
   return { columns, usableWidth };
 }

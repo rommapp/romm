@@ -117,4 +117,30 @@ describe("useClipboard", () => {
 
     expect(error).toHaveBeenCalledWith("nope", { icon: "mdi-close-circle" });
   });
+
+  it("runs the fallback instead of the error toast when the context is not secure", async () => {
+    setSecureContext(false);
+    setClipboard(null);
+    const fallback = vi.fn();
+
+    const { copy } = useClipboard();
+    const ok = await copy("hello", { fallback });
+
+    expect(ok).toBe(false);
+    expect(fallback).toHaveBeenCalledOnce();
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("runs the fallback when writeText rejects", async () => {
+    setSecureContext(true);
+    setClipboard(vi.fn().mockRejectedValue(new Error("denied")));
+    const fallback = vi.fn();
+
+    const { copy } = useClipboard();
+    await copy("hello", { successMessage: "copied", fallback });
+
+    expect(fallback).toHaveBeenCalledOnce();
+    expect(success).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+  });
 });

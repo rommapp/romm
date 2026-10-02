@@ -1,4 +1,4 @@
-import { debounce } from "lodash";
+import { useDebounceFn } from "@vueuse/core";
 import { onScopeDispose, type Ref, ref, watch } from "vue";
 
 /** A search box bound to a store term, debounced one way and immediate the
@@ -6,14 +6,24 @@ import { onScopeDispose, type Ref, ref, watch } from "vue";
 export function useDebouncedSearch(term: Ref<string | null>, delayMs = 300) {
   const input = ref(term.value ?? "");
 
-  const commit = debounce((value: string) => {
+  function apply(value: string): boolean {
     const normalized = value.trim();
-    if (normalized !== (term.value ?? "")) term.value = normalized || null;
-  }, delayMs);
+    if (normalized === (term.value ?? "")) return false;
+    term.value = normalized || null;
+    return true;
+  }
+
+  const commit = useDebounceFn(apply, delayMs);
 
   function setSearch(value: string) {
     input.value = value;
-    commit(value);
+    void commit(value);
+  }
+
+  /** Commits the box without waiting. Returns whether the term changed. */
+  function flush(): boolean {
+    commit.cancel();
+    return apply(input.value);
   }
 
   watch(term, (value) => {
@@ -25,5 +35,5 @@ export function useDebouncedSearch(term: Ref<string | null>, delayMs = 300) {
 
   onScopeDispose(commit.cancel);
 
-  return { input, setSearch };
+  return { input, setSearch, flush };
 }

@@ -20,6 +20,7 @@
 // Primitive boundaries (§II): no stores, no domain knowledge, it takes
 // three image URLs and a label. The feature composite (CoverColumn) decides
 // when a rom actually has all three faces and feeds them in.
+import { useResizeObserver } from "@vueuse/core";
 import { computed, onBeforeUnmount, onMounted, ref, type Ref } from "vue";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
@@ -285,18 +286,14 @@ const onFrontLoad = (e: Event) =>
   measureRatio(e.target as HTMLImageElement, frontRatio);
 const onSpineLoad = (e: Event) => measureSpine(e.target as HTMLImageElement);
 
-let ro: ResizeObserver | null = null;
+useResizeObserver(rootEl, (entries) => {
+  const w = entries[0]?.contentRect.width ?? 0;
+  if (w > 0) widthPx.value = w;
+});
 onMounted(() => {
   const root = rootEl.value;
   if (root) {
     widthPx.value = root.clientWidth;
-    if (typeof ResizeObserver !== "undefined") {
-      ro = new ResizeObserver((entries) => {
-        const w = entries[0]?.contentRect.width ?? 0;
-        if (w > 0) widthPx.value = w;
-      });
-      ro.observe(root);
-    }
     // Interaction listeners are bound imperatively (not in the template) so
     // the static box element doesn't trip the no-static-element-interactions
     // rule: the same approach GameCover takes for its hover motion. The box
@@ -314,7 +311,6 @@ onMounted(() => {
   rafId = requestAnimationFrame(tick);
 });
 onBeforeUnmount(() => {
-  ro?.disconnect();
   cancelAnimationFrame(rafId);
   const root = rootEl.value;
   if (root) {

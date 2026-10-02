@@ -25,7 +25,11 @@ import {
   RLetterHeading,
   RVirtualScroller,
 } from "@v2/lib";
-import { useIntersectionObserver, useResizeObserver } from "@vueuse/core";
+import {
+  useEventListener,
+  useIntersectionObserver,
+  useResizeObserver,
+} from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -871,11 +875,10 @@ let prevBodyOverflow: string | null = null;
 onMounted(() => {
   prevBodyOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
-  window.addEventListener("keydown", onShellKey);
 });
+useEventListener(window, "keydown", onShellKey);
 
 onBeforeUnmount(() => {
-  window.removeEventListener("keydown", onShellKey);
   // A press still in flight would otherwise fire its timer into whatever
   // replaces this gallery.
   selectionInput.cancel();

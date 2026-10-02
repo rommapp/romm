@@ -25,19 +25,18 @@ import {
   useFloating,
 } from "@floating-ui/vue";
 import type { Placement } from "@floating-ui/vue";
+import { useElementSize } from "@vueuse/core";
 import {
   computed,
   getCurrentInstance,
   nextTick,
-  onBeforeUnmount,
-  onMounted,
   ref,
   useAttrs,
   useSlots,
   watch,
 } from "vue";
-import { useEscapable } from "@/v2/composables/useEscapable";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
 import RDivider from "../../primitives/RDivider/RDivider.vue";
@@ -341,7 +340,7 @@ const hasSelection = computed(() => selectedItems.value.length > 0);
 // `fitChipCount` of them. ResizeObserver re-measures on width changes.
 const valueRef = ref<HTMLElement | null>(null);
 const measureRef = ref<HTMLElement | null>(null);
-const containerWidth = ref(0);
+const { width: containerWidth } = useElementSize(valueRef);
 const fitChipCount = ref<number>(Number.POSITIVE_INFINITY);
 
 const visibleChips = computed<NormalisedItem[]>(() => {
@@ -351,20 +350,6 @@ const visibleChips = computed<NormalisedItem[]>(() => {
 const overflowCount = computed(() =>
   Math.max(0, selectedItems.value.length - visibleChips.value.length),
 );
-
-let resizeObserver: ResizeObserver | null = null;
-onMounted(() => {
-  if (!valueRef.value) return;
-  containerWidth.value = valueRef.value.clientWidth;
-  resizeObserver = new ResizeObserver((entries) => {
-    for (const e of entries) containerWidth.value = e.contentRect.width;
-  });
-  resizeObserver.observe(valueRef.value);
-});
-onBeforeUnmount(() => {
-  resizeObserver?.disconnect();
-  resizeObserver = null;
-});
 
 // Walk through the mirror's chips and stop when the next one (plus
 // the reserved overflow-pill width) would overflow the visible row.
@@ -729,32 +714,15 @@ function toggleMenu() {
   else openMenu();
 }
 
-// Click-outside: closes the panel when the user clicks anywhere
-// outside both the activator and the panel.
-function onDocPointerDown(evt: PointerEvent) {
-  if (!isOpen.value) return;
-  const target = evt.target as Node | null;
-  if (!target) return;
-  if (activatorRef.value?.contains(target)) return;
-  if (panelRef.value?.contains(target)) return;
-  closeMenu();
-}
-onMounted(() => {
-  document.addEventListener("pointerdown", onDocPointerDown, true);
-});
-onBeforeUnmount(() => {
-  document.removeEventListener("pointerdown", onDocPointerDown, true);
-});
-
-useEscapable(
-  isOpen,
-  () => {
+usePopoverDismiss(isOpen, closeMenu, {
+  reference: () => activatorRef.value,
+  panel: () => panelRef.value,
+  onEscape: () => {
     const focusInPanel = !!panelRef.value?.contains(document.activeElement);
     closeMenu();
     if (focusInPanel) activatorRef.value?.focus();
   },
-  () => panelRef.value,
-);
+});
 
 // Close when search is changed externally? No, keep open while
 // editing search. Reset active index to 0 when filter changes so

@@ -33,11 +33,9 @@ def _search_ids(term: str) -> list[int]:
     return [r.id for r in db_rom_handler.get_roms_scalar(search_term=term)]
 
 
-def _stored_aliases(rom: Rom) -> str | None:
+def _stored_titles(rom: Rom) -> str | None:
     with session_factory() as session:
-        return session.scalar(
-            select(Rom.generated_search_aliases).where(Rom.id == rom.id)
-        )
+        return session.scalar(select(Rom.search_titles).where(Rom.id == rom.id))
 
 
 @pytest.fixture
@@ -100,7 +98,7 @@ def test_titles_from_every_provider_are_searchable_together(platform: Platform):
     assert _search_ids("ffix") == [rom.id]
 
 
-def test_a_rom_without_titles_has_no_aliases(platform: Platform):
+def test_a_rom_without_titles_stores_only_its_name(platform: Platform):
     rom = _add_rom(
         platform,
         "Chrono Trigger",
@@ -108,10 +106,10 @@ def test_a_rom_without_titles_has_no_aliases(platform: Platform):
         moby_metadata={"alternate_titles": "not a list"},
     )
 
-    assert _stored_aliases(rom) is None
+    assert _stored_titles(rom) == "\x1fchrono trigger\x1f"
 
 
-def test_the_aliases_are_stored_as_plain_titles(platform: Platform):
+def test_the_titles_are_stored_folded(platform: Platform):
     rom = _add_rom(
         platform,
         "Final Fantasy IX",
@@ -119,7 +117,26 @@ def test_the_aliases_are_stored_as_plain_titles(platform: Platform):
         ss_metadata={"alternative_names": ["FFIX"]},
     )
 
-    assert _stored_aliases(rom) == "FF9 Final Fantasy 9 FFIX"
+    assert _stored_titles(rom) == (
+        "\x1ffinal fantasy ix\x1fff9\x1ffinal fantasy 9\x1fffix\x1f"
+    )
+
+
+@pytest.mark.parametrize(
+    ("alias", "term"),
+    [
+        # JSON stores these characters escaped, which the titles must not keep.
+        ("ŌKAMI Den", "ōkami den"),
+        ("Chrono\tTrigger", "chrono trigger"),
+        ('Say "Cheese"', 'say "cheese"'),
+    ],
+)
+def test_an_alias_with_an_escaped_character_finds_the_rom(
+    platform: Platform, unrelated: Rom, alias: str, term: str
+):
+    rom = _add_rom(platform, "Name", igdb_metadata={"alternative_names": [alias]})
+
+    assert _search_ids(term) == [rom.id]
 
 
 @pytest.mark.parametrize("term", ['"', ",", "["])
@@ -136,18 +153,15 @@ def test_updating_the_metadata_refreshes_the_aliases(ff9: Rom):
     assert _search_ids("ff9") == []
 
 
-def test_the_mariadb_search_matches_the_alias_column_in_one_fulltext_index():
+def test_the_mariadb_search_matches_the_titles_column_in_one_fulltext_index():
     query = db_rom_handler._filter_by_search_term(select(Rom.id), "ff9")
 
-    assert (
-        "MATCH (roms.name, roms.fs_name, roms.generated_search_aliases)"
-        in compile_sql(query, MARIADB_DIALECT)
+    assert "MATCH (roms.name, roms.fs_name, roms.search_titles)" in compile_sql(
+        query, MARIADB_DIALECT
     )
 
 
-def test_the_postgresql_search_matches_the_alias_column():
+def test_the_postgresql_search_matches_the_titles_column():
     query = db_rom_handler._filter_by_search_term(select(Rom.id), "ff9")
 
-    assert "roms.generated_search_aliases ILIKE" in compile_sql(
-        query, POSTGRESQL_DIALECT
-    )
+    assert "roms.search_titles ILIKE" in compile_sql(query, POSTGRESQL_DIALECT)

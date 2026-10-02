@@ -2,7 +2,11 @@ import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
-import type { LaunchState } from "@/types/rommNative";
+import type {
+  LaunchErrorCode,
+  LaunchState,
+  SaveSyncAction,
+} from "@/types/rommNative";
 import { installNativeLaunchFeedback } from "./index";
 
 // The shell's own launch-state stream, so a test can play back what it sends.
@@ -113,6 +117,37 @@ describe("installNativeLaunchFeedback", () => {
     expect(success).not.toHaveBeenCalled();
   });
 
+  // The save went because its owner deleted it in RomM, so it is news rather
+  // than a success or a problem.
+  it("tells the user a save deleted in RomM went from here too", () => {
+    feedback();
+
+    emit?.({ romId: 7, status: "sync", sync: { action: "deleted" } });
+
+    expect(info).toHaveBeenCalledWith("play.native-save-deleted", {
+      icon: "mdi-delete-outline",
+    });
+    expect(success).not.toHaveBeenCalled();
+  });
+
+  it("logs, but does not toast, a save action a newer shell added", () => {
+    feedback();
+
+    emit?.({
+      romId: 7,
+      status: "sync",
+      sync: { action: "renamed" as SaveSyncAction, detail: "slot moved" },
+    });
+
+    expect(success).not.toHaveBeenCalled();
+    expect(info).not.toHaveBeenCalled();
+    expect(t).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(
+      "[native] Save sync failed:",
+      "slot moved",
+    );
+  });
+
   it("reports a save the shell could not move, and its reason", () => {
     feedback();
 
@@ -153,5 +188,33 @@ describe("installNativeLaunchFeedback", () => {
     expect(success).not.toHaveBeenCalled();
     expect(warning).not.toHaveBeenCalled();
     expect(error).not.toHaveBeenCalled();
+  });
+
+  it("asks the user to sign in again when the session has gone", () => {
+    feedback();
+
+    emit?.({
+      romId: 7,
+      status: "failed",
+      error: { code: "session-expired", message: "401 from /api/roms" },
+    });
+
+    expect(error).toHaveBeenCalledWith("play.native-error-session-expired", {
+      icon: "mdi-alert-circle-outline",
+    });
+  });
+
+  it("falls back to the generic failure for a code a newer shell added", () => {
+    feedback();
+
+    emit?.({
+      romId: 7,
+      status: "failed",
+      error: { code: "disk-full" as LaunchErrorCode, message: "ENOSPC" },
+    });
+
+    expect(error).toHaveBeenCalledWith("play.native-launch-failed", {
+      icon: "mdi-alert-circle-outline",
+    });
   });
 });

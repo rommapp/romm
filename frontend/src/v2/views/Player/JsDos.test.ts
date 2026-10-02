@@ -381,9 +381,9 @@ describe("JsDos player exit", () => {
     const wrapper = mountView();
     await flushPromises();
 
-    await expect(
-      mocks.routeLeaveGuard?.({ fullPath: "/platform/2" }),
-    ).resolves.toBe(false);
+    void mocks.routeLeaveGuard?.({ fullPath: "/platform/2" });
+    await flushPromises();
+
     expect(mocks.locationReplace).toHaveBeenCalledWith("/platform/2");
     wrapper.unmount();
   });

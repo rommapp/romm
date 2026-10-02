@@ -110,8 +110,8 @@ describe("EventLog", () => {
   });
 
   it("searches once typing pauses, or straight away on Enter", async () => {
-    // lodash's debounce reads the clock; setImmediate stays real for flushPromises.
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    // setImmediate stays real for flushPromises.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
       const wrapper = render();
       await flushPromises();
@@ -134,9 +134,17 @@ describe("EventLog", () => {
       await input.setValue("steam");
       await input.trigger("keyup", { key: "Enter" });
       await flushPromises();
+      expect(getAuditEvents).toHaveBeenCalledOnce();
       expect(getAuditEvents).toHaveBeenCalledWith(
         expect.objectContaining({ search: "steam" }),
       );
+
+      // Enter on the same text reloads, and the dropped keystroke never fires.
+      getAuditEvents.mockClear();
+      await input.trigger("keyup", { key: "Enter" });
+      vi.advanceTimersByTime(300);
+      await flushPromises();
+      expect(getAuditEvents).toHaveBeenCalledOnce();
     } finally {
       vi.useRealTimers();
     }
