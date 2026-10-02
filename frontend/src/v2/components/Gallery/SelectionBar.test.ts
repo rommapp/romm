@@ -404,8 +404,16 @@ describe("SelectionBar outline", () => {
     await flushPromises();
     expect(wrapper.find(".selection-bar__outline").exists()).toBe(false);
 
-    observer.resize(wrapper.get(".selection-bar").element, 600, 48);
-    observer.resize(wrapper.get(".selection-bar__notch").element, 64, 40);
+    // Padding makes each border box bigger than its content box; the outline
+    // has to trace the border box.
+    observer.resize(wrapper.get(".selection-bar").element, 580, 40, {
+      width: 600,
+      height: 48,
+    });
+    observer.resize(wrapper.get(".selection-bar__notch").element, 48, 32, {
+      width: 64,
+      height: 40,
+    });
     await nextTick();
 
     const expected = selectionBarOutline({ w: 600, h: 48 }, { w: 64, h: 40 });

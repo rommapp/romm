@@ -32,14 +32,19 @@ export function stubResizeObserver() {
   vi.stubGlobal("ResizeObserver", FakeResizeObserver);
 
   return {
-    /** Reports `el` at the given content size to every observer watching it. */
-    resize(el: Element, width: number, height = 0) {
-      const size = [{ inlineSize: width, blockSize: height }];
+    /** Reports `el` at the given content size (and border-box size, which
+     *  defaults to the same) to every observer watching it. */
+    resize(
+      el: Element,
+      width: number,
+      height = 0,
+      border: { width: number; height: number } = { width, height },
+    ) {
       const entry = {
         target: el,
         contentRect: { width, height },
-        contentBoxSize: size,
-        borderBoxSize: size,
+        contentBoxSize: [{ inlineSize: width, blockSize: height }],
+        borderBoxSize: [{ inlineSize: border.width, blockSize: border.height }],
       } as unknown as ResizeObserverEntry;
       for (const observer of [...FakeResizeObserver.live]) {
         if (observer.targets.has(el)) {
