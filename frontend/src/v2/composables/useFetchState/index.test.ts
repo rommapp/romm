@@ -114,6 +114,18 @@ describe("useFetchState", () => {
     expect(onError).toHaveBeenCalledWith(failure);
   });
 
+  it("treats a rejection without a reason as a failure", async () => {
+    const onSuccess = vi.fn();
+    const onError = vi.fn();
+    const fetch = setup(() =>
+      useFetchState(() => Promise.reject(), "kept", { onSuccess, onError }),
+    );
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(fetch.state.value).toBe("kept");
+  });
+
   it("drops the error of a superseded call", async () => {
     const older = deferred<string>();
     const onError = vi.fn();

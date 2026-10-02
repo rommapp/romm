@@ -37,7 +37,12 @@ export function useFetchState<T>(
   const { state, isLoading, error, executeImmediate } = useAsyncState(
     fetcher,
     initial,
-    { immediate: false, resetOnExecute: false, onError: () => {} },
+    {
+      immediate: false,
+      resetOnExecute: false,
+      throwError: true,
+      onError: () => {},
+    },
   );
 
   let latest = 0;
@@ -45,10 +50,14 @@ export function useFetchState<T>(
   // Callbacks run after the newest call has written `state` and `error`.
   async function execute(...args: unknown[]): Promise<T | undefined> {
     const call = ++latest;
-    const data = await executeImmediate(...args);
-    if (call !== latest) return data;
-    if (error.value !== undefined) options.onError?.(error.value);
-    else options.onSuccess?.(data as T);
+    let data: T | undefined;
+    try {
+      data = await executeImmediate(...args);
+    } catch (err) {
+      if (call === latest) options.onError?.(err);
+      return undefined;
+    }
+    if (call === latest) options.onSuccess?.(data as T);
     return data;
   }
 
