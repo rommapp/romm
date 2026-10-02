@@ -7,7 +7,7 @@
 // they stay as data constants; only descriptive prose goes through i18n.
 import { RAlert, RSelect, RBtn, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
 import type { MetadataMediaType, ScanSettingsPayload } from "@/__generated__";
@@ -21,6 +21,7 @@ import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsSubsection from "@/v2/components/Settings/SettingsSubsection.vue";
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 
@@ -263,23 +264,18 @@ const canEdit = computed(
     config.value.CONFIG_FILE_WRITABLE,
 );
 
-const loading = ref(true);
-const loadError = ref(false);
 const saving = ref(false);
 
-async function loadConfig() {
-  loading.value = true;
-  loadError.value = false;
-  try {
-    resetForm(await configStore.fetchConfig({ rethrow: true }));
-  } catch {
-    loadError.value = true;
-  } finally {
-    loading.value = false;
-  }
-}
-
-onMounted(loadConfig);
+const {
+  isLoading: loading,
+  error,
+  execute: loadConfig,
+} = useFetchState(
+  () => configStore.fetchConfig({ rethrow: true }),
+  config.value,
+  { onSuccess: resetForm },
+);
+const loadError = computed(() => error.value !== undefined);
 
 function onReset() {
   resetForm(config.value);

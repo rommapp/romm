@@ -13,11 +13,12 @@
 // length (already loaded by the collections store on app boot).
 import { RIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/services/api";
 import storeCollections from "@/stores/collections";
 import { formatBytes } from "@/utils";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import WidgetCard from "./WidgetCard.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -42,8 +43,10 @@ interface Stats {
   TOTAL_FILESIZE_BYTES: number;
 }
 
-const stats = ref<Stats | null>(null);
-const loading = ref(true);
+const { state: stats, isLoading: loading } = useFetchState<Stats | null>(
+  () => api.get<Stats>("/stats").then(({ data }) => data),
+  null,
+);
 
 const favoritesCount = computed(
   () => favoriteCollection.value?.rom_ids?.length ?? 0,
@@ -99,17 +102,6 @@ const allRows = computed<Row[]>(() => {
       value: formatBytes(s.TOTAL_FILESIZE_BYTES, 1),
     },
   ];
-});
-
-onMounted(async () => {
-  try {
-    const { data } = await api.get<Stats>("/stats");
-    stats.value = data;
-  } catch {
-    stats.value = null;
-  } finally {
-    loading.value = false;
-  }
 });
 </script>
 

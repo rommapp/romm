@@ -15,6 +15,7 @@ import { MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useReadingProgress } from "@/v2/composables/useReadingProgress";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 
@@ -55,9 +56,6 @@ const fileName = computed(() => {
   }
 });
 
-const content = ref("");
-const loading = ref(false);
-const failed = ref(false);
 const scrollEl = ref<HTMLElement | null>(null);
 
 const romIdRef = computed(() => props.romId ?? 0);
@@ -70,25 +68,33 @@ const { progress, restore, onScroll } = useReadingProgress(
   scrollEl,
 );
 
-async function load() {
-  loading.value = true;
-  failed.value = false;
-  try {
+const {
+  state: content,
+  isLoading: loading,
+  error,
+  execute: load,
+} = useFetchState(
+  async () => {
     const res = await fetch(props.url, { credentials: "include" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    content.value = await res.text();
+    return res.text();
+  },
+  "",
+  {
+    immediate: false,
     // Restore scroll once MdPreview has laid the rendered Markdown out.
-    await nextTick();
-    requestAnimationFrame(() => void restore());
-  } catch (err) {
-    console.error("Failed to load markdown manual", err);
-    failed.value = true;
-  } finally {
-    loading.value = false;
-  }
-}
+    onSuccess: () =>
+      nextTick(() => requestAnimationFrame(() => void restore())),
+    onError: (err) => console.error("Failed to load markdown manual", err),
+  },
+);
+const failed = computed(() => error.value !== undefined);
 
-watch(() => props.url, load, { immediate: true });
+watch(
+  () => props.url,
+  () => void load(),
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -158,7 +164,7 @@ watch(() => props.url, load, { immediate: true });
         :title="t('rom.manual-load-failed')"
       >
         <template #actions>
-          <RBtn variant="outlined" size="small" @click="load">
+          <RBtn variant="outlined" size="small" @click="load()">
             {{ t("common.try-again") }}
           </RBtn>
         </template>
