@@ -59,6 +59,24 @@ interface NormalisedItem {
   disabled?: boolean;
 }
 
+// `multiple` needs an array model and single-select `clearable` a nullable one.
+// `boolean &` keeps Vue's runtime Boolean casting.
+type IsArrayModel = [NonNullable<Model>] extends [readonly unknown[]]
+  ? true
+  : false;
+type MultipleAllowed = unknown extends Model
+  ? unknown
+  : IsArrayModel extends true
+    ? unknown
+    : false;
+type ClearableAllowed = unknown extends Model
+  ? unknown
+  : null extends Model
+    ? unknown
+    : IsArrayModel extends true
+      ? unknown
+      : false;
+
 interface Props {
   /** Typed by the bound ref; RSelect trusts it matches the items' keys. */
   modelValue?: Model;
@@ -69,14 +87,14 @@ interface Props {
   density?: "default" | "comfortable" | "compact";
   itemTitle?: string | ((item: Item) => string);
   itemValue?: string | ((item: Item) => unknown);
-  multiple?: boolean;
+  multiple?: boolean & MultipleAllowed;
   /** When true, the model holds the raw item objects instead of their
    *  `itemValue` keys. Read paths (selection comparisons, chip
    *  rendering, isSelected) are mode-agnostic: only emits change. */
   returnObject?: boolean;
   chips?: boolean;
   closableChips?: boolean;
-  clearable?: boolean;
+  clearable?: boolean & ClearableAllowed;
   disabled?: boolean;
   readonly?: boolean;
   loading?: boolean;

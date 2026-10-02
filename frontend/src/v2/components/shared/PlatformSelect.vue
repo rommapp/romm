@@ -85,6 +85,16 @@ defineOptions({ inheritAttrs: false });
 
 type PlatformKey = "id" | "slug" | "fs_slug";
 
+// Same model checks as RSelect, which these props pass through to.
+type IsArrayModel = [NonNullable<Model>] extends [readonly unknown[]]
+  ? true
+  : false;
+type ClearableAllowed = null extends Model
+  ? unknown
+  : IsArrayModel extends true
+    ? unknown
+    : false;
+
 interface Props {
   modelValue?: Model;
   items: Platform[];
@@ -92,9 +102,9 @@ interface Props {
    *  `slug` is used by FolderMapping (the table works in slug space)
    *  `fs_slug` is used by Scan (mixes database platforms and folders) */
   itemKey?: PlatformKey;
-  multiple?: boolean;
+  multiple?: boolean & (IsArrayModel extends true ? unknown : false);
   searchable?: boolean;
-  clearable?: boolean;
+  clearable?: boolean & ClearableAllowed;
   /** When `multiple`, render each selection as a small icon-only RTag
    *  with an automatic "+N" overflow pill. Defaults to `true` so the
    *  visual is consistent across every multi-platform picker; pass
@@ -221,9 +231,10 @@ function showPromoteRomBadge(platform: Platform): boolean {
 </script>
 
 <template>
+  <!-- Model checks happen on this component's props; RSelect sees unknown. -->
   <RSelect
     v-bind="$attrs"
-    :model-value="modelValue"
+    :model-value="modelValue as unknown"
     :items="listItems"
     item-title="display_name"
     :item-value="itemKey"
