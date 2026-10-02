@@ -1,4 +1,4 @@
-import { RBtn } from "@v2/lib";
+import { RBtn, RSlider } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, type Slots, type VNodeChild } from "vue";
@@ -1296,16 +1296,25 @@ describe("Stream volume over the broker", () => {
     mocks.setVolume.mockResolvedValue({});
   });
 
+  // The volume slider sits in the bar, which a running game puts on screen.
+  async function play(): Promise<VueWrapper> {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    await flushPromises();
+    return wrapper;
+  }
+
   async function slide(wrapper: VueWrapper, ...levels: number[]) {
-    const vm = wrapper.vm as unknown as { volume: number };
+    const slider = wrapper.getComponent(RSlider);
     for (const level of levels) {
-      vm.volume = level;
+      slider.vm.$emit("update:modelValue", level);
       await nextTick();
     }
   }
 
   it("hands the broker a volume only once it settles", async () => {
-    const wrapper = await launch({ picker: false });
+    const wrapper = await play();
 
     await slide(wrapper, 40, 30);
     await vi.advanceTimersByTimeAsync(149);
@@ -1317,7 +1326,7 @@ describe("Stream volume over the broker", () => {
   });
 
   it("drops a volume still settling when the view unmounts", async () => {
-    const wrapper = await launch({ picker: false });
+    const wrapper = await play();
 
     await slide(wrapper, 40);
     wrapper.unmount();
