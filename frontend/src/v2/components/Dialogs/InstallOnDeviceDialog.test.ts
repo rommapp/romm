@@ -23,11 +23,7 @@ const {
   socketHandlers: new Map<string, (payload: unknown) => void>(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string) => key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/services/api/device", () => ({
   default: { fetchDevices, fetchOnlineDeviceIds },

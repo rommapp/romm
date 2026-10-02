@@ -59,7 +59,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
   window.matchMedia = realMatchMedia;
 });
 

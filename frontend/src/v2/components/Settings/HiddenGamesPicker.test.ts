@@ -6,9 +6,7 @@ import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@v2/lib", () => {
   const stub = defineComponent({ template: "<span><slot /></span>" });

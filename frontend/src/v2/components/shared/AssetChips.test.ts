@@ -4,9 +4,7 @@ import type { SaveSchema } from "@/__generated__";
 import { saveFixture } from "@/utils/assets.fixtures";
 import AssetChips from "./AssetChips.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 const RTag = {

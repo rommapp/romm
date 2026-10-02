@@ -18,9 +18,7 @@ vi.mock("vue-router", async (importOriginal) => ({
   useRouter: () => ({ replace, currentRoute: { value: route } }),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const stub = (name: string) =>
   defineComponent({ name, template: `<div data-testid="${name}" />` });

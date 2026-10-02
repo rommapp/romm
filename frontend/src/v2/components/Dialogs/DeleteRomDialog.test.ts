@@ -19,9 +19,7 @@ const route = reactive<{ name: string; params: Record<string, string> }>({
   params: { rom: "5" },
 });
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => route,

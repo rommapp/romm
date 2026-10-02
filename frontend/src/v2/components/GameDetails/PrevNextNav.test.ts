@@ -8,9 +8,7 @@ const { gallery, fromGallery } = vi.hoisted(() => ({
   fromGallery: { value: true },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),

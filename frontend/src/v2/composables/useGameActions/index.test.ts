@@ -32,9 +32,7 @@ vi.mock("vue", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue")>()),
   inject: () => ({ emit: emitterEmit }),
 }));
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", () => ({
   useRouter: () => ({ push }),
 }));

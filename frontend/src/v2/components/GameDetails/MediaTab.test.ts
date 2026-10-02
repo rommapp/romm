@@ -6,9 +6,7 @@ import { createMemoryHistory, createRouter, type Router } from "vue-router";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
 import MediaTab from "./MediaTab.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/v2/composables/useRomSync", () => ({
   useRomSync: () => ({ refetchRom: vi.fn() }),
 }));

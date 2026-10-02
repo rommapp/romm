@@ -54,9 +54,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   }),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const refetchRom = vi.fn(async () => null);
 vi.mock("@/v2/composables/useRomSync", () => ({
@@ -106,7 +104,6 @@ describe("installPendingAssetSync", () => {
   afterEach(() => {
     wrapper?.unmount();
     wrapper = null;
-    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 

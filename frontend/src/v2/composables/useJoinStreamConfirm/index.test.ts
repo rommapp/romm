@@ -4,9 +4,7 @@ import { useJoinStreamConfirm } from "./index";
 const push = vi.fn();
 const confirmFn = vi.fn();
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", () => ({
   useRouter: () => ({ push }),
 }));

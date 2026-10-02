@@ -16,7 +16,6 @@ describe("releaseSessionKeepalive", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.restoreAllMocks();
     fetchMock.mockClear();
   });
@@ -53,7 +52,6 @@ describe("saveAndExitKeepalive", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     fetchMock.mockClear();
   });
 

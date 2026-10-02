@@ -20,9 +20,7 @@ const { api, confirm } = vi.hoisted(() => ({
 
 vi.mock("@/services/api/notification", () => ({ default: api }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/utils/notifications", () => ({
   describeNotification: (n: NotificationSchema) => ({

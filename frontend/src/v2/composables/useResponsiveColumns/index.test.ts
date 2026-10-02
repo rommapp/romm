@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { stubResizeObserver } from "@/test-utils/resizeObserver";
 import { useResponsiveColumns } from "./index";
@@ -29,7 +29,6 @@ describe("useResponsiveColumns", () => {
     observer = stubResizeObserver();
     cardWidth.value = 158;
   });
-  afterEach(() => vi.unstubAllGlobals());
 
   it("derives the column count from the observed width", async () => {
     const wrapper = await mountHost();

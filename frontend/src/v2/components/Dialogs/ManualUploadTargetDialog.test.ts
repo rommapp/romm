@@ -16,9 +16,7 @@ const { uploadManuals, uploadFiles, getRom } = vi.hoisted(() => ({
   getRom: vi.fn(() => Promise.resolve({ data: {} })),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/services/api/rom", () => ({
   default: { uploadManuals, getRom },

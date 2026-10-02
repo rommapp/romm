@@ -1,6 +1,6 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
 import storeAuth from "@/stores/auth";
 import storeCollections, { type Collection } from "@/stores/collections";
@@ -396,7 +396,6 @@ describe("SelectionBar outline", () => {
     setActivePinia(createPinia());
     storeAuth().setCurrentUser(userFixture());
   });
-  afterEach(() => vi.unstubAllGlobals());
 
   it("draws the outline from the bar's and notch's measured sizes", async () => {
     const observer = stubResizeObserver();

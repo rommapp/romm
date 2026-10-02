@@ -10,9 +10,7 @@ const { getRandomRom, snackbarError } = vi.hoisted(() => ({
   snackbarError: vi.fn(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/plugins/router", () => ({
   ROUTES: { ROM: "rom" },

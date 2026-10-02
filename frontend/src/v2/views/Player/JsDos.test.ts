@@ -29,9 +29,7 @@ const mocks = vi.hoisted(() => ({
   userId: 7,
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("vue-router", () => ({
   onBeforeRouteLeave: (guard: (to: { fullPath: string }) => unknown) => {
@@ -152,7 +150,6 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  vi.unstubAllGlobals();
   vi.restoreAllMocks();
   Object.defineProperty(window, "location", {
     configurable: true,

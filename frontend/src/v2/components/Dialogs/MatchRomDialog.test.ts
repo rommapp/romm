@@ -8,9 +8,7 @@ import MatchRomDialog from "./MatchRomDialog.vue";
 
 const { searchRom } = vi.hoisted(() => ({ searchRom: vi.fn() }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => ({ name: "gallery" }),

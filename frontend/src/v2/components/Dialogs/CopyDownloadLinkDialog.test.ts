@@ -6,9 +6,7 @@ import CopyDownloadLinkDialog from "./CopyDownloadLinkDialog.vue";
 
 const { copy } = vi.hoisted(() => ({ copy: vi.fn() }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useClipboard", () => ({
   useClipboard: () => ({ isSupported: true, copy }),

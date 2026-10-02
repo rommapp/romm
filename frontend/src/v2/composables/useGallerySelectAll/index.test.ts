@@ -24,9 +24,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   }),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 function rom(id: number): SimpleRom {
   return { id, name: `Game ${id}`, platform_id: 1 } as SimpleRom;

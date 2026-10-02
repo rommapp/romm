@@ -26,6 +26,8 @@ export default defineConfig({
           environment: "happy-dom",
           globals: true,
           setupFiles: ["./vitest.setup.ts"],
+          // `vi.stubGlobal` stubs are undone before each test.
+          unstubGlobals: true,
           include: ["src/**/*.{test,spec}.ts", "test/**/*.{test,spec}.ts"],
         },
       },

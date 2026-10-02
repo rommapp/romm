@@ -46,7 +46,7 @@ function boxSize({ width, height }: Size): ResizeObserverSize[] {
   return [{ inlineSize: width, blockSize: height }];
 }
 
-/** Installs the fake for the current test; undo with `vi.unstubAllGlobals()`. */
+/** Installs the fake for the current test (`unstubGlobals` removes it after). */
 export function stubResizeObserver() {
   FakeResizeObserver.instances.clear();
   vi.stubGlobal("ResizeObserver", FakeResizeObserver);

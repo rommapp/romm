@@ -205,7 +205,6 @@ describe("useSpatialNav", () => {
     expect(scrollIntoView).toHaveBeenCalledWith(
       expect.objectContaining({ block: "center" }),
     );
-    vi.unstubAllGlobals();
   });
 
   it("skips controls a roving tabindex has taken out of the tab order", () => {

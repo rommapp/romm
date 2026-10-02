@@ -69,10 +69,6 @@ describe("pendingAssetStore without IndexedDB", () => {
 });
 
 describe("pendingAssetId", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it("keys a capture to its rom", () => {
     expect(pendingAssetId(7)).toMatch(/^7:.+/);
   });
@@ -236,7 +232,6 @@ describe("syncPendingAssets", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
     romApiMocks.getRom.mockReset();

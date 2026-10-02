@@ -8,9 +8,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import AboutDialog from "./AboutDialog.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 // happy-dom has no ResizeObserver that fires, so the test lays the grid out.
 const resize = vi.hoisted(() => ({ layout: () => {} }));

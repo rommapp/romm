@@ -14,9 +14,7 @@ const { startScan, persistSelection, snackbarInfo, sources } = vi.hoisted(
   }),
 );
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/v2/composables/useScanTrigger", () => ({
   useScanTrigger: () => ({ startScan }),
 }));

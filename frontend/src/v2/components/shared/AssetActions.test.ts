@@ -4,9 +4,7 @@ import type { SaveSchema } from "@/__generated__";
 import { saveFixture } from "@/utils/assets.fixtures";
 import AssetActions from "./AssetActions.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const RBtn = {
   props: { ariaLabel: { type: String, default: "" } },

@@ -9,9 +9,7 @@ const { emit, connect, warning } = vi.hoisted(() => ({
   warning: vi.fn(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/services/socket", () => ({
   default: { connected: false, connect, emit },
 }));

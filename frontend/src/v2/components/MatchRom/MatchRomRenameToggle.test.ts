@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { makeRom } from "@/utils/rom.fixtures";
 import MatchRomRenameToggle from "./MatchRomRenameToggle.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const rom = makeRom({
   fs_name: "Zelda (USA).gba",

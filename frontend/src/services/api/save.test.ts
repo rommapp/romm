@@ -36,7 +36,6 @@ describe("sendSaveOnUnload", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     fetchMock.mockClear();
   });
 

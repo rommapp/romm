@@ -4,9 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Events } from "@/types/emitter";
 import ConfirmDialog from "./ConfirmDialog.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const RBtnStub = {
   props: { disabled: { type: Boolean, default: false } },

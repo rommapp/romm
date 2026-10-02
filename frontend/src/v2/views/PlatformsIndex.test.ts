@@ -6,9 +6,7 @@ import { defineComponent, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import PlatformsIndex from "./PlatformsIndex.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 // Plain object rather than a reactive route: every test sets the query
 // before mounting, which is when the view reads it.

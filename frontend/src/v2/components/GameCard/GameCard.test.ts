@@ -6,9 +6,7 @@ import type { SimpleRom } from "@/stores/roms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import GameCard from "./GameCard.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 function rom(id: number): SimpleRom {
   return { id, name: `Game ${id}`, platform_slug: "snes" } as SimpleRom;

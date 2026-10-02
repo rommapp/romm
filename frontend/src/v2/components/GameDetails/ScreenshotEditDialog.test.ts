@@ -2,9 +2,7 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import ScreenshotEditDialog from "./ScreenshotEditDialog.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const RDialog = {
   props: { modelValue: { type: Boolean, default: false } },

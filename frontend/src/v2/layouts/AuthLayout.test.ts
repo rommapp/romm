@@ -6,9 +6,7 @@ import { nextTick } from "vue";
 import type { Events } from "@/types/emitter";
 import AuthLayout from "./AuthLayout.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useBreakpoint", () => ({
   installBreakpointAttribute: vi.fn(),

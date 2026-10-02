@@ -15,9 +15,7 @@ const { uploadRoms, refetchRom, confirmFn, snackbar } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/services/api/rom", () => ({
   default: { uploadRoms },
 }));
