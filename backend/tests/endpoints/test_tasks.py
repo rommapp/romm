@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from typing import Any
 from unittest.mock import Mock, PropertyMock, patch
 
@@ -868,6 +869,7 @@ class TestStartScan:
             json={
                 "type": "update",
                 "platforms": [1, 2],
+                "platform_fs_slugs": ["n64"],
                 "apis": ["igdb", "ss"],
                 "launchbox_remote_enabled": False,
             },
@@ -887,23 +889,37 @@ class TestStartScan:
         assert kwargs["metadata_sources"] == ["igdb", "ss"]
         assert kwargs["scan_type"] == ScanType.UPDATE
         assert kwargs["roms_ids"] == []
-        assert kwargs["platform_fs_slugs"] == []
+        assert kwargs["platform_fs_slugs"] == ["n64"]
         assert kwargs["launchbox_remote_enabled"] is False
         assert kwargs["started_by_user_id"] == admin_user.id
         assert kwargs["at_front"] is False
 
     @pytest.mark.parametrize("body", [{"json": {}}, {}], ids=["empty", "missing"])
     def test_no_options_queue_a_quick_scan_of_everything(
-        self, enqueue, post_scan, body
+        self, mocker, enqueue, post_scan, body
     ):
+        mocker.patch(
+            "endpoints.tasks.get_enabled_metadata_sources", return_value=["igdb"]
+        )
+
         response = post_scan(**body)
 
         assert response.status_code == status.HTTP_202_ACCEPTED
         kwargs = enqueue.call_args.kwargs
         assert kwargs["scan_type"] == ScanType.QUICK
         assert kwargs["platform_ids"] == []
-        assert kwargs["metadata_sources"] == []
+        assert kwargs["metadata_sources"] == ["igdb"]
         assert kwargs["launchbox_remote_enabled"] is True
+
+    def test_an_empty_apis_list_scans_without_sources(self, mocker, enqueue, post_scan):
+        mocker.patch(
+            "endpoints.tasks.get_enabled_metadata_sources", return_value=["igdb"]
+        )
+
+        response = post_scan(json={"apis": []})
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        assert enqueue.call_args.kwargs["metadata_sources"] == []
 
     @pytest.mark.parametrize(
         ("scopes", "expected"),
@@ -932,6 +948,19 @@ class TestStartScan:
 
         assert response.status_code == status.HTTP_409_CONFLICT
         assert response.json()["detail"] == "Quick Scan is already running"
+        enqueue.assert_not_called()
+
+    def test_a_held_request_lock_is_refused(self, mocker, enqueue, post_scan):
+        @asynccontextmanager
+        async def held_lock(*args, **kwargs):
+            raise TimeoutError
+            yield
+
+        mocker.patch("endpoints.sockets.scan.redis_lock", held_lock)
+
+        response = post_scan(json={})
+
+        assert response.status_code == status.HTTP_409_CONFLICT
         enqueue.assert_not_called()
 
     def test_a_rom_scan_is_accepted_while_a_library_scan_runs(

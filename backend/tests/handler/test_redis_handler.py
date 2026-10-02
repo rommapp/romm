@@ -17,6 +17,7 @@ from handler.redis_handler import (
     get_worker_current_job,
     has_live_worker,
     low_prio_queue,
+    redis_lock,
 )
 
 
@@ -182,3 +183,16 @@ class TestAsyncCacheUnderTests:
         value = asyncio.run(read())
 
         assert value in ("1", b"1")
+
+
+class TestRedisLock:
+    @pytest.mark.parametrize(
+        ("lease_seconds", "expected_ttl"), [(None, 5), (30, 30)], ids=["wait", "lease"]
+    )
+    async def test_the_key_lives_for_the_lease(self, lease_seconds, expected_ttl):
+        async with redis_lock(
+            "test-lock", timeout_seconds=5, lease_seconds=lease_seconds
+        ):
+            assert await async_cache.ttl("test-lock") == expected_ttl
+
+        assert not await async_cache.exists("test-lock")

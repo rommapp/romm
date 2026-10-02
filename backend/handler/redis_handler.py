@@ -144,16 +144,26 @@ async_binary_cache = __get_async_binary_cache()
 
 @asynccontextmanager
 async def redis_lock(
-    key: str, *, timeout_seconds: int, poll_seconds: float = 0.1
+    key: str,
+    *,
+    timeout_seconds: int,
+    poll_seconds: float = 0.1,
+    lease_seconds: int | None = None,
 ) -> AsyncIterator[None]:
     """Hold `key` as a mutex across gunicorn workers, via SET NX (no Lua needed).
+
+    Args:
+        lease_seconds: How long the key outlives a holder that never releases it,
+            `timeout_seconds` by default
 
     Raises:
         TimeoutError: The key stayed held for `timeout_seconds`.
     """
     token = uuid4().hex
     for _ in range(int(timeout_seconds / poll_seconds)):
-        if await async_cache.set(key, token, nx=True, ex=timeout_seconds):
+        if await async_cache.set(
+            key, token, nx=True, ex=lease_seconds or timeout_seconds
+        ):
             break
         await asyncio.sleep(poll_seconds)
     else:

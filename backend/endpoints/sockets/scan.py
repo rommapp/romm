@@ -70,6 +70,7 @@ from handler.scan_handler import (
     build_hashless_fs_rom,
     download_rom_resources,
     emit_scanning_rom,
+    get_enabled_metadata_sources,
     persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
@@ -1488,6 +1489,8 @@ async def scan_platforms(
 # different web workers cannot both queue a library scan.
 LIBRARY_SCAN_REQUEST_LOCK: Final = "romm:library-scan-request-lock"
 LIBRARY_SCAN_REQUEST_LOCK_SECONDS: Final = 5
+# Outlives the wait, so a slow holder still has the lock when a waiter gives up.
+LIBRARY_SCAN_REQUEST_LOCK_LEASE_SECONDS: Final = 30
 
 
 async def queue_scan(
@@ -1512,6 +1515,7 @@ async def queue_scan(
         else redis_lock(
             LIBRARY_SCAN_REQUEST_LOCK,
             timeout_seconds=LIBRARY_SCAN_REQUEST_LOCK_SECONDS,
+            lease_seconds=LIBRARY_SCAN_REQUEST_LOCK_LEASE_SECONDS,
         )
     )
     try:
@@ -1578,7 +1582,9 @@ async def scan_handler(sid: str, options: dict[str, Any]) -> None:
     platform_ids = options.get("platforms", [])
     platform_fs_slugs = options.get("platform_fs_slugs", [])
     roms_ids = options.get("roms_ids", [])
-    metadata_sources = options.get("apis", [])
+    metadata_sources = options.get("apis")
+    if metadata_sources is None:
+        metadata_sources = get_enabled_metadata_sources()
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
 
     requested_type = options.get("type", "quick")

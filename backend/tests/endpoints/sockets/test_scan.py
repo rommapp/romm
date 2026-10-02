@@ -2255,6 +2255,24 @@ class TestScanConcurrency:
 
         assert enqueue.call_args.kwargs["started_by_user_id"] == authorized.id
 
+    @pytest.mark.parametrize(
+        ("options", "expected"),
+        [({}, ["igdb", "ss"]), ({"apis": []}, []), ({"apis": ["moby"]}, ["moby"])],
+        ids=["left-out", "none", "picked"],
+    )
+    async def test_a_scan_without_apis_uses_the_enabled_sources(
+        self, mocker, emit, options, expected
+    ):
+        patch_scan_jobs(mocker)
+        mocker.patch.object(
+            scan_module, "get_enabled_metadata_sources", return_value=["igdb", "ss"]
+        )
+        enqueue = mocker.patch.object(scan_queue, "enqueue")
+
+        await scan_handler("sid", {"type": "quick", **options})
+
+        assert enqueue.call_args.kwargs["metadata_sources"] == expected
+
     async def test_refuses_when_a_scan_is_running(self, mocker, emit):
         patch_scan_jobs(mocker, running=make_job(SCAN_PLATFORMS_FUNC))
         enqueue = mocker.patch.object(scan_queue, "enqueue")

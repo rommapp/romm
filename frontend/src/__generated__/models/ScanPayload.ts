@@ -5,14 +5,14 @@
 import type { MetadataSource } from './MetadataSource';
 import type { ScanType } from './ScanType';
 /**
- * The options of the `scan` socket event.
+ * What to scan, with the options the `scan` socket event takes.
  */
 export type ScanPayload = {
     type?: ScanType;
     platforms?: Array<number>;
     platform_fs_slugs?: Array<string>;
     roms_ids?: Array<number>;
-    apis?: Array<MetadataSource>;
+    apis?: (Array<MetadataSource> | null);
     launchbox_remote_enabled?: boolean;
 };
 

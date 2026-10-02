@@ -39,7 +39,11 @@ from handler.redis_handler import (
     redis_client,
     scan_queue,
 )
-from handler.scan_handler import MetadataSource, ScanType
+from handler.scan_handler import (
+    MetadataSource,
+    ScanType,
+    get_enabled_metadata_sources,
+)
 from models.audit_event import AuditAction, AuditTargetType
 from tasks.registry import (
     MANUAL_TASKS,
@@ -398,7 +402,7 @@ async def run_single_task(
 
 
 class ScanPayload(BaseModel):
-    """The options of the `scan` socket event."""
+    """What to scan, with the options the `scan` socket event takes."""
 
     # A misspelt key would otherwise fall back to a scan of the whole library.
     model_config = ConfigDict(extra="forbid")
@@ -407,7 +411,8 @@ class ScanPayload(BaseModel):
     platforms: list[int] = []
     platform_fs_slugs: list[str] = []
     roms_ids: list[int] = []
-    apis: list[MetadataSource] = []
+    # Left out, the scan uses every enabled source, as a scheduled scan does.
+    apis: list[MetadataSource] | None = None
     launchbox_remote_enabled: bool = True
 
 
@@ -441,7 +446,11 @@ async def start_scan(
     try:
         job = await queue_scan(
             platform_ids=payload.platforms,
-            metadata_sources=[source.value for source in payload.apis],
+            metadata_sources=(
+                get_enabled_metadata_sources()
+                if payload.apis is None
+                else [source.value for source in payload.apis]
+            ),
             scan_type=payload.type,
             roms_ids=payload.roms_ids,
             launchbox_remote_enabled=payload.launchbox_remote_enabled,
