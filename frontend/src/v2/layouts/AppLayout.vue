@@ -9,7 +9,7 @@
 // Per-ROM action menus are not app-wide: each GameCard owns its own
 // `MoreMenu` dropdown on the three-dots button. Right-click is left to
 // the browser so "Open in new tab" etc. keep working.
-import { useEventListener, useThrottleFn } from "@vueuse/core";
+import { useEventListener, useThrottleFn, useTimeoutFn } from "@vueuse/core";
 import {
   defineAsyncComponent,
   onBeforeUnmount,
@@ -157,20 +157,8 @@ const activeLayer = ref<"a" | "b">("a");
 // across the gallery would trigger one cross-fade per card and the
 // 700ms fades collide as flashes; the latest call wins after the dwell.
 const BG_HOVER_DWELL_MS = 80;
-let bgTimer: ReturnType<typeof setTimeout> | null = null;
-
-function setBackgroundArt(url: string | null) {
-  const current = activeLayer.value === "a" ? layerA.value : layerB.value;
-  if (current === url) {
-    if (bgTimer !== null) {
-      clearTimeout(bgTimer);
-      bgTimer = null;
-    }
-    return;
-  }
-  if (bgTimer !== null) clearTimeout(bgTimer);
-  bgTimer = setTimeout(() => {
-    bgTimer = null;
+const bgSwap = useTimeoutFn(
+  (url: string | null) => {
     if (activeLayer.value === "a") {
       layerB.value = url;
       activeLayer.value = "b";
@@ -178,7 +166,18 @@ function setBackgroundArt(url: string | null) {
       layerA.value = url;
       activeLayer.value = "a";
     }
-  }, BG_HOVER_DWELL_MS);
+  },
+  BG_HOVER_DWELL_MS,
+  { immediate: false },
+);
+
+function setBackgroundArt(url: string | null) {
+  const current = activeLayer.value === "a" ? layerA.value : layerB.value;
+  if (current === url) {
+    bgSwap.stop();
+    return;
+  }
+  bgSwap.start(url);
 }
 provide(BACKGROUND_ART_KEY, setBackgroundArt);
 
@@ -251,10 +250,6 @@ onBeforeUnmount(() => {
   removeOverlayRouteDismiss = null;
   removeQueryNavigationGuard?.();
   removeQueryNavigationGuard = null;
-  if (bgTimer !== null) {
-    clearTimeout(bgTimer);
-    bgTimer = null;
-  }
   // Leaving v2 (e.g. switching back to the v1 UI): drop the root flag so
   // the class doesn't linger on a non-v2 document.
   document.documentElement.classList.remove("r-v2-reduced-motion");

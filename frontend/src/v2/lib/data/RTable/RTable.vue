@@ -26,7 +26,8 @@
 // Sort emits the new (key, dir): toggling direction on the active
 // column or starting at "asc" on a new column. The store/composable
 // owns the actual sort state; RTable is pure UI.
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { useTimeoutFn } from "@vueuse/core";
+import { computed, ref, watch } from "vue";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import REmptyState from "../../primitives/REmptyState/REmptyState.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
@@ -128,22 +129,17 @@ const rowStyle = computed(() =>
 // re-inserts, the keyed DOM nodes, restarting CSS animations) doesn't
 // replay it. New rows added later simply appear without the flourish.
 const hasEntered = ref(false);
-let enterTimer: ReturnType<typeof setTimeout> | undefined;
+// Animation (≈320ms) + max stagger (12 × 24ms) with headroom.
+const enter = useTimeoutFn(() => (hasEntered.value = true), 700, {
+  immediate: false,
+});
 watch(
   () => phase.value === "content",
   (showing) => {
-    if (showing && !hasEntered.value && enterTimer === undefined) {
-      // animation (≈320ms) + max stagger (12 × 24ms) with headroom.
-      enterTimer = setTimeout(() => {
-        hasEntered.value = true;
-      }, 700);
-    }
+    if (showing && !hasEntered.value && !enter.isPending.value) enter.start();
   },
   { immediate: true },
 );
-onBeforeUnmount(() => {
-  if (enterTimer !== undefined) clearTimeout(enterTimer);
-});
 </script>
 
 <template>

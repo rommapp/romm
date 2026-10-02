@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Owns the app-wide `<audio>` element, so playback survives route changes. The
 // card floats on desktop; on phones the top bar's NowPlayingPill opens it.
+import { useTimeoutFn } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -42,19 +43,15 @@ let loadToken = 0;
 // Track loads, seeks and short stalls often resolve within a second; buffering
 // is only reported once a wait outlasts that, so the covers don't flash.
 const BUFFERING_DELAY_MS = 1000;
-let bufferingTimer: ReturnType<typeof setTimeout> | undefined;
+const { start: scheduleBuffering, stop: cancelBuffering } = useTimeoutFn(
+  () => store.setBuffering(true),
+  BUFFERING_DELAY_MS,
+  { immediate: false },
+);
 
 function setBuffered() {
-  clearTimeout(bufferingTimer);
+  cancelBuffering();
   store.setBuffering(false);
-}
-
-function scheduleBuffering() {
-  clearTimeout(bufferingTimer);
-  bufferingTimer = setTimeout(
-    () => store.setBuffering(true),
-    BUFFERING_DELAY_MS,
-  );
 }
 
 onMounted(() => {
@@ -62,7 +59,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  clearTimeout(bufferingTimer);
   store.setAudioRef(null);
 });
 
@@ -124,7 +120,7 @@ function onCanPlay() {
   setBuffered();
 }
 function onError() {
-  clearTimeout(bufferingTimer);
+  cancelBuffering();
   store.setError();
   // Snackbar payload still uses v1's `snackbarShow` event shape;
   // when v1 is removed, switch to `useSnackbar()` here.
