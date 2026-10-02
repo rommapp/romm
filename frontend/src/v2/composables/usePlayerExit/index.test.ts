@@ -90,8 +90,24 @@ describe("usePlayerExit", () => {
     setIsolated(true);
     const exit = usePlayerExit();
 
-    await expect(exit.guard({ fullPath: "/platform/2" })).resolves.toBe(false);
+    void exit.guard({ fullPath: "/platform/2" });
+    await flushPromises();
+
     expect(locationReplace).toHaveBeenCalledWith("/platform/2");
+  });
+
+  // An aborted Back makes the router traverse forward again, and that traversal
+  // cancels a replace to the URL the Back already landed on.
+  it("never settles a departure it turns into a full navigation", async () => {
+    setIsolated(true);
+    const exit = usePlayerExit();
+    const settled = vi.fn();
+
+    exit.guard({ fullPath: "/platform/2" }).then(settled, settled);
+    await flushPromises();
+
+    expect(locationReplace).toHaveBeenCalled();
+    expect(settled).not.toHaveBeenCalled();
   });
 
   // What the departing document still owes runs while it is still there, since
@@ -108,7 +124,8 @@ describe("usePlayerExit", () => {
       },
     );
 
-    await exit.guard({ fullPath: "/platform/2" });
+    void exit.guard({ fullPath: "/platform/2" });
+    await flushPromises();
 
     expect(settled).toEqual(["settle", "replace"]);
   });
@@ -123,7 +140,8 @@ describe("usePlayerExit", () => {
       fullscreenAtReplace = document.fullscreenElement;
     });
 
-    await usePlayerExit().guard({ fullPath: "/platform/2" });
+    void usePlayerExit().guard({ fullPath: "/platform/2" });
+    await flushPromises();
 
     expect(fullscreenAtReplace).toBeNull();
     dispose();
@@ -140,7 +158,8 @@ describe("usePlayerExit", () => {
       () => Promise.reject(new Error("nope")),
     );
 
-    await exit.guard({ fullPath: "/platform/2" });
+    void exit.guard({ fullPath: "/platform/2" });
+    await flushPromises();
 
     expect(locationReplace).toHaveBeenCalledWith("/platform/2");
     error.mockRestore();
@@ -156,7 +175,7 @@ describe("usePlayerExit", () => {
     [
       "a route departure",
       (exit: ReturnType<typeof usePlayerExit>) =>
-        exit.guard({ fullPath: "/rom/1" }),
+        void exit.guard({ fullPath: "/rom/1" }),
     ],
   ])("announces %s that replaces the document", async (_label, act) => {
     setIsolated(true);
