@@ -2,6 +2,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeTasks from "@/stores/tasks";
 import type { TaskStatusResponse } from "@/utils/tasks";
+import { taskStatusFixture } from "@/utils/tasks.fixtures";
 
 const { getTaskStatus } = vi.hoisted(() => ({ getTaskStatus: vi.fn() }));
 
@@ -13,8 +14,8 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-const OLD = [{ task_name: "old" }] as TaskStatusResponse[];
-const NEW = [{ task_name: "new" }] as TaskStatusResponse[];
+const OLD: TaskStatusResponse[] = [taskStatusFixture({ task_id: "old" })];
+const NEW: TaskStatusResponse[] = [taskStatusFixture({ task_id: "new" })];
 
 describe("tasks store fetchTaskStatus", () => {
   beforeEach(() => setActivePinia(createPinia()));
@@ -53,5 +54,21 @@ describe("tasks store fetchTaskStatus", () => {
     await first;
 
     expect(store.taskStatuses).toEqual(NEW);
+  });
+
+  it("applies an older success that settles after a newer failure", async () => {
+    const older = deferred<{ data: TaskStatusResponse[] }>();
+    getTaskStatus
+      .mockReturnValueOnce(older.promise)
+      .mockRejectedValueOnce(new Error("x"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = storeTasks();
+
+    const first = store.fetchTaskStatus();
+    await store.fetchTaskStatus();
+    older.resolve({ data: OLD });
+    await first;
+
+    expect(store.taskStatuses).toEqual(OLD);
   });
 });

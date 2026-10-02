@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CleanupTaskStatusResponse } from "@/__generated__/models/CleanupTaskStatusResponse";
 import type { TaskInfo } from "@/__generated__/models/TaskInfo";
+import { taskStatusFixture as status } from "@/utils/tasks.fixtures";
 import TasksSection from "./TasksSection.vue";
 
 const { getTasks, getTaskStatus, runTask, confirm } = vi.hoisted(() => ({
@@ -48,24 +48,6 @@ const SCHEDULED_TASK: TaskInfo = {
   destructive: false,
   cron_string: "0 4 * * *",
 };
-
-function status(
-  overrides: Partial<CleanupTaskStatusResponse> = {},
-): CleanupTaskStatusResponse {
-  return {
-    task_key: null,
-    task_name: "Scheduled ZIP cache cleanup",
-    task_id: "job-1",
-    task_type: "cleanup",
-    status: "started",
-    created_at: null,
-    enqueued_at: null,
-    started_at: null,
-    ended_at: null,
-    meta: { cleanup_stats: null },
-    ...overrides,
-  };
-}
 
 async function mountSection() {
   const wrapper = mount(TasksSection, {
