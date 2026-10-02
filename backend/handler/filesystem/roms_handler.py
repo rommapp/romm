@@ -402,19 +402,15 @@ def _rom_level_identity(
             )
         )
     identity = switch.normalize_identity(is_switch, identity)
-    if extractions or identity.save_target or not identity.title_id:
-        return identity
     # rom-converto reads no save target, so when sigil read nothing this pass
     # the one it stored for the same id stands.
-    if identity.title_id == stored.title_id:
+    if (
+        not extractions
+        and identity.title_id
+        and identity.title_id == stored.title_id
+        and (stored.save_target or not identity.save_target)
+    ):
         return stored
-    # Switch saves are keyed by the base id, as normalize_identity keys a derived one.
-    if is_switch and switch.is_base_title_id(identity.title_id):
-        return RomIdentity(
-            title_id=identity.title_id,
-            save_target=identity.title_id,
-            save_target_layout=SaveTargetLayout.FOLDER_EXACT,
-        )
     return identity
 
 
