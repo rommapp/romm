@@ -229,6 +229,9 @@ interface State {
    * so each missing file shows as its own row, never collapsed. */
   currentSearch: boolean;
   total: number;
+  // The count a re-sort is still refetching (0 otherwise). A new order can't
+  // change it, so the bootstrap skeleton paints that many instead of a page.
+  reorderTotal: number;
   charIndex: Record<string, number>;
   romIdIndex: number[];
   byPosition: Map<number, SimpleRom>;
@@ -264,6 +267,7 @@ const defaults = (): State => ({
   currentSmartCollection: null,
   currentSearch: false,
   total: 0,
+  reorderTotal: 0,
   charIndex: {},
   romIdIndex: [],
   byPosition: new Map(),
@@ -358,6 +362,7 @@ export default defineStore("v2GalleryRoms", {
       this.currentSmartCollection = null;
       this.currentSearch = false;
       this.total = 0;
+      this.reorderTotal = 0;
       this.charIndex = {};
       this.romIdIndex = [];
       this.byPosition = new Map();
@@ -372,9 +377,11 @@ export default defineStore("v2GalleryRoms", {
 
     /** Drop the loaded windows but keep the gallery context. Used when
      * search / filter changes within the same gallery and we need to
-     * re-fetch from offset 0. */
-    invalidateWindows() {
+     * re-fetch from offset 0. `reorder` keeps the count as `reorderTotal`,
+     * carried over a re-sort that lands before the last one resolved. */
+    invalidateWindows({ reorder = false } = {}) {
       abortAllInFlight();
+      this.reorderTotal = reorder ? this.total || this.reorderTotal : 0;
       this.total = 0;
       this.charIndex = {};
       this.romIdIndex = [];
