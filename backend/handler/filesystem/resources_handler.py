@@ -613,11 +613,16 @@ class FSResourcesHandler(FSHandler):
         stored = set() if overwrite else self._stored_screenshot_indexes(rom)
 
         async def screenshot_path(idx: int, url_screenshot: str) -> str | None:
+            path = self._get_screenshot_path(rom, str(idx))
             if str(idx) not in stored and not await self._store_screenshot(
                 rom, url_screenshot, idx
             ):
+                # Otherwise the old image at this index passes for the new one
+                # on the next scan, and is never fetched again.
+                if overwrite:
+                    await self._discard_partial_file(path)
                 return None
-            return self._get_screenshot_path(rom, str(idx))
+            return path
 
         paths = await gather_all(
             *(screenshot_path(idx, url) for idx, url in enumerate(url_screenshots))
