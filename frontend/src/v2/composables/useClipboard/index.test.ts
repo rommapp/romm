@@ -26,8 +26,18 @@ function setClipboard(writeText: ((text: string) => Promise<void>) | null) {
   });
 }
 
+function setExecCommand(result: boolean | null) {
+  const execCommand = result === null ? undefined : vi.fn(() => result);
+  Object.defineProperty(document, "execCommand", {
+    configurable: true,
+    value: execCommand,
+  });
+  return execCommand;
+}
+
 afterEach(() => {
   setClipboard(null);
+  setExecCommand(null);
 });
 
 describe("useClipboard", () => {
@@ -57,38 +67,82 @@ describe("useClipboard", () => {
     expect(success).not.toHaveBeenCalled();
   });
 
-  it("errors without touching the clipboard when the context is not secure", async () => {
+  it("falls back to execCommand when the context is not secure", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     setSecureContext(false);
     setClipboard(writeText);
+    const execCommand = setExecCommand(true);
+
+    const { isSupported, copy } = useClipboard();
+    const ok = await copy("hello", { successMessage: "copied" });
+
+    expect(isSupported).toBe(true);
+    expect(ok).toBe(true);
+    expect(writeText).not.toHaveBeenCalled();
+    expect(execCommand).toHaveBeenCalledWith("copy");
+    expect(success).toHaveBeenCalledWith("copied", { icon: "mdi-check-bold" });
+    expect(document.querySelector("textarea")).toBeNull();
+  });
+
+  it("hands focus back to the trigger after the fallback copy", async () => {
+    setSecureContext(false);
+    setExecCommand(true);
+    const trigger = document.createElement("button");
+    document.body.appendChild(trigger);
+    trigger.focus();
+
+    const { copy } = useClipboard();
+    await copy("hello");
+
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
+  });
+
+  it("shows the HTTPS hint when the fallback copy fails", async () => {
+    setSecureContext(false);
+    setExecCommand(false);
 
     const { copy } = useClipboard();
     const ok = await copy("hello", { successMessage: "copied" });
 
     expect(ok).toBe(false);
-    expect(writeText).not.toHaveBeenCalled();
+    expect(success).not.toHaveBeenCalled();
     expect(error).toHaveBeenCalledWith("common.clipboard-copy-failed", {
       icon: "mdi-close-circle",
     });
   });
 
-  it("errors when the Clipboard API is unavailable", async () => {
+  it("is unsupported when neither the Clipboard API nor execCommand exists", async () => {
     setSecureContext(true);
     setClipboard(null);
 
-    const { copy } = useClipboard();
+    const { isSupported, copy } = useClipboard();
     const ok = await copy("hello");
 
+    expect(isSupported).toBe(false);
     expect(ok).toBe(false);
     expect(error).toHaveBeenCalledWith("common.clipboard-copy-failed", {
       icon: "mdi-close-circle",
     });
+  });
+
+  it("falls back to execCommand when writeText rejects", async () => {
+    setSecureContext(true);
+    setClipboard(vi.fn().mockRejectedValue(new Error("denied")));
+    setExecCommand(true);
+
+    const { copy } = useClipboard();
+    const ok = await copy("hello", { successMessage: "copied" });
+
+    expect(ok).toBe(true);
+    expect(error).not.toHaveBeenCalled();
   });
 
   it("errors without the HTTPS hint when writeText rejects", async () => {
     const writeText = vi.fn().mockRejectedValue(new Error("denied"));
     setSecureContext(true);
     setClipboard(writeText);
+    setExecCommand(false);
 
     const { copy } = useClipboard();
     const ok = await copy("hello", { successMessage: "copied" });

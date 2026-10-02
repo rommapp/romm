@@ -1,6 +1,7 @@
+/* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h, ref } from "vue";
+import { defineComponent, h, onMounted, ref } from "vue";
 import storePlaying from "@/stores/playing";
 import { useGridNav } from "@/v2/composables/useGridNav";
 import {
@@ -391,5 +392,33 @@ describe("useSpatialNav", () => {
     press("ArrowUp");
 
     expect(document.activeElement).toBe(el("tab"));
+  });
+
+  // AppLayout installs from `onMounted`.
+  it("binds from onMounted and unbinds on unmount", () => {
+    wrapper?.unmount();
+    const btn = (id: string, y: number) =>
+      h("button", { id, "data-x": 0, "data-y": y });
+    const Host = defineComponent({
+      setup() {
+        onMounted(() => useSpatialNav().install());
+        return () => h("div", [btn("top", 0), btn("bottom", 100)]);
+      },
+    });
+    wrapper = mount(Host, { attachTo: document.body });
+    el("top").focus();
+    press("ArrowDown");
+    expect(document.activeElement).toBe(el("bottom"));
+
+    const top = el("top");
+    const bottom = el("bottom");
+    wrapper.unmount();
+    wrapper = null;
+    document.body.append(top, bottom);
+    extras.push(top, bottom);
+    top.focus();
+    press("ArrowDown");
+
+    expect(document.activeElement).toBe(top);
   });
 });

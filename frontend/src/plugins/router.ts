@@ -18,6 +18,7 @@ import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import type { User } from "@/stores/users";
+import { DEFAULT_TITLE } from "@/v2/composables/usePageTitle";
 import {
   notFoundComponent,
   v2Layouts,
@@ -635,7 +636,7 @@ export function applyRouteTitle(
   // A query/hash-only navigation leaves the view mounted, so `usePageTitle`
   // won't refire and the fallback would drop the title it already set.
   if (from && route.path === from.path) return;
-  document.title = "RomM";
+  document.title = DEFAULT_TITLE;
 }
 
 router.beforeEach(async (to, from, next) => {
@@ -702,7 +703,7 @@ router.beforeEach(async (to, from, next) => {
     next();
   } catch (error) {
     console.error("Navigation guard error:", error);
-    document.title = "RomM";
+    document.title = DEFAULT_TITLE;
     next({ name: ROUTES.LOGIN });
   }
 });

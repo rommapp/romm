@@ -1,8 +1,9 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 import { serverError } from "@/test-utils/serverError";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import MissingGamesSection from "./MissingGamesSection.vue";
 
@@ -148,5 +149,41 @@ describe("MissingGamesSection", () => {
     expect(
       wrapper.findComponent({ name: "SelectionBar" }).props("hideDownload"),
     ).toBe(true);
+  });
+
+  describe("viewport fetches", () => {
+    const range = { first: 0, last: 0 };
+
+    async function mountScrolled() {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      const sync = vi.spyOn(storeGalleryRoms(), "syncVisibleWindows");
+      const wrapper = mountSection();
+      await flushPromises();
+      sync.mockClear();
+      const scroller = wrapper.findComponent({ name: "RVirtualScroller" });
+      scroller.vm.$emit("update:viewport-range", range);
+      scroller.vm.$emit("update:viewport-range", range);
+      return { wrapper, sync };
+    }
+
+    afterEach(() => vi.useRealTimers());
+
+    it("syncs once the scroller settles", async () => {
+      const { sync } = await mountScrolled();
+      expect(sync).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(80);
+
+      expect(sync).toHaveBeenCalledOnce();
+    });
+
+    it("drops a pending sync on unmount", async () => {
+      const { wrapper, sync } = await mountScrolled();
+
+      wrapper.unmount();
+      vi.advanceTimersByTime(80);
+
+      expect(sync).not.toHaveBeenCalled();
+    });
   });
 });
