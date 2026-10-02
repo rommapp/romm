@@ -149,10 +149,10 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
 # Keep the version and both sums in sync with the dev image's copy in ../Dockerfile.
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rom-converto-fetch
 ARG TARGETARCH
-ARG ROM_CONVERTO_VERSION=v0.23.0
+ARG ROM_CONVERTO_VERSION=v0.23.2
 RUN case "${TARGETARCH}" in \
-        amd64) rc="linux-x64-musl"; sum="37d03a67ad97fc02768890e763b4c80072fdfd15f2c5b97e44f9a2b50fc40876" ;; \
-        arm64) rc="linux-arm64-musl"; sum="8abe37ca2d1a0e3d719fb8e795e011c672e3f1c088521cf0bb1e467dc658dc3c" ;; \
+        amd64) rc="linux-x64-musl"; sum="734ecccfa77d425c01dc3ba621261389c1c23d23f0e5d6b8e3346fda1879d687" ;; \
+        arm64) rc="linux-arm64-musl"; sum="e90cca392b08b859b79bab13fcd47300ffc613d5dca7da1b4d1e38e3a4bbc297" ;; \
         *) echo "unsupported TARGETARCH: ${TARGETARCH}" && exit 1 ;; \
     esac && \
     wget -qO /rom-converto \
