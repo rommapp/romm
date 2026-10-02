@@ -69,8 +69,9 @@ const languages = computed(() =>
   background: var(--r-color-overlay-scrim-soft);
   border: 1px solid var(--r-color-overlay-border);
   border-radius: var(--r-radius-pill);
-  font-size: 11px;
-  line-height: 1.2;
+  /* Detailed flags (US, UK) turn into blobs below ~14px on Twemoji/Segoe. */
+  font-size: 14px;
+  line-height: 1.1;
   backdrop-filter: blur(6px);
 }
 </style>
