@@ -613,9 +613,8 @@ onBeforeRouteLeave(async () => {
   // The unmount reloads the page.
   await leaveFullscreen();
 });
-// A v2 shell that leaves by replacing the document never finishes the
-// navigation, so the guard above never runs and the flush has to be asked
-// for. Idempotent.
+// A v2 shell that leaves by replacing the document aborts the navigation, so
+// the guard above never runs and the flush has to be asked for. Idempotent.
 defineExpose({ flushPendingSave });
 // Closing the tab cancels requests in flight, so a save the tick has not
 // uploaded goes out on `pagehide` with fetch keepalive, which the browser caps
