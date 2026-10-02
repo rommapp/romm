@@ -30,7 +30,11 @@ vi.mock("@/v2/composables/useConfirm", () => ({ useConfirm: () => confirm }));
 
 const RBtnStub = {
   name: "RBtn",
-  props: ["disabled", "loading", "prependIcon"],
+  props: {
+    disabled: { type: Boolean, default: false },
+    loading: { type: Boolean, default: false },
+    prependIcon: { type: String, default: "" },
+  },
   emits: ["click"],
   template:
     "<button :disabled='disabled' @click=\"$emit('click')\"><slot /></button>",
@@ -38,7 +42,7 @@ const RBtnStub = {
 
 const RTextFieldStub = {
   name: "RTextField",
-  props: ["modelValue"],
+  props: { modelValue: { type: String, default: "" } },
   emits: ["update:modelValue"],
   template:
     "<input :value='modelValue' @input=\"$emit('update:modelValue', $event.target.value)\" />",
