@@ -85,8 +85,7 @@ function scrollBy(dir: -1 | 1) {
   el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
 }
 
-// Async cards, skeleton swaps, resizes and image loads all move the overflow.
-// The cards are watched too: a same-width swap changes the track's
+// The cards are observed too: a card resize can change the track's
 // scrollWidth without resizing the track itself.
 const observedEls = shallowRef<HTMLElement[]>([]);
 

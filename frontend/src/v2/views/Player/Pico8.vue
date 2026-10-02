@@ -2,7 +2,14 @@
 // Plays PICO-8 carts through the FAKE-08 WebAssembly runtime.
 import { RBtn, RSpinner, RSwitch } from "@v2/lib";
 import { useEventListener, useRafFn } from "@vueuse/core";
-import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
+import {
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
@@ -167,18 +174,22 @@ function runFrame(timestamp: number) {
   }
 }
 
+const looping = ref(false);
 const frameLoop = useRafFn(({ timestamp }) => runFrame(timestamp), {
   immediate: false,
 });
+// A failed frame releases the game from inside the loop, which would leave its
+// next frame queued, so the loop follows `looping` once the frame has returned.
+watch(looping, (on) => (on ? frameLoop.resume() : frameLoop.pause()));
 
 function startLoop() {
   pacer = createPico8Pacer(runtime?.frameRate || PICO8_FRAME_RATE);
   pacer.reset(performance.now());
-  frameLoop.resume();
+  looping.value = true;
 }
 
 function releaseGame() {
-  frameLoop.pause();
+  looping.value = false;
   runtime?.dispose();
   runtime = null;
   pacer = null;

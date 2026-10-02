@@ -132,12 +132,16 @@ export function useCoverAnimation(
   // into the drive (the launch flourish). Cleared by `stopSpin`.
   let dropping = false;
 
+  const spinning = ref(false);
   const spinLoop = useRafFn(({ delta }) => frame(delta), { immediate: false });
+  // Pausing from inside a frame leaves the loop's next frame queued, so the
+  // loop follows `spinning` once the frame has returned.
+  watch(spinning, (on) => (on ? spinLoop.resume() : spinLoop.pause()));
 
   function frame(deltaMs: number) {
     const img = opts.el.value;
     if (!img) {
-      spinLoop.pause();
+      spinning.value = false;
       return;
     }
     // Clamp dt so a backgrounded tab doesn't resume with a giant jump.
@@ -159,7 +163,7 @@ export function useCoverAnimation(
   }
 
   function stopSpin() {
-    spinLoop.pause();
+    spinning.value = false;
     angle = 0;
     velocity = 0;
     dropping = false;
@@ -174,7 +178,7 @@ export function useCoverAnimation(
     () => opts.active.value && opts.animateCD.value && motionOk.value,
   );
   watch(wantsSpin, (on) => {
-    if (on) spinLoop.resume();
+    if (on) spinning.value = true;
     // Leaving: the frame loop coasts down on its own (active is false).
   });
   watch(
@@ -204,7 +208,7 @@ export function useCoverAnimation(
     if (opts.animateCD.value) {
       // Spin up to max and slide the full height down into the drive.
       dropping = true;
-      spinLoop.resume();
+      spinning.value = true;
       return CD_LOAD_MS;
     }
     if (opts.animateCartridge.value) {

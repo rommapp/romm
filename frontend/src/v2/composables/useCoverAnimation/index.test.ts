@@ -30,27 +30,29 @@ function setup({ cd = true, video = false } = {}) {
 }
 
 describe("useCoverAnimation", () => {
-  let frames: FrameRequestCallback[] = [];
+  let frames = new Map<number, FrameRequestCallback>();
+  let nextId = 0;
   let now = 0;
 
   function step(count = 1) {
     for (let i = 0; i < count; i++) {
       now += 50;
-      const pending = frames;
-      frames = [];
+      const pending = [...frames.values()];
+      frames.clear();
       pending.forEach((cb) => cb(now));
     }
   }
 
   beforeEach(() => {
-    frames = [];
+    frames = new Map();
+    nextId = 0;
     now = 0;
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
-      frames.push(cb);
-      return frames.length;
+      frames.set(++nextId, cb);
+      return nextId;
     });
-    vi.stubGlobal("cancelAnimationFrame", () => {
-      frames = [];
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+      frames.delete(id);
     });
   });
 
@@ -67,8 +69,25 @@ describe("useCoverAnimation", () => {
     step(40);
 
     expect(img.style.transform).toBe("");
+    await nextTick();
+    expect(frames.size).toBe(0);
+  });
+
+  it("spins a single loop when re-hovered straight after coming to rest", async () => {
+    const { active, img } = setup();
+    active.value = true;
+    await nextTick();
+    step(10);
+    active.value = false;
+    await nextTick();
+    for (let i = 0; i < 40 && img.style.transform !== ""; i++) step();
+
+    active.value = true;
+    await nextTick();
+
+    expect(frames.size).toBe(1);
     step();
-    expect(frames).toHaveLength(0);
+    expect(frames.size).toBe(1);
   });
 
   it("stops spinning on unmount", async () => {
@@ -82,7 +101,7 @@ describe("useCoverAnimation", () => {
     step(2);
 
     expect(img.style.transform).toBe(turned);
-    expect(frames).toHaveLength(0);
+    expect(frames.size).toBe(0);
   });
 
   it("plays the hover video a beat after hover, not on a passing one", async () => {

@@ -77,26 +77,28 @@ const PlayerShell = {
 };
 
 describe("Pico8 frame loop", () => {
-  let frames: FrameRequestCallback[] = [];
+  let frames = new Map<number, FrameRequestCallback>();
+  let nextId = 0;
   let now = 0;
 
   // One animation frame, 1/30s after the last.
   function step() {
     now += 1000 / 30;
-    const pending = frames;
-    frames = [];
+    const pending = [...frames.values()];
+    frames.clear();
     pending.forEach((cb) => cb(now));
   }
 
   beforeEach(() => {
-    frames = [];
+    frames = new Map();
+    nextId = 0;
     now = 0;
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
-      frames.push(cb);
-      return frames.length;
+      frames.set(++nextId, cb);
+      return nextId;
     });
-    vi.stubGlobal("cancelAnimationFrame", () => {
-      frames = [];
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+      frames.delete(id);
     });
     vi.spyOn(performance, "now").mockImplementation(() => now);
     vi.stubGlobal(
@@ -130,7 +132,7 @@ describe("Pico8 frame loop", () => {
     step();
 
     expect(mocks.runtime.render).toHaveBeenCalledTimes(2);
-    expect(frames).toHaveLength(0);
+    expect(frames.size).toBe(0);
   });
 
   it("stops the loop when a frame throws", async () => {
@@ -146,5 +148,21 @@ describe("Pico8 frame loop", () => {
 
     expect(mocks.runtime.render).not.toHaveBeenCalled();
     expect(mocks.runtime.dispose).toHaveBeenCalled();
+  });
+
+  it("runs a single loop when replayed straight after a failed frame", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const wrapper = await play();
+    mocks.runtime.advance.mockImplementationOnce(() => {
+      throw new Error("bad cart");
+    });
+    step();
+
+    await wrapper.get(".play").trigger("click");
+    await flushPromises();
+
+    expect(frames.size).toBe(1);
+    step();
+    expect(frames.size).toBe(1);
   });
 });
