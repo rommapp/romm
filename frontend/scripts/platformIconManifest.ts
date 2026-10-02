@@ -1,4 +1,4 @@
-// Exposes the icons under assets/platforms as `virtual:platform-icons`, so
+// Exposes the icons under public/assets/platforms as `virtual:platform-icons`, so
 // the app can skip requests for icons that were never shipped.
 import { readdirSync } from "node:fs";
 import { dirname, extname } from "node:path";
@@ -26,7 +26,7 @@ export function listPlatformIcons(dir: string): Map<string, string> {
 
 export function platformIconManifest(): Plugin {
   const iconDir = fileURLToPath(
-    new URL("../assets/platforms", import.meta.url),
+    new URL("../public/assets/platforms", import.meta.url),
   );
   return {
     name: "romm:platform-icon-manifest",
