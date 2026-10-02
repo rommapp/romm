@@ -1,5 +1,6 @@
 // Hands the server what the browser still holds, from anywhere in the app: at
 // launch the picker is already drawn, so it would land behind the user's pick.
+import { useTimeoutFn } from "@vueuse/core";
 import { uniqBy } from "lodash";
 import { onScopeDispose, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -70,14 +71,12 @@ export function installPendingAssetSync() {
   const { isOffline } = useServerConnection();
   const { refetchRom } = useRomSync();
 
-  let timer: ReturnType<typeof setTimeout> | null = null;
   let disposed = false;
-
-  function stopRetrying() {
-    if (timer === null) return;
-    clearTimeout(timer);
-    timer = null;
-  }
+  const { start: scheduleRetry, stop: stopRetrying } = useTimeoutFn(
+    () => void drain(),
+    RETRY_MS,
+    { immediate: false },
+  );
 
   function announce(synced: SyncedAsset[]) {
     for (const asset of firstPerGame(synced)) {
@@ -127,7 +126,7 @@ export function installPendingAssetSync() {
   async function armRetry() {
     stopRetrying();
     if (!disposed && (await hasPendingAssets(currentKinds()))) {
-      timer = setTimeout(() => void drain(), RETRY_MS);
+      scheduleRetry();
     }
   }
 
@@ -153,6 +152,5 @@ export function installPendingAssetSync() {
   });
   onScopeDispose(() => {
     disposed = true;
-    stopRetrying();
   });
 }

@@ -1,10 +1,11 @@
-import { useWindowScroll } from "@vueuse/core";
+import { useResizeObserver, useWindowScroll } from "@vueuse/core";
 import {
   type ComponentPublicInstance,
   computed,
   onBeforeUnmount,
   type Ref,
   ref,
+  shallowRef,
   watch,
 } from "vue";
 import { useNavGlass } from "@/v2/composables/useNavGlass";
@@ -36,8 +37,7 @@ export function usePinnedToolbar(scrollTop?: Ref<number>) {
   const naturalTop = ref(0);
   // The toolbar's sticky `top` (the top bar's height), read from its style.
   const pinnedTop = ref(0);
-  let observer: ResizeObserver | null = null;
-  let observed: Element[] = [];
+  const observed = shallowRef<HTMLElement[]>([]);
 
   function measure() {
     const toolbar = toolbarEl.value;
@@ -48,15 +48,17 @@ export function usePinnedToolbar(scrollTop?: Ref<number>) {
     naturalTop.value = scrollTop ? sentinel.offsetTop : pageTop(sentinel);
   }
 
+  useResizeObserver(observed, measure);
+
   // The toolbar, the sentinel and the earlier siblings (the header) that move it.
-  function observedElements(): Element[] {
+  function observedElements(): HTMLElement[] {
     const toolbar = toolbarEl.value;
     const sentinel = sentinelEl.value;
     if (!toolbar || !sentinel) return [];
-    const out: Element[] = [toolbar];
+    const out: HTMLElement[] = [toolbar];
     let el: Element | null = sentinel;
     while (el) {
-      out.push(el);
+      if (el instanceof HTMLElement) out.push(el);
       el = el.previousElementSibling;
     }
     return out;
@@ -67,14 +69,12 @@ export function usePinnedToolbar(scrollTop?: Ref<number>) {
   function sync() {
     const next = observedElements();
     if (
-      next.length === observed.length &&
-      next.every((el, i) => el === observed[i])
+      next.length === observed.value.length &&
+      next.every((el, i) => el === observed.value[i])
     ) {
       return;
     }
-    observed = next;
-    observer?.disconnect();
-    observer = null;
+    observed.value = next;
     if (next.length === 0) {
       toolbarHeight.value = 0;
       pinnedTop.value = 0;
@@ -82,8 +82,6 @@ export function usePinnedToolbar(scrollTop?: Ref<number>) {
       return;
     }
     measure();
-    observer = new ResizeObserver(measure);
-    for (const el of next) observer.observe(el);
   }
 
   function bindToolbar(el: Element | ComponentPublicInstance | null) {
@@ -121,8 +119,6 @@ export function usePinnedToolbar(scrollTop?: Ref<number>) {
   watch(pinned, (value) => (innerGlass.value = value), { immediate: true });
 
   onBeforeUnmount(() => {
-    observer?.disconnect();
-    observer = null;
     innerScrolled.value = false;
     innerGlass.value = false;
     handoff.value = false;

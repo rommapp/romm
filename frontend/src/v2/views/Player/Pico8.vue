@@ -1,8 +1,15 @@
 <script setup lang="ts">
 // Plays PICO-8 carts through the FAKE-08 WebAssembly runtime.
 import { RBtn, RSpinner, RSwitch } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
-import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
+import { useEventListener, useRafFn } from "@vueuse/core";
+import {
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
@@ -51,7 +58,6 @@ const {
 let runtime: Pico8Runtime | null = null;
 let audio: Pico8Audio | null = null;
 let pacer: Pico8Pacer | null = null;
-let animationFrame = 0;
 
 const input = createPico8Input();
 const { touchMask } = input;
@@ -165,20 +171,25 @@ function runFrame(timestamp: number) {
     if (steps > 0) active.render();
   } catch (error) {
     showPlayError(error);
-    return;
   }
-  animationFrame = requestAnimationFrame(runFrame);
 }
+
+const looping = ref(false);
+const frameLoop = useRafFn(({ timestamp }) => runFrame(timestamp), {
+  immediate: false,
+});
+// A failed frame releases the game from inside the loop, which would leave its
+// next frame queued, so the loop follows `looping` once the frame has returned.
+watch(looping, (on) => (on ? frameLoop.resume() : frameLoop.pause()));
 
 function startLoop() {
   pacer = createPico8Pacer(runtime?.frameRate || PICO8_FRAME_RATE);
   pacer.reset(performance.now());
-  animationFrame = requestAnimationFrame(runFrame);
+  looping.value = true;
 }
 
 function releaseGame() {
-  cancelAnimationFrame(animationFrame);
-  animationFrame = 0;
+  looping.value = false;
   runtime?.dispose();
   runtime = null;
   pacer = null;

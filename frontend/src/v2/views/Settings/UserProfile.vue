@@ -15,9 +15,10 @@
 // change their own role, so an editable picker would only ever silently
 // revert. Admins change other users' roles from Settings → Administration.
 import { RBtn, RIcon, RSkeletonBlock, RTag, RTextField } from "@v2/lib";
+import { useObjectUrl } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, onMounted, onUnmounted, ref } from "vue";
+import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -38,7 +39,7 @@ const { user } = storeToRefs(auth);
 const userToEdit = ref<UserItem | null>(null);
 const originalSnapshot = ref<Pick<UserItem, "username" | "email"> | null>(null);
 const usersStore = storeUsers();
-const imagePreviewUrl = ref<string | undefined>("");
+const imagePreviewUrl = useObjectUrl(() => userToEdit.value?.avatar);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const fileInputRef = ref<HTMLInputElement | null>(null);
@@ -87,7 +88,6 @@ function snapshot(item: UserItem) {
 function reset() {
   if (!user.value) return;
   userToEdit.value = { ...user.value, password: "", avatar: undefined };
-  imagePreviewUrl.value = "";
   if (userToEdit.value) snapshot(userToEdit.value);
 }
 
@@ -98,13 +98,7 @@ function triggerFileInput() {
 function previewImage(event: Event) {
   const input = event.target as HTMLInputElement;
   if (!input.files || !input.files[0] || !userToEdit.value) return;
-  const file = input.files[0];
-  userToEdit.value.avatar = file;
-  const reader = new FileReader();
-  reader.onload = () => {
-    imagePreviewUrl.value = reader.result?.toString();
-  };
-  reader.readAsDataURL(file);
+  userToEdit.value.avatar = input.files[0];
 }
 
 async function applyChanges() {
@@ -157,10 +151,6 @@ const lastActiveLabel = computed(() =>
 usePageTitle(() => t("common.profile"));
 
 onMounted(reset);
-
-onUnmounted(() => {
-  imagePreviewUrl.value = "";
-});
 </script>
 
 <template>

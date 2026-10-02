@@ -21,13 +21,14 @@
 //     handles it). On selection it emits `updateUrlCover` which we
 //     stash as the pending `url_cover` (the preview swaps to the SGDB
 //     grid URL).
-//   • Upload → native file picker, FileReader for preview, sets
-//     `pendingArtwork` (File).
+//   • Upload → native file picker, sets `pendingArtwork` (File),
+//     previewed through an object URL.
 //   • Remove → marks `removeCover = true`, preview drops to the
 //     placeholder mosaic.
 //   • Save → PUT /collections/:id with `artwork` and/or `url_cover` and
 //     `remove_cover` flag; on success patches the local store.
 import { RBtn, RChip, RIcon, RTag, RTextField } from "@v2/lib";
+import { useObjectUrl } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -93,7 +94,7 @@ const isPublic = ref(false);
 const savingVisibility = ref(false);
 const pendingArtwork = ref<File | null>(null);
 const pendingUrlCover = ref<string | null>(null);
-const previewDataUrl = ref<string | null>(null);
+const artworkUrl = useObjectUrl(pendingArtwork);
 const removeCover = ref(false);
 const saving = ref(false);
 
@@ -139,7 +140,6 @@ function snapshot(source: Collection | SmartCollection = props.collection) {
   isPublic.value = c.is_public ?? false;
   pendingArtwork.value = null;
   pendingUrlCover.value = null;
-  previewDataUrl.value = null;
   removeCover.value = false;
 }
 
@@ -155,7 +155,6 @@ watch(
 const onUrlCover = (url: string) => {
   pendingUrlCover.value = url;
   pendingArtwork.value = null;
-  previewDataUrl.value = url;
   removeCover.value = false;
 };
 
@@ -170,7 +169,7 @@ onBeforeUnmount(() => {
 // ── Cover preview ───────────────────────────────────────────────
 const coverSrc = computed<string | null>(() => {
   if (removeCover.value) return null;
-  if (previewDataUrl.value) return previewDataUrl.value;
+  if (artworkUrl.value) return artworkUrl.value;
   if (pendingUrlCover.value) return pendingUrlCover.value;
   const c = props.collection as { path_cover_small?: string | null };
   return c.path_cover_small ? toWebp(c.path_cover_small) : null;
@@ -230,12 +229,6 @@ function onFilePicked(evt: Event) {
   pendingUrlCover.value = null;
   removeCover.value = false;
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    previewDataUrl.value = reader.result?.toString() ?? null;
-  };
-  reader.readAsDataURL(file);
-
   // Reset the input so re-picking the same file fires `change` again.
   input.value = "";
 }
@@ -243,7 +236,6 @@ function onFilePicked(evt: Event) {
 function clearArtwork() {
   pendingArtwork.value = null;
   pendingUrlCover.value = null;
-  previewDataUrl.value = null;
   removeCover.value = true;
 }
 

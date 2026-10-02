@@ -21,6 +21,7 @@
 // All motion is gated by the user's `disableAnimations` setting (via
 // `motionEnabled`) AND reduced-motion mode (OS `prefers-reduced-motion` plus
 // the user's low-power override, via `useReducedMotion`).
+import { useRafFn, useTimeoutFn } from "@vueuse/core";
 import {
   computed,
   onBeforeUnmount,
@@ -127,22 +128,24 @@ export function useCoverAnimation(
   // ── CD spin (+ launch drop) ───────────────────────────────────────
   let angle = 0;
   let velocity = 0;
-  let lastTs: number | null = null;
-  let raf: number | null = null;
   // While true the disc holds max speed and slides the full height down
   // into the drive (the launch flourish). Cleared by `stopSpin`.
   let dropping = false;
 
-  function frame(ts: number) {
+  const spinning = ref(false);
+  const spinLoop = useRafFn(({ delta }) => frame(delta), { immediate: false });
+  // Pausing from inside a frame leaves the loop's next frame queued, so the
+  // loop follows `spinning` once the frame has returned.
+  watch(spinning, (on) => (on ? spinLoop.resume() : spinLoop.pause()));
+
+  function frame(deltaMs: number) {
     const img = opts.el.value;
     if (!img) {
-      raf = null;
+      spinning.value = false;
       return;
     }
-    if (lastTs === null) lastTs = ts;
     // Clamp dt so a backgrounded tab doesn't resume with a giant jump.
-    const dt = Math.min((ts - lastTs) / 1000, 0.05);
-    lastTs = ts;
+    const dt = Math.min(deltaMs / 1000, 0.05);
 
     const next = stepSpin({ angle, velocity }, dt, opts.active.value);
     angle = next.angle;
@@ -156,24 +159,11 @@ export function useCoverAnimation(
 
     img.style.transform = `rotate(${angle.toFixed(2)}deg)`;
 
-    if (velocity > 0 || opts.active.value || dropping) {
-      raf = requestAnimationFrame(frame);
-    } else {
-      stopSpin();
-    }
-  }
-
-  function kickSpin() {
-    if (raf === null) {
-      lastTs = null;
-      raf = requestAnimationFrame(frame);
-    }
+    if (velocity === 0 && !opts.active.value && !dropping) stopSpin();
   }
 
   function stopSpin() {
-    if (raf !== null) cancelAnimationFrame(raf);
-    raf = null;
-    lastTs = null;
+    spinning.value = false;
     angle = 0;
     velocity = 0;
     dropping = false;
@@ -188,7 +178,7 @@ export function useCoverAnimation(
     () => opts.active.value && opts.animateCD.value && motionOk.value,
   );
   watch(wantsSpin, (on) => {
-    if (on) kickSpin();
+    if (on) spinning.value = true;
     // Leaving: the frame loop coasts down on its own (active is false).
   });
   watch(
@@ -218,7 +208,7 @@ export function useCoverAnimation(
     if (opts.animateCD.value) {
       // Spin up to max and slide the full height down into the drive.
       dropping = true;
-      kickSpin();
+      spinning.value = true;
       return CD_LOAD_MS;
     }
     if (opts.animateCartridge.value) {
@@ -231,15 +221,13 @@ export function useCoverAnimation(
 
   // ── Hover video ───────────────────────────────────────────────────
   const isVideoPlaying = ref(false);
-  let videoTimer: number | null = null;
 
   const wantsVideo = computed(
     () => opts.active.value && !!opts.videoUrl.value && motionOk.value,
   );
 
-  function scheduleVideo() {
-    cancelVideoTimer();
-    videoTimer = window.setTimeout(() => {
+  const { start: scheduleVideo, stop: cancelVideo } = useTimeoutFn(
+    () => {
       const v = opts.videoEl.value;
       if (!v) return;
       v.play()
@@ -249,18 +237,13 @@ export function useCoverAnimation(
         .catch(() => {
           isVideoPlaying.value = false;
         });
-    }, VIDEO_HOVER_DELAY_MS);
-  }
-
-  function cancelVideoTimer() {
-    if (videoTimer !== null) {
-      clearTimeout(videoTimer);
-      videoTimer = null;
-    }
-  }
+    },
+    VIDEO_HOVER_DELAY_MS,
+    { immediate: false },
+  );
 
   function stopVideo() {
-    cancelVideoTimer();
+    cancelVideo();
     isVideoPlaying.value = false;
     const v = opts.videoEl.value;
     if (v) {
@@ -283,12 +266,7 @@ export function useCoverAnimation(
     }
   });
 
-  onBeforeUnmount(() => {
-    stopSpin();
-    cancelVideoTimer();
-    const v = opts.videoEl.value;
-    if (v) v.pause();
-  });
+  onBeforeUnmount(() => opts.videoEl.value?.pause());
 
   return { isVideoPlaying, playLoad };
 }
