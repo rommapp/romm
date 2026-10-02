@@ -56,9 +56,7 @@ export default defineConfig({
   // class of failure and is much faster: the build is ~5s and the suite drops
   // from ~3.7min to ~35s. `vite preview` inherits `server.proxy`, so /api and
   // /ws still reach the backend on DEV_PORT (5000) -- the same default
-  // `main.py` binds, so neither side needs configuring. The build leaves out
-  // `assets/` (icons, logos, fonts), which the Docker image copies on top of
-  // `dist`, so the copy step here mirrors that.
+  // `main.py` binds, so neither side needs configuring.
   //
   // Locally it stays on the dev server: `reuseExistingServer` attaches to the
   // `npm run dev` you already have, so a code change is picked up without a
@@ -67,6 +65,7 @@ export default defineConfig({
     ? {}
     : {
         webServer: {
+          // Vite skips `assets/`; the Docker image copies it over `dist`, so do the same.
           command: process.env.CI
             ? "npm run build && cp -R assets/. dist/assets/ && npm run preview -- --port 3000 --strictPort --host 127.0.0.1"
             : "npm run dev",
