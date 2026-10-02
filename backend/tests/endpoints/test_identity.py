@@ -13,11 +13,13 @@ from authlib.integrations.base_client.errors import MismatchingStateError, OAuth
 from fastapi import status
 from fastapi.testclient import TestClient
 from joserfc.errors import InvalidClaimError
+from tests.audit_events import recorded_events
 from tests.factories import make_device_token
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import permissions as permissions_endpoints
 from endpoints import user as user_endpoints
+from endpoints.responses.identity import UserSchema
 from handler.auth import base_handler as auth_handler_module
 from handler.auth.base_handler import auth_handler, oauth_handler
 from handler.auth.constants import SESSION_COOKIE_NAME
@@ -28,6 +30,7 @@ from handler.database import (
 )
 from handler.database.users_handler import DBUsersHandler
 from handler.device_install import device_install_handler
+from handler.ra_login import ra_login_for_activate, store_ra_login
 from handler.redis_handler import async_cache, redis_client
 from models.device import Device
 from models.notification import NotificationKind
@@ -1009,3 +1012,79 @@ def test_overlong_ra_username_rejected(client, access_token: str, admin_user: Us
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_the_user_schema_has_no_field_for_the_sealed_login(
+    client, access_token: str, admin_user: User
+):
+    store_ra_login(admin_user.id, "alice", "tok456secret")
+
+    response = client.get(
+        "/api/users/me", headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert "ra_login_sealed" not in UserSchema.model_fields
+    assert "ra_login_sealed" not in response.json()
+    assert "tok456secret" not in response.text
+
+
+def test_changing_ra_username_drops_the_stored_login(
+    client, access_token: str, editor_user: User
+):
+    store_ra_login(editor_user.id, "alice", "tok456secret")
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"ra_username": "someone-else"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    db_user = DBUsersHandler().get_user(editor_user.id)
+    assert db_user.ra_username == "someone-else"
+    assert db_user.ra_login_sealed is None
+    [event] = [e for e in recorded_events() if e.action == "user.edit"]
+    assert event.data["changed"] == ["ra_username"]
+    assert "alice" not in str(event.data)
+
+
+def test_resaving_the_same_ra_username_keeps_the_stored_login(
+    client, access_token: str, editor_user: User
+):
+    store_ra_login(editor_user.id, "alice", "tok456secret")
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"ra_username": "alice"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    db_user = DBUsersHandler().get_user(editor_user.id)
+    assert ra_login_for_activate(db_user) == {
+        "username": "alice",
+        "token": "tok456secret",
+    }
+    assert [e for e in recorded_events() if e.action == "user.edit"] == []
+
+
+def test_an_empty_ra_username_is_still_a_no_op(
+    client, access_token: str, editor_user: User
+):
+    """FastAPI hands an empty form value to the endpoint as None, so it cannot clear anything."""
+    store_ra_login(editor_user.id, "alice", "tok456secret")
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"ra_username": ""},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    db_user = DBUsersHandler().get_user(editor_user.id)
+    assert db_user.ra_username == "alice"
+    assert ra_login_for_activate(db_user) == {
+        "username": "alice",
+        "token": "tok456secret",
+    }

@@ -60,6 +60,7 @@ _USER_EDIT_AUDIT_FIELDS: Final = (
     "hashed_password",
     "role",
     "enabled",
+    "ra_username",
 )
 
 
@@ -499,8 +500,12 @@ async def update_user(
     if form_data.enabled is not None and request.user.id != id:
         cleaned_data["enabled"] = form_data.enabled
 
-    if form_data.ra_username:
+    if form_data.ra_username and form_data.ra_username != db_user.ra_username:
         cleaned_data["ra_username"] = form_data.ra_username
+        # The stored RetroAchievements login belongs to the account the
+        # emulator logged in to; a profile that now names another one drops it
+        # in the same update. Recorded by the user.edit row below.
+        cleaned_data["ra_login_sealed"] = None
 
     if form_data.ui_settings is not None:
         try:
