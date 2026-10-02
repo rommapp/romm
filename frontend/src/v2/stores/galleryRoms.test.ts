@@ -541,6 +541,7 @@ describe("galleryRoms reorder count", () => {
   it("keeps the count through a re-sort", () => {
     const store = storeGalleryRoms();
     store.total = 3;
+    store.metadataLoaded = true;
 
     store.invalidateWindows({ reorder: true });
 
@@ -551,6 +552,7 @@ describe("galleryRoms reorder count", () => {
   it("keeps the count through a second re-sort before the first lands", () => {
     const store = storeGalleryRoms();
     store.total = 3;
+    store.metadataLoaded = true;
 
     store.invalidateWindows({ reorder: true });
     store.invalidateWindows({ reorder: true });
@@ -561,11 +563,29 @@ describe("galleryRoms reorder count", () => {
   it("drops the count on any other invalidation", () => {
     const store = storeGalleryRoms();
     store.total = 3;
+    store.metadataLoaded = true;
     store.invalidateWindows({ reorder: true });
 
     store.invalidateWindows();
 
+    expect(store.reorderTotal).toBeNull();
+  });
+
+  it("keeps a known empty result through a re-sort", () => {
+    const store = storeGalleryRoms();
+    store.metadataLoaded = true;
+
+    store.invalidateWindows({ reorder: true });
+
     expect(store.reorderTotal).toBe(0);
+  });
+
+  it("knows no count for a re-sort before the first load lands", () => {
+    const store = storeGalleryRoms();
+
+    store.invalidateWindows({ reorder: true });
+
+    expect(store.reorderTotal).toBeNull();
   });
 });
 

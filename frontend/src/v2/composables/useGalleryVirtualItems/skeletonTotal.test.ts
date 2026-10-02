@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import type { LayoutMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryVirtualItems, type GalleryItem } from "./index";
 
-function skeletons(layout: LayoutMode, skeletonTotal: number) {
+function skeletons(layout: LayoutMode, skeletonTotal: number | null) {
   const { virtualItems } = useGalleryVirtualItems({
     layout: ref(layout),
     groupBy: ref("none"),
@@ -23,7 +23,7 @@ const cardsPerRow = (items: GalleryItem[]) =>
 
 describe("useGalleryVirtualItems skeleton count", () => {
   it("paints full grid rows when the count is unknown", () => {
-    expect(cardsPerRow(skeletons("grid", 0))).toEqual([5, 5, 5, 5]);
+    expect(cardsPerRow(skeletons("grid", null))).toEqual([5, 5, 5, 5]);
   });
 
   it("paints only the known count in the grid", () => {
@@ -36,8 +36,14 @@ describe("useGalleryVirtualItems skeleton count", () => {
   });
 
   it("paints only the known count in the list", () => {
-    expect(skeletons("list", 0)).toHaveLength(16);
+    expect(skeletons("list", null)).toHaveLength(16);
     expect(skeletons("list", 2)).toHaveLength(2);
     expect(skeletons("list", 500)).toHaveLength(16);
+  });
+
+  it("keeps a known empty result on its empty state", () => {
+    for (const layout of ["grid", "list"] as const) {
+      expect(skeletons(layout, 0).map((i) => i.kind)).toEqual(["empty"]);
+    }
   });
 });
