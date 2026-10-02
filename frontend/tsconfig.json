@@ -27,6 +27,7 @@
     ]
   },
   "vueCompilerOptions": {
+    "checkUnknownComponents": true,
     "checkUnknownDirectives": true,
     "checkUnknownEvents": true
   }
