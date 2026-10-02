@@ -41,14 +41,18 @@ const {
 
 vi.mock("vue-i18n");
 
-const { routeState } = vi.hoisted(() => ({
-  routeState: {
-    name: "collection",
-    path: "/collection/1",
-    params: { collection: "1" } as Record<string, string>,
-    query: {} as Record<string, string>,
-  },
-}));
+// The query is reactive, like the real route's, so a test can change it.
+const { routeState } = await vi.hoisted(async () => {
+  const { reactive } = await import("vue");
+  return {
+    routeState: {
+      name: "collection",
+      path: "/collection/1",
+      params: { collection: "1" } as Record<string, string>,
+      query: reactive<Record<string, string>>({}),
+    },
+  };
+});
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
@@ -92,8 +96,8 @@ vi.mock("@/v2/components/Gallery/GalleryShell.vue", () => ({
 vi.mock("@/v2/components/Gallery/CollectionHead.vue", () => ({
   default: defineComponent({
     props: { collection: { type: Object, default: null } },
-    emits: ["random", "update:tab"],
-    template: `<header><span class="rom-count">{{ collection?.rom_count }}</span><button class="random" @click="$emit('random')" /><button class="to-settings" @click="$emit('update:tab', 'settings')" /></header>`,
+    emits: ["random"],
+    template: `<header><span class="rom-count">{{ collection?.rom_count }}</span><button class="random" @click="$emit('random')" /></header>`,
   }),
 }));
 
@@ -499,7 +503,7 @@ describe("Collection view settings deep link", () => {
     routeGuards.length = 0;
     routeState.name = "collection";
     routeState.params = { collection: "1" };
-    routeState.query = { tab: "settings" };
+    routeState.query.tab = "settings";
     getRoms.mockResolvedValue({ data: { items: [], total: 0 } });
     storeAuth().setCurrentUser(
       userFixture({ id: 5, oauth_scopes: ["collections.write"] }),
@@ -507,11 +511,11 @@ describe("Collection view settings deep link", () => {
   });
 
   afterEach(() => {
-    routeState.query = {};
+    delete routeState.query.tab;
   });
 
   function ownedBy(id: number, userId: number): Collection {
-    return { ...collection(id), user_id: userId } as Collection;
+    return { ...collection(id), user_id: userId };
   }
 
   function openOwnedBy(userId: number) {
@@ -538,8 +542,8 @@ describe("Collection view settings deep link", () => {
     expect(replace).toHaveBeenCalledWith({ path: "/collection/1", query: {} });
   });
 
-  it("keeps Settings picked while the next collection is still loading", async () => {
-    routeState.query = {};
+  it("keeps a Settings link to the next collection while it loads", async () => {
+    delete routeState.query.tab;
     const notOwned = ownedBy(1, 6);
     const owned = ownedBy(2, 5);
     storeCollections().setCollections([notOwned, owned]);
@@ -551,8 +555,9 @@ describe("Collection view settings deep link", () => {
     );
 
     const wrapper = await mountView();
+    routeState.query.tab = "settings";
     runRouteGuards("collection", "2");
-    await wrapper.get("button.to-settings").trigger("click");
+    await nextTick();
     resolveNext({ data: owned });
     await flushPromises();
 
