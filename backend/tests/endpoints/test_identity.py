@@ -1042,6 +1042,7 @@ def test_changing_ra_username_drops_the_stored_login(
 
     assert response.status_code == HTTPStatus.OK
     db_user = DBUsersHandler().get_user(editor_user.id)
+    assert db_user is not None
     assert db_user.ra_username == "someone-else"
     assert db_user.ra_login_sealed is None
     [event] = [e for e in recorded_events() if e.action == "user.edit"]
@@ -1062,6 +1063,7 @@ def test_resaving_the_same_ra_username_keeps_the_stored_login(
 
     assert response.status_code == HTTPStatus.OK
     db_user = DBUsersHandler().get_user(editor_user.id)
+    assert db_user is not None
     assert ra_login_for_activate(db_user) == {
         "username": "alice",
         "token": "tok456secret",
@@ -1083,6 +1085,7 @@ def test_an_empty_ra_username_is_still_a_no_op(
 
     assert response.status_code == HTTPStatus.OK
     db_user = DBUsersHandler().get_user(editor_user.id)
+    assert db_user is not None
     assert db_user.ra_username == "alice"
     assert ra_login_for_activate(db_user) == {
         "username": "alice",

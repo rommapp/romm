@@ -7117,7 +7117,9 @@ def test_a_released_session_collects_a_cleared_login_and_drops_it(
     )
 
     assert _stored_login(admin_user.id) is None
-    assert db_user_handler.get_user(admin_user.id).ra_username == "alice"
+    admin = db_user_handler.get_user(admin_user.id)
+    assert admin is not None
+    assert admin.ra_username == "alice"
     assert [
         e.action for e in recorded_events() if e.action.startswith("user.ra_login")
     ] == [
