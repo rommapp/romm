@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Plays PICO-8 carts through the FAKE-08 WebAssembly runtime.
 import { RBtn, RSpinner, RSwitch } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
+import { useEventListener, useRafFn } from "@vueuse/core";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
@@ -51,7 +51,6 @@ const {
 let runtime: Pico8Runtime | null = null;
 let audio: Pico8Audio | null = null;
 let pacer: Pico8Pacer | null = null;
-let animationFrame = 0;
 
 const input = createPico8Input();
 const { touchMask } = input;
@@ -165,20 +164,21 @@ function runFrame(timestamp: number) {
     if (steps > 0) active.render();
   } catch (error) {
     showPlayError(error);
-    return;
   }
-  animationFrame = requestAnimationFrame(runFrame);
 }
+
+const frameLoop = useRafFn(({ timestamp }) => runFrame(timestamp), {
+  immediate: false,
+});
 
 function startLoop() {
   pacer = createPico8Pacer(runtime?.frameRate || PICO8_FRAME_RATE);
   pacer.reset(performance.now());
-  animationFrame = requestAnimationFrame(runFrame);
+  frameLoop.resume();
 }
 
 function releaseGame() {
-  cancelAnimationFrame(animationFrame);
-  animationFrame = 0;
+  frameLoop.pause();
   runtime?.dispose();
   runtime = null;
   pacer = null;

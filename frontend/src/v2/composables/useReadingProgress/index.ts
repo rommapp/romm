@@ -10,6 +10,7 @@
 // `progress` is a 0..1 fraction and always reflects the live position, so a
 // document with no rom file behind it (the scraped primary manual) still
 // drives a progress bar; only the saving half needs a file id.
+import { useResizeObserver, useTimeoutFn } from "@vueuse/core";
 import { onBeforeUnmount, ref, watch, type Ref } from "vue";
 import romApi from "@/services/api/rom";
 
@@ -27,7 +28,6 @@ export function useReadingProgress(
 ) {
   const progress = ref(0);
   const restoring = ref(false);
-  let saveTimer: ReturnType<typeof setTimeout> | null = null;
   // The pending save carries the document it was measured against, so a flush
   // triggered after the viewer switched files still targets the right one.
   let pending: {
@@ -46,31 +46,25 @@ export function useReadingProgress(
   // Subtabs mount their viewers up front and hide the inactive ones, so a
   // restore often lands on a container that has no height yet. Hold the
   // position and apply it once the panel is actually laid out.
-  let deferredScroll: number | null = null;
-  let layoutObserver: ResizeObserver | null = null;
-
-  function stopObservingLayout() {
-    layoutObserver?.disconnect();
-    layoutObserver = null;
-    deferredScroll = null;
-  }
+  const deferredScroll = ref<number | null>(null);
+  useResizeObserver(
+    () => (deferredScroll.value == null ? null : scrollEl?.value),
+    () => {
+      const el = scrollEl?.value;
+      const held = deferredScroll.value;
+      if (!el || held == null) return;
+      if (el.scrollHeight - el.clientHeight <= 0) return;
+      deferredScroll.value = null;
+      applyScroll(held);
+    },
+  );
 
   function applyScroll(value: number) {
     const el = scrollEl?.value;
     if (!el) return;
     const scrollable = el.scrollHeight - el.clientHeight;
     if (scrollable <= 0) {
-      deferredScroll = value;
-      if (!layoutObserver) {
-        layoutObserver = new ResizeObserver(() => {
-          const held = deferredScroll;
-          if (held == null) return;
-          if (el.scrollHeight - el.clientHeight <= 0) return;
-          stopObservingLayout();
-          applyScroll(held);
-        });
-        layoutObserver.observe(el);
-      }
+      deferredScroll.value = value;
       return;
     }
     restoring.value = true;
@@ -120,12 +114,11 @@ export function useReadingProgress(
       .catch((err) => console.error("Failed to save reading progress", err));
   }
 
-  function cancelPendingSave() {
-    if (saveTimer) {
-      clearTimeout(saveTimer);
-      saveTimer = null;
-    }
-  }
+  const { start: scheduleSave, stop: cancelPendingSave } = useTimeoutFn(
+    flush,
+    SAVE_DEBOUNCE_MS,
+    { immediate: false },
+  );
 
   function schedule(lastPage: number | null) {
     if (fileId.value == null) return;
@@ -135,8 +128,7 @@ export function useReadingProgress(
       progress: progress.value,
       lastPage,
     };
-    cancelPendingSave();
-    saveTimer = setTimeout(flush, SAVE_DEBOUNCE_MS);
+    scheduleSave();
   }
 
   function onScroll() {
@@ -166,7 +158,7 @@ export function useReadingProgress(
     cancelPendingSave();
     // Commit the outgoing document's position before following the new one.
     flush();
-    stopObservingLayout();
+    deferredScroll.value = null;
     progress.value = 0;
     void restore();
   });
@@ -174,7 +166,6 @@ export function useReadingProgress(
   onBeforeUnmount(() => {
     cancelPendingSave();
     flush();
-    stopObservingLayout();
   });
 
   return { progress, restore, onScroll, setPage, suppressWhileRestoring };

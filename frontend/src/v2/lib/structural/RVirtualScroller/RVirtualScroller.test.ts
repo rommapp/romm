@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { nextTick } from "vue";
+import { stubResizeObserver } from "@/test-utils/resizeObserver";
 import RVirtualScroller from "./RVirtualScroller.vue";
 
 const ROW_H = 100;
@@ -111,5 +112,74 @@ describe("RVirtualScroller body", () => {
     expect(body.findAll(".row")).toHaveLength(items.length);
     expect(body.find(".toolbar").exists()).toBe(false);
     wrapper.unmount();
+  });
+});
+
+describe("RVirtualScroller resize", () => {
+  const many = Array.from({ length: 50 }, (_, id) => ({ id }));
+
+  async function mountObserved() {
+    const ro = stubResizeObserver();
+    const wrapper = mount(RVirtualScroller, {
+      attachTo: document.body,
+      props: {
+        items: many,
+        getItemHeight: () => ROW_H,
+        height: VIEWPORT_H,
+        overscan: 0,
+      },
+      slots: {
+        prepend: `<div class="toolbar" />`,
+        default: `<div class="row" />`,
+      },
+    });
+    await nextTick();
+    return { ro, wrapper };
+  }
+
+  function lastRange(
+    wrapper: Awaited<ReturnType<typeof mountObserved>>["wrapper"],
+  ) {
+    return wrapper.emitted("update:viewportRange")?.at(-1)?.[0];
+  }
+
+  it("re-measures the viewport when the container resizes", async () => {
+    const { ro, wrapper } = await mountObserved();
+    expect(wrapper.findAll(".row")).toHaveLength(5);
+
+    Object.defineProperty(wrapper.element, "clientHeight", { value: 200 });
+    ro.resize(wrapper.element, 0, 200);
+    await nextTick();
+
+    expect(wrapper.findAll(".row")).toHaveLength(2);
+    wrapper.unmount();
+  });
+
+  it("re-reads the inner offset when a band above it resizes", async () => {
+    const { ro, wrapper } = await mountObserved();
+    const inner = wrapper.get(".r-virtual-scroller__inner").element;
+    wrapper.element.scrollTop = 300;
+    await wrapper.trigger("scroll");
+    expect(lastRange(wrapper)).toEqual({ first: 3, last: 7 });
+
+    Object.defineProperty(inner, "offsetTop", { value: 300 });
+    ro.resize(wrapper.get(".r-virtual-scroller__prepend").element, 0, 300);
+    await nextTick();
+
+    expect(lastRange(wrapper)).toEqual({ first: 0, last: 4 });
+    wrapper.unmount();
+  });
+
+  it("stops observing on unmount", async () => {
+    const { ro, wrapper } = await mountObserved();
+    const container = wrapper.element;
+    const band = wrapper.get(".r-virtual-scroller__prepend").element;
+    expect(ro.isObserved(container)).toBe(true);
+    expect(ro.isObserved(band)).toBe(true);
+
+    wrapper.unmount();
+
+    expect(ro.isObserved(container)).toBe(false);
+    expect(ro.isObserved(band)).toBe(false);
   });
 });

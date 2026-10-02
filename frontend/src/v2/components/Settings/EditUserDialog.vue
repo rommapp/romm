@@ -5,6 +5,7 @@
 // group and the platforms hidden from them. Emitter-driven
 // (`showEditUserDialog`).
 import { RBtn, RIcon, RSelect, RSwitch, RTextField } from "@v2/lib";
+import { useObjectUrl } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -38,7 +39,7 @@ const show = ref(false);
 const submitting = ref(false);
 const user = ref<UserItem | null>(null);
 const confirmPassword = ref("");
-const imagePreviewUrl = ref<string | undefined>(undefined);
+const imagePreviewUrl = useObjectUrl(() => user.value?.avatar);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
 // Access section.
@@ -92,7 +93,6 @@ const sortedPlatforms = computed(() =>
 emitter?.on("showEditUserDialog", async (toEdit) => {
   user.value = { ...toEdit, password: "", avatar: undefined };
   confirmPassword.value = "";
-  imagePreviewUrl.value = undefined;
   isAdmin.value = toEdit.role === "admin";
   showAdvanced.value = false;
   show.value = true;
@@ -161,13 +161,7 @@ function triggerFileInput() {
 function previewImage(event: Event) {
   const input = event.target as HTMLInputElement;
   if (!input.files || !input.files[0] || !user.value) return;
-  const file = input.files[0];
-  user.value.avatar = file;
-  const reader = new FileReader();
-  reader.onload = () => {
-    imagePreviewUrl.value = reader.result?.toString();
-  };
-  reader.readAsDataURL(file);
+  user.value.avatar = input.files[0];
 }
 
 function diffHidden(
@@ -265,7 +259,6 @@ async function save() {
 
 function close() {
   show.value = false;
-  imagePreviewUrl.value = undefined;
 }
 </script>
 

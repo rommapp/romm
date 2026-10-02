@@ -67,7 +67,7 @@ vi.mock("@/v2/composables/useServerConnection", () => ({
 
 // The composable only runs inside a component scope, like AppLayout's.
 function install() {
-  mount(
+  return mount(
     defineComponent({
       setup() {
         installPendingAssetSync();
@@ -128,6 +128,23 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(syncPendingAssets).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops retrying once the shell is gone", async () => {
+    syncPendingAssets.mockImplementation(async () => ({
+      synced: [],
+      dropped: [],
+    }));
+    queue.entries = [{ id: "1:a", romId: 1, kind: "save" as const }];
+
+    const shell = install();
+    await settle();
+    shell.unmount();
+    await vi.advanceTimersByTimeAsync(120_000);
+    await settle();
+
+    expect(syncPendingAssets).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   // The running session owns its save; nothing but this hands over a state.

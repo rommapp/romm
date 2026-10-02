@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
+import { stubResizeObserver } from "@/test-utils/resizeObserver";
 import { useNavGlass } from "@/v2/composables/useNavGlass";
 import { usePinnedToolbar } from "./index";
 
@@ -43,6 +44,7 @@ function bindShell(api: ReturnType<typeof usePinnedToolbar>) {
   document.body.append(parent);
   api.bindSentinel(sentinel);
   api.bindToolbar(toolbar);
+  return { header, sentinel, toolbar };
 }
 
 describe("usePinnedToolbar", () => {
@@ -106,5 +108,29 @@ describe("usePinnedToolbar", () => {
     expect(innerScrolled.value).toBe(false);
     expect(innerGlass.value).toBe(false);
     expect(useNavGlass().handoff.value).toBe(false);
+  });
+
+  it("watches the header and re-measures when the toolbar resizes", async () => {
+    const ro = stubResizeObserver();
+    const { api } = setup();
+    const { header, toolbar } = bindShell(api);
+    await nextTick();
+    expect(ro.isObserved(header)).toBe(true);
+
+    toolbar.getBoundingClientRect = () => new DOMRect(0, 0, 800, 48);
+    ro.resize(toolbar, 800, 48);
+    expect(api.toolbarHeight.value).toBe(48);
+  });
+
+  it("stops observing on unmount", async () => {
+    const ro = stubResizeObserver();
+    const { api, wrapper } = setup();
+    const { toolbar } = bindShell(api);
+    await nextTick();
+    expect(ro.isObserved(toolbar)).toBe(true);
+
+    wrapper.unmount();
+
+    expect(ro.isObserved(toolbar)).toBe(false);
   });
 });

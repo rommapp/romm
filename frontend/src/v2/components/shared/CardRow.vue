@@ -12,7 +12,8 @@
 // RIcon renders at drives the layout, and the title always stays
 // vertically centred with it (flex align-items:center on the head).
 import { RBtn, RTag } from "@v2/lib";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useMutationObserver, useResizeObserver } from "@vueuse/core";
+import { computed, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
@@ -84,53 +85,31 @@ function scrollBy(dir: -1 | 1) {
   el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
 }
 
-// Observe both the track and its children for size changes: covers:
-//   * initial mount (track measured before children paint)
-//   * skeleton → real card swap (different widths)
-//   * window resize collapsing/widening the track
-//   * font-load / image-load shifts that change scrollWidth
-// Without this, `canRight` is decided once and never reconsidered, so
-// rows that overflow only after async data arrives never show the
-// right-arrow until the user scrolls manually.
-let trackObserver: ResizeObserver | null = null;
-let childObserver: MutationObserver | null = null;
+// Async cards, skeleton swaps, resizes and image loads all move the overflow.
+// The cards are watched too: a same-width swap changes the track's
+// scrollWidth without resizing the track itself.
+const observedEls = shallowRef<HTMLElement[]>([]);
 
-function bindObservers() {
+function collectObserved() {
   const el = scrollEl.value;
   if (!el) return;
-  trackObserver = new ResizeObserver(() => updateScroll());
-  trackObserver.observe(el);
-  // Observe each child's size too: when a 158px skeleton is replaced
-  // by a same-width real card the ResizeObserver on the track itself
-  // doesn't always fire (scrollWidth changed but clientWidth didn't),
-  // and on the first paint the children may not be present yet.
-  for (const child of Array.from(el.children)) {
-    trackObserver.observe(child as Element);
-  }
-  // Re-bind child observation as DOM mutates (skeletons added/removed,
-  // real cards inserted).
-  childObserver = new MutationObserver(() => {
-    if (!trackObserver || !scrollEl.value) return;
-    trackObserver.disconnect();
-    trackObserver.observe(scrollEl.value);
-    for (const child of Array.from(scrollEl.value.children)) {
-      trackObserver.observe(child as Element);
-    }
-    updateScroll();
-  });
-  childObserver.observe(el, { childList: true });
+  const cards = Array.from(el.children).filter((c) => c instanceof HTMLElement);
+  observedEls.value = [el, ...cards];
 }
+
+useResizeObserver(observedEls, () => updateScroll());
+useMutationObserver(
+  scrollEl,
+  () => {
+    collectObserved();
+    updateScroll();
+  },
+  { childList: true },
+);
 
 onMounted(() => {
   requestAnimationFrame(updateScroll);
-  bindObservers();
-});
-
-onBeforeUnmount(() => {
-  trackObserver?.disconnect();
-  trackObserver = null;
-  childObserver?.disconnect();
-  childObserver = null;
+  collectObserved();
 });
 </script>
 
