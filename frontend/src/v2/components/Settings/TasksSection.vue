@@ -9,8 +9,9 @@
 // history feed updates in real time. Manual + scheduled tasks expose a
 // run button that posts to /tasks/{name}/run.
 import { RBtn, RIcon, RSpinner } from "@v2/lib";
+import { useIntervalFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { TaskInfo } from "@/__generated__";
 import taskApi from "@/services/api/task";
@@ -116,19 +117,12 @@ async function fetchTaskStatus() {
   }
 }
 
-let refreshInterval: number | null = null;
-
 onMounted(() => {
   void tasksStore.fetchTasks();
   void fetchTaskStatus();
-  refreshInterval = window.setInterval(() => {
-    void fetchTaskStatus();
-  }, 5000);
 });
 
-onUnmounted(() => {
-  if (refreshInterval) clearInterval(refreshInterval);
-});
+useIntervalFn(() => void fetchTaskStatus(), 5000);
 
 function statusInfo(task: TaskStatusResponse) {
   return TaskStatusItem[task.status] ?? TaskStatusItem.queued;

@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CleanupTaskStatusResponse } from "@/__generated__/models/CleanupTaskStatusResponse";
 import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import TasksSection from "./TasksSection.vue";
@@ -98,6 +98,8 @@ describe("TasksSection", () => {
     runTask.mockResolvedValue({ data: { task_id: "job-1" } });
     confirm.mockReset();
   });
+
+  afterEach(() => vi.useRealTimers());
 
   it("runs a destructive task only once its typed confirmation passes", async () => {
     getTasks.mockResolvedValue({
@@ -200,6 +202,19 @@ describe("TasksSection", () => {
 
     expect(getTaskStatus).toHaveBeenCalledTimes(1);
     wrapper.unmount();
+  });
+
+  it("polls the status every five seconds until unmounted", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const wrapper = await mountSection();
+    getTaskStatus.mockClear();
+
+    vi.advanceTimersByTime(10_000);
+    expect(getTaskStatus).toHaveBeenCalledTimes(2);
+
+    wrapper.unmount();
+    vi.advanceTimersByTime(10_000);
+    expect(getTaskStatus).toHaveBeenCalledTimes(2);
   });
 
   it("describes a scheduled task's cron expression in words", async () => {

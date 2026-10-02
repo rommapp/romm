@@ -27,6 +27,7 @@ import {
   RTag,
   RVirtualScroller,
 } from "@v2/lib";
+import { useDebounceFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -226,7 +227,6 @@ function onListSort({ key, dir }: { key: ListSortKey; dir: "asc" | "desc" }) {
 // row's `getRomAt(position)` stays null and the list shows skeletons
 // forever. Mirrors GalleryShell's debounced sync + re-sync-on-items-change.
 const FETCH_DEBOUNCE_MS = 80;
-let fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 const viewportRange = ref<{ first: number; last: number }>({
   first: 0,
   last: -1,
@@ -250,13 +250,11 @@ function syncFetches(range: { first: number; last: number }) {
   galleryRoms.syncVisibleWindows(collectVisiblePositions(range));
 }
 
+const scheduleFetchSync = useDebounceFn(syncFetches, FETCH_DEBOUNCE_MS);
+
 function onViewportRange(range: { first: number; last: number }) {
   viewportRange.value = range;
-  if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
-  fetchDebounceTimer = setTimeout(() => {
-    fetchDebounceTimer = null;
-    syncFetches(range);
-  }, FETCH_DEBOUNCE_MS);
+  void scheduleFetchSync(range);
 }
 
 // Metadata resolving flips `virtualItems` from skeleton placeholders to
@@ -265,10 +263,7 @@ function onViewportRange(range: { first: number; last: number }) {
 // immediately against the current viewport so the first window loads.
 watch(virtualItems, () => {
   listExpansion.collapse();
-  if (fetchDebounceTimer) {
-    clearTimeout(fetchDebounceTimer);
-    fetchDebounceTimer = null;
-  }
+  scheduleFetchSync.cancel();
   syncFetches(viewportRange.value);
 });
 
@@ -323,7 +318,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   // A press still in flight would otherwise fire into the next surface.
   useGallerySelectionInput().cancel();
-  if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
+  scheduleFetchSync.cancel();
   galleryFilter.setFilterMissing(prevFilterMissing);
   galleryFilter.setSelectedFilterPlatforms(prevSelectedPlatforms);
   galleryRoms.resetGallery();
