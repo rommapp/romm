@@ -353,6 +353,8 @@
   "ra-saved-and-synced": "已关联并开始同步",
   "ra-sync-failed": "无法同步您的 RetroAchievements 个人资料",
   "ra-unlink": "取消关联",
+  "ra-unlink-body": "RomM 将移除此账号、已同步的进度以及在模拟器中保存的登录信息。RetroAchievements 本身不受影响。",
+  "ra-unlink-title": "取消关联 RetroAchievements？",
   "ra-unlinked": "已取消关联 RetroAchievements 账号",
   "ra-update-failed": "无法更新您的 RetroAchievements 用户名",
   "rating-header": "评分",

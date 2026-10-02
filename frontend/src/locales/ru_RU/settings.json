@@ -353,6 +353,8 @@
   "ra-saved-and-synced": "Привязано и синхронизация запущена",
   "ra-sync-failed": "Не удалось синхронизировать профиль RetroAchievements",
   "ra-unlink": "Отвязать",
+  "ra-unlink-body": "RomM забудет этот аккаунт, синхронизированный прогресс и вход, сохранённый из эмулятора. На самом RetroAchievements ничего не изменится.",
+  "ra-unlink-title": "Отвязать RetroAchievements?",
   "ra-unlinked": "Аккаунт RetroAchievements отвязан",
   "ra-update-failed": "Не удалось обновить имя пользователя RetroAchievements",
   "rating-header": "Рейтинг",

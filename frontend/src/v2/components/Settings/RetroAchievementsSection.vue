@@ -11,6 +11,7 @@ import { useI18n } from "vue-i18n";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -18,6 +19,7 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const auth = storeAuth();
 const snackbar = useSnackbar();
+const confirm = useConfirm();
 
 const username = ref(auth.user?.ra_username ?? "");
 const submitting = ref(false);
@@ -87,6 +89,13 @@ async function saveAndSync() {
 
 async function unlink() {
   if (!auth.user) return;
+  const ok = await confirm({
+    title: t("settings.ra-unlink-title"),
+    body: t("settings.ra-unlink-body"),
+    confirmText: t("settings.ra-unlink"),
+    tone: "danger",
+  });
+  if (!ok) return;
   unlinking.value = true;
   try {
     const { data } = await userApi.updateUser({

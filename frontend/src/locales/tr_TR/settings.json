@@ -353,6 +353,8 @@
   "ra-saved-and-synced": "Bağlandı ve senkronizasyon başladı",
   "ra-sync-failed": "RetroAchievements profiliniz senkronize edilemedi",
   "ra-unlink": "Bağlantıyı kaldır",
+  "ra-unlink-body": "RomM bu hesabı, eşitlenen ilerlemeyi ve emülatörden kaydedilen girişi unutur. RetroAchievements tarafında hiçbir şey değişmez.",
+  "ra-unlink-title": "RetroAchievements bağlantısı kaldırılsın mı?",
   "ra-unlinked": "RetroAchievements hesabının bağlantısı kaldırıldı",
   "ra-update-failed": "RetroAchievements kullanıcı adınız güncellenemedi",
   "rating-header": "Puan",

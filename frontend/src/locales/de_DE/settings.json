@@ -353,6 +353,8 @@
   "ra-saved-and-synced": "Verknüpft & Sync gestartet",
   "ra-sync-failed": "Dein RetroAchievements-Profil konnte nicht synchronisiert werden",
   "ra-unlink": "Trennen",
+  "ra-unlink-body": "RomM vergisst dieses Konto, den synchronisierten Fortschritt und die im Emulator gespeicherte Anmeldung. Bei RetroAchievements selbst ändert sich nichts.",
+  "ra-unlink-title": "RetroAchievements trennen?",
   "ra-unlinked": "RetroAchievements-Konto getrennt",
   "ra-update-failed": "Dein RetroAchievements-Benutzername konnte nicht aktualisiert werden",
   "rating-header": "Bewertung",

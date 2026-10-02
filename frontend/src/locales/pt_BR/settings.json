@@ -353,6 +353,8 @@
   "ra-saved-and-synced": "Vinculado e sincronização iniciada",
   "ra-sync-failed": "Não foi possível sincronizar seu perfil do RetroAchievements",
   "ra-unlink": "Desvincular",
+  "ra-unlink-body": "O RomM esquece esta conta, o progresso sincronizado e o login salvo do seu emulador. Nada muda no RetroAchievements.",
+  "ra-unlink-title": "Desvincular o RetroAchievements?",
   "ra-unlinked": "Conta do RetroAchievements desvinculada",
   "ra-update-failed": "Não foi possível atualizar seu nome de usuário do RetroAchievements",
   "rating-header": "Avaliação",

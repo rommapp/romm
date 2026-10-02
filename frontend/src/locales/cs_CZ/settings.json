@@ -353,6 +353,8 @@
   "ra-saved-and-synced": "Propojeno a synchronizace spuštěna",
   "ra-sync-failed": "Nepodařilo se synchronizovat profil RetroAchievements",
   "ra-unlink": "Odpojit",
+  "ra-unlink-body": "RomM zapomene tento účet, synchronizovaný postup a přihlášení uložené z emulátoru. Na RetroAchievements se nic nemění.",
+  "ra-unlink-title": "Odpojit RetroAchievements?",
   "ra-unlinked": "Účet RetroAchievements byl odpojen",
   "ra-update-failed": "Nepodařilo se aktualizovat uživatelské jméno RetroAchievements",
   "rating-header": "Hodnocení",

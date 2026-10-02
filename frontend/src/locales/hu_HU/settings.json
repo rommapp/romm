@@ -353,6 +353,8 @@
   "ra-saved-and-synced": "Összekötve és szinkronizálás elindítva",
   "ra-sync-failed": "A RetroAchievements profil szinkronizálása sikertelen",
   "ra-unlink": "Leválasztás",
+  "ra-unlink-body": "A RomM elfelejti ezt a fiókot, a szinkronizált előrehaladást és az emulátorból mentett bejelentkezést. Magán a RetroAchievementsen semmi sem változik.",
+  "ra-unlink-title": "Leválasztod a RetroAchievements fiókot?",
   "ra-unlinked": "RetroAchievements-fiók leválasztva",
   "ra-update-failed": "A RetroAchievements felhasználónév frissítése sikertelen",
   "rating-header": "Értékelés",

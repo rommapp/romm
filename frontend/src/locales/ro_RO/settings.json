@@ -353,6 +353,8 @@
   "ra-saved-and-synced": "Asociat și sincronizare începută",
   "ra-sync-failed": "Profilul RetroAchievements nu a putut fi sincronizat",
   "ra-unlink": "Deconectează",
+  "ra-unlink-body": "RomM uită acest cont, progresul sincronizat și autentificarea salvată din emulator. Pe RetroAchievements nu se schimbă nimic.",
+  "ra-unlink-title": "Deconectezi RetroAchievements?",
   "ra-unlinked": "Contul RetroAchievements a fost deconectat",
   "ra-update-failed": "Numele de utilizator RetroAchievements nu a putut fi actualizat",
   "rating-header": "Evaluare",

@@ -2,17 +2,17 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeAuth from "@/stores/auth";
-import type { User } from "@/stores/users";
+import { userFixture } from "@/utils/user.fixtures";
 import RetroAchievementsSection from "./RetroAchievementsSection.vue";
 
-const { updateUser, refreshRetroAchievements, success, error } = vi.hoisted(
-  () => ({
+const { updateUser, refreshRetroAchievements, success, error, confirm } =
+  vi.hoisted(() => ({
     updateUser: vi.fn(),
     refreshRetroAchievements: vi.fn(),
     success: vi.fn(),
     error: vi.fn(),
-  }),
-);
+    confirm: vi.fn(),
+  }));
 
 vi.mock("@/services/api/user", () => ({
   default: { updateUser, refreshRetroAchievements },
@@ -25,6 +25,8 @@ vi.mock("vue-i18n", () => ({
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success, error }),
 }));
+
+vi.mock("@/v2/composables/useConfirm", () => ({ useConfirm: () => confirm }));
 
 const RBtnStub = {
   name: "RBtn",
@@ -42,8 +44,8 @@ const RTextFieldStub = {
     "<input :value='modelValue' @input=\"$emit('update:modelValue', $event.target.value)\" />",
 };
 
-function user(raUsername: string | null): User {
-  return { id: 7, ra_username: raUsername } as unknown as User;
+function user(raUsername: string | null) {
+  return userFixture({ id: 7, ra_username: raUsername });
 }
 
 function mountSection(raUsername: string | null) {
@@ -72,6 +74,7 @@ beforeEach(() => {
   refreshRetroAchievements.mockReset();
   success.mockReset();
   error.mockReset();
+  confirm.mockReset().mockResolvedValue(true);
 });
 
 describe("RetroAchievementsSection unlink", () => {
@@ -95,7 +98,21 @@ describe("RetroAchievementsSection unlink", () => {
     expect(success).toHaveBeenCalledWith("settings.ra-unlinked", {
       icon: "mdi-check-bold",
     });
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ tone: "danger" }),
+    );
     expect(unlinkButton(wrapper)).toBeUndefined();
+  });
+
+  it("keeps the account linked when the confirmation is cancelled", async () => {
+    confirm.mockResolvedValue(false);
+    const wrapper = mountSection("alice");
+
+    await unlinkButton(wrapper)!.trigger("click");
+    await flushPromises();
+
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(storeAuth().user?.ra_username).toBe("alice");
   });
 
   it("keeps the account linked when the update fails", async () => {

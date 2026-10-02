@@ -353,6 +353,8 @@
   "ra-saved-and-synced": "連携して同期を開始しました",
   "ra-sync-failed": "RetroAchievementsプロフィールを同期できませんでした",
   "ra-unlink": "連携を解除",
+  "ra-unlink-body": "RomM はこのアカウント、同期した進捗、エミュレーターで保存したログインを削除します。RetroAchievements 側には影響しません。",
+  "ra-unlink-title": "RetroAchievements の連携を解除しますか？",
   "ra-unlinked": "RetroAchievements アカウントの連携を解除しました",
   "ra-update-failed": "RetroAchievementsのユーザー名を更新できませんでした",
   "rating-header": "評価",

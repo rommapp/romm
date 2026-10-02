@@ -353,6 +353,8 @@
   "ra-saved-and-synced": "Свързано и синхронизацията започна",
   "ra-sync-failed": "Профилът ти в RetroAchievements не можа да бъде синхронизиран",
   "ra-unlink": "Прекрати връзката",
+  "ra-unlink-body": "RomM ще забрави този акаунт, синхронизирания напредък и входа, запазен от емулатора. В самия RetroAchievements нищо не се променя.",
+  "ra-unlink-title": "Да се прекрати ли връзката с RetroAchievements?",
   "ra-unlinked": "Връзката с акаунта в RetroAchievements е прекратена",
   "ra-update-failed": "Потребителското ти име в RetroAchievements не можа да бъде обновено",
   "rating-header": "Оценка",
