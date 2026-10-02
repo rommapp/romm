@@ -1,14 +1,16 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
 import { AxiosError } from "axios";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, ref } from "vue";
+import storeAuth from "@/stores/auth";
 import storeCollections, {
   type Collection,
   type SmartCollection,
   type VirtualCollection,
 } from "@/stores/collections";
 import type { SimpleRom } from "@/stores/roms";
+import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import CollectionView from "./Collection.vue";
 
@@ -18,6 +20,7 @@ const {
   getRoms,
   getVirtualCollection,
   push,
+  replace,
   routeGuards,
   snackbarError,
   snackbarInfo,
@@ -27,6 +30,7 @@ const {
   getRoms: vi.fn(),
   getVirtualCollection: vi.fn(),
   push: vi.fn(),
+  replace: vi.fn(),
   routeGuards: [] as ((
     to: { name: string; path: string; params: Record<string, string> },
     from: { name: string; path: string; params: Record<string, string> },
@@ -37,19 +41,23 @@ const {
 
 vi.mock("vue-i18n");
 
-const { routeState } = vi.hoisted(() => ({
-  routeState: {
-    name: "collection",
-    path: "/collection/1",
-    params: { collection: "1" } as Record<string, string>,
-    query: {} as Record<string, string>,
-  },
-}));
+// The query is reactive, like the real route's, so a test can change it.
+const { routeState } = await vi.hoisted(async () => {
+  const { reactive } = await import("vue");
+  return {
+    routeState: {
+      name: "collection",
+      path: "/collection/1",
+      params: { collection: "1" } as Record<string, string>,
+      query: reactive<Record<string, string>>({}),
+    },
+  };
+});
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => routeState,
-  useRouter: () => ({ push, replace: vi.fn() }),
+  useRouter: () => ({ push, replace, currentRoute: { value: routeState } }),
   // Captured rather than dropped: calling the guard is how a test moves
   // the view to another collection, which is what the stale check watches.
   onBeforeRouteUpdate: vi.fn((guard) => routeGuards.push(guard)),
@@ -94,7 +102,7 @@ vi.mock("@/v2/components/Gallery/CollectionHead.vue", () => ({
 }));
 
 vi.mock("@/v2/components/Gallery/CollectionSettingsTab.vue", () => ({
-  default: defineComponent({ template: "<div />" }),
+  default: defineComponent({ template: "<div class='settings-tab' />" }),
 }));
 
 vi.mock("@/v2/composables/useCan", () => ({
@@ -487,5 +495,72 @@ describe("Collection view query-only navigation", () => {
     expect(getCollection).not.toHaveBeenCalled();
     expect(resetGallery).not.toHaveBeenCalled();
     expect(wrapper.get(".rom-count").text()).toBe("9000");
+  });
+});
+
+describe("Collection view settings deep link", () => {
+  beforeEach(() => {
+    routeGuards.length = 0;
+    routeState.name = "collection";
+    routeState.params = { collection: "1" };
+    routeState.query.tab = "settings";
+    getRoms.mockResolvedValue({ data: { items: [], total: 0 } });
+    storeAuth().setCurrentUser(
+      userFixture({ id: 5, oauth_scopes: ["collections.write"] }),
+    );
+  });
+
+  afterEach(() => {
+    delete routeState.query.tab;
+  });
+
+  function ownedBy(id: number, userId: number): Collection {
+    return { ...collection(id), user_id: userId };
+  }
+
+  function openOwnedBy(userId: number) {
+    const owned = ownedBy(1, userId);
+    storeCollections().setCollections([owned]);
+    getCollection.mockResolvedValue({ data: owned });
+  }
+
+  it("opens Settings once an owned collection loads", async () => {
+    openOwnedBy(5);
+
+    const wrapper = await mountView();
+
+    expect(wrapper.find(".settings-tab").exists()).toBe(true);
+  });
+
+  it("falls back to Library on a collection the user doesn't own", async () => {
+    openOwnedBy(6);
+
+    const wrapper = await mountView();
+
+    expect(wrapper.find(".settings-tab").exists()).toBe(false);
+    expect(wrapper.find(".rom-count").exists()).toBe(true);
+    expect(replace).toHaveBeenCalledWith({ path: "/collection/1", query: {} });
+  });
+
+  it("keeps a Settings link to the next collection while it loads", async () => {
+    delete routeState.query.tab;
+    const notOwned = ownedBy(1, 6);
+    const owned = ownedBy(2, 5);
+    storeCollections().setCollections([notOwned, owned]);
+    let resolveNext!: (value: { data: Collection }) => void;
+    getCollection.mockImplementation((id: number) =>
+      id === 1
+        ? Promise.resolve({ data: notOwned })
+        : new Promise((resolve) => (resolveNext = resolve)),
+    );
+
+    const wrapper = await mountView();
+    routeState.query.tab = "settings";
+    runRouteGuards("collection", "2");
+    await nextTick();
+    resolveNext({ data: owned });
+    await flushPromises();
+
+    expect(wrapper.find(".settings-tab").exists()).toBe(true);
   });
 });
