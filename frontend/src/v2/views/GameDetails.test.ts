@@ -16,9 +16,7 @@ const { route, routeRom, panel } = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en_US" } }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("vue-router", () => ({
   useRoute: () => route,

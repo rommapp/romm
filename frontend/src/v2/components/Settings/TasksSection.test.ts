@@ -15,9 +15,7 @@ vi.mock("@/services/api/task", () => ({
   default: { getTasks, getTaskStatus, runTask },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en_US" } }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirm,

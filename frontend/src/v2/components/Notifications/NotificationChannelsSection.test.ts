@@ -128,7 +128,7 @@ describe("NotificationChannelsSection", () => {
 
     expect(api.test).toHaveBeenCalledWith(1);
     expect(snackbar.error).toHaveBeenCalledWith(
-      "notifications.channel-test-failed",
+      'notifications.channel-test-failed:{"error":"refused"}',
     );
     expect(api.getChannels).toHaveBeenCalledTimes(2);
   });

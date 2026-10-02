@@ -8,9 +8,7 @@ import CollectionSettingsTab from "./CollectionSettingsTab.vue";
 
 const { snackbarError } = vi.hoisted(() => ({ snackbarError: vi.fn() }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en_US" } }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/services/api/collection", () => ({
   default: {
     updateCollection: vi.fn(),

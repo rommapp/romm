@@ -133,7 +133,7 @@ describe("RefreshMetadataDialog", () => {
     ]);
     expect(persistSelection).toHaveBeenCalled();
     expect(snackbarInfo).toHaveBeenCalledWith(
-      "rom.refreshing-files",
+      'rom.refreshing-files:{"name":"Game"}',
       expect.anything(),
     );
   });

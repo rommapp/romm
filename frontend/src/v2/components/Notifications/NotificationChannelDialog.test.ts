@@ -18,9 +18,7 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock("@/services/api/notificationChannel", () => ({ default: api }));
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en_US" } }),
-}));
+vi.mock("vue-i18n");
 
 function channel(
   overrides: Partial<NotificationChannelSchema> = {},

@@ -7,12 +7,7 @@ const { copy, clipboard } = vi.hoisted(() => ({
   clipboard: { isSupported: true },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string, params?: Record<string, unknown>) =>
-      params ? `${key}:${JSON.stringify(params)}` : key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useClipboard", () => ({
   useClipboard: () => ({ isSupported: clipboard.isSupported, copy }),

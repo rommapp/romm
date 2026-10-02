@@ -168,7 +168,7 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(success).toHaveBeenCalledWith(
-      "play.last-save-synced",
+      'play.last-save-synced:{"game":"Game"}',
       expect.objectContaining({ image: null }),
     );
   });
@@ -180,7 +180,7 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(success).toHaveBeenCalledWith(
-      "play.last-state-synced",
+      'play.last-state-synced:{"game":"Game"}',
       expect.anything(),
     );
   });
@@ -208,7 +208,7 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(error).toHaveBeenCalledWith(
-      "play.save-sync-refused",
+      'play.save-sync-refused:{"game":"Game","reason":"Slot has a newer save"}',
       expect.anything(),
     );
     expect(success).not.toHaveBeenCalled();
@@ -237,7 +237,7 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(warning).toHaveBeenCalledWith(
-      "play.save-kept-apart",
+      'play.save-kept-apart:{"game":"Game"}',
       expect.anything(),
     );
     expect(success).not.toHaveBeenCalled();

@@ -172,7 +172,7 @@ describe("FilesTab uploads", () => {
     });
     expect(refetchRom).toHaveBeenCalledWith(1);
     expect(snackbar.success).toHaveBeenCalledWith(
-      "rom.files-uploaded-n",
+      "rom.files-uploaded-n:1",
       expect.anything(),
     );
     expect(confirmFn).not.toHaveBeenCalled();
@@ -236,7 +236,9 @@ describe("FilesTab uploads", () => {
 
     await pickFile(wrapper, "patched.n64");
 
-    expect(snackbar.error).toHaveBeenCalledWith("rom.upload-file-exists");
+    expect(snackbar.error).toHaveBeenCalledWith(
+      'rom.upload-file-exists:{"name":"patched.n64"}',
+    );
     expect(snackbar.warning).toHaveBeenCalledWith(
       "rom.no-files-uploaded",
       expect.anything(),

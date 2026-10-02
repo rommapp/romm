@@ -22,12 +22,7 @@ vi.mock("@/services/api/task", () => ({
   default: { runTask, getTaskById },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string, params?: Record<string, unknown>) =>
-      params ? `${key}::${JSON.stringify(params)}` : key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirm,
@@ -123,7 +118,7 @@ describe("MissingGamesSection", () => {
     await flushPromises();
 
     expect(snackbarError).toHaveBeenCalledWith(
-      'settings.couldnt-queue-cleanup::{"error":"No task worker is listening"}',
+      'settings.couldnt-queue-cleanup:{"error":"No task worker is listening"}',
     );
   });
 

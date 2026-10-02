@@ -8,12 +8,7 @@ import AnniversaryWidget from "./AnniversaryWidget.vue";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string, named?: Record<string, unknown>) =>
-      named ? `${key}:${JSON.stringify(named)}` : key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/plugins/router", () => ({
   ROUTES: { ROM: "rom" },

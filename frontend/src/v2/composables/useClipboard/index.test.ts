@@ -4,12 +4,7 @@ import { useClipboard } from "./index";
 const success = vi.fn();
 const error = vi.fn();
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string, params?: Record<string, unknown>) =>
-      params ? `${key}:${JSON.stringify(params)}` : key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success, error }),

@@ -6,9 +6,7 @@ import storeGallerySelection from "@/v2/stores/gallerySelection";
 import GameListRow from "./GameListRow.vue";
 import { rom } from "./listRowFixture";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en" } }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),

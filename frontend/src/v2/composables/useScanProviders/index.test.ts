@@ -119,7 +119,9 @@ describe("useScanProviders Playmatch gate", () => {
     const { hashMatchers } = useScanProviders();
     const matcher = playmatch(hashMatchers.value);
     expect(matcher.switchEnabled).toBe(false);
-    expect(matcher.blockedReason).toBe("scan.requires-hashes");
+    expect(matcher.blockedReason).toBe(
+      'scan.requires-hashes:{"source":"Playmatch"}',
+    );
   });
 });
 

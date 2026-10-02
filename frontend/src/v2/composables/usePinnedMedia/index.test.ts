@@ -157,7 +157,7 @@ describe("usePinnedMedia", () => {
     expect(rom.rom_user.pinned_media).toEqual(["file:1", "file:2", "file:3"]);
     expect(update).not.toHaveBeenCalled();
     expect(snackbarError).toHaveBeenCalledWith(
-      "rom.pinned-media-limit",
+      'rom.pinned-media-limit:{"n":3}',
       expect.anything(),
     );
   });
