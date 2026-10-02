@@ -1,5 +1,5 @@
-export type RTabNavItem = {
-  id: string;
+export type RTabNavItem<Id extends string = string> = {
+  id: Id;
   label: string;
   /** Optional MDI icon name shown before the label. */
   icon?: string;
@@ -11,3 +11,12 @@ export type RTabNavItem = {
   badge?: string | number | null;
   show?: boolean;
 };
+
+export interface RTabNavProps<Id extends string> {
+  modelValue: Id;
+  items: RTabNavItem<Id>[];
+  /** Size ladder shared with RBtn / RChip / RTag. */
+  size?: "x-small" | "small" | "default" | "large" | "x-large";
+  variant?: "underlined" | "pill";
+  orientation?: "horizontal" | "vertical";
+}

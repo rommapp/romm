@@ -155,9 +155,11 @@ async function openMenu(canvasElement: HTMLElement) {
   });
 }
 
-const meta: Meta<typeof PlatformSelect> = {
+// PlatformSelect is generic over its model, which Meta<typeof PlatformSelect>
+// can't resolve, so the component is cast for Storybook's `component` slot.
+const meta: Meta = {
   title: "Shared/PlatformSelect",
-  component: PlatformSelect,
+  component: PlatformSelect as never,
   parameters: {
     layout: "padded",
   },

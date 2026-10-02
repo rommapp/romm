@@ -120,7 +120,11 @@ describe("RSelect dividerAfter", () => {
 
   async function openMenu(dividerAfter: (item: { value: string }) => boolean) {
     const wrapper = mount(RSelect, {
-      props: { items, modelValue: "root", dividerAfter },
+      props: {
+        items,
+        modelValue: "root",
+        dividerAfter: dividerAfter as (item: unknown) => boolean,
+      },
       attachTo: document.body,
     });
     await wrapper.get(".r-select__field").trigger("click");

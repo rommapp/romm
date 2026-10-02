@@ -1,4 +1,8 @@
-<script setup lang="ts">
+<script
+  setup
+  lang="ts"
+  generic="Model extends number | string | number[] | string[] | null"
+>
 // PlatformSelect: shared composite that wraps RSelect with the
 // platform-row visual language used across v2 (icon + display name,
 // optional category / family / missing-fs / rom-count meta).
@@ -81,74 +85,72 @@ defineOptions({ inheritAttrs: false });
 
 type PlatformKey = "id" | "slug" | "fs_slug";
 
-interface Props {
-  modelValue?: number | string | number[] | string[] | null;
-  items: Platform[];
-  /** Which Platform field the v-model binds to. Default `id`.
-   *  `slug` is used by FolderMapping (the table works in slug space)
-   *  `fs_slug` is used by Scan (mixes database platforms and folders) */
-  itemKey?: PlatformKey;
-  multiple?: boolean;
-  searchable?: boolean;
-  clearable?: boolean;
-  /** When `multiple`, render each selection as a small icon-only RTag
-   *  with an automatic "+N" overflow pill. Defaults to `true` so the
-   *  visual is consistent across every multi-platform picker; pass
-   *  `:chips="false"` for the comma-separated title fallback. */
-  chips?: boolean;
-  closableChips?: boolean;
-  disabled?: boolean;
-  loading?: boolean;
-  label?: string;
-  placeholder?: string;
-  /** Games-first menu + divider until the user types in panel search. Default false. */
-  promoteFilled?: boolean;
-  searchPlaceholder?: string;
-  variant?: "outlined" | "filled" | "underlined" | "plain";
-  density?: "default" | "comfortable" | "compact";
-  hideDetails?: boolean | "auto";
-  prefixLabel?: "stacked" | "inline";
-  prependInnerIcon?: string;
-  /** Scan-style rich row: category icon, family, missing-fs, rom-count. */
-  showMeta?: boolean;
-  /** Never-scanned folders. */
-  markUnscanned?: boolean;
-  /** Label for the never-scanned marker */
-  unscannedLabel?: string;
-  /** Icon size inside list rows. Defaults to 28 (Scan uses 32, dialogs 22-24). */
-  iconSize?: number;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  modelValue: null,
-  itemKey: "id",
-  multiple: false,
-  searchable: true,
-  clearable: false,
-  chips: true,
-  closableChips: false,
-  disabled: false,
-  loading: false,
-  label: undefined,
-  placeholder: undefined,
-  searchPlaceholder: undefined,
-  variant: "outlined",
-  density: "comfortable",
-  hideDetails: "auto",
-  prefixLabel: undefined,
-  prependInnerIcon: undefined,
-  showMeta: false,
-  markUnscanned: false,
-  unscannedLabel: undefined,
-  iconSize: 28,
-  promoteFilled: false,
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue?: Model;
+    items: Platform[];
+    /** Which Platform field the v-model binds to. Default `id`.
+     *  `slug` is used by FolderMapping (the table works in slug space)
+     *  `fs_slug` is used by Scan (mixes database platforms and folders) */
+    itemKey?: PlatformKey;
+    multiple?: boolean;
+    searchable?: boolean;
+    clearable?: boolean;
+    /** When `multiple`, render each selection as a small icon-only RTag
+     *  with an automatic "+N" overflow pill. Defaults to `true` so the
+     *  visual is consistent across every multi-platform picker; pass
+     *  `:chips="false"` for the comma-separated title fallback. */
+    chips?: boolean;
+    closableChips?: boolean;
+    disabled?: boolean;
+    loading?: boolean;
+    label?: string;
+    placeholder?: string;
+    /** Games-first menu + divider until the user types in panel search. Default false. */
+    promoteFilled?: boolean;
+    searchPlaceholder?: string;
+    variant?: "outlined" | "filled" | "underlined" | "plain";
+    density?: "default" | "comfortable" | "compact";
+    hideDetails?: boolean | "auto";
+    prefixLabel?: "stacked" | "inline";
+    prependInnerIcon?: string;
+    /** Scan-style rich row: category icon, family, missing-fs, rom-count. */
+    showMeta?: boolean;
+    /** Never-scanned folders. */
+    markUnscanned?: boolean;
+    /** Label for the never-scanned marker */
+    unscannedLabel?: string;
+    /** Icon size inside list rows. Defaults to 28 (Scan uses 32, dialogs 22-24). */
+    iconSize?: number;
+  }>(),
+  {
+    modelValue: undefined,
+    itemKey: "id",
+    multiple: false,
+    searchable: true,
+    clearable: false,
+    chips: true,
+    closableChips: false,
+    disabled: false,
+    loading: false,
+    label: undefined,
+    placeholder: undefined,
+    searchPlaceholder: undefined,
+    variant: "outlined",
+    density: "comfortable",
+    hideDetails: "auto",
+    prefixLabel: undefined,
+    prependInnerIcon: undefined,
+    showMeta: false,
+    markUnscanned: false,
+    unscannedLabel: undefined,
+    iconSize: 28,
+    promoteFilled: false,
+  },
+);
 
 const emit = defineEmits<{
-  (
-    e: "update:modelValue",
-    value: number | string | number[] | string[] | null,
-  ): void;
+  (e: "update:modelValue", value: Model): void;
 }>();
 
 const { t } = useI18n();
@@ -202,7 +204,7 @@ function platformForValue(value: unknown): Platform | undefined {
 }
 
 function onUpdate(v: unknown) {
-  emit("update:modelValue", v as number | string | number[] | string[] | null);
+  emit("update:modelValue", v as Model);
 }
 
 function onPanelSearch(query: string) {

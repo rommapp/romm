@@ -13,15 +13,16 @@ withDefaults(
     label: string;
     icon: string;
     launchboxSelected?: boolean;
+    launchboxRemote?: boolean;
   }>(),
-  { launchboxSelected: false },
+  // An explicit undefined stops Vue casting an unbound boolean prop to false.
+  { launchboxSelected: false, launchboxRemote: undefined },
 );
 const sources = defineModel<MetadataOption[]>({ required: true });
-// An explicit default stops Vue casting an unbound boolean model to false.
-const launchboxRemote = defineModel<boolean | undefined>("launchboxRemote", {
-  default: undefined,
-});
-const emit = defineEmits<{ "update:allSelected": [value: boolean] }>();
+const emit = defineEmits<{
+  "update:allSelected": [value: boolean];
+  "update:launchboxRemote": [value: boolean];
+}>();
 
 const { t } = useI18n();
 </script>
@@ -87,9 +88,10 @@ const { t } = useI18n();
               {{ t("rom.launchbox-local") }}
             </span>
             <RSwitch
-              v-model="launchboxRemote"
+              :model-value="launchboxRemote"
               :disabled="!launchboxSelected"
               :aria-label="t('rom.launchbox-cloud-source')"
+              @update:model-value="emit('update:launchboxRemote', $event)"
             />
             <span
               class="r-v2-provider-select__lb-label"

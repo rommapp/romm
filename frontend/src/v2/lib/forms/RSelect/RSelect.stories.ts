@@ -28,9 +28,11 @@ const PLATFORMS = [
   { title: "PC", value: "pc" },
 ];
 
-const meta: Meta<typeof RSelect> = {
+// RSelect is generic (`<Item, Model>`), which Meta<typeof RSelect> can't
+// resolve, so the component is cast for Storybook's `component` slot.
+const meta: Meta = {
   title: "Forms/RSelect",
-  component: RSelect,
+  component: RSelect as never,
   argTypes: {
     variant: {
       control: "inline-radio",
@@ -86,7 +88,7 @@ const meta: Meta<typeof RSelect> = {
 
 export default meta;
 
-type Story = StoryObj<typeof RSelect>;
+type Story = StoryObj;
 
 // ── Defaults ────────────────────────────────────────────────────────
 

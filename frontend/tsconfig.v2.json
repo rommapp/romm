@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/v2/**/*.ts", "src/v2/**/*.vue", "src/**/*.d.ts"],
+  "compilerOptions": {
+    "composite": false,
+    "tsBuildInfoFile": null
+  },
+  "vueCompilerOptions": {
+    "strictVModel": true
+  }
+}
