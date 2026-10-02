@@ -29,7 +29,11 @@ from adapters.services.rom_converto import (
     file_format,
     resolve_operation,
 )
-from models.rom import ROM_FILE_INFO_MAX_LENGTH, RomFileContentType
+from models.rom import (
+    ROM_FILE_INFO_MAX_LENGTH,
+    TITLE_ID_MAX_LENGTH,
+    RomFileContentType,
+)
 from utils.filesystem import SERVED_FILE_MODE
 
 _FAKE_PNG = b"\x89PNG\r\n\x1a\nfake"
@@ -274,12 +278,42 @@ class TestReadInfos:
         ):
             assert await service.read_infos([Path("/roms/game.iso")]) == {}
 
+    @pytest.mark.parametrize(
+        "path",
+        [
+            pytest.param(Path("/roms/bad\nname.iso"), id="newline"),
+            pytest.param(Path(os.fsdecode(b"/roms/\xff.iso")), id="not-utf8"),
+            pytest.param(Path("/roms/game.iso "), id="trailing-space"),
+        ],
+    )
     async def test_no_listable_paths_skips_the_subprocess(
-        self, service: RomConvertoService
+        self, service: RomConvertoService, path: Path
     ):
         with patch("asyncio.create_subprocess_exec") as spawn:
-            assert await service.read_infos([Path("/roms/bad\nname.iso")]) == {}
+            assert await service.read_infos([path]) == {}
         spawn.assert_not_called()
+
+    async def test_a_cue_reaching_outside_its_folder_is_not_listed(
+        self, service: RomConvertoService, tmp_path: Path
+    ):
+        unsafe = tmp_path / "unsafe.cue"
+        unsafe.write_text('FILE "../secret.bin" BINARY\n')
+        safe = tmp_path / "safe.cue"
+        safe.write_text('FILE "safe.bin" BINARY\n')
+        listed: list[str] = []
+
+        async def spawn(*args, **kwargs):
+            paths_file = anyio.Path(args[args.index("--paths-file") + 1])
+            listed.extend((await paths_file.read_text()).split())
+            return FakeProc(stdout=b"[]")
+
+        with (
+            patch("shutil.which", return_value="rc"),
+            patch("asyncio.create_subprocess_exec", spawn),
+        ):
+            await service.read_infos([unsafe, safe])
+
+        assert listed == [str(safe)]
 
 
 class TestReadInfosFailures:
@@ -1022,6 +1056,33 @@ class TestParseInfo:
                     file_format="DISC",
                 ),
                 id="text-cleaner-clips-at-the-column-limit",
+            ),
+            pytest.param(
+                {"kind": "ps3", "title_id": "BLUS31426\x00\x00" + "X" * 150},
+                RomConvertoInfo(
+                    title_id=("BLUS31426" + "X" * 150)[:TITLE_ID_MAX_LENGTH],
+                    serial="BLUS31426" + "X" * 150,
+                    content_type="game",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="title-id-drops-nul-bytes-and-clips-at-its-column-limit",
+            ),
+            pytest.param(
+                {"kind": "psp", "title_id": "UCUS98696\x00"},
+                RomConvertoInfo(
+                    title_id="UCUS-98696",
+                    serial="UCUS98696",
+                    content_type="game",
+                    is_compressed=False,
+                    file_format="DISC",
+                ),
+                id="psp-title-id-is-cleaned-before-it-is-formatted",
+            ),
+            pytest.param(
+                {"kind": "wup", "title_id_hex": ""},
+                RomConvertoInfo(),
+                id="wup-empty-title-id-is-none",
             ),
             pytest.param(
                 {

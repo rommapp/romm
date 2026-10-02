@@ -394,11 +394,19 @@ def _rom_level_identity(
         title_ids = [
             f.title_id for f in sorted(rom_files, key=_rom_file_order) if f.title_id
         ]
-        identity = RomIdentity(
-            title_id=next(
-                (t for t in title_ids if is_switch and switch.is_base_title_id(t)),
-                title_ids[0] if title_ids else None,
+        title_id = next(
+            (t for t in title_ids if is_switch and switch.is_base_title_id(t)),
+            title_ids[0] if title_ids else None,
+        )
+        # Switch saves are keyed by the base id, as normalize_identity keys a derived one.
+        identity = (
+            RomIdentity(
+                title_id=title_id,
+                save_target=title_id,
+                save_target_layout=SaveTargetLayout.FOLDER_EXACT,
             )
+            if is_switch and title_id and switch.is_base_title_id(title_id)
+            else RomIdentity(title_id=title_id)
         )
     identity = switch.normalize_identity(is_switch, identity)
     # rom-converto reads no save target, so when sigil read nothing this pass

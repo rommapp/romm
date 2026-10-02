@@ -797,7 +797,8 @@ async def _identify_rom(
         # Reconcile against the existing rows instead of replacing them, so file
         # ids survive a rescan and anything keyed on them (track metadata,
         # persisted soundtrack covers and file images) stays valid.
-        images = fs_rom.get("images", {})
+        # Popped so the PNG bytes don't outlive this rom in the platform's `fs_roms`.
+        images = fs_rom.pop("images", {})
         synced = db_rom_handler.sync_rom_files(
             _added_rom.id, fs_rom["files"], inspected=images
         )

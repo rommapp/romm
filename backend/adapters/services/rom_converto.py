@@ -14,7 +14,7 @@ from config import ROM_CONVERTO_ENABLED, ROM_CONVERTO_TIMEOUT
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import ROM_FILE_INFO_MAX_LENGTH
+from models.rom import ROM_FILE_INFO_MAX_LENGTH, TITLE_ID_MAX_LENGTH
 from utils.filesystem import SERVED_FILE_MODE
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -328,6 +328,24 @@ def _convert_argv(operation: Operation, src: Path, out: Path) -> list[str]:
     return [*operation.argv, os.path.abspath(src), os.path.abspath(out)]
 
 
+def _listable(path: Path) -> bool:
+    """Whether `info` may read `path` from a paths file, which the CLI decodes as UTF-8 and trims per line."""
+    name = str(path)
+    if "\n" in name or name != name.strip():
+        return False
+    try:
+        name.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    if name.lower().endswith(CUE_EXT):
+        try:
+            cue_tracks(path)
+        except (RomConvertoUnsafeSourceError, OSError) as exc:
+            log.warning(f"Skipping rom-converto info on {path}: {exc}")
+            return False
+    return True
+
+
 def _make_sandbox() -> tuple[Path, Path]:
     """A new empty dir to run the CLI from, and the empty config file inside it."""
     sandbox = Path(tempfile.mkdtemp(prefix="rom-converto-"))
@@ -417,14 +435,6 @@ def _kill(proc: asyncio.subprocess.Process) -> None:
         proc.kill()
 
 
-def _first_str(data: dict[str, Any], *keys: str) -> str | None:
-    for key in keys:
-        value = data.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return None
-
-
 def _dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
@@ -446,21 +456,19 @@ def _list(value: Any) -> list[Any]:
 
 
 def _int(value: Any) -> int | None:
-    """The value when it is an int a signed BIGINT column holds, else None.
-
-    A corrupt header's u64 would otherwise overflow the column and fail the row.
-    """
+    """The value when it is an int a signed BIGINT column holds, else None."""
+    # A corrupt header's u64 would otherwise overflow the column and fail the row.
     if isinstance(value, bool) or not isinstance(value, int):
         return None
     return value if 0 <= value < 2**63 else None
 
 
-def _text(value: Any) -> str | None:
-    """The text on one line, clipped to the `rom_files` column width, or None if empty."""
+def _text(value: Any, max_length: int = ROM_FILE_INFO_MAX_LENGTH) -> str | None:
+    """The text on one line, clipped to `max_length`, or None if empty."""
     if not isinstance(value, str):
         return None
     text = " ".join(value.replace("\x00", "").split())
-    return text[:ROM_FILE_INFO_MAX_LENGTH].rstrip() or None
+    return text[:max_length].rstrip() or None
 
 
 def _upper(value: Any) -> str | None:
@@ -546,10 +554,8 @@ _LANGUAGE_FOLDS: Final[dict[str, str]] = {
 
 
 def _languages(names: Any) -> tuple[str, ...]:
-    """The language names with regional variants folded.
-
-    A GameCube BNR1 banner's one slot is named `Default`, which is no language.
-    """
+    """The language names with regional variants folded."""
+    # A GameCube BNR1 banner's one slot is named `Default`, which is no language.
     texts = (_text(name) for name in _list(names))
     return tuple(
         _LANGUAGE_FOLDS.get(_lang_key(text), text)
@@ -857,6 +863,14 @@ def _container_info(kind: str, payload: dict[str, Any]) -> RomConvertoInfo:
     )
 
 
+def _first_id(data: dict[str, Any], *keys: str) -> str | None:
+    """The first of `keys` holding text, clipped to the title id column."""
+    for key in keys:
+        if title_id := _text(data.get(key), TITLE_ID_MAX_LENGTH):
+            return title_id
+    return None
+
+
 def _title_id(kind: str, flat: dict[str, Any]) -> str | None:
     if kind in ("dol", "rvl"):
         # Sigil keys GameCube and Wii by the hex-encoded 4-char game id.
@@ -865,16 +879,16 @@ def _title_id(kind: str, flat: dict[str, Any]) -> str | None:
             return game_id[:4].encode("ascii", "replace").hex().upper()
         return None
     if kind == "wup":
-        title_id_hex = flat.get("title_id_hex")
-        return title_id_hex[-8:] if isinstance(title_id_hex, str) else None
+        title_id_hex = _first_id(flat, "title_id_hex")
+        return title_id_hex[-8:] if title_id_hex else None
     if kind == "xbox":
         # An Xbox 360 disc image carries only the `xex` header, keyed by hex.
-        return _first_str(flat, "title_id_code", "title_id_hex")
+        return _first_id(flat, "title_id_code", "title_id_hex")
     if kind == "xenon":
-        return _first_str(flat, "title_id_hex")
-    title_id = _first_str(flat, "application_title_id_hex", "title_id", "game_code")
+        return _first_id(flat, "title_id_hex")
+    title_id = _first_id(flat, "application_title_id_hex", "title_id", "game_code")
     if kind in ("psp", "pbp"):
-        title_id = title_id or _first_str(flat, "disc_id")
+        title_id = title_id or _first_id(flat, "disc_id")
         if title_id and _PSP_TITLE_ID_PATTERN.fullmatch(title_id):
             return f"{title_id[:4]}-{title_id[4:]}"
     return title_id
@@ -961,24 +975,28 @@ class RomConvertoService:
 
     async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]:
         """Inspect files in one `info` run, keyed by the paths it recognized; never raises."""
-        # The paths file is line-based, so a name holding a newline can't be listed.
-        paths = [p for p in paths if "\n" not in str(p)]
-        if not paths:
+        listed = await asyncio.to_thread(lambda: [p for p in paths if _listable(p)])
+        if not listed:
             return {}
         log.debug(
-            f"Executing {hl('rom-converto', color=LIGHTMAGENTA)} info on {len(paths)} file(s)"
+            f"Executing {hl('rom-converto', color=LIGHTMAGENTA)} info on {len(listed)} file(s)"
         )
-        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as fh:
-            fh.write("".join(f"{p}\n" for p in paths))
+        paths_file: str | None = None
         try:
+            with tempfile.NamedTemporaryFile(
+                "w", encoding="utf-8", suffix=".txt", delete=False
+            ) as fh:
+                paths_file = fh.name
+                fh.write("".join(f"{p}\n" for p in listed))
             code, stdout, stderr = await _run(
-                ["info", "--json", "--paths-file", fh.name], ROM_CONVERTO_TIMEOUT
+                ["info", "--json", "--paths-file", paths_file], ROM_CONVERTO_TIMEOUT
             )
         except (RomConvertoError, OSError) as exc:
             log.warning(f"rom-converto info failed: {exc}")
             return {}
         finally:
-            os.unlink(fh.name)
+            if paths_file is not None:
+                os.unlink(paths_file)
         if code != 0:
             log.warning(f"rom-converto info failed (code {code}): {_tail(stderr)}")
             return {}

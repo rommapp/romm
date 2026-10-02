@@ -642,6 +642,8 @@ class TestRomLevelIdentity:
         identity = _rom_level_identity("switch", [], files, RomIdentity())
         assert identity.title_id == "0100ABCD12340000"
         assert switch.is_base_title_id(identity.title_id)
+        assert identity.save_target == "0100ABCD12340000"
+        assert identity.save_target_layout == SaveTargetLayout.FOLDER_EXACT
 
     def test_switch_derives_base_id_when_only_update_id_present(self):
         files = [_rom_file("update.nsp", title_id="0100ABCD12340800")]
