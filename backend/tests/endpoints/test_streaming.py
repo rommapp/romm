@@ -7303,6 +7303,79 @@ def test_a_force_released_sessions_collect_lands_on_the_session_owner(
     assert _stored_login(admin_user.id) is None
 
 
+def test_a_release_all_collects_the_login_for_the_session_owner(
+    client,
+    access_token,
+    viewer_access_token,
+    admin_user: User,
+    viewer_user: User,
+    rom: Rom,
+):
+    container = _webstation_for(rom)
+    with _streaming(container):
+        _claim_webstation_ok(client, viewer_access_token, rom.id)
+        session = json.loads(_session_raw(container))
+        with (
+            patch(
+                "handler.streaming.webstation.exit_session",
+                return_value={"state_saved": False},
+            ),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+            patch(
+                "handler.streaming.broker.request_safe",
+                return_value=_collect_reply(
+                    session["broker_session_id"],
+                    "set",
+                    {"username": "alice", "token": RA_TOKEN},
+                ),
+            ) as request_safe,
+        ):
+            response = client.delete(
+                "/api/streaming/sessions", headers=_auth(access_token)
+            )
+            assert response.status_code == 200, response.text
+            for spawned in (c.args[0] for c in spawn.call_args_list):
+                spawned.close()
+
+    assert len(_collect_calls(request_safe)) == 1
+    assert _stored_login(viewer_user.id) == {"username": "alice", "token": RA_TOKEN}
+    assert _stored_login(admin_user.id) is None
+
+
+def test_a_release_all_collects_after_the_exit_state_while_the_key_exists(
+    client, access_token, viewer_access_token, rom: Rom
+):
+    order: list[Any] = []
+    container = _webstation_for(rom)
+
+    async def state(_container, _session, _state_slot):
+        order.append("state")
+
+    def collect(_container, _session):
+        order.append(("collect", _session_raw(container) is not None))
+
+    with _streaming(container):
+        _claim_webstation_ok(client, viewer_access_token, rom.id)
+        with (
+            patch(
+                "handler.streaming.webstation.exit_session",
+                return_value={"state_saved": False},
+            ),
+            patch("handler.streaming.lifecycle.collect_exit_state", new=state),
+            patch("handler.streaming.webstation.collect_ra_login", new=collect),
+            patch("handler.streaming.background.spawn_sync_task") as spawn,
+        ):
+            response = client.delete(
+                "/api/streaming/sessions", headers=_auth(access_token)
+            )
+            assert response.status_code == 200, response.text
+            for spawned in (c.args[0] for c in spawn.call_args_list):
+                spawned.close()
+        assert _session_raw(container) is None
+
+    assert order == ["state", ("collect", True)]
+
+
 def test_a_collect_reply_for_another_session_is_discarded(
     client, access_token, admin_user: User, rom: Rom, caplog
 ):

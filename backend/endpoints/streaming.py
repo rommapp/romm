@@ -1790,6 +1790,11 @@ async def force_release_all(
                     await lifecycle.collect_exit_state(
                         container, session, stopped.state_slot
                     )
+                    # Before the key goes; files it under the session's owner.
+                    if container.is_webstation:
+                        await asyncio.to_thread(
+                            webstation.collect_ra_login, container, session
+                        )
                     await lifecycle.start_exit_save_pull(
                         container, session, settled=stopped.settled
                     )
