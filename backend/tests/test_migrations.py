@@ -253,6 +253,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0144_user_oidc_sub.py", "users"),
         ("0145_drop_derivable_columns.py", "rom_file_doc_meta"),
         ("0146_roms_search_aliases.py", "roms"),
+        ("0147_users_ra_login.py", "users"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -329,6 +330,22 @@ def test_the_user_oidc_sub_revision_reverses_and_replays():
             migration.downgrade()
             assert not has_column(connection, "users", "oidc_sub")
             assert not has_column(connection, "users", "oidc_issuer")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "users") == before
+
+
+def test_the_users_ra_login_revision_reverses_and_replays():
+    migration = _load_migration("0147_users_ra_login.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "users")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "users", "ra_login_sealed")
 
             migration.downgrade()
             migration.upgrade()

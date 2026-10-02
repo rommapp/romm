@@ -4,7 +4,7 @@ import enum
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Final
 
-from sqlalchemy import TIMESTAMP, Enum, ForeignKey, Index, String
+from sqlalchemy import TIMESTAMP, Enum, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
 
@@ -94,6 +94,10 @@ class User(BaseModel, SimpleUser):
     ra_username: Mapped[str | None] = mapped_column(
         String(length=TEXT_FIELD_LENGTH), default=""
     )
+    # Sealed with utils.secret_box: the RetroAchievements login token the
+    # player's emulator ended with, handed back on their next launch. Never
+    # part of a schema or a response.
+    ra_login_sealed: Mapped[str | None] = mapped_column(Text, nullable=True)
     ra_progression: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
