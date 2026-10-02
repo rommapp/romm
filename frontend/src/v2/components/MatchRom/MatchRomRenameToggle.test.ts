@@ -1,16 +1,16 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import type { SimpleRom } from "@/stores/roms";
+import { makeRom } from "@/utils/rom.fixtures";
 import MatchRomRenameToggle from "./MatchRomRenameToggle.vue";
 
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
-const rom = {
+const rom = makeRom({
   fs_name: "Zelda (USA).gba",
   fs_name_no_tags: "Zelda",
-} as SimpleRom;
+});
 
 function mountToggle(matchedName: string) {
   return mount(MatchRomRenameToggle, {
