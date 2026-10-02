@@ -187,8 +187,7 @@ function buildLetterRanges(
     .map(([letter, off]) => [normaliseBackendLetter(letter), off] as const)
     .sort((a, b) => a[1] - b[1]);
   const ranges: LetterRange[] = [];
-  for (let i = 0; i < entries.length; i++) {
-    const [letter, start] = entries[i];
+  for (const [i, [letter, start]] of entries.entries()) {
     const end = entries[i + 1]?.[1] ?? total;
     // Backend may collapse multiple raw letters into "#" (digits, etc.);
     // merge into the previous range rather than emit duplicates.
@@ -215,10 +214,11 @@ export function assignFlatRowLetters(
   // never overlap a later (higher) row, so it's skipped for good.
   let base = 0;
   for (const row of rows) {
-    while (base < ranges.length && ranges[base].end <= row.start) base++;
+    while (base < ranges.length && ranges[base]!.end <= row.start) base++;
     const letters: string[] = [];
-    for (let j = base; j < ranges.length && ranges[j].start < row.end; j++) {
-      if (ranges[j].end > row.start) letters.push(ranges[j].letter);
+    for (let j = base; j < ranges.length && ranges[j]!.start < row.end; j++) {
+      const range = ranges[j]!;
+      if (range.end > row.start) letters.push(range.letter);
     }
     out.push(letters);
   }
@@ -376,7 +376,7 @@ export function useGalleryVirtualItems(opts: Options) {
       for (let p = 0; p < total; p++) {
         while (
           rangeIdx + 1 < ranges.length &&
-          p >= ranges[rangeIdx + 1].start
+          p >= ranges[rangeIdx + 1]!.start
         ) {
           rangeIdx++;
         }
@@ -447,8 +447,8 @@ export function useGalleryVirtualItems(opts: Options) {
       // overlapping letters in one linear pass (not a per-row scan).
       const rows = packFlowRows(0, total, rowWidth, cardHeight, gap, ratioAt);
       const lettersPerRow = assignFlatRowLetters(rows, ranges);
-      for (let i = 0; i < rows.length; i++) {
-        items.push(shareRow(rows[i].start, rows[i].end, lettersPerRow[i]));
+      for (const [i, row] of rows.entries()) {
+        items.push(shareRow(row.start, row.end, lettersPerRow[i]!));
       }
     }
 
@@ -483,8 +483,7 @@ export function useGalleryVirtualItems(opts: Options) {
     // skeleton-list-rows that aren't tied to a letter, so the map is
     // empty until `total` resolves, same pattern as grid.
     if (opts.layout.value === "list") {
-      for (let i = 0; i < items.length; i++) {
-        const it = items[i];
+      for (const [i, it] of items.entries()) {
         if (it.kind === "list-row" && !map.has(it.letter)) {
           map.set(it.letter, i);
         }
@@ -493,8 +492,7 @@ export function useGalleryVirtualItems(opts: Options) {
     }
 
     // Pass 1, grouped mode: letter-header anchors are exact.
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i];
+    for (const [i, it] of items.entries()) {
       if (it.kind === "letter-header" && !map.has(it.letter)) {
         map.set(it.letter, i);
       }
@@ -505,15 +503,16 @@ export function useGalleryVirtualItems(opts: Options) {
       // position. Both rows and ranges are ascending → one forward walk.
       const ranges = letterRanges.value; // sorted by start
       let li = 0;
-      for (let i = 0; i < items.length && li < ranges.length; i++) {
-        const it = items[i];
+      for (const [i, it] of items.entries()) {
+        if (li >= ranges.length) break;
         if (it.kind !== "row") continue;
         while (
           li < ranges.length &&
-          ranges[li].start >= it.startPosition &&
-          ranges[li].start < it.endPosition
+          ranges[li]!.start >= it.startPosition &&
+          ranges[li]!.start < it.endPosition
         ) {
-          if (!map.has(ranges[li].letter)) map.set(ranges[li].letter, i);
+          const letter = ranges[li]!.letter;
+          if (!map.has(letter)) map.set(letter, i);
           li++;
         }
       }
