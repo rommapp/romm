@@ -9,12 +9,11 @@ import {
   ref,
   watch,
 } from "vue";
-import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
 import SoundtrackMiniPlayer from "@/components/common/SoundtrackMiniPlayer.vue";
+import { useBrowserLocale } from "@/composables/useBrowserLocale";
 import { useUiVersion } from "@/composables/useUiVersion";
 import storeConsole from "@/stores/console";
-import storeLanguage from "@/stores/language";
 
 // Lazy-loaded: RomM.vue is the first module main.ts evaluates, and the banner
 // transitively imports the API layer (stores → services/api → router). A
@@ -24,21 +23,10 @@ const BackendStatusBanner = defineAsyncComponent(
   () => import("@/v2/components/AppShell/BackendStatusBanner.vue"),
 );
 
-// Global scope is explicit because this write switches the whole app:
-// an <i18n> block in this SFC would otherwise flip it to component-local.
-const { locale } = useI18n({ useScope: "global" });
-const languageStore = storeLanguage();
 const consoleStore = storeConsole();
 const vuetifyTheme = useTheme();
 const { consoleMode } = storeToRefs(consoleStore);
-const { languages } = storeToRefs(languageStore);
-const storedLocale = useLocalStorage("settings.locale", "");
-const selectedLanguage = ref(
-  languages.value.find((lang) => lang.value === storedLocale.value) ||
-    languageStore.detectBrowserLanguage(),
-);
-locale.value = selectedLanguage.value.value;
-languageStore.setLanguage(selectedLanguage.value);
+useBrowserLocale();
 
 // NOTE: uiVersion uses a module-level singleton ref (useUiVersion) so a write
 // from the settings page is the SAME ref RomM.vue reads, triggering a gate

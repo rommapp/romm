@@ -237,6 +237,7 @@
   "invite-link": "Link invitație",
   "invite-link-created": "Link de invitație creat",
   "language": "Limbă",
+  "language-auto": "Automat ({language})",
   "length-header": "Durată",
   "link-copied": "Linkul a fost copiat în clipboard",
   "main-platform": "Platformă principală",

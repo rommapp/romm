@@ -237,6 +237,7 @@
   "invite-link": "邀请链接",
   "invite-link-created": "邀请链接已创建",
   "language": "语言",
+  "language-auto": "自动（{language}）",
   "length-header": "时长",
   "link-copied": "链接已复制到剪贴板",
   "main-platform": "主平台",

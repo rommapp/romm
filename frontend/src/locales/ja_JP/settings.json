@@ -237,6 +237,7 @@
   "invite-link": "招待リンク",
   "invite-link-created": "招待リンクを作成しました",
   "language": "言語",
+  "language-auto": "自動 ({language})",
   "length-header": "プレイ時間",
   "link-copied": "リンクをクリップボードにコピーしました",
   "main-platform": "メインプラットフォーム",
