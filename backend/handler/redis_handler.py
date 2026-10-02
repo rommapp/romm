@@ -39,6 +39,15 @@ REDIS_CLIENT_OPTIONS: Final[dict[str, Any]] = {
     "maint_notifications_config": MaintNotificationsConfig(enabled=False),
 }
 
+
+class RomMRedis(Redis):
+    """`Redis` with `REDIS_CLIENT_OPTIONS`, for the RQ CLI's `--connection-class`."""
+
+    @classmethod
+    def from_url(cls, url: str, **kwargs: Any) -> Redis:
+        return super().from_url(url, **{**REDIS_CLIENT_OPTIONS, **kwargs})
+
+
 redis_client = Redis.from_url(REDIS_URL, **REDIS_CLIENT_OPTIONS)
 
 high_prio_queue = Queue(name=QueuePrio.HIGH.value, connection=redis_client)

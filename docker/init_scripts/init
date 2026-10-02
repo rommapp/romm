@@ -255,6 +255,7 @@ start_bin_rq_cron() {
 		RQ_REDIS_URL="${redis_url}" \
 		rq cron \
 		--path /backend \
+		--connection-class handler.redis_handler.RomMRedis \
 		--logging-level "${LOGLEVEL}" \
 		tasks.cron_config &
 	echo "$!" >/tmp/rq_cron.pid
@@ -298,6 +299,7 @@ start_rq_worker() {
 		rq worker \
 		--path /backend \
 		--worker-class "handler.rq_worker.${worker_class}" \
+		--connection-class handler.redis_handler.RomMRedis \
 		--results-ttl "${TASK_RESULT_TTL:-86400}" \
 		--logging_level "${LOGLEVEL}" \
 		--with-scheduler \
