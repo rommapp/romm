@@ -10,6 +10,7 @@ read open indefinitely; reading in chunks against a wall clock is what ends it,
 and the byte caps are what keep a misbehaving broker from filling memory.
 """
 
+import http.client
 import json
 import time
 import urllib.error
@@ -115,6 +116,10 @@ def broker_error_body(exc: urllib.error.HTTPError) -> str:
         return body[:_BROKER_ERROR_MAX_BYTES].decode(errors="replace")
     except OSError as read_exc:
         log.warning("could not read broker error body, %s", read_exc)
+        return ""
+    except http.client.HTTPException as read_exc:
+        # A chunked body cut short; its message would quote what was read.
+        log.warning("could not read broker error body, %s", type(read_exc).__name__)
         return ""
     finally:
         exc.close()

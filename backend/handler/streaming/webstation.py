@@ -212,6 +212,43 @@ def _with_ra_login(body: dict[str, Any], user: User) -> dict[str, Any]:
     return body if login is None else {**body, "retroachievements": login}
 
 
+def _activate_failure(
+    exc: Exception, container: ResolvedContainer, path: str
+) -> Exception:
+    """The reply to a failed activate request, as commands.launch would give.
+
+    Never raises: what building the reply raises would chain to `exc`.
+    """
+    try:
+        if isinstance(exc, urllib.error.HTTPError):
+            return broker.http_error(exc)
+        if isinstance(exc, urllib.error.URLError | OSError):
+            return broker.unreachable_error(
+                exc,
+                "the webstation broker",
+                broker.broker_url(container, path),
+                "Check that the container is running and its broker port is "
+                "reachable from the RomM host.",
+            )
+        if isinstance(exc, HTTPException):
+            return HTTPException(
+                status_code=exc.status_code, detail=exc.detail, headers=exc.headers
+            )
+        failed = type(exc).__name__
+    except HTTPException as build_exc:
+        return HTTPException(
+            status_code=build_exc.status_code,
+            detail=build_exc.detail,
+            headers=build_exc.headers,
+        )
+    except Exception as build_exc:  # noqa: BLE001 - a reply is all that may leave
+        failed = type(build_exc).__name__
+    log.error("webstation broker activate request failed, %s", failed)
+    return HTTPException(
+        status_code=502, detail="The webstation broker activate request failed."
+    )
+
+
 def activate(
     container: ResolvedContainer,
     *,
@@ -267,7 +304,7 @@ def activate(
         body["save"] = save
 
     path = container.protocol.session_route("/activate")
-    failure: Exception | None = None
+    caught: Exception | None = None
     try:
         resp = broker.request(
             container,
@@ -275,30 +312,14 @@ def activate(
             body=_with_ra_login(body, user),
             timeout=STREAMING_LAUNCH_TIMEOUT,
         )
-    except urllib.error.HTTPError as exc:
-        failure = broker.http_error(exc)
-    except (urllib.error.URLError, OSError) as exc:
-        failure = broker.unreachable_error(
-            exc,
-            "the webstation broker",
-            broker.broker_url(container, path),
-            "Check that the container is running and its broker port is "
-            "reachable from the RomM host.",
-        )
-    except HTTPException as exc:
-        failure = HTTPException(
-            status_code=exc.status_code, detail=exc.detail, headers=exc.headers
-        )
-    except Exception as exc:  # noqa: BLE001 - a non-JSON or oversized reply
-        log.error("webstation broker activate failed, %s", type(exc).__name__)
-        failure = HTTPException(
-            status_code=502,
-            detail="The webstation broker answered activate with an unreadable reply.",
-        )
-    if failure is not None:
-        # Raised fresh, outside the handler: the request's frames hold the
-        # login, and Sentry reads the locals of every frame in the chain.
-        raise failure from None
+    except Exception as exc:  # noqa: BLE001 - answered below, outside the handler
+        caught = exc
+    if caught is not None:
+        # The request's frames hold the login, and Sentry reads the locals of
+        # every frame in the chain, so the reply is built and raised outside
+        # the handler and the failure keeps no traceback.
+        caught.__traceback__ = None
+        raise _activate_failure(caught, container, path) from None
 
     resp = resp if isinstance(resp, dict) else {}
     log.info("broker activated session, %s", resp)

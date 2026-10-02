@@ -11073,6 +11073,75 @@ def test_a_wrong_core_activate_carries_no_ra_token_anywhere(admin_user: User):
     assert _leaks_through(exc, RA_TOKEN) == []
 
 
+def _truncated_broker_http_error() -> urllib.error.HTTPError:
+    body = MagicMock()
+    body.read.side_effect = http.client.IncompleteRead(b'{"det')
+    return urllib.error.HTTPError(
+        "http://broker/activate", 500, "err", http.client.HTTPMessage(), body
+    )
+
+
+def test_a_truncated_broker_error_carries_no_ra_token_anywhere(admin_user: User):
+    """A 5xx whose chunked body breaks off fails while it is being turned into
+    the 502, which must not chain back to the request that carried the login."""
+    store_ra_login(admin_user.id, "alice", RA_TOKEN)
+
+    with patch(
+        "handler.streaming.broker.urllib.request.urlopen",
+        side_effect=_truncated_broker_http_error(),
+    ):
+        exc = _activate_failure(_snes("retroarch"), admin_user.id)
+
+    assert isinstance(exc, HTTPException)
+    assert exc.status_code == 502
+    assert _leaks_through(exc, RA_TOKEN) == []
+
+
+@pytest.mark.parametrize(
+    ("translator", "transport"),
+    [
+        pytest.param("http_error", _broker_http_error, id="http-error"),
+        pytest.param(
+            "unreachable_error",
+            lambda: urllib.error.URLError("refused"),
+            id="unreachable",
+        ),
+    ],
+)
+def test_a_failing_error_translation_carries_no_ra_token_anywhere(
+    admin_user: User, translator: str, transport: Any
+):
+    """Whatever turning a broker failure into a reply raises, it is answered
+    as a 502 that reaches neither the failure nor the request behind it."""
+    store_ra_login(admin_user.id, "alice", RA_TOKEN)
+
+    with (
+        patch(
+            "handler.streaming.broker.urllib.request.urlopen",
+            side_effect=transport(),
+        ),
+        patch(f"handler.streaming.broker.{translator}", side_effect=RuntimeError("x")),
+    ):
+        exc = _activate_failure(_snes("retroarch"), admin_user.id)
+
+    assert isinstance(exc, HTTPException)
+    assert exc.status_code == 502
+    assert _leaks_through(exc, RA_TOKEN) == []
+
+
+def test_broker_error_body_gives_up_on_a_truncated_body(caplog):
+    exc = _http_error(500)
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with patch.object(exc, "read", side_effect=http.client.IncompleteRead(b"bo")):
+            assert broker.broker_error_body(exc) == ""
+    finally:
+        romm_logger.removeHandler(caplog.handler)
+
+    assert "could not read broker error body, IncompleteRead" in caplog.text
+
+
 def test_an_activate_that_fails_after_sending_still_sent_the_login(
     admin_user: User,
 ):
