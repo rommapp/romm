@@ -1,5 +1,6 @@
 import pytest
 
+from models.rom import RomIdentity, SaveTargetLayout
 from utils import switch
 
 
@@ -42,6 +43,51 @@ class TestDeriveBaseTitleId:
     @pytest.mark.parametrize("title_id", ["", "000", "0100ABCD1234ZZZ0"])
     def test_unparseable_ids_yield_nothing(self, title_id: str):
         assert switch.derive_base_title_id(title_id) is None
+
+
+_BASE_FOLDER = RomIdentity(
+    title_id="0100ABCD12340000",
+    save_target="0100ABCD12340000",
+    save_target_layout=SaveTargetLayout.FOLDER_EXACT,
+)
+
+
+class TestNormalizeIdentity:
+    @pytest.mark.parametrize(
+        "title_id",
+        [
+            pytest.param("0100ABCD12340800", id="update"),
+            pytest.param("0100ABCD12340000", id="base-without-save-target"),
+        ],
+    )
+    def test_switch_ids_key_saves_by_the_base_id(self, title_id: str):
+        identity = RomIdentity(title_id=title_id)
+
+        assert switch.normalize_identity(True, identity) == _BASE_FOLDER
+
+    def test_a_base_id_keeps_its_save_target(self):
+        identity = RomIdentity(
+            title_id="0100ABCD12340000",
+            save_target="sigil-target",
+            save_target_layout=SaveTargetLayout.FOLDER_EXACT,
+        )
+
+        assert switch.normalize_identity(True, identity) == identity
+
+    @pytest.mark.parametrize(
+        ("is_switch", "title_id"),
+        [
+            pytest.param(False, "0100ABCD12340800", id="not-switch"),
+            pytest.param(True, "ZZZ", id="not-derivable"),
+            pytest.param(True, None, id="no-id"),
+        ],
+    )
+    def test_other_identities_are_left_alone(
+        self, is_switch: bool, title_id: str | None
+    ):
+        identity = RomIdentity(title_id=title_id)
+
+        assert switch.normalize_identity(is_switch, identity) == identity
 
 
 class TestTitleIdRegexes:

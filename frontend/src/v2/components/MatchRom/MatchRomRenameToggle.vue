@@ -36,6 +36,10 @@ const newName = computed(() => {
   );
 });
 
+const nameChanges = computed(
+  () => !props.rom || newName.value !== props.rom.fs_name,
+);
+
 function toggle() {
   if (props.disabled) return;
   emit("update:modelValue", !props.modelValue);
@@ -44,6 +48,7 @@ function toggle() {
 
 <template>
   <div
+    v-if="nameChanges"
     class="rename-toggle"
     :class="{
       'rename-toggle--on': modelValue,

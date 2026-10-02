@@ -39,10 +39,10 @@ import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
+import { useRouteQueryParam } from "@/v2/composables/useRouteQueryParam";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import type { StatRow } from "@/v2/types/stats";
-import { syncQueryParam } from "@/v2/utils/routeQuery";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -72,21 +72,13 @@ const canScan = useCan("library.scan");
 const canDownload = useCan("rom.download");
 
 // ── Tabs ─────────────────────────────────────────────────────────
-// URL-persistent via `?tab=` (mirrors the GameDetails pattern). The
-// default tab is `library`.
 type TabId = "library" | "firmware" | "settings" | "memory-cards";
-const VALID_TABS = new Set<TabId>([
+const TAB_IDS: readonly TabId[] = [
   "library",
   "firmware",
   "settings",
   "memory-cards",
-]);
-
-function parseTab(v: unknown): TabId {
-  return typeof v === "string" && VALID_TABS.has(v as TabId)
-    ? (v as TabId)
-    : "library";
-}
+];
 
 // The memory-card tab only exists for platforms whose streaming container
 // syncs whole cards (PCSX2 today). `emulator` is the hard key the manager
@@ -96,15 +88,7 @@ const memoryCardEmulator = computed<string | null>(() => {
   return c?.supports_memory_cards ? c.emulator : null;
 });
 
-const tab = ref<TabId>(parseTab(route.query.tab));
-watch(tab, (value) => syncQueryParam(router, "tab", value));
-watch(
-  () => route.query.tab,
-  (value) => {
-    const next = parseTab(value);
-    if (next !== tab.value) tab.value = next;
-  },
-);
+const tab = useRouteQueryParam("tab", "library", TAB_IDS);
 
 const tabs = computed<RTabNavItem[]>(() => [
   { id: "library", label: t("common.library") },

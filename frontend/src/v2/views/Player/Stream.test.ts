@@ -1,7 +1,7 @@
-import { RBtn } from "@v2/lib";
+import { RBtn, RSlider } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, type Slots, type VNodeChild } from "vue";
+import { defineComponent, nextTick, type Slots, type VNodeChild } from "vue";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   saveAndExitKeepalive: vi.fn(),
   loadState: vi.fn(),
   saveState: vi.fn(),
+  setVolume: vi.fn(),
   container: null as Record<string, unknown> | null,
   capabilities: {} as Record<string, unknown>,
   presenceTick: null as (() => Promise<void>) | null,
@@ -56,6 +57,7 @@ vi.mock("@/services/api/streaming", () => ({
   default: {
     loadState: mocks.loadState,
     saveState: mocks.saveState,
+    setVolume: mocks.setVolume,
   },
   isMemoryCardImportDetail: () => false,
 }));
@@ -187,6 +189,8 @@ const StreamStageStub = exposingStub(
     enterFullscreen: () => Promise.resolve(),
     leaveFullscreen: () => Promise.resolve(),
     focusStream: () => {},
+    // Declines, as a cross-origin container does, so volume goes to the broker.
+    postToStream: () => false,
   },
   (slots) => slots.bar?.({ isFullscreen: false, toggleFullscreen: () => {} }),
 );
@@ -231,16 +235,6 @@ function romWith(saves: SaveSchema[], states: StateSchema[] = []): DetailedRom {
   });
 }
 
-// The view listens on document and window, so a mount left standing would
-// answer the next test's visibilitychange and pagehide too.
-const mounted: VueWrapper[] = [];
-
-afterEach(() => {
-  for (const wrapper of mounted.splice(0)) {
-    if (wrapper.exists()) wrapper.unmount();
-  }
-});
-
 async function launch(opts: {
   picker: boolean;
   saves?: SaveSchema[];
@@ -272,7 +266,6 @@ async function launch(opts: {
       stubs: { GameCover: GameCoverStub, StreamStage: StreamStageStub },
     },
   });
-  mounted.push(wrapper);
   await flushPromises();
   return wrapper;
 }
@@ -307,7 +300,6 @@ function deferClaim(): (claim: typeof CLAIM) => void {
 
 describe("Stream save picker", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -529,7 +521,6 @@ async function launchFailed(
 
 describe("Stream session-ended notices", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -631,7 +622,6 @@ describe("Stream session-ended notices", () => {
 
 describe("Stream exit chord", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -651,7 +641,6 @@ describe("Stream exit chord", () => {
 
 describe("Stream claim hygiene", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
     mocks.releaseSession.mockResolvedValue(true);
   });
@@ -857,7 +846,6 @@ describe("Stream claim hygiene", () => {
 
 describe("Stream state controls", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
     mocks.capabilities = { maxSlots: 0, hasAutosave: true, autosaveSlot: 10 };
   });
@@ -899,7 +887,6 @@ async function pollStatus(): Promise<void> {
 
 describe("Stream launch recovery", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -1189,7 +1176,6 @@ describe("Stream launch recovery", () => {
 
 describe("Stream join", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.joinSession.mockResolvedValue({ host: "http://box:3000/room/x" });
     mocks.query = { join: "1", container: "http://box:8000" };
   });
@@ -1229,7 +1215,6 @@ describe("Stream join", () => {
 
 describe("Stream state picker", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -1302,5 +1287,51 @@ describe("Stream state picker", () => {
     });
 
     expect(pickableStateIds(wrapper)).toEqual([5, 8]);
+  });
+});
+
+describe("Stream volume over the broker", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    mocks.setVolume.mockResolvedValue({});
+  });
+
+  // The volume slider sits in the bar, which a running game puts on screen.
+  async function play(): Promise<VueWrapper> {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    await flushPromises();
+    return wrapper;
+  }
+
+  async function slide(wrapper: VueWrapper, ...levels: number[]) {
+    const slider = wrapper.getComponent(RSlider);
+    for (const level of levels) {
+      slider.vm.$emit("update:modelValue", level);
+      await nextTick();
+    }
+  }
+
+  it("hands the broker a volume only once it settles", async () => {
+    const wrapper = await play();
+
+    await slide(wrapper, 40, 30);
+    await vi.advanceTimersByTimeAsync(149);
+    expect(mocks.setVolume).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocks.setVolume).toHaveBeenCalledOnce();
+    expect(mocks.setVolume.mock.calls[0][1]).toBe(30);
+  });
+
+  it("drops a volume still settling when the view unmounts", async () => {
+    const wrapper = await play();
+
+    await slide(wrapper, 40);
+    wrapper.unmount();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(mocks.setVolume).not.toHaveBeenCalled();
   });
 });

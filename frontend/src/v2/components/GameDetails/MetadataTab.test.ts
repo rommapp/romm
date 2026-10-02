@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { DetailedRom } from "@/stores/roms";
 import MetadataTab from "./MetadataTab.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const CRC = "aabbccdd";
 const MD5 = "0123456789abcdef0123456789abcdef";

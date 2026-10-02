@@ -2,20 +2,44 @@ import asyncio
 import contextlib
 import json
 import os
+import re
 import shutil
 import tempfile
 from dataclasses import dataclass
+from itertools import batched
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from config import ROM_CONVERTO_ENABLED, ROM_CONVERTO_TIMEOUT
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.rom import TITLE_ID_MAX_LENGTH
 from utils.filesystem import SERVED_FILE_MODE
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-# The capabilities probe must never hang download paths; a real
+# Wider than the conversion targets: `info` only reads headers, so every
+# platform it can pull a title id or serial from counts.
+CONVERTO_PLATFORM_SLUGS: Final[frozenset[str]] = frozenset(
+    {
+        UPS.N3DS,
+        UPS.NDS,
+        UPS.PSP,
+        UPS.PSVITA,
+        UPS.PSX,
+        UPS.PS2,
+        UPS.PS3,
+        UPS.NGC,
+        UPS.WII,
+        UPS.WIIU,
+        UPS.SWITCH,
+        UPS.SWITCH_2,
+        UPS.XBOX,
+        UPS.XBOX360,
+    }
+)
+
+# The capabilities probe must never hang scan/download paths; a real
 # manifest print is instant.
 _PROBE_TIMEOUT_SECONDS = 30
 
@@ -24,6 +48,11 @@ _STDERR_TAIL_BYTES = 400
 _BINARY: Final = "rom-converto"
 
 CUE_EXT: Final = ".cue"
+
+# Bounds one run's output, which carries every file's embedded images as JSON.
+INFO_RUN_MAX_FILES: Final = 64
+
+_PSP_TITLE_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Z]{4}[0-9]{5}")
 
 
 class RomConvertoError(Exception): ...
@@ -45,6 +74,14 @@ class RomConvertoUnsafeSourceError(RomConvertoError):
 
 # `xbox convert` keeps only a dump's game partition, so a library never stores its output.
 _LOSSY_ARGV: Final[frozenset[tuple[str, ...]]] = frozenset({("xbox", "convert")})
+
+
+@dataclass(frozen=True)
+class RomConvertoInfo:
+    # Rendered the way sigil renders the same platform's id, so either
+    # extractor can fill `Rom.title_id` interchangeably.
+    title_id: str | None = None
+    title_version: int | None = None
 
 
 @dataclass(frozen=True)
@@ -265,6 +302,24 @@ def _convert_argv(operation: Operation, src: Path, out: Path) -> list[str]:
     return [*operation.argv, os.path.abspath(src), os.path.abspath(out)]
 
 
+def _listable(path: Path) -> bool:
+    """Whether `info` may read `path` from a paths file, which the CLI decodes as UTF-8 and trims per line."""
+    name = str(path)
+    if "\n" in name or name != name.strip():
+        return False
+    try:
+        name.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    if name.lower().endswith(CUE_EXT):
+        try:
+            cue_tracks(path)
+        except (RomConvertoUnsafeSourceError, OSError) as exc:
+            log.warning(f"Skipping rom-converto info on {path}: {exc}")
+            return False
+    return True
+
+
 def _make_sandbox() -> tuple[Path, Path]:
     """A new empty dir to run the CLI from, and the empty config file inside it."""
     sandbox = Path(tempfile.mkdtemp(prefix="rom-converto-"))
@@ -354,11 +409,81 @@ def _kill(proc: asyncio.subprocess.Process) -> None:
         proc.kill()
 
 
+def _int(value: Any) -> int | None:
+    """The value when it is an int a signed BIGINT column holds, else None."""
+    # A corrupt header's u64 would otherwise overflow the column and fail the row.
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if 0 <= value < 2**63 else None
+
+
+def _text(value: Any, max_length: int) -> str | None:
+    """The text on one line, clipped to `max_length`, or None if empty."""
+    if not isinstance(value, str):
+        return None
+    text = " ".join(value.replace("\x00", "").split())
+    return text[:max_length].rstrip() or None
+
+
+def _first_id(data: dict[str, Any], *keys: str) -> str | None:
+    """The first of `keys` holding text, clipped to the title id column."""
+    for key in keys:
+        if title_id := _text(data.get(key), TITLE_ID_MAX_LENGTH):
+            return title_id
+    return None
+
+
+def _title_id(kind: str, flat: dict[str, Any]) -> str | None:
+    if kind in ("dol", "rvl"):
+        # Sigil keys GameCube and Wii by the hex-encoded 4-char game id.
+        game_id = flat.get("game_id")
+        if isinstance(game_id, str) and len(game_id) >= 4:
+            return game_id[:4].encode("ascii", "replace").hex().upper()
+        return None
+    if kind == "wup":
+        title_id_hex = _first_id(flat, "title_id_hex")
+        return title_id_hex[-8:] if title_id_hex else None
+    if kind == "xbox":
+        # An Xbox 360 disc image carries only the `xex` header, keyed by hex.
+        return _first_id(flat, "title_id_code", "title_id_hex")
+    if kind == "xenon":
+        return _first_id(flat, "title_id_hex")
+    title_id = _first_id(flat, "application_title_id_hex", "title_id", "game_code")
+    if kind in ("psp", "pbp"):
+        title_id = title_id or _first_id(flat, "disc_id")
+        if title_id and _PSP_TITLE_ID_PATTERN.fullmatch(title_id):
+            return f"{title_id[:4]}-{title_id[4:]}"
+    return title_id
+
+
+def _parse_info(payload: dict[str, Any]) -> RomConvertoInfo:
+    kind = str(payload.get("kind") or "")
+    if kind in ("chd", "cso"):
+        # rom-converto only nests a PS1/PS2 or PSP disc here.
+        content = payload.get("content")
+        if isinstance(content, dict) and content.get("kind") not in ("chd", "cso"):
+            return _parse_info(content)
+        return RomConvertoInfo()
+    # Consoles nest their header (Xbox `xbe`, 360 `xex`, Switch `full`, the Wii
+    # `tmd` holding its title version); top-level keys win on conflict.
+    flat = dict(payload)
+    for key in ("xbe", "xex", "full", "tmd"):
+        nested = payload.get(key)
+        if isinstance(nested, dict):
+            flat = {**nested, **flat}
+    return RomConvertoInfo(
+        title_id=_title_id(kind, flat),
+        title_version=_int(flat.get("title_version")),
+    )
+
+
 class RomConvertoService:
-    """Service to convert ROMs using the rom-converto CLI."""
+    """Service to inspect and convert ROMs using the rom-converto CLI."""
 
     def __init__(self) -> None:
         self._available: bool | None = None
+        # None when the manifest predates `info_extensions`: inspect everything.
+        self._info_extensions: frozenset[str] | None = None
         self._probe_lock = asyncio.Lock()
 
     async def is_enabled(self) -> bool:
@@ -391,14 +516,79 @@ class RomConvertoService:
                 manifest = json.loads(stdout)
             except json.JSONDecodeError:
                 manifest = None
-            version = (
-                manifest.get("version") if isinstance(manifest, dict) else None
-            ) or "unknown version"
+            if not isinstance(manifest, dict):
+                manifest = {}
+            version = manifest.get("version") or "unknown version"
+            extensions = manifest.get("info_extensions")
+            if isinstance(extensions, list):
+                self._info_extensions = frozenset(
+                    f".{ext.lower()}" for ext in extensions if isinstance(ext, str)
+                )
             log.info(
                 f"Detected {hl('rom-converto', color=LIGHTMAGENTA)} {hl(str(version))}"
             )
             self._available = True
             return True
+
+    def can_inspect(self, path: Path) -> bool:
+        """Whether `info` recognizes this file's extension."""
+        if self._info_extensions is None:
+            return True
+        return path.suffix.lower() in self._info_extensions
+
+    async def read_infos(self, paths: list[Path]) -> dict[Path, RomConvertoInfo]:
+        """Inspect files in `info` runs of up to `INFO_RUN_MAX_FILES`, keyed by the paths it recognized; never raises."""
+        listed = await asyncio.to_thread(lambda: [p for p in paths if _listable(p)])
+        infos: dict[Path, RomConvertoInfo] = {}
+        for chunk in batched(listed, INFO_RUN_MAX_FILES, strict=False):
+            infos.update(await self._read_run(list(chunk)))
+        return infos
+
+    async def _read_run(self, listed: list[Path]) -> dict[Path, RomConvertoInfo]:
+        log.debug(
+            f"Executing {hl('rom-converto', color=LIGHTMAGENTA)} info on {len(listed)} file(s)"
+        )
+        paths_file: str | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w", encoding="utf-8", suffix=".txt", delete=False
+            ) as fh:
+                paths_file = fh.name
+                fh.write("".join(f"{p}\n" for p in listed))
+            code, stdout, stderr = await _run(
+                ["info", "--json", "--paths-file", paths_file], ROM_CONVERTO_TIMEOUT
+            )
+        except (RomConvertoError, OSError) as exc:
+            log.warning(f"rom-converto info failed: {exc}")
+            return {}
+        finally:
+            if paths_file is not None:
+                with contextlib.suppress(OSError):
+                    os.unlink(paths_file)
+        if code != 0:
+            log.warning(f"rom-converto info failed (code {code}): {_tail(stderr)}")
+            return {}
+        try:
+            records = json.loads(stdout)
+        except json.JSONDecodeError:
+            log.warning("rom-converto info returned non-JSON output")
+            return {}
+        if not isinstance(records, list):
+            return {}
+
+        infos: dict[Path, RomConvertoInfo] = {}
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            payload = record.get("info")
+            if record.get("ok") and isinstance(payload, dict):
+                infos[Path(str(record.get("path")))] = _parse_info(payload)
+            else:
+                log.debug(
+                    f"rom-converto did not recognize {record.get('path')}: "
+                    f"{record.get('error')}"
+                )
+        return infos
 
     async def convert(self, operation: Operation, src: Path, out: Path) -> None:
         """Run `operation` on `src`, writing `out`, which must be alone in its directory.

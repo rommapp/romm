@@ -5,9 +5,7 @@ import PatcherTab from "./PatcherTab.vue";
 
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("pinia", async (importOriginal) => ({
   ...(await importOriginal<typeof import("pinia")>()),
   storeToRefs: (store: object) => store,
@@ -103,7 +101,6 @@ function rom(): DetailedRomSchema {
 
 describe("PatcherTab", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     post.mockResolvedValue({ data: new Blob(["patched"]), headers: {} });
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   });

@@ -24,9 +24,7 @@ const heartbeat = {
 };
 const config = ref({ SKIP_HASH_CALCULATION: false });
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("pinia", () => ({
   storeToRefs: () => ({ config }),
 }));
@@ -121,7 +119,9 @@ describe("useScanProviders Playmatch gate", () => {
     const { hashMatchers } = useScanProviders();
     const matcher = playmatch(hashMatchers.value);
     expect(matcher.switchEnabled).toBe(false);
-    expect(matcher.blockedReason).toBe("scan.requires-hashes");
+    expect(matcher.blockedReason).toBe(
+      'scan.requires-hashes:{"source":"Playmatch"}',
+    );
   });
 });
 

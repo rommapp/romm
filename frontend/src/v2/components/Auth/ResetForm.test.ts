@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeHeartbeat from "@/stores/heartbeat";
 import ResetForm from "./ResetForm.vue";
@@ -12,9 +11,7 @@ const { requestPasswordReset, success } = vi.hoisted(() => ({
 vi.mock("@/services/api/identity", () => ({
   default: { requestPasswordReset },
 }));
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/v2/composables/useSnackbar", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/v2/composables/useSnackbar")>()),
   useSnackbar: () => ({ success, error: vi.fn() }),
@@ -30,7 +27,6 @@ async function requestFor(username: string) {
 
 describe("ResetForm", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
     requestPasswordReset.mockResolvedValue({});
   });

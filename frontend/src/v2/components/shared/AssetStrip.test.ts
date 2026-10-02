@@ -4,9 +4,7 @@ import type { StateSchema } from "@/__generated__";
 import { stateFixture } from "@/utils/assets.fixtures";
 import AssetStrip from "./AssetStrip.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: "en_US" }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 const RTag = {

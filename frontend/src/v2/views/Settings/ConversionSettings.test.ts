@@ -1,6 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import storeConfig, { type Config } from "@/stores/config";
@@ -30,9 +29,7 @@ function useConfig(platformFormats: Record<string, string>) {
   vi.spyOn(store, "fetchConfig").mockResolvedValue(config);
 }
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", () => ({
   onBeforeRouteLeave: vi.fn(),
 }));
@@ -95,7 +92,6 @@ describe("ConversionSettings", () => {
     runTask.mockReset();
     snackbarSuccess.mockReset();
     scopes.splice(0, scopes.length, "platforms.write", "tasks.run");
-    setActivePinia(createPinia());
     storeHeartbeat().value.CONVERTO.ENABLED = true;
     useConfig({ psx: "chd" });
   });

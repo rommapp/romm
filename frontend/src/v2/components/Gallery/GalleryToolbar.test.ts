@@ -3,9 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import GalleryToolbar from "./GalleryToolbar.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const smAndUp = ref(true);
 vi.mock("@/v2/composables/useBreakpoint", () => ({

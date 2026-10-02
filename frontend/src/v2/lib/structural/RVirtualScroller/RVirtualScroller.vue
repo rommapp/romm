@@ -39,7 +39,8 @@
 //     the DOM at any time.
 //   * Computeds re-evaluate only on scrollTop / containerHeight / items
 //     changes. Binary searches make per-scroll work O(log n).
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { useResizeObserver } from "@vueuse/core";
+import { computed, onMounted, ref, shallowRef, watch } from "vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -225,14 +226,22 @@ function onScroll(e: Event) {
 }
 
 // Container size + inner offset tracking.
-let containerObserver: ResizeObserver | null = null;
-let innerObserver: ResizeObserver | null = null;
-
 function syncInnerOffset() {
   const inner = innerEl.value;
   if (!inner) return;
   innerOffsetTop.value = inner.offsetTop;
 }
+
+useResizeObserver(containerEl, () => {
+  const container = containerEl.value;
+  if (!container) return;
+  containerHeight.value = container.clientHeight;
+  syncInnerOffset();
+});
+
+// The siblings above the inner and the body: their height shifts `innerOffsetTop`.
+const bandEls = shallowRef<HTMLElement[]>([]);
+useResizeObserver(bandEls, syncInnerOffset);
 
 onMounted(() => {
   const container = containerEl.value;
@@ -241,34 +250,16 @@ onMounted(() => {
   scrollTop.value = container.scrollTop;
   syncInnerOffset();
 
-  containerObserver = new ResizeObserver(() => {
-    containerHeight.value = container.clientHeight;
-    syncInnerOffset();
-  });
-  containerObserver.observe(container);
-
-  // Watch the prepend / sticky bands so their height changes (e.g.
-  // header reflow on resize) propagate into `innerOffsetTop`. We
-  // observe the container itself; any layout shift in its descendants
-  // bubbles up via the container's own size or the inner's offsetTop.
-  if (innerEl.value) {
-    innerObserver = new ResizeObserver(syncInnerOffset);
-    // Observe siblings above the inner and the body: they shift `innerOffsetTop`.
-    for (const start of [innerEl.value, innerEl.value.parentElement]) {
-      let prev = start?.previousElementSibling;
-      while (prev) {
-        innerObserver.observe(prev);
-        prev = prev.previousElementSibling;
-      }
+  const bands: HTMLElement[] = [];
+  const inner = innerEl.value;
+  for (const start of [inner, inner?.parentElement]) {
+    let prev = start?.previousElementSibling;
+    while (prev) {
+      if (prev instanceof HTMLElement) bands.push(prev);
+      prev = prev.previousElementSibling;
     }
   }
-});
-
-onUnmounted(() => {
-  containerObserver?.disconnect();
-  containerObserver = null;
-  innerObserver?.disconnect();
-  innerObserver = null;
+  bandEls.value = bands;
 });
 
 // Re-emit viewportRange whenever it changes. Computed memoises on

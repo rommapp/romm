@@ -1,50 +1,22 @@
 import { flushPromises } from "@vue/test-utils";
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { installFullscreenFallback } from "@/v2/utils/playerFullscreen";
 import { usePlayerExit } from "./index";
 
 const replace = vi.fn();
 const locationReplace = vi.fn();
-let originalLocation: Location;
 
 vi.mock("vue-router", () => ({
   useRouter: () => ({ replace }),
 }));
 
 function setIsolated(isolated: boolean) {
-  Object.defineProperty(window, "crossOriginIsolated", {
-    configurable: true,
-    value: isolated,
-  });
+  vi.stubGlobal("crossOriginIsolated", isolated);
 }
 
-beforeAll(() => {
-  originalLocation = window.location;
-  Object.defineProperty(window, "location", {
-    configurable: true,
-    value: { ...originalLocation, replace: locationReplace },
-  });
-});
-
-afterAll(() => {
-  Object.defineProperty(window, "location", {
-    configurable: true,
-    value: originalLocation,
-  });
-});
-
-afterEach(() => {
-  replace.mockClear();
+beforeEach(() => {
+  vi.stubGlobal("location", { ...window.location, replace: locationReplace });
   locationReplace.mockReset();
-  setIsolated(false);
 });
 
 describe("usePlayerExit", () => {
@@ -90,8 +62,24 @@ describe("usePlayerExit", () => {
     setIsolated(true);
     const exit = usePlayerExit();
 
-    await expect(exit.guard({ fullPath: "/platform/2" })).resolves.toBe(false);
+    void exit.guard({ fullPath: "/platform/2" });
+    await flushPromises();
+
     expect(locationReplace).toHaveBeenCalledWith("/platform/2");
+  });
+
+  // An aborted Back makes the router traverse forward again, and that traversal
+  // cancels a replace to the URL the Back already landed on.
+  it("never settles a departure it turns into a full navigation", async () => {
+    setIsolated(true);
+    const exit = usePlayerExit();
+    const settled = vi.fn();
+
+    exit.guard({ fullPath: "/platform/2" }).then(settled, settled);
+    await flushPromises();
+
+    expect(locationReplace).toHaveBeenCalled();
+    expect(settled).not.toHaveBeenCalled();
   });
 
   // What the departing document still owes runs while it is still there, since
@@ -108,7 +96,8 @@ describe("usePlayerExit", () => {
       },
     );
 
-    await exit.guard({ fullPath: "/platform/2" });
+    void exit.guard({ fullPath: "/platform/2" });
+    await flushPromises();
 
     expect(settled).toEqual(["settle", "replace"]);
   });
@@ -123,7 +112,8 @@ describe("usePlayerExit", () => {
       fullscreenAtReplace = document.fullscreenElement;
     });
 
-    await usePlayerExit().guard({ fullPath: "/platform/2" });
+    void usePlayerExit().guard({ fullPath: "/platform/2" });
+    await flushPromises();
 
     expect(fullscreenAtReplace).toBeNull();
     dispose();
@@ -132,18 +122,16 @@ describe("usePlayerExit", () => {
 
   it("replaces the document even when settling fails", async () => {
     setIsolated(true);
-    const error = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     const exit = usePlayerExit(
       () => false,
       () => Promise.reject(new Error("nope")),
     );
 
-    await exit.guard({ fullPath: "/platform/2" });
+    void exit.guard({ fullPath: "/platform/2" });
+    await flushPromises();
 
     expect(locationReplace).toHaveBeenCalledWith("/platform/2");
-    error.mockRestore();
   });
 
   // The view arms an unload prompt while a game is up, and the exit it asked
@@ -156,7 +144,7 @@ describe("usePlayerExit", () => {
     [
       "a route departure",
       (exit: ReturnType<typeof usePlayerExit>) =>
-        exit.guard({ fullPath: "/rom/1" }),
+        void exit.guard({ fullPath: "/rom/1" }),
     ],
   ])("announces %s that replaces the document", async (_label, act) => {
     setIsolated(true);

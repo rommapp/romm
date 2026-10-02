@@ -1,12 +1,4 @@
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useIsolatedLaunch } from "./index";
 
 interface Intent {
@@ -24,17 +16,16 @@ function isIntent(value: unknown): value is Intent {
 
 const KEY = "player:7:ejs:launch";
 const reload = vi.fn();
-let originalLocation: Location;
-const realStorage = window.sessionStorage;
 
 /** Stand in for a browser that denies storage access outright. */
 function blockStorage() {
   const denied = () => {
     throw new Error("storage is blocked");
   };
-  Object.defineProperty(window, "sessionStorage", {
-    configurable: true,
-    value: { getItem: denied, setItem: denied, removeItem: denied },
+  vi.stubGlobal("sessionStorage", {
+    getItem: denied,
+    setItem: denied,
+    removeItem: denied,
   });
 }
 
@@ -43,33 +34,11 @@ function launch() {
 }
 
 function setSecureContext(secure: boolean) {
-  Object.defineProperty(window, "isSecureContext", {
-    configurable: true,
-    value: secure,
-  });
+  vi.stubGlobal("isSecureContext", secure);
 }
 
-beforeAll(() => {
-  originalLocation = window.location;
-  Object.defineProperty(window, "location", {
-    configurable: true,
-    value: { ...originalLocation, reload },
-  });
-});
-
-afterAll(() => {
-  Object.defineProperty(window, "location", {
-    configurable: true,
-    value: originalLocation,
-  });
-});
-
 beforeEach(() => {
-  reload.mockClear();
-  Object.defineProperty(window, "sessionStorage", {
-    configurable: true,
-    value: realStorage,
-  });
+  vi.stubGlobal("location", { ...window.location, reload });
   sessionStorage.clear();
   setSecureContext(true);
 });

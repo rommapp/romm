@@ -2,9 +2,7 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import SubtabNav, { type SubtabNavItem } from "./SubtabNav.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const RMenu = {
   props: { searchable: { type: Boolean, default: false } },

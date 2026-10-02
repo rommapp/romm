@@ -4,9 +4,7 @@ import ScanPriorityList from "./ScanPriorityList.vue";
 
 // vue-i18n's `t` is stubbed to echo the key so the component mounts without
 // the full i18n plugin.
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const SOURCES = [
   { value: "igdb", label: "IGDB" },

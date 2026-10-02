@@ -1,3 +1,4 @@
+import { flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reactive, shallowRef } from "vue";
 import type { RomUserSchema } from "@/__generated__";
@@ -5,9 +6,7 @@ import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import { usePinnedMedia } from "./index";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/services/api/rom", () => ({
   default: { updateUserRomProps: vi.fn() },
@@ -45,10 +44,6 @@ function makeRom(pinnedMedia: string[] | null): DetailedRom {
   }) as DetailedRom;
 }
 
-async function settle() {
-  await new Promise((resolve) => setTimeout(resolve));
-}
-
 beforeEach(() => {
   update.mockReset();
   snackbarError.mockReset();
@@ -66,7 +61,7 @@ describe("usePinnedMedia", () => {
     togglePin("file:2");
     expect(rom.rom_user.pinned_media).toEqual(["file:1", "file:2"]);
     expect(isCustomized.value).toBe(true);
-    await settle();
+    await flushPromises();
     expect(update).toHaveBeenCalledWith({
       romId: rom.id,
       data: { pinned_media: ["file:1", "file:2"] },
@@ -84,17 +79,17 @@ describe("usePinnedMedia", () => {
 
     screenshots.togglePin("file:1");
     artwork.togglePin("file:2");
-    await settle();
+    await flushPromises();
     expect(update).toHaveBeenCalledTimes(1);
 
     releases[0]();
-    await settle();
+    await flushPromises();
     expect(update).toHaveBeenCalledTimes(2);
     expect(update.mock.calls[1][0].data).toEqual({
       pinned_media: ["file:1", "file:2"],
     });
     releases[1]();
-    await settle();
+    await flushPromises();
   });
 
   it("restores the previous pins and reports a failed write", async () => {
@@ -104,7 +99,7 @@ describe("usePinnedMedia", () => {
 
     togglePin("file:1");
     expect(rom.rom_user.pinned_media).toEqual([]);
-    await settle();
+    await flushPromises();
     expect(rom.rom_user.pinned_media).toEqual(["file:1"]);
     expect(snackbarError).toHaveBeenCalledWith(
       "rom.pinned-media-update-failed",
@@ -121,7 +116,7 @@ describe("usePinnedMedia", () => {
 
     togglePin("file:1");
     togglePin("file:2");
-    await settle();
+    await flushPromises();
     expect(rom.rom_user.pinned_media).toEqual(["file:1", "file:2"]);
     expect(snackbarError).toHaveBeenCalledOnce();
   });
@@ -133,7 +128,7 @@ describe("usePinnedMedia", () => {
 
     togglePin("file:1");
     togglePin("file:2");
-    await settle();
+    await flushPromises();
     expect(rom.rom_user.pinned_media).toEqual(["file:9"]);
   });
 
@@ -149,7 +144,7 @@ describe("usePinnedMedia", () => {
       rom_user: { pinned_media: [] as string[] } as RomUserSchema,
     }) as DetailedRom;
     current.value = refetched;
-    await settle();
+    await flushPromises();
     expect(refetched.rom_user.pinned_media).toEqual(["file:1"]);
   });
 
@@ -158,11 +153,11 @@ describe("usePinnedMedia", () => {
     const { togglePin } = usePinnedMedia(rom);
 
     togglePin("file:4");
-    await settle();
+    await flushPromises();
     expect(rom.rom_user.pinned_media).toEqual(["file:1", "file:2", "file:3"]);
     expect(update).not.toHaveBeenCalled();
     expect(snackbarError).toHaveBeenCalledWith(
-      "rom.pinned-media-limit",
+      'rom.pinned-media-limit:{"n":3}',
       expect.anything(),
     );
   });
@@ -182,7 +177,7 @@ describe("usePinnedMedia", () => {
 
     resetPins();
     expect(rom.rom_user.pinned_media).toBeNull();
-    await settle();
+    await flushPromises();
     expect(update).toHaveBeenCalledWith({
       romId: rom.id,
       data: { pinned_media: null },

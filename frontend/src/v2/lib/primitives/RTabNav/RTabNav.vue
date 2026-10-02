@@ -14,14 +14,8 @@
 //
 // A horizontal strip that overflows fades its clipped edges and shows a
 // chevron there, so a narrow viewport still reads as "more tabs this way".
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from "vue";
+import { useResizeObserver } from "@vueuse/core";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RImg from "../../primitives/RImg/RImg.vue";
@@ -161,8 +155,28 @@ watch([visibleItems, () => props.variant, () => props.orientation], () =>
   }),
 );
 
-let resizeObserver: ResizeObserver | null = null;
 let lastTrackWidth = 0;
+
+useResizeObserver(trackEl, () => {
+  const track = trackEl.value;
+  if (!track) return;
+  const w = track.getBoundingClientRect().width;
+  // 0→nonzero (display:none → visible): re-measure without
+  // animation so the indicator doesn't slide in from the left.
+  if (lastTrackWidth === 0 && w > 0) {
+    animate.value = false;
+    update();
+    requestAnimationFrame(() => {
+      animate.value = true;
+    });
+  } else {
+    update();
+  }
+  // A narrower strip can clip the selected tab.
+  revealActive("auto");
+  updateOverflow();
+  lastTrackWidth = w;
+});
 
 onMounted(async () => {
   await nextTick();
@@ -175,34 +189,7 @@ onMounted(async () => {
   requestAnimationFrame(() => {
     animate.value = true;
   });
-  const track = trackEl.value;
-  if (track) {
-    lastTrackWidth = track.getBoundingClientRect().width;
-    resizeObserver = new ResizeObserver(() => {
-      const w = track.getBoundingClientRect().width;
-      // 0→nonzero (display:none → visible): re-measure without
-      // animation so the indicator doesn't slide in from the left.
-      if (lastTrackWidth === 0 && w > 0) {
-        animate.value = false;
-        update();
-        requestAnimationFrame(() => {
-          animate.value = true;
-        });
-      } else {
-        update();
-      }
-      // A narrower strip can clip the selected tab.
-      revealActive("auto");
-      updateOverflow();
-      lastTrackWidth = w;
-    });
-    resizeObserver.observe(track);
-  }
-});
-
-onBeforeUnmount(() => {
-  resizeObserver?.disconnect();
-  resizeObserver = null;
+  lastTrackWidth = trackEl.value?.getBoundingClientRect().width ?? 0;
 });
 </script>
 

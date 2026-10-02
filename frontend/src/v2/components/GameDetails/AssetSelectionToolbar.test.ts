@@ -2,13 +2,7 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import AssetSelectionToolbar from "./AssetSelectionToolbar.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    // Keeps the count, so a wrong pluralisation argument fails the assertion.
-    t: (key: string, count?: number) =>
-      typeof count === "number" ? `${key}:${count}` : key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 const RCheckbox = {
   props: {
@@ -43,12 +37,16 @@ function toolbar(
 
 describe("AssetSelectionToolbar", () => {
   it("counts the list until something is checked, then the selection", () => {
-    expect(toolbar().get(".all").text()).toBe("rom.assets-count-n:3");
+    expect(toolbar().get(".all").text()).toBe(
+      'rom.assets-count-n:3:{"named":{"n":3}}',
+    );
     expect(toolbar().findAll(".btn")).toHaveLength(0);
 
     const some = toolbar({ count: 2, someChecked: true });
 
-    expect(some.get(".all").text()).toBe("rom.selected-of");
+    expect(some.get(".all").text()).toBe(
+      'rom.selected-of:{"selected":2,"total":3}',
+    );
     expect(some.findAll(".btn").map((b) => b.attributes("aria-label"))).toEqual(
       [
         "rom.add-to-favorites",

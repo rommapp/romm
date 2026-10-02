@@ -237,6 +237,7 @@
   "invite-link": "Davet bağlantısı",
   "invite-link-created": "Davet bağlantısı oluşturuldu",
   "language": "Dil",
+  "language-auto": "Otomatik ({language})",
   "length-header": "Süre",
   "link-copied": "Bağlantı panoya kopyalandı",
   "main-platform": "Ana platform",

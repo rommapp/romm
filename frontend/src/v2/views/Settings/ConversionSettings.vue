@@ -3,7 +3,7 @@
 // cache limit, and the per-platform library format the convert task applies.
 import { RAlert, RIcon, RSelect, RTextField, RBtn, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
 import type { ConvertoSettingsPayload } from "@/__generated__";
@@ -18,6 +18,7 @@ import SettingsSaveBar from "@/v2/components/Settings/SettingsSaveBar.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { errorMessage } from "@/v2/utils/errorMessage";
@@ -117,21 +118,18 @@ const canConvertLibrary = computed(
     Object.keys(config.value.CONVERTO.platform_formats ?? {}).length > 0,
 );
 
-const loading = ref(true);
-const loadError = ref(false);
 const saving = ref(false);
 
-async function loadConfig() {
-  loading.value = true;
-  loadError.value = false;
-  try {
-    resetForm(await configStore.fetchConfig({ rethrow: true }));
-  } catch {
-    loadError.value = true;
-  } finally {
-    loading.value = false;
-  }
-}
+const {
+  isLoading: loading,
+  error,
+  execute: loadConfig,
+} = useFetchState(
+  () => configStore.fetchConfig({ rethrow: true }),
+  config.value,
+  { onSuccess: resetForm },
+);
+const loadError = computed(() => error.value !== undefined);
 
 function onReset() {
   resetForm(config.value);
@@ -198,8 +196,6 @@ onBeforeRouteLeave(async () => {
 });
 
 useUnloadGuard(hasPendingEdits);
-
-onMounted(loadConfig);
 </script>
 
 <template>

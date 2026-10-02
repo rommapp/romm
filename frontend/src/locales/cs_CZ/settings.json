@@ -237,6 +237,7 @@
   "invite-link": "Pozvánkový odkaz",
   "invite-link-created": "Pozvánkový odkaz vytvořen",
   "language": "Jazyk",
+  "language-auto": "Automaticky ({language})",
   "length-header": "Délka",
   "link-copied": "Odkaz zkopírován do schránky",
   "main-platform": "Hlavní platforma",

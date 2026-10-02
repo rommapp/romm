@@ -5,9 +5,7 @@ import UploadAssetDialog, {
   type UploadAssetPayload,
 } from "./UploadAssetDialog.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/locales", () => ({
   default: { global: { t: (key: string) => key } },
 }));

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Final
 import socketio
 
 from config import REDIS_URL, SESSION_MAX_AGE_SECONDS
-from handler.redis_handler import as_text, async_cache
+from handler.redis_handler import REDIS_CLIENT_OPTIONS, as_text, async_cache
 from logger.logger import log
 from utils import json_module
 
@@ -30,7 +30,9 @@ class SocketHandler:
             json=json_module,
             logger=False,
             engineio_logger=False,
-            client_manager=socketio.AsyncRedisManager(REDIS_URL, channel=channel),
+            client_manager=socketio.AsyncRedisManager(
+                REDIS_URL, channel=channel, redis_options=REDIS_CLIENT_OPTIONS
+            ),
             ping_timeout=60,
             ping_interval=25,
             max_http_buffer_size=1e6,  # 1MB
@@ -65,7 +67,11 @@ class SocketHandler:
         if self._write_manager is None or self._write_manager_loop is not loop:
             # Only a manager attached to a server inherits its JSON encoder.
             self._write_manager = socketio.AsyncRedisManager(
-                REDIS_URL, channel=self.channel, write_only=True, json=json_module
+                REDIS_URL,
+                channel=self.channel,
+                write_only=True,
+                json=json_module,
+                redis_options=REDIS_CLIENT_OPTIONS,
             )
             self._write_manager_loop = loop
         return self._write_manager

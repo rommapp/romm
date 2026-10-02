@@ -1,7 +1,8 @@
+/* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
+import { useInputModality } from "@/v2/composables/useInputModality";
 import { useGridNav } from "./index";
 
 vi.mock("vue-router", () => ({ useRoute: () => ({ fullPath: "/gallery" }) }));
@@ -54,12 +55,9 @@ describe("useGridNav roving", () => {
   let wrapper: ReturnType<typeof mount>;
 
   beforeEach(async () => {
-    setActivePinia(createPinia());
     wrapper = mount(Grid, { attachTo: document.body });
     await frame();
   });
-
-  afterEach(() => wrapper.unmount());
 
   it("leaves only the first cell's controls in the tab order", () => {
     expect(tabbable(wrapper)).toEqual(["/rom/1", "fav"]);
@@ -119,5 +117,45 @@ describe("useGridNav roving", () => {
     expect(
       wrapper.findAll("button.skip").map((el) => el.attributes("tabindex")),
     ).toEqual(["-1", "-1", "-1", "-1"]);
+  });
+});
+
+describe("useGridNav autofocus", () => {
+  const { setModality } = useInputModality();
+  const rows = ref(0);
+
+  // Rows that arrive after mount, as a fetch resolving would add them.
+  const LateGrid = defineComponent({
+    setup() {
+      const root = ref<HTMLElement | null>(null);
+      useGridNav(root, { rowSelector: ".row" });
+      return () =>
+        h(
+          "div",
+          { ref: root },
+          Array.from({ length: rows.value }, (_, row) =>
+            h("div", { class: "row" }, [
+              h("a", { href: `/rom/${row + 1}` }, "Game"),
+            ]),
+          ),
+        );
+    },
+  });
+
+  afterEach(() => {
+    rows.value = 0;
+    setModality("mouse");
+  });
+
+  it("lands pad focus on the first cell once late rows arrive", async () => {
+    setModality("pad");
+    mount(LateGrid, { attachTo: document.body });
+    await frame();
+    expect(focusedHref()).toBeNull();
+
+    rows.value = 2;
+    await frame();
+
+    expect(focusedHref()).toBe("/rom/1");
   });
 });

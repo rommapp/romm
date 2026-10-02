@@ -10,7 +10,8 @@
 // Items with `to` render as <router-link> (navigation); items without render
 // as <RBtn> and emit update:modelValue on click. Active id is always driven
 // externally: the consumer decides it from route, prop, or store.
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useResizeObserver } from "@vueuse/core";
+import { nextTick, onMounted, ref, watch } from "vue";
 import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 import RBtn from "../RBtn/RBtn.vue";
 import RIcon from "../RIcon/RIcon.vue";
@@ -134,8 +135,23 @@ watch(
 // observer re-measures the moment the group gets a real box; on the
 // 0→nonzero transition we snap the indicator without animation so it
 // doesn't visibly slide in from the left.
-let resizeObserver: ResizeObserver | null = null;
 let lastGroupWidth = 0;
+
+useResizeObserver(groupEl, () => {
+  const g = groupEl.value;
+  if (!g) return;
+  const w = g.getBoundingClientRect().width;
+  if (lastGroupWidth === 0 && w > 0) {
+    animate.value = false;
+    update();
+    requestAnimationFrame(() => {
+      animate.value = true;
+    });
+  } else {
+    update();
+  }
+  lastGroupWidth = w;
+});
 
 onMounted(async () => {
   await nextTick();
@@ -143,29 +159,7 @@ onMounted(async () => {
   requestAnimationFrame(() => {
     animate.value = true;
   });
-  const g = groupEl.value;
-  if (g) {
-    lastGroupWidth = g.getBoundingClientRect().width;
-    resizeObserver = new ResizeObserver(() => {
-      const w = g.getBoundingClientRect().width;
-      if (lastGroupWidth === 0 && w > 0) {
-        animate.value = false;
-        update();
-        requestAnimationFrame(() => {
-          animate.value = true;
-        });
-      } else {
-        update();
-      }
-      lastGroupWidth = w;
-    });
-    resizeObserver.observe(g);
-  }
-});
-
-onBeforeUnmount(() => {
-  resizeObserver?.disconnect();
-  resizeObserver = null;
+  lastGroupWidth = groupEl.value?.getBoundingClientRect().width ?? 0;
 });
 
 // `badge` accepts `string | number | null`, so a plain truthiness check would

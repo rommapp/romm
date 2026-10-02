@@ -65,12 +65,6 @@ beforeEach(() => {
   support.pico8Rom.mockReturnValue(false);
   support.ruffle.mockReturnValue(false);
   support.jsDosBundle.mockReturnValue(true);
-  support.ejs.mockClear();
-  support.jsDos.mockClear();
-  support.pico8.mockClear();
-  support.pico8Rom.mockClear();
-  support.ruffle.mockClear();
-  support.jsDosBundle.mockClear();
   streamContainer.value = null;
   nativeSupported.value = false;
 });

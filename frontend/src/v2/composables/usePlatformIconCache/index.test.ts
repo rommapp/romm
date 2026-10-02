@@ -2,8 +2,8 @@ import { flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 class FakeURL extends URL {
-  static createObjectURL = vi.fn(() => "blob:cached");
-  static revokeObjectURL = vi.fn();
+  static override createObjectURL = vi.fn(() => "blob:cached");
+  static override revokeObjectURL = vi.fn();
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;

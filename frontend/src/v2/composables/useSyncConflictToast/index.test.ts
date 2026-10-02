@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import mitt from "mitt";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import {
   type SyncConflictSocketPayload,
@@ -28,10 +28,9 @@ vi.mock("vue-i18n", () => ({
 }));
 
 const emitter = mitt();
-let host: ReturnType<typeof mount> | null = null;
 
 function install() {
-  host = mount(
+  mount(
     defineComponent({
       setup() {
         installSyncConflictToast();
@@ -73,11 +72,6 @@ describe("useSyncConflictToast", () => {
       toasts.push(payload);
     });
     install();
-  });
-
-  afterEach(() => {
-    host?.unmount();
-    host = null;
   });
 
   it("warns with the game name from the payload", () => {

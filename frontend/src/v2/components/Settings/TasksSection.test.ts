@@ -1,8 +1,8 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CleanupTaskStatusResponse } from "@/__generated__/models/CleanupTaskStatusResponse";
+import { nextTick } from "vue";
 import type { TaskInfo } from "@/__generated__/models/TaskInfo";
+import { taskStatusFixture as status } from "@/utils/tasks.fixtures";
 import TasksSection from "./TasksSection.vue";
 
 const { getTasks, getTaskStatus, runTask, confirm } = vi.hoisted(() => ({
@@ -16,9 +16,7 @@ vi.mock("@/services/api/task", () => ({
   default: { getTasks, getTaskStatus, runTask },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en_US" } }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirm,
@@ -50,24 +48,6 @@ const SCHEDULED_TASK: TaskInfo = {
   cron_string: "0 4 * * *",
 };
 
-function status(
-  overrides: Partial<CleanupTaskStatusResponse> = {},
-): CleanupTaskStatusResponse {
-  return {
-    task_key: null,
-    task_name: "Scheduled ZIP cache cleanup",
-    task_id: "job-1",
-    task_type: "cleanup",
-    status: "started",
-    created_at: null,
-    enqueued_at: null,
-    started_at: null,
-    ended_at: null,
-    meta: { cleanup_stats: null },
-    ...overrides,
-  };
-}
-
 async function mountSection() {
   const wrapper = mount(TasksSection, {
     global: {
@@ -89,7 +69,6 @@ function runButton(wrapper: Awaited<ReturnType<typeof mountSection>>) {
 
 describe("TasksSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getTasks.mockReset();
     getTasks.mockResolvedValue({
       data: { watcher: [], scheduled: [], manual: [CLEANUP_TASK] },
@@ -201,6 +180,38 @@ describe("TasksSection", () => {
     await flushPromises();
 
     expect(getTaskStatus).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  it("polls the status every five seconds until unmounted", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const wrapper = await mountSection();
+    getTaskStatus.mockClear();
+
+    vi.advanceTimersByTime(10_000);
+    expect(getTaskStatus).toHaveBeenCalledTimes(2);
+
+    wrapper.unmount();
+    vi.advanceTimersByTime(10_000);
+    expect(getTaskStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips the poll while the tab is hidden and catches up on return", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("hidden");
+    const wrapper = await mountSection();
+    getTaskStatus.mockClear();
+
+    vi.advanceTimersByTime(10_000);
+    expect(getTaskStatus).not.toHaveBeenCalled();
+
+    visibility.mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await nextTick();
+    expect(getTaskStatus).toHaveBeenCalledTimes(1);
+
     wrapper.unmount();
   });
 

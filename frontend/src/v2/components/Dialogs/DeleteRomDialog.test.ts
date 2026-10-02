@@ -1,6 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import storeRoms from "@/stores/roms";
@@ -19,9 +18,7 @@ const route = reactive<{ name: string; params: Record<string, string> }>({
   params: { rom: "5" },
 });
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => route,
@@ -88,8 +85,6 @@ async function deleteShownGame() {
 
 describe("DeleteRomDialog", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     route.name = "rom";
     route.params = { rom: "5" };
     deleteRoms.mockResolvedValue({
@@ -126,8 +121,6 @@ describe("DeleteRomDialog", () => {
 
 describe("DeleteRomDialog with a large selection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     deleteRoms.mockResolvedValue({
       data: { failed_ids: [], successful_items: 120 },
     });
@@ -169,7 +162,7 @@ describe("DeleteRomDialog with a large selection", () => {
 
     expect(addExclusion).toHaveBeenCalledTimes(2);
     expect(snackbarError).toHaveBeenCalledWith(
-      "rom.exclude-failed",
+      'rom.exclude-failed:{"n":1}',
       expect.anything(),
     );
   });

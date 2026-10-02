@@ -29,7 +29,8 @@
 //
 // Integration: this is plain keyboard code; `useGamepad` dispatches
 // synthetic Arrow events so gamepad users transparently benefit.
-import { onBeforeUnmount, onMounted, watch, type Ref } from "vue";
+import { useEventListener, useMutationObserver } from "@vueuse/core";
+import { onMounted, watch, type Ref } from "vue";
 import { useRoute } from "vue-router";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import storeFocusRestoration from "@/v2/stores/focusRestoration";
@@ -233,8 +234,6 @@ export function useWrapGridNav(
     focusAt(rowIdx, colIdx, { verticalJump });
   }
 
-  let observer: MutationObserver | null = null;
-
   function maybeAutofocus() {
     if (modality.value !== "pad") return;
     if (!rootRef.value) return;
@@ -252,20 +251,13 @@ export function useWrapGridNav(
   }
 
   onMounted(() => {
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("focusin", onFocusIn);
-    if (rootRef.value) {
-      observer = new MutationObserver(() => maybeAutofocus());
-      observer.observe(rootRef.value, { childList: true, subtree: true });
-    }
+    useEventListener(document, "keydown", onKey);
+    useEventListener(window, "focusin", onFocusIn);
+    useMutationObserver(rootRef, () => maybeAutofocus(), {
+      childList: true,
+      subtree: true,
+    });
     requestAnimationFrame(maybeAutofocus);
-  });
-
-  onBeforeUnmount(() => {
-    document.removeEventListener("keydown", onKey);
-    window.removeEventListener("focusin", onFocusIn);
-    observer?.disconnect();
-    observer = null;
   });
 
   watch(modality, (m) => {

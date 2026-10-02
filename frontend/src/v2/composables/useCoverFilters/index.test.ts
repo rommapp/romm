@@ -3,9 +3,7 @@ import { nextTick, ref } from "vue";
 import type { CoverResource, SearchCoverSchema } from "@/__generated__";
 import { useCoverFilters } from "./index";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 function resource(overrides: Partial<CoverResource> = {}): CoverResource {
   return {

@@ -31,6 +31,7 @@
 //     a pad exit by listening for it.
 //   * Controller-test screen (ACTIONS_DISABLED_PATHS): built-in actions
 //     are muted so every button can be pressed and inspected in place.
+import { useEventListener, useRafFn } from "@vueuse/core";
 import { onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import storePlaying from "@/stores/playing";
@@ -264,7 +265,6 @@ export function useGamepad() {
 
     const states: Record<string, PadState> = {};
     const { setModality } = useInputModality();
-    let rafId = 0;
     let everSawPad = false;
     let chordHeldSince: number | null = null;
     // Cleared only on release, so a chord still held after its dialog is
@@ -272,8 +272,7 @@ export function useGamepad() {
     let chordFired = false;
 
     const onAnyInput = () => setModality("pad");
-    const onConnect = () => setModality("pad");
-    window.addEventListener("gamepadconnected", onConnect);
+    useEventListener(window, "gamepadconnected", () => setModality("pad"));
 
     // Initial poll: if the browser already exposes a pad at install time
     // (Firefox, or Chrome on a reload where a pad was previously used),
@@ -396,15 +395,11 @@ export function useGamepad() {
           window.dispatchEvent(new Event("gamepad:exitchord"));
         }
       }
-
-      rafId = requestAnimationFrame(loop);
     };
 
-    rafId = requestAnimationFrame(loop);
+    useRafFn(loop);
 
     onBeforeUnmount(() => {
-      cancelAnimationFrame(rafId);
-      window.removeEventListener("gamepadconnected", onConnect);
       installed = false;
     });
   }

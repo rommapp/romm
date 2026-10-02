@@ -9,6 +9,7 @@ from rq.exceptions import DeserializationError, InvalidJobOperation, NoSuchJobEr
 from rq.job import Job, JobStatus
 
 from handler.redis_handler import (
+    RomMRedis,
     async_cache,
     cancel_job,
     get_job_func_name,
@@ -17,6 +18,7 @@ from handler.redis_handler import (
     get_worker_current_job,
     has_live_worker,
     low_prio_queue,
+    redis_client,
     redis_lock,
 )
 
@@ -208,3 +210,13 @@ class TestRedisLock:
             assert await async_cache.ttl("test-lock") == expected_ttl
 
         assert not await async_cache.exists("test-lock")
+
+
+def test_the_queue_client_skips_the_maintenance_notifications_probe():
+    assert not redis_client.connection_pool.maint_notifications_enabled()
+
+
+def test_the_rq_cli_client_skips_the_maintenance_notifications_probe():
+    client = RomMRedis.from_url("redis://localhost:6379/0")
+
+    assert not client.connection_pool.maint_notifications_enabled()

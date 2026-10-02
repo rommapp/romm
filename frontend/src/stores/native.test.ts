@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import type {
@@ -92,20 +91,14 @@ function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
 }
 
 beforeEach(() => {
-  setActivePinia(createPinia());
   shellPresent.value = true;
   emit = null;
-  fetchPlatformSupport.mockClear();
   fetchPlatformSupport.mockResolvedValue({});
-  launchNative.mockClear();
   launchNative.mockResolvedValue({ romId: 1, emulator: "RetroArch" });
-  cancelNative.mockClear();
   cancelNative.mockResolvedValue(true);
-  getRom.mockClear();
   getRom.mockResolvedValue({
     data: { files: [{ full_path: "psx/disc.chd", file_size_bytes: 700 }] },
   });
-  unsubscribe.mockClear();
   soleFile.value = { full_path: "snes/game.sfc", file_size_bytes: 4194304 };
 });
 

@@ -2,9 +2,7 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import VisibilitySwitch from "./VisibilitySwitch.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 describe("VisibilitySwitch", () => {
   it("keeps both labels in place and shows the one it is on", async () => {

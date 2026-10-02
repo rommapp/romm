@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { stateFixture } from "@/utils/assets.fixtures";
 import AssetPreview from "./AssetPreview.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 const RTag = {

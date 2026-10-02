@@ -16,7 +16,6 @@ import {
   RTextField,
   RTooltip,
 } from "@v2/lib";
-import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -31,6 +30,7 @@ import ActivityCard from "@/v2/components/Activity/ActivityCard.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useVisiblePoll } from "@/v2/composables/useVisiblePoll";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
@@ -55,10 +55,6 @@ const releasingContainer = ref<string | null>(null);
 
 async function refreshStreamingSessions() {
   if (!isAdmin.value) return;
-  // A backgrounded tab is showing nobody the board, and this request costs a
-  // Redis scan plus a user lookup per session. The visibility handler below
-  // catches up on the way back.
-  if (document.hidden) return;
   try {
     const { data } = await streamingApi.adminListSessions();
     streamingSessions.value = data.sessions ?? [];
@@ -73,15 +69,12 @@ onMounted(async () => {
 });
 
 // Refresh the elapsed-time labels every 30 seconds. Streaming sessions have no
-// socket events, so they piggyback on the same tick.
-useIntervalFn(() => {
+// socket events, so they piggyback on the same tick, which costs a Redis scan
+// plus a user lookup per session.
+useVisiblePoll(() => {
   now.value = Date.now();
   void refreshStreamingSessions();
 }, 30_000);
-
-useEventListener(document, "visibilitychange", () => {
-  if (!document.hidden) void refreshStreamingSessions();
-});
 
 // Oldest session first so the longest-running players lead the board.
 const activities = computed(() =>

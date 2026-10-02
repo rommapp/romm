@@ -34,7 +34,6 @@ function clearedPattern(callIndex = 0): string {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
   vi.mocked(cacheService.request).mockResolvedValue({
     data: { items: [] },
   } as AxiosResponse);

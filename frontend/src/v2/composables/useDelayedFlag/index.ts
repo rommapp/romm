@@ -1,7 +1,7 @@
 // Mirrors a boolean source, but only turns true once the source has stayed
 // true for `delayMs`, so fast work never paints a loader.
+import { useTimeoutFn } from "@vueuse/core";
 import {
-  onScopeDispose,
   shallowRef,
   toValue,
   watch,
@@ -14,33 +14,26 @@ export function useDelayedFlag(
   delayMs: MaybeRefOrGetter<number>,
 ): Readonly<ShallowRef<boolean>> {
   const flag = shallowRef(false);
-  let timer: ReturnType<typeof setTimeout> | null = null;
-
-  function clearTimer() {
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-  }
+  const delayed = useTimeoutFn(
+    () => {
+      flag.value = true;
+    },
+    delayMs,
+    { immediate: false },
+  );
 
   watch(
     () => toValue(source),
     (on) => {
-      clearTimer();
-      const delay = toValue(delayMs);
-      if (!on || delay <= 0) {
+      delayed.stop();
+      if (!on || toValue(delayMs) <= 0) {
         flag.value = on;
         return;
       }
-      timer = setTimeout(() => {
-        timer = null;
-        flag.value = true;
-      }, delay);
+      delayed.start();
     },
     { immediate: true },
   );
-
-  onScopeDispose(clearTimer);
 
   return flag;
 }

@@ -6,9 +6,7 @@ import PlayerShell from "./PlayerShell.vue";
 
 const mocks = vi.hoisted(() => ({ setStageActive: vi.fn() }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/stores/playing", () => ({
   default: () => ({ setStageActive: mocks.setStageActive }),

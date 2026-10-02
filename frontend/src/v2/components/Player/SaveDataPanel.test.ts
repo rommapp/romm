@@ -4,9 +4,7 @@ import type { SaveSchema } from "@/__generated__";
 import { saveFixture } from "@/utils/assets.fixtures";
 import SaveDataPanel from "./SaveDataPanel.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: "en_US" }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 function mountPanel(props: { save: SaveSchema | null }) {
@@ -32,7 +30,7 @@ describe("SaveDataPanel", () => {
 
     expect(wrapper.find(".r-asset-timestamp").exists()).toBe(false);
     expect(wrapper.get(".r-v2-save-data__detail").text()).toBe(
-      "play.save-data-none-hint",
+      'play.save-data-none-hint:{"platform":"PS2"}',
     );
   });
 });

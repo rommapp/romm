@@ -3,44 +3,26 @@
 // primitive for the underline tabs (same component Game Details uses)
 // and keeps the `?tab=` query param so deep links still work.
 import { RTabNav, type RTabNavItem } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute, useRouter } from "vue-router";
 import ConfigFileAlerts from "@/v2/components/Settings/ConfigFileAlerts.vue";
 import ExcludedSection from "@/v2/components/Settings/ExcludedSection.vue";
 import FolderMappingsSection from "@/v2/components/Settings/FolderMappingsSection.vue";
 import MissingFirmwareSection from "@/v2/components/Settings/MissingFirmwareSection.vue";
 import MissingGamesSection from "@/v2/components/Settings/MissingGamesSection.vue";
-import { syncQueryParam } from "@/v2/utils/routeQuery";
+import { useRouteQueryParam } from "@/v2/composables/useRouteQueryParam";
 
 const { t } = useI18n();
-const route = useRoute();
-const router = useRouter();
 
 type Tab = "mapping" | "excluded" | "missing" | "missing-firmware";
-const validTabs: Tab[] = ["mapping", "excluded", "missing", "missing-firmware"];
+const validTabs: readonly Tab[] = [
+  "mapping",
+  "excluded",
+  "missing",
+  "missing-firmware",
+];
 
-const tab = ref<Tab>(
-  (validTabs as string[]).includes(route.query.tab as string)
-    ? (route.query.tab as Tab)
-    : "mapping",
-);
-
-watch(tab, (newTab) => syncQueryParam(router, "tab", newTab));
-
-watch(
-  () => route.query.tab,
-  (newTab) => {
-    if (
-      newTab &&
-      (validTabs as string[]).includes(newTab as string) &&
-      tab.value !== newTab
-    ) {
-      tab.value = newTab as Tab;
-    }
-  },
-  { immediate: true },
-);
+const tab = useRouteQueryParam("tab", "mapping", validTabs);
 
 const tabs = computed<RTabNavItem[]>(() => [
   {
@@ -69,7 +51,7 @@ const tabs = computed<RTabNavItem[]>(() => [
 const tabModel = computed<string>({
   get: () => tab.value,
   set: (v) => {
-    if ((validTabs as string[]).includes(v)) tab.value = v as Tab;
+    if ((validTabs as readonly string[]).includes(v)) tab.value = v as Tab;
   },
 });
 </script>

@@ -91,4 +91,61 @@ describe("RMenu", () => {
     expect(document.querySelector('[role="menu"]')).not.toBeNull();
     wrapper.unmount();
   });
+
+  describe("openOnHover", () => {
+    function mountHoverMenu() {
+      return mount(RMenu, {
+        attachTo: document.body,
+        props: { openOnHover: true },
+        slots: {
+          activator: `<template #activator="{ props }"><button type="button" class="trigger" v-bind="props">Open</button></template>`,
+          default: `<div class="item">Item</div>`,
+        },
+      });
+    }
+
+    async function openByHover() {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      const wrapper = mountHoverMenu();
+      await wrapper.find("button.trigger").trigger("mouseenter");
+      await flushPromises();
+      expect(document.querySelector('[role="menu"]')).not.toBeNull();
+      return wrapper;
+    }
+
+    it("closes a moment after the pointer leaves", async () => {
+      const wrapper = await openByHover();
+
+      await wrapper.find("button.trigger").trigger("mouseleave");
+      await vi.advanceTimersByTimeAsync(100);
+      expect(document.querySelector('[role="menu"]')).not.toBeNull();
+
+      await vi.advanceTimersByTimeAsync(40);
+      expect(document.querySelector('[role="menu"]')).toBeNull();
+      wrapper.unmount();
+    });
+
+    it("stays open when the pointer reaches the panel", async () => {
+      const wrapper = await openByHover();
+
+      await wrapper.find("button.trigger").trigger("mouseleave");
+      document
+        .querySelector('[role="menu"]')!
+        .dispatchEvent(new MouseEvent("mouseenter"));
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(document.querySelector('[role="menu"]')).not.toBeNull();
+      wrapper.unmount();
+    });
+
+    it("drops a pending close on unmount", async () => {
+      const wrapper = await openByHover();
+
+      await wrapper.find("button.trigger").trigger("mouseleave");
+      wrapper.unmount();
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(wrapper.emitted("close")).toBeUndefined();
+    });
+  });
 });

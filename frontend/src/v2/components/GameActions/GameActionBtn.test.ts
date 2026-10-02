@@ -7,9 +7,7 @@ import GameActionBtn from "./GameActionBtn.vue";
 const play = vi.fn();
 const needsLaunchConfirm = { value: false };
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useBreakpoint", () => ({
   useBreakpoint: () => ({ smAndDown: ref(false) }),
@@ -56,7 +54,6 @@ function click(el: Element, init: MouseEventInit = {}): boolean {
 }
 
 beforeEach(() => {
-  play.mockClear();
   needsLaunchConfirm.value = false;
 });
 

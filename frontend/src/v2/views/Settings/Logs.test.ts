@@ -1,6 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import storeAuth from "@/stores/auth";
@@ -17,9 +16,7 @@ vi.mock("vue-router", async (importOriginal) => ({
   useRouter: () => ({ replace: vi.fn() }),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const stub = (name: string) =>
   defineComponent({ name, template: `<div data-testid="${name}" />` });
@@ -59,7 +56,6 @@ function signIn({
 
 describe("Logs view", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     route.query = {};
   });
 

@@ -16,7 +16,8 @@
 // Updates batch behind `ratioVersion`: a burst of image loads bumps it once
 // (after a short debounce) so the packed layout recomputes a single time
 // instead of once per cover.
-import { onBeforeUnmount, ref } from "vue";
+import { useTimeoutFn } from "@vueuse/core";
+import { ref } from "vue";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 // Below this delta a new measurement isn't worth a re-pack (sub-pixel noise).
@@ -77,7 +78,11 @@ export function setCoverRatio({ romId, url }: RatioKeys, ratio: number): void {
 export function useGalleryCoverRatios() {
   const galleryRoms = storeGalleryRoms();
   const ratioVersion = ref(0);
-  let bumpTimer: ReturnType<typeof setTimeout> | null = null;
+  const { isPending: bumpPending, start: scheduleBump } = useTimeoutFn(
+    () => ratioVersion.value++,
+    REPACK_DEBOUNCE_MS,
+    { immediate: false },
+  );
   // Ratios already folded into the packed layout.
   const packedRatio = new Map<number, number>();
 
@@ -88,11 +93,7 @@ export function useGalleryCoverRatios() {
     if (prev != null && Math.abs(prev - payload.ratio) < RATIO_EPSILON) return;
     packedRatio.set(payload.romId, payload.ratio);
     ratioByKey.set(payload.romId, payload.ratio);
-    if (bumpTimer) return;
-    bumpTimer = setTimeout(() => {
-      bumpTimer = null;
-      ratioVersion.value++;
-    }, REPACK_DEBOUNCE_MS);
+    if (!bumpPending.value) scheduleBump();
   }
 
   /** Measured ratio for a position, or 0 when unknown (the packer then
@@ -103,10 +104,6 @@ export function useGalleryCoverRatios() {
     if (romId == null) return 0;
     return ratioByKey.get(romId) ?? 0;
   }
-
-  onBeforeUnmount(() => {
-    if (bumpTimer) clearTimeout(bumpTimer);
-  });
 
   return { ratioVersion, ratioAt, onCardRatio };
 }

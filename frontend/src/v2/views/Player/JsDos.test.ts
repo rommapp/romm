@@ -1,13 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { JsDosOptions, JsDosProps } from "@/types/js-dos";
 import JsDos from "./JsDos.vue";
@@ -29,9 +21,7 @@ const mocks = vi.hoisted(() => ({
   userId: 7,
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("vue-router", () => ({
   onBeforeRouteLeave: (guard: (to: { fullPath: string }) => unknown) => {
@@ -123,45 +113,20 @@ const rom = {
 const LOCAL_BASE = "/assets/jsdos";
 const CDN_BASE = "https://cdn.example/js-dos/dist";
 
-let originalLocation: Location;
-
 // The launch needs SharedArrayBuffer for the threaded DOSBox-X build, and a
 // document that has it is one the reload no longer has to produce.
 function setIsolated(isolated: boolean) {
-  Object.defineProperty(window, "crossOriginIsolated", {
-    configurable: true,
-    value: isolated,
-  });
-  Object.defineProperty(window, "SharedArrayBuffer", {
-    configurable: true,
-    value: isolated ? ArrayBuffer : undefined,
-  });
+  vi.stubGlobal("crossOriginIsolated", isolated);
+  vi.stubGlobal("SharedArrayBuffer", isolated ? ArrayBuffer : undefined);
 }
 
-beforeAll(() => {
-  originalLocation = window.location;
-  Object.defineProperty(window, "location", {
-    configurable: true,
-    value: {
-      ...originalLocation,
-      reload: mocks.locationReload,
-      replace: mocks.locationReplace,
-    },
+beforeEach(() => {
+  vi.stubGlobal("location", {
+    ...window.location,
+    reload: mocks.locationReload,
+    replace: mocks.locationReplace,
   });
   vi.spyOn(console, "error").mockImplementation(() => undefined);
-});
-
-afterAll(() => {
-  vi.unstubAllGlobals();
-  vi.restoreAllMocks();
-  Object.defineProperty(window, "location", {
-    configurable: true,
-    value: originalLocation,
-  });
-});
-
-beforeEach(() => {
-  vi.clearAllMocks();
   sessionStorage.clear();
   setIsolated(true);
   mocks.loadRuntime.mockResolvedValue(LOCAL_BASE);
@@ -250,10 +215,7 @@ describe("JsDos runtime loading", () => {
 // one. See useIsolatedLaunch.
 describe("JsDos isolated launch", () => {
   function setSecureContext(secure: boolean) {
-    Object.defineProperty(window, "isSecureContext", {
-      configurable: true,
-      value: secure,
-    });
+    vi.stubGlobal("isSecureContext", secure);
   }
 
   it("reloads into an isolated document instead of booting without one", async () => {
@@ -381,9 +343,9 @@ describe("JsDos player exit", () => {
     const wrapper = mountView();
     await flushPromises();
 
-    await expect(
-      mocks.routeLeaveGuard?.({ fullPath: "/platform/2" }),
-    ).resolves.toBe(false);
+    void mocks.routeLeaveGuard?.({ fullPath: "/platform/2" });
+    await flushPromises();
+
     expect(mocks.locationReplace).toHaveBeenCalledWith("/platform/2");
     wrapper.unmount();
   });

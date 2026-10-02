@@ -1,6 +1,5 @@
 import { flushPromises } from "@vue/test-utils";
 import mitt from "mitt";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Events } from "@/types/emitter";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -30,7 +29,6 @@ describe("useSnackbar persist", () => {
   const shown = vi.fn();
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
     emitter.current = mitt<Events>();
     emitter.current.on("snackbarShow", shown);

@@ -28,6 +28,7 @@ How v2 features behave. Each pattern has one canonical mechanism; don't invent a
 - **Empty state ≠ loading state.** Zero items is its own UX (message, illustration, optional CTA).
 - **Optimistic toggles show no spinner**: flip immediately; on failure, revert + snackbar.
 - `RBtn` ships `loadingDebounce={200}`: actions resolving under 200ms never paint a spinner; loading→not-loading is immediate.
+- **A component that fetches its own data uses `useFetchState`** (`src/v2/composables/useFetchState/`), not a hand-rolled `loading` ref with try/finally. It keeps current data during a refetch and ignores stale responses, so a newer call always wins. Errors land in `error` and `onError`; there is no default toast. Use `immediate: false` and call `execute(arg)` from a `watch` when the fetch depends on a prop. Don't use raw `useAsyncState`: its defaults reset data on every refetch, report errors via `reportError`, and fire callbacks for stale calls. Store-backed, paginated or abortable loads keep their own logic.
 
 ## C. Real-time updates (Socket.IO)
 

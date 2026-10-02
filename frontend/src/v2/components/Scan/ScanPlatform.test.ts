@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ScanningPlatform } from "@/stores/scanning";
 import ScanPlatform from "./ScanPlatform.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 function mountPlatform(overrides: Partial<ScanningPlatform> = {}) {
   const platform: ScanningPlatform = {

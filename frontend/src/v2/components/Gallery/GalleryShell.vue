@@ -26,6 +26,7 @@ import {
   RVirtualScroller,
 } from "@v2/lib";
 import {
+  useDebounceFn,
   useEventListener,
   useIntersectionObserver,
   useResizeObserver,
@@ -304,7 +305,7 @@ watch(
 
 const { supportsWebp } = useWebpSupport();
 
-const { total, charIndex, initialFetching, orderBy, orderDir } =
+const { total, reorderTotal, charIndex, initialFetching, orderBy, orderDir } =
   storeToRefs(galleryRoms);
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
@@ -443,6 +444,7 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     notFound: notFoundRef,
     notFoundMessage: notFoundMessageRef,
     skeletonRowCount: props.skeletonRowCount,
+    skeletonTotal: reorderTotal,
     cardHeight,
     rowWidth: usableWidth,
     gap: CARD_GAP_PX,
@@ -533,7 +535,7 @@ const viewportRange = ref<{ first: number; last: number }>({
 });
 function onViewportRangeChange(range: { first: number; last: number }) {
   viewportRange.value = range;
-  scheduleFetchSync(range);
+  void scheduleFetchSync(range);
 }
 
 // Rows kept rendered beyond the viewport. Adaptive so the rendered CARD count
@@ -583,8 +585,7 @@ watchEffect(() => {
     const it = items[i];
     if (!it) continue;
     if (it.kind === "row") renderedCards += it.endPosition - it.startPosition;
-    else if (it.kind === "skeleton-row")
-      renderedCards += Math.max(1, columns.value);
+    else if (it.kind === "skeleton-row") renderedCards += it.cards;
     else renderedCards += 1;
   }
   virtualDebug.publish({
@@ -642,8 +643,6 @@ const currentLetter = computed<string>(() => {
 // `FETCH_DEBOUNCE_MS` do we sync. Both layouts share this one path, so the
 // list is debounced too (list rows no longer self-fetch on mount).
 const FETCH_DEBOUNCE_MS = 80;
-let fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-let pendingRange: { first: number; last: number } | null = null;
 
 function collectVisiblePositions(range: {
   first: number;
@@ -670,28 +669,14 @@ function syncFetches(range: { first: number; last: number }) {
   galleryRoms.syncVisibleWindows(collectVisiblePositions(range));
 }
 
-function scheduleFetchSync(range: { first: number; last: number }) {
-  pendingRange = range;
-  if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
-  fetchDebounceTimer = setTimeout(() => {
-    fetchDebounceTimer = null;
-    if (pendingRange) {
-      syncFetches(pendingRange);
-      pendingRange = null;
-    }
-  }, FETCH_DEBOUNCE_MS);
-}
+const scheduleFetchSync = useDebounceFn(syncFetches, FETCH_DEBOUNCE_MS);
 
 // When the virtualItems list itself changes (gallery context switch,
 // search invalidate), drop the pending debounced sync. The store's
 // `invalidateWindows` / `resetGallery` already aborts every in-flight
 // request, so we just clear local state.
 watch(virtualItems, () => {
-  if (fetchDebounceTimer) {
-    clearTimeout(fetchDebounceTimer);
-    fetchDebounceTimer = null;
-  }
-  pendingRange = null;
+  scheduleFetchSync.cancel();
   // Re-sync against the current viewport so visible rows in the new
   // context start fetching immediately (no debounce: items just
   // changed, the user is staring at skeletons).
@@ -801,7 +786,7 @@ const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
 // initial URL hydration runs before this watch is set up, so it does
 // not echo here.
 watch([orderBy, orderDir], () => {
-  galleryRoms.invalidateWindows();
+  galleryRoms.invalidateWindows({ reorder: true });
   void galleryRoms.fetchInitialMetadata();
 });
 
@@ -886,7 +871,7 @@ onBeforeUnmount(() => {
   // navigation back to a non-gallery view (Home, Settings) doesn't
   // keep stale picks alive.
   gallerySelection.clear();
-  if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
+  scheduleFetchSync.cancel();
   // When leaving the gallery entirely, stop any in-flight window fetches so
   // navigating away mid-scroll doesn't keep the network / backend busy.
   // Keeps the hydrated cache so returning to the same gallery is instant.
@@ -917,10 +902,12 @@ type RowItem = Extract<GalleryItem, { kind: "row" }>;
 type LetterHeaderItem = Extract<GalleryItem, { kind: "letter-header" }>;
 type EmptyItem = Extract<GalleryItem, { kind: "empty" }>;
 type ListRowItem = Extract<GalleryItem, { kind: "list-row" }>;
+type SkeletonRowItem = Extract<GalleryItem, { kind: "skeleton-row" }>;
 const asRow = (i: GalleryItem) => i as RowItem;
 const asLetterHeader = (i: GalleryItem) => i as LetterHeaderItem;
 const asEmpty = (i: GalleryItem) => i as EmptyItem;
 const asListRow = (i: GalleryItem) => i as ListRowItem;
+const asSkeletonRow = (i: GalleryItem) => i as SkeletonRowItem;
 const itemKind = (i: GalleryItem) => i.kind;
 
 // The desktop list header is the grid's first row; the compact one is a
@@ -1207,7 +1194,7 @@ defineExpose({
             class="r-v2-shell__row"
           >
             <GameCardSkeleton
-              v-for="n in Math.max(1, columns)"
+              v-for="n in asSkeletonRow(item as GalleryItem).cards"
               :key="`sk-${n}`"
             />
           </div>

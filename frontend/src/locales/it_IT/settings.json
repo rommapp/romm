@@ -237,6 +237,7 @@
   "invite-link": "Link di invito",
   "invite-link-created": "Link di invito creato",
   "language": "Lingua",
+  "language-auto": "Automatico ({language})",
   "length-header": "Durata",
   "link-copied": "Link copiato negli appunti",
   "main-platform": "Piattaforma principale",

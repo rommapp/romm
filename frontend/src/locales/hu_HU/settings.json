@@ -237,6 +237,7 @@
   "invite-link": "Meghívó link",
   "invite-link-created": "Meghívó link létrehozva",
   "language": "Nyelv",
+  "language-auto": "Automatikus ({language})",
   "length-header": "Játékidő",
   "link-copied": "Link a vágólapra másolva",
   "main-platform": "Fő platform",

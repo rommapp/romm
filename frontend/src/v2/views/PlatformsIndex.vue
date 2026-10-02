@@ -16,9 +16,8 @@
 // toolbar's mode is the user's intent, not a hard requirement.
 import { RDivider, REmptyState, RLetterHeading, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute, useRouter } from "vue-router";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import GalleryToolbar, {
   type GroupByItem,
@@ -38,9 +37,9 @@ import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { usePlatformPlayableChecker } from "@/v2/composables/usePlatformPlayable";
+import { useRouteQueryParam } from "@/v2/composables/useRouteQueryParam";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
-import { patchQuery } from "@/v2/utils/routeQuery";
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();
@@ -65,35 +64,7 @@ const { isPlayable, isStreamable, isNativeSupported } =
 const CONTENT_VALUES = ["with-games", "all"] as const;
 type ContentFilter = (typeof CONTENT_VALUES)[number];
 
-// `?show=all`, URL-synced like the Collections index filters and omitted
-// at the default so a plain /platforms link stays clean.
-const route = useRoute();
-const router = useRouter();
-
-function readContentQuery(): ContentFilter {
-  const value = route.query.show;
-  return typeof value === "string" &&
-    (CONTENT_VALUES as readonly string[]).includes(value)
-    ? (value as ContentFilter)
-    : "with-games";
-}
-
-const contentFilter = ref<ContentFilter>(readContentQuery());
-
-watch(
-  () => route.query.show,
-  () => {
-    const next = readContentQuery();
-    if (next !== contentFilter.value) contentFilter.value = next;
-  },
-);
-watch(contentFilter, (next) => {
-  const desired = next === "with-games" ? undefined : next;
-  const current =
-    typeof route.query.show === "string" ? route.query.show : undefined;
-  if (desired === current) return;
-  patchQuery(router, { show: desired });
-});
+const contentFilter = useRouteQueryParam("show", "with-games", CONTENT_VALUES);
 
 const visiblePlatforms = computed<Platform[]>(() =>
   contentFilter.value === "all"

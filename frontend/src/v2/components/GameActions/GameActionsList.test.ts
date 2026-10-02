@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionsList from "./GameActionsList.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 type Flags = {
   canPlayLocally: boolean;

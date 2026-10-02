@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { MetadataOption } from "@/stores/heartbeat";
 import ScanProviderSelect from "./ScanProviderSelect.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const provider = (value: string, name: string): MetadataOption => ({
   value,

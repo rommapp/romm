@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { describe, expect, it, vi } from "vitest";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import useSoundtrackPlayer, {
@@ -111,7 +110,6 @@ describe("loadPlaylist with preserved shuffle", () => {
   }
 
   it("shuffles freshly paged-in tracks instead of appending them in order", () => {
-    setActivePinia(createPinia());
     const player = useSoundtrackPlayer();
     const firstPage = makeTracks(4);
     player.loadPlaylist(firstPage, {}, null);

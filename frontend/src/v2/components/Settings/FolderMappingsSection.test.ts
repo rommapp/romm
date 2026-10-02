@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
@@ -35,9 +34,7 @@ vi.mock("@/services/api/config", () => ({
   },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success: vi.fn(), error: vi.fn() }),
@@ -92,7 +89,6 @@ async function mountWith(folders: string[]) {
 
 describe("FolderMappingsSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getSupportedPlatforms.mockReset();
     getSupportedPlatforms.mockResolvedValue({ data: [N64, PS2] });
     addPlatformBindConfig.mockReset().mockResolvedValue(undefined);

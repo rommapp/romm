@@ -1,14 +1,11 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createMemoryHistory, createRouter, type Router } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import GameCard from "./GameCard.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 function rom(id: number): SimpleRom {
   return { id, name: `Game ${id}`, platform_slug: "snes" } as SimpleRom;
@@ -32,10 +29,6 @@ async function mountCard(romId: number, router: Router) {
     global: { plugins: [router] },
   });
 }
-
-beforeEach(() => {
-  setActivePinia(createPinia());
-});
 
 describe("GameCard selection", () => {
   it("navigates on a plain click when nothing is selected", async () => {

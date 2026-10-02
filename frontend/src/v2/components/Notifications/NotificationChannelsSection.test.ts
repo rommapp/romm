@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { NotificationChannelSchema } from "@/__generated__";
@@ -22,9 +21,7 @@ const snackbar = vi.hoisted(() => ({
 const confirmDialog = vi.hoisted(() => vi.fn());
 
 vi.mock("@/services/api/notificationChannel", () => ({ default: api }));
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/v2/composables/useSnackbar", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/v2/composables/useSnackbar")>()),
   useSnackbar: () => snackbar,
@@ -50,7 +47,6 @@ function button(wrapper: Awaited<ReturnType<typeof mountWith>>, label: string) {
 
 describe("NotificationChannelsSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
   });
 
@@ -132,7 +128,7 @@ describe("NotificationChannelsSection", () => {
 
     expect(api.test).toHaveBeenCalledWith(1);
     expect(snackbar.error).toHaveBeenCalledWith(
-      "notifications.channel-test-failed",
+      'notifications.channel-test-failed:{"error":"refused"}',
     );
     expect(api.getChannels).toHaveBeenCalledTimes(2);
   });

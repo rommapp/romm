@@ -14,9 +14,7 @@ const { startScan, persistSelection, snackbarInfo, sources } = vi.hoisted(
   }),
 );
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/v2/composables/useScanTrigger", () => ({
   useScanTrigger: () => ({ startScan }),
 }));
@@ -109,7 +107,6 @@ function scanButton(wrapper: Awaited<ReturnType<typeof openDialog>>) {
 
 describe("RefreshMetadataDialog", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     startScan.mockReturnValue(true);
     sources.value = [];
   });
@@ -136,7 +133,7 @@ describe("RefreshMetadataDialog", () => {
     ]);
     expect(persistSelection).toHaveBeenCalled();
     expect(snackbarInfo).toHaveBeenCalledWith(
-      "rom.refreshing-files",
+      'rom.refreshing-files:{"name":"Game"}',
       expect.anything(),
     );
   });

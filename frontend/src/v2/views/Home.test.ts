@@ -1,6 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import {
@@ -247,7 +246,6 @@ function findRow(wrapper: ReturnType<typeof mountHome>, title: string) {
 
 describe("Home", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getLibraryInfo.mockReset();
     getLibraryInfo.mockResolvedValue({
       data: { library_ready: true, existing_platforms: [] },
@@ -284,19 +282,15 @@ describe("Home", () => {
   it("paints neither the sections nor the empty library while a load is still quick", async () => {
     holdRowsLoading();
     vi.useFakeTimers();
-    try {
-      const wrapper = mountHome();
-      await vi.advanceTimersByTimeAsync(SKELETON_DELAY_MS - 1);
+    const wrapper = mountHome();
+    await vi.advanceTimersByTimeAsync(SKELETON_DELAY_MS - 1);
 
-      expect(findRow(wrapper, "home.recently-added")).toBeUndefined();
-      expect(wrapper.text()).not.toContain("home.empty-headline");
+    expect(findRow(wrapper, "home.recently-added")).toBeUndefined();
+    expect(wrapper.text()).not.toContain("home.empty-headline");
 
-      await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(1);
 
-      expect(findRow(wrapper, "home.recently-added")).toBeDefined();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(findRow(wrapper, "home.recently-added")).toBeDefined();
   });
 
   it("renders the recommendations row with its per-card reason", async () => {
@@ -394,6 +388,35 @@ describe("Home", () => {
     // the dashboard from rendering.
     expect(wrapper.text()).not.toContain("recommendations.for-you");
     expect(wrapper.text()).not.toContain("home.empty-headline");
+  });
+
+  it("polls live sessions only while the tab is visible and streaming is on", async () => {
+    stubHomeFetches(true);
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("hidden");
+    const streaming = useStreamingStore();
+    const fetchJoinable = vi
+      .spyOn(streaming, "fetchJoinableSessions")
+      .mockResolvedValue(undefined);
+    streaming.config.enabled = true;
+    mountHome();
+    await flushPromises();
+    fetchJoinable.mockClear();
+
+    vi.advanceTimersByTime(60_000);
+    expect(fetchJoinable).not.toHaveBeenCalled();
+
+    visibility.mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await flushPromises();
+    expect(fetchJoinable).toHaveBeenCalledTimes(1);
+
+    streaming.config.enabled = false;
+    await flushPromises();
+    vi.advanceTimersByTime(60_000);
+    expect(fetchJoinable).toHaveBeenCalledTimes(1);
   });
 
   it("shows the live row only while someone hosts a multiplayer session", async () => {

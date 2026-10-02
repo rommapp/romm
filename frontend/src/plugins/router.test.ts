@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RouteLocationNormalized } from "vue-router";
 import i18n, { localesReady } from "@/locales";
@@ -30,7 +29,6 @@ function makeRom(overrides: Partial<DetailedRom> = {}): DetailedRom {
 
 describe("route titles", () => {
   beforeAll(async () => {
-    setActivePinia(createPinia());
     await localesReady;
   });
 
@@ -93,7 +91,6 @@ describe("applyRouteTitle", () => {
 
 describe("the rom route", () => {
   beforeAll(async () => {
-    setActivePinia(createPinia());
     await localesReady;
   });
 

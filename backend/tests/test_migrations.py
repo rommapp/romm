@@ -253,6 +253,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0144_user_oidc_sub.py", "users"),
         ("0145_drop_derivable_columns.py", "rom_file_doc_meta"),
         ("0146_roms_search_aliases.py", "roms"),
+        ("0147_rom_file_title_ids.py", "rom_files"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -412,6 +413,23 @@ def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platfor
 
         assert _schema_of(connection, "roms") == before
     assert expected[first.id] == "\x1ffinal fantasy vii\x1fff7\x1f"
+
+
+def test_the_rom_file_title_ids_revision_reverses_and_replays():
+    migration = _load_migration("0147_rom_file_title_ids.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "rom_files")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "rom_files", "converto_read_at")
+            assert not has_column(connection, "rom_files", "title_id")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "rom_files") == before
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:

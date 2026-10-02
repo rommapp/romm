@@ -32,15 +32,8 @@ import {
   useFloating,
 } from "@floating-ui/vue";
 import type { Placement } from "@floating-ui/vue";
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  provide,
-  ref,
-  useAttrs,
-  watch,
-} from "vue";
+import { useTimeoutFn } from "@vueuse/core";
+import { computed, nextTick, provide, ref, useAttrs, watch } from "vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
@@ -252,24 +245,11 @@ const { floatingStyles } = useFloating(reference, panelRef, {
 // Solution: schedule the close on mouseleave with a short delay; any
 // mouseenter on activator OR panel cancels the pending close.
 const HOVER_CLOSE_DELAY = 140;
-let hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
-
-function cancelHoverClose() {
-  if (hoverCloseTimer != null) {
-    clearTimeout(hoverCloseTimer);
-    hoverCloseTimer = null;
-  }
-}
-
-function scheduleHoverClose() {
-  cancelHoverClose();
-  hoverCloseTimer = setTimeout(() => {
-    hoverCloseTimer = null;
-    close();
-  }, HOVER_CLOSE_DELAY);
-}
-
-onBeforeUnmount(() => cancelHoverClose());
+const { start: scheduleHoverClose, stop: cancelHoverClose } = useTimeoutFn(
+  close,
+  HOVER_CLOSE_DELAY,
+  { immediate: false },
+);
 
 // ── Activator props ─────────────────────────────────────────────
 // Spread these onto whatever element the consumer renders. We bind

@@ -15,13 +15,7 @@ vi.mock("@/services/api/streaming", () => ({
   default: { adminListContainers, releaseSession },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string, params?: Record<string, unknown>) =>
-      params ? `${key}::${JSON.stringify(params)}` : key,
-    locale: { value: "en_US" },
-  }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("vue-router", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/plugins/router", () => ({

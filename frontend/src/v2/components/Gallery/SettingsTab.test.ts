@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Platform } from "@/stores/platforms";
 import SettingsTab from "./SettingsTab.vue";
 
@@ -81,10 +81,6 @@ function mountTab(p: Platform) {
 }
 
 describe("SettingsTab platform save", () => {
-  beforeEach(() => {
-    updatePlatform.mockClear();
-  });
-
   it("does not stamp custom_name when only the description changed", async () => {
     updatePlatform.mockResolvedValue({ data: platform() });
     const p = platform();

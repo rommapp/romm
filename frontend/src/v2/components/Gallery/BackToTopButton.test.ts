@@ -2,9 +2,7 @@ import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import BackToTopButton from "./BackToTopButton.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const { resized } = vi.hoisted(() => ({ resized: { callback: () => {} } }));
 vi.mock("@vueuse/core", async (importOriginal) => ({

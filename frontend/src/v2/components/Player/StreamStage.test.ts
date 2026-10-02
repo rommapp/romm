@@ -1,10 +1,6 @@
-import { enableAutoUnmount, mount } from "@vue/test-utils";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { mount } from "@vue/test-utils";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import StreamStage from "./StreamStage.vue";
-
-// The stage listens on window and runs attach timers, so a mount left standing
-// would answer the next test's events.
-enableAutoUnmount(afterEach);
 
 function mountStage(src: string) {
   return mount(StreamStage, {
@@ -59,4 +55,44 @@ describe("StreamStage", () => {
       expect(sandbox).toContain(flag);
     },
   );
+});
+
+describe("StreamStage controls bar", () => {
+  beforeEach(() =>
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }),
+  );
+
+  const barShown = (wrapper: ReturnType<typeof mountStage>) =>
+    wrapper.get(".r-v2-stage__bar").classes("r-v2-stage__bar--visible");
+
+  it("hides the bar once the stage has been left alone", async () => {
+    const wrapper = mountStage("http://box:3010/room");
+    expect(barShown(wrapper)).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(2499);
+    expect(barShown(wrapper)).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(barShown(wrapper)).toBe(false);
+  });
+
+  it("restarts the wait when the pointer reaches the top edge", async () => {
+    const wrapper = mountStage("http://box:3010/room");
+    await vi.advanceTimersByTimeAsync(2000);
+
+    await wrapper.trigger("mousemove", { clientY: 2 });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(barShown(wrapper)).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(barShown(wrapper)).toBe(false);
+  });
+
+  it("drops a pending hide when it unmounts", async () => {
+    const wrapper = mountStage("http://box:3010/room");
+
+    wrapper.unmount();
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });

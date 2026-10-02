@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionKey } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import { makeRom as baseRom } from "@/utils/rom.fixtures";
@@ -23,10 +23,16 @@ const joinableSession = {
   value: null as { host_username: string | null; container?: string } | null,
 };
 const grantedActions: { value: Set<ActionKey> | null } = { value: null };
-
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+const { clipboardCopy, emitterEmit } = vi.hoisted(() => ({
+  clipboardCopy: vi.fn(),
+  emitterEmit: vi.fn(),
 }));
+
+vi.mock("vue", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue")>()),
+  inject: () => ({ emit: emitterEmit }),
+}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", () => ({
   useRouter: () => ({ push }),
 }));
@@ -81,7 +87,9 @@ vi.mock("@/utils", async () => {
     "@/utils/downloadPath",
   );
   return {
-    getDownloadLink: vi.fn(),
+    getDownloadLink: vi.fn(
+      () => "http://romm.local/api/roms/1/content/game.zip",
+    ),
     getDownloadPath: vi.fn(() => "/api/roms/1/content/game.chd?format=iso"),
     getSoleRomFile: actual.getSoleRomFile,
     isNintendoDSRom: () => false,
@@ -113,7 +121,7 @@ vi.mock("@/v2/composables/useCanPlay", () => ({
   }),
 }));
 vi.mock("@/v2/composables/useClipboard", () => ({
-  useClipboard: () => ({ copy: vi.fn() }),
+  useClipboard: () => ({ copy: clipboardCopy }),
 }));
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirmFn,
@@ -153,13 +161,10 @@ function makeRom(status: SimpleRom["rom_user"]["status"] = null): SimpleRom {
 }
 
 beforeEach(() => {
-  push.mockClear();
-  confirmFn.mockClear();
-  startScan.mockClear();
-  snackbarInfo.mockClear();
-  snackbarError.mockClear();
   probeFormatDownload.mockReset();
   downloadRom.mockReset();
+  clipboardCopy.mockReset();
+  emitterEmit.mockReset();
   confirmProtectedLaunch.value = true;
   canPlayEJS.value = true;
   canPlayJsDos.value = false;
@@ -251,7 +256,9 @@ describe("useGameActions.joinStream", () => {
 
     await actions.joinStream();
 
-    expect(confirmFn.mock.calls[0][0].title).toBe("rom.confirm-join-title-of");
+    expect(confirmFn.mock.calls[0][0].title).toBe(
+      'rom.confirm-join-title-of:{"user":"ada"}',
+    );
   });
 
   it("falls back to an unnamed prompt when the host is unknown", async () => {
@@ -282,7 +289,9 @@ describe("useGameActions — stream and join action labels", () => {
     streamContainer.value = { label: "Dreamcast box", emulator: "flycast" };
     const actions = useGameActions(() => makeRom());
 
-    expect(actions.streamActionLabel.value).toBe("rom.stream-on");
+    expect(actions.streamActionLabel.value).toBe(
+      'rom.stream-on:{"container":"Dreamcast box"}',
+    );
   });
 
   it("says only 'stream' when no container is configured", () => {
@@ -297,7 +306,9 @@ describe("useGameActions — stream and join action labels", () => {
     joinableSession.value = { host_username: "ada" };
     const actions = useGameActions(() => makeRom());
 
-    expect(actions.joinActionLabel.value).toBe("rom.join-session-of");
+    expect(actions.joinActionLabel.value).toBe(
+      'rom.join-session-of:{"user":"ada"}',
+    );
   });
 
   it("falls back to the plain join label when the host is unknown", () => {
@@ -589,7 +600,7 @@ describe("useGameActions.refreshFiles", () => {
       { platforms: [7], roms_ids: [1], type: "quick", apis: [] },
     ]);
     expect(snackbarInfo).toHaveBeenCalledWith(
-      "rom.refreshing-files",
+      'rom.refreshing-files:{"name":"Chrono Trigger"}',
       expect.anything(),
     );
   });
@@ -618,10 +629,6 @@ describe("useGameActions.downloadAs", () => {
       download_formats: downloadFormats,
     } as SimpleRom;
   }
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
 
   it("offers the formats the detailed rom lists", () => {
     const rom = pspRom([{ id: 1, file_name: "Game.CHD" }]);
@@ -668,7 +675,9 @@ describe("useGameActions.downloadAs", () => {
     await vi.advanceTimersByTimeAsync(5000);
     await pending;
 
-    expect(snackbarInfo).toHaveBeenCalledWith("rom.download-as-preparing");
+    expect(snackbarInfo).toHaveBeenCalledWith(
+      'rom.download-as-preparing:{"format":"ISO"}',
+    );
     expect(probeFormatDownload).toHaveBeenCalledTimes(2);
     expect(downloadRom).toHaveBeenCalledOnce();
   });
@@ -683,9 +692,12 @@ describe("useGameActions.downloadAs", () => {
     await useGameActions(() => rom).downloadAs("iso");
 
     expect(downloadRom).not.toHaveBeenCalled();
-    expect(snackbarError).toHaveBeenCalledWith("rom.download-as-unavailable", {
-      persist: { body: "Game", link: "/rom/1" },
-    });
+    expect(snackbarError).toHaveBeenCalledWith(
+      'rom.download-as-unavailable:{"format":"ISO"}',
+      {
+        persist: { body: "Game", link: "/rom/1" },
+      },
+    );
   });
 
   it("ignores a second click while the first is still waiting", async () => {
@@ -703,5 +715,36 @@ describe("useGameActions.downloadAs", () => {
 
     expect(probeFormatDownload).toHaveBeenCalledTimes(2);
     expect(downloadRom).toHaveBeenCalledOnce();
+  });
+});
+
+describe("useGameActions.copyDownloadLink", () => {
+  const LINK = "http://romm.local/api/roms/1/content/game.zip";
+
+  it("copies the download link with a success toast", async () => {
+    await useGameActions(() => makeRom()).copyDownloadLink();
+
+    expect(clipboardCopy).toHaveBeenCalledWith(
+      LINK,
+      expect.objectContaining({
+        successMessage: "rom.snackbar-download-link-copied",
+      }),
+    );
+  });
+
+  it("opens the manual-copy dialog when the copy fails", async () => {
+    clipboardCopy.mockImplementation(
+      async (_text: string, opts: { fallback?: () => void }) => {
+        opts.fallback?.();
+        return false;
+      },
+    );
+
+    await useGameActions(() => makeRom()).copyDownloadLink();
+
+    expect(emitterEmit).toHaveBeenCalledWith(
+      "showCopyDownloadLinkDialog",
+      LINK,
+    );
   });
 });

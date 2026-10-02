@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { Platform } from "@/stores/platforms";
 import Upload from "./Upload.vue";
@@ -26,9 +26,7 @@ const {
   },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
@@ -161,18 +159,12 @@ describe("Upload platform selection", () => {
 describe("Upload follow-up scan", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["setTimeout"] });
-    emit.mockClear();
-    warning.mockClear();
     scanning.scanning = false;
     scanning.startedInThisTab = false;
     getSupportedPlatforms.mockResolvedValueOnce({
       data: [{ ...threeDo, id: 7, missing_from_fs: false }],
     });
     uploadRoms.mockResolvedValueOnce([{ status: "fulfilled" }]);
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("scans the platform once the upload lands", async () => {

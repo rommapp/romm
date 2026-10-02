@@ -1,14 +1,11 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, UserStateSchema } from "@/__generated__";
 import storeAuth from "@/stores/auth";
 import type { User } from "@/stores/users";
 import SaveDataTab from "./SaveDataTab.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => ({ query: {}, path: "/rom/1", params: {} }),
@@ -62,7 +59,6 @@ function mountTab(states: UserStateSchema[]) {
 
 describe("SaveDataTab upload cores", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     storeAuth().setCurrentUser({ id: 1 } as User);
   });
 

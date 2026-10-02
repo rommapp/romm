@@ -10,7 +10,7 @@
 // run button that posts to /tasks/{name}/run.
 import { RBtn, RIcon, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { TaskInfo } from "@/__generated__";
 import taskApi from "@/services/api/task";
@@ -20,6 +20,7 @@ import { TaskStatusItem, type TaskStatusResponse } from "@/utils/tasks";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useVisiblePoll } from "@/v2/composables/useVisiblePoll";
 
 defineOptions({ inheritAttrs: false });
 
@@ -116,19 +117,12 @@ async function fetchTaskStatus() {
   }
 }
 
-let refreshInterval: number | null = null;
-
 onMounted(() => {
   void tasksStore.fetchTasks();
   void fetchTaskStatus();
-  refreshInterval = window.setInterval(() => {
-    void fetchTaskStatus();
-  }, 5000);
 });
 
-onUnmounted(() => {
-  if (refreshInterval) clearInterval(refreshInterval);
-});
+useVisiblePoll(() => void fetchTaskStatus(), 5000);
 
 function statusInfo(task: TaskStatusResponse) {
   return TaskStatusItem[task.status] ?? TaskStatusItem.queued;

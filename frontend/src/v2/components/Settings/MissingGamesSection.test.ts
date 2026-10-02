@@ -1,9 +1,9 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 import { serverError } from "@/test-utils/serverError";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import MissingGamesSection from "./MissingGamesSection.vue";
 
@@ -22,12 +22,7 @@ vi.mock("@/services/api/task", () => ({
   default: { runTask, getTaskById },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string, params?: Record<string, unknown>) =>
-      params ? `${key}::${JSON.stringify(params)}` : key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirm,
@@ -68,7 +63,6 @@ function mountSection() {
 
 describe("MissingGamesSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getRoms.mockReset();
     getRoms.mockResolvedValue({
       data: { total: 1, items: [], char_index: {}, rom_id_index: [] },
@@ -124,7 +118,7 @@ describe("MissingGamesSection", () => {
     await flushPromises();
 
     expect(snackbarError).toHaveBeenCalledWith(
-      'settings.couldnt-queue-cleanup::{"error":"No task worker is listening"}',
+      'settings.couldnt-queue-cleanup:{"error":"No task worker is listening"}',
     );
   });
 
@@ -150,5 +144,39 @@ describe("MissingGamesSection", () => {
     expect(
       wrapper.findComponent({ name: "SelectionBar" }).props("hideDownload"),
     ).toBe(true);
+  });
+
+  describe("viewport fetches", () => {
+    const range = { first: 0, last: 0 };
+
+    async function mountScrolled() {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      const sync = vi.spyOn(storeGalleryRoms(), "syncVisibleWindows");
+      const wrapper = mountSection();
+      await flushPromises();
+      sync.mockClear();
+      const scroller = wrapper.findComponent({ name: "RVirtualScroller" });
+      scroller.vm.$emit("update:viewport-range", range);
+      scroller.vm.$emit("update:viewport-range", range);
+      return { wrapper, sync };
+    }
+
+    it("syncs once the scroller settles", async () => {
+      const { sync } = await mountScrolled();
+      expect(sync).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(80);
+
+      expect(sync).toHaveBeenCalledOnce();
+    });
+
+    it("drops a pending sync on unmount", async () => {
+      const { wrapper, sync } = await mountScrolled();
+
+      wrapper.unmount();
+      vi.advanceTimersByTime(80);
+
+      expect(sync).not.toHaveBeenCalled();
+    });
   });
 });

@@ -17,7 +17,6 @@ describe("useDelayedFlag", () => {
 
   afterEach(() => {
     scopes.splice(0).forEach((scope) => scope.stop());
-    vi.useRealTimers();
   });
 
   it("turns on only once the source has stayed on for the delay", async () => {
@@ -40,6 +39,16 @@ describe("useDelayedFlag", () => {
     await nextTick();
     await vi.advanceTimersByTimeAsync(200);
 
+    expect(flag.value).toBe(false);
+  });
+
+  it("drops a pending turn-on once its scope is disposed", async () => {
+    const flag = setup(ref(true), 200);
+
+    scopes.splice(0).forEach((scope) => scope.stop());
+
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(200);
     expect(flag.value).toBe(false);
   });
 

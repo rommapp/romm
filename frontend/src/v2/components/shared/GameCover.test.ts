@@ -1,5 +1,4 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, type Ref } from "vue";
 import GameCover from "./GameCover.vue";
@@ -17,7 +16,6 @@ vi.mock("@/v2/composables/useCoverAnimation", () => ({
 
 describe("GameCover hover", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     animation.active = null;
   });
 

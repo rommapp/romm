@@ -1,6 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
@@ -39,9 +38,7 @@ const {
   snackbarInfo: vi.fn(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const { routeState } = vi.hoisted(() => ({
   routeState: {
@@ -206,8 +203,6 @@ async function mountView() {
 
 describe("Platform view random rom", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     routeState.name = "platform";
     routeState.path = "/platform/1";
     routeState.params = { platform: "1" };

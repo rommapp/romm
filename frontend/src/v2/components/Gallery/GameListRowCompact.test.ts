@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -7,9 +6,7 @@ import storeGallerySelection from "@/v2/stores/gallerySelection";
 import GameListRow from "./GameListRow.vue";
 import { rom } from "./listRowFixture";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en" } }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
@@ -48,7 +45,6 @@ function facts(wrapper: ReturnType<typeof mountRow>): string[] {
 
 describe("list row on phones and tablets", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     smAndDown.value = true;
   });
 
@@ -106,7 +102,6 @@ describe("list row on phones and tablets", () => {
 
 describe("list row selection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     smAndDown.value = false;
   });
 

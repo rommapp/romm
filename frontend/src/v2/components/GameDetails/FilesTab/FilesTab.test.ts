@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
 import FilesTab from "./FilesTab.vue";
@@ -27,9 +26,7 @@ const {
   grants: { upload: true, delete: false },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => ({ query: routeQuery, path: "/rom/1", params: {} }),
@@ -142,8 +139,6 @@ async function pickFile(wrapper: ReturnType<typeof mountTab>, name: string) {
 
 describe("FilesTab uploads", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     routeQuery.subtab = undefined;
     grants.upload = true;
     uploadRoms.mockResolvedValue([{ status: "fulfilled", value: null }]);
@@ -177,7 +172,7 @@ describe("FilesTab uploads", () => {
     });
     expect(refetchRom).toHaveBeenCalledWith(1);
     expect(snackbar.success).toHaveBeenCalledWith(
-      "rom.files-uploaded-n",
+      'rom.files-uploaded-n:1:{"named":{"n":1}}',
       expect.anything(),
     );
     expect(confirmFn).not.toHaveBeenCalled();
@@ -241,7 +236,9 @@ describe("FilesTab uploads", () => {
 
     await pickFile(wrapper, "patched.n64");
 
-    expect(snackbar.error).toHaveBeenCalledWith("rom.upload-file-exists");
+    expect(snackbar.error).toHaveBeenCalledWith(
+      'rom.upload-file-exists:{"name":"patched.n64"}',
+    );
     expect(snackbar.warning).toHaveBeenCalledWith(
       "rom.no-files-uploaded",
       expect.anything(),
@@ -252,8 +249,6 @@ describe("FilesTab uploads", () => {
 
 describe("FilesTab on a rom missing from the filesystem", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     routeQuery.subtab = undefined;
     grants.upload = true;
   });
@@ -286,8 +281,6 @@ describe("FilesTab on a rom missing from the filesystem", () => {
 
 describe("FilesTab selection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     routeQuery.subtab = undefined;
     grants.upload = true;
   });
@@ -333,10 +326,7 @@ describe("FilesTab copy link", () => {
     writeText: ((text: string) => Promise<void>) | null,
     secure = true,
   ) {
-    Object.defineProperty(window, "isSecureContext", {
-      configurable: true,
-      value: secure,
-    });
+    vi.stubGlobal("isSecureContext", secure);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: writeText ? { writeText } : undefined,
@@ -350,7 +340,6 @@ describe("FilesTab copy link", () => {
   }
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     routeQuery.subtab = undefined;
     snackbar.success.mockReset();
     snackbar.error.mockReset();

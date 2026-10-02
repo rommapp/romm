@@ -27,7 +27,12 @@ import {
   RSwitch,
   RTooltip,
 } from "@v2/lib";
-import { useEventListener, useIntervalFn, useLocalStorage } from "@vueuse/core";
+import {
+  useDebounceFn,
+  useEventListener,
+  useIntervalFn,
+  useLocalStorage,
+} from "@vueuse/core";
 import { isAxiosError } from "axios";
 import {
   computed,
@@ -813,26 +818,19 @@ function focusStream(): void {
 // viewer's own output rather than the mixer every viewer shares. The broker
 // path is what is left for cross-origin containers, and it stays debounced so
 // the broker only hears the value once it settles.
-let volumeDebounce: ReturnType<typeof setTimeout> | null = null;
-
-function sendVolumeToBroker(level: number): void {
-  if (volumeDebounce) clearTimeout(volumeDebounce);
-  volumeDebounce = setTimeout(() => {
-    const platform = rom.value?.platform_slug;
-    if (platform)
-      streamingApi
-        .setVolume(platform, level, claimedContainer.value, claimedAt.value)
-        .catch((err) =>
-          console.error("[streaming] Could not set volume:", err),
-        );
-  }, 150);
-}
+const sendVolumeToBroker = useDebounceFn((level: number) => {
+  const platform = rom.value?.platform_slug;
+  if (platform)
+    streamingApi
+      .setVolume(platform, level, claimedContainer.value, claimedAt.value)
+      .catch((err) => console.error("[streaming] Could not set volume:", err));
+}, 150);
 
 watch(volume, (val) => {
   const level = Math.round(val);
   if (stage.value?.postToStream({ type: "setVolume", value: level / 100 }))
     return;
-  sendVolumeToBroker(level);
+  void sendVolumeToBroker(level);
 });
 
 function toggleMute(): void {
@@ -1345,7 +1343,7 @@ onBeforeUnmount(() => {
   // Every exit path (Stop, Save & Exit, back nav) unmounts the view, so this
   // is the single choke point for recording the session.
   playSession.flush();
-  if (volumeDebounce) clearTimeout(volumeDebounce);
+  sendVolumeToBroker.cancel();
   // The polls clear themselves with the scope; the presence board does not
   // know the player has gone until it is told.
   presence.emitStop();

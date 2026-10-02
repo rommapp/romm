@@ -22,7 +22,7 @@ import {
 } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, onMounted, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { PermissionGroupSchema } from "@/__generated__";
 import userApi from "@/services/api/user";
@@ -32,6 +32,7 @@ import storeUsers, { type User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import { formatTimestamp } from "@/utils";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { groupColor } from "@/v2/utils/groupColor";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
@@ -249,21 +250,17 @@ async function deleteUser(user: User) {
   }
 }
 
-const loading = ref(true);
-
-onMounted(async () => {
-  try {
-    const [usersResp] = await Promise.all([
-      userApi.fetchUsers(),
-      groupsStore.ensureLoaded(),
-    ]);
-    usersStore.set(usersResp.data);
-  } catch (err) {
-    console.error(err);
-  } finally {
-    loading.value = false;
-  }
-});
+const { isLoading: loading } = useFetchState(
+  () =>
+    Promise.all([userApi.fetchUsers(), groupsStore.ensureLoaded()]).then(
+      ([{ data }]) => data,
+    ),
+  [],
+  {
+    onSuccess: (users) => usersStore.set(users),
+    onError: (err) => console.error(err),
+  },
+);
 </script>
 
 <template>

@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import type { AuditEventSchema } from "@/__generated__";
@@ -70,7 +69,6 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  setActivePinia(createPinia());
   route.query = {};
   getAuditEvents.mockReset();
   getAuditEvents.mockResolvedValue({
@@ -112,41 +110,37 @@ describe("EventLog", () => {
   it("searches once typing pauses, or straight away on Enter", async () => {
     // setImmediate stays real for flushPromises.
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    try {
-      const wrapper = render();
-      await flushPromises();
-      getAuditEvents.mockClear();
-      const input = wrapper.find('input[placeholder="Search events"]');
+    const wrapper = render();
+    await flushPromises();
+    getAuditEvents.mockClear();
+    const input = wrapper.find('input[placeholder="Search events"]');
 
-      await input.setValue("192");
-      await input.setValue("192.168");
-      await flushPromises();
-      expect(getAuditEvents).not.toHaveBeenCalled();
+    await input.setValue("192");
+    await input.setValue("192.168");
+    await flushPromises();
+    expect(getAuditEvents).not.toHaveBeenCalled();
 
-      vi.advanceTimersByTime(300);
-      await flushPromises();
-      expect(getAuditEvents).toHaveBeenCalledOnce();
-      expect(getAuditEvents).toHaveBeenCalledWith(
-        expect.objectContaining({ search: "192.168" }),
-      );
+    vi.advanceTimersByTime(300);
+    await flushPromises();
+    expect(getAuditEvents).toHaveBeenCalledOnce();
+    expect(getAuditEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ search: "192.168" }),
+    );
 
-      getAuditEvents.mockClear();
-      await input.setValue("steam");
-      await input.trigger("keyup", { key: "Enter" });
-      await flushPromises();
-      expect(getAuditEvents).toHaveBeenCalledOnce();
-      expect(getAuditEvents).toHaveBeenCalledWith(
-        expect.objectContaining({ search: "steam" }),
-      );
+    getAuditEvents.mockClear();
+    await input.setValue("steam");
+    await input.trigger("keyup", { key: "Enter" });
+    await flushPromises();
+    expect(getAuditEvents).toHaveBeenCalledOnce();
+    expect(getAuditEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ search: "steam" }),
+    );
 
-      // Enter on the same text reloads, and the dropped keystroke never fires.
-      getAuditEvents.mockClear();
-      await input.trigger("keyup", { key: "Enter" });
-      vi.advanceTimersByTime(300);
-      await flushPromises();
-      expect(getAuditEvents).toHaveBeenCalledOnce();
-    } finally {
-      vi.useRealTimers();
-    }
+    // Enter on the same text reloads, and the dropped keystroke never fires.
+    getAuditEvents.mockClear();
+    await input.trigger("keyup", { key: "Enter" });
+    vi.advanceTimersByTime(300);
+    await flushPromises();
+    expect(getAuditEvents).toHaveBeenCalledOnce();
   });
 });
