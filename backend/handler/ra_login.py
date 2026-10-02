@@ -1,8 +1,7 @@
 """The RetroAchievements login a user's emulator ended with, kept sealed on the user.
 
-A player logs in once, inside the emulator; RomM only stores what the broker
-collected and hands it back on the next launch. The token is never logged,
-never returned by an API, and never in audit data.
+Players log in inside the emulator only; this stores what the broker collected
+for the next launch. The token never reaches a log, a response or audit data.
 """
 
 from handler.audit_handler import AuditActor, AuditTarget, record
@@ -62,9 +61,8 @@ def clear_ra_login(user_id: int) -> bool:
 def ra_login_for_activate(user: User) -> dict[str, str] | None:
     """The login to send on activate, or None when there is none usable.
 
-    An unsealable value (the auth secret changed) or one without a username
-    and token starts the player logged out; the next in-emulator login
-    overwrites it.
+    An unsealable value (the auth secret changed) or an incomplete one starts
+    the player logged out until their next in-emulator login.
     """
     sealed = getattr(user, "ra_login_sealed", None)
     if not isinstance(sealed, str) or not sealed:

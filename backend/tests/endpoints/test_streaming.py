@@ -7489,8 +7489,7 @@ def test_a_malformed_collect_reply_changes_nothing(
 
 def _release_with_urlopen_error(client, token, rom: Rom, urlopen_effect: Any):
     """Release a webstation game with exit stubbed and the broker's own
-    `urlopen` raising, so `request_safe`'s real exception handling runs
-    end to end instead of a stub that writes the log line itself."""
+    `urlopen` raising, so `request_safe`'s real handling writes the log."""
     container = _webstation_for(rom)
     with _streaming(container):
         _claim_webstation_ok(client, token, rom.id)
@@ -7517,9 +7516,8 @@ def _release_with_urlopen_error(client, token, rom: Rom, urlopen_effect: Any):
 def test_a_collect_the_broker_refuses_is_logged_and_the_teardown_still_completes(
     client, access_token, admin_user: User, rom: Rom, caplog, code
 ):
-    """A real `HTTPError` (body included, to prove it is never read) drives
-    `request_safe`'s own exception handling, which turns it into a warning
-    and None."""
+    """A real `HTTPError`, body included to prove it is never read, becomes
+    `request_safe`'s warning and None."""
     import http.client
     import urllib.error
 
@@ -7640,10 +7638,8 @@ def test_collect_never_raises_out_of_teardown(rom: Rom, caplog):
 def test_a_raising_collect_does_not_skip_the_exit_save_pull(
     client, access_token, admin_user: User, rom: Rom, caplog
 ):
-    """A `store_ra_login` that raises is caught inside `collect_ra_login` and
-    must not stop the teardown from reaching the exit save pull that follows
-    it, or the player's next claim would wait out the whole pull budget for
-    nothing."""
+    """A `store_ra_login` that raises must not keep the teardown from the exit
+    save pull, or the next claim would wait out the whole pull budget."""
     container = _webstation_for(rom)
 
     def release() -> None:

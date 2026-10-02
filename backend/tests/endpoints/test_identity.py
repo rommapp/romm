@@ -1074,9 +1074,7 @@ def test_resaving_the_same_ra_username_keeps_the_stored_login(
 def test_correcting_ra_username_to_the_stored_logins_account_keeps_it(
     client, access_token: str, editor_user: User
 ):
-    """The emulator can log in to another account than the profile names, and
-    bringing the profile in line with it must not log the player out; RA
-    usernames ignore case."""
+    """Naming the account the emulator logged in to, in any case, keeps the login."""
     DBUsersHandler().update_user(editor_user.id, {"ra_username": "bob"})
     store_ra_login(editor_user.id, "Alice", "tok456secret")
 

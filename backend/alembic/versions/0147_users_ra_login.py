@@ -17,8 +17,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Sealed with utils.secret_box, so the column is plain text, not a URL or
-    # a name, and carries no collation.
+    # Holds a utils.secret_box seal, so plain Text with no collation.
     with op.batch_alter_table("users", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column("ra_login_sealed", sa.Text(), nullable=True),

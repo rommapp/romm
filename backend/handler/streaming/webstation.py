@@ -208,9 +208,8 @@ def default_core(container: ResolvedContainer) -> str | None:
 def _with_ra_login(body: dict[str, Any], user: User) -> dict[str, Any]:
     """`body` plus the user's stored login when it activates a game.
 
-    Every game session gets it, whatever the emulator: the broker pins it where
-    it can and ignores it elsewhere. Kept out of `user`, which the broker's
-    status route echoes, and out of activate's locals, which a traceback keeps.
+    Sent for every game whatever the emulator, outside `user` (the status route
+    echoes it) and outside activate's locals (a traceback keeps those).
     """
     if "rom" not in body:
         return body
@@ -336,9 +335,8 @@ def activate(
     except Exception as exc:  # noqa: BLE001 - answered below, outside the handler
         caught = exc
     if caught is not None:
-        # The request's frames hold the login, and Sentry reads the locals of
-        # every frame in the chain, so the reply is built and raised outside
-        # the handler and the failure keeps no traceback.
+        # Sentry reads every chained frame's locals and the request's hold the
+        # login, so the reply is raised outside the handler, traceback dropped.
         caught.__traceback__ = None
         raise _activate_failure(caught, container, path, user) from None
 
@@ -438,10 +436,8 @@ def exit_session(
 def collect_ra_login(container: ResolvedContainer, session: dict[str, Any]) -> None:
     """POST /retroachievements/collect: file the login change the session ended with.
 
-    Runs while the claim still holds the container: the broker drops the
-    change at its next activate, and releasing the claim is what allows one.
-    Best-effort like exit_session; nothing here raises out of a teardown. The
-    token is only ever in the reply and the sealed column, never in a log.
+    Best-effort, while the claim holds the container: the broker drops the
+    change at its next activate. The token never reaches a log.
     """
     session_id = broker_session_id(session)
     user_id = session.get("user_id")

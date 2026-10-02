@@ -256,9 +256,7 @@ async def collect_ra_login(
     """File the RetroAchievements login change the session ended with.
 
     Every exit calls it while the claim still guards the container, as with
-    collect_exit_state: the broker forgets the change at its next activate.
-    Only a webstation broker serves the route; urllib is synchronous, hence
-    the thread.
+    collect_exit_state; urllib is synchronous, hence the thread.
     """
     if container.is_webstation:
         await asyncio.to_thread(webstation.collect_ra_login, container, session)

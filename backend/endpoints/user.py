@@ -503,10 +503,8 @@ async def update_user(
 
     if form_data.ra_username and form_data.ra_username != db_user.ra_username:
         cleaned_data["ra_username"] = form_data.ra_username
-        # The stored RetroAchievements login belongs to the account the
-        # emulator logged in to; a profile that now names another one drops it
-        # in the same update. Recorded by the user.edit row below. One
-        # corrected to name that account (RA names ignore case) keeps it.
+        # The stored login belongs to the account the emulator logged in to: a
+        # profile naming another drops it (RA names ignore case), via user.edit.
         if not ra_login_is_for(db_user, form_data.ra_username):
             cleaned_data["ra_login_sealed"] = None
 
