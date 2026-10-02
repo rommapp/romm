@@ -1,14 +1,14 @@
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import Result, and_, delete, func, not_, select, update
+from sqlalchemy import Result, and_, delete, func, not_, or_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
 from sqlalchemy.sql import Delete, Select, Update
 
 from decorators.database import INJECTED_SESSION, begin_session
 from models.user import Role, User
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 
 class DBUsersHandler(DBBaseHandler):
@@ -97,6 +97,24 @@ class DBUsersHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
         return session.scalars(select(User).filter_by(id=id)).one()
+
+    @begin_session
+    def fill_empty_ra_username(
+        self,
+        id: int,
+        ra_username: str,
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Set `ra_username` only while it is still empty; whether it was set."""
+        result = session.execute(
+            update(User)
+            .where(
+                User.id == id, or_(User.ra_username.is_(None), User.ra_username == "")
+            )
+            .values(ra_username=ra_username)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) > 0
 
     @begin_session
     def get_users(

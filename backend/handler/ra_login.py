@@ -22,22 +22,24 @@ def store_ra_login(user_id: int, username: str, token: str) -> bool:
     if user is None:
         log.warning("ra login: no user %s to store a login for", user_id)
         return False
-    data: dict[str, object] = {
-        "ra_login_sealed": seal({"username": username, "token": token})
-    }
-    if not user.ra_username:
-        data["ra_username"] = username
-    elif user.ra_username != username:
+    db_user_handler.update_user(
+        user_id, {"ra_login_sealed": seal({"username": username, "token": token})}
+    )
+    actor = AuditActor.for_user(user)
+    record(AuditAction.USER_RA_LOGIN_SET, actor, AuditTarget.of_user(user))
+    # Conditional, so a profile edit or another exit that got there first wins.
+    if db_user_handler.fill_empty_ra_username(user_id, username):
+        record(
+            AuditAction.USER_EDIT,
+            actor,
+            AuditTarget.of_user(user),
+            {"changed": ["ra_username"]},
+        )
+    elif user.ra_username and user.ra_username != username:
         log.info(
             "ra login: user %s plays as an account other than their profile's",
             user_id,
         )
-    db_user_handler.update_user(user_id, data)
-    record(
-        AuditAction.USER_RA_LOGIN_SET,
-        AuditActor.for_user(user),
-        AuditTarget.of_user(user),
-    )
     return True
 
 

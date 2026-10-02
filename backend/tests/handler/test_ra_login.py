@@ -51,11 +51,44 @@ def test_storing_keeps_a_different_ra_username(admin_user: User, caplog):
 def test_storing_records_a_set_event_with_no_data(admin_user: User):
     store_ra_login(admin_user.id, "alice", TOKEN)
 
-    [event] = recorded_events()
-    assert event.action == "user.ra_login_set"
+    [event] = [e for e in recorded_events() if e.action == "user.ra_login_set"]
     assert event.actor_id == admin_user.id
     assert event.target_id == str(admin_user.id)
     assert event.data == {}
+
+
+def test_filling_ra_username_records_an_edit_naming_only_the_field(
+    admin_user: User,
+):
+    store_ra_login(admin_user.id, "alice", TOKEN)
+
+    [event] = [e for e in recorded_events() if e.action == "user.edit"]
+    assert event.actor_id == admin_user.id
+    assert event.target_id == str(admin_user.id)
+    assert event.data == {"changed": ["ra_username"]}
+
+
+def test_a_kept_ra_username_records_no_edit(admin_user: User):
+    db_user_handler.update_user(admin_user.id, {"ra_username": "profile-name"})
+
+    store_ra_login(admin_user.id, "alice", TOKEN)
+
+    assert [e.action for e in recorded_events()] == ["user.ra_login_set"]
+
+
+def test_an_ra_username_set_after_the_read_is_not_overwritten(
+    admin_user: User, monkeypatch: pytest.MonkeyPatch
+):
+    """Another exit or a profile edit can fill it between the read and the write."""
+    stale = _user(admin_user.id)
+    db_user_handler.update_user(admin_user.id, {"ra_username": "first"})
+    monkeypatch.setattr(db_user_handler, "get_user", lambda _id: stale)
+
+    store_ra_login(admin_user.id, "alice", TOKEN)
+
+    monkeypatch.undo()
+    assert _user(admin_user.id).ra_username == "first"
+    assert "user.edit" not in [e.action for e in recorded_events()]
 
 
 def test_clearing_nulls_the_column_and_keeps_ra_username(admin_user: User):
@@ -67,7 +100,9 @@ def test_clearing_nulls_the_column_and_keeps_ra_username(admin_user: User):
     assert stored.ra_login_sealed is None
     assert stored.ra_username == "alice"
     assert ra_login_for_activate(stored) is None
-    assert [e.action for e in recorded_events()] == [
+    assert [
+        e.action for e in recorded_events() if e.action.startswith("user.ra_login")
+    ] == [
         "user.ra_login_clear",
         "user.ra_login_set",
     ]
