@@ -525,18 +525,11 @@ export function useGameActions(
     const rom = getRom();
     if (!rom) return;
     const link = getDownloadLink({ rom });
-    if (navigator.clipboard && window.isSecureContext) {
-      try {
-        await navigator.clipboard.writeText(link);
-        snackbar.success(t("rom.snackbar-download-link-copied"), {
-          icon: "mdi-link-variant",
-        });
-        return;
-      } catch {
-        // fall through to dialog fallback
-      }
-    }
-    emitter?.emit("showCopyDownloadLinkDialog", link);
+    await clipboard.copy(link, {
+      successMessage: t("rom.snackbar-download-link-copied"),
+      successIcon: "mdi-link-variant",
+      fallback: () => emitter?.emit("showCopyDownloadLinkDialog", link),
+    });
   }
 
   function manageCollections() {
