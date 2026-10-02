@@ -55,7 +55,7 @@ const {
   hashMatchers,
   setHashMatcher,
   isHashMatcherOn,
-  buildScanPayload,
+  buildScanSourceOptions,
   persistSelection,
 } = useScanProviders();
 
@@ -158,7 +158,7 @@ function onScan() {
     byPlatform.set(r.platform_id, list);
   }
 
-  const payload = buildScanPayload();
+  const payload = buildScanSourceOptions();
   const started = startScan(
     [...byPlatform].map(([platformId, romIds]) => ({
       platforms: [platformId],

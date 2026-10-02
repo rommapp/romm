@@ -1,5 +1,6 @@
 """Job stubs and Redis patching shared by the scan job discovery tests."""
 
+from contextlib import asynccontextmanager
 from itertools import count
 from typing import Any
 from unittest.mock import MagicMock
@@ -7,6 +8,7 @@ from unittest.mock import MagicMock
 from rq import Worker
 from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
+from rq.worker import WorkerStatus
 
 import handler.scan_jobs as scan_jobs_module
 from handler.redis_handler import high_prio_queue, low_prio_queue, scan_queue
@@ -69,6 +71,9 @@ def patch_scan_jobs(
     Returns the patched scheduled-scan registry.
     """
     worker = MagicMock()
+    worker.death_date = None
+    worker.get_state.return_value = WorkerStatus.IDLE
+    worker.queue_names.return_value = [scan_queue.name]
     if worker_lost:
         worker.get_current_job.side_effect = NoSuchJobError
     else:
@@ -109,3 +114,14 @@ def patch_scan_jobs(
         side_effect=lambda job_ids, **kwargs: [by_id.get(i) for i in job_ids],
     )
     return registry
+
+
+def patch_held_scan_request_lock(mocker):
+    """Make the library scan request lock look held by another web worker."""
+
+    @asynccontextmanager
+    async def held_lock(*args, **kwargs):
+        raise TimeoutError
+        yield
+
+    mocker.patch("endpoints.sockets.scan.redis_lock", held_lock)

@@ -224,7 +224,7 @@ backend/
 │   ├── fs_exceptions.py       # Filesystem errors
 │   ├── config_exceptions.py   # Config write errors
 │   ├── task_exceptions.py     # Scheduler errors
-│   └── socket_exceptions.py   # Scan stopped
+│   └── socket_exceptions.py   # Scan stopped or refused
 │
 ├── handler/                   # Business logic layer
 │   ├── scan_handler.py        # Library scan orchestration
@@ -1113,6 +1113,13 @@ Register and update take `capabilities`, boolean flags such as `{"remote_install
 | GET    | `/status`     | TASKS_RUN | Status of all tasks      |
 | GET    | `/{id}`       | TASKS_RUN | Status of specific task  |
 | POST   | `/run/{name}` | TASKS_RUN | Trigger task execution   |
+| POST   | `/scan`       | TASKS_RUN | Queue a scan             |
+
+`POST /scan` takes the options of the `scan` socket event and answers 202 with the queued job.
+`GET /{id}` follows it, with the counts so far in `meta.scan_stats`.
+A missing body means a quick scan of the whole library, a missing `apis` every enabled metadata source, and an unknown key answers 422.
+A scan of named `roms_ids` goes ahead of a queued library scan, any other scan answers 409 while a library scan is queued or running.
+It answers 503 when no worker listens on the scan queue.
 
 ### 6.16 Notifications (`/api/notifications`)
 

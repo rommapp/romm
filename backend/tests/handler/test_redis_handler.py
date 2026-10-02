@@ -19,6 +19,7 @@ from handler.redis_handler import (
     has_live_worker,
     low_prio_queue,
     redis_client,
+    redis_lock,
 )
 
 
@@ -154,6 +155,18 @@ class TestHasLiveWorker:
 
         mock_all.assert_called_once_with(queue=low_prio_queue)
 
+    def test_reads_a_listing_the_caller_already_has(self):
+        elsewhere = self._worker("idle")
+        elsewhere.queue_names.return_value = ["other"]
+        listening = self._worker("busy")
+        listening.queue_names.return_value = [low_prio_queue.name]
+
+        with patch("handler.redis_handler.Worker.all") as mock_all:
+            assert has_live_worker(low_prio_queue, [elsewhere]) is False
+            assert has_live_worker(low_prio_queue, [elsewhere, listening]) is True
+
+        mock_all.assert_not_called()
+
 
 class TestAsyncCacheUnderTests:
     def test_concurrent_threads_and_loops_never_share_a_pool(self):
@@ -184,6 +197,19 @@ class TestAsyncCacheUnderTests:
         value = asyncio.run(read())
 
         assert value in ("1", b"1")
+
+
+class TestRedisLock:
+    @pytest.mark.parametrize(
+        ("lease_seconds", "expected_ttl"), [(None, 5), (30, 30)], ids=["wait", "lease"]
+    )
+    async def test_the_key_lives_for_the_lease(self, lease_seconds, expected_ttl):
+        async with redis_lock(
+            "test-lock", timeout_seconds=5, lease_seconds=lease_seconds
+        ):
+            assert await async_cache.ttl("test-lock") == expected_ttl
+
+        assert not await async_cache.exists("test-lock")
 
 
 def test_the_queue_client_skips_the_maintenance_notifications_probe():

@@ -105,7 +105,7 @@ const {
   hashMatchers,
   setHashMatcher,
   isHashMatcherOn,
-  buildScanPayload,
+  buildScanSourceOptions,
   persistSelection,
 } = useScanProviders();
 
@@ -260,7 +260,7 @@ function scan() {
     {
       platform_fs_slugs: platformsToScan.value,
       type: scanType.value,
-      ...buildScanPayload(),
+      ...buildScanSourceOptions(),
     },
   ]);
   if (!started) return;

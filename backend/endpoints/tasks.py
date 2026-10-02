@@ -24,6 +24,8 @@ from endpoints.responses import (
     WatcherTaskStatusResponse,
 )
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
+from endpoints.sockets.scan import ScanPayload, queue_scan
+from exceptions.socket_exceptions import NoScanWorkerException, ScanInFlightException
 from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.redis_handler import (
@@ -114,6 +116,24 @@ def _fill_cleanup_stats(stats: Mapping[str, Any] | None) -> CleanupStats | None:
     platform_id = legacy.pop("platform_id")
     legacy["platform_ids"] = [platform_id] if platform_id is not None else None
     return cast(CleanupStats, legacy)
+
+
+def _build_task_execution_response(
+    job: Job, task_key: str | None, task_name: str
+) -> TaskExecutionResponse:
+    """Describe a job that was just queued."""
+    return {
+        "task_key": task_key,
+        "task_name": task_name,
+        "task_id": job.id,
+        "status": job.get_status(refresh=False) or JobStatus.QUEUED,
+        "created_at": (
+            job.created_at.isoformat()
+            if job.created_at
+            else datetime.now(timezone.utc).isoformat()
+        ),
+        "enqueued_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
+    }
 
 
 def _build_task_status_response(
@@ -371,15 +391,37 @@ async def run_single_task(
         {"job_id": job.id, "kwargs": task_kwargs or {}},
     )
 
-    return {
-        "task_key": task_name,
-        "task_name": task_instance.title,
-        "task_id": job.id,
-        "status": job.get_status() or JobStatus.QUEUED,
-        "created_at": (
-            job.created_at.isoformat()
-            if job.created_at
-            else datetime.now(timezone.utc).isoformat()
-        ),
-        "enqueued_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
-    }
+    return _build_task_execution_response(job, task_name, task_instance.title)
+
+
+SCAN_PAYLOAD = Body(default_factory=ScanPayload)
+
+
+@protected_route(
+    router.post,
+    "/scan",
+    [Scope.TASKS_RUN],
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def start_scan(
+    request: Request, payload: ScanPayload = SCAN_PAYLOAD
+) -> TaskExecutionResponse:
+    """Queue a scan, for clients that authenticate without a session cookie.
+
+    Args:
+        request (Request): FastAPI Request object
+        payload (ScanPayload): What to scan and which metadata sources to use,
+            a quick scan of the whole library when the body is left out
+    Returns:
+        TaskExecutionResponse: The queued scan, to follow on `GET /api/tasks/{task_id}`
+    """
+    try:
+        job = await queue_scan(payload, started_by_user_id=request.user.id)
+    except NoScanWorkerException as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        ) from e
+    except ScanInFlightException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+
+    return _build_task_execution_response(job, None, job.meta["task_name"])

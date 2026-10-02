@@ -1,7 +1,6 @@
-// Mirrors `ScanType` in backend/handler/scan_handler.py: scans start over
-// Socket.IO, so the enum never reaches the OpenAPI schema.
-export type ScanType =
-  "new_platforms" | "quick" | "unmatched" | "update" | "hashes" | "complete";
+import type { ScanType } from "@/__generated__";
+
+export type { ScanType };
 
 /** Whether a scan type is worth starting with no metadata source picked. A
  *  quick scan reconciles files and registers new entries on its own. */

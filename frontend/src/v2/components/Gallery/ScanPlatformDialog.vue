@@ -56,7 +56,7 @@ const {
   hashMatchers,
   setHashMatcher,
   isHashMatcherOn,
-  buildScanPayload,
+  buildScanSourceOptions,
   persistSelection,
 } = useScanProviders();
 
@@ -105,7 +105,7 @@ function onScan() {
     {
       platforms: [props.platform.id],
       type: scanType.value,
-      ...buildScanPayload(),
+      ...buildScanSourceOptions(),
     },
   ]);
   if (!started) return;
