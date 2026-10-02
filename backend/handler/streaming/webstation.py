@@ -213,7 +213,7 @@ def _with_ra_login(body: dict[str, Any], user: User) -> dict[str, Any]:
 
 
 def _activate_failure(
-    exc: Exception, container: ResolvedContainer, path: str
+    exc: Exception, container: ResolvedContainer, path: str, user: User
 ) -> Exception:
     """The reply to a failed activate request, as commands.launch would give.
 
@@ -221,7 +221,12 @@ def _activate_failure(
     """
     try:
         if isinstance(exc, urllib.error.HTTPError):
-            return broker.http_error(exc)
+            # The error body may quote the request, and this one carried the
+            # token; the login lives in this frame, which returns, not activate's.
+            login = ra_login_for_activate(user)
+            return broker.http_error(
+                exc, redact=() if login is None else (login["token"],)
+            )
         if isinstance(exc, urllib.error.URLError | OSError):
             return broker.unreachable_error(
                 exc,
@@ -319,7 +324,7 @@ def activate(
         # every frame in the chain, so the reply is built and raised outside
         # the handler and the failure keeps no traceback.
         caught.__traceback__ = None
-        raise _activate_failure(caught, container, path) from None
+        raise _activate_failure(caught, container, path, user) from None
 
     resp = resp if isinstance(resp, dict) else {}
     log.info("broker activated session, %s", resp)

@@ -15,6 +15,7 @@ import json
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Sequence
 from email.message import Message
 from typing import Any, NoReturn
 
@@ -338,9 +339,16 @@ def raise_http_error(exc: urllib.error.HTTPError) -> NoReturn:
     raise http_error(exc) from exc
 
 
-def http_error(exc: urllib.error.HTTPError) -> HTTPException | ImportRefusedError:
-    """What raise_http_error raises, for a caller that must not chain to `exc`."""
-    error_body = broker_error_body(exc)
+def http_error(
+    exc: urllib.error.HTTPError, *, redact: Sequence[str] = ()
+) -> HTTPException | ImportRefusedError:
+    """What raise_http_error raises, for a caller that must not chain to `exc`.
+
+    `redact` is what the request carried that the broker's text may echo (a
+    stock FastAPI 422 quotes each failing value); it is taken out of the body,
+    as sent and as JSON escapes it, before the log line and the 502 detail.
+    """
+    error_body = _redacted(broker_error_body(exc), redact)
     log.error(
         "broker HTTP error %d: %s", exc.code, error_body[:_BROKER_ERROR_SHOWN_CHARS]
     )
@@ -375,6 +383,16 @@ def http_error(exc: urllib.error.HTTPError) -> HTTPException | ImportRefusedErro
         status_code=502,
         detail=f"Broker returned {exc.code}: {str(detail)[:_BROKER_ERROR_SHOWN_CHARS]}",
     )
+
+
+def _redacted(text: str, secrets: Sequence[str]) -> str:
+    """`text` with every non-empty secret, raw and JSON-escaped, replaced."""
+    for secret in secrets:
+        if not secret:
+            continue
+        for form in dict.fromkeys((json.dumps(secret)[1:-1], secret)):
+            text = text.replace(form, "[redacted]")
+    return text
 
 
 def raise_unreachable(

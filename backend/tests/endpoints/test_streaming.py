@@ -9464,6 +9464,28 @@ def test_raise_http_error_still_raises_502_for_a_plain_broker_error():
     assert raised.value.status_code == 502
 
 
+def test_http_error_redacts_a_secret_in_both_its_raw_and_json_escaped_form(caplog):
+    """A secret inside a JSON string comes back escaped, so the raw form alone
+    would miss a token with a quote or backslash in it."""
+    secret = 'tok"456\\secret'  # nosec B105
+    escaped = json.dumps(secret)[1:-1]
+    assert escaped != secret
+    body = json.dumps({"detail": {"msg": "bad login", "input": secret}}).encode()
+    exc = _http_error(422)
+    with patch.object(exc, "read", side_effect=_reads(body)):
+        result = _warnings_of(caplog, lambda: broker.http_error(exc, redact=(secret,)))
+
+    assert isinstance(result, HTTPException)
+    assert result.status_code == 502
+    assert "bad login" in result.detail
+    assert "[redacted]" in result.detail
+    assert secret not in result.detail
+    assert escaped not in result.detail
+    assert "bad login" in caplog.text
+    assert secret not in caplog.text
+    assert escaped not in caplog.text
+
+
 def test_broker_error_body_gives_up_on_a_slow_body():
     exc = _http_error(500)
     with (
@@ -11094,6 +11116,59 @@ def test_a_truncated_broker_error_carries_no_ra_token_anywhere(admin_user: User)
 
     assert isinstance(exc, HTTPException)
     assert exc.status_code == 502
+    assert _leaks_through(exc, RA_TOKEN) == []
+
+
+def _echoing_broker_http_error(
+    code: int, body: dict[str, Any]
+) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        "http://broker/activate",
+        code,
+        "err",
+        http.client.HTTPMessage(),
+        io.BytesIO(json.dumps(body).encode()),
+    )
+
+
+def test_a_broker_error_that_echoes_the_activate_body_is_relayed_without_the_token(
+    admin_user: User, caplog
+):
+    """FastAPI's stock 422 quotes each failing value as `input`, so a broker or
+    proxy that does that for the activate body hands RomM the token it just
+    sent. The log line and the 502 keep the broker's text, minus the token."""
+    store_ra_login(admin_user.id, "alice", RA_TOKEN)
+    echoed = {
+        "detail": [
+            {
+                "type": "missing",
+                "loc": ["body", "emulator"],
+                "msg": "Field required",
+                "input": {
+                    "rom": {"id": 1, "name": "Game", "platform": "snes"},
+                    "retroachievements": {"username": "alice", "token": RA_TOKEN},
+                },
+            }
+        ]
+    }
+
+    with patch(
+        "handler.streaming.broker.urllib.request.urlopen",
+        side_effect=_echoing_broker_http_error(422, echoed),
+    ):
+        exc = _warnings_of(
+            caplog, lambda: _activate_failure(_snes("retroarch"), admin_user.id)
+        )
+
+    assert isinstance(exc, HTTPException)
+    assert exc.status_code == 502
+    assert exc.detail.startswith("Broker returned 422: ")
+    assert "Field required" in exc.detail
+    assert "alice" in exc.detail
+    assert RA_TOKEN not in exc.detail
+    assert "broker HTTP error 422" in caplog.text
+    assert "Field required" in caplog.text
+    assert RA_TOKEN not in caplog.text
     assert _leaks_through(exc, RA_TOKEN) == []
 
 
