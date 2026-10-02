@@ -57,7 +57,7 @@ describe("useRomFileUpload", () => {
     });
     expect(confirmFn).not.toHaveBeenCalled();
     expect(snackbar.success).toHaveBeenCalledWith(
-      "rom.files-uploaded-n:1",
+      'rom.files-uploaded-n:1:{"named":{"n":1}}',
       expect.anything(),
     );
     expect(refetchRom).toHaveBeenCalledWith(1);
@@ -91,7 +91,7 @@ describe("useRomFileUpload", () => {
     expect(outcome).toEqual({ uploaded: 2, failed: 0 });
     expect(confirmFn).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: "rom.upload-overwrite-title:1",
+        title: 'rom.upload-overwrite-title:1:{"named":{"n":1}}',
         confirmText: "common.overwrite",
         tone: "danger",
       }),

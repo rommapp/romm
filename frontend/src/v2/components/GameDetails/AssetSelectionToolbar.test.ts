@@ -37,7 +37,9 @@ function toolbar(
 
 describe("AssetSelectionToolbar", () => {
   it("counts the list until something is checked, then the selection", () => {
-    expect(toolbar().get(".all").text()).toBe("rom.assets-count-n:3");
+    expect(toolbar().get(".all").text()).toBe(
+      'rom.assets-count-n:3:{"named":{"n":3}}',
+    );
     expect(toolbar().findAll(".btn")).toHaveLength(0);
 
     const some = toolbar({ count: 2, someChecked: true });

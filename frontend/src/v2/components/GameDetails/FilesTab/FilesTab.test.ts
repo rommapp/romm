@@ -172,7 +172,7 @@ describe("FilesTab uploads", () => {
     });
     expect(refetchRom).toHaveBeenCalledWith(1);
     expect(snackbar.success).toHaveBeenCalledWith(
-      "rom.files-uploaded-n:1",
+      'rom.files-uploaded-n:1:{"named":{"n":1}}',
       expect.anything(),
     );
     expect(confirmFn).not.toHaveBeenCalled();
