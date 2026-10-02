@@ -20,7 +20,8 @@
 // (GameCard's size tiers / hero) just sets an explicit `height` on this
 // element via its own class, that wins over `aspect-ratio`. Radius is a
 // `--r-cover-radius` var (defaults to the gallery card radius).
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useElementHover } from "@vueuse/core";
+import { computed, onMounted, ref, watch } from "vue";
 import CoverPlaceholder from "@/v2/components/shared/CoverPlaceholder.vue";
 import { revealedCoverSrcs } from "@/v2/components/shared/coverReveal";
 import { useCoverAnimation } from "@/v2/composables/useCoverAnimation";
@@ -185,7 +186,9 @@ const onCoverLoad = () => {
 // True ratio once known, else the style ratio as a first guess.
 const boxRatio = computed(() => naturalRatio.value ?? art.ratio.value);
 
-const selfHover = ref(false);
+const selfHover = useElementHover(() =>
+  props.hoverMotion ? rootEl.value : null,
+);
 const coverActive = computed(
   () => props.active || (props.hoverMotion && selfHover.value),
 );
@@ -213,12 +216,6 @@ const morphStyle = computed(() => {
     : undefined;
 });
 
-const onEnter = () => {
-  selfHover.value = true;
-};
-const onLeave = () => {
-  selfHover.value = false;
-};
 onMounted(() => {
   // Already bloomed this URL once this session → skip the reveal on this
   // (recycled) mount, regardless of whether the <img> reports `complete` yet.
@@ -233,13 +230,6 @@ onMounted(() => {
     if (activeSrc.value) revealedCoverSrcs.add(activeSrc.value);
     measureNaturalRatio();
   }
-  if (!props.hoverMotion) return;
-  rootEl.value?.addEventListener("mouseenter", onEnter);
-  rootEl.value?.addEventListener("mouseleave", onLeave);
-});
-onBeforeUnmount(() => {
-  rootEl.value?.removeEventListener("mouseenter", onEnter);
-  rootEl.value?.removeEventListener("mouseleave", onLeave);
 });
 
 defineExpose({

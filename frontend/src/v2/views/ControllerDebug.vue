@@ -10,6 +10,7 @@
 // Polling is independent of `useGamepad`: this view is its own read
 // path; the real input loop keeps running in the background.
 import { RBtn, RIcon } from "@v2/lib";
+import { useEventListener } from "@vueuse/core";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -125,14 +126,9 @@ function clearLog() {
   keyLog.value = [];
 }
 
-onMounted(() => {
-  tick();
-  window.addEventListener("keydown", onKeydown);
-});
-onBeforeUnmount(() => {
-  cancelAnimationFrame(rafId.value);
-  window.removeEventListener("keydown", onKeydown);
-});
+onMounted(tick);
+onBeforeUnmount(() => cancelAnimationFrame(rafId.value));
+useEventListener(window, "keydown", onKeydown);
 
 function formatTime(t: number) {
   const d = new Date(t);
