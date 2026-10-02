@@ -216,9 +216,8 @@ export function assignFlatRowLetters(
   for (const row of rows) {
     while (base < ranges.length && ranges[base]!.end <= row.start) base++;
     const letters: string[] = [];
-    for (let j = base; j < ranges.length && ranges[j]!.start < row.end; j++) {
-      const range = ranges[j]!;
-      if (range.end > row.start) letters.push(range.letter);
+    for (let j = base, r = ranges[j]; r && r.start < row.end; r = ranges[++j]) {
+      if (r.end > row.start) letters.push(r.letter);
     }
     out.push(letters);
   }
@@ -503,17 +502,15 @@ export function useGalleryVirtualItems(opts: Options) {
       // position. Both rows and ranges are ascending → one forward walk.
       const ranges = letterRanges.value; // sorted by start
       let li = 0;
-      for (const [i, it] of items.entries()) {
-        if (li >= ranges.length) break;
+      for (let i = 0; i < items.length && li < ranges.length; i++) {
+        const it = items[i]!;
         if (it.kind !== "row") continue;
-        while (
-          li < ranges.length &&
-          ranges[li]!.start >= it.startPosition &&
-          ranges[li]!.start < it.endPosition
+        for (
+          let r = ranges[li];
+          r && r.start >= it.startPosition && r.start < it.endPosition;
+          r = ranges[++li]
         ) {
-          const letter = ranges[li]!.letter;
-          if (!map.has(letter)) map.set(letter, i);
-          li++;
+          if (!map.has(r.letter)) map.set(r.letter, i);
         }
       }
     }

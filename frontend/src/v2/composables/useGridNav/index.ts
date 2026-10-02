@@ -307,13 +307,12 @@ export function useGridNav(
   // Focuses the first or last cell that holds a control, skipping skeletons.
   function focusEdge(edge: "first" | "last") {
     const rs = rows();
-    const order = [...rs.entries()];
-    if (edge === "last") order.reverse();
-    for (const [r, row] of order) {
-      const cols = [...cells(row).entries()];
-      if (edge === "last") cols.reverse();
-      for (const [c, cell] of cols) {
-        if (!hasControl(cell)) continue;
+    const order = edge === "first" ? rs.keys() : [...rs.keys()].reverse();
+    for (const r of order) {
+      const cs = cells(rs[r]!);
+      const cols = edge === "first" ? cs.keys() : [...cs.keys()].reverse();
+      for (const c of cols) {
+        if (!hasControl(cs[c]!)) continue;
         preferredCol = c;
         focusAt(r, c, { verticalJump: true });
         return;
