@@ -23,7 +23,15 @@ const joinableSession = {
   value: null as { host_username: string | null; container?: string } | null,
 };
 const grantedActions: { value: Set<ActionKey> | null } = { value: null };
+const { clipboardCopy, emitterEmit } = vi.hoisted(() => ({
+  clipboardCopy: vi.fn(),
+  emitterEmit: vi.fn(),
+}));
 
+vi.mock("vue", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue")>()),
+  inject: () => ({ emit: emitterEmit }),
+}));
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
@@ -81,7 +89,9 @@ vi.mock("@/utils", async () => {
     "@/utils/downloadPath",
   );
   return {
-    getDownloadLink: vi.fn(),
+    getDownloadLink: vi.fn(
+      () => "http://romm.local/api/roms/1/content/game.zip",
+    ),
     getDownloadPath: vi.fn(() => "/api/roms/1/content/game.chd?format=iso"),
     getSoleRomFile: actual.getSoleRomFile,
     isNintendoDSRom: () => false,
@@ -113,7 +123,7 @@ vi.mock("@/v2/composables/useCanPlay", () => ({
   }),
 }));
 vi.mock("@/v2/composables/useClipboard", () => ({
-  useClipboard: () => ({ copy: vi.fn() }),
+  useClipboard: () => ({ copy: clipboardCopy }),
 }));
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirmFn,
@@ -160,6 +170,8 @@ beforeEach(() => {
   snackbarError.mockClear();
   probeFormatDownload.mockReset();
   downloadRom.mockReset();
+  clipboardCopy.mockReset();
+  emitterEmit.mockReset();
   confirmProtectedLaunch.value = true;
   canPlayEJS.value = true;
   canPlayJsDos.value = false;
@@ -703,5 +715,36 @@ describe("useGameActions.downloadAs", () => {
 
     expect(probeFormatDownload).toHaveBeenCalledTimes(2);
     expect(downloadRom).toHaveBeenCalledOnce();
+  });
+});
+
+describe("useGameActions.copyDownloadLink", () => {
+  const LINK = "http://romm.local/api/roms/1/content/game.zip";
+
+  it("copies the download link with a success toast", async () => {
+    await useGameActions(() => makeRom()).copyDownloadLink();
+
+    expect(clipboardCopy).toHaveBeenCalledWith(
+      LINK,
+      expect.objectContaining({
+        successMessage: "rom.snackbar-download-link-copied",
+      }),
+    );
+  });
+
+  it("opens the manual-copy dialog when the copy fails", async () => {
+    clipboardCopy.mockImplementation(
+      async (_text: string, opts: { fallback?: () => void }) => {
+        opts.fallback?.();
+        return false;
+      },
+    );
+
+    await useGameActions(() => makeRom()).copyDownloadLink();
+
+    expect(emitterEmit).toHaveBeenCalledWith(
+      "showCopyDownloadLinkDialog",
+      LINK,
+    );
   });
 });
