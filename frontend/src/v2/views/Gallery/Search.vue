@@ -46,6 +46,7 @@ onMounted(async () => {
     :empty-message="t('rom.no-games-match')"
     empty-icon="mdi-magnify-close"
     :skeleton-row-count="4"
+    :default-order-by="null"
   >
     <!-- HEADER (Section 1): title + result-count chip. The shell
          auto-measures this slot; no need to declare a height. -->

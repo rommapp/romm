@@ -18,6 +18,9 @@ from adapters.services.rom_converto import (
     Operation,
     RomConvertoOperationError,
     RomConvertoTimeoutError,
+    RomConvertoUnsafeSourceError,
+    canonical_format,
+    download_targets,
     file_format,
     resolve_operation,
     rom_converto_service,
@@ -25,6 +28,7 @@ from adapters.services.rom_converto import (
 from config import (
     LIBRARY_BASE_PATH,
     ROM_CONVERTO_CACHE_PATH,
+    ROM_CONVERTO_ENABLED,
     ROM_CONVERTO_MAX_CONCURRENCY,
     ROMM_BASE_PATH,
 )
@@ -35,6 +39,8 @@ from utils.background_tasks import fire_and_forget
 from utils.zip_cache import CACHE_KEY_LENGTH, SECONDS_PER_HOUR
 
 if TYPE_CHECKING:
+    from starlette.requests import Request
+
     from models.rom import Rom, RomFile
 
 BYTES_PER_GB = 1024**3
@@ -48,9 +54,12 @@ SERVE_GRACE_SECONDS: Final = 60
 # Room a conversion to an uncompressed target reserves per input byte; the
 # cleanup pass after it evicts any overshoot.
 EXPANSION_RESERVE_FACTOR: Final = 4
+# Downloads may start conversions until this many wait for or hold the semaphore.
+MAX_STARTED_CONVERSIONS: Final = ROM_CONVERTO_MAX_CONCURRENCY * 4
 
 # Each conversion reads and writes whole disc images.
 _convert_semaphore = asyncio.Semaphore(ROM_CONVERTO_MAX_CONCURRENCY)
+_started_conversions: set[asyncio.Task[Path | None]] = set()
 
 
 def converted_file_path(
@@ -101,6 +110,12 @@ def _try_lock(key_dir: Path, *, shared: bool = False) -> Generator[bool]:
         yield current_dir
     finally:
         os.close(fd)
+
+
+def _stat_files(key_dir: Path) -> tuple[dict[str, os.stat_result], float]:
+    """The stats of `key_dir`'s files and the newest mtime among them."""
+    stats = {p.name: p.stat() for p in _files(key_dir)}
+    return stats, max((st.st_mtime for st in stats.values()), default=0.0)
 
 
 def cache_size_bytes() -> int:
@@ -176,18 +191,42 @@ _UNAVAILABLE: Final = FormatResolution(FormatOutcome.UNAVAILABLE)
 
 
 def parse_formats(raw: str) -> tuple[str, ...]:
-    """The comma-separated `?format=` list, lowercased and deduplicated in order."""
-    formats = (f.strip().lower() for f in raw.split(","))
+    """The comma-separated `?format=` list, canonical, lowercased and deduplicated in order."""
+    formats = (canonical_format(f.strip().lower()) for f in raw.split(","))
     return tuple(dict.fromkeys(f for f in formats if f))
 
 
 def _is_converting(final_path: Path) -> bool:
-    """Whether a worker holds `final_path`'s key dir while it converts into it."""
-    if not (final_path.parent / PARTIAL_DIR).exists():
-        return False
-    with contextlib.suppress(OSError), _try_lock(final_path.parent) as locked:
+    """Whether a worker holds `final_path`'s key dir, which it locks before converting."""
+    # A shared probe leaves downloads serving a cached copy undisturbed.
+    with (
+        contextlib.suppress(OSError),
+        _try_lock(final_path.parent, shared=True) as locked,
+    ):
         return not locked
     return False
+
+
+def may_start_conversion(request: Request) -> bool:
+    """Whether the caller may start a conversion, which is minutes of CPU.
+
+    DISABLE_DOWNLOAD_ENDPOINT_AUTH and KIOSK_MODE let visitors download, not convert.
+    """
+    return request.user.is_authenticated and not request.user.is_kiosk_guest
+
+
+def offered_download_formats(
+    platform_slug: str, files: Sequence[RomFile], request: Request
+) -> list[str]:
+    """The formats the caller can ask a single-file download to be converted to."""
+    if (
+        len(files) != 1
+        or not ROM_CONVERTO_ENABLED
+        or not cm.get_config().CONVERTO.download_conversion_enabled
+        or not may_start_conversion(request)
+    ):
+        return []
+    return download_targets(platform_slug, files[0].file_name)
 
 
 async def resolve_format_download(
@@ -199,11 +238,7 @@ async def resolve_format_download(
     start: bool,
     touch: bool,
 ) -> FormatResolution:
-    """What a `?format=` download of a single file serves.
-
-    The stored file wins whenever its format is listed. Otherwise the first
-    listed format with a cached copy is served, then the first a conversion
-    can produce.
+    """What a `?format=` download serves: the stored file if listed, else the first cached, then the first convertible format.
 
     Args:
         allowed: The caller may start a conversion.
@@ -221,34 +256,36 @@ async def resolve_format_download(
         return _UNAVAILABLE
 
     candidates = [
-        (target, found)
+        (target, found[1])
         for target in formats
         if (found := _lookup(rom.id, file, rom.platform_slug, target))
     ]
-    for _, (_, final_path) in candidates:
+    for _, final_path in candidates:
         if cached := _serve_cached(final_path, touch=touch):
             return FormatResolution(FormatOutcome.CONVERTED, cached)
     if not allowed:
         return _UNAVAILABLE
 
-    for target, (_, final_path) in candidates:
+    for target, final_path in candidates:
         if (final_path.parent / FAILED_FILE).exists():
             continue
-        if not start or _is_converting(final_path):
+        if (
+            not start
+            or _is_converting(final_path)
+            or len(_started_conversions) >= MAX_STARTED_CONVERSIONS
+        ):
             return _PENDING
         # The conversion finishes into the cache even when this request stops waiting.
         conversion = fire_and_forget(
             get_or_convert(rom.id, file, rom.platform_slug, target)
         )
+        _started_conversions.add(conversion)
+        conversion.add_done_callback(_started_conversions.discard)
         done, _ = await asyncio.wait({conversion}, timeout=CONVERSION_WAIT_SECONDS)
+        if done and (converted := conversion.result()):
+            return FormatResolution(FormatOutcome.CONVERTED, converted)
         if not done or _is_converting(final_path):
             return _PENDING
-        converted = conversion.result()
-        return (
-            FormatResolution(FormatOutcome.CONVERTED, converted)
-            if converted
-            else _UNAVAILABLE
-        )
     return _UNAVAILABLE
 
 
@@ -281,7 +318,9 @@ async def get_or_convert(
             if (final_path.parent / FAILED_FILE).exists():
                 return None
             async with _convert_semaphore:
-                shutil.rmtree(final_path.parent / PARTIAL_DIR, ignore_errors=True)
+                await asyncio.to_thread(
+                    shutil.rmtree, final_path.parent / PARTIAL_DIR, True
+                )
                 size_bytes = (rom_file.file_size_bytes or 0) * (
                     EXPANSION_RESERVE_FACTOR
                     if operation.target in UNCOMPRESSED_TARGETS
@@ -322,20 +361,21 @@ async def _convert(
         await rom_converto_service.convert(
             operation, src=Path(LIBRARY_BASE_PATH) / rom_file.full_path, out=produced
         )
-        if any(p != produced for p in _files(partial_dir)):
-            log.warning(
-                f"Conversion output split into several files for ROM {rom_id} (target {hl(target)})"
-            )
-            (final_path.parent / FAILED_FILE).touch()
-            return None
         os.replace(produced, final_path)
     except Exception as e:
         log.warning(f"Conversion failed for ROM {rom_id} (target {hl(target)}): {e}")
-        if isinstance(e, (RomConvertoOperationError, RomConvertoTimeoutError)):
+        if isinstance(
+            e,
+            (
+                RomConvertoOperationError,
+                RomConvertoTimeoutError,
+                RomConvertoUnsafeSourceError,
+            ),
+        ):
             (final_path.parent / FAILED_FILE).touch()
         return None
     finally:
-        shutil.rmtree(partial_dir, ignore_errors=True)
+        await asyncio.to_thread(shutil.rmtree, partial_dir, True)
     return final_path
 
 
@@ -346,8 +386,8 @@ def cleanup_stale_conversions(reserve_bytes: int = 0) -> int:
         return 0
 
     converto = cm.get_config().CONVERTO
-    ttl_seconds = converto.cache_ttl_hours * SECONDS_PER_HOUR
     now = time.time()
+    expired_before = now - converto.cache_ttl_hours * SECONDS_PER_HOUR
     deleted = 0
     # (last served, size) of the final copies in each dir that survives the TTL pass.
     kept: list[tuple[float, int, Path]] = []
@@ -356,17 +396,13 @@ def cleanup_stale_conversions(reserve_bytes: int = 0) -> int:
         if not key_dir.is_dir():
             continue
         with contextlib.suppress(FileNotFoundError):
-            stats = {p.name: p.stat() for p in _files(key_dir)}
-            last_served = max((st.st_mtime for st in stats.values()), default=0.0)
+            stats, last_served = _stat_files(key_dir)
             partial_dir = key_dir / PARTIAL_DIR
-            if last_served < now - ttl_seconds or partial_dir.exists():
+            if last_served < expired_before or partial_dir.exists():
                 with _try_lock(key_dir) as locked:
                     if locked:
-                        stats = {p.name: p.stat() for p in _files(key_dir)}
-                        last_served = max(
-                            (st.st_mtime for st in stats.values()), default=0.0
-                        )
-                        if last_served < now - ttl_seconds:
+                        stats, last_served = _stat_files(key_dir)
+                        if last_served < expired_before:
                             shutil.rmtree(key_dir, ignore_errors=True)
                             deleted += 1
                             continue

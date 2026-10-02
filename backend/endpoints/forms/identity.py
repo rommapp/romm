@@ -1,6 +1,8 @@
 from fastapi import UploadFile
 from fastapi.param_functions import Form
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from models.user import TEXT_FIELD_LENGTH
 
 
 class UserForm(BaseModel):
@@ -9,7 +11,7 @@ class UserForm(BaseModel):
     email: str | None = None
     role: str | None = None
     enabled: bool | None = None
-    ra_username: str | None = None
+    ra_username: str | None = Field(default=None, max_length=TEXT_FIELD_LENGTH)
     avatar: UploadFile | None = None
     ui_settings: str | None = None
 

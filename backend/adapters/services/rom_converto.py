@@ -10,15 +10,12 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Final
 
-from config import (
-    ROM_CONVERTO_ENABLED,
-    ROM_CONVERTO_PATH,
-    ROM_CONVERTO_TIMEOUT,
-)
+from config import ROM_CONVERTO_ENABLED, ROM_CONVERTO_TIMEOUT
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import ROM_FILE_INFO_MAX_LENGTH
+from utils.filesystem import SERVED_FILE_MODE
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # Wider than the conversion targets: `info` only reads headers, so every
@@ -48,6 +45,10 @@ _PROBE_TIMEOUT_SECONDS = 30
 
 _STDERR_TAIL_BYTES = 400
 
+_BINARY: Final = "rom-converto"
+
+CUE_EXT: Final = ".cue"
+
 _PNG_SIGNATURE: Final[bytes] = b"\x89PNG\r\n\x1a\n"
 _PSP_TITLE_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Z]{4}[0-9]{5}")
 
@@ -63,6 +64,10 @@ class RomConvertoTimeoutError(RomConvertoError): ...
 
 class RomConvertoOperationError(RomConvertoError):
     """A conversion command exited nonzero."""
+
+
+class RomConvertoUnsafeSourceError(RomConvertoError):
+    """A cue sheet references a track outside its own folder."""
 
 
 # `xbox convert` keeps only a dump's game partition, so a library never stores its output.
@@ -201,19 +206,6 @@ LIBRARY_TARGETS_BY_PLATFORM: Final[dict[str, frozenset[str]]] = {
 }
 
 
-def download_formats() -> dict[str, dict[str, list[str]]]:
-    """Platform slug -> input extension -> the targets a download of it can be converted to."""
-    table: dict[str, dict[str, set[str]]] = {}
-    for op in OPERATIONS:
-        for slug in op.platforms:
-            for ext in op.input_exts:
-                table.setdefault(slug, {}).setdefault(ext, set()).add(op.target)
-    return {
-        slug: {ext: sorted(targets) for ext, targets in sorted(exts.items())}
-        for slug, exts in sorted(table.items())
-    }
-
-
 # Extensions whose format goes by another name than the extension itself.
 _FORMAT_ALIASES: Final[dict[str, str]] = {
     ".3ds": "cci",
@@ -235,6 +227,11 @@ def file_format(file_name: str) -> str:
     if ext is None:
         return Path(name).suffix.lstrip(".")
     return _FORMAT_ALIASES.get(ext, ext.lstrip(".").replace(".", "-"))
+
+
+def canonical_format(name: str) -> str:
+    """The target name a client means by `name`, so `3ds` reads as `cci`."""
+    return _FORMAT_ALIASES.get(f".{name}", name)
 
 
 def normalize_platform_formats(raw: dict[str, str]) -> dict[str, str]:
@@ -280,25 +277,110 @@ def resolve_operation(
     return best
 
 
+def download_targets(platform_slug: str, file_name: str) -> list[str]:
+    """The formats a download of `file_name` can be converted to, not counting the one it is stored in."""
+    stored = file_format(file_name)
+    targets = {op.target for op in OPERATIONS if platform_slug in op.platforms}
+    return sorted(
+        target
+        for target in targets
+        if target != stored and resolve_operation(platform_slug, target, file_name)
+    )
+
+
+def _cue_file_name(line: str) -> str | None:
+    """The track a cue `FILE` line names, read the way the CLI reads it, or None for another line."""
+    parts = line.split()
+    if not parts or parts[0].upper() != "FILE":
+        return None
+    # The CLI takes everything between the first and last quote, or the bare second word.
+    start, end = line.find('"'), line.rfind('"')
+    if start != -1:
+        return line[start + 1 : end] if start < end else ""
+    return parts[1] if len(parts) >= 3 else ""
+
+
+def cue_tracks(cue: Path) -> list[Path]:
+    """The track files a cue sheet references, all beside it.
+
+    Raises:
+        RomConvertoUnsafeSourceError: A track is not a plain file name in the cue's folder.
+    """
+    tracks: list[Path] = []
+    for line in cue.read_text(encoding="utf-8-sig", errors="replace").splitlines():
+        name = _cue_file_name(line)
+        if name is None:
+            continue
+        # The CLI joins the name onto the cue's folder, so `..` or `/` would read any file.
+        if name in ("", ".", "..") or Path(name).name != name:
+            raise RomConvertoUnsafeSourceError(
+                f"{cue.name} references a track outside its folder"
+            )
+        tracks.append(cue.with_name(name))
+    return tracks
+
+
+def _convert_argv(operation: Operation, src: Path, out: Path) -> list[str]:
+    """The arguments running `operation` on `src`, refusing a cue that reaches outside its folder."""
+    if src.name.lower().endswith(CUE_EXT):
+        cue_tracks(src)
+    # Absolute, since the CLI runs from its own dir.
+    return [*operation.argv, os.path.abspath(src), os.path.abspath(out)]
+
+
+def _make_sandbox() -> tuple[Path, Path]:
+    """A new empty dir to run the CLI from, and the empty config file inside it."""
+    sandbox = Path(tempfile.mkdtemp(prefix="rom-converto-"))
+    config = sandbox / "config.toml"
+    config.touch()
+    return sandbox, config
+
+
+def _discard_sandbox(creating: "asyncio.Future[tuple[Path, Path]]") -> None:
+    if not creating.cancelled() and creating.exception() is None:
+        shutil.rmtree(creating.result()[0], ignore_errors=True)
+
+
 def _tail(text: str) -> str:
     return text.strip()[-_STDERR_TAIL_BYTES:]
 
 
 async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
     """Run a rom-converto subcommand and return (returncode, stdout, stderr)."""
-    binary = await asyncio.to_thread(shutil.which, ROM_CONVERTO_PATH)
+    binary = await asyncio.to_thread(shutil.which, _BINARY)
     if binary is None:
-        raise RomConvertoBinaryNotFoundError(
-            f"rom-converto binary not found at {ROM_CONVERTO_PATH}"
+        raise RomConvertoBinaryNotFoundError(f"{_BINARY} binary not found on PATH")
+    # The CLI reads `.env`, `rom-converto.toml` and its hash cache from the cwd and
+    # home, so it runs from an empty dir with an empty config and no cache.
+    creating = asyncio.ensure_future(asyncio.to_thread(_make_sandbox))
+    try:
+        sandbox, config = await asyncio.shield(creating)
+    except asyncio.CancelledError:
+        # The thread still finishes making the dir, so remove it once it has.
+        creating.add_done_callback(_discard_sandbox)
+        raise
+    try:
+        # The CLI otherwise asks api.github.com for a newer release on every run.
+        proc = await asyncio.create_subprocess_exec(
+            binary,
+            "--no-update-check",
+            "--no-cache",
+            "--config",
+            str(config),
+            *argv,
+            cwd=sandbox,
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-    # The CLI otherwise asks api.github.com for a newer release on every run.
-    proc = await asyncio.create_subprocess_exec(
-        binary,
-        "--no-update-check",
-        *argv,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
+        return await _communicate(proc, argv, timeout_seconds)
+    finally:
+        await asyncio.to_thread(shutil.rmtree, sandbox, True)
+
+
+async def _communicate(
+    proc: asyncio.subprocess.Process, argv: list[str], timeout_seconds: float
+) -> tuple[int, str, str]:
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout_seconds)
     except TimeoutError as err:
@@ -318,6 +400,16 @@ async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
         stdout.decode("utf-8", errors="replace"),
         stderr.decode("utf-8", errors="replace"),
     )
+
+
+def _settle_output(operation: Operation, out: Path) -> None:
+    """Check `out` is all the command wrote beside it, and make it servable."""
+    if [p.name for p in out.parent.iterdir()] != [out.name]:
+        raise RomConvertoOperationError(
+            f"rom-converto {' '.join(operation.argv)} did not write exactly {out.name}"
+        )
+    # rom-converto may write an owner-only file, which nginx can't serve.
+    out.chmod(SERVED_FILE_MODE)
 
 
 def _kill(proc: asyncio.subprocess.Process) -> None:
@@ -820,6 +912,8 @@ class RomConvertoService:
     async def is_enabled(self) -> bool:
         if not ROM_CONVERTO_ENABLED:
             return False
+        if self._available is not None:
+            return self._available
         async with self._probe_lock:
             if self._available is not None:
                 return self._available
@@ -836,7 +930,7 @@ class RomConvertoService:
                 failure = f"code {code}" if code != 0 else None
             if failure is not None:
                 log.warning(
-                    f"rom-converto at {hl(ROM_CONVERTO_PATH)} failed its capability "
+                    f"{hl(_BINARY)} failed its capability "
                     f"probe ({failure}); disabling integration until restart"
                 )
                 self._available = False
@@ -911,14 +1005,20 @@ class RomConvertoService:
         return infos
 
     async def convert(self, operation: Operation, src: Path, out: Path) -> None:
-        """Run `operation` on `src`, writing `out`."""
-        argv = [*operation.argv, str(src), str(out)]
+        """Run `operation` on `src`, writing `out`, which must be alone in its directory.
+
+        Raises:
+            RomConvertoUnsafeSourceError: `src` is a cue sheet reaching outside its folder.
+            RomConvertoOperationError: The command failed or wrote more than `out`.
+        """
+        argv = await asyncio.to_thread(_convert_argv, operation, src, out)
         code, stdout, stderr = await _run(argv, ROM_CONVERTO_TIMEOUT)
         if code != 0:
             diagnostic = _tail(stderr) or _tail(stdout)
             raise RomConvertoOperationError(
                 f"rom-converto {' '.join(operation.argv)} failed with code {code}: {diagnostic}"
             )
+        await asyncio.to_thread(_settle_output, operation, out)
 
 
 rom_converto_service = RomConvertoService()

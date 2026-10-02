@@ -1,7 +1,12 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import {
+  type EscapableEntry,
+  popEscapable,
+  pushEscapable,
+} from "@/v2/lib/overlays/RDialog/escapeStack";
 import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 import RSelect from "./RSelect.vue";
 
@@ -190,6 +195,47 @@ describe("RSelect rules", () => {
     expect(wrapper.get(".r-select__details--error").text()).toBe(
       "Pick another",
     );
+    wrapper.unmount();
+  });
+});
+
+describe("RSelect inside an overlay", () => {
+  const dialog: EscapableEntry = {
+    close: vi.fn(),
+    persistent: false,
+  };
+
+  afterEach(() => {
+    popEscapable(dialog);
+    vi.mocked(dialog.close).mockClear();
+  });
+
+  it("closes only its own menu on Escape, leaving the dialog open", async () => {
+    pushEscapable(dialog);
+    const wrapper = mount(RSelect, {
+      props: { items: ["a", "b"], modelValue: "a", hideDetails: true },
+      attachTo: document.body,
+    });
+
+    await wrapper.get(".r-select__field").trigger("keydown", { key: "Enter" });
+    expect(document.querySelector(".r-select__panel")).not.toBeNull();
+
+    wrapper
+      .get(".r-select__field")
+      .element.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    await nextTick();
+
+    expect(document.querySelector(".r-select__panel")).toBeNull();
+    expect(dialog.close).not.toHaveBeenCalled();
+
+    wrapper
+      .get(".r-select__field")
+      .element.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    expect(dialog.close).toHaveBeenCalledOnce();
     wrapper.unmount();
   });
 });

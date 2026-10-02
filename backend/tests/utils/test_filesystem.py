@@ -9,6 +9,8 @@ from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from utils.filesystem import (
+    FILE_NAME_MAX_BYTES,
+    fit_filename,
     join_rel_path,
     link_or_copy_file,
     place_export_asset,
@@ -319,3 +321,18 @@ class TestJoinRelPath:
         assert join_rel_path("covers", "", "game.jpg") == "covers/game.jpg"
         assert join_rel_path("covers", "USA", "game.jpg") == "covers/USA/game.jpg"
         assert join_rel_path("", "") == ""
+
+
+class TestFitFilename:
+    def test_a_short_name_is_kept_whole(self):
+        assert fit_filename("Game", " [tag].zip") == "Game [tag].zip"
+
+    def test_cuts_between_characters_to_fit_the_byte_limit(self):
+        fitted = fit_filename("あ" * 100, " [tag].zip")
+        assert len(fitted.encode()) <= FILE_NAME_MAX_BYTES
+        assert fitted.endswith(" [tag].zip")
+        assert set(fitted.removesuffix(" [tag].zip")) == {"あ"}
+
+    def test_a_tail_over_the_limit_leaves_no_name(self):
+        tail = "t" * (FILE_NAME_MAX_BYTES + 1)
+        assert fit_filename("Game", tail) == tail

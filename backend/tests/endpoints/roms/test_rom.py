@@ -7,9 +7,11 @@ from urllib.parse import unquote
 import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 from tests.factories import make_rom
 
 from config.config_manager import MetadataMediaType
+from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.database.rom_filters import RomFiltersDict
@@ -59,6 +61,34 @@ def test_get_rom(client: TestClient, access_token: str, rom: Rom):
     assert body["id"] == rom.id
 
 
+def test_get_rom_lists_no_download_formats_by_default(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.get(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.json()["download_formats"] == []
+
+
+def test_get_rom_lists_the_download_formats_offered(
+    client: TestClient, access_token: str, rom: Rom, rom_file: RomFile
+):
+    with patch(
+        "endpoints.responses.rom.offered_download_formats", return_value=["iso"]
+    ) as offered:
+        response = client.get(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.json()["download_formats"] == ["iso"]
+    platform_slug, files, _request = offered.call_args.args
+    assert platform_slug == rom.platform_slug
+    assert [f.id for f in files] == [rom_file.id]
+
+
 def test_get_rom_simple(client: TestClient, access_token: str, rom: Rom):
     response = client.get(
         f"/api/roms/{rom.id}/simple",
@@ -71,6 +101,7 @@ def test_get_rom_simple(client: TestClient, access_token: str, rom: Rom):
     # SimpleRomSchema stays lightweight: none of the detail-only arrays are
     # present, so the endpoint must not eager-load them.
     assert "user_saves" not in body
+    assert "download_formats" not in body
     assert "user_states" not in body
     assert "user_screenshots" not in body
     assert "user_collections" not in body
@@ -912,6 +943,87 @@ def test_update_rom_reparses_tags_on_fs_name_change(
     assert body["regions"] == []
     assert body["revision"] == "1"
     assert body["tags"] == []
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_rejects_fs_name_over_255_bytes(
+    _get_rom_by_id_mock: AsyncMock,
+    rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    """The row must not take a name the filesystem would refuse to move to."""
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"fs_name": "あ" * 86 + ".zip"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "255 bytes" in response.json()["detail"]
+    rename_fs_rom_mock.assert_not_called()
+
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    assert refreshed.fs_name == rom.fs_name
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_status"),
+    [
+        (RomAlreadyExistsException("taken.zip"), status.HTTP_409_CONFLICT),
+        (OSError(13, "Permission denied"), status.HTTP_500_INTERNAL_SERVER_ERROR),
+    ],
+    ids=["target-exists", "move-fails"],
+)
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_failed_move_leaves_the_row_unchanged(
+    _get_rom_by_id_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    error: Exception,
+    expected_status: int,
+):
+    with patch.object(FSRomsHandler, "rename_fs_rom", side_effect=error):
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"fs_name": "taken.zip"},
+        )
+
+    assert response.status_code == expected_status
+    refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
+    assert refreshed.fs_name == rom.fs_name
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_moves_the_file_back_when_the_row_update_fails(
+    _get_rom_by_id_mock: AsyncMock,
+    rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    with patch.object(
+        db_rom_handler,
+        "update_rom",
+        side_effect=IntegrityError("UPDATE roms", {}, Exception("duplicate")),
+    ):
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"fs_name": "renamed.zip"},
+        )
+
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert [c.kwargs for c in rename_fs_rom_mock.await_args_list] == [
+        {"old_name": rom.fs_name, "new_name": "renamed.zip", "fs_path": rom.fs_path},
+        {"old_name": "renamed.zip", "new_name": rom.fs_name, "fs_path": rom.fs_path},
+    ]
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
@@ -2649,6 +2761,35 @@ class TestUnmatchMetadata:
         assert body["igdb_id"] is None
         assert body["name"] == rom.fs_name
         assert body["summary"] == ""
+
+    def test_update_rom_unmatch_metadata_clears_every_match_id(
+        self, client: TestClient, access_token: str, rom: Rom
+    ):
+        """Ids the edit form doesn't expose (gamelist) still keep a rom identified."""
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "gamelist_id": "./Mario Kart 64.z64",
+                "libretro_id": "Mario Kart 64 (USA)",
+                "csdb_id": 42,
+            },
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"unmatch_metadata": True},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["gamelist_id"] is None
+        assert body["libretro_id"] is None
+        assert body["csdb_id"] is None
+
+        unmatched = db_rom_handler.get_rom(rom.id)
+        assert unmatched is not None
+        assert not unmatched.is_identified
 
 
 def test_rom_filters_stay_individual_query_parameters(client: TestClient):

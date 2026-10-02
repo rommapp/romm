@@ -43,8 +43,8 @@ def _keys(rom_id: int) -> set[tuple[int, int, str]]:
     """
     with sync_session.begin() as session:
         return {
-            tuple(row)
-            for row in session.execute(
+            (provider, platform_id, provider_id)
+            for provider, platform_id, provider_id in session.execute(
                 select(
                     RomIdentityKey.provider,
                     RomIdentityKey.platform_id,

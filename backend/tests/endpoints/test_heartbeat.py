@@ -63,6 +63,8 @@ def test_heartbeat(client):
     assert isinstance(oidc["PROVIDER"], str)
     assert isinstance(oidc["RP_INITIATED_LOGOUT"], bool)
 
+    assert isinstance(heartbeat["CONVERTO"]["ENABLED"], bool)
+
 
 @pytest.mark.parametrize(
     "authorization_header",

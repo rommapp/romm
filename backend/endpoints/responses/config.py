@@ -48,5 +48,3 @@ class ConfigResponse(TypedDict):
     CONVERTO: ConvertoConfig
     # Platform slug -> the formats its library can be stored in.
     CONVERTO_LIBRARY_TARGETS: dict[str, list[str]]
-    # Platform slug -> input extension -> the formats a download can be converted to.
-    CONVERTO_DOWNLOAD_FORMATS: dict[str, dict[str, list[str]]]

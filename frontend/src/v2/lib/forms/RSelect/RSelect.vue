@@ -36,6 +36,7 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { useEscapable } from "@/v2/composables/useEscapable";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
@@ -745,6 +746,16 @@ onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", onDocPointerDown, true);
 });
 
+useEscapable(
+  isOpen,
+  () => {
+    const focusInPanel = !!panelRef.value?.contains(document.activeElement);
+    closeMenu();
+    if (focusInPanel) activatorRef.value?.focus();
+  },
+  () => panelRef.value,
+);
+
 // Close when search is changed externally? No, keep open while
 // editing search. Reset active index to 0 when filter changes so
 // keyboard nav stays sensible.
@@ -802,12 +813,6 @@ function onActivatorKey(evt: KeyboardEvent) {
         if (item) selectItem(item);
       }
       break;
-    case "Escape":
-      if (isOpen.value) {
-        evt.preventDefault();
-        closeMenu();
-      }
-      break;
     case "Tab":
       if (isOpen.value) closeMenu();
       break;
@@ -830,11 +835,6 @@ function onSearchKey(evt: KeyboardEvent) {
       if (item) selectItem(item);
       break;
     }
-    case "Escape":
-      evt.preventDefault();
-      closeMenu();
-      activatorRef.value?.focus();
-      break;
   }
 }
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionKey } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import { makeRom as baseRom } from "@/utils/rom.fixtures";
@@ -9,6 +9,9 @@ const push = vi.fn();
 const confirmFn = vi.fn();
 const startScan = vi.fn(() => true);
 const snackbarInfo = vi.fn();
+const snackbarError = vi.fn();
+const probeFormatDownload = vi.fn();
+const downloadRom = vi.fn();
 const confirmProtectedLaunch = { value: true };
 const canPlayEJS = { value: true };
 const canPlayJsDos = { value: false };
@@ -37,8 +40,13 @@ vi.mock("@/composables/useUISettings", () => ({
   useUISettings: () => ({ confirmProtectedLaunch }),
 }));
 vi.mock("@/services/api/rom", () => ({
-  default: { updateUserRomProps: vi.fn() },
+  default: {
+    updateUserRomProps: vi.fn(),
+    probeFormatDownload: (href: string) => probeFormatDownload(href),
+    downloadRom: (opts: unknown) => downloadRom(opts),
+  },
 }));
+
 const authScopes: string[] = [];
 const deviceInstall = {
   ENABLED: true,
@@ -68,11 +76,17 @@ vi.mock("@/stores/streaming", () => ({
     fetchJoinableSessions: vi.fn(),
   }),
 }));
-vi.mock("@/utils", () => ({
-  getDownloadLink: vi.fn(),
-  getDownloadPath: vi.fn(),
-  isNintendoDSRom: () => false,
-}));
+vi.mock("@/utils", async () => {
+  const actual = await vi.importActual<typeof import("@/utils/downloadPath")>(
+    "@/utils/downloadPath",
+  );
+  return {
+    getDownloadLink: vi.fn(),
+    getDownloadPath: vi.fn(() => "/api/roms/1/content/game.chd?format=iso"),
+    getSoleRomFile: actual.getSoleRomFile,
+    isNintendoDSRom: () => false,
+  };
+});
 vi.mock("@/v2/composables/useCan", () => ({
   useCan: (action: ActionKey) => ({
     get value() {
@@ -116,7 +130,11 @@ vi.mock("@/v2/composables/useScanTrigger", () => ({
   useScanTrigger: () => ({ startScan }),
 }));
 vi.mock("@/v2/composables/useSnackbar", () => ({
-  useSnackbar: () => ({ success: vi.fn(), error: vi.fn(), info: snackbarInfo }),
+  useSnackbar: () => ({
+    success: vi.fn(),
+    error: snackbarError,
+    info: snackbarInfo,
+  }),
 }));
 vi.mock("@/v2/composables/useViewTransition", () => ({
   useViewTransition: () => ({
@@ -139,6 +157,9 @@ beforeEach(() => {
   confirmFn.mockClear();
   startScan.mockClear();
   snackbarInfo.mockClear();
+  snackbarError.mockClear();
+  probeFormatDownload.mockReset();
+  downloadRom.mockReset();
   confirmProtectedLaunch.value = true;
   canPlayEJS.value = true;
   canPlayJsDos.value = false;
@@ -580,5 +601,107 @@ describe("useGameActions.refreshFiles", () => {
     actions.refreshFiles();
 
     expect(snackbarInfo).not.toHaveBeenCalled();
+  });
+});
+
+describe("useGameActions.downloadAs", () => {
+  function pspRom(
+    files: { id: number; file_name: string }[],
+    downloadFormats = ["cso", "iso", "zso"],
+  ): SimpleRom {
+    return {
+      ...baseRom({
+        platform_slug: "psp",
+        has_file_on_disk: true,
+        files: files as SimpleRom["files"],
+      }),
+      download_formats: downloadFormats,
+    } as SimpleRom;
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("offers the formats the detailed rom lists", () => {
+    const rom = pspRom([{ id: 1, file_name: "Game.CHD" }]);
+    expect(useGameActions(() => rom).downloadFormats.value).toEqual([
+      "cso",
+      "iso",
+      "zso",
+    ]);
+  });
+
+  it("offers nothing for a rom without the list or without a file", () => {
+    const simple = baseRom({ platform_slug: "psp", has_file_on_disk: true });
+    expect(useGameActions(() => simple).downloadFormats.value).toEqual([]);
+
+    const missing = { ...pspRom([]), has_file_on_disk: false } as SimpleRom;
+    expect(useGameActions(() => missing).downloadFormats.value).toEqual([]);
+  });
+
+  it("downloads straight away when the format can be served", async () => {
+    probeFormatDownload.mockResolvedValue({
+      status: 206,
+      retryAfterSeconds: null,
+    });
+    const rom = pspRom([{ id: 7, file_name: "game.chd" }]);
+
+    await useGameActions(() => rom).downloadAs("iso");
+
+    expect(downloadRom).toHaveBeenCalledWith({
+      rom,
+      fileIDs: [7],
+      format: "iso",
+    });
+    expect(snackbarInfo).not.toHaveBeenCalled();
+  });
+
+  it("polls while it converts, then downloads", async () => {
+    vi.useFakeTimers();
+    probeFormatDownload
+      .mockResolvedValueOnce({ status: 202, retryAfterSeconds: 5 })
+      .mockResolvedValueOnce({ status: 206, retryAfterSeconds: null });
+    const rom = pspRom([{ id: 7, file_name: "game.chd" }]);
+
+    const pending = useGameActions(() => rom).downloadAs("iso");
+    await vi.advanceTimersByTimeAsync(5000);
+    await pending;
+
+    expect(snackbarInfo).toHaveBeenCalledWith("rom.download-as-preparing");
+    expect(probeFormatDownload).toHaveBeenCalledTimes(2);
+    expect(downloadRom).toHaveBeenCalledOnce();
+  });
+
+  it("reports a format the server refuses", async () => {
+    probeFormatDownload.mockResolvedValue({
+      status: 406,
+      retryAfterSeconds: null,
+    });
+    const rom = pspRom([{ id: 7, file_name: "game.chd" }]);
+
+    await useGameActions(() => rom).downloadAs("iso");
+
+    expect(downloadRom).not.toHaveBeenCalled();
+    expect(snackbarError).toHaveBeenCalledWith("rom.download-as-unavailable", {
+      persist: { body: "Game", link: "/rom/1" },
+    });
+  });
+
+  it("ignores a second click while the first is still waiting", async () => {
+    vi.useFakeTimers();
+    probeFormatDownload
+      .mockResolvedValueOnce({ status: 202, retryAfterSeconds: 5 })
+      .mockResolvedValueOnce({ status: 206, retryAfterSeconds: null });
+    const rom = pspRom([{ id: 7, file_name: "game.chd" }]);
+    const actions = useGameActions(() => rom);
+
+    const first = actions.downloadAs("iso");
+    await actions.downloadAs("iso");
+    await vi.advanceTimersByTimeAsync(5000);
+    await first;
+
+    expect(probeFormatDownload).toHaveBeenCalledTimes(2);
+    expect(downloadRom).toHaveBeenCalledOnce();
   });
 });

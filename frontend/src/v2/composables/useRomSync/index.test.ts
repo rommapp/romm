@@ -124,6 +124,32 @@ describe("useRomSync", () => {
     expect(getRoms).not.toHaveBeenCalled();
   });
 
+  it("applyRomWrite refetches a search ranked by relevance", () => {
+    const gallery = seedGallery(makeRom({ name_sort_key: "chrono trigger" }));
+    gallery.setOrderBy(null);
+    gallery.relevanceLed = true;
+
+    useRomSync().applyRomWrite(
+      makeRom({ name_sort_key: "chrono trigger", fs_name: "renamed.sfc" }),
+    );
+
+    expect(gallery.byPosition.size).toBe(0);
+    expect(getRoms).toHaveBeenCalled();
+  });
+
+  it("applyRomWrite reads an unset sort the backend kept in name order as the name", () => {
+    const gallery = seedGallery(makeRom({ name_sort_key: "chrono trigger" }));
+    gallery.setOrderBy(null);
+    gallery.relevanceLed = false;
+
+    useRomSync().applyRomWrite(
+      makeRom({ name_sort_key: "chrono trigger", summary: "edited" }),
+    );
+
+    expect(gallery.byPosition.size).toBe(1);
+    expect(getRoms).not.toHaveBeenCalled();
+  });
+
   it("applyRomWrite keeps an unfiltered gallery when nothing it orders by moved", () => {
     const gallery = seedGallery(makeRom({ name_sort_key: "chrono trigger" }));
     gallery.setOrderBy("name");

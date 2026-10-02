@@ -28,7 +28,7 @@ class _SlotMoved(Exception):
 class UnhashedVersions(Exception):
     """Versions a prune would drop without a hash to record them by."""
 
-    def __init__(self, versions: Sequence[Row[Any]]):
+    def __init__(self, versions: Sequence[Row[*tuple[Any, ...]]]):
         super().__init__(f"{len(versions)} versions to prune were never hashed")
         self.versions = versions
 
@@ -130,7 +130,7 @@ class DBSavesHandler(DBBaseHandler):
         file_name_prefix: str | None = None,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
-    ) -> Select[tuple[Save]]:
+    ) -> Select[Save]:
         query = select(Save).filter_by(user_id=user_id)
 
         # An empty collection is an explicit empty scope, not an absent filter.
@@ -279,10 +279,12 @@ class DBSavesHandler(DBBaseHandler):
         self,
         id: int,
         session: Session = INJECTED_SESSION,
-    ) -> Row[Any] | None:
+    ) -> Row[*tuple[Any, ...]] | None:
         return session.execute(_version_query(id)).one_or_none()
 
-    def _lock_for_removal(self, id: int, session: Session) -> Row[Any] | None:
+    def _lock_for_removal(
+        self, id: int, session: Session
+    ) -> Row[*tuple[Any, ...]] | None:
         """Lock the save's slot record, then the save, returning its current version."""
         # Before this session holds a connection, since ensuring takes its own.
         before = self._slot_version(id)
@@ -367,7 +369,7 @@ class DBSavesHandler(DBBaseHandler):
         keep: int,
         fallback_hashes: Mapping[int, str | None] | None = None,
         session: Session = INJECTED_SESSION,
-    ) -> Sequence[Row[Any]]:
+    ) -> Sequence[Row[*tuple[Any, ...]]]:
         """Delete every version of a slot past the ``keep`` newest.
 
         The slot's record is locked while its versions are listed and deleted,
@@ -438,7 +440,7 @@ class DBSavesHandler(DBBaseHandler):
     @begin_session
     def _any(
         self,
-        query: Select[Any],
+        query: Select[*tuple[Any, ...]],
         session: Session = INJECTED_SESSION,
     ) -> bool:
         return session.execute(query.limit(1)).first() is not None
@@ -522,11 +524,11 @@ class DBSavesHandler(DBBaseHandler):
         ).all()
 
 
-def _version_query(id: int) -> Select[Any]:
+def _version_query(id: int) -> Select[*tuple[Any, ...]]:
     return select(*_VERSION_COLUMNS).where(Save.id == id)
 
 
-def _loses_version(version: Row[Any], data: dict[str, Any]) -> bool:
+def _loses_version(version: Row[*tuple[Any, ...]], data: dict[str, Any]) -> bool:
     """Whether writing `data` takes this version out of its slot."""
     return bool(
         data.get("slot", version.slot) != version.slot
@@ -542,7 +544,7 @@ def _lock_slot(user_id: int, rom_id: int, slot: str, session: Session) -> None:
 
 
 def _record_loss(
-    version: Row[Any], session: Session, content_hash: str | None = None
+    version: Row[*tuple[Any, ...]], session: Session, content_hash: str | None = None
 ) -> None:
     """Remember a version leaving its slot, in the transaction that removes it."""
     content_hash = version.content_hash or content_hash

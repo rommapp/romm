@@ -13,6 +13,7 @@ from tests.factories import make_rom, make_save, make_screenshot
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
+    db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
     db_state_handler,
@@ -557,6 +558,25 @@ class TestRetroArchSyncStateScreenshots:
         "endpoints.sync.retroarch.fs_asset_handler.write_file",
         new_callable=mock.AsyncMock,
     )
+    def test_rejects_a_screenshot_the_owning_state_name_pushes_over_255_bytes(
+        self, mock_write_file: mock.AsyncMock, client, make_state
+    ):
+        # The client's name fits, but the screenshot takes the slot's longer state name.
+        make_state(f"test_rom [{'x' * 236}].state")
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state.png",
+            content=b"pngdata",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        mock_write_file.assert_not_awaited()
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
     @mock.patch("endpoints.sync.retroarch.scan_screenshot", new_callable=mock.AsyncMock)
     def test_overwrites_existing_screenshot_for_a_state(
         self,
@@ -807,6 +827,28 @@ class TestRetroArchSyncUpload:
         )
 
         assert response.status_code == status.HTTP_409_CONFLICT
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_rejects_a_name_over_255_bytes(
+        self, mock_write_file: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        # The ROM's own 254-byte name fits; its save's longer extension does not.
+        stem = "a" * 252
+        db_rom_handler.update_rom(
+            rom.id, {"fs_name": f"{stem}.z", "fs_name_no_ext": stem}
+        )
+
+        response = client.put(
+            f"/api/sync/retroarch/saves/Snes9x/{stem}.srm",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        mock_write_file.assert_not_awaited()
 
     @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.write_file",

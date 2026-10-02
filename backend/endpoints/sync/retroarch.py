@@ -36,7 +36,7 @@ from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
-from utils.filesystem import sanitize_filename
+from utils.filesystem import check_filename_length, sanitize_filename
 
 router = APIRouter(prefix="/retroarch")
 
@@ -496,6 +496,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     try:
         if sanitize_filename(file_name) != file_name:
             return _empty(status.HTTP_409_CONFLICT)
+        check_filename_length(file_name)
     except ValueError:
         return _empty(status.HTTP_409_CONFLICT)
 
@@ -518,6 +519,10 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         screenshot_file_name = (
             f"{owning_state.file_name}.png" if owning_state else file_name
         )
+        try:
+            check_filename_length(screenshot_file_name)
+        except ValueError:
+            return _empty(status.HTTP_409_CONFLICT)
 
         screenshot_path = sync_handler.state_screenshot_dir(
             request.user, rom, parsed.emulator

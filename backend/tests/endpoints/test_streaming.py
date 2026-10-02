@@ -4848,6 +4848,24 @@ def test_pull_state_rejects_unsanitizable_filename(rom: Rom, admin_user: User):
     wf.assert_not_awaited()
 
 
+def test_pull_state_rejects_a_name_too_long_once_stamped(rom: Rom, admin_user: User):
+    """A 237-byte name fits on its own, but not with the 22-byte capture stamp."""
+    container = {**_container_for(rom), "label": "PCSX2"}
+    with (
+        patch(
+            "handler.streaming.states.fetch_state_file",
+            return_value=states.PulledState("a" * 230 + ".03.p2s", b"bytes"),
+        ),
+        patch("handler.streaming.states.fetch_state_screenshot", return_value=None),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
+    ):
+        ok = asyncio.run(
+            states.pull_state_to_library(admin_user.id, rom.id, _resolved(container), 3)
+        )
+    assert ok is False
+    wf.assert_not_awaited()
+
+
 def test_hydrate_pushes_only_matching_emulator_states(rom: Rom, admin_user: User):
     """Hydration must push only states saved under this container's emulator
     namespace - EmulatorJS states for the same ROM stay out of the container."""
@@ -9024,6 +9042,97 @@ def test_claim_aborts_when_card_hydration_fails(
     assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
 
 
+def test_claim_aborts_on_an_unexpected_error_after_the_blank_card(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """An error no step planned for still frees the container and its blank card."""
+    with _streaming(_mc_container_for(rom)):
+        with (
+            patch("handler.streaming.commands.launch") as launch,
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
+            patch(
+                "handler.streaming.saves.wait_for_save_pull",
+                new=AsyncMock(side_effect=RuntimeError("redis went away")),
+            ),
+            _spawns_nothing(),
+            pytest.raises(RuntimeError, match="redis went away"),
+        ):
+            _mc_claim(client, access_token, rom.id)
+    launch.assert_not_called()
+    assert (
+        asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
+    )
+    assert db_memory_card_handler.get_cards(admin_user.id, "pcsx2") == []
+
+
+def test_claim_aborts_on_an_unexpected_error_keeps_the_players_card(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """Only a blank this claim created is discarded: the player's own card stays."""
+    card = memory_cards.create_blank_card(admin_user.id, "pcsx2", rom.platform_id)
+    with _streaming(_mc_container_for(rom)):
+        with (
+            patch("handler.streaming.commands.launch"),
+            patch("handler.streaming.memory_cards.fetch_card", return_value=None),
+            patch(
+                "handler.streaming.saves.wait_for_save_pull",
+                new=AsyncMock(side_effect=RuntimeError("redis went away")),
+            ),
+            _spawns_nothing(),
+            pytest.raises(RuntimeError),
+        ):
+            _mc_claim(client, access_token, rom.id, memory_card_id=card.id)
+    assert (
+        asyncio.run(session_store.get_session(_key_of(_mc_container_for(rom)))) is None
+    )
+    assert [c.id for c in db_memory_card_handler.get_cards(admin_user.id, "pcsx2")] == [
+        card.id
+    ]
+
+
+def test_claim_aborted_after_adopt_keeps_the_adopted_card(
+    client, access_token, admin_user: User, rom: Rom
+):
+    """The adoption stays recorded, so the next claim must mount the adopted card."""
+    card_bytes = _gci_card_bytes()
+    container = _mc_container_for(rom)
+    with _streaming(container):
+        with (
+            _adoption_storage(card_bytes),
+            patch("handler.streaming.memory_cards.fetch_card", return_value=card_bytes),
+            patch("handler.streaming.commands.launch"),
+            patch(
+                "handler.streaming.saves.wait_for_save_pull",
+                new=AsyncMock(side_effect=RuntimeError("redis went away")),
+            ),
+            _spawns_nothing(),
+            pytest.raises(RuntimeError),
+        ):
+            _mc_claim(client, access_token, rom.id, card_import="adopt")
+
+        assert asyncio.run(session_store.get_session(_key_of(container))) is None
+        cards = db_memory_card_handler.get_cards(admin_user.id, "pcsx2")
+        assert len(cards) == 1
+        assert db_memory_card_handler.get_latest_version(cards[0].id) is not None
+
+        with (
+            _adoption_storage(card_bytes),
+            patch("handler.streaming.memory_cards.fetch_card") as fetch,
+            patch(
+                "handler.streaming.memory_cards.push_card", return_value=True
+            ) as push,
+            patch("handler.streaming.commands.launch"),
+            _spawns_nothing(),
+        ):
+            r = _mc_claim(client, access_token, rom.id)
+    assert r.status_code == 202
+    fetch.assert_not_called()
+    assert push.call_args[0][1] == card_bytes
+    assert [c.id for c in db_memory_card_handler.get_cards(admin_user.id, "pcsx2")] == [
+        cards[0].id
+    ]
+
+
 def test_save_and_exit_evacuates_card(client, access_token, rom: Rom):
     with _streaming(_mc_container_for(rom)):
         with (
@@ -11038,3 +11147,26 @@ def test_restore_session_disc_does_not_record_on_broker_failure(admin_user: User
     assert ok is False
     raw = _session_raw(container)
     assert "disc_file_id" not in json.loads(raw)
+
+
+async def test_store_save_asset_fits_a_long_multibyte_rom_name(
+    admin_user: User, rom: Rom
+):
+    """A ROM name can be far over the 255-byte filename limit once encoded;
+    the pulled archive must still be stored rather than dropped."""
+    rom.fs_name_no_ext = "ゲーム" * 50
+    scanned = Save(file_name="pulled.saves.zip")
+    with (
+        patch(
+            "handler.streaming.saves.fs_asset_handler.write_file", new=AsyncMock()
+        ) as write,
+        patch.object(saves, "scan_save", new=AsyncMock(return_value=scanned)),
+        patch("handler.streaming.saves.db_save_handler.add_save") as add_save,
+    ):
+        assert await saves.store_save_asset(admin_user, rom, "pcsx2", b"zip")
+
+    filename = write.call_args.kwargs["filename"]
+    assert len(filename.encode()) <= 255
+    assert filename.startswith("ゲーム")
+    assert filename.endswith("].saves.zip")
+    add_save.assert_called_once()

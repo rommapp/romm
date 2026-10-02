@@ -22,6 +22,7 @@ from sqlalchemy.schema import CreateColumn
 from models.rom import (
     ALTERNATIVE_NAME_SOURCES,
     FULL_PATH_HASH_LENGTH,
+    SEARCH_TEXT_MAX_LENGTH,
     TITLE_ID_MAX_LENGTH,
 )
 from utils.database import (
@@ -48,9 +49,7 @@ PRIMARY_REGION_COLUMN = "generated_primary_region"
 PRIMARY_REGION_LENGTH = 50
 FULL_PATH_HASH_COLUMN = "full_path_hash"
 RATING_COUNT_COLUMN = "generated_rating_count"
-# In characters: a utf8mb4 TEXT holds 65535 bytes, and a longer value would
-# fail the INSERT under strict mode.
-SEARCH_ALIASES_MARIA_LENGTH = 16000
+SEARCH_TITLES_COLUMN = "search_titles"
 
 SAVE_TARGET_LAYOUT_COLUMN = "save_target_layout"
 SAVE_TARGET_LAYOUT_ENUM = "savetargetlayout"
@@ -362,7 +361,7 @@ def _maria_alias_array(source: str, key: str) -> str:
 def _maria_search_aliases() -> str:
     arrays = [_maria_alias_array(src, key) for src, key in ALTERNATIVE_NAME_SOURCES]
     joined = "CONCAT_WS(' ', " + ", ".join(arrays) + ")"
-    return f"NULLIF(LEFT({joined}, {SEARCH_ALIASES_MARIA_LENGTH}), '')"
+    return f"NULLIF(LEFT({joined}, {SEARCH_TEXT_MAX_LENGTH}), '')"
 
 
 # ---------------------------------------------------------------------------
@@ -549,7 +548,7 @@ def drop_save_target_layout_type(conn: sa.Connection) -> None:
 
 
 # The stored columns in the catalog, minus `full_path_hash`.
-PLAIN_COLUMNS = [
+PLAIN_COLUMNS: list[sa.Column[Any]] = [
     sa.Column("is_physical", sa.Boolean(), nullable=False, server_default=sa.false()),
     sa.Column("upc", sa.String(length=64)),
     sa.Column("locked_fields", CustomJSON()),
@@ -567,6 +566,7 @@ PLAIN_COLUMNS = [
         SAVE_TARGET_LAYOUT_COLUMN,
         sa.Enum(*SAVE_TARGET_LAYOUT_VALUES, name=SAVE_TARGET_LAYOUT_ENUM),
     ),
+    sa.Column(SEARCH_TITLES_COLUMN, sa.Text()),
 ]
 
 

@@ -3,7 +3,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from adapters.services.rom_converto import (
     LIBRARY_TARGETS_BY_PLATFORM,
-    download_formats,
     normalize_platform_formats,
 )
 from config.config_manager import (
@@ -194,7 +193,6 @@ def get_config(request: Request) -> ConfigResponse:
             slug: sorted(targets)
             for slug, targets in LIBRARY_TARGETS_BY_PLATFORM.items()
         },
-        CONVERTO_DOWNLOAD_FORMATS=download_formats(),
     )
 
 

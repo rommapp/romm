@@ -1,7 +1,9 @@
+import os
 from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 from tests.factories import make_rom
 
 from adapters.services.rom_converto import (
@@ -153,6 +155,47 @@ async def test_a_cue_folder_becomes_one_chd_and_its_playlist_follows(
     assert sorted(f.file_name for f in after.files) == ["game.chd", "game.m3u"]
 
 
+async def test_a_bom_cue_and_playlist_still_follow_the_conversion(
+    library: Path, admin_user: User, converto, converted
+):
+    bom = "\ufeff".encode()
+    rom = _rom(
+        library,
+        admin_user,
+        _platform("psx"),
+        {
+            "game.cue": bom + b'FILE "game.bin" BINARY\n',
+            "game.bin": b"x" * 50,
+            "game.m3u": bom + b"./game.cue\n",
+        },
+        folder=True,
+    )
+    folder = library / rom.full_path
+
+    await _run()
+
+    assert sorted(p.name for p in folder.iterdir()) == ["game.chd", "game.m3u"]
+    assert (folder / "game.m3u").read_text() == "game.chd\n"
+    # Staged beside the rom folder, whose dot-prefixed subfolders count as its files.
+    assert converted[0][1].parent.parent == library / rom.fs_path
+
+
+async def test_one_roms_failure_does_not_stop_the_run(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
+    _rom(library, admin_user, _platform("psx"), {"game.cue": b""}, folder=True)
+    mocker.patch(
+        "tasks.manual.convert_library.refresh_rom_files",
+        AsyncMock(side_effect=[RuntimeError("lock timeout"), None]),
+    )
+
+    stats = await _run()
+
+    assert stats["failed"] == 1
+    assert sorted(src for src, _ in converted) == ["game.cue", "game.iso"]
+
+
 async def test_a_file_already_in_the_library_format_is_left_alone(
     library: Path, admin_user: User, converto, converted
 ):
@@ -229,6 +272,86 @@ async def test_an_existing_output_is_never_overwritten(
     assert converted == []
     assert (library / rom.fs_path / "game.chd").read_bytes() == b"theirs"
     assert (library / rom.full_path).exists()
+
+
+async def test_an_output_appearing_during_conversion_is_never_overwritten(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    rom = _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
+    theirs = library / rom.fs_path / "game.chd"
+
+    def convert(operation, src: Path, out: Path) -> None:
+        theirs.write_bytes(b"theirs")
+        out.write_bytes(b"c")
+
+    mocker.patch.object(rom_converto_service, "convert", AsyncMock(side_effect=convert))
+
+    stats = await _run()
+
+    assert stats["failed"] == 1
+    assert theirs.read_bytes() == b"theirs"
+    assert (library / rom.full_path).exists()
+
+
+async def test_a_failed_rom_update_keeps_the_original(
+    library: Path, admin_user: User, converto, converted, mocker
+):
+    rom = _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
+    mocker.patch.object(
+        db_rom_handler, "update_rom", side_effect=SQLAlchemyError("conflict")
+    )
+
+    stats = await _run()
+
+    assert stats["failed"] == 1
+    assert sorted(p.name for p in (library / rom.fs_path).iterdir()) == ["game.iso"]
+
+
+async def test_a_cue_track_held_by_another_rom_is_not_deleted(
+    library: Path, admin_user: User, converto, converted
+):
+    psx = _platform("psx")
+    rom = _rom(library, admin_user, psx, {"game.cue": b'FILE "game.bin" BINARY\n'})
+    (library / rom.fs_path / "game.bin").write_bytes(b"x")
+    make_rom(psx, "track", fs_stem="game", fs_extension="bin")
+
+    stats = await _run(psx)
+
+    assert stats["failed"] == 1
+    assert converted == []
+    assert (library / rom.fs_path / "game.bin").exists()
+
+
+async def test_a_track_another_cue_shares_is_refused(
+    library: Path, admin_user: User, converto, converted
+):
+    track = b'FILE "game.bin" BINARY\n'
+    rom = _rom(
+        library,
+        admin_user,
+        _platform("psx"),
+        {"disc 1.cue": track, "disc 2.cue": track, "game.bin": b"x"},
+        folder=True,
+    )
+
+    stats = await _run()
+
+    assert stats["failed"] == 2
+    assert converted == []
+    assert (library / rom.full_path / "game.bin").exists()
+
+
+async def test_a_stage_left_by_a_killed_conversion_is_removed(
+    library: Path, admin_user: User, converto, converted
+):
+    rom = _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
+    stale = library / rom.fs_path / ".romm_tmp_convert_old"
+    stale.mkdir()
+    os.utime(stale, (0, 0))
+
+    await _run()
+
+    assert not stale.exists()
 
 
 async def test_a_rom_row_already_holding_the_output_name_is_left_alone(

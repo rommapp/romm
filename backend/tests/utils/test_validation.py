@@ -194,6 +194,14 @@ class TestValidateEmail:
             validate_email("résumé@example.com")
         assert "ASCII characters" in exc_info.value.message
 
+    def test_email_over_column_length(self):
+        """An email the column cannot hold fails validation, not the insert."""
+        domain = "@example.com"
+        validate_email("a" * (TEXT_FIELD_LENGTH - len(domain)) + domain)
+        with pytest.raises(ValidationError) as exc_info:
+            validate_email("a" * (TEXT_FIELD_LENGTH - len(domain) + 1) + domain)
+        assert "no more than 255 characters" in exc_info.value.message
+
 
 _USERNAME_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
 _LOWER_ALNUM = "abcdefghijklmnopqrstuvwxyz0123456789"

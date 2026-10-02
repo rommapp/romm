@@ -2,15 +2,18 @@ import type { RomFileSchema } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 
 /** Build the `/api` path that serves a ROM's content.
- *  `purpose: "play"` marks a player's fetch, which is logged as a player load. */
+ *  `purpose: "play"` marks a player's fetch, which is logged as a player load.
+ *  `format` asks for a single file in that format, converting it if needed. */
 export function getDownloadPath({
   rom,
   fileIDs = [],
   purpose,
+  format,
 }: {
   rom: SimpleRom;
   fileIDs?: number[];
   purpose?: "play";
+  format?: string;
 }) {
   const queryParams = new URLSearchParams();
   if (fileIDs.length > 0) {
@@ -18,6 +21,9 @@ export function getDownloadPath({
   }
   if (purpose) {
     queryParams.append("purpose", purpose);
+  }
+  if (format) {
+    queryParams.append("format", format);
   }
   const queryString = queryParams.toString();
 
