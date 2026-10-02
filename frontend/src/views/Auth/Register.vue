@@ -17,7 +17,7 @@ const username = ref("");
 const email = ref("");
 const password = ref("");
 const visiblePassword = ref(false);
-const validForm = ref(false);
+const validForm = ref<boolean | null>(false);
 
 function register() {
   if (!validForm.value) {

@@ -176,7 +176,8 @@ watch(
           >
             <v-col cols="12" md="5">
               <v-checkbox
-                v-model="romUser.backlogged"
+                :model-value="romUser.backlogged"
+                @update:model-value="romUser.backlogged = !!$event"
                 :disabled="!scopes.includes('roms.user.write')"
                 color="primary"
                 hide-details
@@ -189,7 +190,8 @@ watch(
                 </template>
               </v-checkbox>
               <v-checkbox
-                v-model="romUser.now_playing"
+                :model-value="romUser.now_playing"
+                @update:model-value="romUser.now_playing = !!$event"
                 :disabled="!scopes.includes('roms.user.write')"
                 color="primary"
                 hide-details
@@ -202,7 +204,8 @@ watch(
                 </template>
               </v-checkbox>
               <v-checkbox
-                v-model="romUser.hidden"
+                :model-value="romUser.hidden"
+                @update:model-value="romUser.hidden = !!$event"
                 :disabled="!scopes.includes('roms.user.write')"
                 color="primary"
                 hide-details
@@ -224,7 +227,7 @@ watch(
                 </v-col>
                 <v-col cols="12" md="8">
                   <v-rating
-                    v-model="romUser.rating"
+                    :model-value="romUser.rating"
                     :class="{ 'ml-2': mdAndUp }"
                     hover
                     ripple
@@ -246,7 +249,7 @@ watch(
                 </v-col>
                 <v-col cols="12" md="8">
                   <v-rating
-                    v-model="romUser.difficulty"
+                    :model-value="romUser.difficulty"
                     :class="{ 'ml-2': mdAndUp }"
                     hover
                     ripple

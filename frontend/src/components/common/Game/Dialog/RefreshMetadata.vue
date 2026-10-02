@@ -201,7 +201,8 @@ function closeDialog() {
                       Local
                     </span>
                     <v-switch
-                      v-model="launchboxRemoteEnabled"
+                      :model-value="launchboxRemoteEnabled"
+                      @update:model-value="launchboxRemoteEnabled = !!$event"
                       color="primary"
                       density="compact"
                       hide-details

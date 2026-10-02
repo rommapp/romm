@@ -29,6 +29,7 @@
   "vueCompilerOptions": {
     "checkUnknownComponents": true,
     "checkUnknownDirectives": true,
-    "checkUnknownEvents": true
+    "checkUnknownEvents": true,
+    "strictVModel": true
   }
 }
