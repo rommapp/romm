@@ -14,7 +14,7 @@ def store_ra_login(user_id: int, username: str, token: str) -> bool:
     if user is None:
         log.warning("no user %s to store a RetroAchievements login for", user_id)
         return False
-    # Last write wins: one player's exits on two platforms collect in exit order.
+    # Last write wins: one player's exits on two platforms are collected in exit order.
     db_user_handler.update_user(
         user_id, {"ra_login_sealed": seal({"username": username, "token": token})}
     )
