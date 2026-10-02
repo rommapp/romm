@@ -375,9 +375,8 @@ export default defineStore("v2GalleryRoms", {
       this.relevanceLed = false;
     },
 
-    /** Drop the loaded windows but keep the gallery context. Used when
-     * search / filter changes within the same gallery and we need to
-     * re-fetch from offset 0. `reorder` keeps the count as `reorderTotal`. */
+    /** Drop the loaded windows but keep the gallery context; `reorder`
+     * keeps the known result count as `reorderTotal`. */
     invalidateWindows({ reorder = false } = {}) {
       abortAllInFlight();
       if (!reorder) this.reorderTotal = null;
