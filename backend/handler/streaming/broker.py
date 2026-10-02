@@ -359,17 +359,17 @@ def http_error(
     """What raise_http_error raises, for a caller that must not chain to `exc`.
 
     `redact` is what the request carried that the broker's text may echo (a
-    stock FastAPI 422 quotes each failing value); it is taken out of the body,
-    as sent and as JSON escapes it, before the log line and the 502 detail.
+    stock FastAPI 422 quotes each failing value); it is taken out of every
+    decoded string of a JSON body, or out of a plain one as sent and as JSON
+    escapes it, before the log line and the 502 detail.
     """
-    error_body = _redacted(broker_error_body(exc), redact)
-    log.error(
-        "broker HTTP error %d: %s", exc.code, error_body[:_BROKER_ERROR_SHOWN_CHARS]
-    )
+    error_body = broker_error_body(exc)
     try:
-        detail: Any = json.loads(error_body)
+        detail: Any = _redacted_json(json.loads(error_body), redact)
+        logged = json.dumps(detail, ensure_ascii=False)
     except Exception:
-        detail = error_body
+        detail = logged = _redacted(error_body, redact)
+    log.error("broker HTTP error %d: %s", exc.code, logged[:_BROKER_ERROR_SHOWN_CHARS])
     refusal = None
     if isinstance(detail, dict):
         wrapped = detail.get("detail")
@@ -393,8 +393,7 @@ def http_error(
         truncated_raw = refusal.get("truncated", 0)
         truncated = truncated_raw if isinstance(truncated_raw, int) else 0
         return ImportRefusedError(refusals, truncated)
-    # Again once parsed: an escape json.dumps never writes decodes to the secret.
-    shown = _redacted(str(detail), redact)[:_BROKER_ERROR_SHOWN_CHARS]
+    shown = str(detail)[:_BROKER_ERROR_SHOWN_CHARS]
     return HTTPException(status_code=502, detail=f"Broker returned {exc.code}: {shown}")
 
 
@@ -406,6 +405,20 @@ def _redacted(text: str, secrets: Sequence[str]) -> str:
         for form in dict.fromkeys((json.dumps(secret)[1:-1], secret)):
             text = text.replace(form, "[redacted]")
     return text
+
+
+def _redacted_json(value: Any, secrets: Sequence[str]) -> Any:
+    """A parsed JSON value with `secrets` taken out of every string, keys included."""
+    if isinstance(value, str):
+        return _redacted(value, secrets)
+    if isinstance(value, list):
+        return [_redacted_json(item, secrets) for item in value]
+    if isinstance(value, dict):
+        return {
+            _redacted(key, secrets): _redacted_json(item, secrets)
+            for key, item in value.items()
+        }
+    return value
 
 
 def raise_unreachable(

@@ -9548,6 +9548,19 @@ def test_http_error_redacts_a_secret_the_broker_escaped_another_way():
     assert secret not in result.detail
 
 
+def test_http_error_logs_no_escaped_form_of_the_secret(caplog):
+    """The log line must not carry an escape that decodes back to the secret."""
+    secret = "tok456/secret"  # nosec B105
+    body = b'{"detail": {"msg": "bad login", "input": "\\u0074ok456\\/secret"}}'
+    exc = _http_error(422)
+    with patch.object(exc, "read", side_effect=_reads(body)):
+        _warnings_of(caplog, lambda: broker.http_error(exc, redact=(secret,)))
+
+    assert "bad login" in caplog.text
+    assert "[redacted]" in caplog.text
+    assert "ok456" not in caplog.text
+
+
 def test_broker_error_body_gives_up_on_a_slow_body():
     exc = _http_error(500)
     with (
