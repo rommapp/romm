@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, useTemplateRef } from "vue";
 import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
-import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import { useGameAnimation } from "@/composables/useGameAnimation";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
