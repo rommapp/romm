@@ -72,7 +72,7 @@ describe("useGamepad", () => {
       value: typeof pad === "function" ? pad : () => [pad],
       configurable: true,
     });
-    mount(
+    const host = mount(
       defineComponent({
         setup() {
           useGamepad().install();
@@ -81,6 +81,7 @@ describe("useGamepad", () => {
       }),
     );
     setModality("mouse");
+    return host;
   }
 
   beforeEach(() => {
@@ -90,7 +91,9 @@ describe("useGamepad", () => {
       frame = cb;
       return 1;
     });
-    vi.stubGlobal("cancelAnimationFrame", () => {});
+    vi.stubGlobal("cancelAnimationFrame", () => {
+      frame = null;
+    });
     window.addEventListener("keydown", onKeydown);
     // Live so the suite sees the tracker ignore the synthetic arrows.
     useInputModality().install();
@@ -98,6 +101,21 @@ describe("useGamepad", () => {
 
   afterEach(() => {
     window.removeEventListener("keydown", onKeydown);
+  });
+
+  it("stops polling once its host unmounts, and installs again on the next", () => {
+    const getGamepads = vi.fn(() => [padWithStick(0, 0)]);
+    const host = installOnMouse(getGamepads);
+    step();
+    const polls = getGamepads.mock.calls.length;
+
+    host.unmount();
+    step();
+    expect(getGamepads).toHaveBeenCalledTimes(polls);
+
+    installOnMouse(getGamepads);
+    step();
+    expect(getGamepads.mock.calls.length).toBeGreaterThan(polls);
   });
 
   it("steers with the left stick", () => {

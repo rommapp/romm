@@ -10,8 +10,8 @@
 // Polling is independent of `useGamepad`: this view is its own read
 // path; the real input loop keeps running in the background.
 import { RBtn, RIcon } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useEventListener, useRafFn } from "@vueuse/core";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import ControllerPad from "@/v2/components/ControllerDebug/ControllerPad.vue";
@@ -50,7 +50,6 @@ const KEYBIND_LEGEND: { button: string; key: string }[] = [
 ];
 
 const pads = ref<GamepadSnapshot[]>([]);
-const rafId = ref<number>(0);
 
 interface LogEntry {
   id: number;
@@ -101,6 +100,7 @@ function tick() {
     if (held >= HOLD_TO_EXIT_MS) {
       exitHoldStart.value = null;
       exitHoldProgress.value = 0;
+      pause();
       router.back();
       return;
     }
@@ -108,8 +108,6 @@ function tick() {
     exitHoldStart.value = null;
     exitHoldProgress.value = 0;
   }
-
-  rafId.value = requestAnimationFrame(tick);
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -126,8 +124,7 @@ function clearLog() {
   keyLog.value = [];
 }
 
-onMounted(tick);
-onBeforeUnmount(() => cancelAnimationFrame(rafId.value));
+const { pause } = useRafFn(tick);
 useEventListener(window, "keydown", onKeydown);
 
 function formatTime(t: number) {

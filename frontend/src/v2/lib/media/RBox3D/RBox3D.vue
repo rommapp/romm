@@ -20,8 +20,8 @@
 // Primitive boundaries (§II): no stores, no domain knowledge, it takes
 // three image URLs and a label. The feature composite (CoverColumn) decides
 // when a rom actually has all three faces and feeds them in.
-import { useResizeObserver } from "@vueuse/core";
-import { computed, onBeforeUnmount, onMounted, ref, type Ref } from "vue";
+import { useEventListener, useRafFn, useResizeObserver } from "@vueuse/core";
+import { computed, onMounted, ref, type Ref } from "vue";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
 defineOptions({ inheritAttrs: false });
@@ -118,7 +118,6 @@ let lastX = 0;
 let lastY = 0;
 let velX = 0; //  last-frame pointer delta, kept for the flick on release
 let velY = 0;
-let rafId = 0;
 
 // Snap transitions off whenever the box is being driven continuously (drag,
 // stick, drift); a flick coasts on an ease-out curve, and discrete keyboard
@@ -256,9 +255,8 @@ function tick() {
     coasting.value = false;
     yaw.value += AUTO_SPIN_SPEED;
   }
-
-  rafId = requestAnimationFrame(tick);
 }
+const frames = useRafFn(tick, { immediate: false });
 
 // --- Image measurement ---------------------------------------------------
 // The box mirrors the real artwork: the front (box-2D) natural ratio drives
@@ -290,36 +288,21 @@ useResizeObserver(rootEl, (entries) => {
   const w = entries[0]?.contentRect.width ?? 0;
   if (w > 0) widthPx.value = w;
 });
+// Interaction listeners are bound imperatively (not in the template) so
+// the static box element doesn't trip the no-static-element-interactions
+// rule: the same approach GameCover takes for its hover motion. The box
+// is decorative chrome with an optional manipulation affordance.
+useEventListener(rootEl, "pointerdown", onPointerDown);
+useEventListener(rootEl, "pointermove", onPointerMove);
+useEventListener(rootEl, ["pointerup", "pointercancel"], endDrag);
+useEventListener(rootEl, "keydown", onKeydown);
 onMounted(() => {
-  const root = rootEl.value;
-  if (root) {
-    widthPx.value = root.clientWidth;
-    // Interaction listeners are bound imperatively (not in the template) so
-    // the static box element doesn't trip the no-static-element-interactions
-    // rule: the same approach GameCover takes for its hover motion. The box
-    // is decorative chrome with an optional manipulation affordance.
-    root.addEventListener("pointerdown", onPointerDown);
-    root.addEventListener("pointermove", onPointerMove);
-    root.addEventListener("pointerup", endDrag);
-    root.addEventListener("pointercancel", endDrag);
-    root.addEventListener("keydown", onKeydown);
-  }
+  if (rootEl.value) widthPx.value = rootEl.value.clientWidth;
   // A cached cover can already be decoded before the load listener binds:
   // read its dimensions now so the box adopts box-2D's ratio immediately.
   measureRatio(frontImg.value, frontRatio);
   measureSpine(spineImg.value);
-  rafId = requestAnimationFrame(tick);
-});
-onBeforeUnmount(() => {
-  cancelAnimationFrame(rafId);
-  const root = rootEl.value;
-  if (root) {
-    root.removeEventListener("pointerdown", onPointerDown);
-    root.removeEventListener("pointermove", onPointerMove);
-    root.removeEventListener("pointerup", endDrag);
-    root.removeEventListener("pointercancel", endDrag);
-    root.removeEventListener("keydown", onKeydown);
-  }
+  frames.resume();
 });
 
 // --- Styles --------------------------------------------------------------

@@ -34,6 +34,7 @@
 // For wrapping CSS grids (PlatformsIndex / CollectionsIndex), where
 // there are no per-row DOM containers, use `useWrapGridNav` instead;
 // it detects rows spatially from cell rects.
+import { useEventListener, useMutationObserver } from "@vueuse/core";
 import { onBeforeUnmount, onMounted, watch, type Ref } from "vue";
 import { useRoute } from "vue-router";
 import { useInputModality } from "@/v2/composables/useInputModality";
@@ -415,12 +416,8 @@ export function useGridNav(
     focusAt(rowIdx, colIdx, { verticalJump });
   }
 
-  // Watches card rows for late-arriving children (data fetching finishes
-  // after mount, skeletons swap to real cards). When the first cell shows
-  // up (and the user is in pad modality without focus in the grid), we
-  // land focus on it.
-  let observer: MutationObserver | null = null;
-
+  // Runs as late children arrive (fetches finishing, skeletons swapping to
+  // cards), so pad focus lands on the first cell once it shows up.
   function maybeAutofocus() {
     if (modality.value !== "pad") return;
     if (!rootRef.value) return;
@@ -451,26 +448,21 @@ export function useGridNav(
   }
 
   onMounted(() => {
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("focusin", onFocusIn);
-    if (rootRef.value) {
-      observer = new MutationObserver(() => {
+    useEventListener(document, "keydown", onKey);
+    useEventListener(window, "focusin", onFocusIn);
+    useMutationObserver(
+      rootRef,
+      () => {
         scheduleSyncRoving();
         maybeAutofocus();
-      });
-      observer.observe(rootRef.value, { childList: true, subtree: true });
-    }
+      },
+      { childList: true, subtree: true },
+    );
     requestAnimationFrame(maybeAutofocus);
     scheduleSyncRoving();
   });
 
-  onBeforeUnmount(() => {
-    document.removeEventListener("keydown", onKey);
-    window.removeEventListener("focusin", onFocusIn);
-    observer?.disconnect();
-    observer = null;
-    cancelAnimationFrame(syncFrame);
-  });
+  onBeforeUnmount(() => cancelAnimationFrame(syncFrame));
 
   // Reactively autofocus when modality becomes "pad". Useful when the
   // user picks up a gamepad after loading the page with the mouse.
