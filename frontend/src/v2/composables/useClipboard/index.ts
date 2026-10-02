@@ -1,8 +1,7 @@
 // useClipboard: copy text to the clipboard with consistent feedback.
 // The browser Clipboard API only exists in a secure context (HTTPS or
-// localhost). Over plain HTTP `navigator.clipboard` is undefined, so callers
-// that relied on it silently failed. This centralizes the guard and the error
-// toast so a copy that can't happen surfaces an error instead of doing nothing.
+// localhost), so over plain HTTP the copy falls back to `execCommand("copy")`.
+// A copy that still can't happen surfaces an error instead of doing nothing.
 //
 // Usage:
 //   const clipboard = useClipboard();
@@ -22,7 +21,7 @@ export interface CopyOptions {
 }
 
 export interface UseClipboard {
-  /** True when navigator.clipboard exists AND window.isSecureContext. */
+  /** True when either the Clipboard API or the `execCommand` fallback exists. */
   isSupported: boolean;
   /**
    * Copies `text` to the clipboard. Shows the optional success toast and
@@ -32,15 +31,42 @@ export interface UseClipboard {
   copy: (text: string, opts?: CopyOptions) => Promise<boolean>;
 }
 
+// Unlike VueUse's `legacy` mode, this reports whether the copy happened.
+function legacyCopy(text: string): boolean {
+  const previous = document.activeElement as HTMLElement | null;
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.top = "0";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    // Some browsers throw instead of returning false.
+  }
+  area.remove();
+  // Spatial and grid nav track focus, so hand it back to the trigger.
+  previous?.focus({ preventScroll: true });
+  return ok;
+}
+
 export function useClipboard(): UseClipboard {
   const { t } = useI18n();
   const snackbar = useSnackbar();
 
-  const isSupported =
+  const hasClipboardApi =
     typeof navigator !== "undefined" &&
     !!navigator.clipboard &&
     typeof window !== "undefined" &&
     window.isSecureContext;
+  const hasLegacyCopy =
+    typeof document !== "undefined" &&
+    typeof document.execCommand === "function";
+  const isSupported = hasClipboardApi || hasLegacyCopy;
 
   async function copy(text: string, opts: CopyOptions = {}): Promise<boolean> {
     const fail = (defaultKey: string) => {
@@ -54,14 +80,23 @@ export function useClipboard(): UseClipboard {
       return false;
     };
 
-    if (!isSupported) return fail("common.clipboard-copy-failed");
-
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // Denied permission or lost focus: HTTPS is already there, so the
-      // secure-connection hint would mislead.
-      return fail("common.clipboard-write-failed");
+    let copied = false;
+    if (hasClipboardApi) {
+      try {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      } catch {
+        // Denied permission or lost focus; the fallback may still succeed.
+      }
+    }
+    if (!copied && hasLegacyCopy) copied = legacyCopy(text);
+    if (!copied) {
+      // With HTTPS already in place, the secure-connection hint would mislead.
+      return fail(
+        hasClipboardApi
+          ? "common.clipboard-write-failed"
+          : "common.clipboard-copy-failed",
+      );
     }
 
     if (opts.successMessage) {

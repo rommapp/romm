@@ -217,6 +217,22 @@ describe("TasksSection", () => {
     expect(getTaskStatus).toHaveBeenCalledTimes(2);
   });
 
+  it("skips the poll while the tab is hidden and catches up on return", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    const wrapper = await mountSection();
+    getTaskStatus.mockClear();
+
+    vi.advanceTimersByTime(10_000);
+    expect(getTaskStatus).not.toHaveBeenCalled();
+
+    hidden.mockReturnValue(false);
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(getTaskStatus).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+  });
+
   it("describes a scheduled task's cron expression in words", async () => {
     getTasks.mockResolvedValue({
       data: { watcher: [], scheduled: [SCHEDULED_TASK], manual: [] },
