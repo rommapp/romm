@@ -3,7 +3,6 @@
 import asyncio
 import contextlib
 import os
-import re
 import shutil
 import tempfile
 import time
@@ -14,8 +13,11 @@ from typing import Final
 from sqlalchemy.exc import SQLAlchemyError
 
 from adapters.services.rom_converto import (
+    CUE_EXT,
     Operation,
     RomConvertoError,
+    RomConvertoUnsafeSourceError,
+    cue_tracks,
     file_format,
     resolve_operation,
     rom_converto_service,
@@ -34,8 +36,6 @@ from tasks.tasks import Task
 from utils.context import initialize_context
 from utils.filesystem import LINK_FALLBACK_ERRNOS
 
-_CUE_FILE_LINE: Final = re.compile(r'^\s*FILE\s+(?:"([^"]+)"|(\S+))', re.IGNORECASE)
-_CUE_EXT: Final = ".cue"
 _PLAYLIST_EXT: Final = ".m3u"
 _CONVERT_STAGE_PREFIX: Final = f"{STAGE_PREFIX}convert_"
 
@@ -51,29 +51,14 @@ class ConvertLibraryStats:
     bytes_saved: int = 0
 
 
-def _cue_tracks(cue: Path) -> list[Path]:
-    """The track files a cue sheet references, all beside it."""
-    tracks: list[Path] = []
-    for line in cue.read_text(encoding="utf-8-sig", errors="replace").splitlines():
-        match = _CUE_FILE_LINE.match(line)
-        if match is None:
-            continue
-        name = match.group(1) or match.group(2)
-        # A track outside the cue's folder isn't this rom's to delete.
-        if Path(name).name != name:
-            raise ValueError(f"{cue.name} references a track outside its folder")
-        tracks.append(cue.with_name(name))
-    return tracks
-
-
 def _shared_tracks(cue: Path, tracks: list[Path]) -> set[Path]:
     """The tracks of `cue` that another cue beside it also references."""
     others: set[Path] = set()
     for other in cue.parent.iterdir():
-        if other == cue or other.suffix.lower() != _CUE_EXT or not other.is_file():
+        if other == cue or other.suffix.lower() != CUE_EXT or not other.is_file():
             continue
-        with contextlib.suppress(OSError, ValueError):
-            others.update(_cue_tracks(other))
+        with contextlib.suppress(OSError, RomConvertoUnsafeSourceError):
+            others.update(cue_tracks(other))
     return set(tracks) & others
 
 
@@ -107,9 +92,9 @@ def _sources(src: Path, final: Path, input_ext: str) -> list[Path]:
     """The files a conversion of `src` replaces, refusing one that would overwrite."""
     if final.exists():
         raise FileExistsError(f"{final.name} already exists")
-    if input_ext != _CUE_EXT:
+    if input_ext != CUE_EXT:
         return [src]
-    tracks = _cue_tracks(src)
+    tracks = cue_tracks(src)
     if shared := _shared_tracks(src, tracks):
         raise ValueError(
             f"{src.name} shares {sorted(p.name for p in shared)} with another cue"
