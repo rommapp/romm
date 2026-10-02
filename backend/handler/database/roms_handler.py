@@ -407,6 +407,19 @@ def _rom_file_content_key(rom_file: RomFile) -> tuple[str, str, str] | None:
     return (rom_file.crc_hash, rom_file.md5_hash, rom_file.sha1_hash)
 
 
+def _same_content(row: RomFile, scanned: RomFile) -> bool:
+    """Whether a rescanned file still holds the bytes its row was written from."""
+    if scanned.last_modified is not None and rom_file_unchanged(
+        row,
+        size=scanned.file_size_bytes,
+        mtime=scanned.last_modified,
+        hashable=False,
+    ):
+        return True
+    content_key = _rom_file_content_key(scanned)
+    return content_key is not None and content_key == _rom_file_content_key(row)
+
+
 def _cache_value_to_str(value: Any) -> str | None:
     if value is None:
         return None
@@ -2622,20 +2635,8 @@ class DBRomsHandler(DBBaseHandler):
 
         Returns the cover path this update orphaned, if any.
         """
-        # Unread metadata is reusable only when it still describes the same content.
-        content_key = _rom_file_content_key(scanned)
-        keep_converto = not inspected and (
-            (
-                scanned.last_modified is not None
-                and rom_file_unchanged(
-                    row,
-                    size=scanned.file_size_bytes,
-                    mtime=scanned.last_modified,
-                    hashable=False,
-                )
-            )
-            or (content_key is not None and content_key == _rom_file_content_key(row))
-        )
+        # Unread title ids are reusable only when they still describe the same content.
+        keep_converto = not inspected and _same_content(row, scanned)
         _copy_scanned_columns(
             scanned,
             row,
