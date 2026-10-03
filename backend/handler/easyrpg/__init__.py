@@ -8,7 +8,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Final
 
-from models.rom import Rom, RomFile
+from models.rom import RomFile
 
 # The image ships the free RTP beside the web player, which nginx serves.
 RTP_WEB_PATH: Final = "/assets/easyrpg/rtp"
@@ -116,14 +116,18 @@ class EasyRpgHandler:
             }
 
     @staticmethod
-    def game_files(rom: Rom) -> dict[str, RomFile]:
-        """A game's files on disk, keyed by their path inside its folder."""
-        prefix = f"{rom.full_path}/"
-        return {
-            file.full_path.removeprefix(prefix): file
-            for file in rom.files
-            if not file.missing_from_fs and file.full_path.startswith(prefix)
-        }
+    def game_files(files: Iterable[RomFile]) -> dict[str, RomFile]:
+        """A game's files on disk, keyed by their path inside its folder.
+
+        Args:
+            files: The rom's file rows, with their `rom` path loaded.
+        """
+        game_files: dict[str, RomFile] = {}
+        for file in files:
+            prefix = f"{file.rom.full_path}/"
+            if not file.missing_from_fs and file.full_path.startswith(prefix):
+                game_files[file.full_path.removeprefix(prefix)] = file
+        return game_files
 
     @staticmethod
     def is_game(game_files: Iterable[str]) -> bool:

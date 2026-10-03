@@ -1,5 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import EasyRpg from "./EasyRpg.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   pushOnUnload: vi.fn(),
   routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
   routerReplace: vi.fn(() => Promise.resolve()),
+  seededRom: null as unknown,
   setPlaying: vi.fn(),
   setStageActive: vi.fn(),
   snackbarError: vi.fn(),
@@ -48,7 +49,7 @@ vi.mock("@/stores/playing", () => ({
 }));
 
 vi.mock("@/stores/roms", () => ({
-  default: () => ({ getDetailedRom: () => null }),
+  default: () => ({ getDetailedRom: () => mocks.seededRom }),
 }));
 
 vi.mock("@/v2/components/shared/GameCover.vue", () => ({
@@ -112,11 +113,24 @@ const rom = {
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   mocks.routeLeaveGuard = null;
+  mocks.seededRom = null;
   mocks.getRom.mockResolvedValue({ data: rom });
   mocks.prepare.mockResolvedValue(undefined);
   mocks.push.mockResolvedValue(true);
   mocks.confirm.mockResolvedValue(false);
 });
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
 
 function mountView(): VueWrapper {
   return mount(EasyRpg, {
@@ -192,6 +206,56 @@ describe("EasyRpg", () => {
       expect.objectContaining({ title: "play.easyrpg-quit-without-saving" }),
     );
     expect(mocks.routerReplace).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("plans the launch from the fetched rom, not the seeded one", async () => {
+    mocks.seededRom = { ...rom, user_saves: [{ id: 99 }] };
+    const fetched = deferred<{ data: typeof rom }>();
+    mocks.getRom.mockReturnValue(fetched.promise);
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(
+      wrapper.get(".r-v2-player__play").attributes("disabled"),
+    ).toBeDefined();
+
+    fetched.resolve({ data: rom });
+    await flushPromises();
+    await wrapper.get(".r-v2-player__play").trigger("click");
+    await flushPromises();
+
+    expect(mocks.syncArgs).toEqual([rom, "1"]);
+    wrapper.unmount();
+  });
+
+  it("does not start a game the user left while its saves loaded", async () => {
+    const preparing = deferred<undefined>();
+    mocks.prepare.mockReturnValue(preparing.promise);
+    const wrapper = mountView();
+    await flushPromises();
+    await wrapper.get(".r-v2-player__play").trigger("click");
+
+    wrapper.unmount();
+    preparing.resolve(undefined);
+    await flushPromises();
+
+    expect(mocks.playSessionStart).not.toHaveBeenCalled();
+  });
+
+  it("pushes again on leave when a poll push was still in flight", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const poll = deferred<boolean>();
+    mocks.push.mockReturnValueOnce(poll.promise);
+    const wrapper = await play();
+
+    vi.advanceTimersByTime(5000);
+    mocks.routeLeaveGuard?.({ fullPath: "/rom/1" });
+    poll.resolve(true);
+    await flushPromises();
+
+    expect(mocks.push).toHaveBeenCalledTimes(2);
+    expect(mocks.routerReplace).toHaveBeenCalledWith("/rom/1");
     wrapper.unmount();
   });
 

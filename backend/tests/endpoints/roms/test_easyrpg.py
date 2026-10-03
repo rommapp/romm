@@ -72,11 +72,13 @@ def test_rtp_files_are_served_from_the_player_assets(
     )
 
 
-@pytest.mark.parametrize("path", ["Music/Missing.mid", "../other/RPG_RT.ldb"])
+# Encoded, or the client collapses the dot segments before the route sees them.
+@pytest.mark.parametrize("path", ["Music/Missing.mid", "%2E%2E/other/RPG_RT.ldb"])
 def test_unknown_paths_are_not_found(client: TestClient, headers, game: Rom, path):
     response = client.get(f"/api/roms/{game.id}/easyrpg/{path}", headers=headers)
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "File not found"
 
 
 def test_a_folder_without_a_game_database_is_not_found(

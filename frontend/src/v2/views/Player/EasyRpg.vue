@@ -3,7 +3,7 @@ import { RSwitch } from "@v2/lib";
 import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
-import { onBeforeRouteLeave, useRouter } from "vue-router";
+import { onBeforeRouteLeave } from "vue-router";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
@@ -11,7 +11,9 @@ import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { usePlayingWhile } from "@/v2/composables/useStageActive";
@@ -23,7 +25,8 @@ import { EasyRpgSaveSync } from "@/v2/utils/easyRpgSaves";
 const SAVE_POLL_MS = 5000;
 
 const { t } = useI18n();
-const router = useRouter();
+const exit = usePlayerExit();
+const alive = useIsAlive();
 const authStore = storeAuth();
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
@@ -32,6 +35,8 @@ const snackbar = useSnackbar();
 const confirm = useConfirm();
 
 const rom = shallowRef<DetailedRom | null>(null);
+// The seeded rom can carry stale saves, and the launch plan trusts them.
+const romFetched = ref(false);
 const gameRunning = ref(false);
 // The game takes the keyboard inside its frame, so app hotkeys stand down.
 usePlayingWhile(gameRunning);
@@ -60,6 +65,12 @@ function pushSaves(): Promise<boolean> {
   return pushing;
 }
 
+// A push in flight may have read the saves before the latest one landed.
+async function flushSaves(): Promise<boolean> {
+  await pushing;
+  return pushSaves();
+}
+
 const savePoll = useIntervalFn(() => void pushSaves(), SAVE_POLL_MS, {
   immediate: false,
 });
@@ -80,6 +91,7 @@ async function onPlay() {
   } finally {
     preparing.value = false;
   }
+  if (!alive.value) return;
 
   saveSync = sync;
   gameRunning.value = true;
@@ -107,7 +119,7 @@ async function leavePlayer(destination: string) {
   if (quitting.value) return;
   quitting.value = true;
 
-  if (saveSync && !(await pushSaves())) {
+  if (saveSync && !(await flushSaves())) {
     const discard = await confirm({
       title: t("play.easyrpg-quit-without-saving"),
       confirmText: t("common.discard"),
@@ -121,7 +133,7 @@ async function leavePlayer(destination: string) {
   }
 
   teardown();
-  void router.replace(destination);
+  exit.leave(destination);
 }
 
 function onlyQuit() {
@@ -132,11 +144,13 @@ useUnloadGuard(() => gameRunning.value && !quitting.value);
 
 onMounted(async () => {
   const romResponse = await romApi.getRom({ romId });
+  if (!alive.value) return;
   rom.value = romResponse.data;
+  romFetched.value = true;
 });
 
 onBeforeRouteLeave((to) => {
-  if (!saveSync) return true;
+  if (!saveSync) return exit.guard(to);
   void leavePlayer(to.fullPath);
   return false;
 });
@@ -155,7 +169,7 @@ onBeforeUnmount(teardown);
     :title="title"
     :platform-label="platformLabel"
     :rom-id="romId"
-    :ready="!!rom && !preparing"
+    :ready="romFetched && !preparing"
     :running="gameRunning"
     :quitting="quitting"
     @play="onPlay"

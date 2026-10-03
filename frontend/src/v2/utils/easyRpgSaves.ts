@@ -72,8 +72,10 @@ async function withSaveStore<T>(
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error);
     });
-    const result = await run(transaction.objectStore(IDBFS_STORE));
-    await committed;
+    const [result] = await Promise.all([
+      run(transaction.objectStore(IDBFS_STORE)),
+      committed,
+    ]);
     return result;
   } finally {
     db.close();
@@ -193,9 +195,9 @@ export class EasyRpgSaveSync {
     );
   }
 
-  private remember(save: SaveSchema, modified: Date) {
-    this.stored.set(save.file_name, save);
-    this.synced.set(save.file_name, modified.getTime());
+  private remember(save: EasyRpgSave, stored: SaveSchema) {
+    this.stored.set(save.name, stored);
+    this.synced.set(save.name, save.modified.getTime());
   }
 
   /** Load the server's saves into the player before it starts. */
@@ -251,7 +253,7 @@ export class EasyRpgSaveSync {
           savesToUpload: [{ saveFile: saveFileOf(save) }],
         });
         if (result?.status !== "fulfilled") return false;
-        this.remember(result.value, save.modified);
+        this.remember(save, result.value);
         return true;
       }),
     );

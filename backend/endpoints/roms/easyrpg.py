@@ -20,6 +20,9 @@ from utils.router import APIRouter
 
 router = APIRouter()
 
+# As nginx serves them, so a game's HTML or SVG never renders on this origin.
+_OCTET_STREAM = "application/octet-stream"
+
 
 def _not_found(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
@@ -40,13 +43,14 @@ async def get_easyrpg_file(
     if DISABLE_EASYRPG:
         raise _not_found("EasyRPG is disabled")
 
-    rom = db_rom_handler.get_rom(id)
+    # The player fetches every asset through here, so the full rom is never loaded.
+    rom = db_rom_handler.get_rom_visibility(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
     assert_rom_visible(request, rom)
 
-    game_files = easyrpg_handler.game_files(rom)
+    game_files = easyrpg_handler.game_files(db_rom_handler.rom_files_for_rom_id(id))
     if not easyrpg_handler.is_game(game_files):
         raise _not_found("Not an RPG Maker 2000/2003 game")
 
@@ -58,14 +62,20 @@ async def get_easyrpg_file(
 
     if file := game_files.get(path):
         if DEV_MODE:
-            return FileResponse(path=fs_rom_handler.validate_path(file.full_path))
+            return FileResponse(
+                path=fs_rom_handler.validate_path(file.full_path),
+                media_type=_OCTET_STREAM,
+            )
         return FileRedirectResponse(
             download_path=PurePosixPath(f"/library/{file.full_path}")
         )
 
     if rtp_file := easyrpg_handler.find_rtp_file(path):
         if DEV_MODE:
-            return FileResponse(path=f"{easyrpg_handler.rtp_path}/{rtp_file}")
+            return FileResponse(
+                path=f"{easyrpg_handler.rtp_path}/{rtp_file}",
+                media_type=_OCTET_STREAM,
+            )
         return FileRedirectResponse(download_path=PurePosixPath(RTP_WEB_PATH, rtp_file))
 
     raise _not_found("File not found")
