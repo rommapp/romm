@@ -133,6 +133,30 @@ def _ensure_database_exists() -> None:
         admin_engine.dispose()
 
 
+def _drop_database() -> None:
+    """Drop the temporary database a ROMM_TEST_DB_TAG run created."""
+    url = ConfigManager.get_db_engine()
+    db_name = url.database
+    if not db_name or not re.fullmatch(r"[A-Za-z0-9_]+", db_name):
+        return
+
+    engine.dispose()
+    sync_engine.dispose()
+    if ROMM_DB_DRIVER in ("mariadb", "mysql"):
+        admin_engine = create_engine(url.set(database="information_schema"))
+        with admin_engine.begin() as conn:
+            conn.execute(text(f"DROP DATABASE IF EXISTS `{db_name}`"))
+    elif ROMM_DB_DRIVER == "postgresql":
+        admin_engine = create_engine(
+            url.set(database="postgres"), isolation_level="AUTOCOMMIT"
+        )
+        with admin_engine.connect() as conn:
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{db_name}" WITH (FORCE)'))
+    else:
+        return
+    admin_engine.dispose()
+
+
 @pytest.fixture(autouse=True)
 def raise_on_response_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(response_validation, "RAISE_ON_MISMATCH", True)
@@ -151,7 +175,12 @@ def lenient(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     _ensure_database_exists()
-    alembic.config.main(argv=["upgrade", "head"])
+    try:
+        alembic.config.main(argv=["upgrade", "head"])
+        yield
+    finally:
+        if os.environ.get("ROMM_TEST_DB_TAG"):
+            _drop_database()
 
 
 @pytest.fixture(autouse=True)
