@@ -1,4 +1,4 @@
-"""Regenerate handler/easyrpg/rtp_table.json from EasyRPG Player's RTP table."""
+"""Regenerate handler/easyrpg/fixtures/rtp_table.json from EasyRPG Player's RTP table."""
 
 import json
 import re
@@ -9,7 +9,9 @@ from handler.easyrpg import normalize_name
 
 ROW_RE = re.compile(r"^\s*\{(.*)\},\s*$")
 CELL_RE = re.compile(r'"((?:[^"\\]|\\.)*)"|nullptr')
-OUTPUT = Path(__file__).parent.parent / "handler" / "easyrpg" / "rtp_table.json"
+OUTPUT = (
+    Path(__file__).parent.parent / "handler" / "easyrpg" / "fixtures" / "rtp_table.json"
+)
 USAGE = "usage: uv run python -m tools.generate_easyrpg_rtp_table <Player>/src/rtp_table.cpp"
 
 
