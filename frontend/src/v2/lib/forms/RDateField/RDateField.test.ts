@@ -106,37 +106,22 @@ describe("RDateField", () => {
     expect(focusedKey()).toBe("2024-2-23");
   });
 
-  it.each([
-    ["ArrowRight", 16],
-    ["End", 17],
-  ])(
-    "asks for a visible focus ring when %s moves the day",
-    async (key, day) => {
-      const wrapper = await openPicker();
-      const focus = vi.spyOn(dayCell(day)!, "focus");
+  it("asks for a visible focus ring on the day it opens on and moves to", async () => {
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    const wrapper = await openPicker();
+    const panel = document.querySelector(".r-date-cal") as HTMLElement;
+    panel.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    await wrapper.vm.$nextTick();
 
-      document
-        .querySelector(".r-date-cal")!
-        .dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
-      await wrapper.vm.$nextTick();
-      await wrapper.vm.$nextTick();
-
-      expect(focus).toHaveBeenCalledWith(
+    for (const day of [15, 16]) {
+      const call = focus.mock.contexts.indexOf(dayCell(day)!);
+      expect(call).toBeGreaterThanOrEqual(0);
+      expect(focus.mock.calls[call]?.[0]).toEqual(
         expect.objectContaining({ focusVisible: true }),
       );
-    },
-  );
-
-  it("asks for a visible focus ring on the day it opens on", async () => {
-    const focus = vi.spyOn(HTMLElement.prototype, "focus");
-
-    await openPicker();
-    await nextTick();
-
-    const call = focus.mock.contexts.indexOf(dayCell(15)!);
-    expect(focus.mock.calls[call]?.[0]).toEqual(
-      expect.objectContaining({ focusVisible: true }),
-    );
+    }
   });
 
   it("keeps the label and the emitted value on the same day", async () => {

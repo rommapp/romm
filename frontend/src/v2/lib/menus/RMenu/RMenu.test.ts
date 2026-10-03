@@ -8,13 +8,16 @@ vi.mock("@/v2/composables/useInputModality", () => ({
   useInputModality: () => ({ modality }),
 }));
 
-function mountMenu() {
+function mountMenu({
+  props = { disabled: false },
+  content = `<div class="item">Item</div>`,
+}: { props?: Record<string, unknown>; content?: string } = {}) {
   return mount(RMenu, {
     attachTo: document.body,
-    props: { disabled: false },
+    props,
     slots: {
       activator: `<template #activator="{ props }"><button type="button" class="trigger" v-bind="props">Open</button></template>`,
-      default: `<div class="item">Item</div>`,
+      default: content,
     },
   });
 }
@@ -43,13 +46,10 @@ describe("RMenu", () => {
   // otherwise open with nothing focused and no cell for the arrows to leave.
   it("opens on the first `initialFocus` selector that matches", async () => {
     modality.value = "key";
-    const wrapper = mount(RMenu, {
-      attachTo: document.body,
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    const wrapper = mountMenu({
       props: { initialFocus: [".missing", ".pick-me"] },
-      slots: {
-        activator: `<template #activator="{ props }"><button type="button" class="trigger" v-bind="props">Open</button></template>`,
-        default: `<button type="button" class="skip-me">A</button><button type="button" class="pick-me">B</button>`,
-      },
+      content: `<button type="button" class="skip-me">A</button><button type="button" class="pick-me">B</button>`,
     });
 
     await wrapper.find("button.trigger").trigger("click");
@@ -59,49 +59,23 @@ describe("RMenu", () => {
     );
 
     expect(document.activeElement).toBe(document.querySelector(".pick-me"));
-    wrapper.unmount();
-  });
-
-  it("asks for a visible focus ring when keyboard or pad opens it", async () => {
-    modality.value = "key";
-    const focus = vi.spyOn(HTMLElement.prototype, "focus");
-    const wrapper = mount(RMenu, {
-      attachTo: document.body,
-      props: { initialFocus: ".pick-me" },
-      slots: {
-        activator: `<template #activator="{ props }"><button type="button" class="trigger" v-bind="props">Open</button></template>`,
-        default: `<button type="button" class="pick-me">B</button>`,
-      },
-    });
-
-    await wrapper.find("button.trigger").trigger("click");
-    await flushPromises();
-    await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => resolve()),
-    );
-
-    const call = focus.mock.contexts.indexOf(
-      document.querySelector(".pick-me")!,
-    );
-    expect(focus.mock.calls[call]?.[0]).toEqual(
+    expect(focus).toHaveBeenLastCalledWith(
       expect.objectContaining({ focusVisible: true }),
     );
     wrapper.unmount();
   });
 
   it("asks for a visible focus ring when an arrow key moves between items", async () => {
-    const wrapper = mount(RMenu, {
-      attachTo: document.body,
-      slots: {
-        activator: `<template #activator="{ props }"><button type="button" class="trigger" v-bind="props">Open</button></template>`,
-        default: `<button type="button" class="r-menu-item first">A</button><button type="button" class="r-menu-item second">B</button>`,
-      },
+    const wrapper = mountMenu({
+      content: `<button type="button" class="r-menu-item first">A</button><button type="button" class="r-menu-item second">B</button>`,
     });
     await wrapper.find("button.trigger").trigger("click");
     await flushPromises();
     document.querySelector<HTMLElement>(".first")!.focus();
-    const second = document.querySelector<HTMLElement>(".second")!;
-    const focus = vi.spyOn(second, "focus");
+    const focus = vi.spyOn(
+      document.querySelector<HTMLElement>(".second")!,
+      "focus",
+    );
 
     document.activeElement!.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
