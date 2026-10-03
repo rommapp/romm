@@ -11,7 +11,7 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Unpack
 from unittest.mock import MagicMock
 
 import alembic.config
@@ -22,6 +22,8 @@ from joserfc import jwt
 from sqlalchemy import (
     Connection,
     Engine,
+    Select,
+    Table,
     create_engine,
     event,
     exists,
@@ -53,21 +55,12 @@ from handler.database import (
 )
 from handler.database.base_handler import sync_engine
 from logger.formatter import SENSITIVE_KEYS
-from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
-from models.audit_event import AuditEvent
-from models.client_token import ClientToken
-from models.container_adoption import StreamingContainerAdoption
-from models.deleted_asset import DeletedAsset
-from models.device import Device
-from models.device_save_sync import DeviceSaveSync
-from models.firmware import Firmware
-from models.notification import Notification
-from models.notification_channel import NotificationChannel
-from models.permission import SystemGroupKey
+from models import load_all_models
+from models.assets import MemoryCard, MemoryCardVersion
+from models.base import BaseModel
+from models.permission import PermissionGroup, PermissionGroupGrant, SystemGroupKey
 from models.platform import Platform
-from models.play_session import PlaySession
 from models.rom import Rom, RomFile
-from models.sync_session import SyncSession
 from models.user import Role, User
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
@@ -387,44 +380,35 @@ def setup_database():
             _drop_database()
 
 
-# Children before parents. Deleting a parent cascades to the tables not listed.
-_CLEARED_MODELS = (
-    AuditEvent,
-    Notification,
-    NotificationChannel,
-    PlaySession,
-    ClientToken,
-    SyncSession,
-    DeviceSaveSync,
-    Device,
-    MemoryCardVersion,
-    MemoryCard,
-    StreamingContainerAdoption,
-    DeletedAsset,
-    Save,
-    State,
-    Screenshot,
-    RomFile,
-    Rom,
-    Firmware,
-    Platform,
-    User,
+# Rows the migrations seed, which tests expect to find.
+_SEEDED_TABLES = frozenset(
+    {PermissionGroup.__tablename__, PermissionGroupGrant.__tablename__}
 )
-# One round trip finds the tables holding rows, so empty ones skip their DELETE.
-_HAS_ROWS = select(
-    *(
-        exists().select_from(model).label(model.__tablename__)
-        for model in _CLEARED_MODELS
+
+
+@functools.cache
+def _cleared_tables() -> tuple[tuple[Table, ...], Select[Unpack[tuple[Any, ...]]]]:
+    """Every model table but views and seeded ones, children first, plus a row probe."""
+    load_all_models()
+    # Read once the database is migrated, as the views exist only then.
+    skipped = _SEEDED_TABLES | set(inspect(engine).get_view_names())
+    tables = tuple(
+        table
+        for table in reversed(BaseModel.metadata.sorted_tables)
+        if table.name not in skipped
     )
-)
+    # One round trip finds the tables holding rows, so empty ones skip their DELETE.
+    has_rows = select(*(exists().select_from(t).label(t.name) for t in tables))
+    return tables, has_rows
 
 
 def _clear_tables() -> None:
+    tables, has_rows = _cleared_tables()
     with session.begin() as s:
-        has_rows = s.execute(_HAS_ROWS).one()
-        for model, dirty in zip(_CLEARED_MODELS, has_rows, strict=True):
-            if dirty:
-                s.query(model).delete(synchronize_session=False)
+        dirty = s.execute(has_rows).one()
+        for table, has_any in zip(tables, dirty, strict=True):
+            if has_any:
+                s.execute(table.delete())
 
 
 @pytest.fixture(autouse=True)

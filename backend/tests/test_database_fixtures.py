@@ -8,6 +8,7 @@ from tests.conftest import (
     _alembic_version,
     _capture_statements,
     _clear_tables,
+    _cleared_tables,
     _copy_schema,
     _recreate_database,
     _schema_names,
@@ -16,7 +17,10 @@ from tests.conftest import (
 )
 
 from config import ROMM_DB_DRIVER
+from models.collection import Collection, VirtualCollection
+from models.permission import PermissionGroup, PermissionGroupGrant
 from models.platform import Platform
+from models.rom import Rom, RomMetadata, SiblingRom
 
 _AUTO_INCREMENT_RE = re.compile(r" AUTO_INCREMENT=\d+")
 
@@ -86,6 +90,32 @@ def test_copy_schema_reproduces_the_migrated_database(
         )
     finally:
         scratch_connection.exec_driver_sql(f"DROP DATABASE IF EXISTS `{target}`")
+
+
+def test_cleared_tables_skip_views_and_seeded_tables() -> None:
+    tables, _ = _cleared_tables()
+    names = [table.name for table in tables]
+
+    assert Collection.__tablename__ in names
+    assert names.index(Rom.__tablename__) < names.index(Platform.__tablename__)
+    assert not set(names) & {
+        RomMetadata.__tablename__,
+        SiblingRom.__tablename__,
+        VirtualCollection.__tablename__,
+        PermissionGroup.__tablename__,
+        PermissionGroupGrant.__tablename__,
+    }
+
+
+def test_clear_tables_keeps_seeded_permission_groups(platform: Platform) -> None:
+    with session() as s:
+        groups = s.query(PermissionGroup).count()
+    assert groups
+
+    _clear_tables()
+
+    with session() as s:
+        assert s.query(PermissionGroup).count() == groups
 
 
 def test_clear_tables_deletes_only_from_tables_with_rows(platform: Platform) -> None:
