@@ -328,7 +328,7 @@ describe("Stream save picker", () => {
       ],
     });
 
-    expect((saveList(wrapper)!.props("assets") as SaveSchema[])[0].id).toBe(3);
+    expect((saveList(wrapper)!.props("assets") as SaveSchema[])[0]?.id).toBe(3);
     expect(saveList(wrapper)!.props("timestamp")).toBe("created");
     expect(preview(wrapper)!.props("timestamp")).toBe("created");
   });
@@ -347,7 +347,7 @@ describe("Stream save picker", () => {
     expect((preview(wrapper)!.props("asset") as SaveSchema).id).toBe(1);
 
     await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
-    expect(mocks.claimSession.mock.calls[0][2]).toBe(1);
+    expect(mocks.claimSession.mock.calls[0]![2]).toBe(1);
   });
 
   it("includes bare (non-archive) save files where the broker imports saves", async () => {
@@ -418,7 +418,7 @@ describe("Stream save picker", () => {
     expect(saveList(wrapper)!.props("selectedId")).toBe(9);
 
     await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
-    expect(mocks.claimSession.mock.calls[0][2]).toBe(9);
+    expect(mocks.claimSession.mock.calls[0]![2]).toBe(9);
   });
 
   it("reports instead of offering where the emulator keeps its save tree", async () => {
@@ -443,7 +443,7 @@ describe("Stream save picker", () => {
     const wrapper = await launch({ picker: false });
 
     await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
-    expect(mocks.claimSession.mock.calls[0][2]).toBeUndefined();
+    expect(mocks.claimSession.mock.calls[0]![2]).toBeUndefined();
   });
 
   it("falls back to the newest when the picked archive is gone", async () => {
@@ -482,7 +482,7 @@ function vmOf(wrapper: VueWrapper): StreamVm {
 }
 
 function endSession(notice: Record<string, unknown>): void {
-  const handler = mocks.socketHandlers["streaming:session-ended"];
+  const handler = mocks.socketHandlers["streaming:session-ended"]!;
   expect(handler).toBeTypeOf("function");
   handler({
     ended_by: "admin",
@@ -495,7 +495,7 @@ function endSession(notice: Record<string, unknown>): void {
 async function launchReady(
   payload: Record<string, unknown> = {},
 ): Promise<void> {
-  const handler = mocks.socketHandlers["streaming:launch-ready"];
+  const handler = mocks.socketHandlers["streaming:launch-ready"]!;
   expect(handler).toBeTypeOf("function");
   await handler({
     platform: "gba",
@@ -509,7 +509,7 @@ async function launchReady(
 async function launchFailed(
   payload: Record<string, unknown> = {},
 ): Promise<void> {
-  const handler = mocks.socketHandlers["streaming:launch-failed"];
+  const handler = mocks.socketHandlers["streaming:launch-failed"]!;
   expect(handler).toBeTypeOf("function");
   await handler({
     platform: "gba",
@@ -723,7 +723,7 @@ describe("Stream claim hygiene", () => {
     wrapper.unmount();
 
     const [platform, , wait, container, claimedAt] =
-      mocks.saveAndExit.mock.calls[0];
+      mocks.saveAndExit.mock.calls[0]!;
     expect([platform, wait, container, claimedAt]).toEqual([
       "gba",
       false,
@@ -740,7 +740,7 @@ describe("Stream claim hygiene", () => {
     window.dispatchEvent(new Event("pagehide"));
 
     const [platform, , container, claimedAt] =
-      mocks.saveAndExitKeepalive.mock.calls[0];
+      mocks.saveAndExitKeepalive.mock.calls[0]!;
     expect([platform, container, claimedAt]).toEqual([
       "gba",
       CLAIM.container,
@@ -757,7 +757,7 @@ describe("Stream claim hygiene", () => {
     await vmOf(wrapper).performSaveAndExit();
 
     const [platform, , wait, container, claimedAt] =
-      mocks.saveAndExit.mock.calls[0];
+      mocks.saveAndExit.mock.calls[0]!;
     expect([platform, wait, container, claimedAt]).toEqual([
       "gba",
       true,
@@ -1322,7 +1322,7 @@ describe("Stream volume over the broker", () => {
 
     await vi.advanceTimersByTimeAsync(1);
     expect(mocks.setVolume).toHaveBeenCalledOnce();
-    expect(mocks.setVolume.mock.calls[0][1]).toBe(30);
+    expect(mocks.setVolume.mock.calls[0]![1]).toBe(30);
   });
 
   it("drops a volume still settling when the view unmounts", async () => {

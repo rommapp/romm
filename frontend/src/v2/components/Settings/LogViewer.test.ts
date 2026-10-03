@@ -53,7 +53,7 @@ describe("LogViewer", () => {
     await wrapper.find('[aria-label="Copy to clipboard"]').trigger("click");
 
     expect(copy).toHaveBeenCalledTimes(1);
-    const [text, opts] = copy.mock.calls[0];
+    const [text, opts] = copy.mock.calls[0]!;
     expect(text.split("\n")).toEqual([
       "[1970-01-01T00:00:00.000Z] INFO [scan] first",
       "[1970-01-01T00:00:01.000Z] ERROR [rq] second",

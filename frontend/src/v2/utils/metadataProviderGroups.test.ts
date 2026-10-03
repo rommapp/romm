@@ -148,6 +148,6 @@ describe("groupProviders", () => {
     expect(
       sections.map((section) => section.providers.map((p) => p.key)),
     ).toEqual([["igdb"], [], ["playmatch"]]);
-    expect(sections[0].titleKey).toBe(SETUP_GROUP_LABELS.catalog.titleKey);
+    expect(sections[0]?.titleKey).toBe(SETUP_GROUP_LABELS.catalog.titleKey);
   });
 });

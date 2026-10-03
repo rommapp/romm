@@ -34,7 +34,7 @@ async function mountApproved() {
     },
   });
   await flushPromises();
-  await wrapper.findAll("button")[1].trigger("click");
+  await wrapper.findAll("button")[1]!.trigger("click");
   await flushPromises();
   return wrapper;
 }

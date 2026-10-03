@@ -129,16 +129,16 @@ describe("FirmwareTab selection", () => {
   it("checks and unchecks a single row", async () => {
     const wrapper = mountTab(rows);
 
-    await boxes(wrapper)[2].vm.$emit("update:modelValue", true);
+    await boxes(wrapper)[2]!.vm.$emit("update:modelValue", true);
     expect(checked(wrapper)).toEqual([false, true, false]);
 
-    await boxes(wrapper)[2].vm.$emit("update:modelValue", false);
+    await boxes(wrapper)[2]!.vm.$emit("update:modelValue", false);
     expect(checked(wrapper)).toEqual([false, false, false]);
   });
 
   it("selects everything from the header, then clears it", async () => {
     const wrapper = mountTab(rows);
-    const header = () => boxes(wrapper)[0];
+    const header = () => boxes(wrapper)[0]!;
 
     await header().vm.$emit("update:modelValue", true);
     expect(checked(wrapper)).toEqual([true, true, true]);
@@ -152,9 +152,9 @@ describe("FirmwareTab selection", () => {
   it("marks the header mixed while only some rows are checked", async () => {
     const wrapper = mountTab(rows);
 
-    await boxes(wrapper)[1].vm.$emit("update:modelValue", true);
+    await boxes(wrapper)[1]!.vm.$emit("update:modelValue", true);
 
-    expect(boxes(wrapper)[0].props("modelValue")).toBe(false);
-    expect(boxes(wrapper)[0].props("indeterminate")).toBe(true);
+    expect(boxes(wrapper)[0]?.props("modelValue")).toBe(false);
+    expect(boxes(wrapper)[0]?.props("indeterminate")).toBe(true);
   });
 });

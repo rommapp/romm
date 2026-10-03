@@ -88,8 +88,8 @@ describe("notificationInbox", () => {
       data: { origin_tab: expect.any(String) },
     });
     const [sent] = inbox.notifications;
-    expect(sent.id).toBe(5);
-    expect(inbox.sentFromThisTab(sent)).toBe(true);
+    expect(sent?.id).toBe(5);
+    expect(inbox.sentFromThisTab(sent!)).toBe(true);
     expect(inbox.sentFromThisTab(notification(6))).toBe(false);
   });
 

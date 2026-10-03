@@ -108,7 +108,7 @@ describe("resolvePinnedMedia", () => {
     expect(items.map((item) => item.key)).toEqual(
       defaultPinnedMediaKeys(makeRom(null)),
     );
-    expect(items[2].isVideo).toBe(true);
+    expect(items[2]?.isVideo).toBe(true);
   });
 
   it("follows the pinned order across every media source", () => {

@@ -43,7 +43,7 @@ describe("useSaveStateTabs", () => {
     );
 
     expect(allStatesCompatible.value).toBe(false);
-    expect(tabs.value[1].badge).toBe("1/2");
+    expect(tabs.value[1]?.badge).toBe("1/2");
   });
 
   it("disables states another core wrote and follows the core", () => {

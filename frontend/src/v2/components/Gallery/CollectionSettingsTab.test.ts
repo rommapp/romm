@@ -140,7 +140,7 @@ describe("CollectionSettingsTab cover preview", () => {
     const [, , remove] = wrapper.findAll(
       ".r-v2-coll-set__cover-actions button",
     );
-    await remove.trigger("click");
+    await remove!.trigger("click");
 
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:1");
     expect(wrapper.find("img").exists()).toBe(false);

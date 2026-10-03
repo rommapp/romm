@@ -38,7 +38,7 @@ describe.each(locales)("%s scan descriptions", (locale) => {
   it.each([...SINGLE_PARAGRAPH, ...TWO_PARAGRAPHS])(
     "%s is present and trimmed",
     (key) => {
-      const value = messages[key];
+      const value = messages[key]!;
       expect(value, key).toBeTypeOf("string");
       expect(value.trim(), key).toBe(value);
       expect(value.length, key).toBeGreaterThan(0);
@@ -46,11 +46,11 @@ describe.each(locales)("%s scan descriptions", (locale) => {
   );
 
   it.each(SINGLE_PARAGRAPH)("%s is a single paragraph", (key) => {
-    expect(messages[key].split("\n\n")).toHaveLength(1);
+    expect(messages[key]?.split("\n\n")).toHaveLength(1);
   });
 
   it.each(TWO_PARAGRAPHS)("%s keeps its second paragraph", (key) => {
-    const paragraphs = messages[key].split("\n\n");
+    const paragraphs = messages[key]!.split("\n\n");
     expect(paragraphs).toHaveLength(2);
     for (const paragraph of paragraphs) {
       expect(paragraph.trim().length).toBeGreaterThan(0);

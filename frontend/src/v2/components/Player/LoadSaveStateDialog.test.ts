@@ -91,7 +91,7 @@ describe("LoadSaveStateDialog", () => {
     await wrapper.find(".pick-state").trigger("click");
     await flushPromises();
 
-    expect(confirm.mock.calls[0][0].title).toBe(
+    expect(confirm.mock.calls[0]![0].title).toBe(
       "play.load-state-confirm-title",
     );
     expect(stateSelected).toHaveBeenCalledWith(makeState());
@@ -107,7 +107,9 @@ describe("LoadSaveStateDialog", () => {
     await wrapper.find(".pick-save").trigger("click");
     await flushPromises();
 
-    expect(confirm.mock.calls[0][0].title).toBe("play.load-save-confirm-title");
+    expect(confirm.mock.calls[0]![0].title).toBe(
+      "play.load-save-confirm-title",
+    );
     expect(saveSelected).toHaveBeenCalledWith(makeSave());
     expect(stateSelected).not.toHaveBeenCalled();
   });

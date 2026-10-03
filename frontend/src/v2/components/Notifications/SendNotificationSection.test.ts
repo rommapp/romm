@@ -27,11 +27,11 @@ async function fill(
   fields: { title?: string; body?: string; link?: string },
 ) {
   const [title, link] = wrapper.findAll("input.r-text-field__input");
-  if (fields.title !== undefined) await title.setValue(fields.title);
+  if (fields.title !== undefined) await title!.setValue(fields.title);
   if (fields.body !== undefined) {
     await wrapper.find("textarea").setValue(fields.body);
   }
-  if (fields.link !== undefined) await link.setValue(fields.link);
+  if (fields.link !== undefined) await link!.setValue(fields.link);
 }
 
 describe("SendNotificationSection", () => {

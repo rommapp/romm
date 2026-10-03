@@ -85,7 +85,7 @@ describe("createPico8Runtime", () => {
       1,
     );
     expect(context.putImageData).toHaveBeenCalled();
-    const image = context.putImageData.mock.calls[0][0] as ImageData;
+    const image = context.putImageData.mock.calls[0]![0] as ImageData;
     expect([...image.data.slice(0, 8)]).toEqual([1, 2, 3, 255, 4, 5, 6, 255]);
     const audio = new Int16Array(runtime.samplesPerFrame);
     expect(runtime.readAudio(audio)).toBe(2);

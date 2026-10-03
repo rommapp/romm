@@ -83,8 +83,8 @@ describe("ScanPriorityList", () => {
     const wrapper = mountList(["igdb", "moby", "ss"]);
     // Row 0 action buttons: [up, down, remove]; down is index 1.
     await wrapper
-      .findAll(".r-v2-spl__row")[0]
-      .findAll("button")[1]
+      .findAll(".r-v2-spl__row")[0]!
+      .findAll("button")[1]!
       .trigger("click");
     expect(lastEmit(wrapper)).toEqual(["moby", "igdb", "ss"]);
   });
@@ -93,8 +93,8 @@ describe("ScanPriorityList", () => {
     const wrapper = mountList(["igdb", "moby", "ss"]);
     // Row 2 up button is index 0.
     await wrapper
-      .findAll(".r-v2-spl__row")[2]
-      .findAll("button")[0]
+      .findAll(".r-v2-spl__row")[2]!
+      .findAll("button")[0]!
       .trigger("click");
     expect(lastEmit(wrapper)).toEqual(["igdb", "ss", "moby"]);
   });
@@ -103,8 +103,8 @@ describe("ScanPriorityList", () => {
     const wrapper = mountList(["igdb", "moby", "ss"]);
     // Row 1 remove button is index 2.
     await wrapper
-      .findAll(".r-v2-spl__row")[1]
-      .findAll("button")[2]
+      .findAll(".r-v2-spl__row")[1]!
+      .findAll("button")[2]!
       .trigger("click");
     expect(lastEmit(wrapper)).toEqual(["igdb", "ss"]);
   });
@@ -112,7 +112,7 @@ describe("ScanPriorityList", () => {
   it("appends a source from the tray", async () => {
     const wrapper = mountList(["igdb"]);
     // Tray keeps the canonical `sources` order minus enabled: moby, ss, ra.
-    await wrapper.findAll(".r-v2-spl__add")[1].trigger("click");
+    await wrapper.findAll(".r-v2-spl__add")[1]!.trigger("click");
     expect(lastEmit(wrapper)).toEqual(["igdb", "ss"]);
   });
 
@@ -125,10 +125,10 @@ describe("ScanPriorityList", () => {
     const rows = wrapper.findAll(".r-v2-spl__row");
     // First row's up button and last row's down button are disabled.
     expect(
-      (rows[0].findAll("button")[0].element as HTMLButtonElement).disabled,
+      (rows[0]!.findAll("button")[0]!.element as HTMLButtonElement).disabled,
     ).toBe(true);
     expect(
-      (rows[1].findAll("button")[1].element as HTMLButtonElement).disabled,
+      (rows[1]!.findAll("button")[1]!.element as HTMLButtonElement).disabled,
     ).toBe(true);
   });
 });

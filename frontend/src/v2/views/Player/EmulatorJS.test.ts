@@ -322,7 +322,7 @@ describe("EmulatorJS launch screen — play routes", () => {
     mocks.canPlayNative = true;
     const wrapper = await launchScreen();
 
-    await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
+    await wrapper.findAll(".r-v2-ejs__play")[0]!.trigger("click");
 
     // No core map for the platform is no core to ask for, which leaves the
     // shell to resolve one from the candidates it is given.
@@ -343,7 +343,7 @@ describe("EmulatorJS launch screen — play routes", () => {
     mocks.fullscreen.value = true;
     const wrapper = await launchScreen();
 
-    await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
+    await wrapper.findAll(".r-v2-ejs__play")[0]!.trigger("click");
 
     expect(mocks.launch).toHaveBeenCalledWith(ROM, {
       core: "mgba",
@@ -362,8 +362,8 @@ describe("EmulatorJS launch screen — play routes", () => {
     const discs = wrapper
       .findAllComponents(RSelect)
       .filter((select) => propOf(select, "label") === "rom.file");
-    await discs[0].setValue(102);
-    await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
+    await discs[0]!.setValue(102);
+    await wrapper.findAll(".r-v2-ejs__play")[0]!.trigger("click");
 
     expect(mocks.launch).toHaveBeenCalledWith(DISC_SET, {
       core: undefined,

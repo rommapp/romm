@@ -107,7 +107,7 @@ describe("MissingFirmwareSection", () => {
     await flushPromises();
 
     expect(getFirmware).toHaveBeenCalledTimes(1);
-    expect(getFirmware.mock.calls[0][0]).toMatchObject({ missing: true });
+    expect(getFirmware.mock.calls[0]![0]).toMatchObject({ missing: true });
   });
 
   it("renders one row per missing entry", async () => {
@@ -123,7 +123,7 @@ describe("MissingFirmwareSection", () => {
 
     const rows = wrapper.findAll("[data-test='missing-firmware-row']");
     expect(rows).toHaveLength(2);
-    expect(rows[0].text()).toContain("scph5501.bin");
+    expect(rows[0]?.text()).toContain("scph5501.bin");
   });
 
   it("filters by platform client-side rather than refetching", async () => {
@@ -142,7 +142,7 @@ describe("MissingFirmwareSection", () => {
 
     const rows = wrapper.findAll("[data-test='missing-firmware-row']");
     expect(rows).toHaveLength(1);
-    expect(rows[0].text()).toContain("saturn_bios.bin");
+    expect(rows[0]?.text()).toContain("saturn_bios.bin");
     expect(getFirmware).not.toHaveBeenCalled();
   });
 

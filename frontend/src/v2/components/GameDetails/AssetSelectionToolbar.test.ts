@@ -73,7 +73,7 @@ describe("AssetSelectionToolbar", () => {
   it("offers to clear the hearts once every checked item is a favorite", () => {
     const wrapper = toolbar({ count: 3, allChecked: true, allFavorite: true });
 
-    expect(wrapper.findAll(".btn")[0].attributes("aria-label")).toBe(
+    expect(wrapper.findAll(".btn")[0]?.attributes("aria-label")).toBe(
       "rom.remove-from-favorites",
     );
   });
@@ -83,10 +83,10 @@ describe("AssetSelectionToolbar", () => {
     const buttons = wrapper.findAll(".btn");
 
     await wrapper.get(".all input").trigger("change");
-    await buttons[0].trigger("click");
-    await buttons[1].trigger("click");
-    await buttons[2].trigger("click");
-    await buttons[3].trigger("click");
+    await buttons[0]!.trigger("click");
+    await buttons[1]!.trigger("click");
+    await buttons[2]!.trigger("click");
+    await buttons[3]!.trigger("click");
 
     expect(wrapper.emitted("toggleAll")).toHaveLength(1);
     expect(wrapper.emitted("toggleFavorite")).toHaveLength(1);

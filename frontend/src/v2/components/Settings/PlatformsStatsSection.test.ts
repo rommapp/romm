@@ -182,9 +182,9 @@ describe("PlatformsStatsSection", () => {
       "/platform/5",
       "/platform/6",
     ]);
-    expect(rows[0].attributes("aria-label")).toBe("Open Atari 2600");
+    expect(rows[0]?.attributes("aria-label")).toBe("Open Atari 2600");
 
-    await rows[3].trigger("click", { button: 0 });
+    await rows[3]!.trigger("click", { button: 0 });
     expect(push).toHaveBeenCalledWith("/platform/4");
   });
 

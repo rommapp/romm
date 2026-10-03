@@ -91,8 +91,8 @@ describe("NotificationInbox", () => {
     expect(api.markRead).toHaveBeenCalledWith([2]);
     expect(inbox.unreadCount).toBe(0);
     const rows = wrapper.findAll(".r-v2-notification");
-    expect(rows[0].classes()).toContain("r-v2-notification--unread");
-    expect(rows[1].classes()).not.toContain("r-v2-notification--unread");
+    expect(rows[0]?.classes()).toContain("r-v2-notification--unread");
+    expect(rows[1]?.classes()).not.toContain("r-v2-notification--unread");
   });
 
   it("tries a refused mark once a visit rather than in a loop", async () => {
@@ -108,7 +108,7 @@ describe("NotificationInbox", () => {
   it("dismisses one row for good", async () => {
     const { wrapper } = mountWith([notification(2), notification(1)]);
 
-    await wrapper.findAll(".r-v2-notification button")[0].trigger("click");
+    await wrapper.findAll(".r-v2-notification button")[0]!.trigger("click");
     await flushPromises();
 
     expect(api.dismiss).toHaveBeenCalledWith(2);

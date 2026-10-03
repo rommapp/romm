@@ -282,7 +282,7 @@ describe("installScanLifecycle", () => {
     await drainRomBatch();
 
     expect(roms.recentRoms.map((r) => r.id)).toEqual([3, 1]);
-    expect(roms.recentRoms[1].name).toBe("Rescanned");
+    expect(roms.recentRoms[1]?.name).toBe("Rescanned");
   });
 
   it("reconciles with a running scan job on install", async () => {

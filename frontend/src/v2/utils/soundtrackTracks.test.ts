@@ -61,8 +61,8 @@ describe("panelTracksFromRom", () => {
       rom([romFile(1, "01 - track.mp3")]),
       meta,
     );
-    expect(track.title).toBe("Green Hill");
-    expect(track.subtitle).toBe("Nakamura · Sonic OST");
+    expect(track?.title).toBe("Green Hill");
+    expect(track?.subtitle).toBe("Nakamura · Sonic OST");
   });
 
   it("falls back to the file name without its extension", () => {
@@ -70,8 +70,8 @@ describe("panelTracksFromRom", () => {
       rom([romFile(1, "01 - Theme.mp3")]),
       new Map(),
     );
-    expect(track.title).toBe("01 - Theme");
-    expect(track.subtitle).toBe("");
+    expect(track?.title).toBe("01 - Theme");
+    expect(track?.subtitle).toBe("");
   });
 });
 
@@ -90,15 +90,15 @@ describe("panelTracksFromCatalog", () => {
 
   it("adds the game and platform as context", () => {
     const [track] = panelTracksFromCatalog([base]);
-    expect(track.subtitle).toBe("Kondo · SMB OST · Super Mario Bros · NES");
-    expect(track.durationSeconds).toBe(90);
+    expect(track?.subtitle).toBe("Kondo · SMB OST · Super Mario Bros · NES");
+    expect(track?.durationSeconds).toBe(90);
   });
 
   it("drops the game name when it merely repeats the title", () => {
     const [track] = panelTracksFromCatalog([
       { ...base, title: "Super Mario Bros", artist: null, album: null },
     ]);
-    expect(track.subtitle).toBe("NES");
+    expect(track?.subtitle).toBe("NES");
   });
 });
 

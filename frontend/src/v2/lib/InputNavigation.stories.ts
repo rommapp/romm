@@ -78,7 +78,7 @@ export const KeyboardNavigation: Story = {
     await expect(canvas.getByRole("button", { name: TITLES[1] })).toHaveFocus();
     await userEvent.keyboard("{Enter}");
     await expect(canvas.getByTestId("last-picked")).toHaveTextContent(
-      TITLES[1],
+      TITLES[1]!,
     );
   },
 };

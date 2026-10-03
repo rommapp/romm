@@ -50,7 +50,7 @@ describe("useSnackbar persist", () => {
     });
     expect(storeNotificationInbox().notifications).toEqual([stored]);
     expect(shown).toHaveBeenCalledOnce();
-    expect(shown.mock.calls[0][0]).not.toHaveProperty("persist");
+    expect(shown.mock.calls[0]![0]).not.toHaveProperty("persist");
   });
 
   it("shows the toast without waiting for the request", () => {

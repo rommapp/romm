@@ -85,7 +85,7 @@ describe("installNotificationInbox", () => {
     await flushPromises();
     const inbox = storeNotificationInbox();
     await inbox.send({ title: "Saved", level: "success" });
-    const ownTab = create.mock.calls[0][0].data;
+    const ownTab = create.mock.calls[0]![0].data;
 
     push("notifications:new", { ...notification(6), data: ownTab });
 

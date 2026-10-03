@@ -4,7 +4,7 @@ import { notFoundComponent, v2RouteComponents } from "./routes";
 
 function leafRouteFor(path: string) {
   const matched = router.resolve(path).matched;
-  return matched[matched.length - 1];
+  return matched[matched.length - 1]!;
 }
 
 describe("v2 route resolution", () => {

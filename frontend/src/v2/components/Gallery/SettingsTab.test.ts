@@ -88,12 +88,12 @@ describe("SettingsTab platform save", () => {
 
     // Second field is the description.
     const inputs = wrapper.findAll("input");
-    await inputs[1].setValue("Aftermarket dumps only");
+    await inputs[1]!.setValue("Aftermarket dumps only");
     await (wrapper.vm as unknown as { save: () => Promise<void> }).save();
     await flushPromises();
 
     expect(updatePlatform).toHaveBeenCalledTimes(1);
-    const arg = updatePlatform.mock.calls[0][0];
+    const arg = updatePlatform.mock.calls[0]![0];
     // The untouched name must go back as the stored value (""), not as the
     // display_name fallback, or the platform gains a custom name it never had.
     expect(arg.platform.custom_name).toBe("");
@@ -106,11 +106,11 @@ describe("SettingsTab platform save", () => {
     const wrapper = mountTab(p);
 
     const inputs = wrapper.findAll("input");
-    await inputs[0].setValue("FDS (JP only)");
+    await inputs[0]!.setValue("FDS (JP only)");
     await (wrapper.vm as unknown as { save: () => Promise<void> }).save();
     await flushPromises();
 
-    const arg = updatePlatform.mock.calls[0][0];
+    const arg = updatePlatform.mock.calls[0]![0];
     expect(arg.platform.custom_name).toBe("FDS (JP only)");
     expect(arg.description).toBeUndefined();
   });
