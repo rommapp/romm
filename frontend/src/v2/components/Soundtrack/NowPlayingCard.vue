@@ -102,10 +102,9 @@ function openRom() {
     <div class="r-v2-np-card__transport">
       <RBtn
         icon="mdi-shuffle"
-        :variant="isShuffled ? 'translucent' : 'text'"
+        variant="text"
         size="small"
-        :color="isShuffled ? 'primary' : undefined"
-        :aria-pressed="isShuffled"
+        :active="isShuffled"
         :tooltip="t('common.shuffle')"
         :aria-label="t('common.shuffle')"
         @click="store.toggleShuffle()"

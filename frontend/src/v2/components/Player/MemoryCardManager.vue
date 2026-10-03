@@ -377,7 +377,7 @@ const hasCards = computed(() => cards.value.length > 0);
               icon="mdi-history"
               :aria-label="t('play.memory-card-versions')"
               :tooltip="t('play.memory-card-versions')"
-              :class="{ 'r-mc-mgr__toggle--on': isExpanded(card.id) }"
+              :active="isExpanded(card.id)"
               @click="toggleVersions(card)"
             />
             <RBtn
@@ -584,9 +584,6 @@ const hasCards = computed(() => cards.value.length > 0);
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-}
-.r-mc-mgr__toggle--on {
-  color: var(--r-color-brand-primary);
 }
 
 .r-mc-mgr__file {
