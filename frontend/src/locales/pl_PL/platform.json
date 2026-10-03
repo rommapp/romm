@@ -73,6 +73,7 @@
   "playable": "Grywalne",
   "playable-both": "Grywalne w przeglądarce i dostępne w streamingu z {label}",
   "playable-browser-dosbox": "Grywalne w przeglądarce przez DOSBox",
+  "playable-browser-easyrpg": "Grywalne w przeglądarce przez EasyRPG",
   "playable-browser-emulatorjs": "Grywalne w przeglądarce przez EmulatorJS",
   "playable-browser-jsdos": "Grywalne w przeglądarce przez js-dos",
   "playable-browser-pico8": "Grywalne w przeglądarce przez PICO-8",

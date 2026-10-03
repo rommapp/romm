@@ -56,6 +56,28 @@ ADD --checksum=sha256:${FAKE08_WASM_SHA256} --chmod=644 \
     "https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8/fake08.wasm" \
     /emulators/pico8/fake08.wasm
 
+ARG EASYRPG_VERSION=0.8.1.1
+ARG EASYRPG_SHA256=99b6963c943bb355e1b1221125cb4536ca2f627c329d8a89cee5a928cdd6a14f
+
+ADD --checksum=sha256:${EASYRPG_SHA256} \
+    "https://easyrpg.org/downloads/player/${EASYRPG_VERSION}/easyrpg-player-${EASYRPG_VERSION}-js.tar.gz" \
+    /downloads/easyrpg.tar.gz
+# games/ is where the player looks for games, which the server routes to the backend.
+RUN mkdir -p /emulators/easyrpg && \
+    tar -xzf /downloads/easyrpg.tar.gz -C /emulators/easyrpg --strip-components=1 && \
+    rm -rf /emulators/easyrpg/games
+
+# The free RTP (CC-BY-4.0) has no releases, so it is pinned by commit.
+ARG EASYRPG_RTP_COMMIT=993d88cbc78c658d348bbfa74a3b424d393d27e5
+ARG EASYRPG_RTP_SHA256=7e42abebbec94989f4ff214fc082511eef749114e76e3a342cb62d07c03d56e7
+
+ADD --checksum=sha256:${EASYRPG_RTP_SHA256} \
+    "https://github.com/EasyRPG/RTP/archive/${EASYRPG_RTP_COMMIT}.tar.gz" \
+    /downloads/easyrpg-rtp.tar.gz
+RUN mkdir /emulators/easyrpg/rtp && \
+    tar -xzf /downloads/easyrpg-rtp.tar.gz -C /emulators/easyrpg/rtp --strip-components=1 && \
+    find /emulators/easyrpg/rtp \( -name '.git*' -o -name Makefile \) -exec rm -f {} +
+
 
 FROM ubuntu:22.04
 
@@ -176,6 +198,7 @@ WORKDIR /app
 # Kept outside /app/frontend because the ./frontend bind mount hides it;
 # entrypoint.sh links the runtimes into the assets tree at startup.
 ENV EMULATOR_ASSETS_DIR="/opt/romm/emulators"
+ENV EASYRPG_RTP_PATH="${EMULATOR_ASSETS_DIR}/easyrpg/rtp"
 COPY --from=emulator-download /emulators "${EMULATOR_ASSETS_DIR}"
 
 # Copy entrypoint script

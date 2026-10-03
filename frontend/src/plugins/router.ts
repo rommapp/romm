@@ -243,6 +243,14 @@ const routes = [
         },
       },
       {
+        path: "rom/:rom/easyrpg",
+        name: ROUTES.EASYRPG,
+        components: {
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.EASYRPG),
+        },
+      },
+      {
         path: "rom/:rom/ruffle",
         name: ROUTES.RUFFLE,
         components: {

@@ -11,6 +11,7 @@ from adapters.services.sigil import SigilService
 from config import (
     DEVICE_INSTALL_ENABLED,
     DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS,
+    DISABLE_EASYRPG,
     DISABLE_EMULATOR_JS,
     DISABLE_JSDOS,
     DISABLE_LOGS_VIEWER,
@@ -171,6 +172,7 @@ async def heartbeat() -> HeartbeatResponse:
             "DISABLE_RUFFLE_RS": DISABLE_RUFFLE_RS,
             "DISABLE_JSDOS": DISABLE_JSDOS,
             "DISABLE_PICO8": DISABLE_PICO8,
+            "DISABLE_EASYRPG": DISABLE_EASYRPG,
         },
         "FRONTEND": {
             "DISABLE_USERPASS_LOGIN": DISABLE_USERPASS_LOGIN,

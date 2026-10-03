@@ -15,6 +15,7 @@ export const ROUTES = {
   EMULATORJS: "emulatorjs",
   JSDOS: "jsdos",
   PICO8: "pico8",
+  EASYRPG: "easyrpg",
   RUFFLE: "ruffle",
   STREAM: "stream",
   STREAM_DESKTOP: "stream-desktop",

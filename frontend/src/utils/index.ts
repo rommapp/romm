@@ -710,6 +710,43 @@ export function isPico8Rom(rom: SimpleRom | null | undefined) {
   return name?.endsWith(".p8") === true || name?.endsWith(".p8.png") === true;
 }
 
+/**
+ * Check if EasyRPG emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
+ * @returns True if supported, false otherwise.
+ */
+export function isEasyRpgEmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
+) {
+  if (heartbeat.EMULATION.DISABLE_EASYRPG) return false;
+
+  const slug = resolvePlatformSlug(platformSlug, config);
+  return slug.toLowerCase() === "rpg-maker";
+}
+
+/**
+ * Check if a ROM is an extracted RPG Maker 2000/2003 game folder.
+ *
+ * The web player fetches each file on demand, so it cannot read an archive.
+ *
+ * @param rom The ROM to check.
+ * @returns True if the ROM is a game folder, false otherwise.
+ */
+export function isEasyRpgGame(rom: SimpleRom | null | undefined) {
+  if (!rom?.has_multiple_files) return false;
+  // Gallery lists leave the files out; the detail view has them to check.
+  if (rom.files.length === 0) return true;
+  return rom.files.some(
+    (file) =>
+      file.is_top_level && file.file_name.toLowerCase() === "rpg_rt.ldb",
+  );
+}
+
 export type PlayingStatus =
   RomUserStatus | "backlogged" | "now_playing" | "hidden";
 

@@ -73,6 +73,7 @@
   "playable": "可遊玩",
   "playable-both": "可在瀏覽器中遊玩，也可從 {label} 串流",
   "playable-browser-dosbox": "可透過 DOSBox 在瀏覽器中遊玩",
+  "playable-browser-easyrpg": "可透過 EasyRPG 在瀏覽器中遊玩",
   "playable-browser-emulatorjs": "可透過 EmulatorJS 在瀏覽器中遊玩",
   "playable-browser-jsdos": "可透過 js-dos 在瀏覽器中遊玩",
   "playable-browser-pico8": "可透過 PICO-8 在瀏覽器中遊玩",

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { RomFileSchema } from "@/__generated__";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
 import {
+  isEasyRpgEmulationSupported,
+  isEasyRpgGame,
   isJsDosBundle,
   isJsDosEmulationSupported,
   isPico8EmulationSupported,
@@ -18,6 +21,7 @@ function makeHeartbeat(
       DISABLE_RUFFLE_RS: false,
       DISABLE_JSDOS: false,
       DISABLE_PICO8: false,
+      DISABLE_EASYRPG: false,
       ...emulation,
     },
   } as Heartbeat;
@@ -122,5 +126,62 @@ describe("PICO-8 support", () => {
       isPico8Rom(makeRom({ fs_name: "game.zip", fs_extension: "zip" })),
     ).toBe(false);
     expect(isPico8Rom(null)).toBe(false);
+  });
+});
+
+describe("EasyRPG support", () => {
+  function gameFolder(...files: [string, boolean][]) {
+    return makeRom({
+      has_multiple_files: true,
+      files: files.map(
+        ([file_name, is_top_level]) =>
+          ({ file_name, is_top_level }) as RomFileSchema,
+      ),
+    });
+  }
+
+  it("supports the rpg-maker platform and configured remaps", () => {
+    expect(isEasyRpgEmulationSupported("rpg-maker", makeHeartbeat())).toBe(
+      true,
+    );
+    expect(
+      isEasyRpgEmulationSupported(
+        "easyrpg",
+        makeHeartbeat(),
+        makeConfig({ easyrpg: "rpg-maker" }),
+      ),
+    ).toBe(true);
+    expect(isEasyRpgEmulationSupported("snes", makeHeartbeat())).toBe(false);
+  });
+
+  it("respects the DISABLE_EASYRPG admin toggle", () => {
+    expect(
+      isEasyRpgEmulationSupported(
+        "rpg-maker",
+        makeHeartbeat({ DISABLE_EASYRPG: true }),
+      ),
+    ).toBe(false);
+  });
+
+  it("accepts a folder with the game database at its root", () => {
+    expect(
+      isEasyRpgGame(gameFolder(["RPG_RT.LDB", true], ["Map0001.lmu", true])),
+    ).toBe(true);
+  });
+
+  // The web player fetches files one by one, so it cannot read an archive.
+  it("rejects archives and folders without a root game database", () => {
+    expect(
+      isEasyRpgGame(
+        makeRom({ has_multiple_files: false, fs_extension: "zip" }),
+      ),
+    ).toBe(false);
+    expect(isEasyRpgGame(gameFolder(["RPG_RT.ldb", false]))).toBe(false);
+    expect(isEasyRpgGame(gameFolder(["game.bin", true]))).toBe(false);
+    expect(isEasyRpgGame(null)).toBe(false);
+  });
+
+  it("trusts a folder whose files the response left out", () => {
+    expect(isEasyRpgGame(gameFolder())).toBe(true);
   });
 });

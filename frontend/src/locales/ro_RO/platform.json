@@ -73,6 +73,7 @@
   "playable": "Se poate juca",
   "playable-both": "Se poate juca în browser și se poate transmite de pe {label}",
   "playable-browser-dosbox": "Se poate juca în browser prin DOSBox",
+  "playable-browser-easyrpg": "Se poate juca în browser prin EasyRPG",
   "playable-browser-emulatorjs": "Se poate juca în browser prin EmulatorJS",
   "playable-browser-jsdos": "Se poate juca în browser prin js-dos",
   "playable-browser-pico8": "Se poate juca în browser prin PICO-8",
