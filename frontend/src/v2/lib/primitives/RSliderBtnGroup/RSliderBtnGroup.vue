@@ -474,6 +474,8 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   min-height: 26px !important;
   height: 26px !important;
   font-size: 12px;
+  /* A fractional line height rounds the label a pixel high at some positions. */
+  line-height: 16px;
   gap: 4px;
 }
 .r-slider-btn-group--tab.r-slider-btn-group--size-x-small
