@@ -191,11 +191,7 @@ class HiddenEntity(BaseModel):
 
 
 class AgeRatingExemption(BaseModel):
-    """A ROM a user or group may see whatever its age rating.
-
-    Exactly one principal is set (``user_id`` XOR ``group_id``). It lifts only
-    the age limit, never an explicit hide.
-    """
+    """A ROM one user or group (never both) sees past an age limit, but not past a hide."""
 
     __tablename__ = "age_rating_exemptions"
     __table_args__ = (
