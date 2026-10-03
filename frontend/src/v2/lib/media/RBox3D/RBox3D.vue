@@ -22,6 +22,7 @@
 // when a rom actually has all three faces and feeds them in.
 import { useEventListener, useRafFn, useResizeObserver } from "@vueuse/core";
 import { computed, onMounted, ref, type Ref } from "vue";
+import { readRightStick } from "@/v2/composables/useGamepad";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
 defineOptions({ inheritAttrs: false });
@@ -216,19 +217,7 @@ function tick() {
   // Right analog stick, polled directly so it doesn't collide with the
   // D-pad → arrow-key navigation. Only while the box owns focus.
   if (rootEl.value && document.activeElement === rootEl.value) {
-    const pads =
-      typeof navigator !== "undefined" && navigator.getGamepads
-        ? navigator.getGamepads()
-        : [];
-    let rx = 0;
-    let ry = 0;
-    for (const pad of pads) {
-      if (!pad) continue;
-      const ax = pad.axes[2] ?? 0;
-      const ay = pad.axes[3] ?? 0;
-      if (Math.abs(ax) > Math.abs(rx)) rx = ax;
-      if (Math.abs(ay) > Math.abs(ry)) ry = ay;
-    }
+    const { x: rx, y: ry } = readRightStick();
     const active =
       Math.abs(rx) > STICK_DEADZONE || Math.abs(ry) > STICK_DEADZONE;
     stickActive.value = active;
