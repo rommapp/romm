@@ -3158,8 +3158,9 @@ class DBRomsHandler(DBBaseHandler):
         # genres blob that would otherwise be materialized just to be counted.
         count_subquery = base.with_only_columns(TrackMeta.rom_file_id).subquery()
         total = session.scalar(select(func.count()).select_from(count_subquery)) or 0
-        order_map = {
-            "title": TrackMeta.title,
+        order_map: dict[str, SQLColumnExpression[Any]] = {
+            # Untagged tracks, chiptunes among them, are shown by file name.
+            "title": func.coalesce(TrackMeta.title, RomFile.file_name),
             "artist": TrackMeta.artist,
             "album": TrackMeta.album,
             "year": TrackMeta.year,
@@ -3169,7 +3170,7 @@ class DBRomsHandler(DBBaseHandler):
         }
         if playlist_id is not None:
             order_map["position"] = MusicPlaylistTrack.position
-        col = order_map.get(order_by, TrackMeta.title)
+        col = order_map.get(order_by, order_map["title"])
         rows = session.execute(
             base.order_by(nulls_last(col, order_dir == "desc"), TrackMeta.rom_file_id)
             .limit(limit)
@@ -3469,6 +3470,7 @@ class DBRomsHandler(DBBaseHandler):
                     TrackMeta.title.icontains(search, autoescape=True),
                     TrackMeta.artist.icontains(search, autoescape=True),
                     TrackMeta.album.icontains(search, autoescape=True),
+                    RomFile.file_name.icontains(search, autoescape=True),
                 )
             )
         count_col = func.count().label("count")

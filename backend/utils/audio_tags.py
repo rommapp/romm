@@ -106,14 +106,14 @@ def is_chiptune_file(file_name: str) -> bool:
 
 
 # MIME types for audio formats that the stdlib mimetypes module guesses
-# inconsistently (or not at all) across platforms. It maps .spc to a chemistry
-# format, so chiptunes are served as plain binary.
+# inconsistently (or not at all) across platforms.
 AUDIO_MIME_OVERRIDES = {
     ".flac": "audio/flac",
     ".opus": "audio/ogg",
     ".m4a": "audio/mp4",
     ".oga": "audio/ogg",
     ".ogg": "audio/ogg",
+    # mimetypes maps .spc to a chemistry format.
     **dict.fromkeys(CHIPTUNE_EXTENSIONS, "application/octet-stream"),
 }
 

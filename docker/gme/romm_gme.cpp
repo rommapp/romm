@@ -13,8 +13,17 @@ EMSCRIPTEN_KEEPALIVE
 Music_Emu* romm_gme_open( void const* data, long size, int sample_rate )
 {
 	Music_Emu* emu = nullptr;
-	if ( gme_open_data( data, size, &emu, sample_rate ) )
-		return nullptr;
+	if ( !gme_open_data( data, size, &emu, sample_rate ) )
+		return emu;
+
+	// Headerless GYM logs carry no magic for gme_open_data to identify them by;
+	// the GYM loader still rejects data that can't be one.
+	emu = gme_new_emu( gme_gym_type, sample_rate );
+	if ( emu && gme_load_data( emu, data, size ) )
+	{
+		gme_delete( emu );
+		emu = nullptr;
+	}
 	return emu;
 }
 

@@ -1,6 +1,6 @@
 import { gzipSync } from "node:zlib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ChiptunePlayer } from "./chiptunePlayer";
+import { ChiptunePlayer, MAX_GUNZIPPED_BYTES } from "./chiptunePlayer";
 
 vi.mock("./gmeAudioWorklet.js?worker&url", () => ({ default: "/worklet.js" }));
 
@@ -59,8 +59,9 @@ let port: FakePort;
 const addModule = vi.fn(async () => {});
 const resume = vi.fn(async () => {});
 const suspend = vi.fn(async () => {});
-const gain = { gain: { value: -1 }, connect: vi.fn() };
+const gain = { gain: { value: -1 }, connect: vi.fn(), disconnect: vi.fn() };
 let bodies: Map<string, Uint8Array>;
+let nodes: { onprocessorerror: (() => void) | null }[];
 
 function flush() {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -94,6 +95,7 @@ function recordEvents(player: ChiptunePlayer) {
 beforeEach(() => {
   vi.clearAllMocks();
   port = new FakePort();
+  nodes = [];
   renderer.commands = [];
   renderer.rendered = 0;
   renderer.send = null;
@@ -118,7 +120,12 @@ beforeEach(() => {
     "AudioWorkletNode",
     class {
       port = port;
+      onprocessorerror: (() => void) | null = null;
       connect = vi.fn(() => gain);
+      disconnect = vi.fn();
+      constructor() {
+        nodes.push(this);
+      }
     },
   );
 });
@@ -144,6 +151,21 @@ describe("ChiptunePlayer", () => {
 
     const data = port.lastLoad()?.data ?? new ArrayBuffer(0);
     expect(new Uint8Array(data)).toEqual(SPC_BYTES);
+  });
+
+  it("refuses a file that gunzips past the size cap", async () => {
+    bodies.set(
+      "/track.spc",
+      new Uint8Array(gzipSync(new Uint8Array(MAX_GUNZIPPED_BYTES + 1))),
+    );
+    const player = new ChiptunePlayer();
+    const events = recordEvents(player);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await player.load("/track.spc");
+
+    expect(port.lastLoad()).toBeUndefined();
+    expect(events).toContain("error");
   });
 
   it("starts the worklet only once a play asked for early has a track", async () => {
@@ -195,8 +217,20 @@ describe("ChiptunePlayer", () => {
     await starting;
 
     expect(player.paused).toBe(true);
-    expect(events).toEqual([]);
+    expect(events).toEqual(["pause"]);
     expect(port.types()).not.toContain("play");
+  });
+
+  it("returns to paused when the audio context refuses to start", async () => {
+    const player = new ChiptunePlayer();
+    await loaded(player);
+    const events = recordEvents(player);
+    resume.mockRejectedValueOnce(new Error("NotAllowedError"));
+
+    await expect(player.play()).rejects.toThrow("NotAllowedError");
+
+    expect(player.paused).toBe(true);
+    expect(events).toEqual(["pause"]);
   });
 
   it("leaves a new context suspended when its first play is cancelled", async () => {
@@ -263,6 +297,20 @@ describe("ChiptunePlayer", () => {
     expect(player.currentTime).toBe(42);
   });
 
+  it("applies a seek made while the file downloaded once it loads", async () => {
+    const player = new ChiptunePlayer();
+    const loading = player.load("/track.spc");
+    player.currentTime = 30;
+    await loading;
+    expect(port.types()).not.toContain("seek");
+
+    port.reply({ type: "loaded", id: port.lastLoad()?.id, durationMs: 60000 });
+    await flush();
+
+    expect(port.posted.at(-1)).toEqual({ type: "seek", ms: 30000 });
+    expect(player.currentTime).toBe(30);
+  });
+
   it("applies volume and mute to the output gain", async () => {
     const player = new ChiptunePlayer();
     player.volume = 0.4;
@@ -294,6 +342,22 @@ describe("ChiptunePlayer", () => {
     port.reply({ type: "error", id: port.lastLoad()?.id });
 
     expect(events).toEqual(["error"]);
+  });
+
+  it("fails the track and rebuilds the worklet when its processor dies", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const player = new ChiptunePlayer();
+    await loaded(player);
+    await player.play();
+    const events = recordEvents(player);
+
+    nodes[0]?.onprocessorerror?.();
+
+    expect(events).toEqual(["error"]);
+    expect(player.paused).toBe(true);
+
+    await player.load("/track.spc");
+    expect(nodes).toHaveLength(2);
   });
 
   it("suspends the audio context whenever nothing plays", async () => {

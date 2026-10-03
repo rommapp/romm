@@ -177,6 +177,34 @@ def test_tracks_search_matches_an_untagged_file_by_name(
     assert item["stream_url"].endswith("/files/content/05%20Beach.spc")
 
 
+def test_tracks_sort_an_untagged_file_by_its_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    rom = make_rom(music_library["platform_a"], "Plok")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Ice.spc",
+            file_path=f"{rom.fs_path}/Plok/soundtrack",
+            file_size_bytes=66048,
+            category=RomFileCategory.SOUNDTRACK,
+            track_meta=TrackMeta(rom_id=rom.id),
+        )
+    )
+
+    r = client.get(
+        "/api/music/tracks?order_by=title&order_dir=asc", headers=_auth(access_token)
+    )
+
+    assert [i["file_name"] for i in r.json()["items"]] == [
+        "Green Hill.mp3",
+        "Ice.spc",
+        "Jingle.mp3",
+        "Overworld.mp3",
+    ]
+
+
 def test_tracks_search_escapes_like_wildcards(
     client: TestClient, access_token: str, music_library
 ):
@@ -636,6 +664,29 @@ def test_games_facet_search_matches_game_and_track_fields(
         "/api/music/games", params={"search": "koshiro"}, headers=_auth(access_token)
     ).json()
     assert [i["name"] for i in by_artist["items"]] == ["Streets"]
+
+
+def test_games_facet_search_matches_an_untagged_file_by_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    rom = make_rom(music_library["platform_a"], "Plok")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="05 Beach.spc",
+            file_path=f"{rom.fs_path}/Plok/soundtrack",
+            file_size_bytes=66048,
+            category=RomFileCategory.SOUNDTRACK,
+            track_meta=TrackMeta(rom_id=rom.id),
+        )
+    )
+
+    r = client.get(
+        "/api/music/games", params={"search": "beach"}, headers=_auth(access_token)
+    )
+
+    assert [i["name"] for i in r.json()["items"]] == ["Plok"]
 
 
 def test_games_facet_excludes_hidden_platform(music_library):

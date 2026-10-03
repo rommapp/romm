@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// Owns the app-wide `<audio>` element and chiptune engine, so playback survives
-// route changes. The card floats on desktop; on phones the top bar's
-// NowPlayingPill opens it.
+// Owns the app-wide `<audio>` and chiptune players, so playback survives route
+// changes. Floats on desktop; on phones the top bar's NowPlayingPill opens it.
 import { useTimeoutFn } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
