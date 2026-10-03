@@ -324,41 +324,72 @@ def _build_template(conn: Connection, prefix: str, template: str) -> None:
     )
 
 
-def _clone_template_into_fresh_database() -> None:
-    """Fill an empty xdist worker database from a template migrated once under a server lock."""
-    worker = os.environ.get("PYTEST_XDIST_WORKER")
-    if not worker or ROMM_DB_DRIVER not in ("mariadb", "mysql"):
-        return
-    url = ConfigManager.get_db_engine()
-    if not url.database:
-        return
-    prefix = f"{url.database.removesuffix(f'_{worker}')}_template"
+@contextmanager
+def _admin_connection() -> Iterator[Connection]:
+    admin_engine = create_engine(
+        ConfigManager.get_db_engine().set(database="information_schema")
+    )
+    try:
+        with admin_engine.connect() as conn:
+            yield conn
+    finally:
+        admin_engine.dispose()
 
+
+@functools.cache
+def _migrated_template() -> str | None:
+    """Name a template database at the migration head, building it if needed."""
+    # Shared by every checkout and ROMM_TEST_DB_TAG run, since the digest pins its schema.
+    prefix = "romm_test_template"
+    template = f"{prefix}_{_migrations_digest()}"
+    head = ScriptDirectory.from_config(
+        alembic.config.Config("alembic.ini")
+    ).get_current_head()
+    # The lock keeps concurrent sessions from building the same template at once.
+    with _admin_connection() as conn, _server_lock(conn, prefix) as acquired:
+        if not acquired:
+            return None
+        if _alembic_version(conn, template) != head:
+            _build_template(conn, prefix, template)
+    return template
+
+
+_TEMPLATE_INPUT = "romm_db_template"
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_configure_node(node: Any) -> None:
+    """On the xdist controller, hand each unmigrated worker the template to clone."""
+    url = ConfigManager.get_db_engine()
+    if ROMM_DB_DRIVER not in ("mariadb", "mysql") or not url.database:
+        return
+    # The worker database name the rootdir conftest gives this worker.
+    worker_db = f"{url.database}_{node.workerinput['workerid']}"
+    with _admin_connection() as conn:
+        if _alembic_version(conn, worker_db):
+            return
+    template = _migrated_template()
+    if template:
+        node.workerinput[_TEMPLATE_INPUT] = template
+
+
+def _clone_template(template: str) -> None:
+    """Replace this worker's database with a copy of `template`."""
+    url = ConfigManager.get_db_engine()
+    assert url.database
     worker_engine = create_engine(url)
     try:
         with worker_engine.connect() as conn:
-            if _alembic_version(conn, url.database):
-                return
-            # Without a version row, any tables are a clone that was cut short.
             _recreate_database(conn, url.database)
-            template = f"{prefix}_{_migrations_digest()}"
-            head = ScriptDirectory.from_config(
-                alembic.config.Config("alembic.ini")
-            ).get_current_head()
-            with _server_lock(conn, prefix) as acquired:
-                if not acquired:
-                    return
-                if _alembic_version(conn, template) != head:
-                    _build_template(conn, prefix, template)
-                try:
-                    _copy_schema(conn, template, url.database)
-                except DBAPIError as exc:
-                    warnings.warn(
-                        f"Template clone failed, migrating from scratch: {exc}",
-                        stacklevel=1,
-                    )
-                    # Leave alembic an empty database to migrate.
-                    _recreate_database(conn, url.database)
+            try:
+                _copy_schema(conn, template, url.database)
+            except DBAPIError as exc:
+                warnings.warn(
+                    f"Template clone failed, migrating from scratch: {exc}",
+                    stacklevel=1,
+                )
+                # Leave alembic an empty database to migrate.
+                _recreate_database(conn, url.database)
     finally:
         worker_engine.dispose()
 
@@ -369,10 +400,12 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_database():
+def setup_database(request: pytest.FixtureRequest):
     _ensure_database_exists()
+    template = getattr(request.config, "workerinput", {}).get(_TEMPLATE_INPUT)
     try:
-        _clone_template_into_fresh_database()
+        if template:
+            _clone_template(template)
         alembic.config.main(argv=["upgrade", "head"])
         yield
     finally:

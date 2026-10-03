@@ -1,10 +1,12 @@
 import re
 from collections.abc import Iterator
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import Connection, create_engine, text
 from tests.conftest import (
     _DEFINER_RE,
+    _TEMPLATE_INPUT,
     _alembic_version,
     _capture_statements,
     _clear_tables,
@@ -13,6 +15,7 @@ from tests.conftest import (
     _recreate_database,
     _schema_names,
     engine,
+    pytest_configure_node,
     session,
 )
 
@@ -90,6 +93,33 @@ def test_copy_schema_reproduces_the_migrated_database(
         )
     finally:
         scratch_connection.exec_driver_sql(f"DROP DATABASE IF EXISTS `{target}`")
+
+
+@pytest.mark.skipif(
+    ROMM_DB_DRIVER not in ("mariadb", "mysql"),
+    reason="the template clone only runs on MariaDB",
+)
+def test_configure_node_hands_the_template_only_to_unmigrated_workers(
+    scratch_connection: Connection,
+) -> None:
+    source = engine.url.database
+    assert source
+    worker_db = f"{source}_probe"
+    _recreate_database(scratch_connection, worker_db)
+    try:
+        fresh = SimpleNamespace(workerinput={"workerid": "probe"})
+        pytest_configure_node(fresh)
+        template = fresh.workerinput[_TEMPLATE_INPUT]
+        assert _alembic_version(scratch_connection, template) == _alembic_version(
+            scratch_connection, source
+        )
+
+        _copy_schema(scratch_connection, template, worker_db)
+        migrated = SimpleNamespace(workerinput={"workerid": "probe"})
+        pytest_configure_node(migrated)
+        assert _TEMPLATE_INPUT not in migrated.workerinput
+    finally:
+        scratch_connection.exec_driver_sql(f"DROP DATABASE IF EXISTS `{worker_db}`")
 
 
 def test_cleared_tables_skip_views_and_seeded_tables() -> None:
