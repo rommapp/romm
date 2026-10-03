@@ -1,13 +1,16 @@
 import re
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator
 
 import pytest
-from sqlalchemy import Connection, create_engine, event, text
+from sqlalchemy import Connection, create_engine, text
 from tests.conftest import (
+    _DEFINER_RE,
     _alembic_version,
+    _capture_statements,
     _clear_tables,
     _copy_schema,
     _recreate_database,
+    _schema_names,
     engine,
     session,
 )
@@ -16,7 +19,6 @@ from config import ROMM_DB_DRIVER
 from models.platform import Platform
 
 _AUTO_INCREMENT_RE = re.compile(r" AUTO_INCREMENT=\d+")
-_DEFINER_RE = re.compile(r"\s+DEFINER=\S+")
 
 
 def _snapshot(conn: Connection, schema: str) -> dict[str, object]:
@@ -28,16 +30,11 @@ def _snapshot(conn: Connection, schema: str) -> dict[str, object]:
         ),
         {"s": schema},
     ).all()
-    triggers: Sequence[str] = (
-        conn.execute(
-            text(
-                "SELECT TRIGGER_NAME FROM information_schema.TRIGGERS"
-                " WHERE TRIGGER_SCHEMA = :s ORDER BY TRIGGER_NAME"
-            ),
-            {"s": schema},
-        )
-        .scalars()
-        .all()
+    triggers = _schema_names(
+        conn,
+        "SELECT TRIGGER_NAME FROM information_schema.TRIGGERS"
+        " WHERE TRIGGER_SCHEMA = :s ORDER BY TRIGGER_NAME",
+        schema,
     )
     conn.exec_driver_sql(f"USE `{schema}`")
     snapshot: dict[str, object] = {}
@@ -92,24 +89,9 @@ def test_copy_schema_reproduces_the_migrated_database(
 
 
 def test_clear_tables_deletes_only_from_tables_with_rows(platform: Platform) -> None:
-    statements: list[str] = []
-
-    def before_execute(
-        conn: object,
-        cursor: object,
-        statement: str,
-        parameters: object,
-        context: object,
-        executemany: bool,
-    ) -> None:
-        statements.append(statement)
-
-    event.listen(engine, "before_cursor_execute", before_execute)
-    try:
+    with _capture_statements(engine) as statements:
         _clear_tables()
         _clear_tables()
-    finally:
-        event.remove(engine, "before_cursor_execute", before_execute)
 
     deletes = [s for s in statements if s.lstrip().upper().startswith("DELETE")]
     assert len(deletes) == 1

@@ -6,7 +6,9 @@ import re
 import socket
 import subprocess
 import sys
+import warnings
 from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -17,7 +19,7 @@ import pytest
 from alembic.script import ScriptDirectory
 from hypothesis import settings
 from joserfc import jwt
-from sqlalchemy import Connection, create_engine, event, exists, select, text
+from sqlalchemy import Connection, Engine, create_engine, event, exists, select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import sessionmaker
 from tests.factories import (
@@ -130,11 +132,11 @@ def _ensure_database_exists() -> None:
             url.set(database="postgres"), isolation_level="AUTOCOMMIT"
         )
         with admin_engine.connect() as conn:
-            exists = conn.execute(
+            found = conn.execute(
                 text("SELECT 1 FROM pg_database WHERE datname = :name"),
                 {"name": db_name},
             ).scalar()
-            if not exists:
+            if not found:
                 conn.execute(text(f'CREATE DATABASE "{db_name}"'))
         admin_engine.dispose()
 
@@ -157,40 +159,29 @@ def lenient(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 _DEFINER_RE = re.compile(r"\s+DEFINER=\S+")
 
 
+def _schema_names(conn: Connection, query: str, schema: str) -> Sequence[str]:
+    """The first column of `query`, run with `schema` bound to `:s`."""
+    return conn.execute(text(query), {"s": schema}).scalars().all()
+
+
 def _copy_schema(conn: Connection, source: str, target: str) -> None:
     """Copy every table, row, view and trigger of `source` into `target`."""
-    in_source = {"s": source}
-    tables: Sequence[str] = (
-        conn.execute(
-            text(
-                "SELECT TABLE_NAME FROM information_schema.TABLES"
-                " WHERE TABLE_SCHEMA = :s AND TABLE_TYPE = 'BASE TABLE'"
-            ),
-            in_source,
-        )
-        .scalars()
-        .all()
+    tables = _schema_names(
+        conn,
+        "SELECT TABLE_NAME FROM information_schema.TABLES"
+        " WHERE TABLE_SCHEMA = :s AND TABLE_TYPE = 'BASE TABLE'",
+        source,
     )
-    views: Sequence[str] = (
-        conn.execute(
-            text(
-                "SELECT TABLE_NAME FROM information_schema.VIEWS WHERE TABLE_SCHEMA = :s"
-            ),
-            in_source,
-        )
-        .scalars()
-        .all()
+    views = _schema_names(
+        conn,
+        "SELECT TABLE_NAME FROM information_schema.VIEWS WHERE TABLE_SCHEMA = :s",
+        source,
     )
-    triggers: Sequence[str] = (
-        conn.execute(
-            text(
-                "SELECT TRIGGER_NAME FROM information_schema.TRIGGERS"
-                " WHERE TRIGGER_SCHEMA = :s ORDER BY EVENT_OBJECT_TABLE, ACTION_ORDER"
-            ),
-            in_source,
-        )
-        .scalars()
-        .all()
+    triggers = _schema_names(
+        conn,
+        "SELECT TRIGGER_NAME FROM information_schema.TRIGGERS"
+        " WHERE TRIGGER_SCHEMA = :s ORDER BY EVENT_OBJECT_TABLE, ACTION_ORDER",
+        source,
     )
     columns: dict[str, list[str]] = {}
     for table, column in conn.execute(
@@ -199,7 +190,7 @@ def _copy_schema(conn: Connection, source: str, target: str) -> None:
             " WHERE TABLE_SCHEMA = :s AND COALESCE(GENERATION_EXPRESSION, '') = ''"
             " ORDER BY ORDINAL_POSITION"
         ),
-        in_source,
+        {"s": source},
     ):
         columns.setdefault(table, []).append(f"`{column}`")
 
@@ -266,14 +257,12 @@ def _recreate_database(conn: Connection, name: str) -> None:
 
 
 def _migrations_digest() -> str:
-    """Hash the migrations and the helpers they import, so editing one rebuilds the template."""
+    """Hash the migrations and the models and utils they import, so an edit rebuilds the template."""
     digest = hashlib.sha256()
     for path in sorted(
-        [
-            *Path("alembic").rglob("*.py"),
-            Path("utils/database.py"),
-            Path("utils/roms_columns.py"),
-        ]
+        path
+        for root in ("alembic", "models", "utils")
+        for path in Path(root).rglob("*.py")
     ):
         digest.update(str(path).encode() + b"\0" + path.read_bytes())
     return digest.hexdigest()[:12]
@@ -288,10 +277,6 @@ def _clone_template_into_fresh_database() -> None:
     if not url.database:
         return
     prefix = f"{url.database.removesuffix(f'_{worker}')}_template"
-    template = f"{prefix}_{_migrations_digest()}"
-    head = ScriptDirectory.from_config(
-        alembic.config.Config("alembic.ini")
-    ).get_current_head()
 
     worker_engine = create_engine(url)
     try:
@@ -306,6 +291,10 @@ def _clone_template_into_fresh_database() -> None:
                 {"s": url.database},
             ).first():
                 _recreate_database(conn, url.database)
+            template = f"{prefix}_{_migrations_digest()}"
+            head = ScriptDirectory.from_config(
+                alembic.config.Config("alembic.ini")
+            ).get_current_head()
             lock = {"name": prefix}
             if conn.execute(text("SELECT GET_LOCK(:name, 1800)"), lock).scalar() != 1:
                 return
@@ -331,7 +320,11 @@ def _clone_template_into_fresh_database() -> None:
                     )
                 try:
                     _copy_schema(conn, template, url.database)
-                except DBAPIError:
+                except DBAPIError as exc:
+                    warnings.warn(
+                        f"Template clone failed, migrating from scratch: {exc}",
+                        stacklevel=1,
+                    )
                     # Leave alembic an empty database to migrate.
                     _recreate_database(conn, url.database)
             finally:
@@ -400,9 +393,9 @@ def clear_database():
     db_rom_handler.invalidate_filter_values_cache()
 
 
-@pytest.fixture
-def executed_statements() -> Iterator[list[str]]:
-    """Every statement the sync engine runs while the fixture is active."""
+@contextmanager
+def _capture_statements(target: Engine) -> Iterator[list[str]]:
+    """Every statement `target` runs inside the block."""
     statements: list[str] = []
 
     def before_execute(
@@ -415,11 +408,18 @@ def executed_statements() -> Iterator[list[str]]:
     ) -> None:
         statements.append(statement)
 
-    event.listen(sync_engine, "before_cursor_execute", before_execute)
+    event.listen(target, "before_cursor_execute", before_execute)
     try:
         yield statements
     finally:
-        event.remove(sync_engine, "before_cursor_execute", before_execute)
+        event.remove(target, "before_cursor_execute", before_execute)
+
+
+@pytest.fixture
+def executed_statements() -> Iterator[list[str]]:
+    """Every statement the sync engine runs while the fixture is active."""
+    with _capture_statements(sync_engine) as statements:
+        yield statements
 
 
 _VCR_REDACTED = "x" * 30
