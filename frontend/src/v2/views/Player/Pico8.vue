@@ -446,8 +446,8 @@ html[data-bp~="sm-and-down"] .r-v2-pico8__stage {
 .r-v2-pico8__stage:fullscreen {
   background: var(--r-color-canvas-bg);
 }
-/* Native fullscreen runs to the screen edge, past the home indicator the
-   windowed frame (and the iPhone fallback) already clear. */
+/* Native fullscreen reaches the screen edge, so the stage clears the home
+   indicator itself; the windowed frame and the iPhone fallback already do. */
 html[data-bp~="sm-and-down"] .r-v2-pico8__stage:fullscreen {
   padding-bottom: calc(var(--r-pico8-stage-pad) + var(--r-safe-b));
 }
