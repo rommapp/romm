@@ -8,7 +8,7 @@ const meta: Meta = {
   title: "Primitives/RSliderBtnGroup",
   // Cast needed: <script setup generic> types aren't compatible with
   // Storybook's ConcreteComponent constraint.
-  component: RSliderBtnGroup as unknown as Meta["component"],
+  component: RSliderBtnGroup as unknown as NonNullable<Meta["component"]>,
   tags: ["autodocs"],
   argTypes: {
     variant: {

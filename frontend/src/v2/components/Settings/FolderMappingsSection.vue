@@ -55,8 +55,8 @@ const sortDir = ref<"asc" | "desc">("asc");
 
 interface Row {
   fsSlug: string;
-  slug?: string;
-  displayName?: string;
+  slug?: string | undefined;
+  displayName?: string | undefined;
   type: RowType;
 }
 

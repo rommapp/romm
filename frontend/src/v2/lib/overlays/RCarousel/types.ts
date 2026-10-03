@@ -12,17 +12,17 @@ export interface RCarouselProps<TItem> {
   /** Wrap from last → first and first → last. */
   loop?: boolean;
   /** Show "n / total" counter. Defaults to true when `items.length > 1`. */
-  showCounter?: boolean;
+  showCounter?: boolean | undefined;
   /** Show prev/next arrows. Defaults to true when `items.length > 1`. */
-  showArrows?: boolean;
+  showArrows?: boolean | undefined;
   /** Show a thumbnail strip below the active item. */
   showThumbnails?: boolean;
   /** Localised label for the close button. */
-  closeLabel?: string;
+  closeLabel?: string | undefined;
   /** Localised label for the prev button. */
-  prevLabel?: string;
+  prevLabel?: string | undefined;
   /** Localised label for the next button. */
-  nextLabel?: string;
+  nextLabel?: string | undefined;
   /** Accessibility label for the carousel region. */
-  ariaLabel?: string;
+  ariaLabel?: string | undefined;
 }

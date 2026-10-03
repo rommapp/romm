@@ -56,12 +56,12 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   variant?: "flat" | "text" | "elevated" | "translucent" | "outlined" | "plain";
-  color?: string;
+  color?: string | undefined;
   rounded?: string | number | boolean;
   loading?: boolean;
   /** ms before the spinner appears after `loading` flips true. */
   loadingDebounce?: number;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   block?: boolean;
   size?: "x-small" | "small" | "default" | "large" | "x-large";
   /** Absolute height override, sharing the scale with RTextField /
@@ -71,12 +71,12 @@ interface Props {
    *    comfortable = 40px (= form `density="comfortable"`, = size `default`)
    *    default     = 48px (= form `density="default"`,    = size `large`)
    *  When unset, the size prop drives the height. */
-  density?: "default" | "comfortable" | "compact";
+  density?: "default" | "comfortable" | "compact" | undefined;
   /** `true` → square icon-only button. `string` → MDI icon rendered as
    *  the button's sole content (icon-only). */
-  icon?: string | boolean;
-  prependIcon?: string;
-  appendIcon?: string;
+  icon?: string | boolean | undefined;
+  prependIcon?: string | undefined;
+  appendIcon?: string | undefined;
   type?: "button" | "submit" | "reset";
   /** Translucent currentColor border on top of the chosen variant. */
   border?: boolean;
@@ -87,16 +87,16 @@ interface Props {
    *  surfaces (e.g., toolbar icon buttons next to sliders). */
   surface?: boolean;
   /** Renders the button as a router-link to this route. */
-  to?: RouteLocationRaw;
+  to?: RouteLocationRaw | undefined;
   /** Renders the button as an `<a>` href. */
-  href?: string;
+  href?: string | undefined;
   /** Target for `<a>` mode. */
-  target?: string;
+  target?: string | undefined;
   /** Native tooltip: when set, RBtn mounts an RTooltip anchored to
    *  itself that reveals this text on hover / focus. Skips the
    *  `<RTooltip><template #activator>…` wrapping ceremony for the
    *  common case of "icon-only button needs a label on hover". */
-  tooltip?: string;
+  tooltip?: string | undefined;
   /** Tooltip anchor; mapped to floating-ui placement internally. */
   tooltipLocation?: TooltipLocation;
   /** Delay (ms) before the tooltip appears on hover. */

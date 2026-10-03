@@ -25,11 +25,11 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   variant?: "flat" | "elevated" | "translucent" | "outlined" | "text" | "plain";
-  color?: string;
-  elevation?: number | string;
+  color?: string | undefined;
+  elevation?: number | string | undefined;
   rounded?: string | number | boolean;
-  title?: string;
-  subtitle?: string;
+  title?: string | undefined;
+  subtitle?: string | undefined;
   /** Thin animated bar at the top of the card: indicator that the
    *  card's content is updating in place. */
   loading?: boolean;

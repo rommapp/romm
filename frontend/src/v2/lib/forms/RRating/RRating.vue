@@ -22,7 +22,7 @@ interface Props {
   /** Tone for filled icons. Keyword or kebab-case token. */
   color?: string;
   /** Tone for the *active* portion. Defaults to `color`. */
-  activeColor?: string;
+  activeColor?: string | undefined;
   emptyIcon?: string;
   fullIcon?: string;
   halfIcon?: string;
@@ -35,9 +35,9 @@ interface Props {
   /** Whether to react to hover (preview on hover). */
   hover?: boolean;
   /** Accessible labels per item (e.g. ["bad","ok","good","great","perfect"]). */
-  itemLabels?: string[];
+  itemLabels?: string[] | undefined;
   /** Optional shared aria-label for the whole row. */
-  ariaLabel?: string;
+  ariaLabel?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

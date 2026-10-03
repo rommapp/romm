@@ -63,11 +63,11 @@ interface Props {
   /** Absolute position in the active gallery (0-indexed). Serves as the
    * lookup key into the store's `byPosition` map; the shell drives the
    * windowed fetch that fills it. Pass either this or `rom`, not both. */
-  position?: number;
+  position?: number | undefined;
   /** Static ROM data: used by non-gallery surfaces (Settings → Missing
    * games) that already own the rom list. When provided, the row skips
    * the galleryRoms position lookup. */
-  rom?: SimpleRom | null;
+  rom?: SimpleRom | null | undefined;
   /** Cover variant: when the browser supports webp the thumb URL is
    * rewritten to .webp before the request. Wired from the shell so the
    * choice is decided once per gallery render, not per row. */

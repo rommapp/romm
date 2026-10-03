@@ -135,7 +135,7 @@ beforeEach(() => {
   mocks.userId = 7;
   mocks.confirm.mockResolvedValue(false);
   mocks.getRom.mockResolvedValue({ data: rom });
-  window.Dos = undefined;
+  delete window.Dos;
 });
 
 function mountView(): VueWrapper {

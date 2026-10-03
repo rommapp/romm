@@ -32,7 +32,7 @@ type Anchor =
   | "end";
 
 interface Props {
-  content?: string | number;
+  content?: string | number | undefined;
   /** Tone keyword / legacy `romm-*` / any CSS colour. Default `"error"`
    *  for the red unread-count look. */
   color?: string;
@@ -53,7 +53,7 @@ interface Props {
   /** Numeric content > `max` is clamped: `max + "+"`. */
   max?: number;
   /** MDI icon shown inside the badge instead of text. */
-  icon?: string;
+  icon?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

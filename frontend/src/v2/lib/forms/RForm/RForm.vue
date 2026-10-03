@@ -17,7 +17,7 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   /** v-model: true when every registered field passes its rules. */
-  modelValue?: boolean;
+  modelValue?: boolean | undefined;
   /** Disable the Enter-to-submit shortcut. */
   disableEnterSubmit?: boolean;
   /** Disable the scroll-to-first-error helper. */

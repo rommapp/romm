@@ -21,10 +21,10 @@ const { t } = useI18n();
 type Toast = {
   id: number;
   msg: string;
-  icon?: string;
-  image?: string | null;
+  icon?: string | undefined;
+  image?: string | null | undefined;
   tone: SnackbarTone;
-  timer?: number;
+  timer?: number | undefined;
 };
 
 const toasts = ref<Toast[]>([]);

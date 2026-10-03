@@ -20,7 +20,7 @@ defineOptions({ inheritAttrs: false });
 
 withDefaults(
   defineProps<{
-    title?: string;
+    title?: string | undefined;
   }>(),
   {
     title: undefined,

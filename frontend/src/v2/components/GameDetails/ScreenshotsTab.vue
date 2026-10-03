@@ -24,20 +24,20 @@ defineOptions({ inheritAttrs: false });
 export type ScreenshotItem = {
   url: string;
   pinKey: string;
-  id?: number;
-  isOwn?: boolean;
-  isPublic?: boolean;
-  username?: string;
-  userId?: number | null;
-  userAvatarPath?: string | null;
-  userUpdatedAt?: string | null;
+  id?: number | undefined;
+  isOwn?: boolean | undefined;
+  isPublic?: boolean | undefined;
+  username?: string | undefined;
+  userId?: number | null | undefined;
+  userAvatarPath?: string | null | undefined;
+  userUpdatedAt?: string | null | undefined;
 };
 
 const props = defineProps<{
   screenshots: ScreenshotItem[];
   deletable?: boolean;
   editable?: boolean;
-  isPinned?: (key: string) => boolean;
+  isPinned?: ((key: string) => boolean) | undefined;
 }>();
 const emit = defineEmits<{
   edit: [shot: ScreenshotItem];

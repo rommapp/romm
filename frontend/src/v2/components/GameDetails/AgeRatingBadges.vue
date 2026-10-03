@@ -40,7 +40,7 @@ const CATEGORY_SLUG: Record<string, string> = {
 type Badge = {
   rating: string;
   category: string;
-  rating_cover_url?: string;
+  rating_cover_url?: string | undefined;
 };
 
 // IGDB icon URLs use lowercased rating codes with "+" stripped

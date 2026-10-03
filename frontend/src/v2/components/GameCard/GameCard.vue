@@ -65,7 +65,7 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   rom: SimpleRom;
-  to?: string;
+  to?: string | undefined;
   hero?: boolean;
   /** Card scale tier. Drives the cover art width/height via the shared
    *  `--r-card-art-w/h` tokens, and the hero variant's `--r-hero-w/h`
@@ -105,7 +105,7 @@ interface Props {
   /** Override the resolved cover URL. Used for local preview blobs
    *  (edit dialog) and external provider URLs (match dialog source
    *  variants). Bypasses the path/webp/url_cover chain. */
-  coverSrc?: string | null;
+  coverSrc?: string | null | undefined;
   /** When a `coverSrc` override is shown (e.g. the continue-playing
    *  screenshot), float a small 2D cover-art thumbnail in the bottom-right
    *  corner so the game stays identifiable. No-op without a `coverSrc`. */
@@ -116,7 +116,7 @@ interface Props {
    *  `gallerySelection` so a single source of truth (the store)
    *  drives every selected card across the gallery. Left unset, a static
    *  card gets no `aria-pressed`. */
-  selected?: boolean;
+  selected?: boolean | undefined;
   /** Opt the card into the gallery's multi-select store. When true:
    *  the card reads its selected state from `gallerySelection`,
    *  shows a checkbox affordance (on hover or whenever the gallery
@@ -130,7 +130,7 @@ interface Props {
    *  shift-range selection uses. Provided by `GalleryShell`. Required
    *  when `selectable` is true (the composable needs a position to
    *  store/restore the range anchor). */
-  position?: number;
+  position?: number | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

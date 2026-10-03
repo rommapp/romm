@@ -112,8 +112,8 @@ export function useMediaSession(blocked: () => boolean = () => false): void {
     if (!store.track) return null;
     return {
       title: store.meta.title || store.track.fileName,
-      artist: store.meta.artist,
-      album: store.meta.album,
+      artist: store.meta.artist ?? "",
+      album: store.meta.album ?? "",
       artwork: [{ src: playerCoverUrl(store.meta) }],
     };
   });

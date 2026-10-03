@@ -73,7 +73,7 @@ interface ScanOption {
   title: string;
   subtitle: string;
   value: ScanType;
-  disabled?: string;
+  disabled?: string | undefined;
 }
 
 const scanOptions = computed<ScanOption[]>(() => [

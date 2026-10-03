@@ -21,8 +21,8 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 
 interface Props {
-  title?: string;
-  count?: number | string;
+  title?: string | undefined;
+  count?: number | string | undefined;
   /** Horizontal gap between children in the scroll track. */
   gap?: string;
   /** Title font size: defaults to 14.5px. Accepts any CSS length. */

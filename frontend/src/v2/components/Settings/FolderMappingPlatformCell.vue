@@ -23,8 +23,8 @@ type RowType = "alias" | "variant" | "auto" | null;
 
 interface Row {
   fsSlug: string;
-  slug?: string;
-  displayName?: string;
+  slug?: string | undefined;
+  displayName?: string | undefined;
   type: RowType;
 }
 

@@ -13,7 +13,7 @@ withDefaults(
     label: string;
     icon: string;
     launchboxSelected?: boolean;
-    launchboxRemote?: boolean;
+    launchboxRemote?: boolean | undefined;
   }>(),
   // An explicit undefined stops Vue casting an unbound boolean prop to false.
   { launchboxSelected: false, launchboxRemote: undefined },

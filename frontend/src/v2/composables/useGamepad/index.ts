@@ -150,7 +150,7 @@ function dispatchKey(binding: Binding) {
     (document.activeElement as HTMLElement | null) ?? document.body;
   const init: KeyboardEventInit = {
     key: binding.key,
-    code: binding.code,
+    ...(binding.code === undefined ? {} : { code: binding.code }),
     bubbles: true,
     cancelable: true,
   };

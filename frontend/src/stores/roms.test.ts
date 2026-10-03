@@ -3,7 +3,11 @@ import storeRoms, { DETAILED_ROM_CACHE_SIZE } from "@/stores/roms";
 import { makeDetailedRom, makeRom } from "@/utils/rom.fixtures";
 
 function detailed(id: number, summary?: string) {
-  return makeDetailedRom({ id, name: `Game ${id}`, summary });
+  return makeDetailedRom({
+    id,
+    name: `Game ${id}`,
+    ...(summary === undefined ? {} : { summary }),
+  });
 }
 
 describe("detailed rom cache", () => {

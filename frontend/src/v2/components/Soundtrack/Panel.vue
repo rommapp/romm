@@ -55,7 +55,7 @@ const props = defineProps<{
   totalTracks?: number;
   startShuffled?: boolean;
   /** Cover shown when the active track has no art of its own. */
-  fallbackArtUrl?: string;
+  fallbackArtUrl?: string | undefined;
   /** Show the per-track delete button (host gates it on the ROM write grant). */
   deletable?: boolean;
   /** Opt into the now-playing-rail layout when the container is wide enough. */
@@ -375,7 +375,7 @@ function downloadTrack(track: PanelTrack) {
           </p>
           <!-- Keyed by track so a new track's chips start from the left. -->
           <NowPlayingChips
-            :key="headerTrack?.id"
+            :key="headerTrack?.id ?? ''"
             :tags="headerTrack?.meta"
             :position="headerPosition"
             :total="trackCount"

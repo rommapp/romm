@@ -17,12 +17,12 @@ defineOptions({ inheritAttrs: false });
 const props = withDefaults(
   defineProps<{
     modelValue?: string;
-    label?: string;
+    label?: string | undefined;
     autocomplete?: string;
     disabled?: boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    rules?: Array<(value: any) => true | string>;
-    prependInnerIcon?: string;
+    rules?: Array<(value: any) => true | string> | undefined;
+    prependInnerIcon?: string | undefined;
     variant?: "outlined" | "filled" | "underlined" | "plain";
   }>(),
   {

@@ -30,13 +30,13 @@ interface Props {
   indeterminate?: boolean;
   /** Secondary buffer fill (0–100). Painted behind the primary fill at
    *  reduced opacity. */
-  bufferValue?: number;
+  bufferValue?: number | undefined;
   /** Track height. Number → px, string → CSS length. Default 4. */
   height?: number | string;
   /** Fill colour. Resolves the lib's TONE_MAP keys or any CSS colour. */
   color?: string;
   /** Track background colour override. Defaults to `--r-color-border`. */
-  bgColor?: string;
+  bgColor?: string | undefined;
   /** Pill ends. Default true. */
   rounded?: boolean;
   /** Diagonal stripe overlay: keeps the bar feeling active even when
@@ -46,7 +46,7 @@ interface Props {
    *  between value updates. Ignored when `indeterminate`. */
   stream?: boolean;
   /** Accessible label. Defaults to "Progress". */
-  ariaLabel?: string;
+  ariaLabel?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

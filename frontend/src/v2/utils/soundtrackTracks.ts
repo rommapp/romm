@@ -16,11 +16,11 @@ export interface PanelTrack {
   /** Artist · album · (game · platform): whatever the source could supply. */
   subtitle: string;
   url: string;
-  durationSeconds?: number;
-  fileSizeBytes?: number;
-  coverUrl?: string;
-  gameArtworkUrl?: string;
-  meta?: TrackMetaSchema;
+  durationSeconds?: number | undefined;
+  fileSizeBytes?: number | undefined;
+  coverUrl?: string | undefined;
+  gameArtworkUrl?: string | undefined;
+  meta?: TrackMetaSchema | undefined;
 }
 
 const AUDIO_EXTS = new Set([
@@ -131,12 +131,10 @@ export function romFolderCoverUrl(rom: DetailedRom): string | undefined {
 }
 
 /** The audio tags the now-playing surfaces show, from either track source. */
-export type NowPlayingTags = Partial<
-  Pick<
-    TrackMetaSchema,
-    "artist" | "album" | "genre" | "year" | "track" | "disc"
-  >
->;
+export type NowPlayingTags = {
+  [K in "artist" | "album" | "genre" | "year" | "track" | "disc"]?:
+    TrackMetaSchema[K] | undefined;
+};
 
 /** The line under a now-playing title: the album, else the artist. */
 export function nowPlayingCaption(tags: NowPlayingTags | undefined): string {

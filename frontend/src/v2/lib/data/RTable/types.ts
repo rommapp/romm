@@ -20,18 +20,18 @@ export interface RTableProps<TItem> {
   /** Empty-state icon when `items` is empty and not loading. */
   emptyIcon?: string;
   /** Empty-state message. */
-  emptyMessage?: string;
+  emptyMessage?: string | undefined;
   /** Whether rows respond to hover / click. Click-binding is opt-in
    *  via the `row:click` listener: this just toggles the cursor. */
   clickableRows?: boolean;
   /** Per-row CSS row-height. Default uses `--r-list-row-h` token. */
-  rowHeight?: string;
+  rowHeight?: string | undefined;
   /** Extra class merged into each row: useful for variant rows. */
-  rowClass?: string | ((row: TItem) => string | undefined);
+  rowClass?: string | ((row: TItem) => string | undefined) | undefined;
   /** Horizontal-scroll floor (number → px). When set, header + body keep
    *  this min-width and the table scrolls horizontally below it instead
    *  of shrinking columns: useful for many-column tables on mobile. */
-  minWidth?: string | number;
+  minWidth?: string | number | undefined;
 }
 
 export interface RTableColumn {

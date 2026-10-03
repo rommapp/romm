@@ -13,7 +13,7 @@ interface TweenOptions {
   /** 0 lands on `to` synchronously, which is what reduced motion wants. */
   durationMs: number;
   onUpdate: (value: number) => void;
-  onDone?: () => void;
+  onDone?: (() => void) | undefined;
 }
 
 /** Starts the tween and returns the function that cancels it. */

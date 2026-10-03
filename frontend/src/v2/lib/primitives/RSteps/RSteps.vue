@@ -27,8 +27,8 @@ interface Props {
   /** 1-based index of the active step. */
   current: number;
   /** Either pass `steps` for labelled dots, or `total` for plain numbers. */
-  steps?: Step[];
-  total?: number;
+  steps?: Step[] | undefined;
+  total?: number | undefined;
   /** Direction of the last navigation: caller hint, presentation only. */
   direction?: "forward" | "back";
   /** Pixel width of the connecting lines. Defaults to 56. */

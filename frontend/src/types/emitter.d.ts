@@ -10,13 +10,13 @@ import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
 export type SnackbarStatus = {
-  id?: number;
+  id?: number | undefined;
   msg: string;
-  timeout?: number;
-  icon?: string;
-  color?: string;
+  timeout?: number | undefined;
+  icon?: string | undefined;
+  color?: string | undefined;
   /** Artwork shown in place of the icon, e.g. the cover of the game it concerns. */
-  image?: string | null;
+  image?: string | null | undefined;
 };
 
 export type Events = {
@@ -43,8 +43,8 @@ export type Events = {
    *  through the manual-match flow. Collection-cover edits omit it. */
   showSearchCoverDialog: {
     term: string;
-    platformId?: number;
-    rom?: SimpleRom;
+    platformId?: number | undefined;
+    rom?: SimpleRom | undefined;
   };
   updateUrlCover: string;
   showEditRomDialog: SimpleRom;
@@ -118,7 +118,7 @@ export type Events = {
   showDeleteManualDialog: {
     rom: DetailedRom;
     isPrimary: boolean;
-    fileId?: number;
+    fileId?: number | undefined;
   };
   showManualUploadTargetDialog: {
     rom: DetailedRom;

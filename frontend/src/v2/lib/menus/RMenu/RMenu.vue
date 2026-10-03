@@ -60,7 +60,7 @@ type Anchor =
 
 interface Props {
   /** Open state (controlled). Use v-model. Omit for uncontrolled. */
-  modelValue?: boolean;
+  modelValue?: boolean | undefined;
   /** Close when the user clicks inside the panel (default: true). */
   closeOnContentClick?: boolean;
   /** Open on hover instead of click (e.g. dropdown menus on a nav). */
@@ -70,13 +70,13 @@ interface Props {
   /** Px gap between activator and panel. */
   offset?: number;
   /** Override the panel width (default: auto, with a 180 px floor). */
-  width?: string | number;
+  width?: string | number | undefined;
   /** Cap the panel height: body scrolls beyond it. */
-  maxHeight?: string | number;
+  maxHeight?: string | number | undefined;
   /** Selectors for what to focus when the panel opens from a keyboard or a
    *  pad, tried in order. Defaults to the first menu item, which is wrong for
    *  a panel whose content is not `RMenuItem`s. */
-  initialFocus?: string | readonly string[];
+  initialFocus?: string | readonly string[] | undefined;
   /** Render a sticky search input at the top. */
   searchable?: boolean;
   /** v-model:search: current query string. */
@@ -84,7 +84,7 @@ interface Props {
   searchPlaceholder?: string;
   searchAutoFocus?: boolean;
   /** Extra class merged onto the panel element. */
-  contentClass?: string;
+  contentClass?: string | undefined;
   /** Disable opening entirely. */
   disabled?: boolean;
   /** On `sm-and-down`, dock the panel as a full-width bottom sheet instead

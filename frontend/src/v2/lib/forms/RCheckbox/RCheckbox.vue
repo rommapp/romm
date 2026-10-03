@@ -34,25 +34,25 @@ import type { RCheckboxState } from "./types";
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  modelValue?: boolean | null;
-  label?: string;
+  modelValue?: boolean | null | undefined;
+  label?: string | undefined;
   /** Secondary line under the label, most useful in `variant="card"`. */
-  subtitle?: string;
+  subtitle?: string | undefined;
   disabled?: boolean;
   indeterminate?: boolean;
   /** Opt into N-state cycling. Ordered list, first entry = empty state.
    *  The current value is driven by `stateValue`. */
-  states?: RCheckboxState[];
+  states?: RCheckboxState[] | undefined;
   /** Current multi-state value (only read when `states` is set). */
-  stateValue?: string;
+  stateValue?: string | undefined;
   /** Accessible name for a labelless checkbox (e.g. matrix cells). */
-  ariaLabel?: string;
+  ariaLabel?: string | undefined;
   /** Reserve vertical space for error messages. */
   hideDetails?: boolean | "auto";
   size?: "xs" | "sm" | "md" | "lg";
-  shape?: "square" | "rounded" | "circle";
+  shape?: "square" | "rounded" | "circle" | undefined;
   /** Tone for the check fill + active border. */
-  color?: string;
+  color?: string | undefined;
   variant?: "box" | "card";
   /** Box-only mode: drops the row's vertical breathing padding (4px
    *  top/bottom) and the box↔label gap so the checkbox can be

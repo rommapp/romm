@@ -72,7 +72,7 @@ function openRom() {
         <p class="r-v2-np-card__title" :title="title">{{ title }}</p>
         <p class="r-v2-np-card__caption" :title="caption">{{ caption }}</p>
         <NowPlayingChips
-          :key="track?.fileId"
+          :key="track?.fileId ?? ''"
           :tags="meta"
           :position="position"
           :total="playlist.length"

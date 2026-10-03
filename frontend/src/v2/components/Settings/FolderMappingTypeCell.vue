@@ -32,7 +32,12 @@ interface TypeItem {
 }
 
 interface Props {
-  row: { fsSlug: string; slug?: string; displayName?: string; type: RowType };
+  row: {
+    fsSlug: string;
+    slug?: string | undefined;
+    displayName?: string | undefined;
+    type: RowType;
+  };
   canEdit: boolean;
 }
 const props = defineProps<Props>();

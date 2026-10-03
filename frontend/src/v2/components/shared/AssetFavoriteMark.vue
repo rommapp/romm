@@ -9,7 +9,7 @@ defineOptions({ inheritAttrs: false });
 
 withDefaults(
   defineProps<{
-    favorite?: boolean;
+    favorite?: boolean | undefined;
     size?: number | string;
   }>(),
   { favorite: false, size: 14 },

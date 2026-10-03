@@ -46,7 +46,7 @@ class CachedApiService {
       method,
       url,
       params,
-      headers,
+      ...(headers ? { headers } : {}),
     };
   }
 

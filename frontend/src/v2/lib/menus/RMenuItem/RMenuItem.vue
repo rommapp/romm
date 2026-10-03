@@ -24,26 +24,27 @@ defineOptions({ inheritAttrs: false });
 type Variant = "default" | "active" | "danger";
 
 interface Props {
-  label?: string;
-  icon?: string; // optional mdi class: falls back to the slot
+  label?: string | undefined;
+  icon?: string | undefined; // optional mdi class: falls back to the slot
   variant?: Variant;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   // Routing: mutually exclusive; if neither is set we render a button.
-  to?: string | object;
-  href?: string;
+  to?: string | object | undefined;
+  href?: string | undefined;
   // `closeOnClick` makes the menu parent close when true (default). Handled
   // by the parent (RMenu auto-closes); this prop is mainly documentation
   // for consumers that wire their own open state.
   closeOnClick?: boolean;
   // Token-suffix overrides: `"brand-primary"` → `var(--r-color-brand-primary)`.
-  textColor?: string;
-  iconColor?: string;
+  textColor?: string | undefined;
+  iconColor?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   label: undefined,
   icon: undefined,
   variant: "default",
+  disabled: false,
   to: undefined,
   href: undefined,
   closeOnClick: true,

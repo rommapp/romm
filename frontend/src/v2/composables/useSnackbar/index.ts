@@ -21,16 +21,16 @@ export type SnackbarTone = "success" | "error" | "warning" | "info";
 
 export interface SnackbarOptions {
   /** Auto-dismiss timeout in ms. Defaults to NotificationHost's 3000ms. */
-  timeout?: number;
+  timeout?: number | undefined;
   /** Override the default icon for the tone. */
-  icon?: string;
+  icon?: string | undefined;
   /** Stable id: useful when deduplicating repeated notifications. */
-  id?: number;
+  id?: number | undefined;
   /** Artwork shown in place of the icon, e.g. the cover of the game it concerns. */
-  image?: string | null;
+  image?: string | null | undefined;
   /** Also keeps it in the user's notifications, optionally with a detail
    *  line and an in-app link. */
-  persist?: boolean | { body?: string; link?: string };
+  persist?: boolean | { body?: string; link?: string } | undefined;
 }
 
 /** The icon for a tone, where the caller gives none. */
@@ -73,9 +73,9 @@ export function useSnackbar() {
       await storeNotificationInbox().send({
         level: tone,
         title: msg,
-        body: extra.body,
-        link: extra.link,
-        icon: opts.icon,
+        ...(extra.body === undefined ? {} : { body: extra.body }),
+        ...(extra.link === undefined ? {} : { link: extra.link }),
+        ...(opts.icon === undefined ? {} : { icon: opts.icon }),
       });
     } catch (error) {
       console.error("Could not keep the notification:", error);

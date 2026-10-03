@@ -79,10 +79,10 @@ type ClearableAllowed = unknown extends Model
 
 interface Props {
   /** Typed by the bound ref; RSelect trusts it matches the items' keys. */
-  modelValue?: Model;
+  modelValue?: Model | undefined;
   items?: readonly Item[];
-  label?: string;
-  placeholder?: string;
+  label?: string | undefined;
+  placeholder?: string | undefined;
   variant?: "outlined" | "filled" | "underlined" | "plain";
   density?: "default" | "comfortable" | "compact";
   itemTitle?: string | ((item: Item) => string);
@@ -100,14 +100,14 @@ interface Props {
   loading?: boolean;
   hideDetails?: boolean | "auto";
   required?: boolean;
-  prependInnerIcon?: string;
+  prependInnerIcon?: string | undefined;
   appendInnerIcon?: string;
   rules?: Rule[];
-  hint?: string;
+  hint?: string | undefined;
   error?: boolean;
   errorMessages?: string | string[];
   /** "stacked": label above; "inline": label as a left well. */
-  prefixLabel?: "stacked" | "inline";
+  prefixLabel?: "stacked" | "inline" | undefined;
   /** Accent for focus + selected items. Defaults to brand-primary. */
   color?: string;
   /** Adds a sticky search input at the top of the panel that filters
@@ -115,7 +115,7 @@ interface Props {
   searchable?: boolean;
   /** v-model:search: current query string. */
   search?: string;
-  searchPlaceholder?: string;
+  searchPlaceholder?: string | undefined;
   /** Where to place the menu relative to the activator. */
   menuLocation?:
     "bottom" | "top" | "bottom start" | "bottom end" | "top start" | "top end";
@@ -145,12 +145,12 @@ interface Props {
   showAllOption?: boolean;
   /** Label used by the "All" row in the menu and as the activator
    *  display when nothing is selected. Defaults to "All". */
-  allOptionLabel?: string;
+  allOptionLabel?: string | undefined;
   /** Items it matches get a divider below their row, setting them apart
    *  from the ones that follow. */
-  dividerAfter?: (item: Item) => boolean;
+  dividerAfter?: ((item: Item) => boolean) | undefined;
   /** Tip revealed from an info icon in the trailing label well. */
-  info?: string;
+  info?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

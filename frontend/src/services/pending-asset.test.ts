@@ -335,7 +335,8 @@ describe("syncPendingAssets", () => {
 
   // A row from before the stem was stored asks the rom for it instead.
   it("names an older row's files after the rom it belongs to", async () => {
-    queue({ id: "save:older", fsNameNoExt: undefined, screenshotBytes: shot });
+    queue({ id: "save:older", screenshotBytes: shot });
+    delete rows.get("save:older")!.fsNameNoExt;
 
     await syncPendingAssets();
 

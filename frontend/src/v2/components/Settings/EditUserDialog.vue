@@ -213,7 +213,7 @@ async function save() {
         await permissionsApi.updateUserPermissions(userId, {
           set_group: groupChanged,
           permission_group_id: groupId.value,
-          overrides: overridesChanged ? overrides.value : undefined,
+          ...(overridesChanged ? { overrides: overrides.value } : {}),
         });
         if (groupChanged) nextGroupId = groupId.value;
       }
@@ -236,7 +236,12 @@ async function save() {
     snackbar.success(t("settings.user-updated", { username: data.username }), {
       icon: "mdi-check-bold",
     });
-    usersStore.update({ ...data, permission_group_id: nextGroupId });
+    usersStore.update({
+      ...data,
+      ...(nextGroupId === undefined
+        ? {}
+        : { permission_group_id: nextGroupId }),
+    });
     if (data.id === auth.user?.id) auth.setCurrentUser(data);
     emitter?.emit("refreshDrawer", null);
     show.value = false;

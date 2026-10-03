@@ -157,14 +157,7 @@ const showNoFilterMatch = computed(
   () => !searching.value && hasRawResults.value && !hasResults.value,
 );
 
-function openHandler({
-  term,
-  rom,
-}: {
-  term: string;
-  platformId?: number;
-  rom?: SimpleRom;
-}) {
+function openHandler({ term, rom }: Events["showSearchCoverDialog"]) {
   clearDialog();
   searchText.value = term;
   sourceRom.value = rom ?? null;
