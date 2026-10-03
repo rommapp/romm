@@ -133,7 +133,7 @@
   "tag": "Etiqueta",
   "tags": "Etiquetas",
   "update-platform-failed": "No se pudo actualizar la plataforma: {error}",
-  "updated": "Colección actualizada",
+  "updated": "Plataforma actualizada",
   "upload-firmware": "Subir firmware",
   "upload-roms": "Subir ROMs"
 }
