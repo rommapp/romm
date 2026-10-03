@@ -2,8 +2,24 @@ import ast
 
 from tests.app_sources import app_sources
 
-RESULT_METHODS = {"execute", "scalars"}
+RESULT_METHODS = {"execute", "query", "scalars"}
 RESULT_VIEWS = {"scalars", "mappings", "tuples", "unique", "columns"}
+# Builders a legacy `session.query(...)` chains through before it is iterated.
+QUERY_BUILDERS = {
+    "distinct",
+    "execution_options",
+    "filter",
+    "filter_by",
+    "group_by",
+    "join",
+    "limit",
+    "offset",
+    "options",
+    "order_by",
+    "outerjoin",
+    "where",
+    "yield_per",
+}
 CONSUMERS = {
     "all",
     "any",
@@ -30,10 +46,10 @@ type Parents = dict[ast.AST, ast.AST]
 
 
 def _view_root(node: ast.AST, parents: Parents) -> ast.AST:
-    """The outermost `.scalars()`-like view of `node`, which iterates the same cursor."""
+    """The outermost `.scalars()`-like view or Query builder chained onto `node`."""
     while (
         isinstance(attr := parents.get(node), ast.Attribute)
-        and attr.attr in RESULT_VIEWS
+        and attr.attr in RESULT_VIEWS | QUERY_BUILDERS
         and isinstance(call := parents.get(attr), ast.Call)
     ):
         node = call
