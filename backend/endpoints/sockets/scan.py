@@ -696,6 +696,22 @@ async def _identify_rom(
                 f"{hl(rom.name or rom.fs_name, color=BLUE)} by file hash"
             )
         else:
+            # Insert with the hashes too, so a scan that dies before its final
+            # write still leaves a row that rename detection can match.
+            if fs_rom["files"]:
+                rom_attrs.update(
+                    {
+                        "crc_hash": parsed_rom_files.crc_hash,
+                        "md5_hash": parsed_rom_files.md5_hash,
+                        "sha1_hash": parsed_rom_files.sha1_hash,
+                        "ra_hash": parsed_rom_files.ra_hash,
+                        "fs_size_bytes": sum(
+                            file.file_size_bytes for file in fs_rom["files"]
+                        ),
+                    }
+                )
+                if parsed_rom_files.identity.title_id:
+                    rom_attrs.update(parsed_rom_files.identity.as_rom_attrs())
             try:
                 rom = db_rom_handler.add_rom(Rom(**rom_attrs))
             except IntegrityError:

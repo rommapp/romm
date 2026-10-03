@@ -774,7 +774,9 @@ async def scan_rom(
             False,
         )
 
-    _added_rom = db_rom_handler.add_rom(Rom(**rom_attrs))
+    # A new rom is already the reloaded row its caller inserted; an existing
+    # one is loaded bare by the scan loop, so it is written and reloaded here.
+    _added_rom = rom if newly_added else db_rom_handler.add_rom(Rom(**rom_attrs))
     _added_rom.is_identifying = True
 
     if socket_manager:

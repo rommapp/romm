@@ -1254,6 +1254,51 @@ class TestIdentifyRomTitleIdEmbedRename:
         assert fs_rom["fs_name"] == self.NEW_NAME
 
 
+class TestIdentifyRomNewEntryInsert:
+    """A new entry is inserted with its file hashes, so a scan that dies before
+    the final write leaves a row that rename detection can still match."""
+
+    async def test_insert_carries_hashes_size_and_identity(self, mocker):
+        db, platform = patch_identify_rom(
+            mocker,
+            parsed=ParsedRomFiles(
+                rom_files=[
+                    RomFile(
+                        file_name="Game.nsp",
+                        file_path="switch/roms",
+                        file_size_bytes=1024,
+                    ),
+                    RomFile(
+                        file_name="Game [DLC].nsp",
+                        file_path="switch/roms",
+                        file_size_bytes=512,
+                    ),
+                ],
+                crc_hash="crc",
+                md5_hash="md5",
+                sha1_hash="sha1",
+                ra_hash="ra",
+                identity=RomIdentity(title_id="0100ABCD12340000"),
+            ),
+            roms_fs_structure="switch/roms",
+            name_with_no_tags="Game",
+            platform_slug="switch",
+        )
+        db.get_matching_missing_rom.return_value = None
+
+        await run_identify_rom(platform, make_fs_rom("Game.nsp"))
+
+        created = db.add_rom.call_args_list[0].args[0]
+        assert (created.crc_hash, created.md5_hash, created.sha1_hash) == (
+            "crc",
+            "md5",
+            "sha1",
+        )
+        assert created.ra_hash == "ra"
+        assert created.fs_size_bytes == 1536
+        assert created.title_id == "0100ABCD12340000"
+
+
 class TestIdentifyRomPersistsFileCategory:
     """A file losing its category before `sync_rom_files` persists an update as
     a plain game."""
