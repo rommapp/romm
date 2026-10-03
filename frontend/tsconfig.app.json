@@ -9,6 +9,7 @@
     "erasableSyntaxOnly": true,
     "noImplicitAny": true,
     "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],

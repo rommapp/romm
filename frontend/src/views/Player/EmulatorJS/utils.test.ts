@@ -195,8 +195,8 @@ describe("installNetplayHostAudioTap", () => {
     expect(stream).toBe(output.stream);
     const [played, boost] = source.targets as FakeAudioNode[];
     expect(played).toBe(context.destination);
-    expect(boost.targets).toEqual([output]);
-    expect(boost.gain.value).toBe(1.5);
+    expect(boost?.targets).toEqual([output]);
+    expect(boost?.gain.value).toBe(1.5);
   });
 
   it("leaves other connections alone", () => {
@@ -981,7 +981,7 @@ describe("saveState", () => {
   it("uploads the screenshot named after the state", async () => {
     await saveState({ rom, stateFile: bytes, screenshotFile: bytes });
 
-    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0]![0];
     expect(statesToUpload[0].screenshotFile.name).toMatch(/^game \[.*\]\.png$/);
     expect(rom.user_states).toEqual([{ id: 7 }]);
   });
@@ -989,14 +989,14 @@ describe("saveState", () => {
   it("still uploads the state when there is no screenshot", async () => {
     await saveState({ rom, stateFile: bytes });
 
-    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0]![0];
     expect(statesToUpload[0].screenshotFile).toBeUndefined();
   });
 
   it("holds the state in the browser until the server takes it", async () => {
     await saveState({ rom, stateFile: bytes, screenshotFile: bytes });
 
-    const held = pendingAssetMocks.write.mock.calls[0][0];
+    const held = pendingAssetMocks.write.mock.calls[0]![0];
     expect(held).toMatchObject({
       kind: "state",
       romId: 1,
@@ -1053,8 +1053,8 @@ describe("saveState", () => {
   it("names the state after the moment it was captured", async () => {
     await saveState({ rom, stateFile: bytes });
 
-    const { capturedAt } = pendingAssetMocks.write.mock.calls[0][0];
-    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    const { capturedAt } = pendingAssetMocks.write.mock.calls[0]![0];
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0]![0];
     expect(statesToUpload[0].stateFile.name).toMatch(
       /^game \[\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}-\d{3}\]\.state$/,
     );
@@ -1075,7 +1075,7 @@ describe("saveSaveOnUnload", () => {
   it("opens a capped autosave version named after the rom", () => {
     expect(saveSaveOnUnload({ rom, save: null, saveFile: bytes })).toBe(true);
 
-    const request = saveApiMocks.sendSaveOnUnload.mock.calls[0][0];
+    const request = saveApiMocks.sendSaveOnUnload.mock.calls[0]![0];
     expect(request).toMatchObject({
       save: null,
       slot: "autosave",
@@ -1093,7 +1093,7 @@ describe("saveSaveOnUnload", () => {
 
     saveSaveOnUnload({ rom, save, saveFile: bytes, slot: "main_quest" });
 
-    const request = saveApiMocks.sendSaveOnUnload.mock.calls[0][0];
+    const request = saveApiMocks.sendSaveOnUnload.mock.calls[0]![0];
     expect(request).toMatchObject({
       save,
       slot: "main_quest",
@@ -1156,7 +1156,7 @@ describe("saveSave", () => {
       screenshotFile: shot,
     });
 
-    const { screenshotFile } = saveApiMocks.updateSave.mock.calls[0][0];
+    const { screenshotFile } = saveApiMocks.updateSave.mock.calls[0]![0];
     expect(screenshotFile.name).toBe("a [t].png");
   });
 
@@ -1182,7 +1182,7 @@ describe("saveSave", () => {
   it("leaves the datetime tag of a slotted upload to the backend", async () => {
     await saveSave({ rom, save: null, saveFile: bytes });
 
-    const { savesToUpload } = saveApiMocks.uploadSaves.mock.calls[0][0];
+    const { savesToUpload } = saveApiMocks.uploadSaves.mock.calls[0]![0];
     expect(savesToUpload[0].saveFile.name).toBe("game.srm");
   });
 

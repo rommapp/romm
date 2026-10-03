@@ -64,11 +64,11 @@ function onClosedMenu() {
           v-for="rom in continuePlayingRoms"
           :key="rom.id"
           class="pa-1 align-self-center"
-          :cols="views[0]['size-cols']"
-          :sm="views[0]['size-sm']"
-          :md="views[0]['size-md']"
-          :lg="views[0]['size-lg']"
-          :xl="views[0]['size-xl']"
+          :cols="views[0]!['size-cols']"
+          :sm="views[0]!['size-sm']"
+          :md="views[0]!['size-md']"
+          :lg="views[0]!['size-lg']"
+          :xl="views[0]!['size-xl']"
         >
           <GameCard
             :key="rom.updated_at"

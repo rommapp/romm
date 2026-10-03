@@ -29,11 +29,11 @@ const { fetchLimit } = storeToRefs(romsStore);
           v-for="index in Math.min(props.romCount, fetchLimit)"
           :key="index"
           class="pa-1 align-self-end"
-          :cols="views[currentView]['size-cols']"
-          :sm="views[currentView]['size-sm']"
-          :md="views[currentView]['size-md']"
-          :lg="views[currentView]['size-lg']"
-          :xl="views[currentView]['size-xl']"
+          :cols="views[currentView]!['size-cols']"
+          :sm="views[currentView]!['size-sm']"
+          :md="views[currentView]!['size-md']"
+          :lg="views[currentView]!['size-lg']"
+          :xl="views[currentView]!['size-xl']"
         >
           <Skeleton />
         </v-col>

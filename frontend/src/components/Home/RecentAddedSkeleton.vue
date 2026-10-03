@@ -14,11 +14,11 @@ defineProps<{ title: string }>();
           v-for="index in RECENT_ROMS_LIMIT"
           :key="index"
           class="align-self-end pa-1"
-          :cols="views[0]['size-cols']"
-          :sm="views[0]['size-sm']"
-          :md="views[0]['size-md']"
-          :lg="views[0]['size-lg']"
-          :xl="views[0]['size-xl']"
+          :cols="views[0]!['size-cols']"
+          :sm="views[0]!['size-sm']"
+          :md="views[0]!['size-md']"
+          :lg="views[0]!['size-lg']"
+          :xl="views[0]!['size-xl']"
         >
           <Skeleton />
         </v-col>

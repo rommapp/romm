@@ -64,7 +64,7 @@ export function attachGamepad(bus: InputBus) {
       fireAxis("y", y);
 
       for (let i = 0; i < pad.buttons.length; i++) {
-        const b = pad.buttons[i];
+        const b = pad.buttons[i]!;
         const action = defaultInputConfig.gamepad.buttons[i];
         if (!action) continue;
         const prev = (st.buttons[i] ||= { pressed: false, nextRepeatAt: 0 });

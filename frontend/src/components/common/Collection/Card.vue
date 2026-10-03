@@ -115,8 +115,8 @@ watchEffect(() => {
   const shuffledSmall = [...smallCoverUrls].sort(() => Math.random() - 0.5);
 
   memoizedCovers.value = {
-    large: [shuffledLarge[0], shuffledLarge[1]],
-    small: [shuffledSmall[0], shuffledSmall[1]],
+    large: [shuffledLarge[0]!, shuffledLarge[1]!],
+    small: [shuffledSmall[0]!, shuffledSmall[1]!],
   };
 });
 

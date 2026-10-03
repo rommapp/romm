@@ -187,7 +187,7 @@ function handleExitAction(action: string) {
     return true;
   }
   if (action === "confirm") {
-    activateExitOption(exitOptions.value[focusedExitIndex.value].id);
+    activateExitOption(exitOptions.value[focusedExitIndex.value]!.id);
     return true;
   }
   if (action === "back") {
@@ -252,7 +252,7 @@ async function uploadState(
       ],
     });
 
-    const uploadedState = uploadedStates[0];
+    const uploadedState = uploadedStates[0]!;
     if (uploadedState.status == "fulfilled") {
       if (romRef.value) romRef.value.user_states.unshift(uploadedState.value);
       return uploadedState.value;
@@ -356,7 +356,7 @@ function attachGamepadExit(options?: { windowMs?: number }) {
         }
       } else {
         if (edge(BTN.A))
-          activateExitOption(exitOptions.value[focusedExitIndex.value].id);
+          activateExitOption(exitOptions.value[focusedExitIndex.value]!.id);
         if (edge(BTN.B)) cancelExit();
       }
       for (let i = 0; i < pad.buttons.length; i++) {
@@ -416,7 +416,7 @@ async function boot() {
   const core =
     [playerStorage.gameCore.value, playerStorage.core.value].find(
       (c): c is string => !!c && supported.includes(c),
-    ) ?? supported[0];
+    ) ?? supported[0]!;
 
   const coreOptions = configStore.getEJSCoreOptions(core);
   window.EJS_core = core;

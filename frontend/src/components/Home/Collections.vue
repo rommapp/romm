@@ -64,11 +64,11 @@ watch(windowY, () => {
           v-for="collection in collections.slice(0, visibleCollections)"
           :key="`${'filter_criteria' in collection ? 'smart' : 'regular'}-${collection.id}`"
           class="pa-1"
-          :cols="views[0]['size-cols']"
-          :sm="views[0]['size-sm']"
-          :md="views[0]['size-md']"
-          :lg="views[0]['size-lg']"
-          :xl="views[0]['size-xl']"
+          :cols="views[0]!['size-cols']"
+          :sm="views[0]!['size-sm']"
+          :md="views[0]!['size-md']"
+          :lg="views[0]!['size-lg']"
+          :xl="views[0]!['size-xl']"
           :style="{
             zIndex:
               isHovering && hoveringCollectionId === collection.id ? 1000 : 1,

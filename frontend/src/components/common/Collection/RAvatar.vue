@@ -58,7 +58,7 @@ watchEffect(() => {
   }
 
   const shuffledSmall = [...smallCoverUrls].sort(() => Math.random() - 0.5);
-  memoizedCovers.value = [shuffledSmall[0], shuffledSmall[1]];
+  memoizedCovers.value = [shuffledSmall[0]!, shuffledSmall[1]!];
 });
 
 const firstCover = computed(() => memoizedCovers.value[0]);

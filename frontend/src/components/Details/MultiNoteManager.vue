@@ -140,9 +140,9 @@ async function saveNote(title: string) {
       romId: props.rom.id,
       noteId: note.id,
       noteData: {
-        title: editableNotes[title].title,
-        content: editableNotes[title].content,
-        is_public: editableNotes[title].is_public,
+        title: editableNotes[title]!.title,
+        content: editableNotes[title]!.content,
+        is_public: editableNotes[title]!.is_public,
       },
     });
 
@@ -258,7 +258,7 @@ watch(
                 <div class="d-flex justify-space-between align-center w-100">
                   <v-text-field
                     v-if="editingNotes[note.title]"
-                    v-model="editableNotes[note.title].title"
+                    v-model="editableNotes[note.title]!.title"
                     variant="outlined"
                     density="compact"
                     hide-details
@@ -354,7 +354,7 @@ watch(
               <v-expansion-panel-text class="bg-surface">
                 <MdEditor
                   v-if="editingNotes[note.title]"
-                  v-model="editableNotes[note.title].content"
+                  v-model="editableNotes[note.title]!.content"
                   no-highlight
                   no-katex
                   no-mermaid

@@ -54,7 +54,7 @@ async function goToRandomGame() {
     });
 
     if (randomRomResponse.items.length > 0) {
-      const randomRom = randomRomResponse.items[0];
+      const randomRom = randomRomResponse.items[0]!;
       router.push({ name: ROUTES.ROM, params: { rom: randomRom.id } });
     } else {
       emitter?.emit("snackbarShow", {
