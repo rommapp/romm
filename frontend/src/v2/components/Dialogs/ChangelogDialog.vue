@@ -169,10 +169,6 @@ function closeDialog() {
             }}</span>
           </header>
           <MdPreview
-            no-highlight
-            no-katex
-            no-mermaid
-            no-echarts
             :model-value="r.body"
             :theme="mdTheme"
             language="en-US"

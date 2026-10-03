@@ -170,10 +170,6 @@ watch(
       </REmptyState>
       <MdPreview
         v-else
-        no-highlight
-        no-katex
-        no-mermaid
-        no-echarts
         :model-value="content"
         :theme="mdTheme"
         language="en-US"

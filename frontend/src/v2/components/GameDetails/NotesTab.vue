@@ -441,10 +441,6 @@ function fmtDate(iso: string): string {
           </header>
           <MdEditor
             v-model="editForm.content"
-            no-highlight
-            no-katex
-            no-mermaid
-            no-echarts
             no-prettier
             no-upload-img
             :theme="mdTheme"
@@ -499,10 +495,6 @@ function fmtDate(iso: string): string {
             </div>
           </header>
           <MdPreview
-            no-highlight
-            no-katex
-            no-mermaid
-            no-echarts
             :model-value="selectedNote.content"
             :theme="mdTheme"
             language="en-US"
