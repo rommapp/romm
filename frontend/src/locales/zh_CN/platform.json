@@ -133,6 +133,7 @@
   "tab-firmware": "固件",
   "tag": "标签",
   "tags": "标签",
+  "update-platform-failed": "更新平台失败：{error}",
   "updated": "平台已更新",
   "upload-firmware": "上传固件",
   "upload-roms": "上传 ROMs"

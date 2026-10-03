@@ -6,7 +6,7 @@
 //
 // Elapsed-time labels are recomputed off a `now` ref that ticks every
 // 30s, so "5m ago" advances without a full refetch. The grid is wired
-// to `useWrapGridNav` so arrow keys / gamepad move across the cards.
+// to `useGridNav` so arrow keys / gamepad move across the cards.
 import {
   RBtn,
   RDialog,
@@ -28,11 +28,11 @@ import storeActivity from "@/stores/activity";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import ActivityCard from "@/v2/components/Activity/ActivityCard.vue";
 import { useCan } from "@/v2/composables/useCan";
+import { useGridNav } from "@/v2/composables/useGridNav";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useVisiblePoll } from "@/v2/composables/useVisiblePoll";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 const { t } = useI18n();
@@ -45,7 +45,7 @@ const { activities: rawActivities, initialized } = storeToRefs(activityStore);
 const now = ref(Date.now());
 
 const gridRoot = ref<HTMLElement | null>(null);
-useWrapGridNav(gridRoot, { cellSelector: ".activity-card" });
+useGridNav(gridRoot, { cellSelector: ".activity-card" });
 
 // Emulator streaming sessions live in Redis, not the activity presence
 // board, so a session survives the player closing their tab. This panel

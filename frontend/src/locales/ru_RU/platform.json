@@ -133,6 +133,7 @@
   "tab-firmware": "Прошивка",
   "tag": "Тег",
   "tags": "Теги",
+  "update-platform-failed": "Не удалось обновить платформу: {error}",
   "updated": "Платформа обновлена",
   "upload-firmware": "Загрузить прошивку",
   "upload-roms": "Загрузить ромы"

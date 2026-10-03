@@ -13,9 +13,10 @@
 // Tone defaults to "warning"; pass "danger" for irreversible-and-serious.
 import { RBtn, RDialog, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 
 defineOptions({ inheritAttrs: false });
 
@@ -79,8 +80,7 @@ function onConfirm() {
   resolve(true);
 }
 
-onMounted(() => emitter?.on("showConfirm", onShow));
-onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
+useEmitterEvent("showConfirm", onShow);
 </script>
 
 <template>

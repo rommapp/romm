@@ -45,6 +45,7 @@ export function useConfirm() {
         emitter.off("confirmResolved", handler);
         resolve(payload.confirmed);
       };
+      // eslint-disable-next-line no-restricted-syntax -- one-shot, removed by the handler
       emitter.on("confirmResolved", handler);
       emitter.emit("showConfirm", { id, ...opts });
     });

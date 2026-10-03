@@ -92,6 +92,22 @@ def test_hidden_platform_excluded_from_list_but_visible_to_admin(
     assert platform.id in admin_ids
 
 
+def test_a_hide_reaches_the_cached_gallery(client, admin_user, viewer_user, rom):
+    # The unscoped listing caches the user's id index.
+    listing = client.get("/api/roms", headers=_auth(viewer_user)).json()
+    assert rom.id in listing["rom_id_index"]
+
+    hidden = client.post(
+        "/api/permissions/hidden",
+        headers=_auth(admin_user),
+        json={"entity": "roms", "entity_id": rom.id, "user_id": viewer_user.id},
+    )
+    assert hidden.status_code == status.HTTP_200_OK
+
+    listing = client.get("/api/roms", headers=_auth(viewer_user)).json()
+    assert rom.id not in listing["rom_id_index"]
+
+
 def test_hidden_platform_detail_is_404_masked(client, viewer_user, platform):
     _hide(PermEntity.PLATFORMS, platform.id, viewer_user.id)
     resp = client.get(f"/api/platforms/{platform.id}", headers=_auth(viewer_user))

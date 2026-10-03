@@ -133,6 +133,7 @@
   "tab-firmware": "Firmware",
   "tag": "Etichetă",
   "tags": "Etichete",
+  "update-platform-failed": "Actualizarea platformei a eșuat: {error}",
   "updated": "Platformă actualizată",
   "upload-firmware": "Încarcă firmware",
   "upload-roms": "Încărcare ROM-uri"

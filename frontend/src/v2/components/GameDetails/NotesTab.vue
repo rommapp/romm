@@ -12,14 +12,11 @@ import {
   RTooltip,
   RDivider,
 } from "@v2/lib";
-import { MdEditor, MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { UserNoteSchema } from "@/__generated__";
-import "@/plugins/mdeditor";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
@@ -28,6 +25,10 @@ import SubtabNav, {
 } from "@/v2/components/GameDetails/SubtabNav.vue";
 import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
+import {
+  AsyncMdEditor as MdEditor,
+  AsyncMdPreview as MdPreview,
+} from "@/v2/components/shared/asyncMarkdown";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
@@ -440,9 +441,6 @@ function fmtDate(iso: string): string {
           </header>
           <MdEditor
             v-model="editForm.content"
-            no-highlight
-            no-katex
-            no-mermaid
             no-prettier
             no-upload-img
             :theme="mdTheme"
@@ -497,9 +495,6 @@ function fmtDate(iso: string): string {
             </div>
           </header>
           <MdPreview
-            no-highlight
-            no-katex
-            no-mermaid
             :model-value="selectedNote.content"
             :theme="mdTheme"
             language="en-US"

@@ -93,6 +93,7 @@ import storeGalleryRoms, {
 } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import storeScrollRestoration from "@/v2/stores/scrollRestoration";
+import { isEditable } from "@/v2/utils/editable";
 
 interface Props {
   /** Whether the header slot has content to render. False suppresses
@@ -812,16 +813,7 @@ const { selectAll, selectingAll } = useGallerySelectAll();
 // Esc clears the selection, Ctrl/Cmd+A selects the whole result; both
 // skip editable elements so the search field's native Cmd+A survives.
 function onShellKey(e: KeyboardEvent) {
-  const target = e.target as HTMLElement | null;
-  if (
-    target &&
-    (target.tagName === "INPUT" ||
-      target.tagName === "TEXTAREA" ||
-      target.tagName === "SELECT" ||
-      target.isContentEditable)
-  ) {
-    return;
-  }
+  if (isEditable(e.target)) return;
   // `selectingAll` keeps Esc working while a whole-result fetch is
   // still in flight with nothing selected yet (clear() abandons it).
   if (e.key === "Escape" && (gallerySelection.enabled || selectingAll.value)) {

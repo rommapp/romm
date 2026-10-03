@@ -6,7 +6,7 @@ import { RBtn, RMenu } from "@v2/lib";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
-import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
+import { useGridNav } from "@/v2/composables/useGridNav";
 
 interface Props {
   available: Set<string>;
@@ -32,7 +32,7 @@ const INITIAL_FOCUS = [
 
 const open = ref(false);
 const gridEl = ref<HTMLElement | null>(null);
-useWrapGridNav(gridEl, { cellSelector: LETTER_SELECTOR });
+useGridNav(gridEl, { cellSelector: LETTER_SELECTOR });
 </script>
 
 <template>

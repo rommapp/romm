@@ -20,15 +20,14 @@ import {
 } from "@v2/lib";
 import { useCountdown } from "@vueuse/core";
 import { useQRCode } from "@vueuse/integrations/useQRCode";
-import type { Emitter } from "mitt";
-import { computed, inject, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import clientTokenApi, {
   type ClientTokenSchema,
 } from "@/services/api/client-token";
 import storeAuth from "@/stores/auth";
-import type { Events } from "@/types/emitter";
 import { useClipboard } from "@/v2/composables/useClipboard";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { colorOverlay } from "@/v2/tokens";
@@ -39,7 +38,6 @@ const emit = defineEmits<{ created: [] }>();
 
 const { t } = useI18n();
 const auth = storeAuth();
-const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const clipboard = useClipboard();
 
@@ -183,14 +181,14 @@ const dialogTitle = computed(() => {
   return t("settings.pair-device");
 });
 
-emitter?.on("showCreateClientTokenDialog", () => {
+useEmitterEvent("showCreateClientTokenDialog", () => {
   resetDialog();
   regenerateToken.value = null;
   selectedScopes.value = [...userScopes.value];
   show.value = true;
 });
 
-emitter?.on("showRegenerateClientTokenDialog", (token) => {
+useEmitterEvent("showRegenerateClientTokenDialog", (token) => {
   resetDialog();
   regenerateToken.value = token;
   tokenName.value = token.name;
@@ -477,7 +475,7 @@ watch(show, (val) => {
             <button
               type="button"
               class="r-v2-tok-dialog__copy-btn"
-              :aria-label="t('common.save')"
+              :aria-label="t('settings.copy-token')"
               @click="copyToken"
             >
               <RIcon icon="mdi-content-copy" size="16" />

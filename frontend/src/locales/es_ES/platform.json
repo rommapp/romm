@@ -133,7 +133,8 @@
   "tab-firmware": "Firmware",
   "tag": "Etiqueta",
   "tags": "Etiquetas",
-  "updated": "Colección actualizada",
+  "update-platform-failed": "No se pudo actualizar la plataforma: {error}",
+  "updated": "Plataforma actualizada",
   "upload-firmware": "Subir firmware",
   "upload-roms": "Subir ROMs"
 }

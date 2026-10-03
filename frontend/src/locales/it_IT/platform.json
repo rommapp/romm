@@ -133,6 +133,7 @@
   "tab-firmware": "Firmware",
   "tag": "Tag",
   "tags": "Tag",
+  "update-platform-failed": "Impossibile aggiornare la piattaforma: {error}",
   "updated": "Piattaforma aggiornata",
   "upload-firmware": "Carica firmware",
   "upload-roms": "Carica Rom"

@@ -14,7 +14,8 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@v2/*": ["./src/v2/*"]
+      "@v2/*": ["./src/v2/*"],
+      "md-editor-v3": ["./src/plugins/mdeditor.ts"]
     },
     "types": [
       "./src/plugins/pinia.d.ts",

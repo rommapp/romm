@@ -133,6 +133,7 @@
   "tab-firmware": "Firmware",
   "tag": "Címke",
   "tags": "Címkék",
+  "update-platform-failed": "A platform frissítése sikertelen: {error}",
   "updated": "Platform frissítve",
   "upload-firmware": "Firmware feltöltése",
   "upload-roms": "ROM-ok Feltöltése"
