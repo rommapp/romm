@@ -22,6 +22,7 @@ import type { UserItem } from "@/types/user";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
+import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
 import OverridesMatrix from "./OverridesMatrix.vue";
@@ -49,6 +50,14 @@ const groupId = ref<number | null>(null);
 const originalGroupId = ref<number | null>(null);
 const hiddenPlatformIds = ref<number[]>([]);
 const originalHiddenPlatformIds = ref<number[]>([]);
+
+// The user's own age settings; null keeps the group's.
+const ageLimit = ref<number | null>(null);
+const originalAgeLimit = ref<number | null>(null);
+const hideUnrated = ref<boolean | null>(null);
+const originalHideUnrated = ref<boolean | null>(null);
+const exemptRomIds = ref<number[]>([]);
+const originalExemptRomIds = ref<number[]>([]);
 
 // Advanced: per-user overrides + per-game hiding.
 const showAdvanced = ref(false);
@@ -79,6 +88,18 @@ async function ensureCatalog() {
 }
 
 const editingSelf = computed(() => user.value?.id === auth.user?.id);
+
+const inheritedAgeSettings = computed(() => {
+  const group = groupsStore.groups.find((g) => g.id === groupId.value);
+  return {
+    ageLimit: group?.age_limit ?? null,
+    hideUnrated: group?.hide_unrated_roms ?? false,
+  };
+});
+
+function idsKey(ids: number[]): string {
+  return [...ids].sort((a, b) => a - b).join(",");
+}
 
 const groupItems = computed(() =>
   groupsStore.groups.map((g) => ({ title: g.name, value: g.id })),
@@ -124,6 +145,13 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
       .map((h) => h.entity_id);
     hiddenRomIds.value = [...hiddenRoms];
     originalHiddenRomIds.value = [...hiddenRoms];
+
+    ageLimit.value = perms.data.age_limit ?? null;
+    originalAgeLimit.value = ageLimit.value;
+    hideUnrated.value = perms.data.hide_unrated_roms ?? null;
+    originalHideUnrated.value = hideUnrated.value;
+    exemptRomIds.value = [...(perms.data.age_exempt_rom_ids ?? [])];
+    originalExemptRomIds.value = [...exemptRomIds.value];
 
     overrides.value = perms.data.overrides.map((o) => ({ ...o }));
     originalOverrides.value = perms.data.overrides.map((o) => ({ ...o }));
@@ -209,11 +237,20 @@ async function save() {
       const groupChanged = groupId.value !== originalGroupId.value;
       const overridesChanged =
         overridesKey(overrides.value) !== overridesKey(originalOverrides.value);
-      if (groupChanged || overridesChanged) {
+      const ageChanged =
+        ageLimit.value !== originalAgeLimit.value ||
+        hideUnrated.value !== originalHideUnrated.value;
+      const exemptionsChanged =
+        idsKey(exemptRomIds.value) !== idsKey(originalExemptRomIds.value);
+      if (groupChanged || overridesChanged || ageChanged || exemptionsChanged) {
         await permissionsApi.updateUserPermissions(userId, {
           set_group: groupChanged,
           permission_group_id: groupId.value,
           overrides: overridesChanged ? overrides.value : null,
+          set_age_settings: ageChanged,
+          age_limit: ageLimit.value,
+          hide_unrated_roms: hideUnrated.value,
+          age_exempt_rom_ids: exemptionsChanged ? exemptRomIds.value : null,
         });
         if (groupChanged) {
           nextUser = { ...data, permission_group_id: groupId.value };
@@ -401,6 +438,12 @@ function close() {
               :platforms="sortedPlatforms"
             />
           </div>
+          <AgeLimitFields
+            v-model:age-limit="ageLimit"
+            v-model:hide-unrated="hideUnrated"
+            v-model:exempt-rom-ids="exemptRomIds"
+            :inherited="inheritedAgeSettings"
+          />
 
           <RBtn
             block

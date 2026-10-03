@@ -17,6 +17,7 @@ import type { Events } from "@/types/emitter";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { GROUP_COLOR_PALETTE } from "@/v2/utils/groupColor";
+import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
 import PermissionsMatrix from "./PermissionsMatrix.vue";
@@ -47,6 +48,10 @@ const hiddenPlatformIds = ref<number[]>([]);
 const originalHiddenPlatformIds = ref<number[]>([]);
 const hiddenRomIds = ref<number[]>([]);
 const originalHiddenRomIds = ref<number[]>([]);
+
+const ageLimit = ref<number | null>(null);
+const hideUnrated = ref<boolean | null>(false);
+const exemptRomIds = ref<number[]>([]);
 
 const sortedPlatforms = computed(() =>
   [...platforms.value].sort((a, b) =>
@@ -112,6 +117,9 @@ emitter?.on("showGroupFormDialog", async (group) => {
   isDefault.value = group?.is_default ?? false;
   color.value = group?.color ?? GROUP_COLOR_PALETTE[0];
   grants.value = group ? group.grants.map((g) => ({ ...g })) : [];
+  ageLimit.value = group?.age_limit ?? null;
+  hideUnrated.value = group?.hide_unrated_roms ?? false;
+  exemptRomIds.value = [...(group?.age_exempt_rom_ids ?? [])];
 
   const hidden = group?.hidden ?? [];
   const hiddenPlatforms = hidden
@@ -138,11 +146,17 @@ async function save() {
     is_default: isDefault.value,
     color: color.value,
     grants: grants.value,
+    age_limit: ageLimit.value,
+    hide_unrated_roms: hideUnrated.value ?? false,
+    age_exempt_rom_ids: exemptRomIds.value,
   };
   try {
     const { data: saved } =
       editingId.value !== null
-        ? await permissionsApi.updateGroup(editingId.value, body)
+        ? await permissionsApi.updateGroup(editingId.value, {
+            ...body,
+            set_age_settings: true,
+          })
         : await permissionsApi.createGroup(body);
     // Apply hidden-entity diffs against the (now-known) group id.
     await Promise.all([
@@ -291,6 +305,17 @@ async function save() {
             {{ t("settings.hidden-games") }}
           </span>
           <HiddenGamesPicker v-model="hiddenRomIds" />
+        </div>
+
+        <div class="r-v2-group-dialog__matrix">
+          <span class="r-v2-group-dialog__matrix-label">
+            {{ t("settings.parental-controls") }}
+          </span>
+          <AgeLimitFields
+            v-model:age-limit="ageLimit"
+            v-model:hide-unrated="hideUnrated"
+            v-model:exempt-rom-ids="exemptRomIds"
+          />
         </div>
       </div>
     </template>

@@ -14,7 +14,7 @@ import { useDebouncedSearch } from "@/v2/composables/useDebouncedSearch";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{ modelValue: number[] }>();
+const props = defineProps<{ modelValue: number[]; placeholder?: string }>();
 const emit = defineEmits<{ "update:modelValue": [number[]] }>();
 
 const { t } = useI18n();
@@ -117,7 +117,7 @@ function remove(id: number) {
       prefix-label="inline"
       density="compact"
       hide-details
-      :placeholder="t('settings.hidden-games-search')"
+      :placeholder="placeholder ?? t('settings.hidden-games-search')"
       @update:model-value="setSearch"
     >
       <template #prefix-label>
