@@ -631,8 +631,8 @@ async def scan_rom(
     file_attrs = fs_rom_file_attrs(fs_rom)
     rom_attrs.update(file_attrs)
     if file_attrs.get("title_id"):
-        # Metadata matching reads the id off the instance, so a first scan
-        # searches by what was just extracted rather than the old value.
+        # Metadata matching reads the id off the instance, so a rescan searches
+        # by what was just extracted rather than the stored value.
         rom.title_id = file_attrs["title_id"]
 
     # Update properties from existing rom if not a complete rescan
