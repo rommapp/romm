@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from typing import NamedTuple
 
 from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.orm import Session
@@ -25,6 +26,14 @@ GrantTuple = tuple[PermEntity, PermAction, bool]
 OverrideTuple = tuple[PermEntity, PermAction, bool, bool]
 
 
+class GroupPolicy(NamedTuple):
+    """What the resolver reads off a group, without loading it as an object."""
+
+    age_limit: int | None
+    hide_unrated_roms: bool
+    grants: list[GrantTuple]
+
+
 class DBPermissionsHandler(DBBaseHandler):
     """Read and admin-write access to the granular permission model.
 
@@ -41,6 +50,48 @@ class DBPermissionsHandler(DBBaseHandler):
     ) -> PermissionGroup | None:
         return session.scalar(
             select(PermissionGroup).filter_by(is_default=True).limit(1)
+        )
+
+    @begin_session
+    def get_default_group_id(
+        self,
+        session: Session = INJECTED_SESSION,
+    ) -> int | None:
+        return session.scalar(
+            select(PermissionGroup.id).filter_by(is_default=True).limit(1)
+        )
+
+    @begin_session
+    def get_group_policy(
+        self,
+        group_id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> GroupPolicy | None:
+        """A group's grants and age settings in one query; None when it's gone."""
+        rows = session.execute(
+            select(
+                PermissionGroup.age_limit,
+                PermissionGroup.hide_unrated_roms,
+                PermissionGroupGrant.entity,
+                PermissionGroupGrant.action,
+                PermissionGroupGrant.own_only,
+            )
+            .outerjoin(
+                PermissionGroupGrant,
+                PermissionGroupGrant.group_id == PermissionGroup.id,
+            )
+            .where(PermissionGroup.id == group_id)
+        ).all()
+        if not rows:
+            return None
+        return GroupPolicy(
+            age_limit=rows[0].age_limit,
+            hide_unrated_roms=rows[0].hide_unrated_roms,
+            grants=[
+                (row.entity, row.action, row.own_only)
+                for row in rows
+                if row.entity is not None
+            ],
         )
 
     @begin_session

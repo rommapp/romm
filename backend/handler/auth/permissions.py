@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
@@ -31,6 +32,9 @@ from handler.auth.rom_visibility import (
 )
 from models.permission import PermAction, PermEntity
 from models.user import Role, User
+
+if TYPE_CHECKING:
+    from handler.database.permissions_handler import GroupPolicy
 
 
 @dataclass(frozen=True)
@@ -88,30 +92,36 @@ class ResolvedPermissions:
 def _effective_group_id(user: User, *, session: Session) -> int | None:
     """The group a non-admin user follows: their own, else the server default.
 
-    Used by both the grant map and the hidden-entity lookup so a user with no
-    explicit group still inherits the default group's grants AND its hides.
+    A user with no explicit group inherits the default group's grants, hides
+    and age settings alike.
     """
 
     from handler.database import db_permission_handler
 
     if user.permission_group_id is not None:
         return user.permission_group_id
-    default_group = db_permission_handler.get_default_group(session=session)
-    return default_group.id if default_group else None
+    return db_permission_handler.get_default_group_id(session=session)
+
+
+def _group_policy(group_id: int | None, *, session: Session) -> GroupPolicy | None:
+    from handler.database import db_permission_handler
+
+    if group_id is None:
+        return None
+    return db_permission_handler.get_group_policy(group_id, session=session)
 
 
 def _resolve_grant_map(
-    user: User, *, session: Session
+    user: User, group: GroupPolicy | None, *, session: Session
 ) -> dict[tuple[PermEntity, PermAction], bool]:
     """Effective ``(entity, action) -> own_only`` map for a non-admin user."""
 
     from handler.database import db_permission_handler
 
     base: dict[tuple[PermEntity, PermAction], bool] = {}
-    group_id = _effective_group_id(user, session=session)
-    if group_id is not None:
-        for g in db_permission_handler.get_group_grants(group_id, session=session):
-            base[(g.entity, g.action)] = g.own_only
+    if group is not None:
+        for entity, action, own_only in group.grants:
+            base[(entity, action)] = own_only
 
     # Per-user overrides win over the group: grant adds, revoke removes.
     # Override identity is (entity, action) only, so a grant override fully
@@ -149,7 +159,9 @@ def _resolve_non_admin(
 ) -> ResolvedPermissions:
     from handler.database import db_permission_handler
 
-    grant_map = _resolve_grant_map(user, session=session)
+    group_id = _effective_group_id(user, session=session)
+    group = _group_policy(group_id, session=session)
+    grant_map = _resolve_grant_map(user, group, session=session)
     grants = frozenset(
         ResolvedGrant(entity, action, own_only)
         for (entity, action), own_only in grant_map.items()
@@ -159,9 +171,6 @@ def _resolve_non_admin(
     if KIOSK_MODE and user.is_kiosk_guest:
         grants = frozenset(g for g in grants if g.action == PermAction.READ)
 
-    # Resolve the effective group (own or default) so hides assigned to the
-    # default group apply to group-less users too, not just their grants.
-    group_id = _effective_group_id(user, session=session)
     hidden_platforms = db_permission_handler.get_hidden_entity_ids(
         PermEntity.PLATFORMS, user.id, group_id, session=session
     )
@@ -170,11 +179,6 @@ def _resolve_non_admin(
     )
 
     # The user's own age settings replace the group's; NULL inherits.
-    group = (
-        db_permission_handler.get_group(group_id, session=session)
-        if group_id is not None
-        else None
-    )
     age_limit = user.age_limit
     if age_limit is None and group is not None:
         age_limit = group.age_limit
@@ -219,7 +223,8 @@ def _compute_non_admin_scopes(
     *,
     session: Session = INJECTED_SESSION,
 ) -> list[Scope]:
-    grant_map = _resolve_grant_map(user, session=session)
+    group = _group_policy(_effective_group_id(user, session=session), session=session)
+    grant_map = _resolve_grant_map(user, group, session=session)
     scopes = set(
         grants_to_scopes(
             (entity, action, own_only)
