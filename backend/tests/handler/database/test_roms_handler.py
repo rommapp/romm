@@ -404,10 +404,19 @@ class TestGetHiddenRomIdsAmong:
 
         assert hidden == {rom.id, on_hidden_platform.id}
 
-    def test_ignores_ids_without_a_rom(self, rom: Rom) -> None:
-        visibility = RomVisibilityFilter(hidden_rom_ids=frozenset({rom.id}))
+    def test_reports_a_direct_hide_whose_rom_is_gone(
+        self, rom: Rom, other_platform: Platform
+    ) -> None:
+        visibility = RomVisibilityFilter(
+            hidden_platform_ids=frozenset({other_platform.id}),
+            hidden_rom_ids=frozenset({999_999}),
+        )
 
-        assert db_rom_handler.get_hidden_rom_ids_among([999_999], visibility) == set()
+        hidden = db_rom_handler.get_hidden_rom_ids_among(
+            [rom.id, 999_999, 999_998], visibility
+        )
+
+        assert hidden == {999_999}
 
     def test_unrestricted_hides_nothing(self, rom: Rom) -> None:
         assert (

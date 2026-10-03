@@ -49,6 +49,33 @@ def test_clauses_filter_the_given_columns():
     ]
 
 
+def test_hidden_clause_matches_what_clauses_keep_out():
+    visibility = RomVisibilityFilter(
+        hidden_platform_ids=frozenset({5}), hidden_rom_ids=frozenset({99})
+    )
+
+    assert compile_sql(visibility.hidden_clause(), MARIADB_DIALECT) == (
+        "NOT ((roms.platform_id NOT IN (__[POSTCOMPILE_platform_id_1]))"
+        " AND (roms.id NOT IN (__[POSTCOMPILE_id_1])))"
+    )
+    assert compile_sql(UNRESTRICTED.hidden_clause(), MARIADB_DIALECT) == "false"
+
+
+def test_without_rom_hides_keeps_the_row_rules():
+    visibility = RomVisibilityFilter(
+        hidden_platform_ids=frozenset({5}), hidden_rom_ids=frozenset({99})
+    )
+
+    assert visibility.without_rom_hides() == RomVisibilityFilter(
+        hidden_platform_ids=frozenset({5})
+    )
+    assert (
+        RomVisibilityFilter(hidden_rom_ids=frozenset({99}))
+        .without_rom_hides()
+        .is_unrestricted
+    )
+
+
 def test_admin_permissions_are_unrestricted():
     assert _perms(is_admin=True).rom_visibility is UNRESTRICTED
 

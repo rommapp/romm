@@ -1,15 +1,11 @@
-"""The ROM visibility rule a caller's queries and loaded-ROM checks share.
-
-Built from ``ResolvedPermissions.rom_visibility`` and handed to the database
-handlers, so a new restriction lands in one place instead of in every query
-that filters ROMs.
-"""
+"""The ROM visibility rule a caller's queries and loaded-ROM checks share."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final, Protocol
 
+from sqlalchemy import and_, false, not_
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -43,17 +39,23 @@ class RomVisibilityFilter:
         rom_id_col: InstrumentedAttribute[int] = Rom.id,
         platform_id_col: InstrumentedAttribute[int] = Rom.platform_id,
     ) -> list[ColumnElement[bool]]:
-        """WHERE clauses keeping only visible ROMs; empty when nothing is hidden.
-
-        The columns are overridable so a query on the `roms_facets` mirror
-        filters on its own columns instead of joining `roms`.
-        """
+        """WHERE clauses keeping only visible ROMs, on columns a query on the
+        `roms_facets` mirror overrides to skip a join to `roms`."""
         clauses: list[ColumnElement[bool]] = []
         if self.hidden_platform_ids:
             clauses.append(platform_id_col.not_in(self.hidden_platform_ids))
         if self.hidden_rom_ids:
             clauses.append(rom_id_col.not_in(self.hidden_rom_ids))
         return clauses
+
+    def hidden_clause(self) -> ColumnElement[bool]:
+        """WHERE clause matching the `roms` rows `clauses()` keeps out."""
+        clauses = self.clauses()
+        return not_(and_(*clauses)) if clauses else false()
+
+    def without_rom_hides(self) -> RomVisibilityFilter:
+        """The rules that read a ROM's row, without the hides its id decides."""
+        return replace(self, hidden_rom_ids=frozenset())
 
     def allows(self, rom: VisibilityColumns) -> bool:
         return (

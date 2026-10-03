@@ -24,6 +24,7 @@ from exceptions.endpoint_exceptions import (
     RomNotFoundInDatabaseException,
 )
 from handler.auth.permissions import ResolvedPermissions, resolve_permissions
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from models.permission import PermAction, PermEntity
 
 if TYPE_CHECKING:
@@ -40,6 +41,14 @@ def get_permissions(request: Request) -> ResolvedPermissions:
     perms = resolve_permissions(request.user)
     request.state.permissions = perms
     return perms
+
+
+def get_rom_visibility_filter(request: Request) -> RomVisibilityFilter:
+    """The caller's ROM visibility; unrestricted when unauthenticated, as there is
+    no caller to scope it to."""
+    if not request.user.is_authenticated:
+        return UNRESTRICTED
+    return get_permissions(request).rom_visibility
 
 
 def can_access(

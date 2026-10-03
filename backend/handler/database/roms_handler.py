@@ -2027,16 +2027,19 @@ class DBRomsHandler(DBBaseHandler):
         visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> set[int]:
-        """Of `rom_ids`, the existing ROMs `visibility` hides from the caller."""
-        if visibility.is_unrestricted or not rom_ids:
-            return set()
-        return set(
-            session.scalars(
-                select(Rom.id).where(
-                    Rom.id.in_(set(rom_ids)), not_(and_(*visibility.clauses()))
-                )
-            ).all()
-        )
+        """Of `rom_ids`, the subset `visibility` hides from the caller."""
+        candidates = set(rom_ids)
+        # A hide row outlives its ROM, so direct hides match by id with no lookup.
+        hidden = candidates & visibility.hidden_rom_ids
+        rest = candidates - hidden
+        by_row = visibility.without_rom_hides()
+        if rest and not by_row.is_unrestricted:
+            hidden.update(
+                session.scalars(
+                    select(Rom.id).where(Rom.id.in_(rest), by_row.hidden_clause())
+                ).all()
+            )
+        return hidden
 
     @begin_session
     def with_char_index(

@@ -1,8 +1,7 @@
 from fastapi import Request
 
 from endpoints.responses.stats import StatsReturn
-from handler.auth.dependencies import get_permissions
-from handler.auth.rom_visibility import UNRESTRICTED
+from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_stats_handler
 from utils.router import APIRouter
 
@@ -20,12 +19,7 @@ def stats(request: Request, include_platform_stats: bool = False) -> StatsReturn
         dict: Dictionary with all the stats
     """
 
-    # Anonymous callers carry no permission context, so they see everything.
-    visibility = (
-        get_permissions(request).rom_visibility
-        if request.user.is_authenticated
-        else UNRESTRICTED
-    )
+    visibility = get_rom_visibility_filter(request)
 
     result: StatsReturn = {
         "PLATFORMS": db_stats_handler.get_platforms_count(visibility),

@@ -40,8 +40,7 @@ from endpoints.responses.feeds import (
     WebrcadeFeedSchema,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import get_permissions
-from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
+from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.metadata import meta_igdb_handler
@@ -86,23 +85,12 @@ router = APIRouter(
 )
 
 
-def _visibility(request: Request) -> RomVisibilityFilter:
-    """The caller's ROM visibility; unrestricted when unauthenticated.
-
-    Feeds run unauthenticated under DISABLE_DOWNLOAD_ENDPOINT_AUTH, so there is
-    no caller to scope visibility to in that mode.
-    """
-    if not request.user.is_authenticated:
-        return UNRESTRICTED
-    return get_permissions(request).rom_visibility
-
-
 def _platform_roms(
     request: Request, platform_id: int, *, include_files: bool = False
 ) -> Sequence[Rom]:
     """Roms of a platform a feed can serve: nothing hidden from the caller, and
     nothing file-less (every feed entry carries a download URL)."""
-    visibility = _visibility(request)
+    visibility = get_rom_visibility_filter(request)
     if platform_id in visibility.hidden_platform_ids:
         return []
     return db_rom_handler.get_roms_scalar(
@@ -129,7 +117,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
         WebrcadeFeedSchema: Webrcade feed object schema
     """
 
-    visibility = _visibility(request)
+    visibility = get_rom_visibility_filter(request)
     platforms = db_platform_handler.get_platforms(
         hidden_platform_ids=visibility.hidden_platform_ids
     )
@@ -255,7 +243,7 @@ async def tinfoil_index_feed(
     roms = db_rom_handler.get_roms_scalar(
         platform_ids=[switch.id],
         include_files=True,
-        visibility=_visibility(request),
+        visibility=get_rom_visibility_filter(request),
         **HAS_FILE_ON_DISK_FILTERS,
     )
 

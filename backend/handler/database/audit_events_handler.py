@@ -2,18 +2,7 @@ from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import (
-    ColumnElement,
-    Select,
-    String,
-    and_,
-    cast,
-    delete,
-    func,
-    not_,
-    or_,
-    select,
-)
+from sqlalchemy import ColumnElement, Select, String, cast, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.interfaces import LoaderOption
 
@@ -122,13 +111,11 @@ class DBAuditEventsHandler(DBBaseHandler):
         # A hide row outlives its ROM, so the ids also cover deleted ROMs.
         if visibility.hidden_rom_ids:
             clauses.append(_not_targeting("rom", visibility.hidden_rom_ids))
-        if not visibility.is_unrestricted:
+        by_row = visibility.without_rom_hides()
+        if not by_row.is_unrestricted:
             clauses.append(
                 _not_targeting(
-                    "rom",
-                    select(cast(Rom.id, String)).where(
-                        not_(and_(*visibility.clauses()))
-                    ),
+                    "rom", select(cast(Rom.id, String)).where(by_row.hidden_clause())
                 )
             )
 
