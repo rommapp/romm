@@ -3830,7 +3830,9 @@ class DBRomsHandler(DBBaseHandler):
         tags = set()
         platforms = set()
 
-        for row in session.execute(statement):
+        # Fully buffered so the cursor closes here: left to the cyclic GC it is
+        # finalized on another thread, which segfaults the mariadb connector.
+        for row in session.execute(statement).all():
             g, f, cl, co, pub, dev, gm, ar, pc, rg, lg, tg, pid = row
             if g:
                 genres.update(g)

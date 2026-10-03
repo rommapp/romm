@@ -5,7 +5,10 @@ maintained by database triggers on `roms`, not by application code, so these
 tests write through the normal handlers and assert the mirror follows.
 """
 
+import gc
+
 from sqlalchemy import String, select
+from sqlalchemy.engine import CursorResult
 
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
@@ -142,3 +145,21 @@ class TestRomFacets:
         filters = db_rom_handler.get_rom_filters()
         assert "Puzzle" in filters["genres"]
         assert "En" in filters["languages"]
+
+    def test_filter_values_free_the_cursor_without_the_gc(self, rom: Rom):
+        # A cursor left for the cyclic GC is finalized on whichever thread
+        # collects next, which segfaults the mariadb connector under load.
+        db_rom_handler.update_rom(rom.id, {"igdb_metadata": {"genres": ["Puzzle"]}})
+        gc.collect()
+        gc.disable()
+        gc.set_debug(gc.DEBUG_SAVEALL)
+        try:
+            db_rom_handler.get_rom_filters()
+            gc.collect()
+            leaked = [o for o in gc.garbage if isinstance(o, CursorResult)]
+        finally:
+            gc.set_debug(0)
+            gc.garbage.clear()
+            gc.enable()
+
+        assert leaked == []
