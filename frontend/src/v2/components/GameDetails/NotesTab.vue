@@ -11,18 +11,9 @@ import {
   RTextField,
   RTooltip,
   RDivider,
-  RSpinner,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import {
-  computed,
-  defineAsyncComponent,
-  defineComponent,
-  h,
-  nextTick,
-  ref,
-  watch,
-} from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { UserNoteSchema } from "@/__generated__";
@@ -34,6 +25,10 @@ import SubtabNav, {
 } from "@/v2/components/GameDetails/SubtabNav.vue";
 import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
+import {
+  AsyncMdEditor as MdEditor,
+  AsyncMdPreview as MdPreview,
+} from "@/v2/components/shared/asyncMarkdown";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
@@ -42,21 +37,6 @@ import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { focusFromInput } from "@/v2/utils/autofocus";
 import { syncQueryParam } from "@/v2/utils/routeQuery";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
-
-// md-editor loads with the first note, not with the game page.
-// Vue passes the wrapped component's attrs to the loading component; drop them.
-const MdLoading = defineComponent({
-  inheritAttrs: false,
-  render: () => h(RSpinner),
-});
-const MdEditor = defineAsyncComponent({
-  loader: () => import("@/v2/components/shared/markdownEditor"),
-  loadingComponent: MdLoading,
-});
-const MdPreview = defineAsyncComponent({
-  loader: () => import("@/v2/components/shared/markdownPreview"),
-  loadingComponent: MdLoading,
-});
 
 defineOptions({ inheritAttrs: false });
 

@@ -6,25 +6,18 @@
 // MdPreview, the same markdown surface NotesTab uses.
 import { RBtn, RDialog, REmptyState, RIcon, RSpinner } from "@v2/lib";
 import type { Emitter } from "mitt";
-import {
-  computed,
-  defineAsyncComponent,
-  inject,
-  onBeforeUnmount,
-  ref,
-} from "vue";
+import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
+import {
+  AsyncMdPreview as MdPreview,
+  loadMdPreview,
+} from "@/v2/components/shared/asyncMarkdown";
 import { useFetchState } from "@/v2/composables/useFetchState";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { shortenGithubLinks } from "@/v2/utils/githubLinks";
 
 defineOptions({ inheritAttrs: false });
-
-// The dialog is mounted on every v2 page, so the markdown renderer loads on
-// first open instead of with the app shell.
-const loadMdPreview = () => import("@/v2/components/shared/markdownPreview");
-const MdPreview = defineAsyncComponent(loadMdPreview);
 
 type Release = {
   tag_name: string;
