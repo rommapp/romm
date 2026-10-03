@@ -120,10 +120,7 @@ export interface Pico8Runtime {
   loadCart: (bytes: Uint8Array) => void;
   /** Hand the next cart the data it saved before, ahead of `loadCart`. */
   writeCartData: (files: Pico8CartData[]) => void;
-  /**
-   * Unload the running cart, which writes its data out, and read every file.
-   * The runtime holds a blank cart afterwards, so it is only for leaving.
-   */
+  /** Unload the cart so it writes its data out, then read it; for leaving only. */
   flushCartData: () => Pico8CartData[];
   advance: (input: Pico8Input) => void;
   render: () => void;
