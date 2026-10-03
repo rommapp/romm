@@ -259,7 +259,7 @@ function cartDataSaves(files: Pico8CartData[]): PlayerSaveFile[] {
 }
 
 // FAKE-08 writes cart data only when a cart unloads, so it is captured on the
-// way out rather than while the game runs.
+// way out.
 async function saveCartData(): Promise<boolean> {
   const sync = saveSync;
   const active = runtime;

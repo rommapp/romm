@@ -261,7 +261,7 @@ export class DeviceSaveSync {
         return;
       case "no_op":
         // A no-op on differing bytes (clock skew, an untracked save) leaves
-        // the change for the next push rather than calling it synced.
+        // the change unsynced, for the next push.
         if (
           held &&
           held.syncedHash !== held.hash &&
@@ -326,8 +326,8 @@ export class DeviceSaveSync {
     await this.markSynced(save);
   }
 
-  // A newer capture may have landed while `save` uploaded, so only what the
-  // server now holds is recorded, never the older bytes.
+  // A newer capture may have landed while `save` uploaded, so only the hash
+  // the server now holds is recorded against it.
   private async markSynced(save: LocalSave) {
     const current = this.saves.get(save.slot) ?? save;
     await this.remember({ ...current, syncedHash: save.hash });
