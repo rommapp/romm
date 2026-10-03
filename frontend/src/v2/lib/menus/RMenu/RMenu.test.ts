@@ -59,7 +59,6 @@ describe("RMenu", () => {
     );
 
     expect(document.activeElement).toBe(document.querySelector(".pick-me"));
-    modality.value = "mouse";
     wrapper.unmount();
   });
 
@@ -81,10 +80,12 @@ describe("RMenu", () => {
       requestAnimationFrame(() => resolve()),
     );
 
-    expect(focus).toHaveBeenCalledWith(
+    const call = focus.mock.contexts.indexOf(
+      document.querySelector(".pick-me")!,
+    );
+    expect(focus.mock.calls[call]?.[0]).toEqual(
       expect.objectContaining({ focusVisible: true }),
     );
-    focus.mockRestore();
     wrapper.unmount();
   });
 

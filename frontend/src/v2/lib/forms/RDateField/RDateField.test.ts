@@ -127,6 +127,18 @@ describe("RDateField", () => {
     },
   );
 
+  it("asks for a visible focus ring on the day it opens on", async () => {
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+
+    await openPicker();
+    await nextTick();
+
+    const call = focus.mock.contexts.indexOf(dayCell(15)!);
+    expect(focus.mock.calls[call]?.[0]).toEqual(
+      expect.objectContaining({ focusVisible: true }),
+    );
+  });
+
   it("keeps the label and the emitted value on the same day", async () => {
     const wrapper = await openPicker();
     dayCell(1)?.click();

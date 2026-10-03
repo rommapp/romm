@@ -373,7 +373,7 @@ function moveFocus(deltaDays: number) {
   ) {
     viewMonth.value = startOfMonth(next);
   }
-  nextTick(() => focusDayCell(true));
+  nextTick(focusDayCell);
 }
 function moveFocusToWeekEdge(direction: -1 | 1) {
   // -1: Home → start of week. +1: End → end of week.
@@ -387,17 +387,16 @@ function moveFocusToWeekEdge(direction: -1 | 1) {
     next.setUTCDate(next.getUTCDate() + (6 - offsetFromStart));
   }
   focusedDay.value = next;
-  nextTick(() => focusDayCell(true));
+  nextTick(focusDayCell);
 }
 
-// `ring` is for arrow-key moves; opening the popup leaves it to the browser.
-function focusDayCell(ring = false) {
+function focusDayCell() {
   if (!panelRef.value) return;
   const key = `${focusedDay.value.getUTCFullYear()}-${focusedDay.value.getUTCMonth()}-${focusedDay.value.getUTCDate()}`;
   const cell = panelRef.value.querySelector(
     `[data-day-key="${key}"]`,
   ) as HTMLElement | null;
-  cell?.focus(ring ? { focusVisible: true } : undefined);
+  cell?.focus({ focusVisible: true });
 }
 
 // ── Field-level keyboard wiring ────────────────────────────────
