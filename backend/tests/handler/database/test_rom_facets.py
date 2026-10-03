@@ -8,7 +8,7 @@ tests write through the normal handlers and assert the mirror follows.
 from sqlalchemy import String, select
 from tests.factories import make_rom
 
-from handler.database import db_rom_handler
+from handler.database import db_rom_handler, roms_handler
 from handler.database.base_handler import sync_session
 from models.platform import Platform
 from models.rom import (
@@ -146,10 +146,11 @@ class TestRomFacets:
         assert "En" in filters["languages"]
 
     def test_filter_values_merge_repeated_lists(
-        self, rom: Rom, second_rom: Rom, platform: Platform
+        self, rom: Rom, second_rom: Rom, platform: Platform, monkeypatch
     ):
-        # Identical lists are parsed once, so repeats and a ROM with no
-        # metadata must still yield the plain union.
+        # Identical lists are parsed once across batches, so repeats and a ROM
+        # with no metadata must still yield the plain union.
+        monkeypatch.setattr(roms_handler, "_FILTER_VALUES_BATCH_SIZE", 2)
         for rom_id in (rom.id, second_rom.id):
             db_rom_handler.update_rom(
                 rom_id, {"igdb_metadata": {"genres": ["RPG", "Action"]}}

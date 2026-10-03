@@ -323,20 +323,24 @@ _FILTER_VALUES_SELECT = select(
 )
 
 
-def _merge_json_lists(column: Sequence[Any]) -> set[Any]:
-    """Union of the JSON lists in one filter column, parsing each distinct text once."""
+# Filter rows are folded in batches so a large library is never held in memory.
+_FILTER_VALUES_BATCH_SIZE = 5000
+
+
+def _merge_json_lists(column: Sequence[Any], seen: set[Any], items: set[Any]) -> None:
+    """Add one batch of a JSON filter column to `items`, parsing each distinct text once."""
     try:
-        distinct = set(column)
+        fresh: Iterable[Any] = set(column) - seen
     except TypeError:
         # Drivers that decode JSON themselves (PostgreSQL) return lists.
-        distinct = None
-    items: set[Any] = set()
-    for value in column if distinct is None else distinct:
+        fresh = column
+    else:
+        seen.update(fresh)
+    for value in fresh:
         if isinstance(value, (str, bytes)):
             value = json.loads(value)
         if value:
             items.update(value)
-    return items
 
 
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
@@ -3841,9 +3845,15 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         statement: Select[*tuple[Any, ...]],
     ) -> RomFiltersDict:
-        rows = session.execute(statement).all()
         width = len(statement.selected_columns)
-        columns = list(zip(*rows, strict=True)) or [()] * width
+        seen: list[set[Any]] = [set() for _ in range(width)]
+        values: list[set[Any]] = [set() for _ in range(width)]
+        for batch in session.execute(statement).partitions(_FILTER_VALUES_BATCH_SIZE):
+            columns = list(zip(*batch, strict=True))
+            for i in (0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11):
+                _merge_json_lists(columns[i], seen[i], values[i])
+            values[8].update(pc for pc in columns[8] if pc)
+            values[12].update(columns[12])
         (
             genres,
             franchises,
@@ -3853,12 +3863,12 @@ class DBRomsHandler(DBBaseHandler):
             developers,
             game_modes,
             age_ratings,
+            player_counts,
             regions,
             languages,
             tags,
-        ) = (_merge_json_lists(columns[i]) for i in (0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11))
-        player_counts = {pc for pc in columns[8] if pc}
-        platforms = set(columns[12])
+            platforms,
+        ) = values
 
         return RomFiltersDict(
             genres=sorted(genres),
