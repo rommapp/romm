@@ -11,6 +11,7 @@ Precedence: admin bypass > per-user override > group grant > legacy default.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
 
@@ -73,8 +74,9 @@ class ResolvedPermissions:
             hidden_rom_ids=self.hidden_rom_ids,
         )
 
-    def can_see_rom(self, rom: VisibilityColumns) -> bool:
-        return self.rom_visibility.allows(rom)
+    @cached_property
+    def can_see_rom(self) -> Callable[[VisibilityColumns], bool]:
+        return self.rom_visibility.allows
 
 
 def _effective_group_id(user: User, *, session: Session) -> int | None:

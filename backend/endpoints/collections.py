@@ -63,8 +63,10 @@ def _hide_collection_roms(
     Without this a collection leaks the ids (and inflated count) of roms hidden
     from the user via the opt-out visibility model.
     """
+    if not schemas:
+        return schemas
     visibility = get_rom_visibility_filter(request)
-    if visibility.is_unrestricted or not schemas:
+    if visibility.is_unrestricted:
         return schemas
 
     all_ids = {rid for s in schemas for rid in s.rom_ids}

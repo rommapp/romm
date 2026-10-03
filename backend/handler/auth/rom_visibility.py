@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Final, Protocol
 
 from sqlalchemy import and_, not_
@@ -20,6 +22,10 @@ class VisibilityColumns(Protocol):
 
     @property
     def platform_id(self) -> int: ...
+
+
+def _always_visible(rom: VisibilityColumns) -> bool:
+    return True
 
 
 @dataclass(frozen=True)
@@ -61,7 +67,12 @@ class RomVisibilityFilter:
             clauses.append(platform_id_col.not_in(self.hidden_platform_ids))
         return clauses
 
-    def allows(self, rom: VisibilityColumns) -> bool:
+    @cached_property
+    def allows(self) -> Callable[[VisibilityColumns], bool]:
+        """Whether a loaded ROM is visible, picked once so a per-ROM loop pays one call."""
+        return _always_visible if self.is_unrestricted else self._allows
+
+    def _allows(self, rom: VisibilityColumns) -> bool:
         return (
             rom.platform_id not in self.hidden_platform_ids
             and rom.id not in self.hidden_rom_ids

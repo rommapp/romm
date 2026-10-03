@@ -19,10 +19,13 @@ def _visible_activity(
     request: Request, entries: list[ActivityEntry]
 ) -> list[ActivityEntrySchema]:
     """Drop sessions whose ROM is hidden from the caller (platform or rom hide)."""
-    hidden = db_rom_handler.get_hidden_rom_ids_among(
-        [e["rom_id"] for e in entries], get_permissions(request).rom_visibility
-    )
-    return [ActivityEntrySchema(**e) for e in entries if e["rom_id"] not in hidden]
+    visibility = get_permissions(request).rom_visibility
+    if not visibility.is_unrestricted:
+        hidden = db_rom_handler.get_hidden_rom_ids_among(
+            [e["rom_id"] for e in entries], visibility
+        )
+        entries = [e for e in entries if e["rom_id"] not in hidden]
+    return [ActivityEntrySchema(**e) for e in entries]
 
 
 class DeviceHeartbeatPayload(BaseModel):
