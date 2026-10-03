@@ -1,5 +1,6 @@
 import errno
 import functools
+import hashlib
 import os
 import re
 import socket
@@ -7,6 +8,7 @@ import subprocess
 import sys
 from collections.abc import Iterator, Sequence
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -213,13 +215,18 @@ def _copy_schema(conn: Connection, source: str) -> None:
     ]
     conn.exec_driver_sql(f"USE `{target}`")
 
-    conn.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 0")
-    for table, ddl in table_ddl.items():
+    def copy_table(table: str, ddl: str) -> None:
         conn.exec_driver_sql(ddl)
         cols = ", ".join(columns[table])
         conn.exec_driver_sql(
             f"INSERT INTO `{table}` ({cols}) SELECT {cols} FROM `{source}`.`{table}`"
         )
+
+    # The version row goes in last, so a copy cut short reads as unmigrated.
+    version_ddl = table_ddl.pop("alembic_version")
+    conn.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 0")
+    for table, ddl in table_ddl.items():
+        copy_table(table, ddl)
     conn.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 1")
     # A view can select from another view, so retry until each finds its sources.
     pending = [_DEFINER_RE.sub("", ddl, count=1) for ddl in view_ddl]
@@ -235,7 +242,42 @@ def _copy_schema(conn: Connection, source: str) -> None:
         pending = failed
     for ddl in trigger_ddl:
         conn.exec_driver_sql(_DEFINER_RE.sub("", ddl, count=1))
+    copy_table("alembic_version", version_ddl)
     conn.commit()
+
+
+def _alembic_version(conn: Connection, schema: str) -> str | None:
+    has_table = conn.execute(
+        text(
+            "SELECT 1 FROM information_schema.TABLES"
+            " WHERE TABLE_SCHEMA = :s AND TABLE_NAME = 'alembic_version'"
+        ),
+        {"s": schema},
+    ).first()
+    if not has_table:
+        return None
+    return conn.exec_driver_sql(
+        f"SELECT version_num FROM `{schema}`.alembic_version"
+    ).scalar()
+
+
+def _recreate_database(conn: Connection, name: str) -> None:
+    conn.exec_driver_sql(f"DROP DATABASE IF EXISTS `{name}`")
+    conn.exec_driver_sql(f"CREATE DATABASE `{name}`")
+
+
+def _migrations_digest() -> str:
+    """Hash the migrations and the helpers they import, so editing one rebuilds the template."""
+    digest = hashlib.sha256()
+    for path in sorted(
+        [
+            *Path("alembic").rglob("*.py"),
+            Path("utils/database.py"),
+            Path("utils/roms_columns.py"),
+        ]
+    ):
+        digest.update(str(path).encode() + b"\0" + path.read_bytes())
+    return digest.hexdigest()[:12]
 
 
 def _clone_template_into_fresh_database() -> None:
@@ -250,7 +292,8 @@ def _clone_template_into_fresh_database() -> None:
     url = ConfigManager.get_db_engine()
     if not url.database:
         return
-    template = f"{url.database.removesuffix(f'_{worker}')}_template"
+    prefix = f"{url.database.removesuffix(f'_{worker}')}_template"
+    template = f"{prefix}_{_migrations_digest()}"
     head = ScriptDirectory.from_config(
         alembic.config.Config("alembic.ini")
     ).get_current_head()
@@ -258,32 +301,34 @@ def _clone_template_into_fresh_database() -> None:
     worker_engine = create_engine(url)
     try:
         with worker_engine.connect() as conn:
-            fresh = not conn.execute(
-                text(
-                    "SELECT 1 FROM information_schema.TABLES"
-                    " WHERE TABLE_SCHEMA = DATABASE() LIMIT 1"
-                )
-            ).first()
-            if not fresh:
+            if _alembic_version(conn, url.database):
                 return
-            lock = {"name": template}
+            # Tables without a version row are a clone that was cut short.
+            if conn.execute(
+                text(
+                    "SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = :s LIMIT 1"
+                ),
+                {"s": url.database},
+            ).first():
+                _recreate_database(conn, url.database)
+                conn.exec_driver_sql(f"USE `{url.database}`")
+            lock = {"name": prefix}
             if conn.execute(text("SELECT GET_LOCK(:name, 1800)"), lock).scalar() != 1:
                 return
             try:
-                conn.exec_driver_sql(f"CREATE DATABASE IF NOT EXISTS `{template}`")
-                version = (
-                    conn.execute(
-                        text(
-                            "SELECT 1 FROM information_schema.TABLES"
-                            " WHERE TABLE_SCHEMA = :s AND TABLE_NAME = 'alembic_version'"
-                        ),
-                        {"s": template},
-                    ).first()
-                    and conn.exec_driver_sql(
-                        f"SELECT version_num FROM `{template}`.alembic_version"
-                    ).scalar()
-                )
-                if version != head:
+                if _alembic_version(conn, template) != head:
+                    # Also drops templates of other migration states and half-built ones.
+                    schemas: Sequence[str] = (
+                        conn.execute(
+                            text("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA")
+                        )
+                        .scalars()
+                        .all()
+                    )
+                    for name in schemas:
+                        if name == prefix or name.startswith(f"{prefix}_"):
+                            conn.exec_driver_sql(f"DROP DATABASE `{name}`")
+                    _recreate_database(conn, template)
                     # The app's engine binds DB_NAME at import, hence a subprocess.
                     subprocess.run(
                         [sys.executable, "-m", "alembic", "upgrade", "head"],
@@ -294,8 +339,7 @@ def _clone_template_into_fresh_database() -> None:
                     _copy_schema(conn, template)
                 except DBAPIError:
                     # Hand alembic an empty database, not a partial copy.
-                    conn.exec_driver_sql(f"DROP DATABASE `{url.database}`")
-                    conn.exec_driver_sql(f"CREATE DATABASE `{url.database}`")
+                    _recreate_database(conn, url.database)
                     conn.exec_driver_sql(f"USE `{url.database}`")
             finally:
                 conn.execute(text("SELECT RELEASE_LOCK(:name)"), lock)
