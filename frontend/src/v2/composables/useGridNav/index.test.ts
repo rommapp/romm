@@ -72,6 +72,20 @@ describe("useGridNav roving", () => {
     expect(tabbable(wrapper)).toEqual(["/rom/3", "fav"]);
   });
 
+  it("asks for a visible focus ring on the cell it moves to", () => {
+    focusLink(1);
+    const focus = vi.spyOn(
+      wrapper.get("a[href='/rom/3']").element as HTMLElement,
+      "focus",
+    );
+
+    press("ArrowDown");
+
+    expect(focus).toHaveBeenCalledWith(
+      expect.objectContaining({ focusVisible: true }),
+    );
+  });
+
   it("follows focus that arrives another way, such as a click", async () => {
     const fav = wrapper.findAll("button.fav")[3]!.element as HTMLElement;
     fav.focus();

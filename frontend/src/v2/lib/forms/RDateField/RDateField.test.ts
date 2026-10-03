@@ -106,6 +106,27 @@ describe("RDateField", () => {
     expect(focusedKey()).toBe("2024-2-23");
   });
 
+  it.each([
+    ["ArrowRight", 16],
+    ["End", 17],
+  ])(
+    "asks for a visible focus ring when %s moves the day",
+    async (key, day) => {
+      const wrapper = await openPicker();
+      const focus = vi.spyOn(dayCell(day)!, "focus");
+
+      document
+        .querySelector(".r-date-cal")!
+        .dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+      await wrapper.vm.$nextTick();
+      await wrapper.vm.$nextTick();
+
+      expect(focus).toHaveBeenCalledWith(
+        expect.objectContaining({ focusVisible: true }),
+      );
+    },
+  );
+
   it("keeps the label and the emitted value on the same day", async () => {
     const wrapper = await openPicker();
     dayCell(1)?.click();

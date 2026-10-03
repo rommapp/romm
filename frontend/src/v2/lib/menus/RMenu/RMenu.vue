@@ -390,7 +390,6 @@ watch(
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => resolve()),
     );
-    // Only reached for keyboard and pad, which want the ring.
     (initialFocusTarget() ?? focusableMenuItems()[0])?.focus({
       focusVisible: true,
     });

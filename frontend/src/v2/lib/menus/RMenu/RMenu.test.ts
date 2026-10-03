@@ -21,6 +21,7 @@ function mountMenu() {
 
 describe("RMenu", () => {
   afterEach(() => {
+    modality.value = "mouse";
     document.body.innerHTML = "";
   });
 
@@ -84,6 +85,30 @@ describe("RMenu", () => {
       expect.objectContaining({ focusVisible: true }),
     );
     focus.mockRestore();
+    wrapper.unmount();
+  });
+
+  it("asks for a visible focus ring when an arrow key moves between items", async () => {
+    const wrapper = mount(RMenu, {
+      attachTo: document.body,
+      slots: {
+        activator: `<template #activator="{ props }"><button type="button" class="trigger" v-bind="props">Open</button></template>`,
+        default: `<button type="button" class="r-menu-item first">A</button><button type="button" class="r-menu-item second">B</button>`,
+      },
+    });
+    await wrapper.find("button.trigger").trigger("click");
+    await flushPromises();
+    document.querySelector<HTMLElement>(".first")!.focus();
+    const second = document.querySelector<HTMLElement>(".second")!;
+    const focus = vi.spyOn(second, "focus");
+
+    document.activeElement!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+
+    expect(focus).toHaveBeenCalledWith(
+      expect.objectContaining({ focusVisible: true }),
+    );
     wrapper.unmount();
   });
 
