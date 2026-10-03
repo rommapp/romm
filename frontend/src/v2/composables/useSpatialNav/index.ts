@@ -9,6 +9,7 @@ import {
   hasOpenEscapable,
   topEscapablePanel,
 } from "@/v2/lib/overlays/RDialog/escapeStack";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import {
   ARROW_DIRECTIONS,
   FOCUSABLE_SELECTOR,
@@ -161,7 +162,7 @@ export function moveFocus(
     dir,
   );
   if (!target) return false;
-  target.focus({ preventScroll: true });
+  focusFromInput(target, { preventScroll: true });
   if (!isFixed(target) && !isInView(target)) {
     // Centring vertical moves keeps the target clear of the fixed bars.
     const vertical = dir === "up" || dir === "down";

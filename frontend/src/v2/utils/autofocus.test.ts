@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { shouldAutofocusSearch, shouldClaimFocusOnModality } from "./autofocus";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { useInputModality } from "@/v2/composables/useInputModality";
+import {
+  focusFromInput,
+  shouldAutofocusSearch,
+  shouldClaimFocusOnModality,
+} from "./autofocus";
 
 function fakeWindow(matches: boolean): Window {
   return {
@@ -39,5 +44,41 @@ describe("shouldClaimFocusOnModality", () => {
   it("ignores devices that do not navigate by focus", () => {
     expect(shouldClaimFocusOnModality("mouse", body, body)).toBe(false);
     expect(shouldClaimFocusOnModality("touch", body, body)).toBe(false);
+  });
+});
+
+describe("focusFromInput", () => {
+  const { setModality } = useInputModality();
+  afterEach(() => setModality("mouse"));
+
+  it.each(["key", "pad"] as const)(
+    "asks for a visible focus ring on %s input",
+    (modality) => {
+      setModality(modality);
+      const el = { focus: vi.fn() };
+
+      focusFromInput(el, { preventScroll: true });
+
+      expect(el.focus).toHaveBeenCalledWith({
+        preventScroll: true,
+        focusVisible: true,
+      });
+    },
+  );
+
+  it.each(["mouse", "touch"] as const)(
+    "leaves the ring to the browser on %s input",
+    (modality) => {
+      setModality(modality);
+      const el = { focus: vi.fn() };
+
+      focusFromInput(el);
+
+      expect(el.focus).toHaveBeenCalledWith({});
+    },
+  );
+
+  it("ignores a missing element", () => {
+    expect(() => focusFromInput(null)).not.toThrow();
   });
 });

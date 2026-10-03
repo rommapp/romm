@@ -17,6 +17,23 @@ let installed = false;
 let teardown: (() => void) | null = null;
 let pinned: InputModality | null = null;
 
+const NAVIGATION_KEYS = new Set([
+  "Tab",
+  "Enter",
+  " ",
+  "Escape",
+  "Home",
+  "End",
+  "PageUp",
+  "PageDown",
+]);
+
+// Modifier-only presses and typing don't count: only keys that move focus or
+// act on it switch the modality to keyboard.
+export function isNavigationKey(key: string): boolean {
+  return key.startsWith("Arrow") || NAVIGATION_KEYS.has(key);
+}
+
 function applyAttribute(next: InputModality) {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.input = next;
@@ -71,17 +88,7 @@ export function useInputModality() {
     const onKey = (e: KeyboardEvent) => {
       // useGamepad's synthetic arrows are pad input, not keyboard.
       if (!e.isTrusted) return;
-      // Ignore modifier-only presses and clicks that happen to be keyboard-
-      // triggered: what we care about is real navigational keys.
-      if (
-        e.key === "Tab" ||
-        e.key.startsWith("Arrow") ||
-        e.key === "Enter" ||
-        e.key === " " ||
-        e.key === "Escape"
-      ) {
-        setModality("key");
-      }
+      if (isNavigationKey(e.key)) setModality("key");
     };
     // A gamepad connection is a strong signal the user is on a pad. Real
     // per-button detection happens when we port the console input bus; until
@@ -98,7 +105,8 @@ export function useInputModality() {
     window.addEventListener("mousedown", onMouseDown, { passive: true });
     window.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("touchstart", onTouch, { passive: true });
-    window.addEventListener("keydown", onKey);
+    // Capture, so navigation handlers further down already see "key".
+    window.addEventListener("keydown", onKey, { capture: true });
     window.addEventListener("gamepadconnected", onGamepad);
 
     // Retained only so HMR can drop the listeners on a hot update instead of
@@ -109,7 +117,7 @@ export function useInputModality() {
       window.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("touchstart", onTouch);
-      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onKey, { capture: true });
       window.removeEventListener("gamepadconnected", onGamepad);
       installed = false;
       teardown = null;

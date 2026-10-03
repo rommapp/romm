@@ -12,6 +12,7 @@ import { RBtn, RIcon } from "@v2/lib";
 import { computed, nextTick, ref, useId, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
+import { focusFromInput } from "@/v2/utils/autofocus";
 
 defineOptions({ inheritAttrs: false });
 
@@ -55,7 +56,7 @@ const formId = useId();
 watch(
   () => props.expanded,
   (expanded) => {
-    if (expanded) nextTick(() => input.value?.focus());
+    if (expanded) nextTick(() => focusFromInput(input.value));
   },
 );
 

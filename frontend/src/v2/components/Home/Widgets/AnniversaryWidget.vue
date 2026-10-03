@@ -18,6 +18,7 @@ import type { SimpleRom } from "@/stores/roms";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { NO_SIDECARS } from "@/v2/stores/galleryRoms";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import WidgetCard from "./WidgetCard.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -178,7 +179,7 @@ async function step(delta: number) {
   // <body>; hand it to the arrow that still works.
   if (hadFocus && (back ? atStart.value : atEnd.value)) {
     await nextTick();
-    btnEl(other)?.focus();
+    focusFromInput(btnEl(other));
   }
 }
 

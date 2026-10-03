@@ -20,6 +20,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import {
   type EscapableEntry,
   popEscapable,
@@ -110,12 +111,12 @@ watch(
         const focusTarget = panelRef.value?.querySelector<HTMLElement>(
           "[autofocus], button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
         );
-        focusTarget?.focus();
+        focusFromInput(focusTarget);
       });
     } else {
       unlockBodyScroll();
       popEscapable(escEntry);
-      previouslyFocused?.focus?.();
+      focusFromInput(previouslyFocused);
       previouslyFocused = null;
     }
   },
