@@ -182,9 +182,10 @@ async def create_permission_group(
         hide_unrated_roms=body.hide_unrated_roms,
         age_exempt_rom_ids=body.age_exempt_rom_ids,
     )
-    # A new default group takes over every user without a group of their own.
     if body.is_default:
-        await emit_permissions_changed()
+        await emit_permissions_changed(
+            *db_permission_handler.get_group_follower_ids(group.id)
+        )
     record(
         AuditAction.PERMISSION_GROUP_CREATE,
         request,
@@ -243,8 +244,7 @@ async def update_permission_group(
     )
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    # Grant changes alter every member's effective permissions.
-    await emit_permissions_changed(*db_permission_handler.get_group_member_ids(id))
+    await emit_permissions_changed(*db_permission_handler.get_group_follower_ids(id))
     # Age settings apply only with the flag, so only the flag reports them.
     age_fields = {"set_age_settings", "age_limit", "hide_unrated_roms"}
     changed = set(body.model_dump(exclude_none=True)) - age_fields
@@ -487,5 +487,5 @@ async def _emit_for_principal(user_id: int | None, group_id: int | None) -> None
         await emit_permissions_changed(user_id)
     elif group_id is not None:
         await emit_permissions_changed(
-            *db_permission_handler.get_group_member_ids(group_id)
+            *db_permission_handler.get_group_follower_ids(group_id)
         )

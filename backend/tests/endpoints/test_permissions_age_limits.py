@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 from tests.factories import make_esrb_rated_rom, make_rom
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
@@ -13,7 +14,7 @@ from handler.auth.base_handler import oauth_handler
 from handler.auth.permissions import resolve_permissions
 from handler.database import db_permission_handler, db_user_handler
 from handler.database.base_handler import sync_session
-from models.permission import PermissionGroup
+from models.permission import AgeRatingExemption, PermissionGroup
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -267,3 +268,30 @@ class TestEnforcement:
         ids = _listed_ids(client, viewer_user)
         assert rated.id in ids
         assert unrated.id not in ids
+
+
+class TestGroupFollowers:
+    def test_users_without_a_group_follow_only_the_default(
+        self, client, headers, viewer_user: User, editor_user: User
+    ):
+        client.put(
+            f"/api/permissions/users/{viewer_user.id}",
+            headers=headers,
+            json={"set_group": True, "permission_group_id": None},
+        )
+        gid = _make_kids_group(client, headers)["id"]
+        _join(client, headers, editor_user, gid)
+        default_id = db_permission_handler.get_default_group_id()
+        assert default_id is not None
+
+        assert db_permission_handler.get_group_follower_ids(gid) == [editor_user.id]
+        default_followers = db_permission_handler.get_group_follower_ids(default_id)
+        assert viewer_user.id in default_followers
+        assert editor_user.id not in default_followers
+
+
+def test_a_principal_holds_one_exemption_per_rom(rom: Rom, viewer_user: User):
+    with pytest.raises(IntegrityError), sync_session.begin() as s:
+        s.add_all(
+            AgeRatingExemption(rom_id=rom.id, user_id=viewer_user.id) for _ in range(2)
+        )

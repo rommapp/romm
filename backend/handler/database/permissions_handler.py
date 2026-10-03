@@ -340,6 +340,30 @@ class DBPermissionsHandler(DBBaseHandler):
             ).all()
         )
 
+    @begin_session
+    def get_group_follower_ids(
+        self,
+        group_id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> list[int]:
+        """Users whose permissions come from the group: its members, plus every
+        user without a group when it is the default."""
+        is_default = (
+            select(PermissionGroup.is_default)
+            .where(PermissionGroup.id == group_id)
+            .scalar_subquery()
+        )
+        return list(
+            session.scalars(
+                select(User.id).where(
+                    or_(
+                        User.permission_group_id == group_id,
+                        and_(User.permission_group_id.is_(None), is_default.is_(True)),
+                    )
+                )
+            ).all()
+        )
+
     # --- Admin CRUD: user membership + overrides ------------------------------
 
     @begin_session

@@ -195,7 +195,9 @@ class AgeRatingExemption(BaseModel):
 
     __tablename__ = "age_rating_exemptions"
     __table_args__ = (
-        UniqueConstraint("rom_id", "user_id", "group_id", name="uq_age_exemption"),
+        # One per principal, since NULLs never collide in a unique key.
+        UniqueConstraint("user_id", "rom_id", name="uq_age_exemption_user"),
+        UniqueConstraint("group_id", "rom_id", name="uq_age_exemption_group"),
         CheckConstraint(
             "(user_id IS NULL) <> (group_id IS NULL)",
             name="ck_age_exemption_one_principal",
@@ -208,10 +210,8 @@ class AgeRatingExemption(BaseModel):
         ForeignKey("roms.id", ondelete="CASCADE"), index=True
     )
     user_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
     group_id: Mapped[int | None] = mapped_column(
-        ForeignKey("permission_groups.id", ondelete="CASCADE"),
-        nullable=True,
-        index=True,
+        ForeignKey("permission_groups.id", ondelete="CASCADE"), nullable=True
     )

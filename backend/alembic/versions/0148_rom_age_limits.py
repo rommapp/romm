@@ -116,31 +116,8 @@ END $$
         op.execute(f"CREATE TRIGGER {name} {timing} ON roms\nFOR EACH ROW\n{body}")
 
 
-def _suspend_facets_sync(pg: bool) -> None:
-    """Stop the roms_facets triggers so the backfill skips a per-row upsert."""
-    if pg:
-        op.execute("ALTER TABLE roms DISABLE TRIGGER roms_facets_sync")
-        return
-    for name in _MYSQL_TRIGGERS:
-        op.execute(f"DROP TRIGGER IF EXISTS {name}")
-
-
-def _mirror_min_age(pg: bool) -> None:
-    """Copy the backfilled ages into roms_facets in one statement."""
-    if pg:
-        op.execute(
-            "UPDATE roms_facets SET min_age = roms.min_age FROM roms "
-            "WHERE roms.id = roms_facets.rom_id AND roms.min_age IS NOT NULL"
-        )
-        return
-    op.execute(
-        "UPDATE roms_facets JOIN roms ON roms.id = roms_facets.rom_id "
-        "SET roms_facets.min_age = roms.min_age WHERE roms.min_age IS NOT NULL"
-    )
-
-
 def _fill_min_age(conn: sa.Connection) -> None:
-    """Rate every ROM, in keyset batches."""
+    """Rate every ROM; rows the triggers mirror into roms_facets as they go."""
     # JSON paths keep the large metadata blobs out of the read.
     ratings = [ROMS.c[column][key] for column, key in AGE_SOURCES]
     last_id = 0
@@ -180,12 +157,8 @@ def upgrade() -> None:
         sa.Column(MIN_AGE_COLUMN, sa.Integer(), nullable=True),
         if_not_exists=True,
     )
-    _suspend_facets_sync(pg)
-    _fill_min_age(conn)
     _rebuild_triggers(pg, _BASE_MIRRORED_COLUMNS + [(MIN_AGE_COLUMN, MIN_AGE_COLUMN)])
-    if pg:
-        op.execute("ALTER TABLE roms ENABLE TRIGGER roms_facets_sync")
-    _mirror_min_age(pg)
+    _fill_min_age(conn)
 
     with op.batch_alter_table("permission_groups") as batch_op:
         batch_op.add_column(
@@ -233,7 +206,9 @@ def upgrade() -> None:
             ["group_id"], ["permission_groups.id"], ondelete="CASCADE"
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("rom_id", "user_id", "group_id", name="uq_age_exemption"),
+        # One per principal, since NULLs never collide in a unique key.
+        sa.UniqueConstraint("user_id", "rom_id", name="uq_age_exemption_user"),
+        sa.UniqueConstraint("group_id", "rom_id", name="uq_age_exemption_group"),
         sa.CheckConstraint(
             "(user_id IS NULL) <> (group_id IS NULL)",
             name="ck_age_exemption_one_principal",
@@ -241,10 +216,7 @@ def upgrade() -> None:
         if_not_exists=True,
     )
     with op.batch_alter_table(EXEMPTIONS) as batch_op:
-        for column in ("rom_id", "user_id", "group_id"):
-            batch_op.create_index(
-                f"ix_{EXEMPTIONS}_{column}", [column], if_not_exists=True
-            )
+        batch_op.create_index(f"ix_{EXEMPTIONS}_rom_id", ["rom_id"], if_not_exists=True)
 
 
 def downgrade() -> None:
