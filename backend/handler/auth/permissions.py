@@ -12,6 +12,7 @@ Precedence: admin bypass > per-user override > group grant > legacy default.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 
 from sqlalchemy.orm import Session
 
@@ -21,6 +22,11 @@ from handler.auth.constants import FULL_SCOPES, READ_SCOPES, Scope
 from handler.auth.permissions_map import (
     grants_to_scopes,
     order_scopes,
+)
+from handler.auth.rom_visibility import (
+    UNRESTRICTED,
+    RomVisibilityFilter,
+    VisibilityColumns,
 )
 from models.permission import PermAction, PermEntity
 from models.user import Role, User
@@ -58,13 +64,17 @@ class ResolvedPermissions:
     def can_see_platform(self, platform_id: int) -> bool:
         return self.is_admin or platform_id not in self.hidden_platform_ids
 
-    def can_see_rom(self, rom_id: int, platform_id: int) -> bool:
+    @cached_property
+    def rom_visibility(self) -> RomVisibilityFilter:
         if self.is_admin:
-            return True
-        return (
-            platform_id not in self.hidden_platform_ids
-            and rom_id not in self.hidden_rom_ids
+            return UNRESTRICTED
+        return RomVisibilityFilter(
+            hidden_platform_ids=self.hidden_platform_ids,
+            hidden_rom_ids=self.hidden_rom_ids,
         )
+
+    def can_see_rom(self, rom: VisibilityColumns) -> bool:
+        return self.rom_visibility.allows(rom)
 
 
 def _effective_group_id(user: User, *, session: Session) -> int | None:

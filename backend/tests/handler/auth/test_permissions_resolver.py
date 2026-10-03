@@ -21,6 +21,7 @@ from models.permission import (
     SystemGroupKey,
     UserPermissionOverride,
 )
+from models.rom import RomVisibility
 from models.user import User
 
 
@@ -196,9 +197,9 @@ def test_user_hidden_platform_and_rom_cascade(viewer_user):
     assert not perms.can_see_platform(5)
     assert perms.can_see_platform(6)
     # Rom on a hidden platform is hidden even if the rom itself isn't listed.
-    assert not perms.can_see_rom(1, platform_id=5)
-    assert not perms.can_see_rom(99, platform_id=6)
-    assert perms.can_see_rom(1, platform_id=6)
+    assert not perms.can_see_rom(RomVisibility(id=1, platform_id=5))
+    assert not perms.can_see_rom(RomVisibility(id=99, platform_id=6))
+    assert perms.can_see_rom(RomVisibility(id=1, platform_id=6))
 
 
 def test_group_hidden_applies_to_members(viewer_user):

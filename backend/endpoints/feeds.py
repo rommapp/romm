@@ -41,6 +41,7 @@ from endpoints.responses.feeds import (
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.metadata import meta_igdb_handler
@@ -85,16 +86,15 @@ router = APIRouter(
 )
 
 
-def _hidden_ids(request: Request) -> tuple[list[int], list[int]]:
-    """Hidden (platform_ids, rom_ids) for the caller; empty when unauthenticated.
+def _visibility(request: Request) -> RomVisibilityFilter:
+    """The caller's ROM visibility; unrestricted when unauthenticated.
 
     Feeds run unauthenticated under DISABLE_DOWNLOAD_ENDPOINT_AUTH, so there is
     no caller to scope visibility to in that mode.
     """
     if not request.user.is_authenticated:
-        return [], []
-    perms = get_permissions(request)
-    return list(perms.hidden_platform_ids), list(perms.hidden_rom_ids)
+        return UNRESTRICTED
+    return get_permissions(request).rom_visibility
 
 
 def _platform_roms(
@@ -102,13 +102,13 @@ def _platform_roms(
 ) -> Sequence[Rom]:
     """Roms of a platform a feed can serve: nothing hidden from the caller, and
     nothing file-less (every feed entry carries a download URL)."""
-    hidden_platforms, hidden_roms = _hidden_ids(request)
-    if platform_id in hidden_platforms:
+    visibility = _visibility(request)
+    if platform_id in visibility.hidden_platform_ids:
         return []
     return db_rom_handler.get_roms_scalar(
         platform_ids=[platform_id],
         include_files=include_files,
-        hidden_rom_ids=hidden_roms,
+        visibility=visibility,
         **HAS_FILE_ON_DISK_FILTERS,
     )
 
@@ -129,8 +129,10 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
         WebrcadeFeedSchema: Webrcade feed object schema
     """
 
-    hidden_platforms, hidden_roms = _hidden_ids(request)
-    platforms = db_platform_handler.get_platforms(hidden_platform_ids=hidden_platforms)
+    visibility = _visibility(request)
+    platforms = db_platform_handler.get_platforms(
+        hidden_platform_ids=visibility.hidden_platform_ids
+    )
 
     categories = []
     for p in platforms:
@@ -140,8 +142,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
         category_items = []
         roms = db_rom_handler.get_roms_scalar(
             platform_ids=[p.id],
-            hidden_platform_ids=hidden_platforms,
-            hidden_rom_ids=hidden_roms,
+            visibility=visibility,
             **HAS_FILE_ON_DISK_FILTERS,
         )
         for rom in roms:
@@ -251,12 +252,10 @@ async def tinfoil_index_feed(
 
         return titledb
 
-    hidden_platforms, hidden_roms = _hidden_ids(request)
     roms = db_rom_handler.get_roms_scalar(
         platform_ids=[switch.id],
         include_files=True,
-        hidden_platform_ids=hidden_platforms,
-        hidden_rom_ids=hidden_roms,
+        visibility=_visibility(request),
         **HAS_FILE_ON_DISK_FILTERS,
     )
 

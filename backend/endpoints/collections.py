@@ -65,16 +65,12 @@ def _hide_collection_roms(
     """
     if not request.user.is_authenticated or not schemas:
         return schemas
-    perms = get_permissions(request)
-    if perms.is_admin or (not perms.hidden_platform_ids and not perms.hidden_rom_ids):
+    visibility = get_permissions(request).rom_visibility
+    if visibility.is_unrestricted:
         return schemas
 
     all_ids = {rid for s in schemas for rid in s.rom_ids}
-    hidden = db_rom_handler.get_hidden_rom_ids_among(
-        list(all_ids),
-        list(perms.hidden_platform_ids),
-        list(perms.hidden_rom_ids),
-    )
+    hidden = db_rom_handler.get_hidden_rom_ids_among(list(all_ids), visibility)
     if not hidden:
         return schemas
     for s in schemas:

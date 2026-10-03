@@ -528,7 +528,7 @@ def _visible_siblings(db_rom: Rom, request: Request) -> list[Rom]:
     from handler.auth.dependencies import get_permissions
 
     perms = get_permissions(request)
-    return [s for s in siblings if perms.can_see_rom(s.id, s.platform_id)]
+    return [s for s in siblings if perms.can_see_rom(s)]
 
 
 class SimpleRomSchema(RomSchema):

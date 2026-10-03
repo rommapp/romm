@@ -68,18 +68,12 @@ def recommended_roms(
 
     # Visibility is applied after the cache so a permission change takes effect
     # without waiting for the entry to expire.
-    visible = [
-        item
-        for item in feed
-        if permissions.can_see_rom(item.rom.id, item.rom.platform_id)
-    ]
+    visible = [item for item in feed if permissions.can_see_rom(item.rom)]
     return visible[:limit]
 
 
 def _hides_anything(permissions: ResolvedPermissions) -> bool:
-    return not permissions.is_admin and bool(
-        permissions.hidden_rom_ids or permissions.hidden_platform_ids
-    )
+    return not permissions.rom_visibility.is_unrestricted
 
 
 def _ranked_depth(limit: int, permissions: ResolvedPermissions) -> int:
@@ -95,5 +89,5 @@ def _visible_roms(
     return {
         rom_id: rom
         for rom_id, rom in hydrate_roms(rom_ids).items()
-        if permissions.can_see_rom(rom.id, rom.platform_id)
+        if permissions.can_see_rom(rom)
     }

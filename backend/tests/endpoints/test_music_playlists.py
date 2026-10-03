@@ -9,6 +9,7 @@ from tests.endpoints.test_music import (  # noqa: F401
     music_library,
 )
 
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_music_playlist_handler, db_rom_handler
 from models.rom import RomFile, RomFileCategory, TrackMeta
 from models.user import User
@@ -340,7 +341,8 @@ def test_playlist_tracks_respect_viewer_hidden_platforms(
 
     pb = music_library["platform_b"].id
     rows, total = db_rom_handler.get_music_tracks(
-        playlist_id=playlist_id, hidden_platform_ids=[pb]
+        playlist_id=playlist_id,
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pb})),
     )
     assert total == 1
     assert rows[0].title == "Green Hill"

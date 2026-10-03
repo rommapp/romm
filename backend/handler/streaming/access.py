@@ -53,7 +53,7 @@ def rom_is_visible(request: Request, rom: Rom | None) -> bool:
         return True
     if not request.user.is_authenticated:
         return True
-    return get_permissions(request).can_see_rom(rom.id, rom.platform_id)
+    return get_permissions(request).can_see_rom(rom)
 
 
 def session_rom(session: dict[str, Any]) -> Rom | None:

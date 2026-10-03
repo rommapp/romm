@@ -8,6 +8,7 @@ through the normal handler and assert the breakdowns read the mirrored values.
 
 from tests.factories import make_rom
 
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_platform_handler, db_stats_handler
 from models.platform import Platform
 
@@ -49,7 +50,7 @@ class TestRegionBreakdown:
         make_rom(platform_b, "b1", regions=["Europe"])
 
         breakdown = db_stats_handler.get_region_breakdown_by_platform(
-            hidden_platform_ids=[platform_b.id]
+            RomVisibilityFilter(hidden_platform_ids=frozenset({platform_b.id}))
         )
 
         assert platform_a.id in breakdown
@@ -61,7 +62,7 @@ class TestRegionBreakdown:
         hidden = make_rom(platform, "a2", regions=["USA"])
 
         breakdown = db_stats_handler.get_region_breakdown_by_platform(
-            hidden_rom_ids=[hidden.id]
+            RomVisibilityFilter(hidden_rom_ids=frozenset({hidden.id}))
         )
 
         assert breakdown[platform.id] == [{"region": "USA", "count": 1}]
@@ -117,7 +118,7 @@ class TestMetadataCoverage:
         make_rom(platform_b, "b1", igdb_id=2)
 
         coverage = db_stats_handler.get_metadata_coverage_by_platform(
-            hidden_platform_ids=[platform_b.id]
+            RomVisibilityFilter(hidden_platform_ids=frozenset({platform_b.id}))
         )
 
         assert platform_a.id in coverage
@@ -129,7 +130,7 @@ class TestMetadataCoverage:
         hidden = make_rom(platform, "a2", igdb_id=2)
 
         coverage = db_stats_handler.get_metadata_coverage_by_platform(
-            hidden_rom_ids=[hidden.id]
+            RomVisibilityFilter(hidden_rom_ids=frozenset({hidden.id}))
         )
 
         assert coverage[platform.id] == [{"source": "igdb", "matched": 1}]

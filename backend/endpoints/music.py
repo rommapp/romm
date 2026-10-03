@@ -50,8 +50,7 @@ def resolve_track_ids(rom_file_ids: list[int], perms: ResolvedPermissions) -> li
     missing = [
         fid
         for fid in rom_file_ids
-        if fid not in files
-        or not perms.can_see_rom(files[fid].rom_id, files[fid].rom.platform_id)
+        if fid not in files or not perms.can_see_rom(files[fid].rom)
     ]
     if missing:
         raise HTTPException(
@@ -102,8 +101,7 @@ def _track_page(
 ) -> MusicPage[MusicTrackSchema]:
     perms = get_permissions(request)
     rows, total = db_rom_handler.get_music_tracks(
-        hidden_platform_ids=perms.hidden_platform_ids,
-        hidden_rom_ids=perms.hidden_rom_ids,
+        visibility=perms.rom_visibility,
         **filters.model_dump(exclude={"order_by", "order_dir"}),
         rom_id=rom_id,
         order_by=filters.order_by.lower(),
@@ -184,8 +182,7 @@ def _facet_page(
     perms = get_permissions(request)
     rows, total = db_rom_handler.get_music_facet(
         field=field,
-        hidden_platform_ids=perms.hidden_platform_ids,
-        hidden_rom_ids=perms.hidden_rom_ids,
+        visibility=perms.rom_visibility,
         search=search,
         artist=artist,
         album=album,
@@ -356,8 +353,7 @@ def get_music_game_genres(
     """
     perms = get_permissions(request)
     rows, total = db_rom_handler.get_music_game_genre_facet(
-        hidden_platform_ids=perms.hidden_platform_ids,
-        hidden_rom_ids=perms.hidden_rom_ids,
+        visibility=perms.rom_visibility,
         search=search,
         artist=artist,
         album=album,
@@ -397,8 +393,7 @@ def get_music_platforms(
     """Platforms that have soundtrack tracks, with per-platform counts."""
     perms = get_permissions(request)
     rows, total = db_rom_handler.get_music_platform_facet(
-        hidden_platform_ids=perms.hidden_platform_ids,
-        hidden_rom_ids=perms.hidden_rom_ids,
+        visibility=perms.rom_visibility,
         search=search,
         artist=artist,
         album=album,
@@ -441,8 +436,7 @@ def get_music_games(
     """Games that have soundtrack tracks -- the jukebox's album list."""
     perms = get_permissions(request)
     rows, total = db_rom_handler.get_music_game_facet(
-        hidden_platform_ids=perms.hidden_platform_ids,
-        hidden_rom_ids=perms.hidden_rom_ids,
+        visibility=perms.rom_visibility,
         search=search,
         artist=artist,
         album=album,
@@ -468,7 +462,6 @@ def get_music_stats(request: Request) -> MusicStatsSchema:
     """Library-wide track count and total duration."""
     perms = get_permissions(request)
     total, duration = db_rom_handler.get_music_stats(
-        hidden_platform_ids=perms.hidden_platform_ids,
-        hidden_rom_ids=perms.hidden_rom_ids,
+        visibility=perms.rom_visibility,
     )
     return MusicStatsSchema(total_tracks=total, total_duration_seconds=duration)

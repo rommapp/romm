@@ -97,7 +97,7 @@ async def patch_rom(
         )
     # 404-mask file bytes of roms hidden from the caller.
     base_rom = db_rom_handler.get_rom(rom_file.rom_id)
-    if not base_rom or not perms.can_see_rom(base_rom.id, base_rom.platform_id):
+    if not base_rom or not perms.can_see_rom(base_rom):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"ROM file with id {id} not found",
@@ -218,9 +218,7 @@ def _resolve_library_patch(
         )
     # The patch file's bytes are read too; mask it if its rom is hidden.
     patch_rom_parent = db_rom_handler.get_rom(patch_file.rom_id)
-    if not patch_rom_parent or not perms.can_see_rom(
-        patch_rom_parent.id, patch_rom_parent.platform_id
-    ):
+    if not patch_rom_parent or not perms.can_see_rom(patch_rom_parent):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Patch file with id {patch_file_id} not found",

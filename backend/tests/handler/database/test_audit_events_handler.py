@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_audit_event_handler, db_device_handler
 from handler.database.audit_events_handler import AuditEventFilters
 from models.audit_event import AuditAction, AuditActorKind, AuditCategory, AuditEvent
@@ -32,7 +33,13 @@ class TestHiddenTargets:
         on_hidden = _add(target_type="rom", target_id=str(rom.id))
         elsewhere = _add(target_type="rom", target_id="999999")
 
-        ids = _ids(AuditEventFilters(hidden_platform_ids={rom.platform_id}))
+        ids = _ids(
+            AuditEventFilters(
+                visibility=RomVisibilityFilter(
+                    hidden_platform_ids=frozenset({rom.platform_id})
+                )
+            )
+        )
 
         assert on_hidden.id not in ids
         assert elsewhere.id in ids
@@ -43,7 +50,13 @@ class TestHiddenTargets:
         hidden_platform = _add(target_type="platform", target_id="7")
         no_target = _add()
 
-        ids = _ids(AuditEventFilters(hidden_rom_ids={7}, hidden_platform_ids={7}))
+        ids = _ids(
+            AuditEventFilters(
+                visibility=RomVisibilityFilter(
+                    hidden_rom_ids=frozenset({7}), hidden_platform_ids=frozenset({7})
+                )
+            )
+        )
 
         assert hidden_rom.id not in ids
         assert hidden_platform.id not in ids

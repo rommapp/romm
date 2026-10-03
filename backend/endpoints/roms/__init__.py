@@ -643,8 +643,7 @@ def get_roms(
         order_by=order_by,
         order_dir=order_dir,
         user_id=request.user.id,
-        hidden_platform_ids=perms.hidden_platform_ids,
-        hidden_rom_ids=perms.hidden_rom_ids,
+        visibility=perms.rom_visibility,
         updated_after=updated_after,
         released_days=parsed_released_days,
         released_before_year=released_before_year,
@@ -711,8 +710,7 @@ def get_roms(
             # still narrow to, so the applied filters themselves are left out.
             filters=filters.scope_only(),
             user_id=request.user.id,
-            hidden_platform_ids=list(perms.hidden_platform_ids),
-            hidden_rom_ids=list(perms.hidden_rom_ids),
+            visibility=perms.rom_visibility,
         )
         # `hidden`, the only RomUser column filter values read, already
         # bumps the global version, so no per-user version is embedded.
@@ -746,8 +744,7 @@ def get_roms(
                 rom_ids,
                 user_id=request.user.id,
                 session=session,
-                hidden_platform_ids=list(perms.hidden_platform_ids),
-                hidden_rom_ids=list(perms.hidden_rom_ids),
+                visibility=perms.rom_visibility,
             )
             rom_ids_with_notes = db_rom_handler.get_rom_ids_with_notes(
                 rom_ids, user_id=request.user.id, session=session
@@ -833,8 +830,7 @@ def get_rom_identifiers(
     perms = get_permissions(request)
     return db_rom_handler.get_rom_ids(
         user_id=request.user.id,
-        hidden_platform_ids=perms.hidden_platform_ids,
-        hidden_rom_ids=perms.hidden_rom_ids,
+        visibility=perms.rom_visibility,
     )
 
 
@@ -881,8 +877,7 @@ def get_random_rom(
             smart_collection_id=smart_collection_id,
         ),
         user_id=request.user.id,
-        hidden_platform_ids=perms.hidden_platform_ids,
-        hidden_rom_ids=perms.hidden_rom_ids,
+        visibility=perms.rom_visibility,
         include_related=False,
     )
 
@@ -898,7 +893,7 @@ def get_random_rom(
     # than trusting the filter that chose the id: a rom that moved to a hidden
     # platform in between was picked under its old one. Reads no database, and
     # null keeps a hidden rom indistinguishable from an empty scope.
-    if not perms.can_see_rom(rom.id, rom.platform_id):
+    if not perms.can_see_rom(rom):
         return None
 
     return SimpleRomSchema.from_orm_with_request(rom, request)
@@ -992,8 +987,7 @@ async def download_roms(
             collection_id=collection_id,
             virtual_collection_id=virtual_collection_id,
             smart_collection_id=smart_collection_id,
-            hidden_platform_ids=list(perms.hidden_platform_ids),
-            hidden_rom_ids=list(perms.hidden_rom_ids),
+            visibility=perms.rom_visibility,
             **HAS_FILE_ON_DISK_FILTERS,
         )
     elif rom_ids:
@@ -1019,9 +1013,7 @@ async def download_roms(
 
     # Drop roms hidden from the caller so they can't be pulled by direct id.
     if request.user.is_authenticated:
-        rom_objects = [
-            rom for rom in rom_objects if perms.can_see_rom(rom.id, rom.platform_id)
-        ]
+        rom_objects = [rom for rom in rom_objects if perms.can_see_rom(rom)]
 
     if not rom_objects:
         raise HTTPException(
@@ -2501,7 +2493,7 @@ async def delete_roms(
         rom = db_rom_handler.get_rom_deletion_target(id)
 
         # Hidden roms are masked as not-found rather than reported deletable.
-        if not rom or not perms.can_see_rom(rom.id, rom.platform_id):
+        if not rom or not perms.can_see_rom(rom):
             failed_ids.append(id)
             errors.append(f"ROM with ID {id} not found")
             continue

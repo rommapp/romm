@@ -102,8 +102,7 @@ def list_rom_files(
     roms = db_rom_handler.get_roms_scalar(
         platform_ids=[platform.id],
         include_files=True,
-        hidden_platform_ids=list(permissions.hidden_platform_ids),
-        hidden_rom_ids=list(permissions.hidden_rom_ids),
+        visibility=permissions.rom_visibility,
     )
     rom_files = []
     for rom in roms:
