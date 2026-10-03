@@ -1,48 +1,66 @@
 ---
 name: frontend-v2-input
-description: Universal input (mouse, touch, keyboard, gamepad) and responsive/universal-viewport layout in the RomM v2 frontend. Use when adding interactive v2 components, focus management, spatial navigation, gamepad/keyboard handling, modality-gated focus rings, breakpoints, or responsive layout. Covers useInput, focus geometry primitives, the overlay scope stack, useBreakpoint, and the data-bp/data-input attributes. Trigger on interactive or responsive work under frontend/src/v2/.
+description: Universal input (mouse, touch, keyboard, gamepad) and responsive/universal-viewport layout in the RomM v2 frontend. Use when adding interactive v2 components, focus management, spatial navigation, gamepad/keyboard handling, modality-gated focus rings, breakpoints, or responsive layout. Covers useGamepad, useSpatialNav, useGridNav, the escape stack, useInputModality, useBreakpoint, and the data-bp/data-input attributes. Trigger on interactive or responsive work under frontend/src/v2/.
 ---
 
 # RomM v2: Universal Input & Universal Viewport
 
 **Premise:** all v2 UI works with mouse, touch, keyboard, **and** gamepad; and every surface reads cleanly from a 320px phone to a 4K display. Both mechanisms are fixed; don't invent a parallel one.
 
-The input system lives in `src/v2/composables/useInput/` (bus, keyboard, gamepad, actions, scope). It generalises the original gamepad-only `src/console/` system. There are **no `/console/*` routes in v2**.
+**One model: everything is keyboard.** `useGamepad` turns the pad into keyboard input, so a component that works with the keyboard works with a pad for free. Write keyboard handlers, never gamepad ones. The pieces (composables in `src/v2/composables/`; the global ones are installed once from `AppLayout`):
 
----
+| Piece                                   | Job                                                                                                                                                                                                                                                                                                    |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `useGamepad`                            | Polls the pad. D-pad / left stick → synthetic `Arrow*` keydowns on the focused element (350ms delay, 120ms repeat). A → `.click()` on the focused element. B / Back → synthetic `Escape`, then `router.back()` only if no handler claimed it. LB/RB cycle the nav sections, Start opens the user menu. |
+| `useSpatialNav`                         | Moves focus to the nearest control by arrow key, for any arrow nobody else claimed. Steps the caret in text fields for pad arrows.                                                                                                                                                                     |
+| `useGridNav`                            | Per-view 2D grids with focus restore and pad autofocus. Row containers (`rowSelector` / `getRows`) or wrapping CSS grids (`cellSelector`).                                                                                                                                                             |
+| `escapeStack` (`lib/overlays/RDialog/`) | Overlay stack. Escape (and so pad B) closes the topmost entry.                                                                                                                                                                                                                                         |
+| `useInputModality`                      | Sets `data-input` on `<html>`.                                                                                                                                                                                                                                                                         |
+| `useGlobalHotkeys`                      | `/`, `g h`, `g p`, `g c`.                                                                                                                                                                                                                                                                              |
+
+There are **no `/console/*` routes in v2**; `src/console/` (with its own input bus) is v1 only. Don't import from it.
+
+### The claim rule
+
+Handlers coordinate through `preventDefault`. **Claim a key you handle; leave alone a key you don't.**
+
+- Arrow keys a widget uses itself (a listbox, a slider, a grid moving inside its bounds) must be claimed, or `useSpatialNav` moves focus too. A grid leaves the key unclaimed at its edge so spatial nav carries focus to the next region.
+- Escape: claim it only when it actually did something (closed a panel, cleared a selection). An unclaimed Escape from pad B navigates back, so claiming an Escape that did nothing traps the user on the page.
+- `isPadEvent(e)` tells a synthetic pad key from a real one, for the rare handler that must differ (caret stepping).
+
+For buttons the keyboard has no equivalent for (Y, X, triggers), listen for the `gamepad:buttondown` window event (`detail.name`: `"y"`, `"rt"`, …). The player listens for `gamepad:exitchord` (Select+Start held), since B is the game's while one is running.
+
+### While a game runs
+
+`storePlaying().playing` hands the pad and keyboard to the emulator: no pad translation, spatial nav or hotkeys. An open escapable overlay (the exit dialog) takes the pad back with the arrows, A, B and Back only.
 
 ## Modality
 
 `useInputModality` sets `data-input="mouse|touch|key|pad"` on `<html>` from the most recent input.
 
 - **Focus rings appear only with `key` and `pad`** (CSS in `global.css`). **Never use bare `:focus` in styles**; use the modality-gated selectors, or focus rings flash on mouse click.
+- **Focus programmatically with `focusFromInput(el)`** (`utils/autofocus`), not `el.focus()`, so the ring shows when the move came from a key or pad.
 - **Modality gates appearance and behaviour, never size**: focus rings, hover-reveal, autofocus. A tap is followed by compatibility mouse events, so anything sized off `data-input` resizes under the finger. Hit targets scale by breakpoint instead (below).
 
 ## Coverage: every interactive primitive participates
 
-Buttons, list items, tabs, menu items, focusable cards, toggleable chips: all participate in spatial navigation (not optional). A new interactive primitive must:
+Buttons, list items, tabs, menu items, focusable cards, toggleable chips: all take part in pad and keyboard navigation (not optional). A new interactive primitive must:
 
-- be focusable (a natively focusable element, or a proper `tabindex`);
-- react to logical actions (confirm/cancel) from `useInput`, in addition to native click;
+- be focusable (a natively focusable element, or a proper `tabindex`), so `useSpatialNav` and `useGridNav` can reach it;
+- activate on `.click()`, which is what pad A calls; a native `<button>` or link already does. A custom `role="button"` element also needs Enter/Space;
 - show a modality-gated focus state.
 
 Storybook `play()` covering gamepad input is required **only when applicable** (the primitive is interactive enough that gamepad navigation matters).
 
 ## Focus geometry
 
-Each view declares its layout with focus primitives: `RFocusZone`, `RFocusGrid`, `RFocusRow`, `RFocusColumn`. Multiple regions = multiple zones. Predictable up/down/left/right movement is the view's responsibility.
+Most views need nothing: `useSpatialNav` moves between controls by position. Add `useGridNav` where a view has a grid of tiles, so up/down keep their column, focus comes back to the last tile on return (`data-focus-key` on each tile), and a pad lands on the grid without a first press. Pass `roving: true` for one tab stop per grid (the ARIA grid pattern).
 
-## Element-level global shortcuts
+## Overlays (escape stack)
 
-Above per-view geometry, some elements bind globally regardless of focus location:
+Every overlay pushes itself on the escape stack while open and pops on close. Escape and pad B close only the top entry, and spatial nav stays inside the top entry's `panel`. `RDialog`, `RDrawer` and `RMenu` do this automatically; a custom popover uses `usePopoverDismiss` (Escape, B and click-outside) or `useEscapable`. A custom overlay with its own Escape listener is an anti-pattern.
 
-- `UserMenu` opens on **Start**.
-- Navbar tabs cycle with **LB/RB** (plus D-pad).
-- Context menu opens on **X or Y**.
-
-## Scope (overlay stack)
-
-When a dialog opens, push a scope; when it closes, pop. This stops Escape from closing two things at once and stops `confirm` leaking to controls beneath an overlay. `RDialog` and `RMenu` manage their scope automatically; custom overlays are an anti-pattern; go through the primitives.
+Only push an entry with a `panel`: while a panel-less entry is on top, spatial nav has no panel to stay in and stops. A mode that Escape should end but that isn't an overlay (gallery selection) handles Escape in its own keydown listener and claims it.
 
 ---
 
