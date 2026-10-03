@@ -17,9 +17,11 @@ import type { Events } from "@/types/emitter";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { GROUP_COLOR_PALETTE } from "@/v2/utils/groupColor";
+import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
 import PermissionsMatrix from "./PermissionsMatrix.vue";
+import { createAgeSettingsDraft } from "./ageSettingsDraft";
 
 defineOptions({ inheritAttrs: false });
 
@@ -47,6 +49,12 @@ const hiddenPlatformIds = ref<number[]>([]);
 const originalHiddenPlatformIds = ref<number[]>([]);
 const hiddenRomIds = ref<number[]>([]);
 const originalHiddenRomIds = ref<number[]>([]);
+
+const {
+  draft: age,
+  load: loadAge,
+  changes: ageChanges,
+} = createAgeSettingsDraft();
 
 const sortedPlatforms = computed(() =>
   [...platforms.value].sort((a, b) =>
@@ -112,6 +120,11 @@ emitter?.on("showGroupFormDialog", async (group) => {
   isDefault.value = group?.is_default ?? false;
   color.value = group?.color ?? GROUP_COLOR_PALETTE[0];
   grants.value = group ? group.grants.map((g) => ({ ...g })) : [];
+  loadAge({
+    ageLimit: group?.age_limit ?? null,
+    hideUnrated: group?.hide_unrated_roms ?? false,
+    exemptRomIds: group?.age_exempt_rom_ids ?? [],
+  });
 
   const hidden = group?.hidden ?? [];
   const hiddenPlatforms = hidden
@@ -138,11 +151,23 @@ async function save() {
     is_default: isDefault.value,
     color: color.value,
     grants: grants.value,
+    age_limit: age.value.ageLimit,
+    hide_unrated_roms: age.value.hideUnrated ?? false,
+    age_exempt_rom_ids: age.value.exemptRomIds,
   };
+  // An update writes the age settings only when they changed, so a rename
+  // neither overwrites them nor records them in the audit log.
+  const ageChanged = ageChanges();
   try {
     const { data: saved } =
       editingId.value !== null
-        ? await permissionsApi.updateGroup(editingId.value, body)
+        ? await permissionsApi.updateGroup(editingId.value, {
+            ...body,
+            set_age_settings: ageChanged.settings,
+            age_exempt_rom_ids: ageChanged.exemptions
+              ? body.age_exempt_rom_ids
+              : null,
+          })
         : await permissionsApi.createGroup(body);
     // Apply hidden-entity diffs against the (now-known) group id.
     await Promise.all([
@@ -291,6 +316,17 @@ async function save() {
             {{ t("settings.hidden-games") }}
           </span>
           <HiddenGamesPicker v-model="hiddenRomIds" />
+        </div>
+
+        <div class="r-v2-group-dialog__matrix">
+          <span class="r-v2-group-dialog__matrix-label">
+            {{ t("settings.parental-controls") }}
+          </span>
+          <AgeLimitFields
+            v-model:age-limit="age.ageLimit"
+            v-model:hide-unrated="age.hideUnrated"
+            v-model:exempt-rom-ids="age.exemptRomIds"
+          />
         </div>
       </div>
     </template>

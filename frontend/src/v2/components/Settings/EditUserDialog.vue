@@ -22,9 +22,11 @@ import type { UserItem } from "@/types/user";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
+import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
 import OverridesMatrix from "./OverridesMatrix.vue";
+import { createAgeSettingsDraft } from "./ageSettingsDraft";
 
 defineOptions({ inheritAttrs: false });
 
@@ -49,6 +51,15 @@ const groupId = ref<number | null>(null);
 const originalGroupId = ref<number | null>(null);
 const hiddenPlatformIds = ref<number[]>([]);
 const originalHiddenPlatformIds = ref<number[]>([]);
+
+// The user's own age settings; null keeps the group's.
+const {
+  draft: age,
+  load: loadAge,
+  changes: ageChanges,
+} = createAgeSettingsDraft();
+// Access edits save only once this user's access has loaded.
+const accessLoaded = ref(false);
 
 // Advanced: per-user overrides + per-game hiding.
 const showAdvanced = ref(false);
@@ -80,6 +91,14 @@ async function ensureCatalog() {
 
 const editingSelf = computed(() => user.value?.id === auth.user?.id);
 
+const inheritedAgeSettings = computed(() => {
+  const group = groupsStore.groups.find((g) => g.id === groupId.value);
+  return {
+    ageLimit: group?.age_limit ?? null,
+    hideUnrated: group?.hide_unrated_roms ?? false,
+  };
+});
+
 const groupItems = computed(() =>
   groupsStore.groups.map((g) => ({ title: g.name, value: g.id })),
 );
@@ -90,11 +109,16 @@ const sortedPlatforms = computed(() =>
   ),
 );
 
+let loadToken = 0;
+
 emitter?.on("showEditUserDialog", async (toEdit) => {
+  const token = ++loadToken;
   user.value = { ...toEdit, password: "", avatar: undefined };
   confirmPassword.value = "";
   isAdmin.value = toEdit.role === "admin";
   showAdvanced.value = false;
+  accessLoaded.value = false;
+  loadAge();
   show.value = true;
 
   try {
@@ -106,6 +130,8 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
         : platformApi.getPlatforms(),
       ensureCatalog(),
     ]);
+    // A slower response for a user opened earlier must not land on this one.
+    if (token !== loadToken) return;
     if (platformsResp) platforms.value = platformsResp.data;
     // A null group means the user follows the server default group; show it
     // as selected so the picker never displays a meaningless empty option.
@@ -125,8 +151,15 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
     hiddenRomIds.value = [...hiddenRoms];
     originalHiddenRomIds.value = [...hiddenRoms];
 
+    loadAge({
+      ageLimit: perms.data.age_limit ?? null,
+      hideUnrated: perms.data.hide_unrated_roms ?? null,
+      exemptRomIds: perms.data.age_exempt_rom_ids ?? [],
+    });
+
     overrides.value = perms.data.overrides.map((o) => ({ ...o }));
     originalOverrides.value = perms.data.overrides.map((o) => ({ ...o }));
+    accessLoaded.value = true;
   } catch (err) {
     console.error("Failed to load user permissions", err);
   }
@@ -205,15 +238,27 @@ async function save() {
 
     // Group, overrides and hidden entities apply to non-admins (admins bypass).
     let nextUser = data;
-    if (!isAdmin.value) {
+    if (!isAdmin.value && accessLoaded.value) {
       const groupChanged = groupId.value !== originalGroupId.value;
       const overridesChanged =
         overridesKey(overrides.value) !== overridesKey(originalOverrides.value);
-      if (groupChanged || overridesChanged) {
+      const ageChanged = ageChanges();
+      if (
+        groupChanged ||
+        overridesChanged ||
+        ageChanged.settings ||
+        ageChanged.exemptions
+      ) {
         await permissionsApi.updateUserPermissions(userId, {
           set_group: groupChanged,
           permission_group_id: groupId.value,
           overrides: overridesChanged ? overrides.value : null,
+          set_age_settings: ageChanged.settings,
+          age_limit: age.value.ageLimit,
+          hide_unrated_roms: age.value.hideUnrated,
+          age_exempt_rom_ids: ageChanged.exemptions
+            ? age.value.exemptRomIds
+            : null,
         });
         if (groupChanged) {
           nextUser = { ...data, permission_group_id: groupId.value };
@@ -379,28 +424,36 @@ function close() {
         </div>
 
         <template v-if="!isAdmin">
-          <div class="r-v2-user-dialog__field">
-            <span class="r-v2-user-dialog__field-label">
+          <RSelect
+            v-model="groupId"
+            variant="outlined"
+            :items="groupItems"
+            item-title="title"
+            item-value="value"
+            prefix-label="stacked"
+            :hint="t('settings.permission-group-hint')"
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-account-group-outline" size="14" />
               {{ t("settings.permission-group") }}
-            </span>
-            <RSelect
-              v-model="groupId"
-              variant="outlined"
-              :items="groupItems"
-              item-title="title"
-              item-value="value"
-              hide-details
-            />
-          </div>
-          <div class="r-v2-user-dialog__field">
-            <span class="r-v2-user-dialog__field-label">
+            </template>
+          </RSelect>
+          <HiddenPlatformsPicker
+            v-model="hiddenPlatformIds"
+            :platforms="sortedPlatforms"
+            :hint="t('settings.hidden-platforms-hint')"
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-controller" size="14" />
               {{ t("settings.hidden-platforms") }}
-            </span>
-            <HiddenPlatformsPicker
-              v-model="hiddenPlatformIds"
-              :platforms="sortedPlatforms"
-            />
-          </div>
+            </template>
+          </HiddenPlatformsPicker>
+          <AgeLimitFields
+            v-model:age-limit="age.ageLimit"
+            v-model:hide-unrated="age.hideUnrated"
+            v-model:exempt-rom-ids="age.exemptRomIds"
+            :inherited="inheritedAgeSettings"
+          />
 
           <RBtn
             block

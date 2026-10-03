@@ -1,9 +1,6 @@
 <script setup lang="ts">
-// HiddenGamesPicker: search the library and pick individual games to hide
-// from a user. Model is the list of hidden rom ids. A debounced search shows
-// matching games (cover + name); picked games render below as a removable
-// list (cover + name), with their full rom cached so covers resolve even for
-// ids that were hidden before this session.
+// HiddenGamesPicker: search the library for games to hide or to allow past an
+// age limit. Picked roms are cached so covers resolve for ids picked earlier.
 import { RBtn, RIcon, RSpinner, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -14,7 +11,7 @@ import { useDebouncedSearch } from "@/v2/composables/useDebouncedSearch";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{ modelValue: number[] }>();
+const props = defineProps<{ modelValue: number[]; placeholder?: string }>();
 const emit = defineEmits<{ "update:modelValue": [number[]] }>();
 
 const { t } = useI18n();
@@ -117,7 +114,7 @@ function remove(id: number) {
       prefix-label="inline"
       density="compact"
       hide-details
-      :placeholder="t('settings.hidden-games-search')"
+      :placeholder="placeholder ?? t('settings.hidden-games-search')"
       @update:model-value="setSearch"
     >
       <template #prefix-label>
