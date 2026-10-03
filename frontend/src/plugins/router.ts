@@ -647,9 +647,7 @@ export function applyRouteTitle(
 }
 
 // vue-router fetches every named view before entering a route, so the
-// inactive UI's view is deferred until it renders (after an in-place switch).
-// Entering a record under that UI later hands vue-router the loader again, so
-// the view is fetched before the route renders and a stale chunk still reloads.
+// inactive UI's view is deferred until an in-place switch renders it.
 type ViewLoader = () => Promise<Component>;
 const deferredLoaders = new WeakMap<object, ViewLoader>();
 
@@ -686,6 +684,8 @@ router.beforeEach((to, from) => {
     const entering = !from.matched.some(
       (r) => (r.aliasOf ?? r) === (record.aliasOf ?? record),
     );
+    // Hand the loader back once its UI is active, so vue-router awaits the
+    // view again and a stale chunk still reaches router.onError.
     if (load && entering) views[active] = load;
     const view = views[inactive];
     if (isViewLoader(view)) views[inactive] = deferView(view);
