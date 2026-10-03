@@ -480,6 +480,8 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   .r-slider-btn-group__btn
   :deep(.mdi) {
   font-size: 14px !important;
+  width: 14px !important;
+  height: 14px !important;
 }
 /* The pill marks the active item, so a heavier weight would only make the
    label jump in width. */
