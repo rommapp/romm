@@ -92,9 +92,7 @@ html[data-bp~="xs"] .r-v2-idx-shell {
 /* Tiles scrolled into view by keyboard or pad nav land clear of the fixed bars. */
 .r-v2-idx-shell :deep([data-focus-key]) {
   scroll-margin-top: calc(var(--r-nav-h) + var(--r-v2-idx-shell-toolbar-h));
-  scroll-margin-bottom: calc(
-    var(--r-bottom-nav-h) + env(safe-area-inset-bottom)
-  );
+  scroll-margin-bottom: calc(var(--r-bottom-nav-h) + var(--r-safe-b));
 }
 
 /* List mode: the column header and the rows run to the screen edges and keep
@@ -105,10 +103,9 @@ html[data-bp~="xs"] .r-v2-idx-shell {
 .r-v2-idx-shell__list-header {
   margin-inline: calc(-1 * var(--r-list-bleed, 0px));
 }
-/* The header already reaches both edges by the margin above, so the pinned
-   glass must not add the gutter a second time: the page has no horizontal
-   clip, and the surplus on the right would scroll the document sideways. */
+/* The margin above already spans the gutter, so the glass adds only the shell's
+   safe-area padding; more would scroll the unclipped page sideways. */
 .r-v2-idx-shell__list-header.r-pinned-list-header::before {
-  inset: 0;
+  inset: 0 calc(-1 * var(--r-safe-r)) 0 calc(-1 * var(--r-safe-l));
 }
 </style>

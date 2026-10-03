@@ -214,6 +214,7 @@ export default tseslint.config(
     rules: {
       "romm/no-color-literal": "error",
       "romm/no-layout-media-query": "error",
+      "romm/no-safe-area-env": "error",
     },
   },
   {
