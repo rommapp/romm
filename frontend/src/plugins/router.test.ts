@@ -1,5 +1,14 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import type { RouteLocationNormalized } from "vue-router";
+import { useUiVersion } from "@/composables/useUiVersion";
 import i18n, { localesReady } from "@/locales";
 import router, { applyRouteTitle, ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
@@ -109,5 +118,60 @@ describe("the rom route", () => {
     expect(getRom).toHaveBeenCalledWith({ romId: 9 });
     expect(roms.currentRom?.name).toBe("after the session");
     expect(roms.getDetailedRom(9)?.name).toBe("after the session");
+  });
+});
+
+describe("the inactive UI's views", () => {
+  const uiVersion = useUiVersion();
+  const v1View = { name: "V1View", render: () => null };
+  const loadV1 = vi.fn(async () => v1View);
+  const loadV2 = vi.fn(async () => ({ render: () => null }));
+
+  router.addRoute({
+    path: "/deferred-views",
+    name: "deferred-views",
+    components: { default: loadV1, v2: loadV2 },
+  });
+  router.addRoute({
+    path: "/deferred-views-elsewhere",
+    name: "deferred-views-elsewhere",
+    component: { render: () => null },
+  });
+  const views = () =>
+    router.getRoutes().find((r) => r.name === "deferred-views")?.components;
+
+  beforeEach(() => {
+    storeAuth().setCurrentUser({ id: 1 } as User);
+  });
+
+  afterEach(() => {
+    uiVersion.value = "v2";
+  });
+
+  it("are left unfetched, without vue-router's async-view warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    uiVersion.value = "v2";
+
+    await router.push({ name: "deferred-views" });
+
+    expect(loadV2).toHaveBeenCalledOnce();
+    expect(loadV1).not.toHaveBeenCalled();
+    expect(views()?.default).toMatchObject({ name: "DeferredView" });
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("defineAsyncComponent"),
+    );
+    warn.mockRestore();
+  });
+
+  // After an in-place switch, entering the route again must await the view
+  // like any lazy route, so a stale chunk reaches router.onError.
+  it("are fetched with the navigation once their UI is active", async () => {
+    uiVersion.value = "v1";
+    await router.push({ name: "deferred-views-elsewhere" });
+
+    await router.push({ name: "deferred-views" });
+
+    expect(loadV1).toHaveBeenCalledOnce();
+    expect(views()?.default).toBe(v1View);
   });
 });

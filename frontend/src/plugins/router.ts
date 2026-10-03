@@ -1,5 +1,11 @@
 import { storeToRefs } from "pinia";
-import { type Component, defineAsyncComponent, watch } from "vue";
+import {
+  type Component,
+  defineAsyncComponent,
+  defineComponent,
+  h,
+  watch,
+} from "vue";
 import {
   createRouter,
   createWebHistory,
@@ -642,16 +648,47 @@ export function applyRouteTitle(
 
 // vue-router fetches every named view before entering a route, so the
 // inactive UI's view is deferred until it renders (after an in-place switch).
+// Entering a record under that UI later hands vue-router the loader again, so
+// the view is fetched before the route renders and a stale chunk still reloads.
+type ViewLoader = () => Promise<Component>;
+const deferredLoaders = new WeakMap<object, ViewLoader>();
+
+// Same test vue-router uses to tell a lazy view from a functional component.
+function isViewLoader(view: unknown): view is ViewLoader {
+  return (
+    typeof view === "function" &&
+    !("displayName" in view || "props" in view || "__vccOpts" in view)
+  );
+}
+
+// A plain shell, as vue-router flags defineAsyncComponent route views.
+function deferView(load: ViewLoader): Component {
+  const view = defineAsyncComponent(load);
+  const shell = defineComponent({
+    name: "DeferredView",
+    inheritAttrs: false,
+    setup(_, { attrs, slots }) {
+      return () => h(view, attrs, slots);
+    },
+  });
+  deferredLoaders.set(shell, load);
+  return shell;
+}
+
 const uiVersion = useUiVersion();
-router.beforeEach((to) => {
-  const inactive = uiVersion.value === "v2" ? "default" : "v2";
+router.beforeEach((to, from) => {
+  const [active, inactive] =
+    uiVersion.value === "v2" ? ["v2", "default"] : ["default", "v2"];
   for (const record of to.matched) {
-    const view = record.components?.[inactive];
-    if (record.components && typeof view === "function") {
-      record.components[inactive] = defineAsyncComponent(
-        view as () => Promise<Component>,
-      );
-    }
+    const views = record.components;
+    if (!views) continue;
+    const load = views[active] && deferredLoaders.get(views[active]);
+    const entering = !from.matched.some(
+      (r) => (r.aliasOf ?? r) === (record.aliasOf ?? record),
+    );
+    if (load && entering) views[active] = load;
+    const view = views[inactive];
+    if (isViewLoader(view)) views[inactive] = deferView(view);
   }
 });
 

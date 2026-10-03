@@ -23,9 +23,9 @@ defineOptions({ inheritAttrs: false });
 
 // The dialog is mounted on every v2 page, so the markdown renderer loads on
 // first open instead of with the app shell.
-const MdPreview = defineAsyncComponent(
-  () => import("@/v2/components/shared/MarkdownPreview.vue"),
-);
+const loadMdPreview = () =>
+  import("@/v2/components/shared/MarkdownPreview.vue");
+const MdPreview = defineAsyncComponent(loadMdPreview);
 
 type Release = {
   tag_name: string;
@@ -94,6 +94,8 @@ function fmtDate(iso: string): string {
 
 const openHandler = () => {
   show.value = true;
+  // Fetch the renderer alongside the releases rather than after them.
+  loadMdPreview().catch(() => {});
   // Refetch only when we have nothing yet (or a previous attempt
   // errored). Keeps the dialog snappy on subsequent opens.
   if (releases.value.length === 0 && !loading.value) fetchReleases();
