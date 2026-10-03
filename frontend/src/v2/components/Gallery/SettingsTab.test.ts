@@ -89,7 +89,7 @@ describe("SettingsTab platform save", () => {
     // Second field is the description.
     const inputs = wrapper.findAll("input");
     await inputs[1]!.setValue("Aftermarket dumps only");
-    await (wrapper.vm as unknown as { save: () => Promise<void> }).save();
+    await wrapper.get("form").trigger("submit");
     await flushPromises();
 
     expect(updatePlatform).toHaveBeenCalledTimes(1);
@@ -107,7 +107,7 @@ describe("SettingsTab platform save", () => {
 
     const inputs = wrapper.findAll("input");
     await inputs[0]!.setValue("FDS (JP only)");
-    await (wrapper.vm as unknown as { save: () => Promise<void> }).save();
+    await wrapper.get("form").trigger("submit");
     await flushPromises();
 
     const arg = updatePlatform.mock.calls[0]![0];
@@ -119,7 +119,7 @@ describe("SettingsTab platform save", () => {
     const wrapper = mountTab(platform(), false);
 
     await wrapper.findAll("input")[0]!.setValue("");
-    await (wrapper.vm as unknown as { save: () => Promise<void> }).save();
+    await wrapper.get("form").trigger("submit");
     await flushPromises();
 
     expect(updatePlatform).not.toHaveBeenCalled();
