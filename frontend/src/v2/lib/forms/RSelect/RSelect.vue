@@ -306,7 +306,7 @@ const selectedValues = computed<unknown[]>(() => {
   if (props.multiple) {
     return Array.isArray(props.modelValue) ? props.modelValue : [];
   }
-  // Null is a value an item can hold ("No limit"); only undefined is unset.
+  // An item may hold null as its value, so only undefined means unset.
   return props.modelValue === undefined ? [] : [props.modelValue];
 });
 
