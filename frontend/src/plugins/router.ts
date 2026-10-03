@@ -651,14 +651,6 @@ export function applyRouteTitle(
 type ViewLoader = () => Promise<Component>;
 const deferredLoaders = new WeakMap<object, ViewLoader>();
 
-// Same test vue-router uses to tell a lazy view from a functional component.
-function isViewLoader(view: unknown): view is ViewLoader {
-  return (
-    typeof view === "function" &&
-    !("displayName" in view || "props" in view || "__vccOpts" in view)
-  );
-}
-
 // vue-router warns on defineAsyncComponent route views, so wrap it in a plain one.
 function deferView(load: ViewLoader): Component {
   const view = defineAsyncComponent(load);
@@ -687,8 +679,10 @@ router.beforeEach((to, from) => {
     // Hand the loader back once its UI is active, so vue-router awaits the
     // view again and a stale chunk still reaches router.onError.
     if (load && entering) views[active] = load;
+    // Every route view is a `() => import()` loader until it is deferred.
     const view = views[inactive];
-    if (isViewLoader(view)) views[inactive] = deferView(view);
+    if (typeof view === "function")
+      views[inactive] = deferView(view as ViewLoader);
   }
 });
 
