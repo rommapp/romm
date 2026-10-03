@@ -687,6 +687,7 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
             undefer(Rom.multi_file),
             undefer(Rom.top_level_file_count),
             undefer(Rom.has_soundtrack),
+            undefer(Rom.is_easyrpg_game),
         )
         return func(*args, **kwargs)
 
@@ -736,6 +737,7 @@ def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
             undefer(Rom.multi_file),
             undefer(Rom.top_level_file_count),
             undefer(Rom.has_soundtrack),
+            undefer(Rom.is_easyrpg_game),
         )
         return func(*args, **kwargs)
 
@@ -1604,6 +1606,7 @@ class DBRomsHandler(DBBaseHandler):
                 undefer(Rom.multi_file),
                 undefer(Rom.top_level_file_count),
                 undefer(Rom.has_soundtrack),
+                undefer(Rom.is_easyrpg_game),
             )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform

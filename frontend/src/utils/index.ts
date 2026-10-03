@@ -738,13 +738,7 @@ export function isEasyRpgEmulationSupported(
  * @returns True if the ROM is a game folder, false otherwise.
  */
 export function isEasyRpgGame(rom: SimpleRom | null | undefined) {
-  if (!rom?.has_multiple_files) return false;
-  // Gallery lists leave the files out; the detail view has them to check.
-  if (rom.files.length === 0) return true;
-  return rom.files.some(
-    (file) =>
-      file.is_top_level && file.file_name.toLowerCase() === "rpg_rt.ldb",
-  );
+  return rom?.is_easyrpg_game === true;
 }
 
 export type PlayingStatus =

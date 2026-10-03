@@ -8,13 +8,12 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Final
 
-from models.rom import RomFile
+from models.rom import EASYRPG_GAME_DATABASE, RomFile
 
 # The image ships the free RTP beside the web player, which nginx serves.
 RTP_WEB_PATH: Final = "/assets/easyrpg/rtp"
 RTP_PATH: Final = f"/var/www/html{RTP_WEB_PATH}"
 
-GAME_DATABASE: Final = "rpg_rt.ldb"
 INDEX_FILE: Final = "index.json"
 # gencache keeps these extensions on files below the game root.
 _KEPT_EXTENSIONS: Final = (".ini", ".po")
@@ -131,7 +130,7 @@ class EasyRpgHandler:
 
     @staticmethod
     def is_game(game_files: Iterable[str]) -> bool:
-        return any(normalize_name(path) == GAME_DATABASE for path in game_files)
+        return any(normalize_name(path) == EASYRPG_GAME_DATABASE for path in game_files)
 
     def build_index(self, game_files: Iterable[str]) -> dict[str, Any]:
         return build_index(game_files, self.rtp_files, self.rtp_table)

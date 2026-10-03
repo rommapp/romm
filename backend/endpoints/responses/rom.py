@@ -433,6 +433,7 @@ class RomSchema(BaseModel):
     has_simple_single_file: bool
     has_nested_single_file: bool
     has_multiple_files: bool
+    is_easyrpg_game: bool
     full_path: str
     created_at: UTCDatetime
     updated_at: UTCDatetime
