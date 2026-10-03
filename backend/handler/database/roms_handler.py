@@ -1191,7 +1191,7 @@ class DBRomsHandler(DBBaseHandler):
                     user_id=user_id,
                     session=session,
                 )
-            )
+            ).all()
         )
 
     def _build_search_phrases(self, search_term: str) -> list[str]:
@@ -3830,7 +3830,7 @@ class DBRomsHandler(DBBaseHandler):
         tags = set()
         platforms = set()
 
-        for row in session.execute(statement):
+        for row in session.execute(statement).all():
             g, f, cl, co, pub, dev, gm, ar, pc, rg, lg, tg, pid = row
             if g:
                 genres.update(g)

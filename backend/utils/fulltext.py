@@ -56,7 +56,9 @@ def read_fulltext_settings(conn: Connection) -> FulltextSettings:
             sql_table(name, schema=schema or None)
         )
         try:
-            stopwords = frozenset(word.lower() for word in conn.scalars(query) if word)
+            stopwords = frozenset(
+                word.lower() for word in conn.scalars(query).all() if word
+            )
         except SQLAlchemyError as exc:
             if custom_table:
                 raise
