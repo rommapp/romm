@@ -1494,10 +1494,7 @@ onBeforeUnmount(() => {
                   variant="text"
                   size="x-small"
                   :icon="view.icon"
-                  :aria-pressed="stateLayout === view.value"
-                  :class="{
-                    'r-v2-stream__strip-view--on': stateLayout === view.value,
-                  }"
+                  :active="stateLayout === view.value"
                   :aria-label="t(`play.states-view-${view.value}`)"
                   @click="stateLayout = view.value"
                 />
@@ -2075,9 +2072,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 2px;
-}
-.r-v2-stream__strip-view--on {
-  color: var(--r-color-brand-primary);
 }
 .r-v2-stream__strip-count {
   display: inline-grid;

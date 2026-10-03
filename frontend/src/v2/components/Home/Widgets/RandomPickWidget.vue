@@ -234,7 +234,7 @@ html:not([data-input="pad"])
   font-variant-numeric: tabular-nums;
 }
 
-/* The die reads as a die only above the button's default 1.25em glyph. */
+/* The die reads as a die only above the button's default glyph size. */
 .r-v2-widget-pick__reroll :deep(.r-btn__icon) {
   font-size: 19px;
 }

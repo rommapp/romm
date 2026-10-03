@@ -372,12 +372,13 @@ const hasCards = computed(() => cards.value.length > 0);
               @click="editTarget = card"
             />
             <RBtn
-              variant="text"
+              :variant="isExpanded(card.id) ? 'translucent' : 'text'"
+              :color="isExpanded(card.id) ? 'primary' : undefined"
               size="small"
               icon="mdi-history"
               :aria-label="t('play.memory-card-versions')"
+              :aria-expanded="isExpanded(card.id)"
               :tooltip="t('play.memory-card-versions')"
-              :class="{ 'r-mc-mgr__toggle--on': isExpanded(card.id) }"
               @click="toggleVersions(card)"
             />
             <RBtn
@@ -584,9 +585,6 @@ const hasCards = computed(() => cards.value.length > 0);
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-}
-.r-mc-mgr__toggle--on {
-  color: var(--r-color-brand-primary);
 }
 
 .r-mc-mgr__file {
