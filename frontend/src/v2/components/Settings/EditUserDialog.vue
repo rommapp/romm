@@ -21,6 +21,7 @@ import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
+import { sameIds } from "@/v2/utils/lists";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
@@ -97,10 +98,6 @@ const inheritedAgeSettings = computed(() => {
   };
 });
 
-function idsKey(ids: number[]): string {
-  return [...ids].sort((a, b) => a - b).join(",");
-}
-
 const groupItems = computed(() =>
   groupsStore.groups.map((g) => ({ title: g.name, value: g.id })),
 );
@@ -111,11 +108,19 @@ const sortedPlatforms = computed(() =>
   ),
 );
 
+let loadToken = 0;
+
 emitter?.on("showEditUserDialog", async (toEdit) => {
+  const token = ++loadToken;
   user.value = { ...toEdit, password: "", avatar: undefined };
   confirmPassword.value = "";
   isAdmin.value = toEdit.role === "admin";
   showAdvanced.value = false;
+  // Age settings are written whole, so never carry the last user's over.
+  ageLimit.value = originalAgeLimit.value = null;
+  hideUnrated.value = originalHideUnrated.value = null;
+  exemptRomIds.value = [];
+  originalExemptRomIds.value = [];
   show.value = true;
 
   try {
@@ -127,6 +132,8 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
         : platformApi.getPlatforms(),
       ensureCatalog(),
     ]);
+    // A slower response for a user opened earlier must not land on this one.
+    if (token !== loadToken) return;
     if (platformsResp) platforms.value = platformsResp.data;
     // A null group means the user follows the server default group; show it
     // as selected so the picker never displays a meaningless empty option.
@@ -240,8 +247,10 @@ async function save() {
       const ageChanged =
         ageLimit.value !== originalAgeLimit.value ||
         hideUnrated.value !== originalHideUnrated.value;
-      const exemptionsChanged =
-        idsKey(exemptRomIds.value) !== idsKey(originalExemptRomIds.value);
+      const exemptionsChanged = !sameIds(
+        exemptRomIds.value,
+        originalExemptRomIds.value,
+      );
       if (groupChanged || overridesChanged || ageChanged || exemptionsChanged) {
         await permissionsApi.updateUserPermissions(userId, {
           set_group: groupChanged,

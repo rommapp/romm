@@ -193,6 +193,32 @@ describe("EditUserDialog age settings", () => {
     );
   });
 
+  it("keeps a slower load for an earlier user off the open one", async () => {
+    let resolveFirst: (value: unknown) => void = () => undefined;
+    fetchUserPermissions.mockReturnValueOnce(
+      new Promise((resolve) => (resolveFirst = resolve)),
+    );
+    const { wrapper, open } = await mountDialog("user");
+    const fields = () => wrapper.findComponent(AgeLimitFields);
+
+    await open();
+    resolveFirst({
+      data: {
+        user_id: 3,
+        permission_group_id: 1,
+        overrides: [],
+        hidden: [],
+        age_limit: 12,
+        hide_unrated_roms: true,
+        age_exempt_rom_ids: [9],
+      },
+    });
+    await flushPromises();
+
+    expect(fields().props("ageLimit")).toBeNull();
+    expect(fields().props("exemptRomIds")).toEqual([5]);
+  });
+
   it("leaves the permissions alone when nothing changed", async () => {
     const { wrapper } = await mountDialog("user");
 

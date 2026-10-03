@@ -48,6 +48,12 @@ describe("AgeLimitFields", () => {
     expect(wrapper.emitted("update:ageLimit")).toEqual([[null], [16]]);
   });
 
+  it("keeps a limit outside the usual ages selected", () => {
+    const wrapper = mountFields({ ageLimit: 14, hideUnrated: false });
+
+    expect(wrapper.get("select").element.value).toBe("14");
+  });
+
   it("toggles the unrated switch for a group", async () => {
     const wrapper = mountFields({ ageLimit: null, hideUnrated: false });
 

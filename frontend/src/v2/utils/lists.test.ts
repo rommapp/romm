@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { joinNames } from "./lists";
+import { joinNames, sameIds } from "./lists";
 
 describe("joinNames", () => {
   it("joins in the reader's language, not with a hardcoded separator", () => {
@@ -22,5 +22,15 @@ describe("joinNames", () => {
 
   it("takes the runtime's own locale when the caller has none", () => {
     expect(joinNames(["File", "Core"], null)).toContain("File");
+  });
+});
+
+describe("sameIds", () => {
+  it("ignores order but not membership or repeats", () => {
+    expect(sameIds([3, 1, 2], [1, 2, 3])).toBe(true);
+    expect(sameIds([], [])).toBe(true);
+    expect(sameIds([1, 2], [1, 3])).toBe(false);
+    expect(sameIds([1, 2], [1, 1])).toBe(false);
+    expect(sameIds([1], [1, 1])).toBe(false);
   });
 });

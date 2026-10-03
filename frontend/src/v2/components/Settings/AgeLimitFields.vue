@@ -34,6 +34,15 @@ function ageText(age: number | null): string {
     : t("settings.age-limit-option", { age });
 }
 
+// RSelect shows nothing for a value outside its items, so a limit the API set
+// to another age joins the list.
+const ages = computed(() => {
+  const current = ageLimit.value;
+  return current === null || AGE_OPTIONS.includes(current)
+    ? AGE_OPTIONS
+    : [...AGE_OPTIONS, current].sort((a, b) => a - b);
+});
+
 const ageItems = computed(() => [
   {
     title: props.inherited
@@ -43,7 +52,7 @@ const ageItems = computed(() => [
       : ageText(null),
     value: UNSET,
   },
-  ...AGE_OPTIONS.map((age) => ({ title: ageText(age), value: age })),
+  ...ages.value.map((age) => ({ title: ageText(age), value: age })),
 ]);
 
 const ageChoice = computed<AgeChoice>({
@@ -80,7 +89,7 @@ const unratedChoice = computed<UnratedChoice>({
 </script>
 
 <template>
-  <div class="r-v2-age-limit">
+  <div v-bind="$attrs" class="r-v2-age-limit">
     <div class="r-v2-age-limit__field">
       <span class="r-v2-age-limit__label">
         {{ t("settings.age-limit") }}

@@ -17,6 +17,7 @@ import type { Events } from "@/types/emitter";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { GROUP_COLOR_PALETTE } from "@/v2/utils/groupColor";
+import { sameIds } from "@/v2/utils/lists";
 import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
@@ -50,8 +51,11 @@ const hiddenRomIds = ref<number[]>([]);
 const originalHiddenRomIds = ref<number[]>([]);
 
 const ageLimit = ref<number | null>(null);
+const originalAgeLimit = ref<number | null>(null);
 const hideUnrated = ref<boolean | null>(false);
+const originalHideUnrated = ref<boolean | null>(false);
 const exemptRomIds = ref<number[]>([]);
+const originalExemptRomIds = ref<number[]>([]);
 
 const sortedPlatforms = computed(() =>
   [...platforms.value].sort((a, b) =>
@@ -117,9 +121,11 @@ emitter?.on("showGroupFormDialog", async (group) => {
   isDefault.value = group?.is_default ?? false;
   color.value = group?.color ?? GROUP_COLOR_PALETTE[0];
   grants.value = group ? group.grants.map((g) => ({ ...g })) : [];
-  ageLimit.value = group?.age_limit ?? null;
-  hideUnrated.value = group?.hide_unrated_roms ?? false;
+  ageLimit.value = originalAgeLimit.value = group?.age_limit ?? null;
+  hideUnrated.value = originalHideUnrated.value =
+    group?.hide_unrated_roms ?? false;
   exemptRomIds.value = [...(group?.age_exempt_rom_ids ?? [])];
+  originalExemptRomIds.value = [...exemptRomIds.value];
 
   const hidden = group?.hidden ?? [];
   const hiddenPlatforms = hidden
@@ -146,18 +152,33 @@ async function save() {
     is_default: isDefault.value,
     color: color.value,
     grants: grants.value,
+  };
+  const ageSettings = {
     age_limit: ageLimit.value,
     hide_unrated_roms: hideUnrated.value ?? false,
-    age_exempt_rom_ids: exemptRomIds.value,
   };
+  // An update writes the age settings only when they changed, so a rename
+  // neither overwrites them nor records them in the audit log.
+  const exemptionsChanged = !sameIds(
+    exemptRomIds.value,
+    originalExemptRomIds.value,
+  );
   try {
     const { data: saved } =
       editingId.value !== null
         ? await permissionsApi.updateGroup(editingId.value, {
             ...body,
-            set_age_settings: true,
+            ...ageSettings,
+            set_age_settings:
+              ageLimit.value !== originalAgeLimit.value ||
+              hideUnrated.value !== originalHideUnrated.value,
+            age_exempt_rom_ids: exemptionsChanged ? exemptRomIds.value : null,
           })
-        : await permissionsApi.createGroup(body);
+        : await permissionsApi.createGroup({
+            ...body,
+            ...ageSettings,
+            age_exempt_rom_ids: exemptRomIds.value,
+          });
     // Apply hidden-entity diffs against the (now-known) group id.
     await Promise.all([
       ...diffHidden(

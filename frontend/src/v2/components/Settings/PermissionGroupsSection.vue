@@ -182,7 +182,7 @@ onMounted(fetchGroups);
           <RTag
             v-if="(row as PermissionGroupSchema).age_limit != null"
             tone="warning"
-            icon="mdi-account-child-outline"
+            prepend-icon="mdi-account-child-outline"
             :text="
               t('settings.age-limit-option', {
                 age: (row as PermissionGroupSchema).age_limit,
