@@ -111,7 +111,18 @@ class DBAuditEventsHandler(DBBaseHandler):
         # A hide row outlives its ROM, so the ids also cover deleted ROMs.
         if visibility.hidden_rom_ids:
             clauses.append(_not_targeting("rom", visibility.hidden_rom_ids))
-        if (row_hidden := visibility.row_hidden_clause()) is not None:
+        if visibility.has_age_rule:
+            # A deleted ROM's rating went with its row, so only ROMs still shown pass.
+            clauses.append(
+                or_(
+                    AuditEvent.target_type.is_(None),
+                    AuditEvent.target_type != "rom",
+                    AuditEvent.target_id.in_(
+                        select(cast(Rom.id, String)).where(*visibility.clauses())
+                    ),
+                )
+            )
+        elif (row_hidden := visibility.row_hidden_clause()) is not None:
             clauses.append(
                 _not_targeting("rom", select(cast(Rom.id, String)).where(row_hidden))
             )
