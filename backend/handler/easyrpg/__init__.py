@@ -8,8 +8,11 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Final
 
-from config import EASYRPG_RTP_PATH
 from models.rom import Rom, RomFile
+
+# The image ships the free RTP beside the web player, which nginx serves.
+RTP_WEB_PATH: Final = "/assets/easyrpg/rtp"
+RTP_PATH: Final = f"/var/www/html{RTP_WEB_PATH}"
 
 GAME_DATABASE: Final = "rpg_rt.ldb"
 INDEX_FILE: Final = "index.json"
@@ -86,7 +89,7 @@ def build_index(
 
 
 class EasyRpgHandler:
-    def __init__(self, rtp_path: str = EASYRPG_RTP_PATH) -> None:
+    def __init__(self, rtp_path: str = RTP_PATH) -> None:
         self.rtp_path = rtp_path
 
     @cached_property

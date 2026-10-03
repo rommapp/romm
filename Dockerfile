@@ -198,7 +198,6 @@ WORKDIR /app
 # Kept outside /app/frontend because the ./frontend bind mount hides it;
 # entrypoint.sh links the runtimes into the assets tree at startup.
 ENV EMULATOR_ASSETS_DIR="/opt/romm/emulators"
-ENV EASYRPG_RTP_PATH="${EMULATOR_ASSETS_DIR}/easyrpg/rtp"
 COPY --from=emulator-download /emulators "${EMULATOR_ASSETS_DIR}"
 
 # Copy entrypoint script

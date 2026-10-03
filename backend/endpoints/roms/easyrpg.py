@@ -7,21 +7,18 @@ from fastapi import Request, status
 from fastapi.responses import JSONResponse, Response
 from starlette.responses import FileResponse
 
-from config import DEV_MODE, DISABLE_EASYRPG, EASYRPG_RTP_PATH
+from config import DEV_MODE, DISABLE_EASYRPG
 from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
 from handler.database import db_rom_handler
-from handler.easyrpg import INDEX_FILE, easyrpg_handler
+from handler.easyrpg import INDEX_FILE, RTP_WEB_PATH, easyrpg_handler
 from handler.filesystem import fs_rom_handler
 from utils.nginx import FileRedirectResponse
 from utils.router import APIRouter
 
 router = APIRouter()
-
-# nginx serves the RTP beside the web player.
-RTP_WEB_PATH = PurePosixPath("/assets/easyrpg/rtp")
 
 
 def _not_found(detail: str) -> HTTPException:
@@ -68,7 +65,7 @@ async def get_easyrpg_file(
 
     if rtp_file := easyrpg_handler.find_rtp_file(path):
         if DEV_MODE:
-            return FileResponse(path=f"{EASYRPG_RTP_PATH}/{rtp_file}")
-        return FileRedirectResponse(download_path=RTP_WEB_PATH / rtp_file)
+            return FileResponse(path=f"{easyrpg_handler.rtp_path}/{rtp_file}")
+        return FileRedirectResponse(download_path=PurePosixPath(RTP_WEB_PATH, rtp_file))
 
     raise _not_found("File not found")
