@@ -29,6 +29,7 @@ import {
   watchEffect,
 } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
 import RTooltip from "../../structural/RTooltip/RTooltip.vue";
@@ -253,7 +254,7 @@ function validate(): boolean {
 function reset() {
   dirty.value = false;
 }
-defineExpose({ validate, reset, focus: () => inputRef.value?.focus() });
+defineExpose({ validate, reset, focus: () => focusFromInput(inputRef.value) });
 
 // Auto-enrol with an ancestor RForm so `form.validate()` reaches us.
 // No-op when used outside a form.
@@ -312,14 +313,14 @@ function clear() {
   emit("update:modelValue", "");
   emit("clear");
   // Keep focus on the input so the user can keep typing.
-  nextTick(() => inputRef.value?.focus());
+  nextTick(() => focusFromInput(inputRef.value));
 }
 
 onMounted(() => {
   // `preventScroll` because an autofocused field often lives in a panel
   // that a positioner (floating-ui) only places after mount, letting the
   // UA scroll to its pre-placement box would yank the page.
-  if (props.autofocus) inputRef.value?.focus({ preventScroll: true });
+  if (props.autofocus) focusFromInput(inputRef.value, { preventScroll: true });
 });
 
 // Slot shape helpers: drives whether to render the prepend / append

@@ -66,6 +66,7 @@ describe("RMenu", () => {
   });
 
   it("asks for a visible focus ring when an arrow key moves between items", async () => {
+    modality.value = "key";
     const wrapper = mountMenu({
       content: `<button type="button" class="r-menu-item first">A</button><button type="button" class="r-menu-item second">B</button>`,
     });

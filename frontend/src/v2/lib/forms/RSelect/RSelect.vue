@@ -38,7 +38,7 @@ import {
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
-import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
+import { focusFromInput, shouldAutofocusSearch } from "@/v2/utils/autofocus";
 import RDivider from "../../primitives/RDivider/RDivider.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
@@ -606,7 +606,7 @@ function reset() {
 defineExpose({
   validate,
   reset,
-  focus: () => activatorRef.value?.focus(),
+  focus: () => focusFromInput(activatorRef.value),
   open: openMenu,
   close: closeMenu,
 });
@@ -736,7 +736,7 @@ usePopoverDismiss(isOpen, closeMenu, {
   onEscape: () => {
     const focusInPanel = !!panelRef.value?.contains(document.activeElement);
     closeMenu();
-    if (focusInPanel) activatorRef.value?.focus();
+    if (focusInPanel) focusFromInput(activatorRef.value);
   },
 });
 

@@ -328,12 +328,12 @@ export function useGamepad() {
         const x = pad.axes[0] ?? 0;
         const y = pad.axes[1] ?? 0;
         tickAxis(st, "x", x, t, (dir) => {
-          if (!gameOwnsInput) dispatchKey(dir < 0 ? ARROWS.left : ARROWS.right);
           onAnyInput();
+          if (!gameOwnsInput) dispatchKey(dir < 0 ? ARROWS.left : ARROWS.right);
         });
         tickAxis(st, "y", y, t, (dir) => {
-          if (!gameOwnsInput) dispatchKey(dir < 0 ? ARROWS.up : ARROWS.down);
           onAnyInput();
+          if (!gameOwnsInput) dispatchKey(dir < 0 ? ARROWS.up : ARROWS.down);
         });
 
         // Buttons. Three tracks, evaluated in order:
@@ -352,6 +352,8 @@ export function useGamepad() {
           const prev = (st.buttons[i] ||= { pressed: false, nextRepeatAt: 0 });
           if (button.pressed) {
             if (!prev.pressed) {
+              // Before dispatching, so handlers focus with the pad's ring.
+              onAnyInput();
               if (!gameOwnsInput) {
                 const suppressed =
                   overlayOverGame && !OVERLAY_SAFE_BUTTONS.has(i);
@@ -367,7 +369,6 @@ export function useGamepad() {
                   );
                 }
               }
-              onAnyInput();
               prev.pressed = true;
               prev.nextRepeatAt = t + INITIAL_DELAY_MS;
             } else if (!gameOwnsInput && binding && t >= prev.nextRepeatAt) {

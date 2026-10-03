@@ -10,6 +10,7 @@
 //   • After a failed `validate()`, scrolls the first invalid field
 //     into view and focuses it.
 import { computed, ref, useAttrs, watch } from "vue";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import type { RFormField } from "./context";
 import { provideRForm } from "./context";
 
@@ -78,14 +79,14 @@ function scrollToFirstError() {
     if (!el) continue;
     if (el.getAttribute("aria-invalid") === "true") {
       el.scrollIntoView({ block: "center", behavior: "smooth" });
-      if (typeof el.focus === "function") el.focus();
+      if (typeof el.focus === "function") focusFromInput(el);
       return;
     }
   }
   const target = root.querySelector<HTMLElement>('[aria-invalid="true"]');
   if (!target) return;
   target.scrollIntoView({ block: "center", behavior: "smooth" });
-  if (typeof target.focus === "function") target.focus();
+  if (typeof target.focus === "function") focusFromInput(target);
 }
 
 defineExpose({ validate, reset, resetValidation });

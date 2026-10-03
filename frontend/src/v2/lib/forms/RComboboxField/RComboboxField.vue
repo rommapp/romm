@@ -32,6 +32,7 @@ import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTag from "@/v2/lib/primitives/RTag/RTag.vue";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { useRFormRegistration } from "../RForm/context";
 
 defineOptions({ inheritAttrs: false });
@@ -191,7 +192,7 @@ function clearAll() {
   if (!chips.value.length && !query.value) return;
   query.value = "";
   emit("update:modelValue", []);
-  nextTick(() => inputRef.value?.focus());
+  nextTick(() => focusFromInput(inputRef.value));
 }
 
 // ── Input wiring ───────────────────────────────────────────────
@@ -272,7 +273,7 @@ function onKeyDown(e: KeyboardEvent) {
 
 function pickSuggestion(item: string) {
   commit(item);
-  nextTick(() => inputRef.value?.focus());
+  nextTick(() => focusFromInput(inputRef.value));
 }
 
 usePopoverDismiss(

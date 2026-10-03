@@ -34,6 +34,7 @@ import { onMounted, watch, type Ref } from "vue";
 import { useRoute } from "vue-router";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import storeFocusRestoration from "@/v2/stores/focusRestoration";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { FOCUSABLE_SELECTOR } from "@/v2/utils/spatialNav";
 
 // Within this many CSS pixels two cells are considered to share a row.
@@ -153,7 +154,7 @@ export function useWrapGridNav(
     target.setAttribute("data-wrap-grid-cell", "");
     target.setAttribute("tabindex", "0");
 
-    target.focus({ preventScroll: true, focusVisible: true });
+    focusFromInput(target, { preventScroll: true });
     // Rows centre on vertical moves so the fixed bars never cover them.
     target.scrollIntoView({
       block: opts.verticalJump ? "center" : "nearest",

@@ -32,6 +32,7 @@ import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { syncQueryParam } from "@/v2/utils/routeQuery";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
@@ -166,7 +167,9 @@ const titleFieldRef = ref<{ $el?: HTMLElement } | null>(null);
 watch(editForm, async (form) => {
   if (!form) return;
   await nextTick();
-  titleFieldRef.value?.$el?.querySelector<HTMLInputElement>("input")?.focus();
+  focusFromInput(
+    titleFieldRef.value?.$el?.querySelector<HTMLInputElement>("input"),
+  );
 });
 
 const titleErrors = computed<string[]>(() => {

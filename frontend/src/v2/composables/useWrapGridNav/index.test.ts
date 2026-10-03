@@ -112,6 +112,7 @@ describe("useWrapGridNav", () => {
   });
 
   it("asks for a visible focus ring on the tile it moves to", () => {
+    setModality("key");
     cell(1, 0).focus();
     const focus = vi.spyOn(cell(0, 0), "focus");
 
