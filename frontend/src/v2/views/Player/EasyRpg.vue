@@ -55,6 +55,7 @@ const preparing = ref(false);
 const quitting = ref(false);
 const frame = ref<HTMLIFrameElement | null>(null);
 const { enter: enterFullscreen } = usePlayerFullscreen(frame);
+let sessionStarted = false;
 
 let saveSync: DeviceSaveSync | null = null;
 let pushing: Promise<boolean> | null = null;
@@ -136,7 +137,6 @@ async function onPlay() {
   saveSync = sync;
   gameRunning.value = true;
   savePoll.resume();
-  playSession.start(currentRom);
 
   await nextTick();
   if (fullscreenOnPlay.value) {
@@ -145,8 +145,13 @@ async function onPlay() {
 }
 
 // Browsers deliver keyboard and gamepad input only to the focused frame.
+// Play time starts here, so a player page that never loads records none.
 function onFrameLoad() {
   focusFromInput(frame.value);
+  if (rom.value && !sessionStarted) {
+    sessionStarted = true;
+    playSession.start(rom.value);
+  }
 }
 
 function teardown() {

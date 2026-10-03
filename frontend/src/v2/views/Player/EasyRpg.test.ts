@@ -160,7 +160,7 @@ function mountView(): VueWrapper {
       stubs: {
         RBtn: {
           name: "RBtn",
-          props: ["to"],
+          props: { to: { type: String, default: undefined } },
           emits: ["click"],
           template: "<button @click=\"$emit('click')\"><slot /></button>",
         },
@@ -204,6 +204,17 @@ describe("EasyRpg", () => {
     expect(wrapper.get("iframe").attributes("src")).toBe(
       "/assets/easyrpg/index.html?game=1-7",
     );
+    wrapper.unmount();
+  });
+
+  it("starts timing the session once the player page loads", async () => {
+    const wrapper = await play();
+    expect(mocks.playSessionStart).not.toHaveBeenCalled();
+
+    await wrapper.get("iframe").trigger("load");
+    await wrapper.get("iframe").trigger("load");
+
+    expect(mocks.playSessionStart).toHaveBeenCalledTimes(1);
     expect(mocks.playSessionStart).toHaveBeenCalledWith(rom);
     wrapper.unmount();
   });
