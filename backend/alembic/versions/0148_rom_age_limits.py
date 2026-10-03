@@ -141,7 +141,7 @@ def _mirror_min_age(pg: bool) -> None:
 
 def _fill_min_age(conn: sa.Connection) -> None:
     """Rate every ROM, in keyset batches."""
-    # Only each source's rating keys are read, not the whole metadata blob.
+    # JSON paths keep the large metadata blobs out of the read.
     ratings = [ROMS.c[column][key] for column, key in AGE_SOURCES]
     last_id = 0
     while rows := conn.execute(
