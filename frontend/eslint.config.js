@@ -7,6 +7,7 @@ import vuea11y from "eslint-plugin-vuejs-accessibility";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import romm from "./eslint-plugin-romm/index.js";
+import e2eConfig from "./eslint.e2e.config.js";
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -236,6 +237,8 @@ export default tseslint.config(
       ],
     },
   },
+  // After the base configs, so its exceptions win.
+  ...e2eConfig,
   // Keep last: Prettier owns formatting, so this switches off every
   // stylistic rule the two tools would otherwise fight over.
   prettierConfig,

@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "erasableSyntaxOnly": true,
+    "lib": ["esnext", "dom"],
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts"],
+  "exclude": [".output"]
+}

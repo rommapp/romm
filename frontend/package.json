@@ -28,6 +28,7 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc --build",
     "typecheck:scripts": "tsc --build tsconfig.node.json",
+    "typecheck:e2e": "tsc --noEmit -p e2e/tsconfig.json",
     "generate": "openapi --input http://127.0.0.1:3000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -36,7 +37,7 @@
     "storybook:build": "storybook build",
     "storybook:test": "vitest run test/storybook.test.ts",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:report": "playwright show-report e2e/.output/specs/report"
   },
   "dependencies": {
     "@floating-ui/vue": "^2.0.0",
@@ -87,6 +88,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-import-x": "^4.17.1",
+    "eslint-plugin-playwright": "^2.12.0",
     "eslint-plugin-vue": "^10.8.0",
     "eslint-plugin-vuejs-accessibility": "^2.5.0",
     "globals": "^17.0.0",
