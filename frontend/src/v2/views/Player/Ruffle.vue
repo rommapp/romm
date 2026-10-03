@@ -34,13 +34,15 @@ import {
   zipRuffleSaves,
   type RuffleSaves,
 } from "@/v2/utils/ruffleSaves";
-import { DeviceSaveSync, type PlayerSaveFile } from "@/v2/utils/saveSync";
+import {
+  DeviceSaveSync,
+  PLAYER_SAVE_POLL_MS,
+  type PlayerSaveFile,
+} from "@/v2/utils/saveSync";
 
 const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
 const DEFAULT_BACKGROUND_COLOR = colorCanvas.bgDeep;
 const RUFFLE_EMULATOR = "ruffle";
-// A game writes a SharedObject whenever it flushes one, so storage is polled.
-const SAVE_POLL_MS = 5000;
 
 type RufflePlayer = ReturnType<RuffleSourceAPI["createPlayer"]>;
 
@@ -162,7 +164,8 @@ async function flushSaves(): Promise<boolean> {
   return pushSaves();
 }
 
-const savePoll = useIntervalFn(() => void pushSaves(), SAVE_POLL_MS, {
+// A game writes a SharedObject whenever it flushes one, so storage is polled.
+const savePoll = useIntervalFn(() => void pushSaves(), PLAYER_SAVE_POLL_MS, {
   immediate: false,
 });
 

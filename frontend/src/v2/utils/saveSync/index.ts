@@ -14,6 +14,9 @@ import {
 
 export type { LocalSave } from "./localSaves";
 
+/** How often a player whose storage cannot signal a write is polled for saves. */
+export const PLAYER_SAVE_POLL_MS = 5000;
+
 export interface SaveSyncRom {
   id: number;
   fs_name_no_ext: string;
@@ -53,6 +56,8 @@ export class DeviceSaveSync {
   private readonly saves = new Map<string, LocalSave>();
   // Null until a negotiation succeeds; the saves then stay in this browser.
   private deviceId: string | null = null;
+  // Pushes run one after another, so two never upload the same change.
+  private pushQueue: Promise<unknown> = Promise.resolve();
 
   constructor(rom: SaveSyncRom, userId: number, emulator: string) {
     this.rom = rom;
@@ -87,14 +92,10 @@ export class DeviceSaveSync {
     await Promise.all(this.track(files).map((save) => putLocalSave(save)));
   }
 
-  /**
-   * Capture and send what the player wrote while the page goes away.
-   *
-   * The keepalive requests leave before the browser copy is stored, since a
-   * closing page may not live to see an IndexedDB write finish.
-   */
+  /** Capture and send what the player wrote while the page goes away. */
   captureOnUnload(files: PlayerSaveFile[]): void {
     const changed = this.track(files);
+    // Sent first: a closing page may not live to finish an IndexedDB write.
     this.pushOnUnload();
     for (const save of changed) void putLocalSave(save).catch(() => undefined);
   }
@@ -105,7 +106,13 @@ export class DeviceSaveSync {
    * Returns:
    *   False when one failed to upload; it is retried on the next push.
    */
-  async push(): Promise<boolean> {
+  push(): Promise<boolean> {
+    const run = this.pushQueue.then(() => this.uploadChanged());
+    this.pushQueue = run;
+    return run;
+  }
+
+  private async uploadChanged(): Promise<boolean> {
     if (!this.deviceId) return true;
     try {
       await Promise.all(
@@ -167,9 +174,11 @@ export class DeviceSaveSync {
     );
   }
 
+  // Held in memory before the store write, so a capture landing meanwhile
+  // builds on this copy instead of being overwritten by it.
   private async remember(save: LocalSave) {
-    await putLocalSave(save);
     this.saves.set(save.slot, save);
+    await putLocalSave(save);
   }
 
   private async negotiate() {
@@ -248,7 +257,14 @@ export class DeviceSaveSync {
         this.saves.delete(slot);
         return;
       case "no_op":
-        if (held && held.syncedHash !== held.hash) await this.markSynced(held);
+        // A no-op on differing bytes (clock skew, an untracked save) leaves
+        // the change for the next push rather than calling it synced.
+        if (
+          held &&
+          held.syncedHash !== held.hash &&
+          operation.server_content_hash === held.hash
+        )
+          await this.markSynced(held);
     }
   }
 

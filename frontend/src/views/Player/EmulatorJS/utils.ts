@@ -1,4 +1,3 @@
-import axios from "axios";
 import Bowser from "bowser";
 import {
   type Body_add_state_api_states_post as AddStateInput,
@@ -12,6 +11,7 @@ import saveApi, {
 } from "@/services/api/save";
 import stateApi, { sessionStateFiles } from "@/services/api/state";
 import pendingAssetStore, {
+  isSlotConflict,
   pendingAssetId,
   uploadArchivedSave,
   type PendingAsset,
@@ -195,10 +195,8 @@ export async function saveState({
   return { state: null, kept };
 }
 
-// `save` is the version this session already created: it is updated in place,
-// while a null `save` opens a new version in `slot`. A `guarded` version is
-// refused when another device wrote the slot since this one synced it, and the
-// progress is archived instead.
+// A non-null `save` is updated in place; otherwise a version opens in `slot`,
+// archived instead when `guarded` and another device moved the slot on.
 export async function saveSave({
   rom,
   save,
@@ -264,11 +262,7 @@ export async function saveSave({
     });
 
     let uploadedSave = uploadedSaves[0]!;
-    if (
-      uploadedSave.status === "rejected" &&
-      axios.isAxiosError(uploadedSave.reason) &&
-      uploadedSave.reason.response?.status === 409
-    ) {
+    if (isSlotConflict(uploadedSave)) {
       // Later writes update the archive in place, leaving the slot to the
       // other device's newer version.
       uploadedSave =
@@ -315,6 +309,7 @@ export function saveSaveOnUnload({
     deviceId,
     slot,
     autocleanup: slot === AUTOSAVE_SLOT,
+    contentHash: saveContentHash(new Uint8Array(saveFile)),
   });
 }
 

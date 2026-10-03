@@ -101,6 +101,7 @@ vi.mock("@/v2/utils/easyRpgStorage", () => ({
 
 // The sync and storage logic have their own suites.
 vi.mock("@/v2/utils/saveSync", () => ({
+  PLAYER_SAVE_POLL_MS: 5000,
   DeviceSaveSync: class {
     constructor(...args: unknown[]) {
       mocks.syncArgs = args;

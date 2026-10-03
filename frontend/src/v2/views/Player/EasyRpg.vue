@@ -32,10 +32,11 @@ import {
   readEasyRpgSaves,
   writeEasyRpgSaves,
 } from "@/v2/utils/easyRpgStorage";
-import { DeviceSaveSync, type LocalSave } from "@/v2/utils/saveSync";
-
-// The player writes a save to browser storage as soon as the game saves.
-const SAVE_POLL_MS = 5000;
+import {
+  DeviceSaveSync,
+  PLAYER_SAVE_POLL_MS,
+  type LocalSave,
+} from "@/v2/utils/saveSync";
 
 const { t } = useI18n();
 const exit = usePlayerExit();
@@ -95,7 +96,8 @@ async function flushSaves(): Promise<boolean> {
   return pushSaves();
 }
 
-const savePoll = useIntervalFn(() => void pushSaves(), SAVE_POLL_MS, {
+// The player writes a save to browser storage as soon as the game saves.
+const savePoll = useIntervalFn(() => void pushSaves(), PLAYER_SAVE_POLL_MS, {
   immediate: false,
 });
 

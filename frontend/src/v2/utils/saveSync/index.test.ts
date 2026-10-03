@@ -176,6 +176,35 @@ describe("DeviceSaveSync.prepare", () => {
     expect(await listLocalSaves(userId, ROM.id)).toEqual([]);
   });
 
+  it("leaves a change the server calls a no-op for the next push", async () => {
+    negotiated([
+      operation("no_op", { save_id: 3, server_content_hash: "other" }),
+    ]);
+    const saveSync = sync();
+
+    await saveSync.prepare([playerSave("Save01", 1)]);
+    await saveSync.push();
+
+    expect(mocks.uploadSaves).toHaveBeenCalledWith(
+      expect.objectContaining({ slot: "Save01", overwrite: false }),
+    );
+  });
+
+  it("calls a no-op on identical bytes synced", async () => {
+    negotiated([
+      operation("no_op", {
+        save_id: 3,
+        server_content_hash: saveContentHash(new Uint8Array([1])),
+      }),
+    ]);
+    const saveSync = sync();
+
+    await saveSync.prepare([playerSave("Save01", 1)]);
+    await saveSync.push();
+
+    expect(mocks.uploadSaves).not.toHaveBeenCalled();
+  });
+
   it("plays what this browser holds when the server is unreachable", async () => {
     mocks.negotiate.mockRejectedValueOnce(new Error("offline"));
 
@@ -252,6 +281,27 @@ describe("DeviceSaveSync.push", () => {
     const [held] = await listLocalSaves(userId, ROM.id);
     expect([...held!.bytes]).toEqual([2]);
     expect(held!.syncedHash).toBe(saveContentHash(new Uint8Array([1])));
+  });
+
+  it("runs a push after the one in flight, without uploading twice", async () => {
+    negotiated([]);
+    const saveSync = sync();
+    await saveSync.prepare();
+    let finishUpload: () => void = () => undefined;
+    mocks.uploadSaves.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishUpload = () => resolve([{ status: "fulfilled", value: {} }]);
+      }),
+    );
+
+    await saveSync.capture([playerSave("Save01", 1)]);
+    const first = saveSync.push();
+    await vi.waitFor(() => expect(mocks.uploadSaves).toHaveBeenCalled());
+    const second = saveSync.push();
+    finishUpload();
+
+    expect(await Promise.all([first, second])).toEqual([true, true]);
+    expect(mocks.uploadSaves).toHaveBeenCalledTimes(1);
   });
 
   it("sends what the player wrote as the page goes away", async () => {

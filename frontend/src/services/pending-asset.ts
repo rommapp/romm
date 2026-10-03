@@ -224,7 +224,9 @@ async function uploadTarget(
 }
 
 // A slot already holding newer progress from another device.
-function isSlotConflict(result?: PromiseSettledResult<unknown>): boolean {
+export function isSlotConflict(
+  result?: PromiseSettledResult<unknown>,
+): boolean {
   return (
     result?.status === "rejected" &&
     axios.isAxiosError(result.reason) &&

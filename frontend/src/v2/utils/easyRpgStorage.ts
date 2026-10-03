@@ -1,3 +1,4 @@
+import { inTransaction, settle } from "@/v2/utils/idb";
 import type { PlayerSaveFile } from "@/v2/utils/saveSync";
 
 // The EasyRPG web player keeps a game's saves in an Emscripten IDBFS
@@ -27,16 +28,10 @@ function saveDir(game: string): string {
   return `/easyrpg/${game.toLowerCase()}/Save`;
 }
 
-function settle<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
 function openSaveDb(game: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(saveDir(game), IDBFS_VERSION);
+    let abandoned = false;
     // Laid out as IDBFS lays it out, so the player opens it without an upgrade.
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -49,10 +44,16 @@ function openSaveDb(game: string): Promise<IDBDatabase> {
         });
       }
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      // Opened after the wait was given up on; left open it blocks other tabs.
+      if (abandoned) return request.result.close();
+      resolve(request.result);
+    };
     request.onerror = () => reject(request.error);
-    request.onblocked = () =>
+    request.onblocked = () => {
+      abandoned = true;
       reject(new Error("EasyRPG save storage is open in another tab"));
+    };
   });
 }
 
@@ -61,22 +62,7 @@ async function withSaveStore<T>(
   mode: IDBTransactionMode,
   run: (store: IDBObjectStore) => Promise<T>,
 ): Promise<T> {
-  const db = await openSaveDb(game);
-  try {
-    const transaction = db.transaction(IDBFS_STORE, mode);
-    const committed = new Promise<void>((resolve, reject) => {
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error);
-    });
-    const [result] = await Promise.all([
-      run(transaction.objectStore(IDBFS_STORE)),
-      committed,
-    ]);
-    return result;
-  } finally {
-    db.close();
-  }
+  return inTransaction(await openSaveDb(game), IDBFS_STORE, mode, run);
 }
 
 /** The save files the player holds for `game`, one slot per `SaveNN.lsd`. */

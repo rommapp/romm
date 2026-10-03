@@ -1,6 +1,5 @@
-// Ruffle keeps each Flash SharedObject in localStorage as a base64 `.sol` file,
-// keyed `<host>/<local path>/<name>`. The local path is the SWF's URL path or
-// one of its ancestors, and a name holding `/` is prefixed with `#`.
+// Ruffle keeps each SharedObject in localStorage as a base64 `.sol` file, keyed
+// `<host>/<SWF path or an ancestor>/<name>`, a `/` in a name prefixed with `#`.
 import { unzipSync, zipSync } from "fflate";
 
 /** A game's SharedObjects, keyed by their storage key without the host. */

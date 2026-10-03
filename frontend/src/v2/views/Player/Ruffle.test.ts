@@ -47,6 +47,7 @@ vi.mock("@/v2/composables/usePlayerExit", () => ({
 }));
 
 vi.mock("@/v2/utils/saveSync", () => ({
+  PLAYER_SAVE_POLL_MS: 5000,
   DeviceSaveSync: class {
     prepare = mocks.sync.prepare;
     capture = mocks.sync.capture;

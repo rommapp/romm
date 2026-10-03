@@ -45,6 +45,15 @@ export function cachedBrowserDeviceId(userId: number): string | null {
   return readStorage(`${DEVICE_KEY_PREFIX}${userId}`);
 }
 
+/** Drop the cached device, so the next player registers this browser again. */
+export function forgetBrowserDeviceId(userId: number): void {
+  try {
+    localStorage.removeItem(`${DEVICE_KEY_PREFIX}${userId}`);
+  } catch {
+    // Nothing was cached.
+  }
+}
+
 /**
  * The sync device this browser is for `userId`, registered on first use.
  *

@@ -21,13 +21,9 @@ function looksLikeZip(bytes: Uint8Array): boolean {
   return false;
 }
 
-/**
- * The hash the server stores for a save, so identical files negotiate as such.
- *
- * A zip hashes as its sorted `name:md5` entry lines, as `hash_zip_contents`
- * does, so recompressing it keeps the hash; any other file is its plain md5.
- */
+/** The hash the server stores for a save, so identical files negotiate as such. */
 export function saveContentHash(bytes: Uint8Array): string {
+  // A zip hashes by its entries, as `hash_zip_contents` does.
   if (looksLikeZip(bytes)) {
     try {
       const entries = unzipSync(bytes);

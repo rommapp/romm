@@ -18,7 +18,7 @@ INDEX_FILE: Final = "index.json"
 # gencache keeps these extensions on files below the game root.
 _KEPT_EXTENSIONS: Final = (".ini", ".po")
 _DIRNAME_KEY: Final = "_dirname"
-_RTP_TABLE_PATH: Final = Path(__file__).with_name("rtp_table.json")
+_RTP_TABLE_PATH: Final = Path(__file__).parent / "fixtures" / "rtp_table.json"
 
 type RtpTable = Mapping[str, Sequence[Sequence[str]]]
 

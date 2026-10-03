@@ -167,7 +167,10 @@ function sendSaveOnUnload({
     ? {
         url: `/saves/${save.id}`,
         method: "PUT",
-        params: { device_id: version.deviceId },
+        params: {
+          device_id: version.deviceId,
+          content_hash: version.contentHash,
+        },
       }
     : {
         url: "/saves",

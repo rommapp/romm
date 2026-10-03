@@ -241,6 +241,21 @@ describe("Devices", () => {
     expect(wrapper.find(".row[data-id='dev-old']").exists()).toBe(false);
   });
 
+  it("forgets this browser's device once it is removed", async () => {
+    localStorage.setItem("romm:browser-device:1", "dev-a");
+    vi.mocked(deviceApi.deleteDevice).mockResolvedValue({} as never);
+    mocks.confirm.mockResolvedValueOnce(true);
+    const wrapper = mountDevices();
+    await flushPromises();
+
+    await row(wrapper, "dev-a")
+      .get("[data-icon='mdi-trash-can-outline']")
+      .trigger("click");
+    await flushPromises();
+
+    expect(localStorage.getItem("romm:browser-device:1")).toBeNull();
+  });
+
   it("is read-only without devices.write", async () => {
     signIn(["devices.read"]);
     const wrapper = mountDevices();

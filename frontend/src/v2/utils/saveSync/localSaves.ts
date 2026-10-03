@@ -1,6 +1,7 @@
-// Each RomM account's copy of what its web players saved, per rom and slot.
-// The players' own storage is restored from here before a launch and copied
-// back after, so device sync has one shape to compare whatever the player.
+// Each RomM account's copy of what its web players saved, per rom and slot,
+// so device sync compares one shape whatever the player's own storage.
+import { inTransaction, settle } from "@/v2/utils/idb";
+
 const DB_NAME = "romm-saves";
 const DB_VERSION = 1;
 const STORE_NAME = "saves";
@@ -18,13 +19,6 @@ export interface LocalSave {
   hash: string;
   /** The hash the server last held for the slot, so a push sends only changes. */
   syncedHash: string | null;
-}
-
-function settle<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -45,22 +39,7 @@ async function withStore<T>(
   mode: IDBTransactionMode,
   run: (store: IDBObjectStore) => Promise<T>,
 ): Promise<T> {
-  const db = await openDatabase();
-  try {
-    const transaction = db.transaction(STORE_NAME, mode);
-    const committed = new Promise<void>((resolve, reject) => {
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error);
-    });
-    const [result] = await Promise.all([
-      run(transaction.objectStore(STORE_NAME)),
-      committed,
-    ]);
-    return result;
-  } finally {
-    db.close();
-  }
+  return inTransaction(await openDatabase(), STORE_NAME, mode, run);
 }
 
 export function listLocalSaves(
