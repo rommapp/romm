@@ -111,9 +111,6 @@ def _group_schema(group: PermissionGroup) -> PermissionGroupSchema:
         ],
         age_limit=group.age_limit,
         hide_unrated_roms=group.hide_unrated_roms,
-        age_exempt_rom_ids=sorted(
-            db_permission_handler.get_age_exempt_rom_ids(None, group.id)
-        ),
     )
 
 
@@ -180,7 +177,6 @@ async def create_permission_group(
         grants=[(g.entity, g.action, g.own_only) for g in body.grants],
         age_limit=body.age_limit,
         hide_unrated_roms=body.hide_unrated_roms,
-        age_exempt_rom_ids=body.age_exempt_rom_ids,
     )
     if body.is_default:
         await emit_permissions_changed(
@@ -240,7 +236,6 @@ async def update_permission_group(
         set_age_settings=body.set_age_settings,
         age_limit=body.age_limit,
         hide_unrated_roms=body.hide_unrated_roms,
-        age_exempt_rom_ids=body.age_exempt_rom_ids,
     )
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
@@ -317,9 +312,6 @@ def _user_permissions(
         ],
         age_limit=age_limit,
         hide_unrated_roms=hide_unrated_roms,
-        age_exempt_rom_ids=sorted(
-            db_permission_handler.get_age_exempt_rom_ids(user_id, None)
-        ),
     )
 
 
@@ -374,10 +366,6 @@ async def update_user_permissions(
             user_id,
             {"age_limit": age_limit, "hide_unrated_roms": hide_unrated_roms},
         )
-    if body.age_exempt_rom_ids is not None:
-        db_permission_handler.replace_age_exemptions(
-            body.age_exempt_rom_ids, user_id=user_id
-        )
 
     await emit_permissions_changed(user_id)
     record(
@@ -389,11 +377,6 @@ async def update_user_permissions(
             "group_changed": body.set_group and group_id != user.permission_group_id,
             "overrides": len(body.overrides) if body.overrides is not None else None,
             "age_settings_changed": body.set_age_settings,
-            "age_exemptions": (
-                len(body.age_exempt_rom_ids)
-                if body.age_exempt_rom_ids is not None
-                else None
-            ),
         },
     )
     return _user_permissions(

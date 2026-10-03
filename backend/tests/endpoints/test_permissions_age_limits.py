@@ -6,7 +6,6 @@ from typing import Any
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from sqlalchemy.exc import IntegrityError
 from tests.factories import make_esrb_rated_rom, make_rom
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
@@ -14,9 +13,8 @@ from handler.auth.base_handler import oauth_handler
 from handler.auth.permissions import resolve_permissions
 from handler.database import db_permission_handler, db_user_handler
 from handler.database.base_handler import sync_session
-from models.permission import AgeRatingExemption, PermissionGroup
+from models.permission import PermissionGroup
 from models.platform import Platform
-from models.rom import Rom
 from models.user import User
 
 
@@ -80,19 +78,11 @@ def _listed_ids(client: TestClient, user: User) -> list[int]:
 
 
 class TestAdminApi:
-    def test_a_group_carries_its_age_settings(self, client, headers, rom: Rom):
-        group = _make_kids_group(
-            client,
-            headers,
-            age_limit=12,
-            hide_unrated_roms=True,
-            age_exempt_rom_ids=[rom.id, 999_999],
-        )
+    def test_a_group_carries_its_age_settings(self, client, headers):
+        group = _make_kids_group(client, headers, age_limit=12, hide_unrated_roms=True)
 
         assert group["age_limit"] == 12
         assert group["hide_unrated_roms"] is True
-        # An id without a ROM is dropped rather than stored.
-        assert group["age_exempt_rom_ids"] == [rom.id]
 
     def test_a_group_update_sets_clears_and_leaves_the_limit(self, client, headers):
         gid = _make_kids_group(client, headers, age_limit=12)["id"]
@@ -125,7 +115,7 @@ class TestAdminApi:
         assert resp.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_a_user_carries_its_own_age_settings(
-        self, client, headers, viewer_user: User, rom: Rom
+        self, client, headers, viewer_user: User
     ):
         url = f"/api/permissions/users/{viewer_user.id}"
         updated = client.put(
@@ -135,7 +125,6 @@ class TestAdminApi:
                 "set_age_settings": True,
                 "age_limit": 10,
                 "hide_unrated_roms": False,
-                "age_exempt_rom_ids": [rom.id],
             },
         )
         assert updated.status_code == status.HTTP_200_OK
@@ -143,7 +132,6 @@ class TestAdminApi:
         body = client.get(url, headers=headers).json()
         assert body["age_limit"] == 10
         assert body["hide_unrated_roms"] is False
-        assert body["age_exempt_rom_ids"] == [rom.id]
 
         # Without the flag the settings are left alone.
         client.put(url, headers=headers, json={"age_limit": None})
@@ -152,26 +140,16 @@ class TestAdminApi:
 
 class TestResolution:
     def test_a_user_setting_replaces_the_groups(
-        self, client, headers, viewer_user: User, platform: Platform
+        self, client, headers, viewer_user: User
     ):
-        group_exempt = make_esrb_rated_rom(platform, "Group exempt", "M")
-        user_exempt = make_esrb_rated_rom(platform, "User exempt", "M")
-        gid = _make_kids_group(
-            client,
-            headers,
-            age_limit=12,
-            hide_unrated_roms=True,
-            age_exempt_rom_ids=[group_exempt.id],
-        )["id"]
+        gid = _make_kids_group(client, headers, age_limit=12, hide_unrated_roms=True)[
+            "id"
+        ]
         _join(client, headers, viewer_user, gid)
         client.put(
             f"/api/permissions/users/{viewer_user.id}",
             headers=headers,
-            json={
-                "set_age_settings": True,
-                "age_limit": 16,
-                "age_exempt_rom_ids": [user_exempt.id],
-            },
+            json={"set_age_settings": True, "age_limit": 16},
         )
 
         user = db_user_handler.get_user(viewer_user.id)
@@ -181,7 +159,6 @@ class TestResolution:
         assert perms.age_limit == 16
         # Not overridden, so inherited from the group.
         assert perms.hide_unrated_roms is True
-        assert perms.age_exempt_rom_ids == {group_exempt.id, user_exempt.id}
 
     def test_admins_ignore_age_limits(self, admin_user: User):
         db_user_handler.update_user(admin_user.id, {"age_limit": 3})
@@ -206,19 +183,6 @@ class TestEnforcement:
 
         detail = client.get(f"/api/roms/{mature.id}", headers=_auth(viewer_user))
         assert detail.status_code == status.HTTP_404_NOT_FOUND
-
-    def test_an_exemption_lets_a_rom_through(
-        self, client, headers, viewer_user: User, platform: Platform
-    ):
-        mature = make_esrb_rated_rom(platform, "Mature", "M")
-        gid = _make_kids_group(
-            client, headers, age_limit=12, age_exempt_rom_ids=[mature.id]
-        )["id"]
-        _join(client, headers, viewer_user, gid)
-
-        assert mature.id in _listed_ids(client, viewer_user)
-        detail = client.get(f"/api/roms/{mature.id}", headers=_auth(viewer_user))
-        assert detail.status_code == status.HTTP_200_OK
 
     def test_a_limit_change_reaches_the_cached_gallery(
         self, client, headers, viewer_user: User, platform: Platform
@@ -288,10 +252,3 @@ class TestGroupFollowers:
         default_followers = db_permission_handler.get_group_follower_ids(default_id)
         assert viewer_user.id in default_followers
         assert editor_user.id not in default_followers
-
-
-def test_a_principal_holds_one_exemption_per_rom(rom: Rom, viewer_user: User):
-    with pytest.raises(IntegrityError), sync_session.begin() as s:
-        s.add_all(
-            AgeRatingExemption(rom_id=rom.id, user_id=viewer_user.id) for _ in range(2)
-        )

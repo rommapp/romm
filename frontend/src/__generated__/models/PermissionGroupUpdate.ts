@@ -12,6 +12,5 @@ export type PermissionGroupUpdate = {
     age_limit?: (number | null);
     hide_unrated_roms?: boolean;
     set_age_settings?: boolean;
-    age_exempt_rom_ids?: (Array<number> | null);
 };
 

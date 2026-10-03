@@ -106,19 +106,6 @@ def test_hide_unrated_hides_roms_no_rating_covers():
     assert alone.allows(_rom(2, 18))
 
 
-def test_an_exemption_lifts_the_age_rule_but_not_a_hide():
-    visibility = RomVisibilityFilter(
-        age_limit=12,
-        hide_unrated_roms=True,
-        age_exempt_rom_ids=frozenset({1, 2, 3}),
-        hidden_rom_ids=frozenset({3}),
-    )
-
-    assert visibility.allows(_rom(1, 18))
-    assert visibility.allows(_rom(2, None))
-    assert not visibility.allows(_rom(3, 3))
-
-
 def test_the_age_clause_compiles_per_setting():
     def sql(visibility: RomVisibilityFilter) -> list[str]:
         return [compile_sql(c, MARIADB_DIALECT) for c in visibility.clauses()]
@@ -129,23 +116,21 @@ def test_the_age_clause_compiles_per_setting():
     assert sql(RomVisibilityFilter(age_limit=12, hide_unrated_roms=True)) == [
         "roms.min_age IS NOT NULL AND roms.min_age <= :min_age_1"
     ]
-    assert sql(
-        RomVisibilityFilter(hide_unrated_roms=True, age_exempt_rom_ids=frozenset({7}))
-    ) == ["roms.min_age IS NOT NULL OR roms.id IN (__[POSTCOMPILE_id_1])"]
+    assert sql(RomVisibilityFilter(hide_unrated_roms=True)) == [
+        "roms.min_age IS NOT NULL"
+    ]
 
 
 def test_the_age_rule_reads_the_facets_mirror_when_asked():
-    clauses = RomVisibilityFilter(
-        age_limit=12, age_exempt_rom_ids=frozenset({7})
-    ).clauses(
+    clauses = RomVisibilityFilter(age_limit=12, hidden_rom_ids=frozenset({7})).clauses(
         platform_id_col=RomFacets.platform_id,
         rom_id_col=RomFacets.rom_id,
         min_age_col=RomFacets.min_age,
     )
 
     assert [compile_sql(c, MARIADB_DIALECT) for c in clauses] == [
-        "roms_facets.min_age IS NULL OR roms_facets.min_age <= :min_age_1"
-        " OR roms_facets.rom_id IN (__[POSTCOMPILE_rom_id_1])"
+        "roms_facets.min_age IS NULL OR roms_facets.min_age <= :min_age_1",
+        "(roms_facets.rom_id NOT IN (__[POSTCOMPILE_rom_id_1]))",
     ]
 
 
@@ -158,11 +143,10 @@ def test_user_permissions_carry_their_age_settings():
         hidden_rom_ids=frozenset(),
         age_limit=10,
         hide_unrated_roms=True,
-        age_exempt_rom_ids=frozenset({4}),
     )
 
     assert perms.rom_visibility == RomVisibilityFilter(
-        age_limit=10, hide_unrated_roms=True, age_exempt_rom_ids=frozenset({4})
+        age_limit=10, hide_unrated_roms=True
     )
-    assert perms.can_see_rom(_rom(4, 18))
+    assert perms.can_see_rom(_rom(4, 10))
     assert not perms.can_see_rom(_rom(5, 13))
