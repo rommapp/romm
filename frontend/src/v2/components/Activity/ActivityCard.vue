@@ -6,7 +6,7 @@
 // The whole card is a RouterLink to the game detail view, so it participates
 // in spatial / gamepad nav (useWrapGridNav discovers it via the `a[href]` it
 // renders). No "live" badge: every card in this view is an active session by
-// definition, so the badge carried no per-card information — the page's
+// definition, so the badge carried no per-card information: the page's
 // session counter is the single live indicator.
 import { RAvatar, RBtn, RIcon } from "@v2/lib";
 import { useI18n } from "vue-i18n";
@@ -17,7 +17,7 @@ import GameCover from "@/v2/components/shared/GameCover.vue";
 interface Props {
   to: RouteLocationRaw;
   coverSrc: string | null;
-  /** Cover-art URL for the corner PIP — set only when `coverSrc` is a
+  /** Cover-art URL for the corner PIP: set only when `coverSrc` is a
    *  screenshot, so the game stays identifiable. Null shows no PIP. */
   pipCoverSrc?: string | null;
   romName: string;
@@ -26,7 +26,7 @@ interface Props {
   avatarSrc: string;
   elapsedLabel: string;
   deviceType: string;
-  /** Emulator core running the session, e.g. "RA Snes9x" — streaming
+  /** Emulator core running the session, e.g. "RA Snes9x": streaming
    *  sessions only. */
   emulatorLabel?: string | null;
   /** Admin-only: this is a streaming session an admin can force-release. */
@@ -52,7 +52,7 @@ const { t } = useI18n();
       :title="romName"
       class="activity-card__art"
     >
-      <!-- Cover-art PIP — shown when the main image is a screenshot, so the
+      <!-- Cover-art PIP: shown when the main image is a screenshot, so the
            game stays identifiable. -->
       <CoverArtPip
         v-if="pipCoverSrc"
@@ -105,7 +105,7 @@ const { t } = useI18n();
 </template>
 
 <style scoped>
-/* No card surface — the cover is the card (gallery-card vocabulary): a
+/* No card surface; the cover is the card (gallery-card vocabulary): a
    rounded art box that lifts on hover, with the title/meta stacked below on
    the bare page. */
 .activity-card {
@@ -114,7 +114,7 @@ const { t } = useI18n();
   gap: 8px;
   text-decoration: none;
   color: inherit;
-  /* Each card keeps its cover's natural width and wraps — no grow/shrink. */
+  /* Each card keeps its cover's natural width and wraps: no grow/shrink. */
   flex: 0 0 auto;
 }
 

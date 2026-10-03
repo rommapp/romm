@@ -11,7 +11,7 @@ from endpoints.responses.client_token import (
     ClientTokenSchema,
 )
 from handler.audit_handler import AuditTarget, record
-from handler.auth import auth_handler
+from handler.auth.base_handler import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_client_token_handler
 from handler.redis_handler import sync_cache

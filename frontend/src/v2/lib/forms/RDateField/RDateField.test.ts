@@ -1,5 +1,11 @@
-import { enableAutoUnmount, mount } from "@vue/test-utils";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { mount } from "@vue/test-utils";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
+import {
+  type EscapableEntry,
+  popEscapable,
+  pushEscapable,
+} from "@/v2/lib/overlays/RDialog/escapeStack";
 import RDateField from "./RDateField.vue";
 
 // Runs in a timezone west of UTC on purpose: the picker emits UTC midnight,
@@ -9,8 +15,6 @@ process.env.TZ = "America/New_York";
 
 // The calendar teleports to <body>, so a wrapper left mounted by a failing
 // assertion would leak its panel into the next test's queries.
-enableAutoUnmount(afterEach);
-
 async function openPicker() {
   const wrapper = mount(RDateField, {
     props: { modelValue: Date.UTC(2024, 2, 15) },
@@ -136,5 +140,54 @@ describe("RDateField", () => {
       "role",
       "dialog",
     );
+  });
+});
+
+describe("RDateField inside an overlay", () => {
+  const dialog: EscapableEntry = { close: vi.fn(), persistent: false };
+
+  afterEach(() => popEscapable(dialog));
+
+  it("closes the calendar on Escape and refocuses the field, leaving the dialog open", async () => {
+    pushEscapable(dialog);
+    const wrapper = await openPicker();
+    expect(dayCell(15)).not.toBeNull();
+
+    dayCell(15)!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    await nextTick();
+    await nextTick();
+
+    expect(dayCell(15)).toBeNull();
+    expect(dialog.close).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(wrapper.get("input").element);
+  });
+
+  it("stays open for a press inside an overlay opened above it", async () => {
+    const wrapper = await openPicker();
+    expect(document.querySelector(".r-date-cal")).not.toBeNull();
+
+    const nested = document.createElement("div");
+    document.body.append(nested);
+    const menu: EscapableEntry = {
+      close: vi.fn(),
+      persistent: false,
+      panel: () => nested,
+    };
+    pushEscapable(menu);
+
+    nested.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    await nextTick();
+    expect(document.querySelector(".r-date-cal")).not.toBeNull();
+
+    popEscapable(menu);
+    nested.remove();
+    document.body.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }),
+    );
+    await nextTick();
+    expect(document.querySelector(".r-date-cal")).toBeNull();
+    wrapper.unmount();
   });
 });

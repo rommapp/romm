@@ -24,9 +24,7 @@ const heartbeat = {
 };
 const config = ref({ SKIP_HASH_CALCULATION: false });
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("pinia", () => ({
   storeToRefs: () => ({ config }),
 }));
@@ -121,14 +119,16 @@ describe("useScanProviders Playmatch gate", () => {
     const { hashMatchers } = useScanProviders();
     const matcher = playmatch(hashMatchers.value);
     expect(matcher.switchEnabled).toBe(false);
-    expect(matcher.blockedReason).toBe("scan.requires-hashes");
+    expect(matcher.blockedReason).toBe(
+      'scan.requires-hashes:{"source":"Playmatch"}',
+    );
   });
 });
 
 describe("useScanProviders scan payload", () => {
   it("sends the expanded provider list and both hash matchers", () => {
-    const { buildScanPayload } = useScanProviders();
-    expect(buildScanPayload()).toEqual({
+    const { buildScanSourceOptions } = useScanProviders();
+    expect(buildScanSourceOptions()).toEqual({
       apis: ["igdb", "ss", "moby", "ra", "hasheous", "playmatch"],
       launchbox_remote_enabled: true,
     });
@@ -136,8 +136,8 @@ describe("useScanProviders scan payload", () => {
 
   it("drops both hash matchers when hashing is disabled", () => {
     config.value.SKIP_HASH_CALCULATION = true;
-    const { buildScanPayload } = useScanProviders();
-    const payload = buildScanPayload();
+    const { buildScanSourceOptions } = useScanProviders();
+    const payload = buildScanSourceOptions();
     expect(payload.apis).not.toContain("hasheous");
     expect(payload.apis).not.toContain("playmatch");
   });

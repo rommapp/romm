@@ -156,11 +156,10 @@ mypy wanting explicit annotations on `__init__` attributes
 
 Run from `frontend/`:
 
-1. `npm run typecheck`: zero errors (`vue-tsc --noEmit`).
-2. `npm run typecheck:scripts`: zero errors (`tsc -p tsconfig.node.json`, covers `scripts/`).
-3. `trunk check`: ESLint clean on the changed files.
-4. `npm run test`: zero failures (Vitest + happy-dom; runs unit tests **and** story `play()` functions via `composeStories`).
-5. `npm run build`: zero failures (CI sanity check).
+1. `npm run typecheck`: zero errors (`vue-tsc --build`, the app and the Node tooling).
+2. `trunk check`: ESLint clean on the changed files.
+3. `npm run test`: zero failures (Vitest + happy-dom; runs unit tests **and** story `play()` functions via `composeStories`).
+4. `npm run build`: zero failures (CI sanity check).
 
 **If you touched the backend API:** start the backend, run `npm run generate`, then re-`typecheck`.
 
@@ -194,7 +193,7 @@ With `uiVersion = "v2"`:
 
 Run from `backend/`:
 
-1. `uv run pytest <path/file>`: zero failures on the tests affected by the diff. Never run the whole suite locally (20+ minutes); see [AGENTS.md](../../../AGENTS.md) for how to pick targets. CI runs it in full.
+1. `uv run pytest <path/file>`: zero failures on the tests affected by the diff. Add `-n auto` when the targets span a directory or more. Never run the whole suite locally (20+ minutes serially); see [AGENTS.md](../../../AGENTS.md) for how to pick targets. CI runs it in full.
 2. `trunk fmt && trunk check`: ruff/black/isort/bandit clean (CI enforces Trunk).
 3. `uv run mypy --config-file ../.trunk/configs/mypy.ini .`: zero errors across the backend (CI enforces it).
 4. **If you added a migration:** `uv run alembic upgrade head` then `uv run alembic downgrade -1` to prove both directions; it must work on MariaDB **and** PostgreSQL (CI runs both).

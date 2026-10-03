@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ScanSettings — v2-native editor for the scan.* section of config.yml
+// ScanSettings: v2-native editor for the scan.* section of config.yml
 // (metadata/artwork priority, region & language priority, media types,
 // gamelist/pegasus export). Persists via PUT /config/scan.
 //
@@ -7,19 +7,23 @@
 // they stay as data constants; only descriptive prose goes through i18n.
 import { RAlert, RSelect, RBtn, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
 import type { MetadataMediaType, ScanSettingsPayload } from "@/__generated__";
 import configApi from "@/services/api/config";
 import storeAuth from "@/stores/auth";
 import storeConfig, { type Config } from "@/stores/config";
+import ConfigFileAlerts from "@/v2/components/Settings/ConfigFileAlerts.vue";
 import ScanPriorityList from "@/v2/components/Settings/ScanPriorityList.vue";
+import SettingsSaveBar from "@/v2/components/Settings/SettingsSaveBar.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import SettingsSubsection from "@/v2/components/Settings/SettingsSubsection.vue";
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 
 const { t } = useI18n();
 const confirm = useConfirm();
@@ -28,7 +32,7 @@ const { config } = storeToRefs(configStore);
 const authStore = storeAuth();
 const snackbar = useSnackbar();
 
-// Provider brand names — identical across every locale, so not i18n'd.
+// Provider brand names: identical across every locale, so not i18n'd.
 const PROVIDER_LABELS: Record<string, string> = {
   igdb: "IGDB",
   moby: "MobyGames",
@@ -260,23 +264,18 @@ const canEdit = computed(
     config.value.CONFIG_FILE_WRITABLE,
 );
 
-const loading = ref(true);
-const loadError = ref(false);
 const saving = ref(false);
 
-async function loadConfig() {
-  loading.value = true;
-  loadError.value = false;
-  try {
-    resetForm(await configStore.fetchConfig({ rethrow: true }));
-  } catch {
-    loadError.value = true;
-  } finally {
-    loading.value = false;
-  }
-}
-
-onMounted(loadConfig);
+const {
+  isLoading: loading,
+  error,
+  execute: loadConfig,
+} = useFetchState(
+  () => configStore.fetchConfig({ rethrow: true }),
+  config.value,
+  { onSuccess: resetForm },
+);
+const loadError = computed(() => error.value !== undefined);
 
 function onReset() {
   resetForm(config.value);
@@ -324,17 +323,7 @@ onBeforeRouteLeave(async () => {
   });
 });
 
-function onBeforeUnload(e: BeforeUnloadEvent) {
-  if (!hasPendingEdits()) return;
-  e.preventDefault();
-  // Legacy browsers require returnValue to be set to trigger the prompt.
-  e.returnValue = "";
-}
-
-onMounted(() => window.addEventListener("beforeunload", onBeforeUnload));
-onBeforeUnmount(() =>
-  window.removeEventListener("beforeunload", onBeforeUnload),
-);
+useUnloadGuard(hasPendingEdits);
 </script>
 
 <template>
@@ -355,34 +344,7 @@ onBeforeUnmount(() =>
     </RAlert>
   </div>
   <div v-else class="r-v2-section-stack r-v2-scan-settings">
-    <RAlert v-if="!config.CONFIG_FILE_MOUNTED" type="error">
-      <template #title>
-        {{ t("settings.config-file-not-mounted-title") }}
-      </template>
-      {{ t("settings.config-file-not-mounted-desc") }}
-    </RAlert>
-    <RAlert
-      v-if="config.CONFIG_FILE_MOUNTED && config.CONFIG_FILE_PARSE_ERROR"
-      type="error"
-    >
-      <template #title>
-        {{ t("settings.config-file-parse-error-title") }}
-      </template>
-      {{
-        t("settings.config-file-parse-error-desc", {
-          error: config.CONFIG_FILE_PARSE_ERROR,
-        })
-      }}
-    </RAlert>
-    <RAlert
-      v-if="config.CONFIG_FILE_MOUNTED && !config.CONFIG_FILE_WRITABLE"
-      type="warning"
-    >
-      <template #title>
-        {{ t("settings.config-file-not-writable-title") }}
-      </template>
-      {{ t("settings.config-file-not-writable-desc") }}
-    </RAlert>
+    <ConfigFileAlerts />
 
     <!-- Metadata priority -->
     <SettingsSection
@@ -570,29 +532,13 @@ onBeforeUnmount(() =>
       </div>
     </SettingsSection>
 
-    <!-- Sticky save bar — appears once the form diverges from the saved
-         config. Hidden entirely when the user can't edit. -->
-    <Transition name="r-v2-scan-settings__bar">
-      <div v-if="dirty && canEdit" class="r-v2-scan-settings__bar">
-        <span class="r-v2-scan-settings__bar-label">
-          {{ t("settings.scan-unsaved-changes") }}
-        </span>
-        <div class="r-v2-scan-settings__bar-actions">
-          <RBtn variant="text" :disabled="saving" @click="onReset">
-            {{ t("common.discard") }}
-          </RBtn>
-          <RBtn
-            variant="flat"
-            color="primary"
-            prepend-icon="mdi-content-save-outline"
-            :loading="saving"
-            @click="onSave"
-          >
-            {{ t("common.save") }}
-          </RBtn>
-        </div>
-      </div>
-    </Transition>
+    <SettingsSaveBar
+      :visible="dirty && canEdit"
+      :label="t('settings.scan-unsaved-changes')"
+      :saving="saving"
+      @save="onSave"
+      @discard="onReset"
+    />
   </div>
 </template>
 
@@ -643,50 +589,5 @@ onBeforeUnmount(() =>
 }
 html[data-bp~="xs"] .r-v2-scan-settings__toggle-grid {
   grid-template-columns: 1fr;
-}
-
-/* Sticky save bar pinned to the bottom of the content column. */
-.r-v2-scan-settings__bar {
-  position: sticky;
-  bottom: 16px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 8px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: var(--r-color-panel);
-  border: 1px solid var(--r-color-panel-border);
-  box-shadow: 0 12px 32px color-mix(in srgb, black 32%, transparent);
-}
-.r-v2-scan-settings__bar-label {
-  font-size: 13px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-secondary);
-}
-.r-v2-scan-settings__bar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.r-v2-scan-settings__bar-enter-active,
-.r-v2-scan-settings__bar-leave-active {
-  transition:
-    opacity var(--r-motion-med) var(--r-motion-ease-out),
-    transform var(--r-motion-med) var(--r-motion-ease-out);
-}
-.r-v2-scan-settings__bar-enter-from,
-.r-v2-scan-settings__bar-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-@media (prefers-reduced-motion: reduce) {
-  .r-v2-scan-settings__bar-enter-from,
-  .r-v2-scan-settings__bar-leave-to {
-    transform: none;
-  }
 }
 </style>

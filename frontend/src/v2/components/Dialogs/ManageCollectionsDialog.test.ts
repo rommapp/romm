@@ -1,6 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import storeAuth from "@/stores/auth";
@@ -25,9 +24,7 @@ const {
   snackbarError: vi.fn(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/services/api/collection", () => ({
   default: {
@@ -120,8 +117,6 @@ function mountDialog(
 
 describe("ManageCollectionsDialog gallery reconcile", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     storeAuth().setCurrentUser({ id: USER_ID } as User);
   });
 
@@ -220,8 +215,6 @@ describe("ManageCollectionsDialog gallery reconcile", () => {
 
 describe("ManageCollectionsDialog create", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     storeAuth().setCurrentUser(userFixture({ id: USER_ID }));
   });
 

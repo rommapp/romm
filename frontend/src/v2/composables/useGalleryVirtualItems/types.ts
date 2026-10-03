@@ -2,16 +2,16 @@
 // virtualised gallery scroller. The view turns this list into a single
 // RVirtualScroller and renders per kind via a template switch.
 //
-// IMPORTANT — performance contract: row items are STRUCTURAL only. They
+// IMPORTANT (performance contract): row items are STRUCTURAL only. They
 // know which positions they cover but they do NOT carry the actual ROM /
 // skeleton data. The view template iterates positions inline and calls
 // `store.getRomAt(p)` per slot. That keeps Vue's per-key reactivity
 // granular: when a window resolves and a single position transitions
-// from skeleton to ROM, only the affected row component re-renders —
+// from skeleton to ROM, only the affected row component re-renders:
 // not the entire `virtualItems` array (which would be O(total/cols)
 // rebuild and was the source of the scroll-freeze in earlier passes).
 
-// `hero` (header) and `toolbar` are NOT virtual items — they live in
+// `hero` (header) and `toolbar` are NOT virtual items: they live in
 // `RVirtualScroller`'s `#prepend` and `#sticky` slots respectively, so
 // the browser's compositor handles their layout (header scrolls with
 // content, toolbar pins via native `position: sticky`). Keeping them
@@ -30,7 +30,7 @@ export type GalleryItem =
        * cards aren't loaded yet. */
       letters: readonly string[];
     }
-  /** List layout — one virtual item per ROM. The view template reads
+  /** List layout: one virtual item per ROM. The view template reads
    * `position` and resolves the ROM (or skeleton) via `getRomAt`. The
    * sticky column header lives in the shell's prepend, not as a virtual
    * item, so it can stay pinned below the toolbar regardless of scroll. */
@@ -48,6 +48,13 @@ export type GalleryItem =
   | { kind: "skeleton-list-row"; key: string; index: number }
   | { kind: "load-more"; key: string; remaining: number; loading: boolean }
   | { kind: "empty"; key: string; message: string }
-  | { kind: "skeleton-row"; key: string; index: number };
+  | {
+      kind: "skeleton-row";
+      key: string;
+      index: number;
+      /** Placeholder cards in this row: a full row, or the tail of a known
+       * count. */
+      cards: number;
+    };
 
 export type GalleryItemKind = GalleryItem["kind"];

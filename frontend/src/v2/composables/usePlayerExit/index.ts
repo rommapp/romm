@@ -4,13 +4,15 @@
 // twice, so a bound document is replaced rather than navigated away from.
 import { ref, type Ref } from "vue";
 import { useRouter, type RouteLocationNormalized } from "vue-router";
+import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
 
 export function usePlayerExit(
   /** True once the view injected a runtime the document cannot take twice. */
   runtimeBound: () => boolean = () => false,
   /**
    * Work the departing document still owes, awaited before it is replaced.
-   * A replace aborts the navigation, so the guards below never run.
+   * A replaced document never finishes the navigation, so the guards below
+   * never run.
    */
   settle: () => Promise<void> | void = () => undefined,
 ): {
@@ -36,6 +38,7 @@ export function usePlayerExit(
       // The document goes either way; stranding the user in the player is worse.
       console.error("Player exit settle failed", error);
     }
+    await leaveFullscreen();
     window.location.replace(path);
   }
 
@@ -49,7 +52,9 @@ export function usePlayerExit(
   ): Promise<boolean> {
     if (!documentBound()) return true;
     await replaceDocument(to.fullPath);
-    return false;
+    // Aborting would have the router undo a Back with a forward traversal,
+    // which cancels the replace and strands the user in the player.
+    return new Promise<boolean>(() => {});
   }
 
   return { departing, leave, guard };

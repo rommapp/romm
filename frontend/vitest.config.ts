@@ -15,7 +15,7 @@ export default defineConfig({
   test: {
     server: {
       deps: {
-        inline: ["vuetify"],
+        inline: ["vuetify", "@vueuse/integrations"],
       },
     },
     projects: [
@@ -26,6 +26,12 @@ export default defineConfig({
           environment: "happy-dom",
           globals: true,
           setupFiles: ["./vitest.setup.ts"],
+          // Each test starts with fresh mock call history, original `vi.spyOn`
+          // targets, globals and env.
+          clearMocks: true,
+          restoreMocks: true,
+          unstubGlobals: true,
+          unstubEnvs: true,
           include: ["src/**/*.{test,spec}.ts", "test/**/*.{test,spec}.ts"],
         },
       },

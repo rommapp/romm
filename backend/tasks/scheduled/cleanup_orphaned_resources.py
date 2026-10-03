@@ -2,17 +2,17 @@ import asyncio
 import os
 import shutil
 from dataclasses import dataclass
+from typing import ClassVar
 
 from anyio import Path as AnyioPath
 
 from config import (
-    ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
     RESOURCES_BASE_PATH,
-    SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON,
 )
 from handler.database import db_platform_handler, db_rom_handler
 from logger.logger import log
-from tasks.tasks import PeriodicTask, TaskType, update_job_meta
+from tasks.registry import CLEANUP_ORPHANED_RESOURCES_SPEC
+from tasks.tasks import JobMetaStats, PeriodicTask
 from utils.context import initialize_context
 
 
@@ -45,8 +45,10 @@ def _scan_resource_dirs(roms_resources_path: str) -> dict[int, set[int]]:
 
 
 @dataclass
-class CleanupStats:
+class CleanupStats(JobMetaStats):
     """Statistics for cleanup operations."""
+
+    meta_key: ClassVar[str] = "cleanup_stats"
 
     platforms_in_db: int = 0
     roms_in_db: int = 0
@@ -54,13 +56,6 @@ class CleanupStats:
     roms_in_fs: int = 0
     removed_fs_platforms: int = 0
     removed_fs_roms: int = 0
-
-    def update(self, **kwargs: int) -> None:
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-
-        update_job_meta({"cleanup_stats": self.to_dict()})
 
     def to_dict(self) -> dict[str, int]:
         return {
@@ -75,14 +70,7 @@ class CleanupStats:
 
 class CleanupOrphanedResourcesTask(PeriodicTask):
     def __init__(self) -> None:
-        super().__init__(
-            title="Cleanup orphaned resources",
-            description="Clean up orphaned resources in the ROMs directory",
-            task_type=TaskType.CLEANUP,
-            enabled=ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES,
-            manual_run=True,
-            cron_string=SCHEDULED_CLEANUP_ORPHANED_RESOURCES_CRON,
-        )
+        super().__init__(CLEANUP_ORPHANED_RESOURCES_SPEC)
 
     @initialize_context()
     async def run(self, force: bool = False) -> dict[str, int]:
@@ -91,7 +79,7 @@ class CleanupOrphanedResourcesTask(PeriodicTask):
         Args:
             force: Clean up even when the database reports an empty library.
         """
-        log.info(f"Starting {self.title} task...")
+        log.info(f"Starting {self.spec.title} task...")
 
         cleanup_stats = CleanupStats()
 

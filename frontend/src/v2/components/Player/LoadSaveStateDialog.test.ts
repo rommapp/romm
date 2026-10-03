@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -11,9 +11,7 @@ const { confirm } = vi.hoisted(() => ({
   confirm: vi.fn(async (_opts: { title: string }) => true),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirm,
@@ -86,10 +84,6 @@ function openDialog() {
 }
 
 describe("LoadSaveStateDialog", () => {
-  beforeEach(() => {
-    confirm.mockClear();
-  });
-
   it("opens on States and loads a state once confirmed", async () => {
     const { wrapper, open, stateSelected, saveSelected } = openDialog();
     await open();

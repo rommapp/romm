@@ -1,13 +1,12 @@
 <script setup lang="ts">
-// Ruffle — v2 shell for Flash ROMs. The Ruffle injection (script loader,
+// Ruffle: v2 shell for Flash ROMs. The Ruffle injection (script loader,
 // createPlayer, fullscreen) is ported verbatim from
 // `src/views/Player/RuffleRS/Base.vue` so playback stays identical; only the
-// chrome is v2. No shared state with EJS — Flash has its own config.
+// chrome is v2. No shared state with EJS: Flash has its own config.
 import { RIcon, RSwitch } from "@v2/lib";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
-import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
 import type { RuffleSourceAPI } from "@/types/ruffle";
 import { getDownloadPath } from "@/utils";
@@ -16,6 +15,7 @@ import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
+import { usePlayingWhile } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { colorCanvas } from "@/v2/tokens";
 
@@ -25,11 +25,12 @@ const DEFAULT_BACKGROUND_COLOR = colorCanvas.bgDeep;
 const { t } = useI18n();
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
-const playingStore = storePlaying();
 const playSession = usePlaySession();
 
 const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
+// Flash games are keyboard-driven, so hotkeys and pad navigation stay muted.
+usePlayingWhile(gameRunning);
 const backgroundColor = ref<string>(DEFAULT_BACKGROUND_COLOR);
 
 useUnloadGuard(gameRunning);
@@ -56,14 +57,10 @@ const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 // Nothing is running, so drop the guard and the input mute the launch armed.
 function abortPlay() {
   gameRunning.value = false;
-  playingStore.setPlaying(false);
 }
 
 function onPlay() {
   gameRunning.value = true;
-  // Flash games are keyboard-driven; flag the session so global hotkeys
-  // and pad-to-UI translation stay muted while the game owns input.
-  playingStore.setPlaying(true);
 
   nextTick(() => {
     if (!rom.value) {
@@ -147,8 +144,6 @@ onBeforeUnmount(() => {
   // Every exit path (Quit, back links, route change) unmounts the view, so
   // this is the single choke point for recording the session.
   playSession.flush();
-  // Hand the keyboard and gamepad back to the UI on any exit path.
-  playingStore.setPlaying(false);
 });
 </script>
 

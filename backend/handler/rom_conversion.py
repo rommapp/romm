@@ -1,17 +1,22 @@
-import asyncio
-
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.redis_handler import redis_lock
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom
 
-_STAGE_PREFIX = ".romm_tmp_"
+# Scans and the watcher skip dot-prefixed entries, so staged files stay unseen.
+STAGE_PREFIX = ".romm_tmp_"
 
-# Uploading several files fires a request per file, each promoting the same ROM.
-_promotion_lock = asyncio.Lock()
+# Parallel uploads each promote the ROM, maybe on different gunicorn workers.
+# Keyed by the target folder, since lone files sharing a stem promote into one.
+PROMOTION_LOCK_TIMEOUT_SECONDS = 600
+
+
+def promotion_lock_key(rom: Rom) -> str:
+    return f"rom_promotion:{rom.fs_path}/{rom.fs_name_no_ext}"
 
 
 async def promote_single_file_to_folder(rom: Rom) -> Rom:
@@ -19,7 +24,9 @@ async def promote_single_file_to_folder(rom: Rom) -> Rom:
     and every relation. Idempotent; raises RomAlreadyExistsException on a
     folder-name collision.
     """
-    async with _promotion_lock:
+    async with redis_lock(
+        promotion_lock_key(rom), timeout_seconds=PROMOTION_LOCK_TIMEOUT_SECONDS
+    ):
         return await _promote(db_rom_handler.get_rom(rom.id) or rom)
 
 
@@ -33,7 +40,7 @@ async def _promote(rom: Rom) -> Rom:
     origin = f"{fs_path}/{fs_name}"
     dest_dir = f"{fs_path}/{folder}"
     final = f"{dest_dir}/{fs_name}"
-    staged = f"{fs_path}/{_STAGE_PREFIX}{fs_name}"
+    staged = f"{fs_path}/{STAGE_PREFIX}{fs_name}"
     extensionless = folder == fs_name
 
     # Extensionless dest_dir is the file's own path; only a directory collides.

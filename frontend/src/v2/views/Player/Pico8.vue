@@ -1,11 +1,17 @@
 <script setup lang="ts">
 // Plays PICO-8 carts through the FAKE-08 WebAssembly runtime.
 import { RBtn, RSpinner, RSwitch } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
-import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
+import { useEventListener, useRafFn } from "@vueuse/core";
+import {
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
-import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
 import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
@@ -15,6 +21,7 @@ import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { usePlayingWhile } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { createPico8Audio, type Pico8Audio } from "@/v2/utils/pico8Audio";
 import { createPico8Input } from "@/v2/utils/pico8Input";
@@ -29,7 +36,6 @@ import {
 } from "@/v2/utils/pico8Runtime";
 
 const { t } = useI18n();
-const playingStore = storePlaying();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const { fullscreenOnPlay } = useFullscreenPref();
@@ -37,6 +43,7 @@ const alive = useIsAlive();
 
 const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
+usePlayingWhile(gameRunning);
 const loading = ref(false);
 const stage = ref<HTMLDivElement | null>(null);
 const canvas = ref<HTMLCanvasElement | null>(null);
@@ -51,7 +58,6 @@ const {
 let runtime: Pico8Runtime | null = null;
 let audio: Pico8Audio | null = null;
 let pacer: Pico8Pacer | null = null;
-let animationFrame = 0;
 
 const input = createPico8Input();
 const { touchMask } = input;
@@ -165,20 +171,25 @@ function runFrame(timestamp: number) {
     if (steps > 0) active.render();
   } catch (error) {
     showPlayError(error);
-    return;
   }
-  animationFrame = requestAnimationFrame(runFrame);
 }
+
+const looping = ref(false);
+const frameLoop = useRafFn(({ timestamp }) => runFrame(timestamp), {
+  immediate: false,
+});
+// A failed frame releases the game from inside the loop, which would leave its
+// next frame queued, so the loop follows `looping` once the frame has returned.
+watch(looping, (on) => (on ? frameLoop.resume() : frameLoop.pause()));
 
 function startLoop() {
   pacer = createPico8Pacer(runtime?.frameRate || PICO8_FRAME_RATE);
   pacer.reset(performance.now());
-  animationFrame = requestAnimationFrame(runFrame);
+  looping.value = true;
 }
 
 function releaseGame() {
-  cancelAnimationFrame(animationFrame);
-  animationFrame = 0;
+  looping.value = false;
   runtime?.dispose();
   runtime = null;
   pacer = null;
@@ -186,7 +197,6 @@ function releaseGame() {
   audio = null;
   input.reset();
   playSession.flush();
-  playingStore.setPlaying(false);
   gameRunning.value = false;
   loading.value = false;
 }
@@ -211,7 +221,6 @@ async function onPlay() {
 
   gameRunning.value = true;
   loading.value = true;
-  playingStore.setPlaying(true);
   await nextTick();
 
   if (!gameRunning.value) return;

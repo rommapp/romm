@@ -1,7 +1,10 @@
 // useGalleryOrderUrl - bookmarkable gallery sort via URL query params.
 //
-//   ?orderBy=fs_size_bytes  (omitted at "name", the default)
+//   ?orderBy=fs_size_bytes  (omitted at the view's default)
 //   ?orderDir=desc          (omitted at "asc",  the default)
+//
+// A `null` default (Search) leaves the order to the backend, which ranks
+// by relevance until the user picks a column.
 //
 // An unrecognised or absent param resolves to the default, so a link
 // without them lands on the same sort whatever the last gallery left in
@@ -11,7 +14,6 @@ import { storeToRefs } from "pinia";
 import { watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import storeGalleryRoms, {
-  DEFAULT_ORDER_BY,
   DEFAULT_ORDER_DIR,
   type GalleryOrderDir,
   type GalleryOrderKey,
@@ -20,10 +22,13 @@ import storeGalleryRoms, {
 } from "@/v2/stores/galleryRoms";
 import { syncQueryParam } from "@/v2/utils/routeQuery";
 
-function parseOrderBy(value: unknown): GalleryOrderKey {
+function parseOrderBy(
+  value: unknown,
+  fallback: GalleryOrderKey | null,
+): GalleryOrderKey | null {
   return typeof value === "string" && isGalleryOrderKey(value)
     ? value
-    : DEFAULT_ORDER_BY;
+    : fallback;
 }
 
 function parseOrderDir(value: unknown): GalleryOrderDir {
@@ -32,14 +37,14 @@ function parseOrderDir(value: unknown): GalleryOrderDir {
     : DEFAULT_ORDER_DIR;
 }
 
-export function useGalleryOrderUrl() {
+export function useGalleryOrderUrl(defaultOrderBy: GalleryOrderKey | null) {
   const route = useRoute();
   const router = useRouter();
   const galleryRoms = storeGalleryRoms();
   const { orderBy, orderDir } = storeToRefs(galleryRoms);
 
   function applyFromUrl() {
-    const by = parseOrderBy(route.query.orderBy);
+    const by = parseOrderBy(route.query.orderBy, defaultOrderBy);
     const dir = parseOrderDir(route.query.orderDir);
     if (by !== orderBy.value) galleryRoms.setOrderBy(by);
     if (dir !== orderDir.value) galleryRoms.setOrderDir(dir);
@@ -51,7 +56,11 @@ export function useGalleryOrderUrl() {
 
   // Drop the param when the value is the default, which keeps URLs clean.
   watch([orderBy, orderDir], ([by, dir]) => {
-    syncQueryParam(router, "orderBy", by === DEFAULT_ORDER_BY ? undefined : by);
+    syncQueryParam(
+      router,
+      "orderBy",
+      by === defaultOrderBy || by === null ? undefined : by,
+    );
     syncQueryParam(
       router,
       "orderDir",

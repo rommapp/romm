@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="Item, Model">
 // RSelect: combines an RTextField-style activator (variants,
 // hover/focus halos, labels) with a floating menu panel positioned by
 // `@floating-ui/vue` and rendered as a teleported surface in the v2
@@ -25,18 +25,18 @@ import {
   useFloating,
 } from "@floating-ui/vue";
 import type { Placement } from "@floating-ui/vue";
+import { useElementSize } from "@vueuse/core";
 import {
   computed,
   getCurrentInstance,
   nextTick,
-  onBeforeUnmount,
-  onMounted,
   ref,
   useAttrs,
   useSlots,
   watch,
 } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
 import RDivider from "../../primitives/RDivider/RDivider.vue";
@@ -53,37 +53,48 @@ defineOptions({ inheritAttrs: false });
 type Rule = (value: any) => true | string;
 
 interface NormalisedItem {
-  // `raw` + `value` are the consumer's source item / its key, we don't
-  // know their shape but they do. Typing as `any` so `#selection` /
-  // `#item` slot consumers can read fields off them without spamming
-  // `as` casts.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  raw: any;
+  raw: Item;
   title: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  value: any;
+  value: unknown;
   disabled?: boolean;
 }
 
+// `multiple` needs an array model and single-select `clearable` a nullable one.
+// `boolean &` keeps Vue's runtime Boolean casting.
+type IsArrayModel = [NonNullable<Model>] extends [readonly unknown[]]
+  ? true
+  : false;
+type MultipleAllowed = unknown extends Model
+  ? unknown
+  : IsArrayModel extends true
+    ? unknown
+    : false;
+type ClearableAllowed = unknown extends Model
+  ? unknown
+  : null extends Model
+    ? unknown
+    : IsArrayModel extends true
+      ? unknown
+      : false;
+
 interface Props {
-  modelValue?: unknown;
-  items?: unknown[];
+  /** Typed by the bound ref; RSelect trusts it matches the items' keys. */
+  modelValue?: Model;
+  items?: readonly Item[];
   label?: string;
   placeholder?: string;
   variant?: "outlined" | "filled" | "underlined" | "plain";
   density?: "default" | "comfortable" | "compact";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  itemTitle?: string | ((item: any) => string);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  itemValue?: string | ((item: any) => unknown);
-  multiple?: boolean;
+  itemTitle?: string | ((item: Item) => string);
+  itemValue?: string | ((item: Item) => unknown);
+  multiple?: boolean & MultipleAllowed;
   /** When true, the model holds the raw item objects instead of their
    *  `itemValue` keys. Read paths (selection comparisons, chip
    *  rendering, isSelected) are mode-agnostic: only emits change. */
   returnObject?: boolean;
   chips?: boolean;
   closableChips?: boolean;
-  clearable?: boolean;
+  clearable?: boolean & ClearableAllowed;
   disabled?: boolean;
   readonly?: boolean;
   loading?: boolean;
@@ -137,8 +148,7 @@ interface Props {
   allOptionLabel?: string;
   /** Items it matches get a divider below their row, setting them apart
    *  from the ones that follow. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dividerAfter?: (item: any) => boolean;
+  dividerAfter?: (item: Item) => boolean;
   /** Tip revealed from an info icon in the trailing label well. */
   info?: string;
 }
@@ -188,7 +198,7 @@ const labels = useChromeLabels();
 const allText = computed(() => props.allOptionLabel ?? labels.all);
 
 const emit = defineEmits<{
-  (e: "update:modelValue", value: unknown): void;
+  (e: "update:modelValue", value: Model): void;
   (e: "update:search", value: string): void;
   /** Fires whenever All-mode toggles. Consumers whose backend does NOT
    *  read an empty model as "all" (e.g. the Scan view, where an empty
@@ -201,6 +211,12 @@ const emit = defineEmits<{
   (e: "open"): void;
   (e: "close"): void;
 }>();
+
+// Values are built from the items at runtime, so the cast trusts the
+// caller's model type to match them.
+function emitModel(value: unknown) {
+  emit("update:modelValue", value as Model);
+}
 
 const slots = useSlots();
 const attrs = useAttrs();
@@ -340,7 +356,7 @@ const hasSelection = computed(() => selectedItems.value.length > 0);
 // `fitChipCount` of them. ResizeObserver re-measures on width changes.
 const valueRef = ref<HTMLElement | null>(null);
 const measureRef = ref<HTMLElement | null>(null);
-const containerWidth = ref(0);
+const { width: containerWidth } = useElementSize(valueRef);
 const fitChipCount = ref<number>(Number.POSITIVE_INFINITY);
 
 const visibleChips = computed<NormalisedItem[]>(() => {
@@ -350,20 +366,6 @@ const visibleChips = computed<NormalisedItem[]>(() => {
 const overflowCount = computed(() =>
   Math.max(0, selectedItems.value.length - visibleChips.value.length),
 );
-
-let resizeObserver: ResizeObserver | null = null;
-onMounted(() => {
-  if (!valueRef.value) return;
-  containerWidth.value = valueRef.value.clientWidth;
-  resizeObserver = new ResizeObserver((entries) => {
-    for (const e of entries) containerWidth.value = e.contentRect.width;
-  });
-  resizeObserver.observe(valueRef.value);
-});
-onBeforeUnmount(() => {
-  resizeObserver?.disconnect();
-  resizeObserver = null;
-});
 
 // Walk through the mirror's chips and stop when the next one (plus
 // the reserved overflow-pill width) would overflow the visible row.
@@ -443,7 +445,7 @@ function selectItem(item: NormalisedItem) {
       const preserved = Array.isArray(props.modelValue)
         ? (props.modelValue as unknown[]).filter((v) => !ownSet.has(valueOf(v)))
         : [];
-      emit("update:modelValue", [...preserved, emitValueOf(item)]);
+      emitModel([...preserved, emitValueOf(item)]);
       return;
     }
     const cur = Array.isArray(props.modelValue)
@@ -452,9 +454,9 @@ function selectItem(item: NormalisedItem) {
     const idx = cur.findIndex((v) => valueOf(v) === item.value);
     if (idx === -1) cur.push(emitValueOf(item));
     else cur.splice(idx, 1);
-    emit("update:modelValue", cur);
+    emitModel(cur);
   } else {
-    emit("update:modelValue", emitValueOf(item));
+    emitModel(emitValueOf(item));
     closeMenu();
   }
 }
@@ -541,9 +543,9 @@ function toggleAllItems() {
       const preserved = (props.modelValue as unknown[]).filter(
         (v) => !ownSet.has(valueOf(v)),
       );
-      emit("update:modelValue", preserved);
+      emitModel(preserved);
     } else {
-      emit("update:modelValue", []);
+      emitModel([]);
     }
   }
 }
@@ -553,7 +555,7 @@ function removeSelection(value: unknown) {
     const cur = Array.isArray(props.modelValue)
       ? (props.modelValue as unknown[]).filter((v) => valueOf(v) !== value)
       : [];
-    emit("update:modelValue", cur);
+    emitModel(cur);
   } else {
     clear();
   }
@@ -574,12 +576,12 @@ function clear() {
       const preserved = (props.modelValue as unknown[]).filter(
         (v) => !ownSet.has(valueOf(v)),
       );
-      emit("update:modelValue", preserved);
+      emitModel(preserved);
     } else {
-      emit("update:modelValue", []);
+      emitModel([]);
     }
   } else {
-    emit("update:modelValue", null);
+    emitModel(null);
   }
   emit("clear");
 }
@@ -728,21 +730,14 @@ function toggleMenu() {
   else openMenu();
 }
 
-// Click-outside: closes the panel when the user clicks anywhere
-// outside both the activator and the panel.
-function onDocPointerDown(evt: PointerEvent) {
-  if (!isOpen.value) return;
-  const target = evt.target as Node | null;
-  if (!target) return;
-  if (activatorRef.value?.contains(target)) return;
-  if (panelRef.value?.contains(target)) return;
-  closeMenu();
-}
-onMounted(() => {
-  document.addEventListener("pointerdown", onDocPointerDown, true);
-});
-onBeforeUnmount(() => {
-  document.removeEventListener("pointerdown", onDocPointerDown, true);
+usePopoverDismiss(isOpen, closeMenu, {
+  reference: () => activatorRef.value,
+  panel: () => panelRef.value,
+  onEscape: () => {
+    const focusInPanel = !!panelRef.value?.contains(document.activeElement);
+    closeMenu();
+    if (focusInPanel) activatorRef.value?.focus();
+  },
 });
 
 // Close when search is changed externally? No, keep open while
@@ -802,12 +797,6 @@ function onActivatorKey(evt: KeyboardEvent) {
         if (item) selectItem(item);
       }
       break;
-    case "Escape":
-      if (isOpen.value) {
-        evt.preventDefault();
-        closeMenu();
-      }
-      break;
     case "Tab":
       if (isOpen.value) closeMenu();
       break;
@@ -830,11 +819,6 @@ function onSearchKey(evt: KeyboardEvent) {
       if (item) selectItem(item);
       break;
     }
-    case "Escape":
-      evt.preventDefault();
-      closeMenu();
-      activatorRef.value?.focus();
-      break;
   }
 }
 
@@ -1298,7 +1282,7 @@ const describedBy = computed(() => {
 .r-select {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   width: 100%;
   /* As a flex child, default `min-width: auto` refuses to shrink below the
      selection's content width, so a long value overflows its container.
@@ -1608,6 +1592,7 @@ const describedBy = computed(() => {
   line-height: 1.2;
   align-self: flex-start;
   padding-inline-start: 2px;
+  margin-bottom: var(--r-space-1);
 }
 .r-select__label--inline,
 .r-select__label--append {

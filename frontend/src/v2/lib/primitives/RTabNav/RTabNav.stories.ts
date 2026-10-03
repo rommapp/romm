@@ -3,9 +3,11 @@ import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import RTabNav from "./RTabNav.vue";
 
-const meta: Meta<typeof RTabNav> = {
+// Generic components can't fill Storybook's `component` slot, so it's cast;
+// the instantiation types the stories' args.
+const meta: Meta<typeof RTabNav<string>> = {
   title: "Primitives/RTabNav",
-  component: RTabNav,
+  component: RTabNav as never,
   argTypes: {
     size: {
       control: "select",
@@ -25,7 +27,7 @@ const meta: Meta<typeof RTabNav> = {
 };
 
 export default meta;
-type Story = StoryObj<typeof RTabNav>;
+type Story = StoryObj<typeof RTabNav<string>>;
 
 export const Default: Story = {
   args: {
@@ -61,7 +63,7 @@ export const Subtabs: Story = {
   },
 };
 
-// Vertical pill variant — stacked menu items with optional leading
+// Vertical pill variant: stacked menu items with optional leading
 // icon. Used by SaveDataTab for the left-rail subtab nav.
 export const VerticalPill: Story = {
   args: {
@@ -134,7 +136,7 @@ export const HiddenItems: Story = {
   },
 };
 
-// Image variant — items can carry a logo / brand mark via the `image`
+// Image variant: items can carry a logo / brand mark via the `image`
 // field instead of an MDI icon. Mirrors the per-provider raw-metadata
 // tabs in EditRomDialog (IGDB / MobyGames / etc).
 // Keyboard: Tab across the tabs, Enter/Space activates the focused one.

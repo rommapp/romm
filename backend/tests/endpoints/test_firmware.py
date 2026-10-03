@@ -1,8 +1,12 @@
 """Tests for `GET /api/firmware`."""
 
+from pathlib import Path
 from unittest import mock
 
+import pytest
 from fastapi import status
+
+from handler.database import db_firmware_handler
 
 
 def test_get_firmware_requires_auth(client, firmware):
@@ -131,3 +135,55 @@ def test_head_firmware_content_404s_when_the_file_is_gone(
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.fixture
+def _isolated_firmware_dir(tmp_path, monkeypatch):
+    """Point the shared fs_firmware_handler at the test's tmp dir."""
+    from handler.filesystem import fs_firmware_handler
+
+    new_base = Path(tmp_path).resolve()
+    monkeypatch.setattr(fs_firmware_handler, "base_path", new_base)
+    return new_base
+
+
+@pytest.mark.parametrize(
+    "file_name",
+    ["sub/scph1001.bin", "../scph1001.bin"],
+    ids=["nested", "traversal"],
+)
+def test_add_firmware_records_the_name_it_wrote(
+    client, access_token, platform, _isolated_firmware_dir, file_name
+):
+    """The disk write takes the basename of the upload's filename, so the
+    row has to name that same file, not the raw name the client sent."""
+    response = client.post(
+        "/api/firmware",
+        params={"platform_id": platform.id},
+        files={"files": (file_name, b"BIOS", "application/octet-stream")},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    rows = db_firmware_handler.list_firmware(platform_ids=[platform.id])
+    assert [row.file_name for row in rows] == ["scph1001.bin"]
+    assert (_isolated_firmware_dir / rows[0].file_path / rows[0].file_name).is_file()
+
+
+def test_add_firmware_rejects_an_overlong_name_before_writing(
+    client, access_token, platform, _isolated_firmware_dir
+):
+    """A bad name anywhere in the batch is a 400, and nothing is written."""
+    response = client.post(
+        "/api/firmware",
+        params={"platform_id": platform.id},
+        files=[
+            ("files", ("ok.bin", b"BIOS", "application/octet-stream")),
+            ("files", ("x" * 1000 + ".bin", b"BIOS", "application/octet-stream")),
+        ],
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    assert db_firmware_handler.list_firmware(platform_ids=[platform.id]) == []
+    assert not any(p.is_file() for p in _isolated_firmware_dir.rglob("*"))

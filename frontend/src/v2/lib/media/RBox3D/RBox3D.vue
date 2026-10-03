@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// RBox3D — a fake-but-believable 3D game box built from three flat scans
+// RBox3D: a fake-but-believable 3D game box built from three flat scans
 // (front, back, spine). Six CSS faces under `transform-style: preserve-3d`:
 // the front/back carry their art and the side scan wraps all four edge faces.
 // It reads right on the pair matching its orientation (the vertical spines for
 // a portrait scan, the top/bottom for a landscape N64-style strip) and is spun
 // 90° in-plane to fit the other pair. Box proportions are derived from the
-// images themselves — the front's natural ratio sets width/height and the side scan's sets the depth — so
+// images themselves, the front's natural ratio sets width/height and the side scan's sets the depth, so
 // a chunky N64 box and a slim DS case both look right without per-platform
 // tuning.
 //
@@ -13,14 +13,15 @@
 // arrow keys step it (this is what the gamepad D-pad / left stick emit as
 // synthetic keys), and the right analog stick rotates it continuously (read
 // directly, so the D-pad can still navigate away). When idle it drifts in a
-// slow auto-spin — disabled under `prefers-reduced-motion` and paused for a
+// slow auto-spin: disabled under `prefers-reduced-motion` and paused for a
 // beat after any manual input. Focus ring is automatic via `tabindex` +
 // the modality-gated selectors in global.css.
 //
-// Primitive boundaries (§II): no stores, no domain knowledge — it takes
+// Primitive boundaries (§II): no stores, no domain knowledge, it takes
 // three image URLs and a label. The feature composite (CoverColumn) decides
 // when a rom actually has all three faces and feeds them in.
-import { computed, onBeforeUnmount, onMounted, ref, type Ref } from "vue";
+import { useEventListener, useRafFn, useResizeObserver } from "@vueuse/core";
+import { computed, onMounted, ref, type Ref } from "vue";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
 defineOptions({ inheritAttrs: false });
@@ -30,7 +31,7 @@ interface Props {
   front: string;
   /** Back cover art URL. */
   back: string;
-  /** Spine (box-2D-side) art URL — mirrored onto both side faces. */
+  /** Spine (box-2D-side) art URL: mirrored onto both side faces. */
   spine: string;
   /** Accessible label (the rom title). Rendered as the box's aria-label. */
   alt?: string;
@@ -49,7 +50,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  /** The front cover failed to load — the consumer should fall back. */
+  /** The front cover failed to load: the consumer should fall back. */
   error: [];
 }>();
 
@@ -117,7 +118,6 @@ let lastX = 0;
 let lastY = 0;
 let velX = 0; //  last-frame pointer delta, kept for the flick on release
 let velY = 0;
-let rafId = 0;
 
 // Snap transitions off whenever the box is being driven continuously (drag,
 // stick, drift); a flick coasts on an ease-out curve, and discrete keyboard
@@ -255,9 +255,8 @@ function tick() {
     coasting.value = false;
     yaw.value += AUTO_SPIN_SPEED;
   }
-
-  rafId = requestAnimationFrame(tick);
 }
+const frames = useRafFn(tick, { immediate: false });
 
 // --- Image measurement ---------------------------------------------------
 // The box mirrors the real artwork: the front (box-2D) natural ratio drives
@@ -285,45 +284,25 @@ const onFrontLoad = (e: Event) =>
   measureRatio(e.target as HTMLImageElement, frontRatio);
 const onSpineLoad = (e: Event) => measureSpine(e.target as HTMLImageElement);
 
-let ro: ResizeObserver | null = null;
+useResizeObserver(rootEl, (entries) => {
+  const w = entries[0]?.contentRect.width ?? 0;
+  if (w > 0) widthPx.value = w;
+});
+// Interaction listeners are bound imperatively (not in the template) so
+// the static box element doesn't trip the no-static-element-interactions
+// rule: the same approach GameCover takes for its hover motion. The box
+// is decorative chrome with an optional manipulation affordance.
+useEventListener(rootEl, "pointerdown", onPointerDown);
+useEventListener(rootEl, "pointermove", onPointerMove);
+useEventListener(rootEl, ["pointerup", "pointercancel"], endDrag);
+useEventListener(rootEl, "keydown", onKeydown);
 onMounted(() => {
-  const root = rootEl.value;
-  if (root) {
-    widthPx.value = root.clientWidth;
-    if (typeof ResizeObserver !== "undefined") {
-      ro = new ResizeObserver((entries) => {
-        const w = entries[0]?.contentRect.width ?? 0;
-        if (w > 0) widthPx.value = w;
-      });
-      ro.observe(root);
-    }
-    // Interaction listeners are bound imperatively (not in the template) so
-    // the static box element doesn't trip the no-static-element-interactions
-    // rule — the same approach GameCover takes for its hover motion. The box
-    // is decorative chrome with an optional manipulation affordance.
-    root.addEventListener("pointerdown", onPointerDown);
-    root.addEventListener("pointermove", onPointerMove);
-    root.addEventListener("pointerup", endDrag);
-    root.addEventListener("pointercancel", endDrag);
-    root.addEventListener("keydown", onKeydown);
-  }
-  // A cached cover can already be decoded before the load listener binds —
+  if (rootEl.value) widthPx.value = rootEl.value.clientWidth;
+  // A cached cover can already be decoded before the load listener binds:
   // read its dimensions now so the box adopts box-2D's ratio immediately.
   measureRatio(frontImg.value, frontRatio);
   measureSpine(spineImg.value);
-  rafId = requestAnimationFrame(tick);
-});
-onBeforeUnmount(() => {
-  ro?.disconnect();
-  cancelAnimationFrame(rafId);
-  const root = rootEl.value;
-  if (root) {
-    root.removeEventListener("pointerdown", onPointerDown);
-    root.removeEventListener("pointermove", onPointerMove);
-    root.removeEventListener("pointerup", endDrag);
-    root.removeEventListener("pointercancel", endDrag);
-    root.removeEventListener("keydown", onKeydown);
-  }
+  frames.resume();
 });
 
 // --- Styles --------------------------------------------------------------
@@ -522,7 +501,7 @@ const rootStyle = computed(() => ({ aspectRatio: String(frontRatio.value) }));
   backface-visibility: hidden;
   border-radius: var(--r-radius-xs);
   overflow: hidden;
-  /* Faces never capture the pointer — every drag/click lands on the root,
+  /* Faces never capture the pointer: every drag/click lands on the root,
      which owns the rotation listeners (the imgs are also draggable="false"). */
   pointer-events: none;
 }

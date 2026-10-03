@@ -20,7 +20,6 @@ from starlette.datastructures import UploadFile
 
 from config.config_manager import config_manager as cm
 from models.base import (
-    FILE_NAME_MAX_LENGTH,
     compute_file_extension,
     compute_file_name_no_ext,
     compute_file_name_no_tags,
@@ -28,6 +27,7 @@ from models.base import (
 from utils.filesystem import (
     LINK_FALLBACK_ERRNOS,
     SERVED_FILE_MODE,
+    check_filename_length,
     iter_directories,
     iter_files,
     link_or_copy_file,
@@ -392,11 +392,7 @@ class FSHandler:
         # Remove path components and get basename only
         filename = os.path.basename(filename)
 
-        # Limit filename length
-        if len(filename) > FILE_NAME_MAX_LENGTH:
-            raise ValueError(
-                f"Filename {filename} exceeds maximum length of {FILE_NAME_MAX_LENGTH} characters"
-            )
+        check_filename_length(filename)
 
         # Ensure we have a valid filename
         if not filename or filename == "." or filename == "..":
@@ -454,6 +450,25 @@ class FSHandler:
             ) from exc
 
         return full_path
+
+    def cached_path_validator(self) -> Callable[[str], Path]:
+        """Return a `validate_path` that checks each parent directory once per callable."""
+        validated_dirs: dict[Path, Path] = {}
+
+        def validate(path: str) -> Path:
+            rel_path = Path(path)
+            if ".." in rel_path.parts or rel_path.is_absolute() or not rel_path.name:
+                return self.validate_path(path)
+
+            parent = rel_path.parent
+            full_dir = validated_dirs.get(parent)
+            if full_dir is None:
+                full_dir = validated_dirs[parent] = self.validate_path(str(parent))
+            # validate_path accepts a symlinked leaf, and a plain leaf resolves
+            # inside its already checked directory, so the leaf needs no syscall.
+            return full_dir / rel_path.name
+
+        return validate
 
     async def _compute_file_hash(self, file_path: str) -> str:
         full_path = self.validate_path(file_path)

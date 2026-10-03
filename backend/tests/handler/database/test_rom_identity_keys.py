@@ -6,8 +6,11 @@ triggers on `roms` rather than by application code. These tests write through
 the normal handlers and assert both the key rows and the view follow.
 """
 
+from typing import Any
+
 import pytest
 from sqlalchemy import String, select
+from tests.factories import make_rom
 
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
@@ -33,22 +36,6 @@ def _sample_id(field: str, value: int) -> int | str:
     return str(value) if field in _STRING_ID_FIELDS else value
 
 
-def _add_rom(platform: Platform, name: str, **identity_ids: int | str) -> Rom:
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=name,
-            fs_name=f"{name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            **identity_ids,
-        )
-    )
-
-
 def _keys(rom_id: int) -> set[tuple[int, int, str]]:
     """The (provider code, platform_id, provider_id) rows the triggers wrote.
 
@@ -56,8 +43,8 @@ def _keys(rom_id: int) -> set[tuple[int, int, str]]:
     """
     with sync_session.begin() as session:
         return {
-            tuple(row)
-            for row in session.execute(
+            (provider, platform_id, provider_id)
+            for provider, platform_id, provider_id in session.execute(
                 select(
                     RomIdentityKey.provider,
                     RomIdentityKey.platform_id,
@@ -87,7 +74,7 @@ def _siblings(rom_id: int, user_id: int) -> list[int]:
 
 class TestRomIdentityKeys:
     def test_insert_writes_one_key_per_matched_provider(self, platform: Platform):
-        rom = _add_rom(platform, "scraped", igdb_id=11, ss_id=22)
+        rom = make_rom(platform, "scraped", igdb_id=11, ss_id=22)
 
         assert _keys(rom.id) == {
             (IDENTITY_ID_FIELDS.index("igdb_id"), platform.id, "11"),
@@ -97,8 +84,8 @@ class TestRomIdentityKeys:
     def test_unscraped_rom_has_no_keys_and_no_siblings(
         self, admin_user: User, platform: Platform
     ):
-        first = _add_rom(platform, "unscraped_a")
-        second = _add_rom(platform, "unscraped_b")
+        first = make_rom(platform, "unscraped_a")
+        second = make_rom(platform, "unscraped_b")
 
         assert _keys(first.id) == set()
         assert _siblings(first.id, admin_user.id) == []
@@ -113,9 +100,9 @@ class TestRomIdentityKeys:
         Appending to `IDENTITY_ID_FIELDS` without a migration that backfills
         and matches on the new provider fails here.
         """
-        value = _sample_id(field, 4242)
-        first = _add_rom(platform, f"{field}_a", **{field: value})
-        second = _add_rom(platform, f"{field}_b", **{field: value})
+        ids: dict[str, Any] = {field: _sample_id(field, 4242)}
+        first = make_rom(platform, f"{field}_a", **ids)
+        second = make_rom(platform, f"{field}_b", **ids)
 
         assert _siblings(first.id, admin_user.id) == [second.id]
         assert _siblings(second.id, admin_user.id) == [first.id]
@@ -124,8 +111,8 @@ class TestRomIdentityKeys:
         self, admin_user: User, platform: Platform
     ):
         """The provider is part of the key, so `igdb_id = 5` is not `ss_id = 5`."""
-        igdb = _add_rom(platform, "igdb_five", igdb_id=5)
-        ss = _add_rom(platform, "ss_five", ss_id=5)
+        igdb = make_rom(platform, "igdb_five", igdb_id=5)
+        ss = make_rom(platform, "ss_five", ss_id=5)
 
         assert _siblings(igdb.id, admin_user.id) == []
         assert _siblings(ss.id, admin_user.id) == []
@@ -133,8 +120,8 @@ class TestRomIdentityKeys:
     def test_same_id_on_another_platform_is_not_a_sibling(
         self, admin_user: User, platform: Platform, other_platform: Platform
     ):
-        here = _add_rom(platform, "here", igdb_id=77)
-        there = _add_rom(other_platform, "there", igdb_id=77)
+        here = make_rom(platform, "here", igdb_id=77)
+        there = make_rom(other_platform, "there", igdb_id=77)
 
         assert _siblings(here.id, admin_user.id) == []
         assert _siblings(there.id, admin_user.id) == []
@@ -143,8 +130,8 @@ class TestRomIdentityKeys:
         self, admin_user: User, platform: Platform
     ):
         """The view emits a row per matching provider; the API must not."""
-        first = _add_rom(platform, "twice_a", igdb_id=9, ss_id=9)
-        second = _add_rom(platform, "twice_b", igdb_id=9, ss_id=9)
+        first = make_rom(platform, "twice_a", igdb_id=9, ss_id=9)
+        second = make_rom(platform, "twice_b", igdb_id=9, ss_id=9)
 
         assert _view_rows(first.id) == [second.id, second.id]
         assert _siblings(first.id, admin_user.id) == [second.id]
@@ -157,9 +144,9 @@ class TestRomIdentityKeys:
         self, admin_user: User, platform: Platform
     ):
         """`update_rom` is a Core-level UPDATE, so only the trigger covers it."""
-        rom = _add_rom(platform, "refreshed", igdb_id=100)
-        old_match = _add_rom(platform, "old_match", igdb_id=100)
-        new_match = _add_rom(platform, "new_match", igdb_id=200)
+        rom = make_rom(platform, "refreshed", igdb_id=100)
+        old_match = make_rom(platform, "old_match", igdb_id=100)
+        new_match = make_rom(platform, "new_match", igdb_id=200)
 
         db_rom_handler.update_rom(rom.id, {"igdb_id": 200})
 
@@ -170,8 +157,8 @@ class TestRomIdentityKeys:
         assert _siblings(old_match.id, admin_user.id) == []
 
     def test_clearing_an_id_drops_the_key(self, admin_user: User, platform: Platform):
-        rom = _add_rom(platform, "cleared", igdb_id=300)
-        other = _add_rom(platform, "still_matched", igdb_id=300)
+        rom = make_rom(platform, "cleared", igdb_id=300)
+        other = make_rom(platform, "still_matched", igdb_id=300)
 
         db_rom_handler.update_rom(rom.id, {"igdb_id": None})
 
@@ -182,8 +169,8 @@ class TestRomIdentityKeys:
     def test_moving_a_rom_moves_its_keys(
         self, admin_user: User, platform: Platform, other_platform: Platform
     ):
-        rom = _add_rom(platform, "moved", igdb_id=400)
-        left_behind = _add_rom(platform, "left_behind", igdb_id=400)
+        rom = make_rom(platform, "moved", igdb_id=400)
+        left_behind = make_rom(platform, "left_behind", igdb_id=400)
 
         db_rom_handler.update_rom(rom.id, {"platform_id": other_platform.id})
 
@@ -194,7 +181,7 @@ class TestRomIdentityKeys:
         assert _siblings(left_behind.id, admin_user.id) == []
 
     def test_delete_cascades(self, platform: Platform):
-        rom = _add_rom(platform, "deleted", igdb_id=500)
+        rom = make_rom(platform, "deleted", igdb_id=500)
         rom_id = rom.id
 
         db_rom_handler.delete_rom(rom_id)
@@ -203,7 +190,7 @@ class TestRomIdentityKeys:
 
     def test_update_touching_no_identity_id_skips_the_resync(self, platform: Platform):
         """The `<=>` guard: without it every rom write pays a full resync."""
-        rom = _add_rom(platform, "guarded", igdb_id=600)
+        rom = make_rom(platform, "guarded", igdb_id=600)
         marker = (IDENTITY_ID_FIELDS.index("tgdb_id"), platform.id, "999999")
         with sync_session.begin() as session:
             session.add(
@@ -222,8 +209,8 @@ class TestRomIdentityKeys:
         assert marker not in _keys(rom.id)
 
     def test_hidden_siblings_are_excluded(self, admin_user: User, platform: Platform):
-        rom = _add_rom(platform, "visible", igdb_id=700)
-        hidden_rom = _add_rom(platform, "hidden_rom", igdb_id=700)
+        rom = make_rom(platform, "visible", igdb_id=700)
+        hidden_rom = make_rom(platform, "hidden_rom", igdb_id=700)
 
         with sync_session.begin() as session:
             buckets = db_rom_handler.get_siblings_for_roms(
@@ -246,8 +233,8 @@ class TestRomIdentityKeys:
     def test_is_main_sibling_resolves_per_user(
         self, admin_user: User, platform: Platform
     ):
-        rom = _add_rom(platform, "main_a", igdb_id=800)
-        sibling = _add_rom(platform, "main_b", igdb_id=800)
+        rom = make_rom(platform, "main_a", igdb_id=800)
+        sibling = make_rom(platform, "main_b", igdb_id=800)
         rom_user = db_rom_handler.add_rom_user(rom_id=sibling.id, user_id=admin_user.id)
         db_rom_handler.update_rom_user(rom_user.id, {"is_main_sibling": True})
 
@@ -268,7 +255,7 @@ class TestIdentityKeyStatistics:
 
     def test_resampling_leaves_the_keys_readable(self, platform: Platform):
         """Runs the real statement, so each engine's CI leg proves its own syntax."""
-        rom = _add_rom(platform, "sampled", igdb_id=99)
+        rom = make_rom(platform, "sampled", igdb_id=99)
 
         db_rom_handler.refresh_identity_key_statistics()
 

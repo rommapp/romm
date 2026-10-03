@@ -1,28 +1,24 @@
 from dataclasses import asdict, dataclass
-from typing import cast
+from typing import ClassVar, cast
 
 from endpoints.responses import MissingFirmwareCleanupStats
 from handler.database import db_firmware_handler
 from logger.logger import log
-from tasks.tasks import Task, TaskType, update_job_meta
+from tasks.registry import CLEANUP_MISSING_FIRMWARE_SPEC
+from tasks.tasks import JobMetaStats, Task
 from utils.context import initialize_context
 
 
 @dataclass
-class CleanupMissingFirmwareStats:
+class CleanupMissingFirmwareStats(JobMetaStats):
     """Statistics for missing firmware cleanup operations."""
+
+    meta_key: ClassVar[str] = "cleanup_stats"
 
     platform_ids: list[int] | None = None
     firmware_found: int = 0
     firmware_deleted: int = 0
     errors: int = 0
-
-    def update(self, **kwargs: object) -> None:
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-
-        update_job_meta({"cleanup_stats": self.to_dict()})
 
     def to_dict(self) -> MissingFirmwareCleanupStats:
         return cast(MissingFirmwareCleanupStats, asdict(self))
@@ -30,21 +26,14 @@ class CleanupMissingFirmwareStats:
 
 class CleanupMissingFirmwareTask(Task):
     def __init__(self) -> None:
-        super().__init__(
-            title="Cleanup missing firmware",
-            description="Delete all firmware flagged as missing from the filesystem from the database",
-            task_type=TaskType.CLEANUP,
-            enabled=True,
-            manual_run=True,
-            cron_string=None,
-        )
+        super().__init__(CLEANUP_MISSING_FIRMWARE_SPEC)
 
     @initialize_context()
     async def run(
         self, platform_ids: list[int] | None = None
     ) -> MissingFirmwareCleanupStats:
         """Clean up firmware that is flagged as missing from the filesystem."""
-        log.info(f"Starting {self.title} task...")
+        log.info(f"Starting {self.spec.title} task...")
 
         stats = CleanupMissingFirmwareStats(platform_ids=platform_ids)
 

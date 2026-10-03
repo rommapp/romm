@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// NewVersionBanner — checks the GitHub releases API for a newer version
+// NewVersionBanner: checks the GitHub releases API for a newer version
 // than the running build (heartbeat.SYSTEM.VERSION) and surfaces a
 // bottom-center sticky panel with Dismiss / "See what's new" actions.
 //
@@ -14,9 +14,9 @@
 // UploadProgressToast. Positioned bottom-center so it never collides
 // with the upload toast (bottom-right).
 import { RBtn, RIcon } from "@v2/lib";
-import { useLocalStorage } from "@vueuse/core";
+import { useEventListener, useLocalStorage } from "@vueuse/core";
 import semver from "semver";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import storeHeartbeat from "@/stores/heartbeat";
 
@@ -67,15 +67,10 @@ async function fetchLatestVersion() {
   } catch (error) {
     console.error("Failed to fetch latest version from GitHub", error);
   }
-
-  document.removeEventListener("network-quiesced", fetchLatestVersion);
 }
 
-onMounted(() => {
-  document.addEventListener("network-quiesced", fetchLatestVersion);
-});
-onBeforeUnmount(() => {
-  document.removeEventListener("network-quiesced", fetchLatestVersion);
+useEventListener(document, "network-quiesced", fetchLatestVersion, {
+  once: true,
 });
 </script>
 

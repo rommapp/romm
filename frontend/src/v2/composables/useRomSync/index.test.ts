@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeAuth from "@/stores/auth";
 import storeCollections from "@/stores/collections";
@@ -39,7 +38,6 @@ function seedGallery(rom: SimpleRom, position = 3) {
 
 describe("useRomSync", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getRoms.mockReset();
     getRom.mockReset();
     getRoms.mockResolvedValue({
@@ -118,6 +116,32 @@ describe("useRomSync", () => {
     // The name moved, but the gallery is ordered by size, so nothing moves.
     useRomSync().applyRomWrite(
       makeRom({ name_sort_key: "zzz", fs_size_bytes: 100 }),
+    );
+
+    expect(gallery.byPosition.size).toBe(1);
+    expect(getRoms).not.toHaveBeenCalled();
+  });
+
+  it("applyRomWrite refetches a search ranked by relevance", () => {
+    const gallery = seedGallery(makeRom({ name_sort_key: "chrono trigger" }));
+    gallery.setOrderBy(null);
+    gallery.relevanceLed = true;
+
+    useRomSync().applyRomWrite(
+      makeRom({ name_sort_key: "chrono trigger", fs_name: "renamed.sfc" }),
+    );
+
+    expect(gallery.byPosition.size).toBe(0);
+    expect(getRoms).toHaveBeenCalled();
+  });
+
+  it("applyRomWrite reads an unset sort the backend kept in name order as the name", () => {
+    const gallery = seedGallery(makeRom({ name_sort_key: "chrono trigger" }));
+    gallery.setOrderBy(null);
+    gallery.relevanceLed = false;
+
+    useRomSync().applyRomWrite(
+      makeRom({ name_sort_key: "chrono trigger", summary: "edited" }),
     );
 
     expect(gallery.byPosition.size).toBe(1);

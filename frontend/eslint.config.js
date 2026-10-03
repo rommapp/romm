@@ -101,7 +101,7 @@ export default tseslint.config(
     settings: {
       "import-x/resolver-next": [
         createTypeScriptImportResolver({
-          project: "./tsconfig.json",
+          project: "./tsconfig.app.json",
           extensions: [".ts", ".d.ts", ".tsx", ".vue", ".js", ".mjs", ".json"],
         }),
       ],
@@ -213,7 +213,6 @@ export default tseslint.config(
     files: ["src/v2/**/*.ts", "src/v2/**/*.vue"],
     plugins: { romm },
     rules: {
-      "romm/no-emdash-in-comment": "error",
       "romm/no-color-literal": "error",
       "romm/no-layout-media-query": "error",
     },

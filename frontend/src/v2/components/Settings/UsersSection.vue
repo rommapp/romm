@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// UsersSection — v2-native users table.
+// UsersSection: v2-native users table.
 //
 // Layout mirrors LibraryManagement's tabs: a search bar at the top,
 // the table itself (RTable), and the action buttons (Add + Invite)
-// pinned at the bottom of the section. No SettingsSection wrapper —
+// pinned at the bottom of the section. No SettingsSection wrapper:
 // the tab in Administration owns the page chrome now.
 //
 // Create / edit / invite dialogs are emitter-driven; their components
@@ -22,7 +22,7 @@ import {
 } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, onMounted, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { PermissionGroupSchema } from "@/__generated__";
 import userApi from "@/services/api/user";
@@ -32,6 +32,7 @@ import storeUsers, { type User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import { formatTimestamp } from "@/utils";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { groupColor } from "@/v2/utils/groupColor";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
@@ -72,7 +73,7 @@ function groupPillColor(user: User): string {
 }
 
 // The pill mirrors the admin RTag chrome (same shape/size) but tinted with
-// the group's colour — override RTag's tone vars with the group hue.
+// the group's colour: override RTag's tone vars with the group hue.
 function groupPillStyle(user: User) {
   const c = groupPillColor(user);
   return {
@@ -88,7 +89,7 @@ function accessText(user: User): string {
   return user.role === "admin" ? t("settings.administrator") : groupLabel(user);
 }
 
-// Same nullable-string compare we use in ClientApiTokens — keeps users
+// Same nullable-string compare we use in ClientApiTokens: keeps users
 // with no email / no last-active timestamp at the end on `asc`.
 function compareNullable(
   a: string | null | undefined,
@@ -249,21 +250,17 @@ async function deleteUser(user: User) {
   }
 }
 
-const loading = ref(true);
-
-onMounted(async () => {
-  try {
-    const [usersResp] = await Promise.all([
-      userApi.fetchUsers(),
-      groupsStore.ensureLoaded(),
-    ]);
-    usersStore.set(usersResp.data);
-  } catch (err) {
-    console.error(err);
-  } finally {
-    loading.value = false;
-  }
-});
+const { isLoading: loading } = useFetchState(
+  () =>
+    Promise.all([userApi.fetchUsers(), groupsStore.ensureLoaded()]).then(
+      ([{ data }]) => data,
+    ),
+  [],
+  {
+    onSuccess: (users) => usersStore.set(users),
+    onError: (err) => console.error(err),
+  },
+);
 </script>
 
 <template>
@@ -439,7 +436,7 @@ html[data-bp~="xs"]
   padding-inline-start: 0;
 }
 
-/* Keep the admin pill the same height as the icon-less group pills — the
+/* Keep the admin pill the same height as the icon-less group pills: the
    prepend icon's vertical margin would otherwise make it a touch taller. */
 .r-v2-users :deep(.r-v2-users__access-pill .r-tag__icon) {
   margin-block: 0;

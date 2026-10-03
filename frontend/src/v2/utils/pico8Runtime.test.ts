@@ -52,7 +52,6 @@ vi.mock("./scriptLoader", () => ({
 }));
 
 beforeEach(() => {
-  vi.clearAllMocks();
   nextAddress = 200;
   heap[100] = 0x21;
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(

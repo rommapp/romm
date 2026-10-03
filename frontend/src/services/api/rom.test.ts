@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeUpload from "@/stores/upload";
@@ -81,7 +80,6 @@ describe("updateRom", () => {
 
 describe("romApi.uploadRoms", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     post.mockReset();
     put.mockReset();
     post.mockResolvedValue({ data: { upload_id: "u-1" } });

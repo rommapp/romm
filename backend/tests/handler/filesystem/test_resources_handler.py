@@ -782,6 +782,33 @@ class TestFSResourcesHandler:
         assert paths == ["roms/1/1/screenshots/0.jpg"]
 
     @pytest.mark.asyncio
+    async def test_failed_overwrite_removes_the_old_screenshot(
+        self, handler: FSResourcesHandler, rom: Rom, tmp_path
+    ):
+        handler.base_path = tmp_path
+        screenshots = tmp_path / "roms/1/1/screenshots"
+        screenshots.mkdir(parents=True)
+        (screenshots / "0.jpg").write_bytes(b"old")
+        (screenshots / "1.jpg").write_bytes(b"old")
+
+        async def fail_the_second(_rom, _url, idx):
+            if idx == 1:
+                return False
+            (screenshots / "0.jpg").write_bytes(b"new")
+            return True
+
+        with patch.object(handler, "_store_screenshot", side_effect=fail_the_second):
+            paths = await handler.get_rom_screenshots(
+                rom=rom,
+                overwrite=True,
+                url_screenshots=["http://x/b.jpg", "http://x/a.jpg"],
+            )
+
+        assert paths == ["roms/1/1/screenshots/0.jpg"]
+        assert (screenshots / "0.jpg").read_bytes() == b"new"
+        assert not (screenshots / "1.jpg").exists()
+
+    @pytest.mark.asyncio
     async def test_only_the_missing_screenshot_is_fetched(
         self, handler: FSResourcesHandler, rom: Rom, tmp_path
     ):

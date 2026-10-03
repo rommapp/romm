@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException, UploadFile
 
 from utils import uploads
-from utils.uploads import check_asset_upload_size
+from utils.uploads import check_asset_upload_size, sanitize_asset_filename
 
 
 def _upload(size: int | None) -> UploadFile:
@@ -37,3 +37,16 @@ class TestCheckAssetUploadSize:
     def test_skips_files_of_unknown_size(self):
         with mock.patch.object(uploads, "MAX_ASSET_UPLOAD_SIZE_BYTES", 100):
             check_asset_upload_size(_upload(None), "Save file")
+
+
+class TestSanitizeAssetFilename:
+    def test_returns_the_sanitized_name(self):
+        assert sanitize_asset_filename("dir/a:b.sav", "save") == "a-b.sav"
+
+    @pytest.mark.parametrize("name", ["   ", "あ" * 86 + ".sav"], ids=["empty", "long"])
+    def test_rejects_with_the_label(self, name: str):
+        with pytest.raises(HTTPException) as exc_info:
+            sanitize_asset_filename(name, "save")
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail.startswith("Invalid save filename")

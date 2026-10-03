@@ -1,6 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createI18n } from "vue-i18n";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
@@ -171,11 +170,6 @@ function duplicateSlugLibrary(): Platform[] {
 }
 
 describe("PlatformsStatsSection", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-    push.mockClear();
-  });
-
   it("links each row to its platform gallery", async () => {
     const wrapper = mountSection(duplicateSlugLibrary());
 

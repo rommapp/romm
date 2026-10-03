@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createPico8Input } from "./pico8Input";
 import { PICO8_INPUT_BITS } from "./pico8Runtime";
 
@@ -20,10 +20,6 @@ function pad(pressed: number[] = [], axes: number[] = [0, 0]): Gamepad {
 function stubPads(...pads: (Gamepad | null)[]) {
   vi.stubGlobal("navigator", { getGamepads: () => pads });
 }
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
 
 describe("createPico8Input", () => {
   describe("keyboard", () => {

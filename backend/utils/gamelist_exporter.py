@@ -24,7 +24,7 @@ from handler.filesystem import fs_platform_handler, fs_resource_handler
 from handler.metadata.gamelist_handler import gamelist_path_to_rel_path
 from logger.logger import log
 from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
-from utils.filesystem import join_rel_path, link_or_copy_file, rel_platform_folder
+from utils.filesystem import join_rel_path, place_export_asset, rel_platform_folder
 
 # Each tag maps to the assets it can take, best first. RetroBat reads some of the
 # same media under its own names (cartridge, titleshot, mix), hence the repeats.
@@ -207,7 +207,7 @@ class GamelistExporter:
 
                 if platform_dir is not None:
                     dest_path = platform_dir / rel_path
-                    if not self._copy_asset(source_path, dest_path):
+                    if not place_export_asset(source_path, dest_path):
                         continue
 
                 refs[asset_key] = rel_path
@@ -227,27 +227,6 @@ class GamelistExporter:
             )
 
         return refs
-
-    def _copy_asset(self, source: Path, dest: Path) -> bool:
-        """Place ``source`` at ``dest`` via hardlink (same filesystem) or copy
-        (otherwise). Returns True on success."""
-        if dest.exists():
-            return True
-
-        # Metadata scanned before unfetched media paths were cleared can still
-        # point at files that were never downloaded.
-        if not source.is_file():
-            log.debug(f"Skipping asset {source}: source file is missing")
-            return False
-
-        dest.parent.mkdir(parents=True, exist_ok=True)
-
-        try:
-            link_or_copy_file(source, dest)
-            return True
-        except OSError as e:
-            log.warning(f"Failed to copy {source} -> {dest}: {e}")
-            return False
 
     def _create_game_element(
         self,

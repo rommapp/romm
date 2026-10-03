@@ -1,7 +1,7 @@
 from collections.abc import Collection, Sequence
 from typing import Any
 
-from sqlalchemy import Select, and_, delete, desc, or_, select, update
+from sqlalchemy import Select, delete, desc, or_, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
@@ -49,7 +49,7 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
-    ) -> Select[tuple[State]]:
+    ) -> Select[State]:
         query = select(State).filter_by(user_id=user_id)
 
         # An empty collection is an explicit empty scope, not an absent filter.
@@ -157,36 +157,3 @@ class DBStatesHandler(DBBaseHandler):
             .where(State.id == id)
             .execution_options(synchronize_session="evaluate")
         )
-
-    @begin_session
-    def mark_missing_states(
-        self,
-        rom_id: int,
-        user_id: int,
-        states_to_keep: list[str],
-        session: Session = INJECTED_SESSION,
-    ) -> Sequence[State]:
-        missing_states = session.scalars(
-            select(State).filter(
-                and_(
-                    State.rom_id == rom_id,
-                    State.user_id == user_id,
-                    State.file_name.not_in(states_to_keep),
-                )
-            )
-        ).all()
-
-        session.execute(
-            update(State)
-            .where(
-                and_(
-                    State.rom_id == rom_id,
-                    State.user_id == user_id,
-                    State.file_name.not_in(states_to_keep),
-                )
-            )
-            .values(**{"missing_from_fs": True})
-            .execution_options(synchronize_session="evaluate")
-        )
-
-        return missing_states

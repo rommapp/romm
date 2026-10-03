@@ -9,12 +9,11 @@ import {
   ref,
   watch,
 } from "vue";
-import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
 import SoundtrackMiniPlayer from "@/components/common/SoundtrackMiniPlayer.vue";
+import { useBrowserLocale } from "@/composables/useBrowserLocale";
 import { useUiVersion } from "@/composables/useUiVersion";
 import storeConsole from "@/stores/console";
-import storeLanguage from "@/stores/language";
 
 // Lazy-loaded: RomM.vue is the first module main.ts evaluates, and the banner
 // transitively imports the API layer (stores → services/api → router). A
@@ -24,26 +23,15 @@ const BackendStatusBanner = defineAsyncComponent(
   () => import("@/v2/components/AppShell/BackendStatusBanner.vue"),
 );
 
-// Global scope is explicit because this write switches the whole app:
-// an <i18n> block in this SFC would otherwise flip it to component-local.
-const { locale } = useI18n({ useScope: "global" });
-const languageStore = storeLanguage();
 const consoleStore = storeConsole();
 const vuetifyTheme = useTheme();
 const { consoleMode } = storeToRefs(consoleStore);
-const { languages } = storeToRefs(languageStore);
-const storedLocale = useLocalStorage("settings.locale", "");
-const selectedLanguage = ref(
-  languages.value.find((lang) => lang.value === storedLocale.value) ||
-    languageStore.detectBrowserLanguage(),
-);
-locale.value = selectedLanguage.value.value;
-languageStore.setLanguage(selectedLanguage.value);
+useBrowserLocale();
 
 // NOTE: uiVersion uses a module-level singleton ref (useUiVersion) so a write
 // from the settings page is the SAME ref RomM.vue reads, triggering a gate
 // re-evaluation and an instant v1 ↔ v2 swap with no reload. Theme likewise
-// reads the raw localStorage ref — we stay off useUISettings here because it
+// reads the raw localStorage ref: we stay off useUISettings here because it
 // imports the API layer and would trigger an API-client ↔ router circular-
 // import TDZ during bootstrap (RomM.vue is the first module main.ts loads).
 const uiVersion = useUiVersion();
@@ -56,7 +44,7 @@ const { idle: mouseIdle } = useIdle(100, {
   events: ["mousemove", "mousedown", "wheel", "touchstart"],
 });
 
-// Centralized theme resolution — Vuetify only knows the "dark" / "light"
+// Centralized theme resolution: Vuetify only knows the "dark" / "light"
 // pair (used by v1 surfaces and any remaining v1 components rendered
 // inside v2). v2's own colour story is driven by tokens on the .r-v2-*
 // classes below, not by Vuetify's runtime theme.
@@ -98,7 +86,7 @@ watch(
 const isV2 = computed(() => uiVersion.value === "v2");
 
 // Apply the v2 token scope to <html> when v2 is active. Vuetify teleports
-// overlays (VDialog, VMenu) into `<body> > .v-overlay-container` — which
+// overlays (VDialog, VMenu) into `<body> > .v-overlay-container`, which
 // sits OUTSIDE both the AppLayout `.r-v2` wrapper AND <v-app>. Putting the
 // classes on <html> means the entire document inherits the v2 CSS custom
 // properties so `var(--r-color-...)` resolves inside any teleported
@@ -117,7 +105,7 @@ watch(
 
 <template>
   <v-app id="application" :class="{ 'mouse-hidden': consoleMode && mouseIdle }">
-    <v-main id="main" class="no-transition">
+    <v-main id="main" class="no-transition" :tag="isV2 ? 'div' : 'main'">
       <router-view v-if="!isV2" v-slot="{ Component }">
         <component :is="Component" />
         <!-- Fade out the app loading logo -->

@@ -1,16 +1,17 @@
 <script setup lang="ts">
-// LanguageSelector — wraps the language store in an RSelect so it
+// LanguageSelector: wraps the language store in an RSelect so it
 // shares aesthetics with every other v2 select (status picker on the
-// Overview tab, etc). Persists the choice via useUISettings + sets the
-// vue-i18n locale.
+// Overview tab, etc). Persists the choice via useUISettings, with "Auto"
+// following the browser's language.
 //
 // Two looks:
-//   • Default — compact pill, used on Auth/Pair shells.
-//   • `prefixLabel` — full-width prefix-label field, used in Settings.
+//   • Default: compact pill, used on Auth/Pair shells.
+//   • `prefixLabel`: full-width prefix-label field, used in Settings.
 import { RIcon, RSelect } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { useDetectedLanguage } from "@/composables/useBrowserLocale";
 import { useUISettings } from "@/composables/useUISettings";
 import storeLanguage from "@/stores/language";
 
@@ -21,25 +22,32 @@ interface Props {
 }
 withDefaults(defineProps<Props>(), { prefixLabel: false });
 
-// Global scope is explicit because this write switches the whole app:
-// an <i18n> block in this SFC would otherwise flip it to component-local.
-const { t, locale } = useI18n({ useScope: "global" });
-const languageStore = storeLanguage();
-const { languages, selectedLanguage } = storeToRefs(languageStore);
-const { locale: localeStorage } = useUISettings();
+const { t } = useI18n();
+const { languages } = storeToRefs(storeLanguage());
+const { locale: storedLocale } = useUISettings();
+const detectedLanguage = useDetectedLanguage();
 
-const items = computed(() =>
-  languages.value.map((l) => ({ value: l.value, title: l.name })),
-);
+// An empty stored locale means "Auto": useBrowserLocale (mounted at the app
+// root) applies whatever is stored, so writing here is enough to switch.
+const AUTO = "auto";
+
+const items = computed(() => [
+  {
+    value: AUTO,
+    title: t("settings.language-auto", {
+      language: detectedLanguage.value.name,
+    }),
+  },
+  ...languages.value.map((l) => ({ value: l.value, title: l.name })),
+]);
 
 const currentValue = computed({
-  get: () => selectedLanguage.value.value,
+  get: () =>
+    languages.value.some((l) => l.value === storedLocale.value)
+      ? storedLocale.value
+      : AUTO,
   set: (next: string) => {
-    const lang = languages.value.find((l) => l.value === next);
-    if (!lang) return;
-    selectedLanguage.value = lang;
-    locale.value = lang.value;
-    localeStorage.value = lang.value;
+    storedLocale.value = next === AUTO ? "" : next;
   },
 });
 </script>

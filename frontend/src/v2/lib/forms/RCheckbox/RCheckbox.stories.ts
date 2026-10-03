@@ -141,7 +141,7 @@ export const MultiState: Story = {
   },
 };
 
-// The override flavour cycles through four states — inherit, grant
+// The override flavour cycles through four states: inherit, grant
 // (primary), grant-own (accent), revoke (danger).
 export const MultiStateLadder: Story = {
   name: "Multi-state ladder (4-state override)",
@@ -397,6 +397,34 @@ export const Bare: Story = {
   },
 };
 
+export const Decorative: Story = {
+  render: () => ({
+    components: { RCheckbox },
+    setup: () => ({ checked: ref(true) }),
+    template: `
+      <button
+        type="button"
+        role="checkbox"
+        :aria-checked="checked"
+        aria-label="Chrono Trigger"
+        style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px"
+        @click="checked = !checked"
+      >
+        <RCheckbox :model-value="checked" decorative bare hide-details shape="circle" />
+        Chrono Trigger
+      </button>
+    `,
+  }),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Use `decorative` when an enclosing control owns the state, such as a selectable card: the box mirrors it with no input of its own.",
+      },
+    },
+  },
+};
+
 // ── Motion ──────────────────────────────────────────────────────────
 
 export const Toggle: Story = {
@@ -437,7 +465,7 @@ export const Group: Story = {
   }),
 };
 
-// ── Real-world — "select all" indeterminate ─────────────────────────
+// ── Real-world: "select all" indeterminate ─────────────────────────
 
 export const SelectAll: Story = {
   name: "Select-all (indeterminate header)",

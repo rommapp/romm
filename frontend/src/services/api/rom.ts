@@ -236,7 +236,8 @@ export interface GetRomsParams {
   signal?: AbortSignal;
 }
 
-async function getRoms({
+/** The `/roms` query string for `params`, shared with the cached client. */
+export function buildGetRomsQuery({
   platformIds = null,
   collectionId = null,
   virtualCollectionId = null,
@@ -293,9 +294,8 @@ async function getRoms({
   withFilterValues = undefined,
   withRomIdIndex = undefined,
   withTotal = undefined,
-  signal = undefined,
-}: GetRomsParams) {
-  const params = {
+}: Omit<GetRomsParams, "signal">) {
+  return {
     platform_ids:
       platformIds && platformIds.length > 0 ? platformIds : undefined,
     collection_id: collectionId,
@@ -436,9 +436,11 @@ async function getRoms({
       : {}),
     ...(withTotal !== undefined ? { with_total: withTotal } : {}),
   };
+}
 
+async function getRoms({ signal, ...params }: GetRomsParams) {
   return api.get<GetRomsResponse>(`/roms`, {
-    params,
+    params: buildGetRomsQuery(params),
     signal,
   });
 }
@@ -529,7 +531,7 @@ async function getRomSimple({
   romId: number;
   signal?: AbortSignal;
 }) {
-  // `/roms/{id}/simple` — returns `SimpleRomSchema` with no eager-loaded
+  // `/roms/{id}/simple`: returns `SimpleRomSchema` with no eager-loaded
   // notes / saves / states / screenshots / collections arrays. Designed
   // for the v2 gallery card's per-card fetch path. Detail-level data is
   // pulled on demand (game details page, quick-note dialog open).
@@ -624,11 +626,31 @@ function triggerFileDownload(href: string) {
 async function downloadRom({
   rom,
   fileIDs = [],
+  format,
 }: {
   rom: SimpleRom;
   fileIDs?: number[];
+  format?: string;
 }) {
-  return triggerFileDownload(getDownloadPath({ rom, fileIDs }));
+  return triggerFileDownload(getDownloadPath({ rom, fileIDs, format }));
+}
+
+/** Ask for one byte of a `?format=` download, which starts its conversion.
+ *  206/200 once it can be served, 202 while it converts, 406 when it can't be. */
+async function probeFormatDownload(href: string) {
+  const response = await api.get(href, {
+    // `href` is a full `/api` path.
+    baseURL: "",
+    headers: { Range: "bytes=0-0" },
+    responseType: "blob",
+    validateStatus: (status) => status < 500,
+  });
+  const retryAfter = Number(response.headers["retry-after"]);
+  return {
+    status: response.status,
+    retryAfterSeconds:
+      Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
+  };
 }
 
 // A platform/collection selector is expanded server-side into the full ROM
@@ -1080,6 +1102,7 @@ export default {
   getRandomRom,
   getRomByMetadataProvider,
   downloadRom,
+  probeFormatDownload,
   bulkDownloadRoms,
   searchRom,
   createPhysicalRom,

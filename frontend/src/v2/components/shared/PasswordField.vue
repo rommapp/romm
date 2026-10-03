@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PasswordField — RTextField pre-wired with the password show/hide eye
+// PasswordField: RTextField pre-wired with the password show/hide eye
 // toggle (with tooltip) and a reveal animation. Uses the primitive's
 // native append-inner adornment + tooltip; no slot workaround.
 //
@@ -8,7 +8,8 @@
 // swap is visually softened. The toggle icon flips on Y so its own
 // eye/eye-off swap is hidden mid-rotation.
 import { RTextField } from "@v2/lib";
-import { computed, onBeforeUnmount, ref } from "vue";
+import { useTimeoutFn } from "@vueuse/core";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
@@ -53,42 +54,36 @@ const toggleLabel = computed(() =>
 const REVEAL_MS = 240;
 const SWAP_AT_MS = 110;
 
-let swapTimer: number | null = null;
-let endTimer: number | null = null;
-
-function clearTimers() {
-  if (swapTimer != null) {
-    window.clearTimeout(swapTimer);
-    swapTimer = null;
-  }
-  if (endTimer != null) {
-    window.clearTimeout(endTimer);
-    endTimer = null;
-  }
-}
+const { start: scheduleSwap, stop: cancelSwap } = useTimeoutFn(
+  () => {
+    visible.value = !visible.value;
+  },
+  SWAP_AT_MS,
+  { immediate: false },
+);
+const { start: scheduleEnd, stop: cancelEnd } = useTimeoutFn(
+  () => {
+    revealing.value = false;
+  },
+  REVEAL_MS,
+  { immediate: false },
+);
 
 function onToggle() {
   if (props.disabled) return;
-  clearTimers();
+  cancelSwap();
+  cancelEnd();
   // Restart cleanly: drop the class for one frame so the keyframes
   // re-run instead of being collapsed when clicks land back-to-back.
   revealing.value = false;
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       revealing.value = true;
-      swapTimer = window.setTimeout(() => {
-        visible.value = !visible.value;
-        swapTimer = null;
-      }, SWAP_AT_MS);
-      endTimer = window.setTimeout(() => {
-        revealing.value = false;
-        endTimer = null;
-      }, REVEAL_MS);
+      scheduleSwap();
+      scheduleEnd();
     });
   });
 }
-
-onBeforeUnmount(clearTimers);
 </script>
 
 <template>
@@ -111,9 +106,9 @@ onBeforeUnmount(clearTimers);
   >
     <!-- Forward every consumer-provided RTextField slot (prefix-label,
          prepend-inner, subtitle, details, …) without having to enumerate
-         them. The append-inner slot is intentionally NOT forwarded — we
+         them. The append-inner slot is intentionally NOT forwarded: we
          own that adornment to render the eye toggle. -->
-    <template v-for="(_, slot) of $slots" v-slot:[slot]="scope" :key="slot">
+    <template v-for="(_, slot) of $slots" #[slot]="scope" :key="slot">
       <slot v-if="slot !== 'append-inner'" :name="slot" v-bind="scope" />
     </template>
   </RTextField>
@@ -123,12 +118,12 @@ onBeforeUnmount(clearTimers);
 /* ── Reveal animation ─────────────────────────────────────────────
    The `.r-password-field--revealing` class is applied on RTextField's
    root for ~500ms after each toggle. We drive three things off it:
-     1. The input text — strong blur + slight scale wobble. The
+     1. The input text: strong blur + slight scale wobble. The
         underlying `type` swap (password ↔ text) lands at the blur
         peak so the glyph change is hidden behind the blur.
-     2. The append-inner adornment icon (eye/eye-off) — Y-axis flip
+     2. The append-inner adornment icon (eye/eye-off): Y-axis flip
         with a small scale pulse, hiding the icon swap mid-rotation.
-     3. The prepend-inner adornment icon (lock by default) — short
+     3. The prepend-inner adornment icon (lock by default): short
         sway, so the field as a whole reads as "something happened".
    `:deep()` is required because the targeted nodes live inside
    RTextField's own scoped style tree. */

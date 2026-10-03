@@ -2,9 +2,7 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import AssetEditDialog from "./AssetEditDialog.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/locales", () => ({
   default: { global: { t: (key: string) => key } },
 }));

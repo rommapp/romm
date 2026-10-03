@@ -34,7 +34,6 @@ function clearedPattern(callIndex = 0): string {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
   vi.mocked(cacheService.request).mockResolvedValue({
     data: { items: [] },
   } as AxiosResponse);
@@ -78,5 +77,34 @@ describe("home row cache invalidation", () => {
     await cachedApiService.clearRecentPlayedRomsCache();
 
     expect(cacheKeyFor(requestParams())).toContain(clearedPattern());
+  });
+});
+
+describe("gallery request", () => {
+  it("sends every gallery filter the uncached client maps", async () => {
+    const params = {
+      platformIds: [1],
+      selectedPublishers: ["Nintendo"],
+      filterSoundtrack: true,
+      filterPhysical: false,
+      hltbMainStoryMin: 3600,
+      hltbMainStoryMax: 7200,
+      releasedDays: ["12-25"],
+      releasedBeforeYear: 2000,
+      withTotal: false,
+    };
+
+    await cachedApiService.getRoms(params, noop);
+
+    expect(requestParams()).toMatchObject({
+      publishers: ["Nintendo"],
+      has_soundtrack: true,
+      physical: false,
+      hltb_main_story_min: 3600,
+      hltb_main_story_max: 7200,
+      released_days: ["12-25"],
+      released_before_year: 2000,
+      with_total: false,
+    });
   });
 });

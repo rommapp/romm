@@ -13,7 +13,7 @@ from models.rom import Rom
 from .base_handler import DBBaseHandler
 
 # Default for a `query` parameter that with_firmware fills before the body runs.
-INJECTED_PLATFORM_QUERY = cast(Select[tuple[Platform]], None)
+INJECTED_PLATFORM_QUERY = cast(Select[Platform], None)
 
 
 def with_firmware[**P, R](func: Callable[P, R]) -> Callable[P, R]:
@@ -33,7 +33,7 @@ class DBPlatformsHandler(DBBaseHandler):
     def add_platform(
         self,
         platform: Platform,
-        query: Select[tuple[Platform]] = INJECTED_PLATFORM_QUERY,
+        query: Select[Platform] = INJECTED_PLATFORM_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Platform:
         platform = session.merge(platform)
@@ -61,7 +61,7 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platform(
         self,
         id: int,
-        query: Select[tuple[Platform]] = INJECTED_PLATFORM_QUERY,
+        query: Select[Platform] = INJECTED_PLATFORM_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Platform | None:
         return session.scalar(query.filter_by(id=id).limit(1))
@@ -72,7 +72,7 @@ class DBPlatformsHandler(DBBaseHandler):
         self,
         updated_after: datetime | None = None,
         hidden_platform_ids: Collection[int] | None = None,
-        query: Select[tuple[Platform]] = INJECTED_PLATFORM_QUERY,
+        query: Select[Platform] = INJECTED_PLATFORM_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[Platform]:
         if updated_after:
@@ -104,7 +104,7 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platform_by_fs_slug(
         self,
         fs_slug: str,
-        query: Select[tuple[Platform]] = INJECTED_PLATFORM_QUERY,
+        query: Select[Platform] = INJECTED_PLATFORM_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Platform | None:
         platform = session.scalar(query.filter_by(fs_slug=fs_slug).limit(1))
@@ -122,7 +122,7 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platform_by_slug(
         self,
         slug: str,
-        query: Select[tuple[Platform]] = INJECTED_PLATFORM_QUERY,
+        query: Select[Platform] = INJECTED_PLATFORM_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Platform | None:
         return session.scalar(query.filter_by(slug=slug).limit(1))

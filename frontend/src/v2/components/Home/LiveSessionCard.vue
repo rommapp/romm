@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// LiveSessionCard — a multiplayer streaming session another user is hosting
+// LiveSessionCard: a multiplayer streaming session another user is hosting
 // right now, shown on the Home row. Clicking asks to join and then opens
 // the stream as a viewer.
 import { RChip, RIcon } from "@v2/lib";

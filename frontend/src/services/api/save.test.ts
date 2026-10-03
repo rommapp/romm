@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema } from "@/__generated__";
 import saveApi, { UNLOAD_SAVE_MAX_BYTES } from "@/services/api/save";
 import { saveFixture } from "@/utils/assets.fixtures";
@@ -33,11 +33,6 @@ describe("sendSaveOnUnload", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
     document.cookie = "romm_csrftoken=token";
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    fetchMock.mockClear();
   });
 
   it("opens a version with a keepalive request the page does not wait for", () => {

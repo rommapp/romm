@@ -1,15 +1,16 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { nextTick, ref } from "vue";
 import storeAuth from "@/stores/auth";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import { stubResizeObserver } from "@/test-utils/resizeObserver";
 import { collectionFixture } from "@/utils/collection.fixtures";
 import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import SelectionBar from "./SelectionBar.vue";
+import { selectionBarOutline } from "./selectionBarOutline";
 
 const {
   addRomsToCollection,
@@ -19,6 +20,7 @@ const {
   selectAll,
   snackbarError,
   snackbarSuccess,
+  updateUserRomProps,
 } = vi.hoisted(() => ({
   addRomsToCollection: vi.fn(),
   createCollection: vi.fn(),
@@ -27,6 +29,7 @@ const {
   selectAll: vi.fn(),
   snackbarError: vi.fn(),
   snackbarSuccess: vi.fn(),
+  updateUserRomProps: vi.fn(),
 }));
 
 // The whole-result behavior is covered by the composable's own tests;
@@ -41,12 +44,7 @@ vi.mock("@/v2/composables/useGallerySelectAll", () => ({
 
 // `t` echoes the key plus its params so a test can assert *which* message was
 // shown -- the whole point of the add/remove polarity cases.
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string, params?: Record<string, unknown>) =>
-      params ? `${key}::${JSON.stringify(params)}` : key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 // Importing the real router also pulls in its lazy auth views, which can still
 // be loading when the test environment tears down.
@@ -64,6 +62,13 @@ vi.mock("@/services/api/collection", () => ({
     removeRomsFromCollection,
   },
 }));
+
+vi.mock("@/services/api/rom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/api/rom")>();
+  return {
+    default: { ...actual.default, updateUserRomProps },
+  };
+});
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({
@@ -100,7 +105,10 @@ function select(...roms: SimpleRom[]) {
   roms.forEach((r, i) => selection.toggle(r, i));
 }
 
-function mountBar(props: { hideDownload?: boolean } = {}) {
+function mountBar(
+  props: { hideDownload?: boolean } = {},
+  extraStubs: Record<string, unknown> = {},
+) {
   return mount(SelectionBar, {
     props,
     global: {
@@ -120,6 +128,7 @@ function mountBar(props: { hideDownload?: boolean } = {}) {
         RMenuItem: true,
         RIcon: true,
         RDivider: true,
+        ...extraStubs,
       },
     },
   });
@@ -140,9 +149,7 @@ async function clickHeart(wrapper: VueWrapper) {
 
 describe("SelectionBar bulk favorite", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     storeAuth().setCurrentUser(userFixture());
-    vi.clearAllMocks();
   });
 
   it("creates the favourites collection when the instance has none", async () => {
@@ -156,7 +163,7 @@ describe("SelectionBar bulk favorite", () => {
     expect(createCollection).toHaveBeenCalledTimes(1);
     expect(addRomsToCollection).toHaveBeenCalledWith(7, [1, 2]);
     expect(snackbarSuccess).toHaveBeenCalledWith(
-      'gallery.selection-favorite-success::{"n":2}',
+      'gallery.selection-favorite-success:{"n":2}',
     );
     expect(snackbarError).not.toHaveBeenCalled();
   });
@@ -171,7 +178,7 @@ describe("SelectionBar bulk favorite", () => {
 
     expect(addRomsToCollection).toHaveBeenCalledWith(7, [1, 2]);
     expect(snackbarSuccess).toHaveBeenCalledWith(
-      'gallery.selection-favorite-success::{"n":2}',
+      'gallery.selection-favorite-success:{"n":2}',
     );
   });
 
@@ -185,7 +192,7 @@ describe("SelectionBar bulk favorite", () => {
 
     expect(removeRomsFromCollection).toHaveBeenCalledWith(7, [1, 2]);
     expect(snackbarSuccess).toHaveBeenCalledWith(
-      'gallery.selection-unfavorite-success::{"n":2}',
+      'gallery.selection-unfavorite-success:{"n":2}',
     );
   });
 
@@ -200,7 +207,7 @@ describe("SelectionBar bulk favorite", () => {
     expect(addRomsToCollection).toHaveBeenCalledWith(7, [1, 2]);
     expect(removeRomsFromCollection).not.toHaveBeenCalled();
     expect(snackbarSuccess).toHaveBeenCalledWith(
-      'gallery.selection-favorite-success::{"n":2}',
+      'gallery.selection-favorite-success:{"n":2}',
     );
   });
 
@@ -282,11 +289,6 @@ describe("SelectionBar bulk favorite", () => {
 });
 
 describe("SelectionBar download", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
-  });
-
   it("offers the download action by default", () => {
     select(rom(1));
 
@@ -309,11 +311,6 @@ describe("SelectionBar download", () => {
 });
 
 describe("SelectionBar select all", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
-  });
-
   it("triggers the whole-result select-all", async () => {
     select(rom(1));
     const wrapper = mountBar();
@@ -332,8 +329,71 @@ describe("SelectionBar select all", () => {
 
     expect(
       wrapper
-        .find("[aria-label='gallery.selection-select-all-count::{\"n\":42}']")
+        .find("[aria-label='gallery.selection-select-all-count:{\"n\":42}']")
         .exists(),
     ).toBe(true);
+  });
+});
+
+describe("SelectionBar bulk status", () => {
+  it("ignores a status choice while the previous batch is running", async () => {
+    let finish: () => void = () => {};
+    updateUserRomProps.mockImplementation(
+      () => new Promise<void>((resolve) => (finish = resolve)),
+    );
+    select(rom(1));
+    const wrapper = mountBar(
+      {},
+      {
+        RMenu: { template: "<div><slot /></div>" },
+        RMenuItem: {
+          props: { disabled: Boolean },
+          emits: ["click"],
+          template:
+            "<button class='status-item' :disabled='disabled' @click=\"$emit('click')\"><slot /></button>",
+        },
+      },
+    );
+    const [first, second] = wrapper.findAll(".status-item");
+
+    await first.trigger("click");
+    await second.trigger("click");
+    expect(updateUserRomProps).toHaveBeenCalledTimes(1);
+    expect(second.attributes("disabled")).toBeDefined();
+
+    finish();
+    await flushPromises();
+    await second.trigger("click");
+    expect(updateUserRomProps).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("SelectionBar outline", () => {
+  beforeEach(() => {
+    storeAuth().setCurrentUser(userFixture());
+  });
+
+  it("draws the outline from the bar's and notch's measured sizes", async () => {
+    const observer = stubResizeObserver();
+    const wrapper = mountBar();
+    await flushPromises();
+    expect(wrapper.find(".selection-bar__outline").exists()).toBe(false);
+
+    // Padding makes each border box bigger than its content box; the outline
+    // has to trace the border box.
+    observer.resize(wrapper.get(".selection-bar").element, 580, 40, {
+      width: 600,
+      height: 48,
+    });
+    observer.resize(wrapper.get(".selection-bar__notch").element, 48, 32, {
+      width: 64,
+      height: 40,
+    });
+    await nextTick();
+
+    const expected = selectionBarOutline({ w: 600, h: 48 }, { w: 64, h: 40 });
+    const svg = wrapper.get(".selection-bar__outline");
+    expect(svg.attributes("width")).toBe(String(expected?.width));
+    expect(svg.get("path").attributes("d")).toBe(expected?.d);
   });
 });

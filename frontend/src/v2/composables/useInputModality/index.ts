@@ -2,7 +2,7 @@
 //
 // Tracks the user's last-used input device and exposes it as a reactive ref.
 // Writes `data-input` on <html> so CSS can adapt focus rings, hit targets,
-// and hint visibility per modality. A single shared instance is enough —
+// and hint visibility per modality. A single shared instance is enough:
 // install() from the root layout mounts listeners once.
 import { readonly, ref } from "vue";
 
@@ -44,7 +44,7 @@ export function useInputModality() {
 
     applyAttribute(modality.value);
 
-    // Mouse handlers — split because, once the user is on a gamepad,
+    // Mouse handlers: split because, once the user is on a gamepad,
     // we want the mouse to "disappear": tiny accidental nudges of a
     // couch-side mouse shouldn't paint hover states on top of the
     // focused tile. Only a deliberate click (mousedown) flips the
@@ -72,7 +72,7 @@ export function useInputModality() {
       // useGamepad's synthetic arrows are pad input, not keyboard.
       if (!e.isTrusted) return;
       // Ignore modifier-only presses and clicks that happen to be keyboard-
-      // triggered — what we care about is real navigational keys.
+      // triggered: what we care about is real navigational keys.
       if (
         e.key === "Tab" ||
         e.key.startsWith("Arrow") ||
@@ -89,7 +89,7 @@ export function useInputModality() {
     // type takes over.
     const onGamepad = () => setModality("pad");
 
-    // App-lifetime singleton listeners — installed from whichever top-level
+    // App-lifetime singleton listeners: installed from whichever top-level
     // layout mounts first (AppLayout or AuthLayout) and intentionally never
     // removed, so the modality keeps tracking across a layout swap. Tearing
     // them down on the first installer's unmount would drop `data-input`
@@ -102,7 +102,7 @@ export function useInputModality() {
     window.addEventListener("gamepadconnected", onGamepad);
 
     // Retained only so HMR can drop the listeners on a hot update instead of
-    // stacking a second set. In production this is never invoked — the
+    // stacking a second set. In production this is never invoked: the
     // listeners are app-lifetime by design (see the note above).
     teardown = () => {
       window.removeEventListener("mousemove", onMouseMove);

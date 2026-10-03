@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ChangePasswordDialog — replaces the inline password field that lived
+// ChangePasswordDialog: replaces the inline password field that lived
 // in v1's UserProfile form. Two fields (new + confirm) with matching
 // validation; the API call is `userApi.updateUser({ id, password })`.
 //

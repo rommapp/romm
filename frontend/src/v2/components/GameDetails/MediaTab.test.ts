@@ -1,14 +1,11 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import { createMemoryHistory, createRouter, type Router } from "vue-router";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
 import MediaTab from "./MediaTab.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/v2/composables/useRomSync", () => ({
   useRomSync: () => ({ refetchRom: vi.fn() }),
 }));
@@ -86,10 +83,6 @@ async function selectSubtab(subtab: string) {
 }
 
 describe("MediaTab PDF viewer ownership", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("lets only the visited PDF subtab mount a viewer", async () => {
     const wrapper = await mountTab();
     expect(pdfActive(wrapper)).toEqual({ manual: true, walkthrough: false });

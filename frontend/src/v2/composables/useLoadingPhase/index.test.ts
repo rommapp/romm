@@ -20,7 +20,6 @@ describe("useLoadingPhase", () => {
 
   afterEach(() => {
     scopes.splice(0).forEach((scope) => scope.stop());
-    vi.useRealTimers();
   });
 
   it("settles on content straight away", () => {

@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storePlatforms from "@/stores/platforms";
 import { serverError } from "@/test-utils/serverError";
@@ -17,12 +16,7 @@ const { getFirmware, runTask, getTaskById, confirm, snackbarError } =
 vi.mock("@/services/api/firmware", () => ({ default: { getFirmware } }));
 vi.mock("@/services/api/task", () => ({ default: { runTask, getTaskById } }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string, params?: Record<string, unknown>) =>
-      params ? `${key}::${JSON.stringify(params)}` : key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirm,
@@ -94,7 +88,6 @@ async function selectPlatforms(
 
 describe("MissingFirmwareSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     seedPlatforms();
     runTask.mockReset();
     runTask.mockResolvedValue({ data: { task_id: "job-1" } });
@@ -255,7 +248,7 @@ describe("MissingFirmwareSection", () => {
     await flushPromises();
 
     expect(snackbarError).toHaveBeenCalledWith(
-      'settings.couldnt-queue-cleanup::{"error":"No task worker is listening"}',
+      'settings.couldnt-queue-cleanup:{"error":"No task worker is listening"}',
     );
   });
 
@@ -265,7 +258,7 @@ describe("MissingFirmwareSection", () => {
     await flushPromises();
 
     expect(snackbarError).toHaveBeenCalledWith(
-      'settings.couldnt-fetch-missing-firmware::{"error":"Database unavailable"}',
+      'settings.couldnt-fetch-missing-firmware:{"error":"Database unavailable"}',
     );
   });
 });

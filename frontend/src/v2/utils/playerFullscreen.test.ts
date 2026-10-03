@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { installFullscreenFallback } from "./playerFullscreen";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { installFullscreenFallback, leaveFullscreen } from "./playerFullscreen";
 
 // happy-dom ships no Fullscreen API, so the fallback installs by default here
 // and a test opts into the native path by defining the method itself.
@@ -121,5 +121,45 @@ describe("installFullscreenFallback", () => {
     expect("requestFullscreen" in HTMLElement.prototype).toBe(false);
     expect(document.head.querySelectorAll("style")).toHaveLength(styleCount);
     expect(el.hasAttribute("data-fullscreen-fallback")).toBe(false);
+  });
+});
+
+describe("leaveFullscreen", () => {
+  it("does nothing outside fullscreen", async () => {
+    dispose = installFullscreenFallback();
+    const exit = vi.spyOn(document, "exitFullscreen");
+
+    await leaveFullscreen();
+
+    expect(exit).not.toHaveBeenCalled();
+  });
+
+  it("resolves once the document is out of fullscreen", async () => {
+    dispose = installFullscreenFallback();
+    await mountStage().requestFullscreen();
+
+    await leaveFullscreen();
+
+    expect(document.fullscreenElement).toBeNull();
+  });
+
+  it("resolves when the exit rejects", async () => {
+    dispose = installFullscreenFallback();
+    await mountStage().requestFullscreen();
+    document.exitFullscreen = () => Promise.reject(new Error("denied"));
+
+    await expect(leaveFullscreen()).resolves.toBeUndefined();
+  });
+
+  it("stops waiting on an exit that never settles", async () => {
+    vi.useFakeTimers();
+    dispose = installFullscreenFallback();
+    await mountStage().requestFullscreen();
+    document.exitFullscreen = () => new Promise<void>(() => {});
+
+    const left = leaveFullscreen();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    await expect(left).resolves.toBeUndefined();
   });
 });

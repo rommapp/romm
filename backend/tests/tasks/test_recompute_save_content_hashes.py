@@ -16,10 +16,10 @@ from pathlib import Path
 
 import pytest
 from tests._zipfile_shim import reload_zipfile
+from tests.factories import make_save
 
 from handler.database import db_save_handler
 from handler.filesystem import fs_asset_handler
-from models.assets import Save
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -60,9 +60,9 @@ class TestRecomputeSaveContentHashesTask:
         )
 
     def test_init(self, task: RecomputeSaveContentHashesTask):
-        assert task.title == "Recompute save content hashes"
-        assert task.manual_run is True
-        assert task.cron_string is None
+        assert task.spec.title == "Recompute save content hashes"
+        assert task.spec.manual_run is True
+        assert task.spec.cron_string is None
 
     async def test_correct_hash_is_unchanged(
         self,
@@ -78,20 +78,15 @@ class TestRecomputeSaveContentHashesTask:
         zip_path = isolated_assets_dir / rel_dir / file_name
         _write_fixture_a_zip(zip_path)
 
-        save = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=file_name,
-                file_name_no_tags="correct",
-                file_name_no_ext="correct",
-                file_extension="zip",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=rel_dir,
-                file_size_bytes=zip_path.stat().st_size,
-                content_hash=FIXTURE_A_PINNED_HASH,
-            )
+        save = make_save(
+            rom,
+            admin_user,
+            file_name,
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=rel_dir,
+            file_size_bytes=zip_path.stat().st_size,
+            content_hash=FIXTURE_A_PINNED_HASH,
         )
 
         stats = await task.run()
@@ -126,20 +121,15 @@ class TestRecomputeSaveContentHashesTask:
         stale_raw_md5 = hashlib.md5(raw_bytes, usedforsecurity=False).hexdigest()
         assert stale_raw_md5 != FIXTURE_A_PINNED_HASH
 
-        save = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=file_name,
-                file_name_no_tags="stale",
-                file_name_no_ext="stale",
-                file_extension="zip",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=rel_dir,
-                file_size_bytes=zip_path.stat().st_size,
-                content_hash=stale_raw_md5,
-            )
+        save = make_save(
+            rom,
+            admin_user,
+            file_name,
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=rel_dir,
+            file_size_bytes=zip_path.stat().st_size,
+            content_hash=stale_raw_md5,
         )
 
         stats = await task.run()
@@ -176,20 +166,15 @@ class TestRecomputeSaveContentHashesTask:
         assert not zipfile.is_zipfile(sav_path)
 
         raw_md5 = hashlib.md5(sav_bytes, usedforsecurity=False).hexdigest()
-        save = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=file_name,
-                file_name_no_tags="raw_correct",
-                file_name_no_ext="raw_correct",
-                file_extension="sav",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=rel_dir,
-                file_size_bytes=sav_path.stat().st_size,
-                content_hash=raw_md5,
-            )
+        save = make_save(
+            rom,
+            admin_user,
+            file_name,
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=rel_dir,
+            file_size_bytes=sav_path.stat().st_size,
+            content_hash=raw_md5,
         )
 
         stats = await task.run()
@@ -228,20 +213,15 @@ class TestRecomputeSaveContentHashesTask:
         stale_hash = "0" * 32
         assert stale_hash != raw_md5
 
-        save = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=file_name,
-                file_name_no_tags="raw_stale",
-                file_name_no_ext="raw_stale",
-                file_extension="sav",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=rel_dir,
-                file_size_bytes=sav_path.stat().st_size,
-                content_hash=stale_hash,
-            )
+        save = make_save(
+            rom,
+            admin_user,
+            file_name,
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=rel_dir,
+            file_size_bytes=sav_path.stat().st_size,
+            content_hash=stale_hash,
         )
 
         stats = await task.run()
@@ -279,20 +259,15 @@ class TestRecomputeSaveContentHashesTask:
         sav_path.write_bytes(b"spy on me")
         assert not zipfile.is_zipfile(sav_path)
 
-        db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=file_name,
-                file_name_no_tags="raw_spy",
-                file_name_no_ext="raw_spy",
-                file_extension="sav",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=rel_dir,
-                file_size_bytes=sav_path.stat().st_size,
-                content_hash="anything",
-            )
+        make_save(
+            rom,
+            admin_user,
+            file_name,
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=rel_dir,
+            file_size_bytes=sav_path.stat().st_size,
+            content_hash="anything",
         )
 
         original_file_hash = fs_asset_handler._compute_file_hash
@@ -329,20 +304,15 @@ class TestRecomputeSaveContentHashesTask:
         file_name = "ghost.zip"
 
         original_hash = "deadbeefdeadbeefdeadbeefdeadbeef"
-        save = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=file_name,
-                file_name_no_tags="ghost",
-                file_name_no_ext="ghost",
-                file_extension="zip",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=rel_dir,
-                file_size_bytes=1,
-                content_hash=original_hash,
-            )
+        save = make_save(
+            rom,
+            admin_user,
+            file_name,
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=rel_dir,
+            file_size_bytes=1,
+            content_hash=original_hash,
         )
 
         # Sanity: ensure the file really isn't on disk.
@@ -372,20 +342,15 @@ class TestRecomputeSaveContentHashesTask:
         rel_dir = f"{platform.fs_slug}/saves/test_emulator"
         file_name = "fixture_a.zip"
         _write_fixture_a_zip(isolated_assets_dir / rel_dir / file_name)
-        save = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=file_name,
-                file_name_no_tags="fixture_a",
-                file_name_no_ext="fixture_a",
-                file_extension="zip",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=rel_dir,
-                file_size_bytes=1,
-                content_hash="00000000000000000000000000000000",
-            )
+        save = make_save(
+            rom,
+            admin_user,
+            file_name,
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=rel_dir,
+            file_size_bytes=1,
+            content_hash="00000000000000000000000000000000",
         )
 
         async def upload_lands_mid_hash(_path: str) -> str:
@@ -419,20 +384,15 @@ class TestRecomputeSaveContentHashesTask:
         file_name = "fixture_a.zip"
         _write_fixture_a_zip(isolated_assets_dir / rel_dir / file_name)
 
-        db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=file_name,
-                file_name_no_tags="fixture_a",
-                file_name_no_ext="fixture_a",
-                file_extension="zip",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=rel_dir,
-                file_size_bytes=1,
-                content_hash="00000000000000000000000000000000",
-            )
+        make_save(
+            rom,
+            admin_user,
+            file_name,
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=rel_dir,
+            file_size_bytes=1,
+            content_hash="00000000000000000000000000000000",
         )
 
         mocker.patch.object(

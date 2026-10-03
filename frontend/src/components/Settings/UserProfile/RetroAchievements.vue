@@ -9,7 +9,7 @@ import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
-const valid = ref(false);
+const valid = ref<boolean | null>(false);
 const auth = storeAuth();
 const username = ref(auth.user?.ra_username);
 const syncing = ref(false);

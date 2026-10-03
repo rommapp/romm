@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CopyDownloadLinkDialog — fallback surface for `useGameActions.copyDownloadLink`
+// CopyDownloadLinkDialog: fallback surface for `useGameActions.copyDownloadLink`
 // when the Clipboard API isn't usable (insecure context, denied
 // permission, older browsers). Renders the link in a selectable box so
 // the user can copy it by hand, and offers a Retry button that tries
@@ -10,7 +10,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
-import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useClipboard } from "@/v2/composables/useClipboard";
 
 defineOptions({ inheritAttrs: false });
 
@@ -18,7 +18,7 @@ const { t } = useI18n();
 const show = ref(false);
 const link = ref("");
 const emitter = inject<Emitter<Events>>("emitter");
-const snackbar = useSnackbar();
+const clipboard = useClipboard();
 
 const openHandler = (downloadLink: string) => {
   link.value = downloadLink;
@@ -34,21 +34,13 @@ function closeDialog() {
 
 async function retryCopy() {
   if (!link.value) return;
-  if (navigator.clipboard && window.isSecureContext) {
-    try {
-      await navigator.clipboard.writeText(link.value);
-      snackbar.success(t("rom.snackbar-download-link-copied"), {
-        icon: "mdi-link-variant",
-      });
-      closeDialog();
-      return;
-    } catch {
-      // stays open so the user can still select the text manually
-    }
-  }
-  snackbar.error(t("rom.cant-copy-link"), {
-    icon: "mdi-alert-circle-outline",
+  const copied = await clipboard.copy(link.value, {
+    successMessage: t("rom.snackbar-download-link-copied"),
+    successIcon: "mdi-link-variant",
+    errorMessage: t("rom.cant-copy-link"),
   });
+  // On failure it stays open so the user can still select the text manually.
+  if (copied) closeDialog();
 }
 </script>
 

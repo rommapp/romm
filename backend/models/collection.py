@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from models.rom import Rom
     from models.user import User
 
+COLLECTION_NAME_MAX_LENGTH = 400
+
 
 class Collection(BaseModel):
     __tablename__ = "collections"
@@ -23,7 +25,7 @@ class Collection(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    name: Mapped[str] = mapped_column(String(length=400))
+    name: Mapped[str] = mapped_column(String(length=COLLECTION_NAME_MAX_LENGTH))
     description: Mapped[str | None] = mapped_column(Text)
     is_public: Mapped[bool] = mapped_column(default=False)
     is_favorite: Mapped[bool] = mapped_column(default=False)
@@ -213,10 +215,9 @@ class SmartCollection(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    name: Mapped[str] = mapped_column(String(length=400))
+    name: Mapped[str] = mapped_column(String(length=COLLECTION_NAME_MAX_LENGTH))
     description: Mapped[str | None] = mapped_column(Text)
     is_public: Mapped[bool] = mapped_column(default=False)
-    rom_count: Mapped[int] = mapped_column(default=0)
     rom_ids: Mapped[list[int]] = mapped_column(
         CustomJSON(), default=[], doc="Rom IDs that belong to this smart collection"
     )
@@ -237,6 +238,10 @@ class SmartCollection(BaseModel):
     @property
     def owner_username(self) -> str:
         return self.user.username
+
+    @property
+    def rom_count(self) -> int:
+        return len(self.rom_ids)
 
     @property
     def path_cover_small(self) -> str | None:

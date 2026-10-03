@@ -1,6 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, reactive, ref } from "vue";
 import type {
   PendingAssetKind,
@@ -54,9 +53,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   }),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const refetchRom = vi.fn(async () => null);
 vi.mock("@/v2/composables/useRomSync", () => ({
@@ -68,12 +65,9 @@ vi.mock("@/v2/composables/useServerConnection", () => ({
   useServerConnection: () => ({ isOffline, retryNow: vi.fn() }),
 }));
 
-// The composable only runs inside a component scope, like AppLayout's. The
-// wrapper is kept so each test's watcher dies with it, rather than answering
-// the next test's reconnect.
-let wrapper: ReturnType<typeof mount> | null = null;
+// The composable only runs inside a component scope, like AppLayout's.
 function install() {
-  wrapper = mount(
+  return mount(
     defineComponent({
       setup() {
         installPendingAssetSync();
@@ -90,24 +84,12 @@ async function settle() {
 
 describe("installPendingAssetSync", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.useFakeTimers();
     route.params = {};
     queue.entries = [];
     isOffline.value = false;
     syncPendingAssets.mockReset();
     syncPendingAssets.mockImplementation(acceptAll);
-    refetchRom.mockClear();
-    success.mockClear();
-    error.mockClear();
-    warning.mockClear();
-  });
-
-  afterEach(() => {
-    wrapper?.unmount();
-    wrapper = null;
-    vi.unstubAllGlobals();
-    vi.useRealTimers();
   });
 
   it("hands over what the browser is holding as soon as it installs", async () => {
@@ -148,6 +130,23 @@ describe("installPendingAssetSync", () => {
     expect(syncPendingAssets).toHaveBeenCalledTimes(2);
   });
 
+  it("stops retrying once the shell is gone", async () => {
+    syncPendingAssets.mockImplementation(async () => ({
+      synced: [],
+      dropped: [],
+    }));
+    queue.entries = [{ id: "1:a", romId: 1, kind: "save" as const }];
+
+    const shell = install();
+    await settle();
+    shell.unmount();
+    await vi.advanceTimersByTimeAsync(120_000);
+    await settle();
+
+    expect(syncPendingAssets).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   // The running session owns its save; nothing but this hands over a state.
   it("leaves a running game its own save but takes its states", async () => {
     queue.entries = [
@@ -186,7 +185,7 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(success).toHaveBeenCalledWith(
-      "play.last-save-synced",
+      'play.last-save-synced:{"game":"Game"}',
       expect.objectContaining({ image: null }),
     );
   });
@@ -198,7 +197,7 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(success).toHaveBeenCalledWith(
-      "play.last-state-synced",
+      'play.last-state-synced:{"game":"Game"}',
       expect.anything(),
     );
   });
@@ -226,7 +225,7 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(error).toHaveBeenCalledWith(
-      "play.save-sync-refused",
+      'play.save-sync-refused:{"game":"Game","reason":"Slot has a newer save"}',
       expect.anything(),
     );
     expect(success).not.toHaveBeenCalled();
@@ -255,7 +254,7 @@ describe("installPendingAssetSync", () => {
     await settle();
 
     expect(warning).toHaveBeenCalledWith(
-      "play.save-kept-apart",
+      'play.save-kept-apart:{"game":"Game"}',
       expect.anything(),
     );
     expect(success).not.toHaveBeenCalled();

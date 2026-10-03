@@ -28,7 +28,7 @@ import {
 installBreakpointAttribute();
 
 // Each story runs inside a Vue app with Pinia + i18n + Vuetify registered.
-// v2 primitives are Vuetify-free at runtime — Vuetify stays registered only
+// v2 primitives are Vuetify-free at runtime: Vuetify stays registered only
 // because some shared dependencies still pull it in. The visible theme for
 // v2 stories comes from the `.r-v2-dark` / `.r-v2-light` class toggled on
 // <html> by the theme switcher decorator below.

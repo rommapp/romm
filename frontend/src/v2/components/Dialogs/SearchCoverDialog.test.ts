@@ -23,9 +23,7 @@ const { searchCover, searchRom, heartbeat } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/services/api/sgdb", () => ({ default: { searchCover } }));
 vi.mock("@/services/api/rom", () => ({ default: { searchRom } }));
 vi.mock("@/stores/heartbeat", () => ({ default: () => heartbeat }));
@@ -129,7 +127,6 @@ function gridThumbs(
 
 describe("SearchCoverDialog", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     searchRom.mockResolvedValue({ data: [] });
   });
 

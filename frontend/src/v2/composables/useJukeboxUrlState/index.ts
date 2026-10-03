@@ -1,15 +1,11 @@
 // Two-way binding between the jukebox's browse state and the URL: the mode
 // is a path segment written with `push` (every subgroup is a history entry);
 // the selection inside a mode is query state written with `replace`.
-import { computed, ref, watch, type Ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
+import { useRouteQueryParam } from "@/v2/composables/useRouteQueryParam";
 import { parseJukeboxMode, type JukeboxMode } from "@/v2/utils/jukebox";
-import { patchQuery } from "@/v2/utils/routeQuery";
-
-function readParam(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
 
 export function useJukeboxUrlState() {
   const route = useRoute();
@@ -17,28 +13,12 @@ export function useJukeboxUrlState() {
 
   const mode = ref<JukeboxMode>(parseJukeboxMode(route.params.mode));
 
-  /** A ref mirrored into `?key=`; writes are merged by `patchQuery`. */
-  function queryRef(key: string): Ref<string> {
-    const state = ref(readParam(route.query[key]));
-    watch(
-      () => route.query[key],
-      (next) => {
-        const value = readParam(next);
-        if (value !== state.value) state.value = value;
-      },
-    );
-    watch(state, (value) => {
-      patchQuery(router, { [key]: value || undefined });
-    });
-    return state;
-  }
-
-  const search = queryRef("search");
-  const artist = queryRef("artist");
-  const genre = queryRef("genre");
-  const platform = queryRef("platform");
-  const decade = queryRef("decade");
-  const game = queryRef("game");
+  const search = useRouteQueryParam("search");
+  const artist = useRouteQueryParam("artist");
+  const genre = useRouteQueryParam("genre");
+  const platform = useRouteQueryParam("platform");
+  const decade = useRouteQueryParam("decade");
+  const game = useRouteQueryParam("game");
 
   /** The location for a mode, carrying only the selection params that make
    *  sense inside it so a copied link never holds a stale filter. */

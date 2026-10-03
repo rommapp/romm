@@ -1,5 +1,4 @@
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 
 function platform(id: number, displayName: string, romCount: number): Platform {
@@ -14,10 +13,6 @@ function platform(id: number, displayName: string, romCount: number): Platform {
 }
 
 describe("platform store lists", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("keeps empty platforms reachable from the Platforms index", () => {
     const store = storePlatforms();
     const empty = platform(1, "Game Boy", 0);

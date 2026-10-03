@@ -1,9 +1,5 @@
-import asyncio
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
-from uuid import uuid4
 
 from sqlalchemy import inspect as sa_inspect
 
@@ -11,7 +7,7 @@ from config.config_manager import config_manager as cm
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.filesystem.roms_handler import RomFileKey, rom_file_key
-from handler.redis_handler import async_cache
+from handler.redis_handler import redis_lock
 from handler.scan_handler import persist_soundtrack_cover
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -23,29 +19,8 @@ ROM_LEVEL_HASH_COLUMNS = ("crc_hash", "md5_hash", "sha1_hash", "ra_hash")
 # A refresh lists the folder and then deletes every row the listing missed, so
 # two of them running for the same rom (parallel uploads into one folder) would
 # let the slower listing drop what the faster one just registered. The lock
-# lives in Redis because the uploads may land on different gunicorn workers,
-# and is a plain SET NX so it also works without Lua scripting.
+# lives in Redis because the uploads may land on different gunicorn workers.
 REFRESH_LOCK_TIMEOUT_SECONDS = 600
-REFRESH_LOCK_POLL_SECONDS = 0.1
-
-
-@asynccontextmanager
-async def _refresh_lock(rom_id: int) -> AsyncIterator[None]:
-    key = f"rom_files_refresh:{rom_id}"
-    token = uuid4().hex
-    for _ in range(int(REFRESH_LOCK_TIMEOUT_SECONDS / REFRESH_LOCK_POLL_SECONDS)):
-        if await async_cache.set(key, token, nx=True, ex=REFRESH_LOCK_TIMEOUT_SECONDS):
-            break
-        await asyncio.sleep(REFRESH_LOCK_POLL_SECONDS)
-    else:
-        raise TimeoutError(f"Timed out waiting to refresh the files of ROM {rom_id}")
-    try:
-        yield
-    finally:
-        # Only the owner releases; an expired lock may belong to someone else.
-        held = await async_cache.get(key)
-        if held in (token, token.encode()):
-            await async_cache.delete(key)
 
 
 @dataclass(frozen=True)
@@ -65,6 +40,16 @@ class RomFilesRefresh:
         )
 
 
+def _extracted_state(rom_file: RomFile) -> tuple[Any, ...]:
+    """The columns title id extraction and rom-converto write onto a reused row."""
+    return (
+        rom_file.category,
+        rom_file.title_id,
+        rom_file.title_version,
+        rom_file.converto_read_at,
+    )
+
+
 def loaded_rom_files(rom: Rom) -> list[RomFile]:
     """The ROM's file rows, fetched on demand when the relationship is unloaded."""
     if "files" not in sa_inspect(rom).unloaded:
@@ -81,15 +66,17 @@ async def refresh_rom_files(rom: Rom) -> RomFilesRefresh:
     Returns:
         What changed, so callers can report it.
     """
-    async with _refresh_lock(rom.id):
+    async with redis_lock(
+        f"rom_files_refresh:{rom.id}", timeout_seconds=REFRESH_LOCK_TIMEOUT_SECONDS
+    ):
         return await _refresh(rom)
 
 
 async def _refresh(rom: Rom) -> RomFilesRefresh:
     existing = loaded_rom_files(rom)
-    # Extraction can settle a reused row's category in place, so that row is
-    # compared against the category it was loaded with.
-    reused_categories = {id(f): f.category for f in existing}
+    # Extraction can settle a reused row's category, title id and read time in
+    # place, so that row is compared against the values it was loaded with.
+    reused_state = {id(f): _extracted_state(f) for f in existing}
     cnfg = cm.get_config()
     calculate_hashes = not cnfg.SKIP_HASH_CALCULATION
     parsed = await fs_rom_handler.get_rom_files(
@@ -110,10 +97,7 @@ async def _refresh(rom: Rom) -> RomFilesRefresh:
     new_keys: set[RomFileKey] = set()
     updated_keys: set[RomFileKey] = set()
     for scanned in parsed.rom_files:
-        if (
-            id(scanned) in reused_categories
-            and reused_categories[id(scanned)] == scanned.category
-        ):
+        if reused_state.get(id(scanned)) == _extracted_state(scanned):
             continue
         key = rom_file_key(scanned)
         (updated_keys if key in existing_keys else new_keys).add(key)

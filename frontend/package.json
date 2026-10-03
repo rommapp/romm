@@ -26,8 +26,8 @@
     "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "vue-tsc --noEmit",
-    "typecheck:scripts": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck": "vue-tsc --build",
+    "typecheck:scripts": "tsc --build tsconfig.node.json",
     "typecheck:e2e": "tsc --noEmit -p e2e/tsconfig.json",
     "generate": "openapi --input http://127.0.0.1:3000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false",
     "test": "vitest run",
@@ -43,8 +43,9 @@
     "@floating-ui/vue": "^2.0.0",
     "@mdi/font": "7.4.47",
     "@vueuse/core": "^15.0.0",
-    "@zxing/browser": "^0.1.5",
-    "@zxing/library": "^0.21.3",
+    "@vueuse/integrations": "^15.0.0",
+    "@zxing/browser": "^0.2.0",
+    "@zxing/library": "^0.23.0",
     "axios": "^1.18.1",
     "bowser": "^2.14.1",
     "cronstrue": "^3.0.0",
@@ -53,7 +54,7 @@
     "lodash": "^4.18.1",
     "md-editor-v3": "^7.0.0",
     "mitt": "^3.0.1",
-    "pinia": "^3.0.1",
+    "pinia": "^4.0.0",
     "qrcode": "^1.5.4",
     "semver": "^7.6.2",
     "socket.io-client": "^4.7.5",
@@ -63,7 +64,7 @@
     "vue-i18n": "^11.1.10",
     "vue-router": "^5.3.1",
     "vue3-pdf-app": "^1.0.3",
-    "vuetify": "^3.9.2"
+    "vuetify": "^4.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -96,9 +97,9 @@
     "postcss": "^8.5.23",
     "storybook": "^10.2.19",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.56.1",
-    "vite": "^8.0.16",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.1",
+    "vite": "^8.3.1",
     "vite-plugin-mkcert": "^2.0.0",
     "vite-plugin-pwa": "^1.3.0",
     "vite-plugin-vuetify": "^2.0.4",
@@ -106,7 +107,7 @@
     "vue-tsc": "^3.3.11"
   },
   "overrides": {
-    "rolldown": "1.0.1",
+    "rolldown": "1.2.11",
     "esbuild": "^0.28.1",
     "form-data": "^4.0.6"
   },
@@ -114,5 +115,5 @@
     "node": "24",
     "npm": ">=11.10"
   },
-  "packageManager": "npm@11.13.0"
+  "packageManager": "npm@11.20.0"
 }

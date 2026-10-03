@@ -1,3 +1,4 @@
+import dataclasses
 import enum
 import functools
 import glob
@@ -14,6 +15,7 @@ import yaml
 from sqlalchemy import URL
 from yaml.loader import SafeLoader
 
+from adapters.services.rom_converto import normalize_platform_formats
 from config import (
     DB_HOST,
     DB_NAME,
@@ -401,6 +403,23 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
 VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 
 
+@dataclasses.dataclass
+class ConvertoConfig:
+    download_conversion_enabled: bool = False
+    scan_metadata: bool = True
+    cache_ttl_hours: int = 24
+    # 0 leaves the cache unbounded.
+    cache_max_size_gb: int = 20
+    platform_formats: dict[str, str] = dataclasses.field(default_factory=dict)
+
+
+# The smallest value each integer converto.* setting accepts.
+CONVERTO_INT_MINIMUMS: Final[dict[str, int]] = {
+    "cache_ttl_hours": 1,
+    "cache_max_size_gb": 0,
+}
+
+
 class EjsControls(TypedDict):
     _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
     _1: dict[int, EjsControlsButton]
@@ -506,6 +525,7 @@ class Config:
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
     STREAMING_ENABLED: bool
     STREAMING_CONTAINERS: list[StreamingContainer]
+    CONVERTO: ConvertoConfig
 
     def __init__(self, **entries: Any) -> None:
         self.__dict__.update(entries)
@@ -679,6 +699,23 @@ class ConfigManager:
             query=query,
         )
 
+    def _raw_exclude_list(self, path: str) -> list[str]:
+        """Read a user exclude list, exiting on anything but a list of strings."""
+        value = pydash.get(self._raw_config, path)
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            log.critical(f"Invalid config.yml: {path} must be a list")
+            sys.exit(3)
+        # YAML reads an unquoted 001 or 1942 as a number.
+        if not all(isinstance(item, str) for item in value):
+            log.critical(
+                f"Invalid config.yml: {path} must only hold strings, "
+                "quote numeric entries such as '001'"
+            )
+            sys.exit(3)
+        return value
+
     def _parse_config(self) -> None:
         """Parses each entry in the config.yml"""
 
@@ -689,7 +726,7 @@ class ConfigManager:
             EXCLUDED_PLATFORMS=sorted(
                 {
                     *DEFAULT_EXCLUDED_PLATFORM_DIRS,
-                    *pydash.get(self._raw_config, "exclude.platforms", []),
+                    *self._raw_exclude_list("exclude.platforms"),
                 }
             ),
             EXCLUDED_SINGLE_EXT=sorted(
@@ -697,10 +734,8 @@ class ConfigManager:
                     *(e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS),
                     *(
                         e.lower()
-                        for e in pydash.get(
-                            self._raw_config,
-                            "exclude.roms.single_file.extensions",
-                            [],
+                        for e in self._raw_exclude_list(
+                            "exclude.roms.single_file.extensions"
                         )
                     ),
                 }
@@ -708,21 +743,13 @@ class ConfigManager:
             EXCLUDED_SINGLE_FILES=sorted(
                 {
                     *DEFAULT_EXCLUDED_FILES,
-                    *pydash.get(
-                        self._raw_config,
-                        "exclude.roms.single_file.names",
-                        [],
-                    ),
+                    *self._raw_exclude_list("exclude.roms.single_file.names"),
                 }
             ),
             EXCLUDED_MULTI_FILES=sorted(
                 {
                     *DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
-                    *pydash.get(
-                        self._raw_config,
-                        "exclude.roms.multi_file.names",
-                        [],
-                    ),
+                    *self._raw_exclude_list("exclude.roms.multi_file.names"),
                 }
             ),
             EXCLUDED_MULTI_PARTS_EXT=sorted(
@@ -730,10 +757,8 @@ class ConfigManager:
                     *(e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS),
                     *(
                         e.lower()
-                        for e in pydash.get(
-                            self._raw_config,
-                            "exclude.roms.multi_file.parts.extensions",
-                            [],
+                        for e in self._raw_exclude_list(
+                            "exclude.roms.multi_file.parts.extensions"
                         )
                     ),
                 }
@@ -741,11 +766,7 @@ class ConfigManager:
             EXCLUDED_MULTI_PARTS_FILES=sorted(
                 {
                     *DEFAULT_EXCLUDED_FILES,
-                    *pydash.get(
-                        self._raw_config,
-                        "exclude.roms.multi_file.parts.names",
-                        [],
-                    ),
+                    *self._raw_exclude_list("exclude.roms.multi_file.parts.names"),
                 }
             ),
             PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {})
@@ -878,6 +899,12 @@ class ConfigManager:
             STREAMING_CONTAINERS=pydash.get(
                 self._raw_config, "streaming.containers", []
             ),
+            CONVERTO=ConvertoConfig(
+                **{
+                    key: pydash.get(self._raw_config, f"converto.{key}", default)
+                    for key, default in dataclasses.asdict(ConvertoConfig()).items()
+                }
+            ),
             STRUCTURE_TEMPLATES=pydash.get(
                 self._raw_config, "filesystem.structure", {}
             ),
@@ -1003,40 +1030,6 @@ class ConfigManager:
     def _validate_config(self) -> None:
         """Validates the config.yml file"""
         self._check_retired_filesystem_keys()
-
-        if not isinstance(self.config.EXCLUDED_PLATFORMS, list):
-            log.critical("Invalid config.yml: exclude.platforms must be a list")
-            sys.exit(3)
-
-        if not isinstance(self.config.EXCLUDED_SINGLE_EXT, list):
-            log.critical(
-                "Invalid config.yml: exclude.roms.single_file.extensions must be a list"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.EXCLUDED_SINGLE_FILES, list):
-            log.critical(
-                "Invalid config.yml: exclude.roms.single_file.names must be a list"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.EXCLUDED_MULTI_FILES, list):
-            log.critical(
-                "Invalid config.yml: exclude.roms.multi_file.names must be a list"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.EXCLUDED_MULTI_PARTS_EXT, list):
-            log.critical(
-                "Invalid config.yml: exclude.roms.multi_file.parts.extensions must be a list"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.EXCLUDED_MULTI_PARTS_FILES, list):
-            log.critical(
-                "Invalid config.yml: exclude.roms.multi_file.parts.names must be a list"
-            )
-            sys.exit(3)
 
         if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
             log.critical("Invalid config.yml: scan.gamelist.export must be a boolean")
@@ -1314,6 +1307,35 @@ class ConfigManager:
                 len(legacy_containers),
             )
 
+        if not isinstance(self.config.CONVERTO.download_conversion_enabled, bool):
+            log.critical(
+                "Invalid config.yml: converto.download_conversion_enabled must be a boolean"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.CONVERTO.scan_metadata, bool):
+            log.critical("Invalid config.yml: converto.scan_metadata must be a boolean")
+            sys.exit(3)
+
+        for key, minimum in CONVERTO_INT_MINIMUMS.items():
+            value = getattr(self.config.CONVERTO, key)
+            if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+                log.critical(
+                    f"Invalid config.yml: converto.{key} must be an integer >= {minimum}"
+                )
+                sys.exit(3)
+
+        try:
+            self.config.CONVERTO.platform_formats = normalize_platform_formats(
+                self._validated_platform_map(
+                    self.config.CONVERTO.platform_formats or {},
+                    "converto.platform_formats",
+                )
+            )
+        except ValueError as exc:
+            log.critical(f"Invalid config.yml: converto.platform_formats: {exc}")
+            sys.exit(3)
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r") as config_file:
@@ -1399,6 +1421,7 @@ class ConfigManager:
                     "export": self.config.PEGASUS_AUTO_EXPORT_ON_SCAN,
                 },
             },
+            "converto": dataclasses.asdict(self.config.CONVERTO),
         }
 
         # The streaming section isn't editable at runtime, but it must survive
@@ -1531,6 +1554,11 @@ class ConfigManager:
         self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType(gamelist_thumbnail)
         self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType(gamelist_image)
         self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
+        self._update_config_file()
+
+    def update_converto_settings(self, converto: ConvertoConfig) -> None:
+        """Replace the whole converto.* section and persist it to config.yml."""
+        self.config.CONVERTO = converto
         self._update_config_file()
 
 

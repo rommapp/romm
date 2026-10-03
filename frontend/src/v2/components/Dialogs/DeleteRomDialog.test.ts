@@ -1,14 +1,14 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { reactive } from "vue";
+import { defineComponent, reactive } from "vue";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { makeDetailedRom, makeRom } from "@/utils/rom.fixtures";
 import DeleteRomDialog from "./DeleteRomDialog.vue";
 
-const { deleteRoms, push, snackbarError } = vi.hoisted(() => ({
+const { addExclusion, deleteRoms, push, snackbarError } = vi.hoisted(() => ({
+  addExclusion: vi.fn(),
   deleteRoms: vi.fn(),
   push: vi.fn(),
   snackbarError: vi.fn(),
@@ -18,9 +18,7 @@ const route = reactive<{ name: string; params: Record<string, string> }>({
   params: { rom: "5" },
 });
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => route,
@@ -29,7 +27,7 @@ vi.mock("vue-router", async (importOriginal) => ({
 vi.mock("@/plugins/router", () => ({ ROUTES: { PLATFORM: "platform" } }));
 vi.mock("@/services/api/rom", () => ({ default: { deleteRoms } }));
 vi.mock("@/services/api/config", () => ({
-  default: { addExclusion: vi.fn() },
+  default: { addExclusion },
 }));
 vi.mock("@/stores/config", () => ({
   default: () => ({ addExclusion: vi.fn() }),
@@ -43,11 +41,27 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 
 const RDialog = {
   props: { modelValue: { type: Boolean, default: false } },
-  template: `<div v-if="modelValue"><slot name="content" /><slot name="footer" /></div>`,
+  template: `<div v-if="modelValue"><slot name="content" /><slot name="append" /><slot name="footer" /></div>`,
 };
 const RBtn = {
   emits: ["click"],
   template: `<button type="button" @click="$emit('click')"><slot /></button>`,
+};
+const RCheckbox = {
+  emits: ["update:modelValue"],
+  template: `<input type="checkbox" @change="$emit('update:modelValue', true)" />`,
+};
+// happy-dom lays nothing out, so a windowed list would render no rows.
+const WholeList = defineComponent({
+  props: { items: { type: Array, default: () => [] } },
+  template: `<div><div v-for="(item, index) in items" :key="index"><slot :item="item" :index="index" /></div></div>`,
+});
+const stubs = {
+  RDialog,
+  RBtn,
+  RCheckbox,
+  RIcon: true,
+  RVirtualScroller: WholeList,
 };
 
 async function deleteShownGame() {
@@ -55,7 +69,7 @@ async function deleteShownGame() {
   const wrapper = mount(DeleteRomDialog, {
     global: {
       provide: { emitter },
-      stubs: { RDialog, RBtn, RCheckbox: true, RIcon: true },
+      stubs,
     },
   });
   emitter.emit("showDeleteRomDialog", [
@@ -71,8 +85,6 @@ async function deleteShownGame() {
 
 describe("DeleteRomDialog", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     route.name = "rom";
     route.params = { rom: "5" };
     deleteRoms.mockResolvedValue({
@@ -104,5 +116,64 @@ describe("DeleteRomDialog", () => {
     expect(snackbarError).not.toHaveBeenCalled();
     expect(storeRoms().getDetailedRom(5)).not.toBeNull();
     expect(storeRoms().getDetailedRom(6)).toBeNull();
+  });
+});
+
+describe("DeleteRomDialog with a large selection", () => {
+  beforeEach(() => {
+    deleteRoms.mockResolvedValue({
+      data: { failed_ids: [], successful_items: 120 },
+    });
+  });
+
+  async function openWith(count: number) {
+    const emitter: Emitter<Events> = mitt<Events>();
+    const wrapper = mount(DeleteRomDialog, {
+      global: {
+        provide: { emitter },
+        stubs,
+      },
+    });
+    emitter.emit(
+      "showDeleteRomDialog",
+      Array.from({ length: count }, (_, i) =>
+        makeRom({ id: i + 1, platform_id: 1 }),
+      ),
+    );
+    await flushPromises();
+    return wrapper;
+  }
+
+  it("hands every selected game to the virtual scroller", async () => {
+    const wrapper = await openWith(120);
+
+    expect(wrapper.findComponent(WholeList).props("items")).toHaveLength(120);
+  });
+
+  it("waits for the exclusions and reports the ones that failed", async () => {
+    addExclusion
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("config not writable"));
+    const wrapper = await openWith(2);
+
+    await wrapper.find('input[type="checkbox"]').trigger("change");
+    await wrapper.findAll("button").at(-1)?.trigger("click");
+    await flushPromises();
+
+    expect(addExclusion).toHaveBeenCalledTimes(2);
+    expect(snackbarError).toHaveBeenCalledWith(
+      'rom.exclude-failed:{"n":1}',
+      expect.anything(),
+    );
+  });
+
+  it("deletes every selected game", async () => {
+    const wrapper = await openWith(120);
+
+    await wrapper.findAll("button").at(-1)?.trigger("click");
+    await flushPromises();
+
+    const sent = deleteRoms.mock.calls[0][0] as { roms: { id: number }[] };
+    expect(sent.roms).toHaveLength(120);
   });
 });

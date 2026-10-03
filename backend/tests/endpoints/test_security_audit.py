@@ -10,9 +10,9 @@ from tests.audit_events import recorded_events
 
 from endpoints import auth as auth_endpoints
 from endpoints import permissions as permission_endpoints
-from handler.auth import auth_handler
+from handler.auth.base_handler import auth_handler
 from models.user import User
-from tasks.tasks import Task, TaskType
+from tasks.tasks import TaskSpec, TaskType
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -155,10 +155,11 @@ class TestUsers:
 def test_a_manual_task_run_is_recorded(
     _enqueue, _worker, client: TestClient, access_token: str
 ):
-    task = Mock(spec=Task)
+    task = Mock(spec=TaskSpec)
     task.title = "Cleanup"
     task.task_type = TaskType.CLEANUP
     task.can_run_manually = True
+    task.single_instance = False
     with patch("endpoints.tasks.RUNNABLE_TASKS", {"cleanup": task}):
         client.post("/api/tasks/run/cleanup", headers=_auth(access_token))
 

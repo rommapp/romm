@@ -65,6 +65,19 @@ ROM_PATCHER_MAX_CONCURRENCY: Final[int] = max(
     1, safe_int(_get_env("ROM_PATCHER_MAX_CONCURRENCY"), 2)
 )
 
+# ROM CONVERTO
+ROM_CONVERTO_ENABLED: Final[bool] = safe_str_to_bool(_get_env("ROM_CONVERTO_ENABLED"))
+# Seconds per rom-converto CLI operation.
+ROM_CONVERTO_TIMEOUT: Final[int] = max(
+    1, safe_int(_get_env("ROM_CONVERTO_TIMEOUT"), 600)
+)
+# Concurrent conversion subprocesses per process (each web and RQ worker).
+ROM_CONVERTO_MAX_CONCURRENCY: Final[int] = max(
+    1, safe_int(_get_env("ROM_CONVERTO_MAX_CONCURRENCY"), 2)
+)
+# Disk cache for converted downloads, under the tree nginx serves at /cache/.
+ROM_CONVERTO_CACHE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/converts"
+
 # DATABASE
 DB_HOST: Final[str | None] = _get_env("DB_HOST")
 DB_PORT: Final[int] = safe_int(_get_env("DB_PORT"), 3306)
@@ -293,6 +306,34 @@ ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP: Final[bool] = safe_str_to_bool(
 SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON: Final[str] = _get_env(
     "SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON",
     "0 4 * * *",  # At 4:00 AM every day
+)
+ENABLE_SCHEDULED_CLEANUP_NETPLAY: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_CLEANUP_NETPLAY", "true")
+)
+SCHEDULED_CLEANUP_NETPLAY_CRON: Final[str] = _get_env(
+    "SCHEDULED_CLEANUP_NETPLAY_CRON",
+    "*/30 * * * *",  # Every 30 minutes
+)
+ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP", "true")
+)
+SCHEDULED_CLEANUP_UPLOAD_TMP_CRON: Final[str] = _get_env(
+    "SCHEDULED_CLEANUP_UPLOAD_TMP_CRON",
+    "0 * * * *",  # Every hour
+)
+ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE", "true")
+)
+SCHEDULED_CLEANUP_ZIP_CACHE_CRON: Final[str] = _get_env(
+    "SCHEDULED_CLEANUP_ZIP_CACHE_CRON",
+    "0 4 * * *",  # At 4:00 AM every day
+)
+ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS", "true")
+)
+SCHEDULED_CLEANUP_SYNC_SESSIONS_CRON: Final[str] = _get_env(
+    "SCHEDULED_CLEANUP_SYNC_SESSIONS_CRON",
+    "23 * * * *",  # Hourly, off the hour
 )
 ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES")

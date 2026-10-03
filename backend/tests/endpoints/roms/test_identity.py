@@ -3,6 +3,7 @@ from datetime import datetime
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_rom
 
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
@@ -18,19 +19,7 @@ def switch_platform() -> Platform:
 
 @pytest.fixture
 def switch_rom(switch_platform: Platform) -> Rom:
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=switch_platform.id,
-            name="Game",
-            slug="game",
-            fs_name="Game.nsp",
-            fs_name_no_tags="Game",
-            fs_name_no_ext="Game",
-            fs_extension="nsp",
-            fs_path="switch/roms",
-            fs_size_bytes=0,
-        )
-    )
+    return make_rom(switch_platform, "Game", fs_extension="nsp", fs_size_bytes=0)
 
 
 def test_stores_the_identity_a_client_extracted(

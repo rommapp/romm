@@ -405,7 +405,7 @@ def test_playlists_require_scopes(
     from datetime import timedelta
 
     from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-    from handler.auth import oauth_handler
+    from handler.auth.base_handler import oauth_handler
 
     read_only = oauth_handler.create_access_token(
         data={

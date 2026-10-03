@@ -100,15 +100,15 @@ function closeDialog() {
       >
         <template #item="{ props, item }">
           <CollectionListItem
-            :collection="item.raw"
+            :collection="item"
             v-bind="props"
             :with-title="false"
           />
         </template>
         <template #chip="{ item }">
           <v-chip class="pl-0" label>
-            <RAvatarCollection :collection="item.raw" :size="35" class="mr-2" />
-            {{ item.raw.name }}
+            <RAvatarCollection :collection="item" :size="35" class="mr-2" />
+            {{ item.name }}
           </v-chip>
         </template>
       </v-autocomplete>

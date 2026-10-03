@@ -4,11 +4,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import bcrypt
 from fastapi import HTTPException, status
 from joserfc import jwt
 from joserfc.errors import BadSignatureError, DecodeError
 from joserfc.jwk import OctKey
-from passlib.context import CryptContext
 from redis.exceptions import RedisError
 from sqlalchemy.exc import IntegrityError
 from starlette.requests import HTTPConnection
@@ -105,9 +105,16 @@ def _invite_token_spent() -> HTTPException:
     )
 
 
+# bcrypt only reads the first 72 bytes and raises on longer secrets.
+BCRYPT_MAX_SECRET_BYTES = 72
+
+
+def _bcrypt_secret(password: str) -> bytes:
+    return password.encode()[:BCRYPT_MAX_SECRET_BYTES]
+
+
 class AuthHandler:
     def __init__(self) -> None:
-        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         self.reset_passwd_token_expires_in_minutes = 10
 
     @staticmethod
@@ -119,15 +126,18 @@ class AuthHandler:
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def verify_password(self, plain_password: str, hashed_password: str | None) -> bool:
+        if not hashed_password:
+            return False
         try:
-            return self.pwd_context.verify(plain_password, hashed_password)
+            return bcrypt.checkpw(
+                _bcrypt_secret(plain_password), hashed_password.encode()
+            )
         except ValueError:
-            # OIDC-provisioned accounts hold a placeholder, not a bcrypt hash,
-            # and passlib raises on one it cannot identify.
+            # OIDC-provisioned accounts hold a placeholder, not a bcrypt hash.
             return False
 
     def get_password_hash(self, password: str) -> str:
-        return self.pwd_context.hash(password)
+        return bcrypt.hashpw(_bcrypt_secret(password), bcrypt.gensalt()).decode()
 
     def authenticate_user(
         self, username: str, password: str
@@ -764,3 +774,8 @@ class OpenIDHandler:
 
         log.info("User successfully authenticated: %s", hl(email, color=CYAN))
         return user, userinfo
+
+
+auth_handler = AuthHandler()
+oauth_handler = OAuthHandler()
+oidc_handler = OpenIDHandler()

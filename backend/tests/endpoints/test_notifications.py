@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 
-from handler.auth import oauth_handler
+from handler.auth.base_handler import oauth_handler
 from handler.database import db_notification_handler
 from handler.socket_handler import socket_handler
 from models.notification import (

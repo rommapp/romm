@@ -1,13 +1,12 @@
-import { mount, type VueWrapper } from "@vue/test-utils";
+import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
+import { stubResizeObserver } from "@/test-utils/resizeObserver";
 import { useNavGlass } from "@/v2/composables/useNavGlass";
 import { usePinnedToolbar } from "./index";
 
 const NAV_H = 58;
 const NATURAL_TOP = 300;
-
-const wrappers: VueWrapper[] = [];
 
 function setup({ page = false } = {}) {
   const scrollTop = ref(0);
@@ -20,7 +19,6 @@ function setup({ page = false } = {}) {
       },
     }),
   );
-  wrappers.push(wrapper);
   return { scrollTop, api, wrapper };
 }
 
@@ -46,11 +44,11 @@ function bindShell(api: ReturnType<typeof usePinnedToolbar>) {
   document.body.append(parent);
   api.bindSentinel(sentinel);
   api.bindToolbar(toolbar);
+  return { header, sentinel, toolbar };
 }
 
 describe("usePinnedToolbar", () => {
   afterEach(() => {
-    wrappers.splice(0).forEach((wrapper) => wrapper.unmount());
     document.body.innerHTML = "";
     setPageScroll(0);
   });
@@ -107,9 +105,32 @@ describe("usePinnedToolbar", () => {
     expect(innerGlass.value).toBe(true);
 
     wrapper.unmount();
-    wrappers.splice(wrappers.indexOf(wrapper), 1);
     expect(innerScrolled.value).toBe(false);
     expect(innerGlass.value).toBe(false);
     expect(useNavGlass().handoff.value).toBe(false);
+  });
+
+  it("watches the header and re-measures when the toolbar resizes", async () => {
+    const ro = stubResizeObserver();
+    const { api } = setup();
+    const { header, toolbar } = bindShell(api);
+    await nextTick();
+    expect(ro.isObserved(header)).toBe(true);
+
+    toolbar.getBoundingClientRect = () => new DOMRect(0, 0, 800, 48);
+    ro.resize(toolbar, 800, 48);
+    expect(api.toolbarHeight.value).toBe(48);
+  });
+
+  it("stops observing on unmount", async () => {
+    const ro = stubResizeObserver();
+    const { api, wrapper } = setup();
+    const { toolbar } = bindShell(api);
+    await nextTick();
+    expect(ro.isObserved(toolbar)).toBe(true);
+
+    wrapper.unmount();
+
+    expect(ro.isObserved(toolbar)).toBe(false);
   });
 });

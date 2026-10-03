@@ -13,6 +13,7 @@ const ENV_BUILDERS = [
   "e2e/setup/global-setup.ts",
 ];
 
+/** @type {import("eslint").Linter.Config[]} */
 export default [
   {
     // Reports, traces and saved sessions, all written under e2e/.output/.

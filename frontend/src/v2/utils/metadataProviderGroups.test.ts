@@ -2,7 +2,6 @@
 // agree, and an unclassified provider silently disappears from the scan selects.
 /* eslint-disable vue/one-component-per-file */
 import { mount, type VueWrapper } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -20,9 +19,7 @@ import {
   SETUP_GROUP_LABELS,
 } from "./metadataProviderGroups";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/services/api", () => ({
   default: { get: vi.fn().mockResolvedValue({ data: {} }) },
@@ -75,7 +72,6 @@ async function providersTab(): Promise<VueWrapper> {
 
 beforeEach(() => {
   localStorage.clear();
-  setActivePinia(createPinia());
 });
 
 describe("metadata provider taxonomy", () => {

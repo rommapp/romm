@@ -59,33 +59,34 @@ import { syncQueryParam } from "@/v2/utils/routeQuery";
 // Pure helpers: no Vue context. Easier to reason about and test if we
 // ever want to.
 
-function qStr(v: LocationQueryValue | LocationQueryValue[]): string | null {
+// `route.query[key]` is undefined when the param is absent.
+type QueryValue = LocationQueryValue | LocationQueryValue[] | undefined;
+
+function qStr(v: QueryValue): string | null {
   if (Array.isArray(v)) return v[0] ?? null;
   return typeof v === "string" && v.length > 0 ? v : null;
 }
 
-function qBool(v: LocationQueryValue | LocationQueryValue[]): boolean | null {
+function qBool(v: QueryValue): boolean | null {
   const s = qStr(v);
   if (s === "true") return true;
   if (s === "false") return false;
   return null;
 }
 
-function qList(v: LocationQueryValue | LocationQueryValue[]): string[] {
+function qList(v: QueryValue): string[] {
   const s = qStr(v);
   if (!s) return [];
   return s.split(",").filter((p) => p.trim());
 }
 
-function qLogic(
-  v: LocationQueryValue | LocationQueryValue[],
-): FilterLogicOperator | null {
+function qLogic(v: QueryValue): FilterLogicOperator | null {
   const s = qStr(v);
   if (s === "any" || s === "all" || s === "none") return s;
   return null;
 }
 
-function qHours(v: LocationQueryValue | LocationQueryValue[]): number | null {
+function qHours(v: QueryValue): number | null {
   const s = qStr(v);
   if (s === null) return null;
   const n = Number(s);

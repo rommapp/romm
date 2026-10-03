@@ -51,6 +51,14 @@ const defaultConfig = {
   GAMELIST_MEDIA_THUMBNAIL: "box2d",
   GAMELIST_MEDIA_IMAGE: "screenshot",
   PEGASUS_AUTO_EXPORT_ON_SCAN: false,
+  CONVERTO: {
+    download_conversion_enabled: false,
+    scan_metadata: true,
+    cache_ttl_hours: 24,
+    cache_max_size_gb: 20,
+    platform_formats: {},
+  },
+  CONVERTO_LIBRARY_TARGETS: {},
 } as ConfigResponse;
 
 export default defineStore("config", {

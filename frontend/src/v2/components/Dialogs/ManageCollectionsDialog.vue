@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// ManageCollectionsDialog — collection picker that matches the mockup's
+// ManageCollectionsDialog: collection picker that matches the mockup's
 // menu-panel shape. Driven by the `showManageCollectionsDialog` emitter.
 //
-// Uses the v2 RDialog primitive — RDialog shares the RMenu visual
+// Uses the v2 RDialog primitive: RDialog shares the RMenu visual
 // language (14px radius, deep glass, menu-style shadow) so this picker
 // reads as a sibling of the user menu / ROM context menu.
 //
@@ -14,7 +14,7 @@
 //     "New Collection" label. Click expands to an inline Create /
 //     Cancel input.
 //   * Divider.
-//   * List of owned collections — avatar, name, count, brand-primary
+//   * List of owned collections: avatar, name, count, brand-primary
 //     circular tick when on. Clicking toggles INSTANTLY (optimistic
 //     update + API call; reverts on failure).
 //   * Empty state if no collections exist.
@@ -60,7 +60,7 @@ const roms = ref<SimpleRom[]>([]);
 const pendingCollections = ref(new Set<number>());
 // Optimistic state is now tri-state (off | some | all). When the user
 // clicks a row we paint the *resolved* next state immediately and
-// reconcile when the API responds — `undefined` means "fall back to
+// reconcile when the API responds: `undefined` means "fall back to
 // the collection's actual membership computed against `roms.value`".
 const optimistic = ref(new Map<number, "off" | "some" | "all">());
 
@@ -86,7 +86,7 @@ emitter?.on("showManageCollectionsDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("showManageCollectionsDialog", openHandler));
 
 // Notify any GameActionBtn that opened us so it can drop its pinned-hover
-// state — covers every close path (X, scrim, Escape, programmatic close).
+// state: covers every close path (X, scrim, Escape, programmatic close).
 watch(show, (open) => {
   if (!open) emitter?.emit("closeManageCollectionsDialog", null);
 });
@@ -94,7 +94,7 @@ watch(show, (open) => {
 /** Resolve a collection's membership against the open dialog's
  *  selection. "all" when every selected rom is in the collection,
  *  "some" when at least one (but not all) is, "off" otherwise. The
- *  "some" state only appears for bulk dialogs — a single-rom dialog
+ *  "some" state only appears for bulk dialogs: a single-rom dialog
  *  collapses to off / all. */
 function membershipState(collection: Collection): "off" | "some" | "all" {
   const override = optimistic.value.get(collection.id);
@@ -125,7 +125,7 @@ async function toggle(collection: Collection) {
   pendingCollections.value.add(collection.id);
 
   // For the "some → all" transition we still issue an add against all
-  // selected ids — the backend de-dupes against existing membership,
+  // selected ids: the backend de-dupes against existing membership,
   // so this is safe and saves a per-id diff round-trip from the
   // frontend.
   //
@@ -205,7 +205,7 @@ const subtitle = computed(() => {
 
 const ownedCollections = computed(() => collectionsStore.ownedCollections);
 
-// Header cover thumbnail — single-rom invocations get the game's cover
+// Header cover thumbnail: single-rom invocations get the game's cover
 // alongside the title (same `<GameCard size="xs" decorative>` shape
 // the list-mode row uses, so the header reads as a sibling of the
 // gallery surface). Bulk invocations stay text-only since one cover
@@ -268,7 +268,7 @@ function closeDialog() {
 
       <RDivider v-if="ownedCollections.length > 0" full-width />
 
-      <!-- Existing collection rows — instant toggle, no commit step. -->
+      <!-- Existing collection rows: instant toggle, no commit step. -->
       <ul v-if="ownedCollections.length" class="r-v2-mng-coll__list">
         <li v-for="collection in ownedCollections" :key="collection.id">
           <CollectionPickerRow
@@ -288,7 +288,7 @@ function closeDialog() {
 </template>
 
 <style scoped>
-/* Header — optional GameCard thumbnail + stacked title (14px bold) +
+/* Header: optional GameCard thumbnail + stacked title (14px bold) +
    subtitle (11.5px muted) inside RDialog's single header slot. */
 .r-v2-mng-coll__head {
   display: flex;

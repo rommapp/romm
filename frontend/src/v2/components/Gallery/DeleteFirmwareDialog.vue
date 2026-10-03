@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// DeleteFirmwareDialog — RDialog that confirms deletion of one or more
+// DeleteFirmwareDialog: RDialog that confirms deletion of one or more
 // firmware files and lets the user opt-in (per item) to also delete
 // the underlying file from disk. The actual deletion is performed by
 // the parent (FirmwareDrawer) via the `onConfirm` prop so the dialog
@@ -48,7 +48,7 @@ const {
   clear: clearFs,
 } = useIdSelection(() => props.firmware);
 
-// Each open trip starts with no filesystem deletes selected — the
+// Each open trip starts with no filesystem deletes selected: the
 // user has to opt in deliberately. Resetting when modelValue flips
 // from false → true prevents a previous-session selection from
 // resurfacing.
@@ -143,7 +143,7 @@ async function confirm() {
         </li>
       </ul>
 
-      <!-- Warning strip — only painted when at least one row will hit
+      <!-- Warning strip: only painted when at least one row will hit
            the filesystem, so the destructive consequence is impossible
            to miss. -->
       <p v-if="fsCount > 0" class="r-v2-del-fw__warn">

@@ -4,6 +4,7 @@ A task is registered only when it is enabled and has a cron string, so turning
 one off is a restart rather than an unschedule.
 """
 
+from croniter import croniter
 from rq import cron
 
 from config import TASK_TIMEOUT
@@ -13,6 +14,11 @@ from tasks.tasks import TaskType, run_task_by_name
 
 for name, task in SCHEDULED_TASKS.items():
     if not task.enabled or not task.cron_string:
+        continue
+
+    # rq parses the cron only when the scheduler loads it, then just logs and skips it.
+    if not croniter.is_valid(task.cron_string):
+        log.error(f"Not scheduling '{name}': invalid cron '{task.cron_string}'")
         continue
 
     # Cron attaches no failure callback, so a scan goes through a dispatch job

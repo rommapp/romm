@@ -1,7 +1,6 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import mitt from "mitt";
-import { createPinia, setActivePinia } from "pinia";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import type { ScanStats } from "@/__generated__";
 import platformApi from "@/services/api/platform";
@@ -54,9 +53,6 @@ vi.mock("@/stores/auth", () => ({
 }));
 
 const getTaskStatus = vi.mocked(taskApi.getTaskStatus);
-
-/** Drain pending microtasks so the reconcile's promise chain has settled. */
-const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** Outlast the handler's 100ms batching debounce for `scan:scanning_rom`. */
 const drainRomBatch = () => new Promise((resolve) => setTimeout(resolve, 150));
@@ -136,15 +132,12 @@ function runningScanTask(stats: ScanStats | null) {
 }
 
 // The lifecycle uses `inject` and `onScopeDispose`, so it needs a host
-// component instance. Tracked so `afterEach` can unmount it: the auth state
-// is reactive and shared, so a leaked host would keep watching it and
-// reconcile again during later tests.
-let host: ReturnType<typeof mount> | null = null;
+// component instance.
 
 const emitter = mitt<Events>();
 
 function install() {
-  host = mount(
+  mount(
     defineComponent({
       setup() {
         installScanLifecycle();
@@ -161,16 +154,10 @@ function fire(event: string, payload: unknown) {
 
 describe("installScanLifecycle", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     handlers.clear();
     getTaskStatus.mockReset();
     getTaskStatus.mockResolvedValue({ data: [] } as never);
     authState.user = { id: 1, oauth_scopes: ["tasks.run"] };
-  });
-
-  afterEach(() => {
-    host?.unmount();
-    host = null;
   });
 
   it("treats a stats event as proof a scan is running", () => {

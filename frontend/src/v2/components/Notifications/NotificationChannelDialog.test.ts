@@ -1,10 +1,10 @@
 import { RCheckbox, RComboboxField, RSelect } from "@v2/lib";
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import type { NotificationChannelSchema } from "@/__generated__";
 import storePermissions from "@/stores/permissions";
+import { propOf } from "@/test-utils/propOf";
 import {
   makeAppriseService,
   makeChannel,
@@ -19,9 +19,7 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock("@/services/api/notificationChannel", () => ({ default: api }));
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en_US" } }),
-}));
+vi.mock("vue-i18n");
 
 function channel(
   overrides: Partial<NotificationChannelSchema> = {},
@@ -95,7 +93,6 @@ async function save(wrapper: Wrapper) {
 
 describe("NotificationChannelDialog", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
     api.getAppriseServices.mockResolvedValue({ data: [makeAppriseService()] });
   });
@@ -259,7 +256,7 @@ describe("NotificationChannelDialog", () => {
     await pick(wrapper, "apprise:ntfy");
     await paste(wrapper, "https://discord.com/api/webhooks/1/token");
 
-    expect(wrapper.findAllComponents(RSelect)[0].props("modelValue")).toBe(
+    expect(propOf(wrapper.findAllComponents(RSelect)[0], "modelValue")).toBe(
       "apprise:discord",
     );
     wrapper.unmount();
@@ -397,7 +394,7 @@ describe("NotificationChannelDialog", () => {
   it("offers Apprise's services to admins only", async () => {
     const kinds = async (admin: boolean) => {
       const wrapper = await open(null, { admin });
-      const items = wrapper.findAllComponents(RSelect)[0].props("items") as {
+      const items = propOf(wrapper.findAllComponents(RSelect)[0], "items") as {
         value: string;
       }[];
       wrapper.unmount();

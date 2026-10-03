@@ -4,14 +4,35 @@ description: Install the Node version from frontend/.nvmrc and the locked fronte
 runs:
   using: composite
   steps:
+    # npm ci deletes node_modules before installing, so only an exact match is worth restoring.
+    # package.json is in the key so a manifest that disagrees with the lockfile still reaches npm ci.
+    - name: Restore node_modules
+      id: node-modules
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: frontend/node_modules
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/.nvmrc', 'frontend/.npmrc', 'frontend/package.json', 'frontend/package-lock.json') }}
+
+    # npm's download cache only feeds npm ci, which a restored node_modules skips.
     - name: Set up Node.js
       uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version-file: frontend/.nvmrc
-        cache: "npm"
+        cache: ${{ steps.node-modules.outputs.cache-hit != 'true' && 'npm' || '' }}
+        package-manager-cache: ${{ steps.node-modules.outputs.cache-hit != 'true' }}
         cache-dependency-path: frontend/package-lock.json
 
     - name: Install frontend dependencies
+      if: steps.node-modules.outputs.cache-hit != 'true'
       shell: bash
       working-directory: frontend
       run: npm ci
+
+    # Saved before the job's own tools write their caches into node_modules.
+    # Only master writes it, so a PR can't evict or seed it.
+    - name: Save node_modules
+      if: steps.node-modules.outputs.cache-hit != 'true' && github.ref == 'refs/heads/master'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: frontend/node_modules
+        key: ${{ steps.node-modules.outputs.cache-primary-key }}

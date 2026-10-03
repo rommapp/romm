@@ -36,7 +36,7 @@ Comprehensive documentation of the RomM frontend: a Vue 3 single-page applicatio
 | **Framework**        | Vue 3.5 (Composition API, `<script setup>`)  |
 | **Build Tool**       | Vite 6.4.2                                   |
 | **Language**         | TypeScript 5.9.3 (`noImplicitAny: true`)     |
-| **UI Library**       | Vuetify 3.9.2 (Material Design), v1 only     |
+| **UI Library**       | Vuetify 4.2.1 (Material Design), v1 only     |
 | **CSS**              | Tailwind CSS 4.3.1 + Vuetify themes, v1 only |
 | **State Management** | Pinia 3.0.1 (18 stores)                      |
 | **Routing**          | Vue Router 5.3.1                             |
@@ -123,8 +123,9 @@ frontend/
 ├── index.html                     # HTML entry point (<div id="app">)
 ├── package.json                   # Dependencies & scripts
 ├── vite.config.js                 # Vite build config with plugins
-├── tsconfig.json                  # Vue app TypeScript (vue-tsc)
-├── tsconfig.node.json             # Node/Vite tooling TypeScript (tsc -p)
+├── tsconfig.json                  # References app + node (vue-tsc --build)
+├── tsconfig.app.json              # Vue app TypeScript
+├── tsconfig.node.json             # Node tooling and tool configs TypeScript
 ├── eslint.config.js               # ESLint flat config
 ├── .nvmrc                         # Node 24
 │
@@ -1100,14 +1101,14 @@ Procedural SVG generation for:
 
 ### Scripts
 
-| Script              | Command                              | Purpose                                              |
-| ------------------- | ------------------------------------ | ---------------------------------------------------- |
-| `dev`               | `vite --host`                        | Development server                                   |
-| `build`             | `vite build`                         | Production build                                     |
-| `preview`           | `vite preview`                       | Preview production build                             |
-| `typecheck`         | `vue-tsc --noEmit`                   | App SFCs (`tsconfig.json`)                           |
-| `typecheck:scripts` | `tsc --noEmit -p tsconfig.node.json` | Node tooling in `scripts/` and `eslint-plugin-romm/` |
-| `generate`          | `openapi-typescript-codegen`         | Generate types from backend OpenAPI                  |
+| Script              | Command                          | Purpose                                                |
+| ------------------- | -------------------------------- | ------------------------------------------------------ |
+| `dev`               | `vite --host`                    | Development server                                     |
+| `build`             | `vite build`                     | Production build                                       |
+| `preview`           | `vite preview`                   | Preview production build                               |
+| `typecheck`         | `vue-tsc --build`                | App and Node tooling (both `tsconfig.json` references) |
+| `typecheck:scripts` | `tsc --build tsconfig.node.json` | Node tooling, `eslint-plugin-romm/` and tool configs   |
+| `generate`          | `openapi-typescript-codegen`     | Generate types from backend OpenAPI                    |
 
 ### OpenAPI Code Generation
 

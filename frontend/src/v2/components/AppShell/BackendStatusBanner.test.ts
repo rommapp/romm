@@ -1,13 +1,10 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import storePlaying from "@/stores/playing";
 import BackendStatusBanner from "./BackendStatusBanner.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const isOffline = ref(false);
 const isWebSocketDegraded = ref(false);
@@ -44,18 +41,9 @@ const body = () => wrapper!.find(".r-backend-banner__body");
 
 describe("BackendStatusBanner", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.useFakeTimers();
     isOffline.value = false;
     isWebSocketDegraded.value = false;
-    retryNow.mockClear();
-    retryWebSocket.mockClear();
-  });
-
-  afterEach(() => {
-    wrapper?.unmount();
-    wrapper = null;
-    vi.useRealTimers();
   });
 
   it("stays out of sight while the server answers", async () => {

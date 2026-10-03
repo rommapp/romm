@@ -1,6 +1,6 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import type { DeviceSchema, InstallRequestSchema } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
@@ -23,11 +23,7 @@ const {
   socketHandlers: new Map<string, (payload: unknown) => void>(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string) => key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/services/api/device", () => ({
   default: { fetchDevices, fetchOnlineDeviceIds },
@@ -131,7 +127,6 @@ async function toggle(wrapper: VueWrapper, checked: boolean) {
 describe("InstallOnDeviceDialog", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.clearAllMocks();
     socketHandlers.clear();
     fetchOnlineDeviceIds.mockResolvedValue({ data: [] });
     fetchRomInstalls.mockResolvedValue({ data: [] });
@@ -141,10 +136,6 @@ describe("InstallOnDeviceDialog", () => {
     cancelInstall.mockResolvedValue({
       data: installRequest({ status: "cancelled" }),
     });
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("keeps a reopened dialog's send busy when an earlier one finishes", async () => {

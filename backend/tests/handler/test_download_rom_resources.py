@@ -179,6 +179,35 @@ async def test_a_new_rom_has_no_stale_media(resources: SimpleNamespace):
     resources.remove_stale_media.assert_not_awaited()
 
 
+@pytest.mark.parametrize(
+    "previous, expected",
+    [
+        (["http://x/a.jpg", "http://x/b.jpg"], False),
+        (["http://x/b.jpg", "http://x/a.jpg"], True),
+        (["http://x/a.jpg"], True),
+    ],
+    ids=["unchanged", "reordered", "added"],
+)
+@pytest.mark.asyncio
+async def test_screenshots_are_redownloaded_when_their_order_changes(
+    resources: SimpleNamespace, previous: list[str], expected: bool
+):
+    rom = _rom()
+    rom.url_screenshots = ["http://x/a.jpg", "http://x/b.jpg"]
+
+    await download_rom_resources(
+        added_rom=rom,
+        previous_url_cover=rom.url_cover,
+        previous_url_manual=rom.url_manual,
+        previous_url_screenshots=previous,
+        metadata_sources=[],
+    )
+
+    screenshot_call = resources.get_rom_screenshots.await_args
+    assert screenshot_call is not None
+    assert screenshot_call.kwargs["overwrite"] is expected
+
+
 @pytest.mark.asyncio
 async def test_writes_back_only_the_provider_media_that_changed(
     resources: SimpleNamespace,

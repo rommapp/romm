@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// GalleryToolbar — the "how should I see these games?" control strip for
+// GalleryToolbar: the "how should I see these games?" control strip for
 // Platform / Collection / Search views.
 //
 // Controlled externally via `useGalleryMode()`; the parent passes the refs
@@ -70,7 +70,7 @@ const props = withDefaults(
     position?: ToolbarPosition;
     /** Show the GroupBy toggle (hide it on views where grouping doesn't make sense). */
     showGroupBy?: boolean;
-    /** Override the GroupBy options — used by index views (Platforms)
+    /** Override the GroupBy options: used by index views (Platforms)
      *  to expose richer modes (family / category / generation) beyond
      *  the default flat / letter pair. */
     groupByItems?: GroupByItem[];
@@ -83,6 +83,11 @@ const props = withDefaults(
     /** Axes for the sort selector. Empty hides the control, as on index
      *  views, which sort their tiles themselves. */
     sortKeyItems?: readonly SortOption[];
+    /** Offers the gallery's order without a sort key (Search's relevance)
+     *  under this name; it has no direction, so the toggle hides under it. */
+    unsortedLabel?: string;
+    /** Whether that order is the one applied. */
+    unsorted?: boolean;
     /** Show the search field on the left. v-model:search controls its value. */
     showSearch?: boolean;
     search?: string;
@@ -112,6 +117,8 @@ const props = withDefaults(
     sortDir: "asc",
     sortKey: null,
     sortKeyItems: () => [],
+    unsortedLabel: undefined,
+    unsorted: false,
     showSearch: false,
     search: "",
     searchPlaceholder: "",
@@ -126,7 +133,7 @@ const emit = defineEmits<{
   (e: "update:groupBy", value: GroupByMode): void;
   (e: "update:layout", value: LayoutMode): void;
   (e: "update:sortDir", value: "asc" | "desc"): void;
-  (e: "update:sortKey", value: ListSortKey): void;
+  (e: "update:sortKey", value: ListSortKey | null): void;
   (e: "update:search", value: string): void;
   (e: "update:segmentFilter", payload: { key: string; value: string }): void;
   (e: "click:filter"): void;
@@ -137,7 +144,7 @@ defineSlots<{
   actions?(): unknown;
 }>();
 
-// Support both a Ref or a plain value — keeps consumption flexible.
+// Support both a Ref or a plain value: keeps consumption flexible.
 function toValue<T>(source: Ref<T> | T): T {
   return source && typeof source === "object" && "value" in (source as object)
     ? ((source as Ref<T>).value as T)
@@ -148,6 +155,7 @@ const groupByValue = computed(() => toValue(props.groupBy));
 const layoutValue = computed(() => toValue(props.layout));
 const sortDirValue = computed(() => toValue(props.sortDir));
 const sortKeyValue = computed(() => toValue(props.sortKey));
+const unsorted = computed(() => !!props.unsortedLabel && props.unsorted);
 // List mode sorts from its own column header, so the toolbar's sort and
 // grouping controls step aside rather than sit there inert.
 const listMode = computed(() => layoutValue.value === "list");
@@ -232,7 +240,14 @@ function setSortDir(value: "asc" | "desc") {
   emit("update:sortDir", value);
 }
 
-function setSortKey(value: ListSortKey) {
+function selectionMark(selected: boolean) {
+  return {
+    variant: selected ? ("active" as const) : ("default" as const),
+    icon: selected ? "mdi-check" : undefined,
+  };
+}
+
+function setSortKey(value: ListSortKey | null) {
   emit("update:sortKey", value);
 }
 
@@ -277,7 +292,7 @@ const { smAndUp } = useBreakpoint();
     </RTextField>
     <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
-    <!-- Filter button — sits flush against the search field. Same disc
+    <!-- Filter button: sits flush against the search field. Same disc
          shape as the kebab (outlined icon-only RBtn); the active-count
          chip is `RBadge` anchored top-end, slightly overlapping the disc. -->
     <RBadge
@@ -312,7 +327,7 @@ const { smAndUp } = useBreakpoint();
       />
     </template>
 
-    <!-- View controls cluster — pushed right via margin-left: auto.
+    <!-- View controls cluster: pushed right via margin-left: auto.
          At ≥ smAndUp the inline sliders carry every option; below that
          they collapse into the kebab menu so the toolbar fits on phones
          without overflowing. -->
@@ -347,15 +362,22 @@ const { smAndUp } = useBreakpoint();
             />
           </template>
           <RMenuItem
+            v-if="unsortedLabel"
+            :label="unsortedLabel"
+            v-bind="selectionMark(unsorted)"
+            @click="setSortKey(null)"
+          />
+          <RMenuItem
             v-for="item in sortKeyItems"
             :key="item.key"
             :label="item.label"
-            :variant="sortKeyValue === item.key ? 'active' : 'default'"
+            v-bind="selectionMark(sortKeyValue === item.key)"
             @click="setSortKey(item.key)"
           />
         </RMenu>
 
         <RSliderBtnGroup
+          v-if="!unsorted"
           :model-value="sortDirValue"
           :items="sortDirItems"
           variant="segmented"
@@ -419,26 +441,34 @@ const { smAndUp } = useBreakpoint();
         </template>
         <template v-if="!listMode">
           <RMenuItem
+            v-if="unsortedLabel && sortKeyItems.length > 0"
+            :label="unsortedLabel"
+            v-bind="selectionMark(unsorted)"
+            @click="setSortKey(null)"
+          />
+          <RMenuItem
             v-for="item in sortKeyItems"
             :key="item.key"
             :label="item.label"
-            :variant="sortKeyValue === item.key ? 'active' : 'default'"
+            v-bind="selectionMark(sortKeyValue === item.key)"
             @click="setSortKey(item.key)"
           />
           <RDivider v-if="sortKeyItems.length > 0" />
-          <RMenuItem
-            :label="t('gallery.sort-ascending')"
-            icon="mdi-sort-ascending"
-            :variant="sortDirValue === 'asc' ? 'active' : 'default'"
-            @click="setSortDir('asc')"
-          />
-          <RMenuItem
-            :label="t('gallery.sort-descending')"
-            icon="mdi-sort-descending"
-            :variant="sortDirValue === 'desc' ? 'active' : 'default'"
-            @click="setSortDir('desc')"
-          />
-          <RDivider />
+          <template v-if="!unsorted">
+            <RMenuItem
+              :label="t('gallery.sort-ascending')"
+              icon="mdi-sort-ascending"
+              :variant="sortDirValue === 'asc' ? 'active' : 'default'"
+              @click="setSortDir('asc')"
+            />
+            <RMenuItem
+              :label="t('gallery.sort-descending')"
+              icon="mdi-sort-descending"
+              :variant="sortDirValue === 'desc' ? 'active' : 'default'"
+              @click="setSortDir('desc')"
+            />
+            <RDivider />
+          </template>
         </template>
         <RMenuItem
           :label="t('gallery.view-grid')"
@@ -471,7 +501,7 @@ const { smAndUp } = useBreakpoint();
   padding: var(--r-space-2) 0 var(--r-space-5);
 }
 
-/* Floating variant — fixed top-right of the gallery body. */
+/* Floating variant: fixed top-right of the gallery body. */
 .gallery-toolbar--floating {
   position: absolute;
   top: 14px;
@@ -484,7 +514,7 @@ const { smAndUp } = useBreakpoint();
   backdrop-filter: blur(20px);
 }
 
-/* Controls cluster — gets pushed right by its own margin. */
+/* Controls cluster: gets pushed right by its own margin. */
 .gallery-toolbar__controls {
   display: flex;
   align-items: center;
@@ -492,7 +522,7 @@ const { smAndUp } = useBreakpoint();
   margin-left: auto;
 }
 
-/* Search — bounded width so the pills stay visible on wide screens. */
+/* Search: bounded width so the pills stay visible on wide screens. */
 .gallery-toolbar__search {
   flex: 0 1 360px;
   min-width: 0;

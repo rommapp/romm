@@ -1,6 +1,6 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 import { makeRom } from "@/utils/rom.fixtures";
@@ -8,12 +8,7 @@ import AnniversaryWidget from "./AnniversaryWidget.vue";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    t: (key: string, named?: Record<string, unknown>) =>
-      named ? `${key}:${JSON.stringify(named)}` : key,
-  }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/plugins/router", () => ({
   ROUTES: { ROM: "rom" },
@@ -101,15 +96,10 @@ function loadingOf(wrapper: ReturnType<typeof mountWidget>) {
 
 describe("AnniversaryWidget", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     // 8 September 2026, local time, so the request is asserted against a
     // known calendar day rather than whenever the suite happens to run.
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 8, 8, 12, 0, 0));
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("asks the shared list for its own local day, one page, no sidecars", async () => {

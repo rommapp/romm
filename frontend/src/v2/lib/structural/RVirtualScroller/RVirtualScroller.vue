@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// RVirtualScroller — custom windowed list with exact-offset positioning.
+// RVirtualScroller: custom windowed list with exact-offset positioning.
 //
 // We own the math: heights are reported by the consumer per item (via
 // `getItemHeight`), the prefix-sum offset table is built once per items
-// change, and `scrollToIndex` is `containerEl.scrollTop = ...` — no
+// change, and `scrollToIndex` is `containerEl.scrollTop = ...`: no
 // estimation, no drift, lands exactly on target items.
 //
 // Two ranges are exposed:
@@ -11,20 +11,20 @@
 //     the slot rendering.
 //   * `viewportRange` = items whose pixel rect actually intersects the
 //     visible viewport. Drives consumers that care about "what the user
-//     is looking at right now" — AlphaStrip highlight, dwell-debounced
+//     is looking at right now": AlphaStrip highlight, dwell-debounced
 //     prefetch, etc.
 //
 // Two extension slots sit alongside the virtualised list inside the
 // scrolling container so they share its scrollbar:
 //
-//   * `#prepend` — flow content rendered ABOVE the virtualised inner.
+//   * `#prepend`: flow content rendered ABOVE the virtualised inner.
 //                  Use this for headers / hero panels that should
 //                  scroll naturally with the rest of the content.
-//   * `#sticky`  — flow content rendered BETWEEN `#prepend` and the
+//   * `#sticky`  - flow content rendered BETWEEN `#prepend` and the
 //                  virtualised inner, with `position: sticky; top: 0`.
 //                  Use this for a toolbar that should pin once the
 //                  user scrolls past the prepend block. Native sticky
-//                  runs on the compositor — zero JS scroll lag, no
+//                  runs on the compositor: zero JS scroll lag, no
 //                  per-frame transform tracking needed.
 //
 // `scrollToIndex(idx, { stickyOffset })` accounts for the prepend and
@@ -39,7 +39,8 @@
 //     the DOM at any time.
 //   * Computeds re-evaluate only on scrollTop / containerHeight / items
 //     changes. Binary searches make per-scroll work O(log n).
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { useResizeObserver } from "@vueuse/core";
+import { computed, onMounted, ref, shallowRef, watch } from "vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -57,7 +58,7 @@ interface Props {
    * changes per frame, instead of an O(n) rebuild on each one. */
   offsetShift?: { fromIndex: number; px: number };
   /** Returns a stable key for an item. Defaults to the array index, which
-   * re-patches every row in place when items are inserted at the front —
+   * re-patches every row in place when items are inserted at the front:
    * pass a content-stable key (e.g. an id) so insertions only mount the
    * genuinely-new row and existing rows keep their DOM (and their mount
    * animations don't replay). */
@@ -73,6 +74,10 @@ interface Props {
    * instead of squashing / clipping). The virtualised inner gets this as
    * `min-width` and the container gets `overflow-x: auto`. Number = px. */
   minContentWidth?: number | string;
+  /** Attributes for the element wrapping `#head` and the items, e.g. a
+   *  `role="grid"` that must own a header row and the rows but not the
+   *  `#prepend` band. */
+  bodyAttrs?: Record<string, string | number | boolean | undefined>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -81,6 +86,7 @@ const props = withDefaults(defineProps<Props>(), {
   offsetShift: undefined,
   getItemKey: undefined,
   minContentWidth: undefined,
+  bodyAttrs: undefined,
 });
 
 const emit = defineEmits<{
@@ -92,10 +98,12 @@ const emit = defineEmits<{
 
 defineSlots<{
   default(props: { item: unknown; index: number }): unknown;
-  /** Flow content above the virtualised inner — scrolls with the list. */
+  /** Flow content above the virtualised inner: scrolls with the list. */
   prepend(): unknown;
   /** Flow content between `#prepend` and the inner, position: sticky. */
   sticky(): unknown;
+  /** Flow content right above the items, inside the `bodyAttrs` element. */
+  head(): unknown;
 }>();
 
 const containerEl = ref<HTMLElement | null>(null);
@@ -129,7 +137,7 @@ const totalHeight = computed(() => {
   return offsetAt(offs, offs.length - 1);
 });
 
-// `innerOffsetTop` — distance from the scroller's content top to the
+// `innerOffsetTop`: distance from the scroller's content top to the
 // virtualised inner's top edge. Captures any space taken by the
 // `#prepend` and `#sticky` slots above the inner. Tracked via a
 // ResizeObserver and a one-shot read on each scroll so AlphaStrip /
@@ -211,21 +219,29 @@ const renderedItems = computed<RenderedEntry[]>(() => {
   return out;
 });
 
-// Scroll handling — passive listener; reads scrollTop and lets Vue's
+// Scroll handling: passive listener; reads scrollTop and lets Vue's
 // reactivity batch downstream computeds into the next microtask.
 function onScroll(e: Event) {
   scrollTop.value = (e.target as HTMLElement).scrollTop;
 }
 
 // Container size + inner offset tracking.
-let containerObserver: ResizeObserver | null = null;
-let innerObserver: ResizeObserver | null = null;
-
 function syncInnerOffset() {
   const inner = innerEl.value;
   if (!inner) return;
   innerOffsetTop.value = inner.offsetTop;
 }
+
+useResizeObserver(containerEl, () => {
+  const container = containerEl.value;
+  if (!container) return;
+  containerHeight.value = container.clientHeight;
+  syncInnerOffset();
+});
+
+// The siblings above the inner and the body: their height shifts `innerOffsetTop`.
+const bandEls = shallowRef<HTMLElement[]>([]);
+useResizeObserver(bandEls, syncInnerOffset);
 
 onMounted(() => {
   const container = containerEl.value;
@@ -234,36 +250,20 @@ onMounted(() => {
   scrollTop.value = container.scrollTop;
   syncInnerOffset();
 
-  containerObserver = new ResizeObserver(() => {
-    containerHeight.value = container.clientHeight;
-    syncInnerOffset();
-  });
-  containerObserver.observe(container);
-
-  // Watch the prepend / sticky bands so their height changes (e.g.
-  // header reflow on resize) propagate into `innerOffsetTop`. We
-  // observe the container itself; any layout shift in its descendants
-  // bubbles up via the container's own size or the inner's offsetTop.
-  if (innerEl.value) {
-    innerObserver = new ResizeObserver(syncInnerOffset);
-    // Observe siblings above the inner — that's what shifts `innerOffsetTop`.
-    let prev = innerEl.value.previousElementSibling;
+  const bands: HTMLElement[] = [];
+  const inner = innerEl.value;
+  for (const start of [inner, inner?.parentElement]) {
+    let prev = start?.previousElementSibling;
     while (prev) {
-      innerObserver.observe(prev);
+      if (prev instanceof HTMLElement) bands.push(prev);
       prev = prev.previousElementSibling;
     }
   }
-});
-
-onUnmounted(() => {
-  containerObserver?.disconnect();
-  containerObserver = null;
-  innerObserver?.disconnect();
-  innerObserver = null;
+  bandEls.value = bands;
 });
 
 // Re-emit viewportRange whenever it changes. Computed memoises on
-// shallow equality of its return value — but {first,last} is a fresh
+// shallow equality of its return value, but {first,last} is a fresh
 // object each time, so we need a manual diff.
 let lastEmittedFirst = -2;
 let lastEmittedLast = -2;
@@ -282,7 +282,7 @@ watch(
 
 interface ScrollToIndexOptions {
   smooth?: boolean;
-  /** Pixels of viewport to leave above the target item — typically the
+  /** Pixels of viewport to leave above the target item: typically the
    * height of the `#sticky` band, so the row lands just below the
    * pinned toolbar instead of behind it. Default 0. */
   stickyOffset?: number;
@@ -319,7 +319,7 @@ const wrapperStyle = computed(() => {
   const height =
     h === undefined ? "100%" : typeof h === "number" ? `${h}px` : h;
   const style: Record<string, string> = { height };
-  // Opt into horizontal scroll (rows wider than the viewport) — overrides the
+  // Opt into horizontal scroll (rows wider than the viewport): overrides the
   // stylesheet's `overflow-x: hidden`.
   if (minContentWidthCss.value) style.overflowX = "auto";
   return style;
@@ -350,14 +350,17 @@ const innerStyle = computed(() => {
     <div v-if="$slots.sticky" class="r-virtual-scroller__sticky">
       <slot name="sticky" />
     </div>
-    <div ref="innerEl" class="r-virtual-scroller__inner" :style="innerStyle">
-      <div
-        v-for="entry in renderedItems"
-        :key="entry.key"
-        class="r-virtual-scroller__item"
-        :style="{ transform: `translateY(${entry.top}px)` }"
-      >
-        <slot :item="entry.item" :index="entry.index" />
+    <div class="r-virtual-scroller__body" v-bind="bodyAttrs">
+      <slot name="head" />
+      <div ref="innerEl" class="r-virtual-scroller__inner" :style="innerStyle">
+        <div
+          v-for="entry in renderedItems"
+          :key="entry.key"
+          class="r-virtual-scroller__item"
+          :style="{ transform: `translateY(${entry.top}px)` }"
+        >
+          <slot :item="entry.item" :index="entry.index" />
+        </div>
       </div>
     </div>
   </div>
@@ -374,7 +377,7 @@ const innerStyle = computed(() => {
 .r-virtual-scroller__prepend {
   /* `display: contents` makes the wrapper invisible to layout so its
      children become layout-children of the scroller. That matters for
-     `position: sticky` consumers inside `#prepend` — sticky pins
+     `position: sticky` consumers inside `#prepend`, sticky pins
      relative to the closest scroll-context ANCESTOR (the scroller),
      but its containing block is its parent in the box tree. With a
      normal `<div>` wrapper here, sticky would un-pin once the wrapper
@@ -386,7 +389,7 @@ const innerStyle = computed(() => {
 }
 
 .r-virtual-scroller__sticky {
-  /* Native sticky — pinned by the compositor as the user scrolls past
+  /* Native sticky: pinned by the compositor as the user scrolls past
      the prepend band. Zero JS lag. Consumers should give the slot's
      content an opaque background so virtualised rows scrolling under
      it stay visually hidden. */

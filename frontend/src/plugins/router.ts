@@ -18,6 +18,7 @@ import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import type { User } from "@/stores/users";
+import { DEFAULT_TITLE } from "@/v2/composables/usePageTitle";
 import {
   notFoundComponent,
   v2Layouts,
@@ -275,7 +276,7 @@ const routes = [
           v2: v2For(ROUTES.STREAM_DESKTOP),
         },
       },
-      // Settings group — every settings route shares the same v2
+      // Settings group: every settings route shares the same v2
       // sub-layout (sidebar + content panel). Library Tools (Scan /
       // Upload / Patcher) live here too so they share the settings
       // sidebar shell. v1 keeps its existing per-view structure via the
@@ -387,6 +388,18 @@ const routes = [
             },
           },
           {
+            path: "conversion-settings",
+            name: ROUTES.CONVERSION_SETTINGS,
+            meta: {
+              title: "settings.conversion-settings",
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.CONVERSION_SETTINGS),
+            },
+          },
+          {
             path: "metadata-sources",
             name: ROUTES.METADATA_SOURCES,
             meta: {
@@ -441,7 +454,7 @@ const routes = [
               title: "common.logs",
               bare: true,
               // The log panel fills the viewport and scrolls internally
-              // instead of growing the document — see SettingsLayout `fill`.
+              // instead of growing the document: see SettingsLayout `fill`.
               fill: true,
             },
             components: {
@@ -508,9 +521,12 @@ const routes = [
   {
     path: "/pair",
     name: ROUTES.PAIR,
-    component: () => import("@/v2/views/PairDispatcher.vue"),
+    components: {
+      default: () => import("@/views/Pair.vue"),
+      v2: v2For(ROUTES.PAIR),
+    },
   },
-  // Console mode (separate UI namespace under /console) — v1 only; v2 merges
+  // Console mode (separate UI namespace under /console): v1 only; v2 merges
   // console behavior into the main UI via the universal input system.
   {
     path: "/console",
@@ -564,14 +580,14 @@ const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),
   routes,
   scrollBehavior(to, from, savedPosition) {
-    // popstate (back/forward) — restore the saved offset.
+    // popstate (back/forward): restore the saved offset.
     if (savedPosition) return savedPosition;
     // Same path → only query/hash changed (e.g., the v2 GameDetails
     // tab/subtab params, gallery filter syncs). The user's view should
     // stay where it is; scrolling to top would make the URL update
     // visible as a UX jump.
     if (to.path === from.path) return false;
-    // Genuine route change — start fresh from the top.
+    // Genuine route change: start fresh from the top.
     return { left: 0, top: 0 };
   },
 });
@@ -582,6 +598,7 @@ const routePermissions: RoutePermissions[] = [
   { path: ROUTES.UPLOAD, requiredScopes: ["roms.write"] },
   { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },
   { path: ROUTES.SCAN_SETTINGS, requiredScopes: ["platforms.write"] },
+  { path: ROUTES.CONVERSION_SETTINGS, requiredScopes: ["platforms.write"] },
   { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
   { path: ROUTES.LOGS, requiredScopes: ["logs.read"] },
 ];
@@ -619,7 +636,7 @@ export function applyRouteTitle(
   // A query/hash-only navigation leaves the view mounted, so `usePageTitle`
   // won't refire and the fallback would drop the title it already set.
   if (from && route.path === from.path) return;
-  document.title = "RomM";
+  document.title = DEFAULT_TITLE;
 }
 
 router.beforeEach(async (to, from, next) => {
@@ -629,7 +646,7 @@ router.beforeEach(async (to, from, next) => {
   const currentRoute = to.name?.toString();
 
   try {
-    // Backend unreachable/broken — we can't trust the setup/auth state, and
+    // Backend unreachable/broken: we can't trust the setup/auth state, and
     // bouncing to /login would just strand the user on a page that can't work
     // either. Let them stay on (and navigate within) whatever the cached state
     // allows; the offline notice explains it and the connection layer
@@ -644,7 +661,7 @@ router.beforeEach(async (to, from, next) => {
       return currentRoute !== "setup" ? next({ name: ROUTES.SETUP }) : next();
     }
 
-    // Handle authentication — unauth'd users visiting a non-exempt route
+    // Handle authentication: unauth'd users visiting a non-exempt route
     // land on /login. Without this branch, they fall through to the
     // permission check below, fail it, get redirected to the catch-all 404
     // (which matches /), and the guard re-runs forever.
@@ -657,7 +674,7 @@ router.beforeEach(async (to, from, next) => {
       });
     }
 
-    // SHOW_SETUP_WIZARD is false here, so setup is already done — nobody
+    // SHOW_SETUP_WIZARD is false here, so setup is already done: nobody
     // belongs on /setup anymore. `/setup` is auth-exempt (so the block above
     // won't bounce an unauthenticated visitor), so redirect both cases:
     // authenticated users go home, everyone else to login. Without covering
@@ -686,7 +703,7 @@ router.beforeEach(async (to, from, next) => {
     next();
   } catch (error) {
     console.error("Navigation guard error:", error);
-    document.title = "RomM";
+    document.title = DEFAULT_TITLE;
     next({ name: ROUTES.LOGIN });
   }
 });
@@ -701,11 +718,11 @@ watch(i18n.global.locale, async (locale) => {
 });
 
 router.beforeResolve(async (to, from) => {
-  // Query/hash-only changes (same path — e.g. the v2 GameDetails `?tab=`
+  // Query/hash-only changes (same path: e.g. the v2 GameDetails `?tab=`
   // param) aren't a real view change. Running a view transition would
   // snapshot every `view-transition-name` element (like the details cover)
   // into the browser's top layer for the crossfade, briefly floating it over
-  // the fixed navbar. Skip them — matching `scrollBehavior` above.
+  // the fixed navbar. Skip them: matching `scrollBehavior` above.
   if (to.path === from.path) return;
   const viewTransition = startViewTransition();
   await viewTransition.captured;

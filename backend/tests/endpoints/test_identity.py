@@ -13,13 +13,13 @@ from authlib.integrations.base_client.errors import MismatchingStateError, OAuth
 from fastapi import status
 from fastapi.testclient import TestClient
 from joserfc.errors import InvalidClaimError
+from tests.factories import make_device_token
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints import permissions as permissions_endpoints
 from endpoints import user as user_endpoints
-from handler.auth import auth_handler
 from handler.auth import base_handler as auth_handler_module
-from handler.auth import oauth_handler
+from handler.auth.base_handler import auth_handler, oauth_handler
 from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import (
@@ -470,9 +470,9 @@ def test_delete_user(client, access_token: str, editor_user: User):
 
 
 def test_delete_user_closes_their_device_sockets(
-    mocker, client, access_token: str, editor_user: User, add_device_token
+    mocker, client, access_token: str, editor_user: User
 ):
-    token, _ = add_device_token(editor_user, None, scopes="devices.read")
+    token, _ = make_device_token(editor_user, None, scopes="devices.read")
     close = mocker.patch.object(
         user_endpoints, "close_client_token_sockets", mock.AsyncMock()
     )
@@ -511,9 +511,9 @@ def test_delete_user_drops_their_install_requests(
 
 
 def test_disabling_a_user_closes_their_device_sockets(
-    mocker, client, access_token: str, editor_user: User, add_device_token
+    mocker, client, access_token: str, editor_user: User
 ):
-    token, _ = add_device_token(editor_user, None, scopes="devices.read")
+    token, _ = make_device_token(editor_user, None, scopes="devices.read")
     close = mocker.patch.object(
         user_endpoints, "close_client_token_sockets", mock.AsyncMock()
     )
@@ -529,9 +529,9 @@ def test_disabling_a_user_closes_their_device_sockets(
 
 
 def test_changing_a_users_role_closes_their_device_sockets(
-    mocker, client, access_token: str, editor_user: User, add_device_token
+    mocker, client, access_token: str, editor_user: User
 ):
-    token, _ = add_device_token(editor_user, None, scopes="devices.read")
+    token, _ = make_device_token(editor_user, None, scopes="devices.read")
     close = mocker.patch.object(
         permissions_endpoints, "close_client_token_sockets", mock.AsyncMock()
     )
@@ -548,9 +548,9 @@ def test_changing_a_users_role_closes_their_device_sockets(
 
 @pytest.mark.parametrize("form", [{"ra_username": "someone"}, {"enabled": "true"}])
 def test_other_user_edits_leave_their_device_sockets_open(
-    mocker, client, access_token: str, editor_user: User, form, add_device_token
+    mocker, client, access_token: str, editor_user: User, form
 ):
-    add_device_token(editor_user, None, scopes="devices.read")
+    make_device_token(editor_user, None, scopes="devices.read")
     close = mocker.patch.object(
         user_endpoints, "close_client_token_sockets", mock.AsyncMock()
     )
@@ -1000,3 +1000,12 @@ def test_update_user_ui_settings_nested_object(
 
     user = response.json()
     assert user["ui_settings"] == nested_settings
+
+
+def test_overlong_ra_username_rejected(client, access_token: str, admin_user: User):
+    response = client.put(
+        f"/api/users/{admin_user.id}",
+        data={"ra_username": "x" * 256},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT

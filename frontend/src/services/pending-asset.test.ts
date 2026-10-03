@@ -33,10 +33,6 @@ describe("pendingAssetStore without IndexedDB", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   // A private window looks the same: the player must hear nothing was kept.
   it("says a write kept nothing rather than throwing", async () => {
     await expect(
@@ -69,10 +65,6 @@ describe("pendingAssetStore without IndexedDB", () => {
 });
 
 describe("pendingAssetId", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it("keys a capture to its rom", () => {
     expect(pendingAssetId(7)).toMatch(/^7:.+/);
   });
@@ -217,6 +209,8 @@ describe("syncPendingAssets", () => {
   }
 
   beforeEach(() => {
+    // Names carry the capture's local time, so a zone off UTC pins that.
+    vi.stubEnv("TZ", "Asia/Kolkata");
     rows = new Map();
     auth.userId = 1;
     installFakeIndexedDB(rows);
@@ -234,8 +228,6 @@ describe("syncPendingAssets", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
     romApiMocks.getRom.mockReset();
     saveApiMocks.uploadSaves.mockReset();
     stateApiMocks.uploadStates.mockReset();
@@ -273,10 +265,10 @@ describe("syncPendingAssets", () => {
 
     const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
     expect(statesToUpload[0].stateFile.name).toBe(
-      "game [2024-05-06 07-08-09-010].state",
+      "game [2024-05-06 12-38-09-010].state",
     );
     expect(statesToUpload[0].screenshotFile.name).toBe(
-      "game [2024-05-06 07-08-09-010].png",
+      "game [2024-05-06 12-38-09-010].png",
     );
     expect(rows.size).toBe(0);
   });
@@ -487,10 +479,10 @@ describe("syncPendingAssets", () => {
     const archive = saveApiMocks.uploadSaves.mock.calls[1][0];
     expect(archive.slot).toBeUndefined();
     expect(archive.savesToUpload[0].saveFile.name).toBe(
-      "game [2024-05-06 07-08-09-010].srm",
+      "game [2024-05-06 12-38-09-010].srm",
     );
     expect(archive.savesToUpload[0].screenshotFile.name).toBe(
-      "game [2024-05-06 07-08-09-010].png",
+      "game [2024-05-06 12-38-09-010].png",
     );
     expect(rows.size).toBe(0);
   });

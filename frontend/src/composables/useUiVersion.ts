@@ -1,4 +1,4 @@
-// useUiVersion — singleton ref for the v1/v2 UI toggle.
+// useUiVersion: singleton ref for the v1/v2 UI toggle.
 //
 // vueuse's useLocalStorage creates an INDEPENDENT ref per call. Two callers
 // with the same key share localStorage but not Vue reactivity within the
