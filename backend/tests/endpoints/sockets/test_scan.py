@@ -1212,6 +1212,54 @@ class TestIdentifyRomReassociation:
         created = db.add_rom.call_args_list[0].args[0]
         assert isinstance(created, Rom)
         assert created.fs_name == "New Name.zip"
+        # Hashes without listed files are not inserted.
+        assert (created.crc_hash, created.fs_size_bytes, created.title_id) == (
+            None,
+            None,
+            None,
+        )
+
+    async def test_new_entry_is_inserted_with_hashes(self, patched, mocker):
+        db, platform = patched
+        db.get_matching_missing_rom.return_value = None
+        mocker.patch.object(
+            fs_rom_handler,
+            "get_rom_files",
+            AsyncMock(
+                return_value=ParsedRomFiles(
+                    rom_files=[
+                        RomFile(
+                            file_name="New Name.zip",
+                            file_path="test/roms",
+                            file_size_bytes=1024,
+                        ),
+                        RomFile(
+                            file_name="New Name [DLC].zip",
+                            file_path="test/roms",
+                            file_size_bytes=512,
+                        ),
+                    ],
+                    crc_hash="crc",
+                    md5_hash="md5",
+                    sha1_hash="sha1",
+                    ra_hash="ra",
+                    identity=RomIdentity(title_id="0100ABCD12340000"),
+                )
+            ),
+        )
+
+        await self._run(platform)
+
+        created = db.add_rom.call_args_list[0].args[0]
+        expected = {
+            "crc_hash": "crc",
+            "md5_hash": "md5",
+            "sha1_hash": "sha1",
+            "ra_hash": "ra",
+            "fs_size_bytes": 1536,
+            "title_id": "0100ABCD12340000",
+        }
+        assert {key: getattr(created, key) for key in expected} == expected
 
 
 class TestIdentifyRomTitleIdEmbedRename:
@@ -1252,72 +1300,6 @@ class TestIdentifyRomTitleIdEmbedRename:
         created = db.add_rom.call_args_list[0].args[0]
         assert created.fs_name == self.NEW_NAME
         assert fs_rom["fs_name"] == self.NEW_NAME
-
-
-class TestIdentifyRomNewEntryInsert:
-    """A new entry is inserted with its file hashes, so a scan that dies before
-    the final write leaves a row that rename detection can still match."""
-
-    async def test_insert_carries_hashes_size_and_identity(self, mocker):
-        db, platform = patch_identify_rom(
-            mocker,
-            parsed=ParsedRomFiles(
-                rom_files=[
-                    RomFile(
-                        file_name="Game.nsp",
-                        file_path="switch/roms",
-                        file_size_bytes=1024,
-                    ),
-                    RomFile(
-                        file_name="Game [DLC].nsp",
-                        file_path="switch/roms",
-                        file_size_bytes=512,
-                    ),
-                ],
-                crc_hash="crc",
-                md5_hash="md5",
-                sha1_hash="sha1",
-                ra_hash="ra",
-                identity=RomIdentity(title_id="0100ABCD12340000"),
-            ),
-            roms_fs_structure="switch/roms",
-            name_with_no_tags="Game",
-            platform_slug="switch",
-        )
-        db.get_matching_missing_rom.return_value = None
-
-        await run_identify_rom(platform, make_fs_rom("Game.nsp"))
-
-        created = db.add_rom.call_args_list[0].args[0]
-        assert (created.crc_hash, created.md5_hash, created.sha1_hash) == (
-            "crc",
-            "md5",
-            "sha1",
-        )
-        assert created.ra_hash == "ra"
-        assert created.fs_size_bytes == 1536
-        assert created.title_id == "0100ABCD12340000"
-
-    async def test_insert_without_files_leaves_file_columns_unset(self, mocker):
-        db, platform = patch_identify_rom(
-            mocker,
-            parsed=ParsedRomFiles(
-                rom_files=[], crc_hash="", md5_hash="", sha1_hash="", ra_hash=""
-            ),
-            roms_fs_structure="n64/roms",
-            name_with_no_tags="Game",
-            platform_slug="n64",
-        )
-        db.get_matching_missing_rom.return_value = None
-
-        await run_identify_rom(platform, make_fs_rom("Game.z64"))
-
-        created = db.add_rom.call_args_list[0].args[0]
-        assert (created.crc_hash, created.fs_size_bytes, created.title_id) == (
-            None,
-            None,
-            None,
-        )
 
 
 class TestIdentifyRomPersistsFileCategory:

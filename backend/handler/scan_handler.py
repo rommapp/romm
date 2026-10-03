@@ -781,11 +781,11 @@ async def scan_rom(
 
     # A new rom is already the reloaded row its caller inserted. An existing one
     # is written so its rescanned columns land before identification.
-    _added_rom = rom if newly_added else db_rom_handler.add_rom(Rom(**rom_attrs))
-    _added_rom.is_identifying = True
+    scanning_rom = rom if newly_added else db_rom_handler.add_rom(Rom(**rom_attrs))
+    scanning_rom.is_identifying = True
 
     if socket_manager:
-        await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
+        await emit_scanning_rom(socket_manager, scanning_rom, is_new=newly_added)
 
     # Run hash fetches concurrently
     (
