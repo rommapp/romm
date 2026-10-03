@@ -36,7 +36,8 @@ const props = withDefaults(
      *  segmented vocabulary so every existing call site stays
      *  identical. `x-small` shrinks to 22×22 so the cluster reads as
      *  a peer to RSwitch default (20px) when placed inline inside a
-     *  toggle row: mirrors RBtn's x-small / small ladder. */
+     *  toggle row: mirrors RBtn's x-small / small ladder. On `tab`
+     *  it gives a compact pill for a list row instead of the top nav. */
     size?: "x-small" | "small";
   }>(),
   {
@@ -461,6 +462,24 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   color: var(--r-color-overlay-emphasis-fg) !important;
   background: transparent !important;
   font-weight: var(--r-font-weight-semibold);
+}
+
+/* x-small tab: a compact pill for a row in a list, 26px tall. */
+.r-slider-btn-group--tab.r-slider-btn-group--size-x-small {
+  padding: 3px;
+}
+.r-slider-btn-group--tab.r-slider-btn-group--size-x-small
+  .r-slider-btn-group__btn {
+  padding: 3px 10px !important;
+  min-height: 26px !important;
+  height: 26px !important;
+  font-size: 12px;
+  gap: 4px;
+}
+.r-slider-btn-group--tab.r-slider-btn-group--size-x-small
+  .r-slider-btn-group__btn
+  :deep(.mdi) {
+  font-size: 14px !important;
 }
 
 /* Count pill after the label. Background is a translucent tint of the
