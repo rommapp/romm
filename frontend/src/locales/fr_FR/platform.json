@@ -132,6 +132,7 @@
   "tab-firmware": "Firmware",
   "tag": "Tag",
   "tags": "Tags",
+  "update-platform-failed": "Échec de la mise à jour de la plateforme : {error}",
   "updated": "Plateforme mise à jour",
   "upload-firmware": "Téléverser un firmware",
   "upload-roms": "Télécharger des ROMs"

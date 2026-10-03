@@ -475,7 +475,7 @@ watch(show, (val) => {
             <button
               type="button"
               class="r-v2-tok-dialog__copy-btn"
-              :aria-label="t('common.save')"
+              :aria-label="t('settings.copy-token')"
               @click="copyToken"
             >
               <RIcon icon="mdi-content-copy" size="16" />

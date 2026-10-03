@@ -132,6 +132,7 @@
   "tab-firmware": "韌體",
   "tag": "標籤",
   "tags": "標籤",
+  "update-platform-failed": "更新平台失敗：{error}",
   "updated": "平台已更新",
   "upload-firmware": "上傳韌體",
   "upload-roms": "上傳 Rom"
