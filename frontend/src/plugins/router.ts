@@ -685,12 +685,13 @@ router.beforeEach((to, from) => {
     const views = record.components;
     if (!views) continue;
     const load = views[active] && deferredLoaders.get(views[active]);
-    const entering = !from.matched.some(
-      (r) => (r.aliasOf ?? r) === (record.aliasOf ?? record),
-    );
-    // Hand the loader back once its UI is active, so vue-router awaits the
-    // view again and a stale chunk still reaches router.onError.
-    if (load && entering) views[active] = load;
+    // Hand the loader back once its UI is active and the route is entered,
+    // so vue-router awaits the view again and a stale chunk reaches onError.
+    if (
+      load &&
+      !from.matched.some((r) => (r.aliasOf ?? r) === (record.aliasOf ?? record))
+    )
+      views[active] = load;
     // Every route view is a `() => import()` loader until it is deferred.
     const view = views[inactive];
     if (typeof view === "function")

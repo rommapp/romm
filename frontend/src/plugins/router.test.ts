@@ -1,13 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import {
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h } from "vue";
 import { RouterView, type RouteLocationNormalized } from "vue-router";
 import { useUiVersion } from "@/composables/useUiVersion";
@@ -157,15 +149,11 @@ describe("the inactive UI's views", () => {
 
   beforeEach(() => {
     storeAuth().setCurrentUser({ id: 1 } as User);
-  });
-
-  afterEach(() => {
     uiVersion.value = "v2";
   });
 
   it("are left unfetched, without vue-router's async-view warning", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    uiVersion.value = "v2";
 
     await router.push({ name: "deferred-views" });
 
@@ -178,7 +166,6 @@ describe("the inactive UI's views", () => {
   });
 
   it("render in place when the UI switches without navigating", async () => {
-    uiVersion.value = "v2";
     await router.push({ name: "deferred-views-elsewhere" });
     await router.push({ name: "deferred-views" });
     const Shell = defineComponent({
@@ -194,7 +181,6 @@ describe("the inactive UI's views", () => {
   });
 
   it("start loading every nested view as soon as the UI switches", async () => {
-    uiVersion.value = "v2";
     await router.push({ name: "deferred-chain" });
 
     uiVersion.value = "v1";
@@ -207,7 +193,6 @@ describe("the inactive UI's views", () => {
   // After an in-place switch, entering the route again must await the view
   // like any lazy route, so a stale chunk reaches router.onError.
   it("are fetched with the navigation once their UI is active", async () => {
-    uiVersion.value = "v2";
     await router.push({ name: "deferred-views" });
     await router.push({ name: "deferred-views-elsewhere" });
     expect(views()?.default).toMatchObject({ name: "DeferredView" });
