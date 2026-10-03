@@ -3,6 +3,7 @@ import mitt, { type Emitter } from "mitt";
 import { describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { rom } from "@/v2/components/Gallery/listRowFixture";
 import ShowQRCodeDialog from "./ShowQRCodeDialog.vue";
 
 // Each encode waits for releaseQR() so a test can look between the link
@@ -33,10 +34,6 @@ vi.mock("@/utils", () => ({
   getDownloadLink: ({ rom }: { rom: SimpleRom }) => `link-${rom.id}`,
 }));
 
-function rom(id: number): SimpleRom {
-  return { id, name: `Game ${id}`, fs_name: `game${id}.nds` } as SimpleRom;
-}
-
 function mountDialog(): { wrapper: VueWrapper; emitter: Emitter<Events> } {
   const emitter = mitt<Events>();
   const wrapper = mount(ShowQRCodeDialog, {
@@ -57,7 +54,7 @@ describe("ShowQRCodeDialog", () => {
   it("encodes the ROM's download link", async () => {
     const { wrapper, emitter } = mountDialog();
 
-    emitter.emit("showQRCodeDialog", rom(1));
+    emitter.emit("showQRCodeDialog", rom({ id: 1 }));
     await flushPromises();
     releaseQR();
     await flushPromises();
@@ -67,12 +64,12 @@ describe("ShowQRCodeDialog", () => {
 
   it("never shows the previous ROM's code while the next one encodes", async () => {
     const { wrapper, emitter } = mountDialog();
-    emitter.emit("showQRCodeDialog", rom(1));
+    emitter.emit("showQRCodeDialog", rom({ id: 1 }));
     await flushPromises();
     releaseQR();
     await flushPromises();
 
-    emitter.emit("showQRCodeDialog", rom(2));
+    emitter.emit("showQRCodeDialog", rom({ id: 2 }));
     await flushPromises();
     expect(wrapper.find(".r-v2-qr__code").exists()).toBe(false);
 
