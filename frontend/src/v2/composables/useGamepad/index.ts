@@ -36,11 +36,13 @@ import { onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import storePlaying from "@/stores/playing";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import {
+  NAV_TARGETS,
+  navDestinationAt,
+} from "@/v2/composables/useNavDestinations";
 import { hasOpenEscapable } from "@/v2/lib/overlays/RDialog/escapeStack.js";
-
-// AppNav tab order: must match the `tabs` list in
-// `src/v2/components/AppShell/AppNav.vue`. LB/RB cycle through these.
-const NAV_SECTIONS = ["/", "/platforms", "/collections", "/search"] as const;
+import { isEditable } from "@/v2/utils/editable";
+import { isUsablePad } from "@/v2/utils/gamepad";
 
 // Routes where useGamepad's built-in actions (back, activate, section
 // nav, user menu) must NOT fire, so every button stays inspectable in
@@ -120,14 +122,6 @@ const BUTTON_MAP: Record<number, Binding | undefined> = {
   15: ARROWS.right,
 };
 
-// Guards the polling loop against phantom gamepads.
-// Firefox keeps disconnected entries in the getGamepads() array,
-// and their stale analog values drift across the press threshold,
-// firing index-based actions with no user input. #3851.
-export function isUsablePad(pad: Gamepad | null): pad is Gamepad {
-  return pad !== null && pad.connected;
-}
-
 const padEvents = new WeakSet<Event>();
 
 /** True when `event` is a key useGamepad dispatched for the pad. */
@@ -181,25 +175,17 @@ export function useGamepad() {
   const playingStore = storePlaying();
 
   function cycleSection(step: -1 | 1) {
-    const currentPath = route.path;
-
-    // Match current section by path prefix so /platform/:id still registers
-    // as "/platforms" when LB/RB is pressed from a gallery sub-route.
-    const matchIndex = NAV_SECTIONS.findIndex((section) =>
-      section === "/" ? currentPath === "/" : currentPath.startsWith(section),
-    );
-    // Not on a section at all (e.g. on /rom/:id). Jumping straight to
-    // Home is more predictable than silently treating the current page
-    // as Home and stepping once: that used to take the user to
-    // Platforms when pressing RB from a ROM detail view.
-    if (matchIndex < 0) {
-      if (currentPath !== "/") router.push("/");
+    const current = navDestinationAt(route.path);
+    // Off the nav sections (e.g. on /rom/:id), Home is the predictable
+    // landing spot for either bumper.
+    if (!current) {
+      if (route.path !== "/") router.push("/");
       return;
     }
-    const nextIndex =
-      (matchIndex + step + NAV_SECTIONS.length) % NAV_SECTIONS.length;
-    const target = NAV_SECTIONS[nextIndex]!;
-    if (target !== currentPath) router.push(target);
+    const at = NAV_TARGETS.findIndex(({ id }) => id === current);
+    const next =
+      NAV_TARGETS[(at + step + NAV_TARGETS.length) % NAV_TARGETS.length]!;
+    if (next.to !== route.path) router.push(next.to);
   }
 
   // Activates the currently focused element. Router-links, submit
@@ -207,12 +193,9 @@ export function useGamepad() {
   // regardless of whether the event was trusted: that's the escape
   // hatch synthetic KeyboardEvents don't give us.
   function activateFocused() {
-    const active = document.activeElement as HTMLElement | null;
-    if (!active) return;
-    // Skip text inputs etc.: pressing A inside a text field shouldn't
-    // re-submit the form on every press.
-    const tag = active.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    const active = document.activeElement;
+    // Pressing A inside a field shouldn't re-submit the form on every press.
+    if (!(active instanceof HTMLElement) || isEditable(active)) return;
     active.click();
   }
 

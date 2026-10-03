@@ -27,6 +27,7 @@ import { computed, nextTick, ref, watch } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { isEditable } from "@/v2/utils/editable";
 import type { RCarouselProps } from "./types";
 
 defineOptions({ inheritAttrs: false });
@@ -124,9 +125,7 @@ function close() {
 
 function onKeydown(event: KeyboardEvent) {
   // Don't hijack typing in inputs that may live inside slots.
-  const target = event.target as HTMLElement | null;
-  const tag = target?.tagName;
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+  if (isEditable(event.target)) return;
 
   switch (event.key) {
     case "ArrowRight":

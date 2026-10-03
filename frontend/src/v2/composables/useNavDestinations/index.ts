@@ -24,6 +24,41 @@ export interface NavDestination {
   to: string;
 }
 
+// Tab order and targets. useGamepad's LB/RB cycles through the same list.
+export const NAV_TARGETS: readonly { id: NavDestinationId; to: string }[] = [
+  { id: "home", to: "/" },
+  { id: "platforms", to: "/platforms" },
+  { id: "collections", to: "/collections" },
+  { id: "search", to: "/search" },
+];
+
+const NAV_META: Record<NavDestinationId, { labelKey: string; icon: string }> = {
+  home: { labelKey: "common.home", icon: "mdi-home-outline" },
+  platforms: { labelKey: "common.platforms", icon: "mdi-controller" },
+  // Same glyph GameCard uses for its "add to collection" action:
+  // keeps the icon stable across every generic "Collections" surface.
+  collections: { labelKey: "common.collections", icon: "mdi-bookmark-outline" },
+  search: { labelKey: "common.search", icon: "mdi-magnify" },
+};
+
+// `path` is `base` itself or a page under it, so "/platform-x" isn't.
+function isUnder(path: string, base: string): boolean {
+  return path === base || path.startsWith(`${base}/`);
+}
+
+/** The destination `path` belongs to; gallery sub-routes count as their parent. */
+export function navDestinationAt(path: string): NavDestinationId | null {
+  if (path === "/") return "home";
+  if (isUnder(path, "/platforms") || isUnder(path, "/platform")) {
+    return "platforms";
+  }
+  if (isUnder(path, "/collections") || isUnder(path, "/collection")) {
+    return "collections";
+  }
+  if (isUnder(path, "/search")) return "search";
+  return null;
+}
+
 export function useNavDestinations(): {
   destinations: ComputedRef<NavDestination[]>;
   activeId: ComputedRef<NavDestinationId | null>;
@@ -31,47 +66,15 @@ export function useNavDestinations(): {
   const { t } = useI18n();
   const route = useRoute();
 
-  const destinations = computed<NavDestination[]>(() => [
-    {
-      id: "home",
-      label: t("common.home"),
-      ariaLabel: t("common.home"),
-      icon: "mdi-home-outline",
-      to: "/",
-    },
-    {
-      id: "platforms",
-      label: t("common.platforms"),
-      ariaLabel: t("common.platforms"),
-      icon: "mdi-controller",
-      to: "/platforms",
-    },
-    {
-      id: "collections",
-      label: t("common.collections"),
-      ariaLabel: t("common.collections"),
-      // Same glyph GameCard uses for its "add to collection" action:
-      // keeps the icon stable across every generic "Collections" surface.
-      icon: "mdi-bookmark-outline",
-      to: "/collections",
-    },
-    {
-      id: "search",
-      label: t("common.search"),
-      ariaLabel: t("common.search"),
-      icon: "mdi-magnify",
-      to: "/search",
-    },
-  ]);
+  const destinations = computed<NavDestination[]>(() =>
+    NAV_TARGETS.map(({ id, to }) => {
+      const { labelKey, icon } = NAV_META[id];
+      const label = t(labelKey);
+      return { id, label, ariaLabel: label, icon, to };
+    }),
+  );
 
-  const activeId = computed<NavDestinationId | null>(() => {
-    const path = route.path;
-    if (path === "/") return "home";
-    if (path.startsWith("/platform")) return "platforms";
-    if (path.startsWith("/collection")) return "collections";
-    if (path.startsWith("/search")) return "search";
-    return null;
-  });
+  const activeId = computed(() => navDestinationAt(route.path));
 
   return { destinations, activeId };
 }
