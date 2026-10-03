@@ -1213,11 +1213,9 @@ class TestIdentifyRomReassociation:
         assert isinstance(created, Rom)
         assert created.fs_name == "New Name.zip"
         # Hashes without listed files are not inserted.
-        assert (created.crc_hash, created.fs_size_bytes, created.title_id) == (
-            None,
-            None,
-            None,
-        )
+        assert created.crc_hash is None
+        assert created.fs_size_bytes is None
+        assert created.title_id is None
 
     async def test_new_entry_is_inserted_with_hashes(self, patched, mocker):
         db, platform = patched
