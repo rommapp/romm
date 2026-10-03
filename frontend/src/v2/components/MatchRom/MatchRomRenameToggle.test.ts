@@ -26,6 +26,16 @@ describe("MatchRomRenameToggle", () => {
     );
   });
 
+  it("renders the switch inside the toggle as a static indicator", () => {
+    const wrapper = mount(MatchRomRenameToggle, {
+      props: { modelValue: true, rom, matchedName: "The Legend of Zelda" },
+      global: { stubs: { RIcon: true } },
+    });
+    const head = wrapper.get(".rename-toggle__head");
+    expect(head.findAll("button")).toHaveLength(0);
+    expect(head.attributes("aria-pressed")).toBe("true");
+  });
+
   it("hides when the file name would not change", () => {
     const wrapper = mountToggle("Zelda");
     expect(wrapper.find(".rename-toggle").exists()).toBe(false);

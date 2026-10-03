@@ -66,14 +66,12 @@ function toggle() {
         <RIcon icon="mdi-file-edit-outline" size="15" />
         <span>{{ t("rom.match-rename-on-disk") }}</span>
       </span>
-      <!-- Stop propagation so the switch click doesn't double-toggle
-           via the parent button's handler. -->
+      <!-- `static`: a nested switch button would be invalid inside this one. -->
       <RSwitch
         :model-value="modelValue"
         :disabled="disabled"
         size="small"
-        @click.stop
-        @update:model-value="emit('update:modelValue', $event)"
+        static
       />
     </button>
 
