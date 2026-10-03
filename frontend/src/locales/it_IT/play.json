@@ -43,6 +43,8 @@
   "desktop-title": "Container desktop",
   "discs": "Dischi",
   "download-memory-card": "Scarica card",
+  "easyrpg-browser-save-warning": "I salvataggi di EasyRPG vengono archiviati solo in questo browser e non vengono sincronizzati con RomM.",
+  "easyrpg-screen": "Schermo di gioco EasyRPG",
   "edit-memory-card": "Modifica memory card",
   "emulator": "Emulatore",
   "error-hint-auth": "Potresti non avere il permesso di trasmettere in streaming oppure la tua sessione è scaduta. Prova ad accedere di nuovo.",

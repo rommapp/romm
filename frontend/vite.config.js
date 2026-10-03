@@ -82,6 +82,15 @@ export default defineConfig(({ mode }) => {
     "/api": upstream,
     "^/(?:ws|netplay)": { ...upstream, ws: true },
     "/openapi.json": upstream,
+    // The EasyRPG web player fetches each game file from games/<rom id>-<user id>/ beside itself.
+    "^/assets/easyrpg/games/": {
+      ...upstream,
+      rewrite: (/** @type {string} */ path) =>
+        path.replace(
+          /^\/assets\/easyrpg\/games\/(\d+)-\d+\//,
+          "/api/roms/$1/easyrpg/",
+        ),
+    },
     // Local dev serves covers from the frontend/assets symlink.
     ...(remote ? { "/assets/romm": upstream } : {}),
   };
@@ -156,6 +165,7 @@ export default defineConfig(({ mode }) => {
           "**/assets/jsdos/**",
           "**/assets/pico8/**",
           "**/assets/gme/**",
+          "**/assets/easyrpg/**",
         ],
       },
       proxy,

@@ -43,6 +43,8 @@
   "desktop-title": "Container desktop",
   "discs": "Дискове",
   "download-memory-card": "Изтегляне на картата",
+  "easyrpg-browser-save-warning": "Запазените данни на EasyRPG се съхраняват само в този браузър и не се синхронизират с RomM.",
+  "easyrpg-screen": "Игрален екран на EasyRPG",
   "edit-memory-card": "Редактиране на карта памет",
   "emulator": "Емулатор",
   "error-hint-auth": "Възможно е да нямате права за стрийминг или сесията ви да е изтекла. Опитайте да влезете отново.",

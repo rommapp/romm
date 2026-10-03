@@ -687,6 +687,7 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
             undefer(Rom.multi_file),
             undefer(Rom.top_level_file_count),
             undefer(Rom.has_soundtrack),
+            undefer(Rom.is_easyrpg_game),
         )
         return func(*args, **kwargs)
 
@@ -736,6 +737,7 @@ def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
             undefer(Rom.multi_file),
             undefer(Rom.top_level_file_count),
             undefer(Rom.has_soundtrack),
+            undefer(Rom.is_easyrpg_game),
         )
         return func(*args, **kwargs)
 
@@ -1604,6 +1606,7 @@ class DBRomsHandler(DBBaseHandler):
                 undefer(Rom.multi_file),
                 undefer(Rom.top_level_file_count),
                 undefer(Rom.has_soundtrack),
+                undefer(Rom.is_easyrpg_game),
             )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
@@ -2853,6 +2856,26 @@ class DBRomsHandler(DBBaseHandler):
                 )
                 .filter_by(rom_id=rom_id, category=category)
                 .order_by(RomFile.file_name.asc())
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
+    def present_rom_file_paths(
+        self,
+        rom_id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> list[RomFile]:
+        """A ROM's files on disk, loading only their paths and the rom's."""
+        return list(
+            session.scalars(
+                select(RomFile)
+                .filter_by(rom_id=rom_id, missing_from_fs=False)
+                .options(
+                    load_only(RomFile.file_path, RomFile.file_name),
+                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+                )
             )
             .unique()
             .all()

@@ -43,6 +43,8 @@
   "desktop-title": "Container desktop",
   "discs": "光碟",
   "download-memory-card": "下載記憶卡",
+  "easyrpg-browser-save-warning": "EasyRPG 存檔僅保存在此瀏覽器中，不會與 RomM 同步。",
+  "easyrpg-screen": "EasyRPG 遊戲畫面",
   "edit-memory-card": "編輯記憶卡",
   "emulator": "模擬器",
   "error-hint-auth": "您可能沒有串流權限，或登入工作階段已過期。請嘗試重新登入。",

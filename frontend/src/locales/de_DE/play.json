@@ -43,6 +43,8 @@
   "desktop-title": "Container desktop",
   "discs": "Discs",
   "download-memory-card": "Karte herunterladen",
+  "easyrpg-browser-save-warning": "EasyRPG-Spielstände werden nur in diesem Browser gespeichert und nicht mit RomM synchronisiert.",
+  "easyrpg-screen": "EasyRPG-Spielbildschirm",
   "edit-memory-card": "Speicherkarte bearbeiten",
   "emulator": "Emulator",
   "error-hint-auth": "Möglicherweise hast du keine Berechtigung zum Streamen oder deine Sitzung ist abgelaufen. Versuche, dich erneut anzumelden.",

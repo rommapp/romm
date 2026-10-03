@@ -73,6 +73,7 @@
   "playable": "플레이 가능",
   "playable-both": "브라우저에서 플레이 가능, {label}에서 스트리밍 가능",
   "playable-browser-dosbox": "DOSBox를 통해 브라우저에서 플레이 가능",
+  "playable-browser-easyrpg": "EasyRPG을 통해 브라우저에서 플레이 가능",
   "playable-browser-emulatorjs": "EmulatorJS를 통해 브라우저에서 플레이 가능",
   "playable-browser-jsdos": "js-dos를 통해 브라우저에서 플레이 가능",
   "playable-browser-pico8": "PICO-8을 통해 브라우저에서 플레이 가능",

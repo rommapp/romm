@@ -263,6 +263,9 @@ IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = (
 # `rom_identity_keys` holds every provider's id in one column.
 IDENTITY_PROVIDER_ID_LENGTH: Final = 100
 
+# The database file at the root of every RPG Maker 2000/2003 game folder.
+EASYRPG_GAME_DATABASE: Final = "rpg_rt.ldb"
+
 
 class RomIdentityKey(BaseModel):
     """One row per (ROM, provider it has a match id for), scoped to a platform.
@@ -1138,6 +1141,7 @@ class Rom(BaseModel):
         # Defined out-of-line at module scope via column_property
         multi_file: Mapped[bool]
         top_level_file_count: Mapped[int]
+        is_easyrpg_game: Mapped[bool]
 
     @property
     def has_simple_single_file(self) -> bool:
@@ -1315,6 +1319,23 @@ Rom.top_level_file_count = column_property(
     deferred=True,
 )
 
+Rom.is_easyrpg_game = column_property(
+    select(RomFile.id)
+    .where(
+        and_(
+            RomFile.rom_id == Rom.id,
+            RomFile.file_path == _rom_full_path,
+            func.lower(RomFile.file_name) == EASYRPG_GAME_DATABASE,
+            RomFile.missing_from_fs.is_(False),
+        )
+    )
+    .correlate_except(RomFile)
+    .exists()
+    .select()
+    .scalar_subquery(),
+    deferred=True,
+)
+
 
 def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
     """Fill the deferred file-stat columns from an already-loaded file list."""
@@ -1334,6 +1355,16 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
         rom,
         "has_soundtrack",
         any(f.category == RomFileCategory.SOUNDTRACK for f in files),
+    )
+    set_committed_value(
+        rom,
+        "is_easyrpg_game",
+        any(
+            f.file_path == rom.full_path
+            and f.file_name.lower() == EASYRPG_GAME_DATABASE
+            and not f.missing_from_fs
+            for f in files
+        ),
     )
 
 

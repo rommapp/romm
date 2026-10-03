@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
 import {
+  isEasyRpgEmulationSupported,
+  isEasyRpgGame,
   isJsDosBundle,
   isJsDosEmulationSupported,
   isPico8EmulationSupported,
@@ -18,6 +20,7 @@ function makeHeartbeat(
       DISABLE_RUFFLE_RS: false,
       DISABLE_JSDOS: false,
       DISABLE_PICO8: false,
+      DISABLE_EASYRPG: false,
       ...emulation,
     },
   } as Heartbeat;
@@ -122,5 +125,36 @@ describe("PICO-8 support", () => {
       isPico8Rom(makeRom({ fs_name: "game.zip", fs_extension: "zip" })),
     ).toBe(false);
     expect(isPico8Rom(null)).toBe(false);
+  });
+});
+
+describe("EasyRPG support", () => {
+  it("supports the rpg-maker platform and configured remaps", () => {
+    expect(isEasyRpgEmulationSupported("rpg-maker", makeHeartbeat())).toBe(
+      true,
+    );
+    expect(
+      isEasyRpgEmulationSupported(
+        "easyrpg",
+        makeHeartbeat(),
+        makeConfig({ easyrpg: "rpg-maker" }),
+      ),
+    ).toBe(true);
+    expect(isEasyRpgEmulationSupported("snes", makeHeartbeat())).toBe(false);
+  });
+
+  it("respects the DISABLE_EASYRPG admin toggle", () => {
+    expect(
+      isEasyRpgEmulationSupported(
+        "rpg-maker",
+        makeHeartbeat({ DISABLE_EASYRPG: true }),
+      ),
+    ).toBe(false);
+  });
+
+  it("follows the backend's game folder check", () => {
+    expect(isEasyRpgGame(makeRom({ is_easyrpg_game: true }))).toBe(true);
+    expect(isEasyRpgGame(makeRom({ is_easyrpg_game: false }))).toBe(false);
+    expect(isEasyRpgGame(null)).toBe(false);
   });
 });

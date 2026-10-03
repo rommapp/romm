@@ -36,6 +36,12 @@ if [[ -n ${EMULATOR_ASSETS_DIR-} && -d ${EMULATOR_ASSETS_DIR} ]]; then
 	done
 fi
 
+# The backend reads the free RTP where the full image keeps it.
+if [[ -n ${EMULATOR_ASSETS_DIR-} && -d ${EMULATOR_ASSETS_DIR}/easyrpg/rtp ]]; then
+	mkdir -p /var/www/html/assets/easyrpg
+	ln -sfn "${EMULATOR_ASSETS_DIR}/easyrpg/rtp" /var/www/html/assets/easyrpg/rtp
+fi
+
 # Define a signal handler to propagate termination signals
 function handle_termination() {
 	echo "Terminating child processes..."

@@ -73,6 +73,7 @@
   "playable": "Можно играть",
   "playable-both": "Запускается в браузере и транслируется с {label}",
   "playable-browser-dosbox": "Запускается в браузере через DOSBox",
+  "playable-browser-easyrpg": "Запускается в браузере через EasyRPG",
   "playable-browser-emulatorjs": "Запускается в браузере через EmulatorJS",
   "playable-browser-jsdos": "Запускается в браузере через js-dos",
   "playable-browser-pico8": "Запускается в браузере через PICO-8",

@@ -43,6 +43,8 @@
   "desktop-title": "Container desktop",
   "discs": "Disky",
   "download-memory-card": "Stáhnout kartu",
+  "easyrpg-browser-save-warning": "Pozice EasyRPG se ukládají pouze v tomto prohlížeči a nesynchronizují se s RomM.",
+  "easyrpg-screen": "Obrazovka hry EasyRPG",
   "edit-memory-card": "Upravit paměťovou kartu",
   "emulator": "Emulátor",
   "error-hint-auth": "Možná nemáte oprávnění ke streamování nebo vaše relace vypršela. Zkuste se přihlásit znovu.",

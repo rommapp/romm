@@ -43,6 +43,8 @@
   "desktop-title": "Container desktop",
   "discs": "Discos",
   "download-memory-card": "Baixar cartão",
+  "easyrpg-browser-save-warning": "Os saves do EasyRPG são armazenados apenas neste navegador e não são sincronizados com o RomM.",
+  "easyrpg-screen": "Tela de jogo do EasyRPG",
   "edit-memory-card": "Editar cartão de memória",
   "emulator": "Emulador",
   "error-hint-auth": "Talvez você não tenha permissão para transmitir ou sua sessão expirou. Tente entrar novamente.",
