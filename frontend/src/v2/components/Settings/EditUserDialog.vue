@@ -115,7 +115,6 @@ let openToken = 0;
 
 useEmitterEvent("showEditUserDialog", async (toEdit) => {
   const token = ++openToken;
-  submitting.value = false;
   user.value = { ...toEdit, password: "", avatar: undefined };
   confirmPassword.value = "";
   isAdmin.value = toEdit.role === "admin";
@@ -268,7 +267,7 @@ function accessEdits(userId: number) {
 }
 
 async function save() {
-  if (!user.value) return;
+  if (!user.value || submitting.value) return;
   submitting.value = true;
   const token = openToken;
   const userId = user.value.id;
@@ -301,7 +300,7 @@ async function save() {
     usersStore.update(nextUser);
     if (data.id === auth.user?.id) auth.setCurrentUser(data);
     emitter?.emit("refreshDrawer", null);
-    // A dialog reopened mid-save stays open, and isn't left marked as saving.
+    // A dialog reopened mid-save stays open, locked until this save settles.
     if (token === openToken) show.value = false;
   } catch (err) {
     const e = err as {
@@ -316,7 +315,7 @@ async function save() {
       { icon: "mdi-close-circle" },
     );
   } finally {
-    if (token === openToken) submitting.value = false;
+    submitting.value = false;
   }
 }
 

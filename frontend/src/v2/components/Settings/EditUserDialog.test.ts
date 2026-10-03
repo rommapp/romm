@@ -241,20 +241,24 @@ describe("EditUserDialog age settings", () => {
     );
   });
 
-  it("keeps a dialog reopened mid-save open and editable", async () => {
+  it("keeps a dialog reopened mid-save open, locked until the save settles", async () => {
     let finishProfile: (value: unknown) => void = () => undefined;
     updateUser.mockReturnValueOnce(
       new Promise((resolve) => (finishProfile = resolve)),
     );
     const { wrapper, open } = await mountDialog("user");
+    const access = () => wrapper.get(".r-v2-user-dialog__access");
     const saving = save(wrapper);
 
-    await open(7);
+    await open();
+    expect(access().attributes()).toHaveProperty("inert");
+    await save(wrapper);
+    expect(updateUser).toHaveBeenCalledOnce();
+
     finishProfile({ data: userFixture({ id: 4, role: "user" }) });
     await saving;
-
-    const access = wrapper.get(".r-v2-user-dialog__access");
-    expect(access.attributes("inert")).toBeUndefined();
+    await flushPromises();
+    expect(access().attributes("inert")).toBeUndefined();
   });
 
   it("locks the form while a save is in flight", async () => {

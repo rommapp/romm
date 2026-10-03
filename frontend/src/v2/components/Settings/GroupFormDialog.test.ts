@@ -157,20 +157,23 @@ describe("GroupFormDialog age settings", () => {
     await flushPromises();
   });
 
-  it("keeps a dialog reopened mid-save open and editable", async () => {
+  it("keeps a dialog reopened mid-save open, locked until the save settles", async () => {
     let finish: (value: unknown) => void = () => undefined;
     updateGroup.mockReturnValueOnce(
       new Promise((resolve) => (finish = resolve)),
     );
     const wrapper = await openDialog(group);
+    const form = () => wrapper.get(".r-v2-group-dialog__form");
     await apply(wrapper);
 
-    emitter.emit("showGroupFormDialog", { ...group, id: 9, name: "Teens" });
+    emitter.emit("showGroupFormDialog", group);
     await flushPromises();
+    expect(form().attributes()).toHaveProperty("inert");
+    await apply(wrapper);
+    expect(updateGroup).toHaveBeenCalledOnce();
+
     finish({ data: group });
     await flushPromises();
-
-    const form = wrapper.get(".r-v2-group-dialog__form");
-    expect(form.attributes("inert")).toBeUndefined();
+    expect(form().attributes("inert")).toBeUndefined();
   });
 });

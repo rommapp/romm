@@ -114,7 +114,6 @@ let openToken = 0;
 
 useEmitterEvent("showGroupFormDialog", async (group) => {
   ++openToken;
-  submitting.value = false;
   editingId.value = group?.id ?? null;
   isSystem.value = group?.system_key != null;
   name.value = group?.name ?? "";
@@ -144,7 +143,7 @@ useEmitterEvent("showGroupFormDialog", async (group) => {
 });
 
 async function save() {
-  if (!name.value.trim()) return;
+  if (!name.value.trim() || submitting.value) return;
   submitting.value = true;
   const token = openToken;
   const body = {
@@ -190,7 +189,7 @@ async function save() {
     // Refetch (not upsert): toggling `is_default` reassigns it server-side,
     // so the previous default's flag must be refreshed too.
     await groupsStore.fetch();
-    // A dialog reopened mid-save stays open, and isn't left marked as saving.
+    // A dialog reopened mid-save stays open, locked until this save settles.
     if (token === openToken) show.value = false;
   } catch (err) {
     const e = err as {
@@ -205,7 +204,7 @@ async function save() {
       { icon: "mdi-close-circle" },
     );
   } finally {
-    if (token === openToken) submitting.value = false;
+    submitting.value = false;
   }
 }
 </script>
