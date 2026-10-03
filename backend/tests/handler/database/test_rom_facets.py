@@ -6,9 +6,11 @@ tests write through the normal handlers and assert the mirror follows.
 """
 
 from sqlalchemy import String, select
+from tests.factories import make_rom
 
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
+from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_COLUMNS,
     METADATA_SOURCE_FACET_COLUMNS,
@@ -142,3 +144,22 @@ class TestRomFacets:
         filters = db_rom_handler.get_rom_filters()
         assert "Puzzle" in filters["genres"]
         assert "En" in filters["languages"]
+
+    def test_filter_values_merge_repeated_lists(
+        self, rom: Rom, second_rom: Rom, platform: Platform
+    ):
+        # Identical lists are parsed once, so repeats and a ROM with no
+        # metadata must still yield the plain union.
+        for rom_id in (rom.id, second_rom.id):
+            db_rom_handler.update_rom(
+                rom_id, {"igdb_metadata": {"genres": ["RPG", "Action"]}}
+            )
+        third = make_rom(platform, "test_rom_3", slug="test_rom_slug_3")
+        db_rom_handler.update_rom(
+            third.id, {"igdb_metadata": {"genres": ["Puzzle", "RPG"]}}
+        )
+        make_rom(platform, "test_rom_4", slug="test_rom_slug_4")
+
+        filters = db_rom_handler.get_rom_filters()
+        assert filters["genres"] == ["Action", "Puzzle", "RPG"]
+        assert filters["platforms"] == [platform.id]
