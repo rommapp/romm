@@ -3,16 +3,20 @@ import functools
 import os
 import re
 import socket
-from collections.abc import Iterator
+import subprocess
+import sys
+from collections.abc import Iterator, Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import MagicMock
 
 import alembic.config
 import pytest
+from alembic.script import ScriptDirectory
 from hypothesis import settings
 from joserfc import jwt
-from sqlalchemy import create_engine, event, exists, select, text
+from sqlalchemy import Connection, create_engine, event, exists, select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import sessionmaker
 from tests.factories import (
     make_firmware,
@@ -148,6 +152,157 @@ def lenient(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     return log
 
 
+_DEFINER_RE = re.compile(r"\s+DEFINER=\S+")
+
+
+def _copy_schema(conn: Connection, source: str) -> None:
+    """Copy every table, row, view and trigger of `source` into the current database."""
+    target: str = conn.execute(text("SELECT DATABASE()")).scalar_one()
+    in_source = {"s": source}
+    tables: Sequence[str] = (
+        conn.execute(
+            text(
+                "SELECT TABLE_NAME FROM information_schema.TABLES"
+                " WHERE TABLE_SCHEMA = :s AND TABLE_TYPE = 'BASE TABLE'"
+            ),
+            in_source,
+        )
+        .scalars()
+        .all()
+    )
+    views: Sequence[str] = (
+        conn.execute(
+            text(
+                "SELECT TABLE_NAME FROM information_schema.VIEWS WHERE TABLE_SCHEMA = :s"
+            ),
+            in_source,
+        )
+        .scalars()
+        .all()
+    )
+    triggers: Sequence[str] = (
+        conn.execute(
+            text(
+                "SELECT TRIGGER_NAME FROM information_schema.TRIGGERS"
+                " WHERE TRIGGER_SCHEMA = :s ORDER BY EVENT_OBJECT_TABLE, ACTION_ORDER"
+            ),
+            in_source,
+        )
+        .scalars()
+        .all()
+    )
+    columns: dict[str, list[str]] = {}
+    for table, column in conn.execute(
+        text(
+            "SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS"
+            " WHERE TABLE_SCHEMA = :s AND COALESCE(GENERATION_EXPRESSION, '') = ''"
+            " ORDER BY ORDINAL_POSITION"
+        ),
+        in_source,
+    ):
+        columns.setdefault(table, []).append(f"`{column}`")
+
+    # Read the DDL from inside `source`, so views print unqualified table names.
+    conn.exec_driver_sql(f"USE `{source}`")
+    table_ddl = {
+        t: conn.exec_driver_sql(f"SHOW CREATE TABLE `{t}`").one()[1] for t in tables
+    }
+    view_ddl = [conn.exec_driver_sql(f"SHOW CREATE VIEW `{v}`").one()[1] for v in views]
+    trigger_ddl = [
+        conn.exec_driver_sql(f"SHOW CREATE TRIGGER `{t}`").one()[2] for t in triggers
+    ]
+    conn.exec_driver_sql(f"USE `{target}`")
+
+    conn.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 0")
+    for table, ddl in table_ddl.items():
+        conn.exec_driver_sql(ddl)
+        cols = ", ".join(columns[table])
+        conn.exec_driver_sql(
+            f"INSERT INTO `{table}` ({cols}) SELECT {cols} FROM `{source}`.`{table}`"
+        )
+    conn.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 1")
+    # A view can select from another view, so retry until each finds its sources.
+    pending = [_DEFINER_RE.sub("", ddl, count=1) for ddl in view_ddl]
+    while pending:
+        failed = []
+        for ddl in pending:
+            try:
+                conn.exec_driver_sql(ddl)
+            except DBAPIError:
+                failed.append(ddl)
+        if len(failed) == len(pending):
+            conn.exec_driver_sql(failed[0])
+        pending = failed
+    for ddl in trigger_ddl:
+        conn.exec_driver_sql(_DEFINER_RE.sub("", ddl, count=1))
+    conn.commit()
+
+
+def _clone_template_into_fresh_database() -> None:
+    """Fill an empty xdist worker database from a shared, migrated template.
+
+    Replaying every migration in each worker at once is most of a cold run, so
+    the template is migrated once (under a server lock) and copied per worker.
+    """
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    if not worker or ROMM_DB_DRIVER not in ("mariadb", "mysql"):
+        return
+    url = ConfigManager.get_db_engine()
+    if not url.database:
+        return
+    template = f"{url.database.removesuffix(f'_{worker}')}_template"
+    head = ScriptDirectory.from_config(
+        alembic.config.Config("alembic.ini")
+    ).get_current_head()
+
+    worker_engine = create_engine(url)
+    try:
+        with worker_engine.connect() as conn:
+            fresh = not conn.execute(
+                text(
+                    "SELECT 1 FROM information_schema.TABLES"
+                    " WHERE TABLE_SCHEMA = DATABASE() LIMIT 1"
+                )
+            ).first()
+            if not fresh:
+                return
+            lock = {"name": template}
+            if conn.execute(text("SELECT GET_LOCK(:name, 1800)"), lock).scalar() != 1:
+                return
+            try:
+                conn.exec_driver_sql(f"CREATE DATABASE IF NOT EXISTS `{template}`")
+                version = (
+                    conn.execute(
+                        text(
+                            "SELECT 1 FROM information_schema.TABLES"
+                            " WHERE TABLE_SCHEMA = :s AND TABLE_NAME = 'alembic_version'"
+                        ),
+                        {"s": template},
+                    ).first()
+                    and conn.exec_driver_sql(
+                        f"SELECT version_num FROM `{template}`.alembic_version"
+                    ).scalar()
+                )
+                if version != head:
+                    # The app's engine binds DB_NAME at import, hence a subprocess.
+                    subprocess.run(
+                        [sys.executable, "-m", "alembic", "upgrade", "head"],
+                        env=os.environ | {"DB_NAME": template},
+                        check=True,
+                    )
+                try:
+                    _copy_schema(conn, template)
+                except DBAPIError:
+                    # Hand alembic an empty database, not a partial copy.
+                    conn.exec_driver_sql(f"DROP DATABASE `{url.database}`")
+                    conn.exec_driver_sql(f"CREATE DATABASE `{url.database}`")
+                    conn.exec_driver_sql(f"USE `{url.database}`")
+            finally:
+                conn.execute(text("SELECT RELEASE_LOCK(:name)"), lock)
+    finally:
+        worker_engine.dispose()
+
+
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     # The slow migration tests go first so they overlap the rest of the suite.
     items.sort(key=lambda item: item.path.name != "test_migrations.py")
@@ -156,6 +311,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     _ensure_database_exists()
+    _clone_template_into_fresh_database()
     alembic.config.main(argv=["upgrade", "head"])
 
 
