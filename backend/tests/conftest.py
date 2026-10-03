@@ -157,9 +157,8 @@ def lenient(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 _DEFINER_RE = re.compile(r"\s+DEFINER=\S+")
 
 
-def _copy_schema(conn: Connection, source: str) -> None:
-    """Copy every table, row, view and trigger of `source` into the current database."""
-    target: str = conn.execute(text("SELECT DATABASE()")).scalar_one()
+def _copy_schema(conn: Connection, source: str, target: str) -> None:
+    """Copy every table, row, view and trigger of `source` into `target`."""
     in_source = {"s": source}
     tables: Sequence[str] = (
         conn.execute(
@@ -311,7 +310,6 @@ def _clone_template_into_fresh_database() -> None:
                 {"s": url.database},
             ).first():
                 _recreate_database(conn, url.database)
-                conn.exec_driver_sql(f"USE `{url.database}`")
             lock = {"name": prefix}
             if conn.execute(text("SELECT GET_LOCK(:name, 1800)"), lock).scalar() != 1:
                 return
@@ -336,11 +334,10 @@ def _clone_template_into_fresh_database() -> None:
                         check=True,
                     )
                 try:
-                    _copy_schema(conn, template)
+                    _copy_schema(conn, template, url.database)
                 except DBAPIError:
                     # Hand alembic an empty database, not a partial copy.
                     _recreate_database(conn, url.database)
-                    conn.exec_driver_sql(f"USE `{url.database}`")
             finally:
                 conn.execute(text("SELECT RELEASE_LOCK(:name)"), lock)
     finally:
