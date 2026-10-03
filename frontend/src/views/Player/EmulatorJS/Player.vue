@@ -39,10 +39,11 @@ import {
   getDownloadPath,
 } from "@/utils";
 import { useSnackbar, type SnackbarTone } from "@/v2/composables/useSnackbar";
+import { newest } from "@/v2/utils/assets";
 import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
 import { browserDeviceId } from "@/v2/utils/saveSync/browserDevice";
-import { saveContentHash } from "@/v2/utils/saveSync/hash";
+import { bytesEqual, saveContentHash } from "@/v2/utils/saveSync/hash";
 import {
   saveSave,
   captureScreenshot,
@@ -64,7 +65,6 @@ import {
   labelContextMenuButton,
   createRetryBackoff,
   createSaveSyncTracker,
-  bytesEqual,
   pollSaveFiles,
   saveSaveOnUnload,
   toArrayBuffer,
@@ -116,13 +116,9 @@ const deviceReady = (async () => {
 function continuesSlotHead(): boolean {
   const slot = loadedSave?.slot;
   if (!slot) return false;
-  const head = romRef.value.user_saves
-    .filter((save) => save.slot === slot)
-    .reduce<SaveSchema | null>(
-      (newest, save) =>
-        !newest || save.updated_at > newest.updated_at ? save : newest,
-      null,
-    );
+  const head = newest(
+    romRef.value.user_saves.filter((save) => save.slot === slot),
+  );
   return head?.id === loadedSave?.id;
 }
 // Bytes the server already holds, so forced writes can skip an unchanged SRAM.

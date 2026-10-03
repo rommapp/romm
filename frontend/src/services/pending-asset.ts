@@ -242,13 +242,15 @@ export async function uploadArchivedSave({
   deviceId,
   capturedAt,
   bytes,
+  extension = ".srm",
   screenshotBytes,
 }: {
   rom: { id: number; fs_name_no_ext: string };
   emulator?: string | undefined;
   deviceId?: string | undefined;
   capturedAt: Date;
-  bytes: ArrayBuffer;
+  bytes: ArrayBuffer | Uint8Array;
+  extension?: string;
   screenshotBytes?: ArrayBuffer | undefined;
 }): Promise<PromiseSettledResult<SaveSchema> | undefined> {
   const name = sessionStateName(rom, capturedAt);
@@ -259,7 +261,9 @@ export async function uploadArchivedSave({
     deviceId,
     savesToUpload: [
       {
-        saveFile: new File([bytes], `${name}.srm`, { type }),
+        saveFile: new File([bytes as BlobPart], `${name}${extension}`, {
+          type,
+        }),
         screenshotFile: screenshotBytes
           ? new File([screenshotBytes], `${name}.png`, { type })
           : undefined,

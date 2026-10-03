@@ -37,6 +37,7 @@ import {
   PLAYER_SAVE_POLL_MS,
   type LocalSave,
 } from "@/v2/utils/saveSync";
+import { bytesEqual } from "@/v2/utils/saveSync/hash";
 
 const { t } = useI18n();
 const exit = usePlayerExit();
@@ -113,14 +114,9 @@ async function restoreSaves(game: string, saves: LocalSave[]) {
       .map((save) => save.fileName),
   );
   const held = new Map(playerSaves.map((save) => [save.slot, save.bytes]));
-  const stale = saves.filter((save) => {
-    const bytes = held.get(save.slot);
-    return (
-      !bytes ||
-      bytes.length !== save.bytes.length ||
-      bytes.some((byte, index) => byte !== save.bytes[index])
-    );
-  });
+  const stale = saves.filter(
+    (save) => !bytesEqual(held.get(save.slot) ?? null, save.bytes),
+  );
   await writeEasyRpgSaves(game, stale);
 }
 

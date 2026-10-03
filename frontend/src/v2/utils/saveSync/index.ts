@@ -1,10 +1,10 @@
 import { isAxiosError } from "axios";
 import type { SyncOperationSchema } from "@/__generated__";
 import saveApi from "@/services/api/save";
-import { sessionStateName } from "@/services/api/state";
 import syncApi from "@/services/api/sync";
+import { isSlotConflict, uploadArchivedSave } from "@/services/pending-asset";
 import { browserDeviceId } from "./browserDevice";
-import { saveContentHash } from "./hash";
+import { bytesEqual, saveContentHash } from "./hash";
 import {
   deleteLocalSave,
   listLocalSaves,
@@ -30,8 +30,8 @@ export interface PlayerSaveFile {
   updatedAt: number;
 }
 
-function saveFileOf(save: LocalSave, fileName = save.fileName): File {
-  return new File([save.bytes as BlobPart], fileName, {
+function saveFileOf(save: LocalSave): File {
+  return new File([save.bytes as BlobPart], save.fileName, {
     type: "application/octet-stream",
   });
 }
@@ -148,8 +148,9 @@ export class DeviceSaveSync {
   private track(files: PlayerSaveFile[]): LocalSave[] {
     const changed: LocalSave[] = [];
     for (const file of files) {
-      const hash = saveContentHash(file.bytes);
       const held = this.saves.get(file.slot);
+      if (held && bytesEqual(held.bytes, file.bytes)) continue;
+      const hash = saveContentHash(file.bytes);
       if (held?.hash === hash) continue;
       const save: LocalSave = {
         userId: this.userId,
@@ -188,6 +189,8 @@ export class DeviceSaveSync {
       syncApi.negotiate({
         deviceId: id,
         romIds: [this.rom.id],
+        // A browser never deletes a save itself, so one it no longer holds was lost.
+        restoreUnlisted: true,
         saves: [...this.saves.values()].map((save) => ({
           rom_id: save.romId,
           file_name: save.fileName,
@@ -316,12 +319,10 @@ export class DeviceSaveSync {
       autocleanup: true,
       savesToUpload: [{ saveFile: saveFileOf(save) }],
     });
-    if (result?.status !== "fulfilled") {
-      // Another device wrote the slot since this one last synced; keep this
-      // copy as an archive and let the next launch settle the slot.
-      if (statusOf(result?.reason) !== 409) throw result?.reason;
-      await this.archive(save);
-    }
+    // Another device wrote the slot since this one last synced; keep this
+    // copy as an archive and let the next launch settle the slot.
+    if (isSlotConflict(result)) await this.archive(save);
+    else if (result?.status !== "fulfilled") throw result?.reason;
     await this.markSynced(save);
   }
 
@@ -333,14 +334,13 @@ export class DeviceSaveSync {
   }
 
   private async archive(save: LocalSave) {
-    const name = sessionStateName(this.rom, new Date(save.updatedAt));
-    const [result] = await saveApi.uploadSaves({
+    const result = await uploadArchivedSave({
       rom: this.rom,
       emulator: save.emulator,
       deviceId: this.deviceId ?? undefined,
-      savesToUpload: [
-        { saveFile: saveFileOf(save, `${name}${extensionOf(save.fileName)}`) },
-      ],
+      capturedAt: new Date(save.updatedAt),
+      bytes: save.bytes,
+      extension: extensionOf(save.fileName),
     });
     if (result?.status !== "fulfilled") throw result?.reason;
   }

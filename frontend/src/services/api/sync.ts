@@ -15,17 +15,19 @@ async function negotiate({
   deviceId,
   romIds,
   saves,
+  restoreUnlisted = false,
 }: {
   deviceId: string;
   romIds: number[];
   saves: ClientSaveState[];
+  /** Offer server saves the client did not list, even ones it synced before. */
+  restoreUnlisted?: boolean;
 }) {
   return api.post<SyncNegotiateResponse>("/sync/negotiate", {
     device_id: deviceId,
     rom_ids: romIds,
     saves,
-    // A browser never deletes a save itself, so one it no longer holds was lost.
-    restore_unlisted: true,
+    restore_unlisted: restoreUnlisted,
   });
 }
 

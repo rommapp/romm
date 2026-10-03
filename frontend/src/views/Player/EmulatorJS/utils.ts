@@ -20,7 +20,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import { type DetailedRom } from "@/stores/roms";
 import { buildFormInput } from "@/utils/formData";
 import { keepArcadeBiosWhole } from "@/v2/utils/playerFirmware";
-import { saveContentHash } from "@/v2/utils/saveSync/hash";
+import { bytesEqual, saveContentHash } from "@/v2/utils/saveSync/hash";
 
 /** Tears the emulator down once, however many owners ask. */
 export function exitEmulatorOnce() {
@@ -380,18 +380,6 @@ export function createRetryBackoff(now: () => number = Date.now) {
       retryAt = 0;
     },
   };
-}
-
-// EmulatorJS reads each tick off the FS into a fresh buffer, so the tracker can
-// hold on to one rather than fingerprint it.
-export function bytesEqual(
-  a: Uint8Array | null,
-  b: Uint8Array | null,
-): boolean {
-  if (!a || !b) return a === b;
-  if (a.byteLength !== b.byteLength) return false;
-  for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
-  return true;
 }
 
 // The core exposes no write hook for its SRAM and EmulatorJS flushes it only on

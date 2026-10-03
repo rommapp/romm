@@ -99,20 +99,23 @@ function storedSaves(): RuffleSaves {
 }
 
 // Every SharedObject a game wrote travels as one zip in the autosave slot.
-function saveFileOf(target: DetailedRom, saves: RuffleSaves): PlayerSaveFile {
-  return {
-    slot: AUTOSAVE_SLOT,
-    fileName: `${target.fs_name_no_ext}.sol.zip`,
-    bytes: zipRuffleSaves(saves),
-    updatedAt: Date.now(),
-  };
+function saveFilesOf(
+  target: DetailedRom,
+  saves = storedSaves(),
+): PlayerSaveFile[] {
+  if (Object.keys(saves).length === 0) return [];
+  return [
+    {
+      slot: AUTOSAVE_SLOT,
+      fileName: `${target.fs_name_no_ext}.sol.zip`,
+      bytes: zipRuffleSaves(saves),
+      updatedAt: Date.now(),
+    },
+  ];
 }
 
 async function captureSaves(sync: DeviceSaveSync, target: DetailedRom) {
-  const saves = storedSaves();
-  if (Object.keys(saves).length > 0) {
-    await sync.capture([saveFileOf(target, saves)]);
-  }
+  await sync.capture(saveFilesOf(target));
 }
 
 // Storage is shared by every RomM account in the browser, so a game's saves
@@ -124,9 +127,7 @@ async function prepareSaves(target: DetailedRom) {
   // Left behind by a page that went away mid-game, or from before sync.
   const leftover = storedSaves();
   try {
-    const saves = await sync.prepare(
-      Object.keys(leftover).length > 0 ? [saveFileOf(target, leftover)] : [],
-    );
+    const saves = await sync.prepare(saveFilesOf(target, leftover));
     removeRuffleSaves(host, Object.keys(leftover));
     const synced = saves.find((save) => save.slot === AUTOSAVE_SLOT);
     if (synced) {
@@ -282,10 +283,8 @@ useEventListener(window, "pagehide", (event: PageTransitionEvent) => {
   const target = rom.value;
   // A page kept for back and forward can return to the running game.
   if (event.persisted || !sync || !target) return;
-  const saves = storedSaves();
-  if (Object.keys(saves).length > 0) {
-    sync.captureOnUnload([saveFileOf(target, saves)]);
-  }
+  const files = saveFilesOf(target);
+  if (files.length > 0) sync.captureOnUnload(files);
 });
 
 onMounted(async () => {

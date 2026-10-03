@@ -258,13 +258,6 @@ function cartDataSaves(files: Pico8CartData[]): PlayerSaveFile[] {
   }));
 }
 
-async function captureCartData(
-  sync: DeviceSaveSync,
-  files: Pico8CartData[],
-): Promise<void> {
-  await sync.capture(cartDataSaves(files));
-}
-
 // FAKE-08 writes cart data only when a cart unloads, so it is captured on the
 // way out rather than while the game runs.
 async function saveCartData(): Promise<boolean> {
@@ -273,7 +266,7 @@ async function saveCartData(): Promise<boolean> {
   if (!sync || !active) return true;
   looping.value = false;
   try {
-    await captureCartData(sync, active.flushCartData());
+    await sync.capture(cartDataSaves(active.flushCartData()));
   } catch (error) {
     console.error("[PICO-8] Saving cart data failed", error);
     return false;

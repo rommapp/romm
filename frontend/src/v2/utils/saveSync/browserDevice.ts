@@ -33,7 +33,7 @@ function browserId(): string {
 }
 
 /** What the devices list calls this browser, such as "Firefox on macOS". */
-export function browserDeviceName(): string {
+function browserDeviceName(): string {
   const parser = Bowser.getParser(navigator.userAgent);
   const browser = parser.getBrowserName() || "Browser";
   const os = parser.getOSName();

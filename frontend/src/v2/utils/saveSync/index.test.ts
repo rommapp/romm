@@ -110,6 +110,7 @@ describe("DeviceSaveSync.prepare", () => {
     expect(mocks.negotiate).toHaveBeenCalledWith({
       deviceId: "device-1",
       romIds: [ROM.id],
+      restoreUnlisted: true,
       saves: [],
     });
     expect(saves.map((save) => [save.slot, [...save.bytes]])).toEqual([
