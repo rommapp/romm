@@ -299,6 +299,20 @@ describe("ChiptunePlayer", () => {
     expect(events).toEqual(["timeupdate", "ended"]);
   });
 
+  it("plays on when the end it hears of came before a later seek", async () => {
+    const player = new ChiptunePlayer();
+    const id = await loaded(player);
+    await player.play();
+    player.currentTime = 10;
+    const events = recordEvents(player);
+
+    port.reply({ type: "ended", id, seek: 0 });
+
+    expect(events).toEqual([]);
+    expect(player.paused).toBe(false);
+    expect(port.posted.at(-1)).toEqual({ type: "play" });
+  });
+
   it("forwards seeks to the renderer and reports the new position", async () => {
     const player = new ChiptunePlayer();
     await loaded(player);

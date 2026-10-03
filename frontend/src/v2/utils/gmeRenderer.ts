@@ -10,7 +10,7 @@ type GmeReplyBody =
   | { type: "loaded"; durationMs: number }
   /** `seek` is the last seek applied, so the page can drop older reports. */
   | { type: "time"; ms: number; seek: number }
-  | { type: "ended" }
+  | { type: "ended"; seek: number }
   | { type: "error" };
 
 /** The renderer's replies, each tagged with the load it answers. */
@@ -104,8 +104,14 @@ export class GmeRenderer {
         this.load(command.id, command.data);
         break;
       case "play":
-        // Like `<audio>`, playing an ended track starts it over.
-        if (this.emu && this.gme.gme_track_ended(this.emu) && this.restart()) {
+        // Like `<audio>`, playing an ended track starts it over, unless a
+        // pending seek is about to move it anyway.
+        if (
+          this.emu &&
+          !this.pendingSeek &&
+          this.gme.gme_track_ended(this.emu) &&
+          this.restart()
+        ) {
           this.reportTime();
         }
         this.playing = this.emu !== 0;
@@ -153,7 +159,7 @@ export class GmeRenderer {
     if (this.gme.gme_track_ended(this.emu)) {
       this.playing = false;
       this.reportTime();
-      this.reply({ type: "ended" });
+      this.reply({ type: "ended", seek: this.seekSeq });
     } else {
       this.framesSinceReport += frames;
       if (this.framesSinceReport >= this.framesPerReport) this.reportTime();

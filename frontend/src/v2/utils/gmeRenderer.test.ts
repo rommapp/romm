@@ -121,6 +121,7 @@ describe("GmeRenderer", () => {
     const left = quantum(target, 4, 1);
 
     expect(replies.map((reply) => reply.type)).toEqual(["time", "ended"]);
+    expect(replies.at(-1)).toEqual({ type: "ended", id: 1, seek: 0 });
     expect([...left]).toEqual([0, 0, 0, 0]);
   });
 
@@ -138,6 +139,21 @@ describe("GmeRenderer", () => {
     expect(gme.exports.romm_gme_start).toHaveBeenCalledTimes(2);
     expect(replies).toEqual([{ type: "time", id: 1, ms: 1234, seek: 0 }]);
     expect([...left]).toEqual([0.5, 0.5, 0.5, 0.5]);
+  });
+
+  it("applies a pending seek rather than restarting an ended track", () => {
+    const target = renderer();
+    load(target);
+    target.handle({ type: "play" });
+    gme.state.ended = true;
+    quantum(target);
+
+    target.handle({ type: "seek", ms: 500, seq: 1 });
+    target.handle({ type: "play" });
+    quantum(target);
+
+    expect(gme.exports.gme_seek).toHaveBeenCalledWith(7, 500);
+    expect(gme.exports.romm_gme_start).toHaveBeenCalledTimes(2);
   });
 
   it("restarts the track to seek backwards, so its fade survives", () => {

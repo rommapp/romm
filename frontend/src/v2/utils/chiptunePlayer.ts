@@ -311,6 +311,11 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
         this.dispatchEvent(new Event("timeupdate"));
         break;
       case "ended":
+        // The renderer stopped before a later seek reached it: play on from there.
+        if (message.seek < this.seekFloor) {
+          if (this.started) this.post({ type: "play" });
+          break;
+        }
         this.halt();
         this.dispatchEvent(new Event("ended"));
         break;
