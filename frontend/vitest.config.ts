@@ -15,7 +15,7 @@ export default defineConfig({
   test: {
     server: {
       deps: {
-        inline: ["vuetify"],
+        inline: ["vuetify", "@vueuse/integrations"],
       },
     },
     projects: [
