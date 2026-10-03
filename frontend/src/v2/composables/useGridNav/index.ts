@@ -304,7 +304,7 @@ export function useGridNav(
     } else {
       target.scrollIntoView({
         block: "nearest",
-        inline: "center",
+        inline: row.el ? "center" : "nearest",
         behavior: "smooth",
       });
     }
@@ -315,7 +315,8 @@ export function useGridNav(
     for (const [r, row] of rs.entries()) {
       if (row.cells.length > 0) {
         preferredCol = 0;
-        focusAt(r, 0, { verticalJump: true });
+        // A wrapping grid's first tile is usually in view already.
+        focusAt(r, 0, { verticalJump: !!row.el });
         return;
       }
     }
@@ -440,9 +441,9 @@ export function useGridNav(
       colIdx = preferredCol;
       verticalJump = true;
     } else if (e.key === "Home" || e.key === "End") {
-      // A row of one cell has nowhere to go inside it, so it moves through
-      // the grid instead.
-      if (e.ctrlKey || e.metaKey || rowCells.length === 1) {
+      // A list row of one cell has nowhere to go inside it, so it moves
+      // through the grid instead. A wrapping grid's short last row doesn't.
+      if (e.ctrlKey || e.metaKey || (rowCells.length === 1 && rs[rowIdx]!.el)) {
         e.preventDefault();
         void jumpToEdge(e.key === "Home" ? "first" : "last");
         return;
@@ -450,7 +451,10 @@ export function useGridNav(
       colIdx = e.key === "Home" ? 0 : rowCells.length - 1;
       preferredCol = colIdx;
     } else if (e.key === "PageUp" || e.key === "PageDown") {
-      rowIdx = pageRow(rs, rowIdx, e.key === "PageDown" ? 1 : -1);
+      const next = pageRow(rs, rowIdx, e.key === "PageDown" ? 1 : -1);
+      // At the grid's edge the page itself scrolls.
+      if (next === rowIdx) return;
+      rowIdx = next;
       colIdx = preferredCol;
       verticalJump = true;
     }

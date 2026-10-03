@@ -311,8 +311,22 @@ describe("useGridNav on a wrapping grid", () => {
 
     expect(document.activeElement).toBe(cell(0, 1));
     expect(scrollIntoView).toHaveBeenLastCalledWith(
-      expect.objectContaining({ block: "nearest" }),
+      expect.objectContaining({ block: "nearest", inline: "nearest" }),
     );
+  });
+
+  it("leaves PageUp to the page on the first row", () => {
+    cell(0, 1).focus();
+    const event = new KeyboardEvent("keydown", {
+      key: "PageUp",
+      bubbles: true,
+      cancelable: true,
+    });
+
+    cell(0, 1).dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(cell(0, 1));
   });
 
   it("jumps to a row's ends and, with Ctrl, the grid's", () => {
