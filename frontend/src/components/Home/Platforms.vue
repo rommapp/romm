@@ -49,11 +49,11 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
           v-for="platform in filledPlatforms"
           :key="platform.slug"
           class="pa-1"
-          :cols="views[0]['size-cols']"
-          :sm="views[0]['size-sm']"
-          :md="views[0]['size-md']"
-          :lg="views[0]['size-lg']"
-          :xl="views[0]['size-xl']"
+          :cols="views[0]!['size-cols']"
+          :sm="views[0]!['size-sm']"
+          :md="views[0]!['size-md']"
+          :lg="views[0]!['size-lg']"
+          :xl="views[0]!['size-xl']"
           :style="{
             zIndex: isHovering && hoveringPlatformId === platform.id ? 1000 : 1,
           }"

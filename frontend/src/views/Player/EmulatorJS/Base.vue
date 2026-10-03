@@ -214,12 +214,12 @@ onMounted(async () => {
   if (compatibleStates.length > 0) {
     // If there are states, default to states tab with first state
     isSavesTabSelected.value = false;
-    selectedState.value = compatibleStates[0];
+    selectedState.value = compatibleStates[0]!;
     selectedSave.value = null;
   } else if (rom.value.user_saves.length > 0) {
     // If no states but there are saves, default to saves tab with first save
     isSavesTabSelected.value = true;
-    selectedSave.value = rom.value.user_saves[0];
+    selectedSave.value = rom.value.user_saves[0]!;
     selectedState.value = null;
   } else {
     // No saves or states, default to saves tab
@@ -244,7 +244,7 @@ onMounted(async () => {
     selectedCore.value = storedCore;
   } else {
     // Otherwise auto select first supported core
-    selectedCore.value = supportedCores.value[0];
+    selectedCore.value = supportedCores.value[0] ?? null;
   }
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);

@@ -56,8 +56,8 @@ describe("useRomSync", () => {
     useRomSync().syncCachedRom(makeRom({ name: "new" }));
 
     expect(gallery.getRomAt(3)?.name).toBe("new");
-    expect(romsStore.recentRoms[0].name).toBe("new");
-    expect(romsStore.continuePlayingRoms[0].name).toBe("new");
+    expect(romsStore.recentRoms[0]?.name).toBe("new");
+    expect(romsStore.continuePlayingRoms[0]?.name).toBe("new");
     expect(romsStore.getDetailedRom(makeRom().id)).toMatchObject({
       name: "new",
       summary: "detailed",

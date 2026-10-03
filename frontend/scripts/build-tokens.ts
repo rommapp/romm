@@ -121,7 +121,7 @@ function name(
   const overrides = (
     NAME_OVERRIDES as Record<string, Record<string, string | null>>
   )[group];
-  if (overrides && key in overrides) return overrides[key];
+  if (overrides && key in overrides) return overrides[key] ?? null;
   return `${defaultPrefix}-${camelToKebab(key)}`;
 }
 

@@ -53,7 +53,7 @@ describe("AssetActions", () => {
     const favorite: SaveSchema = { ...save, is_favorite: true };
     const buttons = actions({ own: true, asset: favorite }).findAll(".btn");
 
-    expect(buttons[2].attributes("aria-label")).toBe(
+    expect(buttons[2]?.attributes("aria-label")).toBe(
       "rom.remove-from-favorites",
     );
   });

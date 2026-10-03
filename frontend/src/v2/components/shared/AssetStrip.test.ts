@@ -79,7 +79,7 @@ describe("AssetStrip grouped by core", () => {
       .filter((tile) => tile.find(".tag").exists());
 
     expect(tagged).toHaveLength(1);
-    expect(tagged[0].get(".r-asset-strip__name").text()).toBe("state_1.state");
+    expect(tagged[0]?.get(".r-asset-strip__name").text()).toBe("state_1.state");
   });
 
   it("folds a core that nothing can load until its head is clicked", async () => {
@@ -88,7 +88,7 @@ describe("AssetStrip grouped by core", () => {
       disabledReason: (asset: StateSchema) =>
         asset.emulator === "mgba" ? "unsupported" : null,
     });
-    const mgba = wrapper.findAll(".r-asset-strip__group")[2];
+    const mgba = wrapper.findAll(".r-asset-strip__group")[2]!;
     const fold = mgba.get(".r-asset-strip__fold");
 
     expect(mgba.get(".r-asset-group-head__title").text()).toBe("mgba");

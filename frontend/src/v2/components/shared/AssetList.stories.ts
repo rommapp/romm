@@ -77,7 +77,7 @@ export const SlotLibrary: Story = {
   name: "Saves · slots (selectable)",
   render: () => {
     const saves = saveSlotLibrary();
-    return selectableList(saves, "save", saves[0].id);
+    return selectableList(saves, "save", saves[0]!.id);
   },
   play: async ({ canvasElement, step }) => {
     const ui = within(canvasElement);
@@ -101,7 +101,7 @@ export const OlderVersionSelected: Story = {
   name: "Saves · older version selected",
   render: () => {
     const saves = saveSlotLibrary();
-    const olderMainQuest = saves.filter((s) => s.slot === "main_quest")[3];
+    const olderMainQuest = saves.filter((s) => s.slot === "main_quest")[3]!;
     return selectableList(saves, "save", olderMainQuest.id);
   },
 };
@@ -131,7 +131,7 @@ export const StreamArchives: Story = {
       makeSave(2, null, 20),
       makeSave(3, null, 30, { screenshot: saveScreenshot(200) }),
     ];
-    return selectableList(saves, "save", saves[0].id, {
+    return selectableList(saves, "save", saves[0]!.id, {
       timestamp: "created",
       groupBySlot: false,
     });
@@ -143,7 +143,7 @@ export const SingleSave: Story = {
   name: "Saves · single",
   render: () => {
     const saves = makeSaveSlot("autosave", 1, 2, 1);
-    return selectableList(saves, "save", saves[0].id);
+    return selectableList(saves, "save", saves[0]!.id);
   },
 };
 
@@ -151,7 +151,7 @@ export const StatesSelectable: Story = {
   name: "States · selectable",
   render: () => {
     const states = manyStates(5);
-    return selectableList(states, "state", states[0].id);
+    return selectableList(states, "state", states[0]!.id);
   },
 };
 
@@ -159,7 +159,7 @@ export const IdenticalPrefixStates: Story = {
   name: "States · identical prefix",
   render: () => {
     const states = identicalPrefixStates(4);
-    return selectableList(states, "state", states[0].id);
+    return selectableList(states, "state", states[0]!.id);
   },
   play: async ({ canvasElement, step }) => {
     await step("each row keeps the full filename in the DOM", async () => {

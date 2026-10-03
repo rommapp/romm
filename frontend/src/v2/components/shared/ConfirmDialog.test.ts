@@ -47,7 +47,7 @@ async function promptFor(requireTyped: string): Promise<VueWrapper> {
 }
 
 function confirmButton(wrapper: VueWrapper) {
-  return wrapper.findAll("button")[1];
+  return wrapper.findAll("button")[1]!;
 }
 
 describe("ConfirmDialog typed confirmation", () => {

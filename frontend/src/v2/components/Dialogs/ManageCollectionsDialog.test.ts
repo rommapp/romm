@@ -137,7 +137,7 @@ describe("ManageCollectionsDialog gallery reconcile", () => {
 
     expect(removeRomsFromCollection).toHaveBeenCalledWith(12, [1, 2]);
     expect(galleryRemove).toHaveBeenCalledTimes(1);
-    expect(galleryRemove.mock.calls[0][0].map((r) => r.id)).toEqual([1, 2]);
+    expect(galleryRemove.mock.calls[0]![0].map((r) => r.id)).toEqual([1, 2]);
     expect(romsRemove).toHaveBeenCalledTimes(1);
     expect(selection.count).toBe(0);
   });

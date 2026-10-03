@@ -20,7 +20,7 @@ const saveSlots = [
 
 function slotSaves(count: number): SaveSchema[] {
   return Array.from({ length: count }).map((_, i) =>
-    makeSave(i + 1, saveSlots[i % saveSlots.length], (i + 1) * 4, {
+    makeSave(i + 1, saveSlots[i % saveSlots.length]!, (i + 1) * 4, {
       emulator: i % 2 === 0 ? "snes9x" : null,
     }),
   );

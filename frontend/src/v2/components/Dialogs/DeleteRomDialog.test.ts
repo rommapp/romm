@@ -173,7 +173,7 @@ describe("DeleteRomDialog with a large selection", () => {
     await wrapper.findAll("button").at(-1)?.trigger("click");
     await flushPromises();
 
-    const sent = deleteRoms.mock.calls[0][0] as { roms: { id: number }[] };
+    const sent = deleteRoms.mock.calls[0]![0] as { roms: { id: number }[] };
     expect(sent.roms).toHaveLength(120);
   });
 });

@@ -55,7 +55,7 @@ describe("useJoinStreamConfirm", () => {
 
     await joinStream(target);
 
-    expect(confirmFn.mock.calls[0][0].title).toBe(
+    expect(confirmFn.mock.calls[0]![0].title).toBe(
       'rom.confirm-join-title-of:{"user":"ada"}',
     );
   });
@@ -66,6 +66,6 @@ describe("useJoinStreamConfirm", () => {
 
     await joinStream({ ...target, hostUsername: null });
 
-    expect(confirmFn.mock.calls[0][0].title).toBe("rom.confirm-join-title");
+    expect(confirmFn.mock.calls[0]![0].title).toBe("rom.confirm-join-title");
   });
 });

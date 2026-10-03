@@ -97,7 +97,7 @@ describe("useTrackPager", () => {
     await pager.loadMore();
 
     expect(seen).toHaveBeenCalledTimes(2);
-    expect(seen.mock.calls[1][0]).toHaveLength(TRACK_PAGE_SIZE);
+    expect(seen.mock.calls[1]![0]).toHaveLength(TRACK_PAGE_SIZE);
   });
 
   it("leaves the list empty when the first page fails", async () => {

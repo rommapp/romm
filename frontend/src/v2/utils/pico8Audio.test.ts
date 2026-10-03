@@ -130,8 +130,8 @@ describe("createPico8Audio", () => {
     });
 
     expect(posted).toHaveLength(1);
-    expect([...posted[0].chunk]).toEqual([100, -100]);
-    expect(posted[0].transfer).toHaveLength(1);
+    expect([...posted[0]!.chunk]).toEqual([100, -100]);
+    expect(posted[0]?.transfer).toHaveLength(1);
   });
 
   it("posts nothing for a silent frame", async () => {
@@ -152,7 +152,7 @@ describe("createPico8Audio", () => {
     port.recycle(returned);
     audio?.pump(() => 1);
 
-    expect(posted[2].chunk.buffer).toBe(returned);
+    expect(posted[2]?.chunk.buffer).toBe(returned);
   });
 
   it("recycles a full-length view even when the worklet returns a short one", async () => {
@@ -165,7 +165,7 @@ describe("createPico8Audio", () => {
     } as MessageEvent<Int16Array>);
     audio?.pump((target) => target.length);
 
-    expect(posted[0].chunk).toHaveLength(735);
+    expect(posted[0]?.chunk).toHaveLength(735);
   });
 
   it("stops forwarding once closed", async () => {

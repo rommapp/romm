@@ -24,11 +24,11 @@ const PLATFORM_SKELETON_COUNT = 12;
           v-for="index in PLATFORM_SKELETON_COUNT"
           :key="index"
           class="align-self-end pa-1"
-          :cols="views[0]['size-cols']"
-          :sm="views[0]['size-sm']"
-          :md="views[0]['size-md']"
-          :lg="views[0]['size-lg']"
-          :xl="views[0]['size-xl']"
+          :cols="views[0]!['size-cols']"
+          :sm="views[0]!['size-sm']"
+          :md="views[0]!['size-md']"
+          :lg="views[0]!['size-lg']"
+          :xl="views[0]!['size-xl']"
         >
           <v-skeleton-loader
             class="platform-skeleton"

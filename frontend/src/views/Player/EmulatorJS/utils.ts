@@ -179,7 +179,7 @@ export async function saveState({
       ],
     });
 
-    const uploadedState = uploadedStates[0];
+    const uploadedState = uploadedStates[0]!;
     if (uploadedState.status == "fulfilled") {
       await pendingAssetStore.clear(pendingId);
       if (rom) rom.user_states.unshift(uploadedState.value);
@@ -254,7 +254,7 @@ export async function saveSave({
       ],
     });
 
-    const uploadedSave = uploadedSaves[0];
+    const uploadedSave = uploadedSaves[0]!;
     if (uploadedSave.status == "fulfilled") {
       if (rom) rom.user_saves.unshift(uploadedSave.value);
       return uploadedSave.value;

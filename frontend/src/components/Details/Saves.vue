@@ -31,9 +31,10 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
   const saveIndex = props.rom.user_saves.indexOf(save);
 
   if (event.shiftKey && lastSelectedIndex.value !== null) {
-    const [startIndex, endIndex] = [lastSelectedIndex.value, saveIndex].sort(
-      (a, b) => a - b,
-    );
+    const [startIndex = saveIndex, endIndex = saveIndex] = [
+      lastSelectedIndex.value,
+      saveIndex,
+    ].sort((a, b) => a - b);
     const rangeSaves = props.rom.user_saves.slice(startIndex, endIndex + 1);
 
     const isDeselecting = selectedSaves.value.includes(save);

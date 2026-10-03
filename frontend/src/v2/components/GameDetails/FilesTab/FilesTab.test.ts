@@ -262,7 +262,7 @@ describe("FilesTab on a rom missing from the filesystem", () => {
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.every((r) => r.props("missing") === true)).toBe(true);
 
-    wrapper.findAllComponents({ name: "FileRow" })[0].vm.$emit("toggle");
+    wrapper.findAllComponents({ name: "FileRow" })[0]!.vm.$emit("toggle");
     await flushPromises();
     const download = wrapper
       .findAll("button.btn")
@@ -293,7 +293,7 @@ describe("FilesTab selection", () => {
 
   async function selectFirst(wrapper: ReturnType<typeof mountTab>) {
     await flushPromises();
-    wrapper.findAllComponents({ name: "FileRow" })[0].vm.$emit("toggle");
+    wrapper.findAllComponents({ name: "FileRow" })[0]!.vm.$emit("toggle");
     await flushPromises();
   }
 

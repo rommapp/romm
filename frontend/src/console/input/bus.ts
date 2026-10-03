@@ -30,7 +30,7 @@ export class InputBus {
 
   dispatch(action: InputAction): boolean {
     for (let i = this.scopes.length - 1; i >= 0; i--) {
-      const scope = this.scopes[i];
+      const scope = this.scopes[i]!;
       for (const listener of scope) {
         const handled = listener(action);
         if (handled) {

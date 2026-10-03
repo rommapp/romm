@@ -326,7 +326,7 @@ const supportedCores = getSupportedEJSCores(
   configStore.config.EJS_NETPLAY_ENABLED,
 );
 window.EJS_core =
-  supportedCores.find((core) => core === props.core) ?? supportedCores[0];
+  supportedCores.find((core) => core === props.core) ?? supportedCores[0]!;
 window.EJS_controlScheme = getControlSchemeForPlatform(
   romRef.value.platform_slug,
 );

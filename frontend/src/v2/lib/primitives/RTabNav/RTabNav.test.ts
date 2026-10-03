@@ -53,7 +53,7 @@ describe("RTabNav resize", () => {
   it("re-measures the indicator when the strip resizes", async () => {
     const wrapper = await render();
     sized(track(wrapper), 0, 300);
-    sized(wrapper.findAll("button[role='tab']")[1].element, 80, 60);
+    sized(wrapper.findAll("button[role='tab']")[1]!.element, 80, 60);
 
     ro.resize(track(wrapper), 300);
     await nextTick();

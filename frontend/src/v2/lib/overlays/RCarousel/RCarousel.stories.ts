@@ -104,7 +104,7 @@ export const Inline: Story = {
 
     await step("clicking a thumbnail jumps to that index", async () => {
       const thumbs = canvas.getAllByRole("button", { name: /^\d+ \/ 5$/ });
-      await userEvent.click(thumbs[2]);
+      await userEvent.click(thumbs[2]!);
       const counter = await canvas.findByText("3 / 5");
       expect(counter).toBeInTheDocument();
     });

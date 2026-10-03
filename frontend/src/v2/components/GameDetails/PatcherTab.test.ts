@@ -138,7 +138,7 @@ describe("PatcherTab", () => {
     await applyButton.trigger("click");
     await flushPromises();
 
-    const request = post.mock.calls[0];
+    const request = post.mock.calls[0]!;
     expect(request[0]).toBe("/roms/10/patch");
     expect((request[1] as FormData).get("patch_file_id")).toBe("11");
     expect((request[1] as FormData).get("archive_member_name")).toBe(
@@ -157,20 +157,20 @@ describe("PatcherTab", () => {
     await wrapper.get(APPLY).trigger("click");
     await flushPromises();
 
-    const uploadForm = post.mock.calls[0][1] as FormData;
+    const uploadForm = post.mock.calls[0]![1] as FormData;
     expect(uploadForm.get("patch_file")).toBeInstanceOf(File);
     expect(uploadForm.get("patch_file_id")).toBeNull();
 
     const bundled = rom().files[1];
     wrapper
-      .findAllComponents(RSelect)[1]
+      .findAllComponents(RSelect)[1]!
       .vm.$emit("update:modelValue", bundled);
     await wrapper.vm.$nextTick();
     expect(wrapper.find(".r-v2-patch__uploaded").exists()).toBe(false);
     await wrapper.get(APPLY).trigger("click");
     await flushPromises();
 
-    const bundledForm = post.mock.calls[1][1] as FormData;
+    const bundledForm = post.mock.calls[1]![1] as FormData;
     expect(bundledForm.get("patch_file")).toBeNull();
     expect(bundledForm.get("patch_file_id")).toBe("11");
   });

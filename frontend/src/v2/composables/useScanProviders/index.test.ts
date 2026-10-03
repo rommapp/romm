@@ -52,7 +52,7 @@ describe("useScanProviders effective sources", () => {
     const { metadataSources, generalAllSelected, effectiveMetadataSources } =
       useScanProviders();
     generalAllSelected.value = false;
-    metadataSources.value = [OPTIONS[1]];
+    metadataSources.value = [OPTIONS[1]!];
     expect(effectiveMetadataSources.value.map((s) => s.value)).toEqual([
       "ss",
       "ra",
@@ -69,7 +69,7 @@ describe("useScanProviders effective sources", () => {
   it("keeps in-progress picks when only the option list changes", async () => {
     const { metadataSources, generalAllSelected } = useScanProviders();
     generalAllSelected.value = false;
-    metadataSources.value = [OPTIONS[1]];
+    metadataSources.value = [OPTIONS[1]!];
     // A heartbeat refresh re-emits the option list with fresh identities.
     config.value.SKIP_HASH_CALCULATION = true;
     await nextTick();
@@ -100,7 +100,7 @@ describe("useScanProviders Playmatch gate", () => {
     const { metadataSources, generalAllSelected, hashMatchers } =
       useScanProviders();
     generalAllSelected.value = false;
-    metadataSources.value = [OPTIONS[0]];
+    metadataSources.value = [OPTIONS[0]!];
     expect(playmatch(hashMatchers.value).switchEnabled).toBe(true);
   });
 
@@ -108,7 +108,7 @@ describe("useScanProviders Playmatch gate", () => {
     const { metadataSources, generalAllSelected, hashMatchers } =
       useScanProviders();
     generalAllSelected.value = false;
-    metadataSources.value = [OPTIONS[1]];
+    metadataSources.value = [OPTIONS[1]!];
     const matcher = playmatch(hashMatchers.value);
     expect(matcher.switchEnabled).toBe(false);
     expect(matcher.blockedReason).toBe("scan.playmatch-requires-igdb");
@@ -146,7 +146,7 @@ describe("useScanProviders scan payload", () => {
     const { metadataSources, generalAllSelected, persistSelection } =
       useScanProviders();
     generalAllSelected.value = false;
-    metadataSources.value = [OPTIONS[0]];
+    metadataSources.value = [OPTIONS[0]!];
     persistSelection();
     await nextTick();
     expect(

@@ -237,7 +237,7 @@ const navigationFunctions = {
       if (!filledPlatforms.value[platformIndex.value]) return false;
       router.push({
         name: ROUTES.CONSOLE_PLATFORM,
-        params: { id: filledPlatforms.value[platformIndex.value].id },
+        params: { id: filledPlatforms.value[platformIndex.value]!.id },
       });
       return true;
     },
@@ -265,10 +265,11 @@ const navigationFunctions = {
       router.push({
         name: ROUTES.CONSOLE_ROM,
         params: {
-          rom: continuePlayingRoms.value[continuePlayingIndex.value].id,
+          rom: continuePlayingRoms.value[continuePlayingIndex.value]!.id,
         },
         query: {
-          id: continuePlayingRoms.value[continuePlayingIndex.value].platform_id,
+          id: continuePlayingRoms.value[continuePlayingIndex.value]!
+            .platform_id,
         },
       });
       return true;
@@ -293,7 +294,7 @@ const navigationFunctions = {
       if (!allCollections.value[collectionsIndex.value]) return false;
       router.push({
         name: ROUTES.CONSOLE_COLLECTION,
-        params: { id: allCollections.value[collectionsIndex.value].id },
+        params: { id: allCollections.value[collectionsIndex.value]!.id },
       });
       return true;
     },
@@ -320,7 +321,7 @@ const navigationFunctions = {
       if (!smartCollections.value[smartCollectionsIndex.value]) return false;
       router.push({
         name: ROUTES.CONSOLE_SMART_COLLECTION,
-        params: { id: smartCollections.value[smartCollectionsIndex.value].id },
+        params: { id: smartCollections.value[smartCollectionsIndex.value]!.id },
       });
       return true;
     },
@@ -349,7 +350,7 @@ const navigationFunctions = {
       router.push({
         name: ROUTES.CONSOLE_VIRTUAL_COLLECTION,
         params: {
-          id: virtualCollections.value[virtualCollectionsIndex.value].id,
+          id: virtualCollections.value[virtualCollectionsIndex.value]!.id,
         },
       });
       return true;
@@ -632,7 +633,7 @@ function handleAction(action: InputAction): boolean {
         continuePlayingRoms.value[continuePlayingIndex.value]
       ) {
         toggleFavoriteComposable(
-          continuePlayingRoms.value[continuePlayingIndex.value],
+          continuePlayingRoms.value[continuePlayingIndex.value]!,
         );
         return true;
       }

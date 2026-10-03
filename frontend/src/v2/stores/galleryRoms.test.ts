@@ -75,7 +75,7 @@ describe("galleryRoms windowed fetch", () => {
 
     store.syncVisibleWindows([0]);
 
-    expect(getRoms.mock.calls[0][0].orderBy).toBe("");
+    expect(getRoms.mock.calls[0]![0].orderBy).toBe("");
   });
 
   it("collapses many visible positions into one request per 72-item window", async () => {
@@ -86,7 +86,7 @@ describe("galleryRoms windowed fetch", () => {
     store.syncVisibleWindows([0, 5, 40, 71]);
 
     expect(getRoms).toHaveBeenCalledTimes(1);
-    expect(getRoms.mock.calls[0][0].offset).toBe(0);
+    expect(getRoms.mock.calls[0]![0].offset).toBe(0);
 
     // Positions straddling the window boundary hit exactly two windows.
     await flushPromises();
@@ -174,7 +174,7 @@ describe("galleryRoms windowed fetch", () => {
       withRomIdIndex: false,
     });
 
-    const params = getRoms.mock.calls[0][0];
+    const params = getRoms.mock.calls[0]![0];
     expect(params.withCharIndex).toBe(false);
     expect(params.withFilterValues).toBe(false);
     expect(params.withRomIdIndex).toBe(false);
@@ -193,7 +193,7 @@ describe("galleryRoms windowed fetch", () => {
 
     await store.fetchInitialMetadata();
 
-    const params = getRoms.mock.calls[0][0];
+    const params = getRoms.mock.calls[0]![0];
     expect(params.withCharIndex).toBeUndefined();
     expect(params.withFilterValues).toBeUndefined();
     expect(params.withRomIdIndex).toBeUndefined();
@@ -333,7 +333,7 @@ describe("galleryRoms windowed fetch", () => {
     store.syncVisibleWindows([0]);
     await flushPromises();
 
-    expect(getRoms.mock.calls[0][0].withTotal).toBeUndefined();
+    expect(getRoms.mock.calls[0]![0].withTotal).toBeUndefined();
     expect(store.total).toBe(300);
   });
 
@@ -414,7 +414,7 @@ describe("galleryRoms whole-result fetch", () => {
       SELECT_ALL_PAGE_SIZE,
     ]);
     // Whole-result pages skip every sidecar aggregation.
-    expect(getRoms.mock.calls[0][0]).toMatchObject({
+    expect(getRoms.mock.calls[0]![0]).toMatchObject({
       withCharIndex: false,
       withFilterValues: false,
       withRomIdIndex: false,
@@ -463,8 +463,8 @@ describe("galleryRoms length filter", () => {
 
     storeGalleryRoms().syncVisibleWindows([0]);
 
-    expect(getRoms.mock.calls[0][0].hltbMainStoryMin).toBe(5 * 3600);
-    expect(getRoms.mock.calls[0][0].hltbMainStoryMax).toBe(20 * 3600);
+    expect(getRoms.mock.calls[0]![0].hltbMainStoryMin).toBe(5 * 3600);
+    expect(getRoms.mock.calls[0]![0].hltbMainStoryMax).toBe(20 * 3600);
   });
 
   it("leaves an open end of the range unset", () => {
@@ -472,8 +472,8 @@ describe("galleryRoms length filter", () => {
 
     storeGalleryRoms().syncVisibleWindows([0]);
 
-    expect(getRoms.mock.calls[0][0].hltbMainStoryMin).toBeNull();
-    expect(getRoms.mock.calls[0][0].hltbMainStoryMax).toBe(10 * 3600);
+    expect(getRoms.mock.calls[0]![0].hltbMainStoryMin).toBeNull();
+    expect(getRoms.mock.calls[0]![0].hltbMainStoryMax).toBe(10 * 3600);
   });
 });
 

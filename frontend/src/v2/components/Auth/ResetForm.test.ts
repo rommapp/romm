@@ -37,7 +37,7 @@ describe("ResetForm", () => {
     const wrapper = await requestFor("player");
 
     expect(requestPasswordReset).toHaveBeenCalledWith("player");
-    expect(success.mock.calls[0][0]).toBe("login.reset-sent-email");
+    expect(success.mock.calls[0]![0]).toBe("login.reset-sent-email");
     expect(wrapper.emitted("done")).toHaveLength(1);
   });
 
@@ -47,6 +47,6 @@ describe("ResetForm", () => {
 
     await requestFor("player");
 
-    expect(success.mock.calls[0][0]).toBe("login.reset-sent");
+    expect(success.mock.calls[0]![0]).toBe("login.reset-sent");
   });
 });

@@ -25,7 +25,7 @@ const stubs = {
 
 function nav(items: SubtabNavItem[], props: Record<string, unknown> = {}) {
   return mount(SubtabNav, {
-    props: { modelValue: items[0].id, items, ...props },
+    props: { modelValue: items[0]!.id, items, ...props },
     global: { stubs },
   });
 }
@@ -56,9 +56,9 @@ describe("SubtabNav", () => {
     ]);
     const buttons = wrapper.findAll(".r-v2-subtab-nav__btn");
 
-    await buttons[0].trigger("click");
+    await buttons[0]!.trigger("click");
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
-    await buttons[1].trigger("click");
+    await buttons[1]!.trigger("click");
     expect(wrapper.emitted("update:modelValue")).toEqual([["b"]]);
   });
 

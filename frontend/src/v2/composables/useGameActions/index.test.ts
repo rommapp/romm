@@ -256,7 +256,7 @@ describe("useGameActions.joinStream", () => {
 
     await actions.joinStream();
 
-    expect(confirmFn.mock.calls[0][0].title).toBe(
+    expect(confirmFn.mock.calls[0]![0].title).toBe(
       'rom.confirm-join-title-of:{"user":"ada"}',
     );
   });
@@ -268,7 +268,7 @@ describe("useGameActions.joinStream", () => {
 
     await actions.joinStream();
 
-    expect(confirmFn.mock.calls[0][0].title).toBe("rom.confirm-join-title");
+    expect(confirmFn.mock.calls[0]![0].title).toBe("rom.confirm-join-title");
   });
 
   it("asks nothing when there is no session to join", async () => {

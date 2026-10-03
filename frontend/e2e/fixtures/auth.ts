@@ -126,11 +126,8 @@ export async function menuLabels(page: Page): Promise<string[]> {
 
 /** Force the v2 UI and a known theme before the app boots. */
 export async function seedUiState(page: Page, theme: "dark" | "light") {
-  await page.addInitScript(
-    ([t]) => {
-      localStorage.setItem("settings.uiVersion", "v2");
-      localStorage.setItem("settings.theme", t);
-    },
-    [theme],
-  );
+  await page.addInitScript((t) => {
+    localStorage.setItem("settings.uiVersion", "v2");
+    localStorage.setItem("settings.theme", t);
+  }, theme);
 }
