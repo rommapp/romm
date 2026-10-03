@@ -31,6 +31,7 @@ from utils.database import (
     MS_PER_DAY,
     alembic_command_runs_revisions,
     day_of_year_ranges,
+    get_nested,
     is_binlog_trigger_privilege_error,
     is_mariadb,
     is_mysql,
@@ -256,3 +257,18 @@ class TestUnsupportedServerVersion:
     def test_the_running_test_server_is_supported(self):
         with sync_engine.connect() as conn:
             assert unsupported_server_version(conn.dialect) is None
+
+
+@pytest.mark.parametrize(
+    ("raw", "path", "expected"),
+    [
+        ({"scan": {"media": ["box2d"]}}, "scan.media", ["box2d"]),
+        ({"scan": {"media": None}}, "scan.media", None),
+        ({"scan": {}}, "scan.media", "default"),
+        ({"scan": None}, "scan.media", "default"),
+        ({"scan": ["media"]}, "scan.media", "default"),
+        ({}, "scan", "default"),
+    ],
+)
+def test_get_nested_walks_dotted_paths(raw, path, expected):
+    assert get_nested(raw, path, "default") == expected
