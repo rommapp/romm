@@ -8,7 +8,8 @@ const TIME_REPORT_INTERVAL_SECONDS = 0.25;
 
 type GmeReplyBody =
   | { type: "loaded"; durationMs: number }
-  | { type: "time"; ms: number }
+  /** `seek` is the last seek applied, so the page can drop older reports. */
+  | { type: "time"; ms: number; seek: number }
   | { type: "ended" }
   | { type: "error" };
 
@@ -19,7 +20,7 @@ export type GmeCommand =
   | { type: "load"; id: number; data: ArrayBuffer }
   | { type: "play" }
   | { type: "pause" }
-  | { type: "seek"; ms: number }
+  | { type: "seek"; ms: number; seq: number }
   | { type: "unload" };
 
 type GmeExports = {
@@ -67,7 +68,8 @@ export class GmeRenderer {
   private playing = false;
   // A scrub's seeks collapse into one per quantum, since each emulates its way
   // to the target.
-  private pendingSeekMs: number | null = null;
+  private pendingSeek: { ms: number; seq: number } | null = null;
+  private seekSeq = 0;
   private bufferPointer = 0;
   private bufferSamples = 0;
   private pcm = new Int16Array(0);
@@ -112,7 +114,7 @@ export class GmeRenderer {
         this.playing = false;
         break;
       case "seek":
-        if (this.emu) this.pendingSeekMs = command.ms;
+        if (this.emu) this.pendingSeek = { ms: command.ms, seq: command.seq };
         break;
       case "unload":
         this.unload();
@@ -122,9 +124,10 @@ export class GmeRenderer {
 
   /** Fill one quantum of output, or silence while nothing plays. */
   render(left: Float32Array, right: Float32Array) {
-    if (this.pendingSeekMs !== null) {
-      const ms = this.pendingSeekMs;
-      this.pendingSeekMs = null;
+    if (this.pendingSeek) {
+      const { ms, seq } = this.pendingSeek;
+      this.pendingSeek = null;
+      this.seekSeq = seq;
       this.seek(ms);
     }
     const frames = left.length;
@@ -205,14 +208,18 @@ export class GmeRenderer {
 
   private unload() {
     this.playing = false;
-    this.pendingSeekMs = null;
+    this.pendingSeek = null;
     if (this.emu) this.gme.gme_delete(this.emu);
     this.emu = 0;
   }
 
   private reportTime() {
     this.framesSinceReport = 0;
-    this.reply({ type: "time", ms: this.gme.gme_tell(this.emu) });
+    this.reply({
+      type: "time",
+      ms: this.gme.gme_tell(this.emu),
+      seek: this.seekSeq,
+    });
   }
 
   // Memory growth detaches old views, so the view is rebuilt when that happens.

@@ -1,6 +1,6 @@
 import { gzipSync } from "node:zlib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ChiptunePlayer, MAX_GUNZIPPED_BYTES } from "./chiptunePlayer";
+import { ChiptunePlayer, MAX_TRACK_BYTES } from "./chiptunePlayer";
 
 vi.mock("./gmeAudioWorklet.js?worker&url", () => ({ default: "/worklet.js" }));
 
@@ -153,10 +153,22 @@ describe("ChiptunePlayer", () => {
     expect(new Uint8Array(data)).toEqual(SPC_BYTES);
   });
 
+  it("refuses an uncompressed file over the size cap", async () => {
+    bodies.set("/track.spc", new Uint8Array(MAX_TRACK_BYTES + 1));
+    const player = new ChiptunePlayer();
+    const events = recordEvents(player);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await player.load("/track.spc");
+
+    expect(port.lastLoad()).toBeUndefined();
+    expect(events).toContain("error");
+  });
+
   it("refuses a file that gunzips past the size cap", async () => {
     bodies.set(
       "/track.spc",
-      new Uint8Array(gzipSync(new Uint8Array(MAX_GUNZIPPED_BYTES + 1))),
+      new Uint8Array(gzipSync(new Uint8Array(MAX_TRACK_BYTES + 1))),
     );
     const player = new ChiptunePlayer();
     const events = recordEvents(player);
@@ -293,8 +305,20 @@ describe("ChiptunePlayer", () => {
     await flush();
 
     expect(events).toEqual(["timeupdate"]);
-    expect(port.posted.at(-1)).toEqual({ type: "seek", ms: 42000 });
+    expect(port.posted.at(-1)).toEqual({ type: "seek", ms: 42000, seq: 1 });
     expect(player.currentTime).toBe(42);
+  });
+
+  it("drops a position report sent before the latest seek", async () => {
+    const player = new ChiptunePlayer();
+    const id = await loaded(player);
+    player.currentTime = 42;
+
+    port.reply({ type: "time", id, ms: 3000, seek: 0 });
+    expect(player.currentTime).toBe(42);
+
+    port.reply({ type: "time", id, ms: 42250, seek: 1 });
+    expect(player.currentTime).toBe(42.25);
   });
 
   it("applies a seek made while the file downloaded once it loads", async () => {
@@ -307,7 +331,7 @@ describe("ChiptunePlayer", () => {
     port.reply({ type: "loaded", id: port.lastLoad()?.id, durationMs: 60000 });
     await flush();
 
-    expect(port.posted.at(-1)).toEqual({ type: "seek", ms: 30000 });
+    expect(port.posted.at(-1)).toEqual({ type: "seek", ms: 30000, seq: 1 });
     expect(player.currentTime).toBe(30);
   });
 

@@ -107,7 +107,7 @@ describe("GmeRenderer", () => {
     quantum(target, 128);
     expect(replies).toEqual([]);
     quantum(target, 128);
-    expect(replies).toEqual([{ type: "time", id: 1, ms: 1234 }]);
+    expect(replies).toEqual([{ type: "time", id: 1, ms: 1234, seek: 0 }]);
   });
 
   it("stops and reports the end of the track", () => {
@@ -136,7 +136,7 @@ describe("GmeRenderer", () => {
     const left = quantum(target);
 
     expect(gme.exports.romm_gme_start).toHaveBeenCalledTimes(2);
-    expect(replies).toEqual([{ type: "time", id: 1, ms: 1234 }]);
+    expect(replies).toEqual([{ type: "time", id: 1, ms: 1234, seek: 0 }]);
     expect([...left]).toEqual([0.5, 0.5, 0.5, 0.5]);
   });
 
@@ -144,19 +144,19 @@ describe("GmeRenderer", () => {
     const target = renderer();
     load(target);
 
-    target.handle({ type: "seek", ms: 500 });
+    target.handle({ type: "seek", ms: 500, seq: 1 });
     quantum(target);
 
     expect(gme.exports.romm_gme_start).toHaveBeenCalledTimes(2);
     expect(gme.exports.gme_seek).toHaveBeenCalledWith(7, 500);
-    expect(replies.at(-1)).toEqual({ type: "time", id: 1, ms: 1234 });
+    expect(replies.at(-1)).toEqual({ type: "time", id: 1, ms: 1234, seek: 1 });
   });
 
   it("seeks forwards without restarting the track", () => {
     const target = renderer();
     load(target);
 
-    target.handle({ type: "seek", ms: 5000 });
+    target.handle({ type: "seek", ms: 5000, seq: 1 });
     quantum(target);
 
     expect(gme.exports.romm_gme_start).toHaveBeenCalledTimes(1);
@@ -167,12 +167,29 @@ describe("GmeRenderer", () => {
     const target = renderer();
     load(target);
 
-    for (const ms of [2000, 3000, 4000]) target.handle({ type: "seek", ms });
+    for (const [seq, ms] of [2000, 3000, 4000].entries()) {
+      target.handle({ type: "seek", ms, seq });
+    }
     expect(gme.exports.gme_seek).not.toHaveBeenCalled();
     quantum(target);
 
     expect(gme.exports.gme_seek).toHaveBeenCalledTimes(1);
     expect(gme.exports.gme_seek).toHaveBeenCalledWith(7, 4000);
+  });
+
+  it("tags position reports with the last seek it applied", () => {
+    const target = renderer();
+    load(target);
+    target.handle({ type: "play" });
+
+    target.handle({ type: "seek", ms: 5000, seq: 3 });
+    quantum(target, 12000);
+
+    const times = replies.filter((reply) => reply.type === "time");
+    expect(times.length).toBeGreaterThan(1);
+    expect(
+      times.every((reply) => reply.type === "time" && reply.seek === 3),
+    ).toBe(true);
   });
 
   it("frees the previous track when another loads", () => {

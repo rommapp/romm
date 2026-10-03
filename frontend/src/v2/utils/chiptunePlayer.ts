@@ -29,8 +29,9 @@ function compileGme(): Promise<WebAssembly.Module> {
   return modulePromise;
 }
 
-// Far above any real VGM, but stops a gzip bomb from exhausting the tab.
-export const MAX_GUNZIPPED_BYTES = 64 * 1024 * 1024;
+// Far above any real track, but stops a huge file or a gzip bomb from
+// exhausting the tab.
+export const MAX_TRACK_BYTES = 64 * 1024 * 1024;
 
 async function gunzip(data: ArrayBuffer): Promise<ArrayBuffer> {
   const reader = new Blob([data])
@@ -43,9 +44,9 @@ async function gunzip(data: ArrayBuffer): Promise<ArrayBuffer> {
     const { done, value } = await reader.read();
     if (done) break;
     total += value.byteLength;
-    if (total > MAX_GUNZIPPED_BYTES) {
+    if (total > MAX_TRACK_BYTES) {
       await reader.cancel();
-      throw new Error("gunzipped track is too large");
+      throw new Error("track is too large");
     }
     chunks.push(value);
   }
@@ -65,7 +66,13 @@ async function fetchTrackData(
 ): Promise<ArrayBuffer> {
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+  if (Number(response.headers.get("content-length")) > MAX_TRACK_BYTES) {
+    throw new Error(`${url}: track is too large`);
+  }
   const data = await response.arrayBuffer();
+  if (data.byteLength > MAX_TRACK_BYTES) {
+    throw new Error(`${url}: track is too large`);
+  }
   const head = new Uint8Array(data, 0, Math.min(2, data.byteLength));
   if (head[0] !== 0x1f || head[1] !== 0x8b) return data;
   return gunzip(data);
@@ -84,6 +91,9 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   // Bumped by every play, pause and load, so a play still starting up yields.
   private playToken = 0;
   private loaded = false;
+  // Numbers each seek; reports older than `seekFloor` are dropped.
+  private seekSeq = 0;
+  private seekFloor = 0;
   private failed = false;
   // Flips on each play or pause call, as `<audio>` does, so a quick second
   // press sees it. `started` is whether playback began.
@@ -111,7 +121,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   set currentTime(seconds: number) {
     this.position = seconds;
     // Before the file loads there is nothing to seek; "loaded" applies it.
-    if (this.loaded) this.post({ type: "seek", ms: seconds * 1000 });
+    if (this.loaded) this.seek(seconds);
     this.dispatchEvent(new Event("timeupdate"));
   }
 
@@ -196,6 +206,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     this.loadToken += 1;
     this.loaded = false;
     this.failed = false;
+    this.seekFloor = 0;
     this.position = 0;
     this.length = 0;
     this.post({ type: "unload" });
@@ -207,6 +218,11 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     this.dropRenderer();
     void this.context?.close().catch(() => {});
     this.context = null;
+  }
+
+  private seek(seconds: number) {
+    this.seekFloor = ++this.seekSeq;
+    this.post({ type: "seek", ms: seconds * 1000, seq: this.seekSeq });
   }
 
   private fail() {
@@ -285,13 +301,14 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
       case "loaded":
         this.loaded = true;
         this.length = message.durationMs / 1000;
-        if (this.position)
-          this.post({ type: "seek", ms: this.position * 1000 });
+        if (this.position) this.seek(this.position);
         this.dispatchEvent(new Event("loadedmetadata"));
         this.dispatchEvent(new Event("canplay"));
         if (this.started) this.post({ type: "play" });
         break;
       case "time":
+        // A report sent before the latest seek would undo it.
+        if (message.seek < this.seekFloor) break;
         this.position = message.ms / 1000;
         this.dispatchEvent(new Event("timeupdate"));
         break;
