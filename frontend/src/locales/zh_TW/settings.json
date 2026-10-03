@@ -367,6 +367,8 @@
   "removed": "已移除",
   "repeat-password": "重複密碼",
   "repeat-password-required": "需要重複密碼",
+  "resume-music": "重新載入後繼續播放音樂",
+  "resume-music-desc": "從上次停止的位置繼續播放最後一首曲目。如果當時正在播放，會在您第一次點擊或按鍵時重新開始。",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "為 {username} 撤銷權杖「{name}」？",
   "role": "角色",

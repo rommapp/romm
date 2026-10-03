@@ -367,6 +367,8 @@
   "removed": "Supprimé",
   "repeat-password": "Répéter le mot de passe",
   "repeat-password-required": "La répétition du mot de passe est requise",
+  "resume-music": "Reprendre la musique après rechargement",
+  "resume-music-desc": "Reprend la dernière piste là où elle s'était arrêtée. Si elle était en cours de lecture, elle redémarre à votre premier clic ou appui sur une touche.",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "Révoquer le token « {name} » pour {username} ?",
   "role": "Rôle",

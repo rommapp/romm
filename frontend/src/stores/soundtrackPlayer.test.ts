@@ -131,3 +131,61 @@ describe("loadPlaylist with preserved shuffle", () => {
     expect(ids(player.playlist.slice(4))).not.toEqual(ids(nextPage));
   });
 });
+
+describe("session restore", () => {
+  const track = {
+    romId: 1,
+    fileId: 2,
+    fileName: "02 Theme.mp3",
+    url: "/theme.mp3",
+  };
+  const saved = {
+    track,
+    meta: { title: "Theme", duration: 180 },
+    playlist: [track],
+    originalPlaylist: [track],
+    isShuffled: false,
+    playlistMeta: { 2: { title: "Theme" } },
+    activePlaylistRomId: 1,
+    position: 42,
+    wasPlaying: true,
+  };
+
+  it("rebuilds the session it was given", () => {
+    const player = useSoundtrackPlayer();
+    player.restore(saved);
+
+    expect(player.session).toEqual(saved);
+    expect(player.currentTime).toBe(42);
+    expect(player.duration).toBe(180);
+  });
+
+  it("hands the position to the player exactly once", () => {
+    const player = useSoundtrackPlayer();
+    player.restore(saved);
+
+    expect(player.takePendingResume()).toEqual({
+      position: 42,
+      autoplay: true,
+    });
+    expect(player.takePendingResume()).toBeNull();
+  });
+
+  it("stops counting as playing once playback reports in", () => {
+    const player = useSoundtrackPlayer();
+    player.restore(saved);
+    player.setPlaying(true);
+    player.setPlaying(false);
+
+    expect(player.session?.wasPlaying).toBe(false);
+  });
+
+  it("drops a pending resume on stop", () => {
+    const player = useSoundtrackPlayer();
+    player.restore(saved);
+    player.stop();
+
+    expect(player.session).toBeNull();
+    expect(player.takePendingResume()).toBeNull();
+  });
+});

@@ -367,6 +367,8 @@
   "removed": "Eliminat",
   "repeat-password": "Repetă parola",
   "repeat-password-required": "Este necesar să repetați parola",
+  "resume-music": "Reia muzica după reîncărcare",
+  "resume-music-desc": "Reia ultima piesă de unde s-a oprit. Dacă rula, pornește din nou la primul clic sau prima apăsare de tastă.",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "Revoci token-ul „{name}” pentru {username}?",
   "role": "Rol",

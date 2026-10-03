@@ -7,10 +7,11 @@
 //   3. Home              (toggle grid)
 //   4. Gallery           (toggle grid + boxart RSelect prefix-label +
 //                         advanced per-page boxart overrides)
-//   5. Gameplay          (launch-confirmation toggle)
-//   6. Desktop shell     (only inside it; opens its own settings)
-//   7. Virtual collections (RSelect prefix-label)
-//   8. UI version        (v2-only, beta, kept last)
+//   5. Jukebox           (resume-after-reload toggle)
+//   6. Gameplay          (launch-confirmation toggle)
+//   7. Desktop shell     (only inside it; opens its own settings)
+//   8. Virtual collections (RSelect prefix-label)
+//   9. UI version        (v2-only, beta, kept last)
 //
 // The v1 "Platforms drawer" section was removed (no equivalent in v2).
 // `useUISettings` still exposes `platformsGroupBy` for v1; we just
@@ -83,6 +84,8 @@ const {
   boxartStyle,
   boxartStyleDetails,
   boxartStylePlayer,
+  // Jukebox
+  resumeMusic,
   // Gameplay
   confirmProtectedLaunch,
 } = useUISettings();
@@ -461,6 +464,20 @@ function onVirtualCollectionTypeChange(value: unknown) {
             </template>
           </RSelect>
         </template>
+      </div>
+    </SettingsSection>
+
+    <!-- Jukebox -->
+    <SettingsSection
+      :title="t('common.jukebox')"
+      icon="mdi-music-box-multiple-outline"
+    >
+      <div class="r-v2-ui__toggle-grid r-v2-ui__toggle-grid--single">
+        <SettingsToggleRow
+          v-model="resumeMusic"
+          :title="t('settings.resume-music')"
+          :description="t('settings.resume-music-desc')"
+        />
       </div>
     </SettingsSection>
 

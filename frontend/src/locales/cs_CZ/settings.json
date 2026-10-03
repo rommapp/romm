@@ -367,6 +367,8 @@
   "removed": "Odstraněno",
   "repeat-password": "Opakujte heslo",
   "repeat-password-required": "Je vyžadováno opakování hesla",
+  "resume-music": "Pokračovat v hudbě po obnovení",
+  "resume-music-desc": "Naváže na poslední skladbu tam, kde skončila. Pokud hrála, spustí se znovu po prvním kliknutí nebo stisku klávesy.",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "Zrušit token „{name}“ pro {username}?",
   "role": "Role",

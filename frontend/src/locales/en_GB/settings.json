@@ -367,6 +367,8 @@
   "removed": "Removed",
   "repeat-password": "Repeat password",
   "repeat-password-required": "Repeat password is required",
+  "resume-music": "Resume music after reload",
+  "resume-music-desc": "Pick up the last track where it stopped. If it was playing, it starts again on your first click or key press.",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "Revoke token \"{name}\" for {username}?",
   "role": "Role",

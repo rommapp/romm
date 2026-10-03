@@ -367,6 +367,8 @@
   "removed": "削除済み",
   "repeat-password": "パスワードを再入力",
   "repeat-password-required": "パスワードの再入力が必要です",
+  "resume-music": "再読み込み後に音楽を再開",
+  "resume-music-desc": "最後に聴いていたトラックを止まった位置から再開します。再生中だった場合は、最初のクリックまたはキー入力で再生が始まります。",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "{username}のトークン「{name}」を取り消しますか？",
   "role": "役割",

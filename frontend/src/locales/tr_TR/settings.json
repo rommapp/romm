@@ -367,6 +367,8 @@
   "removed": "Kaldırıldı",
   "repeat-password": "Şifreyi tekrarla",
   "repeat-password-required": "Şifre tekrarı gereklidir",
+  "resume-music": "Yeniden yüklemeden sonra müziğe devam et",
+  "resume-music-desc": "Son parçayı kaldığı yerden sürdürür. Çalıyorsa, ilk tıklamanızda veya tuşa basışınızda yeniden başlar.",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "{username} için \"{name}\" tokenı iptal edilsin mi?",
   "role": "Rol",

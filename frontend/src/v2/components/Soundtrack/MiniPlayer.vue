@@ -13,12 +13,16 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import storePlaying from "@/stores/playing";
-import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
+import useSoundtrackPlayer, {
+  type PlayerTrack,
+  type SoundtrackSink,
+} from "@/stores/soundtrackPlayer";
 import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useMediaSession } from "@/v2/composables/useMediaSession";
 import { useMiniPlayerVisible } from "@/v2/composables/useMiniPlayerVisible";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useSoundtrackResume } from "@/v2/composables/useSoundtrackResume";
 import { ChiptunePlayer } from "@/v2/utils/chiptunePlayer";
 import { isChiptuneFile } from "@/v2/utils/soundtrackTracks";
 
@@ -37,6 +41,10 @@ const chiptune = shallowRef<ChiptunePlayer | null>(null);
 // Whichever of the two is playing the current track. Events from the other
 // are dropped, since pausing one while the other starts fires out of order.
 let active: HTMLAudioElement | ChiptunePlayer | null = null;
+// A track restored after a reload that has not started yet. If it fails to
+// load (deleted, or no longer visible) it is dropped without an error toast.
+let resumedTrack: PlayerTrack | null = null;
+let cancelResume: AbortController | null = null;
 
 // On phones the mini player lives in the top bar, which a running game hides,
 // so the music pauses rather than play on with no controls.
@@ -87,13 +95,36 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  cancelResume?.abort();
   store.setAudioRef(null);
   chiptune.value?.close();
 });
 
+// Browsers refuse to start audio before the user interacts with the page, so a
+// session that was playing waits for the first click, tap or key press.
+function resumeOnFirstInteraction(t: PlayerTrack, sink: SoundtrackSink) {
+  cancelResume = new AbortController();
+  const start = () => {
+    cancelResume?.abort();
+    if (track.value === t && sink.paused && !musicBlocked.value) {
+      void sink.play().catch(() => {});
+    }
+  };
+  for (const name of ["pointerdown", "keydown"]) {
+    window.addEventListener(name, start, {
+      capture: true,
+      signal: cancelResume.signal,
+    });
+  }
+}
+
 watch(track, async (t) => {
   const el = audioEl.value;
   if (!el) return;
+  cancelResume?.abort();
+  cancelResume = null;
+  const resume = store.takePendingResume();
+  resumedTrack = resume && t ? t : null;
   if (!t) {
     setBuffered();
     unloadAudio(el);
@@ -103,12 +134,16 @@ watch(track, async (t) => {
 
   // The store flags a new track as buffering; hold that back like any wait.
   store.setBuffering(false);
-  scheduleBuffering();
+  // A paused `<audio>` with preload="metadata" never reaches "canplay".
+  if (!resume) scheduleBuffering();
   const sink = isChiptuneFile(t.fileName) ? getChiptune() : el;
   activate(sink);
   if (sink instanceof ChiptunePlayer) {
     unloadAudio(el);
     void sink.load(t.url);
+    // `load` resets the position before its first await; the player seeks
+    // to this one once the file is in.
+    if (resume) sink.currentTime = resume.position;
   } else {
     chiptune.value?.unload();
     el.src = t.url;
@@ -117,6 +152,19 @@ watch(track, async (t) => {
     } catch {
       // ignore
     }
+    if (resume) {
+      el.addEventListener(
+        "loadedmetadata",
+        () => {
+          if (track.value === t) el.currentTime = resume.position;
+        },
+        { once: true },
+      );
+    }
+  }
+  if (resume) {
+    if (resume.autoplay) resumeOnFirstInteraction(t, sink);
+    return;
   }
   try {
     await sink.play();
@@ -129,6 +177,7 @@ watch(track, async (t) => {
 
 const sinkHandlers: Record<string, () => void> = {
   play() {
+    resumedTrack = null;
     store.setPlaying(true);
     setBuffered();
   },
@@ -153,6 +202,10 @@ const sinkHandlers: Record<string, () => void> = {
   },
   error() {
     cancelBuffering();
+    if (resumedTrack && resumedTrack === track.value) {
+      store.stop();
+      return;
+    }
     store.setError();
     snackbar.error(t("rom.cant-play-track"), { timeout: 3000 });
   },
@@ -166,6 +219,8 @@ for (const [name, handler] of Object.entries(sinkHandlers)) {
     if (event.target === active) handler();
   });
 }
+
+useSoundtrackResume();
 </script>
 
 <template>
