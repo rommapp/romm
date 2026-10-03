@@ -22,12 +22,12 @@ type AudioTagKey =
   "title" | "artist" | "album" | "year" | "genre" | "track" | "disc";
 
 export type PlayerMeta = {
-  [K in AudioTagKey]?: NonNullable<TrackMetaSchema[K]>;
+  [K in AudioTagKey]?: NonNullable<TrackMetaSchema[K]> | undefined;
 } & {
-  duration?: number;
-  coverUrl?: string;
-  folderCoverUrl?: string;
-  gameArtworkUrl?: string;
+  duration?: number | undefined;
+  coverUrl?: string | undefined;
+  folderCoverUrl?: string | undefined;
+  gameArtworkUrl?: string | undefined;
 };
 
 export type SoundtrackArtworkRom = Pick<

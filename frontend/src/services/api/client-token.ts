@@ -33,7 +33,7 @@ async function createToken({
 }: {
   name: string;
   scopes: string[];
-  expires_in?: string;
+  expires_in?: string | undefined;
 }) {
   return api.post<ClientTokenCreateSchema>("/client-tokens", {
     name,

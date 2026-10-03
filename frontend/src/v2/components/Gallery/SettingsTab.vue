@@ -91,12 +91,9 @@ async function save() {
   try {
     // Send each field only when it actually changed.
     const { data } = await platformApi.updatePlatform({
-      platform: {
-        ...props.platform,
-        custom_name: nameDirty.value
-          ? customName.value.trim()
-          : props.platform.custom_name,
-      },
+      platform: nameDirty.value
+        ? { ...props.platform, custom_name: customName.value.trim() }
+        : props.platform,
       description: descriptionDirty.value
         ? description.value.trim()
         : undefined,

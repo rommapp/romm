@@ -101,7 +101,7 @@ declare global {
   }
 }
 
-type Binding = { key: string; code?: string };
+type Binding = { key: string; code: string };
 
 const ARROWS = {
   up: { key: "ArrowUp", code: "ArrowUp" },

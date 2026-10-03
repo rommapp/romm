@@ -30,7 +30,7 @@ const props = withDefaults(
     /** Accept typed values outside `sources`, which become suggestions. */
     allowCustom?: boolean;
     /** Placeholder for the free-text input shown with `allow-custom`. */
-    inputPlaceholder?: string;
+    inputPlaceholder?: string | undefined;
   }>(),
   { disabled: false, allowCustom: false, inputPlaceholder: undefined },
 );

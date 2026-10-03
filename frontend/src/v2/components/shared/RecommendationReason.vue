@@ -10,7 +10,7 @@ import { reasonIcon, reasonLabel } from "@/v2/utils/similarityReasons";
 const props = defineProps<{
   reasons: SimilarityReasonSchema[];
   // Captions the card in place of the first facet.
-  seedRomName?: string | null;
+  seedRomName?: string | null | undefined;
 }>();
 
 const { t } = useI18n();

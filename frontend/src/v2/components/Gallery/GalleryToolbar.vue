@@ -85,7 +85,7 @@ const props = withDefaults(
     sortKeyItems?: readonly SortOption[];
     /** Offers the gallery's order without a sort key (Search's relevance)
      *  under this name; it has no direction, so the toggle hides under it. */
-    unsortedLabel?: string;
+    unsortedLabel?: string | undefined;
     /** Whether that order is the one applied. */
     unsorted?: boolean;
     /** Show the search field on the left. v-model:search controls its value. */

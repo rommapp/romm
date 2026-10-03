@@ -13,13 +13,13 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   modelValue: boolean;
   /** Optional inline label rendered next to the switch. */
-  label?: string;
+  label?: string | undefined;
   /** Visual size: `default` is the 36×20 track, `small` shrinks to
    *  28×16. Both keep the same hit-area on touch / pad. */
   size?: "default" | "small";
   disabled?: boolean;
   /** Accessible label for the switch when there's no visible label. */
-  ariaLabel?: string;
+  ariaLabel?: string | undefined;
   /** Render as a passive `<span>` (no button semantics, no click
    *  handler, no role). Useful when an outer wrapper already owns the
    *  interactive surface: e.g. `SettingsToggleRow` is a button whose

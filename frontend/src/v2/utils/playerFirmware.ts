@@ -65,7 +65,10 @@ export function firmwareExternalFiles(
 }
 
 interface ArcadeBiosEmulator {
-  config: { biosUrl?: string; externalFiles?: Record<string, string> };
+  config: {
+    biosUrl?: string | undefined;
+    externalFiles?: Record<string, string> | undefined;
+  };
   getCore(generic?: boolean): string;
   downloadGameFile?: unknown;
 }

@@ -57,7 +57,7 @@ const props = withDefaults(
     cancelable?: boolean;
     cancelDisabled?: boolean;
     /** Replaces the Cancel label (defaults to the chrome `cancel` label). */
-    cancelText?: string;
+    cancelText?: string | undefined;
   }>(),
   {
     scrollContent: false,

@@ -49,7 +49,7 @@ export function sessionScreenshotFile(
 
 type SaveUploadInput = Omit<AddSaveInput, "saveFile" | "screenshotFile"> & {
   saveFile: File;
-  screenshotFile?: File;
+  screenshotFile?: File | undefined;
 };
 
 type UpdateSaveUploadInput = Omit<
@@ -57,17 +57,17 @@ type UpdateSaveUploadInput = Omit<
   "saveFile" | "screenshotFile"
 > & {
   saveFile: File;
-  screenshotFile?: File;
+  screenshotFile?: File | undefined;
 };
 
 interface SaveVersionParams {
   rom: Pick<DetailedRomSchema, "id">;
-  emulator?: string;
-  deviceId?: string;
-  slot?: string;
-  autocleanup?: boolean;
+  emulator?: string | undefined;
+  deviceId?: string | undefined;
+  slot?: string | undefined;
+  autocleanup?: boolean | undefined;
   /** Skip the stale-device conflict check and the content-hash dedupe. */
-  overwrite?: boolean;
+  overwrite?: boolean | undefined;
 }
 
 function saveVersionQuery({
@@ -169,7 +169,7 @@ function sendSaveOnUnload({
     body: saveFormData(saveFile),
     keepalive: true,
     credentials: "same-origin",
-    headers: csrfToken ? { "x-csrftoken": csrfToken } : undefined,
+    ...(csrfToken ? { headers: { "x-csrftoken": csrfToken } } : {}),
   }).catch(() => undefined);
   return true;
 }

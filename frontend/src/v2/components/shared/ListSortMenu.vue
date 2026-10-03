@@ -12,7 +12,7 @@ const props = defineProps<{
   sortKey: K | null;
   sortDir: "asc" | "desc";
   /** Offers the list's order without a sort key (Search's relevance) under this name. */
-  unsortedLabel?: string;
+  unsortedLabel?: string | undefined;
   /** Whether that order is the one applied. */
   unsorted?: boolean;
 }>();

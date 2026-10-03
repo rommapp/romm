@@ -43,16 +43,16 @@ interface Props {
   /** Optional suggestion list. Typed values that don't match are still
    *  committed: this is autocomplete, not enforcement. */
   items?: string[];
-  label?: string;
-  placeholder?: string;
+  label?: string | undefined;
+  placeholder?: string | undefined;
   /** `stacked` → label above the field. `inline` → label as a left
    *  prefix on the field. Mirrors RTextField. */
   prefixLabel?: "stacked" | "inline" | null;
   variant?: "outlined" | "filled" | "underlined" | "plain";
   density?: "default" | "comfortable" | "compact";
   hideDetails?: boolean;
-  hint?: string;
-  errorMessages?: string | string[];
+  hint?: string | undefined;
+  errorMessages?: string | string[] | undefined;
   /** Checked against the committed chips, like RSelect's rules; the field
    *  reports to an enclosing RForm. */
   rules?: Rule[];

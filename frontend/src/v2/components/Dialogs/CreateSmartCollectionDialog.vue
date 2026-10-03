@@ -190,10 +190,11 @@ async function submit() {
 
   submitting.value = true;
   try {
+    const trimmedDescription = description.value.trim();
     const data = await collectionApi.createSmartCollection({
       smartCollection: {
         name: name.value.trim(),
-        description: description.value.trim() || undefined,
+        ...(trimmedDescription ? { description: trimmedDescription } : {}),
         filter_criteria: snapshot.value,
         is_public: isPublic.value,
       },

@@ -7,8 +7,8 @@ import { useAnimatedNumber } from "@/v2/composables/useAnimatedNumber";
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  value?: string | number;
-  label?: string;
+  value?: string | number | undefined;
+  label?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

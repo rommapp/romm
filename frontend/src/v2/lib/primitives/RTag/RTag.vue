@@ -16,13 +16,13 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   /** Optional MDI icon shown before the eyebrow label / text. */
-  prependIcon?: string;
+  prependIcon?: string | undefined;
   /** Optional MDI icon shown after the primary text. */
-  appendIcon?: string;
+  appendIcon?: string | undefined;
   /** Tiny uppercase eyebrow label (e.g. "CRC", "MD5"). */
-  label?: string;
+  label?: string | undefined;
   /** Primary text. Falls back to the default slot when not set. */
-  text?: string | number;
+  text?: string | number | undefined;
   /** Render the primary text in monospace (hash values etc.). */
   mono?: boolean;
   /** Colour preset. `plain` strips the chip chrome (border, background,

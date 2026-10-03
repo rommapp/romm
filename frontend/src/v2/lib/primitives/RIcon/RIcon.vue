@@ -15,13 +15,13 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   /** MDI class name including the prefix, e.g. `mdi-controller`. */
-  icon?: string;
+  icon?: string | undefined;
   /** Named ladder (`x-small | small | default | large | x-large`),
    *  bare number (px), or any CSS length (`"1.4em"`, `"20px"`). */
-  size?: string | number;
+  size?: string | number | undefined;
   /** v2 tone keyword, legacy `romm-*`, or any CSS colour. Omit to
    *  inherit the parent's text colour. */
-  color?: string;
+  color?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

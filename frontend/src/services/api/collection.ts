@@ -15,7 +15,7 @@ type VirtualCollection = VirtualCollectionSchema;
 type SmartCollection = SmartCollectionSchema;
 
 export type UpdatedCollection = Collection & {
-  artwork?: File;
+  artwork?: File | undefined;
   url_cover?: string | null;
 };
 

@@ -10,7 +10,7 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   label?: string;
-  to?: string | object;
+  to?: string | object | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

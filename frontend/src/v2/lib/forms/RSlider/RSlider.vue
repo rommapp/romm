@@ -37,7 +37,7 @@ interface Props {
    *  keyboard focus or drag. */
   scrubber?: boolean;
   /** ARIA label when no visible label exists. */
-  ariaLabel?: string;
+  ariaLabel?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

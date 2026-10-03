@@ -32,7 +32,7 @@ export interface AdminUserDraft {
   email: string;
   password: string;
   repeatPassword: string;
-  avatar?: File;
+  avatar?: File | undefined;
 }
 
 defineOptions({ inheritAttrs: false });

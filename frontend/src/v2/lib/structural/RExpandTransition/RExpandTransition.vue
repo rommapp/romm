@@ -32,7 +32,7 @@ interface Props {
   /** Animate the child on first mount, not just on subsequent toggles. */
   appear?: boolean;
   /** Override the transition duration. Accepts any CSS time value. */
-  duration?: string;
+  duration?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

@@ -10,8 +10,8 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   icon?: string;
-  title?: string;
-  hint?: string;
+  title?: string | undefined;
+  hint?: string | undefined;
   iconSize?: string | number;
   /** Size ladder shared with RBtn / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";

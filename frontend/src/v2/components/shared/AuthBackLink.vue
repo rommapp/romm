@@ -9,7 +9,7 @@ defineOptions({ inheritAttrs: false });
 withDefaults(
   defineProps<{
     to?: string;
-    label?: string;
+    label?: string | undefined;
   }>(),
   {
     to: "/login",

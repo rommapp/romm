@@ -96,7 +96,7 @@ type ClearableAllowed = null extends Model
     : false;
 
 interface Props {
-  modelValue?: Model;
+  modelValue?: Model | undefined;
   items: Platform[];
   /** Which Platform field the v-model binds to. Default `id`.
    *  `slug` is used by FolderMapping (the table works in slug space)
@@ -113,22 +113,22 @@ interface Props {
   closableChips?: boolean;
   disabled?: boolean;
   loading?: boolean;
-  label?: string;
-  placeholder?: string;
+  label?: string | undefined;
+  placeholder?: string | undefined;
   /** Games-first menu + divider until the user types in panel search. Default false. */
   promoteFilled?: boolean;
-  searchPlaceholder?: string;
+  searchPlaceholder?: string | undefined;
   variant?: "outlined" | "filled" | "underlined" | "plain";
   density?: "default" | "comfortable" | "compact";
   hideDetails?: boolean | "auto";
-  prefixLabel?: "stacked" | "inline";
-  prependInnerIcon?: string;
+  prefixLabel?: "stacked" | "inline" | undefined;
+  prependInnerIcon?: string | undefined;
   /** Scan-style rich row: category icon, family, missing-fs, rom-count. */
   showMeta?: boolean;
   /** Never-scanned folders. */
   markUnscanned?: boolean;
   /** Label for the never-scanned marker */
-  unscannedLabel?: string;
+  unscannedLabel?: string | undefined;
   /** Icon size inside list rows. Defaults to 28 (Scan uses 32, dialogs 22-24). */
   iconSize?: number;
 }

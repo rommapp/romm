@@ -9,7 +9,7 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   /** Label text. Falls back to the default slot when not set. */
-  label?: string;
+  label?: string | undefined;
 }
 
 withDefaults(defineProps<Props>(), {

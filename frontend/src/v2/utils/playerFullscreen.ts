@@ -37,7 +37,7 @@ export function installFullscreenFallback(): () => void {
   const overrides: Array<{
     target: object;
     key: PropertyKey;
-    prev?: PropertyDescriptor;
+    prev?: PropertyDescriptor | undefined;
   }> = [];
   const override = (
     target: object,

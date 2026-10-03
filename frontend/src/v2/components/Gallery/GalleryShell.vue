@@ -109,7 +109,7 @@ interface Props {
   /** "Not found" mode: replaces all body items with a single empty row. */
   notFound?: boolean;
   /** Override the empty-state message in not-found mode. */
-  notFoundMessage?: string;
+  notFoundMessage?: string | undefined;
   /** Whether GameCards should display the platform badge corner (Search /
    * Collection: yes; Platform: no, since the cards already share a platform). */
   showPlatformBadge?: boolean;

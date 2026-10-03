@@ -33,7 +33,7 @@ interface Props {
    * Horizontal mode only.
    */
   fullWidth?: boolean;
-  thickness?: number | string;
+  thickness?: number | string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

@@ -44,9 +44,9 @@ interface Props {
   /** Latest selectable date. Days after are rendered but disabled. */
   max?: Date | number | string | null;
   /** Footer "today" shortcut label. Defaults to "Today". */
-  todayLabel?: string;
+  todayLabel?: string | undefined;
   /** Footer "clear" shortcut label. Defaults to "Clear". */
-  clearLabel?: string;
+  clearLabel?: string | undefined;
   /** Hide the today/clear footer row. */
   hideFooter?: boolean;
   /** Disable opening the picker. RTextField also accepts `disabled`:

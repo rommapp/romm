@@ -33,10 +33,10 @@ import RIcon from "../../primitives/RIcon/RIcon.vue";
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  modelValue?: boolean;
+  modelValue?: boolean | undefined;
   defaultOpen?: boolean;
-  title?: string;
-  icon?: string;
+  title?: string | undefined;
+  icon?: string | undefined;
   disabled?: boolean;
   attached?: boolean;
 }

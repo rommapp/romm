@@ -25,9 +25,9 @@ interface Props {
   /** Allow selecting / dropping more than one file. */
   multiple?: boolean;
   /** `accept` attribute for the underlying file input (e.g. "image/*"). */
-  accept?: string;
+  accept?: string | undefined;
   /** MIME types passed to the drop filter; omit to accept anything. */
-  dataTypes?: string[];
+  dataTypes?: string[] | undefined;
   disabled?: boolean;
   /** Overlay mode: render the default slot + a drag-over overlay. */
   overlay?: boolean;
@@ -37,16 +37,16 @@ interface Props {
    *  Works where `height: 100%` can't, e.g. a parent sized by min-height. */
   fill?: boolean;
   // CTA copy / icons (ignored in overlay mode except `activeIcon`).
-  title?: string;
-  hint?: string;
+  title?: string | undefined;
+  hint?: string | undefined;
   icon?: string;
   activeIcon?: string;
   /** Title swapped in while dragging over the CTA (falls back to `title`). */
-  activeTitle?: string;
+  activeTitle?: string | undefined;
   /** Overlay caption shown while dragging over filled content. */
-  releaseLabel?: string;
+  releaseLabel?: string | undefined;
   /** Accessible label for the underlying (visually hidden) file input. */
-  inputLabel?: string;
+  inputLabel?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -79,7 +79,7 @@ const { isOverDropZone } = useDropZone(rootRef, {
     if (props.disabled || !files || files.length === 0) return;
     emit("files", props.multiple ? files : files.slice(0, 1));
   },
-  dataTypes: props.dataTypes,
+  ...(props.dataTypes ? { dataTypes: props.dataTypes } : {}),
   multiple: props.multiple,
   preventDefaultForUnhandled: true,
 });

@@ -16,11 +16,11 @@ interface Props {
   /** The rom whose cover to resolve (gallery cards have the full rom). */
   rom?: CoverArtRom | null;
   /** Explicit cover URL, for surfaces that only have the path (activity). */
-  coverSrc?: string | null;
+  coverSrc?: string | null | undefined;
   /** Alt / placeholder text for the inner cover. */
   title?: string;
   /** Webp override, forwarded to GameCover. */
-  webp?: boolean;
+  webp?: boolean | undefined;
 }
 
 withDefaults(defineProps<Props>(), {

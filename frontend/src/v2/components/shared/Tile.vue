@@ -9,12 +9,12 @@ defineOptions({ inheritAttrs: false });
 const props = withDefaults(
   defineProps<{
     /** Renders a router-link when set, a button otherwise. */
-    to?: RouteLocationRaw;
+    to?: RouteLocationRaw | undefined;
     /** `comfortable` for platform tiles, `compact` for the jukebox's. */
     density?: "comfortable" | "compact";
     /** Fixed-width tile for horizontal card rows. */
     row?: boolean;
-    focusKey?: string;
+    focusKey?: string | undefined;
   }>(),
   { to: undefined, density: "comfortable", row: true, focusKey: undefined },
 );

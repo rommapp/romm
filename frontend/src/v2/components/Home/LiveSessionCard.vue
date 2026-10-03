@@ -12,7 +12,7 @@ import { useJoinStreamConfirm } from "@/v2/composables/useJoinStreamConfirm";
 
 interface Props {
   session: JoinableSession;
-  webp?: boolean;
+  webp?: boolean | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

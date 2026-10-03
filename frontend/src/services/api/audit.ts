@@ -5,15 +5,15 @@ import type {
 import api from "@/services/api";
 
 export interface AuditEventsQuery {
-  actorIds?: number[];
-  categories?: AuditCategory[];
-  since?: string;
-  until?: string;
-  search?: string;
+  actorIds?: number[] | undefined;
+  categories?: AuditCategory[] | undefined;
+  since?: string | undefined;
+  until?: string | undefined;
+  search?: string | undefined;
   /** Pins later pages to the events the first page saw. */
-  maxId?: number;
-  limit?: number;
-  offset?: number;
+  maxId?: number | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
 }
 
 async function getAuditEvents(query: AuditEventsQuery = {}) {

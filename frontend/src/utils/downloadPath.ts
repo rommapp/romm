@@ -13,7 +13,7 @@ export function getDownloadPath({
   rom: SimpleRom;
   fileIDs?: number[];
   purpose?: "play";
-  format?: string;
+  format?: string | undefined;
 }) {
   const queryParams = new URLSearchParams();
   if (fileIDs.length > 0) {

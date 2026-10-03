@@ -9,7 +9,7 @@ import type { NowPlayingTags } from "@/v2/utils/soundtrackTracks";
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{
-  tags?: NowPlayingTags;
+  tags?: NowPlayingTags | undefined;
   /** One-based position of the track in the queue. */
   position: number;
   total: number;

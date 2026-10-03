@@ -19,7 +19,7 @@ const TITLES = [
   "Secret of Mana",
   "F-Zero",
   "Star Fox",
-];
+] as const;
 
 const meta: Meta = {
   title: "Input Navigation",
@@ -78,7 +78,7 @@ export const KeyboardNavigation: Story = {
     await expect(canvas.getByRole("button", { name: TITLES[1] })).toHaveFocus();
     await userEvent.keyboard("{Enter}");
     await expect(canvas.getByTestId("last-picked")).toHaveTextContent(
-      TITLES[1]!,
+      TITLES[1],
     );
   },
 };

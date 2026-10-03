@@ -24,7 +24,7 @@ const props = defineProps<{
   /** ROM id + file id persist the reading position; without them the progress
    *  bar still tracks the session's scroll. */
   romId?: number;
-  fileId?: number;
+  fileId?: number | undefined;
   /** Show a danger-tinted delete button at the end of the toolbar. */
   deletable?: boolean;
   /** Show a re-download button when a scraped source URL exists. */

@@ -29,7 +29,7 @@ export interface EscapableEntry {
   persistent: boolean;
   /** The surface this entry paints, when it owns one. Read lazily: the
    *  entry outlives the panel, which mounts only while open. */
-  panel?: () => HTMLElement | null;
+  panel?: (() => HTMLElement | null) | undefined;
 }
 
 const stack: EscapableEntry[] = [];
