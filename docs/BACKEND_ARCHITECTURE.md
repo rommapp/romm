@@ -1421,7 +1421,7 @@ NetplayRoom:
 
 ### 8.6 Play Sessions
 
-Tracks per-user playtime events ingested from clients (web player, console mode, external launchers) via `POST /api/play-sessions`. Persisted in `play_sessions` table; aggregated into user profile stats and recent-activity feeds.
+Tracks per-user playtime events ingested from clients (web player, external launchers) via `POST /api/play-sessions`. Persisted in `play_sessions` table; aggregated into user profile stats and recent-activity feeds.
 
 ### 8.7 Device Sync Sessions
 

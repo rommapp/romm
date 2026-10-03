@@ -533,49 +533,8 @@ const routes = [
       v2: v2For(ROUTES.PAIR),
     },
   },
-  // Console mode (separate UI namespace under /console): v1 only; v2 merges
-  // console behavior into the main UI via the universal input system.
-  {
-    path: "/console",
-    component: () => import("@/console/Layout.vue"),
-    children: [
-      {
-        path: "",
-        name: ROUTES.CONSOLE_HOME,
-        component: () => import("@/console/views/Home.vue"),
-      },
-      {
-        path: "platform/:id",
-        name: ROUTES.CONSOLE_PLATFORM,
-        component: () => import("@/console/views/GamesList.vue"),
-      },
-      {
-        path: "collection/:id",
-        name: ROUTES.CONSOLE_COLLECTION,
-        component: () => import("@/console/views/GamesList.vue"),
-      },
-      {
-        path: "collection/smart/:id",
-        name: ROUTES.CONSOLE_SMART_COLLECTION,
-        component: () => import("@/console/views/GamesList.vue"),
-      },
-      {
-        path: "collection/virtual/:id",
-        name: ROUTES.CONSOLE_VIRTUAL_COLLECTION,
-        component: () => import("@/console/views/GamesList.vue"),
-      },
-      {
-        path: "rom/:rom",
-        name: ROUTES.CONSOLE_ROM,
-        component: () => import("@/console/views/Game.vue"),
-      },
-      {
-        path: "rom/:rom/play",
-        name: ROUTES.CONSOLE_PLAY,
-        component: () => import("@/console/views/Play.vue"),
-      },
-    ],
-  },
+  // Console mode was removed; old bookmarks land on Home.
+  { path: "/console/:pathMatch(.*)*", redirect: "/" },
 ];
 
 interface RoutePermissions {

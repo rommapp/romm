@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { useIdle, useLocalStorage, useScreenSafeArea } from "@vueuse/core";
-import { storeToRefs } from "pinia";
+import { useLocalStorage, useScreenSafeArea } from "@vueuse/core";
 import {
   computed,
   defineAsyncComponent,
@@ -13,7 +12,6 @@ import { useTheme } from "vuetify";
 import SoundtrackMiniPlayer from "@/components/common/SoundtrackMiniPlayer.vue";
 import { useBrowserLocale } from "@/composables/useBrowserLocale";
 import { useUiVersion } from "@/composables/useUiVersion";
-import storeConsole from "@/stores/console";
 
 // Lazy-loaded: RomM.vue is the first module main.ts evaluates, and the banner
 // transitively imports the API layer (stores → services/api → router). A
@@ -23,9 +21,7 @@ const BackendStatusBanner = defineAsyncComponent(
   () => import("@/v2/components/AppShell/BackendStatusBanner.vue"),
 );
 
-const consoleStore = storeConsole();
 const vuetifyTheme = useTheme();
-const { consoleMode } = storeToRefs(consoleStore);
 useBrowserLocale();
 
 // NOTE: uiVersion uses a module-level singleton ref (useUiVersion) so a write
@@ -39,10 +35,6 @@ const themeSetting = useLocalStorage<"auto" | "dark" | "light">(
   "settings.theme",
   "dark",
 );
-
-const { idle: mouseIdle } = useIdle(100, {
-  events: ["mousemove", "mousedown", "wheel", "touchstart"],
-});
 
 // Centralized theme resolution: Vuetify only knows the "dark" / "light"
 // pair (used by v1 surfaces and any remaining v1 components rendered
@@ -112,7 +104,7 @@ watch(
 </script>
 
 <template>
-  <v-app id="application" :class="{ 'mouse-hidden': consoleMode && mouseIdle }">
+  <v-app id="application">
     <template v-if="!isV2">
       <v-system-bar
         v-if="safeTop"
@@ -178,11 +170,6 @@ watch(
 <style scoped>
 #main.no-transition {
   transition: none;
-}
-
-#application.mouse-hidden,
-#application.mouse-hidden * {
-  cursor: none !important;
 }
 
 .fade-enter-active,

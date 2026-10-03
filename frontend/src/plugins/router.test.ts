@@ -204,3 +204,11 @@ describe("the inactive UI's views", () => {
     expect(views()?.default).toBe(v1View);
   });
 });
+
+describe("removed console mode", () => {
+  it("sends old /console links home", () => {
+    const [match] = router.resolve("/console/rom/3/play").matched;
+
+    expect(match?.redirect).toBe("/");
+  });
+});

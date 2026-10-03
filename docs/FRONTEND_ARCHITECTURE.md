@@ -2,7 +2,7 @@
 
 Comprehensive documentation of the RomM frontend: a Vue 3 single-page application powering the retro gaming platform UI.
 
-> **Scope: this document describes the v1 UI** (`src/views/`, `src/components/`, `src/console/`, `src/layouts/`), which is frozen pending deletion. The v2 rewrite under `src/v2/` shares the Vue/Vite/Pinia/router/i18n/Socket.IO foundation described here, but has its own design system: **no Vuetify, and no Tailwind utility classes** (the Tailwind stylesheet is still loaded app-wide, see CSS Stack below). It styles with generated tokens plus per-component scoped CSS. For v2, read the `frontend-v2-components`, `frontend-v2-theming`, `frontend-v2-input`, and `frontend-v2-patterns` skills in `.claude/skills/`.
+> **Scope: this document describes the v1 UI** (`src/views/`, `src/components/`, `src/layouts/`), which is frozen pending deletion. The v2 rewrite under `src/v2/` shares the Vue/Vite/Pinia/router/i18n/Socket.IO foundation described here, but has its own design system: **no Vuetify, and no Tailwind utility classes** (the Tailwind stylesheet is still loaded app-wide, see CSS Stack below). It styles with generated tokens plus per-component scoped CSS. For v2, read the `frontend-v2-components`, `frontend-v2-theming`, `frontend-v2-input`, and `frontend-v2-patterns` skills in `.claude/skills/`.
 
 ---
 
@@ -46,7 +46,7 @@ Comprehensive documentation of the RomM frontend: a Vue 3 single-page applicatio
 | **Icons**            | Material Design Icons (MDI) 7.4.47           |
 | **Node**             | 24 (via `.nvmrc`)                            |
 
-**Total:** ~216 Vue components (168 under `components/`, rest in views/console/layouts), 18 Pinia stores, 17 API service modules, 36 named routes across 3 layouts.
+**Total:** ~216 Vue components (168 under `components/`, rest in views/layouts), 18 Pinia stores, 17 API service modules, 36 named routes across 3 layouts.
 
 ---
 
@@ -91,9 +91,8 @@ Comprehensive documentation of the RomM frontend: a Vue 3 single-page applicatio
 ┌─────────────────────────────────────────────────────────┐
 │                    PRESENTATION LAYER                     │
 │  views/          Page-level route components              │
-│  layouts/        Auth, Main, Console layouts              │
+│  layouts/        Auth, Main layouts                       │
 │  components/     Feature & common components              │
-│  console/        TV/gamepad-optimized UI                  │
 ├─────────────────────────────────────────────────────────┤
 │                    STATE LAYER                            │
 │  stores/         18 Pinia stores (auth, roms, config...) │
@@ -183,38 +182,6 @@ frontend/
     │       ├── UserInterface/     # Theme, view, locale
     │       └── UserProfile/       # Profile, password, avatar
     │
-    ├── console/                   # Console mode (TV/gamepad UI)
-    │   ├── Layout.vue             # Console layout with input bus
-    │   ├── index.css              # Console-specific styles
-    │   ├── views/                 # Console pages
-    │   │   ├── Home.vue           # Platform grid, collections
-    │   │   ├── GamesList.vue      # ROM grid for platform/collection
-    │   │   ├── Game.vue           # Game details with spatial nav
-    │   │   └── Play.vue           # Emulator in console mode
-    │   ├── components/            # Console-specific components (12)
-    │   │   ├── GameCard.vue, SystemCard.vue, CollectionCard.vue
-    │   │   ├── BackButton.vue, NavigationHint.vue
-    │   │   ├── ScreenshotLightbox.vue, SettingsModal.vue
-    │   │   └── ArrowKeysIcon.vue, DPadIcon.vue, FaceButtons.vue
-    │   ├── composables/           # Console-specific composables
-    │   │   ├── useConsoleTheme.ts # Theme management
-    │   │   ├── useThemeAssets.ts  # Asset path resolution
-    │   │   ├── useBackgroundArt.ts # Double-buffered backgrounds
-    │   │   ├── useSpatialNav.ts   # Grid navigation
-    │   │   ├── useElementRegistry.ts # Focus management
-    │   │   ├── useInputScope.ts   # Scoped input handling
-    │   │   └── useRovingDom.ts    # ARIA roving tabindex
-    │   ├── input/                 # Input system
-    │   │   ├── bus.ts             # Stack-based input scope manager
-    │   │   ├── actions.ts         # 12 input actions
-    │   │   ├── config.ts          # Keyboard + gamepad mappings
-    │   │   ├── keyboard.ts        # Keyboard listener
-    │   │   └── gamepad.ts         # Gamepad polling (rAF)
-    │   ├── constants/             # Console constants (sizes, timings, themes)
-    │   └── utils/                 # Console helpers
-    │       ├── sfx.ts             # Procedural Web Audio SFX
-    │       └── assetResolver.ts   # Theme-aware asset loading
-    │
     ├── stores/                    # 18 Pinia stores
     │   ├── auth.ts                # Current user & scopes
     │   ├── roms.ts                # ROM library (largest store, 400+ lines)
@@ -225,7 +192,6 @@ frontend/
     │   ├── galleryFilter.ts       # 13+ filter types
     │   ├── galleryView.ts         # View mode, aspect ratio
     │   ├── navigation.ts          # Drawer & nav state
-    │   ├── console.ts             # Console mode navigation indices
     │   ├── scanning.ts            # Scan progress
     │   ├── tasks.ts               # Background task status
     │   ├── upload.ts              # Upload progress tracking
@@ -277,7 +243,7 @@ frontend/
     │   ├── en_GB/, fr_FR/, de_DE/, es_ES/, it_IT/, ja_JP/
     │   ├── ko_KR/, pt_BR/, pl_PL/, ro_RO/, ru_RU/
     │   ├── zh_CN/, zh_TW/, cs_CZ/, hu_HU/, bg_BG/
-    │   └── (each has: collection, common, console, detail,
+    │   └── (each has: collection, common, detail,
     │         emulator, gallery, home, library, login,
     │         navigation, patcher, platform, scan, settings, task)
     │
@@ -403,13 +369,6 @@ Component Action
 │   └── /*                        → 404
 │
 └── Console Layout (authenticated, TV/gamepad)
-    ├── /console                  → Console home
-    ├── /console/platform/:id     → Console game list
-    ├── /console/collection/:id   → Console collection
-    ├── /console/collection/smart/:id
-    ├── /console/collection/virtual/:id
-    ├── /console/rom/:rom         → Console game details
-    └── /console/rom/:rom/play    → Console emulator
 ```
 
 ### Route Guards
@@ -445,7 +404,7 @@ Component Action
 │ Auth & Config│ auth, config, heartbeat               │
 ├──────────────┼──────────────────────────────────────┤
 │ UI State     │ navigation, galleryFilter, galleryView│
-│              │ language, notifications, console       │
+│              │ language, notifications                │
 ├──────────────┼──────────────────────────────────────┤
 │ Operations   │ scanning, tasks, upload, download,    │
 │              │ playing                                │
@@ -649,8 +608,6 @@ Tier 2: Feature-specific
 ├── Scan/           Scan platform component
 └── Settings/       25+ settings sub-components
 
-Tier 3: Console Mode
-└── console/        12 components + 7 composables + input system
 ```
 
 ### Component Communication
@@ -682,7 +639,6 @@ Tier 3: Console Mode
 - **Props/emit** for parent-child communication
 - **Pinia stores** for shared state across components
 - **Mitt emitter** for loosely-coupled cross-component events (dialog triggers, notifications)
-- **Provide/inject** for console input scoping
 
 ### Dialog System
 
@@ -761,81 +717,7 @@ Supports: `.ips`, `.ups`, `.bps`, `.ppf`, `.rup`, `.aps`, `.bdf`, `.pmsr`, `.vcd
 
 ## 10. Console Mode
 
-A complete TV/gamepad-optimized interface under `/console/`.
-
-### Architecture
-
-```text
-Console Layout
-├── Input Bus (keyboard + gamepad → actions)
-├── Theme System (CSS variables per theme)
-├── Spatial Navigation (grid-based focus)
-├── Sound Effects (Web Audio synthesis)
-│
-├── Home View
-│   ├── Platform cards (spatial nav)
-│   ├── Continue playing
-│   └── Collections grid
-│
-├── Games List View
-│   ├── Game cards with lazy loading
-│   └── Virtual scrolling
-│
-├── Game Detail View
-│   ├── Description, metadata, screenshots
-│   ├── Save state management
-│   └── Play button → Emulator
-│
-└── Play View
-    └── EmulatorJS with save/state/BIOS selection
-```
-
-### Input System
-
-```text
-Hardware Input (keyboard / gamepad)
-    │
-    ├── Keyboard Listener (keydown → action mapping)
-    │   └── Ignores when focused on INPUT/TEXTAREA
-    │
-    ├── Gamepad Poller (requestAnimationFrame loop)
-    │   ├── Button press detection (with repeat delay)
-    │   └── Analog stick threshold (0.2)
-    │
-    └── Input Bus (stack-based scope manager)
-        ├── Global shortcuts (always active)
-        ├── Scoped listeners (context-dependent)
-        └── Action dispatch with SFX feedback
-```
-
-**12 Input Actions:** `moveUp`, `moveDown`, `moveLeft`, `moveRight`, `confirm`, `back`, `menu`, `delete`, `tabNext`, `tabPrev`, `toggleFavorite`
-
-**Repeat Timing:** 350ms initial delay, 120ms repeat
-
-### Procedural Sound Effects (Web Audio API)
-
-| Sound      | Frequency       | Duration   | When               |
-| ---------- | --------------- | ---------- | ------------------ |
-| `move`     | 860Hz           | 20ms       | Navigation         |
-| `confirm`  | 680→880Hz sweep | 19ms       | Selection          |
-| `back`     | 300Hz           | 85ms       | Return             |
-| `error`    | 180Hz + 140Hz   | 180ms      | Failure            |
-| `delete`   | 260Hz + 180Hz   | 120ms      | Destructive action |
-| `favorite` | 600Hz + 950Hz   | Dual burst | Toggle             |
-
-All synthesized with sine/noise blend, exponential envelopes, low-pass filter, and waveshaper saturation.
-
-### Console Composables
-
-| Composable           | Purpose                                         |
-| -------------------- | ----------------------------------------------- |
-| `useSpatialNav`      | Grid navigation with boundary enforcement       |
-| `useConsoleTheme`    | Theme CSS variable injection                    |
-| `useThemeAssets`     | Format-aware asset resolution (SVG > PNG > JPG) |
-| `useBackgroundArt`   | Double-buffered background transitions          |
-| `useElementRegistry` | Focus element tracking per section              |
-| `useInputScope`      | Dependency-injected input subscription          |
-| `useRovingDom`       | ARIA roving tabindex with auto-scroll           |
+Removed. The v2 UI works with a gamepad everywhere (see the `frontend-v2-input` skill), and old `/console` links redirect to Home.
 
 ---
 
@@ -905,13 +787,12 @@ Vuetify handles theme switching. Additional shared brand colors: `romm-red`, `ro
 
 ### CSS Stack
 
-| Layer     | Technology                         | Scope                                                                                                          |
-| --------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Component | Vuetify classes + scoped `<style>` | Per-component                                                                                                  |
-| Utility   | Tailwind CSS 4.3                   | Inline utility classes; `@import "tailwindcss"` lives in `console/index.css`, which `main.ts` imports app-wide |
-| Global    | `styles/common.css`                | App-wide utilities                                                                                             |
-| Scrollbar | `styles/scrollbar.css`             | Custom scrollbar                                                                                               |
-| Console   | `console/index.css`                | Console mode styles (plus the Tailwind import above)                                                           |
+| Layer     | Technology                         | Scope                                                                                                        |
+| --------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Component | Vuetify classes + scoped `<style>` | Per-component                                                                                                |
+| Utility   | Tailwind CSS 4.3                   | Inline utility classes; `@import "tailwindcss"` lives in `styles/base.css`, which `main.ts` imports app-wide |
+| Global    | `styles/common.css`                | App-wide utilities                                                                                           |
+| Scrollbar | `styles/scrollbar.css`             | Custom scrollbar                                                                                             |
 
 v2 opts out of this stack entirely: `src/v2/styles/tokens.css` (generated from `src/v2/tokens/index.ts`) plus `global.css`, scoped under `.r-v2`, with per-component `<style scoped>`.
 
@@ -961,7 +842,7 @@ v2 opts out of this stack entirely: `src/v2/styles/tokens.css` (generated from `
 ### Namespace Organization
 
 Each locale directory contains translation files per feature:
-`collection`, `common`, `console`, `detail`, `emulator`, `gallery`, `home`, `library`, `login`, `navigation`, `patcher`, `platform`, `scan`, `settings`, `task`
+`collection`, `common`, `detail`, `emulator`, `gallery`, `home`, `library`, `login`, `navigation`, `patcher`, `platform`, `scan`, `settings`, `task`
 
 ---
 
@@ -1179,18 +1060,15 @@ Used throughout: `import { ... } from "@/stores/roms"`.
 
 ## Appendix: Key Design Patterns
 
-| Pattern                    | Where                  | Purpose                                          |
-| -------------------------- | ---------------------- | ------------------------------------------------ |
-| **Composition API**        | All components         | `<script setup>` with reactive refs              |
-| **Pinia stores**           | `stores/`              | Centralized state with actions/getters           |
-| **Mitt event bus**         | Cross-component        | Loosely-coupled dialog/notification triggers     |
-| **Composables**            | `composables/`         | Reusable stateful logic (singleton where needed) |
-| **Stale-while-revalidate** | `services/cache/`      | Return cached, update in background              |
-| **Chunked upload**         | `services/api/rom.ts`  | 10MB chunks with retry                           |
-| **Spatial navigation**     | `console/`             | Grid-based focus for gamepad/keyboard            |
-| **Input scoping**          | `console/input/bus.ts` | Stack-based context for input handling           |
-| **Procedural audio**       | `console/utils/sfx.ts` | Web Audio API synthesis                          |
-| **Double buffering**       | `useBackgroundArt`     | Smooth background transitions                    |
-| **View Transitions**       | `plugins/transition/`  | CSS View Transitions API                         |
-| **OpenAPI codegen**        | `__generated__/`       | Type-safe API communication                      |
-| **Feature flags**          | `heartbeatStore`       | Server-driven UI feature toggling                |
+| Pattern                    | Where                 | Purpose                                          |
+| -------------------------- | --------------------- | ------------------------------------------------ |
+| **Composition API**        | All components        | `<script setup>` with reactive refs              |
+| **Pinia stores**           | `stores/`             | Centralized state with actions/getters           |
+| **Mitt event bus**         | Cross-component       | Loosely-coupled dialog/notification triggers     |
+| **Composables**            | `composables/`        | Reusable stateful logic (singleton where needed) |
+| **Stale-while-revalidate** | `services/cache/`     | Return cached, update in background              |
+| **Chunked upload**         | `services/api/rom.ts` | 10MB chunks with retry                           |
+| **Double buffering**       | `useBackgroundArt`    | Smooth background transitions                    |
+| **View Transitions**       | `plugins/transition/` | CSS View Transitions API                         |
+| **OpenAPI codegen**        | `__generated__/`      | Type-safe API communication                      |
+| **Feature flags**          | `heartbeatStore`      | Server-driven UI feature toggling                |

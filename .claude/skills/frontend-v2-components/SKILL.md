@@ -5,7 +5,7 @@ description: Building or modifying components in the RomM v2 frontend (frontend/
 
 # RomM Frontend v2: Component Constitution
 
-This governs work inside `frontend/src/v2/`. **v1 is frozen** (`src/views/`, `src/components/`, `src/console/`, `src/layouts/`); never refactor it; it will be deleted wholesale in a final wave. v2 is gated by `user.ui_settings.uiVersion`.
+This governs work inside `frontend/src/v2/`. **v1 is frozen** (`src/views/`, `src/components/`, `src/layouts/`); never refactor it; it will be deleted wholesale in a final wave. v2 is gated by `user.ui_settings.uiVersion`.
 
 > Official language for all code, comments, identifiers, `.md`, and commit/PR messages: **English**.
 
@@ -15,7 +15,7 @@ Related skills: `frontend-v2-theming` (tokens/colors), `frontend-v2-input` (focu
 
 ## Premises (stable)
 
-1. **v1 is frozen.** Don't touch `src/views/`, `src/components/`, `src/console/`, `src/layouts/`. When coexistence forces a v2 fork of a store/composable/util, annotate the v1 export with `@deprecated` pointing at the v2 replacement.
+1. **v1 is frozen.** Don't touch `src/views/`, `src/components/`, `src/layouts/`. When coexistence forces a v2 fork of a store/composable/util, annotate the v1 export with `@deprecated` pointing at the v2 replacement.
 2. **Three component tiers** (below).
 3. **Shared resources are canonical.** Pinia stores, API services, OpenAPI types (`src/__generated__/`), locales, utils: v2 _imports_ them, never forks them. Additive changes to shared resources are allowed; changing a shared store API to work around a v2 call-site issue is not.
 4. **TypeScript strict.** Zero `any` (justify with a comment if unavoidable). No `as unknown as ...`; fix the source or define an intermediate type.

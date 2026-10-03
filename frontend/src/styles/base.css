@@ -1,0 +1,40 @@
+/* App-wide base for both UIs: Tailwind and the page canvas. */
+@import "tailwindcss";
+
+html,
+body,
+#app {
+  height: 100%;
+  background: #38286a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Fade (Same Level or First Load) */
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+.fade-enter-active > * {
+  transition: inherit;
+}

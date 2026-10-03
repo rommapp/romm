@@ -6,7 +6,6 @@ import RandomBtn from "@/components/Gallery/AppBar/common/RandomBtn.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
-import ConsoleModeBtn from "@/components/common/Navigation/ConsoleModeBtn.vue";
 import HomeBtn from "@/components/common/Navigation/HomeBtn.vue";
 import PlatformsBtn from "@/components/common/Navigation/PlatformsBtn.vue";
 import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
@@ -63,7 +62,6 @@ function collapse() {
       <PlatformsBtn with-tag />
       <CollectionsBtn with-tag />
       <ScanBtn with-tag />
-      <ConsoleModeBtn with-tag />
     </v-bottom-navigation>
   </template>
 
@@ -107,7 +105,6 @@ function collapse() {
     <PlatformsBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
     <CollectionsBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
     <ScanBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
-    <ConsoleModeBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
 
     <template #append>
       <RandomBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />

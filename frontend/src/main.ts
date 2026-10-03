@@ -1,12 +1,12 @@
 import { createApp } from "vue";
 import App from "@/RomM.vue";
-import "@/console/index.css";
 import { localesReady } from "@/locales";
 import { registerPlugins } from "@/plugins";
 import router from "@/plugins/router";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
+import "@/styles/base.css";
 import "@/styles/common.css";
 import "@/styles/fonts.css";
 import "@/styles/scrollbar.css";

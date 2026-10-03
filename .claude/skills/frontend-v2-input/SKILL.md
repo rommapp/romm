@@ -18,8 +18,6 @@ description: Universal input (mouse, touch, keyboard, gamepad) and responsive/un
 | `useInputModality`                      | Sets `data-input` on `<html>`.                                                                                                                                                                                                                                                                         |
 | `useGlobalHotkeys`                      | `/` and `?`, `g h`, `g p`, `g c`.                                                                                                                                                                                                                                                                      |
 
-There are **no `/console/*` routes in v2**; `src/console/` (with its own input bus) is v1 only. Don't import from it.
-
 ## The claim rule
 
 Handlers coordinate through `preventDefault`. **Claim a key you handle; leave alone a key you don't.**
