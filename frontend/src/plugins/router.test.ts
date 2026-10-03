@@ -1,3 +1,4 @@
+import { flushPromises, mount } from "@vue/test-utils";
 import {
   afterEach,
   beforeAll,
@@ -7,7 +8,8 @@ import {
   it,
   vi,
 } from "vitest";
-import type { RouteLocationNormalized } from "vue-router";
+import { defineComponent, h } from "vue";
+import { RouterView, type RouteLocationNormalized } from "vue-router";
 import { useUiVersion } from "@/composables/useUiVersion";
 import i18n, { localesReady } from "@/locales";
 import router, { applyRouteTitle, ROUTES } from "@/plugins/router";
@@ -123,7 +125,7 @@ describe("the rom route", () => {
 
 describe("the inactive UI's views", () => {
   const uiVersion = useUiVersion();
-  const v1View = { name: "V1View", render: () => null };
+  const v1View = { name: "V1View", render: () => h("p", "v1 view") };
   const loadV1 = vi.fn(async () => v1View);
   const loadV2 = vi.fn(async () => ({ render: () => null }));
 
@@ -142,6 +144,8 @@ describe("the inactive UI's views", () => {
 
   beforeEach(() => {
     storeAuth().setCurrentUser({ id: 1 } as User);
+    loadV1.mockClear();
+    loadV2.mockClear();
   });
 
   afterEach(() => {
@@ -161,6 +165,23 @@ describe("the inactive UI's views", () => {
       expect.stringContaining("defineAsyncComponent"),
     );
     warn.mockRestore();
+  });
+
+  it("render in place when the UI switches without navigating", async () => {
+    uiVersion.value = "v2";
+    await router.push({ name: "deferred-views-elsewhere" });
+    await router.push({ name: "deferred-views" });
+    const Shell = defineComponent({
+      render: () =>
+        h(RouterView, { name: uiVersion.value === "v2" ? "v2" : "default" }),
+    });
+    const wrapper = mount(Shell, { global: { plugins: [router] } });
+
+    uiVersion.value = "v1";
+    await flushPromises();
+
+    expect(loadV1).toHaveBeenCalledOnce();
+    expect(wrapper.text()).toBe("v1 view");
   });
 
   // After an in-place switch, entering the route again must await the view

@@ -69,8 +69,7 @@ async function checkA11y(
   ).toHaveLength(0);
 }
 
-// Only this file renders stories, so only it pays for the preview setup
-// (full Vuetify, Storybook runtime) instead of every test file.
+// Kept out of vitest.setup.ts so only the story test loads full Vuetify.
 setProjectAnnotations([
   previewAnnotations as Parameters<typeof setProjectAnnotations>[0][number],
 ]);
