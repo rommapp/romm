@@ -14,6 +14,7 @@ export function useEmitterEvent<K extends keyof Events>(
   handler: Handler<Events[K]>,
 ): EmitterEventHandle {
   const emitter = inject<Emitter<Events>>("emitter");
+  // eslint-disable-next-line no-restricted-syntax -- the one sanctioned subscription
   emitter?.on(event, handler);
 
   let stopped = false;

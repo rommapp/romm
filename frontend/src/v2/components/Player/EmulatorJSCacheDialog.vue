@@ -2,22 +2,19 @@
 // v2 EmulatorJSCacheDialog: confirmation for clearing the EJS IndexedDB
 // caches (saves / roms / core / states). Emitter-driven.
 import { RBtn, RDialog, RIcon } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { Events } from "@/types/emitter";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const show = ref(false);
 
-const emitter = inject<Emitter<Events>>("emitter");
 const openHandler = () => {
   show.value = true;
 };
-emitter?.on("openEmulatorJSCacheDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("openEmulatorJSCacheDialog", openHandler));
+useEmitterEvent("openEmulatorJSCacheDialog", openHandler);
 
 function clearIndexDB() {
   window.indexedDB.deleteDatabase("/data/saves");

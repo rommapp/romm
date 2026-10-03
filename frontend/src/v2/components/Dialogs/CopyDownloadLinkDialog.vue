@@ -6,26 +6,23 @@
 // the Clipboard API once more in case the original failure was a
 // permission prompt the user has now accepted.
 import { RBtn, RDialog } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { Events } from "@/types/emitter";
 import { useClipboard } from "@/v2/composables/useClipboard";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const show = ref(false);
 const link = ref("");
-const emitter = inject<Emitter<Events>>("emitter");
 const clipboard = useClipboard();
 
 const openHandler = (downloadLink: string) => {
   link.value = downloadLink;
   show.value = true;
 };
-emitter?.on("showCopyDownloadLinkDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showCopyDownloadLinkDialog", openHandler));
+useEmitterEvent("showCopyDownloadLinkDialog", openHandler);
 
 function closeDialog() {
   show.value = false;
