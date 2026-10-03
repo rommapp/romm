@@ -82,12 +82,12 @@ export default defineConfig(({ mode }) => {
     "/api": upstream,
     "^/(?:ws|netplay)": { ...upstream, ws: true },
     "/openapi.json": upstream,
-    // The EasyRPG web player fetches each game file from games/<rom id>/ beside itself.
+    // The EasyRPG web player fetches each game file from games/<rom id>-<user id>/ beside itself.
     "^/assets/easyrpg/games/": {
       ...upstream,
       rewrite: (/** @type {string} */ path) =>
         path.replace(
-          /^\/assets\/easyrpg\/games\/(\d+)\//,
+          /^\/assets\/easyrpg\/games\/(\d+)-\d+\//,
           "/api/roms/$1/easyrpg/",
         ),
     },

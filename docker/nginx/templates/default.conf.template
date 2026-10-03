@@ -30,11 +30,11 @@ map $request_uri $coop_header {
     ~^/console/rom/[0-9]+/play "same-origin";
 }
 
-# The EasyRPG web player fetches each file of a game from games/<rom id>/ beside
-# itself. Built from the raw $request_uri, so names keep the client's encoding.
+# The EasyRPG web player fetches each file of a game from games/<rom id>-<user id>/
+# beside itself. Built from the raw $request_uri, so names keep the client's encoding.
 map $request_uri $easyrpg_backend_uri {
     default "";
-    ~^/assets/easyrpg/games/(?<rom_id>[0-9]+)/(?<easyrpg_path>[^?]*) /api/roms/$rom_id/easyrpg/$easyrpg_path;
+    ~^/assets/easyrpg/games/(?<rom_id>[0-9]+)-[0-9]+/(?<easyrpg_path>[^?]*) /api/roms/$rom_id/easyrpg/$easyrpg_path;
 }
 
 # Library resources under /assets/romm/resources/ are a mix. Covers (?ts=) and

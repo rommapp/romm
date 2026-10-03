@@ -1,30 +1,20 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import EasyRpg from "./EasyRpg.vue";
 
 const mocks = vi.hoisted(() => ({
-  confirm: vi.fn(),
   flushPlaySession: vi.fn(),
   getRom: vi.fn(),
   playSessionStart: vi.fn(),
-  prepare: vi.fn(),
-  push: vi.fn(),
-  pushOnUnload: vi.fn(),
-  routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
   routerReplace: vi.fn(() => Promise.resolve()),
-  seededRom: null as unknown,
   setPlaying: vi.fn(),
   setStageActive: vi.fn(),
-  snackbarError: vi.fn(),
-  syncArgs: [] as unknown[],
 }));
 
 vi.mock("vue-i18n");
 
 vi.mock("vue-router", () => ({
-  onBeforeRouteLeave: (guard: (to: { fullPath: string }) => unknown) => {
-    mocks.routeLeaveGuard = guard;
-  },
+  onBeforeRouteLeave: vi.fn(),
   useRoute: () => ({ params: { rom: "1" } }),
   useRouter: () => ({ replace: mocks.routerReplace }),
 }));
@@ -49,7 +39,7 @@ vi.mock("@/stores/playing", () => ({
 }));
 
 vi.mock("@/stores/roms", () => ({
-  default: () => ({ getDetailedRom: () => mocks.seededRom }),
+  default: () => ({ getDetailedRom: () => null }),
 }));
 
 vi.mock("@/v2/components/shared/GameCover.vue", () => ({
@@ -65,10 +55,6 @@ vi.mock("@/v2/composables/useFullscreenPref", async () => {
   return { useFullscreenPref: () => ({ fullscreenOnPlay: ref(false) }) };
 });
 
-vi.mock("@/v2/composables/useConfirm", () => ({
-  useConfirm: () => mocks.confirm,
-}));
-
 vi.mock("@/v2/composables/usePageTitle", () => ({
   usePageTitle: vi.fn(),
 }));
@@ -80,24 +66,8 @@ vi.mock("@/v2/composables/usePlaySession", () => ({
   }),
 }));
 
-vi.mock("@/v2/composables/useSnackbar", () => ({
-  useSnackbar: () => ({ error: mocks.snackbarError }),
-}));
-
 vi.mock("@/v2/stores/galleryRoms", () => ({
   default: () => ({ getRomById: () => null }),
-}));
-
-// The storage and upload logic has its own suite.
-vi.mock("@/v2/utils/easyRpgSaves", () => ({
-  EasyRpgSaveSync: class {
-    constructor(...args: unknown[]) {
-      mocks.syncArgs = args;
-    }
-    prepare = mocks.prepare;
-    push = mocks.push;
-    pushOnUnload = mocks.pushOnUnload;
-  },
 }));
 
 const rom = {
@@ -107,30 +77,11 @@ const rom = {
   platform_id: 2,
   platform_slug: "rpg-maker",
   rom_user: { status: null },
-  user_saves: [],
 };
 
 beforeEach(() => {
-  vi.spyOn(console, "error").mockImplementation(() => undefined);
-  mocks.routeLeaveGuard = null;
-  mocks.seededRom = null;
   mocks.getRom.mockResolvedValue({ data: rom });
-  mocks.prepare.mockResolvedValue(undefined);
-  mocks.push.mockResolvedValue(true);
-  mocks.confirm.mockResolvedValue(false);
 });
-
-afterEach(() => {
-  vi.useRealTimers();
-});
-
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
-  let resolve: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((settle) => {
-    resolve = settle;
-  });
-  return { promise, resolve };
-}
 
 function mountView(): VueWrapper {
   return mount(EasyRpg, {
@@ -159,112 +110,31 @@ async function play(): Promise<VueWrapper> {
 }
 
 describe("EasyRpg", () => {
-  it("loads the user's saves before booting the game", async () => {
+  it("boots the game under a save name scoped to the user", async () => {
     const wrapper = await play();
 
-    expect(mocks.syncArgs).toEqual([rom]);
-    expect(mocks.prepare).toHaveBeenCalledWith(7);
     expect(wrapper.get("iframe").attributes("src")).toBe(
-      "/assets/easyrpg/index.html?game=1",
+      "/assets/easyrpg/index.html?game=1-7",
     );
     expect(mocks.playSessionStart).toHaveBeenCalledWith(rom);
     wrapper.unmount();
   });
 
-  it("stays on the start page when the saves cannot be loaded", async () => {
-    mocks.prepare.mockRejectedValue(new Error("offline"));
+  it("records the play session and returns to the game on quit", async () => {
     const wrapper = await play();
 
-    expect(mocks.snackbarError).toHaveBeenCalledWith(
-      "play.easyrpg-saves-load-failed",
-    );
-    expect(wrapper.find("iframe").exists()).toBe(false);
-    expect(mocks.playSessionStart).not.toHaveBeenCalled();
-    wrapper.unmount();
-  });
+    await wrapper.get(".r-v2-player__quit").trigger("click");
 
-  it("uploads the latest saves before leaving", async () => {
-    const wrapper = await play();
-
-    expect(mocks.routeLeaveGuard?.({ fullPath: "/rom/1" })).toBe(false);
-    await flushPromises();
-
-    expect(mocks.push).toHaveBeenCalled();
-    expect(mocks.confirm).not.toHaveBeenCalled();
+    expect(mocks.flushPlaySession).toHaveBeenCalled();
     expect(mocks.routerReplace).toHaveBeenCalledWith("/rom/1");
     wrapper.unmount();
   });
 
-  it("asks before leaving when a save did not reach the server", async () => {
-    mocks.push.mockResolvedValue(false);
-    const wrapper = await play();
-
-    mocks.routeLeaveGuard?.({ fullPath: "/rom/1" });
-    await flushPromises();
-
-    expect(mocks.confirm).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "play.easyrpg-quit-without-saving" }),
-    );
-    expect(mocks.routerReplace).not.toHaveBeenCalled();
-    wrapper.unmount();
-  });
-
-  it("plans the launch from the fetched rom, not the seeded one", async () => {
-    mocks.seededRom = { ...rom, user_saves: [{ id: 99 }] };
-    const fetched = deferred<{ data: typeof rom }>();
-    mocks.getRom.mockReturnValue(fetched.promise);
-    const wrapper = mountView();
-    await flushPromises();
-
-    expect(
-      wrapper.get(".r-v2-player__play").attributes("disabled"),
-    ).toBeDefined();
-
-    fetched.resolve({ data: rom });
-    await flushPromises();
-    await wrapper.get(".r-v2-player__play").trigger("click");
-    await flushPromises();
-
-    expect(mocks.syncArgs).toEqual([rom]);
-    wrapper.unmount();
-  });
-
-  it("does not start a game the user left while its saves loaded", async () => {
-    const preparing = deferred<undefined>();
-    mocks.prepare.mockReturnValue(preparing.promise);
-    const wrapper = mountView();
-    await flushPromises();
-    await wrapper.get(".r-v2-player__play").trigger("click");
-
-    wrapper.unmount();
-    preparing.resolve(undefined);
-    await flushPromises();
-
-    expect(mocks.playSessionStart).not.toHaveBeenCalled();
-  });
-
-  it("pushes again on leave when a poll push was still in flight", async () => {
-    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-    const poll = deferred<boolean>();
-    mocks.push.mockReturnValueOnce(poll.promise);
-    const wrapper = await play();
-
-    vi.advanceTimersByTime(5000);
-    mocks.routeLeaveGuard?.({ fullPath: "/rom/1" });
-    poll.resolve(true);
-    await flushPromises();
-
-    expect(mocks.push).toHaveBeenCalledTimes(2);
-    expect(mocks.routerReplace).toHaveBeenCalledWith("/rom/1");
-    wrapper.unmount();
-  });
-
-  it("sends pending saves when the page goes away", async () => {
+  it("records the play session when the page goes away", async () => {
     const wrapper = await play();
 
     window.dispatchEvent(new Event("pagehide"));
 
-    expect(mocks.pushOnUnload).toHaveBeenCalled();
     expect(mocks.flushPlaySession).toHaveBeenCalled();
     wrapper.unmount();
   });
