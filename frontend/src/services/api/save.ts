@@ -131,11 +131,14 @@ async function updateSave({
   saveFile,
   screenshotFile,
   deviceId,
+  contentHash,
 }: {
   save: SaveSchema;
   saveFile: UpdateSaveUploadInput["saveFile"];
   screenshotFile?: UpdateSaveUploadInput["screenshotFile"];
   deviceId?: string | undefined;
+  /** The device's own hash of the file, kept as its sync baseline. */
+  contentHash?: string | undefined;
 }) {
   const formData = buildFormInput<UpdateSaveUploadInput>([
     ["saveFile", saveFile],
@@ -143,7 +146,7 @@ async function updateSave({
   ]);
 
   return api.put<SaveSchema>(`/saves/${save.id}`, formData, {
-    params: { device_id: deviceId },
+    params: { device_id: deviceId, content_hash: contentHash },
   });
 }
 

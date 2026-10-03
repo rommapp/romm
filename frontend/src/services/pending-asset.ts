@@ -1,6 +1,7 @@
 // Saves and states the server has not taken yet, held in the browser with the
 // frame captured when the game wrote them, until a later pass hands them over.
 import axios from "axios";
+import type { SaveSchema } from "@/__generated__";
 import { isCsrfFailure } from "@/services/api";
 import romApi from "@/services/api/rom";
 import saveApi, {
@@ -14,6 +15,7 @@ import stateApi, {
 } from "@/services/api/state";
 import storeAuth from "@/stores/auth";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { saveContentHash } from "@/v2/utils/saveSync/hash";
 
 const DB_NAME = "romm-player";
 const DB_VERSION = 6;
@@ -232,26 +234,51 @@ function isSlotConflict(result?: PromiseSettledResult<unknown>): boolean {
 
 // An archived save sits outside every slot, so it replaces nothing; it takes
 // the stem a state does, the rom and the moment of the capture.
-async function archiveSave(
-  entry: PendingAsset,
-  rom: { id: number; fs_name_no_ext: string },
-): Promise<PromiseSettledResult<unknown> | undefined> {
-  const name = sessionStateName(rom, new Date(entry.capturedAt));
+export async function uploadArchivedSave({
+  rom,
+  emulator,
+  deviceId,
+  capturedAt,
+  bytes,
+  screenshotBytes,
+}: {
+  rom: { id: number; fs_name_no_ext: string };
+  emulator?: string | undefined;
+  deviceId?: string | undefined;
+  capturedAt: Date;
+  bytes: ArrayBuffer;
+  screenshotBytes?: ArrayBuffer | undefined;
+}): Promise<PromiseSettledResult<SaveSchema> | undefined> {
+  const name = sessionStateName(rom, capturedAt);
   const type = "application/octet-stream";
   const [uploaded] = await saveApi.uploadSaves({
     rom,
-    emulator: entry.emulator,
-    deviceId: entry.deviceId,
+    emulator,
+    deviceId,
     savesToUpload: [
       {
-        saveFile: new File([entry.bytes], `${name}.srm`, { type }),
-        screenshotFile: entry.screenshotBytes
-          ? new File([entry.screenshotBytes], `${name}.png`, { type })
+        saveFile: new File([bytes], `${name}.srm`, { type }),
+        screenshotFile: screenshotBytes
+          ? new File([screenshotBytes], `${name}.png`, { type })
           : undefined,
       },
     ],
   });
   return uploaded;
+}
+
+function archiveSave(
+  entry: PendingAsset,
+  rom: { id: number; fs_name_no_ext: string },
+): Promise<PromiseSettledResult<SaveSchema> | undefined> {
+  return uploadArchivedSave({
+    rom,
+    emulator: entry.emulator,
+    deviceId: entry.deviceId,
+    capturedAt: new Date(entry.capturedAt),
+    bytes: entry.bytes,
+    screenshotBytes: entry.screenshotBytes,
+  });
 }
 
 async function uploadSave(
@@ -271,6 +298,7 @@ async function uploadSave(
     // The dedupe is the point: a retry of bytes the server already has must
     // return that version, not mint another one.
     overwrite: false,
+    contentHash: saveContentHash(new Uint8Array(entry.bytes)),
     savesToUpload: [
       {
         saveFile: sessionSaveFile(rom, null, entry.bytes),

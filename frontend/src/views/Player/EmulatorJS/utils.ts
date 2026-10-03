@@ -1,3 +1,4 @@
+import axios from "axios";
 import Bowser from "bowser";
 import {
   type Body_add_state_api_states_post as AddStateInput,
@@ -12,12 +13,14 @@ import saveApi, {
 import stateApi, { sessionStateFiles } from "@/services/api/state";
 import pendingAssetStore, {
   pendingAssetId,
+  uploadArchivedSave,
   type PendingAsset,
 } from "@/services/pending-asset";
 import storeHeartbeat from "@/stores/heartbeat";
 import { type DetailedRom } from "@/stores/roms";
 import { buildFormInput } from "@/utils/formData";
 import { keepArcadeBiosWhole } from "@/v2/utils/playerFirmware";
+import { saveContentHash } from "@/v2/utils/saveSync/hash";
 
 /** Tears the emulator down once, however many owners ask. */
 export function exitEmulatorOnce() {
@@ -193,7 +196,9 @@ export async function saveState({
 }
 
 // `save` is the version this session already created: it is updated in place,
-// while a null `save` opens a new version in `slot`.
+// while a null `save` opens a new version in `slot`. A `guarded` version is
+// refused when another device wrote the slot since this one synced it, and the
+// progress is archived instead.
 export async function saveSave({
   rom,
   save,
@@ -201,6 +206,7 @@ export async function saveSave({
   screenshotFile,
   deviceId,
   slot = AUTOSAVE_SLOT,
+  guarded = false,
 }: {
   rom: DetailedRom;
   save: SaveSchema | null;
@@ -208,6 +214,7 @@ export async function saveSave({
   screenshotFile?: ArrayBuffer | undefined;
   deviceId?: string | undefined;
   slot?: string | undefined;
+  guarded?: boolean;
 }): Promise<SaveSchema | null> {
   if (save) {
     try {
@@ -218,6 +225,7 @@ export async function saveSave({
           ? sessionScreenshotFile(rom, save, screenshotFile)
           : undefined,
         deviceId,
+        contentHash: saveContentHash(new Uint8Array(saveFile)),
       });
 
       const index = rom.user_saves.findIndex((s) => s.id === updatedSave.id);
@@ -241,9 +249,10 @@ export async function saveSave({
       // Like Argosy: the autosave slot keeps a capped history, named slots
       // keep every version.
       autocleanup: slot === AUTOSAVE_SLOT,
-      // The boot source is an explicit choice on the launch screen, so neither
-      // the stale-device guard nor the hash dedupe applies (callers skip dupes).
-      overwrite: true,
+      // Booting anything but the slot's current version is an explicit choice
+      // on the launch screen, which neither the guard nor the dedupe second-guess.
+      overwrite: !guarded,
+      contentHash: saveContentHash(new Uint8Array(saveFile)),
       savesToUpload: [
         {
           saveFile: sessionSaveFile(rom, null, saveFile),
@@ -254,7 +263,24 @@ export async function saveSave({
       ],
     });
 
-    const uploadedSave = uploadedSaves[0]!;
+    let uploadedSave = uploadedSaves[0]!;
+    if (
+      uploadedSave.status === "rejected" &&
+      axios.isAxiosError(uploadedSave.reason) &&
+      uploadedSave.reason.response?.status === 409
+    ) {
+      // Later writes update the archive in place, leaving the slot to the
+      // other device's newer version.
+      uploadedSave =
+        (await uploadArchivedSave({
+          rom,
+          emulator: window.EJS_core,
+          deviceId,
+          capturedAt: new Date(),
+          bytes: saveFile,
+          screenshotBytes: screenshotFile,
+        })) ?? uploadedSave;
+    }
     if (uploadedSave.status == "fulfilled") {
       if (rom) rom.user_saves.unshift(uploadedSave.value);
       return uploadedSave.value;

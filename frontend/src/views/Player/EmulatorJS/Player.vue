@@ -20,6 +20,7 @@ import type {
 } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import { saveApi as api } from "@/services/api/save";
+import syncApi from "@/services/api/sync";
 import pendingAssetStore, {
   pendingAssetId,
   type PendingAsset,
@@ -40,6 +41,8 @@ import {
 import { useSnackbar, type SnackbarTone } from "@/v2/composables/useSnackbar";
 import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
+import { browserDeviceId } from "@/v2/utils/saveSync/browserDevice";
+import { saveContentHash } from "@/v2/utils/saveSync/hash";
 import {
   saveSave,
   captureScreenshot,
@@ -96,7 +99,32 @@ const romRef = ref<DetailedRom>(props.rom);
 // so far. Loading a save resets the version so the next write opens a new one.
 let loadedSave: SaveSchema | null = props.save;
 const sessionSaveRef = ref<SaveSchema | null>(null);
-const deviceIDRef = ref(authStore.user?.current_device_id ?? undefined);
+// This browser's own sync device: the login's device is shared by every
+// browser behind one address. Undefined when the account cannot have one.
+const deviceIDRef = ref<string | undefined>(undefined);
+const deviceReady = (async () => {
+  const userId = authStore.user?.id;
+  if (userId == null) return;
+  try {
+    deviceIDRef.value = (await browserDeviceId(userId)) ?? undefined;
+  } catch (error) {
+    console.error("Registering this browser as a sync device failed", error);
+  }
+})();
+// Writes that continue the slot's current version are refused when another
+// device moved the slot on since; any other boot source was picked on purpose.
+function continuesSlotHead(): boolean {
+  const slot = loadedSave?.slot;
+  if (!slot) return false;
+  const head = romRef.value.user_saves
+    .filter((save) => save.slot === slot)
+    .reduce<SaveSchema | null>(
+      (newest, save) =>
+        !newest || save.updated_at > newest.updated_at ? save : newest,
+      null,
+    );
+  return head?.id === loadedSave?.id;
+}
 // Bytes the server already holds, so forced writes can skip an unchanged SRAM.
 const saveTracker = createSaveSyncTracker();
 function baselineSaveTrackerFromEmulator() {
@@ -170,6 +198,7 @@ function writeSave(
 ): Promise<SaveSchema | null> {
   if (saveLoading) return Promise.resolve(null);
   const write = saveWrite.then(async () => {
+    await deviceReady;
     if (generation !== saveGeneration) return null;
     const bytes = new Uint8Array(file.saveFile);
     inFlightSave = bytes;
@@ -189,6 +218,7 @@ function writeSave(
         save: sessionSaveRef.value,
         deviceId: deviceIDRef.value,
         slot: currentSlot(),
+        guarded: !!deviceIDRef.value && continuesSlotHead(),
         saveFile: file.saveFile,
         screenshotFile,
       });
@@ -662,13 +692,26 @@ async function loadSave(
   saveLoading = true;
 
   try {
+    await deviceReady;
+    const deviceId = deviceIDRef.value;
     const { data } = await api.get(save.download_path.replace("/api", ""), {
       responseType: "arraybuffer",
-      params: { device_id: deviceIDRef.value },
+      params: { device_id: deviceId },
     });
     if (disposed || generation !== saveGeneration) return false;
     const bytes = new Uint8Array(data);
     apply(bytes);
+    if (deviceId) {
+      void syncApi
+        .confirmDownloaded({
+          saveId: save.id,
+          deviceId,
+          contentHash: saveContentHash(bytes),
+        })
+        .catch((error: unknown) => {
+          console.error("Confirming the loaded save failed", error);
+        });
+    }
     // Writes follow the picked save only once its bytes are in the core.
     loadedSave = save;
     sessionSaveRef.value = null;
