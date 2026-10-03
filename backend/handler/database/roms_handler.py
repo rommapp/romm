@@ -304,24 +304,23 @@ def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
 
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
-# whose rows carry the raw metadata blobs. Column order matches the unpacking
-# in `_collect_filter_values`.
-_FILTER_JSON_COLUMNS = (
-    RomFacets.genres,
-    RomFacets.franchises,
-    RomFacets.collections,
-    RomFacets.companies,
-    RomFacets.publishers,
-    RomFacets.developers,
-    RomFacets.game_modes,
-    RomFacets.age_ratings,
-    RomFacets.regions,
-    RomFacets.languages,
-    RomFacets.tags,
-)
+# whose rows carry the raw metadata blobs. Keys are `RomFiltersDict` fields.
+_FILTER_JSON_COLUMNS = {
+    "genres": RomFacets.genres,
+    "franchises": RomFacets.franchises,
+    "collections": RomFacets.collections,
+    "companies": RomFacets.companies,
+    "publishers": RomFacets.publishers,
+    "developers": RomFacets.developers,
+    "game_modes": RomFacets.game_modes,
+    "age_ratings": RomFacets.age_ratings,
+    "regions": RomFacets.regions,
+    "languages": RomFacets.languages,
+    "tags": RomFacets.tags,
+}
 # Cast to text in SQL: PostgreSQL's driver would otherwise decode JSONB itself.
 _FILTER_VALUES_SELECT = select(
-    *(cast(column, Text) for column in _FILTER_JSON_COLUMNS),
+    *(cast(column, Text) for column in _FILTER_JSON_COLUMNS.values()),
     RomFacets.player_count,
     RomFacets.platform_id,
 )
@@ -329,17 +328,6 @@ _FILTER_VALUES_SELECT = select(
 
 # Filter rows stream in batches of this size; MySQL's driver still buffers them.
 _FILTER_VALUES_BATCH_SIZE = 5000
-
-
-def _merge_json_lists(
-    column: Sequence[str | None], seen: set[str | None], items: set[Any]
-) -> None:
-    """Add one batch of a JSON filter column to `items`, parsing each distinct text once."""
-    fresh = set(column) - seen
-    seen.update(fresh)
-    for text in fresh:
-        if text and (value := json.loads(text)):
-            items.update(value)
 
 
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
@@ -3841,8 +3829,8 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         statement: Select[*tuple[Any, ...]],
     ) -> RomFiltersDict:
-        seen: list[set[str | None]] = [set() for _ in _FILTER_JSON_COLUMNS]
-        json_values: list[set[Any]] = [set() for _ in _FILTER_JSON_COLUMNS]
+        # Each distinct JSON text is parsed once, however many ROMs share it.
+        texts: list[set[str | None]] = [set() for _ in _FILTER_JSON_COLUMNS]
         player_counts: set[str] = set()
         platforms: set[int] = set()
         result = session.execute(
@@ -3852,41 +3840,22 @@ class DBRomsHandler(DBBaseHandler):
             *json_columns, player_count_column, platform_column = zip(
                 *batch, strict=True
             )
-            for column, column_seen, items in zip(
-                json_columns, seen, json_values, strict=True
-            ):
-                _merge_json_lists(column, column_seen, items)
+            for column, column_texts in zip(json_columns, texts, strict=True):
+                column_texts.update(column)
             player_counts.update(pc for pc in player_count_column if pc)
             platforms.update(platform_column)
-        (
-            genres,
-            franchises,
-            collections,
-            companies,
-            publishers,
-            developers,
-            game_modes,
-            age_ratings,
-            regions,
-            languages,
-            tags,
-        ) = json_values
 
-        return RomFiltersDict(
-            genres=sorted(genres),
-            franchises=sorted(franchises),
-            collections=sorted(collections),
-            companies=sorted(companies),
-            publishers=sorted(publishers),
-            developers=sorted(developers),
-            game_modes=sorted(game_modes),
-            age_ratings=sorted(age_ratings),
-            player_counts=sorted(player_counts),
-            regions=sorted(regions),
-            languages=sorted(languages),
-            tags=sorted(tags),
-            platforms=sorted(platforms),
-        )
+        filters: dict[str, list[Any]] = {
+            "player_counts": sorted(player_counts),
+            "platforms": sorted(platforms),
+        }
+        for name, column_texts in zip(_FILTER_JSON_COLUMNS, texts, strict=True):
+            items: set[str] = set()
+            for text in column_texts:
+                if text and (value := json.loads(text)):
+                    items.update(value)
+            filters[name] = sorted(items)
+        return typing_cast(RomFiltersDict, filters)
 
     @begin_session
     def refresh_identity_key_statistics(
