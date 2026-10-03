@@ -346,7 +346,8 @@ function close() {
       <span class="r-v2-user-dialog__title">{{ t("settings.edit-user") }}</span>
     </template>
     <template #content>
-      <div class="r-v2-user-dialog__edit-grid">
+      <!-- Edits made mid-save would be lost, since save() reads them up front. -->
+      <div class="r-v2-user-dialog__edit-grid" :inert="submitting">
         <div class="r-v2-user-dialog__form">
           <RTextField
             v-model="user.username"
@@ -425,7 +426,7 @@ function close() {
         />
       </div>
 
-      <div class="r-v2-user-dialog__access">
+      <div class="r-v2-user-dialog__access" :inert="submitting">
         <span class="r-v2-user-dialog__access-label">
           <RIcon icon="mdi-shield-account-outline" size="14" />
           {{ t("settings.access") }}

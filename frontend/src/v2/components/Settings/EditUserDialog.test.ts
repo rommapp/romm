@@ -262,6 +262,26 @@ describe("EditUserDialog age settings", () => {
     );
   });
 
+  it("locks the form while a save is in flight", async () => {
+    let finishProfile: (value: unknown) => void = () => undefined;
+    updateUser.mockReturnValueOnce(
+      new Promise((resolve) => (finishProfile = resolve)),
+    );
+    const { wrapper } = await mountDialog("user");
+    const access = () => wrapper.get(".r-v2-user-dialog__access");
+
+    expect(access().attributes("inert")).toBeUndefined();
+    const saving = save(wrapper);
+    await flushPromises();
+    expect(access().attributes()).toHaveProperty("inert");
+    expect(
+      wrapper.get(".r-v2-user-dialog__edit-grid").attributes(),
+    ).toHaveProperty("inert");
+
+    finishProfile({ data: userFixture({ id: 4, role: "user" }) });
+    await saving;
+  });
+
   it("loads a game both hidden and allowed as hidden, dropping the allow on save", async () => {
     fetchUserPermissions.mockResolvedValue(
       permissions({

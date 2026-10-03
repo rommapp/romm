@@ -142,4 +142,20 @@ describe("GroupFormDialog age settings", () => {
     });
     expect(body).not.toHaveProperty("set_age_settings");
   });
+
+  it("locks the form while a save is in flight", async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    updateGroup.mockReturnValueOnce(
+      new Promise((resolve) => (finish = resolve)),
+    );
+    const wrapper = await openDialog(group);
+    const form = () => wrapper.get(".r-v2-group-dialog__form");
+
+    expect(form().attributes("inert")).toBeUndefined();
+    await apply(wrapper);
+    expect(form().attributes()).toHaveProperty("inert");
+
+    finish({ data: group });
+    await flushPromises();
+  });
 });

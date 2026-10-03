@@ -231,7 +231,8 @@ async function save() {
       </span>
     </template>
     <template #content>
-      <div class="r-v2-group-dialog__form">
+      <!-- Edits made mid-save would be lost, since save() reads them up front. -->
+      <div class="r-v2-group-dialog__form" :inert="submitting">
         <p v-if="isSystem" class="r-v2-group-dialog__sys-warn">
           <RIcon icon="mdi-alert-outline" size="14" />
           {{ t("settings.group-system-warning") }}
