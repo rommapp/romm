@@ -47,10 +47,10 @@ export function useGameAnimation({
   isHovering = ref(false),
 }: {
   rom: SimpleRom | SearchRom;
-  coverSrc?: string;
+  coverSrc?: string | undefined;
   coverRef?: Readonly<ShallowRef<VImg | null>>;
   videoRef?: Readonly<ShallowRef<HTMLVideoElement | null>>;
-  forceBoxart?: BoxartStyleOption;
+  forceBoxart?: BoxartStyleOption | undefined;
   isHovering?: Ref<boolean>;
 }) {
   const romsStore = storeRoms();

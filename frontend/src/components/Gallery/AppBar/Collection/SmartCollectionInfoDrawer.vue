@@ -192,7 +192,7 @@ async function updateCollection() {
               @keyup.enter="updateCollection"
             />
             <v-switch
-              :model-value="currentSmartCollection.is_public"
+              :model-value="currentSmartCollection.is_public!"
               @update:model-value="currentSmartCollection.is_public = !!$event"
               class="mt-2"
               color="primary"

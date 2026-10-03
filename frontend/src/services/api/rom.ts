@@ -692,7 +692,7 @@ async function bulkDownloadRoms({
 }
 
 export type UpdateRom = SimpleRom & {
-  artwork?: File;
+  artwork?: File | undefined;
   manual_metadata?: ManualMetadata | null;
   raw_metadata?: {
     igdb_metadata?: string;

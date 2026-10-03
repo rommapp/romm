@@ -4,8 +4,8 @@ import storeGalleryView from "@/stores/galleryView";
 
 const props = withDefaults(
   defineProps<{
-    aspectRatio?: number;
-    type?: string;
+    aspectRatio?: number | undefined;
+    type?: string | undefined;
   }>(),
   {
     aspectRatio: undefined,

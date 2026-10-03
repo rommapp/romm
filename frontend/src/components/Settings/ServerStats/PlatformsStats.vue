@@ -226,7 +226,7 @@ function getCoveragePercent(matched: number, total: number): string {
                           size="12"
                           rounded
                         >
-                          <v-img :src="sourceInfo[item.source]?.logo_path" />
+                          <v-img :src="sourceInfo[item.source]?.logo_path!" />
                         </v-avatar>
                         {{
                           getCoveragePercent(item.matched, platform.rom_count)

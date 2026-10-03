@@ -6,7 +6,7 @@ import NavigationText from "./NavigationText.vue";
 const props = defineProps<{ urls: string[]; startIndex?: number }>();
 const emit = defineEmits(["update:modelValue", "close"]);
 
-const carouselIndex = ref(props.startIndex);
+const carouselIndex = ref(props.startIndex ?? 0);
 const activeElement = useActiveElement();
 
 const isOpen = computed({

@@ -219,7 +219,7 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
             v-model="selectedPlatform"
             :label="t('common.platform')"
             item-title="name"
-            :items="supportedPlatforms"
+            :items="supportedPlatforms!"
             return-object
             clearable
             single-line

@@ -127,7 +127,7 @@ async function updateSave({
   save: SaveSchema;
   saveFile: UpdateSaveUploadInput["saveFile"];
   screenshotFile?: UpdateSaveUploadInput["screenshotFile"];
-  deviceId?: string;
+  deviceId?: string | undefined;
 }) {
   const formData = buildFormInput<UpdateSaveUploadInput>([
     ["saveFile", saveFile],

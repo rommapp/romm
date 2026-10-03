@@ -378,7 +378,7 @@ async function play() {
   await router.push({
     name: ROUTES.CONSOLE_PLAY,
     params: { rom: rom.value.id },
-    query: Object.keys(query).length ? query : undefined,
+    ...(Object.keys(query).length ? { query } : {}),
   });
   // Force full reload to retrieve COEP/COOP headers from nginx,
   // required to enable multi-threading in EmulatorJS (e.g., for dosbox_pure/MSDOS).

@@ -37,12 +37,12 @@ export interface PendingAsset {
   fsNameNoExt?: string;
   cover?: string | null;
   bytes: ArrayBuffer;
-  screenshotBytes?: ArrayBuffer;
+  screenshotBytes?: ArrayBuffer | undefined;
   /** Saves only: the slot the session was writing to. */
-  slot?: string;
+  slot?: string | undefined;
   emulator?: string;
   /** Saves only: the device the session was playing on. */
-  deviceId?: string;
+  deviceId?: string | undefined;
   capturedAt: number;
 }
 

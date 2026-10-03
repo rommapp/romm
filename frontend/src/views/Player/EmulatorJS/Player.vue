@@ -165,7 +165,7 @@ function announceHeldBack(kind: "save" | "state", kept: boolean) {
   });
 }
 function writeSave(
-  file: { saveFile: ArrayBuffer; screenshotFile?: ArrayBuffer },
+  file: { saveFile: ArrayBuffer; screenshotFile?: ArrayBuffer | undefined },
   generation = saveGeneration,
 ): Promise<SaveSchema | null> {
   if (saveLoading) return Promise.resolve(null);
@@ -209,7 +209,7 @@ function writeSave(
 // no version was opened yet and the SRAM still matches a slotted server save.
 async function writeSaveIfChanged(file: {
   saveFile: ArrayBuffer;
-  screenshotFile?: ArrayBuffer;
+  screenshotFile?: ArrayBuffer | undefined;
 }): Promise<boolean> {
   const generation = saveGeneration;
   await saveWrite;

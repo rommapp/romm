@@ -278,7 +278,7 @@ watch(
                         <v-btn
                           :disabled="
                             !scopes.includes('roms.user.write') ||
-                            editingNotes[note.title]
+                            !!editingNotes[note.title]
                           "
                           v-bind="tooltipProps"
                           :color="note.is_public ? 'romm-green' : 'accent'"
@@ -335,7 +335,7 @@ watch(
                           <v-btn
                             :disabled="
                               !scopes.includes('roms.user.write') ||
-                              editingNotes[note.title]
+                              !!editingNotes[note.title]
                             "
                             v-bind="tooltipProps"
                             class="bg-toplayer"

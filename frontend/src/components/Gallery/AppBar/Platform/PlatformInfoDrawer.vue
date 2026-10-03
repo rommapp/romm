@@ -70,7 +70,7 @@ async function updatePlatform() {
   if (!updatedPlatform.value) return;
   updating.value = true;
   isEditable.value = false;
-  updatedPlatform.value.custom_name = updatedPlatform.value.display_name;
+  updatedPlatform.value.custom_name = updatedPlatform.value.display_name!;
   await platformApi
     .updatePlatform({
       platform: updatedPlatform.value as Platform,

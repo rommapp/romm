@@ -281,7 +281,7 @@ function selectAndOpen(i: number, rom: SimpleRom) {
   router.push({
     name: ROUTES.CONSOLE_ROM,
     params: { rom: rom.id },
-    query: Object.keys(query).length ? query : undefined,
+    ...(Object.keys(query).length ? { query } : {}),
   });
 }
 
