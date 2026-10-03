@@ -19,8 +19,8 @@ async function render(markdown: string): Promise<HTMLElement> {
 }
 
 describe("configureMDEditor", () => {
-  beforeAll(async () => {
-    await configureMDEditor();
+  beforeAll(() => {
+    configureMDEditor();
   });
 
   it("renders raw HTML in markdown", async () => {
@@ -40,5 +40,13 @@ describe("configureMDEditor", () => {
     expect(img).not.toBeNull();
     expect(img?.hasAttribute("onerror")).toBe(false);
     expect(preview.querySelector("script")).toBeNull();
+  });
+
+  it("renders echarts fences as code without loading echarts", async () => {
+    const preview = await render('```echarts\n{ "series": [] }\n```');
+
+    expect(preview.querySelector("code")?.textContent).toContain("series");
+    expect(preview.querySelector(".md-editor-echarts")).toBeNull();
+    expect(document.querySelector('script[src*="echarts"]')).toBeNull();
   });
 });
