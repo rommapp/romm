@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Final, Protocol
 
-from sqlalchemy import and_, false, not_
+from sqlalchemy import and_, not_
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -41,21 +41,25 @@ class RomVisibilityFilter:
     ) -> list[ColumnElement[bool]]:
         """WHERE clauses keeping only visible ROMs, on columns a query on the
         `roms_facets` mirror overrides to skip a join to `roms`."""
-        clauses: list[ColumnElement[bool]] = []
-        if self.hidden_platform_ids:
-            clauses.append(platform_id_col.not_in(self.hidden_platform_ids))
+        clauses = self._row_clauses(platform_id_col)
         if self.hidden_rom_ids:
             clauses.append(rom_id_col.not_in(self.hidden_rom_ids))
         return clauses
 
-    def hidden_clause(self) -> ColumnElement[bool]:
-        """WHERE clause matching the `roms` rows `clauses()` keeps out."""
-        clauses = self.clauses()
-        return not_(and_(*clauses)) if clauses else false()
+    def row_hidden_clause(self) -> ColumnElement[bool] | None:
+        """WHERE clause matching the `roms` rows a rule other than a direct hide
+        keeps out, or None when no such rule applies."""
+        clauses = self._row_clauses(Rom.platform_id)
+        return not_(and_(*clauses)) if clauses else None
 
-    def without_rom_hides(self) -> RomVisibilityFilter:
-        """The rules that read a ROM's row, without the hides its id decides."""
-        return replace(self, hidden_rom_ids=frozenset())
+    def _row_clauses(
+        self, platform_id_col: InstrumentedAttribute[int]
+    ) -> list[ColumnElement[bool]]:
+        """The rules decided by a ROM's row rather than by its id alone."""
+        clauses: list[ColumnElement[bool]] = []
+        if self.hidden_platform_ids:
+            clauses.append(platform_id_col.not_in(self.hidden_platform_ids))
+        return clauses
 
     def allows(self, rom: VisibilityColumns) -> bool:
         return (

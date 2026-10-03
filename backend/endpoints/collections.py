@@ -22,7 +22,7 @@ from exceptions.endpoint_exceptions import (
 )
 from handler.audit_handler import AuditTarget, changed_fields, record
 from handler.auth.constants import Scope
-from handler.auth.dependencies import get_permissions
+from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_collection_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.assets_handler import validate_image_upload
@@ -63,10 +63,8 @@ def _hide_collection_roms(
     Without this a collection leaks the ids (and inflated count) of roms hidden
     from the user via the opt-out visibility model.
     """
-    if not request.user.is_authenticated or not schemas:
-        return schemas
-    visibility = get_permissions(request).rom_visibility
-    if visibility.is_unrestricted:
+    visibility = get_rom_visibility_filter(request)
+    if visibility.is_unrestricted or not schemas:
         return schemas
 
     all_ids = {rid for s in schemas for rid in s.rom_ids}

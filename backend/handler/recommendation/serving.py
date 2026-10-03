@@ -58,7 +58,9 @@ def recommended_roms(
     feed without populating it, or read a stale one after an exclusion changes.
     """
     ranked_limit = (
-        limit * VISIBILITY_OVERFETCH if _hides_anything(permissions) else limit
+        limit * VISIBILITY_OVERFETCH
+        if not permissions.rom_visibility.is_unrestricted
+        else limit
     )
 
     feed = None if refresh else get_cached_feed(user_id, ranked_limit)
@@ -72,14 +74,12 @@ def recommended_roms(
     return visible[:limit]
 
 
-def _hides_anything(permissions: ResolvedPermissions) -> bool:
-    return not permissions.rom_visibility.is_unrestricted
-
-
 def _ranked_depth(limit: int, permissions: ResolvedPermissions) -> int:
     """How deep to rank so `limit` entries survive the cuts below."""
     depth = limit * OVERFETCH_FACTOR
-    return depth * VISIBILITY_OVERFETCH if _hides_anything(permissions) else depth
+    if permissions.rom_visibility.is_unrestricted:
+        return depth
+    return depth * VISIBILITY_OVERFETCH
 
 
 def _visible_roms(

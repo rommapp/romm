@@ -111,12 +111,9 @@ class DBAuditEventsHandler(DBBaseHandler):
         # A hide row outlives its ROM, so the ids also cover deleted ROMs.
         if visibility.hidden_rom_ids:
             clauses.append(_not_targeting("rom", visibility.hidden_rom_ids))
-        by_row = visibility.without_rom_hides()
-        if not by_row.is_unrestricted:
+        if (row_hidden := visibility.row_hidden_clause()) is not None:
             clauses.append(
-                _not_targeting(
-                    "rom", select(cast(Rom.id, String)).where(by_row.hidden_clause())
-                )
+                _not_targeting("rom", select(cast(Rom.id, String)).where(row_hidden))
             )
 
         total, highest_id = session.execute(

@@ -111,7 +111,7 @@ def assert_rom_visible(
     ``not_found_detail`` for endpoints with a bespoke 404 (metadata-id / hash
     lookups) so the masked response is indistinguishable from their not-found.
     """
-    if request.user.is_authenticated and not get_permissions(request).can_see_rom(rom):
+    if not get_rom_visibility_filter(request).allows(rom):
         if not_found_detail is not None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail

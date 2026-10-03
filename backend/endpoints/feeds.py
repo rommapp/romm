@@ -90,13 +90,10 @@ def _platform_roms(
 ) -> Sequence[Rom]:
     """Roms of a platform a feed can serve: nothing hidden from the caller, and
     nothing file-less (every feed entry carries a download URL)."""
-    visibility = get_rom_visibility_filter(request)
-    if platform_id in visibility.hidden_platform_ids:
-        return []
     return db_rom_handler.get_roms_scalar(
         platform_ids=[platform_id],
         include_files=include_files,
-        visibility=visibility,
+        visibility=get_rom_visibility_filter(request),
         **HAS_FILE_ON_DISK_FILTERS,
     )
 

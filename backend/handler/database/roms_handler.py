@@ -2032,11 +2032,11 @@ class DBRomsHandler(DBBaseHandler):
         # A hide row outlives its ROM, so direct hides match by id with no lookup.
         hidden = candidates & visibility.hidden_rom_ids
         rest = candidates - hidden
-        by_row = visibility.without_rom_hides()
-        if rest and not by_row.is_unrestricted:
+        row_hidden = visibility.row_hidden_clause()
+        if rest and row_hidden is not None:
             hidden.update(
                 session.scalars(
-                    select(Rom.id).where(Rom.id.in_(rest), by_row.hidden_clause())
+                    select(Rom.id).where(Rom.id.in_(rest), row_hidden)
                 ).all()
             )
         return hidden
@@ -2992,7 +2992,7 @@ class DBRomsHandler(DBBaseHandler):
         max_duration: float | None = None,
         exclude_field: str | None = None,
     ) -> list[Any]:
-        clauses: list[Any] = [*visibility.clauses()]
+        clauses: list[Any] = visibility.clauses()
         if rom_id is not None:
             clauses.append(Rom.id == rom_id)
         if search:

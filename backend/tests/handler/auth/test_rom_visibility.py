@@ -49,31 +49,24 @@ def test_clauses_filter_the_given_columns():
     ]
 
 
-def test_hidden_clause_matches_what_clauses_keep_out():
+def test_row_hidden_clause_matches_the_rows_its_rules_keep_out():
     visibility = RomVisibilityFilter(
         hidden_platform_ids=frozenset({5}), hidden_rom_ids=frozenset({99})
     )
 
-    assert compile_sql(visibility.hidden_clause(), MARIADB_DIALECT) == (
-        "NOT ((roms.platform_id NOT IN (__[POSTCOMPILE_platform_id_1]))"
-        " AND (roms.id NOT IN (__[POSTCOMPILE_id_1])))"
-    )
-    assert compile_sql(UNRESTRICTED.hidden_clause(), MARIADB_DIALECT) == "false"
+    row_hidden = visibility.row_hidden_clause()
 
-
-def test_without_rom_hides_keeps_the_row_rules():
-    visibility = RomVisibilityFilter(
-        hidden_platform_ids=frozenset({5}), hidden_rom_ids=frozenset({99})
+    assert row_hidden is not None
+    assert compile_sql(row_hidden, MARIADB_DIALECT) == (
+        "roms.platform_id IN (__[POSTCOMPILE_platform_id_1])"
     )
 
-    assert visibility.without_rom_hides() == RomVisibilityFilter(
-        hidden_platform_ids=frozenset({5})
-    )
+
+def test_direct_hides_alone_need_no_row_clause():
     assert (
-        RomVisibilityFilter(hidden_rom_ids=frozenset({99}))
-        .without_rom_hides()
-        .is_unrestricted
+        RomVisibilityFilter(hidden_rom_ids=frozenset({99})).row_hidden_clause() is None
     )
+    assert UNRESTRICTED.row_hidden_clause() is None
 
 
 def test_admin_permissions_are_unrestricted():

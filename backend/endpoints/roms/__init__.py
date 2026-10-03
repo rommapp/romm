@@ -58,6 +58,7 @@ from handler.auth.dependencies import (
     assert_platform_visible,
     assert_rom_visible,
     get_permissions,
+    get_rom_visibility_filter,
 )
 from handler.database import (
     db_collection_handler,
@@ -977,7 +978,7 @@ async def download_roms(
     current_username = (
         request.user.username if request.user.is_authenticated else "unknown"
     )
-    perms = get_permissions(request)
+    visibility = get_rom_visibility_filter(request)
 
     # Resolve the target ROM IDs
     if platform_id or collection_id or virtual_collection_id or smart_collection_id:
@@ -987,7 +988,7 @@ async def download_roms(
             collection_id=collection_id,
             virtual_collection_id=virtual_collection_id,
             smart_collection_id=smart_collection_id,
-            visibility=perms.rom_visibility,
+            visibility=visibility,
             **HAS_FILE_ON_DISK_FILTERS,
         )
     elif rom_ids:
@@ -1012,8 +1013,7 @@ async def download_roms(
     rom_objects = db_rom_handler.get_roms_by_ids(rom_id_list)
 
     # Drop roms hidden from the caller so they can't be pulled by direct id.
-    if request.user.is_authenticated:
-        rom_objects = [rom for rom in rom_objects if perms.can_see_rom(rom)]
+    rom_objects = [rom for rom in rom_objects if visibility.allows(rom)]
 
     if not rom_objects:
         raise HTTPException(

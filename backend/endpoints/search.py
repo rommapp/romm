@@ -7,7 +7,7 @@ from fastapi import HTTPException, Request, status
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
 from handler.auth.constants import Scope
-from handler.auth.dependencies import get_permissions
+from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_rom_handler
 from handler.metadata import (
     meta_demozoo_handler,
@@ -137,7 +137,7 @@ async def search_rom(
         return []
 
     # Treat a rom hidden from the caller as non-existent.
-    if request.user.is_authenticated and not get_permissions(request).can_see_rom(rom):
+    if not get_rom_visibility_filter(request).allows(rom):
         return []
 
     search_term = search_term or rom.fs_name_no_tags
