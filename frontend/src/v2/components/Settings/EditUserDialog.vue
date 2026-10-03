@@ -592,7 +592,7 @@ html[data-bp~="xs"] .r-v2-user-dialog__edit-grid {
 }
 .r-v2-user-dialog__admin {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
   flex-wrap: wrap;
 }

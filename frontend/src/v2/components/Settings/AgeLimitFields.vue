@@ -119,7 +119,7 @@ const unratedItems = computed(() => [
 }
 .r-v2-age-limit__switch {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
   flex-wrap: wrap;
 }

@@ -367,7 +367,7 @@ async function save() {
 }
 .r-v2-group-dialog__default {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
   flex-wrap: wrap;
 }
