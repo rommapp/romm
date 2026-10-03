@@ -1,11 +1,4 @@
-"""Regenerate handler/easyrpg/rtp_table.json from EasyRPG Player's RTP table.
-
-The table lists, for every asset of the RPG Maker 2000 and 2003 run-time
-packages, the name each official or fan translation of the RTP gives it.
-
-Usage:
-    uv run python -m tools.generate_easyrpg_rtp_table <Player>/src/rtp_table.cpp
-"""
+"""Regenerate handler/easyrpg/rtp_table.json from EasyRPG Player's RTP table."""
 
 import json
 import re
@@ -17,6 +10,7 @@ from handler.easyrpg import normalize_name
 ROW_RE = re.compile(r"^\s*\{(.*)\},\s*$")
 CELL_RE = re.compile(r'"((?:[^"\\]|\\.)*)"|nullptr')
 OUTPUT = Path(__file__).parent.parent / "handler" / "easyrpg" / "rtp_table.json"
+USAGE = "usage: uv run python -m tools.generate_easyrpg_rtp_table <Player>/src/rtp_table.cpp"
 
 
 def parse_rows(source: str) -> dict[str, list[list[str]]]:
@@ -42,7 +36,7 @@ def parse_rows(source: str) -> dict[str, list[list[str]]]:
 
 def main() -> None:
     if len(sys.argv) != 2:
-        sys.exit(__doc__)
+        sys.exit(USAGE)
     table = parse_rows(Path(sys.argv[1]).read_text(encoding="utf-8"))
     OUTPUT.write_text(
         json.dumps(table, ensure_ascii=False, indent=1, sort_keys=True) + "\n",

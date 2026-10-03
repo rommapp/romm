@@ -39,6 +39,7 @@ usePlayingWhile(gameRunning);
 const quitting = ref(false);
 const frame = ref<HTMLIFrameElement | null>(null);
 const { enter: enterFullscreen } = usePlayerFullscreen(frame);
+let sessionStarted = false;
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
@@ -53,7 +54,6 @@ async function onPlay() {
   if (!currentRom || authStore.user?.id == null) return;
 
   gameRunning.value = true;
-  playSession.start(currentRom);
 
   await nextTick();
   if (fullscreenOnPlay.value) {
@@ -62,8 +62,13 @@ async function onPlay() {
 }
 
 // Browsers deliver keyboard and gamepad input only to the focused frame.
+// Play time starts here, so a player page that never loads records none.
 function onFrameLoad() {
   focusFromInput(frame.value);
+  if (rom.value && !sessionStarted) {
+    sessionStarted = true;
+    playSession.start(rom.value);
+  }
 }
 
 function leavePlayer(destination: string) {
