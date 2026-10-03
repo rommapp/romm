@@ -175,10 +175,12 @@ def lenient(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     _ensure_database_exists()
-    alembic.config.main(argv=["upgrade", "head"])
-    yield
-    if os.environ.get("ROMM_TEST_DB_TAG"):
-        _drop_database()
+    try:
+        alembic.config.main(argv=["upgrade", "head"])
+        yield
+    finally:
+        if os.environ.get("ROMM_TEST_DB_TAG"):
+            _drop_database()
 
 
 @pytest.fixture(autouse=True)

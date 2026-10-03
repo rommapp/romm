@@ -1,4 +1,5 @@
 import os
+import re
 
 # Tests must never inherit DB_NAME from the ambient environment (e.g. a
 # sourced .env pointing at a real dev/prod database) -- the autouse
@@ -13,10 +14,9 @@ import os
 # The Redis cache needs no equivalent handling: under pytest it is an in-process
 # FakeRedis, so each worker process is already isolated.
 #
-# ROMM_TEST_DB_TAG gives a run its own temporary databases (`romm_test_<tag>`),
-# so a worktree on another branch can't leave the schema at a revision this
-# branch lacks. tests/conftest.py drops them when the session ends.
-_tag = os.environ.get("ROMM_TEST_DB_TAG")
-_base = f"romm_test_{_tag}" if _tag else "romm_test"
+# ROMM_TEST_DB_TAG runs use temporary databases that tests/conftest.py drops at
+# session end; the `tmp_` prefix keeps them apart from the untagged worker names.
+_tag = re.sub(r"[^A-Za-z0-9_]", "_", os.environ.get("ROMM_TEST_DB_TAG", ""))
+_base = f"romm_test_tmp_{_tag}" if _tag else "romm_test"
 _xdist_worker = os.environ.get("PYTEST_XDIST_WORKER")
 os.environ["DB_NAME"] = f"{_base}_{_xdist_worker}" if _xdist_worker else _base

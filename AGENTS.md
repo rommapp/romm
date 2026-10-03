@@ -81,7 +81,7 @@ place for full-suite coverage; local runs stay scoped.
 **In a git worktree, run tests against a temporary database.** Every checkout shares
 `romm_test`, and one on another branch can migrate it to a revision yours lacks, so
 every test errors in setup with `Can't locate revision`. Set `ROMM_TEST_DB_TAG` to a
-tag unique to the worktree: the run creates and migrates `romm_test_<tag>` (one per
+tag unique to the worktree: the run creates and migrates `romm_test_tmp_<tag>` (one per
 xdist worker), then drops it at the end. Never `stamp` or downgrade the shared `romm_test`.
 
 ```bash
