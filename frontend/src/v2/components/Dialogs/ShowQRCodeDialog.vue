@@ -9,13 +9,11 @@ import { useI18n } from "vue-i18n";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getNintendoDSFiles, getDownloadLink, isNintendoDSFile } from "@/utils";
-import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { colorCanvas, colorOverlay } from "@/v2/tokens";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const { lgAndUp } = useBreakpoint();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -42,7 +40,6 @@ const qrCode = useQRCode(downloadLink, {
 // useQRCode keeps the previous image until the new one resolves; drop it so
 // the next ROM never briefly shows the last ROM's code.
 watch(downloadLink, () => (qrCode.value = ""));
-const qrSize = computed(() => (lgAndUp.value ? 300 : 220));
 
 const openHandler = (romToView: SimpleRom) => {
   show.value = true;
@@ -70,10 +67,7 @@ function closeDialog() {
         <p v-if="rom" class="r-v2-qr__filename" :title="rom.fs_name">
           {{ rom.fs_name }}
         </p>
-        <div
-          class="r-v2-qr__code-wrap"
-          :style="{ width: `${qrSize}px`, height: `${qrSize}px` }"
-        >
+        <div class="r-v2-qr__code-wrap">
           <img
             v-if="qrCode"
             :src="qrCode"
@@ -121,6 +115,8 @@ function closeDialog() {
 
 .r-v2-qr__code-wrap {
   box-sizing: content-box;
+  width: 220px;
+  height: 220px;
   margin: 20px 0px 0px;
   padding: 6px;
   background: var(--r-color-overlay-emphasis-bg);
@@ -128,6 +124,11 @@ function closeDialog() {
   box-shadow: 0 8px 20px color-mix(in srgb, black 35%, transparent);
   display: grid;
   place-items: center;
+}
+
+html[data-bp~="lg-and-up"] .r-v2-qr__code-wrap {
+  width: 300px;
+  height: 300px;
 }
 
 .r-v2-qr__code {

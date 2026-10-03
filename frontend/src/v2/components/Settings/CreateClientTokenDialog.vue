@@ -28,7 +28,6 @@ import clientTokenApi, {
 } from "@/services/api/client-token";
 import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
-import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
@@ -43,7 +42,6 @@ const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const clipboard = useClipboard();
-const { lgAndUp } = useBreakpoint();
 
 type Step = "config" | "delivery" | "copy" | "pair";
 type PairStatus = "pending" | "claimed" | "expired";
@@ -174,7 +172,6 @@ const pairQRCode = useQRCode(pairUrl, {
 // useQRCode keeps the previous image until the new one resolves; drop it so
 // a regenerated code never briefly shows the expired one.
 watch(pairUrl, () => (pairQRCode.value = ""));
-const pairQRSize = computed(() => (lgAndUp.value ? 250 : 200));
 
 const dialogTitle = computed(() => {
   if (step.value === "config") return t("settings.create-new-api-token");
@@ -498,10 +495,7 @@ watch(show, (val) => {
           <RProgressCircular indeterminate :size="36" />
         </div>
         <template v-else-if="pairStatus === 'pending'">
-          <div
-            class="r-v2-tok-dialog__qr"
-            :style="{ width: `${pairQRSize}px`, height: `${pairQRSize}px` }"
-          >
+          <div class="r-v2-tok-dialog__qr">
             <template v-if="pairQRCode">
               <img
                 :src="pairQRCode"
@@ -671,7 +665,13 @@ html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
 
 .r-v2-tok-dialog__qr {
   position: relative;
+  width: 200px;
+  height: 200px;
   margin: 0 auto;
+}
+html[data-bp~="lg-and-up"] .r-v2-tok-dialog__qr {
+  width: 250px;
+  height: 250px;
 }
 .r-v2-tok-dialog__qr-code {
   display: block;
