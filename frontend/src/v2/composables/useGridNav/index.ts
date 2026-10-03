@@ -450,8 +450,10 @@ export function useGridNav(
       verticalJump = true;
     } else if (e.key === "Home" || e.key === "End") {
       // With one column there is nowhere to go inside a row, so it moves
-      // through the grid instead. A wrapping grid's first row has every column.
-      const oneColumn = (wrapping ? rs[0]! : rs[rowIdx]!).cells.length === 1;
+      // through the grid instead. A wrapping grid has one only at its narrowest.
+      const oneColumn = wrapping
+        ? rs.every((row) => row.cells.length === 1)
+        : rowCells.length === 1;
       if (e.ctrlKey || e.metaKey || oneColumn) {
         e.preventDefault();
         void jumpToEdge(e.key === "Home" ? "first" : "last");

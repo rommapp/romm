@@ -9,7 +9,7 @@ import {
   onTestFinished,
   vi,
 } from "vitest";
-import { defineComponent, h, nextTick, ref } from "vue";
+import { defineComponent, h, nextTick, type PropType, ref } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import storeFocusRestoration from "@/v2/stores/focusRestoration";
 import { useGridNav } from "./index";
@@ -198,22 +198,31 @@ const TILE = 100;
 // Two rows of two tiles, laid out by the data attributes since jsdom has no
 // layout engine.
 const WrapGrid = defineComponent({
-  setup() {
+  props: {
+    tiles: {
+      type: Array as PropType<[row: number, col: number][]>,
+      default: () => [
+        [0, 0],
+        [0, 1],
+        [1, 0],
+        [1, 1],
+      ],
+    },
+  },
+  setup(props) {
     const root = ref<HTMLElement | null>(null);
     useGridNav(root, { cellSelector: ".cell" });
     return () =>
       h(
         "div",
         { ref: root },
-        [0, 1].flatMap((row) =>
-          [0, 1].map((col) =>
-            h("button", {
-              class: "cell",
-              "data-row": row,
-              "data-col": col,
-              "data-focus-key": `${row}-${col}`,
-            }),
-          ),
+        props.tiles.map(([row, col]) =>
+          h("button", {
+            class: "cell",
+            "data-row": row,
+            "data-col": col,
+            "data-focus-key": `${row}-${col}`,
+          }),
         ),
       );
   },
@@ -343,6 +352,25 @@ describe("useGridNav on a wrapping grid", () => {
     press("ArrowUp");
     press("End", { ctrlKey: true });
     expect(document.activeElement).toBe(cell(1, 1));
+  });
+
+  it("keeps Home in the row when only an earlier group has one tile", () => {
+    wrapper!.unmount();
+    wrapper = mount(WrapGrid, {
+      props: {
+        tiles: [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+        ],
+      },
+      attachTo: document.body,
+    });
+    cell(1, 1).focus();
+
+    press("Home");
+
+    expect(document.activeElement).toBe(cell(1, 0));
   });
 
   it("centres the restored tile when the pad takes over", async () => {
