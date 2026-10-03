@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { nextTick, ref } from "vue";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import MiniPlayer from "./MiniPlayer.vue";
 
@@ -18,10 +18,12 @@ vi.mock("@/v2/composables/useMiniPlayerVisible", () => ({
   useMiniPlayerVisible: () => ref(false),
 }));
 
-function mountPlayer() {
+async function mountPlayer() {
   const wrapper = mount(MiniPlayer, {
     global: { stubs: { NowPlayingCard: true } },
   });
+  // The player's event listeners attach once the first render has flushed.
+  await nextTick();
   const audio = wrapper.get("audio").element;
   return { wrapper, audio, store: useSoundtrackPlayer() };
 }
@@ -31,8 +33,8 @@ describe("MiniPlayer buffering", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }),
   );
 
-  it("reports buffering only once a wait outlasts a second", () => {
-    const { audio, store } = mountPlayer();
+  it("reports buffering only once a wait outlasts a second", async () => {
+    const { audio, store } = await mountPlayer();
 
     audio.dispatchEvent(new Event("waiting"));
     vi.advanceTimersByTime(999);
@@ -45,8 +47,8 @@ describe("MiniPlayer buffering", () => {
     expect(store.isBuffering).toBe(false);
   });
 
-  it("never reports a wait that resolves in time", () => {
-    const { audio, store } = mountPlayer();
+  it("never reports a wait that resolves in time", async () => {
+    const { audio, store } = await mountPlayer();
 
     audio.dispatchEvent(new Event("waiting"));
     vi.advanceTimersByTime(500);
@@ -56,8 +58,8 @@ describe("MiniPlayer buffering", () => {
     expect(store.isBuffering).toBe(false);
   });
 
-  it("drops a pending report on unmount", () => {
-    const { wrapper, audio, store } = mountPlayer();
+  it("drops a pending report on unmount", async () => {
+    const { wrapper, audio, store } = await mountPlayer();
 
     audio.dispatchEvent(new Event("waiting"));
     wrapper.unmount();

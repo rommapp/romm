@@ -1,10 +1,18 @@
 <script setup lang="ts">
 // Owns the app-wide `<audio>` and chiptune players, so playback survives route
 // changes. Floats on desktop; on phones the top bar's NowPlayingPill opens it.
-import { useTimeoutFn } from "@vueuse/core";
+import { useEventListener, useTimeoutFn } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  inject,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import storePlaying from "@/stores/playing";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
@@ -27,7 +35,7 @@ const visible = useMiniPlayerVisible();
 const playingStore = storePlaying();
 
 const audioEl = ref<HTMLAudioElement | null>(null);
-let chiptune: ChiptunePlayer | null = null;
+const chiptune = shallowRef<ChiptunePlayer | null>(null);
 // Whichever of the two is playing the current track. Events from the other
 // are dropped, since pausing one while the other starts fires out of order.
 let active: HTMLAudioElement | ChiptunePlayer | null = null;
@@ -57,13 +65,8 @@ function setBuffered() {
 }
 
 function getChiptune(): ChiptunePlayer {
-  if (chiptune) return chiptune;
-  const player = new ChiptunePlayer();
-  for (const [name, listener] of Object.entries(sinkListeners)) {
-    player.addEventListener(name, listener);
-  }
-  chiptune = player;
-  return player;
+  chiptune.value ??= new ChiptunePlayer();
+  return chiptune.value;
 }
 
 function activate(sink: HTMLAudioElement | ChiptunePlayer) {
@@ -87,7 +90,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   store.setAudioRef(null);
-  chiptune?.close();
+  chiptune.value?.close();
 });
 
 watch(track, async (t) => {
@@ -96,7 +99,7 @@ watch(track, async (t) => {
   if (!t) {
     setBuffered();
     unloadAudio(el);
-    chiptune?.unload();
+    chiptune.value?.unload();
     return;
   }
 
@@ -109,7 +112,7 @@ watch(track, async (t) => {
     unloadAudio(el);
     void sink.load(t.url);
   } else {
-    chiptune?.unload();
+    chiptune.value?.unload();
     el.src = t.url;
     try {
       el.load();
@@ -163,14 +166,14 @@ const sinkHandlers: Record<string, () => void> = {
   },
 };
 
-const sinkListeners = Object.fromEntries(
-  Object.entries(sinkHandlers).map(([name, handler]) => [
-    name,
-    (event: Event) => {
-      if (event.target === active) handler();
-    },
-  ]),
+const sinks = computed(() =>
+  [audioEl.value, chiptune.value].filter((sink) => sink !== null),
 );
+for (const [name, handler] of Object.entries(sinkHandlers)) {
+  useEventListener(sinks, name, (event: Event) => {
+    if (event.target === active) handler();
+  });
+}
 </script>
 
 <template>
@@ -181,7 +184,6 @@ const sinkListeners = Object.fromEntries(
     class="r-v2-mp__audio"
     preload="metadata"
     aria-hidden="true"
-    v-on="sinkListeners"
   />
 
   <Transition name="r-v2-mp-slide">
