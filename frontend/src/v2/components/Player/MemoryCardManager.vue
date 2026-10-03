@@ -372,12 +372,13 @@ const hasCards = computed(() => cards.value.length > 0);
               @click="editTarget = card"
             />
             <RBtn
-              variant="text"
+              :variant="isExpanded(card.id) ? 'translucent' : 'text'"
+              :color="isExpanded(card.id) ? 'primary' : undefined"
               size="small"
               icon="mdi-history"
               :aria-label="t('play.memory-card-versions')"
+              :aria-expanded="isExpanded(card.id)"
               :tooltip="t('play.memory-card-versions')"
-              :active="isExpanded(card.id)"
               @click="toggleVersions(card)"
             />
             <RBtn
