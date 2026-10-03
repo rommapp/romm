@@ -325,6 +325,23 @@ describe("useGridNav on a wrapping grid", () => {
     expect(document.activeElement).toBe(cell(0, 0));
   });
 
+  it("reaches the grid's ends through tiles it already visited", () => {
+    cell(0, 0).focus();
+    press("ArrowRight");
+    press("ArrowLeft");
+    press("ArrowRight");
+    press("ArrowDown");
+
+    press("Home", { ctrlKey: true });
+    expect(document.activeElement).toBe(cell(0, 0));
+
+    press("ArrowDown");
+    press("ArrowRight");
+    press("ArrowUp");
+    press("End", { ctrlKey: true });
+    expect(document.activeElement).toBe(cell(1, 1));
+  });
+
   it("centres the restored tile when the pad takes over", async () => {
     storeFocusRestoration().save("/gallery", "1-1");
 

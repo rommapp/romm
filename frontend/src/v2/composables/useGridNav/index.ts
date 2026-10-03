@@ -91,8 +91,8 @@ function pageHeight(el: HTMLElement): number {
   return window.innerHeight;
 }
 
-// Controls the roving mode may take out of the tab order. Unlike
-// FOCUSABLE_SELECTOR, this still matches them once they are at -1.
+// Controls the grid may take out of the tab order (roving, or a visited cell).
+// Unlike FOCUSABLE_SELECTOR, this still matches them once they are at -1.
 const ROVING_CANDIDATES = [
   "a[href]",
   "button:not([disabled])",
@@ -343,8 +343,9 @@ export function useGridNav(
   }
 
   function hasControl(cell: HTMLElement): boolean {
-    const selector = options.roving ? ROVING_CANDIDATES : FOCUSABLE_SELECTOR;
-    return focusableIn(cell) !== cell || cell.matches(selector);
+    return (
+      cell.matches(ROVING_CANDIDATES) || !!cell.querySelector(ROVING_CANDIDATES)
+    );
   }
 
   // Focuses the first or last cell that holds a control, skipping skeletons.
@@ -388,14 +389,13 @@ export function useGridNav(
   // The row about one viewport above or below `from`, clamped to the rows
   // that are mounted.
   function pageRow(rs: Row[], from: number, dir: 1 | -1): number {
-    const rowBox = (row: Row) =>
-      (row.el ?? row.cells[0]!).getBoundingClientRect();
-    const fromRow = rs[from]!;
-    const top = rowBox(fromRow).top;
-    const target = top + dir * pageHeight(fromRow.el ?? fromRow.cells[0]!);
+    const anchor = (row: Row) => row.el ?? row.cells[0]!;
+    const fromAnchor = anchor(rs[from]!);
+    const top = fromAnchor.getBoundingClientRect().top;
+    const target = top + dir * pageHeight(fromAnchor);
     let best = from;
     for (let r = from + dir; r >= 0 && r < rs.length; r += dir) {
-      const rowTop = rowBox(rs[r]!).top;
+      const rowTop = anchor(rs[r]!).getBoundingClientRect().top;
       if (dir === 1 ? rowTop > target : rowTop < target) break;
       best = r;
     }

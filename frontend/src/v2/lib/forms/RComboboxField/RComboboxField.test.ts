@@ -88,6 +88,25 @@ describe("RComboboxField inside an overlay", () => {
     wrapper.unmount();
   });
 
+  it("leaves Escape unclaimed on a page when it has nothing to show", async () => {
+    const wrapper = mount(RComboboxField, {
+      props: { modelValue: [], items: ["rpg"] },
+      attachTo: document.body,
+    });
+    const input = wrapper.get("input");
+
+    await input.setValue("zzz");
+    const escape = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    input.element.dispatchEvent(escape);
+
+    expect(escape.defaultPrevented).toBe(false);
+    wrapper.unmount();
+  });
+
   it("stays open for a press inside an overlay opened above it", async () => {
     const wrapper = mount(RComboboxField, {
       props: { modelValue: [], items: ["rpg", "racing"] },

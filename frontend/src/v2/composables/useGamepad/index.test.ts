@@ -166,11 +166,6 @@ describe("useGamepad", () => {
   });
 
   describe("B", () => {
-    beforeEach(() => {
-      router.back.mockClear();
-      storePlaying().setPlaying(false);
-    });
-
     it("goes back when nothing claims the Escape it sends", () => {
       installOnMouse(padHolding(PAD_BUTTON.b));
 

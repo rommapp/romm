@@ -99,10 +99,7 @@ export function isInsideEscapableAbove(
     .some((above) => above.panel?.()?.contains(node) ?? false);
 }
 
-/** True when at least one non-persistent escapable overlay is open.
- *  Persistent layers still count as "open": they block back-style
- *  dismiss the same way Esc is a no-op for them, so the user gets
- *  consistent behaviour across both keys. */
+/** True when any escapable overlay is open, persistent ones included. */
 export function hasOpenEscapable(): boolean {
   return stack.length > 0;
 }
