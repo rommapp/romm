@@ -481,6 +481,18 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   :deep(.mdi) {
   font-size: 14px !important;
 }
+/* The pill marks the active item, so a heavier weight would only make the
+   label jump in width. */
+.r-slider-btn-group--tab.r-slider-btn-group--size-x-small
+  .r-slider-btn-group__btn--active {
+  font-weight: var(--r-font-weight-medium);
+}
+/* Center the letters rather than the line box, whose descender space
+   otherwise sits a short label visibly high. */
+.r-slider-btn-group--tab.r-slider-btn-group--size-x-small
+  .r-slider-btn-group__label {
+  text-box: trim-both cap alphabetic;
+}
 
 /* Count pill after the label. Background is a translucent tint of the
    current text colour, so it stays legible both on inactive items
