@@ -3830,8 +3830,8 @@ class DBRomsHandler(DBBaseHandler):
         tags = set()
         platforms = set()
 
-        # Fully buffered so the cursor closes here: left to the cyclic GC it is
-        # finalized on another thread, which segfaults the mariadb connector.
+        # .all(), not iteration: an iterated Result stays in a reference cycle, so the
+        # cyclic GC frees its mariadb cursor on another thread and segfaults the driver.
         for row in session.execute(statement).all():
             g, f, cl, co, pub, dev, gm, ar, pc, rg, lg, tg, pid = row
             if g:

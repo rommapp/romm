@@ -8,7 +8,7 @@ tests write through the normal handlers and assert the mirror follows.
 import gc
 
 from sqlalchemy import String, select
-from sqlalchemy.engine import CursorResult
+from sqlalchemy.engine import CursorResult, ExecutionContext
 
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
@@ -150,16 +150,21 @@ class TestRomFacets:
         # A cursor left for the cyclic GC is finalized on whichever thread
         # collects next, which segfaults the mariadb connector under load.
         db_rom_handler.update_rom(rom.id, {"igdb_metadata": {"genres": ["Puzzle"]}})
+        was_enabled, debug_flags = gc.isenabled(), gc.get_debug()
         gc.collect()
         gc.disable()
         gc.set_debug(gc.DEBUG_SAVEALL)
         try:
             db_rom_handler.get_rom_filters()
             gc.collect()
-            leaked = [o for o in gc.garbage if isinstance(o, CursorResult)]
+            # The execution context owns the DBAPI cursor, so check it as well.
+            leaked = [
+                o for o in gc.garbage if isinstance(o, (CursorResult, ExecutionContext))
+            ]
         finally:
-            gc.set_debug(0)
+            gc.set_debug(debug_flags)
             gc.garbage.clear()
-            gc.enable()
+            if was_enabled:
+                gc.enable()
 
         assert leaked == []
