@@ -26,11 +26,11 @@ function cacheKeyFor(params: AxiosRequestConfig["params"]): string {
 }
 
 function requestParams(callIndex = 0): AxiosRequestConfig["params"] {
-  return vi.mocked(cacheService.request).mock.calls[callIndex][0].params;
+  return vi.mocked(cacheService.request).mock.calls[callIndex]![0].params;
 }
 
 function clearedPattern(callIndex = 0): string {
-  return vi.mocked(cacheService.clearCacheForPattern).mock.calls[callIndex][0];
+  return vi.mocked(cacheService.clearCacheForPattern).mock.calls[callIndex]![0];
 }
 
 beforeEach(() => {

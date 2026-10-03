@@ -16,10 +16,10 @@ const modulesByLocale = new Map<
   Map<string, () => Promise<LocaleModule>>
 >();
 for (const [path, load] of Object.entries(localeModules)) {
-  const matched = path.match(/\.\/([A-Za-z0-9-_]+)\/([A-Za-z0-9-_]+)\.json$/i);
-  if (!matched) continue;
+  const [, locale, namespace] =
+    path.match(/\.\/([A-Za-z0-9-_]+)\/([A-Za-z0-9-_]+)\.json$/i) ?? [];
+  if (!locale || !namespace) continue;
 
-  const [, locale, namespace] = matched;
   if (!modulesByLocale.has(locale)) modulesByLocale.set(locale, new Map());
   modulesByLocale.get(locale)?.set(namespace, load);
 }

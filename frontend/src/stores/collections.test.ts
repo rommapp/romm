@@ -64,7 +64,7 @@ describe("collections store virtual refresh", () => {
     first.settle({ data: [virtualCollection(8)] });
     await initial;
     await vi.waitFor(() =>
-      expect(collections.virtualCollections[0].rom_count).toBe(9),
+      expect(collections.virtualCollections[0]?.rom_count).toBe(9),
     );
     expect(getVirtualCollections).toHaveBeenCalledTimes(2);
   });
@@ -80,7 +80,7 @@ describe("collections store virtual refresh", () => {
     // Resolves rather than rejects: every caller fires this in the background,
     // so a rejection would surface as an unhandled one.
     await expect(collections.refreshVirtualCollections()).resolves.toEqual([]);
-    expect(collections.virtualCollections[0].rom_count).toBe(8);
+    expect(collections.virtualCollections[0]?.rom_count).toBe(8);
   });
 
   it("does nothing until a slice has been fetched", async () => {

@@ -108,7 +108,7 @@ function installFakeIndexedDB(rows: Map<string, PendingAsset>) {
       .sort((a, b) => {
         const [left, right] = [key(a), key(b)];
         const at = left.findIndex((part, i) => part !== right[i]);
-        return at < 0 ? 0 : left[at] < right[at] ? -1 : 1;
+        return at < 0 ? 0 : left[at]! < right[at]! ? -1 : 1;
       });
     const request: Request = {};
     let next = 0;
@@ -243,7 +243,7 @@ describe("syncPendingAssets", () => {
       dropped: [],
     });
 
-    const request = saveApiMocks.uploadSaves.mock.calls[0][0];
+    const request = saveApiMocks.uploadSaves.mock.calls[0]![0];
     expect(request).toMatchObject({
       slot: "main_quest",
       autocleanup: false,
@@ -263,7 +263,7 @@ describe("syncPendingAssets", () => {
       dropped: [],
     });
 
-    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0]![0];
     expect(statesToUpload[0].stateFile.name).toBe(
       "game [2024-05-06 12-38-09-010].state",
     );
@@ -340,7 +340,7 @@ describe("syncPendingAssets", () => {
     await syncPendingAssets();
 
     expect(romApiMocks.getRom).toHaveBeenCalledWith({ romId: 1 });
-    const request = saveApiMocks.uploadSaves.mock.calls[0][0];
+    const request = saveApiMocks.uploadSaves.mock.calls[0]![0];
     expect(request.savesToUpload[0].screenshotFile.name).toBe("game.png");
   });
 
@@ -476,7 +476,7 @@ describe("syncPendingAssets", () => {
       dropped: [],
     });
 
-    const archive = saveApiMocks.uploadSaves.mock.calls[1][0];
+    const archive = saveApiMocks.uploadSaves.mock.calls[1]![0];
     expect(archive.slot).toBeUndefined();
     expect(archive.savesToUpload[0].saveFile.name).toBe(
       "game [2024-05-06 12-38-09-010].srm",

@@ -18,7 +18,7 @@ vi.mock("@/services/socket", () => ({
 /** The FormData `updateRom` put on the wire. */
 async function sentFields(rom: UpdateRom): Promise<FormData> {
   await romApi.updateRom({ rom });
-  return put.mock.calls[0][1] as FormData;
+  return put.mock.calls[0]![1] as FormData;
 }
 
 function buildRom(overrides: Partial<UpdateRom> = {}): UpdateRom {
@@ -94,7 +94,7 @@ describe("romApi.uploadRoms", () => {
       filesToUpload: [new File(["abc"], "fix.ips")],
     });
 
-    expect(results[0].status).toBe("fulfilled");
+    expect(results[0]?.status).toBe("fulfilled");
     expect(startCall().headers).toMatchObject({
       "X-Upload-Platform": "3",
       "X-Upload-Filename": "fix.ips",
@@ -169,7 +169,7 @@ describe("romApi.uploadRoms", () => {
       filesToUpload: [new File([], "empty.nsp")],
     });
 
-    expect(results[0].status).toBe("fulfilled");
+    expect(results[0]?.status).toBe("fulfilled");
     expect(startCall().headers).toMatchObject({
       "X-Upload-Total-Size": "0",
       "X-Upload-Total-Chunks": "0",
@@ -180,7 +180,7 @@ describe("romApi.uploadRoms", () => {
       null,
       expect.anything(),
     );
-    expect(storeUpload().files[0].finished).toBe(true);
+    expect(storeUpload().files[0]?.finished).toBe(true);
   });
 });
 
@@ -194,7 +194,7 @@ describe("getRoms game-length range", () => {
     params: Parameters<typeof romApi.getRoms>[0],
   ): Promise<Record<string, unknown>> {
     await romApi.getRoms(params);
-    return get.mock.calls[0][1].params as Record<string, unknown>;
+    return get.mock.calls[0]![1].params as Record<string, unknown>;
   }
 
   it("sends both bounds in seconds", async () => {
