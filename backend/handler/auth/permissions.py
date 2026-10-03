@@ -53,7 +53,6 @@ class ResolvedPermissions:
     hidden_rom_ids: frozenset[int]
     age_limit: int | None = None
     hide_unrated_roms: bool = False
-    age_exempt_rom_ids: frozenset[int] = frozenset()
 
     def allows(
         self, entity: PermEntity, action: PermAction, *, owned: bool | None = None
@@ -81,7 +80,6 @@ class ResolvedPermissions:
             hidden_rom_ids=self.hidden_rom_ids,
             age_limit=self.age_limit,
             hide_unrated_roms=self.hide_unrated_roms,
-            age_exempt_rom_ids=self.age_exempt_rom_ids,
         )
 
     @cached_property
@@ -171,11 +169,6 @@ def _resolve_non_admin(
         if user.hide_unrated_roms is not None
         else group.hide_unrated_roms
     )
-    exempt = (
-        db_permission_handler.get_age_exempt_rom_ids(user.id, group_id, session=session)
-        if age_limit is not None or hide_unrated_roms
-        else set()
-    )
 
     return ResolvedPermissions(
         is_admin=False,
@@ -185,7 +178,6 @@ def _resolve_non_admin(
         hidden_rom_ids=frozenset(hidden_roms),
         age_limit=age_limit,
         hide_unrated_roms=hide_unrated_roms,
-        age_exempt_rom_ids=frozenset(exempt),
     )
 
 

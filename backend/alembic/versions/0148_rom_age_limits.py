@@ -2,8 +2,7 @@
 
 `roms.min_age` holds the strictest age any of a ROM's ratings sets, mirrored
 into `roms_facets` so the stats queries can apply a limit without a join.
-Groups and users gain an age limit and a "hide unrated" switch, and
-`age_rating_exemptions` lets a ROM through a limit for one user or group.
+Groups and users gain an age limit and a "hide unrated" switch.
 
 Revision ID: 0148_rom_age_limits
 Revises: 0147_rom_file_title_ids
@@ -25,7 +24,6 @@ branch_labels = None
 depends_on = None
 
 BATCH_SIZE = 1000
-EXEMPTIONS = "age_rating_exemptions"
 
 # (column, key) of each source `compute_min_age` reads, a frozen snapshot of
 # `MIN_AGE_SOURCE_COLUMNS` so a later source can't change this revision.
@@ -182,47 +180,10 @@ def upgrade() -> None:
             if_not_exists=True,
         )
 
-    op.create_table(
-        EXEMPTIONS,
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("rom_id", sa.Integer(), nullable=False),
-        sa.Column("user_id", sa.Integer(), nullable=True),
-        sa.Column("group_id", sa.Integer(), nullable=True),
-        sa.Column(
-            "created_at",
-            sa.TIMESTAMP(timezone=True),
-            nullable=False,
-            server_default=sa.text("CURRENT_TIMESTAMP"),
-        ),
-        sa.Column(
-            "updated_at",
-            sa.TIMESTAMP(timezone=True),
-            nullable=False,
-            server_default=sa.text("CURRENT_TIMESTAMP"),
-        ),
-        sa.ForeignKeyConstraint(["rom_id"], ["roms.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(
-            ["group_id"], ["permission_groups.id"], ondelete="CASCADE"
-        ),
-        sa.PrimaryKeyConstraint("id"),
-        # One per principal, since NULLs never collide in a unique key.
-        sa.UniqueConstraint("user_id", "rom_id", name="uq_age_exemption_user"),
-        sa.UniqueConstraint("group_id", "rom_id", name="uq_age_exemption_group"),
-        sa.CheckConstraint(
-            "(user_id IS NULL) <> (group_id IS NULL)",
-            name="ck_age_exemption_one_principal",
-        ),
-        if_not_exists=True,
-    )
-    with op.batch_alter_table(EXEMPTIONS) as batch_op:
-        batch_op.create_index(f"ix_{EXEMPTIONS}_rom_id", ["rom_id"], if_not_exists=True)
-
 
 def downgrade() -> None:
     conn = op.get_bind()
 
-    op.drop_table(EXEMPTIONS, if_exists=True)
     with op.batch_alter_table("users") as batch_op:
         batch_op.drop_column("hide_unrated_roms", if_exists=True)
         batch_op.drop_column("age_limit", if_exists=True)

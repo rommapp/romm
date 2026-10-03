@@ -453,16 +453,11 @@ class TestGetHiddenRomIdsAmong:
     def test_reports_roms_the_age_rule_hides(self, platform: Platform) -> None:
         mature = make_esrb_rated_rom(platform, "Mature", "M")
         teen = make_esrb_rated_rom(platform, "Teen", "T")
-        exempt = make_esrb_rated_rom(platform, "Exempt", "AO")
         unrated = make_rom(platform, "Unrated")
-        visibility = RomVisibilityFilter(
-            age_limit=13,
-            hide_unrated_roms=True,
-            age_exempt_rom_ids=frozenset({exempt.id}),
-        )
+        visibility = RomVisibilityFilter(age_limit=13, hide_unrated_roms=True)
 
         hidden = db_rom_handler.get_hidden_rom_ids_among(
-            [mature.id, teen.id, exempt.id, unrated.id], visibility
+            [mature.id, teen.id, unrated.id], visibility
         )
 
         # The unrated row proves the negated clause is NULL-safe.
@@ -474,16 +469,13 @@ class TestAgeLimitedListing:
         mature = make_esrb_rated_rom(platform, "Mature", "M")
         everyone = make_esrb_rated_rom(platform, "Everyone", "E")
         unrated = make_rom(platform, "Unrated")
-        exempt = make_esrb_rated_rom(platform, "Exempt", "M")
 
         ids = db_rom_handler.get_rom_ids(
             platform_ids=[platform.id],
-            visibility=RomVisibilityFilter(
-                age_limit=12, age_exempt_rom_ids=frozenset({exempt.id})
-            ),
+            visibility=RomVisibilityFilter(age_limit=12),
         )
 
-        assert set(ids) == {everyone.id, unrated.id, exempt.id}
+        assert set(ids) == {everyone.id, unrated.id}
         assert mature.id not in ids
 
 

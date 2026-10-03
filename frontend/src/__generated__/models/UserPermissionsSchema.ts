@@ -14,6 +14,5 @@ export type UserPermissionsSchema = {
     hidden: Array<HiddenEntitySchema>;
     age_limit?: (number | null);
     hide_unrated_roms?: (boolean | null);
-    age_exempt_rom_ids?: Array<number>;
 };
 

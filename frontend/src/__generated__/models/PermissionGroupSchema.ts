@@ -17,6 +17,5 @@ export type PermissionGroupSchema = {
     hidden?: Array<HiddenEntitySchema>;
     age_limit?: (number | null);
     hide_unrated_roms?: boolean;
-    age_exempt_rom_ids?: Array<number>;
 };
 

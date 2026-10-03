@@ -188,30 +188,3 @@ class HiddenEntity(BaseModel):
         nullable=True,
         index=True,
     )
-
-
-class AgeRatingExemption(BaseModel):
-    """A ROM one user or group (never both) sees past an age limit, but not past a hide."""
-
-    __tablename__ = "age_rating_exemptions"
-    __table_args__ = (
-        # One per principal, since NULLs never collide in a unique key.
-        UniqueConstraint("user_id", "rom_id", name="uq_age_exemption_user"),
-        UniqueConstraint("group_id", "rom_id", name="uq_age_exemption_group"),
-        CheckConstraint(
-            "(user_id IS NULL) <> (group_id IS NULL)",
-            name="ck_age_exemption_one_principal",
-        ),
-        {"extend_existing": True},
-    )
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    rom_id: Mapped[int] = mapped_column(
-        ForeignKey("roms.id", ondelete="CASCADE"), index=True
-    )
-    user_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
-    )
-    group_id: Mapped[int | None] = mapped_column(
-        ForeignKey("permission_groups.id", ondelete="CASCADE"), nullable=True
-    )

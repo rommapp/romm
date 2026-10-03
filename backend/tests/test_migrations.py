@@ -257,7 +257,6 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0148_rom_age_limits.py", "roms_facets"),
         ("0148_rom_age_limits.py", "permission_groups"),
         ("0148_rom_age_limits.py", "users"),
-        ("0148_rom_age_limits.py", "age_rating_exemptions"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -462,7 +461,6 @@ def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
             migration.downgrade()
             assert not has_column(connection, "roms", "min_age")
             assert not has_column(connection, "users", "age_limit")
-            assert not sa.inspect(connection).has_table("age_rating_exemptions")
             migration.downgrade()
 
             migration.upgrade()

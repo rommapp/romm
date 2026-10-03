@@ -176,8 +176,6 @@ class PermissionGroupSchema(BaseModel):
     # Members see only ROMs rated for this age or younger; null sets no limit.
     age_limit: int | None = None
     hide_unrated_roms: bool = False
-    # ROMs members see whatever their rating.
-    age_exempt_rom_ids: list[int] = []
 
     model_config = {"from_attributes": True}
 
@@ -190,7 +188,6 @@ class PermissionGroupCreate(BaseModel):
     grants: list[GrantSchemaIO] = []
     age_limit: AgeLimit | None = None
     hide_unrated_roms: bool = False
-    age_exempt_rom_ids: list[int] = []
 
 
 class PermissionGroupUpdate(BaseModel):
@@ -203,8 +200,6 @@ class PermissionGroupUpdate(BaseModel):
     age_limit: AgeLimit | None = None
     hide_unrated_roms: bool = False
     set_age_settings: bool = False
-    # Replaces the group's exemptions; ids without a ROM are dropped.
-    age_exempt_rom_ids: list[int] | None = None
 
 
 class OverrideSchemaIO(BaseModel):
@@ -237,7 +232,6 @@ class UserPermissionsSchema(BaseModel):
     # Replacements for the group's age settings; null inherits the group's.
     age_limit: int | None = None
     hide_unrated_roms: bool | None = None
-    age_exempt_rom_ids: list[int] = []
 
 
 class UserPermissionsUpdate(BaseModel):
@@ -250,8 +244,6 @@ class UserPermissionsUpdate(BaseModel):
     age_limit: AgeLimit | None = None
     hide_unrated_roms: bool | None = None
     set_age_settings: bool = False
-    # Replaces the user's exemptions; ids without a ROM are dropped.
-    age_exempt_rom_ids: list[int] | None = None
 
 
 class PermissionCatalogSchema(BaseModel):
