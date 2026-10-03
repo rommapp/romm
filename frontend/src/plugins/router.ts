@@ -1,11 +1,18 @@
 import { storeToRefs } from "pinia";
-import { watch } from "vue";
+import {
+  type Component,
+  defineAsyncComponent,
+  defineComponent,
+  h,
+  watch,
+} from "vue";
 import {
   createRouter,
   createWebHistory,
   type NavigationGuardWithThis,
   type RouteLocationNormalized,
 } from "vue-router";
+import { useUiVersion } from "@/composables/useUiVersion";
 import i18n, { loadLocale } from "@/locales";
 import {
   isAuthExemptRoute,
@@ -646,6 +653,59 @@ export function applyRouteTitle(
   if (from && route.path === from.path) return;
   document.title = DEFAULT_TITLE;
 }
+
+// vue-router fetches every named view before entering a route, so the
+// inactive UI's view is deferred until an in-place switch renders it.
+type ViewLoader = () => Promise<Component>;
+const deferredLoaders = new WeakMap<object, ViewLoader>();
+
+// vue-router warns on defineAsyncComponent route views, so wrap it in a plain one.
+function deferView(load: ViewLoader): Component {
+  const view = defineAsyncComponent(load);
+  const shell = defineComponent({
+    name: "DeferredView",
+    setup: () => () => h(view),
+  });
+  deferredLoaders.set(shell, load);
+  return shell;
+}
+
+const uiVersion = useUiVersion();
+const viewNames = () =>
+  uiVersion.value === "v2"
+    ? (["v2", "default"] as const)
+    : (["default", "v2"] as const);
+
+// Fetch the switched-to views together: a nested view would otherwise start
+// loading only once its parent layout has loaded and rendered.
+watch(uiVersion, () => {
+  const [active] = viewNames();
+  for (const record of router.currentRoute.value.matched) {
+    const view = record.components?.[active];
+    const load = view && deferredLoaders.get(view);
+    load?.().catch(() => {});
+  }
+});
+
+router.beforeEach((to, from) => {
+  const [active, inactive] = viewNames();
+  for (const record of to.matched) {
+    const views = record.components;
+    if (!views) continue;
+    const load = views[active] && deferredLoaders.get(views[active]);
+    // Hand the loader back once its UI is active and the route is entered,
+    // so vue-router awaits the view again and a stale chunk reaches onError.
+    if (
+      load &&
+      !from.matched.some((r) => (r.aliasOf ?? r) === (record.aliasOf ?? record))
+    )
+      views[active] = load;
+    // Every route view is a `() => import()` loader until it is deferred.
+    const view = views[inactive];
+    if (typeof view === "function")
+      views[inactive] = deferView(view as ViewLoader);
+  }
+});
 
 router.beforeEach(async (to, from, next) => {
   const heartbeat = storeHeartbeat();

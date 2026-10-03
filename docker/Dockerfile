@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Stages:
 #   - python-runtime: Patch the Python image's libraries before they ship
 #   - frontend-build: Build frontend
@@ -5,6 +6,7 @@
 #   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
 #   - rahasher-build: Build RAHasher
 #   - sigil-build: Build sigil Python bindings (title ID extraction)
+#   - gme-build: Build libgme to WebAssembly (chiptune soundtracks)
 #   - rom-converto-fetch: Fetch the rom-converto CLI (ROM conversion and metadata)
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
@@ -27,6 +29,11 @@ ARG NGINX_VERSION=1.30.5
 ARG NGINX_SHA256=a5f2157a0302eb0c5e300415effb63a9e70ed1eb9c107283819bf6d149ab607c
 ARG UV_VERSION=0.12.19
 ARG UV_SHA256=b165481b747c340b4b3b820f6e453c3aea939c8b583cbfc01c4e99ec61181bc2
+ARG EMSDK_VERSION=4.0.12
+ARG EMSDK_AMD64_SHA256=744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54b0585c6
+ARG EMSDK_ARM64_SHA256=369a4cb655aa1066e6e450dde774243c502d999b1d93fb4890a9d1428daa9280
+ARG GME_VERSION=0.6.5
+ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
@@ -143,6 +150,28 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
     python build_sigil.py && \
     mkdir /sigil-pkg && \
     cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
+
+
+# LIBGME (LGPL-2.1+) FOR CHIPTUNE SOUNDTRACKS
+# The wasm is the same on every platform, so it builds with the builder's own
+# emsdk image. Keep the pins in sync with the dev image's copies in ../Dockerfile.
+# trunk-ignore(hadolint/DL3029)
+FROM --platform=linux/amd64 emscripten/emsdk:${EMSDK_VERSION}@sha256:${EMSDK_AMD64_SHA256} AS emsdk-amd64
+# trunk-ignore(hadolint/DL3029)
+FROM --platform=linux/arm64 emscripten/emsdk:${EMSDK_VERSION}-arm64@sha256:${EMSDK_ARM64_SHA256} AS emsdk-arm64
+
+# trunk-ignore(hadolint/DL3006,checkov/CKV_DOCKER_7)
+FROM emsdk-${BUILDARCH} AS gme-build
+
+ARG GME_VERSION
+ARG GME_COMMIT
+
+# checkov:skip=CKV_DOCKER_4:the ADD below is a Git URL pinned to a commit by --checksum
+ADD --checksum=${GME_COMMIT} \
+    "https://github.com/libgme/game-music-emu.git#${GME_VERSION}" \
+    /libgme
+COPY ./docker/gme /romm-gme
+RUN /romm-gme/build.sh /libgme /gme
 
 
 # ROM-CONVERTO CLI
@@ -303,6 +332,7 @@ COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 COPY --from=backend-node-build /backend-node/rom_patcher/node_modules/rom-patcher/rom-patcher-js /backend/utils/rom_patcher/rom-patcher-js
 
 COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
+COPY --from=gme-build /gme ${WEBSERVER_FOLDER}/assets/gme
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 COPY ./backend /backend

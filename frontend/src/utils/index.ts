@@ -869,12 +869,16 @@ export function calculateMainLayoutWidth() {
   const { smAndDown } = useDisplay();
   const navigationStore = storeNavigation();
   const { mainBarCollapsed } = storeToRefs(navigationStore);
+  // The side safe-area insets sit outside the layout as RomM.vue's spacers.
+  const insetX =
+    "env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)";
   const calculatedWidth = computed(() => {
-    return smAndDown.value
-      ? "calc(100% - 16px) !important"
+    const chrome = smAndDown.value
+      ? "16px"
       : mainBarCollapsed.value
-        ? "calc(100% - 76px) !important"
-        : "calc(100% - 106px) !important";
+        ? "76px"
+        : "106px";
+    return `calc(100% - ${chrome} - ${insetX}) !important`;
   });
 
   return { calculatedWidth };

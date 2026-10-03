@@ -505,7 +505,7 @@ html[data-bp~="sm-and-down"] .r-menu__panel--sheet {
   min-width: 0;
   max-width: 100vw;
   border-radius: var(--r-radius-xl, 16px) var(--r-radius-xl, 16px) 0 0;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: 0 var(--r-safe-r) var(--r-safe-b) var(--r-safe-l);
 }
 
 /* Full-height variant: the sheet fills the space below the top navbar

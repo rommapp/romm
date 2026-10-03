@@ -158,6 +158,45 @@ def test_upload_soundtrack_rejects_invalid_extension(
     assert "Unsupported audio file type" in response.json()["detail"]
 
 
+def test_upload_chiptune_soundtrack_lists_an_untagged_track(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    spc = b"SNES-SPC700 Sound File Data v0.30"
+
+    response = client.post(
+        f"/api/roms/{game_folder_rom.id}/soundtracks",
+        headers={**_auth(access_token), "x-upload-filename": "01 Title.spc"},
+        files={"01 Title.spc": ("01 Title.spc", spc, "application/octet-stream")},
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert (soundtrack_fs / "01 Title.spc").read_bytes() == spc
+    rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
+    [track] = [f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK]
+    assert track.track_meta is not None
+    assert track.track_meta.title is None
+
+
+def test_upload_soundtrack_rejects_a_multi_song_chiptune(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    response = client.post(
+        f"/api/roms/{game_folder_rom.id}/soundtracks",
+        headers={**_auth(access_token), "x-upload-filename": "game.nsf"},
+        files={"game.nsf": ("game.nsf", b"NESM\x1a", "application/octet-stream")},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert not (soundtrack_fs / "game.nsf").exists()
+
+
 # ---------- DELETE /api/roms/{id}/soundtracks/{file_id} ----------
 
 

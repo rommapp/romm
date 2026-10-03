@@ -167,6 +167,7 @@ export default defineConfig(({ mode }) => {
           "**/assets/ruffle/**",
           "**/assets/jsdos/**",
           "**/assets/pico8/**",
+          "**/assets/gme/**",
           "**/assets/easyrpg/**",
         ],
       },

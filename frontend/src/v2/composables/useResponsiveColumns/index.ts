@@ -9,7 +9,7 @@ import { useResizeObserver } from "@vueuse/core";
 import { onMounted, ref, watch, type Ref, type ShallowRef } from "vue";
 
 /** A value that may be a constant or a reactive getter. Getters let the
- *  caller vary card width / inset by breakpoint and have the column count
+ *  caller vary card width by breakpoint and have the column count
  *  recompute automatically (e.g. smaller cards + tighter gutters on xs). */
 type Dynamic = number | (() => number);
 
@@ -26,10 +26,6 @@ interface Options {
   gap?: Dynamic;
   /** Minimum column count (default 1). */
   min?: number;
-  /** Pixels to subtract from the observed width before computing columns
-   * (e.g., the container's left+right padding, or sibling chrome that
-   * shares the bounding rect). Default 0. May be a getter. */
-  inset?: Dynamic;
 }
 
 export function useResponsiveColumns(
@@ -39,11 +35,11 @@ export function useResponsiveColumns(
   const min = options.min ?? 1;
 
   const columns = ref<number>(min);
-  // Observed content width minus `inset`: px available to a row of cards,
+  // Observed content width: px available to a row of cards,
   // for consumers that flow-pack by width rather than a fixed column count.
   const usableWidth = ref<number>(0);
   // Last observed width: kept so a change in a reactive option (card
-  // width / inset flipping at a breakpoint) can recompute without waiting
+  // width flipping at a breakpoint) can recompute without waiting
   // for the next resize event.
   let lastWidth = 0;
 
@@ -51,23 +47,17 @@ export function useResponsiveColumns(
     lastWidth = width;
     const cardWidth = resolve(options.cardWidth, 158);
     const gap = resolve(options.gap, 12);
-    const inset = resolve(options.inset, 0);
-    const usable = width - inset;
-    if (usable <= 0) return;
-    if (usable !== usableWidth.value) usableWidth.value = usable;
+    if (width <= 0) return;
+    if (width !== usableWidth.value) usableWidth.value = width;
     // CSS auto-fill semantics: floor((containerWidth + gap) / (cardWidth + gap))
-    const next = Math.max(min, Math.floor((usable + gap) / (cardWidth + gap)));
+    const next = Math.max(min, Math.floor((width + gap) / (cardWidth + gap)));
     if (next !== columns.value) columns.value = next;
   }
 
   // Recompute when a reactive option changes (breakpoint flip) using the
   // last observed width. Tracks the getters by evaluating them here.
   watch(
-    () => [
-      resolve(options.cardWidth, 158),
-      resolve(options.gap, 12),
-      resolve(options.inset, 0),
-    ],
+    () => [resolve(options.cardWidth, 158), resolve(options.gap, 12)],
     () => {
       if (lastWidth > 0) compute(lastWidth);
     },
@@ -78,10 +68,15 @@ export function useResponsiveColumns(
     for (const entry of entries) compute(entry.contentRect.width);
   });
 
-  // Measure now so the first render has a column count before the observer's
-  // first callback.
+  // Measure the content box now, as the observer does, so the first render has
+  // a column count before its first callback.
   onMounted(() => {
-    if (containerRef.value) compute(containerRef.value.clientWidth);
+    const el = containerRef.value;
+    if (!el) return;
+    const { paddingLeft, paddingRight } = getComputedStyle(el);
+    const padX =
+      (parseFloat(paddingLeft) || 0) + (parseFloat(paddingRight) || 0);
+    compute(el.clientWidth - padX);
   });
 
   return { columns, usableWidth };
