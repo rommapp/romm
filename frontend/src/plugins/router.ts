@@ -656,19 +656,31 @@ function deferView(load: ViewLoader): Component {
   const view = defineAsyncComponent(load);
   const shell = defineComponent({
     name: "DeferredView",
-    inheritAttrs: false,
-    setup(_, { attrs, slots }) {
-      return () => h(view, attrs, slots);
-    },
+    setup: () => () => h(view),
   });
   deferredLoaders.set(shell, load);
   return shell;
 }
 
 const uiVersion = useUiVersion();
+const viewNames = () =>
+  uiVersion.value === "v2"
+    ? (["v2", "default"] as const)
+    : (["default", "v2"] as const);
+
+// Fetch the switched-to views together: a nested view would otherwise start
+// loading only once its parent layout has loaded and rendered.
+watch(uiVersion, () => {
+  const [active] = viewNames();
+  for (const record of router.currentRoute.value.matched) {
+    const view = record.components?.[active];
+    const load = view && deferredLoaders.get(view);
+    load?.().catch(() => {});
+  }
+});
+
 router.beforeEach((to, from) => {
-  const [active, inactive] =
-    uiVersion.value === "v2" ? ["v2", "default"] : ["default", "v2"];
+  const [active, inactive] = viewNames();
   for (const record of to.matched) {
     const views = record.components;
     if (!views) continue;

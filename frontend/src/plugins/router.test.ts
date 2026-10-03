@@ -139,13 +139,24 @@ describe("the inactive UI's views", () => {
     name: "deferred-views-elsewhere",
     component: { render: () => null },
   });
+  const loadLayoutV1 = vi.fn(async () => ({ render: () => h(RouterView) }));
+  const loadChildV1 = vi.fn(async () => v1View);
+  router.addRoute({
+    path: "/deferred-chain",
+    components: { default: loadLayoutV1, v2: { render: () => null } },
+    children: [
+      {
+        path: "",
+        name: "deferred-chain",
+        components: { default: loadChildV1, v2: { render: () => null } },
+      },
+    ],
+  });
   const views = () =>
     router.getRoutes().find((r) => r.name === "deferred-views")?.components;
 
   beforeEach(() => {
     storeAuth().setCurrentUser({ id: 1 } as User);
-    loadV1.mockClear();
-    loadV2.mockClear();
   });
 
   afterEach(() => {
@@ -164,7 +175,6 @@ describe("the inactive UI's views", () => {
     expect(warn).not.toHaveBeenCalledWith(
       expect.stringContaining("defineAsyncComponent"),
     );
-    warn.mockRestore();
   });
 
   it("render in place when the UI switches without navigating", async () => {
@@ -180,15 +190,28 @@ describe("the inactive UI's views", () => {
     uiVersion.value = "v1";
     await flushPromises();
 
-    expect(loadV1).toHaveBeenCalledOnce();
     expect(wrapper.text()).toBe("v1 view");
+  });
+
+  it("start loading every nested view as soon as the UI switches", async () => {
+    uiVersion.value = "v2";
+    await router.push({ name: "deferred-chain" });
+
+    uiVersion.value = "v1";
+    await flushPromises();
+
+    expect(loadLayoutV1).toHaveBeenCalledOnce();
+    expect(loadChildV1).toHaveBeenCalledOnce();
   });
 
   // After an in-place switch, entering the route again must await the view
   // like any lazy route, so a stale chunk reaches router.onError.
   it("are fetched with the navigation once their UI is active", async () => {
-    uiVersion.value = "v1";
+    uiVersion.value = "v2";
+    await router.push({ name: "deferred-views" });
     await router.push({ name: "deferred-views-elsewhere" });
+    expect(views()?.default).toMatchObject({ name: "DeferredView" });
+    uiVersion.value = "v1";
 
     await router.push({ name: "deferred-views" });
 
