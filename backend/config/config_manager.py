@@ -31,6 +31,7 @@ from exceptions.config_exceptions import ConfigNotWritableException
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.database import get_nested
 
 # Macros of a library structure template. `{platform}` is the platform folder and
 # `{game}` is the terminal, marking where the game itself begins.
@@ -572,14 +573,6 @@ class Config:
         return "/".join(self.default_structure.platform_dir)
 
 
-def _config_get(obj: Any, path: str, default: Any = None) -> Any:
-    for key in path.split("."):
-        if not isinstance(obj, dict) or key not in obj:
-            return default
-        obj = obj[key]
-    return obj
-
-
 class ConfigManager:
     """
     Parse and load the user configuration from the config.yml file.
@@ -708,7 +701,7 @@ class ConfigManager:
 
     def _raw_exclude_list(self, path: str) -> list[str]:
         """Read a user exclude list, exiting on anything but a list of strings."""
-        value = _config_get(self._raw_config, path)
+        value = get_nested(self._raw_config, path)
         if value is None:
             return []
         if not isinstance(value, list):
@@ -776,45 +769,45 @@ class ConfigManager:
                     *self._raw_exclude_list("exclude.roms.multi_file.parts.names"),
                 }
             ),
-            PLATFORMS_BINDING=_config_get(self._raw_config, "system.platforms", {})
+            PLATFORMS_BINDING=get_nested(self._raw_config, "system.platforms", {})
             or {},
-            PLATFORMS_VERSIONS=_config_get(self._raw_config, "system.versions", {})
+            PLATFORMS_VERSIONS=get_nested(self._raw_config, "system.versions", {})
             or {},
-            SKIP_HASH_CALCULATION=_config_get(
+            SKIP_HASH_CALCULATION=get_nested(
                 self._raw_config, "filesystem.skip_hash_calculation", False
             ),
-            SKIP_TITLE_ID_EXTRACTION=_config_get(
+            SKIP_TITLE_ID_EXTRACTION=get_nested(
                 self._raw_config, "filesystem.skip_title_id_extraction", False
             ),
-            EMBED_SWITCH_TITLE_IDS=_config_get(
+            EMBED_SWITCH_TITLE_IDS=get_nested(
                 self._raw_config, "filesystem.embed_switch_title_ids", False
             ),
-            EJS_DEBUG=_config_get(self._raw_config, "emulatorjs.debug", False),
-            EJS_CACHE_LIMIT=_config_get(
+            EJS_DEBUG=get_nested(self._raw_config, "emulatorjs.debug", False),
+            EJS_CACHE_LIMIT=get_nested(
                 self._raw_config, "emulatorjs.cache_limit", None
             ),
-            EJS_DISABLE_AUTO_UNLOAD=_config_get(
+            EJS_DISABLE_AUTO_UNLOAD=get_nested(
                 self._raw_config, "emulatorjs.disable_auto_unload", False
             ),
-            EJS_DISABLE_BATCH_BOOTUP=_config_get(
+            EJS_DISABLE_BATCH_BOOTUP=get_nested(
                 self._raw_config, "emulatorjs.disable_batch_bootup", False
             ),
-            EJS_ENABLE_AUTO_SAVE_SYNC=_config_get(
+            EJS_ENABLE_AUTO_SAVE_SYNC=get_nested(
                 self._raw_config, "emulatorjs.auto_save_sync", True
             ),
-            EJS_NETPLAY_ENABLED=_config_get(
+            EJS_NETPLAY_ENABLED=get_nested(
                 self._raw_config, "emulatorjs.netplay.enabled", False
             ),
-            EJS_NETPLAY_ICE_SERVERS=_config_get(
+            EJS_NETPLAY_ICE_SERVERS=get_nested(
                 self._raw_config, "emulatorjs.netplay.ice_servers", []
             ),
-            EJS_DEFAULT_CORES=_config_get(
+            EJS_DEFAULT_CORES=get_nested(
                 self._raw_config, "emulatorjs.default_cores", {}
             )
             or {},
-            EJS_SETTINGS=_config_get(self._raw_config, "emulatorjs.settings", {}),
+            EJS_SETTINGS=get_nested(self._raw_config, "emulatorjs.settings", {}),
             EJS_CONTROLS=self._get_ejs_controls(),
-            SCAN_METADATA_PRIORITY=_config_get(
+            SCAN_METADATA_PRIORITY=get_nested(
                 self._raw_config,
                 "scan.priority.metadata",
                 [
@@ -834,7 +827,7 @@ class ConfigManager:
                     "csdb",
                 ],
             ),
-            SCAN_ARTWORK_PRIORITY=_config_get(
+            SCAN_ARTWORK_PRIORITY=get_nested(
                 self._raw_config,
                 "scan.priority.artwork",
                 [
@@ -859,25 +852,25 @@ class ConfigManager:
             SCAN_ARTWORK_PRIORITY_OVERRIDES={
                 field: override
                 for key, field in ARTWORK_PRIORITY_KEYS.items()
-                if (override := _config_get(self._raw_config, f"scan.priority.{key}"))
+                if (override := get_nested(self._raw_config, f"scan.priority.{key}"))
                 is not None
             },
-            SCAN_REGION_PRIORITY=_config_get(
+            SCAN_REGION_PRIORITY=get_nested(
                 self._raw_config,
                 "scan.priority.region",
                 ["us", "wor", "ss", "eu", "jp"],
             ),
-            SCAN_REGION_MODE=_config_get(
+            SCAN_REGION_MODE=get_nested(
                 self._raw_config,
                 "scan.priority.region_mode",
                 "prefer_rom_tags",
             ),
-            SCAN_LANGUAGE_PRIORITY=_config_get(
+            SCAN_LANGUAGE_PRIORITY=get_nested(
                 self._raw_config,
                 "scan.priority.language",
                 ["en"],
             ),
-            SCAN_MEDIA=_config_get(
+            SCAN_MEDIA=get_nested(
                 self._raw_config,
                 "scan.media",
                 [
@@ -886,40 +879,40 @@ class ConfigManager:
                     "manual",
                 ],
             ),
-            GAMELIST_AUTO_EXPORT_ON_SCAN=_config_get(
+            GAMELIST_AUTO_EXPORT_ON_SCAN=get_nested(
                 self._raw_config, "scan.gamelist.export", False
             ),
-            GAMELIST_MEDIA_THUMBNAIL=_config_get(
+            GAMELIST_MEDIA_THUMBNAIL=get_nested(
                 self._raw_config,
                 "scan.gamelist.media.thumbnail",
                 MetadataMediaType.BOX2D,
             ),
-            GAMELIST_MEDIA_IMAGE=_config_get(
+            GAMELIST_MEDIA_IMAGE=get_nested(
                 self._raw_config,
                 "scan.gamelist.media.image",
                 MetadataMediaType.SCREENSHOT,
             ),
-            PEGASUS_AUTO_EXPORT_ON_SCAN=_config_get(
+            PEGASUS_AUTO_EXPORT_ON_SCAN=get_nested(
                 self._raw_config, "scan.pegasus.export", False
             ),
-            STREAMING_ENABLED=_config_get(self._raw_config, "streaming.enabled", False),
-            STREAMING_CONTAINERS=_config_get(
+            STREAMING_ENABLED=get_nested(self._raw_config, "streaming.enabled", False),
+            STREAMING_CONTAINERS=get_nested(
                 self._raw_config, "streaming.containers", []
             ),
             CONVERTO=ConvertoConfig(
                 **{
-                    key: _config_get(self._raw_config, f"converto.{key}", default)
+                    key: get_nested(self._raw_config, f"converto.{key}", default)
                     for key, default in dataclasses.asdict(ConvertoConfig()).items()
                 }
             ),
-            STRUCTURE_TEMPLATES=_config_get(
+            STRUCTURE_TEMPLATES=get_nested(
                 self._raw_config, "filesystem.structure", {}
             ),
         )
 
     def _get_ejs_controls(self) -> dict[str, EjsControls]:
         """Get EJS controls with default player entries for each core"""
-        raw_controls = _config_get(self._raw_config, "emulatorjs.controls", {})
+        raw_controls = get_nested(self._raw_config, "emulatorjs.controls", {})
         controls = {}
 
         for core, core_controls in raw_controls.items():
@@ -995,7 +988,7 @@ class ConfigManager:
             ),
         }
         for key, (structure_key, to_template) in retired.items():
-            folder = _config_get(self._raw_config, key)
+            folder = get_nested(self._raw_config, key)
             if folder is None:
                 continue
             log.critical(
