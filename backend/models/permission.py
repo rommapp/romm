@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+from typing import Final
 
 from sqlalchemy import (
     Boolean,
@@ -11,10 +12,14 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import BaseModel
+
+# The highest age a group or user age limit can be set to.
+MAX_AGE_LIMIT: Final = 21
 
 
 class PermEntity(enum.StrEnum):
@@ -88,6 +93,11 @@ class PermissionGroup(BaseModel):
     # Optional hex color (e.g. "#7c5cff") used by the admin UI to render the
     # group as a colored pill/dot. NULL falls back to a neutral tone.
     color: Mapped[str | None] = mapped_column(String(9), nullable=True)
+    # Members only see ROMs rated for this age or younger; NULL sets no limit.
+    age_limit: Mapped[int | None] = mapped_column(Integer(), nullable=True)
+    hide_unrated_roms: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
 
     grants: Mapped[list[PermissionGroupGrant]] = relationship(
         back_populates="group",
@@ -170,6 +180,37 @@ class HiddenEntity(BaseModel):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     entity: Mapped[PermEntity] = mapped_column(_str_enum(PermEntity, 20))
     entity_id: Mapped[int] = mapped_column(Integer, index=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("permission_groups.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+
+
+class AgeRatingExemption(BaseModel):
+    """A ROM a user or group may see whatever its age rating.
+
+    Exactly one principal is set (``user_id`` XOR ``group_id``). It lifts only
+    the age limit, never an explicit hide.
+    """
+
+    __tablename__ = "age_rating_exemptions"
+    __table_args__ = (
+        UniqueConstraint("rom_id", "user_id", "group_id", name="uq_age_exemption"),
+        CheckConstraint(
+            "(user_id IS NULL) <> (group_id IS NULL)",
+            name="ck_age_exemption_one_principal",
+        ),
+        {"extend_existing": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    rom_id: Mapped[int] = mapped_column(
+        ForeignKey("roms.id", ondelete="CASCADE"), index=True
+    )
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
     )

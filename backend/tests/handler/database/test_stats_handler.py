@@ -67,6 +67,22 @@ class TestRegionBreakdown:
 
         assert breakdown[platform.id] == [{"region": "USA", "count": 1}]
 
+    def test_roms_above_the_age_limit_are_excluded(self):
+        platform = _add_platform("platform_a")
+        make_rom(platform, "a1", regions=["USA"])
+        make_rom(
+            platform,
+            "a2",
+            regions=["USA"],
+            igdb_metadata={"age_ratings": [{"category": "PEGI", "rating": "18"}]},
+        )
+
+        breakdown = db_stats_handler.get_region_breakdown_by_platform(
+            RomVisibilityFilter(age_limit=16)
+        )
+        assert breakdown[platform.id] == [{"region": "USA", "count": 1}]
+        assert db_stats_handler.get_roms_count(RomVisibilityFilter(age_limit=16)) == 1
+
 
 class TestMetadataCoverage:
     def test_counts_matched_sources_per_platform(self):

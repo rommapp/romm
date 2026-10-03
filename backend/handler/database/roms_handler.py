@@ -90,6 +90,7 @@ from models.rom import (
     fold_search_title,
 )
 from utils import get_version
+from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age
 from utils.database import (
     ROMS_SEARCH_FULLTEXT_COLUMNS,
     SORTABLE_NULLABLE_ROM_COLUMNS,
@@ -678,6 +679,7 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
                     Rom.id,
                     Rom.name,
                     Rom.platform_id,
+                    Rom.min_age,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
                 ),
@@ -728,6 +730,7 @@ def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
                     Rom.id,
                     Rom.name,
                     Rom.platform_id,
+                    Rom.min_age,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
                 ),
@@ -856,13 +859,15 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomVisibility | None:
         """The id and platform id a visibility check needs, nothing else."""
         row = session.execute(
-            select(Rom.id, Rom.platform_id).where(Rom.id == id)
+            select(Rom.id, Rom.platform_id, Rom.min_age).where(Rom.id == id)
         ).one_or_none()
 
         if row is None:
             return None
 
-        return RomVisibility(id=row.id, platform_id=row.platform_id)
+        return RomVisibility(
+            id=row.id, platform_id=row.platform_id, min_age=row.min_age
+        )
 
     @begin_session
     def get_rom_visibility_label(
@@ -873,14 +878,20 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomVisibilityLabel | None:
         """`get_rom_visibility` plus the name pair the file-delete logs need."""
         row = session.execute(
-            select(Rom.id, Rom.platform_id, Rom.name, Rom.fs_name).where(Rom.id == id)
+            select(Rom.id, Rom.platform_id, Rom.min_age, Rom.name, Rom.fs_name).where(
+                Rom.id == id
+            )
         ).one_or_none()
 
         if row is None:
             return None
 
         return RomVisibilityLabel(
-            id=row.id, platform_id=row.platform_id, name=row.name, fs_name=row.fs_name
+            id=row.id,
+            platform_id=row.platform_id,
+            min_age=row.min_age,
+            name=row.name,
+            fs_name=row.fs_name,
         )
 
     @begin_session
@@ -895,6 +906,7 @@ class DBRomsHandler(DBBaseHandler):
             select(
                 Rom.id,
                 Rom.platform_id,
+                Rom.min_age,
                 Platform.slug.label("platform_slug"),
                 Rom.missing_from_fs,
             )
@@ -908,6 +920,7 @@ class DBRomsHandler(DBBaseHandler):
         return RomInstallTarget(
             id=row.id,
             platform_id=row.platform_id,
+            min_age=row.min_age,
             platform_slug=row.platform_slug,
             missing_from_fs=row.missing_from_fs,
         )
@@ -924,6 +937,7 @@ class DBRomsHandler(DBBaseHandler):
             select(
                 Rom.id,
                 Rom.platform_id,
+                Rom.min_age,
                 Rom.name,
                 Rom.fs_name,
                 Rom.fs_path,
@@ -941,6 +955,7 @@ class DBRomsHandler(DBBaseHandler):
         return RomDeletionTarget(
             id=row.id,
             platform_id=row.platform_id,
+            min_age=row.min_age,
             name=row.name,
             fs_name=row.fs_name,
             fs_path=row.fs_path,
@@ -2304,6 +2319,19 @@ class DBRomsHandler(DBBaseHandler):
                 ),
             }
 
+        if data.keys() & set(MIN_AGE_SOURCE_COLUMNS):
+            # The bulk update() skips the mapper event that keeps this in sync.
+            stored = session.get_one(Rom, id)
+            data = {
+                **data,
+                "min_age": compute_min_age(
+                    {
+                        column: data.get(column, getattr(stored, column))
+                        for column in MIN_AGE_SOURCE_COLUMNS
+                    }
+                ),
+            }
+
         if "fs_name" in data:
             parts = compute_file_name_parts(data["fs_name"])
             data = {
@@ -2804,7 +2832,7 @@ class DBRomsHandler(DBBaseHandler):
                 select(RomFile)
                 .options(
                     selectinload(RomFile.track_meta),
-                    joinedload(RomFile.rom).load_only(Rom.platform_id),
+                    joinedload(RomFile.rom).load_only(Rom.platform_id, Rom.min_age),
                 )
                 .where(RomFile.id.in_(ids))
             )

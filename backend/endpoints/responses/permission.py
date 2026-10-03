@@ -12,12 +12,14 @@ this phase; per-resource scoping is reserved for later.
 from __future__ import annotations
 
 import enum
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from handler.auth.permissions import ResolvedPermissions
-from models.permission import PermAction, PermEntity, SystemGroupKey
+from models.permission import MAX_AGE_LIMIT, PermAction, PermEntity, SystemGroupKey
+
+AgeLimit = Annotated[int, Field(ge=0, le=MAX_AGE_LIMIT)]
 
 
 class ActionKey(enum.StrEnum):
@@ -171,6 +173,11 @@ class PermissionGroupSchema(BaseModel):
     # Entities hidden from every member of this group (admin override still
     # applies per-user on top). Empty for groups with no group-level hides.
     hidden: list[HiddenEntitySchema] = []
+    # Members see only ROMs rated for this age or younger; null sets no limit.
+    age_limit: int | None = None
+    hide_unrated_roms: bool = False
+    # ROMs members see whatever their rating.
+    age_exempt_rom_ids: list[int] = []
 
     model_config = {"from_attributes": True}
 
@@ -181,6 +188,9 @@ class PermissionGroupCreate(BaseModel):
     is_default: bool = False
     color: str | None = None
     grants: list[GrantSchemaIO] = []
+    age_limit: AgeLimit | None = None
+    hide_unrated_roms: bool = False
+    age_exempt_rom_ids: list[int] = []
 
 
 class PermissionGroupUpdate(BaseModel):
@@ -189,6 +199,12 @@ class PermissionGroupUpdate(BaseModel):
     is_default: bool | None = None
     color: str | None = None
     grants: list[GrantSchemaIO] | None = None
+    # `age_limit` applies only with `set_age_limit`, since null clears it.
+    age_limit: AgeLimit | None = None
+    set_age_limit: bool = False
+    hide_unrated_roms: bool | None = None
+    # Replaces the group's exemptions; ids without a ROM are dropped.
+    age_exempt_rom_ids: list[int] | None = None
 
 
 class OverrideSchemaIO(BaseModel):
@@ -218,6 +234,10 @@ class UserPermissionsSchema(BaseModel):
     permission_group_id: int | None
     overrides: list[OverrideSchemaIO]
     hidden: list[HiddenEntitySchema]
+    # Replacements for the group's age settings; null inherits the group's.
+    age_limit: int | None = None
+    hide_unrated_roms: bool | None = None
+    age_exempt_rom_ids: list[int] = []
 
 
 class UserPermissionsUpdate(BaseModel):
@@ -226,6 +246,12 @@ class UserPermissionsUpdate(BaseModel):
     permission_group_id: int | None = None
     set_group: bool = False
     overrides: list[OverrideSchemaIO] | None = None
+    # With `set_age_settings`, both are written as given; null inherits.
+    age_limit: AgeLimit | None = None
+    hide_unrated_roms: bool | None = None
+    set_age_settings: bool = False
+    # Replaces the user's exemptions; ids without a ROM are dropped.
+    age_exempt_rom_ids: list[int] | None = None
 
 
 class PermissionCatalogSchema(BaseModel):

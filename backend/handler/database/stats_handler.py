@@ -22,7 +22,9 @@ from .base_handler import DBBaseHandler
 def _facets_clauses(visibility: RomVisibilityFilter) -> list[ColumnElement[bool]]:
     """`visibility` over the `roms_facets` mirror, so it needs no join to `roms`."""
     return visibility.clauses(
-        platform_id_col=RomFacets.platform_id, rom_id_col=RomFacets.rom_id
+        platform_id_col=RomFacets.platform_id,
+        rom_id_col=RomFacets.rom_id,
+        min_age_col=RomFacets.min_age,
     )
 
 

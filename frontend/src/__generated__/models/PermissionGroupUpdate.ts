@@ -9,5 +9,9 @@ export type PermissionGroupUpdate = {
     is_default?: (boolean | null);
     color?: (string | null);
     grants?: (Array<GrantSchemaIO> | null);
+    age_limit?: (number | null);
+    set_age_limit?: boolean;
+    hide_unrated_roms?: (boolean | null);
+    age_exempt_rom_ids?: (Array<number> | null);
 };
 

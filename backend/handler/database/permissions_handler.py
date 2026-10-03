@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
 from models.permission import (
+    AgeRatingExemption,
     HiddenEntity,
     PermAction,
     PermEntity,
@@ -13,6 +14,7 @@ from models.permission import (
     SystemGroupKey,
     UserPermissionOverride,
 )
+from models.rom import Rom
 from models.user import User
 
 from .base_handler import DBBaseHandler
@@ -89,6 +91,50 @@ class DBPermissionsHandler(DBBaseHandler):
         ).all()
         return set(rows)
 
+    @begin_session
+    def get_age_exempt_rom_ids(
+        self,
+        user_id: int | None,
+        group_id: int | None,
+        session: Session = INJECTED_SESSION,
+    ) -> set[int]:
+        """Ids of the ROMs the given user OR their group sees past an age limit."""
+        principals = []
+        if user_id is not None:
+            principals.append(AgeRatingExemption.user_id == user_id)
+        if group_id is not None:
+            principals.append(AgeRatingExemption.group_id == group_id)
+        if not principals:
+            return set()
+
+        return set(
+            session.scalars(
+                select(AgeRatingExemption.rom_id).where(or_(*principals))
+            ).all()
+        )
+
+    @begin_session
+    def replace_age_exemptions(
+        self,
+        rom_ids: Iterable[int],
+        *,
+        user_id: int | None = None,
+        group_id: int | None = None,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Replace one principal's exemptions with the ROMs in `rom_ids` that exist."""
+        session.execute(
+            delete(AgeRatingExemption).where(
+                AgeRatingExemption.user_id == user_id,
+                AgeRatingExemption.group_id == group_id,
+            )
+        )
+        existing = session.scalars(select(Rom.id).where(Rom.id.in_(set(rom_ids)))).all()
+        session.add_all(
+            AgeRatingExemption(rom_id=rom_id, user_id=user_id, group_id=group_id)
+            for rom_id in existing
+        )
+
     # --- Admin CRUD: groups ---------------------------------------------------
 
     @begin_session
@@ -134,6 +180,8 @@ class DBPermissionsHandler(DBBaseHandler):
         is_default: bool = False,
         color: str | None = None,
         grants: Iterable[GrantTuple] = (),
+        age_limit: int | None = None,
+        hide_unrated_roms: bool = False,
         session: Session = INJECTED_SESSION,
     ) -> PermissionGroup:
         group = PermissionGroup(
@@ -141,6 +189,8 @@ class DBPermissionsHandler(DBBaseHandler):
             description=description,
             is_default=is_default,
             color=color,
+            age_limit=age_limit,
+            hide_unrated_roms=hide_unrated_roms,
         )
         session.add(group)
         session.flush()
@@ -160,11 +210,20 @@ class DBPermissionsHandler(DBBaseHandler):
         is_default: bool | None = None,
         color: str | None = None,
         grants: Iterable[GrantTuple] | None = None,
+        set_age_limit: bool = False,
+        age_limit: int | None = None,
+        hide_unrated_roms: bool | None = None,
         session: Session = INJECTED_SESSION,
     ) -> PermissionGroup | None:
+        """Change the given fields; `age_limit` applies only with `set_age_limit`,
+        since None there clears the limit."""
         group = session.get(PermissionGroup, group_id)
         if group is None:
             return None
+        if set_age_limit:
+            group.age_limit = age_limit
+        if hide_unrated_roms is not None:
+            group.hide_unrated_roms = hide_unrated_roms
         if name is not None:
             group.name = name
         if description is not None:
