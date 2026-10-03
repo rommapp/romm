@@ -13,8 +13,8 @@
 //   D-pad up / down / left / right → Arrow{Up,Down,Left,Right}
 //   Left stick (above threshold)   → Arrow* (with initial delay + repeat)
 //   A button (0)                   → activate focused element (click)
-//   B button (1)                   → Escape
-//   Back / Select (8)              → Escape
+//   B button (1)                   → Escape, else history back
+//   Back / Select (8)              → same as B
 //   Start (9)                      → open user menu
 //   LB (4) / RB (5)                → AppNav section prev / next (cyclic)
 //
@@ -36,10 +36,7 @@ import { onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import storePlaying from "@/stores/playing";
 import { useInputModality } from "@/v2/composables/useInputModality";
-import {
-  closeTopEscapable,
-  hasOpenEscapable,
-} from "@/v2/lib/overlays/RDialog/escapeStack.js";
+import { hasOpenEscapable } from "@/v2/lib/overlays/RDialog/escapeStack.js";
 
 // AppNav tab order: must match the `tabs` list in
 // `src/v2/components/AppShell/AppNav.vue`. LB/RB cycle through these.
@@ -110,6 +107,8 @@ const ARROWS = {
   right: { key: "ArrowRight", code: "ArrowRight" },
 } satisfies Record<string, Binding>;
 
+const ESCAPE: Binding = { key: "Escape", code: "Escape" };
+
 // Standard gamepad button index → synthetic keyboard event. Only the
 // navigational keys live here (arrows); face buttons and bumpers get
 // handled by BUTTON_ACTIONS below where a .click() / router.push() can
@@ -131,7 +130,7 @@ export function isUsablePad(pad: Gamepad | null): pad is Gamepad {
 
 const padEvents = new WeakSet<Event>();
 
-/** True when `event` is a key useGamepad dispatched for the D-pad or stick. */
+/** True when `event` is a key useGamepad dispatched for the pad. */
 export function isPadEvent(event: Event): boolean {
   return padEvents.has(event);
 }
@@ -145,7 +144,8 @@ function holdsExitChord(pad: Gamepad): boolean {
   );
 }
 
-function dispatchKey(binding: Binding) {
+// Returns true when a handler claimed the keydown with preventDefault.
+function dispatchKey(binding: Binding): boolean {
   const target =
     (document.activeElement as HTMLElement | null) ?? document.body;
   const init: KeyboardEventInit = {
@@ -154,11 +154,14 @@ function dispatchKey(binding: Binding) {
     bubbles: true,
     cancelable: true,
   };
+  let claimed = false;
   for (const type of ["keydown", "keyup"]) {
     const event = new KeyboardEvent(type, init);
     padEvents.add(event);
-    target.dispatchEvent(event);
+    const notCancelled = target.dispatchEvent(event);
+    if (type === "keydown") claimed = !notCancelled;
   }
+  return claimed;
 }
 
 type ButtonState = { pressed: boolean; nextRepeatAt: number };
@@ -223,28 +226,19 @@ export function useGamepad() {
     trigger?.click();
   }
 
-  // Navigate backwards. If any v2 overlay (RDialog, RMenu, RDrawer, …)
-  // is currently open we close the topmost one first: one B press
-  // shouldn't both dismiss an overlay AND pop a history entry. With
-  // nothing open it falls through to `router.back()`.
-  //
-  // Source of truth is the shared escape stack in
-  // `lib/overlays/RDialog/escapeStack.ts`: every escapable surface
-  // pushes itself there while open, so this check is Vuetify-free and
-  // doesn't depend on any DOM marker class.
+  // B is Escape first: whatever Escape would dismiss (an overlay on the
+  // escape stack, gallery selection, an inline edit) takes the press and
+  // claims it with preventDefault. Only an unclaimed press pops history,
+  // so one B never both dismisses something and navigates.
   function goBack() {
-    if (hasOpenEscapable()) {
-      closeTopEscapable();
-      return;
-    }
-    router.back();
+    if (!dispatchKey(ESCAPE)) router.back();
   }
 
   // Button-index → zero-argument action. Unlike BUTTON_MAP these don't
   // fire a repeat while held; one press = one action.
   const BUTTON_ACTIONS: Record<number, () => void> = {
     0: activateFocused, //          A / Cross: activate (navigate/click)
-    1: goBack, //                   B / Circle: history back (or close modal)
+    1: goBack, //                   B / Circle: Escape, else history back
     4: () => cycleSection(-1), //   LB / L1: previous AppNav section
     5: () => cycleSection(1), //    RB / R1: next AppNav section
     8: goBack, //                   Back / Share: same as B

@@ -16,9 +16,11 @@ import {
   useGamepad,
 } from "./index";
 
+const router = vi.hoisted(() => ({ push: vi.fn(), back: vi.fn() }));
+
 vi.mock("vue-router", () => ({
   useRoute: () => ({ path: "/platforms" }),
-  useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
+  useRouter: () => router,
 }));
 
 const PUSHED = AXIS_THRESHOLD + 0.2;
@@ -161,6 +163,67 @@ describe("useGamepad", () => {
     expect(isPadEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }))).toBe(
       false,
     );
+  });
+
+  describe("B", () => {
+    beforeEach(() => {
+      router.back.mockClear();
+      storePlaying().setPlaying(false);
+    });
+
+    it("goes back when nothing claims the Escape it sends", () => {
+      installOnMouse(padHolding(PAD_BUTTON.b));
+
+      step();
+
+      expect(keys).toEqual(["Escape"]);
+      expect(router.back).toHaveBeenCalledOnce();
+    });
+
+    it("closes the top overlay instead of going back", () => {
+      const close = vi.fn();
+      const dialog = { close, persistent: false };
+      pushEscapable(dialog);
+      try {
+        installOnMouse(padHolding(PAD_BUTTON.b));
+        step();
+      } finally {
+        popEscapable(dialog);
+      }
+
+      expect(close).toHaveBeenCalledOnce();
+      expect(router.back).not.toHaveBeenCalled();
+    });
+
+    it("stays put under a persistent overlay", () => {
+      const close = vi.fn();
+      const dialog = { close, persistent: true };
+      pushEscapable(dialog);
+      try {
+        installOnMouse(padHolding(PAD_BUTTON.b));
+        step();
+      } finally {
+        popEscapable(dialog);
+      }
+
+      expect(close).not.toHaveBeenCalled();
+      expect(router.back).not.toHaveBeenCalled();
+    });
+
+    it("leaves history alone when a view's Escape handler claims the press", () => {
+      const claim = (e: KeyboardEvent) => {
+        if (e.key === "Escape") e.preventDefault();
+      };
+      window.addEventListener("keydown", claim);
+      try {
+        installOnMouse(padHolding(PAD_BUTTON.b));
+        step();
+      } finally {
+        window.removeEventListener("keydown", claim);
+      }
+
+      expect(router.back).not.toHaveBeenCalled();
+    });
   });
 
   describe("exit chord", () => {

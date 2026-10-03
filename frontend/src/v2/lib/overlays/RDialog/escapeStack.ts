@@ -13,10 +13,9 @@
 // listbox, the body itself). A single capture-phase listener on
 // `window` sidesteps both.
 //
-// The stack also doubles as the "is any v2 overlay currently open?"
-// registry: `useGamepad`'s B/back action calls `hasOpenEscapable()`
-// to decide between "close the top overlay" and "router.back()", so
-// gamepad dismiss and Esc share the same source of truth.
+// The listener claims the key with preventDefault, persistent layers
+// included, so `useGamepad`'s B (which dispatches a synthetic Escape)
+// can tell an overlay took it from nothing having handled it.
 //
 // Pushing also notifies `onEscapableOpen` subscribers, so surfaces that
 // paint above every overlay (RTooltip) can dismiss themselves.
@@ -38,9 +37,10 @@ const openListeners = new Set<() => void>();
 function onWindowKeyDown(evt: KeyboardEvent) {
   if (evt.key !== "Escape") return;
   const top = stack[stack.length - 1];
-  if (!top || top.persistent) return;
+  if (!top) return;
   evt.stopPropagation();
-  top.close();
+  evt.preventDefault();
+  if (!top.persistent) top.close();
 }
 
 function attachListener() {
@@ -106,14 +106,6 @@ export function isInsideEscapableAbove(
  *  consistent behaviour across both keys. */
 export function hasOpenEscapable(): boolean {
   return stack.length > 0;
-}
-
-/** Close the topmost escapable overlay. No-op if the stack is empty or
- *  if the top entry is persistent. Mirrors what Esc does. */
-export function closeTopEscapable(): void {
-  const top = stack[stack.length - 1];
-  if (!top || top.persistent) return;
-  top.close();
 }
 
 /** Close every open overlay, innermost first. Used on route changes (see

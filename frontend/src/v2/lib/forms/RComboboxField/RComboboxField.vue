@@ -264,6 +264,8 @@ function onKeyDown(e: KeyboardEvent) {
       break;
     }
     case "Escape": {
+      // Unclaimed when closed, so pad B can still go back.
+      if (!isOpen.value) return;
       e.preventDefault();
       closePanel();
       break;
