@@ -53,7 +53,7 @@ const groups = computed<Group[]>(() => {
     const parts = raw.split(".");
     // Single-segment permission (`invite`, `reset`): its own group, no leaves.
     if (parts.length < 2) {
-      const key = parts[0]!;
+      const key = raw;
       if (!map.has(key)) {
         map.set(key, { label: key.toUpperCase(), sortKey: key, leaves: [] });
       }

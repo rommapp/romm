@@ -61,12 +61,8 @@ export function appriseFieldLabel(
   return key ? t(key) : field.label;
 }
 
-function isBlank(value: AppriseFieldValue | undefined): boolean {
-  return (
-    value === undefined ||
-    value === "" ||
-    (Array.isArray(value) && value.length === 0)
-  );
+function isBlank(value: AppriseFieldValue): boolean {
+  return value === "" || (Array.isArray(value) && value.length === 0);
 }
 
 export function emptyValue(field: AppriseFieldSchema): AppriseFieldValue {

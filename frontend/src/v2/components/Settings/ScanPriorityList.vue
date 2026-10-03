@@ -129,8 +129,7 @@ function onDrop(e: DragEvent, index: number) {
   overIndex.value = null;
   if (from === null || from === index) return;
   const next = [...enabled.value];
-  const [moved] = next.splice(from, 1);
-  next.splice(index, 0, moved!);
+  next.splice(index, 0, ...next.splice(from, 1));
   emitNext(next);
 }
 

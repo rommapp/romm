@@ -92,7 +92,7 @@ const resolvedRounded = computed<string>(() => {
 // Elevation map: discrete shadow steps. Off-key values snap down to
 // the nearest tabulated step so a stray `elevation=5` still lands on
 // a system-approved shadow instead of a unique one-off.
-const ELEVATION_MAP: Record<number, string> & { 0: string } = {
+const ELEVATION_MAP: Record<number, string> = {
   0: "none",
   1: "0 1px 2px color-mix(in srgb, black 14%, transparent)",
   2: "0 2px 4px color-mix(in srgb, black 16%, transparent)",

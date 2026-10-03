@@ -363,20 +363,16 @@ const instance = getCurrentInstance();
 function hasListener(name: string): boolean {
   const props = instance?.vnode.props as Record<string, unknown> | null;
   if (!props) return false;
+  const head = `on${name.charAt(0).toUpperCase()}`;
+  const tail = name.slice(1);
   // verbatim → onClick:append-inner (Vue's actual template output)
-  const verbatim = `on${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+  const verbatim = `${head}${tail}`;
   // kebab→camel inside the arg → onClick:appendInner
-  const argCamel = `on${name.charAt(0).toUpperCase()}${name
-    .slice(1)
-    .replace(/-(\w)/g, (_, c) => c.toUpperCase())}`;
+  const argCamel = `${head}${tail.replace(/-(\w)/g, (_, c) => c.toUpperCase())}`;
   // capitalised after the colon → onClick:Append-inner
-  const colonCap = `on${name.charAt(0).toUpperCase()}${name
-    .slice(1)
-    .replace(/:(\w)/g, (_, c) => `:${c.toUpperCase()}`)}`;
+  const colonCap = `${head}${tail.replace(/:(\w)/g, (_, c) => `:${c.toUpperCase()}`)}`;
   // no colon, camelCase tail → onClickAppend-inner
-  const flat = `on${name.charAt(0).toUpperCase()}${name
-    .slice(1)
-    .replace(/:(\w)/g, (_, c) => c.toUpperCase())}`;
+  const flat = `${head}${tail.replace(/:(\w)/g, (_, c) => c.toUpperCase())}`;
   return (
     !!props[verbatim] || !!props[argCamel] || !!props[colonCap] || !!props[flat]
   );

@@ -52,7 +52,7 @@ const ROLE_TONE: Record<string, RoleTone> = {
   user: "info",
 };
 function roleToneFor(role: string | undefined): RoleTone {
-  return (role ? ROLE_TONE[role] : undefined) ?? "info";
+  return ROLE_TONE[role ?? ""] ?? "info";
 }
 
 // Header reflects the SAVED user (auth store), not the in-progress

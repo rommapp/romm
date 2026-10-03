@@ -345,7 +345,8 @@ export function useGamepad() {
         //     the saves/states tab).
         // A button can be in any combination; press-edge always emits the
         // CustomEvent regardless of built-in semantics.
-        for (const [i, button] of pad.buttons.entries()) {
+        for (let i = 0; i < pad.buttons.length; i++) {
+          const button = pad.buttons[i]!;
           const binding = BUTTON_MAP[i];
           const action = BUTTON_ACTIONS[i];
           const prev = (st.buttons[i] ||= { pressed: false, nextRepeatAt: 0 });

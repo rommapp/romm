@@ -51,49 +51,47 @@ const PROVIDER_LABELS = {
   gamelist: "ES-DE gamelist",
   libretro: "Libretro",
   playmatch: "Playmatch",
-} satisfies Record<string, string>;
-const METADATA_SOURCES = (
-  [
-    "igdb",
-    "moby",
-    "ss",
-    "ra",
-    "launchbox",
-    "gamelist",
-    "hasheous",
-    "tgdb",
-    "flashpoint",
-    "steam",
-    "hltb",
-    "demozoo",
-    "pouet",
-    "csdb",
-    "sgdb",
-    "libretro",
-    "playmatch",
-  ] as const
-).map((value) => ({ value, label: PROVIDER_LABELS[value] }));
-const ARTWORK_SOURCES = (
-  [
-    "sgdb",
-    "igdb",
-    "moby",
-    "ss",
-    "libretro",
-    "ra",
-    "launchbox",
-    "gamelist",
-    "hasheous",
-    "tgdb",
-    "flashpoint",
-    "steam",
-    "hltb",
-    "demozoo",
-    "pouet",
-    "csdb",
-    "playmatch",
-  ] as const
-).map((value) => ({ value, label: PROVIDER_LABELS[value] }));
+};
+const toSources = (keys: (keyof typeof PROVIDER_LABELS)[]) =>
+  keys.map((value) => ({ value, label: PROVIDER_LABELS[value] }));
+const METADATA_SOURCES = toSources([
+  "igdb",
+  "moby",
+  "ss",
+  "ra",
+  "launchbox",
+  "gamelist",
+  "hasheous",
+  "tgdb",
+  "flashpoint",
+  "steam",
+  "hltb",
+  "demozoo",
+  "pouet",
+  "csdb",
+  "sgdb",
+  "libretro",
+  "playmatch",
+]);
+const ARTWORK_SOURCES = toSources([
+  "sgdb",
+  "igdb",
+  "moby",
+  "ss",
+  "libretro",
+  "ra",
+  "launchbox",
+  "gamelist",
+  "hasheous",
+  "tgdb",
+  "flashpoint",
+  "steam",
+  "hltb",
+  "demozoo",
+  "pouet",
+  "csdb",
+  "playmatch",
+]);
 
 // Common provider region / language codes, offered as one-click
 // suggestions. Users may still type any provider-defined code.
