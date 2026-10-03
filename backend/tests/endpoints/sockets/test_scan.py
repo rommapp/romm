@@ -1298,6 +1298,27 @@ class TestIdentifyRomNewEntryInsert:
         assert created.fs_size_bytes == 1536
         assert created.title_id == "0100ABCD12340000"
 
+    async def test_insert_without_files_leaves_file_columns_unset(self, mocker):
+        db, platform = patch_identify_rom(
+            mocker,
+            parsed=ParsedRomFiles(
+                rom_files=[], crc_hash="", md5_hash="", sha1_hash="", ra_hash=""
+            ),
+            roms_fs_structure="n64/roms",
+            name_with_no_tags="Game",
+            platform_slug="n64",
+        )
+        db.get_matching_missing_rom.return_value = None
+
+        await run_identify_rom(platform, make_fs_rom("Game.z64"))
+
+        created = db.add_rom.call_args_list[0].args[0]
+        assert (created.crc_hash, created.fs_size_bytes, created.title_id) == (
+            None,
+            None,
+            None,
+        )
+
 
 class TestIdentifyRomPersistsFileCategory:
     """A file losing its category before `sync_rom_files` persists an update as

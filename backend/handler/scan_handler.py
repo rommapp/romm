@@ -231,6 +231,26 @@ def build_hashless_fs_rom(fs_name: str, fs_path: str, *, flat: bool) -> FSRom:
     return build_empty_fs_rom(fs_name, fs_path, flat=flat)
 
 
+def fs_rom_file_attrs(fs_rom: FSRom) -> dict[str, Any]:
+    """The hash, size and title id columns a listed `fs_rom` sets on its rom."""
+    if not fs_rom["files"]:
+        return {}
+
+    attrs: dict[str, Any] = {
+        "crc_hash": fs_rom["crc_hash"],
+        "md5_hash": fs_rom["md5_hash"],
+        "sha1_hash": fs_rom["sha1_hash"],
+        "ra_hash": fs_rom["ra_hash"],
+        "fs_size_bytes": sum(file.file_size_bytes for file in fs_rom["files"]),
+    }
+    # Only when extraction produced an id, so a hash-only or extraction-disabled
+    # rescan can't wipe the stored one.
+    identity = fs_rom.get("identity")
+    if identity and identity.title_id:
+        attrs.update(identity.as_rom_attrs())
+    return attrs
+
+
 def get_main_platform_igdb_id(platform: Platform) -> int | None:
     cnfg = cm.get_config()
 
@@ -608,27 +628,12 @@ async def scan_rom(
         "upc": rom.upc,
     }
 
-    # Check if files have been parsed and hashed
-    if len(fs_rom["files"]) > 0:
-        filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
-        rom_attrs.update(
-            {
-                "crc_hash": fs_rom["crc_hash"],
-                "md5_hash": fs_rom["md5_hash"],
-                "sha1_hash": fs_rom["sha1_hash"],
-                "ra_hash": fs_rom["ra_hash"],
-                "fs_size_bytes": filesize,
-            }
-        )
-
-        # Only overwrite title id values when extraction produced them, so a
-        # hash-only or extraction-disabled rescan can't wipe existing ones.
-        identity = fs_rom.get("identity")
-        if identity and identity.title_id:
-            rom_attrs.update(identity.as_rom_attrs())
-            # Metadata matching reads the id off the instance, so a first scan
-            # searches by what was just extracted rather than the old value.
-            rom.title_id = identity.title_id
+    file_attrs = fs_rom_file_attrs(fs_rom)
+    rom_attrs.update(file_attrs)
+    if file_attrs.get("title_id"):
+        # Metadata matching reads the id off the instance, so a first scan
+        # searches by what was just extracted rather than the old value.
+        rom.title_id = file_attrs["title_id"]
 
     # Update properties from existing rom if not a complete rescan
     if not newly_added and scan_type != ScanType.COMPLETE:
@@ -774,8 +779,8 @@ async def scan_rom(
             False,
         )
 
-    # A new rom is already the reloaded row its caller inserted; an existing
-    # one is loaded bare by the scan loop, so it is written and reloaded here.
+    # A new rom is already the reloaded row its caller inserted. An existing one
+    # is written so its rescanned columns land before identification.
     _added_rom = rom if newly_added else db_rom_handler.add_rom(Rom(**rom_attrs))
     _added_rom.is_identifying = True
 

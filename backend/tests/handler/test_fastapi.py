@@ -10,7 +10,7 @@ from tests.factories import make_rom
 from tests.handler.scan_stubs import add_n64_platform, add_rom
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
-from handler.database import db_platform_handler
+from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_demozoo_handler,
@@ -1792,14 +1792,15 @@ async def test_scan_rom_games_still_use_fuzzy_catalog_covers(
 
 
 @pytest.mark.parametrize("newly_added", [True, False])
-async def test_scan_rom_emit_flags_new_roms(newly_added: bool):
-    """Clients count a ROM toward its platform's games off `is_new`."""
+async def test_scan_rom_emit_flags_new_roms(newly_added: bool, mocker):
+    """Clients count a ROM off `is_new`, and only an existing one is written first."""
     platform = db_platform_handler.add_platform(
         Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64")
     )
     rom = make_rom(platform, "Game", fs_extension="z64", fs_path="n64", tags=[])
     socket_manager = AsyncMock()
 
+    add_rom_spy = mocker.spy(db_rom_handler, "add_rom")
     async with initialize_context():
         await scan_rom(
             platform=platform,
@@ -1811,45 +1812,12 @@ async def test_scan_rom_emit_flags_new_roms(newly_added: bool):
             socket_manager=socket_manager,
         )
 
+    assert add_rom_spy.call_count == (0 if newly_added else 1)
     payloads = [
         call.args[1]
         for call in socket_manager.emit.await_args_list
         if call.args[0] == "scan:scanning_rom"
     ]
-    assert [payload["is_new"] for payload in payloads] == [newly_added]
-
-
-@pytest.mark.parametrize("newly_added", [True, False])
-async def test_scan_rom_writes_only_existing_roms_before_identifying(
-    newly_added: bool,
-):
-    """A new ROM is already the row its caller inserted, so only an existing
-    one is written before identification starts."""
-    platform = db_platform_handler.add_platform(
-        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64")
-    )
-    rom = make_rom(platform, "Game", fs_extension="z64", fs_path="n64", tags=[])
-    socket_manager = AsyncMock()
-
-    with patch(
-        "handler.scan_handler.db_rom_handler.add_rom", return_value=rom
-    ) as add_rom_spy:
-        async with initialize_context():
-            await scan_rom(
-                platform=platform,
-                scan_type=ScanType.QUICK,
-                rom=rom,
-                fs_rom=build_hashless_fs_rom(rom.fs_name, rom.fs_path, flat=True),
-                metadata_sources=[],
-                newly_added=newly_added,
-                socket_manager=socket_manager,
-            )
-
-    assert add_rom_spy.call_count == (0 if newly_added else 1)
-    payload = next(
-        call.args[1]
-        for call in socket_manager.emit.await_args_list
-        if call.args[0] == "scan:scanning_rom"
-    )
-    assert payload["is_identifying"] is True
-    assert payload["id"] == rom.id
+    assert [(p["is_new"], p["is_identifying"], p["id"]) for p in payloads] == [
+        (newly_added, True, rom.id)
+    ]

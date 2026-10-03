@@ -76,6 +76,7 @@ from handler.scan_handler import (
     build_hashless_fs_rom,
     download_rom_resources,
     emit_scanning_rom,
+    fs_rom_file_attrs,
     get_enabled_metadata_sources,
     persist_soundtrack_cover,
     scan_firmware,
@@ -698,20 +699,7 @@ async def _identify_rom(
         else:
             # Insert with the hashes too, so a scan that dies before its final
             # write still leaves a row that rename detection can match.
-            if fs_rom["files"]:
-                rom_attrs.update(
-                    {
-                        "crc_hash": parsed_rom_files.crc_hash,
-                        "md5_hash": parsed_rom_files.md5_hash,
-                        "sha1_hash": parsed_rom_files.sha1_hash,
-                        "ra_hash": parsed_rom_files.ra_hash,
-                        "fs_size_bytes": sum(
-                            file.file_size_bytes for file in fs_rom["files"]
-                        ),
-                    }
-                )
-                if parsed_rom_files.identity.title_id:
-                    rom_attrs.update(parsed_rom_files.identity.as_rom_attrs())
+            rom_attrs.update(fs_rom_file_attrs(fs_rom))
             try:
                 rom = db_rom_handler.add_rom(Rom(**rom_attrs))
             except IntegrityError:
