@@ -41,12 +41,21 @@ const NAV_META: Record<NavDestinationId, { labelKey: string; icon: string }> = {
   search: { labelKey: "common.search", icon: "mdi-magnify" },
 };
 
+// `path` is `base` itself or a page under it, so "/platform-x" isn't.
+function isUnder(path: string, base: string): boolean {
+  return path === base || path.startsWith(`${base}/`);
+}
+
 /** The destination `path` belongs to; gallery sub-routes count as their parent. */
 export function navDestinationAt(path: string): NavDestinationId | null {
   if (path === "/") return "home";
-  if (path.startsWith("/platform")) return "platforms";
-  if (path.startsWith("/collection")) return "collections";
-  if (path.startsWith("/search")) return "search";
+  if (isUnder(path, "/platforms") || isUnder(path, "/platform")) {
+    return "platforms";
+  }
+  if (isUnder(path, "/collections") || isUnder(path, "/collection")) {
+    return "collections";
+  }
+  if (isUnder(path, "/search")) return "search";
   return null;
 }
 
