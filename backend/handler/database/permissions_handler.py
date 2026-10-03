@@ -37,10 +37,10 @@ class GroupPolicy(NamedTuple):
 class DBPermissionsHandler(DBBaseHandler):
     """Read and admin-write access to the granular permission model.
 
-    The read helpers (`get_default_group`, `get_group_grants`,
-    `get_user_overrides`, `get_hidden_entity_ids`) feed the per-request resolver;
-    the rest is the admin CRUD surface for managing groups, memberships,
-    overrides and hidden entities.
+    The read helpers (`get_default_group_id`, `get_group_policy`,
+    `get_user_overrides`, `get_hidden_entity_ids`, `get_age_exempt_rom_ids`) feed
+    the per-request resolver; the rest is the admin CRUD surface for managing
+    groups, memberships, overrides and hidden entities.
     """
 
     @begin_session
@@ -93,16 +93,6 @@ class DBPermissionsHandler(DBBaseHandler):
                 if row.entity is not None
             ],
         )
-
-    @begin_session
-    def get_group_grants(
-        self,
-        group_id: int,
-        session: Session = INJECTED_SESSION,
-    ) -> Sequence[PermissionGroupGrant]:
-        return session.scalars(
-            select(PermissionGroupGrant).filter_by(group_id=group_id)
-        ).all()
 
     @begin_session
     def get_user_overrides(
@@ -233,6 +223,7 @@ class DBPermissionsHandler(DBBaseHandler):
         grants: Iterable[GrantTuple] = (),
         age_limit: int | None = None,
         hide_unrated_roms: bool = False,
+        age_exempt_rom_ids: Sequence[int] = (),
         session: Session = INJECTED_SESSION,
     ) -> PermissionGroup:
         group = PermissionGroup(
@@ -246,6 +237,10 @@ class DBPermissionsHandler(DBBaseHandler):
         session.add(group)
         session.flush()
         self._replace_group_grants(group.id, grants, session=session)
+        if age_exempt_rom_ids:
+            self.replace_age_exemptions(
+                age_exempt_rom_ids, group_id=group.id, session=session
+            )
         if is_default:
             self._clear_other_defaults(group.id, session=session)
         session.refresh(group)
@@ -264,6 +259,7 @@ class DBPermissionsHandler(DBBaseHandler):
         set_age_limit: bool = False,
         age_limit: int | None = None,
         hide_unrated_roms: bool | None = None,
+        age_exempt_rom_ids: Iterable[int] | None = None,
         session: Session = INJECTED_SESSION,
     ) -> PermissionGroup | None:
         """Change the given fields; `age_limit` applies only with `set_age_limit`,
@@ -287,6 +283,10 @@ class DBPermissionsHandler(DBBaseHandler):
                 self._clear_other_defaults(group_id, session=session)
         if grants is not None:
             self._replace_group_grants(group_id, grants, session=session)
+        if age_exempt_rom_ids is not None:
+            self.replace_age_exemptions(
+                age_exempt_rom_ids, group_id=group_id, session=session
+            )
         session.flush()
         session.refresh(group)
         return group

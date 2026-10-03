@@ -17,7 +17,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from tests.factories import make_rom, make_save, make_state
+from tests.factories import make_esrb_rated_rom, make_rom, make_save, make_state
 from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
 from decorators.database import INJECTED_SESSION
@@ -451,9 +451,9 @@ class TestGetHiddenRomIdsAmong:
         )
 
     def test_reports_roms_the_age_rule_hides(self, platform: Platform) -> None:
-        mature = _rated(platform, "Mature", "M")
-        teen = _rated(platform, "Teen", "T")
-        exempt = _rated(platform, "Exempt", "AO")
+        mature = make_esrb_rated_rom(platform, "Mature", "M")
+        teen = make_esrb_rated_rom(platform, "Teen", "T")
+        exempt = make_esrb_rated_rom(platform, "Exempt", "AO")
         unrated = make_rom(platform, "Unrated")
         visibility = RomVisibilityFilter(
             age_limit=13, hide_unrated=True, exempt_rom_ids=frozenset({exempt.id})
@@ -467,20 +467,12 @@ class TestGetHiddenRomIdsAmong:
         assert hidden == {mature.id, unrated.id}
 
 
-def _rated(platform: Platform, name: str, esrb: str) -> Rom:
-    return make_rom(
-        platform,
-        name,
-        igdb_metadata={"age_ratings": [{"category": "ESRB", "rating": esrb}]},
-    )
-
-
 class TestAgeLimitedListing:
     def test_lists_only_roms_within_the_limit(self, platform: Platform) -> None:
-        mature = _rated(platform, "Mature", "M")
-        everyone = _rated(platform, "Everyone", "E")
+        mature = make_esrb_rated_rom(platform, "Mature", "M")
+        everyone = make_esrb_rated_rom(platform, "Everyone", "E")
         unrated = make_rom(platform, "Unrated")
-        exempt = _rated(platform, "Exempt", "M")
+        exempt = make_esrb_rated_rom(platform, "Exempt", "M")
 
         ids = db_rom_handler.get_rom_ids(
             platform_ids=[platform.id],

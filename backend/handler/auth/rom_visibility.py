@@ -80,10 +80,8 @@ class RomVisibilityFilter:
         platform_id_col: InstrumentedAttribute[int],
         min_age_col: InstrumentedAttribute[int | None],
     ) -> list[ColumnElement[bool]]:
-        """The rules decided by a ROM's row rather than by its id alone.
-
-        Each is true or false, never NULL, so `row_hidden_clause` can negate it.
-        """
+        """The rules decided by a ROM's row rather than by its id alone, each true
+        or false and never NULL so `row_hidden_clause` can negate it."""
         clauses: list[ColumnElement[bool]] = []
         if self.hidden_platform_ids:
             clauses.append(platform_id_col.not_in(self.hidden_platform_ids))

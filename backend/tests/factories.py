@@ -47,6 +47,19 @@ def make_rom(
     return db_rom_handler.add_rom(Rom(**(fields | overrides)))
 
 
+def make_esrb_rated_rom(platform: Platform, name: str, esrb: str, /) -> Rom:
+    """Persist a ROM whose only age rating is IGDB's ESRB `esrb`."""
+    return make_rom(
+        platform,
+        name,
+        igdb_metadata={
+            "age_ratings": [
+                {"category": "ESRB", "rating": esrb, "rating_cover_url": ""}
+            ]
+        },
+    )
+
+
 def _asset_fields(rom: Rom, user: User, file_name: str, folder: str) -> dict[str, Any]:
     return {
         "rom_id": rom.id,

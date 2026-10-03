@@ -163,7 +163,7 @@ def list_permission_groups(request: Request) -> list[PermissionGroupSchema]:
 @protected_route(
     router.post, "/groups", [Scope.USERS_WRITE], status_code=status.HTTP_201_CREATED
 )
-def create_permission_group(
+async def create_permission_group(
     request: Request, body: PermissionGroupCreate
 ) -> PermissionGroupSchema:
     """Create a permission group."""
@@ -181,11 +181,11 @@ def create_permission_group(
         grants=[(g.entity, g.action, g.own_only) for g in body.grants],
         age_limit=body.age_limit,
         hide_unrated_roms=body.hide_unrated_roms,
+        age_exempt_rom_ids=body.age_exempt_rom_ids,
     )
-    if body.age_exempt_rom_ids:
-        db_permission_handler.replace_age_exemptions(
-            body.age_exempt_rom_ids, group_id=group.id
-        )
+    # A new default group takes over every user without a group of their own.
+    if body.is_default:
+        await emit_permissions_changed()
     record(
         AuditAction.PERMISSION_GROUP_CREATE,
         request,
@@ -240,16 +240,14 @@ async def update_permission_group(
         set_age_limit=body.set_age_limit,
         age_limit=body.age_limit,
         hide_unrated_roms=body.hide_unrated_roms,
+        age_exempt_rom_ids=body.age_exempt_rom_ids,
     )
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    if body.age_exempt_rom_ids is not None:
-        db_permission_handler.replace_age_exemptions(
-            body.age_exempt_rom_ids, group_id=id
-        )
     # Grant changes alter every member's effective permissions.
     await emit_permissions_changed(*db_permission_handler.get_group_member_ids(id))
-    changed = set(body.model_dump(exclude_none=True)) - {"set_age_limit"}
+    # `age_limit` is ignored without `set_age_limit`, so only the flag reports it.
+    changed = set(body.model_dump(exclude_none=True)) - {"set_age_limit", "age_limit"}
     if body.set_age_limit:
         changed.add("age_limit")
     record(

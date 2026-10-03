@@ -2319,7 +2319,7 @@ class DBRomsHandler(DBBaseHandler):
                 ),
             }
 
-        if data.keys() & set(MIN_AGE_SOURCE_COLUMNS):
+        if data.keys() & MIN_AGE_SOURCE_COLUMNS:
             # The bulk update() skips the mapper event that keeps this in sync.
             stored = session.get_one(Rom, id)
             data = {

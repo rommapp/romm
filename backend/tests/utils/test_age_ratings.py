@@ -35,6 +35,10 @@ from utils.age_ratings import compute_min_age, rating_min_age
         ("OFLC", "G", 0),
         ("ELSPA", "3", 3),
         ("JV", "+3 ans", 3),
+        ("BBFC", "U", 0),
+        ("BBFC", "15", 15),
+        # LaunchBox's spelling.
+        ("ESRB", "K-A", 6),
     ],
 )
 def test_known_ratings_map_to_their_minimum_age(board: str, rating: str, age: int):
@@ -73,6 +77,18 @@ def test_a_manual_rating_replaces_the_providers():
     }
 
     assert compute_min_age(metadata) == 10
+
+
+def test_a_manual_list_that_sets_no_age_falls_back_to_the_providers():
+    igdb = {"age_ratings": [{"category": "ESRB", "rating": "M"}]}
+
+    assert (
+        compute_min_age(
+            {"manual_metadata": {"age_ratings": ["PEGI 18"]}, "igdb_metadata": igdb}
+        )
+        == 17
+    )
+    assert compute_min_age({"manual_metadata": {"age_ratings": "ESRB:T"}}) == 13
 
 
 def test_steam_counts_only_a_real_age_gate():

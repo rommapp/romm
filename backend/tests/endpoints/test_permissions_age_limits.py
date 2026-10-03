@@ -6,12 +6,12 @@ from typing import Any
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from tests.factories import make_rom
+from tests.factories import make_esrb_rated_rom, make_rom
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth.base_handler import oauth_handler
 from handler.auth.permissions import resolve_permissions
-from handler.database import db_user_handler
+from handler.database import db_permission_handler, db_user_handler
 from handler.database.base_handler import sync_session
 from models.permission import PermissionGroup
 from models.platform import Platform
@@ -33,18 +33,6 @@ def _auth(user: User) -> dict[str, str]:
             },
             expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
         )
-    )
-
-
-def _rated(platform: Platform, name: str, esrb: str) -> Rom:
-    return make_rom(
-        platform,
-        name,
-        igdb_metadata={
-            "age_ratings": [
-                {"category": "ESRB", "rating": esrb, "rating_cover_url": ""}
-            ]
-        },
     )
 
 
@@ -170,8 +158,8 @@ class TestResolution:
     def test_a_user_setting_replaces_the_groups(
         self, client, access_token, viewer_user: User, platform: Platform
     ):
-        group_exempt = _rated(platform, "Group exempt", "M")
-        user_exempt = _rated(platform, "User exempt", "M")
+        group_exempt = make_esrb_rated_rom(platform, "Group exempt", "M")
+        user_exempt = make_esrb_rated_rom(platform, "User exempt", "M")
         gid = _make_kids_group(
             client,
             access_token,
@@ -211,8 +199,8 @@ class TestEnforcement:
     def test_a_limited_user_cannot_list_or_open_roms_above_it(
         self, client, access_token, viewer_user: User, platform: Platform
     ):
-        mature = _rated(platform, "Mature", "M")
-        everyone = _rated(platform, "Everyone", "E")
+        mature = make_esrb_rated_rom(platform, "Mature", "M")
+        everyone = make_esrb_rated_rom(platform, "Everyone", "E")
         gid = _make_kids_group(client, access_token, age_limit=12)["id"]
         _join(client, access_token, viewer_user, gid)
 
@@ -226,7 +214,7 @@ class TestEnforcement:
     def test_an_exemption_lets_a_rom_through(
         self, client, access_token, viewer_user: User, platform: Platform
     ):
-        mature = _rated(platform, "Mature", "M")
+        mature = make_esrb_rated_rom(platform, "Mature", "M")
         gid = _make_kids_group(
             client, access_token, age_limit=12, age_exempt_rom_ids=[mature.id]
         )["id"]
@@ -239,7 +227,7 @@ class TestEnforcement:
     def test_a_limit_change_reaches_the_cached_gallery(
         self, client, access_token, viewer_user: User, platform: Platform
     ):
-        mature = _rated(platform, "Mature", "M")
+        mature = make_esrb_rated_rom(platform, "Mature", "M")
         gid = _make_kids_group(client, access_token)["id"]
         _join(client, access_token, viewer_user, gid)
         # The unscoped listing caches the user's id index.
@@ -253,11 +241,31 @@ class TestEnforcement:
 
         assert mature.id not in _listed_ids(client, viewer_user)
 
+    def test_a_new_default_group_reaches_the_cached_gallery(
+        self, client, access_token, viewer_user: User, platform: Platform
+    ):
+        mature = make_esrb_rated_rom(platform, "Mature", "M")
+        previous_default = db_permission_handler.get_default_group_id()
+        assert previous_default is not None
+        client.put(
+            f"/api/permissions/users/{viewer_user.id}",
+            headers=_bearer(access_token),
+            json={"set_group": True, "permission_group_id": None},
+        )
+        assert mature.id in _listed_ids(client, viewer_user)
+
+        try:
+            _make_kids_group(client, access_token, is_default=True, age_limit=12)
+
+            assert mature.id not in _listed_ids(client, viewer_user)
+        finally:
+            db_permission_handler.update_group(previous_default, is_default=True)
+
     def test_hide_unrated_hides_roms_without_a_rating(
         self, client, access_token, viewer_user: User, platform: Platform
     ):
         unrated = make_rom(platform, "Unrated")
-        rated = _rated(platform, "Rated", "E")
+        rated = make_esrb_rated_rom(platform, "Rated", "E")
         gid = _make_kids_group(client, access_token, hide_unrated_roms=True)["id"]
         _join(client, access_token, viewer_user, gid)
 
