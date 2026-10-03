@@ -11,11 +11,7 @@ function probes(): HTMLElement[] {
 // happy-dom has no layout, so the test plays the browser: it reports the
 // probe's resolved border-box height the way a ResizeObserver would.
 function stubResizeObserver() {
-  const observers: Array<{
-    callback: ResizeObserverCallback;
-    targets: Element[];
-  }> = [];
-  class FakeResizeObserver {
+  class FakeResizeObserver implements ResizeObserver {
     targets: Element[] = [];
     callback: ResizeObserverCallback;
     constructor(callback: ResizeObserverCallback) {
@@ -30,15 +26,20 @@ function stubResizeObserver() {
       this.targets = [];
     }
   }
+  const observers: FakeResizeObserver[] = [];
   vi.stubGlobal("ResizeObserver", FakeResizeObserver);
   return (target: Element, blockSize: number) => {
+    const size: ResizeObserverSize = { inlineSize: 0, blockSize };
+    const entry: ResizeObserverEntry = {
+      target,
+      borderBoxSize: [size],
+      contentBoxSize: [size],
+      devicePixelContentBoxSize: [size],
+      contentRect: new DOMRectReadOnly(0, 0, 0, blockSize),
+    };
     for (const observer of observers) {
-      if (!observer.targets.includes(target)) continue;
-      const entry = {
-        target,
-        borderBoxSize: [{ inlineSize: 0, blockSize }],
-      } as unknown as ResizeObserverEntry;
-      observer.callback([entry], observer as unknown as ResizeObserver);
+      if (observer.targets.includes(target))
+        observer.callback([entry], observer);
     }
   };
 }
