@@ -88,7 +88,7 @@ def ingest_play_sessions(
         {
             r.id: r
             for r in db_rom_handler.get_roms_by_ids(compact(candidate_rom_ids))
-            if perms is None or perms.can_see_rom(r.id, r.platform_id)
+            if perms is None or perms.can_see_rom(r)
         }
         if candidate_rom_ids
         else {}

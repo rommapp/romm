@@ -20,6 +20,7 @@ import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { createBodyScrollLock, overlayCount } from "../bodyScrollLock";
 import {
   type EscapableEntry,
@@ -149,14 +150,14 @@ watch(
           panelRef.value?.querySelector<HTMLElement>(
             "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
           );
-        focusTarget?.focus();
+        focusFromInput(focusTarget);
       });
     } else {
       unlockBodyScroll();
       popEscapable(stackEntry);
       stackDepth.value = 0;
       // Restore focus to the element that opened the dialog.
-      previouslyFocused?.focus?.();
+      focusFromInput(previouslyFocused);
       previouslyFocused = null;
     }
   },
@@ -317,7 +318,8 @@ const panelStyle = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: max(16px, var(--r-safe-t)) max(16px, var(--r-safe-r))
+    max(16px, var(--r-safe-b)) max(16px, var(--r-safe-l));
 }
 
 .r-dialog__scrim {
@@ -342,8 +344,8 @@ const panelStyle = computed(() => {
     0 4px 20px color-mix(in srgb, black 40%, transparent);
   overflow: hidden;
   color: var(--r-color-fg);
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 32px);
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* ── Mobile bottom sheet (sm-and-down) ──────────────────────────────
@@ -368,7 +370,7 @@ html[data-bp~="sm-and-down"] .r-dialog--fs-mobile .r-dialog__panel {
   max-height: calc(100dvh - var(--r-nav-h)) !important;
   border-radius: var(--r-radius-xl) var(--r-radius-xl) 0 0 !important;
   border-bottom: 0 !important;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: 0 var(--r-safe-r) var(--r-safe-b) var(--r-safe-l);
 }
 
 /* Full-height variant: pin the sheet to that same ceiling as a fixed height

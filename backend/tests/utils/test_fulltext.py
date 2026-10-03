@@ -41,7 +41,7 @@ def _conn_reporting(
         user_table,
         server_table,
     )
-    conn.scalars.return_value = ["Foo", "bar", None]
+    conn.scalars.return_value.all.return_value = ["Foo", "bar", None]
     return conn
 
 

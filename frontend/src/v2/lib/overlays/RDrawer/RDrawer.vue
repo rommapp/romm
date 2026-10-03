@@ -20,6 +20,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import {
   type EscapableEntry,
   popEscapable,
@@ -110,12 +111,12 @@ watch(
         const focusTarget = panelRef.value?.querySelector<HTMLElement>(
           "[autofocus], button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
         );
-        focusTarget?.focus();
+        focusFromInput(focusTarget);
       });
     } else {
       unlockBodyScroll();
       popEscapable(escEntry);
-      previouslyFocused?.focus?.();
+      focusFromInput(previouslyFocused);
       previouslyFocused = null;
     }
   },
@@ -253,14 +254,17 @@ const transitionName = computed(() =>
   color: var(--r-color-fg);
   font-family: var(--r-font-family-sans);
   pointer-events: auto;
+  padding-block: var(--r-safe-t) var(--r-safe-b);
   /* Only the edge that meets the screen gets a border; the screen-edge
      side carries the shadow instead. */
 }
 .r-drawer--left .r-drawer__panel {
   border-inline-start: 0;
+  padding-inline-start: var(--r-safe-l);
 }
 .r-drawer--right .r-drawer__panel {
   border-inline-end: 0;
+  padding-inline-end: var(--r-safe-r);
 }
 
 /* On phones the drawer goes full-screen: there's a close button in the

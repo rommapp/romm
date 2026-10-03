@@ -1,9 +1,18 @@
 /* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { defineComponent, h, onMounted, ref } from "vue";
 import storePlaying from "@/stores/playing";
 import { useGridNav } from "@/v2/composables/useGridNav";
+import { useInputModality } from "@/v2/composables/useInputModality";
 import {
   type EscapableEntry,
   popEscapable,
@@ -164,6 +173,20 @@ describe("useSpatialNav", () => {
     wrapper?.unmount();
     wrapper = null;
     restores.splice(0).forEach((restore) => restore());
+  });
+
+  it("asks for a visible focus ring on the control it moves to", () => {
+    const { setModality } = useInputModality();
+    setModality("key");
+    onTestFinished(() => setModality("mouse"));
+    el("play").focus();
+    const focus = vi.spyOn(el("nav"), "focus");
+
+    press("ArrowUp");
+
+    expect(focus).toHaveBeenCalledWith(
+      expect.objectContaining({ focusVisible: true }),
+    );
   });
 
   it("moves up and down off a single-row grid", () => {

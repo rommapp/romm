@@ -24,6 +24,7 @@ from utils.sql_dialect import (
     json_array_contains_any,
     json_array_contains_value,
     nulls_last,
+    optimizer_hint_on_mysql,
 )
 
 _T = sa.table(
@@ -272,6 +273,29 @@ class TestForceIndexOnMysql:
 
         with sync_engine.begin() as connection:
             connection.execute(statement)
+
+
+class TestOptimizerHintOnMysql:
+    @pytest.mark.parametrize(
+        ("dialect", "expected"),
+        [
+            (MARIADB_DIALECT, "t.v IN (SELECT /*+ NO_SEMIJOIN() */ t.v"),
+            (mysql.dialect(), "t.v IN (SELECT /*+ NO_SEMIJOIN() */ t.v"),
+            (POSTGRESQL_DIALECT, "t.v IN (SELECT t.v"),
+        ],
+    )
+    def test_only_the_mysql_family_gets_the_hint_once(
+        self, dialect: sa.Dialect, expected: str
+    ):
+        members = optimizer_hint_on_mysql(sa.select(_T.c.v), "NO_SEMIJOIN()")
+
+        assert _where_sql(_T.c.v.in_(members), dialect).startswith(expected)
+
+    def test_runs_on_the_running_engine(self):
+        members = optimizer_hint_on_mysql(sa.select(Rom.id), "NO_SEMIJOIN()")
+
+        with sync_engine.begin() as connection:
+            connection.execute(sa.select(Rom.id).where(Rom.id.in_(members)))
 
 
 class TestFulltextMatch:

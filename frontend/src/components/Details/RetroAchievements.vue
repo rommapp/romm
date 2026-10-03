@@ -141,7 +141,7 @@ onMounted(() => {
     <v-list-item
       v-for="achievement in filteredAchievements"
       :key="achievement.ra_id || ''"
-      :title="achievement.title?.toString()"
+      :title="achievement.title?.toString()!"
       class="mb-2 py-4 rounded bg-toplayer"
       :class="{
         earned:

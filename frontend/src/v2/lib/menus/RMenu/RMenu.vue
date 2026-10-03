@@ -37,6 +37,7 @@ import { computed, nextTick, provide, ref, useAttrs, watch } from "vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { opensInNewContext } from "@/v2/utils/mouseGestures";
 import RTextField from "../../forms/RTextField/RTextField.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
@@ -366,7 +367,7 @@ function onPanelKeydown(evt: KeyboardEvent) {
         : (activeIdx - 1 + items.length) % items.length;
   }
   evt.preventDefault();
-  items[nextIdx]?.focus();
+  focusFromInput(items[nextIdx]);
 }
 
 // Autofocus the first menu item when the panel opens via keyboard or
@@ -390,7 +391,7 @@ watch(
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => resolve()),
     );
-    (initialFocusTarget() ?? focusableMenuItems()[0])?.focus();
+    focusFromInput(initialFocusTarget() ?? focusableMenuItems()[0]);
   },
 );
 </script>
@@ -504,7 +505,7 @@ html[data-bp~="sm-and-down"] .r-menu__panel--sheet {
   min-width: 0;
   max-width: 100vw;
   border-radius: var(--r-radius-xl, 16px) var(--r-radius-xl, 16px) 0 0;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: 0 var(--r-safe-r) var(--r-safe-b) var(--r-safe-l);
 }
 
 /* Full-height variant: the sheet fills the space below the top navbar

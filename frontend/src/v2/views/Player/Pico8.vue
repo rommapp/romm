@@ -440,14 +440,16 @@ onBeforeUnmount(releaseGame);
 /* The bottom tab bar overlays the stage on sm-and-down, so keep the on-screen
    controls clear of it. */
 html[data-bp~="sm-and-down"] .r-v2-pico8__stage {
-  padding-bottom: calc(
-    var(--r-pico8-stage-pad) + var(--r-bottom-nav-h) +
-      env(safe-area-inset-bottom)
-  );
+  padding-bottom: calc(var(--r-pico8-stage-pad) + var(--r-bottom-nav-h));
 }
 
 .r-v2-pico8__stage:fullscreen {
   background: var(--r-color-canvas-bg);
+}
+/* Native fullscreen reaches the screen edge, so the stage clears the home
+   indicator itself; the windowed frame and the iPhone fallback already do. */
+html[data-bp~="sm-and-down"] .r-v2-pico8__stage:fullscreen {
+  padding-bottom: calc(var(--r-pico8-stage-pad) + var(--r-safe-b));
 }
 
 .r-v2-pico8__viewport {
@@ -490,7 +492,7 @@ html[data-bp~="sm-and-down"] .r-v2-pico8__stage {
 
 /* Clear the bottom tab bar, which overlays this corner on sm-and-down. */
 html[data-bp~="sm-and-down"] .r-v2-pico8__actions {
-  bottom: calc(16px + var(--r-bottom-nav-h) + env(safe-area-inset-bottom));
+  bottom: calc(16px + var(--r-bottom-nav-h));
 }
 
 .r-v2-pico8__loading {

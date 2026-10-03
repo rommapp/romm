@@ -21,7 +21,7 @@ const supportedPlatforms = ref<Platform[]>();
 const heartbeat = storeHeartbeat();
 
 const fsSlugToCreate = ref<string>("");
-const selectedPlatform = ref<Platform>();
+const selectedPlatform = ref<Platform | null>(null);
 const mappingType = ref<"alias" | "variant">("alias");
 const isEditing = ref(false);
 const originalFsSlug = ref<string>("");
@@ -73,16 +73,15 @@ emitter?.on(
       originalMappingType.value = payload.type;
       fsSlugToCreate.value = payload.fsSlug;
       mappingType.value = payload.type;
-      selectedPlatform.value = supportedPlatforms.value?.find(
-        (p) => p.slug === payload.slug,
-      );
+      selectedPlatform.value =
+        supportedPlatforms.value?.find((p) => p.slug === payload.slug) ?? null;
     } else {
       // Create mode
       isEditing.value = false;
       originalFsSlug.value = "";
       originalMappingType.value = "alias";
       fsSlugToCreate.value = "";
-      selectedPlatform.value = undefined;
+      selectedPlatform.value = null;
       mappingType.value = "alias";
     }
 
@@ -181,7 +180,7 @@ function closeDialog() {
   show.value = false;
   originalFsSlug.value = "";
   fsSlugToCreate.value = "";
-  selectedPlatform.value = undefined;
+  selectedPlatform.value = null;
 }
 
 function getMappingTypeDescription(type: "alias" | "variant"): string {
@@ -279,7 +278,7 @@ function getMappingTypeDescription(type: "alias" | "variant"): string {
                 ? t('settings.romm-platform')
                 : t('settings.parent-platform')
             "
-            :items="supportedPlatforms"
+            :items="supportedPlatforms!"
             color="primary"
             base-color="primary"
             variant="outlined"

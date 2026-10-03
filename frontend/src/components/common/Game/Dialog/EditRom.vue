@@ -415,7 +415,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                     <v-file-input
                       hide-details
                       id="cover-file-input"
-                      :model-value="rom.artwork"
+                      :model-value="rom.artwork!"
                       @update:model-value="rom.artwork = [$event].flat()[0]"
                       accept="image/*"
                       class="file-input"

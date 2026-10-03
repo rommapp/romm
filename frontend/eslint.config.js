@@ -214,6 +214,21 @@ export default tseslint.config(
     rules: {
       "romm/no-color-literal": "error",
       "romm/no-layout-media-query": "error",
+      "romm/no-safe-area-env": "error",
+    },
+  },
+  {
+    files: ["src/v2/**/*.ts", "src/v2/**/*.vue"],
+    ignores: ["**/*.stories.ts", "**/*.test.ts", "src/v2/utils/autofocus.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.property.name='focus']",
+          message:
+            "Focus through focusFromInput from @/v2/utils/autofocus, so keyboard and gamepad moves show the focus ring.",
+        },
+      ],
     },
   },
   {

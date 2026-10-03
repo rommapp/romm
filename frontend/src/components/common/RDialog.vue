@@ -11,7 +11,7 @@ withDefaults(
     modelValue: boolean;
     loadingCondition?: boolean;
     emptyStateCondition?: boolean;
-    emptyStateType?: string | null;
+    emptyStateType?: string | null | undefined;
     expandContentOnEmptyState?: boolean;
     scrollContent?: boolean;
     showRommIcon?: boolean;

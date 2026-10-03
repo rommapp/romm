@@ -26,6 +26,7 @@ import {
 import { computed, nextTick, ref, useId, watch } from "vue";
 import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import RBtn from "../../primitives/RBtn/RBtn.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RTextField from "../RTextField/RTextField.vue";
@@ -334,13 +335,11 @@ function onPanelKeydown(evt: KeyboardEvent) {
       break;
     case "PageUp":
       evt.preventDefault();
-      if (evt.shiftKey) shiftYear(-1);
-      else shiftMonth(-1);
+      moveFocusByMonths(evt.shiftKey ? -12 : -1);
       break;
     case "PageDown":
       evt.preventDefault();
-      if (evt.shiftKey) shiftYear(1);
-      else shiftMonth(1);
+      moveFocusByMonths(evt.shiftKey ? 12 : 1);
       break;
     case "Enter":
     case " ":
@@ -364,16 +363,7 @@ function onPanelKeydown(evt: KeyboardEvent) {
 function moveFocus(deltaDays: number) {
   const next = new Date(focusedDay.value);
   next.setUTCDate(next.getUTCDate() + deltaDays);
-  focusedDay.value = next;
-  // If the cursor walked off-month, scroll the view to follow it so the
-  // cell stays visible.
-  if (
-    next.getUTCFullYear() !== viewMonth.value.getUTCFullYear() ||
-    next.getUTCMonth() !== viewMonth.value.getUTCMonth()
-  ) {
-    viewMonth.value = startOfMonth(next);
-  }
-  nextTick(focusDayCell);
+  setCursor(next);
 }
 function moveFocusToWeekEdge(direction: -1 | 1) {
   // -1: Home → start of week. +1: End → end of week.
@@ -386,7 +376,34 @@ function moveFocusToWeekEdge(direction: -1 | 1) {
   } else {
     next.setUTCDate(next.getUTCDate() + (6 - offsetFromStart));
   }
+  setCursor(next);
+}
+// Keeps the day of month, capped at the target month's last day.
+function moveFocusByMonths(deltaMonths: number) {
+  const year = focusedDay.value.getUTCFullYear();
+  const month = focusedDay.value.getUTCMonth() + deltaMonths;
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  setCursor(
+    new Date(
+      Date.UTC(year, month, Math.min(focusedDay.value.getUTCDate(), lastDay)),
+    ),
+  );
+}
+
+// Disabled days can't take focus, so the cursor stops at min and max.
+function setCursor(next: Date) {
+  if (minDate.value && next < startOfDay(minDate.value)) {
+    next = startOfDay(minDate.value);
+  } else if (maxDate.value && next > endOfDay(maxDate.value)) {
+    next = startOfDay(maxDate.value);
+  }
   focusedDay.value = next;
+  if (
+    next.getUTCFullYear() !== viewMonth.value.getUTCFullYear() ||
+    next.getUTCMonth() !== viewMonth.value.getUTCMonth()
+  ) {
+    viewMonth.value = startOfMonth(next);
+  }
   nextTick(focusDayCell);
 }
 
@@ -396,7 +413,7 @@ function focusDayCell() {
   const cell = panelRef.value.querySelector(
     `[data-day-key="${key}"]`,
   ) as HTMLElement | null;
-  cell?.focus();
+  focusFromInput(cell);
 }
 
 // ── Field-level keyboard wiring ────────────────────────────────
@@ -417,7 +434,7 @@ function dismiss() {
   // Send focus back to the field so tab order doesn't get stranded
   // on a teleported panel that just unmounted.
   nextTick(() => {
-    (referenceEl.value?.querySelector("input") as HTMLElement | null)?.focus();
+    focusFromInput(referenceEl.value?.querySelector("input"));
   });
 }
 

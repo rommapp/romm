@@ -46,9 +46,9 @@ interface TiltHTMLElement extends HTMLElement {
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRom;
-    coverSrc?: string;
-    width?: string | number;
-    height?: string | number;
+    coverSrc?: string | undefined;
+    width?: string | number | undefined;
+    height?: string | number | undefined;
     transformScale?: boolean;
     titleOnHover?: boolean;
     pointerOnHover?: boolean;
@@ -60,7 +60,7 @@ const props = withDefaults(
     withLink?: boolean;
     disableViewTransition?: boolean;
     enable3DTilt?: boolean;
-    forceBoxart?: BoxartStyleOption;
+    forceBoxart?: BoxartStyleOption | undefined;
   }>(),
   {
     coverSrc: undefined,

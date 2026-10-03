@@ -134,7 +134,7 @@ onBeforeUnmount(() => {
 .r-v2-toasts {
   position: fixed;
   top: calc(var(--r-nav-h, 64px) + 14px);
-  right: 16px;
+  right: calc(16px + var(--r-safe-r));
   z-index: var(--r-z-snackbar, 2700);
   display: flex;
   flex-direction: column;

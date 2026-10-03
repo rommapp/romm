@@ -80,9 +80,7 @@ async def _playable_rom_id(sid: str, game_id: Any) -> int | None:
         return None
 
     rom = db_rom_handler.get_rom_visibility(rom_id)
-    if rom is None or not resolve_permissions(user).can_see_rom(
-        rom.id, rom.platform_id
-    ):
+    if rom is None or not resolve_permissions(user).can_see_rom(rom):
         return None
     return rom.id
 

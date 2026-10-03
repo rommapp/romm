@@ -17,6 +17,7 @@ from unittest import mock
 import pytest
 from sqlalchemy import Delete, event
 from sqlalchemy.exc import NoResultFound
+from tests.app_sources import app_sources
 from tests.factories import make_save
 
 import handler.database.saves_handler as saves_handler_module
@@ -1152,8 +1153,7 @@ class TestDBSavesHandlerRecordsLostVersions:
         assert not any(self._lost(admin_user, rom).values())
 
 
-BACKEND_ROOT = Path(__file__).parents[3]
-SAVES_HANDLER = BACKEND_ROOT / "handler" / "database" / "saves_handler.py"
+SAVES_HANDLER = Path("handler", "database", "saves_handler.py")
 
 
 def _writes_save_rows(node: ast.Call) -> bool:
@@ -1170,11 +1170,9 @@ def _writes_save_rows(node: ast.Call) -> bool:
 def test_only_the_saves_handler_writes_save_rows():
     """The handler records every version leaving a slot, so nothing may go around it."""
     offenders = []
-    for path in BACKEND_ROOT.rglob("*.py"):
-        relative = path.relative_to(BACKEND_ROOT)
-        if relative.parts[0] in {"tests", "alembic"} or path == SAVES_HANDLER:
+    for relative, tree in app_sources():
+        if relative == SAVES_HANDLER:
             continue
-        tree = ast.parse(path.read_text(), filename=str(path))
         offenders += [
             f"{relative}:{node.lineno}"
             for node in ast.walk(tree)

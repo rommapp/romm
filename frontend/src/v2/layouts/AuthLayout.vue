@@ -40,7 +40,11 @@ onMounted(installInputModality);
      never exceeds the container. */
   grid-template-columns: minmax(0, 1fr);
   place-items: center;
-  padding: var(--r-space-6);
+  --r-auth-pad: var(--r-space-6);
+  padding: max(var(--r-auth-pad), var(--r-safe-t))
+    max(var(--r-auth-pad), var(--r-safe-r))
+    max(var(--r-auth-pad), var(--r-safe-b))
+    max(var(--r-auth-pad), var(--r-safe-l));
   overflow: hidden;
 
   /* The auth background and the AuthCard/Setup glass are always dark
@@ -89,9 +93,9 @@ onMounted(installInputModality);
 
 .r-v2-auth__footer {
   position: absolute;
-  left: var(--r-space-4);
-  right: var(--r-space-4);
-  bottom: var(--r-space-3);
+  left: calc(var(--r-space-4) + var(--r-safe-l));
+  right: calc(var(--r-space-4) + var(--r-safe-r));
+  bottom: calc(var(--r-space-3) + var(--r-safe-b));
   z-index: 1;
 }
 
@@ -112,7 +116,7 @@ html[data-bp~="xs"] .r-v2-auth {
      shrinks with the bar and the card fills exactly the visible space. */
   height: 100dvh;
   min-height: 100dvh;
-  padding: var(--r-space-3);
+  --r-auth-pad: var(--r-space-3);
   gap: var(--r-space-3);
 }
 html[data-bp~="xs"] .r-v2-auth__stage {

@@ -9,7 +9,7 @@ import { FRONTEND_RESOURCES_PATH } from "@/utils";
 interface Props {
   rom: DetailedRom;
   modelValue: number;
-  height?: string | number;
+  height?: string | number | undefined;
   enableClick?: boolean;
 }
 
