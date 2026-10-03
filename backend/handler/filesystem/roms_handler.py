@@ -586,6 +586,7 @@ class FSRomsHandler(FSHandler):
             from utils.audio_tags import (
                 extract_audio_meta,
                 is_allowed_audio_file,
+                is_chiptune_file,
                 track_meta_columns,
             )
 
@@ -593,6 +594,9 @@ class FSRomsHandler(FSHandler):
                 meta = extract_audio_meta(str(abs_file_path))
                 if meta:
                     track_meta = TrackMeta(rom_id=rom.id, **track_meta_columns(meta))
+            elif is_chiptune_file(file_name):
+                # Untagged, but the row lists the file in the music catalog.
+                track_meta = TrackMeta(rom_id=rom.id)
 
         return RomFile(
             rom=rom,
