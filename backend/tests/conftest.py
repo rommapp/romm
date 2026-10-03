@@ -19,7 +19,16 @@ import pytest
 from alembic.script import ScriptDirectory
 from hypothesis import settings
 from joserfc import jwt
-from sqlalchemy import Connection, Engine, create_engine, event, exists, select, text
+from sqlalchemy import (
+    Connection,
+    Engine,
+    create_engine,
+    event,
+    exists,
+    inspect,
+    select,
+    text,
+)
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import sessionmaker
 from tests.factories import (
@@ -166,17 +175,15 @@ def _schema_names(conn: Connection, query: str, schema: str) -> Sequence[str]:
 
 def _copy_schema(conn: Connection, source: str, target: str) -> None:
     """Copy every table, row, view and trigger of `source` into `target`."""
-    tables = _schema_names(
-        conn,
-        "SELECT TABLE_NAME FROM information_schema.TABLES"
-        " WHERE TABLE_SCHEMA = :s AND TABLE_TYPE = 'BASE TABLE'",
-        source,
-    )
-    views = _schema_names(
-        conn,
-        "SELECT TABLE_NAME FROM information_schema.VIEWS WHERE TABLE_SCHEMA = :s",
-        source,
-    )
+    objects = conn.execute(
+        text(
+            "SELECT TABLE_NAME, TABLE_TYPE FROM information_schema.TABLES"
+            " WHERE TABLE_SCHEMA = :s"
+        ),
+        {"s": source},
+    ).all()
+    tables = [name for name, kind in objects if kind == "BASE TABLE"]
+    views = [name for name, kind in objects if kind == "VIEW"]
     triggers = _schema_names(
         conn,
         "SELECT TRIGGER_NAME FROM information_schema.TRIGGERS"
@@ -199,9 +206,17 @@ def _copy_schema(conn: Connection, source: str, target: str) -> None:
     table_ddl = {
         t: conn.exec_driver_sql(f"SHOW CREATE TABLE `{t}`").one()[1] for t in tables
     }
-    view_ddl = [conn.exec_driver_sql(f"SHOW CREATE VIEW `{v}`").one()[1] for v in views]
+    view_ddl = [
+        _DEFINER_RE.sub(
+            "", conn.exec_driver_sql(f"SHOW CREATE VIEW `{v}`").one()[1], count=1
+        )
+        for v in views
+    ]
     trigger_ddl = [
-        conn.exec_driver_sql(f"SHOW CREATE TRIGGER `{t}`").one()[2] for t in triggers
+        _DEFINER_RE.sub(
+            "", conn.exec_driver_sql(f"SHOW CREATE TRIGGER `{t}`").one()[2], count=1
+        )
+        for t in triggers
     ]
     conn.exec_driver_sql(f"USE `{target}`")
 
@@ -219,7 +234,7 @@ def _copy_schema(conn: Connection, source: str, target: str) -> None:
         copy_table(table, ddl)
     conn.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 1")
     # A view can select from another view, so retry until each finds its sources.
-    pending = [_DEFINER_RE.sub("", ddl, count=1) for ddl in view_ddl]
+    pending = view_ddl
     while pending:
         failed = []
         for ddl in pending:
@@ -231,20 +246,13 @@ def _copy_schema(conn: Connection, source: str, target: str) -> None:
             conn.exec_driver_sql(failed[0])
         pending = failed
     for ddl in trigger_ddl:
-        conn.exec_driver_sql(_DEFINER_RE.sub("", ddl, count=1))
+        conn.exec_driver_sql(ddl)
     copy_table("alembic_version", version_ddl)
     conn.commit()
 
 
 def _alembic_version(conn: Connection, schema: str) -> str | None:
-    has_table = conn.execute(
-        text(
-            "SELECT 1 FROM information_schema.TABLES"
-            " WHERE TABLE_SCHEMA = :s AND TABLE_NAME = 'alembic_version'"
-        ),
-        {"s": schema},
-    ).first()
-    if not has_table:
+    if not inspect(conn).has_table("alembic_version", schema=schema):
         return None
     return conn.exec_driver_sql(
         f"SELECT version_num FROM `{schema}`.alembic_version"
@@ -268,6 +276,38 @@ def _migrations_digest() -> str:
     return digest.hexdigest()[:12]
 
 
+@contextmanager
+def _server_lock(conn: Connection, name: str) -> Iterator[bool]:
+    """Hold the MariaDB named lock `name`, yielding whether it was acquired."""
+    lock = {"name": name}
+    acquired = conn.execute(text("SELECT GET_LOCK(:name, 1800)"), lock).scalar() == 1
+    try:
+        yield acquired
+    finally:
+        if acquired:
+            conn.execute(text("SELECT RELEASE_LOCK(:name)"), lock)
+
+
+def _build_template(conn: Connection, prefix: str, template: str) -> None:
+    """Migrate `template` from scratch, dropping every other `prefix` template first."""
+    # Also drops half-built templates.
+    schemas: Sequence[str] = (
+        conn.execute(text("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA"))
+        .scalars()
+        .all()
+    )
+    for name in schemas:
+        if name == prefix or name.startswith(f"{prefix}_"):
+            conn.exec_driver_sql(f"DROP DATABASE `{name}`")
+    _recreate_database(conn, template)
+    # The app's engine binds DB_NAME at import, hence a subprocess.
+    subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        env=os.environ | {"DB_NAME": template},
+        check=True,
+    )
+
+
 def _clone_template_into_fresh_database() -> None:
     """Fill an empty xdist worker database from a template migrated once under a server lock."""
     worker = os.environ.get("PYTEST_XDIST_WORKER")
@@ -283,41 +323,17 @@ def _clone_template_into_fresh_database() -> None:
         with worker_engine.connect() as conn:
             if _alembic_version(conn, url.database):
                 return
-            # Tables without a version row are a clone that was cut short.
-            if conn.execute(
-                text(
-                    "SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = :s LIMIT 1"
-                ),
-                {"s": url.database},
-            ).first():
-                _recreate_database(conn, url.database)
+            # Without a version row, any tables are a clone that was cut short.
+            _recreate_database(conn, url.database)
             template = f"{prefix}_{_migrations_digest()}"
             head = ScriptDirectory.from_config(
                 alembic.config.Config("alembic.ini")
             ).get_current_head()
-            lock = {"name": prefix}
-            if conn.execute(text("SELECT GET_LOCK(:name, 1800)"), lock).scalar() != 1:
-                return
-            try:
+            with _server_lock(conn, prefix) as acquired:
+                if not acquired:
+                    return
                 if _alembic_version(conn, template) != head:
-                    # Also drops templates of other migration states and half-built ones.
-                    schemas: Sequence[str] = (
-                        conn.execute(
-                            text("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA")
-                        )
-                        .scalars()
-                        .all()
-                    )
-                    for name in schemas:
-                        if name == prefix or name.startswith(f"{prefix}_"):
-                            conn.exec_driver_sql(f"DROP DATABASE `{name}`")
-                    _recreate_database(conn, template)
-                    # The app's engine binds DB_NAME at import, hence a subprocess.
-                    subprocess.run(
-                        [sys.executable, "-m", "alembic", "upgrade", "head"],
-                        env=os.environ | {"DB_NAME": template},
-                        check=True,
-                    )
+                    _build_template(conn, prefix, template)
                 try:
                     _copy_schema(conn, template, url.database)
                 except DBAPIError as exc:
@@ -327,8 +343,6 @@ def _clone_template_into_fresh_database() -> None:
                     )
                     # Leave alembic an empty database to migrate.
                     _recreate_database(conn, url.database)
-            finally:
-                conn.execute(text("SELECT RELEASE_LOCK(:name)"), lock)
     finally:
         worker_engine.dispose()
 
@@ -383,7 +397,7 @@ def _clear_tables() -> None:
         has_rows = s.execute(_HAS_ROWS).one()
         for model, dirty in zip(_CLEARED_MODELS, has_rows, strict=True):
             if dirty:
-                s.query(model).delete(synchronize_session="evaluate")
+                s.query(model).delete(synchronize_session=False)
 
 
 @pytest.fixture(autouse=True)
