@@ -1163,7 +1163,7 @@ class DBRomsHandler(DBBaseHandler):
             return query.filter(false())
 
         # MariaDB's semi-join plan for this IN (subquery) rescans the whole
-        # library per query; other dialects don't emit the hint.
+        # library per query; MariaDB before 12 reads the hint as a comment.
         member_ids = self._join_rom_user(
             select(Rom.id)
             .prefix_with("/*+ NO_SEMIJOIN() */", dialect="mariadb")
