@@ -527,7 +527,7 @@ const spinnerSize = computed(() => {
 
 /* Slot-driven icon-only content (e.g. `<RBtn icon><PlatformIcon /></RBtn>`).
    Separate class from `.r-btn__icon` so the icon-font sizing rule
-   (`.r-btn__icon { font-size: 1.25em }`) doesn't bleed into image-based
+   (`--r-btn-icon-size`) doesn't bleed into image-based
    slot content. Just a centered inline-flex shell. */
 .r-btn__icon-slot {
   display: inline-flex;
@@ -565,40 +565,46 @@ const spinnerSize = computed(() => {
 
 .r-btn--x-small {
   --r-btn-rest-h: 24px;
+  --r-btn-icon-size: 13px;
   padding: 0 8px;
   font-size: 11px;
   gap: 4px;
 }
 .r-btn--small {
   --r-btn-rest-h: 32px;
+  --r-btn-icon-size: 16px;
   padding: 0 12px;
   font-size: 13px;
   gap: 6px;
 }
 .r-btn--default {
   --r-btn-rest-h: 40px;
+  --r-btn-icon-size: 18px;
   padding: 0 16px;
   font-size: 14px;
   gap: 8px;
 }
 .r-btn--large {
   --r-btn-rest-h: 48px;
+  --r-btn-icon-size: 20px;
   padding: 0 20px;
   font-size: 15px;
   gap: 10px;
 }
 .r-btn--x-large {
   --r-btn-rest-h: 56px;
+  --r-btn-icon-size: 20px;
   padding: 0 24px;
   font-size: 16px;
   gap: 12px;
 }
 
-/* Icon size scales with text: same 1.2em ratio RIcon uses. */
+/* Whole-pixel icon sizes: a fractional size (1.25em of 11px is 13.75px)
+   puts the MDI glyph up to 1px off centre once the baseline snaps. */
 .r-btn .r-btn__prepend > .r-icon,
 .r-btn .r-btn__append > .r-icon,
 .r-btn .r-btn__icon {
-  font-size: 1.25em;
+  font-size: var(--r-btn-icon-size);
 }
 
 /* ── Density: absolute height override ───────────────────────────
