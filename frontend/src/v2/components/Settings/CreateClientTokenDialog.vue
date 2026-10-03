@@ -19,9 +19,9 @@ import {
   RTextField,
 } from "@v2/lib";
 import { useCountdown } from "@vueuse/core";
+import { useQRCode } from "@vueuse/integrations/useQRCode";
 import type { Emitter } from "mitt";
-import qrcode from "qrcode";
-import { computed, inject, nextTick, ref, watch } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import clientTokenApi, {
   type ClientTokenSchema,
@@ -31,6 +31,7 @@ import type { Events } from "@/types/emitter";
 import { useClipboard } from "@/v2/composables/useClipboard";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
+import { colorOverlay } from "@/v2/tokens";
 
 defineOptions({ inheritAttrs: false });
 
@@ -155,6 +156,23 @@ const formattedPairCode = computed(() => {
   return c ? `${c.slice(0, 4)}-${c.slice(4)}` : "";
 });
 
+const pairUrl = computed(() =>
+  formattedPairCode.value
+    ? `${window.location.origin}/pair?code=${formattedPairCode.value}`
+    : "",
+);
+// High error correction leaves room for the logo covering the center.
+// Rendered at 2x the largest display size so it stays sharp on HiDPI screens.
+const pairQRCode = useQRCode(pairUrl, {
+  margin: 2,
+  width: 500,
+  errorCorrectionLevel: "H",
+  color: { light: colorOverlay.emphasisBg },
+});
+// useQRCode keeps the previous image until the new one resolves; drop it so
+// a regenerated code never briefly shows the expired one.
+watch(pairUrl, () => (pairQRCode.value = ""));
+
 const dialogTitle = computed(() => {
   if (step.value === "config") return t("settings.create-new-api-token");
   if (step.value === "delivery")
@@ -264,8 +282,6 @@ async function startPairing() {
     pairCode.value = data.code;
     pairLoading.value = false;
     startPairCountdown(data.expires_in);
-    await nextTick();
-    renderQR(data.code);
   } catch (err) {
     pairLoading.value = false;
     const e = err as { response?: { data?: { detail?: string } } };
@@ -306,8 +322,6 @@ async function regeneratePairCode() {
     pairCode.value = data.code;
     pairLoading.value = false;
     startPairCountdown(data.expires_in);
-    await nextTick();
-    renderQR(data.code);
   } catch (err) {
     pairLoading.value = false;
     const e = err as { response?: { data?: { detail?: string } } };
@@ -316,46 +330,6 @@ async function regeneratePairCode() {
       { icon: "mdi-close-circle" },
     );
   }
-}
-
-function renderQR(code: string) {
-  const displayCode = `${code.slice(0, 4)}-${code.slice(4)}`;
-  const pairUrl = `${window.location.origin}/pair?code=${displayCode}`;
-  const canvas = document.getElementById(
-    "r-v2-pair-qr-code",
-  ) as HTMLCanvasElement | null;
-  if (!canvas) return;
-
-  const isWide = window.innerWidth >= 1280;
-  const size = isWide ? 250 : 200;
-  qrcode.toCanvas(
-    canvas,
-    pairUrl,
-    { margin: 2, width: size, errorCorrectionLevel: "H" },
-    () => {
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      const logo = new Image();
-      logo.src = "/assets/logos/romm_logo_xbox_one_circle.svg";
-      logo.onload = () => {
-        const logoSize = canvas.width * 0.24;
-        const cx = canvas.width / 2;
-        const cy = canvas.height / 2;
-        const radius = logoSize / 2 + 4;
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffffff";
-        ctx.fill();
-        ctx.drawImage(
-          logo,
-          cx - logoSize / 2,
-          cy - logoSize / 2,
-          logoSize,
-          logoSize,
-        );
-      };
-    },
-  );
 }
 
 function closeDialog() {
@@ -521,7 +495,20 @@ watch(show, (val) => {
           <RProgressCircular indeterminate :size="36" />
         </div>
         <template v-else-if="pairStatus === 'pending'">
-          <canvas id="r-v2-pair-qr-code" class="r-v2-tok-dialog__qr" />
+          <div class="r-v2-tok-dialog__qr">
+            <template v-if="pairQRCode">
+              <img
+                :src="pairQRCode"
+                :alt="t('settings.pair-device')"
+                class="r-v2-tok-dialog__qr-code"
+              />
+              <img
+                src="/assets/logos/romm_logo_xbox_one_circle.svg"
+                alt=""
+                class="r-v2-tok-dialog__qr-logo"
+              />
+            </template>
+          </div>
           <div class="r-v2-tok-dialog__pair-code">{{ formattedPairCode }}</div>
           <div class="r-v2-tok-dialog__pair-counter">{{ pairCountdown }}s</div>
         </template>
@@ -677,8 +664,30 @@ html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
 }
 
 .r-v2-tok-dialog__qr {
-  display: block;
+  position: relative;
+  width: 200px;
+  height: 200px;
   margin: 0 auto;
+}
+html[data-bp~="lg-and-up"] .r-v2-tok-dialog__qr {
+  width: 250px;
+  height: 250px;
+}
+.r-v2-tok-dialog__qr-code {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.r-v2-tok-dialog__qr-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: content-box;
+  width: 24%;
+  padding: 4px;
+  border-radius: 50%;
+  background: var(--r-color-overlay-emphasis-bg);
+  transform: translate(-50%, -50%);
 }
 .r-v2-tok-dialog__pair-code {
   margin-top: 8px;
