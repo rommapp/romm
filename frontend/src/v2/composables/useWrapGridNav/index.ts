@@ -153,7 +153,8 @@ export function useWrapGridNav(
     target.setAttribute("data-wrap-grid-cell", "");
     target.setAttribute("tabindex", "0");
 
-    target.focus({ preventScroll: true });
+    // Firefox skips the focus ring on a script focus() after a mouse click.
+    target.focus({ preventScroll: true, focusVisible: true });
     // Rows centre on vertical moves so the fixed bars never cover them.
     target.scrollIntoView({
       block: opts.verticalJump ? "center" : "nearest",

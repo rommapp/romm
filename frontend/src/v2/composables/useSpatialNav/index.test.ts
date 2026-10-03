@@ -166,6 +166,17 @@ describe("useSpatialNav", () => {
     restores.splice(0).forEach((restore) => restore());
   });
 
+  it("asks for a visible focus ring on the control it moves to", () => {
+    el("play").focus();
+    const focus = vi.spyOn(el("nav"), "focus");
+
+    press("ArrowUp");
+
+    expect(focus).toHaveBeenCalledWith(
+      expect.objectContaining({ focusVisible: true }),
+    );
+  });
+
   it("moves up and down off a single-row grid", () => {
     el("play").focus();
 
