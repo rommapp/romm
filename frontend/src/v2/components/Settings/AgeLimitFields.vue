@@ -1,10 +1,9 @@
 <script setup lang="ts">
-// AgeLimitFields: a group's or user's age limit, unrated rule and allowed games.
+// AgeLimitFields: a group's or user's age limit and unrated-games rule.
 // A user's null keeps the group's value, which `inherited` describes.
 import { RIcon, RSelect, RSwitch } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -16,7 +15,6 @@ const ageLimit = defineModel<number | null>("ageLimit", { required: true });
 const hideUnrated = defineModel<boolean | null>("hideUnrated", {
   required: true,
 });
-const exemptRomIds = defineModel<number[]>("exemptRomIds", { required: true });
 
 const { t } = useI18n();
 
@@ -110,20 +108,6 @@ const unratedItems = computed(() => [
         {{ t("settings.unrated-games-hint") }}
       </span>
     </div>
-
-    <div class="r-v2-age-limit__games">
-      <span class="r-v2-age-limit__label">
-        <RIcon icon="mdi-check-decagram-outline" size="14" />
-        {{ t("settings.age-exemptions") }}
-      </span>
-      <HiddenGamesPicker
-        v-model="exemptRomIds"
-        :placeholder="t('settings.age-exemptions-search')"
-      />
-      <span class="r-v2-age-limit__hint">
-        {{ t("settings.age-exemptions-hint") }}
-      </span>
-    </div>
   </div>
 </template>
 
@@ -133,36 +117,14 @@ const unratedItems = computed(() => [
   flex-direction: column;
   gap: 16px;
 }
-.r-v2-age-limit__games {
-  display: flex;
-  flex-direction: column;
-  gap: var(--r-space-1);
-}
 .r-v2-age-limit__switch {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
-/* Matches RSelect's stacked label and hint, which the list has no field for. */
-.r-v2-age-limit__label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding-inline-start: 2px;
-  font-size: 12px;
-  font-weight: var(--r-font-weight-medium);
-  line-height: 1.2;
-  color: var(--r-color-fg-muted);
-}
 .r-v2-age-limit__switch-hint {
   font-size: 12px;
-  color: var(--r-color-fg-muted);
-}
-.r-v2-age-limit__hint {
-  padding-inline: 4px;
-  font-size: 11px;
-  line-height: 1.3;
   color: var(--r-color-fg-muted);
 }
 </style>

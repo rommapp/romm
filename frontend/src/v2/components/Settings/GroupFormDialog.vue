@@ -18,7 +18,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { GROUP_COLOR_PALETTE } from "@/v2/utils/groupColor";
 import AgeLimitFields from "./AgeLimitFields.vue";
-import HiddenGamesPicker from "./HiddenGamesPicker.vue";
+import GameExceptionsPicker from "./GameExceptionsPicker.vue";
 import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
 import PermissionsMatrix from "./PermissionsMatrix.vue";
 import { createAgeSettingsDraft } from "./ageSettingsDraft";
@@ -313,19 +313,22 @@ async function save() {
 
         <div class="r-v2-group-dialog__matrix">
           <span class="r-v2-group-dialog__matrix-label">
-            {{ t("settings.hidden-games") }}
-          </span>
-          <HiddenGamesPicker v-model="hiddenRomIds" />
-        </div>
-
-        <div class="r-v2-group-dialog__matrix">
-          <span class="r-v2-group-dialog__matrix-label">
             {{ t("settings.parental-controls") }}
           </span>
           <AgeLimitFields
             v-model:age-limit="age.ageLimit"
             v-model:hide-unrated="age.hideUnrated"
-            v-model:exempt-rom-ids="age.exemptRomIds"
+          />
+        </div>
+
+        <div class="r-v2-group-dialog__matrix">
+          <span class="r-v2-group-dialog__matrix-label">
+            {{ t("settings.game-exceptions") }}
+          </span>
+          <GameExceptionsPicker
+            v-model:hidden="hiddenRomIds"
+            v-model:allowed="age.exemptRomIds"
+            :hint="t('settings.game-exceptions-hint')"
           />
         </div>
       </div>

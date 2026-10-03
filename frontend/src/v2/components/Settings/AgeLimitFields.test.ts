@@ -32,8 +32,8 @@ interface FieldProps {
 
 function mountFields(props: FieldProps) {
   return mount(AgeLimitFields, {
-    props: { exemptRomIds: [], ...props },
-    global: { stubs: { RSelect, RSwitch, HiddenGamesPicker: true } },
+    props,
+    global: { stubs: { RSelect, RSwitch } },
   });
 }
 

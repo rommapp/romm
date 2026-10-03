@@ -23,7 +23,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 import AgeLimitFields from "./AgeLimitFields.vue";
-import HiddenGamesPicker from "./HiddenGamesPicker.vue";
+import GameExceptionsPicker from "./GameExceptionsPicker.vue";
 import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
 import OverridesMatrix from "./OverridesMatrix.vue";
 import { createAgeSettingsDraft } from "./ageSettingsDraft";
@@ -451,9 +451,18 @@ function close() {
           <AgeLimitFields
             v-model:age-limit="age.ageLimit"
             v-model:hide-unrated="age.hideUnrated"
-            v-model:exempt-rom-ids="age.exemptRomIds"
             :inherited="inheritedAgeSettings"
           />
+          <GameExceptionsPicker
+            v-model:hidden="hiddenRomIds"
+            v-model:allowed="age.exemptRomIds"
+            :hint="t('settings.game-exceptions-hint')"
+          >
+            <template #label>
+              <RIcon icon="mdi-gamepad-variant-outline" size="14" />
+              {{ t("settings.game-exceptions") }}
+            </template>
+          </GameExceptionsPicker>
 
           <RBtn
             block
@@ -482,12 +491,6 @@ function close() {
                 :entities="entities"
                 :actions="actions"
               />
-            </div>
-            <div class="r-v2-user-dialog__field">
-              <span class="r-v2-user-dialog__field-label">
-                {{ t("settings.hidden-games") }}
-              </span>
-              <HiddenGamesPicker v-model="hiddenRomIds" />
             </div>
           </template>
         </template>

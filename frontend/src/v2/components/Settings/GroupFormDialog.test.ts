@@ -70,7 +70,7 @@ async function openDialog(toEdit: PermissionGroupSchema | null) {
         RSwitch: true,
         RTextField: true,
         PermissionsMatrix: true,
-        HiddenGamesPicker: true,
+        GameExceptionsPicker: true,
         HiddenPlatformsPicker: true,
         AgeLimitFields: true,
       },

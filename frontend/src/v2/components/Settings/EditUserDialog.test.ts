@@ -6,6 +6,7 @@ import type { Events } from "@/types/emitter";
 import { userFixture } from "@/utils/user.fixtures";
 import AgeLimitFields from "./AgeLimitFields.vue";
 import EditUserDialog from "./EditUserDialog.vue";
+import GameExceptionsPicker from "./GameExceptionsPicker.vue";
 
 const {
   fetchCatalog,
@@ -83,7 +84,7 @@ async function mountDialog(role: "admin" | "user" = "admin") {
         RSelect: true,
         RSwitch: true,
         RTextField: true,
-        HiddenGamesPicker: true,
+        GameExceptionsPicker: true,
         HiddenPlatformsPicker: true,
         OverridesMatrix: true,
         AgeLimitFields: true,
@@ -181,7 +182,7 @@ describe("EditUserDialog age settings", () => {
   it("replaces the exemptions without touching the age settings", async () => {
     const { wrapper } = await mountDialog("user");
 
-    wrapper.findComponent(AgeLimitFields).vm.$emit("update:exemptRomIds", []);
+    wrapper.findComponent(GameExceptionsPicker).vm.$emit("update:allowed", []);
     await save(wrapper);
 
     expect(updateUserPermissions).toHaveBeenCalledExactlyOnceWith(
@@ -213,7 +214,9 @@ describe("EditUserDialog age settings", () => {
     await flushPromises();
 
     expect(fields().props("ageLimit")).toBeNull();
-    expect(fields().props("exemptRomIds")).toEqual([5]);
+    expect(
+      wrapper.findComponent(GameExceptionsPicker).props("allowed"),
+    ).toEqual([5]);
   });
 
   it("saves no access edits over a user whose access failed to load", async () => {
