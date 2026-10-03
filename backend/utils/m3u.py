@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -45,34 +46,67 @@ def _disc_order(file: RomFile) -> tuple[bool, int, str]:
     return (number is None, number or 0, file.file_name)
 
 
-def first_playlist_entry(m3u_path: Path) -> Path | None:
-    """Resolve an .m3u playlist to the first disc file it lists.
-
-    Returns:
-        The first non-comment entry, relative to the playlist's folder unless
-        absolute, or None when the playlist can't be read or that entry isn't
-        a file on disk.
-    """
+def _playlist_entries(m3u_path: Path) -> list[list[Path]] | None:
+    """Each disc line's possible paths, literal first since a POSIX name may
+    hold the backslashes Windows playlists separate folders with."""
     try:
         lines = m3u_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
     except OSError:
         return None
+    entries = []
     for line in lines:
         entry = line.strip()
         if not entry or entry.startswith("#"):
             continue
-        # Playlists written on Windows separate folders with backslashes, which
-        # a POSIX file name may also contain, so the literal path is tried first.
         candidates = [entry]
         if "\\" in entry:
             candidates.append(entry.replace("\\", "/"))
-        for candidate in candidates:
-            entry_path = Path(candidate)
-            if not entry_path.is_absolute():
-                entry_path = m3u_path.parent / entry_path
-            if entry_path.is_file():
-                return entry_path
+        entries.append(
+            [
+                path if path.is_absolute() else m3u_path.parent / path
+                for path in map(Path, candidates)
+            ]
+        )
+    return entries
+
+
+def first_playlist_entry(m3u_path: Path) -> Path | None:
+    """Resolve an .m3u playlist to the first disc file it lists.
+
+    Returns:
+        The first entry's path, or None when the playlist can't be read or that
+        entry isn't a file on disk.
+    """
+    entries = _playlist_entries(m3u_path)
+    if not entries:
         return None
+    return next((path for path in entries[0] if path.is_file()), None)
+
+
+def _path_key(path: Path) -> str:
+    # Only the folders resolve: promotion moves a symlinked disc, not its target.
+    return os.path.normcase(str(path.parent.resolve() / path.name)).casefold()
+
+
+def listing_playlist(disc: Path) -> str | None:
+    """The name of an .m3u beside a lone disc that lists it, or None."""
+    # Matched ignoring case: Windows-authored playlists often differ from the files.
+    target = _path_key(disc)
+    try:
+        playlists = [
+            entry
+            for entry in disc.parent.iterdir()
+            if entry.suffix.lower() == ".m3u" and entry.is_file()
+        ]
+    except OSError:
+        return None
+    for playlist in playlists:
+        for candidates in _playlist_entries(playlist) or []:
+            # The path an emulator would open, as first_playlist_entry picks it.
+            on_disk = next((path for path in candidates if path.is_file()), None)
+            named = [on_disk] if on_disk else candidates
+            if any(_path_key(path) == target for path in named):
+                return playlist.name
     return None
 
 

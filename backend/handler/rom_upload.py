@@ -160,7 +160,8 @@ async def prepare_upload_destination(
     create the target directory.
 
     Raises the same as `resolve_upload_destination`, plus
-    RomAlreadyExistsException when the promotion collides with a folder.
+    RomAlreadyExistsException when the promotion collides with a folder and
+    RomListedByPlaylistException when a playlist lists the lone file.
     """
     rel_dir, location = resolve_upload_destination(
         rom, folder, filename, overwrite=overwrite
