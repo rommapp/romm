@@ -5,12 +5,12 @@ const FALLBACK_ATTR = "data-fullscreen-fallback";
 const FULLSCREEN_STYLE = `
   [${FALLBACK_ATTR}] {
     position: fixed !important;
-    top: env(safe-area-inset-top, 0px) !important;
-    left: env(safe-area-inset-left, 0px) !important;
+    top: var(--r-safe-t) !important;
+    left: var(--r-safe-l) !important;
     right: auto !important;
     bottom: auto !important;
-    width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) !important;
-    height: calc(100svh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+    width: calc(100vw - var(--r-safe-l) - var(--r-safe-r)) !important;
+    height: calc(100svh - var(--r-safe-t) - var(--r-safe-b)) !important;
     z-index: 99999 !important;
     background: var(--r-color-canvas-bg, black) !important;
     /* Paints the safe-area strips around the stage, which stays clear of them. */

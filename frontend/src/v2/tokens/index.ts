@@ -389,7 +389,7 @@ export const zIndex = {
 export const layout = {
   // Includes the status-bar inset (the page draws under it with
   // `viewport-fit=cover`), so everything offset by the bar clears both.
-  navHeight: "calc(58px + env(safe-area-inset-top, 0px))",
+  navHeight: "calc(58px + var(--r-safe-t))",
   // Pills in the top bar's right cluster (scan indicator, mini player, user
   // menu) share one height so they line up.
   navPillHeight: "38px",

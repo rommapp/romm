@@ -124,7 +124,7 @@
   --r-motion-ease-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   --r-focus-ring-width: 2px;
   --r-focus-ring-offset: 3px;
-  --r-nav-h: calc(58px + env(safe-area-inset-top, 0px));
+  --r-nav-h: calc(58px + var(--r-safe-t));
   --r-nav-pill-h: 38px;
   --r-bottom-nav-h: 58px;
   --r-bottom-nav-max-w: 480px;

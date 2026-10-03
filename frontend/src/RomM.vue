@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useIdle, useLocalStorage } from "@vueuse/core";
+import { useIdle, useLocalStorage, useScreenSafeArea } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -85,6 +85,12 @@ watch(
 
 const isV2 = computed(() => uiVersion.value === "v2");
 
+// The page draws under a phone's status bar and home indicator
+// (`viewport-fit=cover`); v1 clears them with layout bars of the same height.
+const safeArea = useScreenSafeArea();
+const safeTop = computed(() => parseFloat(safeArea.top.value) || 0);
+const safeBottom = computed(() => parseFloat(safeArea.bottom.value) || 0);
+
 // Apply the v2 token scope to <html> when v2 is active. Vuetify teleports
 // overlays (VDialog, VMenu) into `<body> > .v-overlay-container`, which
 // sits OUTSIDE both the AppLayout `.r-v2` wrapper AND <v-app>. Putting the
@@ -105,6 +111,21 @@ watch(
 
 <template>
   <v-app id="application" :class="{ 'mouse-hidden': consoleMode && mouseIdle }">
+    <template v-if="!isV2">
+      <v-system-bar
+        v-if="safeTop"
+        :height="safeTop"
+        :order="-1"
+        class="bg-background"
+      />
+      <v-footer
+        v-if="safeBottom"
+        app
+        :height="safeBottom"
+        :order="-1"
+        class="bg-background pa-0"
+      />
+    </template>
     <v-main id="main" class="no-transition" :tag="isV2 ? 'div' : 'main'">
       <router-view v-if="!isV2" v-slot="{ Component }">
         <component :is="Component" />
