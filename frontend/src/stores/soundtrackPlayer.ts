@@ -237,14 +237,14 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   );
 
   function next() {
-    if (!hasNext.value) return;
     const nextTrack = playlist.value[currentIndex.value + 1];
+    if (!hasNext.value || !nextTrack) return;
     play(nextTrack, playlistMeta.value[nextTrack.fileId] ?? {});
   }
 
   function previous() {
-    if (!hasPrevious.value) return;
     const prevTrack = playlist.value[currentIndex.value - 1];
+    if (!hasPrevious.value || !prevTrack) return;
     play(prevTrack, playlistMeta.value[prevTrack.fileId] ?? {});
   }
 

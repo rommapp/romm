@@ -47,7 +47,7 @@ describe("sendSaveOnUnload", () => {
     });
 
     expect(sent).toBe(true);
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(
       "/api/saves?rom_id=1&emulator=snes9x&device_id=dev&slot=autosave&autocleanup=true&overwrite=true",
     );
@@ -68,7 +68,7 @@ describe("sendSaveOnUnload", () => {
       deviceId: "dev",
     });
 
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe("/api/saves/3?device_id=dev");
     expect(init).toMatchObject({ method: "PUT", keepalive: true });
   });

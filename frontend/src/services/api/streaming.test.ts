@@ -27,7 +27,7 @@ describe("releaseSessionKeepalive", () => {
       "2026-09-17T12:00:00+00:00",
     );
 
-    expect(fetchMock.mock.calls[0][0]).toBe(
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "/api/streaming/sessions/ps2?container=WEBSTATION-DEV&claimed_at=2026-09-17T12%3A00%3A00%2B00%3A00",
     );
   });
@@ -35,7 +35,7 @@ describe("releaseSessionKeepalive", () => {
   it("sends no query when there is nothing to name", async () => {
     await streamingApi.releaseSessionKeepalive("ps2");
 
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/streaming/sessions/ps2");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/streaming/sessions/ps2");
   });
 });
 
@@ -54,7 +54,7 @@ describe("saveAndExitKeepalive", () => {
       "2026-09-17T12:00:00+00:00",
     );
 
-    expect(fetchMock.mock.calls[0][0]).toBe(
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "/api/streaming/sessions/ps2/save-and-exit?container=WEBSTATION-DEV&claimed_at=2026-09-17T12%3A00%3A00%2B00%3A00",
     );
   });

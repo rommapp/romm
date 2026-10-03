@@ -23,7 +23,7 @@ export function parseSceneId(
 
   if (kind === "demozoo" && host === "demozoo.org") {
     const match = url.pathname.match(/\/(?:api\/v1\/)?productions\/(\d+)/i);
-    return match ? Number.parseInt(match[1], 10) : null;
+    return match?.[1] ? Number.parseInt(match[1], 10) : null;
   }
 
   if (kind === "pouet" && host === "pouet.net") {
@@ -36,7 +36,7 @@ export function parseSceneId(
     const id = url.searchParams.get("id");
     if (id && /^\d+$/.test(id)) return Number.parseInt(id, 10);
     const match = url.pathname.match(/\/release\/(\d+)/i);
-    return match ? Number.parseInt(match[1], 10) : null;
+    return match?.[1] ? Number.parseInt(match[1], 10) : null;
   }
 
   return null;
