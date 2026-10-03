@@ -32,7 +32,6 @@
 //     unclaimed, so `useSpatialNav` carries focus to the next region.
 //   * `useGamepad` itself dispatches keydowns, so everything here is
 //     plain keyboard code; gamepad users transparently benefit.
-//
 import { useEventListener, useMutationObserver } from "@vueuse/core";
 import { onBeforeUnmount, onMounted, watch, type Ref } from "vue";
 import { useRoute } from "vue-router";

@@ -226,10 +226,8 @@ export function useGamepad() {
     trigger?.click();
   }
 
-  // B is Escape first: whatever Escape would dismiss (an overlay on the
-  // escape stack, gallery selection, an inline edit) takes the press and
-  // claims it with preventDefault. Only an unclaimed press pops history,
-  // so one B never both dismisses something and navigates.
+  // B is Escape first; only a press no handler claims pops history, so one
+  // B never both dismisses something and navigates.
   function goBack() {
     if (!dispatchKey(ESCAPE)) router.back();
   }

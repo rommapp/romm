@@ -14,8 +14,7 @@
 // `window` sidesteps both.
 //
 // The listener claims the key with preventDefault, persistent layers
-// included, so `useGamepad`'s B (which dispatches a synthetic Escape)
-// can tell an overlay took it from nothing having handled it.
+// included, so `useGamepad`'s B knows not to fall back to history.
 //
 // Pushing also notifies `onEscapableOpen` subscribers, so surfaces that
 // paint above every overlay (RTooltip) can dismiss themselves.
