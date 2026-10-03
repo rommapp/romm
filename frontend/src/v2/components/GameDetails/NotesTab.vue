@@ -11,11 +11,18 @@ import {
   RTextField,
   RTooltip,
   RDivider,
+  RSpinner,
 } from "@v2/lib";
-import { MdEditor, MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
-import { computed, nextTick, ref, watch } from "vue";
+import {
+  computed,
+  defineAsyncComponent,
+  defineComponent,
+  h,
+  nextTick,
+  ref,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { UserNoteSchema } from "@/__generated__";
@@ -35,6 +42,19 @@ import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { focusFromInput } from "@/v2/utils/autofocus";
 import { syncQueryParam } from "@/v2/utils/routeQuery";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
+
+// md-editor loads with the first note, not with the game page.
+const MdEditor = defineAsyncComponent({
+  loader: () => import("@/v2/components/shared/markdownEditor"),
+  // Vue passes the editor's attrs to the loading component; drop them.
+  loadingComponent: defineComponent({
+    inheritAttrs: false,
+    render: () => h(RSpinner),
+  }),
+});
+const MdPreview = defineAsyncComponent(
+  () => import("@/v2/components/shared/markdownPreview"),
+);
 
 defineOptions({ inheritAttrs: false });
 
@@ -442,6 +462,7 @@ function fmtDate(iso: string): string {
             no-highlight
             no-katex
             no-mermaid
+            no-echarts
             no-prettier
             no-upload-img
             :theme="mdTheme"
@@ -499,6 +520,7 @@ function fmtDate(iso: string): string {
             no-highlight
             no-katex
             no-mermaid
+            no-echarts
             :model-value="selectedNote.content"
             :theme="mdTheme"
             language="en-US"

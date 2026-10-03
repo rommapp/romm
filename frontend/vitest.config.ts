@@ -1,16 +1,13 @@
 import vue from "@vitejs/plugin-vue";
-import { URL, fileURLToPath } from "node:url";
 import vuetify from "vite-plugin-vuetify";
 import { defineConfig } from "vitest/config";
+import { appAliases } from "./scripts/aliases";
 import { platformIconManifest } from "./scripts/platformIconManifest";
 
 export default defineConfig({
   plugins: [vue(), vuetify({ autoImport: true }), platformIconManifest()],
   resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-      "@v2": fileURLToPath(new URL("./src/v2", import.meta.url)),
-    },
+    alias: appAliases,
   },
   test: {
     server: {
