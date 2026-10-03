@@ -290,7 +290,6 @@ def _server_lock(conn: Connection, name: str) -> Iterator[bool]:
 
 def _build_template(conn: Connection, prefix: str, template: str) -> None:
     """Migrate `template` from scratch, dropping every other `prefix` template first."""
-    # Also drops half-built templates.
     schemas: Sequence[str] = (
         conn.execute(text("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA"))
         .scalars()
@@ -382,8 +381,7 @@ _CLEARED_MODELS = (
     Platform,
     User,
 )
-# One round trip that says which tables hold rows, so a test that left most of
-# them empty doesn't pay a DELETE per table.
+# One round trip finds the tables holding rows, so empty ones skip their DELETE.
 _HAS_ROWS = select(
     *(
         exists().select_from(model).label(model.__tablename__)
