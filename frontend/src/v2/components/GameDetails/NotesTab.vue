@@ -35,11 +35,12 @@ import { syncQueryParam } from "@/v2/utils/routeQuery";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 // md-editor loads with the first note, not with the game page.
-const MdEditor = defineAsyncComponent(
-  () => import("@/v2/components/shared/markdownEditor"),
+const loadMarkdown = () => import("@/v2/components/shared/markdown");
+const MdEditor = defineAsyncComponent(() =>
+  loadMarkdown().then((m) => m.MdEditor),
 );
-const MdPreview = defineAsyncComponent(
-  () => import("@/v2/components/shared/markdownPreview"),
+const MdPreview = defineAsyncComponent(() =>
+  loadMarkdown().then((m) => m.MdPreview),
 );
 
 defineOptions({ inheritAttrs: false });

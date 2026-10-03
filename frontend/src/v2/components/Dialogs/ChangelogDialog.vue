@@ -23,7 +23,8 @@ defineOptions({ inheritAttrs: false });
 
 // The dialog is mounted on every v2 page, so the markdown renderer loads on
 // first open instead of with the app shell.
-const loadMdPreview = () => import("@/v2/components/shared/markdownPreview");
+const loadMdPreview = () =>
+  import("@/v2/components/shared/markdown").then((m) => m.MdPreview);
 const MdPreview = defineAsyncComponent(loadMdPreview);
 
 type Release = {

@@ -11,10 +11,9 @@ import {
   RSpinner,
   RTooltip,
 } from "@v2/lib";
-import { MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { MdPreview } from "@/v2/components/shared/markdown";
 import { useFetchState } from "@/v2/composables/useFetchState";
 import { useReadingProgress } from "@/v2/composables/useReadingProgress";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
@@ -174,6 +173,7 @@ watch(
         no-highlight
         no-katex
         no-mermaid
+        no-echarts
         :model-value="content"
         :theme="mdTheme"
         language="en-US"

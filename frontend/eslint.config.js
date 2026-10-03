@@ -122,7 +122,7 @@ export default tseslint.config(
   // `md-editor-v3` alias points at; a deep import would skip it.
   {
     files: ["src/**/*.ts", "src/**/*.vue"],
-    ignores: ["src/plugins/mdeditor.ts", "src/plugins/mdeditor-dist.d.ts"],
+    ignores: ["src/plugins/mdeditor.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
