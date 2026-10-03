@@ -314,8 +314,9 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 // Responsive columns: measure the section to chunk roms into rows.
 // Card width and inset track the breakpoint so phones pack more, smaller
 // cards instead of one stretched card per row:
-//   inset  = scroller padding (--r-row-pad × 2), plus the AlphaStrip column
-//            (`--r-alpha-strip-w` + its gap) wherever the strip renders
+//   inset  = scroller padding (--r-row-pad × 2 + the side safe-area insets),
+//            plus the AlphaStrip column (`--r-alpha-strip-w` + its gap)
+//            wherever the strip renders
 //   card   = matches the `--r-card-art-w` the shell sets per breakpoint
 //            (108 on xs, 158 otherwise) so the JS row-chunking and the
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
@@ -323,8 +324,8 @@ const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
 const navHeight = useCssLength("var(--r-nav-h)");
 // The section spans the screen and its scroller pads in by the side insets.
-const safeAreaX = useCssLength(
-  "calc(env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px))",
+const scrollerPadX = useCssLength(
+  "calc(2 * var(--r-row-pad) + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px))",
 );
 // A jump to "M" means nothing unless the gallery is in letter order.
 const lettersSupported = computed(() => {
@@ -350,10 +351,9 @@ const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
   cardWidth,
   gap: CARD_GAP_PX,
   inset: () =>
-    (xs.value ? 28 : smAndDown.value ? 40 : 72) +
+    scrollerPadX.value +
     (stripVisible.value ? STRIP_INSET_PX : 0) +
-    scrollbarWidth.value +
-    safeAreaX.value,
+    scrollbarWidth.value,
 });
 
 // Fallback cover ratio (boxart style); the per-card `--r-cover-ratio` seed

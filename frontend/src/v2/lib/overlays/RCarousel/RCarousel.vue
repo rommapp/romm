@@ -463,10 +463,11 @@ function onBackdropClick(event: MouseEvent) {
 }
 
 /* Close button ------------------------------------------------------------- */
+/* Absolute children sit on the root's padding box, so they add the insets. */
 .r-carousel__close {
   position: absolute;
-  top: 18px;
-  right: 22px;
+  top: calc(18px + env(safe-area-inset-top, 0px));
+  right: calc(22px + env(safe-area-inset-right, 0px));
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -521,11 +522,11 @@ function onBackdropClick(event: MouseEvent) {
   cursor: not-allowed;
 }
 .r-carousel--fullscreen .r-carousel__nav--prev {
-  left: 22px;
+  left: calc(22px + env(safe-area-inset-left, 0px));
   transform: translateY(-50%);
 }
 .r-carousel--fullscreen .r-carousel__nav--next {
-  right: 22px;
+  right: calc(22px + env(safe-area-inset-right, 0px));
   transform: translateY(-50%);
 }
 
@@ -730,10 +731,10 @@ html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav {
   height: 44px;
 }
 html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav--prev {
-  left: 8px;
+  left: calc(8px + env(safe-area-inset-left, 0px));
 }
 html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav--next {
-  right: 8px;
+  right: calc(8px + env(safe-area-inset-right, 0px));
 }
 html[data-bp~="sm-and-down"] .r-carousel__thumb {
   width: 72px;

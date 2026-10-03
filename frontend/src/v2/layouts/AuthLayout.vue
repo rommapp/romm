@@ -92,9 +92,9 @@ onMounted(installInputModality);
 
 .r-v2-auth__footer {
   position: absolute;
-  left: var(--r-space-4);
-  right: var(--r-space-4);
-  bottom: var(--r-space-3);
+  left: calc(var(--r-space-4) + env(safe-area-inset-left, 0px));
+  right: calc(var(--r-space-4) + env(safe-area-inset-right, 0px));
+  bottom: calc(var(--r-space-3) + env(safe-area-inset-bottom, 0px));
   z-index: 1;
 }
 
@@ -115,7 +115,10 @@ html[data-bp~="xs"] .r-v2-auth {
      shrinks with the bar and the card fills exactly the visible space. */
   height: 100dvh;
   min-height: 100dvh;
-  padding: var(--r-space-3);
+  padding: max(var(--r-space-3), env(safe-area-inset-top, 0px))
+    max(var(--r-space-3), env(safe-area-inset-right, 0px))
+    max(var(--r-space-3), env(safe-area-inset-bottom, 0px))
+    max(var(--r-space-3), env(safe-area-inset-left, 0px));
   gap: var(--r-space-3);
 }
 html[data-bp~="xs"] .r-v2-auth__stage {

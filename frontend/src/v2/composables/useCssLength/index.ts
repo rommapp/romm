@@ -1,8 +1,7 @@
 import { useElementSize } from "@vueuse/core";
 import { onScopeDispose, type Ref } from "vue";
 
-/** A CSS length resolved to px, for values JS can't parse, such as `var()` or
- *  `env()`. Stays current as the value changes (a safe-area inset on rotation).
+/** A live px value for a CSS length JS can't parse, such as `var()` or `env()`.
  *
  *  Args:
  *    expr: Any CSS length, e.g. `var(--r-nav-h)`.

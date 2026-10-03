@@ -11,11 +11,13 @@ function probes(): HTMLElement[] {
 describe("useCssLength", () => {
   it("sizes a probe by the expression and removes it on dispose", () => {
     const scope = effectScope();
-    const length = scope.run(() => useCssLength("var(--r-nav-h)"));
-    expect(probes()).toHaveLength(1);
-    expect(length?.value).toBe(0);
-
-    scope.stop();
+    try {
+      const length = scope.run(() => useCssLength("var(--r-nav-h)"));
+      expect(probes()).toHaveLength(1);
+      expect(length?.value).toBe(0);
+    } finally {
+      scope.stop();
+    }
     expect(probes()).toHaveLength(0);
   });
 });
