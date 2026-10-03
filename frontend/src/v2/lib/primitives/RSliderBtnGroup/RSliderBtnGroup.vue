@@ -36,8 +36,7 @@ const props = withDefaults(
      *  segmented vocabulary so every existing call site stays
      *  identical. `x-small` shrinks to 22×22 so the cluster reads as
      *  a peer to RSwitch default (20px) when placed inline inside a
-     *  toggle row: mirrors RBtn's x-small / small ladder. On `tab`
-     *  it gives a compact pill for a list row instead of the top nav. */
+     *  toggle row: mirrors RBtn's x-small / small ladder. */
     size?: "x-small" | "small";
   }>(),
   {
@@ -462,41 +461,6 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   color: var(--r-color-overlay-emphasis-fg) !important;
   background: transparent !important;
   font-weight: var(--r-font-weight-semibold);
-}
-
-/* x-small tab: a compact pill for a row in a list, 26px tall (the touch
-   target on phones). */
-.r-slider-btn-group--tab.r-slider-btn-group--size-x-small {
-  padding: 3px;
-}
-.r-slider-btn-group--tab.r-slider-btn-group--size-x-small
-  .r-slider-btn-group__btn {
-  padding: 3px 10px !important;
-  min-height: 26px !important;
-  height: 26px !important;
-  font-size: 12px;
-  /* A fractional line height rounds the label a pixel high at some positions. */
-  line-height: 16px;
-  gap: 4px;
-}
-html[data-bp~="sm-and-down"]
-  .r-slider-btn-group--tab.r-slider-btn-group--size-x-small
-  .r-slider-btn-group__btn {
-  min-height: var(--r-touch-target) !important;
-  height: var(--r-touch-target) !important;
-}
-.r-slider-btn-group--tab.r-slider-btn-group--size-x-small
-  .r-slider-btn-group__btn
-  :deep(.mdi) {
-  font-size: 14px !important;
-  width: 14px !important;
-  height: 14px !important;
-}
-/* The pill marks the active item, so a heavier weight would only make the
-   label jump in width. */
-.r-slider-btn-group--tab.r-slider-btn-group--size-x-small
-  .r-slider-btn-group__btn--active {
-  font-weight: var(--r-font-weight-medium);
 }
 
 /* Count pill after the label. Background is a translucent tint of the

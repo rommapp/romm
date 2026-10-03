@@ -78,29 +78,6 @@ export const Tab: Story = {
   }),
 };
 
-// Compact tab pill for a row in a list, such as a per-item mode toggle.
-export const TabXSmall: Story = {
-  args: { variant: "tab", size: "x-small" },
-  render: (args) => ({
-    components: { RSliderBtnGroup },
-    setup() {
-      const active = ref<"hide" | "allow">("hide");
-      return { args, active };
-    },
-    template: `
-      <RSliderBtnGroup
-        v-bind="args"
-        :model-value="active"
-        :items="[
-          { id: 'hide', label: 'Hide', icon: 'mdi-eye-off-outline' },
-          { id: 'allow', label: 'Allow', icon: 'mdi-check-decagram-outline' },
-        ]"
-        @update:model-value="(v) => (active = v)"
-      />
-    `,
-  }),
-};
-
 // Vertical tab pill: same aesthetic and sliding indicator as the
 // horizontal tab variant, just stacked.
 export const VerticalTab: Story = {

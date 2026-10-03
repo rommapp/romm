@@ -6,7 +6,6 @@ import type { Events } from "@/types/emitter";
 import { userFixture } from "@/utils/user.fixtures";
 import AgeLimitFields from "./AgeLimitFields.vue";
 import EditUserDialog from "./EditUserDialog.vue";
-import GameExceptionsPicker from "./GameExceptionsPicker.vue";
 
 const {
   fetchCatalog,
@@ -63,7 +62,6 @@ function permissions(overrides: Partial<UserPermissionsSchema> = {}) {
       hidden: [],
       age_limit: null,
       hide_unrated_roms: null,
-      age_exempt_rom_ids: [5],
       ...overrides,
     },
   };
@@ -85,7 +83,7 @@ async function mountDialog(role: "admin" | "user" = "admin") {
         RSpinner: true,
         RSwitch: true,
         RTextField: true,
-        GameExceptionsPicker: true,
+        HiddenGamesPicker: true,
         HiddenPlatformsPicker: true,
         OverridesMatrix: true,
         AgeLimitFields: true,
@@ -175,22 +173,6 @@ describe("EditUserDialog age settings", () => {
         set_age_settings: true,
         age_limit: 12,
         hide_unrated_roms: null,
-        age_exempt_rom_ids: null,
-      }),
-    );
-  });
-
-  it("replaces the exemptions without touching the age settings", async () => {
-    const { wrapper } = await mountDialog("user");
-
-    wrapper.findComponent(GameExceptionsPicker).vm.$emit("update:allowed", []);
-    await save(wrapper);
-
-    expect(updateUserPermissions).toHaveBeenCalledExactlyOnceWith(
-      4,
-      expect.objectContaining({
-        set_age_settings: false,
-        age_exempt_rom_ids: [],
       }),
     );
   });
@@ -209,15 +191,12 @@ describe("EditUserDialog age settings", () => {
         user_id: 3,
         age_limit: 12,
         hide_unrated_roms: true,
-        age_exempt_rom_ids: [9],
       }),
     );
     await flushPromises();
 
     expect(fields().props("ageLimit")).toBeNull();
-    expect(
-      wrapper.findComponent(GameExceptionsPicker).props("allowed"),
-    ).toEqual([5]);
+    expect(fields().props("hideUnrated")).toBeNull();
   });
 
   it("shows the access fields only once they load", async () => {
@@ -250,7 +229,7 @@ describe("EditUserDialog age settings", () => {
     const saving = save(wrapper);
 
     fetchUserPermissions.mockResolvedValue(
-      permissions({ user_id: 7, age_limit: 16, age_exempt_rom_ids: [9] }),
+      permissions({ user_id: 7, age_limit: 16 }),
     );
     await open(7);
     finishProfile({ data: userFixture({ id: 4, role: "user" }) });
@@ -258,7 +237,7 @@ describe("EditUserDialog age settings", () => {
 
     expect(updateUserPermissions).toHaveBeenCalledExactlyOnceWith(
       4,
-      expect.objectContaining({ age_limit: 12, age_exempt_rom_ids: null }),
+      expect.objectContaining({ age_limit: 12 }),
     );
   });
 
@@ -280,29 +259,6 @@ describe("EditUserDialog age settings", () => {
 
     finishProfile({ data: userFixture({ id: 4, role: "user" }) });
     await saving;
-  });
-
-  it("loads a game both hidden and allowed as hidden, dropping the allow on save", async () => {
-    fetchUserPermissions.mockResolvedValue(
-      permissions({
-        hidden: [{ entity: "roms", entity_id: 5 }],
-        age_exempt_rom_ids: [5, 6],
-      }),
-    );
-    const { wrapper } = await mountDialog("user");
-    const picker = wrapper.findComponent(GameExceptionsPicker);
-
-    expect(picker.props("hidden")).toEqual([5]);
-    expect(picker.props("allowed")).toEqual([6]);
-    await save(wrapper);
-
-    expect(updateUserPermissions).toHaveBeenCalledExactlyOnceWith(
-      4,
-      expect.objectContaining({
-        set_age_settings: false,
-        age_exempt_rom_ids: [6],
-      }),
-    );
   });
 
   it("leaves the permissions alone when nothing changed", async () => {

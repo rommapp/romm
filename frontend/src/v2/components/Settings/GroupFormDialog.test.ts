@@ -47,7 +47,6 @@ const group: PermissionGroupSchema = {
   member_count: 1,
   age_limit: 12,
   hide_unrated_roms: true,
-  age_exempt_rom_ids: [5],
 };
 
 beforeEach(() => {
@@ -70,7 +69,7 @@ async function openDialog(toEdit: PermissionGroupSchema | null) {
         RSwitch: true,
         RTextField: true,
         PermissionsMatrix: true,
-        GameExceptionsPicker: true,
+        HiddenGamesPicker: true,
         HiddenPlatformsPicker: true,
         AgeLimitFields: true,
       },
@@ -107,7 +106,6 @@ describe("GroupFormDialog age settings", () => {
         set_age_settings: true,
         age_limit: null,
         hide_unrated_roms: true,
-        age_exempt_rom_ids: null,
       }),
     );
   });
@@ -122,7 +120,6 @@ describe("GroupFormDialog age settings", () => {
       expect.objectContaining({
         name: "Teens",
         set_age_settings: false,
-        age_exempt_rom_ids: null,
       }),
     );
   });
@@ -138,7 +135,6 @@ describe("GroupFormDialog age settings", () => {
       name: "Teens",
       age_limit: 16,
       hide_unrated_roms: false,
-      age_exempt_rom_ids: [],
     });
     expect(body).not.toHaveProperty("set_age_settings");
   });

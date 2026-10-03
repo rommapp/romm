@@ -23,7 +23,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 import AgeLimitFields from "./AgeLimitFields.vue";
-import GameExceptionsPicker from "./GameExceptionsPicker.vue";
+import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
 import OverridesMatrix from "./OverridesMatrix.vue";
 import { createAgeSettingsDraft } from "./ageSettingsDraft";
@@ -56,7 +56,7 @@ const originalHiddenPlatformIds = ref<number[]>([]);
 const {
   draft: age,
   load: loadAge,
-  changes: ageChanges,
+  changed: ageSettingsChanged,
 } = createAgeSettingsDraft();
 // The access fields show, and save, only once this user's access has loaded.
 const accessLoaded = ref(false);
@@ -153,14 +153,10 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
     hiddenRomIds.value = [...hiddenRoms];
     originalHiddenRomIds.value = [...hiddenRoms];
 
-    loadAge(
-      {
-        ageLimit: perms.data.age_limit ?? null,
-        hideUnrated: perms.data.hide_unrated_roms ?? null,
-        exemptRomIds: perms.data.age_exempt_rom_ids ?? [],
-      },
-      hiddenRoms,
-    );
+    loadAge({
+      ageLimit: perms.data.age_limit ?? null,
+      hideUnrated: perms.data.hide_unrated_roms ?? null,
+    });
 
     overrides.value = perms.data.overrides.map((o) => ({ ...o }));
     originalOverrides.value = perms.data.overrides.map((o) => ({ ...o }));
@@ -236,12 +232,8 @@ function accessEdits(userId: number) {
   const groupChanged = groupId.value !== originalGroupId.value;
   const overridesChanged =
     overridesKey(overrides.value) !== overridesKey(originalOverrides.value);
-  const ageChanged = ageChanges();
-  const changed =
-    groupChanged ||
-    overridesChanged ||
-    ageChanged.settings ||
-    ageChanged.exemptions;
+  const ageChanged = ageSettingsChanged();
+  const changed = groupChanged || overridesChanged || ageChanged;
   const hidden = {
     platforms: [...hiddenPlatformIds.value],
     originalPlatforms: [...originalHiddenPlatformIds.value],
@@ -255,12 +247,9 @@ function accessEdits(userId: number) {
           set_group: groupChanged,
           permission_group_id: groupId.value,
           overrides: overridesChanged ? [...overrides.value] : null,
-          set_age_settings: ageChanged.settings,
+          set_age_settings: ageChanged,
           age_limit: age.value.ageLimit,
           hide_unrated_roms: age.value.hideUnrated,
-          age_exempt_rom_ids: ageChanged.exemptions
-            ? [...age.value.exemptRomIds]
-            : null,
         }
       : null,
     saveHidden: () =>
@@ -486,16 +475,6 @@ function close() {
             v-model:hide-unrated="age.hideUnrated"
             :inherited="inheritedAgeSettings"
           />
-          <GameExceptionsPicker
-            v-model:hidden="hiddenRomIds"
-            v-model:allowed="age.exemptRomIds"
-            :hint="t('settings.game-exceptions-hint')"
-          >
-            <template #label>
-              <RIcon icon="mdi-gamepad-variant-outline" size="14" />
-              {{ t("settings.game-exceptions") }}
-            </template>
-          </GameExceptionsPicker>
 
           <RBtn
             block
@@ -524,6 +503,12 @@ function close() {
                 :entities="entities"
                 :actions="actions"
               />
+            </div>
+            <div class="r-v2-user-dialog__field">
+              <span class="r-v2-user-dialog__field-label">
+                {{ t("settings.hidden-games") }}
+              </span>
+              <HiddenGamesPicker v-model="hiddenRomIds" />
             </div>
           </template>
         </template>
