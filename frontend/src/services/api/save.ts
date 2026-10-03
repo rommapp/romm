@@ -68,6 +68,10 @@ interface SaveVersionParams {
   autocleanup?: boolean | undefined;
   /** Skip the stale-device conflict check and the content-hash dedupe. */
   overwrite?: boolean | undefined;
+  /** The device's own hash of the file, kept as its sync baseline. */
+  contentHash?: string | undefined;
+  /** The sync session the upload carries out. */
+  sessionId?: number | undefined;
 }
 
 function saveVersionQuery({
@@ -77,6 +81,8 @@ function saveVersionQuery({
   slot,
   autocleanup,
   overwrite,
+  contentHash,
+  sessionId,
 }: SaveVersionParams) {
   return {
     rom_id: rom.id,
@@ -85,6 +91,8 @@ function saveVersionQuery({
     slot,
     autocleanup,
     overwrite,
+    content_hash: contentHash,
+    session_id: sessionId,
   };
 }
 

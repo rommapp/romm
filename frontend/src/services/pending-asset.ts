@@ -54,7 +54,7 @@ interface HeldKey {
 
 // `crypto.randomUUID` needs a secure context, which plain http on a LAN address
 // is not. The id only has to be unique within a browser.
-function randomToken(): string {
+export function randomToken(): string {
   const webCrypto = globalThis.crypto;
   if (typeof webCrypto?.randomUUID === "function")
     return webCrypto.randomUUID();
