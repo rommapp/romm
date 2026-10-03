@@ -23,9 +23,9 @@ export default defineStore("tasks", {
     }> {
       try {
         const response = await tasksApi.getTasks();
-        this.watcherTasks = response.data.watcher ?? [];
-        this.scheduledTasks = response.data.scheduled ?? [];
-        this.manualTasks = response.data.manual ?? [];
+        this.watcherTasks = response.data.watcher;
+        this.scheduledTasks = response.data.scheduled;
+        this.manualTasks = response.data.manual;
 
         return {
           watcherTasks: this.watcherTasks,

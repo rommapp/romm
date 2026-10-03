@@ -1,4 +1,4 @@
-from typing import Dict, List, TypedDict
+from typing import TypedDict
 
 from tasks.tasks import TaskType
 
@@ -14,5 +14,7 @@ class TaskInfo(TypedDict):
     cron_string: str
 
 
-# Use a more flexible type for grouped tasks
-GroupedTasksDict = Dict[str, List[TaskInfo]]
+class GroupedTasksDict(TypedDict):
+    scheduled: list[TaskInfo]
+    manual: list[TaskInfo]
+    watcher: list[TaskInfo]
