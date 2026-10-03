@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
-from itertools import batched
+from itertools import batched, chain
 from typing import Any, NamedTuple
 
 from sqlalchemy import delete, func, insert, select
@@ -161,10 +161,10 @@ class DBRecommendationsHandler(DBBaseHandler):
             .execution_options(yield_per=IGDB_SCAN_CHUNK_SIZE)
         )
 
-        # Closed by the with block: a streamed Result left to the cyclic GC is
-        # freed on another thread, which segfaults the mariadb connector.
+        # Read by partition: iterating the Result itself puts it in a reference
+        # cycle, and the GC frees its cursor on another thread, segfaulting mariadb.
         with session.execute(stmt) as result:
-            for rom_id, metadata in result:
+            for rom_id, metadata in chain.from_iterable(result.partitions()):
                 if not metadata:
                     continue
 
