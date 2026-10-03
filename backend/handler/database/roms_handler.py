@@ -1144,7 +1144,14 @@ class DBRomsHandler(DBBaseHandler):
         if not smart_collection:
             return query.filter(false())
 
-        member_ids = self._join_rom_user(select(Rom.id), user_id)
+        # MariaDB's semi-join plan for this IN (subquery) rescans the whole
+        # library per query; other dialects don't emit the hint.
+        member_ids = self._join_rom_user(
+            select(Rom.id)
+            .prefix_with("/*+ NO_SEMIJOIN() */", dialect="mariadb")
+            .prefix_with("/*+ NO_SEMIJOIN() */", dialect="mysql"),
+            user_id,
+        )
         return query.filter(
             Rom.id.in_(
                 db_collection_handler.build_smart_collection_query(
