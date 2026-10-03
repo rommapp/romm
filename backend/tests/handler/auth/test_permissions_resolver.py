@@ -220,6 +220,8 @@ def test_admin_sees_everything_despite_hides(admin_user):
 def test_default_group_is_viewer():
     from handler.database import db_permission_handler
 
-    group = db_permission_handler.get_default_group()
+    group_id = db_permission_handler.get_default_group_id()
+    assert group_id is not None
+    group = db_permission_handler.get_group(group_id)
     assert group is not None
     assert group.system_key == SystemGroupKey.VIEWER

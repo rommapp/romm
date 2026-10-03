@@ -1,8 +1,9 @@
 from collections.abc import Iterable, Sequence
-from typing import NamedTuple
+from typing import Final, NamedTuple
 
 from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from decorators.database import INJECTED_SESSION, begin_session
 from models.permission import (
@@ -34,6 +35,24 @@ class GroupPolicy(NamedTuple):
     grants: list[GrantTuple]
 
 
+# The policy of a missing group: no grants and no age rule.
+NO_GROUP_POLICY: Final = GroupPolicy(age_limit=None, hide_unrated_roms=False, grants=[])
+
+
+def _principal_clauses(
+    model: type[HiddenEntity] | type[AgeRatingExemption],
+    user_id: int | None,
+    group_id: int | None,
+) -> list[ColumnElement[bool]]:
+    """Clauses matching rows for the given user OR group, for an `or_`."""
+    clauses: list[ColumnElement[bool]] = []
+    if user_id is not None:
+        clauses.append(model.user_id == user_id)
+    if group_id is not None:
+        clauses.append(model.group_id == group_id)
+    return clauses
+
+
 class DBPermissionsHandler(DBBaseHandler):
     """Read and admin-write access to the granular permission model.
 
@@ -42,15 +61,6 @@ class DBPermissionsHandler(DBBaseHandler):
     the per-request resolver; the rest is the admin CRUD surface for managing
     groups, memberships, overrides and hidden entities.
     """
-
-    @begin_session
-    def get_default_group(
-        self,
-        session: Session = INJECTED_SESSION,
-    ) -> PermissionGroup | None:
-        return session.scalar(
-            select(PermissionGroup).filter_by(is_default=True).limit(1)
-        )
 
     @begin_session
     def get_default_group_id(
@@ -64,10 +74,12 @@ class DBPermissionsHandler(DBBaseHandler):
     @begin_session
     def get_group_policy(
         self,
-        group_id: int,
+        group_id: int | None,
         session: Session = INJECTED_SESSION,
-    ) -> GroupPolicy | None:
-        """A group's grants and age settings in one query; None when it's gone."""
+    ) -> GroupPolicy:
+        """A group's grants and age settings in one query; empty when it's gone."""
+        if group_id is None:
+            return NO_GROUP_POLICY
         rows = session.execute(
             select(
                 PermissionGroup.age_limit,
@@ -83,7 +95,7 @@ class DBPermissionsHandler(DBBaseHandler):
             .where(PermissionGroup.id == group_id)
         ).all()
         if not rows:
-            return None
+            return NO_GROUP_POLICY
         return GroupPolicy(
             age_limit=rows[0].age_limit,
             hide_unrated_roms=rows[0].hide_unrated_roms,
@@ -117,11 +129,7 @@ class DBPermissionsHandler(DBBaseHandler):
         Cascade (a hidden platform hiding its roms/firmware) is applied at query
         time by the consuming handlers, not here.
         """
-        principals = []
-        if user_id is not None:
-            principals.append(HiddenEntity.user_id == user_id)
-        if group_id is not None:
-            principals.append(HiddenEntity.group_id == group_id)
+        principals = _principal_clauses(HiddenEntity, user_id, group_id)
         if not principals:
             return set()
 
@@ -140,11 +148,7 @@ class DBPermissionsHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> set[int]:
         """Ids of the ROMs the given user OR their group sees past an age limit."""
-        principals = []
-        if user_id is not None:
-            principals.append(AgeRatingExemption.user_id == user_id)
-        if group_id is not None:
-            principals.append(AgeRatingExemption.group_id == group_id)
+        principals = _principal_clauses(AgeRatingExemption, user_id, group_id)
         if not principals:
             return set()
 
@@ -170,7 +174,10 @@ class DBPermissionsHandler(DBBaseHandler):
                 AgeRatingExemption.group_id == group_id,
             )
         )
-        existing = session.scalars(select(Rom.id).where(Rom.id.in_(set(rom_ids)))).all()
+        ids = set(rom_ids)
+        if not ids:
+            return
+        existing = session.scalars(select(Rom.id).where(Rom.id.in_(ids))).all()
         session.add_all(
             AgeRatingExemption(rom_id=rom_id, user_id=user_id, group_id=group_id)
             for rom_id in existing
@@ -256,20 +263,19 @@ class DBPermissionsHandler(DBBaseHandler):
         is_default: bool | None = None,
         color: str | None = None,
         grants: Iterable[GrantTuple] | None = None,
-        set_age_limit: bool = False,
+        set_age_settings: bool = False,
         age_limit: int | None = None,
-        hide_unrated_roms: bool | None = None,
+        hide_unrated_roms: bool = False,
         age_exempt_rom_ids: Iterable[int] | None = None,
         session: Session = INJECTED_SESSION,
     ) -> PermissionGroup | None:
-        """Change the given fields; `age_limit` applies only with `set_age_limit`,
-        since None there clears the limit."""
+        """Change the given fields; the age settings apply only with
+        `set_age_settings`, since a None `age_limit` there clears the limit."""
         group = session.get(PermissionGroup, group_id)
         if group is None:
             return None
-        if set_age_limit:
+        if set_age_settings:
             group.age_limit = age_limit
-        if hide_unrated_roms is not None:
             group.hide_unrated_roms = hide_unrated_roms
         if name is not None:
             group.name = name

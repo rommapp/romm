@@ -19,21 +19,16 @@ from models.rom import Rom
 from models.user import User
 
 
-def _bearer(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 def _auth(user: User) -> dict[str, str]:
-    return _bearer(
-        oauth_handler.create_access_token(
-            data={
-                "sub": user.username,
-                "iss": "romm:oauth",
-                "scopes": " ".join(user.oauth_scopes),
-            },
-            expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
-        )
+    token = oauth_handler.create_access_token(
+        data={
+            "sub": user.username,
+            "iss": "romm:oauth",
+            "scopes": " ".join(user.oauth_scopes),
+        },
+        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
     )
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture(autouse=True)
@@ -46,11 +41,11 @@ def _cleanup_non_system_groups():
 
 
 def _make_kids_group(
-    client: TestClient, access_token: str, **fields: Any
+    client: TestClient, headers: dict[str, str], **fields: Any
 ) -> dict[str, Any]:
     created = client.post(
         "/api/permissions/groups",
-        headers=_bearer(access_token),
+        headers=headers,
         json={
             "name": "Kids",
             "grants": [
@@ -65,10 +60,12 @@ def _make_kids_group(
     return group
 
 
-def _join(client: TestClient, access_token: str, user: User, group_id: int) -> None:
+def _join(
+    client: TestClient, headers: dict[str, str], user: User, group_id: int
+) -> None:
     resp = client.put(
         f"/api/permissions/users/{user.id}",
-        headers=_bearer(access_token),
+        headers=headers,
         json={"set_group": True, "permission_group_id": group_id},
     )
     assert resp.status_code == status.HTTP_200_OK
@@ -82,10 +79,10 @@ def _listed_ids(client: TestClient, user: User) -> list[int]:
 
 
 class TestAdminApi:
-    def test_a_group_carries_its_age_settings(self, client, access_token, rom: Rom):
+    def test_a_group_carries_its_age_settings(self, client, headers, rom: Rom):
         group = _make_kids_group(
             client,
-            access_token,
+            headers,
             age_limit=12,
             hide_unrated_roms=True,
             age_exempt_rom_ids=[rom.id, 999_999],
@@ -96,45 +93,43 @@ class TestAdminApi:
         # An id without a ROM is dropped rather than stored.
         assert group["age_exempt_rom_ids"] == [rom.id]
 
-    def test_a_group_update_sets_clears_and_leaves_the_limit(
-        self, client, access_token
-    ):
-        gid = _make_kids_group(client, access_token, age_limit=12)["id"]
+    def test_a_group_update_sets_clears_and_leaves_the_limit(self, client, headers):
+        gid = _make_kids_group(client, headers, age_limit=12)["id"]
         url = f"/api/permissions/groups/{gid}"
 
-        renamed = client.put(url, headers=_bearer(access_token), json={"name": "Teens"})
+        renamed = client.put(url, headers=headers, json={"name": "Teens"})
         assert renamed.json()["age_limit"] == 12
 
         raised = client.put(
             url,
-            headers=_bearer(access_token),
-            json={"set_age_limit": True, "age_limit": 16},
+            headers=headers,
+            json={"set_age_settings": True, "age_limit": 16},
         )
         assert raised.json()["age_limit"] == 16
 
         cleared = client.put(
             url,
-            headers=_bearer(access_token),
-            json={"set_age_limit": True, "age_limit": None},
+            headers=headers,
+            json={"set_age_settings": True, "age_limit": None},
         )
         assert cleared.json()["age_limit"] is None
 
-    def test_an_age_limit_outside_the_range_is_rejected(self, client, access_token):
+    def test_an_age_limit_outside_the_range_is_rejected(self, client, headers):
         resp = client.post(
             "/api/permissions/groups",
-            headers=_bearer(access_token),
+            headers=headers,
             json={"name": "Kids", "age_limit": 99},
         )
 
         assert resp.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_a_user_carries_its_own_age_settings(
-        self, client, access_token, viewer_user: User, rom: Rom
+        self, client, headers, viewer_user: User, rom: Rom
     ):
         url = f"/api/permissions/users/{viewer_user.id}"
         updated = client.put(
             url,
-            headers=_bearer(access_token),
+            headers=headers,
             json={
                 "set_age_settings": True,
                 "age_limit": 10,
@@ -144,33 +139,33 @@ class TestAdminApi:
         )
         assert updated.status_code == status.HTTP_200_OK
 
-        body = client.get(url, headers=_bearer(access_token)).json()
+        body = client.get(url, headers=headers).json()
         assert body["age_limit"] == 10
         assert body["hide_unrated_roms"] is False
         assert body["age_exempt_rom_ids"] == [rom.id]
 
         # Without the flag the settings are left alone.
-        client.put(url, headers=_bearer(access_token), json={"age_limit": None})
-        assert client.get(url, headers=_bearer(access_token)).json()["age_limit"] == 10
+        client.put(url, headers=headers, json={"age_limit": None})
+        assert client.get(url, headers=headers).json()["age_limit"] == 10
 
 
 class TestResolution:
     def test_a_user_setting_replaces_the_groups(
-        self, client, access_token, viewer_user: User, platform: Platform
+        self, client, headers, viewer_user: User, platform: Platform
     ):
         group_exempt = make_esrb_rated_rom(platform, "Group exempt", "M")
         user_exempt = make_esrb_rated_rom(platform, "User exempt", "M")
         gid = _make_kids_group(
             client,
-            access_token,
+            headers,
             age_limit=12,
             hide_unrated_roms=True,
             age_exempt_rom_ids=[group_exempt.id],
         )["id"]
-        _join(client, access_token, viewer_user, gid)
+        _join(client, headers, viewer_user, gid)
         client.put(
             f"/api/permissions/users/{viewer_user.id}",
-            headers=_bearer(access_token),
+            headers=headers,
             json={
                 "set_age_settings": True,
                 "age_limit": 16,
@@ -197,12 +192,12 @@ class TestResolution:
 
 class TestEnforcement:
     def test_a_limited_user_cannot_list_or_open_roms_above_it(
-        self, client, access_token, viewer_user: User, platform: Platform
+        self, client, headers, viewer_user: User, platform: Platform
     ):
         mature = make_esrb_rated_rom(platform, "Mature", "M")
         everyone = make_esrb_rated_rom(platform, "Everyone", "E")
-        gid = _make_kids_group(client, access_token, age_limit=12)["id"]
-        _join(client, access_token, viewer_user, gid)
+        gid = _make_kids_group(client, headers, age_limit=12)["id"]
+        _join(client, headers, viewer_user, gid)
 
         ids = _listed_ids(client, viewer_user)
         assert everyone.id in ids
@@ -212,62 +207,62 @@ class TestEnforcement:
         assert detail.status_code == status.HTTP_404_NOT_FOUND
 
     def test_an_exemption_lets_a_rom_through(
-        self, client, access_token, viewer_user: User, platform: Platform
+        self, client, headers, viewer_user: User, platform: Platform
     ):
         mature = make_esrb_rated_rom(platform, "Mature", "M")
         gid = _make_kids_group(
-            client, access_token, age_limit=12, age_exempt_rom_ids=[mature.id]
+            client, headers, age_limit=12, age_exempt_rom_ids=[mature.id]
         )["id"]
-        _join(client, access_token, viewer_user, gid)
+        _join(client, headers, viewer_user, gid)
 
         assert mature.id in _listed_ids(client, viewer_user)
         detail = client.get(f"/api/roms/{mature.id}", headers=_auth(viewer_user))
         assert detail.status_code == status.HTTP_200_OK
 
     def test_a_limit_change_reaches_the_cached_gallery(
-        self, client, access_token, viewer_user: User, platform: Platform
+        self, client, headers, viewer_user: User, platform: Platform
     ):
         mature = make_esrb_rated_rom(platform, "Mature", "M")
-        gid = _make_kids_group(client, access_token)["id"]
-        _join(client, access_token, viewer_user, gid)
+        gid = _make_kids_group(client, headers)["id"]
+        _join(client, headers, viewer_user, gid)
         # The unscoped listing caches the user's id index.
         assert mature.id in _listed_ids(client, viewer_user)
 
         client.put(
             f"/api/permissions/groups/{gid}",
-            headers=_bearer(access_token),
-            json={"set_age_limit": True, "age_limit": 12},
+            headers=headers,
+            json={"set_age_settings": True, "age_limit": 12},
         )
 
         assert mature.id not in _listed_ids(client, viewer_user)
 
     def test_a_new_default_group_reaches_the_cached_gallery(
-        self, client, access_token, viewer_user: User, platform: Platform
+        self, client, headers, viewer_user: User, platform: Platform
     ):
         mature = make_esrb_rated_rom(platform, "Mature", "M")
         previous_default = db_permission_handler.get_default_group_id()
         assert previous_default is not None
         client.put(
             f"/api/permissions/users/{viewer_user.id}",
-            headers=_bearer(access_token),
+            headers=headers,
             json={"set_group": True, "permission_group_id": None},
         )
         assert mature.id in _listed_ids(client, viewer_user)
 
         try:
-            _make_kids_group(client, access_token, is_default=True, age_limit=12)
+            _make_kids_group(client, headers, is_default=True, age_limit=12)
 
             assert mature.id not in _listed_ids(client, viewer_user)
         finally:
             db_permission_handler.update_group(previous_default, is_default=True)
 
     def test_hide_unrated_hides_roms_without_a_rating(
-        self, client, access_token, viewer_user: User, platform: Platform
+        self, client, headers, viewer_user: User, platform: Platform
     ):
         unrated = make_rom(platform, "Unrated")
         rated = make_esrb_rated_rom(platform, "Rated", "E")
-        gid = _make_kids_group(client, access_token, hide_unrated_roms=True)["id"]
-        _join(client, access_token, viewer_user, gid)
+        gid = _make_kids_group(client, headers, hide_unrated_roms=True)["id"]
+        _join(client, headers, viewer_user, gid)
 
         ids = _listed_ids(client, viewer_user)
         assert rated.id in ids

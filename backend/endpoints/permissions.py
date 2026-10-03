@@ -31,7 +31,6 @@ from handler.socket_handler import close_client_token_sockets, socket_handler
 from logger.logger import log
 from models.audit_event import AuditAction, AuditTargetType
 from models.permission import PermAction, PermEntity, PermissionGroup
-from models.user import User
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -237,7 +236,7 @@ async def update_permission_group(
             if body.grants is not None
             else None
         ),
-        set_age_limit=body.set_age_limit,
+        set_age_settings=body.set_age_settings,
         age_limit=body.age_limit,
         hide_unrated_roms=body.hide_unrated_roms,
         age_exempt_rom_ids=body.age_exempt_rom_ids,
@@ -246,10 +245,11 @@ async def update_permission_group(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     # Grant changes alter every member's effective permissions.
     await emit_permissions_changed(*db_permission_handler.get_group_member_ids(id))
-    # `age_limit` is ignored without `set_age_limit`, so only the flag reports it.
-    changed = set(body.model_dump(exclude_none=True)) - {"set_age_limit", "age_limit"}
-    if body.set_age_limit:
-        changed.add("age_limit")
+    # Age settings apply only with the flag, so only the flag reports them.
+    age_fields = {"set_age_settings", "age_limit", "hide_unrated_roms"}
+    changed = set(body.model_dump(exclude_none=True)) - age_fields
+    if body.set_age_settings:
+        changed |= {"age_limit", "hide_unrated_roms"}
     record(
         AuditAction.PERMISSION_GROUP_EDIT,
         request,
@@ -291,13 +291,18 @@ async def delete_permission_group(request: Request, id: int) -> None:
 # --- Admin: per-user assignment ----------------------------------------------
 
 
-def _user_permissions(user: User) -> UserPermissionsSchema:
-    user_id = user.id
+def _user_permissions(
+    user_id: int,
+    *,
+    group_id: int | None,
+    age_limit: int | None,
+    hide_unrated_roms: bool | None,
+) -> UserPermissionsSchema:
     overrides = db_permission_handler.get_user_overrides(user_id)
     hidden = db_permission_handler.get_hidden_entities(user_id=user_id)
     return UserPermissionsSchema(
         user_id=user_id,
-        permission_group_id=user.permission_group_id,
+        permission_group_id=group_id,
         overrides=[
             OverrideSchemaIO(
                 entity=o.entity,
@@ -310,8 +315,8 @@ def _user_permissions(user: User) -> UserPermissionsSchema:
         hidden=[
             HiddenEntitySchema(entity=h.entity, entity_id=h.entity_id) for h in hidden
         ],
-        age_limit=user.age_limit,
-        hide_unrated_roms=user.hide_unrated_roms,
+        age_limit=age_limit,
+        hide_unrated_roms=hide_unrated_roms,
         age_exempt_rom_ids=sorted(
             db_permission_handler.get_age_exempt_rom_ids(user_id, None)
         ),
@@ -330,7 +335,12 @@ def get_user_permissions(request: Request, user_id: int) -> UserPermissionsSchem
     user = db_user_handler.get_user(user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    return _user_permissions(user)
+    return _user_permissions(
+        user_id,
+        group_id=user.permission_group_id,
+        age_limit=user.age_limit,
+        hide_unrated_roms=user.hide_unrated_roms,
+    )
 
 
 @protected_route(
@@ -357,13 +367,12 @@ async def update_user_permissions(
             user_id,
             [(o.entity, o.action, o.granted, o.own_only) for o in body.overrides],
         )
+    age_limit, hide_unrated_roms = user.age_limit, user.hide_unrated_roms
     if body.set_age_settings:
+        age_limit, hide_unrated_roms = body.age_limit, body.hide_unrated_roms
         db_user_handler.update_user(
             user_id,
-            {
-                "age_limit": body.age_limit,
-                "hide_unrated_roms": body.hide_unrated_roms,
-            },
+            {"age_limit": age_limit, "hide_unrated_roms": hide_unrated_roms},
         )
     if body.age_exempt_rom_ids is not None:
         db_permission_handler.replace_age_exemptions(
@@ -387,10 +396,12 @@ async def update_user_permissions(
             ),
         },
     )
-    updated = db_user_handler.get_user(user_id)
-    if updated is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    return _user_permissions(updated)
+    return _user_permissions(
+        user_id,
+        group_id=group_id,
+        age_limit=age_limit,
+        hide_unrated_roms=hide_unrated_roms,
+    )
 
 
 # --- Admin: hidden entities ---------------------------------------------------

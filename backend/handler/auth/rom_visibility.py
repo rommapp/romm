@@ -40,13 +40,13 @@ class RomVisibilityFilter:
     hidden_rom_ids: frozenset[int] = frozenset()
     age_limit: int | None = None
     # Whether a ROM no rating covers is hidden while an age rule applies.
-    hide_unrated: bool = False
+    hide_unrated_roms: bool = False
     # ROMs the age rule lets through; an explicit hide still applies to them.
-    exempt_rom_ids: frozenset[int] = frozenset()
+    age_exempt_rom_ids: frozenset[int] = frozenset()
 
     @property
     def has_age_rule(self) -> bool:
-        return self.age_limit is not None or self.hide_unrated
+        return self.age_limit is not None or self.hide_unrated_roms
 
     @property
     def is_unrestricted(self) -> bool:
@@ -97,12 +97,12 @@ class RomVisibilityFilter:
         allowed: list[ColumnElement[bool]]
         if self.age_limit is None:
             allowed = [min_age_col.is_not(None)]
-        elif self.hide_unrated:
+        elif self.hide_unrated_roms:
             allowed = [and_(min_age_col.is_not(None), min_age_col <= self.age_limit)]
         else:
             allowed = [min_age_col.is_(None), min_age_col <= self.age_limit]
-        if self.exempt_rom_ids:
-            allowed.append(rom_id_col.in_(self.exempt_rom_ids))
+        if self.age_exempt_rom_ids:
+            allowed.append(rom_id_col.in_(self.age_exempt_rom_ids))
         return or_(*allowed)
 
     @cached_property
@@ -123,10 +123,10 @@ class RomVisibilityFilter:
             return False
         min_age = rom.min_age
         if min_age is None:
-            rated_ok = not self.hide_unrated
+            rated_ok = not self.hide_unrated_roms
         else:
             rated_ok = self.age_limit is None or min_age <= self.age_limit
-        return rated_ok or rom.id in self.exempt_rom_ids
+        return rated_ok or rom.id in self.age_exempt_rom_ids
 
 
 UNRESTRICTED: Final = RomVisibilityFilter()

@@ -199,10 +199,10 @@ class PermissionGroupUpdate(BaseModel):
     is_default: bool | None = None
     color: str | None = None
     grants: list[GrantSchemaIO] | None = None
-    # `age_limit` applies only with `set_age_limit`, since null clears it.
+    # With `set_age_settings`, both are written as given; a null limit clears it.
     age_limit: AgeLimit | None = None
-    set_age_limit: bool = False
-    hide_unrated_roms: bool | None = None
+    hide_unrated_roms: bool = False
+    set_age_settings: bool = False
     # Replaces the group's exemptions; ids without a ROM are dropped.
     age_exempt_rom_ids: list[int] | None = None
 

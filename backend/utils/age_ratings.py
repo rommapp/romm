@@ -64,32 +64,11 @@ def compute_min_age(metadata: Mapping[str, Any]) -> int | None:
     Args:
         metadata: Each `MIN_AGE_SOURCE_COLUMNS` column's value, by column name.
     """
-    manual = _blob(metadata, "manual_metadata").get("age_ratings")
-    if isinstance(manual, str):
-        manual = [manual]
-    # A manual list with no parseable rating falls back, so it can't unrate the ROM.
-    if (
-        isinstance(manual, list)
-        and (manual_age := _strictest(_manual_ratings(manual))) is not None
-    ):
+    # A manual list with no readable rating falls back, so it can't unrate the ROM.
+    manual_age = max(_manual_ages(metadata), default=None)
+    if manual_age is not None:
         return manual_age
-
-    provider_age = _strictest(_provider_ratings(metadata))
-    steam_age = _blob(metadata, "steam_metadata").get("required_age")
-    if isinstance(steam_age, int) and steam_age > 0:
-        return max(steam_age, provider_age or 0)
-    return provider_age
-
-
-def _strictest(ratings: Iterable[tuple[str, str]]) -> int | None:
-    return max(
-        (
-            age
-            for board, rating in ratings
-            if (age := rating_min_age(board, rating)) is not None
-        ),
-        default=None,
-    )
+    return max(_provider_ages(metadata), default=None)
 
 
 def _blob(metadata: Mapping[str, Any], column: str) -> Mapping[str, Any]:
@@ -97,18 +76,35 @@ def _blob(metadata: Mapping[str, Any], column: str) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _manual_ratings(entries: Iterable[Any]) -> Iterator[tuple[str, str]]:
+def _known_ages(ratings: Iterable[tuple[str, str]]) -> Iterator[int]:
+    for board, rating in ratings:
+        if (age := rating_min_age(board, rating)) is not None:
+            yield age
+
+
+def _manual_ages(metadata: Mapping[str, Any]) -> Iterator[int]:
+    entries = _blob(metadata, "manual_metadata").get("age_ratings")
+    if isinstance(entries, str):
+        entries = [entries]
+    if not isinstance(entries, list):
+        return
     for entry in entries:
         if isinstance(entry, str) and ":" in entry:
-            board, rating = entry.split(":", 1)
-            yield board, rating
+            board, _, rating = entry.partition(":")
+            if (age := rating_min_age(board, rating)) is not None:
+                yield age
 
 
-def _provider_ratings(metadata: Mapping[str, Any]) -> Iterator[tuple[str, str]]:
+def _provider_ages(metadata: Mapping[str, Any]) -> Iterator[int]:
     for column in ("igdb_metadata", "ss_metadata"):
-        for entry in _blob(metadata, column).get("age_ratings") or ():
-            if isinstance(entry, Mapping):
-                yield str(entry.get("category") or ""), str(entry.get("rating") or "")
+        yield from _known_ages(
+            (str(entry.get("category") or ""), str(entry.get("rating") or ""))
+            for entry in _blob(metadata, column).get("age_ratings") or ()
+            if isinstance(entry, Mapping)
+        )
     esrb = _blob(metadata, "launchbox_metadata").get("esrb")
     if isinstance(esrb, str):
-        yield "ESRB", esrb
+        yield from _known_ages([("ESRB", esrb)])
+    steam_age = _blob(metadata, "steam_metadata").get("required_age")
+    if isinstance(steam_age, int) and steam_age > 0:
+        yield steam_age

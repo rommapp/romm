@@ -456,7 +456,9 @@ class TestGetHiddenRomIdsAmong:
         exempt = make_esrb_rated_rom(platform, "Exempt", "AO")
         unrated = make_rom(platform, "Unrated")
         visibility = RomVisibilityFilter(
-            age_limit=13, hide_unrated=True, exempt_rom_ids=frozenset({exempt.id})
+            age_limit=13,
+            hide_unrated_roms=True,
+            age_exempt_rom_ids=frozenset({exempt.id}),
         )
 
         hidden = db_rom_handler.get_hidden_rom_ids_among(
@@ -477,7 +479,7 @@ class TestAgeLimitedListing:
         ids = db_rom_handler.get_rom_ids(
             platform_ids=[platform.id],
             visibility=RomVisibilityFilter(
-                age_limit=12, exempt_rom_ids=frozenset({exempt.id})
+                age_limit=12, age_exempt_rom_ids=frozenset({exempt.id})
             ),
         )
 

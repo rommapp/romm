@@ -1348,6 +1348,9 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
 
 SEARCH_TITLE_COLUMNS = ("name", *(column for column, _ in ALTERNATIVE_NAME_SOURCES))
 
+# What `RomVisibility` holds and the loaders feeding a visibility check select.
+ROM_VISIBILITY_COLUMNS = (Rom.id, Rom.platform_id, Rom.min_age)
+
 
 def rom_search_titles(rom: Rom) -> str:
     """`compute_search_titles` over the ROM's current name and metadata."""
