@@ -54,8 +54,10 @@ beforeEach(() => {
   updateGroup.mockResolvedValue({ data: group });
 });
 
+let emitter: Emitter<Events>;
+
 async function openDialog(toEdit: PermissionGroupSchema | null) {
-  const emitter: Emitter<Events> = mitt<Events>();
+  emitter = mitt<Events>();
   const wrapper = mount(GroupFormDialog, {
     global: {
       provide: { emitter },
@@ -153,5 +155,22 @@ describe("GroupFormDialog age settings", () => {
 
     finish({ data: group });
     await flushPromises();
+  });
+
+  it("keeps a dialog reopened mid-save open and editable", async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    updateGroup.mockReturnValueOnce(
+      new Promise((resolve) => (finish = resolve)),
+    );
+    const wrapper = await openDialog(group);
+    await apply(wrapper);
+
+    emitter.emit("showGroupFormDialog", { ...group, id: 9, name: "Teens" });
+    await flushPromises();
+    finish({ data: group });
+    await flushPromises();
+
+    const form = wrapper.get(".r-v2-group-dialog__form");
+    expect(form.attributes("inert")).toBeUndefined();
   });
 });

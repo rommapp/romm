@@ -110,10 +110,11 @@ const sortedPlatforms = computed(() =>
   ),
 );
 
-let loadToken = 0;
+let openToken = 0;
 
 emitter?.on("showEditUserDialog", async (toEdit) => {
-  const token = ++loadToken;
+  const token = ++openToken;
+  submitting.value = false;
   user.value = { ...toEdit, password: "", avatar: undefined };
   confirmPassword.value = "";
   isAdmin.value = toEdit.role === "admin";
@@ -133,7 +134,7 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
       ensureCatalog(),
     ]);
     // A slower response for a user opened earlier must not land on this one.
-    if (token !== loadToken) return;
+    if (token !== openToken) return;
     if (platformsResp) platforms.value = platformsResp.data;
     // A null group means the user follows the server default group; show it
     // as selected so the picker never displays a meaningless empty option.
@@ -162,7 +163,7 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
     originalOverrides.value = perms.data.overrides.map((o) => ({ ...o }));
     accessLoaded.value = true;
   } catch (err) {
-    if (token !== loadToken) return;
+    if (token !== openToken) return;
     accessError.value = true;
     console.error("Failed to load user permissions", err);
   }
@@ -268,6 +269,7 @@ function accessEdits(userId: number) {
 async function save() {
   if (!user.value) return;
   submitting.value = true;
+  const token = openToken;
   const userId = user.value.id;
   // Group, overrides and hidden entities apply to non-admins (admins bypass).
   const access =
@@ -298,7 +300,8 @@ async function save() {
     usersStore.update(nextUser);
     if (data.id === auth.user?.id) auth.setCurrentUser(data);
     emitter?.emit("refreshDrawer", null);
-    show.value = false;
+    // A dialog reopened mid-save stays open, and isn't left marked as saving.
+    if (token === openToken) show.value = false;
   } catch (err) {
     const e = err as {
       response?: { data?: { detail?: string }; statusText?: string };
@@ -312,7 +315,7 @@ async function save() {
       { icon: "mdi-close-circle" },
     );
   } finally {
-    submitting.value = false;
+    if (token === openToken) submitting.value = false;
   }
 }
 
@@ -443,7 +446,7 @@ function close() {
           v-else-if="!isAdmin && !accessLoaded"
           class="r-v2-user-dialog__access-loading"
         >
-          <RSpinner :size="20" />
+          <RSpinner :size="20" :aria-label="t('common.loading')" />
         </div>
         <template v-else-if="!isAdmin">
           <RSelect
