@@ -11,9 +11,18 @@ import {
   RTextField,
   RTooltip,
   RDivider,
+  RSpinner,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, defineAsyncComponent, nextTick, ref, watch } from "vue";
+import {
+  computed,
+  defineAsyncComponent,
+  defineComponent,
+  h,
+  nextTick,
+  ref,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { UserNoteSchema } from "@/__generated__";
@@ -35,9 +44,14 @@ import { syncQueryParam } from "@/v2/utils/routeQuery";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 // md-editor loads with the first note, not with the game page.
-const MdEditor = defineAsyncComponent(
-  () => import("@/v2/components/shared/markdownEditor"),
-);
+const MdEditor = defineAsyncComponent({
+  loader: () => import("@/v2/components/shared/markdownEditor"),
+  // Vue passes the editor's attrs to the loading component; drop them.
+  loadingComponent: defineComponent({
+    inheritAttrs: false,
+    render: () => h(RSpinner),
+  }),
+});
 const MdPreview = defineAsyncComponent(
   () => import("@/v2/components/shared/markdownPreview"),
 );
