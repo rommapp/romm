@@ -97,9 +97,11 @@ function toggle() {
    `--r-switch-travel` per size keeps the distance configurable in one
    spot: change it once if you change the track/knob geometry. */
 
+/* Baseline-aligned so the switch reports its label's baseline and lines up
+   with text beside it; the track centers itself against the label. */
 .r-switch {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   background: transparent;
   border: none;
@@ -128,6 +130,7 @@ function toggle() {
 .r-switch__track {
   position: relative;
   flex-shrink: 0;
+  align-self: center;
   border-radius: 999px;
   background: var(--r-color-border-strong);
   overflow: hidden;
@@ -181,6 +184,12 @@ function toggle() {
 }
 
 /* ── Size ladder ───────────────────────────────────────────────── */
+.r-switch--default .r-switch__label {
+  line-height: 20px;
+}
+.r-switch--small .r-switch__label {
+  line-height: 16px;
+}
 .r-switch--default .r-switch__track {
   width: 36px;
   height: 20px;

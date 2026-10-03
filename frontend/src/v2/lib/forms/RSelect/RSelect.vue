@@ -306,9 +306,8 @@ const selectedValues = computed<unknown[]>(() => {
   if (props.multiple) {
     return Array.isArray(props.modelValue) ? props.modelValue : [];
   }
-  return props.modelValue === undefined || props.modelValue === null
-    ? []
-    : [props.modelValue];
+  // An item may hold null as its value, so only undefined means unset.
+  return props.modelValue === undefined ? [] : [props.modelValue];
 });
 
 // Normalise a model value to its primitive identity key. In
@@ -648,6 +647,7 @@ const showClear = computed(
   () =>
     props.clearable &&
     hasSelection.value &&
+    props.modelValue !== null &&
     !props.disabled &&
     !props.readonly &&
     !props.loading,
@@ -893,6 +893,7 @@ const describedBy = computed(() => {
   >
     <span
       v-if="stackedLabelOn"
+      :id="`${fieldId}-label`"
       class="r-select__label r-select__label--stacked"
     >
       <slot name="prefix-label">{{ label }}</slot>
@@ -902,6 +903,7 @@ const describedBy = computed(() => {
          current selection inside (chips or plain text). Keyboard
          navigation routes through this button. -->
     <button
+      :id="`${fieldId}-field`"
       ref="activatorRef"
       type="button"
       class="r-select__field"
@@ -909,6 +911,9 @@ const describedBy = computed(() => {
       :aria-haspopup="'listbox'"
       :aria-expanded="isOpen"
       :aria-label="effectiveAriaLabel"
+      :aria-labelledby="
+        stackedLabelOn ? `${fieldId}-label ${fieldId}-field` : undefined
+      "
       :aria-invalid="hasError || undefined"
       :aria-describedby="describedBy"
       @click="toggleMenu"

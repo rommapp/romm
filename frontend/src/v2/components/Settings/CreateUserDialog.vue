@@ -235,7 +235,7 @@ function close() {
 }
 .r-v2-user-dialog__admin {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
   flex-wrap: wrap;
 }
