@@ -310,10 +310,8 @@ const { total, reorderTotal, charIndex, initialFetching, orderBy, orderDir } =
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
-// Responsive columns: measure the scroller's content box (inside its gutters,
-// the strip column and the scrollbar) to chunk roms into rows. Card width
-// tracks the breakpoint so phones pack more, smaller cards instead of one
-// stretched card per row:
+// Rows pack into the scroller's content box, already inside its gutters, strip
+// column and scrollbar. Card width tracks the breakpoint:
 //   card   = matches the `--r-card-art-w` the shell sets per breakpoint
 //            (108 on xs, 158 otherwise) so the JS row-chunking and the
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
