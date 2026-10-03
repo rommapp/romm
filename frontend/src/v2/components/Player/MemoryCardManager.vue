@@ -219,7 +219,7 @@ const uploadInput = ref<HTMLInputElement | null>(null);
 
 function filenameFromResponse(disposition: unknown, fallback: string): string {
   const match = /filename="?([^";]+)"?/.exec(String(disposition ?? ""));
-  return match ? match[1] : fallback;
+  return match?.[1] ?? fallback;
 }
 
 async function downloadCard(card: MemoryCardSchema): Promise<void> {

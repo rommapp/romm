@@ -117,10 +117,9 @@ export function useWrapGridNav(
     const active = document.activeElement as HTMLElement | null;
     if (!active) return null;
     const rs = rows();
-    for (let r = 0; r < rs.length; r++) {
-      const cs = rs[r];
-      for (let c = 0; c < cs.length; c++) {
-        if (cs[c].contains(active) || cs[c] === active) {
+    for (const [r, cs] of rs.entries()) {
+      for (const [c, cell] of cs.entries()) {
+        if (cell.contains(active) || cell === active) {
           return { rowIdx: r, colIdx: c };
         }
       }
@@ -138,7 +137,7 @@ export function useWrapGridNav(
     if (!row) return;
     if (row.length === 0) return;
     const clamped = Math.min(Math.max(colIdx, 0), row.length - 1);
-    const cell = row[clamped];
+    const cell = row[clamped]!;
     const target = focusableIn(cell);
 
     // Roving tabindex: only the current cell is a tab stop. Mirrors
@@ -164,7 +163,7 @@ export function useWrapGridNav(
 
   function focusFirst() {
     const rs = rows();
-    if (rs.length === 0 || rs[0].length === 0) return;
+    if (!rs[0]?.length) return;
     preferredCol = 0;
     focusAt(0, 0);
   }
@@ -177,9 +176,9 @@ export function useWrapGridNav(
     const savedKey = focusStore.restore(route.fullPath);
     if (!savedKey) return false;
     const rs = rows();
-    for (let r = 0; r < rs.length; r++) {
-      for (let c = 0; c < rs[r].length; c++) {
-        if (focusKeyOf(rs[r][c]) === savedKey) {
+    for (const [r, cs] of rs.entries()) {
+      for (const [c, cell] of cs.entries()) {
+        if (focusKeyOf(cell) === savedKey) {
           preferredCol = c;
           focusAt(r, c, { verticalJump: true });
           return true;
@@ -207,7 +206,7 @@ export function useWrapGridNav(
 
     const rs = rows();
     let { rowIdx, colIdx } = cur;
-    const rowCells = rs[rowIdx];
+    const rowCells = rs[rowIdx]!;
     let verticalJump = false;
 
     if (e.key === "ArrowLeft") {

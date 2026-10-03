@@ -414,7 +414,7 @@ watch(
     }
     if (!statePreselected.value && native.length > 0) {
       statePreselected.value = true;
-      if (!selectedState.value) selectedState.value = native[0];
+      if (!selectedState.value) selectedState.value = native[0]!;
     }
   },
   { immediate: true },

@@ -34,7 +34,7 @@ const { t } = useI18n();
 const isHtml = computed(() => /\.html?(\?|$)/i.test(props.url));
 
 const fileName = computed(() => {
-  const path = props.url.split("?")[0];
+  const [path = ""] = props.url.split("?");
   const last = path.substring(path.lastIndexOf("/") + 1);
   try {
     return decodeURIComponent(last) || "document.txt";

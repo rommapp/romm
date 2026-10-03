@@ -154,8 +154,8 @@ export function manyStates(n: number): StateSchema[] {
     180 * 24,
   ];
   return Array.from({ length: n }).map((_, i) => {
-    const shot = stateShots[i % stateShots.length];
-    const at = hoursAgo(ages[i % ages.length]);
+    const shot = stateShots[i % stateShots.length]!;
+    const at = hoursAgo(ages[i % ages.length]!);
     return makeState({
       id: i + 1,
       file_name: `${shot.label.replace("+", " ").toLowerCase()}_${i + 1}.state`,

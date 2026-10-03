@@ -64,7 +64,7 @@ function move(index: number, delta: number) {
   const target = index + delta;
   if (target < 0 || target >= enabled.value.length) return;
   const next = [...enabled.value];
-  [next[index], next[target]] = [next[target], next[index]];
+  [next[index], next[target]] = [next[target]!, next[index]!];
   emitNext(next);
 }
 
@@ -129,8 +129,7 @@ function onDrop(e: DragEvent, index: number) {
   overIndex.value = null;
   if (from === null || from === index) return;
   const next = [...enabled.value];
-  const [moved] = next.splice(from, 1);
-  next.splice(index, 0, moved);
+  next.splice(index, 0, ...next.splice(from, 1));
   emitNext(next);
 }
 

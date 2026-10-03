@@ -412,7 +412,8 @@ async function onPlayNative() {
   rememberCore(romId, rom.value.platform_slug, selectedCore.value);
   rememberDisc(romId, selectedDisc.value);
   const refusal = await nativeStore.launch(rom.value, {
-    core: selectedCore.value,
+    // No core leaves the shell to pick one from the platform's candidates.
+    core: selectedCore.value ?? undefined,
     fullscreen: fullscreenOnPlay.value,
     disc: selectedDisc.value,
   });

@@ -227,8 +227,9 @@ function onKeyDown(e: KeyboardEvent) {
   switch (e.key) {
     case "Enter": {
       e.preventDefault();
-      if (activeIndex.value >= 0 && suggestions.value[activeIndex.value]) {
-        commit(suggestions.value[activeIndex.value]);
+      const suggestion = suggestions.value[activeIndex.value];
+      if (activeIndex.value >= 0 && suggestion) {
+        commit(suggestion);
       } else if (query.value.trim()) {
         commit(query.value);
       }

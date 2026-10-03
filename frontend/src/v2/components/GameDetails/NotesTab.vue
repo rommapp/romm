@@ -119,9 +119,7 @@ function readNoteFromQuery(): number | null {
 }
 
 function defaultSelection(): number | null {
-  if (myNotes.value.length > 0) return myNotes.value[0].id;
-  if (communityNotes.value.length > 0) return communityNotes.value[0].id;
-  return null;
+  return myNotes.value[0]?.id ?? communityNotes.value[0]?.id ?? null;
 }
 
 selectedNoteId.value = readNoteFromQuery() ?? defaultSelection();

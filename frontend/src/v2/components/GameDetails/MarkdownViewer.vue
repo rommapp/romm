@@ -47,7 +47,7 @@ const mdTheme = computed<"light" | "dark">(() =>
 // Filename for the download button: last path segment without the cache-bust
 // query, decoded back to its human form (e.g. `README.md`).
 const fileName = computed(() => {
-  const path = props.url.split("?")[0];
+  const [path = ""] = props.url.split("?");
   const last = path.substring(path.lastIndexOf("/") + 1);
   try {
     return decodeURIComponent(last) || "manual.md";

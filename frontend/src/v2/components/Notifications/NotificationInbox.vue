@@ -71,7 +71,7 @@ function focusDismissAt(index: number) {
     ".r-v2-notification__dismiss",
   );
   if (!buttons?.length) return;
-  buttons[Math.min(index, buttons.length - 1)].focus();
+  buttons[Math.min(index, buttons.length - 1)]!.focus();
 }
 
 async function dismiss(id: number, index: number) {

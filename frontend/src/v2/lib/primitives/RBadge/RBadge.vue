@@ -69,7 +69,7 @@ const props = withDefaults(defineProps<Props>(), {
   icon: undefined,
 });
 
-const TONE_MAP: Record<string, string> = {
+const TONE_MAP: Record<string, string> & { error: string } = {
   primary: "var(--r-color-brand-primary)",
   secondary: "var(--r-color-brand-secondary)",
   accent: "var(--r-color-brand-accent)",

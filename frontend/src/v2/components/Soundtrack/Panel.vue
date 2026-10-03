@@ -284,7 +284,7 @@ function selectTrack(fileId: number) {
   );
   const entry = playerTracks.find((p) => p.fileId === fileId);
   if (!entry) return;
-  player.play(entry, metas[fileId]);
+  player.play(entry, metas[fileId] ?? {});
   if (shouldStartShuffled && !isShuffled.value) player.toggleShuffle();
   shouldStartShuffled = false;
 }

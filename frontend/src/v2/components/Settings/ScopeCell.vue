@@ -26,7 +26,7 @@ const scopeCount = computed(() => {
   const set = new Set<string>();
   for (const s of props.scopes) {
     const parts = s.split(".");
-    set.add(parts.length < 2 ? parts[0] : parts.slice(0, -1).join("."));
+    set.add(parts.length < 2 ? s : parts.slice(0, -1).join("."));
   }
   return set.size;
 });

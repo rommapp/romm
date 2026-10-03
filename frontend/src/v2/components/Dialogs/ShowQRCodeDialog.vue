@@ -21,10 +21,10 @@ const emitter = inject<Emitter<Events>>("emitter");
 const downloadLink = computed(() => {
   if (!rom.value) return "";
   const isNDSFile = isNintendoDSFile(rom.value);
-  const matchingFiles = getNintendoDSFiles(rom.value);
+  const [dsFile] = getNintendoDSFiles(rom.value);
   return getDownloadLink({
     rom: rom.value,
-    fileIDs: isNDSFile ? [] : [matchingFiles[0].id],
+    fileIDs: isNDSFile || !dsFile ? [] : [dsFile.id],
   });
 });
 

@@ -398,7 +398,7 @@ function recomputeFit() {
   let used = 0;
   let count = 0;
   for (let i = 0; i < chips.length; i++) {
-    const w = chips[i].offsetWidth;
+    const w = chips[i]!.offsetWidth;
     const remaining = chips.length - 1 - i;
     const overflowReserve = remaining > 0 ? overflowWidth + gap : 0;
     const gapNow = count > 0 ? gap : 0;
@@ -758,7 +758,7 @@ function moveActive(delta: number) {
   for (let n = 0; n < list.length; n++) {
     if (i < 0) i = list.length - 1;
     if (i >= list.length) i = 0;
-    if (!list[i].disabled) break;
+    if (!list[i]!.disabled) break;
     i += delta || 1;
   }
   activeIndex.value = i;

@@ -114,7 +114,7 @@ const resolvedElevation = computed<string | undefined>(() => {
   if (!Number.isFinite(n)) return undefined;
   if (n <= 0) return ELEVATION_MAP[0];
   // Snap down to the largest tabulated key ≤ n.
-  let best = ELEVATION_KEYS[0];
+  let best = 0;
   for (const k of ELEVATION_KEYS) {
     if (k <= n) best = k;
   }

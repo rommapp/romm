@@ -136,8 +136,8 @@ export function useCoverFilters(
     }
     // Largest area first: the highest-res covers are what users usually want.
     return [...set].sort((a, b) => {
-      const [aw, ah] = a.split("x").map(Number);
-      const [bw, bh] = b.split("x").map(Number);
+      const [aw = 0, ah = 0] = a.split("x").map(Number);
+      const [bw = 0, bh = 0] = b.split("x").map(Number);
       return bw * bh - aw * ah || bw - aw;
     });
   });

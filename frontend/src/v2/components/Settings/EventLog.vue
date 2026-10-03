@@ -95,7 +95,11 @@ function dateToDay(date: Date | null): string | undefined {
 }
 
 function localMidnight(day: string, addDays = 0): string {
-  const [year, month, date] = day.split("-").map(Number);
+  const [year, month, date] = day.split("-").map(Number) as [
+    number,
+    number,
+    number,
+  ];
   return new Date(year, month - 1, date + addDays).toISOString();
 }
 

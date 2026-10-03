@@ -623,7 +623,7 @@ const currentLetter = computed<string>(() => {
     const it = items[i];
     if (!it) continue;
     if (it.kind === "letter-header") return it.letter;
-    if (it.kind === "row" && it.letters.length > 0) return it.letters[0];
+    if (it.kind === "row" && it.letters.length > 0) return it.letters[0]!;
     if (it.kind === "list-row") return it.letter;
   }
   return "";

@@ -11,7 +11,7 @@ export async function settleWithLimit<T, R>(
     while (next < items.length) {
       const i = next++;
       try {
-        results[i] = { status: "fulfilled", value: await task(items[i]) };
+        results[i] = { status: "fulfilled", value: await task(items[i] as T) };
       } catch (reason) {
         results[i] = { status: "rejected", reason };
       }
