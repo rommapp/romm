@@ -9,11 +9,11 @@ import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
-import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerExit } from "@/v2/composables/usePlayerExit";
+import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { usePlayingWhile } from "@/v2/composables/useStageActive";
@@ -29,7 +29,6 @@ const exit = usePlayerExit();
 const alive = useIsAlive();
 const authStore = storeAuth();
 const { fullscreenOnPlay } = useFullscreenPref();
-useFullscreenFallback();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
@@ -43,6 +42,7 @@ usePlayingWhile(gameRunning);
 const preparing = ref(false);
 const quitting = ref(false);
 const frame = ref<HTMLIFrameElement | null>(null);
+const { enter: enterFullscreen } = usePlayerFullscreen(frame);
 
 let saveSync: EasyRpgSaveSync | null = null;
 let pushing: Promise<boolean> | null = null;
@@ -81,7 +81,7 @@ async function onPlay() {
   if (!currentRom || userId == null || preparing.value) return;
 
   preparing.value = true;
-  const sync = new EasyRpgSaveSync(currentRom, String(currentRom.id));
+  const sync = new EasyRpgSaveSync(currentRom);
   try {
     await sync.prepare(userId);
   } catch (error) {
@@ -100,7 +100,7 @@ async function onPlay() {
 
   await nextTick();
   if (fullscreenOnPlay.value) {
-    void frame.value?.requestFullscreen().catch(() => undefined);
+    void enterFullscreen();
   }
 }
 

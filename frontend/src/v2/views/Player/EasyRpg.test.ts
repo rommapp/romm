@@ -162,7 +162,7 @@ describe("EasyRpg", () => {
   it("loads the user's saves before booting the game", async () => {
     const wrapper = await play();
 
-    expect(mocks.syncArgs).toEqual([rom, "1"]);
+    expect(mocks.syncArgs).toEqual([rom]);
     expect(mocks.prepare).toHaveBeenCalledWith(7);
     expect(wrapper.get("iframe").attributes("src")).toBe(
       "/assets/easyrpg/index.html?game=1",
@@ -225,7 +225,7 @@ describe("EasyRpg", () => {
     await wrapper.get(".r-v2-player__play").trigger("click");
     await flushPromises();
 
-    expect(mocks.syncArgs).toEqual([rom, "1"]);
+    expect(mocks.syncArgs).toEqual([rom]);
     wrapper.unmount();
   });
 

@@ -4,14 +4,15 @@ The table lists, for every asset of the RPG Maker 2000 and 2003 run-time
 packages, the name each official or fan translation of the RTP gives it.
 
 Usage:
-    uv run python tools/generate_easyrpg_rtp_table.py <Player>/src/rtp_table.cpp
+    uv run python -m tools.generate_easyrpg_rtp_table <Player>/src/rtp_table.cpp
 """
 
 import json
 import re
 import sys
-import unicodedata
 from pathlib import Path
+
+from handler.easyrpg import normalize_name
 
 ROW_RE = re.compile(r"^\s*\{(.*)\},\s*$")
 CELL_RE = re.compile(r'"((?:[^"\\]|\\.)*)"|nullptr')
@@ -30,11 +31,7 @@ def parse_rows(source: str) -> dict[str, list[list[str]]]:
         if len(cells) < 3 or cells[0] is None:
             continue
         category, *names = cells
-        aliases = list(
-            dict.fromkeys(
-                unicodedata.normalize("NFKC", name.lower()) for name in names if name
-            )
-        )
+        aliases = list(dict.fromkeys(normalize_name(name) for name in names if name))
         key = (category, *aliases)
         if key in seen:
             continue

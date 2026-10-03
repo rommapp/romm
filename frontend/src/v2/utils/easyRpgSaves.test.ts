@@ -141,7 +141,7 @@ describe("EasyRpgSaveSync", () => {
   });
 
   function sync(saves: SaveSchema[] = []) {
-    return new EasyRpgSaveSync({ id: 42, user_saves: saves }, GAME);
+    return new EasyRpgSaveSync({ id: Number(GAME), user_saves: saves });
   }
 
   it("loads the server's saves into the player", async () => {

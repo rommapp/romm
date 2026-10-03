@@ -2859,6 +2859,26 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def present_rom_file_paths(
+        self,
+        rom_id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> list[RomFile]:
+        """A ROM's files on disk, loading only their paths and the rom's."""
+        return list(
+            session.scalars(
+                select(RomFile)
+                .filter_by(rom_id=rom_id, missing_from_fs=False)
+                .options(
+                    load_only(RomFile.file_path, RomFile.file_name),
+                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+                )
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
     def rom_files_for_rom_id(
         self,
         rom_id: int,

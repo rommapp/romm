@@ -1,4 +1,4 @@
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Annotated
 
 from fastapi import HTTPException
@@ -28,6 +28,12 @@ def _not_found(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
+def _serve(disk_path: str | Path, web_path: PurePosixPath) -> Response:
+    if DEV_MODE:
+        return FileResponse(path=disk_path, media_type=_OCTET_STREAM)
+    return FileRedirectResponse(download_path=web_path)
+
+
 @protected_route(
     router.get,
     "/{id}/easyrpg/{path:path}",
@@ -50,7 +56,7 @@ async def get_easyrpg_file(
 
     assert_rom_visible(request, rom)
 
-    game_files = easyrpg_handler.game_files(db_rom_handler.rom_files_for_rom_id(id))
+    game_files = easyrpg_handler.game_files(db_rom_handler.present_rom_file_paths(id))
     if not easyrpg_handler.is_game(game_files):
         raise _not_found("Not an RPG Maker 2000/2003 game")
 
@@ -61,21 +67,15 @@ async def get_easyrpg_file(
         )
 
     if file := game_files.get(path):
-        if DEV_MODE:
-            return FileResponse(
-                path=fs_rom_handler.validate_path(file.full_path),
-                media_type=_OCTET_STREAM,
-            )
-        return FileRedirectResponse(
-            download_path=PurePosixPath(f"/library/{file.full_path}")
+        return _serve(
+            fs_rom_handler.validate_path(file.full_path),
+            PurePosixPath("/library", file.full_path),
         )
 
     if rtp_file := easyrpg_handler.find_rtp_file(path):
-        if DEV_MODE:
-            return FileResponse(
-                path=f"{easyrpg_handler.rtp_path}/{rtp_file}",
-                media_type=_OCTET_STREAM,
-            )
-        return FileRedirectResponse(download_path=PurePosixPath(RTP_WEB_PATH, rtp_file))
+        return _serve(
+            f"{easyrpg_handler.rtp_path}/{rtp_file}",
+            PurePosixPath(RTP_WEB_PATH, rtp_file),
+        )
 
     raise _not_found("File not found")

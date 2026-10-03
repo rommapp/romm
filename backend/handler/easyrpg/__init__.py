@@ -70,8 +70,9 @@ def build_index(
             node = node.setdefault(normalize_name(dir_name), {_DIRNAME_KEY: dir_name})
             if not isinstance(node, dict):
                 break
-        if isinstance(node, dict) and name != _DIRNAME_KEY:
-            node.setdefault(_file_key(name, at_root=not dirs), name)
+        else:
+            if name != _DIRNAME_KEY:
+                node.setdefault(_file_key(name, at_root=not dirs), name)
 
     # The game's own files win over the RTP's.
     for dir_name, names in sorted(rtp_files.items()):
@@ -115,19 +116,18 @@ class EasyRpgHandler:
                 if folder.is_dir() and not folder.name.startswith(".")
             }
 
+    @cached_property
+    def _rtp_folders(self) -> dict[str, tuple[str, frozenset[str]]]:
+        """Each RTP folder and its file names, keyed by the normalized folder name."""
+        return {
+            normalize_name(folder): (folder, frozenset(names))
+            for folder, names in self.rtp_files.items()
+        }
+
     @staticmethod
     def game_files(files: Iterable[RomFile]) -> dict[str, RomFile]:
-        """A game's files on disk, keyed by their path inside its folder.
-
-        Args:
-            files: The rom's file rows, with their `rom` path loaded.
-        """
-        game_files: dict[str, RomFile] = {}
-        for file in files:
-            prefix = f"{file.rom.full_path}/"
-            if not file.missing_from_fs and file.full_path.startswith(prefix):
-                game_files[file.full_path.removeprefix(prefix)] = file
-        return game_files
+        """A game's files, keyed by their path inside its folder."""
+        return {file.file_name_for_download(): file for file in files}
 
     @staticmethod
     def is_game(game_files: Iterable[str]) -> bool:
@@ -143,11 +143,10 @@ class EasyRpgHandler:
             The file's path inside the RTP, or None when the RTP has no such file.
         """
         dir_name, _, name = path.rpartition("/")
-        category = normalize_name(dir_name)
-        for folder, names in self.rtp_files.items():
-            if normalize_name(folder) == category and name in names:
-                return f"{folder}/{name}"
-        return None
+        folder, names = self._rtp_folders.get(
+            normalize_name(dir_name), ("", frozenset())
+        )
+        return f"{folder}/{name}" if name in names else None
 
 
 easyrpg_handler = EasyRpgHandler()

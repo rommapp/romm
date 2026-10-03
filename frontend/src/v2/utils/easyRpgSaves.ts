@@ -11,7 +11,7 @@ const IDBFS_FILE_MODE = 0o100666;
 
 const SAVE_FILE = /^save\d+\.lsd$/i;
 
-export const EASYRPG_EMULATOR = "easyrpg";
+const EASYRPG_EMULATOR = "easyrpg";
 
 export interface EasyRpgSave {
   name: string;
@@ -82,10 +82,6 @@ async function withSaveStore<T>(
   }
 }
 
-export function isEasyRpgSaveFile(name: string): boolean {
-  return SAVE_FILE.test(name);
-}
-
 /** The save files the player holds for `game` in this browser. */
 export function readEasyRpgSaves(game: string): Promise<EasyRpgSave[]> {
   const prefix = `${saveDir(game)}/`;
@@ -97,9 +93,14 @@ export function readEasyRpgSaves(game: string): Promise<EasyRpgSave[]> {
     const saves: EasyRpgSave[] = [];
     keys.forEach((key, index) => {
       const entry = entries[index];
-      if (typeof key !== "string" || !entry?.contents) return;
+      if (
+        typeof key !== "string" ||
+        !key.startsWith(prefix) ||
+        !entry?.contents
+      )
+        return;
       const name = key.slice(prefix.length);
-      if (!key.startsWith(prefix) || !isEasyRpgSaveFile(name)) return;
+      if (!SAVE_FILE.test(name)) return;
       saves.push({ name, bytes: entry.contents, modified: entry.timestamp });
     });
     return saves;
@@ -141,11 +142,11 @@ export function easyRpgServerSaves(saves: SaveSchema[]): SaveSchema[] {
     (save) =>
       save.emulator === EASYRPG_EMULATOR &&
       !save.slot &&
-      isEasyRpgSaveFile(save.file_name),
+      SAVE_FILE.test(save.file_name),
   );
 }
 
-export interface EasyRpgLaunchPlan {
+interface EasyRpgLaunchPlan {
   download: SaveSchema[];
   upload: EasyRpgSave[];
 }
@@ -182,11 +183,12 @@ export class EasyRpgSaveSync {
   private snapshot: EasyRpgSave[] = [];
 
   private readonly rom: { id: number; user_saves: SaveSchema[] };
+  // The player is launched with the rom id as its game name.
   private readonly game: string;
 
-  constructor(rom: { id: number; user_saves: SaveSchema[] }, game: string) {
+  constructor(rom: { id: number; user_saves: SaveSchema[] }) {
     this.rom = rom;
-    this.game = game;
+    this.game = String(rom.id);
   }
 
   private changed(saves: EasyRpgSave[]): EasyRpgSave[] {
@@ -228,13 +230,12 @@ export class EasyRpgSaveSync {
     );
     await writeEasyRpgSaves(this.game, downloaded);
 
-    for (const save of local)
-      this.synced.set(save.name, save.modified.getTime());
-    for (const save of downloaded) {
-      this.synced.set(save.name, save.modified.getTime());
-    }
     // A save made here that never reached the server goes up with the next push.
-    for (const save of plan.upload) this.synced.delete(save.name);
+    const unsynced = new Set(plan.upload);
+    for (const save of [...local, ...downloaded]) {
+      if (!unsynced.has(save))
+        this.synced.set(save.name, save.modified.getTime());
+    }
   }
 
   /**
