@@ -62,6 +62,17 @@ class TestHiddenTargets:
         assert hidden_platform.id not in ids
         assert set(ids) == {visible_rom.id, no_target.id}
 
+    def test_an_age_rule_drops_events_on_roms_it_can_no_longer_rate(self, rom: Rom):
+        shown = _add(target_type="rom", target_id=str(rom.id))
+        deleted = _add(target_type="rom", target_id="999999")
+        no_target = _add()
+
+        ids = _ids(AuditEventFilters(visibility=RomVisibilityFilter(age_limit=12)))
+
+        assert shown.id in ids
+        assert deleted.id not in ids
+        assert no_target.id in ids
+
 
 class TestCategories:
     def test_a_category_stands_for_its_actions(self):
