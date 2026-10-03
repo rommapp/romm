@@ -5,10 +5,14 @@
 // glass-panel block (tag + date) with the release body rendered through
 // MdPreview, the same markdown surface NotesTab uses.
 import { RBtn, RDialog, REmptyState, RIcon, RSpinner } from "@v2/lib";
-import { MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import {
+  computed,
+  defineAsyncComponent,
+  inject,
+  onBeforeUnmount,
+  ref,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
 import { useFetchState } from "@/v2/composables/useFetchState";
@@ -16,6 +20,12 @@ import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { shortenGithubLinks } from "@/v2/utils/githubLinks";
 
 defineOptions({ inheritAttrs: false });
+
+// The dialog is mounted on every v2 page, so the markdown renderer loads on
+// first open instead of with the app shell.
+const MdPreview = defineAsyncComponent(
+  () => import("@/v2/components/shared/MarkdownPreview.vue"),
+);
 
 type Release = {
   tag_name: string;

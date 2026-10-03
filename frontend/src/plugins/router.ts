@@ -1,11 +1,12 @@
 import { storeToRefs } from "pinia";
-import { watch } from "vue";
+import { type Component, defineAsyncComponent, watch } from "vue";
 import {
   createRouter,
   createWebHistory,
   type NavigationGuardWithThis,
   type RouteLocationNormalized,
 } from "vue-router";
+import { useUiVersion } from "@/composables/useUiVersion";
 import i18n, { loadLocale } from "@/locales";
 import {
   isAuthExemptRoute,
@@ -638,6 +639,21 @@ export function applyRouteTitle(
   if (from && route.path === from.path) return;
   document.title = DEFAULT_TITLE;
 }
+
+// vue-router fetches every named view before entering a route, so the
+// inactive UI's view is deferred until it renders (after an in-place switch).
+const uiVersion = useUiVersion();
+router.beforeEach((to) => {
+  const inactive = uiVersion.value === "v2" ? "default" : "v2";
+  for (const record of to.matched) {
+    const view = record.components?.[inactive];
+    if (record.components && typeof view === "function") {
+      record.components[inactive] = defineAsyncComponent(
+        view as () => Promise<Component>,
+      );
+    }
+  }
+});
 
 router.beforeEach(async (to, from, next) => {
   const heartbeat = storeHeartbeat();
