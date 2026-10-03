@@ -155,8 +155,8 @@ function onRetry() {
 /* A running game owns the screen, so the notice moves out of its middle and
    into a corner the player's own toasts leave free. */
 .r-backend-banner--in-game {
-  top: calc(16px + env(safe-area-inset-top, 0px));
-  left: calc(16px + env(safe-area-inset-left, 0px));
+  top: calc(16px + var(--r-safe-t));
+  left: calc(16px + var(--r-safe-l));
   right: auto;
   transform: none;
   max-width: min(420px, calc(100vw - 32px));

@@ -46,10 +46,24 @@ html[data-bp~="xs"].r-v2 {
   --r-list-select-w: 24px;
 }
 
+/* Safe-area insets (the page draws under them with `viewport-fit=cover`), and
+   each side's gutter: the row padding plus the inset outside it. */
+.r-v2 {
+  --r-safe-t: env(safe-area-inset-top, 0px);
+  --r-safe-r: env(safe-area-inset-right, 0px);
+  --r-safe-b: env(safe-area-inset-bottom, 0px);
+  --r-safe-l: env(safe-area-inset-left, 0px);
+  --r-gutter-l: calc(var(--r-row-pad) + var(--r-safe-l));
+  --r-gutter-r: calc(var(--r-row-pad) + var(--r-safe-r));
+  /* A player stage's box: below the top bar, clear of the other insets. */
+  --r-stage-inset: var(--r-nav-h) var(--r-safe-r) var(--r-safe-b)
+    var(--r-safe-l);
+}
+
 /* The nav chrome unmounts while a player stage owns the viewport, so its
    height tokens collapse to the status-bar inset. */
 html.r-v2.r-v2-stage-active {
-  --r-nav-h: env(safe-area-inset-top, 0px);
+  --r-nav-h: var(--r-safe-t);
   --r-bottom-nav-h: 0px;
 }
 
@@ -338,9 +352,8 @@ html.r-v2-reduced-motion {
   content: "";
   position: absolute;
   /* Out through the gutter and the shell's safe-area padding to the screen edges. */
-  inset: calc(-1 * var(--r-nav-h))
-    calc(-1 * (var(--r-row-pad) + env(safe-area-inset-right, 0px))) 0
-    calc(-1 * (var(--r-row-pad) + env(safe-area-inset-left, 0px)));
+  inset: calc(-1 * var(--r-nav-h)) calc(-1 * var(--r-gutter-r)) 0
+    calc(-1 * var(--r-gutter-l));
   z-index: -1;
   background: var(--r-glass-bar-bg);
   backdrop-filter: var(--r-glass-bar-filter);
@@ -360,8 +373,7 @@ html.r-v2-reduced-motion {
 .r-pinned-list-header::before {
   content: "";
   position: absolute;
-  inset: 0 calc(-1 * (var(--r-row-pad) + env(safe-area-inset-right, 0px))) 0
-    calc(-1 * (var(--r-row-pad) + env(safe-area-inset-left, 0px)));
+  inset: 0 calc(-1 * var(--r-gutter-r)) 0 calc(-1 * var(--r-gutter-l));
   z-index: -1;
   background: var(--r-glass-bar-bg);
   backdrop-filter: var(--r-glass-bar-filter);

@@ -254,17 +254,17 @@ const transitionName = computed(() =>
   color: var(--r-color-fg);
   font-family: var(--r-font-family-sans);
   pointer-events: auto;
-  padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px);
+  padding-block: var(--r-safe-t) var(--r-safe-b);
   /* Only the edge that meets the screen gets a border; the screen-edge
      side carries the shadow instead. */
 }
 .r-drawer--left .r-drawer__panel {
   border-inline-start: 0;
-  padding-inline-start: env(safe-area-inset-left, 0px);
+  padding-inline-start: var(--r-safe-l);
 }
 .r-drawer--right .r-drawer__panel {
   border-inline-end: 0;
-  padding-inline-end: env(safe-area-inset-right, 0px);
+  padding-inline-end: var(--r-safe-r);
 }
 
 /* On phones the drawer goes full-screen: there's a close button in the

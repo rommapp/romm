@@ -318,10 +318,8 @@ const panelStyle = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: max(16px, env(safe-area-inset-top, 0px))
-    max(16px, env(safe-area-inset-right, 0px))
-    max(16px, env(safe-area-inset-bottom, 0px))
-    max(16px, env(safe-area-inset-left, 0px));
+  padding: max(16px, var(--r-safe-t)) max(16px, var(--r-safe-r))
+    max(16px, var(--r-safe-b)) max(16px, var(--r-safe-l));
 }
 
 .r-dialog__scrim {
@@ -372,8 +370,7 @@ html[data-bp~="sm-and-down"] .r-dialog--fs-mobile .r-dialog__panel {
   max-height: calc(100dvh - var(--r-nav-h)) !important;
   border-radius: var(--r-radius-xl) var(--r-radius-xl) 0 0 !important;
   border-bottom: 0 !important;
-  padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom)
-    env(safe-area-inset-left, 0px);
+  padding: 0 var(--r-safe-r) var(--r-safe-b) var(--r-safe-l);
 }
 
 /* Full-height variant: pin the sheet to that same ceiling as a fixed height

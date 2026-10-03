@@ -449,9 +449,7 @@ html[data-bp~="sm-and-down"] .r-v2-pico8__stage {
 /* Native fullscreen runs to the screen edge, past the home indicator the
    windowed frame (and the iPhone fallback) already clear. */
 html[data-bp~="sm-and-down"] .r-v2-pico8__stage:fullscreen {
-  padding-bottom: calc(
-    var(--r-pico8-stage-pad) + env(safe-area-inset-bottom, 0px)
-  );
+  padding-bottom: calc(var(--r-pico8-stage-pad) + var(--r-safe-b));
 }
 
 .r-v2-pico8__viewport {

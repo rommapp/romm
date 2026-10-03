@@ -92,9 +92,7 @@ html[data-bp~="xs"] .r-v2-idx-shell {
 /* Tiles scrolled into view by keyboard or pad nav land clear of the fixed bars. */
 .r-v2-idx-shell :deep([data-focus-key]) {
   scroll-margin-top: calc(var(--r-nav-h) + var(--r-v2-idx-shell-toolbar-h));
-  scroll-margin-bottom: calc(
-    var(--r-bottom-nav-h) + env(safe-area-inset-bottom)
-  );
+  scroll-margin-bottom: calc(var(--r-bottom-nav-h) + var(--r-safe-b));
 }
 
 /* List mode: the column header and the rows run to the screen edges and keep
@@ -108,7 +106,6 @@ html[data-bp~="xs"] .r-v2-idx-shell {
 /* The margin above already spans the gutter, so the glass adds only the shell's
    safe-area padding; more would scroll the unclipped page sideways. */
 .r-v2-idx-shell__list-header.r-pinned-list-header::before {
-  inset: 0 calc(-1 * env(safe-area-inset-right, 0px)) 0
-    calc(-1 * env(safe-area-inset-left, 0px));
+  inset: 0 calc(-1 * var(--r-safe-r)) 0 calc(-1 * var(--r-safe-l));
 }
 </style>

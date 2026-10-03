@@ -93,7 +93,6 @@ import storeGalleryRoms, {
 } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import storeScrollRestoration from "@/v2/stores/scrollRestoration";
-import { layout as layoutTokens, space } from "@/v2/tokens";
 
 interface Props {
   /** Whether the header slot has content to render. False suppresses
@@ -311,22 +310,18 @@ const { total, reorderTotal, charIndex, initialFetching, orderBy, orderDir } =
 
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
-// Responsive columns: measure the section to chunk roms into rows.
-// Card width and inset track the breakpoint so phones pack more, smaller
-// cards instead of one stretched card per row:
-//   inset  = scroller padding (--r-row-pad × 2 + the side safe-area insets),
-//            plus the AlphaStrip column (`--r-alpha-strip-w` + its gap)
-//            wherever the strip renders
+// Responsive columns: measure the scroller's content box (inside its gutters,
+// the strip column and the scrollbar) to chunk roms into rows. Card width
+// tracks the breakpoint so phones pack more, smaller cards instead of one
+// stretched card per row:
 //   card   = matches the `--r-card-art-w` the shell sets per breakpoint
 //            (108 on xs, 158 otherwise) so the JS row-chunking and the
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
 const navHeight = useCssLength("var(--r-nav-h)");
-// The section spans the screen and its scroller pads in by the side insets.
-const scrollerPadX = useCssLength(
-  "calc(2 * var(--r-row-pad) + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px))",
-);
+const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
+const scrollerEl = computed(() => scrollerRef.value?.containerEl ?? null);
 // A jump to "M" means nothing unless the gallery is in letter order.
 const lettersSupported = computed(() => {
   const key = galleryRoms.effectiveOrderBy;
@@ -336,9 +331,6 @@ const stripVisible = computed(() => !smAndDown.value && lettersSupported.value);
 const jumpMenuVisible = computed(
   () => smAndDown.value && lettersSupported.value,
 );
-// The strip's footprint: its letter column plus `--r-alpha-strip-gap`.
-const STRIP_INSET_PX =
-  parseInt(layoutTokens.alphaStripWidth, 10) + parseInt(space[3], 10);
 // The scroller's classic scrollbar gutter (0 for overlay scrollbars), which
 // the rows and the strip both have to clear.
 const scrollbarWidth = ref(0);
@@ -347,13 +339,9 @@ const scrollbarWidth = ref(0);
 const CARD_GAP_PX = 12;
 const cardWidth = () => (xs.value ? 130 : 158);
 const cardHeight = () => Math.round(cardWidth() / (2 / 3));
-const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
+const { columns, usableWidth } = useResponsiveColumns(scrollerEl, {
   cardWidth,
   gap: CARD_GAP_PX,
-  inset: () =>
-    scrollerPadX.value +
-    (stripVisible.value ? STRIP_INSET_PX : 0) +
-    scrollbarWidth.value,
 });
 
 // Fallback cover ratio (boxart style); the per-card `--r-cover-ratio` seed
@@ -461,8 +449,6 @@ const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
     fallbackRatio: coverAspectRatio,
   });
 
-const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
-const scrollerEl = computed(() => scrollerRef.value?.containerEl ?? null);
 useResizeObserver(scrollerEl, () => {
   const el = scrollerEl.value;
   if (el) scrollbarWidth.value = el.offsetWidth - el.clientWidth;
@@ -1282,6 +1268,10 @@ defineExpose({
   --r-alpha-strip-gap: var(--r-space-3);
   /* The strip's footprint, added to the scroller's right gutter. */
   --r-v2-shell-strip: calc(var(--r-alpha-strip-w) + var(--r-alpha-strip-gap));
+  /* Where the right-anchored overlays sit: clear of the scrollbar and the inset. */
+  --r-v2-shell-edge-r: calc(
+    var(--r-v2-shell-scrollbar-w, 0px) + var(--r-safe-r)
+  );
   /* Lets the strip (a sibling) animate against the scroller's scroll. */
   timeline-scope: --r-v2-shell-scroll;
   flex: 1;
@@ -1304,8 +1294,7 @@ defineExpose({
   margin-top: calc(-1 * var(--r-nav-h));
   /* Out of the app shell's safe-area padding to the screen edges, so the pinned
      glass spans them; the scroller pads back in. */
-  margin-inline: calc(-1 * env(safe-area-inset-left, 0px))
-    calc(-1 * env(safe-area-inset-right, 0px));
+  margin-inline: calc(-1 * var(--r-safe-l)) calc(-1 * var(--r-safe-r));
   position: relative;
 }
 
@@ -1317,9 +1306,7 @@ defineExpose({
    scroll stacks on top of the internal one. The scroller's bottom spacer
    (below) lifts the last row clear of the bar. */
 html[data-bp~="sm-and-down"] .r-v2-shell {
-  margin-bottom: calc(
-    -1 * (var(--r-bottom-nav-h) + env(safe-area-inset-bottom))
-  );
+  margin-bottom: calc(-1 * (var(--r-bottom-nav-h) + var(--r-safe-b)));
 }
 /* No strip to leave room for: phones and tablets jump from the toolbar, and
    a sort the letters can't address has no jump at all. */
@@ -1360,12 +1347,8 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
   /* A stable gutter keeps the row packing from shifting when the content
      starts or stops overflowing. */
   scrollbar-gutter: stable;
-  padding: 0
-    calc(
-      var(--r-row-pad) + var(--r-v2-shell-strip) +
-        env(safe-area-inset-right, 0px)
-    )
-    60px calc(var(--r-row-pad) + env(safe-area-inset-left, 0px));
+  padding: 0 calc(var(--r-gutter-r) + var(--r-v2-shell-strip)) 60px
+    var(--r-gutter-l);
 }
 
 .r-v2-shell__item {
@@ -1446,13 +1429,7 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
 }
 /* Its pinned glass also runs under the strip column, out to the right edge. */
 .r-v2-shell__list-header::before {
-  right: calc(
-    -1 *
-      (
-        var(--r-row-pad) + var(--r-v2-shell-strip) +
-          env(safe-area-inset-right, 0px)
-      )
-  );
+  right: calc(-1 * (var(--r-gutter-r) + var(--r-v2-shell-strip)));
 }
 
 /* The strip overlays the scroller's right gutter from the pinned toolbar's
@@ -1460,9 +1437,7 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
 .r-v2-shell .r-v2-shell__strip {
   position: absolute;
   top: calc(var(--r-nav-h) + var(--r-v2-shell-toolbar-h));
-  right: calc(
-    var(--r-v2-shell-scrollbar-w, 0px) + env(safe-area-inset-right, 0px)
-  );
+  right: var(--r-v2-shell-edge-r);
   bottom: 0;
   z-index: 5;
   justify-content: flex-start;
@@ -1517,31 +1492,23 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
 .r-v2-shell__back-to-top {
   position: absolute;
   right: calc(
-    var(--r-v2-shell-strip) + var(--r-v2-shell-scrollbar-w, 0px) +
-      var(--r-space-2) + env(safe-area-inset-right, 0px)
+    var(--r-v2-shell-strip) + var(--r-v2-shell-edge-r) + var(--r-space-2)
   );
   bottom: var(--r-space-6);
   z-index: 6;
 }
 /* No strip: line up with the cards' right edge instead. */
 .r-v2-shell--no-strip .r-v2-shell__back-to-top {
-  right: calc(
-    var(--r-row-pad) + var(--r-v2-shell-scrollbar-w, 0px) +
-      env(safe-area-inset-right, 0px)
-  );
+  right: calc(var(--r-row-pad) + var(--r-v2-shell-edge-r));
 }
 html[data-bp~="sm-and-down"] .r-v2-shell__back-to-top {
-  bottom: calc(
-    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + var(--r-space-4)
-  );
+  bottom: calc(var(--r-bottom-nav-h) + var(--r-safe-b) + var(--r-space-4));
 }
 
 /* The section runs under the top bar; keep the floating dock below it. */
 .r-v2-shell .r-v2-shell__floating {
   top: calc(var(--r-nav-h) + 14px);
-  margin-right: calc(
-    var(--r-v2-shell-scrollbar-w, 0px) + env(safe-area-inset-right, 0px)
-  );
+  margin-right: var(--r-v2-shell-edge-r);
 }
 
 /* Smaller cards on phones. Matches GameCard's own xs `--r-card-art-w` so
@@ -1557,7 +1524,7 @@ html[data-bp~="xs"] .r-v2-shell {
 html[data-bp~="sm-and-down"] .r-v2-shell__scroller::after {
   content: "";
   display: block;
-  height: calc(var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px);
+  height: calc(var(--r-bottom-nav-h) + var(--r-safe-b) + 24px);
 }
 html[data-bp~="xs"] .r-v2-shell__header {
   padding-top: calc(var(--r-nav-h) + 16px);
