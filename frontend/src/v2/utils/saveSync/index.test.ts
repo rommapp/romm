@@ -266,6 +266,7 @@ describe("DeviceSaveSync.push", () => {
         deviceId: "device-1",
         slot: "Save01",
         contentHash: saveContentHash(new Uint8Array([1])),
+        overwrite: false,
       }),
     );
     await vi.waitFor(async () =>

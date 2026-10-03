@@ -5,6 +5,7 @@ import EasyRpg from "./EasyRpg.vue";
 const mocks = vi.hoisted(() => ({
   capture: vi.fn(),
   confirm: vi.fn(),
+  deleteSaves: vi.fn(),
   flushPlaySession: vi.fn(),
   getRom: vi.fn(),
   playSessionStart: vi.fn(),
@@ -92,6 +93,7 @@ vi.mock("@/v2/stores/galleryRoms", () => ({
 }));
 
 vi.mock("@/v2/utils/easyRpgStorage", () => ({
+  deleteEasyRpgSaves: mocks.deleteSaves,
   easyRpgGameName: (romId: number, userId: number) => `${romId}-${userId}`,
   readEasyRpgSaves: mocks.readSaves,
   writeEasyRpgSaves: mocks.writeSaves,
@@ -136,6 +138,7 @@ beforeEach(() => {
   mocks.getRom.mockResolvedValue({ data: rom });
   mocks.readSaves.mockResolvedValue([]);
   mocks.writeSaves.mockResolvedValue(undefined);
+  mocks.deleteSaves.mockResolvedValue(undefined);
   mocks.prepare.mockResolvedValue([]);
   mocks.capture.mockResolvedValue(undefined);
   mocks.push.mockResolvedValue(true);
@@ -204,6 +207,20 @@ describe("EasyRpg", () => {
     expect(wrapper.get("iframe").attributes("src")).toBe(
       "/assets/easyrpg/index.html?game=1-7",
     );
+    wrapper.unmount();
+  });
+
+  it("removes the saves sync deleted from the player", async () => {
+    mocks.readSaves.mockResolvedValue([
+      playerSave("Save01", 1),
+      playerSave("Save02", 2),
+    ]);
+    mocks.prepare.mockResolvedValue([playerSave("Save01", 1)]);
+
+    const wrapper = await play();
+
+    expect(mocks.deleteSaves).toHaveBeenCalledWith("1-7", ["Save02.lsd"]);
+    expect(wrapper.find("iframe").exists()).toBe(true);
     wrapper.unmount();
   });
 

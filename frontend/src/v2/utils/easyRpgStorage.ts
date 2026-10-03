@@ -133,3 +133,18 @@ export function writeEasyRpgSaves(
     );
   });
 }
+
+/** Remove the files named `fileNames` from the player's save folder. */
+export function deleteEasyRpgSaves(
+  game: string,
+  fileNames: string[],
+): Promise<void> {
+  if (fileNames.length === 0) return Promise.resolve();
+  return withSaveStore(game, "readwrite", async (store) => {
+    await Promise.all(
+      fileNames.map((fileName) =>
+        settle(store.delete(`${saveDir(game)}/${fileName}`)),
+      ),
+    );
+  });
+}

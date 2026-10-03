@@ -129,6 +129,8 @@ export class DeviceSaveSync {
         slot: save.slot,
         contentHash: save.hash,
         autocleanup: true,
+        // A refused copy stays in this browser for the next launch to settle.
+        overwrite: false,
         save: null,
         saveFile: saveFileOf(save),
       });

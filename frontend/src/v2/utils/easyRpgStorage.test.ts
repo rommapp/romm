@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
 import {
+  deleteEasyRpgSaves,
   easyRpgGameName,
   readEasyRpgSaves,
   writeEasyRpgSaves,
@@ -37,6 +38,19 @@ describe("EasyRPG storage", () => {
     ).toEqual([
       ["Save01", "Save01.lsd", [1], 1000],
       ["Save02", "Save02.lsd", [2], 2000],
+    ]);
+  });
+
+  it("deletes the named save files", async () => {
+    await writeEasyRpgSaves("30-1", [
+      { slot: "Save01", bytes: new Uint8Array([1]), updatedAt: 1 },
+      { slot: "Save02", bytes: new Uint8Array([2]), updatedAt: 2 },
+    ]);
+
+    await deleteEasyRpgSaves("30-1", ["Save01.lsd"]);
+
+    expect((await readEasyRpgSaves("30-1")).map((save) => save.slot)).toEqual([
+      "Save02",
     ]);
   });
 

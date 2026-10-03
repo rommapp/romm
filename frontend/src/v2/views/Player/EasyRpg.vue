@@ -27,6 +27,7 @@ import { usePlayingWhile } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { focusFromInput } from "@/v2/utils/autofocus";
 import {
+  deleteEasyRpgSaves,
   easyRpgGameName,
   readEasyRpgSaves,
   writeEasyRpgSaves,
@@ -99,10 +100,17 @@ const savePoll = useIntervalFn(() => void pushSaves(), SAVE_POLL_MS, {
 });
 
 // Only the slots whose bytes differ, so the player keeps its own timestamps.
+// `saves` began as every slot the player held, so a missing one sync deleted.
 async function restoreSaves(game: string, saves: LocalSave[]) {
-  const held = new Map(
-    (await readEasyRpgSaves(game)).map((save) => [save.slot, save.bytes]),
+  const playerSaves = await readEasyRpgSaves(game);
+  const kept = new Set(saves.map((save) => save.slot));
+  await deleteEasyRpgSaves(
+    game,
+    playerSaves
+      .filter((save) => !kept.has(save.slot))
+      .map((save) => save.fileName),
   );
+  const held = new Map(playerSaves.map((save) => [save.slot, save.bytes]));
   const stale = saves.filter((save) => {
     const bytes = held.get(save.slot);
     return (

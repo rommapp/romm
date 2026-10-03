@@ -127,7 +127,12 @@ async function prepareSaves(target: DetailedRom) {
     );
     removeRuffleSaves(host, Object.keys(leftover));
     const synced = saves.find((save) => save.slot === AUTOSAVE_SLOT);
-    if (synced) writeRuffleSaves(host, unzipRuffleSaves(synced.bytes));
+    if (synced) {
+      writeRuffleSaves(
+        host,
+        unzipRuffleSaves(synced.bytes, swfStoragePath(swfUrl)),
+      );
+    }
     saveSync = sync;
   } catch (error) {
     console.error("[Ruffle] Saves are unavailable", error);

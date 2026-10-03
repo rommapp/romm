@@ -69,12 +69,23 @@ describe("ruffle saves", () => {
   it("round-trips through a zip and back into storage", () => {
     const saves = { [`${SWF_PATH}/progress`]: sol(1), "/root": sol(3) };
 
-    const restored = unzipRuffleSaves(zipRuffleSaves(saves));
+    const restored = unzipRuffleSaves(zipRuffleSaves(saves), SWF_PATH);
     writeRuffleSaves(HOST, restored);
 
     expect(readRuffleSaves(HOST, SWF_PATH)).toEqual(saves);
 
     removeRuffleSaves(HOST, Object.keys(saves));
     expect(localStorage.length).toBe(0);
+  });
+
+  it("restores only the entries the SWF can reach", () => {
+    const archive = zipRuffleSaves({
+      [`${SWF_PATH}/progress`]: sol(1),
+      "api/roms/2/content/other.swf/progress": sol(2),
+    });
+
+    expect(Object.keys(unzipRuffleSaves(archive, SWF_PATH))).toEqual([
+      `${SWF_PATH}/progress`,
+    ]);
   });
 });

@@ -98,10 +98,15 @@ export function zipRuffleSaves(saves: RuffleSaves): Uint8Array {
   return zipSync(saves);
 }
 
-export function unzipRuffleSaves(bytes: Uint8Array): RuffleSaves {
+/** The SharedObjects in an archive that the SWF at `swfPath` can reach. */
+export function unzipRuffleSaves(
+  bytes: Uint8Array,
+  swfPath: string,
+): RuffleSaves {
+  const scopes = storageScopes(swfPath);
   const saves: RuffleSaves = {};
   for (const [entry, content] of Object.entries(unzipSync(bytes))) {
-    if (!entry.endsWith("/") && isSolFile(content)) saves[entry] = content;
+    if (ownsKey(entry, scopes) && isSolFile(content)) saves[entry] = content;
   }
   return saves;
 }

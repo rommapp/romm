@@ -172,7 +172,7 @@ function sendSaveOnUnload({
     : {
         url: "/saves",
         method: "POST",
-        params: saveVersionQuery({ ...version, overwrite: true }),
+        params: saveVersionQuery({ overwrite: true, ...version }),
       };
   const csrfToken = Cookies.get("romm_csrftoken");
   void fetch(api.getUri(request), {
