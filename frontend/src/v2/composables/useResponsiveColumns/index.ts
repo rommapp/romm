@@ -74,9 +74,9 @@ export function useResponsiveColumns(
     const el = containerRef.value;
     if (!el) return;
     const { paddingLeft, paddingRight } = getComputedStyle(el);
-    compute(
-      el.clientWidth - parseFloat(paddingLeft) - parseFloat(paddingRight),
-    );
+    const padX =
+      (parseFloat(paddingLeft) || 0) + (parseFloat(paddingRight) || 0);
+    compute(el.clientWidth - padX);
   });
 
   return { columns, usableWidth };
