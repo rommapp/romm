@@ -6,6 +6,7 @@ import { useEventListener, useResizeObserver } from "@vueuse/core";
 import { computed, ref, toRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { FOCUSABLE_SELECTOR } from "@/v2/utils/spatialNav";
 
 interface Props {
@@ -46,9 +47,10 @@ watch(
   (top) => {
     if (!focusOnArrival.value || top > 0) return;
     focusOnArrival.value = false;
-    props.scroller
-      ?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
-      ?.focus({ preventScroll: true });
+    focusFromInput(
+      props.scroller?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR),
+      { preventScroll: true },
+    );
   },
 );
 // A ride that stops short of the top, or focus the user moves elsewhere

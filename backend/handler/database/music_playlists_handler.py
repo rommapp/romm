@@ -139,7 +139,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
                     MusicPlaylistTrack.playlist_id == playlist_id,
                     MusicPlaylistTrack.rom_file_id.in_(candidates),
                 )
-            )
+            ).all()
         )
         new_entries = [e for e in candidates if e not in existing]
         if not new_entries:
@@ -229,7 +229,7 @@ class DBMusicPlaylistsHandler(DBBaseHandler):
                     MusicFavoriteTrack.user_id == user_id,
                     MusicFavoriteTrack.rom_file_id.in_(candidates),
                 )
-            )
+            ).all()
         )
         new_entries = [e for e in candidates if e not in existing]
         if not new_entries:

@@ -10,6 +10,7 @@
     "noImplicitAny": true,
     "noImplicitOverride": true,
     "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],

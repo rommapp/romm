@@ -17,6 +17,7 @@ import type { SimpleRom } from "@/stores/roms";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import WidgetCard from "./WidgetCard.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -85,7 +86,7 @@ async function reroll({ notify }: { notify: boolean }) {
     loading.value = false;
     if (hadFocus) {
       await nextTick();
-      rerollEl()?.focus();
+      focusFromInput(rerollEl());
     }
   }
 }

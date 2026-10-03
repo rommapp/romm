@@ -14,6 +14,28 @@ function tap() {
   window.dispatchEvent(new Event("touchstart"));
 }
 
+describe("isNavigationKey", () => {
+  it.each([
+    "ArrowUp",
+    "Tab",
+    "Enter",
+    " ",
+    "Escape",
+    "Home",
+    "End",
+    "PageUp",
+    "PageDown",
+  ])("counts %j as keyboard navigation", async (key) => {
+    const { isNavigationKey } = await import("./index");
+    expect(isNavigationKey(key)).toBe(true);
+  });
+
+  it.each(["a", "Shift", "Control", "F5"])("ignores %j", async (key) => {
+    const { isNavigationKey } = await import("./index");
+    expect(isNavigationKey(key)).toBe(false);
+  });
+});
+
 describe("useInputModality", () => {
   beforeEach(() => {
     vi.useFakeTimers();

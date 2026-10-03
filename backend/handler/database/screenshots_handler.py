@@ -117,7 +117,7 @@ class DBScreenshotsHandler(DBBaseHandler):
                 query = query.filter(model.id != ignoring.id)
             # A name can match several screenshots, and the asset shows only
             # the one its lookup prefers.
-            for file_name, file_name_no_ext in session.execute(query):
+            for file_name, file_name_no_ext in session.execute(query).all():
                 shown = self.get_screenshot(
                     rom_id=screenshot.rom_id,
                     user_id=screenshot.user_id,

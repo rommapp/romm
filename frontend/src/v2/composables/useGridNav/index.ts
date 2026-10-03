@@ -39,6 +39,7 @@ import { onBeforeUnmount, onMounted, watch, type Ref } from "vue";
 import { useRoute } from "vue-router";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import storeFocusRestoration from "@/v2/stores/focusRestoration";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { FOCUSABLE_SELECTOR } from "@/v2/utils/spatialNav";
 
 export interface UseGridNavOptions {
@@ -248,7 +249,7 @@ export function useGridNav(
       target.setAttribute("tabindex", "0");
     }
 
-    target.focus({ preventScroll: true });
+    focusFromInput(target, { preventScroll: true });
 
     // Jumping rows (up/down): centre the whole section vertically so the
     // focused row reads as the page's centrepiece rather than hugging the

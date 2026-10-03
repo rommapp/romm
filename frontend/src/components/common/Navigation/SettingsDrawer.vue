@@ -98,7 +98,7 @@ function onClose() {
           class="rounded"
         />
       </v-list-img>
-      <v-list-item :title="user?.username" class="mb-1 text-shadow text-white">
+      <v-list-item :title="user?.username!" class="mb-1 text-shadow text-white">
         <template v-if="user?.role" #subtitle>
           <span class="mr-1">{{ user.role }}</span>
           <v-icon size="x-small">

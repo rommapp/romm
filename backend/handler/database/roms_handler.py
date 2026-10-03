@@ -1204,7 +1204,7 @@ class DBRomsHandler(DBBaseHandler):
                     user_id=user_id,
                     session=session,
                 )
-            )
+            ).all()
         )
 
     def _build_search_phrases(self, search_term: str) -> list[str]:

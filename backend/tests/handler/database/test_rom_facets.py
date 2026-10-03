@@ -5,7 +5,10 @@ maintained by database triggers on `roms`, not by application code, so these
 tests write through the normal handlers and assert the mirror follows.
 """
 
+import gc
+
 from sqlalchemy import String, select
+from sqlalchemy.engine import CursorResult, ExecutionContext
 from tests.factories import make_rom
 
 from handler.database import db_rom_handler, roms_handler
@@ -175,3 +178,29 @@ class TestRomFacets:
         )
 
         assert "Action" in db_rom_handler.get_rom_filters()["genres"]
+
+    def test_filter_values_free_the_cursor_without_the_gc(self, rom: Rom):
+        # A cursor left for the cyclic GC is finalized on whichever thread
+        # collects next, which segfaults the mariadb connector under load.
+        db_rom_handler.update_rom(rom.id, {"igdb_metadata": {"genres": ["Puzzle"]}})
+        was_enabled, debug_flags = gc.isenabled(), gc.get_debug()
+        gc.collect()
+        gc.disable()
+        gc.set_debug(gc.DEBUG_SAVEALL)
+        garbage_start = len(gc.garbage)
+        try:
+            db_rom_handler.get_rom_filters()
+            gc.collect()
+            # The execution context owns the DBAPI cursor, so check it as well.
+            leaked = [
+                o
+                for o in gc.garbage[garbage_start:]
+                if isinstance(o, (CursorResult, ExecutionContext))
+            ]
+        finally:
+            gc.set_debug(debug_flags)
+            del gc.garbage[garbage_start:]
+            if was_enabled:
+                gc.enable()
+
+        assert leaked == []

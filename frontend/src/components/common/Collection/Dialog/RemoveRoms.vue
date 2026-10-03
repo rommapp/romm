@@ -20,7 +20,7 @@ const { mdAndUp } = useDisplay();
 const show = ref(false);
 const romsStore = storeRoms();
 const collectionsStore = storeCollections();
-const selectedCollection = ref<CollectionSchema>();
+const selectedCollection = ref<CollectionSchema | null>(null);
 const roms = ref<SimpleRom[]>([]);
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -74,7 +74,7 @@ async function removeRomsFromCollection() {
 function closeDialog() {
   roms.value = [];
   show.value = false;
-  selectedCollection.value = undefined;
+  selectedCollection.value = null;
 }
 </script>
 

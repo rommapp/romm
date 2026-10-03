@@ -11,7 +11,7 @@ async function ingestPlaySessions({
   deviceId = null,
   sessions,
 }: {
-  deviceId?: string | null;
+  deviceId?: string | null | undefined;
   sessions: PlaySessionEntry[];
 }) {
   return api.post("/play-sessions", {
@@ -24,7 +24,7 @@ function ingestPlaySessionsKeepalive({
   deviceId = null,
   sessions,
 }: {
-  deviceId?: string | null;
+  deviceId?: string | null | undefined;
   sessions: PlaySessionEntry[];
 }): void {
   void fetch("/api/play-sessions", {
