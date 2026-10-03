@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
 
+import pytest
+
 from utils.m3u import (
     disc_number,
     first_playlist_entry,
@@ -89,6 +91,18 @@ class TestListingPlaylist:
         (tmp_path / "Game.m3u").write_text("#Game (Disc 1).chd\n")
 
         assert listing_playlist(disc) is None
+
+    def test_none_for_a_namesake_differing_only_in_case(self, tmp_path):
+        listed = tmp_path / "Game.chd"
+        listed.write_bytes(b"x")
+        namesake = tmp_path / "game.chd"
+        namesake.write_bytes(b"y")
+        if listed.samefile(namesake):
+            pytest.skip("case-insensitive filesystem")
+        (tmp_path / "Game.m3u").write_text("Game.chd\n")
+
+        assert listing_playlist(namesake) is None
+        assert listing_playlist(listed) == "Game.m3u"
 
     def test_none_when_the_folder_is_missing(self, tmp_path):
         assert listing_playlist(tmp_path / "gone" / "disc.chd") is None

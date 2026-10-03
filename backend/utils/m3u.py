@@ -88,9 +88,18 @@ def _path_key(path: Path) -> str:
     return os.path.normcase(str(path.parent.resolve() / path.name)).casefold()
 
 
+def _same_entry(a: Path, b: Path) -> bool:
+    # lstat, so a symlinked disc and its target stay distinct.
+    try:
+        return os.path.samestat(os.lstat(a), os.lstat(b))
+    except OSError:
+        return False
+
+
 def listing_playlist(disc: Path) -> str | None:
     """The name of an .m3u beside a lone disc that lists it, or None."""
-    # Matched ignoring case: Windows-authored playlists often differ from the files.
+    # An entry missing as spelled is matched ignoring case, since Windows-authored
+    # playlists often differ in case from the files.
     target = _path_key(disc)
     try:
         playlists = [
@@ -104,8 +113,10 @@ def listing_playlist(disc: Path) -> str | None:
         for candidates in _playlist_entries(playlist) or []:
             # The path an emulator would open, as first_playlist_entry picks it.
             on_disk = next((path for path in candidates if path.is_file()), None)
-            named = [on_disk] if on_disk else candidates
-            if any(_path_key(path) == target for path in named):
+            if on_disk:
+                if _same_entry(on_disk, disc):
+                    return playlist.name
+            elif any(_path_key(path) == target for path in candidates):
                 return playlist.name
     return None
 
