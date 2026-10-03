@@ -111,7 +111,7 @@ def force_index_on_mysql[S: Select[*tuple[Any, ...]]](
 
 
 def optimizer_hint_on_mysql[S: Select[*tuple[Any, ...]]](statement: S, hint: str) -> S:
-    """Give MySQL and MariaDB's SELECT an optimizer `hint`; PostgreSQL plans freely."""
+    """Prefix the SELECT with an optimizer `hint` on MySQL and MariaDB only."""
     for dialect_name in _MYSQL_FAMILY:
         statement = statement.prefix_with(f"/*+ {hint} */", dialect=dialect_name)
     return statement
