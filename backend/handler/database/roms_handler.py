@@ -3830,8 +3830,6 @@ class DBRomsHandler(DBBaseHandler):
         tags = set()
         platforms = set()
 
-        # Iterating the Result directly keeps it in a reference cycle, so the cyclic
-        # GC frees its mariadb cursor on another thread and segfaults the driver.
         for row in session.execute(statement).all():
             g, f, cl, co, pub, dev, gm, ar, pc, rg, lg, tg, pid = row
             if g:

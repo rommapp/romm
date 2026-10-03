@@ -1,6 +1,7 @@
 import functools
 import inspect
 from collections.abc import Callable, Iterator
+from contextlib import nullcontext
 from typing import Any, cast
 
 from fastapi import HTTPException, status
@@ -16,8 +17,7 @@ INJECTED_SESSION = cast(Session, None)
 
 def begin_session[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     if inspect.isgeneratorfunction(func):
-        generator = _begin_generator_session(cast(Callable[P, Iterator[Any]], func))
-        return cast(Callable[P, R], generator)
+        return cast(Callable[P, R], _begin_generator_session(func))
 
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -45,11 +45,12 @@ def _begin_generator_session[**P](
 
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[Any]:
-        if kwargs.get("session") is not None:
-            yield from func(*args, **kwargs)
-            return
-
-        with sync_session.begin() as s:
+        caller_session = kwargs.get("session")
+        with (
+            nullcontext(caller_session)
+            if caller_session is not None
+            else sync_session.begin()
+        ) as s:
             kwargs["session"] = s
             yield from func(*args, **kwargs)
 

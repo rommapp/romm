@@ -1,7 +1,7 @@
 import ast
-from pathlib import Path
 
-BACKEND_ROOT = Path(__file__).parents[3]
+from tests.app_sources import app_sources
+
 RESULT_METHODS = {"execute", "scalars"}
 RESULT_VIEWS = {"scalars", "mappings", "tuples", "unique", "columns"}
 CONSUMERS = {
@@ -108,11 +108,7 @@ def test_query_results_are_not_left_for_the_gc():
     # An iterated Result sits in a cycle the GC frees on another thread, segfaulting
     # mariadb. Closing it only helps ORM results; `.all()`/`.partitions()` make none.
     offenders = []
-    for path in BACKEND_ROOT.rglob("*.py"):
-        relative = path.relative_to(BACKEND_ROOT)
-        if relative.parts[0] in {"tests", "alembic"}:
-            continue
-        tree = ast.parse(path.read_text(), filename=str(path))
+    for relative, tree in app_sources():
         offenders += [f"{relative}:{line}" for line in _iterated_results(tree)]
 
     assert offenders == []
