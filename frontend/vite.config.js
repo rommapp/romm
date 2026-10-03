@@ -140,10 +140,23 @@ export default defineConfig(({ mode }) => {
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: true,
     },
     resolve: {
-      alias: {
-        "@": fileURLToPath(new URL("./src", import.meta.url)),
-        "@v2": fileURLToPath(new URL("./src/v2", import.meta.url)),
-      },
+      alias: [
+        {
+          find: "@",
+          replacement: fileURLToPath(new URL("./src", import.meta.url)),
+        },
+        {
+          find: "@v2",
+          replacement: fileURLToPath(new URL("./src/v2", import.meta.url)),
+        },
+        // Every md-editor import, v1 included, gets the XSS config on first load.
+        {
+          find: /^md-editor-v3$/,
+          replacement: fileURLToPath(
+            new URL("./src/plugins/mdeditor.ts", import.meta.url),
+          ),
+        },
+      ],
       extensions: [".js", ".json", ".jsx", ".mjs", ".ts", ".tsx", ".vue"],
     },
     server: {
