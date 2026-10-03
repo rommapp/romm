@@ -5,14 +5,13 @@
 // glass-panel block (tag + date) with the release body rendered through
 // MdPreview, the same markdown surface NotesTab uses.
 import { RBtn, RDialog, REmptyState, RIcon, RSpinner } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { Events } from "@/types/emitter";
 import {
   AsyncMdPreview as MdPreview,
   loadMdPreview,
 } from "@/v2/components/shared/asyncMarkdown";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useFetchState } from "@/v2/composables/useFetchState";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { shortenGithubLinks } from "@/v2/utils/githubLinks";
@@ -34,7 +33,6 @@ const RELEASES_URL = `https://api.github.com/repos/${REPO}/releases?per_page=10`
 const RELEASES_PAGE_URL = `https://github.com/${REPO}/releases`;
 
 const { t, locale } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
 const { isLight: isLightTheme } = useThemeMode();
 
 const show = ref(false);
@@ -94,8 +92,7 @@ const openHandler = () => {
   // errored). Keeps the dialog snappy on subsequent opens.
   if (releases.value.length === 0 && !loading.value) fetchReleases();
 };
-emitter?.on("showChangelogDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showChangelogDialog", openHandler));
+useEmitterEvent("showChangelogDialog", openHandler);
 
 function closeDialog() {
   show.value = false;

@@ -24,6 +24,8 @@ describe("isAudioFile", () => {
     expect(isAudioFile("01 - Theme.mp3")).toBe(true);
     expect(isAudioFile("track.FLAC")).toBe(true);
     expect(isAudioFile("04 - Ending.aac")).toBe(true);
+    expect(isAudioFile("05 - Beach.spc")).toBe(true);
+    expect(isAudioFile("game.nsf")).toBe(false);
     expect(isAudioFile("cover.png")).toBe(false);
     expect(isAudioFile("noextension")).toBe(false);
   });
@@ -79,6 +81,7 @@ describe("panelTracksFromCatalog", () => {
   const base = {
     rom_file_id: 5,
     rom_id: 9,
+    file_name: "overworld.mp3",
     title: "Overworld",
     artist: "Kondo",
     album: "SMB OST",
@@ -99,6 +102,21 @@ describe("panelTracksFromCatalog", () => {
       { ...base, title: "Super Mario Bros", artist: null, album: null },
     ]);
     expect(track?.subtitle).toBe("NES");
+  });
+
+  it("names an untagged track by its file, with the game as context", () => {
+    const [track] = panelTracksFromCatalog([
+      {
+        ...base,
+        file_name: "05 Beach.spc",
+        title: null,
+        artist: null,
+        album: null,
+      },
+    ]);
+    expect(track?.title).toBe("05 Beach");
+    expect(track?.fileName).toBe("05 Beach.spc");
+    expect(track?.subtitle).toBe("Super Mario Bros · NES");
   });
 });
 

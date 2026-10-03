@@ -20,6 +20,12 @@ ALLOWED_AUDIO_EXTENSIONS = frozenset(
     {".mp3", ".ogg", ".oga", ".opus", ".m4a", ".aac", ".wav", ".flac"}
 )
 
+# Single-song console sound formats the browser plays through game-music-emu.
+# mutagen can't read them, so they carry no tags.
+CHIPTUNE_EXTENSIONS = frozenset({".gym", ".spc", ".vgm", ".vgz"})
+
+SOUNDTRACK_EXTENSIONS = ALLOWED_AUDIO_EXTENSIONS | CHIPTUNE_EXTENSIONS
+
 # Skip parsing anything larger than this; mutagen mmaps the file and can
 # consume substantial memory on pathological inputs (e.g. a mislabeled 4GB WAV).
 MAX_AUDIO_PARSE_BYTES = 512 * 1024 * 1024  # 512 MiB
@@ -94,6 +100,11 @@ def is_allowed_audio_file(file_name: str) -> bool:
     return ext.lower() in ALLOWED_AUDIO_EXTENSIONS
 
 
+def is_chiptune_file(file_name: str) -> bool:
+    _, ext = os.path.splitext(file_name)
+    return ext.lower() in CHIPTUNE_EXTENSIONS
+
+
 # MIME types for audio formats that the stdlib mimetypes module guesses
 # inconsistently (or not at all) across platforms.
 AUDIO_MIME_OVERRIDES = {
@@ -102,6 +113,8 @@ AUDIO_MIME_OVERRIDES = {
     ".m4a": "audio/mp4",
     ".oga": "audio/ogg",
     ".ogg": "audio/ogg",
+    # mimetypes maps .spc to a chemistry format.
+    **dict.fromkeys(CHIPTUNE_EXTENSIONS, "application/octet-stream"),
 }
 
 

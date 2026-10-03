@@ -15,12 +15,11 @@ import {
   RSwitch,
   RTooltip,
 } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { type SimpleRom } from "@/stores/roms";
-import type { Events } from "@/types/emitter";
 import ScanProviderSelect from "@/v2/components/Scan/ScanProviderSelect.vue";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -32,7 +31,6 @@ import {
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const show = ref(false);
 // Accept either a single rom or an array: the SelectionBar passes
@@ -125,12 +123,8 @@ const openBulk = (payload: SimpleRom[]) => {
   roms.value = payload;
   show.value = true;
 };
-emitter?.on("showRefreshMetadataDialog", openSingle);
-emitter?.on("showRefreshMetadataDialogBulk", openBulk);
-onBeforeUnmount(() => {
-  emitter?.off("showRefreshMetadataDialog", openSingle);
-  emitter?.off("showRefreshMetadataDialogBulk", openBulk);
-});
+useEmitterEvent("showRefreshMetadataDialog", openSingle);
+useEmitterEvent("showRefreshMetadataDialogBulk", openBulk);
 
 const singleRom = computed<SimpleRom | null>(() =>
   roms.value.length === 1 ? roms.value[0]! : null,

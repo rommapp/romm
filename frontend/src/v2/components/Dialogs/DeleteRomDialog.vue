@@ -5,7 +5,7 @@
 // Rows are virtualised so a whole-library selection doesn't mount every cover.
 import { RBtn, RCheckbox, RDialog, RIcon, RVirtualScroller } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter, useRoute } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -14,6 +14,7 @@ import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { romIdFromRoute } from "@/v2/composables/useRouteRom";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -49,8 +50,7 @@ const openHandler = (romsToDelete: SimpleRom[]) => {
   roms.value = romsToDelete;
   show.value = true;
 };
-emitter?.on("showDeleteRomDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showDeleteRomDialog", openHandler));
+useEmitterEvent("showDeleteRomDialog", openHandler);
 
 const fsCount = computed(() => romsToDeleteFromFs.value.length);
 const allOnFs = computed(

@@ -112,8 +112,8 @@ vi.mock("@/v2/composables/useWebpSupport", () => ({
   useWebpSupport: () => ({ toWebp: (url: string) => url }),
 }));
 
-vi.mock("@/v2/composables/useWrapGridNav", () => ({
-  useWrapGridNav: vi.fn(),
+vi.mock("@/v2/composables/useGridNav", () => ({
+  useGridNav: vi.fn(),
 }));
 
 // Live ref rather than a per-call snapshot, so a test can flip the

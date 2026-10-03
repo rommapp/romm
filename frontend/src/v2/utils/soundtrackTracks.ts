@@ -33,6 +33,8 @@ const AUDIO_EXTS = new Set([
   "aac",
   "opus",
 ]);
+// Console sound formats, played through game-music-emu instead of `<audio>`.
+const CHIPTUNE_EXTS = new Set(["gym", "spc", "vgm", "vgz"]);
 const COVER_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 
 export function getExt(name: string): string {
@@ -40,8 +42,19 @@ export function getExt(name: string): string {
   return dot === -1 ? "" : name.slice(dot + 1).toLowerCase();
 }
 
+/** The file picker filter for soundtrack uploads. */
+export const SOUNDTRACK_ACCEPT = [
+  "audio/*",
+  ...[...AUDIO_EXTS, ...CHIPTUNE_EXTS].map((ext) => `.${ext}`),
+].join(",");
+
 export function isAudioFile(name: string): boolean {
-  return AUDIO_EXTS.has(getExt(name));
+  const ext = getExt(name);
+  return AUDIO_EXTS.has(ext) || CHIPTUNE_EXTS.has(ext);
+}
+
+export function isChiptuneFile(name: string): boolean {
+  return CHIPTUNE_EXTS.has(getExt(name));
 }
 
 export function isCoverFile(name: string): boolean {
@@ -95,11 +108,11 @@ export function panelTracksFromCatalog(
   tracks: MusicTrackSchema[],
 ): PanelTrack[] {
   return tracks.map((track) => {
-    const title = track.title || stripExtension(track.game_name ?? "");
+    const title = track.title || stripExtension(track.file_name);
     return {
       id: track.rom_file_id,
       romId: track.rom_id,
-      fileName: track.title || track.game_name || String(track.rom_file_id),
+      fileName: track.file_name,
       title,
       // The game name is context only when it says something new: untagged
       // rips often reuse it as the title, and tagged ones as the album.

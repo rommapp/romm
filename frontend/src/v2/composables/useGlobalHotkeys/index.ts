@@ -16,20 +16,9 @@ import { onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import storePlaying from "@/stores/playing";
+import { isEditable } from "@/v2/utils/editable";
 
 let installed = false;
-
-function isEditable(el: EventTarget | null): boolean {
-  if (!(el instanceof HTMLElement)) return false;
-  if (
-    el.tagName === "INPUT" ||
-    el.tagName === "TEXTAREA" ||
-    el.tagName === "SELECT"
-  ) {
-    return true;
-  }
-  return el.isContentEditable;
-}
 
 export function useGlobalHotkeys() {
   function install() {

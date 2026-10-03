@@ -37,4 +37,12 @@ describe("md-editor-v3", () => {
     expect(img?.hasAttribute("onerror")).toBe(false);
     expect(preview.querySelector("script")).toBeNull();
   });
+
+  it("renders echarts fences as code without loading echarts", async () => {
+    const preview = await render('```echarts\n{ "series": [] }\n```');
+
+    expect(preview.querySelector("code")?.textContent).toContain("series");
+    expect(preview.querySelector(".md-editor-echarts")).toBeNull();
+    expect(document.querySelector('script[src*="echarts"]')).toBeNull();
+  });
 });

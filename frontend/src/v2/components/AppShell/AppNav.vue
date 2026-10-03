@@ -105,6 +105,7 @@ const scrolled = computed(
   right: var(--r-v2-shell-scrollbar-w, 0px);
   z-index: 100;
   height: var(--r-nav-h);
+  padding: var(--r-safe-t) var(--r-safe-r) 0 var(--r-safe-l);
   background: transparent;
   border-bottom: 1px solid transparent;
   transition: border-color var(--r-motion-med) var(--r-motion-ease-out);

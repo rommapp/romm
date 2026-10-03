@@ -15,6 +15,7 @@ class MusicTrackSchema(BaseModel):
 
     rom_file_id: int
     rom_id: int
+    file_name: str
     title: str | None = None
     artist: str | None = None
     album: str | None = None
@@ -47,6 +48,7 @@ class MusicTrackSchema(BaseModel):
         return cls(
             rom_file_id=row.rom_file_id,
             rom_id=row.rom_id,
+            file_name=row.file_name,
             title=row.title,
             artist=row.artist,
             album=row.album,

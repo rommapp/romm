@@ -3,12 +3,12 @@
 // a single manual file (multi-manual ROMs). The emitter payload picks the
 // scope.
 import { RBtn, RDialog, RIcon } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
@@ -16,7 +16,6 @@ import { errorMessage } from "@/v2/utils/errorMessage";
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const { refetchRom } = useRomSync();
 
@@ -32,8 +31,7 @@ const handleShow = (payload: Events["showDeleteManualDialog"]) => {
   fileId.value = payload.fileId;
   show.value = true;
 };
-emitter?.on("showDeleteManualDialog", handleShow);
-onBeforeUnmount(() => emitter?.off("showDeleteManualDialog", handleShow));
+useEmitterEvent("showDeleteManualDialog", handleShow);
 
 async function deleteManual() {
   if (!rom.value || deleting.value) return;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RBtn, RTextField } from "@v2/lib";
+import { RBtn, RForm, RTextField } from "@v2/lib";
 import { onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -9,6 +9,7 @@ import AuthBackLink from "@/v2/components/shared/AuthBackLink.vue";
 import AuthCard from "@/v2/components/shared/AuthCard.vue";
 import PasswordField from "@/v2/components/shared/PasswordField.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { errorMessage } from "@/v2/utils/errorMessage";
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
@@ -21,9 +22,11 @@ const username = ref("");
 const email = ref("");
 const password = ref("");
 const submitting = ref(false);
+const formRef = ref<InstanceType<typeof RForm> | null>(null);
 
 async function register() {
-  if (!username.value || !email.value || !password.value) return;
+  const result = await formRef.value?.validate();
+  if (!result?.valid) return;
   submitting.value = true;
   try {
     await userApi.registerUser(
@@ -38,16 +41,10 @@ async function register() {
     });
     router.push("/login");
   } catch (error: unknown) {
-    const { response, message } = error as {
-      response?: { data?: { detail?: string } };
-      message?: string;
-    };
-    snackbar.error(
-      t("login.register-failed", {
-        error: response?.data?.detail || message || "",
-      }),
-      { icon: "mdi-close-circle", timeout: 5000 },
-    );
+    snackbar.error(t("login.register-failed", { error: errorMessage(error) }), {
+      icon: "mdi-close-circle",
+      timeout: 5000,
+    });
   } finally {
     submitting.value = false;
   }
@@ -61,7 +58,7 @@ onBeforeMount(() => {
 
 <template>
   <AuthCard>
-    <form class="r-v2-register__form" @submit.prevent="register">
+    <RForm ref="formRef" class="r-v2-register__form" @submit="register">
       <RTextField
         v-model="username"
         :label="t('settings.username')"
@@ -100,7 +97,7 @@ onBeforeMount(() => {
       >
         {{ t("common.create") }}
       </RBtn>
-    </form>
+    </RForm>
 
     <AuthBackLink />
   </AuthCard>
