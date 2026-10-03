@@ -27,7 +27,7 @@
 //     placeholder mosaic.
 //   • Save → PUT /collections/:id with `artwork` and/or `url_cover` and
 //     `remove_cover` flag; on success patches the local store.
-import { RBtn, RChip, RIcon, RTag, RTextField } from "@v2/lib";
+import { RBtn, RChip, RIcon, RSectionLabel, RTag, RTextField } from "@v2/lib";
 import { useObjectUrl } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -367,10 +367,13 @@ async function setVisibility(next: boolean) {
          derive their cover from the contained ROMs at runtime, so an
          upload UI here would be misleading. -->
     <section v-if="kind === 'regular'" class="r-v2-coll-set__section">
-      <header class="r-section-head">
-        <RIcon icon="mdi-image-outline" size="14" />
-        <span>{{ t("collection.cover", "Cover artwork") }}</span>
-      </header>
+      <RSectionLabel
+        as="header"
+        icon="mdi-image-outline"
+        class="r-v2-coll-set__head"
+      >
+        {{ t("collection.cover", "Cover artwork") }}
+      </RSectionLabel>
       <div class="r-v2-coll-set__cover">
         <div class="r-v2-coll-set__cover-preview">
           <img
@@ -422,10 +425,13 @@ async function setVisibility(next: boolean) {
 
     <!-- Details (edit form): both kinds. -->
     <section class="r-v2-coll-set__section">
-      <header class="r-section-head">
-        <RIcon icon="mdi-information-outline" size="14" />
-        <span>{{ t("common.details", "Details") }}</span>
-      </header>
+      <RSectionLabel
+        as="header"
+        icon="mdi-information-outline"
+        class="r-v2-coll-set__head"
+      >
+        {{ t("common.details", "Details") }}
+      </RSectionLabel>
       <div class="r-v2-coll-set__form">
         <RTextField
           v-model="form.name"
@@ -480,10 +486,13 @@ async function setVisibility(next: boolean) {
       v-if="kind === 'smart' && filterSummary.length > 0"
       class="r-v2-coll-set__section"
     >
-      <header class="r-section-head">
-        <RIcon icon="mdi-filter-variant" size="14" />
-        <span>{{ t("collection.filters", "Filters") }}</span>
-      </header>
+      <RSectionLabel
+        as="header"
+        icon="mdi-filter-variant"
+        class="r-v2-coll-set__head"
+      >
+        {{ t("collection.filters", "Filters") }}
+      </RSectionLabel>
       <ul class="r-v2-coll-set__filters">
         <li
           v-for="row in filterSummary"
@@ -543,6 +552,10 @@ async function setVisibility(next: boolean) {
 </template>
 
 <style scoped>
+.r-v2-coll-set__head {
+  margin-bottom: 10px;
+}
+
 /* ── Cover ──────────────────────────────────────────────────────── */
 .r-v2-coll-set__cover {
   display: flex;

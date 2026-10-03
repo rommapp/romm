@@ -12,6 +12,7 @@ import {
   RBtn,
   REmptyState,
   RIcon,
+  RSectionLabel,
   RTable,
   RTextField,
   type RTableColumn,
@@ -350,9 +351,9 @@ function onSort({ key, dir }: RTableSortPayload) {
 
     <!-- Defaults (read-only) -->
     <div v-if="defaultExclusions.length > 0" class="r-v2-excluded__defaults">
-      <div class="r-v2-excluded__defaults-label">
+      <RSectionLabel class="r-v2-excluded__defaults-label">
         {{ t("settings.exclusions-defaults") }}
-      </div>
+      </RSectionLabel>
       <ul class="r-v2-excluded__defaults-list">
         <li
           v-for="d in defaultExclusions"
@@ -482,11 +483,6 @@ function onSort({ key, dir }: RTableSortPayload) {
   padding-top: 16px;
 }
 .r-v2-excluded__defaults-label {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--r-color-fg-muted);
   margin-bottom: 10px;
 }
 .r-v2-excluded__defaults-list {

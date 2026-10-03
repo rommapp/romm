@@ -26,6 +26,7 @@ import {
   RBtn,
   RDrawer,
   RIcon,
+  RSectionLabel,
   RSelect,
   RSliderBtnGroup,
   RTag,
@@ -541,9 +542,9 @@ function saveAsSmartCollection() {
 
     <!-- ── Boolean tri-state filters ────────────────────────── -->
     <section class="r-v2-fd__section">
-      <h3 class="r-v2-fd__heading">
+      <RSectionLabel as="h3" size="sm" class="r-v2-fd__heading">
         {{ t("platform.properties") }}
-      </h3>
+      </RSectionLabel>
       <div class="r-v2-fd__bool-rows">
         <div
           v-for="(cfg, idx) in boolFilters"
@@ -567,7 +568,9 @@ function saveAsSmartCollection() {
 
     <!-- ── Platforms (optional) ─────────────────────────────── -->
     <section v-if="showPlatformsFilter" class="r-v2-fd__section">
-      <h3 class="r-v2-fd__heading">{{ t("common.platforms") }}</h3>
+      <RSectionLabel as="h3" size="sm" class="r-v2-fd__heading">{{
+        t("common.platforms")
+      }}</RSectionLabel>
       <PlatformSelect
         v-model="selectedPlatformIds"
         :items="allPlatforms"
@@ -587,7 +590,9 @@ function saveAsSmartCollection() {
 
     <!-- ── Multi-select groups + logic toggle ──────────────── -->
     <section class="r-v2-fd__section">
-      <h3 class="r-v2-fd__heading">{{ t("platform.tags") }}</h3>
+      <RSectionLabel as="h3" size="sm" class="r-v2-fd__heading">{{
+        t("platform.tags")
+      }}</RSectionLabel>
       <div class="r-v2-fd__multi-rows">
         <div
           v-for="s in multiSections"
@@ -628,9 +633,9 @@ function saveAsSmartCollection() {
 
     <!-- ── Game length ─────────────────────────────────────── -->
     <section class="r-v2-fd__section">
-      <h3 class="r-v2-fd__heading">
+      <RSectionLabel as="h3" size="sm" class="r-v2-fd__heading">
         {{ t("platform.game-length") }}
-      </h3>
+      </RSectionLabel>
       <div class="r-v2-fd__length-row">
         <RTextField
           :model-value="lengthBoundInput(selectedLengthMinHours)"
@@ -698,13 +703,7 @@ function saveAsSmartCollection() {
 }
 
 .r-v2-fd__heading {
-  margin: 0;
   padding: 0 2px;
-  font-size: 10px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
 }
 
 /* ── Boolean rows ────────────────────────────────────────────── */

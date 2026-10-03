@@ -37,6 +37,7 @@ vi.mock("@v2/lib", () => {
     }),
     RIcon: slotHost("i"),
     RImg: slotHost("span"),
+    RSectionLabel: slotHost("span"),
     RTabNav: defineComponent({ name: "RTabNav", template: "<nav />" }),
     RTag: slotHost("span"),
   };

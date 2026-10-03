@@ -5,7 +5,13 @@
 // chips). Right column: detail panel for the currently picked match:
 // summary, source-cover picker, rename toggle and a sticky confirm.
 // In xs the columns stack with the detail panel below the list.
-import { RBtn, REmptyState, RIcon, RProgressCircular } from "@v2/lib";
+import {
+  RBtn,
+  REmptyState,
+  RIcon,
+  RProgressCircular,
+  RSectionLabel,
+} from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SearchRom, SimpleRom } from "@/stores/roms";
@@ -170,12 +176,9 @@ watch(
         </header>
 
         <div class="match-list__detail-scroll">
-          <p
-            v-if="selectedSources.length > 1"
-            class="match-list__sources-label"
-          >
+          <RSectionLabel v-if="selectedSources.length > 1" as="p" size="sm">
             {{ t("rom.pick-cover") }}
-          </p>
+          </RSectionLabel>
 
           <p
             v-if="selectedSources.length === 0"
@@ -437,15 +440,6 @@ watch(
   max-height: 120px;
   overflow-y: auto;
   scrollbar-width: thin;
-}
-
-.match-list__sources-label {
-  margin: 0;
-  font-size: 10.5px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
 }
 
 .match-list__sources-empty {

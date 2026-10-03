@@ -4,7 +4,7 @@
 // header. Mounted inside the Status button's mobile sheet (see
 // GameActionBtn `withMetrics`) so phones edit scores there instead of
 // via the desktop ribbon pills. Writes via useGameActions.setScore.
-import { RDivider } from "@v2/lib";
+import { RDivider, RSectionLabel } from "@v2/lib";
 import { toRef } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SimpleRom } from "@/stores/roms";
@@ -24,7 +24,9 @@ const actions = useGameActions(() => romRef.value);
 
 <template>
   <div class="game-metrics">
-    <p class="game-metrics__title">{{ t("rom.your-progress") }}</p>
+    <RSectionLabel as="p" class="game-metrics__title">{{
+      t("rom.your-progress")
+    }}</RSectionLabel>
     <template v-for="(m, i) in METRICS" :key="m.field">
       <RDivider v-if="i > 0" />
       <MetricSection
@@ -47,12 +49,6 @@ const actions = useGameActions(() => romRef.value);
   flex-direction: column;
 }
 .game-metrics__title {
-  margin: 0;
   padding: 8px 14px 2px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
 }
 </style>

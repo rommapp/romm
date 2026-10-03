@@ -17,7 +17,7 @@
 // Responsive: this sidebar is mount-gated to `md-and-up` by SettingsLayout.
 // On phones / small tablets it isn't rendered at all: the navbar UserMenu
 // mirrors the same section IA, so an in-page strip would only duplicate it.
-import { RBadge, RChip, RIcon } from "@v2/lib";
+import { RBadge, RChip, RIcon, RSectionLabel } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -200,9 +200,13 @@ const groups = computed<Group[]>(() => {
       :key="group.key"
       class="r-v2-settings-sidebar__group"
     >
-      <div class="r-v2-settings-sidebar__group-label">
+      <RSectionLabel
+        size="sm"
+        tone="faint"
+        class="r-v2-settings-sidebar__group-label"
+      >
         {{ group.label }}
-      </div>
+      </RSectionLabel>
       <ul class="r-v2-settings-sidebar__list">
         <li v-for="entry in group.entries" :key="entry.to.name">
           <router-link
@@ -270,11 +274,6 @@ const groups = computed<Group[]>(() => {
 }
 
 .r-v2-settings-sidebar__group-label {
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 10px;
-  font-weight: var(--r-font-weight-bold);
-  color: var(--r-color-fg-faint);
   padding: 10px 20px 6px;
 }
 

@@ -78,7 +78,7 @@ function mount(props: Record<string, unknown> = {}) {
       similarRoms: [],
       ...props,
     },
-    global: { stubs: { RIcon: true, RBtn: false } },
+    global: { stubs: { RIcon: true, RBtn: false, RSectionLabel: false } },
   });
 }
 

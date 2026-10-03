@@ -320,15 +320,6 @@ html.r-v2-reduced-motion *::after {
   gap: 14px;
 }
 
-/* Typography utility: small uppercase label ("eyebrow") used above titles. */
-.r-eyebrow {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
-}
-
 /* Top-bar glass, shared with the toolbars and list column headers that pin
    under it. Reduced motion swaps the blur (costly, murky over its solid
    background) for a flat bg. */
@@ -425,19 +416,6 @@ html.r-v2-reduced-motion {
   gap: 20px;
   max-width: 460px;
   margin-inline: auto;
-}
-
-/* Section header: icon + small uppercase label heading a settings block. */
-.r-section-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
 }
 
 /* Chevron rotation: single source of truth for the spring-curve flip

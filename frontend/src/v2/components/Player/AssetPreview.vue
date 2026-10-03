@@ -2,7 +2,7 @@
 // Preview of the asset to resume from: a screenshot stage for states, one
 // compact row for saves (thumbnail when the save has a screenshot; relabelled
 // as the write target when a state is armed).
-import { RIcon, RTag } from "@v2/lib";
+import { RIcon, RSectionLabel, RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema, StateSchema } from "@/__generated__";
@@ -76,7 +76,9 @@ const emptyText = computed(() =>
     class="r-asset-preview"
     :class="{ 'r-asset-preview--save': type === 'save' }"
   >
-    <p v-if="showHeading" class="r-asset-preview__eyebrow">{{ heading }}</p>
+    <RSectionLabel v-if="showHeading" as="p" size="sm" tone="secondary">
+      {{ heading }}
+    </RSectionLabel>
 
     <!-- ── Stage (states only) ────────────────────────────────── -->
     <div
@@ -220,15 +222,6 @@ const emptyText = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.r-asset-preview__eyebrow {
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg-secondary);
 }
 
 /* ── Stage (shared shell) ─────────────────────────────────── */

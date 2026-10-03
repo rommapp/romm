@@ -14,7 +14,13 @@
 // blindly. When the global groupBy lands on a value with no usable
 // data on the loaded platforms, the view falls through to flat: the
 // toolbar's mode is the user's intent, not a hard requirement.
-import { RDivider, REmptyState, RLetterHeading, RSkeletonBlock } from "@v2/lib";
+import {
+  RDivider,
+  REmptyState,
+  RLetterHeading,
+  RSectionLabel,
+  RSkeletonBlock,
+} from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -542,7 +548,14 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
       <div v-else-if="groupedBuckets">
         <template v-for="g in groupedBuckets" :key="g.key">
           <RLetterHeading v-if="groupBy === 'letter'" :label="g.label" />
-          <h3 v-else class="r-v2-pidx__group-heading">{{ g.label }}</h3>
+          <RSectionLabel
+            v-else
+            as="h3"
+            tone="faint"
+            class="r-v2-pidx__group-heading"
+          >
+            {{ g.label }}
+          </RSectionLabel>
           <div class="r-v2-pidx__grid">
             <PlatformTile
               v-for="(p, i) in g.items"
@@ -604,11 +617,6 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
    sibling sections lives on the heading's `margin-top`. */
 .r-v2-pidx__group-heading {
   margin: 24px 0 12px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-faint);
 }
 .r-v2-pidx__group-heading:first-child {
   margin-top: 4px;

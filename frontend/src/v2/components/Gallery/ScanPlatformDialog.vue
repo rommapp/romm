@@ -14,6 +14,7 @@ import {
   RAvatar,
   RBtn,
   RDialog,
+  RSectionLabel,
   RSelect,
   RSwitch,
   RTooltip,
@@ -160,9 +161,9 @@ function onScan() {
 
         <!-- 1. Providers: General + Specific RSelects. -->
         <section class="r-v2-scan-plat__section">
-          <h3 class="r-v2-scan-plat__section-title">
+          <RSectionLabel as="h3">
             {{ t("scan.section-providers") }}
-          </h3>
+          </RSectionLabel>
 
           <ScanProviderSelect
             v-model="metadataSources"
@@ -186,9 +187,9 @@ function onScan() {
         <!-- 2. Hash-matcher proxies: same compact switch pills as
              RefreshMetadataDialog. -->
         <section class="r-v2-scan-plat__section">
-          <h3 class="r-v2-scan-plat__section-title">
+          <RSectionLabel as="h3">
             {{ t("scan.section-proxies") }}
-          </h3>
+          </RSectionLabel>
           <div
             class="r-v2-scan-plat__matchers"
             role="group"
@@ -235,9 +236,9 @@ function onScan() {
         <!-- 3. Scan type, full per-platform option list (no "new
              platforms", that's a library-wide discovery scan). -->
         <section class="r-v2-scan-plat__section">
-          <h3 class="r-v2-scan-plat__section-title">
+          <RSectionLabel as="h3">
             {{ t("scan.section-scan-type") }}
-          </h3>
+          </RSectionLabel>
           <RSelect
             v-model="scanType"
             :items="scanOptions"
@@ -343,14 +344,6 @@ function onScan() {
 .r-v2-scan-plat__section:first-of-type {
   padding-top: 0;
   border-top: 0;
-}
-.r-v2-scan-plat__section-title {
-  margin: 0;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--r-color-fg-muted);
 }
 
 .r-v2-scan-plat__matchers {

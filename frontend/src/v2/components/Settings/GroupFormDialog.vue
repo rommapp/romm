@@ -4,7 +4,7 @@
 // alongside the groups table in Administration. On save it refetches the
 // shared permissionGroups store so every consumer (table, user dialogs)
 // reflects the change immediately.
-import { RBtn, RIcon, RSwitch, RTextField } from "@v2/lib";
+import { RBtn, RIcon, RSectionLabel, RSwitch, RTextField } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { GrantSchemaIO, PermAction, PermEntity } from "@/__generated__";
@@ -264,9 +264,9 @@ async function save() {
         </div>
 
         <div class="r-v2-group-dialog__color">
-          <span class="r-v2-group-dialog__color-label">
+          <RSectionLabel as="span" tone="secondary">
             {{ t("settings.group-color") }}
-          </span>
+          </RSectionLabel>
           <div class="r-v2-group-dialog__swatches">
             <RBtn
               v-for="(swatch, i) in palette"
@@ -292,9 +292,9 @@ async function save() {
         </div>
 
         <div class="r-v2-group-dialog__matrix">
-          <span class="r-v2-group-dialog__matrix-label">
+          <RSectionLabel as="span" tone="secondary">
             {{ t("settings.group-grants") }}
-          </span>
+          </RSectionLabel>
           <PermissionsMatrix
             v-model="grants"
             :entities="entities"
@@ -303,9 +303,9 @@ async function save() {
         </div>
 
         <div class="r-v2-group-dialog__matrix">
-          <span class="r-v2-group-dialog__matrix-label">
+          <RSectionLabel as="span" tone="secondary">
             {{ t("settings.hidden-platforms") }}
-          </span>
+          </RSectionLabel>
           <HiddenPlatformsPicker
             v-model="hiddenPlatformIds"
             :platforms="sortedPlatforms"
@@ -313,9 +313,9 @@ async function save() {
         </div>
 
         <div class="r-v2-group-dialog__matrix">
-          <span class="r-v2-group-dialog__matrix-label">
+          <RSectionLabel as="span" tone="secondary">
             {{ t("settings.parental-controls") }}
-          </span>
+          </RSectionLabel>
           <AgeLimitFields
             v-model:age-limit="age.ageLimit"
             v-model:hide-unrated="age.hideUnrated"
@@ -323,9 +323,9 @@ async function save() {
         </div>
 
         <div class="r-v2-group-dialog__matrix">
-          <span class="r-v2-group-dialog__matrix-label">
+          <RSectionLabel as="span" tone="secondary">
             {{ t("settings.hidden-games") }}
-          </span>
+          </RSectionLabel>
           <HiddenGamesPicker v-model="hiddenRomIds" />
         </div>
       </div>
@@ -377,13 +377,6 @@ async function save() {
   flex-direction: column;
   gap: 8px;
 }
-.r-v2-group-dialog__color-label {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-secondary);
-}
 .r-v2-group-dialog__swatches {
   display: flex;
   flex-wrap: wrap;
@@ -412,12 +405,5 @@ async function save() {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.r-v2-group-dialog__matrix-label {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-secondary);
 }
 </style>

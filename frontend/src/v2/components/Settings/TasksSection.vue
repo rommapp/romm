@@ -8,7 +8,7 @@
 // Polls `tasksStore.fetchTaskStatus` every 5s while mounted so the
 // history feed updates in real time. Manual + scheduled tasks expose a
 // run button that posts to /tasks/{name}/run.
-import { RBtn, RIcon, RSpinner } from "@v2/lib";
+import { RBtn, RIcon, RSectionLabel, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -133,7 +133,9 @@ function statusInfo(task: TaskStatusResponse) {
   <SettingsSection :title="t('settings.tasks')" icon="mdi-pulse">
     <!-- Watcher -->
     <template v-if="watcherTasksUI.length > 0">
-      <div class="r-v2-tasks__sub-heading">{{ t("settings.watcher") }}</div>
+      <RSectionLabel size="sm" tone="faint" class="r-v2-tasks__sub-heading">{{
+        t("settings.watcher")
+      }}</RSectionLabel>
       <div class="r-v2-tasks__row">
         <div
           v-for="task in watcherTasksUI"
@@ -161,7 +163,9 @@ function statusInfo(task: TaskStatusResponse) {
 
     <!-- Scheduled -->
     <template v-if="scheduledTasksUI.length > 0">
-      <div class="r-v2-tasks__sub-heading">{{ t("settings.scheduled") }}</div>
+      <RSectionLabel size="sm" tone="faint" class="r-v2-tasks__sub-heading">{{
+        t("settings.scheduled")
+      }}</RSectionLabel>
       <div class="r-v2-tasks__row r-v2-tasks__row--two-col">
         <div
           v-for="task in scheduledTasksUI"
@@ -205,7 +209,9 @@ function statusInfo(task: TaskStatusResponse) {
 
     <!-- Manual -->
     <template v-if="manualTasksUI.length > 0">
-      <div class="r-v2-tasks__sub-heading">{{ t("settings.manual") }}</div>
+      <RSectionLabel size="sm" tone="faint" class="r-v2-tasks__sub-heading">{{
+        t("settings.manual")
+      }}</RSectionLabel>
       <div class="r-v2-tasks__row r-v2-tasks__row--two-col">
         <div
           v-for="task in manualTasksUI"
@@ -232,7 +238,9 @@ function statusInfo(task: TaskStatusResponse) {
     </template>
 
     <!-- Task history -->
-    <div class="r-v2-tasks__sub-heading">{{ t("settings.task-history") }}</div>
+    <RSectionLabel size="sm" tone="faint" class="r-v2-tasks__sub-heading">{{
+      t("settings.task-history")
+    }}</RSectionLabel>
     <div
       v-if="completedStatuses.length === 0"
       class="r-v2-tasks__history-empty"
@@ -273,11 +281,6 @@ function statusInfo(task: TaskStatusResponse) {
 
 <style scoped>
 .r-v2-tasks__sub-heading {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-faint);
   padding: 10px 16px 4px;
 }
 .r-v2-tasks__sub-heading + .r-v2-tasks__sub-heading {

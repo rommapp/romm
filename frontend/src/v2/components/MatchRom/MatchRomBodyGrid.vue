@@ -5,7 +5,13 @@
 // lifts it, blurs the rest of the grid and overlays a focused panel
 // over the body with cover-source picker + rename + confirm. Click
 // the backdrop or press Esc to close.
-import { RBtn, REmptyState, RIcon, RProgressCircular } from "@v2/lib";
+import {
+  RBtn,
+  REmptyState,
+  RIcon,
+  RProgressCircular,
+  RSectionLabel,
+} from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SearchRom, SimpleRom } from "@/stores/roms";
@@ -176,9 +182,9 @@ watch(
             {{ activeMatch.summary }}
           </p>
 
-          <p v-if="activeSources.length > 1" class="match-grid__sources-label">
+          <RSectionLabel v-if="activeSources.length > 1" as="p" size="sm">
             {{ t("rom.pick-cover") }}
-          </p>
+          </RSectionLabel>
 
           <p
             v-if="activeSources.length === 0"
@@ -413,15 +419,6 @@ watch(
   max-height: 120px;
   overflow-y: auto;
   scrollbar-width: thin;
-}
-
-.match-grid__sources-label {
-  margin: 0;
-  font-size: 10.5px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
 }
 
 .match-grid__sources-empty {

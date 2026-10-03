@@ -18,7 +18,7 @@
 // Status enum + flags (now_playing / backlogged / hidden) and personal
 // metrics (rating / difficulty / completion) live in the action ribbon (see
 // GameActionBtn for status, and MetricMenuBtn).
-import { RBtn, RIcon } from "@v2/lib";
+import { RBtn, RSectionLabel } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
@@ -265,10 +265,9 @@ const coverSource = computed(() => {
       class="overview-tab__section"
     >
       <div class="overview-tab__section-head">
-        <h4 class="overview-tab__section-heading">
-          <RIcon icon="mdi-image-multiple-outline" size="14" />
+        <RSectionLabel as="h4" tone="faint" icon="mdi-image-multiple-outline">
           {{ t("rom.media") }}
-        </h4>
+        </RSectionLabel>
         <RBtn
           v-if="isCustomized && canPin"
           variant="text"
@@ -293,10 +292,9 @@ const coverSource = computed(() => {
 
     <!-- 5. HLTB -->
     <div v-if="hasHltb" class="overview-tab__section">
-      <h4 class="overview-tab__section-heading">
-        <RIcon icon="mdi-clock-outline" size="14" />
+      <RSectionLabel as="h4" tone="faint" icon="mdi-clock-outline">
         {{ t("rom.how-long-to-beat") }}
-      </h4>
+      </RSectionLabel>
       <HLTBStrip :metadata="hltb" />
     </div>
 
@@ -308,45 +306,39 @@ const coverSource = computed(() => {
          own `v-if`. -->
     <template v-if="hasRelated">
       <div v-if="expansions.length" class="overview-tab__section">
-        <h4 class="overview-tab__section-heading">
-          <RIcon icon="mdi-puzzle-outline" size="14" />
+        <RSectionLabel as="h4" tone="faint" icon="mdi-puzzle-outline">
           {{ t("rom.related-expansions") }}
-        </h4>
+        </RSectionLabel>
         <RelatedGamesGrid title="" :items="expansions" />
       </div>
       <div v-if="dlcs.length" class="overview-tab__section">
-        <h4 class="overview-tab__section-heading">
-          <RIcon icon="mdi-package-variant-closed" size="14" />
+        <RSectionLabel as="h4" tone="faint" icon="mdi-package-variant-closed">
           {{ t("rom.related-dlc") }}
-        </h4>
+        </RSectionLabel>
         <RelatedGamesGrid title="" :items="dlcs" />
       </div>
       <div v-if="remakes.length" class="overview-tab__section">
-        <h4 class="overview-tab__section-heading">
-          <RIcon icon="mdi-refresh" size="14" />
+        <RSectionLabel as="h4" tone="faint" icon="mdi-refresh">
           {{ t("rom.related-remakes") }}
-        </h4>
+        </RSectionLabel>
         <RelatedGamesGrid title="" :items="remakes" />
       </div>
       <div v-if="remasters.length" class="overview-tab__section">
-        <h4 class="overview-tab__section-heading">
-          <RIcon icon="mdi-image-auto-adjust" size="14" />
+        <RSectionLabel as="h4" tone="faint" icon="mdi-image-auto-adjust">
           {{ t("rom.related-remasters") }}
-        </h4>
+        </RSectionLabel>
         <RelatedGamesGrid title="" :items="remasters" />
       </div>
       <div v-if="ports.length" class="overview-tab__section">
-        <h4 class="overview-tab__section-heading">
-          <RIcon icon="mdi-swap-horizontal" size="14" />
+        <RSectionLabel as="h4" tone="faint" icon="mdi-swap-horizontal">
           {{ t("rom.related-ports") }}
-        </h4>
+        </RSectionLabel>
         <RelatedGamesGrid title="" :items="ports" />
       </div>
       <div v-if="visibleSimilarRoms.length" class="overview-tab__section">
-        <h4 class="overview-tab__section-heading">
-          <RIcon icon="mdi-shape-outline" size="14" />
+        <RSectionLabel as="h4" tone="faint" icon="mdi-shape-outline">
           {{ t("recommendations.similar-games") }}
-        </h4>
+        </RSectionLabel>
         <SimilarGamesGrid :items="visibleSimilarRoms" :webp="supportsWebp" />
       </div>
     </template>
@@ -481,17 +473,6 @@ const coverSource = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.overview-tab__section-heading {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-faint);
 }
 
 .overview-tab__section-head {

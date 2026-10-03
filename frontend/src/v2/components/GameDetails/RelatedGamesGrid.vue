@@ -6,6 +6,7 @@
 // tab? Render this component multiple times: one per section. Each
 // card is a RelatedGameCard, which owns the per-card cross-reference
 // against the local RomM library: so this grid stays a thin renderer.
+import { RSectionLabel } from "@v2/lib";
 import type { IGDBRelatedGame } from "@/__generated__";
 import RelatedGameCard from "@/v2/components/GameDetails/RelatedGameCard.vue";
 
@@ -19,9 +20,14 @@ defineProps<{
 
 <template>
   <section v-if="items.length" class="r-v2-related">
-    <h3 v-if="title" class="r-v2-related__title">
+    <RSectionLabel
+      v-if="title"
+      as="h3"
+      tone="faint"
+      class="r-v2-related__title"
+    >
       {{ title }}
-    </h3>
+    </RSectionLabel>
     <div class="r-v2-related__grid">
       <RelatedGameCard v-for="g in items" :key="g.id" :game="g" />
     </div>
@@ -31,11 +37,6 @@ defineProps<{
 <style scoped>
 .r-v2-related__title {
   margin: 0 0 10px 0;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-faint);
 }
 
 /* Flex-wrap (not auto-fill grid): GameCard has a fixed 158px width

@@ -10,7 +10,7 @@
 //      below it).
 //
 //   2. Settings tab: above the tab body, scrolling with it.
-import { RBtn, RChip, RTabNav } from "@v2/lib";
+import { RBtn, RChip, RSectionLabel, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import type {
@@ -64,7 +64,7 @@ defineEmits<{
     </template>
 
     <template #eyebrow>
-      <span class="r-eyebrow">{{ kindLabel }}</span>
+      <RSectionLabel as="span" size="sm">{{ kindLabel }}</RSectionLabel>
     </template>
 
     <template v-if="description" #tags>

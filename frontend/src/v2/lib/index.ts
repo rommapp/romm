@@ -25,6 +25,7 @@ export * from "./primitives/RLetterHeading";
 export * from "./primitives/RMarquee";
 export * from "./primitives/RProgressCircular";
 export * from "./primitives/RProgressLinear";
+export * from "./primitives/RSectionLabel";
 export * from "./primitives/RSkeletonBlock";
 export * from "./primitives/RSliderBtnGroup";
 export * from "./primitives/RSpinner";

@@ -9,7 +9,7 @@
 // Buttons 0..16 follow the W3C "Standard Gamepad" mapping. Pads exposing
 // more than 17 buttons (touchpad click, paddles…) get an "extras" row
 // rendered beneath the silhouette so the data isn't lost.
-import { RIcon } from "@v2/lib";
+import { RIcon, RSectionLabel } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { GamepadSnapshot } from "./types";
@@ -254,9 +254,9 @@ function magnitude(x: number, y: number) {
 
     <!-- Extra buttons (anything past the standard 17) -->
     <div v-if="extras.length" class="r-v2-pad__extras">
-      <div class="r-v2-pad__extras-title">
+      <RSectionLabel class="r-v2-pad__extras-title">
         {{ t("settings.controller-debug-extra-buttons") }}
-      </div>
+      </RSectionLabel>
       <div class="r-v2-pad__extras-grid">
         <div
           v-for="b in extras"
@@ -609,11 +609,6 @@ function magnitude(x: number, y: number) {
 }
 .r-v2-pad__extras-title {
   margin: 0 0 8px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--r-color-fg-muted);
 }
 .r-v2-pad__extras-grid {
   display: grid;

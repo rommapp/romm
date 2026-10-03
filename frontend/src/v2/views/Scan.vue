@@ -32,6 +32,7 @@ import {
   RBtn,
   RIcon,
   RProgressLinear,
+  RSectionLabel,
   RSelect,
   RSwitch,
   RTooltip,
@@ -300,9 +301,9 @@ function stopScan() {
       <div class="r-v2-scan-card__fields">
         <!-- 1. Platform controls -->
         <section class="r-v2-scan-card__section">
-          <h3 class="r-v2-scan-card__section-title">
+          <RSectionLabel as="h3">
             {{ t("scan.section-platforms") }}
-          </h3>
+          </RSectionLabel>
           <PlatformSelect
             v-model="platformsToScan"
             :items="sortedPlatforms"
@@ -326,9 +327,9 @@ function stopScan() {
              share one section so it reads as "data we pull from
              external sources". -->
         <section class="r-v2-scan-card__section">
-          <h3 class="r-v2-scan-card__section-title">
+          <RSectionLabel as="h3">
             {{ t("scan.section-metadata") }}
-          </h3>
+          </RSectionLabel>
 
           <!-- 2.1 providers: two RSelects sharing the same
                `metadataSources` model, one per category. The
@@ -336,9 +337,9 @@ function stopScan() {
                "All" toggle in one group only affects that group's
                items. -->
           <div class="r-v2-scan-card__subsection">
-            <span class="r-v2-scan-card__subsection-label">
+            <RSectionLabel as="span" size="sm" tone="faint">
               {{ t("scan.section-providers") }}
-            </span>
+            </RSectionLabel>
 
             <ScanProviderSelect
               v-model="metadataSources"
@@ -361,9 +362,9 @@ function stopScan() {
 
           <!-- 2.2 proxies (hash matchers) -->
           <div class="r-v2-scan-card__subsection">
-            <span class="r-v2-scan-card__subsection-label">
+            <RSectionLabel as="span" size="sm" tone="faint">
               {{ t("scan.section-proxies") }}
-            </span>
+            </RSectionLabel>
             <div
               class="r-v2-scan-card__matchers"
               role="group"
@@ -410,9 +411,9 @@ function stopScan() {
 
         <!-- 3. Scan type controls -->
         <section class="r-v2-scan-card__section">
-          <h3 class="r-v2-scan-card__section-title">
+          <RSectionLabel as="h3">
             {{ t("scan.section-scan-type") }}
-          </h3>
+          </RSectionLabel>
           <RSelect
             v-model="scanType"
             :items="scanOptions"
@@ -750,14 +751,6 @@ function stopScan() {
   padding-top: 0;
   border-top: 0;
 }
-.r-v2-scan-card__section-title {
-  margin: 0;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--r-color-fg-muted);
-}
 
 /* Sub-section inside Metadata (providers / proxies). Tightly spaced
    so they read as siblings of the same section, separated by a small
@@ -766,13 +759,6 @@ function stopScan() {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-.r-v2-scan-card__subsection-label {
-  font-size: 10.5px;
-  font-weight: var(--r-font-weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--r-color-fg-faint);
 }
 
 .r-v2-scan-card__cta {

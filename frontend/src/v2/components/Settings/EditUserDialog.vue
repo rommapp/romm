@@ -4,7 +4,15 @@
 // the old role picker: an Admin toggle, and for non-admins the permission
 // group and the platforms hidden from them. Emitter-driven
 // (`showEditUserDialog`).
-import { RBtn, RIcon, RSelect, RSpinner, RSwitch, RTextField } from "@v2/lib";
+import {
+  RBtn,
+  RIcon,
+  RSectionLabel,
+  RSelect,
+  RSpinner,
+  RSwitch,
+  RTextField,
+} from "@v2/lib";
 import { useObjectUrl } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
@@ -419,10 +427,13 @@ function close() {
       </div>
 
       <div class="r-v2-user-dialog__access" :inert="submitting">
-        <span class="r-v2-user-dialog__access-label">
-          <RIcon icon="mdi-shield-account-outline" size="14" />
+        <RSectionLabel
+          as="span"
+          tone="secondary"
+          icon="mdi-shield-account-outline"
+        >
           {{ t("settings.access") }}
-        </span>
+        </RSectionLabel>
 
         <div class="r-v2-user-dialog__admin">
           <RSwitch
@@ -600,16 +611,6 @@ html[data-bp~="xs"] .r-v2-user-dialog__edit-grid {
   margin-top: 20px;
   padding-top: 20px;
   border-top: 1px solid var(--r-color-border);
-}
-.r-v2-user-dialog__access-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-secondary);
 }
 .r-v2-user-dialog__admin {
   display: flex;

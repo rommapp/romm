@@ -1,5 +1,12 @@
 <script setup lang="ts" generic="I extends SubtabNavItem">
-import { RBtn, RDivider, RIcon, RMenu, RMenuItem } from "@v2/lib";
+import {
+  RBtn,
+  RDivider,
+  RIcon,
+  RMenu,
+  RMenuItem,
+  RSectionLabel,
+} from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
@@ -132,9 +139,13 @@ function select(id: I["id"]) {
       <template v-for="(item, index) in menuItems" :key="item.id">
         <template v-if="startsGroup(menuItems, index)">
           <RDivider v-if="index > 0" />
-          <div class="r-v2-subtab-nav__group" data-r-menu-no-close>
+          <RSectionLabel
+            size="sm"
+            class="r-v2-subtab-nav__group"
+            data-r-menu-no-close
+          >
             {{ item.group }}
-          </div>
+          </RSectionLabel>
         </template>
         <RMenuItem
           :icon="item.icon"
@@ -182,11 +193,6 @@ function select(id: I["id"]) {
 }
 .r-v2-subtab-nav__group {
   padding: 8px 12px 4px;
-  font-size: var(--r-font-size-xs);
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
 }
 .r-v2-subtab-nav__item {
   display: flex;

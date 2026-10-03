@@ -23,6 +23,7 @@ import {
   RIcon,
   RMenu,
   RMenuItem,
+  RSectionLabel,
 } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { getActivePinia, storeToRefs, type StateTree } from "pinia";
@@ -178,9 +179,9 @@ async function onLogout() {
 
     <!-- Account -->
     <div class="r-v2-user-menu__group">
-      <div class="r-v2-user-menu__group-label">
+      <RSectionLabel size="sm" class="r-v2-user-menu__group-label">
         {{ t("settings.group-account") }}
-      </div>
+      </RSectionLabel>
       <RMenuItem
         v-if="canSeeProfile"
         :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
@@ -212,9 +213,9 @@ async function onLogout() {
 
     <!-- Library -->
     <div class="r-v2-user-menu__group">
-      <div class="r-v2-user-menu__group-label">
+      <RSectionLabel size="sm" class="r-v2-user-menu__group-label">
         {{ t("settings.group-library") }}
-      </div>
+      </RSectionLabel>
       <RMenuItem
         v-if="canScan"
         :to="{ name: ROUTES.SCAN }"
@@ -268,9 +269,9 @@ async function onLogout() {
 
     <!-- System -->
     <div class="r-v2-user-menu__group">
-      <div class="r-v2-user-menu__group-label">
+      <RSectionLabel size="sm" class="r-v2-user-menu__group-label">
         {{ t("settings.group-system") }}
-      </div>
+      </RSectionLabel>
       <RMenuItem
         v-if="canSeeAdmin"
         :to="{ name: ROUTES.ADMINISTRATION }"
@@ -302,9 +303,9 @@ async function onLogout() {
 
     <!-- Tools -->
     <div class="r-v2-user-menu__group">
-      <div class="r-v2-user-menu__group-label">
+      <RSectionLabel size="sm" class="r-v2-user-menu__group-label">
         {{ t("settings.group-tools") }}
-      </div>
+      </RSectionLabel>
       <RMenuItem
         :to="{ name: ROUTES.MUSIC }"
         icon="mdi-music-box-multiple-outline"
@@ -407,11 +408,6 @@ html[data-bp~="xs"] .r-v2-user__chevron {
 }
 
 .r-v2-user-menu__group-label {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg-muted);
   padding: 4px 12px 2px;
 }
 

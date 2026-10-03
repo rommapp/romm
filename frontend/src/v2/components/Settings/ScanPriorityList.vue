@@ -11,7 +11,7 @@
 // Reordering supports every input modality: pointer drag (HTML5 DnD) and
 // explicit move-up / move-down buttons (keyboard, gamepad, touch). Modelled
 // on Home/Widgets/WidgetReorderList but adds enable/disable.
-import { RBtn, RIcon, RTextField } from "@v2/lib";
+import { RBtn, RIcon, RSectionLabel, RTextField } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
@@ -233,13 +233,13 @@ function onDragEnd() {
     </div>
 
     <div v-if="available.length" class="r-v2-spl__tray">
-      <span class="r-v2-spl__tray-label">
+      <RSectionLabel as="span" tone="faint">
         {{
           allowCustom
             ? t("settings.scan-priority-suggestions")
             : t("settings.scan-priority-add")
         }}
-      </span>
+      </RSectionLabel>
       <div class="r-v2-spl__tray-items">
         <button
           v-for="source in available"
@@ -364,13 +364,6 @@ function onDragEnd() {
   gap: 8px;
   border-top: 1px solid var(--r-color-border);
   padding-top: 12px;
-}
-.r-v2-spl__tray-label {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-faint);
 }
 .r-v2-spl__tray-items {
   display: flex;

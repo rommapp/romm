@@ -6,11 +6,12 @@
 // friendly options. Emits the same `scan` socket event as the main Scan
 // view (lifecycle handlers live globally in AppLayout).
 import {
-  RAvatar,
   RAlert,
+  RAvatar,
   RBtn,
   RDialog,
   RIcon,
+  RSectionLabel,
   RSelect,
   RSwitch,
   RTooltip,
@@ -236,9 +237,9 @@ function closeDialog() {
              one `metadataSources` model. Both render icon-only chips so
              a multi-select stays visually quiet in the activator. -->
         <section class="r-v2-refresh__section">
-          <h3 class="r-v2-refresh__section-title">
+          <RSectionLabel as="h3">
             {{ t("scan.section-providers") }}
-          </h3>
+          </RSectionLabel>
 
           <ScanProviderSelect
             v-model="metadataSources"
@@ -262,9 +263,9 @@ function closeDialog() {
         <!-- 2. Proxies (hash matchers): compact switch pills, same as
              the Scan view. -->
         <section class="r-v2-refresh__section">
-          <h3 class="r-v2-refresh__section-title">
+          <RSectionLabel as="h3">
             {{ t("scan.section-proxies") }}
-          </h3>
+          </RSectionLabel>
           <div
             class="r-v2-refresh__matchers"
             role="group"
@@ -310,9 +311,9 @@ function closeDialog() {
 
         <!-- 3. Scan type: per-ROM friendly options. -->
         <section class="r-v2-refresh__section">
-          <h3 class="r-v2-refresh__section-title">
+          <RSectionLabel as="h3">
             {{ t("scan.section-scan-type") }}
-          </h3>
+          </RSectionLabel>
           <RSelect
             v-model="scanType"
             :items="scanOptions"
@@ -453,14 +454,6 @@ function closeDialog() {
 .r-v2-refresh__section:first-of-type {
   padding-top: 0;
   border-top: 0;
-}
-.r-v2-refresh__section-title {
-  margin: 0;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--r-color-fg-muted);
 }
 
 /* Provider groups (General / Specific) use the same layout as Scan.vue: a

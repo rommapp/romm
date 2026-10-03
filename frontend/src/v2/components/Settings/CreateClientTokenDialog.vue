@@ -15,6 +15,7 @@ import {
   RCheckbox,
   RIcon,
   RProgressCircular,
+  RSectionLabel,
   RSelect,
   RTextField,
 } from "@v2/lib";
@@ -377,9 +378,9 @@ watch(show, (val) => {
           hide-details
         />
         <div>
-          <div class="r-v2-tok-dialog__scopes-title">
+          <RSectionLabel class="r-v2-tok-dialog__scopes-title">
             {{ t("settings.client-token-scopes") }}
-          </div>
+          </RSectionLabel>
           <div class="r-v2-tok-dialog__scopes-grid">
             <div class="r-v2-tok-dialog__scopes-col">
               <template
@@ -591,11 +592,6 @@ watch(show, (val) => {
 }
 
 .r-v2-tok-dialog__scopes-title {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
   margin-bottom: 10px;
 }
 .r-v2-tok-dialog__scopes-grid {

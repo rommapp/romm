@@ -5,12 +5,13 @@
 // editor, edits save inline, and the active note is URL-persistent via
 // `?note=<id>` so links deep-link straight to a specific note.
 import {
-  REmptyState,
   RAvatar,
   RBtn,
+  RDivider,
+  REmptyState,
+  RSectionLabel,
   RTextField,
   RTooltip,
-  RDivider,
 } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, ref, watch } from "vue";
@@ -342,7 +343,7 @@ function fmtDate(iso: string): string {
 
       <aside v-if="!smAndDown" class="r-v2-notes__index">
         <template v-if="myNotes.length > 0">
-          <div class="r-v2-notes__group-label">{{ t("rom.my-notes") }}</div>
+          <RSectionLabel size="sm">{{ t("rom.my-notes") }}</RSectionLabel>
           <ul class="r-v2-notes__group">
             <li v-for="n in myNotes" :key="n.id">
               <button
@@ -373,9 +374,9 @@ function fmtDate(iso: string): string {
 
         <template v-if="communityNotes.length > 0">
           <RDivider />
-          <div class="r-v2-notes__group-label">
+          <RSectionLabel size="sm">
             {{ t("rom.notes-community") }}
-          </div>
+          </RSectionLabel>
           <ul class="r-v2-notes__group">
             <li v-for="n in communityNotes" :key="n.id">
               <button
@@ -563,13 +564,6 @@ function fmtDate(iso: string): string {
 }
 .r-v2-notes__add-btn {
   margin-bottom: var(--r-space-1);
-}
-.r-v2-notes__group-label {
-  font-size: var(--r-font-size-xs);
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
 }
 .r-v2-notes__group {
   list-style: none;

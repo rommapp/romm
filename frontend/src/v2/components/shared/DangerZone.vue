@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // DangerZone: danger-tinted card that isolates a destructive action from
 // the rest of a surface, so it never sits next to a primary button.
-import { RIcon } from "@v2/lib";
+import { RSectionLabel } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
@@ -20,10 +20,13 @@ const { t } = useI18n();
 
 <template>
   <section v-bind="$attrs" class="danger-zone">
-    <header class="r-section-head danger-zone__head">
-      <RIcon icon="mdi-alert-outline" size="14" />
-      <span>{{ t("common.danger-zone") }}</span>
-    </header>
+    <RSectionLabel
+      as="header"
+      icon="mdi-alert-outline"
+      class="danger-zone__head"
+    >
+      {{ t("common.danger-zone") }}
+    </RSectionLabel>
     <div class="danger-zone__row">
       <div class="danger-zone__copy">
         <p class="danger-zone__title">{{ title }}</p>
@@ -48,6 +51,7 @@ const { t } = useI18n();
 }
 
 .danger-zone__head {
+  margin-bottom: 10px;
   color: var(--r-color-status-base-danger);
 }
 

@@ -17,7 +17,16 @@
 // Serialization + summary live in `@/v2/utils/smartCollectionCriteria`
 // so the read-only display inside CollectionSettingsDrawer renders from
 // the same rules.
-import { RBtn, RChip, RDialog, RForm, RIcon, RTextField, RTag } from "@v2/lib";
+import {
+  RBtn,
+  RChip,
+  RDialog,
+  RForm,
+  RIcon,
+  RSectionLabel,
+  RTag,
+  RTextField,
+} from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -272,10 +281,13 @@ async function submit() {
 
           <!-- Right column: criteria preview -->
           <aside class="r-v2-csc__preview">
-            <header class="r-v2-csc__preview-head">
-              <RIcon icon="mdi-filter-variant" size="14" />
-              <span>{{ t("collection.current-filters") }}</span>
-            </header>
+            <RSectionLabel
+              as="header"
+              icon="mdi-filter-variant"
+              class="r-v2-csc__preview-head"
+            >
+              {{ t("collection.current-filters") }}
+            </RSectionLabel>
             <ul class="r-v2-csc__preview-list">
               <li
                 v-for="row in summary"
@@ -363,14 +375,6 @@ html[data-bp~="sm-and-up"] .r-v2-csc__grid {
 
 .r-v2-csc__preview-head {
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
 }
 
 .r-v2-csc__preview-list {

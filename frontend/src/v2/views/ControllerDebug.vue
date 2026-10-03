@@ -9,7 +9,7 @@
 //
 // Polling is independent of `useGamepad`: this view is its own read
 // path; the real input loop keeps running in the background.
-import { RBtn, RIcon } from "@v2/lib";
+import { RBtn, RIcon, RSectionLabel } from "@v2/lib";
 import { useEventListener, useRafFn } from "@vueuse/core";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -238,9 +238,9 @@ function formatTime(t: number) {
 
       <!-- Raw axes fallback (if more than the standard 4 present) -->
       <div v-if="pad.axes.length > 4" class="r-v2-ctrl__axes">
-        <div class="r-v2-ctrl__axes-title">
+        <RSectionLabel class="r-v2-ctrl__axes-title">
           {{ t("settings.controller-debug-all-axes") }}
-        </div>
+        </RSectionLabel>
         <div v-for="(value, i) in pad.axes" :key="i" class="r-v2-ctrl__axis">
           <span class="r-v2-ctrl__axis-idx">Axis {{ i }}</span>
           <div class="r-v2-ctrl__axis-track">
@@ -491,11 +491,6 @@ function formatTime(t: number) {
 }
 .r-v2-ctrl__axes-title {
   margin: 0 0 8px;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--r-color-fg-muted);
 }
 .r-v2-ctrl__axis {
   display: grid;

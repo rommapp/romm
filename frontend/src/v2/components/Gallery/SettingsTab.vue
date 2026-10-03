@@ -12,7 +12,7 @@
 // Delete: emitted upward (`@delete`) so the view orchestrator can
 // drive the confirm + router navigation. Same vocabulary as the
 // pre-tabs admin kebab.
-import { RBtn, RForm, RIcon, RTextField } from "@v2/lib";
+import { RBtn, RForm, RSectionLabel, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import platformApi from "@/services/api/platform";
@@ -152,10 +152,13 @@ const details = computed<DetailRow[]>(() => {
 <template>
   <div class="r-settings-column">
     <section class="r-v2-plat-settings__section">
-      <header class="r-section-head">
-        <RIcon icon="mdi-information-outline" size="14" />
-        <span>{{ t("common.details", "Details") }}</span>
-      </header>
+      <RSectionLabel
+        as="header"
+        icon="mdi-information-outline"
+        class="r-v2-plat-settings__head"
+      >
+        {{ t("common.details", "Details") }}
+      </RSectionLabel>
 
       <!-- Only `custom_name` and `description` are user-authored; the
            rest is derived upstream and shown read-only below. -->
@@ -238,6 +241,10 @@ const details = computed<DetailRow[]>(() => {
 </template>
 
 <style scoped>
+.r-v2-plat-settings__head {
+  margin-bottom: 10px;
+}
+
 /* ── Name form ────────────────────────────────────────────────── */
 .r-v2-plat-settings__form {
   display: flex;

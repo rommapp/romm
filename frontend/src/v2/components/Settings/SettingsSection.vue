@@ -13,7 +13,7 @@
 //   • SettingsField rows (one per labeled control), or
 //   • a custom block (theme picker grid, provider grid, table).
 // The component takes no opinion: it just provides the chrome.
-import { RIcon } from "@v2/lib";
+import { RIcon, RSectionLabel } from "@v2/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -27,7 +27,12 @@ defineProps<{
   <section class="r-v2-settings-section">
     <header class="r-v2-settings-section__header">
       <RIcon v-if="icon" :icon="icon" size="14" />
-      <span class="r-v2-settings-section__title">{{ title }}</span>
+      <RSectionLabel
+        as="span"
+        tone="secondary"
+        class="r-v2-settings-section__title"
+        >{{ title }}</RSectionLabel
+      >
       <slot name="header-actions" />
     </header>
     <div class="r-v2-settings-section__body">
@@ -54,11 +59,6 @@ defineProps<{
 }
 
 .r-v2-settings-section__title {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-secondary);
   flex: 1;
   min-width: 0;
 }

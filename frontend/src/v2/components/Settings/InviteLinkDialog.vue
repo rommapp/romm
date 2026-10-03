@@ -2,7 +2,7 @@
 // InviteLinkDialog: v2-native rebuild of v1
 // `Settings/Administration/Users/Dialog/InviteLink.vue`. Picks a role +
 // expiry, generates an invite URL, and shows it in a copyable field.
-import { RBtn, RIcon, RSelect } from "@v2/lib";
+import { RBtn, RIcon, RSectionLabel, RSelect } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import userApi from "@/services/api/user";
@@ -98,7 +98,7 @@ function close() {
     </template>
     <template #content>
       <div class="r-v2-invite__field">
-        <span class="r-v2-invite__label">{{ t("settings.role") }}</span>
+        <RSectionLabel as="span">{{ t("settings.role") }}</RSectionLabel>
         <div class="r-v2-invite__role-row">
           <button
             v-for="role in roles"
@@ -163,13 +163,6 @@ function close() {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.r-v2-invite__label {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
 }
 .r-v2-invite__role-row {
   display: flex;

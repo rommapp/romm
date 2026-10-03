@@ -10,7 +10,7 @@
 // translate by section and harder to restyle. Embedding the text as
 // typed arrays here keeps the layout flexible. If i18n becomes
 // necessary, each row maps cleanly to a key.
-import { RDialog, RIcon, RTabNav } from "@v2/lib";
+import { RDialog, RIcon, RSectionLabel, RTabNav } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import MetadataProviderCard from "@/v2/components/shared/MetadataProviderCard/MetadataProviderCard.vue";
@@ -165,7 +165,9 @@ function paragraphs(text: string): string[] {
           :data-group="group.group"
         >
           <header class="r-v2-scan-info__section-head">
-            <span>{{ t(group.titleKey) }}</span>
+            <RSectionLabel as="span" tone="secondary">
+              {{ t(group.titleKey) }}
+            </RSectionLabel>
             <p class="r-v2-scan-info__section-hint">
               {{ t(group.hintKey) }}
             </p>
@@ -224,13 +226,6 @@ function paragraphs(text: string): string[] {
   column-gap: 8px;
   row-gap: 2px;
   color: var(--r-color-fg-secondary);
-}
-
-.r-v2-scan-info__section-head > span {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .r-v2-scan-info__section-hint {

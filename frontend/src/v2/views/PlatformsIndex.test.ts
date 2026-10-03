@@ -30,6 +30,7 @@ vi.mock("@v2/lib", () => ({
     props: { title: { type: String, default: "" } },
     template: '<div class="empty-state">{{ title }}</div>',
   }),
+  RSectionLabel: defineComponent({ template: "<h3><slot /></h3>" }),
   RSkeletonBlock: defineComponent({ template: "<div />" }),
 }));
 
