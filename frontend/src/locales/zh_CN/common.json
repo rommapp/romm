@@ -96,6 +96,7 @@
   "logout-error": "注销失败，请重试。",
   "logout-success": "已注销",
   "logs": "日志",
+  "markdown-load-error": "无法加载 Markdown 内容。",
   "minutes-n": "{n} 分钟",
   "music-by-album": "按专辑浏览原声音乐",
   "music-by-artist": "按艺术家浏览原声音乐",

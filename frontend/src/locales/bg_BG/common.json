@@ -96,6 +96,7 @@
   "logout-error": "Излизането не бе успешно. Опитай отново.",
   "logout-success": "Излязохте успешно",
   "logs": "Logs",
+  "markdown-load-error": "Съдържанието в Markdown не можа да се зареди.",
   "minutes-n": "{n} мин",
   "music-by-album": "Саундтраци по албум",
   "music-by-artist": "Саундтраци по изпълнител",

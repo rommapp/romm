@@ -96,6 +96,7 @@
   "logout-error": "Не удалось выйти. Попробуйте снова.",
   "logout-success": "Вы вышли из аккаунта",
   "logs": "Logs",
+  "markdown-load-error": "Не удалось загрузить содержимое Markdown.",
   "minutes-n": "{n} мин",
   "music-by-album": "Саундтреки по альбомам",
   "music-by-artist": "Саундтреки по исполнителям",

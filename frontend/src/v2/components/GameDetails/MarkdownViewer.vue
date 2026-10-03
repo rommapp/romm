@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // MarkdownViewer (v2): renders a Markdown (.md) manual with the same v2
 // chrome as PdfViewer. Manuals can be PDF or Markdown; MediaTab picks the
-// viewer by extension. The file is fetched as text and handed to MdPreview
-// (md-editor-v3), the same renderer used by NotesTab.
+// viewer by extension. The file is fetched as text and handed to
+// MarkdownPreview, the same renderer used by NotesTab.
 import {
   RBtn,
   REmptyState,
@@ -13,10 +13,10 @@ import {
 } from "@v2/lib";
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import MdPreview from "@/v2/components/shared/MarkdownPreview.vue";
+import MarkdownPreview from "@/v2/components/shared/MarkdownPreview.vue";
 import { useFetchState } from "@/v2/composables/useFetchState";
+import { preloadMarkdown } from "@/v2/composables/useLazyMarkdown";
 import { useReadingProgress } from "@/v2/composables/useReadingProgress";
-import { useThemeMode } from "@/v2/composables/useThemeMode";
 
 const props = defineProps<{
   url: string;
@@ -38,10 +38,6 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const { isLight } = useThemeMode();
-const mdTheme = computed<"light" | "dark">(() =>
-  isLight.value ? "light" : "dark",
-);
 
 // Filename for the download button: last path segment without the cache-bust
 // query, decoded back to its human form (e.g. `README.md`).
@@ -74,14 +70,19 @@ const {
   execute: load,
 } = useFetchState(
   async () => {
-    const res = await fetch(props.url, { credentials: "include" });
+    // Load the renderer alongside the file, so the scroll restore below runs
+    // against rendered Markdown rather than a still-loading component.
+    const [res] = await Promise.all([
+      fetch(props.url, { credentials: "include" }),
+      preloadMarkdown("preview"),
+    ]);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.text();
   },
   "",
   {
     immediate: false,
-    // Restore scroll once MdPreview has laid the rendered Markdown out.
+    // Restore scroll once the preview has laid the rendered Markdown out.
     onSuccess: () =>
       nextTick(() => requestAnimationFrame(() => void restore())),
     onError: (err) => console.error("Failed to load markdown manual", err),
@@ -168,16 +169,9 @@ watch(
           </RBtn>
         </template>
       </REmptyState>
-      <MdPreview
+      <MarkdownPreview
         v-else
-        no-highlight
-        no-katex
-        no-mermaid
         :model-value="content"
-        :theme="mdTheme"
-        language="en-US"
-        preview-theme="vuepress"
-        code-theme="github"
         class="r-v2-mdv__preview"
       />
     </div>

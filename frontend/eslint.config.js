@@ -14,10 +14,10 @@ const heavyImports = [
     group: ["md-editor-v3", "md-editor-v3/**"],
     allowTypeImports: true,
     message:
-      "md-editor-v3 is heavy; load @/v2/components/shared/MarkdownPreview.vue through defineAsyncComponent.",
+      "md-editor-v3 is heavy; use MarkdownPreview.vue or MarkdownEditor.vue, which load it lazily.",
   },
   {
-    group: ["**/MarkdownPreview.vue", "**/MarkdownViewer.vue", "**/mdeditor"],
+    group: ["**/markdownPreview", "**/markdownEditor", "**/mdeditor"],
     allowTypeImports: true,
     message:
       "This module bundles md-editor-v3; import it only from a lazy chunk.",
@@ -152,12 +152,10 @@ export default tseslint.config(
       "src/components/**",
       "src/console/**",
       "src/layouts/**",
-      // The lazy wrapper itself, the editor's global config, and the views
-      // that reach md-editor only through a route or async chunk.
+      // The editor's global config and the two lazy modules that load it.
       "src/plugins/mdeditor*.ts",
-      "src/v2/components/shared/MarkdownPreview.vue",
-      "src/v2/components/GameDetails/NotesTab.vue",
-      "src/v2/components/GameDetails/MarkdownViewer.vue",
+      "src/v2/components/shared/markdownPreview.ts",
+      "src/v2/components/shared/markdownEditor.ts",
     ],
     rules: {
       "@typescript-eslint/no-restricted-imports": [

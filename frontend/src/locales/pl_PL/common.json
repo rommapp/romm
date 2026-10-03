@@ -96,6 +96,7 @@
   "logout-error": "Nie udało się wylogować. Spróbuj ponownie.",
   "logout-success": "Wylogowano",
   "logs": "Logs",
+  "markdown-load-error": "Nie udało się wczytać zawartości Markdown.",
   "minutes-n": "{n} min",
   "music-by-album": "Ścieżki dźwiękowe według albumu",
   "music-by-artist": "Ścieżki dźwiękowe według wykonawcy",

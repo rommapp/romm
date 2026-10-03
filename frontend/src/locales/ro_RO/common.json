@@ -96,6 +96,7 @@
   "logout-error": "Deconectarea a eșuat. Încearcă din nou.",
   "logout-success": "Deconectat",
   "logs": "Logs",
+  "markdown-load-error": "Conținutul Markdown nu a putut fi încărcat.",
   "minutes-n": "{n} min",
   "music-by-album": "Coloane sonore după album",
   "music-by-artist": "Coloane sonore după artist",

@@ -96,6 +96,7 @@
   "logout-error": "Não foi possível sair. Tente novamente.",
   "logout-success": "Sessão encerrada",
   "logs": "Logs",
+  "markdown-load-error": "Não foi possível carregar o conteúdo Markdown.",
   "minutes-n": "{n} min",
   "music-by-album": "Trilhas sonoras por álbum",
   "music-by-artist": "Trilhas sonoras por artista",

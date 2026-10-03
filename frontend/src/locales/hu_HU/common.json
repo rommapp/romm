@@ -96,6 +96,7 @@
   "logout-error": "A kijelentkezés nem sikerült. Próbáld újra.",
   "logout-success": "Kijelentkezve",
   "logs": "Logs",
+  "markdown-load-error": "A Markdown tartalom betöltése sikertelen.",
   "minutes-n": "{n} perc",
   "music-by-album": "Filmzenék album szerint",
   "music-by-artist": "Filmzenék előadó szerint",

@@ -3,22 +3,17 @@
 // the public GitHub API on first open and reuses the cached payload on
 // subsequent opens within the same session. Each release renders as a
 // glass-panel block (tag + date) with the release body rendered through
-// MdPreview, the same markdown surface NotesTab uses.
+// MarkdownPreview, the same markdown surface NotesTab uses.
 import { RBtn, RDialog, REmptyState, RIcon, RSpinner } from "@v2/lib";
-import { computed, defineAsyncComponent, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import MarkdownPreview from "@/v2/components/shared/MarkdownPreview.vue";
 import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useFetchState } from "@/v2/composables/useFetchState";
-import { useThemeMode } from "@/v2/composables/useThemeMode";
+import { preloadMarkdown } from "@/v2/composables/useLazyMarkdown";
 import { shortenGithubLinks } from "@/v2/utils/githubLinks";
 
 defineOptions({ inheritAttrs: false });
-
-// The dialog is mounted on every v2 page, so the markdown renderer loads on
-// first open instead of with the app shell.
-const loadMdPreview = () =>
-  import("@/v2/components/shared/MarkdownPreview.vue");
-const MdPreview = defineAsyncComponent(loadMdPreview);
 
 type Release = {
   tag_name: string;
@@ -35,7 +30,6 @@ const RELEASES_URL = `https://api.github.com/repos/${REPO}/releases?per_page=10`
 const RELEASES_PAGE_URL = `https://github.com/${REPO}/releases`;
 
 const { t, locale } = useI18n();
-const { isLight: isLightTheme } = useThemeMode();
 
 const show = ref(false);
 // Module-level cache would share across instances, but the dialog is
@@ -65,10 +59,6 @@ const {
 );
 const error = computed(() => fetchError.value !== undefined);
 
-const mdTheme = computed<"light" | "dark">(() =>
-  isLightTheme.value ? "light" : "dark",
-);
-
 const dateFormatter = computed(
   () =>
     new Intl.DateTimeFormat(locale.value.replace("_", "-"), {
@@ -87,7 +77,7 @@ function fmtDate(iso: string): string {
 const openHandler = () => {
   show.value = true;
   // Start the renderer download now so it overlaps the releases fetch.
-  loadMdPreview().catch(() => {});
+  preloadMarkdown("preview").catch(() => {});
   // Refetch only when we have nothing yet (or a previous attempt
   // errored). Keeps the dialog snappy on subsequent opens.
   if (releases.value.length === 0 && !loading.value) fetchReleases();
@@ -165,17 +155,7 @@ function closeDialog() {
               fmtDate(r.published_at)
             }}</span>
           </header>
-          <MdPreview
-            no-highlight
-            no-katex
-            no-mermaid
-            :model-value="r.body"
-            :theme="mdTheme"
-            language="en-US"
-            preview-theme="vuepress"
-            code-theme="github"
-            class="r-v2-changelog__body"
-          />
+          <MarkdownPreview :model-value="r.body" class="r-v2-changelog__body" />
         </article>
       </div>
     </template>
