@@ -3842,7 +3842,8 @@ class DBRomsHandler(DBBaseHandler):
         statement: Select[*tuple[Any, ...]],
     ) -> RomFiltersDict:
         rows = session.execute(statement).all()
-        columns = list(zip(*rows, strict=True)) or [()] * 13
+        width = len(statement.selected_columns)
+        columns = list(zip(*rows, strict=True)) or [()] * width
         (
             genres,
             franchises,
