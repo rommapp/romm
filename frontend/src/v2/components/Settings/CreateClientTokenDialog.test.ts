@@ -14,7 +14,27 @@ const { regenerateToken, pairToken, pollPairStatus, success } = vi.hoisted(
   }),
 );
 
+// Each encode waits for releaseQR() so a test can look between the code
+// changing and the new image arriving.
+const { toDataURL, releaseQR } = vi.hoisted(() => {
+  let pending: Array<() => void> = [];
+  return {
+    toDataURL: vi.fn(
+      (text: string) =>
+        new Promise<string>((resolve) =>
+          pending.push(() => resolve(`qr:${text}`)),
+        ),
+    ),
+    releaseQR: () => {
+      pending.forEach((resolve) => resolve());
+      pending = [];
+    },
+  };
+});
+
 vi.mock("vue-i18n");
+
+vi.mock("qrcode", () => ({ default: { toDataURL } }));
 
 vi.mock("@/services/api/client-token", () => ({
   default: { regenerateToken, pairToken, pollPairStatus },
@@ -74,6 +94,11 @@ async function openPairing(expiresIn: number) {
   return { wrapper, emitter };
 }
 
+function qrSrc(wrapper: Awaited<ReturnType<typeof openPairing>>["wrapper"]) {
+  const img = wrapper.find(".r-v2-tok-dialog__qr-code");
+  return img.exists() ? img.attributes("src") : undefined;
+}
+
 function counter(wrapper: Awaited<ReturnType<typeof openPairing>>["wrapper"]) {
   return wrapper.find(".r-v2-tok-dialog__pair-counter");
 }
@@ -128,5 +153,29 @@ describe("CreateClientTokenDialog pairing", () => {
     await vi.advanceTimersByTimeAsync(9000);
 
     expect(pollPairStatus).not.toHaveBeenCalled();
+  });
+
+  it("encodes the pair URL and never shows an expired code's QR", async () => {
+    const { wrapper } = await openPairing(3);
+    releaseQR();
+    await flushPromises();
+    expect(qrSrc(wrapper)).toBe(
+      `qr:${window.location.origin}/pair?code=ABC1-23`,
+    );
+
+    await vi.advanceTimersByTimeAsync(3000);
+    pairToken.mockResolvedValue({ data: { code: "XYZ789", expires_in: 9 } });
+    const regenerate = wrapper
+      .findAll("button")
+      .find((b) => b.text() === "settings.regenerate-code");
+    await regenerate!.trigger("click");
+    await flushPromises();
+    expect(qrSrc(wrapper)).toBeUndefined();
+
+    releaseQR();
+    await flushPromises();
+    expect(qrSrc(wrapper)).toBe(
+      `qr:${window.location.origin}/pair?code=XYZ7-89`,
+    );
   });
 });
