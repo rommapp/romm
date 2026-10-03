@@ -19,7 +19,7 @@ const TITLES = [
   "Secret of Mana",
   "F-Zero",
   "Star Fox",
-];
+] as const;
 
 const meta: Meta = {
   title: "Input Navigation",
@@ -72,15 +72,13 @@ export const KeyboardNavigation: Story = {
   play: async ({ canvasElement }) => {
     await expect(document.documentElement.dataset.input).toBe("key");
     const canvas = within(canvasElement);
-    const first = canvas.getByRole("button", { name: TITLES[0]! });
+    const first = canvas.getByRole("button", { name: TITLES[0] });
     first.focus();
     await userEvent.keyboard("{ArrowRight}");
-    await expect(
-      canvas.getByRole("button", { name: TITLES[1]! }),
-    ).toHaveFocus();
+    await expect(canvas.getByRole("button", { name: TITLES[1] })).toHaveFocus();
     await userEvent.keyboard("{Enter}");
     await expect(canvas.getByTestId("last-picked")).toHaveTextContent(
-      TITLES[1]!,
+      TITLES[1],
     );
   },
 };

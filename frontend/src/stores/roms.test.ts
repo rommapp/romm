@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
-import storeRoms, { DETAILED_ROM_CACHE_SIZE } from "@/stores/roms";
+import storeRoms, {
+  DETAILED_ROM_CACHE_SIZE,
+  type DetailedRom,
+} from "@/stores/roms";
 import { makeDetailedRom, makeRom } from "@/utils/rom.fixtures";
 
-function detailed(id: number, summary?: string) {
-  return makeDetailedRom({
-    id,
-    name: `Game ${id}`,
-    ...(summary === undefined ? {} : { summary }),
-  });
+function detailed(id: number, extra: Partial<DetailedRom> = {}) {
+  return makeDetailedRom({ id, name: `Game ${id}`, ...extra });
 }
 
 describe("detailed rom cache", () => {
@@ -49,7 +48,7 @@ describe("detailed rom cache", () => {
 
   it("merges a SimpleRom write over the detailed record", () => {
     const roms = storeRoms();
-    roms.cacheDetailedRom(detailed(5, "detailed"));
+    roms.cacheDetailedRom(detailed(5, { summary: "detailed" }));
 
     roms.update(makeRom({ id: 5, name: "Renamed" }));
 

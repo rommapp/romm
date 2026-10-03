@@ -10,9 +10,12 @@ import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
 export type SnackbarStatus = {
+  /** Stable id: useful when deduplicating repeated notifications. */
   id?: number | undefined;
   msg: string;
+  /** Auto-dismiss timeout in ms. Defaults to NotificationHost's 3000ms. */
   timeout?: number | undefined;
+  /** Override the default icon for the tone. */
   icon?: string | undefined;
   color?: string | undefined;
   /** Artwork shown in place of the icon, e.g. the cover of the game it concerns. */

@@ -4,6 +4,7 @@ import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import FolderMappingsSection from "./FolderMappingsSection.vue";
+import type { Row } from "./folderMappingRow";
 
 const {
   getSupportedPlatforms,
@@ -45,13 +46,6 @@ vi.mock("@/v2/composables/usePlatformIconCache", () => ({
 
 const N64 = { id: 1, slug: "n64", name: "Nintendo 64", display_name: "N64" };
 const PS2 = { id: 2, slug: "ps2", name: "PlayStation 2", display_name: "PS2" };
-
-interface Row {
-  fsSlug: string;
-  slug?: string;
-  displayName?: string;
-  type: "alias" | "variant" | "auto" | null;
-}
 
 // Exposes the built rows and renders the Platform cell the edit actions hang off.
 const RTableStub = {

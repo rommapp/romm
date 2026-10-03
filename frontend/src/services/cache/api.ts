@@ -1,10 +1,5 @@
 // trunk-ignore-all(eslint/@typescript-eslint/no-explicit-any)
-import type {
-  AxiosRequestConfig,
-  AxiosResponse,
-  AxiosHeaders,
-  Method,
-} from "axios";
+import type { AxiosRequestConfig, AxiosResponse, Method } from "axios";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import { buildGetRomsQuery, type GetRomsParams } from "@/services/api/rom";
 import cacheService from "@/services/cache";
@@ -40,13 +35,11 @@ class CachedApiService {
     method: Method,
     url: string,
     params?: any,
-    headers?: AxiosHeaders,
   ): AxiosRequestConfig {
     return {
       method,
       url,
       params,
-      ...(headers ? { headers } : {}),
     };
   }
 

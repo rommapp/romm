@@ -101,7 +101,7 @@ declare global {
   }
 }
 
-type Binding = { key: string; code?: string };
+type Binding = { key: string; code: string };
 
 const ARROWS = {
   up: { key: "ArrowUp", code: "ArrowUp" },
@@ -150,7 +150,7 @@ function dispatchKey(binding: Binding) {
     (document.activeElement as HTMLElement | null) ?? document.body;
   const init: KeyboardEventInit = {
     key: binding.key,
-    ...(binding.code === undefined ? {} : { code: binding.code }),
+    code: binding.code,
     bubbles: true,
     cancelable: true,
   };

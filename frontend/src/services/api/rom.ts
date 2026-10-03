@@ -486,7 +486,7 @@ export const RECOMMENDED_ROMS_LIMIT = 15;
 async function getSimilarRoms({
   romId,
   limit = SIMILAR_ROMS_LIMIT,
-  signal,
+  ...config
 }: {
   romId: number;
   limit?: number;
@@ -494,7 +494,7 @@ async function getSimilarRoms({
 }) {
   return api.get<SimilarRomSchema[]>(`/roms/${romId}/similar`, {
     params: { limit },
-    ...(signal ? { signal } : {}),
+    ...config,
   });
 }
 
@@ -502,7 +502,7 @@ async function getSimilarRoms({
 async function getRecommendedRoms({
   limit = RECOMMENDED_ROMS_LIMIT,
   refresh = false,
-  signal,
+  ...config
 }: {
   limit?: number;
   refresh?: boolean;
@@ -510,23 +510,23 @@ async function getRecommendedRoms({
 } = {}) {
   return api.get<RecommendedRomSchema[]>("/recommendations", {
     params: { limit, ...(refresh ? { refresh: true } : {}) },
-    ...(signal ? { signal } : {}),
+    ...config,
   });
 }
 
 async function getRom({
   romId,
-  signal,
+  ...config
 }: {
   romId: number;
   signal?: AbortSignal;
 }) {
-  return api.get<DetailedRom>(`/roms/${romId}`, signal ? { signal } : {});
+  return api.get<DetailedRom>(`/roms/${romId}`, config);
 }
 
 async function getRomSimple({
   romId,
-  signal,
+  ...config
 }: {
   romId: number;
   signal?: AbortSignal;
@@ -535,7 +535,7 @@ async function getRomSimple({
   // notes / saves / states / screenshots / collections arrays. Designed
   // for the v2 gallery card's per-card fetch path. Detail-level data is
   // pulled on demand (game details page, quick-note dialog open).
-  return api.get<SimpleRom>(`/roms/${romId}/simple`, signal ? { signal } : {});
+  return api.get<SimpleRom>(`/roms/${romId}/simple`, config);
 }
 
 async function getRandomRom({
@@ -870,16 +870,14 @@ async function removeScreenshot({
 
 async function getSoundtrackMetadata({
   romId,
-  signal,
+  ...config
 }: {
   romId: number;
   signal?: AbortSignal;
 }) {
   return api.get<SoundtrackTrackMetaSchema[]>(
     `/roms/${romId}/soundtracks/metadata`,
-    {
-      ...(signal ? { signal } : {}),
-    },
+    config,
   );
 }
 

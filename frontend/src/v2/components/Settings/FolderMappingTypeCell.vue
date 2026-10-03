@@ -22,8 +22,7 @@
 import { RIcon, RSelect, RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-
-type RowType = "alias" | "variant" | "auto" | null;
+import type { Row } from "@/v2/components/Settings/folderMappingRow";
 
 interface TypeItem {
   value: "alias" | "variant";
@@ -32,12 +31,7 @@ interface TypeItem {
 }
 
 interface Props {
-  row: {
-    fsSlug: string;
-    slug?: string | undefined;
-    displayName?: string | undefined;
-    type: RowType;
-  };
+  row: Row;
   canEdit: boolean;
 }
 const props = defineProps<Props>();

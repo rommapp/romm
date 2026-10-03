@@ -30,6 +30,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { Platform } from "@/stores/platforms";
 import FolderMappingPlatformCell from "@/v2/components/Settings/FolderMappingPlatformCell.vue";
 import FolderMappingTypeCell from "@/v2/components/Settings/FolderMappingTypeCell.vue";
+import type { Row, RowType } from "@/v2/components/Settings/folderMappingRow";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -47,18 +48,10 @@ const search = ref("");
 const loading = ref(false);
 const helpOpen = ref(false);
 
-type RowType = "alias" | "variant" | "auto" | null;
 type SortKey = "fsSlug" | "displayName" | "type";
 
 const sortKey = ref<SortKey>("fsSlug");
 const sortDir = ref<"asc" | "desc">("asc");
-
-interface Row {
-  fsSlug: string;
-  slug?: string | undefined;
-  displayName?: string | undefined;
-  type: RowType;
-}
 
 const TYPE_ORDER: Record<NonNullable<RowType> | "none", number> = {
   alias: 0,

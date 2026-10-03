@@ -38,9 +38,7 @@ async function updatePlatform({
   description?: string | undefined;
 }) {
   const payload: UpdatePlatformInput = {
-    ...(platform.custom_name !== undefined
-      ? { custom_name: platform.custom_name }
-      : {}),
+    custom_name: platform.custom_name ?? null,
     ...(description !== undefined ? { description } : {}),
   };
   return api.put<Platform>(`/platforms/${platform.id}`, payload);

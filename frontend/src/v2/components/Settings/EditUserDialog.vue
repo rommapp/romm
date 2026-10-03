@@ -204,7 +204,7 @@ async function save() {
     const { data } = await userApi.updateUser(user.value);
 
     // Group, overrides and hidden entities apply to non-admins (admins bypass).
-    let nextGroupId = data.permission_group_id;
+    let nextUser = data;
     if (!isAdmin.value) {
       const groupChanged = groupId.value !== originalGroupId.value;
       const overridesChanged =
@@ -213,9 +213,11 @@ async function save() {
         await permissionsApi.updateUserPermissions(userId, {
           set_group: groupChanged,
           permission_group_id: groupId.value,
-          ...(overridesChanged ? { overrides: overrides.value } : {}),
+          overrides: overridesChanged ? overrides.value : null,
         });
-        if (groupChanged) nextGroupId = groupId.value;
+        if (groupChanged) {
+          nextUser = { ...data, permission_group_id: groupId.value };
+        }
       }
       await Promise.all([
         ...diffHidden(
@@ -236,12 +238,7 @@ async function save() {
     snackbar.success(t("settings.user-updated", { username: data.username }), {
       icon: "mdi-check-bold",
     });
-    usersStore.update({
-      ...data,
-      ...(nextGroupId === undefined
-        ? {}
-        : { permission_group_id: nextGroupId }),
-    });
+    usersStore.update(nextUser);
     if (data.id === auth.user?.id) auth.setCurrentUser(data);
     emitter?.emit("refreshDrawer", null);
     show.value = false;
