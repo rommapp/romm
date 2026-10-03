@@ -153,9 +153,8 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
 
 
 # LIBGME (LGPL-2.1+) FOR CHIPTUNE SOUNDTRACKS
-# The WebAssembly output is the same on every platform, so it builds with the
-# builder's own emsdk, which ships as a separate image per architecture.
-# Keep the pins below in sync with the dev image's copies in ../Dockerfile.
+# The wasm is the same on every platform, so it builds with the builder's own
+# emsdk image. Keep the pins in sync with the dev image's copies in ../Dockerfile.
 # trunk-ignore(hadolint/DL3029)
 FROM --platform=linux/amd64 emscripten/emsdk:${EMSDK_VERSION}@sha256:${EMSDK_AMD64_SHA256} AS emsdk-amd64
 # trunk-ignore(hadolint/DL3029)

@@ -86,7 +86,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
   private loaded = false;
   private failed = false;
   // Flips on each play or pause call, as `<audio>` does, so a quick second
-  // press sees it. `started` is whether playback actually began.
+  // press sees it. `started` is whether playback began.
   private isPaused = true;
   private started = false;
   private position = 0;

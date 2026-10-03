@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Builds libgme and the RomM shim into a standalone WebAssembly module.
-# Built without zlib: the player gunzips VGZ files before handing them over.
-# Only the single-song formats the player lists are compiled in.
+# Builds libgme's SPC, VGM and GYM emulators (no zlib: the player gunzips VGZ)
+# and the RomM shim into a standalone WebAssembly module.
 # Usage: build.sh <libgme source dir> <output dir>
 set -euo pipefail
 
