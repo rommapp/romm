@@ -1,9 +1,6 @@
 <script setup lang="ts">
-// HiddenGamesPicker: search the library and pick individual games, the ones
-// hidden from a principal or allowed past its age limit. Model is the list of
-// picked rom ids. A debounced search shows matching games (cover + name);
-// picked games render below as a removable list, with their full rom cached
-// so covers resolve even for ids picked before this session.
+// HiddenGamesPicker: search the library for games to hide or to allow past an
+// age limit. Picked roms are cached so covers resolve for ids picked earlier.
 import { RBtn, RIcon, RSpinner, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";

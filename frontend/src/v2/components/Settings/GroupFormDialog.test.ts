@@ -1,5 +1,5 @@
 import { RTextField } from "@v2/lib";
-import { flushPromises, mount } from "@vue/test-utils";
+import { type VueWrapper, flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PermissionGroupSchema } from "@/__generated__";
@@ -51,13 +51,11 @@ const group: PermissionGroupSchema = {
 };
 
 beforeEach(() => {
-  createGroup.mockReset();
   createGroup.mockResolvedValue({ data: { ...group, id: 8 } });
-  updateGroup.mockReset();
   updateGroup.mockResolvedValue({ data: group });
 });
 
-async function openAndSave(toEdit: PermissionGroupSchema | null) {
+async function openDialog(toEdit: PermissionGroupSchema | null) {
   const emitter: Emitter<Events> = mitt<Events>();
   const wrapper = mount(GroupFormDialog, {
     global: {
@@ -83,7 +81,7 @@ async function openAndSave(toEdit: PermissionGroupSchema | null) {
   return wrapper;
 }
 
-async function apply(wrapper: Awaited<ReturnType<typeof openAndSave>>) {
+async function apply(wrapper: VueWrapper) {
   // Let the Apply button re-render once a name enables it.
   await flushPromises();
   const button = wrapper
@@ -95,7 +93,7 @@ async function apply(wrapper: Awaited<ReturnType<typeof openAndSave>>) {
 
 describe("GroupFormDialog age settings", () => {
   it("loads a group's settings and writes back the ones that change", async () => {
-    const wrapper = await openAndSave(group);
+    const wrapper = await openDialog(group);
     const fields = wrapper.findComponent(AgeLimitFields);
     expect(fields.props("ageLimit")).toBe(12);
     expect(fields.props("hideUnrated")).toBe(true);
@@ -115,7 +113,7 @@ describe("GroupFormDialog age settings", () => {
   });
 
   it("leaves the age settings alone on a rename", async () => {
-    const wrapper = await openAndSave(group);
+    const wrapper = await openDialog(group);
     wrapper.findComponent(RTextField).vm.$emit("update:modelValue", "Teens");
     await apply(wrapper);
 
@@ -130,7 +128,7 @@ describe("GroupFormDialog age settings", () => {
   });
 
   it("creates a group with the settings and no update flag", async () => {
-    const wrapper = await openAndSave(null);
+    const wrapper = await openDialog(null);
     wrapper.findComponent(RTextField).vm.$emit("update:modelValue", "Teens");
     wrapper.findComponent(AgeLimitFields).vm.$emit("update:ageLimit", 16);
     await apply(wrapper);

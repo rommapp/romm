@@ -306,9 +306,8 @@ const selectedValues = computed<unknown[]>(() => {
   if (props.multiple) {
     return Array.isArray(props.modelValue) ? props.modelValue : [];
   }
-  return props.modelValue === undefined || props.modelValue === null
-    ? []
-    : [props.modelValue];
+  // Null is a value an item can hold ("No limit"); only undefined is unset.
+  return props.modelValue === undefined ? [] : [props.modelValue];
 });
 
 // Normalise a model value to its primitive identity key. In
@@ -648,6 +647,7 @@ const showClear = computed(
   () =>
     props.clearable &&
     hasSelection.value &&
+    props.modelValue !== null &&
     !props.disabled &&
     !props.readonly &&
     !props.loading,

@@ -23,11 +23,6 @@ const { t } = useI18n();
 // The thresholds the common rating boards use.
 const AGE_OPTIONS = [3, 6, 7, 10, 12, 13, 15, 16, 17, 18];
 
-// RSelect reads a null model as "nothing selected", so null gets a key.
-const UNSET = "unset";
-type AgeChoice = number | typeof UNSET;
-type UnratedChoice = "show" | "hide" | typeof UNSET;
-
 function ageText(age: number | null): string {
   return age === null
     ? t("settings.age-limit-none")
@@ -50,17 +45,10 @@ const ageItems = computed(() => [
           setting: ageText(props.inherited.ageLimit),
         })
       : ageText(null),
-    value: UNSET,
+    value: null,
   },
   ...ages.value.map((age) => ({ title: ageText(age), value: age })),
 ]);
-
-const ageChoice = computed<AgeChoice>({
-  get: () => ageLimit.value ?? UNSET,
-  set: (choice) => {
-    ageLimit.value = choice === UNSET ? null : choice;
-  },
-});
 
 function unratedText(hide: boolean): string {
   return hide
@@ -73,19 +61,11 @@ const unratedItems = computed(() => [
     title: t("settings.age-limit-inherit", {
       setting: unratedText(props.inherited?.hideUnrated ?? false),
     }),
-    value: UNSET,
+    value: null,
   },
-  { title: unratedText(false), value: "show" },
-  { title: unratedText(true), value: "hide" },
+  { title: unratedText(false), value: false },
+  { title: unratedText(true), value: true },
 ]);
-
-const unratedChoice = computed<UnratedChoice>({
-  get: () =>
-    hideUnrated.value === null ? UNSET : hideUnrated.value ? "hide" : "show",
-  set: (choice) => {
-    hideUnrated.value = choice === UNSET ? null : choice === "hide";
-  },
-});
 </script>
 
 <template>
@@ -98,7 +78,7 @@ const unratedChoice = computed<UnratedChoice>({
         {{ t("settings.age-limit-hint") }}
       </span>
       <RSelect
-        v-model="ageChoice"
+        v-model="ageLimit"
         variant="outlined"
         :items="ageItems"
         item-title="title"
@@ -116,7 +96,7 @@ const unratedChoice = computed<UnratedChoice>({
         {{ t("settings.unrated-games-hint") }}
       </span>
       <RSelect
-        v-model="unratedChoice"
+        v-model="hideUnrated"
         variant="outlined"
         :items="unratedItems"
         item-title="title"

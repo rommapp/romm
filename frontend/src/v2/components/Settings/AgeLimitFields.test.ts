@@ -1,19 +1,20 @@
 /* eslint-disable vue/one-component-per-file */
-import { mount } from "@vue/test-utils";
+import { type DOMWrapper, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import AgeLimitFields from "./AgeLimitFields.vue";
 
 vi.mock("vue-i18n");
 
+// Options go by index, since a native <select> can't carry null or boolean values.
 const RSelect = defineComponent({
   props: {
-    modelValue: { type: [String, Number], default: null },
+    modelValue: { type: null, default: undefined },
     items: { type: Array, default: () => [] },
   },
   emits: ["update:modelValue"],
-  template: `<select :value="modelValue" @change="$emit('update:modelValue', items[$event.target.selectedIndex].value)">
-    <option v-for="item in items" :key="item.value" :value="item.value">{{ item.title }}</option>
+  template: `<select :data-chosen="items.findIndex((item) => item.value === modelValue)" @change="$emit('update:modelValue', items[$event.target.selectedIndex].value)">
+    <option v-for="(item, i) in items" :key="i">{{ item.title }}</option>
   </select>`,
 });
 
@@ -36,14 +37,26 @@ function mountFields(props: FieldProps) {
   });
 }
 
+type Select = Omit<DOMWrapper<Element>, "exists">;
+
+async function choose(select: Select, index: number) {
+  (select.element as HTMLSelectElement).selectedIndex = index;
+  await select.trigger("change");
+}
+
+function chosen(select: Select): string {
+  const index = Number(select.attributes("data-chosen"));
+  return (select.element as HTMLSelectElement).options[index]?.text ?? "";
+}
+
 describe("AgeLimitFields", () => {
   it("lets a group pick a limit or none", async () => {
     const wrapper = mountFields({ ageLimit: 12, hideUnrated: false });
     const select = wrapper.get("select");
 
-    expect(select.element.value).toBe("12");
-    await select.setValue("unset");
-    await select.setValue("16");
+    expect(chosen(select)).toBe('settings.age-limit-option:{"age":12}');
+    await choose(select, 0);
+    await choose(select, 8);
 
     expect(wrapper.emitted("update:ageLimit")).toEqual([[null], [16]]);
   });
@@ -51,7 +64,9 @@ describe("AgeLimitFields", () => {
   it("keeps a limit outside the usual ages selected", () => {
     const wrapper = mountFields({ ageLimit: 14, hideUnrated: false });
 
-    expect(wrapper.get("select").element.value).toBe("14");
+    expect(chosen(wrapper.get("select"))).toBe(
+      'settings.age-limit-option:{"age":14}',
+    );
   });
 
   it("toggles the unrated switch for a group", async () => {
@@ -78,8 +93,11 @@ describe("AgeLimitFields", () => {
       'settings.age-limit-inherit:{"setting":"settings.hide-unrated-games"}',
     );
 
-    await unrated.setValue("show");
-    await unrated.setValue("unset");
+    expect(chosen(age)).toBe(
+      'settings.age-limit-inherit:{"setting":"settings.age-limit-option:{\\"age\\":12}"}',
+    );
+    await choose(unrated, 1);
+    await choose(unrated, 0);
 
     expect(wrapper.emitted("update:hideUnrated")).toEqual([[false], [null]]);
   });

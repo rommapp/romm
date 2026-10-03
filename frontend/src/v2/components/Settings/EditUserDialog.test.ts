@@ -1,6 +1,7 @@
-import { flushPromises, mount } from "@vue/test-utils";
+import { type VueWrapper, flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { UserPermissionsSchema } from "@/__generated__";
 import type { Events } from "@/types/emitter";
 import { userFixture } from "@/utils/user.fixtures";
 import AgeLimitFields from "./AgeLimitFields.vue";
@@ -46,15 +47,26 @@ const RDialog = {
 
 // The access section loads behind the avatar; leave it pending by default.
 beforeEach(() => {
-  fetchUserPermissions.mockReset();
+  vi.resetAllMocks();
   fetchUserPermissions.mockReturnValue(new Promise(() => undefined));
-  fetchCatalog.mockReset();
   fetchCatalog.mockReturnValue(new Promise(() => undefined));
-  getPlatforms.mockReset();
   getPlatforms.mockReturnValue(new Promise(() => undefined));
-  updateUserPermissions.mockReset();
-  updateUser.mockReset();
 });
+
+function permissions(overrides: Partial<UserPermissionsSchema> = {}) {
+  return {
+    data: {
+      user_id: 4,
+      permission_group_id: 1,
+      overrides: [],
+      hidden: [],
+      age_limit: null,
+      hide_unrated_roms: null,
+      age_exempt_rom_ids: [5],
+      ...overrides,
+    },
+  };
+}
 
 async function mountDialog(role: "admin" | "user" = "admin") {
   const emitter: Emitter<Events> = mitt<Events>();
@@ -131,17 +143,7 @@ describe("EditUserDialog avatar preview", () => {
 
 describe("EditUserDialog age settings", () => {
   beforeEach(() => {
-    fetchUserPermissions.mockResolvedValue({
-      data: {
-        user_id: 4,
-        permission_group_id: 1,
-        overrides: [],
-        hidden: [],
-        age_limit: null,
-        hide_unrated_roms: null,
-        age_exempt_rom_ids: [5],
-      },
-    });
+    fetchUserPermissions.mockResolvedValue(permissions());
     fetchCatalog.mockResolvedValue({ data: { entities: [], actions: [] } });
     getPlatforms.mockResolvedValue({ data: [] });
     updateUser.mockResolvedValue({
@@ -150,9 +152,7 @@ describe("EditUserDialog age settings", () => {
     updateUserPermissions.mockResolvedValue({ data: {} });
   });
 
-  async function save(
-    wrapper: Awaited<ReturnType<typeof mountDialog>>["wrapper"],
-  ) {
+  async function save(wrapper: VueWrapper) {
     const apply = wrapper
       .findAll("button")
       .find((b) => b.text() === "common.apply");
@@ -202,21 +202,29 @@ describe("EditUserDialog age settings", () => {
     const fields = () => wrapper.findComponent(AgeLimitFields);
 
     await open();
-    resolveFirst({
-      data: {
+    resolveFirst(
+      permissions({
         user_id: 3,
-        permission_group_id: 1,
-        overrides: [],
-        hidden: [],
         age_limit: 12,
         hide_unrated_roms: true,
         age_exempt_rom_ids: [9],
-      },
-    });
+      }),
+    );
     await flushPromises();
 
     expect(fields().props("ageLimit")).toBeNull();
     expect(fields().props("exemptRomIds")).toEqual([5]);
+  });
+
+  it("saves no access edits over a user whose access failed to load", async () => {
+    fetchUserPermissions.mockRejectedValue(new Error("offline"));
+    const { wrapper } = await mountDialog("user");
+
+    wrapper.findComponent(AgeLimitFields).vm.$emit("update:ageLimit", 12);
+    await save(wrapper);
+
+    expect(updateUser).toHaveBeenCalledOnce();
+    expect(updateUserPermissions).not.toHaveBeenCalled();
   });
 
   it("leaves the permissions alone when nothing changed", async () => {

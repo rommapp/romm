@@ -273,3 +273,33 @@ describe("RSelect inside an overlay", () => {
     wrapper.unmount();
   });
 });
+
+describe("RSelect null-valued item", () => {
+  const items = [
+    { title: "No limit", value: null },
+    { title: "12", value: 12 },
+  ];
+
+  it("shows and checks an item whose value is null", async () => {
+    const wrapper = mount(RSelect, {
+      props: { items, modelValue: null, clearable: true },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.get(".r-select__value").text()).toBe("No limit");
+    expect(wrapper.find(".r-select__clear").exists()).toBe(false);
+    await wrapper.get(".r-select__field").trigger("click");
+    await nextTick();
+    const selected = document.querySelector(
+      ".r-select__list [aria-selected='true']",
+    );
+    expect(selected?.textContent).toContain("No limit");
+    wrapper.unmount();
+  });
+
+  it("shows nothing for an undefined model", () => {
+    const wrapper = mount(RSelect, { props: { items, modelValue: undefined } });
+
+    expect(wrapper.get(".r-select__value").text()).not.toContain("No limit");
+  });
+});
