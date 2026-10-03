@@ -12,7 +12,7 @@ import alembic.config
 import pytest
 from hypothesis import settings
 from joserfc import jwt
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event, exists, select, text
 from sqlalchemy.orm import sessionmaker
 from tests.factories import (
     make_firmware,
@@ -148,35 +148,57 @@ def lenient(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     return log
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    # The slow migration tests go first so they overlap the rest of the suite.
+    items.sort(key=lambda item: item.path.name != "test_migrations.py")
+
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     _ensure_database_exists()
     alembic.config.main(argv=["upgrade", "head"])
 
 
+# Children before parents. Deleting a parent cascades to the tables not listed.
+_CLEARED_MODELS = (
+    AuditEvent,
+    Notification,
+    NotificationChannel,
+    PlaySession,
+    ClientToken,
+    SyncSession,
+    DeviceSaveSync,
+    Device,
+    MemoryCardVersion,
+    MemoryCard,
+    StreamingContainerAdoption,
+    DeletedAsset,
+    Save,
+    State,
+    Screenshot,
+    RomFile,
+    Rom,
+    Firmware,
+    Platform,
+    User,
+)
+# One round trip that says which tables hold rows, so a test that left most of
+# them empty doesn't pay a DELETE per table.
+_HAS_ROWS = select(
+    *(
+        exists().select_from(model).label(model.__tablename__)
+        for model in _CLEARED_MODELS
+    )
+)
+
+
 @pytest.fixture(autouse=True)
 def clear_database():
     with session.begin() as s:
-        s.query(AuditEvent).delete(synchronize_session="evaluate")
-        s.query(Notification).delete(synchronize_session="evaluate")
-        s.query(NotificationChannel).delete(synchronize_session="evaluate")
-        s.query(PlaySession).delete(synchronize_session="evaluate")
-        s.query(ClientToken).delete(synchronize_session="evaluate")
-        s.query(SyncSession).delete(synchronize_session="evaluate")
-        s.query(DeviceSaveSync).delete(synchronize_session="evaluate")
-        s.query(Device).delete(synchronize_session="evaluate")
-        s.query(MemoryCardVersion).delete(synchronize_session="evaluate")
-        s.query(MemoryCard).delete(synchronize_session="evaluate")
-        s.query(StreamingContainerAdoption).delete(synchronize_session="evaluate")
-        s.query(DeletedAsset).delete(synchronize_session="evaluate")
-        s.query(Save).delete(synchronize_session="evaluate")
-        s.query(State).delete(synchronize_session="evaluate")
-        s.query(Screenshot).delete(synchronize_session="evaluate")
-        s.query(RomFile).delete(synchronize_session="evaluate")
-        s.query(Rom).delete(synchronize_session="evaluate")
-        s.query(Firmware).delete(synchronize_session="evaluate")
-        s.query(Platform).delete(synchronize_session="evaluate")
-        s.query(User).delete(synchronize_session="evaluate")
+        has_rows = s.execute(_HAS_ROWS).one()
+        for model, dirty in zip(_CLEARED_MODELS, has_rows, strict=True):
+            if dirty:
+                s.query(model).delete(synchronize_session="evaluate")
 
     # Drop any cached gallery filter values to keep tests isolated.
     db_rom_handler.invalidate_filter_values_cache()
