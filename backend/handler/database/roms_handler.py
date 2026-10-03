@@ -821,6 +821,16 @@ def _queue_user_cache_bumps(
     )
 
 
+def _track_text_match(search: str) -> ColumnElement[bool]:
+    return or_(
+        TrackMeta.title.icontains(search, autoescape=True),
+        TrackMeta.artist.icontains(search, autoescape=True),
+        TrackMeta.album.icontains(search, autoescape=True),
+        # Untagged tracks, chiptunes among them, are named by file.
+        RomFile.file_name.icontains(search, autoescape=True),
+    )
+
+
 class DBRomsHandler(DBBaseHandler):
     @begin_session
     @with_details
@@ -3024,15 +3034,7 @@ class DBRomsHandler(DBBaseHandler):
         if rom_id is not None:
             clauses.append(Rom.id == rom_id)
         if search:
-            clauses.append(
-                or_(
-                    TrackMeta.title.icontains(search, autoescape=True),
-                    TrackMeta.artist.icontains(search, autoescape=True),
-                    TrackMeta.album.icontains(search, autoescape=True),
-                    # Untagged tracks, chiptunes among them, are named by file.
-                    RomFile.file_name.icontains(search, autoescape=True),
-                )
-            )
+            clauses.append(_track_text_match(search))
         if artist and exclude_field != "artist":
             clauses.append(func.lower(TrackMeta.artist) == artist.lower())
         if album and exclude_field != "album":
@@ -3467,10 +3469,7 @@ class DBRomsHandler(DBBaseHandler):
             where.append(
                 or_(
                     Rom.name.icontains(search, autoescape=True),
-                    TrackMeta.title.icontains(search, autoescape=True),
-                    TrackMeta.artist.icontains(search, autoescape=True),
-                    TrackMeta.album.icontains(search, autoescape=True),
-                    RomFile.file_name.icontains(search, autoescape=True),
+                    _track_text_match(search),
                 )
             )
         count_col = func.count().label("count")

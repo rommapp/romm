@@ -62,6 +62,22 @@ def _make_track(
     return rom
 
 
+def _make_untagged_track(admin_id: int, platform: Platform, file_name: str) -> None:
+    """A soundtrack file with an empty track row, as the scanner gives a chiptune."""
+    rom = make_rom(platform, "Plok")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_id)
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=file_name,
+            file_path=f"{rom.fs_path}/Plok/soundtrack",
+            file_size_bytes=66048,
+            category=RomFileCategory.SOUNDTRACK,
+            track_meta=TrackMeta(rom_id=rom.id),
+        )
+    )
+
+
 @pytest.fixture
 def music_library(admin_user: User):
     pa = _make_platform("genesis")
@@ -156,18 +172,7 @@ def test_tracks_search_substring(client: TestClient, access_token: str, music_li
 def test_tracks_search_matches_an_untagged_file_by_name(
     client: TestClient, access_token: str, music_library, admin_user: User
 ):
-    rom = make_rom(music_library["platform_a"], "Plok")
-    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="05 Beach.spc",
-            file_path=f"{rom.fs_path}/Plok/soundtrack",
-            file_size_bytes=66048,
-            category=RomFileCategory.SOUNDTRACK,
-            track_meta=TrackMeta(rom_id=rom.id),
-        )
-    )
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "05 Beach.spc")
 
     r = client.get("/api/music/tracks?search=beach", headers=_auth(access_token))
 
@@ -180,18 +185,7 @@ def test_tracks_search_matches_an_untagged_file_by_name(
 def test_tracks_sort_an_untagged_file_by_its_name(
     client: TestClient, access_token: str, music_library, admin_user: User
 ):
-    rom = make_rom(music_library["platform_a"], "Plok")
-    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="Ice.spc",
-            file_path=f"{rom.fs_path}/Plok/soundtrack",
-            file_size_bytes=66048,
-            category=RomFileCategory.SOUNDTRACK,
-            track_meta=TrackMeta(rom_id=rom.id),
-        )
-    )
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "Ice.spc")
 
     r = client.get(
         "/api/music/tracks?order_by=title&order_dir=asc", headers=_auth(access_token)
@@ -669,18 +663,7 @@ def test_games_facet_search_matches_game_and_track_fields(
 def test_games_facet_search_matches_an_untagged_file_by_name(
     client: TestClient, access_token: str, music_library, admin_user: User
 ):
-    rom = make_rom(music_library["platform_a"], "Plok")
-    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-    db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="05 Beach.spc",
-            file_path=f"{rom.fs_path}/Plok/soundtrack",
-            file_size_bytes=66048,
-            category=RomFileCategory.SOUNDTRACK,
-            track_meta=TrackMeta(rom_id=rom.id),
-        )
-    )
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "05 Beach.spc")
 
     r = client.get(
         "/api/music/games", params={"search": "beach"}, headers=_auth(access_token)

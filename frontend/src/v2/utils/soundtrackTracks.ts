@@ -45,9 +45,7 @@ export function getExt(name: string): string {
 /** The file picker filter for soundtrack uploads. */
 export const SOUNDTRACK_ACCEPT = [
   "audio/*",
-  ".flac",
-  ".opus",
-  ...[...CHIPTUNE_EXTS].map((ext) => `.${ext}`),
+  ...[...AUDIO_EXTS, ...CHIPTUNE_EXTS].map((ext) => `.${ext}`),
 ].join(",");
 
 export function isAudioFile(name: string): boolean {

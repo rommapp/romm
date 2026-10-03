@@ -42,10 +42,6 @@ watch(musicBlocked, (isBlocked) => {
 });
 useMediaSession(() => musicBlocked.value);
 
-// Bumped on every `src` change, so a pending `play()` from an earlier track
-// can't change the current track's state.
-let loadToken = 0;
-
 // Track loads, seeks and short stalls often resolve within a second; buffering
 // is only reported once a wait outlasts that, so the covers don't flash.
 const BUFFERING_DELAY_MS = 1000;
@@ -97,7 +93,6 @@ onBeforeUnmount(() => {
 watch(track, async (t) => {
   const el = audioEl.value;
   if (!el) return;
-  const token = ++loadToken;
   if (!t) {
     setBuffered();
     unloadAudio(el);
@@ -125,7 +120,6 @@ watch(track, async (t) => {
   try {
     await sink.play();
   } catch {
-    if (token !== loadToken) return;
     // Autoplay may be blocked; the user can hit play in the UI. Real load
     // failures come through `error` events, so no snackbar here.
   }

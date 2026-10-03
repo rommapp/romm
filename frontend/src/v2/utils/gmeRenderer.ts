@@ -47,7 +47,7 @@ const GME_FUNCTIONS = [
   "gme_tell",
   "gme_track_ended",
   "gme_delete",
-] as const;
+] as const satisfies readonly (keyof GmeExports)[];
 
 function gmeExports(exports: WebAssembly.Exports): GmeExports {
   const missing = GME_FUNCTIONS.filter(

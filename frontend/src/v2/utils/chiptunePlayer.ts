@@ -196,29 +196,35 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     this.loadToken += 1;
     this.loaded = false;
     this.failed = false;
-    this.isPaused = true;
-    this.started = false;
     this.position = 0;
     this.length = 0;
     this.post({ type: "unload" });
-    this.suspendContext();
+    this.halt();
   }
 
   close(): void {
     this.unload();
-    this.port = null;
-    this.output = null;
-    this.gain = null;
+    this.dropRenderer();
     void this.context?.close().catch(() => {});
     this.context = null;
   }
 
   private fail() {
     this.failed = true;
+    this.halt();
+    this.dispatchEvent(new Event("error"));
+  }
+
+  private halt() {
     this.isPaused = true;
     this.started = false;
     this.suspendContext();
-    this.dispatchEvent(new Event("error"));
+  }
+
+  private dropRenderer() {
+    this.port = null;
+    this.output = null;
+    this.gain = null;
   }
 
   // Stops the render callbacks and frees the output device; `play()` resumes.
@@ -268,9 +274,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
     console.error("[chiptune] renderer stopped");
     output.disconnect();
     this.gain?.disconnect();
-    this.port = null;
-    this.output = null;
-    this.gain = null;
+    this.dropRenderer();
     this.fail();
   }
 
@@ -292,9 +296,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
         this.dispatchEvent(new Event("timeupdate"));
         break;
       case "ended":
-        this.isPaused = true;
-        this.started = false;
-        this.suspendContext();
+        this.halt();
         this.dispatchEvent(new Event("ended"));
         break;
       case "error":
