@@ -659,7 +659,7 @@ function isViewLoader(view: unknown): view is ViewLoader {
   );
 }
 
-// A plain shell, as vue-router flags defineAsyncComponent route views.
+// vue-router warns on defineAsyncComponent route views, so wrap it in a plain one.
 function deferView(load: ViewLoader): Component {
   const view = defineAsyncComponent(load);
   const shell = defineComponent({

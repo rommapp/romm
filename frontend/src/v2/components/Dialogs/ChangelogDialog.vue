@@ -94,7 +94,7 @@ function fmtDate(iso: string): string {
 
 const openHandler = () => {
   show.value = true;
-  // Fetch the renderer alongside the releases rather than after them.
+  // Start the renderer download now so it overlaps the releases fetch.
   loadMdPreview().catch(() => {});
   // Refetch only when we have nothing yet (or a previous attempt
   // errored). Keeps the dialog snappy on subsequent opens.
