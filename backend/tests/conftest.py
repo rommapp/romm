@@ -280,11 +280,7 @@ def _migrations_digest() -> str:
 
 
 def _clone_template_into_fresh_database() -> None:
-    """Fill an empty xdist worker database from a shared, migrated template.
-
-    Replaying every migration in each worker at once is most of a cold run, so
-    the template is migrated once (under a server lock) and copied per worker.
-    """
+    """Fill an empty xdist worker database from a template migrated once under a server lock."""
     worker = os.environ.get("PYTEST_XDIST_WORKER")
     if not worker or ROMM_DB_DRIVER not in ("mariadb", "mysql"):
         return
