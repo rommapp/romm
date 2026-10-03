@@ -410,6 +410,7 @@ export const Active: Story = {
         <RBtn variant="text" color="danger" prepend-icon="mdi-volume-off" :active="mute" @click="mute = !mute">Mute</RBtn>
         <RBtn variant="outlined" active>Always on</RBtn>
         <RBtn variant="outlined">Not a toggle</RBtn>
+        <RBtn variant="outlined" aria-pressed="true">Manual pressed</RBtn>
       </div>
     `,
   }),
@@ -427,6 +428,11 @@ export const Active: Story = {
     await step("leaves aria-pressed off buttons without active", async () => {
       const plain = canvas.getByRole("button", { name: "Not a toggle" });
       await expect(plain).not.toHaveAttribute("aria-pressed");
+    });
+
+    await step("keeps a caller's own aria-pressed", async () => {
+      const manual = canvas.getByRole("button", { name: "Manual pressed" });
+      await expect(manual).toHaveAttribute("aria-pressed", "true");
     });
   },
 };
