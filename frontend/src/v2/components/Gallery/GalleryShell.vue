@@ -66,6 +66,7 @@ import {
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { coverRatio, isBoxartStyle } from "@/v2/composables/useCoverArt";
+import { useCssLength } from "@/v2/composables/useCssLength";
 import { useDebouncedSearch } from "@/v2/composables/useDebouncedSearch";
 import { useDebugMode } from "@/v2/composables/useDebugMode";
 import { useGalleryCoverRatios } from "@/v2/composables/useGalleryCoverRatios";
@@ -320,11 +321,11 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
-// The section's negative top margin is `--r-nav-h`, safe-area inset included, in px.
-function navHeightPx(): number {
-  const section = sectionEl.value;
-  return section ? -parseFloat(getComputedStyle(section).marginTop) || 0 : 0;
-}
+const navHeight = useCssLength("var(--r-nav-h)");
+// The section spans the screen and its scroller pads in by the side insets.
+const safeAreaX = useCssLength(
+  "calc(env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px))",
+);
 // A jump to "M" means nothing unless the gallery is in letter order.
 const lettersSupported = computed(() => {
   const key = galleryRoms.effectiveOrderBy;
@@ -351,7 +352,8 @@ const { columns, usableWidth } = useResponsiveColumns(sectionEl, {
   inset: () =>
     (xs.value ? 28 : smAndDown.value ? 40 : 72) +
     (stripVisible.value ? STRIP_INSET_PX : 0) +
-    scrollbarWidth.value,
+    scrollbarWidth.value +
+    safeAreaX.value,
 });
 
 // Fallback cover ratio (boxart style); the per-card `--r-cover-ratio` seed
@@ -508,7 +510,7 @@ useIntersectionObserver(
   },
   {
     root: computed(() => scrollerRef.value?.containerEl ?? null),
-    rootMargin: () => `-${navHeightPx()}px 0px 0px 0px`,
+    rootMargin: () => `-${navHeight.value}px 0px 0px 0px`,
   },
 );
 const listHeaderPinned = computed(() =>
@@ -704,7 +706,7 @@ function anchorLetter(letter: string, smooth: boolean) {
 function scrollToItem(idx: number, smooth: boolean) {
   // The section runs under the top bar, so rows land below it in either dock.
   const stickyOffset =
-    navHeightPx() +
+    navHeight.value +
     toolbarHeight.value +
     (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0);
   scrollerRef.value?.scrollToIndex(idx, { smooth, stickyOffset });
@@ -1300,6 +1302,10 @@ defineExpose({
   /* Run up under the fixed top bar (<main> reserves its height with a top
      padding) so the header and cards scroll behind its glass, like Home. */
   margin-top: calc(-1 * var(--r-nav-h));
+  /* Out of the app shell's safe-area padding to the screen edges, so the pinned
+     glass spans them; the scroller pads back in. */
+  margin-inline: calc(-1 * env(safe-area-inset-left, 0px))
+    calc(-1 * env(safe-area-inset-right, 0px));
   position: relative;
 }
 
@@ -1354,8 +1360,12 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
   /* A stable gutter keeps the row packing from shifting when the content
      starts or stops overflowing. */
   scrollbar-gutter: stable;
-  padding: 0 calc(var(--r-row-pad) + var(--r-v2-shell-strip)) 60px
-    var(--r-row-pad);
+  padding: 0
+    calc(
+      var(--r-row-pad) + var(--r-v2-shell-strip) +
+        env(safe-area-inset-right, 0px)
+    )
+    60px calc(var(--r-row-pad) + env(safe-area-inset-left, 0px));
 }
 
 .r-v2-shell__item {
@@ -1436,7 +1446,13 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
 }
 /* Its pinned glass also runs under the strip column, out to the right edge. */
 .r-v2-shell__list-header::before {
-  right: calc(-1 * (var(--r-row-pad) + var(--r-v2-shell-strip)));
+  right: calc(
+    -1 *
+      (
+        var(--r-row-pad) + var(--r-v2-shell-strip) +
+          env(safe-area-inset-right, 0px)
+      )
+  );
 }
 
 /* The strip overlays the scroller's right gutter from the pinned toolbar's
@@ -1444,7 +1460,9 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
 .r-v2-shell .r-v2-shell__strip {
   position: absolute;
   top: calc(var(--r-nav-h) + var(--r-v2-shell-toolbar-h));
-  right: var(--r-v2-shell-scrollbar-w, 0px);
+  right: calc(
+    var(--r-v2-shell-scrollbar-w, 0px) + env(safe-area-inset-right, 0px)
+  );
   bottom: 0;
   z-index: 5;
   justify-content: flex-start;
@@ -1500,14 +1518,17 @@ html[data-bp~="md-and-up"] .r-v2-shell__list-header {
   position: absolute;
   right: calc(
     var(--r-v2-shell-strip) + var(--r-v2-shell-scrollbar-w, 0px) +
-      var(--r-space-2)
+      var(--r-space-2) + env(safe-area-inset-right, 0px)
   );
   bottom: var(--r-space-6);
   z-index: 6;
 }
 /* No strip: line up with the cards' right edge instead. */
 .r-v2-shell--no-strip .r-v2-shell__back-to-top {
-  right: calc(var(--r-row-pad) + var(--r-v2-shell-scrollbar-w, 0px));
+  right: calc(
+    var(--r-row-pad) + var(--r-v2-shell-scrollbar-w, 0px) +
+      env(safe-area-inset-right, 0px)
+  );
 }
 html[data-bp~="sm-and-down"] .r-v2-shell__back-to-top {
   bottom: calc(
@@ -1518,7 +1539,9 @@ html[data-bp~="sm-and-down"] .r-v2-shell__back-to-top {
 /* The section runs under the top bar; keep the floating dock below it. */
 .r-v2-shell .r-v2-shell__floating {
   top: calc(var(--r-nav-h) + 14px);
-  margin-right: var(--r-v2-shell-scrollbar-w, 0px);
+  margin-right: calc(
+    var(--r-v2-shell-scrollbar-w, 0px) + env(safe-area-inset-right, 0px)
+  );
 }
 
 /* Smaller cards on phones. Matches GameCard's own xs `--r-card-art-w` so

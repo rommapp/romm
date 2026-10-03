@@ -1419,7 +1419,8 @@ html[data-bp~="md-and-up"]
 /* ── Running state ───────────────────────────────────────── */
 .r-v2-ejs__stage {
   position: fixed;
-  inset: var(--r-nav-h) 0 0 0;
+  inset: var(--r-nav-h) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   background: var(--r-color-canvas-bg);
   z-index: 1;
 }

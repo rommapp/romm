@@ -318,7 +318,10 @@ const panelStyle = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: max(16px, env(safe-area-inset-top, 0px))
+    max(16px, env(safe-area-inset-right, 0px))
+    max(16px, env(safe-area-inset-bottom, 0px))
+    max(16px, env(safe-area-inset-left, 0px));
 }
 
 .r-dialog__scrim {
@@ -343,8 +346,8 @@ const panelStyle = computed(() => {
     0 4px 20px color-mix(in srgb, black 40%, transparent);
   overflow: hidden;
   color: var(--r-color-fg);
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 32px);
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* ── Mobile bottom sheet (sm-and-down) ──────────────────────────────
@@ -369,7 +372,8 @@ html[data-bp~="sm-and-down"] .r-dialog--fs-mobile .r-dialog__panel {
   max-height: calc(100dvh - var(--r-nav-h)) !important;
   border-radius: var(--r-radius-xl) var(--r-radius-xl) 0 0 !important;
   border-bottom: 0 !important;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom)
+    env(safe-area-inset-left, 0px);
 }
 
 /* Full-height variant: pin the sheet to that same ceiling as a fixed height

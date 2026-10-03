@@ -40,7 +40,10 @@ onMounted(installInputModality);
      never exceeds the container. */
   grid-template-columns: minmax(0, 1fr);
   place-items: center;
-  padding: var(--r-space-6);
+  padding: max(var(--r-space-6), env(safe-area-inset-top, 0px))
+    max(var(--r-space-6), env(safe-area-inset-right, 0px))
+    max(var(--r-space-6), env(safe-area-inset-bottom, 0px))
+    max(var(--r-space-6), env(safe-area-inset-left, 0px));
   overflow: hidden;
 
   /* The auth background and the AuthCard/Setup glass are always dark

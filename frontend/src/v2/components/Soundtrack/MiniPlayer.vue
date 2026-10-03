@@ -165,8 +165,8 @@ function onError() {
 
 .r-v2-mp {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   z-index: var(--r-z-toast, 2200);
   width: 380px;
   max-width: calc(100vw - 32px);

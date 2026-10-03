@@ -105,10 +105,11 @@ html[data-bp~="xs"] .r-v2-idx-shell {
 .r-v2-idx-shell__list-header {
   margin-inline: calc(-1 * var(--r-list-bleed, 0px));
 }
-/* The header already reaches both edges by the margin above, so the pinned
-   glass must not add the gutter a second time: the page has no horizontal
-   clip, and the surplus on the right would scroll the document sideways. */
+/* The margin above already spans the gutter, so the pinned glass adds only the
+   shell's safe-area padding: any more and, with no horizontal clip on the
+   page, the surplus would scroll the document sideways. */
 .r-v2-idx-shell__list-header.r-pinned-list-header::before {
-  inset: 0;
+  inset: 0 calc(-1 * env(safe-area-inset-right, 0px)) 0
+    calc(-1 * env(safe-area-inset-left, 0px));
 }
 </style>

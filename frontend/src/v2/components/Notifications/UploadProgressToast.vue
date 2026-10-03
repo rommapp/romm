@@ -172,8 +172,8 @@ function clearFinished() {
 <style scoped>
 .r-v2-upload {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   z-index: 8900;
   width: min(360px, calc(100vw - 32px));
   background: var(--r-color-toast-bg);
@@ -345,6 +345,6 @@ html[data-bp~="xs"] .r-v2-upload {
   left: 12px;
   right: 12px;
   width: auto;
-  bottom: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 </style>

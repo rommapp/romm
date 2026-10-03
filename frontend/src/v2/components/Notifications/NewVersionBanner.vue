@@ -115,7 +115,7 @@ useEventListener(document, "network-quiesced", fetchLatestVersion, {
 .r-v2-new-version {
   position: fixed;
   left: 50%;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   z-index: 8800;
   display: flex;
@@ -191,7 +191,7 @@ useEventListener(document, "network-quiesced", fetchLatestVersion, {
 html[data-bp~="xs"] .r-v2-new-version {
   left: 12px;
   right: 12px;
-  bottom: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   transform: none;
   flex-direction: column;
   align-items: stretch;
