@@ -450,7 +450,7 @@ export function useGridNav(
       verticalJump = true;
     } else if (e.key === "Home" || e.key === "End") {
       // With one column there is nowhere to go inside a row, so it moves
-      // through the grid instead. A wrapping grid's first row is full.
+      // through the grid instead. A wrapping grid's first row has every column.
       const oneColumn = (wrapping ? rs[0]! : rs[rowIdx]!).cells.length === 1;
       if (e.ctrlKey || e.metaKey || oneColumn) {
         e.preventDefault();
