@@ -17,9 +17,10 @@ import {
 } from "./index";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), back: vi.fn() }));
+const route = vi.hoisted(() => ({ path: "/platforms" }));
 
 vi.mock("vue-router", () => ({
-  useRoute: () => ({ path: "/platforms" }),
+  useRoute: () => route,
   useRouter: () => router,
 }));
 
@@ -163,6 +164,39 @@ describe("useGamepad", () => {
     expect(isPadEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }))).toBe(
       false,
     );
+  });
+
+  describe("bumpers", () => {
+    afterEach(() => {
+      route.path = "/platforms";
+    });
+
+    it("steps to the next section from a gallery under one", () => {
+      route.path = "/platform/12";
+      installOnMouse(padHolding(PAD_BUTTON.rb));
+
+      step();
+
+      expect(router.push).toHaveBeenCalledWith("/collections");
+    });
+
+    it("wraps from the first section back to the last", () => {
+      route.path = "/";
+      installOnMouse(padHolding(PAD_BUTTON.lb));
+
+      step();
+
+      expect(router.push).toHaveBeenCalledWith("/search");
+    });
+
+    it("lands on Home from a page outside the sections", () => {
+      route.path = "/rom/7";
+      installOnMouse(padHolding(PAD_BUTTON.rb));
+
+      step();
+
+      expect(router.push).toHaveBeenCalledWith("/");
+    });
   });
 
   describe("B", () => {
