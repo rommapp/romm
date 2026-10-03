@@ -110,6 +110,13 @@ def force_index_on_mysql[S: Select[*tuple[Any, ...]]](
     return statement
 
 
+def optimizer_hint_on_mysql[S: Select[*tuple[Any, ...]]](statement: S, hint: str) -> S:
+    """Give MySQL and MariaDB's SELECT an optimizer `hint`; PostgreSQL plans freely."""
+    for dialect_name in _MYSQL_FAMILY:
+        statement = statement.prefix_with(f"/*+ {hint} */", dialect=dialect_name)
+    return statement
+
+
 def fulltext_match(*columns: ColumnElement[Any], boolean_query: str) -> sa_mysql.match:
     """A boolean-mode match over one FULLTEXT index's columns, for a `mysql` branch."""
     return sa_mysql.match(*columns, against=boolean_query).in_boolean_mode()
