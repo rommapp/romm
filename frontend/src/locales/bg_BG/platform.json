@@ -132,6 +132,7 @@
   "tab-firmware": "Фърмуер",
   "tag": "Таг",
   "tags": "Тагове",
+  "update-platform-failed": "Неуспешно обновяване на платформата: {error}",
   "updated": "Платформата е обновена",
   "upload-firmware": "Качи фърмуер",
   "upload-roms": "Качи ROM-ове"

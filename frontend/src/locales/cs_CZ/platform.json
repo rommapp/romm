@@ -132,6 +132,7 @@
   "tab-firmware": "Firmware",
   "tag": "Štítek",
   "tags": "Štítky",
+  "update-platform-failed": "Platformu se nepodařilo aktualizovat: {error}",
   "updated": "Platforma aktualizována",
   "upload-firmware": "Nahrát firmware",
   "upload-roms": "Nahrát ROMy"

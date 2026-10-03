@@ -56,7 +56,7 @@ function platform(overrides: Partial<Platform> = {}): Platform {
   } as Platform;
 }
 
-function mountTab(p: Platform) {
+function mountTab(p: Platform, valid = true) {
   return mount(SettingsTab, {
     props: { platform: p },
     global: {
@@ -64,7 +64,7 @@ function mountTab(p: Platform) {
         RForm: {
           template: "<form><slot /></form>",
           methods: {
-            validate: () => Promise.resolve(true),
+            validate: () => Promise.resolve({ valid }),
           },
         },
         RIcon: true,
@@ -113,5 +113,15 @@ describe("SettingsTab platform save", () => {
     const arg = updatePlatform.mock.calls[0]![0];
     expect(arg.platform.custom_name).toBe("FDS (JP only)");
     expect(arg.description).toBeUndefined();
+  });
+
+  it("does not save when the form is invalid", async () => {
+    const wrapper = mountTab(platform(), false);
+
+    await wrapper.findAll("input")[0]!.setValue("");
+    await (wrapper.vm as unknown as { save: () => Promise<void> }).save();
+    await flushPromises();
+
+    expect(updatePlatform).not.toHaveBeenCalled();
   });
 });
