@@ -12,6 +12,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_PLATFORM_DIRS,
     ConfigManager,
     ConvertoConfig,
+    _config_get,
     parse_firmware_template,
     parse_platform_templates,
     parse_structure_template,
@@ -922,3 +923,18 @@ def test_a_platform_named_like_a_layout_key_uses_the_default(tmp_path):
 
     config = loader.get_config()
     assert config.platform_structure("firmware") == (config.default_structure,)
+
+
+@pytest.mark.parametrize(
+    ("raw", "path", "expected"),
+    [
+        ({"scan": {"media": ["box2d"]}}, "scan.media", ["box2d"]),
+        ({"scan": {"media": None}}, "scan.media", None),
+        ({"scan": {}}, "scan.media", "default"),
+        ({"scan": None}, "scan.media", "default"),
+        ({"scan": ["media"]}, "scan.media", "default"),
+        ({}, "scan", "default"),
+    ],
+)
+def test_config_get_walks_dotted_paths(raw, path, expected):
+    assert _config_get(raw, path, "default") == expected
