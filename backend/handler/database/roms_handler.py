@@ -27,7 +27,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy import literal, not_, or_, select, true, union, update
+from sqlalchemy import literal, not_, or_, select, true, type_coerce, union, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     ColumnProperty,
@@ -304,22 +304,40 @@ def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
 # whose rows carry the raw metadata blobs. Column order matches the unpacking
-# in `_collect_filter_values`.
+# in `_collect_filter_values`. JSON columns are read as text so that each
+# distinct list is parsed once, not once per row.
 _FILTER_VALUES_SELECT = select(
-    RomFacets.genres,
-    RomFacets.franchises,
-    RomFacets.collections,
-    RomFacets.companies,
-    RomFacets.publishers,
-    RomFacets.developers,
-    RomFacets.game_modes,
-    RomFacets.age_ratings,
+    type_coerce(RomFacets.genres, Text),
+    type_coerce(RomFacets.franchises, Text),
+    type_coerce(RomFacets.collections, Text),
+    type_coerce(RomFacets.companies, Text),
+    type_coerce(RomFacets.publishers, Text),
+    type_coerce(RomFacets.developers, Text),
+    type_coerce(RomFacets.game_modes, Text),
+    type_coerce(RomFacets.age_ratings, Text),
     RomFacets.player_count,
-    RomFacets.regions,
-    RomFacets.languages,
-    RomFacets.tags,
+    type_coerce(RomFacets.regions, Text),
+    type_coerce(RomFacets.languages, Text),
+    type_coerce(RomFacets.tags, Text),
     RomFacets.platform_id,
 )
+
+
+def _merge_json_lists(column: Sequence[Any]) -> set[Any]:
+    """Union of the JSON lists in one filter column, parsing each distinct text once."""
+    try:
+        distinct = set(column)
+    except TypeError:
+        # Drivers that decode JSON themselves (PostgreSQL) return lists.
+        distinct = None
+    items: set[Any] = set()
+    for value in column if distinct is None else distinct:
+        if isinstance(value, (str, bytes)):
+            value = json.loads(value)
+        if value:
+            items.update(value)
+    return items
+
 
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
 # recomputed on every call to /api/roms
@@ -3823,47 +3841,23 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         statement: Select[*tuple[Any, ...]],
     ) -> RomFiltersDict:
-        genres = set()
-        franchises = set()
-        collections = set()
-        companies = set()
-        publishers = set()
-        developers = set()
-        game_modes = set()
-        age_ratings = set()
-        player_counts = set()
-        regions = set()
-        languages = set()
-        tags = set()
-        platforms = set()
-
-        for row in session.execute(statement):
-            g, f, cl, co, pub, dev, gm, ar, pc, rg, lg, tg, pid = row
-            if g:
-                genres.update(g)
-            if f:
-                franchises.update(f)
-            if cl:
-                collections.update(cl)
-            if co:
-                companies.update(co)
-            if pub:
-                publishers.update(pub)
-            if dev:
-                developers.update(dev)
-            if gm:
-                game_modes.update(gm)
-            if ar:
-                age_ratings.update(ar)
-            if pc:
-                player_counts.add(pc)
-            if rg:
-                regions.update(rg)
-            if lg:
-                languages.update(lg)
-            if tg:
-                tags.update(tg)
-            platforms.add(pid)
+        rows = session.execute(statement).all()
+        columns = list(zip(*rows, strict=True)) or [()] * 13
+        (
+            genres,
+            franchises,
+            collections,
+            companies,
+            publishers,
+            developers,
+            game_modes,
+            age_ratings,
+            regions,
+            languages,
+            tags,
+        ) = (_merge_json_lists(columns[i]) for i in (0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11))
+        player_counts = {pc for pc in columns[8] if pc}
+        platforms = set(columns[12])
 
         return RomFiltersDict(
             genres=sorted(genres),
