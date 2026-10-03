@@ -79,16 +79,15 @@ def test_a_manual_rating_replaces_the_providers():
     assert compute_min_age(metadata) == 10
 
 
-def test_a_manual_list_that_sets_no_age_falls_back_to_the_providers():
+def test_a_manual_list_replaces_the_providers_even_when_it_sets_no_age():
     igdb = {"age_ratings": [{"category": "ESRB", "rating": "M"}]}
 
-    assert (
-        compute_min_age(
-            {"manual_metadata": {"age_ratings": ["PEGI 18"]}, "igdb_metadata": igdb}
-        )
-        == 17
-    )
+    for manual in ([], ["PEGI 18"], ["ESRB:RP"]):
+        metadata = {"manual_metadata": {"age_ratings": manual}, "igdb_metadata": igdb}
+        assert compute_min_age(metadata) is None
     assert compute_min_age({"manual_metadata": {"age_ratings": "ESRB:T"}}) == 13
+    # Without the key, the providers decide.
+    assert compute_min_age({"manual_metadata": {}, "igdb_metadata": igdb}) == 17
 
 
 def test_steam_counts_only_a_real_age_gate():
@@ -99,6 +98,7 @@ def test_steam_counts_only_a_real_age_gate():
 def test_unrated_and_malformed_metadata_set_no_age():
     assert compute_min_age({}) is None
     assert compute_min_age({"igdb_metadata": None, "ss_metadata": "oops"}) is None
+    assert compute_min_age({"igdb_metadata": {"age_ratings": 7}}) is None
     assert (
         compute_min_age({"manual_metadata": {"age_ratings": ["no colon", 7]}}) is None
     )

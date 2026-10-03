@@ -59,15 +59,14 @@ def rating_min_age(board: str, rating: str) -> int | None:
 
 def compute_min_age(metadata: Mapping[str, Any]) -> int | None:
     """Precompute `Rom.min_age`, the strictest age any known rating sets, where a
-    manual rating list that sets an age replaces the providers' ratings.
+    manual rating list replaces the providers' ratings as it does on display.
 
     Args:
         metadata: Each `MIN_AGE_SOURCE_COLUMNS` column's value, by column name.
     """
-    # A manual list with no readable rating falls back, so it can't unrate the ROM.
-    manual_age = max(_manual_ages(metadata), default=None)
-    if manual_age is not None:
-        return manual_age
+    manual = _blob(metadata, "manual_metadata").get("age_ratings")
+    if manual is not None:
+        return max(_manual_ages(manual), default=None)
     return max(_provider_ages(metadata), default=None)
 
 
@@ -82,8 +81,7 @@ def _known_ages(ratings: Iterable[tuple[str, str]]) -> Iterator[int]:
             yield age
 
 
-def _manual_ages(metadata: Mapping[str, Any]) -> Iterator[int]:
-    entries = _blob(metadata, "manual_metadata").get("age_ratings")
+def _manual_ages(entries: Any) -> Iterator[int]:
     if isinstance(entries, str):
         entries = [entries]
     if not isinstance(entries, list):
@@ -97,9 +95,12 @@ def _manual_ages(metadata: Mapping[str, Any]) -> Iterator[int]:
 
 def _provider_ages(metadata: Mapping[str, Any]) -> Iterator[int]:
     for column in ("igdb_metadata", "ss_metadata"):
+        entries = _blob(metadata, column).get("age_ratings")
+        if not isinstance(entries, list):
+            continue
         yield from _known_ages(
             (str(entry.get("category") or ""), str(entry.get("rating") or ""))
-            for entry in _blob(metadata, column).get("age_ratings") or ()
+            for entry in entries
             if isinstance(entry, Mapping)
         )
     esrb = _blob(metadata, "launchbox_metadata").get("esrb")
