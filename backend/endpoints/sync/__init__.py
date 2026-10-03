@@ -109,6 +109,15 @@ class SyncNegotiatePayload(BaseModel):
             f"saves. At most {MAX_ROM_IDS_PER_QUERY} IDs per request."
         ),
     )
+    restore_unlisted: bool = Field(
+        default=False,
+        description=(
+            "Offer every current server save the client did not list as a "
+            "download, even one this device already synced. For clients that "
+            "never delete saves themselves (such as a browser, whose storage "
+            "can be evicted), so a missing save means lost rather than deleted."
+        ),
+    )
 
 
 # Its own class so the OpenAPI schema keeps the name clients generate from.
@@ -340,7 +349,7 @@ def negotiate_sync(
         if device_sync:
             synced_ts = to_utc(device_sync.last_synced_at)
             save_ts = to_utc(save.updated_at)
-            if save_ts <= synced_ts:
+            if save_ts <= synced_ts and not payload.restore_unlisted:
                 # Save hasn't changed since device last synced - client deleted it
                 continue
 
