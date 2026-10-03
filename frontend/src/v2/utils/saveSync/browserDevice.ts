@@ -40,6 +40,11 @@ export function browserDeviceName(): string {
   return os ? `${browser} on ${os}` : browser;
 }
 
+/** The device this browser registered as for `userId`, if it has. */
+export function cachedBrowserDeviceId(userId: number): string | null {
+  return readStorage(`${DEVICE_KEY_PREFIX}${userId}`);
+}
+
 /**
  * The sync device this browser is for `userId`, registered on first use.
  *
@@ -50,8 +55,7 @@ export async function browserDeviceId(
   userId: number,
   { refresh = false }: { refresh?: boolean } = {},
 ): Promise<string | null> {
-  const key = `${DEVICE_KEY_PREFIX}${userId}`;
-  const cached = readStorage(key);
+  const cached = cachedBrowserDeviceId(userId);
   if (cached && !refresh) return cached;
 
   try {
@@ -63,7 +67,7 @@ export async function browserDeviceId(
       sync_mode: "api",
       allow_existing: true,
     });
-    writeStorage(key, data.device_id);
+    writeStorage(`${DEVICE_KEY_PREFIX}${userId}`, data.device_id);
     return data.device_id;
   } catch (error) {
     if (isAxiosError(error) && error.response?.status === 403) return null;
