@@ -320,6 +320,11 @@ const { groupBy, layout, toolbarPosition } = useGalleryMode();
 //            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
 const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
+// The section's negative top margin is `--r-nav-h`, safe-area inset included, in px.
+function navHeightPx(): number {
+  const section = sectionEl.value;
+  return section ? -parseFloat(getComputedStyle(section).marginTop) || 0 : 0;
+}
 // A jump to "M" means nothing unless the gallery is in letter order.
 const lettersSupported = computed(() => {
   const key = galleryRoms.effectiveOrderBy;
@@ -503,7 +508,7 @@ useIntersectionObserver(
   },
   {
     root: computed(() => scrollerRef.value?.containerEl ?? null),
-    rootMargin: `-${layoutTokens.navHeight} 0px 0px 0px`,
+    rootMargin: () => `-${navHeightPx()}px 0px 0px 0px`,
   },
 );
 const listHeaderPinned = computed(() =>
@@ -698,12 +703,8 @@ function anchorLetter(letter: string, smooth: boolean) {
 
 function scrollToItem(idx: number, smooth: boolean) {
   // The section runs under the top bar, so rows land below it in either dock.
-  const section = sectionEl.value;
-  const navHeight = section
-    ? parseFloat(getComputedStyle(section).getPropertyValue("--r-nav-h")) || 0
-    : 0;
   const stickyOffset =
-    navHeight +
+    navHeightPx() +
     toolbarHeight.value +
     (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0);
   scrollerRef.value?.scrollToIndex(idx, { smooth, stickyOffset });

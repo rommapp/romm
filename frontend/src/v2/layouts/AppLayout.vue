@@ -38,6 +38,7 @@ import { installOverlayRouteDismiss } from "@/v2/composables/useOverlayRouteDism
 import { installPendingAssetSync } from "@/v2/composables/usePendingAssetSync";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
+import { installSafeAreaViewport } from "@/v2/composables/useSafeAreaViewport";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
 import { useSpatialNav } from "@/v2/composables/useSpatialNav";
 import { installStageActiveClass } from "@/v2/composables/useStageActive";
@@ -66,6 +67,7 @@ installNotificationInbox();
 // hardcoding `@media (max-width: …)` values across every SFC.
 installBreakpointAttribute();
 installStageActiveClass();
+installSafeAreaViewport();
 
 // Reduced-motion mode: mirror the flag onto <html> so global CSS can drop
 // its heaviest work via `html.r-v2-reduced-motion .foo { … }` (background-art
