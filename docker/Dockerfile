@@ -190,7 +190,7 @@ RUN case "${TARGETARCH}" in \
     chmod 0755 /rom-converto
 
 
-# FETCH EMULATORJS, RUFFLE, JS-DOS AND FAKE-08
+# FETCH EMULATORJS, RUFFLE, JS-DOS, FAKE-08 AND EASYRPG
 # Keep the pins below in sync with the dev image's copies in ../Dockerfile.
 # checkov:skip=CKV_DOCKER_4:every ADD below is a remote URL pinned by --checksum
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
@@ -241,6 +241,28 @@ ADD --checksum=sha256:${FAKE08_JS_SHA256} --chmod=644 \
 ADD --checksum=sha256:${FAKE08_WASM_SHA256} --chmod=644 \
     "https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8/fake08.wasm" \
     /fake08/fake08.wasm
+
+ARG EASYRPG_VERSION=0.8.1.1
+ARG EASYRPG_SHA256=99b6963c943bb355e1b1221125cb4536ca2f627c329d8a89cee5a928cdd6a14f
+
+ADD --checksum=sha256:${EASYRPG_SHA256} \
+    "https://easyrpg.org/downloads/player/${EASYRPG_VERSION}/easyrpg-player-${EASYRPG_VERSION}-js.tar.gz" \
+    /downloads/easyrpg.tar.gz
+# games/ is where the player looks for games, which the server routes to the backend.
+RUN mkdir /easyrpg && \
+    tar -xzf /downloads/easyrpg.tar.gz -C /easyrpg --strip-components=1 && \
+    rm -rf /easyrpg/games
+
+# The free RTP (CC-BY-4.0) has no releases, so it is pinned by commit.
+ARG EASYRPG_RTP_COMMIT=993d88cbc78c658d348bbfa74a3b424d393d27e5
+ARG EASYRPG_RTP_SHA256=7e42abebbec94989f4ff214fc082511eef749114e76e3a342cb62d07c03d56e7
+
+ADD --checksum=sha256:${EASYRPG_RTP_SHA256} \
+    "https://github.com/EasyRPG/RTP/archive/${EASYRPG_RTP_COMMIT}.tar.gz" \
+    /downloads/easyrpg-rtp.tar.gz
+RUN mkdir /easyrpg/rtp && \
+    tar -xzf /downloads/easyrpg-rtp.tar.gz -C /easyrpg/rtp --strip-components=1 && \
+    find /easyrpg/rtp \( -name '.git*' -o -name Makefile \) -exec rm -f {} +
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
@@ -379,6 +401,7 @@ COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
 COPY --from=emulator-stage /jsdos/dist ${WEBSERVER_FOLDER}/assets/jsdos
 COPY --from=emulator-stage /fake08 ${WEBSERVER_FOLDER}/assets/pico8
+COPY --from=emulator-stage /easyrpg ${WEBSERVER_FOLDER}/assets/easyrpg
 
 
 FROM slim-image AS dev-slim

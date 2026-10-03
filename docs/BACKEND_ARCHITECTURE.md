@@ -928,10 +928,11 @@ With rom-converto enabled (`ROM_CONVERTO_ENABLED`, `converto.download_conversion
 
 #### ROM Files
 
-| Method | Path                         | Scope     | Description                             |
-| ------ | ---------------------------- | --------- | --------------------------------------- |
-| GET    | `/{id}/files`                | ROMS_READ | Get ROM file metadata                   |
-| GET    | `/{id}/files/content/{name}` | ROMS_READ | Download file (nginx X-Accel or direct) |
+| Method | Path                         | Scope     | Description                                                            |
+| ------ | ---------------------------- | --------- | ---------------------------------------------------------------------- |
+| GET    | `/{id}/files`                | ROMS_READ | Get ROM file metadata                                                  |
+| GET    | `/{id}/files/content/{name}` | ROMS_READ | Download file (nginx X-Accel or direct)                                |
+| GET    | `/{id}/easyrpg/{path}`       | ROMS_READ | RPG Maker game files and generated `index.json` for the EasyRPG player |
 
 #### ROM Installs
 
@@ -1941,6 +1942,7 @@ Falls back to `FakeRedis` in test mode.
 | `DISABLE_RUFFLE_RS`      | `false` | Hide Ruffle Flash player |
 | `DISABLE_JSDOS`          | `false` | Hide js-dos player       |
 | `DISABLE_PICO8`          | `false` | Hide PICO-8 player       |
+| `DISABLE_EASYRPG`        | `false` | Hide EasyRPG player      |
 
 #### Task Scheduling
 

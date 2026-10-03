@@ -27,6 +27,7 @@ import { useNativeStore } from "@/stores/native";
 import { useStreamingStore } from "@/stores/streaming";
 import {
   getSupportedEJSCores,
+  isEasyRpgEmulationSupported,
   isEJSEmulationSupported,
   isJsDosEmulationSupported,
   isPico8EmulationSupported,
@@ -35,7 +36,7 @@ import {
 } from "@/utils";
 
 export type PlatformEmulator =
-  "emulatorjs" | "ruffle" | "jsdos" | "pico8" | "dosbox" | null;
+  "emulatorjs" | "ruffle" | "jsdos" | "pico8" | "easyrpg" | "dosbox" | null;
 
 export type PlatformPlayMode = "browser" | "stream" | "both" | null;
 
@@ -58,6 +59,7 @@ function resolveEmulator(
   if (isRuffleEmulationSupported(slug, heartbeat, config)) return "ruffle";
   if (isJsDosEmulationSupported(slug, heartbeat, config)) return "jsdos";
   if (isPico8EmulationSupported(slug, heartbeat, config)) return "pico8";
+  if (isEasyRpgEmulationSupported(slug, heartbeat, config)) return "easyrpg";
   if (!isEJSEmulationSupported(slug, heartbeat, config)) return null;
   const cores = getSupportedEJSCores(resolvePlatformSlug(slug, config));
   if (cores.includes("dosbox_pure")) return "dosbox";
@@ -170,6 +172,8 @@ export function playTooltip(
           return t("platform.playable-browser-jsdos");
         case "pico8":
           return t("platform.playable-browser-pico8");
+        case "easyrpg":
+          return t("platform.playable-browser-easyrpg");
         case "dosbox":
           return t("platform.playable-browser-dosbox");
         default:
