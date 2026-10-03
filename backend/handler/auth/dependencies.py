@@ -24,6 +24,7 @@ from exceptions.endpoint_exceptions import (
     RomNotFoundInDatabaseException,
 )
 from handler.auth.permissions import ResolvedPermissions, resolve_permissions
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from models.permission import PermAction, PermEntity
 
 if TYPE_CHECKING:
@@ -40,6 +41,14 @@ def get_permissions(request: Request) -> ResolvedPermissions:
     perms = resolve_permissions(request.user)
     request.state.permissions = perms
     return perms
+
+
+def get_rom_visibility_filter(request: Request) -> RomVisibilityFilter:
+    """The caller's ROM visibility; unrestricted when unauthenticated, as there is
+    no caller to scope it to."""
+    if not request.user.is_authenticated:
+        return UNRESTRICTED
+    return get_permissions(request).rom_visibility
 
 
 def can_access(
@@ -102,9 +111,7 @@ def assert_rom_visible(
     ``not_found_detail`` for endpoints with a bespoke 404 (metadata-id / hash
     lookups) so the masked response is indistinguishable from their not-found.
     """
-    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
-        rom.id, rom.platform_id
-    ):
+    if not get_rom_visibility_filter(request).allows(rom):
         if not_found_detail is not None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail

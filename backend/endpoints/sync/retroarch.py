@@ -121,8 +121,7 @@ def _can_read_roms(request: Request) -> bool:
 
 
 def _rom_visibility(request: Request) -> Callable[[Rom], bool]:
-    permissions = get_permissions(request)
-    return lambda rom: permissions.can_see_rom(rom.id, rom.platform_id)
+    return get_permissions(request).can_see_rom
 
 
 def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | None:

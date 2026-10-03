@@ -169,8 +169,7 @@ def get_playlist_tracks(
     playlist = _get_visible_playlist(request, id)
     perms = get_permissions(request)
     rows, total = db_rom_handler.get_music_tracks(
-        hidden_platform_ids=perms.hidden_platform_ids,
-        hidden_rom_ids=perms.hidden_rom_ids,
+        visibility=perms.rom_visibility,
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
         limit=params.limit,

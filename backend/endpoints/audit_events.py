@@ -76,10 +76,7 @@ def get_audit_events(
             until=until,
             max_id=max_id,
             search=search,
-            hidden_rom_ids=frozenset() if perms.is_admin else perms.hidden_rom_ids,
-            hidden_platform_ids=(
-                frozenset() if perms.is_admin else perms.hidden_platform_ids
-            ),
+            visibility=perms.rom_visibility,
         ),
         limit=params.limit,
         offset=params.offset,

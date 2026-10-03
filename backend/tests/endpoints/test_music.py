@@ -7,6 +7,7 @@ from tests.factories import make_rom
 
 from config import FRONTEND_RESOURCES_PATH
 from endpoints.responses.music import MusicTrackSchema
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
@@ -349,7 +350,9 @@ def test_facet_page_applies_limit_and_offset(
 
 def test_tracks_excludes_hidden_platform(music_library):
     pb = music_library["platform_b"].id
-    rows, total = db_rom_handler.get_music_tracks(hidden_platform_ids=[pb])
+    rows, total = db_rom_handler.get_music_tracks(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pb}))
+    )
     assert total == 2
     assert all(r.platform_id != pb for r in rows)
 
@@ -357,7 +360,8 @@ def test_tracks_excludes_hidden_platform(music_library):
 def test_facet_excludes_hidden_platform(music_library):
     pb = music_library["platform_b"].id
     rows, total = db_rom_handler.get_music_facet(
-        field="artists", hidden_platform_ids=[pb]
+        field="artists",
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pb})),
     )
     assert total == 2
     assert "Kondo" not in {r.value for r in rows}
@@ -616,14 +620,18 @@ def test_games_facet_search_matches_game_and_track_fields(
 
 def test_games_facet_excludes_hidden_platform(music_library):
     pa = music_library["platform_a"].id
-    rows, total = db_rom_handler.get_music_game_facet(hidden_platform_ids=[pa])
+    rows, total = db_rom_handler.get_music_game_facet(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pa}))
+    )
     assert total == 1
     assert [r.name for r in rows] == ["Mario"]
 
 
 def test_platform_facet_excludes_hidden_platform(music_library):
     pa = music_library["platform_a"].id
-    rows, total = db_rom_handler.get_music_platform_facet(hidden_platform_ids=[pa])
+    rows, total = db_rom_handler.get_music_platform_facet(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pa}))
+    )
     assert total == 1
     assert [r.slug for r in rows] == ["nes"]
 
@@ -638,6 +646,8 @@ def test_stats_reports_totals(client: TestClient, access_token: str, music_libra
 
 def test_stats_excludes_hidden_platform(music_library):
     pa = music_library["platform_a"].id
-    total, duration = db_rom_handler.get_music_stats(hidden_platform_ids=[pa])
+    total, duration = db_rom_handler.get_music_stats(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pa}))
+    )
     assert total == 1
     assert duration == pytest.approx(90.0)

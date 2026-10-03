@@ -12,6 +12,7 @@ import pytest
 from tests.factories import make_rom
 from tests.sql_dialects import MARIADB_DIALECT, compile_sql
 
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams
 from models.platform import Platform
@@ -278,7 +279,7 @@ class TestGroupedRomUserSortResults:
             order_by="last_played",
             order_dir="desc",
             user_id=admin_user.id,
-            hidden_rom_ids=[admin_hidden.id],
+            visibility=RomVisibilityFilter(hidden_rom_ids=frozenset({admin_hidden.id})),
         )
         by_id = {
             rom.id: rom.fs_name_no_ext

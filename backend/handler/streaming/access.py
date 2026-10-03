@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import HTTPException, Request
 
-from handler.auth.dependencies import get_permissions
+from handler.auth.dependencies import get_permissions, get_rom_visibility_filter
 from handler.database import db_platform_handler, db_rom_handler
 from handler.streaming.config import (
     ResolvedContainer,
@@ -49,11 +49,7 @@ def rom_is_visible(request: Request, rom: Rom | None) -> bool:
     Sessions outlive nothing but the cache, so a rom_id that no longer
     resolves is treated as visible: there is no hidden ROM left to protect.
     """
-    if rom is None:
-        return True
-    if not request.user.is_authenticated:
-        return True
-    return get_permissions(request).can_see_rom(rom.id, rom.platform_id)
+    return rom is None or get_rom_visibility_filter(request).allows(rom)
 
 
 def session_rom(session: dict[str, Any]) -> Rom | None:

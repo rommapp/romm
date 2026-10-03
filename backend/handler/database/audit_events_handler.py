@@ -1,5 +1,5 @@
 from collections.abc import Collection, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import ColumnElement, Select, String, cast, delete, func, or_, select
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.interfaces import LoaderOption
 
 from decorators.database import INJECTED_SESSION, begin_session
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from models.audit_event import AuditCategory, AuditEvent, actions_in
 from models.device import Device
 from models.rom import Rom
@@ -35,8 +36,7 @@ class AuditEventFilters:
     # Pins a paged read to the rows that existed when its first page was fetched.
     max_id: int | None = None
     search: str | None = None
-    hidden_rom_ids: Collection[int] = field(default_factory=frozenset)
-    hidden_platform_ids: Collection[int] = field(default_factory=frozenset)
+    visibility: RomVisibilityFilter = UNRESTRICTED
 
 
 def _not_targeting(
@@ -105,18 +105,15 @@ class DBAuditEventsHandler(DBBaseHandler):
                     )
                 )
             )
-        if filters.hidden_rom_ids:
-            clauses.append(_not_targeting("rom", filters.hidden_rom_ids))
-        if filters.hidden_platform_ids:
-            clauses.append(_not_targeting("platform", filters.hidden_platform_ids))
-            # A platform's hide covers its roms too.
+        visibility = filters.visibility
+        if visibility.hidden_platform_ids:
+            clauses.append(_not_targeting("platform", visibility.hidden_platform_ids))
+        # A hide row outlives its ROM, so the ids also cover deleted ROMs.
+        if visibility.hidden_rom_ids:
+            clauses.append(_not_targeting("rom", visibility.hidden_rom_ids))
+        if (row_hidden := visibility.row_hidden_clause()) is not None:
             clauses.append(
-                _not_targeting(
-                    "rom",
-                    select(cast(Rom.id, String)).where(
-                        Rom.platform_id.in_(filters.hidden_platform_ids)
-                    ),
-                )
+                _not_targeting("rom", select(cast(Rom.id, String)).where(row_hidden))
             )
 
         total, highest_id = session.execute(

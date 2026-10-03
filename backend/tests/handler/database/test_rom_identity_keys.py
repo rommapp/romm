@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy import String, select
 from tests.factories import make_rom
 
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from models.platform import Platform
@@ -217,7 +218,9 @@ class TestRomIdentityKeys:
                 [rom.id],
                 user_id=admin_user.id,
                 session=session,
-                hidden_rom_ids=[hidden_rom.id],
+                visibility=RomVisibilityFilter(
+                    hidden_rom_ids=frozenset({hidden_rom.id})
+                ),
             )
             assert buckets[rom.id] == []
 
@@ -226,7 +229,9 @@ class TestRomIdentityKeys:
                 [rom.id],
                 user_id=admin_user.id,
                 session=session,
-                hidden_platform_ids=[platform.id],
+                visibility=RomVisibilityFilter(
+                    hidden_platform_ids=frozenset({platform.id})
+                ),
             )
             assert buckets[rom.id] == []
 
