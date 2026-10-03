@@ -154,16 +154,19 @@ class TestRomFacets:
         gc.collect()
         gc.disable()
         gc.set_debug(gc.DEBUG_SAVEALL)
+        garbage_start = len(gc.garbage)
         try:
             db_rom_handler.get_rom_filters()
             gc.collect()
             # The execution context owns the DBAPI cursor, so check it as well.
             leaked = [
-                o for o in gc.garbage if isinstance(o, (CursorResult, ExecutionContext))
+                o
+                for o in gc.garbage[garbage_start:]
+                if isinstance(o, (CursorResult, ExecutionContext))
             ]
         finally:
             gc.set_debug(debug_flags)
-            gc.garbage.clear()
+            del gc.garbage[garbage_start:]
             if was_enabled:
                 gc.enable()
 
