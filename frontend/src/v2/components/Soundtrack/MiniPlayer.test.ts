@@ -1,4 +1,4 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
@@ -66,5 +66,22 @@ describe("MiniPlayer buffering", () => {
     vi.advanceTimersByTime(1000);
 
     expect(store.isBuffering).toBe(false);
+  });
+});
+
+describe("MiniPlayer track changes", () => {
+  it("stops reporting playback when the next track's start is refused", async () => {
+    const { audio, store } = await mountPlayer();
+    vi.spyOn(audio, "play").mockRejectedValue(new Error("NotAllowedError"));
+    vi.spyOn(audio, "load").mockImplementation(() => {});
+    store.setPlaying(true);
+
+    store.play(
+      { romId: 1, fileId: 2, fileName: "02 Theme.mp3", url: "/theme.mp3" },
+      {},
+    );
+    await flushPromises();
+
+    expect(store.isPlaying).toBe(false);
   });
 });

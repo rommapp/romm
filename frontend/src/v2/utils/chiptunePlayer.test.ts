@@ -8,6 +8,7 @@ vi.mock("./gmeAudioWorklet.js?worker&url", () => ({ default: "/worklet.js" }));
 const renderer = vi.hoisted(() => ({
   commands: [] as { type: string }[],
   rendered: 0,
+  throws: false,
   send: null as ((reply: object) => void) | null,
 }));
 vi.mock("./gmeRenderer", () => ({
@@ -19,6 +20,7 @@ vi.mock("./gmeRenderer", () => ({
       renderer.commands.push(command);
     }
     render() {
+      if (renderer.throws) throw new Error("libgme trap");
       renderer.rendered += 1;
     }
   },
@@ -98,6 +100,7 @@ beforeEach(() => {
   nodes = [];
   renderer.commands = [];
   renderer.rendered = 0;
+  renderer.throws = false;
   renderer.send = null;
   gain.gain.value = -1;
   bodies = new Map([
@@ -420,6 +423,23 @@ describe("ChiptunePlayer", () => {
     expect(renderer.rendered).toBe(1);
   });
 
+  it("reports an error and drops a main-thread renderer that throws", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const processor = stubContext({ worklet: false });
+    const player = new ChiptunePlayer();
+    const events = recordEvents(player);
+    await player.load("/track.spc");
+    await flush();
+
+    renderer.throws = true;
+    const channel = { getChannelData: () => new Float32Array(4) };
+    processor.onaudioprocess?.({ outputBuffer: channel });
+
+    expect(events).toContain("error");
+    expect(processor.onaudioprocess).toBeNull();
+    expect(processor.disconnect).toHaveBeenCalled();
+  });
+
   it("falls back to the main thread when the worklet won't start", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     addModule.mockRejectedValueOnce(new Error("DataCloneError"));
@@ -438,6 +458,7 @@ function stubContext({ worklet = true } = {}) {
   const processor = {
     onaudioprocess: null as ((event: object) => void) | null,
     connect: vi.fn(() => gain),
+    disconnect: vi.fn(),
   };
   vi.stubGlobal(
     "AudioContext",

@@ -121,8 +121,9 @@ watch(track, async (t) => {
   try {
     await sink.play();
   } catch {
-    // Autoplay may be blocked; the user can hit play in the UI. Real load
-    // failures come through `error` events, so no snackbar here.
+    // Autoplay may be blocked; the user can hit play in the UI. A refused
+    // `<audio>` start fires no pause event, and the last sink's is dropped.
+    if (track.value === t && sink.paused) store.setPlaying(false);
   }
 });
 

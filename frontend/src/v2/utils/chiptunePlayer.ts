@@ -33,11 +33,11 @@ function compileGme(): Promise<WebAssembly.Module> {
 // exhausting the tab.
 export const MAX_TRACK_BYTES = 64 * 1024 * 1024;
 
-async function gunzip(data: ArrayBuffer): Promise<ArrayBuffer> {
-  const reader = new Blob([data])
-    .stream()
-    .pipeThrough(new DecompressionStream("gzip"))
-    .getReader();
+/** Read a stream into one buffer, refusing it past `MAX_TRACK_BYTES`. */
+async function readCapped(
+  stream: ReadableStream<Uint8Array>,
+): Promise<ArrayBuffer> {
+  const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
   for (;;) {
@@ -65,17 +65,15 @@ async function fetchTrackData(
   signal: AbortSignal,
 ): Promise<ArrayBuffer> {
   const response = await fetch(url, { signal });
-  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-  if (Number(response.headers.get("content-length")) > MAX_TRACK_BYTES) {
-    throw new Error(`${url}: track is too large`);
+  if (!response.ok || !response.body) {
+    throw new Error(`${url}: HTTP ${response.status}`);
   }
-  const data = await response.arrayBuffer();
-  if (data.byteLength > MAX_TRACK_BYTES) {
-    throw new Error(`${url}: track is too large`);
-  }
+  const data = await readCapped(response.body);
   const head = new Uint8Array(data, 0, Math.min(2, data.byteLength));
   if (head[0] !== 0x1f || head[1] !== 0x8b) return data;
-  return gunzip(data);
+  return readCapped(
+    new Blob([data]).stream().pipeThrough(new DecompressionStream("gzip")),
+  );
 }
 
 /** Plays console sound files through game-music-emu, with the `<audio>`
@@ -325,7 +323,7 @@ export class ChiptunePlayer extends EventTarget implements SoundtrackSink {
 
 /**
  * Args:
- *   onCrash: called when the worklet's processor throws, e.g. on a libgme trap.
+ *   onCrash: called when the renderer throws, in the worklet or on the main thread.
  */
 async function hostRenderer(
   context: AudioContext,
@@ -334,7 +332,7 @@ async function hostRenderer(
 ): Promise<RendererHost> {
   // AudioWorklet only exists in secure contexts, and self-hosted instances are
   // often served over plain HTTP on a LAN address.
-  if (!context.audioWorklet) return hostOnMainThread(context, module);
+  if (!context.audioWorklet) return hostOnMainThread(context, module, onCrash);
   try {
     return await hostInWorklet(context, module, onCrash);
   } catch (error) {
@@ -343,7 +341,7 @@ async function hostRenderer(
       "[chiptune] AudioWorklet failed, rendering on the main thread",
       error,
     );
-    return hostOnMainThread(context, module);
+    return hostOnMainThread(context, module, onCrash);
   }
 }
 
@@ -366,18 +364,32 @@ async function hostInWorklet(
 function hostOnMainThread(
   context: AudioContext,
   module: WebAssembly.Module,
+  onCrash: (output: AudioNode) => void,
 ): RendererHost {
   const channel = new MessageChannel();
   const renderer = new GmeRenderer(module, context.sampleRate, (reply) =>
     channel.port2.postMessage(reply),
   );
-  channel.port2.onmessage = (event: MessageEvent<GmeCommand>) =>
-    renderer.handle(event.data);
   const node = context.createScriptProcessor(SCRIPT_PROCESSOR_FRAMES, 0, 2);
+  // Like a worklet whose processor throws, a renderer that threw is dropped.
+  const guard = (run: () => void) => {
+    try {
+      run();
+    } catch (error) {
+      console.error("[chiptune] renderer failed", error);
+      node.onaudioprocess = null;
+      channel.port2.close();
+      onCrash(node);
+    }
+  };
+  channel.port2.onmessage = (event: MessageEvent<GmeCommand>) =>
+    guard(() => renderer.handle(event.data));
   node.onaudioprocess = (event) =>
-    renderer.render(
-      event.outputBuffer.getChannelData(0),
-      event.outputBuffer.getChannelData(1),
+    guard(() =>
+      renderer.render(
+        event.outputBuffer.getChannelData(0),
+        event.outputBuffer.getChannelData(1),
+      ),
     );
   return { port: channel.port1, output: node };
 }
