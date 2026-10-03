@@ -1,29 +1,13 @@
 import vue from "@vitejs/plugin-vue";
-import { URL, fileURLToPath } from "node:url";
 import vuetify from "vite-plugin-vuetify";
 import { defineConfig } from "vitest/config";
+import { appAliases } from "./scripts/aliases";
 import { platformIconManifest } from "./scripts/platformIconManifest";
 
 export default defineConfig({
   plugins: [vue(), vuetify({ autoImport: true }), platformIconManifest()],
   resolve: {
-    alias: [
-      {
-        find: "@",
-        replacement: fileURLToPath(new URL("./src", import.meta.url)),
-      },
-      {
-        find: "@v2",
-        replacement: fileURLToPath(new URL("./src/v2", import.meta.url)),
-      },
-      // Every md-editor import, v1 included, gets the XSS config on first load.
-      {
-        find: /^md-editor-v3$/,
-        replacement: fileURLToPath(
-          new URL("./src/plugins/mdeditor.ts", import.meta.url),
-        ),
-      },
-    ],
+    alias: appAliases,
   },
   test: {
     server: {

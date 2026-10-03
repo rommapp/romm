@@ -36,10 +36,10 @@ import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 // md-editor loads with the first note, not with the game page.
 const MdEditor = defineAsyncComponent(
-  () => import("@/v2/components/shared/MarkdownEditor.vue"),
+  () => import("@/v2/components/shared/markdownEditor"),
 );
 const MdPreview = defineAsyncComponent(
-  () => import("@/v2/components/shared/MarkdownPreview.vue"),
+  () => import("@/v2/components/shared/markdownPreview"),
 );
 
 defineOptions({ inheritAttrs: false });
@@ -448,6 +448,7 @@ function fmtDate(iso: string): string {
             no-highlight
             no-katex
             no-mermaid
+            no-echarts
             no-prettier
             no-upload-img
             :theme="mdTheme"
@@ -505,6 +506,7 @@ function fmtDate(iso: string): string {
             no-highlight
             no-katex
             no-mermaid
+            no-echarts
             :model-value="selectedNote.content"
             :theme="mdTheme"
             language="en-US"

@@ -23,8 +23,7 @@ defineOptions({ inheritAttrs: false });
 
 // The dialog is mounted on every v2 page, so the markdown renderer loads on
 // first open instead of with the app shell.
-const loadMdPreview = () =>
-  import("@/v2/components/shared/MarkdownPreview.vue");
+const loadMdPreview = () => import("@/v2/components/shared/markdownPreview");
 const MdPreview = defineAsyncComponent(loadMdPreview);
 
 type Release = {
@@ -178,6 +177,7 @@ function closeDialog() {
             no-highlight
             no-katex
             no-mermaid
+            no-echarts
             :model-value="r.body"
             :theme="mdTheme"
             language="en-US"

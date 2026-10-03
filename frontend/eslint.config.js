@@ -118,6 +118,27 @@ export default tseslint.config(
       ],
     },
   },
+  // The md-editor config (raw HTML, XSS filter) runs from the module the bare
+  // `md-editor-v3` alias points at; a deep import would skip it.
+  {
+    files: ["src/**/*.ts", "src/**/*.vue"],
+    ignores: ["src/plugins/mdeditor.ts", "src/plugins/mdeditor-dist.d.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              // Any subpath except a stylesheet.
+              regex: "^md-editor-v3/(?!.*\\.css$)",
+              message:
+                "Import from md-editor-v3 so the config in src/plugins/mdeditor.ts applies.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // typescript-eslint scopes these TS-redundant core rules to .ts files only.
   { ...tseslint.configs.eslintRecommended, files: ["**/*.vue"] },
   {

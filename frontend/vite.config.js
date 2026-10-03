@@ -1,10 +1,10 @@
 import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
-import { URL, fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
+import { appAliases } from "./scripts/aliases";
 import { platformIconManifest } from "./scripts/platformIconManifest";
 import { playerIsolationHeaders } from "./scripts/playerIsolationHeaders";
 import { precompress } from "./scripts/precompress";
@@ -140,23 +140,7 @@ export default defineConfig(({ mode }) => {
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: true,
     },
     resolve: {
-      alias: [
-        {
-          find: "@",
-          replacement: fileURLToPath(new URL("./src", import.meta.url)),
-        },
-        {
-          find: "@v2",
-          replacement: fileURLToPath(new URL("./src/v2", import.meta.url)),
-        },
-        // Every md-editor import, v1 included, gets the XSS config on first load.
-        {
-          find: /^md-editor-v3$/,
-          replacement: fileURLToPath(
-            new URL("./src/plugins/mdeditor.ts", import.meta.url),
-          ),
-        },
-      ],
+      alias: appAliases,
       extensions: [".js", ".json", ".jsx", ".mjs", ".ts", ".tsx", ".vue"],
     },
     server: {

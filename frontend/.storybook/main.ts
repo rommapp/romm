@@ -1,5 +1,4 @@
 import type { StorybookConfig } from "@storybook/vue3-vite";
-import { fileURLToPath, URL } from "node:url";
 
 const config: StorybookConfig = {
   // Only pick up v2 stories: the v1 UI is frozen and does not ship stories.
@@ -14,27 +13,8 @@ const config: StorybookConfig = {
     options: {},
   },
   async viteFinal(cfg) {
-    // Ensure path aliases match the main app's Vite config so stories can
-    // import from @/ and @v2/ without surprises.
-    cfg.resolve ??= {};
-    // Keep the app's alias array (the md-editor-v3 regex needs one); first match wins.
-    const alias = cfg.resolve.alias ?? [];
-    cfg.resolve.alias = [
-      {
-        find: "@",
-        replacement: fileURLToPath(new URL("../src", import.meta.url)),
-      },
-      {
-        find: "@v2",
-        replacement: fileURLToPath(new URL("../src/v2", import.meta.url)),
-      },
-      ...(Array.isArray(alias)
-        ? alias
-        : Object.entries(alias).map(([find, replacement]) => ({
-            find,
-            replacement,
-          }))),
-    ];
+    // Path aliases (@, @v2, md-editor-v3) come with the app's vite.config.js,
+    // which the builder merges in before this hook.
     // The main app's Vite config registers VitePWA; this is an
     // app-build concern (service worker, ROM patcher assets) and has
     // no place in Storybook. Flatten the plugin tree (vite plugins can be
