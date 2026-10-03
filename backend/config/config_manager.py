@@ -573,7 +573,6 @@ class Config:
 
 
 def _config_get(obj: Any, path: str, default: Any = None) -> Any:
-    """Look up a dotted path in the parsed YAML, returning `default` if any key is missing."""
     for key in path.split("."):
         if not isinstance(obj, dict) or key not in obj:
             return default
