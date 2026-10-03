@@ -83,8 +83,8 @@ describe("AgeLimitFields", () => {
       hideUnrated: null,
       inherited: { ageLimit: 12, hideUnrated: true },
     });
-    const age = wrapper.get(".r-v2-age-limit__field:nth-child(1) select");
-    const unrated = wrapper.get(".r-v2-age-limit__field:nth-child(2) select");
+    const age = wrapper.get("select:nth-of-type(1)");
+    const unrated = wrapper.get("select:nth-of-type(2)");
 
     expect(age.get("option").text()).toBe(
       'settings.age-limit-inherit:{"setting":"settings.age-limit-option:{\\"age\\":12}"}',

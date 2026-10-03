@@ -893,6 +893,7 @@ const describedBy = computed(() => {
   >
     <span
       v-if="stackedLabelOn"
+      :id="`${fieldId}-label`"
       class="r-select__label r-select__label--stacked"
     >
       <slot name="prefix-label">{{ label }}</slot>
@@ -902,6 +903,7 @@ const describedBy = computed(() => {
          current selection inside (chips or plain text). Keyboard
          navigation routes through this button. -->
     <button
+      :id="`${fieldId}-field`"
       ref="activatorRef"
       type="button"
       class="r-select__field"
@@ -909,6 +911,9 @@ const describedBy = computed(() => {
       :aria-haspopup="'listbox'"
       :aria-expanded="isOpen"
       :aria-label="effectiveAriaLabel"
+      :aria-labelledby="
+        stackedLabelOn ? `${fieldId}-label ${fieldId}-field` : undefined
+      "
       :aria-invalid="hasError || undefined"
       :aria-describedby="describedBy"
       @click="toggleMenu"

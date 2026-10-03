@@ -303,3 +303,23 @@ describe("RSelect null-valued item", () => {
     expect(wrapper.get(".r-select__value").text()).not.toContain("No limit");
   });
 });
+
+describe("RSelect stacked label", () => {
+  it("names the field after its label, then its value", () => {
+    const wrapper = mount(RSelect, {
+      props: {
+        items: ["Kids", "Adults"],
+        modelValue: "Kids",
+        label: "Permission group",
+        prefixLabel: "stacked",
+      },
+    });
+    const field = wrapper.get(".r-select__field");
+    const [labelId, fieldId] = (
+      field.attributes("aria-labelledby") ?? ""
+    ).split(" ");
+
+    expect(wrapper.get(`#${labelId}`).text()).toBe("Permission group");
+    expect(fieldId).toBe(field.attributes("id"));
+  });
+});

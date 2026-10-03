@@ -424,28 +424,30 @@ function close() {
         </div>
 
         <template v-if="!isAdmin">
-          <div class="r-v2-user-dialog__field">
-            <span class="r-v2-user-dialog__field-label">
+          <RSelect
+            v-model="groupId"
+            variant="outlined"
+            :items="groupItems"
+            item-title="title"
+            item-value="value"
+            prefix-label="stacked"
+            :hint="t('settings.permission-group-hint')"
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-account-group-outline" size="14" />
               {{ t("settings.permission-group") }}
-            </span>
-            <RSelect
-              v-model="groupId"
-              variant="outlined"
-              :items="groupItems"
-              item-title="title"
-              item-value="value"
-              hide-details
-            />
-          </div>
-          <div class="r-v2-user-dialog__field">
-            <span class="r-v2-user-dialog__field-label">
+            </template>
+          </RSelect>
+          <HiddenPlatformsPicker
+            v-model="hiddenPlatformIds"
+            :platforms="sortedPlatforms"
+            :hint="t('settings.hidden-platforms-hint')"
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-controller" size="14" />
               {{ t("settings.hidden-platforms") }}
-            </span>
-            <HiddenPlatformsPicker
-              v-model="hiddenPlatformIds"
-              :platforms="sortedPlatforms"
-            />
-          </div>
+            </template>
+          </HiddenPlatformsPicker>
           <AgeLimitFields
             v-model:age-limit="age.ageLimit"
             v-model:hide-unrated="age.hideUnrated"
