@@ -593,7 +593,7 @@ const spinnerSize = computed(() => {
 }
 .r-btn--x-large {
   --r-btn-rest-h: 56px;
-  --r-btn-icon-size: 20px;
+  --r-btn-icon-size: 22px;
   padding: 0 24px;
   font-size: 16px;
   gap: 12px;
