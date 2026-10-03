@@ -20,7 +20,7 @@ description: Universal input (mouse, touch, keyboard, gamepad) and responsive/un
 
 There are **no `/console/*` routes in v2**; `src/console/` (with its own input bus) is v1 only. Don't import from it.
 
-### The claim rule
+## The claim rule
 
 Handlers coordinate through `preventDefault`. **Claim a key you handle; leave alone a key you don't.**
 
@@ -30,7 +30,7 @@ Handlers coordinate through `preventDefault`. **Claim a key you handle; leave al
 
 For buttons the keyboard has no equivalent for (Y, X, triggers), listen for the `gamepad:buttondown` window event (`detail.name`: `"y"`, `"rt"`, …). The player listens for `gamepad:exitchord` (Select+Start held), since B is the game's while one is running.
 
-### While a game runs
+## While a game runs
 
 `storePlaying().playing` hands the pad and keyboard to the emulator: no pad translation, spatial nav or hotkeys. An open escapable overlay (the exit dialog) takes the pad back with the arrows, A, B and Back only.
 
