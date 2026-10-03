@@ -22,8 +22,8 @@
 // when a rom actually has all three faces and feeds them in.
 import { useEventListener, useRafFn, useResizeObserver } from "@vueuse/core";
 import { computed, onMounted, ref, type Ref } from "vue";
-import { readRightStick } from "@/v2/composables/useGamepad";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
+import { readRightStick } from "@/v2/utils/gamepad";
 
 defineOptions({ inheritAttrs: false });
 

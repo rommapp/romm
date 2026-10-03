@@ -14,7 +14,7 @@
 //     of "page down via dpad" without overshoot.
 import { useRafFn } from "@vueuse/core";
 import type { Ref } from "vue";
-import { readRightStick } from "@/v2/composables/useGamepad";
+import { readRightStick } from "@/v2/utils/gamepad";
 
 const DEADZONE = 0.15;
 const SCROLL_PER_FRAME = 25;

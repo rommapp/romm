@@ -42,6 +42,7 @@ import {
 } from "@/v2/composables/useNavDestinations";
 import { hasOpenEscapable } from "@/v2/lib/overlays/RDialog/escapeStack.js";
 import { isEditable } from "@/v2/utils/editable";
+import { isUsablePad } from "@/v2/utils/gamepad";
 
 // Routes where useGamepad's built-in actions (back, activate, section
 // nav, user menu) must NOT fire, so every button stays inspectable in
@@ -120,29 +121,6 @@ const BUTTON_MAP: Record<number, Binding | undefined> = {
   14: ARROWS.left,
   15: ARROWS.right,
 };
-
-// Guards the polling loop against phantom gamepads.
-// Firefox keeps disconnected entries in the getGamepads() array,
-// and their stale analog values drift across the press threshold,
-// firing index-based actions with no user input. #3851.
-export function isUsablePad(pad: Gamepad | null): pad is Gamepad {
-  return pad !== null && pad.connected;
-}
-
-/** The right stick's strongest deflection on each axis across usable pads. */
-export function readRightStick(): { x: number; y: number } {
-  let x = 0;
-  let y = 0;
-  for (const pad of navigator.getGamepads?.() ?? []) {
-    if (!isUsablePad(pad)) continue;
-    // Standard mapping: right stick is axes 2 (X) and 3 (Y).
-    const ax = pad.axes[2] ?? 0;
-    const ay = pad.axes[3] ?? 0;
-    if (Math.abs(ax) > Math.abs(x)) x = ax;
-    if (Math.abs(ay) > Math.abs(y)) y = ay;
-  }
-  return { x, y };
-}
 
 const padEvents = new WeakSet<Event>();
 
