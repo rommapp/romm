@@ -111,6 +111,7 @@ from utils.sql_dialect import (
     json_array_contains_any,
     json_array_contains_value,
     nulls_last,
+    optimizer_hint_on_mysql,
 )
 
 from .base_handler import DBBaseHandler, affected_rows, sync_engine
@@ -303,23 +304,31 @@ def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
 
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
-# whose rows carry the raw metadata blobs. Column order matches the unpacking
-# in `_collect_filter_values`.
+# whose rows carry the raw metadata blobs. Keys are `RomFiltersDict` fields.
+_FILTER_JSON_COLUMNS = {
+    "genres": RomFacets.genres,
+    "franchises": RomFacets.franchises,
+    "collections": RomFacets.collections,
+    "companies": RomFacets.companies,
+    "publishers": RomFacets.publishers,
+    "developers": RomFacets.developers,
+    "game_modes": RomFacets.game_modes,
+    "age_ratings": RomFacets.age_ratings,
+    "regions": RomFacets.regions,
+    "languages": RomFacets.languages,
+    "tags": RomFacets.tags,
+}
+# Cast to text in SQL: PostgreSQL's driver would otherwise decode JSONB itself.
 _FILTER_VALUES_SELECT = select(
-    RomFacets.genres,
-    RomFacets.franchises,
-    RomFacets.collections,
-    RomFacets.companies,
-    RomFacets.publishers,
-    RomFacets.developers,
-    RomFacets.game_modes,
-    RomFacets.age_ratings,
+    *(cast(column, Text) for column in _FILTER_JSON_COLUMNS.values()),
     RomFacets.player_count,
-    RomFacets.regions,
-    RomFacets.languages,
-    RomFacets.tags,
     RomFacets.platform_id,
 )
+
+
+# Filter rows stream in batches of this size; MySQL's driver still buffers them.
+_FILTER_VALUES_BATCH_SIZE = 5000
+
 
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
 # recomputed on every call to /api/roms
@@ -1144,7 +1153,11 @@ class DBRomsHandler(DBBaseHandler):
         if not smart_collection:
             return query.filter(false())
 
-        member_ids = self._join_rom_user(select(Rom.id), user_id)
+        # MariaDB's semi-join plan for this IN (subquery) rescans the whole
+        # library per query; MariaDB before 12 reads the hint as a comment.
+        member_ids = self._join_rom_user(
+            optimizer_hint_on_mysql(select(Rom.id), "NO_SEMIJOIN()"), user_id
+        )
         return query.filter(
             Rom.id.in_(
                 db_collection_handler.build_smart_collection_query(
@@ -3816,63 +3829,33 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         statement: Select[*tuple[Any, ...]],
     ) -> RomFiltersDict:
-        genres = set()
-        franchises = set()
-        collections = set()
-        companies = set()
-        publishers = set()
-        developers = set()
-        game_modes = set()
-        age_ratings = set()
-        player_counts = set()
-        regions = set()
-        languages = set()
-        tags = set()
-        platforms = set()
-
-        for row in session.execute(statement).all():
-            g, f, cl, co, pub, dev, gm, ar, pc, rg, lg, tg, pid = row
-            if g:
-                genres.update(g)
-            if f:
-                franchises.update(f)
-            if cl:
-                collections.update(cl)
-            if co:
-                companies.update(co)
-            if pub:
-                publishers.update(pub)
-            if dev:
-                developers.update(dev)
-            if gm:
-                game_modes.update(gm)
-            if ar:
-                age_ratings.update(ar)
-            if pc:
-                player_counts.add(pc)
-            if rg:
-                regions.update(rg)
-            if lg:
-                languages.update(lg)
-            if tg:
-                tags.update(tg)
-            platforms.add(pid)
-
-        return RomFiltersDict(
-            genres=sorted(genres),
-            franchises=sorted(franchises),
-            collections=sorted(collections),
-            companies=sorted(companies),
-            publishers=sorted(publishers),
-            developers=sorted(developers),
-            game_modes=sorted(game_modes),
-            age_ratings=sorted(age_ratings),
-            player_counts=sorted(player_counts),
-            regions=sorted(regions),
-            languages=sorted(languages),
-            tags=sorted(tags),
-            platforms=sorted(platforms),
+        # Each distinct JSON text is parsed once, however many ROMs share it.
+        texts: list[set[str | None]] = [set() for _ in _FILTER_JSON_COLUMNS]
+        player_counts: set[str] = set()
+        platforms: set[int] = set()
+        result = session.execute(
+            statement, execution_options={"yield_per": _FILTER_VALUES_BATCH_SIZE}
         )
+        for batch in result.partitions():
+            *json_columns, player_count_column, platform_column = zip(
+                *batch, strict=True
+            )
+            for column, column_texts in zip(json_columns, texts, strict=True):
+                column_texts.update(column)
+            player_counts.update(pc for pc in player_count_column if pc)
+            platforms.update(platform_column)
+
+        filters: dict[str, list[Any]] = {
+            "player_counts": sorted(player_counts),
+            "platforms": sorted(platforms),
+        }
+        for name, column_texts in zip(_FILTER_JSON_COLUMNS, texts, strict=True):
+            items: set[str] = set()
+            for text in column_texts:
+                if text and (value := json.loads(text)):
+                    items.update(value)
+            filters[name] = sorted(items)
+        return typing_cast(RomFiltersDict, filters)
 
     @begin_session
     def refresh_identity_key_statistics(

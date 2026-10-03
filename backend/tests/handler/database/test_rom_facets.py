@@ -9,9 +9,11 @@ import gc
 
 from sqlalchemy import String, select
 from sqlalchemy.engine import CursorResult, ExecutionContext
+from tests.factories import make_rom
 
-from handler.database import db_rom_handler
+from handler.database import db_rom_handler, roms_handler
 from handler.database.base_handler import sync_session
+from models.platform import Platform
 from models.rom import (
     METADATA_SOURCE_COLUMNS,
     METADATA_SOURCE_FACET_COLUMNS,
@@ -145,6 +147,37 @@ class TestRomFacets:
         filters = db_rom_handler.get_rom_filters()
         assert "Puzzle" in filters["genres"]
         assert "En" in filters["languages"]
+
+    def test_filter_values_merge_repeated_lists(
+        self, rom: Rom, second_rom: Rom, platform: Platform, monkeypatch
+    ):
+        # Three copies of one list can't share a batch of two, so a repeat is
+        # always skipped in a later batch, whatever order the rows come back in.
+        monkeypatch.setattr(roms_handler, "_FILTER_VALUES_BATCH_SIZE", 2)
+        third = make_rom(platform, "test_rom_3", slug="test_rom_slug_3")
+        for rom_id in (rom.id, second_rom.id, third.id):
+            db_rom_handler.update_rom(
+                rom_id, {"igdb_metadata": {"genres": ["RPG", "Action"]}}
+            )
+        fourth = make_rom(platform, "test_rom_4", slug="test_rom_slug_4")
+        db_rom_handler.update_rom(
+            fourth.id, {"igdb_metadata": {"genres": ["Puzzle", "RPG"]}}
+        )
+        make_rom(platform, "test_rom_5", slug="test_rom_slug_5")
+
+        filters = db_rom_handler.get_rom_filters()
+        assert filters["genres"] == ["Action", "Puzzle", "RPG"]
+        assert filters["platforms"] == [platform.id]
+
+    def test_filter_values_survive_a_scalar_where_a_list_belongs(
+        self, rom: Rom, second_rom: Rom
+    ):
+        db_rom_handler.update_rom(rom.id, {"manual_metadata": {"genres": "RPG"}})
+        db_rom_handler.update_rom(
+            second_rom.id, {"igdb_metadata": {"genres": ["Action"]}}
+        )
+
+        assert "Action" in db_rom_handler.get_rom_filters()["genres"]
 
     def test_filter_values_free_the_cursor_without_the_gc(self, rom: Rom):
         # A cursor left for the cyclic GC is finalized on whichever thread
