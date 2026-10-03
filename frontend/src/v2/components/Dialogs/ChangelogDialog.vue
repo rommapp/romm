@@ -5,20 +5,18 @@
 // glass-panel block (tag + date) with the release body rendered through
 // MdPreview, the same markdown surface NotesTab uses.
 import { RBtn, RDialog, REmptyState, RIcon, RSpinner } from "@v2/lib";
-import { computed, defineAsyncComponent, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import {
+  AsyncMdPreview as MdPreview,
+  loadMdPreview,
+} from "@/v2/components/shared/asyncMarkdown";
 import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useFetchState } from "@/v2/composables/useFetchState";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { shortenGithubLinks } from "@/v2/utils/githubLinks";
 
 defineOptions({ inheritAttrs: false });
-
-// The dialog is mounted on every v2 page, so the markdown renderer loads on
-// first open instead of with the app shell.
-const loadMdPreview = () =>
-  import("@/v2/components/shared/MarkdownPreview.vue");
-const MdPreview = defineAsyncComponent(loadMdPreview);
 
 type Release = {
   tag_name: string;
@@ -48,9 +46,13 @@ const {
   execute: fetchReleases,
 } = useFetchState(
   async () => {
-    const res = await fetch(RELEASES_URL, {
-      headers: { Accept: "application/vnd.github+json" },
-    });
+    // The renderer downloads alongside the releases, so the spinner covers both.
+    const [res] = await Promise.all([
+      fetch(RELEASES_URL, {
+        headers: { Accept: "application/vnd.github+json" },
+      }),
+      loadMdPreview(),
+    ]);
     if (!res.ok) throw new Error(`GitHub ${res.status}`);
     const data: Release[] = await res.json();
     return data
@@ -86,8 +88,6 @@ function fmtDate(iso: string): string {
 
 const openHandler = () => {
   show.value = true;
-  // Start the renderer download now so it overlaps the releases fetch.
-  loadMdPreview().catch(() => {});
   // Refetch only when we have nothing yet (or a previous attempt
   // errored). Keeps the dialog snappy on subsequent opens.
   if (releases.value.length === 0 && !loading.value) fetchReleases();
@@ -166,9 +166,6 @@ function closeDialog() {
             }}</span>
           </header>
           <MdPreview
-            no-highlight
-            no-katex
-            no-mermaid
             :model-value="r.body"
             :theme="mdTheme"
             language="en-US"

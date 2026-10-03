@@ -14,10 +14,15 @@ const heavyImports = [
     group: ["md-editor-v3", "md-editor-v3/**"],
     allowTypeImports: true,
     message:
-      "md-editor-v3 is heavy; load @/v2/components/shared/MarkdownPreview.vue through defineAsyncComponent.",
+      "md-editor-v3 is heavy; render it through @/v2/components/shared/asyncMarkdown.",
   },
   {
-    group: ["**/MarkdownPreview.vue", "**/MarkdownViewer.vue", "**/mdeditor"],
+    group: [
+      "**/markdownPreview",
+      "**/markdownEditor",
+      "**/MarkdownViewer.vue",
+      "**/mdeditor",
+    ],
     allowTypeImports: true,
     message:
       "This module bundles md-editor-v3; import it only from a lazy chunk.",
@@ -137,6 +142,27 @@ export default tseslint.config(
       ],
     },
   },
+  // The md-editor config (raw HTML, XSS filter) runs from the module the bare
+  // `md-editor-v3` alias points at; a deep import would skip it.
+  {
+    files: ["src/**/*.ts", "src/**/*.vue"],
+    ignores: ["src/plugins/mdeditor.ts", "src/plugins/mdeditor-dist.d.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              // Any subpath except a stylesheet.
+              regex: "^md-editor-v3/(?!.*\\.css$)",
+              message:
+                "Import from md-editor-v3 so the config in src/plugins/mdeditor.ts applies.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // typescript-eslint scopes these TS-redundant core rules to .ts files only.
   { ...tseslint.configs.eslintRecommended, files: ["**/*.vue"] },
   {
@@ -152,11 +178,10 @@ export default tseslint.config(
       "src/components/**",
       "src/console/**",
       "src/layouts/**",
-      // The lazy wrapper itself, the editor's global config, and the views
-      // that reach md-editor only through a route or async chunk.
+      // The lazy-loaded md-editor modules, the editor's global config, and the
+      // view that reaches md-editor only through an async chunk.
       "src/plugins/mdeditor*.ts",
-      "src/v2/components/shared/MarkdownPreview.vue",
-      "src/v2/components/GameDetails/NotesTab.vue",
+      "src/v2/components/shared/markdown*.ts",
       "src/v2/components/GameDetails/MarkdownViewer.vue",
     ],
     rules: {

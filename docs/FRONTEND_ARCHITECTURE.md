@@ -1171,9 +1171,10 @@ Auto-generated from backend OpenAPI schema:
 
 ```json
 "@/*" → "./src/*"
+"@v2/*" → "./src/v2/*"
 ```
 
-Used throughout: `import { ... } from "@/stores/roms"`.
+Used throughout: `import { ... } from "@/stores/roms"`. Vite and Vitest take their aliases from `scripts/aliases.ts`, which also points a bare `md-editor-v3` import at `plugins/mdeditor.ts`; that module applies the raw-HTML and XSS config before re-exporting the package. `tsconfig.app.json` maps the same specifier, so editors and `vue-tsc` resolve it to that module too.
 
 ---
 
