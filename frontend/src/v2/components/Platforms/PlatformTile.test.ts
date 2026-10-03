@@ -23,8 +23,8 @@ vi.mock("@/v2/composables/usePlatformPlayable", () => ({
 }));
 
 describe("PlatformTile", () => {
-  // The class is the cell selector PlatformsIndex hands useWrapGridNav; losing
-  // it takes arrow and gamepad navigation off the whole platforms grid.
+  // The class is the cell selector PlatformsIndex hands useGridNav; losing it
+  // takes arrow and gamepad navigation off the whole platforms grid.
   it("marks its root as a spatial-nav cell", () => {
     const wrapper = mount(PlatformTile, {
       props: { slug: "snes", displayName: "SNES", id: 1, variant: "grid" },

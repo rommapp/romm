@@ -43,11 +43,11 @@ import IndexShell from "@/v2/components/shared/IndexShell.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
+import { useGridNav } from "@/v2/composables/useGridNav";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useRouteQueryParam } from "@/v2/composables/useRouteQueryParam";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
@@ -97,7 +97,7 @@ const searchTerm = useTileSearchUrl();
 // ArrowDown crosses the section heading naturally. List mode falls
 // through because `.coll-tile` only renders in grid mode.
 const gridRoot = ref<HTMLElement | null>(null);
-useWrapGridNav(gridRoot, { cellSelector: ".coll-tile" });
+useGridNav(gridRoot, { cellSelector: ".coll-tile" });
 // Unified sort state across grid + list modes. Grid mode only exposes
 // the direction toggle (toolbar); list mode lets the column-header
 // click drive both axis and direction. Mirrors GalleryShell's pattern

@@ -4,7 +4,7 @@
 // Natural-aspect cover (GameCover) above a footer naming the game, its
 // platform, and the player (avatar + username) with an elapsed-since label.
 // The whole card is a RouterLink to the game detail view, so it participates
-// in spatial / gamepad nav (useWrapGridNav discovers it via the `a[href]` it
+// in spatial / gamepad nav (useGridNav discovers it via the `a[href]` it
 // renders). No "live" badge: every card in this view is an active session by
 // definition, so the badge carried no per-card information: the page's
 // session counter is the single live indicator.

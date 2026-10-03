@@ -263,11 +263,6 @@ function onKeyDown(e: KeyboardEvent) {
       openPanel();
       break;
     }
-    case "Escape": {
-      e.preventDefault();
-      closePanel();
-      break;
-    }
   }
 }
 

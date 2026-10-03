@@ -6,8 +6,8 @@ import AlphaJumpMenu from "./AlphaJumpMenu.vue";
 
 vi.mock("vue-i18n");
 
-vi.mock("@/v2/composables/useWrapGridNav", () => ({
-  useWrapGridNav: vi.fn(),
+vi.mock("@/v2/composables/useGridNav", () => ({
+  useGridNav: vi.fn(),
 }));
 
 // Renders the panel inline while open, and toggles it from the activator.
