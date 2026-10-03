@@ -197,9 +197,9 @@ def test_user_hidden_platform_and_rom_cascade(viewer_user):
     assert not perms.can_see_platform(5)
     assert perms.can_see_platform(6)
     # Rom on a hidden platform is hidden even if the rom itself isn't listed.
-    assert not perms.can_see_rom(RomVisibility(id=1, platform_id=5))
-    assert not perms.can_see_rom(RomVisibility(id=99, platform_id=6))
-    assert perms.can_see_rom(RomVisibility(id=1, platform_id=6))
+    assert not perms.can_see_rom(RomVisibility(id=1, platform_id=5, min_age=None))
+    assert not perms.can_see_rom(RomVisibility(id=99, platform_id=6, min_age=None))
+    assert perms.can_see_rom(RomVisibility(id=1, platform_id=6, min_age=None))
 
 
 def test_group_hidden_applies_to_members(viewer_user):
@@ -220,6 +220,8 @@ def test_admin_sees_everything_despite_hides(admin_user):
 def test_default_group_is_viewer():
     from handler.database import db_permission_handler
 
-    group = db_permission_handler.get_default_group()
+    group_id = db_permission_handler.get_default_group_id()
+    assert group_id is not None
+    group = db_permission_handler.get_group(group_id)
     assert group is not None
     assert group.system_key == SystemGroupKey.VIEWER

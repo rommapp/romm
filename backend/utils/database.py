@@ -38,6 +38,7 @@ POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
 
 HLTB_MAIN_STORY_COLUMN = "generated_hltb_main_story"
 SEARCH_TITLES_COLUMN = "search_titles"
+MIN_AGE_COLUMN = "min_age"
 
 # The nullable `roms` columns the gallery sorts on. MariaDB and MySQL have no
 # NULLS LAST and cannot index the `IS NULL` term emulating it, so each column

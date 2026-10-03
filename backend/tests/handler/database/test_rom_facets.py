@@ -33,6 +33,16 @@ class TestRomFacets:
         assert facets is not None
         assert facets.platform_id == rom.platform_id
 
+    def test_min_age_mirrors_the_rom(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {"igdb_metadata": {"age_ratings": [{"category": "CERO", "rating": "C"}]}},
+        )
+
+        facets = _facets(rom.id)
+        assert facets is not None
+        assert facets.min_age == 15
+
     def test_update_mirrors_derived_and_raw_values(self, rom: Rom):
         db_rom_handler.update_rom(
             rom.id,

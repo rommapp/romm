@@ -66,6 +66,7 @@ from models.rom import (
     ALTERNATIVE_NAME_SOURCES,
     METADATA_SOURCE_FACET_COLUMNS,
     ROM_IS_IDENTIFIED,
+    ROM_VISIBILITY_COLUMNS,
     SEARCH_TITLE_COLUMNS,
     SEARCH_TITLE_SEPARATOR,
     Rom,
@@ -90,6 +91,7 @@ from models.rom import (
     fold_search_title,
 )
 from utils import get_version
+from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age
 from utils.database import (
     ROMS_SEARCH_FULLTEXT_COLUMNS,
     SORTABLE_NULLABLE_ROM_COLUMNS,
@@ -675,9 +677,8 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
                     raiseload(RomUser.rom), raiseload(RomUser.user)
                 ),
                 load_only(
-                    Rom.id,
+                    *ROM_VISIBILITY_COLUMNS,
                     Rom.name,
-                    Rom.platform_id,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
                 ),
@@ -725,9 +726,8 @@ def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
                     raiseload(RomUser.rom), raiseload(RomUser.user)
                 ),
                 load_only(
-                    Rom.id,
+                    *ROM_VISIBILITY_COLUMNS,
                     Rom.name,
-                    Rom.platform_id,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
                 ),
@@ -854,15 +854,11 @@ class DBRomsHandler(DBBaseHandler):
         *,
         session: Session = INJECTED_SESSION,
     ) -> RomVisibility | None:
-        """The id and platform id a visibility check needs, nothing else."""
+        """The columns a visibility check needs, nothing else."""
         row = session.execute(
-            select(Rom.id, Rom.platform_id).where(Rom.id == id)
+            select(*ROM_VISIBILITY_COLUMNS).where(Rom.id == id)
         ).one_or_none()
-
-        if row is None:
-            return None
-
-        return RomVisibility(id=row.id, platform_id=row.platform_id)
+        return RomVisibility(**row._mapping) if row else None
 
     @begin_session
     def get_rom_visibility_label(
@@ -873,15 +869,9 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomVisibilityLabel | None:
         """`get_rom_visibility` plus the name pair the file-delete logs need."""
         row = session.execute(
-            select(Rom.id, Rom.platform_id, Rom.name, Rom.fs_name).where(Rom.id == id)
+            select(*ROM_VISIBILITY_COLUMNS, Rom.name, Rom.fs_name).where(Rom.id == id)
         ).one_or_none()
-
-        if row is None:
-            return None
-
-        return RomVisibilityLabel(
-            id=row.id, platform_id=row.platform_id, name=row.name, fs_name=row.fs_name
-        )
+        return RomVisibilityLabel(**row._mapping) if row else None
 
     @begin_session
     def get_rom_install_target(
@@ -893,24 +883,14 @@ class DBRomsHandler(DBBaseHandler):
         """The columns a device install request checks, in one query."""
         row = session.execute(
             select(
-                Rom.id,
-                Rom.platform_id,
+                *ROM_VISIBILITY_COLUMNS,
                 Platform.slug.label("platform_slug"),
                 Rom.missing_from_fs,
             )
             .join(Platform, Rom.platform_id == Platform.id)
             .where(Rom.id == id)
         ).one_or_none()
-
-        if row is None:
-            return None
-
-        return RomInstallTarget(
-            id=row.id,
-            platform_id=row.platform_id,
-            platform_slug=row.platform_slug,
-            missing_from_fs=row.missing_from_fs,
-        )
+        return RomInstallTarget(**row._mapping) if row else None
 
     @begin_session
     def get_rom_deletion_target(
@@ -922,8 +902,7 @@ class DBRomsHandler(DBBaseHandler):
         """The columns the bulk-delete route reads off one rom, and no relations."""
         row = session.execute(
             select(
-                Rom.id,
-                Rom.platform_id,
+                *ROM_VISIBILITY_COLUMNS,
                 Rom.name,
                 Rom.fs_name,
                 Rom.fs_path,
@@ -934,20 +913,7 @@ class DBRomsHandler(DBBaseHandler):
             .join(Platform, Rom.platform_id == Platform.id)
             .where(Rom.id == id)
         ).one_or_none()
-
-        if row is None:
-            return None
-
-        return RomDeletionTarget(
-            id=row.id,
-            platform_id=row.platform_id,
-            name=row.name,
-            fs_name=row.fs_name,
-            fs_path=row.fs_path,
-            platform_slug=row.platform_slug,
-            platform_name=row.platform_name,
-            platform_custom_name=row.platform_custom_name,
-        )
+        return RomDeletionTarget(**row._mapping) if row else None
 
     @begin_session
     @with_simple_details
@@ -2304,6 +2270,22 @@ class DBRomsHandler(DBBaseHandler):
                 ),
             }
 
+        if data.keys() & MIN_AGE_SOURCE_COLUMNS:
+            # The bulk update() skips the mapper event that keeps this in sync.
+            missing = [c for c in MIN_AGE_SOURCE_COLUMNS if c not in data]
+            sources: dict[str, Any] = {
+                c: data[c] for c in MIN_AGE_SOURCE_COLUMNS if c in data
+            }
+            if missing:
+                sources |= (
+                    session.execute(
+                        select(*(getattr(Rom, c) for c in missing)).where(Rom.id == id)
+                    )
+                    .one()
+                    ._asdict()
+                )
+            data = {**data, "min_age": compute_min_age(sources)}
+
         if "fs_name" in data:
             parts = compute_file_name_parts(data["fs_name"])
             data = {
@@ -2804,7 +2786,7 @@ class DBRomsHandler(DBBaseHandler):
                 select(RomFile)
                 .options(
                     selectinload(RomFile.track_meta),
-                    joinedload(RomFile.rom).load_only(Rom.platform_id),
+                    joinedload(RomFile.rom).load_only(*ROM_VISIBILITY_COLUMNS),
                 )
                 .where(RomFile.id.in_(ids))
             )

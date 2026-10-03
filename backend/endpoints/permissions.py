@@ -53,8 +53,11 @@ async def emit_permissions_changed(*user_ids: int) -> None:
 
     Broadcast (Redis-backed fan-out); the frontend re-fetches `/permissions/me`
     only when the affected user is the current user. Call this from any path that
-    mutates a user's role, group, overrides or hidden entities.
+    mutates a user's role, group, overrides, hidden entities or age settings.
     """
+    # The gallery's cached id index, counts and filter values are computed per
+    # user with visibility applied, so they go stale with it.
+    db_rom_handler.invalidate_filter_values_cache()
     if not user_ids:
         return
     await asyncio.gather(*(_broadcast_permissions_changed(u) for u in user_ids))
@@ -106,6 +109,11 @@ def _group_schema(group: PermissionGroup) -> PermissionGroupSchema:
             HiddenEntitySchema(entity=h.entity, entity_id=h.entity_id)
             for h in db_permission_handler.get_hidden_entities(group_id=group.id)
         ],
+        age_limit=group.age_limit,
+        hide_unrated_roms=group.hide_unrated_roms,
+        age_exempt_rom_ids=sorted(
+            db_permission_handler.get_age_exempt_rom_ids(None, group.id)
+        ),
     )
 
 
@@ -154,7 +162,7 @@ def list_permission_groups(request: Request) -> list[PermissionGroupSchema]:
 @protected_route(
     router.post, "/groups", [Scope.USERS_WRITE], status_code=status.HTTP_201_CREATED
 )
-def create_permission_group(
+async def create_permission_group(
     request: Request, body: PermissionGroupCreate
 ) -> PermissionGroupSchema:
     """Create a permission group."""
@@ -170,7 +178,14 @@ def create_permission_group(
         is_default=body.is_default,
         color=body.color,
         grants=[(g.entity, g.action, g.own_only) for g in body.grants],
+        age_limit=body.age_limit,
+        hide_unrated_roms=body.hide_unrated_roms,
+        age_exempt_rom_ids=body.age_exempt_rom_ids,
     )
+    if body.is_default:
+        await emit_permissions_changed(
+            *db_permission_handler.get_group_follower_ids(group.id)
+        )
     record(
         AuditAction.PERMISSION_GROUP_CREATE,
         request,
@@ -222,16 +237,24 @@ async def update_permission_group(
             if body.grants is not None
             else None
         ),
+        set_age_settings=body.set_age_settings,
+        age_limit=body.age_limit,
+        hide_unrated_roms=body.hide_unrated_roms,
+        age_exempt_rom_ids=body.age_exempt_rom_ids,
     )
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    # Grant changes alter every member's effective permissions.
-    await emit_permissions_changed(*db_permission_handler.get_group_member_ids(id))
+    await emit_permissions_changed(*db_permission_handler.get_group_follower_ids(id))
+    # Age settings apply only with the flag, so only the flag reports them.
+    age_fields = {"set_age_settings", "age_limit", "hide_unrated_roms"}
+    changed = set(body.model_dump(exclude_none=True)) - age_fields
+    if body.set_age_settings:
+        changed |= {"age_limit", "hide_unrated_roms"}
     record(
         AuditAction.PERMISSION_GROUP_EDIT,
         request,
         _group_target(updated),
-        {"changed": sorted(body.model_dump(exclude_none=True))},
+        {"changed": sorted(changed)},
     )
     return _group_schema(updated)
 
@@ -269,13 +292,17 @@ async def delete_permission_group(request: Request, id: int) -> None:
 
 
 def _user_permissions(
-    user_id: int, permission_group_id: int | None
+    user_id: int,
+    *,
+    group_id: int | None,
+    age_limit: int | None,
+    hide_unrated_roms: bool | None,
 ) -> UserPermissionsSchema:
     overrides = db_permission_handler.get_user_overrides(user_id)
     hidden = db_permission_handler.get_hidden_entities(user_id=user_id)
     return UserPermissionsSchema(
         user_id=user_id,
-        permission_group_id=permission_group_id,
+        permission_group_id=group_id,
         overrides=[
             OverrideSchemaIO(
                 entity=o.entity,
@@ -288,6 +315,11 @@ def _user_permissions(
         hidden=[
             HiddenEntitySchema(entity=h.entity, entity_id=h.entity_id) for h in hidden
         ],
+        age_limit=age_limit,
+        hide_unrated_roms=hide_unrated_roms,
+        age_exempt_rom_ids=sorted(
+            db_permission_handler.get_age_exempt_rom_ids(user_id, None)
+        ),
     )
 
 
@@ -303,7 +335,12 @@ def get_user_permissions(request: Request, user_id: int) -> UserPermissionsSchem
     user = db_user_handler.get_user(user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    return _user_permissions(user_id, user.permission_group_id)
+    return _user_permissions(
+        user_id,
+        group_id=user.permission_group_id,
+        age_limit=user.age_limit,
+        hide_unrated_roms=user.hide_unrated_roms,
+    )
 
 
 @protected_route(
@@ -330,6 +367,17 @@ async def update_user_permissions(
             user_id,
             [(o.entity, o.action, o.granted, o.own_only) for o in body.overrides],
         )
+    age_limit, hide_unrated_roms = user.age_limit, user.hide_unrated_roms
+    if body.set_age_settings:
+        age_limit, hide_unrated_roms = body.age_limit, body.hide_unrated_roms
+        db_user_handler.update_user(
+            user_id,
+            {"age_limit": age_limit, "hide_unrated_roms": hide_unrated_roms},
+        )
+    if body.age_exempt_rom_ids is not None:
+        db_permission_handler.replace_age_exemptions(
+            body.age_exempt_rom_ids, user_id=user_id
+        )
 
     await emit_permissions_changed(user_id)
     record(
@@ -340,9 +388,20 @@ async def update_user_permissions(
             "group": _group_name(group_id),
             "group_changed": body.set_group and group_id != user.permission_group_id,
             "overrides": len(body.overrides) if body.overrides is not None else None,
+            "age_settings_changed": body.set_age_settings,
+            "age_exemptions": (
+                len(body.age_exempt_rom_ids)
+                if body.age_exempt_rom_ids is not None
+                else None
+            ),
         },
     )
-    return _user_permissions(user_id, group_id)
+    return _user_permissions(
+        user_id,
+        group_id=group_id,
+        age_limit=age_limit,
+        hide_unrated_roms=hide_unrated_roms,
+    )
 
 
 # --- Admin: hidden entities ---------------------------------------------------
@@ -428,5 +487,5 @@ async def _emit_for_principal(user_id: int | None, group_id: int | None) -> None
         await emit_permissions_changed(user_id)
     elif group_id is not None:
         await emit_permissions_changed(
-            *db_permission_handler.get_group_member_ids(group_id)
+            *db_permission_handler.get_group_follower_ids(group_id)
         )

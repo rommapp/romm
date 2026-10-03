@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
@@ -32,6 +33,9 @@ from handler.auth.rom_visibility import (
 from models.permission import PermAction, PermEntity
 from models.user import Role, User
 
+if TYPE_CHECKING:
+    from handler.database.permissions_handler import GroupPolicy
+
 
 @dataclass(frozen=True)
 class ResolvedGrant:
@@ -47,6 +51,9 @@ class ResolvedPermissions:
     grants: frozenset[ResolvedGrant]
     hidden_platform_ids: frozenset[int]
     hidden_rom_ids: frozenset[int]
+    age_limit: int | None = None
+    hide_unrated_roms: bool = False
+    age_exempt_rom_ids: frozenset[int] = frozenset()
 
     def allows(
         self, entity: PermEntity, action: PermAction, *, owned: bool | None = None
@@ -72,6 +79,9 @@ class ResolvedPermissions:
         return RomVisibilityFilter(
             hidden_platform_ids=self.hidden_platform_ids,
             hidden_rom_ids=self.hidden_rom_ids,
+            age_limit=self.age_limit,
+            hide_unrated_roms=self.hide_unrated_roms,
+            age_exempt_rom_ids=self.age_exempt_rom_ids,
         )
 
     @cached_property
@@ -79,33 +89,26 @@ class ResolvedPermissions:
         return self.rom_visibility.allows
 
 
-def _effective_group_id(user: User, *, session: Session) -> int | None:
-    """The group a non-admin user follows: their own, else the server default.
-
-    Used by both the grant map and the hidden-entity lookup so a user with no
-    explicit group still inherits the default group's grants AND its hides.
-    """
+def _effective_group(user: User, *, session: Session) -> tuple[int | None, GroupPolicy]:
+    """The group a non-admin user follows, their own else the server default, so
+    a user with no group inherits the default's grants, hides and age settings."""
 
     from handler.database import db_permission_handler
 
-    if user.permission_group_id is not None:
-        return user.permission_group_id
-    default_group = db_permission_handler.get_default_group(session=session)
-    return default_group.id if default_group else None
+    group_id = user.permission_group_id
+    if group_id is None:
+        group_id = db_permission_handler.get_default_group_id(session=session)
+    return group_id, db_permission_handler.get_group_policy(group_id, session=session)
 
 
 def _resolve_grant_map(
-    user: User, *, session: Session
+    user: User, group: GroupPolicy, *, session: Session
 ) -> dict[tuple[PermEntity, PermAction], bool]:
     """Effective ``(entity, action) -> own_only`` map for a non-admin user."""
 
     from handler.database import db_permission_handler
 
-    base: dict[tuple[PermEntity, PermAction], bool] = {}
-    group_id = _effective_group_id(user, session=session)
-    if group_id is not None:
-        for g in db_permission_handler.get_group_grants(group_id, session=session):
-            base[(g.entity, g.action)] = g.own_only
+    base = {(entity, action): own_only for entity, action, own_only in group.grants}
 
     # Per-user overrides win over the group: grant adds, revoke removes.
     # Override identity is (entity, action) only, so a grant override fully
@@ -143,7 +146,8 @@ def _resolve_non_admin(
 ) -> ResolvedPermissions:
     from handler.database import db_permission_handler
 
-    grant_map = _resolve_grant_map(user, session=session)
+    group_id, group = _effective_group(user, session=session)
+    grant_map = _resolve_grant_map(user, group, session=session)
     grants = frozenset(
         ResolvedGrant(entity, action, own_only)
         for (entity, action), own_only in grant_map.items()
@@ -153,14 +157,24 @@ def _resolve_non_admin(
     if KIOSK_MODE and user.is_kiosk_guest:
         grants = frozenset(g for g in grants if g.action == PermAction.READ)
 
-    # Resolve the effective group (own or default) so hides assigned to the
-    # default group apply to group-less users too, not just their grants.
-    group_id = _effective_group_id(user, session=session)
     hidden_platforms = db_permission_handler.get_hidden_entity_ids(
         PermEntity.PLATFORMS, user.id, group_id, session=session
     )
     hidden_roms = db_permission_handler.get_hidden_entity_ids(
         PermEntity.ROMS, user.id, group_id, session=session
+    )
+
+    # The user's own age settings replace the group's; NULL inherits.
+    age_limit = user.age_limit if user.age_limit is not None else group.age_limit
+    hide_unrated_roms = (
+        user.hide_unrated_roms
+        if user.hide_unrated_roms is not None
+        else group.hide_unrated_roms
+    )
+    exempt = (
+        db_permission_handler.get_age_exempt_rom_ids(user.id, group_id, session=session)
+        if age_limit is not None or hide_unrated_roms
+        else set()
     )
 
     return ResolvedPermissions(
@@ -169,6 +183,9 @@ def _resolve_non_admin(
         grants=grants,
         hidden_platform_ids=frozenset(hidden_platforms),
         hidden_rom_ids=frozenset(hidden_roms),
+        age_limit=age_limit,
+        hide_unrated_roms=hide_unrated_roms,
+        age_exempt_rom_ids=frozenset(exempt),
     )
 
 
@@ -192,7 +209,8 @@ def _compute_non_admin_scopes(
     *,
     session: Session = INJECTED_SESSION,
 ) -> list[Scope]:
-    grant_map = _resolve_grant_map(user, session=session)
+    _, group = _effective_group(user, session=session)
+    grant_map = _resolve_grant_map(user, group, session=session)
     scopes = set(
         grants_to_scopes(
             (entity, action, own_only)
