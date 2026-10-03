@@ -1,16 +1,18 @@
 // useGridNav
 //
-// 2D arrow-key navigation for a vertical stack of horizontal card rows,
-// as used on the Home dashboard (continue playing / recently added /
-// favorites / platforms / collections) and anywhere else we compose
-// `<CardRow>` stacks.
+// 2D arrow-key navigation for grids of focusable cells. Two layouts:
+//
+//   * Row containers: a vertical stack of horizontal rows, as on the Home
+//     dashboard's `<CardRow>` stacks. Rows are discovered via
+//     `rowSelector` (default `.card-row__track`, CardRow's scroll track)
+//     or `getRows`; cells are each row's direct children (or `getCells`).
+//   * Wrapping CSS grids (`cellSelector`), as PlatformsIndex and
+//     CollectionsIndex use: `repeat(auto-fill, …)` with no per-row DOM
+//     containers. Rows are rebuilt at navigation time from each cell's
+//     `getBoundingClientRect().top`, so the column count follows the
+//     viewport and grouped grids under headings share one pool.
 //
 // Mechanics:
-//   * Rows are discovered via `rowSelector` (default `.card-row__track`).
-//     Any descendant of the root matching that selector is treated as a
-//     row. The default matches CardRow's scroll track; consumers like
-//     GalleryShell pass their own row class.
-//   * Cells are the direct DOM children of each row container.
 //   * The focusable target for a cell is the cell itself if it matches a
 //     focusable selector, otherwise the first focusable descendant.
 //   * ArrowLeft / ArrowRight → prev / next cell in the current row.
@@ -30,10 +32,6 @@
 //     unclaimed, so `useSpatialNav` carries focus to the next region.
 //   * `useGamepad` itself dispatches keydowns, so everything here is
 //     plain keyboard code; gamepad users transparently benefit.
-//
-// For wrapping CSS grids (PlatformsIndex / CollectionsIndex), where
-// there are no per-row DOM containers, use `useWrapGridNav` instead;
-// it detects rows spatially from cell rects.
 import { useEventListener, useMutationObserver } from "@vueuse/core";
 import { onBeforeUnmount, onMounted, watch, type Ref } from "vue";
 import { useRoute } from "vue-router";
@@ -43,6 +41,10 @@ import { focusFromInput } from "@/v2/utils/autofocus";
 import { FOCUSABLE_SELECTOR } from "@/v2/utils/spatialNav";
 
 export interface UseGridNavOptions {
+  /** Selector for the tiles of a wrapping CSS grid. Rows are rebuilt from
+   *  the tiles' positions, and `rowSelector` / `getRows` / `getCells` are
+   *  ignored. */
+  cellSelector?: string;
   /** Selector that resolves to one DOM element per logical row.
    *  Defaults to `.card-row__track` (CardRow's scroll track). Ignored
    *  when `getRows` is provided. */
@@ -89,8 +91,8 @@ function pageHeight(el: HTMLElement): number {
   return window.innerHeight;
 }
 
-// Controls the roving mode may take out of the tab order. Unlike
-// FOCUSABLE_SELECTOR, this still matches them once they are at -1.
+// Controls the grid may take out of the tab order (roving, or a visited cell).
+// Unlike FOCUSABLE_SELECTOR, this still matches them once they are at -1.
 const ROVING_CANDIDATES = [
   "a[href]",
   "button:not([disabled])",
@@ -101,6 +103,41 @@ const ROVING_CANDIDATES = [
 ].join(",");
 // The tabindex a control had before the roving mode touched it.
 const ROVING_ORIGINAL = "data-grid-roving";
+
+// Within this many CSS pixels two tiles of a wrapping grid share a row:
+// anything closer is sub-pixel rounding noise.
+const ROW_TOP_TOLERANCE = 2;
+
+// A row's cells, plus the element that holds them when the layout has one.
+interface Row {
+  cells: HTMLElement[];
+  el?: HTMLElement;
+}
+
+// Groups visible tiles into visual rows by their top edge, each row read
+// left to right.
+function rowsByPosition(tiles: HTMLElement[]): Row[] {
+  const placed = tiles
+    .filter((el) => el.offsetParent !== null)
+    .map((el) => ({ el, box: el.getBoundingClientRect() }))
+    .sort((a, b) =>
+      Math.abs(a.box.top - b.box.top) > ROW_TOP_TOLERANCE
+        ? a.box.top - b.box.top
+        : a.box.left - b.box.left,
+    );
+  const rows: Row[] = [];
+  let rowTop = 0;
+  for (const { el, box } of placed) {
+    const last = rows[rows.length - 1];
+    if (last && Math.abs(box.top - rowTop) <= ROW_TOP_TOLERANCE) {
+      last.cells.push(el);
+    } else {
+      rows.push({ cells: [el] });
+      rowTop = box.top;
+    }
+  }
+  return rows;
+}
 
 export function useGridNav(
   rootRef: Ref<HTMLElement | null>,
@@ -116,6 +153,8 @@ export function useGridNav(
   const { modality } = useInputModality();
   const route = useRoute();
   const focusStore = storeFocusRestoration();
+  // Wrapping grids keep the page still where row tracks centre and scroll.
+  const wrapping = !!options.cellSelector;
   let preferredCol = 0;
   let activeKey: string | null = null;
   // The cell this composable last focused, to tell when focus arrived another
@@ -143,14 +182,18 @@ export function useGridNav(
     );
   }
 
-  function rows(): HTMLElement[] {
-    if (options.getRows) return options.getRows();
-    if (!rootRef.value) return [];
-    return Array.from(rootRef.value.querySelectorAll<HTMLElement>(rowSelector));
-  }
-
-  function cells(row: HTMLElement): HTMLElement[] {
-    return getCells(row);
+  function rows(): Row[] {
+    const root = rootRef.value;
+    if (options.cellSelector) {
+      if (!root) return [];
+      return rowsByPosition(
+        Array.from(root.querySelectorAll<HTMLElement>(options.cellSelector)),
+      );
+    }
+    const rowEls = options.getRows
+      ? options.getRows()
+      : Array.from(root?.querySelectorAll<HTMLElement>(rowSelector) ?? []);
+    return rowEls.map((el) => ({ el, cells: getCells(el) }));
   }
 
   function focusableIn(el: HTMLElement): HTMLElement {
@@ -177,7 +220,7 @@ export function useGridNav(
 
   function syncRoving() {
     if (!options.roving) return;
-    const allCells = rows().flatMap((row) => cells(row));
+    const allCells = rows().flatMap((row) => row.cells);
     const active =
       allCells.find((cell) => activeKey && cellKey(cell) === activeKey) ??
       allCells.find((cell) => rovingControls(cell).length > 0);
@@ -200,13 +243,12 @@ export function useGridNav(
     });
   }
 
-  function current(): { rowIdx: number; colIdx: number } | null {
+  function current(rs: Row[]): { rowIdx: number; colIdx: number } | null {
     const active = document.activeElement as HTMLElement | null;
     if (!active) return null;
-    const rs = rows();
     for (const [r, row] of rs.entries()) {
-      if (!row.contains(active) && active !== row) continue;
-      for (const [c, cell] of cells(row).entries()) {
+      if (row.el && !row.el.contains(active)) continue;
+      for (const [c, cell] of row.cells.entries()) {
         if (cell.contains(active) || cell === active) {
           return { rowIdx: r, colIdx: c };
         }
@@ -220,10 +262,18 @@ export function useGridNav(
     colIdx: number,
     opts: { verticalJump?: boolean } = {},
   ) {
-    const rs = rows();
+    focusIn(rows(), rowIdx, colIdx, opts);
+  }
+
+  function focusIn(
+    rs: Row[],
+    rowIdx: number,
+    colIdx: number,
+    opts: { verticalJump?: boolean } = {},
+  ) {
     const row = rs[rowIdx];
     if (!row) return;
-    const cs = cells(row);
+    const cs = row.cells;
     if (cs.length === 0) return;
     const clamped = Math.min(Math.max(colIdx, 0), cs.length - 1);
     const cell = cs[clamped]!;
@@ -253,16 +303,17 @@ export function useGridNav(
 
     // Jumping rows (up/down): centre the whole section vertically so the
     // focused row reads as the page's centrepiece rather than hugging the
-    // top edge. Staying in the same row (left/right): horizontal-only
-    // scroll inside the track, and `block: "nearest"` so we don't jitter
-    // the page vertically while scrubbing across cards.
+    // top edge, and clears the fixed bars. Staying in the same row
+    // (left/right): horizontal-only scroll inside the track, and
+    // `block: "nearest"` so we don't jitter the page vertically while
+    // scrubbing across cards.
     if (opts.verticalJump) {
-      const section = cell.closest(".card-row") ?? row;
+      const section = cell.closest(".card-row") ?? row.el ?? target;
       section.scrollIntoView({ block: "center", behavior: "smooth" });
     } else {
       target.scrollIntoView({
         block: "nearest",
-        inline: "center",
+        inline: wrapping ? "nearest" : "center",
         behavior: "smooth",
       });
     }
@@ -271,9 +322,9 @@ export function useGridNav(
   function focusFirst() {
     const rs = rows();
     for (const [r, row] of rs.entries()) {
-      if (cells(row).length > 0) {
+      if (row.cells.length > 0) {
         preferredCol = 0;
-        focusAt(r, 0, { verticalJump: true });
+        focusIn(rs, r, 0, { verticalJump: !wrapping });
         return;
       }
     }
@@ -289,10 +340,10 @@ export function useGridNav(
     if (!savedKey) return false;
     const rs = rows();
     for (const [r, row] of rs.entries()) {
-      for (const [c, cell] of cells(row).entries()) {
+      for (const [c, cell] of row.cells.entries()) {
         if (cellKey(cell) === savedKey) {
           preferredCol = c;
-          focusAt(r, c, { verticalJump: true });
+          focusIn(rs, r, c, { verticalJump: true });
           return true;
         }
       }
@@ -301,8 +352,9 @@ export function useGridNav(
   }
 
   function hasControl(cell: HTMLElement): boolean {
-    const selector = options.roving ? ROVING_CANDIDATES : FOCUSABLE_SELECTOR;
-    return focusableIn(cell) !== cell || cell.matches(selector);
+    return (
+      cell.matches(ROVING_CANDIDATES) || !!cell.querySelector(ROVING_CANDIDATES)
+    );
   }
 
   // Focuses the first or last cell that holds a control, skipping skeletons.
@@ -310,12 +362,12 @@ export function useGridNav(
     const rs = rows();
     const order = edge === "first" ? rs.keys() : [...rs.keys()].reverse();
     for (const r of order) {
-      const cs = cells(rs[r]!);
+      const cs = rs[r]!.cells;
       const cols = edge === "first" ? cs.keys() : [...cs.keys()].reverse();
       for (const c of cols) {
         if (!hasControl(cs[c]!)) continue;
         preferredCol = c;
-        focusAt(r, c, { verticalJump: true });
+        focusIn(rs, r, c, { verticalJump: true });
         return;
       }
     }
@@ -326,7 +378,7 @@ export function useGridNav(
     const rs = rows();
     const row = edge === "first" ? rs[0] : rs[rs.length - 1];
     if (!row) return false;
-    const cs = cells(row);
+    const cs = row.cells;
     const cell = edge === "first" ? cs[0] : cs[cs.length - 1];
     return !!cell && hasControl(cell);
   }
@@ -345,13 +397,14 @@ export function useGridNav(
 
   // The row about one viewport above or below `from`, clamped to the rows
   // that are mounted.
-  function pageRow(rs: HTMLElement[], from: number, dir: 1 | -1): number {
-    const fromRow = rs[from]!;
-    const top = fromRow.getBoundingClientRect().top;
-    const target = top + dir * pageHeight(fromRow);
+  function pageRow(rs: Row[], from: number, dir: 1 | -1): number {
+    const anchor = (row: Row) => row.el ?? row.cells[0]!;
+    const fromAnchor = anchor(rs[from]!);
+    const top = fromAnchor.getBoundingClientRect().top;
+    const target = top + dir * pageHeight(fromAnchor);
     let best = from;
     for (let r = from + dir; r >= 0 && r < rs.length; r += dir) {
-      const rowTop = rs[r]!.getBoundingClientRect().top;
+      const rowTop = anchor(rs[r]!).getBoundingClientRect().top;
       if (dir === 1 ? rowTop > target : rowTop < target) break;
       best = r;
     }
@@ -368,12 +421,12 @@ export function useGridNav(
     const active = document.activeElement;
     if (!(active instanceof Node) || !rootRef.value.contains(active)) return;
 
-    const cur = current();
+    const rs = rows();
+    const cur = current(rs);
     if (!cur) return;
 
     let { rowIdx, colIdx } = cur;
-    const rs = rows();
-    const rowCells = cells(rs[rowIdx]!);
+    const rowCells = rs[rowIdx]!.cells;
     if (rowCells[colIdx] !== navCell) preferredCol = colIdx;
     let verticalJump = false;
 
@@ -396,9 +449,12 @@ export function useGridNav(
       colIdx = preferredCol;
       verticalJump = true;
     } else if (e.key === "Home" || e.key === "End") {
-      // A row of one cell has nowhere to go inside it, so it moves through
-      // the grid instead.
-      if (e.ctrlKey || e.metaKey || rowCells.length === 1) {
+      // With one column there is nowhere to go inside a row, so it moves
+      // through the grid instead. A wrapping grid has one only at its narrowest.
+      const oneColumn = wrapping
+        ? rs.every((row) => row.cells.length === 1)
+        : rowCells.length === 1;
+      if (e.ctrlKey || e.metaKey || oneColumn) {
         e.preventDefault();
         void jumpToEdge(e.key === "Home" ? "first" : "last");
         return;
@@ -406,13 +462,16 @@ export function useGridNav(
       colIdx = e.key === "Home" ? 0 : rowCells.length - 1;
       preferredCol = colIdx;
     } else if (e.key === "PageUp" || e.key === "PageDown") {
-      rowIdx = pageRow(rs, rowIdx, e.key === "PageDown" ? 1 : -1);
+      const next = pageRow(rs, rowIdx, e.key === "PageDown" ? 1 : -1);
+      // At the grid's edge the page itself scrolls.
+      if (next === rowIdx) return;
+      rowIdx = next;
       colIdx = preferredCol;
       verticalJump = true;
     }
 
     e.preventDefault();
-    focusAt(rowIdx, colIdx, { verticalJump });
+    focusIn(rs, rowIdx, colIdx, { verticalJump });
   }
 
   // Runs as late children arrive (fetches finishing, skeletons swapping to
@@ -436,7 +495,7 @@ export function useGridNav(
     if (key) focusStore.save(route.fullPath, key);
     if (options.roving) {
       const cell = rows()
-        .flatMap((row) => cells(row))
+        .flatMap((row) => row.cells)
         .find((c) => c.contains(target));
       const cellFocusKey = cell ? cellKey(cell) : null;
       if (cellFocusKey && cellFocusKey !== activeKey) {

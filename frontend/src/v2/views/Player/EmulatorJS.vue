@@ -62,6 +62,7 @@ import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useActivityPresence } from "@/v2/composables/useActivityPresence";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import {
@@ -547,6 +548,9 @@ function unselectState() {
   resume.value = { ...resume.value, state: null };
 }
 
+useEmitterEvent("saveSelected", selectSave);
+useEmitterEvent("stateSelected", selectState);
+
 watch(selectedCore, (newSelectedCore) => {
   const armed = resume.value.state;
   if (armed?.emulator && armed.emulator !== newSelectedCore) unselectState();
@@ -596,9 +600,6 @@ onMounted(async () => {
   firmwareOptions.value = firmwareResponse.data;
 
   const platformSlug = rom.value.platform_slug;
-
-  emitter?.on("saveSelected", selectSave);
-  emitter?.on("stateSelected", selectState);
 
   // compatibleStates filters on selectedCore, so resolve the core first.
   selectedCore.value = resolveRememberedCore(
@@ -674,8 +675,6 @@ onBeforeUnmount(() => {
   // idempotent, so an exit that already flushed via the watch is a no-op.
   endSession();
   exitEmulatorOnce();
-  emitter?.off("saveSelected", selectSave);
-  emitter?.off("stateSelected", selectState);
 });
 
 function openCacheDialog() {
@@ -1419,7 +1418,7 @@ html[data-bp~="md-and-up"]
 /* ── Running state ───────────────────────────────────────── */
 .r-v2-ejs__stage {
   position: fixed;
-  inset: var(--r-nav-h) 0 0 0;
+  inset: var(--r-stage-inset);
   background: var(--r-color-canvas-bg);
   z-index: 1;
 }

@@ -73,6 +73,7 @@
   "playable": "Jouable",
   "playable-both": "Jouable dans le navigateur et diffusable depuis {label}",
   "playable-browser-dosbox": "Jouable dans le navigateur via DOSBox",
+  "playable-browser-easyrpg": "Jouable dans le navigateur via EasyRPG",
   "playable-browser-emulatorjs": "Jouable dans le navigateur via EmulatorJS",
   "playable-browser-jsdos": "Jouable dans le navigateur via js-dos",
   "playable-browser-pico8": "Jouable dans le navigateur via PICO-8",
@@ -132,6 +133,7 @@
   "tab-firmware": "Firmware",
   "tag": "Tag",
   "tags": "Tags",
+  "update-platform-failed": "Échec de la mise à jour de la plateforme : {error}",
   "updated": "Plateforme mise à jour",
   "upload-firmware": "Téléverser un firmware",
   "upload-roms": "Télécharger des ROMs"

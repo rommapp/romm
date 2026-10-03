@@ -18,9 +18,8 @@
 // so the read-only display inside CollectionSettingsDrawer renders from
 // the same rules.
 import { RBtn, RChip, RDialog, RForm, RIcon, RTextField, RTag } from "@v2/lib";
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -28,10 +27,10 @@ import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
-import type { Events } from "@/types/emitter";
 import { toBrowserLocale } from "@/utils";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import {
@@ -48,7 +47,6 @@ const { t, locale } = useI18n();
 const { mdAndUp } = useBreakpoint();
 const router = useRouter();
 const snackbar = useSnackbar();
-const emitter = inject<Emitter<Events>>("emitter");
 
 const galleryFilter = storeGalleryFilter();
 const galleryRoms = storeGalleryRoms();
@@ -140,10 +138,7 @@ const openHandler = () => {
   isPublic.value = false;
   show.value = true;
 };
-emitter?.on("showCreateSmartCollectionDialog", openHandler);
-onBeforeUnmount(() =>
-  emitter?.off("showCreateSmartCollectionDialog", openHandler),
-);
+useEmitterEvent("showCreateSmartCollectionDialog", openHandler);
 
 // Platform / collection lookups so the summary renders human-readable
 // names ("SNES", "Castlevania") instead of `#1`. Each returns null when

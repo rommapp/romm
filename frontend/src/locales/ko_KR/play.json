@@ -43,6 +43,8 @@
   "desktop-title": "Container desktop",
   "discs": "디스크",
   "download-memory-card": "카드 다운로드",
+  "easyrpg-browser-save-warning": "EasyRPG 저장 데이터는 이 브라우저에만 저장되며 RomM과 동기화되지 않습니다.",
+  "easyrpg-screen": "EasyRPG 게임 화면",
   "edit-memory-card": "메모리 카드 편집",
   "emulator": "에뮬레이터",
   "error-hint-auth": "스트리밍 권한이 없거나 로그인 세션이 만료되었을 수 있습니다. 다시 로그인해 보세요.",

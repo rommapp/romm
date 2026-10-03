@@ -43,6 +43,8 @@
   "desktop-title": "Container desktop",
   "discs": "Płyty",
   "download-memory-card": "Pobierz kartę",
+  "easyrpg-browser-save-warning": "Zapisy EasyRPG są przechowywane tylko w tej przeglądarce i nie są synchronizowane z RomM.",
+  "easyrpg-screen": "Ekran gry EasyRPG",
   "edit-memory-card": "Edytuj kartę pamięci",
   "emulator": "Emulator",
   "error-hint-auth": "Możesz nie mieć uprawnień do streamowania lub twoja sesja wygasła. Spróbuj zalogować się ponownie.",

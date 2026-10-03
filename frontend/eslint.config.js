@@ -8,6 +8,27 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import romm from "./eslint-plugin-romm/index.js";
 
+// Heavy modules that belong in a lazy chunk; add the next one here.
+const heavyImports = [
+  {
+    group: ["md-editor-v3", "md-editor-v3/**"],
+    allowTypeImports: true,
+    message:
+      "md-editor-v3 is heavy; render it through @/v2/components/shared/asyncMarkdown.",
+  },
+  {
+    group: [
+      "**/markdownPreview",
+      "**/markdownEditor",
+      "**/MarkdownViewer.vue",
+      "**/mdeditor",
+    ],
+    allowTypeImports: true,
+    message:
+      "This module bundles md-editor-v3; import it only from a lazy chunk.",
+  },
+];
+
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -90,7 +111,10 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/v2/utils/pico8AudioWorklet.js"],
+    files: [
+      "src/v2/utils/gmeAudioWorklet.js",
+      "src/v2/utils/pico8AudioWorklet.js",
+    ],
     languageOptions: { globals: globals.audioWorklet },
   },
   // Import cycles. The resolver has to be the one that reads tsconfig `paths`,
@@ -118,6 +142,27 @@ export default tseslint.config(
       ],
     },
   },
+  // The md-editor config (raw HTML, XSS filter) runs from the module the bare
+  // `md-editor-v3` alias points at; a deep import would skip it.
+  {
+    files: ["src/**/*.ts", "src/**/*.vue"],
+    ignores: ["src/plugins/mdeditor.ts", "src/plugins/mdeditor-dist.d.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              // Any subpath except a stylesheet.
+              regex: "^md-editor-v3/(?!.*\\.css$)",
+              message:
+                "Import from md-editor-v3 so the config in src/plugins/mdeditor.ts applies.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // typescript-eslint scopes these TS-redundant core rules to .ts files only.
   { ...tseslint.configs.eslintRecommended, files: ["**/*.vue"] },
   {
@@ -125,6 +170,26 @@ export default tseslint.config(
     // rule and cannot be refactored under the freeze.
     files: ["src/console/**"],
     rules: { "import-x/no-cycle": "off" },
+  },
+  {
+    files: ["src/**/*.ts", "src/**/*.vue"],
+    ignores: [
+      "src/views/**",
+      "src/components/**",
+      "src/console/**",
+      "src/layouts/**",
+      // The lazy-loaded md-editor modules, the editor's global config, and the
+      // view that reaches md-editor only through an async chunk.
+      "src/plugins/mdeditor*.ts",
+      "src/v2/components/shared/markdown*.ts",
+      "src/v2/components/GameDetails/MarkdownViewer.vue",
+    ],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        { patterns: heavyImports },
+      ],
+    },
   },
   // v2 primitives: no stores, services, i18n, emitter, or product domain.
   {
@@ -148,6 +213,8 @@ export default tseslint.config(
               message: "Primitives accept a RouterLink `to`, not the router.",
             },
           ],
+          // Rule options replace, not merge, across blocks, so repeat the heavy list.
+          patterns: heavyImports,
         },
       ],
       // Matches resolved files, so every alias and relative spelling is covered.
@@ -214,6 +281,7 @@ export default tseslint.config(
     rules: {
       "romm/no-color-literal": "error",
       "romm/no-layout-media-query": "error",
+      "romm/no-safe-area-env": "error",
     },
   },
   {
@@ -226,6 +294,12 @@ export default tseslint.config(
           selector: "CallExpression[callee.property.name='focus']",
           message:
             "Focus through focusFromInput from @/v2/utils/autofocus, so keyboard and gamepad moves show the focus ring.",
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='emitter'][callee.property.name='on']",
+          message:
+            "Subscribe with useEmitterEvent from @/v2/composables/useEmitterEvent, which unsubscribes when the component unmounts.",
         },
       ],
     },

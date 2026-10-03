@@ -73,6 +73,7 @@
   "playable": "Hratelné",
   "playable-both": "Hratelné v prohlížeči a streamovatelné z {label}",
   "playable-browser-dosbox": "Hratelné v prohlížeči přes DOSBox",
+  "playable-browser-easyrpg": "Hratelné v prohlížeči přes EasyRPG",
   "playable-browser-emulatorjs": "Hratelné v prohlížeči přes EmulatorJS",
   "playable-browser-jsdos": "Hratelné v prohlížeči přes js-dos",
   "playable-browser-pico8": "Hratelné v prohlížeči přes PICO-8",
@@ -132,6 +133,7 @@
   "tab-firmware": "Firmware",
   "tag": "Štítek",
   "tags": "Štítky",
+  "update-platform-failed": "Platformu se nepodařilo aktualizovat: {error}",
   "updated": "Platforma aktualizována",
   "upload-firmware": "Nahrát firmware",
   "upload-roms": "Nahrát ROMy"

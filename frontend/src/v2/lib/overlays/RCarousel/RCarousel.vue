@@ -27,6 +27,7 @@ import { computed, nextTick, ref, watch } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { isEditable } from "@/v2/utils/editable";
 import type { RCarouselProps } from "./types";
 
 defineOptions({ inheritAttrs: false });
@@ -124,9 +125,7 @@ function close() {
 
 function onKeydown(event: KeyboardEvent) {
   // Don't hijack typing in inputs that may live inside slots.
-  const target = event.target as HTMLElement | null;
-  const tag = target?.tagName;
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+  if (isEditable(event.target)) return;
 
   switch (event.key) {
     case "ArrowRight":
@@ -413,6 +412,7 @@ function onBackdropClick(event: MouseEvent) {
      stays visible. CSS named "black" is allowed by the token policy. */
   background: color-mix(in srgb, black 92%, transparent);
   backdrop-filter: blur(6px);
+  padding: var(--r-safe-t) var(--r-safe-r) var(--r-safe-b) var(--r-safe-l);
   display: grid;
   grid-template-rows: 1fr auto;
   /* `minmax(0, 1fr)`: WITHOUT an explicit column the single implicit track
@@ -461,10 +461,11 @@ function onBackdropClick(event: MouseEvent) {
 }
 
 /* Close button ------------------------------------------------------------- */
+/* Absolute children sit on the root's padding box, so they add the insets. */
 .r-carousel__close {
   position: absolute;
-  top: 18px;
-  right: 22px;
+  top: calc(18px + var(--r-safe-t));
+  right: calc(22px + var(--r-safe-r));
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -519,11 +520,11 @@ function onBackdropClick(event: MouseEvent) {
   cursor: not-allowed;
 }
 .r-carousel--fullscreen .r-carousel__nav--prev {
-  left: 22px;
+  left: calc(22px + var(--r-safe-l));
   transform: translateY(-50%);
 }
 .r-carousel--fullscreen .r-carousel__nav--next {
-  right: 22px;
+  right: calc(22px + var(--r-safe-r));
   transform: translateY(-50%);
 }
 
@@ -728,10 +729,10 @@ html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav {
   height: 44px;
 }
 html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav--prev {
-  left: 8px;
+  left: calc(8px + var(--r-safe-l));
 }
 html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav--next {
-  right: 8px;
+  right: calc(8px + var(--r-safe-r));
 }
 html[data-bp~="sm-and-down"] .r-carousel__thumb {
   width: 72px;

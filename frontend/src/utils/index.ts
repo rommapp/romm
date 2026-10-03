@@ -710,6 +710,37 @@ export function isPico8Rom(rom: SimpleRom | null | undefined) {
   return name?.endsWith(".p8") === true || name?.endsWith(".p8.png") === true;
 }
 
+/**
+ * Check if EasyRPG emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
+ * @returns True if supported, false otherwise.
+ */
+export function isEasyRpgEmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
+) {
+  if (heartbeat.EMULATION.DISABLE_EASYRPG) return false;
+
+  const slug = resolvePlatformSlug(platformSlug, config);
+  return slug.toLowerCase() === "rpg-maker";
+}
+
+/**
+ * Check if a ROM is an extracted RPG Maker 2000/2003 game folder.
+ *
+ * The web player fetches each file on demand, so it cannot read an archive.
+ *
+ * @param rom The ROM to check.
+ * @returns True if the ROM is a game folder, false otherwise.
+ */
+export function isEasyRpgGame(rom: SimpleRom | null | undefined) {
+  return rom?.is_easyrpg_game === true;
+}
+
 export type PlayingStatus =
   RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
@@ -832,12 +863,16 @@ export function calculateMainLayoutWidth() {
   const { smAndDown } = useDisplay();
   const navigationStore = storeNavigation();
   const { mainBarCollapsed } = storeToRefs(navigationStore);
+  // The side safe-area insets sit outside the layout as RomM.vue's spacers.
+  const insetX =
+    "env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)";
   const calculatedWidth = computed(() => {
-    return smAndDown.value
-      ? "calc(100% - 16px) !important"
+    const chrome = smAndDown.value
+      ? "16px"
       : mainBarCollapsed.value
-        ? "calc(100% - 76px) !important"
-        : "calc(100% - 106px) !important";
+        ? "76px"
+        : "106px";
+    return `calc(100% - ${chrome} - ${insetX}) !important`;
   });
 
   return { calculatedWidth };

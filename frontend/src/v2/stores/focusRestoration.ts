@@ -3,9 +3,9 @@
 // user on the tile they clicked instead of the first cell.
 //
 // Why this exists: pad / key navigation flows feel broken when "back"
-// resets focus to the top of the index. With this store, useGridNav /
-// useWrapGridNav save the focused tile's `data-focus-key` on every
-// focusin and, on mount, look it up to seed the autofocus target.
+// resets focus to the top of the index. With this store, useGridNav
+// saves the focused tile's `data-focus-key` on every focusin and, on
+// mount, looks it up to seed the autofocus target.
 //
 // Identifier: opaque string per consumer (`rom-{id}`, `platform-{id}`,
 // `collection-{kind}-{id}`, …). Stable across renders: the composables

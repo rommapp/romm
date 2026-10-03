@@ -1,4 +1,9 @@
-from exceptions.fs_exceptions import RomAlreadyExistsException
+import asyncio
+
+from exceptions.fs_exceptions import (
+    RomAlreadyExistsException,
+    RomListedByPlaylistException,
+)
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import redis_lock
@@ -6,6 +11,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom
+from utils.m3u import listing_playlist
 
 # Scans and the watcher skip dot-prefixed entries, so staged files stay unseen.
 STAGE_PREFIX = ".romm_tmp_"
@@ -19,10 +25,23 @@ def promotion_lock_key(rom: Rom) -> str:
     return f"rom_promotion:{rom.fs_path}/{rom.fs_name_no_ext}"
 
 
+def assert_promotable(rom: Rom) -> None:
+    """Refuse to move a lone file into a folder when a playlist beside it lists it.
+
+    Raises:
+        RomListedByPlaylistException: An .m3u in the file's folder lists it.
+    """
+    if not rom.has_simple_single_file:
+        return
+    playlist = listing_playlist(fs_rom_handler.validate_path(rom.full_path))
+    if playlist:
+        raise RomListedByPlaylistException(playlist)
+
+
 async def promote_single_file_to_folder(rom: Rom) -> Rom:
     """Promote a simple single-file ROM to a folder ROM in place, keeping rom.id
     and every relation. Idempotent; raises RomAlreadyExistsException on a
-    folder-name collision.
+    folder-name collision and RomListedByPlaylistException when an .m3u lists it.
     """
     async with redis_lock(
         promotion_lock_key(rom), timeout_seconds=PROMOTION_LOCK_TIMEOUT_SECONDS
@@ -33,6 +52,7 @@ async def promote_single_file_to_folder(rom: Rom) -> Rom:
 async def _promote(rom: Rom) -> Rom:
     if not rom.has_simple_single_file:
         return rom
+    await asyncio.to_thread(assert_promotable, rom)
 
     folder = rom.fs_name_no_ext
     fs_path = rom.fs_path

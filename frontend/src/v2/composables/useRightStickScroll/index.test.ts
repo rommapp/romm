@@ -67,6 +67,16 @@ describe("useRightStickScroll", () => {
     expect(el.scrollTop).toBe(20);
   });
 
+  it("ignores a disconnected pad's stale stick", () => {
+    // Firefox keeps disconnected entries in getGamepads() (#3851).
+    const { el } = setup();
+    pads = [{ ...padWithRightStick(0, 1), connected: false }];
+
+    step();
+
+    expect(el.scrollTop).toBe(0);
+  });
+
   it("ignores a stick resting inside the deadzone", () => {
     const { el } = setup();
     pads = [padWithRightStick(0.1, 0.1)];

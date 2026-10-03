@@ -1407,9 +1407,10 @@ onBeforeUnmount(() => {
           variant="flat"
           color="primary"
           block
-          :prepend-icon="playerState === 'loading' ? 'mdi-loading' : 'mdi-play'"
+          :prepend-icon="
+            playerState === 'loading' ? 'mdi-loading mdi-spin' : 'mdi-play'
+          "
           class="r-v2-stream__play"
-          :class="{ 'r-v2-stream__play--launching': playerState === 'loading' }"
           :disabled="!playReady"
           @click="onPlay()"
         >
@@ -2028,14 +2029,6 @@ onBeforeUnmount(() => {
   height: auto;
   box-shadow: 0 10px 24px
     color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
-}
-.r-v2-stream__play--launching :deep(.v-icon) {
-  animation: r-v2-stream-spin 0.8s linear infinite;
-}
-@keyframes r-v2-stream-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 .r-v2-stream__hero-links {
   display: flex;

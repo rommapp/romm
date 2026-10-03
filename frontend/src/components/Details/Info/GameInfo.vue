@@ -7,6 +7,7 @@ import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import MediaCarousel from "@/components/Details/Info/MediaCarousel.vue";
 import RDialog from "@/components/common/RDialog.vue";
+import "@/plugins/mdeditor";
 import { ROUTES } from "@/plugins/router";
 import { type FilterType } from "@/stores/galleryFilter";
 import type { DetailedRom } from "@/stores/roms";

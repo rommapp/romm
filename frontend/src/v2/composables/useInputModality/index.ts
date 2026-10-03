@@ -90,10 +90,8 @@ export function useInputModality() {
       if (!e.isTrusted) return;
       if (isNavigationKey(e.key)) setModality("key");
     };
-    // A gamepad connection is a strong signal the user is on a pad. Real
-    // per-button detection happens when we port the console input bus; until
-    // then we flip to "pad" on connect and stay there until another input
-    // type takes over.
+    // Covers the auth layout, which doesn't install useGamepad: a pad that
+    // connects there still switches the modality.
     const onGamepad = () => setModality("pad");
 
     // App-lifetime singleton listeners: installed from whichever top-level

@@ -43,6 +43,8 @@
   "desktop-title": "Container desktop",
   "discs": "ディスク",
   "download-memory-card": "カードをダウンロード",
+  "easyrpg-browser-save-warning": "EasyRPG のセーブデータはこのブラウザーにのみ保存され、RomM とは同期されません。",
+  "easyrpg-screen": "EasyRPG のゲーム画面",
   "edit-memory-card": "メモリーカードを編集",
   "emulator": "エミュレーター",
   "error-hint-auth": "ストリーミングの権限がないか、ログインセッションの有効期限が切れている可能性があります。もう一度サインインしてみてください。",

@@ -103,6 +103,7 @@ export type DetailedRomSchema = {
     has_simple_single_file: boolean;
     has_nested_single_file: boolean;
     has_multiple_files: boolean;
+    is_easyrpg_game: boolean;
     full_path: string;
     created_at: string;
     updated_at: string;

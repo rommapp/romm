@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import { gamepadFixture } from "@/utils/gamepad.fixtures";
 import RBox3D from "./RBox3D.vue";
 
 describe("RBox3D", () => {
@@ -38,6 +39,33 @@ describe("RBox3D", () => {
 
   const yaw = (wrapper: Awaited<ReturnType<typeof render>>) =>
     wrapper.get(".r-box3d__box").attributes("style");
+
+  it.each([
+    { connected: true, turns: true },
+    { connected: false, turns: false },
+  ])(
+    "reads the right stick while focused (pad connected: $connected)",
+    async ({ connected, turns }) => {
+      const pad = { ...gamepadFixture({ axes: [0, 0, 1, 0] }), connected };
+      Object.defineProperty(navigator, "getGamepads", {
+        value: () => [pad],
+        configurable: true,
+      });
+      const wrapper = mount(RBox3D, {
+        props: { front: "f.png", back: "b.png", spine: "s.png" },
+        attachTo: document.body,
+      });
+      await nextTick();
+      (wrapper.element as HTMLElement).focus();
+      const before = yaw(wrapper);
+
+      step();
+      await nextTick();
+
+      expect(yaw(wrapper) !== before).toBe(turns);
+      wrapper.unmount();
+    },
+  );
 
   it("turns with the arrow keys", async () => {
     const wrapper = await render();

@@ -43,6 +43,8 @@
   "desktop-title": "Container desktop",
   "discs": "Lemezek",
   "download-memory-card": "Kártya letöltése",
+  "easyrpg-browser-save-warning": "Az EasyRPG mentések csak ebben a böngészőben tárolódnak, és nem szinkronizálódnak a RomM-mal.",
+  "easyrpg-screen": "EasyRPG játékképernyő",
   "edit-memory-card": "Memóriakártya szerkesztése",
   "emulator": "Emulátor",
   "error-hint-auth": "Lehet, hogy nincs jogosultságod a streameléshez, vagy lejárt a munkameneted. Próbálj meg újra bejelentkezni.",

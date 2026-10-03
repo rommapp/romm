@@ -35,11 +35,11 @@ import IndexShell from "@/v2/components/shared/IndexShell.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
+import { useGridNav } from "@/v2/composables/useGridNav";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { usePlatformPlayableChecker } from "@/v2/composables/usePlatformPlayable";
 import { useRouteQueryParam } from "@/v2/composables/useRouteQueryParam";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
-import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();
@@ -77,7 +77,7 @@ const visiblePlatforms = computed<Platform[]>(() =>
 // targets `.plat-tile` in grid mode (which is the only place tiles render
 // list mode emits `.plat-list-row`).
 const gridRoot = ref<HTMLElement | null>(null);
-useWrapGridNav(gridRoot, { cellSelector: ".plat-tile" });
+useGridNav(gridRoot, { cellSelector: ".plat-tile" });
 
 // Pre-compute the play flag per platform: sort comparator and every row
 // read this map so the column, the badge on the tile, and the playable

@@ -1,6 +1,7 @@
 // @ts-check
 import noColorLiteral from "./rules/no-color-literal.js";
 import noLayoutMediaQuery from "./rules/no-layout-media-query.js";
+import noSafeAreaEnv from "./rules/no-safe-area-env.js";
 
 /** @type {import("eslint").ESLint.Plugin} */
 export default {
@@ -8,5 +9,6 @@ export default {
   rules: {
     "no-color-literal": noColorLiteral,
     "no-layout-media-query": noLayoutMediaQuery,
+    "no-safe-area-env": noSafeAreaEnv,
   },
 };

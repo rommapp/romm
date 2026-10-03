@@ -63,6 +63,22 @@ def _make_track(
     return rom
 
 
+def _make_untagged_track(admin_id: int, platform: Platform, file_name: str) -> None:
+    """A soundtrack file with an empty track row, as the scanner gives a chiptune."""
+    rom = make_rom(platform, "Plok")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_id)
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=file_name,
+            file_path=f"{rom.fs_path}/Plok/soundtrack",
+            file_size_bytes=66048,
+            category=RomFileCategory.SOUNDTRACK,
+            track_meta=TrackMeta(rom_id=rom.id),
+        )
+    )
+
+
 @pytest.fixture
 def music_library(admin_user: User):
     pa = _make_platform("genesis")
@@ -152,6 +168,36 @@ def test_tracks_artist_exact_case_insensitive(
 def test_tracks_search_substring(client: TestClient, access_token: str, music_library):
     r = client.get("/api/music/tracks?search=hill", headers=_auth(access_token))
     assert [i["title"] for i in r.json()["items"]] == ["Green Hill"]
+
+
+def test_tracks_search_matches_an_untagged_file_by_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "05 Beach.spc")
+
+    r = client.get("/api/music/tracks?search=beach", headers=_auth(access_token))
+
+    [item] = r.json()["items"]
+    assert item["title"] is None
+    assert item["file_name"] == "05 Beach.spc"
+    assert item["stream_url"].endswith("/files/content/05%20Beach.spc")
+
+
+def test_tracks_sort_an_untagged_file_by_its_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "Ice.spc")
+
+    r = client.get(
+        "/api/music/tracks?order_by=title&order_dir=asc", headers=_auth(access_token)
+    )
+
+    assert [i["file_name"] for i in r.json()["items"]] == [
+        "Green Hill.mp3",
+        "Ice.spc",
+        "Jingle.mp3",
+        "Overworld.mp3",
+    ]
 
 
 def test_tracks_search_escapes_like_wildcards(
@@ -616,6 +662,18 @@ def test_games_facet_search_matches_game_and_track_fields(
         "/api/music/games", params={"search": "koshiro"}, headers=_auth(access_token)
     ).json()
     assert [i["name"] for i in by_artist["items"]] == ["Streets"]
+
+
+def test_games_facet_search_matches_an_untagged_file_by_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "05 Beach.spc")
+
+    r = client.get(
+        "/api/music/games", params={"search": "beach"}, headers=_auth(access_token)
+    )
+
+    assert [i["name"] for i in r.json()["items"]] == ["Plok"]
 
 
 def test_games_facet_excludes_hidden_platform(music_library):

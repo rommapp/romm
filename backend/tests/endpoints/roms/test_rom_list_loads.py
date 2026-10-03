@@ -17,6 +17,7 @@ FILE_STAT_FIELDS = (
     "has_nested_single_file",
     "has_multiple_files",
     "has_soundtrack",
+    "is_easyrpg_game",
 )
 
 
@@ -90,6 +91,16 @@ def soundtrack_rom(admin_user: User, platform: Platform) -> Rom:
     return rom
 
 
+@pytest.fixture
+def easyrpg_rom(admin_user: User, platform: Platform) -> Rom:
+    """An RPG Maker 2000/2003 game folder, its database named in upper case."""
+    rom = _add_rom(admin_user, platform, "rpg_game", fs_extension="")
+    file_path = f"{rom.fs_path}/rpg_game"
+    _add_file(rom, "RPG_RT.ldb", file_path=file_path)
+    _add_file(rom, "Title.png", file_path=f"{file_path}/Title")
+    return rom
+
+
 def _fetch_one(
     client: TestClient, access_token: str, platform: Platform, *, with_files: bool
 ) -> dict[str, Any]:
@@ -106,7 +117,14 @@ def _fetch_one(
 
 @pytest.mark.parametrize(
     "rom_fixture",
-    ["flat_rom", "folder_rom", "nested_rom", "soundtrack_rom", "fileless_rom"],
+    [
+        "flat_rom",
+        "folder_rom",
+        "nested_rom",
+        "soundtrack_rom",
+        "fileless_rom",
+        "easyrpg_rom",
+    ],
 )
 def test_file_stats_match_between_derived_and_sql_paths(
     client: TestClient,
@@ -127,6 +145,26 @@ def test_file_stats_match_between_derived_and_sql_paths(
     assert {field: derived[field] for field in FILE_STAT_FIELDS} == {
         field: from_sql[field] for field in FILE_STAT_FIELDS
     }
+
+
+@pytest.mark.parametrize("with_files", [True, False])
+@pytest.mark.parametrize(
+    ("rom_fixture", "expected"), [("easyrpg_rom", True), ("folder_rom", False)]
+)
+def test_is_easyrpg_game_needs_a_top_level_game_database(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    rom_fixture: str,
+    expected: bool,
+    with_files: bool,
+    request: pytest.FixtureRequest,
+) -> None:
+    request.getfixturevalue(rom_fixture)
+
+    rom = _fetch_one(client, access_token, platform, with_files=with_files)
+
+    assert rom["is_easyrpg_game"] is expected
 
 
 def test_with_files_query_count_does_not_scale_with_file_count(

@@ -688,6 +688,7 @@ def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
             undefer(Rom.multi_file),
             undefer(Rom.top_level_file_count),
             undefer(Rom.has_soundtrack),
+            undefer(Rom.is_easyrpg_game),
         )
         return func(*args, **kwargs)
 
@@ -736,6 +737,7 @@ def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
             undefer(Rom.multi_file),
             undefer(Rom.top_level_file_count),
             undefer(Rom.has_soundtrack),
+            undefer(Rom.is_easyrpg_game),
         )
         return func(*args, **kwargs)
 
@@ -819,6 +821,16 @@ def _queue_user_cache_bumps(
         flag
         for flag, queued in (("sort", sort_keys), ("sib", siblings), ("feed", feed))
         if queued
+    )
+
+
+def _track_text_match(search: str) -> ColumnElement[bool]:
+    return or_(
+        TrackMeta.title.icontains(search, autoescape=True),
+        TrackMeta.artist.icontains(search, autoescape=True),
+        TrackMeta.album.icontains(search, autoescape=True),
+        # Untagged tracks, chiptunes among them, are named by file.
+        RomFile.file_name.icontains(search, autoescape=True),
     )
 
 
@@ -1560,6 +1572,7 @@ class DBRomsHandler(DBBaseHandler):
                 undefer(Rom.multi_file),
                 undefer(Rom.top_level_file_count),
                 undefer(Rom.has_soundtrack),
+                undefer(Rom.is_easyrpg_game),
             )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
@@ -2831,6 +2844,26 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def present_rom_file_paths(
+        self,
+        rom_id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> list[RomFile]:
+        """A ROM's files on disk, loading only their paths and the rom's."""
+        return list(
+            session.scalars(
+                select(RomFile)
+                .filter_by(rom_id=rom_id, missing_from_fs=False)
+                .options(
+                    load_only(RomFile.file_path, RomFile.file_name),
+                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+                )
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
     def rom_files_for_rom_id(
         self,
         rom_id: int,
@@ -2991,13 +3024,7 @@ class DBRomsHandler(DBBaseHandler):
         if rom_id is not None:
             clauses.append(Rom.id == rom_id)
         if search:
-            clauses.append(
-                or_(
-                    TrackMeta.title.icontains(search, autoescape=True),
-                    TrackMeta.artist.icontains(search, autoescape=True),
-                    TrackMeta.album.icontains(search, autoescape=True),
-                )
-            )
+            clauses.append(_track_text_match(search))
         if artist and exclude_field != "artist":
             clauses.append(func.lower(TrackMeta.artist) == artist.lower())
         if album and exclude_field != "album":
@@ -3121,8 +3148,9 @@ class DBRomsHandler(DBBaseHandler):
         # genres blob that would otherwise be materialized just to be counted.
         count_subquery = base.with_only_columns(TrackMeta.rom_file_id).subquery()
         total = session.scalar(select(func.count()).select_from(count_subquery)) or 0
-        order_map = {
-            "title": TrackMeta.title,
+        order_map: dict[str, SQLColumnExpression[Any]] = {
+            # Untagged tracks, chiptunes among them, are shown by file name.
+            "title": func.coalesce(TrackMeta.title, RomFile.file_name),
             "artist": TrackMeta.artist,
             "album": TrackMeta.album,
             "year": TrackMeta.year,
@@ -3132,7 +3160,7 @@ class DBRomsHandler(DBBaseHandler):
         }
         if playlist_id is not None:
             order_map["position"] = MusicPlaylistTrack.position
-        col = order_map.get(order_by, TrackMeta.title)
+        col = order_map.get(order_by, order_map["title"])
         rows = session.execute(
             base.order_by(nulls_last(col, order_dir == "desc"), TrackMeta.rom_file_id)
             .limit(limit)
@@ -3419,9 +3447,7 @@ class DBRomsHandler(DBBaseHandler):
             where.append(
                 or_(
                     Rom.name.icontains(search, autoescape=True),
-                    TrackMeta.title.icontains(search, autoescape=True),
-                    TrackMeta.artist.icontains(search, autoescape=True),
-                    TrackMeta.album.icontains(search, autoescape=True),
+                    _track_text_match(search),
                 )
             )
         count_col = func.count().label("count")

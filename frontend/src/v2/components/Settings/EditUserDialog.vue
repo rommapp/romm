@@ -19,6 +19,7 @@ import type { Platform } from "@/stores/platforms";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
@@ -112,7 +113,7 @@ const sortedPlatforms = computed(() =>
 
 let openToken = 0;
 
-emitter?.on("showEditUserDialog", async (toEdit) => {
+useEmitterEvent("showEditUserDialog", async (toEdit) => {
   const token = ++openToken;
   submitting.value = false;
   user.value = { ...toEdit, password: "", avatar: undefined };

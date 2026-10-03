@@ -1,11 +1,8 @@
 // Gathers keyboard, gamepad, on-screen and mouse state into the per-frame
 // snapshot FAKE-08 expects, so the view is left with DOM plumbing only.
 import { ref, type Ref } from "vue";
-import {
-  AXIS_THRESHOLD,
-  isUsablePad,
-  PAD_BUTTON,
-} from "@/v2/composables/useGamepad";
+import { AXIS_THRESHOLD, PAD_BUTTON } from "@/v2/composables/useGamepad";
+import { isUsablePad } from "@/v2/utils/gamepad";
 import {
   PICO8_HEIGHT,
   PICO8_INPUT_BITS,

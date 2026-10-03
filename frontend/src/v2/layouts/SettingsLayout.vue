@@ -130,8 +130,7 @@ setBgArt(null);
    trapped behind the bar, no second document-level scroll). */
 html[data-bp~="sm-and-down"] .r-v2-settings--fill {
   height: calc(
-    100dvh - var(--r-nav-h) - var(--r-bottom-nav-h) -
-      env(safe-area-inset-bottom)
+    100dvh - var(--r-nav-h) - var(--r-bottom-nav-h) - var(--r-safe-b)
   );
 }
 .r-v2-settings--fill .r-v2-settings__content {
