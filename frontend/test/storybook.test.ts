@@ -1,6 +1,7 @@
-import { composeStories } from "@storybook/vue3-vite";
+import { composeStories, setProjectAnnotations } from "@storybook/vue3-vite";
 import axe from "axe-core";
 import { describe, expect, it } from "vitest";
+import * as previewAnnotations from "../.storybook/preview";
 
 type StoryModule = Record<string, unknown>;
 
@@ -67,6 +68,12 @@ async function checkA11y(
     `Accessibility violations in "${storyName}":\n${report}`,
   ).toHaveLength(0);
 }
+
+// Only this file renders stories, so only it pays for the preview setup
+// (full Vuetify, Storybook runtime) instead of every test file.
+setProjectAnnotations([
+  previewAnnotations as Parameters<typeof setProjectAnnotations>[0][number],
+]);
 
 const storyModules = import.meta.glob<StoryModule>(
   "../src/v2/**/*.stories.ts",
