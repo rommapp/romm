@@ -85,11 +85,13 @@ watch(
 
 const isV2 = computed(() => uiVersion.value === "v2");
 
-// The page draws under a phone's status bar and home indicator
-// (`viewport-fit=cover`); v1 clears them with layout bars of the same height.
+// The page draws under a phone's status bar, notch and home indicator
+// (`viewport-fit=cover`); v1 clears them with layout items of the same size.
 const safeArea = useScreenSafeArea();
 const safeTop = computed(() => parseFloat(safeArea.top.value) || 0);
+const safeRight = computed(() => parseFloat(safeArea.right.value) || 0);
 const safeBottom = computed(() => parseFloat(safeArea.bottom.value) || 0);
+const safeLeft = computed(() => parseFloat(safeArea.left.value) || 0);
 
 // Apply the v2 token scope to <html> when v2 is active. Vuetify teleports
 // overlays (VDialog, VMenu) into `<body> > .v-overlay-container`, which
@@ -124,6 +126,26 @@ watch(
         :height="safeBottom"
         :order="-1"
         class="bg-background pa-0"
+      />
+      <v-navigation-drawer
+        v-if="safeLeft"
+        location="left"
+        :width="safeLeft"
+        :order="-1"
+        permanent
+        floating
+        touchless
+        class="bg-background"
+      />
+      <v-navigation-drawer
+        v-if="safeRight"
+        location="right"
+        :width="safeRight"
+        :order="-1"
+        permanent
+        floating
+        touchless
+        class="bg-background"
       />
     </template>
     <v-main id="main" class="no-transition" :tag="isV2 ? 'div' : 'main'">
