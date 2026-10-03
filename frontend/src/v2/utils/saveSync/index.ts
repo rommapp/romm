@@ -84,22 +84,19 @@ export class DeviceSaveSync {
 
   /** Keep what the player wrote, for the next push. */
   async capture(files: PlayerSaveFile[]): Promise<void> {
-    for (const file of files) {
-      const hash = saveContentHash(file.bytes);
-      const held = this.saves.get(file.slot);
-      if (held?.hash === hash) continue;
-      await this.remember({
-        userId: this.userId,
-        romId: this.rom.id,
-        slot: file.slot,
-        fileName: file.fileName,
-        emulator: this.emulator,
-        bytes: file.bytes,
-        updatedAt: file.updatedAt,
-        hash,
-        syncedHash: held?.syncedHash ?? null,
-      });
-    }
+    await Promise.all(this.track(files).map((save) => putLocalSave(save)));
+  }
+
+  /**
+   * Capture and send what the player wrote while the page goes away.
+   *
+   * The keepalive requests leave before the browser copy is stored, since a
+   * closing page may not live to see an IndexedDB write finish.
+   */
+  captureOnUnload(files: PlayerSaveFile[]): void {
+    const changed = this.track(files);
+    this.pushOnUnload();
+    for (const save of changed) void putLocalSave(save).catch(() => undefined);
   }
 
   /**
@@ -136,6 +133,30 @@ export class DeviceSaveSync {
         saveFile: saveFileOf(save),
       });
     }
+  }
+
+  // Takes the changed files in memory at once, returning them for storing.
+  private track(files: PlayerSaveFile[]): LocalSave[] {
+    const changed: LocalSave[] = [];
+    for (const file of files) {
+      const hash = saveContentHash(file.bytes);
+      const held = this.saves.get(file.slot);
+      if (held?.hash === hash) continue;
+      const save: LocalSave = {
+        userId: this.userId,
+        romId: this.rom.id,
+        slot: file.slot,
+        fileName: file.fileName,
+        emulator: this.emulator,
+        bytes: file.bytes,
+        updatedAt: file.updatedAt,
+        hash,
+        syncedHash: held?.syncedHash ?? null,
+      };
+      this.saves.set(save.slot, save);
+      changed.push(save);
+    }
+    return changed;
   }
 
   private changed(): LocalSave[] {

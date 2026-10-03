@@ -2,9 +2,19 @@ import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { RuffleSourceAPI } from "@/types/ruffle";
+import { zipRuffleSaves } from "@/v2/utils/ruffleSaves";
 import Ruffle from "./Ruffle.vue";
 
 const mocks = vi.hoisted(() => ({
+  confirm: vi.fn(),
+  exitLeave: vi.fn(),
+  routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
+  sync: {
+    prepare: vi.fn(),
+    capture: vi.fn(),
+    push: vi.fn(),
+    captureOnUnload: vi.fn(),
+  },
   getRom: vi.fn(),
   playSessionStart: vi.fn(),
   flushPlaySession: vi.fn(),
@@ -16,8 +26,33 @@ const mocks = vi.hoisted(() => ({
 vi.mock("vue-i18n");
 
 vi.mock("vue-router", () => ({
+  onBeforeRouteLeave: (guard: (to: { fullPath: string }) => unknown) => {
+    mocks.routeLeaveGuard = guard;
+  },
   useRoute: () => ({ params: { rom: "1" } }),
   useRouter: () => ({ push: mocks.push }),
+}));
+
+vi.mock("@/stores/auth", () => ({ default: () => ({ user: { id: 7 } }) }));
+
+vi.mock("@/v2/composables/useConfirm", () => ({
+  useConfirm: () => mocks.confirm,
+}));
+
+vi.mock("@/v2/composables/usePlayerExit", () => ({
+  usePlayerExit: () => ({
+    leave: mocks.exitLeave,
+    guard: () => Promise.resolve(true),
+  }),
+}));
+
+vi.mock("@/v2/utils/saveSync", () => ({
+  DeviceSaveSync: class {
+    prepare = mocks.sync.prepare;
+    capture = mocks.sync.capture;
+    push = mocks.sync.push;
+    captureOnUnload = mocks.sync.captureOnUnload;
+  },
 }));
 
 vi.mock("@/plugins/router", () => ({
@@ -90,6 +125,12 @@ beforeEach(() => {
 });
 
 beforeEach(() => {
+  vi.clearAllMocks();
+  localStorage.clear();
+  mocks.sync.prepare.mockResolvedValue([]);
+  mocks.sync.capture.mockResolvedValue(undefined);
+  mocks.sync.push.mockResolvedValue(true);
+  mocks.confirm.mockResolvedValue(false);
   mocks.getRom.mockResolvedValue({ data: rom });
   window.RufflePlayer = {
     newest: () => null,
@@ -125,6 +166,7 @@ async function mountAndPlay(): Promise<VueWrapper> {
   });
   await flushPromises();
   await wrapper.get(".r-v2-player__play").trigger("click");
+  await flushPromises();
   await nextTick();
   return wrapper;
 }
@@ -156,6 +198,103 @@ describe("Ruffle launch", () => {
     expect(mocks.playSessionStart).not.toHaveBeenCalled();
     expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
     expect(dispatchUnload().defaultPrevented).toBe(false);
+    wrapper.unmount();
+  });
+});
+
+const HOST = window.location.hostname;
+const SWF_KEY = "api/roms/1/content/game.swf/progress";
+
+function sol(marker: number): Uint8Array {
+  return new Uint8Array([
+    0x00,
+    0xbf,
+    0,
+    0,
+    0,
+    9,
+    0x54,
+    0x43,
+    0x53,
+    0x4f,
+    marker,
+  ]);
+}
+
+function stored(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes));
+}
+
+describe("Ruffle saves", () => {
+  beforeEach(() => {
+    window.RufflePlayer = {
+      newest: () => makeRuffleSource(),
+    } as unknown as typeof window.RufflePlayer;
+  });
+
+  it("syncs saves left in storage and restores the synced copy", async () => {
+    localStorage.setItem(`${HOST}/${SWF_KEY}`, stored(sol(1)));
+    mocks.sync.prepare.mockResolvedValue([
+      { slot: "autosave", bytes: zipRuffleSaves({ [SWF_KEY]: sol(2) }) },
+    ]);
+
+    const wrapper = await mountAndPlay();
+
+    const [leftover] = mocks.sync.prepare.mock.calls[0]![0];
+    expect(leftover).toMatchObject({
+      slot: "autosave",
+      fileName: "Flash Game.sol.zip",
+    });
+    expect(localStorage.getItem(`${HOST}/${SWF_KEY}`)).toBe(stored(sol(2)));
+    wrapper.unmount();
+  });
+
+  it("uploads the saves and clears them from storage on quit", async () => {
+    const wrapper = await mountAndPlay();
+    localStorage.setItem(`${HOST}/${SWF_KEY}`, stored(sol(3)));
+
+    expect(mocks.routeLeaveGuard?.({ fullPath: "/rom/1" })).toBe(false);
+    await flushPromises();
+
+    expect(mocks.sync.capture).toHaveBeenCalledWith([
+      expect.objectContaining({ slot: "autosave" }),
+    ]);
+    expect(mocks.sync.push).toHaveBeenCalled();
+    expect(localStorage.getItem(`${HOST}/${SWF_KEY}`)).toBeNull();
+    expect(mocks.exitLeave).toHaveBeenCalledWith("/rom/1");
+    expect(document.querySelector("#r-v2-ruffle-stage > *")).toBeNull();
+    wrapper.unmount();
+  });
+
+  it("sends the saves and keeps them in storage as the page goes away", async () => {
+    const wrapper = await mountAndPlay();
+    localStorage.setItem(`${HOST}/${SWF_KEY}`, stored(sol(4)));
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(mocks.sync.captureOnUnload).toHaveBeenCalledWith([
+      expect.objectContaining({ slot: "autosave" }),
+    ]);
+    expect(localStorage.getItem(`${HOST}/${SWF_KEY}`)).toBe(stored(sol(4)));
+    wrapper.unmount();
+  });
+
+  it("restarts the game when the player stays after a failed upload", async () => {
+    mocks.sync.push.mockResolvedValue(false);
+    const wrapper = await mountAndPlay();
+    localStorage.setItem(`${HOST}/${SWF_KEY}`, stored(sol(3)));
+
+    mocks.routeLeaveGuard?.({ fullPath: "/rom/1" });
+    await flushPromises();
+
+    expect(mocks.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "play.quit-before-save-synced" }),
+    );
+    expect(mocks.exitLeave).not.toHaveBeenCalled();
+    expect(localStorage.getItem(`${HOST}/${SWF_KEY}`)).toBe(stored(sol(3)));
+    expect(document.getElementById("r-v2-ruffle-stage")?.children).toHaveLength(
+      1,
+    );
     wrapper.unmount();
   });
 });

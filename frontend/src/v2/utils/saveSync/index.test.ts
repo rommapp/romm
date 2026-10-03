@@ -254,6 +254,25 @@ describe("DeviceSaveSync.push", () => {
     expect(held!.syncedHash).toBe(saveContentHash(new Uint8Array([1])));
   });
 
+  it("sends what the player wrote as the page goes away", async () => {
+    negotiated([]);
+    const saveSync = sync();
+    await saveSync.prepare();
+
+    saveSync.captureOnUnload([playerSave("Save01", 1)]);
+
+    expect(mocks.sendSaveOnUnload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceId: "device-1",
+        slot: "Save01",
+        contentHash: saveContentHash(new Uint8Array([1])),
+      }),
+    );
+    await vi.waitFor(async () =>
+      expect(await listLocalSaves(userId, ROM.id)).toHaveLength(1),
+    );
+  });
+
   it("keeps saves in the browser when the account cannot sync", async () => {
     mocks.browserDeviceId.mockResolvedValue(null);
     const saveSync = sync();

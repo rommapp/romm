@@ -11,13 +11,17 @@ import {
   watch,
 } from "vue";
 import { useI18n } from "vue-i18n";
+import { onBeforeRouteLeave } from "vue-router";
 import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -27,15 +31,23 @@ import { createPico8Audio, type Pico8Audio } from "@/v2/utils/pico8Audio";
 import { createPico8Input } from "@/v2/utils/pico8Input";
 import { createPico8Pacer, type Pico8Pacer } from "@/v2/utils/pico8Pacer";
 import {
+  cartDataFileName,
   createPico8Runtime,
   PICO8_FRAME_RATE,
   PICO8_HEIGHT,
   PICO8_INPUT_BITS,
   PICO8_WIDTH,
+  type Pico8CartData,
   type Pico8Runtime,
 } from "@/v2/utils/pico8Runtime";
+import { DeviceSaveSync, type PlayerSaveFile } from "@/v2/utils/saveSync";
+
+const PICO8_EMULATOR = "pico8";
 
 const { t } = useI18n();
+const authStore = storeAuth();
+const exit = usePlayerExit();
+const confirm = useConfirm();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const { fullscreenOnPlay } = useFullscreenPref();
@@ -45,6 +57,7 @@ const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
 usePlayingWhile(gameRunning);
 const loading = ref(false);
+const quitting = ref(false);
 const stage = ref<HTMLDivElement | null>(null);
 const canvas = ref<HTMLCanvasElement | null>(null);
 
@@ -58,6 +71,8 @@ const {
 let runtime: Pico8Runtime | null = null;
 let audio: Pico8Audio | null = null;
 let pacer: Pico8Pacer | null = null;
+let saveSync: DeviceSaveSync | null = null;
+let cartBytes: Uint8Array | null = null;
 
 const input = createPico8Input();
 const { touchMask } = input;
@@ -192,6 +207,8 @@ function releaseGame() {
   looping.value = false;
   runtime?.dispose();
   runtime = null;
+  saveSync = null;
+  cartBytes = null;
   pacer = null;
   audio?.close();
   audio = null;
@@ -215,6 +232,89 @@ async function fetchCartBytes(target: DetailedRom) {
   return new Uint8Array(await response.arrayBuffer());
 }
 
+// Cart data syncs like any save; a browser that cannot reach the server keeps
+// playing with what it last held.
+async function prepareCartData(target: DetailedRom): Promise<Pico8CartData[]> {
+  const userId = authStore.user?.id;
+  if (userId == null) return [];
+  const sync = new DeviceSaveSync(target, userId, PICO8_EMULATOR);
+  try {
+    const saves = await sync.prepare();
+    saveSync = sync;
+    return saves.map((save) => ({ key: save.slot, bytes: save.bytes }));
+  } catch (error) {
+    console.error("[PICO-8] Saves are unavailable", error);
+    return [];
+  }
+}
+
+function cartDataSaves(files: Pico8CartData[]): PlayerSaveFile[] {
+  const now = Date.now();
+  return files.map((file) => ({
+    slot: file.key,
+    fileName: cartDataFileName(file.key),
+    bytes: file.bytes,
+    updatedAt: now,
+  }));
+}
+
+async function captureCartData(
+  sync: DeviceSaveSync,
+  files: Pico8CartData[],
+): Promise<void> {
+  await sync.capture(cartDataSaves(files));
+}
+
+// FAKE-08 writes cart data only when a cart unloads, so it is captured on the
+// way out rather than while the game runs.
+async function saveCartData(): Promise<boolean> {
+  const sync = saveSync;
+  const active = runtime;
+  if (!sync || !active) return true;
+  looping.value = false;
+  try {
+    await captureCartData(sync, active.flushCartData());
+  } catch (error) {
+    console.error("[PICO-8] Saving cart data failed", error);
+    return false;
+  }
+  return sync.push();
+}
+
+// Flushing swapped in a blank cart, so staying restarts the game's own.
+function resumeCart() {
+  if (!runtime || !cartBytes) return;
+  try {
+    runtime.loadCart(cartBytes);
+    startLoop();
+  } catch (error) {
+    showPlayError(error);
+  }
+}
+
+async function leavePlayer(leave: () => void) {
+  if (quitting.value) return;
+  quitting.value = true;
+
+  if (!(await saveCartData())) {
+    const discard = await confirm({
+      title: t("play.quit-before-save-synced"),
+      confirmText: t("common.discard"),
+      cancelText: t("common.cancel"),
+      tone: "danger",
+    });
+    if (!discard) {
+      resumeCart();
+      quitting.value = false;
+      return;
+    }
+  }
+
+  releaseGame();
+  quitting.value = false;
+  leave();
+}
+
 async function onPlay() {
   const currentRom = rom.value;
   if (!currentRom || gameRunning.value) return;
@@ -232,9 +332,10 @@ async function onPlay() {
 
   let nextRuntime: Pico8Runtime | null = null;
   try {
-    const [runtimeResult, bytes] = await Promise.all([
+    const [runtimeResult, bytes, cartData] = await Promise.all([
       createPico8Runtime(canvasElement),
       fetchCartBytes(currentRom),
+      prepareCartData(currentRom),
     ]);
     nextRuntime = runtimeResult;
     if (!gameRunning.value) {
@@ -242,7 +343,9 @@ async function onPlay() {
       nextRuntime = null;
       return;
     }
+    nextRuntime.writeCartData(cartData);
     nextRuntime.loadCart(bytes);
+    cartBytes = bytes;
     runtime = nextRuntime;
     nextRuntime = null;
 
@@ -273,9 +376,22 @@ async function onPlay() {
 }
 
 function onlyQuit() {
-  releaseGame();
-  window.history.back();
+  void leavePlayer(() => window.history.back());
 }
+
+onBeforeRouteLeave((to) => {
+  if (!runtime) return exit.guard(to);
+  void leavePlayer(() => exit.leave(to.fullPath));
+  return false;
+});
+
+useEventListener(window, "pagehide", (event: PageTransitionEvent) => {
+  const sync = saveSync;
+  const active = runtime;
+  // A page kept for back and forward can return to the running cart.
+  if (event.persisted || !sync || !active) return;
+  sync.captureOnUnload(cartDataSaves(active.flushCartData()));
+});
 
 useEventListener(window, "keydown", onKeyDown);
 useEventListener(window, "keyup", onKeyUp);

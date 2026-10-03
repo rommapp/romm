@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RSwitch } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
+import { useEventListener, useIntervalFn } from "@vueuse/core";
 import {
   computed,
   nextTick,
@@ -15,15 +15,26 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
 import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { usePlayingWhile } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { focusFromInput } from "@/v2/utils/autofocus";
+import {
+  easyRpgGameName,
+  readEasyRpgSaves,
+  writeEasyRpgSaves,
+} from "@/v2/utils/easyRpgStorage";
+import { DeviceSaveSync, type LocalSave } from "@/v2/utils/saveSync";
+
+// The player writes a save to browser storage as soon as the game saves.
+const SAVE_POLL_MS = 5000;
 
 const { t } = useI18n();
 const exit = usePlayerExit();
@@ -31,28 +42,100 @@ const alive = useIsAlive();
 const authStore = storeAuth();
 const { fullscreenOnPlay } = useFullscreenPref();
 const playSession = usePlaySession();
+const snackbar = useSnackbar();
+const confirm = useConfirm();
 
 const rom = shallowRef<DetailedRom | null>(null);
+// The seeded rom is only a placeholder; the launch waits for the fetched one.
+const romFetched = ref(false);
 const gameRunning = ref(false);
 // The game takes the keyboard inside its frame, so app hotkeys stand down.
 usePlayingWhile(gameRunning);
+const preparing = ref(false);
 const quitting = ref(false);
 const frame = ref<HTMLIFrameElement | null>(null);
 const { enter: enterFullscreen } = usePlayerFullscreen(frame);
+
+let saveSync: DeviceSaveSync | null = null;
+let pushing: Promise<boolean> | null = null;
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
 // The player keeps saves in a browser database named after the game, so the
 // user id keeps each RomM account's saves apart. The server ignores it.
-const playerSrc = computed(
-  () => `/assets/easyrpg/index.html?game=${romId}-${authStore.user?.id}`,
+const gameName = computed(() =>
+  easyRpgGameName(romId, authStore.user?.id ?? 0),
 );
+const playerSrc = computed(
+  () => `/assets/easyrpg/index.html?game=${gameName.value}`,
+);
+
+function pushSaves(): Promise<boolean> {
+  const sync = saveSync;
+  if (!sync) return Promise.resolve(true);
+  // A push still in flight already covers this one's work.
+  pushing ??= readEasyRpgSaves(gameName.value)
+    .then((saves) => sync.capture(saves))
+    .then(() => sync.push())
+    .catch((error: unknown) => {
+      console.error("[EasyRPG] Save sync failed", error);
+      return false;
+    })
+    .finally(() => {
+      pushing = null;
+    });
+  return pushing;
+}
+
+// A push in flight may have read the saves before the latest one landed.
+async function flushSaves(): Promise<boolean> {
+  await pushing;
+  return pushSaves();
+}
+
+const savePoll = useIntervalFn(() => void pushSaves(), SAVE_POLL_MS, {
+  immediate: false,
+});
+
+// Only the slots whose bytes differ, so the player keeps its own timestamps.
+async function restoreSaves(game: string, saves: LocalSave[]) {
+  const held = new Map(
+    (await readEasyRpgSaves(game)).map((save) => [save.slot, save.bytes]),
+  );
+  const stale = saves.filter((save) => {
+    const bytes = held.get(save.slot);
+    return (
+      !bytes ||
+      bytes.length !== save.bytes.length ||
+      bytes.some((byte, index) => byte !== save.bytes[index])
+    );
+  });
+  await writeEasyRpgSaves(game, stale);
+}
 
 async function onPlay() {
   const currentRom = rom.value;
-  if (!currentRom || authStore.user?.id == null) return;
+  const userId = authStore.user?.id;
+  if (!currentRom || userId == null || preparing.value) return;
 
+  preparing.value = true;
+  const game = gameName.value;
+  const sync = new DeviceSaveSync(currentRom, userId, "easyrpg");
+  try {
+    const saves = await sync.prepare(await readEasyRpgSaves(game));
+    await restoreSaves(game, saves);
+  } catch (error) {
+    console.error("[EasyRPG] Save storage failed", error);
+    snackbar.error(t("play.easyrpg-saves-load-failed"));
+    return;
+  } finally {
+    preparing.value = false;
+  }
+  if (!alive.value) return;
+
+  saveSync = sync;
   gameRunning.value = true;
+  savePoll.resume();
   playSession.start(currentRom);
 
   await nextTick();
@@ -66,15 +149,35 @@ function onFrameLoad() {
   focusFromInput(frame.value);
 }
 
-function leavePlayer(destination: string) {
+function teardown() {
+  savePoll.pause();
+  playSession.flush();
+  saveSync = null;
+}
+
+async function leavePlayer(destination: string) {
   if (quitting.value) return;
   quitting.value = true;
-  playSession.flush();
+
+  if (saveSync && !(await flushSaves())) {
+    const discard = await confirm({
+      title: t("play.quit-before-save-synced"),
+      confirmText: t("common.discard"),
+      cancelText: t("common.cancel"),
+      tone: "danger",
+    });
+    if (!discard) {
+      quitting.value = false;
+      return;
+    }
+  }
+
+  teardown();
   exit.leave(destination);
 }
 
 function onlyQuit() {
-  leavePlayer(`/rom/${romId}`);
+  void leavePlayer(`/rom/${romId}`);
 }
 
 useUnloadGuard(() => gameRunning.value && !quitting.value);
@@ -83,13 +186,21 @@ onMounted(async () => {
   const romResponse = await romApi.getRom({ romId });
   if (!alive.value) return;
   rom.value = romResponse.data;
+  romFetched.value = true;
 });
 
-onBeforeRouteLeave((to) => exit.guard(to));
+onBeforeRouteLeave((to) => {
+  if (!saveSync) return exit.guard(to);
+  void leavePlayer(to.fullPath);
+  return false;
+});
 
-useEventListener(window, "pagehide", () => playSession.flush());
+useEventListener(window, "pagehide", () => {
+  saveSync?.pushOnUnload();
+  playSession.flush();
+});
 
-onBeforeUnmount(() => playSession.flush());
+onBeforeUnmount(teardown);
 </script>
 
 <template>
@@ -98,7 +209,7 @@ onBeforeUnmount(() => playSession.flush());
     :title="title"
     :platform-label="platformLabel"
     :rom-id="romId"
-    :ready="!!rom"
+    :ready="romFetched && !preparing"
     :running="gameRunning"
     :quitting="quitting"
     @play="onPlay"
@@ -106,10 +217,6 @@ onBeforeUnmount(() => playSession.flush());
   >
     <template #settings>
       <RSwitch v-model="fullscreenOnPlay" :label="t('play.full-screen')" />
-
-      <p class="r-v2-easyrpg__save-note">
-        {{ t("play.easyrpg-browser-save-warning") }}
-      </p>
     </template>
 
     <template #brand>
@@ -134,12 +241,6 @@ onBeforeUnmount(() => playSession.flush());
 </template>
 
 <style scoped>
-.r-v2-easyrpg__save-note {
-  margin: 0;
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-sm);
-}
-
 .r-v2-easyrpg__brand {
   display: flex;
   align-items: center;
