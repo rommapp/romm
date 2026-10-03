@@ -3029,6 +3029,8 @@ class DBRomsHandler(DBBaseHandler):
                     TrackMeta.title.icontains(search, autoescape=True),
                     TrackMeta.artist.icontains(search, autoescape=True),
                     TrackMeta.album.icontains(search, autoescape=True),
+                    # Untagged tracks, chiptunes among them, are named by file.
+                    RomFile.file_name.icontains(search, autoescape=True),
                 )
             )
         if artist and exclude_field != "artist":

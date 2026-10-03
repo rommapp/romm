@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// Owns the app-wide `<audio>` element, so playback survives route changes. The
-// card floats on desktop; on phones the top bar's NowPlayingPill opens it.
+// Owns the app-wide `<audio>` element and chiptune engine, so playback survives
+// route changes. The card floats on desktop; on phones the top bar's
+// NowPlayingPill opens it.
 import { useTimeoutFn } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -13,6 +14,8 @@ import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useMediaSession } from "@/v2/composables/useMediaSession";
 import { useMiniPlayerVisible } from "@/v2/composables/useMiniPlayerVisible";
+import { ChiptunePlayer } from "@/v2/utils/chiptunePlayer";
+import { isChiptuneFile } from "@/v2/utils/soundtrackTracks";
 
 defineOptions({ inheritAttrs: false });
 
@@ -25,6 +28,10 @@ const visible = useMiniPlayerVisible();
 const playingStore = storePlaying();
 
 const audioEl = ref<HTMLAudioElement | null>(null);
+let chiptune: ChiptunePlayer | null = null;
+// Whichever of the two is playing the current track. Events from the other
+// are dropped, since pausing one while the other starts fires out of order.
+let active: HTMLAudioElement | ChiptunePlayer | null = null;
 
 // On phones the mini player lives in the top bar, which a running game hides,
 // so the music pauses rather than play on with no controls.
@@ -32,7 +39,7 @@ const musicBlocked = computed(
   () => playingStore.stageActive && smAndDown.value,
 );
 watch(musicBlocked, (isBlocked) => {
-  if (isBlocked) audioEl.value?.pause();
+  if (isBlocked) active?.pause();
 });
 useMediaSession(() => musicBlocked.value);
 
@@ -54,83 +61,123 @@ function setBuffered() {
   store.setBuffering(false);
 }
 
+function getChiptune(): ChiptunePlayer {
+  if (chiptune) return chiptune;
+  const player = new ChiptunePlayer();
+  for (const [name, listener] of Object.entries(sinkListeners)) {
+    player.addEventListener(name, listener);
+  }
+  chiptune = player;
+  return player;
+}
+
+function activate(sink: HTMLAudioElement | ChiptunePlayer) {
+  active = sink;
+  store.setAudioRef(sink);
+}
+
+function unloadAudio(el: HTMLAudioElement) {
+  el.pause();
+  el.removeAttribute("src");
+  try {
+    el.load();
+  } catch {
+    // ignore
+  }
+}
+
 onMounted(() => {
-  store.setAudioRef(audioEl.value);
+  if (audioEl.value) activate(audioEl.value);
 });
 
 onBeforeUnmount(() => {
   store.setAudioRef(null);
+  chiptune?.close();
 });
 
 watch(track, async (t) => {
   const el = audioEl.value;
   if (!el) return;
   const token = ++loadToken;
-  if (t) {
-    // The store flags a new track as buffering; hold that back like any wait.
-    store.setBuffering(false);
-    scheduleBuffering();
+  if (!t) {
+    setBuffered();
+    unloadAudio(el);
+    chiptune?.unload();
+    return;
+  }
+
+  // The store flags a new track as buffering; hold that back like any wait.
+  store.setBuffering(false);
+  scheduleBuffering();
+  const sink = isChiptuneFile(t.fileName) ? getChiptune() : el;
+  activate(sink);
+  if (sink instanceof ChiptunePlayer) {
+    unloadAudio(el);
+    void sink.load(t.url);
+  } else {
+    chiptune?.unload();
     el.src = t.url;
     try {
       el.load();
     } catch {
       // ignore
     }
-    try {
-      await el.play();
-    } catch {
-      if (token !== loadToken) return;
-      // Autoplay may be blocked; the user can hit play in the UI.
-      // Don't surface a snackbar for that; real load failures come
-      // through `@error`.
-    }
-  } else {
-    setBuffered();
-    el.pause();
-    el.removeAttribute("src");
-    try {
-      el.load();
-    } catch {
-      // ignore
-    }
+  }
+  try {
+    await sink.play();
+  } catch {
+    if (token !== loadToken) return;
+    // Autoplay may be blocked; the user can hit play in the UI. Real load
+    // failures come through `error` events, so no snackbar here.
   }
 });
 
-function onPlay() {
-  store.setPlaying(true);
-  setBuffered();
-}
-function onPause() {
-  store.setPlaying(false);
-}
-function onEnded() {
-  store.setPlaying(false);
-  if (hasNext.value) store.next();
-}
-function onTimeUpdate() {
-  if (audioEl.value) store.reportCurrentTime(audioEl.value.currentTime || 0);
-}
-function onLoadedMetadata() {
-  if (audioEl.value) store.setDuration(audioEl.value.duration || 0);
-}
-function onWaiting() {
-  scheduleBuffering();
-}
-function onCanPlay() {
-  setBuffered();
-}
-function onError() {
-  cancelBuffering();
-  store.setError();
-  // Snackbar payload still uses v1's `snackbarShow` event shape;
-  // when v1 is removed, switch to `useSnackbar()` here.
-  emitter?.emit("snackbarShow", {
-    msg: t("rom.cant-play-track"),
-    icon: "mdi-alert",
-    color: "red",
-    timeout: 3000,
-  });
-}
+const sinkHandlers: Record<string, () => void> = {
+  play() {
+    store.setPlaying(true);
+    setBuffered();
+  },
+  pause() {
+    store.setPlaying(false);
+  },
+  ended() {
+    store.setPlaying(false);
+    if (hasNext.value) store.next();
+  },
+  timeupdate() {
+    store.reportCurrentTime(active?.currentTime || 0);
+  },
+  loadedmetadata() {
+    store.setDuration(active?.duration || 0);
+  },
+  waiting() {
+    scheduleBuffering();
+  },
+  canplay() {
+    setBuffered();
+  },
+  error() {
+    cancelBuffering();
+    store.setError();
+    // Snackbar payload still uses v1's `snackbarShow` event shape;
+    // when v1 is removed, switch to `useSnackbar()` here.
+    emitter?.emit("snackbarShow", {
+      msg: t("rom.cant-play-track"),
+      icon: "mdi-alert",
+      color: "red",
+      timeout: 3000,
+    });
+  },
+};
+
+const sinkListeners = Object.fromEntries(
+  Object.entries(sinkHandlers).map(([name, handler]) => [
+    name,
+    (event: Event) => {
+      if (event.target === active) handler();
+    },
+  ]),
+);
 </script>
 
 <template>
@@ -141,14 +188,7 @@ function onError() {
     class="r-v2-mp__audio"
     preload="metadata"
     aria-hidden="true"
-    @play="onPlay"
-    @pause="onPause"
-    @ended="onEnded"
-    @timeupdate="onTimeUpdate"
-    @loadedmetadata="onLoadedMetadata"
-    @waiting="onWaiting"
-    @canplay="onCanPlay"
-    @error="onError"
+    v-on="sinkListeners"
   />
 
   <Transition name="r-v2-mp-slide">

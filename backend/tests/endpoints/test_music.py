@@ -153,6 +153,30 @@ def test_tracks_search_substring(client: TestClient, access_token: str, music_li
     assert [i["title"] for i in r.json()["items"]] == ["Green Hill"]
 
 
+def test_tracks_search_matches_an_untagged_file_by_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    rom = make_rom(music_library["platform_a"], "Plok")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="05 Beach.spc",
+            file_path=f"{rom.fs_path}/Plok/soundtrack",
+            file_size_bytes=66048,
+            category=RomFileCategory.SOUNDTRACK,
+            track_meta=TrackMeta(rom_id=rom.id),
+        )
+    )
+
+    r = client.get("/api/music/tracks?search=beach", headers=_auth(access_token))
+
+    [item] = r.json()["items"]
+    assert item["title"] is None
+    assert item["file_name"] == "05 Beach.spc"
+    assert item["stream_url"].endswith("/files/content/05%20Beach.spc")
+
+
 def test_tracks_search_escapes_like_wildcards(
     client: TestClient, access_token: str, music_library
 ):
