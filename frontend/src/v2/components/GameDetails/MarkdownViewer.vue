@@ -13,7 +13,7 @@ import {
 } from "@v2/lib";
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { MdPreview } from "@/v2/components/shared/markdown";
+import MdPreview from "@/v2/components/shared/markdownPreview";
 import { useFetchState } from "@/v2/composables/useFetchState";
 import { useReadingProgress } from "@/v2/composables/useReadingProgress";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
