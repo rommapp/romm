@@ -1,5 +1,6 @@
 {
   "access": "Access",
+  "access-load-error": "Bu kullanıcının erişim ayarları yüklenemedi, bu yüzden şu anda değiştirilemez.",
   "account-details": "Hesap ayrıntıları",
   "add-exclusion-for": "Şuna yeni dışlama ekle:",
   "add-folder-alias": "Klasör takma adı ekle",

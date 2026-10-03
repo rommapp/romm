@@ -1,5 +1,6 @@
 {
   "access": "Access",
+  "access-load-error": "No se pudieron cargar los ajustes de acceso de este usuario, así que no se pueden cambiar ahora.",
   "account-details": "Detalles de la cuenta",
   "add-exclusion-for": "Agregar nueva exclusión para",
   "add-folder-alias": "Añadir alias de carpeta",

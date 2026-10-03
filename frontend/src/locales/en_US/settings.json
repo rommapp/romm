@@ -1,5 +1,6 @@
 {
   "access": "Access",
+  "access-load-error": "Couldn't load this user's access settings, so they can't be changed right now.",
   "account-details": "Account details",
   "add-exclusion-for": "Add a new exclusion for",
   "add-folder-alias": "Add folder alias",

@@ -4,7 +4,7 @@
 // the old role picker: an Admin toggle, and for non-admins the permission
 // group and the platforms hidden from them. Emitter-driven
 // (`showEditUserDialog`).
-import { RBtn, RIcon, RSelect, RSwitch, RTextField } from "@v2/lib";
+import { RBtn, RIcon, RSelect, RSpinner, RSwitch, RTextField } from "@v2/lib";
 import { useObjectUrl } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
@@ -58,8 +58,9 @@ const {
   load: loadAge,
   changes: ageChanges,
 } = createAgeSettingsDraft();
-// Access edits save only once this user's access has loaded.
+// The access fields show, and save, only once this user's access has loaded.
 const accessLoaded = ref(false);
+const accessError = ref(false);
 
 // Advanced: per-user overrides + per-game hiding.
 const showAdvanced = ref(false);
@@ -118,6 +119,7 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
   isAdmin.value = toEdit.role === "admin";
   showAdvanced.value = false;
   accessLoaded.value = false;
+  accessError.value = false;
   loadAge();
   show.value = true;
 
@@ -151,16 +153,21 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
     hiddenRomIds.value = [...hiddenRoms];
     originalHiddenRomIds.value = [...hiddenRoms];
 
-    loadAge({
-      ageLimit: perms.data.age_limit ?? null,
-      hideUnrated: perms.data.hide_unrated_roms ?? null,
-      exemptRomIds: perms.data.age_exempt_rom_ids ?? [],
-    });
+    loadAge(
+      {
+        ageLimit: perms.data.age_limit ?? null,
+        hideUnrated: perms.data.hide_unrated_roms ?? null,
+        exemptRomIds: perms.data.age_exempt_rom_ids ?? [],
+      },
+      hiddenRoms,
+    );
 
     overrides.value = perms.data.overrides.map((o) => ({ ...o }));
     originalOverrides.value = perms.data.overrides.map((o) => ({ ...o }));
     accessLoaded.value = true;
   } catch (err) {
+    if (token !== loadToken) return;
+    accessError.value = true;
     console.error("Failed to load user permissions", err);
   }
 });
@@ -223,10 +230,59 @@ function diffHidden(
   ];
 }
 
+// The access edits to save, read up front: opening another user while a save
+// is in flight replaces every access ref.
+function accessEdits(userId: number) {
+  const groupChanged = groupId.value !== originalGroupId.value;
+  const overridesChanged =
+    overridesKey(overrides.value) !== overridesKey(originalOverrides.value);
+  const ageChanged = ageChanges();
+  const changed =
+    groupChanged ||
+    overridesChanged ||
+    ageChanged.settings ||
+    ageChanged.exemptions;
+  const hidden = {
+    platforms: [...hiddenPlatformIds.value],
+    originalPlatforms: [...originalHiddenPlatformIds.value],
+    roms: [...hiddenRomIds.value],
+    originalRoms: [...originalHiddenRomIds.value],
+  };
+  return {
+    groupId: groupChanged ? groupId.value : undefined,
+    permissions: changed
+      ? {
+          set_group: groupChanged,
+          permission_group_id: groupId.value,
+          overrides: overridesChanged ? [...overrides.value] : null,
+          set_age_settings: ageChanged.settings,
+          age_limit: age.value.ageLimit,
+          hide_unrated_roms: age.value.hideUnrated,
+          age_exempt_rom_ids: ageChanged.exemptions
+            ? [...age.value.exemptRomIds]
+            : null,
+        }
+      : null,
+    saveHidden: () =>
+      Promise.all([
+        ...diffHidden(
+          "platforms",
+          hidden.platforms,
+          hidden.originalPlatforms,
+          userId,
+        ),
+        ...diffHidden("roms", hidden.roms, hidden.originalRoms, userId),
+      ]),
+  };
+}
+
 async function save() {
   if (!user.value) return;
   submitting.value = true;
   const userId = user.value.id;
+  // Group, overrides and hidden entities apply to non-admins (admins bypass).
+  const access =
+    !isAdmin.value && accessLoaded.value ? accessEdits(userId) : null;
   try {
     // Role is derived from the Admin toggle (admin vs plain user). Self-role
     // changes are ignored by the backend, so leave it untouched when editing
@@ -236,48 +292,15 @@ async function save() {
     }
     const { data } = await userApi.updateUser(user.value);
 
-    // Group, overrides and hidden entities apply to non-admins (admins bypass).
     let nextUser = data;
-    if (!isAdmin.value && accessLoaded.value) {
-      const groupChanged = groupId.value !== originalGroupId.value;
-      const overridesChanged =
-        overridesKey(overrides.value) !== overridesKey(originalOverrides.value);
-      const ageChanged = ageChanges();
-      if (
-        groupChanged ||
-        overridesChanged ||
-        ageChanged.settings ||
-        ageChanged.exemptions
-      ) {
-        await permissionsApi.updateUserPermissions(userId, {
-          set_group: groupChanged,
-          permission_group_id: groupId.value,
-          overrides: overridesChanged ? overrides.value : null,
-          set_age_settings: ageChanged.settings,
-          age_limit: age.value.ageLimit,
-          hide_unrated_roms: age.value.hideUnrated,
-          age_exempt_rom_ids: ageChanged.exemptions
-            ? age.value.exemptRomIds
-            : null,
-        });
-        if (groupChanged) {
-          nextUser = { ...data, permission_group_id: groupId.value };
-        }
+    if (access) {
+      if (access.permissions) {
+        await permissionsApi.updateUserPermissions(userId, access.permissions);
       }
-      await Promise.all([
-        ...diffHidden(
-          "platforms",
-          hiddenPlatformIds.value,
-          originalHiddenPlatformIds.value,
-          userId,
-        ),
-        ...diffHidden(
-          "roms",
-          hiddenRomIds.value,
-          originalHiddenRomIds.value,
-          userId,
-        ),
-      ]);
+      if (access.groupId !== undefined) {
+        nextUser = { ...data, permission_group_id: access.groupId };
+      }
+      await access.saveHidden();
     }
 
     snackbar.success(t("settings.user-updated", { username: data.username }), {
@@ -423,7 +446,16 @@ function close() {
           </span>
         </div>
 
-        <template v-if="!isAdmin">
+        <p v-if="!isAdmin && accessError" class="r-v2-user-dialog__hint">
+          {{ t("settings.access-load-error") }}
+        </p>
+        <div
+          v-else-if="!isAdmin && !accessLoaded"
+          class="r-v2-user-dialog__access-loading"
+        >
+          <RSpinner :size="20" />
+        </div>
+        <template v-else-if="!isAdmin">
           <RSelect
             v-model="groupId"
             variant="outlined"
@@ -609,6 +641,11 @@ html[data-bp~="xs"] .r-v2-user-dialog__edit-grid {
 .r-v2-user-dialog__hint {
   font-size: 12px;
   color: var(--r-color-fg-muted);
+}
+.r-v2-user-dialog__access-loading {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
 }
 .r-v2-user-dialog__advanced-toggle {
   align-self: flex-start;

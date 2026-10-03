@@ -82,6 +82,7 @@ async function mountDialog(role: "admin" | "user" = "admin") {
         },
         RIcon: true,
         RSelect: true,
+        RSpinner: true,
         RSwitch: true,
         RTextField: true,
         GameExceptionsPicker: true,
@@ -91,8 +92,8 @@ async function mountDialog(role: "admin" | "user" = "admin") {
       },
     },
   });
-  const open = () => {
-    emitter.emit("showEditUserDialog", userFixture({ id: 4, role }));
+  const open = (id = 4) => {
+    emitter.emit("showEditUserDialog", userFixture({ id, role }));
     return flushPromises();
   };
   await open();
@@ -219,15 +220,69 @@ describe("EditUserDialog age settings", () => {
     ).toEqual([5]);
   });
 
-  it("saves no access edits over a user whose access failed to load", async () => {
+  it("shows the access fields only once they load", async () => {
+    fetchUserPermissions.mockReturnValue(new Promise(() => undefined));
+    const { wrapper } = await mountDialog("user");
+
+    expect(wrapper.findComponent(AgeLimitFields).exists()).toBe(false);
+    expect(wrapper.find("r-spinner-stub").exists()).toBe(true);
+  });
+
+  it("says when access failed to load and still saves the profile", async () => {
     fetchUserPermissions.mockRejectedValue(new Error("offline"));
     const { wrapper } = await mountDialog("user");
 
-    wrapper.findComponent(AgeLimitFields).vm.$emit("update:ageLimit", 12);
+    expect(wrapper.findComponent(AgeLimitFields).exists()).toBe(false);
+    expect(wrapper.text()).toContain("settings.access-load-error");
     await save(wrapper);
 
     expect(updateUser).toHaveBeenCalledOnce();
     expect(updateUserPermissions).not.toHaveBeenCalled();
+  });
+
+  it("saves the edits made before another user opens mid-save", async () => {
+    let finishProfile: (value: unknown) => void = () => undefined;
+    updateUser.mockReturnValueOnce(
+      new Promise((resolve) => (finishProfile = resolve)),
+    );
+    const { wrapper, open } = await mountDialog("user");
+    wrapper.findComponent(AgeLimitFields).vm.$emit("update:ageLimit", 12);
+    const saving = save(wrapper);
+
+    fetchUserPermissions.mockResolvedValue(
+      permissions({ user_id: 7, age_limit: 16, age_exempt_rom_ids: [9] }),
+    );
+    await open(7);
+    finishProfile({ data: userFixture({ id: 4, role: "user" }) });
+    await saving;
+
+    expect(updateUserPermissions).toHaveBeenCalledExactlyOnceWith(
+      4,
+      expect.objectContaining({ age_limit: 12, age_exempt_rom_ids: null }),
+    );
+  });
+
+  it("loads a game both hidden and allowed as hidden, dropping the allow on save", async () => {
+    fetchUserPermissions.mockResolvedValue(
+      permissions({
+        hidden: [{ entity: "roms", entity_id: 5 }],
+        age_exempt_rom_ids: [5, 6],
+      }),
+    );
+    const { wrapper } = await mountDialog("user");
+    const picker = wrapper.findComponent(GameExceptionsPicker);
+
+    expect(picker.props("hidden")).toEqual([5]);
+    expect(picker.props("allowed")).toEqual([6]);
+    await save(wrapper);
+
+    expect(updateUserPermissions).toHaveBeenCalledExactlyOnceWith(
+      4,
+      expect.objectContaining({
+        set_age_settings: false,
+        age_exempt_rom_ids: [6],
+      }),
+    );
   });
 
   it("leaves the permissions alone when nothing changed", async () => {

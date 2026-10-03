@@ -1,5 +1,6 @@
 {
   "access": "Access",
+  "access-load-error": "Nie udało się wczytać ustawień dostępu tego użytkownika, więc nie można ich teraz zmienić.",
   "account-details": "Szczegóły konta",
   "add-exclusion-for": "Dodaj nowe wykluczenie dla",
   "add-folder-alias": "Dodaj alias folderu",

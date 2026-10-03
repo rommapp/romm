@@ -1,5 +1,6 @@
 {
   "access": "Access",
+  "access-load-error": "Nem sikerült betölteni a felhasználó hozzáférési beállításait, ezért most nem módosíthatók.",
   "account-details": "Fiók adatai",
   "add-exclusion-for": "Új kizárás hozzáadása:",
   "add-folder-alias": "Mappa alias hozzáadása",

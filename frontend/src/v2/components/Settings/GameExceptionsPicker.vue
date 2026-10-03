@@ -1,6 +1,5 @@
 <script setup lang="ts">
-// GameExceptionsPicker: games hidden from a user or group, or allowed past its
-// age limit. Each game is one or the other, so the two lists never overlap.
+// Each game is either hidden or allowed, so the two lists never overlap.
 import { RBtn, RIcon, RSliderBtnGroup, RSpinner, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -131,7 +130,7 @@ function add(rom: SimpleRom, exception: Exception) {
 </script>
 
 <template>
-  <div class="r-v2-gamex">
+  <div v-bind="$attrs" class="r-v2-gamex">
     <span v-if="$slots.label" class="r-v2-gamex__label">
       <slot name="label" />
     </span>

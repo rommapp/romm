@@ -1,5 +1,6 @@
 {
   "access": "访问权限",
+  "access-load-error": "无法加载此用户的访问设置，因此暂时无法更改。",
   "account-details": "账户详情",
   "add-exclusion-for": "为以下项添加新排除:",
   "add-folder-alias": "添加文件夹别名",

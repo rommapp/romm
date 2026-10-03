@@ -1,5 +1,6 @@
 {
   "access": "Access",
+  "access-load-error": "Nastavení přístupu tohoto uživatele se nepodařilo načíst, takže je teď nelze změnit.",
   "account-details": "Detaily účtu",
   "add-exclusion-for": "Přidat novou výjimku pro",
   "add-folder-alias": "Přidat alias složky",

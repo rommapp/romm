@@ -1,5 +1,6 @@
 {
   "access": "Access",
+  "access-load-error": "Impossibile caricare le impostazioni di accesso di questo utente, quindi al momento non possono essere modificate.",
   "account-details": "Dettagli account",
   "add-exclusion-for": "Aggiungi nuova esclusione per",
   "add-folder-alias": "Aggiungi alias cartella",

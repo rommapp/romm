@@ -1,5 +1,6 @@
 {
   "access": "Access",
+  "access-load-error": "이 사용자의 액세스 설정을 불러오지 못해 지금은 변경할 수 없습니다.",
   "account-details": "계정 세부 정보",
   "add-exclusion-for": "다음에 대한 새 제외 추가:",
   "add-folder-alias": "폴더 별칭 추가",

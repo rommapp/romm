@@ -1,5 +1,6 @@
 {
   "access": "Access",
+  "access-load-error": "無法載入此使用者的存取設定，因此暫時無法變更。",
   "account-details": "帳號詳細資訊",
   "add-exclusion-for": "為以下項新增排除:",
   "add-folder-alias": "新增資料夾別名",

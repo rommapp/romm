@@ -1,5 +1,6 @@
 {
   "access": "Access",
+  "access-load-error": "このユーザーのアクセス設定を読み込めなかったため、現在は変更できません。",
   "account-details": "アカウント詳細",
   "add-exclusion-for": "新しい除外を追加:",
   "add-folder-alias": "フォルダエイリアスを追加",

@@ -1,5 +1,6 @@
 {
   "access": "Access",
+  "access-load-error": "Setările de acces ale acestui utilizator nu au putut fi încărcate, așa că nu pot fi modificate acum.",
   "account-details": "Detalii cont",
   "add-exclusion-for": "Adăugați excludere nouă pentru",
   "add-folder-alias": "Adaugă alias dosar",

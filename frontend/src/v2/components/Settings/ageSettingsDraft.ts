@@ -22,9 +22,14 @@ export function createAgeSettingsDraft() {
   const draft = ref<AgeSettings>(copy(EMPTY));
   let loaded = EMPTY;
 
-  function load(settings: AgeSettings = EMPTY) {
+  function load(settings: AgeSettings = EMPTY, hiddenRomIds: number[] = []) {
     loaded = copy(settings);
     draft.value = copy(settings);
+    // A hide beats an allow, so a game in both loads as hidden and the next
+    // save drops its allow.
+    draft.value.exemptRomIds = settings.exemptRomIds.filter(
+      (id) => !hiddenRomIds.includes(id),
+    );
   }
 
   function changes() {

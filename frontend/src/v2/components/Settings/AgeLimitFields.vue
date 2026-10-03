@@ -1,5 +1,4 @@
 <script setup lang="ts">
-// AgeLimitFields: a group's or user's age limit and unrated-games rule.
 // A user's null keeps the group's value, which `inherited` describes.
 import { RIcon, RSelect, RSwitch } from "@v2/lib";
 import { computed } from "vue";

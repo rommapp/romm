@@ -120,12 +120,6 @@ emitter?.on("showGroupFormDialog", async (group) => {
   isDefault.value = group?.is_default ?? false;
   color.value = group?.color ?? GROUP_COLOR_PALETTE[0];
   grants.value = group ? group.grants.map((g) => ({ ...g })) : [];
-  loadAge({
-    ageLimit: group?.age_limit ?? null,
-    hideUnrated: group?.hide_unrated_roms ?? false,
-    exemptRomIds: group?.age_exempt_rom_ids ?? [],
-  });
-
   const hidden = group?.hidden ?? [];
   const hiddenPlatforms = hidden
     .filter((h) => h.entity === "platforms")
@@ -133,6 +127,14 @@ emitter?.on("showGroupFormDialog", async (group) => {
   const hiddenRoms = hidden
     .filter((h) => h.entity === "roms")
     .map((h) => h.entity_id);
+  loadAge(
+    {
+      ageLimit: group?.age_limit ?? null,
+      hideUnrated: group?.hide_unrated_roms ?? false,
+      exemptRomIds: group?.age_exempt_rom_ids ?? [],
+    },
+    hiddenRoms,
+  );
   hiddenPlatformIds.value = [...hiddenPlatforms];
   originalHiddenPlatformIds.value = [...hiddenPlatforms];
   hiddenRomIds.value = [...hiddenRoms];
@@ -158,6 +160,13 @@ async function save() {
   // An update writes the age settings only when they changed, so a rename
   // neither overwrites them nor records them in the audit log.
   const ageChanged = ageChanges();
+  // Read before the save: reopening the dialog mid-save replaces these refs.
+  const hidden = {
+    platforms: [...hiddenPlatformIds.value],
+    originalPlatforms: [...originalHiddenPlatformIds.value],
+    roms: [...hiddenRomIds.value],
+    originalRoms: [...originalHiddenRomIds.value],
+  };
   try {
     const { data: saved } =
       editingId.value !== null
@@ -173,16 +182,11 @@ async function save() {
     await Promise.all([
       ...diffHidden(
         "platforms",
-        hiddenPlatformIds.value,
-        originalHiddenPlatformIds.value,
+        hidden.platforms,
+        hidden.originalPlatforms,
         saved.id,
       ),
-      ...diffHidden(
-        "roms",
-        hiddenRomIds.value,
-        originalHiddenRomIds.value,
-        saved.id,
-      ),
+      ...diffHidden("roms", hidden.roms, hidden.originalRoms, saved.id),
     ]);
     snackbar.success(t("settings.group-saved", { name: body.name }), {
       icon: "mdi-check-bold",
