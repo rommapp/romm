@@ -7,11 +7,11 @@
 // other. Stored colour/icon fields are preserved so existing emitters work.
 import { RIcon } from "@v2/lib";
 import { useEventListener } from "@vueuse/core";
-import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import storeNotifications from "@/stores/notifications";
-import type { Events, SnackbarStatus } from "@/types/emitter";
+import type { SnackbarStatus } from "@/types/emitter";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { TONE_ICONS, type SnackbarTone } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -29,7 +29,6 @@ type Toast = {
 
 const toasts = ref<Toast[]>([]);
 const notificationStore = storeNotifications();
-const emitter = inject<Emitter<Events>>("emitter");
 
 // The existing v1 emitters pass free-form colour strings ("green", "red",
 // "primary", "orange"). Collapse down to four v2 tones for consistent
@@ -73,7 +72,7 @@ function dismiss(id: number) {
 }
 
 const openHandler = (snackbar: SnackbarStatus) => push(snackbar);
-emitter?.on("snackbarShow", openHandler);
+useEmitterEvent("snackbarShow", openHandler);
 
 // A fullscreen element is the only thing the browser paints, so the host moves
 // inside it: a player that took the screen still gets to show its notices.
@@ -86,7 +85,6 @@ useEventListener(document, "fullscreenchange", trackFullscreen);
 trackFullscreen();
 
 onBeforeUnmount(() => {
-  emitter?.off("snackbarShow", openHandler);
   toasts.value.forEach((t) => t.timer && window.clearTimeout(t.timer));
 });
 </script>

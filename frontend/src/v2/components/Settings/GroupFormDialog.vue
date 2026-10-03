@@ -5,15 +5,14 @@
 // shared permissionGroups store so every consumer (table, user dialogs)
 // reflects the change immediately.
 import { RBtn, RIcon, RSwitch, RTextField } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { computed, inject, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { GrantSchemaIO, PermAction, PermEntity } from "@/__generated__";
 import permissionsApi from "@/services/api/permissions";
 import platformApi from "@/services/api/platform";
 import storePermissionGroups from "@/stores/permissionGroups";
 import type { Platform } from "@/stores/platforms";
-import type { Events } from "@/types/emitter";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { GROUP_COLOR_PALETTE } from "@/v2/utils/groupColor";
@@ -24,7 +23,6 @@ import PermissionsMatrix from "./PermissionsMatrix.vue";
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const groupsStore = storePermissionGroups();
 
@@ -104,7 +102,7 @@ function diffHidden(
   ];
 }
 
-emitter?.on("showGroupFormDialog", async (group) => {
+useEmitterEvent("showGroupFormDialog", async (group) => {
   editingId.value = group?.id ?? null;
   isSystem.value = group?.system_key != null;
   name.value = group?.name ?? "";

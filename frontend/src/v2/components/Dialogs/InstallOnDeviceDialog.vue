@@ -7,8 +7,7 @@ import {
   RIcon,
   RSpinner,
 } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   DeviceSchema,
@@ -18,8 +17,8 @@ import type {
 import deviceApi from "@/services/api/device";
 import deviceInstallApi from "@/services/api/device-install";
 import type { SimpleRom } from "@/stores/roms";
-import type { Events } from "@/types/emitter";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
@@ -42,7 +41,6 @@ const STATUS_LABEL_KEYS: Record<InstallStatus, string> = {
 const { t } = useI18n();
 const { mdAndUp } = useBreakpoint();
 const snackbar = useSnackbar();
-const emitter = inject<Emitter<Events>>("emitter");
 const alive = useIsAlive();
 
 const show = ref(false);
@@ -131,9 +129,8 @@ const openHandler = (target: SimpleRom) => {
   show.value = true;
   void load(target);
 };
-emitter?.on("showInstallOnDeviceDialog", openHandler);
+useEmitterEvent("showInstallOnDeviceDialog", openHandler);
 onBeforeUnmount(() => {
-  emitter?.off("showInstallOnDeviceDialog", openHandler);
   sendPendingNow();
 });
 

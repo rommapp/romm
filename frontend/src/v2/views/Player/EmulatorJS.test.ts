@@ -1,10 +1,12 @@
 import { RBtn, RSelect } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
+import mitt from "mitt";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
+import type { Events } from "@/types/emitter";
 import type { LaunchState, SaveSyncOutcome } from "@/types/rommNative";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
 import EmulatorJS from "./EmulatorJS.vue";
@@ -666,5 +668,31 @@ describe("EmulatorJS window listeners", () => {
     } finally {
       Reflect.deleteProperty(navigator, "keyboard");
     }
+  });
+});
+
+describe("EmulatorJS emitter listeners", () => {
+  it("leaves no save or state listener behind when closed mid-load", async () => {
+    const emitter = mitt<Events>();
+    let resolveRom: (value: { data: DetailedRom }) => void = () => {};
+    mocks.getRom.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRom = resolve;
+      }),
+    );
+    const wrapper = mount(EmulatorJS, {
+      shallow: true,
+      global: {
+        provide: { emitter },
+        stubs: { GameCover: GameCoverStub },
+      },
+    });
+
+    wrapper.unmount();
+    resolveRom({ data: ROM });
+    await flushPromises();
+
+    expect(emitter.all.get("saveSelected") ?? []).toHaveLength(0);
+    expect(emitter.all.get("stateSelected") ?? []).toHaveLength(0);
   });
 });

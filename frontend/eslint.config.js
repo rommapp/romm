@@ -270,6 +270,12 @@ export default tseslint.config(
           message:
             "Focus through focusFromInput from @/v2/utils/autofocus, so keyboard and gamepad moves show the focus ring.",
         },
+        {
+          selector:
+            "CallExpression[callee.object.name='emitter'][callee.property.name='on']",
+          message:
+            "Subscribe with useEmitterEvent from @/v2/composables/useEmitterEvent, which unsubscribes when the component unmounts.",
+        },
       ],
     },
   },
