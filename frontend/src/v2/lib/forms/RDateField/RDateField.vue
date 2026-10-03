@@ -397,7 +397,6 @@ function focusDayCell(ring = false) {
   const cell = panelRef.value.querySelector(
     `[data-day-key="${key}"]`,
   ) as HTMLElement | null;
-  // Firefox skips the focus ring on a script focus() after a mouse click.
   cell?.focus(ring ? { focusVisible: true } : undefined);
 }
 

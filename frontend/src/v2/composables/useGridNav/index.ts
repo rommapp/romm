@@ -248,7 +248,6 @@ export function useGridNav(
       target.setAttribute("tabindex", "0");
     }
 
-    // Firefox skips the focus ring on a script focus() after a mouse click.
     target.focus({ preventScroll: true, focusVisible: true });
 
     // Jumping rows (up/down): centre the whole section vertically so the

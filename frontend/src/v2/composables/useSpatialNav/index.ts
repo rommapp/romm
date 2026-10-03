@@ -161,7 +161,6 @@ export function moveFocus(
     dir,
   );
   if (!target) return false;
-  // Firefox skips the focus ring on a script focus() after a mouse click.
   target.focus({ preventScroll: true, focusVisible: true });
   if (!isFixed(target) && !isInView(target)) {
     // Centring vertical moves keeps the target clear of the fixed bars.

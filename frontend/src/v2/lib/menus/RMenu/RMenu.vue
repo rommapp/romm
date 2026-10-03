@@ -366,7 +366,6 @@ function onPanelKeydown(evt: KeyboardEvent) {
         : (activeIdx - 1 + items.length) % items.length;
   }
   evt.preventDefault();
-  // Firefox skips the focus ring on a script focus() after a mouse click.
   items[nextIdx]?.focus({ focusVisible: true });
 }
 
