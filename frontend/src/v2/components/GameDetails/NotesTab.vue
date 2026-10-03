@@ -12,10 +12,8 @@ import {
   RTooltip,
   RDivider,
 } from "@v2/lib";
-import { MdEditor, MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, defineAsyncComponent, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { UserNoteSchema } from "@/__generated__";
@@ -34,6 +32,14 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { syncQueryParam } from "@/v2/utils/routeQuery";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
+
+// md-editor loads with the first note, not with the game page.
+const MdEditor = defineAsyncComponent(
+  () => import("@/v2/components/shared/MarkdownEditor.vue"),
+);
+const MdPreview = defineAsyncComponent(
+  () => import("@/v2/components/shared/MarkdownPreview.vue"),
+);
 
 defineOptions({ inheritAttrs: false });
 

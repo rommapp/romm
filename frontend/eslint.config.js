@@ -14,7 +14,7 @@ const heavyImports = [
     group: ["md-editor-v3", "md-editor-v3/**"],
     allowTypeImports: true,
     message:
-      "md-editor-v3 is heavy; load @/v2/components/shared/MarkdownPreview.vue through defineAsyncComponent.",
+      "md-editor-v3 is heavy; load the MarkdownPreview or MarkdownEditor wrapper in @/v2/components/shared through defineAsyncComponent.",
   },
 ];
 
@@ -143,11 +143,11 @@ export default tseslint.config(
       "src/components/**",
       "src/console/**",
       "src/layouts/**",
-      // The lazy wrapper itself, the editor's global config, and the views
-      // that reach md-editor only through a route or async chunk.
+      // The lazy wrappers, the module the alias points at, and a view that
+      // only loads as an async chunk.
       "src/plugins/mdeditor*.ts",
+      "src/v2/components/shared/MarkdownEditor.vue",
       "src/v2/components/shared/MarkdownPreview.vue",
-      "src/v2/components/GameDetails/NotesTab.vue",
       "src/v2/components/GameDetails/MarkdownViewer.vue",
     ],
     rules: {

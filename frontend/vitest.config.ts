@@ -7,10 +7,23 @@ import { platformIconManifest } from "./scripts/platformIconManifest";
 export default defineConfig({
   plugins: [vue(), vuetify({ autoImport: true }), platformIconManifest()],
   resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-      "@v2": fileURLToPath(new URL("./src/v2", import.meta.url)),
-    },
+    alias: [
+      {
+        find: "@",
+        replacement: fileURLToPath(new URL("./src", import.meta.url)),
+      },
+      {
+        find: "@v2",
+        replacement: fileURLToPath(new URL("./src/v2", import.meta.url)),
+      },
+      // Every md-editor import, v1 included, gets the XSS config on first load.
+      {
+        find: /^md-editor-v3$/,
+        replacement: fileURLToPath(
+          new URL("./src/plugins/mdeditor.ts", import.meta.url),
+        ),
+      },
+    ],
   },
   test: {
     server: {
