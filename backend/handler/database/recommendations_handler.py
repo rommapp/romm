@@ -161,28 +161,31 @@ class DBRecommendationsHandler(DBBaseHandler):
             .execution_options(yield_per=IGDB_SCAN_CHUNK_SIZE)
         )
 
-        for rom_id, metadata in session.execute(stmt):
-            if not metadata:
-                continue
+        # Closed by the with block: a streamed Result left to the cyclic GC is
+        # freed on another thread, which segfaults the mariadb connector.
+        with session.execute(stmt) as result:
+            for rom_id, metadata in result:
+                if not metadata:
+                    continue
 
-            related_ids: list[int] = []
-            # `ports` is deliberately absent: a faithful port is a duplicate,
-            # and a rebuilt one earns its place on its own facets.
-            for bucket in (
-                "similar_games",
-                "remakes",
-                "remasters",
-                "expanded_games",
-                "expansions",
-                "dlcs",
-            ):
-                for entry in metadata.get(bucket) or ():
-                    entry_id = entry.get("id") if isinstance(entry, dict) else None
-                    if isinstance(entry_id, int):
-                        related_ids.append(entry_id)
+                related_ids: list[int] = []
+                # `ports` is deliberately absent: a faithful port is a duplicate,
+                # and a rebuilt one earns its place on its own facets.
+                for bucket in (
+                    "similar_games",
+                    "remakes",
+                    "remasters",
+                    "expanded_games",
+                    "expansions",
+                    "dlcs",
+                ):
+                    for entry in metadata.get(bucket) or ():
+                        entry_id = entry.get("id") if isinstance(entry, dict) else None
+                        if isinstance(entry_id, int):
+                            related_ids.append(entry_id)
 
-            if related_ids:
-                yield rom_id, related_ids
+                if related_ids:
+                    yield rom_id, related_ids
 
     @begin_session
     def get_collection_membership_sets(
@@ -271,7 +274,7 @@ class DBRecommendationsHandler(DBBaseHandler):
         ).where(RomSimilarity.rom_id.in_(rom_ids))
 
         stored: dict[int, list[tuple[float, int]]] = {}
-        for rom_id, score, related_rom_id in session.execute(stmt):
+        for rom_id, score, related_rom_id in session.execute(stmt).all():
             stored.setdefault(rom_id, []).append((score, related_rom_id))
         return stored
 
@@ -339,7 +342,7 @@ class DBRecommendationsHandler(DBBaseHandler):
         # and the row counts here are already bounded by the build's top-N cut.
         per_seed: dict[int, int] = {}
         results: list[tuple[int, int, float, list[dict[str, Any]]]] = []
-        for seed_id, related_id, score, reasons in session.execute(stmt):
+        for seed_id, related_id, score, reasons in session.execute(stmt).all():
             taken = per_seed.get(seed_id, 0)
             if taken >= limit_per_rom:
                 continue
