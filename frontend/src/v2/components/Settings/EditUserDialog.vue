@@ -58,7 +58,7 @@ const {
   load: loadAge,
   changes: ageChanges,
 } = createAgeSettingsDraft();
-// Access edits are saved only over a user whose access loaded.
+// Access edits save only once this user's access has loaded.
 const accessLoaded = ref(false);
 
 // Advanced: per-user overrides + per-game hiding.
