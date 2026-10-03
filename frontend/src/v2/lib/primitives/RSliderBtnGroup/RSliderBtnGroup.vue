@@ -464,7 +464,8 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   font-weight: var(--r-font-weight-semibold);
 }
 
-/* x-small tab: a compact pill for a row in a list, 26px tall. */
+/* x-small tab: a compact pill for a row in a list, 26px tall (the touch
+   target on phones). */
 .r-slider-btn-group--tab.r-slider-btn-group--size-x-small {
   padding: 3px;
 }
@@ -477,6 +478,12 @@ function showBadge(badge: SliderBtnGroupItem<T>["badge"]): boolean {
   /* A fractional line height rounds the label a pixel high at some positions. */
   line-height: 16px;
   gap: 4px;
+}
+html[data-bp~="sm-and-down"]
+  .r-slider-btn-group--tab.r-slider-btn-group--size-x-small
+  .r-slider-btn-group__btn {
+  min-height: var(--r-touch-target) !important;
+  height: var(--r-touch-target) !important;
 }
 .r-slider-btn-group--tab.r-slider-btn-group--size-x-small
   .r-slider-btn-group__btn
