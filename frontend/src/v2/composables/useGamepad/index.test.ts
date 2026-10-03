@@ -175,35 +175,26 @@ describe("useGamepad", () => {
       expect(router.back).toHaveBeenCalledOnce();
     });
 
-    it("closes the top overlay instead of going back", () => {
-      const close = vi.fn();
-      const dialog = { close, persistent: false };
-      pushEscapable(dialog);
-      try {
-        installOnMouse(padHolding(PAD_BUTTON.b));
-        step();
-      } finally {
-        popEscapable(dialog);
-      }
+    it.each([
+      { persistent: false, closes: 1 },
+      { persistent: true, closes: 0 },
+    ])(
+      "dismisses an overlay (persistent: $persistent) instead of going back",
+      ({ persistent, closes }) => {
+        const close = vi.fn();
+        const dialog = { close, persistent };
+        pushEscapable(dialog);
+        try {
+          installOnMouse(padHolding(PAD_BUTTON.b));
+          step();
+        } finally {
+          popEscapable(dialog);
+        }
 
-      expect(close).toHaveBeenCalledOnce();
-      expect(router.back).not.toHaveBeenCalled();
-    });
-
-    it("stays put under a persistent overlay", () => {
-      const close = vi.fn();
-      const dialog = { close, persistent: true };
-      pushEscapable(dialog);
-      try {
-        installOnMouse(padHolding(PAD_BUTTON.b));
-        step();
-      } finally {
-        popEscapable(dialog);
-      }
-
-      expect(close).not.toHaveBeenCalled();
-      expect(router.back).not.toHaveBeenCalled();
-    });
+        expect(close).toHaveBeenCalledTimes(closes);
+        expect(router.back).not.toHaveBeenCalled();
+      },
+    );
 
     it("leaves history alone when a view's Escape handler claims the press", () => {
       const claim = (e: KeyboardEvent) => {

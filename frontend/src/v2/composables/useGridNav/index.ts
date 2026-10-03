@@ -153,6 +153,8 @@ export function useGridNav(
   const { modality } = useInputModality();
   const route = useRoute();
   const focusStore = storeFocusRestoration();
+  // Wrapping grids keep the page still where row tracks centre and scroll.
+  const wrapping = !!options.cellSelector;
   let preferredCol = 0;
   let activeKey: string | null = null;
   // The cell this composable last focused, to tell when focus arrived another
@@ -241,10 +243,9 @@ export function useGridNav(
     });
   }
 
-  function current(): { rowIdx: number; colIdx: number } | null {
+  function current(rs: Row[]): { rowIdx: number; colIdx: number } | null {
     const active = document.activeElement as HTMLElement | null;
     if (!active) return null;
-    const rs = rows();
     for (const [r, row] of rs.entries()) {
       if (row.el && !row.el.contains(active)) continue;
       for (const [c, cell] of row.cells.entries()) {
@@ -261,7 +262,15 @@ export function useGridNav(
     colIdx: number,
     opts: { verticalJump?: boolean } = {},
   ) {
-    const rs = rows();
+    focusIn(rows(), rowIdx, colIdx, opts);
+  }
+
+  function focusIn(
+    rs: Row[],
+    rowIdx: number,
+    colIdx: number,
+    opts: { verticalJump?: boolean } = {},
+  ) {
     const row = rs[rowIdx];
     if (!row) return;
     const cs = row.cells;
@@ -304,7 +313,7 @@ export function useGridNav(
     } else {
       target.scrollIntoView({
         block: "nearest",
-        inline: row.el ? "center" : "nearest",
+        inline: wrapping ? "nearest" : "center",
         behavior: "smooth",
       });
     }
@@ -315,8 +324,7 @@ export function useGridNav(
     for (const [r, row] of rs.entries()) {
       if (row.cells.length > 0) {
         preferredCol = 0;
-        // A wrapping grid's first tile is usually in view already.
-        focusAt(r, 0, { verticalJump: !!row.el });
+        focusIn(rs, r, 0, { verticalJump: !wrapping });
         return;
       }
     }
@@ -335,7 +343,7 @@ export function useGridNav(
       for (const [c, cell] of row.cells.entries()) {
         if (cellKey(cell) === savedKey) {
           preferredCol = c;
-          focusAt(r, c, { verticalJump: true });
+          focusIn(rs, r, c, { verticalJump: true });
           return true;
         }
       }
@@ -359,7 +367,7 @@ export function useGridNav(
       for (const c of cols) {
         if (!hasControl(cs[c]!)) continue;
         preferredCol = c;
-        focusAt(r, c, { verticalJump: true });
+        focusIn(rs, r, c, { verticalJump: true });
         return;
       }
     }
@@ -413,11 +421,11 @@ export function useGridNav(
     const active = document.activeElement;
     if (!(active instanceof Node) || !rootRef.value.contains(active)) return;
 
-    const cur = current();
+    const rs = rows();
+    const cur = current(rs);
     if (!cur) return;
 
     let { rowIdx, colIdx } = cur;
-    const rs = rows();
     const rowCells = rs[rowIdx]!.cells;
     if (rowCells[colIdx] !== navCell) preferredCol = colIdx;
     let verticalJump = false;
@@ -441,9 +449,10 @@ export function useGridNav(
       colIdx = preferredCol;
       verticalJump = true;
     } else if (e.key === "Home" || e.key === "End") {
-      // A list row of one cell has nowhere to go inside it, so it moves
-      // through the grid instead. A wrapping grid's short last row doesn't.
-      if (e.ctrlKey || e.metaKey || (rowCells.length === 1 && rs[rowIdx]!.el)) {
+      // With one column there is nowhere to go inside a row, so it moves
+      // through the grid instead. A wrapping grid's first row is full.
+      const oneColumn = (wrapping ? rs[0]! : rs[rowIdx]!).cells.length === 1;
+      if (e.ctrlKey || e.metaKey || oneColumn) {
         e.preventDefault();
         void jumpToEdge(e.key === "Home" ? "first" : "last");
         return;
@@ -460,7 +469,7 @@ export function useGridNav(
     }
 
     e.preventDefault();
-    focusAt(rowIdx, colIdx, { verticalJump });
+    focusIn(rs, rowIdx, colIdx, { verticalJump });
   }
 
   // Runs as late children arrive (fetches finishing, skeletons swapping to

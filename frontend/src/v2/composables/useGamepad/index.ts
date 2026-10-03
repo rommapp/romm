@@ -154,13 +154,13 @@ function dispatchKey(binding: Binding): boolean {
     bubbles: true,
     cancelable: true,
   };
-  let claimed = false;
-  for (const type of ["keydown", "keyup"]) {
+  const fire = (type: string) => {
     const event = new KeyboardEvent(type, init);
     padEvents.add(event);
-    const notCancelled = target.dispatchEvent(event);
-    if (type === "keydown") claimed = !notCancelled;
-  }
+    return target.dispatchEvent(event);
+  };
+  const claimed = !fire("keydown");
+  fire("keyup");
   return claimed;
 }
 

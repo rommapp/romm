@@ -25,7 +25,7 @@ There are **no `/console/*` routes in v2**; `src/console/` (with its own input b
 Handlers coordinate through `preventDefault`. **Claim a key you handle; leave alone a key you don't.**
 
 - Arrow keys a widget uses itself (a listbox, a slider, a grid moving inside its bounds) must be claimed, or `useSpatialNav` moves focus too. A grid leaves the key unclaimed at its edge so spatial nav carries focus to the next region.
-- Escape: claim it only when it actually did something (closed a panel, cleared a selection). An unclaimed Escape from pad B navigates back, so claiming an Escape that did nothing traps the user on the page.
+- Escape: claim it only while your surface is the one Escape belongs to (an open panel, an active selection, a blocking dialog, even when it ignores the key). An unclaimed Escape from pad B navigates back, so an idle widget that claims it traps the user on the page.
 - `isPadEvent(e)` tells a synthetic pad key from a real one, for the rare handler that must differ (caret stepping).
 
 For buttons the keyboard has no equivalent for (Y, X, triggers), listen for the `gamepad:buttondown` window event (`detail.name`: `"y"`, `"rt"`, …). The player listens for `gamepad:exitchord` (Select+Start held), since B is the game's while one is running.

@@ -47,8 +47,15 @@ function focusLink(id: number) {
   (document.querySelector(`a[href='/rom/${id}']`) as HTMLElement).focus();
 }
 
-function press(key: string, init: KeyboardEventInit = {}) {
-  document.dispatchEvent(new KeyboardEvent("keydown", { key, ...init }));
+function press(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
+  const event = new KeyboardEvent("keydown", {
+    key,
+    bubbles: true,
+    cancelable: true,
+    ...init,
+  });
+  (document.activeElement ?? document).dispatchEvent(event);
+  return event;
 }
 
 function focusedHref(): string | null | undefined {
@@ -241,17 +248,6 @@ describe("useGridNav on a wrapping grid", () => {
       .element as HTMLElement;
   }
 
-  function press(key: string, init: KeyboardEventInit = {}) {
-    document.activeElement!.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key,
-        bubbles: true,
-        cancelable: true,
-        ...init,
-      }),
-    );
-  }
-
   beforeEach(() => {
     setModality("mouse");
     stub("offsetParent", {
@@ -317,15 +313,8 @@ describe("useGridNav on a wrapping grid", () => {
 
   it("leaves PageUp to the page on the first row", () => {
     cell(0, 1).focus();
-    const event = new KeyboardEvent("keydown", {
-      key: "PageUp",
-      bubbles: true,
-      cancelable: true,
-    });
 
-    cell(0, 1).dispatchEvent(event);
-
-    expect(event.defaultPrevented).toBe(false);
+    expect(press("PageUp").defaultPrevented).toBe(false);
     expect(document.activeElement).toBe(cell(0, 1));
   });
 
@@ -397,7 +386,7 @@ describe("useGridNav on a wrapping grid, autofocus", () => {
   it("lands pad focus on the first tile once late tiles arrive", async () => {
     setModality("pad");
     const wrapper = mount(LateGrid, { attachTo: document.body });
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await frame();
     expect(document.activeElement).toBe(document.body);
 
     tiles.value = 2;

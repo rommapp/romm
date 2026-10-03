@@ -48,10 +48,14 @@ describe("RComboboxField inside an overlay", () => {
     popEscapable(dialog);
   });
 
-  function pressEscape(el: Element) {
-    el.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+  function pressEscape(el: Element): KeyboardEvent {
+    const event = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    el.dispatchEvent(event);
+    return event;
   }
 
   it("closes its suggestions on Escape, leaving the dialog open", async () => {
@@ -96,14 +100,8 @@ describe("RComboboxField inside an overlay", () => {
     const input = wrapper.get("input");
 
     await input.setValue("zzz");
-    const escape = new KeyboardEvent("keydown", {
-      key: "Escape",
-      bubbles: true,
-      cancelable: true,
-    });
-    input.element.dispatchEvent(escape);
 
-    expect(escape.defaultPrevented).toBe(false);
+    expect(pressEscape(input.element).defaultPrevented).toBe(false);
     wrapper.unmount();
   });
 
