@@ -12,5 +12,11 @@ import os
 #
 # The Redis cache needs no equivalent handling: under pytest it is an in-process
 # FakeRedis, so each worker process is already isolated.
+#
+# ROMM_TEST_DB_TAG gives a run its own temporary databases (`romm_test_<tag>`),
+# so a worktree on another branch can't leave the schema at a revision this
+# branch lacks. tests/conftest.py drops them when the session ends.
+_tag = os.environ.get("ROMM_TEST_DB_TAG")
+_base = f"romm_test_{_tag}" if _tag else "romm_test"
 _xdist_worker = os.environ.get("PYTEST_XDIST_WORKER")
-os.environ["DB_NAME"] = f"romm_test_{_xdist_worker}" if _xdist_worker else "romm_test"
+os.environ["DB_NAME"] = f"{_base}_{_xdist_worker}" if _xdist_worker else _base
