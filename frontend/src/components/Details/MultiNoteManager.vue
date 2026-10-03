@@ -7,6 +7,7 @@ import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import RSection from "@/components/common/RSection.vue";
+import "@/plugins/mdeditor";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";

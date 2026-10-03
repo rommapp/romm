@@ -17,10 +17,10 @@ const heavyImports = [
       "md-editor-v3 is heavy; load @/v2/components/shared/MarkdownPreview.vue through defineAsyncComponent.",
   },
   {
-    group: ["**/MarkdownPreview.vue", "**/MarkdownViewer.vue"],
+    group: ["**/MarkdownPreview.vue", "**/MarkdownViewer.vue", "**/mdeditor"],
     allowTypeImports: true,
     message:
-      "This component bundles md-editor-v3; load it through defineAsyncComponent.",
+      "This module bundles md-editor-v3; import it only from a lazy chunk.",
   },
 ];
 
