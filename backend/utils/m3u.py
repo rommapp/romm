@@ -89,11 +89,34 @@ def _path_key(path: Path) -> str:
 
 
 def _same_entry(a: Path, b: Path) -> bool:
-    # lstat, so a symlinked disc and its target stay distinct.
+    """Whether two paths name one directory entry, so a hardlink is another."""
     try:
-        return os.path.samestat(os.lstat(a), os.lstat(b))
+        if not os.path.samestat(os.stat(a.parent), os.stat(b.parent)):
+            return False
+        if a.name == b.name:
+            return True
+        # A case-insensitive filesystem spells one entry several ways.
+        return a.name.casefold() == b.name.casefold() and os.path.samestat(
+            os.lstat(a), os.lstat(b)
+        )
     except OSError:
         return False
+
+
+# Linux's own limit on symlinks followed while resolving a path.
+_MAX_LINK_HOPS = 40
+
+
+def _leads_to(entry: Path, disc: Path) -> bool:
+    """Whether entry is disc, or a symlink chain that passes through it."""
+    for _ in range(_MAX_LINK_HOPS):
+        if _same_entry(entry, disc):
+            return True
+        try:
+            entry = entry.parent / os.readlink(entry)
+        except OSError:
+            return False
+    return False
 
 
 def listing_playlist(disc: Path) -> str | None:
@@ -114,7 +137,7 @@ def listing_playlist(disc: Path) -> str | None:
             # The path an emulator would open, as first_playlist_entry picks it.
             on_disk = next((path for path in candidates if path.is_file()), None)
             if on_disk:
-                if _same_entry(on_disk, disc):
+                if _leads_to(on_disk, disc):
                     return playlist.name
             elif any(_path_key(path) == target for path in candidates):
                 return playlist.name

@@ -76,6 +76,24 @@ class TestListingPlaylist:
 
         assert listing_playlist(disc) is None
 
+    def test_names_the_playlist_listing_a_symlink_to_the_disc(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "links").mkdir()
+        (tmp_path / "links" / "hop.chd").symlink_to(disc)
+        (tmp_path / "Disc 1.chd").symlink_to("links/hop.chd")
+        (tmp_path / "Game.m3u").write_text("Disc 1.chd\n")
+
+        assert listing_playlist(disc) == "Game.m3u"
+
+    def test_none_when_the_playlist_lists_a_hardlink_to_the_disc(self, tmp_path):
+        disc = tmp_path / "Game (Disc 1).chd"
+        disc.write_bytes(b"x")
+        (tmp_path / "Disc 1.chd").hardlink_to(disc)
+        (tmp_path / "Game.m3u").write_text("Disc 1.chd\n")
+
+        assert listing_playlist(disc) is None
+
     def test_tolerates_an_entry_through_a_symlink_loop(self, tmp_path):
         disc = tmp_path / "Game (Disc 1).chd"
         disc.write_bytes(b"x")
