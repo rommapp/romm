@@ -385,14 +385,17 @@ _HAS_ROWS = select(
 )
 
 
-@pytest.fixture(autouse=True)
-def clear_database():
+def _clear_tables() -> None:
     with session.begin() as s:
         has_rows = s.execute(_HAS_ROWS).one()
         for model, dirty in zip(_CLEARED_MODELS, has_rows, strict=True):
             if dirty:
                 s.query(model).delete(synchronize_session="evaluate")
 
+
+@pytest.fixture(autouse=True)
+def clear_database():
+    _clear_tables()
     # Drop any cached gallery filter values to keep tests isolated.
     db_rom_handler.invalidate_filter_values_cache()
 
