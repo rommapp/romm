@@ -332,7 +332,7 @@ def _clone_template_into_fresh_database() -> None:
                 try:
                     _copy_schema(conn, template, url.database)
                 except DBAPIError:
-                    # Hand alembic an empty database, not a partial copy.
+                    # Leave alembic an empty database to migrate.
                     _recreate_database(conn, url.database)
             finally:
                 conn.execute(text("SELECT RELEASE_LOCK(:name)"), lock)
