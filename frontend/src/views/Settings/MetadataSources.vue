@@ -101,7 +101,7 @@ async function fetchAllHeartbeats() {
 // Helper function to get status text for a metadata source
 function getSourceStatusText(source: {
   disabled: boolean;
-  heartbeat?: boolean;
+  heartbeat?: boolean | undefined;
 }) {
   if (source.disabled) {
     return t("scan.api-key-missing-short");
@@ -118,7 +118,7 @@ function getSourceStatusText(source: {
 // Helper function to get tooltip text for connection status
 function getConnectionStatusTooltip(source: {
   disabled: boolean;
-  heartbeat?: boolean;
+  heartbeat?: boolean | undefined;
 }) {
   if (source.disabled) {
     return t("scan.api-key-missing-or-disabled");

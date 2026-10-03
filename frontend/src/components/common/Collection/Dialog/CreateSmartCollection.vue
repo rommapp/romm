@@ -187,10 +187,11 @@ async function createSmartCollection() {
         filterCriteria.languages_logic = languagesLogic.value;
     }
 
+    const trimmedDescription = description.value.trim();
     const data = await collectionApi.createSmartCollection({
       smartCollection: {
         name: name.value.trim(),
-        description: description.value.trim() || undefined,
+        ...(trimmedDescription ? { description: trimmedDescription } : {}),
         filter_criteria: filterCriteria,
         is_public: isPublic.value,
       },

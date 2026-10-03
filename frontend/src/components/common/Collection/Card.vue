@@ -23,8 +23,8 @@ import {
 const props = withDefaults(
   defineProps<{
     collection: CollectionType;
-    coverSrc?: string;
-    width?: string | number;
+    coverSrc?: string | undefined;
+    width?: string | number | undefined;
     transformScale?: boolean;
     showTitle?: boolean;
     titleOnHover?: boolean;
@@ -235,12 +235,12 @@ onBeforeUnmount(() => {
           <div class="split-image first-image">
             <v-img
               cover
-              :src="firstLargeCover"
+              :src="firstLargeCover!"
               :aspect-ratio="computedAspectRatio"
             >
               <template #placeholder>
                 <v-img
-                  :src="firstSmallCover"
+                  :src="firstSmallCover!"
                   :aspect-ratio="computedAspectRatio"
                 >
                   <template #placeholder>
@@ -262,12 +262,12 @@ onBeforeUnmount(() => {
           <div class="split-image second-image">
             <v-img
               cover
-              :src="secondLargeCover"
+              :src="secondLargeCover!"
               :aspect-ratio="computedAspectRatio"
             >
               <template #placeholder>
                 <v-img
-                  :src="secondSmallCover"
+                  :src="secondSmallCover!"
                   :aspect-ratio="computedAspectRatio"
                 >
                   <template #placeholder>
@@ -290,11 +290,14 @@ onBeforeUnmount(() => {
         <template v-else>
           <v-img
             cover
-            :src="firstLargeCover"
+            :src="firstLargeCover!"
             :aspect-ratio="computedAspectRatio"
           >
             <template #placeholder>
-              <v-img :src="firstSmallCover" :aspect-ratio="computedAspectRatio">
+              <v-img
+                :src="firstSmallCover!"
+                :aspect-ratio="computedAspectRatio"
+              >
                 <template #placeholder>
                   <Skeleton :aspect-ratio="computedAspectRatio" type="image" />
                 </template>

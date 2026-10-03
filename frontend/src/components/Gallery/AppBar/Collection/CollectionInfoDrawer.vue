@@ -219,7 +219,7 @@ async function updateCollection() {
                   <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
                   <v-file-input
                     id="file-input"
-                    :model-value="updatedCollection.artwork"
+                    :model-value="updatedCollection.artwork!"
                     @update:model-value="
                       updatedCollection.artwork = [$event].flat()[0]
                     "
@@ -294,7 +294,7 @@ async function updateCollection() {
               @keyup.enter="updateCollection"
             />
             <v-switch
-              :model-value="updatedCollection.is_public"
+              :model-value="updatedCollection.is_public!"
               @update:model-value="updatedCollection.is_public = !!$event"
               class="mt-2"
               color="primary"
