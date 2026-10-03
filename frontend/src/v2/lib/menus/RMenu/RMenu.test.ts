@@ -62,6 +62,31 @@ describe("RMenu", () => {
     wrapper.unmount();
   });
 
+  it("asks for a visible focus ring when keyboard or pad opens it", async () => {
+    modality.value = "key";
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    const wrapper = mount(RMenu, {
+      attachTo: document.body,
+      props: { initialFocus: ".pick-me" },
+      slots: {
+        activator: `<template #activator="{ props }"><button type="button" class="trigger" v-bind="props">Open</button></template>`,
+        default: `<button type="button" class="pick-me">B</button>`,
+      },
+    });
+
+    await wrapper.find("button.trigger").trigger("click");
+    await flushPromises();
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
+
+    expect(focus).toHaveBeenCalledWith(
+      expect.objectContaining({ focusVisible: true }),
+    );
+    focus.mockRestore();
+    wrapper.unmount();
+  });
+
   it("anchors to the activator a `v-if` swapped in", async () => {
     const swapped = ref(false);
     const Host = defineComponent({

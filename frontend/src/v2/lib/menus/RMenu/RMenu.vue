@@ -366,7 +366,8 @@ function onPanelKeydown(evt: KeyboardEvent) {
         : (activeIdx - 1 + items.length) % items.length;
   }
   evt.preventDefault();
-  items[nextIdx]?.focus();
+  // Firefox skips the focus ring on a script focus() after a mouse click.
+  items[nextIdx]?.focus({ focusVisible: true });
 }
 
 // Autofocus the first menu item when the panel opens via keyboard or
@@ -390,7 +391,10 @@ watch(
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => resolve()),
     );
-    (initialFocusTarget() ?? focusableMenuItems()[0])?.focus();
+    // Only reached for keyboard and pad, which want the ring.
+    (initialFocusTarget() ?? focusableMenuItems()[0])?.focus({
+      focusVisible: true,
+    });
   },
 );
 </script>
