@@ -44,17 +44,19 @@ import { syncQueryParam } from "@/v2/utils/routeQuery";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 // md-editor loads with the first note, not with the game page.
+// Vue passes the wrapped component's attrs to the loading component; drop them.
+const MdLoading = defineComponent({
+  inheritAttrs: false,
+  render: () => h(RSpinner),
+});
 const MdEditor = defineAsyncComponent({
   loader: () => import("@/v2/components/shared/markdownEditor"),
-  // Vue passes the editor's attrs to the loading component; drop them.
-  loadingComponent: defineComponent({
-    inheritAttrs: false,
-    render: () => h(RSpinner),
-  }),
+  loadingComponent: MdLoading,
 });
-const MdPreview = defineAsyncComponent(
-  () => import("@/v2/components/shared/markdownPreview"),
-);
+const MdPreview = defineAsyncComponent({
+  loader: () => import("@/v2/components/shared/markdownPreview"),
+  loadingComponent: MdLoading,
+});
 
 defineOptions({ inheritAttrs: false });
 

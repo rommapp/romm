@@ -1171,9 +1171,11 @@ Auto-generated from backend OpenAPI schema:
 
 ```json
 "@/*" → "./src/*"
+"@v2/*" → "./src/v2/*"
+"md-editor-v3" → "./src/plugins/mdeditor.ts"
 ```
 
-Used throughout: `import { ... } from "@/stores/roms"`.
+Used throughout: `import { ... } from "@/stores/roms"`. The Vite list lives in `scripts/aliases.ts`. A bare `md-editor-v3` import loads `plugins/mdeditor.ts`, which applies the raw-HTML and XSS config before re-exporting the package.
 
 ---
 

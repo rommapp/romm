@@ -55,9 +55,13 @@ const {
   execute: fetchReleases,
 } = useFetchState(
   async () => {
-    const res = await fetch(RELEASES_URL, {
-      headers: { Accept: "application/vnd.github+json" },
-    });
+    // The renderer downloads alongside the releases, so the spinner covers both.
+    const [res] = await Promise.all([
+      fetch(RELEASES_URL, {
+        headers: { Accept: "application/vnd.github+json" },
+      }),
+      loadMdPreview(),
+    ]);
     if (!res.ok) throw new Error(`GitHub ${res.status}`);
     const data: Release[] = await res.json();
     return data
@@ -93,8 +97,6 @@ function fmtDate(iso: string): string {
 
 const openHandler = () => {
   show.value = true;
-  // Start the renderer download now so it overlaps the releases fetch.
-  loadMdPreview().catch(() => {});
   // Refetch only when we have nothing yet (or a previous attempt
   // errored). Keeps the dialog snappy on subsequent opens.
   if (releases.value.length === 0 && !loading.value) fetchReleases();
