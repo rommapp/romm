@@ -427,7 +427,7 @@ class HasheousHandler(MetadataHandler):
         if not hasheous_game:
             return fallback_rom, True
 
-        # Read defensively, like the signatures: a raise here would abort the scan.
+        # A raise here would abort the scan.
         metadata = hasheous_game.get("metadata")
         attributes = hasheous_game.get("attributes")
         signatures = hasheous_game.get("signatures")
@@ -441,9 +441,9 @@ class HasheousHandler(MetadataHandler):
             if not isinstance(meta, dict):
                 continue
             if meta.get("source") == "IGDB":
-                igdb_id = _numeric_id(meta.get("immutableId"))
+                igdb_id = _numeric_id(meta.get("immutableId")) or igdb_id
             elif meta.get("source") == "TheGamesDb":
-                tgdb_id = _numeric_id(meta.get("immutableId"))
+                tgdb_id = _numeric_id(meta.get("immutableId")) or tgdb_id
 
         url_cover = ""
         for attr in attributes if isinstance(attributes, list) else []:

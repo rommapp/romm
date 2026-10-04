@@ -196,14 +196,33 @@ class TestHandler:
 
         assert {key: r.get("name") for key, r in roms.items()} == {"zelda.zip": "Zelda"}
 
-    async def test_an_unreadable_library_yields_nothing(
+    async def test_an_unusable_media_folder_leaves_its_games(
+        self, library: Path, platform: Platform
+    ):
+        gamelist = _gamelist(
+            library, platform, "<game><path>./zelda.zip</path><name>Zelda</name></game>"
+        )
+        (gamelist.parent / "covers").mkdir()
+        (gamelist.parent / "covers" / "zelda.png").write_bytes(b"")
+        # A file where a media folder should be, which cannot be listed.
+        (gamelist.parent / "videos").write_bytes(b"")
+
+        roms = GamelistHandler()._parse_gamelist_xml(gamelist, platform)
+
+        assert roms["zelda.zip"].get("name") == "Zelda"
+        metadata = roms["zelda.zip"].get("gamelist_metadata")
+        assert metadata is not None
+        assert metadata["box2d_url"] is not None
+        assert metadata["video_url"] is None
+
+    async def test_an_unexpected_error_mid_parse_yields_nothing(
         self, library: Path, platform: Platform
     ):
         gamelist = _gamelist(library, platform, "<game><path>./zelda.zip</path></game>")
 
         with patch.object(
             gamelist_handler,
-            "build_media_file_index",
-            side_effect=OSError("media folder vanished"),
+            "extract_metadata_from_gamelist_rom",
+            side_effect=KeyError("thumbnail"),
         ):
             assert GamelistHandler()._parse_gamelist_xml(gamelist, platform) == {}

@@ -252,6 +252,27 @@ class TestLookupShapes:
         assert rom["igdb_id"] is None
         assert rom.get("url_cover") == f"{handler.BASE_ORIGIN}/images/ff7.png"
 
+    async def test_an_unreadable_entry_keeps_an_id_read_before_it(
+        self, hasheous: tuple[HasheousHandler, HasheousStub]
+    ):
+        handler, stub = hasheous
+        stub.replies = [
+            _json(
+                _match(
+                    metadata=[
+                        {"source": "IGDB", "immutableId": "427"},
+                        {"source": "IGDB", "immutableId": "final-fantasy-vii"},
+                        {"source": "TheGamesDb", "immutableId": "525"},
+                        {"source": "TheGamesDb"},
+                    ]
+                )
+            )
+        ]
+
+        rom, _ = await handler.lookup_rom("psx", [_rom_file()])
+
+        assert (rom["igdb_id"], rom["tgdb_id"]) == (427, 525)
+
     @pytest.mark.parametrize(
         "fields",
         [
