@@ -267,6 +267,31 @@ describe("Ruffle saves", () => {
     wrapper.unmount();
   });
 
+  it("uploads a change once two polls agree on it", async () => {
+    // Only the poll is faked; mounting still flushes on real timers.
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const wrapper = await mountAndPlay();
+    try {
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(saveSyncMocks.capture).toHaveBeenLastCalledWith([]);
+
+      localStorage.setItem(`${HOST}/${SWF_KEY}`, stored(sol(5)));
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(saveSyncMocks.capture).toHaveBeenLastCalledWith([]);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(saveSyncMocks.capture).toHaveBeenLastCalledWith([
+        expect.objectContaining({ slot: "autosave" }),
+      ]);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(saveSyncMocks.capture).toHaveBeenLastCalledWith([]);
+    } finally {
+      vi.useRealTimers();
+      wrapper.unmount();
+    }
+  });
+
   it("restarts the game when the player stays after a failed upload", async () => {
     saveSyncMocks.push.mockResolvedValue(false);
     const wrapper = await mountAndPlay();

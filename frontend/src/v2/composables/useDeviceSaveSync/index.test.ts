@@ -124,17 +124,45 @@ describe("useDeviceSaveSync", () => {
     expect(read).toHaveBeenCalledOnce();
   });
 
-  it("keeps polled saves here, uploading them at most once per interval", async () => {
+  it("polls at its own pace, telling the read it is not leaving", async () => {
     vi.useFakeTimers();
-    const read = vi.fn().mockResolvedValue([FILE]);
-    const saveSync = await started({ read, uploadIntervalMs: 60_000 });
+    const read = vi.fn().mockResolvedValue([]);
+    const saveSync = await started({ read, pollMs: 1000 });
 
-    await vi.advanceTimersByTimeAsync(55_000);
-    expect(saveSyncMocks.capture).toHaveBeenCalledTimes(11);
-    expect(saveSyncMocks.push).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(read).toHaveBeenCalledTimes(3);
+    expect(read).toHaveBeenLastCalledWith(false);
 
-    await vi.advanceTimersByTimeAsync(5000);
-    expect(saveSyncMocks.push).toHaveBeenCalledOnce();
+    await saveSync.flush();
+    expect(read).toHaveBeenLastCalledWith(true);
+  });
+
+  it("backs off polled uploads while they fail, still reading", async () => {
+    vi.useFakeTimers();
+    saveSyncMocks.push.mockResolvedValue(false);
+    const read = vi.fn().mockResolvedValue([]);
+    await started({ read, pollMs: 1000 });
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(saveSyncMocks.push).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(saveSyncMocks.push).toHaveBeenCalledTimes(1);
+    expect(read).toHaveBeenCalledTimes(2);
+
+    saveSyncMocks.push.mockResolvedValue(true);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(saveSyncMocks.push).toHaveBeenCalledTimes(2);
+  });
+
+  it("uploads on leaving even while backing off", async () => {
+    vi.useFakeTimers();
+    saveSyncMocks.push.mockResolvedValueOnce(false);
+    const saveSync = await started({
+      read: vi.fn().mockResolvedValue([]),
+      pollMs: 1000,
+    });
+    await vi.advanceTimersByTimeAsync(1000);
 
     expect(await saveSync.flush()).toBe(true);
     expect(saveSyncMocks.push).toHaveBeenCalledTimes(2);

@@ -44,6 +44,7 @@ import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
 import { browserDeviceId } from "@/v2/utils/saveSync/browserDevice";
 import { bytesEqual, saveContentHash } from "@/v2/utils/saveSync/hash";
+import { createRetryBackoff } from "@/v2/utils/saveSync/retryBackoff";
 import {
   saveSave,
   captureScreenshot,
@@ -63,7 +64,6 @@ import {
   createSaveQuitButton,
   createExitEmulationButton,
   labelContextMenuButton,
-  createRetryBackoff,
   createSaveSyncTracker,
   pollSaveFiles,
   saveSaveOnUnload,

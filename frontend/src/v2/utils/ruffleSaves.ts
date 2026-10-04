@@ -1,10 +1,11 @@
 // Ruffle keeps each SharedObject in localStorage as a base64 `.sol` file, keyed
 // `<host>/<SWF path or an ancestor>/<name>`, a `/` in a name prefixed with `#`.
 import { unzipSync, zipSync } from "fflate";
-import { bytesEqual } from "@/v2/utils/saveSync/hash";
 
 /** A game's SharedObjects, keyed by their storage key without the host. */
 export type RuffleSaves = Record<string, Uint8Array>;
+/** The same SharedObjects as stored, still base64, for a cheap comparison. */
+export type RuffleStorage = Record<string, string>;
 
 const SOL_MAGIC = [0x00, 0xbf];
 const SOL_SIGNATURE = "TCSO";
@@ -69,19 +70,35 @@ function storageKeys(): string[] {
   }
 }
 
-/** The SharedObjects a SWF can reach on this host. */
-export function readRuffleSaves(host: string, swfPath: string): RuffleSaves {
+/** The stored entries a SWF can reach on this host, undecoded. */
+export function readRuffleStorage(
+  host: string,
+  swfPath: string,
+): RuffleStorage {
   const prefix = `${host}/`;
   const scopes = storageScopes(swfPath);
-  const saves: RuffleSaves = {};
+  const stored: RuffleStorage = {};
   for (const key of storageKeys()) {
     if (!key.startsWith(prefix)) continue;
     const entry = key.slice(prefix.length);
-    if (!ownsKey(entry, scopes)) continue;
-    const bytes = fromBase64(localStorage.getItem(key) ?? "");
+    if (ownsKey(entry, scopes)) stored[entry] = localStorage.getItem(key) ?? "";
+  }
+  return stored;
+}
+
+/** The SharedObjects among stored entries, skipping any that are not one. */
+export function decodeRuffleStorage(stored: RuffleStorage): RuffleSaves {
+  const saves: RuffleSaves = {};
+  for (const [entry, value] of Object.entries(stored)) {
+    const bytes = fromBase64(value);
     if (bytes && isSolFile(bytes)) saves[entry] = bytes;
   }
   return saves;
+}
+
+/** The SharedObjects a SWF can reach on this host. */
+export function readRuffleSaves(host: string, swfPath: string): RuffleSaves {
+  return decodeRuffleStorage(readRuffleStorage(host, swfPath));
 }
 
 export function writeRuffleSaves(host: string, saves: RuffleSaves): void {
@@ -94,12 +111,12 @@ export function removeRuffleSaves(host: string, entries: string[]): void {
   for (const entry of entries) localStorage.removeItem(`${host}/${entry}`);
 }
 
-/** Whether two reads hold the same SharedObjects, byte for byte. */
-export function sameRuffleSaves(a: RuffleSaves, b: RuffleSaves): boolean {
+/** Whether two reads of storage hold the same entries. */
+export function sameRuffleStorage(a: RuffleStorage, b: RuffleStorage): boolean {
   const entries = Object.keys(a);
   return (
     entries.length === Object.keys(b).length &&
-    entries.every((entry) => bytesEqual(a[entry]!, b[entry] ?? null))
+    entries.every((entry) => a[entry] === b[entry])
   );
 }
 

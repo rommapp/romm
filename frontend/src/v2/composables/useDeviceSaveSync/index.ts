@@ -11,22 +11,27 @@ import {
   type PlayerSaveFile,
   type SaveSyncRom,
 } from "@/v2/utils/saveSync";
+import { createRetryBackoff } from "@/v2/utils/saveSync/retryBackoff";
 
 export interface DeviceSaveSyncOptions {
   emulator: string;
-  /** Reads what the player holds; given, pushes capture it first and can poll. */
-  read?: () => Promise<PlayerSaveFile[]>;
+  /**
+   * Reads what the player holds; given, pushes capture it first and can poll.
+   *
+   * Args:
+   *   leaving: True when the player is quitting, which cannot wait a poll.
+   */
+  read?: (leaving: boolean) => Promise<PlayerSaveFile[]>;
   /** Reads what the player holds as the page goes away, which allows no await. */
   readOnUnload?: () => PlayerSaveFile[];
-  /** Least time between polled uploads; each poll still keeps what it read. */
-  uploadIntervalMs?: number;
+  pollMs?: number;
 }
 
 export function useDeviceSaveSync({
   emulator,
   read,
   readOnUnload,
-  uploadIntervalMs = 0,
+  pollMs = PLAYER_SAVE_POLL_MS,
 }: DeviceSaveSyncOptions) {
   const authStore = storeAuth();
   const confirm = useConfirm();
@@ -35,7 +40,7 @@ export function useDeviceSaveSync({
   let prepared: DeviceSaveSync | null = null;
   let sync: DeviceSaveSync | null = null;
   let pushing: Promise<boolean> | null = null;
-  let uploadedAt = 0;
+  const retry = createRetryBackoff();
 
   /**
    * Sync a rom's saves ahead of its launch; `start` then puts them in play.
@@ -60,15 +65,19 @@ export function useDeviceSaveSync({
     if (!active) return Promise.resolve(true);
     if (!read) return active.push();
     // A push still in flight already covers this one's work.
-    pushing ??= read()
+    pushing ??= read(!polled)
       .then((files) => active.capture(files))
-      .then(() => {
-        if (polled && Date.now() - uploadedAt < uploadIntervalMs) return true;
-        uploadedAt = Date.now();
-        return active.push();
+      .then(async () => {
+        // A failing upload waits out its backoff; polls keep reading meanwhile.
+        if (polled && !retry.ready()) return false;
+        const pushed = await active.push();
+        if (pushed) retry.reset();
+        else retry.failed();
+        return pushed;
       })
       .catch((error: unknown) => {
         console.error(`[Save sync] ${emulator} push failed`, error);
+        retry.failed();
         return false;
       })
       .finally(() => {
@@ -88,7 +97,7 @@ export function useDeviceSaveSync({
     return push();
   }
 
-  const poll = useIntervalFn(() => void run(true), PLAYER_SAVE_POLL_MS, {
+  const poll = useIntervalFn(() => void run(true), pollMs, {
     immediate: false,
   });
 
@@ -97,7 +106,7 @@ export function useDeviceSaveSync({
   }
 
   function start() {
-    uploadedAt = Date.now();
+    retry.reset();
     sync = prepared;
     prepared = null;
     resume();

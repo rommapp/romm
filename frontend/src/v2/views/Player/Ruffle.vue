@@ -25,13 +25,16 @@ import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { colorCanvas } from "@/v2/tokens";
 import {
   readRuffleSaves,
+  decodeRuffleStorage,
+  readRuffleStorage,
   removeRuffleSaves,
-  sameRuffleSaves,
+  sameRuffleStorage,
   swfStoragePath,
   unzipRuffleSaves,
   writeRuffleSaves,
   zipRuffleSaves,
   type RuffleSaves,
+  type RuffleStorage,
 } from "@/v2/utils/ruffleSaves";
 import type { PlayerSaveFile } from "@/v2/utils/saveSync";
 
@@ -104,32 +107,37 @@ function saveFilesOf(
   ];
 }
 
-// What the poll last read, so unchanged storage skips the zip and its hash.
-let lastRead: RuffleSaves | null = null;
+// Storage as the last poll read it, and as last handed to sync; comparing the
+// raw strings keeps an idle poll from decoding, zipping or hashing anything.
+let lastRead: RuffleStorage | null = null;
+let lastCaptured: RuffleStorage | null = null;
 
-function changedSaveFiles(): PlayerSaveFile[] {
+// As EmulatorJS does, a change is taken once two polls agree on it, so a game
+// mid-flush is not uploaded; leaving cannot wait for a second poll.
+function changedSaveFiles(leaving: boolean): PlayerSaveFile[] {
   const target = rom.value;
   if (!target) return [];
-  const saves = storedSaves();
-  if (lastRead && sameRuffleSaves(lastRead, saves)) return [];
-  lastRead = saves;
-  return saveFilesOf(target, saves);
+  const stored = readRuffleStorage(host, swfStoragePath(swfUrl));
+  const settled = lastRead !== null && sameRuffleStorage(lastRead, stored);
+  lastRead = stored;
+  if (!settled && !leaving) return [];
+  if (lastCaptured && sameRuffleStorage(lastCaptured, stored)) return [];
+  lastCaptured = stored;
+  return saveFilesOf(target, decodeRuffleStorage(stored));
 }
 
-// A game writes a SharedObject whenever it flushes one, so storage is polled.
-// Some flush every few seconds, so polls keep the saves here and upload at
-// most every few minutes; leaving uploads at once.
+// A game writes a SharedObject whenever it flushes one, so storage is polled
+// every second, as EmulatorJS polls its SRAM.
 const saveSync = useDeviceSaveSync({
   emulator: "ruffle",
-  read: async () => changedSaveFiles(),
-  readOnUnload: changedSaveFiles,
-  uploadIntervalMs: 5 * 60_000,
+  read: async (leaving) => changedSaveFiles(leaving),
+  readOnUnload: () => changedSaveFiles(true),
+  pollMs: 1000,
 });
 
 // Storage is shared by every RomM account in the browser, so a game's saves
 // live there only while it runs: synced in before, and taken back out after.
 async function prepareSaves(target: DetailedRom) {
-  lastRead = null;
   // Left behind by a page that went away mid-game, or from before sync.
   const leftover = storedSaves();
   try {
@@ -143,6 +151,8 @@ async function prepareSaves(target: DetailedRom) {
         unzipRuffleSaves(synced.bytes, swfStoragePath(swfUrl)),
       );
     }
+    // What sync just restored needs no capture of its own.
+    lastRead = lastCaptured = readRuffleStorage(host, swfStoragePath(swfUrl));
     saveSync.start();
   } catch (error) {
     console.error("[Ruffle] Saves are unavailable", error);

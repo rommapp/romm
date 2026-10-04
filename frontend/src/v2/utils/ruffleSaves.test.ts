@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   readRuffleSaves,
   removeRuffleSaves,
-  sameRuffleSaves,
+  readRuffleStorage,
+  sameRuffleStorage,
   swfStoragePath,
   unzipRuffleSaves,
   writeRuffleSaves,
@@ -35,13 +36,19 @@ function stored(bytes: Uint8Array): string {
 beforeEach(() => localStorage.clear());
 
 describe("ruffle saves", () => {
-  it("compares two reads byte for byte", () => {
-    const saves = { a: sol(1), b: sol(2) };
+  it("compares two reads of storage without decoding them", () => {
+    localStorage.setItem(`${HOST}/${SWF_PATH}/a`, stored(sol(1)));
+    const before = readRuffleStorage(HOST, SWF_PATH);
 
-    expect(sameRuffleSaves(saves, { b: sol(2), a: sol(1) })).toBe(true);
-    expect(sameRuffleSaves(saves, { a: sol(1), b: sol(3) })).toBe(false);
-    expect(sameRuffleSaves(saves, { a: sol(1) })).toBe(false);
-    expect(sameRuffleSaves({ a: sol(1) }, { b: sol(1) })).toBe(false);
+    expect(sameRuffleStorage(before, readRuffleStorage(HOST, SWF_PATH))).toBe(
+      true,
+    );
+    localStorage.setItem(`${HOST}/${SWF_PATH}/a`, stored(sol(2)));
+    expect(sameRuffleStorage(before, readRuffleStorage(HOST, SWF_PATH))).toBe(
+      false,
+    );
+    localStorage.setItem(`${HOST}/${SWF_PATH}/b`, stored(sol(1)));
+    expect(sameRuffleStorage({ a: "x" }, { b: "x" })).toBe(false);
   });
 
   it("derives the storage path from the SWF URL, without its query", () => {
