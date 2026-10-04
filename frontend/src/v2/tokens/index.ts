@@ -272,10 +272,12 @@ export const colorCoverArt = {
   icon: "#F9F9F9", // foreground icon
 } as const;
 
+// 'Twemoji Country Flags' only exists where main.ts polyfills flag emoji and
+// only covers flag code points, so all other text falls through to the rest.
 export const fontFamily = {
-  sans: "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
+  sans: "'Twemoji Country Flags', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
   display:
-    "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
+    "'Twemoji Country Flags', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
   mono: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace",
 } as const;
 

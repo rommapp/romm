@@ -1,3 +1,5 @@
+import { polyfillCountryFlagEmojis } from "country-flag-emoji-polyfill";
+import flagFontUrl from "country-flag-emoji-polyfill/dist/TwemojiCountryFlags.woff2?url";
 import { createApp } from "vue";
 import App from "@/RomM.vue";
 import "@/console/index.css";
@@ -40,6 +42,11 @@ function isChunkLoadError(error: unknown): boolean {
     )
   );
 }
+
+// Chromium on Windows has no flag emoji and draws region flags as two
+// letters ("US"). Registers a flag-only webfont on those browsers; the v2
+// font stacks list it first. Self-hosted so offline installs get it too.
+polyfillCountryFlagEmojis("Twemoji Country Flags", flagFontUrl);
 
 window.addEventListener("vite:preloadError", (event) => {
   if (reloadOnceForStaleChunk()) event.preventDefault();

@@ -74,4 +74,18 @@ const languages = computed(() =>
   line-height: 1.1;
   backdrop-filter: blur(6px);
 }
+
+/* Emoji ink sits between the baseline and cap height, but the line box
+   reserves room for descenders, so flags ride ~2px high. Trimming each
+   glyph box to cap/baseline lets align-items center the ink; the padding
+   grows by the trimmed amount to keep the chip the same height. */
+@supports (text-box: trim-both cap alphabetic) {
+  .card-flags__chip {
+    padding-block: 4.5px;
+  }
+
+  .card-flags__chip > span {
+    text-box: trim-both cap alphabetic;
+  }
+}
 </style>
