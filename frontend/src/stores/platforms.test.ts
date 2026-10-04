@@ -1,15 +1,14 @@
 import { describe, expect, it } from "vitest";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import { platformFixture } from "@/utils/platform.fixtures";
 
 function platform(id: number, displayName: string, romCount: number): Platform {
-  return {
+  return platformFixture({
     id,
-    display_name: displayName,
     name: displayName,
     slug: displayName.toLowerCase().replaceAll(" ", "-"),
-    fs_slug: displayName.toLowerCase().replaceAll(" ", "-"),
     rom_count: romCount,
-  } as Platform;
+  });
 }
 
 describe("platform store lists", () => {

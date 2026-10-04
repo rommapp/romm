@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeAuth from "@/stores/auth";
 import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import type { Platform } from "@/stores/platforms";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import { collectionFixture } from "@/utils/collection.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
 import { makeDetailedRom, makeRom as baseRom } from "@/utils/rom.fixtures";
 import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -28,7 +28,7 @@ function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
  * `onGalleryView` holds and there's cached state to invalidate. */
 function seedGallery(rom: SimpleRom, position = 3) {
   const gallery = storeGalleryRoms();
-  gallery.setCurrentPlatform({ id: 1 } as unknown as Platform);
+  gallery.setCurrentPlatform(platformFixture());
   gallery.byPosition.set(position, rom);
   gallery.loadedWindows.add(0);
   gallery.metadataLoaded = true;

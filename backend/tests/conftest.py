@@ -35,6 +35,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import sessionmaker
 from tests.factories import (
     make_firmware,
+    make_platform,
     make_rom,
     make_save,
     make_screenshot,
@@ -49,7 +50,6 @@ from handler.auth.constants import ALGORITHM
 from handler.database import (
     db_memory_card_handler,
     db_permission_handler,
-    db_platform_handler,
     db_rom_handler,
     db_user_handler,
 )
@@ -515,16 +515,12 @@ def vcr_config():
 
 @pytest.fixture
 def platform():
-    platform = Platform(
-        name="test_platform", slug="test_platform_slug", fs_slug="test_platform_slug"
-    )
-    return db_platform_handler.add_platform(platform)
+    return make_platform("test_platform_slug", name="test_platform")
 
 
 @pytest.fixture
 def other_platform():
-    platform = Platform(name="other", slug="other_slug", fs_slug="other_slug")
-    return db_platform_handler.add_platform(platform)
+    return make_platform("other_slug", name="other")
 
 
 @pytest.fixture

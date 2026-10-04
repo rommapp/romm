@@ -15,6 +15,7 @@ ignore = ["DTZ005", "E501"]
 
 # Tests persist rows through the factories in backend/tests/factories.py.
 [lint.flake8-tidy-imports.banned-api]
+"handler.database.db_platform_handler.add_platform".msg = "Use tests.factories.make_platform"
 "handler.database.db_rom_handler.add_rom".msg = "Use tests.factories.make_rom"
 "handler.database.db_save_handler.add_save".msg = "Use tests.factories.make_save"
 "handler.database.db_state_handler.add_state".msg = "Use tests.factories.make_state"
