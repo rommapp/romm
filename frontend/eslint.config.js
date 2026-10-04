@@ -29,6 +29,13 @@ const heavyImports = [
   },
 ];
 
+const platformCastRule = {
+  selector:
+    "TSAsExpression[typeAnnotation.typeName.name=/^(Platform|PlatformSchema)$/]",
+  message:
+    "Build platform fixtures with platformFixture from @/utils/platform.fixtures instead of a cast.",
+};
+
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -336,14 +343,13 @@ export default tseslint.config(
           message:
             "Build ROM fixtures with makeRom or makeDetailedRom from @/utils/rom.fixtures instead of `as unknown as`.",
         },
-        {
-          selector:
-            "TSAsExpression[typeAnnotation.typeName.name=/^(Platform|PlatformSchema)$/]",
-          message:
-            "Build platform fixtures with platformFixture from @/utils/platform.fixtures instead of a cast.",
-        },
+        platformCastRule,
       ],
     },
+  },
+  {
+    files: ["src/v2/**/*.stories.ts"],
+    rules: { "no-restricted-syntax": ["error", platformCastRule] },
   },
   // Keep last: Prettier owns formatting, so this switches off every
   // stylistic rule the two tools would otherwise fight over.
