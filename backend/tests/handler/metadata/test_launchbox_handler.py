@@ -1300,6 +1300,26 @@ class TestBoxArt:
         assert metadata.get("box2d_side_url") == f"{base}/spine.png"
         assert metadata.get("box3d_url") == f"{base}/3d.png"
 
+    def test_faces_follow_the_front_region(self):
+        images = [
+            self._image("front-eu.png", "Box - Front", "Europe"),
+            self._image("back-us.png", "Box - Back", "North America"),
+            self._image("back-eu.png", "Box - Back", "Europe"),
+            self._image("spine-us.png", "Box - Spine", "North America"),
+        ]
+        # A "(USA)" ROM whose only front is European gets the European back,
+        # and the spine falls back to the US one the ROM prefers.
+        urls = {
+            art.url_key: url
+            for art, url in _get_box_art(self._req(images, ("us",))).items()
+        }
+        base = "https://images.launchbox-app.com"
+        assert urls == {
+            "box2d_url": f"{base}/front-eu.png",
+            "box2d_back_url": f"{base}/back-eu.png",
+            "box2d_side_url": f"{base}/spine-us.png",
+        }
+
     def test_reconstructed_back_is_a_fallback(self):
         images = [self._image("back-rec.png", "Box - Back - Reconstructed")]
         urls = {

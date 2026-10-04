@@ -341,12 +341,21 @@ def _get_box_art(req: MediaRequest) -> dict[BoxArt, str]:
     urls: dict[BoxArt, str] = {}
 
     if req.remote_enabled and req.remote_images:
+        region_shortcodes = req.region_shortcodes
         for art in BOX_ART:
             image = _select_remote_image(
-                req.remote_images, art.image_types, req.region_shortcodes
+                req.remote_images, art.image_types, region_shortcodes
             )
-            if image:
-                urls[art] = f"https://images.launchbox-app.com/{image['FileName']}"
+            if not image:
+                continue
+            urls[art] = f"https://images.launchbox-app.com/{image['FileName']}"
+            # The other faces follow the front's region, so the box matches.
+            code = launchbox_region_to_shortcode(image.get("Region"))
+            if art.media_type == MetadataMediaType.BOX2D and code:
+                region_shortcodes = (
+                    code,
+                    *(c for c in region_shortcodes if c != code),
+                )
 
     ctx = _build_local_media_context(
         req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True
