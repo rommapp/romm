@@ -85,11 +85,7 @@ class DBUsersHandler(DBBaseHandler):
         return session.get(User, id)
 
     def _refuse_removing_the_last_admin(self, id: int, session: Session) -> None:
-        """Raise LastAdminError if `id` is the only admin.
-
-        The admin rows stay locked until the caller's transaction ends, so two
-        requests removing the last two admins can't both see the other one.
-        """
+        """Raise LastAdminError if `id` is the only admin, locking the admin rows until the transaction ends."""
         admin_ids = session.scalars(
             select(User.id)
             .where(User.role == Role.ADMIN)

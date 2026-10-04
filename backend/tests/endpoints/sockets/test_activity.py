@@ -114,7 +114,9 @@ class TestStart:
     ):
         await activity.activity_start(SID, {"rom_id": "42", "device_id": "deck"})  # type: ignore[typeddict-item]
 
-        assert build_entry.await_args.kwargs["rom_id"] == 42
+        call = build_entry.await_args
+        assert call is not None
+        assert call.kwargs["rom_id"] == 42
 
     async def test_a_missing_rom_or_user_publishes_nothing(
         self, signed_in, build_entry, publish_active, sessions
