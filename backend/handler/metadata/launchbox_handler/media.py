@@ -34,6 +34,8 @@ from .utils import (
     sanitize_filename,
 )
 
+LAUNCHBOX_IMAGES_URL: str = "https://images.launchbox-app.com"
+
 # Cover image types in descending preference. Region acts as a tiebreaker
 # within a single type (see `_select_remote_cover`).
 COVER_PRIORITY_TYPES: tuple[str, ...] = (
@@ -301,6 +303,23 @@ def _find_local_media_candidates(
     return [], ""
 
 
+def _find_local_image(
+    ctx: LocalMediaContext, image_types: tuple[str, ...]
+) -> str | None:
+    """URL of the first local image of the highest-priority type on disk."""
+    for category in image_types:
+        candidate_files, _region = _find_local_media_candidates(
+            ctx,
+            category,
+            indexed_preference=(1,),
+            indexed_only_preferred=True,
+        )
+        url = file_uri_for_local_path(candidate_files[0]) if candidate_files else None
+        if url:
+            return url
+    return None
+
+
 def _select_remote_image(
     remote_images: list[dict[str, Any]],
     image_types: tuple[str, ...],
@@ -348,7 +367,7 @@ def _get_box_art(req: MediaRequest) -> dict[BoxArt, str]:
             )
             if not image:
                 continue
-            urls[art] = f"https://images.launchbox-app.com/{image['FileName']}"
+            urls[art] = f"{LAUNCHBOX_IMAGES_URL}/{image['FileName']}"
             # The other faces follow the front's region, so the box matches.
             code = launchbox_region_to_shortcode(image.get("Region"))
             if art.media_type == MetadataMediaType.BOX2D and code:
@@ -362,21 +381,9 @@ def _get_box_art(req: MediaRequest) -> dict[BoxArt, str]:
     )
     if ctx is not None:
         for art in BOX_ART:
-            for category in art.image_types:
-                candidate_files, _region = _find_local_media_candidates(
-                    ctx,
-                    category,
-                    indexed_preference=(1,),
-                    indexed_only_preferred=True,
-                )
-                url = (
-                    file_uri_for_local_path(candidate_files[0])
-                    if candidate_files
-                    else None
-                )
-                if url:
-                    urls[art] = url
-                    break
+            url = _find_local_image(ctx, art.image_types)
+            if url:
+                urls[art] = url
 
     return urls
 
@@ -388,27 +395,13 @@ def _get_cover(req: MediaRequest) -> str | None:
     if req.remote_enabled and req.remote_images:
         best_cover = _select_remote_cover(req.remote_images, req.region_shortcodes)
         if best_cover and best_cover.get("FileName"):
-            cover = f"https://images.launchbox-app.com/{best_cover.get('FileName')}"
+            cover = f"{LAUNCHBOX_IMAGES_URL}/{best_cover.get('FileName')}"
 
     ctx = _build_local_media_context(
         req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True
     )
     if ctx is not None:
-        for category in COVER_PRIORITY_TYPES:
-            candidate_files, _region = _find_local_media_candidates(
-                ctx,
-                category,
-                indexed_preference=(1,),
-                indexed_only_preferred=True,
-            )
-            if not candidate_files:
-                continue
-
-            cover_path = candidate_files[0]
-            url = file_uri_for_local_path(cover_path)
-            if url:
-                cover = url
-                break
+        cover = _find_local_image(ctx, COVER_PRIORITY_TYPES) or cover
 
     return cover
 
@@ -419,7 +412,7 @@ def _get_screenshots(req: MediaRequest) -> list[str]:
     # Remote media (overridden by local if available)
     if req.remote_enabled and req.remote_images:
         screenshots = [
-            f"https://images.launchbox-app.com/{image.get('FileName')}"
+            f"{LAUNCHBOX_IMAGES_URL}/{image.get('FileName')}"
             for image in req.remote_images
             if image.get("FileName") and "Screenshot" in image.get("Type", "")
         ]
@@ -524,7 +517,7 @@ def _get_images(req: MediaRequest) -> list[LaunchboxImage]:
         images = [
             LaunchboxImage(
                 {
-                    "url": f"https://images.launchbox-app.com/{image['FileName']}",
+                    "url": f"{LAUNCHBOX_IMAGES_URL}/{image['FileName']}",
                     "type": image.get("Type", ""),
                     "region": image.get("Region", ""),
                 }
