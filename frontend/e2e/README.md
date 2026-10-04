@@ -16,7 +16,7 @@ Then, from `frontend/`:
 npm run test:e2e
 ```
 
-That starts `npm run dev` (or reuses the one already running on 3000), which proxies to the backend named by `DEV_PORT` or `DEV_PROXY_TARGET` in `.env`. To point the suite at another site or other accounts, set the variables from `e2e/.env.example` in your shell or in `e2e/.env`. A malformed value stops the run before anything starts, listing every problem at once.
+That starts `npm run dev` (or reuses the one already running on 3000), which proxies to the backend named by `DEV_PORT` or `DEV_PROXY_TARGET` in `.env`. To point the suite at another site or other accounts, set the variables from `e2e/.env.example` in your shell or in `e2e/.env`. For more or fewer parallel workers than the default 2, pass `--workers N`.
 
 Install the recommended VS Code extension, **Playwright Test for VS Code**. Most recipes below start from its panel in the Testing sidebar.
 
@@ -88,17 +88,15 @@ Run headed, press F12 in the test browser, and put `debugger;` in any `.vue` fil
 test.use({ storageState: STORAGE_STATE.viewer });
 ```
 
-Need the credentials themselves? Take them from the test arguments:
+Need the credentials themselves? Take them from `ACCOUNTS`:
 
 ```ts
-test("rejects a wrong password", async ({ page, e2eEnv }) => {
-  const { username } = accountFor(e2eEnv, "viewer");
-});
+const { username } = ACCOUNTS.viewer;
 ```
 
 ### Test Explorer shows no tests
 
-The extension lists tests by loading `playwright.config.ts`, which validates the `E2E_*` variables first. If that fails, the panel stays empty. See why:
+The extension lists tests by loading `playwright.config.ts`. If that fails, the panel stays empty. See why:
 
 ```bash
 npx playwright test --list
@@ -139,7 +137,7 @@ e2e/
     specs/      results/ (traces, screenshots) and report/ (HTML)
 ```
 
-- **Environment:** every `E2E_*` variable comes from the shell, then `e2e/.env`, then a default that matches the seed script. CI sets them in `.github/workflows/e2e.yml`.
+- **Environment:** every `E2E_*` variable comes from the shell, then `e2e/.env`, then a default that matches the seed script. CI uses the defaults.
 - **Server:** with `E2E_BASE_URL` unset, the config's `webServer` starts one: `npm run dev` locally (reusing one already running), the static build under `vite preview` in CI. Otherwise it tests that URL as served.
 - **Sign-in:** `setup/auth.setup.ts` signs each account in at the start of every run and saves the session for the specs. `login.spec.ts` is the only spec that drives the login form.
 - **Timeouts:** 10s per test locally, so failures are fast; CI keeps longer ones. They switch off while debugging.

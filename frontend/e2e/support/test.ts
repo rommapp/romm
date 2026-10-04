@@ -1,5 +1,4 @@
 import { test as base, expect } from "@playwright/test";
-import { type E2EEnv, readE2EEnv } from "./e2e-environment";
 
 // Browser noise that isn't an app failure.
 const BENIGN_PAGE_ERRORS = [/ResizeObserver loop/];
@@ -14,9 +13,8 @@ interface AutoFixtures {
   appErrorGuard: void;
 }
 
-/** `test` with the validated environment as `e2eEnv`, and a guard that fails
- *  any test the moment the app itself fails. */
-export const test = base.extend<E2EOptions & AutoFixtures, { e2eEnv: E2EEnv }>({
+/** `test` with a guard that fails any test the moment the app itself fails. */
+export const test = base.extend<E2EOptions & AutoFixtures>({
   failOnAppErrors: [true, { option: true }],
 
   // An /api 5xx or an uncaught exception otherwise surfaces as a locator
@@ -49,14 +47,6 @@ export const test = base.extend<E2EOptions & AutoFixtures, { e2eEnv: E2EEnv }>({
       expect(errors, "The app failed while this test ran").toEqual([]);
     },
     { auto: true },
-  ],
-
-  e2eEnv: [
-    // Playwright requires a destructured first argument, even when empty.
-    async ({}, use) => {
-      await use(readE2EEnv());
-    },
-    { scope: "worker" },
   ],
 });
 

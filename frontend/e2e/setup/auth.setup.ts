@@ -1,5 +1,5 @@
 import {
-  accountFor,
+  ACCOUNTS,
   fillLoginForm,
   ROLES,
   seedUiState,
@@ -10,10 +10,10 @@ import { expect, test as setup } from "../support/test";
 // Signs each account in and saves its session, so specs start authenticated
 // with `test.use({ storageState })`. login.spec.ts tests the form itself.
 for (const role of ROLES) {
-  setup(`authenticate as ${role}`, async ({ page, e2eEnv }) => {
+  setup(`authenticate as ${role}`, async ({ page }) => {
     // The first load can compile the app on a cold dev server.
     setup.slow();
-    const { username, password } = accountFor(e2eEnv, role);
+    const { username, password } = ACCOUNTS[role];
 
     await seedUiState(page);
     await page.goto("/login");

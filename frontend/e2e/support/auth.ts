@@ -1,17 +1,24 @@
 import type { Page } from "@playwright/test";
-import type { E2EEnv } from "./e2e-environment";
 import { AUTH_DIR } from "./output";
+
+const { env } = process;
+
+// The accounts every permission assertion is made against. The defaults are
+// the ones .github/scripts/seed_e2e_users.py creates.
+export const ACCOUNTS = {
+  admin: {
+    username: env.E2E_ADMIN_USERNAME ?? "e2e_admin",
+    password: env.E2E_ADMIN_PASSWORD ?? "e2e-Passw0rd!",
+  },
+  viewer: {
+    username: env.E2E_VIEWER_USERNAME ?? "e2e_viewer",
+    password: env.E2E_VIEWER_PASSWORD ?? "e2e-Passw0rd!",
+  },
+};
 
 export const ROLES = ["admin", "viewer"] as const;
 
 export type Role = (typeof ROLES)[number];
-
-/** The account every permission assertion for `role` is made against. */
-export function accountFor(env: E2EEnv, role: Role) {
-  return role === "admin"
-    ? { username: env.E2E_ADMIN_USERNAME, password: env.E2E_ADMIN_PASSWORD }
-    : { username: env.E2E_VIEWER_USERNAME, password: env.E2E_VIEWER_PASSWORD };
-}
 
 /** Where auth.setup.ts saves each role's session (gitignored: live cookies). */
 export const STORAGE_STATE: Record<Role, string> = {

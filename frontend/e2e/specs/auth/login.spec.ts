@@ -1,4 +1,4 @@
-import { accountFor, fillLoginForm, seedUiState } from "../../support/auth";
+import { ACCOUNTS, fillLoginForm, seedUiState } from "../../support/auth";
 import { expect, test } from "../../support/test";
 
 // The only spec that drives the login form. Every other spec starts from a
@@ -10,8 +10,8 @@ import { expect, test } from "../../support/test";
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe("Login", () => {
-  test("signs in and lands on the app", async ({ page, e2eEnv }) => {
-    const { username, password } = accountFor(e2eEnv, "viewer");
+  test("signs in and lands on the app", async ({ page }) => {
+    const { username, password } = ACCOUNTS.viewer;
     await seedUiState(page);
     await page.goto("/login");
 
@@ -23,8 +23,8 @@ test.describe("Login", () => {
     await expect(page).not.toHaveURL(/\/login/);
   });
 
-  test("rejects a wrong password and stays put", async ({ page, e2eEnv }) => {
-    const { username } = accountFor(e2eEnv, "viewer");
+  test("rejects a wrong password and stays put", async ({ page }) => {
+    const { username } = ACCOUNTS.viewer;
     await seedUiState(page);
     await page.goto("/login");
 

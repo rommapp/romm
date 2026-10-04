@@ -6,9 +6,6 @@ import globals from "globals";
 const E2E_FILES = ["e2e/**/*.ts", "playwright.config.ts"];
 const TEST_FILES = ["e2e/**/*.ts"];
 
-// The files that build the environment the tests receive as `e2eEnv`.
-const ENV_BUILDERS = ["e2e/support/e2e-environment.ts", "e2e/support/test.ts"];
-
 /** @type {import("eslint").Linter.Config[]} */
 export default [
   {
@@ -89,43 +86,24 @@ export default [
   {
     name: "e2e/imports",
     files: TEST_FILES,
-    ignores: [...ENV_BUILDERS],
+    // test.ts builds the suite's `test` from the stock one.
+    ignores: ["e2e/support/test.ts"],
     rules: {
       "@typescript-eslint/no-restricted-imports": [
         "error",
         {
-          // The stock `test` has neither the app-error guard nor `e2eEnv`.
+          // The stock `test` lacks the app-error guard.
           paths: [
             {
               name: "@playwright/test",
               importNames: ["test", "expect"],
               allowTypeImports: true,
               message:
-                "Import `test` and `expect` from e2e/support/test.ts, so the app-error guard and `e2eEnv` apply.",
-            },
-          ],
-          // Tests take the environment from the `e2eEnv` fixture, so the
-          // dependency shows in their signature.
-          patterns: [
-            {
-              regex: "(^|/)e2e-environment(\\.ts)?$",
-              allowTypeImports: true,
-              message:
-                "Take `e2eEnv` from the test arguments (`async ({ page, e2eEnv }) => ...`). Type-only imports are fine.",
+                "Import `test` and `expect` from e2e/support/test.ts, so the app-error guard applies.",
             },
           ],
         },
       ],
-    },
-  },
-
-  // Exceptions: rules that tests (or parts of the suite) legitimately break.
-  {
-    name: "e2e/exceptions/fixtures",
-    files: TEST_FILES,
-    rules: {
-      // Playwright fixtures must destructure their first argument, even empty.
-      "no-empty-pattern": "off",
     },
   },
 ];

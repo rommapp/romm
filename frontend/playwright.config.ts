@@ -1,14 +1,20 @@
 import { defineConfig, devices } from "@playwright/test";
 import { url as inspectorUrl } from "node:inspector";
-import { readE2EEnv } from "./e2e/support/e2e-environment";
 import { REPORT_DIR, RESULTS_DIR } from "./e2e/support/output";
 import type { E2EOptions } from "./e2e/support/test";
 
-// End-to-end suite: `npm run test:e2e`. Without E2E_BASE_URL it serves the app
-// itself; see e2e/.env.example.
-const env = readE2EEnv();
+// End-to-end suite: `npm run test:e2e`. Variables come from the shell, then
+// e2e/.env, which tools like the VS Code extension can't take from a terminal.
+try {
+  process.loadEnvFile(new URL("./e2e/.env", import.meta.url));
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+}
+// Unset, the config serves this checkout itself at SERVED_URL (see webServer).
+const baseURL = process.env.E2E_BASE_URL;
+const SERVED_URL = "http://127.0.0.1:3000";
 
-const isCI = env.CI;
+const isCI = !!process.env.CI;
 // A test paused on a breakpoint must not be killed by the timeouts below.
 const debugging = !!process.env.PWDEBUG || inspectorUrl() !== undefined;
 // Local runs fail fast; CI allows for a slower shared runner. 0 means no
@@ -29,7 +35,7 @@ export default defineConfig<E2EOptions>({
   // Locally a failure shows on the first run; retries would hide it.
   retries: isCI ? 2 : 0,
   // Every worker hammers ONE server, so keep the pool small.
-  workers: env.E2E_WORKERS ?? 2,
+  workers: 2,
   // The HTML report holds each failure's trace: `npm run test:e2e:report`.
   reporter: [
     [isCI ? "github" : "list"],
@@ -39,7 +45,7 @@ export default defineConfig<E2EOptions>({
   timeout: TIMEOUTS.test,
   expect: { timeout: TIMEOUTS.expect },
   use: {
-    baseURL: env.E2E_BASE_URL,
+    baseURL: baseURL ?? SERVED_URL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     actionTimeout: TIMEOUTS.action,
@@ -70,12 +76,12 @@ export default defineConfig<E2EOptions>({
   // CI serves the static build: the dev server force-reloads the page when it
   // discovers a dependency to pre-bundle, wiping a test mid-way. Locally the
   // dev server picks up code changes, and one already running is reused.
-  ...(env.startServer && {
+  ...(!baseURL && {
     webServer: {
       command: isCI
         ? "npm run build:preview && npm run preview -- --port 3000 --strictPort --host 127.0.0.1"
         : "npm run dev",
-      url: env.E2E_BASE_URL,
+      url: SERVED_URL,
       reuseExistingServer: !isCI,
       timeout: 180_000,
       stdout: "pipe",
