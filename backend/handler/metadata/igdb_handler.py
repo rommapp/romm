@@ -1004,7 +1004,7 @@ class TwitchAuth(MetadataHandler):
         if not token or expires_in <= 0:
             return ""
 
-        # Cache it until some seconds before it actually expires.
+        # Expire early so a cached token is never sent stale; Redis rejects a TTL of 0 or less.
         if expires_in > 10:
             await async_cache.set("romm:twitch_token", token, ex=expires_in - 10)
 
