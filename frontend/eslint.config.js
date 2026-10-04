@@ -31,7 +31,7 @@ const heavyImports = [
 
 const romCastRule = {
   selector:
-    "TSAsExpression[typeAnnotation.typeName.name=/^(SimpleRom|DetailedRom|SimpleRomSchema|DetailedRomSchema)$/]",
+    "TSAsExpression:matches([typeAnnotation.typeName.name=/^(SimpleRom|DetailedRom|SimpleRomSchema|DetailedRomSchema|RomFileSchema|RomUserSchema|RomMetadataSchema)$/], [typeAnnotation.elementType.typeName.name=/^(SimpleRom|DetailedRom|SimpleRomSchema|DetailedRomSchema|RomFileSchema)$/], [typeAnnotation.objectType.typeName.name=/^(SimpleRom|DetailedRom|SimpleRomSchema|DetailedRomSchema)$/])",
   message:
     "Build ROM fixtures with romFixture or detailedRomFixture from @/utils/rom.fixtures instead of a cast.",
 };

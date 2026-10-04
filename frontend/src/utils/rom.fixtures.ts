@@ -76,8 +76,9 @@ export function romFileFixture(
 }
 
 export function romFixture(overrides: Partial<SimpleRom> = {}): SimpleRom {
+  const id = overrides.id ?? 1;
   return {
-    id: 1,
+    id,
     igdb_id: null,
     sgdb_id: null,
     moby_id: null,
@@ -111,7 +112,7 @@ export function romFixture(overrides: Partial<SimpleRom> = {}): SimpleRom {
     summary: null,
     alternative_names: [],
     youtube_video_id: null,
-    metadatum: romMetadataFixture(),
+    metadatum: romMetadataFixture({ rom_id: id }),
     igdb_metadata: null,
     moby_metadata: null,
     ss_metadata: null,
@@ -158,7 +159,7 @@ export function romFixture(overrides: Partial<SimpleRom> = {}): SimpleRom {
     has_file_on_disk: false,
     upc: null,
     has_notes: false,
-    rom_user: romUserFixture(),
+    rom_user: romUserFixture({ rom_id: id }),
     merged_screenshots: [],
     merged_ra_metadata: null,
     files: [],
