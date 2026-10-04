@@ -295,3 +295,44 @@ def test_art_type_values():
 def test_is_enabled_always_true():
     # No API key required; this is a public server.
     assert LibretroHandler.is_enabled() is True
+
+
+@pytest.mark.asyncio
+async def test_an_empty_extra_listing_adds_no_screenshot(handler: LibretroHandler):
+    async def listing(_system: str, art_type: LibretroArtType) -> list[str]:
+        return PSX_LISTING if art_type == LibretroArtType.BOX_ART else []
+
+    with (
+        patch.object(handler.service, "fetch_listing", side_effect=listing),
+        patch(
+            "handler.metadata.libretro_handler.get_preferred_media_types",
+            return_value=[MetadataMediaType.SCREENSHOT],
+        ),
+    ):
+        result = await handler.get_rom(
+            "Castlevania - Symphony of the Night (Europe).iso", "psx"
+        )
+
+    assert "url_screenshots" not in result
+    assert "Named_Boxarts" in result.get("url_cover", "")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("head", "healthy"),
+    [
+        (AsyncMock(return_value=True), True),
+        (AsyncMock(return_value=False), False),
+        (AsyncMock(side_effect=RuntimeError("no session")), False),
+    ],
+    ids=["reachable", "unreachable", "error"],
+)
+async def test_heartbeat_follows_the_server(
+    handler: LibretroHandler, head: AsyncMock, healthy: bool
+):
+    with patch.object(handler.service, "head", head):
+        assert await handler.heartbeat() is healthy
+
+
+def test_no_listing_has_no_fuzzy_match(handler: LibretroHandler):
+    assert handler._find_fuzzy_match("Castlevania", []) is None
