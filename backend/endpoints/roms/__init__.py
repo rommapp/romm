@@ -2369,8 +2369,8 @@ async def update_rom(
         preferred_media_types = get_preferred_media_types()
         launchbox_metadata = cleaned_data.get("launchbox_metadata")
 
-        # LaunchBox shares media paths with the higher-priority providers, so
-        # only the files it alone recorded and whose source changed go.
+        # A path LaunchBox shares with ScreenScraper or gamelist keeps its file;
+        # only files LaunchBox alone recorded, and whose source changed, go.
         ss_metadata = cleaned_data.get("ss_metadata", rom.ss_metadata)
         await fs_resource_handler.remove_stale_media(
             [ss_metadata, rom.gamelist_metadata, rom.launchbox_metadata],
