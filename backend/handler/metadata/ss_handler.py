@@ -979,6 +979,11 @@ class SSHandler(MetadataHandler):
             name=platform["name"],
         )
 
+    def get_platform_alternative_names(self, slug: str) -> list[str]:
+        if slug not in SCREENSAVER_PLATFORM_LIST:
+            return []
+        return SCREENSAVER_PLATFORM_LIST[UPS(slug)].get("alternative_names", [])
+
     async def lookup_rom(
         self, rom: Rom, platform_ss_id: int, files: list[RomFile]
     ) -> tuple[SSRom, bool]:
@@ -1235,6 +1240,7 @@ class SSHandler(MetadataHandler):
 class SlugToSSId(TypedDict):
     id: int
     name: str
+    alternative_names: NotRequired[list[str]]
 
 
 SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {

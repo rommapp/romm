@@ -9,6 +9,7 @@ from handler.metadata.platform_names import (
     platform_alternative_names,
     resolve_platform_name,
 )
+from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
@@ -50,3 +51,21 @@ def test_igdb_alternative_name_comes_first() -> None:
     entry = {**IGDB_PLATFORM_LIST[UPS.GENESIS], "alternative_name": "MD"}
     with patch.dict(IGDB_PLATFORM_LIST, {UPS.GENESIS: entry}):
         assert platform_alternative_names("genesis")[0] == "MD"
+
+
+def test_screenscraper_alternative_names_follow_igdbs() -> None:
+    igdb_entry = {**IGDB_PLATFORM_LIST[UPS.GENESIS], "alternative_name": "MD"}
+    ss_entry = {
+        **SCREENSAVER_PLATFORM_LIST[UPS.GENESIS],
+        "alternative_names": ["Mega Drive", "md", "Nintendo Entertainment System"],
+    }
+    with (
+        patch.dict(IGDB_PLATFORM_LIST, {UPS.GENESIS: igdb_entry}),
+        patch.dict(SCREENSAVER_PLATFORM_LIST, {UPS.GENESIS: ss_entry}),
+    ):
+        names = platform_alternative_names("genesis")
+
+    # "md" repeats IGDB's name, and NES's own name is skipped.
+    assert names[:2] == ("MD", "Mega Drive")
+    assert "md" not in names
+    assert "Nintendo Entertainment System" not in names
