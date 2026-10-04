@@ -18,6 +18,9 @@
 // `prepend-icon` / `append-icon` to get icon + label without icon-only
 // styling.
 //
+// `active` makes the button a toggle: it sets `aria-pressed` and, while
+// true, paints the translucent tint of `color` (primary by default).
+//
 // `loading` swaps the content for an inline spinner. The flip is
 // debounced by `loadingDebounce` (default 200ms) so quick actions
 // don't paint a spinner-flash; the hide step is immediate.
@@ -86,6 +89,8 @@ interface Props {
    *  so it visually aligns with adjacent segmented `RSliderBtnGroup`
    *  surfaces (e.g., toolbar icon buttons next to sliders). */
   surface?: boolean;
+  /** Toggle state. Defined → `aria-pressed`; true → translucent tint. */
+  active?: boolean | undefined;
   /** Renders the button as a router-link to this route. */
   to?: RouteLocationRaw | undefined;
   /** Renders the button as an `<a>` href. */
@@ -122,6 +127,7 @@ const props = withDefaults(defineProps<Props>(), {
   type: "button",
   border: false,
   surface: false,
+  active: undefined,
   to: undefined,
   href: undefined,
   target: undefined,
@@ -161,8 +167,15 @@ const dynamicAttrs = computed<Record<string, unknown>>(() => {
   return {
     type: props.type,
     disabled: props.disabled,
+    ...(props.active === undefined
+      ? {}
+      : { "aria-pressed": String(props.active) }),
   };
 });
+
+const resolvedVariant = computed(() =>
+  props.active ? "translucent" : props.variant,
+);
 
 // ── Tone resolver ────────────────────────────────────────────────
 const TONE_MAP: Record<string, string> = {
@@ -180,7 +193,7 @@ const TONE_MAP: Record<string, string> = {
   "romm-gold": "var(--r-color-romm-gold)",
 };
 const resolvedColor = computed<string | undefined>(() => {
-  const c = props.color;
+  const c = props.color ?? (props.active ? "primary" : undefined);
   if (!c) return undefined;
   return TONE_MAP[c] ?? c;
 });
@@ -283,7 +296,7 @@ const spinnerSize = computed(() => {
     v-bind="{ ...$attrs, ...dynamicAttrs }"
     class="r-btn"
     :class="[
-      `r-btn--${variant}`,
+      `r-btn--${resolvedVariant}`,
       `r-btn--${size}`,
       density ? `r-btn--density-${density}` : null,
       {
@@ -514,7 +527,7 @@ const spinnerSize = computed(() => {
 
 /* Slot-driven icon-only content (e.g. `<RBtn icon><PlatformIcon /></RBtn>`).
    Separate class from `.r-btn__icon` so the icon-font sizing rule
-   (`.r-btn__icon { font-size: 1.25em }`) doesn't bleed into image-based
+   (`--r-btn-icon-size`) doesn't bleed into image-based
    slot content. Just a centered inline-flex shell. */
 .r-btn__icon-slot {
   display: inline-flex;
@@ -552,40 +565,46 @@ const spinnerSize = computed(() => {
 
 .r-btn--x-small {
   --r-btn-rest-h: 24px;
+  --r-btn-icon-size: 13px;
   padding: 0 8px;
   font-size: 11px;
   gap: 4px;
 }
 .r-btn--small {
   --r-btn-rest-h: 32px;
+  --r-btn-icon-size: 16px;
   padding: 0 12px;
   font-size: 13px;
   gap: 6px;
 }
 .r-btn--default {
   --r-btn-rest-h: 40px;
+  --r-btn-icon-size: 18px;
   padding: 0 16px;
   font-size: 14px;
   gap: 8px;
 }
 .r-btn--large {
   --r-btn-rest-h: 48px;
+  --r-btn-icon-size: 20px;
   padding: 0 20px;
   font-size: 15px;
   gap: 10px;
 }
 .r-btn--x-large {
   --r-btn-rest-h: 56px;
+  --r-btn-icon-size: 22px;
   padding: 0 24px;
   font-size: 16px;
   gap: 12px;
 }
 
-/* Icon size scales with text: same 1.2em ratio RIcon uses. */
+/* Whole-pixel icon sizes: a fractional size (1.25em of 11px is 13.75px)
+   puts the MDI glyph up to 1px off centre once the baseline snaps. */
 .r-btn .r-btn__prepend > .r-icon,
 .r-btn .r-btn__append > .r-icon,
 .r-btn .r-btn__icon {
-  font-size: 1.25em;
+  font-size: var(--r-btn-icon-size);
 }
 
 /* ── Density: absolute height override ───────────────────────────

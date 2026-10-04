@@ -1,3 +1,5 @@
+import { polyfillCountryFlagEmojis } from "country-flag-emoji-polyfill";
+import flagFontUrl from "country-flag-emoji-polyfill/dist/TwemojiCountryFlags.woff2?url";
 import { createApp } from "vue";
 import App from "@/RomM.vue";
 import "@/console/index.css";
@@ -39,6 +41,12 @@ function isChunkLoadError(error: unknown): boolean {
       error.message,
     )
   );
+}
+
+// Chromium on Windows has no flag emoji; load a self-hosted flag font there
+// (first in the v2 font tokens) and mark <html> so CardFlags can align it.
+if (polyfillCountryFlagEmojis("Twemoji Country Flags", flagFontUrl)) {
+  document.documentElement.dataset.flagPolyfill = "";
 }
 
 window.addEventListener("vite:preloadError", (event) => {

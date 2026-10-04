@@ -9,24 +9,22 @@
 // list mirrors the Scan view's per-platform options (no "new
 // platforms": that's a discovery scan against the whole library,
 // not a single platform).
-import {
-  RAlert,
-  RAvatar,
-  RBtn,
-  RDialog,
-  RSelect,
-  RSwitch,
-  RTooltip,
-} from "@v2/lib";
+import { RAlert, RBtn, RDialog } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
+import ScanHashMatcherSwitches from "@/v2/components/Scan/ScanHashMatcherSwitches.vue";
 import ScanProviderSelect from "@/v2/components/Scan/ScanProviderSelect.vue";
+import ScanTypeSelect from "@/v2/components/Scan/ScanTypeSelect.vue";
 import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
+import { useScanTypeOptions } from "@/v2/composables/useScanTypeOptions";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { type ScanType as SharedScanType } from "@/v2/types/scan";
+import {
+  type ScanType as SharedScanType,
+  type ScanTypeOption,
+} from "@/v2/types/scan";
 
 defineOptions({ inheritAttrs: false });
 
@@ -65,35 +63,12 @@ const {
 // DB, which can't be scoped to a known platform).
 type ScanType = Exclude<SharedScanType, "new_platforms">;
 
-const scanOptions = computed<
-  { title: string; subtitle: string; value: ScanType }[]
->(() => [
-  {
-    title: t("scan.quick-scan"),
-    subtitle: t("scan.quick-scan-desc"),
-    value: "quick",
-  },
-  {
-    title: t("scan.unmatched-games"),
-    subtitle: t("scan.unmatched-games-desc"),
-    value: "unmatched",
-  },
-  {
-    title: t("scan.update-metadata"),
-    subtitle: t("scan.update-metadata-desc"),
-    value: "update",
-  },
-  {
-    title: t("scan.hashes"),
-    subtitle: t("scan.hashes-desc"),
-    value: "hashes",
-  },
-  {
-    title: t("scan.complete-rescan"),
-    subtitle: t("scan.complete-rescan-desc"),
-    value: "complete",
-  },
-]);
+const allScanOptions = useScanTypeOptions();
+const scanOptions = computed(() =>
+  allScanOptions.value.filter(
+    (o): o is ScanTypeOption<ScanType> => o.value !== "new_platforms",
+  ),
+);
 const scanType = ref<ScanType>("quick");
 
 function closeDialog() {
@@ -183,53 +158,16 @@ function onScan() {
           />
         </section>
 
-        <!-- 2. Hash-matcher proxies: same compact switch pills as
-             RefreshMetadataDialog. -->
+        <!-- 2. Hash-matcher proxies. -->
         <section class="r-v2-scan-plat__section">
           <h3 class="r-v2-scan-plat__section-title">
             {{ t("scan.section-proxies") }}
           </h3>
-          <div
-            class="r-v2-scan-plat__matchers"
-            role="group"
-            :aria-label="t('rom.hash-matchers')"
-          >
-            <RTooltip
-              v-for="matcher in hashMatchers"
-              :key="matcher.value"
-              :text="
-                matcher.blockedReason
-                  ? `${matcher.name}: ${matcher.blockedReason}`
-                  : matcher.name
-              "
-              location="bottom"
-            >
-              <template #activator="{ props: tipProps }">
-                <div
-                  v-bind="tipProps"
-                  class="r-v2-scan-plat__matcher"
-                  :class="{
-                    'r-v2-scan-plat__matcher--off': !matcher.switchEnabled,
-                  }"
-                >
-                  <RAvatar
-                    :image="matcher.logo"
-                    size="16"
-                    rounded="sm"
-                    class="r-v2-scan-plat__matcher-logo"
-                  />
-                  <RSwitch
-                    :model-value="isHashMatcherOn(matcher)"
-                    :disabled="!matcher.switchEnabled"
-                    :aria-label="matcher.name"
-                    @update:model-value="
-                      (v) => setHashMatcher(matcher.value, v)
-                    "
-                  />
-                </div>
-              </template>
-            </RTooltip>
-          </div>
+          <ScanHashMatcherSwitches
+            :matchers="hashMatchers"
+            :is-on="isHashMatcherOn"
+            @toggle="setHashMatcher"
+          />
         </section>
 
         <!-- 3. Scan type, full per-platform option list (no "new
@@ -238,26 +176,7 @@ function onScan() {
           <h3 class="r-v2-scan-plat__section-title">
             {{ t("scan.section-scan-type") }}
           </h3>
-          <RSelect
-            v-model="scanType"
-            :items="scanOptions"
-            :label="t('scan.scan-options')"
-            prepend-inner-icon="mdi-magnify-scan"
-            hide-details
-            variant="outlined"
-            density="comfortable"
-          >
-            <template #item="{ props: itemProps, item }">
-              <li v-bind="itemProps">
-                <div class="r-select__item-stack">
-                  <div class="r-select__item-title">{{ item.title }}</div>
-                  <div v-if="item.raw.subtitle" class="r-select__item-subtitle">
-                    {{ item.raw.subtitle }}
-                  </div>
-                </div>
-              </li>
-            </template>
-          </RSelect>
+          <ScanTypeSelect v-model="scanType" :items="scanOptions" />
         </section>
 
         <RAlert
@@ -351,31 +270,6 @@ function onScan() {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--r-color-fg-muted);
-}
-
-.r-v2-scan-plat__matchers {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-self: flex-start;
-}
-.r-v2-scan-plat__matcher {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: var(--r-radius-pill);
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-}
-.r-v2-scan-plat__matcher--off {
-  opacity: 0.55;
-}
-.r-v2-scan-plat__matcher-logo {
-  background: var(--r-color-bg-elevated);
-  flex-shrink: 0;
 }
 
 .r-v2-scan-plat__hint {

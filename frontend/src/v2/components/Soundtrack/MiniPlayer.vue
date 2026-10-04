@@ -13,12 +13,15 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import storePlaying from "@/stores/playing";
-import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
+import useSoundtrackPlayer, {
+  type SoundtrackSink,
+} from "@/stores/soundtrackPlayer";
 import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useMediaSession } from "@/v2/composables/useMediaSession";
 import { useMiniPlayerVisible } from "@/v2/composables/useMiniPlayerVisible";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useSoundtrackResume } from "@/v2/composables/useSoundtrackResume";
 import { ChiptunePlayer } from "@/v2/utils/chiptunePlayer";
 import { isChiptuneFile } from "@/v2/utils/soundtrackTracks";
 
@@ -37,6 +40,8 @@ const chiptune = shallowRef<ChiptunePlayer | null>(null);
 // Whichever of the two is playing the current track. Events from the other
 // are dropped, since pausing one while the other starts fires out of order.
 let active: HTMLAudioElement | ChiptunePlayer | null = null;
+let cancelResume: AbortController | null = null;
+let cancelFade: (() => void) | null = null;
 
 // On phones the mini player lives in the top bar, which a running game hides,
 // so the music pauses rather than play on with no controls.
@@ -86,14 +91,70 @@ onMounted(() => {
   if (audioEl.value) activate(audioEl.value);
 });
 
+function disarmResume() {
+  cancelResume?.abort();
+  cancelResume = null;
+}
+
+const RESUME_FADE_MS = 1000;
+const FADE_STEP_MS = 50;
+
+function stopFade() {
+  cancelFade?.();
+  cancelFade = null;
+}
+
+// Eased, since a linear ramp sounds like it jumps in. Reads the store's volume
+// on each step, so moving the slider mid-fade sticks.
+function fadeIn(sink: SoundtrackSink) {
+  stopFade();
+  const startedAt = Date.now();
+  sink.volume = 0;
+  const timer = setInterval(() => {
+    const progress = Math.min(1, (Date.now() - startedAt) / RESUME_FADE_MS);
+    sink.volume = store.volume * progress ** 2;
+    if (progress === 1) stopFade();
+  }, FADE_STEP_MS);
+  cancelFade = () => {
+    clearInterval(timer);
+    sink.volume = store.volume;
+  };
+}
+
 onBeforeUnmount(() => {
+  disarmResume();
+  stopFade();
   store.setAudioRef(null);
   chiptune.value?.close();
 });
 
+// Browsers refuse audio until the user interacts, so a session that was playing
+// starts after a press is handled. Esc and gamepad presses don't count as one.
+function resumeOnFirstInteraction(sink: SoundtrackSink) {
+  const controller = new AbortController();
+  cancelResume = controller;
+  const start = () => {
+    setTimeout(() => {
+      if (controller.signal.aborted || !sink.paused || musicBlocked.value)
+        return;
+      fadeIn(sink);
+      void sink.play().catch(stopFade);
+    });
+  };
+  for (const name of ["click", "keyup"]) {
+    window.addEventListener(name, start, {
+      capture: true,
+      signal: controller.signal,
+    });
+  }
+}
+
 watch(track, async (t) => {
   const el = audioEl.value;
   if (!el) return;
+  disarmResume();
+  stopFade();
+  const resume = store.pendingResume;
   if (!t) {
     setBuffered();
     unloadAudio(el);
@@ -103,12 +164,16 @@ watch(track, async (t) => {
 
   // The store flags a new track as buffering; hold that back like any wait.
   store.setBuffering(false);
-  scheduleBuffering();
+  // A paused `<audio>` with preload="metadata" never reaches "canplay".
+  if (!resume) scheduleBuffering();
   const sink = isChiptuneFile(t.fileName) ? getChiptune() : el;
   activate(sink);
   if (sink instanceof ChiptunePlayer) {
     unloadAudio(el);
     void sink.load(t.url);
+    // `load` resets the position before its first await; the player seeks
+    // to this one once the file is in.
+    if (resume) sink.currentTime = resume.position;
   } else {
     chiptune.value?.unload();
     el.src = t.url;
@@ -117,6 +182,19 @@ watch(track, async (t) => {
     } catch {
       // ignore
     }
+    if (resume) {
+      el.addEventListener(
+        "loadedmetadata",
+        () => {
+          if (track.value === t) el.currentTime = resume.position;
+        },
+        { once: true },
+      );
+    }
+  }
+  if (resume) {
+    if (resume.autoplay) resumeOnFirstInteraction(sink);
+    return;
   }
   try {
     await sink.play();
@@ -129,10 +207,13 @@ watch(track, async (t) => {
 
 const sinkHandlers: Record<string, () => void> = {
   play() {
+    // Started some other way (a media key), so a later press mustn't restart it.
+    disarmResume();
     store.setPlaying(true);
     setBuffered();
   },
   pause() {
+    stopFade();
     store.setPlaying(false);
   },
   ended() {
@@ -153,6 +234,12 @@ const sinkHandlers: Record<string, () => void> = {
   },
   error() {
     cancelBuffering();
+    // A restored track that no longer loads (deleted, or no longer visible)
+    // is dropped quietly, so it doesn't toast on every page load.
+    if (store.pendingResume) {
+      store.stop();
+      return;
+    }
     store.setError();
     snackbar.error(t("rom.cant-play-track"), { timeout: 3000 });
   },
@@ -166,6 +253,8 @@ for (const [name, handler] of Object.entries(sinkHandlers)) {
     if (event.target === active) handler();
   });
 }
+
+useSoundtrackResume();
 </script>
 
 <template>

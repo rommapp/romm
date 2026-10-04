@@ -47,6 +47,7 @@
     "@zxing/library": "^0.23.0",
     "axios": "^1.18.1",
     "bowser": "^2.14.1",
+    "country-flag-emoji-polyfill": "^0.1.10",
     "cronstrue": "^3.0.0",
     "date-fns": "^4.1.0",
     "fflate": "^0.8.3",

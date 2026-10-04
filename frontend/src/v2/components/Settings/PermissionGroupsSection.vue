@@ -180,6 +180,17 @@ onMounted(fetchGroups);
             size="x-small"
           />
           <RTag
+            v-if="(row as PermissionGroupSchema).age_limit != null"
+            tone="warning"
+            prepend-icon="mdi-account-child-outline"
+            :text="
+              t('settings.age-limit-option', {
+                age: (row as PermissionGroupSchema).age_limit,
+              })
+            "
+            size="x-small"
+          />
+          <RTag
             v-if="(row as PermissionGroupSchema).system_key"
             tone="info"
             :text="t('settings.group-system-tag')"
