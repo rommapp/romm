@@ -51,7 +51,9 @@ describe("AdditionalDetails alternative titles", () => {
   });
 
   it("clears the titles", async () => {
-    const rom = romFixture({ manual_metadata: { alternative_names: ["ACNH"] } });
+    const rom = romFixture({
+      manual_metadata: { alternative_names: ["ACNH"] },
+    });
     const wrapper = mountDetails(rom);
 
     await titlesField(wrapper).vm.$emit("update:modelValue", []);
