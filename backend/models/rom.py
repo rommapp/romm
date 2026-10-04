@@ -134,7 +134,7 @@ def fold_search_title(title: str) -> str:
 
 
 def source_titles(blob: Any, key: str) -> list[str]:
-    """The string titles under `key`, skipping what a client-written blob malformed."""
+    """The string titles under `key`, ignoring a malformed blob or entry."""
     names = blob.get(key) if isinstance(blob, dict) else None
     if not isinstance(names, list):
         return []
