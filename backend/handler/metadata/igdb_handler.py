@@ -282,12 +282,10 @@ def extract_metadata_from_igdb_rom(
                     ]
                 )
             ),
-            "alternative_names": pydash.uniq(
-                [
-                    *_expanded_names(alternative_names),
-                    *_expanded_names(game_localizations),
-                ]
-            ),
+            "alternative_names": [
+                *_expanded_names(alternative_names),
+                *_expanded_names(game_localizations),
+            ],
             "collections": _expanded_names(collections),
             "game_modes": _expanded_names(game_modes),
             "companies": [

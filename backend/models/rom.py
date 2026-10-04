@@ -70,10 +70,9 @@ PROVIDER_ALTERNATIVE_NAME_SOURCES = (
     ("moby_metadata", "alternate_titles"),
     ("ss_metadata", "alternative_names"),
 )
-MANUAL_ALTERNATIVE_NAME_SOURCE = ("manual_metadata", "alternative_names")
 # Hand-added titles first, so the search text cap never drops one for a provider's.
 ALTERNATIVE_NAME_SOURCES = (
-    MANUAL_ALTERNATIVE_NAME_SOURCE,
+    ("manual_metadata", "alternative_names"),
     *PROVIDER_ALTERNATIVE_NAME_SOURCES,
 )
 
@@ -1270,8 +1269,7 @@ class Rom(BaseModel):
             ),
             [],
         )
-        column, key = MANUAL_ALTERNATIVE_NAME_SOURCE
-        manual_names = source_titles(getattr(self, column), key)
+        manual_names = source_titles(self.manual_metadata, "alternative_names")
         return list(dict.fromkeys([*provider_names, *manual_names]))
 
     @cached_property

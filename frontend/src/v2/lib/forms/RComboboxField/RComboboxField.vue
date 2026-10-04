@@ -158,8 +158,8 @@ const { floatingStyles } = useFloating(fieldRef, panelRef, {
 function commit(raw: string) {
   const trimmed = raw.trim();
   if (!trimmed) return;
-  // Allow comma-separated paste (`tag1, tag2, tag3`), split, dedupe
-  // against the current set, and commit them in one update.
+  // Unless `allowCommas`, split a comma-separated paste (`tag1, tag2`),
+  // dedupe against the current set, and commit them in one update.
   const parts = props.allowCommas
     ? [trimmed]
     : trimmed
