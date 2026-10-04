@@ -7,6 +7,7 @@ from typing import NotRequired, TypedDict, cast
 import pydash
 from anyio import Path as AnyioPath
 
+from adapters.services.provider_http import unavailable
 from adapters.services.retroachievements import RetroAchievementsService
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
@@ -21,7 +22,7 @@ from models.rom import Rom
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import BaseRom, MetadataHandler, unavailable
+from .base_handler import BaseRom, MetadataHandler
 
 # Regex to detect RetroAchievements ID tags in filenames like (ra-12345)
 RA_TAG_REGEX = re.compile(r"\(ra-(\d+)\)", re.IGNORECASE)

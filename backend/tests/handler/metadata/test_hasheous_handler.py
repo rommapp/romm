@@ -6,8 +6,8 @@ import pytest
 from fastapi import HTTPException
 from tests.timezones import local_timezone
 
+from adapters.services.provider_http import unavailable
 from handler.filesystem.base_handler import provider_language_name
-from handler.metadata.base_handler import unavailable
 from handler.metadata.hasheous_handler import (
     HasheousHandler,
     HasheousRom,

@@ -7,20 +7,20 @@ Never parse ``prod.php`` HTML (ambiguous titles stay unmatched).
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx2
 
+from adapters.services.provider_http import unavailable
 from config import POUET_API_ENABLED
 from logger.logger import log
 from utils import get_version, int_or_none
 from utils.context import ctx_httpx_client
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler, unavailable
+from .base_handler import BaseRom, MetadataHandler
 from .demozoo_handler import (
     DEMOZOO_PROD_PAGE,
     _append_unique,
@@ -305,23 +305,7 @@ class PouetHandler(MetadataHandler):
 
     async def _request(self, url: str) -> dict[str, Any]:
         await _rate_limiter.acquire()
-        headers = {
-            "User-Agent": f"RomM/{get_version()}",
-            "Accept": "application/json",
-        }
-        try:
-            body = await self._fetch_capped(url, headers=headers)
-        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
-            log.warning("Can't connect to Pouët API", extra={"exception": str(exc)})
-            raise unavailable("Pouët API") from exc
-        if body is None:
-            return {}
-        try:
-            data = json.loads(body)
-        except ValueError as exc:
-            log.error("Error decoding JSON from Pouët: %s", exc)
-            return {}
-        return data if isinstance(data, dict) else {}
+        return await self._get_capped_json(url, provider="Pouët API")
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():

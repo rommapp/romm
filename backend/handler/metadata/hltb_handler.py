@@ -8,6 +8,7 @@ import httpx2
 import pydash
 from fastapi import HTTPException, status
 
+from adapters.services.provider_http import unavailable
 from adapters.services.response_validation import parse_response
 from config import HLTB_API_ENABLED
 from logger.logger import log
@@ -28,7 +29,7 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rate_limiter import RateLimiter
 from utils.update_hltb_api_url import discover_hltb_endpoint
 
-from .base_handler import BaseRom, MetadataHandler, unavailable
+from .base_handler import BaseRom, MetadataHandler
 
 # Regex to detect HLTB ID tags in filenames like (hltb-12345)
 HLTB_TAG_REGEX = re.compile(r"\(hltb-(\d+)\)", re.IGNORECASE)

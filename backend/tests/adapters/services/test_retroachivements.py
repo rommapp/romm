@@ -458,7 +458,7 @@ def no_backoff(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     sleep = AsyncMock()
     # Swap only this module's reference, so the test server and aiohttp still sleep.
     monkeypatch.setattr(
-        "adapters.services.retroachievements.asyncio",
+        "adapters.services.provider_http.asyncio",
         MagicMock(wraps=asyncio, sleep=sleep),
     )
     return sleep

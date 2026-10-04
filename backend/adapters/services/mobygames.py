@@ -1,5 +1,3 @@
-import asyncio
-import http
 import json
 from collections.abc import Collection
 from typing import Any, Final, Literal, overload
@@ -7,7 +5,6 @@ from typing import Any, Final, Literal, overload
 import aiohttp
 import yarl
 from aiohttp.client import ClientTimeout
-from fastapi import HTTPException, status
 
 from adapters.services.mobygames_types import (
     MobyGame,
@@ -16,6 +13,7 @@ from adapters.services.mobygames_types import (
     MobyGroupsResponse,
     MobyOutputFormat,
 )
+from adapters.services.provider_http import send_with_retries
 from adapters.services.response_validation import parse_response
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
@@ -38,14 +36,6 @@ async def auth_middleware(
     return await handler(req)
 
 
-def _unreachable() -> HTTPException:
-    log.critical("Connection error: can't connect to MobyGames", exc_info=True)
-    return HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Can't connect to MobyGames, check your internet connection",
-    )
-
-
 class MobyGamesService:
     """Service to interact with the MobyGames API.
 
@@ -63,43 +53,8 @@ class MobyGamesService:
     ) -> T | None:
         source = f"MobyGames {yarl.URL(url).name}"
         aiohttp_session = ctx_aiohttp_session.get()
-        log.debug(
-            "API request: URL=%s, Timeout=%s",
-            url,
-            request_timeout,
-        )
 
-        try:
-            await _rate_limiter.acquire()
-            res = await aiohttp_session.get(
-                url,
-                headers={"user-agent": f"RomM/{get_version()}"},
-                middlewares=(auth_middleware,),
-                timeout=ClientTimeout(total=request_timeout),
-            )
-            res.raise_for_status()
-            return parse_response(tp, await res.read(), source=source)
-        except TimeoutError:
-            log.debug("Request to URL=%s timed out. Retrying...", url)
-        except aiohttp.ClientConnectionError as exc:
-            raise _unreachable() from exc
-        except aiohttp.ClientResponseError as exc:
-            if exc.status == http.HTTPStatus.UNAUTHORIZED:
-                # Sometimes MobyGames returns 401 even with a valid API key
-                log.error(exc)
-                return None
-            elif exc.status == http.HTTPStatus.TOO_MANY_REQUESTS:
-                # Retry after 2 seconds if rate limit hit
-                await asyncio.sleep(2)
-            else:
-                log.error(exc)
-                return None
-        except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from MobyGames: %s", exc)
-            return None
-
-        # Retry the request once if it times out
-        try:
+        async def send() -> T | None:
             log.debug(
                 "API request: URL=%s, Timeout=%s",
                 url,
@@ -114,17 +69,13 @@ class MobyGamesService:
             )
             res.raise_for_status()
             return parse_response(tp, await res.read(), source=source)
-        except (aiohttp.ClientResponseError, TimeoutError) as exc:
-            if (
-                isinstance(exc, aiohttp.ClientResponseError)
-                and exc.status == http.HTTPStatus.UNAUTHORIZED
-            ):
-                return None
 
+        try:
+            return await send_with_retries(send, provider="MobyGames", url=url)
+        # MobyGames sometimes answers 401 even with a valid API key.
+        except (aiohttp.ClientResponseError, TimeoutError) as exc:
             log.error(exc)
             return None
-        except aiohttp.ClientConnectionError as exc:
-            raise _unreachable() from exc
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from MobyGames: %s", exc)
             return None

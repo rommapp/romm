@@ -8,22 +8,19 @@ Public JSON API, no key.
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
 
-import httpx2
-
 from config import DEMOZOO_API_ENABLED
 from logger.logger import log
-from utils import get_version, int_or_none, valid_youtube_id
+from utils import int_or_none, valid_youtube_id
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler, unavailable
+from .base_handler import BaseRom, MetadataHandler
 
 DEMOZOO_TAG_REGEX = re.compile(r"\(demozoo-(\d+)\)", re.IGNORECASE)
 DEMOZOO_PROD_ID_RE = re.compile(
@@ -507,28 +504,9 @@ class DemozooHandler(MetadataHandler):
                 by id; anywhere else a 404 means the route itself is gone.
         """
         await _rate_limiter.acquire()
-        headers = {
-            "User-Agent": f"RomM/{get_version()}",
-            "Accept": "application/json",
-        }
-        try:
-            body = await self._fetch_capped(url, headers=headers)
-        except httpx2.HTTPStatusError as exc:
-            if missing_ok and exc.response.status_code == httpx2.codes.NOT_FOUND:
-                return {}
-            log.warning("Can't connect to Demozoo API", extra={"exception": str(exc)})
-            raise unavailable("Demozoo API") from exc
-        except httpx2.TransportError as exc:
-            log.warning("Can't connect to Demozoo API", extra={"exception": str(exc)})
-            raise unavailable("Demozoo API") from exc
-        if body is None:
-            return {}
-        try:
-            data = json.loads(body)
-        except ValueError as exc:
-            log.error("Error decoding JSON from Demozoo: %s", exc)
-            return {}
-        return data if isinstance(data, dict) else {}
+        return await self._get_capped_json(
+            url, provider="Demozoo API", missing_ok=missing_ok
+        )
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():

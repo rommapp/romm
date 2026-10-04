@@ -13,16 +13,15 @@ from typing import Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlparse
 from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
 
-import httpx2
 from defusedxml import ElementTree as ET
 
 from config import CSDB_API_ENABLED
 from logger.logger import log
-from utils import get_version, int_or_none
+from utils import int_or_none
 from utils.datetime import parse_utc_timestamp
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler, unavailable
+from .base_handler import BaseRom, MetadataHandler
 from .demozoo_handler import build_scene_summary, http_url
 
 CSDB_TAG_REGEX = re.compile(r"\(csdb-(\d+)\)", re.IGNORECASE)
@@ -170,24 +169,12 @@ class CsdbHandler(MetadataHandler):
 
     async def _request(self, url: str) -> str:
         await _rate_limiter.acquire()
-        headers = {
-            "User-Agent": f"RomM/{get_version()}",
-            "Accept": "application/xml, text/xml, */*",
-        }
-        try:
-            body = await self._fetch_capped(url, headers=headers)
-        except httpx2.HTTPStatusError as exc:
-            if exc.response.status_code == httpx2.codes.NOT_FOUND:
-                return ""
-            log.warning(
-                "Can't connect to CSDb webservice", extra={"exception": str(exc)}
-            )
-            raise unavailable("CSDb") from exc
-        except httpx2.TransportError as exc:
-            log.warning(
-                "Can't connect to CSDb webservice", extra={"exception": str(exc)}
-            )
-            raise unavailable("CSDb") from exc
+        body = await self._get_capped(
+            url,
+            provider="CSDb",
+            accept="application/xml, text/xml, */*",
+            missing_ok=True,
+        )
         if body is None:
             return ""
         return body.decode("utf-8", errors="replace")
