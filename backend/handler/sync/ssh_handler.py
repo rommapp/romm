@@ -98,7 +98,7 @@ class SSHSyncHandler:
         port = sync_config.get("ssh_port", 22)
         username = sync_config.get("ssh_username", "root")
 
-        if not AnyioPath(SYNC_SSH_KNOWN_HOSTS_PATH).is_file():
+        if not await AnyioPath(SYNC_SSH_KNOWN_HOSTS_PATH).is_file():
             raise FileNotFoundError(
                 f"SSH known_hosts file not found at {SYNC_SSH_KNOWN_HOSTS_PATH}. "
                 "Mount a known_hosts file or set SYNC_SSH_KNOWN_HOSTS_PATH."
