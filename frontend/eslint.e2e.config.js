@@ -7,11 +7,7 @@ const E2E_FILES = ["e2e/**/*.ts", "playwright.config.ts"];
 const TEST_FILES = ["e2e/**/*.ts"];
 
 // The files that build the environment the tests receive as `e2eEnv`.
-const ENV_BUILDERS = [
-  "e2e/support/e2e-environment.ts",
-  "e2e/support/test.ts",
-  "e2e/setup/global-setup.ts",
-];
+const ENV_BUILDERS = ["e2e/support/e2e-environment.ts", "e2e/support/test.ts"];
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
@@ -70,16 +66,14 @@ export default [
   {
     name: "e2e/no-api",
     files: TEST_FILES,
-    ignores: ["e2e/setup/global-setup.ts"],
     rules: {
-      // Tests act through the UI and observe the app's own traffic. The
-      // preflight in global-setup.ts is the one place that calls the API.
+      // Tests act through the UI and observe the app's own traffic.
       "no-restricted-syntax": [
         "error",
         {
           selector: "CallExpression[callee.name='fetch']",
           message:
-            "Tests don't call the API: drive the UI, and observe the app's traffic with page.waitForResponse(). Backend checks belong in global-setup.ts.",
+            "Tests don't call the API: drive the UI, and observe the app's traffic with page.waitForResponse().",
         },
         {
           // page.request and context.request send requests; response.request()
@@ -87,7 +81,7 @@ export default [
           selector:
             "MemberExpression[object.name=/^(page|context)$/][property.name='request'], ObjectPattern > Property[key.name='request']",
           message:
-            "Tests don't call the API: drive the UI, and observe the app's traffic with page.waitForResponse(). Backend checks belong in global-setup.ts.",
+            "Tests don't call the API: drive the UI, and observe the app's traffic with page.waitForResponse().",
         },
       ],
     },

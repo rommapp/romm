@@ -17,7 +17,12 @@ for (const role of ROLES) {
 
     await seedUiState(page, "dark");
     await page.goto("/login");
+    const answered = page.waitForResponse(
+      (r) => r.url().endsWith("/api/login") && r.request().method() === "POST",
+    );
     await fillLoginForm(page, username, password);
+    const response = await answered;
+    expect(response.status(), `POST /api/login for ${username}`).toBe(200);
     // The app bar's user name only renders once the session is established.
     await expect(page.locator(".r-v2-user__name")).toHaveText(username);
 

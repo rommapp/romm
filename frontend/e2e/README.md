@@ -122,7 +122,7 @@ Set `E2E_BASE_URL` (in the shell or `e2e/.env`), and use accounts that exist the
 E2E_BASE_URL=https://romm.example.com
 ```
 
-The specs follow this branch's UI, so a site on another version fails where the two differ. A released site (5.3.1, say) lacks endpoints added on master since, and `loads.spec.ts` reports each as a 404; the preflight prints the site's version so this is easy to spot. For a full pass, run a backend from this checkout (`uv run main.py`) and leave `E2E_BASE_URL` unset.
+The specs follow this branch's UI, so a site on another version fails where the two differ. A released site (5.3.1, say) lacks endpoints added on master since, and `loads.spec.ts` reports each as a 404. For a full pass, run a backend from this checkout (`uv run main.py`) and leave `E2E_BASE_URL` unset.
 
 To test a production build of this branch, serve it first: `npm run build:preview && npm run preview` (`build:preview` adds `frontend/assets`, which Vite leaves out and the Docker image copies in), then set `E2E_BASE_URL=http://localhost:4173`.
 
@@ -132,7 +132,7 @@ To test a production build of this branch, serve it first: `npm run build:previe
 e2e/
   specs/      the tests, and only tests, one folder per page
     loads.spec.ts   every page opens with every response 2xx
-  setup/      preflight and sign-in, run before the specs
+  setup/      sign-in, run before the specs
   support/    fixtures, helpers, environment and output paths
   .output/    generated and gitignored; delete it to reset
     auth/       saved sessions
@@ -141,7 +141,6 @@ e2e/
 
 - **Environment:** every `E2E_*` variable comes from the shell, then `e2e/.env`, then a default that matches the seed script. CI sets them in `.github/workflows/e2e.yml`.
 - **Server:** with `E2E_BASE_URL` unset, the config's `webServer` starts one: `npm run dev` locally (reusing one already running), the static build under `vite preview` in CI. Otherwise it tests that URL as served.
-- **Preflight:** `setup/global-setup.ts` runs first and checks, in about a second, that the backend answers, both accounts sign in and can read ROMs, and the library has a game. One error lists every problem.
 - **Sign-in:** `setup/auth.setup.ts` signs each account in at the start of every run and saves the session for the specs. `login.spec.ts` is the only spec that drives the login form.
 - **Timeouts:** 10s per test locally, so failures are fast; CI keeps longer ones. They switch off while debugging.
 - **App errors:** if an `/api` call returns 5xx or the app throws, the test fails at once and names the request (for example `GET /api/roms returned 500`) instead of timing out on an element.
