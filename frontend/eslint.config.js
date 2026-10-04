@@ -284,6 +284,21 @@ export default tseslint.config(
       "romm/no-safe-area-env": "error",
     },
   },
+  // Stored preferences follow the signed-in user; frozen v1 keeps its keys.
+  {
+    files: ["src/**/*.ts", "src/**/*.vue"],
+    ignores: [
+      "src/views/**",
+      "src/components/**",
+      "src/console/**",
+      "src/layouts/**",
+      "**/*.stories.ts",
+      "**/*.test.ts",
+      "src/composables/useUserLocalStorage.ts",
+    ],
+    plugins: { romm },
+    rules: { "romm/no-unscoped-local-storage": "error" },
+  },
   {
     files: ["src/v2/**/*.ts", "src/v2/**/*.vue"],
     ignores: ["**/*.stories.ts", "**/*.test.ts", "src/v2/utils/autofocus.ts"],
