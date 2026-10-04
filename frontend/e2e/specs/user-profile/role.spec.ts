@@ -1,9 +1,9 @@
-import { STORAGE_STATE } from "../../support/auth";
+import { ROLES, STORAGE_STATE } from "../../support/auth";
 import { gotoOwnProfile } from "../../support/navigation";
 import { expect, test } from "../../support/test";
 
 // A self-edit can't change the role, so the profile shows it read-only (#3954).
-for (const role of ["viewer", "admin"] as const) {
+for (const role of ROLES) {
   test.describe(
     `Profile page role field (${role})`,
     { tag: "@page:user-profile" },

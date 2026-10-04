@@ -15,9 +15,11 @@ const baseURL = process.env.E2E_BASE_URL || undefined;
 const SERVED_URL = "http://127.0.0.1:3000";
 
 const isCI = !!process.env.CI;
-// A test paused on a breakpoint must not be killed by the timeouts below.
-// Playwright only lifts them itself for `--debug`, not an attached debugger.
-const debugging = !!process.env.PWDEBUG || inspectorUrl() !== undefined;
+// Playwright lifts timeouts itself for `--debug` (PWDEBUG, where 0 or false
+// means off), not for a debugger paused on a breakpoint.
+const { PWDEBUG = "" } = process.env;
+const debugging =
+  !["", "0", "false"].includes(PWDEBUG) || inspectorUrl() !== undefined;
 // 0 means no timeout.
 const TIMEOUTS = debugging
   ? { test: 0, expect: 0, action: 0, navigation: 0 }
@@ -70,9 +72,8 @@ export default defineConfig({
       dependencies: ["setup"],
     },
   ],
-  // CI serves the static build: the dev server force-reloads the page when it
-  // discovers a dependency to pre-bundle, wiping a test mid-way. Locally the
-  // dev server picks up code changes, and one already running is reused.
+  // CI serves the static build, which never force-reloads mid-test as the dev
+  // server does on a new dependency. Locally, the dev server is (re)used.
   ...(!baseURL && {
     webServer: {
       command: isCI

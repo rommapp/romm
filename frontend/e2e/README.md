@@ -27,15 +27,17 @@ Install the recommended VS Code extension, **Playwright Test for VS Code**. Most
 Create the file, leave the cursor inside the test, and click **Record at cursor** in the Playwright panel:
 
 ```ts
-// e2e/specs/favorite-a-game.spec.ts
-import { STORAGE_STATE } from "../support/auth";
-import { expect, test } from "../support/test";
+// e2e/specs/home/favorite-a-game.spec.ts
+import { STORAGE_STATE } from "../../support/auth";
+import { expect, test } from "../../support/test";
 
-test.use({ storageState: STORAGE_STATE.admin });
+test.describe("Favorites", { tag: "@page:home" }, () => {
+  test.use({ storageState: STORAGE_STATE.admin });
 
-test("favorites a game", async ({ page }) => {
-  await page.goto("/");
-  // cursor here
+  test("favorites a game", async ({ page }) => {
+    await page.goto("/");
+    // cursor here
+  });
 });
 ```
 
@@ -109,7 +111,7 @@ Fix what it reports, then click **Refresh Tests** in the Testing sidebar.
 ```bash
 npm run test:e2e -- e2e/specs/auth/login.spec.ts
 npm run test:e2e -- -g "rejects a wrong password"
-npm run test:e2e -- --grep "@page:rom\b"   # every test for one page, by its route name
+npm run test:e2e -- --grep "@page:rom( |$)"   # every test for one page, by its route name
 ```
 
 ### Test another site

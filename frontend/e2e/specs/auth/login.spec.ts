@@ -19,7 +19,9 @@ test.describe("Login", () => {
 
     // The app bar's user name only renders once the session is established and
     // the auth store holds a user -- a stronger signal than "the URL changed".
-    await expect(page.locator(".r-v2-user__name")).toHaveText(username);
+    await expect(page.locator(".r-v2-user__name")).toHaveText(username, {
+      ignoreCase: true,
+    });
     await expect(page).not.toHaveURL(/\/login/);
   });
 

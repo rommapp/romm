@@ -33,14 +33,21 @@ export async function gotoHydrated(page: Page, path: string) {
 /** Open the first platform on the platforms index. */
 export async function gotoFirstPlatform(page: Page) {
   await gotoHydrated(page, "/platforms");
-  await page.locator('a[href^="/platform/"]').first().click();
+  const platform = page.locator('a[href^="/platform/"]').first();
+  await expect(
+    platform,
+    "No platform with games on /platforms: the site's library is empty or unscanned",
+  ).toBeVisible();
+  await platform.click();
   await expect(page).toHaveURL(/\/platform\/\d+/);
 }
 
 /** Open the first game of the first platform. */
 export async function gotoFirstRom(page: Page) {
   await gotoFirstPlatform(page);
-  await page.locator('a.r-gc[href^="/rom/"]').first().click();
+  const game = page.locator('a.r-gc[href^="/rom/"]').first();
+  await expect(game, "The first platform shows no games").toBeVisible();
+  await game.click();
   await expect(page).toHaveURL(/\/rom\/\d+/);
 }
 

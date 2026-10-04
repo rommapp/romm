@@ -38,10 +38,10 @@ export default [
             "Tests don't call the API: drive the UI, and observe the app's traffic with page.waitForResponse().",
         },
         {
-          // page.request and context.request send requests; response.request()
-          // only reads one the app made, which is fine.
+          // Any `.request` that isn't called (page.request, page.context().request)
+          // sends requests; response.request() only reads one the app made.
           selector:
-            "MemberExpression[object.name=/^(page|context)$/][property.name='request'], ObjectPattern > Property[key.name='request']",
+            "MemberExpression[property.name='request']:not(CallExpression > MemberExpression.callee), ObjectPattern > Property[key.name='request'], ImportDeclaration[source.value='@playwright/test'] > ImportSpecifier[imported.name='request']",
           message:
             "Tests don't call the API: drive the UI, and observe the app's traffic with page.waitForResponse().",
         },

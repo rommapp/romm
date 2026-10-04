@@ -10,15 +10,18 @@ import {
 import { expect, test } from "../support/test";
 
 // Every page opens for each role allowed on it with each document and API
-// response 2xx, and a viewer gets the 404 page on admin-only ones. Each is
-// tagged `@page:<route name>`, like the page's other specs.
+// response 2xx, and a viewer gets the 404 page on admin-only ones.
+
+/** Opened by URL, or by clicking through when the URL holds an id. */
+type Opener = string | ((page: Page) => Promise<void>);
 
 type PageDef =
+  | { open: Opener }
+  // A URL, so the viewer's 404 check can open it.
   | {
-      /** Opened by URL, or by clicking through when the URL holds an id. */
-      open: string | ((page: Page) => Promise<void>);
+      open: string;
       /** The router sends a viewer without the route's scopes to the 404 page. */
-      adminOnly?: true;
+      adminOnly: true;
     }
   | { skip: string };
 
@@ -91,11 +94,7 @@ function isLoadRequest(request: Request) {
   );
 }
 
-async function expectPageLoads(
-  page: Page,
-  name: string,
-  open: string | ((page: Page) => Promise<void>),
-) {
+async function expectPageLoads(page: Page, name: string, open: Opener) {
   const failed: string[] = [];
   page.on("response", (response) => {
     if (isLoadRequest(response.request()) && !response.ok()) {
@@ -127,7 +126,7 @@ async function expectPageLoads(
 
 for (const [name, def] of Object.entries(PAGES)) {
   if ("skip" in def) continue;
-  const { open, adminOnly } = def;
+  const adminOnly = "adminOnly" in def;
 
   test.describe(name, { tag: `@page:${name}` }, () => {
     for (const role of adminOnly ? (["admin"] as const) : ROLES) {
@@ -135,17 +134,17 @@ for (const [name, def] of Object.entries(PAGES)) {
         test.use({ storageState: STORAGE_STATE[role] });
 
         test("loads", async ({ page }) => {
-          await expectPageLoads(page, name, open);
+          await expectPageLoads(page, name, def.open);
         });
       });
     }
 
-    if (adminOnly && typeof open === "string") {
+    if ("adminOnly" in def) {
       test.describe("viewer", () => {
         test.use({ storageState: STORAGE_STATE.viewer });
 
         test("gets the 404 page", async ({ page }) => {
-          await gotoHydrated(page, open);
+          await gotoHydrated(page, def.open);
           await expect(page.locator(".r-v2-notfound")).toBeVisible();
         });
       });

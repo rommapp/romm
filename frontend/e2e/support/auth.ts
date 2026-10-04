@@ -3,16 +3,19 @@ import { AUTH_DIR } from "./output";
 
 const { env } = process;
 
+// The seed script sets both accounts' password from E2E_PASSWORD.
+const SEEDED_PASSWORD = env.E2E_PASSWORD || "e2e-Passw0rd!";
+
 // The accounts every permission assertion is made against. The defaults are
 // the ones .github/scripts/seed_e2e_users.py creates.
 export const ACCOUNTS = {
   admin: {
     username: env.E2E_ADMIN_USERNAME || "e2e_admin",
-    password: env.E2E_ADMIN_PASSWORD || "e2e-Passw0rd!",
+    password: env.E2E_ADMIN_PASSWORD || SEEDED_PASSWORD,
   },
   viewer: {
     username: env.E2E_VIEWER_USERNAME || "e2e_viewer",
-    password: env.E2E_VIEWER_PASSWORD || "e2e-Passw0rd!",
+    password: env.E2E_VIEWER_PASSWORD || SEEDED_PASSWORD,
   },
 };
 
@@ -51,7 +54,7 @@ export async function seedUiState(page: Page) {
     // `user:<id>:` copy, and a saved session carries one.
     for (const key of Object.keys(localStorage)) {
       const scoped = /^user:\d+:(.+)$/.exec(key)?.[1];
-      if (scoped && scoped in seeded) localStorage.removeItem(key);
+      if (scoped && Object.hasOwn(seeded, scoped)) localStorage.removeItem(key);
     }
     for (const [key, value] of Object.entries(seeded)) {
       localStorage.setItem(key, value);

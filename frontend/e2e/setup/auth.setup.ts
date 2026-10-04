@@ -24,7 +24,10 @@ for (const role of ROLES) {
     const response = await answered;
     expect(response.status(), `POST /api/login for ${username}`).toBe(200);
     // The app bar's user name only renders once the session is established.
-    await expect(page.locator(".r-v2-user__name")).toHaveText(username);
+    // Usernames sign in case-insensitively and render as stored.
+    await expect(page.locator(".r-v2-user__name")).toHaveText(username, {
+      ignoreCase: true,
+    });
 
     await page.context().storageState({ path: STORAGE_STATE[role] });
   });
