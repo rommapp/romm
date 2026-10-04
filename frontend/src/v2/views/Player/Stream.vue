@@ -27,12 +27,7 @@ import {
   RSwitch,
   RTooltip,
 } from "@v2/lib";
-import {
-  useDebounceFn,
-  useEventListener,
-  useIntervalFn,
-  useLocalStorage,
-} from "@vueuse/core";
+import { useDebounceFn, useEventListener, useIntervalFn } from "@vueuse/core";
 import { isAxiosError } from "axios";
 import {
   computed,
@@ -45,6 +40,7 @@ import {
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import type { SaveSchema, UserStateSchema } from "@/__generated__";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import romApi from "@/services/api/rom";
 import streamingApi, {
   type ContainerBusyDetail,
@@ -396,7 +392,7 @@ const STATE_LAYOUTS = [
   { value: "list", icon: "mdi-view-list" },
 ] as const satisfies readonly { value: AssetLayout; icon: string }[];
 
-const stateLayout = useLocalStorage<AssetLayout>(
+const stateLayout = useUserLocalStorage<AssetLayout>(
   "romm:v2:stream:states-layout",
   "strip",
 );

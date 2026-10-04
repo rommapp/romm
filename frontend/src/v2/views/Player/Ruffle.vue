@@ -6,6 +6,7 @@
 import { RIcon, RSwitch } from "@v2/lib";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
+import { userStorage } from "@/composables/useUserLocalStorage";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import type { RuffleSourceAPI } from "@/types/ruffle";
@@ -108,7 +109,7 @@ function onPlay() {
 
 function onBackgroundColorChange() {
   if (rom.value) {
-    localStorage.setItem(
+    userStorage.setItem(
       `player:ruffle:${rom.value.id}:backgroundColor`,
       backgroundColor.value,
     );
@@ -124,7 +125,7 @@ onMounted(async () => {
   rom.value = romResponse.data;
 
   if (rom.value) {
-    const storedColor = localStorage.getItem(
+    const storedColor = userStorage.getItem(
       `player:ruffle:${rom.value.id}:backgroundColor`,
     );
     if (storedColor) backgroundColor.value = storedColor;

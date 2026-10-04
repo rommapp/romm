@@ -1,9 +1,11 @@
 // Saves the soundtrack player's queue and position on this device and restores
-// it after a reload, while the user's `resumeMusic` setting is on.
+// it after a reload, while the user's `resumeMusic` setting is on. Each user's
+// session is stored under their own key.
 import { useEventListener, watchDebounced, whenever } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { onMounted, onScopeDispose, watch } from "vue";
 import { useUISettings } from "@/composables/useUISettings";
+import { userStorage } from "@/composables/useUserLocalStorage";
 import storeAuth from "@/stores/auth";
 import useSoundtrackPlayer, {
   type PlayerTrack,
@@ -13,11 +15,6 @@ import useSoundtrackPlayer, {
 export const SOUNDTRACK_SESSION_KEY = "soundtrack.session";
 export const SOUNDTRACK_CHANNEL = "romm-jukebox";
 export const PLAYING_REPLY_TIMEOUT_MS = 200;
-
-interface StoredSession {
-  userId: number;
-  session: SoundtrackSession;
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -37,11 +34,9 @@ function isTrackList(value: unknown): value is PlayerTrack[] {
   return Array.isArray(value) && value.every(isTrack);
 }
 
-function isStoredSession(value: unknown): value is StoredSession {
-  const stored = value as Partial<StoredSession> | null;
-  const session = stored?.session;
+function isSession(value: unknown): value is SoundtrackSession {
+  const session = value as Partial<SoundtrackSession> | null;
   return (
-    typeof stored?.userId === "number" &&
     isTrack(session?.track) &&
     isRecord(session.meta) &&
     isTrackList(session.playlist) &&
@@ -56,10 +51,10 @@ function isStoredSession(value: unknown): value is StoredSession {
 }
 
 // Anything unreadable fails safe to "nothing saved".
-export function readStoredSession(raw: string): StoredSession | null {
+export function readStoredSession(raw: string): SoundtrackSession | null {
   try {
     const parsed: unknown = JSON.parse(raw);
-    return isStoredSession(parsed) ? parsed : null;
+    return isSession(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -102,12 +97,12 @@ export function useSoundtrackResume() {
   });
   onScopeDispose(() => channel?.close());
 
-  function write(stored: StoredSession | null) {
+  function write(saved: SoundtrackSession | null) {
     try {
-      if (stored) {
-        localStorage.setItem(SOUNDTRACK_SESSION_KEY, JSON.stringify(stored));
+      if (saved) {
+        userStorage.setItem(SOUNDTRACK_SESSION_KEY, JSON.stringify(saved));
       } else {
-        localStorage.removeItem(SOUNDTRACK_SESSION_KEY);
+        userStorage.removeItem(SOUNDTRACK_SESSION_KEY);
       }
     } catch {
       // Storage full or unavailable: the session just won't resume.
@@ -122,24 +117,20 @@ export function useSoundtrackResume() {
 
   function save() {
     unsaved = false;
-    const userId = authStore.user?.id;
-    if (!resumeMusic.value || userId === undefined) return;
-    write(session.value ? { userId, session: session.value } : null);
+    // Signed out, the key isn't scoped to anyone.
+    if (!resumeMusic.value || !authStore.user) return;
+    write(session.value);
   }
 
-  // Restored once the player's `<audio>` exists, on each sign-in, so a session
-  // never resumes for someone else signing in on this device.
+  // Restored once the player's `<audio>` exists, on each sign-in.
   onMounted(() => {
     whenever(
       () => authStore.user?.id,
       async (userId) => {
-        const stored = readStoredSession(
-          localStorage.getItem(SOUNDTRACK_SESSION_KEY) ?? "",
+        const saved = readStoredSession(
+          userStorage.getItem(SOUNDTRACK_SESSION_KEY) ?? "",
         );
-        if (!resumeMusic.value || stored?.userId !== userId || player.track) {
-          return;
-        }
-        const { session: saved } = stored;
+        if (!resumeMusic.value || !saved || player.track) return;
         const elsewhere =
           saved.wasPlaying && (await isPlayingElsewhere(channel));
         if (player.track || authStore.user?.id !== userId) return;

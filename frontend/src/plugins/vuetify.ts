@@ -1,8 +1,8 @@
 import "@mdi/font/css/materialdesignicons.css";
-import { useLocalStorage } from "@vueuse/core";
 import { createVuetify } from "vuetify";
 import { VDateInput } from "vuetify/components/VDateInput";
 import "vuetify/styles";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import { dark, light } from "@/styles/themes";
 
 // Initial theme resolution only: runtime theme changes are owned by
@@ -10,7 +10,7 @@ import { dark, light } from "@/styles/themes";
 // v2 surfaces don't read from Vuetify's runtime theme; they read tokens
 // off `.r-v2-dark` / `.r-v2-light` on <html>.
 function getInitialTheme(): "dark" | "light" {
-  const storedTheme = useLocalStorage("settings.theme", "auto");
+  const storedTheme = useUserLocalStorage("settings.theme", "auto");
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
   if (storedTheme.value === "dark") return "dark";

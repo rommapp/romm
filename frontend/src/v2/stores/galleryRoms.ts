@@ -26,6 +26,7 @@ import axios from "axios";
 import { defineStore } from "pinia";
 import type { SimpleRomSchema } from "@/__generated__/";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
+import { userStorage } from "@/composables/useUserLocalStorage";
 import romApi from "@/services/api/rom";
 import {
   type Collection,
@@ -394,7 +395,7 @@ export default defineStore("v2GalleryRoms", {
     },
 
     _shouldGroupRoms(): boolean {
-      const raw = localStorage.getItem("settings.groupRoms");
+      const raw = userStorage.getItem("settings.groupRoms");
       return raw === null ? true : raw === "true";
     },
 

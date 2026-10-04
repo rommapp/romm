@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useIdle, useLocalStorage, useScreenSafeArea } from "@vueuse/core";
+import { useIdle, useScreenSafeArea } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -13,6 +13,7 @@ import { useTheme } from "vuetify";
 import SoundtrackMiniPlayer from "@/components/common/SoundtrackMiniPlayer.vue";
 import { useBrowserLocale } from "@/composables/useBrowserLocale";
 import { useUiVersion } from "@/composables/useUiVersion";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import storeConsole from "@/stores/console";
 
 // Lazy-loaded: RomM.vue is the first module main.ts evaluates, and the banner
@@ -35,7 +36,7 @@ useBrowserLocale();
 // imports the API layer and would trigger an API-client ↔ router circular-
 // import TDZ during bootstrap (RomM.vue is the first module main.ts loads).
 const uiVersion = useUiVersion();
-const themeSetting = useLocalStorage<"auto" | "dark" | "light">(
+const themeSetting = useUserLocalStorage<"auto" | "dark" | "light">(
   "settings.theme",
   "dark",
 );
