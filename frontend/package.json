@@ -25,6 +25,7 @@
     "prebuild": "npm run build:tokens",
     "dev": "vite --host",
     "build": "vite build",
+    "build:preview": "npm run build && node -e \"require('node:fs').cpSync('assets', 'dist/assets', { recursive: true })\"",
     "preview": "vite preview",
     "typecheck": "vue-tsc --build",
     "typecheck:scripts": "tsc --build tsconfig.node.json",

@@ -124,7 +124,7 @@ E2E_BASE_URL=https://romm.example.com
 
 The specs follow this branch's UI, so a site on another version fails where the two differ. A released site (5.3.1, say) lacks endpoints added on master since, and `loads.spec.ts` reports each as a 404; the preflight prints the site's version so this is easy to spot. For a full pass, run a backend from this checkout (`uv run main.py`) and leave `E2E_BASE_URL` unset.
 
-To test a production build of this branch, serve it first: `npm run build && npm run preview`, then set `E2E_BASE_URL=http://localhost:4173`.
+To test a production build of this branch, serve it first: `npm run build:preview && npm run preview` (`build:preview` adds `frontend/assets`, which Vite leaves out and the Docker image copies in), then set `E2E_BASE_URL=http://localhost:4173`.
 
 ### Sign in again
 

@@ -18,6 +18,7 @@ npm run typecheck:e2e               # tsc on the e2e suite
 npm run test                        # vitest (+ Storybook play() tests)
 npm run test:e2e                    # playwright (starts or reuses `npm run dev`; needs seeded e2e users, see e2e/README.md)
 npm run build                       # production build
+npm run build:preview               # production build plus frontend/assets, as the Docker image serves it
 npm run generate                    # regenerate types from backend OpenAPI (backend must be running)
 npm run build:tokens                # regenerate v2 tokens.css (auto on predev/prebuild)
 npm run storybook                   # component library on :6006

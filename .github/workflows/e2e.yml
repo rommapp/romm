@@ -131,8 +131,7 @@ jobs:
         working-directory: backend
 
       - name: Build frontend
-        # Vite skips `assets/`; the Docker image copies it over `dist`, so do the same.
-        run: npm run build && cp -R assets/. dist/assets/
+        run: npm run build:preview
         working-directory: frontend
 
       # The site under test: the static build, proxying /api and /ws to the
