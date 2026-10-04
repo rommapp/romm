@@ -97,7 +97,15 @@ describe("MiniPlayer track changes", () => {
 
 describe("MiniPlayer restored session", () => {
   beforeEach(() => {
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.useFakeTimers({
+      toFake: [
+        "setTimeout",
+        "clearTimeout",
+        "setInterval",
+        "clearInterval",
+        "Date",
+      ],
+    });
     smAndDown.value = false;
   });
 
@@ -157,6 +165,33 @@ describe("MiniPlayer restored session", () => {
     vi.advanceTimersByTime(0);
 
     expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it("fades a resumed session in up to the user's volume", async () => {
+    const { audio, store } = await mountRestored(true);
+    store.setVolume(0.8);
+
+    window.dispatchEvent(new Event("keyup"));
+    vi.advanceTimersByTime(0);
+    expect(audio.volume).toBe(0);
+
+    vi.advanceTimersByTime(500);
+    expect(audio.volume).toBeGreaterThan(0);
+    expect(audio.volume).toBeLessThan(0.8);
+
+    vi.advanceTimersByTime(500);
+    expect(audio.volume).toBe(0.8);
+  });
+
+  it("restores the full volume when a fade is cut short", async () => {
+    const { audio, store } = await mountRestored(true);
+    store.setVolume(0.8);
+
+    window.dispatchEvent(new Event("keyup"));
+    vi.advanceTimersByTime(250);
+    audio.dispatchEvent(new Event("pause"));
+
+    expect(audio.volume).toBe(0.8);
   });
 
   it("leaves a first press on Play playing", async () => {

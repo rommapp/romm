@@ -41,6 +41,7 @@ const chiptune = shallowRef<ChiptunePlayer | null>(null);
 // are dropped, since pausing one while the other starts fires out of order.
 let active: HTMLAudioElement | ChiptunePlayer | null = null;
 let cancelResume: AbortController | null = null;
+let cancelFade: (() => void) | null = null;
 
 // On phones the mini player lives in the top bar, which a running game hides,
 // so the music pauses rather than play on with no controls.
@@ -95,8 +96,34 @@ function disarmResume() {
   cancelResume = null;
 }
 
+const RESUME_FADE_MS = 1000;
+const FADE_STEP_MS = 50;
+
+function stopFade() {
+  cancelFade?.();
+  cancelFade = null;
+}
+
+// Eased, since a linear ramp sounds like it jumps in. Reads the store's volume
+// on each step, so moving the slider mid-fade sticks.
+function fadeIn(sink: SoundtrackSink) {
+  stopFade();
+  const startedAt = Date.now();
+  sink.volume = 0;
+  const timer = setInterval(() => {
+    const progress = Math.min(1, (Date.now() - startedAt) / RESUME_FADE_MS);
+    sink.volume = store.volume * progress ** 2;
+    if (progress === 1) stopFade();
+  }, FADE_STEP_MS);
+  cancelFade = () => {
+    clearInterval(timer);
+    sink.volume = store.volume;
+  };
+}
+
 onBeforeUnmount(() => {
   disarmResume();
+  stopFade();
   store.setAudioRef(null);
   chiptune.value?.close();
 });
@@ -110,7 +137,8 @@ function resumeOnFirstInteraction(sink: SoundtrackSink) {
     setTimeout(() => {
       if (controller.signal.aborted || !sink.paused || musicBlocked.value)
         return;
-      void sink.play().catch(() => {});
+      fadeIn(sink);
+      void sink.play().catch(stopFade);
     });
   };
   for (const name of ["click", "keyup"]) {
@@ -125,6 +153,7 @@ watch(track, async (t) => {
   const el = audioEl.value;
   if (!el) return;
   disarmResume();
+  stopFade();
   const resume = store.pendingResume;
   if (!t) {
     setBuffered();
@@ -184,6 +213,7 @@ const sinkHandlers: Record<string, () => void> = {
     setBuffered();
   },
   pause() {
+    stopFade();
     store.setPlaying(false);
   },
   ended() {
