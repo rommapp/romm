@@ -340,7 +340,7 @@ export default tseslint.config(
           selector:
             "TSAsExpression[typeAnnotation.typeName.name=/^(Platform|PlatformSchema)$/]",
           message:
-            "Build platform fixtures with makePlatform from @/utils/platform.fixtures instead of a cast.",
+            "Build platform fixtures with platformFixture from @/utils/platform.fixtures instead of a cast.",
         },
       ],
     },

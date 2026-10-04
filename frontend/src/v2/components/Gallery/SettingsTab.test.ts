@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { Platform } from "@/stores/platforms";
-import { makePlatform } from "@/utils/platform.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
 import SettingsTab from "./SettingsTab.vue";
 
 const { updatePlatform } = vi.hoisted(() => ({
@@ -33,7 +33,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 function platform(overrides: Partial<Platform> = {}): Platform {
-  return makePlatform({
+  return platformFixture({
     slug: "fds",
     name: "Family Computer Disk System",
     custom_name: "",

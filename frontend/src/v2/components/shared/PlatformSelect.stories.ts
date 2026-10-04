@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within, waitFor } from "storybook/test";
 import { ref } from "vue";
 import type { Platform } from "@/stores/platforms";
-import { makePlatform } from "@/utils/platform.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
 import PlatformSelect from "./PlatformSelect.vue";
 import {
   formatPlatformRomCount,
@@ -14,49 +14,49 @@ import {
 const PSX_CATALOG_ROM_COUNT = 1278 + 2278;
 
 const MIXED_PLATFORM_CATALOG: Platform[] = [
-  makePlatform({
+  platformFixture({
     id: 101,
     slug: "3do",
     name: "3DO Interactive Multiplayer",
     rom_count: 0,
   }),
-  makePlatform({
+  platformFixture({
     id: 102,
     slug: "ags",
     name: "Adventure Game Studio",
     rom_count: 0,
   }),
-  makePlatform({
+  platformFixture({
     id: 103,
     slug: "amiga",
     name: "Amiga",
     rom_count: 0,
   }),
-  makePlatform({
+  platformFixture({
     id: 4,
     slug: "gba",
     name: "Game Boy Advance",
     rom_count: 1537,
   }),
-  makePlatform({
+  platformFixture({
     id: 5,
     slug: "n64",
     name: "Nintendo 64",
     rom_count: 389,
   }),
-  makePlatform({
+  platformFixture({
     id: 6,
     slug: "psx",
     name: "PlayStation",
     rom_count: PSX_CATALOG_ROM_COUNT,
   }),
-  makePlatform({
+  platformFixture({
     id: 7,
     slug: "nes",
     name: "Nintendo Entertainment System",
     rom_count: 722,
   }),
-  makePlatform({
+  platformFixture({
     id: 8,
     slug: "zx80",
     name: "ZX80",
@@ -66,13 +66,13 @@ const MIXED_PLATFORM_CATALOG: Platform[] = [
 
 /** One over-cap library plus a normal count for badge formatting. */
 const ROM_COUNT_CAP_FIXTURE: Platform[] = [
-  makePlatform({
+  platformFixture({
     id: 1,
     slug: "psx",
     name: "PlayStation",
     rom_count: PLATFORM_ROM_COUNT_CAP + 2345,
   }),
-  makePlatform({
+  platformFixture({
     id: 2,
     slug: "gba",
     name: "Game Boy Advance",

@@ -2,7 +2,7 @@ import { DOMWrapper, flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { Platform } from "@/stores/platforms";
-import { makePlatform } from "@/utils/platform.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
 import PlatformSelect from "./PlatformSelect.vue";
 import {
   formatPlatformRomCount,
@@ -15,25 +15,25 @@ type Row = Pick<Platform, "rom_count" | "display_name">;
 
 describe("PlatformSelect promoteFilled + search", () => {
   const CATALOG: Platform[] = [
-    makePlatform({
+    platformFixture({
       id: 101,
       slug: "3do",
       name: "3DO Interactive Multiplayer",
       rom_count: 0,
     }),
-    makePlatform({
+    platformFixture({
       id: 102,
       slug: "ags",
       name: "Adventure Game Studio",
       rom_count: 0,
     }),
-    makePlatform({
+    platformFixture({
       id: 4,
       slug: "gba",
       name: "Game Boy Advance",
       rom_count: 42,
     }),
-    makePlatform({
+    platformFixture({
       id: 7,
       slug: "snes",
       name: "Super Nintendo",

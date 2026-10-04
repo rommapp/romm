@@ -3,7 +3,7 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
-import { makePlatform } from "@/utils/platform.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
 import PlatformsIndex from "./PlatformsIndex.vue";
 
 vi.mock("vue-i18n");
@@ -130,7 +130,7 @@ function platform(
   romCount: number,
   overrides: Partial<Platform> = {},
 ): Platform {
-  return makePlatform({
+  return platformFixture({
     id,
     name: displayName,
     slug: displayName.toLowerCase().replaceAll(" ", "-"),

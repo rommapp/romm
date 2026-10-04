@@ -2,7 +2,7 @@ import { shallowMount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { FirmwareSchema } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
-import { makePlatform } from "@/utils/platform.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
 import HashChip from "@/v2/components/shared/HashChip.vue";
 import FirmwareTab from "./FirmwareTab.vue";
 
@@ -61,7 +61,7 @@ function firmware(overrides: Partial<FirmwareSchema> = {}): FirmwareSchema {
 }
 
 function platform(firmwareList: FirmwareSchema[]): Platform {
-  return makePlatform({
+  return platformFixture({
     slug: "fds",
     name: "Family Computer Disk System",
     firmware_count: firmwareList.length,

@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { makePlatform } from "@/utils/platform.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
 import Upload from "./Upload.vue";
 
 const {
@@ -90,7 +90,7 @@ const stubs = {
   RIcon: true,
 };
 
-const threeDo = makePlatform({
+const threeDo = platformFixture({
   id: -1,
   slug: "3do",
   name: "3DO Interactive Multiplayer",
@@ -110,7 +110,7 @@ async function uploadOneFile() {
 
 describe("Upload platform selection", () => {
   it("uses the unique slug when unsupported platforms share sentinel id -1", async () => {
-    const zx80 = makePlatform({
+    const zx80 = platformFixture({
       id: -1,
       slug: "zx80",
       name: "ZX80",

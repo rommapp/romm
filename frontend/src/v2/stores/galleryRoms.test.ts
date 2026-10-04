@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
-import { makePlatform } from "@/utils/platform.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
 // Import after the mock so the store binds to the mocked rom API.
 import storeGalleryRoms, {
   orderSupportsLetters,
@@ -222,7 +222,7 @@ describe("galleryRoms windowed fetch", () => {
       },
     });
     storePlatforms().set([
-      makePlatform({ slug: "snes", name: "Super Nintendo", rom_count: 1 }),
+      platformFixture({ slug: "snes", name: "Super Nintendo", rom_count: 1 }),
     ]);
     const galleryFilter = storeGalleryFilter();
     galleryFilter.setFilterGenres(["RPG"]);

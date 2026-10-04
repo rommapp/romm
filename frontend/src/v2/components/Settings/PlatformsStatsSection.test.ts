@@ -7,7 +7,7 @@ import enSettings from "@/locales/en_US/settings.json";
 import storeConfig from "@/stores/config";
 import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
-import { makePlatform } from "@/utils/platform.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
 import PlatformsStatsSection from "./PlatformsStatsSection.vue";
 
 const push = vi.fn();
@@ -62,7 +62,7 @@ function rowCount(wrapper: Section): number {
 
 function mountCoverage(items: MetadataCoverageItem[]): Section {
   return mountSection(
-    [makePlatform({ id: 1, rom_count: 4 })],
+    [platformFixture({ id: 1, rom_count: 4 })],
     {},
     { "1": items },
   );
@@ -92,21 +92,21 @@ async function setSearch(wrapper: Section, query: string) {
 // narrowing corrupts the keyed list under a non-unique key.
 function duplicateSlugLibrary(): Platform[] {
   return [
-    makePlatform({
+    platformFixture({
       id: 1,
       slug: "atari2600",
       name: "Atari 2600",
       rom_count: 3,
       fs_size_bytes: 5,
     }),
-    makePlatform({
+    platformFixture({
       id: 2,
       slug: "nes",
       name: "Nintendo Entertainment System",
       rom_count: 5,
       fs_size_bytes: 10,
     }),
-    makePlatform({
+    platformFixture({
       id: 3,
       slug: "nes",
       fs_slug: "nes-unofficial",
@@ -114,14 +114,14 @@ function duplicateSlugLibrary(): Platform[] {
       rom_count: 1,
       fs_size_bytes: 40,
     }),
-    makePlatform({
+    platformFixture({
       id: 4,
       slug: "genesis",
       name: "Sega Genesis",
       rom_count: 4,
       fs_size_bytes: 20,
     }),
-    makePlatform({
+    platformFixture({
       id: 5,
       slug: "genesis",
       fs_slug: "genesis-unofficial",
@@ -129,7 +129,7 @@ function duplicateSlugLibrary(): Platform[] {
       rom_count: 2,
       fs_size_bytes: 30,
     }),
-    makePlatform({
+    platformFixture({
       id: 6,
       slug: "xbox",
       name: "Xbox",
@@ -169,7 +169,7 @@ describe("PlatformsStatsSection", () => {
       { region: "br", count: 1 },
       { region: "ca", count: 1 },
     ];
-    const wrapper = mountSection([makePlatform({ id: 7, rom_count: 16 })], {
+    const wrapper = mountSection([platformFixture({ id: 7, rom_count: 16 })], {
       "7": regions,
     });
 
@@ -240,8 +240,8 @@ describe("PlatformsStatsSection", () => {
 
   it("uses the singular game label for a platform holding exactly one", () => {
     const wrapper = mountSection([
-      makePlatform({ id: 1, name: "Atari 2600", rom_count: 1 }),
-      makePlatform({ id: 2, name: "Xbox", rom_count: 6 }),
+      platformFixture({ id: 1, name: "Atari 2600", rom_count: 1 }),
+      platformFixture({ id: 2, name: "Xbox", rom_count: 6 }),
     ]);
 
     expect(renderedCounts(wrapper)).toEqual(["1 game", "6 games"]);
@@ -249,20 +249,20 @@ describe("PlatformsStatsSection", () => {
 
   it("lists only platforms that contain games, hiding empty leftovers", () => {
     const wrapper = mountSection([
-      makePlatform({
+      platformFixture({
         id: 1,
         slug: "snes",
         name: "Super Nintendo",
         rom_count: 5,
       }),
       // Ghost platform: emptied long ago, still in the DB with 0 games.
-      makePlatform({
+      platformFixture({
         id: 2,
         slug: "xbox360-hacks",
         name: "Xbox360 Hacks",
         rom_count: 0,
       }),
-      makePlatform({
+      platformFixture({
         id: 3,
         slug: "genesis",
         name: "Genesis",
@@ -278,8 +278,8 @@ describe("PlatformsStatsSection", () => {
 
   it("renders no rows when every platform is empty", () => {
     const wrapper = mountSection([
-      makePlatform({ id: 1, rom_count: 0 }),
-      makePlatform({
+      platformFixture({ id: 1, rom_count: 0 }),
+      platformFixture({
         id: 2,
         slug: "genesis",
         name: "Genesis",

@@ -1,6 +1,6 @@
 import type { Platform } from "@/stores/platforms";
 
-export function makePlatform(overrides: Partial<Platform> = {}): Platform {
+export function platformFixture(overrides: Partial<Platform> = {}): Platform {
   const slug = overrides.slug ?? "platform";
   const name = overrides.name ?? "Platform";
   return {

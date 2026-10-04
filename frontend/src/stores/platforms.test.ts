@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import storePlatforms, { type Platform } from "@/stores/platforms";
-import { makePlatform } from "@/utils/platform.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
 
 function platform(id: number, displayName: string, romCount: number): Platform {
-  return makePlatform({
+  return platformFixture({
     id,
     name: displayName,
     slug: displayName.toLowerCase().replaceAll(" ", "-"),

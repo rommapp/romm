@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
-import { makePlatform } from "@/utils/platform.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import PlatformView from "./Platform.vue";
 
@@ -120,7 +120,12 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 function platform(id: number, name = "Super Nintendo"): Platform {
-  return makePlatform({ id, name, slug: `platform-${id}`, rom_count: 83000 });
+  return platformFixture({
+    id,
+    name,
+    slug: `platform-${id}`,
+    rom_count: 83000,
+  });
 }
 
 function rom(id: number): SimpleRom {

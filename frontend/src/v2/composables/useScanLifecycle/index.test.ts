@@ -10,7 +10,7 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
-import { makePlatform } from "@/utils/platform.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
 import { installScanLifecycle } from "./index";
 
 // Minimal socket stand-in: records handlers so tests can fire events, and
@@ -59,7 +59,7 @@ const getTaskStatus = vi.mocked(taskApi.getTaskStatus);
 const drainRomBatch = () => new Promise((resolve) => setTimeout(resolve, 150));
 
 function platform(overrides: Partial<Platform> = {}): Platform {
-  return makePlatform({
+  return platformFixture({
     slug: "n64",
     name: "Nintendo 64",
     rom_count: 2,
