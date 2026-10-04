@@ -56,7 +56,9 @@ class MobyGamesRom(BaseRom):
 def extract_metadata_from_moby_rom(rom: MobyGame) -> MobyMetadata:
     return MobyMetadata(
         {
-            "moby_score": str(rom.get("moby_score", "")),
+            "moby_score": (
+                str(rom["moby_score"]) if rom.get("moby_score") is not None else None
+            ),
             "genres": [genre["genre_name"] for genre in rom.get("genres", [])],
             "alternate_titles": [
                 alt["title"] for alt in rom.get("alternate_titles", [])
@@ -245,7 +247,7 @@ class MobyGamesHandler(MetadataHandler):
         if not res:
             terms = re.split(self.SEARCH_TERM_SPLIT_PATTERN, search_term)
             res = await self._search_rom(
-                terms[-1], platform_moby_id, split_game_name=True
+                terms[-1].strip(), platform_moby_id, split_game_name=True
             )
 
         if not res:
