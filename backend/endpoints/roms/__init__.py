@@ -107,7 +107,6 @@ from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import (
     ScreenScraperExhaustedError,
     add_ss_auth_to_url,
-    get_preferred_media_types,
 )
 from handler.recommendation import similar_roms
 from handler.rom_conversion import promote_single_file_to_folder
@@ -118,6 +117,7 @@ from handler.scan_handler import (
     build_physical_fs_name,
     build_physical_fs_path,
     download_rom_resources,
+    refresh_provider_media,
     scan_rom,
 )
 from logger.formatter import BLUE
@@ -2347,44 +2347,20 @@ async def update_rom(
             cleaned_data.get("ra_metadata", {}).get("achievements", [])
         )
 
-    # Providers share media paths, so they are compared and stored together: a
-    # lower-priority provider fills a path the new match left empty.
-    ss_changed = bool(cleaned_data["ss_id"]) and int(cleaned_data["ss_id"]) != rom.ss_id
-    launchbox_changed = (
-        bool(cleaned_data["launchbox_id"])
-        and int(cleaned_data["launchbox_id"]) != rom.launchbox_id
-    )
-    if ss_changed or launchbox_changed:
-        preferred_media_types = get_preferred_media_types()
-        providers: tuple[
-            tuple[str, dict[str, Any] | None, Callable[[str], str] | None], ...
-        ] = (
-            (
-                "ss_metadata",
-                cleaned_data.get("ss_metadata") if ss_changed else rom.ss_metadata,
-                add_ss_auth_to_url,
-            ),
-            ("gamelist_metadata", rom.gamelist_metadata, None),
-            (
-                "launchbox_metadata",
-                (
-                    cleaned_data.get("launchbox_metadata")
-                    if launchbox_changed
-                    else rom.launchbox_metadata
-                ),
-                None,
-            ),
-        )
-        await fs_resource_handler.remove_stale_media(
-            [rom.ss_metadata, rom.gamelist_metadata, rom.launchbox_metadata],
-            [provider_metadata for _, provider_metadata, _ in providers],
-            preferred_media_types,
-        )
-        for column, provider_metadata, url_transform in providers:
-            if provider_metadata and await fs_resource_handler.store_metadata_media(
-                provider_metadata, preferred_media_types, url_transform
-            ):
-                cleaned_data[column] = provider_metadata
+    # A changed or cleared match changes which provider supplies shared media.
+    rematched = False
+    pending_media: dict[str, dict[str, Any] | None] = {}
+    for id_key, column in (
+        ("ss_id", "ss_metadata"),
+        ("launchbox_id", "launchbox_metadata"),
+    ):
+        if int(cleaned_data[id_key] or 0) != (getattr(rom, id_key) or 0):
+            rematched = True
+            pending_media[column] = cleaned_data.get(column)
+        elif column in cleaned_data:
+            pending_media[column] = cleaned_data[column]
+    if rematched:
+        cleaned_data.update(await refresh_provider_media(rom, pending_media))
 
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"
