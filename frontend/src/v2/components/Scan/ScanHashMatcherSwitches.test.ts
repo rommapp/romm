@@ -22,7 +22,7 @@ const PLAYMATCH: HashMatcher = {
 
 // Renders the activator and exposes the tooltip text for assertions.
 const RTooltip = {
-  props: ["text"],
+  props: { text: { type: String, default: "" } },
   template: `<div class="tip" :data-text="text"><slot name="activator" :props="{}" /></div>`,
 };
 

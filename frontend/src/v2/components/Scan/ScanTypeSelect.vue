@@ -1,6 +1,4 @@
 <script setup lang="ts" generic="T extends ScanType">
-// ScanTypeSelect: the scan-type picker. Each row shows its description, or the
-// reason it's disabled, under the title.
 import { RSelect } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import type { ScanType, ScanTypeOption } from "@/v2/types/scan";

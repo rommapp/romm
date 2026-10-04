@@ -1,5 +1,3 @@
-// useScanTypeOptions: the scan types for scanning whole platforms, shared by
-// the Scan view and the per-platform scan dialog.
 import { computed, type ComputedRef } from "vue";
 import { useI18n } from "vue-i18n";
 import type { ScanTypeOption } from "@/v2/types/scan";

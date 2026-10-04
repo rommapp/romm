@@ -1,6 +1,4 @@
 <script setup lang="ts">
-// ScanHashMatcherSwitches: one switch pill per hash-matcher proxy. A blocked
-// matcher stays visible but disabled, with the reason in its tooltip.
 import { RAvatar, RSwitch, RTooltip } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import type {

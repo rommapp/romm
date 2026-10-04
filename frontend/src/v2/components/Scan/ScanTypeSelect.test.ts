@@ -7,7 +7,10 @@ vi.mock("vue-i18n");
 
 // Renders every item through the `#item` slot so the rows are inspectable.
 const RSelect = {
-  props: ["modelValue", "items"],
+  props: {
+    modelValue: { type: String, default: "" },
+    items: { type: Array, default: () => [] },
+  },
   emits: ["update:modelValue"],
   template: `<div class="select">
     <div v-for="item in items" :key="item.value" class="row">
