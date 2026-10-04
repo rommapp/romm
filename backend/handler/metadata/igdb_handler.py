@@ -1030,15 +1030,19 @@ class TwitchAuth(MetadataHandler):
             response_json = res.json()
             token = response_json.get("access_token", "")
             expires_in = response_json.get("expires_in", 0)
-        except httpx2.NetworkError:
+        except httpx2.HTTPError:
             log.critical("Can't connect to IGDB, check your internet connection.")
+            return ""
+        except ValueError:
+            log.error("Twitch sent a token response that isn't JSON")
             return ""
 
         if not token or expires_in == 0:
             return ""
 
-        # Set token in Redis to expire some seconds before it actually expires.
-        await async_cache.set("romm:twitch_token", token, ex=expires_in - 10)
+        # Cache it until some seconds before it actually expires.
+        if expires_in > 10:
+            await async_cache.set("romm:twitch_token", token, ex=expires_in - 10)
 
         log.info("Twitch token fetched!")
 
