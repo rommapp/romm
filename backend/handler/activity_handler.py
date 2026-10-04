@@ -16,7 +16,6 @@ from typing import Any, TypedDict, cast
 from redis.exceptions import WatchError
 
 from endpoints.responses.activity import ActivityClearSchema
-from handler.auth.permissions import resolve_permissions
 from handler.database import (
     db_device_handler,
     db_rom_handler,
@@ -285,6 +284,10 @@ def _audience(rom_id: int) -> list[str]:
 
     Sockets join their user's room on connect; one with no user is in none.
     """
+    # Local import: handler.auth.permissions loads before handler.database
+    # otherwise, and their decorators cycle when either is imported first.
+    from handler.auth.permissions import resolve_permissions
+
     rom = db_rom_handler.get_rom(rom_id)
     if rom is None:
         return []
