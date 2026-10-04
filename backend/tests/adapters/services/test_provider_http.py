@@ -114,8 +114,9 @@ async def test_retry_on_status_decides_another_attempt(retry: bool):
                 send, provider="Test", url="u", retry_on_status=decide
             )
 
-    assert decide.await_args is not None
-    assert decide.await_args.args[0].status == 401
+    await_args = decide.await_args
+    assert await_args is not None
+    assert await_args.args[0].status == 401
 
 
 async def test_no_attempt_is_refused():
