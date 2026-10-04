@@ -11,6 +11,7 @@
 // file zipped with a generated .m3u, which EmulatorJS boots with its in-game
 // disc switcher (issue #3985). That choice is stored as `ALL_DISCS`.
 import type { RomFileCategory } from "@/__generated__";
+import { userStorage } from "@/composables/useUserLocalStorage";
 
 export const ALL_DISCS = "all";
 
@@ -124,18 +125,18 @@ export function resolveRememberedDisc(
   files: readonly DiscFile[],
 ): DiscSelection {
   const { disc, stale } = resolveStoredDisc(
-    localStorage.getItem(discKey(romId)) ??
-      localStorage.getItem(v1DiscKey(romId)),
+    userStorage.getItem(discKey(romId)) ??
+      userStorage.getItem(v1DiscKey(romId)),
     files,
   );
-  if (stale) localStorage.removeItem(discKey(romId));
+  if (stale) userStorage.removeItem(discKey(romId));
   return disc;
 }
 
 /** Remember `disc` for the game, or forget it when there is nothing to boot. */
 export function rememberDisc(romId: number, disc: DiscSelection): void {
-  if (disc === null) localStorage.removeItem(discKey(romId));
-  else localStorage.setItem(discKey(romId), disc.toString());
+  if (disc === null) userStorage.removeItem(discKey(romId));
+  else userStorage.setItem(discKey(romId), disc.toString());
 }
 
 function isM3uFile(file: DiscFile): boolean {

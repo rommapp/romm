@@ -1,13 +1,13 @@
-import { useLocalStorage } from "@vueuse/core";
 import { throttle } from "lodash";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import type { TrackMetaSchema } from "@/__generated__";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import type { DetailedRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH, isCDBasedSystem, shuffled } from "@/utils";
 
-const volumeStorage = useLocalStorage<number>("soundtrack.volume", 1);
-const mutedStorage = useLocalStorage<boolean>("soundtrack.muted", false);
+const volumeStorage = useUserLocalStorage<number>("soundtrack.volume", 1);
+const mutedStorage = useUserLocalStorage<boolean>("soundtrack.muted", false);
 
 /** What the store drives playback through: an `<audio>` element or the chiptune engine. */
 export interface SoundtrackSink {
