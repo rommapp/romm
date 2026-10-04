@@ -205,7 +205,7 @@ const sinkHandlers: Record<string, () => void> = {
   error() {
     cancelBuffering();
     // A restored track that no longer loads (deleted, or no longer visible)
-    // is dropped without a toast on every page load.
+    // is dropped quietly, so it doesn't toast on every page load.
     if (store.pendingResume) {
       store.stop();
       return;
