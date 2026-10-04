@@ -101,16 +101,18 @@ onBeforeUnmount(() => {
 });
 
 // Browsers refuse to start audio before the user interacts with the page, so a
-// session that was playing waits for the first click, tap or key press.
+// session that was playing waits for the first click, tap or key press. It
+// starts once that press is handled, so a press on Play isn't undone by it.
 function resumeOnFirstInteraction(t: PlayerTrack, sink: SoundtrackSink) {
   cancelResume = new AbortController();
   const start = () => {
+    if (musicBlocked.value) return;
     cancelResume?.abort();
-    if (track.value === t && sink.paused && !musicBlocked.value) {
-      void sink.play().catch(() => {});
-    }
+    setTimeout(() => {
+      if (track.value === t && sink.paused) void sink.play().catch(() => {});
+    });
   };
-  for (const name of ["pointerdown", "keydown"]) {
+  for (const name of ["click", "keyup"]) {
     window.addEventListener(name, start, {
       capture: true,
       signal: cancelResume.signal,

@@ -11,6 +11,7 @@ import { onMounted, watch } from "vue";
 import { useUISettings } from "@/composables/useUISettings";
 import storeAuth from "@/stores/auth";
 import useSoundtrackPlayer, {
+  type PlayerTrack,
   type SoundtrackSession,
 } from "@/stores/soundtrackPlayer";
 
@@ -21,14 +22,34 @@ interface StoredSession {
   session: SoundtrackSession;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isTrack(value: unknown): value is PlayerTrack {
+  const t = value as Partial<PlayerTrack> | null;
+  return (
+    typeof t?.romId === "number" &&
+    typeof t.fileId === "number" &&
+    typeof t.fileName === "string" &&
+    typeof t.url === "string"
+  );
+}
+
+function isTrackList(value: unknown): value is PlayerTrack[] {
+  return Array.isArray(value) && value.every(isTrack);
+}
+
 function isStoredSession(value: unknown): value is StoredSession {
   const stored = value as Partial<StoredSession> | null;
   const session = stored?.session;
   return (
     typeof stored?.userId === "number" &&
-    typeof session?.track?.url === "string" &&
-    Array.isArray(session.playlist) &&
-    Array.isArray(session.originalPlaylist) &&
+    isTrack(session?.track) &&
+    isRecord(session.meta) &&
+    isTrackList(session.playlist) &&
+    isTrackList(session.originalPlaylist) &&
+    isRecord(session.playlistMeta) &&
     typeof session.position === "number"
   );
 }
@@ -66,8 +87,8 @@ export function useSoundtrackResume() {
     saved.value = session.value ? { userId, session: session.value } : null;
   }
 
-  // Restored only once the player's `<audio>` exists and the user is known,
-  // so a session never resumes for someone else signing in on this device.
+  // Restored once the player's `<audio>` exists, on each sign-in, so a session
+  // never resumes for someone else signing in on this device.
   onMounted(() => {
     whenever(
       () => authStore.user?.id,
@@ -77,7 +98,7 @@ export function useSoundtrackResume() {
           player.restore(stored.session);
         }
       },
-      { immediate: true, once: true },
+      { immediate: true },
     );
   });
 

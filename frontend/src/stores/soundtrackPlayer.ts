@@ -378,6 +378,8 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     restore,
     takePendingResume,
     stop,
+    // Sign-out resets every store, so the next user doesn't get this queue.
+    reset: stop,
     togglePlayPause,
     seek,
     setVolume,

@@ -5,7 +5,7 @@ import storeAuth from "@/stores/auth";
 import useSoundtrackPlayer, {
   type SoundtrackSession,
 } from "@/stores/soundtrackPlayer";
-import type { User } from "@/stores/users";
+import { userFixture } from "@/utils/user.fixtures";
 import {
   SOUNDTRACK_SESSION_KEY,
   readStoredSession,
@@ -23,6 +23,12 @@ const track = {
   fileName: "02 Theme.mp3",
   url: "/theme.mp3",
 };
+const other = {
+  ...track,
+  fileId: 3,
+  fileName: "03 Boss.mp3",
+  url: "/boss.mp3",
+};
 const session: SoundtrackSession = {
   track,
   meta: {},
@@ -36,7 +42,7 @@ const session: SoundtrackSession = {
 };
 
 function signIn(id: number) {
-  storeAuth().setCurrentUser({ id } as User);
+  storeAuth().setCurrentUser(userFixture({ id }));
 }
 
 function mountResume() {
@@ -61,12 +67,15 @@ describe("readStoredSession", () => {
     expect(readStoredSession(raw)).toEqual({ userId: 1, session });
   });
 
-  it.each(["not json", "null", JSON.stringify({ userId: 1, session: {} })])(
-    "fails safe on %s",
-    (raw) => {
-      expect(readStoredSession(raw)).toBeNull();
-    },
-  );
+  it.each([
+    "not json",
+    "null",
+    JSON.stringify({ userId: 1, session: {} }),
+    JSON.stringify({ userId: 1, session: { ...session, meta: undefined } }),
+    JSON.stringify({ userId: 1, session: { ...session, playlist: [{}] } }),
+  ])("fails safe on %s", (raw) => {
+    expect(readStoredSession(raw)).toBeNull();
+  });
 });
 
 describe("useSoundtrackResume", () => {
@@ -119,6 +128,28 @@ describe("useSoundtrackResume", () => {
     await nextTick();
 
     expect(useSoundtrackPlayer().track).toBeNull();
+  });
+
+  it("restores the next user's session after a sign-out", async () => {
+    localStorage.setItem(
+      SOUNDTRACK_SESSION_KEY,
+      JSON.stringify({ userId: 2, session: { ...session, track: other } }),
+    );
+    signIn(1);
+    mountResume();
+    const player = useSoundtrackPlayer();
+    player.play(track, {});
+
+    player.reset();
+    storeAuth().reset();
+    await nextTick();
+    signIn(2);
+    await nextTick();
+
+    expect(player.track).toEqual(other);
+    window.dispatchEvent(new Event("pagehide"));
+    expect(stored()?.userId).toBe(2);
+    expect(stored()?.session.track).toEqual(other);
   });
 
   it("saves the session when the page is hidden", () => {

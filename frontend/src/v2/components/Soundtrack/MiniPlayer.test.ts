@@ -1,14 +1,17 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
+import storePlaying from "@/stores/playing";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import MiniPlayer from "./MiniPlayer.vue";
 
 vi.mock("vue-i18n");
 
-vi.mock("@/v2/composables/useBreakpoint", () => ({
-  useBreakpoint: () => ({ smAndDown: ref(false) }),
-}));
+const smAndDown = vi.hoisted(() => ({ value: false }));
+vi.mock("@/v2/composables/useBreakpoint", async () => {
+  const { toRef } = await import("vue");
+  return { useBreakpoint: () => ({ smAndDown: toRef(smAndDown, "value") }) };
+});
 
 vi.mock("@/v2/composables/useMediaSession", () => ({
   useMediaSession: vi.fn(),
@@ -91,6 +94,11 @@ describe("MiniPlayer track changes", () => {
 });
 
 describe("MiniPlayer restored session", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    smAndDown.value = false;
+  });
+
   const track = {
     romId: 1,
     fileId: 2,
@@ -137,16 +145,54 @@ describe("MiniPlayer restored session", () => {
     const { play } = await mountRestored(true);
     expect(play).not.toHaveBeenCalled();
 
-    window.dispatchEvent(new Event("keydown"));
-    window.dispatchEvent(new Event("keydown"));
+    window.dispatchEvent(new Event("keyup"));
+    window.dispatchEvent(new Event("keyup"));
+    vi.advanceTimersByTime(0);
 
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a first press on Play playing", async () => {
+    const { audio, store, play } = await mountRestored(true);
+    let playing = false;
+    Object.defineProperty(audio, "paused", { get: () => !playing });
+    play.mockImplementation(async () => {
+      playing = true;
+    });
+    const pause = vi.spyOn(audio, "pause").mockImplementation(() => {
+      playing = false;
+    });
+    const button = document.body.appendChild(document.createElement("button"));
+    button.addEventListener("click", () => store.togglePlayPause());
+
+    button.click();
+    vi.advanceTimersByTime(0);
+
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(pause).not.toHaveBeenCalled();
+    button.remove();
+  });
+
+  it("keeps waiting while a game blocks the music", async () => {
+    const { play } = await mountRestored(true);
+    smAndDown.value = true;
+    storePlaying().setStageActive(true);
+
+    window.dispatchEvent(new Event("click"));
+    vi.advanceTimersByTime(0);
+    expect(play).not.toHaveBeenCalled();
+
+    storePlaying().setStageActive(false);
+    window.dispatchEvent(new Event("click"));
+    vi.advanceTimersByTime(0);
     expect(play).toHaveBeenCalledTimes(1);
   });
 
   it("waits for a play press when the session was paused", async () => {
     const { play } = await mountRestored(false);
 
-    window.dispatchEvent(new Event("pointerdown"));
+    window.dispatchEvent(new Event("click"));
+    vi.advanceTimersByTime(0);
 
     expect(play).not.toHaveBeenCalled();
   });
