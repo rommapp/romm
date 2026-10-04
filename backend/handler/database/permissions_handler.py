@@ -5,6 +5,7 @@ from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import INJECTED_SESSION, begin_session
+from handler.auth.rom_visibility import RomVisibilityFilter, VisibilityColumns
 from models.permission import (
     HiddenEntity,
     PermAction,
@@ -14,7 +15,7 @@ from models.permission import (
     SystemGroupKey,
     UserPermissionOverride,
 )
-from models.user import User
+from models.user import Role, User
 
 from .base_handler import DBBaseHandler
 
@@ -98,6 +99,94 @@ class DBPermissionsHandler(DBBaseHandler):
         return session.scalars(
             select(UserPermissionOverride).filter_by(user_id=user_id)
         ).all()
+
+    @begin_session
+    def get_rom_audience(
+        self,
+        rom: VisibilityColumns,
+        session: Session = INJECTED_SESSION,
+    ) -> list[int]:
+        """Ids of the enabled users who can see `rom`, in four queries for any number.
+
+        Applies what `resolve_permissions` would for each user, reading only the
+        hides that name this ROM or its platform.
+        """
+        users = session.execute(
+            select(
+                User.id,
+                User.role,
+                User.permission_group_id,
+                User.age_limit,
+                User.hide_unrated_roms,
+            ).where(User.enabled.is_(True))
+        ).all()
+        default_group_id = self.get_default_group_id(session=session)
+        groups = {
+            row.id: row
+            for row in session.execute(
+                select(
+                    PermissionGroup.id,
+                    PermissionGroup.age_limit,
+                    PermissionGroup.hide_unrated_roms,
+                )
+            )
+        }
+        hides = session.execute(
+            select(
+                HiddenEntity.entity, HiddenEntity.user_id, HiddenEntity.group_id
+            ).where(
+                or_(
+                    and_(
+                        HiddenEntity.entity == PermEntity.ROMS,
+                        HiddenEntity.entity_id == rom.id,
+                    ),
+                    and_(
+                        HiddenEntity.entity == PermEntity.PLATFORMS,
+                        HiddenEntity.entity_id == rom.platform_id,
+                    ),
+                )
+            )
+        ).all()
+
+        audience = []
+        for user in users:
+            if user.role == Role.ADMIN:
+                audience.append(user.id)
+                continue
+            group_id = user.permission_group_id
+            if group_id is None:
+                group_id = default_group_id
+            group = groups.get(group_id) if group_id is not None else None
+            hidden = {
+                hide.entity
+                for hide in hides
+                if hide.user_id == user.id
+                or (group_id is not None and hide.group_id == group_id)
+            }
+            # The user's own age settings replace the group's; NULL inherits.
+            visibility = RomVisibilityFilter(
+                hidden_platform_ids=(
+                    frozenset({rom.platform_id})
+                    if PermEntity.PLATFORMS in hidden
+                    else frozenset()
+                ),
+                hidden_rom_ids=(
+                    frozenset({rom.id}) if PermEntity.ROMS in hidden else frozenset()
+                ),
+                age_limit=(
+                    user.age_limit
+                    if user.age_limit is not None
+                    else (group.age_limit if group else None)
+                ),
+                hide_unrated_roms=(
+                    user.hide_unrated_roms
+                    if user.hide_unrated_roms is not None
+                    else bool(group and group.hide_unrated_roms)
+                ),
+            )
+            if visibility.allows(rom):
+                audience.append(user.id)
+        return audience
 
     @begin_session
     def get_hidden_entity_ids(

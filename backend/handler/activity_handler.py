@@ -18,6 +18,7 @@ from redis.exceptions import WatchError
 from endpoints.responses.activity import ActivityClearSchema
 from handler.database import (
     db_device_handler,
+    db_permission_handler,
     db_rom_handler,
     db_save_handler,
     db_user_handler,
@@ -297,17 +298,11 @@ class ActivityHandler:
 
 def _audience(rom_id: int) -> list[str]:
     """Sockets join their `user:{id}` room on connect; anonymous sockets join none."""
-    # Local import: handler.auth.permissions loads before handler.database
-    # otherwise, and their decorators cycle when either is imported first.
-    from handler.auth.permissions import resolve_permissions
-
     rom = db_rom_handler.get_rom_visibility(rom_id)
     if rom is None:
         return []
     return [
-        f"user:{user.id}"
-        for user in db_user_handler.get_users()
-        if user.enabled and resolve_permissions(user).can_see_rom(rom)
+        f"user:{user_id}" for user_id in db_permission_handler.get_rom_audience(rom)
     ]
 
 
