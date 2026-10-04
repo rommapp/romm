@@ -26,8 +26,10 @@ from handler.metadata.base_handler import (
     IndexedFormatPlatforms,
     MetadataHandler,
     _normalize_search_term,
+    provider_tag_regex,
     restore_sensitive_query_params,
     strip_sensitive_query_params,
+    tag_id_from_filename,
 )
 from handler.redis_handler import async_cache
 from models.rom import Rom
@@ -577,6 +579,59 @@ class TestResolveIndexedTitle:
 
         fmt.assert_not_called()
         assert term == "original"
+
+
+class TestProviderTags:
+    TAG = provider_tag_regex("igdb")
+
+    @pytest.mark.parametrize(
+        ("fs_name", "expected"),
+        [
+            ("Zelda (igdb-1025).sfc", 1025),
+            ("Zelda (IGDB-1025).sfc", 1025),
+            ("Zelda (moby-1025).sfc", None),
+            ("Zelda (igdb-).sfc", None),
+            ("Zelda.sfc", None),
+            # Past 4300 digits int() raises instead of parsing.
+            ("Zelda (igdb-" + "1" * 5000 + ").sfc", None),
+        ],
+        ids=["tagged", "any_case", "other_provider", "no_id", "untagged", "too_long"],
+    )
+    def test_reads_the_id_from_the_tag(self, fs_name: str, expected: int | None):
+        assert tag_id_from_filename(self.TAG, fs_name) == expected
+
+
+class _HeartbeatHandler(MetadataHandler):
+    enabled = True
+
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return cls.enabled
+
+
+class TestHeartbeat:
+    @pytest.mark.parametrize("answer", [True, False])
+    @pytest.mark.asyncio
+    async def test_reports_what_the_probe_finds(self, answer: bool):
+        probe = AsyncMock(return_value=answer)
+
+        assert await _HeartbeatHandler()._heartbeat("Test API", probe) is answer
+
+    @pytest.mark.asyncio
+    async def test_a_failing_probe_is_down(self):
+        probe = AsyncMock(side_effect=RuntimeError("down"))
+
+        assert await _HeartbeatHandler()._heartbeat("Test API", probe) is False
+
+    @pytest.mark.asyncio
+    async def test_a_disabled_provider_is_not_probed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(_HeartbeatHandler, "enabled", False)
+        probe = AsyncMock(return_value=True)
+
+        assert await _HeartbeatHandler()._heartbeat("Test API", probe) is False
+        probe.assert_not_awaited()
 
 
 class TestStripSensitiveQueryParams:

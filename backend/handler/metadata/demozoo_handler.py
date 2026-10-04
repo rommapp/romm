@@ -20,9 +20,14 @@ from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler
+from .base_handler import (
+    BaseRom,
+    MetadataHandler,
+    provider_tag_regex,
+    tag_id_from_filename,
+)
 
-DEMOZOO_TAG_REGEX = re.compile(r"\(demozoo-(\d+)\)", re.IGNORECASE)
+DEMOZOO_TAG_REGEX = provider_tag_regex("demozoo")
 DEMOZOO_PROD_ID_RE = re.compile(
     r"(?:demozoo\.org)/(?:api/v1/)?productions/(\d+)", re.IGNORECASE
 )
@@ -71,10 +76,7 @@ class DemozooRom(BaseRom):
 
 def extract_demozoo_id_from_filename(fs_name: str) -> int | None:
     """Extract Demozoo ID from a filename tag like ``(demozoo-108)``."""
-    match = DEMOZOO_TAG_REGEX.search(fs_name)
-    if match:
-        return int_or_none(match.group(1))
-    return None
+    return tag_id_from_filename(DEMOZOO_TAG_REGEX, fs_name)
 
 
 def demozoo_id_from_url(value: str) -> int | None:
@@ -509,16 +511,13 @@ class DemozooHandler(MetadataHandler):
         )
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
-        try:
+        async def probe() -> bool:
             data = await self._request(
                 f"{DEMOZOO_API_ROOT}/productions/?title=Second%20Reality"
             )
-        except Exception as exc:
-            log.error("Error checking Demozoo API: %s", exc)
-            return False
-        return bool(data.get("results"))
+            return bool(data.get("results"))
+
+        return await self._heartbeat("Demozoo API", probe)
 
     async def get_rom_by_id(self, demozoo_id: int) -> DemozooRom:
         if not self.is_enabled() or not demozoo_id:
