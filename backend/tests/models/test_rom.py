@@ -452,6 +452,22 @@ def test_alternative_names_join_every_providers_titles():
     assert rom.alternative_names == ["FF7", "Final Fantasy 7", "FFVII"]
 
 
+def test_alternative_names_keep_one_of_each_title_however_it_is_spaced():
+    rom = Rom(
+        name="3D Baseball",
+        igdb_metadata={"alternative_names": ["3D Baseball: The Majors"]},
+        ss_metadata={
+            "alternative_names": [
+                "3D Baseball: The Majors ",
+                "3D BASEBALL: THE MAJORS",
+                " ",
+            ]
+        },
+    )
+
+    assert rom.alternative_names == ["3D Baseball: The Majors"]
+
+
 def test_alternative_names_take_the_hand_set_titles_over_the_providers():
     rom = Rom(
         name="Final Fantasy VII",

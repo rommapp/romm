@@ -142,7 +142,8 @@ def source_titles(blob: Any, key: str) -> list[str]:
 
 
 def resolve_alternative_names(metadata: Mapping[str, Any]) -> list[str]:
-    """The hand-set titles, or every provider's when none are set, without repeats.
+    """The hand-set titles, or every provider's when none are set, each trimmed and
+    kept once however it is cased or spaced.
 
     Args:
         metadata: Each `ALTERNATIVE_NAME_SOURCES` column's value, by column name.
@@ -153,7 +154,10 @@ def resolve_alternative_names(metadata: Mapping[str, Any]) -> list[str]:
         for column, key in PROVIDER_ALTERNATIVE_NAME_SOURCES
         for title in source_titles(metadata.get(column), key)
     ]
-    return list(dict.fromkeys(titles))
+    unique: dict[str, str] = {}
+    for title in titles:
+        unique.setdefault(fold_search_title(title), " ".join(title.split()))
+    return [title for folded, title in unique.items() if folded]
 
 
 def compute_search_titles(name: str | None, metadata: Mapping[str, Any]) -> str:
