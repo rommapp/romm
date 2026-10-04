@@ -1,3 +1,4 @@
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from tests.factories import make_rom
@@ -72,7 +73,8 @@ def test_webrcade_feed_skips_roms_without_a_file(
     assert [item["title"] for item in items] == [rom.name]
 
 
-def test_tinfoil_feed(client: TestClient, platform: Platform, rom: Rom):
+@pytest.mark.parametrize("file_name", ["Test Switch.nsp", "Test Switch.NSP"])
+def test_tinfoil_feed(client: TestClient, platform: Platform, rom: Rom, file_name: str):
     platform = db_platform_handler.update_platform(
         platform.id,
         {"name": "Nintendo Switch", "slug": UPS.SWITCH, "fs_slug": UPS.SWITCH},
@@ -95,7 +97,7 @@ def test_tinfoil_feed(client: TestClient, platform: Platform, rom: Rom):
     db_rom_handler.add_rom_file(
         RomFile(
             rom_id=rom.id,
-            file_name="Test Switch.nsp",
+            file_name=file_name,
             file_path=rom.fs_path,
             file_size_bytes=456,
             sha1_hash="beadfeed",
