@@ -23,7 +23,7 @@ test.describe("Login", () => {
     await fillLoginForm(page, username, password);
 
     // The app bar's user name only renders once the session is established and
-    // the auth store holds a user -- a stronger signal than "the URL changed".
+    // the auth store holds a user, which a URL change alone doesn't prove.
     await expect(signedInUser(page)).toHaveText(username, {
       ignoreCase: true,
     });

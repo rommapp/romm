@@ -1,6 +1,6 @@
 # End-to-end tests (Playwright)
 
-The real app, in a real browser, against a real backend. Use these for behaviour that only shows up once everything is assembled; Vitest covers components in isolation.
+These tests drive the app in a real browser against a real backend, for behaviour that only shows up once everything is assembled. Vitest covers components in isolation.
 
 ## Run it
 

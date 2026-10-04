@@ -32,8 +32,7 @@ test.describe("Profile page role chip", { tag: "@page:user-profile" }, () => {
   test("still shows the role read-only", async ({ page }) => {
     await gotoOwnProfile(page);
 
-    // Identity row keeps the role visible -- removing the picker must not
-    // remove the information.
+    // The identity row still shows the role the picker no longer edits.
     const chip = page.locator(".r-v2-profile__role-tag");
     await expect(chip).toBeVisible();
     await expect(chip).toHaveText(/user/i);

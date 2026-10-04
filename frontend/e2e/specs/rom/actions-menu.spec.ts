@@ -39,8 +39,7 @@ test.describe(
       for (const action of WRITE_ACTIONS) {
         expect(labels, `"${action}" must not be offered`).not.toContain(action);
       }
-      // The actions they CAN perform are still there -- otherwise this spec would
-      // also pass against a menu that failed to render at all.
+      // Their own actions stay, so a menu that failed to render can't pass.
       expect(labels).toContain("Download");
       expect(labels).toContain("Add to favorites");
     });
