@@ -10,6 +10,7 @@ import storeCollections, {
   type VirtualCollection,
 } from "@/stores/collections";
 import type { SimpleRom } from "@/stores/roms";
+import { collectionFixture } from "@/utils/collection.fixtures";
 import { romFixture } from "@/utils/rom.fixtures";
 import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -130,7 +131,7 @@ vi.mock("@/v2/composables/useWebpSupport", () => ({
 }));
 
 function collection(id: number): Collection {
-  return { id, name: `Collection ${id}`, rom_count: 9000 } as Collection;
+  return collectionFixture({ id, name: `Collection ${id}`, rom_count: 9000 });
 }
 
 function virtualCollection(romCount: number): VirtualCollection {

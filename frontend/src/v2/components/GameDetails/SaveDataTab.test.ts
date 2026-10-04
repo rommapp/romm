@@ -2,8 +2,8 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserStateSchema } from "@/__generated__";
 import storeAuth from "@/stores/auth";
-import type { User } from "@/stores/users";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
+import { userFixture } from "@/utils/user.fixtures";
 import SaveDataTab from "./SaveDataTab.vue";
 
 vi.mock("vue-i18n");
@@ -60,7 +60,7 @@ function mountTab(states: UserStateSchema[]) {
 
 describe("SaveDataTab upload cores", () => {
   beforeEach(() => {
-    storeAuth().setCurrentUser({ id: 1 } as User);
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
   });
 
   it("offers an emulator configured in another case once", () => {
