@@ -68,7 +68,7 @@ class RetroAchievementsService:
         self.url = yarl.URL(base_url or "https://retroachievements.org/API")
 
     async def _request[T](
-        self, url: str, tp: type[T], request_timeout: int = 120
+        self, url: str, tp: type[T], request_timeout: float = 120
     ) -> T | None:
         """Fetch one endpoint, raising a 503 when the request fails.
 
@@ -92,8 +92,9 @@ class RetroAchievementsService:
             )
             res.raise_for_status()
             return _parse(tp, await res.read(), source=source)
-        except aiohttp.ServerTimeoutError:
-            # Retry the request once if it times out
+        except TimeoutError:
+            # A `total` timeout is a bare TimeoutError, which ServerTimeoutError
+            # subclasses; retry the request once.
             pass
         except aiohttp.ClientConnectionError as exc:
             log.critical(
@@ -127,7 +128,7 @@ class RetroAchievementsService:
             )
             res.raise_for_status()
             return _parse(tp, await res.read(), source=source)
-        except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as err:
+        except (aiohttp.ClientResponseError, TimeoutError) as err:
             raise _failed(err) from err
         except json.JSONDecodeError as exc:
             raise _failed(exc) from exc
