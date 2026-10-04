@@ -154,13 +154,13 @@ def test_updating_the_metadata_refreshes_the_aliases(ff9: Rom):
     assert _search_ids("ff9") == []
 
 
-def test_a_hand_added_title_finds_the_rom(ff9: Rom, unrelated: Rom):
+def test_hand_set_titles_replace_the_providers(ff9: Rom, unrelated: Rom):
     db_rom_handler.update_rom(
         ff9.id, {"manual_metadata": {"alternative_names": ["Пісня кристалів"]}}
     )
 
     assert _search_ids("пісня кристалів") == [ff9.id]
-    assert _search_ids("ff9") == [ff9.id]
+    assert _search_ids("ff9") == []
 
 
 def test_the_mariadb_search_matches_the_titles_column_in_one_fulltext_index():

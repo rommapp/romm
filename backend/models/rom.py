@@ -64,15 +64,15 @@ AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
 
-# (metadata column, key) of each provider's alternative titles, in precedence order.
+# (metadata column, key) of each provider's alternative titles.
 PROVIDER_ALTERNATIVE_NAME_SOURCES = (
     ("igdb_metadata", "alternative_names"),
     ("moby_metadata", "alternate_titles"),
     ("ss_metadata", "alternative_names"),
 )
-# Hand-added titles first, so the search text cap never drops one for a provider's.
+MANUAL_ALTERNATIVE_NAME_SOURCE = ("manual_metadata", "alternative_names")
 ALTERNATIVE_NAME_SOURCES = (
-    ("manual_metadata", "alternative_names"),
+    MANUAL_ALTERNATIVE_NAME_SOURCE,
     *PROVIDER_ALTERNATIVE_NAME_SOURCES,
 )
 
@@ -141,6 +141,21 @@ def source_titles(blob: Any, key: str) -> list[str]:
     return [title for title in names if isinstance(title, str)]
 
 
+def resolve_alternative_names(metadata: Mapping[str, Any]) -> list[str]:
+    """The hand-set titles, or every provider's when none are set, without repeats.
+
+    Args:
+        metadata: Each `ALTERNATIVE_NAME_SOURCES` column's value, by column name.
+    """
+    manual_column, manual_key = MANUAL_ALTERNATIVE_NAME_SOURCE
+    titles = source_titles(metadata.get(manual_column), manual_key) or [
+        title
+        for column, key in PROVIDER_ALTERNATIVE_NAME_SOURCES
+        for title in source_titles(metadata.get(column), key)
+    ]
+    return list(dict.fromkeys(titles))
+
+
 def compute_search_titles(name: str | None, metadata: Mapping[str, Any]) -> str:
     """Precompute `Rom.search_titles`: the folded name, then each folded alias.
 
@@ -148,11 +163,7 @@ def compute_search_titles(name: str | None, metadata: Mapping[str, Any]) -> str:
         metadata: Each `ALTERNATIVE_NAME_SOURCES` column's value, by column name.
     """
     sep = SEARCH_TITLE_SEPARATOR
-    aliases = (
-        title
-        for column, key in ALTERNATIVE_NAME_SOURCES
-        for title in source_titles(metadata.get(column), key)
-    )
+    aliases = resolve_alternative_names(metadata)
     folded_name = fold_search_title(name or "")
     value = sep + folded_name + sep
     for alias in dict.fromkeys(fold_search_title(title) for title in aliases):
@@ -1260,17 +1271,13 @@ class Rom(BaseModel):
 
     @property
     def alternative_names(self) -> list[str]:
-        """The titles of the first provider that has any, then the hand-added ones."""
-        provider_names = next(
-            (
-                names
-                for column, key in PROVIDER_ALTERNATIVE_NAME_SOURCES
-                if (names := source_titles(getattr(self, column), key))
-            ),
-            [],
-        )
-        manual_names = source_titles(self.manual_metadata, "alternative_names")
-        return list(dict.fromkeys([*provider_names, *manual_names]))
+        """Every title `resolve_alternative_names` finds, but the displayed name."""
+        folded_name = fold_search_title(self.name or "")
+        return [
+            title
+            for title in resolve_alternative_names(alternative_name_metadata(self))
+            if fold_search_title(title) != folded_name
+        ]
 
     @cached_property
     def merged_ra_metadata(self) -> dict[str, Any] | None:
@@ -1399,12 +1406,14 @@ SEARCH_TITLE_COLUMNS = ("name", *(column for column, _ in ALTERNATIVE_NAME_SOURC
 ROM_VISIBILITY_COLUMNS = (Rom.id, Rom.platform_id, Rom.min_age)
 
 
+def alternative_name_metadata(rom: Rom) -> dict[str, Any]:
+    """Each `ALTERNATIVE_NAME_SOURCES` column's current value, by column name."""
+    return {column: getattr(rom, column) for column, _ in ALTERNATIVE_NAME_SOURCES}
+
+
 def rom_search_titles(rom: Rom) -> str:
     """`compute_search_titles` over the ROM's current name and metadata."""
-    return compute_search_titles(
-        rom.name,
-        {column: getattr(rom, column) for column, _ in ALTERNATIVE_NAME_SOURCES},
-    )
+    return compute_search_titles(rom.name, alternative_name_metadata(rom))
 
 
 @event.listens_for(Rom, "before_insert")

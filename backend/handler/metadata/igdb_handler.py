@@ -282,10 +282,17 @@ def extract_metadata_from_igdb_rom(
                     ]
                 )
             ),
-            "alternative_names": [
-                *_expanded_names(alternative_names),
-                *_expanded_names(game_localizations),
-            ],
+            # The canonical name too, so it stays searchable when a localized
+            # title is displayed.
+            "alternative_names": pydash.uniq(
+                pydash.compact(
+                    [
+                        rom.get("name"),
+                        *_expanded_names(alternative_names),
+                        *_expanded_names(game_localizations),
+                    ]
+                )
+            ),
             "collections": _expanded_names(collections),
             "game_modes": _expanded_names(game_modes),
             "companies": [
@@ -513,16 +520,6 @@ def build_igdb_rom(
     assert mark_list_expanded(rom_screenshots)
 
     localized_name, localized_cover = extract_localized_data(rom, preferred_locale)
-    igdb_metadata = extract_metadata_from_igdb_rom(handler, rom, platform_igdb_id)
-    # Keep every title except the displayed one, so the canonical name stays
-    # searchable when a localized title replaces it.
-    igdb_metadata["alternative_names"] = [
-        title
-        for title in pydash.uniq(
-            [rom.get("name", ""), *igdb_metadata["alternative_names"]]
-        )
-        if title and title != localized_name
-    ]
 
     return IGDBRom(
         igdb_id=rom["id"],
@@ -536,7 +533,7 @@ def build_igdb_rom(
             handler.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
             for s in rom_screenshots
         ],
-        igdb_metadata=igdb_metadata,
+        igdb_metadata=extract_metadata_from_igdb_rom(handler, rom, platform_igdb_id),
     )
 
 
