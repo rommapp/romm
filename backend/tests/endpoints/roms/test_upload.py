@@ -8,12 +8,12 @@ from uuid import UUID
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 from tests.redis_stubs import fail_expire, record_pipelines
 
 from endpoints.roms import upload as upload_endpoint
 from handler import rom_upload
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import sync_cache
 from models.platform import Platform
@@ -626,9 +626,7 @@ def test_start_into_rom_rejects_platform_mismatch(
     rom_upload_fs: Path,
 ):
     rom = _folder_rom(platform, admin_user, rom_upload_fs, {"game.bin": b"game"})
-    other = db_platform_handler.add_platform(
-        Platform(name="other", slug="other_slug", fs_slug="other_slug")
-    )
+    other = make_platform("other_slug", name="other")
 
     response = _start_into_rom(
         client,

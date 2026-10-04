@@ -25,6 +25,7 @@ const meta: Meta<typeof RComboboxField> = {
     disabled: { control: "boolean" },
     closableChips: { control: "boolean" },
     noSuggestions: { control: "boolean" },
+    allowCommas: { control: "boolean" },
   },
 };
 

@@ -36,6 +36,13 @@ const romCastRule = {
     "Build ROM fixtures with romFixture or detailedRomFixture from @/utils/rom.fixtures instead of a cast.",
 };
 
+const platformCastRule = {
+  selector:
+    "TSAsExpression[typeAnnotation.typeName.name=/^(Platform|PlatformSchema)$/]",
+  message:
+    "Build platform fixtures with platformFixture from @/utils/platform.fixtures instead of a cast.",
+};
+
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -335,12 +342,12 @@ export default tseslint.config(
       "src/layouts/**",
     ],
     rules: {
-      "no-restricted-syntax": ["error", romCastRule],
+      "no-restricted-syntax": ["error", romCastRule, platformCastRule],
     },
   },
   {
     files: ["src/v2/**/*.stories.ts"],
-    rules: { "no-restricted-syntax": ["error", romCastRule] },
+    rules: { "no-restricted-syntax": ["error", romCastRule, platformCastRule] },
   },
   // Keep last: Prettier owns formatting, so this switches off every
   // stylistic rule the two tools would otherwise fight over.

@@ -13,11 +13,10 @@ from unittest.mock import patch
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 
 from handler.database import (
     db_collection_handler,
-    db_platform_handler,
     db_rom_handler,
     roms_handler,
 )
@@ -31,13 +30,7 @@ from models.user import User
 
 @pytest.fixture
 def other_platform() -> Platform:
-    return db_platform_handler.add_platform(
-        Platform(
-            name="other_platform",
-            slug="other_platform_slug",
-            fs_slug="other_platform_slug",
-        )
-    )
+    return make_platform("other_platform_slug", name="other_platform")
 
 
 def test_get_random_rom_returns_a_rom(

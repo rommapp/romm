@@ -1,3 +1,5 @@
+import json
+import os
 import zipfile
 from collections.abc import Awaitable, Callable, Iterator
 from pathlib import Path
@@ -5,9 +7,12 @@ from unittest.mock import MagicMock
 
 import pytest
 from anyio import Path as AnyioPath
+from tests.rom_patcher_stubs import APPEND_PATCH, install_fake_node
 
 from utils.rom_patcher import (
+    PATCHER_SCRIPT,
     SUPPORTED_PATCH_EXTENSIONS,
+    PatcherError,
     PatcherInputError,
     apply_patch,
 )
@@ -349,3 +354,237 @@ async def test_apply_patch_rejects_unsupported_archive_format(tmp_path: Path):
             tmp_path / "patch.bps",
             tmp_path / "patched.7z",
         )
+
+
+@pytest.mark.asyncio
+async def test_apply_patch_rejects_a_member_name_for_a_raw_rom(tmp_path: Path):
+    with pytest.raises(PatcherInputError, match="requires a ZIP"):
+        await apply_patch(
+            tmp_path / "game.sfc",
+            tmp_path / "patch.bps",
+            tmp_path / "patched.sfc",
+            archive_member_name="game.sfc",
+        )
+
+
+class TestPatcherProcess:
+    """The Node subprocess, run as a stand-in `node` on PATH."""
+
+    @pytest.fixture
+    def files(self, tmp_path: Path) -> tuple[Path, Path, Path]:
+        rom = tmp_path / "game.sfc"
+        patch = tmp_path / "translation.bps"
+        rom.write_bytes(b"rom")
+        patch.write_bytes(b"+patch")
+        return rom, patch, tmp_path / "out" / "patched.sfc"
+
+    async def test_runs_the_patcher_script_on_the_three_paths(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        files: tuple[Path, Path, Path],
+    ):
+        rom, patch, output = files
+        output.parent.mkdir()
+        install_fake_node(
+            tmp_path,
+            monkeypatch,
+            f"open({str(tmp_path / 'argv.json')!r}, 'w').write(json.dumps(sys.argv[1:]))\n"
+            + APPEND_PATCH,
+        )
+
+        assert await apply_patch(rom, patch, output) is True
+
+        assert output.read_bytes() == b"rom+patch"
+        argv = json.loads((tmp_path / "argv.json").read_text())
+        assert argv == [str(PATCHER_SCRIPT), str(rom), str(patch), str(output)]
+
+    @pytest.mark.parametrize(
+        "stdout",
+        [
+            '{"success": true, "validated": false}',
+            # The PMSR format logs "a" and "b" while applying.
+            'a\nb\n{"success": true, "validated": false}',
+        ],
+        ids=["json_only", "after_log_lines"],
+    )
+    async def test_reports_a_source_checksum_mismatch(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        files: tuple[Path, Path, Path],
+        stdout: str,
+    ):
+        rom, patch, output = files
+        output.parent.mkdir()
+        install_fake_node(
+            tmp_path,
+            monkeypatch,
+            f"""
+            open(sys.argv[4], "wb").write(b"patched")
+            print({stdout!r})
+            """,
+        )
+
+        assert await apply_patch(rom, patch, output) is False
+
+    @pytest.mark.parametrize(
+        "stdout",
+        ["", "patched", "null", '{"success": true}'],
+        ids=["silent", "not_json", "not_an_object", "no_validated_key"],
+    )
+    async def test_an_unreported_validation_counts_as_validated(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        files: tuple[Path, Path, Path],
+        stdout: str,
+    ):
+        rom, patch, output = files
+        output.parent.mkdir()
+        install_fake_node(
+            tmp_path,
+            monkeypatch,
+            f"""
+            open(sys.argv[4], "wb").write(b"patched")
+            print({stdout!r}, end="")
+            """,
+        )
+
+        assert await apply_patch(rom, patch, output) is True
+
+    @pytest.mark.parametrize(
+        ("stderr", "message"),
+        [
+            ('{"success": false, "error": "Invalid patch"}', "Invalid patch"),
+            (
+                '(node:1) Warning: something\n{"success": false, "error": "Invalid patch"}',
+                "Invalid patch",
+            ),
+            ("Segmentation fault\n", "Segmentation fault"),
+            ('["not", "an", "object"]', '["not", "an", "object"]'),
+            ("", "Patching failed"),
+        ],
+        ids=["json_error", "after_a_warning", "plain_text", "json_list", "silent"],
+    )
+    async def test_a_failed_run_raises_its_error(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        files: tuple[Path, Path, Path],
+        stderr: str,
+        message: str,
+    ):
+        rom, patch, output = files
+        install_fake_node(
+            tmp_path,
+            monkeypatch,
+            f"""
+            sys.stderr.write({stderr!r})
+            sys.exit(2)
+            """,
+        )
+
+        with pytest.raises(PatcherError) as exc:
+            await apply_patch(rom, patch, output)
+
+        assert str(exc.value) == message
+        assert not isinstance(exc.value, PatcherInputError)
+
+    async def test_a_run_without_output_is_an_error(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        files: tuple[Path, Path, Path],
+    ):
+        rom, patch, output = files
+        install_fake_node(tmp_path, monkeypatch, 'print(json.dumps({"success": True}))')
+
+        with pytest.raises(PatcherError, match="did not produce an output file"):
+            await apply_patch(rom, patch, output)
+
+    async def test_a_hung_run_is_killed_at_the_timeout(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        files: tuple[Path, Path, Path],
+    ):
+        rom, patch, output = files
+        pid_file = tmp_path / "pid"
+        install_fake_node(
+            tmp_path,
+            monkeypatch,
+            f"""
+            open({str(pid_file)!r}, "w").write(str(os.getpid()))
+            time.sleep(30)
+            """,
+        )
+        monkeypatch.setattr(rom_patcher, "ROM_PATCHER_TIMEOUT", 1)
+
+        with pytest.raises(PatcherError, match="timed out after 1s"):
+            await apply_patch(rom, patch, output)
+
+        with pytest.raises(ProcessLookupError):
+            os.kill(int(pid_file.read_text()), 0)
+
+    async def test_a_zip_member_is_patched_through_the_process(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        source = tmp_path / "game.zip"
+        patch = tmp_path / "translation.bps"
+        output = tmp_path / "patched.zip"
+        _write_zip(source, {"game.sfc": b"rom", "readme.txt": b"hi"})
+        patch.write_bytes(b"+patch")
+        install_fake_node(tmp_path, monkeypatch, APPEND_PATCH)
+
+        assert await apply_patch(source, patch, output, "game.sfc") is True
+
+        with zipfile.ZipFile(output) as archive:
+            assert archive.read("game.sfc") == b"rom+patch"
+            assert archive.read("readme.txt") == b"hi"
+        assert sorted([p.name async for p in AnyioPath(tmp_path).iterdir()]) == [
+            "fake-node-bin",
+            "game.zip",
+            "patched.zip",
+            "translation.bps",
+        ]
+
+
+@pytest.mark.asyncio
+async def test_apply_patch_rejects_an_empty_zip(tmp_path: Path):
+    source = tmp_path / "game.zip"
+    _write_zip(source, {"saves/": b""})
+
+    with pytest.raises(PatcherInputError, match="contains no files"):
+        await apply_patch(source, tmp_path / "patch.bps", tmp_path / "patched.zip")
+
+
+@pytest.mark.asyncio
+async def test_apply_patch_rejects_a_zip_too_large_in_total(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    source = tmp_path / "game.zip"
+    _write_zip(source, {"game.sfc": b"rom", "extra.bin": b"x" * 8})
+    monkeypatch.setattr(rom_patcher, "ROM_PATCHER_MAX_FILE_SIZE_BYTES", 8)
+
+    with pytest.raises(PatcherInputError, match="archive is too large"):
+        await apply_patch(
+            source, tmp_path / "patch.bps", tmp_path / "patched.zip", "game.sfc"
+        )
+
+
+@pytest.mark.asyncio
+async def test_apply_patch_keeps_the_archives_folders(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    source = tmp_path / "game.zip"
+    _write_zip(source, {"docs/": b"", "game.sfc": b"source"})
+    monkeypatch.setattr(
+        rom_patcher, "_apply_binary_patch", _fake_patcher(b"source", b"patched")
+    )
+
+    await apply_patch(source, tmp_path / "patch.bps", tmp_path / "patched.zip")
+
+    with zipfile.ZipFile(tmp_path / "patched.zip") as archive:
+        assert archive.namelist() == ["docs/", "game.sfc"]
+        assert archive.read("game.sfc") == b"patched"

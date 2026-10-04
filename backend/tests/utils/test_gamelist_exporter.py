@@ -4,11 +4,11 @@ from pathlib import Path
 from xml.etree.ElementTree import fromstring
 
 import pytest
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 
 from config import FRONTEND_RESOURCES_PATH
 from config.config_manager import PLATFORM_MEDIA_DIRS
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_rom_handler
 from handler.filesystem import (
     fs_platform_handler,
     fs_resource_handler,
@@ -22,8 +22,7 @@ from utils.gamelist_exporter import GamelistExporter
 
 @pytest.fixture
 def platform_with_roms(admin_user: User):
-    platform = Platform(name="Super Nintendo", slug="snes", fs_slug="snes")
-    platform = db_platform_handler.add_platform(platform)
+    platform = make_platform("snes", name="Super Nintendo")
 
     rom = make_rom(
         platform,
@@ -67,8 +66,7 @@ def platform_with_roms(admin_user: User):
 
 @pytest.fixture
 def platform_with_minimal_rom(admin_user: User):
-    platform = Platform(name="Game Boy", slug="gb", fs_slug="gb")
-    platform = db_platform_handler.add_platform(platform)
+    platform = make_platform("gb", name="Game Boy")
 
     rom = make_rom(platform, "unknown", fs_extension="gb", name=None)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
@@ -200,8 +198,7 @@ def test_export_gamelist_xml_minimal_rom(platform_with_minimal_rom):
 
 
 def test_export_gamelist_xml_skips_missing_roms(admin_user: User):
-    platform = Platform(name="NES", slug="nes", fs_slug="nes")
-    platform = db_platform_handler.add_platform(platform)
+    platform = make_platform("nes", name="NES")
 
     make_rom(
         platform,
@@ -219,8 +216,7 @@ def test_export_gamelist_xml_skips_missing_roms(admin_user: User):
 
 
 def test_export_gamelist_xml_skips_physical_roms(admin_user: User):
-    platform = Platform(name="NES", slug="nes", fs_slug="nes")
-    platform = db_platform_handler.add_platform(platform)
+    platform = make_platform("nes", name="NES")
 
     make_rom(
         platform,
@@ -901,9 +897,7 @@ async def test_export_platform_to_file_keeps_comments_and_instructions(
 def platform_with_structured_roms(admin_user: User):
     """A platform whose roms sit in nested folders, as a custom library structure
     leaves them, with two of them sharing a file name."""
-    platform = db_platform_handler.add_platform(
-        Platform(name="Apple IIGS", slug="apple-iigs", fs_slug="apple-iigs")
-    )
+    platform = make_platform("apple-iigs", name="Apple IIGS")
     platform_fs_path = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
 
     roms = []

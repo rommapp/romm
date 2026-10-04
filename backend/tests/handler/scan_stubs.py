@@ -3,9 +3,8 @@
 import os
 from typing import Any
 
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 
-from handler.database import db_platform_handler
 from handler.scan_handler import ScanType, scan_rom
 from models.platform import Platform
 from models.rom import Rom
@@ -14,9 +13,7 @@ from utils.context import initialize_context
 
 def add_n64_platform(**overrides: Any) -> Platform:
     """Persist the N64 platform the scan tests match against."""
-    return db_platform_handler.add_platform(
-        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", **overrides)
-    )
+    return make_platform("n64", id=1, name="Nintendo 64", **overrides)
 
 
 def add_rom(platform: Platform, fs_name: str, title: str, **overrides: Any) -> Rom:

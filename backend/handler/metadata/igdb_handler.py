@@ -187,6 +187,7 @@ def extract_metadata_from_igdb_rom(
 ) -> IGDBMetadata:
     age_ratings = rom.get("age_ratings", [])
     alternative_names = rom.get("alternative_names", [])
+    game_localizations = rom.get("game_localizations", [])
     collections = rom.get("collections", [])
     dlcs = rom.get("dlcs", [])
     expanded_games = rom.get("expanded_games", [])
@@ -210,6 +211,7 @@ def extract_metadata_from_igdb_rom(
     assert mark_expanded(franchise)
     assert mark_list_expanded(age_ratings)
     assert mark_list_expanded(alternative_names)
+    assert mark_list_expanded(game_localizations)
     assert mark_list_expanded(collections)
     assert mark_list_expanded(dlcs)
     assert mark_list_expanded(expanded_games)
@@ -280,7 +282,17 @@ def extract_metadata_from_igdb_rom(
                     ]
                 )
             ),
-            "alternative_names": _expanded_names(alternative_names),
+            # The canonical name too, so it stays searchable when a localized
+            # title is displayed.
+            "alternative_names": pydash.uniq(
+                pydash.compact(
+                    [
+                        rom.get("name"),
+                        *_expanded_names(alternative_names),
+                        *_expanded_names(game_localizations),
+                    ]
+                )
+            ),
             "collections": _expanded_names(collections),
             "game_modes": _expanded_names(game_modes),
             "companies": [

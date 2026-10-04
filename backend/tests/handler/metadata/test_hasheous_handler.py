@@ -56,6 +56,31 @@ def test_involvements_are_optional():
     assert metadata["developers"] == []
 
 
+def test_alternative_names_hold_every_title_the_proxy_returns():
+    # Shaped as the proxy answers for IGDB game 427; a localization may have no name.
+    metadata = extract_metadata_from_igdb_rom(
+        {
+            "name": "Final Fantasy VII",
+            "alternative_names": {
+                "52451": {"id": 52451, "name": "FFVII"},
+                "2950": {"id": 2950, "name": "Финальная Фантазия 7"},
+            },
+            "game_localizations": {
+                "2948": {"id": 2948, "name": "파이널 판타지 VII", "region": 2},
+                "545": {"id": 545, "region": 4},
+                "20": {"id": 20, "name": "FFVII", "region": 3},
+            },
+        }
+    )
+
+    assert metadata["alternative_names"] == [
+        "Final Fantasy VII",
+        "FFVII",
+        "Финальная Фантазия 7",
+        "파이널 판타지 VII",
+    ]
+
+
 @pytest.mark.parametrize(
     "first_release_date",
     ["2005-03-14T00:00:00Z", "2005-03-14T00:00:00", "2005-03-14"],
