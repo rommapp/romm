@@ -94,28 +94,43 @@ onMounted(() => {
   if (audioEl.value) activate(audioEl.value);
 });
 
-onBeforeUnmount(() => {
+function disarmResume() {
   cancelResume?.abort();
+  cancelResume = null;
+}
+
+onBeforeUnmount(() => {
+  disarmResume();
   store.setAudioRef(null);
   chiptune.value?.close();
 });
 
-// Browsers refuse to start audio before the user interacts with the page, so a
-// session that was playing waits for the first click, tap or key press. It
-// starts once that press is handled, so a press on Play isn't undone by it.
+// Browsers refuse audio until the user interacts, so a session that was playing
+// starts after the first press is handled, leaving a press on Play intact.
 function resumeOnFirstInteraction(t: PlayerTrack, sink: SoundtrackSink) {
-  cancelResume = new AbortController();
+  const controller = new AbortController();
+  cancelResume = controller;
+  // A press that started a game, or that the browser didn't count as a
+  // gesture (Esc, a gamepad), leaves the session waiting for the next one.
+  const rearm = () => {
+    if (cancelResume === controller && track.value === t) {
+      resumeOnFirstInteraction(t, sink);
+    }
+  };
   const start = () => {
     if (musicBlocked.value) return;
-    cancelResume?.abort();
+    controller.abort();
     setTimeout(() => {
-      if (track.value === t && sink.paused) void sink.play().catch(() => {});
+      if (cancelResume !== controller || track.value !== t || !sink.paused)
+        return;
+      if (musicBlocked.value) rearm();
+      else void sink.play().catch(rearm);
     });
   };
   for (const name of ["click", "keyup"]) {
     window.addEventListener(name, start, {
       capture: true,
-      signal: cancelResume.signal,
+      signal: controller.signal,
     });
   }
 }
@@ -123,8 +138,7 @@ function resumeOnFirstInteraction(t: PlayerTrack, sink: SoundtrackSink) {
 watch(track, async (t) => {
   const el = audioEl.value;
   if (!el) return;
-  cancelResume?.abort();
-  cancelResume = null;
+  disarmResume();
   const resume = store.takePendingResume();
   resumedTrack = resume && t ? t : null;
   if (!t) {
@@ -180,6 +194,8 @@ watch(track, async (t) => {
 const sinkHandlers: Record<string, () => void> = {
   play() {
     resumedTrack = null;
+    // Started some other way (a media key), so a later press mustn't restart it.
+    disarmResume();
     store.setPlaying(true);
     setBuffered();
   },

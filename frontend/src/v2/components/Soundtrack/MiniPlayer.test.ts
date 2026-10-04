@@ -7,11 +7,13 @@ import MiniPlayer from "./MiniPlayer.vue";
 
 vi.mock("vue-i18n");
 
-const smAndDown = vi.hoisted(() => ({ value: false }));
-vi.mock("@/v2/composables/useBreakpoint", async () => {
-  const { toRef } = await import("vue");
-  return { useBreakpoint: () => ({ smAndDown: toRef(smAndDown, "value") }) };
+const smAndDown = await vi.hoisted(async () => {
+  const { ref } = await import("vue");
+  return ref(false);
 });
+vi.mock("@/v2/composables/useBreakpoint", () => ({
+  useBreakpoint: () => ({ smAndDown }),
+}));
 
 vi.mock("@/v2/composables/useMediaSession", () => ({
   useMediaSession: vi.fn(),
@@ -186,6 +188,46 @@ describe("MiniPlayer restored session", () => {
     window.dispatchEvent(new Event("click"));
     vi.advanceTimersByTime(0);
     expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps waiting when the press itself starts a game", async () => {
+    const { play } = await mountRestored(true);
+    smAndDown.value = true;
+    const button = document.body.appendChild(document.createElement("button"));
+    button.addEventListener("click", () => storePlaying().setStageActive(true));
+
+    button.click();
+    vi.advanceTimersByTime(0);
+    expect(play).not.toHaveBeenCalled();
+
+    storePlaying().setStageActive(false);
+    window.dispatchEvent(new Event("click"));
+    vi.advanceTimersByTime(0);
+    expect(play).toHaveBeenCalledTimes(1);
+    button.remove();
+  });
+
+  it("tries again on the next press when the start is refused", async () => {
+    const { play } = await mountRestored(true);
+    play.mockRejectedValueOnce(new Error("NotAllowedError"));
+
+    window.dispatchEvent(new Event("keyup"));
+    vi.advanceTimersByTime(0);
+    await flushPromises();
+    window.dispatchEvent(new Event("keyup"));
+    vi.advanceTimersByTime(0);
+
+    expect(play).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops waiting once playback starts another way", async () => {
+    const { audio, play } = await mountRestored(true);
+
+    audio.dispatchEvent(new Event("play"));
+    window.dispatchEvent(new Event("click"));
+    vi.advanceTimersByTime(0);
+
+    expect(play).not.toHaveBeenCalled();
   });
 
   it("waits for a play press when the session was paused", async () => {

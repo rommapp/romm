@@ -73,6 +73,7 @@ describe("readStoredSession", () => {
     JSON.stringify({ userId: 1, session: {} }),
     JSON.stringify({ userId: 1, session: { ...session, meta: undefined } }),
     JSON.stringify({ userId: 1, session: { ...session, playlist: [{}] } }),
+    JSON.stringify({ userId: 1, session: { ...session, isShuffled: "no" } }),
   ])("fails safe on %s", (raw) => {
     expect(readStoredSession(raw)).toBeNull();
   });

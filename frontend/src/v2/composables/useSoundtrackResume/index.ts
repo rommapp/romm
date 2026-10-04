@@ -50,7 +50,11 @@ function isStoredSession(value: unknown): value is StoredSession {
     isTrackList(session.playlist) &&
     isTrackList(session.originalPlaylist) &&
     isRecord(session.playlistMeta) &&
-    typeof session.position === "number"
+    typeof session.isShuffled === "boolean" &&
+    (session.activePlaylistRomId === null ||
+      typeof session.activePlaylistRomId === "number") &&
+    typeof session.position === "number" &&
+    typeof session.wasPlaying === "boolean"
   );
 }
 
@@ -77,6 +81,8 @@ export function useSoundtrackResume() {
       writeDefaults: false,
       // A save from "pagehide" has to land before the page unloads.
       flush: "sync",
+      // Only a new save writes; the session holds the player's live queue.
+      deep: false,
       serializer: { read: readStoredSession, write: JSON.stringify },
     },
   );
@@ -102,7 +108,10 @@ export function useSoundtrackResume() {
     );
   });
 
-  watchDebounced(session, save, { debounce: 1000, maxWait: 5000 });
+  watchDebounced(() => (resumeMusic.value ? session.value : null), save, {
+    debounce: 1000,
+    maxWait: 5000,
+  });
   useEventListener(window, "pagehide", save);
   watch(resumeMusic, (enabled) => {
     if (enabled) save();
