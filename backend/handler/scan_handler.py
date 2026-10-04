@@ -1862,9 +1862,6 @@ async def refresh_provider_media(
 ) -> dict[str, dict[str, Any]]:
     """Bring a rom's provider media in line with re-matched metadata.
 
-    Providers share media paths, so all of them are compared at once and then
-    stored in priority order: a lower-priority provider fills a path the new
-    match left empty.
 
     Args:
         rom: The rom, still holding each provider's stored metadata.
