@@ -48,7 +48,7 @@ withDefaults(defineProps<Props>(), {
   text-transform: uppercase;
 }
 .r-section-label--md {
-  font-size: 11px;
+  font-size: 12px;
 }
 .r-section-label--sm {
   font-size: var(--r-font-size-xs);
@@ -65,7 +65,7 @@ withDefaults(defineProps<Props>(), {
 
 /* Whole-pixel glyph sizes keep the icon centred on the text. */
 .r-section-label--md .r-section-label__icon {
-  font-size: 13px;
+  font-size: 14px;
 }
 .r-section-label--sm .r-section-label__icon {
   font-size: 12px;
