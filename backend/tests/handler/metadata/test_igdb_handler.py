@@ -1053,6 +1053,7 @@ class TestTwitchAuth:
             {"access_token": "t", "expires_in": 0},
             {"access_token": "t", "expires_in": None},
             {"access_token": "t", "expires_in": "100"},
+            {"access_token": "t", "expires_in": True},
             {"access_token": 7, "expires_in": 100},
         ],
         ids=[
@@ -1060,6 +1061,7 @@ class TestTwitchAuth:
             "no_lifetime",
             "null_lifetime",
             "text_lifetime",
+            "boolean_lifetime",
             "number_token",
         ],
     )

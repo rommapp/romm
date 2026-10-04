@@ -1003,7 +1003,12 @@ class TwitchAuth(MetadataHandler):
             return ""
         token = response_json.get("access_token")
         expires_in = response_json.get("expires_in")
-        if not isinstance(token, str) or not isinstance(expires_in, int):
+        # bool subclasses int, so a JSON `true` would otherwise pass as a lifetime.
+        if (
+            not isinstance(token, str)
+            or not isinstance(expires_in, int)
+            or isinstance(expires_in, bool)
+        ):
             log.error("Twitch sent a token response with missing or invalid fields")
             return ""
 
