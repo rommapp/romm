@@ -140,7 +140,7 @@ e2e/
 - **Environment:** every `E2E_*` variable comes from the shell, then `e2e/.env`, then a default that matches the seed script. CI uses the defaults.
 - **Server:** with `E2E_BASE_URL` unset, the config's `webServer` starts one: `npm run dev` locally (reusing one already running), the static build under `vite preview` in CI. Otherwise it tests that URL as served.
 - **Sign-in:** `setup/auth.setup.ts` signs each account in at the start of every run and saves the session for the specs. `login.spec.ts` is the only spec that drives the login form.
-- **Timeouts:** 10s per test locally, so failures are fast; CI keeps longer ones. They switch off while debugging.
+- **Timeouts:** the same locally and in CI (45s per test), so a test passes or fails the same way in both. They switch off while debugging.
 - **App errors:** if an `/api` call returns 5xx or the app throws, the test fails at once and names the request (for example `GET /api/roms returned 500`) instead of timing out on an element.
 - **Output:** everything the suite writes goes under `.output/`, through the paths in `support/output.ts`.
 - **Checks:** `npm run typecheck` covers the suite through `tsconfig.node.json` (`typecheck:scripts` checks just that project), and lint rules live in `eslint.e2e.config.js`.

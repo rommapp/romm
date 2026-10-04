@@ -9,20 +9,19 @@ try {
 } catch (error) {
   if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
 }
-// Unset, the config serves this checkout itself at SERVED_URL (see webServer).
-const baseURL = process.env.E2E_BASE_URL;
+// Unset or empty, the config serves this checkout itself at SERVED_URL (see
+// webServer).
+const baseURL = process.env.E2E_BASE_URL || undefined;
 const SERVED_URL = "http://127.0.0.1:3000";
 
 const isCI = !!process.env.CI;
 // A test paused on a breakpoint must not be killed by the timeouts below.
+// Playwright only lifts them itself for `--debug`, not an attached debugger.
 const debugging = !!process.env.PWDEBUG || inspectorUrl() !== undefined;
-// Local runs fail fast; CI allows for a slower shared runner. 0 means no
-// timeout.
+// 0 means no timeout.
 const TIMEOUTS = debugging
   ? { test: 0, expect: 0, action: 0, navigation: 0 }
-  : isCI
-    ? { test: 45_000, expect: 10_000, action: 15_000, navigation: 30_000 }
-    : { test: 10_000, expect: 3_000, action: 5_000, navigation: 5_000 };
+  : { test: 45_000, expect: 10_000, action: 15_000, navigation: 30_000 };
 
 export default defineConfig({
   testDir: "./e2e/specs",
@@ -40,10 +39,11 @@ export default defineConfig({
     [isCI ? "github" : "list"],
     ["html", { outputFolder: REPORT_DIR, open: "never" }],
   ],
-  // A test that genuinely needs longer uses `test.setTimeout`.
+  // A test that genuinely needs longer calls `test.slow()`.
   timeout: TIMEOUTS.test,
   expect: { timeout: TIMEOUTS.expect },
   use: {
+    ...devices["Desktop Chrome"],
     baseURL: baseURL ?? SERVED_URL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
@@ -61,14 +61,12 @@ export default defineConfig({
     {
       name: "setup",
       testDir: "./e2e/setup",
-      testMatch: /.*\.setup\.ts/,
+      testMatch: /\.setup\.ts$/,
       // A cold dev server can reload the page mid-sign-in.
       retries: 2,
-      use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
     },
   ],

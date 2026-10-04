@@ -7,12 +7,12 @@ const { env } = process;
 // the ones .github/scripts/seed_e2e_users.py creates.
 export const ACCOUNTS = {
   admin: {
-    username: env.E2E_ADMIN_USERNAME ?? "e2e_admin",
-    password: env.E2E_ADMIN_PASSWORD ?? "e2e-Passw0rd!",
+    username: env.E2E_ADMIN_USERNAME || "e2e_admin",
+    password: env.E2E_ADMIN_PASSWORD || "e2e-Passw0rd!",
   },
   viewer: {
-    username: env.E2E_VIEWER_USERNAME ?? "e2e_viewer",
-    password: env.E2E_VIEWER_PASSWORD ?? "e2e-Passw0rd!",
+    username: env.E2E_VIEWER_USERNAME || "e2e_viewer",
+    password: env.E2E_VIEWER_PASSWORD || "e2e-Passw0rd!",
   },
 };
 
