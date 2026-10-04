@@ -69,8 +69,6 @@ export function useSoundtrackResume() {
   const { session } = storeToRefs(player);
   const authStore = storeAuth();
 
-  // Written directly rather than through a synced ref, so other tabs don't
-  // re-parse the whole queue on every save.
   function write(stored: StoredSession | null) {
     try {
       if (stored) {

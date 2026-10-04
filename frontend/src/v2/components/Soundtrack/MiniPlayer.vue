@@ -102,7 +102,7 @@ onBeforeUnmount(() => {
 });
 
 // Browsers refuse audio until the user interacts, so a session that was playing
-// starts after a press is handled, retrying until one counts (not Esc, a gamepad).
+// starts after a press is handled. Esc and gamepad presses don't count as one.
 function resumeOnFirstInteraction(sink: SoundtrackSink) {
   const controller = new AbortController();
   cancelResume = controller;
