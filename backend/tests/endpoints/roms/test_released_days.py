@@ -11,9 +11,9 @@ from datetime import date, datetime, timezone
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
@@ -40,13 +40,7 @@ def _dated_rom(platform: Platform, name: str, released: date) -> Rom:
 
 @pytest.fixture
 def other_platform() -> Platform:
-    return db_platform_handler.add_platform(
-        Platform(
-            name="other_platform",
-            slug="other_platform_slug",
-            fs_slug="other_platform_slug",
-        )
-    )
+    return make_platform("other_platform_slug", name="other_platform")
 
 
 def _get(client: TestClient, token: str, **params):

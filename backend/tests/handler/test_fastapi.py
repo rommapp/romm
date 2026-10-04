@@ -6,11 +6,11 @@ from unittest.mock import ANY, AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException, status
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 from tests.handler.scan_stubs import add_n64_platform, add_rom
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_rom_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_demozoo_handler,
@@ -73,10 +73,7 @@ async def test_scan_platform():
 
 @pytest.mark.vcr
 async def test_scan_rom():
-    platform = Platform(
-        id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
-    )
-    platform = db_platform_handler.add_platform(platform)
+    platform = make_platform("n64", id=1, name="Nintendo 64", igdb_id=4, hasheous_id=64)
 
     rom = Rom(
         platform_id=platform.id,
@@ -150,16 +147,9 @@ async def test_scan_rom_complete_clears_unselected_metadata(
     mock_lookup.return_value = (hasheous_result, True)
     mock_get_igdb.return_value = hasheous_result
 
-    platform = Platform(
-        id=1,
-        slug="n64",
-        fs_slug="n64",
-        name="Nintendo 64",
-        igdb_id=4,
-        ra_id=2,
-        hasheous_id=64,
+    platform = make_platform(
+        "n64", id=1, name="Nintendo 64", igdb_id=4, ra_id=2, hasheous_id=64
     )
-    platform = db_platform_handler.add_platform(platform)
 
     rom = make_rom(
         platform,
@@ -219,8 +209,7 @@ async def test_scan_rom_folds_extracted_title_id_values(
     stored_title_id: str | None,
     extracted_title_id: str | None,
 ):
-    platform = Platform(id=1, slug="switch", fs_slug="switch", name="Nintendo Switch")
-    platform = db_platform_handler.add_platform(platform)
+    platform = make_platform("switch", id=1, name="Nintendo Switch")
 
     rom = make_rom(
         platform,
@@ -289,15 +278,7 @@ async def test_scan_rom_unmatched_fetches_ra_when_id_set_but_no_metadata(
     mock_get_rom_by_id.return_value = ra_result
     mock_get_rom.return_value = RAGameRom(ra_id=None)
 
-    platform = Platform(
-        id=1,
-        slug="ps2",
-        fs_slug="ps2",
-        name="PlayStation 2",
-        igdb_id=8,
-        ra_id=21,
-    )
-    platform = db_platform_handler.add_platform(platform)
+    platform = make_platform("ps2", id=1, name="PlayStation 2", igdb_id=8, ra_id=21)
 
     # ROM has ra_id set manually but no ra_metadata (never fetched before)
     rom = make_rom(
@@ -347,15 +328,7 @@ async def test_scan_rom_unmatched_skips_ra_when_id_and_metadata_exist(
     mock_get_rom_by_id.return_value = RAGameRom(ra_id=None)
     mock_get_rom.return_value = RAGameRom(ra_id=None)
 
-    platform = Platform(
-        id=1,
-        slug="ps2",
-        fs_slug="ps2",
-        name="PlayStation 2",
-        igdb_id=8,
-        ra_id=21,
-    )
-    platform = db_platform_handler.add_platform(platform)
+    platform = make_platform("ps2", id=1, name="PlayStation 2", igdb_id=8, ra_id=21)
 
     # ROM has both ra_id and ra_metadata populated
     rom = make_rom(
@@ -413,10 +386,7 @@ async def test_scan_rom_unmatched_replaces_placeholder_name(
     mock_lookup.return_value = (hasheous_result, True)
     mock_get_igdb.return_value = hasheous_result
 
-    platform = Platform(
-        id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
-    )
-    platform = db_platform_handler.add_platform(platform)
+    platform = make_platform("n64", id=1, name="Nintendo 64", igdb_id=4, hasheous_id=64)
 
     # Never-matched ROM: name defaults to the raw filename and no provider ids set.
     rom = make_rom(
@@ -470,10 +440,7 @@ async def test_scan_rom_unmatched_preserves_custom_name(
     mock_lookup.return_value = (hasheous_result, True)
     mock_get_igdb.return_value = hasheous_result
 
-    platform = Platform(
-        id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
-    )
-    platform = db_platform_handler.add_platform(platform)
+    platform = make_platform("n64", id=1, name="Nintendo 64", igdb_id=4, hasheous_id=64)
 
     # ROM with a custom name that differs from its filename.
     rom = make_rom(
@@ -523,10 +490,7 @@ async def test_scan_rom_unmatched_no_match_uses_parsed_name(
     mock_lookup.return_value = (no_match, True)
     mock_get_igdb.return_value = no_match
 
-    platform = Platform(
-        id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
-    )
-    platform = db_platform_handler.add_platform(platform)
+    platform = make_platform("n64", id=1, name="Nintendo 64", igdb_id=4, hasheous_id=64)
 
     # Legacy ROM created before the fix: name holds the raw filename.
     rom = make_rom(
@@ -811,10 +775,7 @@ async def test_scan_rom_hashes_rematches_hasheous(
     mock_lookup.return_value = (hasheous_result, True)
     mock_get_igdb.return_value = hasheous_result
 
-    platform = Platform(
-        id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4, hasheous_id=64
-    )
-    platform = db_platform_handler.add_platform(platform)
+    platform = make_platform("n64", id=1, name="Nintendo 64", igdb_id=4, hasheous_id=64)
 
     # ROM that never matched Hasheous because its hashes were wrong.
     rom = make_rom(
@@ -889,16 +850,7 @@ async def test_scan_rom_hashes_clears_stale_hasheous_match(
     mock_lookup.return_value = (no_match, True)
     mock_get_igdb.return_value = no_match
 
-    platform = db_platform_handler.add_platform(
-        Platform(
-            id=1,
-            slug="n64",
-            fs_slug="n64",
-            name="Nintendo 64",
-            igdb_id=4,
-            hasheous_id=64,
-        )
-    )
+    platform = make_platform("n64", id=1, name="Nintendo 64", igdb_id=4, hasheous_id=64)
     rom = _stale_hasheous_rom(platform)
 
     async with initialize_context():
@@ -937,16 +889,7 @@ async def test_scan_rom_hashes_keeps_match_when_hasheous_unreachable(
     mock_lookup.return_value = (no_match, False)
     mock_get_igdb.return_value = no_match
 
-    platform = db_platform_handler.add_platform(
-        Platform(
-            id=1,
-            slug="n64",
-            fs_slug="n64",
-            name="Nintendo 64",
-            igdb_id=4,
-            hasheous_id=64,
-        )
-    )
+    platform = make_platform("n64", id=1, name="Nintendo 64", igdb_id=4, hasheous_id=64)
     rom = _stale_hasheous_rom(platform)
 
     async with initialize_context():
@@ -999,16 +942,7 @@ async def test_scan_rom_marks_an_ra_hash_match_hasheous_cannot_see(
     mock_ra_details.return_value = {"ID": 17353, "Title": "Game", "Achievements": {}}
     mock_ra_search.return_value = 17353
 
-    platform = db_platform_handler.add_platform(
-        Platform(
-            id=1,
-            slug="nds",
-            fs_slug="nds",
-            name="Nintendo DS",
-            ra_id=18,
-            hasheous_id=20,
-        )
-    )
+    platform = make_platform("nds", id=1, name="Nintendo DS", ra_id=18, hasheous_id=20)
     rom = make_rom(
         platform,
         "Game",
@@ -1137,9 +1071,7 @@ async def test_scan_rom_hashes_drops_an_ra_hash_match_the_new_hash_lost(
     """Only an RA lookup that answered clears the flag; a failed one keeps it."""
     mock_get_rom.side_effect = [ra_result]
 
-    platform = db_platform_handler.add_platform(
-        Platform(id=1, slug="nds", fs_slug="nds", name="Nintendo DS", ra_id=18)
-    )
+    platform = make_platform("nds", id=1, name="Nintendo DS", ra_id=18)
     rom = make_rom(
         platform,
         "Game",
@@ -1244,9 +1176,7 @@ async def test_scan_rom_says_an_unanswered_miss_is_not_confirmed(
     mock_lookup.return_value = (no_match, False)
     mock_get_igdb.return_value = no_match
 
-    platform = db_platform_handler.add_platform(
-        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", hasheous_id=64)
-    )
+    platform = make_platform("n64", id=1, name="Nintendo 64", hasheous_id=64)
 
     async with initialize_context():
         with _capture_romm_logs(caplog):
@@ -1268,9 +1198,7 @@ async def test_scan_rom_still_reports_a_confirmed_miss_plainly(
     mock_lookup.return_value = (no_match, True)
     mock_get_igdb.return_value = no_match
 
-    platform = db_platform_handler.add_platform(
-        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", hasheous_id=64)
-    )
+    platform = make_platform("n64", id=1, name="Nintendo 64", hasheous_id=64)
 
     async with initialize_context():
         with _capture_romm_logs(caplog):
@@ -1297,9 +1225,7 @@ async def test_scan_rom_does_not_blame_a_disabled_hasheous(
     mock_lookup.return_value = (no_match, False)
     mock_get_igdb.return_value = no_match
 
-    platform = db_platform_handler.add_platform(
-        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", hasheous_id=64)
-    )
+    platform = make_platform("n64", id=1, name="Nintendo 64", hasheous_id=64)
 
     async with initialize_context():
         with _capture_romm_logs(caplog):
@@ -1320,9 +1246,7 @@ async def test_scan_rom_says_a_screenscraper_outage_is_not_confirmed(
     reset_rate_limited_roms()
     mock_ss_lookup.side_effect = ScreenScraperRateLimitError()
 
-    platform = db_platform_handler.add_platform(
-        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", ss_id=4)
-    )
+    platform = make_platform("n64", id=1, name="Nintendo 64", ss_id=4)
 
     async with initialize_context():
         with _capture_romm_logs(caplog):
@@ -1503,15 +1427,7 @@ async def test_lookup_rom_skips_request_when_no_hashes(mock_is_enabled, mock_req
 
 
 def _ss_quota_platform() -> Platform:
-    platform = Platform(
-        id=1,
-        slug="snes",
-        fs_slug="snes",
-        name="Super Nintendo",
-        ss_id=4,
-        moby_id=15,
-    )
-    return db_platform_handler.add_platform(platform)
+    return make_platform("snes", id=1, name="Super Nintendo", ss_id=4, moby_id=15)
 
 
 def _ss_quota_fs_rom(fs_name: str, fs_path: str = "n64/roms") -> FSRom:
@@ -1607,15 +1523,8 @@ async def test_scan_rom_hash_match_error_does_not_abort_scan(
     )
     mock_ss_lookup.return_value = (SSRom(ss_id=321, name="Match"), False)
 
-    platform = db_platform_handler.add_platform(
-        Platform(
-            id=1,
-            slug="snes",
-            fs_slug="snes",
-            name="Super Nintendo",
-            ss_id=4,
-            hasheous_id=7,
-        )
+    platform = make_platform(
+        "snes", id=1, name="Super Nintendo", ss_id=4, hasheous_id=7
     )
     rom = make_rom(platform, "game", fs_extension="sfc", fs_path="snes", tags=[])
     fs_rom = _ss_quota_fs_rom("game.sfc")
@@ -1655,9 +1564,7 @@ async def test_scan_rom_ss_rate_limit_skips_the_rom_without_further_lookups(
     reset_rate_limited_roms()
     mock_ss_lookup.side_effect = ScreenScraperRateLimitError()
 
-    platform = db_platform_handler.add_platform(
-        Platform(id=1, slug="snes", fs_slug="snes", name="SNES", ss_id=4)
-    )
+    platform = make_platform("snes", id=1, name="SNES", ss_id=4)
     rom = make_rom(platform, "game", fs_extension="sfc", fs_path="snes", tags=[])
 
     async with initialize_context():
@@ -1679,15 +1586,7 @@ async def test_scan_rom_ss_rate_limit_skips_the_rom_without_further_lookups(
 
 
 def _amiga_platform() -> Platform:
-    return db_platform_handler.add_platform(
-        Platform(
-            id=1,
-            slug="amiga",
-            fs_slug="amiga",
-            name="Commodore Amiga",
-            igdb_id=16,
-        )
-    )
+    return make_platform("amiga", id=1, name="Commodore Amiga", igdb_id=16)
 
 
 @patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
@@ -1796,9 +1695,7 @@ async def test_scan_rom_flags_new_roms_and_writes_existing_ones(
     newly_added: bool, mocker
 ):
     """Clients count a ROM off `is_new`, and only an existing one is written first."""
-    platform = db_platform_handler.add_platform(
-        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64")
-    )
+    platform = make_platform("n64", id=1, name="Nintendo 64")
     rom = make_rom(platform, "Game", fs_extension="z64", fs_path="n64", tags=[])
     socket_manager = AsyncMock()
 

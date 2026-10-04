@@ -3,12 +3,12 @@ from typing import cast
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 
 from config import FRONTEND_RESOURCES_PATH
 from endpoints.responses.music import MusicTrackSchema
 from handler.auth.rom_visibility import RomVisibilityFilter
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
 from models.user import User
@@ -16,12 +16,6 @@ from models.user import User
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
-
-
-def _make_platform(slug: str) -> Platform:
-    return db_platform_handler.add_platform(
-        Platform(name=slug, slug=slug, fs_slug=slug)
-    )
 
 
 def _make_track(
@@ -81,8 +75,8 @@ def _make_untagged_track(admin_id: int, platform: Platform, file_name: str) -> N
 
 @pytest.fixture
 def music_library(admin_user: User):
-    pa = _make_platform("genesis")
-    pb = _make_platform("nes")
+    pa = make_platform("genesis")
+    pb = make_platform("nes")
     sonic = _make_track(
         admin_user.id,
         pa,
@@ -348,7 +342,7 @@ def test_facet_years_typeahead(client: TestClient, access_token: str, music_libr
     [
         ("/api/music/artists", "value", "k_shiro", "oshi", {"Koshiro"}),
         ("/api/music/years", "value", "19_1", "991", {1991}),
-        ("/api/music/platforms", "name", "g_nesis", "enes", {"genesis"}),
+        ("/api/music/platforms", "name", "g_nesis", "enes", {"Genesis"}),
         ("/api/music/games", "name", "s_nic", "oni", {"Sonic"}),
     ],
 )
