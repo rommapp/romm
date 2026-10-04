@@ -16,18 +16,22 @@ async function negotiate({
   romIds,
   saves,
   restoreUnlisted = false,
+  emulators,
 }: {
   deviceId: string;
   romIds: number[];
   saves: ClientSaveState[];
   /** Offer server saves the client did not list, even ones it synced before. */
   restoreUnlisted?: boolean;
+  /** Only pair and offer server saves these emulators wrote. */
+  emulators?: string[];
 }) {
   return api.post<SyncNegotiateResponse>("/sync/negotiate", {
     device_id: deviceId,
     rom_ids: romIds,
     saves,
     restore_unlisted: restoreUnlisted,
+    emulators,
   });
 }
 

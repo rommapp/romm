@@ -118,6 +118,14 @@ class SyncNegotiatePayload(BaseModel):
             "can be evicted), so a missing save means lost rather than deleted."
         ),
     )
+    emulators: list[str] | None = Field(
+        default=None,
+        description=(
+            "Emulators whose saves this client can load. When provided, only "
+            "server saves written by one of them are paired or offered, so a "
+            "save from another emulator in the same slot is left alone."
+        ),
+    )
 
 
 # Its own class so the OpenAPI schema keeps the name clients generate from.
@@ -227,6 +235,8 @@ def negotiate_sync(
     server_saves = db_save_handler.get_saves(
         user_id=request.user.id, slot_not_null=True, rom_ids=rom_id_scope
     )
+    if payload.emulators is not None:
+        server_saves = [s for s in server_saves if s.emulator in payload.emulators]
     server_save_map: dict[tuple[int, str | None], Save] = {}
     for save in server_saves:
         key = (save.rom_id, save.slot)
