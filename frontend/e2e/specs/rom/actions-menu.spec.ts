@@ -2,7 +2,6 @@ import {
   gotoFirstRom,
   menuLabels,
   openMoreMenu,
-  seedUiState,
   STORAGE_STATE,
 } from "../../support/auth";
 import { expect, test } from "../../support/test";
@@ -18,12 +17,11 @@ const WRITE_ACTIONS = [
 
 test.describe(
   "ROM more-actions menu (read-only user)",
-  { tag: "@page:gameDetails" },
+  { tag: "@page:rom" },
   () => {
     test.use({ storageState: STORAGE_STATE.viewer });
 
     test("is offered no write or destructive action", async ({ page }) => {
-      await seedUiState(page, "dark");
       await gotoFirstRom(page);
       await openMoreMenu(page);
 
@@ -38,7 +36,6 @@ test.describe(
     });
 
     test("has no trailing separator", async ({ page }) => {
-      await seedUiState(page, "dark");
       await gotoFirstRom(page);
       const panel = await openMoreMenu(page);
 
@@ -59,7 +56,7 @@ test.describe(
     });
 
     test("renders in light theme too", async ({ page }) => {
-      await seedUiState(page, "light");
+      await page.emulateMedia({ colorScheme: "light" });
       await gotoFirstRom(page);
       await expect(page.locator("html")).toHaveClass(/\br-v2-light\b/);
       const panel = await openMoreMenu(page);
@@ -72,28 +69,23 @@ test.describe(
   },
 );
 
-test.describe(
-  "ROM more-actions menu (admin)",
-  { tag: "@page:gameDetails" },
-  () => {
-    test.use({ storageState: STORAGE_STATE.admin });
+test.describe("ROM more-actions menu (admin)", { tag: "@page:rom" }, () => {
+  test.use({ storageState: STORAGE_STATE.admin });
 
-    test("still gets every action", async ({ page }) => {
-      await seedUiState(page, "dark");
-      await gotoFirstRom(page);
-      const panel = await openMoreMenu(page);
+  test("still gets every action", async ({ page }) => {
+    await gotoFirstRom(page);
+    const panel = await openMoreMenu(page);
 
-      // Polled: items appear as grants resolve, so a single read can catch the
-      // menu before they do.
-      for (const action of WRITE_ACTIONS) {
-        await expect
-          .poll(() => menuLabels(page), {
-            message: `"${action}" must still be offered to admins`,
-          })
-          .toContain(action);
-      }
-      // Primary | per-user | metadata | destructive => three dividers.
-      await expect(panel.locator('[role="separator"]')).toHaveCount(3);
-    });
-  },
-);
+    // Polled: items appear as grants resolve, so a single read can catch the
+    // menu before they do.
+    for (const action of WRITE_ACTIONS) {
+      await expect
+        .poll(() => menuLabels(page), {
+          message: `"${action}" must still be offered to admins`,
+        })
+        .toContain(action);
+    }
+    // Primary | per-user | metadata | destructive => three dividers.
+    await expect(panel.locator('[role="separator"]')).toHaveCount(3);
+  });
+});

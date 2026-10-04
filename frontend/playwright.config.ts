@@ -48,6 +48,8 @@ export default defineConfig<E2EOptions>({
     // The PWA service worker precaches ~9MB on every fresh context, competing
     // with the first navigation. Nothing here tests offline support.
     serviceWorkers: "block",
+    // The suite's theme is "auto" (see seedUiState), so this picks it.
+    colorScheme: "dark",
   },
   projects: [
     // Signs each fixture user in and saves the session (auth.setup.ts); specs

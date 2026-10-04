@@ -69,7 +69,7 @@ await page.pause();
 ```
 
 ```bash
-npx playwright test --debug e2e/specs/game-details/actions-menu.spec.ts
+npx playwright test --debug e2e/specs/rom/actions-menu.spec.ts
 ```
 
 The Inspector steps one action at a time, tries locators live, and records more steps. ESLint refuses a committed `page.pause()`.
@@ -111,7 +111,7 @@ Fix what it reports, then click **Refresh Tests** in the Testing sidebar.
 ```bash
 npm run test:e2e -- e2e/specs/auth/login.spec.ts
 npm run test:e2e -- -g "rejects a wrong password"
-npm run test:e2e -- --grep "@page:gameDetails\b"   # every test for one page (the keys of PAGES in specs/loads.spec.ts)
+npm run test:e2e -- --grep "@page:rom\b"   # every test for one page, by its route name
 ```
 
 ### Test another site

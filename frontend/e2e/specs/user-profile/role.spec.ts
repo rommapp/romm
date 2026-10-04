@@ -1,16 +1,15 @@
-import { gotoOwnProfile, seedUiState, STORAGE_STATE } from "../../support/auth";
+import { gotoOwnProfile, STORAGE_STATE } from "../../support/auth";
 import { expect, test } from "../../support/test";
 
 // A self-edit can't change the role, so the profile shows it read-only (#3954).
 for (const role of ["viewer", "admin"] as const) {
   test.describe(
     `Profile page role field (${role})`,
-    { tag: "@page:profile" },
+    { tag: "@page:user-profile" },
     () => {
       test.use({ storageState: STORAGE_STATE[role] });
 
       test("gets no editable role control", async ({ page }) => {
-        await seedUiState(page, "dark");
         await gotoOwnProfile(page);
 
         // The editable rows that SHOULD be there, so a blank page can't pass.
@@ -26,11 +25,10 @@ for (const role of ["viewer", "admin"] as const) {
   );
 }
 
-test.describe("Profile page role chip", { tag: "@page:profile" }, () => {
+test.describe("Profile page role chip", { tag: "@page:user-profile" }, () => {
   test.use({ storageState: STORAGE_STATE.viewer });
 
   test("still shows the role read-only", async ({ page }) => {
-    await seedUiState(page, "dark");
     await gotoOwnProfile(page);
 
     // Identity row keeps the role visible -- removing the picker must not

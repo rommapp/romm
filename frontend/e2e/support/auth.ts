@@ -97,12 +97,14 @@ export async function menuLabels(page: Page): Promise<string[]> {
   return page.locator('[role="menu"] .r-menu-item__label').allInnerTexts();
 }
 
-/** Force the v2 UI and a known theme before the app boots. */
-export async function seedUiState(page: Page, theme: "dark" | "light") {
-  await page.addInitScript((t) => {
+/** Force the v2 UI before the app boots, with the theme following the
+ *  browser's `colorScheme`. The app syncs these settings to the user's
+ *  account, so "auto" is the only theme the suite ever stores there. */
+export async function seedUiState(page: Page) {
+  await page.addInitScript(() => {
     // Init scripts also run in Chrome's own error page, which denies storage.
     if (!location.protocol.startsWith("http")) return;
-    const seeded = { "settings.uiVersion": "v2", "settings.theme": t };
+    const seeded = { "settings.uiVersion": "v2", "settings.theme": "auto" };
     // The app only adopts an unscoped value when the signed-in user has no
     // `user:<id>:` copy, and a saved session carries one.
     for (const key of Object.keys(localStorage)) {
@@ -112,5 +114,5 @@ export async function seedUiState(page: Page, theme: "dark" | "light") {
     for (const [key, value] of Object.entries(seeded)) {
       localStorage.setItem(key, value);
     }
-  }, theme);
+  });
 }

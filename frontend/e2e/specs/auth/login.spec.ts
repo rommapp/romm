@@ -12,7 +12,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 test.describe("Login", () => {
   test("signs in and lands on the app", async ({ page, e2eEnv }) => {
     const { username, password } = accountFor(e2eEnv, "viewer");
-    await seedUiState(page, "dark");
+    await seedUiState(page);
     await page.goto("/login");
 
     await fillLoginForm(page, username, password);
@@ -25,7 +25,7 @@ test.describe("Login", () => {
 
   test("rejects a wrong password and stays put", async ({ page, e2eEnv }) => {
     const { username } = accountFor(e2eEnv, "viewer");
-    await seedUiState(page, "dark");
+    await seedUiState(page);
     await page.goto("/login");
 
     await fillLoginForm(page, username, "definitely-not-it");
@@ -39,7 +39,7 @@ test.describe("Login", () => {
   test("an unauthenticated visitor is redirected to login", async ({
     page,
   }) => {
-    await seedUiState(page, "dark");
+    await seedUiState(page);
     await page.goto("/");
 
     await expect(page).toHaveURL(/\/login/);

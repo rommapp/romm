@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { gotoFirstRom, seedUiState, STORAGE_STATE } from "../../support/auth";
+import { gotoFirstRom, STORAGE_STATE } from "../../support/auth";
 import { expect, test } from "../../support/test";
 
 // A viewer gets no ROMS_WRITE upload or delete on the Media and Files tabs.
@@ -28,7 +28,7 @@ const ROM_SCOPED_SUBTABS = [
 
 test.describe(
   "Media tab write affordances (read-only user)",
-  { tag: "@page:gameDetails" },
+  { tag: "@page:rom" },
   () => {
     test.use({ storageState: STORAGE_STATE.viewer });
 
@@ -36,7 +36,6 @@ test.describe(
       test(`${subtab}: gets the empty state, not a dropzone`, async ({
         page,
       }) => {
-        await seedUiState(page, "dark");
         await gotoFirstRom(page);
         await openTab(page, "Media");
         await openSubtab(page, subtab);
@@ -58,7 +57,6 @@ test.describe(
     test("Screenshots: the shared ROM section is hidden but the per-user one stays writable", async ({
       page,
     }) => {
-      await seedUiState(page, "dark");
       await gotoFirstRom(page);
       await openTab(page, "Media");
       await openSubtab(page, "Screenshots");
@@ -77,13 +75,12 @@ test.describe(
 
 test.describe(
   "Media tab write affordances (admin)",
-  { tag: "@page:gameDetails" },
+  { tag: "@page:rom" },
   () => {
     test.use({ storageState: STORAGE_STATE.admin });
 
     for (const [subtab] of ROM_SCOPED_SUBTABS) {
       test(`${subtab}: still gets the dropzone`, async ({ page }) => {
-        await seedUiState(page, "dark");
         await gotoFirstRom(page);
         await openTab(page, "Media");
         await openSubtab(page, subtab);
@@ -99,7 +96,6 @@ test.describe(
     }
 
     test("Screenshots: sees the shared ROM section", async ({ page }) => {
-      await seedUiState(page, "dark");
       await gotoFirstRom(page);
       await openTab(page, "Media");
       await openSubtab(page, "Screenshots");
@@ -121,50 +117,41 @@ function uploadToFolderButton(page: Page): Locator {
   return page.getByRole("button", { name: "Upload to folder", exact: true });
 }
 
-test.describe(
-  "Files tab write affordances",
-  { tag: "@page:gameDetails" },
-  () => {
-    test.describe("read-only user", () => {
-      test.use({ storageState: STORAGE_STATE.viewer });
+test.describe("Files tab write affordances", { tag: "@page:rom" }, () => {
+  test.describe("read-only user", () => {
+    test.use({ storageState: STORAGE_STATE.viewer });
 
-      test("gets no upload button", async ({ page }) => {
-        await seedUiState(page, "dark");
-        await gotoFirstRom(page);
-        await openTab(page, "Files");
+    test("gets no upload button", async ({ page }) => {
+      await gotoFirstRom(page);
+      await openTab(page, "Files");
 
-        await expect(
-          page.locator(".r-v2-subtab-nav__btn").first(),
-        ).toBeVisible();
-        await expect(uploadButton(page)).toHaveCount(0);
-        await expect(uploadToFolderButton(page)).toHaveCount(0);
-      });
+      await expect(page.locator(".r-v2-subtab-nav__btn").first()).toBeVisible();
+      await expect(uploadButton(page)).toHaveCount(0);
+      await expect(uploadToFolderButton(page)).toHaveCount(0);
+    });
+  });
+
+  test.describe("admin", () => {
+    test.use({ storageState: STORAGE_STATE.admin });
+
+    test("gets Upload to folder from All files", async ({ page }) => {
+      await gotoFirstRom(page);
+      await openTab(page, "Files");
+
+      await expect(uploadToFolderButton(page)).toBeVisible();
+      await expect(uploadButton(page)).toHaveCount(0);
     });
 
-    test.describe("admin", () => {
-      test.use({ storageState: STORAGE_STATE.admin });
+    test("gets Upload from a folder subtab", async ({ page }) => {
+      await gotoFirstRom(page);
+      await openTab(page, "Files");
+      await page
+        .locator(".r-v2-subtab-nav__btn:not(.r-v2-subtab-nav__btn--active)")
+        .first()
+        .click();
 
-      test("gets Upload to folder from All files", async ({ page }) => {
-        await seedUiState(page, "dark");
-        await gotoFirstRom(page);
-        await openTab(page, "Files");
-
-        await expect(uploadToFolderButton(page)).toBeVisible();
-        await expect(uploadButton(page)).toHaveCount(0);
-      });
-
-      test("gets Upload from a folder subtab", async ({ page }) => {
-        await seedUiState(page, "dark");
-        await gotoFirstRom(page);
-        await openTab(page, "Files");
-        await page
-          .locator(".r-v2-subtab-nav__btn:not(.r-v2-subtab-nav__btn--active)")
-          .first()
-          .click();
-
-        await expect(uploadButton(page)).toBeVisible();
-        await expect(uploadToFolderButton(page)).toHaveCount(0);
-      });
+      await expect(uploadButton(page)).toBeVisible();
+      await expect(uploadToFolderButton(page)).toHaveCount(0);
     });
-  },
-);
+  });
+});

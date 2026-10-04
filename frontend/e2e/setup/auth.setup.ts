@@ -15,7 +15,7 @@ for (const role of ROLES) {
     setup.slow();
     const { username, password } = accountFor(e2eEnv, role);
 
-    await seedUiState(page, "dark");
+    await seedUiState(page);
     await page.goto("/login");
     const answered = page.waitForResponse(
       (r) => r.url().endsWith("/api/login") && r.request().method() === "POST",
