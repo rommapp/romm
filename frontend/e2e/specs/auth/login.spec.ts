@@ -7,12 +7,8 @@ import {
 } from "../../support/auth";
 import { expect, test } from "../../support/test";
 
-// The only spec that drives the login form. Every other spec starts from a
-// session saved by auth.setup.ts, so this is the single place the form, the
-// session cookie and the post-login redirect are actually exercised.
-//
-// It starts explicitly signed out, whatever sessions are saved in e2e/.output/auth/ or
-// set elsewhere in the config: exercising the form is the whole point.
+// The only spec that drives the login form; the others reuse auth.setup.ts's
+// sessions. It starts signed out, whatever sessions are saved.
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe("Login", () => {

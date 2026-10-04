@@ -50,9 +50,8 @@ export async function fillLoginForm(
   await form.locator('button[type="submit"]').click();
 }
 
-/** Force the v2 UI before the app boots, with the theme following the
- *  browser's `colorScheme`. The app syncs these settings to the user's
- *  account, so "auto" is the only theme the suite ever stores there. */
+/** Force the v2 UI before the app boots, and the "auto" theme, so the
+ *  browser's `colorScheme` picks it and the account never stores another. */
 export async function seedUiState(page: Page) {
   await page.addInitScript(() => {
     // Init scripts also run in Chrome's own error page, which denies storage.
