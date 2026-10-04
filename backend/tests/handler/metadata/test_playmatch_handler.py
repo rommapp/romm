@@ -1,12 +1,19 @@
+import asyncio
 import json
+from collections.abc import AsyncIterator
 from typing import Any, cast
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import httpx2
+import pytest
+import pytest_asyncio
+from fastapi import HTTPException, status
 
+from handler.metadata import playmatch_handler
 from handler.metadata.playmatch_handler import PlaymatchHandler
 from models.rom import Rom, RomFile
 from utils import get_version
+from utils.context import ctx_httpx_client
 
 
 @patch("handler.metadata.playmatch_handler.ctx_httpx_client")
@@ -293,3 +300,263 @@ async def test_suggestion_is_skipped_when_no_file_qualifies():
     rom.files = []
 
     assert await _captured_suggestion_payload(rom) is None
+
+
+class PlaymatchStub:
+    """Answers Playmatch requests through a real httpx2 client, scripting each reply."""
+
+    def __init__(self) -> None:
+        self.replies: list[httpx2.Response | Exception] = []
+        self.requests: list[httpx2.Request] = []
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        self.requests.append(request)
+        reply = self.replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+
+@pytest_asyncio.fixture
+async def playmatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> AsyncIterator[tuple[PlaymatchHandler, PlaymatchStub]]:
+    monkeypatch.setattr(playmatch_handler, "PLAYMATCH_API_ENABLED", True)
+    monkeypatch.setattr(playmatch_handler._rate_limiter, "acquire", AsyncMock())
+    # Swap only this module's reference, so httpx2 keeps its real sleep.
+    monkeypatch.setattr(
+        "handler.metadata.playmatch_handler.asyncio",
+        MagicMock(wraps=asyncio, sleep=AsyncMock()),
+    )
+    stub = PlaymatchStub()
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(stub))
+    token = ctx_httpx_client.set(client)
+    try:
+        yield PlaymatchHandler(), stub
+    finally:
+        ctx_httpx_client.reset(token)
+        await client.aclose()
+
+
+def _json(status_code: int, body: object) -> httpx2.Response:
+    return httpx2.Response(status_code, json=body)
+
+
+class TestRequest:
+    async def test_drops_empty_parameters_and_sends_a_romm_user_agent(
+        self, playmatch: tuple[PlaymatchHandler, PlaymatchStub]
+    ):
+        handler, stub = playmatch
+        stub.replies = [_json(200, {"gameMatchType": "MD5"})]
+
+        result = await handler._request(
+            handler.identify_url, {"fileName": "a.sfc", "md5": "", "sha1": None}
+        )
+
+        assert result == {"gameMatchType": "MD5"}
+        [request] = stub.requests
+        assert dict(request.url.params) == {"fileName": "a.sfc"}
+        assert request.headers["user-agent"] == f"RomM/{get_version()}"
+
+    async def test_a_rate_limited_request_backs_off_and_retries(
+        self, playmatch: tuple[PlaymatchHandler, PlaymatchStub]
+    ):
+        handler, stub = playmatch
+        stub.replies = [_json(429, {}), _json(200, {"ok": True})]
+
+        assert await handler._request(handler.identify_url, {}) == {"ok": True}
+        assert len(stub.requests) == 2
+
+    @pytest.mark.parametrize(
+        "replies",
+        [
+            [_json(429, {}), _json(429, {})],
+            [_json(500, {})],
+            [httpx2.ConnectError("refused")],
+            [httpx2.ReadTimeout("slow")],
+        ],
+        ids=["rate_limited_twice", "server_error", "unreachable", "timed_out"],
+    )
+    async def test_a_failed_request_is_unavailable(
+        self,
+        playmatch: tuple[PlaymatchHandler, PlaymatchStub],
+        replies: list[httpx2.Response | Exception],
+    ):
+        handler, stub = playmatch
+        stub.replies = list(replies)
+
+        with pytest.raises(HTTPException) as exc:
+            await handler._request(handler.identify_url, {})
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    @pytest.mark.parametrize(
+        "reply",
+        [httpx2.Response(200, content=b"<html>"), _json(200, ["not", "an", "object"])],
+        ids=["not_json", "not_an_object"],
+    )
+    async def test_an_unreadable_reply_is_empty(
+        self,
+        playmatch: tuple[PlaymatchHandler, PlaymatchStub],
+        reply: httpx2.Response,
+        lenient: MagicMock,
+    ):
+        handler, stub = playmatch
+        stub.replies = [reply]
+
+        assert await handler._request(handler.identify_url, {}) == {}
+
+
+def _match(*metadata: dict[str, object]) -> httpx2.Response:
+    return _json(200, {"gameMatchType": "MD5", "externalMetadata": list(metadata)})
+
+
+def _game_file() -> RomFile:
+    return _rom_file(file_name="game.sfc", file_size_bytes=100, md5_hash="abc")
+
+
+class TestLookupRom:
+    async def test_maps_each_provider_the_scan_uses(
+        self, playmatch: tuple[PlaymatchHandler, PlaymatchStub]
+    ):
+        handler, stub = playmatch
+        stub.replies = [
+            _match(
+                {"providerName": "IGDB", "providerId": "1"},
+                {"providerName": "MobyGames", "providerId": 2},
+                {"providerName": "SCREENSCRAPER", "providerId": "3"},
+                {"providerName": "LAUNCHBOX", "providerId": "4"},
+                {"providerName": "STEAMGRIDDB", "providerId": "5"},
+                # Suggestion-only tags and broken entries are skipped.
+                {"providerName": "RETRO_ACHIEVEMENTS", "providerId": "6"},
+                {"providerName": "NEW_PROVIDER", "providerId": "7"},
+                {"providerName": "IGDB", "providerId": "not-a-number"},
+                {"providerName": "", "providerId": "8"},
+                {"providerName": "MOBYGAMES"},
+            )
+        ]
+
+        result = await handler.lookup_rom([_game_file()])
+
+        assert {k: v for k, v in result.items() if v is not None} == {
+            "igdb_id": 1,
+            "moby_id": 2,
+            "ss_id": 3,
+            "launchbox_id": 4,
+            "sgdb_id": 5,
+        }
+        [request] = stub.requests
+        assert dict(request.url.params) == {
+            "fileName": "game.sfc",
+            "fileSize": "100",
+            "md5": "abc",
+        }
+
+    @pytest.mark.parametrize(
+        "reply",
+        [
+            _json(
+                200,
+                {
+                    "gameMatchType": "NoMatch",
+                    "externalMetadata": [{"providerName": "IGDB", "providerId": "1"}],
+                },
+            ),
+            _json(200, {"gameMatchType": "MD5", "externalMetadata": []}),
+            _json(200, {"gameMatchType": "MD5"}),
+            _json(200, {"gameMatchType": "MD5", "externalMetadata": None}),
+            _json(500, {}),
+        ],
+        ids=["no_match", "no_metadata", "metadata_absent", "metadata_null", "error"],
+    )
+    async def test_an_empty_or_failed_lookup_is_no_match(
+        self, playmatch: tuple[PlaymatchHandler, PlaymatchStub], reply: httpx2.Response
+    ):
+        handler, stub = playmatch
+        stub.replies = [reply]
+
+        result = await handler.lookup_rom([_game_file()])
+
+        assert set(result.values()) == {None}
+
+    async def test_disabled_asks_nothing(
+        self,
+        playmatch: tuple[PlaymatchHandler, PlaymatchStub],
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        handler, stub = playmatch
+        monkeypatch.setattr(playmatch_handler, "PLAYMATCH_API_ENABLED", False)
+
+        result = await handler.lookup_rom([_game_file()])
+
+        assert set(result.values()) == {None}
+        assert stub.requests == []
+
+
+class TestSuggestion:
+    def _rom(self, **ids: object) -> Rom:
+        rom = Rom(**ids)
+        rom.files = [_game_file()]
+        return rom
+
+    async def test_posts_every_tracked_provider_id(
+        self, playmatch: tuple[PlaymatchHandler, PlaymatchStub]
+    ):
+        handler, stub = playmatch
+        stub.replies = [_json(201, {})]
+
+        await handler.submit_manual_match_suggestion(
+            self._rom(igdb_id=1, ra_id=6, flashpoint_id="fp-uuid")
+        )
+
+        [request] = stub.requests
+        assert request.method == "POST"
+        assert str(request.url) == handler.suggestion_url
+        assert json.loads(request.content)["mappings"] == [
+            {"provider": "IGDB", "providerId": "1"},
+            {"provider": "RETRO_ACHIEVEMENTS", "providerId": "6"},
+            {"provider": "FLASHPOINT", "providerId": "fp-uuid"},
+        ]
+
+    async def test_a_rom_without_ids_posts_nothing(
+        self, playmatch: tuple[PlaymatchHandler, PlaymatchStub]
+    ):
+        handler, stub = playmatch
+
+        await handler.submit_manual_match_suggestion(self._rom())
+
+        assert stub.requests == []
+
+    async def test_disabled_posts_nothing(
+        self,
+        playmatch: tuple[PlaymatchHandler, PlaymatchStub],
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        handler, stub = playmatch
+        monkeypatch.setattr(playmatch_handler, "PLAYMATCH_API_ENABLED", False)
+
+        await handler.submit_manual_match_suggestion(self._rom(igdb_id=1))
+
+        assert stub.requests == []
+
+    async def test_a_failed_post_is_ignored(
+        self, playmatch: tuple[PlaymatchHandler, PlaymatchStub]
+    ):
+        handler, stub = playmatch
+        stub.replies = [_json(500, {})]
+
+        await handler.submit_manual_match_suggestion(self._rom(igdb_id=1))
+
+        assert len(stub.requests) == 1
+
+
+@pytest.mark.parametrize(
+    ("fields", "manual"),
+    [
+        ({"igdb_id", "name"}, True),
+        ({"gamelist_id"}, True),
+        ({"name", "summary"}, False),
+    ],
+)
+def test_a_form_with_a_provider_id_is_a_manual_match(fields: set[str], manual: bool):
+    assert PlaymatchHandler.is_manual_match(fields) is manual

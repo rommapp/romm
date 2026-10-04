@@ -258,7 +258,7 @@ class PlaymatchHandler(MetadataHandler):
             log.debug("No match found for the provided ROM file.")
             return fallback_rom
 
-        externalMetadata = response.get("externalMetadata", [])
+        externalMetadata = response.get("externalMetadata") or []
         if len(externalMetadata) == 0:
             log.debug("No external metadata found for the matched ROM file.")
             return fallback_rom
