@@ -2,7 +2,8 @@
 // InviteLinkDialog: v2-native rebuild of v1
 // `Settings/Administration/Users/Dialog/InviteLink.vue`. Picks a role +
 // expiry, generates an invite URL, and shows it in a copyable field.
-import { RBtn, RIcon, RSelect } from "@v2/lib";
+import { RBtn, RIcon, RSelect, RSliderBtnGroup } from "@v2/lib";
+import type { SliderBtnGroupItem } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import userApi from "@/services/api/user";
@@ -24,7 +25,13 @@ const fullInviteLink = ref("");
 const selectedRole = ref<string | null>(null);
 const selectedExpiration = ref<number>(86400);
 
-const roles = ["admin", "user"];
+const roleItems = computed<SliderBtnGroupItem<string>[]>(() =>
+  ["admin", "user"].map((role) => ({
+    id: role,
+    label: t(`settings.role-${role}`),
+    icon: getRoleIcon(role),
+  })),
+);
 const expirationOptions = computed(() => [
   { title: t("settings.expiry-1h"), value: 3600 },
   { title: t("settings.expiry-6h"), value: 21600 },
@@ -99,22 +106,13 @@ function close() {
     <template #content>
       <div class="r-v2-invite__field">
         <span class="r-v2-invite__label">{{ t("settings.role") }}</span>
-        <div class="r-v2-invite__role-row">
-          <button
-            v-for="role in roles"
-            :key="role"
-            type="button"
-            class="r-v2-invite__role-btn"
-            :class="{
-              'r-v2-invite__role-btn--active': selectedRole === role,
-            }"
-            :aria-pressed="selectedRole === role"
-            @click="selectedRole = role"
-          >
-            <RIcon :icon="getRoleIcon(role)" size="14" />
-            {{ t(`settings.role-${role}`) }}
-          </button>
-        </div>
+        <RSliderBtnGroup
+          v-model="selectedRole"
+          :items="roleItems"
+          variant="tab"
+          :aria-label="t('settings.role')"
+          class="r-v2-invite__roles"
+        />
       </div>
 
       <div class="r-v2-invite__field">
@@ -171,42 +169,8 @@ function close() {
   text-transform: uppercase;
   color: var(--r-color-fg-muted);
 }
-.r-v2-invite__role-row {
-  display: flex;
-  gap: 8px;
-}
-.r-v2-invite__role-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid var(--r-color-border);
-  background: var(--r-color-surface);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-secondary);
-  cursor: pointer;
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-invite__role-btn:hover {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
-}
-.r-v2-invite__role-btn--active,
-.r-v2-invite__role-btn--active:hover {
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-brand-primary) 60%,
-    transparent
-  );
-  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
-  color: var(--r-color-brand-primary);
+.r-v2-invite__roles {
+  align-self: flex-start;
 }
 .r-v2-invite__link {
   display: flex;

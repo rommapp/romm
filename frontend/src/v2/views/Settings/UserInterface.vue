@@ -16,6 +16,7 @@
 // `useUISettings` still exposes `platformsGroupBy` for v1; we just
 // don't surface it here.
 import { RBtn, RIcon, RSelect, RSliderBtnGroup, RChip } from "@v2/lib";
+import type { SliderBtnGroupItem } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
@@ -88,27 +89,23 @@ const {
 } = useUISettings();
 
 type Theme = "dark" | "light" | "auto";
-const themeOptions: { value: Theme; label: string; icon: string }[] = [
+const themeItems: SliderBtnGroupItem<Theme>[] = [
   {
-    value: "dark",
+    id: "dark",
     label: t("settings.theme-dark"),
     icon: "mdi-moon-waning-crescent",
   },
   {
-    value: "light",
+    id: "light",
     label: t("settings.theme-light"),
     icon: "mdi-white-balance-sunny",
   },
   {
-    value: "auto",
+    id: "auto",
     label: t("settings.theme-auto"),
     icon: "mdi-theme-light-dark",
   },
 ];
-
-function setTheme(value: Theme) {
-  selectedTheme.value = value;
-}
 
 // Cosmetic easter egg: toggle the persistent "CRT mode" shader; switching
 // it ON also fires the one-shot power-on warm-up flash.
@@ -233,20 +230,12 @@ function onVirtualCollectionTypeChange(value: unknown) {
 
     <SettingsSection :title="t('settings.theme')" icon="mdi-brush-variant">
       <div class="r-v2-ui__theme-row">
-        <button
-          v-for="opt in themeOptions"
-          :key="opt.value"
-          type="button"
-          class="r-v2-ui__theme-btn"
-          :class="{
-            'r-v2-ui__theme-btn--active': selectedTheme === opt.value,
-          }"
-          :aria-pressed="selectedTheme === opt.value"
-          @click="setTheme(opt.value)"
-        >
-          <RIcon :icon="opt.icon" size="14" />
-          <span>{{ opt.label }}</span>
-        </button>
+        <RSliderBtnGroup
+          v-model="selectedTheme"
+          :items="themeItems"
+          variant="tab"
+          :aria-label="t('settings.theme')"
+        />
       </div>
       <div
         class="r-v2-ui__toggle-grid r-v2-ui__toggle-grid--single r-v2-ui__toggle-grid--bordered"
@@ -628,46 +617,8 @@ html[data-bp~="xs"] .r-v2-ui__toggle-grid {
   grid-template-columns: 1fr;
 }
 
-/* Theme picker: 3 buttons in a flush row inside the section body. */
 .r-v2-ui__theme-row {
-  display: flex;
-  gap: 10px;
   padding: 16px;
-}
-.r-v2-ui__theme-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid var(--r-color-border);
-  background: var(--r-color-surface);
-  color: var(--r-color-fg-muted);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: var(--r-font-weight-medium);
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-ui__theme-btn:hover {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
-}
-.r-v2-ui__theme-btn--active {
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-brand-primary) 60%,
-    transparent
-  );
-  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
-  color: var(--r-color-brand-primary);
-}
-html[data-bp~="xs"] .r-v2-ui__theme-row {
-  flex-direction: column;
 }
 
 /* UI version cards (v2-only). */
