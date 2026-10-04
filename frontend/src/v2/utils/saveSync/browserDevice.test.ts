@@ -1,6 +1,6 @@
 import { AxiosError, AxiosHeaders } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { browserDeviceId } from "./browserDevice";
+import { browserDeviceId, cachedBrowserDeviceId } from "./browserDevice";
 
 const mocks = vi.hoisted(() => ({ registerDevice: vi.fn() }));
 
@@ -15,8 +15,7 @@ beforeEach(() => {
 });
 
 describe("browserDeviceId", () => {
-  it("registers this browser once per account, by its own id", async () => {
-    expect(await browserDeviceId(1)).toBe("device-1");
+  it("registers this browser under one id across accounts", async () => {
     expect(await browserDeviceId(1)).toBe("device-1");
     await browserDeviceId(2);
 
@@ -33,12 +32,19 @@ describe("browserDeviceId", () => {
     expect(second.hostname).toBe(first.hostname);
   });
 
-  it("registers again on refresh", async () => {
+  it("registers again each time, so a removed device comes back", async () => {
     await browserDeviceId(1);
     mocks.registerDevice.mockResolvedValue({ data: { device_id: "device-2" } });
 
-    expect(await browserDeviceId(1, { refresh: true })).toBe("device-2");
     expect(await browserDeviceId(1)).toBe("device-2");
+    expect(cachedBrowserDeviceId(1)).toBe("device-2");
+  });
+
+  it("falls back to the cached device when the server is unreachable", async () => {
+    await browserDeviceId(1);
+    mocks.registerDevice.mockRejectedValue(new AxiosError("offline", "ERR"));
+
+    expect(await browserDeviceId(1)).toBe("device-1");
   });
 
   it("gives no device to an account that cannot register one", async () => {

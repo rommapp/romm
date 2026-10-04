@@ -45,28 +45,14 @@ export function cachedBrowserDeviceId(userId: number): string | null {
   return readStorage(`${DEVICE_KEY_PREFIX}${userId}`);
 }
 
-/** Drop the cached device, so the next player registers this browser again. */
-export function forgetBrowserDeviceId(userId: number): void {
-  try {
-    localStorage.removeItem(`${DEVICE_KEY_PREFIX}${userId}`);
-  } catch {
-    // Nothing was cached.
-  }
-}
-
 /**
- * The sync device this browser is for `userId`, registered on first use.
+ * The sync device this browser is for `userId`, registered again on each call
+ * so a device removed anywhere comes back; the cached id serves when offline.
  *
  * Returns:
  *   The device id, or null when the account cannot register devices.
  */
-export async function browserDeviceId(
-  userId: number,
-  { refresh = false }: { refresh?: boolean } = {},
-): Promise<string | null> {
-  const cached = cachedBrowserDeviceId(userId);
-  if (cached && !refresh) return cached;
-
+export async function browserDeviceId(userId: number): Promise<string | null> {
   try {
     const { data } = await syncApi.registerDevice({
       name: browserDeviceName(),
@@ -80,6 +66,8 @@ export async function browserDeviceId(
     return data.device_id;
   } catch (error) {
     if (isAxiosError(error) && error.response?.status === 403) return null;
+    const cached = cachedBrowserDeviceId(userId);
+    if (cached && isAxiosError(error) && !error.response) return cached;
     throw error;
   }
 }

@@ -12,10 +12,7 @@ import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
-import {
-  cachedBrowserDeviceId,
-  forgetBrowserDeviceId,
-} from "@/v2/utils/saveSync/browserDevice";
+import { cachedBrowserDeviceId } from "@/v2/utils/saveSync/browserDevice";
 
 const { t } = useI18n();
 const snackbar = useSnackbar();
@@ -138,10 +135,6 @@ async function remove(device: DeviceSchema) {
   if (!ok) return;
   try {
     await deviceApi.deleteDevice(device.id);
-    // EmulatorJS sends the cached id unchecked, and a removed one 404s.
-    if (user.value && device.id === thisBrowser.value) {
-      forgetBrowserDeviceId(user.value.id);
-    }
     devices.value = devices.value.filter((d) => d.id !== device.id);
     snackbar.success(t("settings.device-deleted"), { icon: "mdi-check-bold" });
   } catch (error) {

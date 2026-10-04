@@ -111,6 +111,7 @@ describe("DeviceSaveSync.prepare", () => {
       deviceId: "device-1",
       romIds: [ROM.id],
       restoreUnlisted: true,
+      emulators: ["easyrpg"],
       saves: [],
     });
     expect(saves.map((save) => [save.slot, [...save.bytes]])).toEqual([
@@ -222,9 +223,7 @@ describe("DeviceSaveSync.prepare", () => {
 
     await sync().prepare();
 
-    expect(mocks.browserDeviceId).toHaveBeenLastCalledWith(userId, {
-      refresh: true,
-    });
+    expect(mocks.browserDeviceId).toHaveBeenCalledTimes(2);
     expect(mocks.negotiate.mock.calls[1]![0].deviceId).toBe("device-2");
   });
 });

@@ -191,6 +191,8 @@ export class DeviceSaveSync {
         romIds: [this.rom.id],
         // A browser never deletes a save itself, so one it no longer holds was lost.
         restoreUnlisted: true,
+        // Browser saves load only in the browser player that wrote them.
+        emulators: [this.emulator],
         saves: [...this.saves.values()].map((save) => ({
           rom_id: save.romId,
           file_name: save.fileName,
@@ -210,7 +212,7 @@ export class DeviceSaveSync {
       if (statusOf(error) === 400) return;
       if (statusOf(error) !== 404) throw error;
       // The device was removed, so this browser registers again.
-      deviceId = await browserDeviceId(this.userId, { refresh: true });
+      deviceId = await browserDeviceId(this.userId);
       if (!deviceId) return;
       response = await request(deviceId);
     }
