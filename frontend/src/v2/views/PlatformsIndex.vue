@@ -40,7 +40,7 @@ import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { usePlatformPlayableChecker } from "@/v2/composables/usePlatformPlayable";
 import { useRouteQueryParam } from "@/v2/composables/useRouteQueryParam";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
-import { platformSearchTerms } from "@/v2/utils/platformSearch";
+import { platformMatchesSearch } from "@/v2/utils/platformSearch";
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();
@@ -268,9 +268,7 @@ onMounted(() => {
 const filtered = computed<Platform[]>(() => {
   const term = searchTerm.value.trim().toLowerCase();
   if (!term) return visiblePlatforms.value;
-  return visiblePlatforms.value.filter((p) =>
-    platformSearchTerms(p).some((field) => field.toLowerCase().includes(term)),
-  );
+  return visiblePlatforms.value.filter((p) => platformMatchesSearch(p, term));
 });
 
 // Per-mode sorted views. Grid uses the toolbar asc/desc + groupBy axis;

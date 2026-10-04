@@ -40,6 +40,8 @@ function platform(overrides: Partial<Platform> = {}): Platform {
     missing_from_fs: false,
     display_name: "Super Nintendo",
     firmware_count: 0,
+    abbreviation: "",
+    alternative_names: [],
     ...overrides,
   };
 }

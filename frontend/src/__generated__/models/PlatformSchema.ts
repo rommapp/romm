@@ -28,8 +28,6 @@ export type PlatformSchema = {
     generation?: (number | null);
     family_name?: (string | null);
     family_slug?: (string | null);
-    abbreviation?: (string | null);
-    alternative_names?: Array<string>;
     url?: (string | null);
     url_logo?: (string | null);
     firmware?: Array<FirmwareSchema>;
@@ -40,6 +38,8 @@ export type PlatformSchema = {
     is_identified: boolean;
     missing_from_fs: boolean;
     readonly display_name: string;
+    readonly abbreviation: string;
+    readonly alternative_names: Array<string>;
     readonly firmware_count: number;
 };
 

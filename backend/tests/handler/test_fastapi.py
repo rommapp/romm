@@ -71,17 +71,6 @@ async def test_scan_platform():
     assert platform.tgdb_id is None
 
 
-async def test_scan_platform_collects_other_providers_names():
-    async with initialize_context():
-        platform = await scan_platform("genesis", ["genesis"])
-
-    assert platform.name == "Sega Mega Drive/Genesis"
-    assert {"Megadrive", "Genesis/Mega Drive", "Sega Genesis"} <= set(
-        platform.alternative_names or []
-    )
-    assert platform.name not in (platform.alternative_names or [])
-
-
 @pytest.mark.vcr
 async def test_scan_rom():
     platform = Platform(

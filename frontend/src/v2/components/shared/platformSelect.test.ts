@@ -32,6 +32,8 @@ describe("PlatformSelect promoteFilled + search", () => {
       is_identified: true,
       missing_from_fs: false,
       firmware_count: 0,
+      abbreviation: "",
+      alternative_names: [],
       ...overrides,
     };
   }

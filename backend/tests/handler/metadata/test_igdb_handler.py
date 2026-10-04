@@ -83,7 +83,7 @@ def _make_game(
     }
 
 
-class TestGetPlatformAlternativeNames:
+class TestGetPlatformAliases:
     @pytest.fixture
     def named_atari_st(self) -> Any:
         entry = {
@@ -96,27 +96,21 @@ class TestGetPlatformAlternativeNames:
 
     @pytest.mark.usefixtures("named_atari_st")
     def test_platform_carries_abbreviation_and_alternative_name(self) -> None:
-        platform = IGDBHandler().get_platform(UPS.ATARI_ST)
-
-        assert platform.get("abbreviation") == "ST"
-        assert platform.get("alternative_names") == ["Atari ST/STE"]
+        assert IGDBHandler().get_platform_aliases(UPS.ATARI_ST) == (
+            "ST",
+            ["Atari ST/STE"],
+        )
 
     @pytest.mark.usefixtures("named_atari_st")
-    def test_platform_version_inherits_main_platform_names(self) -> None:
-        platform = IGDBHandler().get_platform("520-st")
+    def test_platform_version_shares_main_platform_aliases(self) -> None:
+        assert IGDBHandler().get_platform_aliases("520-st") == ("ST", ["Atari ST/STE"])
 
-        assert platform.get("abbreviation") == "ST"
-        assert platform.get("alternative_names") == ["Atari ST/STE"]
-
-    def test_platform_without_names_defaults_to_empty(self) -> None:
-        entry = cast(dict[str, Any], dict(IGDB_PLATFORM_LIST[UPS.ATARI_ST]))
+    def test_platform_without_aliases(self) -> None:
+        entry = IGDB_PLATFORM_LIST[UPS.ATARI_ST].copy()
         entry.pop("abbreviation", None)
         entry.pop("alternative_name", None)
         with patch.dict(IGDB_PLATFORM_LIST, {UPS.ATARI_ST: entry}):
-            platform = IGDBHandler().get_platform(UPS.ATARI_ST)
-
-        assert platform.get("abbreviation") == ""
-        assert platform.get("alternative_names") == []
+            assert IGDBHandler().get_platform_aliases(UPS.ATARI_ST) == ("", [])
 
 
 class TestGetIGDBPreferredLocale:

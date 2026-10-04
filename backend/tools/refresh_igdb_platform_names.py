@@ -5,6 +5,9 @@ Reads IGDB_CLIENT_ID and IGDB_CLIENT_SECRET from the environment, asks IGDB
 for every listed platform's names, and rewrites adapters/services/igdb.py in
 place. Entries IGDB has no value for keep neither key; entries IGDB did not
 return are left as they are. Run `trunk fmt` after.
+
+It talks to IGDB directly rather than through IGDBService, which caches its
+token in Redis, so it runs without a configured backend.
 """
 
 import json
@@ -19,7 +22,7 @@ from typing import Any
 IGDB_FILE = Path(__file__).resolve().parent.parent / "adapters/services/igdb.py"
 NAME_KEYS = ("abbreviation", "alternative_name")
 # IGDB caps a query at 500 results.
-PAGE_SIZE = 500
+MAX_RESULTS = 500
 
 PlatformNames = dict[int, dict[str, Any]]
 
@@ -53,19 +56,13 @@ def fetch_names(client_id: str, client_secret: str, ids: list[int]) -> PlatformN
     )["access_token"]
     headers = {"Client-ID": client_id, "Authorization": f"Bearer {token}"}
 
-    names: PlatformNames = {}
-    for start in range(0, len(ids), PAGE_SIZE):
-        page = ids[start : start + PAGE_SIZE]
-        query = (
-            f"fields id,{','.join(NAME_KEYS)};"
-            f" where id = ({','.join(map(str, page))});"
-            f" limit {PAGE_SIZE};"
-        )
-        for platform in _post(
-            "https://api.igdb.com/v4/platforms", query.encode(), headers
-        ):
-            names[platform["id"]] = platform
-    return names
+    query = (
+        f"fields id,{','.join(NAME_KEYS)};"
+        f" where id = ({','.join(map(str, ids))});"
+        f" limit {MAX_RESULTS};"
+    )
+    platforms = _post("https://api.igdb.com/v4/platforms", query.encode(), headers)
+    return {platform["id"]: platform for platform in platforms}
 
 
 def rewrite_entry(entry: re.Match[str], names: PlatformNames) -> str:
@@ -95,6 +92,8 @@ def main() -> None:
         sys.exit(f"IGDB_PLATFORM_LIST not found in {IGDB_FILE}")
 
     ids = sorted({int(i) for i in ID_RE.findall(platform_list.group())})
+    if len(ids) > MAX_RESULTS:
+        sys.exit(f"{len(ids)} platforms need more than one IGDB query")
     names = fetch_names(client_id, client_secret, ids)
     new_list = ENTRY_RE.sub(lambda m: rewrite_entry(m, names), platform_list.group())
     IGDB_FILE.write_text(

@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within, waitFor } from "storybook/test";
 import { ref } from "vue";
 import type { Platform } from "@/stores/platforms";
-import { platformSearchTerms } from "@/v2/utils/platformSearch";
 import PlatformSelect from "./PlatformSelect.vue";
 import {
   formatPlatformRomCount,
@@ -30,6 +29,8 @@ function makePlatform(overrides: Partial<Platform> = {}): Platform {
     missing_from_fs: false,
     display_name: overrides.display_name ?? "Platform",
     firmware_count: 0,
+    abbreviation: "",
+    alternative_names: [],
     ...overrides,
   };
 }
@@ -271,12 +272,11 @@ export const PromotedTypingInSearch: Story = {
       await waitFor(() => {
         const rows = menuRowTitles();
         expect(rows).not.toContain("---");
-        const expected = MIXED_PLATFORM_CATALOG.filter((p) =>
-          platformSearchTerms(p).some((term) =>
-            term.toLowerCase().includes(searchCharacter),
-          ),
-        ).map((p) => p.display_name);
-        expect(rows).toEqual(expected);
+        expect(rows).toEqual([
+          "Adventure Game Studio",
+          "Amiga",
+          "Game Boy Advance",
+        ]);
         expect(
           document.querySelectorAll(".r-v2-platsel__rom-badge"),
         ).toHaveLength(0);

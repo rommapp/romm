@@ -7,7 +7,6 @@ from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from models.base import BaseModel
 from models.rom import Rom
-from utils.database import CustomJSON
 
 if TYPE_CHECKING:
     from models.firmware import Firmware
@@ -65,10 +64,6 @@ class Platform(BaseModel):
     generation: Mapped[int | None]
     family_name: Mapped[str | None] = mapped_column(String(length=1000), default="")
     family_slug: Mapped[str | None] = mapped_column(String(length=1000), default="")
-    abbreviation: Mapped[str | None] = mapped_column(String(length=100), default="")
-    alternative_names: Mapped[list[str] | None] = mapped_column(
-        CustomJSON(), default=list
-    )
     url: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")
 

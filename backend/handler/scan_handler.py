@@ -54,6 +54,7 @@ from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.libretro_handler import LIBRETRO_PLATFORM_LIST, LibretroRom
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST, MobyGamesRom
+from handler.metadata.platform_names import resolve_platform_name
 from handler.metadata.playmatch_handler import (
     PLAYMATCH_SUPPORTED_SOURCES,
     PlaymatchRomMatch,
@@ -93,7 +94,6 @@ from utils.platform_aliases import (
     resolve_fs_slug,
     resolve_platform_slug,
 )
-from utils.platforms import platform_alternative_names
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 
@@ -436,35 +436,11 @@ async def scan_platform(
             or hasheous_platform.get("tgdb_id")
             or tgdb_platform.get("tgdb_id")
             or None,
-            "name": igdb_platform.get("name")
-            or ss_platform.get("name")
-            or moby_platform.get("name")
-            or ra_platform.get("name")
-            or launchbox_platform.get("name")
-            or hasheous_platform.get("name")
-            or tgdb_platform.get("name")
-            or flashpoint_platform.get("name")
-            or hltb_platform.get("name")
-            or platform_attrs["slug"].replace("-", " ").title(),
+            "name": resolve_platform_name(platform_attrs["slug"]),
             "url_logo": igdb_platform.get("url_logo")
             or tgdb_platform.get("url_logo")
             or "",
         }
-    )
-    platform_attrs["alternative_names"] = platform_alternative_names(
-        platform_attrs["slug"],
-        platform_attrs["name"],
-        [
-            igdb_platform,
-            ss_platform,
-            moby_platform,
-            ra_platform,
-            launchbox_platform,
-            hasheous_platform,
-            tgdb_platform,
-            flashpoint_platform,
-            hltb_platform,
-        ],
     )
 
     platform_attrs["missing_from_fs"] = False

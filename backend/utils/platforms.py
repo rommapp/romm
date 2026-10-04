@@ -1,8 +1,4 @@
-import functools
-from collections import defaultdict
-from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
-from typing import cast
 
 from config.config_manager import config_manager as cm
 from endpoints.responses.platform import PlatformSchema
@@ -19,65 +15,10 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
+from handler.metadata.platform_names import resolve_platform_name
 from models.platform import Platform
 from utils.platform_aliases import resolve_platform_slug
 from utils.platform_slugs import UniversalPlatformSlug as UPS
-
-
-def _name_key(name: str) -> str:
-    return " ".join(name.casefold().replace("/", " / ").split())
-
-
-# Providers in the order a platform's name is resolved from them.
-_NAME_PROVIDERS = (
-    meta_igdb_handler,
-    meta_ss_handler,
-    meta_moby_handler,
-    meta_ra_handler,
-    meta_launchbox_handler,
-    meta_hasheous_handler,
-    meta_tgdb_handler,
-    meta_flashpoint_handler,
-    meta_hltb_handler,
-)
-
-
-@functools.cache
-def _slugs_by_resolved_name() -> dict[str, set[str]]:
-    slugs_by_name: defaultdict[str, set[str]] = defaultdict(set)
-    for ups in UPS:
-        for handler in _NAME_PROVIDERS:
-            name = handler.get_platform(ups.value).get("name")
-            if name:
-                slugs_by_name[_name_key(name)].add(ups.value)
-                break
-    return slugs_by_name
-
-
-def platform_alternative_names(
-    slug: str, name: str, provider_platforms: Iterable[Mapping[str, object]]
-) -> list[str]:
-    """Each provider's names for a platform other than `name`, ignoring case and spacing.
-
-    Skips another platform's own name, which providers return when they map a
-    variant (Famicom) onto its parent (NES).
-    """
-    slugs_by_name = _slugs_by_resolved_name()
-    seen = {_name_key(name)}
-    alternative_names = []
-    for provider_platform in provider_platforms:
-        candidates = [
-            *cast(list[str], provider_platform.get("alternative_names", [])),
-            cast(str | None, provider_platform.get("name")),
-        ]
-        for candidate in candidates:
-            if not candidate or (key := _name_key(candidate)) in seen:
-                continue
-            if slugs_by_name.get(key, {slug}) != {slug}:
-                continue
-            seen.add(key)
-            alternative_names.append(candidate.strip())
-    return alternative_names
 
 
 def _build_unmatched_platform(slug: str, fs_slug: str, now: datetime) -> PlatformSchema:
@@ -124,35 +65,11 @@ def _build_unmatched_platform(slug: str, fs_slug: str, now: datetime) -> Platfor
             or hasheous_platform.get("tgdb_id")
             or tgdb_platform.get("tgdb_id")
             or None,
-            "name": igdb_platform.get("name")
-            or ss_platform.get("name")
-            or moby_platform.get("name")
-            or ra_platform.get("name")
-            or launchbox_platform.get("name")
-            or hasheous_platform.get("name")
-            or tgdb_platform.get("name")
-            or flashpoint_platform.get("name")
-            or hltb_platform.get("name")
-            or slug.replace("-", " ").title(),
+            "name": resolve_platform_name(slug),
             "url_logo": igdb_platform.get("url_logo")
             or tgdb_platform.get("url_logo")
             or "",
         }
-    )
-    platform_attrs["alternative_names"] = platform_alternative_names(
-        slug,
-        cast(str, platform_attrs["name"]),
-        [
-            igdb_platform,
-            ss_platform,
-            moby_platform,
-            ra_platform,
-            launchbox_platform,
-            hasheous_platform,
-            tgdb_platform,
-            flashpoint_platform,
-            hltb_platform,
-        ],
     )
 
     return PlatformSchema.model_validate(Platform(**platform_attrs))

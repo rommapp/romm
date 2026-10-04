@@ -87,6 +87,8 @@ function platform(overrides: Partial<Platform>): Platform {
     missing_from_fs: true,
     display_name: "Platform",
     firmware_count: 0,
+    abbreviation: "",
+    alternative_names: [],
     ...overrides,
   };
 }

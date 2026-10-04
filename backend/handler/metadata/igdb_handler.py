@@ -79,15 +79,8 @@ class IGDBPlatform(TypedDict):
     generation: NotRequired[int]
     family_name: NotRequired[str]
     family_slug: NotRequired[str]
-    abbreviation: NotRequired[str]
-    alternative_names: NotRequired[list[str]]
     url: NotRequired[str]
     url_logo: NotRequired[str]
-
-
-def _platform_alternative_names(platform: SlugToIGDB) -> list[str]:
-    alternative_name = platform.get("alternative_name", "")
-    return [alternative_name] if alternative_name else []
 
 
 class IGDBMetadataPlatform(TypedDict):
@@ -787,8 +780,6 @@ class IGDBHandler(MetadataHandler):
                 generation=platform["generation"],
                 family_name=platform["family_name"],
                 family_slug=platform["family_slug"],
-                abbreviation=platform.get("abbreviation", ""),
-                alternative_names=_platform_alternative_names(platform),
                 url=platform["url"],
                 url_logo=self.normalize_cover_url(platform["url_logo"]),
             )
@@ -806,8 +797,6 @@ class IGDBHandler(MetadataHandler):
                 generation=main_platform["generation"],
                 family_name=main_platform["family_name"],
                 family_slug=main_platform["family_slug"],
-                abbreviation=main_platform.get("abbreviation", ""),
-                alternative_names=_platform_alternative_names(main_platform),
                 url=platform_version["url"],
                 url_logo=self.normalize_cover_url(
                     platform_version["url_logo"] or main_platform["url_logo"]
@@ -815,6 +804,21 @@ class IGDBHandler(MetadataHandler):
             )
 
         return IGDBPlatform(igdb_id=None, slug=slug)
+
+    def get_platform_aliases(self, slug: str) -> tuple[str, list[str]]:
+        """The platform's abbreviation and alternative names; a version shares its main platform's."""
+        platform: SlugToIGDB
+        if slug in IGDB_PLATFORM_LIST:
+            platform = IGDB_PLATFORM_LIST[UPS(slug)]
+        elif slug in IGDB_PLATFORM_VERSIONS:
+            platform = IGDB_PLATFORM_LIST[IGDB_PLATFORM_VERSIONS[slug]["platform_slug"]]
+        else:
+            return "", []
+
+        alternative_name = platform.get("alternative_name", "")
+        return platform.get("abbreviation", ""), (
+            [alternative_name] if alternative_name else []
+        )
 
     async def get_rom(self, rom: Rom, fs_name: str, platform_igdb_id: int) -> IGDBRom:
         from handler.filesystem import fs_rom_handler

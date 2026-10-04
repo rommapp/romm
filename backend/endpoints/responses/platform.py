@@ -1,6 +1,9 @@
-from typing import Any
-
 from pydantic import ConfigDict, Field, computed_field, field_validator
+
+from handler.metadata.platform_names import (
+    platform_abbreviation,
+    platform_alternative_names,
+)
 
 from .base import BaseModel, UTCDatetime
 from .firmware import FirmwareSchema
@@ -33,8 +36,6 @@ class PlatformSchema(BaseModel):
     generation: int | None = None
     family_name: str | None = None
     family_slug: str | None = None
-    abbreviation: str | None = None
-    alternative_names: list[str] = Field(default_factory=list)
     url: str | None = None
     url_logo: str | None = None
     firmware: list[FirmwareSchema] = Field(default_factory=list)
@@ -50,6 +51,16 @@ class PlatformSchema(BaseModel):
     def display_name(self) -> str:
         return self.custom_name or self.name
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def abbreviation(self) -> str:
+        return platform_abbreviation(self.slug)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def alternative_names(self) -> list[str]:
+        return list(platform_alternative_names(self.slug))
+
     # Counts every row like `rom_count` does; callers wanting only usable
     # BIOS filter the `firmware` list that ships alongside it.
     @computed_field  # type: ignore[prop-decorator]
@@ -60,9 +71,3 @@ class PlatformSchema(BaseModel):
     @field_validator("firmware")
     def sort_files(cls, v: list[FirmwareSchema]) -> list[FirmwareSchema]:
         return sorted(v, key=lambda x: x.file_name)
-
-    @field_validator("alternative_names", mode="before")
-    @classmethod
-    def _alternative_names_never_null(cls, value: Any) -> Any:
-        # The column is nullable, so rows predating the migration read NULL.
-        return value or []

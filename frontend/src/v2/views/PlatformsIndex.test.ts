@@ -136,6 +136,8 @@ function platform(
     slug: displayName.toLowerCase().replaceAll(" ", "-"),
     fs_slug: displayName.toLowerCase().replaceAll(" ", "-"),
     rom_count: romCount,
+    abbreviation: "",
+    alternative_names: [],
     ...overrides,
   } as Platform;
 }

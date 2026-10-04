@@ -76,6 +76,8 @@ function platform(overrides: Partial<Platform> = {}): Platform {
     missing_from_fs: false,
     display_name: "Nintendo 64",
     firmware_count: 0,
+    abbreviation: "",
+    alternative_names: [],
     ...overrides,
   };
 }
