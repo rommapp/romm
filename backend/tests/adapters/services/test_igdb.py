@@ -1,5 +1,6 @@
 import asyncio
 import json
+import socket
 from collections.abc import AsyncIterator
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -225,9 +226,15 @@ class TestRequestsAgainstAServer:
         self, igdb_server: tuple[ScriptedServer, IGDBService, MagicMock]
     ):
         _, _, twitch_auth = igdb_server
-        service = IGDBService(twitch_auth=twitch_auth, base_url="http://127.0.0.1:9/v4")
+        # A bound socket that never listens holds the port and refuses connections.
+        with socket.socket() as closed_port:
+            closed_port.bind(("127.0.0.1", 0))
+            port = closed_port.getsockname()[1]
+            service = IGDBService(
+                twitch_auth=twitch_auth, base_url=f"http://127.0.0.1:{port}/v4"
+            )
 
-        with pytest.raises(HTTPException) as exc:
-            await service.list_games(fields=["id"])
+            with pytest.raises(HTTPException) as exc:
+                await service.list_games(fields=["id"])
 
         assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
