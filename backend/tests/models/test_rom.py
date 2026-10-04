@@ -415,3 +415,19 @@ def test_search_titles_follow_orm_and_bulk_writes(platform: Platform):
     with sync_session.begin() as session:
         session.get_one(Rom, rom.id).name = "Final Fantasy VII International"
     assert stored() == "\x1ffinal fantasy vii international\x1fff7\x1fffvii\x1f"
+
+
+def test_alternative_names_add_the_hand_added_titles_to_a_providers():
+    rom = Rom(
+        igdb_metadata={"alternative_names": ["FF7"]},
+        ss_metadata={"alternative_names": ["FFVII"]},
+        manual_metadata={"alternative_names": ["Final Fantasy Seven", "FF7"]},
+    )
+
+    assert rom.alternative_names == ["FF7", "Final Fantasy Seven"]
+
+
+def test_alternative_names_hold_the_hand_added_titles_without_a_provider():
+    rom = Rom(manual_metadata={"alternative_names": ["FF7"]})
+
+    assert rom.alternative_names == ["FF7"]

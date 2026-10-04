@@ -1251,11 +1251,20 @@ class Rom(BaseModel):
 
     @property
     def alternative_names(self) -> list[str]:
-        for column, key in ALTERNATIVE_NAME_SOURCES:
-            names: list[str] | None = (getattr(self, column) or {}).get(key)
-            if names:
-                return names
-        return []
+        """The titles of the first provider that has any, then the hand-added ones."""
+        provider_names: list[str] = next(
+            (
+                names
+                for column, key in ALTERNATIVE_NAME_SOURCES
+                if column != "manual_metadata"
+                and (names := (getattr(self, column) or {}).get(key))
+            ),
+            [],
+        )
+        manual_names: list[str] = (self.manual_metadata or {}).get(
+            "alternative_names"
+        ) or []
+        return list(dict.fromkeys([*provider_names, *manual_names]))
 
     @cached_property
     def merged_ra_metadata(self) -> dict[str, Any] | None:
