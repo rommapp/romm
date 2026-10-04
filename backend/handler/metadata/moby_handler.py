@@ -12,10 +12,8 @@ from models.rom import Rom
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
-    PS2_OPL_REGEX,
-    SONY_SERIAL_REGEX,
-    SWITCH_TITLEDB_REGEX,
     BaseRom,
+    IndexedFormatPlatforms,
     MetadataHandler,
 )
 
@@ -24,6 +22,13 @@ PS2_MOBY_ID: Final = 7
 PSP_MOBY_ID: Final = 46
 SWITCH_MOBY_ID: Final = 203
 ARCADE_MOBY_IDS: Final = [143, 36]
+MOBY_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
+    ps1=PS1_MOBY_ID,
+    ps2=PS2_MOBY_ID,
+    psp=PSP_MOBY_ID,
+    switch=SWITCH_MOBY_ID,
+    arcade=ARCADE_MOBY_IDS,
+)
 
 # Regex to detect MobyGames ID tags in filenames like (moby-12345)
 MOBYGAMES_TAG_REGEX = re.compile(r"\(moby-(\d+)\)", re.IGNORECASE)
@@ -180,60 +185,14 @@ class MobyGamesHandler(MetadataHandler):
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = MobyGamesRom(moby_id=None)
-
-        # Support for PS2 OPL filename format
-        match = PS2_OPL_REGEX.match(fs_name)
-        if platform_moby_id == PS2_MOBY_ID and match:
-            search_term = await self._ps2_opl_format(match, search_term)
-            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
-
-        # Support for sony serial filename format (PS, PS3, PS3)
-        match = SONY_SERIAL_REGEX.search(fs_name)
-        if platform_moby_id == PS1_MOBY_ID and match:
-            search_term = await self._ps1_serial_format(match, search_term)
-            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
-
-        if platform_moby_id == PS2_MOBY_ID and match:
-            search_term = await self._ps2_serial_format(match, search_term)
-            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
-
-        if platform_moby_id == PSP_MOBY_ID and match:
-            search_term = await self._psp_serial_format(match, search_term)
-            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
-
-        # Support for switch titleID filename format
-        match = SWITCH_TITLEDB_REGEX.search(fs_name)
-        if platform_moby_id == SWITCH_MOBY_ID and match:
-            search_term, index_entry = await self._switch_titledb_format(
-                match, search_term
-            )
-            if index_entry:
-                fallback_rom = MobyGamesRom(
-                    moby_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
-                )
-
-        # Support for switch productID filename format
-        if platform_moby_id == SWITCH_MOBY_ID:
-            search_term, index_entry = await self._switch_productid_format(
-                rom, fs_name, search_term
-            )
-            if index_entry:
-                fallback_rom = MobyGamesRom(
-                    moby_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
-                )
-
-        # Support for MAME arcade filename format
-        if platform_moby_id in ARCADE_MOBY_IDS:
-            search_term = await self._mame_format(search_term)
-            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
+        search_term = await self._resolve_indexed_title(
+            rom,
+            fs_name,
+            search_term,
+            platform_moby_id,
+            MOBY_INDEXED_FORMAT_PLATFORMS,
+            fallback_rom,
+        )
 
         normalized_search_term = self.normalize_search_term(
             search_term, remove_punctuation=False

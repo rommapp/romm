@@ -45,10 +45,8 @@ from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
-    PS2_OPL_REGEX,
-    SONY_SERIAL_REGEX,
-    SWITCH_TITLEDB_REGEX,
     BaseRom,
+    IndexedFormatPlatforms,
     MetadataHandler,
     restore_sensitive_query_params,
     strip_sensitive_query_params,
@@ -1067,65 +1065,14 @@ class SSHandler(MetadataHandler):
         if not search_term:
             return fallback_rom
 
-        # Support for PS2 OPL filename format
-        match = PS2_OPL_REGEX.match(file_name)
-        if platform_ss_id == PS2_SS_ID and match:
-            search_term = await self._ps2_opl_format(match, search_term)
-            fallback_rom = SSRom(ss_id=None, name=search_term)
-
-        # Support for sony serial filename format (PS, PS3, PS3)
-        match = SONY_SERIAL_REGEX.search(file_name)
-        if platform_ss_id == PS1_SS_ID and match:
-            search_term = await self._ps1_serial_format(match, search_term)
-            fallback_rom = SSRom(ss_id=None, name=search_term)
-
-        if platform_ss_id == PS2_SS_ID and match:
-            search_term = await self._ps2_serial_format(match, search_term)
-            fallback_rom = SSRom(ss_id=None, name=search_term)
-
-        if platform_ss_id == PSP_SS_ID and match:
-            search_term = await self._psp_serial_format(match, search_term)
-            fallback_rom = SSRom(ss_id=None, name=search_term)
-
-        # Support for switch titleID filename format
-        match = SWITCH_TITLEDB_REGEX.search(file_name)
-        if platform_ss_id == SWITCH_SS_ID and match:
-            search_term, index_entry = await self._switch_titledb_format(
-                match, search_term
-            )
-            if index_entry:
-                fallback_rom = SSRom(
-                    ss_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
-                )
-
-        # Support for switch productID filename format
-        if platform_ss_id == SWITCH_SS_ID:
-            search_term, index_entry = await self._switch_productid_format(
-                rom, file_name, search_term
-            )
-            if index_entry:
-                fallback_rom = SSRom(
-                    ss_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
-                )
-
-        # Support for MAME arcade filename format
-        if platform_ss_id in ARCADES_SS_IDS:
-            search_term = await self._mame_format(search_term)
-            fallback_rom = SSRom(ss_id=None, name=search_term)
-
-        # Support for ScummVM filename format
-        scummvm_platform = self.get_platform(UPS.SCUMMVM)
-        if platform_ss_id == scummvm_platform.get("ss_id"):
-            search_term = await self._scummvm_format(search_term)
-            fallback_rom = SSRom(ss_id=None, name=search_term)
+        search_term = await self._resolve_indexed_title(
+            rom,
+            file_name,
+            search_term,
+            platform_ss_id,
+            SS_INDEXED_FORMAT_PLATFORMS,
+            fallback_rom,
+        )
 
         ## SS API requires punctuation to match
         normalized_search_term = self.normalize_search_term(
@@ -1420,6 +1367,15 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.ZXS: {"id": 76, "name": "ZX Spectrum"},
     UPS.ZX81: {"id": 77, "name": "ZX81"},
 }
+
+SS_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
+    ps1=PS1_SS_ID,
+    ps2=PS2_SS_ID,
+    psp=PSP_SS_ID,
+    switch=SWITCH_SS_ID,
+    arcade=ARCADES_SS_IDS,
+    scummvm=SCREENSAVER_PLATFORM_LIST[UPS.SCUMMVM]["id"],
+)
 
 # Reverse lookup
 SS_ID_TO_SLUG = {v["id"]: k for k, v in SCREENSAVER_PLATFORM_LIST.items()}

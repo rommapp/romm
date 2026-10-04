@@ -216,6 +216,7 @@ def _build_local_media_context(
         "base": base,
         "stems": stems,
         "preferred_regions": preferred_regions,
+        "region_shortcodes": req.region_shortcodes if include_region_hints else (),
     }
 
 
@@ -238,10 +239,16 @@ def _find_local_media_candidates(
         if p.exists() and p.is_dir() and p not in search_dirs:
             search_dirs.append(p)
 
-    for p in sorted(
+    region_dirs = sorted(
         [p for p in category_dir.iterdir() if p.is_dir()],
         key=lambda p: p.name.lower(),
-    ):
+    )
+    # The ROM's own regions come next, e.g. "North America" for a "(USA)" ROM.
+    for code in ctx["region_shortcodes"]:
+        for p in region_dirs:
+            if p not in search_dirs and launchbox_region_to_shortcode(p.name) == code:
+                search_dirs.append(p)
+    for p in region_dirs:
         if p not in search_dirs:
             search_dirs.append(p)
 

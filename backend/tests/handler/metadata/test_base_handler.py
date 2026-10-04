@@ -23,6 +23,7 @@ from handler.metadata.base_handler import (
     SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     BaseRom,
+    IndexedFormatPlatforms,
     MetadataHandler,
     _normalize_search_term,
     restore_sensitive_query_params,
@@ -477,6 +478,105 @@ class TestMetadataHandlerMethods:
         values = {"api_key": "ab"}
         result = handler._mask_sensitive_values(values)
         assert result["api_key"] == "ab***ab"  # Shows first 2 and last 2
+
+
+class TestResolveIndexedTitle:
+    PLATFORMS = IndexedFormatPlatforms(
+        ps1=1, ps2=2, psp=3, switch=4, arcade=(5, 6), scummvm=7
+    )
+
+    @pytest.fixture
+    def handler(self) -> MetadataHandler:
+        return ExampleMetadataHandler()
+
+    async def _resolve(
+        self,
+        handler: MetadataHandler,
+        fs_name: str,
+        platform_id: int,
+        platforms: IndexedFormatPlatforms = PLATFORMS,
+    ) -> tuple[str, BaseRom]:
+        fallback_rom = BaseRom()
+        term = await handler._resolve_indexed_title(
+            Rom(fs_name=fs_name),
+            fs_name,
+            "original",
+            platform_id,
+            platforms,
+            fallback_rom,
+        )
+        return term, fallback_rom
+
+    @pytest.mark.parametrize(
+        ("fs_name", "platform_id", "method"),
+        [
+            ("SLUS_200.62.Grand Theft Auto.iso", 2, "_ps2_opl_format"),
+            ("Crash [SCUS-94900].bin", 1, "_ps1_serial_format"),
+            ("Ridge Racer [SLUS-01234].iso", 2, "_ps2_serial_format"),
+            ("Lumines [ULUS-10046].iso", 3, "_psp_serial_format"),
+            ("pacman.zip", 6, "_mame_format"),
+            ("monkey1.scummvm", 7, "_scummvm_format"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_named_index_sets_term_and_fallback_name(
+        self, handler: MetadataHandler, fs_name: str, platform_id: int, method: str
+    ):
+        with patch.object(handler, method, AsyncMock(return_value="Indexed Title")):
+            term, fallback_rom = await self._resolve(handler, fs_name, platform_id)
+
+        assert term == "Indexed Title"
+        assert fallback_rom == BaseRom(name="Indexed Title")
+
+    @pytest.mark.asyncio
+    async def test_switch_entry_fills_the_fallback(self, handler: MetadataHandler):
+        entry = {
+            "name": "Celeste",
+            "description": "Climb",
+            "iconUrl": "https://example.com/icon.png",
+            "screenshots": None,
+        }
+        with (
+            patch.object(
+                handler,
+                "_switch_titledb_format",
+                AsyncMock(return_value=("Celeste", entry)),
+            ),
+            patch.object(
+                handler,
+                "_switch_productid_format",
+                AsyncMock(return_value=("Celeste", None)),
+            ),
+        ):
+            term, fallback_rom = await self._resolve(
+                handler, "Celeste [70010000000025].nsp", 4
+            )
+
+        assert term == "Celeste"
+        assert fallback_rom == BaseRom(
+            name="Celeste",
+            summary="Climb",
+            url_cover="https://example.com/icon.png",
+            url_screenshots=[],
+        )
+
+    @pytest.mark.asyncio
+    async def test_other_platform_is_left_alone(self, handler: MetadataHandler):
+        with patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget:
+            term, fallback_rom = await self._resolve(handler, "SLUS-12345.bin", 99)
+
+        mock_hget.assert_not_called()
+        assert term == "original"
+        assert fallback_rom == BaseRom()
+
+    @pytest.mark.asyncio
+    async def test_provider_without_scummvm_skips_it(self, handler: MetadataHandler):
+        platforms = IndexedFormatPlatforms(ps1=1, ps2=2, psp=3, switch=4, arcade=())
+        with patch.object(handler, "_scummvm_format", new_callable=AsyncMock) as fmt:
+            term, _ = await self._resolve(handler, "monkey1", 7, platforms)
+
+        fmt.assert_not_called()
+        assert term == "original"
 
 
 class TestStripSensitiveQueryParams:

@@ -125,6 +125,18 @@ def _tags_from_signatures(
     return []
 
 
+def _numeric_id(value: object) -> int | None:
+    """A provider id Hasheous maps to, or None for a slug or anything else."""
+    if value is None:
+        return None
+    # Hasheous is slowly replacing IGDB slugs with ids.
+    try:
+        return int(str(value))
+    except ValueError:
+        log.debug("Hasheous mapped a slug instead of an id: %s", value)
+        return None
+
+
 def _involved_company_names(rom: dict[str, Any], role: str) -> list[str]:
     """Company names for an IGDB involvement role.
 
@@ -295,16 +307,16 @@ class HasheousHandler(MetadataHandler):
                 exc.response.text,
             )
             raise unavailable("Hasheous") from exc
-        except httpx2.NetworkError as exc:
+        except httpx2.TimeoutException as exc:
+            log.error("Hasheous API timed out: %s", exc)
+            raise unavailable("Hasheous") from exc
+        except httpx2.TransportError as exc:
             log.critical("Connection error: can't connect to Hasheous")
             raise unavailable("Hasheous") from exc
         except json.decoder.JSONDecodeError as exc:
             # Log the error and return an empty dict if the response is not valid JSON
             log.error(exc)
             return {}
-        except httpx2.TimeoutException as exc:
-            log.error("Hasheous API timed out: %s", exc)
-            raise unavailable("Hasheous") from exc
 
     def get_platform(self, slug: str) -> HasheousPlatform:
         if slug not in HASHEOUS_PLATFORM_LIST:
@@ -415,42 +427,44 @@ class HasheousHandler(MetadataHandler):
         if not hasheous_game:
             return fallback_rom, True
 
-        metadata = hasheous_game.get("metadata", [])
-        attributes = hasheous_game.get("attributes", [])
-        signatures = hasheous_game.get("signatures", {})
+        # A raise here would abort the scan.
+        metadata = hasheous_game.get("metadata")
+        attributes = hasheous_game.get("attributes")
+        signatures = hasheous_game.get("signatures")
+        if not isinstance(signatures, dict):
+            signatures = {}
 
         igdb_id = None
         tgdb_id = None
 
-        for meta in metadata:
-            if meta["source"] == "IGDB":
-                try:
-                    # TEMP: Hasheous is slowly replacing slugs with IDs
-                    igdb_id = int(meta["immutableId"])
-                except ValueError, TypeError:
-                    log.debug(
-                        f"Found an IGDB slug instead of an ID: {meta['immutableId']}"
-                    )
-                    pass
-            elif meta["source"] == "TheGamesDb":
-                tgdb_id = meta["immutableId"]
+        for meta in metadata if isinstance(metadata, list) else []:
+            if not isinstance(meta, dict):
+                continue
+            if meta.get("source") == "IGDB":
+                igdb_id = _numeric_id(meta.get("immutableId")) or igdb_id
+            elif meta.get("source") == "TheGamesDb":
+                tgdb_id = _numeric_id(meta.get("immutableId")) or tgdb_id
 
         url_cover = ""
-        for attr in attributes:
-            if attr["attributeName"] == "Logo":
+        for attr in attributes if isinstance(attributes, list) else []:
+            if (
+                isinstance(attr, dict)
+                and attr.get("attributeName") == "Logo"
+                and attr.get("link")
+            ):
                 url_cover = f"{self.BASE_ORIGIN}{attr['link']}"
                 break
 
         return (
             HasheousRom(
-                hasheous_id=hasheous_game["id"],
+                hasheous_id=hasheous_game.get("id"),
                 name=hasheous_game.get("name", ""),
                 regions=_tags_from_signatures(signatures, "country", _country_name),
                 languages=_tags_from_signatures(
                     signatures, "language", provider_language_name
                 ),
-                igdb_id=int(igdb_id) if igdb_id else None,
-                tgdb_id=int(tgdb_id) if tgdb_id else None,
+                igdb_id=igdb_id,
+                tgdb_id=tgdb_id,
                 url_cover=url_cover,
                 # Keys are Hasheous' SignatureSourceType names, spelled exactly
                 # as its API returns them.

@@ -110,6 +110,7 @@ class LocalMediaContext(TypedDict):
     base: Path
     stems: list[str]
     preferred_regions: list[str]
+    region_shortcodes: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)

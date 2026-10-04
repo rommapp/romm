@@ -33,9 +33,11 @@ export function parseSceneId(
   }
 
   if (kind === "csdb" && host === "csdb.dk") {
+    // Groups, sceners and events carry an ?id= too, so only a release page counts.
+    if (!/^\/release(\/|$)/i.test(url.pathname)) return null;
     const id = url.searchParams.get("id");
     if (id && /^\d+$/.test(id)) return Number.parseInt(id, 10);
-    const releaseId = url.pathname.match(/\/release\/(\d+)/i)?.[1];
+    const releaseId = url.pathname.match(/^\/release\/(\d+)/i)?.[1];
     return releaseId ? Number.parseInt(releaseId, 10) : null;
   }
 

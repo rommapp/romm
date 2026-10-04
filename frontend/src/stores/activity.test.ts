@@ -123,7 +123,7 @@ describe("activity store socket events", () => {
     expect(store.initialized).toBe(true);
   });
 
-  it("keeps the newest list when an older request answers last", async () => {
+  it("asks again rather than racing when a list is requested mid-request", async () => {
     const store = storeActivity();
     let answerFirst = (_: { data: ActivityEntry[] }) => {};
     get
@@ -134,10 +134,80 @@ describe("activity store socket events", () => {
 
     const first = store.fetchAll();
     await store.fetchAll();
+    expect(get).toHaveBeenCalledTimes(1);
     answerFirst({ data: [entry()] });
     await first;
 
+    expect(get).toHaveBeenCalledTimes(2);
     expect(store.activities).toEqual([]);
+  });
+
+  it("recovers when the request after a dropped answer fails", async () => {
+    const store = storeActivity();
+    get
+      .mockImplementationOnce(async () => {
+        store.fetchAll();
+        return { data: [entry({ rom_id: 11 })] };
+      })
+      .mockRejectedValueOnce(new Error("blip"))
+      .mockResolvedValueOnce({ data: [entry({ rom_id: 12 })] });
+
+    await store.fetchAll();
+
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(store.activities.map((a) => a.rom_id)).toEqual([12]);
+    expect(store.initialized).toBe(true);
+  });
+
+  it("makes a list asked for while the running request fails", async () => {
+    const store = storeActivity();
+    get
+      .mockImplementationOnce(async () => {
+        store.fetchAll();
+        throw new Error("blip");
+      })
+      .mockResolvedValueOnce({ data: [entry({ rom_id: 12 })] });
+
+    await store.fetchAll();
+
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(store.activities.map((a) => a.rom_id)).toEqual([12]);
+    expect(store.initialized).toBe(true);
+  });
+
+  it("makes a list asked for after the event retries run out", async () => {
+    const store = storeActivity();
+    get
+      .mockImplementationOnce(async () => {
+        handlers.get("activity:update")!(entry());
+        return { data: [] };
+      })
+      .mockImplementationOnce(async () => {
+        handlers.get("activity:update")!(entry());
+        return { data: [] };
+      })
+      .mockImplementationOnce(async () => {
+        store.fetchAll();
+        return { data: [entry({ rom_id: 11 })] };
+      })
+      .mockResolvedValueOnce({ data: [entry({ rom_id: 12 })] });
+
+    await store.fetchAll();
+
+    expect(get).toHaveBeenCalledTimes(4);
+    expect(store.activities.map((a) => a.rom_id)).toEqual([12]);
+  });
+
+  it("asks once when a plain request fails", async () => {
+    const store = storeActivity();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    get.mockRejectedValue(new Error("down"));
+
+    await store.fetchAll();
+
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(store.initialized).toBe(false);
+    expect(store.fetching).toBe(false);
   });
 
   it("re-lists sessions when the server asks everyone to refresh", async () => {

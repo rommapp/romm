@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from handler.activity_handler import ActivityEntry, activity_handler
+from handler.activity_handler import ActivityEntry, ActivityHandler, activity_handler
 from handler.database import db_rom_handler, db_user_handler
 from handler.database.base_handler import sync_session
-from handler.redis_handler import async_cache, sync_cache
+from handler.redis_handler import as_text, async_cache, sync_cache
 from handler.socket_handler import socket_handler
 from models.permission import HiddenEntity, PermEntity
 from models.rom import Rom, RomVisibility
@@ -391,8 +391,15 @@ class TestAudience:
 
         assert [c.args[0] for c in emit.await_args_list] == ["activity:update"]
 
-    async def test_a_failed_audience_lookup_asks_everyone_to_refresh(
-        self, entry: ActivityEntry, admin_user: User
+    @pytest.fixture
+    def held_refresh(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+        """Holds a queued refresh until the test flushes it."""
+        monkeypatch.setattr(ActivityHandler, "REFRESH_DELAY", 3600)
+        yield
+        sync_cache.delete(ActivityHandler.REFRESH_KEY)
+
+    async def test_failed_audience_lookups_share_one_refresh(
+        self, entry: ActivityEntry, admin_user: User, held_refresh: None
     ):
         with (
             patch.object(
@@ -404,19 +411,113 @@ class TestAudience:
             assert await activity_handler.publish_clear(admin_user.id, "deck") == (
                 entry["rom_id"]
             )
+            emit.assert_not_awaited()
+            await activity_handler.flush_refresh()
 
         # Nothing about the session itself goes out to an unknown audience.
         assert [(c.args, c.kwargs) for c in emit.await_args_list] == [
-            (("activity:refresh", {}), {"to": None}),
-            (("activity:refresh", {}), {"to": None}),
+            (("activity:refresh", {}), {}),
         ]
         assert await activity_handler.get_active(admin_user.id, "deck") is None
+
+    async def test_a_failure_after_a_refresh_queues_another(
+        self, entry: ActivityEntry, held_refresh: None
+    ):
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits() as emit,
+        ):
+            await activity_handler.publish_active(entry)
+            await activity_handler.flush_refresh()
+            await activity_handler.publish_active(entry)
+            await activity_handler.flush_refresh()
+
+        assert [c.args[0] for c in emit.await_args_list] == ["activity:refresh"] * 2
+
+    async def test_workers_share_one_refresh(
+        self, entry: ActivityEntry, held_refresh: None
+    ):
+        other_worker = ActivityHandler()
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits() as emit,
+        ):
+            await activity_handler.publish_active(entry)
+            await other_worker.publish_active(entry)
+            assert other_worker._refresh is None
+            await activity_handler.flush_refresh()
+
+        assert [c.args[0] for c in emit.await_args_list] == ["activity:refresh"]
+
+    async def test_a_queued_refresh_goes_out_after_the_delay(
+        self, entry: ActivityEntry, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(ActivityHandler, "REFRESH_DELAY", 0.01)
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits() as emit,
+        ):
+            await activity_handler.publish_active(entry)
+            assert activity_handler._refresh is not None
+            await activity_handler._refresh
+
+        assert [c.args[0] for c in emit.await_args_list] == ["activity:refresh"]
+        assert await async_cache.get(ActivityHandler.REFRESH_KEY) is None
+
+    async def test_a_flush_during_the_send_does_not_send_again(
+        self, entry: ActivityEntry, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(ActivityHandler, "REFRESH_DELAY", 0)
+        sending, finish = asyncio.Event(), asyncio.Event()
+
+        async def slow_emit(*_: object) -> None:
+            sending.set()
+            await finish.wait()
+
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits() as emit,
+        ):
+            emit.side_effect = slow_emit
+            await activity_handler.publish_active(entry)
+            await sending.wait()
+            flushed = asyncio.create_task(activity_handler.flush_refresh())
+            finish.set()
+            await flushed
+
+        assert emit.await_count == 1
+
+    async def test_a_late_sender_leaves_another_workers_claim(
+        self, entry: ActivityEntry, held_refresh: None
+    ):
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits(),
+        ):
+            await activity_handler.publish_active(entry)
+            # The claim expired and another worker took it.
+            await async_cache.set(ActivityHandler.REFRESH_KEY, "other")
+            await activity_handler.flush_refresh()
+
+        held = await async_cache.get(ActivityHandler.REFRESH_KEY)
+        assert held is not None and as_text(held) == "other"
 
     async def test_a_failed_lookup_of_the_last_game_asks_everyone_to_refresh(
         self,
         entry: ActivityEntry,
         admin_user: User,
         second_rom: Rom,
+        held_refresh: None,
     ):
         await activity_handler.publish_active(entry)
         switched = await activity_handler.build_entry(
@@ -438,8 +539,9 @@ class TestAudience:
             _captured_emits() as emit,
         ):
             await activity_handler.publish_active(switched)
+            await activity_handler.flush_refresh()
 
-        assert [(c.args[0], c.kwargs["to"]) for c in emit.await_args_list] == [
+        assert [(c.args[0], c.kwargs.get("to")) for c in emit.await_args_list] == [
             ("activity:update", [f"user:{admin_user.id}"]),
             ("activity:refresh", None),
         ]
