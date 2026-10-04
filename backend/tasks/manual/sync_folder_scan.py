@@ -5,6 +5,7 @@ filesystem events are missed (e.g., server restart, NFS mounts).
 Triggered on demand, not scheduled automatically.
 """
 
+import asyncio
 from typing import Any
 
 from handler.database import db_device_handler
@@ -51,7 +52,11 @@ class SyncFolderScanTask(Task):
                     (f["platform_slug"], f["file_name"], f["full_path"])
                     for f in incoming_files
                 ]
-                _process_device_incoming(device.id, file_tuples)
+                # It drives its own event loops with asyncio.run, which cannot
+                # nest in the loop running this task, so it gets a thread.
+                await asyncio.to_thread(
+                    _process_device_incoming, device.id, file_tuples
+                )
                 total_files += len(incoming_files)
 
         return {"status": "completed", "files_processed": total_files}
