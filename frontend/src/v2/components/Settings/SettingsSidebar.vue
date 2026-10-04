@@ -130,6 +130,12 @@ const groups = computed<Group[]>(() => {
           to: { name: ROUTES.CLIENT_API_TOKENS },
           visible: scopes.value.includes("me.write"),
         },
+        {
+          icon: "mdi-devices",
+          label: t("settings.devices"),
+          to: { name: ROUTES.DEVICES },
+          visible: scopes.value.includes("devices.read"),
+        },
       ],
     },
     {

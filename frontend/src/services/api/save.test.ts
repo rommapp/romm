@@ -60,6 +60,22 @@ describe("sendSaveOnUnload", () => {
     expect((init?.body as FormData).get("saveFile")).toBeInstanceOf(File);
   });
 
+  it("keeps the stale-device guard when the caller asks for it", () => {
+    saveApi.sendSaveOnUnload({
+      rom,
+      save: null,
+      saveFile: saveOf(16),
+      deviceId: "dev",
+      slot: "Save01",
+      overwrite: false,
+    });
+
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      "/api/saves?rom_id=1&device_id=dev&slot=Save01&overwrite=false",
+    );
+  });
+
   it("updates the session's version in place", () => {
     saveApi.sendSaveOnUnload({
       rom,

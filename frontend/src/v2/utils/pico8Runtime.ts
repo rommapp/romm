@@ -17,9 +17,35 @@ const PICO8_WASM_PATH = "/assets/pico8/fake08.wasm";
 const PICO8_SCRIPT_PATH = "/assets/pico8/fake08.js";
 const FRAMEBUFFER_BYTES = (PICO8_WIDTH * PICO8_HEIGHT) / 2;
 const PALETTE_BYTES = 16 * 4;
+// FAKE-08 keeps each `cartdata()` key in its own file here, in memory only.
+const CART_DATA_DIR = "/fake08/cdata";
+const CART_DATA_SUFFIX = ".p8d.txt";
+// Loading any cart makes FAKE-08 write the running cart's data out first.
+const BLANK_CART = new TextEncoder().encode(
+  "pico-8 cartridge // http://www.pico-8.com\nversion 41\n__lua__\nfunction _draw() end\n",
+);
+
+/** A cart's `cartdata()` file, named by the key the cart chose. */
+export interface Pico8CartData {
+  key: string;
+  bytes: Uint8Array;
+}
+
+/** The file FAKE-08 reads a `cartdata()` key from. */
+export function cartDataFileName(key: string): string {
+  return `${key}${CART_DATA_SUFFIX}`;
+}
+
+interface Fake08FileSystem {
+  mkdirTree: (path: string) => void;
+  writeFile: (path: string, data: Uint8Array) => void;
+  readFile: (path: string) => Uint8Array;
+  readdir: (path: string) => string[];
+}
 
 export interface Fake08Module {
   HEAPU8: Uint8Array;
+  FS: Fake08FileSystem;
   _f08_init: () => void;
   _f08_load_cart_data: (pointer: number, length: number) => number;
   _f08_step_frame: () => void;
@@ -92,6 +118,10 @@ export interface Pico8Runtime {
   /** Samples a single frame can produce, for sizing the caller's buffer. */
   readonly samplesPerFrame: number;
   loadCart: (bytes: Uint8Array) => void;
+  /** Hand the next cart the data it saved before, ahead of `loadCart`. */
+  writeCartData: (files: Pico8CartData[]) => void;
+  /** Unload the cart so it writes its data out, then read it; for leaving only. */
+  flushCartData: () => Pico8CartData[];
   advance: (input: Pico8Input) => void;
   render: () => void;
   /**
@@ -198,6 +228,29 @@ export async function createPico8Runtime(
     }
   }
 
+  function writeCartData(files: Pico8CartData[]) {
+    module.FS.mkdirTree(CART_DATA_DIR);
+    for (const file of files) {
+      module.FS.writeFile(
+        `${CART_DATA_DIR}/${cartDataFileName(file.key)}`,
+        file.bytes,
+      );
+    }
+  }
+
+  function flushCartData(): Pico8CartData[] {
+    if (disposed) return [];
+    // Without the directory FAKE-08 drops the write silently.
+    module.FS.mkdirTree(CART_DATA_DIR);
+    loadCart(BLANK_CART);
+    return module.FS.readdir(CART_DATA_DIR)
+      .filter((name) => name.endsWith(CART_DATA_SUFFIX))
+      .map((name) => ({
+        key: name.slice(0, -CART_DATA_SUFFIX.length),
+        bytes: module.FS.readFile(`${CART_DATA_DIR}/${name}`),
+      }));
+  }
+
   function advance(input: Pico8Input) {
     if (disposed) return;
     module._f08_set_inputs(
@@ -233,6 +286,8 @@ export async function createPico8Runtime(
     audioSampleRate: module._f08_get_audio_sample_rate(),
     samplesPerFrame,
     loadCart,
+    writeCartData,
+    flushCartData,
     advance,
     render,
     readAudio,

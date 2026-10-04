@@ -82,6 +82,7 @@ const canSeeConversionSettings = computed(
   () => canSeeScanSettings.value && heartbeat.value.CONVERTO.ENABLED,
 );
 const canSeeApiTokens = computed(() => scopes.value.includes("me.write"));
+const canSeeDevices = computed(() => scopes.value.includes("devices.read"));
 const canSeeAdmin = computed(() => scopes.value.includes("users.write"));
 
 function showAbout() {
@@ -262,6 +263,13 @@ async function onLogout() {
         :to="{ name: ROUTES.CLIENT_API_TOKENS }"
         icon="mdi-key-variant"
         :label="t('settings.client-api-tokens')"
+        @click="open = false"
+      />
+      <RMenuItem
+        v-if="canSeeDevices"
+        :to="{ name: ROUTES.DEVICES }"
+        icon="mdi-devices"
+        :label="t('settings.devices')"
         @click="open = false"
       />
     </div>

@@ -439,6 +439,18 @@ const routes = [
             },
           },
           {
+            path: "devices",
+            name: ROUTES.DEVICES,
+            meta: {
+              title: "settings.devices",
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.DEVICES),
+            },
+          },
+          {
             path: "administration",
             name: ROUTES.ADMINISTRATION,
             meta: {
@@ -609,6 +621,7 @@ const router = createRouter({
 
 const routePermissions: RoutePermissions[] = [
   { path: ROUTES.CLIENT_API_TOKENS, requiredScopes: ["me.write"] },
+  { path: ROUTES.DEVICES, requiredScopes: ["devices.read"] },
   { path: ROUTES.SCAN, requiredScopes: ["platforms.write"] },
   { path: ROUTES.UPLOAD, requiredScopes: ["roms.write"] },
   { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },

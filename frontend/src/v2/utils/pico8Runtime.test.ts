@@ -14,8 +14,21 @@ const context = {
 
 // Hand out distinct addresses so the palette and audio buffers do not alias.
 let nextAddress = 200;
+const files = new Map<string, Uint8Array>();
 const fakeModule = {
   HEAPU8: heap,
+  FS: {
+    mkdirTree: vi.fn(),
+    writeFile: vi.fn((path: string, data: Uint8Array) => {
+      files.set(path, data);
+    }),
+    readFile: vi.fn((path: string) => files.get(path)!),
+    readdir: vi.fn(() => [
+      ".",
+      "..",
+      ...[...files.keys()].map((path) => path.split("/").pop()!),
+    ]),
+  },
   _f08_init: vi.fn(),
   _f08_load_cart_data: vi.fn(() => 0),
   _f08_step_frame: vi.fn(),
@@ -52,6 +65,7 @@ vi.mock("./scriptLoader", () => ({
 }));
 
 beforeEach(() => {
+  files.clear();
   nextAddress = 200;
   heap[100] = 0x21;
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
@@ -111,5 +125,23 @@ describe("createPico8Runtime", () => {
       createPico8Runtime(document.createElement("canvas")),
     ).rejects.toThrow(/out of memory/);
     expect(fakeModule._free).toHaveBeenCalledWith(200);
+  });
+
+  it("restores cart data before a cart and flushes it on the way out", async () => {
+    const runtime = await createPico8Runtime(document.createElement("canvas"));
+
+    runtime.writeCartData([{ key: "celeste", bytes: new Uint8Array([1]) }]);
+    expect(fakeModule.FS.mkdirTree).toHaveBeenCalledWith("/fake08/cdata");
+    expect(files.get("/fake08/cdata/celeste.p8d.txt")).toEqual(
+      new Uint8Array([1]),
+    );
+
+    fakeModule._f08_load_cart_data.mockImplementationOnce(() => {
+      files.set("/fake08/cdata/celeste.p8d.txt", new Uint8Array([2]));
+      return 0;
+    });
+    expect(runtime.flushCartData()).toEqual([
+      { key: "celeste", bytes: new Uint8Array([2]) },
+    ]);
   });
 });
