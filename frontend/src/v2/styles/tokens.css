@@ -62,11 +62,11 @@
   --r-color-crt-ghost-warm: #ff3b5c;
   --r-color-crt-ghost-cool: #3bd9ff;
   --r-font-family-sans:
-    "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, "Inter", Roboto,
-    sans-serif;
+    "Twemoji Country Flags", "Segoe UI", -apple-system, BlinkMacSystemFont,
+    system-ui, "Inter", Roboto, sans-serif;
   --r-font-family-display:
-    "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, "Inter", Roboto,
-    sans-serif;
+    "Twemoji Country Flags", "Segoe UI", -apple-system, BlinkMacSystemFont,
+    system-ui, "Inter", Roboto, sans-serif;
   --r-font-family-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --r-font-size-xs: 10.5px;
