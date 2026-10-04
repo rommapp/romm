@@ -10,8 +10,8 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
-import { romFixture } from "@/utils/rom.fixtures";
 import { platformFixture } from "@/utils/platform.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import { installScanLifecycle } from "./index";
 
 // Minimal socket stand-in: records handlers so tests can fire events, and
