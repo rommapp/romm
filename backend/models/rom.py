@@ -64,11 +64,12 @@ AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
 
-# (metadata column, key) of each provider's alternative titles, in precedence order.
+# (metadata column, key) of each source's alternative titles, in precedence order.
 ALTERNATIVE_NAME_SOURCES = (
     ("igdb_metadata", "alternative_names"),
     ("moby_metadata", "alternate_titles"),
     ("ss_metadata", "alternative_names"),
+    ("manual_metadata", "alternative_names"),
 )
 
 # Limits on `RomUser.pinned_media`, a list of keys like `file:12` naming the

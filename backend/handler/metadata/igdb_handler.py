@@ -187,6 +187,7 @@ def extract_metadata_from_igdb_rom(
 ) -> IGDBMetadata:
     age_ratings = rom.get("age_ratings", [])
     alternative_names = rom.get("alternative_names", [])
+    game_localizations = rom.get("game_localizations", [])
     collections = rom.get("collections", [])
     dlcs = rom.get("dlcs", [])
     expanded_games = rom.get("expanded_games", [])
@@ -210,6 +211,7 @@ def extract_metadata_from_igdb_rom(
     assert mark_expanded(franchise)
     assert mark_list_expanded(age_ratings)
     assert mark_list_expanded(alternative_names)
+    assert mark_list_expanded(game_localizations)
     assert mark_list_expanded(collections)
     assert mark_list_expanded(dlcs)
     assert mark_list_expanded(expanded_games)
@@ -280,7 +282,12 @@ def extract_metadata_from_igdb_rom(
                     ]
                 )
             ),
-            "alternative_names": _expanded_names(alternative_names),
+            "alternative_names": pydash.uniq(
+                [
+                    *_expanded_names(alternative_names),
+                    *_expanded_names(game_localizations),
+                ]
+            ),
             "collections": _expanded_names(collections),
             "game_modes": _expanded_names(game_modes),
             "companies": [
@@ -508,6 +515,16 @@ def build_igdb_rom(
     assert mark_list_expanded(rom_screenshots)
 
     localized_name, localized_cover = extract_localized_data(rom, preferred_locale)
+    igdb_metadata = extract_metadata_from_igdb_rom(handler, rom, platform_igdb_id)
+    # Every title but the displayed one, so a canonical name a localized
+    # title replaced stays searchable.
+    igdb_metadata["alternative_names"] = [
+        title
+        for title in pydash.uniq(
+            [rom.get("name", ""), *igdb_metadata["alternative_names"]]
+        )
+        if title and title != localized_name
+    ]
 
     return IGDBRom(
         igdb_id=rom["id"],
@@ -521,7 +538,7 @@ def build_igdb_rom(
             handler.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
             for s in rom_screenshots
         ],
-        igdb_metadata=extract_metadata_from_igdb_rom(handler, rom, platform_igdb_id),
+        igdb_metadata=igdb_metadata,
     )
 
 

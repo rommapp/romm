@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // AdditionalDetails (v2): manual metadata overrides for the edit-ROM
-// dialog. Companies / genres / franchises / game modes / age ratings
-// are multi-tag combobox fields; first release date is a date picker;
+// dialog. Alternative titles / companies / genres / franchises / game
+// modes / age ratings are multi-tag combobox fields; first release date is a date picker;
 // YouTube video ID is a plain text field.
 //
 // All writes go through `manual_metadata`: the backend layer where
@@ -76,6 +76,15 @@ function updateManualMetadata(
 
 <template>
   <div class="r-v2-additional">
+    <RComboboxField
+      :model-value="manual.alternative_names ?? []"
+      :label="t('rom.alternative-titles')"
+      prefix-label="stacked"
+      variant="outlined"
+      density="comfortable"
+      clearable
+      @update:model-value="(v) => updateManualMetadata('alternative_names', v)"
+    />
     <RComboboxField
       :model-value="manual.companies ?? []"
       :label="t('rom.companies')"

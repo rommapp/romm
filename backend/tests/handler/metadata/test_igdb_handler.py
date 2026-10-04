@@ -24,6 +24,7 @@ from handler.metadata.igdb_handler import (
     IGDBMetadata,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
+    build_igdb_rom,
     extract_metadata_from_igdb_rom,
     get_igdb_preferred_locale,
 )
@@ -973,3 +974,41 @@ class TestCompanyRoleDeduplication:
             "Crystal Dynamics",
             "Nixxes Software",
         ]
+
+
+class TestAlternativeNames:
+    """Every title IGDB knows but the displayed one lands in `alternative_names`."""
+
+    def test_localization_titles_join_the_alternative_names(self):
+        game = _make_game(
+            1,
+            "Bleach: The 3rd Phantom",
+            alternative_names=["Burīchi Za Sādo Fantomu"],
+            game_localizations=[
+                "ブリーチ ザ・サード・ファントム",
+                "Burīchi Za Sādo Fantomu",
+            ],
+        )
+
+        rom = build_igdb_rom(IGDBHandler(), game, None, GENESIS_IGDB_ID)
+
+        assert rom["name"] == "Bleach: The 3rd Phantom"
+        assert rom["igdb_metadata"]["alternative_names"] == [
+            "Burīchi Za Sādo Fantomu",
+            "ブリーチ ザ・サード・ファントム",
+        ]
+
+    def test_a_localized_display_name_keeps_the_canonical_name(self):
+        game = _make_game(1, "Bleach: The 3rd Phantom")
+        game["game_localizations"] = [
+            GameLocalization(
+                id=1,
+                name="ブリーチ ザ・サード・ファントム",
+                region={"id": 1, "identifier": "ja-JP"},
+            )
+        ]
+
+        rom = build_igdb_rom(IGDBHandler(), game, "ja-JP", GENESIS_IGDB_ID)
+
+        assert rom["name"] == "ブリーチ ザ・サード・ファントム"
+        assert rom["igdb_metadata"]["alternative_names"] == ["Bleach: The 3rd Phantom"]
