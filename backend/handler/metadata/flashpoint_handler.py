@@ -10,6 +10,7 @@ from config import FLASHPOINT_API_ENABLED
 from logger.logger import log
 from utils import get_version, is_valid_uuid
 from utils.context import ctx_httpx_client
+from utils.datetime import to_utc
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import MetadataHandler, unavailable
@@ -72,9 +73,7 @@ def extract_flashpoint_metadata(game: FlashpointGame) -> FlashpointMetadata:
     if game.get("release_date"):
         try:
             date_obj = datetime.datetime.strptime(game["release_date"], "%Y-%m-%d")
-            first_release_date = str(
-                int(date_obj.replace(tzinfo=datetime.timezone.utc).timestamp())
-            )
+            first_release_date = str(int(to_utc(date_obj).timestamp()))
         except ValueError, TypeError:
             first_release_date = ""
 

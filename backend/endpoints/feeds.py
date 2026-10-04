@@ -3,7 +3,7 @@ import io
 import re
 from collections import Counter
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Any
 from urllib.parse import quote
 
@@ -558,7 +558,9 @@ def format_release_date(timestamp: int | None) -> str | None:
     if not timestamp:
         return None
 
-    return datetime.fromtimestamp(timestamp / 1000).strftime("%m-%d-%Y")
+    return datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc).strftime(
+        "%m-%d-%Y"
+    )
 
 
 FPKGI_CATEGORY_LABELS: dict[RomFileCategory, str] = {

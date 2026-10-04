@@ -6,6 +6,7 @@ from pathlib import Path
 from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from models.base import compute_file_name_no_ext, compute_file_name_no_tags
 from models.rom import ARTICLES
+from utils.datetime import to_utc
 
 from .types import LAUNCHBOX_LOCAL_DIR
 
@@ -168,13 +169,13 @@ def parse_release_date(value: str | None) -> int | None:
 
     try:
         iso = value.replace("Z", "+00:00")
-        return int(datetime.fromisoformat(iso).timestamp())
+        return int(to_utc(datetime.fromisoformat(iso)).timestamp())
     except ValueError:
         pass
 
     for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d"):
         try:
-            return int(datetime.strptime(value, fmt).timestamp())
+            return int(to_utc(datetime.strptime(value, fmt)).timestamp())
         except ValueError:
             continue
 

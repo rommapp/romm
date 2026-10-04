@@ -19,6 +19,7 @@ from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
+from utils.datetime import to_utc
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import BaseRom, MetadataHandler, unavailable
@@ -150,8 +151,10 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": (
                 int(
-                    datetime.fromisoformat(
-                        rom["first_release_date"].replace("Z", "+00:00")
+                    to_utc(
+                        datetime.fromisoformat(
+                            rom["first_release_date"].replace("Z", "+00:00")
+                        )
                     ).timestamp()
                 )
                 if rom.get("first_release_date")
