@@ -499,7 +499,13 @@ class DemozooHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return DEMOZOO_API_ENABLED
 
-    async def _request(self, url: str) -> dict[str, Any]:
+    async def _request(self, url: str, *, missing_ok: bool = False) -> dict[str, Any]:
+        """Fetch a Demozoo API URL.
+
+        Args:
+            missing_ok: Read a 404 as an empty answer, for a production looked up
+                by id; anywhere else a 404 means the route itself is gone.
+        """
         await _rate_limiter.acquire()
         headers = {
             "User-Agent": f"RomM/{get_version()}",
@@ -508,8 +514,7 @@ class DemozooHandler(MetadataHandler):
         try:
             body = await self._fetch_capped(url, headers=headers)
         except httpx2.HTTPStatusError as exc:
-            # Demozoo answers an unknown production id with a 404.
-            if exc.response.status_code == httpx2.codes.NOT_FOUND:
+            if missing_ok and exc.response.status_code == httpx2.codes.NOT_FOUND:
                 return {}
             log.warning("Can't connect to Demozoo API", extra={"exception": str(exc)})
             raise unavailable("Demozoo API") from exc
@@ -540,7 +545,9 @@ class DemozooHandler(MetadataHandler):
     async def get_rom_by_id(self, demozoo_id: int) -> DemozooRom:
         if not self.is_enabled() or not demozoo_id:
             return DemozooRom(demozoo_id=None)
-        data = await self._request(f"{DEMOZOO_API_ROOT}/productions/{int(demozoo_id)}/")
+        data = await self._request(
+            f"{DEMOZOO_API_ROOT}/productions/{int(demozoo_id)}/", missing_ok=True
+        )
         if not data.get("id"):
             return DemozooRom(demozoo_id=None)
         return production_to_rom(data)

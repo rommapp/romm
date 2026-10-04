@@ -707,8 +707,6 @@ class HLTBHandler(MetadataHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=_unavailable_detail(status_code),
             ) from exc
-        # A connect timeout is the likely failure here, and it would otherwise
-        # escape update_rom as a bare 500.
         except httpx2.RequestError as exc:
             log.warning(
                 "Connection error: can't connect to HowLongToBeat", exc_info=True

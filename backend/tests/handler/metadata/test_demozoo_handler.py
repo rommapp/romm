@@ -437,14 +437,21 @@ class TestRequest:
         assert request.headers["User-Agent"] == f"RomM/{get_version()}"
         assert request.headers["Accept"] == "application/json"
 
+    async def test_a_missing_production_is_empty(
+        self, demozoo: tuple[DemozooHandler, DemozooStub]
+    ):
+        handler, stub = demozoo
+        stub.replies = [_json({}, status_code=404)]
+
+        assert (
+            await handler._request("https://demozoo.org/api/v1/x", missing_ok=True)
+            == {}
+        )
+
     @pytest.mark.parametrize(
         "reply",
-        [
-            _json({}, status_code=404),
-            httpx2.Response(200, content=b"<html>"),
-            _json([SECOND_REALITY]),
-        ],
-        ids=["not_found", "not_json", "not_an_object"],
+        [httpx2.Response(200, content=b"<html>"), _json([SECOND_REALITY])],
+        ids=["not_json", "not_an_object"],
     )
     async def test_an_empty_answer_is_empty(
         self, demozoo: tuple[DemozooHandler, DemozooStub], reply: httpx2.Response
@@ -459,6 +466,7 @@ class TestRequest:
         [
             _json({}, status_code=500),
             _json({}, status_code=429),
+            _json({}, status_code=404),
             httpx2.ConnectError("refused"),
             httpx2.ConnectTimeout("slow"),
             httpx2.ReadTimeout("slow"),
@@ -467,6 +475,7 @@ class TestRequest:
         ids=[
             "server_error",
             "rate_limited",
+            "route_gone",
             "refused",
             "connect_timeout",
             "read_timeout",
@@ -625,6 +634,17 @@ class TestGetRom:
 
 
 class TestSearch:
+    async def test_a_search_route_that_is_gone_is_unavailable(
+        self, demozoo: tuple[DemozooHandler, DemozooStub]
+    ):
+        handler, stub = demozoo
+        stub.replies = [_json({}, status_code=404)]
+
+        with pytest.raises(HTTPException) as exc:
+            await handler.get_rom("Second Reality.zip", "dos")
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
     async def test_keeps_rows_with_an_id_up_to_the_limit(
         self, demozoo: tuple[DemozooHandler, DemozooStub]
     ):
