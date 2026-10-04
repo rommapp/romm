@@ -14,6 +14,7 @@ from fastapi import HTTPException
 import config
 from adapters.services import igdb
 from adapters.services.igdb import IGDBService
+from handler.metadata.igdb_handler import TwitchAuth
 from utils.context import ctx_aiohttp_session
 
 
@@ -83,8 +84,9 @@ class FakeIGDB:
         return web.json_response(body, status=status)
 
 
-class FakeTwitchAuth:
+class FakeTwitchAuth(TwitchAuth):
     def __init__(self, token: str = "tok") -> None:
+        super().__init__()
         self.token = token
         self.refreshes = 0
 
@@ -132,7 +134,7 @@ class TestIGDBServiceAgainstAServer:
     ):
         fake, url = igdb_server
         fake.replies["games"] = [(200, [GAME])]
-        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)  # type: ignore[arg-type]
+        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)
 
         games = await service.list_games(
             search_term="Pokémon Red",
@@ -156,7 +158,7 @@ class TestIGDBServiceAgainstAServer:
     ):
         fake, url = igdb_server
         fake.replies["search"] = [(200, [{"id": 9, "game": {"id": 1}}])]
-        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)  # type: ignore[arg-type]
+        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)
 
         results = await service.search(fields=["game.id"], where='name ~ *"Red"*')
 
@@ -169,7 +171,7 @@ class TestIGDBServiceAgainstAServer:
         fake, url = igdb_server
         fake.replies["games"] = [(401, {}), (200, [GAME])]
         auth = FakeTwitchAuth()
-        service = IGDBService(twitch_auth=auth, base_url=url)  # type: ignore[arg-type]
+        service = IGDBService(twitch_auth=auth, base_url=url)
 
         assert await service.list_games(fields=["id"]) == [GAME]
         assert auth.refreshes == 1
@@ -180,7 +182,7 @@ class TestIGDBServiceAgainstAServer:
     ):
         fake, url = igdb_server
         fake.replies["games"] = [(401, {}), (401, {})]
-        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)  # type: ignore[arg-type]
+        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)
 
         assert await service.list_games(fields=["id"]) == []
 
@@ -189,7 +191,7 @@ class TestIGDBServiceAgainstAServer:
     ):
         fake, url = igdb_server
         fake.replies["games"] = [(429, {}), (200, [GAME])]
-        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)  # type: ignore[arg-type]
+        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)
 
         assert await service.list_games(fields=["id"]) == [GAME]
         no_backoff.assert_awaited_once_with(2)
@@ -199,7 +201,7 @@ class TestIGDBServiceAgainstAServer:
     ):
         fake, url = igdb_server
         fake.replies["games"] = [(500, {})]
-        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)  # type: ignore[arg-type]
+        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)
 
         assert await service.list_games(fields=["id"]) == []
         assert len(fake.requests) == 1
@@ -209,7 +211,7 @@ class TestIGDBServiceAgainstAServer:
     ):
         fake, url = igdb_server
         fake.replies["games"] = [(200, b"<html>maintenance</html>")]
-        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)  # type: ignore[arg-type]
+        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)
 
         assert await service.list_games(fields=["id"]) == []
 
@@ -218,10 +220,10 @@ class TestIGDBServiceAgainstAServer:
     ):
         fake, url = igdb_server
         fake.replies["games"] = [1.0, (200, [GAME])]
-        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)  # type: ignore[arg-type]
+        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)
 
         result = await service._request(
-            f"{url}/games", list[dict[str, Any]], fields=["id"], request_timeout=0.2  # type: ignore[arg-type]
+            f"{url}/games", list[dict[str, Any]], fields=["id"], request_timeout=0.2
         )
 
         assert result == [GAME]
@@ -229,10 +231,10 @@ class TestIGDBServiceAgainstAServer:
     async def test_two_timeouts_are_no_result(self, igdb_server: tuple[FakeIGDB, str]):
         fake, url = igdb_server
         fake.replies["games"] = [1.0, 1.0]
-        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)  # type: ignore[arg-type]
+        service = IGDBService(twitch_auth=FakeTwitchAuth(), base_url=url)
 
         result = await service._request(
-            f"{url}/games", list[dict[str, Any]], fields=["id"], request_timeout=0.2  # type: ignore[arg-type]
+            f"{url}/games", list[dict[str, Any]], fields=["id"], request_timeout=0.2
         )
 
         assert result is None
@@ -241,7 +243,7 @@ class TestIGDBServiceAgainstAServer:
         self, igdb_server: tuple[FakeIGDB, str]
     ):
         fake, url = igdb_server
-        service = IGDBService(twitch_auth=FakeTwitchAuth(token=""), base_url=url)  # type: ignore[arg-type]
+        service = IGDBService(twitch_auth=FakeTwitchAuth(token=""), base_url=url)
 
         with pytest.raises(HTTPException) as exc:
             await service.list_games(fields=["id"])
@@ -254,7 +256,7 @@ class TestIGDBServiceAgainstAServer:
         self, igdb_server: tuple[FakeIGDB, str]
     ):
         service = IGDBService(
-            twitch_auth=FakeTwitchAuth(),  # type: ignore[arg-type]
+            twitch_auth=FakeTwitchAuth(),
             base_url="http://127.0.0.1:9/v4",
         )
 

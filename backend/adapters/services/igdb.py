@@ -78,7 +78,7 @@ class IGDBService:
         fields: Sequence[str] | None = None,
         where: str | None = None,
         limit: int | None = None,
-        request_timeout: int = 120,
+        request_timeout: float = 120,
     ) -> T | None:
         source = f"IGDB {yarl.URL(url).name}"
         aiohttp_session = ctx_aiohttp_session.get()

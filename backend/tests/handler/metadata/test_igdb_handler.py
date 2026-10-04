@@ -1120,10 +1120,11 @@ class TestTwitchAuth:
         assert twitch.requests == []
 
 
-class FakeIGDBService:
+class FakeIGDBService(IGDBService):
     """Stands in for IGDBService, recording each query and playing back replies."""
 
     def __init__(self) -> None:
+        super().__init__(twitch_auth=TwitchAuth())
         self.games: list[list[Game]] = []
         self.search_results: list[list[dict[str, Any]]] = []
         self.calls: list[tuple[str, dict[str, Any]]] = []
@@ -1149,7 +1150,7 @@ def service(monkeypatch: pytest.MonkeyPatch) -> FakeIGDBService:
 @pytest.fixture
 def handler(service: FakeIGDBService) -> IGDBHandler:
     handler = IGDBHandler()
-    handler.igdb_service = cast(IGDBService, service)
+    handler.igdb_service = service
     return handler
 
 
