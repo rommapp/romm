@@ -29,6 +29,7 @@ const title = computed(() => props.session.rom_name ?? "");
 const coverRom = computed<CoverArtRom>(() => ({
   ss_metadata: null,
   gamelist_metadata: null,
+  launchbox_metadata: null,
   path_cover_large: props.session.path_cover_large ?? "",
   path_cover_small: props.session.path_cover_small ?? "",
   url_cover: props.session.url_cover ?? "",

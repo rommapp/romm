@@ -42,6 +42,7 @@ def _mock_rom(**overrides) -> Rom:
         "tags": None,
         "ss_metadata": None,
         "gamelist_metadata": None,
+        "launchbox_metadata": None,
         "path_cover_l": None,
         "path_screenshots": None,
         "path_video": None,
@@ -394,6 +395,25 @@ class TestCollectAssets:
         f.write_bytes(b"x")
 
         rom = _mock_rom(ss_metadata=None, gamelist_metadata={gl_key: gl_value})
+        assets = PegasusExporter(local_export=True)._collect_assets(rom)
+        assert assets[expected_pegasus_key] == f
+
+    @pytest.mark.parametrize(
+        "lb_key, lb_value, expected_pegasus_key",
+        [
+            ("box3d_path", "roms/1/1/box3d/box3d.png", "box_full"),
+            ("box2d_back_path", "roms/1/1/box2d_back/box2d_back.png", "box_back"),
+        ],
+    )
+    def test_launchbox_metadata(
+        self, tmp_path, monkeypatch, lb_key, lb_value, expected_pegasus_key
+    ):
+        monkeypatch.setattr(fs_resource_handler, "base_path", tmp_path)
+        f = tmp_path / lb_value
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(b"x")
+
+        rom = _mock_rom(launchbox_metadata={lb_key: lb_value})
         assets = PegasusExporter(local_export=True)._collect_assets(rom)
         assert assets[expected_pegasus_key] == f
 

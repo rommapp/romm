@@ -354,6 +354,32 @@ def test_export_gamelist_xml_gamelist_backcover_fallback(platform_with_roms):
     assert boxback.text == "./backcovers/Super Mario World (USA).png"
 
 
+def test_export_gamelist_xml_launchbox_box_art_fallback(platform_with_roms):
+    """LaunchBox box art must reach <boxback> and <box3d> when nothing else has it."""
+    platform, roms = platform_with_roms
+
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {
+            "launchbox_metadata": {
+                "box2d_back_path": "snes-lb/box2d_back/box2d_back.png",
+                "box3d_path": "snes-lb/box3d/box3d.png",
+            }
+        },
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
+    game = fromstring(xml_str).findall("game")[0]
+
+    boxback = game.find("boxback")
+    assert boxback is not None
+    assert boxback.text == "./backcovers/Super Mario World (USA).png"
+    box3d = game.find("box3d")
+    assert box3d is not None
+    assert box3d.text == "./3dboxes/Super Mario World (USA).png"
+
+
 def test_export_gamelist_xml_local_no_absolute_paths_anywhere(platform_with_roms):
     """Catch-all: when local_export=True, no element text should contain
     the FRONTEND_RESOURCES_PATH absolute prefix."""
