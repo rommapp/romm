@@ -87,5 +87,11 @@ const languages = computed(() =>
   .card-flags__chip > span {
     text-box: trim-both cap alphabetic;
   }
+
+  /* Twemoji centers its flags 0.375em above the baseline, while the trimmed
+     box centers at half of Segoe UI's 0.7em cap height. */
+  html[data-flag-polyfill] .card-flags__chip > span {
+    translate: 0 0.025em;
+  }
 }
 </style>

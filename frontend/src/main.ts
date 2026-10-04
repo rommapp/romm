@@ -46,7 +46,10 @@ function isChunkLoadError(error: unknown): boolean {
 // Chromium on Windows has no flag emoji and draws region flags as two
 // letters ("US"). Registers a flag-only webfont on those browsers; the v2
 // font stacks list it first. Self-hosted so offline installs get it too.
-polyfillCountryFlagEmojis("Twemoji Country Flags", flagFontUrl);
+// The attribute lets CardFlags correct for that font's glyph placement.
+if (polyfillCountryFlagEmojis("Twemoji Country Flags", flagFontUrl)) {
+  document.documentElement.dataset.flagPolyfill = "";
+}
 
 window.addEventListener("vite:preloadError", (event) => {
   if (reloadOnceForStaleChunk()) event.preventDefault();
