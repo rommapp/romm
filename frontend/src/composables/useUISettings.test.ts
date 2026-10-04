@@ -4,13 +4,13 @@ import { nextTick, watch } from "vue";
 import { useUISettings } from "@/composables/useUISettings";
 import { setStorageUser } from "@/composables/useUserLocalStorage";
 import storeAuth from "@/stores/auth";
-import type { User } from "@/stores/users";
+import { userFixture } from "@/utils/user.fixtures";
 
 const { updateUser } = vi.hoisted(() => ({ updateUser: vi.fn() }));
 vi.mock("@/services/api/user", () => ({ default: { updateUser } }));
 
 const userWith = (id: number, ui_settings: Record<string, unknown>) =>
-  ({ id, ui_settings }) as unknown as User;
+  userFixture({ id, ui_settings });
 
 beforeEach(() => {
   vi.useFakeTimers();

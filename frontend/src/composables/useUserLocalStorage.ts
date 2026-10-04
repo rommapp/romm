@@ -1,8 +1,5 @@
-// useUserLocalStorage: localStorage namespaced by the signed-in user, so people
-// sharing a browser don't inherit each other's preferences.
-//
-// Deliberately free of store and API imports: RomM.vue and the plugins read
-// it during bootstrap, and main.ts feeds it the user through setStorageUser.
+// localStorage namespaced by the signed-in user. Kept free of store imports for
+// bootstrap, so main.ts feeds it the user through setStorageUser.
 import {
   useLocalStorage,
   type RemovableRef,
