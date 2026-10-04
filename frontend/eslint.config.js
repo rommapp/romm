@@ -61,6 +61,7 @@ export default tseslint.config(
       "dev-dist/**",
       "storybook-static/**",
       "coverage/**",
+      "e2e/.output/**",
     ],
   },
   {

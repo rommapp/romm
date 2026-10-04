@@ -1,7 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { url as inspectorUrl } from "node:inspector";
 import { REPORT_DIR, RESULTS_DIR } from "./e2e/support/output";
-import type { E2EOptions } from "./e2e/support/test";
 
 // End-to-end suite: `npm run test:e2e`. Variables come from the shell, then
 // e2e/.env, which tools like the VS Code extension can't take from a terminal.
@@ -25,7 +24,7 @@ const TIMEOUTS = debugging
     ? { test: 45_000, expect: 10_000, action: 15_000, navigation: 30_000 }
     : { test: 10_000, expect: 3_000, action: 5_000, navigation: 5_000 };
 
-export default defineConfig<E2EOptions>({
+export default defineConfig({
   testDir: "./e2e/specs",
   outputDir: RESULTS_DIR,
   // Permission gating is global state on the server (the fixture users' grants),

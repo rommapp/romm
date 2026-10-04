@@ -9,7 +9,7 @@
 - **Recorded code is a draft.** Before committing, give it real assertions, replace CSS-path and `nth()` selectors with roles and labels, and run it.
 - **Timeouts:** don't add hard-coded ones that would outlive a debug session; the config sets every timeout to 0 when a debugger is attached. A test that genuinely needs longer calls `test.slow()`, which leaves a debug session's 0 alone, as `auth.setup.ts` does.
 - **Fail on the cause, not on a timeout.**
-  - The automatic guard in `support/test.ts` fails a test the moment an `/api` call returns 5xx or the app throws. Opt out only in a test that triggers one on purpose, with `test.use({ failOnAppErrors: false })` and a comment saying why.
+  - The automatic guard in `support/test.ts` fails a test the moment an `/api` call returns 5xx or the app throws.
   - When a helper waits for a response, accept any status, then check it and throw a message naming the method, path and status, as `gotoHydrated()` does. Never filter on `status() === 200` inside `waitForResponse`.
   - Retry only what's transient, with Playwright's own `retries`: the `setup` project retries sign-in, which a dev-server reload can interrupt.
   - Don't paper over slowness with longer timeouts or `waitForTimeout`; find the event to wait for.
