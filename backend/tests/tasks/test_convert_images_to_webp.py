@@ -3,6 +3,7 @@ from typing import Any
 
 import pytest
 from PIL import Image
+from pytest_mock import MockerFixture
 from tests.utils.test_images import (
     DURATIONS,
     animated_image_bytes,
@@ -149,7 +150,8 @@ class TestImageConverter:
 def _cover(root: Path, rom: str, name: str = "big.png") -> Path:
     path = root / "roms" / "gba" / rom / "cover" / name
     path.parent.mkdir(parents=True, exist_ok=True)
-    Image.new("RGB", (4, 4), "red").save(path, format="PNG")
+    jpeg = path.suffix.lower() in (".jpg", ".jpeg")
+    Image.new("RGB", (4, 4), "red").save(path, format="JPEG" if jpeg else "PNG")
     return path
 
 
@@ -161,7 +163,7 @@ class TestConvertImagesToWebPTask:
         return task
 
     @pytest.fixture
-    def job_meta(self, mocker) -> list[dict[str, Any]]:
+    def job_meta(self, mocker: MockerFixture) -> list[dict[str, Any]]:
         updates: list[dict[str, Any]] = []
         mocker.patch.object(tasks_module, "update_job_meta", side_effect=updates.append)
         return updates
@@ -191,7 +193,10 @@ class TestConvertImagesToWebPTask:
         assert task._find_convertible_images() == []
 
     async def test_run_converts_every_cover_and_reports_the_counts(
-        self, task: ConvertImagesToWebPTask, tmp_path: Path, job_meta
+        self,
+        task: ConvertImagesToWebPTask,
+        tmp_path: Path,
+        job_meta: list[dict[str, Any]],
     ):
         covers = [_cover(tmp_path, f"rom{i}") for i in range(12)]
 
@@ -200,11 +205,16 @@ class TestConvertImagesToWebPTask:
         assert result == {"processed": 12, "errors": 0, "total": 12}
         assert all(cover.with_suffix(".webp").exists() for cover in covers)
         assert all(cover.exists() for cover in covers)
-        assert job_meta[-1] == {"conversion_stats": result}
-        assert len(job_meta) == 12
+        assert job_meta == [
+            {"conversion_stats": {"processed": done, "errors": 0, "total": 12}}
+            for done in range(1, 13)
+        ]
 
     async def test_run_counts_a_broken_image_and_carries_on(
-        self, task: ConvertImagesToWebPTask, tmp_path: Path, job_meta
+        self,
+        task: ConvertImagesToWebPTask,
+        tmp_path: Path,
+        job_meta: list[dict[str, Any]],
     ):
         good = _cover(tmp_path, "good")
         broken = _cover(tmp_path, "broken")
@@ -217,9 +227,17 @@ class TestConvertImagesToWebPTask:
         assert not broken.with_suffix(".webp").exists()
         [error] = task.errors
         assert error.startswith(f"Invalid image file: {broken} - ")
+        assert job_meta == [
+            {"conversion_stats": {"processed": 0, "errors": 1, "total": 2}},
+            {"conversion_stats": {"processed": 1, "errors": 1, "total": 2}},
+        ]
 
     async def test_run_counts_a_failed_conversion(
-        self, task: ConvertImagesToWebPTask, tmp_path: Path, job_meta, mocker
+        self,
+        task: ConvertImagesToWebPTask,
+        tmp_path: Path,
+        job_meta: list[dict[str, Any]],
+        mocker: MockerFixture,
     ):
         cover = _cover(tmp_path, "zelda")
         mocker.patch.object(task.converter, "convert_to_webp", return_value=False)
@@ -228,9 +246,14 @@ class TestConvertImagesToWebPTask:
 
         assert result == {"processed": 0, "errors": 1, "total": 1}
         assert task.errors == [f"Conversion failed: {cover}"]
+        assert job_meta == [{"conversion_stats": result}]
 
     async def test_run_counts_an_unexpected_error(
-        self, task: ConvertImagesToWebPTask, tmp_path: Path, job_meta, mocker
+        self,
+        task: ConvertImagesToWebPTask,
+        tmp_path: Path,
+        job_meta: list[dict[str, Any]],
+        mocker: MockerFixture,
     ):
         cover = _cover(tmp_path, "zelda")
         mocker.patch.object(
@@ -241,9 +264,10 @@ class TestConvertImagesToWebPTask:
 
         assert result == {"processed": 0, "errors": 1, "total": 1}
         assert task.errors == [f"Unexpected error: {cover} - boom"]
+        assert job_meta == [{"conversion_stats": result}]
 
     async def test_run_with_nothing_to_convert(
-        self, task: ConvertImagesToWebPTask, job_meta
+        self, task: ConvertImagesToWebPTask, job_meta: list[dict[str, Any]]
     ):
         result = await task.run()
 
@@ -251,7 +275,10 @@ class TestConvertImagesToWebPTask:
         assert job_meta == [{"conversion_stats": result}]
 
     async def test_a_second_run_starts_its_counts_from_zero(
-        self, task: ConvertImagesToWebPTask, tmp_path: Path, job_meta
+        self,
+        task: ConvertImagesToWebPTask,
+        tmp_path: Path,
+        job_meta: list[dict[str, Any]],
     ):
         _cover(tmp_path, "zelda")
         await task.run()
