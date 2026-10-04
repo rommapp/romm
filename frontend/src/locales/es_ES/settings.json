@@ -375,6 +375,8 @@
   "removed": "Eliminado",
   "repeat-password": "Repetir contraseña",
   "repeat-password-required": "Se requiere repetir la contraseña",
+  "resume-music": "Reanudar la música al recargar",
+  "resume-music-desc": "Retoma la última pista donde se quedó. Si estaba sonando, vuelve a empezar con tu primer clic o pulsación de tecla.",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "Esto revocará el token. Cualquier dispositivo que lo use perderá el acceso.",
   "role": "Rol",

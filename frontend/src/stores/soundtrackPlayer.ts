@@ -40,6 +40,24 @@ export type PlayerMeta = {
   gameArtworkUrl?: string | undefined;
 };
 
+/** Everything needed to rebuild the player after a reload. */
+export interface SoundtrackSession {
+  track: PlayerTrack;
+  meta: PlayerMeta;
+  playlist: PlayerTrack[];
+  originalPlaylist: PlayerTrack[];
+  isShuffled: boolean;
+  playlistMeta: Record<number, PlayerMeta>;
+  activePlaylistRomId: number | null;
+  position: number;
+  wasPlaying: boolean;
+}
+
+export interface PendingResume {
+  position: number;
+  autoplay: boolean;
+}
+
 export type SoundtrackArtworkRom = Pick<
   DetailedRom,
   | "ss_metadata"
@@ -104,6 +122,9 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   const isShuffled = ref(false);
   const playlistMeta = ref<Record<number, PlayerMeta>>({});
   const activePlaylistRomId = ref<number | null>(null);
+  // A restored session that hasn't started yet. One waiting to autoplay still
+  // counts as playing, so reloading again before then keeps it that way.
+  const pendingResume = ref<PendingResume | null>(null);
 
   function setAudioRef(el: SoundtrackSink | null) {
     audioRef.value = el;
@@ -143,6 +164,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
 
   function setPlaying(v: boolean) {
     isPlaying.value = v;
+    pendingResume.value = null;
     if (v) hasError.value = false;
   }
   function setBuffering(v: boolean) {
@@ -222,6 +244,7 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
   }
 
   function play(t: PlayerTrack, m: PlayerMeta) {
+    pendingResume.value = null;
     // Drop any buffered time-update from the previous track so the slider
     // doesn't briefly snap to an old value before `timeupdate` fires.
     setCurrentTimeThrottled.cancel();
@@ -274,6 +297,38 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     playlistMeta.value = {};
     isShuffled.value = false;
     activePlaylistRomId.value = null;
+    pendingResume.value = null;
+  }
+
+  const session = computed<SoundtrackSession | null>(() =>
+    track.value
+      ? {
+          track: track.value,
+          meta: meta.value,
+          playlist: playlist.value,
+          originalPlaylist: originalPlaylist.value,
+          isShuffled: isShuffled.value,
+          playlistMeta: playlistMeta.value,
+          activePlaylistRomId: activePlaylistRomId.value,
+          position: currentTime.value,
+          wasPlaying: isPlaying.value || !!pendingResume.value?.autoplay,
+        }
+      : null,
+  );
+
+  /** Load a saved session paused at its position; the player starts it later. */
+  function restore(saved: SoundtrackSession) {
+    play(saved.track, saved.meta);
+    pendingResume.value = {
+      position: saved.position,
+      autoplay: saved.wasPlaying,
+    };
+    currentTime.value = saved.position;
+    playlist.value = saved.playlist;
+    originalPlaylist.value = saved.originalPlaylist;
+    isShuffled.value = saved.isShuffled;
+    playlistMeta.value = saved.playlistMeta;
+    activePlaylistRomId.value = saved.activePlaylistRomId;
   }
 
   function togglePlayPause() {
@@ -307,10 +362,15 @@ const useSoundtrackPlayer = defineStore("soundtrackPlayer", () => {
     currentIndex,
     hasPrevious,
     hasNext,
+    session,
+    pendingResume,
     audioRef,
     setAudioRef,
     play,
+    restore,
     stop,
+    // Sign-out resets every store, so the next user doesn't get this queue.
+    reset: stop,
     togglePlayPause,
     seek,
     setVolume,

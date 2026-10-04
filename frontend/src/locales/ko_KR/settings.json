@@ -375,6 +375,8 @@
   "removed": "제거됨",
   "repeat-password": "비밀번호 재입력",
   "repeat-password-required": "비밀번호 재입력이 필요합니다",
+  "resume-music": "새로고침 후 음악 이어서 재생",
+  "resume-music-desc": "마지막 트랙을 멈춘 위치부터 이어서 재생합니다. 재생 중이었다면 첫 클릭이나 키 입력 시 다시 시작됩니다.",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "{username}의 토큰 \"{name}\"을(를) 폐기하시겠습니까?",
   "role": "역할",

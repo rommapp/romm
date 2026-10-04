@@ -375,6 +375,8 @@
   "removed": "已移除",
   "repeat-password": "重复密码",
   "repeat-password-required": "需要重复密码",
+  "resume-music": "重新加载后继续播放音乐",
+  "resume-music-desc": "从上次停止的位置继续播放最后一首曲目。如果当时正在播放，会在您第一次点击或按键时重新开始。",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "确定要吊销 {username} 的令牌 \"{name}\" 吗？",
   "role": "角色",
