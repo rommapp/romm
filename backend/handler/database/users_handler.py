@@ -6,6 +6,7 @@ from sqlalchemy.orm import QueryableAttribute, Session, load_only
 from sqlalchemy.sql import Delete, Select, Update
 
 from decorators.database import INJECTED_SESSION, begin_session
+from exceptions.database_exceptions import LastAdminError
 from models.user import Role, User
 
 from .base_handler import DBBaseHandler
@@ -83,13 +84,32 @@ class DBUsersHandler(DBBaseHandler):
     ) -> User | None:
         return session.get(User, id)
 
+    def _refuse_removing_the_last_admin(self, id: int, session: Session) -> None:
+        """Raise LastAdminError if `id` is the only admin.
+
+        The admin rows stay locked until the caller's transaction ends, so two
+        requests removing the last two admins can't both see the other one.
+        """
+        admin_ids = session.scalars(
+            select(User.id)
+            .where(User.role == Role.ADMIN)
+            .order_by(User.id)
+            .with_for_update()
+        ).all()
+        if list(admin_ids) == [id]:
+            raise LastAdminError(id)
+
     @begin_session
     def update_user(
         self,
         id: int,
         data: dict[str, Any],
+        *,
+        keep_an_admin: bool = False,
         session: Session = INJECTED_SESSION,
     ) -> User:
+        if keep_an_admin and data.get("role", Role.ADMIN) != Role.ADMIN:
+            self._refuse_removing_the_last_admin(id, session)
         session.execute(
             update(User)
             .where(User.id == id)
@@ -126,8 +146,12 @@ class DBUsersHandler(DBBaseHandler):
     def delete_user(
         self,
         id: int,
+        *,
+        keep_an_admin: bool = False,
         session: Session = INJECTED_SESSION,
     ) -> Result[*tuple[Any, ...]]:
+        if keep_an_admin:
+            self._refuse_removing_the_last_admin(id, session)
         return session.execute(
             delete(User)
             .where(User.id == id)

@@ -1,6 +1,11 @@
+from datetime import timedelta
+
 from fastapi import status
 
-from handler.database import db_user_handler
+from exceptions.database_exceptions import LastAdminError
+from handler.auth.base_handler import oauth_handler
+from handler.database import db_permission_handler, db_user_handler
+from models.permission import PermAction, PermEntity
 from models.user import Role, User
 
 
@@ -158,3 +163,50 @@ def test_update_to_a_short_password_is_rejected(
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_a_delegated_user_manager_cannot_delete_the_last_admin(
+    client, admin_user: User, viewer_user: User
+):
+    db_permission_handler.replace_user_overrides(
+        viewer_user.id, [(PermEntity.USERS, PermAction.WRITE, True, False)]
+    )
+    manager = db_user_handler.get_user(viewer_user.id)
+    assert manager
+    token = oauth_handler.create_access_token(
+        data={
+            "sub": manager.username,
+            "iss": "romm:oauth",
+            "scopes": " ".join(manager.oauth_scopes),
+        },
+        expires_delta=timedelta(minutes=5),
+    )
+
+    response = client.delete(f"/api/users/{admin_user.id}", headers=_bearer(token))
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == "You cannot delete the last admin user"
+    assert db_user_handler.get_user(admin_user.id) is not None
+
+
+def test_a_demotion_that_would_leave_no_admin_is_refused(
+    client, access_token: str, admin_user: User, mocker
+):
+    other = db_user_handler.add_user(
+        User(username="other_admin", hashed_password="x", role=Role.ADMIN)
+    )
+    # Only reachable when another request demotes this admin at the same time.
+    mocker.patch.object(
+        db_user_handler,
+        "_refuse_removing_the_last_admin",
+        side_effect=LastAdminError(other.id),
+    )
+
+    response = client.put(
+        f"/api/users/{other.id}", data={"role": "user"}, headers=_bearer(access_token)
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == "You cannot demote the last admin user"
+    unchanged = db_user_handler.get_user(other.id)
+    assert unchanged and unchanged.role == Role.ADMIN
