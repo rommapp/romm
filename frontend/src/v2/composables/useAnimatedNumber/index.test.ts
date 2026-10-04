@@ -114,4 +114,29 @@ describe("useAnimatedNumber", () => {
     second.stop();
     reduced.value = true;
   });
+
+  it("remembers a count reused under a new key with an equal value", async () => {
+    reduced.value = false;
+    const source = ref<number | null>(5);
+    const key = ref("equal-a");
+    const first = effectScope();
+    first.run(() =>
+      useAnimatedNumber(() => source.value, { rememberAs: () => key.value }),
+    );
+    key.value = "equal-b";
+    await Promise.resolve();
+    first.stop();
+
+    const second = effectScope();
+    let display!: ReturnType<typeof useAnimatedNumber>;
+    second.run(() => {
+      display = useAnimatedNumber(() => source.value, {
+        rememberAs: () => "equal-b",
+      });
+    });
+
+    expect(display.value).toBe(5);
+    second.stop();
+    reduced.value = true;
+  });
 });

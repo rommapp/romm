@@ -42,9 +42,11 @@ export function useAnimatedNumber(
     cancel = null;
   }
 
+  // The key is watched too, so a count reused for a new entity with an equal
+  // value still gets remembered under the new key.
   watch(
-    source,
-    (target) => {
+    [source, () => options.rememberAs?.()],
+    ([target, key]) => {
       stop();
       // Nothing to roll through: a missing value is a dash at the call site,
       // and a formatted one is already what the caller wants painted.
@@ -54,7 +56,6 @@ export function useAnimatedNumber(
       }
       // The first value rolls up from zero, which is the whole point of the
       // effect: a count that arrives is a count you watch land.
-      const key = options.rememberAs?.();
       const from =
         typeof display.value === "number"
           ? display.value
