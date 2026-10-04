@@ -374,7 +374,7 @@ class TestNullSlotLeakInPushMissingSaves:
             save.file_name in p for p in uploaded_local_paths
         ), f"slotted save was not pushed: {uploaded_local_paths}"
         # And the upload count should reflect slotted-only.
-        assert pushed == 1
+        assert pushed == (1, 0)
 
 
 class TestBaselineInProcessRemoteSave:
@@ -619,12 +619,39 @@ class TestBaselineInProcessRemoteSave:
                 ],
             )
 
-        assert pushed == 1
+        assert pushed == (1, 0)
 
         sync = db_device_save_sync_handler.get_sync(device.id, save.id)
         assert sync is not None
         assert sync.last_sync_hash == "server_hash"
         assert sync.last_sync_server_hash == "server_hash"
+
+    async def test_push_missing_saves_counts_a_failed_upload(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+    ):
+        self._save(admin_user, rom, platform, "server_hash")
+        ssh = self._ssh("/tmp/unused.sav", "unused")
+        ssh.upload_save = AsyncMock(side_effect=OSError("device full"))
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh),
+            patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets,
+        ):
+            mock_assets.validate_path.side_effect = lambda p: f"/server/{p}"
+            result = await _push_missing_saves(
+                device,
+                conn=MagicMock(),
+                remote_saves=[],
+                save_directories=[
+                    {"platform_slug": platform.fs_slug, "path": "/remote/saves"}
+                ],
+            )
+
+        assert result == (0, 1)
 
 
 def _remote(file_name: str) -> RemoteSaveInfo:
@@ -683,7 +710,7 @@ class TestSyncDevice:
     @pytest.fixture
     def push_missing(self, mocker):
         return mocker.patch.object(
-            push_pull, "_push_missing_saves", AsyncMock(return_value=0)
+            push_pull, "_push_missing_saves", AsyncMock(return_value=(0, 0))
         )
 
     @staticmethod
@@ -696,22 +723,22 @@ class TestSyncDevice:
         self, device, ssh, conn, emitted, process, push_missing
     ):
         ssh.list_remote_saves.return_value = [_remote("a.srm"), _remote("b.srm")]
-        process.side_effect = ["pulled", "skipped"]
-        push_missing.return_value = 1
+        process.side_effect = ["pulled", "pushed"]
+        push_missing.return_value = (1, 0)
 
         result = await _sync_device(device)
 
         assert result == {
             "device_id": device.id,
             "status": "completed",
-            "completed": 2,
+            "completed": 3,
             "failed": 0,
         }
         ssh.connect.assert_awaited_once_with(device.sync_config, device_id=device.id)
         ssh.list_remote_saves.assert_awaited_once_with(conn, self.SAVE_DIRECTORIES)
         [session] = self._sessions(device)
         assert session.status == SyncSessionStatus.COMPLETED
-        assert (session.operations_planned, session.operations_completed) == (2, 2)
+        assert (session.operations_planned, session.operations_completed) == (3, 3)
         assert emitted["progress"].await_count == 2
         emitted["completed"].assert_awaited_once()
         emitted["error"].assert_not_awaited()
@@ -732,6 +759,19 @@ class TestSyncDevice:
         [session] = self._sessions(device)
         assert session.status == SyncSessionStatus.COMPLETED
         assert session.operations_failed == 1
+
+    async def test_a_failed_push_of_a_missing_save_is_counted(
+        self, device, ssh, emitted, process, push_missing
+    ):
+        ssh.list_remote_saves.return_value = [_remote("a.srm")]
+        push_missing.return_value = (1, 2)
+
+        result = await _sync_device(device)
+
+        assert (result["completed"], result["failed"]) == (2, 2)
+        [session] = self._sessions(device)
+        assert session.operations_planned == 4
+        assert (session.operations_completed, session.operations_failed) == (2, 2)
 
     async def test_a_connection_failure_fails_the_session(
         self, device, ssh, emitted, process
