@@ -1829,7 +1829,7 @@ class TestUpdateMetadataIDs:
         FSResourcesHandler, "remove_media_resources_path", new_callable=AsyncMock
     )
     @patch(
-        "endpoints.roms.get_preferred_media_types",
+        "handler.scan_handler.get_preferred_media_types",
         return_value=[MetadataMediaType.PHYSICAL],
     )
     @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=MOCK_SS_ID))
@@ -1871,6 +1871,146 @@ class TestUpdateMetadataIDs:
         remove_file_mock.assert_awaited_once_with(
             f"roms/{rom.platform_id}/{rom.id}/physical/physical_disc2.png"
         )
+
+    @patch.object(FSResourcesHandler, "remove_directory", new_callable=AsyncMock)
+    @patch.object(FSResourcesHandler, "remove_file", new_callable=AsyncMock)
+    @patch.object(
+        FSResourcesHandler,
+        "store_media_file",
+        new_callable=AsyncMock,
+        return_value=True,
+    )
+    @patch(
+        "handler.scan_handler.get_preferred_media_types",
+        return_value=[MetadataMediaType.BOX2D_BACK],
+    )
+    @patch.object(
+        SSHandler,
+        "get_rom_by_id",
+        return_value=SSRom(ss_id=MOCK_SS_ID, ss_metadata={}),  # type: ignore[typeddict-item]
+    )
+    def test_update_rom_ss_id_hands_shared_media_to_launchbox(
+        self,
+        _get_rom_by_id_mock: AsyncMock,
+        _get_preferred_media_mock: AsyncMock,
+        store_media_file_mock: AsyncMock,
+        remove_file_mock: AsyncMock,
+        remove_directory_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A rematch whose game lacks a box back fetches the LaunchBox one instead."""
+        back_path = f"roms/{rom.platform_id}/{rom.id}/box2d_back/box2d_back.png"
+        launchbox_url = "https://images.launchbox-app.com/back.png"
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "ss_metadata": {
+                    "box2d_back_url": "https://screenscraper.example/back.png",
+                    "box2d_back_path": back_path,
+                },
+                "launchbox_metadata": {
+                    "box2d_back_url": launchbox_url,
+                    "box2d_back_path": back_path,
+                },
+            },
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"ss_id": str(MOCK_SS_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        remove_file_mock.assert_awaited_once_with(back_path)
+        remove_directory_mock.assert_not_awaited()
+        store_media_file_mock.assert_awaited_once_with(launchbox_url, back_path)
+        assert response.json()["launchbox_metadata"]["box2d_back_path"] == back_path
+
+    @patch.object(FSResourcesHandler, "remove_file", new_callable=AsyncMock)
+    @patch.object(
+        FSResourcesHandler,
+        "store_media_file",
+        new_callable=AsyncMock,
+        return_value=True,
+    )
+    @patch(
+        "handler.metadata.launchbox_handler.media.get_preferred_media_types",
+        return_value=[MetadataMediaType.BOX2D_BACK],
+    )
+    @patch(
+        "handler.scan_handler.get_preferred_media_types",
+        return_value=[MetadataMediaType.BOX2D_BACK],
+    )
+    @patch.object(
+        LaunchboxHandler,
+        "get_rom_by_id",
+        return_value=LaunchboxRom(
+            launchbox_id=MOCK_LAUNCHBOX_ID,
+            launchbox_metadata={  # type: ignore[typeddict-item]
+                "box2d_back_url": "https://images.launchbox-app.com/back.png",
+            },
+        ),
+    )
+    def test_update_rom_clearing_ss_while_rematching_launchbox_swaps_media(
+        self,
+        _get_rom_by_id_mock: AsyncMock,
+        _get_preferred_scan_mock: AsyncMock,
+        _get_preferred_media_mock: AsyncMock,
+        store_media_file_mock: AsyncMock,
+        remove_file_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A cleared ScreenScraper match no longer holds the shared box back."""
+        back_path = f"roms/{rom.platform_id}/{rom.id}/box2d_back/box2d_back.png"
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "ss_id": MOCK_SS_ID,
+                "ss_metadata": {
+                    "box2d_back_url": "https://screenscraper.example/back.png",
+                    "box2d_back_path": back_path,
+                },
+            },
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"ss_id": "", "launchbox_id": str(MOCK_LAUNCHBOX_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        remove_file_mock.assert_awaited_once_with(back_path)
+        store_media_file_mock.assert_awaited_once_with(
+            "https://images.launchbox-app.com/back.png", back_path
+        )
+
+    def test_get_rom_with_cleared_launchbox_media_paths(
+        self, client: TestClient, access_token: str, rom: Rom
+    ):
+        """A LaunchBox media path cleared by a failed download still serializes."""
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "launchbox_metadata": {
+                    "box2d_back_url": "https://images.launchbox-app.com/back.png",
+                    "box2d_back_path": None,
+                    "video_path": None,
+                }
+            },
+        )
+
+        response = client.get(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["launchbox_metadata"]["box2d_back_path"] is None
 
     @patch.object(RAHandler, "get_rom_by_id", return_value=RAGameRom(ra_id=MOCK_RA_ID))
     def test_update_rom_ra_id(
@@ -1967,7 +2107,7 @@ class TestUpdateMetadataIDs:
         return_value=[MetadataMediaType.VIDEO],
     )
     @patch(
-        "endpoints.roms.get_preferred_media_types",
+        "handler.scan_handler.get_preferred_media_types",
         return_value=[MetadataMediaType.VIDEO],
     )
     @patch.object(
@@ -2016,6 +2156,71 @@ class TestUpdateMetadataIDs:
         called_url, called_path = await_args.args
         assert called_url == "launchbox-file://Videos/NES/Mario.mp4"
         assert called_path == video_path
+
+    @patch.object(FSResourcesHandler, "remove_directory", new_callable=AsyncMock)
+    @patch.object(FSResourcesHandler, "remove_file", new_callable=AsyncMock)
+    @patch.object(FSResourcesHandler, "store_media_file", new_callable=AsyncMock)
+    @patch(
+        "handler.metadata.launchbox_handler.media.get_preferred_media_types",
+        return_value=[MetadataMediaType.BOX2D_BACK, MetadataMediaType.BOX3D],
+    )
+    @patch(
+        "handler.scan_handler.get_preferred_media_types",
+        return_value=[MetadataMediaType.BOX2D_BACK, MetadataMediaType.BOX3D],
+    )
+    @patch.object(
+        LaunchboxHandler,
+        "get_rom_by_id",
+        return_value=LaunchboxRom(
+            launchbox_id=MOCK_LAUNCHBOX_ID,
+            launchbox_metadata={  # type: ignore[typeddict-item]
+                "box2d_back_url": "https://images.launchbox-app.com/new-back.png",
+                "box3d_url": "https://images.launchbox-app.com/new-3d.png",
+            },
+        ),
+    )
+    def test_update_rom_launchbox_id_keeps_media_shared_with_ss(
+        self,
+        _get_rom_by_id_mock: AsyncMock,
+        _get_preferred_endpoint_mock: AsyncMock,
+        _get_preferred_media_mock: AsyncMock,
+        _store_media_file_mock: AsyncMock,
+        remove_file_mock: AsyncMock,
+        remove_directory_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Re-matching LaunchBox replaces only the box art ScreenScraper doesn't own."""
+        back_path = f"roms/{rom.platform_id}/{rom.id}/box2d_back/box2d_back.png"
+        box3d_path = f"roms/{rom.platform_id}/{rom.id}/box3d/box3d.png"
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "launchbox_id": 1,
+                "ss_metadata": {
+                    "box2d_back_url": "https://screenscraper.example/back.png",
+                    "box2d_back_path": back_path,
+                },
+                "launchbox_metadata": {
+                    "box2d_back_url": "https://images.launchbox-app.com/old-back.png",
+                    "box2d_back_path": back_path,
+                    "box3d_url": "https://images.launchbox-app.com/old-3d.png",
+                    "box3d_path": box3d_path,
+                },
+            },
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"launchbox_id": str(MOCK_LAUNCHBOX_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        removed = [call.args[0] for call in remove_file_mock.await_args_list]
+        assert removed == [box3d_path]
+        remove_directory_mock.assert_not_awaited()
 
     @patch.object(
         LaunchboxHandler,

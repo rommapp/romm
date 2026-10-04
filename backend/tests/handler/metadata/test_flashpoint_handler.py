@@ -88,9 +88,12 @@ class FakeFlashpoint:
         self.search_results: list[dict[str, Any]] = [_api_game()]
         self.status = 200
         self.body: bytes | None = None
+        self.error: Exception | None = None
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         self.requests.append(request)
+        if self.error is not None:
+            raise self.error
         if self.body is not None:
             return httpx2.Response(self.status, content=self.body)
         if request.url.path == "/platforms":
@@ -140,6 +143,26 @@ class TestRequest:
         self, handler: FlashpointHandler, api: FakeFlashpoint
     ):
         api.status = 502
+
+        with pytest.raises(HTTPException) as exc:
+            await handler._request(handler.search_url, {})
+
+        assert exc.value.status_code == 503
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            httpx2.ConnectError("refused"),
+            httpx2.ConnectTimeout("slow"),
+            httpx2.ReadTimeout("slow"),
+            httpx2.RemoteProtocolError("dropped"),
+        ],
+        ids=["refused", "connect_timeout", "read_timeout", "dropped"],
+    )
+    async def test_a_transport_failure_means_unavailable(
+        self, handler: FlashpointHandler, api: FakeFlashpoint, error: Exception
+    ):
+        api.error = error
 
         with pytest.raises(HTTPException) as exc:
             await handler._request(handler.search_url, {})

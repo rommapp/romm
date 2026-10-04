@@ -106,7 +106,6 @@ from handler.metadata.launchbox_handler.media import populate_rom_specific_paths
 from handler.metadata.ss_handler import (
     ScreenScraperExhaustedError,
     add_ss_auth_to_url,
-    get_preferred_media_types,
 )
 from handler.recommendation import similar_roms
 from handler.rom_conversion import promote_single_file_to_folder
@@ -117,6 +116,7 @@ from handler.scan_handler import (
     build_physical_fs_name,
     build_physical_fs_path,
     download_rom_resources,
+    refresh_provider_media,
     scan_rom,
 )
 from logger.formatter import BLUE
@@ -2346,38 +2346,20 @@ async def update_rom(
             cleaned_data.get("ra_metadata", {}).get("achievements", [])
         )
 
-    # Handle special media files from Screenscraper when the ID has changed
-    if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
-        preferred_media_types = get_preferred_media_types()
-
-        # Remove old media files if the ss_id is changing
-        await fs_resource_handler.remove_recorded_media(
-            rom.platform_id, rom.id, rom.ss_metadata or {}, preferred_media_types
-        )
-
-        ss_metadata = cleaned_data.get("ss_metadata")
-        if ss_metadata:
-            await fs_resource_handler.store_metadata_media(
-                ss_metadata, preferred_media_types, add_ss_auth_to_url
-            )
-
-    # Handle local media files from LaunchBox when the ID has changed
-    if (
-        cleaned_data["launchbox_id"]
-        and int(cleaned_data["launchbox_id"]) != rom.launchbox_id
+    # A changed or cleared match changes which provider supplies shared media.
+    rematched = False
+    pending_media: dict[str, dict[str, Any] | None] = {}
+    for id_key, column in (
+        ("ss_id", "ss_metadata"),
+        ("launchbox_id", "launchbox_metadata"),
     ):
-        preferred_media_types = get_preferred_media_types()
-
-        # Remove old media files if the launchbox_id is changing
-        await fs_resource_handler.remove_recorded_media(
-            rom.platform_id, rom.id, rom.launchbox_metadata or {}, preferred_media_types
-        )
-
-        launchbox_metadata = cleaned_data.get("launchbox_metadata")
-        if launchbox_metadata:
-            await fs_resource_handler.store_metadata_media(
-                launchbox_metadata, preferred_media_types
-            )
+        if int(cleaned_data[id_key] or 0) != (getattr(rom, id_key) or 0):
+            rematched = True
+            pending_media[column] = cleaned_data.get(column)
+        elif column in cleaned_data:
+            pending_media[column] = cleaned_data[column]
+    if rematched:
+        cleaned_data.update(await refresh_provider_media(rom, pending_media))
 
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"

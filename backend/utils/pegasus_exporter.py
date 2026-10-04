@@ -336,13 +336,22 @@ class PegasusExporter:
         if rom.path_video:
             assets["video"] = fs_resource_handler.validate_path(rom.path_video)
 
-        # Extended media from screenscraper / gamelist metadata
+        # Extended media from screenscraper / gamelist / launchbox metadata
         ss = rom.ss_metadata or {}
         gl = rom.gamelist_metadata or {}
+        lb = rom.launchbox_metadata or {}
 
         extended: dict[str, list[str]] = {
-            "box_full": [ss.get("box3d_path", ""), gl.get("box3d_path", "")],
-            "box_back": [ss.get("box2d_back_path", ""), gl.get("box2d_back_path", "")],
+            "box_full": [
+                ss.get("box3d_path", ""),
+                gl.get("box3d_path", ""),
+                lb.get("box3d_path", ""),
+            ],
+            "box_back": [
+                ss.get("box2d_back_path", ""),
+                gl.get("box2d_back_path", ""),
+                lb.get("box2d_back_path", ""),
+            ],
             "logo": [ss.get("logo_path", "")],
             "marquee": [gl.get("marquee_path", "")],
             "cartridge": [ss.get("physical_path", ""), gl.get("physical_path", "")],

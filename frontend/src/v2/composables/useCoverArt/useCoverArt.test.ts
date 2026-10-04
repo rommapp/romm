@@ -97,6 +97,10 @@ describe("altArtPath", () => {
     });
     expect(altArtPath(r, "box3d_path")).toBe("ss.png");
   });
+  it("falls back to launchbox_metadata for the 3D box", () => {
+    const r = rom({ launchbox_metadata: { box3d_path: "lb.png" } });
+    expect(altArtPath(r, "box3d_path")).toBe("lb.png");
+  });
   it("falls back to gamelist_metadata", () => {
     const r = rom({ gamelist_metadata: { physical_path: "gl.png" } });
     expect(altArtPath(r, "physical_path")).toBe("gl.png");

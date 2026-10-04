@@ -86,6 +86,27 @@ describe("resolveRomArtwork — scraped resources", () => {
     expect(entries[0]?.url).toContain("roms/1/1/box2d/box2d.png");
   });
 
+  it("fills box art ScreenScraper lacks from LaunchBox", () => {
+    const rom = romWithFiles([], {
+      ss_metadata: { box2d_path: "roms/1/1/box2d/ss.png" },
+      launchbox_metadata: {
+        box2d_path: "roms/1/1/box2d/lb.png",
+        box2d_back_path: "roms/1/1/box2d_back/box2d_back.png",
+        box2d_side_path: "roms/1/1/box2d_side/box2d_side.png",
+        box3d_path: "roms/1/1/box3d/box3d.png",
+      },
+    });
+    const entries = resolveRomArtwork(rom);
+
+    expect(entries.map((e) => e.key)).toEqual([
+      "artwork:box3d",
+      "artwork:box2d",
+      "artwork:box2d_back",
+      "artwork:box2d_side",
+    ]);
+    expect(entries[1]?.url).toContain("roms/1/1/box2d/ss.png");
+  });
+
   it("omits the box front when it was not stored locally", () => {
     const rom = romWithFiles([], {
       ss_metadata: { box2d_url: "https://screenscraper.example.com/box-2D" },

@@ -23,6 +23,8 @@ LIBRETRO_MISSING_LISTING_CACHE_TTL = 60 * 60  # 1 hour
 # Statuses that mean the directory isn't there, as opposed to a request that
 # could succeed on a retry (429, 408, 403, 5xx).
 LIBRETRO_MISSING_LISTING_STATUSES = frozenset({404, 410})
+LIBRETRO_LISTING_TIMEOUT = 60  # seconds
+LIBRETRO_HEAD_TIMEOUT = 10  # seconds
 
 
 class _AnchorHrefParser(HTMLParser):
@@ -96,7 +98,7 @@ class LibretroThumbnailsService:
             res = await aiohttp_session.get(
                 url,
                 headers={"user-agent": f"RomM/{get_version()}"},
-                timeout=ClientTimeout(total=60),
+                timeout=ClientTimeout(total=LIBRETRO_LISTING_TIMEOUT),
             )
             res.raise_for_status()
             body = await res.text()
@@ -113,7 +115,8 @@ class LibretroThumbnailsService:
                     cache_key, [], ttl=LIBRETRO_MISSING_LISTING_CACHE_TTL
                 )
             return []
-        except aiohttp.client_exceptions.ClientError as exc:
+        # A `total` timeout raises a bare TimeoutError, not a ClientError.
+        except (aiohttp.client_exceptions.ClientError, TimeoutError) as exc:
             log.warning("Libretro listing request failed for URL %s: %s", url, exc)
             return []
 
@@ -139,9 +142,9 @@ class LibretroThumbnailsService:
             res = await aiohttp_session.head(
                 str(self.url),
                 headers={"user-agent": f"RomM/{get_version()}"},
-                timeout=ClientTimeout(total=10),
+                timeout=ClientTimeout(total=LIBRETRO_HEAD_TIMEOUT),
                 allow_redirects=True,
             )
             return res.status < 500
-        except aiohttp.client_exceptions.ClientError:
+        except (aiohttp.client_exceptions.ClientError, TimeoutError):
             return False

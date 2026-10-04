@@ -28,7 +28,7 @@ def _error(status_code: int) -> aiohttp.ClientResponseError:
 
 @pytest.fixture(autouse=True)
 def no_backoff_sleep():
-    with patch("adapters.services.steam.asyncio.sleep", new_callable=AsyncMock):
+    with patch("adapters.services.provider_http.asyncio.sleep", new_callable=AsyncMock):
         yield
 
 

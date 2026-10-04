@@ -103,6 +103,24 @@ describe("computeBoxFaces", () => {
     expect(faces.complete).toBe(true);
   });
 
+  it("fills the faces ScreenScraper lacks from LaunchBox", () => {
+    const faces = computeBoxFaces(
+      rom({
+        path_cover_large: "roms/1/1/cover/l.png",
+        ss_metadata: { box2d_side_path: "roms/1/1/box2d_side/box2d_side.png" },
+        launchbox_metadata: {
+          box2d_path: "roms/1/1/box2d/box2d.png",
+          box2d_back_path: "roms/1/1/box2d_back/box2d_back.png",
+        },
+      }),
+      false,
+    );
+    expect(faces.front).toBe(`${RES}/roms/1/1/box2d/box2d.png`);
+    expect(faces.back).toBe(`${RES}/roms/1/1/box2d_back/box2d_back.png`);
+    expect(faces.spine).toBe(`${RES}/roms/1/1/box2d_side/box2d_side.png`);
+    expect(faces.complete).toBe(true);
+  });
+
   it("falls back to the small cover when the large one is absent", () => {
     const faces = computeBoxFaces(
       rom({ path_cover_small: "roms/1/1/cover/s.png" }),

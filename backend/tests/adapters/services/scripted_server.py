@@ -28,6 +28,8 @@ class ScriptedServer:
         return [r for r in self.requests if r.match_info["endpoint"] == name]
 
     async def handle(self, request: web.Request) -> web.StreamResponse:
+        # aiohttp caches the body once read, so tests can inspect it after the reply.
+        await request.read()
         self.requests.append(request)
         reply = self.replies[request.match_info["endpoint"]].pop(0)
         if reply == DISCONNECT:

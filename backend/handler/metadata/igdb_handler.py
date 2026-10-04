@@ -27,10 +27,8 @@ from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
-    PS2_OPL_REGEX,
-    SONY_SERIAL_REGEX,
-    SWITCH_TITLEDB_REGEX,
     BaseRom,
+    IndexedFormatPlatforms,
     MetadataHandler,
 )
 
@@ -43,6 +41,14 @@ ARCADE_IGDB_IDS: Final = [
     IGDB_PLATFORM_LIST[UPS.NEOGEOAES]["id"],
     IGDB_PLATFORM_LIST[UPS.NEOGEOMVS]["id"],
 ]
+IGDB_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
+    ps1=PS1_IGDB_ID,
+    ps2=PS2_IGDB_ID,
+    psp=PSP_IGDB_ID,
+    switch=SWITCH_IGDB_ID,
+    arcade=ARCADE_IGDB_IDS,
+    scummvm=IGDB_PLATFORM_LIST[UPS.SCUMMVM]["id"],
+)
 
 # IGDB catalogues a console and its regional twin as two separate platforms.
 # A game released in only one region is filed under just one of the pair,
@@ -842,66 +848,14 @@ class IGDBHandler(MetadataHandler):
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = IGDBRom(igdb_id=None)
-
-        # Support for PS2 OPL filename format
-        match = PS2_OPL_REGEX.match(fs_name)
-        if platform_igdb_id == PS2_IGDB_ID and match:
-            search_term = await self._ps2_opl_format(match, search_term)
-            fallback_rom = IGDBRom(igdb_id=None, name=search_term)
-
-        # Support for sony serial filename format (PS, PS2, PSP)
-        match = SONY_SERIAL_REGEX.search(fs_name)
-        if platform_igdb_id == PS1_IGDB_ID and match:
-            search_term = await self._ps1_serial_format(match, search_term)
-            fallback_rom = IGDBRom(igdb_id=None, name=search_term)
-
-        if platform_igdb_id == PS2_IGDB_ID and match:
-            search_term = await self._ps2_serial_format(match, search_term)
-            fallback_rom = IGDBRom(igdb_id=None, name=search_term)
-
-        if platform_igdb_id == PSP_IGDB_ID and match:
-            search_term = await self._psp_serial_format(match, search_term)
-            fallback_rom = IGDBRom(igdb_id=None, name=search_term)
-
-        # Support for switch titleID filename format
-        match = SWITCH_TITLEDB_REGEX.search(fs_name)
-        if platform_igdb_id == SWITCH_IGDB_ID and match:
-            search_term, index_entry = await self._switch_titledb_format(
-                match, search_term
-            )
-            if index_entry:
-                fallback_rom = IGDBRom(
-                    igdb_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
-                )
-
-        # Support for switch productID filename format
-        if platform_igdb_id == SWITCH_IGDB_ID:
-            search_term, index_entry = await self._switch_productid_format(
-                rom, fs_name, search_term
-            )
-            if index_entry:
-                fallback_rom = IGDBRom(
-                    igdb_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
-                )
-
-        # Support for MAME arcade filename format
-        if platform_igdb_id in ARCADE_IGDB_IDS:
-            search_term = await self._mame_format(search_term)
-            fallback_rom = IGDBRom(igdb_id=None, name=search_term)
-
-        # Support for ScummVM filename format
-        scummvm_platform = self.get_platform(UPS.SCUMMVM)
-        if platform_igdb_id == scummvm_platform.get("igdb_id"):
-            search_term = await self._scummvm_format(search_term)
-            fallback_rom = IGDBRom(igdb_id=None, name=search_term)
+        search_term = await self._resolve_indexed_title(
+            rom,
+            fs_name,
+            search_term,
+            platform_igdb_id,
+            IGDB_INDEXED_FORMAT_PLATFORMS,
+            fallback_rom,
+        )
 
         search_term = self.normalize_search_term(search_term)
 

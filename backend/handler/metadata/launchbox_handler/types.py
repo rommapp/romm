@@ -88,8 +88,17 @@ class LaunchboxMetadata(TypedDict):
     publishers: NotRequired[list[str]]
     developers: NotRequired[list[str]]
     images: list[LaunchboxImage]
+    box2d_url: NotRequired[str]
+    box2d_back_url: NotRequired[str]
+    box2d_side_url: NotRequired[str]
+    box3d_url: NotRequired[str]
     video_url: NotRequired[str]
-    video_path: NotRequired[str]
+    # A path is cleared to None when its download fails
+    box2d_path: NotRequired[str | None]
+    box2d_back_path: NotRequired[str | None]
+    box2d_side_path: NotRequired[str | None]
+    box3d_path: NotRequired[str | None]
+    video_path: NotRequired[str | None]
 
 
 class LaunchboxRom(BaseRom):
@@ -101,6 +110,7 @@ class LocalMediaContext(TypedDict):
     base: Path
     stems: list[str]
     preferred_regions: list[str]
+    region_shortcodes: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)

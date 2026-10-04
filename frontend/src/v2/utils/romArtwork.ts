@@ -4,8 +4,8 @@
 //
 // Two sources feed the list:
 //   1. Scraped resources: ScreenScraper is the richest and wins; gamelist
-//      fills in for the few types it also scrapes (mirrors v1's MediaCarousel
-//      fallbacks).
+//      and LaunchBox fill in for the few types they also scrape (mirrors
+//      v1's MediaCarousel fallbacks).
 //   2. Library media files: images/videos sitting at the top level of the
 //      game folder on disk (rom.files), so a trailer or artwork dropped next
 //      to the ROM shows up here too.
@@ -50,6 +50,7 @@ type ArtworkDef = Omit<MediaShelfItem, "url"> & {
 export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
   const ss = rom.ss_metadata;
   const gl = rom.gamelist_metadata;
+  const lb = rom.launchbox_metadata;
   const seen = new Set<string>();
   const out: MediaShelfItem[] = [];
   const extraDiscs = (ss?.physical_extra_discs ?? []).filter((d) => d.path);
@@ -91,22 +92,22 @@ export function resolveRomArtwork(rom: DetailedRom): MediaShelfItem[] {
     {
       key: "box3d",
       label: i18n.global.t("rom.media-box3d"),
-      url: ss?.box3d_path ?? gl?.box3d_path ?? null,
+      url: ss?.box3d_path ?? gl?.box3d_path ?? lb?.box3d_path ?? null,
     },
     {
       key: "box2d",
       label: i18n.global.t("rom.media-box2d"),
-      url: ss?.box2d_path ?? null,
+      url: ss?.box2d_path ?? lb?.box2d_path ?? null,
     },
     {
       key: "box2d_back",
       label: i18n.global.t("rom.media-box2d-back"),
-      url: ss?.box2d_back_path ?? null,
+      url: ss?.box2d_back_path ?? lb?.box2d_back_path ?? null,
     },
     {
       key: "box2d_side",
       label: i18n.global.t("rom.media-box2d-side"),
-      url: ss?.box2d_side_path ?? null,
+      url: ss?.box2d_side_path ?? lb?.box2d_side_path ?? null,
     },
     {
       key: "physical",

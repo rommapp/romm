@@ -8,22 +8,19 @@ Public JSON API, no key.
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
 
-import httpx2
-
 from config import DEMOZOO_API_ENABLED
 from logger.logger import log
-from utils import get_version, int_or_none, valid_youtube_id
+from utils import int_or_none, valid_youtube_id
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler, unavailable
+from .base_handler import BaseRom, MetadataHandler
 
 DEMOZOO_TAG_REGEX = re.compile(r"\(demozoo-(\d+)\)", re.IGNORECASE)
 DEMOZOO_PROD_ID_RE = re.compile(
@@ -499,25 +496,17 @@ class DemozooHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return DEMOZOO_API_ENABLED
 
-    async def _request(self, url: str) -> dict[str, Any]:
+    async def _request(self, url: str, *, missing_ok: bool = False) -> dict[str, Any]:
+        """Fetch a Demozoo API URL.
+
+        Args:
+            missing_ok: Read a 404 as an empty answer, for a production looked up
+                by id; anywhere else a 404 means the route itself is gone.
+        """
         await _rate_limiter.acquire()
-        headers = {
-            "User-Agent": f"RomM/{get_version()}",
-            "Accept": "application/json",
-        }
-        try:
-            body = await self._fetch_capped(url, headers=headers)
-        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
-            log.warning("Can't connect to Demozoo API", extra={"exception": str(exc)})
-            raise unavailable("Demozoo API") from exc
-        if body is None:
-            return {}
-        try:
-            data = json.loads(body)
-        except ValueError as exc:
-            log.error("Error decoding JSON from Demozoo: %s", exc)
-            return {}
-        return data if isinstance(data, dict) else {}
+        return await self._get_capped_json(
+            url, provider="Demozoo API", missing_ok=missing_ok
+        )
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():
@@ -534,7 +523,9 @@ class DemozooHandler(MetadataHandler):
     async def get_rom_by_id(self, demozoo_id: int) -> DemozooRom:
         if not self.is_enabled() or not demozoo_id:
             return DemozooRom(demozoo_id=None)
-        data = await self._request(f"{DEMOZOO_API_ROOT}/productions/{int(demozoo_id)}/")
+        data = await self._request(
+            f"{DEMOZOO_API_ROOT}/productions/{int(demozoo_id)}/", missing_ok=True
+        )
         if not data.get("id"):
             return DemozooRom(demozoo_id=None)
         return production_to_rom(data)
