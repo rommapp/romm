@@ -18,3 +18,12 @@ export interface ScanRequest {
   apis: string[];
   launchbox_remote_enabled?: boolean;
 }
+
+/** One row of a scan-type picker; `disabled` holds the reason it can't be
+ *  picked and replaces the subtitle. */
+export interface ScanTypeOption<T extends ScanType = ScanType> {
+  title: string;
+  subtitle: string;
+  value: T;
+  disabled?: string | undefined;
+}

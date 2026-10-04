@@ -26,16 +26,7 @@
 //
 // The provider selects and the hash-matcher pills are driven by
 // `useScanProviders`, shared with the two scan dialogs.
-import {
-  RAlert,
-  RAvatar,
-  RBtn,
-  RIcon,
-  RProgressLinear,
-  RSelect,
-  RSwitch,
-  RTooltip,
-} from "@v2/lib";
+import { RAlert, RBtn, RIcon, RProgressLinear, RTooltip } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -43,12 +34,15 @@ import { ROUTES } from "@/plugins/router";
 import socket from "@/services/socket";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import ScanHashMatcherSwitches from "@/v2/components/Scan/ScanHashMatcherSwitches.vue";
 import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import ScanProviderSelect from "@/v2/components/Scan/ScanProviderSelect.vue";
+import ScanTypeSelect from "@/v2/components/Scan/ScanTypeSelect.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
+import { useScanTypeOptions } from "@/v2/composables/useScanTypeOptions";
 import { scanNeedsMetadataSource, type ScanType } from "@/v2/types/scan";
 
 const { t } = useI18n();
@@ -141,38 +135,7 @@ function onScroll(e: Event) {
   userScrolledDown = el.scrollTop > 1;
 }
 
-const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
-  {
-    title: t("scan.new-platforms"),
-    subtitle: t("scan.new-platforms-desc"),
-    value: "new_platforms",
-  },
-  {
-    title: t("scan.quick-scan"),
-    subtitle: t("scan.quick-scan-desc"),
-    value: "quick",
-  },
-  {
-    title: t("scan.unmatched-games"),
-    subtitle: t("scan.unmatched-games-desc"),
-    value: "unmatched",
-  },
-  {
-    title: t("scan.update-metadata"),
-    subtitle: t("scan.update-metadata-desc"),
-    value: "update",
-  },
-  {
-    title: t("scan.hashes"),
-    subtitle: t("scan.hashes-desc"),
-    value: "hashes",
-  },
-  {
-    title: t("scan.complete-rescan"),
-    subtitle: t("scan.complete-rescan-desc"),
-    value: "complete",
-  },
-];
+const scanOptions = useScanTypeOptions();
 const scanType = ref<ScanType>("quick");
 
 const needsMetadataSource = computed(() =>
@@ -364,47 +327,11 @@ function stopScan() {
             <span class="r-v2-scan-card__subsection-label">
               {{ t("scan.section-proxies") }}
             </span>
-            <div
-              class="r-v2-scan-card__matchers"
-              role="group"
-              :aria-label="t('scan.hash-matchers')"
-            >
-              <RTooltip
-                v-for="matcher in hashMatchers"
-                :key="matcher.value"
-                :text="
-                  matcher.blockedReason
-                    ? `${matcher.name}: ${matcher.blockedReason}`
-                    : matcher.name
-                "
-                location="bottom"
-              >
-                <template #activator="{ props: tipProps }">
-                  <div
-                    v-bind="tipProps"
-                    class="r-v2-scan-card__matcher"
-                    :class="{
-                      'r-v2-scan-card__matcher--off': !matcher.switchEnabled,
-                    }"
-                  >
-                    <RAvatar
-                      :image="matcher.logo"
-                      size="16"
-                      rounded="sm"
-                      class="r-v2-scan-card__matcher-logo"
-                    />
-                    <RSwitch
-                      :model-value="isHashMatcherOn(matcher)"
-                      :disabled="!matcher.switchEnabled"
-                      :aria-label="matcher.name"
-                      @update:model-value="
-                        (v) => setHashMatcher(matcher.value, v)
-                      "
-                    />
-                  </div>
-                </template>
-              </RTooltip>
-            </div>
+            <ScanHashMatcherSwitches
+              :matchers="hashMatchers"
+              :is-on="isHashMatcherOn"
+              @toggle="setHashMatcher"
+            />
           </div>
         </section>
 
@@ -413,27 +340,7 @@ function stopScan() {
           <h3 class="r-v2-scan-card__section-title">
             {{ t("scan.section-scan-type") }}
           </h3>
-          <RSelect
-            v-model="scanType"
-            :items="scanOptions"
-            :label="t('scan.scan-options')"
-            prepend-inner-icon="mdi-magnify-scan"
-            hide-details
-            variant="outlined"
-          >
-            <template #item="{ props: itemProps, item }">
-              <li v-bind="itemProps">
-                <div class="r-select__item-stack">
-                  <div class="r-select__item-title">
-                    {{ item.title }}
-                  </div>
-                  <div v-if="item.raw.subtitle" class="r-select__item-subtitle">
-                    {{ item.raw.subtitle }}
-                  </div>
-                </div>
-              </li>
-            </template>
-          </RSelect>
+          <ScanTypeSelect v-model="scanType" :items="scanOptions" />
         </section>
       </div>
 
@@ -815,43 +722,6 @@ function stopScan() {
   gap: var(--r-space-2);
 }
 
-/* Providers split into General / Specific groups. Each group has a
-   tiny inline caption above its RSelect, the same visual rhythm as the
-   subsection label, indented one level deeper. */
-
-/* Provider chip in the activator: icon-only avatar so a multi-select
-   doesn't drown the field in coloured pills. The `#chip` slot renders
-   into RSelect's RTag. */
-
-/* Hash-matcher proxies: compact icon + switch pills (kept as direct
-   pills since there are only two and a select would be overkill). */
-.r-v2-scan-card__matchers {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-self: flex-start;
-}
-.r-v2-scan-card__matcher {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: var(--r-radius-pill);
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-}
-.r-v2-scan-card__matcher--off {
-  opacity: 0.55;
-}
-.r-v2-scan-card__matcher-logo {
-  background: var(--r-color-bg-elevated);
-  flex-shrink: 0;
-}
-
-/* LaunchBox Local/Cloud toggle inline inside its dropdown item. */
-
 /* === Live area (right column) ================================
    Same flat surface vocabulary as the config card (Profile-style).
    Header doubles as the live status panel (pulse + label + counters
@@ -1094,9 +964,6 @@ html[data-bp~="md-and-down"] .r-v2-scan-live {
   max-height: calc(100vh - var(--r-nav-h) - 160px);
 }
 
-html[data-bp~="sm-and-down"] .r-v2-scan-card__matchers {
-  align-self: flex-start;
-}
 html[data-bp~="sm-and-down"] .r-v2-scan-card {
   padding: 14px;
   gap: 14px;
