@@ -507,7 +507,13 @@ class DemozooHandler(MetadataHandler):
         }
         try:
             body = await self._fetch_capped(url, headers=headers)
-        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
+        except httpx2.HTTPStatusError as exc:
+            # Demozoo answers an unknown production id with a 404.
+            if exc.response.status_code == httpx2.codes.NOT_FOUND:
+                return {}
+            log.warning("Can't connect to Demozoo API", extra={"exception": str(exc)})
+            raise unavailable("Demozoo API") from exc
+        except httpx2.TransportError as exc:
             log.warning("Can't connect to Demozoo API", extra={"exception": str(exc)})
             raise unavailable("Demozoo API") from exc
         if body is None:
