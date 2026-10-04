@@ -39,6 +39,7 @@ def _provider_names(slug: str) -> list[str]:
     return [name for name in names if name]
 
 
+@functools.cache
 def resolve_platform_name(slug: str) -> str:
     """The first provider's name for the platform, else the slug in title case."""
     return next(iter(_provider_names(slug)), slug.replace("-", " ").title())
