@@ -126,38 +126,58 @@ class TestConnect:
             client_keys=[str(keys_dir / "deck-1.pem")],
         )
 
-    async def test_an_explicit_key_path_wins_over_the_device_key(
+    async def test_a_key_path_in_the_config_is_ignored(
         self, handler: SSHSyncHandler, keys_dir: Path, known_hosts: Path, ssh_connect
     ):
         (keys_dir / "deck-1.pem").write_text("key")
-        (keys_dir / "shared.pem").write_text("key")
+        (keys_dir / "someone-elses-deck.pem").write_text("key")
 
         await handler.connect(
             {
                 "ssh_host": "deck.local",
                 "ssh_port": 2222,
                 "ssh_username": "deck",
-                "ssh_key_path": str(keys_dir / "shared.pem"),
+                "ssh_key_path": str(keys_dir / "someone-elses-deck.pem"),
             },
             device_id="deck-1",
         )
 
         kwargs = _connect_kwargs(ssh_connect)
         assert (kwargs["port"], kwargs["username"]) == (2222, "deck")
-        assert kwargs["client_keys"] == [str(keys_dir / "shared.pem")]
+        assert kwargs["client_keys"] == [str(keys_dir / "deck-1.pem")]
 
-    async def test_a_missing_explicit_key_falls_back_to_the_device_key(
+    async def test_a_key_path_in_the_config_is_not_a_way_in(
         self, handler: SSHSyncHandler, keys_dir: Path, known_hosts: Path, ssh_connect
     ):
+        (keys_dir / "someone-elses-deck.pem").write_text("key")
+
+        with pytest.raises(ValueError, match="No SSH authentication method"):
+            await handler.connect(
+                {
+                    "ssh_host": "deck.local",
+                    "ssh_key_path": str(keys_dir / "someone-elses-deck.pem"),
+                },
+                device_id="deck-1",
+            )
+
+        ssh_connect.assert_not_awaited()
+
+    @pytest.mark.parametrize("device_id", ["", "../keys/deck-1", "sub/deck-1"])
+    async def test_a_device_id_that_is_not_a_plain_name_has_no_key(
+        self,
+        handler: SSHSyncHandler,
+        keys_dir: Path,
+        known_hosts: Path,
+        ssh_connect,
+        device_id: str,
+    ):
         (keys_dir / "deck-1.pem").write_text("key")
+        (keys_dir / "sub").mkdir()
+        (keys_dir / "sub" / "deck-1.pem").write_text("key")
+        (keys_dir / ".pem").write_text("key")
 
-        await handler.connect(
-            {"ssh_host": "deck.local", "ssh_key_path": str(keys_dir / "gone.pem")},
-            device_id="deck-1",
-        )
-
-        kwargs = _connect_kwargs(ssh_connect)
-        assert kwargs["client_keys"] == [str(keys_dir / "deck-1.pem")]
+        with pytest.raises(ValueError, match="No SSH authentication method"):
+            await handler.connect({"ssh_host": "deck.local"}, device_id=device_id)
 
     async def test_falls_back_to_a_password_without_a_key(
         self, handler: SSHSyncHandler, known_hosts: Path, ssh_connect
