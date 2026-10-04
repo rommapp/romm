@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { computed, effectScope, ref } from "vue";
+import { computed, effectScope, ref, watch } from "vue";
 import { useAnimatedNumber } from "./index";
 
 // Reduced motion lands on the value in one step, which is what makes the
@@ -95,22 +95,18 @@ describe("useAnimatedNumber", () => {
 
     source.value = 20;
     const second = effectScope();
+    const seen: number[] = [];
     let display!: ReturnType<typeof useAnimatedNumber>;
     second.run(() => {
       display = useAnimatedNumber(() => source.value, {
-        duration: 400,
+        duration: 200,
         rememberAs: () => "changed",
       });
+      watch(display, (value) => seen.push(Number(value)), { flush: "sync" });
     });
-    await new Promise((resolve) => setTimeout(resolve, 30));
-    const midRoll = display.value;
-    await new Promise((resolve) => setTimeout(resolve, 450));
+    await vi.waitFor(() => expect(display.value).toBe(20));
 
-    // Early in the roll it is already past the remembered 10; from 0 it would
-    // still be in single digits.
-    expect(midRoll).toBeGreaterThanOrEqual(10);
-    expect(midRoll).toBeLessThan(20);
-    expect(display.value).toBe(20);
+    expect(Math.min(...seen)).toBeGreaterThanOrEqual(10);
     second.stop();
     reduced.value = true;
   });
