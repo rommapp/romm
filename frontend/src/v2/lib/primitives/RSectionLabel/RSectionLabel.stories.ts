@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import RBtn from "../RBtn/RBtn.vue";
 import RSectionLabel from "./RSectionLabel.vue";
 
 const meta: Meta<typeof RSectionLabel> = {
@@ -49,19 +48,7 @@ export const Sizes: Story = {
   }),
 };
 
-// The append slot takes counts or actions at the label's right edge, in
-// normal casing.
-export const WithAppend: Story = {
-  render: () => ({
-    components: { RBtn, RSectionLabel },
-    template: `
-      <div style="width:360px">
-        <RSectionLabel as="h3" icon="mdi-history">
-          Recent activity
-          <template #append>
-            <RBtn variant="text" size="x-small">View all</RBtn>
-          </template>
-        </RSectionLabel>
-      </div>`,
-  }),
+export const Light: Story = {
+  ...Tones,
+  globals: { theme: "light" },
 };

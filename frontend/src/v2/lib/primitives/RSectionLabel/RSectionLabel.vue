@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// RSectionLabel: the small uppercase label that heads a section or names a
-// group of fields. `as` keeps the call site's element (a heading level or a
-// plain span); spacing around it belongs to the caller.
+// RSectionLabel: the small uppercase label that heads a section or a field group.
+// `as` keeps the call site's element; spacing around it belongs to the caller.
 import RIcon from "../RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -30,9 +29,6 @@ withDefaults(defineProps<Props>(), {
   >
     <RIcon v-if="icon" :icon="icon" class="r-section-label__icon" />
     <span class="r-section-label__text"><slot /></span>
-    <span v-if="$slots.append" class="r-section-label__append">
-      <slot name="append" />
-    </span>
   </component>
 </template>
 
@@ -63,9 +59,8 @@ withDefaults(defineProps<Props>(), {
   color: var(--r-color-fg-secondary);
 }
 
-/* Whole-pixel glyph sizes keep the icon centred on the text. Flex centres
-   the icon on the line box, which reserves descender room the capitals
-   never use, so at md the icon lands about 1px below the caps. */
+/* Whole-pixel glyph sizes keep the icon crisp; the md lift offsets the
+   descender room in the line box so the icon centres on the capitals. */
 .r-section-label--md .r-section-label__icon {
   position: relative;
   top: -1px;
@@ -77,14 +72,5 @@ withDefaults(defineProps<Props>(), {
 
 .r-section-label__text {
   min-width: 0;
-}
-
-.r-section-label__append {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  letter-spacing: normal;
-  text-transform: none;
 }
 </style>
