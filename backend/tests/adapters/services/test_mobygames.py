@@ -11,6 +11,7 @@ import pytest_asyncio
 import yarl
 from fastapi import HTTPException, status
 from tests.adapters.services.scripted_server import (
+    DISCONNECT,
     Reply,
     ScriptedServer,
     scripted_server,
@@ -919,6 +920,34 @@ class TestAgainstAServer:
 
         assert await service.list_groups() == []
         assert len(fake.requests) == len(replies)
+
+    async def test_an_unscored_game_is_read(
+        self, moby_server: tuple[ScriptedServer, MobyGamesService]
+    ):
+        fake, service = moby_server
+        unscored: MobyGame = {**GAME, "moby_score": None}
+        fake.replies["games"] = [(200, {"games": [unscored]})]
+
+        assert await service.list_games() == [unscored]
+
+    @pytest.mark.parametrize("first", [5.0, (429, {})], ids=["timeout", "rate_limited"])
+    async def test_a_dropped_retry_is_unavailable(
+        self,
+        moby_server: tuple[ScriptedServer, MobyGamesService],
+        no_backoff: AsyncMock,
+        first: Reply,
+    ):
+        fake, service = moby_server
+        # aiohttp itself resends an idempotent request once on a dropped connection.
+        fake.replies["groups"] = [first, DISCONNECT, DISCONNECT]
+
+        with pytest.raises(HTTPException) as exc:
+            await service._request(
+                f"{service.url}/groups", dict[str, Any], request_timeout=0.2
+            )
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert len(fake.requests) == 3
 
     async def test_an_unreachable_mobygames_is_unavailable(self):
         service = MobyGamesService(base_url="http://127.0.0.1:9/v1")

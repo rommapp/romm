@@ -9,7 +9,12 @@ import pytest
 import pytest_asyncio
 import yarl
 from fastapi import HTTPException, status
-from tests.adapters.services.scripted_server import ScriptedServer, scripted_server
+from tests.adapters.services.scripted_server import (
+    DISCONNECT,
+    Reply,
+    ScriptedServer,
+    scripted_server,
+)
 
 from adapters.services import retroachievements
 from adapters.services.retroachievements import (
@@ -531,6 +536,32 @@ class TestAgainstAServer:
             await service.get_achievement_of_the_week()
 
         assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    @pytest.mark.parametrize("first", [5.0, (429, {})], ids=["timeout", "rate_limited"])
+    async def test_a_dropped_retry_is_unavailable(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+        first: Reply,
+    ):
+        fake, service = ra_server
+        # aiohttp itself resends an idempotent request once on a dropped connection.
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [
+            first,
+            DISCONNECT,
+            DISCONNECT,
+        ]
+
+        with pytest.raises(HTTPException) as exc:
+            await service._request(
+                f"{service.url}/API_GetAchievementOfTheWeek.php",
+                dict[str, Any],
+                request_timeout=0.2,
+            )
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "connect" in exc.value.detail
+        assert len(fake.requests) == 3
 
     @pytest.mark.parametrize("retried", [False, True], ids=["first", "retry"])
     async def test_a_reply_that_is_not_json_is_unavailable(

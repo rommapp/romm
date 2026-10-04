@@ -38,6 +38,14 @@ async def auth_middleware(
     return await handler(req)
 
 
+def _unreachable() -> HTTPException:
+    log.critical("Connection error: can't connect to MobyGames", exc_info=True)
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Can't connect to MobyGames, check your internet connection",
+    )
+
+
 class MobyGamesService:
     """Service to interact with the MobyGames API.
 
@@ -72,15 +80,9 @@ class MobyGamesService:
             res.raise_for_status()
             return parse_response(tp, await res.read(), source=source)
         except TimeoutError:
-            # A `total` timeout is a bare TimeoutError, which ServerTimeoutError
-            # subclasses; retry the request once.
             log.debug("Request to URL=%s timed out. Retrying...", url)
         except aiohttp.ClientConnectionError as exc:
-            log.critical("Connection error: can't connect to MobyGames", exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to MobyGames, check your internet connection",
-            ) from exc
+            raise _unreachable() from exc
         except aiohttp.ClientResponseError as exc:
             if exc.status == http.HTTPStatus.UNAUTHORIZED:
                 # Sometimes MobyGames returns 401 even with a valid API key
@@ -121,6 +123,8 @@ class MobyGamesService:
 
             log.error(exc)
             return None
+        except aiohttp.ClientConnectionError as exc:
+            raise _unreachable() from exc
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from MobyGames: %s", exc)
             return None

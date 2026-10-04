@@ -48,6 +48,14 @@ def _failed(reason: object) -> HTTPException:
     )
 
 
+def _unreachable() -> HTTPException:
+    log.critical("Connection error: can't connect to RetroAchievements", exc_info=True)
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Can't connect to RetroAchievements, check your internet connection",
+    )
+
+
 def _parse[T](tp: type[T], body: bytes, *, source: str) -> T | None:
     # RA answers an unknown id with 200 and an empty list.
     if body.strip() == b"[]" and get_origin(tp) is not list:
@@ -93,17 +101,9 @@ class RetroAchievementsService:
             res.raise_for_status()
             return _parse(tp, await res.read(), source=source)
         except TimeoutError:
-            # A `total` timeout is a bare TimeoutError, which ServerTimeoutError
-            # subclasses; retry the request once.
-            pass
+            log.debug("Request to URL=%s timed out. Retrying...", url)
         except aiohttp.ClientConnectionError as exc:
-            log.critical(
-                "Connection error: can't connect to RetroAchievements", exc_info=True
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to RetroAchievements, check your internet connection",
-            ) from exc
+            raise _unreachable() from exc
         except aiohttp.ClientResponseError as err:
             if err.status == http.HTTPStatus.TOO_MANY_REQUESTS:
                 # Retry after 2 seconds if rate limit hit
@@ -130,6 +130,8 @@ class RetroAchievementsService:
             return _parse(tp, await res.read(), source=source)
         except (aiohttp.ClientResponseError, TimeoutError) as err:
             raise _failed(err) from err
+        except aiohttp.ClientConnectionError as exc:
+            raise _unreachable() from exc
         except json.JSONDecodeError as exc:
             raise _failed(exc) from exc
 

@@ -407,7 +407,7 @@ class TestRequest:
         assert await handler._request(handler.identify_url, {}) == {}
 
 
-def _match(*metadata: dict[str, object]) -> httpx2.Response:
+def _match(*metadata: object) -> httpx2.Response:
     return _json(200, {"gameMatchType": "MD5", "externalMetadata": list(metadata)})
 
 
@@ -433,6 +433,8 @@ class TestLookupRom:
                 {"providerName": "IGDB", "providerId": "not-a-number"},
                 {"providerName": "", "providerId": "8"},
                 {"providerName": "MOBYGAMES"},
+                {"providerName": 9, "providerId": "9"},
+                "not-an-object",
             )
         ]
 
@@ -465,9 +467,17 @@ class TestLookupRom:
             _json(200, {"gameMatchType": "MD5", "externalMetadata": []}),
             _json(200, {"gameMatchType": "MD5"}),
             _json(200, {"gameMatchType": "MD5", "externalMetadata": None}),
+            _json(200, {"gameMatchType": "MD5", "externalMetadata": {"IGDB": 1}}),
             _json(500, {}),
         ],
-        ids=["no_match", "no_metadata", "metadata_absent", "metadata_null", "error"],
+        ids=[
+            "no_match",
+            "no_metadata",
+            "metadata_absent",
+            "metadata_null",
+            "metadata_not_a_list",
+            "error",
+        ],
     )
     async def test_an_empty_or_failed_lookup_is_no_match(
         self, playmatch: tuple[PlaymatchHandler, PlaymatchStub], reply: httpx2.Response

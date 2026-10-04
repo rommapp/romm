@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, Final, Literal
 
 import aiohttp
 from aiohttp import web
@@ -11,8 +11,10 @@ from aiohttp.test_utils import TestServer
 
 from utils.context import ctx_aiohttp_session
 
-# A float is a delay that outlasts the client's timeout; bytes go out as-is.
-Reply = tuple[int, Any] | float
+# A float is a delay that outlasts the client's timeout; DISCONNECT drops the
+# connection unanswered; bytes go out as-is.
+DISCONNECT: Final = "disconnect"
+Reply = tuple[int, Any] | float | Literal["disconnect"]
 
 
 class ScriptedServer:
@@ -28,6 +30,10 @@ class ScriptedServer:
     async def handle(self, request: web.Request) -> web.StreamResponse:
         self.requests.append(request)
         reply = self.replies[request.match_info["endpoint"]].pop(0)
+        if reply == DISCONNECT:
+            assert request.transport is not None
+            request.transport.close()
+            return web.Response()
         if isinstance(reply, float):
             await asyncio.sleep(reply)
             return web.json_response({})
