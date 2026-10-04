@@ -7,8 +7,8 @@ import i18n, { localesReady } from "@/locales";
 import router, { applyRouteTitle, ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
-import type { User } from "@/stores/users";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
+import { userFixture } from "@/utils/user.fixtures";
 
 const { getRom, stubView } = vi.hoisted(() => ({
   getRom: vi.fn(),
@@ -97,7 +97,7 @@ describe("the rom route", () => {
   // matching the route is not proof the store's copy is current.
   it("re-reads a rom the store already holds", async () => {
     const roms = storeRoms();
-    storeAuth().setCurrentUser({ id: 1 } as User);
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
     roms.setCurrentRom(
       detailedRomFixture({ id: 9, name: "before the session" }),
     );
@@ -146,7 +146,7 @@ describe("the inactive UI's views", () => {
     router.getRoutes().find((r) => r.name === "deferred-views")?.components;
 
   beforeEach(() => {
-    storeAuth().setCurrentUser({ id: 1 } as User);
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
     uiVersion.value = "v2";
   });
 

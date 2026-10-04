@@ -43,6 +43,14 @@ const platformCastRule = {
     "Build platform fixtures with platformFixture from @/utils/platform.fixtures instead of a cast.",
 };
 
+// Only object literals: reading a value back as one of these types is fine.
+const modelCastRule = {
+  selector:
+    ":matches(TSAsExpression[expression.type='ObjectExpression'], TSAsExpression[expression.expression.type='ObjectExpression'])[typeAnnotation.typeName.name=/^(User|UserSchema|Collection|CollectionSchema|SaveSchema|StateSchema|AuditEventSchema)$/]",
+  message:
+    "Build users, collections, saves, states and audit events with their fixtures (userFixture, collectionFixture, saveFixture, stateFixture, makeAuditEvent) instead of casting an object literal.",
+};
+
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -342,12 +350,24 @@ export default tseslint.config(
       "src/layouts/**",
     ],
     rules: {
-      "no-restricted-syntax": ["error", romCastRule, platformCastRule],
+      "no-restricted-syntax": [
+        "error",
+        romCastRule,
+        platformCastRule,
+        modelCastRule,
+      ],
     },
   },
   {
     files: ["src/v2/**/*.stories.ts"],
-    rules: { "no-restricted-syntax": ["error", romCastRule, platformCastRule] },
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        romCastRule,
+        platformCastRule,
+        modelCastRule,
+      ],
+    },
   },
   // Keep last: Prettier owns formatting, so this switches off every
   // stylistic rule the two tools would otherwise fight over.

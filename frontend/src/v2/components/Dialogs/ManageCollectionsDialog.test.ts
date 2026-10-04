@@ -5,8 +5,8 @@ import { ref } from "vue";
 import storeAuth from "@/stores/auth";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
-import type { User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
+import { collectionFixture } from "@/utils/collection.fixtures";
 import { romFixture } from "@/utils/rom.fixtures";
 import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -59,13 +59,13 @@ function rom(id: number): SimpleRom {
 }
 
 function collection(romIds: number[]): Collection {
-  return {
+  return collectionFixture({
     id: 12,
     name: "Shooters",
     user_id: USER_ID,
     rom_ids: romIds,
     rom_count: romIds.length,
-  } as Collection;
+  });
 }
 
 /** Mount the dialog, open it over `roms`, and click the one collection row. */
@@ -118,7 +118,7 @@ function mountDialog(
 
 describe("ManageCollectionsDialog gallery reconcile", () => {
   beforeEach(() => {
-    storeAuth().setCurrentUser({ id: USER_ID } as User);
+    storeAuth().setCurrentUser(userFixture({ id: USER_ID }));
   });
 
   it("drops the roms from the gallery when removing them from the collection on screen", async () => {
@@ -148,7 +148,7 @@ describe("ManageCollectionsDialog gallery reconcile", () => {
     collections.setCollections([collection([1, 2])]);
     removeRomsFromCollection.mockResolvedValue({ data: collection([]) });
     const gallery = storeGalleryRoms();
-    gallery.setCurrentCollection({ ...collection([]), id: 99 } as Collection);
+    gallery.setCurrentCollection({ ...collection([]), id: 99 });
     const galleryRemove = vi.spyOn(gallery, "remove");
 
     await toggleRow([rom(1), rom(2)]);

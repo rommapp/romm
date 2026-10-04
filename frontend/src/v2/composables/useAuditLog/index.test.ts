@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AuditEventSchema } from "@/__generated__";
 import auditApi from "@/services/api/audit";
 import { useAuditLog } from "@/v2/composables/useAuditLog";
+import { makeAuditEvent } from "@/v2/utils/auditEvents.fixtures";
 
 vi.mock("@/services/api/audit", () => ({
   default: { getAuditEvents: vi.fn() },
@@ -12,7 +12,7 @@ const getAuditEvents = vi.mocked(auditApi.getAuditEvents);
 function page(ids: number[], total: number, maxId: number | null = null) {
   return {
     data: {
-      items: ids.map((id) => ({ id }) as AuditEventSchema),
+      items: ids.map((id) => makeAuditEvent({ id })),
       total,
       limit: 2,
       offset: 0,

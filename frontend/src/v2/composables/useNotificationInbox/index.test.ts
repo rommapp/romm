@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { effectScope, type EffectScope } from "vue";
 import type { NotificationSchema } from "@/__generated__";
 import storeAuth from "@/stores/auth";
-import type { User } from "@/stores/users";
+import { userFixture } from "@/utils/user.fixtures";
 import { installNotificationInbox } from "@/v2/composables/useNotificationInbox";
 import storeNotificationInbox from "@/v2/stores/notificationInbox";
 import { makeNotification } from "@/v2/utils/notifications.fixtures";
@@ -40,7 +40,7 @@ function notification(id: number): NotificationSchema {
 }
 
 function signIn(id: number) {
-  storeAuth().setCurrentUser({ id } as User);
+  storeAuth().setCurrentUser(userFixture({ id }));
 }
 
 function push(event: string, payload: unknown) {
