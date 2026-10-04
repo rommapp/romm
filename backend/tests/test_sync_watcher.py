@@ -706,15 +706,20 @@ class TestProcessDeviceIncoming:
         with patch("sync_watcher._process_incoming_file") as process:
             yield process
 
-    def _device(self, user: User, **overrides) -> Device:
-        fields = {
-            "id": "watched-deck",
-            "user_id": user.id,
-            "sync_mode": SyncMode.FILE_TRANSFER,
-            "sync_enabled": True,
-            **overrides,
-        }
-        return db_device_handler.add_device(Device(**fields))
+    def _device(
+        self,
+        user: User,
+        sync_mode: SyncMode = SyncMode.FILE_TRANSFER,
+        sync_enabled: bool = True,
+    ) -> Device:
+        return db_device_handler.add_device(
+            Device(
+                id="watched-deck",
+                user_id=user.id,
+                sync_mode=sync_mode,
+                sync_enabled=sync_enabled,
+            )
+        )
 
     @staticmethod
     def _sessions(device: Device):
@@ -761,22 +766,27 @@ class TestProcessDeviceIncoming:
 
         [session] = self._sessions(device)
         assert (session.operations_completed, session.operations_failed) == (1, 1)
-        assert emitted["error"].call_args.kwargs["error_message"] == (
-            "1 file(s) failed to process"
-        )
+        error_call = emitted["error"].call_args
+        assert error_call is not None
+        assert error_call.kwargs["error_message"] == "1 file(s) failed to process"
         emitted["completed"].assert_called_once()
 
     @pytest.mark.parametrize(
-        "overrides",
-        [{"sync_mode": SyncMode.PUSH_PULL}, {"sync_enabled": False}],
+        ("sync_mode", "sync_enabled"),
+        [(SyncMode.PUSH_PULL, True), (SyncMode.FILE_TRANSFER, False)],
         ids=["push_pull_device", "sync_disabled"],
     )
     def test_a_device_not_syncing_by_file_transfer_is_ignored(
-        self, admin_user: User, emitted, process_file, overrides
+        self,
+        admin_user: User,
+        emitted,
+        process_file,
+        sync_mode: SyncMode,
+        sync_enabled: bool,
     ):
         from sync_watcher import _process_device_incoming
 
-        device = self._device(admin_user, **overrides)
+        device = self._device(admin_user, sync_mode, sync_enabled)
 
         _process_device_incoming(device.id, self.FILES)
 
@@ -841,7 +851,9 @@ class TestProcessIncomingFileOutcomes:
         moved = sync_root / device.id / "conflicts" / platform.fs_slug / "clash.sav"
         assert moved.read_bytes() == b"device bytes"
         assert not os.path.exists(incoming)
-        kwargs = emit_conflict.call_args.kwargs
+        conflict_call = emit_conflict.call_args
+        assert conflict_call is not None
+        kwargs = conflict_call.kwargs
         assert (kwargs["rom_id"], kwargs["reason"]) == (save.rom_id, "both changed")
         assert kwargs["rom_name"] == (rom.name or rom.fs_name)
 

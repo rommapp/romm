@@ -1,10 +1,11 @@
 import hashlib
 import shutil
 import zipfile
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
+from pathlib import Path, PurePath
+from types import TracebackType
+from typing import Any, Self, overload
 from unittest.mock import AsyncMock, MagicMock
 
 import asyncssh
@@ -218,45 +219,66 @@ class TestConnect:
         ssh_connect.assert_not_awaited()
 
 
+SFTPPath = bytes | str | PurePath
 REGULAR = asyncssh.constants.FILEXFER_TYPE_REGULAR
 DIRECTORY = asyncssh.constants.FILEXFER_TYPE_DIRECTORY
 
 
-class _ListingSFTP:
+class _ListingSFTP(asyncssh.SFTPClient):
     def __init__(
         self,
         tree: dict[str, dict[str, asyncssh.SFTPAttrs | Exception]],
-    ):
+    ) -> None:
         self._tree = tree
         self.mkdirs: list[str] = []
         self.puts: list[tuple[str, str]] = []
         self.mkdir_error: Exception | None = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *exc):
+    async def __aexit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc_value: BaseException | None,
+        _traceback: TracebackType | None,
+    ) -> bool:
         return False
 
-    async def listdir(self, path: str) -> list[str]:
-        if path not in self._tree:
-            raise asyncssh.SFTPNoSuchFile(f"{path} not found")
-        return list(self._tree[path])
+    @overload
+    async def listdir(self, path: bytes) -> Sequence[bytes]: ...
 
-    async def stat(self, path: str) -> asyncssh.SFTPAttrs:
-        directory, _, name = path.rpartition("/")
+    @overload
+    async def listdir(self, path: str | PurePath = ...) -> Sequence[str]: ...
+
+    async def listdir(self, path: SFTPPath = ".") -> Sequence[bytes] | Sequence[str]:
+        if str(path) not in self._tree:
+            raise asyncssh.SFTPNoSuchFile(f"{path!r} not found")
+        return list(self._tree[str(path)])
+
+    async def stat(
+        self, path: SFTPPath, flags: int = 0, **kwargs: Any
+    ) -> asyncssh.SFTPAttrs:
+        directory, _, name = str(path).rpartition("/")
         entry = self._tree[directory][name]
         if isinstance(entry, Exception):
             raise entry
         return entry
 
-    async def mkdir(self, path: str) -> None:
-        self.mkdirs.append(path)
+    async def mkdir(
+        self, path: SFTPPath, attrs: asyncssh.SFTPAttrs | None = None
+    ) -> None:
+        self.mkdirs.append(str(path))
         if self.mkdir_error:
             raise self.mkdir_error
 
-    async def put(self, local_path: str, remote_path: str) -> None:
-        self.puts.append((local_path, remote_path))
+    async def put(
+        self,
+        localpaths: SFTPPath | Sequence[SFTPPath],
+        remotepath: SFTPPath | None = None,
+        **kwargs: Any,
+    ) -> None:
+        self.puts.append((str(localpaths), str(remotepath)))
 
 
 def _conn(sftp: _ListingSFTP) -> MagicMock:
