@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   downloadSave: vi.fn(),
   confirmDownloaded: vi.fn(),
   uploadSaves: vi.fn(),
+  updateSave: vi.fn(),
   sendSaveOnUnload: vi.fn(),
 }));
 
@@ -30,6 +31,7 @@ vi.mock("@/services/api/sync", () => ({
 vi.mock("@/services/api/save", () => ({
   default: {
     uploadSaves: mocks.uploadSaves,
+    updateSave: mocks.updateSave,
     sendSaveOnUnload: mocks.sendSaveOnUnload,
   },
 }));
@@ -258,6 +260,33 @@ describe("DeviceSaveSync.push", () => {
     expect(await saveSync.push()).toBe(true);
     expect(mocks.uploadSaves).toHaveBeenCalledTimes(2);
     expect(mocks.uploadSaves.mock.calls[1]![0].slot).toBeUndefined();
+  });
+
+  it("keeps updating that one archive for the rest of the session", async () => {
+    negotiated([]);
+    const saveSync = sync();
+    await saveSync.prepare();
+    mocks.uploadSaves
+      .mockResolvedValueOnce([{ status: "rejected", reason: httpError(409) }])
+      .mockResolvedValueOnce([{ status: "fulfilled", value: { id: 42 } }]);
+    mocks.updateSave.mockResolvedValue({ data: { id: 42 } });
+    await saveSync.capture([playerSave("Save01", 1)]);
+    await saveSync.push();
+
+    await saveSync.capture([playerSave("Save01", 2, 2000)]);
+    expect(await saveSync.push()).toBe(true);
+    saveSync.captureOnUnload([playerSave("Save01", 3, 3000)]);
+
+    expect(mocks.uploadSaves).toHaveBeenCalledTimes(2);
+    expect(mocks.updateSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        save: { id: 42 },
+        contentHash: saveContentHash(new Uint8Array([2])),
+      }),
+    );
+    expect(mocks.sendSaveOnUnload).toHaveBeenCalledWith(
+      expect.objectContaining({ save: { id: 42 } }),
+    );
   });
 
   it("keeps a save captured while the previous one uploaded", async () => {

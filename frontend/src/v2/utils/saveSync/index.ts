@@ -1,5 +1,5 @@
 import { isAxiosError } from "axios";
-import type { SyncOperationSchema } from "@/__generated__";
+import type { SaveSchema, SyncOperationSchema } from "@/__generated__";
 import saveApi from "@/services/api/save";
 import syncApi from "@/services/api/sync";
 import { isSlotConflict, uploadArchivedSave } from "@/services/pending-asset";
@@ -58,6 +58,9 @@ export class DeviceSaveSync {
   private deviceId: string | null = null;
   // Pushes run one after another, so two never upload the same change.
   private pushQueue: Promise<unknown> = Promise.resolve();
+  // Slots another device took this session; their later writes update one
+  // archive in place, and the next launch settles the slot.
+  private readonly archives = new Map<string, SaveSchema>();
 
   constructor(rom: SaveSyncRom, userId: number, emulator: string) {
     this.rom = rom;
@@ -138,7 +141,7 @@ export class DeviceSaveSync {
         autocleanup: true,
         // A refused copy stays in this browser for the next launch to settle.
         overwrite: false,
-        save: null,
+        save: this.archives.get(save.slot) ?? null,
         saveFile: saveFileOf(save),
       });
     }
@@ -310,6 +313,18 @@ export class DeviceSaveSync {
     save: LocalSave,
     { overwrite, sessionId }: { overwrite: boolean; sessionId?: number },
   ) {
+    const archived = this.archives.get(save.slot);
+    if (archived) {
+      const { data } = await saveApi.updateSave({
+        save: archived,
+        saveFile: saveFileOf(save),
+        deviceId: this.deviceId ?? undefined,
+        contentHash: save.hash,
+      });
+      this.archives.set(save.slot, data);
+      await this.markSynced(save);
+      return;
+    }
     const [result] = await saveApi.uploadSaves({
       rom: this.rom,
       emulator: save.emulator,
@@ -321,10 +336,10 @@ export class DeviceSaveSync {
       autocleanup: true,
       savesToUpload: [{ saveFile: saveFileOf(save) }],
     });
-    // Another device wrote the slot since this one last synced; keep this
-    // copy as an archive and let the next launch settle the slot.
-    if (isSlotConflict(result)) await this.archive(save);
-    else if (result?.status !== "fulfilled") throw result?.reason;
+    // Another device wrote the slot since this one last synced.
+    if (isSlotConflict(result)) {
+      this.archives.set(save.slot, await this.archive(save));
+    } else if (result?.status !== "fulfilled") throw result?.reason;
     await this.markSynced(save);
   }
 
@@ -335,7 +350,7 @@ export class DeviceSaveSync {
     await this.remember({ ...current, syncedHash: save.hash });
   }
 
-  private async archive(save: LocalSave) {
+  private async archive(save: LocalSave): Promise<SaveSchema> {
     const result = await uploadArchivedSave({
       rom: this.rom,
       emulator: save.emulator,
@@ -345,5 +360,6 @@ export class DeviceSaveSync {
       extension: extensionOf(save.fileName),
     });
     if (result?.status !== "fulfilled") throw result?.reason;
+    return result.value;
   }
 }
