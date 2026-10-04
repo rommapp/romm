@@ -68,12 +68,14 @@ def csdb_id_from_url(url: str) -> int | None:
     host = (parsed.netloc or "").lower().removeprefix("www.")
     if host != "csdb.dk":
         return None
-    query = parse_qs(parsed.query)
-    raw = (query.get("id") or [""])[0]
+    parts = [p for p in parsed.path.split("/") if p]
+    # Groups, sceners and events carry an ?id= too, so only a release page counts.
+    if not parts or parts[0] != "release":
+        return None
+    raw = (parse_qs(parsed.query).get("id") or [""])[0]
     if raw.isdigit():
         return int_or_none(raw)
-    parts = [p for p in parsed.path.split("/") if p]
-    if len(parts) >= 2 and parts[0] == "release" and parts[1].isdigit():
+    if len(parts) >= 2 and parts[1].isdigit():
         return int_or_none(parts[1])
     return None
 
@@ -174,7 +176,14 @@ class CsdbHandler(MetadataHandler):
         }
         try:
             body = await self._fetch_capped(url, headers=headers)
-        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
+        except httpx2.HTTPStatusError as exc:
+            if exc.response.status_code == httpx2.codes.NOT_FOUND:
+                return ""
+            log.warning(
+                "Can't connect to CSDb webservice", extra={"exception": str(exc)}
+            )
+            raise unavailable("CSDb") from exc
+        except httpx2.TransportError as exc:
             log.warning(
                 "Can't connect to CSDb webservice", extra={"exception": str(exc)}
             )
