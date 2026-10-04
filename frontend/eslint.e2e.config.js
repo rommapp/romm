@@ -25,7 +25,7 @@ export default [
     name: "e2e/type-info",
     files: TEST_FILES,
     languageOptions: {
-      // Resolves to e2e/tsconfig.json, so the app's lint stays untyped.
+      // Resolves to tsconfig.node.json, so the app's lint stays untyped.
       parserOptions: { projectService: true },
     },
   },

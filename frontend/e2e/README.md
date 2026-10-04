@@ -143,5 +143,5 @@ e2e/
 - **Timeouts:** 10s per test locally, so failures are fast; CI keeps longer ones. They switch off while debugging.
 - **App errors:** if an `/api` call returns 5xx or the app throws, the test fails at once and names the request (for example `GET /api/roms returned 500`) instead of timing out on an element.
 - **Output:** everything the suite writes goes under `.output/`, through the paths in `support/output.ts`.
-- **Checks:** `npm run typecheck` covers the suite (`typecheck:e2e` runs it alone), and lint rules live in `eslint.e2e.config.js`.
+- **Checks:** `npm run typecheck` covers the suite through `tsconfig.node.json` (`typecheck:scripts` checks just that project), and lint rules live in `eslint.e2e.config.js`.
 - **Changing the suite itself:** see [AGENTS.md](AGENTS.md).
