@@ -9,8 +9,7 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   value?: string | number | undefined;
   label?: string | undefined;
-  /** Names the count across remounts so it doesn't roll up again when the
-   *  same header re-renders (see `useAnimatedNumber`'s `rememberAs`). */
+  /** Keeps a remounted count from rolling up again; see `useAnimatedNumber`. */
   rememberAs?: string | undefined;
 }
 

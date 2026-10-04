@@ -83,4 +83,35 @@ describe("useAnimatedNumber", () => {
     second.stop();
     reduced.value = true;
   });
+
+  it("rolls a remembered count from its last value when it changed", async () => {
+    reduced.value = false;
+    const source = ref<number | null>(10);
+    const first = effectScope();
+    first.run(() =>
+      useAnimatedNumber(() => source.value, { rememberAs: () => "changed" }),
+    );
+    first.stop();
+
+    source.value = 20;
+    const second = effectScope();
+    let display!: ReturnType<typeof useAnimatedNumber>;
+    second.run(() => {
+      display = useAnimatedNumber(() => source.value, {
+        duration: 400,
+        rememberAs: () => "changed",
+      });
+    });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const midRoll = display.value;
+    await new Promise((resolve) => setTimeout(resolve, 450));
+
+    // Early in the roll it is already past the remembered 10; from 0 it would
+    // still be in single digits.
+    expect(midRoll).toBeGreaterThanOrEqual(10);
+    expect(midRoll).toBeLessThan(20);
+    expect(display.value).toBe(20);
+    second.stop();
+    reduced.value = true;
+  });
 });

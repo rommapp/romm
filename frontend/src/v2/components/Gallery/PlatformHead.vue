@@ -138,11 +138,11 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
 
     <template v-if="stats.length" #stats>
       <Stat
-        v-for="s in stats"
+        v-for="(s, i) in stats"
         :key="s.label"
         :value="s.value"
         :label="s.label"
-        :remember-as="`platform-${platform.id}:${s.label}`"
+        :remember-as="`platform-${platform.id}:${i}`"
       />
     </template>
 
