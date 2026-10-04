@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "@/services/api/activity";
 import storeActivity from "@/stores/activity";
 import storeAuth from "@/stores/auth";
-import type { User } from "@/stores/users";
+import { userFixture } from "@/utils/user.fixtures";
 
 const { get, handlers } = vi.hoisted(() => ({
   get: vi.fn(),
@@ -45,7 +45,7 @@ describe("activity store socket events", () => {
     setActivePinia(createPinia());
     handlers.clear();
     get.mockReset();
-    storeAuth().setCurrentUser({ id: 1 } as User);
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
     storeActivity().initSocket();
   });
 
@@ -121,5 +121,39 @@ describe("activity store socket events", () => {
     expect(get).toHaveBeenCalledTimes(3);
     expect(store.activities.map((a) => a.rom_id)).toEqual([12]);
     expect(store.initialized).toBe(true);
+  });
+
+  it("keeps the newest list when an older request answers last", async () => {
+    const store = storeActivity();
+    let answerFirst = (_: { data: ActivityEntry[] }) => {};
+    get
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (answerFirst = resolve)),
+      )
+      .mockResolvedValueOnce({ data: [] });
+
+    const first = store.fetchAll();
+    await store.fetchAll();
+    answerFirst({ data: [entry()] });
+    await first;
+
+    expect(store.activities).toEqual([]);
+  });
+
+  it("re-lists sessions when the server asks everyone to refresh", async () => {
+    const store = storeActivity();
+    handlers.get("activity:update")!(entry());
+    get.mockResolvedValue({ data: [] });
+
+    handlers.get("activity:refresh")!({});
+    await vi.waitFor(() => expect(store.activities).toEqual([]));
+  });
+
+  it("ignores a refresh when signed out", () => {
+    storeAuth().setCurrentUser(null);
+
+    handlers.get("activity:refresh")!({});
+
+    expect(get).not.toHaveBeenCalled();
   });
 });

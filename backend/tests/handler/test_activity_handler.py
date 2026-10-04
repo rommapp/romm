@@ -12,7 +12,7 @@ from handler.database.base_handler import sync_session
 from handler.redis_handler import async_cache, sync_cache
 from handler.socket_handler import socket_handler
 from models.permission import HiddenEntity, PermEntity
-from models.rom import Rom
+from models.rom import Rom, RomVisibility
 from models.user import User
 
 
@@ -391,7 +391,7 @@ class TestAudience:
 
         assert [c.args[0] for c in emit.await_args_list] == ["activity:update"]
 
-    async def test_a_failed_audience_lookup_does_not_fail_publishing(
+    async def test_a_failed_audience_lookup_asks_everyone_to_refresh(
         self, entry: ActivityEntry, admin_user: User
     ):
         with (
@@ -405,5 +405,41 @@ class TestAudience:
                 entry["rom_id"]
             )
 
-        emit.assert_not_awaited()
+        # Nothing about the session itself goes out to an unknown audience.
+        assert [(c.args, c.kwargs) for c in emit.await_args_list] == [
+            (("activity:refresh", {}), {"to": None}),
+            (("activity:refresh", {}), {"to": None}),
+        ]
         assert await activity_handler.get_active(admin_user.id, "deck") is None
+
+    async def test_a_failed_lookup_of_the_last_game_asks_everyone_to_refresh(
+        self,
+        entry: ActivityEntry,
+        admin_user: User,
+        second_rom: Rom,
+    ):
+        await activity_handler.publish_active(entry)
+        switched = await activity_handler.build_entry(
+            user_id=admin_user.id,
+            device_id="deck",
+            rom_id=second_rom.id,
+            preserve_started_at=False,
+        )
+        assert switched is not None
+        visibility = db_rom_handler.get_rom_visibility
+
+        def fail_for_the_last_game(rom_id: int) -> RomVisibility | None:
+            if rom_id == entry["rom_id"]:
+                raise OSError("db down")
+            return visibility(rom_id)
+
+        with (
+            patch.object(db_rom_handler, "get_rom_visibility", fail_for_the_last_game),
+            _captured_emits() as emit,
+        ):
+            await activity_handler.publish_active(switched)
+
+        assert [(c.args[0], c.kwargs["to"]) for c in emit.await_args_list] == [
+            ("activity:update", [f"user:{admin_user.id}"]),
+            ("activity:refresh", None),
+        ]

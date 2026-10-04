@@ -127,9 +127,10 @@ class ActivityHandler:
         rooms = await _audience_rooms(entry["rom_id"])
         await self._emit("activity:update", dict(entry), rooms)
 
-        if previous and previous["rom_id"] != entry["rom_id"]:
+        # Without this game's audience the refresh just sent covers everyone.
+        if rooms is not None and previous and previous["rom_id"] != entry["rom_id"]:
             # Whoever saw the last game but can't see this one would keep its card.
-            stale = set(await _audience_rooms(previous["rom_id"]))
+            stale = await _audience_rooms(previous["rom_id"])
             await self._emit(
                 "activity:clear",
                 ActivityClearSchema(
@@ -137,7 +138,7 @@ class ActivityHandler:
                     device_id=entry["device_id"],
                     rom_id=previous["rom_id"],
                 ).model_dump(),
-                sorted(stale - set(rooms)),
+                None if stale is None else sorted(set(stale) - set(rooms)),
             )
 
     async def publish_clear(self, user_id: int, device_id: str) -> int | None:
@@ -155,13 +156,17 @@ class ActivityHandler:
         return rom_id
 
     async def _emit(
-        self, event: str, payload: dict[str, Any], rooms: list[str]
+        self, event: str, payload: dict[str, Any], rooms: list[str] | None
     ) -> None:
         # The REST app shares this process with the Socket.IO server, so emit
         # through the already-initialised, Redis-backed server (it fans out
         # across workers) rather than opening a manager per call. An empty
         # `to` would reach every socket, so no audience sends nothing.
-        if not rooms:
+        if rooms is None:
+            # An unknown audience can't be sent the session; every client
+            # re-lists what it may see instead.
+            event, payload = "activity:refresh", {}
+        elif not rooms:
             return
         try:
             await socket_handler.socket_server.emit(event, payload, to=rooms)
@@ -296,13 +301,13 @@ class ActivityHandler:
                 pass
 
 
-async def _audience_rooms(rom_id: int) -> list[str]:
-    """The ROM's audience, or none if it can't be read, so publishing still succeeds."""
+async def _audience_rooms(rom_id: int) -> list[str] | None:
+    """The ROM's audience, or None if it can't be read, so publishing still succeeds."""
     try:
         return await asyncio.to_thread(_audience, rom_id)
     except Exception:  # noqa: BLE001 - activity is best-effort, like its broadcast
         log.warning(f"Failed to resolve who can see ROM {rom_id}", exc_info=True)
-        return []
+        return None
 
 
 def _audience(rom_id: int) -> list[str]:

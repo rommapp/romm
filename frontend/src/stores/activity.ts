@@ -15,6 +15,8 @@ export default defineStore("activity", {
     socketBound: false,
     // Bumped by each socket event, so a fetch that raced one can tell.
     version: 0,
+    // Bumped by each fetch, so a slower, older response can't overwrite a newer one.
+    latestFetch: 0,
   }),
 
   getters: {
@@ -36,10 +38,12 @@ export default defineStore("activity", {
 
   actions: {
     async fetchAll() {
+      const fetchId = ++this.latestFetch;
       try {
         for (let attempt = 1; ; attempt++) {
           const version = this.version;
           const { data } = await activityApi.getAllActivity();
+          if (fetchId !== this.latestFetch) return;
           // An event that landed mid-request may be missing, so ask again.
           if (version !== this.version && attempt < 3) continue;
           this.activities = data;
@@ -90,6 +94,10 @@ export default defineStore("activity", {
       // A newly hidden ROM's session gets no clear here, so re-list what's visible.
       socket.on("permissions:changed", (data: { user_id: number }) => {
         if (data.user_id === storeAuth().user?.id) this.fetchAll();
+      });
+      // Sent to every socket when the server couldn't tell who may see a session.
+      socket.on("activity:refresh", () => {
+        if (storeAuth().user) this.fetchAll();
       });
 
       this.socketBound = true;
