@@ -4,9 +4,8 @@ Provides methods to connect to remote devices via SSH, list remote save files,
 and perform bidirectional file transfers using SFTP.
 
 SSH keys are expected to be pre-mounted on the server (e.g. via Docker volume)
-at the path configured by SYNC_SSH_KEYS_PATH. Keys are looked up by device_id
-({SYNC_SSH_KEYS_PATH}/{device_id}.pem) or via an explicit ssh_key_path in the
-device's sync_config.
+at the path configured by SYNC_SSH_KEYS_PATH, one per device, named
+{SYNC_SSH_KEYS_PATH}/{device_id}.pem.
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import asyncssh
 from anyio import Path as AnyioPath
@@ -44,8 +43,7 @@ class SSHSyncHandler:
     """Handles SSH/SFTP operations for push-pull sync mode.
 
     SSH keys are expected to be pre-mounted on the server filesystem at
-    SYNC_SSH_KEYS_PATH. The handler looks up keys by device_id convention
-    ({keys_path}/{device_id}.pem) or uses an explicit path from sync_config.
+    SYNC_SSH_KEYS_PATH, as {keys_path}/{device_id}.pem.
     """
 
     def __init__(self) -> None:
@@ -59,46 +57,34 @@ class SSHSyncHandler:
                 "to a writable location, to use push-pull sync."
             ) from e
 
-    def _resolve_key_path(
-        self, device_id: str, sync_config: dict[str, Any]
-    ) -> str | None:
-        """Resolve the SSH key path for a device.
-
-        Checks, in order:
-        1. Explicit ssh_key_path in sync_config
-        2. Convention-based path: {SYNC_SSH_KEYS_PATH}/{device_id}.pem
-        """
-        explicit = sync_config.get("ssh_key_path")
-        if explicit and os.path.isfile(explicit):
-            return cast(str, explicit)
-
-        convention_path = self.keys_path / f"{device_id}.pem"
-        if convention_path.is_file():
-            return str(convention_path)
-
-        return None
+    def _resolve_key_path(self, device_id: str) -> str | None:
+        """The device's own key, {keys_path}/{device_id}.pem, if one is mounted."""
+        # Never a path from sync_config: device owners edit it, and it would
+        # let them sign in with a key mounted for someone else's device.
+        key_path = self.keys_path / f"{device_id}.pem"
+        if not device_id or key_path.parent != self.keys_path:
+            return None
+        return str(key_path) if key_path.is_file() else None
 
     async def connect(
         self, sync_config: dict[str, Any], device_id: str | None = None
     ) -> asyncssh.SSHClientConnection:
         """Establish an SSH connection using device sync_config.
 
-        SSH keys should be pre-mounted on the server. The handler resolves
-        the key by checking sync_config.ssh_key_path first, then falls back
-        to the convention-based path {SYNC_SSH_KEYS_PATH}/{device_id}.pem.
+        Authenticates with the device's key, {SYNC_SSH_KEYS_PATH}/{device_id}.pem,
+        when one is mounted, and otherwise with ssh_password.
 
         sync_config should contain:
             - ssh_host: hostname or IP
             - ssh_port: port (default 22)
             - ssh_username: username
-            - ssh_key_path: explicit path to private key (optional)
-            - ssh_password: password (optional, fallback if no key found)
+            - ssh_password: password (optional, used when no key is mounted)
         """
         host = sync_config["ssh_host"]
         port = sync_config.get("ssh_port", 22)
         username = sync_config.get("ssh_username", "root")
 
-        if not AnyioPath(SYNC_SSH_KNOWN_HOSTS_PATH).is_file():
+        if not await AnyioPath(SYNC_SSH_KNOWN_HOSTS_PATH).is_file():
             raise FileNotFoundError(
                 f"SSH known_hosts file not found at {SYNC_SSH_KNOWN_HOSTS_PATH}. "
                 "Mount a known_hosts file or set SYNC_SSH_KNOWN_HOSTS_PATH."
@@ -111,8 +97,12 @@ class SSHSyncHandler:
             "known_hosts": SYNC_SSH_KNOWN_HOSTS_PATH,
         }
 
-        # Resolve key path (explicit or convention-based)
-        key_path = self._resolve_key_path(device_id or "", sync_config)
+        if sync_config.get("ssh_key_path"):
+            log.warning(
+                f"Ignoring ssh_key_path for device {device_id}; mount its key at "
+                f"{self.keys_path}/{device_id}.pem instead"
+            )
+        key_path = self._resolve_key_path(device_id or "")
         if key_path:
             connect_kwargs["client_keys"] = [key_path]
         elif sync_config.get("ssh_password"):
@@ -120,8 +110,8 @@ class SSHSyncHandler:
         else:
             raise ValueError(
                 f"No SSH authentication method available for {host}. "
-                f"Mount a key at {self.keys_path}/{{device_id}}.pem or "
-                "provide ssh_key_path/ssh_password in sync_config."
+                f"Mount a key at {self.keys_path}/{device_id}.pem or "
+                "provide ssh_password in sync_config."
             )
 
         log.info(f"Connecting to {username}@{host}:{port}")
