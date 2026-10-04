@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+from contextlib import suppress
 from datetime import datetime, timezone
 from typing import Any, TypedDict, cast
+from uuid import uuid4
 
 from redis.exceptions import WatchError
 
@@ -57,6 +59,7 @@ class ActivityHandler:
     REFRESH_KEY = "activity:refresh:pending"
 
     _refresh: asyncio.Task[None] | None = None
+    _flush: asyncio.Event | None = None
 
     def _activity_key(self, user_id: int, device_id: str) -> str:
         return f"{self.KEY_PREFIX}{user_id}:{device_id}"
@@ -187,38 +190,40 @@ class ActivityHandler:
         if pending is not None and not pending.done() and pending.get_loop() is loop:
             return
         # Each worker's broadcast reaches every socket, so workers share one claim.
+        token = uuid4().hex
         try:
             claimed = await async_cache.set(
-                self.REFRESH_KEY, "1", nx=True, ex=2 * self.REFRESH_DELAY
+                self.REFRESH_KEY, token, nx=True, ex=2 * self.REFRESH_DELAY
             )
         except Exception as e:  # noqa: BLE001
             log.warning(f"Failed to claim activity:refresh: {e}")
             claimed = True
         if claimed:
-            self._refresh = loop.create_task(self._send_refresh())
+            self._flush = asyncio.Event()
+            self._refresh = loop.create_task(self._send_refresh(token, self._flush))
 
-    async def _send_refresh(self) -> None:
-        await asyncio.sleep(self.REFRESH_DELAY)
-        await self._broadcast_refresh()
-
-    async def flush_refresh(self) -> None:
-        """Send a pending refresh now, so it isn't lost when the worker stops."""
-        pending = self._refresh
-        if pending is None or pending.done():
-            return
-        pending.cancel()
-        await self._broadcast_refresh()
-
-    async def _broadcast_refresh(self) -> None:
+    async def _send_refresh(self, token: str, flush: asyncio.Event) -> None:
+        with suppress(TimeoutError):
+            await asyncio.wait_for(flush.wait(), self.REFRESH_DELAY)
         # Released first, so a lookup that fails from here on queues another.
+        # Only the claimant releases; an expired claim may be another worker's now.
         try:
-            await async_cache.delete(self.REFRESH_KEY)
+            if await async_cache.get(self.REFRESH_KEY) in (token, token.encode()):
+                await async_cache.delete(self.REFRESH_KEY)
         except Exception as e:  # noqa: BLE001
             log.warning(f"Failed to release activity:refresh: {e}")
         try:
             await socket_handler.socket_server.emit("activity:refresh", {})
         except Exception as e:  # noqa: BLE001
             log.warning(f"Failed to broadcast activity:refresh: {e}")
+
+    async def flush_refresh(self) -> None:
+        """Send a pending refresh now, so it isn't lost when the worker stops."""
+        pending, flush = self._refresh, self._flush
+        if pending is None or flush is None or pending.done():
+            return
+        flush.set()
+        await pending
 
     async def set_active(self, entry: ActivityEntry) -> None:
         """Store or refresh a user's active play session."""
