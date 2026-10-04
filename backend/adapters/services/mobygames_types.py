@@ -55,7 +55,7 @@ class MobyGame(TypedDict):
     num_votes: int
     official_url: str | None
     platforms: list[MobyPlatform]
-    sample_cover: MobyGameCover
+    sample_cover: MobyGameCover | None
     sample_screenshots: list[MobyGameScreenshot]
     title: str
 

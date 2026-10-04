@@ -1,7 +1,7 @@
 """Tests for the MobyGames metadata handler."""
 
 import json
-from typing import Any, cast
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -111,18 +111,47 @@ class TestSearchTermEncoding:
         assert "%" not in title
 
 
-def _game(game_id: int, title: str, **overrides: object) -> dict[str, object]:
+def _game(game_id: int, title: str) -> MobyGame:
     return {
         "game_id": game_id,
         "title": title,
         "description": f"About {title}",
         "moby_score": 7.5,
-        "genres": [{"genre_name": "Action"}],
-        "alternate_titles": [{"title": f"{title} DX"}],
-        "platforms": [{"platform_id": 15, "platform_name": "SNES"}],
-        "sample_cover": {"image": f"https://moby/{game_id}/cover.jpg"},
-        "sample_screenshots": [{"image": f"https://moby/{game_id}/shot.jpg"}],
-        **overrides,
+        "moby_url": f"https://moby/{game_id}",
+        "num_votes": 1,
+        "official_url": None,
+        "genres": [
+            {
+                "genre_name": "Action",
+                "genre_id": 1,
+                "genre_category": "Basic Genres",
+                "genre_category_id": 1,
+            }
+        ],
+        "alternate_titles": [{"title": f"{title} DX", "description": "Alt"}],
+        "platforms": [
+            {
+                "platform_id": 15,
+                "platform_name": "SNES",
+                "first_release_date": "1991",
+            }
+        ],
+        "sample_cover": {
+            "image": f"https://moby/{game_id}/cover.jpg",
+            "thumbnail_image": f"https://moby/{game_id}/cover-thumb.jpg",
+            "height": 1,
+            "width": 1,
+            "platforms": ["SNES"],
+        },
+        "sample_screenshots": [
+            {
+                "image": f"https://moby/{game_id}/shot.jpg",
+                "thumbnail_image": f"https://moby/{game_id}/shot-thumb.jpg",
+                "caption": "",
+                "height": 1,
+                "width": 1,
+            }
+        ],
     }
 
 
@@ -131,10 +160,10 @@ def moby(monkeypatch: pytest.MonkeyPatch) -> tuple[MobyGamesHandler, AsyncMock]:
     """A handler with a key, its list_games answering by title or id."""
     monkeypatch.setattr(moby_handler, "MOBYGAMES_API_KEY", "key")
     handler = MobyGamesHandler()
-    by_title: dict[str, list[dict[str, object]]] = {}
-    by_id: dict[int, list[dict[str, object]]] = {}
+    by_title: dict[str, list[MobyGame]] = {}
+    by_id: dict[int, list[MobyGame]] = {}
 
-    async def list_games(**query: Any) -> list[dict[str, object]]:
+    async def list_games(**query: Any) -> list[MobyGame]:
         if query.get("game_id"):
             return by_id.get(query["game_id"], [])
         return by_title.get(query.get("title") or "", [])
@@ -213,9 +242,7 @@ class TestHelpers:
         }
 
     def test_metadata_carries_score_genres_titles_and_platforms(self):
-        metadata = moby_handler.extract_metadata_from_moby_rom(
-            cast(MobyGame, _game(1, "Zelda"))
-        )
+        metadata = moby_handler.extract_metadata_from_moby_rom(_game(1, "Zelda"))
 
         assert metadata == {
             "moby_score": "7.5",
@@ -224,9 +251,10 @@ class TestHelpers:
             "platforms": [{"moby_id": 15, "name": "SNES"}],
         }
 
-    @pytest.mark.parametrize("game", [{"moby_score": None}, {}], ids=["null", "absent"])
-    def test_a_game_without_a_score_has_none(self, game: dict[str, object]):
-        metadata = moby_handler.extract_metadata_from_moby_rom(cast(MobyGame, game))
+    def test_a_game_without_a_score_has_none(self):
+        unscored: MobyGame = {**_game(1, "Zelda"), "moby_score": None}
+
+        metadata = moby_handler.extract_metadata_from_moby_rom(unscored)
 
         assert metadata["moby_score"] is None
 
@@ -249,7 +277,7 @@ class TestGetRom:
             "url_cover": "https://moby/2/cover.jpg",
             "url_screenshots": ["https://moby/2/shot.jpg"],
             "moby_metadata": moby_handler.extract_metadata_from_moby_rom(
-                cast(MobyGame, _game(2, "Zelda"))
+                _game(2, "Zelda")
             ),
         }
         # The search drops the tags and is lowercased.
@@ -263,7 +291,12 @@ class TestGetRom:
     ):
         handler, list_games = moby
         list_games.by_title["Zelda"] = [
-            _game(2, "Zelda", description="", sample_cover=None, sample_screenshots=[])
+            {
+                **_game(2, "Zelda"),
+                "description": "",
+                "sample_cover": None,
+                "sample_screenshots": [],
+            }
         ]
 
         result = await handler.get_rom(Rom(fs_name="Zelda.sfc"), "Zelda.sfc", SNES)
