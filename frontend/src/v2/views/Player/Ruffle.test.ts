@@ -1,6 +1,7 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import { saveSyncMocks } from "@/test-utils/deviceSaveSync";
 import type { RuffleSourceAPI } from "@/types/ruffle";
 import { zipRuffleSaves } from "@/v2/utils/ruffleSaves";
 import Ruffle from "./Ruffle.vue";
@@ -9,12 +10,6 @@ const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
   exitLeave: vi.fn(),
   routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
-  sync: {
-    prepare: vi.fn(),
-    capture: vi.fn(),
-    push: vi.fn(),
-    captureOnUnload: vi.fn(),
-  },
   getRom: vi.fn(),
   playSessionStart: vi.fn(),
   flushPlaySession: vi.fn(),
@@ -46,15 +41,7 @@ vi.mock("@/v2/composables/usePlayerExit", () => ({
   }),
 }));
 
-vi.mock("@/v2/utils/saveSync", () => ({
-  PLAYER_SAVE_POLL_MS: 5000,
-  DeviceSaveSync: class {
-    prepare = mocks.sync.prepare;
-    capture = mocks.sync.capture;
-    push = mocks.sync.push;
-    captureOnUnload = mocks.sync.captureOnUnload;
-  },
-}));
+vi.mock("@/v2/utils/saveSync", () => import("@/test-utils/deviceSaveSync"));
 
 vi.mock("@/plugins/router", () => ({
   ROUTES: { ROM: "rom", PLATFORM: "platform" },
@@ -128,9 +115,9 @@ beforeEach(() => {
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
-  mocks.sync.prepare.mockResolvedValue([]);
-  mocks.sync.capture.mockResolvedValue(undefined);
-  mocks.sync.push.mockResolvedValue(true);
+  saveSyncMocks.prepare.mockResolvedValue([]);
+  saveSyncMocks.capture.mockResolvedValue(undefined);
+  saveSyncMocks.push.mockResolvedValue(true);
   mocks.confirm.mockResolvedValue(false);
   mocks.getRom.mockResolvedValue({ data: rom });
   window.RufflePlayer = {
@@ -235,13 +222,13 @@ describe("Ruffle saves", () => {
 
   it("syncs saves left in storage and restores the synced copy", async () => {
     localStorage.setItem(`${HOST}/${SWF_KEY}`, stored(sol(1)));
-    mocks.sync.prepare.mockResolvedValue([
+    saveSyncMocks.prepare.mockResolvedValue([
       { slot: "autosave", bytes: zipRuffleSaves({ [SWF_KEY]: sol(2) }) },
     ]);
 
     const wrapper = await mountAndPlay();
 
-    const [leftover] = mocks.sync.prepare.mock.calls[0]![0];
+    const [leftover] = saveSyncMocks.prepare.mock.calls[0]![0];
     expect(leftover).toMatchObject({
       slot: "autosave",
       fileName: "Flash Game.sol.zip",
@@ -257,10 +244,10 @@ describe("Ruffle saves", () => {
     expect(mocks.routeLeaveGuard?.({ fullPath: "/rom/1" })).toBe(false);
     await flushPromises();
 
-    expect(mocks.sync.capture).toHaveBeenCalledWith([
+    expect(saveSyncMocks.capture).toHaveBeenCalledWith([
       expect.objectContaining({ slot: "autosave" }),
     ]);
-    expect(mocks.sync.push).toHaveBeenCalled();
+    expect(saveSyncMocks.push).toHaveBeenCalled();
     expect(localStorage.getItem(`${HOST}/${SWF_KEY}`)).toBeNull();
     expect(mocks.exitLeave).toHaveBeenCalledWith("/rom/1");
     expect(document.querySelector("#r-v2-ruffle-stage > *")).toBeNull();
@@ -273,7 +260,7 @@ describe("Ruffle saves", () => {
 
     window.dispatchEvent(new Event("pagehide"));
 
-    expect(mocks.sync.captureOnUnload).toHaveBeenCalledWith([
+    expect(saveSyncMocks.captureOnUnload).toHaveBeenCalledWith([
       expect.objectContaining({ slot: "autosave" }),
     ]);
     expect(localStorage.getItem(`${HOST}/${SWF_KEY}`)).toBe(stored(sol(4)));
@@ -281,7 +268,7 @@ describe("Ruffle saves", () => {
   });
 
   it("restarts the game when the player stays after a failed upload", async () => {
-    mocks.sync.push.mockResolvedValue(false);
+    saveSyncMocks.push.mockResolvedValue(false);
     const wrapper = await mountAndPlay();
     localStorage.setItem(`${HOST}/${SWF_KEY}`, stored(sol(3)));
 

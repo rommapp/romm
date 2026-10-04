@@ -4,18 +4,16 @@
 // `src/views/Player/RuffleRS/Base.vue` so playback stays identical; only the
 // chrome is v2. No shared state with EJS: Flash has its own config.
 import { RIcon, RSwitch } from "@v2/lib";
-import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
 import romApi from "@/services/api/rom";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
-import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import type { RuffleSourceAPI } from "@/types/ruffle";
 import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
-import { useConfirm } from "@/v2/composables/useConfirm";
+import { useDeviceSaveSync } from "@/v2/composables/useDeviceSaveSync";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
@@ -34,15 +32,10 @@ import {
   zipRuffleSaves,
   type RuffleSaves,
 } from "@/v2/utils/ruffleSaves";
-import {
-  DeviceSaveSync,
-  PLAYER_SAVE_POLL_MS,
-  type PlayerSaveFile,
-} from "@/v2/utils/saveSync";
+import type { PlayerSaveFile } from "@/v2/utils/saveSync";
 
 const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
 const DEFAULT_BACKGROUND_COLOR = colorCanvas.bgDeep;
-const RUFFLE_EMULATOR = "ruffle";
 
 type RufflePlayer = ReturnType<RuffleSourceAPI["createPlayer"]>;
 
@@ -50,9 +43,7 @@ const { t } = useI18n();
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
 const playSession = usePlaySession();
-const authStore = storeAuth();
 const exit = usePlayerExit();
-const confirm = useConfirm();
 const alive = useIsAlive();
 
 const rom = shallowRef<DetailedRom | null>(null);
@@ -85,8 +76,6 @@ const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
 let player: RufflePlayer | null = null;
 let swfUrl = "";
-let saveSync: DeviceSaveSync | null = null;
-let pushing: Promise<boolean> | null = null;
 const host = window.location.hostname;
 
 // Nothing is running, so drop the guard and the input mute the launch armed.
@@ -114,20 +103,25 @@ function saveFilesOf(
   ];
 }
 
-async function captureSaves(sync: DeviceSaveSync, target: DetailedRom) {
-  await sync.capture(saveFilesOf(target));
+function currentSaveFiles(): PlayerSaveFile[] {
+  return rom.value ? saveFilesOf(rom.value) : [];
 }
+
+// A game writes a SharedObject whenever it flushes one, so storage is polled.
+const saveSync = useDeviceSaveSync({
+  emulator: "ruffle",
+  read: async () => currentSaveFiles(),
+  readOnUnload: currentSaveFiles,
+});
 
 // Storage is shared by every RomM account in the browser, so a game's saves
 // live there only while it runs: synced in before, and taken back out after.
 async function prepareSaves(target: DetailedRom) {
-  const userId = authStore.user?.id;
-  if (userId == null) return;
-  const sync = new DeviceSaveSync(target, userId, RUFFLE_EMULATOR);
   // Left behind by a page that went away mid-game, or from before sync.
   const leftover = storedSaves();
   try {
-    const saves = await sync.prepare(saveFilesOf(target, leftover));
+    const saves = await saveSync.prepare(target, saveFilesOf(target, leftover));
+    if (!saves) return;
     removeRuffleSaves(host, Object.keys(leftover));
     const synced = saves.find((save) => save.slot === AUTOSAVE_SLOT);
     if (synced) {
@@ -136,39 +130,11 @@ async function prepareSaves(target: DetailedRom) {
         unzipRuffleSaves(synced.bytes, swfStoragePath(swfUrl)),
       );
     }
-    saveSync = sync;
+    saveSync.start();
   } catch (error) {
     console.error("[Ruffle] Saves are unavailable", error);
   }
 }
-
-function pushSaves(): Promise<boolean> {
-  const sync = saveSync;
-  const target = rom.value;
-  if (!sync || !target) return Promise.resolve(true);
-  // A push still in flight already covers this one's work.
-  pushing ??= captureSaves(sync, target)
-    .then(() => sync.push())
-    .catch((error: unknown) => {
-      console.error("[Ruffle] Saving failed", error);
-      return false;
-    })
-    .finally(() => {
-      pushing = null;
-    });
-  return pushing;
-}
-
-// A push in flight may have read storage before the last write landed.
-async function flushSaves(): Promise<boolean> {
-  await pushing;
-  return pushSaves();
-}
-
-// A game writes a SharedObject whenever it flushes one, so storage is polled.
-const savePoll = useIntervalFn(() => void pushSaves(), PLAYER_SAVE_POLL_MS, {
-  immediate: false,
-});
 
 function mountPlayer(): boolean {
   const ruffle = window.RufflePlayer.newest();
@@ -191,13 +157,13 @@ function mountPlayer(): boolean {
   created.style.width = "100%";
   created.style.height = "100%";
   player = created;
-  if (saveSync) savePoll.resume();
+  saveSync.resume();
   return true;
 }
 
 // Ruffle writes every SharedObject as its instance goes.
 function destroyPlayer() {
-  savePoll.pause();
+  saveSync.pause();
   player?.remove();
   player = null;
 }
@@ -233,14 +199,8 @@ async function leavePlayer(leave: () => void) {
   quitting.value = true;
 
   destroyPlayer();
-  if (!(await flushSaves())) {
-    const discard = await confirm({
-      title: t("play.quit-before-save-synced"),
-      confirmText: t("common.discard"),
-      cancelText: t("common.cancel"),
-      tone: "danger",
-    });
-    if (!discard) {
+  if (!(await saveSync.flush())) {
+    if (!(await saveSync.confirmDiscard())) {
       // The player is gone, so staying restarts the game on its saves.
       mountPlayer();
       quitting.value = false;
@@ -248,8 +208,8 @@ async function leavePlayer(leave: () => void) {
     }
   }
 
-  if (saveSync) removeRuffleSaves(host, Object.keys(storedSaves()));
-  saveSync = null;
+  if (saveSync.isActive()) removeRuffleSaves(host, Object.keys(storedSaves()));
+  saveSync.stop();
   gameRunning.value = false;
   quitting.value = false;
   leave();
@@ -278,15 +238,6 @@ onBeforeRouteLeave((to) => {
   return false;
 });
 
-useEventListener(window, "pagehide", (event: PageTransitionEvent) => {
-  const sync = saveSync;
-  const target = rom.value;
-  // A page kept for back and forward can return to the running game.
-  if (event.persisted || !sync || !target) return;
-  const files = saveFilesOf(target);
-  if (files.length > 0) sync.captureOnUnload(files);
-});
-
 onMounted(async () => {
   const romResponse = await romApi.getRom({ romId });
   rom.value = romResponse.data;
@@ -311,7 +262,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   // Every exit path (Quit, back links, route change) unmounts the view, so
   // this is the single choke point for recording the session.
-  savePoll.pause();
+  saveSync.stop();
   playSession.flush();
 });
 </script>

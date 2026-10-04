@@ -1,15 +1,11 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import { saveSyncMocks } from "@/test-utils/deviceSaveSync";
 import type { JsDosOptions, JsDosProps } from "@/types/js-dos";
 import JsDos from "./JsDos.vue";
 
 const mocks = vi.hoisted(() => ({
-  capture: vi.fn(),
-  prepare: vi.fn(),
-  push: vi.fn(),
-  pushOnUnload: vi.fn(),
-  syncArgs: [] as unknown[],
   flushPlaySession: vi.fn(),
   getRom: vi.fn(),
   loadRuntime: vi.fn(),
@@ -100,17 +96,7 @@ vi.mock("@/v2/stores/galleryRoms", () => ({
 }));
 
 // The sync logic has its own suite.
-vi.mock("@/v2/utils/saveSync", () => ({
-  DeviceSaveSync: class {
-    constructor(...args: unknown[]) {
-      mocks.syncArgs = args;
-    }
-    capture = mocks.capture;
-    prepare = mocks.prepare;
-    push = mocks.push;
-    pushOnUnload = mocks.pushOnUnload;
-  },
-}));
+vi.mock("@/v2/utils/saveSync", () => import("@/test-utils/deviceSaveSync"));
 
 // The runtime is a document-level singleton with its own suite; here it only
 // has to say which base the emulator payloads follow.
@@ -153,10 +139,10 @@ beforeEach(() => {
   mocks.userId = 7;
   mocks.confirm.mockResolvedValue(false);
   mocks.getRom.mockResolvedValue({ data: rom });
-  mocks.prepare.mockReset().mockResolvedValue([]);
-  mocks.capture.mockReset().mockResolvedValue(undefined);
-  mocks.push.mockReset().mockResolvedValue(true);
-  mocks.pushOnUnload.mockReset();
+  saveSyncMocks.prepare.mockReset().mockResolvedValue([]);
+  saveSyncMocks.capture.mockReset().mockResolvedValue(undefined);
+  saveSyncMocks.push.mockReset().mockResolvedValue(true);
+  saveSyncMocks.pushOnUnload.mockReset();
   delete window.Dos;
 });
 
@@ -531,11 +517,13 @@ describe("JsDos save sync", () => {
 
   it("boots from the synced changes instead of browser storage", async () => {
     const changes = new Uint8Array([80, 75]);
-    mocks.prepare.mockResolvedValue([{ slot: "autosave", bytes: changes }]);
+    saveSyncMocks.prepare.mockResolvedValue([
+      { slot: "autosave", bytes: changes },
+    ]);
     const wrapper = await mountPlayer(makeHandle());
 
-    expect(mocks.syncArgs).toEqual([rom, 7, "jsdos"]);
-    expect(mocks.prepare).toHaveBeenCalledWith([]);
+    expect(saveSyncMocks.args).toEqual([rom, 7, "jsdos"]);
+    expect(saveSyncMocks.prepare).toHaveBeenCalledWith([]);
     const { fsChanges } = optionsOf();
     expect(fsChanges?.local).toBe(false);
     await expect(fsChanges?.pull?.("key")).resolves.toBe(changes);
@@ -555,20 +543,20 @@ describe("JsDos save sync", () => {
 
     await optionsOf().fsChanges?.push?.("key", bytes);
 
-    expect(mocks.capture).toHaveBeenCalledWith([
+    expect(saveSyncMocks.capture).toHaveBeenCalledWith([
       expect.objectContaining({
         slot: "autosave",
         fileName: "Windows Game.changes",
         bytes,
       }),
     ]);
-    expect(mocks.push).toHaveBeenCalled();
+    expect(saveSyncMocks.push).toHaveBeenCalled();
     await expect(optionsOf().fsChanges?.pull?.("key")).resolves.toBe(bytes);
     wrapper.unmount();
   });
 
   it("fails the save when the upload fails, so leaving asks first", async () => {
-    mocks.push.mockResolvedValue(false);
+    saveSyncMocks.push.mockResolvedValue(false);
     const wrapper = await mountPlayer(makeHandle());
 
     await expect(
@@ -601,7 +589,7 @@ describe("JsDos save sync", () => {
     expect(saves.getFileHandle).toHaveBeenCalledWith(
       "romm-user-7-rom-1.changes",
     );
-    const [legacy] = mocks.prepare.mock.calls[0]![0];
+    const [legacy] = saveSyncMocks.prepare.mock.calls[0]![0];
     expect(legacy).toMatchObject({ slot: "autosave", updatedAt: 1234 });
     expect([...legacy.bytes]).toEqual([9]);
     expect(removeEntry).toHaveBeenCalledWith("romm-user-7-rom-1.changes");
@@ -614,7 +602,7 @@ describe("JsDos save sync", () => {
 
     window.dispatchEvent(new Event("pagehide"));
 
-    expect(mocks.pushOnUnload).toHaveBeenCalled();
+    expect(saveSyncMocks.pushOnUnload).toHaveBeenCalled();
     wrapper.unmount();
   });
 });

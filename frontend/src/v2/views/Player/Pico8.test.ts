@@ -1,5 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { saveSyncMocks } from "@/test-utils/deviceSaveSync";
 import Pico8 from "./Pico8.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -7,13 +8,6 @@ const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
   exitLeave: vi.fn(),
   routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
-  sync: {
-    prepare: vi.fn(),
-    capture: vi.fn(),
-    push: vi.fn(),
-    captureOnUnload: vi.fn(),
-  },
-  syncArgs: [] as unknown[],
   runtime: {
     frameRate: 30,
     audioSampleRate: 22050,
@@ -49,17 +43,7 @@ vi.mock("@/v2/composables/usePlayerExit", () => ({
     guard: () => Promise.resolve(true),
   }),
 }));
-vi.mock("@/v2/utils/saveSync", () => ({
-  DeviceSaveSync: class {
-    constructor(...args: unknown[]) {
-      mocks.syncArgs = args;
-    }
-    prepare = mocks.sync.prepare;
-    capture = mocks.sync.capture;
-    push = mocks.sync.push;
-    captureOnUnload = mocks.sync.captureOnUnload;
-  },
-}));
+vi.mock("@/v2/utils/saveSync", () => import("@/test-utils/deviceSaveSync"));
 vi.mock("@/services/api/rom", () => ({ default: { getRom: mocks.getRom } }));
 vi.mock("@/utils", () => ({ getDownloadPath: () => "/cart.p8.png" }));
 vi.mock("@/v2/utils/pico8Runtime", () => ({
@@ -151,9 +135,9 @@ describe("Pico8 frame loop", () => {
     );
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     mocks.getRom.mockResolvedValue({ data: { id: 1, name: "Celeste" } });
-    mocks.sync.prepare.mockResolvedValue([]);
-    mocks.sync.capture.mockResolvedValue(undefined);
-    mocks.sync.push.mockResolvedValue(true);
+    saveSyncMocks.prepare.mockResolvedValue([]);
+    saveSyncMocks.capture.mockResolvedValue(undefined);
+    saveSyncMocks.push.mockResolvedValue(true);
     mocks.runtime.flushCartData.mockReturnValue([]);
   });
 
@@ -233,11 +217,11 @@ describe("Pico8 cart data", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.spyOn(window.history, "back").mockImplementation(back);
     mocks.getRom.mockResolvedValue({ data: { id: 1, name: "Celeste" } });
-    mocks.sync.prepare.mockResolvedValue([
+    saveSyncMocks.prepare.mockResolvedValue([
       { slot: "celeste", bytes: new Uint8Array([9]) },
     ]);
-    mocks.sync.capture.mockResolvedValue(undefined);
-    mocks.sync.push.mockResolvedValue(true);
+    saveSyncMocks.capture.mockResolvedValue(undefined);
+    saveSyncMocks.push.mockResolvedValue(true);
     mocks.runtime.flushCartData.mockReturnValue([
       { key: "celeste", bytes: new Uint8Array([10]) },
     ]);
@@ -273,7 +257,11 @@ describe("Pico8 cart data", () => {
   it("restores the saved cart data before the cart loads", async () => {
     const wrapper = await play();
 
-    expect(mocks.syncArgs).toEqual([{ id: 1, name: "Celeste" }, 7, "pico8"]);
+    expect(saveSyncMocks.args).toEqual([
+      { id: 1, name: "Celeste" },
+      7,
+      "pico8",
+    ]);
     expect(mocks.runtime.writeCartData).toHaveBeenCalledWith([
       { key: "celeste", bytes: new Uint8Array([9]) },
     ]);
@@ -288,14 +276,14 @@ describe("Pico8 cart data", () => {
 
     await quit(wrapper);
 
-    expect(mocks.sync.capture).toHaveBeenCalledWith([
+    expect(saveSyncMocks.capture).toHaveBeenCalledWith([
       expect.objectContaining({
         slot: "celeste",
         fileName: "celeste.p8d.txt",
         bytes: new Uint8Array([10]),
       }),
     ]);
-    expect(mocks.sync.push).toHaveBeenCalled();
+    expect(saveSyncMocks.push).toHaveBeenCalled();
     expect(mocks.confirm).not.toHaveBeenCalled();
     expect(back).toHaveBeenCalled();
     expect(mocks.runtime.dispose).toHaveBeenCalled();
@@ -308,14 +296,14 @@ describe("Pico8 cart data", () => {
     window.dispatchEvent(new Event("pagehide"));
 
     expect(mocks.runtime.flushCartData).toHaveBeenCalled();
-    expect(mocks.sync.captureOnUnload).toHaveBeenCalledWith([
+    expect(saveSyncMocks.captureOnUnload).toHaveBeenCalledWith([
       expect.objectContaining({ slot: "celeste" }),
     ]);
     wrapper.unmount();
   });
 
   it("restarts the cart when the player stays after a failed upload", async () => {
-    mocks.sync.push.mockResolvedValue(false);
+    saveSyncMocks.push.mockResolvedValue(false);
     const wrapper = await play();
     mocks.runtime.loadCart.mockClear();
 
@@ -337,7 +325,7 @@ describe("Pico8 cart data", () => {
     expect(mocks.routeLeaveGuard?.({ fullPath: "/rom/1" })).toBe(false);
     await flushPromises();
 
-    expect(mocks.sync.push).toHaveBeenCalled();
+    expect(saveSyncMocks.push).toHaveBeenCalled();
     expect(mocks.exitLeave).toHaveBeenCalledWith("/rom/1");
     wrapper.unmount();
   });

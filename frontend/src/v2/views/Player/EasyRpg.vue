@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RSwitch } from "@v2/lib";
-import { useEventListener, useIntervalFn } from "@vueuse/core";
+import { useEventListener } from "@vueuse/core";
 import {
   computed,
   nextTick,
@@ -15,7 +15,7 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
-import { useConfirm } from "@/v2/composables/useConfirm";
+import { useDeviceSaveSync } from "@/v2/composables/useDeviceSaveSync";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
@@ -32,11 +32,7 @@ import {
   readEasyRpgSaves,
   writeEasyRpgSaves,
 } from "@/v2/utils/easyRpgStorage";
-import {
-  DeviceSaveSync,
-  PLAYER_SAVE_POLL_MS,
-  type LocalSave,
-} from "@/v2/utils/saveSync";
+import type { LocalSave } from "@/v2/utils/saveSync";
 import { bytesEqual } from "@/v2/utils/saveSync/hash";
 
 const { t } = useI18n();
@@ -46,7 +42,6 @@ const authStore = storeAuth();
 const { fullscreenOnPlay } = useFullscreenPref();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
-const confirm = useConfirm();
 
 const rom = shallowRef<DetailedRom | null>(null);
 // The seeded rom is only a placeholder; the launch waits for the fetched one.
@@ -60,9 +55,6 @@ const frame = ref<HTMLIFrameElement | null>(null);
 const { enter: enterFullscreen } = usePlayerFullscreen(frame);
 let sessionStarted = false;
 
-let saveSync: DeviceSaveSync | null = null;
-let pushing: Promise<boolean> | null = null;
-
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
 // The player keeps saves in a browser database named after the game, so the
@@ -74,32 +66,10 @@ const playerSrc = computed(
   () => `/assets/easyrpg/index.html?game=${gameName.value}`,
 );
 
-function pushSaves(): Promise<boolean> {
-  const sync = saveSync;
-  if (!sync) return Promise.resolve(true);
-  // A push still in flight already covers this one's work.
-  pushing ??= readEasyRpgSaves(gameName.value)
-    .then((saves) => sync.capture(saves))
-    .then(() => sync.push())
-    .catch((error: unknown) => {
-      console.error("[EasyRPG] Save sync failed", error);
-      return false;
-    })
-    .finally(() => {
-      pushing = null;
-    });
-  return pushing;
-}
-
-// A push in flight may have read the saves before the latest one landed.
-async function flushSaves(): Promise<boolean> {
-  await pushing;
-  return pushSaves();
-}
-
 // The player writes a save to browser storage as soon as the game saves.
-const savePoll = useIntervalFn(() => void pushSaves(), PLAYER_SAVE_POLL_MS, {
-  immediate: false,
+const saveSync = useDeviceSaveSync({
+  emulator: "easyrpg",
+  read: () => readEasyRpgSaves(gameName.value),
 });
 
 // Only the slots whose bytes differ, so the player keeps its own timestamps.
@@ -127,10 +97,12 @@ async function onPlay() {
 
   preparing.value = true;
   const game = gameName.value;
-  const sync = new DeviceSaveSync(currentRom, userId, "easyrpg");
   try {
-    const saves = await sync.prepare(await readEasyRpgSaves(game));
-    await restoreSaves(game, saves);
+    const saves = await saveSync.prepare(
+      currentRom,
+      await readEasyRpgSaves(game),
+    );
+    if (saves) await restoreSaves(game, saves);
   } catch (error) {
     console.error("[EasyRPG] Save storage failed", error);
     snackbar.error(t("play.easyrpg-saves-load-failed"));
@@ -140,9 +112,8 @@ async function onPlay() {
   }
   if (!alive.value) return;
 
-  saveSync = sync;
+  saveSync.start();
   gameRunning.value = true;
-  savePoll.resume();
 
   await nextTick();
   if (fullscreenOnPlay.value) {
@@ -161,23 +132,16 @@ function onFrameLoad() {
 }
 
 function teardown() {
-  savePoll.pause();
+  saveSync.stop();
   playSession.flush();
-  saveSync = null;
 }
 
 async function leavePlayer(destination: string) {
   if (quitting.value) return;
   quitting.value = true;
 
-  if (saveSync && !(await flushSaves())) {
-    const discard = await confirm({
-      title: t("play.quit-before-save-synced"),
-      confirmText: t("common.discard"),
-      cancelText: t("common.cancel"),
-      tone: "danger",
-    });
-    if (!discard) {
+  if (!(await saveSync.flush())) {
+    if (!(await saveSync.confirmDiscard())) {
       quitting.value = false;
       return;
     }
@@ -201,15 +165,12 @@ onMounted(async () => {
 });
 
 onBeforeRouteLeave((to) => {
-  if (!saveSync) return exit.guard(to);
+  if (!saveSync.isActive()) return exit.guard(to);
   void leavePlayer(to.fullPath);
   return false;
 });
 
-useEventListener(window, "pagehide", () => {
-  saveSync?.pushOnUnload();
-  playSession.flush();
-});
+useEventListener(window, "pagehide", () => playSession.flush());
 
 onBeforeUnmount(teardown);
 </script>

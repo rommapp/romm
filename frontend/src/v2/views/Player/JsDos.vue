@@ -12,6 +12,7 @@ import type { JsDosProps } from "@/types/js-dos";
 import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useDeviceSaveSync } from "@/v2/composables/useDeviceSaveSync";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
@@ -26,7 +27,7 @@ import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { usePlayingWhile } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
-import { DeviceSaveSync, type PlayerSaveFile } from "@/v2/utils/saveSync";
+import type { PlayerSaveFile } from "@/v2/utils/saveSync";
 import { loadJsDosRuntime } from "./jsDosRuntime";
 
 const { t } = useI18n();
@@ -50,7 +51,7 @@ const preparing = ref(false);
 const stage = ref<HTMLDivElement | null>(null);
 
 let dos: JsDosProps | null = null;
-let saveSync: DeviceSaveSync | null = null;
+const saveSync = useDeviceSaveSync({ emulator: "jsdos" });
 
 const { romId, heroRom, title, platformLabel } = usePlayerHero(rom);
 
@@ -130,12 +131,11 @@ async function onPlay() {
 
   const key = legacyChangesKey(userId, currentRom.id);
   const fileName = `${currentRom.fs_name_no_ext}.changes`;
-  const sync = new DeviceSaveSync(currentRom, userId, "jsdos");
   let changes: Uint8Array | null;
   preparing.value = true;
   try {
     const legacy = await readLegacyChanges(key, fileName);
-    const saves = await sync.prepare(legacy);
+    const saves = (await saveSync.prepare(currentRom, legacy)) ?? [];
     if (legacy.length) await forgetLegacyChanges(key);
     changes = saves.find((save) => save.slot === AUTOSAVE_SLOT)?.bytes ?? null;
   } catch (error) {
@@ -147,7 +147,7 @@ async function onPlay() {
   }
   if (!alive.value) return;
 
-  saveSync = sync;
+  saveSync.start();
   gameRunning.value = true;
 
   await nextTick();
@@ -175,10 +175,10 @@ async function onPlay() {
       pull: async () => changes,
       push: async (_key, bytes) => {
         changes = bytes;
-        await sync.capture([
+        await saveSync.capture([
           { slot: AUTOSAVE_SLOT, fileName, bytes, updatedAt: Date.now() },
         ]);
-        if (!(await sync.push())) throw new Error("Save upload failed");
+        if (!(await saveSync.push())) throw new Error("Save upload failed");
       },
     },
   });
@@ -209,7 +209,7 @@ async function saveQuietly(handle: JsDosProps) {
 function teardown() {
   playSession.flush();
   stopDos();
-  saveSync = null;
+  saveSync.stop();
 }
 
 async function leavePlayer(destination: string) {
@@ -261,10 +261,7 @@ onBeforeRouteLeave((to) => {
   return false;
 });
 
-useEventListener(window, "pagehide", () => {
-  saveSync?.pushOnUnload();
-  playSession.flush();
-});
+useEventListener(window, "pagehide", () => playSession.flush());
 
 onBeforeUnmount(teardown);
 </script>

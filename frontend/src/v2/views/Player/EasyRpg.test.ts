@@ -1,17 +1,14 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { saveSyncMocks } from "@/test-utils/deviceSaveSync";
 import EasyRpg from "./EasyRpg.vue";
 
 const mocks = vi.hoisted(() => ({
-  capture: vi.fn(),
   confirm: vi.fn(),
   deleteSaves: vi.fn(),
   flushPlaySession: vi.fn(),
   getRom: vi.fn(),
   playSessionStart: vi.fn(),
-  prepare: vi.fn(),
-  push: vi.fn(),
-  pushOnUnload: vi.fn(),
   readSaves: vi.fn(),
   routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
   routerReplace: vi.fn(() => Promise.resolve()),
@@ -19,7 +16,6 @@ const mocks = vi.hoisted(() => ({
   setPlaying: vi.fn(),
   setStageActive: vi.fn(),
   snackbarError: vi.fn(),
-  syncArgs: [] as unknown[],
   writeSaves: vi.fn(),
 }));
 
@@ -99,19 +95,7 @@ vi.mock("@/v2/utils/easyRpgStorage", () => ({
   writeEasyRpgSaves: mocks.writeSaves,
 }));
 
-// The sync and storage logic have their own suites.
-vi.mock("@/v2/utils/saveSync", () => ({
-  PLAYER_SAVE_POLL_MS: 5000,
-  DeviceSaveSync: class {
-    constructor(...args: unknown[]) {
-      mocks.syncArgs = args;
-    }
-    capture = mocks.capture;
-    prepare = mocks.prepare;
-    push = mocks.push;
-    pushOnUnload = mocks.pushOnUnload;
-  },
-}));
+vi.mock("@/v2/utils/saveSync", () => import("@/test-utils/deviceSaveSync"));
 
 const rom = {
   id: 1,
@@ -140,9 +124,9 @@ beforeEach(() => {
   mocks.readSaves.mockResolvedValue([]);
   mocks.writeSaves.mockResolvedValue(undefined);
   mocks.deleteSaves.mockResolvedValue(undefined);
-  mocks.prepare.mockResolvedValue([]);
-  mocks.capture.mockResolvedValue(undefined);
-  mocks.push.mockResolvedValue(true);
+  saveSyncMocks.prepare.mockResolvedValue([]);
+  saveSyncMocks.capture.mockResolvedValue(undefined);
+  saveSyncMocks.push.mockResolvedValue(true);
   mocks.confirm.mockResolvedValue(false);
 });
 
@@ -188,7 +172,7 @@ describe("EasyRpg", () => {
   it("syncs the player's saves before booting the game", async () => {
     const held = [playerSave("Save01", 1), playerSave("Save02", 2)];
     mocks.readSaves.mockResolvedValue(held);
-    mocks.prepare.mockResolvedValue([
+    saveSyncMocks.prepare.mockResolvedValue([
       { ...playerSave("Save01", 1) },
       { ...playerSave("Save02", 9) },
       { ...playerSave("Save03", 3) },
@@ -196,9 +180,9 @@ describe("EasyRpg", () => {
 
     const wrapper = await play();
 
-    expect(mocks.syncArgs).toEqual([rom, 7, "easyrpg"]);
+    expect(saveSyncMocks.args).toEqual([rom, 7, "easyrpg"]);
     expect(mocks.readSaves).toHaveBeenCalledWith("1-7");
-    expect(mocks.prepare).toHaveBeenCalledWith(held);
+    expect(saveSyncMocks.prepare).toHaveBeenCalledWith(held);
     const written = mocks.writeSaves.mock.calls[0]!;
     expect(written[0]).toBe("1-7");
     expect(written[1].map((save: { slot: string }) => save.slot)).toEqual([
@@ -216,7 +200,7 @@ describe("EasyRpg", () => {
       playerSave("Save01", 1),
       playerSave("Save02", 2),
     ]);
-    mocks.prepare.mockResolvedValue([playerSave("Save01", 1)]);
+    saveSyncMocks.prepare.mockResolvedValue([playerSave("Save01", 1)]);
 
     const wrapper = await play();
 
@@ -239,7 +223,7 @@ describe("EasyRpg", () => {
 
   it("stays on the start page when the saves cannot be written", async () => {
     mocks.writeSaves.mockRejectedValue(new Error("quota"));
-    mocks.prepare.mockResolvedValue([playerSave("Save01", 1)]);
+    saveSyncMocks.prepare.mockResolvedValue([playerSave("Save01", 1)]);
 
     const wrapper = await play();
 
@@ -259,15 +243,15 @@ describe("EasyRpg", () => {
     expect(mocks.routeLeaveGuard?.({ fullPath: "/rom/1" })).toBe(false);
     await flushPromises();
 
-    expect(mocks.capture).toHaveBeenCalledWith(latest);
-    expect(mocks.push).toHaveBeenCalled();
+    expect(saveSyncMocks.capture).toHaveBeenCalledWith(latest);
+    expect(saveSyncMocks.push).toHaveBeenCalled();
     expect(mocks.confirm).not.toHaveBeenCalled();
     expect(mocks.routerReplace).toHaveBeenCalledWith("/rom/1");
     wrapper.unmount();
   });
 
   it("asks before leaving when a save did not reach the server", async () => {
-    mocks.push.mockResolvedValue(false);
+    saveSyncMocks.push.mockResolvedValue(false);
     const wrapper = await play();
 
     mocks.routeLeaveGuard?.({ fullPath: "/rom/1" });
@@ -301,7 +285,7 @@ describe("EasyRpg", () => {
 
   it("does not start a game the user left while its saves synced", async () => {
     const preparing = deferred<never[]>();
-    mocks.prepare.mockReturnValue(preparing.promise);
+    saveSyncMocks.prepare.mockReturnValue(preparing.promise);
     const wrapper = mountView();
     await flushPromises();
     await wrapper.get(".r-v2-player__play").trigger("click");
@@ -316,7 +300,7 @@ describe("EasyRpg", () => {
   it("pushes again on leave when a poll push was still in flight", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const poll = deferred<boolean>();
-    mocks.push.mockReturnValueOnce(poll.promise);
+    saveSyncMocks.push.mockReturnValueOnce(poll.promise);
     const wrapper = await play();
 
     vi.advanceTimersByTime(5000);
@@ -325,7 +309,7 @@ describe("EasyRpg", () => {
     poll.resolve(true);
     await flushPromises();
 
-    expect(mocks.push).toHaveBeenCalledTimes(2);
+    expect(saveSyncMocks.push).toHaveBeenCalledTimes(2);
     expect(mocks.routerReplace).toHaveBeenCalledWith("/rom/1");
     wrapper.unmount();
   });
@@ -335,7 +319,7 @@ describe("EasyRpg", () => {
 
     window.dispatchEvent(new Event("pagehide"));
 
-    expect(mocks.pushOnUnload).toHaveBeenCalled();
+    expect(saveSyncMocks.pushOnUnload).toHaveBeenCalled();
     expect(mocks.flushPlaySession).toHaveBeenCalled();
     wrapper.unmount();
   });
