@@ -1,12 +1,12 @@
 import type { Page, Request } from "@playwright/test";
 import { ROUTES, type RouteName } from "../../src/plugins/routeNames";
+import { ROLES, STORAGE_STATE } from "../support/auth";
 import {
+  gotoFirstPlatform,
   gotoFirstRom,
   gotoHydrated,
   gotoOwnProfile,
-  ROLES,
-  STORAGE_STATE,
-} from "../support/auth";
+} from "../support/navigation";
 import { expect, test } from "../support/test";
 
 // Every page opens for each role allowed on it with each document and API
@@ -27,13 +27,7 @@ type PageDef =
 const PAGES: Record<RouteName, PageDef> = {
   [ROUTES.HOME]: { open: "/" },
   [ROUTES.PLATFORMS_INDEX]: { open: "/platforms" },
-  [ROUTES.PLATFORM]: {
-    open: async (page) => {
-      await gotoHydrated(page, "/platforms");
-      await page.locator('a[href^="/platform/"]').first().click();
-      await expect(page).toHaveURL(/\/platform\/\d+/);
-    },
-  },
+  [ROUTES.PLATFORM]: { open: gotoFirstPlatform },
   [ROUTES.COLLECTIONS_INDEX]: { open: "/collections" },
   [ROUTES.SEARCH]: { open: "/search" },
   [ROUTES.MUSIC]: { open: "/music" },

@@ -1,13 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 import { url as inspectorUrl } from "node:inspector";
 import { readE2EEnv } from "./e2e/support/e2e-environment";
-import { suiteOutput } from "./e2e/support/output";
+import { REPORT_DIR, RESULTS_DIR } from "./e2e/support/output";
 import type { E2EOptions } from "./e2e/support/test";
 
 // End-to-end suite: `npm run test:e2e`. Without E2E_BASE_URL it serves the app
 // itself; see e2e/.env.example.
 const env = readE2EEnv();
-const output = suiteOutput("specs");
 
 const isCI = env.CI;
 // A test paused on a breakpoint must not be killed by the timeouts below.
@@ -22,7 +21,7 @@ const TIMEOUTS = debugging
 
 export default defineConfig<E2EOptions>({
   testDir: "./e2e/specs",
-  outputDir: output.results,
+  outputDir: RESULTS_DIR,
   // Permission gating is global state on the server (the fixture users' grants),
   // so the specs read it rather than mutate it and are safe to parallelise.
   fullyParallel: true,
@@ -34,7 +33,7 @@ export default defineConfig<E2EOptions>({
   // The HTML report holds each failure's trace: `npm run test:e2e:report`.
   reporter: [
     [isCI ? "github" : "list"],
-    ["html", { outputFolder: output.report, open: "never" }],
+    ["html", { outputFolder: REPORT_DIR, open: "never" }],
   ],
   // A test that genuinely needs longer uses `test.setTimeout`.
   timeout: TIMEOUTS.test,

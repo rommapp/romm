@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
-import { gotoFirstRom, STORAGE_STATE } from "../../support/auth";
+import { STORAGE_STATE } from "../../support/auth";
+import { gotoFirstRom } from "../../support/navigation";
 import { expect, test } from "../../support/test";
 
 // A viewer gets no ROMS_WRITE upload or delete on the Media and Files tabs.

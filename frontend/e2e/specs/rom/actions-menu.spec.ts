@@ -1,9 +1,6 @@
-import {
-  gotoFirstRom,
-  menuLabels,
-  openMoreMenu,
-  STORAGE_STATE,
-} from "../../support/auth";
+import type { Page } from "@playwright/test";
+import { STORAGE_STATE } from "../../support/auth";
+import { gotoFirstRom } from "../../support/navigation";
 import { expect, test } from "../../support/test";
 
 // A viewer's ⋯ menu offers no ROMS_WRITE action: the 403 it would hit logs
@@ -14,6 +11,19 @@ const WRITE_ACTIONS = [
   "Edit",
   "Delete",
 ] as const;
+
+/** Open the ⋯ more-actions menu and return its teleported panel. */
+async function openMoreMenu(page: Page) {
+  await page.getByRole("button", { name: "More actions" }).first().click();
+  const panel = page.locator('[role="menu"]');
+  await expect(panel).toBeVisible();
+  return panel;
+}
+
+/** Labels of the open menu's items, in DOM order. */
+function menuLabels(page: Page): Promise<string[]> {
+  return page.locator('[role="menu"] .r-menu-item__label').allInnerTexts();
+}
 
 test.describe(
   "ROM more-actions menu (read-only user)",

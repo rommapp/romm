@@ -4,16 +4,11 @@ import { fileURLToPath } from "node:url";
 // so deleting that one folder resets every run.
 const OUTPUT_DIR = fileURLToPath(new URL("../.output/", import.meta.url));
 
-/** A Playwright suite, named after the e2e/ folder that holds its tests. */
-export type Suite = "specs";
+/** Per-test traces and screenshots. */
+export const RESULTS_DIR = `${OUTPUT_DIR}specs/results`;
 
-/** Where a suite writes its per-test traces and screenshots, and its HTML report. */
-export function suiteOutput(suite: Suite) {
-  return {
-    results: `${OUTPUT_DIR}${suite}/results`,
-    report: `${OUTPUT_DIR}${suite}/report`,
-  };
-}
+/** The HTML report: `npm run test:e2e:report`. */
+export const REPORT_DIR = `${OUTPUT_DIR}specs/report`;
 
 /** Saved sign-in sessions (live cookies). */
 export const AUTH_DIR = `${OUTPUT_DIR}auth`;

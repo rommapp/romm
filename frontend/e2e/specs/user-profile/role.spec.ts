@@ -1,4 +1,5 @@
-import { gotoOwnProfile, STORAGE_STATE } from "../../support/auth";
+import { STORAGE_STATE } from "../../support/auth";
+import { gotoOwnProfile } from "../../support/navigation";
 import { expect, test } from "../../support/test";
 
 // A self-edit can't change the role, so the profile shows it read-only (#3954).
