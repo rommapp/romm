@@ -390,3 +390,20 @@ class TestAudience:
             await activity_handler.publish_active(switched)
 
         assert [c.args[0] for c in emit.await_args_list] == ["activity:update"]
+
+    async def test_a_failed_audience_lookup_does_not_fail_publishing(
+        self, entry: ActivityEntry, admin_user: User
+    ):
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits() as emit,
+        ):
+            await activity_handler.publish_active(entry)
+            assert await activity_handler.publish_clear(admin_user.id, "deck") == (
+                entry["rom_id"]
+            )
+
+        emit.assert_not_awaited()
+        assert await activity_handler.get_active(admin_user.id, "deck") is None

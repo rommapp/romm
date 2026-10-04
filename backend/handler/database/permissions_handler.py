@@ -106,11 +106,7 @@ class DBPermissionsHandler(DBBaseHandler):
         rom: VisibilityColumns,
         session: Session = INJECTED_SESSION,
     ) -> list[int]:
-        """Ids of the enabled users who can see `rom`, in four queries for any number.
-
-        Applies what `resolve_permissions` would for each user, reading only the
-        hides that name this ROM or its platform.
-        """
+        """Ids of the enabled users who can see `rom`, in four queries."""
         users = session.execute(
             select(
                 User.id,
@@ -118,7 +114,9 @@ class DBPermissionsHandler(DBBaseHandler):
                 User.permission_group_id,
                 User.age_limit,
                 User.hide_unrated_roms,
-            ).where(User.enabled.is_(True))
+            )
+            .where(User.enabled.is_(True))
+            .order_by(User.id)
         ).all()
         default_group_id = self.get_default_group_id(session=session)
         groups = {
@@ -129,7 +127,7 @@ class DBPermissionsHandler(DBBaseHandler):
                     PermissionGroup.age_limit,
                     PermissionGroup.hide_unrated_roms,
                 )
-            )
+            ).all()
         }
         hides = session.execute(
             select(

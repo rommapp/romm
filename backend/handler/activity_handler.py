@@ -124,12 +124,12 @@ class ActivityHandler:
         """Store a session and send it to everyone allowed to see its ROM."""
         previous = await self.get_active(entry["user_id"], entry["device_id"])
         await self.set_active(entry)
-        rooms = await asyncio.to_thread(_audience, entry["rom_id"])
+        rooms = await _audience_rooms(entry["rom_id"])
         await self._emit("activity:update", dict(entry), rooms)
 
         if previous and previous["rom_id"] != entry["rom_id"]:
             # Whoever saw the last game but can't see this one would keep its card.
-            stale = set(await asyncio.to_thread(_audience, previous["rom_id"]))
+            stale = set(await _audience_rooms(previous["rom_id"]))
             await self._emit(
                 "activity:clear",
                 ActivityClearSchema(
@@ -150,7 +150,7 @@ class ActivityHandler:
             ActivityClearSchema(
                 user_id=user_id, device_id=device_id, rom_id=rom_id
             ).model_dump(),
-            await asyncio.to_thread(_audience, rom_id),
+            await _audience_rooms(rom_id),
         )
         return rom_id
 
@@ -294,6 +294,15 @@ class ActivityHandler:
             except WatchError:
                 # A heartbeat raced this cleanup; the next read retries it.
                 pass
+
+
+async def _audience_rooms(rom_id: int) -> list[str]:
+    """The ROM's audience, or none if it can't be read, so publishing still succeeds."""
+    try:
+        return await asyncio.to_thread(_audience, rom_id)
+    except Exception:  # noqa: BLE001 - activity is best-effort, like its broadcast
+        log.warning(f"Failed to resolve who can see ROM {rom_id}", exc_info=True)
+        return []
 
 
 def _audience(rom_id: int) -> list[str]:

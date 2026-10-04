@@ -80,4 +80,46 @@ describe("activity store socket events", () => {
 
     expect(get).not.toHaveBeenCalled();
   });
+
+  it("keeps a session when a late clear names its previous game", () => {
+    const store = storeActivity();
+    handlers.get("activity:update")!(entry({ rom_id: 11 }));
+
+    handlers.get("activity:clear")!({
+      user_id: 2,
+      device_id: "deck",
+      rom_id: 10,
+    });
+
+    expect(store.activities.map((a) => a.rom_id)).toEqual([11]);
+  });
+
+  it("re-lists when an event lands while the list is in flight", async () => {
+    const store = storeActivity();
+    get
+      .mockImplementationOnce(async () => {
+        handlers.get("activity:update")!(entry({ rom_id: 11 }));
+        return { data: [] };
+      })
+      .mockResolvedValueOnce({ data: [entry({ rom_id: 11 })] });
+
+    await store.fetchAll();
+
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(store.activities.map((a) => a.rom_id)).toEqual([11]);
+  });
+
+  it("settles for the last list when events keep landing", async () => {
+    const store = storeActivity();
+    get.mockImplementation(async () => {
+      handlers.get("activity:update")!(entry({ rom_id: 11 }));
+      return { data: [entry({ rom_id: 12 })] };
+    });
+
+    await store.fetchAll();
+
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(store.activities.map((a) => a.rom_id)).toEqual([12]);
+    expect(store.initialized).toBe(true);
+  });
 });

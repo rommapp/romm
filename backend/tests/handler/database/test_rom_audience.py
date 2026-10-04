@@ -80,11 +80,11 @@ def _visibility(rom: Rom) -> RomVisibility:
 
 
 def _resolved(rom: RomVisibility) -> list[int]:
-    return [
+    return sorted(
         user.id
         for user in db_user_handler.get_users()
         if user.enabled and resolve_permissions(user).can_see_rom(rom)
-    ]
+    )
 
 
 @pytest.fixture

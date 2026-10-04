@@ -13,6 +13,8 @@ export default defineStore("activity", {
     activities: [] as ActivityEntry[],
     initialized: false,
     socketBound: false,
+    // Bumped by each socket event, so a fetch that raced one can tell.
+    version: 0,
   }),
 
   getters: {
@@ -35,15 +37,22 @@ export default defineStore("activity", {
   actions: {
     async fetchAll() {
       try {
-        const { data } = await activityApi.getAllActivity();
-        this.activities = data;
-        this.initialized = true;
+        for (let attempt = 1; ; attempt++) {
+          const version = this.version;
+          const { data } = await activityApi.getAllActivity();
+          // An event that landed mid-request may be missing, so ask again.
+          if (version !== this.version && attempt < 3) continue;
+          this.activities = data;
+          this.initialized = true;
+          return;
+        }
       } catch (error) {
         console.error("Error fetching activity:", error);
       }
     },
 
     handleUpdate(entry: ActivityEntry) {
+      this.version++;
       const idx = this.activities.findIndex(
         (a) => a.user_id === entry.user_id && a.device_id === entry.device_id,
       );
@@ -56,8 +65,15 @@ export default defineStore("activity", {
     },
 
     handleClear(data: ActivityClearEvent) {
+      this.version++;
+      // A clear for the device's previous game must not drop its current one.
       this.activities = this.activities.filter(
-        (a) => !(a.user_id === data.user_id && a.device_id === data.device_id),
+        (a) =>
+          !(
+            a.user_id === data.user_id &&
+            a.device_id === data.device_id &&
+            a.rom_id === data.rom_id
+          ),
       );
     },
 
