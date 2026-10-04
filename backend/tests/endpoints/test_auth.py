@@ -55,6 +55,21 @@ def test_reset_password_token_works_once(client, admin_user: User):
     ).status_code == (status.HTTP_401_UNAUTHORIZED)
 
 
+@pytest.mark.parametrize("new_password", ["", "short", "pässword"])
+def test_reset_password_rejects_an_invalid_password_and_keeps_the_link(
+    client, admin_user: User, new_password: str
+):
+    token = auth_handler.generate_password_reset_token(admin_user)
+
+    response = _reset_password(client, token, new_password)
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert client.post(
+        "/api/login", headers=_basic("test_admin", "test_admin_password")
+    ).status_code == (status.HTTP_200_OK)
+    assert _reset_password(client, token).status_code == status.HTTP_200_OK
+
+
 def test_reset_password_rejects_a_malformed_token(client):
     assert _reset_password(client, "not-a-jwt").status_code == (
         status.HTTP_400_BAD_REQUEST
