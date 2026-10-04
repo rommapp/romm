@@ -7,7 +7,10 @@ import AdditionalDetails from "./AdditionalDetails.vue";
 vi.mock("vue-i18n");
 
 const RComboboxField = {
-  props: { label: { type: String, default: "" } },
+  props: {
+    label: { type: String, default: "" },
+    allowCommas: { type: Boolean, default: false },
+  },
   emits: ["update:modelValue"],
   template: `<div />`,
 };
@@ -39,6 +42,12 @@ describe("AdditionalDetails alternative titles", () => {
     expect(wrapper.emitted("update:rom")?.[0]?.[0]).toMatchObject({
       manual_metadata: { genres: ["Racing"], alternative_names: ["ACNH"] },
     });
+  });
+
+  it("keeps the commas inside a title", () => {
+    const wrapper = mountDetails(makeRom({}));
+
+    expect(titlesField(wrapper).props("allowCommas")).toBe(true);
   });
 
   it("clears the titles", async () => {

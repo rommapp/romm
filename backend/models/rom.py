@@ -64,12 +64,17 @@ AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
 
-# (metadata column, key) of each source's alternative titles, in precedence order.
-ALTERNATIVE_NAME_SOURCES = (
+# (metadata column, key) of each provider's alternative titles, in precedence order.
+PROVIDER_ALTERNATIVE_NAME_SOURCES = (
     ("igdb_metadata", "alternative_names"),
     ("moby_metadata", "alternate_titles"),
     ("ss_metadata", "alternative_names"),
-    ("manual_metadata", "alternative_names"),
+)
+MANUAL_ALTERNATIVE_NAME_SOURCE = ("manual_metadata", "alternative_names")
+# Hand-added titles first, so the search text cap never drops one for a provider's.
+ALTERNATIVE_NAME_SOURCES = (
+    MANUAL_ALTERNATIVE_NAME_SOURCE,
+    *PROVIDER_ALTERNATIVE_NAME_SOURCES,
 )
 
 # Limits on `RomUser.pinned_media`, a list of keys like `file:12` naming the
@@ -129,6 +134,14 @@ def fold_search_title(title: str) -> str:
     return " ".join(title.replace(SEARCH_TITLE_SEPARATOR, " ").split()).lower()
 
 
+def source_titles(blob: Any, key: str) -> list[str]:
+    """The string titles under `key`, skipping what a client-written blob malformed."""
+    names = blob.get(key) if isinstance(blob, dict) else None
+    if not isinstance(names, list):
+        return []
+    return [title for title in names if isinstance(title, str)]
+
+
 def compute_search_titles(name: str | None, metadata: Mapping[str, Any]) -> str:
     """Precompute `Rom.search_titles`: the folded name, then each folded alias.
 
@@ -139,10 +152,7 @@ def compute_search_titles(name: str | None, metadata: Mapping[str, Any]) -> str:
     aliases = (
         title
         for column, key in ALTERNATIVE_NAME_SOURCES
-        if isinstance(blob := metadata.get(column), dict)
-        and isinstance(names := blob.get(key), list)
-        for title in names
-        if isinstance(title, str)
+        for title in source_titles(metadata.get(column), key)
     )
     folded_name = fold_search_title(name or "")
     value = sep + folded_name + sep
@@ -1252,18 +1262,16 @@ class Rom(BaseModel):
     @property
     def alternative_names(self) -> list[str]:
         """The titles of the first provider that has any, then the hand-added ones."""
-        provider_names: list[str] = next(
+        provider_names = next(
             (
                 names
-                for column, key in ALTERNATIVE_NAME_SOURCES
-                if column != "manual_metadata"
-                and (names := (getattr(self, column) or {}).get(key))
+                for column, key in PROVIDER_ALTERNATIVE_NAME_SOURCES
+                if (names := source_titles(getattr(self, column), key))
             ),
             [],
         )
-        manual_names: list[str] = (self.manual_metadata or {}).get(
-            "alternative_names"
-        ) or []
+        column, key = MANUAL_ALTERNATIVE_NAME_SOURCE
+        manual_names = source_titles(getattr(self, column), key)
         return list(dict.fromkeys([*provider_names, *manual_names]))
 
     @cached_property

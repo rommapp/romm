@@ -948,8 +948,8 @@ def test_update_rom_reparses_tags_on_fs_name_change(
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom_manual_alternative_names_are_searchable(
-    rename_fs_rom_mock: AsyncMock,
-    get_rom_by_id_mock: AsyncMock,
+    _get_rom_by_id_mock: AsyncMock,
+    _rename_fs_rom_mock: AsyncMock,
     client: TestClient,
     access_token: str,
     rom: Rom,

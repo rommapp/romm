@@ -393,6 +393,18 @@ def test_search_titles_keep_a_short_alias_after_one_past_the_cap():
     assert titles == "\x1fname\x1fff7\x1f"
 
 
+def test_search_titles_keep_a_hand_added_title_past_the_providers_cap():
+    titles = compute_search_titles(
+        "Name",
+        {
+            "igdb_metadata": {"alternative_names": ["x" * SEARCH_TEXT_MAX_LENGTH]},
+            "manual_metadata": {"alternative_names": ["FF7"]},
+        },
+    )
+
+    assert titles == "\x1fname\x1fff7\x1f"
+
+
 def test_search_titles_follow_orm_and_bulk_writes(platform: Platform):
     rom = make_rom(
         platform, "Final Fantasy VII", igdb_metadata={"alternative_names": ["FF7"]}
@@ -431,3 +443,12 @@ def test_alternative_names_hold_the_hand_added_titles_without_a_provider():
     rom = Rom(manual_metadata={"alternative_names": ["FF7"]})
 
     assert rom.alternative_names == ["FF7"]
+
+
+def test_alternative_names_skip_a_hand_edited_blob_that_is_not_a_list():
+    rom = Rom(
+        igdb_metadata={"alternative_names": "FF7"},
+        manual_metadata={"alternative_names": ["Final Fantasy Seven", 7]},
+    )
+
+    assert rom.alternative_names == ["Final Fantasy Seven"]

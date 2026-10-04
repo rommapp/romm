@@ -1,8 +1,6 @@
 <script setup lang="ts">
 // AdditionalDetails (v2): manual metadata overrides for the edit-ROM
-// dialog. Alternative titles / companies / genres / franchises / game
-// modes / age ratings are multi-tag combobox fields; first release date is a date picker;
-// YouTube video ID is a plain text field.
+// dialog.
 //
 // All writes go through `manual_metadata`: the backend layer where
 // admins override automatic scraper output. Emitting `update:rom` with
@@ -82,6 +80,7 @@ function updateManualMetadata(
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
+      allow-commas
       clearable
       @update:model-value="(v) => updateManualMetadata('alternative_names', v)"
     />
