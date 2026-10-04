@@ -124,6 +124,22 @@ describe("useDeviceSaveSync", () => {
     expect(read).toHaveBeenCalledOnce();
   });
 
+  it("keeps polled saves here, uploading them at most once per interval", async () => {
+    vi.useFakeTimers();
+    const read = vi.fn().mockResolvedValue([FILE]);
+    const saveSync = await started({ read, uploadIntervalMs: 60_000 });
+
+    await vi.advanceTimersByTimeAsync(55_000);
+    expect(saveSyncMocks.capture).toHaveBeenCalledTimes(11);
+    expect(saveSyncMocks.push).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(saveSyncMocks.push).toHaveBeenCalledOnce();
+
+    expect(await saveSync.flush()).toBe(true);
+    expect(saveSyncMocks.push).toHaveBeenCalledTimes(2);
+  });
+
   it("sends captured changes as the page goes away", async () => {
     await started();
 

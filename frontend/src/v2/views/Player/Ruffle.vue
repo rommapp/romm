@@ -26,6 +26,7 @@ import { colorCanvas } from "@/v2/tokens";
 import {
   readRuffleSaves,
   removeRuffleSaves,
+  sameRuffleSaves,
   swfStoragePath,
   unzipRuffleSaves,
   writeRuffleSaves,
@@ -103,20 +104,32 @@ function saveFilesOf(
   ];
 }
 
-function currentSaveFiles(): PlayerSaveFile[] {
-  return rom.value ? saveFilesOf(rom.value) : [];
+// What the poll last read, so unchanged storage skips the zip and its hash.
+let lastRead: RuffleSaves | null = null;
+
+function changedSaveFiles(): PlayerSaveFile[] {
+  const target = rom.value;
+  if (!target) return [];
+  const saves = storedSaves();
+  if (lastRead && sameRuffleSaves(lastRead, saves)) return [];
+  lastRead = saves;
+  return saveFilesOf(target, saves);
 }
 
 // A game writes a SharedObject whenever it flushes one, so storage is polled.
+// Some flush every few seconds, so polls keep the saves here and upload at
+// most every few minutes; leaving uploads at once.
 const saveSync = useDeviceSaveSync({
   emulator: "ruffle",
-  read: async () => currentSaveFiles(),
-  readOnUnload: currentSaveFiles,
+  read: async () => changedSaveFiles(),
+  readOnUnload: changedSaveFiles,
+  uploadIntervalMs: 5 * 60_000,
 });
 
 // Storage is shared by every RomM account in the browser, so a game's saves
 // live there only while it runs: synced in before, and taken back out after.
 async function prepareSaves(target: DetailedRom) {
+  lastRead = null;
   // Left behind by a page that went away mid-game, or from before sync.
   const leftover = storedSaves();
   try {

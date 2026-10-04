@@ -1,6 +1,7 @@
 // Ruffle keeps each SharedObject in localStorage as a base64 `.sol` file, keyed
 // `<host>/<SWF path or an ancestor>/<name>`, a `/` in a name prefixed with `#`.
 import { unzipSync, zipSync } from "fflate";
+import { bytesEqual } from "@/v2/utils/saveSync/hash";
 
 /** A game's SharedObjects, keyed by their storage key without the host. */
 export type RuffleSaves = Record<string, Uint8Array>;
@@ -91,6 +92,15 @@ export function writeRuffleSaves(host: string, saves: RuffleSaves): void {
 
 export function removeRuffleSaves(host: string, entries: string[]): void {
   for (const entry of entries) localStorage.removeItem(`${host}/${entry}`);
+}
+
+/** Whether two reads hold the same SharedObjects, byte for byte. */
+export function sameRuffleSaves(a: RuffleSaves, b: RuffleSaves): boolean {
+  const entries = Object.keys(a);
+  return (
+    entries.length === Object.keys(b).length &&
+    entries.every((entry) => bytesEqual(a[entry]!, b[entry] ?? null))
+  );
 }
 
 export function zipRuffleSaves(saves: RuffleSaves): Uint8Array {

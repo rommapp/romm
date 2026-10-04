@@ -18,12 +18,15 @@ export interface DeviceSaveSyncOptions {
   read?: () => Promise<PlayerSaveFile[]>;
   /** Reads what the player holds as the page goes away, which allows no await. */
   readOnUnload?: () => PlayerSaveFile[];
+  /** Least time between polled uploads; each poll still keeps what it read. */
+  uploadIntervalMs?: number;
 }
 
 export function useDeviceSaveSync({
   emulator,
   read,
   readOnUnload,
+  uploadIntervalMs = 0,
 }: DeviceSaveSyncOptions) {
   const authStore = storeAuth();
   const confirm = useConfirm();
@@ -32,6 +35,7 @@ export function useDeviceSaveSync({
   let prepared: DeviceSaveSync | null = null;
   let sync: DeviceSaveSync | null = null;
   let pushing: Promise<boolean> | null = null;
+  let uploadedAt = 0;
 
   /**
    * Sync a rom's saves ahead of its launch; `start` then puts them in play.
@@ -51,15 +55,18 @@ export function useDeviceSaveSync({
     return saves;
   }
 
-  /** Upload what changed; false when it failed and stays for the next push. */
-  function push(): Promise<boolean> {
+  function run(polled: boolean): Promise<boolean> {
     const active = sync;
     if (!active) return Promise.resolve(true);
     if (!read) return active.push();
     // A push still in flight already covers this one's work.
     pushing ??= read()
       .then((files) => active.capture(files))
-      .then(() => active.push())
+      .then(() => {
+        if (polled && Date.now() - uploadedAt < uploadIntervalMs) return true;
+        uploadedAt = Date.now();
+        return active.push();
+      })
       .catch((error: unknown) => {
         console.error(`[Save sync] ${emulator} push failed`, error);
         return false;
@@ -70,13 +77,18 @@ export function useDeviceSaveSync({
     return pushing;
   }
 
+  /** Upload what changed; false when it failed and stays for the next push. */
+  function push(): Promise<boolean> {
+    return run(false);
+  }
+
   // A push in flight may have read the saves before the latest one landed.
   async function flush(): Promise<boolean> {
     await pushing;
     return push();
   }
 
-  const poll = useIntervalFn(() => void push(), PLAYER_SAVE_POLL_MS, {
+  const poll = useIntervalFn(() => void run(true), PLAYER_SAVE_POLL_MS, {
     immediate: false,
   });
 
@@ -85,6 +97,7 @@ export function useDeviceSaveSync({
   }
 
   function start() {
+    uploadedAt = Date.now();
     sync = prepared;
     prepared = null;
     resume();

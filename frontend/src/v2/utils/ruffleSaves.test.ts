@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   readRuffleSaves,
   removeRuffleSaves,
+  sameRuffleSaves,
   swfStoragePath,
   unzipRuffleSaves,
   writeRuffleSaves,
@@ -34,6 +35,15 @@ function stored(bytes: Uint8Array): string {
 beforeEach(() => localStorage.clear());
 
 describe("ruffle saves", () => {
+  it("compares two reads byte for byte", () => {
+    const saves = { a: sol(1), b: sol(2) };
+
+    expect(sameRuffleSaves(saves, { b: sol(2), a: sol(1) })).toBe(true);
+    expect(sameRuffleSaves(saves, { a: sol(1), b: sol(3) })).toBe(false);
+    expect(sameRuffleSaves(saves, { a: sol(1) })).toBe(false);
+    expect(sameRuffleSaves({ a: sol(1) }, { b: sol(1) })).toBe(false);
+  });
+
   it("derives the storage path from the SWF URL, without its query", () => {
     expect(swfStoragePath("/api/roms/1/content/game.swf?purpose=play")).toBe(
       SWF_PATH,
