@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { STORAGE_STATE } from "../../support/auth";
 import { gotoFirstRom } from "../../support/navigation";
 import { expect, test } from "../../support/test";
@@ -21,8 +21,8 @@ async function openMoreMenu(page: Page) {
 }
 
 /** Labels of the open menu's items, in DOM order. */
-function menuLabels(page: Page): Promise<string[]> {
-  return page.locator('[role="menu"] .r-menu-item__label').allInnerTexts();
+function menuLabels(panel: Locator): Promise<string[]> {
+  return panel.locator(".r-menu-item__label").allInnerTexts();
 }
 
 test.describe(
@@ -33,9 +33,9 @@ test.describe(
 
     test("is offered no write or destructive action", async ({ page }) => {
       await gotoFirstRom(page);
-      await openMoreMenu(page);
+      const panel = await openMoreMenu(page);
 
-      const labels = await menuLabels(page);
+      const labels = await menuLabels(panel);
       for (const action of WRITE_ACTIONS) {
         expect(labels, `"${action}" must not be offered`).not.toContain(action);
       }
@@ -71,8 +71,7 @@ test.describe(
       await expect(page.locator("html")).toHaveClass(/\br-v2-light\b/);
       const panel = await openMoreMenu(page);
 
-      await expect(panel).toBeVisible();
-      const labels = await menuLabels(page);
+      const labels = await menuLabels(panel);
       expect(labels).not.toContain("Delete");
       expect(labels.length).toBeGreaterThan(0);
     });
@@ -90,7 +89,7 @@ test.describe("ROM more-actions menu (admin)", { tag: "@page:rom" }, () => {
     // menu before they do.
     for (const action of WRITE_ACTIONS) {
       await expect
-        .poll(() => menuLabels(page), {
+        .poll(() => menuLabels(panel), {
           message: `"${action}" must still be offered to admins`,
         })
         .toContain(action);

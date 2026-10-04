@@ -10,15 +10,21 @@ async function openTab(page: Page, tab: string) {
   await page.getByRole("tab", { name: tab }).click();
 }
 
-// Media subtabs are a sidebar list of role=tab buttons, distinct from the
-// top-level RTabNav tabs.
-async function openSubtab(page: Page, subtab: string) {
+/** Open a Media subtab of the first game and return its panel; the others stay
+ *  mounted (v-show). Subtabs are a sidebar list, distinct from RTabNav's tabs. */
+async function openMediaSubtab(page: Page, subtab: string): Promise<Locator> {
+  await gotoFirstRom(page);
+  await openTab(page, "Media");
   await page.locator(".r-v2-subtab-nav__btn", { hasText: subtab }).click();
+  return page.locator(".r-v2-media__panel:visible");
 }
 
-/** The Media panel on screen; the others stay mounted (v-show). */
-function visiblePanel(page: Page): Locator {
-  return page.locator(".r-v2-media__panel:visible");
+function uploadButton(scope: Page | Locator): Locator {
+  return scope.getByRole("button", { name: "Upload", exact: true });
+}
+
+function uploadToFolderButton(scope: Page | Locator): Locator {
+  return scope.getByRole("button", { name: "Upload to folder", exact: true });
 }
 
 // Both panels whose upload path is ROM-scoped, so both must be inert.
@@ -37,11 +43,7 @@ test.describe(
       test(`${subtab}: gets the empty state, not a dropzone`, async ({
         page,
       }) => {
-        await gotoFirstRom(page);
-        await openTab(page, "Media");
-        await openSubtab(page, subtab);
-
-        const panel = visiblePanel(page);
+        const panel = await openMediaSubtab(page, subtab);
         // The plain REmptyState replaces the dropzone: same message, no CTA,
         // no drag-and-drop hint, no Upload button.
         await expect(panel.getByText(emptyText)).toBeVisible();
@@ -49,20 +51,14 @@ test.describe(
         await expect(
           panel.getByText("Drag and drop, or click to browse"),
         ).toHaveCount(0);
-        await expect(
-          panel.getByRole("button", { name: "Upload", exact: true }),
-        ).toHaveCount(0);
+        await expect(uploadButton(panel)).toHaveCount(0);
       });
     }
 
     test("Screenshots: the shared ROM section is hidden but the per-user one stays writable", async ({
       page,
     }) => {
-      await gotoFirstRom(page);
-      await openTab(page, "Media");
-      await openSubtab(page, "Screenshots");
-
-      const panel = visiblePanel(page);
+      const panel = await openMediaSubtab(page, "Screenshots");
       // Shared section writes to the ROM: gone for a read-only user with nothing
       // to show.
       await expect(panel.getByText("ROM screenshots")).toHaveCount(0);
@@ -82,42 +78,26 @@ test.describe(
 
     for (const [subtab] of ROM_SCOPED_SUBTABS) {
       test(`${subtab}: still gets the dropzone`, async ({ page }) => {
-        await gotoFirstRom(page);
-        await openTab(page, "Media");
-        await openSubtab(page, subtab);
-
-        const panel = visiblePanel(page);
+        const panel = await openMediaSubtab(page, subtab);
         // Empty ROM shows the dropzone, a populated one the Upload button.
         // `.or()` auto-waits; `count()` reads 0 before the async panel mounts.
         const writeAffordance = panel
           .locator(".r-dropzone__cta")
-          .or(panel.getByRole("button", { name: "Upload", exact: true }));
+          .or(uploadButton(panel));
         await expect(writeAffordance.first()).toBeVisible();
       });
     }
 
     test("Screenshots: sees the shared ROM section", async ({ page }) => {
-      await gotoFirstRom(page);
-      await openTab(page, "Media");
-      await openSubtab(page, "Screenshots");
+      const panel = await openMediaSubtab(page, "Screenshots");
 
-      await expect(
-        visiblePanel(page).getByText("ROM screenshots"),
-      ).toBeVisible();
+      await expect(panel.getByText("ROM screenshots")).toBeVisible();
     });
   },
 );
 
 // "All files" has no destination of its own, so it offers "Upload to folder";
 // a folder subtab offers Upload straight into that folder.
-function uploadButton(page: Page): Locator {
-  return page.getByRole("button", { name: "Upload", exact: true });
-}
-
-function uploadToFolderButton(page: Page): Locator {
-  return page.getByRole("button", { name: "Upload to folder", exact: true });
-}
-
 test.describe("Files tab write affordances", { tag: "@page:rom" }, () => {
   test.describe("read-only user", () => {
     test.use({ storageState: STORAGE_STATE.viewer });

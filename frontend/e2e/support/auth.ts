@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { AUTH_DIR } from "./output";
 
 const { env } = process;
@@ -19,24 +19,32 @@ export const ACCOUNTS = {
   },
 };
 
-export const ROLES = ["admin", "viewer"] as const;
+export type Role = keyof typeof ACCOUNTS;
 
-export type Role = (typeof ROLES)[number];
+export const ROLES = Object.keys(ACCOUNTS) as Role[];
 
 /** Where auth.setup.ts saves each role's session (gitignored: live cookies). */
-export const STORAGE_STATE: Record<Role, string> = {
-  admin: `${AUTH_DIR}/admin.json`,
-  viewer: `${AUTH_DIR}/viewer.json`,
-};
+export const STORAGE_STATE = Object.fromEntries(
+  ROLES.map((role) => [role, `${AUTH_DIR}/${role}.json`]),
+) as Record<Role, string>;
 
-/** Fill and submit the login form. Scoped to `form.r-v2-login-form`, since the
- *  collapsed reset-password form has its own fields and submit button. */
+/** The v2 login form, not the collapsed reset-password form beside it. */
+export function loginForm(page: Page): Locator {
+  return page.locator("form.r-v2-login-form");
+}
+
+/** The app bar's user name, rendered once the session is established. */
+export function signedInUser(page: Page): Locator {
+  return page.locator(".r-v2-user__name");
+}
+
+/** Fill and submit the login form. */
 export async function fillLoginForm(
   page: Page,
   username: string,
   password: string,
 ) {
-  const form = page.locator("form.r-v2-login-form");
+  const form = loginForm(page);
   await form.locator('input[name="username"]').fill(username);
   await form.locator('input[name="password"]').fill(password);
   await form.locator('button[type="submit"]').click();

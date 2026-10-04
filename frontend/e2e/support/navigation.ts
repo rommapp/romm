@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { loginForm, signedInUser } from "./auth";
 import { expect } from "./test";
 
 /** `page.goto` that also waits for `/api/permissions/me`, before which even an
@@ -12,9 +13,7 @@ export async function gotoHydrated(page: Page, path: string) {
   );
   await page.goto(path);
   // A rejected session lands on /login, which never requests permissions.
-  const loginShown = page
-    .locator("form.r-v2-login-form")
-    .waitFor({ timeout: 0 });
+  const loginShown = loginForm(page).waitFor({ timeout: 0 });
   const response = await Promise.race([hydrated, loginShown.then(() => null)]);
   if (!response) {
     throw new Error(
@@ -27,7 +26,7 @@ export async function gotoHydrated(page: Page, path: string) {
     );
   }
   // Renders once the auth store holds a user: the app shell is ready.
-  await expect(page.locator(".r-v2-user__name")).toBeVisible();
+  await expect(signedInUser(page)).toBeVisible();
 }
 
 /** Open the first platform on the platforms index. */

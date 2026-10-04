@@ -12,7 +12,8 @@ try {
 // Unset or empty, the config serves this checkout itself at SERVED_URL (see
 // webServer).
 const baseURL = process.env.E2E_BASE_URL || undefined;
-const SERVED_URL = "http://127.0.0.1:3000";
+const SERVED_PORT = 3000;
+const SERVED_URL = `http://127.0.0.1:${SERVED_PORT}`;
 
 const isCI = !!process.env.CI;
 // Playwright lifts timeouts itself for `--debug` (PWDEBUG, where 0 or false
@@ -77,7 +78,7 @@ export default defineConfig({
   ...(!baseURL && {
     webServer: {
       command: isCI
-        ? "npm run build:preview && npm run preview -- --port 3000 --strictPort --host 127.0.0.1"
+        ? `npm run build:preview && npm run preview -- --port ${SERVED_PORT} --strictPort --host 127.0.0.1`
         : "npm run dev",
       url: SERVED_URL,
       reuseExistingServer: !isCI,
