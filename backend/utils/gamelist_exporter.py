@@ -148,14 +148,20 @@ class GamelistExporter:
 
         ss = rom.ss_metadata or {}
         gl = rom.gamelist_metadata or {}
+        lb = rom.launchbox_metadata or {}
 
-        # Each gamelist asset key may be sourced from screenscraper or gamelist
-        # metadata; preference order is screenscraper first, gamelist second.
+        # Each gamelist asset key may be sourced from screenscraper, gamelist or
+        # launchbox metadata, in that order of preference.
         extended: dict[str, list[str]] = {
-            "box3d": [ss.get("box3d_path", ""), gl.get("box3d_path", "")],
+            "box3d": [
+                ss.get("box3d_path", ""),
+                gl.get("box3d_path", ""),
+                lb.get("box3d_path", ""),
+            ],
             "box2d_back": [
                 ss.get("box2d_back_path", ""),
                 gl.get("box2d_back_path", ""),
+                lb.get("box2d_back_path", ""),
             ],
             "fanart": [ss.get("fanart_path", ""), gl.get("fanart_path", "")],
             "marquee": [ss.get("logo_path", ""), gl.get("marquee_path", "")],

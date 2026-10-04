@@ -1,5 +1,6 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
@@ -44,6 +45,40 @@ COVER_PRIORITY_TYPES: tuple[str, ...] = (
     "Epic Games Poster",
     "GOG Poster",
     "Steam Poster",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class BoxArt:
+    media_type: MetadataMediaType
+    url_key: Literal["box2d_url", "box2d_back_url", "box2d_side_url", "box3d_url"]
+    path_key: Literal["box2d_path", "box2d_back_path", "box2d_side_path", "box3d_path"]
+    # LaunchBox image types in descending preference
+    image_types: tuple[str, ...]
+
+
+# Stored under the same paths ScreenScraper uses, so a box face one provider
+# lacks is filled by the other.
+BOX_ART: tuple[BoxArt, ...] = (
+    BoxArt(
+        MetadataMediaType.BOX2D,
+        "box2d_url",
+        "box2d_path",
+        ("Box - Front", "Box - Front - Reconstructed"),
+    ),
+    BoxArt(
+        MetadataMediaType.BOX2D_BACK,
+        "box2d_back_url",
+        "box2d_back_path",
+        ("Box - Back", "Box - Back - Reconstructed"),
+    ),
+    BoxArt(
+        MetadataMediaType.BOX2D_SIDE,
+        "box2d_side_url",
+        "box2d_side_path",
+        ("Box - Spine",),
+    ),
+    BoxArt(MetadataMediaType.BOX3D, "box3d_url", "box3d_path", ("Box - 3D",)),
 )
 
 
@@ -266,15 +301,17 @@ def _find_local_media_candidates(
     return [], ""
 
 
-def _select_remote_cover(
-    remote_images: list[dict[str, Any]], region_shortcodes: tuple[str, ...]
+def _select_remote_image(
+    remote_images: list[dict[str, Any]],
+    image_types: tuple[str, ...],
+    region_shortcodes: tuple[str, ...],
 ) -> dict[str, Any] | None:
-    """Pick the best remote cover: highest-priority type, region as tiebreaker.
+    """Pick the best remote image: highest-priority type, region as tiebreaker.
 
     Within the best available image type, prefer the image whose region matches
     the ROM (e.g. a "(USA)" ROM gets the North America box, not a random one).
     """
-    for image_type in COVER_PRIORITY_TYPES:
+    for image_type in image_types:
         typed = [
             image
             for image in remote_images
@@ -291,6 +328,48 @@ def _select_remote_cover(
         return typed[0]
 
     return None
+
+
+def _select_remote_cover(
+    remote_images: list[dict[str, Any]], region_shortcodes: tuple[str, ...]
+) -> dict[str, Any] | None:
+    return _select_remote_image(remote_images, COVER_PRIORITY_TYPES, region_shortcodes)
+
+
+def _get_box_art(req: MediaRequest) -> dict[BoxArt, str]:
+    """Resolve the URL of each box face, a local image overriding the remote one."""
+    urls: dict[BoxArt, str] = {}
+
+    if req.remote_enabled and req.remote_images:
+        for art in BOX_ART:
+            image = _select_remote_image(
+                req.remote_images, art.image_types, req.region_shortcodes
+            )
+            if image:
+                urls[art] = f"https://images.launchbox-app.com/{image['FileName']}"
+
+    ctx = _build_local_media_context(
+        req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True
+    )
+    if ctx is not None:
+        for art in BOX_ART:
+            for category in art.image_types:
+                candidate_files, _region = _find_local_media_candidates(
+                    ctx,
+                    category,
+                    indexed_preference=(1,),
+                    indexed_only_preferred=True,
+                )
+                url = (
+                    file_uri_for_local_path(candidate_files[0])
+                    if candidate_files
+                    else None
+                )
+                if url:
+                    urls[art] = url
+                    break
+
+    return urls
 
 
 def _get_cover(req: MediaRequest) -> str | None:
@@ -607,11 +686,18 @@ def populate_rom_specific_paths(
     """Populate rom-specific media paths on a LaunchBox metadata dict.
 
     Called after the Rom is known (in the scan pipeline) to compute the
-    destination path for local media that the handler surfaced a URL for.
-    Currently just covers video.
+    destination path for the media the handler surfaced a URL for.
     """
+    preferred_media_types = get_preferred_media_types()
+    for art in BOX_ART:
+        if art.media_type in preferred_media_types and metadata.get(art.url_key):
+            base = fs_resource_handler.get_media_resources_path(
+                rom.platform_id, rom.id, art.media_type
+            )
+            metadata[art.path_key] = f"{base}/{art.media_type.value}.png"
+
     if (
-        MetadataMediaType.VIDEO in get_preferred_media_types()
+        MetadataMediaType.VIDEO in preferred_media_types
         and "video_url" in metadata
         and metadata.get("video_url")
     ):
@@ -640,7 +726,9 @@ def build_rom(
     url_screenshots: list[str] = []
     url_manual: str | None = None
     video_url: str | None = None
+    box_art: dict[BoxArt, str] = {}
     if media_req is not None:
+        box_art = _get_box_art(media_req)
         url_cover = _get_cover(media_req)
         url_screenshots = _get_screenshots(media_req)
         url_manual = _get_manuals(media_req)
@@ -669,6 +757,8 @@ def build_rom(
         remote=remote,
         images=images,
     )
+    for art, url in box_art.items():
+        metadata[art.url_key] = url
     if video_url:
         metadata["video_url"] = video_url
     return LaunchboxRom(

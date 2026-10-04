@@ -88,7 +88,15 @@ class LaunchboxMetadata(TypedDict):
     publishers: NotRequired[list[str]]
     developers: NotRequired[list[str]]
     images: list[LaunchboxImage]
+    box2d_url: NotRequired[str]
+    box2d_back_url: NotRequired[str]
+    box2d_side_url: NotRequired[str]
+    box3d_url: NotRequired[str]
     video_url: NotRequired[str]
+    box2d_path: NotRequired[str]
+    box2d_back_path: NotRequired[str]
+    box2d_side_path: NotRequired[str]
+    box3d_path: NotRequired[str]
     video_path: NotRequired[str]
 
 
