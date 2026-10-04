@@ -124,7 +124,7 @@ E2E_BASE_URL=https://romm.example.com
 
 The specs follow this branch's UI, so a site on another version fails where the two differ. A released site (5.3.1, say) lacks endpoints added on master since, and `loads.spec.ts` reports each as a 404. For a full pass, run a backend from this checkout (`uv run main.py`) and leave `E2E_BASE_URL` unset.
 
-To test a production build of this branch, serve it first: `npm run build:preview && npm run preview` (`build:preview` adds `frontend/assets`, which Vite leaves out and the Docker image copies in), then set `E2E_BASE_URL=http://localhost:4173`.
+To test a production build of this branch, serve it first: `npm run build && npm run preview` (preview also serves `frontend/assets`, as the Docker image does), then set `E2E_BASE_URL=http://localhost:4173`.
 
 ## How it's wired
 
@@ -132,7 +132,7 @@ To test a production build of this branch, serve it first: `npm run build:previe
 e2e/
   specs/      the tests, and only tests, one folder per page
     loads.spec.ts   every page opens with every response 2xx
-  setup/      sign-in, run before the specs
+  setup/      sign-in and the first game, run before the specs
   support/    fixtures, helpers, environment and output paths
   .output/    generated and gitignored; delete it to reset
     auth/       saved sessions
@@ -142,6 +142,7 @@ e2e/
 - **Environment:** every `E2E_*` variable comes from the shell, then `e2e/.env`, then a default that matches the seed script. CI uses the defaults.
 - **Server:** with `E2E_BASE_URL` unset, the config's `webServer` starts one: `npm run dev` locally (reusing one already running), the static build under `vite preview` in CI. Otherwise it tests that URL as served.
 - **Sign-in:** `setup/auth.setup.ts` signs each account in at the start of every run and saves the session for the specs. `login.spec.ts` is the only spec that drives the login form.
+- **Library:** `setup/library.setup.ts` then finds the first game once, and specs open it by URL with `gotoFirstRom()`.
 - **Timeouts:** the same locally and in CI (45s per test), so a test passes or fails the same way in both. They switch off while debugging.
 - **App errors:** if an `/api` call returns 5xx or the app throws, the test fails at once and names the request (for example `GET /api/roms returned 500`) instead of timing out on an element.
 - **Output:** everything the suite writes goes under `.output/`, through the paths in `support/output.ts`.

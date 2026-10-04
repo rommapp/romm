@@ -64,21 +64,29 @@ export default defineConfig({
     {
       name: "setup",
       testDir: "./e2e/setup",
-      testMatch: /\.setup\.ts$/,
+      testMatch: "auth.setup.ts",
       // A cold dev server can reload the page mid-sign-in.
+      retries: 2,
+    },
+    // Finds the first game once, with the admin's session (library.setup.ts).
+    {
+      name: "library",
+      testDir: "./e2e/setup",
+      testMatch: "library.setup.ts",
+      dependencies: ["setup"],
       retries: 2,
     },
     {
       name: "chromium",
-      dependencies: ["setup"],
+      dependencies: ["library"],
     },
   ],
-  // CI serves the static build, which never force-reloads mid-test as the dev
-  // server does on a new dependency. Locally, the dev server is (re)used.
+  // CI serves the build e2e.yml made, which never force-reloads mid-test as the
+  // dev server does on a new dependency. Locally, the dev server is (re)used.
   ...(!baseURL && {
     webServer: {
       command: isCI
-        ? `npm run build:preview && npm run preview -- --port ${SERVED_PORT} --strictPort --host 127.0.0.1`
+        ? `npm run preview -- --port ${SERVED_PORT} --strictPort --host 127.0.0.1`
         : "npm run dev",
       url: SERVED_URL,
       reuseExistingServer: !isCI,

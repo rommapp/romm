@@ -28,14 +28,19 @@ export const STORAGE_STATE = Object.fromEntries(
   ROLES.map((role) => [role, `${AUTH_DIR}/${role}.json`]),
 ) as Record<Role, string>;
 
-/** The v2 login form, not the collapsed reset-password form beside it. */
-export function loginForm(page: Page): Locator {
-  return page.locator("form.r-v2-login-form");
+/** The login form's submit button. Roles skip the hidden reset-password form,
+ *  which has a Username field of its own. */
+export function loginButton(page: Page): Locator {
+  return page.getByRole("button", { name: "Login", exact: true });
 }
 
-/** The app bar's user name, rendered once the session is established. */
-export function signedInUser(page: Page): Locator {
-  return page.locator(".r-v2-user__name");
+/** The app bar's account menu, labelled with the signed-in user's name (any
+ *  user's when none is given). It reads "Guest" until the session loads. */
+export function accountMenu(page: Page, username?: string): Locator {
+  const user = username ? RegExp.escape(username) : "(?!Guest$).+";
+  return page.getByRole("button", {
+    name: new RegExp(`^Account menu for ${user}$`, "i"),
+  });
 }
 
 /** Fill and submit the login form. */
@@ -44,10 +49,9 @@ export async function fillLoginForm(
   username: string,
   password: string,
 ) {
-  const form = loginForm(page);
-  await form.locator('input[name="username"]').fill(username);
-  await form.locator('input[name="password"]').fill(password);
-  await form.locator('button[type="submit"]').click();
+  await page.getByRole("textbox", { name: "Username" }).fill(username);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await loginButton(page).click();
 }
 
 /** Force the v2 UI before the app boots, and the "auto" theme, so the

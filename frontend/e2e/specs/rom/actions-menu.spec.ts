@@ -15,14 +15,18 @@ const WRITE_ACTIONS = [
 /** Open the ⋯ more-actions menu and return its teleported panel. */
 async function openMoreMenu(page: Page) {
   await page.getByRole("button", { name: "More actions" }).first().click();
-  const panel = page.locator('[role="menu"]');
+  const panel = page.getByRole("menu");
   await expect(panel).toBeVisible();
   return panel;
 }
 
-/** Labels of the open menu's items, in DOM order. */
+/** Labels of the open menu's items, in DOM order. RMenuItem only sets the
+ *  menuitem role on links; an action item stays a plain button. */
 function menuLabels(panel: Locator): Promise<string[]> {
-  return panel.locator(".r-menu-item__label").allInnerTexts();
+  return panel
+    .getByRole("menuitem")
+    .or(panel.getByRole("button"))
+    .allInnerTexts();
 }
 
 test.describe(
@@ -50,7 +54,7 @@ test.describe(
 
       // Hidden groups take their leading dividers with them; only the one
       // between the primary and per-user groups remains.
-      await expect(panel.locator('[role="separator"]')).toHaveCount(1);
+      await expect(panel.getByRole("separator")).toHaveCount(1);
 
       // And the last thing in the panel is an item, not a rule.
       const lastChildIsSeparator = await panel.evaluate((el) => {
@@ -94,6 +98,6 @@ test.describe("ROM more-actions menu (admin)", { tag: "@page:rom" }, () => {
         .toContain(action);
     }
     // Primary | per-user | metadata | destructive => three dividers.
-    await expect(panel.locator('[role="separator"]')).toHaveCount(3);
+    await expect(panel.getByRole("separator")).toHaveCount(3);
   });
 });

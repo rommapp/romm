@@ -17,7 +17,6 @@ npm run typecheck:scripts           # Node only: scripts/, eslint-plugin-romm/, 
 npm run test                        # vitest (+ Storybook play() tests)
 npm run test:e2e                    # playwright, see e2e/README.md
 npm run build                       # production build
-npm run build:preview               # production build plus frontend/assets, as the Docker image serves it
 npm run generate                    # regenerate types from backend OpenAPI (backend must be running)
 npm run build:tokens                # regenerate v2 tokens.css (auto on predev/prebuild)
 npm run storybook                   # component library on :6006

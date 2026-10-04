@@ -1,9 +1,9 @@
 import {
   ACCOUNTS,
+  accountMenu,
   fillLoginForm,
-  loginForm,
+  loginButton,
   seedUiState,
-  signedInUser,
 } from "../../support/auth";
 import { expect, test } from "../../support/test";
 
@@ -22,11 +22,9 @@ test.describe("Login", () => {
 
     await fillLoginForm(page, username, password);
 
-    // The app bar's user name only renders once the session is established and
-    // the auth store holds a user, which a URL change alone doesn't prove.
-    await expect(signedInUser(page)).toHaveText(username, {
-      ignoreCase: true,
-    });
+    // The account menu takes the user's name once the auth store holds one,
+    // which a URL change alone doesn't prove.
+    await expect(accountMenu(page, username)).toBeVisible();
     await expect(page).not.toHaveURL(/\/login/);
   });
 
@@ -38,7 +36,7 @@ test.describe("Login", () => {
 
     // Stays on /login with no session. Asserted via the app bar's absence
     // rather than a snackbar, so the test doesn't depend on toast copy.
-    await expect(signedInUser(page)).toHaveCount(0);
+    await expect(accountMenu(page)).toHaveCount(0);
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -48,6 +46,6 @@ test.describe("Login", () => {
     await page.goto("/");
 
     await expect(page).toHaveURL(/\/login/);
-    await expect(loginForm(page)).toBeVisible();
+    await expect(loginButton(page)).toBeVisible();
   });
 });

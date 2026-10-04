@@ -1,9 +1,9 @@
 import {
   ACCOUNTS,
+  accountMenu,
   fillLoginForm,
   ROLES,
   seedUiState,
-  signedInUser,
   STORAGE_STATE,
 } from "../support/auth";
 import { expect, test as setup } from "../support/test";
@@ -24,11 +24,8 @@ for (const role of ROLES) {
     await fillLoginForm(page, username, password);
     const response = await answered;
     expect(response.status(), `POST /api/login for ${username}`).toBe(200);
-    // The app bar's user name only renders once the session is established.
-    // Usernames sign in case-insensitively and render as stored.
-    await expect(signedInUser(page)).toHaveText(username, {
-      ignoreCase: true,
-    });
+    // The account menu takes the user's name once the session is established.
+    await expect(accountMenu(page, username)).toBeVisible();
 
     await page.context().storageState({ path: STORAGE_STATE[role] });
   });

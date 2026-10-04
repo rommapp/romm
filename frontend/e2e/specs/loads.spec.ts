@@ -1,9 +1,13 @@
-import type { Page, Request } from "@playwright/test";
-import { ROUTES, type RouteName } from "../../src/plugins/routeNames";
+import type { Locator, Page, Request } from "@playwright/test";
+import {
+  ROUTE_SCOPES,
+  ROUTES,
+  type RouteName,
+} from "../../src/plugins/routeNames";
 import { ROLES, STORAGE_STATE } from "../support/auth";
 import {
+  clickThroughToFirstRom,
   gotoFirstPlatform,
-  gotoFirstRom,
   gotoHydrated,
   gotoOwnProfile,
 } from "../support/navigation";
@@ -15,15 +19,18 @@ import { expect, test } from "../support/test";
 /** Opened by URL, or by clicking through when the URL holds an id. */
 type Opener = string | ((page: Page) => Promise<void>);
 
-type PageDef =
-  | { open: Opener }
-  // A URL, so the viewer's 404 check can open it.
-  | {
-      open: string;
-      /** The router sends a viewer without the route's scopes to the 404 page. */
-      adminOnly: true;
-    }
-  | { skip: string };
+type PageDef = { open: Opener } | { skip: string };
+
+// Scope-gated routes the seeded Viewer group still opens. Every other route in
+// ROUTE_SCOPES is admin-only, so a newly gated route gets the viewer 404 check.
+const VIEWER_OPENS: ReadonlySet<RouteName> = new Set([
+  ROUTES.CLIENT_API_TOKENS,
+  ROUTES.DEVICES,
+]);
+
+function isAdminOnly(name: RouteName): boolean {
+  return name in ROUTE_SCOPES && !VIEWER_OPENS.has(name);
+}
 
 // Keyed by every route the router knows, so a new route fails the typecheck
 // until it is listed here or skipped with a reason.
@@ -34,28 +41,22 @@ const PAGES: Record<RouteName, PageDef> = {
   [ROUTES.COLLECTIONS_INDEX]: { open: "/collections" },
   [ROUTES.SEARCH]: { open: "/search" },
   [ROUTES.MUSIC]: { open: "/music" },
-  [ROUTES.ROM]: { open: gotoFirstRom },
-  [ROUTES.SCAN]: { open: "/scan", adminOnly: true },
-  [ROUTES.UPLOAD]: { open: "/upload", adminOnly: true },
+  [ROUTES.ROM]: { open: clickThroughToFirstRom },
+  [ROUTES.SCAN]: { open: "/scan" },
+  [ROUTES.UPLOAD]: { open: "/upload" },
   [ROUTES.ACTIVITY]: { open: "/activity" },
   [ROUTES.NOTIFICATIONS]: { open: "/notifications" },
   [ROUTES.USER_PROFILE]: { open: gotoOwnProfile },
   [ROUTES.USER_INTERFACE]: { open: "/user-interface" },
-  [ROUTES.LIBRARY_MANAGEMENT]: {
-    open: "/library-management",
-    adminOnly: true,
-  },
-  [ROUTES.SCAN_SETTINGS]: { open: "/scan-settings", adminOnly: true },
-  [ROUTES.CONVERSION_SETTINGS]: {
-    open: "/conversion-settings",
-    adminOnly: true,
-  },
+  [ROUTES.LIBRARY_MANAGEMENT]: { open: "/library-management" },
+  [ROUTES.SCAN_SETTINGS]: { open: "/scan-settings" },
+  [ROUTES.CONVERSION_SETTINGS]: { open: "/conversion-settings" },
   [ROUTES.METADATA_SOURCES]: { open: "/metadata-sources" },
   [ROUTES.CLIENT_API_TOKENS]: { open: "/client-api-tokens" },
   [ROUTES.DEVICES]: { open: "/devices" },
-  [ROUTES.ADMINISTRATION]: { open: "/administration", adminOnly: true },
+  [ROUTES.ADMINISTRATION]: { open: "/administration" },
   [ROUTES.SERVER_STATS]: { open: "/server-stats" },
-  [ROUTES.LOGS]: { open: "/logs", adminOnly: true },
+  [ROUTES.LOGS]: { open: "/logs" },
   [ROUTES.CONTROLLER_DEBUG]: { open: "/controller-debug" },
 
   [ROUTES.MAIN]: { skip: "the layout around the pages listed here" },
@@ -94,6 +95,10 @@ function isLoadRequest(request: Request) {
   );
 }
 
+function notFoundHeading(page: Page): Locator {
+  return page.getByRole("heading", { name: "Page not found" });
+}
+
 async function expectPageLoads(page: Page, name: string, open: Opener) {
   const failed: string[] = [];
   page.on("response", (response) => {
@@ -116,17 +121,23 @@ async function expectPageLoads(page: Page, name: string, open: Opener) {
   }
 
   // The router-view's content, which exists only once the lazy view resolves.
-  await expect(page.locator("#r-v2-main > *").first()).toBeVisible();
-  await expect(page.locator(".r-v2-notfound")).toHaveCount(0);
+  await expect(
+    page.getByRole("main").locator(":scope > *").first(),
+  ).toBeVisible();
+  await expect(notFoundHeading(page)).toHaveCount(0);
   expect(
     failed,
     `Responses that failed while loading ${name} (a 404 from /api usually means the site's backend is older than this branch)`,
   ).toEqual([]);
 }
 
-for (const [name, def] of Object.entries(PAGES)) {
+for (const [name, def] of Object.entries(PAGES) as [RouteName, PageDef][]) {
   if ("skip" in def) continue;
-  const adminOnly = "adminOnly" in def;
+  const { open } = def;
+  const adminOnly = isAdminOnly(name);
+  if (adminOnly && typeof open !== "string") {
+    throw new Error(`${name} is admin-only, so it needs a URL for the viewer.`);
+  }
 
   test.describe(name, { tag: `@page:${name}` }, () => {
     for (const role of adminOnly ? (["admin"] as const) : ROLES) {
@@ -134,18 +145,18 @@ for (const [name, def] of Object.entries(PAGES)) {
         test.use({ storageState: STORAGE_STATE[role] });
 
         test("loads", async ({ page }) => {
-          await expectPageLoads(page, name, def.open);
+          await expectPageLoads(page, name, open);
         });
       });
     }
 
-    if ("adminOnly" in def) {
+    if (adminOnly && typeof open === "string") {
       test.describe("viewer", () => {
         test.use({ storageState: STORAGE_STATE.viewer });
 
         test("gets the 404 page", async ({ page }) => {
-          await gotoHydrated(page, def.open);
-          await expect(page.locator(".r-v2-notfound")).toBeVisible();
+          await gotoHydrated(page, open);
+          await expect(notFoundHeading(page)).toBeVisible();
         });
       });
     }

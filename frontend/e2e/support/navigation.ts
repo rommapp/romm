@@ -1,6 +1,13 @@
 import type { Page } from "@playwright/test";
-import { loginForm, signedInUser } from "./auth";
+import { readFileSync } from "node:fs";
+import { accountMenu, loginButton } from "./auth";
+import { LIBRARY_FILE } from "./output";
 import { expect } from "./test";
+
+/** What library.setup.ts finds in the site's library, once per run. */
+export interface Library {
+  firstRom: string;
+}
 
 /** `page.goto` that also waits for `/api/permissions/me`, before which even an
  *  admin sees every gated control hidden. */
@@ -13,7 +20,7 @@ export async function gotoHydrated(page: Page, path: string) {
   );
   await page.goto(path);
   // A rejected session lands on /login, which never requests permissions.
-  const loginShown = loginForm(page).waitFor({ timeout: 0 });
+  const loginShown = loginButton(page).waitFor({ timeout: 0 });
   const response = await Promise.race([hydrated, loginShown.then(() => null)]);
   if (!response) {
     throw new Error(
@@ -25,8 +32,8 @@ export async function gotoHydrated(page: Page, path: string) {
       `Permissions didn't load (GET /api/permissions/me returned ${response.status()}). The backend most likely rejected this test's saved session.`,
     );
   }
-  // Renders once the auth store holds a user: the app shell is ready.
-  await expect(signedInUser(page)).toBeVisible();
+  // Named after the user once the auth store holds one: the app shell is ready.
+  await expect(accountMenu(page)).toBeVisible();
 }
 
 /** Open the first platform on the platforms index. */
@@ -41,19 +48,25 @@ export async function gotoFirstPlatform(page: Page) {
   await expect(page).toHaveURL(/\/platform\/\d+/);
 }
 
-/** Open the first game of the first platform. */
-export async function gotoFirstRom(page: Page) {
+/** Click through to the first game of the first platform. */
+export async function clickThroughToFirstRom(page: Page) {
   await gotoFirstPlatform(page);
-  const game = page.locator('a.r-gc[href^="/rom/"]').first();
+  const game = page.locator("a[data-rom-id]").first();
   await expect(game, "The first platform shows no games").toBeVisible();
   await game.click();
   await expect(page).toHaveURL(/\/rom\/\d+/);
 }
 
+/** Open the game library.setup.ts found, by its URL. */
+export async function gotoFirstRom(page: Page) {
+  const library = JSON.parse(readFileSync(LIBRARY_FILE, "utf8")) as Library;
+  await gotoHydrated(page, library.firstRom);
+}
+
 /** Open the account menu and follow its Profile link (route `/user/:user`). */
 export async function gotoOwnProfile(page: Page) {
   await gotoHydrated(page, "/");
-  await page.locator("[data-user-menu-trigger]").click();
+  await accountMenu(page).click();
   await page.getByRole("menuitem", { name: "Profile" }).click();
   await expect(page).toHaveURL(/\/user\/\d+/);
 }

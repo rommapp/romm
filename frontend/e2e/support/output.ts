@@ -12,3 +12,6 @@ export const REPORT_DIR = `${OUTPUT_DIR}specs/report`;
 
 /** Saved sign-in sessions (live cookies). */
 export const AUTH_DIR = `${OUTPUT_DIR}auth`;
+
+/** The library facts library.setup.ts resolves for the specs. */
+export const LIBRARY_FILE = `${OUTPUT_DIR}library.json`;

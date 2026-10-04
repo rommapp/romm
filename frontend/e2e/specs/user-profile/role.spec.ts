@@ -14,13 +14,14 @@ for (const role of ROLES) {
         await gotoOwnProfile(page);
 
         // The editable rows that SHOULD be there, so a blank page can't pass.
-        await expect(page.locator('input[type="email"]')).toBeVisible();
+        await expect(
+          page.getByRole("textbox", { name: "Email" }),
+        ).toBeVisible();
 
-        // No role row in the Account Details form.
-        const form = page.locator(".r-v2-section-stack");
-        await expect(form.getByText("Role", { exact: true })).toHaveCount(0);
-        // And no select rendered anywhere on the page.
-        await expect(page.locator(".r-select")).toHaveCount(0);
+        // No role row, and no select (RSelect's listbox trigger) on the page.
+        const main = page.getByRole("main");
+        await expect(main.getByText("Role", { exact: true })).toHaveCount(0);
+        await expect(main.locator('[aria-haspopup="listbox"]')).toHaveCount(0);
       });
     },
   );

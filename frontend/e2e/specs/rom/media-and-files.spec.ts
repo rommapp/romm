@@ -10,12 +10,17 @@ async function openTab(page: Page, tab: string) {
   await page.getByRole("tab", { name: tab }).click();
 }
 
+/** The tab's vertical subtab rail, apart from the page's top-level tabs. */
+function subtabs(page: Page): Locator {
+  return page.locator('[role="tablist"][aria-orientation="vertical"]');
+}
+
 /** Open a Media subtab of the first game and return its panel; the others stay
- *  mounted (v-show). Subtabs are a sidebar list, distinct from RTabNav's tabs. */
+ *  mounted (v-show). */
 async function openMediaSubtab(page: Page, subtab: string): Promise<Locator> {
   await gotoFirstRom(page);
   await openTab(page, "Media");
-  await page.locator(".r-v2-subtab-nav__btn", { hasText: subtab }).click();
+  await subtabs(page).getByRole("tab", { name: subtab }).click();
   return page.locator(".r-v2-media__panel:visible");
 }
 
@@ -106,7 +111,7 @@ test.describe("Files tab write affordances", { tag: "@page:rom" }, () => {
       await gotoFirstRom(page);
       await openTab(page, "Files");
 
-      await expect(page.locator(".r-v2-subtab-nav__btn").first()).toBeVisible();
+      await expect(subtabs(page).getByRole("tab").first()).toBeVisible();
       await expect(uploadButton(page)).toHaveCount(0);
       await expect(uploadToFolderButton(page)).toHaveCount(0);
     });
@@ -126,10 +131,7 @@ test.describe("Files tab write affordances", { tag: "@page:rom" }, () => {
     test("gets Upload from a folder subtab", async ({ page }) => {
       await gotoFirstRom(page);
       await openTab(page, "Files");
-      await page
-        .locator(".r-v2-subtab-nav__btn:not(.r-v2-subtab-nav__btn--active)")
-        .first()
-        .click();
+      await subtabs(page).getByRole("tab", { selected: false }).first().click();
 
       await expect(uploadButton(page)).toBeVisible();
       await expect(uploadToFolderButton(page)).toHaveCount(0);
