@@ -19,6 +19,7 @@ npm run test:e2e                    # playwright (needs a running app + seeded e
 npm run build                       # production build
 npm run generate                    # regenerate types from backend OpenAPI (backend must be running)
 npm run build:tokens                # regenerate v2 tokens.css (auto on predev/prebuild)
+npm run build:icons                 # regenerate the trimmed icon CSS (auto on predev/prebuild)
 npm run storybook                   # component library on :6006
 python3 src/locales/check_i18n_locales.py   # i18n parity check
 python3 src/locales/check_i18n_sorted.py    # locale keys sorted (--fix to sort)

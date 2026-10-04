@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { NotificationKind, NotificationSchema } from "@/__generated__";
 import { loadLocale } from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
@@ -149,6 +149,44 @@ describe("describeNotification", () => {
       to: "/rom/12",
       toast: true,
     });
+  });
+
+  it("keeps a custom icon the app draws", () => {
+    vi.spyOn(globalThis, "getComputedStyle").mockReturnValue({
+      content: '"\\F0156"',
+    } as CSSStyleDeclaration);
+
+    const view = describeNotification({
+      ...notification("custom", {}),
+      title: "Hi",
+      icon: "mdi-shipped-glyph",
+    });
+
+    expect(view.icon).toBe("mdi-shipped-glyph");
+  });
+
+  it("uses the level icon for a custom icon the app does not draw", () => {
+    vi.spyOn(globalThis, "getComputedStyle").mockReturnValue({
+      content: "none",
+    } as CSSStyleDeclaration);
+
+    const view = describeNotification({
+      ...notification("custom", {}),
+      title: "Hi",
+      icon: "mdi-missing-glyph",
+    });
+
+    expect(view.icon).toBe("mdi-information-outline");
+  });
+
+  it("uses the level icon for an empty custom icon", () => {
+    const view = describeNotification({
+      ...notification("custom", {}),
+      title: "Hi",
+      icon: "",
+    });
+
+    expect(view.icon).toBe("mdi-information-outline");
   });
 
   it("never links outside RomM", () => {

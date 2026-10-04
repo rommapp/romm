@@ -10,6 +10,7 @@ import i18n from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
 import { TONE_ICONS } from "@/v2/composables/useSnackbar";
 import { count, text } from "@/v2/utils/eventData";
+import { hasIconGlyph } from "@/v2/utils/iconGlyph";
 
 interface NotificationView {
   icon: string;
@@ -40,8 +41,9 @@ export function isInAppPath(link: string): boolean {
 }
 
 function ownContent(notification: NotificationSchema): NotificationView {
+  const { icon } = notification;
   return {
-    icon: notification.icon ?? TONE_ICONS[notification.level],
+    icon: icon && hasIconGlyph(icon) ? icon : TONE_ICONS[notification.level],
     title: notification.title ?? t("notifications.unknown"),
     body: notification.body,
     to:

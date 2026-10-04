@@ -37,6 +37,10 @@ jobs:
         run: npm test
         working-directory: frontend
 
+      - name: Check the trimmed icon CSS is up to date
+        run: npx tsx scripts/build-icons.ts --check
+        working-directory: frontend
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15

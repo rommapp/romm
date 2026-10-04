@@ -32,3 +32,66 @@
   color: var(--r-color-danger);
   transform: rotate(-8deg) scale(1.12);
 }
+
+.r-icon-story-page {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  color: var(--r-color-fg);
+  font: 11px/1.2 sans-serif;
+}
+.r-icon-story-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 8px 0;
+  background: var(--r-color-bg);
+}
+.r-icon-story-search-field {
+  flex: 0 1 360px;
+  min-width: 200px;
+}
+.r-icon-story-search .r-icon-story-heading {
+  margin: 0;
+}
+.r-icon-story-heading {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.r-icon-story-note {
+  margin: 0 0 8px;
+  color: var(--r-color-fg-muted);
+}
+.r-icon-story-grid {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  align-content: start;
+  gap: 4px;
+}
+.r-icon-story-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--r-color-border);
+  border-radius: 6px;
+  background: var(--r-color-surface);
+}
+.r-icon-story-cell span {
+  min-width: 0;
+  color: var(--r-color-fg-muted);
+}
+.r-icon-story-cell--off {
+  border-style: dashed;
+}
+.r-icon-story-cell .r-icon-story-glyph {
+  color: var(--r-color-fg);
+  font: 18px/1 "Material Design Icons";
+}

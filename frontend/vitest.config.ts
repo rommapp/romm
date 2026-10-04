@@ -30,6 +30,8 @@ export default defineConfig({
           unstubGlobals: true,
           unstubEnvs: true,
           include: ["src/**/*.{test,spec}.ts", "test/**/*.{test,spec}.ts"],
+          // Vitest empties CSS imports; `?raw` ones are plain text we read.
+          css: { include: [/\.css\?raw$/] },
         },
       },
       // Lint rules parse source text, so they skip the app's DOM and Storybook setup.
