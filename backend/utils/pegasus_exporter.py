@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Final
 
@@ -11,6 +10,7 @@ from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
 from models.platform import Platform
 from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
+from utils.datetime import format_utc
 from utils.filesystem import join_rel_path, place_export_asset, rel_platform_folder
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
@@ -300,7 +300,7 @@ class PegasusExporter:
 
     def _format_release_date(self, timestamp: int) -> str:
         """Format release date to YYYY-MM-DD format"""
-        return datetime.fromtimestamp(timestamp / 1000, tz=UTC).strftime("%Y-%m-%d")
+        return format_utc(timestamp, "%Y-%m-%d")
 
     def _format_rating(self, average_rating: float) -> str:
         """Format rating as percentage (0-100%). Input is on 0-10 scale."""

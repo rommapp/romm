@@ -55,6 +55,7 @@ from models.rom import (
     RomFileCategory,
 )
 from utils.archives import is_compressed_file
+from utils.datetime import format_utc
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.router import APIRouter
 
@@ -558,7 +559,7 @@ def format_release_date(timestamp: int | None) -> str | None:
     if not timestamp:
         return None
 
-    return datetime.fromtimestamp(timestamp / 1000).strftime("%m-%d-%Y")
+    return format_utc(timestamp, "%m-%d-%Y")
 
 
 FPKGI_CATEGORY_LABELS: dict[RomFileCategory, str] = {
