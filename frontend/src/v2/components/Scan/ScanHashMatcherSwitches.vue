@@ -15,6 +15,12 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+function tipText(matcher: HashMatcher): string {
+  return matcher.blockedReason
+    ? `${matcher.name}: ${matcher.blockedReason}`
+    : matcher.name;
+}
 </script>
 
 <template>
@@ -26,16 +32,16 @@ const { t } = useI18n();
     <RTooltip
       v-for="matcher in matchers"
       :key="matcher.value"
-      :text="
-        matcher.blockedReason
-          ? `${matcher.name}: ${matcher.blockedReason}`
-          : matcher.name
-      "
+      :text="tipText(matcher)"
       location="bottom"
+      :open-on-tap="!matcher.switchEnabled"
     >
       <template #activator="{ props: tipProps }">
         <div
           v-bind="tipProps"
+          :tabindex="matcher.switchEnabled ? undefined : 0"
+          :role="matcher.switchEnabled ? undefined : 'group'"
+          :aria-label="matcher.switchEnabled ? undefined : tipText(matcher)"
           class="r-v2-hash-matchers__matcher"
           :class="{
             'r-v2-hash-matchers__matcher--off': !matcher.switchEnabled,
@@ -51,6 +57,7 @@ const { t } = useI18n();
             :model-value="isOn(matcher)"
             :disabled="!matcher.switchEnabled"
             :aria-label="matcher.name"
+            class="r-v2-hash-matchers__switch"
             @update:model-value="(v) => emit('toggle', matcher.value, v)"
           />
         </div>
@@ -79,6 +86,10 @@ const { t } = useI18n();
 }
 .r-v2-hash-matchers__matcher--off {
   opacity: 0.55;
+}
+/* A disabled button swallows taps, so let them reach the pill's tooltip. */
+.r-v2-hash-matchers__matcher--off .r-v2-hash-matchers__switch {
+  pointer-events: none;
 }
 .r-v2-hash-matchers__logo {
   background: var(--r-color-bg-elevated);
