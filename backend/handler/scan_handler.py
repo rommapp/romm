@@ -1862,7 +1862,6 @@ async def refresh_provider_media(
 ) -> dict[str, dict[str, Any]]:
     """Bring a rom's provider media in line with re-matched metadata.
 
-
     Args:
         rom: The rom, still holding each provider's stored metadata.
         pending: The metadata about to be stored, keyed like ``ss_metadata``;
