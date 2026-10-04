@@ -1,4 +1,3 @@
-import datetime
 import json
 from typing import Any, Final, NotRequired, TypedDict
 
@@ -10,7 +9,7 @@ from config import FLASHPOINT_API_ENABLED
 from logger.logger import log
 from utils import get_version, is_valid_uuid
 from utils.context import ctx_httpx_client
-from utils.datetime import to_utc
+from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import MetadataHandler, unavailable
@@ -68,14 +67,8 @@ class FlashpointRom(TypedDict):
 
 
 def extract_flashpoint_metadata(game: FlashpointGame) -> FlashpointMetadata:
-    # Convert from "2003-08-30" format to unix timestamp
-    first_release_date = ""
-    if game.get("release_date"):
-        try:
-            date_obj = datetime.datetime.strptime(game["release_date"], "%Y-%m-%d")
-            first_release_date = str(int(to_utc(date_obj).timestamp()))
-        except ValueError, TypeError:
-            first_release_date = ""
+    released = parse_utc_timestamp(game.get("release_date"), ("%Y-%m-%d",))
+    first_release_date = str(released) if released is not None else ""
 
     publishers = pydash.compact([game["publisher"]])
     developers = pydash.compact([game["developer"]])

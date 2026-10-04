@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import httpx2
 import pytest
 from fastapi import HTTPException
-from tests.handler.metadata.conftest import local_timezone
+from tests.timezones import local_timezone
 
 from handler.filesystem.base_handler import provider_language_name
 from handler.metadata.base_handler import unavailable

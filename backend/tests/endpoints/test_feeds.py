@@ -1,7 +1,7 @@
 from fastapi import status
 from fastapi.testclient import TestClient
 from tests.factories import make_rom
-from tests.handler.metadata.conftest import local_timezone
+from tests.timezones import local_timezone
 
 from endpoints.feeds import format_release_date
 from handler.database import db_platform_handler, db_rom_handler

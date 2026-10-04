@@ -1,7 +1,6 @@
 import html
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Final, NotRequired, TypedDict, cast
 
 import pydash
@@ -42,6 +41,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import LookupHashes, Rom, RomFile
 from utils.database import safe_int
+from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
@@ -619,17 +619,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             return ""
 
     def _parse_date(date_text: str) -> int | None:
-        # Release dates are date-only, so pin them to UTC midnight; a naive
-        # `.timestamp()` would read them as local time and shift by the host's
-        # UTC offset.
-        try:
-            dt = datetime.strptime(date_text, "%Y-%m-%d")
-        except ValueError:
-            try:
-                dt = datetime.strptime(date_text, "%Y")
-            except ValueError:
-                return None
-        return int(dt.replace(tzinfo=timezone.utc).timestamp())
+        return parse_utc_timestamp(date_text, ("%Y-%m-%d", "%Y"))
 
     def _get_lowest_date(dates: list[SSGameDate]) -> int | None:
         if not dates:

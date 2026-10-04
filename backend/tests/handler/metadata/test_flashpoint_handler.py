@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 import httpx2
 import pytest
 from fastapi import HTTPException
-from tests.handler.metadata.conftest import local_timezone
+from tests.timezones import local_timezone
 
 from handler.metadata import flashpoint_handler
 from handler.metadata.flashpoint_handler import (

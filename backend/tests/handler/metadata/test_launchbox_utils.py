@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from hypothesis import assume, given
 from hypothesis import strategies as st
-from tests.handler.metadata.conftest import local_timezone
+from tests.timezones import local_timezone
 
 from handler.metadata.launchbox_handler.utils import (
     dedupe_words,
