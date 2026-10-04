@@ -8,6 +8,7 @@ session is considered ended automatically.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from typing import Any, TypedDict, cast
@@ -15,6 +16,7 @@ from typing import Any, TypedDict, cast
 from redis.exceptions import WatchError
 
 from endpoints.responses.activity import ActivityClearSchema
+from handler.auth.permissions import resolve_permissions
 from handler.database import (
     db_device_handler,
     db_rom_handler,
@@ -119,12 +121,12 @@ class ActivityHandler:
         )
 
     async def publish_active(self, entry: ActivityEntry) -> None:
-        """Store a session and broadcast it to every connected client."""
+        """Store a session and send it to everyone allowed to see its ROM."""
         await self.set_active(entry)
-        await self._broadcast("activity:update", dict(entry))
+        await self._broadcast("activity:update", dict(entry), entry["rom_id"])
 
     async def publish_clear(self, user_id: int, device_id: str) -> int | None:
-        """End a session and broadcast it. Returns the rom_id cleared, if any."""
+        """End a session and announce it. Returns the rom_id cleared, if any."""
         rom_id = await self.clear_active(user_id, device_id)
         if rom_id is None:
             return None
@@ -133,15 +135,20 @@ class ActivityHandler:
             ActivityClearSchema(
                 user_id=user_id, device_id=device_id, rom_id=rom_id
             ).model_dump(),
+            rom_id,
         )
         return rom_id
 
-    async def _broadcast(self, event: str, payload: dict[str, Any]) -> None:
+    async def _broadcast(
+        self, event: str, payload: dict[str, Any], rom_id: int
+    ) -> None:
         # The REST app shares this process with the Socket.IO server, so emit
         # through the already-initialised, Redis-backed server (it fans out
         # across workers) rather than opening a manager per call.
         try:
-            await socket_handler.socket_server.emit(event, payload)
+            rooms = await asyncio.to_thread(_audience, rom_id)
+            if rooms:
+                await socket_handler.socket_server.emit(event, payload, to=rooms)
         except Exception as e:  # noqa: BLE001
             log.warning(f"Failed to broadcast {event}: {e}")
 
@@ -271,6 +278,21 @@ class ActivityHandler:
             except WatchError:
                 # A heartbeat raced this cleanup; the next read retries it.
                 pass
+
+
+def _audience(rom_id: int) -> list[str]:
+    """The `user:{id}` rooms of the enabled users who can see a ROM.
+
+    Sockets join their user's room on connect; one with no user is in none.
+    """
+    rom = db_rom_handler.get_rom(rom_id)
+    if rom is None:
+        return []
+    return [
+        f"user:{user.id}"
+        for user in db_user_handler.get_users()
+        if user.enabled and resolve_permissions(user).can_see_rom(rom)
+    ]
 
 
 def _live_entry(raw: str | bytes | None, rom_id: int) -> ActivityEntry | None:

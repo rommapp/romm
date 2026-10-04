@@ -1,13 +1,17 @@
 import asyncio
 import json
+from collections.abc import Iterator
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from handler.activity_handler import activity_handler
+from handler.activity_handler import ActivityEntry, activity_handler
+from handler.database import db_rom_handler, db_user_handler
+from handler.database.base_handler import sync_session
 from handler.redis_handler import async_cache, sync_cache
 from handler.socket_handler import socket_handler
+from models.permission import HiddenEntity, PermEntity
 from models.rom import Rom
 from models.user import User
 
@@ -103,6 +107,7 @@ def test_publishing_stores_the_entry_and_broadcasts_it(admin_user: User, rom: Ro
         with _captured_emits() as emit:
             asyncio.run(activity_handler.publish_active(entry))
         assert emit.await_args[0] == ("activity:update", dict(entry))
+        assert emit.await_args.kwargs == {"to": [f"user:{admin_user.id}"]}
         assert (
             asyncio.run(activity_handler.get_active(admin_user.id, "container-1"))
             == entry
@@ -215,3 +220,110 @@ def test_active_for_rom_spares_a_member_a_heartbeat_revived(clean_cache):
         assert asyncio.run(activity_handler.get_active_for_rom(7)) == []
 
     assert asyncio.run(async_cache.smembers("activity:rom:7")) == {b"1:dev"}
+
+
+class TestAudience:
+    """Who an activity update reaches: never sockets with no user."""
+
+    @pytest.fixture
+    def entry(self, admin_user: User, rom: Rom) -> Iterator[ActivityEntry]:
+        entry = asyncio.run(
+            activity_handler.build_entry(
+                user_id=admin_user.id,
+                device_id="deck",
+                rom_id=rom.id,
+                preserve_started_at=False,
+            )
+        )
+        assert entry is not None
+        yield entry
+        _clear(admin_user, "deck")
+
+    @staticmethod
+    def _rooms(emit: AsyncMock) -> set[str]:
+        call = emit.await_args
+        assert call is not None
+        return set(call.kwargs["to"])
+
+    async def test_an_update_goes_to_each_user_who_can_see_the_rom(
+        self,
+        entry: ActivityEntry,
+        admin_user: User,
+        editor_user: User,
+        viewer_user: User,
+    ):
+        with _captured_emits() as emit:
+            await activity_handler.publish_active(entry)
+
+        assert self._rooms(emit) == {
+            f"user:{admin_user.id}",
+            f"user:{editor_user.id}",
+            f"user:{viewer_user.id}",
+        }
+
+    @pytest.mark.parametrize("hidden", ["rom", "platform", "age"])
+    async def test_a_user_the_rom_is_hidden_from_is_left_out(
+        self,
+        entry: ActivityEntry,
+        admin_user: User,
+        viewer_user: User,
+        rom: Rom,
+        hidden: str,
+    ):
+        if hidden == "age":
+            db_rom_handler.update_rom(rom.id, {"min_age": 18})
+            db_user_handler.update_user(viewer_user.id, {"age_limit": 12})
+        else:
+            entity, entity_id = (
+                (PermEntity.ROMS, rom.id)
+                if hidden == "rom"
+                else (PermEntity.PLATFORMS, rom.platform_id)
+            )
+            with sync_session.begin() as session:
+                session.add(
+                    HiddenEntity(
+                        entity=entity, entity_id=entity_id, user_id=viewer_user.id
+                    )
+                )
+
+        with _captured_emits() as emit:
+            await activity_handler.publish_active(entry)
+
+        assert self._rooms(emit) == {f"user:{admin_user.id}"}
+
+    async def test_a_disabled_user_is_left_out(
+        self, entry: ActivityEntry, admin_user: User, viewer_user: User
+    ):
+        db_user_handler.update_user(viewer_user.id, {"enabled": False})
+
+        with _captured_emits() as emit:
+            await activity_handler.publish_active(entry)
+
+        assert self._rooms(emit) == {f"user:{admin_user.id}"}
+
+    async def test_a_clear_goes_to_the_same_users(
+        self, entry: ActivityEntry, admin_user: User, viewer_user: User, rom: Rom
+    ):
+        await activity_handler.set_active(entry)
+        with sync_session.begin() as session:
+            session.add(
+                HiddenEntity(
+                    entity=PermEntity.ROMS, entity_id=rom.id, user_id=viewer_user.id
+                )
+            )
+
+        with _captured_emits() as emit:
+            await activity_handler.publish_clear(admin_user.id, "deck")
+
+        assert self._rooms(emit) == {f"user:{admin_user.id}"}
+
+    async def test_nothing_is_sent_when_no_one_can_see_the_rom(
+        self, entry: ActivityEntry, admin_user: User, rom: Rom
+    ):
+        db_user_handler.update_user(admin_user.id, {"enabled": False})
+
+        with _captured_emits() as emit:
+            await activity_handler.publish_active(entry)
+
+        emit.assert_not_awaited()
+        assert await activity_handler.get_active(admin_user.id, "deck") == entry
