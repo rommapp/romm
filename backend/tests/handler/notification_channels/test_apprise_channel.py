@@ -26,6 +26,7 @@ from .fixtures import make_notification
 
 _DISCORD = {"webhook_id": "1234567890", "webhook_token": "abcdefghijklmnop"}
 _JSON = {"host": "hooks.example.com", "path": "romm"}
+_SENDGRID = {"apikey": "abc123", "from_email": "romm@example.com"}
 
 
 def _message(**overrides: Any) -> OutboundMessage:
@@ -69,6 +70,16 @@ class TestCatalog:
         assert "topic" not in _keys("ntfy")
         assert targets is not None
         assert (targets.type, targets.required) == ("list", True)
+
+    @pytest.mark.parametrize(
+        "service,key",
+        [("sendgrid", "from_email"), ("ses", "from_email"), ("resend", "from_addr")],
+    )
+    def test_offers_an_email_address(self, service, key):
+        field = find_service(service).field(key)
+
+        assert field is not None
+        assert (field.type, field.required) == ("email", True)
 
     def test_offers_the_schema_only_when_there_is_a_choice(self):
         schema = find_service("ntfy").field("schema")
@@ -153,6 +164,21 @@ class TestBuildUrl:
                 "json",
                 {"host": "hooks.example.com", "path": "/api/romm"},
                 "jsons://hooks.example.com/api/romm",
+            ),
+            (
+                "sendgrid",
+                {**_SENDGRID, "targets": ["me@example.com"]},
+                "sendgrid://abc123:romm@example.com/me%40example.com",
+            ),
+            (
+                "ses",
+                {
+                    "from_email": "romm@example.com",
+                    "access_key_id": "AKID",
+                    "secret_access_key": "s3cr3t",
+                    "region": "us-east-1",
+                },
+                "ses://romm@example.com/AKID/s3cr3t/us-east-1",
             ),
         ],
     )
@@ -261,6 +287,11 @@ class TestFieldsFromUrl:
                 "json",
                 {"host": "hooks.example.com", "path": "api/romm"},
             ),
+            (
+                "sendgrid://abc123:romm@example.com/me%40example.com",
+                "sendgrid",
+                {**_SENDGRID, "targets": ["me@example.com"]},
+            ),
         ],
     )
     def test_reads_a_url_back_into_its_service_and_fields(self, url, service, fields):
@@ -268,6 +299,51 @@ class TestFieldsFromUrl:
 
         assert (found.id, read) == (service, fields)
         checked_fields(service, read)
+
+    @pytest.mark.parametrize(
+        "service,fields",
+        [
+            ("sendgrid", {**_SENDGRID, "targets": ["me@example.com"]}),
+            ("brevo", _SENDGRID),
+            ("postmark", _SENDGRID),
+            ("mailersend", _SENDGRID),
+            ("resend", {"apikey": "abc123", "from_addr": "romm@example.com"}),
+            (
+                "ses",
+                {
+                    "from_email": "romm@example.com",
+                    "access_key_id": "AKID",
+                    "secret_access_key": "s3cr3t",
+                    "region": "us-east-1",
+                },
+            ),
+            (
+                "octopush",
+                {
+                    "api_login": "romm@example.com",
+                    "api_key": "k3y",
+                    "targets": ["+15551234567"],
+                },
+            ),
+            (
+                "twist",
+                {"password": "pw", "email": "romm@example.com", "targets": ["#romm"]},
+            ),
+            (
+                "voipms",
+                {
+                    "password": "pw",
+                    "email": "romm@example.com",
+                    "from_phone": "15551234567",
+                    "targets": ["15557654321"],
+                },
+            ),
+        ],
+    )
+    def test_reads_back_the_url_an_email_field_makes(self, service, fields):
+        found, read = fields_from_url(build_url(find_service(service), fields))
+
+        assert (found.id, read) == (service, checked_fields(service, fields))
 
     @pytest.mark.parametrize(
         "url,reason",

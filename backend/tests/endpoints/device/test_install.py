@@ -3,18 +3,17 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
-from tests.factories import make_device_token, make_rom
+from tests.factories import make_device_token, make_platform, make_rom
 
 from endpoints.device import install as device_install
 from endpoints.responses.device.install import InstallRequestSchema, InstallStatus
-from handler.database import db_device_handler, db_platform_handler, db_rom_handler
+from handler.database import db_device_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.device_install import device_install_handler
 from handler.redis_handler import sync_cache
 from models.device import Device
 from models.notification import NotificationKind, NotificationLevel
 from models.permission import HiddenEntity, PermEntity
-from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 
@@ -199,9 +198,7 @@ class TestCreate:
         emits["queued"].assert_not_awaited()
 
     def test_rejects_an_excluded_platform(self, client, headers, device):
-        platform = db_platform_handler.add_platform(
-            Platform(name="Windows", slug="win", fs_slug="win")
-        )
+        platform = make_platform("win", name="Windows")
         rom = make_rom(platform, "setup", fs_extension="exe")
         _add_file(rom, "setup.exe", RomFileCategory.GAME)
 

@@ -1,10 +1,15 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import { saveSyncMocks } from "@/test-utils/deviceSaveSync";
 import type { RuffleSourceAPI } from "@/types/ruffle";
+import { zipRuffleSaves } from "@/v2/utils/ruffleSaves";
 import Ruffle from "./Ruffle.vue";
 
 const mocks = vi.hoisted(() => ({
+  confirm: vi.fn(),
+  exitLeave: vi.fn(),
+  routeLeaveGuard: null as ((to: { fullPath: string }) => unknown) | null,
   getRom: vi.fn(),
   playSessionStart: vi.fn(),
   flushPlaySession: vi.fn(),
@@ -16,9 +21,27 @@ const mocks = vi.hoisted(() => ({
 vi.mock("vue-i18n");
 
 vi.mock("vue-router", () => ({
+  onBeforeRouteLeave: (guard: (to: { fullPath: string }) => unknown) => {
+    mocks.routeLeaveGuard = guard;
+  },
   useRoute: () => ({ params: { rom: "1" } }),
   useRouter: () => ({ push: mocks.push }),
 }));
+
+vi.mock("@/stores/auth", () => ({ default: () => ({ user: { id: 7 } }) }));
+
+vi.mock("@/v2/composables/useConfirm", () => ({
+  useConfirm: () => mocks.confirm,
+}));
+
+vi.mock("@/v2/composables/usePlayerExit", () => ({
+  usePlayerExit: () => ({
+    leave: mocks.exitLeave,
+    guard: () => Promise.resolve(true),
+  }),
+}));
+
+vi.mock("@/v2/utils/saveSync", () => import("@/test-utils/deviceSaveSync"));
 
 vi.mock("@/plugins/router", () => ({
   ROUTES: { ROM: "rom", PLATFORM: "platform" },
@@ -90,6 +113,12 @@ beforeEach(() => {
 });
 
 beforeEach(() => {
+  vi.clearAllMocks();
+  localStorage.clear();
+  saveSyncMocks.prepare.mockResolvedValue([]);
+  saveSyncMocks.capture.mockResolvedValue(undefined);
+  saveSyncMocks.push.mockResolvedValue(true);
+  mocks.confirm.mockResolvedValue(false);
   mocks.getRom.mockResolvedValue({ data: rom });
   window.RufflePlayer = {
     newest: () => null,
@@ -125,6 +154,7 @@ async function mountAndPlay(): Promise<VueWrapper> {
   });
   await flushPromises();
   await wrapper.get(".r-v2-player__play").trigger("click");
+  await flushPromises();
   await nextTick();
   return wrapper;
 }
@@ -156,6 +186,128 @@ describe("Ruffle launch", () => {
     expect(mocks.playSessionStart).not.toHaveBeenCalled();
     expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
     expect(dispatchUnload().defaultPrevented).toBe(false);
+    wrapper.unmount();
+  });
+});
+
+const HOST = window.location.hostname;
+const SWF_KEY = "api/roms/1/content/game.swf/progress";
+
+function sol(marker: number): Uint8Array {
+  return new Uint8Array([
+    0x00,
+    0xbf,
+    0,
+    0,
+    0,
+    9,
+    0x54,
+    0x43,
+    0x53,
+    0x4f,
+    marker,
+  ]);
+}
+
+function stored(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes));
+}
+
+describe("Ruffle saves", () => {
+  beforeEach(() => {
+    window.RufflePlayer = {
+      newest: () => makeRuffleSource(),
+    } as unknown as typeof window.RufflePlayer;
+  });
+
+  it("syncs saves left in storage and restores the synced copy", async () => {
+    localStorage.setItem(`${HOST}/${SWF_KEY}`, stored(sol(1)));
+    saveSyncMocks.prepare.mockResolvedValue([
+      { slot: "autosave", bytes: zipRuffleSaves({ [SWF_KEY]: sol(2) }) },
+    ]);
+
+    const wrapper = await mountAndPlay();
+
+    const [leftover] = saveSyncMocks.prepare.mock.calls[0]![0];
+    expect(leftover).toMatchObject({
+      slot: "autosave",
+      fileName: "Flash Game.sol.zip",
+    });
+    expect(localStorage.getItem(`${HOST}/${SWF_KEY}`)).toBe(stored(sol(2)));
+    wrapper.unmount();
+  });
+
+  it("uploads the saves and clears them from storage on quit", async () => {
+    const wrapper = await mountAndPlay();
+    localStorage.setItem(`${HOST}/${SWF_KEY}`, stored(sol(3)));
+
+    expect(mocks.routeLeaveGuard?.({ fullPath: "/rom/1" })).toBe(false);
+    await flushPromises();
+
+    expect(saveSyncMocks.capture).toHaveBeenCalledWith([
+      expect.objectContaining({ slot: "autosave" }),
+    ]);
+    expect(saveSyncMocks.push).toHaveBeenCalled();
+    expect(localStorage.getItem(`${HOST}/${SWF_KEY}`)).toBeNull();
+    expect(mocks.exitLeave).toHaveBeenCalledWith("/rom/1");
+    expect(document.querySelector("#r-v2-ruffle-stage > *")).toBeNull();
+    wrapper.unmount();
+  });
+
+  it("sends the saves and keeps them in storage as the page goes away", async () => {
+    const wrapper = await mountAndPlay();
+    localStorage.setItem(`${HOST}/${SWF_KEY}`, stored(sol(4)));
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(saveSyncMocks.captureOnUnload).toHaveBeenCalledWith([
+      expect.objectContaining({ slot: "autosave" }),
+    ]);
+    expect(localStorage.getItem(`${HOST}/${SWF_KEY}`)).toBe(stored(sol(4)));
+    wrapper.unmount();
+  });
+
+  it("uploads a change once two polls agree on it", async () => {
+    // Only the poll is faked; mounting still flushes on real timers.
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const wrapper = await mountAndPlay();
+    try {
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(saveSyncMocks.capture).toHaveBeenLastCalledWith([]);
+
+      localStorage.setItem(`${HOST}/${SWF_KEY}`, stored(sol(5)));
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(saveSyncMocks.capture).toHaveBeenLastCalledWith([]);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(saveSyncMocks.capture).toHaveBeenLastCalledWith([
+        expect.objectContaining({ slot: "autosave" }),
+      ]);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(saveSyncMocks.capture).toHaveBeenLastCalledWith([]);
+    } finally {
+      vi.useRealTimers();
+      wrapper.unmount();
+    }
+  });
+
+  it("restarts the game when the player stays after a failed upload", async () => {
+    saveSyncMocks.push.mockResolvedValue(false);
+    const wrapper = await mountAndPlay();
+    localStorage.setItem(`${HOST}/${SWF_KEY}`, stored(sol(3)));
+
+    mocks.routeLeaveGuard?.({ fullPath: "/rom/1" });
+    await flushPromises();
+
+    expect(mocks.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "play.quit-before-save-synced" }),
+    );
+    expect(mocks.exitLeave).not.toHaveBeenCalled();
+    expect(localStorage.getItem(`${HOST}/${SWF_KEY}`)).toBe(stored(sol(3)));
+    expect(document.getElementById("r-v2-ruffle-stage")?.children).toHaveLength(
+      1,
+    );
     wrapper.unmount();
   });
 });

@@ -64,6 +64,7 @@ export const v2RouteComponents: Partial<Record<RouteName, V2Route>> = {
     import("@/v2/views/Settings/MetadataSources.vue"),
   [ROUTES.CLIENT_API_TOKENS]: () =>
     import("@/v2/views/Settings/ClientApiTokens.vue"),
+  [ROUTES.DEVICES]: () => import("@/v2/views/Settings/Devices.vue"),
   [ROUTES.ADMINISTRATION]: () =>
     import("@/v2/views/Settings/Administration.vue"),
   [ROUTES.SERVER_STATS]: () => import("@/v2/views/Settings/ServerStats.vue"),

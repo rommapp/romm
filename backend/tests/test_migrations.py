@@ -18,10 +18,10 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy import DefaultClause, FetchedValue, Table, UniqueConstraint
 from sqlalchemy.sql.schema import NULL_UNSPECIFIED
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 
 import models
-from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
+from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
 from models.collection import SmartCollection
@@ -1047,9 +1047,7 @@ def test_the_sibling_platform_names_revision_renames_only_the_stale_name():
         ("Commodore 64", "c64", "c64"),
         ("C128 (custom)", "c128", "c128-custom"),
     ):
-        db_platform_handler.add_platform(
-            Platform(name=name, slug=slug, fs_slug=fs_slug)
-        )
+        make_platform(slug, name=name, fs_slug=fs_slug)
 
     with sync_engine.begin() as connection:
         with Operations.context(MigrationContext.configure(connection)):

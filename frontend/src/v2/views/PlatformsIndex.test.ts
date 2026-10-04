@@ -3,6 +3,7 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import { platformFixture } from "@/utils/platform.fixtures";
 import PlatformsIndex from "./PlatformsIndex.vue";
 
 vi.mock("vue-i18n");
@@ -129,17 +130,13 @@ function platform(
   romCount: number,
   overrides: Partial<Platform> = {},
 ): Platform {
-  return {
+  return platformFixture({
     id,
-    display_name: displayName,
     name: displayName,
     slug: displayName.toLowerCase().replaceAll(" ", "-"),
-    fs_slug: displayName.toLowerCase().replaceAll(" ", "-"),
     rom_count: romCount,
-    abbreviation: "",
-    alternative_names: [],
     ...overrides,
-  } as Platform;
+  });
 }
 
 describe("PlatformsIndex", () => {
@@ -323,8 +320,9 @@ describe("PlatformsIndex", () => {
 
     it("matches a renamed platform on its original name", () => {
       storePlatforms().set([
-        platform(1, "My Handhelds", 7, {
-          name: "Game Boy Advance",
+        platform(1, "Game Boy Advance", 7, {
+          custom_name: "My Handhelds",
+          display_name: "My Handhelds",
           slug: "gba",
           fs_slug: "gba",
         }),

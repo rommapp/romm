@@ -1,16 +1,15 @@
+import { AxiosError, AxiosHeaders } from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { sessionStateName } from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
+import { saveContentHash } from "@/v2/utils/saveSync/hash";
 import {
   buildStateFormData,
   captureScreenshot,
   dumpSaveFile,
   heldFor,
-  createRetryBackoff,
   createSaveSyncTracker,
-  RETRY_BACKOFF_MAX_MS,
-  RETRY_BACKOFF_MIN_MS,
   bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
   installNetplayHostAudioTap,
@@ -636,54 +635,6 @@ describe("createSaveSyncTracker", () => {
   });
 });
 
-describe("createRetryBackoff", () => {
-  let clock = 0;
-  const backoff = () => createRetryBackoff(() => clock);
-
-  beforeEach(() => {
-    clock = 0;
-  });
-
-  it("tries straight away until something has failed", () => {
-    expect(backoff().ready()).toBe(true);
-  });
-
-  // Once a second only hammers a server that keeps saying no.
-  it("doubles the wait after each failure, up to a cap", () => {
-    const retry = backoff();
-    const waits: number[] = [];
-    for (let i = 0; i < 6; i++) {
-      retry.failed();
-      const start = clock;
-      while (!retry.ready()) clock += 1_000;
-      waits.push(clock - start);
-    }
-
-    expect(waits).toEqual([
-      RETRY_BACKOFF_MIN_MS,
-      4_000,
-      8_000,
-      16_000,
-      RETRY_BACKOFF_MAX_MS,
-      RETRY_BACKOFF_MAX_MS,
-    ]);
-  });
-
-  it("starts over once an upload lands or the server is back", () => {
-    const retry = backoff();
-    retry.failed();
-    retry.failed();
-    expect(retry.ready()).toBe(false);
-
-    retry.reset();
-    expect(retry.ready()).toBe(true);
-
-    retry.failed();
-    clock += RETRY_BACKOFF_MIN_MS;
-    expect(retry.ready()).toBe(true);
-  });
-});
-
 describe("pollSaveFiles", () => {
   const emulatorWith = (sramBytes: number) => ({
     started: true,
@@ -1174,9 +1125,49 @@ describe("saveSave", () => {
         slot: "autosave",
         autocleanup: true,
         overwrite: true,
+        contentHash: saveContentHash(new Uint8Array(bytes)),
       }),
     );
     expect(rom.user_saves).toEqual([{ id: 2, slot: "autosave" }]);
+  });
+
+  it("guards a version that continues the slot's current one", async () => {
+    await saveSave({ rom, save: null, saveFile: bytes, guarded: true });
+
+    expect(saveApiMocks.uploadSaves).toHaveBeenCalledWith(
+      expect.objectContaining({ slot: "autosave", overwrite: false }),
+    );
+  });
+
+  it("archives the progress when another device moved the slot on", async () => {
+    const conflict = new AxiosError("conflict", "ERR", undefined, undefined, {
+      status: 409,
+      statusText: "",
+      data: null,
+      headers: {},
+      config: { headers: new AxiosHeaders() },
+    });
+    const archived = { id: 8, slot: null } as SaveSchema;
+    saveApiMocks.uploadSaves
+      .mockResolvedValueOnce([{ status: "rejected", reason: conflict }])
+      .mockResolvedValueOnce([{ status: "fulfilled", value: archived }]);
+
+    const save = await saveSave({
+      rom,
+      save: null,
+      saveFile: bytes,
+      deviceId: "device-1",
+      guarded: true,
+    });
+
+    const archive = saveApiMocks.uploadSaves.mock.calls[1]![0];
+    expect(archive.slot).toBeUndefined();
+    expect(archive.deviceId).toBe("device-1");
+    expect(archive.savesToUpload[0].saveFile.name).toMatch(
+      /^game \[.+\]\.srm$/,
+    );
+    expect(save).toBe(archived);
+    expect(rom.user_saves).toEqual([archived]);
   });
 
   it("leaves the datetime tag of a slotted upload to the backend", async () => {

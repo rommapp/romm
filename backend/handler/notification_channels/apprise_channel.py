@@ -118,7 +118,7 @@ _HOST: Final = re.compile(r"\[[0-9a-f:.]+\]|[\w.-]+", re.I)
 # A token that is a URL path, which Apprise wants between slashes.
 _PATH_TOKEN: Final = "path"
 
-FieldType = Literal["string", "int", "float", "bool", "choice", "list"]
+FieldType = Literal["string", "email", "int", "float", "bool", "choice", "list"]
 FieldValue = str | int | float | bool | list[str]
 
 # What Apprise logs about the send running in this context: its warnings, and
@@ -420,7 +420,8 @@ def _segment(field: AppriseField, value: FieldValue) -> str:
         return f"/{quote(path)}/" if path else "/"
     if isinstance(value, list):
         return field.delimiter.join(quote(str(item), safe="") for item in value)
-    return quote(str(value), safe="")
+    # Apprise reads an address's @ as the URL's own.
+    return quote(str(value), safe="@" if field.type == "email" else "")
 
 
 def _fill(
@@ -569,7 +570,9 @@ def _token_pattern(service: AppriseService, key: str) -> str:
     if key in _TOKEN_PATTERNS:
         return _TOKEN_PATTERNS[key]
     field = service.field(key)
-    return r".+" if field is not None and field.type == "list" else r"[^/@?#]+"
+    if field is not None and field.type == "list":
+        return r".+"
+    return r"[^/?#]+" if field is not None and field.type == "email" else r"[^/@?#]+"
 
 
 def _template_pattern(service: AppriseService, template: str) -> re.Pattern[str]:

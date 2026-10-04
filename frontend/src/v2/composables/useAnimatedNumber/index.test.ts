@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { computed, effectScope, ref } from "vue";
+import { computed, effectScope, ref, watch } from "vue";
 import { useAnimatedNumber } from "./index";
 
 // Reduced motion lands on the value in one step, which is what makes the
@@ -58,6 +58,82 @@ describe("useAnimatedNumber", () => {
     expect(seen[0]).toBeLessThan(100);
     expect(display.value).toBe(100);
     scope.stop();
+    reduced.value = true;
+  });
+
+  it("picks up where a remembered count left off after a remount", async () => {
+    reduced.value = false;
+    const source = ref<number | null>(573);
+    const first = effectScope();
+    first.run(() =>
+      useAnimatedNumber(() => source.value, { rememberAs: () => "remount" }),
+    );
+    first.stop();
+
+    const second = effectScope();
+    let display!: ReturnType<typeof useAnimatedNumber>;
+    second.run(() => {
+      display = useAnimatedNumber(() => source.value, {
+        rememberAs: () => "remount",
+      });
+    });
+
+    // Already landed before, so it paints the value without rolling from 0.
+    expect(display.value).toBe(573);
+    second.stop();
+    reduced.value = true;
+  });
+
+  it("rolls a remembered count from its last value when it changed", async () => {
+    reduced.value = false;
+    const source = ref<number | null>(10);
+    const first = effectScope();
+    first.run(() =>
+      useAnimatedNumber(() => source.value, { rememberAs: () => "changed" }),
+    );
+    first.stop();
+
+    source.value = 20;
+    const second = effectScope();
+    const seen: number[] = [];
+    let display!: ReturnType<typeof useAnimatedNumber>;
+    second.run(() => {
+      display = useAnimatedNumber(() => source.value, {
+        duration: 200,
+        rememberAs: () => "changed",
+      });
+      expect(display.value).toBe(10);
+      watch(display, (value) => seen.push(Number(value)), { flush: "sync" });
+    });
+    await vi.waitFor(() => expect(display.value).toBe(20));
+
+    expect(Math.min(...seen)).toBeGreaterThanOrEqual(10);
+    second.stop();
+    reduced.value = true;
+  });
+
+  it("remembers a count reused under a new key with an equal value", async () => {
+    reduced.value = false;
+    const source = ref<number | null>(5);
+    const key = ref("equal-a");
+    const first = effectScope();
+    first.run(() =>
+      useAnimatedNumber(() => source.value, { rememberAs: () => key.value }),
+    );
+    key.value = "equal-b";
+    await Promise.resolve();
+    first.stop();
+
+    const second = effectScope();
+    let display!: ReturnType<typeof useAnimatedNumber>;
+    second.run(() => {
+      display = useAnimatedNumber(() => source.value, {
+        rememberAs: () => "equal-b",
+      });
+    });
+
+    expect(display.value).toBe(5);
+    second.stop();
     reduced.value = true;
   });
 });

@@ -30,6 +30,7 @@ export const ROUTES = {
   CONVERSION_SETTINGS: "conversion-settings",
   METADATA_SOURCES: "metadata-sources",
   CLIENT_API_TOKENS: "client-api-tokens",
+  DEVICES: "devices",
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
   LOGS: "logs",

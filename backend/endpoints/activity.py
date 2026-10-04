@@ -28,6 +28,14 @@ def _visible_activity(
     return [ActivityEntrySchema(**e) for e in entries]
 
 
+def _is_hidden(request: Request, rom_id: int) -> bool:
+    """Whether the caller's visibility rules hide the ROM."""
+    visibility = get_permissions(request).rom_visibility
+    if visibility.is_unrestricted:
+        return False
+    return rom_id in db_rom_handler.get_hidden_rom_ids_among([rom_id], visibility)
+
+
 class DeviceHeartbeatPayload(BaseModel):
     rom_id: int = Field(ge=1)
     device_id: str = Field(min_length=1, max_length=255)
@@ -66,15 +74,17 @@ async def device_heartbeat(
             detail=f"Device {payload.device_id} not found for this user",
         )
 
-    # build_entry does the ROM lookup, so a check here would only be the same
-    # query twice; None back from it is the missing ROM.
-    entry = await activity_handler.build_entry(
-        user_id=request.user.id,
-        device_id=device.id,
-        rom_id=payload.rom_id,
-        preserve_started_at=True,
-        device_type=device.client or "unknown",
-    )
+    # build_entry does the ROM lookup; None back from it is a missing ROM, and a
+    # hidden one answers the same 404.
+    entry = None
+    if not _is_hidden(request, payload.rom_id):
+        entry = await activity_handler.build_entry(
+            user_id=request.user.id,
+            device_id=device.id,
+            rom_id=payload.rom_id,
+            preserve_started_at=True,
+            device_type=device.client or "unknown",
+        )
     if entry is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

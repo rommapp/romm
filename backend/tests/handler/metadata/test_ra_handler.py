@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException, status
-from tests.handler.metadata.conftest import local_timezone
+from tests.timezones import local_timezone
 
 from adapters.services.retroachievements_types import RAGameExtendedDetails
 from handler.filesystem import fs_resource_handler
