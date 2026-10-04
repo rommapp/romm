@@ -51,6 +51,9 @@ class ActivityHandler:
     ROM_INDEX_TTL = 120  # slightly longer than ACTIVITY_TTL
     KEY_PREFIX = "activity:user:"
     ROM_INDEX_PREFIX = "activity:rom:"
+    REFRESH_DELAY = 5.0  # seconds; failed lookups within it share one refresh
+
+    _refresh: asyncio.Task[None] | None = None
 
     def _activity_key(self, user_id: int, device_id: str) -> str:
         return f"{self.KEY_PREFIX}{user_id}:{device_id}"
@@ -165,13 +168,29 @@ class ActivityHandler:
         if rooms is None:
             # An unknown audience can't be sent the session; every client
             # re-lists what it may see instead.
-            event, payload = "activity:refresh", {}
-        elif not rooms:
+            self._queue_refresh()
+            return
+        if not rooms:
             return
         try:
             await socket_handler.socket_server.emit(event, payload, to=rooms)
         except Exception as e:  # noqa: BLE001
             log.warning(f"Failed to broadcast {event}: {e}")
+
+    def _queue_refresh(self) -> None:
+        """Ask every socket to re-list, once for however many lookups fail meanwhile."""
+        loop = asyncio.get_running_loop()
+        pending = self._refresh
+        if pending is not None and not pending.done() and pending.get_loop() is loop:
+            return
+        self._refresh = loop.create_task(self._send_refresh())
+
+    async def _send_refresh(self) -> None:
+        await asyncio.sleep(self.REFRESH_DELAY)
+        try:
+            await socket_handler.socket_server.emit("activity:refresh", {})
+        except Exception as e:  # noqa: BLE001
+            log.warning(f"Failed to broadcast activity:refresh: {e}")
 
     async def set_active(self, entry: ActivityEntry) -> None:
         """Store or refresh a user's active play session."""

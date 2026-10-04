@@ -13,10 +13,9 @@ export default defineStore("activity", {
     activities: [] as ActivityEntry[],
     initialized: false,
     socketBound: false,
-    // Bumped by each socket event, so a fetch that raced one can tell.
+    // Bumped by anything that makes an in-flight list stale, so it asks again.
     version: 0,
-    // Bumped by each fetch, so a slower, older response can't overwrite a newer one.
-    latestFetch: 0,
+    fetching: false,
   }),
 
   getters: {
@@ -38,20 +37,37 @@ export default defineStore("activity", {
 
   actions: {
     async fetchAll() {
-      const fetchId = ++this.latestFetch;
+      // One list request at a time: a call during one makes it ask again, so an
+      // older answer can't land after a newer one.
+      if (this.fetching) {
+        this.version++;
+        return;
+      }
+      this.fetching = true;
+      let dropped = false;
       try {
-        for (let attempt = 1; ; attempt++) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
           const version = this.version;
-          const { data } = await activityApi.getAllActivity();
-          if (fetchId !== this.latestFetch) return;
-          // An event that landed mid-request may be missing, so ask again.
-          if (version !== this.version && attempt < 3) continue;
-          this.activities = data;
-          this.initialized = true;
-          return;
+          try {
+            const { data } = await activityApi.getAllActivity();
+            // Something landed mid-request, so the list may be out of date.
+            if (version !== this.version && attempt < 3) {
+              dropped = true;
+              continue;
+            }
+            this.activities = data;
+            this.initialized = true;
+            return;
+          } catch (error) {
+            // Having dropped a stale answer, one failure mustn't leave the page loading.
+            if (!dropped || attempt === 3) {
+              console.error("Error fetching activity:", error);
+              return;
+            }
+          }
         }
-      } catch (error) {
-        console.error("Error fetching activity:", error);
+      } finally {
+        this.fetching = false;
       }
     },
 
