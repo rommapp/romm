@@ -1929,6 +1929,28 @@ class TestUpdateMetadataIDs:
         store_media_file_mock.assert_awaited_once_with(launchbox_url, back_path)
         assert response.json()["launchbox_metadata"]["box2d_back_path"] == back_path
 
+    def test_get_rom_with_cleared_launchbox_media_paths(
+        self, client: TestClient, access_token: str, rom: Rom
+    ):
+        """A LaunchBox media path cleared by a failed download still serializes."""
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "launchbox_metadata": {
+                    "box2d_back_url": "https://images.launchbox-app.com/back.png",
+                    "box2d_back_path": None,
+                    "video_path": None,
+                }
+            },
+        )
+
+        response = client.get(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["launchbox_metadata"]["box2d_back_path"] is None
+
     @patch.object(RAHandler, "get_rom_by_id", return_value=RAGameRom(ra_id=MOCK_RA_ID))
     def test_update_rom_ra_id(
         self,

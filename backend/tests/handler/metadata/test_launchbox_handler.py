@@ -1185,7 +1185,7 @@ class TestPopulateRomSpecificPaths:
 
             mock_preferred.return_value = [MetadataMediaType.VIDEO]
             populate_rom_specific_paths(metadata, self._rom())
-        path = metadata.get("video_path", "")
+        path = metadata.get("video_path") or ""
         assert path.endswith("/video.mp4")
         assert "7" in path and "42" in path
 
@@ -1207,7 +1207,7 @@ class TestPopulateRomSpecificPaths:
             ) as mock_preferred:
                 mock_preferred.return_value = [MetadataMediaType.VIDEO]
                 populate_rom_specific_paths(metadata, self._rom())
-            assert metadata.get("video_path", "").endswith(expected)
+            assert (metadata.get("video_path") or "").endswith(expected)
 
     def test_video_not_in_preferred_media_skips(self):
         metadata: LaunchboxMetadata = {
