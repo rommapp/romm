@@ -3,6 +3,7 @@ from datetime import timedelta
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
+import httpx2
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -50,7 +51,9 @@ def emit() -> Iterator[AsyncMock]:
         yield emit
 
 
-def _heartbeat(client: TestClient, user: User, device_id: str, rom_id: int) -> Any:
+def _heartbeat(
+    client: TestClient, user: User, device_id: str, rom_id: int
+) -> httpx2.Response:
     return client.post(
         "/api/activity/heartbeat",
         headers=_auth(user),

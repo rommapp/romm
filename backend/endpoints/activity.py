@@ -74,9 +74,8 @@ async def device_heartbeat(
             detail=f"Device {payload.device_id} not found for this user",
         )
 
-    # build_entry does the ROM lookup, so a check here would only be the same
-    # query twice; None back from it is the missing ROM. A hidden ROM answers
-    # the same 404 as a missing one.
+    # build_entry does the ROM lookup; None back from it is a missing ROM, and a
+    # hidden one answers the same 404.
     entry = None
     if not _is_hidden(request, payload.rom_id):
         entry = await activity_handler.build_entry(
