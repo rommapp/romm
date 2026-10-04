@@ -258,16 +258,18 @@ class PlaymatchHandler(MetadataHandler):
             log.debug("No match found for the provided ROM file.")
             return fallback_rom
 
-        externalMetadata = response.get("externalMetadata", [])
-        if len(externalMetadata) == 0:
+        external_metadata = response.get("externalMetadata")
+        if not isinstance(external_metadata, list) or not external_metadata:
             log.debug("No external metadata found for the matched ROM file.")
             return fallback_rom
 
         result = fallback_rom
-        for metadata in externalMetadata:
+        for metadata in external_metadata:
+            if not isinstance(metadata, dict):
+                continue
             provider_name = metadata.get("providerName", None)
             provider_game_id = metadata.get("providerId", None)
-            if not provider_name or provider_game_id is None:
+            if not isinstance(provider_name, str) or provider_game_id is None:
                 continue
 
             attr = PLAYMATCH_TAG_TO_ATTR.get(provider_name.upper())
