@@ -2,7 +2,6 @@ import binascii
 import json
 import re
 from base64 import b64encode
-from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, timezone
 from io import BytesIO
