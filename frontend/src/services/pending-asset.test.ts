@@ -249,6 +249,7 @@ describe("syncPendingAssets", () => {
       autocleanup: false,
       overwrite: false,
     });
+    expect(request.contentHash).toMatch(/^[0-9a-f]{32}$/);
     expect(request.savesToUpload[0].screenshotFile.name).toBe("game.png");
     expect(rows.size).toBe(0);
   });

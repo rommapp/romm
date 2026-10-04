@@ -13,18 +13,19 @@
 // morphs, RExpandTransition, RBox3D's idle drift). One hook, one Settings
 // toggle, one source of truth.
 //
-// Per-device (localStorage, not backend-synced): whether motion/effects are
-// too heavy depends on the machine RomM is viewed on, not the account. Same
+// Per user on this device (localStorage, not backend-synced): whether
+// motion/effects are too heavy depends on the machine RomM is viewed on. Same
 // singleton rationale as useBreakpoint: the media query listener attaches once
 // at module load and every consumer shares the reactive refs.
-import { useLocalStorage, useMediaQuery } from "@vueuse/core";
+import { useMediaQuery } from "@vueuse/core";
 import { computed, type ComputedRef } from "vue";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 
 // null = no explicit choice yet (follow the system); true/false = user
 // override. An explicit serializer is required: with a null default vueuse
 // would fall back to its identity ("any") serializer and read persisted
 // booleans back as strings.
-const override = useLocalStorage<boolean | null>(
+const override = useUserLocalStorage<boolean | null>(
   "settings.v2.reducedMotion",
   null,
   {

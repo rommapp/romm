@@ -17,16 +17,17 @@
 // flat layout with no indicator highlighted. The alternative (per-view
 // groupBy state) would break the "one consistent reading mode" contract
 // this composable is built around, so we accept the minor inconsistency.
-import { useLocalStorage, type RemovableRef } from "@vueuse/core";
+import type { RemovableRef } from "@vueuse/core";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 
 export type GroupByMode =
   "letter" | "family" | "category" | "generation" | "playable" | "none";
 export type LayoutMode = "grid" | "list";
 export type ToolbarPosition = "header" | "floating";
 
-const groupBy = useLocalStorage<GroupByMode>("v2.gallery.groupBy", "none");
-const layout = useLocalStorage<LayoutMode>("v2.gallery.layout", "grid");
-const toolbarPosition = useLocalStorage<ToolbarPosition>(
+const groupBy = useUserLocalStorage<GroupByMode>("v2.gallery.groupBy", "none");
+const layout = useUserLocalStorage<LayoutMode>("v2.gallery.layout", "grid");
+const toolbarPosition = useUserLocalStorage<ToolbarPosition>(
   "v2.gallery.toolbarPosition",
   "header",
 );

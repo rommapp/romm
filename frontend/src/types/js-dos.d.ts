@@ -7,8 +7,12 @@ export interface JsDosOptions {
   autoSave: boolean;
   fullScreen: boolean;
   fsChanges: {
-    local: boolean;
+    local?: boolean;
     urlToKey?: (url: string) => Promise<string>;
+    /** Supplies the saved changes in place of browser storage. */
+    pull?: (key: string) => Promise<Uint8Array | null>;
+    /** Receives the changes on each save in place of browser storage; a throw fails the save. */
+    push?: (key: string, changes: Uint8Array) => Promise<void>;
   };
 }
 

@@ -1032,6 +1032,86 @@ class TestNegotiateAdvanced:
         ops_for_save = [op for op in data["operations"] if op.get("save_id") == save.id]
         assert len(ops_for_save) == 0
 
+    def test_negotiate_restores_a_synced_save_the_client_lost(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(id="neg-restore-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device_id=device.id,
+            save_id=save.id,
+            synced_at=datetime.now(timezone.utc),
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={"device_id": device.id, "saves": [], "restore_unlisted": True},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        ops_for_save = [
+            op for op in response.json()["operations"] if op.get("save_id") == save.id
+        ]
+        assert [op["action"] for op in ops_for_save] == ["download"]
+
+    def test_negotiate_scopes_server_saves_to_the_listed_emulators(
+        self, client, access_token: str, admin_user: User, rom: Rom, platform
+    ):
+        db_device_handler.add_device(
+            Device(id="neg-emu-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+        native = make_save(
+            rom,
+            admin_user,
+            "native.sav",
+            emulator="retroarch",
+            slot="autosave",
+            content_hash="NATIVE",
+            file_path=f"{platform.slug}/saves/retroarch",
+            file_size_bytes=1.0,
+        )
+        browser = make_save(
+            rom,
+            admin_user,
+            "browser.sav",
+            emulator="jsdos",
+            slot="quicksave",
+            content_hash="BROWSER",
+            file_path=f"{platform.slug}/saves/jsdos",
+            file_size_bytes=1.0,
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={
+                "device_id": "neg-emu-dev",
+                "rom_ids": [rom.id],
+                "emulators": ["jsdos"],
+                "saves": [
+                    {
+                        "rom_id": rom.id,
+                        "file_name": "autosave.changes",
+                        "slot": "autosave",
+                        "emulator": "jsdos",
+                        "content_hash": "LOCAL",
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                        "file_size_bytes": 1,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        operations = response.json()["operations"]
+        assert native.id not in {op.get("save_id") for op in operations}
+        actions = {(op["slot"], op["action"]) for op in operations}
+        assert ("autosave", "upload") in actions
+        assert ("quicksave", "download") in actions
+        assert browser.id in {op.get("save_id") for op in operations}
+
     def test_negotiate_matches_untagged_client_to_tagged_server_saves(
         self, client, access_token: str, admin_user: User, rom: Rom, platform
     ):

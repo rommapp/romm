@@ -28,7 +28,7 @@ import {
   RSwitch,
   RTextField,
 } from "@v2/lib";
-import { useEventListener, useLocalStorage } from "@vueuse/core";
+import { useEventListener } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import {
   computed,
@@ -43,6 +43,10 @@ import {
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import {
+  userStorage,
+  useUserLocalStorage,
+} from "@/composables/useUserLocalStorage";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
@@ -274,7 +278,7 @@ const bezelUrl = computed(() =>
 // the route param so it binds before `rom` resolves; stored as the compact "0"
 // hidden / "1" shown marker (anything else fails safe to shown), and defaults
 // are not written so merely opening a game leaves storage untouched.
-const showBezel = useLocalStorage(`player:${romId}:bezel`, true, {
+const showBezel = useUserLocalStorage(`player:${romId}:bezel`, true, {
   writeDefaults: false,
   serializer: {
     read: resolveStoredBezelVisible,
@@ -622,7 +626,7 @@ onMounted(async () => {
   );
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
-  const storedBiosID = localStorage.getItem(`player:${platformSlug}:bios_id`);
+  const storedBiosID = userStorage.getItem(`player:${platformSlug}:bios_id`);
 
   selectedFirmware.value = resolveInitialFirmware({
     options: firmwareOptions.value,
