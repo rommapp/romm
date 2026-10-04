@@ -75,7 +75,9 @@ class TestHeartbeat:
         assert body["rom_id"] == rom.id
         assert body["device_id"] == "deck"
         assert body["device_type"] == "grout"
-        emit.assert_awaited_once_with("activity:update", body)
+        emit.assert_awaited_once_with(
+            "activity:update", body, to=[f"user:{admin_user.id}"]
+        )
         listed = client.get("/api/activity", headers=_auth(admin_user)).json()
         assert listed == [body]
 
@@ -210,6 +212,7 @@ class TestClear:
         emit.assert_awaited_once_with(
             "activity:clear",
             {"user_id": admin_user.id, "device_id": "deck", "rom_id": rom.id},
+            to=[f"user:{admin_user.id}"],
         )
         assert client.get("/api/activity", headers=_auth(admin_user)).json() == []
 

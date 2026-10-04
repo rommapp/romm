@@ -4,6 +4,7 @@ import activityApi, {
   type ActivityEntry,
 } from "@/services/api/activity";
 import socket from "@/services/socket";
+import storeAuth from "@/stores/auth";
 
 export type { ActivityEntry, ActivityClearEvent };
 
@@ -12,6 +13,10 @@ export default defineStore("activity", {
     activities: [] as ActivityEntry[],
     initialized: false,
     socketBound: false,
+    // Bumped by each socket event, so a fetch that raced one can tell.
+    version: 0,
+    // Bumped by each fetch, so a slower, older response can't overwrite a newer one.
+    latestFetch: 0,
   }),
 
   getters: {
@@ -33,16 +38,25 @@ export default defineStore("activity", {
 
   actions: {
     async fetchAll() {
+      const fetchId = ++this.latestFetch;
       try {
-        const { data } = await activityApi.getAllActivity();
-        this.activities = data;
-        this.initialized = true;
+        for (let attempt = 1; ; attempt++) {
+          const version = this.version;
+          const { data } = await activityApi.getAllActivity();
+          if (fetchId !== this.latestFetch) return;
+          // An event that landed mid-request may be missing, so ask again.
+          if (version !== this.version && attempt < 3) continue;
+          this.activities = data;
+          this.initialized = true;
+          return;
+        }
       } catch (error) {
         console.error("Error fetching activity:", error);
       }
     },
 
     handleUpdate(entry: ActivityEntry) {
+      this.version++;
       const idx = this.activities.findIndex(
         (a) => a.user_id === entry.user_id && a.device_id === entry.device_id,
       );
@@ -55,8 +69,15 @@ export default defineStore("activity", {
     },
 
     handleClear(data: ActivityClearEvent) {
+      this.version++;
+      // A clear for the device's previous game must not drop its current one.
       this.activities = this.activities.filter(
-        (a) => !(a.user_id === data.user_id && a.device_id === data.device_id),
+        (a) =>
+          !(
+            a.user_id === data.user_id &&
+            a.device_id === data.device_id &&
+            a.rom_id === data.rom_id
+          ),
       );
     },
 
@@ -69,6 +90,14 @@ export default defineStore("activity", {
       });
       socket.on("activity:clear", (data: ActivityClearEvent) => {
         this.handleClear(data);
+      });
+      // A newly hidden ROM's session gets no clear here, so re-list what's visible.
+      socket.on("permissions:changed", (data: { user_id: number }) => {
+        if (data.user_id === storeAuth().user?.id) this.fetchAll();
+      });
+      // Sent to every socket when the server couldn't tell who may see a session.
+      socket.on("activity:refresh", () => {
+        if (storeAuth().user) this.fetchAll();
       });
 
       this.socketBound = true;
