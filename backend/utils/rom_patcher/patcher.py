@@ -12,6 +12,7 @@ import zipfile
 import zlib
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 from anyio import Path as AnyioPath
 
@@ -231,24 +232,32 @@ async def _apply_binary_patch(
         raise PatcherError(f"Patching timed out after {ROM_PATCHER_TIMEOUT}s") from e
 
     if proc.returncode != 0:
-        message = "Patching failed"
-        try:
-            err_data = json.loads(stderr.decode())
-            message = err_data.get("error", message)
-        except json.JSONDecodeError, UnicodeDecodeError:
-            if stderr:
-                message = stderr.decode(errors="replace").strip()
-        raise PatcherError(message)
+        error = _last_json_object(stderr).get("error")
+        if isinstance(error, str) and error:
+            raise PatcherError(error)
+        raise PatcherError(stderr.decode(errors="replace").strip() or "Patching failed")
 
     if not await AnyioPath(output_path).exists():
         raise PatcherError("Patcher did not produce an output file")
 
     # The script reports source-checksum validation in its JSON stdout.
-    try:
-        result = json.loads(stdout.decode())
-        return bool(result.get("validated", True))
-    except json.JSONDecodeError, UnicodeDecodeError:
-        return True
+    return bool(_last_json_object(stdout).get("validated", True))
+
+
+def _last_json_object(output: bytes) -> dict[str, Any]:
+    """The last line of the script's output that is a JSON object, or ``{}``.
+
+    RomPatcher.js logs to the same streams (the PMSR format prints while it
+    applies), so the script's own report is not the whole output.
+    """
+    for line in reversed(output.decode(errors="replace").splitlines()):
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            return value
+    return {}
 
 
 async def apply_patch(
