@@ -7,7 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 from fastapi import HTTPException, status
+from tests.adapters.services.scripted_server import scripted_server
 
+from adapters.services import steamgriddb
 from adapters.services.steamgriddb import (
     SteamGridDBService,
     auth_middleware,
@@ -877,3 +879,27 @@ class TestSteamGridDBServiceEdgeCases:
         assert "nsfw=" not in call_args
         assert "humor=" not in call_args
         assert "epilepsy=" not in call_args
+
+
+class TestGetGameById:
+    GAME = {"id": 7, "name": "Half-Life", "types": ["steam"], "verified": True}
+
+    async def test_returns_the_game(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(steamgriddb, "STEAMGRIDDB_API_KEY", "key")
+        async with scripted_server("/api/v2/games/id") as (fake, url):
+            fake.replies["7"] = [(200, {"success": True, "data": self.GAME})]
+            service = SteamGridDBService(base_url=url.removesuffix("/games/id"))
+
+            assert await service.get_game_by_id(7) == self.GAME
+
+            [request] = fake.requests
+            assert request.headers["Authorization"] == "Bearer key"
+
+    async def test_an_unknown_game_is_none(self):
+        async with scripted_server("/api/v2/games/id") as (fake, url):
+            fake.replies["7"] = [
+                (404, {"success": False, "errors": ["Game not found"]})
+            ]
+            service = SteamGridDBService(base_url=url.removesuffix("/games/id"))
+
+            assert await service.get_game_by_id(7) is None
