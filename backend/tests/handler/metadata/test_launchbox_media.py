@@ -340,4 +340,4 @@ class TestRomMedia:
         ):
             populate_rom_specific_paths(metadata, rom)
 
-        assert metadata.get("video_path", "").endswith("/video.mp4")
+        assert (metadata.get("video_path") or "").endswith("/video.mp4")

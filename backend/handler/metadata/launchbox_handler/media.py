@@ -404,6 +404,7 @@ def _get_box_art(req: MediaRequest) -> dict[BoxArt, str]:
                     region,
                     *(r for r in ctx["preferred_regions"] if r != region),
                 ],
+                region_shortcodes=region_shortcodes,
             )
 
     return urls
