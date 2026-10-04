@@ -76,6 +76,7 @@ def test_the_name_still_finds_the_rom(ff9: Rom, unrelated: Rom):
         ("igdb_metadata", "alternative_names"),
         ("moby_metadata", "alternate_titles"),
         ("ss_metadata", "alternative_names"),
+        ("manual_metadata", "alternative_names"),
     ],
 )
 def test_each_provider_contributes_its_titles(
@@ -150,6 +151,15 @@ def test_updating_the_metadata_refreshes_the_aliases(ff9: Rom):
     )
 
     assert _search_ids("nine") == [ff9.id]
+    assert _search_ids("ff9") == []
+
+
+def test_hand_set_titles_replace_the_providers(ff9: Rom, unrelated: Rom):
+    db_rom_handler.update_rom(
+        ff9.id, {"manual_metadata": {"alternative_names": ["Пісня кристалів"]}}
+    )
+
+    assert _search_ids("пісня кристалів") == [ff9.id]
     assert _search_ids("ff9") == []
 
 

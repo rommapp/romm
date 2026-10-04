@@ -156,7 +156,15 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
                 [rom.get("franchise.name", None)]
                 + pydash.map_(rom.get("franchises", {}), "name")
             ),
-            "alternative_names": pydash.map_(rom.get("alternative_names", {}), "name"),
+            "alternative_names": pydash.uniq(
+                pydash.compact(
+                    [
+                        rom.get("name"),
+                        *pydash.map_(rom.get("alternative_names", {}), "name"),
+                        *pydash.map_(rom.get("game_localizations", {}), "name"),
+                    ]
+                )
+            ),
             "collections": pydash.map_(rom.get("collections", {}), "name"),
             "game_modes": pydash.map_(rom.get("game_modes", {}), "name"),
             # Not in `expandColumns`, so the proxy returns bare ids with no names.
@@ -476,7 +484,7 @@ class HasheousHandler(MetadataHandler):
             self.proxy_igdb_game_endpoint,
             params={
                 "Id": igdb_id,
-                "expandColumns": "age_ratings, alternative_names, collections, cover, dlcs, expanded_games, franchise, franchises, game_modes, genres, involved_companies, platforms, ports, remakes, screenshots, similar_games, videos",
+                "expandColumns": "age_ratings, alternative_names, collections, cover, dlcs, expanded_games, franchise, franchises, game_localizations, game_modes, genres, involved_companies, platforms, ports, remakes, screenshots, similar_games, videos",
             },
             method="GET",
         )

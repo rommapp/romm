@@ -947,6 +947,60 @@ def test_update_rom_reparses_tags_on_fs_name_change(
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_manual_alternative_names_are_searchable(
+    _get_rom_by_id_mock: AsyncMock,
+    _rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"raw_manual_metadata": json.dumps({"alternative_names": ["ACNH"]})},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["manual_metadata"]["alternative_names"] == ["ACNH"]
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"search_term": "acnh"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert [item["id"] for item in response.json()["items"]] == [rom.id]
+
+
+@pytest.mark.parametrize(
+    "manual_metadata",
+    [{"alternative_names": "ACNH"}, {"alternative_names": [5]}, {"genres": "Racing"}],
+)
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_rejects_malformed_manual_metadata(
+    _get_rom_by_id_mock: AsyncMock,
+    _rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    manual_metadata: dict[str, Any],
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"raw_manual_metadata": json.dumps(manual_metadata)},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    response = client.get(
+        f"/api/roms/{rom.id}", headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert not response.json()["manual_metadata"]
+
+
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom_rejects_fs_name_over_255_bytes(
     _get_rom_by_id_mock: AsyncMock,
     rename_fs_rom_mock: AsyncMock,
