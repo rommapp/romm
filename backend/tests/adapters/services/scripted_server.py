@@ -45,10 +45,7 @@ class ScriptedServer:
 
 @asynccontextmanager
 async def scripted_server(prefix: str) -> AsyncIterator[tuple[ScriptedServer, str]]:
-    """Serve `{prefix}/{endpoint}` and route the client session to it.
-
-    Yields the server and the base URL to hand the client.
-    """
+    """Serve `{prefix}/{endpoint}` and route the client session to it."""
     fake = ScriptedServer()
     app = web.Application()
     app.router.add_route("*", f"{prefix}/{{endpoint}}", fake.handle)
