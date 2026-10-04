@@ -1,13 +1,7 @@
 #!/usr/bin/env python3
 """Fill IGDB's abbreviation and alternative name into `IGDB_PLATFORM_LIST`.
 
-Reads IGDB_CLIENT_ID and IGDB_CLIENT_SECRET from the environment, asks IGDB
-for every listed platform's names, and rewrites adapters/services/igdb.py in
-place. Entries IGDB has no value for keep neither key; entries IGDB did not
-return are left as they are. Run `trunk fmt` after.
-
-It talks to IGDB directly rather than through IGDBService, which caches its
-token in Redis, so it runs without a configured backend.
+Needs only IGDB_CLIENT_ID and IGDB_CLIENT_SECRET, no Redis. Run `trunk fmt` after.
 """
 
 import json

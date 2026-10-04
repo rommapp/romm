@@ -58,11 +58,9 @@ def platform_abbreviation(slug: str) -> str:
 
 @functools.cache
 def platform_alternative_names(slug: str) -> tuple[str, ...]:
-    """IGDB's alternative name, then each provider's name other than the resolved one.
-
-    Skips another platform's own name, which providers return when they map a
-    variant (Famicom) onto its parent (NES).
-    """
+    """IGDB's alternative name, then each provider's name other than the resolved one."""
+    # Providers map some variants onto their parent (Famicom onto NES), so a
+    # name another platform resolves to is skipped.
     slugs_by_name = _slugs_by_resolved_name()
     seen = {_name_key(resolve_platform_name(slug))}
     alternative_names = []
