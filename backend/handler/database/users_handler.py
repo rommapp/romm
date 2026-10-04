@@ -6,6 +6,7 @@ from sqlalchemy.orm import QueryableAttribute, Session, load_only
 from sqlalchemy.sql import Delete, Select, Update
 
 from decorators.database import INJECTED_SESSION, begin_session
+from exceptions.database_exceptions import LastAdminError
 from models.user import Role, User
 
 from .base_handler import DBBaseHandler
@@ -84,12 +85,36 @@ class DBUsersHandler(DBBaseHandler):
         return session.get(User, id)
 
     @begin_session
+    def refuse_removing_the_last_admin(
+        self,
+        id: int,
+        data: dict[str, Any] | None = None,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Raise LastAdminError if writing `data` to `id`, or deleting it when None, would leave no admin, locking the admin rows until the transaction ends."""
+        if data is not None and data.get("role", Role.ADMIN) == Role.ADMIN:
+            return
+        admin_ids = session.scalars(
+            select(User.id)
+            .where(User.role == Role.ADMIN)
+            .order_by(User.id)
+            .with_for_update()
+        ).all()
+        if list(admin_ids) == [id]:
+            raise LastAdminError(id)
+
+    @begin_session
     def update_user(
         self,
         id: int,
         data: dict[str, Any],
+        *,
+        keep_an_admin: bool = False,
         session: Session = INJECTED_SESSION,
     ) -> User:
+        if keep_an_admin:
+            self.refuse_removing_the_last_admin(id, data, session=session)
         session.execute(
             update(User)
             .where(User.id == id)
@@ -126,8 +151,12 @@ class DBUsersHandler(DBBaseHandler):
     def delete_user(
         self,
         id: int,
+        *,
+        keep_an_admin: bool = False,
         session: Session = INJECTED_SESSION,
     ) -> Result[*tuple[Any, ...]]:
+        if keep_an_admin:
+            self.refuse_removing_the_last_admin(id, session=session)
         return session.execute(
             delete(User)
             .where(User.id == id)
