@@ -1,6 +1,6 @@
 // Each RomM account's copy of what its web players saved, per rom and slot,
 // so device sync compares one shape whatever the player's own storage.
-import { inTransaction, settle } from "@/v2/utils/idb";
+import { inTransaction, openDb, settle } from "@/v2/utils/idb";
 
 const DB_NAME = "romm-saves";
 const DB_VERSION = 1;
@@ -22,17 +22,17 @@ export interface LocalSave {
 }
 
 function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
+  return openDb(
+    DB_NAME,
+    DB_VERSION,
+    (request) => {
       const store = request.result.createObjectStore(STORE_NAME, {
         keyPath: ["userId", "romId", "slot"],
       });
       store.createIndex(USER_ROM_INDEX, ["userId", "romId"]);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+    },
+    "Save sync storage",
+  );
 }
 
 async function withStore<T>(

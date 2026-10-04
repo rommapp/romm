@@ -1,4 +1,4 @@
-import { inTransaction, settle } from "@/v2/utils/idb";
+import { inTransaction, openDb, settle } from "@/v2/utils/idb";
 import type { PlayerSaveFile } from "@/v2/utils/saveSync";
 
 // The EasyRPG web player keeps a game's saves in an Emscripten IDBFS
@@ -28,33 +28,26 @@ function saveDir(game: string): string {
   return `/easyrpg/${game.toLowerCase()}/Save`;
 }
 
+// Laid out as IDBFS lays it out, so the player opens it without an upgrade.
+function upgradeSaveDb(request: IDBOpenDBRequest) {
+  const db = request.result;
+  const store = db.objectStoreNames.contains(IDBFS_STORE)
+    ? request.transaction!.objectStore(IDBFS_STORE)
+    : db.createObjectStore(IDBFS_STORE);
+  if (!store.indexNames.contains(IDBFS_TIMESTAMP_INDEX)) {
+    store.createIndex(IDBFS_TIMESTAMP_INDEX, IDBFS_TIMESTAMP_INDEX, {
+      unique: false,
+    });
+  }
+}
+
 function openSaveDb(game: string): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(saveDir(game), IDBFS_VERSION);
-    let abandoned = false;
-    // Laid out as IDBFS lays it out, so the player opens it without an upgrade.
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      const store = db.objectStoreNames.contains(IDBFS_STORE)
-        ? request.transaction!.objectStore(IDBFS_STORE)
-        : db.createObjectStore(IDBFS_STORE);
-      if (!store.indexNames.contains(IDBFS_TIMESTAMP_INDEX)) {
-        store.createIndex(IDBFS_TIMESTAMP_INDEX, IDBFS_TIMESTAMP_INDEX, {
-          unique: false,
-        });
-      }
-    };
-    request.onsuccess = () => {
-      // Opened after the wait was given up on; left open it blocks other tabs.
-      if (abandoned) return request.result.close();
-      resolve(request.result);
-    };
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => {
-      abandoned = true;
-      reject(new Error("EasyRPG save storage is open in another tab"));
-    };
-  });
+  return openDb(
+    saveDir(game),
+    IDBFS_VERSION,
+    upgradeSaveDb,
+    "EasyRPG save storage",
+  );
 }
 
 async function withSaveStore<T>(

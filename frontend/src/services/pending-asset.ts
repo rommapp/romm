@@ -15,6 +15,7 @@ import stateApi, {
 } from "@/services/api/state";
 import storeAuth from "@/stores/auth";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { openDb } from "@/v2/utils/idb";
 import { saveContentHash } from "@/v2/utils/saveSync/hash";
 
 const DB_NAME = "romm-player";
@@ -68,47 +69,27 @@ export function pendingAssetId(romId: number): string {
   return `${romId}:${randomToken()}`;
 }
 
+// The rows are the player's unsynced progress, so an upgrade keeps them: it
+// only drops the stores this version has stopped using.
+function upgradeDatabase(request: IDBOpenDBRequest) {
+  const db = request.result;
+  const names = Array.from(db.objectStoreNames);
+  for (const name of names) {
+    if (name !== STORE_NAME) db.deleteObjectStore(name);
+  }
+  const store = names.includes(STORE_NAME)
+    ? request.transaction!.objectStore(STORE_NAME)
+    : db.createObjectStore(STORE_NAME, { keyPath: "id" });
+  for (const name of Array.from(store.indexNames)) {
+    if (name !== OWNER_INDEX) store.deleteIndex(name);
+  }
+  if (!store.indexNames.contains(OWNER_INDEX)) {
+    store.createIndex(OWNER_INDEX, ["userId", "kind", "romId", "capturedAt"]);
+  }
+}
+
 function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    let abandoned = false;
-    // The rows are the player's unsynced progress, so an upgrade keeps them:
-    // it only drops the stores this version has stopped using.
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      const names = Array.from(db.objectStoreNames);
-      for (const name of names) {
-        if (name !== STORE_NAME) db.deleteObjectStore(name);
-      }
-      const store = names.includes(STORE_NAME)
-        ? request.transaction!.objectStore(STORE_NAME)
-        : db.createObjectStore(STORE_NAME, { keyPath: "id" });
-      for (const name of Array.from(store.indexNames)) {
-        if (name !== OWNER_INDEX) store.deleteIndex(name);
-      }
-      if (!store.indexNames.contains(OWNER_INDEX)) {
-        store.createIndex(OWNER_INDEX, [
-          "userId",
-          "kind",
-          "romId",
-          "capturedAt",
-        ]);
-      }
-    };
-    request.onsuccess = () => {
-      // The open landed after the wait was given up on; nothing holds the
-      // connection now, and leaving it open blocks every other tab's upgrade.
-      if (abandoned) return request.result.close();
-      resolve(request.result);
-    };
-    request.onerror = () => reject(request.error);
-    // Another tab on an older version holds the upgrade off, and none of the
-    // handlers above fires meanwhile: without this the caller waits forever.
-    request.onblocked = () => {
-      abandoned = true;
-      reject(new Error("Pending asset storage is open in another tab"));
-    };
-  });
+  return openDb(DB_NAME, DB_VERSION, upgradeDatabase, "Pending asset storage");
 }
 
 // Storage is a best effort: a private window, a blocked origin or a failed
