@@ -8,6 +8,6 @@ export function platformSearchTerms(p: Platform): string[] {
   if (p.category) terms.push(p.category, prettifyPlatformCategory(p.category));
   if (p.family_name) terms.push(p.family_name);
   if (p.abbreviation) terms.push(p.abbreviation);
-  if (p.alternative_name) terms.push(p.alternative_name);
+  if (p.alternative_names) terms.push(...p.alternative_names);
   return terms;
 }

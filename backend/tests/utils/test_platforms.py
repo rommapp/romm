@@ -1,7 +1,11 @@
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
 from models.platform import Platform
-from utils.platforms import get_filesystem_platforms, get_supported_platforms
+from utils.platforms import (
+    get_filesystem_platforms,
+    get_supported_platforms,
+    platform_alternative_names,
+)
 
 
 def test_supported_platform_not_shadowed_by_variant():
@@ -60,3 +64,39 @@ def test_supported_platform_sharing_ss_id_keeps_its_own_name():
 
     assert supported["c128"].name == "Commodore 128"
     assert supported["videopac-g7400"].name == "Videopac+ G7400"
+
+
+class TestPlatformAlternativeNames:
+    def test_collects_each_provider_name_after_the_alternative_names(self):
+        names = platform_alternative_names(
+            "Sega Mega Drive/Genesis",
+            [
+                {"name": "Sega Mega Drive/Genesis", "alternative_names": ["MD"]},
+                {"name": "Megadrive"},
+                {"name": "Sega Genesis"},
+            ],
+        )
+
+        assert names == ["MD", "Megadrive", "Sega Genesis"]
+
+    def test_skips_the_platform_name_and_repeats_ignoring_case_and_spacing(self):
+        names = platform_alternative_names(
+            "Sega Mega Drive/Genesis",
+            [
+                {"name": "Sega Mega Drive / Genesis"},
+                {"name": "sega genesis"},
+                {"name": "Sega Genesis"},
+            ],
+        )
+
+        assert names == ["sega genesis"]
+
+    def test_ignores_providers_without_a_name(self):
+        assert platform_alternative_names("NES", [{"slug": "nes"}, {"name": ""}]) == []
+
+
+def test_supported_platform_carries_other_providers_names():
+    genesis = next(p for p in get_supported_platforms() if p.slug == "genesis")
+
+    assert "Megadrive" in genesis.alternative_names
+    assert genesis.name not in genesis.alternative_names

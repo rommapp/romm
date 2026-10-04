@@ -93,6 +93,7 @@ from utils.platform_aliases import (
     resolve_fs_slug,
     resolve_platform_slug,
 )
+from utils.platforms import platform_alternative_names
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 
@@ -449,6 +450,20 @@ async def scan_platform(
             or tgdb_platform.get("url_logo")
             or "",
         }
+    )
+    platform_attrs["alternative_names"] = platform_alternative_names(
+        platform_attrs["name"],
+        [
+            igdb_platform,
+            ss_platform,
+            moby_platform,
+            ra_platform,
+            launchbox_platform,
+            hasheous_platform,
+            tgdb_platform,
+            flashpoint_platform,
+            hltb_platform,
+        ],
     )
 
     platform_attrs["missing_from_fs"] = False

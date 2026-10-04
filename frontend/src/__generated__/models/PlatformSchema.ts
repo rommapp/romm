@@ -29,7 +29,7 @@ export type PlatformSchema = {
     family_name?: (string | null);
     family_slug?: (string | null);
     abbreviation?: (string | null);
-    alternative_name?: (string | null);
+    alternative_names?: Array<string>;
     url?: (string | null);
     url_logo?: (string | null);
     firmware?: Array<FirmwareSchema>;

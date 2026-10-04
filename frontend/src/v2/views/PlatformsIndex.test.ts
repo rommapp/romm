@@ -229,7 +229,7 @@ describe("PlatformsIndex", () => {
           category: "console",
           family_name: "Nintendo",
           abbreviation: "N64",
-          alternative_name: "Ultra 64",
+          alternative_names: ["Ultra 64"],
         }),
         platform(3, "Game Boy Advance", 5, {
           slug: "gba",
@@ -308,7 +308,7 @@ describe("PlatformsIndex", () => {
       expect(wrapper.text()).not.toContain("PlayStation 30");
     });
 
-    it("matches on the IGDB alternative name", () => {
+    it("matches on an alternative name", () => {
       seed();
       searchState.term = "ultra";
 

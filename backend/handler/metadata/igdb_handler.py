@@ -10,6 +10,7 @@ from adapters.services.igdb import (
     IGDB_PLATFORM_LIST,
     IGDB_PLATFORM_VERSIONS,
     IGDBService,
+    SlugToIGDB,
 )
 from adapters.services.igdb_types import (
     Game,
@@ -79,9 +80,14 @@ class IGDBPlatform(TypedDict):
     family_name: NotRequired[str]
     family_slug: NotRequired[str]
     abbreviation: NotRequired[str]
-    alternative_name: NotRequired[str]
+    alternative_names: NotRequired[list[str]]
     url: NotRequired[str]
     url_logo: NotRequired[str]
+
+
+def _platform_alternative_names(platform: SlugToIGDB) -> list[str]:
+    alternative_name = platform.get("alternative_name", "")
+    return [alternative_name] if alternative_name else []
 
 
 class IGDBMetadataPlatform(TypedDict):
@@ -782,7 +788,7 @@ class IGDBHandler(MetadataHandler):
                 family_name=platform["family_name"],
                 family_slug=platform["family_slug"],
                 abbreviation=platform.get("abbreviation", ""),
-                alternative_name=platform.get("alternative_name", ""),
+                alternative_names=_platform_alternative_names(platform),
                 url=platform["url"],
                 url_logo=self.normalize_cover_url(platform["url_logo"]),
             )
@@ -801,7 +807,7 @@ class IGDBHandler(MetadataHandler):
                 family_name=main_platform["family_name"],
                 family_slug=main_platform["family_slug"],
                 abbreviation=main_platform.get("abbreviation", ""),
-                alternative_name=main_platform.get("alternative_name", ""),
+                alternative_names=_platform_alternative_names(main_platform),
                 url=platform_version["url"],
                 url_logo=self.normalize_cover_url(
                     platform_version["url_logo"] or main_platform["url_logo"]

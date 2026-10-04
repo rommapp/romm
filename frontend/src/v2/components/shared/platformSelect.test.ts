@@ -167,7 +167,7 @@ describe("PlatformSelect promoteFilled + search", () => {
   it.each([
     ["the slug", "snes"],
     ["the IGDB abbreviation", "sfc"],
-    ["the IGDB alternative name", "super famicom"],
+    ["an alternative name", "super famicom"],
   ])("finds a platform by %s", async (_, query) => {
     const wrapper = await openPromoteFilledMenu([
       ...CATALOG.filter((p) => p.slug !== "snes"),
@@ -177,7 +177,7 @@ describe("PlatformSelect promoteFilled + search", () => {
         display_name: "Super Nintendo",
         rom_count: 256,
         abbreviation: "SFC",
-        alternative_name: "Super Famicom",
+        alternative_names: ["Super Famicom"],
       }),
     ]);
     await panelSearchInput().setValue(query);

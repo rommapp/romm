@@ -99,14 +99,14 @@ class TestGetPlatformAlternativeNames:
         platform = IGDBHandler().get_platform(UPS.ATARI_ST)
 
         assert platform.get("abbreviation") == "ST"
-        assert platform.get("alternative_name") == "Atari ST/STE"
+        assert platform.get("alternative_names") == ["Atari ST/STE"]
 
     @pytest.mark.usefixtures("named_atari_st")
     def test_platform_version_inherits_main_platform_names(self) -> None:
         platform = IGDBHandler().get_platform("520-st")
 
         assert platform.get("abbreviation") == "ST"
-        assert platform.get("alternative_name") == "Atari ST/STE"
+        assert platform.get("alternative_names") == ["Atari ST/STE"]
 
     def test_platform_without_names_defaults_to_empty(self) -> None:
         entry = cast(dict[str, Any], dict(IGDB_PLATFORM_LIST[UPS.ATARI_ST]))
@@ -116,7 +116,7 @@ class TestGetPlatformAlternativeNames:
             platform = IGDBHandler().get_platform(UPS.ATARI_ST)
 
         assert platform.get("abbreviation") == ""
-        assert platform.get("alternative_name") == ""
+        assert platform.get("alternative_names") == []
 
 
 class TestGetIGDBPreferredLocale:

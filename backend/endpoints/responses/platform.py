@@ -32,7 +32,7 @@ class PlatformSchema(BaseModel):
     family_name: str | None = None
     family_slug: str | None = None
     abbreviation: str | None = None
-    alternative_name: str | None = None
+    alternative_names: list[str] = Field(default_factory=list)
     url: str | None = None
     url_logo: str | None = None
     firmware: list[FirmwareSchema] = Field(default_factory=list)

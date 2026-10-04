@@ -1,4 +1,4 @@
-"""Add IGDB's abbreviation and alternative name to platforms
+"""Add an abbreviation and alternative names to platforms
 
 Revision ID: 0149_platform_alternative_names
 Revises: 0148_rom_age_limits
@@ -8,6 +8,8 @@ Create Date: 2026-10-04 00:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op
+
+from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
 revision = "0149_platform_alternative_names"
@@ -23,12 +25,12 @@ def upgrade() -> None:
             if_not_exists=True,
         )
         batch_op.add_column(
-            sa.Column("alternative_name", sa.String(length=400), nullable=True),
+            sa.Column("alternative_names", CustomJSON(), nullable=True),
             if_not_exists=True,
         )
 
 
 def downgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.drop_column("alternative_name", if_exists=True)
+        batch_op.drop_column("alternative_names", if_exists=True)
         batch_op.drop_column("abbreviation", if_exists=True)

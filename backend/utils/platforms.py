@@ -1,4 +1,6 @@
+from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
+from typing import cast
 
 from config.config_manager import config_manager as cm
 from endpoints.responses.platform import PlatformSchema
@@ -18,6 +20,29 @@ from handler.metadata import (
 from models.platform import Platform
 from utils.platform_aliases import resolve_platform_slug
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+
+
+def _name_key(name: str) -> str:
+    return " ".join(name.casefold().replace("/", " / ").split())
+
+
+def platform_alternative_names(
+    name: str, provider_platforms: Iterable[Mapping[str, object]]
+) -> list[str]:
+    """Each provider's names for a platform other than `name`, ignoring case and spacing."""
+    seen = {_name_key(name)}
+    alternative_names = []
+    for provider_platform in provider_platforms:
+        candidates = [
+            *cast(list[str], provider_platform.get("alternative_names", [])),
+            cast(str | None, provider_platform.get("name")),
+        ]
+        for candidate in candidates:
+            if not candidate or (key := _name_key(candidate)) in seen:
+                continue
+            seen.add(key)
+            alternative_names.append(candidate.strip())
+    return alternative_names
 
 
 def _build_unmatched_platform(slug: str, fs_slug: str, now: datetime) -> PlatformSchema:
@@ -78,6 +103,20 @@ def _build_unmatched_platform(slug: str, fs_slug: str, now: datetime) -> Platfor
             or tgdb_platform.get("url_logo")
             or "",
         }
+    )
+    platform_attrs["alternative_names"] = platform_alternative_names(
+        cast(str, platform_attrs["name"]),
+        [
+            igdb_platform,
+            ss_platform,
+            moby_platform,
+            ra_platform,
+            launchbox_platform,
+            hasheous_platform,
+            tgdb_platform,
+            flashpoint_platform,
+            hltb_platform,
+        ],
     )
 
     return PlatformSchema.model_validate(Platform(**platform_attrs))
