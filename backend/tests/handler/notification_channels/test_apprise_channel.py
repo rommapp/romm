@@ -301,6 +301,51 @@ class TestFieldsFromUrl:
         checked_fields(service, read)
 
     @pytest.mark.parametrize(
+        "service,fields",
+        [
+            ("sendgrid", {**_SENDGRID, "targets": ["me@example.com"]}),
+            ("brevo", _SENDGRID),
+            ("postmark", _SENDGRID),
+            ("mailersend", _SENDGRID),
+            ("resend", {"apikey": "abc123", "from_addr": "romm@example.com"}),
+            (
+                "ses",
+                {
+                    "from_email": "romm@example.com",
+                    "access_key_id": "AKID",
+                    "secret_access_key": "s3cr3t",
+                    "region": "us-east-1",
+                },
+            ),
+            (
+                "octopush",
+                {
+                    "api_login": "romm@example.com",
+                    "api_key": "k3y",
+                    "targets": ["+15551234567"],
+                },
+            ),
+            (
+                "twist",
+                {"password": "pw", "email": "romm@example.com", "targets": ["#romm"]},
+            ),
+            (
+                "voipms",
+                {
+                    "password": "pw",
+                    "email": "romm@example.com",
+                    "from_phone": "15551234567",
+                    "targets": ["15557654321"],
+                },
+            ),
+        ],
+    )
+    def test_reads_back_the_url_an_email_field_makes(self, service, fields):
+        found, read = fields_from_url(build_url(find_service(service), fields))
+
+        assert (found.id, read) == (service, checked_fields(service, fields))
+
+    @pytest.mark.parametrize(
         "url,reason",
         [
             ("syslog://", "doesn't offer"),
