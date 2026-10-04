@@ -2,6 +2,8 @@ import abc
 import json
 import re
 import unicodedata
+from collections.abc import Collection
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Mapping, NotRequired, TypedDict, cast
@@ -77,6 +79,25 @@ class BaseRom(TypedDict):
     url_cover: NotRequired[str]
     url_screenshots: NotRequired[list[str]]
     url_manual: NotRequired[str]
+
+
+@dataclass(frozen=True, slots=True)
+class IndexedFormatPlatforms:
+    """A provider's ids for the platforms whose filenames resolve through a local index."""
+
+    ps1: int
+    ps2: int
+    psp: int
+    switch: int
+    arcade: Collection[int]
+    scummvm: int | None = None
+
+
+def _fill_from_switch_entry(fallback_rom: BaseRom, index_entry: dict[str, Any]) -> None:
+    fallback_rom["name"] = index_entry["name"]
+    fallback_rom["summary"] = index_entry.get("description", "")
+    fallback_rom["url_cover"] = index_entry.get("iconUrl", "")
+    fallback_rom["url_screenshots"] = index_entry.get("screenshots", None) or []
 
 
 class CoverResource(TypedDict):
@@ -236,6 +257,66 @@ class MetadataHandler(abc.ABC):
             return best_match, best_score
 
         return None, 0.0
+
+    async def _resolve_indexed_title(
+        self,
+        rom: "Rom",
+        fs_name: str,
+        search_term: str,
+        platform_id: int,
+        platforms: IndexedFormatPlatforms,
+        fallback_rom: BaseRom,
+    ) -> str:
+        """Swap a serial, title id or short name in the filename for the title its index holds.
+
+        Args:
+            fallback_rom: Filled with what the index knows, for when the provider finds no match.
+
+        Returns:
+            The term to search the provider for.
+        """
+        match = PS2_OPL_REGEX.match(fs_name)
+        if platform_id == platforms.ps2 and match:
+            search_term = await self._ps2_opl_format(match, search_term)
+            fallback_rom["name"] = search_term
+
+        match = SONY_SERIAL_REGEX.search(fs_name)
+        if platform_id == platforms.ps1 and match:
+            search_term = await self._ps1_serial_format(match, search_term)
+            fallback_rom["name"] = search_term
+
+        if platform_id == platforms.ps2 and match:
+            search_term = await self._ps2_serial_format(match, search_term)
+            fallback_rom["name"] = search_term
+
+        if platform_id == platforms.psp and match:
+            search_term = await self._psp_serial_format(match, search_term)
+            fallback_rom["name"] = search_term
+
+        if platform_id == platforms.switch:
+            match = SWITCH_TITLEDB_REGEX.search(fs_name)
+            if match:
+                search_term, index_entry = await self._switch_titledb_format(
+                    match, search_term
+                )
+                if index_entry:
+                    _fill_from_switch_entry(fallback_rom, index_entry)
+
+            search_term, index_entry = await self._switch_productid_format(
+                rom, fs_name, search_term
+            )
+            if index_entry:
+                _fill_from_switch_entry(fallback_rom, index_entry)
+
+        if platform_id in platforms.arcade:
+            search_term = await self._mame_format(search_term)
+            fallback_rom["name"] = search_term
+
+        if platforms.scummvm is not None and platform_id == platforms.scummvm:
+            search_term = await self._scummvm_format(search_term)
+            fallback_rom["name"] = search_term
+
+        return search_term
 
     async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
