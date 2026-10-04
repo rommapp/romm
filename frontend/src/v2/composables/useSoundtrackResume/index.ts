@@ -1,11 +1,6 @@
 // Saves the soundtrack player's queue and position on this device and restores
 // it after a reload, while the user's `resumeMusic` setting is on.
-import {
-  useEventListener,
-  useLocalStorage,
-  watchDebounced,
-  whenever,
-} from "@vueuse/core";
+import { useEventListener, watchDebounced, whenever } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { onMounted, watch } from "vue";
 import { useUISettings } from "@/composables/useUISettings";
@@ -74,23 +69,24 @@ export function useSoundtrackResume() {
   const { session } = storeToRefs(player);
   const authStore = storeAuth();
 
-  const saved = useLocalStorage<StoredSession | null>(
-    SOUNDTRACK_SESSION_KEY,
-    null,
-    {
-      writeDefaults: false,
-      // A save from "pagehide" has to land before the page unloads.
-      flush: "sync",
-      // Only a new save writes; the session holds the player's live queue.
-      deep: false,
-      serializer: { read: readStoredSession, write: JSON.stringify },
-    },
-  );
+  // Written directly rather than through a synced ref, so other tabs don't
+  // re-parse the whole queue on every save.
+  function write(stored: StoredSession | null) {
+    try {
+      if (stored) {
+        localStorage.setItem(SOUNDTRACK_SESSION_KEY, JSON.stringify(stored));
+      } else {
+        localStorage.removeItem(SOUNDTRACK_SESSION_KEY);
+      }
+    } catch {
+      // Storage full or unavailable: the session just won't resume.
+    }
+  }
 
   function save() {
     const userId = authStore.user?.id;
     if (!resumeMusic.value || userId === undefined) return;
-    saved.value = session.value ? { userId, session: session.value } : null;
+    write(session.value ? { userId, session: session.value } : null);
   }
 
   // Restored once the player's `<audio>` exists, on each sign-in, so a session
@@ -99,7 +95,9 @@ export function useSoundtrackResume() {
     whenever(
       () => authStore.user?.id,
       (userId) => {
-        const stored = saved.value;
+        const stored = readStoredSession(
+          localStorage.getItem(SOUNDTRACK_SESSION_KEY) ?? "",
+        );
         if (resumeMusic.value && stored?.userId === userId && !player.track) {
           player.restore(stored.session);
         }
@@ -115,6 +113,6 @@ export function useSoundtrackResume() {
   useEventListener(window, "pagehide", save);
   watch(resumeMusic, (enabled) => {
     if (enabled) save();
-    else saved.value = null;
+    else write(null);
   });
 }

@@ -14,7 +14,6 @@ import {
 import { useI18n } from "vue-i18n";
 import storePlaying from "@/stores/playing";
 import useSoundtrackPlayer, {
-  type PlayerTrack,
   type SoundtrackSink,
 } from "@/stores/soundtrackPlayer";
 import NowPlayingCard from "@/v2/components/Soundtrack/NowPlayingCard.vue";
@@ -41,9 +40,6 @@ const chiptune = shallowRef<ChiptunePlayer | null>(null);
 // Whichever of the two is playing the current track. Events from the other
 // are dropped, since pausing one while the other starts fires out of order.
 let active: HTMLAudioElement | ChiptunePlayer | null = null;
-// A track restored after a reload that has not started yet. If it fails to
-// load (deleted, or no longer visible) it is dropped without an error toast.
-let resumedTrack: PlayerTrack | null = null;
 let cancelResume: AbortController | null = null;
 
 // On phones the mini player lives in the top bar, which a running game hides,
@@ -106,25 +102,15 @@ onBeforeUnmount(() => {
 });
 
 // Browsers refuse audio until the user interacts, so a session that was playing
-// starts after the first press is handled, leaving a press on Play intact.
-function resumeOnFirstInteraction(t: PlayerTrack, sink: SoundtrackSink) {
+// starts after a press is handled, retrying until one counts (not Esc, a gamepad).
+function resumeOnFirstInteraction(sink: SoundtrackSink) {
   const controller = new AbortController();
   cancelResume = controller;
-  // A press that started a game, or that the browser didn't count as a
-  // gesture (Esc, a gamepad), leaves the session waiting for the next one.
-  const rearm = () => {
-    if (cancelResume === controller && track.value === t) {
-      resumeOnFirstInteraction(t, sink);
-    }
-  };
   const start = () => {
-    if (musicBlocked.value) return;
-    controller.abort();
     setTimeout(() => {
-      if (cancelResume !== controller || track.value !== t || !sink.paused)
+      if (controller.signal.aborted || !sink.paused || musicBlocked.value)
         return;
-      if (musicBlocked.value) rearm();
-      else void sink.play().catch(rearm);
+      void sink.play().catch(() => {});
     });
   };
   for (const name of ["click", "keyup"]) {
@@ -139,8 +125,7 @@ watch(track, async (t) => {
   const el = audioEl.value;
   if (!el) return;
   disarmResume();
-  const resume = store.takePendingResume();
-  resumedTrack = resume && t ? t : null;
+  const resume = store.pendingResume;
   if (!t) {
     setBuffered();
     unloadAudio(el);
@@ -179,7 +164,7 @@ watch(track, async (t) => {
     }
   }
   if (resume) {
-    if (resume.autoplay) resumeOnFirstInteraction(t, sink);
+    if (resume.autoplay) resumeOnFirstInteraction(sink);
     return;
   }
   try {
@@ -193,7 +178,6 @@ watch(track, async (t) => {
 
 const sinkHandlers: Record<string, () => void> = {
   play() {
-    resumedTrack = null;
     // Started some other way (a media key), so a later press mustn't restart it.
     disarmResume();
     store.setPlaying(true);
@@ -220,7 +204,9 @@ const sinkHandlers: Record<string, () => void> = {
   },
   error() {
     cancelBuffering();
-    if (resumedTrack && resumedTrack === track.value) {
+    // A restored track that no longer loads (deleted, or no longer visible)
+    // is dropped without a toast on every page load.
+    if (store.pendingResume) {
       store.stop();
       return;
     }

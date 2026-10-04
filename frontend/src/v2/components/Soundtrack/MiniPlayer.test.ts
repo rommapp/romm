@@ -144,7 +144,12 @@ describe("MiniPlayer restored session", () => {
   });
 
   it("starts a session that was playing on the first interaction", async () => {
-    const { play } = await mountRestored(true);
+    const { audio, play } = await mountRestored(true);
+    let playing = false;
+    Object.defineProperty(audio, "paused", { get: () => !playing });
+    play.mockImplementation(async () => {
+      playing = true;
+    });
     expect(play).not.toHaveBeenCalled();
 
     window.dispatchEvent(new Event("keyup"));

@@ -160,15 +160,13 @@ describe("session restore", () => {
     expect(player.duration).toBe(180);
   });
 
-  it("hands the position to the player exactly once", () => {
+  it("keeps the position for the player until another track plays", () => {
     const player = useSoundtrackPlayer();
     player.restore(saved);
 
-    expect(player.takePendingResume()).toEqual({
-      position: 42,
-      autoplay: true,
-    });
-    expect(player.takePendingResume()).toBeNull();
+    expect(player.pendingResume).toEqual({ position: 42, autoplay: true });
+    player.play(track, {});
+    expect(player.pendingResume).toBeNull();
   });
 
   it("stops counting as playing once playback reports in", () => {
@@ -186,6 +184,6 @@ describe("session restore", () => {
     player.stop();
 
     expect(player.session).toBeNull();
-    expect(player.takePendingResume()).toBeNull();
+    expect(player.pendingResume).toBeNull();
   });
 });
