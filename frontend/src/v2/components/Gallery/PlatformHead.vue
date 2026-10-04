@@ -12,7 +12,7 @@
 //
 // All admin actions are forwarded as events; permission gating lives
 // on the parent so the bar stays in sync with `useCan`.
-import { RBtn, RChip, RIcon, RTabNav } from "@v2/lib";
+import { RBtn, RChip, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -108,13 +108,11 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         size="small"
         variant="translucent"
         :rounded="20"
+        prepend-icon="mdi-play-circle"
+        class="r-v2-plat__playable"
+        :class="{ 'r-v2-plat__playable--stream': mode === 'stream' }"
         :title="playTooltip(mode, emulator, streamLabel)"
       >
-        <RIcon
-          icon="mdi-play-circle"
-          size="14"
-          :color="mode === 'stream' ? 'romm-blue' : 'success'"
-        />
         {{ t("platform.playable") }}
       </RChip>
       <RChip
@@ -138,10 +136,11 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
 
     <template v-if="stats.length" #stats>
       <Stat
-        v-for="s in stats"
+        v-for="(s, i) in stats"
         :key="s.label"
         :value="s.value"
         :label="s.label"
+        :remember-as="`platform-${platform.id}:${i}`"
       />
     </template>
 
@@ -256,6 +255,13 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
 html[data-bp~="xs"] .r-v2-plat__panel-icon {
   width: 150px;
   min-height: 116px;
+}
+
+.r-v2-plat__playable :deep(.r-chip__icon--prepend) {
+  color: var(--r-color-success);
+}
+.r-v2-plat__playable--stream :deep(.r-chip__icon--prepend) {
+  color: var(--r-color-romm-blue);
 }
 
 .r-v2-plat__tabs {

@@ -1,7 +1,6 @@
 import asyncio
 import re
 from collections.abc import Awaitable
-from datetime import datetime, timezone
 from typing import Final, NotRequired, TypedDict
 
 from adapters.services.steam import SteamService
@@ -12,6 +11,7 @@ from adapters.services.steam_types import (
 )
 from config import STEAM_API_ENABLED
 from logger.logger import log
+from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import BaseRom, CoverResource, CoverResult, MetadataHandler
@@ -114,14 +114,9 @@ def _parse_release_date(raw_date: str) -> int | None:
     The store mixes "10 Dec, 2020" and "Dec 10, 2020" across apps, and returns
     year-only or quarter values for unreleased ones.
     """
-    for date_format in ("%d %b, %Y", "%b %d, %Y", "%d %B, %Y", "%B %d, %Y"):
-        try:
-            parsed = datetime.strptime(raw_date, date_format)
-        except ValueError:
-            continue
-        return int(parsed.replace(tzinfo=timezone.utc).timestamp())
-
-    return None
+    return parse_utc_timestamp(
+        raw_date, ("%d %b, %Y", "%b %d, %Y", "%d %B, %Y", "%B %d, %Y")
+    )
 
 
 def extract_steam_metadata(details: SteamAppDetails) -> SteamMetadata:

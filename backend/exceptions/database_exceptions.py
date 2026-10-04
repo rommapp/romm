@@ -7,3 +7,12 @@ class RomFileOwnerChangedError(Exception):
 
     def __repr__(self) -> str:
         return self.message
+
+
+class LastAdminError(Exception):
+    def __init__(self, user_id: int) -> None:
+        self.message = f"User {user_id} is the last admin"
+        super().__init__(self.message)
+
+    def __repr__(self) -> str:
+        return self.message

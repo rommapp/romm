@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 import httpx2
 import pytest
 from fastapi import HTTPException
+from tests.timezones import local_timezone
 
 from handler.filesystem.base_handler import provider_language_name
 from handler.metadata.base_handler import unavailable
@@ -78,6 +79,22 @@ def test_alternative_names_hold_every_title_the_proxy_returns():
         "Финальная Фантазия 7",
         "파이널 판타지 VII",
     ]
+
+
+@pytest.mark.parametrize(
+    "first_release_date",
+    ["2005-03-14T00:00:00Z", "2005-03-14T00:00:00", "2005-03-14"],
+    ids=["utc", "no_offset", "date_only"],
+)
+def test_the_release_date_does_not_depend_on_the_server_timezone(
+    first_release_date: str,
+):
+    with local_timezone("America/Los_Angeles"):
+        metadata = extract_metadata_from_igdb_rom(
+            {"first_release_date": first_release_date}
+        )
+
+    assert metadata["first_release_date"] == 1110758400
 
 
 @pytest.mark.asyncio

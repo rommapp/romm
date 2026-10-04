@@ -3,13 +3,15 @@
 # ASYNC: flake8-async.
 # B: flake8-bugbear.
 # D3: flake8-docstrings (D3xx).
+# DTZ: flake8-datetimez, so a date is never read in the server's local time.
 # E: pycodestyle errors.
 # F: Pyflakes.
 # TID251: banned APIs, scoped to backend tests below.
-select = ["ASYNC", "B", "D3", "E", "F", "TID251"]
+select = ["ASYNC", "B", "D3", "DTZ", "E", "F", "TID251"]
 
 # Never enforce `E501` (line length violations). This should be handled by formatters.
-ignore = ["E501"]
+# `DTZ005`: some `datetime.now()` calls stamp file names a person reads, in local time.
+ignore = ["DTZ005", "E501"]
 
 # Tests persist rows through the factories in backend/tests/factories.py.
 [lint.flake8-tidy-imports.banned-api]
@@ -22,4 +24,6 @@ ignore = ["E501"]
 
 [lint.per-file-ignores]
 "!**/tests/**" = ["TID251"]
+# Tests build naive datetimes on purpose, to check how they're read.
+"**/tests/**" = ["DTZ001"]
 "**/tests/factories.py" = ["TID251"]
