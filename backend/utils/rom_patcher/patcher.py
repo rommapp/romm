@@ -245,11 +245,7 @@ async def _apply_binary_patch(
 
 
 def _last_json_object(output: bytes) -> dict[str, Any]:
-    """The last line of the script's output that is a JSON object, or ``{}``.
-
-    RomPatcher.js logs to the same streams (the PMSR format prints while it
-    applies), so the script's own report is not the whole output.
-    """
+    """Return the last JSON-object line or ``{}``, ignoring RomPatcher.js logs."""
     for line in reversed(output.decode(errors="replace").splitlines()):
         try:
             value = json.loads(line)
