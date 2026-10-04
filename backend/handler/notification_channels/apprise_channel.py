@@ -174,6 +174,8 @@ class AppriseField:
     delimiter: str = ","
     # Singular tokens a template can take instead of this list.
     members: tuple[str, ...] = ()
+    # An email address, whose @ Apprise reads as the URL's own.
+    address: bool = False
 
 
 @dataclass(frozen=True)
@@ -228,6 +230,9 @@ def _field(
 ) -> AppriseField | None:
     # Apprise's `choice:string` or `list:int`, by the form control it needs.
     kind = meta.get("type", "string").split(":", 1)[0]
+    address = kind == "email"
+    if address:
+        kind = "string"
     if kind not in get_args(FieldType):
         return None
     values = meta.get("values")
@@ -247,6 +252,7 @@ def _field(
         max=meta.get("max"),
         delimiter=(meta.get("delim") or [","])[0],
         members=tuple(sorted(meta.get("group") or ())),
+        address=address,
     )
 
 
@@ -420,7 +426,7 @@ def _segment(field: AppriseField, value: FieldValue) -> str:
         return f"/{quote(path)}/" if path else "/"
     if isinstance(value, list):
         return field.delimiter.join(quote(str(item), safe="") for item in value)
-    return quote(str(value), safe="")
+    return quote(str(value), safe="@" if field.address else "")
 
 
 def _fill(
@@ -569,7 +575,9 @@ def _token_pattern(service: AppriseService, key: str) -> str:
     if key in _TOKEN_PATTERNS:
         return _TOKEN_PATTERNS[key]
     field = service.field(key)
-    return r".+" if field is not None and field.type == "list" else r"[^/@?#]+"
+    if field is not None and field.type == "list":
+        return r".+"
+    return r"[^/?#]+" if field is not None and field.address else r"[^/@?#]+"
 
 
 def _template_pattern(service: AppriseService, template: str) -> re.Pattern[str]:

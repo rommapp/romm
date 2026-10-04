@@ -26,6 +26,7 @@ from .fixtures import make_notification
 
 _DISCORD = {"webhook_id": "1234567890", "webhook_token": "abcdefghijklmnop"}
 _JSON = {"host": "hooks.example.com", "path": "romm"}
+_SENDGRID = {"apikey": "abc123", "from_email": "romm@example.com"}
 
 
 def _message(**overrides: Any) -> OutboundMessage:
@@ -69,6 +70,16 @@ class TestCatalog:
         assert "topic" not in _keys("ntfy")
         assert targets is not None
         assert (targets.type, targets.required) == ("list", True)
+
+    @pytest.mark.parametrize(
+        "service,key",
+        [("sendgrid", "from_email"), ("ses", "from_email"), ("resend", "from_addr")],
+    )
+    def test_offers_an_email_address_as_text(self, service, key):
+        field = find_service(service).field(key)
+
+        assert field is not None
+        assert (field.type, field.required, field.address) == ("string", True, True)
 
     def test_offers_the_schema_only_when_there_is_a_choice(self):
         schema = find_service("ntfy").field("schema")
@@ -153,6 +164,21 @@ class TestBuildUrl:
                 "json",
                 {"host": "hooks.example.com", "path": "/api/romm"},
                 "jsons://hooks.example.com/api/romm",
+            ),
+            (
+                "sendgrid",
+                {**_SENDGRID, "targets": ["me@example.com"]},
+                "sendgrid://abc123:romm@example.com/me%40example.com",
+            ),
+            (
+                "ses",
+                {
+                    "from_email": "romm@example.com",
+                    "access_key_id": "AKID",
+                    "secret_access_key": "s3cr3t",
+                    "region": "us-east-1",
+                },
+                "ses://romm@example.com/AKID/s3cr3t/us-east-1",
             ),
         ],
     )
@@ -260,6 +286,11 @@ class TestFieldsFromUrl:
                 "jsons://hooks.example.com/api/romm",
                 "json",
                 {"host": "hooks.example.com", "path": "api/romm"},
+            ),
+            (
+                "sendgrid://abc123:romm@example.com/me%40example.com",
+                "sendgrid",
+                {**_SENDGRID, "targets": ["me@example.com"]},
             ),
         ],
     )
