@@ -75,10 +75,8 @@ const languages = computed(() =>
   backdrop-filter: blur(6px);
 }
 
-/* Emoji ink sits between the baseline and cap height, but the line box
-   reserves room for descenders, so flags ride ~2px high. Trimming each
-   glyph box to cap/baseline lets align-items center the ink; the padding
-   grows by the trimmed amount to keep the chip the same height. */
+/* Emoji ink spans baseline to cap height, so trimming to that box centers it;
+   the larger padding makes up the trimmed height. */
 @supports (text-box: trim-both cap alphabetic) {
   .card-flags__chip {
     padding-block: 4.5px;
@@ -88,8 +86,7 @@ const languages = computed(() =>
     text-box: trim-both cap alphabetic;
   }
 
-  /* Twemoji centers its flags 0.375em above the baseline, while the trimmed
-     box centers at half of Segoe UI's 0.7em cap height. */
+  /* Twemoji flags center 0.375em up, Segoe UI's trimmed box at 0.35em. */
   html[data-flag-polyfill] .card-flags__chip > span {
     translate: 0 0.025em;
   }
