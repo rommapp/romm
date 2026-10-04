@@ -2,6 +2,7 @@ import { DOMWrapper, flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import type { Platform } from "@/stores/platforms";
+import { makePlatform } from "@/utils/platform.fixtures";
 import PlatformSelect from "./PlatformSelect.vue";
 import {
   formatPlatformRomCount,
@@ -13,52 +14,29 @@ vi.mock("vue-i18n");
 type Row = Pick<Platform, "rom_count" | "display_name">;
 
 describe("PlatformSelect promoteFilled + search", () => {
-  function makePlatform(
-    overrides: Pick<Platform, "id" | "display_name" | "slug" | "rom_count"> &
-      Partial<Platform>,
-  ): Platform {
-    const slug = overrides.slug;
-    return {
-      fs_slug: slug,
-      name: overrides.display_name,
-      igdb_slug: null,
-      moby_slug: null,
-      hltb_slug: null,
-      libretro_slug: null,
-      created_at: "",
-      updated_at: "",
-      fs_size_bytes: 0,
-      is_unidentified: false,
-      is_identified: true,
-      missing_from_fs: false,
-      firmware_count: 0,
-      ...overrides,
-    };
-  }
-
   const CATALOG: Platform[] = [
     makePlatform({
       id: 101,
       slug: "3do",
-      display_name: "3DO Interactive Multiplayer",
+      name: "3DO Interactive Multiplayer",
       rom_count: 0,
     }),
     makePlatform({
       id: 102,
       slug: "ags",
-      display_name: "Adventure Game Studio",
+      name: "Adventure Game Studio",
       rom_count: 0,
     }),
     makePlatform({
       id: 4,
       slug: "gba",
-      display_name: "Game Boy Advance",
+      name: "Game Boy Advance",
       rom_count: 42,
     }),
     makePlatform({
       id: 7,
       slug: "snes",
-      display_name: "Super Nintendo",
+      name: "Super Nintendo",
       rom_count: 256,
     }),
   ];

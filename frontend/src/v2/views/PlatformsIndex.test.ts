@@ -3,6 +3,7 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import { makePlatform } from "@/utils/platform.fixtures";
 import PlatformsIndex from "./PlatformsIndex.vue";
 
 vi.mock("vue-i18n");
@@ -129,15 +130,13 @@ function platform(
   romCount: number,
   overrides: Partial<Platform> = {},
 ): Platform {
-  return {
+  return makePlatform({
     id,
-    display_name: displayName,
     name: displayName,
     slug: displayName.toLowerCase().replaceAll(" ", "-"),
-    fs_slug: displayName.toLowerCase().replaceAll(" ", "-"),
     rom_count: romCount,
     ...overrides,
-  } as Platform;
+  });
 }
 
 describe("PlatformsIndex", () => {

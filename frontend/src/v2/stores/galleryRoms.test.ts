@@ -2,7 +2,8 @@ import { flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storePlatforms, { type Platform } from "@/stores/platforms";
+import storePlatforms from "@/stores/platforms";
+import { makePlatform } from "@/utils/platform.fixtures";
 // Import after the mock so the store binds to the mocked rom API.
 import storeGalleryRoms, {
   orderSupportsLetters,
@@ -19,29 +20,6 @@ vi.mock("@/services/api/rom", () => ({
 interface Deferred {
   promise: Promise<unknown>;
   resolve: (value: unknown) => void;
-}
-
-function platform(overrides: Partial<Platform> = {}): Platform {
-  return {
-    id: 1,
-    slug: "snes",
-    fs_slug: "snes",
-    rom_count: 1,
-    name: "Super Nintendo",
-    igdb_slug: null,
-    moby_slug: null,
-    hltb_slug: null,
-    libretro_slug: null,
-    created_at: "",
-    updated_at: "",
-    fs_size_bytes: 0,
-    is_unidentified: false,
-    is_identified: true,
-    missing_from_fs: false,
-    display_name: "Super Nintendo",
-    firmware_count: 0,
-    ...overrides,
-  };
 }
 
 function deferred(): Deferred {
@@ -243,7 +221,9 @@ describe("galleryRoms windowed fetch", () => {
         },
       },
     });
-    storePlatforms().set([platform()]);
+    storePlatforms().set([
+      makePlatform({ slug: "snes", name: "Super Nintendo", rom_count: 1 }),
+    ]);
     const galleryFilter = storeGalleryFilter();
     galleryFilter.setFilterGenres(["RPG"]);
     const store = storeGalleryRoms();

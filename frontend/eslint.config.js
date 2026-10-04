@@ -336,6 +336,12 @@ export default tseslint.config(
           message:
             "Build ROM fixtures with makeRom or makeDetailedRom from @/utils/rom.fixtures instead of `as unknown as`.",
         },
+        {
+          selector:
+            "TSAsExpression[typeAnnotation.typeName.name=/^(Platform|PlatformSchema)$/]",
+          message:
+            "Build platform fixtures with makePlatform from @/utils/platform.fixtures instead of a cast.",
+        },
       ],
     },
   },

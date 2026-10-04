@@ -2,6 +2,7 @@ import { shallowMount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { FirmwareSchema } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
+import { makePlatform } from "@/utils/platform.fixtures";
 import HashChip from "@/v2/components/shared/HashChip.vue";
 import FirmwareTab from "./FirmwareTab.vue";
 
@@ -60,16 +61,12 @@ function firmware(overrides: Partial<FirmwareSchema> = {}): FirmwareSchema {
 }
 
 function platform(firmwareList: FirmwareSchema[]): Platform {
-  return {
-    id: 1,
+  return makePlatform({
     slug: "fds",
-    fs_slug: "fds",
     name: "Family Computer Disk System",
-    display_name: "Family Computer Disk System",
-    rom_count: 0,
     firmware_count: firmwareList.length,
     firmware: firmwareList,
-  } as Platform;
+  });
 }
 
 function mountTab(firmwareList: FirmwareSchema[]) {
