@@ -63,8 +63,12 @@ withDefaults(defineProps<Props>(), {
   color: var(--r-color-fg-secondary);
 }
 
-/* Whole-pixel glyph sizes keep the icon centred on the text. */
+/* Whole-pixel glyph sizes keep the icon centred on the text. Flex centres
+   the icon on the line box, which reserves descender room the capitals
+   never use, so at md the icon lands about 1px below the caps. */
 .r-section-label--md .r-section-label__icon {
+  position: relative;
+  top: -1px;
   font-size: 14px;
 }
 .r-section-label--sm .r-section-label__icon {
