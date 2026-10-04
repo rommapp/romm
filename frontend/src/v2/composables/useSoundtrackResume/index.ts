@@ -2,7 +2,7 @@
 // it after a reload, while the user's `resumeMusic` setting is on.
 import { useEventListener, watchDebounced, whenever } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { onMounted, watch } from "vue";
+import { onMounted, onScopeDispose, watch } from "vue";
 import { useUISettings } from "@/composables/useUISettings";
 import storeAuth from "@/stores/auth";
 import useSoundtrackPlayer, {
@@ -11,6 +11,8 @@ import useSoundtrackPlayer, {
 } from "@/stores/soundtrackPlayer";
 
 export const SOUNDTRACK_SESSION_KEY = "soundtrack.session";
+export const SOUNDTRACK_CHANNEL = "romm-jukebox";
+export const PLAYING_REPLY_TIMEOUT_MS = 200;
 
 interface StoredSession {
   userId: number;
@@ -63,11 +65,42 @@ export function readStoredSession(raw: string): StoredSession | null {
   }
 }
 
+// Asks the other open tabs whether one is playing, so a session doesn't play
+// twice. A tab that closed, crashed or is reloading can't answer.
+function isPlayingElsewhere(
+  channel: BroadcastChannel | null,
+): Promise<boolean> {
+  if (!channel) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const done = (playing: boolean) => {
+      clearTimeout(timer);
+      channel.removeEventListener("message", onMessage);
+      resolve(playing);
+    };
+    const onMessage = (event: MessageEvent) => {
+      if (event.data === "playing") done(true);
+    };
+    const timer = setTimeout(() => done(false), PLAYING_REPLY_TIMEOUT_MS);
+    channel.addEventListener("message", onMessage);
+    channel.postMessage("ask");
+  });
+}
+
 export function useSoundtrackResume() {
   const { resumeMusic } = useUISettings();
   const player = useSoundtrackPlayer();
   const { session } = storeToRefs(player);
   const authStore = storeAuth();
+  const channel =
+    typeof BroadcastChannel === "undefined"
+      ? null
+      : new BroadcastChannel(SOUNDTRACK_CHANNEL);
+  useEventListener(channel, "message", (event: MessageEvent) => {
+    if (event.data === "ask" && player.isPlaying) {
+      channel?.postMessage("playing");
+    }
+  });
+  onScopeDispose(() => channel?.close());
 
   function write(stored: StoredSession | null) {
     try {
@@ -92,13 +125,21 @@ export function useSoundtrackResume() {
   onMounted(() => {
     whenever(
       () => authStore.user?.id,
-      (userId) => {
+      async (userId) => {
         const stored = readStoredSession(
           localStorage.getItem(SOUNDTRACK_SESSION_KEY) ?? "",
         );
-        if (resumeMusic.value && stored?.userId === userId && !player.track) {
-          player.restore(stored.session);
+        if (!resumeMusic.value || stored?.userId !== userId || player.track) {
+          return;
         }
+        const { session: saved } = stored;
+        const elsewhere =
+          saved.wasPlaying && (await isPlayingElsewhere(channel));
+        if (player.track || authStore.user?.id !== userId) return;
+        player.restore({
+          ...saved,
+          wasPlaying: saved.wasPlaying && !elsewhere,
+        });
       },
       { immediate: true },
     );

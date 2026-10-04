@@ -1,12 +1,14 @@
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, nextTick, ref } from "vue";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { defineComponent, ref } from "vue";
 import storeAuth from "@/stores/auth";
 import useSoundtrackPlayer, {
   type SoundtrackSession,
 } from "@/stores/soundtrackPlayer";
 import { userFixture } from "@/utils/user.fixtures";
 import {
+  PLAYING_REPLY_TIMEOUT_MS,
+  SOUNDTRACK_CHANNEL,
   SOUNDTRACK_SESSION_KEY,
   readStoredSession,
   useSoundtrackResume,
@@ -80,6 +82,27 @@ describe("readStoredSession", () => {
 });
 
 describe("useSoundtrackResume", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  // Lets the restore's "is another tab playing?" question go unanswered.
+  async function settle() {
+    await vi.advanceTimersByTimeAsync(PLAYING_REPLY_TIMEOUT_MS);
+  }
+
+  // Stands in for another open tab on the same channel.
+  function otherTab(playing: boolean) {
+    const channel = new BroadcastChannel(SOUNDTRACK_CHANNEL);
+    const heard: unknown[] = [];
+    channel.onmessage = (event: MessageEvent) => {
+      heard.push(event.data);
+      if (event.data === "ask" && playing) channel.postMessage("playing");
+    };
+    onTestFinished(() => channel.close());
+    return { channel, heard };
+  }
+
   it("restores the signed-in user's session", async () => {
     localStorage.setItem(
       SOUNDTRACK_SESSION_KEY,
@@ -87,9 +110,55 @@ describe("useSoundtrackResume", () => {
     );
     signIn(1);
     mountResume();
-    await nextTick();
+    await settle();
 
     expect(useSoundtrackPlayer().track).toEqual(track);
+  });
+
+  it("autoplays a session no other tab is playing", async () => {
+    otherTab(false);
+    localStorage.setItem(
+      SOUNDTRACK_SESSION_KEY,
+      JSON.stringify({ userId: 1, session }),
+    );
+    signIn(1);
+    mountResume();
+    await settle();
+
+    expect(useSoundtrackPlayer().pendingResume).toEqual({
+      position: 42,
+      autoplay: true,
+    });
+  });
+
+  it("loads paused while another tab is playing", async () => {
+    otherTab(true);
+    localStorage.setItem(
+      SOUNDTRACK_SESSION_KEY,
+      JSON.stringify({ userId: 1, session }),
+    );
+    signIn(1);
+    mountResume();
+
+    await vi.waitFor(() =>
+      expect(useSoundtrackPlayer().pendingResume).toEqual({
+        position: 42,
+        autoplay: false,
+      }),
+    );
+  });
+
+  it("tells other tabs when it is playing", async () => {
+    const { channel, heard } = otherTab(false);
+    signIn(1);
+    mountResume();
+    const player = useSoundtrackPlayer();
+    player.play(track, {});
+    player.setPlaying(true);
+
+    channel.postMessage("ask");
+
+    await vi.waitFor(() => expect(heard).toContain("playing"));
   });
 
   it("waits for the user before restoring", async () => {
@@ -98,11 +167,11 @@ describe("useSoundtrackResume", () => {
       JSON.stringify({ userId: 1, session }),
     );
     mountResume();
-    await nextTick();
+    await settle();
     expect(useSoundtrackPlayer().track).toBeNull();
 
     signIn(1);
-    await nextTick();
+    await settle();
     expect(useSoundtrackPlayer().track).toEqual(track);
   });
 
@@ -113,7 +182,7 @@ describe("useSoundtrackResume", () => {
     );
     signIn(1);
     mountResume();
-    await nextTick();
+    await settle();
 
     expect(useSoundtrackPlayer().track).toBeNull();
   });
@@ -126,7 +195,7 @@ describe("useSoundtrackResume", () => {
     );
     signIn(1);
     mountResume();
-    await nextTick();
+    await settle();
 
     expect(useSoundtrackPlayer().track).toBeNull();
   });
@@ -143,9 +212,9 @@ describe("useSoundtrackResume", () => {
 
     player.reset();
     storeAuth().reset();
-    await nextTick();
+    await settle();
     signIn(2);
-    await nextTick();
+    await settle();
 
     expect(player.track).toEqual(other);
     window.dispatchEvent(new Event("pagehide"));
@@ -181,7 +250,7 @@ describe("useSoundtrackResume", () => {
     mountResume();
 
     resumeMusic.value = false;
-    await nextTick();
+    await settle();
 
     expect(localStorage.getItem(SOUNDTRACK_SESSION_KEY)).toBeNull();
   });
