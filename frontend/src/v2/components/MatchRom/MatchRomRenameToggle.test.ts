@@ -1,11 +1,11 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { makeRom } from "@/utils/rom.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import MatchRomRenameToggle from "./MatchRomRenameToggle.vue";
 
 vi.mock("vue-i18n");
 
-const rom = makeRom({
+const rom = romFixture({
   fs_name: "Zelda (USA).gba",
   fs_name_no_tags: "Zelda",
 });

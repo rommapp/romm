@@ -3,6 +3,7 @@ import mitt, { type Emitter } from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { romFixture } from "@/utils/rom.fixtures";
 import RefreshMetadataDialog from "./RefreshMetadataDialog.vue";
 
 const { startScan, persistSelection, snackbarInfo, sources } = vi.hoisted(
@@ -67,12 +68,12 @@ const RBtn = {
 };
 
 function rom(): SimpleRom {
-  return {
+  return romFixture({
     id: 5,
     platform_id: 2,
     name: "Game",
     fs_name: "Game.zip",
-  } as SimpleRom;
+  });
 }
 
 async function openDialog() {

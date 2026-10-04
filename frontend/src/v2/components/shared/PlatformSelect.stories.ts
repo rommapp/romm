@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within, waitFor } from "storybook/test";
 import { ref } from "vue";
 import type { Platform } from "@/stores/platforms";
+import { platformFixture } from "@/utils/platform.fixtures";
 import PlatformSelect from "./PlatformSelect.vue";
 import {
   formatPlatformRomCount,
@@ -9,106 +10,72 @@ import {
   promotePlatformsWithGamesFirst,
 } from "./platformSelect";
 
-function makePlatform(overrides: Partial<Platform> = {}): Platform {
-  const slug = overrides.slug ?? "platform";
-  return {
-    id: -1,
-    slug,
-    fs_slug: overrides.fs_slug ?? slug,
-    rom_count: 0,
-    name: overrides.name ?? "Platform",
-    igdb_slug: null,
-    moby_slug: null,
-    hltb_slug: null,
-    libretro_slug: null,
-    created_at: "",
-    updated_at: "",
-    fs_size_bytes: 0,
-    is_unidentified: false,
-    is_identified: true,
-    missing_from_fs: false,
-    display_name: overrides.display_name ?? "Platform",
-    firmware_count: 0,
-    ...overrides,
-  };
-}
-
 /** Catalog-scale rom counts; PSX is NTSC-U + NTSC-J (~1,278 + ~2,278). */
 const PSX_CATALOG_ROM_COUNT = 1278 + 2278;
 
 const MIXED_PLATFORM_CATALOG: Platform[] = [
-  makePlatform({
+  platformFixture({
     id: 101,
     slug: "3do",
     name: "3DO Interactive Multiplayer",
-    display_name: "3DO Interactive Multiplayer",
     rom_count: 0,
   }),
-  makePlatform({
+  platformFixture({
     id: 102,
     slug: "ags",
     name: "Adventure Game Studio",
-    display_name: "Adventure Game Studio",
     rom_count: 0,
   }),
-  makePlatform({
+  platformFixture({
     id: 103,
     slug: "amiga",
     name: "Amiga",
-    display_name: "Amiga",
     rom_count: 0,
   }),
-  makePlatform({
+  platformFixture({
     id: 4,
     slug: "gba",
     name: "Game Boy Advance",
-    display_name: "Game Boy Advance",
     rom_count: 1537,
   }),
-  makePlatform({
+  platformFixture({
     id: 5,
     slug: "n64",
     name: "Nintendo 64",
-    display_name: "Nintendo 64",
     rom_count: 389,
   }),
-  makePlatform({
+  platformFixture({
     id: 6,
     slug: "psx",
     name: "PlayStation",
-    display_name: "PlayStation",
     rom_count: PSX_CATALOG_ROM_COUNT,
   }),
-  makePlatform({
+  platformFixture({
     id: 7,
     slug: "nes",
     name: "Nintendo Entertainment System",
-    display_name: "Nintendo Entertainment System",
     rom_count: 722,
   }),
-  makePlatform({
+  platformFixture({
     id: 8,
     slug: "zx80",
     name: "ZX80",
-    display_name: "ZX80",
     rom_count: 0,
   }),
 ];
 
 /** One over-cap library plus a normal count for badge formatting. */
 const ROM_COUNT_CAP_FIXTURE: Platform[] = [
-  makePlatform({
+  platformFixture({
     id: 1,
     slug: "psx",
     name: "PlayStation",
-    display_name: "PlayStation",
     rom_count: PLATFORM_ROM_COUNT_CAP + 2345,
   }),
-  makePlatform({
+  platformFixture({
     id: 2,
     slug: "gba",
     name: "Game Boy Advance",
-    display_name: "Game Boy Advance",
     rom_count: 99,
   }),
 ];

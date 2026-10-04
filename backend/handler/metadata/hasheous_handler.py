@@ -1,6 +1,5 @@
 import json
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any, Final, NotRequired, TypedDict
 
 import httpx2
@@ -19,6 +18,7 @@ from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
+from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import BaseRom, MetadataHandler, unavailable
@@ -148,21 +148,23 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
             "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
             "total_rating_count": rom.get("total_rating_count"),
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
-            "first_release_date": (
-                int(
-                    datetime.fromisoformat(
-                        rom["first_release_date"].replace("Z", "+00:00")
-                    ).timestamp()
-                )
-                if rom.get("first_release_date")
-                else None
+            "first_release_date": parse_utc_timestamp(
+                rom.get("first_release_date"), iso=True
             ),
             "genres": pydash.map_(rom.get("genres", {}), "name"),
             "franchises": pydash.compact(
                 [rom.get("franchise.name", None)]
                 + pydash.map_(rom.get("franchises", {}), "name")
             ),
-            "alternative_names": pydash.map_(rom.get("alternative_names", {}), "name"),
+            "alternative_names": pydash.uniq(
+                pydash.compact(
+                    [
+                        rom.get("name"),
+                        *pydash.map_(rom.get("alternative_names", {}), "name"),
+                        *pydash.map_(rom.get("game_localizations", {}), "name"),
+                    ]
+                )
+            ),
             "collections": pydash.map_(rom.get("collections", {}), "name"),
             "game_modes": pydash.map_(rom.get("game_modes", {}), "name"),
             # Not in `expandColumns`, so the proxy returns bare ids with no names.
@@ -482,7 +484,7 @@ class HasheousHandler(MetadataHandler):
             self.proxy_igdb_game_endpoint,
             params={
                 "Id": igdb_id,
-                "expandColumns": "age_ratings, alternative_names, collections, cover, dlcs, expanded_games, franchise, franchises, game_modes, genres, involved_companies, platforms, ports, remakes, screenshots, similar_games, videos",
+                "expandColumns": "age_ratings, alternative_names, collections, cover, dlcs, expanded_games, franchise, franchises, game_localizations, game_modes, genres, involved_companies, platforms, ports, remakes, screenshots, similar_games, videos",
             },
             method="GET",
         )

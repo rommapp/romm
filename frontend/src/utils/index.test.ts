@@ -9,7 +9,7 @@ import {
   isPico8EmulationSupported,
   isPico8Rom,
 } from "./index";
-import { makeRom } from "./rom.fixtures";
+import { romFixture } from "./rom.fixtures";
 
 function makeHeartbeat(
   emulation: Partial<Heartbeat["EMULATION"]> = {},
@@ -67,7 +67,7 @@ describe("isJsDosEmulationSupported", () => {
 });
 
 describe("isJsDosBundle", () => {
-  const withExt = (fs_extension: string) => makeRom({ fs_extension });
+  const withExt = (fs_extension: string) => romFixture({ fs_extension });
 
   it("accepts a .jsdos bundle regardless of case", () => {
     expect(isJsDosBundle(withExt("jsdos"))).toBe(true);
@@ -110,19 +110,23 @@ describe("PICO-8 support", () => {
   // thing that identifies one.
   it("accepts .p8 and .p8.png cartridges only", () => {
     expect(
-      isPico8Rom(makeRom({ fs_name: "celeste.p8", fs_extension: "p8" })),
+      isPico8Rom(romFixture({ fs_name: "celeste.p8", fs_extension: "p8" })),
     ).toBe(true);
     expect(
-      isPico8Rom(makeRom({ fs_name: "slipways.p8.png", fs_extension: "png" })),
+      isPico8Rom(
+        romFixture({ fs_name: "slipways.p8.png", fs_extension: "png" }),
+      ),
     ).toBe(true);
     expect(
-      isPico8Rom(makeRom({ fs_name: "SLIPWAYS.P8.PNG", fs_extension: "PNG" })),
+      isPico8Rom(
+        romFixture({ fs_name: "SLIPWAYS.P8.PNG", fs_extension: "PNG" }),
+      ),
     ).toBe(true);
     expect(
-      isPico8Rom(makeRom({ fs_name: "label.png", fs_extension: "png" })),
+      isPico8Rom(romFixture({ fs_name: "label.png", fs_extension: "png" })),
     ).toBe(false);
     expect(
-      isPico8Rom(makeRom({ fs_name: "game.zip", fs_extension: "zip" })),
+      isPico8Rom(romFixture({ fs_name: "game.zip", fs_extension: "zip" })),
     ).toBe(false);
     expect(isPico8Rom(null)).toBe(false);
   });
@@ -153,8 +157,8 @@ describe("EasyRPG support", () => {
   });
 
   it("follows the backend's game folder check", () => {
-    expect(isEasyRpgGame(makeRom({ is_easyrpg_game: true }))).toBe(true);
-    expect(isEasyRpgGame(makeRom({ is_easyrpg_game: false }))).toBe(false);
+    expect(isEasyRpgGame(romFixture({ is_easyrpg_game: true }))).toBe(true);
+    expect(isEasyRpgGame(romFixture({ is_easyrpg_game: false }))).toBe(false);
     expect(isEasyRpgGame(null)).toBe(false);
   });
 });

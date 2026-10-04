@@ -29,6 +29,28 @@ const heavyImports = [
   },
 ];
 
+const romCastRule = {
+  selector:
+    "TSAsExpression:matches([typeAnnotation.typeName.name=/^(SimpleRom|DetailedRom|SimpleRomSchema|DetailedRomSchema|RomFileSchema|RomUserSchema|RomMetadataSchema)$/], [typeAnnotation.elementType.typeName.name=/^(SimpleRom|DetailedRom|SimpleRomSchema|DetailedRomSchema|RomFileSchema)$/], [typeAnnotation.objectType.typeName.name=/^(SimpleRom|DetailedRom|SimpleRomSchema|DetailedRomSchema)$/])",
+  message:
+    "Build ROM fixtures with romFixture or detailedRomFixture from @/utils/rom.fixtures instead of a cast.",
+};
+
+const platformCastRule = {
+  selector:
+    "TSAsExpression[typeAnnotation.typeName.name=/^(Platform|PlatformSchema)$/]",
+  message:
+    "Build platform fixtures with platformFixture from @/utils/platform.fixtures instead of a cast.",
+};
+
+// Only object literals: reading a value back as one of these types is fine.
+const modelCastRule = {
+  selector:
+    ":matches(TSAsExpression[expression.type='ObjectExpression'], TSAsExpression[expression.expression.type='ObjectExpression'])[typeAnnotation.typeName.name=/^(User|UserSchema|Collection|CollectionSchema|SaveSchema|StateSchema|AuditEventSchema)$/]",
+  message:
+    "Build users, collections, saves, states and audit events with their fixtures (userFixture, collectionFixture, saveFixture, stateFixture, makeAuditEvent) instead of casting an object literal.",
+};
+
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -330,12 +352,20 @@ export default tseslint.config(
     rules: {
       "no-restricted-syntax": [
         "error",
-        {
-          selector:
-            "TSAsExpression[expression.type='TSAsExpression'][expression.typeAnnotation.type='TSUnknownKeyword'][typeAnnotation.typeName.name=/^(DetailedRom|SimpleRom)$/]",
-          message:
-            "Build ROM fixtures with makeRom or makeDetailedRom from @/utils/rom.fixtures instead of `as unknown as`.",
-        },
+        romCastRule,
+        platformCastRule,
+        modelCastRule,
+      ],
+    },
+  },
+  {
+    files: ["src/v2/**/*.stories.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        romCastRule,
+        platformCastRule,
+        modelCastRule,
       ],
     },
   },

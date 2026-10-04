@@ -64,11 +64,16 @@ AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
 
-# (metadata column, key) of each provider's alternative titles, in precedence order.
-ALTERNATIVE_NAME_SOURCES = (
+# (metadata column, key) of each provider's alternative titles.
+PROVIDER_ALTERNATIVE_NAME_SOURCES = (
     ("igdb_metadata", "alternative_names"),
     ("moby_metadata", "alternate_titles"),
     ("ss_metadata", "alternative_names"),
+)
+MANUAL_ALTERNATIVE_NAME_SOURCE = ("manual_metadata", "alternative_names")
+ALTERNATIVE_NAME_SOURCES = (
+    MANUAL_ALTERNATIVE_NAME_SOURCE,
+    *PROVIDER_ALTERNATIVE_NAME_SOURCES,
 )
 
 # Limits on `RomUser.pinned_media`, a list of keys like `file:12` naming the
@@ -128,6 +133,33 @@ def fold_search_title(title: str) -> str:
     return " ".join(title.replace(SEARCH_TITLE_SEPARATOR, " ").split()).lower()
 
 
+def source_titles(blob: Any, key: str) -> list[str]:
+    """The string titles under `key`, ignoring a malformed blob or entry."""
+    names = blob.get(key) if isinstance(blob, dict) else None
+    if not isinstance(names, list):
+        return []
+    return [title for title in names if isinstance(title, str)]
+
+
+def resolve_alternative_names(metadata: Mapping[str, Any]) -> list[str]:
+    """The hand-set titles, or every provider's when none are set, each trimmed and
+    kept once however it is cased or spaced.
+
+    Args:
+        metadata: Each `ALTERNATIVE_NAME_SOURCES` column's value, by column name.
+    """
+    manual_column, manual_key = MANUAL_ALTERNATIVE_NAME_SOURCE
+    titles = source_titles(metadata.get(manual_column), manual_key) or [
+        title
+        for column, key in PROVIDER_ALTERNATIVE_NAME_SOURCES
+        for title in source_titles(metadata.get(column), key)
+    ]
+    unique: dict[str, str] = {}
+    for title in titles:
+        unique.setdefault(fold_search_title(title), " ".join(title.split()))
+    return [title for folded, title in unique.items() if folded]
+
+
 def compute_search_titles(name: str | None, metadata: Mapping[str, Any]) -> str:
     """Precompute `Rom.search_titles`: the folded name, then each folded alias.
 
@@ -135,14 +167,7 @@ def compute_search_titles(name: str | None, metadata: Mapping[str, Any]) -> str:
         metadata: Each `ALTERNATIVE_NAME_SOURCES` column's value, by column name.
     """
     sep = SEARCH_TITLE_SEPARATOR
-    aliases = (
-        title
-        for column, key in ALTERNATIVE_NAME_SOURCES
-        if isinstance(blob := metadata.get(column), dict)
-        and isinstance(names := blob.get(key), list)
-        for title in names
-        if isinstance(title, str)
-    )
+    aliases = resolve_alternative_names(metadata)
     folded_name = fold_search_title(name or "")
     value = sep + folded_name + sep
     for alias in dict.fromkeys(fold_search_title(title) for title in aliases):
@@ -1250,11 +1275,13 @@ class Rom(BaseModel):
 
     @property
     def alternative_names(self) -> list[str]:
-        for column, key in ALTERNATIVE_NAME_SOURCES:
-            names: list[str] | None = (getattr(self, column) or {}).get(key)
-            if names:
-                return names
-        return []
+        """Every title `resolve_alternative_names` finds, but the displayed name."""
+        folded_name = fold_search_title(self.name or "")
+        return [
+            title
+            for title in resolve_alternative_names(alternative_name_metadata(self))
+            if fold_search_title(title) != folded_name
+        ]
 
     @cached_property
     def merged_ra_metadata(self) -> dict[str, Any] | None:
@@ -1383,12 +1410,14 @@ SEARCH_TITLE_COLUMNS = ("name", *(column for column, _ in ALTERNATIVE_NAME_SOURC
 ROM_VISIBILITY_COLUMNS = (Rom.id, Rom.platform_id, Rom.min_age)
 
 
+def alternative_name_metadata(rom: Rom) -> dict[str, Any]:
+    """Each `ALTERNATIVE_NAME_SOURCES` column's current value, by column name."""
+    return {column: getattr(rom, column) for column, _ in ALTERNATIVE_NAME_SOURCES}
+
+
 def rom_search_titles(rom: Rom) -> str:
     """`compute_search_titles` over the ROM's current name and metadata."""
-    return compute_search_titles(
-        rom.name,
-        {column: getattr(rom, column) for column, _ in ALTERNATIVE_NAME_SOURCES},
-    )
+    return compute_search_titles(rom.name, alternative_name_metadata(rom))
 
 
 @event.listens_for(Rom, "before_insert")

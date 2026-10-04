@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DetailedRomSchema } from "@/__generated__";
 import saveApi, { UNLOAD_SAVE_MAX_BYTES } from "@/services/api/save";
 import { saveFixture } from "@/utils/assets.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 
 vi.mock("@/services/api", () => ({
   default: {
@@ -24,7 +24,7 @@ vi.mock("@/services/api", () => ({
   },
 }));
 
-const rom = { id: 1 } as DetailedRomSchema;
+const rom = detailedRomFixture({ id: 1 });
 const saveOf = (size: number) => new File([new Uint8Array(size)], "game.srm");
 
 describe("sendSaveOnUnload", () => {

@@ -17,13 +17,19 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from tests.factories import make_esrb_rated_rom, make_rom, make_save, make_state
+from tests.factories import (
+    make_esrb_rated_rom,
+    make_platform,
+    make_rom,
+    make_save,
+    make_state,
+)
 from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
 from decorators.database import INJECTED_SESSION
 from exceptions.database_exceptions import RomFileOwnerChangedError
 from handler.auth.rom_visibility import RomVisibilityFilter
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_rom_handler
 from handler.database.base_handler import sync_engine, sync_session
 from handler.database.roms_handler import _filter_values_cache_version
 from models.assets import Save, State
@@ -213,9 +219,7 @@ class TestUniquePlatformFullPath:
             )
 
     def test_same_fs_name_other_platform_allowed(self, platform: Platform):
-        other = db_platform_handler.add_platform(
-            Platform(name="other", slug="other_slug", fs_slug="other_slug")
-        )
+        other = make_platform("other_slug", name="other")
 
         first = make_rom(platform, "Patched Game", fs_extension="gba")
         second = make_rom(other, "Patched Game", fs_extension="gba")

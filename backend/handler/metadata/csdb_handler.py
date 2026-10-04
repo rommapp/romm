@@ -19,6 +19,7 @@ from defusedxml import ElementTree as ET
 from config import CSDB_API_ENABLED
 from logger.logger import log
 from utils import get_version, int_or_none
+from utils.datetime import parse_utc_timestamp
 from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler, unavailable
@@ -88,10 +89,7 @@ def _text(node: Element | None, tag: str) -> str:
 
 def _year_unix(year: str) -> int | None:
     if len(year) == 4 and year.isdigit():
-        # 1 Jan UTC, same convention as other handlers' date fields.
-        from datetime import datetime, timezone
-
-        return int(datetime(int(year), 1, 1, tzinfo=timezone.utc).timestamp())
+        return parse_utc_timestamp(year, ("%Y",))
     return None
 
 

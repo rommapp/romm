@@ -159,6 +159,7 @@ ManualMetadata = TypedDict(
         "age_ratings": list[str] | None,
         "first_release_date": int | None,
         "youtube_video_id": str | None,
+        "alternative_names": list[str] | None,
     },
     total=False,
 )

@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { type ComputedRef, defineComponent } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 import { romIdFromRoute, useRouteRom } from "./index";
 
 function detailed(id: number) {
-  return makeDetailedRom({ id, name: `Game ${id}` });
+  return detailedRomFixture({ id, name: `Game ${id}` });
 }
 
 async function mountAt(path: string) {

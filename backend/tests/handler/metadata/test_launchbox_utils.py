@@ -1,10 +1,10 @@
 """Property-based tests for the LaunchBox metadata parsing helpers."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from hypothesis import assume, given
 from hypothesis import strategies as st
-from tests.handler.metadata.conftest import local_timezone
+from tests.timezones import local_timezone
 
 from handler.metadata.launchbox_handler.utils import (
     dedupe_words,
@@ -52,38 +52,39 @@ class TestParseReleaseDate:
         result = parse_release_date(value)
         assert result is None or isinstance(result, int)
 
-    # datetime.isoformat() omits fold, so both occurrences of an ambiguous
-    # local time reach the parser as the same string. Only the first occurrence
-    # is a satisfiable expectation, which is also what fromisoformat returns.
+    @given(st.datetimes(min_value=datetime(1971, 1, 1), max_value=datetime(2100, 1, 1)))
+    def test_a_date_without_an_offset_reads_as_utc(self, dt):
+        # CI runs in UTC, where local time and UTC agree, so pin another zone.
+        with local_timezone("America/New_York"):
+            result = parse_release_date(dt.isoformat())
+
+        assert result == int(dt.replace(tzinfo=timezone.utc).timestamp())
+
     @given(
         st.datetimes(
             min_value=datetime(1971, 1, 1),
             max_value=datetime(2100, 1, 1),
-        ).map(lambda dt: dt.replace(fold=0))
+            timezones=st.timezones(),
+        )
     )
-    def test_valid_iso_dates_parse_to_timestamp(self, dt):
-        result = parse_release_date(dt.isoformat())
+    def test_a_date_with_an_offset_keeps_it(self, dt):
+        with local_timezone("America/New_York"):
+            result = parse_release_date(dt.isoformat())
+
         assert result == int(dt.timestamp())
 
-    def test_ambiguous_local_time_uses_first_occurrence(self):
-        # No local time is ambiguous under the UTC that CI runs in, so the
-        # timezone has to be pinned to one that observes DST.
-        with local_timezone("America/New_York"):
-            first = datetime(1981, 10, 25, 1, 0)
-            second = first.replace(fold=1)
-            # Fails loudly if the zone above ever stops being ambiguous here,
-            # rather than leaving the assertions below trivially true.
-            assert int(second.timestamp()) - int(first.timestamp()) == 3600
-            assert first.isoformat() == second.isoformat()
-            assert parse_release_date(second.isoformat()) == int(first.timestamp())
-
     @given(st.dates(min_value=datetime(1971, 1, 1).date()))
-    def test_date_only_format_parses(self, d):
-        result = parse_release_date(d.isoformat())
-        expected = int(
-            datetime(d.year, d.month, d.day).timestamp(),
+    def test_a_date_alone_is_midnight_utc(self, d):
+        with local_timezone("America/Los_Angeles"):
+            result = parse_release_date(d.isoformat())
+
+        assert result == int(
+            datetime(d.year, d.month, d.day, tzinfo=timezone.utc).timestamp()
         )
-        assert result == expected
+
+    def test_a_trailing_z_is_utc(self):
+        with local_timezone("Asia/Tokyo"):
+            assert parse_release_date("2005-03-14T00:00:00Z") == 1110758400
 
 
 class TestSanitizeFilename:

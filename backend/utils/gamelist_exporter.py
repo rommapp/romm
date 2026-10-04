@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Final
 from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
@@ -24,6 +24,7 @@ from handler.filesystem import fs_platform_handler, fs_resource_handler
 from handler.metadata.gamelist_handler import gamelist_path_to_rel_path
 from logger.logger import log
 from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
+from utils.datetime import format_utc
 from utils.filesystem import join_rel_path, place_export_asset, rel_platform_folder
 
 # Each tag maps to the assets it can take, best first. RetroBat reads some of the
@@ -122,9 +123,7 @@ class GamelistExporter:
 
     def _format_release_date(self, timestamp: int) -> str:
         """Format release date to YYYYMMDDTHHMMSS format"""
-        return datetime.fromtimestamp(timestamp / 1000, tz=UTC).strftime(
-            "%Y%m%dT%H%M%S"
-        )
+        return format_utc(timestamp, "%Y%m%dT%H%M%S")
 
     def _collect_assets(self, rom: Rom) -> dict[str, Path]:
         """Collect available media assets for a ROM.

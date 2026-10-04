@@ -21,7 +21,14 @@ from fastapi import (
 from fastapi import Path as PathVar
 from fastapi import Query, Request, UploadFile, status
 from fastapi.responses import Response
-from pydantic import AfterValidator, BaseModel, Field, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    Field,
+    StringConstraints,
+    TypeAdapter,
+)
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import FileResponse
 
@@ -37,6 +44,7 @@ from endpoints.responses.base import PAGE_QUERY, LimitOffsetPage, PageParams
 from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
     DetailedRomSchema,
+    ManualMetadata,
     RomUserSchema,
     SimpleRomSchema,
 )
@@ -314,6 +322,8 @@ class RomUpdateForm(BaseModel):
     url_cover: str | None = None
     url_manual: str | None = None
 
+
+MANUAL_METADATA_ADAPTER: Final = TypeAdapter(ManualMetadata)
 
 # The provider ids the edit form sets; changing one rematches the rom.
 MATCH_ID_FIELDS: Final = tuple(
@@ -2065,7 +2075,15 @@ async def update_rom(
     if cleaned_data["steam_id"] and raw_steam_metadata is not None:
         cleaned_data["steam_metadata"] = raw_steam_metadata
     if raw_manual_metadata is not None:
-        cleaned_data["manual_metadata"] = raw_manual_metadata
+        try:
+            cleaned_data["manual_metadata"] = MANUAL_METADATA_ADAPTER.validate_python(
+                raw_manual_metadata
+            )
+        except PydanticValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Invalid manual metadata: {exc}",
+            ) from exc
 
     # Fetch metadata from external sources
     if (

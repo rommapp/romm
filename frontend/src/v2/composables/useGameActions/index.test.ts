@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionKey } from "@/__generated__";
-import type { SimpleRom } from "@/stores/roms";
-import { makeRom as baseRom } from "@/utils/rom.fixtures";
+import type { DetailedRom, SimpleRom } from "@/stores/roms";
+import {
+  detailedRomFixture,
+  romFileFixture,
+  romFixture,
+  romUserFixture,
+} from "@/utils/rom.fixtures";
 import { useGameActions } from "./index";
 
 // Controllable stubs shared with the mocked modules below.
@@ -152,13 +157,15 @@ vi.mock("@/v2/composables/useViewTransition", () => ({
   }),
 }));
 
-function makeRom(status: SimpleRom["rom_user"]["status"] = null): SimpleRom {
-  return baseRom({
+function romWithStatus(
+  status: SimpleRom["rom_user"]["status"] = null,
+): SimpleRom {
+  return romFixture({
     name: "Chrono Trigger",
     fs_name_no_ext: "Chrono Trigger",
     platform_slug: "snes",
     has_file_on_disk: true,
-    rom_user: { status } as SimpleRom["rom_user"],
+    rom_user: romUserFixture({ status }),
   });
 }
 
@@ -187,13 +194,13 @@ describe("useGameActions.canInstallOnDevice", () => {
   });
 
   it("offers the install for a rom with files on an allowed platform", () => {
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     expect(actions.canInstallOnDevice.value).toBe(true);
   });
 
   it("hides it for an excluded platform", () => {
-    const rom = { ...makeRom(), platform_slug: "win" } as SimpleRom;
+    const rom = { ...romWithStatus(), platform_slug: "win" };
     const actions = useGameActions(() => rom);
 
     expect(actions.canInstallOnDevice.value).toBe(false);
@@ -201,21 +208,21 @@ describe("useGameActions.canInstallOnDevice", () => {
 
   it("hides it while the server has the feature off", () => {
     deviceInstall.ENABLED = false;
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     expect(actions.canInstallOnDevice.value).toBe(false);
   });
 
   it("hides it from a caller without the devices.write scope", () => {
     authScopes.splice(0, authScopes.length, "devices.read", "roms.read");
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     expect(actions.canInstallOnDevice.value).toBe(false);
   });
 
   it("hides it from a caller without the devices.read scope", () => {
     authScopes.splice(0, authScopes.length, "devices.write", "roms.read");
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     expect(actions.canInstallOnDevice.value).toBe(false);
   });
@@ -232,7 +239,7 @@ describe("useGameActions.joinStream", () => {
 
   it("does not navigate until the user confirms", async () => {
     confirmFn.mockResolvedValue(false);
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.joinStream();
 
@@ -242,7 +249,7 @@ describe("useGameActions.joinStream", () => {
 
   it("navigates with the join intent once confirmed", async () => {
     confirmFn.mockResolvedValue(true);
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.joinStream();
 
@@ -255,7 +262,7 @@ describe("useGameActions.joinStream", () => {
 
   it("names the host in the confirmation", async () => {
     confirmFn.mockResolvedValue(false);
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.joinStream();
 
@@ -267,7 +274,7 @@ describe("useGameActions.joinStream", () => {
   it("falls back to an unnamed prompt when the host is unknown", async () => {
     joinableSession.value = { host_username: null };
     confirmFn.mockResolvedValue(false);
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.joinStream();
 
@@ -276,7 +283,7 @@ describe("useGameActions.joinStream", () => {
 
   it("asks nothing when there is no session to join", async () => {
     joinableSession.value = null;
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.joinStream();
 
@@ -290,7 +297,7 @@ describe("useGameActions — stream and join action labels", () => {
   // fallback rule is tested once here rather than in each surface.
   it("names the container a stream would run on", () => {
     streamContainer.value = { label: "Dreamcast box", emulator: "flycast" };
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     expect(actions.streamActionLabel.value).toBe(
       'rom.stream-on:{"container":"Dreamcast box"}',
@@ -299,7 +306,7 @@ describe("useGameActions — stream and join action labels", () => {
 
   it("says only 'stream' when no container is configured", () => {
     streamContainer.value = null;
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     expect(actions.streamActionLabel.value).toBe("rom.stream");
   });
@@ -307,7 +314,7 @@ describe("useGameActions — stream and join action labels", () => {
   it("names the host of a session that advertises one", () => {
     streamContainer.value = { host: "http://stream" };
     joinableSession.value = { host_username: "ada" };
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     expect(actions.joinActionLabel.value).toBe(
       'rom.join-session-of:{"user":"ada"}',
@@ -317,7 +324,7 @@ describe("useGameActions — stream and join action labels", () => {
   it("falls back to the plain join label when the host is unknown", () => {
     streamContainer.value = { host: "http://stream" };
     joinableSession.value = { host_username: null };
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     expect(actions.joinActionLabel.value).toBe("rom.join-session");
   });
@@ -325,7 +332,7 @@ describe("useGameActions — stream and join action labels", () => {
 
 describe("useGameActions.play — launch confirmation", () => {
   it("launches a normal game without confirming", async () => {
-    const actions = useGameActions(() => makeRom(null));
+    const actions = useGameActions(() => romWithStatus(null));
     await actions.play();
     expect(confirmFn).not.toHaveBeenCalled();
     expect(push).toHaveBeenCalledWith("/rom/1/ejs");
@@ -335,7 +342,7 @@ describe("useGameActions.play — launch confirmation", () => {
     "asks before launching a %s game and aborts on cancel",
     async (status) => {
       confirmFn.mockResolvedValue(false);
-      const actions = useGameActions(() => makeRom(status));
+      const actions = useGameActions(() => romWithStatus(status));
       await actions.play();
       expect(confirmFn).toHaveBeenCalledTimes(1);
       expect(push).not.toHaveBeenCalled();
@@ -344,7 +351,7 @@ describe("useGameActions.play — launch confirmation", () => {
 
   it("launches a shelved game once the user confirms", async () => {
     confirmFn.mockResolvedValue(true);
-    const actions = useGameActions(() => makeRom("retired"));
+    const actions = useGameActions(() => romWithStatus("retired"));
     await actions.play();
     expect(confirmFn).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledWith("/rom/1/ejs");
@@ -352,7 +359,7 @@ describe("useGameActions.play — launch confirmation", () => {
 
   it("skips the prompt when the preference is disabled", async () => {
     confirmProtectedLaunch.value = false;
-    const actions = useGameActions(() => makeRom("never_playing"));
+    const actions = useGameActions(() => romWithStatus("never_playing"));
     await actions.play();
     expect(confirmFn).not.toHaveBeenCalled();
     expect(push).toHaveBeenCalledWith("/rom/1/ejs");
@@ -360,7 +367,7 @@ describe("useGameActions.play — launch confirmation", () => {
 
   it("prefers streaming over EmulatorJS", async () => {
     streamContainer.value = {};
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.play();
 
@@ -371,7 +378,7 @@ describe("useGameActions.play — launch confirmation", () => {
     // The whole point of the two buttons: a platform both can run must still
     // be reachable in the browser.
     streamContainer.value = {};
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.play("local");
 
@@ -380,7 +387,7 @@ describe("useGameActions.play — launch confirmation", () => {
 
   it("goes to the stream when asked for it", async () => {
     streamContainer.value = {};
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.play("stream");
 
@@ -388,7 +395,7 @@ describe("useGameActions.play — launch confirmation", () => {
   });
 
   it("launches nothing when the asked-for player cannot run it", async () => {
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.play("stream");
 
@@ -398,7 +405,7 @@ describe("useGameActions.play — launch confirmation", () => {
   it("still confirms a shelved game whichever player is asked for", async () => {
     confirmFn.mockResolvedValue(false);
     streamContainer.value = {};
-    const actions = useGameActions(() => makeRom("retired"));
+    const actions = useGameActions(() => romWithStatus("retired"));
 
     await actions.play("stream");
 
@@ -409,7 +416,7 @@ describe("useGameActions.play — launch confirmation", () => {
   it("goes to Ruffle for a Flash rom", async () => {
     canPlayEJS.value = false;
     canPlayRuffle.value = true;
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.play();
 
@@ -419,7 +426,7 @@ describe("useGameActions.play — launch confirmation", () => {
   it("goes to PICO-8 for a cartridge", async () => {
     canPlayEJS.value = false;
     canPlayPico8.value = true;
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.play();
 
@@ -429,7 +436,7 @@ describe("useGameActions.play — launch confirmation", () => {
   it("goes to EasyRPG for an RPG Maker game", async () => {
     canPlayEJS.value = false;
     canPlayEasyRpg.value = true;
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.play();
 
@@ -438,7 +445,7 @@ describe("useGameActions.play — launch confirmation", () => {
 
   it("prefers js-dos over EmulatorJS for its platforms", async () => {
     canPlayJsDos.value = true;
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.play();
 
@@ -448,7 +455,7 @@ describe("useGameActions.play — launch confirmation", () => {
   it("opens the play page for a platform only the desktop shell can run", async () => {
     canPlayEJS.value = false;
     canPlayNative.value = true;
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.play();
 
@@ -459,7 +466,7 @@ describe("useGameActions.play — launch confirmation", () => {
   // where both can run the game there is still one route to open.
   it("opens the same page when a core can run it too", async () => {
     canPlayNative.value = true;
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     await actions.play();
 
@@ -468,14 +475,18 @@ describe("useGameActions.play — launch confirmation", () => {
 
   it("offers the Play button wherever either route can run the game", () => {
     canPlayEJS.value = false;
-    expect(useGameActions(() => makeRom()).canPlayLocally.value).toBe(false);
+    expect(useGameActions(() => romWithStatus()).canPlayLocally.value).toBe(
+      false,
+    );
     canPlayNative.value = true;
-    expect(useGameActions(() => makeRom()).canPlayLocally.value).toBe(true);
+    expect(useGameActions(() => romWithStatus()).canPlayLocally.value).toBe(
+      true,
+    );
   });
 
   it("offers neither streaming nor download without a file behind the rom", () => {
     streamContainer.value = {};
-    const fileless = { ...makeRom(), has_file_on_disk: false } as SimpleRom;
+    const fileless = { ...romWithStatus(), has_file_on_disk: false };
     const actions = useGameActions(() => fileless);
 
     expect(actions.canPlayStream.value).toBe(false);
@@ -488,13 +499,13 @@ describe("useGameActions.needsLaunchConfirm", () => {
     "asks before launching a %s game",
     (status) => {
       expect(
-        useGameActions(() => makeRom(status)).needsLaunchConfirm.value,
+        useGameActions(() => romWithStatus(status)).needsLaunchConfirm.value,
       ).toBe(true);
     },
   );
 
   it("asks nothing for a game that is not shelved", () => {
-    expect(useGameActions(() => makeRom()).needsLaunchConfirm.value).toBe(
+    expect(useGameActions(() => romWithStatus()).needsLaunchConfirm.value).toBe(
       false,
     );
   });
@@ -502,14 +513,14 @@ describe("useGameActions.needsLaunchConfirm", () => {
   it("asks nothing when the preference is disabled", () => {
     confirmProtectedLaunch.value = false;
     expect(
-      useGameActions(() => makeRom("retired")).needsLaunchConfirm.value,
+      useGameActions(() => romWithStatus("retired")).needsLaunchConfirm.value,
     ).toBe(false);
   });
 });
 
 describe("useGameActions.playPath", () => {
   it("points the local launch at EmulatorJS", () => {
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     expect(actions.playPath("local")).toBe("/rom/1/ejs");
     expect(actions.playPath()).toBe("/rom/1/ejs");
@@ -517,7 +528,7 @@ describe("useGameActions.playPath", () => {
 
   it("prefers the stream only when nobody asked for the local player", () => {
     streamContainer.value = {};
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     expect(actions.playPath()).toBe("/rom/1/stream");
     expect(actions.playPath("stream")).toBe("/rom/1/stream");
@@ -525,13 +536,13 @@ describe("useGameActions.playPath", () => {
   });
 
   it("has nowhere to go when the asked-for player cannot run the rom", () => {
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     expect(actions.playPath("stream")).toBeNull();
   });
 
   it("orders the in-browser players the way play() launches them", () => {
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
 
     canPlayJsDos.value = true;
     expect(actions.playPath("local")).toBe("/rom/1/jsdos");
@@ -559,7 +570,7 @@ describe("useGameActions.playPath", () => {
 
 describe("useGameActions — write/destructive gates", () => {
   it("exposes every write action when the grants allow it", () => {
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
     expect(actions.canEdit.value).toBe(true);
     expect(actions.canDelete.value).toBe(true);
     expect(actions.canMatch.value).toBe(true);
@@ -573,7 +584,7 @@ describe("useGameActions — write/destructive gates", () => {
       "rom.download",
       "rom.favorite",
     ]);
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
     expect(actions.canEdit.value).toBe(false);
     expect(actions.canDelete.value).toBe(false);
     expect(actions.canMatch.value).toBe(false);
@@ -586,7 +597,7 @@ describe("useGameActions — write/destructive gates", () => {
       "rom.match",
       "rom.refresh",
     ]);
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
     expect(actions.canEdit.value).toBe(true);
     expect(actions.canDelete.value).toBe(false);
   });
@@ -595,20 +606,20 @@ describe("useGameActions — write/destructive gates", () => {
   // gates on ROMS_WRITE) would 403, so the menu must not offer it.
   it("hides delete when the delete grant is held without the write grant", () => {
     grantedActions.value = new Set<ActionKey>(["rom.view", "rom.delete"]);
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
     expect(actions.canDelete.value).toBe(false);
   });
 
   it("shows delete when both the delete and write grants are held", () => {
     grantedActions.value = new Set<ActionKey>(["rom.delete", "rom.edit"]);
-    const actions = useGameActions(() => makeRom());
+    const actions = useGameActions(() => romWithStatus());
     expect(actions.canDelete.value).toBe(true);
   });
 });
 
 describe("useGameActions.refreshFiles", () => {
   it("refreshes the rom files without any provider", () => {
-    const rom = { ...makeRom(null), platform_id: 7 } as SimpleRom;
+    const rom = { ...romWithStatus(null), platform_id: 7 };
     const actions = useGameActions(() => rom);
 
     actions.refreshFiles();
@@ -624,7 +635,7 @@ describe("useGameActions.refreshFiles", () => {
 
   it("stays quiet when a scan is already running", () => {
     startScan.mockReturnValueOnce(false);
-    const actions = useGameActions(() => makeRom(null));
+    const actions = useGameActions(() => romWithStatus(null));
 
     actions.refreshFiles();
 
@@ -636,15 +647,13 @@ describe("useGameActions.downloadAs", () => {
   function pspRom(
     files: { id: number; file_name: string }[],
     downloadFormats = ["cso", "iso", "zso"],
-  ): SimpleRom {
-    return {
-      ...baseRom({
-        platform_slug: "psp",
-        has_file_on_disk: true,
-        files: files as SimpleRom["files"],
-      }),
+  ): DetailedRom {
+    return detailedRomFixture({
+      platform_slug: "psp",
+      has_file_on_disk: true,
+      files: files.map((file) => romFileFixture(file)),
       download_formats: downloadFormats,
-    } as SimpleRom;
+    });
   }
 
   it("offers the formats the detailed rom lists", () => {
@@ -657,10 +666,10 @@ describe("useGameActions.downloadAs", () => {
   });
 
   it("offers nothing for a rom without the list or without a file", () => {
-    const simple = baseRom({ platform_slug: "psp", has_file_on_disk: true });
+    const simple = romFixture({ platform_slug: "psp", has_file_on_disk: true });
     expect(useGameActions(() => simple).downloadFormats.value).toEqual([]);
 
-    const missing = { ...pspRom([]), has_file_on_disk: false } as SimpleRom;
+    const missing = { ...pspRom([]), has_file_on_disk: false };
     expect(useGameActions(() => missing).downloadFormats.value).toEqual([]);
   });
 
@@ -739,7 +748,7 @@ describe("useGameActions.copyDownloadLink", () => {
   const LINK = "http://romm.local/api/roms/1/content/game.zip";
 
   it("copies the download link with a success toast", async () => {
-    await useGameActions(() => makeRom()).copyDownloadLink();
+    await useGameActions(() => romWithStatus()).copyDownloadLink();
 
     expect(clipboardCopy).toHaveBeenCalledWith(
       LINK,
@@ -757,7 +766,7 @@ describe("useGameActions.copyDownloadLink", () => {
       },
     );
 
-    await useGameActions(() => makeRom()).copyDownloadLink();
+    await useGameActions(() => romWithStatus()).copyDownloadLink();
 
     expect(emitterEmit).toHaveBeenCalledWith(
       "showCopyDownloadLinkDialog",

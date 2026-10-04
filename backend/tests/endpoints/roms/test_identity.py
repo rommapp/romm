@@ -3,18 +3,16 @@ from datetime import datetime
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_rom_handler
 from models.platform import Platform
 from models.rom import Rom, SaveTargetLayout
 
 
 @pytest.fixture
 def switch_platform() -> Platform:
-    return db_platform_handler.add_platform(
-        Platform(name="Nintendo Switch", slug="switch", fs_slug="switch")
-    )
+    return make_platform("switch", name="Nintendo Switch")
 
 
 @pytest.fixture

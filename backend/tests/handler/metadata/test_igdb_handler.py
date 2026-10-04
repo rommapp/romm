@@ -32,6 +32,7 @@ from handler.metadata.igdb_handler import (
     TwitchAuth,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
+    build_igdb_rom,
     derive_player_count,
     extract_localized_data,
     extract_metadata_from_igdb_rom,
@@ -1381,3 +1382,45 @@ class TestGetMatchedRomsByName:
     ):
         assert await handler.get_matched_roms_by_name(_rom(), "metroid", None) == []
         assert service.calls == []
+
+
+class TestAlternativeNames:
+    """Every title IGDB knows lands in `alternative_names`, the canonical name too."""
+
+    def test_localization_titles_join_the_alternative_names(self):
+        game = _make_game(
+            1,
+            "Bleach: The 3rd Phantom",
+            alternative_names=["Burīchi Za Sādo Fantomu"],
+            game_localizations=[
+                "ブリーチ ザ・サード・ファントム",
+                "Burīchi Za Sādo Fantomu",
+            ],
+        )
+
+        rom = build_igdb_rom(IGDBHandler(), game, None, GENESIS_IGDB_ID)
+
+        assert rom["name"] == "Bleach: The 3rd Phantom"
+        assert rom["igdb_metadata"]["alternative_names"] == [
+            "Bleach: The 3rd Phantom",
+            "Burīchi Za Sādo Fantomu",
+            "ブリーチ ザ・サード・ファントム",
+        ]
+
+    def test_a_localized_display_name_keeps_every_title(self):
+        game = _make_game(1, "Bleach: The 3rd Phantom")
+        game["game_localizations"] = [
+            GameLocalization(
+                id=1,
+                name="ブリーチ ザ・サード・ファントム",
+                region={"id": 1, "identifier": "ja-JP"},
+            )
+        ]
+
+        rom = build_igdb_rom(IGDBHandler(), game, "ja-JP", GENESIS_IGDB_ID)
+
+        assert rom["name"] == "ブリーチ ザ・サード・ファントム"
+        assert rom["igdb_metadata"]["alternative_names"] == [
+            "Bleach: The 3rd Phantom",
+            "ブリーチ ザ・サード・ファントム",
+        ]

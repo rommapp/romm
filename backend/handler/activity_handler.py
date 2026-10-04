@@ -8,6 +8,7 @@ session is considered ended automatically.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from typing import Any, TypedDict, cast
@@ -17,6 +18,7 @@ from redis.exceptions import WatchError
 from endpoints.responses.activity import ActivityClearSchema
 from handler.database import (
     db_device_handler,
+    db_permission_handler,
     db_rom_handler,
     db_save_handler,
     db_user_handler,
@@ -119,29 +121,55 @@ class ActivityHandler:
         )
 
     async def publish_active(self, entry: ActivityEntry) -> None:
-        """Store a session and broadcast it to every connected client."""
+        """Store a session and send it to everyone allowed to see its ROM."""
+        previous = await self.get_active(entry["user_id"], entry["device_id"])
         await self.set_active(entry)
-        await self._broadcast("activity:update", dict(entry))
+        rooms = await _audience_rooms(entry["rom_id"])
+        await self._emit("activity:update", dict(entry), rooms)
+
+        # Without this game's audience the refresh just sent covers everyone.
+        if rooms is not None and previous and previous["rom_id"] != entry["rom_id"]:
+            # Whoever saw the last game but can't see this one would keep its card.
+            stale = await _audience_rooms(previous["rom_id"])
+            await self._emit(
+                "activity:clear",
+                ActivityClearSchema(
+                    user_id=entry["user_id"],
+                    device_id=entry["device_id"],
+                    rom_id=previous["rom_id"],
+                ).model_dump(),
+                None if stale is None else sorted(set(stale) - set(rooms)),
+            )
 
     async def publish_clear(self, user_id: int, device_id: str) -> int | None:
-        """End a session and broadcast it. Returns the rom_id cleared, if any."""
+        """End a session and announce it. Returns the rom_id cleared, if any."""
         rom_id = await self.clear_active(user_id, device_id)
         if rom_id is None:
             return None
-        await self._broadcast(
+        await self._emit(
             "activity:clear",
             ActivityClearSchema(
                 user_id=user_id, device_id=device_id, rom_id=rom_id
             ).model_dump(),
+            await _audience_rooms(rom_id),
         )
         return rom_id
 
-    async def _broadcast(self, event: str, payload: dict[str, Any]) -> None:
+    async def _emit(
+        self, event: str, payload: dict[str, Any], rooms: list[str] | None
+    ) -> None:
         # The REST app shares this process with the Socket.IO server, so emit
         # through the already-initialised, Redis-backed server (it fans out
-        # across workers) rather than opening a manager per call.
+        # across workers) rather than opening a manager per call. An empty
+        # `to` would reach every socket, so no audience sends nothing.
+        if rooms is None:
+            # An unknown audience can't be sent the session; every client
+            # re-lists what it may see instead.
+            event, payload = "activity:refresh", {}
+        elif not rooms:
+            return
         try:
-            await socket_handler.socket_server.emit(event, payload)
+            await socket_handler.socket_server.emit(event, payload, to=rooms)
         except Exception as e:  # noqa: BLE001
             log.warning(f"Failed to broadcast {event}: {e}")
 
@@ -271,6 +299,25 @@ class ActivityHandler:
             except WatchError:
                 # A heartbeat raced this cleanup; the next read retries it.
                 pass
+
+
+async def _audience_rooms(rom_id: int) -> list[str] | None:
+    """The ROM's audience, or None if it can't be read, so publishing still succeeds."""
+    try:
+        return await asyncio.to_thread(_audience, rom_id)
+    except Exception:  # noqa: BLE001 - activity is best-effort, like its broadcast
+        log.warning(f"Failed to resolve who can see ROM {rom_id}", exc_info=True)
+        return None
+
+
+def _audience(rom_id: int) -> list[str]:
+    """Sockets join their `user:{id}` room on connect; anonymous sockets join none."""
+    rom = db_rom_handler.get_rom_visibility(rom_id)
+    if rom is None:
+        return []
+    return [
+        f"user:{user_id}" for user_id in db_permission_handler.get_rom_audience(rom)
+    ]
 
 
 def _live_entry(raw: str | bytes | None, rom_id: int) -> ActivityEntry | None:

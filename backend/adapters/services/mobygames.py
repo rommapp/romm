@@ -38,6 +38,14 @@ async def auth_middleware(
     return await handler(req)
 
 
+def _unreachable() -> HTTPException:
+    log.critical("Connection error: can't connect to MobyGames", exc_info=True)
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Can't connect to MobyGames, check your internet connection",
+    )
+
+
 class MobyGamesService:
     """Service to interact with the MobyGames API.
 
@@ -51,7 +59,7 @@ class MobyGamesService:
         self.url = yarl.URL(base_url or "https://api.mobygames.com/v1")
 
     async def _request[T](
-        self, url: str, tp: type[T], request_timeout: int = 120
+        self, url: str, tp: type[T], request_timeout: float = 120
     ) -> T | None:
         source = f"MobyGames {yarl.URL(url).name}"
         aiohttp_session = ctx_aiohttp_session.get()
@@ -71,15 +79,10 @@ class MobyGamesService:
             )
             res.raise_for_status()
             return parse_response(tp, await res.read(), source=source)
-        except aiohttp.ServerTimeoutError:
-            # Retry the request once if it times out
+        except TimeoutError:
             log.debug("Request to URL=%s timed out. Retrying...", url)
         except aiohttp.ClientConnectionError as exc:
-            log.critical("Connection error: can't connect to MobyGames", exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to MobyGames, check your internet connection",
-            ) from exc
+            raise _unreachable() from exc
         except aiohttp.ClientResponseError as exc:
             if exc.status == http.HTTPStatus.UNAUTHORIZED:
                 # Sometimes MobyGames returns 401 even with a valid API key
@@ -92,7 +95,7 @@ class MobyGamesService:
                 log.error(exc)
                 return None
         except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
+            log.error("Error decoding JSON response from MobyGames: %s", exc)
             return None
 
         # Retry the request once if it times out
@@ -111,7 +114,7 @@ class MobyGamesService:
             )
             res.raise_for_status()
             return parse_response(tp, await res.read(), source=source)
-        except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as exc:
+        except (aiohttp.ClientResponseError, TimeoutError) as exc:
             if (
                 isinstance(exc, aiohttp.ClientResponseError)
                 and exc.status == http.HTTPStatus.UNAUTHORIZED
@@ -120,8 +123,10 @@ class MobyGamesService:
 
             log.error(exc)
             return None
+        except aiohttp.ClientConnectionError as exc:
+            raise _unreachable() from exc
         except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
+            log.error("Error decoding JSON response from MobyGames: %s", exc)
             return None
 
     async def list_groups(self, limit: int | None = None) -> list[dict[str, Any]]:
@@ -133,7 +138,10 @@ class MobyGamesService:
         if limit is not None:
             params["limit"] = [str(limit)]
 
-        url = self.url.joinpath("groups").with_query(**params)
+        url = self.url.joinpath("groups")
+        # yarl refuses an empty with_query.
+        if params:
+            url = url.with_query(**params)
         response = await self._request(str(url), MobyGroupsResponse)
         return (response.get("groups") or []) if response else []
 

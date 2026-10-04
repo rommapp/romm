@@ -17,7 +17,13 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from main import app
-from tests.factories import make_rom, make_save, make_screenshot, make_state
+from tests.factories import (
+    make_platform,
+    make_rom,
+    make_save,
+    make_screenshot,
+    make_state,
+)
 from tests.streaming_stubs import exit_pulls_spawned_inline
 
 from config import LIBRARY_BASE_PATH, OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
@@ -31,7 +37,6 @@ from handler.database import (
     db_container_adoption_handler,
     db_memory_card_handler,
     db_notification_handler,
-    db_platform_handler,
     db_play_session_handler,
     db_rom_handler,
     db_save_handler,
@@ -230,9 +235,7 @@ def _first_container(platform: str):
 
 def _rom_on(slug: str) -> Rom:
     """Create a platform with the given slug and a ROM on it."""
-    platform = db_platform_handler.add_platform(
-        Platform(name=slug, slug=slug, fs_slug=slug)
-    )
+    platform = make_platform(slug)
     return make_rom(platform, f"{slug}-rom", fs_stem=slug)
 
 
@@ -1546,9 +1549,7 @@ def test_claim_session_same_container_two_platforms_rejected(
     client, access_token, admin_user: User, rom: Rom
 ):
     """Dolphin serves ngc and wii from one broker - second claim must be 409."""
-    platform2 = db_platform_handler.add_platform(
-        Platform(name="p2", slug="p2_slug", fs_slug="p2_slug")
-    )
+    platform2 = make_platform("p2_slug", name="p2")
     rom2 = make_rom(platform2, "rom2")
     shared_broker = "http://192.168.1.10:8000"
     with _streaming(
@@ -10364,13 +10365,7 @@ def test_joinable_lists_sessions_for_different_roms(
     client, access_token, viewer_access_token, admin_user: User, rom: Rom
 ):
     """A second session's rom_id must not be filtered against the first's."""
-    other_platform = db_platform_handler.add_platform(
-        Platform(
-            name="other_platform",
-            slug="other_platform_slug",
-            fs_slug="other_platform_slug",
-        )
-    )
+    other_platform = make_platform("other_platform_slug", name="other_platform")
     other_rom = make_rom(other_platform, "other_rom")
     db_rom_handler.add_rom_user(rom_id=other_rom.id, user_id=admin_user.id)
 
