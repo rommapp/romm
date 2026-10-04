@@ -18,6 +18,7 @@ import type {
   StateSchema,
   NetplayICEServer,
 } from "@/__generated__";
+import { userStorage } from "@/composables/useUserLocalStorage";
 import { ROUTES } from "@/plugins/router";
 import { saveApi as api } from "@/services/api/save";
 import syncApi from "@/services/api/sync";
@@ -449,33 +450,33 @@ onMounted(() => {
   window.addEventListener("beforeunload", onBeforeUnload);
   window.addEventListener("pagehide", onPageHide);
   if (props.bios) {
-    localStorage.setItem(
+    userStorage.setItem(
       `player:${romRef.value.platform_slug}:bios_id`,
       props.bios.id.toString(),
     );
   } else {
-    localStorage.removeItem(`player:${romRef.value.platform_slug}:bios_id`);
+    userStorage.removeItem(`player:${romRef.value.platform_slug}:bios_id`);
   }
 
   if (props.core) {
     // Remember the core per-game, and per-platform as the fallback default
-    localStorage.setItem(`player:${romRef.value.id}:core`, props.core);
-    localStorage.setItem(
+    userStorage.setItem(`player:${romRef.value.id}:core`, props.core);
+    userStorage.setItem(
       `player:${romRef.value.platform_slug}:core`,
       props.core,
     );
   } else {
-    localStorage.removeItem(`player:${romRef.value.id}:core`);
-    localStorage.removeItem(`player:${romRef.value.platform_slug}:core`);
+    userStorage.removeItem(`player:${romRef.value.id}:core`);
+    userStorage.removeItem(`player:${romRef.value.platform_slug}:core`);
   }
 
   if (props.disc) {
-    localStorage.setItem(
+    userStorage.setItem(
       `player:${romRef.value.id}:disc`,
       props.disc.toString(),
     );
   } else {
-    localStorage.removeItem(`player:${romRef.value.id}:disc`);
+    userStorage.removeItem(`player:${romRef.value.id}:disc`);
   }
 
   emitter?.on("saveSelected", switchSave);

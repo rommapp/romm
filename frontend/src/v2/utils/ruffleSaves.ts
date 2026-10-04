@@ -1,5 +1,7 @@
 // Ruffle keeps each SharedObject in localStorage as a base64 `.sol` file, keyed
 // `<host>/<SWF path or an ancestor>/<name>`, a `/` in a name prefixed with `#`.
+// Ruffle picks those keys itself, so they cannot be scoped to the user.
+/* eslint-disable romm/no-unscoped-local-storage */
 import { unzipSync, zipSync } from "fflate";
 
 /** A game's SharedObjects, keyed by their storage key without the host. */

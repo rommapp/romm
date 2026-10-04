@@ -1,3 +1,5 @@
+import { userStorage } from "@/composables/useUserLocalStorage";
+
 // The core a game is played with is remembered twice: under the game, and
 // under its platform as the default for every other game on that platform.
 const gameKey = (romId: number) => `player:${romId}:core`;
@@ -19,8 +21,8 @@ export function resolveRememberedCore(
 ): string | null {
   return (
     [
-      localStorage.getItem(gameKey(romId)),
-      localStorage.getItem(platformKey(platformSlug)),
+      userStorage.getItem(gameKey(romId)),
+      userStorage.getItem(platformKey(platformSlug)),
       configuredCore,
     ].find((core): core is string => !!core && supportedCores.includes(core)) ??
     supportedCores[0] ??
@@ -35,7 +37,7 @@ export function rememberCore(
   core: string | null,
 ): void {
   for (const key of [gameKey(romId), platformKey(platformSlug)]) {
-    if (core) localStorage.setItem(key, core);
-    else localStorage.removeItem(key);
+    if (core) userStorage.setItem(key, core);
+    else userStorage.removeItem(key);
   }
 }

@@ -19,6 +19,7 @@ import type { RTabNavItem } from "@v2/lib";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import { userStorage } from "@/composables/useUserLocalStorage";
 import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
@@ -174,7 +175,7 @@ async function ensureLoaded(kind: CollectionKind) {
     collectionsStore.virtualCollections.length === 0
   ) {
     const type =
-      localStorage.getItem("settings.virtualCollectionType") ?? "collection";
+      userStorage.getItem("settings.virtualCollectionType") ?? "collection";
     await collectionsStore.fetchVirtualCollections(type);
   } else if (
     kind === "smart" &&

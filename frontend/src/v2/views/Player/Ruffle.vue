@@ -7,6 +7,7 @@ import { RIcon, RSwitch } from "@v2/lib";
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
+import { userStorage } from "@/composables/useUserLocalStorage";
 import romApi from "@/services/api/rom";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
 import type { DetailedRom } from "@/stores/roms";
@@ -240,7 +241,7 @@ async function leavePlayer(leave: () => void) {
 
 function onBackgroundColorChange() {
   if (rom.value) {
-    localStorage.setItem(
+    userStorage.setItem(
       `player:ruffle:${rom.value.id}:backgroundColor`,
       backgroundColor.value,
     );
@@ -266,7 +267,7 @@ onMounted(async () => {
   rom.value = romResponse.data;
 
   if (rom.value) {
-    const storedColor = localStorage.getItem(
+    const storedColor = userStorage.getItem(
       `player:ruffle:${rom.value.id}:backgroundColor`,
     );
     if (storedColor) backgroundColor.value = storedColor;

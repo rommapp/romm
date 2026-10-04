@@ -5,6 +5,8 @@ import { randomToken } from "@/services/pending-asset";
 
 // One id per browser profile, sent as the device's hostname so registering
 // again finds the same device instead of adding one.
+// The browser id is per profile and the device keys carry the user id.
+/* eslint-disable romm/no-unscoped-local-storage */
 const BROWSER_ID_KEY = "romm:browser-id";
 const DEVICE_KEY_PREFIX = "romm:browser-device:";
 
