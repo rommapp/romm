@@ -514,8 +514,8 @@ def build_igdb_rom(
 
     localized_name, localized_cover = extract_localized_data(rom, preferred_locale)
     igdb_metadata = extract_metadata_from_igdb_rom(handler, rom, platform_igdb_id)
-    # Every title but the displayed one, so a canonical name a localized
-    # title replaced stays searchable.
+    # Keep every title except the displayed one, so the canonical name stays
+    # searchable when a localized title replaces it.
     igdb_metadata["alternative_names"] = [
         title
         for title in pydash.uniq(
