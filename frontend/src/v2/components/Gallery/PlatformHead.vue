@@ -256,8 +256,6 @@ html[data-bp~="xs"] .r-v2-plat__panel-icon {
   min-height: 116px;
 }
 
-/* The play glyph rides RChip's prepend slot so it centres on the chip
-   like any other icon; only its tone differs from the label text. */
 .r-v2-plat__playable :deep(.r-chip__icon--prepend) {
   color: var(--r-color-success);
 }
