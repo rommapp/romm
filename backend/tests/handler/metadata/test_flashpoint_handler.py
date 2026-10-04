@@ -1,6 +1,5 @@
-"""Tests for the Flashpoint handler's lookup failure reporting."""
+"""Tests for the Flashpoint metadata handler."""
 
-import time
 from collections.abc import AsyncIterator
 from typing import Any, cast
 from unittest.mock import AsyncMock, patch
@@ -8,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 import httpx2
 import pytest
 from fastapi import HTTPException
+from tests.handler.metadata.conftest import local_timezone
 
 from handler.metadata import flashpoint_handler
 from handler.metadata.flashpoint_handler import (
@@ -359,15 +359,8 @@ class TestExtractFlashpointMetadata:
 
         assert metadata["first_release_date"] == ""
 
-    def test_the_release_date_does_not_depend_on_the_server_timezone(
-        self, monkeypatch: pytest.MonkeyPatch
-    ):
-        monkeypatch.setenv("TZ", "America/Los_Angeles")
-        time.tzset()
-        try:
+    def test_the_release_date_does_not_depend_on_the_server_timezone(self):
+        with local_timezone("America/Los_Angeles"):
             metadata = extract_flashpoint_metadata(self._game())
-        finally:
-            monkeypatch.undo()
-            time.tzset()
 
         assert metadata["first_release_date"] == "1110758400"
