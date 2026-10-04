@@ -112,7 +112,7 @@ class IGDBService:
             )
             res.raise_for_status()
             return parse_response(tp, await res.read(), source=source)
-        except aiohttp.ServerTimeoutError:
+        except TimeoutError:
             # Retry the request once if it times out
             log.debug("Request to URL=%s timed out. Retrying...", url)
         except IGDBInvalidCredentialsException as exc:
@@ -160,7 +160,7 @@ class IGDBService:
             )
             res.raise_for_status()
             return parse_response(tp, await res.read(), source=source)
-        except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as exc:
+        except (aiohttp.ClientResponseError, TimeoutError) as exc:
             if (
                 isinstance(exc, aiohttp.ClientResponseError)
                 and exc.status == http.HTTPStatus.UNAUTHORIZED
