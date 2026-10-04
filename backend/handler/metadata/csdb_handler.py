@@ -8,7 +8,6 @@ https://csdb.dk/webservice/
 
 from __future__ import annotations
 
-import re
 from typing import Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlparse
 from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
@@ -21,10 +20,15 @@ from utils import int_or_none
 from utils.datetime import parse_utc_timestamp
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler
+from .base_handler import (
+    BaseRom,
+    MetadataHandler,
+    provider_tag_regex,
+    tag_id_from_filename,
+)
 from .demozoo_handler import build_scene_summary, http_url
 
-CSDB_TAG_REGEX = re.compile(r"\(csdb-(\d+)\)", re.IGNORECASE)
+CSDB_TAG_REGEX = provider_tag_regex("csdb")
 CSDB_WEBSERVICE: Final[str] = "https://csdb.dk/webservice/"
 CSDB_RELEASE_PAGE: Final[str] = "https://csdb.dk/release/?id={id}"
 _rate_limiter = RateLimiter(1.5)
@@ -53,10 +57,7 @@ class CsdbRom(BaseRom):
 
 
 def extract_csdb_id_from_filename(fs_name: str) -> int | None:
-    match = CSDB_TAG_REGEX.search(fs_name)
-    if match:
-        return int_or_none(match.group(1))
-    return None
+    return tag_id_from_filename(CSDB_TAG_REGEX, fs_name)
 
 
 def csdb_id_from_url(url: str) -> int | None:
@@ -180,16 +181,13 @@ class CsdbHandler(MetadataHandler):
         return body.decode("utf-8", errors="replace")
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
-        try:
+        async def probe() -> bool:
             xml = await self._request(
                 f"{CSDB_WEBSERVICE}?type=release&id=75330&depth=1"
             )
-        except Exception as exc:
-            log.error("Error checking CSDb API: %s", exc)
-            return False
-        return "<Release>" in xml and "<ID>75330</ID>" in xml
+            return "<Release>" in xml and "<ID>75330</ID>" in xml
+
+        return await self._heartbeat("CSDb API", probe)
 
     async def get_rom_by_id(self, csdb_id: int) -> CsdbRom:
         if not self.is_enabled() or not csdb_id:

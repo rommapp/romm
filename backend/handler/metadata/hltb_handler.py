@@ -31,8 +31,6 @@ from utils.update_hltb_api_url import discover_hltb_endpoint
 
 from .base_handler import BaseRom, MetadataHandler
 
-# Regex to detect HLTB ID tags in filenames like (hltb-12345)
-HLTB_TAG_REGEX = re.compile(r"\(hltb-(\d+)\)", re.IGNORECASE)
 DASH_COLON_REGEX = re.compile(r"\s?-\s")
 # The game page ships its record as JSON in the Next.js hydration payload. The
 # id alone identifies the tag, so attribute order and extras a CSP would add
@@ -371,20 +369,14 @@ class HLTBHandler(MetadataHandler):
             log.warning("Unexpected error fetching HLTB security token: %s", e)
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
-
-        httpx_client = ctx_httpx_client.get()
-        try:
-            response = await httpx_client.get(
+        async def probe() -> bool:
+            response = await ctx_httpx_client.get().get(
                 self.stats_endpoint, headers=self._base_headers()
             )
             response.raise_for_status()
-        except Exception as e:
-            log.error("Error checking HLTB API: %s", e)
-            return False
+            return True
 
-        return True
+        return await self._heartbeat("HLTB API", probe)
 
     async def _request(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
         """

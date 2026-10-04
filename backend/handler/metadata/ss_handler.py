@@ -48,8 +48,10 @@ from .base_handler import (
     BaseRom,
     IndexedFormatPlatforms,
     MetadataHandler,
+    provider_tag_regex,
     restore_sensitive_query_params,
     strip_sensitive_query_params,
+    tag_id_from_filename,
 )
 
 SENSITIVE_KEYS = {"ssid", "sspassword"}
@@ -235,7 +237,7 @@ CPS3_SS_ID: Final = 8
 ARCADES_SS_IDS: Final = [ARCADE_SS_ID, CPS1_SS_ID, CPS2_SS_ID, CPS3_SS_ID]
 
 # Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
-SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
+SS_TAG_REGEX = provider_tag_regex("ssfr")
 
 
 # ScreenScraper buckets that name no place, so they must not become facet values.
@@ -899,24 +901,16 @@ class SSHandler(MetadataHandler):
         return bool(SCREENSCRAPER_DEV_ID and SCREENSCRAPER_DEV_PASSWORD)
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
-
-        try:
+        async def probe() -> bool:
             response = await self.ss_service.get_infra_info()
-        except Exception as e:
-            log.error("Error checking ScreenScraper API: %s", e)
-            return False
+            return bool(response and response.get("response"))
 
-        return bool(response and response.get("response"))
+        return await self._heartbeat("ScreenScraper API", probe)
 
     @staticmethod
     def extract_ss_id_from_filename(fs_name: str) -> int | None:
-        """Extract ScreenScraper ID from filename tag like (ss-12345)."""
-        match = SS_TAG_REGEX.search(fs_name)
-        if match:
-            return int(match.group(1))
-        return None
+        """Extract ScreenScraper ID from filename tag like (ssfr-12345)."""
+        return tag_id_from_filename(SS_TAG_REGEX, fs_name)
 
     async def _search_rom(
         self, search_term: str, platform_ss_id: int, split_game_name: bool = False

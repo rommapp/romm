@@ -15,6 +15,8 @@ from .base_handler import (
     BaseRom,
     IndexedFormatPlatforms,
     MetadataHandler,
+    provider_tag_regex,
+    tag_id_from_filename,
 )
 
 PS1_MOBY_ID: Final = 6
@@ -31,7 +33,7 @@ MOBY_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
 )
 
 # Regex to detect MobyGames ID tags in filenames like (moby-12345)
-MOBYGAMES_TAG_REGEX = re.compile(r"\(moby-(\d+)\)", re.IGNORECASE)
+MOBYGAMES_TAG_REGEX = provider_tag_regex("moby")
 
 
 class MobyGamesPlatform(TypedDict):
@@ -79,6 +81,18 @@ def extract_metadata_from_moby_rom(rom: MobyGame) -> MobyMetadata:
     )
 
 
+def build_moby_rom(game: MobyGame) -> MobyGamesRom:
+    rom = {
+        "moby_id": game["game_id"],
+        "name": game["title"],
+        "summary": game.get("description"),
+        "url_cover": pydash.get(game, "sample_cover.image", None),
+        "url_screenshots": [s["image"] for s in game.get("sample_screenshots", [])],
+        "moby_metadata": extract_metadata_from_moby_rom(game),
+    }
+    return cast(MobyGamesRom, {k: v for k, v in rom.items() if v})
+
+
 class MobyGamesHandler(MetadataHandler):
     def __init__(self) -> None:
         self.moby_service = MobyGamesService()
@@ -89,24 +103,15 @@ class MobyGamesHandler(MetadataHandler):
         return bool(MOBYGAMES_API_KEY)
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
+        async def probe() -> bool:
+            return bool(await self.moby_service.list_groups(limit=1))
 
-        try:
-            response = await self.moby_service.list_groups(limit=1)
-        except Exception as e:
-            log.error("Error checking MobyGames API: %s", e)
-            return False
-
-        return bool(response)
+        return await self._heartbeat("MobyGames API", probe)
 
     @staticmethod
     def extract_mobygames_id_from_filename(fs_name: str) -> int | None:
         """Extract MobyGames ID from filename tag like (moby-12345)."""
-        match = MOBYGAMES_TAG_REGEX.search(fs_name)
-        if match:
-            return int(match.group(1))
-        return None
+        return tag_id_from_filename(MOBYGAMES_TAG_REGEX, fs_name)
 
     async def _search_rom(
         self, search_term: str, platform_moby_id: int, split_game_name: bool = False
@@ -212,16 +217,7 @@ class MobyGamesHandler(MetadataHandler):
         if not res:
             return fallback_rom
 
-        moby_rom = {
-            "moby_id": res["game_id"],
-            "name": res["title"],
-            "summary": res.get("description", ""),
-            "url_cover": pydash.get(res, "sample_cover.image", None),
-            "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
-            "moby_metadata": extract_metadata_from_moby_rom(res),
-        }
-
-        return cast(MobyGamesRom, {k: v for k, v in moby_rom.items() if v})
+        return build_moby_rom(res)
 
     async def get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
         if not self.is_enabled():
@@ -231,17 +227,7 @@ class MobyGamesHandler(MetadataHandler):
         if not roms:
             return MobyGamesRom(moby_id=None)
 
-        res = roms[0]
-        rom = {
-            "moby_id": res["game_id"],
-            "name": res["title"],
-            "summary": res.get("description", None),
-            "url_cover": pydash.get(res, "sample_cover.image", None),
-            "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
-            "moby_metadata": extract_metadata_from_moby_rom(res),
-        }
-
-        return cast(MobyGamesRom, {k: v for k, v in rom.items() if v})
+        return build_moby_rom(roms[0])
 
     async def get_matched_rom_by_id(self, moby_id: int) -> MobyGamesRom | None:
         if not self.is_enabled():
