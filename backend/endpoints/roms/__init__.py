@@ -2,6 +2,7 @@ import binascii
 import json
 import re
 from base64 import b64encode
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, timezone
 from io import BytesIO
@@ -2346,42 +2347,44 @@ async def update_rom(
             cleaned_data.get("ra_metadata", {}).get("achievements", [])
         )
 
-    # Handle special media files from Screenscraper when the ID has changed
-    if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
-        preferred_media_types = get_preferred_media_types()
-
-        # Remove old media files if the ss_id is changing
-        await fs_resource_handler.remove_recorded_media(
-            rom.platform_id, rom.id, rom.ss_metadata or {}, preferred_media_types
-        )
-
-        ss_metadata = cleaned_data.get("ss_metadata")
-        if ss_metadata:
-            await fs_resource_handler.store_metadata_media(
-                ss_metadata, preferred_media_types, add_ss_auth_to_url
-            )
-
-    # Handle local media files from LaunchBox when the ID has changed
-    if (
-        cleaned_data["launchbox_id"]
+    # Providers share media paths, so they are compared and stored together: a
+    # lower-priority provider fills a path the new match left empty.
+    ss_changed = bool(cleaned_data["ss_id"]) and int(cleaned_data["ss_id"]) != rom.ss_id
+    launchbox_changed = (
+        bool(cleaned_data["launchbox_id"])
         and int(cleaned_data["launchbox_id"]) != rom.launchbox_id
-    ):
+    )
+    if ss_changed or launchbox_changed:
         preferred_media_types = get_preferred_media_types()
-        launchbox_metadata = cleaned_data.get("launchbox_metadata")
-
-        # A path LaunchBox shares with ScreenScraper or gamelist keeps its file;
-        # only files LaunchBox alone recorded, and whose source changed, go.
-        ss_metadata = cleaned_data.get("ss_metadata", rom.ss_metadata)
+        providers: tuple[
+            tuple[str, dict[str, Any] | None, Callable[[str], str] | None], ...
+        ] = (
+            (
+                "ss_metadata",
+                cleaned_data.get("ss_metadata") if ss_changed else rom.ss_metadata,
+                add_ss_auth_to_url,
+            ),
+            ("gamelist_metadata", rom.gamelist_metadata, None),
+            (
+                "launchbox_metadata",
+                (
+                    cleaned_data.get("launchbox_metadata")
+                    if launchbox_changed
+                    else rom.launchbox_metadata
+                ),
+                None,
+            ),
+        )
         await fs_resource_handler.remove_stale_media(
-            [ss_metadata, rom.gamelist_metadata, rom.launchbox_metadata],
-            [ss_metadata, rom.gamelist_metadata, launchbox_metadata],
+            [rom.ss_metadata, rom.gamelist_metadata, rom.launchbox_metadata],
+            [provider_metadata for _, provider_metadata, _ in providers],
             preferred_media_types,
         )
-
-        if launchbox_metadata:
-            await fs_resource_handler.store_metadata_media(
-                launchbox_metadata, preferred_media_types
-            )
+        for column, provider_metadata, url_transform in providers:
+            if provider_metadata and await fs_resource_handler.store_metadata_media(
+                provider_metadata, preferred_media_types, url_transform
+            ):
+                cleaned_data[column] = provider_metadata
 
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"

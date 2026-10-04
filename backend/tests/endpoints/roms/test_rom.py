@@ -1872,6 +1872,63 @@ class TestUpdateMetadataIDs:
             f"roms/{rom.platform_id}/{rom.id}/physical/physical_disc2.png"
         )
 
+    @patch.object(FSResourcesHandler, "remove_directory", new_callable=AsyncMock)
+    @patch.object(FSResourcesHandler, "remove_file", new_callable=AsyncMock)
+    @patch.object(
+        FSResourcesHandler,
+        "store_media_file",
+        new_callable=AsyncMock,
+        return_value=True,
+    )
+    @patch(
+        "endpoints.roms.get_preferred_media_types",
+        return_value=[MetadataMediaType.BOX2D_BACK],
+    )
+    @patch.object(
+        SSHandler,
+        "get_rom_by_id",
+        return_value=SSRom(ss_id=MOCK_SS_ID, ss_metadata={}),  # type: ignore[typeddict-item]
+    )
+    def test_update_rom_ss_id_hands_shared_media_to_launchbox(
+        self,
+        _get_rom_by_id_mock: AsyncMock,
+        _get_preferred_media_mock: AsyncMock,
+        store_media_file_mock: AsyncMock,
+        remove_file_mock: AsyncMock,
+        remove_directory_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """A rematch whose game lacks a box back fetches the LaunchBox one instead."""
+        back_path = f"roms/{rom.platform_id}/{rom.id}/box2d_back/box2d_back.png"
+        launchbox_url = "https://images.launchbox-app.com/back.png"
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "ss_metadata": {
+                    "box2d_back_url": "https://screenscraper.example/back.png",
+                    "box2d_back_path": back_path,
+                },
+                "launchbox_metadata": {
+                    "box2d_back_url": launchbox_url,
+                    "box2d_back_path": back_path,
+                },
+            },
+        )
+
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"ss_id": str(MOCK_SS_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        remove_file_mock.assert_awaited_once_with(back_path)
+        remove_directory_mock.assert_not_awaited()
+        store_media_file_mock.assert_awaited_once_with(launchbox_url, back_path)
+        assert response.json()["launchbox_metadata"]["box2d_back_path"] == back_path
+
     @patch.object(RAHandler, "get_rom_by_id", return_value=RAGameRom(ra_id=MOCK_RA_ID))
     def test_update_rom_ra_id(
         self,

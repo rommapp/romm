@@ -305,10 +305,10 @@ def _find_local_media_candidates(
 
 def _find_local_image(
     ctx: LocalMediaContext, image_types: tuple[str, ...]
-) -> str | None:
-    """URL of the first local image of the highest-priority type on disk."""
+) -> tuple[str, str] | None:
+    """URL and region folder of the first local image of the highest-priority type."""
     for category in image_types:
-        candidate_files, _region = _find_local_media_candidates(
+        candidate_files, region = _find_local_media_candidates(
             ctx,
             category,
             indexed_preference=(1,),
@@ -316,7 +316,7 @@ def _find_local_image(
         )
         url = file_uri_for_local_path(candidate_files[0]) if candidate_files else None
         if url:
-            return url
+            return url, region
     return None
 
 
@@ -356,34 +356,48 @@ def _select_remote_cover(
 
 
 def _get_box_art(req: MediaRequest) -> dict[BoxArt, str]:
-    """Resolve the URL of each box face, a local image overriding the remote one."""
+    """Resolve the URL of each box face, a local image overriding the remote one.
+
+    The faces after the front prefer the front's region, so the box matches.
+    """
     urls: dict[BoxArt, str] = {}
-
-    if req.remote_enabled and req.remote_images:
-        region_shortcodes = req.region_shortcodes
-        for art in BOX_ART:
-            image = _select_remote_image(
-                req.remote_images, art.image_types, region_shortcodes
-            )
-            if not image:
-                continue
-            urls[art] = f"{LAUNCHBOX_IMAGES_URL}/{image['FileName']}"
-            # The other faces follow the front's region, so the box matches.
-            code = launchbox_region_to_shortcode(image.get("Region"))
-            if art.media_type == MetadataMediaType.BOX2D and code:
-                region_shortcodes = (
-                    code,
-                    *(c for c in region_shortcodes if c != code),
-                )
-
     ctx = _build_local_media_context(
         req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True
     )
-    if ctx is not None:
-        for art in BOX_ART:
-            url = _find_local_image(ctx, art.image_types)
-            if url:
-                urls[art] = url
+    remote_images = req.remote_images if req.remote_enabled else None
+    region_shortcodes = req.region_shortcodes
+
+    for art in BOX_ART:
+        url: str | None = None
+        region: str | None = None
+        local = _find_local_image(ctx, art.image_types) if ctx is not None else None
+        if local:
+            url, region = local
+        elif remote_images:
+            image = _select_remote_image(
+                remote_images, art.image_types, region_shortcodes
+            )
+            if image:
+                url = f"{LAUNCHBOX_IMAGES_URL}/{image['FileName']}"
+                region = image.get("Region")
+        if not url:
+            continue
+        urls[art] = url
+
+        if art.media_type != MetadataMediaType.BOX2D or not region:
+            continue
+        code = launchbox_region_to_shortcode(region)
+        if code:
+            region_shortcodes = (code, *(c for c in region_shortcodes if c != code))
+        if ctx is not None:
+            ctx = LocalMediaContext(
+                base=ctx["base"],
+                stems=ctx["stems"],
+                preferred_regions=[
+                    region,
+                    *(r for r in ctx["preferred_regions"] if r != region),
+                ],
+            )
 
     return urls
 
@@ -401,7 +415,9 @@ def _get_cover(req: MediaRequest) -> str | None:
         req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True
     )
     if ctx is not None:
-        cover = _find_local_image(ctx, COVER_PRIORITY_TYPES) or cover
+        local_cover = _find_local_image(ctx, COVER_PRIORITY_TYPES)
+        if local_cover:
+            cover = local_cover[0]
 
     return cover
 

@@ -1320,6 +1320,48 @@ class TestBoxArt:
             "box2d_side_url": f"{base}/spine-us.png",
         }
 
+    def test_faces_follow_a_local_front_region(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        lb_root = tmp_path / "launchbox"
+        platform_root = lb_root / "Images" / "NES"
+        for category, region in (
+            ("Box - Front", "North America"),
+            ("Box - Back", "Europe"),
+            ("Box - Back", "North America"),
+        ):
+            folder = platform_root / category / region
+            folder.mkdir(parents=True)
+            (folder / "Mario-01.png").write_bytes(b"")
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.media.LAUNCHBOX_IMAGES_DIR",
+            lb_root / "Images",
+        )
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.utils.LAUNCHBOX_LOCAL_DIR",
+            lb_root,
+        )
+
+        req = self._req(
+            [
+                self._image("spine-eu.png", "Box - Spine", "Europe"),
+                self._image("spine-us.png", "Box - Spine", "North America"),
+            ],
+            ("eu",),
+            platform_name="NES",
+            fs_name="Mario.nes",
+        )
+        urls = {art.url_key: url for art, url in _get_box_art(req).items()}
+        assert urls == {
+            "box2d_url": (
+                "launchbox-file://Images/NES/Box - Front/North America/Mario-01.png"
+            ),
+            "box2d_back_url": (
+                "launchbox-file://Images/NES/Box - Back/North America/Mario-01.png"
+            ),
+            "box2d_side_url": "https://images.launchbox-app.com/spine-us.png",
+        }
+
     def test_reconstructed_back_is_a_fallback(self):
         images = [self._image("back-rec.png", "Box - Back - Reconstructed")]
         urls = {
