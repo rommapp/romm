@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within, waitFor } from "storybook/test";
 import { ref } from "vue";
 import type { Platform } from "@/stores/platforms";
+import { platformSearchTerms } from "@/v2/utils/platformSearch";
 import PlatformSelect from "./PlatformSelect.vue";
 import {
   formatPlatformRomCount,
@@ -271,7 +272,9 @@ export const PromotedTypingInSearch: Story = {
         const rows = menuRowTitles();
         expect(rows).not.toContain("---");
         const expected = MIXED_PLATFORM_CATALOG.filter((p) =>
-          p.display_name.toLowerCase().includes(searchCharacter),
+          platformSearchTerms(p).some((term) =>
+            term.toLowerCase().includes(searchCharacter),
+          ),
         ).map((p) => p.display_name);
         expect(rows).toEqual(expected);
         expect(

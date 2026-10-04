@@ -64,6 +64,8 @@ class Platform(BaseModel):
     generation: Mapped[int | None]
     family_name: Mapped[str | None] = mapped_column(String(length=1000), default="")
     family_slug: Mapped[str | None] = mapped_column(String(length=1000), default="")
+    abbreviation: Mapped[str | None] = mapped_column(String(length=100), default="")
+    alternative_name: Mapped[str | None] = mapped_column(String(length=400), default="")
     url: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")
 

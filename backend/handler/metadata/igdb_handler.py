@@ -78,6 +78,8 @@ class IGDBPlatform(TypedDict):
     generation: NotRequired[int]
     family_name: NotRequired[str]
     family_slug: NotRequired[str]
+    abbreviation: NotRequired[str]
+    alternative_name: NotRequired[str]
     url: NotRequired[str]
     url_logo: NotRequired[str]
 
@@ -779,6 +781,8 @@ class IGDBHandler(MetadataHandler):
                 generation=platform["generation"],
                 family_name=platform["family_name"],
                 family_slug=platform["family_slug"],
+                abbreviation=platform.get("abbreviation", ""),
+                alternative_name=platform.get("alternative_name", ""),
                 url=platform["url"],
                 url_logo=self.normalize_cover_url(platform["url_logo"]),
             )
@@ -796,6 +800,8 @@ class IGDBHandler(MetadataHandler):
                 generation=main_platform["generation"],
                 family_name=main_platform["family_name"],
                 family_slug=main_platform["family_slug"],
+                abbreviation=main_platform.get("abbreviation", ""),
+                alternative_name=main_platform.get("alternative_name", ""),
                 url=platform_version["url"],
                 url_logo=self.normalize_cover_url(
                     platform_version["url_logo"] or main_platform["url_logo"]

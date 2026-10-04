@@ -57,6 +57,8 @@ interface NormalisedItem {
   title: string;
   value: unknown;
   disabled?: boolean;
+  /** Lowercased title plus `itemSearchTerms`, what the search matches. */
+  searchTerms: string[];
 }
 
 // `multiple` needs an array model and single-select `clearable` a nullable one.
@@ -113,6 +115,8 @@ interface Props {
   /** Adds a sticky search input at the top of the panel that filters
    *  items locally by title. */
   searchable?: boolean;
+  /** Extra strings the search matches an item by, besides its title. */
+  itemSearchTerms?: ((item: Item) => readonly string[]) | undefined;
   /** v-model:search: current query string. */
   search?: string;
   searchPlaceholder?: string | undefined;
@@ -182,6 +186,7 @@ const props = withDefaults(defineProps<Props>(), {
   prefixLabel: undefined,
   color: "primary",
   searchable: false,
+  itemSearchTerms: undefined,
   search: "",
   searchPlaceholder: "",
   menuLocation: "bottom",
@@ -261,15 +266,20 @@ function readKey<T>(item: unknown, key: string | ((it: unknown) => T)): T {
 }
 
 const normalisedItems = computed<NormalisedItem[]>(() => {
-  return (props.items ?? []).map((raw) => ({
-    raw,
-    title: String(readKey<unknown>(raw, props.itemTitle as never) ?? ""),
-    value: readKey<unknown>(raw, props.itemValue as never),
-    disabled:
-      typeof raw === "object" && raw != null
-        ? Boolean((raw as Record<string, unknown>).disabled)
-        : false,
-  }));
+  return (props.items ?? []).map((raw) => {
+    const title = String(readKey<unknown>(raw, props.itemTitle as never) ?? "");
+    const extraTerms = props.itemSearchTerms?.(raw) ?? [];
+    return {
+      raw,
+      title,
+      value: readKey<unknown>(raw, props.itemValue as never),
+      disabled:
+        typeof raw === "object" && raw != null
+          ? Boolean((raw as Record<string, unknown>).disabled)
+          : false,
+      searchTerms: [title, ...extraTerms].map((term) => term.toLowerCase()),
+    };
+  });
 });
 
 // Internal search buffer: RSelect filters from this. The `search`
@@ -297,7 +307,7 @@ const filteredItems = computed<NormalisedItem[]>(() => {
   const q = internalSearch.value.trim().toLowerCase();
   if (!q) return normalisedItems.value;
   return normalisedItems.value.filter((it) =>
-    it.title.toLowerCase().includes(q),
+    it.searchTerms.some((term) => term.includes(q)),
   );
 });
 

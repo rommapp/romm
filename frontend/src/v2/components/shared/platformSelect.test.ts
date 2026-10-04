@@ -163,6 +163,30 @@ describe("PlatformSelect promoteFilled + search", () => {
       ...remaining.map((p) => p.display_name),
     ]);
   });
+
+  it.each([
+    ["the slug", "snes"],
+    ["the IGDB abbreviation", "sfc"],
+    ["the IGDB alternative name", "super famicom"],
+  ])("finds a platform by %s", async (_, query) => {
+    const wrapper = await openPromoteFilledMenu([
+      ...CATALOG.filter((p) => p.slug !== "snes"),
+      makePlatform({
+        id: 7,
+        slug: "snes",
+        display_name: "Super Nintendo",
+        rom_count: 256,
+        abbreviation: "SFC",
+        alternative_name: "Super Famicom",
+      }),
+    ]);
+    await panelSearchInput().setValue(query);
+    await flushPromises();
+    await nextTick();
+
+    expect(menuRows()).toEqual(["Super Nintendo"]);
+    wrapper.unmount();
+  });
 });
 
 describe("promotePlatformsWithGamesFirst", () => {

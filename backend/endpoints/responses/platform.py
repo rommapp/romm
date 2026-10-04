@@ -31,6 +31,8 @@ class PlatformSchema(BaseModel):
     generation: int | None = None
     family_name: str | None = None
     family_slug: str | None = None
+    abbreviation: str | None = None
+    alternative_name: str | None = None
     url: str | None = None
     url_logo: str | None = None
     firmware: list[FirmwareSchema] = Field(default_factory=list)

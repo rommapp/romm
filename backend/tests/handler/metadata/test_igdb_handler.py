@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from adapters.services.igdb import IGDB_PLATFORM_LIST
 from adapters.services.igdb_types import (
     AlternativeName,
     ExpandableField,
@@ -28,6 +29,7 @@ from handler.metadata.igdb_handler import (
     get_igdb_preferred_locale,
 )
 from handler.redis_handler import async_cache
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 GENESIS_IGDB_ID = 29
 
@@ -79,6 +81,42 @@ def _make_game(
         "multiplayer_modes": [],
         "game_localizations": localizations,
     }
+
+
+class TestGetPlatformAlternativeNames:
+    @pytest.fixture
+    def named_atari_st(self) -> Any:
+        entry = {
+            **IGDB_PLATFORM_LIST[UPS.ATARI_ST],
+            "abbreviation": "ST",
+            "alternative_name": "Atari ST/STE",
+        }
+        with patch.dict(IGDB_PLATFORM_LIST, {UPS.ATARI_ST: entry}):
+            yield
+
+    @pytest.mark.usefixtures("named_atari_st")
+    def test_platform_carries_abbreviation_and_alternative_name(self) -> None:
+        platform = IGDBHandler().get_platform(UPS.ATARI_ST)
+
+        assert platform.get("abbreviation") == "ST"
+        assert platform.get("alternative_name") == "Atari ST/STE"
+
+    @pytest.mark.usefixtures("named_atari_st")
+    def test_platform_version_inherits_main_platform_names(self) -> None:
+        platform = IGDBHandler().get_platform("520-st")
+
+        assert platform.get("abbreviation") == "ST"
+        assert platform.get("alternative_name") == "Atari ST/STE"
+
+    def test_platform_without_names_defaults_to_empty(self) -> None:
+        entry = cast(dict[str, Any], dict(IGDB_PLATFORM_LIST[UPS.ATARI_ST]))
+        entry.pop("abbreviation", None)
+        entry.pop("alternative_name", None)
+        with patch.dict(IGDB_PLATFORM_LIST, {UPS.ATARI_ST: entry}):
+            platform = IGDBHandler().get_platform(UPS.ATARI_ST)
+
+        assert platform.get("abbreviation") == ""
+        assert platform.get("alternative_name") == ""
 
 
 class TestGetIGDBPreferredLocale:

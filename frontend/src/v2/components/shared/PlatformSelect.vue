@@ -29,6 +29,7 @@ import type { Platform } from "@/stores/platforms";
 import { platformCategoryToIcon } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
 import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
+import { platformSearchTerms } from "@/v2/utils/platformSearch";
 import {
   formatPlatformRomCount,
   promotePlatformsWithGamesFirst,
@@ -238,6 +239,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
     :items="listItems"
     item-title="display_name"
     :item-value="itemKey"
+    :item-search-terms="platformSearchTerms"
     :multiple="multiple"
     :searchable="searchable"
     :clearable="clearable"

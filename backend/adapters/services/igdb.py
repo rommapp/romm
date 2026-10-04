@@ -3,7 +3,7 @@ import http
 import json
 from collections.abc import Sequence
 from functools import partial
-from typing import TYPE_CHECKING, Any, Final, TypedDict
+from typing import TYPE_CHECKING, Any, Final, NotRequired, TypedDict
 
 import aiohttp
 import yarl
@@ -230,6 +230,8 @@ class SlugToIGDB(TypedDict):
     family_slug: str
     url: str
     url_logo: str
+    abbreviation: NotRequired[str]
+    alternative_name: NotRequired[str]
 
 
 IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
