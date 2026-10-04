@@ -4,12 +4,17 @@ import { expect } from "./test";
 /** `page.goto` that also waits for `/api/permissions/me`, before which even an
  *  admin sees every gated control hidden. */
 export async function gotoHydrated(page: Page, path: string) {
-  const hydrated = page.waitForResponse((r) =>
-    r.url().includes("/api/permissions/me"),
+  // Armed before page.goto, so the test's timeout bounds these waits: an
+  // action timeout would count the page load against them.
+  const hydrated = page.waitForResponse(
+    (r) => r.url().includes("/api/permissions/me"),
+    { timeout: 0 },
   );
   await page.goto(path);
   // A rejected session lands on /login, which never requests permissions.
-  const loginShown = page.locator("form.r-v2-login-form").waitFor();
+  const loginShown = page
+    .locator("form.r-v2-login-form")
+    .waitFor({ timeout: 0 });
   const response = await Promise.race([hydrated, loginShown.then(() => null)]);
   if (!response) {
     throw new Error(
