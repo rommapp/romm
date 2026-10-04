@@ -2,7 +2,7 @@ import abc
 import json
 import re
 import unicodedata
-from collections.abc import Collection
+from collections.abc import Awaitable, Callable, Collection
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -22,7 +22,7 @@ from tasks.scheduled.update_switch_titledb import (
     SWITCH_TITLEDB_INDEX_KEY,
     SWITCH_TITLEDB_STORE,
 )
-from utils import get_version
+from utils import get_version, int_or_none
 from utils.cache import is_cache_store_ready
 from utils.context import ctx_httpx_client
 from utils.switch import derive_base_title_id
@@ -67,6 +67,16 @@ LEADING_ARTICLE_PATTERN = re.compile(r"^(a|an|the)\b", re.IGNORECASE)
 COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b(?=\s*[^\w\s]|$)", re.IGNORECASE)
 NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
 MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
+
+
+def provider_tag_regex(prefix: str) -> re.Pattern[str]:
+    """The filename tag that pins a ROM to a provider id, like ``(igdb-1234)``."""
+    return re.compile(rf"\({prefix}-(\d+)\)", re.IGNORECASE)
+
+
+def tag_id_from_filename(tag_regex: re.Pattern[str], fs_name: str) -> int | None:
+    match = tag_regex.search(fs_name)
+    return int_or_none(match.group(1)) if match else None
 
 
 class BaseRom(TypedDict):
@@ -179,6 +189,22 @@ class MetadataHandler(abc.ABC):
     @abc.abstractmethod
     def is_enabled(cls) -> bool:
         """Return whether this metadata handler is enabled."""
+
+    async def _heartbeat(
+        self, provider: str, probe: Callable[[], Awaitable[bool]]
+    ) -> bool:
+        """Whether the provider is enabled and answers `probe`.
+
+        Args:
+            probe: A cheap request; raising counts as the provider being down.
+        """
+        if not self.is_enabled():
+            return False
+        try:
+            return await probe()
+        except Exception as exc:
+            log.error("Error checking %s: %s", provider, exc)
+            return False
 
     async def _fetch_capped(
         self, url: str, *, headers: Mapping[str, str]

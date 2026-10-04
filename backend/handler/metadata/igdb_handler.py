@@ -1,4 +1,3 @@
-import re
 from collections.abc import Sequence
 from typing import Any, Final, NotRequired, TypedDict, cast
 
@@ -30,6 +29,8 @@ from .base_handler import (
     BaseRom,
     IndexedFormatPlatforms,
     MetadataHandler,
+    provider_tag_regex,
+    tag_id_from_filename,
 )
 
 PS1_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.PSX]["id"]
@@ -68,7 +69,7 @@ IGDB_REGIONAL_TWIN_PLATFORMS: Final[dict[int, int]] = {
 }
 
 # Regex to detect IGDB ID tags in filenames like (igdb-12345)
-IGDB_TAG_REGEX = re.compile(r"\(igdb-(\d+)\)", re.IGNORECASE)
+IGDB_TAG_REGEX = provider_tag_regex("igdb")
 
 # Jaro-Winkler score of an exact (post-normalization) title match. Only a first
 # pass hitting this may be trusted without widening the search.
@@ -624,10 +625,7 @@ class IGDBHandler(MetadataHandler):
     @staticmethod
     def extract_igdb_id_from_filename(fs_name: str) -> int | None:
         """Extract IGDB ID from filename tag like (igdb-12345)."""
-        match = IGDB_TAG_REGEX.search(fs_name)
-        if match:
-            return int(match.group(1))
-        return None
+        return tag_id_from_filename(IGDB_TAG_REGEX, fs_name)
 
     def _is_prefix_superset_match(self, search_term: str, candidate_name: str) -> bool:
         """Whether one title's words are a proper prefix of the other's.
@@ -770,19 +768,10 @@ class IGDBHandler(MetadataHandler):
         return None
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
+        async def probe() -> bool:
+            return bool(await self.igdb_service.list_games(fields=["id"], limit=1))
 
-        try:
-            roms = await self.igdb_service.list_games(
-                fields=["id"],
-                limit=1,
-            )
-        except Exception as e:
-            log.error("Error checking IGDB API: %s", e)
-            return False
-
-        return bool(roms)
+        return await self._heartbeat("IGDB API", probe)
 
     def get_platform(self, slug: str) -> IGDBPlatform:
         if slug in IGDB_PLATFORM_LIST:

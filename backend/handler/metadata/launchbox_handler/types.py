@@ -6,7 +6,7 @@ from typing import Any, Final, NotRequired, TypedDict
 from config import ROMM_BASE_PATH
 from utils.cache import VersionedCacheStore
 
-from ..base_handler import BaseRom
+from ..base_handler import BaseRom, provider_tag_regex
 
 LAUNCHBOX_PLATFORMS_KEY: Final[str] = "romm:launchbox_platforms"
 LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final[str] = "romm:launchbox_metadata_database_id"
@@ -47,7 +47,7 @@ LAUNCHBOX_MANUALS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Manuals"
 LAUNCHBOX_VIDEOS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Videos"
 
 # Regex to detect LaunchBox ID tags in filenames like (launchbox-12345)
-LAUNCHBOX_TAG_REGEX = re.compile(r"\(launchbox-(\d+)\)", re.IGNORECASE)
+LAUNCHBOX_TAG_REGEX = provider_tag_regex("launchbox")
 DASH_COLON_REGEX = re.compile(r"\s?-\s")
 
 

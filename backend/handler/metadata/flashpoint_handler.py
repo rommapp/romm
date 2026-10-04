@@ -146,16 +146,10 @@ class FlashpointHandler(MetadataHandler):
             return {}
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
+        async def probe() -> bool:
+            return bool(await self._request(self.platforms_url, {}))
 
-        try:
-            response = await self._request(self.platforms_url, {})
-        except Exception as e:
-            log.error("Error checking Flashpoint API: %s", e)
-            return False
-
-        return bool(response)
+        return await self._heartbeat("Flashpoint API", probe)
 
     async def search_games(self, search_term: str) -> list[FlashpointGame]:
         """

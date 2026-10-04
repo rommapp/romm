@@ -241,18 +241,12 @@ class HasheousHandler(MetadataHandler):
         return HASHEOUS_API_ENABLED
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
-
-        httpx_client = ctx_httpx_client.get()
-        try:
-            response = await httpx_client.get(self.healthcheck_endpoint)
+        async def probe() -> bool:
+            response = await ctx_httpx_client.get().get(self.healthcheck_endpoint)
             response.raise_for_status()
-        except Exception as e:
-            log.error("Error checking Hasheous API: %s", e)
-            return False
+            return True
 
-        return bool(response)
+        return await self._heartbeat("Hasheous API", probe)
 
     async def _request(
         self,
