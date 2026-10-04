@@ -72,7 +72,9 @@ def extract_flashpoint_metadata(game: FlashpointGame) -> FlashpointMetadata:
     if game.get("release_date"):
         try:
             date_obj = datetime.datetime.strptime(game["release_date"], "%Y-%m-%d")
-            first_release_date = str(int(date_obj.timestamp()))
+            first_release_date = str(
+                int(date_obj.replace(tzinfo=datetime.timezone.utc).timestamp())
+            )
         except ValueError, TypeError:
             first_release_date = ""
 
