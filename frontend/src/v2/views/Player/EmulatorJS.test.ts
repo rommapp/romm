@@ -8,7 +8,7 @@ import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
 import type { Events } from "@/types/emitter";
 import type { LaunchState, SaveSyncOutcome } from "@/types/rommNative";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
 import EmulatorJS from "./EmulatorJS.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -176,7 +176,7 @@ vi.mock("@/v2/composables/useStageActive", () => ({
 
 vi.mock("@/v2/composables/useUnloadGuard", () => ({ useUnloadGuard: vi.fn() }));
 
-const ROM = makeDetailedRom({
+const ROM = detailedRomFixture({
   id: 7,
   name: "Shadow of the Colossus",
   platform_id: 4,
@@ -189,20 +189,18 @@ const ROM = makeDetailedRom({
 
 // Two discs, so the panel renders its disc selector and there is a pick to
 // carry. Ids rather than names: a pick is a rom file's id.
-const DISC_SET = makeDetailedRom({
+const DISC_SET = detailedRomFixture({
   ...ROM,
   files: [
-    { id: 101, file_name: "Game (Disc 1).chd" },
-    { id: 102, file_name: "Game (Disc 2).chd" },
-  ] as DetailedRom["files"],
+    romFileFixture({ id: 101, file_name: "Game (Disc 1).chd" }),
+    romFileFixture({ id: 102, file_name: "Game (Disc 2).chd" }),
+  ],
 });
 
 // A scraped bezel, which is what puts the panel's bezel switch on screen.
-const BEZELED_ROM = makeDetailedRom({
+const BEZELED_ROM = detailedRomFixture({
   ...ROM,
-  ss_metadata: {
-    bezel_path: "roms/7/bezel/bezel.png",
-  } as DetailedRom["ss_metadata"],
+  ss_metadata: { bezel_path: "roms/7/bezel/bezel.png" },
 });
 
 // One BIOS file for the platform, which is what puts the firmware picker on

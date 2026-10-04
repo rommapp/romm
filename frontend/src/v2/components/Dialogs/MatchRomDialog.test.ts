@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import type { SearchRom, SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { romFixture } from "@/utils/rom.fixtures";
 import MatchRomDialog from "./MatchRomDialog.vue";
 
 const { searchRom } = vi.hoisted(() => ({ searchRom: vi.fn() }));
@@ -45,7 +46,7 @@ const MatchRomBodyGrid = {
 };
 
 function rom(overrides: Partial<SimpleRom> = {}): SimpleRom {
-  return {
+  return romFixture({
     id: 1,
     name: "Blur",
     fs_name: "Blur.zip",
@@ -53,7 +54,7 @@ function rom(overrides: Partial<SimpleRom> = {}): SimpleRom {
     platform_id: 1,
     is_identified: true,
     ...overrides,
-  } as SimpleRom;
+  });
 }
 
 function match(overrides: Partial<SearchRom> = {}): SearchRom {

@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { UpdateRom } from "@/services/api/rom";
-import { makeRom } from "@/utils/rom.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import AdditionalDetails from "./AdditionalDetails.vue";
 
 vi.mock("vue-i18n");
@@ -34,7 +34,7 @@ function mountDetails(rom: UpdateRom) {
 
 describe("AdditionalDetails alternative titles", () => {
   it("writes the titles into the manual metadata", async () => {
-    const rom = makeRom({ manual_metadata: { genres: ["Racing"] } });
+    const rom = romFixture({ manual_metadata: { genres: ["Racing"] } });
     const wrapper = mountDetails(rom);
 
     await titlesField(wrapper).vm.$emit("update:modelValue", ["ACNH"]);
@@ -45,13 +45,15 @@ describe("AdditionalDetails alternative titles", () => {
   });
 
   it("keeps the commas inside a title", () => {
-    const wrapper = mountDetails(makeRom({}));
+    const wrapper = mountDetails(romFixture({}));
 
     expect(titlesField(wrapper).props("allowCommas")).toBe(true);
   });
 
   it("clears the titles", async () => {
-    const rom = makeRom({ manual_metadata: { alternative_names: ["ACNH"] } });
+    const rom = romFixture({
+      manual_metadata: { alternative_names: ["ACNH"] },
+    });
     const wrapper = mountDetails(rom);
 
     await titlesField(wrapper).vm.$emit("update:modelValue", []);
