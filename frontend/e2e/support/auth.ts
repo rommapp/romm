@@ -197,7 +197,15 @@ export async function seedUiState(page: Page, theme: "dark" | "light") {
   await page.addInitScript((t) => {
     // Init scripts also run in Chrome's own error page, which denies storage.
     if (!location.protocol.startsWith("http")) return;
-    localStorage.setItem("settings.uiVersion", "v2");
-    localStorage.setItem("settings.theme", t);
+    const seeded = { "settings.uiVersion": "v2", "settings.theme": t };
+    // The app only adopts an unscoped value when the signed-in user has no
+    // `user:<id>:` copy, and a saved session carries one.
+    for (const key of Object.keys(localStorage)) {
+      const scoped = /^user:\d+:(.+)$/.exec(key)?.[1];
+      if (scoped && scoped in seeded) localStorage.removeItem(key);
+    }
+    for (const [key, value] of Object.entries(seeded)) {
+      localStorage.setItem(key, value);
+    }
   }, theme);
 }
