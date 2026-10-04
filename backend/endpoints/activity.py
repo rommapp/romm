@@ -62,8 +62,8 @@ async def device_heartbeat(
     """Heartbeat endpoint for external devices (muOS, Android, etc.).
 
     Called periodically by devices while the user is playing a game. Writes
-    activity state to Redis and broadcasts an ``activity:update`` event over
-    the main Socket.IO namespace.
+    activity state to Redis and sends an ``activity:update`` event to the
+    users who can see the ROM.
     """
     device = db_device_handler.get_device(
         device_id=payload.device_id, user_id=request.user.id
