@@ -24,7 +24,7 @@ emitter?.on("showQRCodeDialog", async (romToView: SimpleRom) => {
 
   const downloadLink = getDownloadLink({
     rom: romToView,
-    fileIDs: isNDSFile ? [] : [matchingFiles[0].id],
+    fileIDs: isNDSFile ? [] : [matchingFiles[0]!.id],
   });
 
   const qrCode = document.getElementById("qr-code");

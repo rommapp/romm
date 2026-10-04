@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useIdle, useLocalStorage } from "@vueuse/core";
+import { useIdle, useScreenSafeArea } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import {
   computed,
@@ -13,6 +13,7 @@ import { useTheme } from "vuetify";
 import SoundtrackMiniPlayer from "@/components/common/SoundtrackMiniPlayer.vue";
 import { useBrowserLocale } from "@/composables/useBrowserLocale";
 import { useUiVersion } from "@/composables/useUiVersion";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import storeConsole from "@/stores/console";
 
 // Lazy-loaded: RomM.vue is the first module main.ts evaluates, and the banner
@@ -35,7 +36,7 @@ useBrowserLocale();
 // imports the API layer and would trigger an API-client ↔ router circular-
 // import TDZ during bootstrap (RomM.vue is the first module main.ts loads).
 const uiVersion = useUiVersion();
-const themeSetting = useLocalStorage<"auto" | "dark" | "light">(
+const themeSetting = useUserLocalStorage<"auto" | "dark" | "light">(
   "settings.theme",
   "dark",
 );
@@ -85,6 +86,14 @@ watch(
 
 const isV2 = computed(() => uiVersion.value === "v2");
 
+// The page draws under a phone's status bar, notch and home indicator
+// (`viewport-fit=cover`); v1 clears them with layout items of the same size.
+const safeArea = useScreenSafeArea();
+const safeTop = computed(() => parseFloat(safeArea.top.value) || 0);
+const safeRight = computed(() => parseFloat(safeArea.right.value) || 0);
+const safeBottom = computed(() => parseFloat(safeArea.bottom.value) || 0);
+const safeLeft = computed(() => parseFloat(safeArea.left.value) || 0);
+
 // Apply the v2 token scope to <html> when v2 is active. Vuetify teleports
 // overlays (VDialog, VMenu) into `<body> > .v-overlay-container`, which
 // sits OUTSIDE both the AppLayout `.r-v2` wrapper AND <v-app>. Putting the
@@ -105,6 +114,41 @@ watch(
 
 <template>
   <v-app id="application" :class="{ 'mouse-hidden': consoleMode && mouseIdle }">
+    <template v-if="!isV2">
+      <v-system-bar
+        v-if="safeTop"
+        :height="safeTop"
+        :order="-1"
+        class="bg-background"
+      />
+      <v-footer
+        v-if="safeBottom"
+        app
+        :height="safeBottom"
+        :order="-1"
+        class="bg-background pa-0"
+      />
+      <v-navigation-drawer
+        v-if="safeLeft"
+        location="left"
+        :width="safeLeft"
+        :order="-1"
+        permanent
+        floating
+        touchless
+        class="bg-background"
+      />
+      <v-navigation-drawer
+        v-if="safeRight"
+        location="right"
+        :width="safeRight"
+        :order="-1"
+        permanent
+        floating
+        touchless
+        class="bg-background"
+      />
+    </template>
     <v-main id="main" class="no-transition" :tag="isV2 ? 'div' : 'main'">
       <router-view v-if="!isV2" v-slot="{ Component }">
         <component :is="Component" />

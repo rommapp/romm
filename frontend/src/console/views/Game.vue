@@ -378,7 +378,7 @@ async function play() {
   await router.push({
     name: ROUTES.CONSOLE_PLAY,
     params: { rom: rom.value.id },
-    query: Object.keys(query).length ? query : undefined,
+    ...(Object.keys(query).length ? { query } : {}),
   });
   // Force full reload to retrieve COEP/COOP headers from nginx,
   // required to enable multi-threading in EmulatorJS (e.g., for dosbox_pure/MSDOS).
@@ -975,7 +975,7 @@ onUnmounted(() => {
                   class="text-sm md:text-base leading-6 break-words"
                   :style="{ color: 'var(--console-modal-text)' }"
                 >
-                  {{ Math.round(rom.files[0].file_size_bytes / 1024) }}
+                  {{ Math.round(rom.files[0]!.file_size_bytes / 1024) }}
                   KB
                 </div>
               </div>
@@ -996,7 +996,7 @@ onUnmounted(() => {
                   class="text-sm md:text-base leading-6 break-words"
                   :style="{ color: 'var(--console-modal-text)' }"
                 >
-                  {{ rom.files[0].file_name || "Unknown" }}
+                  {{ rom.files[0]!.file_name || "Unknown" }}
                 </div>
               </div>
             </div>

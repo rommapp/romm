@@ -160,7 +160,7 @@ watch(
       no-gutters
     >
       <v-col
-        :cols="mdAndDown ? 'auto' : undefined"
+        :cols="mdAndDown ? 'auto' : false"
         :style="mdAndUp ? 'flex: 0 0 270px; width: 270px' : undefined"
       >
         <v-container

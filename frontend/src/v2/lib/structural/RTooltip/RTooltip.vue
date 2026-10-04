@@ -64,29 +64,29 @@ type Anchor =
   | "end bottom";
 
 interface Props {
-  text?: string;
+  text?: string | undefined;
   /** Anchor; mapped to floating-ui placement internally. */
   location?: Anchor;
   openDelay?: number | string;
   closeDelay?: number | string;
   /** Controlled visibility (uncontrolled when undefined). */
-  modelValue?: boolean;
-  contentClass?: string;
+  modelValue?: boolean | undefined;
+  contentClass?: string | undefined;
   /** Px gap between activator and tooltip body. */
   offset?: number | string;
   /** "parent": attach to the immediate parent element of <RTooltip>. */
-  activator?: "parent";
+  activator?: "parent" | undefined;
   /** Hide entirely (useful with `v-if` style guards on conditional tooltips). */
   disabled?: boolean;
   /** Override the body's max width. Number → px, string → any CSS length
    * (e.g. `"min(80vw, 900px)"`). Lets content-heavy tooltips grow and adapt
    * instead of being clamped to the default 280px. */
-  maxWidth?: number | string;
+  maxWidth?: number | string | undefined;
   /** Secondary muted line rendered below the main content: e.g. an action
    * affordance like "Click to copy". */
-  hint?: string;
+  hint?: string | undefined;
   /** Optional MDI icon shown before the hint text (e.g. `mdi-content-copy`). */
-  hintIcon?: string;
+  hintIcon?: string | undefined;
   /** Opt in to touch: a tap toggles the tooltip (and an outside tap closes
    *  it). Off by default because a normal tooltip must NOT appear on touch:
    *  there a "hover" is really a tap on the underlying action, and the

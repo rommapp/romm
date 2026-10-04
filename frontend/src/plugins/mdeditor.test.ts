@@ -1,8 +1,7 @@
 // @vitest-environment-options { "settings": { "disableCSSFileLoading": true, "disableJavaScriptFileLoading": true } }
 import { flushPromises, mount } from "@vue/test-utils";
 import { MdPreview } from "md-editor-v3";
-import { beforeAll, describe, expect, it, vi } from "vitest";
-import { configureMDEditor } from "./mdeditor";
+import { describe, expect, it, vi } from "vitest";
 
 async function render(markdown: string): Promise<HTMLElement> {
   const wrapper = mount(MdPreview, {
@@ -18,11 +17,8 @@ async function render(markdown: string): Promise<HTMLElement> {
   return preview;
 }
 
-describe("configureMDEditor", () => {
-  beforeAll(async () => {
-    await configureMDEditor();
-  });
-
+// The bare import resolves to ./mdeditor through the alias, so this is what every caller gets.
+describe("md-editor-v3", () => {
   it("renders raw HTML in markdown", async () => {
     const preview = await render('line<br>next\n\n<img src="/shot.png">');
 
@@ -40,5 +36,13 @@ describe("configureMDEditor", () => {
     expect(img).not.toBeNull();
     expect(img?.hasAttribute("onerror")).toBe(false);
     expect(preview.querySelector("script")).toBeNull();
+  });
+
+  it("renders echarts fences as code without loading echarts", async () => {
+    const preview = await render('```echarts\n{ "series": [] }\n```');
+
+    expect(preview.querySelector("code")?.textContent).toContain("series");
+    expect(preview.querySelector(".md-editor-echarts")).toBeNull();
+    expect(document.querySelector('script[src*="echarts"]')).toBeNull();
   });
 });

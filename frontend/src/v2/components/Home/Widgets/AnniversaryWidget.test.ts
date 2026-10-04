@@ -78,7 +78,7 @@ function mountWidget() {
 
 function arrows(wrapper: ReturnType<typeof mountWidget>) {
   const buttons = wrapper.findAll("button");
-  return { prev: buttons[0], next: buttons[1] };
+  return { prev: buttons[0]!, next: buttons[1]! };
 }
 
 /** A request the test settles by hand, so two can be in flight at once. */

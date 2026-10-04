@@ -73,6 +73,7 @@
   "playable": "플레이 가능",
   "playable-both": "브라우저에서 플레이 가능, {label}에서 스트리밍 가능",
   "playable-browser-dosbox": "DOSBox를 통해 브라우저에서 플레이 가능",
+  "playable-browser-easyrpg": "EasyRPG을 통해 브라우저에서 플레이 가능",
   "playable-browser-emulatorjs": "EmulatorJS를 통해 브라우저에서 플레이 가능",
   "playable-browser-jsdos": "js-dos를 통해 브라우저에서 플레이 가능",
   "playable-browser-pico8": "PICO-8을 통해 브라우저에서 플레이 가능",
@@ -132,6 +133,7 @@
   "tab-firmware": "펌웨어",
   "tag": "태그",
   "tags": "태그",
+  "update-platform-failed": "플랫폼을 업데이트하지 못했습니다: {error}",
   "updated": "플랫폼이 업데이트되었습니다",
   "upload-firmware": "펌웨어 업로드",
   "upload-roms": "롬 업로드"

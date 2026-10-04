@@ -35,8 +35,7 @@ const sortedGroupedPlatforms = computed(() => {
     let key = platform[groupByRef.value!] || "Other";
     if (groupByRef.value === "generation" && key === -1) key = "Other";
 
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(platform);
+    (groups[key] ??= []).push(platform);
   });
 
   // Sort platforms within groups and return sorted entries

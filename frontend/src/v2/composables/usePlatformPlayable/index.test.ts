@@ -12,6 +12,7 @@ const ruffleSlugs = new Set<string>();
 const dosboxSlugs = new Set<string>();
 const jsDosSlugs = new Set<string>();
 const pico8Slugs = new Set<string>();
+const easyRpgSlugs = new Set<string>();
 const streamContainers = new Map<string, { label: string; emulator: string }>();
 const streamingEnabled = { value: true };
 
@@ -19,6 +20,7 @@ vi.mock("@/utils", () => ({
   isEJSEmulationSupported: (slug: string) => ejsSlugs.has(slug),
   isJsDosEmulationSupported: (slug: string) => jsDosSlugs.has(slug),
   isPico8EmulationSupported: (slug: string) => pico8Slugs.has(slug),
+  isEasyRpgEmulationSupported: (slug: string) => easyRpgSlugs.has(slug),
   isRuffleEmulationSupported: (slug: string) => ruffleSlugs.has(slug),
   getSupportedEJSCores: (slug: string) =>
     dosboxSlugs.has(slug) ? ["dosbox_pure"] : ["snes9x"],
@@ -83,6 +85,7 @@ beforeEach(() => {
   dosboxSlugs.clear();
   jsDosSlugs.clear();
   pico8Slugs.clear();
+  easyRpgSlugs.clear();
   streamContainers.clear();
   streamingEnabled.value = true;
 });
@@ -100,6 +103,13 @@ describe("usePlatformPlayable", () => {
     const { mode, emulator } = usePlatformPlayable(() => "pico");
     expect(mode.value).toBe("browser");
     expect(emulator.value).toBe("pico8");
+  });
+
+  it("resolves EasyRPG as a browser player", () => {
+    easyRpgSlugs.add("rpg-maker");
+    const { mode, emulator } = usePlatformPlayable(() => "rpg-maker");
+    expect(mode.value).toBe("browser");
+    expect(emulator.value).toBe("easyrpg");
   });
 
   it("resolves streaming-only as stream and carries the container label", () => {
@@ -188,6 +198,9 @@ describe("playTooltip", () => {
     );
     expect(playTooltip("browser", "pico8", null)).toBe(
       "platform.playable-browser-pico8",
+    );
+    expect(playTooltip("browser", "easyrpg", null)).toBe(
+      "platform.playable-browser-easyrpg",
     );
     expect(playTooltip("browser", "emulatorjs", null)).toBe(
       "platform.playable-browser-emulatorjs",

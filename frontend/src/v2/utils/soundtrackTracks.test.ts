@@ -24,6 +24,8 @@ describe("isAudioFile", () => {
     expect(isAudioFile("01 - Theme.mp3")).toBe(true);
     expect(isAudioFile("track.FLAC")).toBe(true);
     expect(isAudioFile("04 - Ending.aac")).toBe(true);
+    expect(isAudioFile("05 - Beach.spc")).toBe(true);
+    expect(isAudioFile("game.nsf")).toBe(false);
     expect(isAudioFile("cover.png")).toBe(false);
     expect(isAudioFile("noextension")).toBe(false);
   });
@@ -61,8 +63,8 @@ describe("panelTracksFromRom", () => {
       rom([romFile(1, "01 - track.mp3")]),
       meta,
     );
-    expect(track.title).toBe("Green Hill");
-    expect(track.subtitle).toBe("Nakamura · Sonic OST");
+    expect(track?.title).toBe("Green Hill");
+    expect(track?.subtitle).toBe("Nakamura · Sonic OST");
   });
 
   it("falls back to the file name without its extension", () => {
@@ -70,8 +72,8 @@ describe("panelTracksFromRom", () => {
       rom([romFile(1, "01 - Theme.mp3")]),
       new Map(),
     );
-    expect(track.title).toBe("01 - Theme");
-    expect(track.subtitle).toBe("");
+    expect(track?.title).toBe("01 - Theme");
+    expect(track?.subtitle).toBe("");
   });
 });
 
@@ -79,6 +81,7 @@ describe("panelTracksFromCatalog", () => {
   const base = {
     rom_file_id: 5,
     rom_id: 9,
+    file_name: "overworld.mp3",
     title: "Overworld",
     artist: "Kondo",
     album: "SMB OST",
@@ -90,15 +93,30 @@ describe("panelTracksFromCatalog", () => {
 
   it("adds the game and platform as context", () => {
     const [track] = panelTracksFromCatalog([base]);
-    expect(track.subtitle).toBe("Kondo · SMB OST · Super Mario Bros · NES");
-    expect(track.durationSeconds).toBe(90);
+    expect(track?.subtitle).toBe("Kondo · SMB OST · Super Mario Bros · NES");
+    expect(track?.durationSeconds).toBe(90);
   });
 
   it("drops the game name when it merely repeats the title", () => {
     const [track] = panelTracksFromCatalog([
       { ...base, title: "Super Mario Bros", artist: null, album: null },
     ]);
-    expect(track.subtitle).toBe("NES");
+    expect(track?.subtitle).toBe("NES");
+  });
+
+  it("names an untagged track by its file, with the game as context", () => {
+    const [track] = panelTracksFromCatalog([
+      {
+        ...base,
+        file_name: "05 Beach.spc",
+        title: null,
+        artist: null,
+        album: null,
+      },
+    ]);
+    expect(track?.title).toBe("05 Beach");
+    expect(track?.fileName).toBe("05 Beach.spc");
+    expect(track?.subtitle).toBe("Super Mario Bros · NES");
   });
 });
 

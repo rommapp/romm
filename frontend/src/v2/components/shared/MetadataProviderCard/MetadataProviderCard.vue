@@ -23,12 +23,12 @@ interface Props {
    *  by headings (the scan reference dialog) pass a heading level. */
   nameTag?: "span" | "h3" | "h4";
   /** Small uppercase descriptor under the name (tile layout). */
-  subtitle?: string;
-  status?: ProviderCardStatus;
+  subtitle?: string | undefined;
+  status?: ProviderCardStatus | undefined;
   /** Mono pill with the env-var / config instructions. */
-  setupHint?: string;
+  setupHint?: string | undefined;
   /** Warning-tinted pill for a provider caveat. */
-  caveat?: string;
+  caveat?: string | undefined;
   /** Faded look for a provider that is disabled / not configured. */
   dimmed?: boolean;
 }

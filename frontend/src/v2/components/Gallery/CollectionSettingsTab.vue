@@ -31,7 +31,7 @@ import { RBtn, RChip, RIcon, RTag, RTextField } from "@v2/lib";
 import { useObjectUrl } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import collectionApi, {
   type UpdatedCollection,
@@ -48,6 +48,7 @@ import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import type { Kind as CollectionKind } from "@/v2/components/Collections/CollectionTile.vue";
 import DangerZone from "@/v2/components/shared/DangerZone.vue";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -158,13 +159,8 @@ const onUrlCover = (url: string) => {
   removeCover.value = false;
 };
 
-onMounted(() => {
-  snapshot();
-  emitter?.on("updateUrlCover", onUrlCover);
-});
-onBeforeUnmount(() => {
-  emitter?.off("updateUrlCover", onUrlCover);
-});
+onMounted(() => snapshot());
+useEmitterEvent("updateUrlCover", onUrlCover);
 
 // ── Cover preview ───────────────────────────────────────────────
 const coverSrc = computed<string | null>(() => {

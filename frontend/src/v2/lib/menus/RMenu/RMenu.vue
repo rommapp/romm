@@ -37,6 +37,7 @@ import { computed, nextTick, provide, ref, useAttrs, watch } from "vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { opensInNewContext } from "@/v2/utils/mouseGestures";
 import RTextField from "../../forms/RTextField/RTextField.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
@@ -60,7 +61,7 @@ type Anchor =
 
 interface Props {
   /** Open state (controlled). Use v-model. Omit for uncontrolled. */
-  modelValue?: boolean;
+  modelValue?: boolean | undefined;
   /** Close when the user clicks inside the panel (default: true). */
   closeOnContentClick?: boolean;
   /** Open on hover instead of click (e.g. dropdown menus on a nav). */
@@ -70,13 +71,13 @@ interface Props {
   /** Px gap between activator and panel. */
   offset?: number;
   /** Override the panel width (default: auto, with a 180 px floor). */
-  width?: string | number;
+  width?: string | number | undefined;
   /** Cap the panel height: body scrolls beyond it. */
-  maxHeight?: string | number;
+  maxHeight?: string | number | undefined;
   /** Selectors for what to focus when the panel opens from a keyboard or a
    *  pad, tried in order. Defaults to the first menu item, which is wrong for
    *  a panel whose content is not `RMenuItem`s. */
-  initialFocus?: string | readonly string[];
+  initialFocus?: string | readonly string[] | undefined;
   /** Render a sticky search input at the top. */
   searchable?: boolean;
   /** v-model:search: current query string. */
@@ -84,7 +85,7 @@ interface Props {
   searchPlaceholder?: string;
   searchAutoFocus?: boolean;
   /** Extra class merged onto the panel element. */
-  contentClass?: string;
+  contentClass?: string | undefined;
   /** Disable opening entirely. */
   disabled?: boolean;
   /** On `sm-and-down`, dock the panel as a full-width bottom sheet instead
@@ -366,7 +367,7 @@ function onPanelKeydown(evt: KeyboardEvent) {
         : (activeIdx - 1 + items.length) % items.length;
   }
   evt.preventDefault();
-  items[nextIdx]?.focus();
+  focusFromInput(items[nextIdx]);
 }
 
 // Autofocus the first menu item when the panel opens via keyboard or
@@ -390,7 +391,7 @@ watch(
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => resolve()),
     );
-    (initialFocusTarget() ?? focusableMenuItems()[0])?.focus();
+    focusFromInput(initialFocusTarget() ?? focusableMenuItems()[0]);
   },
 );
 </script>
@@ -504,7 +505,7 @@ html[data-bp~="sm-and-down"] .r-menu__panel--sheet {
   min-width: 0;
   max-width: 100vw;
   border-radius: var(--r-radius-xl, 16px) var(--r-radius-xl, 16px) 0 0;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: 0 var(--r-safe-r) var(--r-safe-b) var(--r-safe-l);
 }
 
 /* Full-height variant: the sheet fills the space below the top navbar

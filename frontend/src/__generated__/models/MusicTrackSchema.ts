@@ -5,6 +5,7 @@
 export type MusicTrackSchema = {
     rom_file_id: number;
     rom_id: number;
+    file_name: string;
     title?: (string | null);
     artist?: (string | null);
     album?: (string | null);

@@ -85,16 +85,17 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
       romsStore.removeFromSelection(emitData.rom);
     }
     if (emitData.event.shiftKey) {
-      const [start, end] = [romsStore.lastSelectedIndex, index].sort(
-        (a, b) => a - b,
-      );
+      const [start = index, end = index] = [
+        romsStore.lastSelectedIndex,
+        index,
+      ].sort((a, b) => a - b);
       if (romsStore.selectedRoms.includes(emitData.rom)) {
         for (let i = start + 1; i < end; i++) {
-          romsStore.addToSelection(filteredRoms.value[i]);
+          romsStore.addToSelection(filteredRoms.value[i]!);
         }
       } else {
         for (let i = start; i <= end; i++) {
-          romsStore.removeFromSelection(filteredRoms.value[i]);
+          romsStore.removeFromSelection(filteredRoms.value[i]!);
         }
       }
       romsStore.updateLastSelected(
@@ -225,11 +226,11 @@ onBeforeRouteUpdate(async (to, from) => {
             v-for="rom in filteredRoms"
             :key="rom.id"
             class="pa-1 align-self-center"
-            :cols="views[currentView]['size-cols']"
-            :sm="views[currentView]['size-sm']"
-            :md="views[currentView]['size-md']"
-            :lg="views[currentView]['size-lg']"
-            :xl="views[currentView]['size-xl']"
+            :cols="views[currentView]!['size-cols']"
+            :sm="views[currentView]!['size-sm']"
+            :md="views[currentView]!['size-md']"
+            :lg="views[currentView]!['size-lg']"
+            :xl="views[currentView]!['size-xl']"
           >
             <GameCard
               :key="rom.id"

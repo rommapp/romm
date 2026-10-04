@@ -43,6 +43,7 @@ from models.audit_event import AuditAction
 from models.user import User
 from utils.auth import create_or_find_web_device
 from utils.router import APIRouter
+from utils.validation import ValidationError, validate_password
 
 router = APIRouter(
     tags=["auth"],
@@ -462,6 +463,16 @@ async def reset_password(
     Returns:
         None: Returns 200 OK status
     """
+    # Ahead of the token check, which spends the link: a rejected password
+    # leaves it usable for another try.
+    try:
+        validate_password(new_password)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=exc.message,
+        ) from exc
+
     user = auth_handler.verify_password_reset_token(token)
 
     await auth_handler.set_user_new_password(user, new_password)

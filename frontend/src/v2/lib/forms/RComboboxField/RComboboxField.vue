@@ -32,6 +32,7 @@ import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTag from "@/v2/lib/primitives/RTag/RTag.vue";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { useRFormRegistration } from "../RForm/context";
 
 defineOptions({ inheritAttrs: false });
@@ -43,16 +44,16 @@ interface Props {
   /** Optional suggestion list. Typed values that don't match are still
    *  committed: this is autocomplete, not enforcement. */
   items?: string[];
-  label?: string;
-  placeholder?: string;
+  label?: string | undefined;
+  placeholder?: string | undefined;
   /** `stacked` → label above the field. `inline` → label as a left
    *  prefix on the field. Mirrors RTextField. */
   prefixLabel?: "stacked" | "inline" | null;
   variant?: "outlined" | "filled" | "underlined" | "plain";
   density?: "default" | "comfortable" | "compact";
   hideDetails?: boolean;
-  hint?: string;
-  errorMessages?: string | string[];
+  hint?: string | undefined;
+  errorMessages?: string | string[] | undefined;
   /** Checked against the committed chips, like RSelect's rules; the field
    *  reports to an enclosing RForm. */
   rules?: Rule[];
@@ -191,7 +192,7 @@ function clearAll() {
   if (!chips.value.length && !query.value) return;
   query.value = "";
   emit("update:modelValue", []);
-  nextTick(() => inputRef.value?.focus());
+  nextTick(() => focusFromInput(inputRef.value));
 }
 
 // ── Input wiring ───────────────────────────────────────────────
@@ -227,8 +228,9 @@ function onKeyDown(e: KeyboardEvent) {
   switch (e.key) {
     case "Enter": {
       e.preventDefault();
-      if (activeIndex.value >= 0 && suggestions.value[activeIndex.value]) {
-        commit(suggestions.value[activeIndex.value]);
+      const suggestion = suggestions.value[activeIndex.value];
+      if (activeIndex.value >= 0 && suggestion) {
+        commit(suggestion);
       } else if (query.value.trim()) {
         commit(query.value);
       }
@@ -261,17 +263,12 @@ function onKeyDown(e: KeyboardEvent) {
       openPanel();
       break;
     }
-    case "Escape": {
-      e.preventDefault();
-      closePanel();
-      break;
-    }
   }
 }
 
 function pickSuggestion(item: string) {
   commit(item);
-  nextTick(() => inputRef.value?.focus());
+  nextTick(() => focusFromInput(inputRef.value));
 }
 
 usePopoverDismiss(

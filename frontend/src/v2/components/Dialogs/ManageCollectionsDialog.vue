@@ -20,7 +20,7 @@
 //   * Empty state if no collections exist.
 import { RDialog, RDivider } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import collectionApi from "@/services/api/collection";
 import storeCollections, {
@@ -33,6 +33,7 @@ import CollectionPickerRow from "@/v2/components/Collections/CollectionPickerRow
 import NewCollectionRow from "@/v2/components/Collections/NewCollectionRow.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -82,8 +83,7 @@ const openHandler = (romsToAdd: SimpleRom[]) => {
   resetCreate();
   show.value = true;
 };
-emitter?.on("showManageCollectionsDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showManageCollectionsDialog", openHandler));
+useEmitterEvent("showManageCollectionsDialog", openHandler);
 
 // Notify any GameActionBtn that opened us so it can drop its pinned-hover
 // state: covers every close path (X, scrim, Escape, programmatic close).
@@ -195,7 +195,8 @@ async function createNewCollection() {
 
 const subtitle = computed(() => {
   if (roms.value.length === 1) {
-    return roms.value[0].name ?? roms.value[0].fs_name ?? "";
+    const rom = roms.value[0]!;
+    return rom.name ?? rom.fs_name ?? "";
   }
   if (roms.value.length > 1) {
     return t("rom.selection-count", { n: roms.value.length });

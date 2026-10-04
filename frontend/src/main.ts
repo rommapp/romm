@@ -1,5 +1,8 @@
-import { createApp } from "vue";
+import { polyfillCountryFlagEmojis } from "country-flag-emoji-polyfill";
+import flagFontUrl from "country-flag-emoji-polyfill/dist/TwemojiCountryFlags.woff2?url";
+import { createApp, watch } from "vue";
 import App from "@/RomM.vue";
+import { setStorageUser } from "@/composables/useUserLocalStorage";
 import "@/console/index.css";
 import { localesReady } from "@/locales";
 import { registerPlugins } from "@/plugins";
@@ -41,6 +44,12 @@ function isChunkLoadError(error: unknown): boolean {
   );
 }
 
+// Chromium on Windows has no flag emoji; load a self-hosted flag font there
+// (first in the v2 font tokens) and mark <html> so CardFlags can align it.
+if (polyfillCountryFlagEmojis("Twemoji Country Flags", flagFontUrl)) {
+  document.documentElement.dataset.flagPolyfill = "";
+}
+
 window.addEventListener("vite:preloadError", (event) => {
   if (reloadOnceForStaleChunk()) event.preventDefault();
 });
@@ -63,6 +72,13 @@ async function initializeApp() {
 
   // Registrar vuetify + pinia + i18n + emitter
   registerPlugins(app);
+
+  // Sync, so stored preferences switch user before anything renders.
+  const authStore = storeAuth();
+  watch(() => authStore.user?.id ?? null, setStorageUser, {
+    immediate: true,
+    flush: "sync",
+  });
 
   // Accessible names the v2 primitives render for their own controls.
   // Provided once, after i18n is registered.

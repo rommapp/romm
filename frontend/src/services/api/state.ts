@@ -27,7 +27,7 @@ export function sessionStateFiles(
   capturedAt: Date,
   stateBytes: ArrayBuffer,
   screenshotBytes?: ArrayBuffer,
-): { stateFile: File; screenshotFile?: File } {
+): { stateFile: File; screenshotFile?: File | undefined } {
   const name = sessionStateName(rom, capturedAt);
   const type = "application/octet-stream";
   return {
@@ -40,7 +40,7 @@ export function sessionStateFiles(
 
 type StateUploadInput = Omit<AddStateInput, "stateFile" | "screenshotFile"> & {
   stateFile: File;
-  screenshotFile?: File;
+  screenshotFile?: File | undefined;
 };
 
 type UpdateStateUploadInput = Omit<
@@ -48,7 +48,7 @@ type UpdateStateUploadInput = Omit<
   "stateFile" | "screenshotFile"
 > & {
   stateFile: File;
-  screenshotFile?: File;
+  screenshotFile?: File | undefined;
 };
 
 async function uploadStates({
@@ -58,7 +58,7 @@ async function uploadStates({
 }: {
   rom: Pick<DetailedRomSchema, "id">;
   statesToUpload: StateUploadInput[];
-  emulator?: string;
+  emulator?: string | undefined;
 }) {
   const promises = statesToUpload.map(({ stateFile, screenshotFile }) => {
     const formData = buildFormInput<StateUploadInput>([

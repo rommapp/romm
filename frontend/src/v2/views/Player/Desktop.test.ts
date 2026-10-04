@@ -138,7 +138,7 @@ function vmOf(wrapper: VueWrapper): DesktopVm {
 }
 
 function endSession(notice: Record<string, unknown>): void {
-  const handler = mocks.socketHandlers["streaming:session-ended"];
+  const handler = mocks.socketHandlers["streaming:session-ended"]!;
   expect(handler).toBeTypeOf("function");
   handler({
     ended_by: "admin",

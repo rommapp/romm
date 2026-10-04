@@ -11,6 +11,8 @@ const support = vi.hoisted(() => ({
   jsDos: vi.fn(() => false),
   pico8: vi.fn(() => false),
   pico8Rom: vi.fn(() => false),
+  easyRpg: vi.fn(() => false),
+  easyRpgGame: vi.fn(() => false),
   ruffle: vi.fn(() => false),
   // js-dos also demands its own bundle format; on by default so the engine
   // stubs stay the only variable.
@@ -45,6 +47,8 @@ vi.mock("@/utils", () => ({
   isJsDosEmulationSupported: support.jsDos,
   isPico8EmulationSupported: support.pico8,
   isPico8Rom: support.pico8Rom,
+  isEasyRpgEmulationSupported: support.easyRpg,
+  isEasyRpgGame: support.easyRpgGame,
   isRuffleEmulationSupported: support.ruffle,
   isJsDosBundle: support.jsDosBundle,
 }));
@@ -63,6 +67,8 @@ beforeEach(() => {
   support.jsDos.mockReturnValue(false);
   support.pico8.mockReturnValue(false);
   support.pico8Rom.mockReturnValue(false);
+  support.easyRpg.mockReturnValue(false);
+  support.easyRpgGame.mockReturnValue(false);
   support.ruffle.mockReturnValue(false);
   support.jsDosBundle.mockReturnValue(true);
   streamContainer.value = null;
@@ -74,6 +80,7 @@ describe("useCanPlay", () => {
     ["EJS", "ejs", "canPlayEJS", []],
     ["js-dos", "jsDos", "canPlayJsDos", []],
     ["PICO-8", "pico8", "canPlayPico8", ["pico8Rom"]],
+    ["EasyRPG", "easyRpg", "canPlayEasyRpg", ["easyRpgGame"]],
     ["Ruffle", "ruffle", "canPlayRuffle", []],
   ] as const)(
     "reports %s support on its own flag",
@@ -89,7 +96,7 @@ describe("useCanPlay", () => {
 
   // A physical game, or one whose file vanished from the library, has nothing
   // to hand the emulator: every route boots from the download endpoint.
-  it.each(["ejs", "jsDos", "pico8", "ruffle"] as const)(
+  it.each(["ejs", "jsDos", "pico8", "easyRpg", "ruffle"] as const)(
     "refuses %s for a rom with no file on disk",
     (stub) => {
       support[stub].mockReturnValue(true);
@@ -107,6 +114,8 @@ describe("useCanPlay", () => {
     support.jsDos.mockReturnValue(true);
     support.pico8.mockReturnValue(true);
     support.pico8Rom.mockReturnValue(true);
+    support.easyRpg.mockReturnValue(true);
+    support.easyRpgGame.mockReturnValue(true);
     support.ruffle.mockReturnValue(true);
     streamContainer.value = {};
     nativeSupported.value = true;
@@ -115,6 +124,7 @@ describe("useCanPlay", () => {
       canPlayEJS,
       canPlayJsDos,
       canPlayPico8,
+      canPlayEasyRpg,
       canPlayRuffle,
       canPlayStream,
       canPlayNative,
@@ -124,6 +134,7 @@ describe("useCanPlay", () => {
     expect(canPlayEJS.value).toBe(false);
     expect(canPlayJsDos.value).toBe(false);
     expect(canPlayPico8.value).toBe(false);
+    expect(canPlayEasyRpg.value).toBe(false);
     expect(canPlayRuffle.value).toBe(false);
     expect(canPlayStream.value).toBe(false);
     expect(canPlayNative.value).toBe(false);
@@ -190,6 +201,16 @@ describe("useCanPlay", () => {
     const { canPlay, canPlayPico8 } = useCanPlay(() => makeRom());
 
     expect(canPlayPico8.value).toBe(false);
+    expect(canPlay.value).toBe(false);
+  });
+
+  // The web player fetches each file on demand, so it cannot open an archive.
+  it("refuses EasyRPG for a rom that is not an extracted game folder", () => {
+    support.easyRpg.mockReturnValue(true);
+    support.easyRpgGame.mockReturnValue(false);
+    const { canPlay, canPlayEasyRpg } = useCanPlay(() => makeRom());
+
+    expect(canPlayEasyRpg.value).toBe(false);
     expect(canPlay.value).toBe(false);
   });
 

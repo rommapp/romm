@@ -7,6 +7,7 @@ from tests.factories import make_rom
 
 from config import FRONTEND_RESOURCES_PATH
 from endpoints.responses.music import MusicTrackSchema
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
@@ -60,6 +61,22 @@ def _make_track(
         )
     )
     return rom
+
+
+def _make_untagged_track(admin_id: int, platform: Platform, file_name: str) -> None:
+    """A soundtrack file with an empty track row, as the scanner gives a chiptune."""
+    rom = make_rom(platform, "Plok")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_id)
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=file_name,
+            file_path=f"{rom.fs_path}/Plok/soundtrack",
+            file_size_bytes=66048,
+            category=RomFileCategory.SOUNDTRACK,
+            track_meta=TrackMeta(rom_id=rom.id),
+        )
+    )
 
 
 @pytest.fixture
@@ -151,6 +168,36 @@ def test_tracks_artist_exact_case_insensitive(
 def test_tracks_search_substring(client: TestClient, access_token: str, music_library):
     r = client.get("/api/music/tracks?search=hill", headers=_auth(access_token))
     assert [i["title"] for i in r.json()["items"]] == ["Green Hill"]
+
+
+def test_tracks_search_matches_an_untagged_file_by_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "05 Beach.spc")
+
+    r = client.get("/api/music/tracks?search=beach", headers=_auth(access_token))
+
+    [item] = r.json()["items"]
+    assert item["title"] is None
+    assert item["file_name"] == "05 Beach.spc"
+    assert item["stream_url"].endswith("/files/content/05%20Beach.spc")
+
+
+def test_tracks_sort_an_untagged_file_by_its_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "Ice.spc")
+
+    r = client.get(
+        "/api/music/tracks?order_by=title&order_dir=asc", headers=_auth(access_token)
+    )
+
+    assert [i["file_name"] for i in r.json()["items"]] == [
+        "Green Hill.mp3",
+        "Ice.spc",
+        "Jingle.mp3",
+        "Overworld.mp3",
+    ]
 
 
 def test_tracks_search_escapes_like_wildcards(
@@ -349,7 +396,9 @@ def test_facet_page_applies_limit_and_offset(
 
 def test_tracks_excludes_hidden_platform(music_library):
     pb = music_library["platform_b"].id
-    rows, total = db_rom_handler.get_music_tracks(hidden_platform_ids=[pb])
+    rows, total = db_rom_handler.get_music_tracks(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pb}))
+    )
     assert total == 2
     assert all(r.platform_id != pb for r in rows)
 
@@ -357,7 +406,8 @@ def test_tracks_excludes_hidden_platform(music_library):
 def test_facet_excludes_hidden_platform(music_library):
     pb = music_library["platform_b"].id
     rows, total = db_rom_handler.get_music_facet(
-        field="artists", hidden_platform_ids=[pb]
+        field="artists",
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pb})),
     )
     assert total == 2
     assert "Kondo" not in {r.value for r in rows}
@@ -614,16 +664,32 @@ def test_games_facet_search_matches_game_and_track_fields(
     assert [i["name"] for i in by_artist["items"]] == ["Streets"]
 
 
+def test_games_facet_search_matches_an_untagged_file_by_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "05 Beach.spc")
+
+    r = client.get(
+        "/api/music/games", params={"search": "beach"}, headers=_auth(access_token)
+    )
+
+    assert [i["name"] for i in r.json()["items"]] == ["Plok"]
+
+
 def test_games_facet_excludes_hidden_platform(music_library):
     pa = music_library["platform_a"].id
-    rows, total = db_rom_handler.get_music_game_facet(hidden_platform_ids=[pa])
+    rows, total = db_rom_handler.get_music_game_facet(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pa}))
+    )
     assert total == 1
     assert [r.name for r in rows] == ["Mario"]
 
 
 def test_platform_facet_excludes_hidden_platform(music_library):
     pa = music_library["platform_a"].id
-    rows, total = db_rom_handler.get_music_platform_facet(hidden_platform_ids=[pa])
+    rows, total = db_rom_handler.get_music_platform_facet(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pa}))
+    )
     assert total == 1
     assert [r.slug for r in rows] == ["nes"]
 
@@ -638,6 +704,8 @@ def test_stats_reports_totals(client: TestClient, access_token: str, music_libra
 
 def test_stats_excludes_hidden_platform(music_library):
     pa = music_library["platform_a"].id
-    total, duration = db_rom_handler.get_music_stats(hidden_platform_ids=[pa])
+    total, duration = db_rom_handler.get_music_stats(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pa}))
+    )
     assert total == 1
     assert duration == pytest.approx(90.0)

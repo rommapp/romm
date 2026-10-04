@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
+import { useGridNav } from "@/v2/composables/useGridNav";
 import { useSpatialNav } from "@/v2/composables/useSpatialNav";
-import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 
 // Pick an input in the toolbar: "Keyboard" / "Gamepad" show the focus rings;
@@ -19,7 +19,7 @@ const TITLES = [
   "Secret of Mana",
   "F-Zero",
   "Star Fox",
-];
+] as const;
 
 const meta: Meta = {
   title: "Input Navigation",
@@ -29,7 +29,7 @@ const meta: Meta = {
     setup() {
       const gridRoot = ref<HTMLElement | null>(null);
       const lastPicked = ref<string | null>(null);
-      useWrapGridNav(gridRoot, { cellSelector: ".input-nav-cell" });
+      useGridNav(gridRoot, { cellSelector: ".input-nav-cell" });
       useSpatialNav().install();
       return { gridRoot, lastPicked, TITLES };
     },

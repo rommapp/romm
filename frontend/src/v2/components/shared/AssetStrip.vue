@@ -46,8 +46,8 @@ const props = withDefaults(
     markPublic?: boolean;
     layout?: AssetLayout;
     /** Why an asset cannot be picked here; a reason disables its tile. */
-    disabledReason?: (asset: Asset) => string | null;
-    groupBy?: "emulator";
+    disabledReason?: ((asset: Asset) => string | null) | undefined;
+    groupBy?: "emulator" | undefined;
     /** Manage mode: lead each tile with a checkbox for bulk actions. Distinct
      *  from `selectable`, which is the player's single-asset picker. */
     checkable?: boolean;

@@ -5,26 +5,26 @@
 // shared permissionGroups store so every consumer (table, user dialogs)
 // reflects the change immediately.
 import { RBtn, RIcon, RSwitch, RTextField } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { computed, inject, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { GrantSchemaIO, PermAction, PermEntity } from "@/__generated__";
 import permissionsApi from "@/services/api/permissions";
 import platformApi from "@/services/api/platform";
 import storePermissionGroups from "@/stores/permissionGroups";
 import type { Platform } from "@/stores/platforms";
-import type { Events } from "@/types/emitter";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { GROUP_COLOR_PALETTE } from "@/v2/utils/groupColor";
+import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
 import PermissionsMatrix from "./PermissionsMatrix.vue";
+import { createAgeSettingsDraft } from "./ageSettingsDraft";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const groupsStore = storePermissionGroups();
 
@@ -47,6 +47,12 @@ const hiddenPlatformIds = ref<number[]>([]);
 const originalHiddenPlatformIds = ref<number[]>([]);
 const hiddenRomIds = ref<number[]>([]);
 const originalHiddenRomIds = ref<number[]>([]);
+
+const {
+  draft: age,
+  load: loadAge,
+  changed: ageSettingsChanged,
+} = createAgeSettingsDraft();
 
 const sortedPlatforms = computed(() =>
   [...platforms.value].sort((a, b) =>
@@ -104,7 +110,10 @@ function diffHidden(
   ];
 }
 
-emitter?.on("showGroupFormDialog", async (group) => {
+let openToken = 0;
+
+useEmitterEvent("showGroupFormDialog", async (group) => {
+  ++openToken;
   editingId.value = group?.id ?? null;
   isSystem.value = group?.system_key != null;
   name.value = group?.name ?? "";
@@ -112,6 +121,10 @@ emitter?.on("showGroupFormDialog", async (group) => {
   isDefault.value = group?.is_default ?? false;
   color.value = group?.color ?? GROUP_COLOR_PALETTE[0];
   grants.value = group ? group.grants.map((g) => ({ ...g })) : [];
+  loadAge({
+    ageLimit: group?.age_limit ?? null,
+    hideUnrated: group?.hide_unrated_roms ?? false,
+  });
 
   const hidden = group?.hidden ?? [];
   const hiddenPlatforms = hidden
@@ -130,34 +143,45 @@ emitter?.on("showGroupFormDialog", async (group) => {
 });
 
 async function save() {
-  if (!name.value.trim()) return;
+  if (!name.value.trim() || submitting.value) return;
   submitting.value = true;
+  const token = openToken;
   const body = {
     name: name.value.trim(),
     description: description.value,
     is_default: isDefault.value,
     color: color.value,
     grants: grants.value,
+    age_limit: age.value.ageLimit,
+    hide_unrated_roms: age.value.hideUnrated ?? false,
+  };
+  // An update writes the age settings only when they changed, so a rename
+  // neither overwrites them nor records them in the audit log.
+  const ageChanged = ageSettingsChanged();
+  // Read before the save: reopening the dialog mid-save replaces these refs.
+  const hidden = {
+    platforms: [...hiddenPlatformIds.value],
+    originalPlatforms: [...originalHiddenPlatformIds.value],
+    roms: [...hiddenRomIds.value],
+    originalRoms: [...originalHiddenRomIds.value],
   };
   try {
     const { data: saved } =
       editingId.value !== null
-        ? await permissionsApi.updateGroup(editingId.value, body)
+        ? await permissionsApi.updateGroup(editingId.value, {
+            ...body,
+            set_age_settings: ageChanged,
+          })
         : await permissionsApi.createGroup(body);
     // Apply hidden-entity diffs against the (now-known) group id.
     await Promise.all([
       ...diffHidden(
         "platforms",
-        hiddenPlatformIds.value,
-        originalHiddenPlatformIds.value,
+        hidden.platforms,
+        hidden.originalPlatforms,
         saved.id,
       ),
-      ...diffHidden(
-        "roms",
-        hiddenRomIds.value,
-        originalHiddenRomIds.value,
-        saved.id,
-      ),
+      ...diffHidden("roms", hidden.roms, hidden.originalRoms, saved.id),
     ]);
     snackbar.success(t("settings.group-saved", { name: body.name }), {
       icon: "mdi-check-bold",
@@ -165,7 +189,8 @@ async function save() {
     // Refetch (not upsert): toggling `is_default` reassigns it server-side,
     // so the previous default's flag must be refreshed too.
     await groupsStore.fetch();
-    show.value = false;
+    // A dialog reopened mid-save stays open, locked until this save settles.
+    if (token === openToken) show.value = false;
   } catch (err) {
     const e = err as {
       response?: { data?: { detail?: string }; statusText?: string };
@@ -202,7 +227,8 @@ async function save() {
       </span>
     </template>
     <template #content>
-      <div class="r-v2-group-dialog__form">
+      <!-- Edits made mid-save would be lost, since save() reads them up front. -->
+      <div class="r-v2-group-dialog__form" :inert="submitting">
         <p v-if="isSystem" class="r-v2-group-dialog__sys-warn">
           <RIcon icon="mdi-alert-outline" size="14" />
           {{ t("settings.group-system-warning") }}
@@ -288,6 +314,16 @@ async function save() {
 
         <div class="r-v2-group-dialog__matrix">
           <span class="r-v2-group-dialog__matrix-label">
+            {{ t("settings.parental-controls") }}
+          </span>
+          <AgeLimitFields
+            v-model:age-limit="age.ageLimit"
+            v-model:hide-unrated="age.hideUnrated"
+          />
+        </div>
+
+        <div class="r-v2-group-dialog__matrix">
+          <span class="r-v2-group-dialog__matrix-label">
             {{ t("settings.hidden-games") }}
           </span>
           <HiddenGamesPicker v-model="hiddenRomIds" />
@@ -328,7 +364,7 @@ async function save() {
 }
 .r-v2-group-dialog__default {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
   flex-wrap: wrap;
 }

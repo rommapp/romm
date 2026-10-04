@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { stubResizeObserver } from "@/test-utils/resizeObserver";
 import { useResponsiveColumns } from "./index";
@@ -65,6 +65,21 @@ describe("useResponsiveColumns", () => {
     expect(observer.isObserved(first)).toBe(false);
     observer.resize(second, 340);
     expect(layout.columns.value).toBe(2);
+  });
+
+  it("measures the content box on mount, before any resize", () => {
+    // happy-dom resolves neither layout nor computed padding.
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(724);
+    const padded = document.createElement("div").style;
+    padded.paddingLeft = "12px";
+    padded.paddingRight = "12px";
+    vi.spyOn(window, "getComputedStyle").mockReturnValue(padded);
+
+    mount(Host);
+
+    // 724 less 2 × 12px padding; floor((700 + 12) / (158 + 12)) = 4
+    expect(layout.usableWidth.value).toBe(700);
+    expect(layout.columns.value).toBe(4);
   });
 
   it("stops observing once unmounted", async () => {

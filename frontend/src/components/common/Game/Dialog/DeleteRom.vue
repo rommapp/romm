@@ -27,7 +27,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
 emitter?.on("showDeleteRomDialog", (romsToDelete) => {
   roms.value = romsToDelete;
-  platformId.value = roms.value[0].platform_id;
+  platformId.value = roms.value[0]!.platform_id;
   show.value = true;
 });
 const HEADERS = [

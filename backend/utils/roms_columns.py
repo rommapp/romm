@@ -22,6 +22,7 @@ from sqlalchemy.schema import CreateColumn
 from models.rom import FULL_PATH_HASH_LENGTH, TITLE_ID_MAX_LENGTH
 from utils.database import (
     HLTB_MAIN_STORY_COLUMN,
+    MIN_AGE_COLUMN,
     ROMS_SEARCH_FULLTEXT_COLUMNS,
     ROMS_SEARCH_FULLTEXT_INDEX,
     ROMS_SEARCH_TITLES_TRGM_INDEX,
@@ -520,6 +521,7 @@ PLAIN_COLUMNS: list[sa.Column[Any]] = [
         sa.Enum(*SAVE_TARGET_LAYOUT_VALUES, name=SAVE_TARGET_LAYOUT_ENUM),
     ),
     sa.Column(SEARCH_TITLES_COLUMN, sa.Text()),
+    sa.Column(MIN_AGE_COLUMN, sa.Integer()),
 ]
 
 

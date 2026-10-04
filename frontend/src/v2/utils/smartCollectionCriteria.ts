@@ -249,8 +249,8 @@ export interface SmartCriteriaSummaryItem {
   icon: string;
   label: string;
   /** Either a list of value chips or a single boolean-style label. */
-  values?: string[];
-  logic?: FilterLogic;
+  values?: string[] | undefined;
+  logic?: FilterLogic | undefined;
 }
 
 // Maps each storage key to its (icon, label, kind).

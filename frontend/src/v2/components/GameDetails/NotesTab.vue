@@ -12,8 +12,6 @@ import {
   RTooltip,
   RDivider,
 } from "@v2/lib";
-import { MdEditor, MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -27,11 +25,16 @@ import SubtabNav, {
 } from "@/v2/components/GameDetails/SubtabNav.vue";
 import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
+import {
+  AsyncMdEditor as MdEditor,
+  AsyncMdPreview as MdPreview,
+} from "@/v2/components/shared/asyncMarkdown";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { syncQueryParam } from "@/v2/utils/routeQuery";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
@@ -119,9 +122,7 @@ function readNoteFromQuery(): number | null {
 }
 
 function defaultSelection(): number | null {
-  if (myNotes.value.length > 0) return myNotes.value[0].id;
-  if (communityNotes.value.length > 0) return communityNotes.value[0].id;
-  return null;
+  return myNotes.value[0]?.id ?? communityNotes.value[0]?.id ?? null;
 }
 
 selectedNoteId.value = readNoteFromQuery() ?? defaultSelection();
@@ -168,7 +169,9 @@ const titleFieldRef = ref<{ $el?: HTMLElement } | null>(null);
 watch(editForm, async (form) => {
   if (!form) return;
   await nextTick();
-  titleFieldRef.value?.$el?.querySelector<HTMLInputElement>("input")?.focus();
+  focusFromInput(
+    titleFieldRef.value?.$el?.querySelector<HTMLInputElement>("input"),
+  );
 });
 
 const titleErrors = computed<string[]>(() => {
@@ -438,9 +441,6 @@ function fmtDate(iso: string): string {
           </header>
           <MdEditor
             v-model="editForm.content"
-            no-highlight
-            no-katex
-            no-mermaid
             no-prettier
             no-upload-img
             :theme="mdTheme"
@@ -495,9 +495,6 @@ function fmtDate(iso: string): string {
             </div>
           </header>
           <MdPreview
-            no-highlight
-            no-katex
-            no-mermaid
             :model-value="selectedNote.content"
             :theme="mdTheme"
             language="en-US"

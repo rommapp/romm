@@ -10,7 +10,7 @@ import {
   NOTIFICATION_CHANNEL_URL_MAX_LENGTH,
   appriseFieldLabel,
 } from "@/v2/utils/notificationChannels";
-import { notBlank } from "@/v2/utils/validation";
+import { email, notBlank } from "@/v2/utils/validation";
 
 const props = defineProps<{
   field: AppriseFieldSchema;
@@ -32,6 +32,11 @@ const hint = computed(() =>
 const isNumber = computed(
   () => props.field.type === "int" || props.field.type === "float",
 );
+const inputType = computed(() => {
+  if (props.field.private) return "password";
+  if (isNumber.value) return "number";
+  return props.field.type === "email" ? "email" : "text";
+});
 
 function inRange(text: string): true | string {
   const { min, max, type } = props.field;
@@ -54,6 +59,9 @@ function inRange(text: string): true | string {
 const rules = computed(() => [
   ...(required.value ? [notBlank()] : []),
   ...(isNumber.value ? [inRange] : []),
+  ...(props.field.type === "email"
+    ? [(text: string) => text === "" || email(text)]
+    : []),
 ]);
 const listRules = computed(() =>
   required.value
@@ -97,7 +105,7 @@ const listRules = computed(() =>
       v-else
       :model-value="String(value)"
       :label="label"
-      :type="field.private ? 'password' : isNumber ? 'number' : 'text'"
+      :type="inputType"
       :rules="rules"
       :required="required"
       :hint="hint"

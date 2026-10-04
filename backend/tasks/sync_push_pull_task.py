@@ -168,10 +168,16 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict[st
                 current_file=remote_save.file_name,
             )
 
-        push_count = await _push_missing_saves(
+        pushed, push_failed = await _push_missing_saves(
             device, conn, remote_saves, save_directories
         )
-        completed += push_count
+        completed += pushed
+        failed += push_failed
+        if pushed or push_failed:
+            db_sync_session_handler.update_session(
+                session_id=sync_session.id,
+                data={"operations_planned": operations_planned + pushed + push_failed},
+            )
 
     except Exception as e:
         log.error(f"Push-pull sync failed for device {device.id}: {e}", exc_info=True)
@@ -372,10 +378,11 @@ async def _push_missing_saves(
     conn: asyncssh.SSHClientConnection,
     remote_saves: list[RemoteSaveInfo],
     save_directories: list[dict[str, Any]],
-) -> int:
-    """Push server saves that are missing from the device."""
+) -> tuple[int, int]:
+    """Push server saves that are missing from the device; returns (pushed, failed)."""
     ssh_sync_handler = get_ssh_sync_handler()
     pushed = 0
+    failed = 0
 
     # Build set of remote filenames per platform
     remote_files: dict[str, set[str]] = {}
@@ -440,8 +447,9 @@ async def _push_missing_saves(
                         f"Push-pull: failed to push {save.file_name} to device {device.id}",
                         exc_info=True,
                     )
+                    failed += 1
 
-    return pushed
+    return pushed, failed
 
 
 class SyncPushPullTask(PeriodicTask):

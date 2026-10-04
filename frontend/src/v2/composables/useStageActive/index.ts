@@ -11,7 +11,7 @@ function mirrorFlag(
 }
 
 /** Mirrors a player's running state into the global stage flag that
- *  unmounts the app chrome and zeroes the nav-height tokens. */
+ *  unmounts the app chrome and collapses the nav-height tokens. */
 export function useStageActive(running: MaybeRefOrGetter<boolean>): void {
   const playingStore = storePlaying();
   // Deliberately not the `playing` flag: that one also spans pre-stage
@@ -27,7 +27,7 @@ export function usePlayingWhile(active: MaybeRefOrGetter<boolean>): void {
 }
 
 /** Mirrors the flag onto <html> (next to the theme classes) so
- *  body-teleported overlays resolve the zeroed nav-height tokens too. */
+ *  body-teleported overlays resolve the collapsed nav-height tokens too. */
 export function installStageActiveClass(): void {
   const playingStore = storePlaying();
   watch(

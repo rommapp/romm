@@ -272,10 +272,12 @@ export const colorCoverArt = {
   icon: "#F9F9F9", // foreground icon
 } as const;
 
+// 'Twemoji Country Flags' only exists where main.ts polyfills flag emoji and
+// only covers flag code points, so all other text falls through to the rest.
 export const fontFamily = {
-  sans: "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
+  sans: "'Twemoji Country Flags', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
   display:
-    "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
+    "'Twemoji Country Flags', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
   mono: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace",
 } as const;
 
@@ -387,7 +389,9 @@ export const zIndex = {
 
 // Layout constants from the mockup.
 export const layout = {
-  navHeight: "58px",
+  // Includes the status-bar inset (the page draws under it with
+  // `viewport-fit=cover`), so everything offset by the bar clears both.
+  navHeight: "calc(58px + var(--r-safe-t))",
   // Pills in the top bar's right cluster (scan indicator, mini player, user
   // menu) share one height so they line up.
   navPillHeight: "38px",

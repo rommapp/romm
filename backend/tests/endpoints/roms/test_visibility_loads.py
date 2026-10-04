@@ -14,15 +14,18 @@ from models.user import User
 
 # Truncated at the bind placeholder: MariaDB renders `?` and psycopg
 # `%(id_1)s::INTEGER`, and CI runs both.
-VISIBILITY_LOOKUP = "SELECT roms.id, roms.platform_id FROM roms WHERE roms.id ="
+VISIBILITY_LOOKUP = (
+    "SELECT roms.id, roms.platform_id, roms.min_age FROM roms WHERE roms.id ="
+)
 LABEL_LOOKUP = (
-    "SELECT roms.id, roms.platform_id, roms.name, roms.fs_name "
+    "SELECT roms.id, roms.platform_id, roms.min_age, roms.name, roms.fs_name "
     "FROM roms WHERE roms.id ="
 )
 # Stops at the first platform column; the rest are not needed to tell the
 # projection apart.
 DELETE_TARGET_LOOKUP = (
-    "SELECT roms.id, roms.platform_id, roms.name, roms.fs_name, roms.fs_path, "
+    "SELECT roms.id, roms.platform_id, roms.min_age, roms.name, roms.fs_name, "
+    "roms.fs_path, "
     "platforms.slug AS platform_slug"
 )
 

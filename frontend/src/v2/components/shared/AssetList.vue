@@ -166,7 +166,7 @@ const groups = computed<SlotGroup[]>(() => {
     }
   }
   // Bands still rank on their newest save: a heart reorders rows, not slots.
-  const newestOf = (group: SlotGroup) => group.newest ?? group.versions[0];
+  const newestOf = (group: SlotGroup) => group.newest ?? group.versions[0]!;
   return list.sort(
     (a, b) => rank(a) - rank(b) || byUpdatedDesc(newestOf(a), newestOf(b)),
   );

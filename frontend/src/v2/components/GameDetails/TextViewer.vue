@@ -22,7 +22,7 @@ const props = defineProps<{
   /** ROM id + file id persist the reading position; without them the progress
    *  bar still tracks the session's scroll. */
   romId?: number;
-  fileId?: number;
+  fileId?: number | undefined;
   /** Show a danger-tinted delete button at the end of the toolbar. */
   deletable?: boolean;
 }>();
@@ -34,7 +34,7 @@ const { t } = useI18n();
 const isHtml = computed(() => /\.html?(\?|$)/i.test(props.url));
 
 const fileName = computed(() => {
-  const path = props.url.split("?")[0];
+  const [path = ""] = props.url.split("?");
   const last = path.substring(path.lastIndexOf("/") + 1);
   try {
     return decodeURIComponent(last) || "document.txt";

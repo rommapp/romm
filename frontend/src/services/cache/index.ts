@@ -1,6 +1,6 @@
 // trunk-ignore-all(eslint/@typescript-eslint/no-explicit-any)
-import { useLocalStorage } from "@vueuse/core";
 import type { AxiosRequestConfig, AxiosResponse } from "axios";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import api from "@/services/api";
 
 interface CacheEntry {
@@ -12,7 +12,7 @@ class CacheService {
   private pendingRequests = new Map<string, Promise<AxiosResponse>>();
   private backgroundCallbacks = new Map<string, (data: any) => void>();
   private readonly CACHE_NAME = "romm-api-cache";
-  private enableExperimentalCache = useLocalStorage(
+  private enableExperimentalCache = useUserLocalStorage(
     "settings.enableExperimentalCache",
     false,
   );

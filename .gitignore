@@ -54,6 +54,8 @@ frontend/assets/ruffle/*
 !frontend/assets/ruffle/*.png
 frontend/assets/jsdos
 frontend/assets/pico8
+frontend/assets/gme
+frontend/assets/easyrpg
 
 # virtualenv
 .venv

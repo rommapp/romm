@@ -56,28 +56,28 @@ interface Props {
    * offset table. For a row animating towards a height `getItemHeight`
    * already reports settled: the table stays structural and only this scalar
    * changes per frame, instead of an O(n) rebuild on each one. */
-  offsetShift?: { fromIndex: number; px: number };
+  offsetShift?: { fromIndex: number; px: number } | undefined;
   /** Returns a stable key for an item. Defaults to the array index, which
    * re-patches every row in place when items are inserted at the front:
    * pass a content-stable key (e.g. an id) so insertions only mount the
    * genuinely-new row and existing rows keep their DOM (and their mount
    * animations don't replay). */
-  getItemKey?: (item: unknown, index: number) => string | number;
+  getItemKey?: ((item: unknown, index: number) => string | number) | undefined;
   /** Items kept rendered above/below the visible viewport for smooth
    * scrolling. Default 25 → ~50 extra rendered + visible. */
   overscan?: number;
   /** Viewport height. Number = px, string = any CSS length, undefined =
    * fill parent (the wrapper element gets `height: 100%`). */
-  height?: number | string;
+  height?: number | string | undefined;
   /** Natural min width of the content (rows). When the viewport is narrower
    * than this the scroller scrolls HORIZONTALLY (rows keep their full width
    * instead of squashing / clipping). The virtualised inner gets this as
    * `min-width` and the container gets `overflow-x: auto`. Number = px. */
-  minContentWidth?: number | string;
+  minContentWidth?: number | string | undefined;
   /** Attributes for the element wrapping `#head` and the items, e.g. a
    *  `role="grid"` that must own a header row and the rows but not the
    *  `#prepend` band. */
-  bodyAttrs?: Record<string, string | number | boolean | undefined>;
+  bodyAttrs?: Record<string, string | number | boolean | undefined> | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -119,7 +119,7 @@ const offsets = computed<number[]>(() => {
   out[0] = 0;
   for (let i = 0; i < len; i++) {
     const h = props.getItemHeight(props.items[i], i);
-    out[i + 1] = out[i] + (Number.isFinite(h) && h > 0 ? h : 0);
+    out[i + 1] = out[i]! + (Number.isFinite(h) && h > 0 ? h : 0);
   }
   return out;
 });
@@ -129,7 +129,7 @@ const offsets = computed<number[]>(() => {
  *  towards it, by less than that item has already grown. */
 function offsetAt(offs: number[], i: number): number {
   const shift = props.offsetShift;
-  return offs[i] + (shift && i > shift.fromIndex ? shift.px : 0);
+  return offs[i]! + (shift && i > shift.fromIndex ? shift.px : 0);
 }
 
 const totalHeight = computed(() => {

@@ -22,16 +22,16 @@ import { computed, ref, useSlots, watch } from "vue";
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  src?: string;
-  alt?: string;
-  width?: string | number;
-  height?: string | number;
+  src?: string | undefined;
+  alt?: string | undefined;
+  width?: string | number | undefined;
+  height?: string | number | undefined;
   /** Fill the wrapper, crop overflow (object-fit: cover). */
   cover?: boolean;
   /** Fit inside the wrapper, letterbox (object-fit: contain). */
   contain?: boolean;
   /** CSS aspect-ratio on the wrapper. `"16/9"`, `"1/1"`, `1.78`. */
-  aspectRatio?: string | number;
+  aspectRatio?: string | number | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

@@ -10,11 +10,11 @@
 // useLocalStorage creates an independent ref per call (shared storage, not
 // shared reactivity within a tab), so we create it once here and everyone
 // imports the same instance.
-import { useLocalStorage } from "@vueuse/core";
 import { computed } from "vue";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 
-const stored = useLocalStorage("settings.v2.crtMode", false);
+const stored = useUserLocalStorage("settings.v2.crtMode", false);
 const { enabled: reducedMotion, toggle: toggleReducedMotion } =
   useReducedMotion();
 

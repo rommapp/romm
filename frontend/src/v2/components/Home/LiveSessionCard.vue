@@ -12,7 +12,7 @@ import { useJoinStreamConfirm } from "@/v2/composables/useJoinStreamConfirm";
 
 interface Props {
   session: JoinableSession;
-  webp?: boolean;
+  webp?: boolean | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -78,8 +78,8 @@ async function join(): Promise<void> {
         variant="flat"
         color="danger"
         label
+        prepend-icon="mdi-access-point"
       >
-        <RIcon icon="mdi-access-point" size="14" />
         {{ t("home.live-session-live") }}
       </RChip>
       <div class="r-live-card__join">

@@ -76,6 +76,7 @@ from handler.scan_handler import (
     build_hashless_fs_rom,
     download_rom_resources,
     emit_scanning_rom,
+    fs_rom_file_attrs,
     get_enabled_metadata_sources,
     persist_soundtrack_cover,
     scan_firmware,
@@ -696,6 +697,9 @@ async def _identify_rom(
                 f"{hl(rom.name or rom.fs_name, color=BLUE)} by file hash"
             )
         else:
+            # Insert with the hashes too, so a scan that dies before its final
+            # write still leaves a row that rename detection can match.
+            rom_attrs.update(fs_rom_file_attrs(fs_rom))
             try:
                 rom = db_rom_handler.add_rom(Rom(**rom_attrs))
             except IntegrityError:

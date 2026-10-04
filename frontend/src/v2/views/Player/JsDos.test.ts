@@ -1,6 +1,7 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import { saveSyncMocks } from "@/test-utils/deviceSaveSync";
 import type { JsDosOptions, JsDosProps } from "@/types/js-dos";
 import JsDos from "./JsDos.vue";
 
@@ -94,6 +95,9 @@ vi.mock("@/v2/stores/galleryRoms", () => ({
   default: () => ({ getRomById: () => mocks.galleryRom }),
 }));
 
+// The sync logic has its own suite.
+vi.mock("@/v2/utils/saveSync", () => import("@/test-utils/deviceSaveSync"));
+
 // The runtime is a document-level singleton with its own suite; here it only
 // has to say which base the emulator payloads follow.
 vi.mock("./jsDosRuntime", () => ({
@@ -135,7 +139,11 @@ beforeEach(() => {
   mocks.userId = 7;
   mocks.confirm.mockResolvedValue(false);
   mocks.getRom.mockResolvedValue({ data: rom });
-  window.Dos = undefined;
+  saveSyncMocks.prepare.mockReset().mockResolvedValue([]);
+  saveSyncMocks.capture.mockReset().mockResolvedValue(undefined);
+  saveSyncMocks.push.mockReset().mockResolvedValue(true);
+  saveSyncMocks.pushOnUnload.mockReset();
+  delete window.Dos;
 });
 
 function mountView(): VueWrapper {
@@ -499,5 +507,102 @@ describe("JsDos player exit", () => {
     expect(firstKey).toBe("romm-user-7-rom-1.changes");
     expect(secondKey).toBe("romm-user-8-rom-1.changes");
     secondWrapper.unmount();
+  });
+});
+
+describe("JsDos save sync", () => {
+  function optionsOf(): Partial<JsDosOptions> {
+    return vi.mocked(window.Dos!).mock.calls[0]![1];
+  }
+
+  it("boots from the synced changes instead of browser storage", async () => {
+    const changes = new Uint8Array([80, 75]);
+    saveSyncMocks.prepare.mockResolvedValue([
+      { slot: "autosave", bytes: changes },
+    ]);
+    const wrapper = await mountPlayer(makeHandle());
+
+    expect(saveSyncMocks.args).toEqual([rom, 7, "jsdos"]);
+    expect(saveSyncMocks.prepare).toHaveBeenCalledWith([]);
+    const { fsChanges } = optionsOf();
+    expect(fsChanges?.local).toBe(false);
+    await expect(fsChanges?.pull?.("key")).resolves.toBe(changes);
+    wrapper.unmount();
+  });
+
+  it("starts fresh when nothing was saved", async () => {
+    const wrapper = await mountPlayer(makeHandle());
+
+    await expect(optionsOf().fsChanges?.pull?.("key")).resolves.toBeNull();
+    wrapper.unmount();
+  });
+
+  it("uploads each save js-dos makes, and serves it on the next pull", async () => {
+    const wrapper = await mountPlayer(makeHandle());
+    const bytes = new Uint8Array([1, 2]);
+
+    await optionsOf().fsChanges?.push?.("key", bytes);
+
+    expect(saveSyncMocks.capture).toHaveBeenCalledWith([
+      expect.objectContaining({
+        slot: "autosave",
+        fileName: "Windows Game.changes",
+        bytes,
+      }),
+    ]);
+    expect(saveSyncMocks.push).toHaveBeenCalled();
+    await expect(optionsOf().fsChanges?.pull?.("key")).resolves.toBe(bytes);
+    wrapper.unmount();
+  });
+
+  it("fails the save when the upload fails, so leaving asks first", async () => {
+    saveSyncMocks.push.mockResolvedValue(false);
+    const wrapper = await mountPlayer(makeHandle());
+
+    await expect(
+      optionsOf().fsChanges?.push?.("key", new Uint8Array([1])),
+    ).rejects.toThrow();
+    wrapper.unmount();
+  });
+
+  it("carries saves js-dos kept in the browser into the synced copy", async () => {
+    const removeEntry = vi.fn().mockResolvedValue(undefined);
+    const file = new File([new Uint8Array([9])], "changes", {
+      lastModified: 1234,
+    });
+    const saves = {
+      getFileHandle: vi.fn().mockResolvedValue({ getFile: async () => file }),
+      removeEntry,
+    };
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      storage: {
+        getDirectory: async () => ({
+          getDirectoryHandle: async () => ({
+            getDirectoryHandle: async () => saves,
+          }),
+        }),
+      },
+    });
+    const wrapper = await mountPlayer(makeHandle());
+
+    expect(saves.getFileHandle).toHaveBeenCalledWith(
+      "romm-user-7-rom-1.changes",
+    );
+    const [legacy] = saveSyncMocks.prepare.mock.calls[0]![0];
+    expect(legacy).toMatchObject({ slot: "autosave", updatedAt: 1234 });
+    expect([...legacy.bytes]).toEqual([9]);
+    expect(removeEntry).toHaveBeenCalledWith("romm-user-7-rom-1.changes");
+    wrapper.unmount();
+    vi.unstubAllGlobals();
+  });
+
+  it("sends pending saves when the page goes away", async () => {
+    const wrapper = await mountPlayer(makeHandle());
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(saveSyncMocks.pushOnUnload).toHaveBeenCalled();
+    wrapper.unmount();
   });
 });

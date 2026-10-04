@@ -21,7 +21,7 @@ const galleryView = storeGalleryView();
         v-bind="props"
         rounded="0"
         class="mr-0"
-        :icon="views[galleryView.currentView]['icon']"
+        :icon="views[galleryView.currentView]!['icon']"
         aria-label="Change view"
         @click="galleryView.next"
       />

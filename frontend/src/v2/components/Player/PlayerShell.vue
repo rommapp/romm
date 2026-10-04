@@ -205,7 +205,7 @@ usePlayFocus(
 
 .r-v2-player__stage-wrap {
   position: fixed;
-  inset: var(--r-nav-h) 0 0 0;
+  inset: var(--r-stage-inset);
   background: var(--r-color-canvas-bg);
   z-index: 1;
 }

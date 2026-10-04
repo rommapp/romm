@@ -1,4 +1,7 @@
-import type { InputModality } from "@/v2/composables/useInputModality";
+import {
+  type InputModality,
+  useInputModality,
+} from "@/v2/composables/useInputModality";
 
 // Whether a search field should grab focus as soon as it appears (a dropdown
 // panel opening, the Search view mounting). Desktop users want type-to-filter
@@ -15,6 +18,10 @@ export function shouldAutofocusSearch(
   return win.matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
 
+function navigatesByFocus(modality: InputModality): boolean {
+  return modality === "pad" || modality === "key";
+}
+
 // Whether a modality switch should pull focus onto a view's primary action:
 // only pad/key navigate by focus, and only an unfocused page is up for grabs.
 export function shouldClaimFocusOnModality(
@@ -22,6 +29,15 @@ export function shouldClaimFocusOnModality(
   active: Element | null,
   body: Element | null,
 ): boolean {
-  if (modality !== "pad" && modality !== "key") return false;
-  return !active || active === body;
+  return navigatesByFocus(modality) && (!active || active === body);
+}
+
+// Firefox treats a scripted focus() after a click or a gamepad's synthetic key
+// as mouse focus and skips :focus-visible, so key and pad moves ask for it.
+export function focusFromInput(
+  el: { focus(options?: FocusOptions): void } | null | undefined,
+  options: FocusOptions = {},
+): void {
+  const ring = navigatesByFocus(useInputModality().modality.value);
+  el?.focus(ring ? { ...options, focusVisible: true } : options);
 }

@@ -39,16 +39,15 @@
 // `withLabel` turns the button into a pill with "Play" / "Download" /
 // etc. text next to the icon, matching the GameDetails Play CTA.
 import { RDivider, RIcon, RMenu, RMenuItem, RTooltip } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref, toRef } from "vue";
+import { computed, inject, ref, toRef } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomUserStatus } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
-import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
 import GameActionsList from "@/v2/components/GameActions/GameActionsList.vue";
 import GameMetricsSections from "@/v2/components/GameActions/GameMetricsSections.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import {
   GAME_ACTIONS_KEY,
   useGameActions,
@@ -316,14 +315,10 @@ const statusOpen = ref(false);
 // local RMenu, so we track its "pinned" lifecycle by hand: flip true on
 // click, flip false when the dialog notifies it has closed.
 const collectionOpen = ref(false);
-const emitter = inject<Emitter<Events>>("emitter");
 const onCollectionDialogClose = () => {
   collectionOpen.value = false;
 };
-emitter?.on("closeManageCollectionsDialog", onCollectionDialogClose);
-onBeforeUnmount(() =>
-  emitter?.off("closeManageCollectionsDialog", onCollectionDialogClose),
-);
+useEmitterEvent("closeManageCollectionsDialog", onCollectionDialogClose);
 
 // Single signal the GameCard `:has()` selectors watch to keep the card's
 // hover state painted while an action is in flight: more menu, status

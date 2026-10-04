@@ -28,10 +28,10 @@ const props = withDefaults(
      *  to translateY/height and changes the flex axis. Same aesthetic, same
      *  active-pill slide: just rotated 90°. */
     orientation?: "horizontal" | "vertical";
-    ariaLabel?: string;
+    ariaLabel?: string | undefined;
     /** Disable the whole cluster: dims the container and blocks clicks on
      *  every item, regardless of per-item `disabled`. */
-    disabled?: boolean;
+    disabled?: boolean | undefined;
     /** Button size. `small` (default) keeps the existing 28×28
      *  segmented vocabulary so every existing call site stays
      *  identical. `x-small` shrinks to 22×22 so the cluster reads as

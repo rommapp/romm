@@ -17,11 +17,12 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from tests.factories import make_rom, make_save, make_state
+from tests.factories import make_esrb_rated_rom, make_rom, make_save, make_state
 from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
 from decorators.database import INJECTED_SESSION
 from exceptions.database_exceptions import RomFileOwnerChangedError
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_engine, sync_session
 from handler.database.roms_handler import _filter_values_cache_version
@@ -86,6 +87,32 @@ class TestUpdateRomDerivedColumns:
         # A pinned custom key is never clobbered by a name change.
         assert updated.name == "The New Name 2"
         assert updated.name_sort_key == "pinned"
+
+    def test_update_metadata_resyncs_min_age(self, rom: Rom):
+        rated = db_rom_handler.update_rom(
+            rom.id,
+            {"ss_metadata": {"age_ratings": [{"category": "PEGI", "rating": "16"}]}},
+        )
+        assert rated.min_age == 16
+
+        # The source the caller left out comes from the stored row.
+        overridden = db_rom_handler.update_rom(
+            rom.id, {"manual_metadata": {"age_ratings": ["ESRB:E10"]}}
+        )
+        assert overridden.min_age == 10
+
+    def test_min_age_is_set_on_insert_and_on_orm_update(self, platform: Platform):
+        rom = make_rom(
+            platform,
+            "Rated",
+            igdb_metadata={"age_ratings": [{"category": "ESRB", "rating": "M"}]},
+        )
+        assert rom.min_age == 17
+
+        with sync_session.begin() as session:
+            stored = session.get_one(Rom, rom.id)
+            stored.igdb_metadata = {"age_ratings": []}
+        assert db_rom_handler.get_rom(rom.id).min_age is None  # type: ignore[union-attr]
 
 
 class TestAddRomMergesScannedTags:
@@ -352,8 +379,12 @@ class TestGetRomIds:
             {},
             {"user_id": admin_user.id},
             {"platform_ids": [platform.id]},
-            {"hidden_platform_ids": [other_platform.id]},
-            {"hidden_rom_ids": [rom.id]},
+            {
+                "visibility": RomVisibilityFilter(
+                    hidden_platform_ids=frozenset({other_platform.id})
+                )
+            },
+            {"visibility": RomVisibilityFilter(hidden_rom_ids=frozenset({rom.id}))},
             {"order_by": "name", "order_dir": "desc"},
             {"platform_ids": [platform.id], **HAS_FILE_ON_DISK_FILTERS},
         ):
@@ -365,7 +396,8 @@ class TestGetRomIds:
         self, rom: Rom, second_rom: Rom, platform: Platform
     ) -> None:
         ids = db_rom_handler.get_rom_ids(
-            platform_ids=[platform.id], hidden_rom_ids=[rom.id]
+            platform_ids=[platform.id],
+            visibility=RomVisibilityFilter(hidden_rom_ids=frozenset({rom.id})),
         )
 
         assert rom.id not in ids
@@ -380,6 +412,71 @@ class TestGetRomIds:
 
         assert physical.id not in ids
         assert rom.id in ids
+
+
+class TestGetHiddenRomIdsAmong:
+    def test_reports_roms_hidden_directly_or_by_platform(
+        self, rom: Rom, second_rom: Rom, other_platform: Platform
+    ) -> None:
+        on_hidden_platform = make_rom(other_platform, "Elsewhere")
+        visibility = RomVisibilityFilter(
+            hidden_platform_ids=frozenset({other_platform.id}),
+            hidden_rom_ids=frozenset({rom.id}),
+        )
+
+        hidden = db_rom_handler.get_hidden_rom_ids_among(
+            [rom.id, second_rom.id, on_hidden_platform.id], visibility
+        )
+
+        assert hidden == {rom.id, on_hidden_platform.id}
+
+    def test_reports_a_direct_hide_whose_rom_is_gone(
+        self, rom: Rom, other_platform: Platform
+    ) -> None:
+        visibility = RomVisibilityFilter(
+            hidden_platform_ids=frozenset({other_platform.id}),
+            hidden_rom_ids=frozenset({999_999}),
+        )
+
+        hidden = db_rom_handler.get_hidden_rom_ids_among(
+            [rom.id, 999_999, 999_998], visibility
+        )
+
+        assert hidden == {999_999}
+
+    def test_unrestricted_hides_nothing(self, rom: Rom) -> None:
+        assert (
+            db_rom_handler.get_hidden_rom_ids_among([rom.id], RomVisibilityFilter())
+            == set()
+        )
+
+    def test_reports_roms_the_age_rule_hides(self, platform: Platform) -> None:
+        mature = make_esrb_rated_rom(platform, "Mature", "M")
+        teen = make_esrb_rated_rom(platform, "Teen", "T")
+        unrated = make_rom(platform, "Unrated")
+        visibility = RomVisibilityFilter(age_limit=13, hide_unrated_roms=True)
+
+        hidden = db_rom_handler.get_hidden_rom_ids_among(
+            [mature.id, teen.id, unrated.id], visibility
+        )
+
+        # The unrated row proves the negated clause is NULL-safe.
+        assert hidden == {mature.id, unrated.id}
+
+
+class TestAgeLimitedListing:
+    def test_lists_only_roms_within_the_limit(self, platform: Platform) -> None:
+        mature = make_esrb_rated_rom(platform, "Mature", "M")
+        everyone = make_esrb_rated_rom(platform, "Everyone", "E")
+        unrated = make_rom(platform, "Unrated")
+
+        ids = db_rom_handler.get_rom_ids(
+            platform_ids=[platform.id],
+            visibility=RomVisibilityFilter(age_limit=12),
+        )
+
+        assert set(ids) == {everyone.id, unrated.id}
+        assert mature.id not in ids
 
 
 class TestSyncRomFiles:

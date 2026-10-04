@@ -1,10 +1,12 @@
 import { RBtn, RSelect } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
+import mitt from "mitt";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
+import type { Events } from "@/types/emitter";
 import type { LaunchState, SaveSyncOutcome } from "@/types/rommNative";
 import { makeDetailedRom } from "@/utils/rom.fixtures";
 import EmulatorJS from "./EmulatorJS.vue";
@@ -322,7 +324,7 @@ describe("EmulatorJS launch screen — play routes", () => {
     mocks.canPlayNative = true;
     const wrapper = await launchScreen();
 
-    await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
+    await wrapper.findAll(".r-v2-ejs__play")[0]!.trigger("click");
 
     // No core map for the platform is no core to ask for, which leaves the
     // shell to resolve one from the candidates it is given.
@@ -343,7 +345,7 @@ describe("EmulatorJS launch screen — play routes", () => {
     mocks.fullscreen.value = true;
     const wrapper = await launchScreen();
 
-    await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
+    await wrapper.findAll(".r-v2-ejs__play")[0]!.trigger("click");
 
     expect(mocks.launch).toHaveBeenCalledWith(ROM, {
       core: "mgba",
@@ -362,8 +364,8 @@ describe("EmulatorJS launch screen — play routes", () => {
     const discs = wrapper
       .findAllComponents(RSelect)
       .filter((select) => propOf(select, "label") === "rom.file");
-    await discs[0].setValue(102);
-    await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
+    await discs[0]!.setValue(102);
+    await wrapper.findAll(".r-v2-ejs__play")[0]!.trigger("click");
 
     expect(mocks.launch).toHaveBeenCalledWith(DISC_SET, {
       core: undefined,
@@ -666,5 +668,31 @@ describe("EmulatorJS window listeners", () => {
     } finally {
       Reflect.deleteProperty(navigator, "keyboard");
     }
+  });
+});
+
+describe("EmulatorJS emitter listeners", () => {
+  it("leaves no save or state listener behind when closed mid-load", async () => {
+    const emitter = mitt<Events>();
+    let resolveRom: (value: { data: DetailedRom }) => void = () => {};
+    mocks.getRom.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRom = resolve;
+      }),
+    );
+    const wrapper = mount(EmulatorJS, {
+      shallow: true,
+      global: {
+        provide: { emitter },
+        stubs: { GameCover: GameCoverStub },
+      },
+    });
+
+    wrapper.unmount();
+    resolveRom({ data: ROM });
+    await flushPromises();
+
+    expect(emitter.all.get("saveSelected") ?? []).toHaveLength(0);
+    expect(emitter.all.get("stateSelected") ?? []).toHaveLength(0);
   });
 });

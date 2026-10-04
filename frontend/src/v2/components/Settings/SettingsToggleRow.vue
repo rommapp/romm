@@ -15,7 +15,7 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   modelValue: boolean;
   title: string;
-  description?: string;
+  description?: string | undefined;
   disabled?: boolean;
 }
 

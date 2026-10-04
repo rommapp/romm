@@ -12,5 +12,7 @@ export type UserPermissionsSchema = {
     permission_group_id: (number | null);
     overrides: Array<OverrideSchemaIO>;
     hidden: Array<HiddenEntitySchema>;
+    age_limit?: (number | null);
+    hide_unrated_roms?: (boolean | null);
 };
 

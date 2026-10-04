@@ -29,7 +29,7 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   id: number | string;
   slug: string;
-  fsSlug?: string;
+  fsSlug?: string | undefined;
   displayName: string;
   romCount?: number | null;
   /** Optional metadata: same axes the toolbar can group by. Each

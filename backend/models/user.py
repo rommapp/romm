@@ -4,7 +4,7 @@ import enum
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Final
 
-from sqlalchemy import TIMESTAMP, Enum, ForeignKey, Index, String
+from sqlalchemy import TIMESTAMP, Boolean, Enum, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
 
@@ -86,6 +86,9 @@ class User(BaseModel, SimpleUser):
         nullable=True,
         index=True,
     )
+    # Per-user replacements for the group's age limit settings; NULL inherits.
+    age_limit: Mapped[int | None] = mapped_column(Integer(), nullable=True)
+    hide_unrated_roms: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     avatar_path: Mapped[str] = mapped_column(
         String(length=TEXT_FIELD_LENGTH), default=""
     )

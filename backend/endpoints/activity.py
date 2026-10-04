@@ -19,13 +19,10 @@ def _visible_activity(
     request: Request, entries: list[ActivityEntry]
 ) -> list[ActivityEntrySchema]:
     """Drop sessions whose ROM is hidden from the caller (platform or rom hide)."""
-    perms = get_permissions(request)
-    if not perms.is_admin and (perms.hidden_platform_ids or perms.hidden_rom_ids):
-        rom_ids = [e["rom_id"] for e in entries]
+    visibility = get_permissions(request).rom_visibility
+    if not visibility.is_unrestricted:
         hidden = db_rom_handler.get_hidden_rom_ids_among(
-            rom_ids,
-            list(perms.hidden_platform_ids),
-            list(perms.hidden_rom_ids),
+            [e["rom_id"] for e in entries], visibility
         )
         entries = [e for e in entries if e["rom_id"] not in hidden]
     return [ActivityEntrySchema(**e) for e in entries]

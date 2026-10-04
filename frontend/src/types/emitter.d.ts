@@ -10,13 +10,16 @@ import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
 export type SnackbarStatus = {
-  id?: number;
+  /** Stable id: useful when deduplicating repeated notifications. */
+  id?: number | undefined;
   msg: string;
-  timeout?: number;
-  icon?: string;
-  color?: string;
+  /** Auto-dismiss timeout in ms. Defaults to NotificationHost's 3000ms. */
+  timeout?: number | undefined;
+  /** Override the default icon for the tone. */
+  icon?: string | undefined;
+  color?: string | undefined;
   /** Artwork shown in place of the icon, e.g. the cover of the game it concerns. */
-  image?: string | null;
+  image?: string | null | undefined;
 };
 
 export type Events = {
@@ -43,8 +46,8 @@ export type Events = {
    *  through the manual-match flow. Collection-cover edits omit it. */
   showSearchCoverDialog: {
     term: string;
-    platformId?: number;
-    rom?: SimpleRom;
+    platformId?: number | undefined;
+    rom?: SimpleRom | undefined;
   };
   updateUrlCover: string;
   showEditRomDialog: SimpleRom;
@@ -118,7 +121,7 @@ export type Events = {
   showDeleteManualDialog: {
     rom: DetailedRom;
     isPrimary: boolean;
-    fileId?: number;
+    fileId?: number | undefined;
   };
   showManualUploadTargetDialog: {
     rom: DetailedRom;

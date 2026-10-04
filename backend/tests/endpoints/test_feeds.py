@@ -1,7 +1,9 @@
 from fastapi import status
 from fastapi.testclient import TestClient
 from tests.factories import make_rom
+from tests.timezones import local_timezone
 
+from endpoints.feeds import format_release_date
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
@@ -672,3 +674,9 @@ def test_pkgj_psx_games_feed(
     assert response.status_code == status.HTTP_200_OK
     assert response.headers["content-disposition"] == "filename=pkgj_psx_games.txt"
     assert "Test PSX Game" in response.text
+
+
+def test_a_release_date_is_formatted_in_utc():
+    # Release dates are stored as UTC midnight; west of UTC that is the day before.
+    with local_timezone("America/Los_Angeles"):
+        assert format_release_date(1110758400000) == "03-14-2005"

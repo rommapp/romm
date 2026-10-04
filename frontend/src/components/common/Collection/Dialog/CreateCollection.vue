@@ -211,7 +211,7 @@ function closeDialog() {
                     <v-icon size="large"> mdi-pencil </v-icon>
                     <v-file-input
                       id="file-input"
-                      :model-value="collection.artwork"
+                      :model-value="collection.artwork!"
                       @update:model-value="
                         collection.artwork = [$event].flat()[0]
                       "

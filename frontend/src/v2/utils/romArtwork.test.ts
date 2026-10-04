@@ -52,7 +52,7 @@ describe("resolveRomArtwork — cover", () => {
       "artwork:cover",
       "artwork:logo",
     ]);
-    expect(entries[0].url).toBe(
+    expect(entries[0]?.url).toBe(
       "/assets/romm/resources/roms/1/1/cover/big.png?ts=x",
     );
   });
@@ -64,7 +64,7 @@ describe("resolveRomArtwork — cover", () => {
       url_cover: "https://provider.example/cover.png",
     });
 
-    expect(resolveRomArtwork(rom)[0].url).toBe(
+    expect(resolveRomArtwork(rom)[0]?.url).toBe(
       "https://provider.example/cover.png",
     );
   });
@@ -90,7 +90,7 @@ describe("resolveRomArtwork — scraped resources", () => {
       "artwork:box2d",
       "artwork:box2d_back",
     ]);
-    expect(entries[0].url).toContain("roms/1/1/box2d/box2d.png");
+    expect(entries[0]?.url).toContain("roms/1/1/box2d/box2d.png");
   });
 
   it("omits the box front when it was not stored locally", () => {
@@ -130,7 +130,7 @@ describe("resolveRomArtwork — scraped resources", () => {
       "Physical media (disc 1)",
       "Physical media (disc 2)",
     ]);
-    expect(entries[1].url).toContain("roms/1/1/physical/physical_disc2.png");
+    expect(entries[1]?.url).toContain("roms/1/1/physical/physical_disc2.png");
   });
 
   it("keeps the plain label when no other disc has art on disk", () => {
@@ -160,9 +160,9 @@ describe("resolveRomArtwork — library media files", () => {
     const entries = resolveRomArtwork(rom);
 
     expect(entries).toHaveLength(1);
-    expect(entries[0].isVideo).toBe(false);
-    expect(entries[0].label).toBe("artwork");
-    expect(entries[0].url).toContain("/api/roms/7/files/content/artwork.png");
+    expect(entries[0]?.isVideo).toBe(false);
+    expect(entries[0]?.label).toBe("artwork");
+    expect(entries[0]?.url).toContain("/api/roms/7/files/content/artwork.png");
   });
 
   it("includes video files as video entries", () => {
@@ -170,8 +170,8 @@ describe("resolveRomArtwork — library media files", () => {
     const entries = resolveRomArtwork(rom);
 
     expect(entries).toHaveLength(1);
-    expect(entries[0].isVideo).toBe(true);
-    expect(entries[0].label).toBe("trailer");
+    expect(entries[0]?.isVideo).toBe(true);
+    expect(entries[0]?.label).toBe("trailer");
   });
 
   it("ignores files that are not a known media type", () => {
@@ -192,7 +192,7 @@ describe("resolveRomArtwork — library media files", () => {
     const entries = resolveRomArtwork(rom);
 
     expect(entries).toHaveLength(1);
-    expect(entries[0].label).toBe("keep");
+    expect(entries[0]?.label).toBe("keep");
   });
 
   it("ignores media nested inside the game's own data", () => {
@@ -210,7 +210,7 @@ describe("resolveRomArtwork — library media files", () => {
     const entries = resolveRomArtwork(rom);
 
     expect(entries).toHaveLength(1);
-    expect(entries[0].label).toBe("trailer");
+    expect(entries[0]?.label).toBe("trailer");
   });
 
   it("orders image files before video files", () => {

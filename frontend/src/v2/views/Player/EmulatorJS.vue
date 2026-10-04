@@ -28,7 +28,7 @@ import {
   RSwitch,
   RTextField,
 } from "@v2/lib";
-import { useEventListener, useLocalStorage } from "@vueuse/core";
+import { useEventListener } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import {
   computed,
@@ -43,6 +43,10 @@ import {
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import {
+  userStorage,
+  useUserLocalStorage,
+} from "@/composables/useUserLocalStorage";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
@@ -62,6 +66,7 @@ import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useActivityPresence } from "@/v2/composables/useActivityPresence";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import {
@@ -273,7 +278,7 @@ const bezelUrl = computed(() =>
 // the route param so it binds before `rom` resolves; stored as the compact "0"
 // hidden / "1" shown marker (anything else fails safe to shown), and defaults
 // are not written so merely opening a game leaves storage untouched.
-const showBezel = useLocalStorage(`player:${romId}:bezel`, true, {
+const showBezel = useUserLocalStorage(`player:${romId}:bezel`, true, {
   writeDefaults: false,
   serializer: {
     read: resolveStoredBezelVisible,
@@ -412,7 +417,8 @@ async function onPlayNative() {
   rememberCore(romId, rom.value.platform_slug, selectedCore.value);
   rememberDisc(romId, selectedDisc.value);
   const refusal = await nativeStore.launch(rom.value, {
-    core: selectedCore.value,
+    // No core leaves the shell to pick one from the platform's candidates.
+    core: selectedCore.value ?? undefined,
     fullscreen: fullscreenOnPlay.value,
     disc: selectedDisc.value,
   });
@@ -546,6 +552,9 @@ function unselectState() {
   resume.value = { ...resume.value, state: null };
 }
 
+useEmitterEvent("saveSelected", selectSave);
+useEmitterEvent("stateSelected", selectState);
+
 watch(selectedCore, (newSelectedCore) => {
   const armed = resume.value.state;
   if (armed?.emulator && armed.emulator !== newSelectedCore) unselectState();
@@ -596,9 +605,6 @@ onMounted(async () => {
 
   const platformSlug = rom.value.platform_slug;
 
-  emitter?.on("saveSelected", selectSave);
-  emitter?.on("stateSelected", selectState);
-
   // compatibleStates filters on selectedCore, so resolve the core first.
   selectedCore.value = resolveRememberedCore(
     rom.value.id,
@@ -620,7 +626,7 @@ onMounted(async () => {
   );
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
-  const storedBiosID = localStorage.getItem(`player:${platformSlug}:bios_id`);
+  const storedBiosID = userStorage.getItem(`player:${platformSlug}:bios_id`);
 
   selectedFirmware.value = resolveInitialFirmware({
     options: firmwareOptions.value,
@@ -673,8 +679,6 @@ onBeforeUnmount(() => {
   // idempotent, so an exit that already flushed via the watch is a no-op.
   endSession();
   exitEmulatorOnce();
-  emitter?.off("saveSelected", selectSave);
-  emitter?.off("stateSelected", selectState);
 });
 
 function openCacheDialog() {
@@ -1418,7 +1422,7 @@ html[data-bp~="md-and-up"]
 /* ── Running state ───────────────────────────────────────── */
 .r-v2-ejs__stage {
   position: fixed;
-  inset: var(--r-nav-h) 0 0 0;
+  inset: var(--r-stage-inset);
   background: var(--r-color-canvas-bg);
   z-index: 1;
 }

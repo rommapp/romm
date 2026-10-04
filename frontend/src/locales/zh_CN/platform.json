@@ -73,6 +73,7 @@
   "playable": "可玩",
   "playable-both": "可在浏览器中游玩，也可从 {label} 串流",
   "playable-browser-dosbox": "可通过 DOSBox 在浏览器中游玩",
+  "playable-browser-easyrpg": "可通过 EasyRPG 在浏览器中游玩",
   "playable-browser-emulatorjs": "可通过 EmulatorJS 在浏览器中游玩",
   "playable-browser-jsdos": "可通过 js-dos 在浏览器中游玩",
   "playable-browser-pico8": "可通过 PICO-8 在浏览器中游玩",
@@ -132,6 +133,7 @@
   "tab-firmware": "固件",
   "tag": "标签",
   "tags": "标签",
+  "update-platform-failed": "更新平台失败：{error}",
   "updated": "平台已更新",
   "upload-firmware": "上传固件",
   "upload-roms": "上传 ROMs"

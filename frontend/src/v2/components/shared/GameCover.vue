@@ -52,14 +52,14 @@ interface Props {
   identified?: boolean;
   /** Explicit cover URL override (preview blobs, external provider art).
    *  Renders as plain box art regardless of the gallery style. */
-  coverSrc?: string | null;
+  coverSrc?: string | null | undefined;
   /** Force a specific boxart style (defaults to the gallery preference). */
-  forceStyle?: BoxartStyle;
+  forceStyle?: BoxartStyle | undefined;
   /** The surface this cover renders on, picks up the per-context
    *  boxart-style override (details / play pages). */
-  styleContext?: BoxartContext;
+  styleContext?: BoxartContext | undefined;
   /** Webp override; falls back to `useWebpSupport`. */
-  webp?: boolean;
+  webp?: boolean | undefined;
   /** External hover/focus state → drives spin + hover video. The surface
    *  that owns interactivity (GameCard) passes this. */
   active?: boolean;

@@ -175,7 +175,7 @@ interface ComputeOptions {
   /** Explicit cover URL that bypasses the resolution chain (preview
    *  blobs, external provider URLs). Treated as final: no webp rewrite,
    *  no alt-art swap. */
-  coverSrc?: string | null;
+  coverSrc?: string | null | undefined;
 }
 
 /** Pure resolution core: no Vue, no stores. Exported for unit tests and
@@ -233,7 +233,7 @@ export function computeCoverArt(
 export interface UseCoverArtOptions {
   /** Override the gallery-wide `boxartStyle` preference (stories,
    *  pickers that always show box art). */
-  forceStyle?: MaybeRefOrGetter<BoxartStyle>;
+  forceStyle?: MaybeRefOrGetter<BoxartStyle> | undefined;
   /** The surface this cover renders on: resolves the per-context
    *  boxart-style override (details / play pages). Defaults to the
    *  gallery-wide preference. `forceStyle` still wins. */

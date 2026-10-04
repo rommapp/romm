@@ -4,22 +4,15 @@
 // file-less Rom (is_physical=true) and auto-links metadata by name/UPC in a
 // single quick scan.
 import { RBtn, RDialog, RForm, RTextField } from "@v2/lib";
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import {
-  computed,
-  defineAsyncComponent,
-  inject,
-  onBeforeUnmount,
-  ref,
-} from "vue";
+import { computed, defineAsyncComponent, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
-import type { Events } from "@/types/emitter";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -39,7 +32,6 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const { mdAndUp } = useBreakpoint();
 const snackbar = useSnackbar();
-const emitter = inject<Emitter<Events>>("emitter");
 
 const platformsStore = storePlatforms();
 const { filledPlatforms } = storeToRefs(platformsStore);
@@ -66,8 +58,7 @@ const openHandler = (platform: Platform | null) => {
   upc.value = "";
   show.value = true;
 };
-emitter?.on("showAddPhysicalGameDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showAddPhysicalGameDialog", openHandler));
+useEmitterEvent("showAddPhysicalGameDialog", openHandler);
 
 function close() {
   show.value = false;

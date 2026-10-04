@@ -20,7 +20,7 @@ interface Props {
    *   - "some" → some are, some aren't (bulk-only, drawn with a dash)
    *   - "all"  → every selected ROM is already in this collection */
   state: "off" | "some" | "all";
-  isPublic?: boolean;
+  isPublic?: boolean | undefined;
   busy?: boolean;
   // Thumb diameter in px. Drives both the grid first-column width and
   // the CollectionMosaic width so the label column always lines up with

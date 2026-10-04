@@ -1,11 +1,8 @@
 // Gathers keyboard, gamepad, on-screen and mouse state into the per-frame
 // snapshot FAKE-08 expects, so the view is left with DOM plumbing only.
 import { ref, type Ref } from "vue";
-import {
-  AXIS_THRESHOLD,
-  isUsablePad,
-  PAD_BUTTON,
-} from "@/v2/composables/useGamepad";
+import { AXIS_THRESHOLD, PAD_BUTTON } from "@/v2/composables/useGamepad";
+import { isUsablePad } from "@/v2/utils/gamepad";
 import {
   PICO8_HEIGHT,
   PICO8_INPUT_BITS,
@@ -53,9 +50,10 @@ function readGamepadBits() {
       if (buttons[index]?.pressed) mask |= bit;
     }
     for (let axis = 0; axis < padAxisBits.length; axis += 1) {
+      const [negativeBit, positiveBit] = padAxisBits[axis]!;
       const value = axes[axis] ?? 0;
-      if (value < -AXIS_THRESHOLD) mask |= padAxisBits[axis][0];
-      if (value > AXIS_THRESHOLD) mask |= padAxisBits[axis][1];
+      if (value < -AXIS_THRESHOLD) mask |= negativeBit;
+      if (value > AXIS_THRESHOLD) mask |= positiveBit;
     }
   }
   return mask;

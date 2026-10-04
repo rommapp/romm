@@ -2,7 +2,6 @@ import json
 import os
 import re
 import time
-from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, cast
 
 import pydash
@@ -19,6 +18,7 @@ from config import (
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
 from models.rom import Rom
+from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import BaseRom, MetadataHandler, unavailable
@@ -95,12 +95,11 @@ def extract_metadata_from_rom_details(
             return None
 
         try:
-            # Extract date part (assuming format: "YYYY-MM-DD [additional info]"),
-            # pinned to UTC midnight so the host's offset never shifts the day.
-            parsed_date = datetime.strptime(release_date_str.split()[0], "%Y-%m-%d")
-            return int(parsed_date.replace(tzinfo=timezone.utc).timestamp())
-        except AttributeError, ValueError, IndexError:
+            # "YYYY-MM-DD [additional info]"
+            date_part = release_date_str.split()[0]
+        except AttributeError, IndexError:
             return None
+        return parse_utc_timestamp(date_part, ("%Y-%m-%d",))
 
     publishers = pydash.compact([rom_details.get("Publisher", None)])
     developers = pydash.compact([rom_details.get("Developer", None)])

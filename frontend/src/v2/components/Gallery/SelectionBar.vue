@@ -251,7 +251,7 @@ async function applyStatusTo(
   const results = await settleWithLimit(roms, STATUS_CONCURRENCY, (rom) =>
     romApi.updateUserRomProps({ romId: rom.id, data }),
   );
-  const failed = roms.filter((_, i) => results[i].status === "rejected");
+  const failed = roms.filter((_, i) => results[i]!.status === "rejected");
   for (const rom of failed) {
     const snapshot = before.get(rom.id);
     if (rom.rom_user && snapshot) {
@@ -301,7 +301,7 @@ function bulkDownload() {
   const roms = selection.roms;
   if (roms.length === 0) return;
   if (roms.length === 1) {
-    void romApi.downloadRom({ rom: roms[0] });
+    void romApi.downloadRom({ rom: roms[0]! });
     return;
   }
   // Bundle multi-selections into a single zip server-side; firing one
@@ -599,7 +599,7 @@ function clear() {
   --r-color-selection-edge: var(--r-color-brand-primary);
   position: fixed;
   left: 50%;
-  bottom: max(24px, env(safe-area-inset-bottom, 0));
+  bottom: max(24px, var(--r-safe-b));
   transform: translateX(-50%);
   /* Above the bottom tab bar (z 100) so the multi-select bar floats over
      it on mobile instead of being painted behind it; still below dialogs
@@ -638,7 +638,7 @@ function clear() {
 /* On sm-and-down sit just above the bottom tab bar (8px gap) so the two
    read as stacked, not overlapping. */
 html[data-bp~="sm-and-down"] .selection-bar {
-  bottom: calc(var(--r-bottom-nav-h) + 8px + env(safe-area-inset-bottom));
+  bottom: calc(var(--r-bottom-nav-h) + 8px + var(--r-safe-b));
 }
 
 /* RToolbar's default surface (`--r-color-bg-elevated`) is overridden

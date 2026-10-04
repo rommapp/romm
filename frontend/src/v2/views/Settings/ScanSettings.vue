@@ -33,7 +33,7 @@ const authStore = storeAuth();
 const snackbar = useSnackbar();
 
 // Provider brand names: identical across every locale, so not i18n'd.
-const PROVIDER_LABELS: Record<string, string> = {
+const PROVIDER_LABELS = {
   igdb: "IGDB",
   moby: "MobyGames",
   ss: "ScreenScraper",
@@ -52,7 +52,9 @@ const PROVIDER_LABELS: Record<string, string> = {
   libretro: "Libretro",
   playmatch: "Playmatch",
 };
-const METADATA_SOURCES = [
+const toSources = (keys: (keyof typeof PROVIDER_LABELS)[]) =>
+  keys.map((value) => ({ value, label: PROVIDER_LABELS[value] }));
+const METADATA_SOURCES = toSources([
   "igdb",
   "moby",
   "ss",
@@ -70,8 +72,8 @@ const METADATA_SOURCES = [
   "sgdb",
   "libretro",
   "playmatch",
-].map((value) => ({ value, label: PROVIDER_LABELS[value] }));
-const ARTWORK_SOURCES = [
+]);
+const ARTWORK_SOURCES = toSources([
   "sgdb",
   "igdb",
   "moby",
@@ -89,7 +91,7 @@ const ARTWORK_SOURCES = [
   "pouet",
   "csdb",
   "playmatch",
-].map((value) => ({ value, label: PROVIDER_LABELS[value] }));
+]);
 
 // Common provider region / language codes, offered as one-click
 // suggestions. Users may still type any provider-defined code.

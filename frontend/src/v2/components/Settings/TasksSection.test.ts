@@ -94,7 +94,7 @@ describe("TasksSection", () => {
     await runButton(wrapper).trigger("click");
     await flushPromises();
     expect(runTask).not.toHaveBeenCalled();
-    expect(confirm.mock.calls[0][0]).toMatchObject({
+    expect(confirm.mock.calls[0]![0]).toMatchObject({
       requireTyped: "rom.delete-keyword",
     });
 

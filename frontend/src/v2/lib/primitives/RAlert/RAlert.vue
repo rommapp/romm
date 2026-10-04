@@ -29,15 +29,15 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   /** Tone keyword: drives colour + default icon. */
-  type?: "success" | "info" | "warning" | "error";
+  type?: "success" | "info" | "warning" | "error" | undefined;
   variant?: "flat" | "elevated" | "translucent" | "outlined" | "text";
   closable?: boolean;
   /** MDI icon override, or `false` to suppress the auto-icon. */
-  icon?: string | false;
+  icon?: string | false | undefined;
   density?: "default" | "comfortable" | "compact";
-  title?: string;
+  title?: string | undefined;
   /** Shortcut for the default slot. */
-  text?: string;
+  text?: string | undefined;
   rounded?: string | number | boolean;
   /** v-model visibility. */
   modelValue?: boolean;

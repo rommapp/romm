@@ -21,7 +21,7 @@ function track(
 // Deterministic stand-in for Math.random so ordering assertions are stable.
 function sequenceRandom(values: number[]): () => number {
   let index = 0;
-  return () => values[index++ % values.length];
+  return () => values[index++ % values.length]!;
 }
 
 describe("trackDurationSeconds", () => {

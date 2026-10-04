@@ -16,7 +16,7 @@ export interface E2EEnv {
   E2E_VIEWER_USERNAME: string;
   E2E_VIEWER_PASSWORD: string;
   E2E_BASE_URL: string;
-  E2E_WORKERS?: number;
+  E2E_WORKERS: number | undefined;
   /** E2E_BASE_URL was not set, so the config serves the app with `npm run dev`. */
   startDevServer: boolean;
 }

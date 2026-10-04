@@ -180,7 +180,7 @@ function handleAction(action: InputAction): boolean {
       return true;
     }
     if (action === "confirm") {
-      const L = Array.from(letters.value)[alphaIndex.value];
+      const L = Array.from(letters.value)[alphaIndex.value]!;
       const idx = filteredRoms.value.findIndex((r) => {
         const normalized = normalizeTitle(r.name || "");
         if (L === "#") {
@@ -243,7 +243,7 @@ function handleAction(action: InputAction): boolean {
     case "confirm": {
       selectAndOpen(
         selectedIndex.value,
-        filteredRoms.value[selectedIndex.value],
+        filteredRoms.value[selectedIndex.value]!,
       );
       return true;
     }
@@ -281,7 +281,7 @@ function selectAndOpen(i: number, rom: SimpleRom) {
   router.push({
     name: ROUTES.CONSOLE_ROM,
     params: { rom: rom.id },
-    query: Object.keys(query).length ? query : undefined,
+    ...(Object.keys(query).length ? { query } : {}),
   });
 }
 

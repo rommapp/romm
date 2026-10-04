@@ -44,7 +44,7 @@ type SourceStatus = "missing" | "invalid" | "ok" | "pending";
 
 interface Source extends MetadataProviderInfo {
   disabled: boolean;
-  heartbeat?: boolean;
+  heartbeat?: boolean | undefined;
 }
 
 const sources = computed<Source[]>(() =>

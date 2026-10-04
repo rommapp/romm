@@ -73,6 +73,7 @@
   "playable": "Може да се играе",
   "playable-both": "Може да се играе в браузъра и да се стриймва от {label}",
   "playable-browser-dosbox": "Може да се играе в браузъра чрез DOSBox",
+  "playable-browser-easyrpg": "Може да се играе в браузъра чрез EasyRPG",
   "playable-browser-emulatorjs": "Може да се играе в браузъра чрез EmulatorJS",
   "playable-browser-jsdos": "Може да се играе в браузъра чрез js-dos",
   "playable-browser-pico8": "Може да се играе в браузъра чрез PICO-8",
@@ -132,6 +133,7 @@
   "tab-firmware": "Фърмуер",
   "tag": "Таг",
   "tags": "Тагове",
+  "update-platform-failed": "Неуспешно обновяване на платформата: {error}",
   "updated": "Платформата е обновена",
   "upload-firmware": "Качи фърмуер",
   "upload-roms": "Качи ROM-ове"

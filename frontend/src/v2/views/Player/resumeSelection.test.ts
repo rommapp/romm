@@ -91,11 +91,11 @@ describe("newerThanPick", () => {
       stateAt(8, "2026-09-05T10:00:00Z"),
     ];
 
-    expect(newerThanPick(saves, states, pickState(states[0]))).toEqual({
+    expect(newerThanPick(saves, states, pickState(states[0]!))).toEqual({
       kind: "state",
       asset: states[1],
     });
-    expect(newerThanPick(saves, [states[0]], pickState(states[0]))).toEqual({
+    expect(newerThanPick(saves, [states[0]!], pickState(states[0]!))).toEqual({
       kind: "save",
       asset: saves[0],
     });
@@ -107,7 +107,7 @@ describe("newerThanPick", () => {
       at(2, "2026-09-02T10:00:00Z"),
     ];
 
-    expect(newerThanPick(saves, [], pickSave(saves[0]))).toEqual({
+    expect(newerThanPick(saves, [], pickSave(saves[0]!))).toEqual({
       kind: "save",
       asset: saves[1],
     });
@@ -117,7 +117,7 @@ describe("newerThanPick", () => {
     const saves = [at(1, "2026-09-03T10:00:00Z")];
     const states = [stateAt(9, "2026-09-02T10:00:00Z")];
 
-    expect(newerThanPick(saves, states, pickSave(saves[0]))).toBe(null);
+    expect(newerThanPick(saves, states, pickSave(saves[0]!))).toBe(null);
     expect(newerThanPick(saves, states, { save: null, state: null })).toBe(
       null,
     );

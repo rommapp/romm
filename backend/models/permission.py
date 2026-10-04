@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+from typing import Final
 
 from sqlalchemy import (
     Boolean,
@@ -11,10 +12,14 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import BaseModel
+
+# The highest age a group or user age limit can be set to.
+MAX_AGE_LIMIT: Final = 21
 
 
 class PermEntity(enum.StrEnum):
@@ -88,6 +93,11 @@ class PermissionGroup(BaseModel):
     # Optional hex color (e.g. "#7c5cff") used by the admin UI to render the
     # group as a colored pill/dot. NULL falls back to a neutral tone.
     color: Mapped[str | None] = mapped_column(String(9), nullable=True)
+    # Members only see ROMs rated for this age or younger; NULL sets no limit.
+    age_limit: Mapped[int | None] = mapped_column(Integer(), nullable=True)
+    hide_unrated_roms: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
 
     grants: Mapped[list[PermissionGroupGrant]] = relationship(
         back_populates="group",

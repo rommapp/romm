@@ -84,7 +84,7 @@ describe("MissingGamesSection", () => {
     await flushPromises();
 
     expect(getRoms).toHaveBeenCalledTimes(1);
-    const params = getRoms.mock.calls[0][0];
+    const params = getRoms.mock.calls[0]![0];
     expect(params.filterMissing).toBe(true);
     expect(params.withCharIndex).toBe(false);
     expect(params.withFilterValues).toBe(false);
@@ -101,7 +101,7 @@ describe("MissingGamesSection", () => {
       .vm.$emit("sort", { key: "fs_size_bytes", dir: "desc" });
     await flushPromises();
 
-    const params = getRoms.mock.calls[0][0];
+    const params = getRoms.mock.calls[0]![0];
     expect(params.orderBy).toBe("fs_size_bytes");
     expect(params.withCharIndex).toBe(false);
     expect(params.withFilterValues).toBe(false);

@@ -73,6 +73,7 @@
   "playable": "Játszható",
   "playable-both": "Böngészőben játszható és streamelhető innen: {label}",
   "playable-browser-dosbox": "Böngészőben játszható DOSBox segítségével",
+  "playable-browser-easyrpg": "Böngészőben játszható EasyRPG segítségével",
   "playable-browser-emulatorjs": "Böngészőben játszható EmulatorJS segítségével",
   "playable-browser-jsdos": "Böngészőben játszható js-dos segítségével",
   "playable-browser-pico8": "Böngészőben játszható PICO-8 segítségével",
@@ -132,6 +133,7 @@
   "tab-firmware": "Firmware",
   "tag": "Címke",
   "tags": "Címkék",
+  "update-platform-failed": "A platform frissítése sikertelen: {error}",
   "updated": "Platform frissítve",
   "upload-firmware": "Firmware feltöltése",
   "upload-roms": "ROM-ok Feltöltése"

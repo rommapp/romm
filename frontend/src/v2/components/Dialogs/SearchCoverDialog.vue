@@ -18,7 +18,7 @@
 // Collection-cover edits don't pass a `rom`, so they hit the cover grids
 // only (collections don't have provider IDs in the same way).
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
   CoverResource,
@@ -41,6 +41,7 @@ import {
   useCoverFilters,
   type CoverProvider,
 } from "@/v2/composables/useCoverFilters";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RSelect from "@/v2/lib/forms/RSelect/RSelect.vue";
@@ -157,22 +158,14 @@ const showNoFilterMatch = computed(
   () => !searching.value && hasRawResults.value && !hasResults.value,
 );
 
-function openHandler({
-  term,
-  rom,
-}: {
-  term: string;
-  platformId?: number;
-  rom?: SimpleRom;
-}) {
+function openHandler({ term, rom }: Events["showSearchCoverDialog"]) {
   clearDialog();
   searchText.value = term;
   sourceRom.value = rom ?? null;
   show.value = true;
   if (searchText.value) doSearch();
 }
-emitter?.on("showSearchCoverDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showSearchCoverDialog", openHandler));
+useEmitterEvent("showSearchCoverDialog", openHandler);
 
 // Score a `/search/roms` result by how many of its provider IDs match
 // the source rom's IDs. The highest-scoring result is the same game

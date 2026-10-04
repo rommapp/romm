@@ -25,11 +25,11 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   variant?: "flat" | "elevated" | "translucent" | "outlined" | "text" | "plain";
-  color?: string;
-  elevation?: number | string;
+  color?: string | undefined;
+  elevation?: number | string | undefined;
   rounded?: string | number | boolean;
-  title?: string;
-  subtitle?: string;
+  title?: string | undefined;
+  subtitle?: string | undefined;
   /** Thin animated bar at the top of the card: indicator that the
    *  card's content is updating in place. */
   loading?: boolean;
@@ -114,7 +114,7 @@ const resolvedElevation = computed<string | undefined>(() => {
   if (!Number.isFinite(n)) return undefined;
   if (n <= 0) return ELEVATION_MAP[0];
   // Snap down to the largest tabulated key ≤ n.
-  let best = ELEVATION_KEYS[0];
+  let best = 0;
   for (const k of ELEVATION_KEYS) {
     if (k <= n) best = k;
   }

@@ -194,13 +194,10 @@ export async function menuLabels(page: Page): Promise<string[]> {
 
 /** Force the v2 UI and a known theme before the app boots. */
 export async function seedUiState(page: Page, theme: "dark" | "light") {
-  await page.addInitScript(
-    ([t]) => {
-      // Init scripts also run in Chrome's own error page, which denies storage.
-      if (!location.protocol.startsWith("http")) return;
-      localStorage.setItem("settings.uiVersion", "v2");
-      localStorage.setItem("settings.theme", t);
-    },
-    [theme],
-  );
+  await page.addInitScript((t) => {
+    // Init scripts also run in Chrome's own error page, which denies storage.
+    if (!location.protocol.startsWith("http")) return;
+    localStorage.setItem("settings.uiVersion", "v2");
+    localStorage.setItem("settings.theme", t);
+  }, theme);
 }

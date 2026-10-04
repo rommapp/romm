@@ -19,6 +19,7 @@ import httpx2
 from config import DEMOZOO_API_ENABLED
 from logger.logger import log
 from utils import get_version, int_or_none, valid_youtube_id
+from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rate_limiter import RateLimiter
 
@@ -322,15 +323,7 @@ def splice_pouet_vote(
 
 
 def _unix_date(value: str | None) -> int | None:
-    if not value:
-        return None
-    try:
-        from datetime import datetime, timezone
-
-        dt = datetime.fromisoformat(value[:10]).replace(tzinfo=timezone.utc)
-    except ValueError:
-        return None
-    return int(dt.timestamp())
+    return parse_utc_timestamp(value[:10] if value else None, iso=True)
 
 
 def production_to_rom(data: dict[str, Any]) -> DemozooRom:

@@ -1,8 +1,17 @@
 /* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h, nextTick, ref } from "vue";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
+import { defineComponent, h, nextTick, type PropType, ref } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import storeFocusRestoration from "@/v2/stores/focusRestoration";
 import { useGridNav } from "./index";
 
 vi.mock("vue-router", () => ({ useRoute: () => ({ fullPath: "/gallery" }) }));
@@ -38,8 +47,15 @@ function focusLink(id: number) {
   (document.querySelector(`a[href='/rom/${id}']`) as HTMLElement).focus();
 }
 
-function press(key: string, init: KeyboardEventInit = {}) {
-  document.dispatchEvent(new KeyboardEvent("keydown", { key, ...init }));
+function press(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
+  const event = new KeyboardEvent("keydown", {
+    key,
+    bubbles: true,
+    cancelable: true,
+    ...init,
+  });
+  (document.activeElement ?? document).dispatchEvent(event);
+  return event;
 }
 
 function focusedHref(): string | null | undefined {
@@ -70,6 +86,23 @@ describe("useGridNav roving", () => {
 
     expect(document.activeElement?.getAttribute("href")).toBe("/rom/3");
     expect(tabbable(wrapper)).toEqual(["/rom/3", "fav"]);
+  });
+
+  it("asks for a visible focus ring on the cell it moves to", () => {
+    const { setModality } = useInputModality();
+    setModality("key");
+    onTestFinished(() => setModality("mouse"));
+    focusLink(1);
+    const focus = vi.spyOn(
+      wrapper.get("a[href='/rom/3']").element as HTMLElement,
+      "focus",
+    );
+
+    press("ArrowDown");
+
+    expect(focus).toHaveBeenCalledWith(
+      expect.objectContaining({ focusVisible: true }),
+    );
   });
 
   it("follows focus that arrives another way, such as a click", async () => {
@@ -157,5 +190,237 @@ describe("useGridNav autofocus", () => {
     await frame();
 
     expect(focusedHref()).toBe("/rom/1");
+  });
+});
+
+const TILE = 100;
+
+// Two rows of two tiles, laid out by the data attributes since jsdom has no
+// layout engine.
+const WrapGrid = defineComponent({
+  props: {
+    tiles: {
+      type: Array as PropType<[row: number, col: number][]>,
+      default: () => [
+        [0, 0],
+        [0, 1],
+        [1, 0],
+        [1, 1],
+      ],
+    },
+  },
+  setup(props) {
+    const root = ref<HTMLElement | null>(null);
+    useGridNav(root, { cellSelector: ".cell" });
+    return () =>
+      h(
+        "div",
+        { ref: root },
+        props.tiles.map(([row, col]) =>
+          h("button", {
+            class: "cell",
+            "data-row": row,
+            "data-col": col,
+            "data-focus-key": `${row}-${col}`,
+          }),
+        ),
+      );
+  },
+});
+
+describe("useGridNav on a wrapping grid", () => {
+  const { setModality } = useInputModality();
+  const scrollIntoView = vi.fn();
+  let wrapper: ReturnType<typeof mount> | null = null;
+  const restores: (() => void)[] = [];
+
+  function stub<K extends keyof HTMLElement>(
+    key: K,
+    descriptor: PropertyDescriptor,
+  ) {
+    const original = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      key,
+    );
+    Object.defineProperty(HTMLElement.prototype, key, {
+      configurable: true,
+      ...descriptor,
+    });
+    restores.push(() => {
+      if (original) Object.defineProperty(HTMLElement.prototype, key, original);
+      else delete (HTMLElement.prototype as Partial<HTMLElement>)[key];
+    });
+  }
+
+  function cell(row: number, col: number): HTMLElement {
+    return wrapper!.find(`[data-row="${row}"][data-col="${col}"]`)
+      .element as HTMLElement;
+  }
+
+  beforeEach(() => {
+    setModality("mouse");
+    stub("offsetParent", {
+      get(this: HTMLElement) {
+        return this.parentElement;
+      },
+    });
+    stub("getBoundingClientRect", {
+      value(this: HTMLElement) {
+        const top = Number(this.dataset.row ?? 0) * TILE;
+        const left = Number(this.dataset.col ?? 0) * TILE;
+        return new DOMRect(left, top, TILE, TILE);
+      },
+    });
+    stub("scrollIntoView", { value: scrollIntoView });
+    wrapper = mount(WrapGrid, { attachTo: document.body });
+  });
+
+  afterEach(() => {
+    restores.splice(0).forEach((restore) => restore());
+  });
+
+  it("centres the row it moves to, so it clears the pinned top chrome", () => {
+    cell(1, 0).focus();
+
+    press("ArrowUp");
+
+    expect(document.activeElement).toBe(cell(0, 0));
+    expect(scrollIntoView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ block: "center" }),
+    );
+
+    press("ArrowDown");
+
+    expect(document.activeElement).toBe(cell(1, 0));
+    expect(scrollIntoView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ block: "center" }),
+    );
+  });
+
+  it("asks for a visible focus ring on the tile it moves to", () => {
+    setModality("key");
+    cell(1, 0).focus();
+    const focus = vi.spyOn(cell(0, 0), "focus");
+
+    press("ArrowUp");
+
+    expect(focus).toHaveBeenCalledWith(
+      expect.objectContaining({ focusVisible: true }),
+    );
+  });
+
+  it("keeps the page still when moving along a row", () => {
+    cell(0, 0).focus();
+
+    press("ArrowRight");
+
+    expect(document.activeElement).toBe(cell(0, 1));
+    expect(scrollIntoView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ block: "nearest", inline: "nearest" }),
+    );
+  });
+
+  it("leaves PageUp to the page on the first row", () => {
+    cell(0, 1).focus();
+
+    expect(press("PageUp").defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(cell(0, 1));
+  });
+
+  it("jumps to a row's ends and, with Ctrl, the grid's", () => {
+    cell(1, 1).focus();
+
+    press("Home");
+    expect(document.activeElement).toBe(cell(1, 0));
+
+    press("Home", { ctrlKey: true });
+    expect(document.activeElement).toBe(cell(0, 0));
+  });
+
+  it("reaches the grid's ends through tiles it already visited", () => {
+    cell(0, 0).focus();
+    press("ArrowRight");
+    press("ArrowLeft");
+    press("ArrowRight");
+    press("ArrowDown");
+
+    press("Home", { ctrlKey: true });
+    expect(document.activeElement).toBe(cell(0, 0));
+
+    press("ArrowDown");
+    press("ArrowRight");
+    press("ArrowUp");
+    press("End", { ctrlKey: true });
+    expect(document.activeElement).toBe(cell(1, 1));
+  });
+
+  it("keeps Home in the row when only an earlier group has one tile", () => {
+    wrapper!.unmount();
+    wrapper = mount(WrapGrid, {
+      props: {
+        tiles: [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+        ],
+      },
+      attachTo: document.body,
+    });
+    cell(1, 1).focus();
+
+    press("Home");
+
+    expect(document.activeElement).toBe(cell(1, 0));
+  });
+
+  it("centres the restored tile when the pad takes over", async () => {
+    storeFocusRestoration().save("/gallery", "1-1");
+
+    setModality("pad");
+    await nextTick();
+
+    expect(document.activeElement).toBe(cell(1, 1));
+    expect(scrollIntoView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ block: "center" }),
+    );
+  });
+});
+
+describe("useGridNav on a wrapping grid, autofocus", () => {
+  const { setModality } = useInputModality();
+  const tiles = ref(0);
+
+  // Tiles that arrive after mount, as a fetch resolving would add them.
+  const LateGrid = defineComponent({
+    setup() {
+      const root = ref<HTMLElement | null>(null);
+      useGridNav(root, { cellSelector: ".cell" });
+      return () =>
+        h(
+          "div",
+          { ref: root },
+          Array.from({ length: tiles.value }, (_, i) =>
+            h("button", { class: "cell", "data-focus-key": `tile-${i}` }),
+          ),
+        );
+    },
+  });
+
+  afterEach(() => {
+    tiles.value = 0;
+    setModality("mouse");
+  });
+
+  it("lands pad focus on the first tile once late tiles arrive", async () => {
+    setModality("pad");
+    const wrapper = mount(LateGrid, { attachTo: document.body });
+    await frame();
+    expect(document.activeElement).toBe(document.body);
+
+    tiles.value = 2;
+    await nextTick();
+    await Promise.resolve();
+
+    expect(document.activeElement).toBe(wrapper.find(".cell").element);
   });
 });

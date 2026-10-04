@@ -25,8 +25,8 @@ const loading = ref(false);
 
 type Row = {
   fsSlug: string;
-  slug?: string;
-  displayName?: string;
+  slug?: string | undefined;
+  displayName?: string | undefined;
   type: "alias" | "variant" | "auto" | null;
 };
 

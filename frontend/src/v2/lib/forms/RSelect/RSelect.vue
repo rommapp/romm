@@ -38,7 +38,7 @@ import {
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
-import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
+import { focusFromInput, shouldAutofocusSearch } from "@/v2/utils/autofocus";
 import RDivider from "../../primitives/RDivider/RDivider.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
@@ -79,10 +79,10 @@ type ClearableAllowed = unknown extends Model
 
 interface Props {
   /** Typed by the bound ref; RSelect trusts it matches the items' keys. */
-  modelValue?: Model;
+  modelValue?: Model | undefined;
   items?: readonly Item[];
-  label?: string;
-  placeholder?: string;
+  label?: string | undefined;
+  placeholder?: string | undefined;
   variant?: "outlined" | "filled" | "underlined" | "plain";
   density?: "default" | "comfortable" | "compact";
   itemTitle?: string | ((item: Item) => string);
@@ -100,14 +100,14 @@ interface Props {
   loading?: boolean;
   hideDetails?: boolean | "auto";
   required?: boolean;
-  prependInnerIcon?: string;
+  prependInnerIcon?: string | undefined;
   appendInnerIcon?: string;
   rules?: Rule[];
-  hint?: string;
+  hint?: string | undefined;
   error?: boolean;
   errorMessages?: string | string[];
   /** "stacked": label above; "inline": label as a left well. */
-  prefixLabel?: "stacked" | "inline";
+  prefixLabel?: "stacked" | "inline" | undefined;
   /** Accent for focus + selected items. Defaults to brand-primary. */
   color?: string;
   /** Adds a sticky search input at the top of the panel that filters
@@ -115,7 +115,7 @@ interface Props {
   searchable?: boolean;
   /** v-model:search: current query string. */
   search?: string;
-  searchPlaceholder?: string;
+  searchPlaceholder?: string | undefined;
   /** Where to place the menu relative to the activator. */
   menuLocation?:
     "bottom" | "top" | "bottom start" | "bottom end" | "top start" | "top end";
@@ -145,12 +145,12 @@ interface Props {
   showAllOption?: boolean;
   /** Label used by the "All" row in the menu and as the activator
    *  display when nothing is selected. Defaults to "All". */
-  allOptionLabel?: string;
+  allOptionLabel?: string | undefined;
   /** Items it matches get a divider below their row, setting them apart
    *  from the ones that follow. */
-  dividerAfter?: (item: Item) => boolean;
+  dividerAfter?: ((item: Item) => boolean) | undefined;
   /** Tip revealed from an info icon in the trailing label well. */
-  info?: string;
+  info?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -306,9 +306,8 @@ const selectedValues = computed<unknown[]>(() => {
   if (props.multiple) {
     return Array.isArray(props.modelValue) ? props.modelValue : [];
   }
-  return props.modelValue === undefined || props.modelValue === null
-    ? []
-    : [props.modelValue];
+  // An item may hold null as its value, so only undefined means unset.
+  return props.modelValue === undefined ? [] : [props.modelValue];
 });
 
 // Normalise a model value to its primitive identity key. In
@@ -398,7 +397,7 @@ function recomputeFit() {
   let used = 0;
   let count = 0;
   for (let i = 0; i < chips.length; i++) {
-    const w = chips[i].offsetWidth;
+    const w = chips[i]!.offsetWidth;
     const remaining = chips.length - 1 - i;
     const overflowReserve = remaining > 0 ? overflowWidth + gap : 0;
     const gapNow = count > 0 ? gap : 0;
@@ -606,7 +605,7 @@ function reset() {
 defineExpose({
   validate,
   reset,
-  focus: () => activatorRef.value?.focus(),
+  focus: () => focusFromInput(activatorRef.value),
   open: openMenu,
   close: closeMenu,
 });
@@ -648,6 +647,7 @@ const showClear = computed(
   () =>
     props.clearable &&
     hasSelection.value &&
+    props.modelValue !== null &&
     !props.disabled &&
     !props.readonly &&
     !props.loading,
@@ -736,7 +736,7 @@ usePopoverDismiss(isOpen, closeMenu, {
   onEscape: () => {
     const focusInPanel = !!panelRef.value?.contains(document.activeElement);
     closeMenu();
-    if (focusInPanel) activatorRef.value?.focus();
+    if (focusInPanel) focusFromInput(activatorRef.value);
   },
 });
 
@@ -758,7 +758,7 @@ function moveActive(delta: number) {
   for (let n = 0; n < list.length; n++) {
     if (i < 0) i = list.length - 1;
     if (i >= list.length) i = 0;
-    if (!list[i].disabled) break;
+    if (!list[i]!.disabled) break;
     i += delta || 1;
   }
   activeIndex.value = i;
@@ -893,6 +893,7 @@ const describedBy = computed(() => {
   >
     <span
       v-if="stackedLabelOn"
+      :id="`${fieldId}-label`"
       class="r-select__label r-select__label--stacked"
     >
       <slot name="prefix-label">{{ label }}</slot>
@@ -902,6 +903,7 @@ const describedBy = computed(() => {
          current selection inside (chips or plain text). Keyboard
          navigation routes through this button. -->
     <button
+      :id="`${fieldId}-field`"
       ref="activatorRef"
       type="button"
       class="r-select__field"
@@ -909,6 +911,9 @@ const describedBy = computed(() => {
       :aria-haspopup="'listbox'"
       :aria-expanded="isOpen"
       :aria-label="effectiveAriaLabel"
+      :aria-labelledby="
+        stackedLabelOn ? `${fieldId}-label ${fieldId}-field` : undefined
+      "
       :aria-invalid="hasError || undefined"
       :aria-describedby="describedBy"
       @click="toggleMenu"

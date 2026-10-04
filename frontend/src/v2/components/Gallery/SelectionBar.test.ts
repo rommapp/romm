@@ -227,7 +227,7 @@ describe("SelectionBar bulk favorite", () => {
     await clickHeart(mountBar());
 
     expect(galleryRemove).toHaveBeenCalledTimes(1);
-    expect(galleryRemove.mock.calls[0][0].map((r) => r.id)).toEqual([1, 2]);
+    expect(galleryRemove.mock.calls[0]![0].map((r) => r.id)).toEqual([1, 2]);
     expect(romsRemove).toHaveBeenCalledTimes(1);
     expect(storeGallerySelection().count).toBe(0);
   });
@@ -354,7 +354,9 @@ describe("SelectionBar bulk status", () => {
         },
       },
     );
-    const [first, second] = wrapper.findAll(".status-item");
+    const items = wrapper.findAll(".status-item");
+    const first = items[0]!;
+    const second = items[1]!;
 
     await first.trigger("click");
     await second.trigger("click");

@@ -19,7 +19,7 @@ import { RBtn, RDialog, RIcon, RTabNav, RTextField } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib/primitives/RTabNav/types";
 import { useObjectUrl } from "@vueuse/core";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -32,6 +32,7 @@ import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import DangerZone from "@/v2/components/shared/DangerZone.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { getMissingCoverImage } from "@/v2/utils/covers";
@@ -84,15 +85,10 @@ const openHandler = async (romToEdit: SimpleRom) => {
     console.error("Failed to fetch detailed rom", error);
   }
 };
-emitter?.on("showEditRomDialog", openHandler);
+useEmitterEvent("showEditRomDialog", openHandler);
 
 const urlCoverHandler = (url_cover: string) => setUrlCover(url_cover);
-emitter?.on("updateUrlCover", urlCoverHandler);
-
-onBeforeUnmount(() => {
-  emitter?.off("showEditRomDialog", openHandler);
-  emitter?.off("updateUrlCover", urlCoverHandler);
-});
+useEmitterEvent("updateUrlCover", urlCoverHandler);
 
 const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),

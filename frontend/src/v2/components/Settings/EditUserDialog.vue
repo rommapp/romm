@@ -4,7 +4,7 @@
 // the old role picker: an Admin toggle, and for non-admins the permission
 // group and the platforms hidden from them. Emitter-driven
 // (`showEditUserDialog`).
-import { RBtn, RIcon, RSelect, RSwitch, RTextField } from "@v2/lib";
+import { RBtn, RIcon, RSelect, RSpinner, RSwitch, RTextField } from "@v2/lib";
 import { useObjectUrl } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
@@ -19,12 +19,15 @@ import type { Platform } from "@/stores/platforms";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
+import AgeLimitFields from "./AgeLimitFields.vue";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 import HiddenPlatformsPicker from "./HiddenPlatformsPicker.vue";
 import OverridesMatrix from "./OverridesMatrix.vue";
+import { createAgeSettingsDraft } from "./ageSettingsDraft";
 
 defineOptions({ inheritAttrs: false });
 
@@ -49,6 +52,16 @@ const groupId = ref<number | null>(null);
 const originalGroupId = ref<number | null>(null);
 const hiddenPlatformIds = ref<number[]>([]);
 const originalHiddenPlatformIds = ref<number[]>([]);
+
+// The user's own age settings; null keeps the group's.
+const {
+  draft: age,
+  load: loadAge,
+  changed: ageSettingsChanged,
+} = createAgeSettingsDraft();
+// The access fields show, and save, only once this user's access has loaded.
+const accessLoaded = ref(false);
+const accessError = ref(false);
 
 // Advanced: per-user overrides + per-game hiding.
 const showAdvanced = ref(false);
@@ -80,6 +93,14 @@ async function ensureCatalog() {
 
 const editingSelf = computed(() => user.value?.id === auth.user?.id);
 
+const inheritedAgeSettings = computed(() => {
+  const group = groupsStore.groups.find((g) => g.id === groupId.value);
+  return {
+    ageLimit: group?.age_limit ?? null,
+    hideUnrated: group?.hide_unrated_roms ?? false,
+  };
+});
+
 const groupItems = computed(() =>
   groupsStore.groups.map((g) => ({ title: g.name, value: g.id })),
 );
@@ -90,11 +111,17 @@ const sortedPlatforms = computed(() =>
   ),
 );
 
-emitter?.on("showEditUserDialog", async (toEdit) => {
+let openToken = 0;
+
+useEmitterEvent("showEditUserDialog", async (toEdit) => {
+  const token = ++openToken;
   user.value = { ...toEdit, password: "", avatar: undefined };
   confirmPassword.value = "";
   isAdmin.value = toEdit.role === "admin";
   showAdvanced.value = false;
+  accessLoaded.value = false;
+  accessError.value = false;
+  loadAge();
   show.value = true;
 
   try {
@@ -106,6 +133,8 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
         : platformApi.getPlatforms(),
       ensureCatalog(),
     ]);
+    // A slower response for a user opened earlier must not land on this one.
+    if (token !== openToken) return;
     if (platformsResp) platforms.value = platformsResp.data;
     // A null group means the user follows the server default group; show it
     // as selected so the picker never displays a meaningless empty option.
@@ -125,9 +154,17 @@ emitter?.on("showEditUserDialog", async (toEdit) => {
     hiddenRomIds.value = [...hiddenRoms];
     originalHiddenRomIds.value = [...hiddenRoms];
 
+    loadAge({
+      ageLimit: perms.data.age_limit ?? null,
+      hideUnrated: perms.data.hide_unrated_roms ?? null,
+    });
+
     overrides.value = perms.data.overrides.map((o) => ({ ...o }));
     originalOverrides.value = perms.data.overrides.map((o) => ({ ...o }));
+    accessLoaded.value = true;
   } catch (err) {
+    if (token !== openToken) return;
+    accessError.value = true;
     console.error("Failed to load user permissions", err);
   }
 });
@@ -190,10 +227,53 @@ function diffHidden(
   ];
 }
 
+// The access edits to save, read up front: opening another user while a save
+// is in flight replaces every access ref.
+function accessEdits(userId: number) {
+  const groupChanged = groupId.value !== originalGroupId.value;
+  const overridesChanged =
+    overridesKey(overrides.value) !== overridesKey(originalOverrides.value);
+  const ageChanged = ageSettingsChanged();
+  const changed = groupChanged || overridesChanged || ageChanged;
+  const hidden = {
+    platforms: [...hiddenPlatformIds.value],
+    originalPlatforms: [...originalHiddenPlatformIds.value],
+    roms: [...hiddenRomIds.value],
+    originalRoms: [...originalHiddenRomIds.value],
+  };
+  return {
+    groupId: groupChanged ? groupId.value : undefined,
+    permissions: changed
+      ? {
+          set_group: groupChanged,
+          permission_group_id: groupId.value,
+          overrides: overridesChanged ? [...overrides.value] : null,
+          set_age_settings: ageChanged,
+          age_limit: age.value.ageLimit,
+          hide_unrated_roms: age.value.hideUnrated,
+        }
+      : null,
+    saveHidden: () =>
+      Promise.all([
+        ...diffHidden(
+          "platforms",
+          hidden.platforms,
+          hidden.originalPlatforms,
+          userId,
+        ),
+        ...diffHidden("roms", hidden.roms, hidden.originalRoms, userId),
+      ]),
+  };
+}
+
 async function save() {
-  if (!user.value) return;
+  if (!user.value || submitting.value) return;
   submitting.value = true;
+  const token = openToken;
   const userId = user.value.id;
+  // Group, overrides and hidden entities apply to non-admins (admins bypass).
+  const access =
+    !isAdmin.value && accessLoaded.value ? accessEdits(userId) : null;
   try {
     // Role is derived from the Admin toggle (admin vs plain user). Self-role
     // changes are ignored by the backend, so leave it untouched when editing
@@ -203,43 +283,25 @@ async function save() {
     }
     const { data } = await userApi.updateUser(user.value);
 
-    // Group, overrides and hidden entities apply to non-admins (admins bypass).
-    let nextGroupId = data.permission_group_id;
-    if (!isAdmin.value) {
-      const groupChanged = groupId.value !== originalGroupId.value;
-      const overridesChanged =
-        overridesKey(overrides.value) !== overridesKey(originalOverrides.value);
-      if (groupChanged || overridesChanged) {
-        await permissionsApi.updateUserPermissions(userId, {
-          set_group: groupChanged,
-          permission_group_id: groupId.value,
-          overrides: overridesChanged ? overrides.value : undefined,
-        });
-        if (groupChanged) nextGroupId = groupId.value;
+    let nextUser = data;
+    if (access) {
+      if (access.permissions) {
+        await permissionsApi.updateUserPermissions(userId, access.permissions);
       }
-      await Promise.all([
-        ...diffHidden(
-          "platforms",
-          hiddenPlatformIds.value,
-          originalHiddenPlatformIds.value,
-          userId,
-        ),
-        ...diffHidden(
-          "roms",
-          hiddenRomIds.value,
-          originalHiddenRomIds.value,
-          userId,
-        ),
-      ]);
+      if (access.groupId !== undefined) {
+        nextUser = { ...data, permission_group_id: access.groupId };
+      }
+      await access.saveHidden();
     }
 
     snackbar.success(t("settings.user-updated", { username: data.username }), {
       icon: "mdi-check-bold",
     });
-    usersStore.update({ ...data, permission_group_id: nextGroupId });
+    usersStore.update(nextUser);
     if (data.id === auth.user?.id) auth.setCurrentUser(data);
     emitter?.emit("refreshDrawer", null);
-    show.value = false;
+    // A dialog reopened mid-save stays open, locked until this save settles.
+    if (token === openToken) show.value = false;
   } catch (err) {
     const e = err as {
       response?: { data?: { detail?: string }; statusText?: string };
@@ -276,7 +338,8 @@ function close() {
       <span class="r-v2-user-dialog__title">{{ t("settings.edit-user") }}</span>
     </template>
     <template #content>
-      <div class="r-v2-user-dialog__edit-grid">
+      <!-- Edits made mid-save would be lost, since save() reads them up front. -->
+      <div class="r-v2-user-dialog__edit-grid" :inert="submitting">
         <div class="r-v2-user-dialog__form">
           <RTextField
             v-model="user.username"
@@ -355,7 +418,7 @@ function close() {
         />
       </div>
 
-      <div class="r-v2-user-dialog__access">
+      <div class="r-v2-user-dialog__access" :inert="submitting">
         <span class="r-v2-user-dialog__access-label">
           <RIcon icon="mdi-shield-account-outline" size="14" />
           {{ t("settings.access") }}
@@ -376,29 +439,45 @@ function close() {
           </span>
         </div>
 
-        <template v-if="!isAdmin">
-          <div class="r-v2-user-dialog__field">
-            <span class="r-v2-user-dialog__field-label">
+        <p v-if="!isAdmin && accessError" class="r-v2-user-dialog__hint">
+          {{ t("settings.access-load-error") }}
+        </p>
+        <div
+          v-else-if="!isAdmin && !accessLoaded"
+          class="r-v2-user-dialog__access-loading"
+        >
+          <RSpinner :size="20" :aria-label="t('common.loading')" />
+        </div>
+        <template v-else-if="!isAdmin">
+          <RSelect
+            v-model="groupId"
+            variant="outlined"
+            :items="groupItems"
+            item-title="title"
+            item-value="value"
+            prefix-label="stacked"
+            :hint="t('settings.permission-group-hint')"
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-account-group-outline" size="14" />
               {{ t("settings.permission-group") }}
-            </span>
-            <RSelect
-              v-model="groupId"
-              variant="outlined"
-              :items="groupItems"
-              item-title="title"
-              item-value="value"
-              hide-details
-            />
-          </div>
-          <div class="r-v2-user-dialog__field">
-            <span class="r-v2-user-dialog__field-label">
+            </template>
+          </RSelect>
+          <HiddenPlatformsPicker
+            v-model="hiddenPlatformIds"
+            :platforms="sortedPlatforms"
+            :hint="t('settings.hidden-platforms-hint')"
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-controller" size="14" />
               {{ t("settings.hidden-platforms") }}
-            </span>
-            <HiddenPlatformsPicker
-              v-model="hiddenPlatformIds"
-              :platforms="sortedPlatforms"
-            />
-          </div>
+            </template>
+          </HiddenPlatformsPicker>
+          <AgeLimitFields
+            v-model:age-limit="age.ageLimit"
+            v-model:hide-unrated="age.hideUnrated"
+            :inherited="inheritedAgeSettings"
+          />
 
           <RBtn
             block
@@ -534,7 +613,7 @@ html[data-bp~="xs"] .r-v2-user-dialog__edit-grid {
 }
 .r-v2-user-dialog__admin {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -551,6 +630,11 @@ html[data-bp~="xs"] .r-v2-user-dialog__edit-grid {
 .r-v2-user-dialog__hint {
   font-size: 12px;
   color: var(--r-color-fg-muted);
+}
+.r-v2-user-dialog__access-loading {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
 }
 .r-v2-user-dialog__advanced-toggle {
   align-self: flex-start;

@@ -24,19 +24,19 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   variant?: "flat" | "text" | "elevated" | "translucent" | "outlined" | "plain";
-  color?: string;
+  color?: string | undefined;
   size?: "x-small" | "small" | "default" | "large" | "x-large";
   /** Square corners (small radius): typical of inline metadata tags. */
   label?: boolean;
   /** Renders a trailing × button that emits `click:close`. */
   closable?: boolean;
-  prependIcon?: string;
-  appendIcon?: string;
+  prependIcon?: string | undefined;
+  appendIcon?: string | undefined;
   disabled?: boolean;
   /** Overrides the chip's default radius. `false`/`"0"` → square,
    *  `"full"`/`true` → pill (999px), `"sm"`/`"md"`/`"lg"`/`"xl"` →
    *  token radii, number → px. */
-  rounded?: string | number | boolean;
+  rounded?: string | number | boolean | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

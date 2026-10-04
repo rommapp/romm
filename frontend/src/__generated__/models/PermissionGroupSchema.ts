@@ -15,5 +15,7 @@ export type PermissionGroupSchema = {
     grants: Array<GrantSchemaIO>;
     member_count: number;
     hidden?: Array<HiddenEntitySchema>;
+    age_limit?: (number | null);
+    hide_unrated_roms?: boolean;
 };
 

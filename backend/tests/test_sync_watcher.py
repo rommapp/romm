@@ -16,6 +16,7 @@ from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
+    db_sync_session_handler,
 )
 from handler.filesystem.assets_handler import hash_save_file
 from handler.filesystem.sync_handler import FSSyncHandler
@@ -23,6 +24,7 @@ from models.assets import Save
 from models.device import Device, SyncMode
 from models.platform import Platform
 from models.rom import Rom
+from models.sync_session import SyncSessionStatus
 from models.user import User
 
 
@@ -623,3 +625,272 @@ class TestProcessIncomingFileBaseline:
         assert sync is not None
         assert sync.last_sync_hash == save.content_hash
         assert sync.last_sync_server_hash == save.content_hash
+
+
+@pytest.fixture
+def sync_root(tmp_path: Path):
+    handler = FSSyncHandler.__new__(FSSyncHandler)
+    handler.base_path = tmp_path
+    with patch("sync_watcher.get_fs_sync_handler", return_value=handler):
+        yield tmp_path
+
+
+def _incoming(root: Path, device_id: str, platform_slug: str, name: str) -> str:
+    path = root / device_id / "incoming" / platform_slug / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"device bytes")
+    return str(path)
+
+
+class TestProcessSyncChangesGrouping:
+    def test_groups_incoming_files_by_device(self, sync_root: Path):
+        from sync_watcher import process_sync_changes
+
+        deck_a = _incoming(sync_root, "deck", "gba", "a.srm")
+        deck_b = _incoming(sync_root, "deck", "snes", "b.srm")
+        handheld = _incoming(sync_root, "handheld", "gba", "c.srm")
+        outgoing = sync_root / "deck" / "outgoing" / "gba" / "d.srm"
+        outgoing.parent.mkdir(parents=True)
+        outgoing.write_bytes(b"")
+
+        with (
+            patch("sync_watcher.ENABLE_SYNC_FOLDER_WATCHER", True),
+            patch("sync_watcher._process_device_incoming") as process,
+        ):
+            process_sync_changes(
+                [
+                    ("added", deck_a),
+                    ("modified", deck_b),
+                    ("added", handheld),
+                    ("added", str(outgoing)),
+                    ("added", str(sync_root / "deck" / "incoming" / "gba")),
+                    ("deleted", str(sync_root / "deck" / "incoming" / "gba" / "x")),
+                ]
+            )
+
+        assert {c.args[0]: c.args[1] for c in process.call_args_list} == {
+            "deck": [("gba", "a.srm", deck_a), ("snes", "b.srm", deck_b)],
+            "handheld": [("gba", "c.srm", handheld)],
+        }
+
+    def test_changes_outside_any_incoming_folder_do_nothing(self, sync_root: Path):
+        from sync_watcher import process_sync_changes
+
+        stray = sync_root / "deck" / "notes.txt"
+        stray.parent.mkdir(parents=True)
+        stray.write_bytes(b"")
+
+        with (
+            patch("sync_watcher.ENABLE_SYNC_FOLDER_WATCHER", True),
+            patch("sync_watcher._process_device_incoming") as process,
+        ):
+            process_sync_changes([("added", str(stray))])
+
+        process.assert_not_called()
+
+
+class TestProcessDeviceIncoming:
+    FILES = [("gba", "a.srm", "/sync/deck/incoming/gba/a.srm")]
+
+    @pytest.fixture
+    def emitted(self):
+        with (
+            patch("endpoints.sockets.sync.emit_sync_started") as started,
+            patch("endpoints.sockets.sync.emit_sync_completed") as completed,
+            patch("endpoints.sockets.sync.emit_sync_error") as error,
+        ):
+            yield {"started": started, "completed": completed, "error": error}
+
+    @pytest.fixture
+    def process_file(self):
+        with patch("sync_watcher._process_incoming_file") as process:
+            yield process
+
+    def _device(
+        self,
+        user: User,
+        sync_mode: SyncMode = SyncMode.FILE_TRANSFER,
+        sync_enabled: bool = True,
+    ) -> Device:
+        return db_device_handler.add_device(
+            Device(
+                id="watched-deck",
+                user_id=user.id,
+                sync_mode=sync_mode,
+                sync_enabled=sync_enabled,
+            )
+        )
+
+    @staticmethod
+    def _sessions(device: Device):
+        return db_sync_session_handler.get_sessions(
+            user_id=device.user_id, device_id=device.id
+        )
+
+    def test_processes_each_file_in_one_session(
+        self, admin_user: User, emitted, process_file
+    ):
+        from sync_watcher import _process_device_incoming
+
+        device = self._device(admin_user)
+        files = [
+            ("gba", "a.srm", "/sync/watched-deck/incoming/gba/a.srm"),
+            ("snes", "b.srm", "/sync/watched-deck/incoming/snes/b.srm"),
+        ]
+
+        _process_device_incoming(device.id, files)
+
+        assert [c.args[2:] for c in process_file.call_args_list] == files
+        [session] = self._sessions(device)
+        assert session.status == SyncSessionStatus.COMPLETED
+        assert (session.operations_planned, session.operations_completed) == (2, 2)
+        emitted["started"].assert_called_once()
+        emitted["completed"].assert_called_once()
+        emitted["error"].assert_not_called()
+
+    def test_a_failing_file_is_counted_and_reported(
+        self, admin_user: User, emitted, process_file
+    ):
+        from sync_watcher import _process_device_incoming
+
+        device = self._device(admin_user)
+        process_file.side_effect = [OSError("unreadable"), None]
+
+        _process_device_incoming(
+            device.id,
+            [
+                ("gba", "bad.srm", "/sync/watched-deck/incoming/gba/bad.srm"),
+                ("gba", "ok.srm", "/sync/watched-deck/incoming/gba/ok.srm"),
+            ],
+        )
+
+        [session] = self._sessions(device)
+        assert (session.operations_completed, session.operations_failed) == (1, 1)
+        error_call = emitted["error"].call_args
+        assert error_call is not None
+        assert error_call.kwargs["error_message"] == "1 file(s) failed to process"
+        emitted["completed"].assert_called_once()
+
+    @pytest.mark.parametrize(
+        ("sync_mode", "sync_enabled"),
+        [(SyncMode.PUSH_PULL, True), (SyncMode.FILE_TRANSFER, False)],
+        ids=["push_pull_device", "sync_disabled"],
+    )
+    def test_a_device_not_syncing_by_file_transfer_is_ignored(
+        self,
+        admin_user: User,
+        emitted,
+        process_file,
+        sync_mode: SyncMode,
+        sync_enabled: bool,
+    ):
+        from sync_watcher import _process_device_incoming
+
+        device = self._device(admin_user, sync_mode, sync_enabled)
+
+        _process_device_incoming(device.id, self.FILES)
+
+        process_file.assert_not_called()
+        assert self._sessions(device) == []
+
+    def test_an_unknown_device_is_ignored(self, emitted, process_file):
+        from sync_watcher import _process_device_incoming
+
+        _process_device_incoming("no-such-device", self.FILES)
+
+        process_file.assert_not_called()
+        emitted["started"].assert_not_called()
+
+
+class TestProcessIncomingFileOutcomes:
+    @pytest.fixture
+    def device(self, admin_user: User) -> Device:
+        return db_device_handler.add_device(
+            Device(
+                id="watcher-outcome-dev",
+                user_id=admin_user.id,
+                sync_mode=SyncMode.FILE_TRANSFER,
+                sync_enabled=True,
+            )
+        )
+
+    def test_a_conflict_moves_the_file_aside_and_reports_it(
+        self,
+        sync_root: Path,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+    ):
+        from sync_watcher import _process_incoming_file
+
+        incoming = _incoming(sync_root, device.id, platform.fs_slug, "clash.sav")
+        save = make_save(
+            rom,
+            admin_user,
+            "clash.sav",
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=f"{platform.slug}/saves/test_emulator",
+            content_hash="server_hash",
+        )
+
+        with (
+            patch("sync_watcher.compare_save_state") as compare,
+            patch("endpoints.sockets.sync.emit_sync_conflict") as emit_conflict,
+        ):
+            compare.return_value = MagicMock(action="conflict", reason="both changed")
+            _process_incoming_file(
+                device=device,
+                session_id=1,
+                platform_slug=platform.fs_slug,
+                filename="clash.sav",
+                full_path=incoming,
+            )
+
+        moved = sync_root / device.id / "conflicts" / platform.fs_slug / "clash.sav"
+        assert moved.read_bytes() == b"device bytes"
+        assert not os.path.exists(incoming)
+        conflict_call = emit_conflict.call_args
+        assert conflict_call is not None
+        kwargs = conflict_call.kwargs
+        assert (kwargs["rom_id"], kwargs["reason"]) == (save.rom_id, "both changed")
+        assert kwargs["rom_name"] == (rom.name or rom.fs_name)
+
+    def test_an_unknown_platform_leaves_the_file_alone(
+        self, sync_root: Path, device: Device
+    ):
+        from sync_watcher import _process_incoming_file
+
+        incoming = _incoming(sync_root, device.id, "not-a-platform", "a.sav")
+
+        with patch("sync_watcher.compare_save_state") as compare:
+            _process_incoming_file(
+                device=device,
+                session_id=1,
+                platform_slug="not-a-platform",
+                filename="a.sav",
+                full_path=incoming,
+            )
+
+        compare.assert_not_called()
+        assert os.path.exists(incoming)
+
+    def test_a_file_without_a_matching_save_is_left_alone(
+        self, sync_root: Path, device: Device, platform: Platform
+    ):
+        from sync_watcher import _process_incoming_file
+
+        incoming = _incoming(sync_root, device.id, platform.fs_slug, "new.sav")
+
+        with patch("sync_watcher.compare_save_state") as compare:
+            _process_incoming_file(
+                device=device,
+                session_id=1,
+                platform_slug=platform.fs_slug,
+                filename="new.sav",
+                full_path=incoming,
+            )
+
+        compare.assert_not_called()
+        assert os.path.exists(incoming)

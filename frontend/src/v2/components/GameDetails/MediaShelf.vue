@@ -19,7 +19,7 @@ const props = defineProps<{
   items: MediaShelfItem[];
   captions?: boolean;
   compact?: boolean;
-  isPinned?: (key: string) => boolean;
+  isPinned?: ((key: string) => boolean) | undefined;
 }>();
 const emit = defineEmits<{ "toggle-pin": [key: string] }>();
 

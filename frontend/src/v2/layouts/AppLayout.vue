@@ -267,6 +267,8 @@ onBeforeUnmount(() => {
 
 .r-v2-app-shell__body {
   position: relative;
+  /* Keeps content clear of a landscape phone's notch. */
+  padding-inline: var(--r-safe-l) var(--r-safe-r);
   z-index: 2;
   /* Matches .r-v2-app-shell so the absolutely-positioned BottomNav anchor
      spans the viewport even when the content is shorter than the screen. */
@@ -287,6 +289,6 @@ onBeforeUnmount(() => {
    (galleries) subtract the same amount from their height calc so the
    totals still sum to one viewport with no document overflow. */
 html[data-bp~="sm-and-down"] .r-v2-app-shell__main {
-  padding-bottom: calc(var(--r-bottom-nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--r-bottom-nav-h) + var(--r-safe-b));
 }
 </style>

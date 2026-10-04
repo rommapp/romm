@@ -51,7 +51,7 @@ describe("ScanPlatform", () => {
 
     const tags = wrapper.findAll(".r-tag");
     expect(tags).toHaveLength(2);
-    expect(tags[1].text()).toBe("2");
+    expect(tags[1]?.text()).toBe("2");
   });
 
   // The body only lists ROMs, so a firmware-only platform rendered an empty

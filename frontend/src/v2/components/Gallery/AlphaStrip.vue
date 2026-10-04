@@ -83,8 +83,8 @@ watch(
     if (!active || !root || root.scrollHeight <= root.clientHeight) return;
     const btnRect = (letter: string) =>
       root.querySelector(`[data-letter="${letter}"]`)?.getBoundingClientRect();
-    const first = btnRect(active[0]);
-    const last = btnRect(active[active.length - 1]);
+    const first = btnRect(active.charAt(0));
+    const last = btnRect(active.charAt(active.length - 1));
     if (!first || !last) return;
     const style = getComputedStyle(root);
     const box = root.getBoundingClientRect();

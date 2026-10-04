@@ -511,7 +511,7 @@ Server capability flags used throughout the UI:
 
 ```typescript
 METADATA_SOURCES: { IGDB, SS, MOBY, RA, STEAMGRIDDB, LAUNCHBOX, ... }
-EMULATION: { DISABLE_EMULATOR_JS, DISABLE_RUFFLE_RS, DISABLE_JSDOS, DISABLE_PICO8 }
+EMULATION: { DISABLE_EMULATOR_JS, DISABLE_RUFFLE_RS, DISABLE_JSDOS, DISABLE_PICO8, DISABLE_EASYRPG }
 FRONTEND: { DISABLE_USERPASS_LOGIN, DISABLE_LOGS_VIEWER, YOUTUBE_BASE_URL }
 OIDC: { ENABLED, AUTOLOGIN, PROVIDER, RP_INITIATED_LOGOUT }
 TASKS: { scheduled task configurations }
@@ -1171,9 +1171,10 @@ Auto-generated from backend OpenAPI schema:
 
 ```json
 "@/*" → "./src/*"
+"@v2/*" → "./src/v2/*"
 ```
 
-Used throughout: `import { ... } from "@/stores/roms"`.
+Used throughout: `import { ... } from "@/stores/roms"`. Vite and Vitest take their aliases from `scripts/aliases.ts`, which also points a bare `md-editor-v3` import at `plugins/mdeditor.ts`; that module applies the raw-HTML and XSS config before re-exporting the package. `tsconfig.app.json` maps the same specifier, so editors and `vue-tsc` resolve it to that module too.
 
 ---
 

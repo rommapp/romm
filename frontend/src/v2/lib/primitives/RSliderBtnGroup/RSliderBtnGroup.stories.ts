@@ -2,13 +2,11 @@ import type { Meta, StoryObj } from "@storybook/vue3";
 import { ref } from "vue";
 import RSliderBtnGroup from "./RSliderBtnGroup.vue";
 
-// Storybook's Meta<typeof Component> struggles with <script setup generic>,
-// so we widen the component type here: runtime behaviour is unaffected.
-const meta: Meta = {
+// Generic components can't fill Storybook's `component` slot, so it's cast;
+// the instantiation types the stories' args.
+const meta: Meta<typeof RSliderBtnGroup<string>> = {
   title: "Primitives/RSliderBtnGroup",
-  // Cast needed: <script setup generic> types aren't compatible with
-  // Storybook's ConcreteComponent constraint.
-  component: RSliderBtnGroup as unknown as Meta["component"],
+  component: RSliderBtnGroup as never,
   tags: ["autodocs"],
   argTypes: {
     variant: {

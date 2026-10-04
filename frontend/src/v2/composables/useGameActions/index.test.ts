@@ -16,6 +16,7 @@ const confirmProtectedLaunch = { value: true };
 const canPlayEJS = { value: true };
 const canPlayJsDos = { value: false };
 const canPlayPico8 = { value: false };
+const canPlayEasyRpg = { value: false };
 const canPlayRuffle = { value: false };
 const canPlayNative = { value: false };
 const streamContainer = { value: null as object | null };
@@ -109,6 +110,7 @@ vi.mock("@/v2/composables/useCanPlay", () => ({
     canPlayEJS,
     canPlayJsDos,
     canPlayPico8,
+    canPlayEasyRpg,
     canPlayRuffle,
     canPlayNative,
     canPlayStream: {
@@ -169,6 +171,7 @@ beforeEach(() => {
   canPlayEJS.value = true;
   canPlayJsDos.value = false;
   canPlayPico8.value = false;
+  canPlayEasyRpg.value = false;
   canPlayRuffle.value = false;
   canPlayNative.value = false;
   streamContainer.value = null;
@@ -256,7 +259,7 @@ describe("useGameActions.joinStream", () => {
 
     await actions.joinStream();
 
-    expect(confirmFn.mock.calls[0][0].title).toBe(
+    expect(confirmFn.mock.calls[0]![0].title).toBe(
       'rom.confirm-join-title-of:{"user":"ada"}',
     );
   });
@@ -268,7 +271,7 @@ describe("useGameActions.joinStream", () => {
 
     await actions.joinStream();
 
-    expect(confirmFn.mock.calls[0][0].title).toBe("rom.confirm-join-title");
+    expect(confirmFn.mock.calls[0]![0].title).toBe("rom.confirm-join-title");
   });
 
   it("asks nothing when there is no session to join", async () => {
@@ -423,6 +426,16 @@ describe("useGameActions.play — launch confirmation", () => {
     expect(push).toHaveBeenCalledWith("/rom/1/pico8");
   });
 
+  it("goes to EasyRPG for an RPG Maker game", async () => {
+    canPlayEJS.value = false;
+    canPlayEasyRpg.value = true;
+    const actions = useGameActions(() => makeRom());
+
+    await actions.play();
+
+    expect(push).toHaveBeenCalledWith("/rom/1/easyrpg");
+  });
+
   it("prefers js-dos over EmulatorJS for its platforms", async () => {
     canPlayJsDos.value = true;
     const actions = useGameActions(() => makeRom());
@@ -530,6 +543,10 @@ describe("useGameActions.playPath", () => {
     expect(actions.playPath("local")).toBe("/rom/1/pico8");
 
     canPlayPico8.value = false;
+    canPlayEasyRpg.value = true;
+    expect(actions.playPath("local")).toBe("/rom/1/easyrpg");
+
+    canPlayEasyRpg.value = false;
     expect(actions.playPath("local")).toBe("/rom/1/ruffle");
   });
 

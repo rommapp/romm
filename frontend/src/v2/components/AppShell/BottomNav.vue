@@ -62,7 +62,7 @@ const { destinations, activeId } = useNavDestinations();
   bottom: 0;
   display: flex;
   justify-content: center;
-  padding: 8px var(--r-row-pad) calc(8px + env(safe-area-inset-bottom));
+  padding: 8px var(--r-row-pad) calc(8px + var(--r-safe-b));
   pointer-events: none;
 }
 

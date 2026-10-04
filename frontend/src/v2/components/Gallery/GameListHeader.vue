@@ -39,7 +39,7 @@ interface Props {
   showPlatformColumn?: boolean;
   /** Names the gallery's order without a sort key (Search's relevance), and
    * lets a third click on a column return to it. */
-  unsortedLabel?: string;
+  unsortedLabel?: string | undefined;
   /** Whether that order is the one applied. */
   unsorted?: boolean;
 }

@@ -154,7 +154,7 @@ interface Options {
    *  with no artwork paints its placeholder at that ratio and never
    *  measures, and one waiting on its image paints there until it loads.
    *  Defaults to box art (2/3). */
-  fallbackRatio?: MaybeRefOrGetter<number>;
+  fallbackRatio?: MaybeRefOrGetter<number> | undefined;
   /** Bump to force a re-pack when measured ratios change (Vue tracks it). */
   ratioVersion?: Ref<number> | ComputedRef<number>;
   /** Px of detail panel the list row at `position` settles at (0 for the

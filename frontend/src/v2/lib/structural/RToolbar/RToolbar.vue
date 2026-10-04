@@ -18,15 +18,15 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   /** Background tone: keyword / `romm-*` / any CSS colour. */
-  color?: string;
+  color?: string | undefined;
   density?: "default" | "comfortable" | "compact";
   /** Drops the bottom border. */
   flat?: boolean;
   /** Auto-rendered title text: slot `#title` overrides. */
-  title?: string;
+  title?: string | undefined;
   /** Explicit height override (number → px / any CSS length). */
-  height?: number | string;
-  rounded?: string | number | boolean;
+  height?: number | string | undefined;
+  rounded?: string | number | boolean | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

@@ -15,7 +15,7 @@ const { t } = useI18n();
 const props = withDefaults(
   defineProps<{
     metadata: RomRAMetadata | null | undefined;
-    apiBase?: string;
+    apiBase?: string | undefined;
     earnedAchievementIds?: ReadonlySet<string>;
   }>(),
   {

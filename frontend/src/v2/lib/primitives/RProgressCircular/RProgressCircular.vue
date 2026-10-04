@@ -33,10 +33,10 @@ interface Props {
   /** Tone keyword / legacy `romm-*` / any CSS colour. */
   color?: string;
   /** 0–100. Only consulted when `indeterminate` is false. */
-  modelValue?: number;
+  modelValue?: number | undefined;
   /** Accessible name for the progressbar. Without it (and without slot
    *  content), an indeterminate ring is treated as decorative. */
-  label?: string;
+  label?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

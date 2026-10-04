@@ -72,8 +72,7 @@ function onDrop(e: DragEvent, index: number) {
   overIndex.value = null;
   if (from === null || from === index) return;
   const next = [...order.value];
-  const [moved] = next.splice(from, 1);
-  next.splice(index, 0, moved);
+  next.splice(index, 0, ...next.splice(from, 1));
   emit("update:modelValue", serializeWidgetOrder(next));
 }
 

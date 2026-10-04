@@ -27,12 +27,7 @@ import {
   RSwitch,
   RTooltip,
 } from "@v2/lib";
-import {
-  useDebounceFn,
-  useEventListener,
-  useIntervalFn,
-  useLocalStorage,
-} from "@vueuse/core";
+import { useDebounceFn, useEventListener, useIntervalFn } from "@vueuse/core";
 import { isAxiosError } from "axios";
 import {
   computed,
@@ -45,6 +40,7 @@ import {
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import type { SaveSchema, UserStateSchema } from "@/__generated__";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import romApi from "@/services/api/rom";
 import streamingApi, {
   type ContainerBusyDetail,
@@ -396,7 +392,7 @@ const STATE_LAYOUTS = [
   { value: "list", icon: "mdi-view-list" },
 ] as const satisfies readonly { value: AssetLayout; icon: string }[];
 
-const stateLayout = useLocalStorage<AssetLayout>(
+const stateLayout = useUserLocalStorage<AssetLayout>(
   "romm:v2:stream:states-layout",
   "strip",
 );
@@ -414,7 +410,7 @@ watch(
     }
     if (!statePreselected.value && native.length > 0) {
       statePreselected.value = true;
-      if (!selectedState.value) selectedState.value = native[0];
+      if (!selectedState.value) selectedState.value = native[0]!;
     }
   },
   { immediate: true },
@@ -1407,9 +1403,10 @@ onBeforeUnmount(() => {
           variant="flat"
           color="primary"
           block
-          :prepend-icon="playerState === 'loading' ? 'mdi-loading' : 'mdi-play'"
+          :prepend-icon="
+            playerState === 'loading' ? 'mdi-loading mdi-spin' : 'mdi-play'
+          "
           class="r-v2-stream__play"
-          :class="{ 'r-v2-stream__play--launching': playerState === 'loading' }"
           :disabled="!playReady"
           @click="onPlay()"
         >
@@ -1493,10 +1490,7 @@ onBeforeUnmount(() => {
                   variant="text"
                   size="x-small"
                   :icon="view.icon"
-                  :aria-pressed="stateLayout === view.value"
-                  :class="{
-                    'r-v2-stream__strip-view--on': stateLayout === view.value,
-                  }"
+                  :active="stateLayout === view.value"
                   :aria-label="t(`play.states-view-${view.value}`)"
                   @click="stateLayout = view.value"
                 />
@@ -2029,14 +2023,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 10px 24px
     color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
 }
-.r-v2-stream__play--launching :deep(.v-icon) {
-  animation: r-v2-stream-spin 0.8s linear infinite;
-}
-@keyframes r-v2-stream-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 .r-v2-stream__hero-links {
   display: flex;
   flex-direction: column;
@@ -2082,9 +2068,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 2px;
-}
-.r-v2-stream__strip-view--on {
-  color: var(--r-color-brand-primary);
 }
 .r-v2-stream__strip-count {
   display: inline-grid;

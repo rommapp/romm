@@ -1,3 +1,5 @@
+import { userStorage } from "@/composables/useUserLocalStorage";
+
 // The core a game is played with is remembered twice: under the game, and
 // under its platform as the default for every other game on that platform.
 const gameKey = (romId: number) => `player:${romId}:core`;
@@ -5,7 +7,7 @@ const platformKey = (platformSlug: string) => `player:${platformSlug}:core`;
 
 /**
  * The first remembered core the platform still supports, else the core the
- * instance configures for it, else its first core.
+ * instance configures for it, else its first core, else null.
  *
  * Each candidate is validated so a core that is no longer offered (renamed
  * upstream, or gated behind netplay, or a typo in config.yml) falls through
@@ -16,14 +18,15 @@ export function resolveRememberedCore(
   platformSlug: string,
   supportedCores: readonly string[],
   configuredCore?: string | null,
-): string {
+): string | null {
   return (
     [
-      localStorage.getItem(gameKey(romId)),
-      localStorage.getItem(platformKey(platformSlug)),
+      userStorage.getItem(gameKey(romId)),
+      userStorage.getItem(platformKey(platformSlug)),
       configuredCore,
     ].find((core): core is string => !!core && supportedCores.includes(core)) ??
-    supportedCores[0]
+    supportedCores[0] ??
+    null
   );
 }
 
@@ -34,7 +37,7 @@ export function rememberCore(
   core: string | null,
 ): void {
   for (const key of [gameKey(romId), platformKey(platformSlug)]) {
-    if (core) localStorage.setItem(key, core);
-    else localStorage.removeItem(key);
+    if (core) userStorage.setItem(key, core);
+    else userStorage.removeItem(key);
   }
 }

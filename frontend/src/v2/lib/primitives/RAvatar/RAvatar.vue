@@ -20,13 +20,13 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   size?: string | number;
-  color?: string;
-  image?: string;
-  icon?: string;
+  color?: string | undefined;
+  image?: string | undefined;
+  icon?: string | undefined;
   /** `false | "0"` → square; `"sm" | "md" | "lg" | "xl"` → token radii;
    *  `"pill"` → fully pilled; `"circle" | true | undefined` → circle;
    *  number / px-length → raw value. */
-  rounded?: string | number | boolean;
+  rounded?: string | number | boolean | undefined;
   variant?: "flat" | "elevated" | "translucent" | "outlined" | "text" | "plain";
 }
 
@@ -39,7 +39,7 @@ const props = withDefaults(defineProps<Props>(), {
   variant: "flat",
 });
 
-const SIZE_MAP: Record<string, string> = {
+const SIZE_MAP: Record<string, string> & { default: string } = {
   "x-small": "24px",
   small: "32px",
   default: "40px",

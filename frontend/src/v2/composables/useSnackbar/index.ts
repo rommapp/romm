@@ -14,23 +14,18 @@
 // drop the free-form `color` string and accept the tone directly.
 import type { Emitter } from "mitt";
 import { inject } from "vue";
-import type { Events } from "@/types/emitter";
+import type { Events, SnackbarStatus } from "@/types/emitter";
 import storeNotificationInbox from "@/v2/stores/notificationInbox";
 
 export type SnackbarTone = "success" | "error" | "warning" | "info";
 
-export interface SnackbarOptions {
-  /** Auto-dismiss timeout in ms. Defaults to NotificationHost's 3000ms. */
-  timeout?: number;
-  /** Override the default icon for the tone. */
-  icon?: string;
-  /** Stable id: useful when deduplicating repeated notifications. */
-  id?: number;
-  /** Artwork shown in place of the icon, e.g. the cover of the game it concerns. */
-  image?: string | null;
+export interface SnackbarOptions extends Pick<
+  SnackbarStatus,
+  "id" | "timeout" | "icon" | "image"
+> {
   /** Also keeps it in the user's notifications, optionally with a detail
    *  line and an in-app link. */
-  persist?: boolean | { body?: string; link?: string };
+  persist?: boolean | { body?: string; link?: string } | undefined;
 }
 
 /** The icon for a tone, where the caller gives none. */
@@ -73,9 +68,8 @@ export function useSnackbar() {
       await storeNotificationInbox().send({
         level: tone,
         title: msg,
-        body: extra.body,
-        link: extra.link,
-        icon: opts.icon,
+        ...extra,
+        ...(opts.icon === undefined ? {} : { icon: opts.icon }),
       });
     } catch (error) {
       console.error("Could not keep the notification:", error);

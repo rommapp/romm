@@ -14,10 +14,11 @@
 // UploadProgressToast. Positioned bottom-center so it never collides
 // with the upload toast (bottom-right).
 import { RBtn, RIcon } from "@v2/lib";
-import { useEventListener, useLocalStorage } from "@vueuse/core";
+import { useEventListener } from "@vueuse/core";
 import semver from "semver";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import storeHeartbeat from "@/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
@@ -28,7 +29,7 @@ const { VERSION } = heartbeat.value.SYSTEM;
 
 const latestVersion = ref(VERSION);
 const dismissed = ref(VERSION === "development");
-const dismissedVersion = useLocalStorage("ui.dismissedVersion", "");
+const dismissedVersion = useUserLocalStorage("ui.dismissedVersion", "");
 
 const visible = computed(
   () =>
@@ -115,7 +116,7 @@ useEventListener(document, "network-quiesced", fetchLatestVersion, {
 .r-v2-new-version {
   position: fixed;
   left: 50%;
-  bottom: 16px;
+  bottom: calc(16px + var(--r-safe-b));
   transform: translateX(-50%);
   z-index: 8800;
   display: flex;
@@ -191,7 +192,7 @@ useEventListener(document, "network-quiesced", fetchLatestVersion, {
 html[data-bp~="xs"] .r-v2-new-version {
   left: 12px;
   right: 12px;
-  bottom: 12px;
+  bottom: calc(12px + var(--r-safe-b));
   transform: none;
   flex-direction: column;
   align-items: stretch;

@@ -23,7 +23,7 @@ interface Props {
   /** Tone for the active item highlight. */
   color?: string;
   /** Optional background paint for the list itself. */
-  bgColor?: string;
+  bgColor?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

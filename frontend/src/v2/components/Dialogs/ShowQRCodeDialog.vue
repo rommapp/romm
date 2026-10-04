@@ -3,12 +3,11 @@
 // handheld/phone.
 import { RDialog } from "@v2/lib";
 import { useQRCode } from "@vueuse/integrations/useQRCode";
-import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SimpleRom } from "@/stores/roms";
-import type { Events } from "@/types/emitter";
 import { getNintendoDSFiles, getDownloadLink, isNintendoDSFile } from "@/utils";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { colorCanvas, colorOverlay } from "@/v2/tokens";
 
 defineOptions({ inheritAttrs: false });
@@ -16,15 +15,14 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
-const emitter = inject<Emitter<Events>>("emitter");
 
 const downloadLink = computed(() => {
   if (!rom.value) return "";
   const isNDSFile = isNintendoDSFile(rom.value);
-  const matchingFiles = getNintendoDSFiles(rom.value);
+  const [dsFile] = getNintendoDSFiles(rom.value);
   return getDownloadLink({
     rom: rom.value,
-    fileIDs: isNDSFile ? [] : [matchingFiles[0].id],
+    fileIDs: isNDSFile || !dsFile ? [] : [dsFile.id],
   });
 });
 
@@ -45,8 +43,7 @@ const openHandler = (romToView: SimpleRom) => {
   show.value = true;
   rom.value = romToView;
 };
-emitter?.on("showQRCodeDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showQRCodeDialog", openHandler));
+useEmitterEvent("showQRCodeDialog", openHandler);
 
 function closeDialog() {
   show.value = false;

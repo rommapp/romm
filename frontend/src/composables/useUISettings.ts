@@ -1,8 +1,8 @@
-import { useLocalStorage } from "@vueuse/core";
 import type { RemovableRef } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { effectScope, watch, ref } from "vue";
 import type { UserSchema } from "@/__generated__";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 
@@ -99,6 +99,9 @@ export const UI_SETTINGS_KEYS = {
     default: "cover_path",
   },
 
+  // Jukebox
+  resumeMusic: { key: "settings.resumeMusic", default: false },
+
   // Gameplay
   confirmProtectedLaunch: {
     key: "settings.confirmProtectedLaunch",
@@ -141,7 +144,7 @@ function createUISettings() {
   const localStorageRefs = Object.fromEntries(
     Object.entries(UI_SETTINGS_KEYS).map(([name, config]) => [
       name,
-      useLocalStorage(config.key, config.default),
+      useUserLocalStorage(config.key, config.default),
     ]),
   ) as UISettingsRefs;
 

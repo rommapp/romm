@@ -55,7 +55,7 @@ const props = defineProps<{
   totalTracks?: number;
   startShuffled?: boolean;
   /** Cover shown when the active track has no art of its own. */
-  fallbackArtUrl?: string;
+  fallbackArtUrl?: string | undefined;
   /** Show the per-track delete button (host gates it on the ROM write grant). */
   deletable?: boolean;
   /** Opt into the now-playing-rail layout when the container is wide enough. */
@@ -284,7 +284,7 @@ function selectTrack(fileId: number) {
   );
   const entry = playerTracks.find((p) => p.fileId === fileId);
   if (!entry) return;
-  player.play(entry, metas[fileId]);
+  player.play(entry, metas[fileId] ?? {});
   if (shouldStartShuffled && !isShuffled.value) player.toggleShuffle();
   shouldStartShuffled = false;
 }
@@ -375,7 +375,7 @@ function downloadTrack(track: PanelTrack) {
           </p>
           <!-- Keyed by track so a new track's chips start from the left. -->
           <NowPlayingChips
-            :key="headerTrack?.id"
+            :key="headerTrack?.id ?? ''"
             :tags="headerTrack?.meta"
             :position="headerPosition"
             :total="trackCount"
@@ -394,11 +394,10 @@ function downloadTrack(track: PanelTrack) {
           <div class="r-v2-stp__transport">
             <RBtn
               icon="mdi-shuffle"
-              :variant="isShuffled ? 'translucent' : 'text'"
+              variant="text"
               size="small"
               :disabled="tracks.length === 0"
-              :color="isShuffled ? 'primary' : undefined"
-              :aria-pressed="isShuffled"
+              :active="isShuffled"
               :tooltip="t('common.shuffle')"
               :aria-label="t('common.shuffle')"
               @click="player.toggleShuffle()"

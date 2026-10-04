@@ -31,9 +31,10 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
   const stateIndex = props.rom.user_states.indexOf(state);
 
   if (event.shiftKey && lastSelectedIndex.value !== null) {
-    const [startIndex, endIndex] = [lastSelectedIndex.value, stateIndex].sort(
-      (a, b) => a - b,
-    );
+    const [startIndex = stateIndex, endIndex = stateIndex] = [
+      lastSelectedIndex.value,
+      stateIndex,
+    ].sort((a, b) => a - b);
     const rangeStates = props.rom.user_states.slice(startIndex, endIndex + 1);
 
     const isDeselecting = selectedStates.value.includes(state);

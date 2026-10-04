@@ -119,8 +119,8 @@ vi.mock("@/v2/composables/useTileSearchUrl", () => ({
   useTileSearchUrl: () => ref(searchState.term),
 }));
 
-vi.mock("@/v2/composables/useWrapGridNav", () => ({
-  useWrapGridNav: vi.fn(),
+vi.mock("@/v2/composables/useGridNav", () => ({
+  useGridNav: vi.fn(),
 }));
 
 function platform(

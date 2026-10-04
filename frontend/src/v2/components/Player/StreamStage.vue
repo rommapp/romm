@@ -2,6 +2,7 @@
 import { useEventListener, useTimeoutFn } from "@vueuse/core";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
+import { focusFromInput } from "@/v2/utils/autofocus";
 
 // The surface a streaming session renders into: the container's iframe, the
 // auto-hiding control bar over it, and the focus handling the emulator needs
@@ -79,7 +80,7 @@ function showUI(): void {
 // focus taken by a toolbar click).
 function focusStream(): void {
   if (!props.active) return;
-  streamFrame.value?.focus();
+  focusFromInput(streamFrame.value);
 }
 
 // The hide timer runs regardless of what is on screen, and a dialog over the
@@ -140,7 +141,7 @@ function sameOriginFrames(win: Window | null, found: Window[] = []): Window[] {
   }
   found.push(win);
   for (let i = 0; i < win.frames.length; i += 1) {
-    sameOriginFrames(win.frames[i], found);
+    sameOriginFrames(win.frames[i]!, found);
   }
   return found;
 }
@@ -345,7 +346,7 @@ defineExpose({
 <style scoped>
 .r-v2-stage {
   position: fixed;
-  inset: var(--r-nav-h) 0 0 0;
+  inset: var(--r-stage-inset);
   background: var(--r-color-canvas-bg);
   z-index: 1;
 }

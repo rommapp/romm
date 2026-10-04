@@ -6,6 +6,7 @@
 //   await clipboard.copy(token, { successMessage: t("settings.client-token-copied") });
 import { useI18n } from "vue-i18n";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { focusFromInput } from "@/v2/utils/autofocus";
 
 export interface CopyOptions {
   /** Success toast message. If omitted, no success toast is shown. */
@@ -38,7 +39,7 @@ function legacyCopy(text: string): boolean {
   area.style.top = "0";
   area.style.opacity = "0";
   document.body.appendChild(area);
-  area.focus({ preventScroll: true });
+  focusFromInput(area, { preventScroll: true });
   area.select();
   let ok = false;
   try {
@@ -48,7 +49,7 @@ function legacyCopy(text: string): boolean {
   }
   area.remove();
   // Spatial and grid nav track focus, so hand it back to the trigger.
-  previous?.focus({ preventScroll: true });
+  focusFromInput(previous, { preventScroll: true });
   return ok;
 }
 

@@ -52,6 +52,7 @@ from models.base import (
     compute_file_name_parts,
 )
 from utils import valid_youtube_id
+from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age
 from utils.database import CustomJSON, is_non_blank
 
 # Max length of the precomputed natural-sort key column.
@@ -262,6 +263,9 @@ IDENTITY_ID_FIELDS: Final[tuple[str, ...]] = (
 # Wide enough for the longest of those columns (`flashpoint_id`), since
 # `rom_identity_keys` holds every provider's id in one column.
 IDENTITY_PROVIDER_ID_LENGTH: Final = 100
+
+# The database file at the root of every RPG Maker 2000/2003 game folder.
+EASYRPG_GAME_DATABASE: Final = "rpg_rt.ldb"
 
 
 class RomIdentityKey(BaseModel):
@@ -658,6 +662,7 @@ class RomFacets(BaseModel):
     steam_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     libretro_id: Mapped[str | None] = mapped_column(String(length=64), default=None)
+    min_age: Mapped[int | None] = mapped_column(Integer(), default=None)
 
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now()
@@ -668,10 +673,11 @@ class RomFacets(BaseModel):
 
 
 class RomVisibility(NamedTuple):
-    """The two columns a ROM's visibility check reads, without a full `Rom`."""
+    """The columns a ROM's visibility check reads, without a full `Rom`."""
 
     id: int
     platform_id: int
+    min_age: int | None
 
 
 class RomVisibilityLabel(NamedTuple):
@@ -679,6 +685,7 @@ class RomVisibilityLabel(NamedTuple):
 
     id: int
     platform_id: int
+    min_age: int | None
     name: str | None
     fs_name: str
 
@@ -688,6 +695,7 @@ class RomInstallTarget(NamedTuple):
 
     id: int
     platform_id: int
+    min_age: int | None
     platform_slug: str
     missing_from_fs: bool
 
@@ -697,6 +705,7 @@ class RomDeletionTarget(NamedTuple):
 
     id: int
     platform_id: int
+    min_age: int | None
     name: str | None
     fs_name: str
     fs_path: str
@@ -980,6 +989,9 @@ class Rom(BaseModel):
     # The folded name and aliases, kept by `compute_search_titles` on every
     # write. The gallery search filters on it and ranks whole titles against it.
     search_titles: Mapped[str | None] = mapped_column(Text(), deferred=True)
+    # The strictest age any of the ROM's ratings sets, kept by `compute_min_age`
+    # on every write; NULL when unrated. Visibility rules compare against it.
+    min_age: Mapped[int | None] = mapped_column(Integer(), nullable=True)
 
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
@@ -1138,6 +1150,7 @@ class Rom(BaseModel):
         # Defined out-of-line at module scope via column_property
         multi_file: Mapped[bool]
         top_level_file_count: Mapped[int]
+        is_easyrpg_game: Mapped[bool]
 
     @property
     def has_simple_single_file(self) -> bool:
@@ -1315,6 +1328,23 @@ Rom.top_level_file_count = column_property(
     deferred=True,
 )
 
+Rom.is_easyrpg_game = column_property(
+    select(RomFile.id)
+    .where(
+        and_(
+            RomFile.rom_id == Rom.id,
+            RomFile.file_path == _rom_full_path,
+            func.lower(RomFile.file_name) == EASYRPG_GAME_DATABASE,
+            RomFile.missing_from_fs.is_(False),
+        )
+    )
+    .correlate_except(RomFile)
+    .exists()
+    .select()
+    .scalar_subquery(),
+    deferred=True,
+)
+
 
 def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
     """Fill the deferred file-stat columns from an already-loaded file list."""
@@ -1335,9 +1365,22 @@ def apply_file_stats(rom: Rom, files: Sequence[RomFile]) -> None:
         "has_soundtrack",
         any(f.category == RomFileCategory.SOUNDTRACK for f in files),
     )
+    set_committed_value(
+        rom,
+        "is_easyrpg_game",
+        any(
+            f.file_path == rom.full_path
+            and f.file_name.lower() == EASYRPG_GAME_DATABASE
+            and not f.missing_from_fs
+            for f in files
+        ),
+    )
 
 
 SEARCH_TITLE_COLUMNS = ("name", *(column for column, _ in ALTERNATIVE_NAME_SOURCES))
+
+# What `RomVisibility` holds and the loaders feeding a visibility check select.
+ROM_VISIBILITY_COLUMNS = (Rom.id, Rom.platform_id, Rom.min_age)
 
 
 def rom_search_titles(rom: Rom) -> str:
@@ -1360,6 +1403,27 @@ def _refresh_search_titles(_mapper: Any, _connection: Any, rom: Rom) -> None:
         state.attrs[column].history.has_changes() for column in SEARCH_TITLE_COLUMNS
     ):
         rom.search_titles = rom_search_titles(rom)
+
+
+def rom_min_age(rom: Rom) -> int | None:
+    """`compute_min_age` over the ROM's current metadata."""
+    return compute_min_age(
+        {column: getattr(rom, column) for column in MIN_AGE_SOURCE_COLUMNS}
+    )
+
+
+@event.listens_for(Rom, "before_insert")
+def _set_min_age(_mapper: Any, _connection: Any, rom: Rom) -> None:
+    rom.min_age = rom_min_age(rom)
+
+
+@event.listens_for(Rom, "before_update")
+def _refresh_min_age(_mapper: Any, _connection: Any, rom: Rom) -> None:
+    state = inspect(rom)
+    if any(
+        state.attrs[column].history.has_changes() for column in MIN_AGE_SOURCE_COLUMNS
+    ):
+        rom.min_age = rom_min_age(rom)
 
 
 class HasFileOnDiskFilters(TypedDict):

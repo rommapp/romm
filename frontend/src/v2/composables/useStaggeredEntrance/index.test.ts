@@ -69,7 +69,7 @@ describe("useStaggeredEntrance", () => {
     const rows = Array.from({ length: 20 }, (_, i) => rowAt(container, i));
     await settle();
 
-    expect(slot(rows[19])).toBe(12);
+    expect(slot(rows[19]!)).toBe(12);
   });
 
   it("waits for the row's content before playing", async () => {

@@ -3,13 +3,13 @@
 // shared resources directory (sticks to the ROM in the database) or the ROM's
 // folder on disk (visible to external tools).
 import { RDialog, RIcon } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import {
   ROM_UPLOAD_FOLDERS,
   useRomFileUpload,
@@ -20,7 +20,6 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const { refetchRom } = useRomSync();
 const { uploadFiles } = useRomFileUpload();
@@ -48,8 +47,7 @@ const handleShow = (payload: Events["showManualUploadTargetDialog"]) => {
   files.value = payload.files;
   show.value = true;
 };
-emitter?.on("showManualUploadTargetDialog", handleShow);
-onBeforeUnmount(() => emitter?.off("showManualUploadTargetDialog", handleShow));
+useEmitterEvent("showManualUploadTargetDialog", handleShow);
 
 async function uploadToResources(targetRom: DetailedRom, targetFiles: File[]) {
   const responses = await romApi.uploadManuals({

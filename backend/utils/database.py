@@ -1,4 +1,6 @@
 from datetime import date
+from functools import reduce
+from operator import getitem
 from typing import Any, Sequence
 from uuid import uuid4
 
@@ -36,6 +38,7 @@ POSTGRESQL_FK_INDEXES: tuple[tuple[str, str, str], ...] = (
 
 HLTB_MAIN_STORY_COLUMN = "generated_hltb_main_story"
 SEARCH_TITLES_COLUMN = "search_titles"
+MIN_AGE_COLUMN = "min_age"
 
 # The nullable `roms` columns the gallery sorts on. MariaDB and MySQL have no
 # NULLS LAST and cannot index the `IS NULL` term emulating it, so each column
@@ -330,6 +333,14 @@ def safe_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
     except ValueError, TypeError:
+        return default
+
+
+def get_nested(obj: Any, path: str, default: Any = None) -> Any:
+    """Read a dot-separated key path from nested dicts, returning default if any step is missing."""
+    try:
+        return reduce(getitem, path.split("."), obj)
+    except KeyError, TypeError:
         return default
 
 

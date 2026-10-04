@@ -27,25 +27,23 @@ import RIcon from "../../primitives/RIcon/RIcon.vue";
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  title?: string;
-  subtitle?: string;
-  value?: unknown;
-  prependIcon?: string;
-  appendIcon?: string;
-  prependAvatar?: string;
+  title?: string | undefined;
+  subtitle?: string | undefined;
+  prependIcon?: string | undefined;
+  appendIcon?: string | undefined;
+  prependAvatar?: string | undefined;
   /** Highlights the item with the list's `--r-list-active-color`. */
   active?: boolean;
   disabled?: boolean;
-  to?: RouteLocationRaw;
-  href?: string;
-  target?: string;
-  rounded?: string | number | boolean;
+  to?: RouteLocationRaw | undefined;
+  href?: string | undefined;
+  target?: string | undefined;
+  rounded?: string | number | boolean | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   title: undefined,
   subtitle: undefined,
-  value: undefined,
   prependIcon: undefined,
   appendIcon: undefined,
   prependAvatar: undefined,

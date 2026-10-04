@@ -25,9 +25,9 @@ export interface BrowseEntry {
   label: string;
   count: number;
   /** Platform rows show the console badge instead of a generic glyph. */
-  platformSlug?: string;
-  coverUrl?: string;
-  subtitle?: string;
+  platformSlug?: string | undefined;
+  coverUrl?: string | undefined;
+  subtitle?: string | undefined;
 }
 
 const props = defineProps<{
@@ -39,8 +39,8 @@ const props = defineProps<{
   selected: string;
   /** Bumped by the host to force a refetch (e.g. after a delete). */
   refreshToken?: number;
-  searchable?: boolean;
-  startShuffled?: boolean;
+  searchable?: boolean | undefined;
+  startShuffled?: boolean | undefined;
   deletable?: boolean;
 }>();
 const emit = defineEmits<{

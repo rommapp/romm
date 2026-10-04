@@ -159,12 +159,12 @@ describe("SearchCoverDialog", () => {
     const { wrapper, picked } = await openDialog();
     const tiles = wrapper.findAll("section.group button");
 
-    await tiles[0].trigger("click");
+    await tiles[0]!.trigger("click");
     expect(picked).toHaveBeenLastCalledWith("https://sgdb/grid/a.png");
 
     // The dialog closes on pick, so reopen for the second tile.
     const second = await openDialog();
-    await second.wrapper.findAll("section.group button")[1].trigger("click");
+    await second.wrapper.findAll("section.group button")[1]!.trigger("click");
     expect(second.picked).toHaveBeenLastCalledWith("https://steam/thumb.jpg");
   });
 

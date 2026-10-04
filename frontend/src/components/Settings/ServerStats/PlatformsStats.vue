@@ -205,8 +205,7 @@ function getCoveragePercent(matched: number, total: number): string {
                     </span>
                     <div
                       v-if="
-                        orderedCoverageByPlatform[String(platform.id)]?.length >
-                        0
+                        orderedCoverageByPlatform[String(platform.id)]?.length
                       "
                       class="d-flex flex-wrap ga-1"
                     >
@@ -227,7 +226,7 @@ function getCoveragePercent(matched: number, total: number): string {
                           size="12"
                           rounded
                         >
-                          <v-img :src="sourceInfo[item.source]?.logo_path" />
+                          <v-img :src="sourceInfo[item.source]?.logo_path!" />
                         </v-avatar>
                         {{
                           getCoveragePercent(item.matched, platform.rom_count)

@@ -82,13 +82,13 @@ describe("usePinnedMedia", () => {
     await flushPromises();
     expect(update).toHaveBeenCalledTimes(1);
 
-    releases[0]();
+    releases[0]!();
     await flushPromises();
     expect(update).toHaveBeenCalledTimes(2);
-    expect(update.mock.calls[1][0].data).toEqual({
+    expect(update.mock.calls[1]![0].data).toEqual({
       pinned_media: ["file:1", "file:2"],
     });
-    releases[1]();
+    releases[1]!();
     await flushPromises();
   });
 

@@ -43,6 +43,7 @@ export const v2RouteComponents: Partial<Record<RouteName, V2Route>> = {
   [ROUTES.EMULATORJS]: () => import("@/v2/views/Player/EmulatorJS.vue"),
   [ROUTES.JSDOS]: () => import("@/v2/views/Player/JsDos.vue"),
   [ROUTES.PICO8]: () => import("@/v2/views/Player/Pico8.vue"),
+  [ROUTES.EASYRPG]: () => import("@/v2/views/Player/EasyRpg.vue"),
   [ROUTES.RUFFLE]: () => import("@/v2/views/Player/Ruffle.vue"),
   [ROUTES.STREAM]: () => import("@/v2/views/Player/Stream.vue"),
   [ROUTES.STREAM_DESKTOP]: () => import("@/v2/views/Player/Desktop.vue"),
@@ -63,6 +64,7 @@ export const v2RouteComponents: Partial<Record<RouteName, V2Route>> = {
     import("@/v2/views/Settings/MetadataSources.vue"),
   [ROUTES.CLIENT_API_TOKENS]: () =>
     import("@/v2/views/Settings/ClientApiTokens.vue"),
+  [ROUTES.DEVICES]: () => import("@/v2/views/Settings/Devices.vue"),
   [ROUTES.ADMINISTRATION]: () =>
     import("@/v2/views/Settings/Administration.vue"),
   [ROUTES.SERVER_STATS]: () => import("@/v2/views/Settings/ServerStats.vue"),

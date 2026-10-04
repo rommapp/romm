@@ -16,17 +16,9 @@ import { RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
+import type { Row } from "@/v2/components/Settings/folderMappingRow";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
-
-type RowType = "alias" | "variant" | "auto" | null;
-
-interface Row {
-  fsSlug: string;
-  slug?: string;
-  displayName?: string;
-  type: RowType;
-}
 
 interface Props {
   row: Row;

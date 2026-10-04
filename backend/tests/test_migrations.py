@@ -21,7 +21,7 @@ from sqlalchemy.sql.schema import NULL_UNSPECIFIED
 from tests.factories import make_rom
 
 import models
-from handler.database import db_collection_handler, db_platform_handler
+from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
 from models.collection import SmartCollection
@@ -236,7 +236,6 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0111_physical_roms.py", "roms"),
         ("0120_container_adoptions.py", "streaming_container_adoptions"),
         ("0122_rom_similarity.py", "rom_similarity"),
-        ("0123_recommendation_metadata.py", "roms"),
         ("0126_unique_rom_full_path.py", "roms"),
         ("0128_hltb_main_story_column.py", "roms"),
         ("0130_notifications.py", "notifications"),
@@ -254,6 +253,10 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0145_drop_derivable_columns.py", "rom_file_doc_meta"),
         ("0146_roms_search_aliases.py", "roms"),
         ("0147_rom_file_title_ids.py", "rom_files"),
+        ("0148_rom_age_limits.py", "roms"),
+        ("0148_rom_age_limits.py", "roms_facets"),
+        ("0148_rom_age_limits.py", "permission_groups"),
+        ("0148_rom_age_limits.py", "users"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -430,6 +433,53 @@ def test_the_rom_file_title_ids_revision_reverses_and_replays():
             migration.upgrade()
 
         assert _schema_of(connection, "rom_files") == before
+
+
+def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
+    """0148 rates existing ROMs and keeps mirroring the rating into roms_facets."""
+    migration = _load_migration("0148_rom_age_limits.py")
+    rated = make_rom(
+        platform,
+        "Rated",
+        igdb_metadata={"age_ratings": [{"category": "PEGI", "rating": "16"}]},
+    )
+    unrated = make_rom(platform, "Unrated")
+
+    def ages(connection: sa.Connection, table: str, key: str) -> dict[int, int | None]:
+        rows = connection.execute(
+            sa.text(
+                f"SELECT {key}, min_age FROM {table} WHERE {key} IN (:a, :b)"
+            ),  # nosec B608
+            {"a": rated.id, "b": unrated.id},
+        )
+        return dict(rows.all())
+
+    tables = ("roms", "roms_facets", "permission_groups", "users")
+    with sync_engine.begin() as connection:
+        before = {table: _schema_of(connection, table) for table in tables}
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "roms", "min_age")
+            assert not has_column(connection, "users", "age_limit")
+            migration.downgrade()
+
+            migration.upgrade()
+            migration.upgrade()
+
+        assert ages(connection, "roms", "id") == {rated.id: 16, unrated.id: None}
+        assert ages(connection, "roms_facets", "rom_id") == {
+            rated.id: 16,
+            unrated.id: None,
+        }
+        assert {table: _schema_of(connection, table) for table in tables} == before
+
+    # The rebuilt triggers still mirror a later write.
+    db_rom_handler.update_rom(
+        unrated.id,
+        {"ss_metadata": {"age_ratings": [{"category": "PEGI", "rating": "7"}]}},
+    )
+    with sync_engine.connect() as connection:
+        assert ages(connection, "roms_facets", "rom_id")[unrated.id] == 7
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:

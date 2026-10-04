@@ -26,6 +26,7 @@ import axios from "axios";
 import { defineStore } from "pinia";
 import type { SimpleRomSchema } from "@/__generated__/";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
+import { userStorage } from "@/composables/useUserLocalStorage";
 import romApi from "@/services/api/rom";
 import {
   type Collection,
@@ -199,7 +200,7 @@ async function applyItemsBatched(
     if (!isStillRelevant()) return;
     const end = Math.min(i + APPLY_BATCH_SIZE, items.length);
     for (let j = i; j < end; j++) {
-      byPosition.set(baseOffset + j, items[j]);
+      byPosition.set(baseOffset + j, items[j]!);
     }
     if (end < items.length) await nextFrame();
   }
@@ -394,7 +395,7 @@ export default defineStore("v2GalleryRoms", {
     },
 
     _shouldGroupRoms(): boolean {
-      const raw = localStorage.getItem("settings.groupRoms");
+      const raw = userStorage.getItem("settings.groupRoms");
       return raw === null ? true : raw === "true";
     },
 
@@ -804,7 +805,7 @@ export default defineStore("v2GalleryRoms", {
       }
       // Drop parked windows that scrolled out of view before getting a slot.
       for (let i = queuedWindows.length - 1; i >= 0; i--) {
-        if (!wanted.has(queuedWindows[i])) queuedWindows.splice(i, 1);
+        if (!wanted.has(queuedWindows[i]!)) queuedWindows.splice(i, 1);
       }
       for (const offset of wanted) {
         void this.fetchWindowAt(offset);
