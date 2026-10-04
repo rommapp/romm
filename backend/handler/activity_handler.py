@@ -121,33 +121,49 @@ class ActivityHandler:
 
     async def publish_active(self, entry: ActivityEntry) -> None:
         """Store a session and send it to everyone allowed to see its ROM."""
+        previous = await self.get_active(entry["user_id"], entry["device_id"])
         await self.set_active(entry)
-        await self._broadcast("activity:update", dict(entry), entry["rom_id"])
+        rooms = await asyncio.to_thread(_audience, entry["rom_id"])
+        await self._emit("activity:update", dict(entry), rooms)
+
+        if previous and previous["rom_id"] != entry["rom_id"]:
+            # Whoever saw the last game but can't see this one would keep its card.
+            stale = set(await asyncio.to_thread(_audience, previous["rom_id"]))
+            await self._emit(
+                "activity:clear",
+                ActivityClearSchema(
+                    user_id=entry["user_id"],
+                    device_id=entry["device_id"],
+                    rom_id=previous["rom_id"],
+                ).model_dump(),
+                sorted(stale - set(rooms)),
+            )
 
     async def publish_clear(self, user_id: int, device_id: str) -> int | None:
         """End a session and announce it. Returns the rom_id cleared, if any."""
         rom_id = await self.clear_active(user_id, device_id)
         if rom_id is None:
             return None
-        await self._broadcast(
+        await self._emit(
             "activity:clear",
             ActivityClearSchema(
                 user_id=user_id, device_id=device_id, rom_id=rom_id
             ).model_dump(),
-            rom_id,
+            await asyncio.to_thread(_audience, rom_id),
         )
         return rom_id
 
-    async def _broadcast(
-        self, event: str, payload: dict[str, Any], rom_id: int
+    async def _emit(
+        self, event: str, payload: dict[str, Any], rooms: list[str]
     ) -> None:
         # The REST app shares this process with the Socket.IO server, so emit
         # through the already-initialised, Redis-backed server (it fans out
-        # across workers) rather than opening a manager per call.
+        # across workers) rather than opening a manager per call. An empty
+        # `to` would reach every socket, so no audience sends nothing.
+        if not rooms:
+            return
         try:
-            rooms = await asyncio.to_thread(_audience, rom_id)
-            if rooms:
-                await socket_handler.socket_server.emit(event, payload, to=rooms)
+            await socket_handler.socket_server.emit(event, payload, to=rooms)
         except Exception as e:  # noqa: BLE001
             log.warning(f"Failed to broadcast {event}: {e}")
 
@@ -280,15 +296,12 @@ class ActivityHandler:
 
 
 def _audience(rom_id: int) -> list[str]:
-    """The `user:{id}` rooms of the enabled users who can see a ROM.
-
-    Sockets join their user's room on connect; one with no user is in none.
-    """
+    """Sockets join their `user:{id}` room on connect; anonymous sockets join none."""
     # Local import: handler.auth.permissions loads before handler.database
     # otherwise, and their decorators cycle when either is imported first.
     from handler.auth.permissions import resolve_permissions
 
-    rom = db_rom_handler.get_rom(rom_id)
+    rom = db_rom_handler.get_rom_visibility(rom_id)
     if rom is None:
         return []
     return [

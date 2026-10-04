@@ -327,3 +327,66 @@ class TestAudience:
 
         emit.assert_not_awaited()
         assert await activity_handler.get_active(admin_user.id, "deck") == entry
+
+    async def test_switching_to_a_rom_someone_cannot_see_clears_their_card(
+        self,
+        entry: ActivityEntry,
+        admin_user: User,
+        viewer_user: User,
+        second_rom: Rom,
+    ):
+        await activity_handler.publish_active(entry)
+        with sync_session.begin() as session:
+            session.add(
+                HiddenEntity(
+                    entity=PermEntity.ROMS,
+                    entity_id=second_rom.id,
+                    user_id=viewer_user.id,
+                )
+            )
+        switched = await activity_handler.build_entry(
+            user_id=admin_user.id,
+            device_id="deck",
+            rom_id=second_rom.id,
+            preserve_started_at=False,
+        )
+        assert switched is not None
+
+        with _captured_emits() as emit:
+            await activity_handler.publish_active(switched)
+
+        assert [(c.args, c.kwargs) for c in emit.await_args_list] == [
+            (("activity:update", dict(switched)), {"to": [f"user:{admin_user.id}"]}),
+            (
+                (
+                    "activity:clear",
+                    {
+                        "user_id": admin_user.id,
+                        "device_id": "deck",
+                        "rom_id": entry["rom_id"],
+                    },
+                ),
+                {"to": [f"user:{viewer_user.id}"]},
+            ),
+        ]
+
+    async def test_switching_to_a_rom_everyone_can_see_sends_no_clear(
+        self,
+        entry: ActivityEntry,
+        admin_user: User,
+        viewer_user: User,
+        second_rom: Rom,
+    ):
+        await activity_handler.publish_active(entry)
+        switched = await activity_handler.build_entry(
+            user_id=admin_user.id,
+            device_id="deck",
+            rom_id=second_rom.id,
+            preserve_started_at=False,
+        )
+        assert switched is not None
+
+        with _captured_emits() as emit:
+            await activity_handler.publish_active(switched)
+
+        assert [c.args[0] for c in emit.await_args_list] == ["activity:update"]

@@ -4,6 +4,7 @@ import activityApi, {
   type ActivityEntry,
 } from "@/services/api/activity";
 import socket from "@/services/socket";
+import storeAuth from "@/stores/auth";
 
 export type { ActivityEntry, ActivityClearEvent };
 
@@ -69,6 +70,10 @@ export default defineStore("activity", {
       });
       socket.on("activity:clear", (data: ActivityClearEvent) => {
         this.handleClear(data);
+      });
+      // A newly hidden ROM's session gets no clear here, so re-list what's visible.
+      socket.on("permissions:changed", (data: { user_id: number }) => {
+        if (data.user_id === storeAuth().user?.id) this.fetchAll();
       });
 
       this.socketBound = true;
