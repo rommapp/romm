@@ -1006,9 +1006,6 @@ class TwitchAuth(MetadataHandler):
         if not self.is_enabled():
             return ""
 
-        token = None
-        expires_in = 0
-
         httpx_client = ctx_httpx_client.get()
         try:
             log.debug(
@@ -1028,8 +1025,6 @@ class TwitchAuth(MetadataHandler):
                 return ""
 
             response_json = res.json()
-            token = response_json.get("access_token", "")
-            expires_in = response_json.get("expires_in", 0)
         except httpx2.HTTPError:
             log.critical("Can't connect to IGDB, check your internet connection.")
             return ""
@@ -1037,7 +1032,16 @@ class TwitchAuth(MetadataHandler):
             log.error("Twitch sent a token response that isn't JSON")
             return ""
 
-        if not token or expires_in == 0:
+        if not isinstance(response_json, dict):
+            log.error("Twitch sent a token response that isn't a JSON object")
+            return ""
+        token = response_json.get("access_token")
+        expires_in = response_json.get("expires_in")
+        if not isinstance(token, str) or not isinstance(expires_in, int):
+            log.error("Twitch sent a token response with missing or invalid fields")
+            return ""
+
+        if not token or expires_in <= 0:
             return ""
 
         # Cache it until some seconds before it actually expires.
@@ -1046,7 +1050,7 @@ class TwitchAuth(MetadataHandler):
 
         log.info("Twitch token fetched!")
 
-        return cast(str, token)
+        return token
 
     async def get_oauth_token(self) -> str:
         # Use a fake token when running tests

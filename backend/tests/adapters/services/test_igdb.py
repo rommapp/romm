@@ -116,7 +116,10 @@ async def igdb_server() -> AsyncIterator[tuple[FakeIGDB, str]]:
 @pytest.fixture
 def no_backoff(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     sleep = AsyncMock()
-    monkeypatch.setattr("adapters.services.igdb.asyncio.sleep", sleep)
+    # Swap only igdb's reference, so the test server and aiohttp still sleep.
+    monkeypatch.setattr(
+        "adapters.services.igdb.asyncio", MagicMock(wraps=asyncio, sleep=sleep)
+    )
     return sleep
 
 

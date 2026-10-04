@@ -1047,8 +1047,20 @@ class TestTwitchAuth:
 
     @pytest.mark.parametrize(
         "body",
-        [{"expires_in": 100}, {"access_token": "t", "expires_in": 0}],
-        ids=["no_token", "no_lifetime"],
+        [
+            {"expires_in": 100},
+            {"access_token": "t", "expires_in": 0},
+            {"access_token": "t", "expires_in": None},
+            {"access_token": "t", "expires_in": "100"},
+            {"access_token": 7, "expires_in": 100},
+        ],
+        ids=[
+            "no_token",
+            "no_lifetime",
+            "null_lifetime",
+            "text_lifetime",
+            "number_token",
+        ],
     )
     async def test_an_incomplete_answer_gives_no_token(
         self, twitch: FakeTwitch, body: dict[str, Any]
@@ -1070,8 +1082,15 @@ class TestTwitchAuth:
 
         assert await TwitchAuth()._update_twitch_token() == ""
 
-    async def test_a_reply_that_is_not_json_gives_no_token(self, twitch: FakeTwitch):
-        twitch.body = b"<html>maintenance</html>"
+    @pytest.mark.parametrize(
+        "body",
+        [b"<html>maintenance</html>", b"null", b"[]"],
+        ids=["not_json", "null", "list"],
+    )
+    async def test_a_reply_that_is_not_a_json_object_gives_no_token(
+        self, twitch: FakeTwitch, body: bytes
+    ):
+        twitch.body = body
 
         assert await TwitchAuth()._update_twitch_token() == ""
 
