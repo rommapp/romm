@@ -58,6 +58,8 @@ export default defineConfig<E2EOptions>({
       name: "setup",
       testDir: "./e2e/setup",
       testMatch: /.*\.setup\.ts/,
+      // A cold dev server can reload the page mid-sign-in.
+      retries: 2,
       use: { ...devices["Desktop Chrome"] },
     },
     {

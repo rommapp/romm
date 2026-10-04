@@ -126,14 +126,6 @@ The specs follow this branch's UI, so a site on another version fails where the 
 
 To test a production build of this branch, serve it first: `npm run build:preview && npm run preview` (`build:preview` adds `frontend/assets`, which Vite leaves out and the Docker image copies in), then set `E2E_BASE_URL=http://localhost:4173`.
 
-### Sign in again
-
-Sessions are saved in `e2e/.output/auth/` and reused, after a check that each still signs the right account in. One that doesn't (expired, another site, another account) is replaced automatically. To force a fresh sign-in anyway:
-
-```bash
-rm -r e2e/.output/auth    # PowerShell: Remove-Item -Recurse e2e/.output/auth
-```
-
 ## How it's wired
 
 ```text
@@ -150,7 +142,7 @@ e2e/
 - **Environment:** every `E2E_*` variable comes from the shell, then `e2e/.env`, then a default that matches the seed script. CI sets them in `.github/workflows/e2e.yml`.
 - **Server:** with `E2E_BASE_URL` unset, the config's `webServer` starts one: `npm run dev` locally (reusing one already running), the static build under `vite preview` in CI. Otherwise it tests that URL as served.
 - **Preflight:** `setup/global-setup.ts` runs first and checks, in about a second, that the backend answers, both accounts sign in and can read ROMs, and the library has a game. One error lists every problem.
-- **Sign-in:** `setup/auth.setup.ts` signs each account in once and saves the session. `login.spec.ts` is the only spec that drives the login form.
+- **Sign-in:** `setup/auth.setup.ts` signs each account in at the start of every run and saves the session for the specs. `login.spec.ts` is the only spec that drives the login form.
 - **Timeouts:** 10s per test locally, so failures are fast; CI keeps longer ones. They switch off while debugging.
 - **App errors:** if an `/api` call returns 5xx or the app throws, the test fails at once and names the request (for example `GET /api/roms returned 500`) instead of timing out on an element.
 - **Output:** everything the suite writes goes under `.output/`, through the paths in `support/output.ts`.

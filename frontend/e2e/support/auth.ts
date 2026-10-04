@@ -1,7 +1,7 @@
-import type { Browser, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import type { E2EEnv } from "./e2e-environment";
 import { AUTH_DIR } from "./output";
-import { expect, watchAppErrors } from "./test";
+import { expect } from "./test";
 
 export type Role = "admin" | "viewer";
 
@@ -40,101 +40,6 @@ export async function fillLoginForm(
   await form.locator('button[type="submit"]').click();
 }
 
-/** A login failure that retrying can't fix, so `login()` stops at once. */
-class LoginRejected extends Error {}
-
-/** Whether a saved session still signs `username` in, judged by what the app
- *  renders: that user's name in the app bar, or the login form. */
-export async function isSessionValid(
-  browser: Browser,
-  {
-    path,
-    username,
-    baseURL,
-    timeout,
-  }: { path: string; username: string; baseURL?: string; timeout: number },
-): Promise<boolean> {
-  const context = await browser
-    .newContext({ baseURL, storageState: path, serviceWorkers: "block" })
-    // An unreadable file is as good as no session.
-    .catch(() => null);
-  if (!context) return false;
-  try {
-    const page = await context.newPage();
-    // A separate context, so the test's app-error guard doesn't see this page.
-    const errors: string[] = [];
-    watchAppErrors(page, (message) => {
-      errors.push(message);
-      void page.close();
-    });
-    const userName = page.locator(".r-v2-user__name");
-    try {
-      await page.goto("/");
-      await userName
-        .or(page.locator("form.r-v2-login-form"))
-        .first()
-        .waitFor({ timeout });
-    } catch (error) {
-      if (!errors.length) throw error;
-    }
-    if (errors.length) {
-      throw new Error(
-        `The app failed while checking the saved session for ${username}: ${errors.join("; ")}`,
-      );
-    }
-    return (
-      (await userName.isVisible()) &&
-      (await userName.innerText()).trim() === username
-    );
-  } finally {
-    await context.close();
-  }
-}
-
-/** Log in through the real form and wait for the app shell to take over. */
-export async function login(
-  page: Page,
-  { username, password }: Account,
-  { timeout, attempts }: { timeout: number; attempts: number },
-) {
-  // Retried because the Vite dev server force-reloads the page when it
-  // discovers a new dependency to pre-bundle.
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      await page.goto("/login");
-      const answered = page.waitForResponse(
-        (r) =>
-          r.url().includes("/api/login") && r.request().method() === "POST",
-      );
-      await fillLoginForm(page, username, password);
-      // A dead backend or bad credentials won't be fixed by waiting.
-      const response = await answered;
-      if (response.status() >= 500) {
-        throw new LoginRejected(
-          `The backend isn't answering (POST /api/login returned ${response.status()}). Is the site at E2E_BASE_URL up?`,
-        );
-      }
-      if (!response.ok()) {
-        throw new LoginRejected(
-          `The backend rejected the ${username} account (POST /api/login returned ${response.status()}). Check its credentials in e2e/.env, and that it exists on that backend.`,
-        );
-      }
-      // The app bar's user name only exists once authenticated; "the URL is no
-      // longer /login" goes true mid-transition.
-      await expect(page.locator(".r-v2-user__name")).toHaveText(username, {
-        timeout,
-      });
-      await expect(page).not.toHaveURL(/\/login/);
-      return;
-    } catch (error) {
-      if (error instanceof LoginRejected) throw error;
-      lastError = error;
-    }
-  }
-  throw lastError;
-}
-
 /** Open the account menu and follow its Profile link (route `/user/:user`). */
 export async function gotoOwnProfile(page: Page) {
   await gotoHydrated(page, "/");
@@ -156,7 +61,7 @@ export async function gotoFirstRom(page: Page) {
  *  `useCan` reads grants from `/permissions/me` after mount, so until then even
  *  an admin sees every gated control hidden. The listener is armed before
  *  navigating, and any status is checked so a 401/403 fails with its cause.
- *  An expired session redirects to /login, which never requests permissions,
+ *  A rejected session redirects to /login, which never requests permissions,
  *  so the login form is raced against the response. */
 export async function gotoHydrated(page: Page, path: string) {
   const hydrated = page.waitForResponse((r) =>
@@ -167,12 +72,12 @@ export async function gotoHydrated(page: Page, path: string) {
   const response = await Promise.race([hydrated, loginShown.then(() => null)]);
   if (!response) {
     throw new Error(
-      `Opened ${path} but landed on the login page: the saved session for this test has expired or was rejected. Run again, and setup signs in afresh (or delete e2e/.output/auth/).`,
+      `Opened ${path} but landed on the login page: the backend rejected this test's saved session.`,
     );
   }
   if (!response.ok()) {
     throw new Error(
-      `Permissions didn't load (GET /api/permissions/me returned ${response.status()}). The session most likely expired: run again, or delete e2e/.output/auth/ to force a fresh sign-in.`,
+      `Permissions didn't load (GET /api/permissions/me returned ${response.status()}). The backend most likely rejected this test's saved session.`,
     );
   }
   // Renders once the auth store holds a user: the app shell is ready.

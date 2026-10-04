@@ -134,14 +134,4 @@ export default [
       "no-empty-pattern": "off",
     },
   },
-  {
-    name: "e2e/exceptions/setup",
-    files: ["e2e/setup/**/*.ts"],
-    rules: {
-      // Setup is plumbing: it branches on CI and on a saved session, and
-      // asserts through helpers such as login().
-      "playwright/no-conditional-in-test": "off",
-      "playwright/expect-expect": "off",
-    },
-  },
 ];
