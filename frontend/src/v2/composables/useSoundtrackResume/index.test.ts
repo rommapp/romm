@@ -241,6 +241,36 @@ describe("useSoundtrackResume", () => {
     });
   });
 
+  it("leaves the saved session alone while a restored one hasn't started", async () => {
+    localStorage.setItem(
+      SOUNDTRACK_SESSION_KEY,
+      JSON.stringify({ userId: 1, session }),
+    );
+    signIn(1);
+    mountResume();
+    await settle();
+    const fromOtherTab = { userId: 1, session: { ...session, track: other } };
+    localStorage.setItem(SOUNDTRACK_SESSION_KEY, JSON.stringify(fromOtherTab));
+
+    await vi.advanceTimersByTimeAsync(5000);
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(stored()).toEqual(fromOtherTab);
+  });
+
+  it("doesn't save over another tab once its own changes are saved", () => {
+    signIn(1);
+    mountResume();
+    useSoundtrackPlayer().play(track, {});
+    window.dispatchEvent(new Event("pagehide"));
+    const fromOtherTab = { userId: 1, session: { ...session, track: other } };
+    localStorage.setItem(SOUNDTRACK_SESSION_KEY, JSON.stringify(fromOtherTab));
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(stored()).toEqual(fromOtherTab);
+  });
+
   it("forgets the saved session when the setting is turned off", async () => {
     localStorage.setItem(
       SOUNDTRACK_SESSION_KEY,

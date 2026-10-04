@@ -114,7 +114,14 @@ export function useSoundtrackResume() {
     }
   }
 
+  // Only this tab's own changes are saved, so a tab that restored a session or
+  // sat idle never overwrites the one another tab is playing.
+  let unsaved = false;
+  const watched = () => (resumeMusic.value ? session.value : null);
+  watch(watched, () => (unsaved = true), { flush: "sync" });
+
   function save() {
+    unsaved = false;
     const userId = authStore.user?.id;
     if (!resumeMusic.value || userId === undefined) return;
     write(session.value ? { userId, session: session.value } : null);
@@ -145,11 +152,12 @@ export function useSoundtrackResume() {
     );
   });
 
-  watchDebounced(() => (resumeMusic.value ? session.value : null), save, {
-    debounce: 1000,
-    maxWait: 5000,
-  });
-  useEventListener(window, "pagehide", save);
+  function saveChanges() {
+    if (unsaved && !player.pendingResume) save();
+  }
+
+  watchDebounced(watched, saveChanges, { debounce: 1000, maxWait: 5000 });
+  useEventListener(window, "pagehide", saveChanges);
   watch(resumeMusic, (enabled) => {
     if (enabled) save();
     else write(null);
