@@ -102,6 +102,7 @@ describe("useAnimatedNumber", () => {
         duration: 200,
         rememberAs: () => "changed",
       });
+      expect(display.value).toBe(10);
       watch(display, (value) => seen.push(Number(value)), { flush: "sync" });
     });
     await vi.waitFor(() => expect(display.value).toBe(20));
