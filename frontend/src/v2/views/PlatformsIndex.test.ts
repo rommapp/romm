@@ -319,6 +319,23 @@ describe("PlatformsIndex", () => {
       expect(wrapper.text()).not.toContain("Game Boy Advance 5");
     });
 
+    it("matches a renamed platform on its original name", () => {
+      storePlatforms().set([
+        platform(1, "My Handhelds", 7, {
+          name: "Game Boy Advance",
+          slug: "gba",
+          fs_slug: "gba",
+        }),
+        platform(2, "PlayStation", 30, { slug: "ps", fs_slug: "psx" }),
+      ]);
+      searchState.term = "advance";
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("My Handhelds 7");
+      expect(wrapper.text()).not.toContain("PlayStation 30");
+    });
+
     it("ignores case and surrounding whitespace", () => {
       seed();
       searchState.term = "  PSX  ";

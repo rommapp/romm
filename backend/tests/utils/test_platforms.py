@@ -69,6 +69,7 @@ def test_supported_platform_sharing_ss_id_keeps_its_own_name():
 class TestPlatformAlternativeNames:
     def test_collects_each_provider_name_after_the_alternative_names(self):
         names = platform_alternative_names(
+            "genesis",
             "Sega Mega Drive/Genesis",
             [
                 {"name": "Sega Mega Drive/Genesis", "alternative_names": ["MD"]},
@@ -81,6 +82,7 @@ class TestPlatformAlternativeNames:
 
     def test_skips_the_platform_name_and_repeats_ignoring_case_and_spacing(self):
         names = platform_alternative_names(
+            "genesis",
             "Sega Mega Drive/Genesis",
             [
                 {"name": "Sega Mega Drive / Genesis"},
@@ -92,7 +94,19 @@ class TestPlatformAlternativeNames:
         assert names == ["sega genesis"]
 
     def test_ignores_providers_without_a_name(self):
-        assert platform_alternative_names("NES", [{"slug": "nes"}, {"name": ""}]) == []
+        assert (
+            platform_alternative_names("nes", "NES", [{"slug": "nes"}, {"name": ""}])
+            == []
+        )
+
+    def test_skips_a_name_that_belongs_to_another_platform(self):
+        names = platform_alternative_names(
+            "famicom",
+            "Family Computer",
+            [{"name": "Nintendo Entertainment System"}, {"name": "Famicom"}],
+        )
+
+        assert names == ["Famicom"]
 
 
 def test_supported_platform_carries_other_providers_names():
@@ -100,3 +114,15 @@ def test_supported_platform_carries_other_providers_names():
 
     assert "Megadrive" in genesis.alternative_names
     assert genesis.name not in genesis.alternative_names
+
+
+def test_supported_platform_reads_a_row_without_alternative_names():
+    """Rows that predate the column read NULL and still serialize."""
+    platform = db_platform_handler.add_platform(
+        Platform(name="Sega Mega Drive/Genesis", slug="genesis", fs_slug="genesis")
+    )
+    db_platform_handler.update_platform(platform.id, {"alternative_names": None})
+
+    genesis = next(p for p in get_supported_platforms() if p.slug == "genesis")
+
+    assert genesis.alternative_names == []

@@ -57,8 +57,6 @@ interface NormalisedItem {
   title: string;
   value: unknown;
   disabled?: boolean;
-  /** Lowercased title plus `itemSearchTerms`, what the search matches. */
-  searchTerms: string[];
 }
 
 // `multiple` needs an array model and single-select `clearable` a nullable one.
@@ -113,7 +111,7 @@ interface Props {
   /** Accent for focus + selected items. Defaults to brand-primary. */
   color?: string;
   /** Adds a sticky search input at the top of the panel that filters
-   *  items locally by title. */
+   *  items locally by title and `itemSearchTerms`. */
   searchable?: boolean;
   /** Extra strings the search matches an item by, besides its title. */
   itemSearchTerms?: ((item: Item) => readonly string[]) | undefined;
@@ -266,21 +264,25 @@ function readKey<T>(item: unknown, key: string | ((it: unknown) => T)): T {
 }
 
 const normalisedItems = computed<NormalisedItem[]>(() => {
-  return (props.items ?? []).map((raw) => {
-    const title = String(readKey<unknown>(raw, props.itemTitle as never) ?? "");
-    const extraTerms = props.itemSearchTerms?.(raw) ?? [];
-    return {
-      raw,
-      title,
-      value: readKey<unknown>(raw, props.itemValue as never),
-      disabled:
-        typeof raw === "object" && raw != null
-          ? Boolean((raw as Record<string, unknown>).disabled)
-          : false,
-      searchTerms: [title, ...extraTerms].map((term) => term.toLowerCase()),
-    };
-  });
+  return (props.items ?? []).map((raw) => ({
+    raw,
+    title: String(readKey<unknown>(raw, props.itemTitle as never) ?? ""),
+    value: readKey<unknown>(raw, props.itemValue as never),
+    disabled:
+      typeof raw === "object" && raw != null
+        ? Boolean((raw as Record<string, unknown>).disabled)
+        : false,
+  }));
 });
+
+// Lowercased title plus `itemSearchTerms` per item, built on the first search.
+const itemSearchIndex = computed<string[][]>(() =>
+  normalisedItems.value.map((it) =>
+    [it.title, ...(props.itemSearchTerms?.(it.raw) ?? [])].map((term) =>
+      term.toLowerCase(),
+    ),
+  ),
+);
 
 // Internal search buffer: RSelect filters from this. The `search`
 // prop is treated as an *optional* controlled source: if the parent
@@ -306,8 +308,9 @@ const filteredItems = computed<NormalisedItem[]>(() => {
   if (!props.searchable) return normalisedItems.value;
   const q = internalSearch.value.trim().toLowerCase();
   if (!q) return normalisedItems.value;
-  return normalisedItems.value.filter((it) =>
-    it.searchTerms.some((term) => term.includes(q)),
+  const index = itemSearchIndex.value;
+  return normalisedItems.value.filter((_, i) =>
+    index[i]!.some((term) => term.includes(q)),
   );
 });
 

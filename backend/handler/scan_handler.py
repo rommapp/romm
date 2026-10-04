@@ -452,6 +452,7 @@ async def scan_platform(
         }
     )
     platform_attrs["alternative_names"] = platform_alternative_names(
+        platform_attrs["slug"],
         platform_attrs["name"],
         [
             igdb_platform,

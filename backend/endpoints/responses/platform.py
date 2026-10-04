@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import ConfigDict, Field, computed_field, field_validator
 
 from .base import BaseModel, UTCDatetime
@@ -58,3 +60,9 @@ class PlatformSchema(BaseModel):
     @field_validator("firmware")
     def sort_files(cls, v: list[FirmwareSchema]) -> list[FirmwareSchema]:
         return sorted(v, key=lambda x: x.file_name)
+
+    @field_validator("alternative_names", mode="before")
+    @classmethod
+    def _alternative_names_never_null(cls, value: Any) -> Any:
+        # The column is nullable, so rows predating the migration read NULL.
+        return value or []

@@ -67,7 +67,7 @@ class Platform(BaseModel):
     family_slug: Mapped[str | None] = mapped_column(String(length=1000), default="")
     abbreviation: Mapped[str | None] = mapped_column(String(length=100), default="")
     alternative_names: Mapped[list[str] | None] = mapped_column(
-        CustomJSON(), default=[]
+        CustomJSON(), default=list
     )
     url: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")

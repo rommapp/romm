@@ -3,7 +3,8 @@
 
 Reads IGDB_CLIENT_ID and IGDB_CLIENT_SECRET from the environment, asks IGDB
 for every listed platform's names, and rewrites adapters/services/igdb.py in
-place. Entries IGDB has no value for keep neither key. Run `trunk fmt` after.
+place. Entries IGDB has no value for keep neither key; entries IGDB did not
+return are left as they are. Run `trunk fmt` after.
 """
 
 import json
@@ -70,7 +71,9 @@ def fetch_names(client_id: str, client_secret: str, ids: list[int]) -> PlatformN
 def rewrite_entry(entry: re.Match[str], names: PlatformNames) -> str:
     opening, body, closing = entry.groups()
     platform_id = int(ID_RE.search(body).group(1))  # type: ignore[union-attr]
-    platform = names.get(platform_id, {})
+    if platform_id not in names:
+        return entry.group()
+    platform = names[platform_id]
     # Both keys sort before "category", so they open the entry.
     name_lines = "".join(
         f'        "{key}": {json.dumps(value.strip(), ensure_ascii=False)},\n'
