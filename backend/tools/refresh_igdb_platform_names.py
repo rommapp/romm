@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Fill IGDB's abbreviation and alternative name into `IGDB_PLATFORM_LIST`.
 
-Needs only IGDB_CLIENT_ID and IGDB_CLIENT_SECRET, no Redis. Run `trunk fmt` after.
+It needs IGDB_CLIENT_ID and IGDB_CLIENT_SECRET but not Redis or a database.
+Run `trunk fmt` after.
 """
 
 import json
