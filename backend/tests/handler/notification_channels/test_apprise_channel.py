@@ -75,11 +75,11 @@ class TestCatalog:
         "service,key",
         [("sendgrid", "from_email"), ("ses", "from_email"), ("resend", "from_addr")],
     )
-    def test_offers_an_email_address_as_text(self, service, key):
+    def test_offers_an_email_address(self, service, key):
         field = find_service(service).field(key)
 
         assert field is not None
-        assert (field.type, field.required, field.address) == ("string", True, True)
+        assert (field.type, field.required) == ("email", True)
 
     def test_offers_the_schema_only_when_there_is_a_choice(self):
         schema = find_service("ntfy").field("schema")

@@ -5,7 +5,7 @@
 export type AppriseFieldSchema = {
     key: string;
     label: string;
-    type: 'string' | 'int' | 'float' | 'bool' | 'choice' | 'list';
+    type: 'string' | 'email' | 'int' | 'float' | 'bool' | 'choice' | 'list';
     required: boolean;
     private: boolean;
     advanced: boolean;
