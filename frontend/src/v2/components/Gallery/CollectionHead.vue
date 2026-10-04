@@ -74,7 +74,11 @@ defineEmits<{
     </template>
 
     <template #stats>
-      <Stat :value="collection.rom_count" :label="t('common.games')" />
+      <Stat
+        :value="collection.rom_count"
+        :label="t('common.games')"
+        :remember-as="`collection-${kind}-${collection.id}:games`"
+      />
     </template>
 
     <template #actions>

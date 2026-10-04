@@ -142,6 +142,7 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         :key="s.label"
         :value="s.value"
         :label="s.label"
+        :remember-as="`platform-${platform.id}:${s.label}`"
       />
     </template>
 

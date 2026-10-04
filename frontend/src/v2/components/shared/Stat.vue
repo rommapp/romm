@@ -9,16 +9,22 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   value?: string | number | undefined;
   label?: string | undefined;
+  /** Names the count across remounts so it doesn't roll up again when the
+   *  same header re-renders (see `useAnimatedNumber`'s `rememberAs`). */
+  rememberAs?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   value: undefined,
   label: undefined,
+  rememberAs: undefined,
 });
 
 // A count rolls up to its value; anything already formatted (a size, a date)
 // is printed as it comes.
-const text = useAnimatedNumber(() => props.value);
+const text = useAnimatedNumber(() => props.value, {
+  rememberAs: () => props.rememberAs,
+});
 </script>
 
 <template>

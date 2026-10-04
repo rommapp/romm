@@ -60,4 +60,27 @@ describe("useAnimatedNumber", () => {
     scope.stop();
     reduced.value = true;
   });
+
+  it("picks up where a remembered count left off after a remount", async () => {
+    reduced.value = false;
+    const source = ref<number | null>(573);
+    const first = effectScope();
+    first.run(() =>
+      useAnimatedNumber(() => source.value, { rememberAs: () => "remount" }),
+    );
+    first.stop();
+
+    const second = effectScope();
+    let display!: ReturnType<typeof useAnimatedNumber>;
+    second.run(() => {
+      display = useAnimatedNumber(() => source.value, {
+        rememberAs: () => "remount",
+      });
+    });
+
+    // Already landed before, so it paints the value without rolling from 0.
+    expect(display.value).toBe(573);
+    second.stop();
+    reduced.value = true;
+  });
 });

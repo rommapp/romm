@@ -10,11 +10,19 @@ import { tween } from "@/v2/utils/tween";
 
 type Source = string | number | null | undefined;
 
+// The last value each remembered count was told to show, so a count that
+// remounts (a header re-rendered by a tab switch) picks up where it was
+// instead of rolling up from zero again.
+const remembered = new Map<string, number>();
+
 interface Options {
   /** Roll duration in ms. Defaults to the `slow` motion token. */
   duration?: number;
   /** Decimals kept on the in-between frames (the final value lands exact). */
   decimals?: number;
+  /** Identity of the count across remounts. A count that comes back under the
+   *  same key starts from where it was, so it only rolls if it changed. */
+  rememberAs?: () => string | undefined;
 }
 
 /**
@@ -48,8 +56,14 @@ export function useAnimatedNumber(
         return;
       }
       // The first value rolls up from zero, which is the whole point of the
-      // effect: a count that arrives is a count you watch land.
-      const from = typeof display.value === "number" ? display.value : 0;
+      // effect: a count that arrives is a count you watch land. One that was
+      // already on screen before a remount has landed, so it starts there.
+      const key = options.rememberAs?.();
+      const from =
+        typeof display.value === "number"
+          ? display.value
+          : ((key === undefined ? undefined : remembered.get(key)) ?? 0);
+      if (key !== undefined) remembered.set(key, target);
       if (from === target) {
         display.value = target;
         return;
