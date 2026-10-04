@@ -10,6 +10,7 @@ from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3, TALB, TCON, TDRC, TIT2, TPE1, TPOS, TRCK
 from mutagen.mp4 import MP4, MP4Cover
 from PIL import Image
+from pytest_mock import MockerFixture
 
 import config
 from utils import audio_tags
@@ -340,7 +341,9 @@ class TestExtractAudioMeta:
 
         assert extract_audio_meta(str(path)) is None
 
-    def test_an_oversized_file_is_not_parsed(self, tmp_path: Path, mocker):
+    def test_an_oversized_file_is_not_parsed(
+        self, tmp_path: Path, mocker: MockerFixture
+    ):
         path = _tag(_copy(tmp_path, "mp3"))
         mocker.patch.object(audio_tags, "MAX_AUDIO_PARSE_BYTES", 10)
         parse = mocker.spy(mutagen, "File")
