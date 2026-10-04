@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import playSessionApi from "@/services/api/play-session";
-import type { SimpleRom } from "@/stores/roms";
-import { makeRom as baseRom } from "@/utils/rom.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import { usePlaySession } from "./index";
 
 vi.mock("@/services/api/play-session", () => ({
@@ -21,10 +20,6 @@ vi.mock("@/stores/auth", () => ({
 
 const ingest = vi.mocked(playSessionApi.ingestPlaySessionsKeepalive);
 
-function makeRom(id = 7): SimpleRom {
-  return baseRom({ id });
-}
-
 beforeEach(() => {
   ingest.mockReset();
   authState.scopes = ["roms.user.write"];
@@ -36,7 +31,7 @@ beforeEach(() => {
 describe("usePlaySession", () => {
   it("ingests a session with real start/end/duration on flush", () => {
     const { start, flush } = usePlaySession();
-    start(makeRom(42));
+    start(romFixture({ id: 42 }));
     vi.advanceTimersByTime(90_000);
     flush();
 
@@ -57,7 +52,7 @@ describe("usePlaySession", () => {
   it("does nothing without a write scope", () => {
     authState.scopes = ["roms.user.read"];
     const { start, flush } = usePlaySession();
-    start(makeRom());
+    start(romFixture({ id: 7 }));
     vi.advanceTimersByTime(90_000);
     flush();
     expect(ingest).not.toHaveBeenCalled();
@@ -65,7 +60,7 @@ describe("usePlaySession", () => {
 
   it("drops sub-second sessions", () => {
     const { start, flush } = usePlaySession();
-    start(makeRom());
+    start(romFixture({ id: 7 }));
     vi.advanceTimersByTime(500);
     flush();
     expect(ingest).not.toHaveBeenCalled();
@@ -73,7 +68,7 @@ describe("usePlaySession", () => {
 
   it("is idempotent — a second flush does not resubmit", () => {
     const { start, flush } = usePlaySession();
-    start(makeRom());
+    start(romFixture({ id: 7 }));
     vi.advanceTimersByTime(90_000);
     flush();
     flush();
@@ -89,7 +84,7 @@ describe("usePlaySession", () => {
   it("sends a null device id when the user has none", () => {
     authState.user = null;
     const { start, flush } = usePlaySession();
-    start(makeRom());
+    start(romFixture({ id: 7 }));
     vi.advanceTimersByTime(90_000);
     flush();
     expect(ingest).toHaveBeenCalledWith(

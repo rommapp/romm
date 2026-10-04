@@ -2,7 +2,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import { createMemoryHistory, createRouter, type Router } from "vue-router";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 import MediaTab from "./MediaTab.vue";
 
 vi.mock("vue-i18n");
@@ -57,7 +57,7 @@ async function mountTab(subtab?: string) {
   });
   const wrapper = mount(MediaTab, {
     props: {
-      rom: makeDetailedRom({ has_soundtrack: false }),
+      rom: detailedRomFixture({ has_soundtrack: false }),
     },
     global: {
       plugins: [router],

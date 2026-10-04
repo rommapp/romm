@@ -1,24 +1,186 @@
+import type {
+  RomFileSchema,
+  RomMetadataSchema,
+  RomUserSchema,
+} from "@/__generated__";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 
-export function makeRom(overrides: Partial<SimpleRom>): SimpleRom {
+const WRITTEN_AT = "2026-09-16T12:00:00Z";
+
+export function romMetadataFixture(
+  overrides: Partial<RomMetadataSchema> = {},
+): RomMetadataSchema {
   return {
-    id: 1,
-    fs_name: "Game",
-    files: [],
+    rom_id: 1,
+    genres: [],
+    franchises: [],
+    collections: [],
+    companies: [],
+    publishers: [],
+    developers: [],
+    game_modes: [],
+    age_ratings: [],
+    player_count: "",
+    first_release_date: null,
+    average_rating: null,
     ...overrides,
-  } as SimpleRom;
+  };
 }
 
-export function makeDetailedRom(overrides: Partial<DetailedRom>): DetailedRom {
+export function romUserFixture(
+  overrides: Partial<RomUserSchema> = {},
+): RomUserSchema {
   return {
-    ...makeRom(overrides),
+    id: 1,
+    user_id: 1,
+    rom_id: 1,
+    created_at: WRITTEN_AT,
+    updated_at: WRITTEN_AT,
+    last_played: null,
+    is_main_sibling: false,
+    backlogged: false,
+    now_playing: false,
+    hidden: false,
+    rating: 0,
+    difficulty: 0,
+    completion: 0,
+    status: null,
+    pinned_media: null,
+    ...overrides,
+  };
+}
+
+export function romFileFixture(
+  overrides: Partial<RomFileSchema> = {},
+): RomFileSchema {
+  return {
+    id: 1,
+    rom_id: 1,
+    file_name: "",
+    file_path: "",
+    file_size_bytes: 0,
+    full_path: "",
+    is_top_level: false,
+    created_at: WRITTEN_AT,
+    updated_at: WRITTEN_AT,
+    last_modified: null,
+    crc_hash: null,
+    md5_hash: null,
+    sha1_hash: null,
+    ra_hash: null,
+    chd_sha1_hash: null,
+    archive_members: null,
+    category: null,
+    ...overrides,
+  };
+}
+
+export function romFixture(overrides: Partial<SimpleRom> = {}): SimpleRom {
+  return {
+    id: 1,
+    igdb_id: null,
+    sgdb_id: null,
+    moby_id: null,
+    ss_id: null,
+    ra_id: null,
+    launchbox_id: null,
+    hasheous_id: null,
+    tgdb_id: null,
+    flashpoint_id: null,
+    hltb_id: null,
+    demozoo_id: null,
+    pouet_id: null,
+    csdb_id: null,
+    steam_id: null,
+    gamelist_id: null,
+    libretro_id: null,
+    platform_id: 0,
+    platform_slug: "",
+    platform_fs_slug: "",
+    platform_custom_name: null,
+    platform_display_name: "",
+    fs_name: "Game",
+    fs_name_no_tags: "",
+    fs_name_no_ext: "",
+    fs_extension: "",
+    fs_path: "",
+    fs_size_bytes: 0,
+    name: null,
+    name_sort_key: null,
+    slug: null,
+    summary: null,
+    alternative_names: [],
+    youtube_video_id: null,
+    metadatum: romMetadataFixture(),
+    igdb_metadata: null,
+    moby_metadata: null,
+    ss_metadata: null,
+    launchbox_metadata: null,
+    hasheous_metadata: null,
+    flashpoint_metadata: null,
+    hltb_metadata: null,
+    demozoo_metadata: null,
+    pouet_metadata: null,
+    csdb_metadata: null,
+    steam_metadata: null,
+    gamelist_metadata: null,
+    manual_metadata: null,
+    path_cover_small: null,
+    path_cover_large: null,
+    url_cover: null,
+    has_manual: false,
+    has_soundtrack: false,
+    path_manual: null,
+    url_manual: null,
+    path_video: null,
+    is_unidentified: false,
+    is_identified: false,
+    revision: null,
+    regions: [],
+    languages: [],
+    tags: [],
+    crc_hash: null,
+    md5_hash: null,
+    sha1_hash: null,
+    ra_hash: null,
+    title_id: null,
+    save_target: null,
+    save_target_layout: null,
+    has_simple_single_file: false,
+    has_nested_single_file: false,
+    has_multiple_files: false,
+    is_easyrpg_game: false,
+    full_path: "",
+    created_at: WRITTEN_AT,
+    updated_at: WRITTEN_AT,
+    missing_from_fs: false,
+    is_physical: false,
+    has_file_on_disk: false,
+    upc: null,
+    has_notes: false,
+    rom_user: romUserFixture(),
+    merged_screenshots: [],
+    merged_ra_metadata: null,
+    files: [],
+    sibling_roms: [],
+    ...overrides,
+  };
+}
+
+export function detailedRomFixture(
+  overrides: Partial<DetailedRom> = {},
+): DetailedRom {
+  return {
+    ...romFixture(),
     user_saves: [],
     user_states: [],
     all_user_saves: [],
     all_user_states: [],
     user_screenshots: [],
     all_user_screenshots: [],
+    user_collections: [],
     all_user_notes: [],
+    download_formats: [],
     ...overrides,
-  } as DetailedRom;
+  };
 }

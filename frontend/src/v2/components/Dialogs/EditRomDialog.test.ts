@@ -2,7 +2,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Events } from "@/types/emitter";
-import { makeRom } from "@/utils/rom.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import EditRomDialog from "./EditRomDialog.vue";
 
 const { getRom } = vi.hoisted(() => ({ getRom: vi.fn() }));
@@ -32,7 +32,7 @@ const RBtn = {
   template: `<button type="button" :data-icon="icon" @click="$emit('click')" />`,
 };
 
-const rom = makeRom({ id: 3, name: "Blur", fs_name: "blur.zip" });
+const rom = romFixture({ id: 3, name: "Blur", fs_name: "blur.zip" });
 
 async function mountDialog() {
   const emitter: Emitter<Events> = mitt<Events>();

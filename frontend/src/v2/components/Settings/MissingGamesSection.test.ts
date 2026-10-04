@@ -1,8 +1,8 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import type { SimpleRom } from "@/stores/roms";
 import { serverError } from "@/test-utils/serverError";
+import { romFixture } from "@/utils/rom.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import MissingGamesSection from "./MissingGamesSection.vue";
@@ -130,7 +130,7 @@ describe("MissingGamesSection", () => {
     const bar = wrapper.findComponent({ name: "SelectionBar" });
     expect(bar.classes()).not.toContain("selection-bar--visible");
 
-    storeGallerySelection().toggle({ id: 1, name: "Game 1" } as SimpleRom, 0);
+    storeGallerySelection().toggle(romFixture({ id: 1, name: "Game 1" }), 0);
     await nextTick();
 
     expect(bar.classes()).toContain("selection-bar--visible");

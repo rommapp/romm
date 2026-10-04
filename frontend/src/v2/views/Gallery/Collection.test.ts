@@ -10,6 +10,7 @@ import storeCollections, {
   type VirtualCollection,
 } from "@/stores/collections";
 import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import CollectionView from "./Collection.vue";
@@ -141,7 +142,7 @@ function virtualCollection(romCount: number): VirtualCollection {
 }
 
 function rom(id: number): SimpleRom {
-  return { id, name: "Chrono Trigger" } as SimpleRom;
+  return romFixture({ id, name: "Chrono Trigger" });
 }
 
 async function mountView() {

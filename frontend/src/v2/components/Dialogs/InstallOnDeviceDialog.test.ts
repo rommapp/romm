@@ -3,8 +3,8 @@ import mitt, { type Emitter } from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import type { DeviceSchema, InstallRequestSchema } from "@/__generated__";
-import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { romFixture } from "@/utils/rom.fixtures";
 import InstallOnDeviceDialog from "./InstallOnDeviceDialog.vue";
 
 const {
@@ -47,7 +47,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({ error: vi.fn() }),
 }));
 
-const ROM = { id: 7, name: "Zelda", fs_name: "zelda.zip" } as SimpleRom;
+const ROM = romFixture({ id: 7, name: "Zelda", fs_name: "zelda.zip" });
 
 function device(id: string, install = true): DeviceSchema {
   return {

@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import GameActionsList from "./GameActionsList.vue";
 
 vi.mock("vue-i18n");
@@ -80,7 +80,7 @@ function mountList(
   joinActionLabel = joinLabel;
   streamActionLabel = streamLabel;
   return mount(GameActionsList, {
-    props: { rom: { id: 1 } as SimpleRom },
+    props: { rom: romFixture({ id: 1 }) },
     global: { stubs: { RMenuItem, RDivider } },
   });
 }

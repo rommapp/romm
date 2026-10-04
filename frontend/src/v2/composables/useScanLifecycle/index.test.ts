@@ -10,6 +10,7 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
+import { romFixture } from "@/utils/rom.fixtures";
 import { installScanLifecycle } from "./index";
 
 // Minimal socket stand-in: records handlers so tests can fire events, and
@@ -81,7 +82,7 @@ function platform(overrides: Partial<Platform> = {}): Platform {
 }
 
 function simpleRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
-  return { id: 1, name: "Game", platform_id: 1, ...overrides } as SimpleRom;
+  return romFixture({ id: 1, name: "Game", platform_id: 1, ...overrides });
 }
 
 function scanningRom(

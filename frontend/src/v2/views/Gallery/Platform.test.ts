@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import PlatformView from "./Platform.vue";
 
@@ -130,7 +131,7 @@ function platform(id: number, name = "Super Nintendo"): Platform {
 }
 
 function rom(id: number): SimpleRom {
-  return { id, name: "Chrono Trigger" } as SimpleRom;
+  return romFixture({ id, name: "Chrono Trigger" });
 }
 
 /** Resolves the promise the next `getRandomRom` call returns, on demand. */

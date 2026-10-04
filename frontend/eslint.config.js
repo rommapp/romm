@@ -29,6 +29,13 @@ const heavyImports = [
   },
 ];
 
+const romCastRule = {
+  selector:
+    "TSAsExpression[typeAnnotation.typeName.name=/^(SimpleRom|DetailedRom|SimpleRomSchema|DetailedRomSchema)$/]",
+  message:
+    "Build ROM fixtures with romFixture or detailedRomFixture from @/utils/rom.fixtures instead of a cast.",
+};
+
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -328,16 +335,12 @@ export default tseslint.config(
       "src/layouts/**",
     ],
     rules: {
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector:
-            "TSAsExpression[expression.type='TSAsExpression'][expression.typeAnnotation.type='TSUnknownKeyword'][typeAnnotation.typeName.name=/^(DetailedRom|SimpleRom)$/]",
-          message:
-            "Build ROM fixtures with makeRom or makeDetailedRom from @/utils/rom.fixtures instead of `as unknown as`.",
-        },
-      ],
+      "no-restricted-syntax": ["error", romCastRule],
     },
+  },
+  {
+    files: ["src/v2/**/*.stories.ts"],
+    rules: { "no-restricted-syntax": ["error", romCastRule] },
   },
   // Keep last: Prettier owns formatting, so this switches off every
   // stylistic rule the two tools would otherwise fight over.

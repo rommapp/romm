@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import {
   altArtPath,
   computeCoverArt,
@@ -23,7 +24,7 @@ function rom(over: Partial<SimpleRom>): SimpleRom {
     ss_metadata: null,
     gamelist_metadata: null,
   };
-  return { ...base, ...over } as SimpleRom;
+  return romFixture({ ...base, ...over });
 }
 
 describe("isBoxartStyle", () => {

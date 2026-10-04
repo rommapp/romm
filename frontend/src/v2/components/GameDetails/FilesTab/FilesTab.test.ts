@@ -1,6 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
+import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
 import FilesTab from "./FilesTab.vue";
 
 const {
@@ -60,20 +61,18 @@ const ROM_PATH = "n64/roms/Game";
 
 function file(id: number, rel: string): RomFileSchema {
   const slash = rel.lastIndexOf("/");
-  return {
+  return romFileFixture({
     id,
-    rom_id: 1,
     file_name: slash < 0 ? rel : rel.slice(slash + 1),
     file_path: slash < 0 ? ROM_PATH : `${ROM_PATH}/${rel.slice(0, slash)}`,
     full_path: `${ROM_PATH}/${rel}`,
     file_size_bytes: 10,
     is_top_level: slash < 0,
-    category: null,
-  } as RomFileSchema;
+  });
 }
 
 function rom(overrides: Partial<DetailedRomSchema> = {}): DetailedRomSchema {
-  return {
+  return detailedRomFixture({
     id: 1,
     platform_id: 7,
     fs_name: "Game",
@@ -83,7 +82,7 @@ function rom(overrides: Partial<DetailedRomSchema> = {}): DetailedRomSchema {
     missing_from_fs: false,
     files: [file(1, "game.n64"), file(2, "hack/patched.n64")],
     ...overrides,
-  } as DetailedRomSchema;
+  });
 }
 
 const UploadFilesDialogStub = {

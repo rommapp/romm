@@ -1,8 +1,9 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DetailedRomSchema, UserStateSchema } from "@/__generated__";
+import type { UserStateSchema } from "@/__generated__";
 import storeAuth from "@/stores/auth";
 import type { User } from "@/stores/users";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 import SaveDataTab from "./SaveDataTab.vue";
 
 vi.mock("vue-i18n");
@@ -37,12 +38,12 @@ function state(id: number, emulator: string): UserStateSchema {
 function mountTab(states: UserStateSchema[]) {
   return mount(SaveDataTab, {
     props: {
-      rom: {
+      rom: detailedRomFixture({
         id: 1,
         platform_slug: "ps2",
         all_user_saves: [],
         all_user_states: states,
-      } as unknown as DetailedRomSchema,
+      }),
     },
     global: {
       stubs: {

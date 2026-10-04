@@ -11,6 +11,7 @@ import storeCollections, { type Collection } from "@/stores/collections";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { useStreamingStore, type JoinableSession } from "@/stores/streaming";
+import { romFixture } from "@/utils/rom.fixtures";
 import { SKELETON_DELAY_MS } from "@/v2/composables/useLoadingPhase";
 import Home from "./Home.vue";
 
@@ -128,7 +129,7 @@ function collection(id: number): Collection {
 }
 
 function rom(id: number): SimpleRom {
-  return { id, name: `Rom ${id}` } as SimpleRom;
+  return romFixture({ id, name: `Rom ${id}` });
 }
 
 /**

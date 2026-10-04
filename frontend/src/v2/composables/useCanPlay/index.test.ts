@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import type { SimpleRom } from "@/stores/roms";
-import { makeRom as baseRom } from "@/utils/rom.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import { useCanPlay } from "./index";
 
 // Each engine's support check is stubbed so a test can enable one route at a
@@ -53,8 +53,8 @@ vi.mock("@/utils", () => ({
   isJsDosBundle: support.jsDosBundle,
 }));
 
-function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
-  return baseRom({
+function playableRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
+  return romFixture({
     name: "Chrono Trigger",
     platform_slug: "snes",
     has_file_on_disk: true,
@@ -87,7 +87,7 @@ describe("useCanPlay", () => {
     (_label, stub, flag, alsoRequires) => {
       support[stub].mockReturnValue(true);
       for (const extra of alsoRequires) support[extra].mockReturnValue(true);
-      const result = useCanPlay(() => makeRom());
+      const result = useCanPlay(() => playableRom());
 
       expect(result[flag].value).toBe(true);
       expect(result.canPlay.value).toBe(true);
@@ -101,7 +101,7 @@ describe("useCanPlay", () => {
     (stub) => {
       support[stub].mockReturnValue(true);
       const { canPlay } = useCanPlay(() =>
-        makeRom({ has_file_on_disk: false }),
+        playableRom({ has_file_on_disk: false }),
       );
 
       expect(canPlay.value).toBe(false);
@@ -144,7 +144,7 @@ describe("useCanPlay", () => {
   // rom playable on its own even where no in-browser engine can touch it.
   it("reports streaming support on its own flag", () => {
     streamContainer.value = {};
-    const { canPlay, canPlayStream } = useCanPlay(() => makeRom());
+    const { canPlay, canPlayStream } = useCanPlay(() => playableRom());
 
     expect(canPlayStream.value).toBe(true);
     expect(canPlay.value).toBe(true);
@@ -155,7 +155,7 @@ describe("useCanPlay", () => {
   it("refuses streaming for a rom with no file on disk", () => {
     streamContainer.value = {};
     const { canPlay, canPlayStream } = useCanPlay(() =>
-      makeRom({ has_file_on_disk: false }),
+      playableRom({ has_file_on_disk: false }),
     );
 
     expect(canPlayStream.value).toBe(false);
@@ -166,7 +166,7 @@ describe("useCanPlay", () => {
   // playable on its own even where nothing on the server can touch it.
   it("reports native support on its own flag", () => {
     nativeSupported.value = true;
-    const { canPlay, canPlayNative } = useCanPlay(() => makeRom());
+    const { canPlay, canPlayNative } = useCanPlay(() => playableRom());
 
     expect(canPlayNative.value).toBe(true);
     expect(canPlay.value).toBe(true);
@@ -177,7 +177,7 @@ describe("useCanPlay", () => {
   it("refuses native play for a rom with no file on disk", () => {
     nativeSupported.value = true;
     const { canPlay, canPlayNative } = useCanPlay(() =>
-      makeRom({ has_file_on_disk: false }),
+      playableRom({ has_file_on_disk: false }),
     );
 
     expect(canPlayNative.value).toBe(false);
@@ -189,7 +189,7 @@ describe("useCanPlay", () => {
   it("refuses js-dos for a rom that is not a bundle", () => {
     support.jsDos.mockReturnValue(true);
     support.jsDosBundle.mockReturnValue(false);
-    const { canPlay, canPlayJsDos } = useCanPlay(() => makeRom());
+    const { canPlay, canPlayJsDos } = useCanPlay(() => playableRom());
 
     expect(canPlayJsDos.value).toBe(false);
     expect(canPlay.value).toBe(false);
@@ -198,7 +198,7 @@ describe("useCanPlay", () => {
   it("refuses PICO-8 for a rom with another extension", () => {
     support.pico8.mockReturnValue(true);
     support.pico8Rom.mockReturnValue(false);
-    const { canPlay, canPlayPico8 } = useCanPlay(() => makeRom());
+    const { canPlay, canPlayPico8 } = useCanPlay(() => playableRom());
 
     expect(canPlayPico8.value).toBe(false);
     expect(canPlay.value).toBe(false);
@@ -208,26 +208,26 @@ describe("useCanPlay", () => {
   it("refuses EasyRPG for a rom that is not an extracted game folder", () => {
     support.easyRpg.mockReturnValue(true);
     support.easyRpgGame.mockReturnValue(false);
-    const { canPlay, canPlayEasyRpg } = useCanPlay(() => makeRom());
+    const { canPlay, canPlayEasyRpg } = useCanPlay(() => playableRom());
 
     expect(canPlayEasyRpg.value).toBe(false);
     expect(canPlay.value).toBe(false);
   });
 
   it("stays unplayable when no engine supports the platform", () => {
-    const { canPlay } = useCanPlay(() => makeRom());
+    const { canPlay } = useCanPlay(() => playableRom());
 
     expect(canPlay.value).toBe(false);
   });
 
   it("re-evaluates when the rom behind the getter changes", () => {
     support.jsDos.mockReturnValue(true);
-    const rom = ref(makeRom({ has_file_on_disk: false }));
+    const rom = ref(playableRom({ has_file_on_disk: false }));
     const { canPlay } = useCanPlay(() => rom.value);
 
     expect(canPlay.value).toBe(false);
 
-    rom.value = makeRom();
+    rom.value = playableRom();
     expect(canPlay.value).toBe(true);
   });
 });

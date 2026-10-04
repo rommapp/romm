@@ -2,13 +2,14 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { createMemoryHistory, createRouter, type Router } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import GameCard from "./GameCard.vue";
 
 vi.mock("vue-i18n");
 
 function rom(id: number): SimpleRom {
-  return { id, name: `Game ${id}`, platform_slug: "snes" } as SimpleRom;
+  return romFixture({ id, name: `Game ${id}`, platform_slug: "snes" });
 }
 
 function makeRouter(): Router {

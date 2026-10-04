@@ -6,9 +6,9 @@ import { useUiVersion } from "@/composables/useUiVersion";
 import i18n, { localesReady } from "@/locales";
 import router, { applyRouteTitle, ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import storeRoms from "@/stores/roms";
 import type { User } from "@/stores/users";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 
 const { getRom, stubView } = vi.hoisted(() => ({
   getRom: vi.fn(),
@@ -25,10 +25,6 @@ vi.mock("@/layouts/Main.vue", stubView);
 vi.mock("@/views/GameDetails.vue", stubView);
 vi.mock("@/v2/layouts/AppLayout.vue", stubView);
 vi.mock("@/v2/views/GameDetails.vue", stubView);
-
-function makeRom(overrides: Partial<DetailedRom> = {}): DetailedRom {
-  return makeDetailedRom({ name: "Chrono Trigger", ...overrides });
-}
 
 describe("route titles", () => {
   beforeAll(async () => {
@@ -102,9 +98,11 @@ describe("the rom route", () => {
   it("re-reads a rom the store already holds", async () => {
     const roms = storeRoms();
     storeAuth().setCurrentUser({ id: 1 } as User);
-    roms.setCurrentRom(makeRom({ id: 9, name: "before the session" }));
+    roms.setCurrentRom(
+      detailedRomFixture({ id: 9, name: "before the session" }),
+    );
     getRom.mockResolvedValue({
-      data: makeRom({ id: 9, name: "after the session" }),
+      data: detailedRomFixture({ id: 9, name: "after the session" }),
     });
 
     await router.push({ name: ROUTES.ROM, params: { rom: 9 } });
