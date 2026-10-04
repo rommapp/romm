@@ -233,6 +233,8 @@ def _image(fmt: str) -> bytes:
 PNG = _image("PNG")
 JPEG = _image("JPEG")
 GIF = _image("GIF")
+MIME = {PNG: "image/png", JPEG: "image/jpeg", GIF: "image/gif"}
+MP4_FORMAT = {PNG: MP4Cover.FORMAT_PNG, JPEG: MP4Cover.FORMAT_JPEG}
 
 
 def _copy(tmp_path: Path, ext: str) -> Path:
@@ -244,6 +246,7 @@ def _copy(tmp_path: Path, ext: str) -> Path:
 def _flac_picture(data: bytes) -> Picture:
     picture = Picture()
     picture.type = 3
+    picture.mime = MIME[data]
     picture.data = data
     return picture
 
@@ -264,7 +267,7 @@ def _tag(path: Path, cover: bytes | None = None) -> Path:
         ]:
             id3.add(frame(encoding=3, text=TAGS[key]))
         if cover:
-            id3.add(APIC(encoding=3, mime="image/png", type=3, data=cover))
+            id3.add(APIC(encoding=3, mime=MIME[cover], type=3, data=cover))
         id3.save(path)
     elif ext == "m4a":
         mp4 = MP4(path)
@@ -276,10 +279,14 @@ def _tag(path: Path, cover: bytes | None = None) -> Path:
         mp4["trkn"] = [(3, 12)]
         mp4["disk"] = [(1, 2)]
         if cover:
-            mp4["covr"] = [MP4Cover(cover)]
+            # MP4 has no GIF format, so a GIF is labelled JPEG, as taggers do.
+            mp4["covr"] = [
+                MP4Cover(cover, imageformat=MP4_FORMAT.get(cover, MP4Cover.FORMAT_JPEG))
+            ]
         mp4.save()
     else:
         audio = FLAC(path) if ext == "flac" else mutagen.File(path)
+        assert audio is not None
         for key, tag in [
             ("title", "title"),
             ("artist", "artist"),
@@ -381,6 +388,7 @@ class TestExtractEmbeddedCover:
     def test_an_undecodable_ogg_picture_is_skipped(self, tmp_path: Path, ext: str):
         path = _copy(tmp_path, ext)
         audio = mutagen.File(path)
+        assert audio is not None
         audio["metadata_block_picture"] = ["not a picture block"]
         audio.save()
 
