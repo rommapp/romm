@@ -148,7 +148,7 @@ e2e/
 ```
 
 - **Environment:** every `E2E_*` variable comes from the shell, then `e2e/.env`, then a default that matches the seed script. CI sets them in `.github/workflows/e2e.yml`.
-- **Server:** with `E2E_BASE_URL` unset, the config runs `npm run dev`. Otherwise it tests that URL as served; CI serves the static build with `vite preview` and points the suite at it.
+- **Server:** with `E2E_BASE_URL` unset, the config's `webServer` starts one: `npm run dev` locally (reusing one already running), the static build under `vite preview` in CI. Otherwise it tests that URL as served.
 - **Preflight:** `setup/global-setup.ts` runs first and checks, in about a second, that the backend answers, both accounts sign in and can read ROMs, and the library has a game. One error lists every problem.
 - **Sign-in:** `setup/auth.setup.ts` signs each account in once and saves the session. `login.spec.ts` is the only spec that drives the login form.
 - **Timeouts:** 10s per test locally, so failures are fast; CI keeps longer ones. They switch off while debugging.

@@ -17,8 +17,8 @@ export interface E2EEnv {
   E2E_VIEWER_PASSWORD: string;
   E2E_BASE_URL: string;
   E2E_WORKERS: number | undefined;
-  /** E2E_BASE_URL was not set, so the config serves the app with `npm run dev`. */
-  startDevServer: boolean;
+  /** E2E_BASE_URL was not set, so the config's webServer serves the app. */
+  startServer: boolean;
 }
 
 // The accounts .github/scripts/seed_e2e_users.py creates, and `npm run dev`.
@@ -27,7 +27,7 @@ const DEFAULTS = {
   E2E_ADMIN_PASSWORD: "e2e-Passw0rd!",
   E2E_VIEWER_USERNAME: "e2e_viewer",
   E2E_VIEWER_PASSWORD: "e2e-Passw0rd!",
-  E2E_BASE_URL: "http://localhost:3000",
+  E2E_BASE_URL: "http://127.0.0.1:3000",
 };
 
 /** Thrown once, listing every problem. Names variables, never their values. */
@@ -97,6 +97,6 @@ export function readE2EEnv(): E2EEnv {
       raw("E2E_VIEWER_PASSWORD") ?? DEFAULTS.E2E_VIEWER_PASSWORD,
     E2E_BASE_URL: baseUrl,
     E2E_WORKERS: workers,
-    startDevServer: baseUrlRaw === undefined,
+    startServer: baseUrlRaw === undefined,
   });
 }

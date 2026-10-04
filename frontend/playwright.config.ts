@@ -5,7 +5,7 @@ import { suiteOutput } from "./e2e/support/output";
 import type { E2EOptions } from "./e2e/support/test";
 
 // End-to-end suite: `npm run test:e2e`. Without E2E_BASE_URL it serves the app
-// with `npm run dev` (or reuses the one running); see e2e/.env.example.
+// itself; see e2e/.env.example.
 const env = readE2EEnv();
 const output = suiteOutput("specs");
 
@@ -66,12 +66,19 @@ export default defineConfig<E2EOptions>({
       dependencies: ["setup"],
     },
   ],
-  ...(env.startDevServer && {
+  // CI serves the static build: the dev server force-reloads the page when it
+  // discovers a dependency to pre-bundle, wiping a test mid-way. Locally the
+  // dev server picks up code changes, and one already running is reused.
+  ...(env.startServer && {
     webServer: {
-      command: "npm run dev",
+      command: isCI
+        ? "npm run build:preview && npm run preview -- --port 3000 --strictPort --host 127.0.0.1"
+        : "npm run dev",
       url: env.E2E_BASE_URL,
-      reuseExistingServer: true,
-      timeout: 120_000,
+      reuseExistingServer: !isCI,
+      timeout: 180_000,
+      stdout: "pipe",
+      stderr: "pipe",
     },
   }),
 });
