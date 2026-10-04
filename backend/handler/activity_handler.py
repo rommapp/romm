@@ -51,7 +51,10 @@ class ActivityHandler:
     ROM_INDEX_TTL = 120  # slightly longer than ACTIVITY_TTL
     KEY_PREFIX = "activity:user:"
     ROM_INDEX_PREFIX = "activity:rom:"
-    REFRESH_DELAY = 5.0  # seconds; failed lookups within it share one refresh
+    REFRESH_DELAY = 5  # seconds; failed lookups within it share one refresh
+    # Held by the worker that will send the pending refresh. It outlives the
+    # delay so a worker that dies before sending frees it.
+    REFRESH_KEY = "activity:refresh:pending"
 
     _refresh: asyncio.Task[None] | None = None
 
@@ -168,7 +171,7 @@ class ActivityHandler:
         if rooms is None:
             # An unknown audience can't be sent the session; every client
             # re-lists what it may see instead.
-            self._queue_refresh()
+            await self._queue_refresh()
             return
         if not rooms:
             return
@@ -177,16 +180,41 @@ class ActivityHandler:
         except Exception as e:  # noqa: BLE001
             log.warning(f"Failed to broadcast {event}: {e}")
 
-    def _queue_refresh(self) -> None:
+    async def _queue_refresh(self) -> None:
         """Ask every socket to re-list, once for however many lookups fail meanwhile."""
         loop = asyncio.get_running_loop()
         pending = self._refresh
         if pending is not None and not pending.done() and pending.get_loop() is loop:
             return
-        self._refresh = loop.create_task(self._send_refresh())
+        # Each worker's broadcast reaches every socket, so workers share one claim.
+        try:
+            claimed = await async_cache.set(
+                self.REFRESH_KEY, "1", nx=True, ex=2 * self.REFRESH_DELAY
+            )
+        except Exception as e:  # noqa: BLE001
+            log.warning(f"Failed to claim activity:refresh: {e}")
+            claimed = True
+        if claimed:
+            self._refresh = loop.create_task(self._send_refresh())
 
     async def _send_refresh(self) -> None:
         await asyncio.sleep(self.REFRESH_DELAY)
+        await self._broadcast_refresh()
+
+    async def flush_refresh(self) -> None:
+        """Send a pending refresh now, so it isn't lost when the worker stops."""
+        pending = self._refresh
+        if pending is None or pending.done():
+            return
+        pending.cancel()
+        await self._broadcast_refresh()
+
+    async def _broadcast_refresh(self) -> None:
+        # Released first, so a lookup that fails from here on queues another.
+        try:
+            await async_cache.delete(self.REFRESH_KEY)
+        except Exception as e:  # noqa: BLE001
+            log.warning(f"Failed to release activity:refresh: {e}")
         try:
             await socket_handler.socket_server.emit("activity:refresh", {})
         except Exception as e:  # noqa: BLE001

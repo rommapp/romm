@@ -62,6 +62,7 @@ from endpoints.streaming import router as streaming_router
 from endpoints.sync import router as sync_router
 from endpoints.tasks import router as tasks_router
 from endpoints.user import router as user_router
+from handler.activity_handler import activity_handler
 from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
@@ -101,6 +102,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         try:
             yield
         finally:
+            await activity_handler.flush_refresh()
             if log_forwarder_task is not None:
                 log_forwarder_task.cancel()
                 # Await the cancellation so the forwarder's cleanup (pubsub

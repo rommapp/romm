@@ -159,6 +159,45 @@ describe("activity store socket events", () => {
     expect(store.initialized).toBe(true);
   });
 
+  it("makes a list asked for while the running request fails", async () => {
+    const store = storeActivity();
+    get
+      .mockImplementationOnce(async () => {
+        store.fetchAll();
+        throw new Error("blip");
+      })
+      .mockResolvedValueOnce({ data: [entry({ rom_id: 12 })] });
+
+    await store.fetchAll();
+
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(store.activities.map((a) => a.rom_id)).toEqual([12]);
+    expect(store.initialized).toBe(true);
+  });
+
+  it("makes a list asked for after the event retries run out", async () => {
+    const store = storeActivity();
+    get
+      .mockImplementationOnce(async () => {
+        handlers.get("activity:update")!(entry());
+        return { data: [] };
+      })
+      .mockImplementationOnce(async () => {
+        handlers.get("activity:update")!(entry());
+        return { data: [] };
+      })
+      .mockImplementationOnce(async () => {
+        store.fetchAll();
+        return { data: [entry({ rom_id: 11 })] };
+      })
+      .mockResolvedValueOnce({ data: [entry({ rom_id: 12 })] });
+
+    await store.fetchAll();
+
+    expect(get).toHaveBeenCalledTimes(4);
+    expect(store.activities.map((a) => a.rom_id)).toEqual([12]);
+  });
+
   it("asks once when a plain request fails", async () => {
     const store = storeActivity();
     vi.spyOn(console, "error").mockImplementation(() => {});

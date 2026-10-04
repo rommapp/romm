@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from handler.activity_handler import ActivityEntry, activity_handler
+from handler.activity_handler import ActivityEntry, ActivityHandler, activity_handler
 from handler.database import db_rom_handler, db_user_handler
 from handler.database.base_handler import sync_session
 from handler.redis_handler import async_cache, sync_cache
@@ -392,7 +392,7 @@ class TestAudience:
         assert [c.args[0] for c in emit.await_args_list] == ["activity:update"]
 
     @pytest.fixture
-    def held_refresh(self, monkeypatch: pytest.MonkeyPatch) -> asyncio.Event:
+    def held_refresh(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[asyncio.Event]:
         """Holds the refresh delay open until the test sets the returned event."""
         release = asyncio.Event()
 
@@ -402,7 +402,8 @@ class TestAudience:
         monkeypatch.setattr(
             "handler.activity_handler.asyncio", MagicMock(wraps=asyncio, sleep=wait)
         )
-        return release
+        yield release
+        sync_cache.delete(ActivityHandler.REFRESH_KEY)
 
     @staticmethod
     async def _refresh_sent(release: asyncio.Event) -> None:
@@ -447,6 +448,38 @@ class TestAudience:
             await self._refresh_sent(held_refresh)
 
         assert [c.args[0] for c in emit.await_args_list] == ["activity:refresh"] * 2
+
+    async def test_workers_share_one_refresh(
+        self, entry: ActivityEntry, held_refresh: asyncio.Event
+    ):
+        other_worker = ActivityHandler()
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits() as emit,
+        ):
+            await activity_handler.publish_active(entry)
+            await other_worker.publish_active(entry)
+            assert other_worker._refresh is None
+            await self._refresh_sent(held_refresh)
+
+        assert [c.args[0] for c in emit.await_args_list] == ["activity:refresh"]
+
+    async def test_a_stopping_worker_sends_its_pending_refresh(
+        self, entry: ActivityEntry, held_refresh: asyncio.Event
+    ):
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits() as emit,
+        ):
+            await activity_handler.publish_active(entry)
+            await activity_handler.flush_refresh()
+
+        assert [c.args[0] for c in emit.await_args_list] == ["activity:refresh"]
+        assert await async_cache.get(ActivityHandler.REFRESH_KEY) is None
 
     async def test_a_failed_lookup_of_the_last_game_asks_everyone_to_refresh(
         self,
