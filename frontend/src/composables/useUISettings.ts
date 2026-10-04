@@ -99,6 +99,9 @@ export const UI_SETTINGS_KEYS = {
     default: "cover_path",
   },
 
+  // Jukebox
+  resumeMusic: { key: "settings.resumeMusic", default: false },
+
   // Gameplay
   confirmProtectedLaunch: {
     key: "settings.confirmProtectedLaunch",

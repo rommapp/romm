@@ -375,6 +375,8 @@
   "removed": "Usunięto",
   "repeat-password": "Powtórz hasło",
   "repeat-password-required": "Wymagane jest powtórzenie hasła",
+  "resume-music": "Wznów muzykę po przeładowaniu",
+  "resume-music-desc": "Wznawia ostatni utwór od miejsca, w którym się zatrzymał. Jeśli był odtwarzany, ruszy ponownie po pierwszym kliknięciu lub naciśnięciu klawisza.",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "Unieważnić token \"{name}\" dla {username}?",
   "role": "Rola",

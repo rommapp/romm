@@ -375,6 +375,8 @@
   "removed": "Entfernt",
   "repeat-password": "Passwort wiederholen",
   "repeat-password-required": "Passwortwiederholung erforderlich",
+  "resume-music": "Musik nach dem Neuladen fortsetzen",
+  "resume-music-desc": "Setzt den letzten Titel dort fort, wo er aufgehört hat. Lief er gerade, startet er beim ersten Klick oder Tastendruck wieder.",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "Token \"{name}\" für {username} widerrufen?",
   "role": "Rolle",

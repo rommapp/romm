@@ -375,6 +375,8 @@
   "removed": "Удалено",
   "repeat-password": "Повторите пароль",
   "repeat-password-required": "Требуется повторить пароль",
+  "resume-music": "Продолжать музыку после перезагрузки",
+  "resume-music-desc": "Продолжает последний трек с того места, где он остановился. Если он играл, воспроизведение начнётся снова при первом щелчке или нажатии клавиши.",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "Отозвать токен \"{name}\" у {username}?",
   "role": "Роль",

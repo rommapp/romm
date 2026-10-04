@@ -375,6 +375,8 @@
   "removed": "Eltávolítva",
   "repeat-password": "Jelszó ismétlése",
   "repeat-password-required": "A jelszó ismétlése kötelező",
+  "resume-music": "Zene folytatása újratöltés után",
+  "resume-music-desc": "Az utolsó számot ott folytatja, ahol abbamaradt. Ha szólt, az első kattintásra vagy billentyűleütésre újraindul.",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "Visszavonod a(z) „{name}” tokent {username} felhasználótól?",
   "role": "Szerepkör",

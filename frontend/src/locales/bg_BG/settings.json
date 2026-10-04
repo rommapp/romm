@@ -375,6 +375,8 @@
   "removed": "Премахнато",
   "repeat-password": "Повтори паролата",
   "repeat-password-required": "Повторението на паролата е задължително",
+  "resume-music": "Продължаване на музиката след презареждане",
+  "resume-music-desc": "Продължава последната песен оттам, където е спряла. Ако е свирела, започва отново при първото ви щракване или натискане на клавиш.",
   "retroachievements": "RetroAchievements",
   "revoke-token-confirm": "Отмяна на токена \"{name}\" за {username}?",
   "role": "Роля",
