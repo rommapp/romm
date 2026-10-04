@@ -316,13 +316,21 @@ class AuthHandler:
                 that would leave no admin.
         """
         from handler.database import db_user_handler
+        from handler.database.base_handler import sync_session
 
-        if revoke_sessions_for:
-            # Ahead of the write: an unreachable Redis then aborts the change
-            # rather than committing it with the account's sessions left live.
-            await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
+        with sync_session.begin() as session:
+            # First, so a refused update hasn't already logged the account out.
+            if keep_an_admin:
+                db_user_handler.refuse_removing_the_last_admin(
+                    user_id, data, session=session
+                )
 
-        db_user_handler.update_user(user_id, data, keep_an_admin=keep_an_admin)
+            if revoke_sessions_for:
+                # Ahead of the write: an unreachable Redis then aborts the change
+                # rather than committing it with the account's sessions left live.
+                await RedisSessionMiddleware.clear_user_sessions(revoke_sessions_for)
+
+            db_user_handler.update_user(user_id, data, session=session)
 
         if revoke_sessions_for:
             # After it, for a login the old password was still good for. The

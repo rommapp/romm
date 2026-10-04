@@ -84,8 +84,17 @@ class DBUsersHandler(DBBaseHandler):
     ) -> User | None:
         return session.get(User, id)
 
-    def _refuse_removing_the_last_admin(self, id: int, session: Session) -> None:
-        """Raise LastAdminError if `id` is the only admin, locking the admin rows until the transaction ends."""
+    @begin_session
+    def refuse_removing_the_last_admin(
+        self,
+        id: int,
+        data: dict[str, Any] | None = None,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Raise LastAdminError if writing `data` to `id`, or deleting it when None, would leave no admin, locking the admin rows until the transaction ends."""
+        if data is not None and data.get("role", Role.ADMIN) == Role.ADMIN:
+            return
         admin_ids = session.scalars(
             select(User.id)
             .where(User.role == Role.ADMIN)
@@ -104,8 +113,8 @@ class DBUsersHandler(DBBaseHandler):
         keep_an_admin: bool = False,
         session: Session = INJECTED_SESSION,
     ) -> User:
-        if keep_an_admin and data.get("role", Role.ADMIN) != Role.ADMIN:
-            self._refuse_removing_the_last_admin(id, session)
+        if keep_an_admin:
+            self.refuse_removing_the_last_admin(id, data, session=session)
         session.execute(
             update(User)
             .where(User.id == id)
@@ -147,7 +156,7 @@ class DBUsersHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> Result[*tuple[Any, ...]]:
         if keep_an_admin:
-            self._refuse_removing_the_last_admin(id, session)
+            self.refuse_removing_the_last_admin(id, session=session)
         return session.execute(
             delete(User)
             .where(User.id == id)

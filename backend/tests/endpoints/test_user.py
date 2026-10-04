@@ -4,6 +4,7 @@ from fastapi import status
 
 from exceptions.database_exceptions import LastAdminError
 from handler.auth.base_handler import oauth_handler
+from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_permission_handler, db_user_handler
 from models.permission import PermAction, PermEntity
 from models.user import Role, User
@@ -198,7 +199,7 @@ def test_a_demotion_that_would_leave_no_admin_is_refused(
     # Only reachable when another request demotes this admin at the same time.
     mocker.patch.object(
         db_user_handler,
-        "_refuse_removing_the_last_admin",
+        "refuse_removing_the_last_admin",
         side_effect=LastAdminError(other.id),
     )
 
@@ -210,3 +211,30 @@ def test_a_demotion_that_would_leave_no_admin_is_refused(
     assert response.json()["detail"] == "You cannot demote the last admin user"
     unchanged = db_user_handler.get_user(other.id)
     assert unchanged and unchanged.role == Role.ADMIN
+
+
+def test_a_refused_demotion_does_not_log_the_admin_out(
+    client, access_token: str, admin_user: User, mocker
+):
+    other = db_user_handler.add_user(
+        User(username="other_admin", hashed_password="x", role=Role.ADMIN)
+    )
+    mocker.patch.object(
+        db_user_handler,
+        "refuse_removing_the_last_admin",
+        side_effect=LastAdminError(other.id),
+    )
+    clear_sessions = mocker.patch.object(
+        RedisSessionMiddleware, "clear_user_sessions", mocker.AsyncMock()
+    )
+
+    response = client.put(
+        f"/api/users/{other.id}",
+        data={"role": "user", "password": "a_new_password"},
+        headers=_bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    clear_sessions.assert_not_awaited()
+    unchanged = db_user_handler.get_user(other.id)
+    assert unchanged and unchanged.hashed_password == "x"
