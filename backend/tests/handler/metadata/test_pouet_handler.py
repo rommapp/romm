@@ -226,8 +226,10 @@ class TestRequest:
             httpx2.Response(500),
             httpx2.ConnectError("refused"),
             httpx2.ReadTimeout("slow"),
+            httpx2.ConnectTimeout("slow"),
+            httpx2.RemoteProtocolError("dropped"),
         ],
-        ids=["server_error", "unreachable", "timed_out"],
+        ids=["server_error", "unreachable", "timed_out", "connect_timeout", "dropped"],
     )
     async def test_a_failed_request_is_unavailable(
         self, pouet: tuple[PouetHandler, PouetStub], reply: httpx2.Response | Exception

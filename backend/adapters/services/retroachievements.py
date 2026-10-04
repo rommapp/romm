@@ -1,5 +1,3 @@
-import asyncio
-import http
 import json
 from collections.abc import AsyncIterator
 from typing import Any, Final, get_origin
@@ -9,6 +7,7 @@ import yarl
 from aiohttp.client import ClientTimeout
 from fastapi import HTTPException, status
 
+from adapters.services.provider_http import send_with_retries
 from adapters.services.response_validation import parse_response
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
@@ -48,14 +47,6 @@ def _failed(reason: object) -> HTTPException:
     )
 
 
-def _unreachable() -> HTTPException:
-    log.critical("Connection error: can't connect to RetroAchievements", exc_info=True)
-    return HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Can't connect to RetroAchievements, check your internet connection",
-    )
-
-
 def _parse[T](tp: type[T], body: bytes, *, source: str) -> T | None:
     # RA answers an unknown id with 200 and an empty list.
     if body.strip() == b"[]" and get_origin(tp) is not list:
@@ -85,35 +76,8 @@ class RetroAchievementsService:
         """
         source = f"RetroAchievements {yarl.URL(url).name}"
         aiohttp_session = ctx_aiohttp_session.get()
-        log.debug(
-            "API request: URL=%s, Timeout=%s",
-            url,
-            request_timeout,
-        )
-        try:
-            await _rate_limiter.acquire()
-            res = await aiohttp_session.get(
-                url,
-                headers={"user-agent": f"RomM/{get_version()}"},
-                middlewares=(auth_middleware,),
-                timeout=ClientTimeout(total=request_timeout),
-            )
-            res.raise_for_status()
-            return _parse(tp, await res.read(), source=source)
-        except TimeoutError:
-            log.debug("Request to URL=%s timed out. Retrying...", url)
-        except aiohttp.ClientConnectionError as exc:
-            raise _unreachable() from exc
-        except aiohttp.ClientResponseError as err:
-            if err.status == http.HTTPStatus.TOO_MANY_REQUESTS:
-                # Retry after 2 seconds if rate limit hit
-                await asyncio.sleep(2)
-            else:
-                raise _failed(err) from err
-        except json.JSONDecodeError as exc:
-            raise _failed(exc) from exc
 
-        try:
+        async def send() -> T | None:
             log.debug(
                 "API request: URL=%s, Timeout=%s",
                 url,
@@ -128,12 +92,15 @@ class RetroAchievementsService:
             )
             res.raise_for_status()
             return _parse(tp, await res.read(), source=source)
-        except (aiohttp.ClientResponseError, TimeoutError) as err:
+
+        try:
+            return await send_with_retries(send, provider="RetroAchievements", url=url)
+        except (
+            aiohttp.ClientResponseError,
+            TimeoutError,
+            json.JSONDecodeError,
+        ) as err:
             raise _failed(err) from err
-        except aiohttp.ClientConnectionError as exc:
-            raise _unreachable() from exc
-        except json.JSONDecodeError as exc:
-            raise _failed(exc) from exc
 
     async def get_achievement_of_the_week(self) -> dict[str, Any] | None:
         """Retrieve the achievement of the week.

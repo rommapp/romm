@@ -8,9 +8,10 @@ import httpx2
 import yarl
 from fastapi import status
 
+from adapters.services.provider_http import unavailable
 from adapters.services.response_validation import parse_response
 from config import PLAYMATCH_API_ENABLED, PLAYMATCH_API_URL
-from handler.metadata.base_handler import MetadataHandler, unavailable
+from handler.metadata.base_handler import HTTPX_REQUEST_ERRORS, MetadataHandler
 from logger.logger import log
 from models.rom import Rom, RomFile
 from utils import get_version
@@ -173,11 +174,7 @@ class PlaymatchHandler(MetadataHandler):
                     parse_response(dict[str, Any], res.content, source="Playmatch")
                     or {}
                 )
-            except (
-                httpx2.HTTPStatusError,
-                httpx2.ConnectError,
-                httpx2.ReadTimeout,
-            ) as exc:
+            except HTTPX_REQUEST_ERRORS as exc:
                 if (
                     attempt == 0
                     and isinstance(exc, httpx2.HTTPStatusError)

@@ -7,6 +7,7 @@ import pydash
 import yarl
 from fastapi import status
 
+from adapters.services.provider_http import unavailable
 from adapters.services.response_validation import parse_response
 from config import DEV_MODE, HASHEOUS_API_ENABLED, HASHEOUS_API_URL
 from handler.filesystem.base_handler import (
@@ -21,7 +22,7 @@ from utils.context import ctx_httpx_client
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import BaseRom, MetadataHandler, unavailable
+from .base_handler import BaseRom, MetadataHandler
 from .igdb_handler import (
     IGDB_AGE_RATINGS,
     IGDBMetadata,

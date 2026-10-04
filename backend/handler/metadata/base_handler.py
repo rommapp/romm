@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Mapping, NotRequired, TypedDict, cast
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from fastapi import HTTPException, status
+import httpx2
 from strsimpy.jaro_winkler import JaroWinkler
 
+from adapters.services.provider_http import unavailable
 from handler.dump_cache import hget_json
 from handler.redis_handler import async_cache
 from logger.formatter import SENSITIVE_KEYS
@@ -21,6 +22,7 @@ from tasks.scheduled.update_switch_titledb import (
     SWITCH_TITLEDB_INDEX_KEY,
     SWITCH_TITLEDB_STORE,
 )
+from utils import get_version
 from utils.cache import is_cache_store_ready
 from utils.context import ctx_httpx_client
 from utils.switch import derive_base_title_id
@@ -31,6 +33,9 @@ if TYPE_CHECKING:
 jarowinkler = JaroWinkler()
 
 METADATA_FIXTURES_DIR: Final = Path(__file__).parent / "fixtures"
+
+# An error status, or a request that never got an answer.
+HTTPX_REQUEST_ERRORS: Final = (httpx2.HTTPStatusError, httpx2.TransportError)
 
 # Providers are third parties; a response is read only this far before it is dropped.
 MAX_RESPONSE_BYTES: Final[int] = 1_000_000
@@ -62,14 +67,6 @@ LEADING_ARTICLE_PATTERN = re.compile(r"^(a|an|the)\b", re.IGNORECASE)
 COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b(?=\s*[^\w\s]|$)", re.IGNORECASE)
 NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
 MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
-
-
-def unavailable(provider: str) -> HTTPException:
-    """The error a provider raises when it can't be reached."""
-    return HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail=f"Can't connect to {provider}, check your internet connection",
-    )
 
 
 class BaseRom(TypedDict):
@@ -201,6 +198,43 @@ class MetadataHandler(abc.ABC):
                     )
                     return None
         return bytes(body)
+
+    async def _get_capped(
+        self, url: str, *, provider: str, accept: str, missing_ok: bool = False
+    ) -> bytes | None:
+        """Fetch a provider URL under the size cap, raising a 503 when it fails.
+
+        Args:
+            missing_ok: Read a 404 as no answer rather than as the provider failing.
+        """
+        headers = {"User-Agent": f"RomM/{get_version()}", "Accept": accept}
+        try:
+            return await self._fetch_capped(url, headers=headers)
+        except HTTPX_REQUEST_ERRORS as exc:
+            if (
+                missing_ok
+                and isinstance(exc, httpx2.HTTPStatusError)
+                and exc.response.status_code == httpx2.codes.NOT_FOUND
+            ):
+                return None
+            log.warning("Can't connect to %s", provider, extra={"exception": str(exc)})
+            raise unavailable(provider) from exc
+
+    async def _get_capped_json(
+        self, url: str, *, provider: str, missing_ok: bool = False
+    ) -> dict[str, Any]:
+        """Fetch a provider's JSON object, or an empty one when the reply isn't one."""
+        body = await self._get_capped(
+            url, provider=provider, accept="application/json", missing_ok=missing_ok
+        )
+        if body is None:
+            return {}
+        try:
+            data = json.loads(body)
+        except ValueError as exc:
+            log.error("Error decoding JSON from %s: %s", provider, exc)
+            return {}
+        return data if isinstance(data, dict) else {}
 
     def normalize_cover_url(self, url: str) -> str:
         return url if not url else f"https:{url.replace('https:', '')}"

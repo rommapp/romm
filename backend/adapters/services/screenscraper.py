@@ -16,6 +16,7 @@ import yarl
 from aiohttp.client import ClientTimeout
 from fastapi import HTTPException, status
 
+from adapters.services.provider_http import send_with_retries
 from adapters.services.response_validation import parse_response
 from adapters.services.screenscraper_types import (
     SSGame,
@@ -673,14 +674,6 @@ async def auth_middleware(
     return await handler(req)
 
 
-def _unreachable() -> HTTPException:
-    log.critical("Connection error: can't connect to ScreenScraper", exc_info=True)
-    return HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Can't connect to ScreenScraper, check your internet connection",
-    )
-
-
 class ScreenScraperService:
     """Service to interact with the ScreenScraper API.
 
@@ -805,31 +798,17 @@ class ScreenScraperService:
             )
 
         generation = _state.quota_generation
-        try:
-            return await self._attempt_request(url, tp, request_timeout)
-        except TimeoutError:
-            log.debug("Request to URL=%s timed out. Retrying...", url)
-        except aiohttp.ClientConnectionError as exc:
-            raise _unreachable() from exc
-        except aiohttp.ClientResponseError as err:
-            if err.status != http.HTTPStatus.TOO_MANY_REQUESTS:
-                _handle_client_error(url, err, generation)
-                return None
 
-            log.warning("ScreenScraper: rate limit hit, retrying after 2s")
-            await asyncio.sleep(2)
-        except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
-            return None
-
-        generation = _state.quota_generation
-        try:
+        async def send() -> T | None:
+            nonlocal generation
+            generation = _state.quota_generation
             return await self._attempt_request(url, tp, request_timeout)
+
+        try:
+            return await send_with_retries(send, provider="ScreenScraper", url=url)
         except TimeoutError as err:
             log.error("Request to URL=%s timed out again: %s", url, err)
             return None
-        except aiohttp.ClientConnectionError as exc:
-            raise _unreachable() from exc
         except aiohttp.ClientResponseError as err:
             if err.status == http.HTTPStatus.TOO_MANY_REQUESTS:
                 # The pacing is behind the account's  per-minute budget.
