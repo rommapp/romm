@@ -9,8 +9,16 @@ vi.mock("vue-i18n");
 const RComboboxField = {
   props: { label: { type: String, default: "" } },
   emits: ["update:modelValue"],
-  template: `<div class="combobox" :data-label="label" />`,
+  template: `<div />`,
 };
+
+function titlesField(wrapper: ReturnType<typeof mountDetails>) {
+  const field = wrapper
+    .findAllComponents(RComboboxField)
+    .find((c) => c.props("label") === "rom.alternative-titles");
+  if (!field) throw new Error("Alternative titles field not rendered");
+  return field;
+}
 
 function mountDetails(rom: UpdateRom) {
   return mount(AdditionalDetails, {
@@ -26,9 +34,7 @@ describe("AdditionalDetails alternative titles", () => {
     const rom = makeRom({ manual_metadata: { genres: ["Racing"] } });
     const wrapper = mountDetails(rom);
 
-    await wrapper
-      .getComponent("[data-label='rom.alternative-titles']")
-      .vm.$emit("update:modelValue", ["ACNH"]);
+    await titlesField(wrapper).vm.$emit("update:modelValue", ["ACNH"]);
 
     expect(wrapper.emitted("update:rom")?.[0]?.[0]).toMatchObject({
       manual_metadata: { genres: ["Racing"], alternative_names: ["ACNH"] },
@@ -39,9 +45,7 @@ describe("AdditionalDetails alternative titles", () => {
     const rom = makeRom({ manual_metadata: { alternative_names: ["ACNH"] } });
     const wrapper = mountDetails(rom);
 
-    await wrapper
-      .getComponent("[data-label='rom.alternative-titles']")
-      .vm.$emit("update:modelValue", []);
+    await titlesField(wrapper).vm.$emit("update:modelValue", []);
 
     expect(wrapper.emitted("update:rom")?.[0]?.[0]).toMatchObject({
       manual_metadata: { alternative_names: [] },
