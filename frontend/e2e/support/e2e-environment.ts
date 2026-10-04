@@ -3,14 +3,12 @@ import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 
 // The only place the e2e suite reads its environment. A new variable goes in
-// E2EEnv, EXPECTED, readE2EEnv(), .env.example, and e2e.yml if CI needs it.
+// E2EEnv, DEFAULTS (if it has one), readE2EEnv(), .env.example, and e2e.yml if
+// CI needs it.
 
 const ENV_FILE = fileURLToPath(new URL("../.env", import.meta.url));
-const ENV_FILE_LABEL = "frontend/e2e/.env";
 const EXAMPLE_LABEL = "frontend/e2e/.env.example";
-const PREFIX = "E2E_";
 
-/** 1:1 with the environment variables. Required variables are required props. */
 export interface E2EEnv {
   CI: boolean;
   E2E_ADMIN_USERNAME: string;
@@ -19,39 +17,25 @@ export interface E2EEnv {
   E2E_VIEWER_PASSWORD: string;
   E2E_BASE_URL: string;
   E2E_WORKERS?: number;
+  /** E2E_BASE_URL was not set, so the config serves the app with `npm run dev`. */
+  startDevServer: boolean;
 }
 
-type E2EKey = Exclude<keyof E2EEnv, "CI">;
-
-/** What a valid value looks like, quoted in every error about that variable. */
-const EXPECTED: Record<E2EKey, string> = {
-  E2E_ADMIN_USERNAME: "required, the username of an admin account",
-  E2E_ADMIN_PASSWORD: "required, that account's password",
-  E2E_VIEWER_USERNAME:
-    "required, the username of a non-admin account in the Viewer group",
-  E2E_VIEWER_PASSWORD: "required, that account's password",
-  E2E_BASE_URL:
-    "required, the http(s) origin of the RomM site under test, e.g. http://localhost:3000",
-  E2E_WORKERS: "optional, a whole number of parallel workers (1 or more)",
-};
-
-/** Variables older versions of the suite read, and what replaces each. `shell`
- *  also flags one set in the process env, where it would otherwise be ignored;
- *  E2E_PASSWORD stays legal there because the seed script reads it. */
-const REMOVED: Record<string, { action: string; shell: boolean }> = {
-  E2E_PASSWORD: {
-    action:
-      "Set E2E_ADMIN_PASSWORD and E2E_VIEWER_PASSWORD. The seed script still reads E2E_PASSWORD from its own shell.",
-    shell: false,
-  },
+// The accounts .github/scripts/seed_e2e_users.py creates, and `npm run dev`.
+const DEFAULTS = {
+  E2E_ADMIN_USERNAME: "e2e_admin",
+  E2E_ADMIN_PASSWORD: "e2e-Passw0rd!",
+  E2E_VIEWER_USERNAME: "e2e_viewer",
+  E2E_VIEWER_PASSWORD: "e2e-Passw0rd!",
+  E2E_BASE_URL: "http://localhost:3000",
 };
 
 /** Thrown once, listing every problem. Names variables, never their values. */
 export class E2EEnvError extends Error {
-  constructor(problems: string[], source: string) {
+  constructor(problems: string[]) {
     super(
       [
-        `The e2e environment has ${problems.length} problem(s), read from ${source}:`,
+        `The e2e environment has ${problems.length} problem(s):`,
         ...problems.map((p) => `  - ${p}`),
         `${EXAMPLE_LABEL} lists every variable and its format.`,
       ].join("\n"),
@@ -62,129 +46,57 @@ export class E2EEnvError extends Error {
   }
 }
 
-type RawVars = Record<string, string | undefined>;
-
-/** The variables to validate, plus any problems with where they came from. */
-function readSource(ci: boolean): {
-  label: string;
-  vars: RawVars;
-  problems: string[];
-} {
-  if (!existsSync(ENV_FILE)) {
-    if (!ci) {
-      throw new E2EEnvError(
-        [
-          `${ENV_FILE_LABEL} does not exist. Copy ${EXAMPLE_LABEL} to it and fill it in.`,
-        ],
-        ENV_FILE_LABEL,
-      );
-    }
-    // CI has no file: the workflow env is the source.
-    const vars = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => key.startsWith(PREFIX)),
-    );
-    return { label: "the process environment", vars, problems: [] };
-  }
-
-  const vars = parseEnv(readFileSync(ENV_FILE, "utf8"));
-  const problems: string[] = [];
-  for (const key of Object.keys(vars)) {
-    if (!key.startsWith(PREFIX)) {
-      // The file is for the suite alone; the app's settings live in frontend/.env.
-      problems.push(
-        `${key} is not allowed here: only ${PREFIX}* variables are`,
-      );
-    }
-  }
-  return { label: ENV_FILE_LABEL, vars, problems };
-}
-
-/** Parse and validate every variable the suite uses, throwing one
- *  `E2EEnvError` that lists every problem found. */
+/** Parse and validate every variable the suite uses. Each one comes from the
+ *  shell, then e2e/.env, then DEFAULTS. */
 export function readE2EEnv(): E2EEnv {
-  const ci = !!process.env.CI;
-  const { label, vars, problems } = readSource(ci);
+  const file = existsSync(ENV_FILE)
+    ? parseEnv(readFileSync(ENV_FILE, "utf8"))
+    : {};
+  const raw = (key: string) => process.env[key] || file[key] || undefined;
+  const problems: string[] = [];
 
-  const fromShell = label !== ENV_FILE_LABEL;
-  for (const key of Object.keys(vars)) {
-    if (!key.startsWith(PREFIX) || key in EXPECTED) continue;
-    const removed = REMOVED[key];
-    if (removed && (removed.shell || !fromShell)) {
-      problems.push(`${key} is no longer used. ${removed.action}`);
-    } else if (!removed) {
-      problems.push(`${key} is not a variable the suite reads (a typo?)`);
-    }
-  }
-  if (!fromShell) {
-    for (const [key, { action, shell }] of Object.entries(REMOVED)) {
-      if (shell && process.env[key] !== undefined) {
-        problems.push(
-          `${key} is set in your shell and is no longer used. ${action}`,
-        );
-      }
-    }
-  }
-
-  const fail = (key: E2EKey, issue: string) =>
-    problems.push(`${key} ${issue}. Expected: ${EXPECTED[key]}.`);
-
-  // Names and URLs must be exact: stray whitespace usually means a quoting slip.
-  const text = (key: E2EKey, required: boolean): string | undefined => {
-    const value = vars[key];
-    if (!value) {
-      if (required) fail(key, "is missing or empty");
-      return undefined;
-    }
-    if (value !== value.trim()) fail(key, "has leading or trailing whitespace");
-    return value;
-  };
-  // Passwords are taken exactly as written, spaces included.
-  const secret = (key: E2EKey): string | undefined => {
-    const value = vars[key];
-    if (!value) fail(key, "is missing or empty");
-    return value || undefined;
-  };
-
-  const adminUsername = text("E2E_ADMIN_USERNAME", true);
-  const adminPassword = secret("E2E_ADMIN_PASSWORD");
-  const viewerUsername = text("E2E_VIEWER_USERNAME", true);
-  const viewerPassword = secret("E2E_VIEWER_PASSWORD");
-
-  const baseUrlRaw = text("E2E_BASE_URL", true);
-  let baseUrl: string | undefined;
+  const baseUrlRaw = raw("E2E_BASE_URL");
+  let baseUrl = DEFAULTS.E2E_BASE_URL;
   if (baseUrlRaw !== undefined) {
-    const url = URL.parse(baseUrlRaw);
+    const url = URL.parse(baseUrlRaw.trim());
     if (!url || (url.protocol !== "http:" && url.protocol !== "https:")) {
-      fail("E2E_BASE_URL", "is not an http(s) URL");
+      problems.push("E2E_BASE_URL is not an http(s) URL.");
     } else if (url.pathname !== "/" || url.search || url.hash) {
-      fail("E2E_BASE_URL", "has a path, query or hash");
+      problems.push("E2E_BASE_URL has a path, query or hash.");
     } else {
       baseUrl = url.origin;
     }
   }
 
-  const workersRaw = text("E2E_WORKERS", false);
+  const workersRaw = raw("E2E_WORKERS");
   const workers = workersRaw === undefined ? undefined : Number(workersRaw);
   if (workers !== undefined && !(Number.isInteger(workers) && workers >= 1)) {
-    fail("E2E_WORKERS", "is not a whole number of 1 or more");
+    problems.push("E2E_WORKERS is not a whole number of 1 or more.");
   }
 
-  if (adminUsername && adminUsername === viewerUsername) {
+  // Passwords are taken exactly as written, spaces included.
+  const adminUsername =
+    raw("E2E_ADMIN_USERNAME")?.trim() ?? DEFAULTS.E2E_ADMIN_USERNAME;
+  const viewerUsername =
+    raw("E2E_VIEWER_USERNAME")?.trim() ?? DEFAULTS.E2E_VIEWER_USERNAME;
+  if (adminUsername === viewerUsername) {
     problems.push(
       "E2E_ADMIN_USERNAME and E2E_VIEWER_USERNAME are the same account. The permission tests compare the two, so they must differ.",
     );
   }
 
-  if (problems.length) throw new E2EEnvError(problems, label);
+  if (problems.length) throw new E2EEnvError(problems);
 
-  // Every required value was checked above, so the assertions below hold.
   return Object.freeze({
-    CI: ci,
-    E2E_ADMIN_USERNAME: adminUsername!,
-    E2E_ADMIN_PASSWORD: adminPassword!,
-    E2E_VIEWER_USERNAME: viewerUsername!,
-    E2E_VIEWER_PASSWORD: viewerPassword!,
-    E2E_BASE_URL: baseUrl!,
+    CI: !!process.env.CI,
+    E2E_ADMIN_USERNAME: adminUsername,
+    E2E_ADMIN_PASSWORD:
+      raw("E2E_ADMIN_PASSWORD") ?? DEFAULTS.E2E_ADMIN_PASSWORD,
+    E2E_VIEWER_USERNAME: viewerUsername,
+    E2E_VIEWER_PASSWORD:
+      raw("E2E_VIEWER_PASSWORD") ?? DEFAULTS.E2E_VIEWER_PASSWORD,
+    E2E_BASE_URL: baseUrl,
     E2E_WORKERS: workers,
+    startDevServer: baseUrlRaw === undefined,
   });
 }

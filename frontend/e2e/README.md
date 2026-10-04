@@ -4,22 +4,19 @@ The real app, in a real browser, against a real backend. Use these for behaviour
 
 ## Run it
 
-You need one running RomM site to point at, with games in its library and two accounts: an admin, and a non-admin in the Viewer group. The suite starts no server; it tests whatever `E2E_BASE_URL` serves.
-
-From `frontend/`, with the site up (for example `npm run dev`, which serves on 3000 and proxies to the backend named by `DEV_PORT` or `DEV_PROXY_TARGET` in `.env`):
-
-```bash
-cp e2e/.env.example e2e/.env
-npm run test:e2e
-```
-
-The example works as-is against `npm run dev` with the seeded accounts below. For any other site, change `E2E_BASE_URL` and the accounts. If anything in `e2e/.env` is missing or malformed, the run stops before starting anything and lists every problem at once.
-
-On a throwaway dev backend, the seed script creates the two accounts from `.env.example` (run it from the repo root). Never run it against a real server; it resets those accounts' passwords.
+You need a backend with games in its library and two accounts: an admin, and a non-admin in the Viewer group. On a throwaway dev backend, the seed script creates both (run it from the repo root). Never run it against a real server; it resets those accounts' passwords.
 
 ```bash
 uv run python .github/scripts/seed_e2e_users.py
 ```
+
+Then, from `frontend/`:
+
+```bash
+npm run test:e2e
+```
+
+That starts `npm run dev` (or reuses the one already running on 3000), which proxies to the backend named by `DEV_PORT` or `DEV_PROXY_TARGET` in `.env`. To point the suite at another site or other accounts, set the variables from `e2e/.env.example` in your shell or in `e2e/.env`. A malformed value stops the run before anything starts, listing every problem at once.
 
 Install the recommended VS Code extension, **Playwright Test for VS Code**. Most recipes below start from its panel in the Testing sidebar.
 
@@ -101,7 +98,7 @@ test("rejects a wrong password", async ({ page, e2eEnv }) => {
 
 ### Test Explorer shows no tests
 
-The extension lists tests by loading `playwright.config.ts`, which validates `e2e/.env` first. If that fails, the panel stays empty. See why:
+The extension lists tests by loading `playwright.config.ts`, which validates the `E2E_*` variables first. If that fails, the panel stays empty. See why:
 
 ```bash
 npx playwright test --list
@@ -119,13 +116,13 @@ npm run test:e2e -- --grep "@page:gameDetails\b"   # every test for one page (th
 
 ### Test another site
 
-Change `E2E_BASE_URL` in `e2e/.env`, and use accounts that exist there:
+Set `E2E_BASE_URL` (in the shell or `e2e/.env`), and use accounts that exist there:
 
 ```ini
 E2E_BASE_URL=https://romm.example.com
 ```
 
-The specs follow this branch's UI, so a site on another version fails where the two differ. A released site (5.3.1, say) lacks endpoints added on master since, and `loads.spec.ts` reports each as a 404; the preflight prints the site's version so this is easy to spot. For a full pass, run a backend from this checkout (`uv run main.py`) behind `npm run dev`.
+The specs follow this branch's UI, so a site on another version fails where the two differ. A released site (5.3.1, say) lacks endpoints added on master since, and `loads.spec.ts` reports each as a 404; the preflight prints the site's version so this is easy to spot. For a full pass, run a backend from this checkout (`uv run main.py`) and leave `E2E_BASE_URL` unset.
 
 To test a production build of this branch, serve it first: `npm run build && npm run preview`, then set `E2E_BASE_URL=http://localhost:4173`.
 
@@ -150,12 +147,12 @@ e2e/
     specs/      results/ (traces, screenshots) and report/ (HTML)
 ```
 
-- **`e2e/.env`:** required locally, and the only source of `E2E_*` variables. CI sets the same variables in `.github/workflows/e2e.yml`.
-- **Server:** the suite starts none. It tests `E2E_BASE_URL` as served; CI serves the static build with `vite preview` and points the suite at it.
+- **Environment:** every `E2E_*` variable comes from the shell, then `e2e/.env`, then a default that matches the seed script. CI sets them in `.github/workflows/e2e.yml`.
+- **Server:** with `E2E_BASE_URL` unset, the config runs `npm run dev`. Otherwise it tests that URL as served; CI serves the static build with `vite preview` and points the suite at it.
 - **Preflight:** `setup/global-setup.ts` runs first and checks, in about a second, that the backend answers, both accounts sign in and can read ROMs, and the library has a game. One error lists every problem.
 - **Sign-in:** `setup/auth.setup.ts` signs each account in once and saves the session. `login.spec.ts` is the only spec that drives the login form.
 - **Timeouts:** 10s per test locally, so failures are fast; CI keeps longer ones. They switch off while debugging.
 - **App errors:** if an `/api` call returns 5xx or the app throws, the test fails at once and names the request (for example `GET /api/roms returned 500`) instead of timing out on an element.
 - **Output:** everything the suite writes goes under `.output/`, through the paths in `support/output.ts`.
-- **Checks:** `npm run typecheck:e2e` for the specs, `npm run typecheck:scripts` for `playwright.config.ts`, and lint rules in `eslint.e2e.config.js`.
+- **Checks:** `npm run typecheck` covers the suite (`typecheck:e2e` runs it alone), and lint rules live in `eslint.e2e.config.js`.
 - **Changing the suite itself:** see [AGENTS.md](AGENTS.md).

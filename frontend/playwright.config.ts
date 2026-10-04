@@ -4,9 +4,8 @@ import { readE2EEnv } from "./e2e/support/e2e-environment";
 import { suiteOutput } from "./e2e/support/output";
 import type { E2EOptions } from "./e2e/support/test";
 
-// End-to-end suite: `npm run test:e2e`. The site under test and its accounts
-// come from e2e/.env (see e2e/.env.example); CI sets them in the workflow. The
-// suite starts no server: whoever runs it brings the site.
+// End-to-end suite: `npm run test:e2e`. Without E2E_BASE_URL it serves the app
+// with `npm run dev` (or reuses the one running); see e2e/.env.example.
 const env = readE2EEnv();
 const output = suiteOutput("specs");
 
@@ -67,4 +66,12 @@ export default defineConfig<E2EOptions>({
       dependencies: ["setup"],
     },
   ],
+  ...(env.startDevServer && {
+    webServer: {
+      command: "npm run dev",
+      url: env.E2E_BASE_URL,
+      reuseExistingServer: true,
+      timeout: 120_000,
+    },
+  }),
 });
