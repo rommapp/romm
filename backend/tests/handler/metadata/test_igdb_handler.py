@@ -105,6 +105,18 @@ class TestGetPlatformAliases:
     def test_platform_version_shares_main_platform_aliases(self) -> None:
         assert IGDBHandler().get_platform_aliases("520-st") == ("ST", ["Atari ST/STE"])
 
+    def test_comma_separated_alternative_name_splits(self) -> None:
+        entry = {
+            **IGDB_PLATFORM_LIST[UPS.PSX],
+            "abbreviation": "PS1",
+            "alternative_name": "PSX, PSOne,  PS ,",
+        }
+        with patch.dict(IGDB_PLATFORM_LIST, {UPS.PSX: entry}):
+            assert IGDBHandler().get_platform_aliases(UPS.PSX) == (
+                "PS1",
+                ["PSX", "PSOne", "PS"],
+            )
+
     def test_platform_without_aliases(self) -> None:
         entry = IGDB_PLATFORM_LIST[UPS.ATARI_ST].copy()
         entry.pop("abbreviation", None)

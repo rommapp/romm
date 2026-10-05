@@ -815,10 +815,11 @@ class IGDBHandler(MetadataHandler):
         else:
             return "", []
 
-        alternative_name = platform.get("alternative_name", "")
-        return platform.get("abbreviation", ""), (
-            [alternative_name] if alternative_name else []
-        )
+        # IGDB packs several names into one, as in "PSX, PSOne, PS".
+        alternative_names = platform.get("alternative_name", "").split(",")
+        return platform.get("abbreviation", ""), [
+            name for name in map(str.strip, alternative_names) if name
+        ]
 
     async def get_rom(self, rom: Rom, fs_name: str, platform_igdb_id: int) -> IGDBRom:
         from handler.filesystem import fs_rom_handler
