@@ -1,7 +1,7 @@
 type AxeRuleId = "color-contrast" | "scrollable-region-focusable";
 
-/** Story parameters that skip axe rules a story still fails. Storybook
- *  replaces arrays when merging, so a story passes every rule its meta skips. */
+// Storybook replaces arrays when merging parameters, so a story lists every
+// rule it skips, including those its meta skips.
 export function a11yTodoRules(...ids: AxeRuleId[]) {
   return {
     a11y: { config: { rules: ids.map((id) => ({ id, enabled: false })) } },
