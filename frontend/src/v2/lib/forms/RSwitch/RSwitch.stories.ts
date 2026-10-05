@@ -85,18 +85,18 @@ export const KeyboardToggle: Story = {
 
     await step("Tab moves focus onto the switch", async () => {
       await userEvent.tab();
-      expect(sw).toHaveFocus();
-      expect(sw).toHaveAttribute("aria-checked", "false");
+      await expect(sw).toHaveFocus();
+      await expect(sw).toHaveAttribute("aria-checked", "false");
     });
 
     await step("Space toggles it on", async () => {
       await userEvent.keyboard(" ");
-      expect(sw).toHaveAttribute("aria-checked", "true");
+      await expect(sw).toHaveAttribute("aria-checked", "true");
     });
 
     await step("Enter toggles it back off", async () => {
       await userEvent.keyboard("{Enter}");
-      expect(sw).toHaveAttribute("aria-checked", "false");
+      await expect(sw).toHaveAttribute("aria-checked", "false");
     });
   },
 };

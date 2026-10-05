@@ -39,15 +39,15 @@ export default defineStore("navigation", {
     },
     goHome() {
       this.reset();
-      this.$router.push({ name: ROUTES.HOME });
+      void this.$router.push({ name: ROUTES.HOME });
     },
     goScan() {
       this.reset();
-      this.$router.push({ name: ROUTES.SCAN });
+      void this.$router.push({ name: ROUTES.SCAN });
     },
     goSearch() {
       this.reset();
-      this.$router.push({ name: ROUTES.SEARCH });
+      void this.$router.push({ name: ROUTES.SEARCH });
     },
     reset() {
       Object.assign(this, { ...defaultNavigationState });

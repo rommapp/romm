@@ -179,13 +179,13 @@ export function useGamepad() {
     // Off the nav sections (e.g. on /rom/:id), Home is the predictable
     // landing spot for either bumper.
     if (!current) {
-      if (route.path !== "/") router.push("/");
+      if (route.path !== "/") void router.push("/");
       return;
     }
     const at = NAV_TARGETS.findIndex(({ id }) => id === current);
     const next =
       NAV_TARGETS[(at + step + NAV_TARGETS.length) % NAV_TARGETS.length]!;
-    if (next.to !== route.path) router.push(next.to);
+    if (next.to !== route.path) void router.push(next.to);
   }
 
   // Activates the currently focused element. Router-links, submit

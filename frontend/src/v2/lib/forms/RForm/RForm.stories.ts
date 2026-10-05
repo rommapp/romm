@@ -186,7 +186,7 @@ export const ResetForm: Story = {
       const email = ref("");
       const formRef = ref<{ reset?: () => void } | null>(null);
       const rules = [(v: unknown) => !!v || "Required"];
-      async function clearAll() {
+      function clearAll() {
         formRef.value?.reset?.();
       }
       return { valid, name, email, rules, clearAll, formRef };

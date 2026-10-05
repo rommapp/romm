@@ -71,7 +71,7 @@ export const Basic: Story = {
           ? "spacer"
           : el.textContent?.trim(),
       );
-      expect(items).toEqual(["Cancel", "spacer", "Confirm"]);
+      await expect(items).toEqual(["Cancel", "spacer", "Confirm"]);
     });
 
     await step("Cancel closes the dialog", async () => {

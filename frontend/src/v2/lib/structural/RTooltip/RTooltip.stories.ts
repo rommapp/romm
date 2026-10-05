@@ -120,7 +120,7 @@ export const ParentAttach: Story = {
 
     await step("hovering the parent reveals the tooltip", async () => {
       firePointerEnter(badge, "mouse");
-      expect(await body.findByRole("tooltip")).toHaveTextContent(
+      await expect(await body.findByRole("tooltip")).toHaveTextContent(
         "Saves synced 2 minutes ago",
       );
     });
@@ -427,13 +427,13 @@ export const TouchGating: Story = {
     await step("a touch hover does NOT reveal the tooltip", async () => {
       firePointerEnter(activator, "touch");
       await new Promise((r) => setTimeout(r, 50));
-      expect(body.queryByRole("tooltip")).toBeNull();
+      await expect(body.queryByRole("tooltip")).toBeNull();
     });
 
     await step("a mouse hover reveals it", async () => {
       firePointerEnter(activator, "mouse");
       const tip = await body.findByRole("tooltip");
-      expect(tip).toHaveTextContent("Tooltip body text");
+      await expect(tip).toHaveTextContent("Tooltip body text");
     });
 
     await step("a click dismisses it", async () => {
@@ -474,7 +474,7 @@ export const OpenOnTap: Story = {
     await step("a touch tap reveals the tooltip", async () => {
       fireTap(activator, "touch");
       const tip = await body.findByRole("tooltip");
-      expect(tip).toHaveTextContent("Tooltip body text");
+      await expect(tip).toHaveTextContent("Tooltip body text");
     });
 
     await step("a second touch tap toggles it closed", async () => {
@@ -484,14 +484,14 @@ export const OpenOnTap: Story = {
 
     await step("a mouse click opens it", async () => {
       fireTap(activator, "mouse");
-      expect(await body.findByRole("tooltip")).toBeInTheDocument();
+      await expect(await body.findByRole("tooltip")).toBeInTheDocument();
     });
 
     await step(
       "a second mouse click keeps it open (no toggle-closed)",
       async () => {
         fireTap(activator, "mouse");
-        expect(body.queryByRole("tooltip")).not.toBeNull();
+        await expect(body.queryByRole("tooltip")).not.toBeNull();
       },
     );
   },
@@ -551,7 +551,7 @@ export const DismissedByOverlay: Story = {
 
     await step("hovering the card reveals its tooltip", async () => {
       firePointerEnter(card, "mouse");
-      expect(await body.findByRole("tooltip")).toHaveTextContent(
+      await expect(await body.findByRole("tooltip")).toHaveTextContent(
         "Super Mario World",
       );
     });
@@ -560,20 +560,23 @@ export const DismissedByOverlay: Story = {
       "opening the menu dismisses it, even though the activator swallows the click",
       async () => {
         activator.click();
-        expect(await body.findByRole("menu")).toBeInTheDocument();
+        await expect(await body.findByRole("menu")).toBeInTheDocument();
         await waitFor(() => expect(body.queryByRole("tooltip")).toBeNull());
       },
     );
 
-    await step("re-hovering the covered card does not bring it back", () => {
-      firePointerEnter(card, "mouse");
-      expect(body.queryByRole("tooltip")).toBeNull();
-    });
+    await step(
+      "re-hovering the covered card does not bring it back",
+      async () => {
+        firePointerEnter(card, "mouse");
+        await expect(body.queryByRole("tooltip")).toBeNull();
+      },
+    );
 
     await step("a tooltip inside the menu still opens", async () => {
       const menu = within(await body.findByRole("menu"));
       firePointerEnter(menu.getByRole("menuitem", { name: /edit/i }), "mouse");
-      expect(await body.findByRole("tooltip")).toHaveTextContent(
+      await expect(await body.findByRole("tooltip")).toHaveTextContent(
         "Rename this game",
       );
     });
@@ -607,16 +610,16 @@ export const PendingOpenCancelledByOverlay: Story = {
 
     await step("the menu opens while the reveal is still pending", async () => {
       firePointerEnter(card, "mouse");
-      expect(body.queryByRole("tooltip")).toBeNull();
+      await expect(body.queryByRole("tooltip")).toBeNull();
       activator.click();
-      expect(await body.findByRole("menu")).toBeInTheDocument();
+      await expect(await body.findByRole("menu")).toBeInTheDocument();
     });
 
     await step("the tooltip never lands once the delay elapses", async () => {
       // Real wait: the pending timer is the thing under test, so it has to be
       // given its full `openDelay` to fire.
       await new Promise((resolve) => setTimeout(resolve, 500));
-      expect(body.queryByRole("tooltip")).toBeNull();
+      await expect(body.queryByRole("tooltip")).toBeNull();
     });
   },
 };

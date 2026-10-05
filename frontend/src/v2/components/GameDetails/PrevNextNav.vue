@@ -72,7 +72,7 @@ const nextTooltip = computed(() =>
 
 function go(position: number | null) {
   if (position === null) return;
-  router.push({
+  void router.push({
     name: ROUTES.ROM,
     params: { rom: galleryRoms.romIdIndex[position] },
     // Keep `?tab=` and friends so stepping through a list doesn't drop

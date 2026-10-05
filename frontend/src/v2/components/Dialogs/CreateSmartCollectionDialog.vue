@@ -197,7 +197,7 @@ async function submit() {
     collectionsStore.addSmartCollection(data);
     snackbar.success(t("collection.smart-created"), { icon: "mdi-check-bold" });
     show.value = false;
-    router.push({
+    void router.push({
       name: ROUTES.SMART_COLLECTION,
       params: { collection: data.id },
     });

@@ -371,7 +371,7 @@ export function useGameActions(
         await router.push(target);
       });
     } else {
-      router.push(target);
+      void router.push(target);
     }
   }
 
@@ -423,7 +423,7 @@ export function useGameActions(
 
   function goToPlatform() {
     const path = platformPath.value;
-    if (path) router.push(path);
+    if (path) void router.push(path);
   }
 
   function download() {

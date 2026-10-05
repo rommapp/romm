@@ -75,9 +75,11 @@ describe("notificationInbox", () => {
   });
 
   it("sends a notification marked as this tab's own", async () => {
-    create.mockImplementation(async (payload) => ({
-      data: [notification(5, { data: payload.data })],
-    }));
+    create.mockImplementation((payload) =>
+      Promise.resolve({
+        data: [notification(5, { data: payload.data })],
+      }),
+    );
     const inbox = storeNotificationInbox();
 
     await inbox.send({ title: "Sync finished", level: "success" });

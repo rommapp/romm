@@ -263,10 +263,18 @@ function readKey<T>(item: unknown, key: string | ((it: unknown) => T)): T {
   return item as T;
 }
 
+function titleText(title: unknown): string {
+  if (typeof title === "string") return title;
+  if (typeof title === "number" || typeof title === "boolean") {
+    return String(title);
+  }
+  return "";
+}
+
 const normalisedItems = computed<NormalisedItem[]>(() => {
   return (props.items ?? []).map((raw) => ({
     raw,
-    title: String(readKey<unknown>(raw, props.itemTitle as never) ?? ""),
+    title: titleText(readKey<unknown>(raw, props.itemTitle as never)),
     value: readKey<unknown>(raw, props.itemValue as never),
     disabled:
       typeof raw === "object" && raw != null
@@ -427,7 +435,7 @@ function recomputeFit() {
 watch(
   [selectedItems, containerWidth],
   () => {
-    nextTick(recomputeFit);
+    void nextTick(recomputeFit);
   },
   { flush: "post" },
 );
@@ -778,7 +786,7 @@ function moveActive(delta: number) {
   scrollActiveIntoView();
 }
 function scrollActiveIntoView() {
-  nextTick(() => {
+  void nextTick(() => {
     const el = panelRef.value?.querySelector<HTMLElement>(
       `[data-r-select-index="${activeIndex.value}"]`,
     );

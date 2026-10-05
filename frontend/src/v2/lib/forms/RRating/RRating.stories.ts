@@ -58,16 +58,16 @@ export const KeyboardNav: Story = {
 
     await step("Tab focuses the stars in order", async () => {
       await userEvent.tab();
-      expect(stars[0]).toHaveFocus();
+      await expect(stars[0]).toHaveFocus();
       await userEvent.tab();
       await userEvent.tab();
-      expect(stars[2]).toHaveFocus();
+      await expect(stars[2]).toHaveFocus();
     });
 
     await step("Enter commits the focused star as the rating", async () => {
       await userEvent.keyboard("{Enter}");
-      expect(stars[2]).toHaveAttribute("aria-checked", "true");
-      expect(stars[0]).toHaveAttribute("aria-checked", "false");
+      await expect(stars[2]).toHaveAttribute("aria-checked", "true");
+      await expect(stars[0]).toHaveAttribute("aria-checked", "false");
     });
   },
 };

@@ -444,9 +444,9 @@ describe("syncPendingAssets", () => {
   it("stops a pass once the account that started it is gone", async () => {
     queue({ id: "save:first", capturedAt: 1 });
     queue({ id: "save:second", capturedAt: 2 });
-    saveApiMocks.uploadSaves.mockImplementation(async () => {
+    saveApiMocks.uploadSaves.mockImplementation(() => {
       auth.userId = 2;
-      return [{ status: "fulfilled" }];
+      return Promise.resolve([{ status: "fulfilled" }]);
     });
 
     await syncPendingAssets();

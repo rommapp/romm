@@ -53,10 +53,16 @@ function fields(value: unknown): string | null {
   return labels ? t("audit.detail-changed", { fields: labels }) : null;
 }
 
+function scalar(value: unknown): string {
+  return typeof value === "string" || typeof value === "number"
+    ? String(value)
+    : "";
+}
+
 function change(value: unknown): { from: string; to: string } | null {
   if (!value || typeof value !== "object") return null;
   const { from, to } = value as Record<string, unknown>;
-  return { from: String(from ?? ""), to: String(to ?? "") };
+  return { from: scalar(from), to: scalar(to) };
 }
 
 function providers(data: AuditData): string | null {
@@ -85,7 +91,7 @@ function principal(data: AuditData): string {
   const from = data.from;
   if (!from || typeof from !== "object") return "";
   const { name, id } = from as Record<string, unknown>;
-  return text(name) ?? `#${String(id ?? "")}`;
+  return text(name) ?? `#${scalar(id)}`;
 }
 
 // The sentence names the target; `detail` adds a muted second line.

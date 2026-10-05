@@ -107,7 +107,7 @@ watch(
       previouslyFocused = document.activeElement as HTMLElement | null;
       lockBodyScroll();
       pushEscapable(escEntry);
-      nextTick(() => {
+      void nextTick(() => {
         const focusTarget = panelRef.value?.querySelector<HTMLElement>(
           "[autofocus], button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
         );

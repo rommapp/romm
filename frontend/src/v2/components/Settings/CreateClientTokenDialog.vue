@@ -63,7 +63,7 @@ const {
   pause: stopPairPolling,
   stop: resetPairCountdown,
 } = useCountdown(0, {
-  onTick: pollPairStatus,
+  onTick: () => void pollPairStatus(),
   onComplete: () => (pairStatus.value = "expired"),
 });
 

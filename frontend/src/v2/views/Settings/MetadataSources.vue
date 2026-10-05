@@ -144,7 +144,7 @@ async function fetchAllHeartbeats() {
 }
 
 onMounted(() => {
-  configStore.fetchConfig();
+  void configStore.fetchConfig();
   void fetchAllHeartbeats();
 });
 </script>

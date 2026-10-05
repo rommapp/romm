@@ -115,8 +115,10 @@ async function withStore<T>(
       // A delete that resolves on the request alone can still be rolled back,
       // which is how a row survives its own removal and syncs forever.
       transaction.oncomplete = () => resolve(request.result as T);
-      transaction.onabort = () => reject(transaction.error);
-      request.onerror = () => reject(request.error);
+      transaction.onabort = () =>
+        reject(transaction.error ?? new Error("Transaction aborted"));
+      request.onerror = () =>
+        reject(request.error ?? new Error("Request failed"));
     });
   } catch (error) {
     console.error("Pending asset storage failed", error);

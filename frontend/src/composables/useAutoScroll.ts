@@ -64,7 +64,7 @@ export const useAutoScroll = (
 
   watchEffect(() => {
     cleanup();
-    if (scrollContainer.value && observedElement.value) nextTick(init);
+    if (scrollContainer.value && observedElement.value) void nextTick(init);
   });
 
   onUnmounted(cleanup);

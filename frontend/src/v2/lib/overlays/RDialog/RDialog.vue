@@ -144,7 +144,7 @@ watch(
       // try to move focus into it. An explicit [autofocus] wins over
       // DOM order; a combined selector list would resolve in document
       // order and always land on the header close button.
-      nextTick(() => {
+      void nextTick(() => {
         const focusTarget =
           panelRef.value?.querySelector<HTMLElement>("[autofocus]") ??
           panelRef.value?.querySelector<HTMLElement>(

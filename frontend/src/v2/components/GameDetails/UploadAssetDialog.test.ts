@@ -19,7 +19,7 @@ const RDialog = {
 };
 const RForm = {
   methods: {
-    validate: async () => ({ valid: formValid.value }),
+    validate: () => Promise.resolve({ valid: formValid.value }),
   },
   template: `<form><slot /></form>`,
 };

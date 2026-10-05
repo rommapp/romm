@@ -242,7 +242,7 @@ async function loadForRoute(kind: CollectionKind, id: string) {
 }
 
 onMounted(() => {
-  loadForRoute(kindFromRoute(route.name), String(route.params.collection));
+  void loadForRoute(kindFromRoute(route.name), String(route.params.collection));
 });
 
 onBeforeRouteUpdate((to, from) => {
@@ -250,14 +250,14 @@ onBeforeRouteUpdate((to, from) => {
   // change (sort, filters, search) would blank and re-bootstrap the
   // collection already on screen.
   if (to.path === from.path) return;
-  loadForRoute(kindFromRoute(to.name), String(to.params.collection));
+  void loadForRoute(kindFromRoute(to.name), String(to.params.collection));
 });
 
 watch(
   () => [route.name, route.params.collection] as const,
   ([name, id]) => {
     if (id == null) return;
-    loadForRoute(kindFromRoute(name), String(id));
+    void loadForRoute(kindFromRoute(name), String(id));
   },
 );
 
@@ -322,7 +322,7 @@ async function onRandomGame() {
       snackbar.info(t("collection.empty"));
       return;
     }
-    router.push({ name: ROUTES.ROM, params: { rom: data.id } });
+    void router.push({ name: ROUTES.ROM, params: { rom: data.id } });
   } catch {
     if (!stale()) snackbar.error(t("platform.random-rom-error"));
   } finally {
@@ -362,7 +362,7 @@ async function onDelete() {
     snackbar.success(t("collection.collection-deleted", { name: c.name }), {
       icon: "mdi-check-bold",
     });
-    router.push({ name: ROUTES.COLLECTIONS_INDEX });
+    void router.push({ name: ROUTES.COLLECTIONS_INDEX });
   } catch (err) {
     const e = err as {
       response?: { data?: { msg?: string; detail?: string } };

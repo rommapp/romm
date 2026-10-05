@@ -198,7 +198,7 @@ function clearAll() {
   if (!chips.value.length && !query.value) return;
   query.value = "";
   emit("update:modelValue", []);
-  nextTick(() => focusFromInput(inputRef.value));
+  void nextTick(() => focusFromInput(inputRef.value));
 }
 
 // ── Input wiring ───────────────────────────────────────────────
@@ -275,7 +275,7 @@ function onKeyDown(e: KeyboardEvent) {
 
 function pickSuggestion(item: string) {
   commit(item);
-  nextTick(() => focusFromInput(inputRef.value));
+  void nextTick(() => focusFromInput(inputRef.value));
 }
 
 usePopoverDismiss(

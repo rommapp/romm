@@ -54,7 +54,9 @@ provideRForm({ register, unregister });
 
 // ── Public API ──────────────────────────────────────────────────
 async function validate(): Promise<{ valid: boolean }> {
-  const results = await Promise.all(fields.value.map((f) => f.validate()));
+  const results = await Promise.all(
+    fields.value.map((f) => Promise.resolve(f.validate())),
+  );
   const valid = results.every(Boolean);
   emit("update:modelValue", valid);
   if (!valid && !props.disableScrollToError) scrollToFirstError();
