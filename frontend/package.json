@@ -21,9 +21,8 @@
   "type": "module",
   "scripts": {
     "build:tokens": "tsx scripts/build-tokens.ts",
-    "build:icons": "tsx scripts/build-icons.ts",
-    "predev": "npm run build:tokens && npm run build:icons",
-    "prebuild": "npm run build:tokens && npm run build:icons",
+    "predev": "npm run build:tokens",
+    "prebuild": "npm run build:tokens",
     "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview",

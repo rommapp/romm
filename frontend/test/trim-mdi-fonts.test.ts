@@ -326,7 +326,7 @@ describe("keepOnlyWoff2", () => {
     const out = keepOnlyWoff2(fontFace);
     expect(out.match(/src:/g)).toHaveLength(1);
     expect(out).toContain(
-      'src: url("../../node_modules/@mdi/font/fonts/x-webfont.woff2?v=9.9.9") format("woff2");',
+      'src: url("../fonts/x-webfont.woff2?v=9.9.9") format("woff2");',
     );
   });
 
@@ -411,11 +411,5 @@ describe("line endings", () => {
 
   it("trimIconCss output for the real package css has no carriage returns", () => {
     expect(trimIconCss(MDI_CSS, [])).not.toContain("\r");
-  });
-
-  it("a generated file read back with CRLF still matches after toLf", () => {
-    const generated = trimIconCss(lf, ["mdi-a"]);
-    const onDisk = generated.replaceAll("\n", "\r\n");
-    expect(toLf(onDisk)).toBe(generated);
   });
 });

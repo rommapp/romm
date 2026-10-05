@@ -1,15 +1,21 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect } from "storybook/test";
 import { computed, ref } from "vue";
-import iconCss from "@/plugins/materialdesignicons-trimmed.css?raw";
 import RTextField from "@/v2/lib/forms/RTextField/RTextField.vue";
 import fullIconCss from "../../../../../node_modules/@mdi/font/css/materialdesignicons.css?raw";
 import vuetifyIconset from "../../../../../node_modules/vuetify/lib/iconsets/mdi.js?raw";
 import "./RIcon.stories.css";
 import RIcon from "./RIcon.vue";
 
-const iconNames = (iconCss.match(/\.mdi-[a-z0-9-]+(?=::before)/g) ?? [])
-  .map((selector) => selector.slice(1))
+// The preview loads the package CSS through the trimmed-icons plugin, so the
+// rules on the page are the ones the app ships.
+const iconNames = [...document.styleSheets]
+  .flatMap((sheet) => [...sheet.cssRules])
+  .flatMap((rule) =>
+    rule instanceof CSSStyleRule
+      ? (rule.selectorText.match(/^\.(mdi-[a-z0-9-]+)::before$/)?.[1] ?? [])
+      : [],
+  )
   .sort();
 const vuetifyIconNames = vuetifyIconset.match(/mdi-[a-z0-9-]+/g) ?? [];
 
@@ -365,7 +371,7 @@ export const AllIcons: Story = {
         </div>
         <h3 class="r-icon-story-heading">Available, not in the build: {{ needle ? unshippedShown.length + " / " + unshippedTotal : unshippedTotal }} icons</h3>
         <p class="r-icon-story-note">
-          Use one in the source and run <code>npm run build:icons</code> to add it.
+          Use one in the source and the build ships it.
           <template v-if="!unshipped.length">Search to browse them.</template>
         </p>
         <div v-if="unshipped.length" class="r-icon-story-grid">

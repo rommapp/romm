@@ -53,7 +53,6 @@ lint:
     - linters: [ALL]
       paths:
         - frontend/src/__generated__/**
-        - frontend/src/plugins/materialdesignicons-trimmed.css
         - docker/Dockerfile
         - docker/nginx/js/**
         # Vendored patcherjs library

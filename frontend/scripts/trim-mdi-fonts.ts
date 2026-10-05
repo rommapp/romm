@@ -78,7 +78,7 @@ export function keepOnlyWoff2(css: string): string {
   );
   if (family === -1) throw new Error("No font-family in the @mdi/font css");
 
-  const src = `  src: url("../../node_modules/@mdi/font/fonts/${file}") format("woff2");`;
+  const src = `  src: url("../fonts/${file}") format("woff2");`;
   lines.splice(family + 1, 0, src);
   return lines.join("\n");
 }
