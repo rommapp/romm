@@ -18,7 +18,7 @@ const meta: Meta<typeof RSwitch> = {
       return { args, value };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
+      <div style="padding: 32px;">
         <RSwitch v-model="value" v-bind="args" />
       </div>
     `,
@@ -33,6 +33,11 @@ export const Default: Story = {
   args: { ariaLabel: "Toggle setting" },
 };
 
+export const Light: Story = {
+  ...Default,
+  globals: { theme: "light" },
+};
+
 export const WithLabel: Story = {
   args: { label: "Notifications" },
 };
@@ -42,7 +47,7 @@ export const LabelSlot: Story = {
     components: { RSwitch },
     setup: () => ({ value: ref(false) }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: var(--r-color-bg);">
+      <div style="padding: 32px;">
         <RSwitch v-model="value" aria-label="Notifications">
           <template #label><strong>Notifications</strong> (email)</template>
         </RSwitch>
@@ -59,7 +64,7 @@ export const Checked: Story = {
       return { args, value };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
+      <div style="padding: 32px;">
         <RSwitch v-model="value" v-bind="args" />
       </div>
     `,

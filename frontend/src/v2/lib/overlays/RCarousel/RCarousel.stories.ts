@@ -57,7 +57,7 @@ export const Inline: Story = {
       return { args, index };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f; min-height: 540px;">
+      <div style="padding: 32px; min-height: 540px;">
         <RCarousel
           v-bind="args"
           v-model="index"
@@ -112,6 +112,7 @@ export const Inline: Story = {
 };
 
 export const InlineLight: Story = {
+  globals: { theme: "light" },
   args: {
     items: SAMPLES,
     showThumbnails: true,
@@ -123,7 +124,7 @@ export const InlineLight: Story = {
       return { args, index };
     },
     template: `
-      <div class="r-v2 r-v2-light" style="padding: 32px; background: #f4f4f8; min-height: 540px;">
+      <div style="padding: 32px; min-height: 540px;">
         <RCarousel
           v-bind="args"
           v-model="index"
@@ -157,7 +158,7 @@ export const Fullscreen: Story = {
       return { args, index, onClose };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f; min-height: 540px;">
+      <div style="padding: 32px; min-height: 540px;">
         <RBtn @click="index = 0">Open lightbox</RBtn>
         <RCarousel
           v-if="index !== null"
@@ -214,7 +215,7 @@ export const NoLoop: Story = {
       return { args, index };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f; min-height: 360px;">
+      <div style="padding: 32px; min-height: 360px;">
         <RCarousel
           v-bind="args"
           v-model="index"
@@ -240,7 +241,7 @@ export const SingleItem: Story = {
       return { args, index };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f; min-height: 360px;">
+      <div style="padding: 32px; min-height: 360px;">
         <RCarousel
           v-bind="args"
           v-model="index"
