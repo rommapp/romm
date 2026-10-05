@@ -3,7 +3,7 @@ cache, every stored media path, and the entries and failures a parse skips."""
 
 from pathlib import Path
 from unittest.mock import patch
-from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
+from xml.etree.ElementTree import Element
 
 import pytest
 
