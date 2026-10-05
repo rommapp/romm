@@ -136,3 +136,28 @@ describe("RComboboxField inside an overlay", () => {
     wrapper.unmount();
   });
 });
+
+describe("RComboboxField commas", () => {
+  async function type(allowCommas: boolean, text: string) {
+    const wrapper = mount(RComboboxField, {
+      props: { modelValue: [], allowCommas },
+    });
+    const input = wrapper.get("input");
+    await input.setValue(text);
+    await input.trigger("keydown", { key: "Enter" });
+    return wrapper.emitted("update:modelValue")?.[0]?.[0];
+  }
+
+  it("splits a typed value on commas by default", async () => {
+    expect(await type(false, "Hey You, Pikachu!")).toEqual([
+      "Hey You",
+      "Pikachu!",
+    ]);
+  });
+
+  it("keeps the commas of a value when allowed", async () => {
+    expect(await type(true, "Hey You, Pikachu!")).toEqual([
+      "Hey You, Pikachu!",
+    ]);
+  });
+});

@@ -5,7 +5,13 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
-from tests.factories import make_rom, make_save, make_screenshot, make_state
+from tests.factories import (
+    make_platform,
+    make_rom,
+    make_save,
+    make_screenshot,
+    make_state,
+)
 
 from handler.auth.base_handler import auth_handler
 from handler.database import (
@@ -24,10 +30,7 @@ from models.user import Role, User
 
 
 def test_platforms():
-    platform = Platform(
-        name="test_platform", slug="test_platform_slug", fs_slug="test_platform_slug"
-    )
-    db_platform_handler.add_platform(platform)
+    platform = make_platform("test_platform_slug", name="test_platform")
 
     platforms = db_platform_handler.get_platforms()
     assert len(platforms) == 1
@@ -875,13 +878,7 @@ def test_mark_missing_roms_large_platform_all_missing(platform: Platform):
 
 def test_mark_missing_roms_does_not_affect_other_platforms(platform: Platform):
     """mark_missing_roms should only affect ROMs on the target platform."""
-    other_platform = db_platform_handler.add_platform(
-        Platform(
-            name="other_platform",
-            slug="other_platform_slug",
-            fs_slug="other_platform_slug",
-        )
-    )
+    other_platform = make_platform("other_platform_slug", name="other_platform")
 
     make_rom(platform, "target_rom")
     rom_on_other = make_rom(other_platform, "other_rom")
@@ -1040,13 +1037,7 @@ def test_get_matching_missing_rom_ignores_present_roms(platform: Platform):
 
 def test_get_matching_missing_rom_scoped_to_platform(platform: Platform):
     """A missing ROM on another platform must not be matched."""
-    other_platform = db_platform_handler.add_platform(
-        Platform(
-            name="other_platform",
-            slug="other_platform_slug",
-            fs_slug="other_platform_slug",
-        )
-    )
+    other_platform = make_platform("other_platform_slug", name="other_platform")
     _add_missing_rom(
         other_platform,
         "elsewhere",

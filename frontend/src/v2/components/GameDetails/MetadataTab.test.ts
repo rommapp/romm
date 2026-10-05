@@ -1,6 +1,7 @@
 import { shallowMount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { DetailedRom } from "@/stores/roms";
+import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
 import MetadataTab from "./MetadataTab.vue";
 
 vi.mock("vue-i18n");
@@ -12,7 +13,7 @@ const CHD_SHA1 = "89abcdef0123456789abcdef0123456789abcdef";
 const RA = "fedcba9876543210fedcba9876543210";
 
 function rom(overrides: Partial<DetailedRom> = {}): DetailedRom {
-  return {
+  return detailedRomFixture({
     id: 1,
     fs_name: "game.chd",
     fs_size_bytes: 1024,
@@ -21,9 +22,9 @@ function rom(overrides: Partial<DetailedRom> = {}): DetailedRom {
     sha1_hash: SHA1,
     ra_hash: RA,
     has_simple_single_file: true,
-    files: [{ chd_sha1_hash: "" }],
+    files: [romFileFixture({ chd_sha1_hash: "" })],
     ...overrides,
-  } as DetailedRom;
+  });
 }
 
 function hashLabels(r: DetailedRom) {
@@ -43,8 +44,8 @@ describe("MetadataTab hash rows", () => {
   // Not reachable in the browser: the mock library holds no CHD.
   it("slots CHD SHA-1 directly after SHA-1 when the ROM is a CHD", () => {
     const chd = rom({
-      files: [{ chd_sha1_hash: CHD_SHA1 }],
-    } as Partial<DetailedRom>);
+      files: [romFileFixture({ chd_sha1_hash: CHD_SHA1 })],
+    });
 
     expect(hashLabels(chd)).toEqual(["SHA-1", "CHD SHA-1", "MD5", "CRC", "RA"]);
   });
@@ -62,7 +63,7 @@ describe("MetadataTab verification chips", () => {
     const matched = rom({
       hasheous_metadata: { nointro_match: true, ra_match: false },
       merged_ra_metadata: { hash_match: true },
-    } as Partial<DetailedRom>);
+    });
 
     expect(raChipTone(matched)).toBe("success");
   });
@@ -72,7 +73,7 @@ describe("MetadataTab verification chips", () => {
       ra_id: 17353,
       hasheous_metadata: { ra_match: false },
       merged_ra_metadata: { hash_match: false },
-    } as Partial<DetailedRom>);
+    });
 
     expect(raChipTone(linkedOnly)).toBe("neutral");
   });

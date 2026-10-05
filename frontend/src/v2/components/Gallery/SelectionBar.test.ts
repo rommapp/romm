@@ -6,6 +6,7 @@ import storeCollections, { type Collection } from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { stubResizeObserver } from "@/test-utils/resizeObserver";
 import { collectionFixture } from "@/utils/collection.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -88,7 +89,7 @@ vi.mock("@/v2/composables/useBreakpoint", () => ({
 }));
 
 function rom(id: number): SimpleRom {
-  return { id, name: `Game ${id}`, platform_id: 1 } as SimpleRom;
+  return romFixture({ id, name: `Game ${id}`, platform_id: 1 });
 }
 
 function favorites(romIds: number[]): Collection {

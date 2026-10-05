@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
+import { platformFixture } from "@/utils/platform.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import PlatformView from "./Platform.vue";
 
@@ -119,18 +121,16 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 function platform(id: number, name = "Super Nintendo"): Platform {
-  return {
+  return platformFixture({
     id,
     name,
-    display_name: name,
     slug: `platform-${id}`,
-    fs_slug: `platform-${id}`,
     rom_count: 83000,
-  } as Platform;
+  });
 }
 
 function rom(id: number): SimpleRom {
-  return { id, name: "Chrono Trigger" } as SimpleRom;
+  return romFixture({ id, name: "Chrono Trigger" });
 }
 
 /** Resolves the promise the next `getRandomRom` call returns, on demand. */

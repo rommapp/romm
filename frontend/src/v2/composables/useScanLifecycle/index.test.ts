@@ -10,6 +10,8 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
+import { platformFixture } from "@/utils/platform.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import { installScanLifecycle } from "./index";
 
 // Minimal socket stand-in: records handlers so tests can fire events, and
@@ -58,30 +60,16 @@ const getTaskStatus = vi.mocked(taskApi.getTaskStatus);
 const drainRomBatch = () => new Promise((resolve) => setTimeout(resolve, 150));
 
 function platform(overrides: Partial<Platform> = {}): Platform {
-  return {
-    id: 1,
+  return platformFixture({
     slug: "n64",
-    fs_slug: "n64",
-    rom_count: 2,
     name: "Nintendo 64",
-    igdb_slug: null,
-    moby_slug: null,
-    hltb_slug: null,
-    libretro_slug: null,
-    created_at: "",
-    updated_at: "",
-    fs_size_bytes: 0,
-    is_unidentified: false,
-    is_identified: true,
-    missing_from_fs: false,
-    display_name: "Nintendo 64",
-    firmware_count: 0,
+    rom_count: 2,
     ...overrides,
-  };
+  });
 }
 
 function simpleRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
-  return { id: 1, name: "Game", platform_id: 1, ...overrides } as SimpleRom;
+  return romFixture({ id: 1, name: "Game", platform_id: 1, ...overrides });
 }
 
 function scanningRom(

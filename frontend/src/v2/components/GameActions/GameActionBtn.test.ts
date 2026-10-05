@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
-import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import GameActionBtn from "./GameActionBtn.vue";
 
 const play = vi.fn();
@@ -30,7 +30,7 @@ type Props = InstanceType<typeof GameActionBtn>["$props"];
 
 function mountBtn(props: Partial<Props> = {}) {
   return mount(GameActionBtn, {
-    props: { rom: { id: 1 } as SimpleRom, action: "play", ...props },
+    props: { rom: romFixture({ id: 1 }), action: "play", ...props },
     global: { stubs: { RIcon: true, RTooltip: true } },
   });
 }

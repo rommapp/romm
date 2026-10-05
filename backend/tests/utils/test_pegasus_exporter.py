@@ -3,10 +3,10 @@ from typing import TypedDict, cast
 from unittest.mock import MagicMock
 
 import pytest
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 
 from config.config_manager import PLATFORM_MEDIA_DIRS
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_rom_handler
 from handler.filesystem import (
     fs_platform_handler,
     fs_resource_handler,
@@ -42,6 +42,7 @@ def _mock_rom(**overrides) -> Rom:
         "tags": None,
         "ss_metadata": None,
         "gamelist_metadata": None,
+        "launchbox_metadata": None,
         "path_cover_l": None,
         "path_screenshots": None,
         "path_video": None,
@@ -111,10 +112,7 @@ def _parse_pegasus(content: str) -> ParsedPegasus:
 
 class TestExportMetadata:
     def test_full_metadata(self, admin_user: User):
-        platform = Platform(
-            name="Super Nintendo", slug="snes", fs_slug="snes", custom_name="SNES"
-        )
-        platform = db_platform_handler.add_platform(platform)
+        platform = make_platform("snes", name="Super Nintendo", custom_name="SNES")
 
         rom = make_rom(
             platform,
@@ -168,8 +166,7 @@ class TestExportMetadata:
         assert "sort-by" not in game
 
     def test_prefers_explicit_publisher_developer(self, admin_user: User):
-        platform = Platform(name="NES", slug="nes", fs_slug="nes")
-        platform = db_platform_handler.add_platform(platform)
+        platform = make_platform("nes", name="NES")
 
         rom = make_rom(platform, "Test Game", fs_stem="test", fs_extension="nes")
         db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
@@ -197,8 +194,7 @@ class TestExportMetadata:
         assert game["publisher"] == "Atari"
 
     def test_minimal_rom(self, admin_user: User):
-        platform = Platform(name="Game Boy", slug="gb", fs_slug="gb")
-        platform = db_platform_handler.add_platform(platform)
+        platform = make_platform("gb", name="Game Boy")
 
         make_rom(platform, "unknown", fs_extension="gb", name=None)
 
@@ -214,8 +210,7 @@ class TestExportMetadata:
             assert key not in game
 
     def test_skips_missing_roms(self, admin_user: User):
-        platform = Platform(name="NES", slug="nes", fs_slug="nes")
-        platform = db_platform_handler.add_platform(platform)
+        platform = make_platform("nes", name="NES")
 
         make_rom(
             platform,
@@ -233,8 +228,7 @@ class TestExportMetadata:
         assert len(parsed["games"]) == 0
 
     def test_skips_physical_roms(self, admin_user: User):
-        platform = Platform(name="NES", slug="nes", fs_slug="nes")
-        platform = db_platform_handler.add_platform(platform)
+        platform = make_platform("nes", name="NES")
 
         make_rom(
             platform,
@@ -259,10 +253,7 @@ class TestExportMetadata:
 
     def test_collection_name_mapped_slug(self, admin_user: User):
         """Known slug → canonical Pegasus name overrides RomM custom_name."""
-        platform = Platform(
-            name="Game Boy Advance", slug="gba", fs_slug="gba", custom_name="GBA"
-        )
-        platform = db_platform_handler.add_platform(platform)
+        platform = make_platform("gba", name="Game Boy Advance", custom_name="GBA")
 
         parsed = _parse_pegasus(
             PegasusExporter(local_export=True).export_platform_to_pegasus(
@@ -276,13 +267,9 @@ class TestExportMetadata:
 
     def test_collection_name_unmapped_slug_uses_custom_name(self, admin_user: User):
         """Unknown slug → falls back to custom_name (or name) and raw slug."""
-        platform = Platform(
-            name="My Homebrew Console",
-            slug="my-homebrew",
-            fs_slug="my-homebrew",
-            custom_name="Homebrew",
+        platform = make_platform(
+            "my-homebrew", name="My Homebrew Console", custom_name="Homebrew"
         )
-        platform = db_platform_handler.add_platform(platform)
 
         parsed = _parse_pegasus(
             PegasusExporter(local_export=True).export_platform_to_pegasus(
@@ -296,12 +283,7 @@ class TestExportMetadata:
 
     def test_collection_name_unmapped_slug_no_custom_name(self, admin_user: User):
         """Unknown slug, no custom_name → falls back to platform.name and raw slug."""
-        platform = Platform(
-            name="Obscure Platform",
-            slug="obscure-plat",
-            fs_slug="obscure-plat",
-        )
-        platform = db_platform_handler.add_platform(platform)
+        platform = make_platform("obscure-plat", name="Obscure Platform")
 
         parsed = _parse_pegasus(
             PegasusExporter(local_export=True).export_platform_to_pegasus(
@@ -314,8 +296,7 @@ class TestExportMetadata:
         }
 
     def test_multiline_description(self, admin_user: User):
-        platform = Platform(name="GBA", slug="gba", fs_slug="gba")
-        platform = db_platform_handler.add_platform(platform)
+        platform = make_platform("gba", name="GBA")
 
         make_rom(
             platform,
@@ -417,6 +398,25 @@ class TestCollectAssets:
         assets = PegasusExporter(local_export=True)._collect_assets(rom)
         assert assets[expected_pegasus_key] == f
 
+    @pytest.mark.parametrize(
+        "lb_key, lb_value, expected_pegasus_key",
+        [
+            ("box3d_path", "roms/1/1/box3d/box3d.png", "box_full"),
+            ("box2d_back_path", "roms/1/1/box2d_back/box2d_back.png", "box_back"),
+        ],
+    )
+    def test_launchbox_metadata(
+        self, tmp_path, monkeypatch, lb_key, lb_value, expected_pegasus_key
+    ):
+        monkeypatch.setattr(fs_resource_handler, "base_path", tmp_path)
+        f = tmp_path / lb_value
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(b"x")
+
+        rom = _mock_rom(launchbox_metadata={lb_key: lb_value})
+        assets = PegasusExporter(local_export=True)._collect_assets(rom)
+        assert assets[expected_pegasus_key] == f
+
 
 class TestGameEntry:
     def test_game_entry_with_assets(self):
@@ -443,9 +443,7 @@ class TestGameEntry:
 
 @pytest.fixture
 def snes_platform(admin_user: User) -> Platform:
-    platform = db_platform_handler.add_platform(
-        Platform(name="Super Nintendo", slug="snes", fs_slug="snes")
-    )
+    platform = make_platform("snes", name="Super Nintendo")
     rom = make_rom(
         platform,
         "Super Mario World",
@@ -766,9 +764,7 @@ asset.wheel: keep-logo.png
         monkeypatch.setattr(fs_resource_handler, "base_path", resources_base)
         monkeypatch.setattr(fs_platform_handler, "base_path", library_base)
 
-        platform = db_platform_handler.add_platform(
-            Platform(name="Super Nintendo", slug="snes", fs_slug="snes")
-        )
+        platform = make_platform("snes", name="Super Nintendo")
         rom = make_rom(
             platform,
             "Super Mario World",
@@ -892,9 +888,7 @@ def structured_platform(tmp_path, monkeypatch, admin_user: User) -> Platform:
     """A platform whose roms sit in nested folders, as a custom library structure
     leaves them, with two of them sharing a file name."""
     monkeypatch.setattr(fs_platform_handler, "base_path", tmp_path / "library")
-    platform = db_platform_handler.add_platform(
-        Platform(name="Apple IIGS", slug="apple-iigs", fs_slug="apple-iigs")
-    )
+    platform = make_platform("apple-iigs", name="Apple IIGS")
     platform_fs_path = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
     (fs_platform_handler.base_path / platform_fs_path).mkdir(parents=True)
 

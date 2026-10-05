@@ -12,7 +12,6 @@ import pytest
 from tests import factories
 
 from handler.database import (
-    db_platform_handler,
     db_recommendation_handler,
     db_rom_handler,
 )
@@ -306,9 +305,7 @@ def test_ports_of_one_game_take_a_single_slot(platform: Platform):
     igdb_id check and, sharing no title with the source, both took a slot.
     A section of six then spent two of them naming the same game.
     """
-    other_platform = db_platform_handler.add_platform(
-        Platform(name="other", slug="other_slug", fs_slug="other_slug")
-    )
+    other_platform = factories.make_platform("other_slug", name="other")
     source = make_rom(
         platform,
         "100 Classic Games",

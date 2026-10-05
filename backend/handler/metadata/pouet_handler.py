@@ -7,20 +7,25 @@ Never parse ``prod.php`` HTML (ambiguous titles stay unmatched).
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any, Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx2
 
+from adapters.services.provider_http import unavailable
 from config import POUET_API_ENABLED
 from logger.logger import log
 from utils import get_version, int_or_none
 from utils.context import ctx_httpx_client
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler, unavailable
+from .base_handler import (
+    BaseRom,
+    MetadataHandler,
+    provider_tag_regex,
+    tag_id_from_filename,
+)
 from .demozoo_handler import (
     DEMOZOO_PROD_PAGE,
     _append_unique,
@@ -30,7 +35,7 @@ from .demozoo_handler import (
     http_url,
 )
 
-POUET_TAG_REGEX = re.compile(r"\(pouet-(\d+)\)", re.IGNORECASE)
+POUET_TAG_REGEX = provider_tag_regex("pouet")
 POUET_WHICH_RE = re.compile(r"which=(\d+)", re.IGNORECASE)
 POUET_API_PROD: Final[str] = "https://api.pouet.net/v1/prod/"
 POUET_PROD_PAGE: Final[str] = "https://www.pouet.net/prod.php?which={id}"
@@ -70,10 +75,7 @@ class PouetRom(BaseRom):
 
 def extract_pouet_id_from_filename(fs_name: str) -> int | None:
     """Extract Pouët ID from a filename tag like ``(pouet-99)``."""
-    match = POUET_TAG_REGEX.search(fs_name)
-    if match:
-        return int_or_none(match.group(1))
-    return None
+    return tag_id_from_filename(POUET_TAG_REGEX, fs_name)
 
 
 def pouet_id_from_location(location: str) -> int | None:
@@ -305,33 +307,14 @@ class PouetHandler(MetadataHandler):
 
     async def _request(self, url: str) -> dict[str, Any]:
         await _rate_limiter.acquire()
-        headers = {
-            "User-Agent": f"RomM/{get_version()}",
-            "Accept": "application/json",
-        }
-        try:
-            body = await self._fetch_capped(url, headers=headers)
-        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
-            log.warning("Can't connect to Pouët API", extra={"exception": str(exc)})
-            raise unavailable("Pouët API") from exc
-        if body is None:
-            return {}
-        try:
-            data = json.loads(body)
-        except ValueError as exc:
-            log.error("Error decoding JSON from Pouët: %s", exc)
-            return {}
-        return data if isinstance(data, dict) else {}
+        return await self._get_capped_json(url, provider="Pouët API")
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
-        try:
+        async def probe() -> bool:
             data = await self._request(f"{POUET_API_PROD}?id=99")
-        except Exception as exc:
-            log.error("Error checking Pouët API: %s", exc)
-            return False
-        return bool(data.get("success"))
+            return bool(data.get("success"))
+
+        return await self._heartbeat("Pouët API", probe)
 
     async def get_rom_by_id(self, pouet_id: int) -> PouetRom:
         if not self.is_enabled() or not pouet_id:

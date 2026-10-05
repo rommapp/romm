@@ -1,6 +1,7 @@
 import { flushPromises } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import { useGallerySelectAll } from "@/v2/composables/useGallerySelectAll";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -26,7 +27,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 vi.mock("vue-i18n");
 
 function rom(id: number): SimpleRom {
-  return { id, name: `Game ${id}`, platform_id: 1 } as SimpleRom;
+  return romFixture({ id, name: `Game ${id}`, platform_id: 1 });
 }
 
 function resultPage(items: SimpleRom[]) {

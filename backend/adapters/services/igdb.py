@@ -1,4 +1,3 @@
-import asyncio
 import http
 import json
 from collections.abc import Sequence
@@ -12,6 +11,7 @@ from fastapi import HTTPException, status
 from unidecode import unidecode
 
 from adapters.services.igdb_types import Game
+from adapters.services.provider_http import send_with_retries
 from adapters.services.response_validation import parse_response
 from config import IGDB_CLIENT_ID
 from logger.logger import log
@@ -78,7 +78,7 @@ class IGDBService:
         fields: Sequence[str] | None = None,
         where: str | None = None,
         limit: int | None = None,
-        request_timeout: int = 120,
+        request_timeout: float = 120,
     ) -> T | None:
         source = f"IGDB {yarl.URL(url).name}"
         aiohttp_session = ctx_aiohttp_session.get()
@@ -94,56 +94,7 @@ class IGDBService:
             content += f"limit {limit}; "
         content = content.strip()
 
-        log.debug(
-            "API request: URL=%s, Content=%s, Timeout=%s",
-            url,
-            content,
-            request_timeout,
-        )
-
-        try:
-            await _rate_limiter.acquire()
-            res = await aiohttp_session.post(
-                url,
-                data=content,
-                headers={"user-agent": f"RomM/{get_version()}"},
-                middlewares=(self.auth_middleware,),
-                timeout=ClientTimeout(total=request_timeout),
-            )
-            res.raise_for_status()
-            return parse_response(tp, await res.read(), source=source)
-        except aiohttp.ServerTimeoutError:
-            # Retry the request once if it times out
-            log.debug("Request to URL=%s timed out. Retrying...", url)
-        except IGDBInvalidCredentialsException as exc:
-            log.critical("IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Invalid IGDB credentials",
-            ) from exc
-        except aiohttp.ClientConnectionError as exc:
-            log.critical("Connection error: can't connect to IGDB", exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to IGDB, check your internet connection",
-            ) from exc
-        except aiohttp.ClientResponseError as exc:
-            if exc.status == http.HTTPStatus.UNAUTHORIZED:
-                # Refresh the token and retry if the auth token is invalid
-                log.info("Twitch token invalid: fetching a new one...")
-                await self.twitch_auth._update_twitch_token()
-            elif exc.status == http.HTTPStatus.TOO_MANY_REQUESTS:
-                # Retry after 2 seconds if rate limit hit
-                await asyncio.sleep(2)
-            else:
-                log.error(exc)
-                return None
-        except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from IGDB: %s", exc)
-            return None
-
-        # Retry the request once if it times out
-        try:
+        async def send() -> T | None:
             log.debug(
                 "API request: URL=%s, Content=%s, Timeout=%s",
                 url,
@@ -160,13 +111,25 @@ class IGDBService:
             )
             res.raise_for_status()
             return parse_response(tp, await res.read(), source=source)
-        except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as exc:
-            if (
-                isinstance(exc, aiohttp.ClientResponseError)
-                and exc.status == http.HTTPStatus.UNAUTHORIZED
-            ):
-                return None
 
+        async def refresh_token(exc: aiohttp.ClientResponseError) -> bool:
+            if exc.status != http.HTTPStatus.UNAUTHORIZED:
+                return False
+            log.info("Twitch token invalid: fetching a new one...")
+            await self.twitch_auth._update_twitch_token()
+            return True
+
+        try:
+            return await send_with_retries(
+                send, provider="IGDB", url=url, retry_on_status=refresh_token
+            )
+        except IGDBInvalidCredentialsException as exc:
+            log.critical("IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Invalid IGDB credentials",
+            ) from exc
+        except (aiohttp.ClientResponseError, TimeoutError) as exc:
             log.error(exc)
             return None
         except json.JSONDecodeError as exc:

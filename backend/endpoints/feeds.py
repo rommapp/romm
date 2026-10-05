@@ -253,7 +253,7 @@ async def tinfoil_index_feed(
             )
             for rom in roms
             for rom_file in rom.files
-            if rom_file.file_extension in ["xci", "nsp", "nsz", "xcz", "nro"]
+            if rom_file.file_extension.lower() in ["xci", "nsp", "nsz", "xcz", "nro"]
         ],
         directories=[],
         success=TINFOIL_WELCOME_MESSAGE,

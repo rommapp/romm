@@ -1,12 +1,12 @@
 import json
 import os
-import re
 import time
 from typing import NotRequired, TypedDict, cast
 
 import pydash
 from anyio import Path as AnyioPath
 
+from adapters.services.provider_http import unavailable
 from adapters.services.retroachievements import RetroAchievementsService
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
@@ -21,10 +21,15 @@ from models.rom import Rom
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import BaseRom, MetadataHandler, unavailable
+from .base_handler import (
+    BaseRom,
+    MetadataHandler,
+    provider_tag_regex,
+    tag_id_from_filename,
+)
 
 # Regex to detect RetroAchievements ID tags in filenames like (ra-12345)
-RA_TAG_REGEX = re.compile(r"\(ra-(\d+)\)", re.IGNORECASE)
+RA_TAG_REGEX = provider_tag_regex("ra")
 
 
 class RAGamesPlatform(TypedDict):
@@ -144,24 +149,15 @@ class RAHandler(MetadataHandler):
         return bool(RETROACHIEVEMENTS_API_KEY)
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
+        async def probe() -> bool:
+            return bool(await self.ra_service.get_achievement_of_the_week())
 
-        try:
-            response = await self.ra_service.get_achievement_of_the_week()
-        except Exception as e:
-            log.error("Error checking RetroAchievements API: %s", e)
-            return False
-
-        return bool(response)
+        return await self._heartbeat("RetroAchievements API", probe)
 
     @staticmethod
     def extract_ra_id_from_filename(fs_name: str) -> int | None:
         """Extract RetroAchievements ID from filename tag like (ra-12345)."""
-        match = RA_TAG_REGEX.search(fs_name)
-        if match:
-            return int(match.group(1))
-        return None
+        return tag_id_from_filename(RA_TAG_REGEX, fs_name)
 
     def _get_hashes_file_path(self, platform_id: int) -> str:
         platform_resources_path = fs_resource_handler.get_platform_resources_path(

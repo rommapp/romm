@@ -23,10 +23,13 @@ from handler.metadata.base_handler import (
     SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     BaseRom,
+    IndexedFormatPlatforms,
     MetadataHandler,
     _normalize_search_term,
+    provider_tag_regex,
     restore_sensitive_query_params,
     strip_sensitive_query_params,
+    tag_id_from_filename,
 )
 from handler.redis_handler import async_cache
 from models.rom import Rom
@@ -477,6 +480,158 @@ class TestMetadataHandlerMethods:
         values = {"api_key": "ab"}
         result = handler._mask_sensitive_values(values)
         assert result["api_key"] == "ab***ab"  # Shows first 2 and last 2
+
+
+class TestResolveIndexedTitle:
+    PLATFORMS = IndexedFormatPlatforms(
+        ps1=1, ps2=2, psp=3, switch=4, arcade=(5, 6), scummvm=7
+    )
+
+    @pytest.fixture
+    def handler(self) -> MetadataHandler:
+        return ExampleMetadataHandler()
+
+    async def _resolve(
+        self,
+        handler: MetadataHandler,
+        fs_name: str,
+        platform_id: int,
+        platforms: IndexedFormatPlatforms = PLATFORMS,
+    ) -> tuple[str, BaseRom]:
+        fallback_rom = BaseRom()
+        term = await handler._resolve_indexed_title(
+            Rom(fs_name=fs_name),
+            fs_name,
+            "original",
+            platform_id,
+            platforms,
+            fallback_rom,
+        )
+        return term, fallback_rom
+
+    @pytest.mark.parametrize(
+        ("fs_name", "platform_id", "method"),
+        [
+            ("SLUS_200.62.Grand Theft Auto.iso", 2, "_ps2_opl_format"),
+            ("Crash [SCUS-94900].bin", 1, "_ps1_serial_format"),
+            ("Ridge Racer [SLUS-01234].iso", 2, "_ps2_serial_format"),
+            ("Lumines [ULUS-10046].iso", 3, "_psp_serial_format"),
+            ("pacman.zip", 6, "_mame_format"),
+            ("monkey1.scummvm", 7, "_scummvm_format"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_named_index_sets_term_and_fallback_name(
+        self, handler: MetadataHandler, fs_name: str, platform_id: int, method: str
+    ):
+        with patch.object(handler, method, AsyncMock(return_value="Indexed Title")):
+            term, fallback_rom = await self._resolve(handler, fs_name, platform_id)
+
+        assert term == "Indexed Title"
+        assert fallback_rom == BaseRom(name="Indexed Title")
+
+    @pytest.mark.asyncio
+    async def test_switch_entry_fills_the_fallback(self, handler: MetadataHandler):
+        entry = {
+            "name": "Celeste",
+            "description": "Climb",
+            "iconUrl": "https://example.com/icon.png",
+            "screenshots": None,
+        }
+        with (
+            patch.object(
+                handler,
+                "_switch_titledb_format",
+                AsyncMock(return_value=("Celeste", entry)),
+            ),
+            patch.object(
+                handler,
+                "_switch_productid_format",
+                AsyncMock(return_value=("Celeste", None)),
+            ),
+        ):
+            term, fallback_rom = await self._resolve(
+                handler, "Celeste [70010000000025].nsp", 4
+            )
+
+        assert term == "Celeste"
+        assert fallback_rom == BaseRom(
+            name="Celeste",
+            summary="Climb",
+            url_cover="https://example.com/icon.png",
+            url_screenshots=[],
+        )
+
+    @pytest.mark.asyncio
+    async def test_other_platform_is_left_alone(self, handler: MetadataHandler):
+        with patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget:
+            term, fallback_rom = await self._resolve(handler, "SLUS-12345.bin", 99)
+
+        mock_hget.assert_not_called()
+        assert term == "original"
+        assert fallback_rom == BaseRom()
+
+    @pytest.mark.asyncio
+    async def test_provider_without_scummvm_skips_it(self, handler: MetadataHandler):
+        platforms = IndexedFormatPlatforms(ps1=1, ps2=2, psp=3, switch=4, arcade=())
+        with patch.object(handler, "_scummvm_format", new_callable=AsyncMock) as fmt:
+            term, _ = await self._resolve(handler, "monkey1", 7, platforms)
+
+        fmt.assert_not_called()
+        assert term == "original"
+
+
+class TestProviderTags:
+    TAG = provider_tag_regex("igdb")
+
+    @pytest.mark.parametrize(
+        ("fs_name", "expected"),
+        [
+            ("Zelda (igdb-1025).sfc", 1025),
+            ("Zelda (IGDB-1025).sfc", 1025),
+            ("Zelda (moby-1025).sfc", None),
+            ("Zelda (igdb-).sfc", None),
+            ("Zelda.sfc", None),
+            # Past 4300 digits int() raises instead of parsing.
+            ("Zelda (igdb-" + "1" * 5000 + ").sfc", None),
+        ],
+        ids=["tagged", "any_case", "other_provider", "no_id", "untagged", "too_long"],
+    )
+    def test_reads_the_id_from_the_tag(self, fs_name: str, expected: int | None):
+        assert tag_id_from_filename(self.TAG, fs_name) == expected
+
+
+class _HeartbeatHandler(MetadataHandler):
+    enabled = True
+
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return cls.enabled
+
+
+class TestHeartbeat:
+    @pytest.mark.parametrize("answer", [True, False])
+    @pytest.mark.asyncio
+    async def test_reports_what_the_probe_finds(self, answer: bool):
+        probe = AsyncMock(return_value=answer)
+
+        assert await _HeartbeatHandler()._heartbeat("Test API", probe) is answer
+
+    @pytest.mark.asyncio
+    async def test_a_failing_probe_is_down(self):
+        probe = AsyncMock(side_effect=RuntimeError("down"))
+
+        assert await _HeartbeatHandler()._heartbeat("Test API", probe) is False
+
+    @pytest.mark.asyncio
+    async def test_a_disabled_provider_is_not_probed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(_HeartbeatHandler, "enabled", False)
+        probe = AsyncMock(return_value=True)
+
+        assert await _HeartbeatHandler()._heartbeat("Test API", probe) is False
+        probe.assert_not_awaited()
 
 
 class TestStripSensitiveQueryParams:

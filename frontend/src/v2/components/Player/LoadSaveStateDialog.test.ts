@@ -2,9 +2,9 @@ import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
 import { describe, expect, it, vi } from "vitest";
 import type { SaveSchema, StateSchema } from "@/__generated__";
-import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 import LoadSaveStateDialog from "./LoadSaveStateDialog.vue";
 
 const { confirm } = vi.hoisted(() => ({
@@ -55,15 +55,6 @@ function makeState(overrides: Partial<StateSchema> = {}): StateSchema {
   });
 }
 
-function makeRom(overrides: Partial<DetailedRom> = {}): DetailedRom {
-  return {
-    id: 3,
-    user_saves: [makeSave()],
-    user_states: [makeState()],
-    ...overrides,
-  } as DetailedRom;
-}
-
 function openDialog() {
   const emitter: Emitter<Events> = mitt<Events>();
   const saveSelected = vi.fn();
@@ -77,7 +68,14 @@ function openDialog() {
     },
   });
   const open = async () => {
-    emitter.emit("selectStateDialog", makeRom());
+    emitter.emit(
+      "selectStateDialog",
+      detailedRomFixture({
+        id: 3,
+        user_saves: [makeSave()],
+        user_states: [makeState()],
+      }),
+    );
     await flushPromises();
   };
   return { wrapper, open, saveSelected, stateSelected };

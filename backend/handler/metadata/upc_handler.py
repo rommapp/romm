@@ -11,7 +11,7 @@ from .base_handler import MetadataHandler
 # Retail suffixes/noise commonly present in UPC-database product titles that hurt
 # name matching against game-metadata providers (e.g. "Sonic - Nintendo Switch").
 _TITLE_NOISE_RE = re.compile(
-    r"\s*[-–(]?\s*(video ?game|nintendo switch|playstation \d?|"
+    r"\s*[-–(]?\s*\b(video ?game|nintendo switch|playstation \d?|"
     r"xbox(?: one| series [sx])?|pc|ntsc|pal|region free|brand new|sealed)\b.*$",
     re.IGNORECASE,
 )
@@ -64,10 +64,12 @@ class UPCHandler(MetadataHandler):
             log.warning("Failed to resolve UPC %s: %s", upc, e)
             return None
 
-        items = data.get("items") or []
+        items = data.get("items") if isinstance(data, dict) else None
+        if not isinstance(items, list):
+            return None
         for item in items:
-            title = (item.get("title") or "").strip()
-            if len(title) >= _MIN_TITLE_LENGTH:
-                return self._clean_title(title)
+            title = item.get("title") if isinstance(item, dict) else None
+            if isinstance(title, str) and len(title.strip()) >= _MIN_TITLE_LENGTH:
+                return self._clean_title(title.strip())
 
         return None

@@ -8,6 +8,7 @@ import httpx2
 import pydash
 from fastapi import HTTPException, status
 
+from adapters.services.provider_http import unavailable
 from adapters.services.response_validation import parse_response
 from config import HLTB_API_ENABLED
 from logger.logger import log
@@ -28,10 +29,8 @@ from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rate_limiter import RateLimiter
 from utils.update_hltb_api_url import discover_hltb_endpoint
 
-from .base_handler import BaseRom, MetadataHandler, unavailable
+from .base_handler import BaseRom, MetadataHandler
 
-# Regex to detect HLTB ID tags in filenames like (hltb-12345)
-HLTB_TAG_REGEX = re.compile(r"\(hltb-(\d+)\)", re.IGNORECASE)
 DASH_COLON_REGEX = re.compile(r"\s?-\s")
 # The game page ships its record as JSON in the Next.js hydration payload. The
 # id alone identifies the tag, so attribute order and extras a CSP would add
@@ -370,20 +369,14 @@ class HLTBHandler(MetadataHandler):
             log.warning("Unexpected error fetching HLTB security token: %s", e)
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
-
-        httpx_client = ctx_httpx_client.get()
-        try:
-            response = await httpx_client.get(
+        async def probe() -> bool:
+            response = await ctx_httpx_client.get().get(
                 self.stats_endpoint, headers=self._base_headers()
             )
             response.raise_for_status()
-        except Exception as e:
-            log.error("Error checking HLTB API: %s", e)
-            return False
+            return True
 
-        return True
+        return await self._heartbeat("HLTB API", probe)
 
     async def _request(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
         """
@@ -465,7 +458,7 @@ class HLTBHandler(MetadataHandler):
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail=_unavailable_detail(status_code),
                 ) from exc
-            except (httpx2.ConnectError, httpx2.ReadTimeout) as exc:
+            except httpx2.RequestError as exc:
                 log.warning(
                     "Connection error: can't connect to HowLongToBeat API",
                     exc_info=True,
@@ -707,8 +700,6 @@ class HLTBHandler(MetadataHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=_unavailable_detail(status_code),
             ) from exc
-        # Broader than the search path's catch: a connect timeout is the likely
-        # failure here, and it would otherwise escape update_rom as a bare 500.
         except httpx2.RequestError as exc:
             log.warning(
                 "Connection error: can't connect to HowLongToBeat", exc_info=True

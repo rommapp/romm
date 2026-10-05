@@ -1,28 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import { romFixture } from "@/utils/rom.fixtures";
 import useSoundtrackPlayer, {
   resolveSoundtrackGameArtwork,
   type SoundtrackArtworkRom,
 } from "./soundtrackPlayer";
 
-function makeRom(
+function artworkRom(
   overrides: Partial<SoundtrackArtworkRom> = {},
 ): SoundtrackArtworkRom {
-  return {
-    ss_metadata: null,
-    launchbox_metadata: null,
-    platform_slug: "psx",
-    path_cover_large: null,
-    path_cover_small: null,
-    url_cover: null,
-    ...overrides,
-  } as SoundtrackArtworkRom;
+  return romFixture({ platform_slug: "psx", ...overrides });
 }
 
 describe("resolveSoundtrackGameArtwork", () => {
   it("prefers the ScreenScraper disc over the logo on a CD system", () => {
     const url = resolveSoundtrackGameArtwork(
-      makeRom({
+      artworkRom({
         ss_metadata: { physical_path: "disc.png", logo_path: "logo.png" },
       }),
     );
@@ -31,7 +24,7 @@ describe("resolveSoundtrackGameArtwork", () => {
 
   it("falls back to the LaunchBox disc when ScreenScraper has none", () => {
     const url = resolveSoundtrackGameArtwork(
-      makeRom({
+      artworkRom({
         ss_metadata: { logo_path: "logo.png" },
         launchbox_metadata: {
           images: [
@@ -49,7 +42,7 @@ describe("resolveSoundtrackGameArtwork", () => {
 
   it("skips LaunchBox media the browser cannot load", () => {
     const url = resolveSoundtrackGameArtwork(
-      makeRom({
+      artworkRom({
         ss_metadata: { logo_path: "logo.png" },
         launchbox_metadata: {
           images: [
@@ -63,7 +56,7 @@ describe("resolveSoundtrackGameArtwork", () => {
 
   it("ignores physical media on a non-CD system", () => {
     const url = resolveSoundtrackGameArtwork(
-      makeRom({
+      artworkRom({
         platform_slug: "snes",
         ss_metadata: { physical_path: "cart.png", logo_path: "logo.png" },
         launchbox_metadata: {
@@ -79,21 +72,25 @@ describe("resolveSoundtrackGameArtwork", () => {
   it("falls back to the cover chain when no artwork is scraped", () => {
     expect(
       resolveSoundtrackGameArtwork(
-        makeRom({ path_cover_small: "small.png", url_cover: "remote.png" }),
+        artworkRom({ path_cover_small: "small.png", url_cover: "remote.png" }),
       ),
     ).toBe("small.png");
-    expect(resolveSoundtrackGameArtwork(makeRom())).toBeUndefined();
+    expect(resolveSoundtrackGameArtwork(artworkRom())).toBeUndefined();
   });
 
   it("treats the backend's empty cover paths as missing", () => {
     expect(
       resolveSoundtrackGameArtwork(
-        makeRom({ path_cover_large: "", path_cover_small: "", url_cover: "" }),
+        artworkRom({
+          path_cover_large: "",
+          path_cover_small: "",
+          url_cover: "",
+        }),
       ),
     ).toBeUndefined();
     expect(
       resolveSoundtrackGameArtwork(
-        makeRom({ path_cover_large: "", path_cover_small: "small.png" }),
+        artworkRom({ path_cover_large: "", path_cover_small: "small.png" }),
       ),
     ).toBe("small.png");
   });

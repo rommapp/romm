@@ -38,6 +38,14 @@ describe("parseSceneId", () => {
     );
   });
 
+  it("takes no id from a CSDb page that is not a release", () => {
+    expect(parseSceneId("https://csdb.dk/group/?id=901", "csdb")).toBeNull();
+    expect(parseSceneId("https://csdb.dk/scener/?id=1180", "csdb")).toBeNull();
+    expect(
+      parseSceneId("https://csdb.dk/releases/?id=75330", "csdb"),
+    ).toBeNull();
+  });
+
   it("does not take another site's id for the wrong field", () => {
     expect(
       parseSceneId("https://demozoo.org/productions/108/", "pouet"),

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { makeDetailedRom, makeRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture, romFixture } from "@/utils/rom.fixtures";
 import DeleteRomDialog from "./DeleteRomDialog.vue";
 
 const { addExclusion, deleteRoms, push, snackbarError } = vi.hoisted(() => ({
@@ -73,8 +73,8 @@ async function deleteShownGame() {
     },
   });
   emitter.emit("showDeleteRomDialog", [
-    makeRom({ id: 5, platform_id: 1 }),
-    makeRom({ id: 6, platform_id: 1 }),
+    romFixture({ id: 5, platform_id: 1 }),
+    romFixture({ id: 6, platform_id: 1 }),
   ]);
   await flushPromises();
   // The footer's confirm button renders last.
@@ -91,8 +91,8 @@ describe("DeleteRomDialog", () => {
       data: { failed_ids: [], successful_items: 2 },
     });
     const roms = storeRoms();
-    roms.cacheDetailedRom(makeDetailedRom({ id: 5 }));
-    roms.cacheDetailedRom(makeDetailedRom({ id: 6 }));
+    roms.cacheDetailedRom(detailedRomFixture({ id: 5 }));
+    roms.cacheDetailedRom(detailedRomFixture({ id: 6 }));
   });
 
   it("forgets the deleted games once the page has left them", async () => {
@@ -137,7 +137,7 @@ describe("DeleteRomDialog with a large selection", () => {
     emitter.emit(
       "showDeleteRomDialog",
       Array.from({ length: count }, (_, i) =>
-        makeRom({ id: i + 1, platform_id: 1 }),
+        romFixture({ id: i + 1, platform_id: 1 }),
       ),
     );
     await flushPromises();

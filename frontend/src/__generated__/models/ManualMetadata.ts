@@ -12,5 +12,6 @@ export type ManualMetadata = {
     age_ratings?: (Array<string> | null);
     first_release_date?: (number | null);
     youtube_video_id?: (string | null);
+    alternative_names?: (Array<string> | null);
 };
 

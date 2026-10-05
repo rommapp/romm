@@ -2,13 +2,21 @@ import asyncio
 import http
 import json
 import time
+from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
+import pytest_asyncio
 import yarl
 from fastapi import HTTPException, status
+from tests.adapters.services.scripted_server import (
+    DISCONNECT,
+    Reply,
+    ScriptedServer,
+    scripted_server,
+)
 
 import adapters.services.screenscraper as ss_module
 from adapters.services.screenscraper import (
@@ -2499,6 +2507,8 @@ class TestMediaDownloads:
             ("https://SCREENSCRAPER.FR/media.php", True),
             ("https://screenscraper.fr.evil.example/media.php", False),
             ("https://cdn.example.com/cover.png", False),
+            ("http://[not-a-host/", False),
+            ("file:///etc/passwd", False),
             ("", False),
             (None, False),
         ],
@@ -2563,3 +2573,89 @@ class TestMediaDownloads:
         ss_module._update_account_limits(_ssuser_response(maxdownloadspeed="40000"))
 
         assert media_download_timeout() == SS_DEFAULT_MEDIA_TIMEOUT
+
+
+@pytest_asyncio.fixture
+async def ss_server() -> AsyncIterator[tuple[ScriptedServer, ScreenScraperService]]:
+    async with scripted_server("/api2") as (fake, url):
+        yield fake, ScreenScraperService(base_url=url)
+
+
+@pytest.fixture
+def no_backoff(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+    sleep = AsyncMock()
+    # Swap only this module's reference, so the test server and aiohttp still sleep.
+    monkeypatch.setattr(
+        "adapters.services.provider_http.asyncio",
+        MagicMock(wraps=asyncio, sleep=sleep),
+    )
+    return sleep
+
+
+INFRA = {"response": {"serveurs": {"cpu1": "10"}}}
+
+
+class TestAgainstAServer:
+    async def _infra(self, service: ScreenScraperService) -> Any:
+        # A one-second budget, so a scripted delay outlasts it.
+        return await service._request(
+            str(service.url.joinpath("ssinfraInfos.php")), dict[str, Any], 1
+        )
+
+    async def test_sends_the_credentials_and_a_romm_user_agent(
+        self, ss_server: tuple[ScriptedServer, ScreenScraperService]
+    ):
+        fake, service = ss_server
+        fake.replies["ssinfraInfos.php"] = [(200, INFRA)]
+
+        assert await service.get_infra_info() == INFRA
+
+        [request] = fake.requests
+        assert request.query["output"] == "json"
+        assert request.query["softname"] == "romm"
+        assert request.headers["User-Agent"].startswith("RomM/")
+
+    async def test_a_timed_out_request_is_retried_once(
+        self, ss_server: tuple[ScriptedServer, ScreenScraperService]
+    ):
+        fake, service = ss_server
+        fake.replies["ssinfraInfos.php"] = [5.0, (200, INFRA)]
+
+        assert await self._infra(service) == INFRA
+        assert len(fake.requests) == 2
+
+    async def test_two_timeouts_are_no_answer(
+        self, ss_server: tuple[ScriptedServer, ScreenScraperService]
+    ):
+        fake, service = ss_server
+        fake.replies["ssinfraInfos.php"] = [5.0, 5.0]
+
+        assert await self._infra(service) is None
+
+    async def test_a_retry_that_is_not_json_is_no_answer(
+        self,
+        ss_server: tuple[ScriptedServer, ScreenScraperService],
+        no_backoff: AsyncMock,
+    ):
+        fake, service = ss_server
+        fake.replies["ssinfraInfos.php"] = [(429, {}), (200, b"<html>")]
+
+        assert await self._infra(service) is None
+        no_backoff.assert_awaited_once_with(2)
+
+    @pytest.mark.parametrize("first", [5.0, (429, {})], ids=["timeout", "rate_limited"])
+    async def test_a_dropped_retry_is_unavailable(
+        self,
+        ss_server: tuple[ScriptedServer, ScreenScraperService],
+        no_backoff: AsyncMock,
+        first: Reply,
+    ):
+        fake, service = ss_server
+        # aiohttp itself resends an idempotent request once on a dropped connection.
+        fake.replies["ssinfraInfos.php"] = [first, DISCONNECT, DISCONNECT]
+
+        with pytest.raises(HTTPException) as exc:
+            await self._infra(service)
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert len(fake.requests) == 3

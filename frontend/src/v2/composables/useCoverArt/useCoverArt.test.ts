@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import {
   altArtPath,
   computeCoverArt,
@@ -23,7 +24,7 @@ function rom(over: Partial<SimpleRom>): SimpleRom {
     ss_metadata: null,
     gamelist_metadata: null,
   };
-  return { ...base, ...over } as SimpleRom;
+  return romFixture({ ...base, ...over });
 }
 
 describe("isBoxartStyle", () => {
@@ -95,6 +96,10 @@ describe("altArtPath", () => {
       gamelist_metadata: { box3d_path: "gl.png" },
     });
     expect(altArtPath(r, "box3d_path")).toBe("ss.png");
+  });
+  it("falls back to launchbox_metadata for the 3D box", () => {
+    const r = rom({ launchbox_metadata: { box3d_path: "lb.png" } });
+    expect(altArtPath(r, "box3d_path")).toBe("lb.png");
   });
   it("falls back to gamelist_metadata", () => {
     const r = rom({ gamelist_metadata: { physical_path: "gl.png" } });
