@@ -439,21 +439,15 @@ const showVirtualLoading = computed(
     curatedTiles.value.length > 0,
 );
 
-// Drives `IndexShell`'s sticky list-header band: only render the
-// column header when the list itself is on screen (list layout + a
-// row to show). Skipping it during the skeleton / empty / no-match
-// states keeps an orphan header from floating above an empty viewport.
-const showListHeader = computed(
-  () =>
-    layout.value === "list" &&
-    !isLoading.value &&
-    totalCount.value > 0 &&
-    filtered.value.length > 0,
+// Header and rows render only while there is a row, so no header floats
+// above the skeleton, empty or no-match states.
+const showList = computed(
+  () => layout.value === "list" && sortedTiles.value.length > 0,
 );
 </script>
 
 <template>
-  <IndexShell :list-mode="showListHeader">
+  <IndexShell :list-mode="showList" :list-label="t('common.collections')">
     <template #header>
       <PageHeader :title="t('common.collections')" :count="totalCount" />
       <RDivider class="r-v2-cidx__header-divider" />
@@ -484,6 +478,20 @@ const showListHeader = computed(
       />
     </template>
 
+    <template #listRows>
+      <CollectionListRow
+        v-for="c in sortedTiles"
+        :id="c.id"
+        :key="`${c.kind}-${c.id}`"
+        :to="c.link"
+        :name="c.name"
+        :rom-count="c.rom_count"
+        :covers="c.covers"
+        :kind="c.kind"
+        :is-public="c.isPublic"
+      />
+    </template>
+
     <div ref="gridRoot">
       <div v-if="phase === 'skeleton'" class="r-v2-cidx__grid">
         <RSkeletonBlock
@@ -507,19 +515,8 @@ const showListHeader = computed(
         :title="emptyState.message"
       />
 
-      <div v-else-if="layout === 'list'" class="r-v2-cidx__list">
-        <CollectionListRow
-          v-for="c in sortedTiles"
-          :id="c.id"
-          :key="`${c.kind}-${c.id}`"
-          :to="c.link"
-          :name="c.name"
-          :rom-count="c.rom_count"
-          :covers="c.covers"
-          :kind="c.kind"
-          :is-public="c.isPublic"
-        />
-      </div>
+      <!-- List mode: IndexShell renders the rows with the header. -->
+      <template v-else-if="layout === 'list'" />
 
       <template v-else>
         <!-- Curated panel: regular + smart in a translucent container,
@@ -656,10 +653,6 @@ const showListHeader = computed(
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 20px 16px;
-}
-
-.r-v2-cidx__list :deep(.coll-list-row:last-child) {
-  border-bottom: 0;
 }
 
 /* Curated panel: translucent container (same vocabulary as the
