@@ -187,11 +187,8 @@ export const IconSizeLadder: Story = {
 };
 
 /**
- * Icon-mode button with custom default-slot content. When `icon` is
- * set as a flag (boolean / empty / `true`) and a default slot is
- * provided, the slot replaces the icon glyph. Used for composite icon
- * content like GameCard's platform badge, where the "icon" is an
- * PlatformIcon SVG rather than an MDI codepoint.
+ * When `icon` is a flag, a default slot replaces the glyph (e.g. GameCard's
+ * PlatformIcon badge).
  */
 export const IconSlotCustom: Story = {
   name: "Icon-mode · custom slot content",
@@ -366,9 +363,8 @@ export const FormActions: Story = {
 };
 
 /**
- * Surface modifier: pairs an outlined icon-only RBtn with an
- * `RSliderBtnGroup` segmented cluster so both share the same tinted
- * chrome. Used in `GalleryToolbar` for filter / kebab buttons.
+ * `surface` gives an outlined icon-only RBtn the same tinted chrome as the
+ * `RSliderBtnGroup` beside it.
  */
 export const SurfaceWithSlider: Story = {
   name: "Surface modifier (icon button next to slider)",

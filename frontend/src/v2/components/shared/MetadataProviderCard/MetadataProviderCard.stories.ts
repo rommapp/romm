@@ -54,9 +54,8 @@ export default meta;
 type Story = StoryObj<typeof MetadataProviderCard>;
 
 /**
- * The settings grid: card 3 carries a subtitle, so the row is taller
- * than cards 1 and 2 need. Their footers must still sit on the bottom
- * edge with the spare space absorbed above them, not below.
+ * The settings grid: card 3's subtitle makes the row taller, and every footer
+ * still sits on the bottom edge.
  */
 export const TileGrid: Story = {
   name: "Tile · settings grid",

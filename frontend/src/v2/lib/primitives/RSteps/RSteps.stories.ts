@@ -7,7 +7,11 @@ const meta: Meta<typeof RSteps> = {
   title: "Primitives/RSteps",
   component: RSteps,
   argTypes: {
+    current: { control: { type: "number", min: 1, max: 5 } },
+    total: { control: { type: "number", min: 2, max: 6 } },
     direction: { control: "select", options: ["forward", "back"] },
+    lineWidth: { control: { type: "number", min: 16, max: 120 } },
+    dotSize: { control: { type: "number", min: 20, max: 64 } },
   },
 };
 

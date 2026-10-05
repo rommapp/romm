@@ -37,9 +37,8 @@ export const WithIcon: Story = {
 };
 
 /**
- * `#header-append` slot: content between the title and the chevron.
- * Used by ScanPlatform for ROM-count / firmware / "not identified"
- * chips, but generic enough for any badge / counter use.
+ * `#header-append` slot: content between the title and the chevron, such as
+ * count or status chips.
  */
 export const WithHeaderAppend: Story = {
   name: "Header append (chips)",

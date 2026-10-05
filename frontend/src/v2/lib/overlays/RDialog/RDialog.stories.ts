@@ -81,9 +81,8 @@ export const Light: Story = {
 };
 
 /**
- * Loading and empty states aren't built into the primitive:
- * the consumer renders them inside `#content` from REmptyState /
- * RProgressCircular. These stories demonstrate the recipe.
+ * Loading and empty states are composed by the consumer inside `#content` from
+ * REmptyState / RProgressCircular.
  */
 export const Loading: Story = {
   name: "Loading (composed)",

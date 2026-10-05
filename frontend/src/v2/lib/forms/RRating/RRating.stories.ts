@@ -67,9 +67,8 @@ export const KeyboardNav: Story = {
 };
 
 /**
- * Difficulty preset: same primitive driven by props. Exercises the
- * emptyIcon/fullIcon/activeColor pass-through used by the
- * score-picker on GameDetails.
+ * Difficulty preset: the emptyIcon/fullIcon/activeColor props as the
+ * GameDetails score-picker uses them.
  */
 export const Difficulty: Story = {
   args: {

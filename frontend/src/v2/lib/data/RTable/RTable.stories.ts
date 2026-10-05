@@ -158,9 +158,8 @@ export const Empty: Story = {
 };
 
 /**
- * Mobile card-stack: on `xs` each row reflows into a stacked card with the
- * column label as a per-cell caption. The reflow keys off `html[data-bp~="xs"]`,
- * so the story opens on the phone viewport preset.
+ * On `xs` each row reflows into a card with the column labels as captions; the
+ * story opens on the phone viewport.
  */
 export const MobileCardStack: Story = {
   globals: { viewport: { value: "rommPhoneXs" } },

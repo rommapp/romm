@@ -84,10 +84,8 @@ export const NoLabel: Story = {
 // ── Multi-state ─────────────────────────────────────────────────────
 
 /**
- * `states` opts into an N-value control on its own `stateValue` model,
- * leaving the boolean `modelValue` path untouched. Clicking cycles through
- * the ordered list (first = empty); a state with a `color` fills the box
- * and with an `icon` shows that glyph (else the check tick).
+ * `states` adds an N-value control on its own `stateValue` model; clicking
+ * cycles through the list, the first entry being empty.
  */
 export const MultiState: Story = {
   name: "Multi-state (none / full / own)",
@@ -360,10 +358,8 @@ export const CardVariantColored: Story = {
 // ── Bare ────────────────────────────────────────────────────────────
 
 /**
- * `bare` strips the row's vertical breathing padding and the box↔label
- * gap. The box stays the same; only the surrounding chrome is removed.
- * Used when the consumer owns the layout (overlay corners, list-row
- * columns, dense table cells) and wants the checkbox to sit flush.
+ * `bare` strips the row padding and the box-label gap, for consumers that own
+ * the layout (overlay corners, dense cells).
  */
 export const Bare: Story = {
   name: "Bare (no breathing padding)",

@@ -218,9 +218,8 @@ export const Multiple: Story = {
 };
 
 /**
- * Without `chips` the selections render as one run of text. The comma
- * separator must read "A, B": a space on both sides means the separator
- * picked up the value row's flex gap.
+ * Without `chips` the selections render as one run of text, separated as "A, B"
+ * with no space before the comma.
  */
 export const MultipleText: Story = {
   name: "Multiple (no chips)",
@@ -259,9 +258,8 @@ export const MultipleOverflow: Story = {
 // ── Searchable ─────────────────────────────────────────────────────
 
 /**
- * `searchable` filters items internally without any v-model:search
- * binding. Drop in the prop and the menu gets a search field that
- * filters the list as you type.
+ * `searchable` adds a search field that filters the items internally, with no
+ * `v-model:search` binding.
  */
 export const Searchable: Story = {
   render: () => ({
@@ -317,10 +315,8 @@ export const SearchableExtraTerms: Story = {
 // ── Chip tone ──────────────────────────────────────────────────────
 
 /**
- * `chipTone` controls how the selection chips render in multi mode.
- * Default `brand` paints a brand-coloured pill; `plain` strips the
- * pill background entirely (used by PlatformSelect to let icons read
- * without surrounding colour); the rest pick a semantic tone.
+ * `chipTone` sets how multi-mode selection chips render: a `brand` pill,
+ * `plain` with no background, or a semantic tone.
  */
 export const ChipTones: Story = {
   name: "Chip tones (multiple)",
@@ -357,9 +353,8 @@ export const ChipTones: Story = {
 // ── Chip slot ──────────────────────────────────────────────────────
 
 /**
- * Use the `#chip` slot to fully control chip content: replace the
- * default label/title with a custom layout (icon, avatar, mini-card).
- * The slot receives the active item; styling falls back to chipTone.
+ * The `#chip` slot replaces the chip content with a custom layout; its styling
+ * still follows `chipTone`.
  */
 export const ChipSlotIconOnly: Story = {
   name: "#chip slot — icon-only chips",

@@ -31,9 +31,8 @@ export const Row: Story = {
 };
 
 /**
- * Size ladder: `size` binds directly to width/height inline so the
- * icon honours the requested dimension even inside indefinite flex
- * parents (e.g. RBtn's icon slot, GameCard's platform badge).
+ * Size ladder: `size` sets width/height inline, so the icon keeps its size
+ * inside indefinite flex parents.
  */
 export const SizeLadder: Story = {
   name: "Size ladder",

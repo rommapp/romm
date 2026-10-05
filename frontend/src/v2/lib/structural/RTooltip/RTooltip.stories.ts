@@ -405,9 +405,8 @@ export const IconBarRealWorld: Story = {
 
 // ── Touch gating (behavioral) ───────────────────────────────────────
 /**
- * A touch "hover" is really a tap that fires the underlying action, so a
- * tooltip there would linger over whatever the tap opened. The tooltip must
- * reveal for mouse/pen hover only, and a click must always dismiss it.
+ * Tooltips reveal on mouse/pen hover only, since a touch hover is a tap; a
+ * click always dismisses them.
  */
 export const TouchGating: Story = {
   name: "Touch gating (play)",

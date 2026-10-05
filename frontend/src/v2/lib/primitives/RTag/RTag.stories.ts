@@ -63,9 +63,8 @@ export const SlotContent: Story = {
 };
 
 /**
- * `plain` tone: chrome stripped, used as inline meta rows (icon + text,
- * no chip surface). Inherits parent text colour so it blends into muted
- * metadata blocks.
+ * `plain` tone strips the chip surface for inline meta rows and inherits the
+ * parent's text colour.
  */
 export const Plain: Story = {
   name: "Plain (no chrome)",

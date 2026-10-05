@@ -141,10 +141,8 @@ export const HiddenItems: Story = {
 };
 
 /**
- * Image variant: items can carry a logo / brand mark via the `image`
- * field instead of an MDI icon. Mirrors the per-provider raw-metadata
- * tabs in EditRomDialog (IGDB / MobyGames / etc).
- * Keyboard: Tab across the tabs, Enter/Space activates the focused one.
+ * Items can carry an `image` logo instead of an MDI icon. Keyboard: Tab across
+ * the tabs, Enter/Space activates one.
  */
 export const KeyboardNav: Story = {
   name: "Keyboard navigation (play)",
