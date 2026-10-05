@@ -17,7 +17,15 @@
 // Use cases beyond filters: side info panels (collection / platform /
 // firmware drawers when they get migrated), context-driven settings
 // flyouts, etc.
-import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  ref,
+  useId,
+  useSlots,
+  watch,
+} from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import { focusFromInput } from "@/v2/utils/autofocus";
@@ -64,6 +72,8 @@ const emit = defineEmits<{
 }>();
 
 const slots = useSlots();
+// The header names the panel for screen readers.
+const headerId = useId();
 
 const labels = useChromeLabels();
 
@@ -171,6 +181,7 @@ const transitionName = computed(() =>
           class="r-drawer__panel"
           role="dialog"
           aria-modal="true"
+          :aria-labelledby="slots.header ? headerId : undefined"
           tabindex="-1"
           :style="panelStyle"
         >
@@ -184,7 +195,7 @@ const transitionName = computed(() =>
               size="18"
               class="r-drawer__lead-icon"
             />
-            <div class="r-drawer__header-slot">
+            <div :id="headerId" class="r-drawer__header-slot">
               <slot name="header" />
             </div>
             <button

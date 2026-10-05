@@ -1161,14 +1161,12 @@ const describedBy = computed(() => {
          contexts. Mounted only when open. -->
     <Teleport to="body">
       <Transition name="r-select-pop">
-        <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -- the listbox routes keydown for its options; focus lives on the search input / option rows, not this container -->
+        <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- catches keys bubbling from the search input and option rows, which hold focus; the panel itself never does -->
         <div
           v-if="isOpen"
           ref="panelRef"
           class="r-select__panel"
           :style="floatingStyles"
-          role="listbox"
-          :aria-multiselectable="multiple"
           @keydown="onSearchKey"
         >
           <!-- Sticky search: autofocused on open. The panel-level
@@ -1195,12 +1193,22 @@ const describedBy = computed(() => {
             >
               <template #prefix-label>
                 <RIcon icon="mdi-magnify" size="16" />
+                <span class="r-select__search-label">{{ labels.search }}</span>
               </template>
             </RTextField>
             <!-- eslint-enable vuejs-accessibility/no-autofocus -->
           </div>
 
-          <ul class="r-select__list">
+          <!-- The list is the listbox, so its options are its own children
+               and the search field stays outside it. -->
+          <ul
+            class="r-select__list"
+            role="listbox"
+            :aria-multiselectable="multiple"
+            :aria-labelledby="
+              stackedLabelOn ? `${fieldId}-label` : `${fieldId}-field`
+            "
+          >
             <!-- Synthetic "All" row: multi-select only, suppressed
                  while the user is filtering. Sits above the regular
                  items and is separated by a divider so it reads as a
@@ -1232,10 +1240,6 @@ const describedBy = computed(() => {
                 <RDivider />
               </li>
             </template>
-
-            <li v-if="!filteredItems.length" class="r-select__empty">
-              <slot name="no-data">No options</slot>
-            </li>
 
             <template
               v-for="(item, i) in filteredItems"
@@ -1297,6 +1301,10 @@ const describedBy = computed(() => {
               </li>
             </template>
           </ul>
+
+          <div v-if="!filteredItems.length" class="r-select__empty">
+            <slot name="no-data">No options</slot>
+          </div>
         </div>
       </Transition>
     </Teleport>
@@ -1732,6 +1740,15 @@ html[data-input="pad"] .r-select__field:focus {
   padding: 6px;
   overflow-y: auto;
   scrollbar-width: thin;
+}
+
+.r-select__search-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .r-select__empty {

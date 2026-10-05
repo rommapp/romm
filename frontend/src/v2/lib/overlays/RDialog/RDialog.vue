@@ -16,7 +16,15 @@
 // states, "no results" messaging and any other app-driven content
 // belong inside the consumer's `#content` slot: composed from
 // REmptyState / RProgressCircular / RSpinner as needed.
-import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  ref,
+  useId,
+  useSlots,
+  watch,
+} from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
@@ -81,6 +89,8 @@ const emit = defineEmits<{
 }>();
 
 const slots = useSlots();
+// The header names the panel for screen readers.
+const headerId = useId();
 
 const labels = useChromeLabels();
 
@@ -233,6 +243,7 @@ const panelStyle = computed(() => {
           class="r-dialog__panel"
           role="dialog"
           aria-modal="true"
+          :aria-labelledby="slots.header ? headerId : undefined"
           tabindex="-1"
           :style="panelStyle"
         >
@@ -244,7 +255,7 @@ const panelStyle = computed(() => {
               size="18"
               class="r-dialog__lead-icon"
             />
-            <div class="r-dialog__header-slot">
+            <div :id="headerId" class="r-dialog__header-slot">
               <slot name="header" />
             </div>
             <button
