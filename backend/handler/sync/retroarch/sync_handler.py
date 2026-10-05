@@ -273,8 +273,8 @@ def parse_retroarch_sync_blob_path(path: str) -> str | None:
 
 
 def user_blob_path(user: User, blob_path: str) -> str:
-    """Where a parsed blob path lives on disk, namespaced by user."""
-    return f"{fs_asset_handler.user_folder_path(user)}/{blob_path}"
+    """Where a parsed blob path lives under the assets root, namespaced by user."""
+    return f"{fs_asset_handler.user_folder_path(user)}/retroarch/{blob_path}"
 
 
 def _decoded(value: str | bytes | None) -> str | None:
