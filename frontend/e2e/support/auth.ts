@@ -1,4 +1,4 @@
-import type { BrowserContextOptions, Locator, Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { AUTH_DIR } from "./output";
 
 const { env } = process;
@@ -27,12 +27,6 @@ export const ROLES = Object.keys(ACCOUNTS) as Role[];
 export const STORAGE_STATE = Object.fromEntries(
   ROLES.map((role) => [role, `${AUTH_DIR}/${role}.json`]),
 ) as Record<Role, string>;
-
-/** An empty session, for pages opened as a visitor who hasn't signed in. */
-export const SIGNED_OUT: Exclude<
-  BrowserContextOptions["storageState"],
-  string | undefined
-> = { cookies: [], origins: [] };
 
 /** The login form's submit button. Roles skip the hidden reset-password form,
  *  which has a Username field of its own. */

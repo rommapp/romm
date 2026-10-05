@@ -80,24 +80,6 @@ export default defineConfig({
       name: "chromium",
       dependencies: ["library"],
     },
-    {
-      name: "lighthouse",
-      testDir: "./e2e/lighthouse",
-      // Lighthouse occupies a fixed CDP port; parallelism would conflict.
-      workers: 1,
-      // One audit takes up to 60s; beforeAll runs it before any test starts.
-      timeout: 180_000,
-      // The test's page only draws the attached cards; a failure shot repeats one.
-      use: { screenshot: "off" },
-      dependencies: ["setup"],
-    },
-    {
-      name: "axe",
-      testDir: "./e2e/axe",
-      // axe analysis typically takes 5 to 15s per page.
-      timeout: 30_000,
-      dependencies: ["setup"],
-    },
   ],
   // CI serves the build e2e.yml made, which never force-reloads mid-test as the
   // dev server does on a new dependency. Locally, the dev server is (re)used.

@@ -1,26 +1,16 @@
-import type { BrowserContextOptions, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import {
   ROUTE_SCOPES,
   ROUTES,
   type RouteName,
 } from "../../src/plugins/routeNames";
-import { SIGNED_OUT, STORAGE_STATE } from "./auth";
 import {
   clickThroughToFirstRom,
   gotoFirstPlatform,
+  gotoHydrated,
   gotoOwnProfile,
 } from "./navigation";
-
-// Every tag the suite uses, defined once.
-export type E2eTag = typeof SMOKE | `@page:${RouteName}`;
-
-// Gates a merge. Spread it into the specific tests that belong in the gate,
-// never onto a sitemap entry, or axe and lighthouse inherit it.
-export const SMOKE = "@smoke";
-
-export function pageTag(name: RouteName): E2eTag {
-  return `@page:${name}`;
-}
+import { expect } from "./test";
 
 /** Opened by URL, or by clicking through when the URL holds an id. */
 export type Opener = string | ((page: Page) => Promise<void>);
@@ -93,32 +83,20 @@ export const PAGES: Record<RouteName, PageDef> = {
   [ROUTES.NOT_FOUND]: { skip: "the viewer checks on admin-only pages" },
 };
 
-// storageState is the field Playwright takes in test.use() and browser.newContext().
-export type E2eSitemapEntry = {
-  id: RouteName;
-  path: string;
-  tag: readonly E2eTag[];
-} & Required<Pick<BrowserContextOptions, "storageState">>;
+/** Open a page and wait for its view to render. */
+export async function openPage(page: Page, open: Opener) {
+  if (typeof open === "string") {
+    await gotoHydrated(page, open);
+    // A route guard that bounced us elsewhere (home, login) fails here.
+    await expect(page).toHaveURL(
+      (url) => url.pathname === open || url.pathname.startsWith(`${open}/`),
+    );
+  } else {
+    await open(page);
+  }
 
-/** Every page with a fixed URL, with the session that opens it: what axe and
- *  lighthouse audit. Admin-only pages open as the admin, the rest as the viewer. */
-export const E2E_SITEMAP: readonly E2eSitemapEntry[] = [
-  {
-    id: ROUTES.LOGIN,
-    path: "/login",
-    storageState: SIGNED_OUT,
-    tag: [pageTag(ROUTES.LOGIN)],
-  },
-  ...(Object.entries(PAGES) as [RouteName, PageDef][]).flatMap(([id, def]) =>
-    "open" in def && typeof def.open === "string"
-      ? [
-          {
-            id,
-            path: def.open,
-            storageState: STORAGE_STATE[isAdminOnly(id) ? "admin" : "viewer"],
-            tag: [pageTag(id)],
-          },
-        ]
-      : [],
-  ),
-];
+  // The router-view's content, which exists only once the lazy view resolves.
+  await expect(
+    page.getByRole("main").locator(":scope > *").first(),
+  ).toBeVisible();
+}

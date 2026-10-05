@@ -1,27 +1,18 @@
 import type { Locator, Page, Request } from "@playwright/test";
-import { ROUTES, type RouteName } from "../../src/plugins/routeNames";
+import type { RouteName } from "../../src/plugins/routeNames";
 import { ROLES, STORAGE_STATE } from "../support/auth";
 import { gotoHydrated } from "../support/navigation";
 import {
   isAdminOnly,
   type Opener,
+  openPage,
   PAGES,
   type PageDef,
-  pageTag,
-  SMOKE,
-} from "../support/sitemap";
+} from "../support/pages";
 import { expect, test } from "../support/test";
 
 // Every page opens for each role allowed on it with each document and API
 // response 2xx, and a viewer gets the 404 page on admin-only ones.
-
-// Pages whose load check is part of the merge gate.
-const SMOKE_PAGES: ReadonlySet<RouteName> = new Set([
-  ROUTES.HOME,
-  ROUTES.PLATFORMS_INDEX,
-  ROUTES.SEARCH,
-  ROUTES.ADMINISTRATION,
-]);
 
 /** A request the page's load depends on: a document or an API call. */
 function isLoadRequest(request: Request) {
@@ -46,20 +37,7 @@ async function expectPageLoads(page: Page, name: string, open: Opener) {
     }
   });
 
-  if (typeof open === "string") {
-    await gotoHydrated(page, open);
-    // A route guard that bounced us elsewhere (home, login) fails here.
-    await expect(page).toHaveURL(
-      (url) => url.pathname === open || url.pathname.startsWith(`${open}/`),
-    );
-  } else {
-    await open(page);
-  }
-
-  // The router-view's content, which exists only once the lazy view resolves.
-  await expect(
-    page.getByRole("main").locator(":scope > *").first(),
-  ).toBeVisible();
+  await openPage(page, open);
   await expect(notFoundHeading(page)).toHaveCount(0);
   expect(
     failed,
@@ -75,9 +53,7 @@ for (const [name, def] of Object.entries(PAGES) as [RouteName, PageDef][]) {
     throw new Error(`${name} is admin-only, so it needs a URL for the viewer.`);
   }
 
-  const smoke = SMOKE_PAGES.has(name) ? [SMOKE] : [];
-
-  test.describe(name, { tag: [...smoke, pageTag(name)] }, () => {
+  test.describe(name, { tag: `@page:${name}` }, () => {
     for (const role of adminOnly ? (["admin"] as const) : ROLES) {
       test.describe(role, () => {
         test.use({ storageState: STORAGE_STATE[role] });

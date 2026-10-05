@@ -15,9 +15,3 @@ export const AUTH_DIR = `${OUTPUT_DIR}auth`;
 
 /** The library facts library.setup.ts resolves for the specs. */
 export const LIBRARY_FILE = `${OUTPUT_DIR}library.json`;
-
-/** One HTML and JSON Lighthouse report per audited page. */
-export const LIGHTHOUSE_DIR = `${OUTPUT_DIR}lighthouse`;
-
-/** One JSON axe violation report per audited page. */
-export const AXE_DIR = `${OUTPUT_DIR}axe`;

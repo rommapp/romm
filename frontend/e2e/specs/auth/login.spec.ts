@@ -1,19 +1,18 @@
+import { expectNoA11yViolations } from "../../support/a11y";
 import {
   ACCOUNTS,
   accountMenu,
   fillLoginForm,
   loginButton,
   seedUiState,
-  SIGNED_OUT,
 } from "../../support/auth";
-import { pageTag, SMOKE } from "../../support/sitemap";
 import { expect, test } from "../../support/test";
 
 // The only spec that drives the login form; the others reuse auth.setup.ts's
 // sessions. It starts signed out, whatever sessions are saved.
-test.use({ storageState: SIGNED_OUT });
+test.use({ storageState: { cookies: [], origins: [] } });
 
-test.describe("Login", { tag: [SMOKE, pageTag("login")] }, () => {
+test.describe("Login", () => {
   test.beforeEach(async ({ page }) => {
     await seedUiState(page);
   });
@@ -49,5 +48,12 @@ test.describe("Login", { tag: [SMOKE, pageTag("login")] }, () => {
 
     await expect(page).toHaveURL(/\/login/);
     await expect(loginButton(page)).toBeVisible();
+  });
+
+  test("has no critical a11y violations", async ({ page }) => {
+    await page.goto("/login");
+    await expect(loginButton(page)).toBeVisible();
+
+    await expectNoA11yViolations(page);
   });
 });

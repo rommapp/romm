@@ -16,17 +16,6 @@ Then, from `frontend/`:
 npm run test:e2e
 ```
 
-Every `test:e2e*` script passes whatever follows `--` to Playwright, so `-g` (short for `--grep`) narrows any run to the tests whose title or tag matches a regex:
-
-```bash
-npm run test:e2e:smoke                          # only @smoke tests, the merge gate
-npm run test:e2e -- -g "@page:home( |$)"        # one page; ( |$) stops @page:scan matching @page:scan-settings
-npm run test:e2e -- -g "@page:(home|search)( |$)"   # several pages
-npm run test:e2e                                # every functional test
-```
-
-[Tags](#tags) lists what you can filter on.
-
 That starts `npm run dev` (or reuses the one already running on 3000), which proxies to the backend named by `DEV_PORT` or `DEV_PROXY_TARGET` in `.env`. To point the suite at another site or other accounts, set the variables from `e2e/.env.example` in your shell or in `e2e/.env`. For more or fewer parallel workers than the default 2, pass `--workers N`.
 
 Install the recommended VS Code extension, **Playwright Test for VS Code**. Most recipes below start from its panel in the Testing sidebar.
@@ -121,9 +110,8 @@ Fix what it reports, then click **Refresh Tests** in the Testing sidebar.
 
 ```bash
 npm run test:e2e -- e2e/specs/auth/login.spec.ts
-npm run test:e2e -- -g "rejects a wrong password"   # -g matches titles too
-npm run test:e2e -- -g "@page:rom( |$)"             # every test for one page, by its route name
-npm run test:e2e -- -gv "@page:rom( |$)"            # everything except that page
+npm run test:e2e -- -g "rejects a wrong password"
+npm run test:e2e -- --grep "@page:rom( |$)"   # every test for one page, by its route name
 ```
 
 ### Test another site
@@ -138,48 +126,28 @@ The specs follow this branch's UI, so a site on another version fails where the 
 
 To test a production build of this branch, serve it first: `npm run build && npm run preview` (preview also serves `frontend/assets`, as the Docker image does), then set `E2E_BASE_URL=http://localhost:4173`.
 
-### Run Lighthouse audits
+### Check accessibility
 
-Lighthouse measures performance on a simulated slow desktop (real LAN network, 6x CPU slowdown). Compare against DevTools' Lighthouse in **Desktop** mode; its mobile default scores far lower. Which categories run and per-page thresholds are configured in `e2e/lighthouse/lighthouse.spec.ts`. Each page writes a full Lighthouse HTML report to `e2e/.output/lighthouse/`.
-
-```bash
-npm run test:e2e:lighthouse                                   # all pages
-npm run test:e2e:lighthouse -- -g "@page:home( |$)"           # one page
-npm run test:e2e:lighthouse -- -g "@page:(home|platforms-index|administration)( |$)"
-```
-
-After a run, open a page's HTML report (`open e2e/.output/lighthouse/home.html`, or `start` on Windows) for the full Lighthouse UI, or `npm run test:e2e:report` for the Playwright report. Each page gets one test with its Lighthouse report attached. A red test names each category under its threshold, with the top three audits to fix first, by estimated savings.
-
-Audit a production build for scores that mean something: `npm run build:e2e && npm run preview`, then set `E2E_BASE_URL=http://localhost:4173`. `build:e2e` adds source maps, so the report attributes JavaScript to source modules without changing what the page runs.
-
-Lighthouse occupies a fixed CDP port (9222), so only one audit runs at a time.
-
-### Run axe a11y audits
-
-axe-core scans the live DOM after the app hydrates. Which impact levels block the run is configured per page in `e2e/axe/axe.spec.ts` (defaults: critical and serious). All violations, including non-blocking ones, are written to `e2e/.output/axe/<page>.json`, and every run logs `critical=N serious=N moderate=N minor=N` for each page.
+`a11y.spec.ts` runs [axe](https://github.com/dequelabs/axe-core) on every page in `PAGES`, and `login.spec.ts` on the login page. A critical violation fails the test; every violation, at any impact, is attached to the report as JSON.
 
 ```bash
-npm run test:e2e:axe                              # all pages
-npm run test:e2e:axe -- -g "@page:home( |$)"      # one page
+npm run test:e2e -- -g "a11y"
 ```
 
-A page with blocking violations also gets a screenshot per impact level, with each offending element outlined in that level's colour (`e2e/axe/highlight.ts`). To fix one, the [axe DevTools](https://www.deque.com/axe/devtools/) browser extension runs the same rules on the page you're looking at and re-checks as you edit.
+The [axe DevTools](https://www.deque.com/axe/devtools/) browser extension runs the same rules on the page you're looking at, which is faster for fixing one.
 
 ## How it's wired
 
 ```text
 e2e/
-  specs/      the functional tests, one folder per page
+  specs/      the tests, and only tests, one folder per page
     loads.spec.ts   every page opens with every response 2xx
-  axe/        axe-core a11y audits, one describe per page
-  lighthouse/ Lighthouse performance audits, one describe per page
+    a11y.spec.ts    every page has no critical axe violations
   setup/      sign-in and the first game, run before the specs
-  support/    fixtures, helpers, the page sitemap, and output paths
+  support/    fixtures, helpers, the page list, environment and output paths
   .output/    generated and gitignored; delete it to reset
-    auth/         saved sessions
-    specs/        results/ (traces, screenshots) and report/ (HTML)
-    axe/          one JSON violation report per audited page
-    lighthouse/   one HTML and JSON report per audited page
+    auth/       saved sessions
+    specs/      results/ (traces, screenshots) and report/ (HTML)
 ```
 
 - **Environment:** every `E2E_*` variable comes from the shell, then `e2e/.env`, then a default that matches the seed script. CI uses the defaults.
@@ -191,14 +159,3 @@ e2e/
 - **Output:** everything the suite writes goes under `.output/`, through the paths in `support/output.ts`.
 - **Checks:** `npm run typecheck` covers the suite through `tsconfig.node.json` (`typecheck:scripts` checks just that project), and lint rules live in `eslint.e2e.config.js`.
 - **Changing the suite itself:** see [AGENTS.md](AGENTS.md).
-
-## Tags
-
-Filter on any of these with `-g`.
-
-| Tag                  | Where it comes from                                                                                                                | Use                                                 |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `@smoke`             | `SMOKE` in `support/sitemap.ts`, added to the tests that belong in the gate; never on a sitemap entry, so the audits stay out      | The merge gate: `npm run test:e2e:smoke`            |
-| `@page:<route name>` | `pageTag()` in `support/sitemap.ts`, for `loads.spec.ts`, axe and Lighthouse; each page's own specs tag their top-level `describe` | One page across every suite: `-g "@page:rom( \|$)"` |
-
-Adding a tag shape? Add it to `E2eTag` in `support/sitemap.ts` and a row here in the same change.
