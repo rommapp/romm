@@ -1122,3 +1122,52 @@ class TestRomFileSizeLocking:
             for call in session.execute.call_args_list
         ]
         assert locked == sorted({rom.id, second_rom.id})
+
+
+class TestRaBatchReads:
+    """Direct coverage for the RetroAchievements sync's batched getters."""
+
+    def test_get_roms_by_ra_ids_returns_every_match(self, platform: Platform):
+        usa_rom = make_rom(platform, "Game USA", ra_id=12345)
+        eur_rom = make_rom(platform, "Game Europe", ra_id=12345)
+        other_rom = make_rom(platform, "Other Game", ra_id=67890)
+
+        rows = db_rom_handler.get_roms_by_ra_ids([12345])
+
+        assert {row.id for row in rows} == {usa_rom.id, eur_rom.id}
+        assert other_rom.id not in {row.id for row in rows}
+
+    def test_get_roms_by_ra_ids_empty_input_short_circuits(self):
+        assert db_rom_handler.get_roms_by_ra_ids([]) == []
+
+    def test_get_rom_users_by_rom_ids_scopes_to_user(
+        self, rom: Rom, admin_user: User, editor_user: User
+    ):
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=editor_user.id)
+
+        rows = db_rom_handler.get_rom_users_by_rom_ids(
+            editor_user.id, [rom.id]
+        )
+
+        assert set(rows) == {rom.id}
+        assert rows[rom.id].user_id == editor_user.id
+
+    def test_get_rom_users_by_rom_ids_empty_input_short_circuits(
+        self, viewer_user: User
+    ):
+        assert db_rom_handler.get_rom_users_by_rom_ids(viewer_user.id, []) == {}
+
+    def test_batched_rows_readable_after_session_close(
+        self, rom: Rom, admin_user: User
+    ):
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+
+        rows = db_rom_handler.get_rom_users_by_rom_ids(admin_user.id, [rom.id])
+
+        # The getter's session is closed on return and relations are
+        # `noload`ed, so only column reads may be touched here.
+        assert rows[rom.id].id is not None
+        assert rows[rom.id].rom_id == rom.id
+        assert rows[rom.id].user_id == admin_user.id
+        assert rows[rom.id].status is None
