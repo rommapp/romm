@@ -185,10 +185,7 @@ const onRowClick = fn();
 export const SortAndRowActivation: Story = {
   name: "Sort and row activation (play)",
   args: {
-    columns: [
-      ...COLUMNS.slice(0, 3),
-      { key: "rating", label: "Rating", width: "80px" },
-    ],
+    columns: COLUMNS,
     items: ITEMS,
     itemKey: "id",
     clickableRows: true,
@@ -220,25 +217,12 @@ export const SortAndRowActivation: Story = {
     const canvas = within(canvasElement);
     const header = (name: string) => canvas.getByRole("columnheader", { name });
 
-    await step("a new column starts ascending", async () => {
+    // Toggle rules and aria-sort belong to RSortHeader; this checks the
+    // header's event reaches `update:sort` with its column's key.
+    await step("clicking a header sorts by that column", async () => {
       await userEvent.click(canvas.getByRole("button", { name: "Size" }));
       await expect(header("Size")).toHaveAttribute("aria-sort", "ascending");
       await expect(header("Title")).toHaveAttribute("aria-sort", "none");
-    });
-
-    await step(
-      "re-clicking the active column flips to descending",
-      async () => {
-        await userEvent.click(canvas.getByRole("button", { name: "Size" }));
-        await expect(header("Size")).toHaveAttribute("aria-sort", "descending");
-      },
-    );
-
-    await step("a non-sortable column has no sort control", async () => {
-      await expect(header("Rating")).not.toHaveAttribute("aria-sort");
-      await expect(
-        canvas.queryByRole("button", { name: "Rating" }),
-      ).not.toBeInTheDocument();
     });
 
     const row = canvas.getByText("Chrono Trigger").closest('[role="row"]');
