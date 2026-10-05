@@ -249,11 +249,17 @@ export const SortAndRowActivation: Story = {
       await expect(onRowClick).toHaveBeenLastCalledWith(ITEMS[2]);
     });
 
-    await step("Enter and Space activate the focused row", async () => {
+    await step("Enter activates the focused row", async () => {
       row.focus();
       await userEvent.keyboard("{Enter}");
+      await expect(onRowClick).toHaveBeenCalledTimes(2);
+      await expect(onRowClick).toHaveBeenLastCalledWith(ITEMS[2]);
+    });
+
+    await step("Space activates the focused row", async () => {
       await userEvent.keyboard(" ");
       await expect(onRowClick).toHaveBeenCalledTimes(3);
+      await expect(onRowClick).toHaveBeenLastCalledWith(ITEMS[2]);
     });
   },
 };
