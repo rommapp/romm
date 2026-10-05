@@ -978,9 +978,6 @@ class TwitchAuth(MetadataHandler):
         if not self.is_enabled():
             return ""
 
-        token = None
-        expires_in = 0
-
         httpx_client = ctx_httpx_client.get()
         try:
             log.debug(
@@ -1000,21 +997,37 @@ class TwitchAuth(MetadataHandler):
                 return ""
 
             response_json = res.json()
-            token = response_json.get("access_token", "")
-            expires_in = response_json.get("expires_in", 0)
-        except httpx2.NetworkError:
+        except httpx2.HTTPError:
             log.critical("Can't connect to IGDB, check your internet connection.")
             return ""
-
-        if not token or expires_in == 0:
+        except ValueError:
+            log.error("Twitch sent a token response that isn't JSON")
             return ""
 
-        # Set token in Redis to expire some seconds before it actually expires.
-        await async_cache.set("romm:twitch_token", token, ex=expires_in - 10)
+        if not isinstance(response_json, dict):
+            log.error("Twitch sent a token response that isn't a JSON object")
+            return ""
+        token = response_json.get("access_token")
+        expires_in = response_json.get("expires_in")
+        # bool subclasses int, so a JSON `true` would otherwise pass as a lifetime.
+        if (
+            not isinstance(token, str)
+            or not isinstance(expires_in, int)
+            or isinstance(expires_in, bool)
+        ):
+            log.error("Twitch sent a token response with missing or invalid fields")
+            return ""
+
+        if not token or expires_in <= 0:
+            return ""
+
+        # Expire early so a cached token is never sent stale; Redis rejects a TTL of 0 or less.
+        if expires_in > 10:
+            await async_cache.set("romm:twitch_token", token, ex=expires_in - 10)
 
         log.info("Twitch token fetched!")
 
-        return cast(str, token)
+        return token
 
     async def get_oauth_token(self) -> str:
         # Use a fake token when running tests

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import socket
 from collections.abc import AsyncIterator
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -143,5 +144,97 @@ class TestAgainstAServer:
 
         with pytest.raises(HTTPException) as exc:
             await self._games(service)
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+class TestRequestsAgainstAServer:
+    async def test_sends_an_apicalypse_query_with_credentials(
+        self, igdb_server: tuple[ScriptedServer, IGDBService, MagicMock]
+    ):
+        fake, service, _ = igdb_server
+        fake.replies["games"] = [(200, GAMES)]
+
+        games = await service.list_games(
+            search_term="Pokémon Red",
+            fields=["id", "name"],
+            where="platforms=4",
+            limit=5,
+        )
+
+        assert games == GAMES
+        [request] = fake.endpoint("games")
+        assert (
+            await request.text()
+            == 'search "Pokemon Red"; fields id,name; where platforms=4; limit 5;'
+        )
+        assert request.headers["Authorization"] == "Bearer token"
+        assert request.headers["Client-ID"] == "client"
+        assert request.headers["User-Agent"].startswith("RomM/")
+
+    async def test_search_uses_the_search_endpoint(
+        self, igdb_server: tuple[ScriptedServer, IGDBService, MagicMock]
+    ):
+        fake, service, _ = igdb_server
+        fake.replies["search"] = [(200, [{"id": 9, "game": {"id": 1}}])]
+
+        results = await service.search(fields=["game.id"], where='name ~ *"Red"*')
+
+        assert results == [{"id": 9, "game": {"id": 1}}]
+        assert len(fake.endpoint("search")) == 1
+
+    async def test_a_second_unauthorized_reply_gives_up(
+        self, igdb_server: tuple[ScriptedServer, IGDBService, MagicMock]
+    ):
+        fake, service, _ = igdb_server
+        fake.replies["games"] = [(401, {}), (401, {})]
+
+        assert await service.list_games(fields=["id"]) == []
+        assert len(fake.requests) == 2
+
+    async def test_a_server_error_is_no_result_without_a_retry(
+        self, igdb_server: tuple[ScriptedServer, IGDBService, MagicMock]
+    ):
+        fake, service, _ = igdb_server
+        fake.replies["games"] = [(500, {})]
+
+        assert await service.list_games(fields=["id"]) == []
+        assert len(fake.requests) == 1
+
+    async def test_a_reply_that_is_not_json_is_no_result(
+        self, igdb_server: tuple[ScriptedServer, IGDBService, MagicMock]
+    ):
+        fake, service, _ = igdb_server
+        fake.replies["games"] = [(200, b"<html>maintenance</html>")]
+
+        assert await service.list_games(fields=["id"]) == []
+
+    async def test_missing_credentials_are_unavailable(
+        self, igdb_server: tuple[ScriptedServer, IGDBService, MagicMock]
+    ):
+        fake, service, twitch_auth = igdb_server
+        twitch_auth.get_oauth_token.return_value = ""
+
+        with pytest.raises(HTTPException) as exc:
+            await service.list_games(fields=["id"])
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert exc.value.detail == "Invalid IGDB credentials"
+        assert fake.requests == []
+
+    async def test_an_unreachable_igdb_is_unavailable(
+        self, igdb_server: tuple[ScriptedServer, IGDBService, MagicMock]
+    ):
+        _, _, twitch_auth = igdb_server
+        # A bound socket that never listens holds the port and refuses connections.
+        with socket.socket() as closed_port:
+            closed_port.bind(("127.0.0.1", 0))
+            port = closed_port.getsockname()[1]
+            service = IGDBService(
+                twitch_auth=twitch_auth, base_url=f"http://127.0.0.1:{port}/v4"
+            )
+
+            with pytest.raises(HTTPException) as exc:
+                await service.list_games(fields=["id"])
 
         assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE

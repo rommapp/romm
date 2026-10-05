@@ -1,12 +1,16 @@
 """Tests for the IGDB metadata handler."""
 
 import json
+from collections.abc import AsyncIterator
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx2
 import pytest
+import pytest_asyncio
 
-from adapters.services.igdb import IGDB_PLATFORM_LIST
+import config
+from adapters.services.igdb import IGDB_PLATFORM_LIST, IGDBService
 from adapters.services.igdb_types import (
     AlternativeName,
     ExpandableField,
@@ -14,6 +18,7 @@ from adapters.services.igdb_types import (
     GameLocalization,
     GameType,
 )
+from handler.metadata import igdb_handler
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.igdb_handler import (
     FAMICOM_IGDB_ID,
@@ -23,13 +28,19 @@ from handler.metadata.igdb_handler import (
     SUPER_FAMICOM_IGDB_ID,
     IGDBHandler,
     IGDBMetadata,
+    IGDBMetadataMultiplayerMode,
+    IGDBMetadataPlatform,
+    TwitchAuth,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
     build_igdb_rom,
+    derive_player_count,
+    extract_localized_data,
     extract_metadata_from_igdb_rom,
     get_igdb_preferred_locale,
 )
-from handler.redis_handler import async_cache
+from handler.redis_handler import as_text, async_cache
+from utils.context import ctx_httpx_client
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 GENESIS_IGDB_ID = 29
@@ -1018,6 +1029,425 @@ class TestCompanyRoleDeduplication:
             "Crystal Dynamics",
             "Nixxes Software",
         ]
+
+
+TOKEN_KEY = "romm:twitch_token"
+
+
+class FakeTwitch:
+    """Answers Twitch's client-credentials endpoint through a real httpx2 client."""
+
+    def __init__(self) -> None:
+        self.requests: list[httpx2.Request] = []
+        self.status = 200
+        self.body: dict[str, Any] | bytes = {
+            "access_token": "fresh-token",
+            "expires_in": 5_000_000,
+        }
+        self.error: Exception | None = None
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        self.requests.append(request)
+        if self.error:
+            raise self.error
+        if isinstance(self.body, bytes):
+            return httpx2.Response(self.status, content=self.body)
+        return httpx2.Response(self.status, json=self.body)
+
+
+@pytest_asyncio.fixture
+async def twitch(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[FakeTwitch]:
+    monkeypatch.setattr(igdb_handler, "IS_PYTEST_RUN", False)
+    fake = FakeTwitch()
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(fake))
+    token = ctx_httpx_client.set(client)
+    await async_cache.delete(TOKEN_KEY)
+    try:
+        yield fake
+    finally:
+        await async_cache.delete(TOKEN_KEY)
+        ctx_httpx_client.reset(token)
+        await client.aclose()
+
+
+class TestTwitchAuth:
+    async def test_fetches_and_caches_a_token(self, twitch: FakeTwitch):
+        token = await TwitchAuth()._update_twitch_token()
+
+        assert token == "fresh-token"
+        [request] = twitch.requests
+        assert request.url.params["grant_type"] == "client_credentials"
+        assert request.url.params["client_id"] == config.IGDB_CLIENT_ID
+        cached = await async_cache.get(TOKEN_KEY)
+        assert cached is not None and as_text(cached) == "fresh-token"
+        ttl = await async_cache.ttl(TOKEN_KEY)
+        assert 5_000_000 - 20 < ttl <= 5_000_000 - 10
+
+    async def test_rejected_credentials_give_no_token(self, twitch: FakeTwitch):
+        twitch.status = 400
+        twitch.body = {"message": "invalid client"}
+
+        assert await TwitchAuth()._update_twitch_token() == ""
+        assert await async_cache.get(TOKEN_KEY) is None
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"expires_in": 100},
+            {"access_token": "t", "expires_in": 0},
+            {"access_token": "t", "expires_in": None},
+            {"access_token": "t", "expires_in": "100"},
+            {"access_token": "t", "expires_in": True},
+            {"access_token": 7, "expires_in": 100},
+        ],
+        ids=[
+            "no_token",
+            "no_lifetime",
+            "null_lifetime",
+            "text_lifetime",
+            "boolean_lifetime",
+            "number_token",
+        ],
+    )
+    async def test_an_incomplete_answer_gives_no_token(
+        self, twitch: FakeTwitch, body: dict[str, Any]
+    ):
+        twitch.body = body
+
+        assert await TwitchAuth()._update_twitch_token() == ""
+        assert await async_cache.get(TOKEN_KEY) is None
+
+    @pytest.mark.parametrize(
+        "error",
+        [httpx2.ConnectError("refused"), httpx2.ReadTimeout("slow")],
+        ids=["unreachable", "timed_out"],
+    )
+    async def test_a_failed_request_gives_no_token(
+        self, twitch: FakeTwitch, error: Exception
+    ):
+        twitch.error = error
+
+        assert await TwitchAuth()._update_twitch_token() == ""
+
+    @pytest.mark.parametrize(
+        "body",
+        [b"<html>maintenance</html>", b"null", b"[]"],
+        ids=["not_json", "null", "list"],
+    )
+    async def test_a_reply_that_is_not_a_json_object_gives_no_token(
+        self, twitch: FakeTwitch, body: bytes
+    ):
+        twitch.body = body
+
+        assert await TwitchAuth()._update_twitch_token() == ""
+
+    async def test_a_short_lived_token_is_used_but_not_cached(self, twitch: FakeTwitch):
+        twitch.body = {"access_token": "brief", "expires_in": 5}
+
+        assert await TwitchAuth()._update_twitch_token() == "brief"
+        assert await async_cache.get(TOKEN_KEY) is None
+
+    async def test_the_cached_token_is_reused(self, twitch: FakeTwitch):
+        await async_cache.set(TOKEN_KEY, "cached-token", ex=60)
+
+        assert as_text(await TwitchAuth().get_oauth_token()) == "cached-token"
+        assert twitch.requests == []
+
+    async def test_a_missing_token_is_fetched(self, twitch: FakeTwitch):
+        assert await TwitchAuth().get_oauth_token() == "fresh-token"
+        assert len(twitch.requests) == 1
+
+    async def test_disabled_sends_nothing(
+        self, twitch: FakeTwitch, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(igdb_handler, "IGDB_CLIENT_ID", "")
+
+        assert await TwitchAuth().get_oauth_token() == ""
+        assert await TwitchAuth()._update_twitch_token() == ""
+        assert twitch.requests == []
+
+
+class FakeIGDBService(IGDBService):
+    """Stands in for IGDBService, recording each query and playing back replies."""
+
+    def __init__(self) -> None:
+        super().__init__(twitch_auth=TwitchAuth())
+        self.games: list[list[Game]] = []
+        self.search_results: list[list[dict[str, Any]]] = []
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.error: Exception | None = None
+
+    async def list_games(self, **query: Any) -> list[Game]:
+        self.calls.append(("games", query))
+        if self.error:
+            raise self.error
+        return self.games.pop(0) if self.games else []
+
+    async def search(self, **query: Any) -> list[dict[str, Any]]:
+        self.calls.append(("search", query))
+        return self.search_results.pop(0) if self.search_results else []
+
+
+@pytest.fixture
+def service(monkeypatch: pytest.MonkeyPatch) -> FakeIGDBService:
+    monkeypatch.setattr(IGDBHandler, "is_enabled", classmethod(lambda cls: True))
+    return FakeIGDBService()
+
+
+@pytest.fixture
+def handler(service: FakeIGDBService) -> IGDBHandler:
+    handler = IGDBHandler()
+    handler.igdb_service = service
+    return handler
+
+
+def _rom() -> MagicMock:
+    return MagicMock(regions=[])
+
+
+class TestHeartbeat:
+    async def test_a_game_back_is_healthy(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        service.games = [[_make_game(1, "Pong")]]
+
+        assert await handler.heartbeat()
+        assert service.calls == [("games", {"fields": ["id"], "limit": 1})]
+
+    async def test_no_games_is_down(self, handler: IGDBHandler):
+        assert not await handler.heartbeat()
+
+    async def test_an_error_is_down(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        service.error = RuntimeError("boom")
+
+        assert not await handler.heartbeat()
+
+    async def test_disabled_sends_nothing(
+        self,
+        handler: IGDBHandler,
+        service: FakeIGDBService,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.setattr(IGDBHandler, "is_enabled", classmethod(lambda cls: False))
+
+        assert not await handler.heartbeat()
+        assert service.calls == []
+
+
+class TestGetPlatform:
+    def test_a_known_platform(self, handler: IGDBHandler):
+        platform = handler.get_platform("snes")
+
+        assert (platform["igdb_id"], platform.get("name")) == (
+            SNES_IGDB_ID,
+            "Super Nintendo Entertainment System",
+        )
+
+    def test_a_platform_version_maps_to_its_platform(self, handler: IGDBHandler):
+        platform = handler.get_platform("10")
+
+        assert platform["igdb_id"] == handler.get_platform("android")["igdb_id"]
+        assert platform.get("name") == "10"
+        assert platform.get("url_logo") == handler.get_platform("android").get(
+            "url_logo"
+        )
+
+    def test_an_unknown_platform(self, handler: IGDBHandler):
+        assert handler.get_platform("not-a-platform") == {
+            "igdb_id": None,
+            "slug": "not-a-platform",
+        }
+
+
+def _mode(
+    *,
+    onlinecoop: bool = False,
+    offlinemax: int = 0,
+    onlinemax: int = 0,
+    onlinecoopmax: int = 0,
+    platform_igdb_id: int = 0,
+) -> IGDBMetadataMultiplayerMode:
+    return IGDBMetadataMultiplayerMode(
+        campaigncoop=False,
+        dropin=False,
+        lancoop=False,
+        offlinecoop=False,
+        offlinecoopmax=0,
+        offlinemax=offlinemax,
+        onlinecoop=onlinecoop,
+        onlinecoopmax=onlinecoopmax,
+        onlinemax=onlinemax,
+        splitscreen=False,
+        splitscreenonline=False,
+        platform=IGDBMetadataPlatform(igdb_id=platform_igdb_id, name=""),
+    )
+
+
+class TestDerivePlayerCount:
+    def test_no_multiplayer_modes_is_one_player(self):
+        assert derive_player_count([]) == "1"
+
+    def test_any_coop_mode_is_at_least_two_players(self):
+        assert derive_player_count([_mode(onlinecoop=True)]) == "1-2"
+
+    def test_the_highest_player_count_wins(self):
+        modes = [_mode(offlinemax=4, onlinemax=2), _mode(onlinecoopmax=8)]
+
+        assert derive_player_count(modes) == "1-8"
+
+    def test_only_modes_for_the_platform_count(self):
+        modes = [
+            _mode(platform_igdb_id=19, offlinemax=4),
+            _mode(platform_igdb_id=4, offlinemax=2),
+        ]
+
+        assert derive_player_count(modes, platform_igdb_id=4) == "1-2"
+
+    def test_no_mode_for_the_platform_is_one_player(self):
+        modes = [_mode(platform_igdb_id=19, offlinemax=4)]
+
+        assert derive_player_count(modes, platform_igdb_id=4) == "1"
+
+
+def _localized_game() -> Game:
+    game = _make_game(1, "Pocket Monsters")
+    game["cover"] = {"id": 1, "url": "//images.igdb.com/default.jpg"}
+    game["game_localizations"] = [
+        {"id": 1, "name": "Eu Monsters", "region": {"id": 1, "identifier": "EU"}},
+        {
+            "id": 2,
+            "name": "ポケットモンスター",
+            "region": {"id": 2, "identifier": "ja-JP"},
+            "cover": {"id": 2, "url": "//images.igdb.com/ja.jpg"},
+        },
+        {"id": 3, "name": "No Region"},
+    ]
+    return game
+
+
+class TestExtractLocalizedData:
+    def test_no_locale_keeps_the_default(self):
+        assert extract_localized_data(_localized_game(), None) == (
+            "Pocket Monsters",
+            "//images.igdb.com/default.jpg",
+        )
+
+    def test_a_matching_locale_uses_its_name_and_cover(self):
+        assert extract_localized_data(_localized_game(), "ja-JP") == (
+            "ポケットモンスター",
+            "//images.igdb.com/ja.jpg",
+        )
+
+    def test_a_locale_without_its_own_cover_keeps_the_default_cover(self):
+        assert extract_localized_data(_localized_game(), "EU") == (
+            "Eu Monsters",
+            "//images.igdb.com/default.jpg",
+        )
+
+    def test_an_unknown_locale_keeps_the_default(self):
+        assert extract_localized_data(_localized_game(), "ko-KR") == (
+            "Pocket Monsters",
+            "//images.igdb.com/default.jpg",
+        )
+
+
+class TestGetRom:
+    async def test_matches_by_name(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        service.games = [[_make_game(7, "Super Metroid")]]
+
+        rom = await handler.get_rom(_rom(), "Super Metroid (USA).sfc", SNES_IGDB_ID)
+
+        assert (rom["igdb_id"], rom.get("name")) == (7, "Super Metroid")
+        kind, query = service.calls[0]
+        assert kind == "games"
+        assert query["search_term"] == "super metroid"
+        assert "game_type" in query["where"]
+
+    async def test_an_igdb_tag_in_the_file_name_is_looked_up_by_id(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        service.games = [[_make_game(1103, "Super Metroid")]]
+
+        rom = await handler.get_rom(_rom(), "Metroid 3 (igdb-1103).sfc", SNES_IGDB_ID)
+
+        assert rom["igdb_id"] == 1103
+        assert [(kind, query.get("where")) for kind, query in service.calls] == [
+            ("games", "id=1103")
+        ]
+
+    async def test_an_unknown_igdb_tag_falls_back_to_the_name(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        service.games = [[], [_make_game(7, "Super Metroid")]]
+
+        rom = await handler.get_rom(
+            _rom(), "Super Metroid (igdb-999999).sfc", SNES_IGDB_ID
+        )
+
+        assert rom["igdb_id"] == 7
+        assert service.calls[0][1]["where"] == "id=999999"
+
+    async def test_nothing_found_is_no_match(self, handler: IGDBHandler):
+        rom = await handler.get_rom(_rom(), "Nothing Like It.sfc", SNES_IGDB_ID)
+
+        assert rom == {"igdb_id": None}
+
+    async def test_no_platform_sends_nothing(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        assert await handler.get_rom(_rom(), "Super Metroid.sfc", 0) == {
+            "igdb_id": None
+        }
+        assert service.calls == []
+
+
+class TestGetMatchedRomById:
+    async def test_a_known_id(self, handler: IGDBHandler, service: FakeIGDBService):
+        service.games = [[_make_game(7, "Super Metroid")]]
+
+        rom = await handler.get_matched_rom_by_id(_rom(), 7)
+
+        assert rom is not None and rom["igdb_id"] == 7
+
+    async def test_an_unknown_id_is_none(self, handler: IGDBHandler):
+        assert await handler.get_matched_rom_by_id(_rom(), 7) is None
+
+
+class TestGetMatchedRomsByName:
+    async def test_merges_name_and_alternative_name_results_once_each(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        metroid = _make_game(7, "Super Metroid")
+        metroid_2 = _make_game(8, "Metroid II")
+        service.games = [[metroid], [metroid, metroid_2]]
+        service.search_results = [
+            [{"id": 90, "game": {"id": 7}}, {"id": 91, "game": {"id": 8}}]
+        ]
+
+        roms = await handler.get_matched_roms_by_name(_rom(), "metroid", SNES_IGDB_ID)
+
+        assert [rom["igdb_id"] for rom in roms] == [7, 8]
+        assert service.calls[2][1]["where"] == "id=7 | id=8"
+
+    async def test_no_alternative_names_skips_the_second_lookup(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        service.games = [[_make_game(7, "Super Metroid")]]
+
+        roms = await handler.get_matched_roms_by_name(_rom(), "metroid", SNES_IGDB_ID)
+
+        assert [rom["igdb_id"] for rom in roms] == [7]
+        assert [kind for kind, _ in service.calls] == ["games", "search"]
+
+    async def test_no_platform_sends_nothing(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        assert await handler.get_matched_roms_by_name(_rom(), "metroid", None) == []
+        assert service.calls == []
 
 
 class TestAlternativeNames:
