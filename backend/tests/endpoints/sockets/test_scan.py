@@ -1496,7 +1496,9 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         mocker.patch.object(
             SimpleRomSchema,
             "from_orm_with_factory",
-            return_value=Mock(model_dump=Mock(return_value={"id": rom.id})),
+            side_effect=lambda r, *a, **k: Mock(
+                model_dump=Mock(return_value={"id": r.id})
+            ),
         )
         mocker.patch.object(scan_module, "_identify_rom", AsyncMock())
 
