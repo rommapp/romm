@@ -63,6 +63,7 @@ export * from "./overlays/RDialog";
 export * from "./overlays/RDrawer";
 
 // Data
+export * from "./data/RSortHeader";
 export * from "./data/RTable";
 
 // Media
