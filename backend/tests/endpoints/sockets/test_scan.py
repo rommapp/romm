@@ -1488,6 +1488,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         db_rom.get_roms_by_fs_name.return_value = {"test/roms/Game.zip": rom}
         db_rom.mark_missing_roms.return_value = []
         db_rom.get_rom.return_value = rom
+        db_rom.get_roms_simple_by_ids.return_value = [rom]
 
         db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
         db_firmware.mark_missing_firmware.return_value = []
@@ -1521,7 +1522,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         await self._run(socket_manager)
 
         patched.bulk_mark_present.assert_called_once_with(1, [42])
-        patched.get_rom_simple.assert_called_once_with(42)
+        patched.get_roms_simple_by_ids.assert_called_once_with([42])
         assert any(
             call.args[0] == "scan:scanning_rom"
             for call in socket_manager.emit.call_args_list
@@ -1545,11 +1546,52 @@ class TestIdentifyPlatformEmitsRestoredRoms:
 
         await self._run(socket_manager)
 
-        patched.get_rom_simple.assert_not_called()
+        patched.get_roms_simple_by_ids.assert_not_called()
         assert not any(
             call.args[0] == "scan:scanning_rom"
             for call in socket_manager.emit.call_args_list
         )
+
+    async def test_restored_roms_hydrated_with_single_batched_call(
+        self, patched, mocker
+    ):
+        """Three restored ROMs issue one batched hydration read, in visit order."""
+        fs_roms: list[FSRom] = [
+            {
+                "fs_name": f"Game{i}.zip",
+                "fs_path": "test/roms",
+                "flat": True,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            }
+            for i in range(3)
+        ]
+        mocker.patch.object(fs_rom_handler, "get_roms", AsyncMock(return_value=fs_roms))
+        roms = []
+        for i, fs_rom in enumerate(fs_roms):
+            rom = Rom(fs_name=fs_rom["fs_name"], platform_id=1)
+            rom.id = 11 + i
+            roms.append(rom)
+        patched.get_roms_by_fs_name.return_value = {
+            f"test/roms/{rom.fs_name}": rom for rom in roms
+        }
+        patched.get_missing_rom_ids.return_value = {rom.id for rom in roms}
+        # One restored ROM drops out of the batch read; it emits nothing.
+        patched.get_roms_simple_by_ids.return_value = roms[:2]
+        socket_manager = AsyncMock()
+
+        await self._run(socket_manager)
+
+        patched.get_roms_simple_by_ids.assert_called_once_with([11, 12, 13])
+        emits = [
+            call
+            for call in socket_manager.emit.call_args_list
+            if call.args[0] == "scan:scanning_rom"
+        ]
+        assert len(emits) == 2
 
 
 class TestIdentifyPlatformFirmwareReporting:

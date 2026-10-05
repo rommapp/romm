@@ -1088,12 +1088,22 @@ async def _identify_platform(
         # badge in an open gallery: a skipped one emits nothing, and a scanned
         # one only emits when its files changed. Reload since the scan-loop
         # lookup only eager-loads the platform.
+        hydrated_by_id = (
+            {
+                rom.id: rom
+                for rom in db_rom_handler.get_roms_simple_by_ids(
+                    [rom.id for rom in restored_roms]
+                )
+            }
+            if restored_roms
+            else {}
+        )
         for restored_rom in restored_roms:
             log.info(
                 f"{hl(restored_rom.fs_name)} is back in the filesystem, "
                 f"no longer {hl('missing', color=LIGHTYELLOW)}"
             )
-            hydrated_rom = db_rom_handler.get_rom_simple(restored_rom.id)
+            hydrated_rom = hydrated_by_id.get(restored_rom.id)
             if hydrated_rom is None:
                 continue
 
