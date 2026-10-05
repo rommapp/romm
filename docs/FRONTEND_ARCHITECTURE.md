@@ -141,7 +141,7 @@ frontend/
     │   ├── router.ts              # Vue Router (36 routes, guards, permissions)
     │   ├── vuetify.ts             # Vuetify instance (themes, icons)
     │   ├── pinia.ts               # Pinia store with router injection
-    │   ├── pinia.d.ts             # Pinia type augmentation ($router)
+    │   ├── pinia-router.d.ts      # Pinia type augmentation ($router)
     │   ├── mdeditor.ts            # Markdown editor with XSS plugin
     │   └── transition/            # View Transitions API polyfill
     │
