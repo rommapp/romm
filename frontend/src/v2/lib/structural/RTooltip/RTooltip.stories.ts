@@ -94,6 +94,13 @@ export const Default: Story = {
   }),
 };
 
+export const Light: Story = {
+  ...Default,
+  name: "Light",
+  args: { ...Default.args, modelValue: true },
+  globals: { theme: "light" },
+};
+
 // An RBtn with a string `icon` drops its default slot, so icon buttons use
 // RBtn's own `tooltip` prop; parent-attach is for plain elements like this.
 export const ParentAttach: Story = {
@@ -409,7 +416,7 @@ export const TouchGating: Story = {
     components: { RTooltip, RBtn },
     setup: () => ({ args }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding:48px;display:flex;justify-content:center;background:#07070f">
+      <div style="padding:48px;display:flex;justify-content:center;">
         <RTooltip v-bind="args">
           <template #activator="{ props }">
             <RBtn v-bind="props">Hover target</RBtn>
@@ -457,7 +464,7 @@ export const OpenOnTap: Story = {
     components: { RTooltip, RBtn },
     setup: () => ({ args }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding:48px;display:flex;justify-content:center;background:#07070f">
+      <div style="padding:48px;display:flex;justify-content:center;">
         <RTooltip v-bind="args">
           <template #activator="{ props }">
             <RBtn v-bind="props">Tap target</RBtn>
