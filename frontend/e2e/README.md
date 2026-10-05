@@ -126,14 +126,25 @@ The specs follow this branch's UI, so a site on another version fails where the 
 
 To test a production build of this branch, serve it first: `npm run build && npm run preview` (preview also serves `frontend/assets`, as the Docker image does), then set `E2E_BASE_URL=http://localhost:4173`.
 
+### Check accessibility
+
+`a11y.spec.ts` runs [axe](https://github.com/dequelabs/axe-core) on every page in `PAGES`, and `login.spec.ts` on the login page. A critical violation fails the test; every violation, at any impact, is attached to the report as JSON.
+
+```bash
+npm run test:e2e -- -g "a11y"
+```
+
+The [axe DevTools](https://www.deque.com/axe/devtools/) browser extension runs the same rules on the page you're looking at, which is faster for fixing one.
+
 ## How it's wired
 
 ```text
 e2e/
   specs/      the tests, and only tests, one folder per page
     loads.spec.ts   every page opens with every response 2xx
+    a11y.spec.ts    every page has no critical axe violations
   setup/      sign-in and the first game, run before the specs
-  support/    fixtures, helpers, environment and output paths
+  support/    fixtures, helpers, the page list, environment and output paths
   .output/    generated and gitignored; delete it to reset
     auth/       saved sessions
     specs/      results/ (traces, screenshots) and report/ (HTML)
