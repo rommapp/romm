@@ -140,8 +140,7 @@ frontend/
     │   ├── index.ts               # Plugin registration (Vuetify, Pinia, i18n, Mitt)
     │   ├── router.ts              # Vue Router (36 routes, guards, permissions)
     │   ├── vuetify.ts             # Vuetify instance (themes, icons)
-    │   ├── pinia.ts               # Pinia store with router injection
-    │   ├── pinia.d.ts             # Pinia type augmentation ($router)
+    │   ├── pinia.ts               # Pinia store with router injection (and its $router type)
     │   ├── mdeditor.ts            # Markdown editor with XSS plugin
     │   └── transition/            # View Transitions API polyfill
     │
@@ -1123,8 +1122,8 @@ Generated types used throughout stores and API services for type-safe backend co
 ### ESLint Configuration
 
 - Flat config (`eslint.config.js`)
-- Vue plugin with essential rules
-- TypeScript-ESLint integration
+- Vue plugin with recommended rules
+- TypeScript-ESLint via `@vue/eslint-config-typescript` (`withVueTs`, `vueTsConfigs`)
 - Vue accessibility plugin (`eslint-plugin-vuejs-accessibility`)
 - Repo rules in `eslint-plugin-romm/`, tested by the `eslint-plugin-romm` Vitest project
 - Run through `trunk check`

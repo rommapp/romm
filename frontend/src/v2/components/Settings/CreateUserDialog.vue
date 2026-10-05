@@ -34,13 +34,15 @@ const groupItems = computed(() =>
 
 const defaultGroupId = computed(() => groupsStore.defaultGroup?.id ?? null);
 
-useEmitterEvent("showCreateUserDialog", async () => {
+async function open() {
   reset();
   show.value = true;
   await groupsStore.ensureLoaded();
   // Pre-select the server default group so new users start where they land.
   groupId.value = defaultGroupId.value;
-});
+}
+
+useEmitterEvent("showCreateUserDialog", () => void open());
 
 const confirmPasswordRules = computed(() => [
   (v: string) => !!v || t("settings.repeat-password-required"),

@@ -83,28 +83,28 @@ export const KeyboardRotate: Story = {
   play: async ({ canvasElement, step }) => {
     const root = canvasElement.querySelector<HTMLElement>(".r-box3d");
     const box = canvasElement.querySelector<HTMLElement>(".r-box3d__box");
-    expect(root).not.toBeNull();
-    expect(box).not.toBeNull();
+    await expect(root).not.toBeNull();
+    await expect(box).not.toBeNull();
 
-    await step("starts at the resting orientation", () => {
-      expect(box!.style.transform).toContain("rotateY(0deg)");
-      expect(box!.style.transform).toContain("rotateX(0deg)");
+    await step("starts at the resting orientation", async () => {
+      await expect(box!.style.transform).toContain("rotateY(0deg)");
+      await expect(box!.style.transform).toContain("rotateX(0deg)");
     });
 
     await step("ArrowRight yaws the box", async () => {
       root!.focus();
       await userEvent.keyboard("{ArrowRight}");
-      expect(box!.style.transform).toContain("rotateY(14deg)");
+      await expect(box!.style.transform).toContain("rotateY(14deg)");
     });
 
     await step("ArrowUp pitches the box up", async () => {
       await userEvent.keyboard("{ArrowUp}");
-      expect(box!.style.transform).toContain("rotateX(-14deg)");
+      await expect(box!.style.transform).toContain("rotateX(-14deg)");
     });
 
     await step("pitch clamps so the box never flips over", async () => {
       for (let i = 0; i < 6; i++) await userEvent.keyboard("{ArrowUp}");
-      expect(box!.style.transform).toContain("rotateX(-32deg)");
+      await expect(box!.style.transform).toContain("rotateX(-32deg)");
     });
   },
 };

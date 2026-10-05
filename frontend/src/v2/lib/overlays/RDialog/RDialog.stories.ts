@@ -39,7 +39,7 @@ export const Basic: Story = {
       return { args, open };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
+      <div style="padding: 48px; min-height: 300px;">
         <RBtn @click="open = true">Open dialog</RBtn>
         <RDialog v-bind="args" v-model="open" cancelable>
           <template #header>
@@ -71,7 +71,7 @@ export const Basic: Story = {
           ? "spacer"
           : el.textContent?.trim(),
       );
-      expect(items).toEqual(["Cancel", "spacer", "Confirm"]);
+      await expect(items).toEqual(["Cancel", "spacer", "Confirm"]);
     });
 
     await step("Cancel closes the dialog", async () => {
@@ -79,6 +79,11 @@ export const Basic: Story = {
       await waitFor(() => expect(body.queryByRole("dialog")).toBeNull());
     });
   },
+};
+
+export const Light: Story = {
+  ...Basic,
+  globals: { theme: "light" },
 };
 
 // Loading and empty states aren't built into the primitive any more:
@@ -94,7 +99,7 @@ export const Loading: Story = {
       return { args, open };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
+      <div style="padding: 48px; min-height: 300px;">
         <RBtn @click="open = true">Open loading dialog</RBtn>
         <RDialog v-bind="args" v-model="open">
           <template #header>
@@ -121,7 +126,7 @@ export const EmptyState: Story = {
       return { args, open };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
+      <div style="padding: 48px; min-height: 300px;">
         <RBtn @click="open = true">Open empty dialog</RBtn>
         <RDialog v-bind="args" v-model="open">
           <template #header>
@@ -150,7 +155,7 @@ export const WithToolbarAndFooter: Story = {
       return { args, open };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
+      <div style="padding: 48px; min-height: 300px;">
         <RBtn @click="open = true">Open full dialog</RBtn>
         <RDialog v-bind="args" v-model="open" cancelable>
           <template #header><span>Edit ROM</span></template>

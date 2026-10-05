@@ -760,9 +760,9 @@ describe("useGameActions.copyDownloadLink", () => {
 
   it("opens the manual-copy dialog when the copy fails", async () => {
     clipboardCopy.mockImplementation(
-      async (_text: string, opts: { fallback?: () => void }) => {
+      (_text: string, opts: { fallback?: () => void }) => {
         opts.fallback?.();
-        return false;
+        return Promise.resolve(false);
       },
     );
 

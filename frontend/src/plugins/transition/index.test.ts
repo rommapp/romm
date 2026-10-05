@@ -12,7 +12,7 @@ afterEach(() => {
 
 describe("startViewTransition", () => {
   it("invokes the callback once when the native API is available", async () => {
-    stubStartViewTransition(Promise.resolve());
+    await stubStartViewTransition(Promise.resolve());
     const callback = vi.fn(async () => {});
 
     const transition = startViewTransition(callback);
@@ -22,7 +22,7 @@ describe("startViewTransition", () => {
   });
 
   it("invokes the callback once when a native transition is preempted", async () => {
-    stubStartViewTransition(skippedReady());
+    await stubStartViewTransition(skippedReady());
     const callback = vi.fn(async () => {});
 
     const transition = startViewTransition(callback);
@@ -44,13 +44,13 @@ describe("startViewTransition", () => {
   });
 
   it("resolves ready when the browser skips a preempted transition", async () => {
-    stubStartViewTransition(skippedReady());
+    await stubStartViewTransition(skippedReady());
 
     await expect(startViewTransition().ready).resolves.toBeUndefined();
   });
 
   it("keeps a ready failure that is not a preemption skip", async () => {
-    stubStartViewTransition(
+    await stubStartViewTransition(
       Promise.reject(new Error("navigation setup failed")),
     );
 
@@ -61,7 +61,7 @@ describe("startViewTransition", () => {
 
   it("leaves no unhandled rejection behind when a transition is preempted", async () => {
     await expectNoUnhandledRejection(async () => {
-      stubStartViewTransition(skippedReady());
+      await stubStartViewTransition(skippedReady());
 
       const transition = startViewTransition();
       await transition.captured;

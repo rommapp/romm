@@ -212,7 +212,7 @@ export function useGameAnimation({
     if (!playVideoEnabled.value) return;
 
     // Start video after 1.5 seconds if video path exists
-    hoverTimeout = window.setTimeout(async () => {
+    hoverTimeout = window.setTimeout(() => {
       if (videoRef?.value) {
         videoRef.value.load();
         videoRef.value

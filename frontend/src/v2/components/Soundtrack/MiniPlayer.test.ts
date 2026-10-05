@@ -155,8 +155,9 @@ describe("MiniPlayer restored session", () => {
     const { audio, play } = await mountRestored(true);
     let playing = false;
     Object.defineProperty(audio, "paused", { get: () => !playing });
-    play.mockImplementation(async () => {
+    play.mockImplementation(() => {
       playing = true;
+      return Promise.resolve();
     });
     expect(play).not.toHaveBeenCalled();
 
@@ -198,8 +199,9 @@ describe("MiniPlayer restored session", () => {
     const { audio, store, play } = await mountRestored(true);
     let playing = false;
     Object.defineProperty(audio, "paused", { get: () => !playing });
-    play.mockImplementation(async () => {
+    play.mockImplementation(() => {
       playing = true;
+      return Promise.resolve();
     });
     const pause = vi.spyOn(audio, "pause").mockImplementation(() => {
       playing = false;

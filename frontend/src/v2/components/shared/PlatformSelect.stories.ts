@@ -3,7 +3,7 @@ import { expect, userEvent, within, waitFor } from "storybook/test";
 import { ref } from "vue";
 import type { Platform } from "@/stores/platforms";
 import { platformFixture } from "@/utils/platform.fixtures";
-import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
+import { a11yTodoRules, CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import PlatformSelect from "./PlatformSelect.vue";
 import {
   formatPlatformRomCount,
@@ -118,14 +118,16 @@ async function openMenu(canvasElement: HTMLElement) {
   await userEvent.click(
     within(canvasElement).getByRole("button", { name: "Platforms" }),
   );
-  await waitFor(() => {
-    expect(document.querySelector(".r-select__panel")).not.toBeNull();
+  await waitFor(async () => {
+    await expect(document.querySelector(".r-select__panel")).not.toBeNull();
   });
 }
 
-// The open panel is role="listbox" around the search <input> and a plain <ul>,
-// so its options have no listbox parent and the search field has no label.
-const OPEN_PANEL_A11Y_TODO = { a11y: { test: "todo" as const } };
+// The open panel's option list scrolls but can't take keyboard focus.
+const OPEN_PANEL_A11Y_TODO = a11yTodoRules(
+  "color-contrast",
+  "scrollable-region-focusable",
+);
 
 // Generic components can't fill Storybook's `component` slot, so it's cast;
 // the instantiation types the stories' args.
@@ -174,7 +176,7 @@ export const PromotedOpenMenu: Story = {
       const { promoted, remaining } = promotePlatformsWithGamesFirst(
         MIXED_PLATFORM_CATALOG,
       );
-      expect(menuRowTitles()).toEqual([
+      await expect(menuRowTitles()).toEqual([
         ...promoted.map((p) => p.display_name),
         "---",
         ...remaining.map((p) => p.display_name),
@@ -185,7 +187,7 @@ export const PromotedOpenMenu: Story = {
       const gbaRow = document.querySelector(
         ".r-select__list > li:not(.r-select__divider)",
       );
-      expect(
+      await expect(
         gbaRow?.querySelector(".r-v2-platsel__rom-badge")?.textContent,
       ).toBe("1537");
     });
@@ -194,7 +196,6 @@ export const PromotedOpenMenu: Story = {
 
 export const PromotedRomCountCap: Story = {
   name: "Promotion on — rom count 9999+ cap",
-  parameters: OPEN_PANEL_A11Y_TODO,
   render: () => ({
     components: { PlatformSelect },
     setup() {
@@ -210,11 +211,11 @@ export const PromotedRomCountCap: Story = {
     });
 
     await step("caps badge at 9999+", async () => {
-      await waitFor(() => {
-        expect(romBadgeText("PlayStation")).toBe(
+      await waitFor(async () => {
+        await expect(romBadgeText("PlayStation")).toBe(
           formatPlatformRomCount(PLATFORM_ROM_COUNT_CAP + 2345),
         );
-        expect(romBadgeText("Game Boy Advance")).toBe("99");
+        await expect(romBadgeText("Game Boy Advance")).toBe("99");
       });
     });
   },
@@ -222,7 +223,6 @@ export const PromotedRomCountCap: Story = {
 
 export const PromotedTypingInSearch: Story = {
   name: "Promotion on — typing in panel search",
-  parameters: OPEN_PANEL_A11Y_TODO,
   render: promoteFilledRender(),
   play: async ({ canvasElement, step }) => {
     const searchCharacter = "g";
@@ -234,21 +234,21 @@ export const PromotedTypingInSearch: Story = {
       const search = document.querySelector(
         ".r-select__search input",
       ) as HTMLInputElement;
-      expect(search).not.toBeNull();
+      await expect(search).not.toBeNull();
       await userEvent.click(search);
       await userEvent.type(search, searchCharacter);
     });
 
     await step("no partition; caller item order", async () => {
-      await waitFor(() => {
+      await waitFor(async () => {
         const rows = menuRowTitles();
-        expect(rows).not.toContain("---");
-        expect(rows).toEqual([
+        await expect(rows).not.toContain("---");
+        await expect(rows).toEqual([
           "Adventure Game Studio",
           "Amiga",
           "Game Boy Advance",
         ]);
-        expect(
+        await expect(
           document.querySelectorAll(".r-v2-platsel__rom-badge"),
         ).toHaveLength(0);
       });
@@ -271,14 +271,14 @@ export const PromotedSearchDisabled: Story = {
   play: async ({ canvasElement, step }) => {
     await step("open menu", async () => {
       await openMenu(canvasElement);
-      expect(document.querySelector(".r-select__search")).toBeNull();
+      await expect(document.querySelector(".r-select__search")).toBeNull();
     });
 
     await step("still partitioned", async () => {
       const { promoted, remaining } = promotePlatformsWithGamesFirst(
         MIXED_PLATFORM_CATALOG,
       );
-      expect(menuRowTitles()).toEqual([
+      await expect(menuRowTitles()).toEqual([
         ...promoted.map((p) => p.display_name),
         "---",
         ...remaining.map((p) => p.display_name),
@@ -326,7 +326,7 @@ export const ScanPagePicker: Story = {
         const { promoted, remaining } = promotePlatformsWithGamesFirst(
           MIXED_PLATFORM_CATALOG,
         );
-        expect(menuRowTitles()).toEqual([
+        await expect(menuRowTitles()).toEqual([
           "All",
           "---",
           ...promoted.map((p) => p.display_name),

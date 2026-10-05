@@ -10,12 +10,12 @@ export function useRomScanRefresh() {
   const route = useRoute();
   const { refetchRom } = useRomSync();
 
-  useSocketEvent<ScanStats>(
-    "scan:done",
-    async () => {
-      const romId = romIdFromRoute(route);
-      if (romId !== null) await refetchRom(romId);
-    },
-    { connect: false },
-  );
+  async function refresh() {
+    const romId = romIdFromRoute(route);
+    if (romId !== null) await refetchRom(romId);
+  }
+
+  useSocketEvent<ScanStats>("scan:done", () => void refresh(), {
+    connect: false,
+  });
 }

@@ -59,8 +59,9 @@ const fakeModule = {
 } satisfies Fake08Module;
 
 vi.mock("./scriptLoader", () => ({
-  loadScript: vi.fn(async () => {
-    window.Fake08Module = vi.fn(async () => fakeModule);
+  loadScript: vi.fn(() => {
+    window.Fake08Module = vi.fn(() => Promise.resolve(fakeModule));
+    return Promise.resolve();
   }),
 }));
 

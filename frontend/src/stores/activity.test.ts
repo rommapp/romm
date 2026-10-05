@@ -97,9 +97,9 @@ describe("activity store socket events", () => {
   it("re-lists when an event lands while the list is in flight", async () => {
     const store = storeActivity();
     get
-      .mockImplementationOnce(async () => {
+      .mockImplementationOnce(() => {
         handlers.get("activity:update")!(entry({ rom_id: 11 }));
-        return { data: [] };
+        return Promise.resolve({ data: [] });
       })
       .mockResolvedValueOnce({ data: [entry({ rom_id: 11 })] });
 
@@ -111,9 +111,9 @@ describe("activity store socket events", () => {
 
   it("settles for the last list when events keep landing", async () => {
     const store = storeActivity();
-    get.mockImplementation(async () => {
+    get.mockImplementation(() => {
       handlers.get("activity:update")!(entry({ rom_id: 11 }));
-      return { data: [entry({ rom_id: 12 })] };
+      return Promise.resolve({ data: [entry({ rom_id: 12 })] });
     });
 
     await store.fetchAll();
@@ -145,9 +145,9 @@ describe("activity store socket events", () => {
   it("recovers when the request after a dropped answer fails", async () => {
     const store = storeActivity();
     get
-      .mockImplementationOnce(async () => {
-        store.fetchAll();
-        return { data: [entry({ rom_id: 11 })] };
+      .mockImplementationOnce(() => {
+        void store.fetchAll();
+        return Promise.resolve({ data: [entry({ rom_id: 11 })] });
       })
       .mockRejectedValueOnce(new Error("blip"))
       .mockResolvedValueOnce({ data: [entry({ rom_id: 12 })] });
@@ -162,9 +162,9 @@ describe("activity store socket events", () => {
   it("makes a list asked for while the running request fails", async () => {
     const store = storeActivity();
     get
-      .mockImplementationOnce(async () => {
-        store.fetchAll();
-        throw new Error("blip");
+      .mockImplementationOnce(() => {
+        void store.fetchAll();
+        return Promise.reject(new Error("blip"));
       })
       .mockResolvedValueOnce({ data: [entry({ rom_id: 12 })] });
 
@@ -178,17 +178,17 @@ describe("activity store socket events", () => {
   it("makes a list asked for after the event retries run out", async () => {
     const store = storeActivity();
     get
-      .mockImplementationOnce(async () => {
+      .mockImplementationOnce(() => {
         handlers.get("activity:update")!(entry());
-        return { data: [] };
+        return Promise.resolve({ data: [] });
       })
-      .mockImplementationOnce(async () => {
+      .mockImplementationOnce(() => {
         handlers.get("activity:update")!(entry());
-        return { data: [] };
+        return Promise.resolve({ data: [] });
       })
-      .mockImplementationOnce(async () => {
-        store.fetchAll();
-        return { data: [entry({ rom_id: 11 })] };
+      .mockImplementationOnce(() => {
+        void store.fetchAll();
+        return Promise.resolve({ data: [entry({ rom_id: 11 })] });
       })
       .mockResolvedValueOnce({ data: [entry({ rom_id: 12 })] });
 

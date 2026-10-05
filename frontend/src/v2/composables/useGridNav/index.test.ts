@@ -115,7 +115,7 @@ describe("useGridNav roving", () => {
     expect(tabbable(wrapper)).toEqual(["/rom/4", "fav"]);
   });
 
-  it("moves to the row's ends on Home and End", async () => {
+  it("moves to the row's ends on Home and End", () => {
     focusLink(1);
     press("End");
     expect(focusedHref()).toBe("/rom/2");
@@ -135,7 +135,7 @@ describe("useGridNav roving", () => {
     expect(focusedHref()).toBe("/rom/1");
   });
 
-  it("keeps the column on PageDown and PageUp", async () => {
+  it("keeps the column on PageDown and PageUp", () => {
     focusLink(2);
     press("PageDown");
     expect(focusedHref()).toBe("/rom/4");

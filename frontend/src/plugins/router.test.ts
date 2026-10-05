@@ -116,8 +116,8 @@ describe("the rom route", () => {
 describe("the inactive UI's views", () => {
   const uiVersion = useUiVersion();
   const v1View = { name: "V1View", render: () => h("p", "v1 view") };
-  const loadV1 = vi.fn(async () => v1View);
-  const loadV2 = vi.fn(async () => ({ render: () => null }));
+  const loadV1 = vi.fn(() => Promise.resolve(v1View));
+  const loadV2 = vi.fn(() => Promise.resolve({ render: () => null }));
 
   router.addRoute({
     path: "/deferred-views",
@@ -129,8 +129,10 @@ describe("the inactive UI's views", () => {
     name: "deferred-views-elsewhere",
     component: { render: () => null },
   });
-  const loadLayoutV1 = vi.fn(async () => ({ render: () => h(RouterView) }));
-  const loadChildV1 = vi.fn(async () => v1View);
+  const loadLayoutV1 = vi.fn(() =>
+    Promise.resolve({ render: () => h(RouterView) }),
+  );
+  const loadChildV1 = vi.fn(() => Promise.resolve(v1View));
   router.addRoute({
     path: "/deferred-chain",
     components: { default: loadLayoutV1, v2: { render: () => null } },

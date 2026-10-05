@@ -70,9 +70,12 @@ async function fetchLatestVersion() {
   }
 }
 
-useEventListener(document, "network-quiesced", fetchLatestVersion, {
-  once: true,
-});
+useEventListener(
+  document,
+  "network-quiesced",
+  () => void fetchLatestVersion(),
+  { once: true },
+);
 </script>
 
 <template>

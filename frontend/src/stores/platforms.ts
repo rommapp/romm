@@ -2,6 +2,7 @@ import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
 import type { PlatformSchema } from "@/__generated__";
 import platformApi from "@/services/api/platform";
+import { toError } from "@/utils/toError";
 
 export type Platform = PlatformSchema;
 
@@ -54,7 +55,7 @@ export default defineStore("platforms", {
           })
           .catch((error) => {
             console.error(error);
-            reject(error);
+            reject(toError(error));
           })
           .finally(() => {
             this.fetchingPlatforms = false;
@@ -71,7 +72,7 @@ export default defineStore("platforms", {
           })
           .catch((error) => {
             console.error(error);
-            reject(error);
+            reject(toError(error));
           });
       });
     },

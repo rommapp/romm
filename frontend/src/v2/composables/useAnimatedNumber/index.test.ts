@@ -61,7 +61,7 @@ describe("useAnimatedNumber", () => {
     reduced.value = true;
   });
 
-  it("picks up where a remembered count left off after a remount", async () => {
+  it("picks up where a remembered count left off after a remount", () => {
     reduced.value = false;
     const source = ref<number | null>(573);
     const first = effectScope();

@@ -189,12 +189,13 @@ export const Validation: Story = {
     components: { RTextField },
     setup: () => {
       const value = ref("");
+      type FieldValue = string | number | null | undefined;
       const rules = [
-        (v: unknown) =>
+        (v: FieldValue) =>
           !!v && String(v).length > 0 ? true : "Field is required",
-        (v: unknown) =>
+        (v: FieldValue) =>
           String(v).length >= 3 ? true : "Must be at least 3 characters",
-        (v: unknown) =>
+        (v: FieldValue) =>
           /^[a-z0-9_]+$/.test(String(v)) || !v
             ? true
             : "Lowercase letters, digits and underscore only",

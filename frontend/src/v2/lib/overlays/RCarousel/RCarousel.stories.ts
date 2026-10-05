@@ -59,7 +59,7 @@ export const Inline: Story = {
       return { args, index };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f; min-height: 540px;">
+      <div style="padding: 32px; min-height: 540px;">
         <RCarousel
           v-bind="args"
           v-model="index"
@@ -80,40 +80,41 @@ export const Inline: Story = {
 
     await step("counter renders 1 / N to start", async () => {
       const counter = await canvas.findByText("1 / 5");
-      expect(counter).toBeInTheDocument();
+      await expect(counter).toBeInTheDocument();
     });
 
     await step("clicking next advances the index", async () => {
       const next = canvas.getByRole("button", { name: "Next" });
       await userEvent.click(next);
       const counter = await canvas.findByText("2 / 5");
-      expect(counter).toBeInTheDocument();
+      await expect(counter).toBeInTheDocument();
     });
 
     await step("clicking prev rewinds", async () => {
       const prev = canvas.getByRole("button", { name: "Previous" });
       await userEvent.click(prev);
       const counter = await canvas.findByText("1 / 5");
-      expect(counter).toBeInTheDocument();
+      await expect(counter).toBeInTheDocument();
     });
 
     await step("loop wraps from first to last on prev", async () => {
       const prev = canvas.getByRole("button", { name: "Previous" });
       await userEvent.click(prev);
       const counter = await canvas.findByText("5 / 5");
-      expect(counter).toBeInTheDocument();
+      await expect(counter).toBeInTheDocument();
     });
 
     await step("clicking a thumbnail jumps to that index", async () => {
       const thumbs = canvas.getAllByRole("button", { name: /^\d+ \/ 5$/ });
       await userEvent.click(thumbs[2]!);
       const counter = await canvas.findByText("3 / 5");
-      expect(counter).toBeInTheDocument();
+      await expect(counter).toBeInTheDocument();
     });
   },
 };
 
 export const InlineLight: Story = {
+  globals: { theme: "light" },
   args: {
     items: SAMPLES,
     showThumbnails: true,
@@ -125,7 +126,7 @@ export const InlineLight: Story = {
       return { args, index };
     },
     template: `
-      <div class="r-v2 r-v2-light" style="padding: 32px; background: #f4f4f8; min-height: 540px;">
+      <div style="padding: 32px; min-height: 540px;">
         <RCarousel
           v-bind="args"
           v-model="index"
@@ -159,7 +160,7 @@ export const Fullscreen: Story = {
       return { args, index, onClose };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f; min-height: 540px;">
+      <div style="padding: 32px; min-height: 540px;">
         <RBtn @click="index = 0">Open lightbox</RBtn>
         <RCarousel
           v-if="index !== null"
@@ -188,18 +189,18 @@ export const Fullscreen: Story = {
       await userEvent.click(
         canvas.getByRole("button", { name: "Open lightbox" }),
       );
-      expect(lightbox()).toBeInTheDocument();
+      await expect(lightbox()).toBeInTheDocument();
     });
 
     await step("clicking the image itself keeps it open", async () => {
       await userEvent.click(overlay.getByAltText("Slide 1"));
-      expect(lightbox()).toBeInTheDocument();
+      await expect(lightbox()).toBeInTheDocument();
     });
 
     await step("clicking the backdrop around the image closes it", async () => {
       const item = document.querySelector(".r-carousel__item--fullscreen");
       await userEvent.click(item as HTMLElement);
-      expect(lightbox()).toBeNull();
+      await expect(lightbox()).toBeNull();
     });
   },
 };
@@ -216,7 +217,7 @@ export const NoLoop: Story = {
       return { args, index };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f; min-height: 360px;">
+      <div style="padding: 32px; min-height: 360px;">
         <RCarousel
           v-bind="args"
           v-model="index"
@@ -242,7 +243,7 @@ export const SingleItem: Story = {
       return { args, index };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f; min-height: 360px;">
+      <div style="padding: 32px; min-height: 360px;">
         <RCarousel
           v-bind="args"
           v-model="index"

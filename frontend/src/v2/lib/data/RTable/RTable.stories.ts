@@ -110,11 +110,16 @@ export const Default: Story = {
     components: { RTable },
     setup: () => ({ args }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
+      <div style="padding: 32px;">
         <RTable v-bind="args" />
       </div>
     `,
   }),
+};
+
+export const Light: Story = {
+  ...Default,
+  globals: { theme: "light" },
 };
 
 export const Loading: Story = {
@@ -128,7 +133,7 @@ export const Loading: Story = {
     components: { RTable },
     setup: () => ({ args }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
+      <div style="padding: 32px;">
         <RTable v-bind="args" />
       </div>
     `,
@@ -147,7 +152,7 @@ export const Empty: Story = {
     components: { RTable },
     setup: () => ({ args }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
+      <div style="padding: 32px;">
         <RTable v-bind="args" />
       </div>
     `,
@@ -171,7 +176,7 @@ export const MobileCardStack: Story = {
     components: { RTable },
     setup: () => ({ args }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 24px; background: #07070f;">
+      <div style="padding: 24px;">
         <RTable v-bind="args" />
       </div>
     `,

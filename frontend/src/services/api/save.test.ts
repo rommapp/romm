@@ -10,7 +10,7 @@ vi.mock("@/services/api", () => ({
       params,
     }: {
       url: string;
-      params?: Record<string, unknown>;
+      params?: Record<string, string | number | boolean | null | undefined>;
     }) => {
       const query = new URLSearchParams();
       for (const [key, value] of Object.entries(params ?? {})) {

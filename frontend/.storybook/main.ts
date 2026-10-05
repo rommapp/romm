@@ -1,4 +1,5 @@
 import type { StorybookConfig } from "@storybook/vue3-vite";
+import type { PluginOption } from "vite";
 
 const config: StorybookConfig = {
   // Only pick up v2 stories: the v1 UI is frozen and does not ship stories.
@@ -13,7 +14,7 @@ const config: StorybookConfig = {
     name: "@storybook/vue3-vite",
     options: {},
   },
-  async viteFinal(cfg) {
+  viteFinal(cfg) {
     // Path aliases (@, @v2, md-editor-v3) come with the app's vite.config.js,
     // which the builder merges in before this hook.
     // The main app's Vite config registers VitePWA; this is an
@@ -34,7 +35,7 @@ const config: StorybookConfig = {
       const name = (plugin as { name?: string }).name ?? "";
       return isBlocked(name) ? [] : [plugin];
     }
-    cfg.plugins = (cfg.plugins ?? []).flatMap(keep) as typeof cfg.plugins;
+    cfg.plugins = (cfg.plugins ?? []).flatMap(keep) as PluginOption[];
     // The runtime ROM library lives under `frontend/assets/romm/resources/`
     // (cover art, RetroAchievement badges, …). Watching it exhausts the
     // system's inotify handles (ENOSPC) and is irrelevant to Storybook.

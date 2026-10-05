@@ -96,7 +96,7 @@ export function useViewTransition() {
     // source element usually unmounts during navigate(), but if a route
     // keeps it alive (kept-alive view, error mid-nav, …) we don't want a
     // dangling view-transition-name on the page.
-    transition.finished.finally(() => {
+    void transition.finished.finally(() => {
       forwardTransitionActive = false;
       if (source.el.isConnected) {
         source.el.style.viewTransitionName = "";
@@ -112,23 +112,30 @@ export function useViewTransition() {
 // the matching tile so the browser can pair the snapshots.
 function morphNameForRoute(route: RouteLocationNormalized): string | null {
   const name = route.name;
-  const params = route.params as Record<string, string | string[]>;
+  const params = route.params as Record<string, string | string[] | undefined>;
+  const param = (key: string) => {
+    const value = params[key];
+    return Array.isArray(value) ? value[0] : value;
+  };
+  const rom = param("rom");
+  const platform = param("platform");
+  const collection = param("collection");
   // `rom` (detail) and the players all own a `rom-cover-<id>` hero, so morph
   // between any of them and the gallery, or each other.
-  if (MORPH_ROM_ROUTES.has(String(name)) && params.rom) {
-    return `rom-cover-${params.rom}`;
+  if (MORPH_ROM_ROUTES.has(String(name)) && rom) {
+    return `rom-cover-${rom}`;
   }
-  if (name === "platform" && params.platform) {
-    return `platform-icon-${params.platform}`;
+  if (name === "platform" && platform) {
+    return `platform-icon-${platform}`;
   }
-  if (name === "collection" && params.collection) {
-    return `coll-cover-regular-${params.collection}`;
+  if (name === "collection" && collection) {
+    return `coll-cover-regular-${collection}`;
   }
-  if (name === "virtual-collection" && params.collection) {
-    return `coll-cover-virtual-${params.collection}`;
+  if (name === "virtual-collection" && collection) {
+    return `coll-cover-virtual-${collection}`;
   }
-  if (name === "smart-collection" && params.collection) {
-    return `coll-cover-smart-${params.collection}`;
+  if (name === "smart-collection" && collection) {
+    return `coll-cover-smart-${collection}`;
   }
   return null;
 }
@@ -178,7 +185,7 @@ export function installBackMorph(router: Router): () => void {
       // A navigation during the capture phase preempts this transition, same
       // as the forward morph's.
       void absorbPreemptionSkip(transition.ready);
-      transition.finished.finally(() => {
+      void transition.finished.finally(() => {
         pendingMorphName.value = null;
       });
     });

@@ -84,16 +84,16 @@ export const SlotLibrary: Story = {
   play: async ({ canvasElement, step }) => {
     const ui = within(canvasElement);
     await step("named slot groups are visible", async () => {
-      expect(ui.getByText("autosave")).toBeTruthy();
-      expect(ui.getByText("main_quest")).toBeTruthy();
+      await expect(ui.getByText("autosave")).toBeTruthy();
+      await expect(ui.getByText("main_quest")).toBeTruthy();
     });
     await step("clicking a row updates selection", async () => {
       const target = selectableItems(canvasElement).find(
         (r) => r.getAttribute("aria-pressed") === "false",
       );
-      expect(target).toBeTruthy();
+      await expect(target).toBeTruthy();
       await userEvent.click(target!);
-      expect(target).toHaveAttribute("aria-pressed", "true");
+      await expect(target).toHaveAttribute("aria-pressed", "true");
     });
   },
 };
@@ -166,9 +166,9 @@ export const IdenticalPrefixStates: Story = {
   play: async ({ canvasElement, step }) => {
     await step("each row keeps the full filename in the DOM", async () => {
       const rows = selectableItems(canvasElement);
-      expect(rows).toHaveLength(4);
+      await expect(rows).toHaveLength(4);
       for (const el of rows) {
-        expect(el.textContent).toContain(IDENTICAL_STATE_PREFIX);
+        await expect(el.textContent).toContain(IDENTICAL_STATE_PREFIX);
       }
     });
   },
@@ -196,17 +196,17 @@ export const ManageSaves: Story = {
       async () => {
         const ui = within(canvasElement);
         const rows = ui.getAllByRole("listitem");
-        expect(
+        await expect(
           rows.some((r) => r.textContent?.includes("chrono_trigger")),
         ).toBe(true);
-        expect(
+        await expect(
           ui.queryAllByRole("button", { name: /^chrono_trigger/ }),
         ).toEqual([]);
       },
     );
     await step("own-item actions include download and delete", async () => {
-      expect(downloadButtons(canvasElement).length).toBeGreaterThan(0);
-      expect(deleteButtons(canvasElement).length).toBeGreaterThan(0);
+      await expect(downloadButtons(canvasElement).length).toBeGreaterThan(0);
+      await expect(deleteButtons(canvasElement).length).toBeGreaterThan(0);
     });
   },
 };
@@ -234,12 +234,12 @@ export const CommunitySaves: Story = {
   play: async ({ canvasElement, step }) => {
     const ui = within(canvasElement);
     await step("community author chips render", async () => {
-      expect(ui.getByText("speedrunner42")).toBeTruthy();
-      expect(ui.getByText("archivist")).toBeTruthy();
+      await expect(ui.getByText("speedrunner42")).toBeTruthy();
+      await expect(ui.getByText("archivist")).toBeTruthy();
     });
     await step("community rows offer download only", async () => {
-      expect(downloadButtons(canvasElement).length).toBe(2);
-      expect(ui.queryByRole("button", { name: /^Delete /i })).toBeNull();
+      await expect(downloadButtons(canvasElement).length).toBe(2);
+      await expect(ui.queryByRole("button", { name: /^Delete /i })).toBeNull();
     });
   },
   render: () => ({
@@ -282,7 +282,7 @@ export const EmptySaves: Story = {
   }),
   play: async ({ canvasElement, step }) => {
     await step("empty saves message", async () => {
-      expect(
+      await expect(
         within(canvasElement).getByText("No saves available"),
       ).toBeTruthy();
     });
@@ -299,7 +299,7 @@ export const EmptyStates: Story = {
   }),
   play: async ({ canvasElement, step }) => {
     await step("empty states message", async () => {
-      expect(
+      await expect(
         within(canvasElement).getByText("No states available"),
       ).toBeTruthy();
     });

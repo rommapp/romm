@@ -178,7 +178,7 @@ watch(isOpen, (next) => {
   const anchor = selectedDate.value ?? todayUtc();
   viewMonth.value = startOfMonth(anchor);
   focusedDay.value = new Date(anchor);
-  nextTick(focusDayCell);
+  void nextTick(focusDayCell);
 });
 
 // ── Grid building ──────────────────────────────────────────────
@@ -404,7 +404,7 @@ function setCursor(next: Date) {
   ) {
     viewMonth.value = startOfMonth(next);
   }
-  nextTick(focusDayCell);
+  void nextTick(focusDayCell);
 }
 
 function focusDayCell() {
@@ -433,7 +433,7 @@ function dismiss() {
   close();
   // Send focus back to the field so tab order doesn't get stranded
   // on a teleported panel that just unmounted.
-  nextTick(() => {
+  void nextTick(() => {
     focusFromInput(referenceEl.value?.querySelector("input"));
   });
 }

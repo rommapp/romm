@@ -161,7 +161,7 @@ async function finishWizard() {
         });
         await auth.fetchCurrentUser();
         await heartbeat.fetchHeartbeat();
-        router.push({ name: "home" });
+        void router.push({ name: "home" });
         return;
       } catch (avatarErr) {
         const e = avatarErr as {
@@ -179,7 +179,7 @@ async function finishWizard() {
 
     await refetchCSRFToken();
     await heartbeat.fetchHeartbeat();
-    router.push({ name: "login" });
+    void router.push({ name: "login" });
   } catch (err) {
     const error = err as {
       response?: { data?: { detail?: string }; statusText?: string };

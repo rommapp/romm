@@ -589,7 +589,7 @@ export const NestedMenu: Story = {
       await waitFor(() =>
         expect(body.getByRole("option", { name: "Backlog" })).toBeTruthy(),
       );
-      expect(document.querySelector(".r-select__panel")).not.toBeNull();
+      await expect(document.querySelector(".r-select__panel")).not.toBeNull();
     });
 
     await step("A press outside both closes the select", async () => {
