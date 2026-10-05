@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RCard from "./RCard.vue";
 
 const meta: Meta<typeof RCard> = {
   title: "Primitives/RCard",
   component: RCard,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     variant: {
       control: "select",

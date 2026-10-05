@@ -121,6 +121,9 @@ export const NewTabGesture: Story = {
     const canvas = within(canvasElement);
     const link = canvas.getByText("Open in new tab").closest("a");
     if (!link) throw new Error("expected the item to render as an <a>");
+    // In a real browser the Ctrl-click would open the link and tear down the
+    // test page; cancel it after the item's own handler has seen the event.
+    canvasElement.addEventListener("click", (event) => event.preventDefault());
 
     await step("plain click activates the item", async () => {
       link.dispatchEvent(

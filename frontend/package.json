@@ -34,7 +34,7 @@
     "test:ui": "vitest --ui",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
-    "storybook:test": "vitest run test/storybook.test.ts",
+    "storybook:test": "vitest run --project storybook",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report e2e/.output/specs/report"
@@ -76,6 +76,7 @@
     "@storybook/addon-a11y": "^10.2.19",
     "@storybook/addon-docs": "^10.2.19",
     "@storybook/addon-themes": "^10.2.19",
+    "@storybook/addon-vitest": "^10.6.0",
     "@storybook/vue3-vite": "^10.2.19",
     "@tailwindcss/vite": "^4.3.1",
     "@types/js-cookie": "^3.0.6",
@@ -85,6 +86,7 @@
     "@types/semver": "^7.7.0",
     "@types/spark-md5": "^3.0.5",
     "@vitejs/plugin-vue": "^6.0.7",
+    "@vitest/browser-playwright": "^5.0.2",
     "@vitest/ui": "^5.0.1",
     "@vue/test-utils": "^2.4.9",
     "@vue/tsconfig": "^0.9.1",
@@ -116,7 +118,13 @@
   "overrides": {
     "rolldown": "1.2.11",
     "esbuild": "^0.28.1",
-    "form-data": "^4.0.6"
+    "form-data": "^4.0.6",
+    "@storybook/addon-vitest": {
+      "vitest": "$vitest",
+      "@vitest/browser": "$vitest",
+      "@vitest/runner": "$vitest",
+      "@vitest/browser-playwright": "$@vitest/browser-playwright"
+    }
   },
   "engines": {
     "node": "24",

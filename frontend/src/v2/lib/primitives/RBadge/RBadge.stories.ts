@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RAvatar from "../RAvatar/RAvatar.vue";
 import RIcon from "../RIcon/RIcon.vue";
 import RBadge from "./RBadge.vue";
@@ -7,6 +8,7 @@ import RBadge from "./RBadge.vue";
 const meta: Meta<typeof RBadge> = {
   title: "Primitives/RBadge",
   component: RBadge,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     content: { control: "text" },
     color: { control: "text" },

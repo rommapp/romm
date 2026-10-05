@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RToolbar from "./RToolbar.vue";
 
 const meta: Meta<typeof RToolbar> = {
   title: "Structural/RToolbar",
   component: RToolbar,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     title: { control: "text" },
     color: { control: "text" },

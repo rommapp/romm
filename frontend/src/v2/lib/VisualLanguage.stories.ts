@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { defineComponent, h } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 
 // Intro / design-token preview story. Exists to verify the Storybook pipeline
 // end-to-end (tokens + theme switcher) before any R-components land.
@@ -122,9 +123,7 @@ const VisualLanguage = defineComponent({
 const meta: Meta<typeof VisualLanguage> = {
   title: "Visual Language",
   component: VisualLanguage,
-  parameters: {
-    layout: "fullscreen",
-  },
+  parameters: { ...CONTRAST_TODO_PARAMETERS, layout: "fullscreen" },
 };
 
 export default meta;

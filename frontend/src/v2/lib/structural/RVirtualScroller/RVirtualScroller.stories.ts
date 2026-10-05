@@ -4,6 +4,14 @@ import RVirtualScroller from "./RVirtualScroller.vue";
 const meta: Meta<typeof RVirtualScroller> = {
   title: "Structural/RVirtualScroller",
   component: RVirtualScroller,
+  // The scroll viewport isn't focusable, so keyboard users can't scroll it.
+  parameters: {
+    a11y: {
+      config: {
+        rules: [{ id: "scrollable-region-focusable", enabled: false }],
+      },
+    },
+  },
   argTypes: {
     overscan: { control: "number" },
     height: { control: "text" },

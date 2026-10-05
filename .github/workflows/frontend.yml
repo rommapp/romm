@@ -33,7 +33,12 @@ jobs:
       - name: Set up the frontend
         uses: ./.github/actions/setup-frontend
 
-      - name: Run tests (vitest, includes Storybook play() tests)
+      # Stories run in browser mode, which needs only the headless shell.
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps --only-shell chromium
+        working-directory: frontend
+
+      - name: Run tests (vitest, includes Storybook play() and a11y tests)
         run: npm test
         working-directory: frontend
 

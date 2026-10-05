@@ -5,6 +5,7 @@ import RMenu from "@/v2/lib/menus/RMenu/RMenu.vue";
 import RMenuItem from "@/v2/lib/menus/RMenuItem/RMenuItem.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RSelect from "./RSelect.vue";
 
 const ROLES = [
@@ -33,6 +34,7 @@ const PLATFORMS = [
 const meta: Meta<typeof RSelect<unknown, unknown>> = {
   title: "Forms/RSelect",
   component: RSelect as never,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     variant: {
       control: "inline-radio",

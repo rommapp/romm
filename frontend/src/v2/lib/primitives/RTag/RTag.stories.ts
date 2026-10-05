@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RTag from "./RTag.vue";
 
 const meta: Meta<typeof RTag> = {
   title: "Primitives/RTag",
   component: RTag,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     prependIcon: { control: "text" },
     appendIcon: { control: "text" },

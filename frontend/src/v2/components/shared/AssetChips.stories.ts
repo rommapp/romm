@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { makeSave } from "@/v2/utils/saveStates.fixtures";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import AssetChips from "./AssetChips.vue";
 
 // Chip content per prop is covered by AssetChips.test.ts.
 const meta: Meta<typeof AssetChips> = {
   title: "Shared/AssetChips",
   component: AssetChips,
+  parameters: CONTRAST_TODO_PARAMETERS,
   decorators: [
     () => ({
       template: `

@@ -6,6 +6,7 @@ import type { SliderBtnGroupItem } from "@v2/lib/primitives/RSliderBtnGroup/type
 import { computed, ref } from "vue";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { makeSave, manyStates } from "@/v2/utils/saveStates.fixtures";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import AssetList from "../shared/AssetList.vue";
 import AssetStrip from "../shared/AssetStrip.vue";
 import AssetPreview from "./AssetPreview.vue";
@@ -36,6 +37,7 @@ interface Args {
 
 const meta: Meta<Args> = {
   title: "Player/ResumePanel (composition)",
+  parameters: CONTRAST_TODO_PARAMETERS,
   decorators: [
     () => ({
       template: `

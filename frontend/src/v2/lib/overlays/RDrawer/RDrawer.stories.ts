@@ -2,11 +2,13 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
 import RTextField from "@/v2/lib/forms/RTextField/RTextField.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RDrawer from "./RDrawer.vue";
 
 const meta: Meta<typeof RDrawer> = {
   title: "Overlays/RDrawer",
   component: RDrawer,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     side: { control: "inline-radio", options: ["left", "right"] },
     width: { control: "text" },
@@ -76,6 +78,8 @@ export const LeftSide: Story = {
 
 export const TallContent: Story = {
   name: "Tall content (scrolling body)",
+  // The drawer has no accessible name and its scrolling body can't take focus.
+  parameters: { a11y: { test: "todo" } },
   args: { side: "right", width: 380, icon: "mdi-format-list-bulleted" },
   render: (args) => ({
     components: { RDrawer, RBtn, RTextField },
