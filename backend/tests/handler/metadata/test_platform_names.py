@@ -42,6 +42,13 @@ def test_skips_a_name_that_belongs_to_another_platform() -> None:
     assert "Commodore VIC-20" not in platform_alternative_names("c-plus-4")
 
 
+def test_a_hyphen_does_not_hide_another_platforms_name() -> None:
+    assert resolve_platform_name("neogeomvs") == "Neo Geo MVS"
+    assert "Neo-Geo MVS" not in platform_alternative_names("neogeoaes")
+    # A hyphenated spelling of the platform's own name stays searchable.
+    assert "Neo-Geo AES" in platform_alternative_names("neogeoaes")
+
+
 def test_unknown_slug_has_no_names() -> None:
     assert platform_alternative_names("my-console") == ()
     assert platform_abbreviation("my-console") == ""

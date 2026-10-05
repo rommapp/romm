@@ -34,6 +34,12 @@ def _name_key(name: str) -> str:
     return " ".join(name.casefold().replace("/", " / ").split())
 
 
+def _owner_key(name: str) -> str:
+    # Looser than _name_key: hyphenated spellings stay searchable as names, but
+    # still count as another platform's ("Neo-Geo MVS" is "Neo Geo MVS").
+    return _name_key(name.replace("-", " "))
+
+
 def _provider_names(slug: str) -> list[str]:
     names = [handler.get_platform(slug).get("name") for handler in _NAME_PROVIDERS]
     return [name for name in names if name]
@@ -49,7 +55,7 @@ def resolve_platform_name(slug: str) -> str:
 def _slugs_by_resolved_name() -> dict[str, set[str]]:
     slugs_by_name: defaultdict[str, set[str]] = defaultdict(set)
     for ups in UPS:
-        slugs_by_name[_name_key(resolve_platform_name(ups.value))].add(ups.value)
+        slugs_by_name[_owner_key(resolve_platform_name(ups.value))].add(ups.value)
     return slugs_by_name
 
 
@@ -71,7 +77,7 @@ def platform_alternative_names(slug: str) -> tuple[str, ...]:
         *_provider_names(slug),
     ]:
         key = _name_key(candidate)
-        owners = slugs_by_name.get(key)
+        owners = slugs_by_name.get(_owner_key(candidate))
         if key in seen or (owners and owners != {slug}):
             continue
         seen.add(key)
