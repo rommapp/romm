@@ -36,6 +36,7 @@ from sqlalchemy.orm import (
     Session,
     joinedload,
     load_only,
+    noload,
     raiseload,
     selectinload,
     undefer,
@@ -977,7 +978,13 @@ class DBRomsHandler(DBBaseHandler):
         """Get multiple ROMs by their RetroAchievements IDs in a single query."""
         if not ra_ids:
             return []
-        return session.scalars(select(Rom).filter(Rom.ra_id.in_(ra_ids))).all()
+        # The sync only reads `id`/`ra_id` off these rows, so skip the
+        # `lazy="joined"` relationships (`platform`, `metadatum`) outright.
+        return session.scalars(
+            select(Rom)
+            .options(noload(Rom.platform), noload(Rom.metadatum))
+            .filter(Rom.ra_id.in_(ra_ids))
+        ).all()
 
     @begin_session
     def get_rom_users_by_rom_ids(
@@ -990,10 +997,13 @@ class DBRomsHandler(DBBaseHandler):
         """Get `{rom_id: RomUser}` for one user over many ROMs in a single query."""
         if not rom_ids:
             return {}
+        # Callers only read `rom_id`/`status`/`id` off these rows, so skip the
+        # `lazy="joined"` relationships (`rom`, `user`) outright. Note `rom`
+        # would otherwise pull its own joined `platform`/`metadatum` per row.
         rows = session.scalars(
-            select(RomUser).filter(
-                RomUser.user_id == user_id, RomUser.rom_id.in_(rom_ids)
-            )
+            select(RomUser)
+            .options(noload(RomUser.rom), noload(RomUser.user))
+            .filter(RomUser.user_id == user_id, RomUser.rom_id.in_(rom_ids))
         ).all()
         return {row.rom_id: row for row in rows}
 
