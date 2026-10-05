@@ -17,7 +17,15 @@
 // Use cases beyond filters: side info panels (collection / platform /
 // firmware drawers when they get migrated), context-driven settings
 // flyouts, etc.
-import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  ref,
+  useId,
+  useSlots,
+  watch,
+} from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import { focusFromInput } from "@/v2/utils/autofocus";
@@ -47,6 +55,8 @@ const props = withDefaults(
     /** Hide the close button in the header. Use when the drawer is
      *  the only escape (rare). */
     hideClose?: boolean;
+    /** Names the panel when it has no header to take its name from. */
+    ariaLabel?: string | undefined;
   }>(),
   {
     side: "right",
@@ -54,6 +64,7 @@ const props = withDefaults(
     persistent: false,
     icon: null,
     scrollContent: true,
+    ariaLabel: undefined,
     hideClose: false,
   },
 );
@@ -64,6 +75,7 @@ const emit = defineEmits<{
 }>();
 
 const slots = useSlots();
+const headerId = useId();
 
 const labels = useChromeLabels();
 
@@ -171,6 +183,8 @@ const transitionName = computed(() =>
           class="r-drawer__panel"
           role="dialog"
           aria-modal="true"
+          :aria-labelledby="slots.header ? headerId : undefined"
+          :aria-label="slots.header ? undefined : ariaLabel"
           tabindex="-1"
           :style="panelStyle"
         >
@@ -184,7 +198,7 @@ const transitionName = computed(() =>
               size="18"
               class="r-drawer__lead-icon"
             />
-            <div class="r-drawer__header-slot">
+            <div :id="headerId" class="r-drawer__header-slot">
               <slot name="header" />
             </div>
             <button

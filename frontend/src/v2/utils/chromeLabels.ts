@@ -54,6 +54,9 @@ export function createChromeLabels(): ChromeLabels {
     get required() {
       return t("common.required");
     },
+    get search() {
+      return t("common.search");
+    },
     step: (current, total) =>
       i18n.global.t("common.step-of", { current, total }),
   };
