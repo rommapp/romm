@@ -1123,8 +1123,8 @@ Generated types used throughout stores and API services for type-safe backend co
 ### ESLint Configuration
 
 - Flat config (`eslint.config.js`)
-- Vue plugin with essential rules
-- TypeScript-ESLint integration
+- Vue plugin with recommended rules
+- TypeScript-ESLint via `@vue/eslint-config-typescript` (`withVueTs`, `vueTsConfigs`)
 - Vue accessibility plugin (`eslint-plugin-vuejs-accessibility`)
 - Repo rules in `eslint-plugin-romm/`, tested by the `eslint-plugin-romm` Vitest project
 - Run through `trunk check`

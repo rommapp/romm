@@ -1,11 +1,11 @@
 import eslint from "@eslint/js";
+import { vueTsConfigs, withVueTs } from "@vue/eslint-config-typescript";
 import prettierConfig from "eslint-config-prettier/flat";
 import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 import importX from "eslint-plugin-import-x";
 import vue from "eslint-plugin-vue";
 import vuea11y from "eslint-plugin-vuejs-accessibility";
 import globals from "globals";
-import tseslint from "typescript-eslint";
 import romm from "./eslint-plugin-romm/index.js";
 import e2eConfig from "./eslint.e2e.config.js";
 
@@ -52,9 +52,9 @@ const modelCastRule = {
     "Build users, collections, saves, states and audit events with their fixtures (userFixture, collectionFixture, saveFixture, stateFixture, makeAuditEvent) instead of casting an object literal.",
 };
 
-export default tseslint.config(
+const appConfigs = await withVueTs(
   eslint.configs.recommended,
-  ...tseslint.configs.recommended,
+  vueTsConfigs.recommended,
   ...vue.configs["flat/recommended"],
   ...vuea11y.configs["flat/recommended"],
   importX.flatConfigs.recommended,
@@ -102,11 +102,6 @@ export default tseslint.config(
       "src/plugins/*.d.ts",
     ],
     languageOptions: {
-      parserOptions: {
-        parser: "@typescript-eslint/parser",
-        ecmaVersion: 2022,
-        extraFileExtensions: [".vue"],
-      },
       globals: {
         ...globals.browser,
       },
@@ -187,8 +182,6 @@ export default tseslint.config(
       ],
     },
   },
-  // typescript-eslint scopes these TS-redundant core rules to .ts files only.
-  { ...tseslint.configs.eslintRecommended, files: ["**/*.vue"] },
   {
     // Frozen v1: two cycles between the console theme helpers predate the
     // rule and cannot be refactored under the freeze.
@@ -371,9 +364,14 @@ export default tseslint.config(
       ],
     },
   },
-  // After the base configs, so its exceptions win.
+);
+
+export default [
+  ...appConfigs,
+  // After the base configs, so its exceptions win. Outside withVueTs, whose
+  // type-aware rule detection would turn on typed linting for the whole app.
   ...e2eConfig,
   // Keep last: Prettier owns formatting, so this switches off every
   // stylistic rule the two tools would otherwise fight over.
   prettierConfig,
-);
+];
