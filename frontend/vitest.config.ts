@@ -3,9 +3,15 @@ import vuetify from "vite-plugin-vuetify";
 import { defineConfig } from "vitest/config";
 import { appAliases } from "./scripts/aliases";
 import { platformIconManifest } from "./scripts/platformIconManifest";
+import { trimMdiIcons } from "./scripts/trimMdiIcons";
 
 export default defineConfig({
-  plugins: [vue(), vuetify({ autoImport: true }), platformIconManifest()],
+  plugins: [
+    vue(),
+    vuetify({ autoImport: true }),
+    platformIconManifest(),
+    trimMdiIcons(),
+  ],
   resolve: {
     alias: appAliases,
   },

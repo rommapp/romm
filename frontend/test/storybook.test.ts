@@ -10,6 +10,7 @@ type StoryModule = Record<string, unknown>;
 type A11yParameters = {
   test?: "error" | "todo" | "off";
   options?: axe.RunOptions;
+  context?: { exclude: axe.SelectorList };
 };
 
 type ComposedStory = {
@@ -52,7 +53,10 @@ async function checkA11y(
     rules: { ...DEFAULT_AXE_OPTIONS.rules, ...params.options?.rules },
   };
 
-  const results = await axe.run(element, options);
+  const context = params.context
+    ? { include: [element], exclude: params.context.exclude }
+    : element;
+  const results = await axe.run(context, options);
   if (results.violations.length === 0) return;
 
   const report = formatViolations(results.violations);

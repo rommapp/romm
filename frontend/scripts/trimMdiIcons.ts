@@ -1,5 +1,6 @@
 /** trimMdiIcons: ships only the @mdi/font icons the app names, in woff2 only. */
-import { extname } from "node:path";
+import { readFileSync } from "node:fs";
+import { extname, join } from "node:path";
 import type { Plugin } from "vite";
 import {
   buildIconAllowList,
@@ -8,6 +9,8 @@ import {
 } from "./trim-mdi-fonts";
 
 const MDI_CSS = "@mdi/font/css/materialdesignicons.css";
+const VIRTUAL_ID = "virtual:mdi-icons";
+const RESOLVED_ID = `\0${VIRTUAL_ID}`;
 const WATCHED_EXTS = new Set([".vue", ".ts"]);
 
 // A query import (`?raw`) wants the file untouched.
@@ -15,6 +18,12 @@ export const isMdiCss = (id: string) =>
   !id.includes("?") && id.endsWith(MDI_CSS);
 
 const countIcons = (css: string) => css.split("content:").length - 1;
+
+/** The `mdi-*` names that still have a glyph rule in `css`, sorted. */
+export const listIconNames = (css: string) =>
+  [...css.matchAll(/\.(mdi-[a-z0-9-]+)::before\s*\{/g)]
+    .map((match) => match[1]!)
+    .sort();
 
 export function trimMdiIcons(): Plugin {
   let root = "";
@@ -36,6 +45,18 @@ export function trimMdiIcons(): Plugin {
 
     buildStart() {
       allowList = scan();
+    },
+
+    resolveId(id) {
+      return id === VIRTUAL_ID ? RESOLVED_ID : undefined;
+    },
+
+    // Vitest stubs CSS, so the shipped names can't be read from the page.
+    load(id) {
+      if (id !== RESOLVED_ID) return undefined;
+      const css = readFileSync(join(root, "node_modules", MDI_CSS), "utf8");
+      const names = listIconNames(trimIconCss(css, allowList));
+      return `export default ${JSON.stringify(names)};`;
     },
 
     transform(code, id) {
@@ -70,7 +91,9 @@ export function trimMdiIcons(): Plugin {
         allowList = next;
 
         for (const [id, mod] of server.moduleGraph.idToModuleMap) {
-          if (isMdiCss(id)) server.moduleGraph.invalidateModule(mod);
+          if (isMdiCss(id) || id === RESOLVED_ID) {
+            server.moduleGraph.invalidateModule(mod);
+          }
         }
         server.ws.send({ type: "full-reload" });
       };

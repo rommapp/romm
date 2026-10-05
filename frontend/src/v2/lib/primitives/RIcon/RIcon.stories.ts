@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect } from "storybook/test";
+import iconNames from "virtual:mdi-icons";
 import { computed, ref } from "vue";
 import RTextField from "@/v2/lib/forms/RTextField/RTextField.vue";
 import fullIconCss from "../../../../../node_modules/@mdi/font/css/materialdesignicons.css?raw";
@@ -7,16 +8,6 @@ import vuetifyIconset from "../../../../../node_modules/vuetify/lib/iconsets/mdi
 import "./RIcon.stories.css";
 import RIcon from "./RIcon.vue";
 
-// The preview loads the package CSS through the trimmed-icons plugin, so the
-// rules on the page are the ones the app ships.
-const iconNames = [...document.styleSheets]
-  .flatMap((sheet) => [...sheet.cssRules])
-  .flatMap((rule) =>
-    rule instanceof CSSStyleRule
-      ? (rule.selectorText.match(/^\.(mdi-[a-z0-9-]+)::before$/)?.[1] ?? [])
-      : [],
-  )
-  .sort();
 const vuetifyIconNames = vuetifyIconset.match(/mdi-[a-z0-9-]+/g) ?? [];
 
 // Icons in the package that the build does not ship, with their glyph.
@@ -319,7 +310,11 @@ export const Gallery: Story = {
 
 export const AllIcons: Story = {
   name: "All icons (mdi)",
-  parameters: { layout: "fullscreen" },
+  // Dev-facing catalogue: axe over ~700 icon cells takes seconds in happy-dom.
+  parameters: {
+    layout: "fullscreen",
+    a11y: { context: { exclude: [".r-icon-story-grid"] } },
+  },
   render: () => ({
     components: { RIcon, RTextField },
     setup: () => {
