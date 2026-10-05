@@ -20,13 +20,9 @@ async function openMoreMenu(page: Page) {
   return panel;
 }
 
-/** Labels of the open menu's items, in DOM order. RMenuItem only sets the
- *  menuitem role on links; an action item stays a plain button. */
+/** Labels of the open menu's items, in DOM order. */
 function menuLabels(panel: Locator): Promise<string[]> {
-  return panel
-    .getByRole("menuitem")
-    .or(panel.getByRole("button"))
-    .allInnerTexts();
+  return panel.getByRole("menuitem").allInnerTexts();
 }
 
 test.describe(

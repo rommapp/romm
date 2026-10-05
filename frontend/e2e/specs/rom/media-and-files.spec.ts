@@ -15,13 +15,12 @@ function subtabs(page: Page): Locator {
   return page.locator('[role="tablist"][aria-orientation="vertical"]');
 }
 
-/** Open a Media subtab of the first game and return its panel; the others stay
- *  mounted (v-show). */
+/** Open a Media subtab of the first game and return its panel. */
 async function openMediaSubtab(page: Page, subtab: string): Promise<Locator> {
   await gotoFirstRom(page);
   await openTab(page, "Media");
   await subtabs(page).getByRole("tab", { name: subtab }).click();
-  return page.locator(".r-v2-media__panel:visible");
+  return page.getByRole("tabpanel", { name: subtab });
 }
 
 function uploadButton(scope: Page | Locator): Locator {
