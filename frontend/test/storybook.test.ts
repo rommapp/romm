@@ -39,7 +39,7 @@ function formatViolations(violations: axe.Result[]): string {
 }
 
 async function checkA11y(
-  element: HTMLElement,
+  elements: HTMLElement[],
   params: A11yParameters,
   storyName: string,
 ): Promise<void> {
@@ -52,7 +52,7 @@ async function checkA11y(
     rules: { ...DEFAULT_AXE_OPTIONS.rules, ...params.options?.rules },
   };
 
-  const results = await axe.run(element, options);
+  const results = await axe.run({ include: elements }, options);
   if (results.violations.length === 0) return;
 
   const report = formatViolations(results.violations);
@@ -97,16 +97,27 @@ for (const [path, module] of Object.entries(storyModules)) {
           // Render into an owned canvas so axe scans exactly this story's
           // subtree, then clean it up so stories stay isolated.
           const canvasElement = document.createElement("div");
+          const before = new Set(document.body.children);
           document.body.appendChild(canvasElement);
+          // Overlays teleport to <body>, so whatever the story left there is
+          // its own, scanned with the canvas and removed after it.
+          const teleported = () =>
+            [...document.body.children].filter(
+              (el): el is HTMLElement =>
+                el instanceof HTMLElement &&
+                el !== canvasElement &&
+                !before.has(el),
+            );
           try {
             await s.run({ canvasElement });
             await checkA11y(
-              canvasElement,
+              [canvasElement, ...teleported()],
               s.parameters?.a11y ?? {},
               `${path.replace(/^\.\.\//, "")} > ${name}`,
             );
           } finally {
             canvasElement.remove();
+            for (const el of teleported()) el.remove();
           }
         },
         STORY_TIMEOUT_MS,
