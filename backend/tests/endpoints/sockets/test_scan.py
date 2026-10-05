@@ -1592,6 +1592,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
             if call.args[0] == "scan:scanning_rom"
         ]
         assert len(emits) == 2
+        assert [call.args[1]["id"] for call in emits] == [11, 12]
 
 
 class TestIdentifyPlatformFirmwareReporting:
