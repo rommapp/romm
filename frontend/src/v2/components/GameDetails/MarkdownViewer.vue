@@ -83,7 +83,7 @@ const {
     immediate: false,
     // Restore scroll once MdPreview has laid the rendered Markdown out.
     onSuccess: () =>
-      nextTick(() => requestAnimationFrame(() => void restore())),
+      void nextTick(() => requestAnimationFrame(() => void restore())),
     onError: (err) => console.error("Failed to load markdown manual", err),
   },
 );

@@ -117,8 +117,8 @@ async function openMenu(canvasElement: HTMLElement) {
   await userEvent.click(
     within(canvasElement).getByRole("button", { name: "Platforms" }),
   );
-  await waitFor(() => {
-    expect(document.querySelector(".r-select__panel")).not.toBeNull();
+  await waitFor(async () => {
+    await expect(document.querySelector(".r-select__panel")).not.toBeNull();
   });
 }
 
@@ -170,7 +170,7 @@ export const PromotedOpenMenu: Story = {
       const { promoted, remaining } = promotePlatformsWithGamesFirst(
         MIXED_PLATFORM_CATALOG,
       );
-      expect(menuRowTitles()).toEqual([
+      await expect(menuRowTitles()).toEqual([
         ...promoted.map((p) => p.display_name),
         "---",
         ...remaining.map((p) => p.display_name),
@@ -181,7 +181,7 @@ export const PromotedOpenMenu: Story = {
       const gbaRow = document.querySelector(
         ".r-select__list > li:not(.r-select__divider)",
       );
-      expect(
+      await expect(
         gbaRow?.querySelector(".r-v2-platsel__rom-badge")?.textContent,
       ).toBe("1537");
     });
@@ -205,11 +205,11 @@ export const PromotedRomCountCap: Story = {
     });
 
     await step("caps badge at 9999+", async () => {
-      await waitFor(() => {
-        expect(romBadgeText("PlayStation")).toBe(
+      await waitFor(async () => {
+        await expect(romBadgeText("PlayStation")).toBe(
           formatPlatformRomCount(PLATFORM_ROM_COUNT_CAP + 2345),
         );
-        expect(romBadgeText("Game Boy Advance")).toBe("99");
+        await expect(romBadgeText("Game Boy Advance")).toBe("99");
       });
     });
   },
@@ -228,21 +228,21 @@ export const PromotedTypingInSearch: Story = {
       const search = document.querySelector(
         ".r-select__search input",
       ) as HTMLInputElement;
-      expect(search).not.toBeNull();
+      await expect(search).not.toBeNull();
       await userEvent.click(search);
       await userEvent.type(search, searchCharacter);
     });
 
     await step("no partition; caller item order", async () => {
-      await waitFor(() => {
+      await waitFor(async () => {
         const rows = menuRowTitles();
-        expect(rows).not.toContain("---");
-        expect(rows).toEqual([
+        await expect(rows).not.toContain("---");
+        await expect(rows).toEqual([
           "Adventure Game Studio",
           "Amiga",
           "Game Boy Advance",
         ]);
-        expect(
+        await expect(
           document.querySelectorAll(".r-v2-platsel__rom-badge"),
         ).toHaveLength(0);
       });
@@ -264,14 +264,14 @@ export const PromotedSearchDisabled: Story = {
   play: async ({ canvasElement, step }) => {
     await step("open menu", async () => {
       await openMenu(canvasElement);
-      expect(document.querySelector(".r-select__search")).toBeNull();
+      await expect(document.querySelector(".r-select__search")).toBeNull();
     });
 
     await step("still partitioned", async () => {
       const { promoted, remaining } = promotePlatformsWithGamesFirst(
         MIXED_PLATFORM_CATALOG,
       );
-      expect(menuRowTitles()).toEqual([
+      await expect(menuRowTitles()).toEqual([
         ...promoted.map((p) => p.display_name),
         "---",
         ...remaining.map((p) => p.display_name),
@@ -318,7 +318,7 @@ export const ScanPagePicker: Story = {
         const { promoted, remaining } = promotePlatformsWithGamesFirst(
           MIXED_PLATFORM_CATALOG,
         );
-        expect(menuRowTitles()).toEqual([
+        await expect(menuRowTitles()).toEqual([
           "All",
           "---",
           ...promoted.map((p) => p.display_name),

@@ -571,17 +571,21 @@ describe("JsDos save sync", () => {
       lastModified: 1234,
     });
     const saves = {
-      getFileHandle: vi.fn().mockResolvedValue({ getFile: async () => file }),
+      getFileHandle: vi
+        .fn()
+        .mockResolvedValue({ getFile: () => Promise.resolve(file) }),
       removeEntry,
     };
     vi.stubGlobal("navigator", {
       ...navigator,
       storage: {
-        getDirectory: async () => ({
-          getDirectoryHandle: async () => ({
-            getDirectoryHandle: async () => saves,
+        getDirectory: () =>
+          Promise.resolve({
+            getDirectoryHandle: () =>
+              Promise.resolve({
+                getDirectoryHandle: () => Promise.resolve(saves),
+              }),
           }),
-        }),
       },
     });
     const wrapper = await mountPlayer(makeHandle());

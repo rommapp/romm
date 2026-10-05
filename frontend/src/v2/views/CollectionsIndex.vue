@@ -216,12 +216,13 @@ function onSegmentFilter({ key, value }: { key: string; value: string }) {
 }
 
 onMounted(() => {
-  if (allCollections.value.length === 0) collectionsStore.fetchCollections();
+  if (allCollections.value.length === 0)
+    void collectionsStore.fetchCollections();
   if (smartCollections.value.length === 0) {
-    collectionsStore.fetchSmartCollections();
+    void collectionsStore.fetchSmartCollections();
   }
   if (showVirtualCollections.value && virtualCollections.value.length === 0) {
-    collectionsStore.fetchVirtualCollections(virtualCollectionType.value);
+    void collectionsStore.fetchVirtualCollections(virtualCollectionType.value);
   }
 });
 

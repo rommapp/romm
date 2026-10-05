@@ -106,7 +106,7 @@ function close() {
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) startCamera();
+    if (open) void startCamera();
     else stopCamera();
   },
   { immediate: true, flush: "post" },

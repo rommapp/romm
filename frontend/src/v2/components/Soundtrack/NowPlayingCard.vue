@@ -39,7 +39,7 @@ const position = computed(() => currentIndex.value + 1);
 function openRom() {
   if (!track.value) return;
   // Straight to the Soundtrack subtab, where the full player takes over.
-  router.push({
+  void router.push({
     name: ROUTES.ROM,
     params: { rom: track.value.romId },
     query: { tab: "media", subtab: "soundtrack" },

@@ -109,12 +109,13 @@ function install() {
   });
 
   // Active poll: self-reschedules, faster while offline for snappy recovery.
+  async function poll() {
+    await heartbeat.fetchHeartbeat({ timeout: HEARTBEAT_TIMEOUT_MS });
+    scheduleNext();
+  }
   function scheduleNext() {
     const delay = heartbeat.connected ? POLL_ONLINE_MS : POLL_OFFLINE_MS;
-    setTimeout(async () => {
-      await heartbeat.fetchHeartbeat({ timeout: HEARTBEAT_TIMEOUT_MS });
-      scheduleNext();
-    }, delay);
+    setTimeout(() => void poll(), delay);
   }
   scheduleNext();
 }

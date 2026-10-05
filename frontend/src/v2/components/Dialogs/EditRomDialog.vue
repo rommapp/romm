@@ -85,7 +85,7 @@ const openHandler = async (romToEdit: SimpleRom) => {
     console.error("Failed to fetch detailed rom", error);
   }
 };
-useEmitterEvent("showEditRomDialog", openHandler);
+useEmitterEvent("showEditRomDialog", (rom) => void openHandler(rom));
 
 const urlCoverHandler = (url_cover: string) => setUrlCover(url_cover);
 useEmitterEvent("updateUrlCover", urlCoverHandler);

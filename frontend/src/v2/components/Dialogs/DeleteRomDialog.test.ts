@@ -96,9 +96,10 @@ describe("DeleteRomDialog", () => {
   });
 
   it("forgets the deleted games once the page has left them", async () => {
-    push.mockImplementation(async () => {
+    push.mockImplementation(() => {
       route.name = "platform";
       route.params = { platform: "1" };
+      return Promise.resolve();
     });
 
     await deleteShownGame();

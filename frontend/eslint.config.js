@@ -52,9 +52,9 @@ const modelCastRule = {
     "Build users, collections, saves, states and audit events with their fixtures (userFixture, collectionFixture, saveFixture, stateFixture, makeAuditEvent) instead of casting an object literal.",
 };
 
-const appConfigs = await withVueTs(
+export default withVueTs(
   eslint.configs.recommended,
-  vueTsConfigs.recommended,
+  vueTsConfigs.recommendedTypeChecked,
   ...vue.configs["flat/recommended"],
   ...vuea11y.configs["flat/recommended"],
   importX.flatConfigs.recommended,
@@ -364,14 +364,34 @@ const appConfigs = await withVueTs(
       ],
     },
   },
-);
-
-export default [
-  ...appConfigs,
-  // After the base configs, so its exceptions win. Outside withVueTs, whose
-  // type-aware rule detection would turn on typed linting for the whole app.
+  // Typed lint cannot resolve SFC imports or `<script setup generic>`, so
+  // component types reach it as `any`: unions with one look redundant and
+  // assertions to one look unnecessary, though vue-tsc needs both.
+  {
+    rules: {
+      "@typescript-eslint/no-redundant-type-constituents": "off",
+      "@typescript-eslint/no-unnecessary-type-assertion": "off",
+    },
+  },
+  {
+    // `expect(obj.method)` reads a spy without calling it.
+    files: ["**/*.test.ts"],
+    rules: { "@typescript-eslint/unbound-method": "off" },
+  },
+  // Frozen v1 cannot take the type-aware fixes, so it skips typed linting.
+  {
+    files: [
+      "src/views/**",
+      "src/components/**",
+      "src/console/**",
+      "src/layouts/**",
+    ],
+    extends: [vueTsConfigs.disableTypeChecked],
+    languageOptions: { parserOptions: { projectService: false } },
+  },
+  // After the base configs, so its exceptions win.
   ...e2eConfig,
   // Keep last: Prettier owns formatting, so this switches off every
   // stylistic rule the two tools would otherwise fight over.
   prettierConfig,
-];
+);

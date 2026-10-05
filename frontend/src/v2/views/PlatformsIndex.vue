@@ -261,7 +261,7 @@ function onSegmentFilter({ key, value }: { key: string; value: string }) {
 
 onMounted(() => {
   if (platformsStore.allPlatforms.length === 0) {
-    platformsStore.fetchPlatforms();
+    void platformsStore.fetchPlatforms();
   }
 });
 

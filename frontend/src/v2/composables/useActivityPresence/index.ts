@@ -36,7 +36,7 @@ export function useActivityPresence(
 
   // Auto-cleared on scope dispose, so a view unmounting mid-session leaves no
   // timer behind whichever way it left.
-  const { pause, resume } = useIntervalFn(beat, HEARTBEAT_MS, {
+  const { pause, resume } = useIntervalFn(() => void beat(), HEARTBEAT_MS, {
     immediate: false,
   });
 

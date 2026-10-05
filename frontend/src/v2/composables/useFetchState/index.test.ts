@@ -118,7 +118,10 @@ describe("useFetchState", () => {
     const onSuccess = vi.fn();
     const onError = vi.fn();
     const fetch = setup(() =>
-      useFetchState(() => Promise.reject(), "kept", { onSuccess, onError }),
+      useFetchState(() => Promise.reject(new Error("failed")), "kept", {
+        onSuccess,
+        onError,
+      }),
     );
     await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
 

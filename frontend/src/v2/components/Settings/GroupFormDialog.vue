@@ -7,7 +7,12 @@
 import { RBtn, RIcon, RSwitch, RTextField } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { GrantSchemaIO, PermAction, PermEntity } from "@/__generated__";
+import type {
+  GrantSchemaIO,
+  PermAction,
+  PermEntity,
+  PermissionGroupSchema,
+} from "@/__generated__";
 import permissionsApi from "@/services/api/permissions";
 import platformApi from "@/services/api/platform";
 import storePermissionGroups from "@/stores/permissionGroups";
@@ -112,7 +117,7 @@ function diffHidden(
 
 let openToken = 0;
 
-useEmitterEvent("showGroupFormDialog", async (group) => {
+async function open(group: PermissionGroupSchema | null) {
   ++openToken;
   editingId.value = group?.id ?? null;
   isSystem.value = group?.system_key != null;
@@ -140,7 +145,9 @@ useEmitterEvent("showGroupFormDialog", async (group) => {
 
   await Promise.all([ensureCatalog(), ensurePlatforms()]);
   show.value = true;
-});
+}
+
+useEmitterEvent("showGroupFormDialog", (group) => void open(group));
 
 async function save() {
   if (!name.value.trim() || submitting.value) return;

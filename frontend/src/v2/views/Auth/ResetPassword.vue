@@ -39,7 +39,7 @@ async function resetPassword() {
       console.error("Error setting a new password: ", error);
     }
     const params = new URLSearchParams(window.location.search);
-    router.push(params.get("next") ?? "/");
+    void router.push(params.get("next") ?? "/");
   } catch (err: unknown) {
     const { response, message } = err as {
       response?: {

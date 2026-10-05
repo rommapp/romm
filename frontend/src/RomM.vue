@@ -78,7 +78,7 @@ watch(
   activeThemeName,
   (name) => {
     if (vuetifyTheme.global.name.value !== name) {
-      vuetifyTheme.change(name);
+      void vuetifyTheme.change(name);
     }
   },
   { immediate: true },

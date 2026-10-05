@@ -8,7 +8,7 @@ import { detailedRomFixture } from "@/utils/rom.fixtures";
 import LoadSaveStateDialog from "./LoadSaveStateDialog.vue";
 
 const { confirm } = vi.hoisted(() => ({
-  confirm: vi.fn(async (_opts: { title: string }) => true),
+  confirm: vi.fn((_opts: { title: string }) => Promise.resolve(true)),
 }));
 
 vi.mock("vue-i18n");

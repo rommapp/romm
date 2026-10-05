@@ -205,7 +205,7 @@ function createUISettings() {
   Object.values(localStorageRefs).forEach((ref) => {
     watch(ref, () => {
       if (!isSyncing.value) {
-        saveUISettings();
+        void saveUISettings();
       }
     });
   });

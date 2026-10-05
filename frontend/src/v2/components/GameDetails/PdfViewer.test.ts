@@ -10,7 +10,7 @@ vi.mock("vue3-pdf-app", () => ({
 vi.mock("@/v2/composables/useReadingProgress", () => ({
   useReadingProgress: () => ({
     progress: ref(0),
-    restore: vi.fn(async () => ({ lastPage: null })),
+    restore: vi.fn(() => Promise.resolve({ lastPage: null })),
     setPage: vi.fn(),
     suppressWhileRestoring: vi.fn(),
   }),

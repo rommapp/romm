@@ -156,23 +156,23 @@ export const KeyboardNav: Story = {
 
     await step("Tab focuses the tabs in DOM order", async () => {
       await userEvent.tab();
-      expect(tabs[0]).toHaveFocus();
+      await expect(tabs[0]).toHaveFocus();
       await userEvent.tab();
-      expect(tabs[1]).toHaveFocus();
+      await expect(tabs[1]).toHaveFocus();
     });
 
     await step("Enter activates the focused tab", async () => {
-      expect(tabs[1]).toHaveAttribute("aria-selected", "false");
+      await expect(tabs[1]).toHaveAttribute("aria-selected", "false");
       await userEvent.keyboard("{Enter}");
-      expect(tabs[1]).toHaveAttribute("aria-selected", "true");
-      expect(tabs[0]).toHaveAttribute("aria-selected", "false");
+      await expect(tabs[1]).toHaveAttribute("aria-selected", "true");
+      await expect(tabs[0]).toHaveAttribute("aria-selected", "false");
     });
 
     await step("Space activates the next tab", async () => {
       await userEvent.tab();
-      expect(tabs[2]).toHaveFocus();
+      await expect(tabs[2]).toHaveFocus();
       await userEvent.keyboard(" ");
-      expect(tabs[2]).toHaveAttribute("aria-selected", "true");
+      await expect(tabs[2]).toHaveAttribute("aria-selected", "true");
     });
   },
 };

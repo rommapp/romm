@@ -90,7 +90,7 @@ const openHandler = () => {
   show.value = true;
   // Refetch only when we have nothing yet (or a previous attempt
   // errored). Keeps the dialog snappy on subsequent opens.
-  if (releases.value.length === 0 && !loading.value) fetchReleases();
+  if (releases.value.length === 0 && !loading.value) void fetchReleases();
 };
 useEmitterEvent("showChangelogDialog", openHandler);
 

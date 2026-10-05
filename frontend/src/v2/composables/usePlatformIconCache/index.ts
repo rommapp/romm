@@ -80,9 +80,10 @@ export function prefetchPlatformIcons(slugs: readonly string[]): void {
   const run = () => {
     for (const slug of slugs) if (slug) void fetchOne(slug);
   };
-  const ric = (
-    window as Window & { requestIdleCallback?: (cb: () => void) => number }
-  ).requestIdleCallback;
-  if (typeof ric === "function") ric(run);
+  const win = window as Window & {
+    requestIdleCallback?: (cb: () => void) => number;
+  };
+  if (typeof win.requestIdleCallback === "function")
+    win.requestIdleCallback(run);
   else setTimeout(run, 0);
 }

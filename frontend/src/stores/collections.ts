@@ -8,6 +8,7 @@ import type {
 } from "@/__generated__";
 import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
+import { toError } from "@/utils/toError";
 import type { SimpleRom } from "./roms";
 
 export type Collection = CollectionSchema;
@@ -93,7 +94,7 @@ export default defineStore("collections", {
           })
           .catch((error) => {
             console.error(error);
-            reject(error);
+            reject(toError(error));
           })
           .finally(() => {
             this.fetchingCollections = false;
@@ -113,7 +114,7 @@ export default defineStore("collections", {
           })
           .catch((error) => {
             console.error(error);
-            reject(error);
+            reject(toError(error));
           })
           .finally(() => {
             this.fetchingSmartCollections = false;
@@ -134,7 +135,7 @@ export default defineStore("collections", {
           })
           .catch((error) => {
             console.error(error);
-            reject(error);
+            reject(toError(error));
           })
           .finally(() => {
             this.fetchingVirtualCollections = false;

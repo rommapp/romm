@@ -674,9 +674,13 @@ async function pollSessionStatus(): Promise<void> {
   }
 }
 
-const sessionPoll = useIntervalFn(pollSessionStatus, SESSION_POLL_MS, {
-  immediate: false,
-});
+const sessionPoll = useIntervalFn(
+  () => void pollSessionStatus(),
+  SESSION_POLL_MS,
+  {
+    immediate: false,
+  },
+);
 
 function startSessionPoll() {
   // The status route belongs to the claim holder; a joiner would only
@@ -733,7 +737,7 @@ useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
   launchPhase.value = payload.phase ?? null;
 });
 
-useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
+async function onLaunchReady(payload: LaunchReady): Promise<void> {
   if (!isOurClaim(payload)) return;
   launchPhase.value = null;
   if (playerState.value === "exited") {
@@ -746,7 +750,12 @@ useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
   if (playerState.value === "playing") return;
   warnOfCore(payload.core, payload.core_tier);
   await enterStream(payload.host);
-});
+}
+
+useSocketEvent<LaunchReady>(
+  "streaming:launch-ready",
+  (payload) => void onLaunchReady(payload),
+);
 
 useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
   if (!isOurClaim(payload)) return;
@@ -792,7 +801,7 @@ watch(gameRunning, (running, prev) => {
   if (running && !prev) {
     presence.start();
     if (rom.value && isJoining) playSession.start(rom.value);
-    nextTick(focusStream);
+    void nextTick(focusStream);
   }
   if (prev && !running) {
     presence.stop();
@@ -1205,7 +1214,7 @@ const { romRoute, platformRoute } = usePlayerNav(
   () => heroRom.value?.platform_id,
 );
 function backToRom() {
-  router.push(romRoute);
+  void router.push(romRoute);
 }
 
 // ── Exit guard (big-picture safety) ────────────────────────────────
@@ -1228,13 +1237,13 @@ async function openExitDialog(): Promise<void> {
 watch(exitDialogOpen, (open) => {
   if (!open) {
     pendingLeave = null;
-    if (gameRunning.value) nextTick(focusStream);
+    if (gameRunning.value) void nextTick(focusStream);
   }
 });
 
 onBeforeRouteLeave((to) => {
   if (!sessionActive.value) return true;
-  pendingLeave = () => router.push(to.fullPath);
+  pendingLeave = () => void router.push(to.fullPath);
   void openExitDialog();
   return false;
 });
@@ -1307,7 +1316,7 @@ function onPageHide(): void {
   playerState.value = "exited";
 }
 
-useEventListener(document, "visibilitychange", onVisibilityChange);
+useEventListener(document, "visibilitychange", () => void onVisibilityChange());
 useEventListener(window, "pagehide", onPageHide);
 
 onMounted(async () => {
