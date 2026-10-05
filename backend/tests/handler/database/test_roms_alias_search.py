@@ -13,7 +13,7 @@ from models.platform import Platform
 from models.rom import Rom
 
 
-def _add_rom(platform: Platform, name: str, **metadata: dict[str, Any]) -> Rom:
+def _add_rom(platform: Platform, name: str, **metadata: Any) -> Rom:
     return make_rom(platform, name, fs_stem=name.replace(" ", "_"), **metadata)
 
 
