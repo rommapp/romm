@@ -572,7 +572,7 @@ export const DismissedByOverlay: Story = {
 
     await step("a tooltip inside the menu still opens", async () => {
       const menu = within(await body.findByRole("menu"));
-      firePointerEnter(menu.getByRole("button", { name: /edit/i }), "mouse");
+      firePointerEnter(menu.getByRole("menuitem", { name: /edit/i }), "mouse");
       expect(await body.findByRole("tooltip")).toHaveTextContent(
         "Rename this game",
       );

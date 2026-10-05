@@ -1,6 +1,6 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts", "e2e/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts"],
   "exclude": ["node_modules"],
   "compilerOptions": {
     "incremental": true,

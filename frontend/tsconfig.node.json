@@ -20,6 +20,7 @@
     "vite.config.*",
     "vitest.config.*",
     "playwright.config.*",
+    "e2e/**/*.ts",
     "eslint.config.*"
   ]
 }

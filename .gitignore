@@ -93,10 +93,9 @@ switch_product_ids.json
 # Local dev scripts
 /dev.sh
 
-# Playwright (e2e) artifacts
-frontend/playwright/.auth/
-frontend/test-results/
-frontend/playwright-report/
+# Playwright (e2e) artifacts and local settings
+frontend/e2e/.output/
+frontend/e2e/.env
 frontend/blob-report/
 frontend/.last-run.json
 
