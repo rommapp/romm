@@ -57,7 +57,14 @@ def _request(
 ) -> Any:
     request = urllib.request.Request(url, data=data, headers=headers or {})
     with urllib.request.urlopen(request, timeout=60) as response:  # nosec B310
-        return json.load(response)
+        body = response.read().decode(errors="replace")
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError:
+        # ScreenScraper reports errors such as rejected credentials as plain
+        # text with a 200. The URL is left out because it carries them.
+        host = urllib.parse.urlsplit(url).netloc
+        sys.exit(f"{host} answered with something other than JSON: {body[:200]}")
 
 
 def _rewrite_list(

@@ -1,7 +1,11 @@
+import io
 import re
+import urllib.request
 
+import pytest
 from tools.refresh_platform_names import (
     IGDB_ENTRY_RE,
+    fetch_ss_names,
     rewrite_igdb_entry,
     rewrite_ss_list,
     ss_system_names,
@@ -79,3 +83,19 @@ def test_rewrite_igdb_entry_replaces_the_names() -> None:
 
 def test_rewrite_igdb_entry_keeps_platforms_igdb_left_out() -> None:
     assert _rewrite_igdb({}) == IGDB_ENTRY
+
+
+def test_fetch_ss_names_exits_with_the_error_screenscraper_sent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    error = b"Erreur de login : Verifier vos identifiants developpeur !"
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda *args, **kwargs: io.BytesIO(error)
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        fetch_ss_names("dev-id", "dev-secret")
+
+    message = str(exit_info.value)
+    assert error.decode() in message
+    assert "dev-secret" not in message
