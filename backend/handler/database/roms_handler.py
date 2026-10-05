@@ -978,8 +978,7 @@ class DBRomsHandler(DBBaseHandler):
         """Get multiple ROMs by their RetroAchievements IDs in a single query."""
         if not ra_ids:
             return []
-        # The sync only reads `id`/`ra_id` off these rows, so skip the
-        # `lazy="joined"` relationships (`platform`, `metadatum`) outright.
+        # The sync only reads `id`/`ra_id`, so skip joined `platform`/`metadatum`.
         return session.scalars(
             select(Rom)
             .options(noload(Rom.platform), noload(Rom.metadatum))
@@ -997,9 +996,8 @@ class DBRomsHandler(DBBaseHandler):
         """Get `{rom_id: RomUser}` for one user over many ROMs in a single query."""
         if not rom_ids:
             return {}
-        # Callers only read `rom_id`/`status`/`id` off these rows, so skip the
-        # `lazy="joined"` relationships (`rom`, `user`) outright. Note `rom`
-        # would otherwise pull its own joined `platform`/`metadatum` per row.
+        # Callers only read `rom_id`/`status`/`id`, so skip joined `rom`/`user`
+        # (`rom` would pull `platform`/`metadatum` per row otherwise).
         rows = session.scalars(
             select(RomUser)
             .options(noload(RomUser.rom), noload(RomUser.user))
