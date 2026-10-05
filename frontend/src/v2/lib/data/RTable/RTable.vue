@@ -29,9 +29,9 @@
 import { useTimeoutFn } from "@vueuse/core";
 import { computed, ref, watch } from "vue";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
-import REmptyState from "../../primitives/REmptyState/REmptyState.vue";
-import RSkeletonBlock from "../../primitives/RSkeletonBlock/RSkeletonBlock.vue";
-import RSortHeader from "../RSortHeader/RSortHeader.vue";
+import RSortHeader from "@/v2/lib/data/RSortHeader/RSortHeader.vue";
+import REmptyState from "@/v2/lib/primitives/REmptyState/REmptyState.vue";
+import RSkeletonBlock from "@/v2/lib/primitives/RSkeletonBlock/RSkeletonBlock.vue";
 import type { RTableProps, RTableSortPayload } from "./types";
 
 defineOptions({ inheritAttrs: false });

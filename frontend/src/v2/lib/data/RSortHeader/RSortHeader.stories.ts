@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
-import RBtn from "../../primitives/RBtn/RBtn.vue";
+import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RSortHeader from "./RSortHeader.vue";
 import type { RSortDir } from "./types";
 
@@ -31,6 +31,12 @@ type Story = StoryObj<typeof RSortHeader>;
 
 export const Default: Story = {
   args: { label: "Title", sortable: true, active: true, dir: "asc" },
+};
+
+// The toolbar switches every story's theme; this one pins light.
+export const Light: Story = {
+  args: { label: "Title", sortable: true, active: true, dir: "asc" },
+  globals: { theme: "light" },
 };
 
 export const Inactive: Story = {

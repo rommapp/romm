@@ -2,7 +2,7 @@
 // RSortHeader: one column header of a sortable list. The parent owns the sort
 // state and the row grid; this owns `aria-sort`, the button and the glyph.
 import { computed, useSlots } from "vue";
-import RIcon from "../../primitives/RIcon/RIcon.vue";
+import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import { nextSortDir } from "./nextSortDir";
 import type { RSortDir, RSortHeaderProps } from "./types";
 

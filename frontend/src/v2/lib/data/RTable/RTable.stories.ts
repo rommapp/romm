@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { ref } from "vue";
-import type { RSortDir } from "../RSortHeader/types";
+import type { RSortDir } from "@/v2/lib/data/RSortHeader/types";
 import RTable from "./RTable.vue";
 import type { RTableColumn, RTableSortPayload } from "./types";
 

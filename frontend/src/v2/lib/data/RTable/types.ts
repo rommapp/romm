@@ -1,4 +1,4 @@
-import type { RSortDir } from "../RSortHeader/types";
+import type { RSortDir } from "@/v2/lib/data/RSortHeader/types";
 
 // RTable column descriptor: drives both the header and the row body.
 // Widths are CSS grid track values (px, fr, minmax(...)) so consumers
