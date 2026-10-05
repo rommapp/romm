@@ -1119,8 +1119,8 @@ async def _identify_platform(
         # it's clear the "missing" is expected and the stale entry can be
         # deleted. A superseded folder's path is a parent of a discovered rom.
         ancestors = set()
-        for rom in fs_roms:
-            path = rom["fs_path"].rstrip("/")
+        for fs_rom in fs_roms:
+            path = fs_rom["fs_path"].rstrip("/")
             while path and path not in ancestors:
                 ancestors.add(path)
                 path = path.rpartition("/")[0]
