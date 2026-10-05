@@ -6,8 +6,8 @@ import type {
   SearchCoverSchema,
   SearchRomSchema,
 } from "@/__generated__";
-import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { romFixture } from "@/utils/rom.fixtures";
 import SearchCoverDialog from "./SearchCoverDialog.vue";
 
 const { searchCover, searchRom, heartbeat } = vi.hoisted(() => ({
@@ -23,9 +23,7 @@ const { searchCover, searchRom, heartbeat } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/services/api/sgdb", () => ({ default: { searchCover } }));
 vi.mock("@/services/api/rom", () => ({ default: { searchRom } }));
 vi.mock("@/stores/heartbeat", () => ({ default: () => heartbeat }));
@@ -73,12 +71,12 @@ function cover(
   return { provider, name: "Blur", resources: [resource(url)] };
 }
 
-const rom = {
+const rom = romFixture({
   id: 5,
   platform_id: 2,
   name: "Blur",
   steam_id: 49800,
-} as SimpleRom;
+});
 
 async function openDialog(withRom = false) {
   const emitter: Emitter<Events> = mitt<Events>();
@@ -129,7 +127,6 @@ function gridThumbs(
 
 describe("SearchCoverDialog", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     searchRom.mockResolvedValue({ data: [] });
   });
 
@@ -162,12 +159,12 @@ describe("SearchCoverDialog", () => {
     const { wrapper, picked } = await openDialog();
     const tiles = wrapper.findAll("section.group button");
 
-    await tiles[0].trigger("click");
+    await tiles[0]!.trigger("click");
     expect(picked).toHaveBeenLastCalledWith("https://sgdb/grid/a.png");
 
     // The dialog closes on pick, so reopen for the second tile.
     const second = await openDialog();
-    await second.wrapper.findAll("section.group button")[1].trigger("click");
+    await second.wrapper.findAll("section.group button")[1]!.trigger("click");
     expect(second.picked).toHaveBeenLastCalledWith("https://steam/thumb.jpg");
   });
 

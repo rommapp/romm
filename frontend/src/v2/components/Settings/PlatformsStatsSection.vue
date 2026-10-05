@@ -255,7 +255,7 @@ function onRowClick(e: MouseEvent, platformId: number): void {
               }}
             </span>
             <template
-              v-if="orderedCoverageByPlatform[String(platform.id)]?.length > 0"
+              v-if="orderedCoverageByPlatform[String(platform.id)]?.length"
             >
               <span class="r-v2-plat-stats__sep" aria-hidden="true" />
               <span

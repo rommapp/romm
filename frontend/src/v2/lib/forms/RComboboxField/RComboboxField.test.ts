@@ -1,6 +1,11 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import {
+  type EscapableEntry,
+  popEscapable,
+  pushEscapable,
+} from "@/v2/lib/overlays/RDialog/escapeStack";
 import RComboboxField from "./RComboboxField.vue";
 
 describe("RComboboxField rules", () => {
@@ -33,5 +38,126 @@ describe("RComboboxField rules", () => {
       "Too many tags",
     );
     wrapper.unmount();
+  });
+});
+
+describe("RComboboxField inside an overlay", () => {
+  const dialog: EscapableEntry = { close: vi.fn(), persistent: false };
+
+  afterEach(() => {
+    popEscapable(dialog);
+  });
+
+  function pressEscape(el: Element): KeyboardEvent {
+    const event = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    el.dispatchEvent(event);
+    return event;
+  }
+
+  it("closes its suggestions on Escape, leaving the dialog open", async () => {
+    pushEscapable(dialog);
+    const wrapper = mount(RComboboxField, {
+      props: { modelValue: [], items: ["rpg", "racing"] },
+      attachTo: document.body,
+    });
+    const input = wrapper.get("input");
+
+    await input.trigger("focus");
+    expect(document.querySelector(".r-combobox-field__panel")).not.toBeNull();
+
+    pressEscape(input.element);
+    await nextTick();
+
+    expect(document.querySelector(".r-combobox-field__panel")).toBeNull();
+    expect(dialog.close).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("does not hold Escape back when it has nothing to show", async () => {
+    pushEscapable(dialog);
+    const wrapper = mount(RComboboxField, {
+      props: { modelValue: [], items: [] },
+      attachTo: document.body,
+    });
+    const input = wrapper.get("input");
+
+    await input.trigger("focus");
+    pressEscape(input.element);
+
+    expect(dialog.close).toHaveBeenCalledOnce();
+    wrapper.unmount();
+  });
+
+  it("leaves Escape unclaimed on a page when it has nothing to show", async () => {
+    const wrapper = mount(RComboboxField, {
+      props: { modelValue: [], items: ["rpg"] },
+      attachTo: document.body,
+    });
+    const input = wrapper.get("input");
+
+    await input.setValue("zzz");
+
+    expect(pressEscape(input.element).defaultPrevented).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("stays open for a press inside an overlay opened above it", async () => {
+    const wrapper = mount(RComboboxField, {
+      props: { modelValue: [], items: ["rpg", "racing"] },
+      attachTo: document.body,
+    });
+    await wrapper.get("input").trigger("focus");
+    expect(document.querySelector(".r-combobox-field__panel")).not.toBeNull();
+
+    const nested = document.createElement("div");
+    document.body.append(nested);
+    const menu: EscapableEntry = {
+      close: vi.fn(),
+      persistent: false,
+      panel: () => nested,
+    };
+    pushEscapable(menu);
+
+    nested.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    await nextTick();
+    expect(document.querySelector(".r-combobox-field__panel")).not.toBeNull();
+
+    popEscapable(menu);
+    nested.remove();
+    document.body.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }),
+    );
+    await nextTick();
+    expect(document.querySelector(".r-combobox-field__panel")).toBeNull();
+    wrapper.unmount();
+  });
+});
+
+describe("RComboboxField commas", () => {
+  async function type(allowCommas: boolean, text: string) {
+    const wrapper = mount(RComboboxField, {
+      props: { modelValue: [], allowCommas },
+    });
+    const input = wrapper.get("input");
+    await input.setValue(text);
+    await input.trigger("keydown", { key: "Enter" });
+    return wrapper.emitted("update:modelValue")?.[0]?.[0];
+  }
+
+  it("splits a typed value on commas by default", async () => {
+    expect(await type(false, "Hey You, Pikachu!")).toEqual([
+      "Hey You",
+      "Pikachu!",
+    ]);
+  });
+
+  it("keeps the commas of a value when allowed", async () => {
+    expect(await type(true, "Hey You, Pikachu!")).toEqual([
+      "Hey You, Pikachu!",
+    ]);
   });
 });

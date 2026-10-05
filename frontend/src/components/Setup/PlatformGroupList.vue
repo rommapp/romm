@@ -93,11 +93,12 @@ const togglePlatformSelection = (platformSlug: string) => {
           >
             <template v-if="showCheckboxes" #prepend>
               <v-checkbox
-                v-model="selectedPlatformsModel"
+                :model-value="selectedPlatformsModel"
                 :value="platform.fs_slug"
                 hide-details
                 density="compact"
                 class="mr-2"
+                @update:model-value="selectedPlatformsModel = $event ?? []"
                 @click.stop
               />
             </template>

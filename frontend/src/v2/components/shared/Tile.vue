@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Tile — the square card used by the Home dashboard's platform row, the
+// Tile: the square card used by the Home dashboard's platform row, the
 // /platforms grid, and the Jukebox's launch tiles.
 import { computed } from "vue";
 import type { RouteLocationRaw } from "vue-router";
@@ -9,12 +9,12 @@ defineOptions({ inheritAttrs: false });
 const props = withDefaults(
   defineProps<{
     /** Renders a router-link when set, a button otherwise. */
-    to?: RouteLocationRaw;
+    to?: RouteLocationRaw | undefined;
     /** `comfortable` for platform tiles, `compact` for the jukebox's. */
     density?: "comfortable" | "compact";
     /** Fixed-width tile for horizontal card rows. */
     row?: boolean;
-    focusKey?: string;
+    focusKey?: string | undefined;
   }>(),
   { to: undefined, density: "comfortable", row: true, focusKey: undefined },
 );
@@ -89,7 +89,7 @@ html:not([data-input="pad"]) .r-v2-tile:hover,
   border-color: var(--r-color-border-strong);
 }
 
-/* Keyboard / gamepad focus — stronger border + stacked brand glow so
+/* Keyboard / gamepad focus: stronger border + stacked brand glow so
    the focused tile reads distinctly from a hover. */
 .r-v2-tile:focus-visible {
   border-color: var(--r-color-brand-primary);

@@ -1,16 +1,15 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import type { SearchRom, SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { romFixture } from "@/utils/rom.fixtures";
 import MatchRomDialog from "./MatchRomDialog.vue";
 
 const { searchRom } = vi.hoisted(() => ({ searchRom: vi.fn() }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => ({ name: "gallery" }),
@@ -47,7 +46,7 @@ const MatchRomBodyGrid = {
 };
 
 function rom(overrides: Partial<SimpleRom> = {}): SimpleRom {
-  return {
+  return romFixture({
     id: 1,
     name: "Blur",
     fs_name: "Blur.zip",
@@ -55,7 +54,7 @@ function rom(overrides: Partial<SimpleRom> = {}): SimpleRom {
     platform_id: 1,
     is_identified: true,
     ...overrides,
-  } as SimpleRom;
+  });
 }
 
 function match(overrides: Partial<SearchRom> = {}): SearchRom {
@@ -70,10 +69,6 @@ function match(overrides: Partial<SearchRom> = {}): SearchRom {
 }
 
 describe("MatchRomDialog", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("drops a search left running when the dialog closes", async () => {
     let finishStale: (value: { data: SearchRom[] }) => void = () => {};
     searchRom

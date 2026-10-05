@@ -28,6 +28,7 @@ How v2 features behave. Each pattern has one canonical mechanism; don't invent a
 - **Empty state ≠ loading state.** Zero items is its own UX (message, illustration, optional CTA).
 - **Optimistic toggles show no spinner**: flip immediately; on failure, revert + snackbar.
 - `RBtn` ships `loadingDebounce={200}`: actions resolving under 200ms never paint a spinner; loading→not-loading is immediate.
+- **A component that fetches its own data uses `useFetchState`** (`src/v2/composables/useFetchState/`), not a hand-rolled `loading` ref with try/finally. It keeps current data during a refetch and ignores stale responses, so a newer call always wins. Errors land in `error` and `onError`; there is no default toast. Use `immediate: false` and call `execute(arg)` from a `watch` when the fetch depends on a prop. Don't use raw `useAsyncState`: its defaults reset data on every refetch, report errors via `reportError`, and fire callbacks for stale calls. Store-backed, paginated or abortable loads keep their own logic.
 
 ## C. Real-time updates (Socket.IO)
 
@@ -44,7 +45,7 @@ How v2 features behave. Each pattern has one canonical mechanism; don't invent a
 
 Don't push state into `useUISettings` "so it persists", follow the rule above. Layer 3 never touches `localStorage`: if a value has to survive a reload, it is layer 1 or the per-entity variant below, not ephemeral state.
 
-**Per-entity device preferences** (a bezel hidden for one game, the core picked for one game) are a narrow variant of layer 1: they persist per device but stay out of `useUISettings`, because they are keyed by entity rather than global and must not sync to `user.ui_settings`. Use `useLocalStorage` from VueUse with `writeDefaults: false` and a `serializer`, not a `ref` plus a `watch` plus `localStorage.setItem`. Key it off the route param so it binds before the entity resolves, and make the read fail safe to the default so a stale value can't wedge the view.
+**Per-entity device preferences** (a bezel hidden for one game, the core picked for one game) are a narrow variant of layer 1: they persist per device but stay out of `useUISettings`, because they are keyed by entity rather than global and must not sync to `user.ui_settings`. Use `useUserLocalStorage` from `@/composables/useUserLocalStorage` (it takes VueUse's `useLocalStorage` options) with `writeDefaults: false` and a `serializer`, not a `ref` plus a `watch` plus `userStorage.setItem`. Raw `localStorage` and VueUse's `useLocalStorage`/`useStorage` are shared by every user on the browser, so `romm/no-unscoped-local-storage` (ESLint) rejects them outside frozen v1; a value that really is per-device gets an inline disable with its reason. Key it off the route param so it binds before the entity resolves, and make the read fail safe to the default so a stale value can't wedge the view.
 
 ## D2. Async and reactive lifecycle
 

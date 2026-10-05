@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { useEventListener } from "@vueuse/core";
+import { useEventListener, useTimeoutFn } from "@vueuse/core";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
+import { focusFromInput } from "@/v2/utils/autofocus";
 
 // The surface a streaming session renders into: the container's iframe, the
 // auto-hiding control bar over it, and the focus handling the emulator needs
@@ -56,17 +57,21 @@ const sameOrigin = ref(false);
 // The origin a room page announced from, empty until it does.
 const roomOrigin = ref("");
 
-let uiTimeout: ReturnType<typeof setTimeout> | null = null;
 let attachTimeouts: ReturnType<typeof setTimeout>[] = [];
 let frameCleanups: (() => void)[] = [];
 
-function showUI(): void {
-  isUIVisible.value = true;
-  if (uiTimeout) clearTimeout(uiTimeout);
-  uiTimeout = setTimeout(() => {
+const { start: scheduleHideUI } = useTimeoutFn(
+  () => {
     isUIVisible.value = false;
     reclaimStreamFocus();
-  }, 2500);
+  },
+  2500,
+  { immediate: false },
+);
+
+function showUI(): void {
+  isUIVisible.value = true;
+  scheduleHideUI();
 }
 
 // Browsers only deliver gamepad input to the focused frame, so the Selkies
@@ -75,7 +80,7 @@ function showUI(): void {
 // focus taken by a toolbar click).
 function focusStream(): void {
   if (!props.active) return;
-  streamFrame.value?.focus();
+  focusFromInput(streamFrame.value);
 }
 
 // The hide timer runs regardless of what is on screen, and a dialog over the
@@ -136,7 +141,7 @@ function sameOriginFrames(win: Window | null, found: Window[] = []): Window[] {
   }
   found.push(win);
   for (let i = 0; i < win.frames.length; i += 1) {
-    sameOriginFrames(win.frames[i], found);
+    sameOriginFrames(win.frames[i]!, found);
   }
   return found;
 }
@@ -274,7 +279,6 @@ useEventListener(window, "resize", resetStageTop);
 useEventListener(window, "message", onFrameAnnounce);
 
 onBeforeUnmount(() => {
-  if (uiTimeout) clearTimeout(uiTimeout);
   clearAttachTimeouts();
   detachFrameListeners();
 });
@@ -304,7 +308,14 @@ defineExpose({
       ref="streamFrame"
       :src="frameSrc"
       class="r-v2-stage__frame"
-      allow="gamepad *; fullscreen *; autoplay *"
+      allow="
+        gamepad *;
+        fullscreen *;
+        autoplay *;
+        camera *;
+        microphone *;
+        clipboard-write *;
+      "
       allowfullscreen
       referrerpolicy="no-referrer"
       sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-pointer-lock allow-downloads"
@@ -335,7 +346,7 @@ defineExpose({
 <style scoped>
 .r-v2-stage {
   position: fixed;
-  inset: var(--r-nav-h) 0 0 0;
+  inset: var(--r-stage-inset);
   background: var(--r-color-canvas-bg);
   z-index: 1;
 }

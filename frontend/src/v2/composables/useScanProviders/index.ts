@@ -12,10 +12,11 @@
 // contributes nothing to `metadataSources`, while the backend reads an
 // empty `apis` list as "no sources". `effectiveMetadataSources` bridges
 // that by expanding an All-mode group to its enabled providers.
-import { useLocalStorage, type RemovableRef } from "@vueuse/core";
+import type { RemovableRef } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch, type ComputedRef, type Ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import storeConfig from "@/stores/config";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import {
@@ -46,7 +47,7 @@ export interface HashMatcher {
   switchEnabled: boolean;
 }
 
-export interface ScanPayload {
+export interface ScanSourceOptions {
   apis: string[];
   launchbox_remote_enabled: boolean;
 }
@@ -67,7 +68,7 @@ export interface UseScanProviders {
   hashMatchers: ComputedRef<HashMatcher[]>;
   setHashMatcher: (value: HashMatcherKey, next: boolean) => void;
   isHashMatcherOn: (matcher: HashMatcher) => boolean;
-  buildScanPayload: () => ScanPayload;
+  buildScanSourceOptions: () => ScanSourceOptions;
   persistSelection: () => void;
 }
 
@@ -111,17 +112,17 @@ export function useScanProviders(): UseScanProviders {
     specificProviders.value.filter((o) => !o.disabled),
   );
 
-  const storedMetadataSources = useLocalStorage(
+  const storedMetadataSources = useUserLocalStorage(
     LOCAL_STORAGE_METADATA_SOURCES_KEY,
     [] as string[],
   );
-  const launchboxRemoteEnabled = useLocalStorage(
+  const launchboxRemoteEnabled = useUserLocalStorage(
     LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY,
     true,
   );
   const hashMatcherEnabled: Record<HashMatcherKey, RemovableRef<boolean>> = {
-    hasheous: useLocalStorage(LOCAL_STORAGE_HASHEOUS_ENABLED_KEY, true),
-    playmatch: useLocalStorage(LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY, true),
+    hasheous: useUserLocalStorage(LOCAL_STORAGE_HASHEOUS_ENABLED_KEY, true),
+    playmatch: useUserLocalStorage(LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY, true),
   };
 
   // A group with no pick stays empty, which the selects read as All.
@@ -237,7 +238,7 @@ export function useScanProviders(): UseScanProviders {
     return matcher ? isHashMatcherOn(matcher) : false;
   }
 
-  function buildScanPayload(): ScanPayload {
+  function buildScanSourceOptions(): ScanSourceOptions {
     const apis = effectiveMetadataSources.value.map((s) => s.value);
     if (isOn("hasheous")) apis.push("hasheous");
     if (isOn("playmatch")) apis.push("playmatch");
@@ -267,7 +268,7 @@ export function useScanProviders(): UseScanProviders {
     hashMatchers,
     setHashMatcher,
     isHashMatcherOn,
-    buildScanPayload,
+    buildScanSourceOptions,
     persistSelection,
   };
 }

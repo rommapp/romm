@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// SettingsTab — platform-scoped settings rendered as the `Settings`
+// SettingsTab: platform-scoped settings rendered as the `Settings`
 // tab inside Platform.vue. Details (editable name + read-only platform
 // fields) with a danger zone underneath holding the destructive
 // "Delete platform" action.
 //
 // Mutation path:
 //   • `custom_name` / `description` → `platformApi.updatePlatform(...)`
-//     Optimistic — the form updates the local platform reactively, a
+//     Optimistic: the form updates the local platform reactively, a
 //     snackbar fires on success/failure.
 //
 // Delete: emitted upward (`@delete`) so the view orchestrator can
@@ -22,6 +22,7 @@ import DangerZone from "@/v2/components/shared/DangerZone.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import { errorMessage } from "@/v2/utils/errorMessage";
 import { required } from "@/v2/utils/validation";
 
 defineOptions({ inheritAttrs: false });
@@ -85,18 +86,15 @@ const dirty = computed(() => nameDirty.value || descriptionDirty.value);
 
 async function save() {
   if (!dirty.value) return;
-  const valid = await formRef.value?.validate();
-  if (!valid) return;
+  const result = await formRef.value?.validate();
+  if (!result?.valid) return;
   saving.value = true;
   try {
     // Send each field only when it actually changed.
     const { data } = await platformApi.updatePlatform({
-      platform: {
-        ...props.platform,
-        custom_name: nameDirty.value
-          ? customName.value.trim()
-          : props.platform.custom_name,
-      },
+      platform: nameDirty.value
+        ? { ...props.platform, custom_name: customName.value.trim() }
+        : props.platform,
       description: descriptionDirty.value
         ? description.value.trim()
         : undefined,
@@ -109,14 +107,8 @@ async function save() {
       icon: "mdi-check-bold",
     });
   } catch (err) {
-    const e = err as {
-      response?: { data?: { msg?: string } };
-      message?: string;
-    };
     snackbar.error(
-      `Failed to update platform: ${
-        e?.response?.data?.msg || e?.message || "unknown error"
-      }`,
+      t("platform.update-platform-failed", { error: errorMessage(err) }),
       { icon: "mdi-close-circle" },
     );
   } finally {

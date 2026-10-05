@@ -5,6 +5,8 @@ import shutil
 from collections.abc import Iterator
 from pathlib import Path
 
+from logger.logger import log
+
 # Container file extensions treated as compressed archives across modules
 # (roms_handler for hashing decisions, rahasher for skipping disc-platform
 # buffer-hash attempts, feeds for PKGi passthrough).
@@ -112,6 +114,30 @@ def link_or_copy_file(source: Path, dest: Path) -> None:
         raise
 
 
+def place_export_asset(source: Path, dest: Path) -> bool:
+    """Link or copy an exported asset to ``dest``, keeping one already there.
+
+    Returns: whether ``dest`` holds the asset afterwards.
+    """
+    if dest.exists():
+        return True
+
+    # Metadata scanned before unfetched media paths were cleared can still
+    # point at files that were never downloaded.
+    if not source.is_file():
+        log.debug(f"Skipping asset {source}: source file is missing")
+        return False
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        link_or_copy_file(source, dest)
+        return True
+    except OSError as e:
+        log.warning(f"Failed to copy {source} -> {dest}: {e}")
+        return False
+
+
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")
 INVALID_CHARS_EMPTY = re.compile(r'[*?"<>]')
 
@@ -119,6 +145,25 @@ INVALID_CHARS_EMPTY = re.compile(r'[*?"<>]')
 # that reaches a line-oriented protocol (the nginx mod_zip manifest) would split
 # the record it sits in.
 CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+# NAME_MAX on ext4, XFS, Btrfs and ZFS. The limit is in bytes, so a CJK name
+# reaches it at about 85 characters.
+FILE_NAME_MAX_BYTES = 255
+
+
+def check_filename_length(filename: str) -> None:
+    """Raise ValueError if `filename` is too long for the filesystem to create."""
+    if len(filename.encode()) > FILE_NAME_MAX_BYTES:
+        raise ValueError(
+            f"Filename exceeds the filesystem limit of {FILE_NAME_MAX_BYTES} bytes"
+        )
+
+
+def fit_filename(name: str, tail: str) -> str:
+    """`name` cut so `name + tail` fits in FILE_NAME_MAX_BYTES, never splitting
+    a character."""
+    room = max(FILE_NAME_MAX_BYTES - len(tail.encode()), 0)
+    return name.encode()[:room].decode(errors="ignore") + tail
 
 
 def sanitize_filename(filename: str) -> str:

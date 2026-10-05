@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ScopeTree — renders a list of `scope.action`-style API permissions
+// ScopeTree: renders a list of `scope.action`-style API permissions
 // as a compact two-level tree, grouped by scope.
 //
 // Example input:
@@ -25,7 +25,7 @@ import { computed } from "vue";
 interface Props {
   scopes: readonly string[];
   /** Compact mode renders a single line per group with leaves wrapping
-   *  inline — fits inside a table cell without ballooning row height. */
+   *  inline: fits inside a table cell without ballooning row height. */
   compact?: boolean;
 }
 
@@ -33,7 +33,7 @@ const props = withDefaults(defineProps<Props>(), { compact: false });
 
 type Leaf = { action: string; tone: "brand" | "accent" | "info" | "neutral" };
 interface Group {
-  /** Display label — uppercase, dot-joined for nested scopes. */
+  /** Display label: uppercase, dot-joined for nested scopes. */
   label: string;
   /** Lowercase canonical sort key. */
   sortKey: string;
@@ -51,15 +51,15 @@ const groups = computed<Group[]>(() => {
   const map = new Map<string, Group>();
   for (const raw of props.scopes) {
     const parts = raw.split(".");
-    // Single-segment permission (`invite`, `reset`) — its own group, no leaves.
+    // Single-segment permission (`invite`, `reset`): its own group, no leaves.
     if (parts.length < 2) {
-      const key = parts[0];
+      const key = raw;
       if (!map.has(key)) {
         map.set(key, { label: key.toUpperCase(), sortKey: key, leaves: [] });
       }
       continue;
     }
-    const action = parts[parts.length - 1];
+    const action = parts[parts.length - 1]!;
     const scopePath = parts.slice(0, -1);
     const sortKey = scopePath.join(".");
     if (!map.has(sortKey)) {
@@ -115,7 +115,7 @@ const groups = computed<Group[]>(() => {
 </template>
 
 <style scoped>
-/* Two intrinsic-width columns — the panel hugs the tree instead of
+/* Two intrinsic-width columns: the panel hugs the tree instead of
    reserving 1fr tracks that leave padding on the right when the
    content is shorter than the panel. When the tree has a single
    group, the second track collapses (no `max-content` to fill it). */
@@ -126,7 +126,7 @@ const groups = computed<Group[]>(() => {
   font-family: var(--r-font-family-mono);
 }
 
-/* Each scope is its own block — label sits on top, leaves stack
+/* Each scope is its own block: label sits on top, leaves stack
    underneath. This is the "tree" reading: parent above, children
    indented below, the way `└` / `├` make sense visually. */
 .r-v2-scope-tree__group {
@@ -154,7 +154,7 @@ const groups = computed<Group[]>(() => {
   flex-direction: column;
   gap: 3px;
   /* Indent the branch glyphs so they sit under the label's first
-     letter rather than flush with the column edge — reads as a
+     letter rather than flush with the column edge: reads as a
      proper child indent. */
   padding-left: 4px;
 }
@@ -175,7 +175,7 @@ const groups = computed<Group[]>(() => {
   text-align: center;
 }
 
-/* Compact mode — tighter vertical rhythm for table-cell use. */
+/* Compact mode: tighter vertical rhythm for table-cell use. */
 .r-v2-scope-tree--compact {
   gap: 8px 14px;
 }

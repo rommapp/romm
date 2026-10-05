@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Rename-on-match toggle — shared between the grid and list bodies.
+// Rename-on-match toggle: shared between the grid and list bodies.
 //
 // Replaces the old pill button: a card-shaped surface with a real
 // switch on the right and an inline diff preview ("old.gba → new.gba")
@@ -36,6 +36,10 @@ const newName = computed(() => {
   );
 });
 
+const nameChanges = computed(
+  () => !props.rom || newName.value !== props.rom.fs_name,
+);
+
 function toggle() {
   if (props.disabled) return;
   emit("update:modelValue", !props.modelValue);
@@ -44,6 +48,7 @@ function toggle() {
 
 <template>
   <div
+    v-if="nameChanges"
     class="rename-toggle"
     :class="{
       'rename-toggle--on': modelValue,
@@ -61,14 +66,12 @@ function toggle() {
         <RIcon icon="mdi-file-edit-outline" size="15" />
         <span>{{ t("rom.match-rename-on-disk") }}</span>
       </span>
-      <!-- Stop propagation so the switch click doesn't double-toggle
-           via the parent button's handler. -->
+      <!-- `static`: a nested switch button would be invalid inside this one. -->
       <RSwitch
         :model-value="modelValue"
         :disabled="disabled"
         size="small"
-        @click.stop
-        @update:model-value="emit('update:modelValue', $event)"
+        static
       />
     </button>
 

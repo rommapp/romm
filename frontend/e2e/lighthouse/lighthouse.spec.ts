@@ -6,12 +6,9 @@ import { chromium, type Cookie } from "@playwright/test";
 import lighthouse from "lighthouse";
 import type * as LH from "lighthouse/types/lh.js";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import type { RouteName } from "../../src/plugins/routeNames";
 import { LIGHTHOUSE_DIR } from "../support/output";
-import {
-  E2E_SITEMAP,
-  type E2eSitemapEntry,
-  type E2eSitemapId,
-} from "../support/sitemap";
+import { E2E_SITEMAP, type E2eSitemapEntry } from "../support/sitemap";
 import { expect, test } from "../support/test";
 
 type Audit = LH.Audit.Result;
@@ -112,7 +109,7 @@ const DEFAULT_THRESHOLDS: PageThresholds = {
 };
 
 // Pages that hold a different bar than DEFAULT_THRESHOLDS.
-const PAGE_THRESHOLDS: Partial<Record<E2eSitemapId, PageThresholds>> = {};
+const PAGE_THRESHOLDS: Partial<Record<RouteName, PageThresholds>> = {};
 
 const AUDIT_PAGES: Record<string, AuditPage> = Object.fromEntries(
   E2E_SITEMAP.map((entry) => [
@@ -183,7 +180,6 @@ async function runAudit(
   }
 }
 
-test.use({ failOnAppErrors: false });
 // One test per page, so a failure never restarts a worker mid-page and
 // re-runs that page's audit.
 test.describe.configure({ mode: "default" });
@@ -195,12 +191,9 @@ for (const [
   test.describe(pageName, { tag: [...tag] }, () => {
     let lhr: LH.Result;
 
-    test.beforeAll(async ({ e2eEnv }) => {
-      lhr = await runAudit(
-        `${e2eEnv.E2E_BASE_URL}${path}`,
-        pageName,
-        storageState,
-      );
+    test.beforeAll(async ({}, testInfo) => {
+      const { baseURL } = testInfo.project.use;
+      lhr = await runAudit(new URL(path, baseURL).href, pageName, storageState);
     });
 
     test("lighthouse-report", async () => {

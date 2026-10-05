@@ -1,32 +1,24 @@
 <script setup lang="ts">
-// FolderMappingPlatformCell — editable Platform cell for the folder
+// FolderMappingPlatformCell: editable Platform cell for the folder
 // mappings table.
 //
 // Uses the shared PlatformSelect with `itemKey="slug"` (the table
 // works in slug-space, not platform id) and overrides `#selection`
-// to read from the row directly — when a row references a slug that
+// to read from the row directly: when a row references a slug that
 // isn't in `supportedPlatforms` (loading, removed, …), the default
 // selection rendering would crash on the destructure. Reading from
 // the row keeps the cell coherent in those edge states.
 //
 // The full supported-platforms list is owned by the parent
-// (`PlatformsStatsSection` / `FolderMappingsSection`) — fetch logic
+// (`PlatformsStatsSection` / `FolderMappingsSection`): fetch logic
 // stays out of this cell.
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
+import type { Row } from "@/v2/components/Settings/folderMappingRow";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
-
-type RowType = "alias" | "variant" | "auto" | null;
-
-interface Row {
-  fsSlug: string;
-  slug?: string;
-  displayName?: string;
-  type: RowType;
-}
 
 interface Props {
   row: Row;
@@ -68,7 +60,7 @@ const modelSlug = computed({
     :search-placeholder="t('common.search')"
     class="r-v2-fmpc"
   >
-    <!-- Drive selection rendering from `row` directly — see header
+    <!-- Drive selection rendering from `row` directly: see header
          comment for why item.raw can't be trusted here. -->
     <template #selection>
       <span class="r-v2-fmpc__selection">
@@ -83,7 +75,7 @@ const modelSlug = computed({
         </span>
       </span>
     </template>
-    <!-- Use the cached icon variant in the dropdown rows too — the
+    <!-- Use the cached icon variant in the dropdown rows too: the
          table is the heaviest consumer of platform icons in the app
          (one per row × every folder mapping). Keeps the table and the
          dropdown visually aligned and warm-cache fast. -->
@@ -117,7 +109,7 @@ const modelSlug = computed({
 </template>
 
 <style scoped>
-/* Lock the field to the column's width — PlatformSelect / RSelect
+/* Lock the field to the column's width: PlatformSelect / RSelect
    size their inner field to content by default, which would make each
    row's cell as wide as its platform name. The visible width then
    shifts as the user scrolls the table (different rows visible,

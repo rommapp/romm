@@ -1,13 +1,14 @@
 import asyncio
 from collections import Counter
 from datetime import datetime
+from typing import Annotated
 
-from fastapi import BackgroundTasks, HTTPException, Request, status
-from pydantic import Field, model_validator
+from fastapi import BackgroundTasks, Depends, HTTPException, Request, status
+from pydantic import Field
 
-from config import TASK_TIMEOUT
 from decorators.auth import protected_route
-from endpoints.responses.base import BaseModel
+from endpoints.play_sessions import PlaySessionEntry
+from endpoints.responses.base import PAGE_QUERY, BaseModel, PageParams
 from endpoints.responses.play_session import (
     PlaySessionIngestResponse,
     PlaySessionIngestResult,
@@ -40,6 +41,7 @@ from models.assets import Save
 from models.deleted_asset import DeletedAsset
 from models.device import SyncMode
 from models.sync_session import SyncSessionStatus
+from tasks.registry import SYNC_PUSH_PULL_SPEC
 from utils.auth import token_device_id
 from utils.datetime import to_utc
 from utils.router import APIRouter
@@ -107,22 +109,28 @@ class SyncNegotiatePayload(BaseModel):
             f"saves. At most {MAX_ROM_IDS_PER_QUERY} IDs per request."
         ),
     )
+    restore_unlisted: bool = Field(
+        default=False,
+        description=(
+            "Offer every current server save the client did not list as a "
+            "download, even one this device already synced. For clients that "
+            "never delete saves themselves (such as a browser, whose storage "
+            "can be evicted), so a missing save means lost rather than deleted."
+        ),
+    )
+    emulators: list[str] | None = Field(
+        default=None,
+        description=(
+            "Emulators whose saves this client can load. When provided, only "
+            "server saves written by one of them are paired or offered, so a "
+            "save from another emulator in the same slot is left alone."
+        ),
+    )
 
 
-class SyncPlaySessionEntry(BaseModel):
-    rom_id: int | None = None
-    save_slot: str | None = None
-    start_time: datetime
-    end_time: datetime
-    duration_ms: int = Field(ge=0)
-
-    @model_validator(mode="after")
-    def validate_times(self) -> "SyncPlaySessionEntry":
-        self.start_time = self.start_time.replace(microsecond=0)
-        self.end_time = self.end_time.replace(microsecond=0)
-        if self.end_time <= self.start_time:
-            raise ValueError("end_time must be after start_time")
-        return self
+# Its own class so the OpenAPI schema keeps the name clients generate from.
+class SyncPlaySessionEntry(PlaySessionEntry):
+    pass
 
 
 class SyncCompletePayload(BaseModel):
@@ -227,6 +235,8 @@ def negotiate_sync(
     server_saves = db_save_handler.get_saves(
         user_id=request.user.id, slot_not_null=True, rom_ids=rom_id_scope
     )
+    if payload.emulators is not None:
+        server_saves = [s for s in server_saves if s.emulator in payload.emulators]
     server_save_map: dict[tuple[int, str | None], Save] = {}
     for save in server_saves:
         key = (save.rom_id, save.slot)
@@ -349,7 +359,7 @@ def negotiate_sync(
         if device_sync:
             synced_ts = to_utc(device_sync.last_synced_at)
             save_ts = to_utc(save.updated_at)
-            if save_ts <= synced_ts:
+            if save_ts <= synced_ts and not payload.restore_unlisted:
                 # Save hasn't changed since device last synced - client deleted it
                 continue
 
@@ -507,14 +517,15 @@ def complete_sync_session(
 @protected_route(router.get, "/sessions", [Scope.DEVICES_READ])
 def get_sync_sessions(
     request: Request,
+    page: Annotated[PageParams, Depends(PAGE_QUERY)],
     device_id: str | None = None,
-    limit: int = 50,
 ) -> list[SyncSessionSchema]:
     """List sync sessions for the current user."""
     sessions = db_sync_session_handler.get_sessions(
         user_id=request.user.id,
         device_id=device_id,
-        limit=limit,
+        limit=page.limit,
+        offset=page.offset,
     )
     return [SyncSessionSchema.model_validate(s) for s in sessions]
 
@@ -575,12 +586,8 @@ def trigger_push_pull(
         device_id=device.id,
         session_id=sync_session.id,
         force=True,
-        job_timeout=TASK_TIMEOUT,
-        meta={
-            "task_key": "sync_push_pull",
-            "task_name": "Push-Pull Sync",
-            "task_type": "sync",
-        },
+        job_timeout=SYNC_PUSH_PULL_SPEC.timeout,
+        meta=SYNC_PUSH_PULL_SPEC.job_meta("sync_push_pull"),
     )
 
     log.info(f"Enqueued push-pull sync for device {device.id}")

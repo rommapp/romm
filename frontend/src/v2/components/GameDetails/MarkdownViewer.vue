@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// MarkdownViewer (v2) — renders a Markdown (.md) manual with the same v2
+// MarkdownViewer (v2): renders a Markdown (.md) manual with the same v2
 // chrome as PdfViewer. Manuals can be PDF or Markdown; MediaTab picks the
 // viewer by extension. The file is fetched as text and handed to MdPreview
 // (md-editor-v3), the same renderer used by NotesTab.
@@ -11,10 +11,10 @@ import {
   RSpinner,
   RTooltip,
 } from "@v2/lib";
-import { MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import MdPreview from "@/v2/components/shared/markdownPreview";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useReadingProgress } from "@/v2/composables/useReadingProgress";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 
@@ -23,7 +23,7 @@ const props = defineProps<{
   /** ROM id + file id persist the reading position; without them the progress
    *  bar still tracks the session's scroll. */
   romId?: number;
-  fileId?: number;
+  fileId?: number | undefined;
   /** Show a danger-tinted delete button at the end of the toolbar. */
   deletable?: boolean;
   /** Show a re-download button when a scraped source URL exists. */
@@ -43,10 +43,10 @@ const mdTheme = computed<"light" | "dark">(() =>
   isLight.value ? "light" : "dark",
 );
 
-// Filename for the download button — last path segment without the cache-bust
+// Filename for the download button: last path segment without the cache-bust
 // query, decoded back to its human form (e.g. `README.md`).
 const fileName = computed(() => {
-  const path = props.url.split("?")[0];
+  const [path = ""] = props.url.split("?");
   const last = path.substring(path.lastIndexOf("/") + 1);
   try {
     return decodeURIComponent(last) || "manual.md";
@@ -55,9 +55,6 @@ const fileName = computed(() => {
   }
 });
 
-const content = ref("");
-const loading = ref(false);
-const failed = ref(false);
 const scrollEl = ref<HTMLElement | null>(null);
 
 const romIdRef = computed(() => props.romId ?? 0);
@@ -70,25 +67,33 @@ const { progress, restore, onScroll } = useReadingProgress(
   scrollEl,
 );
 
-async function load() {
-  loading.value = true;
-  failed.value = false;
-  try {
+const {
+  state: content,
+  isLoading: loading,
+  error,
+  execute: load,
+} = useFetchState(
+  async () => {
     const res = await fetch(props.url, { credentials: "include" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    content.value = await res.text();
+    return res.text();
+  },
+  "",
+  {
+    immediate: false,
     // Restore scroll once MdPreview has laid the rendered Markdown out.
-    await nextTick();
-    requestAnimationFrame(() => void restore());
-  } catch (err) {
-    console.error("Failed to load markdown manual", err);
-    failed.value = true;
-  } finally {
-    loading.value = false;
-  }
-}
+    onSuccess: () =>
+      nextTick(() => requestAnimationFrame(() => void restore())),
+    onError: (err) => console.error("Failed to load markdown manual", err),
+  },
+);
+const failed = computed(() => error.value !== undefined);
 
-watch(() => props.url, load, { immediate: true });
+watch(
+  () => props.url,
+  () => void load(),
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -158,16 +163,13 @@ watch(() => props.url, load, { immediate: true });
         :title="t('rom.manual-load-failed')"
       >
         <template #actions>
-          <RBtn variant="outlined" size="small" @click="load">
+          <RBtn variant="outlined" size="small" @click="load()">
             {{ t("common.try-again") }}
           </RBtn>
         </template>
       </REmptyState>
       <MdPreview
         v-else
-        no-highlight
-        no-katex
-        no-mermaid
         :model-value="content"
         :theme="mdTheme"
         language="en-US"
@@ -187,7 +189,7 @@ watch(() => props.url, load, { immediate: true });
   min-height: 0;
 }
 
-/* Toolbar inherits the parent's bg-elevated — no separate background or
+/* Toolbar inherits the parent's bg-elevated: no separate background or
    divider so the surface reads as one continuous panel (mirrors PdfViewer). */
 .r-v2-mdv__toolbar {
   display: flex;
@@ -258,7 +260,7 @@ watch(() => props.url, load, { immediate: true });
   height: 100%;
 }
 
-/* MdPreview paints its own surface — blend it with the surrounding
+/* MdPreview paints its own surface: blend it with the surrounding
    bg-elevated container so there's no visible seam under the toolbar. */
 .r-v2-mdv__preview {
   background: transparent;

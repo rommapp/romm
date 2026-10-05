@@ -1,3 +1,4 @@
+import dataclasses
 import enum
 import functools
 import glob
@@ -9,11 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, NotRequired, Self, TextIO, TypedDict
 
-import pydash
 import yaml
 from sqlalchemy import URL
 from yaml.loader import SafeLoader
 
+from adapters.services.rom_converto import normalize_platform_formats
 from config import (
     DB_HOST,
     DB_NAME,
@@ -30,6 +31,7 @@ from exceptions.config_exceptions import ConfigNotWritableException
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.database import get_nested
 
 # Macros of a library structure template. `{platform}` is the platform folder and
 # `{game}` is the terminal, marking where the game itself begins.
@@ -401,6 +403,23 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
 VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 
 
+@dataclasses.dataclass
+class ConvertoConfig:
+    download_conversion_enabled: bool = False
+    scan_metadata: bool = True
+    cache_ttl_hours: int = 24
+    # 0 leaves the cache unbounded.
+    cache_max_size_gb: int = 20
+    platform_formats: dict[str, str] = dataclasses.field(default_factory=dict)
+
+
+# The smallest value each integer converto.* setting accepts.
+CONVERTO_INT_MINIMUMS: Final[dict[str, int]] = {
+    "cache_ttl_hours": 1,
+    "cache_max_size_gb": 0,
+}
+
+
 class EjsControls(TypedDict):
     _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
     _1: dict[int, EjsControlsButton]
@@ -506,6 +525,7 @@ class Config:
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
     STREAMING_ENABLED: bool
     STREAMING_CONTAINERS: list[StreamingContainer]
+    CONVERTO: ConvertoConfig
 
     def __init__(self, **entries: Any) -> None:
         self.__dict__.update(entries)
@@ -679,6 +699,23 @@ class ConfigManager:
             query=query,
         )
 
+    def _raw_exclude_list(self, path: str) -> list[str]:
+        """Read a user exclude list, exiting on anything but a list of strings."""
+        value = get_nested(self._raw_config, path)
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            log.critical(f"Invalid config.yml: {path} must be a list")
+            sys.exit(3)
+        # YAML reads an unquoted 001 or 1942 as a number.
+        if not all(isinstance(item, str) for item in value):
+            log.critical(
+                f"Invalid config.yml: {path} must only hold strings, "
+                "quote numeric entries such as '001'"
+            )
+            sys.exit(3)
+        return value
+
     def _parse_config(self) -> None:
         """Parses each entry in the config.yml"""
 
@@ -689,7 +726,7 @@ class ConfigManager:
             EXCLUDED_PLATFORMS=sorted(
                 {
                     *DEFAULT_EXCLUDED_PLATFORM_DIRS,
-                    *pydash.get(self._raw_config, "exclude.platforms", []),
+                    *self._raw_exclude_list("exclude.platforms"),
                 }
             ),
             EXCLUDED_SINGLE_EXT=sorted(
@@ -697,10 +734,8 @@ class ConfigManager:
                     *(e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS),
                     *(
                         e.lower()
-                        for e in pydash.get(
-                            self._raw_config,
-                            "exclude.roms.single_file.extensions",
-                            [],
+                        for e in self._raw_exclude_list(
+                            "exclude.roms.single_file.extensions"
                         )
                     ),
                 }
@@ -708,21 +743,13 @@ class ConfigManager:
             EXCLUDED_SINGLE_FILES=sorted(
                 {
                     *DEFAULT_EXCLUDED_FILES,
-                    *pydash.get(
-                        self._raw_config,
-                        "exclude.roms.single_file.names",
-                        [],
-                    ),
+                    *self._raw_exclude_list("exclude.roms.single_file.names"),
                 }
             ),
             EXCLUDED_MULTI_FILES=sorted(
                 {
                     *DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
-                    *pydash.get(
-                        self._raw_config,
-                        "exclude.roms.multi_file.names",
-                        [],
-                    ),
+                    *self._raw_exclude_list("exclude.roms.multi_file.names"),
                 }
             ),
             EXCLUDED_MULTI_PARTS_EXT=sorted(
@@ -730,10 +757,8 @@ class ConfigManager:
                     *(e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS),
                     *(
                         e.lower()
-                        for e in pydash.get(
-                            self._raw_config,
-                            "exclude.roms.multi_file.parts.extensions",
-                            [],
+                        for e in self._raw_exclude_list(
+                            "exclude.roms.multi_file.parts.extensions"
                         )
                     ),
                 }
@@ -741,52 +766,48 @@ class ConfigManager:
             EXCLUDED_MULTI_PARTS_FILES=sorted(
                 {
                     *DEFAULT_EXCLUDED_FILES,
-                    *pydash.get(
-                        self._raw_config,
-                        "exclude.roms.multi_file.parts.names",
-                        [],
-                    ),
+                    *self._raw_exclude_list("exclude.roms.multi_file.parts.names"),
                 }
             ),
-            PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {})
+            PLATFORMS_BINDING=get_nested(self._raw_config, "system.platforms", {})
             or {},
-            PLATFORMS_VERSIONS=pydash.get(self._raw_config, "system.versions", {})
+            PLATFORMS_VERSIONS=get_nested(self._raw_config, "system.versions", {})
             or {},
-            SKIP_HASH_CALCULATION=pydash.get(
+            SKIP_HASH_CALCULATION=get_nested(
                 self._raw_config, "filesystem.skip_hash_calculation", False
             ),
-            SKIP_TITLE_ID_EXTRACTION=pydash.get(
+            SKIP_TITLE_ID_EXTRACTION=get_nested(
                 self._raw_config, "filesystem.skip_title_id_extraction", False
             ),
-            EMBED_SWITCH_TITLE_IDS=pydash.get(
+            EMBED_SWITCH_TITLE_IDS=get_nested(
                 self._raw_config, "filesystem.embed_switch_title_ids", False
             ),
-            EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
-            EJS_CACHE_LIMIT=pydash.get(
+            EJS_DEBUG=get_nested(self._raw_config, "emulatorjs.debug", False),
+            EJS_CACHE_LIMIT=get_nested(
                 self._raw_config, "emulatorjs.cache_limit", None
             ),
-            EJS_DISABLE_AUTO_UNLOAD=pydash.get(
+            EJS_DISABLE_AUTO_UNLOAD=get_nested(
                 self._raw_config, "emulatorjs.disable_auto_unload", False
             ),
-            EJS_DISABLE_BATCH_BOOTUP=pydash.get(
+            EJS_DISABLE_BATCH_BOOTUP=get_nested(
                 self._raw_config, "emulatorjs.disable_batch_bootup", False
             ),
-            EJS_ENABLE_AUTO_SAVE_SYNC=pydash.get(
+            EJS_ENABLE_AUTO_SAVE_SYNC=get_nested(
                 self._raw_config, "emulatorjs.auto_save_sync", True
             ),
-            EJS_NETPLAY_ENABLED=pydash.get(
+            EJS_NETPLAY_ENABLED=get_nested(
                 self._raw_config, "emulatorjs.netplay.enabled", False
             ),
-            EJS_NETPLAY_ICE_SERVERS=pydash.get(
+            EJS_NETPLAY_ICE_SERVERS=get_nested(
                 self._raw_config, "emulatorjs.netplay.ice_servers", []
             ),
-            EJS_DEFAULT_CORES=pydash.get(
+            EJS_DEFAULT_CORES=get_nested(
                 self._raw_config, "emulatorjs.default_cores", {}
             )
             or {},
-            EJS_SETTINGS=pydash.get(self._raw_config, "emulatorjs.settings", {}),
+            EJS_SETTINGS=get_nested(self._raw_config, "emulatorjs.settings", {}),
             EJS_CONTROLS=self._get_ejs_controls(),
-            SCAN_METADATA_PRIORITY=pydash.get(
+            SCAN_METADATA_PRIORITY=get_nested(
                 self._raw_config,
                 "scan.priority.metadata",
                 [
@@ -806,7 +827,7 @@ class ConfigManager:
                     "csdb",
                 ],
             ),
-            SCAN_ARTWORK_PRIORITY=pydash.get(
+            SCAN_ARTWORK_PRIORITY=get_nested(
                 self._raw_config,
                 "scan.priority.artwork",
                 [
@@ -831,25 +852,25 @@ class ConfigManager:
             SCAN_ARTWORK_PRIORITY_OVERRIDES={
                 field: override
                 for key, field in ARTWORK_PRIORITY_KEYS.items()
-                if (override := pydash.get(self._raw_config, f"scan.priority.{key}"))
+                if (override := get_nested(self._raw_config, f"scan.priority.{key}"))
                 is not None
             },
-            SCAN_REGION_PRIORITY=pydash.get(
+            SCAN_REGION_PRIORITY=get_nested(
                 self._raw_config,
                 "scan.priority.region",
                 ["us", "wor", "ss", "eu", "jp"],
             ),
-            SCAN_REGION_MODE=pydash.get(
+            SCAN_REGION_MODE=get_nested(
                 self._raw_config,
                 "scan.priority.region_mode",
                 "prefer_rom_tags",
             ),
-            SCAN_LANGUAGE_PRIORITY=pydash.get(
+            SCAN_LANGUAGE_PRIORITY=get_nested(
                 self._raw_config,
                 "scan.priority.language",
                 ["en"],
             ),
-            SCAN_MEDIA=pydash.get(
+            SCAN_MEDIA=get_nested(
                 self._raw_config,
                 "scan.media",
                 [
@@ -858,34 +879,40 @@ class ConfigManager:
                     "manual",
                 ],
             ),
-            GAMELIST_AUTO_EXPORT_ON_SCAN=pydash.get(
+            GAMELIST_AUTO_EXPORT_ON_SCAN=get_nested(
                 self._raw_config, "scan.gamelist.export", False
             ),
-            GAMELIST_MEDIA_THUMBNAIL=pydash.get(
+            GAMELIST_MEDIA_THUMBNAIL=get_nested(
                 self._raw_config,
                 "scan.gamelist.media.thumbnail",
                 MetadataMediaType.BOX2D,
             ),
-            GAMELIST_MEDIA_IMAGE=pydash.get(
+            GAMELIST_MEDIA_IMAGE=get_nested(
                 self._raw_config,
                 "scan.gamelist.media.image",
                 MetadataMediaType.SCREENSHOT,
             ),
-            PEGASUS_AUTO_EXPORT_ON_SCAN=pydash.get(
+            PEGASUS_AUTO_EXPORT_ON_SCAN=get_nested(
                 self._raw_config, "scan.pegasus.export", False
             ),
-            STREAMING_ENABLED=pydash.get(self._raw_config, "streaming.enabled", False),
-            STREAMING_CONTAINERS=pydash.get(
+            STREAMING_ENABLED=get_nested(self._raw_config, "streaming.enabled", False),
+            STREAMING_CONTAINERS=get_nested(
                 self._raw_config, "streaming.containers", []
             ),
-            STRUCTURE_TEMPLATES=pydash.get(
+            CONVERTO=ConvertoConfig(
+                **{
+                    key: get_nested(self._raw_config, f"converto.{key}", default)
+                    for key, default in dataclasses.asdict(ConvertoConfig()).items()
+                }
+            ),
+            STRUCTURE_TEMPLATES=get_nested(
                 self._raw_config, "filesystem.structure", {}
             ),
         )
 
     def _get_ejs_controls(self) -> dict[str, EjsControls]:
         """Get EJS controls with default player entries for each core"""
-        raw_controls = pydash.get(self._raw_config, "emulatorjs.controls", {})
+        raw_controls = get_nested(self._raw_config, "emulatorjs.controls", {})
         controls = {}
 
         for core, core_controls in raw_controls.items():
@@ -961,7 +988,7 @@ class ConfigManager:
             ),
         }
         for key, (structure_key, to_template) in retired.items():
-            folder = pydash.get(self._raw_config, key)
+            folder = get_nested(self._raw_config, key)
             if folder is None:
                 continue
             log.critical(
@@ -1003,40 +1030,6 @@ class ConfigManager:
     def _validate_config(self) -> None:
         """Validates the config.yml file"""
         self._check_retired_filesystem_keys()
-
-        if not isinstance(self.config.EXCLUDED_PLATFORMS, list):
-            log.critical("Invalid config.yml: exclude.platforms must be a list")
-            sys.exit(3)
-
-        if not isinstance(self.config.EXCLUDED_SINGLE_EXT, list):
-            log.critical(
-                "Invalid config.yml: exclude.roms.single_file.extensions must be a list"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.EXCLUDED_SINGLE_FILES, list):
-            log.critical(
-                "Invalid config.yml: exclude.roms.single_file.names must be a list"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.EXCLUDED_MULTI_FILES, list):
-            log.critical(
-                "Invalid config.yml: exclude.roms.multi_file.names must be a list"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.EXCLUDED_MULTI_PARTS_EXT, list):
-            log.critical(
-                "Invalid config.yml: exclude.roms.multi_file.parts.extensions must be a list"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.EXCLUDED_MULTI_PARTS_FILES, list):
-            log.critical(
-                "Invalid config.yml: exclude.roms.multi_file.parts.names must be a list"
-            )
-            sys.exit(3)
 
         if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
             log.critical("Invalid config.yml: scan.gamelist.export must be a boolean")
@@ -1314,6 +1307,35 @@ class ConfigManager:
                 len(legacy_containers),
             )
 
+        if not isinstance(self.config.CONVERTO.download_conversion_enabled, bool):
+            log.critical(
+                "Invalid config.yml: converto.download_conversion_enabled must be a boolean"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.CONVERTO.scan_metadata, bool):
+            log.critical("Invalid config.yml: converto.scan_metadata must be a boolean")
+            sys.exit(3)
+
+        for key, minimum in CONVERTO_INT_MINIMUMS.items():
+            value = getattr(self.config.CONVERTO, key)
+            if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+                log.critical(
+                    f"Invalid config.yml: converto.{key} must be an integer >= {minimum}"
+                )
+                sys.exit(3)
+
+        try:
+            self.config.CONVERTO.platform_formats = normalize_platform_formats(
+                self._validated_platform_map(
+                    self.config.CONVERTO.platform_formats or {},
+                    "converto.platform_formats",
+                )
+            )
+        except ValueError as exc:
+            log.critical(f"Invalid config.yml: converto.platform_formats: {exc}")
+            sys.exit(3)
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r") as config_file:
@@ -1399,6 +1421,7 @@ class ConfigManager:
                     "export": self.config.PEGASUS_AUTO_EXPORT_ON_SCAN,
                 },
             },
+            "converto": dataclasses.asdict(self.config.CONVERTO),
         }
 
         # The streaming section isn't editable at runtime, but it must survive
@@ -1531,6 +1554,11 @@ class ConfigManager:
         self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType(gamelist_thumbnail)
         self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType(gamelist_image)
         self.config.PEGASUS_AUTO_EXPORT_ON_SCAN = pegasus_export
+        self._update_config_file()
+
+    def update_converto_settings(self, converto: ConvertoConfig) -> None:
+        """Replace the whole converto.* section and persist it to config.yml."""
+        self.config.CONVERTO = converto
         self._update_config_file()
 
 

@@ -1,29 +1,21 @@
-import { createPinia, setActivePinia } from "pinia";
 import { describe, expect, it, vi } from "vitest";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import { romFixture } from "@/utils/rom.fixtures";
 import useSoundtrackPlayer, {
   resolveSoundtrackGameArtwork,
   type SoundtrackArtworkRom,
 } from "./soundtrackPlayer";
 
-function makeRom(
+function artworkRom(
   overrides: Partial<SoundtrackArtworkRom> = {},
 ): SoundtrackArtworkRom {
-  return {
-    ss_metadata: null,
-    launchbox_metadata: null,
-    platform_slug: "psx",
-    path_cover_large: null,
-    path_cover_small: null,
-    url_cover: null,
-    ...overrides,
-  } as SoundtrackArtworkRom;
+  return romFixture({ platform_slug: "psx", ...overrides });
 }
 
 describe("resolveSoundtrackGameArtwork", () => {
   it("prefers the ScreenScraper disc over the logo on a CD system", () => {
     const url = resolveSoundtrackGameArtwork(
-      makeRom({
+      artworkRom({
         ss_metadata: { physical_path: "disc.png", logo_path: "logo.png" },
       }),
     );
@@ -32,7 +24,7 @@ describe("resolveSoundtrackGameArtwork", () => {
 
   it("falls back to the LaunchBox disc when ScreenScraper has none", () => {
     const url = resolveSoundtrackGameArtwork(
-      makeRom({
+      artworkRom({
         ss_metadata: { logo_path: "logo.png" },
         launchbox_metadata: {
           images: [
@@ -50,7 +42,7 @@ describe("resolveSoundtrackGameArtwork", () => {
 
   it("skips LaunchBox media the browser cannot load", () => {
     const url = resolveSoundtrackGameArtwork(
-      makeRom({
+      artworkRom({
         ss_metadata: { logo_path: "logo.png" },
         launchbox_metadata: {
           images: [
@@ -64,7 +56,7 @@ describe("resolveSoundtrackGameArtwork", () => {
 
   it("ignores physical media on a non-CD system", () => {
     const url = resolveSoundtrackGameArtwork(
-      makeRom({
+      artworkRom({
         platform_slug: "snes",
         ss_metadata: { physical_path: "cart.png", logo_path: "logo.png" },
         launchbox_metadata: {
@@ -80,21 +72,25 @@ describe("resolveSoundtrackGameArtwork", () => {
   it("falls back to the cover chain when no artwork is scraped", () => {
     expect(
       resolveSoundtrackGameArtwork(
-        makeRom({ path_cover_small: "small.png", url_cover: "remote.png" }),
+        artworkRom({ path_cover_small: "small.png", url_cover: "remote.png" }),
       ),
     ).toBe("small.png");
-    expect(resolveSoundtrackGameArtwork(makeRom())).toBeUndefined();
+    expect(resolveSoundtrackGameArtwork(artworkRom())).toBeUndefined();
   });
 
   it("treats the backend's empty cover paths as missing", () => {
     expect(
       resolveSoundtrackGameArtwork(
-        makeRom({ path_cover_large: "", path_cover_small: "", url_cover: "" }),
+        artworkRom({
+          path_cover_large: "",
+          path_cover_small: "",
+          url_cover: "",
+        }),
       ),
     ).toBeUndefined();
     expect(
       resolveSoundtrackGameArtwork(
-        makeRom({ path_cover_large: "", path_cover_small: "small.png" }),
+        artworkRom({ path_cover_large: "", path_cover_small: "small.png" }),
       ),
     ).toBe("small.png");
   });
@@ -111,7 +107,6 @@ describe("loadPlaylist with preserved shuffle", () => {
   }
 
   it("shuffles freshly paged-in tracks instead of appending them in order", () => {
-    setActivePinia(createPinia());
     const player = useSoundtrackPlayer();
     const firstPage = makeTracks(4);
     player.loadPlaylist(firstPage, {}, null);
@@ -131,5 +126,61 @@ describe("loadPlaylist with preserved shuffle", () => {
     // The appended window holds the same tracks but not in server order.
     expect(ids(player.playlist.slice(4)).sort()).toEqual(ids(nextPage).sort());
     expect(ids(player.playlist.slice(4))).not.toEqual(ids(nextPage));
+  });
+});
+
+describe("session restore", () => {
+  const track = {
+    romId: 1,
+    fileId: 2,
+    fileName: "02 Theme.mp3",
+    url: "/theme.mp3",
+  };
+  const saved = {
+    track,
+    meta: { title: "Theme", duration: 180 },
+    playlist: [track],
+    originalPlaylist: [track],
+    isShuffled: false,
+    playlistMeta: { 2: { title: "Theme" } },
+    activePlaylistRomId: 1,
+    position: 42,
+    wasPlaying: true,
+  };
+
+  it("rebuilds the session it was given", () => {
+    const player = useSoundtrackPlayer();
+    player.restore(saved);
+
+    expect(player.session).toEqual(saved);
+    expect(player.currentTime).toBe(42);
+    expect(player.duration).toBe(180);
+  });
+
+  it("keeps the position for the player until another track plays", () => {
+    const player = useSoundtrackPlayer();
+    player.restore(saved);
+
+    expect(player.pendingResume).toEqual({ position: 42, autoplay: true });
+    player.play(track, {});
+    expect(player.pendingResume).toBeNull();
+  });
+
+  it("stops counting as playing once playback reports in", () => {
+    const player = useSoundtrackPlayer();
+    player.restore(saved);
+    player.setPlaying(true);
+    player.setPlaying(false);
+
+    expect(player.session?.wasPlaying).toBe(false);
+  });
+
+  it("drops a pending resume on stop", () => {
+    const player = useSoundtrackPlayer();
+    player.restore(saved);
+    player.stop();
+
+    expect(player.session).toBeNull();
+    expect(player.pendingResume).toBeNull();
   });
 });

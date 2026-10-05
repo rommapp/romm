@@ -14,17 +14,17 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   /** Primary slug (platform.name in the stores). */
-  name?: string;
+  name?: string | undefined;
   /** Alias for `name`. */
-  slug?: string;
+  slug?: string | undefined;
   /** Filesystem slug, tried only when no icon ships for `slug`. */
-  fsSlug?: string;
+  fsSlug?: string | undefined;
   /** Explicit override. */
-  src?: string;
+  src?: string | undefined;
   size?: number | string;
   alt?: string;
   /** Tooltip text override. Falls back to `alt`. */
-  title?: string;
+  title?: string | undefined;
   /** Show RTooltip on hover (default `true`). */
   showTooltip?: boolean;
 }

@@ -49,7 +49,7 @@ def normalize_identity(is_switch: bool, identity: RomIdentity) -> RomIdentity:
     """
     title_id = identity.title_id
     derived = derive_base_title_id(title_id) if is_switch and title_id else None
-    if derived is None or derived == title_id:
+    if derived is None or (derived == title_id and identity.save_target):
         return identity
 
     # Switch saves are keyed by the base title id itself.

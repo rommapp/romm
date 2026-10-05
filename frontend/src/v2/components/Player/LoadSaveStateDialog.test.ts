@@ -1,19 +1,17 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SaveSchema, StateSchema } from "@/__generated__";
-import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 import LoadSaveStateDialog from "./LoadSaveStateDialog.vue";
 
 const { confirm } = vi.hoisted(() => ({
   confirm: vi.fn(async (_opts: { title: string }) => true),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 vi.mock("@/v2/composables/useConfirm", () => ({
   useConfirm: () => confirm,
@@ -57,15 +55,6 @@ function makeState(overrides: Partial<StateSchema> = {}): StateSchema {
   });
 }
 
-function makeRom(overrides: Partial<DetailedRom> = {}): DetailedRom {
-  return {
-    id: 3,
-    user_saves: [makeSave()],
-    user_states: [makeState()],
-    ...overrides,
-  } as DetailedRom;
-}
-
 function openDialog() {
   const emitter: Emitter<Events> = mitt<Events>();
   const saveSelected = vi.fn();
@@ -79,17 +68,20 @@ function openDialog() {
     },
   });
   const open = async () => {
-    emitter.emit("selectStateDialog", makeRom());
+    emitter.emit(
+      "selectStateDialog",
+      detailedRomFixture({
+        id: 3,
+        user_saves: [makeSave()],
+        user_states: [makeState()],
+      }),
+    );
     await flushPromises();
   };
   return { wrapper, open, saveSelected, stateSelected };
 }
 
 describe("LoadSaveStateDialog", () => {
-  beforeEach(() => {
-    confirm.mockClear();
-  });
-
   it("opens on States and loads a state once confirmed", async () => {
     const { wrapper, open, stateSelected, saveSelected } = openDialog();
     await open();
@@ -97,7 +89,7 @@ describe("LoadSaveStateDialog", () => {
     await wrapper.find(".pick-state").trigger("click");
     await flushPromises();
 
-    expect(confirm.mock.calls[0][0].title).toBe(
+    expect(confirm.mock.calls[0]![0].title).toBe(
       "play.load-state-confirm-title",
     );
     expect(stateSelected).toHaveBeenCalledWith(makeState());
@@ -113,7 +105,9 @@ describe("LoadSaveStateDialog", () => {
     await wrapper.find(".pick-save").trigger("click");
     await flushPromises();
 
-    expect(confirm.mock.calls[0][0].title).toBe("play.load-save-confirm-title");
+    expect(confirm.mock.calls[0]![0].title).toBe(
+      "play.load-save-confirm-title",
+    );
     expect(saveSelected).toHaveBeenCalledWith(makeSave());
     expect(stateSelected).not.toHaveBeenCalled();
   });

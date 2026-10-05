@@ -55,6 +55,7 @@ import SubtabNav, {
 } from "@/v2/components/GameDetails/SubtabNav.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
+import { useClipboard } from "@/v2/composables/useClipboard";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useIdSelection } from "@/v2/composables/useIdSelection";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
@@ -76,6 +77,7 @@ const props = defineProps<{ rom: DetailedRomSchema }>();
 const { t } = useI18n();
 const snackbar = useSnackbar();
 const emitter = inject<Emitter<Events>>("emitter");
+const clipboard = useClipboard();
 const confirm = useConfirm();
 const route = useRoute();
 const router = useRouter();
@@ -366,18 +368,10 @@ const showUpload = computed(() => filteredCount.value > 0 && canUpload.value);
 // Used by the per-subtab + per-selection copy-link buttons; per-file
 // hash copying lives in HashChip itself.
 async function copyDownloadLink(url: string) {
-  const copied =
-    !!navigator.clipboard &&
-    window.isSecureContext &&
-    (await navigator.clipboard.writeText(url).then(
-      () => true,
-      () => false,
-    ));
-  if (!copied) {
-    emitter?.emit("showCopyDownloadLinkDialog", url);
-    return;
-  }
-  snackbar.success(t("rom.download-link-copied"), { icon: "mdi-check-bold" });
+  await clipboard.copy(url, {
+    successMessage: t("rom.download-link-copied"),
+    fallback: () => emitter?.emit("showCopyDownloadLinkDialog", url),
+  });
 }
 
 // ---------- Actions ----------

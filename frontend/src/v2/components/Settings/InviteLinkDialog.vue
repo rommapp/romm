@@ -1,22 +1,20 @@
 <script setup lang="ts">
-// InviteLinkDialog — v2-native rebuild of v1
+// InviteLinkDialog: v2-native rebuild of v1
 // `Settings/Administration/Users/Dialog/InviteLink.vue`. Picks a role +
 // expiry, generates an invite URL, and shows it in a copyable field.
 import { RBtn, RIcon, RSelect } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { computed, inject, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import userApi from "@/services/api/user";
-import type { Events } from "@/types/emitter";
 import { getRoleIcon } from "@/utils";
 import { useClipboard } from "@/v2/composables/useClipboard";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const clipboard = useClipboard();
 
@@ -37,7 +35,7 @@ const expirationOptions = computed(() => [
   { title: t("settings.expiry-30d"), value: 2592000 },
 ]);
 
-emitter?.on("showCreateInviteLinkDialog", () => {
+useEmitterEvent("showCreateInviteLinkDialog", () => {
   selectedRole.value = null;
   selectedExpiration.value = 86400;
   fullInviteLink.value = "";

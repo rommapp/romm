@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, RomFileSchema } from "@/__generated__";
+import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
 import FilesTab from "./FilesTab.vue";
 
 const {
@@ -27,9 +27,7 @@ const {
   grants: { upload: true, delete: false },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => ({ query: routeQuery, path: "/rom/1", params: {} }),
@@ -63,20 +61,18 @@ const ROM_PATH = "n64/roms/Game";
 
 function file(id: number, rel: string): RomFileSchema {
   const slash = rel.lastIndexOf("/");
-  return {
+  return romFileFixture({
     id,
-    rom_id: 1,
     file_name: slash < 0 ? rel : rel.slice(slash + 1),
     file_path: slash < 0 ? ROM_PATH : `${ROM_PATH}/${rel.slice(0, slash)}`,
     full_path: `${ROM_PATH}/${rel}`,
     file_size_bytes: 10,
     is_top_level: slash < 0,
-    category: null,
-  } as RomFileSchema;
+  });
 }
 
 function rom(overrides: Partial<DetailedRomSchema> = {}): DetailedRomSchema {
-  return {
+  return detailedRomFixture({
     id: 1,
     platform_id: 7,
     fs_name: "Game",
@@ -86,7 +82,7 @@ function rom(overrides: Partial<DetailedRomSchema> = {}): DetailedRomSchema {
     missing_from_fs: false,
     files: [file(1, "game.n64"), file(2, "hack/patched.n64")],
     ...overrides,
-  } as DetailedRomSchema;
+  });
 }
 
 const UploadFilesDialogStub = {
@@ -142,8 +138,6 @@ async function pickFile(wrapper: ReturnType<typeof mountTab>, name: string) {
 
 describe("FilesTab uploads", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     routeQuery.subtab = undefined;
     grants.upload = true;
     uploadRoms.mockResolvedValue([{ status: "fulfilled", value: null }]);
@@ -177,7 +171,7 @@ describe("FilesTab uploads", () => {
     });
     expect(refetchRom).toHaveBeenCalledWith(1);
     expect(snackbar.success).toHaveBeenCalledWith(
-      "rom.files-uploaded-n",
+      'rom.files-uploaded-n:1:{"named":{"n":1}}',
       expect.anything(),
     );
     expect(confirmFn).not.toHaveBeenCalled();
@@ -241,7 +235,9 @@ describe("FilesTab uploads", () => {
 
     await pickFile(wrapper, "patched.n64");
 
-    expect(snackbar.error).toHaveBeenCalledWith("rom.upload-file-exists");
+    expect(snackbar.error).toHaveBeenCalledWith(
+      'rom.upload-file-exists:{"name":"patched.n64"}',
+    );
     expect(snackbar.warning).toHaveBeenCalledWith(
       "rom.no-files-uploaded",
       expect.anything(),
@@ -252,8 +248,6 @@ describe("FilesTab uploads", () => {
 
 describe("FilesTab on a rom missing from the filesystem", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     routeQuery.subtab = undefined;
     grants.upload = true;
   });
@@ -267,7 +261,7 @@ describe("FilesTab on a rom missing from the filesystem", () => {
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.every((r) => r.props("missing") === true)).toBe(true);
 
-    wrapper.findAllComponents({ name: "FileRow" })[0].vm.$emit("toggle");
+    wrapper.findAllComponents({ name: "FileRow" })[0]!.vm.$emit("toggle");
     await flushPromises();
     const download = wrapper
       .findAll("button.btn")
@@ -286,8 +280,6 @@ describe("FilesTab on a rom missing from the filesystem", () => {
 
 describe("FilesTab selection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     routeQuery.subtab = undefined;
     grants.upload = true;
   });
@@ -300,7 +292,7 @@ describe("FilesTab selection", () => {
 
   async function selectFirst(wrapper: ReturnType<typeof mountTab>) {
     await flushPromises();
-    wrapper.findAllComponents({ name: "FileRow" })[0].vm.$emit("toggle");
+    wrapper.findAllComponents({ name: "FileRow" })[0]!.vm.$emit("toggle");
     await flushPromises();
   }
 
@@ -333,10 +325,7 @@ describe("FilesTab copy link", () => {
     writeText: ((text: string) => Promise<void>) | null,
     secure = true,
   ) {
-    Object.defineProperty(window, "isSecureContext", {
-      configurable: true,
-      value: secure,
-    });
+    vi.stubGlobal("isSecureContext", secure);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: writeText ? { writeText } : undefined,
@@ -350,7 +339,6 @@ describe("FilesTab copy link", () => {
   }
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     routeQuery.subtab = undefined;
     snackbar.success.mockReset();
     snackbar.error.mockReset();

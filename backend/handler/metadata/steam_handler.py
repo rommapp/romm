@@ -1,7 +1,5 @@
 import asyncio
-import re
 from collections.abc import Awaitable
-from datetime import datetime, timezone
 from typing import Final, NotRequired, TypedDict
 
 from adapters.services.steam import SteamService
@@ -12,9 +10,17 @@ from adapters.services.steam_types import (
 )
 from config import STEAM_API_ENABLED
 from logger.logger import log
+from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import BaseRom, CoverResource, CoverResult, MetadataHandler
+from .base_handler import (
+    BaseRom,
+    CoverResource,
+    CoverResult,
+    MetadataHandler,
+    provider_tag_regex,
+    tag_id_from_filename,
+)
 
 # Half-Life 2: never region locked, so a fetch failing means Steam is down.
 STEAM_HEARTBEAT_APP_ID: Final[int] = 220
@@ -39,7 +45,7 @@ STEAM_LIBRARY_CAPSULE_SIZE: Final[tuple[int, int]] = (600, 900)
 STEAM_HEADER_IMAGE_SIZE: Final[tuple[int, int]] = (460, 215)
 
 # Regex to detect Steam app ID tags in filenames like (steam-12345)
-STEAM_TAG_REGEX = re.compile(r"\(steam-(\d+)\)", re.IGNORECASE)
+STEAM_TAG_REGEX = provider_tag_regex("steam")
 
 # Steam category IDs mapped onto the game-mode vocabulary the other providers use.
 STEAM_CATEGORY_GAME_MODES: Final[dict[int, str]] = {
@@ -114,14 +120,9 @@ def _parse_release_date(raw_date: str) -> int | None:
     The store mixes "10 Dec, 2020" and "Dec 10, 2020" across apps, and returns
     year-only or quarter values for unreleased ones.
     """
-    for date_format in ("%d %b, %Y", "%b %d, %Y", "%d %B, %Y", "%B %d, %Y"):
-        try:
-            parsed = datetime.strptime(raw_date, date_format)
-        except ValueError:
-            continue
-        return int(parsed.replace(tzinfo=timezone.utc).timestamp())
-
-    return None
+    return parse_utc_timestamp(
+        raw_date, ("%d %b, %Y", "%b %d, %Y", "%d %B, %Y", "%B %d, %Y")
+    )
 
 
 def extract_steam_metadata(details: SteamAppDetails) -> SteamMetadata:
@@ -209,18 +210,13 @@ class SteamHandler(MetadataHandler):
         return STEAM_API_ENABLED
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
-
-        try:
+        async def probe() -> bool:
             details = await self.steam_service.get_app_details(
                 STEAM_HEARTBEAT_APP_ID, filters="basic"
             )
-        except Exception as exc:
-            log.error("Error checking Steam API: %s", exc)
-            return False
+            return details is not None
 
-        return details is not None
+        return await self._heartbeat("Steam API", probe)
 
     async def get_rom(self, fs_name: str, platform_slug: str) -> SteamRom:
         """
@@ -239,9 +235,9 @@ class SteamHandler(MetadataHandler):
         if platform_slug not in STEAM_PLATFORMS:
             return SteamRom(steam_id=None)
 
-        tag_match = STEAM_TAG_REGEX.search(fs_name)
-        if tag_match:
-            return await self.get_rom_by_id(int(tag_match.group(1)))
+        steam_id_from_tag = tag_id_from_filename(STEAM_TAG_REGEX, fs_name)
+        if steam_id_from_tag is not None:
+            return await self.get_rom_by_id(steam_id_from_tag)
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         search_term = self.normalize_search_term(search_term, remove_punctuation=False)

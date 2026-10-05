@@ -15,6 +15,7 @@ export const ROUTES = {
   EMULATORJS: "emulatorjs",
   JSDOS: "jsdos",
   PICO8: "pico8",
+  EASYRPG: "easyrpg",
   RUFFLE: "ruffle",
   STREAM: "stream",
   STREAM_DESKTOP: "stream-desktop",
@@ -26,8 +27,10 @@ export const ROUTES = {
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
   SCAN_SETTINGS: "scan-settings",
+  CONVERSION_SETTINGS: "conversion-settings",
   METADATA_SOURCES: "metadata-sources",
   CLIENT_API_TOKENS: "client-api-tokens",
+  DEVICES: "devices",
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
   LOGS: "logs",
@@ -48,6 +51,19 @@ export const ROUTES = {
 } as const;
 
 export type RouteName = (typeof ROUTES)[keyof typeof ROUTES];
+
+/** Scopes a route needs; the router sends a user without them to the 404 page. */
+export const ROUTE_SCOPES: Partial<Record<RouteName, readonly string[]>> = {
+  [ROUTES.CLIENT_API_TOKENS]: ["me.write"],
+  [ROUTES.DEVICES]: ["devices.read"],
+  [ROUTES.SCAN]: ["platforms.write"],
+  [ROUTES.UPLOAD]: ["roms.write"],
+  [ROUTES.LIBRARY_MANAGEMENT]: ["platforms.write"],
+  [ROUTES.SCAN_SETTINGS]: ["platforms.write"],
+  [ROUTES.CONVERSION_SETTINGS]: ["platforms.write"],
+  [ROUTES.ADMINISTRATION]: ["users.write"],
+  [ROUTES.LOGS]: ["logs.read"],
+};
 
 const authExemptRoutes = [
   ROUTES.LOGIN,

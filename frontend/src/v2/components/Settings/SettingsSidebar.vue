@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// SettingsSidebar — vertical grouped nav rendered alongside every Settings
+// SettingsSidebar: vertical grouped nav rendered alongside every Settings
 // view via <SettingsShell>. Replaces the previous horizontal pill nav.
 //
 // Groups mirror the v2 user-menu IA so the dropdown and the in-page
@@ -15,7 +15,7 @@
 // that the user can't reach (insufficient scopes/role) are filtered out.
 //
 // Responsive: this sidebar is mount-gated to `md-and-up` by SettingsLayout.
-// On phones / small tablets it isn't rendered at all — the navbar UserMenu
+// On phones / small tablets it isn't rendered at all: the navbar UserMenu
 // mirrors the same section IA, so an in-page strip would only duplicate it.
 import { RBadge, RChip, RIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
@@ -23,6 +23,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import { useCan } from "@/v2/composables/useCan";
 import storeNotificationInbox from "@/v2/stores/notificationInbox";
 
@@ -32,6 +33,7 @@ const { t } = useI18n();
 const auth = storeAuth();
 const { user, scopes } = storeToRefs(auth);
 const isAdmin = useCan("app.admin");
+const heartbeat = storeHeartbeat();
 const { unreadCount } = storeToRefs(storeNotificationInbox());
 interface Entry {
   icon: string;
@@ -109,6 +111,14 @@ const groups = computed<Group[]>(() => {
           visible: scopes.value.includes("platforms.write"),
         },
         {
+          icon: "mdi-swap-horizontal",
+          label: t("settings.conversion-settings"),
+          to: { name: ROUTES.CONVERSION_SETTINGS },
+          visible:
+            scopes.value.includes("platforms.write") &&
+            heartbeat.value.CONVERTO.ENABLED,
+        },
+        {
           icon: "mdi-database-cog-outline",
           label: t("scan.metadata-sources"),
           to: { name: ROUTES.METADATA_SOURCES },
@@ -119,6 +129,12 @@ const groups = computed<Group[]>(() => {
           label: t("settings.client-api-tokens"),
           to: { name: ROUTES.CLIENT_API_TOKENS },
           visible: scopes.value.includes("me.write"),
+        },
+        {
+          icon: "mdi-devices",
+          label: t("settings.devices"),
+          to: { name: ROUTES.DEVICES },
+          visible: scopes.value.includes("devices.read"),
         },
       ],
     },
@@ -235,7 +251,7 @@ const groups = computed<Group[]>(() => {
 /* Sticky column with a hairline right border. The sidebar is glued to
    the top of the viewport (under the navbar) and always fills the full
    visible height so the divider reaches the bottom of the screen. The
-   document is the only scrolling container — only the content column
+   document is the only scrolling container: only the content column
    moves when the user scrolls. */
 .r-v2-settings-sidebar {
   display: flex;

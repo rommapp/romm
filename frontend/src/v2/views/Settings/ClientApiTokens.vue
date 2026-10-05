@@ -9,7 +9,7 @@ import {
   type RTableSortPayload,
 } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject, onMounted, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DeviceSchema } from "@/__generated__/models/DeviceSchema";
 import clientTokenApi, {
@@ -21,6 +21,7 @@ import { formatTimestamp } from "@/utils";
 import CreateClientTokenDialog from "@/v2/components/Settings/CreateClientTokenDialog.vue";
 import ScopeCell from "@/v2/components/Settings/ScopeCell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const { t, locale } = useI18n();
@@ -28,10 +29,21 @@ const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 
-const tokens = ref<ClientTokenSchema[]>([]);
-const devices = ref<DeviceSchema[]>([]);
+const {
+  state: tokens,
+  isLoading: loading,
+  execute: fetchTokens,
+} = useFetchState(
+  () => clientTokenApi.fetchTokens().then(({ data }) => data),
+  [],
+  { onError: (error) => console.error(error) },
+);
+const { state: devices } = useFetchState(
+  () => deviceApi.fetchDevices().then(({ data }) => data),
+  [],
+  { onError: (error) => console.error(error) },
+);
 const search = ref("");
-const loading = ref(false);
 
 const devicesById = computed(() => {
   const map = new Map<string, DeviceSchema>();
@@ -115,18 +127,6 @@ function onSort({ key, dir }: RTableSortPayload) {
   sortDir.value = dir;
 }
 
-async function fetchTokens() {
-  loading.value = true;
-  try {
-    const { data } = await clientTokenApi.fetchTokens();
-    tokens.value = data;
-  } catch (error) {
-    console.error(error);
-  } finally {
-    loading.value = false;
-  }
-}
-
 function openCreate() {
   emitter?.emit("showCreateClientTokenDialog", null);
 }
@@ -163,20 +163,6 @@ async function deleteToken(token: ClientTokenSchema) {
     );
   }
 }
-
-async function fetchDevices() {
-  try {
-    const { data } = await deviceApi.fetchDevices();
-    devices.value = data;
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-onMounted(() => {
-  fetchTokens();
-  fetchDevices();
-});
 </script>
 
 <template>

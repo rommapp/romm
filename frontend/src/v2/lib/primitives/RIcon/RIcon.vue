@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RIcon — renders an MDI glyph via the `@mdi/font` CSS pseudo-element
+// RIcon: renders an MDI glyph via the `@mdi/font` CSS pseudo-element
 // pipeline. `font-size` drives the visual size; `color` resolves either
 // a v2 tone keyword (`"primary"`, `"success"`, …) or a legacy `romm-*`
 // name, or passes through any CSS colour value (hex, rgb(...), named
@@ -7,7 +7,7 @@
 //
 // Sized via `font-size` (not `width`/`height`) because the glyph is a
 // pseudo-element on the `.mdi` class. We mirror the icon's `font-size`
-// to `width`/`height` so the wrapper is a perfect square — keeps icon
+// to `width`/`height` so the wrapper is a perfect square: keeps icon
 // + text alignment in flex rows tight.
 import { computed } from "vue";
 
@@ -15,13 +15,13 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   /** MDI class name including the prefix, e.g. `mdi-controller`. */
-  icon?: string;
+  icon?: string | undefined;
   /** Named ladder (`x-small | small | default | large | x-large`),
    *  bare number (px), or any CSS length (`"1.4em"`, `"20px"`). */
-  size?: string | number;
+  size?: string | number | undefined;
   /** v2 tone keyword, legacy `romm-*`, or any CSS colour. Omit to
    *  inherit the parent's text colour. */
-  color?: string;
+  color?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -114,7 +114,7 @@ const styleObj = computed(() => {
   user-select: none;
   /* Animate colour/transform changes so consumers that toggle tones
      (favourite, selected, error) get a smooth swap rather than a hard
-     flip. Cheap, idempotent — matches the motion vocabulary RSwitch
+     flip. Cheap, idempotent: matches the motion vocabulary RSwitch
      established. */
   transition:
     color var(--r-motion-fast) var(--r-motion-ease-out),

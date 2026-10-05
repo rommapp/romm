@@ -14,6 +14,7 @@ since no index can serve the `ORDER BY <column> IS NULL` that emulated it.
 
 import pytest
 import sqlalchemy as sa
+from tests.factories import make_rom
 from tests.sql_dialects import (
     MARIADB_DIALECT,
     POSTGRESQL_DIALECT,
@@ -36,18 +37,7 @@ from utils.database import (
 
 
 def _make_rom(platform: Platform, fs_name: str, **metadata) -> Rom:
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=fs_name,
-            slug=fs_name,
-            fs_name=f"{fs_name}.zip",
-            fs_name_no_tags=fs_name,
-            fs_name_no_ext=fs_name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    rom = make_rom(platform, fs_name)
     if metadata:
         rom = db_rom_handler.update_rom(rom.id, metadata)
     return rom
@@ -158,19 +148,21 @@ class TestMetadataSortQueryShape:
             (
                 POSTGRESQL_DIALECT,
                 "asc",
-                "roms.generated_player_count ASC NULLS LAST, roms.id ASC",
+                "roms.generated_player_count ASC NULLS LAST, "
+                "CASE WHEN ((roms.name ILIKE",
             ),
             (
                 POSTGRESQL_DIALECT,
                 "desc",
-                "roms.generated_player_count DESC NULLS LAST, roms.id DESC",
+                "roms.generated_player_count DESC NULLS LAST, "
+                "CASE WHEN ((roms.name ILIKE",
             ),
         ],
     )
     def test_search_relevance_follows_the_null_placement_terms(
         self, dialect: sa.Dialect, order_dir: str, expected: str
     ):
-        """Relevance only ranks on the FULLTEXT engines, after the explicit sort."""
+        """Relevance ranks after the explicit sort, on every engine."""
         query, _ = db_rom_handler.get_roms_query(
             order_by="player_count", order_dir=order_dir, search_term="final fantasy"
         )

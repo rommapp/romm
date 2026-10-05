@@ -1,10 +1,10 @@
-<script setup lang="ts">
-// RTabNav — single component, two visual presentations:
-//   * variant="underlined" (default) — horizontal nav with a brand
+<script setup lang="ts" generic="Id extends string">
+// RTabNav: single component, two visual presentations:
+//   * variant="underlined" (default): horizontal nav with a brand
 //     underline on active. Used for primary tabs and tight subtabs.
 //     The underline is a sliding indicator (parallels RSliderBtnGroup)
 //     that translates between buttons on `modelValue` change.
-//   * variant="pill" — stacked menu-like items with a soft rounded
+//   * variant="pill": stacked menu-like items with a soft rounded
 //     fill on active. Pairs naturally with `orientation="vertical"`
 //     for left-rail subtabs (SaveDataTab style).
 //
@@ -14,14 +14,8 @@
 //
 // A horizontal strip that overflows fades its clipped edges and shows a
 // chevron there, so a narrow viewport still reads as "more tabs this way".
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from "vue";
+import { useResizeObserver } from "@vueuse/core";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RImg from "../../primitives/RImg/RImg.vue";
@@ -34,8 +28,8 @@ const EDGE_PX = 40;
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  modelValue: string;
-  items: RTabNavItem[];
+  modelValue: Id;
+  items: RTabNavItem<Id>[];
   /** Size ladder shared with RBtn / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
   variant?: "underlined" | "pill";
@@ -49,7 +43,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 defineEmits<{
-  (e: "update:modelValue", v: string): void;
+  (e: "update:modelValue", v: Id): void;
 }>();
 
 const visibleItems = computed(() =>
@@ -161,8 +155,28 @@ watch([visibleItems, () => props.variant, () => props.orientation], () =>
   }),
 );
 
-let resizeObserver: ResizeObserver | null = null;
 let lastTrackWidth = 0;
+
+useResizeObserver(trackEl, () => {
+  const track = trackEl.value;
+  if (!track) return;
+  const w = track.getBoundingClientRect().width;
+  // 0→nonzero (display:none → visible): re-measure without
+  // animation so the indicator doesn't slide in from the left.
+  if (lastTrackWidth === 0 && w > 0) {
+    animate.value = false;
+    update();
+    requestAnimationFrame(() => {
+      animate.value = true;
+    });
+  } else {
+    update();
+  }
+  // A narrower strip can clip the selected tab.
+  revealActive("auto");
+  updateOverflow();
+  lastTrackWidth = w;
+});
 
 onMounted(async () => {
   await nextTick();
@@ -175,34 +189,7 @@ onMounted(async () => {
   requestAnimationFrame(() => {
     animate.value = true;
   });
-  const track = trackEl.value;
-  if (track) {
-    lastTrackWidth = track.getBoundingClientRect().width;
-    resizeObserver = new ResizeObserver(() => {
-      const w = track.getBoundingClientRect().width;
-      // 0→nonzero (display:none → visible): re-measure without
-      // animation so the indicator doesn't slide in from the left.
-      if (lastTrackWidth === 0 && w > 0) {
-        animate.value = false;
-        update();
-        requestAnimationFrame(() => {
-          animate.value = true;
-        });
-      } else {
-        update();
-      }
-      // A narrower strip can clip the selected tab.
-      revealActive("auto");
-      updateOverflow();
-      lastTrackWidth = w;
-    });
-    resizeObserver.observe(track);
-  }
-});
-
-onBeforeUnmount(() => {
-  resizeObserver?.disconnect();
-  resizeObserver = null;
+  lastTrackWidth = trackEl.value?.getBoundingClientRect().width ?? 0;
 });
 </script>
 
@@ -316,7 +303,7 @@ onBeforeUnmount(() => {
   /* Scroll horizontally to reach overflowing tabs, but stay OUT of the
      vertical axis: `overflow-y: hidden` (not the `auto` that `overflow-x`
      would otherwise force) means the strip isn't a vertical scroll
-     container, so a vertical-dominant touch swipe isn't latched here — it
+     container, so a vertical-dominant touch swipe isn't latched here: it
      chains to the page scroller and the view still scrolls when the swipe
      starts on the tabs. (`touch-action: pan-x` can't do this: per spec it
      removes vertical panning from the whole gesture, freezing the page.)
@@ -411,7 +398,7 @@ onBeforeUnmount(() => {
 .r-tab-nav__icon {
   flex-shrink: 0;
 }
-/* Image variant — provider logos / brand marks. RImg owns the inner
+/* Image variant: provider logos / brand marks. RImg owns the inner
    <img>; we round its outer wrapper and ride opacity from "muted at
    rest" to "full saturation on hover/active" so the brand mark stands
    out only when it's the focus of the surface. */
@@ -489,7 +476,7 @@ html[data-input="pad"] .r-tab-nav__btn:focus-visible::before {
   font-size: var(--r-font-size-xl);
 }
 
-/* Sliding underline — sits on the bottom border line, slides between
+/* Sliding underline: sits on the bottom border line, slides between
    buttons on modelValue change (parallels RSliderBtnGroup's indicator). */
 .r-tab-nav__indicator {
   position: absolute;

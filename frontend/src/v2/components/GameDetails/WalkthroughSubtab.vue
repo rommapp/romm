@@ -100,9 +100,9 @@ watch(
     } else {
       const added = list.filter((e) => !previousIds.has(e.id));
       if (added.length > 0 && previousIds.size > 0) {
-        selectedId.value = added[added.length - 1].id;
+        selectedId.value = added[added.length - 1]!.id;
       } else if (!list.some((e) => e.id === selectedId.value)) {
-        selectedId.value = list[0].id;
+        selectedId.value = list[0]!.id;
       }
     }
     previousIds = currentIds;

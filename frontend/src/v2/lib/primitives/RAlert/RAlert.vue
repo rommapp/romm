@@ -1,21 +1,21 @@
 <script setup lang="ts">
-// RAlert — banner with an auto-picked tone icon, title +
+// RAlert: banner with an auto-picked tone icon, title +
 // body, optional close button, and a `<Transition>` mount that fades
 // in / out so toggling visibility doesn't pop.
 //
 // `type` (`success | info | warning | error`) drives the colour and
 // the default icon. `variant` controls the paint:
-//   • translucent (default) — soft tinted fill, coloured text
-//   • flat — solid colour fill, white text
-//   • elevated — flat + drop shadow
-//   • outlined — coloured border + transparent fill
-//   • text — no chrome, just coloured text
+//   • translucent (default): soft tinted fill, coloured text
+//   • flat: solid colour fill, white text
+//   • elevated: flat + drop shadow
+//   • outlined: coloured border + transparent fill
+//   • text: no chrome, just coloured text
 //
 // Slots:
-//   • default — body (alternatively `text` prop)
-//   • title — header (alternatively `title` prop)
-//   • prepend — replaces the auto-picked icon
-//   • append — extra content on the trailing edge
+//   • default: body (alternatively `text` prop)
+//   • title: header (alternatively `title` prop)
+//   • prepend: replaces the auto-picked icon
+//   • append: extra content on the trailing edge
 //   • actions: a row of controls under the body text
 //
 // v-model controls visibility. When `closable` is set, clicking the
@@ -28,16 +28,16 @@ import RIcon from "../RIcon/RIcon.vue";
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  /** Tone keyword — drives colour + default icon. */
-  type?: "success" | "info" | "warning" | "error";
+  /** Tone keyword: drives colour + default icon. */
+  type?: "success" | "info" | "warning" | "error" | undefined;
   variant?: "flat" | "elevated" | "translucent" | "outlined" | "text";
   closable?: boolean;
   /** MDI icon override, or `false` to suppress the auto-icon. */
-  icon?: string | false;
+  icon?: string | false | undefined;
   density?: "default" | "comfortable" | "compact";
-  title?: string;
+  title?: string | undefined;
   /** Shortcut for the default slot. */
-  text?: string;
+  text?: string | undefined;
   rounded?: string | number | boolean;
   /** v-model visibility. */
   modelValue?: boolean;
@@ -64,7 +64,7 @@ const emit = defineEmits<{
 
 const slots = useSlots();
 
-// Auto icon per type — the alert reads the alert tone at a glance.
+// Auto icon per type: the alert reads the alert tone at a glance.
 const TYPE_ICON: Record<string, string> = {
   success: "mdi-check-circle",
   info: "mdi-information",
@@ -109,7 +109,7 @@ const resolvedRounded = computed<string>(() => {
   return ROUNDED_MAP[r as string] ?? String(r);
 });
 
-// Role hint per type — error stays `alert` (assertive), the rest read
+// Role hint per type: error stays `alert` (assertive), the rest read
 // as `status` (polite). Matches WAI-ARIA semantics so screen readers
 // don't interrupt for a success banner.
 const ariaRole = computed(() => (props.type === "error" ? "alert" : "status"));
@@ -141,7 +141,7 @@ function close(evt: MouseEvent) {
       }"
       :role="ariaRole"
     >
-      <!-- Prepend zone — slot wins over auto-icon. -->
+      <!-- Prepend zone: slot wins over auto-icon. -->
       <span v-if="slots.prepend || resolvedIcon" class="r-alert__prepend">
         <slot name="prepend">
           <RIcon
@@ -152,7 +152,7 @@ function close(evt: MouseEvent) {
         </slot>
       </span>
 
-      <!-- Body — title + body text. Each is optional. -->
+      <!-- Body: title + body text. Each is optional. -->
       <div class="r-alert__body">
         <div v-if="title || slots.title" class="r-alert__title">
           <slot name="title">{{ title }}</slot>
@@ -165,12 +165,12 @@ function close(evt: MouseEvent) {
         </div>
       </div>
 
-      <!-- Append zone — caller-provided actions / links. -->
+      <!-- Append zone: caller-provided actions / links. -->
       <span v-if="slots.append" class="r-alert__append">
         <slot name="append" />
       </span>
 
-      <!-- Close button — only rendered when `closable`. -->
+      <!-- Close button: only rendered when `closable`. -->
       <button
         v-if="closable"
         type="button"
@@ -187,7 +187,7 @@ function close(evt: MouseEvent) {
 <style scoped>
 .r-alert {
   display: flex;
-  /* Default: single-line alert — icon vertical centre = text vertical
+  /* Default: single-line alert, icon vertical centre = text vertical
      centre, which reads as "aligned". When a title pushes the body
      to 2+ lines, `r-alert--has-title` overrides to `flex-start` so
      the icon hugs the top of the title rather than floating between
@@ -228,7 +228,7 @@ function close(evt: MouseEvent) {
   align-items: center;
   flex-shrink: 0;
 }
-/* In the multi-line / title case the alert is top-aligned — nudge
+/* In the multi-line / title case the alert is top-aligned: nudge
    the icon down 1px so its optical centre matches the title's first
    line baseline (otherwise mixed-case glyphs sit slightly low). */
 .r-alert--has-title .r-alert__prepend,
@@ -265,7 +265,7 @@ function close(evt: MouseEvent) {
   margin-top: 8px;
 }
 
-/* ── Close button — own hover halo so it reads as separate ────── */
+/* ── Close button: own hover halo so it reads as separate ────── */
 .r-alert__close {
   display: inline-flex;
   align-items: center;
@@ -301,7 +301,7 @@ function close(evt: MouseEvent) {
   font-size: 14px;
 }
 
-/* ── Variant: translucent (default) — soft tinted fill ────────── */
+/* ── Variant: translucent (default), soft tinted fill ────────── */
 .r-alert--translucent.r-alert--has-color {
   background: color-mix(in srgb, var(--r-alert-color) 14%, transparent);
   color: var(--r-alert-color);
@@ -313,7 +313,7 @@ function close(evt: MouseEvent) {
   border-color: var(--r-color-border);
 }
 
-/* ── Variant: flat — solid colour fill ───────────────────────── */
+/* ── Variant: flat, solid colour fill ───────────────────────── */
 .r-alert--flat.r-alert--has-color {
   background: var(--r-alert-color);
   color: white;
@@ -327,7 +327,7 @@ function close(evt: MouseEvent) {
   color: var(--r-color-fg);
 }
 
-/* ── Variant: elevated — flat + shadow ───────────────────────── */
+/* ── Variant: elevated, flat + shadow ───────────────────────── */
 .r-alert--elevated.r-alert--has-color {
   background: var(--r-alert-color);
   color: white;
@@ -344,7 +344,7 @@ function close(evt: MouseEvent) {
   box-shadow: 0 4px 12px color-mix(in srgb, black 22%, transparent);
 }
 
-/* ── Variant: outlined — border + transparent fill ───────────── */
+/* ── Variant: outlined, border + transparent fill ───────────── */
 .r-alert--outlined {
   background: transparent;
 }
@@ -357,7 +357,7 @@ function close(evt: MouseEvent) {
   border-color: var(--r-color-border);
 }
 
-/* ── Variant: text — no chrome, coloured text only ───────────── */
+/* ── Variant: text, no chrome, coloured text only ───────────── */
 .r-alert--text {
   background: transparent;
   border-color: transparent;
@@ -370,7 +370,7 @@ function close(evt: MouseEvent) {
 }
 
 /* ── Mount / unmount transition ──────────────────────────────── */
-/* Slides + fades when toggled — keeps closing alerts from popping out
+/* Slides + fades when toggled: keeps closing alerts from popping out
    of the document. The 8px slide is subtle enough to read as motion
    without being a "drawer". */
 .r-alert-enter-active {

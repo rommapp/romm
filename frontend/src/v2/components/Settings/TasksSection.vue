@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// TasksSection — v2-native rebuild of v1
+// TasksSection: v2-native rebuild of v1
 // `Settings/Administration/Tasks.vue`. Renders the watcher / scheduled /
 // manual task lists and a "task history" feed below them. Each task
 // list follows the mock's settings-task-row pattern (icon + info + run
@@ -10,14 +10,17 @@
 // run button that posts to /tasks/{name}/run.
 import { RBtn, RIcon, RSpinner } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import type { TaskInfo } from "@/__generated__";
 import taskApi from "@/services/api/task";
 import storeTasks from "@/stores/tasks";
 import { convertCronExperssion, formatTimestamp } from "@/utils";
 import { TaskStatusItem, type TaskStatusResponse } from "@/utils/tasks";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useVisiblePoll } from "@/v2/composables/useVisiblePoll";
 
 defineOptions({ inheritAttrs: false });
 
@@ -26,6 +29,7 @@ const tasksStore = storeTasks();
 const { watcherTasks, scheduledTasks, manualTasks, taskStatuses } =
   storeToRefs(tasksStore);
 const snackbar = useSnackbar();
+const confirm = useConfirm();
 
 const watcherTasksUI = computed(() =>
   watcherTasks.value.map((task) => ({
@@ -42,8 +46,11 @@ const scheduledTasksUI = computed(() =>
   })),
 );
 
+// A manual task the server can't run, such as one missing its binary, is hidden.
 const manualTasksUI = computed(() =>
-  manualTasks.value.map((task) => ({ ...task, icon: "mdi-broom" })),
+  manualTasks.value
+    .filter((task) => task.manual_run)
+    .map((task) => ({ ...task, icon: "mdi-broom" })),
 );
 
 const IN_FLIGHT_STATUSES = ["queued", "started"];
@@ -67,7 +74,17 @@ function isTaskRunning(name: string) {
   );
 }
 
-async function runTask(name: string, title: string) {
+async function runTask({ name, title, destructive }: TaskInfo) {
+  if (destructive) {
+    const ok = await confirm({
+      title: t("settings.task-destructive-confirm-title", { title }),
+      body: t("settings.task-destructive-confirm-body"),
+      confirmText: t("settings.task-destructive-confirm"),
+      tone: "danger",
+      requireTyped: t("rom.delete-keyword"),
+    });
+    if (!ok) return;
+  }
   startingTasks.value.add(name);
   try {
     await taskApi.runTask(name);
@@ -100,19 +117,12 @@ async function fetchTaskStatus() {
   }
 }
 
-let refreshInterval: number | null = null;
-
 onMounted(() => {
   void tasksStore.fetchTasks();
   void fetchTaskStatus();
-  refreshInterval = window.setInterval(() => {
-    void fetchTaskStatus();
-  }, 5000);
 });
 
-onUnmounted(() => {
-  if (refreshInterval) clearInterval(refreshInterval);
-});
+useVisiblePoll(() => void fetchTaskStatus(), 5000);
 
 function statusInfo(task: TaskStatusResponse) {
   return TaskStatusItem[task.status] ?? TaskStatusItem.queued;
@@ -185,7 +195,7 @@ function statusInfo(task: TaskStatusResponse) {
             :disabled="isTaskRunning(task.name)"
             :aria-label="t('settings.run-task', { title: task.title })"
             :title="t('settings.run-task', { title: task.title })"
-            @click="runTask(task.name, task.title)"
+            @click="runTask(task)"
           >
             <RIcon icon="mdi-play" size="14" />
           </button>
@@ -213,7 +223,7 @@ function statusInfo(task: TaskStatusResponse) {
             :disabled="isTaskRunning(task.name)"
             :aria-label="t('settings.run-task', { title: task.title })"
             :title="t('settings.run-task', { title: task.title })"
-            @click="runTask(task.name, task.title)"
+            @click="runTask(task)"
           >
             <RIcon icon="mdi-play" size="14" />
           </button>

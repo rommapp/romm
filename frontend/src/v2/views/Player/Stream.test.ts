@@ -1,11 +1,11 @@
-import { RBtn } from "@v2/lib";
+import { RBtn, RSlider } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, type Slots, type VNodeChild } from "vue";
+import { defineComponent, nextTick, type Slots, type VNodeChild } from "vue";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
@@ -24,9 +24,11 @@ const mocks = vi.hoisted(() => ({
   saveAndExitKeepalive: vi.fn(),
   loadState: vi.fn(),
   saveState: vi.fn(),
+  setVolume: vi.fn(),
   container: null as Record<string, unknown> | null,
   capabilities: {} as Record<string, unknown>,
   presenceTick: null as (() => Promise<void>) | null,
+  playSession: { start: vi.fn(), flush: vi.fn() },
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
   query: {} as Record<string, string>,
   snackbar: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
@@ -55,6 +57,7 @@ vi.mock("@/services/api/streaming", () => ({
   default: {
     loadState: mocks.loadState,
     saveState: mocks.saveState,
+    setVolume: mocks.setVolume,
   },
   isMemoryCardImportDetail: () => false,
 }));
@@ -139,7 +142,7 @@ vi.mock("@/v2/composables/useInputModality", async () => {
 vi.mock("@/v2/composables/usePageTitle", () => ({ usePageTitle: vi.fn() }));
 
 vi.mock("@/v2/composables/usePlaySession", () => ({
-  usePlaySession: () => ({ start: vi.fn(), flush: vi.fn() }),
+  usePlaySession: () => mocks.playSession,
 }));
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
@@ -154,6 +157,7 @@ vi.mock("@/v2/composables/useSocketEvent", () => ({
 
 vi.mock("@/v2/composables/useStageActive", () => ({
   useStageActive: vi.fn(),
+  usePlayingWhile: vi.fn(),
 }));
 
 vi.mock("@/v2/composables/useUnloadGuard", () => ({
@@ -185,6 +189,8 @@ const StreamStageStub = exposingStub(
     enterFullscreen: () => Promise.resolve(),
     leaveFullscreen: () => Promise.resolve(),
     focusStream: () => {},
+    // Declines, as a cross-origin container does, so volume goes to the broker.
+    postToStream: () => false,
   },
   (slots) => slots.bar?.({ isFullscreen: false, toggleFullscreen: () => {} }),
 );
@@ -215,7 +221,7 @@ const ARCHIVES = [
 ];
 
 function romWith(saves: SaveSchema[], states: StateSchema[] = []): DetailedRom {
-  return makeDetailedRom({
+  return detailedRomFixture({
     id: 3,
     name: "Archer Maclean's 3D Pool (USA)",
     platform_slug: "gba",
@@ -225,19 +231,8 @@ function romWith(saves: SaveSchema[], states: StateSchema[] = []): DetailedRom {
     user_saves: saves,
     all_user_states: states.map((state) => ({ ...state, username: "admin" })),
     user_screenshots: [],
-    metadatum: {} as DetailedRom["metadatum"],
   });
 }
-
-// The view listens on document and window, so a mount left standing would
-// answer the next test's visibilitychange and pagehide too.
-const mounted: VueWrapper[] = [];
-
-afterEach(() => {
-  for (const wrapper of mounted.splice(0)) {
-    if (wrapper.exists()) wrapper.unmount();
-  }
-});
 
 async function launch(opts: {
   picker: boolean;
@@ -270,7 +265,6 @@ async function launch(opts: {
       stubs: { GameCover: GameCoverStub, StreamStage: StreamStageStub },
     },
   });
-  mounted.push(wrapper);
   await flushPromises();
   return wrapper;
 }
@@ -305,7 +299,6 @@ function deferClaim(): (claim: typeof CLAIM) => void {
 
 describe("Stream save picker", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -334,7 +327,7 @@ describe("Stream save picker", () => {
       ],
     });
 
-    expect((saveList(wrapper)!.props("assets") as SaveSchema[])[0].id).toBe(3);
+    expect((saveList(wrapper)!.props("assets") as SaveSchema[])[0]?.id).toBe(3);
     expect(saveList(wrapper)!.props("timestamp")).toBe("created");
     expect(preview(wrapper)!.props("timestamp")).toBe("created");
   });
@@ -353,7 +346,7 @@ describe("Stream save picker", () => {
     expect((preview(wrapper)!.props("asset") as SaveSchema).id).toBe(1);
 
     await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
-    expect(mocks.claimSession.mock.calls[0][2]).toBe(1);
+    expect(mocks.claimSession.mock.calls[0]![2]).toBe(1);
   });
 
   it("includes bare (non-archive) save files where the broker imports saves", async () => {
@@ -424,7 +417,7 @@ describe("Stream save picker", () => {
     expect(saveList(wrapper)!.props("selectedId")).toBe(9);
 
     await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
-    expect(mocks.claimSession.mock.calls[0][2]).toBe(9);
+    expect(mocks.claimSession.mock.calls[0]![2]).toBe(9);
   });
 
   it("reports instead of offering where the emulator keeps its save tree", async () => {
@@ -449,7 +442,7 @@ describe("Stream save picker", () => {
     const wrapper = await launch({ picker: false });
 
     await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
-    expect(mocks.claimSession.mock.calls[0][2]).toBeUndefined();
+    expect(mocks.claimSession.mock.calls[0]![2]).toBeUndefined();
   });
 
   it("falls back to the newest when the picked archive is gone", async () => {
@@ -476,6 +469,7 @@ type StreamVm = {
   claimedAt: string | null;
   playerState: string;
   endedDialogOpen: boolean;
+  exitDialogOpen: boolean;
   holdsClaim: boolean;
   containerHost: string;
   errorMessage: string;
@@ -487,7 +481,7 @@ function vmOf(wrapper: VueWrapper): StreamVm {
 }
 
 function endSession(notice: Record<string, unknown>): void {
-  const handler = mocks.socketHandlers["streaming:session-ended"];
+  const handler = mocks.socketHandlers["streaming:session-ended"]!;
   expect(handler).toBeTypeOf("function");
   handler({
     ended_by: "admin",
@@ -500,7 +494,7 @@ function endSession(notice: Record<string, unknown>): void {
 async function launchReady(
   payload: Record<string, unknown> = {},
 ): Promise<void> {
-  const handler = mocks.socketHandlers["streaming:launch-ready"];
+  const handler = mocks.socketHandlers["streaming:launch-ready"]!;
   expect(handler).toBeTypeOf("function");
   await handler({
     platform: "gba",
@@ -514,7 +508,7 @@ async function launchReady(
 async function launchFailed(
   payload: Record<string, unknown> = {},
 ): Promise<void> {
-  const handler = mocks.socketHandlers["streaming:launch-failed"];
+  const handler = mocks.socketHandlers["streaming:launch-failed"]!;
   expect(handler).toBeTypeOf("function");
   await handler({
     platform: "gba",
@@ -526,7 +520,6 @@ async function launchFailed(
 
 describe("Stream session-ended notices", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -626,9 +619,27 @@ describe("Stream session-ended notices", () => {
   });
 });
 
+describe("Stream exit chord", () => {
+  beforeEach(() => {
+    mocks.claimSession.mockResolvedValue(CLAIM);
+  });
+
+  it("opens the exit dialog from the pad's exit chord", async () => {
+    // B is muted with the rest of the pad, so the chord is the pad's way out.
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    expect(vmOf(wrapper).playerState).toBe("playing");
+
+    window.dispatchEvent(new Event("gamepad:exitchord"));
+    await flushPromises();
+
+    expect(vmOf(wrapper).exitDialogOpen).toBe(true);
+  });
+});
+
 describe("Stream claim hygiene", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
     mocks.releaseSession.mockResolvedValue(true);
   });
@@ -711,7 +722,7 @@ describe("Stream claim hygiene", () => {
     wrapper.unmount();
 
     const [platform, , wait, container, claimedAt] =
-      mocks.saveAndExit.mock.calls[0];
+      mocks.saveAndExit.mock.calls[0]!;
     expect([platform, wait, container, claimedAt]).toEqual([
       "gba",
       false,
@@ -728,7 +739,7 @@ describe("Stream claim hygiene", () => {
     window.dispatchEvent(new Event("pagehide"));
 
     const [platform, , container, claimedAt] =
-      mocks.saveAndExitKeepalive.mock.calls[0];
+      mocks.saveAndExitKeepalive.mock.calls[0]!;
     expect([platform, container, claimedAt]).toEqual([
       "gba",
       CLAIM.container,
@@ -745,7 +756,7 @@ describe("Stream claim hygiene", () => {
     await vmOf(wrapper).performSaveAndExit();
 
     const [platform, , wait, container, claimedAt] =
-      mocks.saveAndExit.mock.calls[0];
+      mocks.saveAndExit.mock.calls[0]!;
     expect([platform, wait, container, claimedAt]).toEqual([
       "gba",
       true,
@@ -834,7 +845,6 @@ describe("Stream claim hygiene", () => {
 
 describe("Stream state controls", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
     mocks.capabilities = { maxSlots: 0, hasAutosave: true, autosaveSlot: 10 };
   });
@@ -876,7 +886,6 @@ async function pollStatus(): Promise<void> {
 
 describe("Stream launch recovery", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -961,6 +970,16 @@ describe("Stream launch recovery", () => {
     expect(mocks.t).toHaveBeenCalledWith("play.core-untested", {
       core: "bsnes",
     });
+  });
+
+  it("leaves the claim holder's play session to the backend", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    await flushPromises();
+
+    expect(vmOf(wrapper).playerState).toBe("playing");
+    expect(mocks.playSession.start).not.toHaveBeenCalled();
   });
 
   it("warns of the core once when launch-ready follows the poll", async () => {
@@ -1156,7 +1175,6 @@ describe("Stream launch recovery", () => {
 
 describe("Stream join", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.joinSession.mockResolvedValue({ host: "http://box:3000/room/x" });
     mocks.query = { join: "1", container: "http://box:8000" };
   });
@@ -1182,11 +1200,20 @@ describe("Stream join", () => {
 
     expect(mocks.joinSession).toHaveBeenCalledWith("gba", undefined);
   });
+
+  it("times the joiner's play session once the stream runs", async () => {
+    await launch({ picker: false });
+    await flushPromises();
+
+    expect(mocks.playSession.start).toHaveBeenCalledOnce();
+    expect(mocks.playSession.start).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 3 }),
+    );
+  });
 });
 
 describe("Stream state picker", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.claimSession.mockResolvedValue(CLAIM);
   });
 
@@ -1259,5 +1286,51 @@ describe("Stream state picker", () => {
     });
 
     expect(pickableStateIds(wrapper)).toEqual([5, 8]);
+  });
+});
+
+describe("Stream volume over the broker", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    mocks.setVolume.mockResolvedValue({});
+  });
+
+  // The volume slider sits in the bar, which a running game puts on screen.
+  async function play(): Promise<VueWrapper> {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    await flushPromises();
+    return wrapper;
+  }
+
+  async function slide(wrapper: VueWrapper, ...levels: number[]) {
+    const slider = wrapper.getComponent(RSlider);
+    for (const level of levels) {
+      slider.vm.$emit("update:modelValue", level);
+      await nextTick();
+    }
+  }
+
+  it("hands the broker a volume only once it settles", async () => {
+    const wrapper = await play();
+
+    await slide(wrapper, 40, 30);
+    await vi.advanceTimersByTimeAsync(149);
+    expect(mocks.setVolume).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocks.setVolume).toHaveBeenCalledOnce();
+    expect(mocks.setVolume.mock.calls[0]![1]).toBe(30);
+  });
+
+  it("drops a volume still settling when the view unmounts", async () => {
+    const wrapper = await play();
+
+    await slide(wrapper, 40);
+    wrapper.unmount();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(mocks.setVolume).not.toHaveBeenCalled();
   });
 });

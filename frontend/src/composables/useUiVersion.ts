@@ -1,4 +1,4 @@
-// useUiVersion — singleton ref for the v1/v2 UI toggle.
+// useUiVersion: singleton ref for the v1/v2 UI toggle.
 //
 // vueuse's useLocalStorage creates an INDEPENDENT ref per call. Two callers
 // with the same key share localStorage but not Vue reactivity within the
@@ -8,11 +8,11 @@
 //
 // Default is "v2". v1 remains reachable for users who explicitly opt back
 // via Settings → User Interface → UI version → Old UI.
-import { useLocalStorage } from "@vueuse/core";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 
 export type UiVersion = "v1" | "v2";
 
-const uiVersion = useLocalStorage<UiVersion>("settings.uiVersion", "v2");
+const uiVersion = useUserLocalStorage<UiVersion>("settings.uiVersion", "v2");
 
 export function useUiVersion() {
   return uiVersion;

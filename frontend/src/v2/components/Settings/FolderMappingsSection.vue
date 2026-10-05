@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// FolderMappingsSection — v2-native rebuild of v1
+// FolderMappingsSection: v2-native rebuild of v1
 // `Settings/LibraryManagement/Config/FolderMappings.vue`. Lists every
 // filesystem folder the scanner sees and lets admins map each one to a
 // RomM platform (alias) or to a parent platform's metadata (variant).
 // Auto-detected mappings are read-only.
 //
-// Renders through the shared `RTable` primitive — sortable headers,
-// hairline rows, hover tint, skeleton loading state — same chrome as
+// Renders through the shared `RTable` primitive (sortable headers,
+// hairline rows, hover tint, skeleton loading state), same chrome as
 // every other table surface in the app (gallery list, missing games,
 // excluded). Editable Platform / Type cells open `RMenu` pickers via
 // `RBtn` activators.
@@ -30,6 +30,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { Platform } from "@/stores/platforms";
 import FolderMappingPlatformCell from "@/v2/components/Settings/FolderMappingPlatformCell.vue";
 import FolderMappingTypeCell from "@/v2/components/Settings/FolderMappingTypeCell.vue";
+import type { Row, RowType } from "@/v2/components/Settings/folderMappingRow";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -47,18 +48,10 @@ const search = ref("");
 const loading = ref(false);
 const helpOpen = ref(false);
 
-type RowType = "alias" | "variant" | "auto" | null;
 type SortKey = "fsSlug" | "displayName" | "type";
 
 const sortKey = ref<SortKey>("fsSlug");
 const sortDir = ref<"asc" | "desc">("asc");
-
-interface Row {
-  fsSlug: string;
-  slug?: string;
-  displayName?: string;
-  type: RowType;
-}
 
 const TYPE_ORDER: Record<NonNullable<RowType> | "none", number> = {
   alias: 0,
@@ -154,7 +147,7 @@ const filteredMappings = computed(() => {
   );
 });
 
-// Same check as v1 (OAuth scope) — admin/editor get `platforms.write`
+// Same check as v1 (OAuth scope): admin/editor get `platforms.write`
 // via FULL_SCOPES / EDIT_SCOPES on the backend. Matches the working
 // permission gate exactly, avoiding the v2 useCan-store hydration race
 // that was leaving cells unclickable on Settings load.
@@ -207,7 +200,7 @@ function onSort({ key, dir }: RTableSortPayload) {
   sortDir.value = dir;
 }
 
-// RTable expects a single string sortKey — translate our internal
+// RTable expects a single string sortKey: translate our internal
 // `displayName` back to the column key it shows the chevron next to.
 const tableSortKey = computed(() =>
   sortKey.value === "displayName" ? "platform" : sortKey.value,
@@ -405,7 +398,7 @@ onMounted(async () => {
       </template>
     </RTable>
 
-    <!-- Help dialog — replaces the previous toolbar tooltip. Same
+    <!-- Help dialog: replaces the previous toolbar tooltip. Same
          alias/variant copy, plus a footer note about mutual exclusion.
          Auto isn't covered here on purpose: it's system-detected and
          users can't pick it manually. -->
@@ -478,13 +471,13 @@ onMounted(async () => {
 
 /* Group each selector's content (platform icon + name / type pill) with its
    chevron right after it, instead of the value stretching and flinging the
-   chevron away — removes the big gap in the desktop table. */
+   chevron away: removes the big gap in the desktop table. */
 .r-v2-mappings :deep(.r-v2-fmpc .r-select__value),
 .r-v2-mappings :deep(.r-v2-fmtc .r-select__value) {
   flex: 0 1 auto;
 }
 
-/* Mobile card-stack — the selectors fill the value column as full-width tap
+/* Mobile card-stack: the selectors fill the value column as full-width tap
    targets but pack their content against the right edge, so Platform, Type,
    the folder name and the delete action all line up on the right. */
 html[data-bp~="xs"] .r-v2-mappings :deep(.r-table--mobile-stack .r-v2-fmpc),
@@ -514,7 +507,7 @@ html[data-bp~="xs"]
   padding-inline-end: 0;
 }
 
-/* Delete row action — danger-tinted icon RBtn. */
+/* Delete row action: danger-tinted icon RBtn. */
 .r-v2-mappings__delete-btn {
   color: color-mix(in srgb, var(--r-color-danger) 70%, transparent) !important;
 }
@@ -527,7 +520,7 @@ html[data-bp~="xs"]
   ) !important;
 }
 
-/* Help dialog — alias / variant explanation. Two stacked sections
+/* Help dialog: alias / variant explanation. Two stacked sections
    with a footer note about mutual exclusion. */
 .r-v2-mappings__help-title {
   font-weight: var(--r-font-weight-semibold);

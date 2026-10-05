@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// NewVersionBanner — checks the GitHub releases API for a newer version
+// NewVersionBanner: checks the GitHub releases API for a newer version
 // than the running build (heartbeat.SYSTEM.VERSION) and surfaces a
 // bottom-center sticky panel with Dismiss / "See what's new" actions.
 //
@@ -14,10 +14,11 @@
 // UploadProgressToast. Positioned bottom-center so it never collides
 // with the upload toast (bottom-right).
 import { RBtn, RIcon } from "@v2/lib";
-import { useLocalStorage } from "@vueuse/core";
+import { useEventListener } from "@vueuse/core";
 import semver from "semver";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import storeHeartbeat from "@/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
@@ -28,7 +29,7 @@ const { VERSION } = heartbeat.value.SYSTEM;
 
 const latestVersion = ref(VERSION);
 const dismissed = ref(VERSION === "development");
-const dismissedVersion = useLocalStorage("ui.dismissedVersion", "");
+const dismissedVersion = useUserLocalStorage("ui.dismissedVersion", "");
 
 const visible = computed(
   () =>
@@ -67,15 +68,10 @@ async function fetchLatestVersion() {
   } catch (error) {
     console.error("Failed to fetch latest version from GitHub", error);
   }
-
-  document.removeEventListener("network-quiesced", fetchLatestVersion);
 }
 
-onMounted(() => {
-  document.addEventListener("network-quiesced", fetchLatestVersion);
-});
-onBeforeUnmount(() => {
-  document.removeEventListener("network-quiesced", fetchLatestVersion);
+useEventListener(document, "network-quiesced", fetchLatestVersion, {
+  once: true,
 });
 </script>
 
@@ -120,7 +116,7 @@ onBeforeUnmount(() => {
 .r-v2-new-version {
   position: fixed;
   left: 50%;
-  bottom: 16px;
+  bottom: calc(16px + var(--r-safe-b));
   transform: translateX(-50%);
   z-index: 8800;
   display: flex;
@@ -196,7 +192,7 @@ onBeforeUnmount(() => {
 html[data-bp~="xs"] .r-v2-new-version {
   left: 12px;
   right: 12px;
-  bottom: 12px;
+  bottom: calc(12px + var(--r-safe-b));
   transform: none;
   flex-direction: column;
   align-items: stretch;

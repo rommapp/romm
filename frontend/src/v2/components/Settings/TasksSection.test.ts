@@ -1,22 +1,25 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CleanupTaskStatusResponse } from "@/__generated__/models/CleanupTaskStatusResponse";
+import { nextTick } from "vue";
 import type { TaskInfo } from "@/__generated__/models/TaskInfo";
+import { taskStatusFixture as status } from "@/utils/tasks.fixtures";
 import TasksSection from "./TasksSection.vue";
 
-const { getTasks, getTaskStatus, runTask } = vi.hoisted(() => ({
+const { getTasks, getTaskStatus, runTask, confirm } = vi.hoisted(() => ({
   getTasks: vi.fn(),
   getTaskStatus: vi.fn(),
   runTask: vi.fn(),
+  confirm: vi.fn(),
 }));
 
 vi.mock("@/services/api/task", () => ({
   default: { getTasks, getTaskStatus, runTask },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en_US" } }),
+vi.mock("vue-i18n");
+
+vi.mock("@/v2/composables/useConfirm", () => ({
+  useConfirm: () => confirm,
 }));
 
 vi.mock("@/v2/composables/useSnackbar", () => ({
@@ -30,6 +33,7 @@ const CLEANUP_TASK: TaskInfo = {
   description: "Removes stale cached ZIP files",
   enabled: true,
   manual_run: true,
+  destructive: false,
   cron_string: "",
 };
 
@@ -40,26 +44,9 @@ const SCHEDULED_TASK: TaskInfo = {
   description: "Removes stale cached ZIP files",
   enabled: true,
   manual_run: false,
+  destructive: false,
   cron_string: "0 4 * * *",
 };
-
-function status(
-  overrides: Partial<CleanupTaskStatusResponse> = {},
-): CleanupTaskStatusResponse {
-  return {
-    task_key: null,
-    task_name: "Scheduled ZIP cache cleanup",
-    task_id: "job-1",
-    task_type: "cleanup",
-    status: "started",
-    created_at: null,
-    enqueued_at: null,
-    started_at: null,
-    ended_at: null,
-    meta: { cleanup_stats: null },
-    ...overrides,
-  };
-}
 
 async function mountSection() {
   const wrapper = mount(TasksSection, {
@@ -82,7 +69,6 @@ function runButton(wrapper: Awaited<ReturnType<typeof mountSection>>) {
 
 describe("TasksSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getTasks.mockReset();
     getTasks.mockResolvedValue({
       data: { watcher: [], scheduled: [], manual: [CLEANUP_TASK] },
@@ -91,6 +77,56 @@ describe("TasksSection", () => {
     getTaskStatus.mockResolvedValue({ data: [] });
     runTask.mockReset();
     runTask.mockResolvedValue({ data: { task_id: "job-1" } });
+    confirm.mockReset();
+  });
+
+  it("runs a destructive task only once its typed confirmation passes", async () => {
+    getTasks.mockResolvedValue({
+      data: {
+        watcher: [],
+        scheduled: [],
+        manual: [{ ...CLEANUP_TASK, destructive: true }],
+      },
+    });
+    const wrapper = await mountSection();
+
+    confirm.mockResolvedValueOnce(false);
+    await runButton(wrapper).trigger("click");
+    await flushPromises();
+    expect(runTask).not.toHaveBeenCalled();
+    expect(confirm.mock.calls[0]![0]).toMatchObject({
+      requireTyped: "rom.delete-keyword",
+    });
+
+    confirm.mockResolvedValueOnce(true);
+    await runButton(wrapper).trigger("click");
+    await flushPromises();
+    expect(runTask).toHaveBeenCalledWith("cleanup_zip_cache");
+    wrapper.unmount();
+  });
+
+  it("runs an ordinary task without asking", async () => {
+    const wrapper = await mountSection();
+    await runButton(wrapper).trigger("click");
+    await flushPromises();
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(runTask).toHaveBeenCalledWith("cleanup_zip_cache");
+    wrapper.unmount();
+  });
+
+  it("hides a manual task the server can't run", async () => {
+    getTasks.mockResolvedValue({
+      data: {
+        watcher: [],
+        scheduled: [],
+        manual: [{ ...CLEANUP_TASK, manual_run: false }],
+      },
+    });
+    const wrapper = await mountSection();
+
+    expect(wrapper.find("button.r-v2-tasks__run-btn").exists()).toBe(false);
+    wrapper.unmount();
   });
 
   it("disables the run button while that task's job is in flight", async () => {
@@ -144,6 +180,38 @@ describe("TasksSection", () => {
     await flushPromises();
 
     expect(getTaskStatus).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  it("polls the status every five seconds until unmounted", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const wrapper = await mountSection();
+    getTaskStatus.mockClear();
+
+    vi.advanceTimersByTime(10_000);
+    expect(getTaskStatus).toHaveBeenCalledTimes(2);
+
+    wrapper.unmount();
+    vi.advanceTimersByTime(10_000);
+    expect(getTaskStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips the poll while the tab is hidden and catches up on return", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("hidden");
+    const wrapper = await mountSection();
+    getTaskStatus.mockClear();
+
+    vi.advanceTimersByTime(10_000);
+    expect(getTaskStatus).not.toHaveBeenCalled();
+
+    visibility.mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await nextTick();
+    expect(getTaskStatus).toHaveBeenCalledTimes(1);
+
     wrapper.unmount();
   });
 

@@ -72,7 +72,7 @@ function openRom() {
         <p class="r-v2-np-card__title" :title="title">{{ title }}</p>
         <p class="r-v2-np-card__caption" :title="caption">{{ caption }}</p>
         <NowPlayingChips
-          :key="track?.fileId"
+          :key="track?.fileId ?? ''"
           :tags="meta"
           :position="position"
           :total="playlist.length"
@@ -102,10 +102,9 @@ function openRom() {
     <div class="r-v2-np-card__transport">
       <RBtn
         icon="mdi-shuffle"
-        :variant="isShuffled ? 'translucent' : 'text'"
+        variant="text"
         size="small"
-        :color="isShuffled ? 'primary' : undefined"
-        :aria-pressed="isShuffled"
+        :active="isShuffled"
         :tooltip="t('common.shuffle')"
         :aria-label="t('common.shuffle')"
         @click="store.toggleShuffle()"

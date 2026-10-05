@@ -33,10 +33,6 @@ describe("pendingAssetStore without IndexedDB", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   // A private window looks the same: the player must hear nothing was kept.
   it("says a write kept nothing rather than throwing", async () => {
     await expect(
@@ -69,10 +65,6 @@ describe("pendingAssetStore without IndexedDB", () => {
 });
 
 describe("pendingAssetId", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it("keys a capture to its rom", () => {
     expect(pendingAssetId(7)).toMatch(/^7:.+/);
   });
@@ -116,7 +108,7 @@ function installFakeIndexedDB(rows: Map<string, PendingAsset>) {
       .sort((a, b) => {
         const [left, right] = [key(a), key(b)];
         const at = left.findIndex((part, i) => part !== right[i]);
-        return at < 0 ? 0 : left[at] < right[at] ? -1 : 1;
+        return at < 0 ? 0 : left[at]! < right[at]! ? -1 : 1;
       });
     const request: Request = {};
     let next = 0;
@@ -217,6 +209,8 @@ describe("syncPendingAssets", () => {
   }
 
   beforeEach(() => {
+    // Names carry the capture's local time, so a zone off UTC pins that.
+    vi.stubEnv("TZ", "Asia/Kolkata");
     rows = new Map();
     auth.userId = 1;
     installFakeIndexedDB(rows);
@@ -234,8 +228,6 @@ describe("syncPendingAssets", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
     romApiMocks.getRom.mockReset();
     saveApiMocks.uploadSaves.mockReset();
     stateApiMocks.uploadStates.mockReset();
@@ -251,12 +243,13 @@ describe("syncPendingAssets", () => {
       dropped: [],
     });
 
-    const request = saveApiMocks.uploadSaves.mock.calls[0][0];
+    const request = saveApiMocks.uploadSaves.mock.calls[0]![0];
     expect(request).toMatchObject({
       slot: "main_quest",
       autocleanup: false,
       overwrite: false,
     });
+    expect(request.contentHash).toMatch(/^[0-9a-f]{32}$/);
     expect(request.savesToUpload[0].screenshotFile.name).toBe("game.png");
     expect(rows.size).toBe(0);
   });
@@ -271,12 +264,12 @@ describe("syncPendingAssets", () => {
       dropped: [],
     });
 
-    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0]![0];
     expect(statesToUpload[0].stateFile.name).toBe(
-      "game [2024-05-06 07-08-09-010].state",
+      "game [2024-05-06 12-38-09-010].state",
     );
     expect(statesToUpload[0].screenshotFile.name).toBe(
-      "game [2024-05-06 07-08-09-010].png",
+      "game [2024-05-06 12-38-09-010].png",
     );
     expect(rows.size).toBe(0);
   });
@@ -343,12 +336,12 @@ describe("syncPendingAssets", () => {
 
   // A row from before the stem was stored asks the rom for it instead.
   it("names an older row's files after the rom it belongs to", async () => {
-    queue({ id: "save:older", fsNameNoExt: undefined, screenshotBytes: shot });
+    delete queue({ id: "save:older", screenshotBytes: shot }).fsNameNoExt;
 
     await syncPendingAssets();
 
     expect(romApiMocks.getRom).toHaveBeenCalledWith({ romId: 1 });
-    const request = saveApiMocks.uploadSaves.mock.calls[0][0];
+    const request = saveApiMocks.uploadSaves.mock.calls[0]![0];
     expect(request.savesToUpload[0].screenshotFile.name).toBe("game.png");
   });
 
@@ -484,13 +477,13 @@ describe("syncPendingAssets", () => {
       dropped: [],
     });
 
-    const archive = saveApiMocks.uploadSaves.mock.calls[1][0];
+    const archive = saveApiMocks.uploadSaves.mock.calls[1]![0];
     expect(archive.slot).toBeUndefined();
     expect(archive.savesToUpload[0].saveFile.name).toBe(
-      "game [2024-05-06 07-08-09-010].srm",
+      "game [2024-05-06 12-38-09-010].srm",
     );
     expect(archive.savesToUpload[0].screenshotFile.name).toBe(
-      "game [2024-05-06 07-08-09-010].png",
+      "game [2024-05-06 12-38-09-010].png",
     );
     expect(rows.size).toBe(0);
   });

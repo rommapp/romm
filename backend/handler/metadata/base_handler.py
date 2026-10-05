@@ -2,22 +2,27 @@ import abc
 import json
 import re
 import unicodedata
+from collections.abc import Awaitable, Callable, Collection
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Mapping, NotRequired, TypedDict, cast
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from fastapi import HTTPException, status
+import httpx2
 from strsimpy.jaro_winkler import JaroWinkler
 
+from adapters.services.provider_http import unavailable
 from handler.dump_cache import hget_json
 from handler.redis_handler import async_cache
+from logger.formatter import SENSITIVE_KEYS
 from logger.logger import log
 from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
     SWITCH_TITLEDB_STORE,
 )
+from utils import get_version, int_or_none
 from utils.cache import is_cache_store_ready
 from utils.context import ctx_httpx_client
 from utils.switch import derive_base_title_id
@@ -28,6 +33,9 @@ if TYPE_CHECKING:
 jarowinkler = JaroWinkler()
 
 METADATA_FIXTURES_DIR: Final = Path(__file__).parent / "fixtures"
+
+# An error status, or a request that never got an answer.
+HTTPX_REQUEST_ERRORS: Final = (httpx2.HTTPStatusError, httpx2.TransportError)
 
 # Providers are third parties; a response is read only this far before it is dropped.
 MAX_RESPONSE_BYTES: Final[int] = 1_000_000
@@ -61,12 +69,14 @@ NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
 MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
 
 
-def unavailable(provider: str) -> HTTPException:
-    """The error a provider raises when it can't be reached."""
-    return HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail=f"Can't connect to {provider}, check your internet connection",
-    )
+def provider_tag_regex(prefix: str) -> re.Pattern[str]:
+    """The filename tag that pins a ROM to a provider id, like ``(igdb-1234)``."""
+    return re.compile(rf"\({prefix}-(\d+)\)", re.IGNORECASE)
+
+
+def tag_id_from_filename(tag_regex: re.Pattern[str], fs_name: str) -> int | None:
+    match = tag_regex.search(fs_name)
+    return int_or_none(match.group(1)) if match else None
 
 
 class BaseRom(TypedDict):
@@ -76,6 +86,25 @@ class BaseRom(TypedDict):
     url_cover: NotRequired[str]
     url_screenshots: NotRequired[list[str]]
     url_manual: NotRequired[str]
+
+
+@dataclass(frozen=True, slots=True)
+class IndexedFormatPlatforms:
+    """A provider's ids for the platforms whose filenames resolve through a local index."""
+
+    ps1: int
+    ps2: int
+    psp: int
+    switch: int
+    arcade: Collection[int]
+    scummvm: int | None = None
+
+
+def _fill_from_switch_entry(fallback_rom: BaseRom, index_entry: dict[str, Any]) -> None:
+    fallback_rom["name"] = index_entry["name"]
+    fallback_rom["summary"] = index_entry.get("description", "")
+    fallback_rom["url_cover"] = index_entry.get("iconUrl", "")
+    fallback_rom["url_screenshots"] = index_entry.get("screenshots", None) or []
 
 
 class CoverResource(TypedDict):
@@ -98,25 +127,6 @@ class CoverResource(TypedDict):
 class CoverResult(TypedDict):
     name: str
     resources: list[CoverResource]
-
-
-SENSITIVE_KEYS = {
-    "Authorization",
-    "Client-ID",
-    "Client-Secret",
-    "client_id",
-    "client_secret",
-    "api_key",
-    "ssid",
-    "sspassword",
-    "devid",
-    "devpassword",
-    "y",
-}
-SENSITIVE_KEYS_REGEX = re.compile(
-    rf"({'|'.join(re.escape(k) for k in SENSITIVE_KEYS)})=[^&\s\"]*",
-    re.IGNORECASE,
-)
 
 
 # This caches results to avoid repeated normalization of the same search term
@@ -180,6 +190,22 @@ class MetadataHandler(abc.ABC):
     def is_enabled(cls) -> bool:
         """Return whether this metadata handler is enabled."""
 
+    async def _heartbeat(
+        self, provider: str, probe: Callable[[], Awaitable[bool]]
+    ) -> bool:
+        """Whether the provider is enabled and answers `probe`.
+
+        Args:
+            probe: A cheap request; raising counts as the provider being down.
+        """
+        if not self.is_enabled():
+            return False
+        try:
+            return await probe()
+        except Exception as exc:
+            log.error("Error checking %s: %s", provider, exc)
+            return False
+
     async def _fetch_capped(
         self, url: str, *, headers: Mapping[str, str]
     ) -> bytes | None:
@@ -198,6 +224,43 @@ class MetadataHandler(abc.ABC):
                     )
                     return None
         return bytes(body)
+
+    async def _get_capped(
+        self, url: str, *, provider: str, accept: str, missing_ok: bool = False
+    ) -> bytes | None:
+        """Fetch a provider URL under the size cap, raising a 503 when it fails.
+
+        Args:
+            missing_ok: Read a 404 as no answer rather than as the provider failing.
+        """
+        headers = {"User-Agent": f"RomM/{get_version()}", "Accept": accept}
+        try:
+            return await self._fetch_capped(url, headers=headers)
+        except HTTPX_REQUEST_ERRORS as exc:
+            if (
+                missing_ok
+                and isinstance(exc, httpx2.HTTPStatusError)
+                and exc.response.status_code == httpx2.codes.NOT_FOUND
+            ):
+                return None
+            log.warning("Can't connect to %s", provider, extra={"exception": str(exc)})
+            raise unavailable(provider) from exc
+
+    async def _get_capped_json(
+        self, url: str, *, provider: str, missing_ok: bool = False
+    ) -> dict[str, Any]:
+        """Fetch a provider's JSON object, or an empty one when the reply isn't one."""
+        body = await self._get_capped(
+            url, provider=provider, accept="application/json", missing_ok=missing_ok
+        )
+        if body is None:
+            return {}
+        try:
+            data = json.loads(body)
+        except ValueError as exc:
+            log.error("Error decoding JSON from %s: %s", provider, exc)
+            return {}
+        return data if isinstance(data, dict) else {}
 
     def normalize_cover_url(self, url: str) -> str:
         return url if not url else f"https:{url.replace('https:', '')}"
@@ -254,6 +317,66 @@ class MetadataHandler(abc.ABC):
             return best_match, best_score
 
         return None, 0.0
+
+    async def _resolve_indexed_title(
+        self,
+        rom: "Rom",
+        fs_name: str,
+        search_term: str,
+        platform_id: int,
+        platforms: IndexedFormatPlatforms,
+        fallback_rom: BaseRom,
+    ) -> str:
+        """Swap a serial, title id or short name in the filename for the title its index holds.
+
+        Args:
+            fallback_rom: Filled with what the index knows, for when the provider finds no match.
+
+        Returns:
+            The term to search the provider for.
+        """
+        match = PS2_OPL_REGEX.match(fs_name)
+        if platform_id == platforms.ps2 and match:
+            search_term = await self._ps2_opl_format(match, search_term)
+            fallback_rom["name"] = search_term
+
+        match = SONY_SERIAL_REGEX.search(fs_name)
+        if platform_id == platforms.ps1 and match:
+            search_term = await self._ps1_serial_format(match, search_term)
+            fallback_rom["name"] = search_term
+
+        if platform_id == platforms.ps2 and match:
+            search_term = await self._ps2_serial_format(match, search_term)
+            fallback_rom["name"] = search_term
+
+        if platform_id == platforms.psp and match:
+            search_term = await self._psp_serial_format(match, search_term)
+            fallback_rom["name"] = search_term
+
+        if platform_id == platforms.switch:
+            match = SWITCH_TITLEDB_REGEX.search(fs_name)
+            if match:
+                search_term, index_entry = await self._switch_titledb_format(
+                    match, search_term
+                )
+                if index_entry:
+                    _fill_from_switch_entry(fallback_rom, index_entry)
+
+            search_term, index_entry = await self._switch_productid_format(
+                rom, fs_name, search_term
+            )
+            if index_entry:
+                _fill_from_switch_entry(fallback_rom, index_entry)
+
+        if platform_id in platforms.arcade:
+            search_term = await self._mame_format(search_term)
+            fallback_rom["name"] = search_term
+
+        if platforms.scummvm is not None and platform_id == platforms.scummvm:
+            search_term = await self._scummvm_format(search_term)
+            fallback_rom["name"] = search_term
+
+        return search_term
 
     async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)

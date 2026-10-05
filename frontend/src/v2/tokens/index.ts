@@ -1,7 +1,7 @@
 // RomM v2 Design Tokens
 //
 // The system is built on a near-black base
-// with translucent white surfaces and 1-2 brand accents — a "glass over dark
+// with translucent white surfaces and 1-2 brand accents: a "glass over dark
 // artwork" language rather than solid cards on a solid background. CSS
 // custom properties are mirrored in src/v2/styles/tokens.css and must be
 // kept in sync.
@@ -17,10 +17,10 @@ export const colorBrand = {
   secondary: "#9E8CD6",
   secondaryHover: "#EBE7FA",
   secondaryPressed: "#7A6BB4",
-  // Accent is v1's salmon/peach — used sparingly for emphasis.
+  // Accent is v1's salmon/peach: used sparingly for emphasis.
   accent: "#E1A38D",
   accentHover: "#F0C8B8",
-  // Favorite state — distinct from primary so a "selected" item and a
+  // Favorite state: distinct from primary so a "selected" item and a
   // "favourite" item read differently.
   fav: "#FF4F6B",
   // User-avatar gradient picks up the primary palette so everything stays
@@ -56,7 +56,7 @@ export const colorBrandLight = {
 } as const;
 
 export const colorStatus = {
-  // Canonical status colours — used for solid surfaces (dialog buttons,
+  // Canonical status colours: used for solid surfaces (dialog buttons,
   // form errors, badges with solid background).
   success: "#4ADE80",
   warning: "#FBBF24",
@@ -73,7 +73,7 @@ export const colorStatus = {
 // Solid hues used as the BASE for status-tinted backgrounds (the 12-30%
 // wash behind success/warning/danger/info badges). Use via color-mix:
 //   background: color-mix(in srgb, var(--r-color-status-success-base) 12%, transparent);
-// These differ slightly from `colorStatus` on purpose — they're closer to
+// These differ slightly from `colorStatus` on purpose: they're closer to
 // tailwind's 500-tier so the resulting tint has the right saturation.
 export const colorStatusBase = {
   success: "#22C55E",
@@ -119,7 +119,7 @@ export const colorProvider = {
   steam: "#66C0F4",
 } as const;
 
-// Dark (default) palette — the mockup is dark-only, so light uses an
+// Dark (default) palette: the mockup is dark-only, so light uses an
 // inverted alpha scheme that still reads as translucent glass.
 export const colorDark = {
   bg: "#07070f",
@@ -131,35 +131,35 @@ export const colorDark = {
   // theme overrides this to a slightly-muted near-black (white-on-dark titles
   // don't read as harshly as black-on-white ones).
   fgHeading: "#ffffff",
-  fgSecondary: "rgba(255, 255, 255, 0.75)",
-  fgMuted: "rgba(255, 255, 255, 0.45)",
-  fgFaint: "rgba(255, 255, 255, 0.25)",
+  fgSecondary: "rgba(255, 255, 255, 0.83)",
+  fgMuted: "rgba(255, 255, 255, 0.55)",
+  fgFaint: "rgba(255, 255, 255, 0.45)",
   fgFaintHard: "rgba(255, 255, 255, 0.05)",
   border: "rgba(255, 255, 255, 0.07)",
   borderStrong: "rgba(255, 255, 255, 0.15)",
   // Used by global.css to draw the focus ring; translucent over dark surfaces.
   focus: "rgba(255, 255, 255, 0.45)",
-  // Distinctive deep glass for menu/dialog panels — paired with --r-color-panel-border.
+  // Distinctive deep glass for menu/dialog panels: paired with --r-color-panel-border.
   panel: "rgba(16, 12, 28, 0.97)",
   panelBorder: "rgba(255, 255, 255, 0.1)",
-  // Tooltip surface — slightly more opaque than panel so floating chips read clearly.
+  // Tooltip surface: slightly more opaque than panel so floating chips read clearly.
   tooltipBg: "rgba(7, 7, 15, 0.94)",
   tooltipBorder: "rgba(255, 255, 255, 0.09)",
-  // Skeleton shimmer sweep — the translucent band that animates across .r-skeleton.
+  // Skeleton shimmer sweep: the translucent band that animates across .r-skeleton.
   shimmerSweep: "rgba(255, 255, 255, 0.08)",
-  // Cover/media placeholder — dark glass behind missing artwork. Stays dark
+  // Cover/media placeholder: dark glass behind missing artwork. Stays dark
   // in both themes because covers are media surfaces, not page surfaces.
   coverPlaceholder: "#1a1a2e",
   // Lighter shimmer-cycle tone for the placeholder loading animation.
   coverPlaceholderBright: "#252540",
-  // Auth-card glass tone — fixed deep-blue glass that reads on the
+  // Auth-card glass tone: fixed deep-blue glass that reads on the
   // background art regardless of theme.
   authGlass: "rgba(13, 17, 23, 0.65)",
-  // Toast/notification background — opaque deep card.
+  // Toast/notification background: opaque deep card.
   toastBg: "rgba(13, 17, 23, 0.92)",
-  // RSwitch ON knob — dark ink that pops on the bright dark-theme track.
+  // RSwitch ON knob: dark ink that pops on the bright dark-theme track.
   switchKnobOn: "#111117",
-  // Detail-page title drop shadow — lifts the white title off the dark
+  // Detail-page title drop shadow: lifts the white title off the dark
   // background art. Light theme drops it (transparent): a dark blurred halo
   // under dark-on-light text just smudges.
   titleShadow: "rgba(0, 0, 0, 0.5)",
@@ -195,7 +195,7 @@ export const colorLight = {
   tooltipBg: "rgba(245, 245, 250, 0.96)",
   tooltipBorder: "rgba(17, 17, 23, 0.08)",
   shimmerSweep: "rgba(0, 0, 0, 0.06)",
-  // Cover/media placeholder — the backing shown behind artwork while the
+  // Cover/media placeholder: the backing shown behind artwork while the
   // image loads (and the shimmer skeleton tone). Theme-aware: a dark box
   // under a loading card reads as out-of-place on the light page, so light
   // mode uses a soft lavender-grey, a hair darker than the bg so the card
@@ -205,15 +205,15 @@ export const colorLight = {
   coverPlaceholderBright: "#efeef7",
   authGlass: "rgba(245, 245, 250, 0.85)",
   toastBg: "rgba(245, 245, 250, 0.95)",
-  // RSwitch ON knob — white knob so it pops on light theme's deep-purple
+  // RSwitch ON knob: white knob so it pops on light theme's deep-purple
   // track instead of sinking into it as a dark blob.
   switchKnobOn: "rgba(255, 255, 255, 0.95)",
-  // Detail-page title shadow — none on light (a dark blurred halo under the
+  // Detail-page title shadow: none on light (a dark blurred halo under the
   // dark-on-light title just smudges; the calm light backdrop needs no lift).
   titleShadow: "transparent",
 } as const;
 
-// Cover-overlay surfaces — fixed dark glass values that never theme-flip.
+// Cover-overlay surfaces: fixed dark glass values that never theme-flip.
 // These are used by surfaces sitting on top of cover artwork
 // (GameCard chrome, GameActionBtn) where contrast against cover art matters
 // more than page theme. Inverting them in light mode would lose contrast
@@ -226,7 +226,7 @@ export const colorOverlay = {
   borderStrong: "rgba(255, 255, 255, 0.25)",
   scrimSoft: "rgba(0, 0, 0, 0.55)",
   scrimStrong: "rgba(0, 0, 0, 0.78)",
-  // Emphasis pill — fixed white-on-dark CTA (Play). Always solid white
+  // Emphasis pill: fixed white-on-dark CTA (Play). Always solid white
   // regardless of page theme so it pops against any cover artwork.
   emphasisBg: "#ffffff",
   emphasisBgHover: "#e6e6e6",
@@ -238,14 +238,14 @@ export const colorOverlay = {
   gold: "#FFD700",
 } as const;
 
-// Player canvas — full-black background for emulator/player surfaces.
+// Player canvas: full-black background for emulator/player surfaces.
 // Independent of page theme; players draw over a true-black canvas.
 export const colorCanvas = {
   bg: "#000000",
   bgDeep: "#0d1117",
 } as const;
 
-// CRT gimmick — the cosmetic "CRT mode" shader + power-on warm-up flash
+// CRT gimmick: the cosmetic "CRT mode" shader + power-on warm-up flash
 // (see CrtOverlay.vue / CrtWarmup.vue, toggled from Settings → User Interface → Theme).
 // Theme-agnostic by design: the phosphor green and the red/cyan chromatic-aberration ghosts
 // read the same on dark and light, so they live in SHARED rather than the
@@ -259,10 +259,10 @@ export const colorCrt = {
   ghostCool: "#3bd9ff",
 } as const;
 
-// Procedural cover-art palette — the fixed colours of the generated
+// Procedural cover-art palette: the fixed colours of the generated
 // "no cover" artwork (missing / unmatched placeholders). Baked into an
 // SVG string by `utils/covers`, so they live here as the single home for
-// these literals (zero-hex policy) and never theme-flip — the art is the
+// these literals (zero-hex policy) and never theme-flip: the art is the
 // same purple/peach in dark and light. Consumed via the JS export, not as
 // CSS vars.
 export const colorCoverArt = {
@@ -272,14 +272,16 @@ export const colorCoverArt = {
   icon: "#F9F9F9", // foreground icon
 } as const;
 
+// 'Twemoji Country Flags' only exists where main.ts polyfills flag emoji and
+// only covers flag code points, so all other text falls through to the rest.
 export const fontFamily = {
-  sans: "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
+  sans: "'Twemoji Country Flags', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
   display:
-    "'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
+    "'Twemoji Country Flags', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif",
   mono: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace",
 } as const;
 
-// Mockup-derived sizes lean small/dense — most body text sits around 13px.
+// Mockup-derived sizes lean small/dense: most body text sits around 13px.
 export const fontSize = {
   xs: "10.5px",
   sm: "11.5px",
@@ -375,7 +377,7 @@ export const focus = {
 // Menus / dropdowns / popovers must sit ABOVE dialogs so that a select
 // or date picker opened from within an RDialog isn't trapped behind the
 // dialog surface. Tooltips ride above menus so a hover-help on a menu
-// item is still legible. Snackbars cap the stack — nothing covers an
+// item is still legible. Snackbars cap the stack: nothing covers an
 // active toast.
 export const zIndex = {
   drawer: "2300",
@@ -387,7 +389,9 @@ export const zIndex = {
 
 // Layout constants from the mockup.
 export const layout = {
-  navHeight: "58px",
+  // Includes the status-bar inset (the page draws under it with
+  // `viewport-fit=cover`), so everything offset by the bar clears both.
+  navHeight: "calc(58px + var(--r-safe-t))",
   // Pills in the top bar's right cluster (scan indicator, mini player, user
   // menu) share one height so they line up.
   navPillHeight: "38px",
@@ -418,11 +422,11 @@ export const layout = {
   cardArtHeight: "213px",
   // Card art size tiers. All maintain ratio ≈ 0.74 (boxart 2:3) so the
   // cover never visually distorts between sizes.
-  //   xs (48 × 64)   — list-row avatars
-  //   sm (120 × 162) — dense pickers, compact mobile
-  //   md (158 × 213) — gallery default (== cardArtWidth / cardArtHeight)
-  //   lg (200 × 270) — edit-dialog cover preview
-  //   xl (240 × 324) — detail page cover column
+  //   xs (48 × 64)   - list-row avatars
+  //   sm (120 × 162) - dense pickers, compact mobile
+  //   md (158 × 213) - gallery default (== cardArtWidth / cardArtHeight)
+  //   lg (200 × 270) - edit-dialog cover preview
+  //   xl (240 × 324) - detail page cover column
   cardArtWidthXs: "48px",
   cardArtHeightXs: "64px",
   cardArtWidthSm: "120px",
@@ -431,7 +435,7 @@ export const layout = {
   cardArtHeightLg: "270px",
   cardArtWidthXl: "240px",
   cardArtHeightXl: "324px",
-  // Hero (16:9) variant — scales linearly with the card art tier so
+  // Hero (16:9) variant: scales linearly with the card art tier so
   // `hero` reads as "wide aspect ratio at this size" instead of a
   // standalone fixed shape. md keeps the canonical 300 × 169.
   heroCardWidth: "300px",
@@ -459,7 +463,7 @@ export const layout = {
   // and `useGalleryVirtualItems` reads `listRowHeight` so the virtualiser's
   // exact-offset math stays in lock-step with the rendered CSS.
   // (The row thumb sizing now comes from `cardArtWidthXs / HeightXs` via
-  // `<GameCard size="xs" />` — no dedicated list-cover token.)
+  // `<GameCard size="xs" />`: no dedicated list-cover token.)
   listRowHeight: "80px",
   listHeaderHeight: "40px",
   // The row's leading tick column, narrower on phones (see global.css).

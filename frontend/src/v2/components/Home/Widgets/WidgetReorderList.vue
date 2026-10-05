@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// WidgetReorderList — small drag-and-drop list used inside Settings →
+// WidgetReorderList: small drag-and-drop list used inside Settings →
 // Home → Widgets so users can decide left-to-right widget order on
 // the Home dashboard rail. Native HTML5 drag API; the list is short
 // (currently 2-5 entries) so a SortableJS dep would be overkill.
 //
-// The list shows every registered widget — disabled ones (gated off
+// The list shows every registered widget: disabled ones (gated off
 // in their per-widget toggle) are still draggable so users can pick
 // their preferred order before enabling them.
 import { RIcon } from "@v2/lib";
@@ -22,7 +22,7 @@ defineOptions({ inheritAttrs: false });
 const props = defineProps<{
   modelValue: string;
   /** Whether the master "show widgets bar" toggle is on. Drives the
-   *  visual disabled state for the whole reorder list — drag still
+   *  visual disabled state for the whole reorder list: drag still
    *  works (so users can prep their order while the bar is hidden)
    *  but the list reads as inert. */
   disabled?: boolean;
@@ -72,8 +72,7 @@ function onDrop(e: DragEvent, index: number) {
   overIndex.value = null;
   if (from === null || from === index) return;
   const next = [...order.value];
-  const [moved] = next.splice(from, 1);
-  next.splice(index, 0, moved);
+  next.splice(index, 0, ...next.splice(from, 1));
   emit("update:modelValue", serializeWidgetOrder(next));
 }
 

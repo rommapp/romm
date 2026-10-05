@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PlayerShell — the pre-game chrome a simple v2 player needs: cover column,
+// PlayerShell renders the pre-game chrome a simple v2 player needs: cover column,
 // settings card, play and back buttons, and the full-bleed running stage. A
 // player supplies only the controls above the Play button and whatever it
 // mounts as a stage, through the `settings` and `stage` slots. A player that
@@ -205,7 +205,7 @@ usePlayFocus(
 
 .r-v2-player__stage-wrap {
   position: fixed;
-  inset: var(--r-nav-h) 0 0 0;
+  inset: var(--r-stage-inset);
   background: var(--r-color-canvas-bg);
   z-index: 1;
 }

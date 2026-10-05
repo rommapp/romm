@@ -4,9 +4,7 @@ import type { SaveSchema } from "@/__generated__";
 import { saveFixture } from "@/utils/assets.fixtures";
 import AssetActions from "./AssetActions.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const RBtn = {
   props: { ariaLabel: { type: String, default: "" } },
@@ -38,7 +36,7 @@ describe("AssetActions", () => {
     const buttons = wrapper.findAll(".btn");
 
     expect(buttons.map((b) => b.attributes("aria-label"))).toEqual([
-      "rom.download-named",
+      'rom.download-named:{"name":"a.srm"}',
       "rom.edit-state",
       "rom.add-to-favorites",
       "rom.delete-state",
@@ -55,7 +53,7 @@ describe("AssetActions", () => {
     const favorite: SaveSchema = { ...save, is_favorite: true };
     const buttons = actions({ own: true, asset: favorite }).findAll(".btn");
 
-    expect(buttons[2].attributes("aria-label")).toBe(
+    expect(buttons[2]?.attributes("aria-label")).toBe(
       "rom.remove-from-favorites",
     );
   });

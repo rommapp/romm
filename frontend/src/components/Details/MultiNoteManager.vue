@@ -7,6 +7,7 @@ import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import RSection from "@/components/common/RSection.vue";
+import "@/plugins/mdeditor";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
@@ -140,9 +141,9 @@ async function saveNote(title: string) {
       romId: props.rom.id,
       noteId: note.id,
       noteData: {
-        title: editableNotes[title].title,
-        content: editableNotes[title].content,
-        is_public: editableNotes[title].is_public,
+        title: editableNotes[title]!.title,
+        content: editableNotes[title]!.content,
+        is_public: editableNotes[title]!.is_public,
       },
     });
 
@@ -258,7 +259,7 @@ watch(
                 <div class="d-flex justify-space-between align-center w-100">
                   <v-text-field
                     v-if="editingNotes[note.title]"
-                    v-model="editableNotes[note.title].title"
+                    v-model="editableNotes[note.title]!.title"
                     variant="outlined"
                     density="compact"
                     hide-details
@@ -278,7 +279,7 @@ watch(
                         <v-btn
                           :disabled="
                             !scopes.includes('roms.user.write') ||
-                            editingNotes[note.title]
+                            !!editingNotes[note.title]
                           "
                           v-bind="tooltipProps"
                           :color="note.is_public ? 'romm-green' : 'accent'"
@@ -335,7 +336,7 @@ watch(
                           <v-btn
                             :disabled="
                               !scopes.includes('roms.user.write') ||
-                              editingNotes[note.title]
+                              !!editingNotes[note.title]
                             "
                             v-bind="tooltipProps"
                             class="bg-toplayer"
@@ -354,7 +355,7 @@ watch(
               <v-expansion-panel-text class="bg-surface">
                 <MdEditor
                   v-if="editingNotes[note.title]"
-                  v-model="editableNotes[note.title].content"
+                  v-model="editableNotes[note.title]!.content"
                   no-highlight
                   no-katex
                   no-mermaid
@@ -568,7 +569,7 @@ watch(
   width: 100%;
 }
 
-.md-editor-dark {
+.md-editor[data-theme="dark"] {
   --md-bk-color: #161b22 !important;
 }
 

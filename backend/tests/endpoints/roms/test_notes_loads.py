@@ -24,7 +24,7 @@ EAGER_TABLES = (
 
 # Truncated at the bind placeholder: MariaDB renders `?` and psycopg
 # `%(id_1)s::INTEGER`, and CI runs both.
-ROM_LOOKUP = "SELECT roms.id, roms.platform_id FROM roms WHERE roms.id ="
+ROM_LOOKUP = "SELECT roms.id, roms.platform_id, roms.min_age FROM roms WHERE roms.id ="
 
 
 def _auth(access_token: str) -> dict[str, str]:

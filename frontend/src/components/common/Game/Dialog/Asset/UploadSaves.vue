@@ -80,7 +80,8 @@ async function uploadSaves() {
   closeDialog();
 }
 
-function checkAddedFiles() {
+function checkAddedFiles(files: File | File[]) {
+  filesToUpload.value = [files].flat();
   if (filesToUpload.value.length == 0) {
     closeDialog();
   }
@@ -105,7 +106,7 @@ function closeDialog() {
       <v-row class="align-center" no-gutters>
         <v-file-input
           id="file-input"
-          v-model="filesToUpload"
+          :model-value="filesToUpload"
           class="file-input"
           multiple
           required

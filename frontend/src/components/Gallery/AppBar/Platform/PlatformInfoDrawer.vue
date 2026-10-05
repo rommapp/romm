@@ -70,7 +70,7 @@ async function updatePlatform() {
   if (!updatedPlatform.value) return;
   updating.value = true;
   isEditable.value = false;
-  updatedPlatform.value.custom_name = updatedPlatform.value.display_name;
+  updatedPlatform.value.custom_name = updatedPlatform.value.display_name!;
   await platformApi
     .updatePlatform({
       platform: updatedPlatform.value as Platform,
@@ -98,12 +98,14 @@ async function updatePlatform() {
 }
 
 async function scan() {
+  if (!currentPlatform.value) return;
+
   scanningStore.setScanning(true);
 
   if (!socket.connected) socket.connect();
 
   socket.emit("scan", {
-    platforms: [romsStore.currentPlatform?.id],
+    platforms: [currentPlatform.value.id],
     type: "quick",
     apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
   });

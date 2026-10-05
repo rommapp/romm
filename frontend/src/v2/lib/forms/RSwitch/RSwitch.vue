@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// RSwitch — iOS-style on/off control. A 36×20 track with a 14px knob
+// RSwitch: iOS-style on/off control. A 36×20 track with a 14px knob
 // that slides on toggle, brand-primary background when on. A native
-// `<button role="switch">` — focusable, keyboard- and gamepad-friendly,
+// `<button role="switch">`: focusable, keyboard- and gamepad-friendly,
 // with a visible footprint of exactly 36×20.
 //
 // The `label` prop or slot renders beside the switch; a full-row label and
@@ -13,16 +13,16 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   modelValue: boolean;
   /** Optional inline label rendered next to the switch. */
-  label?: string;
-  /** Visual size — `default` is the 36×20 track, `small` shrinks to
+  label?: string | undefined;
+  /** Visual size: `default` is the 36×20 track, `small` shrinks to
    *  28×16. Both keep the same hit-area on touch / pad. */
   size?: "default" | "small";
   disabled?: boolean;
   /** Accessible label for the switch when there's no visible label. */
-  ariaLabel?: string;
+  ariaLabel?: string | undefined;
   /** Render as a passive `<span>` (no button semantics, no click
    *  handler, no role). Useful when an outer wrapper already owns the
-   *  interactive surface — e.g. `SettingsToggleRow` is a button whose
+   *  interactive surface: e.g. `SettingsToggleRow` is a button whose
    *  whole area toggles, and the visual switch on the right is just a
    *  state indicator. Nested `<button>`s would be invalid HTML. */
   static?: boolean;
@@ -87,7 +87,7 @@ function toggle() {
    • Knob slides with a slight overshoot (spring-like cubic-bezier) so
      the toggle feels physical, not robotic.
    • Active press squashes the knob horizontally in the direction of
-     motion — a tiny haptic cue that the gesture registered before the
+     motion: a tiny haptic cue that the gesture registered before the
      state actually flips.
    • Hover lifts the knob via a subtle ring shadow.
    • The track gains a soft inner highlight + outer glow when on so the
@@ -95,11 +95,13 @@ function toggle() {
    • Translate (GPU-friendly) instead of `left` for the knob so the
      spring is smooth on dense pages (e.g. inside a long table).
    `--r-switch-travel` per size keeps the distance configurable in one
-   spot — change it once if you change the track/knob geometry. */
+   spot: change it once if you change the track/knob geometry. */
 
+/* Baseline-aligned so the switch reports its label's baseline and lines up
+   with text beside it; the track centers itself against the label. */
 .r-switch {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   background: transparent;
   border: none;
@@ -116,7 +118,7 @@ function toggle() {
   opacity: 0.55;
 }
 
-/* Static mode — the switch is just a visual state indicator inside a
+/* Static mode: the switch is just a visual state indicator inside a
    bigger interactive surface. Drop pointer affordances; the outer
    element supplies them. */
 .r-switch--static {
@@ -128,6 +130,7 @@ function toggle() {
 .r-switch__track {
   position: relative;
   flex-shrink: 0;
+  align-self: center;
   border-radius: 999px;
   background: var(--r-color-border-strong);
   overflow: hidden;
@@ -136,7 +139,7 @@ function toggle() {
     box-shadow 260ms cubic-bezier(0.45, 0.05, 0.55, 0.95);
 }
 
-/* Subtle inner sheen — a downward-fading highlight that gives the
+/* Subtle inner sheen: a downward-fading highlight that gives the
    track a touch of dimensionality without committing to skeuomorphism. */
 .r-switch__track::before {
   content: "";
@@ -162,12 +165,12 @@ function toggle() {
   background: var(--r-color-overlay-fg);
   transform: translateX(0) scaleX(1);
   /* Origin sits on the outer edge of the knob in each state (left when
-     off, right when on — see `.r-switch--on .r-switch__knob`) so the
+     off, right when on: see `.r-switch--on .r-switch__knob`) so the
      press squash always grows toward the centre of the track. With a
      centred origin the off-state squash visibly bulges out the left
      side; anchoring to the outer edge keeps growth one-sided. */
   transform-origin: left center;
-  /* Spring easing — slight overshoot then settle. The base duration is
+  /* Spring easing: slight overshoot then settle. The base duration is
      a touch longer than the v2 default so the spring has room to
      breathe. */
   transition:
@@ -181,6 +184,12 @@ function toggle() {
 }
 
 /* ── Size ladder ───────────────────────────────────────────────── */
+.r-switch--default .r-switch__label {
+  line-height: 20px;
+}
+.r-switch--small .r-switch__label {
+  line-height: 16px;
+}
 .r-switch--default .r-switch__track {
   width: 36px;
   height: 20px;
@@ -219,7 +228,7 @@ function toggle() {
     0 0 12px color-mix(in srgb, var(--r-color-brand-primary) 38%, transparent);
 }
 
-/* ── Hover — knob picks up a halo, track lightens a hair ──────── */
+/* ── Hover: knob picks up a halo, track lightens a hair ──────── */
 .r-switch:hover:not(.r-switch--disabled) .r-switch__knob {
   box-shadow:
     0 2px 4px color-mix(in srgb, black 28%, transparent),
@@ -231,7 +240,7 @@ function toggle() {
     0 0 0 5px color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
 }
 
-/* ── Active press — squash in the direction of motion ───────────
+/* ── Active press: squash in the direction of motion ───────────
    The shorter, eased transition lets the squash feel snappy on touch
    down. When the click resolves, the longer spring transition above
    takes over and the knob settles into its new position. */
@@ -243,7 +252,7 @@ function toggle() {
   transform: translateX(var(--r-switch-travel)) scaleX(1.35);
 }
 
-/* Static mode — the switch is a passive `<span>` with `pointer-events:
+/* Static mode: the switch is a passive `<span>` with `pointer-events:
    none`, so `:active` lives on the interactive ancestor (e.g.
    `SettingsToggleRow`'s outer `<button>`), never on `.r-switch` itself.
    Mirror the squash from the closest active button so the haptic cue
@@ -271,13 +280,13 @@ button:active:not(:disabled)
   color: var(--r-color-brand-primary);
 }
 
-/* Focus ring is modality-gated by global.css — we don't paint a ring
+/* Focus ring is modality-gated by global.css: we don't paint a ring
    here, but we do hide the default outline so it doesn't double up. */
 .r-switch:focus {
   outline: none;
 }
 
-/* Respect reduced-motion preferences — drop the spring + squash and
+/* Respect reduced-motion preferences: drop the spring + squash and
    fall back to a plain colour swap so motion-sensitive users aren't
    served the bouncy variant. */
 @media (prefers-reduced-motion: reduce) {

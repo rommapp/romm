@@ -1,17 +1,15 @@
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it } from "vitest";
-import storeRoms, { DETAILED_ROM_CACHE_SIZE } from "@/stores/roms";
-import { makeDetailedRom, makeRom } from "@/utils/rom.fixtures";
+import { describe, expect, it } from "vitest";
+import storeRoms, {
+  DETAILED_ROM_CACHE_SIZE,
+  type DetailedRom,
+} from "@/stores/roms";
+import { detailedRomFixture, romFixture } from "@/utils/rom.fixtures";
 
-function detailed(id: number, summary?: string) {
-  return makeDetailedRom({ id, name: `Game ${id}`, summary });
+function detailed(id: number, extra: Partial<DetailedRom> = {}) {
+  return detailedRomFixture({ id, name: `Game ${id}`, ...extra });
 }
 
 describe("detailed rom cache", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("keeps each game under its own id", () => {
     const roms = storeRoms();
 
@@ -50,20 +48,20 @@ describe("detailed rom cache", () => {
 
   it("merges a SimpleRom write over the detailed record", () => {
     const roms = storeRoms();
-    roms.cacheDetailedRom(detailed(5, "detailed"));
+    roms.cacheDetailedRom(detailed(5, { download_formats: ["iso"] }));
 
-    roms.update(makeRom({ id: 5, name: "Renamed" }));
+    roms.update(romFixture({ id: 5, name: "Renamed" }));
 
     expect(roms.getDetailedRom(5)).toMatchObject({
       name: "Renamed",
-      summary: "detailed",
+      download_formats: ["iso"],
     });
   });
 
   it("caches nothing for a write to a game it doesn't hold", () => {
     const roms = storeRoms();
 
-    roms.mergeIntoDetailedRom(makeRom({ id: 6, name: "Elsewhere" }));
+    roms.mergeIntoDetailedRom(romFixture({ id: 6, name: "Elsewhere" }));
 
     expect(roms.getDetailedRom(6)).toBeNull();
   });

@@ -66,7 +66,7 @@ function handleAction(action: InputAction): boolean {
       return true;
     case "moveLeft":
     case "moveRight": {
-      const currentOption = options.value[selectedOption.value];
+      const currentOption = options.value[selectedOption.value]!;
       if (currentOption.type === "theme") {
         const currentIndex = themeOptions.findIndex(
           (t) => t.value === selectedTheme.value,
@@ -75,7 +75,7 @@ function handleAction(action: InputAction): boolean {
           action === "moveLeft"
             ? (currentIndex - 1 + themeOptions.length) % themeOptions.length
             : (currentIndex + 1) % themeOptions.length;
-        selectedTheme.value = themeOptions[nextIndex].value;
+        selectedTheme.value = themeOptions[nextIndex]!.value;
         return true;
       } else if (currentOption.type === "sfx") {
         sfxEnabled.value = !sfxEnabled.value;

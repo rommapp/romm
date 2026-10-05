@@ -29,7 +29,7 @@ const removeCover = ref(false);
 const manualFiles = ref<File[]>([]);
 const soundtrackFiles = ref<File[]>([]);
 const uploadStore = storeUpload();
-const validForm = ref(false);
+const validForm = ref<boolean | null>(false);
 const showConfirmDeleteManual = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 
@@ -415,7 +415,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                     <v-file-input
                       hide-details
                       id="cover-file-input"
-                      v-model="rom.artwork"
+                      :model-value="rom.artwork!"
+                      @update:model-value="rom.artwork = [$event].flat()[0]"
                       accept="image/*"
                       class="file-input"
                       @change="previewImage"
@@ -510,7 +511,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                   <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
                   <v-file-input
                     id="manual-file-input"
-                    v-model="manualFiles"
+                    :model-value="manualFiles"
+                    @update:model-value="manualFiles = [$event].flat()"
                     accept="application/pdf"
                     hide-details
                     multiple
@@ -576,7 +578,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                   <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
                   <v-file-input
                     id="soundtrack-file-input"
-                    v-model="soundtrackFiles"
+                    :model-value="soundtrackFiles"
+                    @update:model-value="soundtrackFiles = [$event].flat()"
                     accept="audio/*,.flac,.opus"
                     hide-details
                     multiple

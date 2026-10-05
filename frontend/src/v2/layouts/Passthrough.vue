@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Passthrough — tiny render-only component used as a placeholder
+ * Passthrough: tiny render-only component used as a placeholder
  * `default` (v1) named-view target on v2-only grouping routes. The
  * v2 chain owns its sub-layouts (e.g. SettingsLayout) via the `v2`
  * named view; v1 doesn't share that chrome, so its

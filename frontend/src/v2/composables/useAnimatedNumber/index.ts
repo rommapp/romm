@@ -10,11 +10,16 @@ import { tween } from "@/v2/utils/tween";
 
 type Source = string | number | null | undefined;
 
+// Last target per `rememberAs` key, outliving the component that showed it.
+const remembered = new Map<string, number>();
+
 interface Options {
   /** Roll duration in ms. Defaults to the `slow` motion token. */
   duration?: number;
   /** Decimals kept on the in-between frames (the final value lands exact). */
   decimals?: number;
+  /** Identity across remounts: a remount resumes from the last value, not 0. */
+  rememberAs?: () => string | undefined;
 }
 
 /**
@@ -37,9 +42,11 @@ export function useAnimatedNumber(
     cancel = null;
   }
 
+  // The key is watched too, so a count reused for a new entity with an equal
+  // value still gets remembered under the new key.
   watch(
-    source,
-    (target) => {
+    [source, () => options.rememberAs?.()],
+    ([target, key]) => {
       stop();
       // Nothing to roll through: a missing value is a dash at the call site,
       // and a formatted one is already what the caller wants painted.
@@ -49,7 +56,11 @@ export function useAnimatedNumber(
       }
       // The first value rolls up from zero, which is the whole point of the
       // effect: a count that arrives is a count you watch land.
-      const from = typeof display.value === "number" ? display.value : 0;
+      const from =
+        typeof display.value === "number"
+          ? display.value
+          : ((key === undefined ? undefined : remembered.get(key)) ?? 0);
+      if (key !== undefined) remembered.set(key, target);
       if (from === target) {
         display.value = target;
         return;

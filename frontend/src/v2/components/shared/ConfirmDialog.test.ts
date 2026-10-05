@@ -1,12 +1,10 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Events } from "@/types/emitter";
 import ConfirmDialog from "./ConfirmDialog.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const RBtnStub = {
   props: { disabled: { type: Boolean, default: false } },
@@ -49,14 +47,10 @@ async function promptFor(requireTyped: string): Promise<VueWrapper> {
 }
 
 function confirmButton(wrapper: VueWrapper) {
-  return wrapper.findAll("button")[1];
+  return wrapper.findAll("button")[1]!;
 }
 
 describe("ConfirmDialog typed confirmation", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("keeps the action disabled until the phrase is typed", async () => {
     const wrapper = await promptFor("Philips Videopac+");
     expect(confirmButton(wrapper).attributes("disabled")).toBeDefined();

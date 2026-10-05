@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Search — global ROM search. Thin orchestrator: clears any prior
+// Search: global ROM search. Thin orchestrator: clears any prior
 // gallery scope, kicks the initial fetch, and fills the shell's
 // `#header` slot with a PageHeader. Everything else lives in
 // `GalleryShell`.
@@ -19,7 +19,7 @@ const initialSearch = ref(false);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
 
 onMounted(async () => {
-  // Global search — drop ALL gallery scoping from previous views, then
+  // Global search: drop ALL gallery scoping from previous views, then
   // flag the gallery as "currently in a search context" so the store's
   // `onGalleryView` getter resolves true and `groupByMetaId` honours
   // the user's `groupRoms` preference. Without this the search results
@@ -46,8 +46,9 @@ onMounted(async () => {
     :empty-message="t('rom.no-games-match')"
     empty-icon="mdi-magnify-close"
     :skeleton-row-count="4"
+    :default-order-by="null"
   >
-    <!-- HEADER (Section 1) — title + result-count chip. The shell
+    <!-- HEADER (Section 1): title + result-count chip. The shell
          auto-measures this slot; no need to declare a height. -->
     <template #header>
       <PageHeader :title="t('common.search')">

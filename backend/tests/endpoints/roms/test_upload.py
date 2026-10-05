@@ -8,11 +8,12 @@ from uuid import UUID
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_platform, make_rom
 from tests.redis_stubs import fail_expire, record_pipelines
 
 from endpoints.roms import upload as upload_endpoint
 from handler import rom_upload
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import sync_cache
 from models.platform import Platform
@@ -476,13 +477,9 @@ def _folder_rom(
     platform: Platform, admin_user: User, lib: Path, files: dict[str, bytes]
 ) -> Rom:
     """A folder ROM whose rows describe the files on disk, with stored hashes."""
-    rom = Rom(
-        platform_id=platform.id,
-        name=ROM_FOLDER,
-        slug=f"{ROM_FOLDER}_slug",
-        fs_name=ROM_FOLDER,
-        fs_name_no_tags=ROM_FOLDER,
-        fs_name_no_ext=ROM_FOLDER,
+    rom = make_rom(
+        platform,
+        ROM_FOLDER,
         fs_extension="",
         fs_path=f"{platform.fs_slug}/roms",
         fs_size_bytes=sum(len(data) for data in files.values()),
@@ -490,7 +487,6 @@ def _folder_rom(
         md5_hash="stored-md5",
         sha1_hash="stored-sha1",
     )
-    rom = db_rom_handler.add_rom(rom)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     for rel, data in files.items():
         _add_row(rom, lib, f"{ROM_FOLDER}/{rel}", data)
@@ -500,17 +496,7 @@ def _folder_rom(
 
 
 def _single_file_rom(platform: Platform, admin_user: User, lib: Path) -> Rom:
-    rom = Rom(
-        platform_id=platform.id,
-        name="solo",
-        slug="solo_slug",
-        fs_name="solo.zip",
-        fs_name_no_tags="solo",
-        fs_name_no_ext="solo",
-        fs_extension="zip",
-        fs_path=f"{platform.fs_slug}/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
+    rom = make_rom(platform, "solo", fs_path=f"{platform.fs_slug}/roms")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     _add_row(rom, lib, "solo.zip", b"romdata")
     refreshed = db_rom_handler.get_rom(rom.id)
@@ -640,9 +626,7 @@ def test_start_into_rom_rejects_platform_mismatch(
     rom_upload_fs: Path,
 ):
     rom = _folder_rom(platform, admin_user, rom_upload_fs, {"game.bin": b"game"})
-    other = db_platform_handler.add_platform(
-        Platform(name="other", slug="other_slug", fs_slug="other_slug")
-    )
+    other = make_platform("other_slug", name="other")
 
     response = _start_into_rom(
         client,
@@ -874,6 +858,27 @@ def test_start_into_single_file_rom_rejects_its_own_name(
     refreshed = db_rom_handler.get_rom(rom.id)
     assert refreshed is not None
     assert refreshed.fs_name == "solo.zip"
+
+
+def test_start_into_a_file_a_playlist_lists_returns_400(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    rom_upload_fs: Path,
+    tmp_path: Path,
+):
+    rom = _single_file_rom(platform, admin_user, rom_upload_fs)
+    _write(rom_upload_fs, f"{rom.fs_path}/solo.m3u", b"solo.zip\n")
+
+    response = _start_into_rom(
+        client, access_token, rom, filename="notes.txt", folder=None, total_size=5
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "solo.m3u" in response.json()["detail"]
+    assert not (tmp_path / "uploads").exists()
+    assert (rom_upload_fs / rom.fs_path / "solo.zip").read_bytes() == b"romdata"
 
 
 def test_complete_collision_does_not_promote_a_single_file_rom(

@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SendNotificationSection from "./SendNotificationSection.vue";
 
@@ -12,9 +11,7 @@ const { create, fetchUsers, success } = vi.hoisted(() => ({
 vi.mock("@/services/api/notification", () => ({ default: { create } }));
 vi.mock("@/services/api/user", () => ({ default: { fetchUsers } }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useSnackbar", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/v2/composables/useSnackbar")>()),
@@ -30,16 +27,15 @@ async function fill(
   fields: { title?: string; body?: string; link?: string },
 ) {
   const [title, link] = wrapper.findAll("input.r-text-field__input");
-  if (fields.title !== undefined) await title.setValue(fields.title);
+  if (fields.title !== undefined) await title!.setValue(fields.title);
   if (fields.body !== undefined) {
     await wrapper.find("textarea").setValue(fields.body);
   }
-  if (fields.link !== undefined) await link.setValue(fields.link);
+  if (fields.link !== undefined) await link!.setValue(fields.link);
 }
 
 describe("SendNotificationSection", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
     fetchUsers.mockResolvedValue({ data: [] });
     create.mockResolvedValue({ data: [{ id: 1 }, { id: 2 }] });

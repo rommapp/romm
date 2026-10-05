@@ -1,6 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createI18n } from "vue-i18n";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
@@ -8,6 +7,7 @@ import enSettings from "@/locales/en_US/settings.json";
 import storeConfig from "@/stores/config";
 import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
+import { platformFixture } from "@/utils/platform.fixtures";
 import PlatformsStatsSection from "./PlatformsStatsSection.vue";
 
 const push = vi.fn();
@@ -24,31 +24,6 @@ const i18n = createI18n({
   fallbackLocale: "en_US",
   messages: { en_US: { settings: enSettings } },
 });
-
-function platform(overrides: Partial<Platform> = {}): Platform {
-  return {
-    id: 1,
-    slug: "snes",
-    fs_slug: "snes",
-    rom_count: 1,
-    name: "Super Nintendo",
-    igdb_slug: null,
-    moby_slug: null,
-    hltb_slug: null,
-    libretro_slug: null,
-    custom_name: "",
-    description: null,
-    created_at: "",
-    updated_at: "",
-    fs_size_bytes: 0,
-    is_unidentified: false,
-    is_identified: true,
-    missing_from_fs: false,
-    display_name: "Super Nintendo",
-    firmware_count: 0,
-    ...overrides,
-  } as Platform;
-}
 
 function mountSection(
   platforms: Platform[],
@@ -86,7 +61,11 @@ function rowCount(wrapper: Section): number {
 }
 
 function mountCoverage(items: MetadataCoverageItem[]): Section {
-  return mountSection([platform({ id: 1, rom_count: 4 })], {}, { "1": items });
+  return mountSection(
+    [platformFixture({ id: 1, rom_count: 4 })],
+    {},
+    { "1": items },
+  );
 }
 
 function coverageLogos(wrapper: Section): (string | undefined)[] {
@@ -113,57 +92,47 @@ async function setSearch(wrapper: Section, query: string) {
 // narrowing corrupts the keyed list under a non-unique key.
 function duplicateSlugLibrary(): Platform[] {
   return [
-    platform({
+    platformFixture({
       id: 1,
       slug: "atari2600",
-      fs_slug: "atari2600",
       name: "Atari 2600",
-      display_name: "Atari 2600",
       rom_count: 3,
       fs_size_bytes: 5,
     }),
-    platform({
+    platformFixture({
       id: 2,
       slug: "nes",
-      fs_slug: "nes",
       name: "Nintendo Entertainment System",
-      display_name: "Nintendo Entertainment System",
       rom_count: 5,
       fs_size_bytes: 10,
     }),
-    platform({
+    platformFixture({
       id: 3,
       slug: "nes",
       fs_slug: "nes-unofficial",
       name: "Nintendo Entertainment System (Unofficial)",
-      display_name: "Nintendo Entertainment System (Unofficial)",
       rom_count: 1,
       fs_size_bytes: 40,
     }),
-    platform({
+    platformFixture({
       id: 4,
       slug: "genesis",
-      fs_slug: "genesis",
       name: "Sega Genesis",
-      display_name: "Sega Genesis",
       rom_count: 4,
       fs_size_bytes: 20,
     }),
-    platform({
+    platformFixture({
       id: 5,
       slug: "genesis",
       fs_slug: "genesis-unofficial",
       name: "Sega Genesis (Unofficial)",
-      display_name: "Sega Genesis (Unofficial)",
       rom_count: 2,
       fs_size_bytes: 30,
     }),
-    platform({
+    platformFixture({
       id: 6,
       slug: "xbox",
-      fs_slug: "xbox",
       name: "Xbox",
-      display_name: "Xbox",
       rom_count: 6,
       fs_size_bytes: 6,
     }),
@@ -171,11 +140,6 @@ function duplicateSlugLibrary(): Platform[] {
 }
 
 describe("PlatformsStatsSection", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-    push.mockClear();
-  });
-
   it("links each row to its platform gallery", async () => {
     const wrapper = mountSection(duplicateSlugLibrary());
 
@@ -188,9 +152,9 @@ describe("PlatformsStatsSection", () => {
       "/platform/5",
       "/platform/6",
     ]);
-    expect(rows[0].attributes("aria-label")).toBe("Open Atari 2600");
+    expect(rows[0]?.attributes("aria-label")).toBe("Open Atari 2600");
 
-    await rows[3].trigger("click", { button: 0 });
+    await rows[3]!.trigger("click", { button: 0 });
     expect(push).toHaveBeenCalledWith("/platform/4");
   });
 
@@ -205,7 +169,7 @@ describe("PlatformsStatsSection", () => {
       { region: "br", count: 1 },
       { region: "ca", count: 1 },
     ];
-    const wrapper = mountSection([platform({ id: 7, rom_count: 16 })], {
+    const wrapper = mountSection([platformFixture({ id: 7, rom_count: 16 })], {
       "7": regions,
     });
 
@@ -276,8 +240,8 @@ describe("PlatformsStatsSection", () => {
 
   it("uses the singular game label for a platform holding exactly one", () => {
     const wrapper = mountSection([
-      platform({ id: 1, display_name: "Atari 2600", rom_count: 1 }),
-      platform({ id: 2, display_name: "Xbox", rom_count: 6 }),
+      platformFixture({ id: 1, name: "Atari 2600", rom_count: 1 }),
+      platformFixture({ id: 2, name: "Xbox", rom_count: 6 }),
     ]);
 
     expect(renderedCounts(wrapper)).toEqual(["1 game", "6 games"]);
@@ -285,20 +249,23 @@ describe("PlatformsStatsSection", () => {
 
   it("lists only platforms that contain games, hiding empty leftovers", () => {
     const wrapper = mountSection([
-      platform({ id: 1, slug: "snes", name: "Super Nintendo", rom_count: 5 }),
+      platformFixture({
+        id: 1,
+        slug: "snes",
+        name: "Super Nintendo",
+        rom_count: 5,
+      }),
       // Ghost platform: emptied long ago, still in the DB with 0 games.
-      platform({
+      platformFixture({
         id: 2,
         slug: "xbox360-hacks",
         name: "Xbox360 Hacks",
-        display_name: "Xbox360 Hacks",
         rom_count: 0,
       }),
-      platform({
+      platformFixture({
         id: 3,
         slug: "genesis",
         name: "Genesis",
-        display_name: "Genesis",
         rom_count: 3,
       }),
     ]);
@@ -311,12 +278,11 @@ describe("PlatformsStatsSection", () => {
 
   it("renders no rows when every platform is empty", () => {
     const wrapper = mountSection([
-      platform({ id: 1, rom_count: 0 }),
-      platform({
+      platformFixture({ id: 1, rom_count: 0 }),
+      platformFixture({
         id: 2,
         slug: "genesis",
         name: "Genesis",
-        display_name: "Genesis",
         rom_count: 0,
       }),
     ]);

@@ -18,17 +18,23 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy import DefaultClause, FetchedValue, Table, UniqueConstraint
 from sqlalchemy.sql.schema import NULL_UNSPECIFIED
+from tests.factories import make_platform, make_rom
 
 import models
-from handler.database import db_platform_handler
+from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
+from models.collection import SmartCollection
 from models.platform import Platform
 from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
+from models.user import User
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     HLTB_MAIN_STORY_COLUMN,
     POSTGRESQL_FK_INDEXES,
+    ROMS_SEARCH_FULLTEXT_INDEX,
+    ROMS_SEARCH_TITLES_TRGM_INDEX,
+    SEARCH_TITLES_COLUMN,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     exact_collation,
     full_path_digest_sql,
@@ -178,7 +184,7 @@ def test_the_migrated_full_path_digest_matches_the_models(
     A mismatch would make every pre-existing rom look new to the unique index.
     """
     with sync_engine.connect() as connection:
-        digest = connection.execute(
+        digest: str = connection.execute(
             sa.text(
                 f"SELECT {full_path_digest_sql(connection)} FROM "
                 "(SELECT :fs_path AS fs_path, :fs_name AS fs_name) AS one_rom"
@@ -230,7 +236,6 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0111_physical_roms.py", "roms"),
         ("0120_container_adoptions.py", "streaming_container_adoptions"),
         ("0122_rom_similarity.py", "rom_similarity"),
-        ("0123_recommendation_metadata.py", "roms"),
         ("0126_unique_rom_full_path.py", "roms"),
         ("0128_hltb_main_story_column.py", "roms"),
         ("0130_notifications.py", "notifications"),
@@ -245,6 +250,13 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0142_state_core.py", "states"),
         ("0143_sibling_platform_names.py", "platforms"),
         ("0144_user_oidc_sub.py", "users"),
+        ("0145_drop_derivable_columns.py", "rom_file_doc_meta"),
+        ("0146_roms_search_aliases.py", "roms"),
+        ("0147_rom_file_title_ids.py", "rom_files"),
+        ("0148_rom_age_limits.py", "roms"),
+        ("0148_rom_age_limits.py", "roms_facets"),
+        ("0148_rom_age_limits.py", "permission_groups"),
+        ("0148_rom_age_limits.py", "users"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -327,6 +339,147 @@ def test_the_user_oidc_sub_revision_reverses_and_replays():
             migration.upgrade()
 
         assert _schema_of(connection, "users") == before
+
+
+def test_the_derivable_columns_revision_reverses_and_replays(admin_user: User):
+    """0145 drops a foreign key MariaDB and MySQL named for themselves in 0110."""
+    migration = _load_migration("0145_drop_derivable_columns.py")
+    tables = ("smart_collections", "rom_file_doc_meta")
+    smart = db_collection_handler.add_smart_collection(
+        SmartCollection(
+            name="Smart",
+            user_id=admin_user.id,
+            rom_ids=[1, 2, 3],
+            filter_criteria={},
+        )
+    )
+
+    with sync_engine.begin() as connection:
+        before = {table: _schema_of(connection, table) for table in tables}
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            columns = {
+                (table, c["name"]): c
+                for table in tables
+                for c in sa.inspect(connection).get_columns(table)
+            }
+            assert not columns[("rom_file_doc_meta", "rom_id")]["nullable"]
+            assert columns[("smart_collections", "rom_count")]["default"] is None
+            rom_count: int = connection.execute(
+                sa.text("SELECT rom_count FROM smart_collections WHERE id = :id"),
+                {"id": smart.id},
+            ).scalar_one()
+            assert rom_count == 3
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert {table: _schema_of(connection, table) for table in tables} == before
+
+
+def test_the_search_titles_revision_reverses_replays_and_fills(platform: Platform):
+    """0146 swaps the search index and fills existing rows, resuming a partial run."""
+    migration = _load_migration("0146_roms_search_aliases.py")
+    first = make_rom(
+        platform, "Final Fantasy VII", igdb_metadata={"alternative_names": ["FF7"]}
+    )
+    second = make_rom(platform, "Chrono Trigger")
+
+    def titles(connection: sa.Connection) -> dict[int, str | None]:
+        rows = connection.execute(
+            sa.text("SELECT id, search_titles FROM roms WHERE id IN (:a, :b)"),
+            {"a": first.id, "b": second.id},
+        )
+        return dict(rows.all())
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        expected = titles(connection)
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "roms", SEARCH_TITLES_COLUMN)
+            indexes = _schema_of(connection, "roms")[1]
+            assert ROMS_SEARCH_FULLTEXT_INDEX not in indexes
+            assert ROMS_SEARCH_TITLES_TRGM_INDEX not in indexes
+            migration.downgrade()
+
+            migration.upgrade()
+            assert titles(connection) == expected
+
+            connection.execute(
+                sa.text("UPDATE roms SET search_titles = NULL WHERE id = :id"),
+                {"id": second.id},
+            )
+            migration.upgrade()
+            assert titles(connection) == expected
+
+        assert _schema_of(connection, "roms") == before
+    assert expected[first.id] == "\x1ffinal fantasy vii\x1fff7\x1f"
+
+
+def test_the_rom_file_title_ids_revision_reverses_and_replays():
+    migration = _load_migration("0147_rom_file_title_ids.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "rom_files")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "rom_files", "converto_read_at")
+            assert not has_column(connection, "rom_files", "title_id")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "rom_files") == before
+
+
+def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):
+    """0148 rates existing ROMs and keeps mirroring the rating into roms_facets."""
+    migration = _load_migration("0148_rom_age_limits.py")
+    rated = make_rom(
+        platform,
+        "Rated",
+        igdb_metadata={"age_ratings": [{"category": "PEGI", "rating": "16"}]},
+    )
+    unrated = make_rom(platform, "Unrated")
+
+    def ages(connection: sa.Connection, table: str, key: str) -> dict[int, int | None]:
+        rows = connection.execute(
+            sa.text(
+                f"SELECT {key}, min_age FROM {table} WHERE {key} IN (:a, :b)"
+            ),  # nosec B608
+            {"a": rated.id, "b": unrated.id},
+        )
+        return dict(rows.all())
+
+    tables = ("roms", "roms_facets", "permission_groups", "users")
+    with sync_engine.begin() as connection:
+        before = {table: _schema_of(connection, table) for table in tables}
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "roms", "min_age")
+            assert not has_column(connection, "users", "age_limit")
+            migration.downgrade()
+
+            migration.upgrade()
+            migration.upgrade()
+
+        assert ages(connection, "roms", "id") == {rated.id: 16, unrated.id: None}
+        assert ages(connection, "roms_facets", "rom_id") == {
+            rated.id: 16,
+            unrated.id: None,
+        }
+        assert {table: _schema_of(connection, table) for table in tables} == before
+
+    # The rebuilt triggers still mirror a later write.
+    db_rom_handler.update_rom(
+        unrated.id,
+        {"ss_metadata": {"age_ratings": [{"category": "PEGI", "rating": "7"}]}},
+    )
+    with sync_engine.connect() as connection:
+        assert ages(connection, "roms_facets", "rom_id")[unrated.id] == 7
 
 
 def _slot_collations(connection: sa.Connection) -> dict[str, str | None]:
@@ -463,7 +616,7 @@ def test_the_full_path_hash_migration_resumes_an_interrupted_run(rom: Rom):
             migration.upgrade()
 
         columns, indexes = _schema_of(connection, "roms")
-        digest = connection.execute(
+        digest: str = connection.execute(
             sa.text(
                 f"SELECT {migration.COLUMN_NAME} FROM roms WHERE id = :rom_id"
             ),  # nosec B608
@@ -572,6 +725,19 @@ def test_the_roms_columns_helper_rebuilds_a_narrowed_sort_index():
             spanned,
             False,
         )
+
+
+def test_the_roms_columns_helper_rebuilds_the_search_index_with_the_titles_column():
+    """A rebuild of the titles column must not leave the gallery search unindexed."""
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "roms")
+        connection.execute(
+            sa.text(f"ALTER TABLE roms DROP COLUMN {SEARCH_TITLES_COLUMN}")
+        )
+
+        ensure_roms_columns(connection)
+
+        assert _schema_of(connection, "roms") == before
 
 
 def test_dropping_the_roms_columns_takes_the_sort_indexes_with_them():
@@ -717,7 +883,7 @@ def test_the_roms_columns_helper_fills_the_full_path_digest_where_it_can(rom: Ro
             assert columns[FULL_PATH_HASH_COLUMN] is not is_mariadb(connection)
             assert not has_server_default(connection, FULL_PATH_HASH_COLUMN)
             if is_mariadb(connection):
-                digest = connection.execute(
+                digest: str = connection.execute(
                     sa.text(
                         f"SELECT {FULL_PATH_HASH_COLUMN} FROM roms WHERE id = :rom_id"  # nosec B608
                     ),
@@ -881,9 +1047,7 @@ def test_the_sibling_platform_names_revision_renames_only_the_stale_name():
         ("Commodore 64", "c64", "c64"),
         ("C128 (custom)", "c128", "c128-custom"),
     ):
-        db_platform_handler.add_platform(
-            Platform(name=name, slug=slug, fs_slug=fs_slug)
-        )
+        make_platform(slug, name=name, fs_slug=fs_slug)
 
     with sync_engine.begin() as connection:
         with Operations.context(MigrationContext.configure(connection)):

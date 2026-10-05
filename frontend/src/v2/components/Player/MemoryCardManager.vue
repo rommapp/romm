@@ -23,6 +23,7 @@ import MemoryCardDialog, {
 } from "@/v2/components/Player/MemoryCardDialog.vue";
 import PublicBadge from "@/v2/components/shared/PublicBadge.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
 
@@ -40,21 +41,26 @@ const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 
-const cards = ref<MemoryCardSchema[]>([]);
-const loading = ref(false);
+const {
+  state: cards,
+  isLoading: loading,
+  execute: fetchCards,
+} = useFetchState(
+  (emulator: string) =>
+    memoryCardApi.getMemoryCards({ emulator }).then(({ data }) => data),
+  [],
+  {
+    immediate: false,
+    onError: (err) => {
+      console.error("[memory-cards] Could not fetch cards:", err);
+      cards.value = [];
+    },
+  },
+);
 
 async function load(emulator: string): Promise<void> {
   if (!emulator) return;
-  loading.value = true;
-  try {
-    const { data } = await memoryCardApi.getMemoryCards({ emulator });
-    cards.value = data;
-  } catch (err) {
-    console.warn("[memory-cards] Could not fetch cards:", err);
-    cards.value = [];
-  } finally {
-    loading.value = false;
-  }
+  await fetchCards(emulator);
 }
 
 watch(() => props.emulator, load, { immediate: true });
@@ -213,7 +219,7 @@ const uploadInput = ref<HTMLInputElement | null>(null);
 
 function filenameFromResponse(disposition: unknown, fallback: string): string {
   const match = /filename="?([^";]+)"?/.exec(String(disposition ?? ""));
-  return match ? match[1] : fallback;
+  return match?.[1] ?? fallback;
 }
 
 async function downloadCard(card: MemoryCardSchema): Promise<void> {
@@ -366,12 +372,13 @@ const hasCards = computed(() => cards.value.length > 0);
               @click="editTarget = card"
             />
             <RBtn
-              variant="text"
+              :variant="isExpanded(card.id) ? 'translucent' : 'text'"
+              :color="isExpanded(card.id) ? 'primary' : undefined"
               size="small"
               icon="mdi-history"
               :aria-label="t('play.memory-card-versions')"
+              :aria-expanded="isExpanded(card.id)"
               :tooltip="t('play.memory-card-versions')"
-              :class="{ 'r-mc-mgr__toggle--on': isExpanded(card.id) }"
               @click="toggleVersions(card)"
             />
             <RBtn
@@ -578,9 +585,6 @@ const hasCards = computed(() => cards.value.length > 0);
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-}
-.r-mc-mgr__toggle--on {
-  color: var(--r-color-brand-primary);
 }
 
 .r-mc-mgr__file {

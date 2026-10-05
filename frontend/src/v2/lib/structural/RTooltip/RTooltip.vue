@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// RTooltip — positioned with `@floating-ui/vue` (the only standalone
-// dep we lean on here — battle-tested overlay math with flip / shift /
+// RTooltip: positioned with `@floating-ui/vue` (the only standalone
+// dep we lean on here: battle-tested overlay math with flip / shift /
 // offset / arrow middleware). The surface itself matches the v2 glass
 // language (near-black bg, subtle border, blur), driven by tokens.
 //
@@ -25,7 +25,7 @@
 //      Used inside primitives that already have their own root
 //      element (PlatformIcon, MissingFSBadge, …).
 //
-// Open / close motion mirrors the rest of the lib — a short fade +
+// Open / close motion mirrors the rest of the lib: a short fade +
 // subtle scale-up from 0.96, with reduced-motion stripping the scale.
 // `prefers-reduced-motion` users keep the fade.
 import {
@@ -37,14 +37,8 @@ import {
   useFloating,
 } from "@floating-ui/vue";
 import type { Placement } from "@floating-ui/vue";
-import {
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  useSlots,
-  watch,
-} from "vue";
+import { useEventListener, useTimeoutFn } from "@vueuse/core";
+import { computed, onBeforeUnmount, ref, useSlots } from "vue";
 import {
   isUnderOpenEscapable,
   onEscapableOpen,
@@ -53,7 +47,7 @@ import RIcon from "../../primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 
-// Anchor strings ("top", "bottom start", …) — translated to
+// Anchor strings ("top", "bottom start", …): translated to
 // floating-ui's placement vocabulary at compute time.
 type Anchor =
   | "top"
@@ -70,31 +64,31 @@ type Anchor =
   | "end bottom";
 
 interface Props {
-  text?: string;
+  text?: string | undefined;
   /** Anchor; mapped to floating-ui placement internally. */
   location?: Anchor;
   openDelay?: number | string;
   closeDelay?: number | string;
   /** Controlled visibility (uncontrolled when undefined). */
-  modelValue?: boolean;
-  contentClass?: string;
+  modelValue?: boolean | undefined;
+  contentClass?: string | undefined;
   /** Px gap between activator and tooltip body. */
   offset?: number | string;
-  /** "parent" — attach to the immediate parent element of <RTooltip>. */
-  activator?: "parent";
+  /** "parent": attach to the immediate parent element of <RTooltip>. */
+  activator?: "parent" | undefined;
   /** Hide entirely (useful with `v-if` style guards on conditional tooltips). */
   disabled?: boolean;
   /** Override the body's max width. Number → px, string → any CSS length
    * (e.g. `"min(80vw, 900px)"`). Lets content-heavy tooltips grow and adapt
    * instead of being clamped to the default 280px. */
-  maxWidth?: number | string;
-  /** Secondary muted line rendered below the main content — e.g. an action
+  maxWidth?: number | string | undefined;
+  /** Secondary muted line rendered below the main content: e.g. an action
    * affordance like "Click to copy". */
-  hint?: string;
+  hint?: string | undefined;
   /** Optional MDI icon shown before the hint text (e.g. `mdi-content-copy`). */
-  hintIcon?: string;
+  hintIcon?: string | undefined;
   /** Opt in to touch: a tap toggles the tooltip (and an outside tap closes
-   *  it). Off by default because a normal tooltip must NOT appear on touch —
+   *  it). Off by default because a normal tooltip must NOT appear on touch:
    *  there a "hover" is really a tap on the underlying action, and the
    *  tooltip would linger over whatever it opened. Set this only for a
    *  standalone info affordance whose sole purpose is to reveal the tip. */
@@ -161,38 +155,30 @@ function setOpen(v: boolean) {
 }
 
 // Cancellable timers so hover-flicker doesn't open/close repeatedly.
-let openTimer: number | null = null;
-let closeTimer: number | null = null;
+const openDelayMs = computed(() => Number(props.openDelay) || 0);
+const closeDelayMs = computed(() => Number(props.closeDelay) || 0);
+const openTimer = useTimeoutFn(() => setOpen(true), openDelayMs, {
+  immediate: false,
+});
+const closeTimer = useTimeoutFn(() => setOpen(false), closeDelayMs, {
+  immediate: false,
+});
 function clearTimers() {
-  if (openTimer !== null) {
-    clearTimeout(openTimer);
-    openTimer = null;
-  }
-  if (closeTimer !== null) {
-    clearTimeout(closeTimer);
-    closeTimer = null;
-  }
+  openTimer.stop();
+  closeTimer.stop();
 }
 function show() {
   if (props.disabled || !hasContent.value) return;
   // A tip whose activator the overlay covers would paint on top of it.
-  if (isUnderOpenEscapable(reference.value)) return;
+  if (isUnderOpenEscapable(activatorEl())) return;
   clearTimers();
-  const d = Number(props.openDelay) || 0;
-  if (d <= 0) {
-    setOpen(true);
-  } else {
-    openTimer = window.setTimeout(() => setOpen(true), d);
-  }
+  if (openDelayMs.value <= 0) setOpen(true);
+  else openTimer.start();
 }
 function hide() {
   clearTimers();
-  const d = Number(props.closeDelay) || 0;
-  if (d <= 0) {
-    setOpen(false);
-  } else {
-    closeTimer = window.setTimeout(() => setOpen(false), d);
-  }
+  if (closeDelayMs.value <= 0) setOpen(false);
+  else closeTimer.start();
 }
 
 const hasContent = computed(
@@ -200,7 +186,18 @@ const hasContent = computed(
 );
 
 // ── Floating-ui refs ────────────────────────────────────────────
-const reference = ref<Element | null>(null);
+// Slot pattern: the activator renders inside a `display: contents` span.
+// Parent pattern: a hidden anchor span sits in the parent's DOM.
+const activatorWrapper = ref<HTMLElement | null>(null);
+const root = ref<HTMLElement | null>(null);
+
+// Read on demand, since a `v-if` in the slot can swap the element and
+// slots are not reactive.
+function activatorEl(): Element | null {
+  if (props.activator === "parent") return root.value?.parentElement ?? null;
+  return activatorWrapper.value?.firstElementChild ?? null;
+}
+const reference = computed(() => (isOpen.value ? activatorEl() : null));
 const floating = ref<HTMLElement | null>(null);
 const arrowEl = ref<HTMLElement | null>(null);
 
@@ -212,7 +209,7 @@ const {
   placement,
   strategy: "fixed",
   open: isOpen,
-  // Use top/left positioning instead of `transform: translate(x, y)` —
+  // Use top/left positioning instead of `transform: translate(x, y)`:
   // otherwise the enter-transition's `transform: scale(...)` clobbers
   // floating-ui's translate and the tooltip visibly slides from (0, 0)
   // to its target spot. With `transform: false`, `transform` is free
@@ -227,7 +224,7 @@ const {
   ]),
 });
 
-// Arrow inline positioning — floating-ui only computes the offset
+// Arrow inline positioning: floating-ui only computes the offset
 // along the perpendicular axis; we anchor it to the opposite side of
 // the active placement so it always points at the reference.
 const arrowStyle = computed<Record<string, string>>(() => {
@@ -251,7 +248,7 @@ const arrowStyle = computed<Record<string, string>>(() => {
 });
 
 // ── Activator wiring ────────────────────────────────────────────
-// Reveal rules by input type — a touch device must NOT get tooltips: a
+// Reveal rules by input type. A touch device must NOT get tooltips: a
 // "hover" there is really a tap that fires the underlying action, and a
 // focus there is that same tap. Either would summon a tooltip that then
 // lingers over the menu / dialog the tap opened (with no pointer-leave to
@@ -294,7 +291,7 @@ function onActivatorClick() {
     return;
   }
   // `openOnTap`: interacting reveals the tip (immediate, bypassing the open
-  // delay). A finger tap toggles it; a mouse click always OPENS — clicking a
+  // delay). A finger tap toggles it; a mouse click always OPENS: clicking a
   // pill you're hovering must not close it and strand you unable to re-reveal
   // it while the pointer stays put. Close is via leave / outside tap / blur.
   clearTimers();
@@ -317,62 +314,30 @@ const activatorProps = computed(() => ({
 // close on the next pointer-down outside the activator / body. Registered
 // only while open in `openOnTap` mode; the opening tap's own pointer-down
 // has already fired, so this never self-closes.
-let outsideCloseHandler: ((e: Event) => void) | null = null;
-function teardownOutsideClose() {
-  if (!outsideCloseHandler) return;
-  document.removeEventListener("pointerdown", outsideCloseHandler, true);
-  outsideCloseHandler = null;
-}
-watch(isOpen, (open) => {
-  if (open && props.openOnTap) {
-    if (outsideCloseHandler) return;
-    outsideCloseHandler = (e: Event) => {
-      const target = e.target as Node | null;
-      if (!target) return;
-      if (reference.value?.contains(target)) return;
-      if (floating.value?.contains(target)) return;
-      hide();
-    };
-    document.addEventListener("pointerdown", outsideCloseHandler, true);
-  } else {
-    teardownOutsideClose();
-  }
-});
+useEventListener(
+  () => (isOpen.value && props.openOnTap ? document : null),
+  "pointerdown",
+  (e: PointerEvent) => {
+    const target = e.target as Node | null;
+    if (!target) return;
+    if (reference.value?.contains(target)) return;
+    if (floating.value?.contains(target)) return;
+    hide();
+  },
+  true,
+);
 
-// For the parent-attach pattern we sit silently in the parent's DOM
-// and register listeners on `$el.parentElement` at mount. We deliberately
-// use a comment node as `$el` so the tooltip itself doesn't take up
-// flow space inside the parent.
-const root = ref<HTMLElement | null>(null);
-function attachToParent() {
-  if (props.activator !== "parent") return;
-  const parent = root.value?.parentElement;
-  if (!parent) return;
-  reference.value = parent;
-  parent.addEventListener(
-    "pointerdown",
-    onActivatorPointerDown as EventListener,
-  );
-  parent.addEventListener("pointerenter", onPointerEnter as EventListener);
-  parent.addEventListener("pointerleave", onPointerLeave as EventListener);
-  parent.addEventListener("focusin", onFocusReveal as EventListener);
-  parent.addEventListener("focusout", hide);
-  parent.addEventListener("click", onActivatorClick);
-}
-function detachFromParent() {
-  if (props.activator !== "parent") return;
-  const parent = root.value?.parentElement;
-  if (!parent) return;
-  parent.removeEventListener(
-    "pointerdown",
-    onActivatorPointerDown as EventListener,
-  );
-  parent.removeEventListener("pointerenter", onPointerEnter as EventListener);
-  parent.removeEventListener("pointerleave", onPointerLeave as EventListener);
-  parent.removeEventListener("focusin", onFocusReveal as EventListener);
-  parent.removeEventListener("focusout", hide);
-  parent.removeEventListener("click", onActivatorClick);
-}
+// For the parent-attach pattern we sit silently in the parent's DOM and
+// listen on the anchor span's parent, so the tooltip itself takes up no
+// flow space inside it.
+const parentEl = () =>
+  props.activator === "parent" ? (root.value?.parentElement ?? null) : null;
+useEventListener(parentEl, "pointerdown", onActivatorPointerDown);
+useEventListener(parentEl, "pointerenter", onPointerEnter);
+useEventListener(parentEl, "pointerleave", onPointerLeave);
+useEventListener(parentEl, "focusin", onFocusReveal);
+useEventListener(parentEl, "focusout", hide);
+useEventListener(parentEl, "click", onActivatorClick);
 
 // A tip paints above every overlay in the z-index ladder, so an overlay
 // opening dismisses it outright, ignoring `closeDelay`.
@@ -381,39 +346,9 @@ const unsubscribeOverlayDismiss = onEscapableOpen(() => {
   if (isOpen.value) setOpen(false);
 });
 
-onMounted(() => {
-  // For the slot pattern, the reference is the first child rendered
-  // by the slot — we read it from the wrapper span on mount.
-  if (props.activator !== "parent") {
-    reference.value = activatorWrapper.value?.firstElementChild ?? null;
-  } else {
-    attachToParent();
-  }
-});
-onBeforeUnmount(() => {
-  detachFromParent();
-  clearTimers();
-  teardownOutsideClose();
-  unsubscribeOverlayDismiss();
-});
+onBeforeUnmount(unsubscribeOverlayDismiss);
 
-// ── Slot activator wrapper ──────────────────────────────────────
-// We render a `display: contents` span around the activator slot so
-// we have a stable DOM handle for `firstElementChild` without
-// disturbing layout.
-const activatorWrapper = ref<HTMLElement | null>(null);
-
-// Re-read the reference if the slot content changes (e.g., v-if flips).
-watch(
-  () => slots.activator,
-  () => {
-    if (props.activator !== "parent") {
-      reference.value = activatorWrapper.value?.firstElementChild ?? null;
-    }
-  },
-);
-
-// Side bucket — used by the open animation to grow the tooltip out of
+// Side bucket: used by the open animation to grow the tooltip out of
 // the activator (transform-origin + a tiny "from" translate from that
 // side, so the bloom reads as kinetic instead of a flat scale-up).
 const sideClass = computed(() => {
@@ -458,7 +393,7 @@ const bodyStyle = computed(() => {
     <slot name="activator" :props="activatorProps" />
   </span>
 
-  <!-- Tooltip body — teleported to <body> so it escapes overflow
+  <!-- Tooltip body: teleported to <body> so it escapes overflow
        contexts and z-index stacking. Mount only when open to avoid
        paying for layout on every hidden tooltip in the page. -->
   <Teleport to="body">
@@ -491,7 +426,7 @@ const bodyStyle = computed(() => {
 .r-tooltip {
   /* Surface inherits from the global `r-tooltip` skin in global.css
      for theme alignment. Re-declare here so the primitive is
-     self-contained — scoped tokens win when both stylesheets load. */
+     self-contained: scoped tokens win when both stylesheets load. */
   position: fixed;
   z-index: var(--r-z-tooltip, 2600);
   background: var(--r-color-tooltip-bg);
@@ -516,7 +451,7 @@ const bodyStyle = computed(() => {
   pointer-events: none;
 }
 
-/* Secondary affordance line under the main content — muted + smaller,
+/* Secondary affordance line under the main content: muted + smaller,
    separated by a hairline. */
 .r-tooltip__hint {
   display: flex;
@@ -530,10 +465,10 @@ const bodyStyle = computed(() => {
   font-weight: 500;
 }
 
-/* Arrow — small square rotated 45deg into a diamond. Only the two
+/* Arrow: small square rotated 45deg into a diamond. Only the two
    borders facing the activator are painted, so it reads as a folded
    corner of the surface. Which two borders that is depends on the
-   active placement — the parent's `--side-*` class flips the right
+   active placement: the parent's `--side-*` class flips the right
    pair. */
 .r-tooltip__arrow {
   position: absolute;
@@ -567,7 +502,7 @@ const bodyStyle = computed(() => {
   border-left: 1px solid var(--r-color-tooltip-border);
 }
 
-/* Open / close motion. The tooltip "blooms" out of the activator —
+/* Open / close motion. The tooltip "blooms" out of the activator:
    `transform-origin` anchors to the side facing the activator, and a
    tiny initial translate (away from the activator) means the bloom
    reads as a quick spring rather than a flat scale-up. Numbers tuned
@@ -579,12 +514,12 @@ const bodyStyle = computed(() => {
   transform-origin: center;
 }
 .r-tooltip--side-top {
-  /* Tooltip sits above the activator — grow downward toward it. */
+  /* Tooltip sits above the activator: grow downward toward it. */
   transform-origin: center bottom;
   --r-tt-ty: 6px;
 }
 .r-tooltip--side-bottom {
-  /* Tooltip sits below the activator — grow downward away from it. */
+  /* Tooltip sits below the activator: grow downward away from it. */
   transform-origin: center top;
   --r-tt-ty: -6px;
 }
@@ -603,12 +538,12 @@ const bodyStyle = computed(() => {
 }
 .r-tooltip-fade-leave-to {
   opacity: 0;
-  /* Leave shrinks back into the activator without the slide — quick &
+  /* Leave shrinks back into the activator without the slide: quick &
      unobtrusive, the hover-out side of the interaction. */
   transform: scale(0.92);
 }
 .r-tooltip-fade-enter-active {
-  /* Spring overshoot on transform — same easing the rest of the lib's
+  /* Spring overshoot on transform: same easing the rest of the lib's
      "appears" use (RSwitch thumb, RCheckbox icon). Slightly longer than
      opacity so the bounce keeps reading after the fade settles. */
   transition:
@@ -621,7 +556,7 @@ const bodyStyle = computed(() => {
     transform 110ms var(--r-motion-ease-in);
 }
 
-/* Arrow follows the surface — wrap it in its own fade so it doesn't
+/* Arrow follows the surface: wrap it in its own fade so it doesn't
    pop in late after the body has finished scaling. The slight delay
    means the surface's bloom lands first, then the tip "catches up". */
 .r-tooltip-fade-enter-active .r-tooltip__arrow {

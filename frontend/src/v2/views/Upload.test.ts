@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import type { Platform } from "@/stores/platforms";
+import { platformFixture } from "@/utils/platform.fixtures";
 import Upload from "./Upload.vue";
 
 const {
@@ -26,9 +26,7 @@ const {
   },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
@@ -70,29 +68,6 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   }),
 }));
 
-function platform(overrides: Partial<Platform>): Platform {
-  return {
-    id: -1,
-    slug: "platform",
-    fs_slug: "platform",
-    rom_count: 0,
-    name: "Platform",
-    igdb_slug: null,
-    moby_slug: null,
-    hltb_slug: null,
-    libretro_slug: null,
-    created_at: "",
-    updated_at: "",
-    fs_size_bytes: 0,
-    is_unidentified: false,
-    is_identified: true,
-    missing_from_fs: true,
-    display_name: "Platform",
-    firmware_count: 0,
-    ...overrides,
-  };
-}
-
 const stubs = {
   PlatformSelect: {
     props: ["modelValue", "items", "itemKey"],
@@ -115,11 +90,11 @@ const stubs = {
   RIcon: true,
 };
 
-const threeDo = platform({
+const threeDo = platformFixture({
+  id: -1,
   slug: "3do",
-  fs_slug: "3do",
   name: "3DO Interactive Multiplayer",
-  display_name: "3DO Interactive Multiplayer",
+  missing_from_fs: true,
 });
 
 async function uploadOneFile() {
@@ -135,11 +110,11 @@ async function uploadOneFile() {
 
 describe("Upload platform selection", () => {
   it("uses the unique slug when unsupported platforms share sentinel id -1", async () => {
-    const zx80 = platform({
+    const zx80 = platformFixture({
+      id: -1,
       slug: "zx80",
-      fs_slug: "zx80",
       name: "ZX80",
-      display_name: "ZX80",
+      missing_from_fs: true,
     });
     getSupportedPlatforms.mockResolvedValueOnce({ data: [zx80, threeDo] });
     uploadPlatform.mockResolvedValueOnce({ data: { ...threeDo, id: 123 } });
@@ -161,18 +136,12 @@ describe("Upload platform selection", () => {
 describe("Upload follow-up scan", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["setTimeout"] });
-    emit.mockClear();
-    warning.mockClear();
     scanning.scanning = false;
     scanning.startedInThisTab = false;
     getSupportedPlatforms.mockResolvedValueOnce({
       data: [{ ...threeDo, id: 7, missing_from_fs: false }],
     });
     uploadRoms.mockResolvedValueOnce([{ status: "fulfilled" }]);
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("scans the platform once the upload lands", async () => {

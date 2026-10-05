@@ -89,7 +89,7 @@
   "provider-steam-desc": "Áruházi metaadatok és képek a Steamen elérhető PC-játékokhoz.",
   "provider-steam-setup": "Állítsd be a STEAM_API_ENABLED=true értéket.",
   "proxy-hasheous-caveat": "Közösség által üzemeltetett szolgáltatás. Fájl hash-ek szükségesek. Engedélyezd a hash számítást a konfigurációban (alapból engedélyezve van).",
-  "proxy-hasheous-desc": "Hash-alapú egyeztető, amely IGDB-adatokat proxyz és RetroAchievements azonosítókat szolgáltat.",
+  "proxy-hasheous-desc": "Hash-alapú egyeztető, amely IGDB-adatokat proxyz.",
   "proxy-hasheous-setup": "Állítsd be a HASHEOUS_API_ENABLED=true értéket.",
   "proxy-playmatch-caveat": "Közösség által üzemeltetett szolgáltatás.",
   "proxy-playmatch-desc": "Hash-alapú egyeztető IGDB-vel párosítva.",

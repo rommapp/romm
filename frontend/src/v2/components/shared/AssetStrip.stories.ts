@@ -71,7 +71,7 @@ export const FewStatesScreenshots: Story = {
   name: "States · 5 with screenshots",
   render: () => {
     const states = manyStates(5);
-    return selectableStrip(states, states[0].id);
+    return selectableStrip(states, states[0]!.id);
   },
   play: async ({ canvasElement, step }) => {
     await step("state tiles render with filenames", async () => {
@@ -95,7 +95,7 @@ export const ManyStatesOverflow: Story = {
   name: "States · 12 (horizontal scroll)",
   render: () => {
     const states = manyStates(12);
-    return selectableStrip(states, states[4].id);
+    return selectableStrip(states, states[4]!.id);
   },
 };
 
@@ -105,7 +105,7 @@ export const ManyStatesGrid: Story = {
   name: "States · 30 (grid layout)",
   render: () => {
     const states = manyStates(30);
-    return selectableStrip(states, states[0].id, { layout: "grid" });
+    return selectableStrip(states, states[0]!.id, { layout: "grid" });
   },
 };
 
@@ -113,7 +113,7 @@ export const ManyStatesList: Story = {
   name: "States · 30 (list layout)",
   render: () => {
     const states = manyStates(30);
-    return selectableStrip(states, states[0].id, { layout: "list" });
+    return selectableStrip(states, states[0]!.id, { layout: "list" });
   },
 };
 
@@ -122,7 +122,7 @@ export const StatesNoScreenshots: Story = {
   name: "States · 6 without screenshots",
   render: () => {
     const states = manyStates(6).map((s) => ({ ...s, screenshot: null }));
-    return selectableStrip(states, states[2].id);
+    return selectableStrip(states, states[2]!.id);
   },
 };
 
@@ -154,7 +154,7 @@ export const LongFilenames: Story = {
         screenshot: null,
       }),
     ];
-    return selectableStrip(states, states[0].id);
+    return selectableStrip(states, states[0]!.id);
   },
 };
 
@@ -194,7 +194,7 @@ export const IncompatibleStates: Story = {
       asset.emulator === "snes9x"
         ? null
         : `Saved with ${asset.emulator}, which the selected core cannot load.`;
-    return selectableStrip(states, states[0].id, { disabledReason });
+    return selectableStrip(states, states[0]!.id, { disabledReason });
   },
 };
 
@@ -211,7 +211,7 @@ export const GroupedByCore: Story = {
       asset.emulator === "builtin"
         ? "Saved with builtin, which the selected core cannot load."
         : null;
-    return selectableStrip(states, states[0].id, {
+    return selectableStrip(states, states[0]!.id, {
       layout: "flow",
       groupBy: "emulator",
       disabledReason,

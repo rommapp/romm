@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// AchievementsTab — RetroAchievements summary + filter row + per-achievement
+// AchievementsTab: RetroAchievements summary + filter row + per-achievement
 // list. The "earned" set comes from the parent (computed off
 // auth.user.ra_progression so it stays reactive); rows look up by
 // `badge_id` against the set in O(1).
@@ -15,7 +15,7 @@ const { t } = useI18n();
 const props = withDefaults(
   defineProps<{
     metadata: RomRAMetadata | null | undefined;
-    apiBase?: string;
+    apiBase?: string | undefined;
     earnedAchievementIds?: ReadonlySet<string>;
   }>(),
   {

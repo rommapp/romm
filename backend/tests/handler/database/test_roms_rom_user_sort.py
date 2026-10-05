@@ -9,8 +9,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pytest
+from tests.factories import make_rom
 from tests.sql_dialects import MARIADB_DIALECT, compile_sql
 
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams
 from models.platform import Platform
@@ -26,19 +28,13 @@ def _make_rom(
     igdb_id: int | None = None,
 ) -> Rom:
     full_name = f"{name} ({region})" if region else name
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            igdb_id=igdb_id,
-            name=name,
-            slug=full_name,
-            fs_name=f"{full_name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=full_name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            regions=[region] if region else [],
-        )
+    return make_rom(
+        platform,
+        name,
+        fs_stem=full_name,
+        fs_name_no_tags=name,
+        igdb_id=igdb_id,
+        regions=[region] if region else [],
     )
 
 
@@ -283,7 +279,7 @@ class TestGroupedRomUserSortResults:
             order_by="last_played",
             order_dir="desc",
             user_id=admin_user.id,
-            hidden_rom_ids=[admin_hidden.id],
+            visibility=RomVisibilityFilter(hidden_rom_ids=frozenset({admin_hidden.id})),
         )
         by_id = {
             rom.id: rom.fs_name_no_ext

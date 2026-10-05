@@ -1,18 +1,18 @@
+import { AxiosError, AxiosHeaders } from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { sessionStateName } from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
+import { saveContentHash } from "@/v2/utils/saveSync/hash";
 import {
   buildStateFormData,
   captureScreenshot,
   dumpSaveFile,
   heldFor,
-  createRetryBackoff,
   createSaveSyncTracker,
-  RETRY_BACKOFF_MAX_MS,
-  RETRY_BACKOFF_MIN_MS,
   bootEmulatorJSSave,
   installEJSDefaultOptionsTrap,
+  installNetplayHostAudioTap,
   loadEmulatorJSSave,
   patchNetplaySocketIo,
   pollSaveFiles,
@@ -64,6 +64,8 @@ function makeEmulator(defaultOptions: Record<string, unknown>): any {
     rewindEnabled: false,
     videoRotation: undefined,
     webgl2Enabled: null,
+    started: false,
+    menuOptionChanged: vi.fn(),
     getLocalStorageKey() {
       return STORAGE_KEY;
     },
@@ -132,6 +134,98 @@ describe("patchNetplaySocketIo", () => {
     window.io("https://romm.example");
 
     expect(io).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("installNetplayHostAudioTap", () => {
+  class FakeAudioNode {
+    targets: unknown[] = [];
+    gain = { value: 1 };
+    stream = { id: "capture" };
+    context: FakeAudioContext;
+    constructor(context: FakeAudioContext) {
+      this.context = context;
+    }
+    connect(target: unknown) {
+      this.targets.push(target);
+      return target;
+    }
+  }
+  class FakeAudioContext {
+    destination = new FakeAudioNode(this);
+    createGain() {
+      return new FakeAudioNode(this);
+    }
+    createMediaStreamDestination() {
+      return new FakeAudioNode(this);
+    }
+  }
+
+  const nativeConnect = FakeAudioNode.prototype.connect;
+  const fallbackStream = { id: "fallback" } as unknown as MediaStream;
+  function createNetplay() {
+    return {
+      _captureHostAudio: vi.fn((): MediaStream | null => fallbackStream),
+      _hostAudioDest: null as MediaStreamAudioDestinationNode | null,
+      _audioBoostFactor: 1.5,
+    };
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal("AudioNode", FakeAudioNode);
+  });
+
+  afterEach(() => {
+    FakeAudioNode.prototype.connect = nativeConnect;
+    vi.unstubAllGlobals();
+  });
+
+  it("streams what the core plays to the destination", () => {
+    const patch = installNetplayHostAudioTap();
+    const context = new FakeAudioContext();
+    const source = new FakeAudioNode(context);
+    source.connect(context.destination);
+    const netplay = createNetplay();
+    patch(netplay);
+
+    const stream = netplay._captureHostAudio();
+
+    const output = netplay._hostAudioDest as unknown as FakeAudioNode;
+    expect(stream).toBe(output.stream);
+    const [played, boost] = source.targets as FakeAudioNode[];
+    expect(played).toBe(context.destination);
+    expect(boost?.targets).toEqual([output]);
+    expect(boost?.gain.value).toBe(1.5);
+  });
+
+  it("leaves other connections alone", () => {
+    installNetplayHostAudioTap();
+    const context = new FakeAudioContext();
+    const source = new FakeAudioNode(context);
+    const gain = context.createGain();
+
+    source.connect(gain);
+
+    expect(source.targets).toEqual([gain]);
+  });
+
+  it("falls back to EmulatorJS capture before anything plays", () => {
+    const patch = installNetplayHostAudioTap();
+    const netplay = createNetplay();
+    patch(netplay);
+
+    expect(netplay._captureHostAudio()).toBe(fallbackStream);
+  });
+
+  it("tees each connection once when installed twice", () => {
+    installNetplayHostAudioTap();
+    installNetplayHostAudioTap();
+    const context = new FakeAudioContext();
+    const source = new FakeAudioNode(context);
+
+    source.connect(context.destination);
+
+    expect(source.targets).toHaveLength(2);
   });
 });
 
@@ -257,6 +351,67 @@ describe("installEJSDefaultOptionsTrap", () => {
     warn.mockRestore();
   });
 
+  describe("with a pad at a sparse browser gamepad index", () => {
+    type PadEvent = { gamepadIndex: number; type?: string; label?: string };
+    type Listener = (event: PadEvent) => void;
+
+    // Mirrors the EmulatorJS 4.2.3 GamepadHandler and the listeners
+    // bindListeners registers on it, including their compact-list lookup.
+    function makeGamepadEmulator() {
+      const emulator = makeEmulator({});
+      const pressed: string[] = [];
+      emulator.gamepadSelection = ["", "", "", ""];
+      emulator.gamepad = {
+        gamepads: [{ index: 1, id: "pad" }],
+        listeners: {} as Record<string, Listener>,
+        on(name: string, cb: Listener) {
+          this.listeners[name] = cb;
+        },
+        dispatchEvent(name: string, arg: PadEvent) {
+          arg.type = name;
+          this.listeners[name]?.(arg);
+        },
+      };
+      const selectionFor = (gamepadIndex: number) => {
+        const pad = emulator.gamepad.gamepads[gamepadIndex];
+        return `${pad.id}_${pad.index}`;
+      };
+      emulator.gamepad.on("connected", ({ gamepadIndex }: PadEvent) => {
+        const slot = emulator.gamepadSelection.indexOf("");
+        if (slot !== -1)
+          emulator.gamepadSelection[slot] = selectionFor(gamepadIndex);
+      });
+      emulator.gamepad.on("buttondown", ({ gamepadIndex, label }: PadEvent) => {
+        const player = emulator.gamepadSelection.indexOf(
+          selectionFor(gamepadIndex),
+        );
+        if (player !== -1) pressed.push(`${player}:${label}`);
+      });
+      return { emulator, pressed };
+    }
+
+    it("assigns the pad to a player and routes its buttons", () => {
+      const { emulator, pressed } = makeGamepadEmulator();
+      window.EJS_emulator = emulator;
+
+      expect(emulator.gamepadSelection).toEqual(["pad_1", "", "", ""]);
+      emulator.gamepad.dispatchEvent("buttondown", {
+        gamepadIndex: 1,
+        label: "BUTTON_1",
+      });
+      expect(pressed).toEqual(["0:BUTTON_1"]);
+    });
+
+    it("leaves builds that already look pads up by browser index alone", () => {
+      const { emulator } = makeGamepadEmulator();
+      emulator.getGamepadSelectionValue = () => null;
+      const listener = emulator.gamepad.listeners.buttondown;
+      window.EJS_emulator = emulator;
+
+      expect(emulator.gamepad.listeners.buttondown).toBe(listener);
+    });
+  });
+
   it("hands an FBNeo BIOS archive to the core whole on the 4.2.3 build", () => {
     const emulator = makeEmulator({});
     Object.assign(emulator.config, {
@@ -342,6 +497,43 @@ describe("installEJSDefaultOptionsTrap", () => {
         0,
         true,
         "SLUSZTVS",
+      );
+    });
+  });
+
+  describe("disk selection", () => {
+    it("skips the disk the menu selects while the game boots", () => {
+      // 4.2.3 crashes on it with a multi-disk game (EmulatorJS#1260).
+      const emulator = makeEmulator({});
+      const original = emulator.menuOptionChanged;
+      window.EJS_emulator = emulator;
+
+      emulator.menuOptionChanged("disk", "0");
+
+      expect(original).not.toHaveBeenCalled();
+    });
+
+    it("forwards a disk swap once the game runs", () => {
+      const emulator = makeEmulator({});
+      const original = emulator.menuOptionChanged;
+      window.EJS_emulator = emulator;
+      emulator.started = true;
+
+      emulator.menuOptionChanged("disk", "1");
+
+      expect(original).toHaveBeenCalledExactlyOnceWith("disk", "1");
+    });
+
+    it("forwards other options before the game runs", () => {
+      const emulator = makeEmulator({});
+      const original = emulator.menuOptionChanged;
+      window.EJS_emulator = emulator;
+
+      emulator.menuOptionChanged("shader", "crt-easymode.glslp");
+
+      expect(original).toHaveBeenCalledExactlyOnceWith(
+        "shader",
+        "crt-easymode.glslp",
       );
     });
   });
@@ -440,54 +632,6 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
     expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
     expect(tracker.shouldUpload(bytes(1, 2, 3, 0))).toBe(false);
-  });
-});
-
-describe("createRetryBackoff", () => {
-  let clock = 0;
-  const backoff = () => createRetryBackoff(() => clock);
-
-  beforeEach(() => {
-    clock = 0;
-  });
-
-  it("tries straight away until something has failed", () => {
-    expect(backoff().ready()).toBe(true);
-  });
-
-  // Once a second only hammers a server that keeps saying no.
-  it("doubles the wait after each failure, up to a cap", () => {
-    const retry = backoff();
-    const waits: number[] = [];
-    for (let i = 0; i < 6; i++) {
-      retry.failed();
-      const start = clock;
-      while (!retry.ready()) clock += 1_000;
-      waits.push(clock - start);
-    }
-
-    expect(waits).toEqual([
-      RETRY_BACKOFF_MIN_MS,
-      4_000,
-      8_000,
-      16_000,
-      RETRY_BACKOFF_MAX_MS,
-      RETRY_BACKOFF_MAX_MS,
-    ]);
-  });
-
-  it("starts over once an upload lands or the server is back", () => {
-    const retry = backoff();
-    retry.failed();
-    retry.failed();
-    expect(retry.ready()).toBe(false);
-
-    retry.reset();
-    expect(retry.ready()).toBe(true);
-
-    retry.failed();
-    clock += RETRY_BACKOFF_MIN_MS;
-    expect(retry.ready()).toBe(true);
   });
 });
 
@@ -788,7 +932,7 @@ describe("saveState", () => {
   it("uploads the screenshot named after the state", async () => {
     await saveState({ rom, stateFile: bytes, screenshotFile: bytes });
 
-    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0]![0];
     expect(statesToUpload[0].screenshotFile.name).toMatch(/^game \[.*\]\.png$/);
     expect(rom.user_states).toEqual([{ id: 7 }]);
   });
@@ -796,14 +940,14 @@ describe("saveState", () => {
   it("still uploads the state when there is no screenshot", async () => {
     await saveState({ rom, stateFile: bytes });
 
-    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0]![0];
     expect(statesToUpload[0].screenshotFile).toBeUndefined();
   });
 
   it("holds the state in the browser until the server takes it", async () => {
     await saveState({ rom, stateFile: bytes, screenshotFile: bytes });
 
-    const held = pendingAssetMocks.write.mock.calls[0][0];
+    const held = pendingAssetMocks.write.mock.calls[0]![0];
     expect(held).toMatchObject({
       kind: "state",
       romId: 1,
@@ -860,8 +1004,8 @@ describe("saveState", () => {
   it("names the state after the moment it was captured", async () => {
     await saveState({ rom, stateFile: bytes });
 
-    const { capturedAt } = pendingAssetMocks.write.mock.calls[0][0];
-    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0][0];
+    const { capturedAt } = pendingAssetMocks.write.mock.calls[0]![0];
+    const { statesToUpload } = stateApiMocks.uploadStates.mock.calls[0]![0];
     expect(statesToUpload[0].stateFile.name).toMatch(
       /^game \[\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}-\d{3}\]\.state$/,
     );
@@ -882,7 +1026,7 @@ describe("saveSaveOnUnload", () => {
   it("opens a capped autosave version named after the rom", () => {
     expect(saveSaveOnUnload({ rom, save: null, saveFile: bytes })).toBe(true);
 
-    const request = saveApiMocks.sendSaveOnUnload.mock.calls[0][0];
+    const request = saveApiMocks.sendSaveOnUnload.mock.calls[0]![0];
     expect(request).toMatchObject({
       save: null,
       slot: "autosave",
@@ -900,7 +1044,7 @@ describe("saveSaveOnUnload", () => {
 
     saveSaveOnUnload({ rom, save, saveFile: bytes, slot: "main_quest" });
 
-    const request = saveApiMocks.sendSaveOnUnload.mock.calls[0][0];
+    const request = saveApiMocks.sendSaveOnUnload.mock.calls[0]![0];
     expect(request).toMatchObject({
       save,
       slot: "main_quest",
@@ -963,7 +1107,7 @@ describe("saveSave", () => {
       screenshotFile: shot,
     });
 
-    const { screenshotFile } = saveApiMocks.updateSave.mock.calls[0][0];
+    const { screenshotFile } = saveApiMocks.updateSave.mock.calls[0]![0];
     expect(screenshotFile.name).toBe("a [t].png");
   });
 
@@ -981,15 +1125,55 @@ describe("saveSave", () => {
         slot: "autosave",
         autocleanup: true,
         overwrite: true,
+        contentHash: saveContentHash(new Uint8Array(bytes)),
       }),
     );
     expect(rom.user_saves).toEqual([{ id: 2, slot: "autosave" }]);
   });
 
+  it("guards a version that continues the slot's current one", async () => {
+    await saveSave({ rom, save: null, saveFile: bytes, guarded: true });
+
+    expect(saveApiMocks.uploadSaves).toHaveBeenCalledWith(
+      expect.objectContaining({ slot: "autosave", overwrite: false }),
+    );
+  });
+
+  it("archives the progress when another device moved the slot on", async () => {
+    const conflict = new AxiosError("conflict", "ERR", undefined, undefined, {
+      status: 409,
+      statusText: "",
+      data: null,
+      headers: {},
+      config: { headers: new AxiosHeaders() },
+    });
+    const archived = { id: 8, slot: null } as SaveSchema;
+    saveApiMocks.uploadSaves
+      .mockResolvedValueOnce([{ status: "rejected", reason: conflict }])
+      .mockResolvedValueOnce([{ status: "fulfilled", value: archived }]);
+
+    const save = await saveSave({
+      rom,
+      save: null,
+      saveFile: bytes,
+      deviceId: "device-1",
+      guarded: true,
+    });
+
+    const archive = saveApiMocks.uploadSaves.mock.calls[1]![0];
+    expect(archive.slot).toBeUndefined();
+    expect(archive.deviceId).toBe("device-1");
+    expect(archive.savesToUpload[0].saveFile.name).toMatch(
+      /^game \[.+\]\.srm$/,
+    );
+    expect(save).toBe(archived);
+    expect(rom.user_saves).toEqual([archived]);
+  });
+
   it("leaves the datetime tag of a slotted upload to the backend", async () => {
     await saveSave({ rom, save: null, saveFile: bytes });
 
-    const { savesToUpload } = saveApiMocks.uploadSaves.mock.calls[0][0];
+    const { savesToUpload } = saveApiMocks.uploadSaves.mock.calls[0]![0];
     expect(savesToUpload[0].saveFile.name).toBe("game.srm");
   });
 

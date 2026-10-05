@@ -3,6 +3,7 @@ import { RBtn, RDivider, RIcon, RMenu, RMenuItem } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { shouldAutofocusSearch } from "@/v2/utils/autofocus";
+import { tabId, tabPanelId } from "@/v2/utils/tabIds";
 
 export interface SubtabNavItem<Id extends string = string> {
   id: Id;
@@ -24,8 +25,10 @@ const props = withDefaults(
     items: I[];
     /** "list" is a side rail; "menu" a one-row trigger opening a sheet. */
     variant?: "list" | "menu";
+    /** Ties each "list" tab to the panel with id `tabPanelId(idPrefix, id)`. */
+    idPrefix?: string | undefined;
   }>(),
-  { variant: "list" },
+  { variant: "list", idPrefix: undefined },
 );
 
 const emit = defineEmits<{
@@ -59,7 +62,7 @@ watch(menuOpen, (open) => {
 });
 
 function startsGroup(list: I[], index: number): boolean {
-  const group = list[index].group;
+  const group = list[index]!.group;
   return !!group && group !== list[index - 1]?.group;
 }
 
@@ -82,11 +85,13 @@ function select(id: I["id"]) {
       class="r-v2-subtab-nav__item"
     >
       <button
+        :id="idPrefix && tabId(idPrefix, item.id)"
         type="button"
         role="tab"
         class="r-v2-subtab-nav__btn"
         :class="{ 'r-v2-subtab-nav__btn--active': item.id === modelValue }"
         :aria-selected="item.id === modelValue"
+        :aria-controls="idPrefix && tabPanelId(idPrefix, item.id)"
         @click="select(item.id)"
       >
         <RIcon v-if="item.icon" :icon="item.icon" size="16" />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// HashChip — click-to-copy chip wrapping the shared RTag primitive so
+// HashChip: click-to-copy chip wrapping the shared RTag primitive so
 // the visual matches MetadataTab's hash row and the rest of v2's
 // `label + mono value` pills (single source of truth for tone, border,
 // surface colour). Adds:
@@ -11,11 +11,10 @@
 //
 // The abbreviation is all that reaches the DOM, so when a copy cannot
 // land the value would be unreachable. Clicking reveals the full string
-// as selectable text instead: outside a secure context the clipboard
-// API does not exist at all, so the click never attempts a copy, and a
-// copy that fails for any other reason falls back to the same reveal.
+// as selectable text instead: with no way to copy at all the click never
+// attempts one, and a copy that fails falls back to the same reveal.
 //
-// `compact` switches to the `x-small` size — useful for in-row
+// `compact` switches to the `x-small` size: useful for in-row
 // hash clusters where vertical breathing room is tight. The trailing
 // icon stays in both sizes so the click affordance is consistent.
 import { RTag } from "@v2/lib";
@@ -129,7 +128,7 @@ async function copy() {
 </template>
 
 <style scoped>
-/* The button is just the interactive shell — RTag owns the visuals.
+/* The button is just the interactive shell: RTag owns the visuals.
    Stripping the native chrome so hover / focus styles can lean on
    the inner tag via :deep(). */
 .r-v2-hash-chip {

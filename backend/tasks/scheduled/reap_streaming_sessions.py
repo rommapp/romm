@@ -1,6 +1,5 @@
 import asyncio
 
-from handler.redis_handler import STREAMING_QUEUE_NAME
 from handler.streaming.config import (
     ResolvedContainer,
     container_for_session,
@@ -9,12 +8,12 @@ from handler.streaming.config import (
 )
 from handler.streaming.lifecycle import teardown_abandoned_session
 from handler.streaming.session_store import (
-    HOLD_CEILING_SECONDS,
     get_abandoned_session,
     in_restart_grace,
 )
 from logger.logger import log
-from tasks.tasks import PeriodicTask, TaskType
+from tasks.registry import REAP_STREAMING_SESSIONS_SPEC
+from tasks.tasks import PeriodicTask
 
 
 async def _reap(
@@ -41,23 +40,10 @@ async def _reap(
 
 class ReapStreamingSessionsTask(PeriodicTask):
     def __init__(self) -> None:
-        super().__init__(
-            title="Scheduled streaming session reaper",
-            description="Stops streaming sessions whose player stopped sending heartbeats",
-            task_type=TaskType.CLEANUP,
-            # Read once, as cron registers only enabled tasks when it starts.
-            enabled=streaming_enabled(),
-            manual_run=False,
-            cron_string="* * * * *",  # Every minute
-            # RQ kills a job at its timeout, so it has to cover a teardown holding
-            # its marker to the ceiling.
-            timeout=HOLD_CEILING_SECONDS,
-            result_ttl=0,
-            queue_name=STREAMING_QUEUE_NAME,
-        )
+        super().__init__(REAP_STREAMING_SESSIONS_SPEC)
 
     async def run(self) -> None:
-        if not self.enabled or await in_restart_grace():
+        if not streaming_enabled() or await in_restart_grace():
             return
 
         # Empty once streaming is disabled, so a disabled install reaps nothing.

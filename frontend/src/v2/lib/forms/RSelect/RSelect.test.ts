@@ -1,7 +1,12 @@
 import { mount } from "@vue/test-utils";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import {
+  type EscapableEntry,
+  popEscapable,
+  pushEscapable,
+} from "@/v2/lib/overlays/RDialog/escapeStack";
 import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 import RSelect from "./RSelect.vue";
 
@@ -115,7 +120,11 @@ describe("RSelect dividerAfter", () => {
 
   async function openMenu(dividerAfter: (item: { value: string }) => boolean) {
     const wrapper = mount(RSelect, {
-      props: { items, modelValue: "root", dividerAfter },
+      props: {
+        items,
+        modelValue: "root",
+        dividerAfter: dividerAfter as (item: unknown) => boolean,
+      },
       attachTo: document.body,
     });
     await wrapper.get(".r-select__field").trigger("click");
@@ -191,5 +200,126 @@ describe("RSelect rules", () => {
       "Pick another",
     );
     wrapper.unmount();
+  });
+});
+
+describe("RSelect inside an overlay", () => {
+  const dialog: EscapableEntry = {
+    close: vi.fn(),
+    persistent: false,
+  };
+
+  afterEach(() => {
+    popEscapable(dialog);
+  });
+
+  it("closes only its own menu on Escape, leaving the dialog open", async () => {
+    pushEscapable(dialog);
+    const wrapper = mount(RSelect, {
+      props: { items: ["a", "b"], modelValue: "a", hideDetails: true },
+      attachTo: document.body,
+    });
+
+    await wrapper.get(".r-select__field").trigger("keydown", { key: "Enter" });
+    expect(document.querySelector(".r-select__panel")).not.toBeNull();
+
+    wrapper
+      .get(".r-select__field")
+      .element.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    await nextTick();
+
+    expect(document.querySelector(".r-select__panel")).toBeNull();
+    expect(dialog.close).not.toHaveBeenCalled();
+
+    wrapper
+      .get(".r-select__field")
+      .element.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    expect(dialog.close).toHaveBeenCalledOnce();
+    wrapper.unmount();
+  });
+
+  it("stays open for a press inside an overlay opened above it", async () => {
+    const wrapper = mount(RSelect, {
+      props: { items: ["a", "b"], modelValue: "a", hideDetails: true },
+      attachTo: document.body,
+    });
+    await wrapper.get(".r-select__field").trigger("keydown", { key: "Enter" });
+    expect(document.querySelector(".r-select__panel")).not.toBeNull();
+
+    const nested = document.createElement("div");
+    document.body.append(nested);
+    const menu: EscapableEntry = {
+      close: vi.fn(),
+      persistent: false,
+      panel: () => nested,
+    };
+    pushEscapable(menu);
+
+    nested.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    await nextTick();
+    expect(document.querySelector(".r-select__panel")).not.toBeNull();
+
+    popEscapable(menu);
+    nested.remove();
+    document.body.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }),
+    );
+    await nextTick();
+    expect(document.querySelector(".r-select__panel")).toBeNull();
+    wrapper.unmount();
+  });
+});
+
+describe("RSelect null-valued item", () => {
+  const items = [
+    { title: "No limit", value: null },
+    { title: "12", value: 12 },
+  ];
+
+  it("shows and checks an item whose value is null", async () => {
+    const wrapper = mount(RSelect, {
+      props: { items, modelValue: null, clearable: true },
+      attachTo: document.body,
+    });
+
+    expect(wrapper.get(".r-select__value").text()).toBe("No limit");
+    expect(wrapper.find(".r-select__clear").exists()).toBe(false);
+    await wrapper.get(".r-select__field").trigger("click");
+    await nextTick();
+    const selected = document.querySelector(
+      ".r-select__list [aria-selected='true']",
+    );
+    expect(selected?.textContent).toContain("No limit");
+    wrapper.unmount();
+  });
+
+  it("shows nothing for an undefined model", () => {
+    const wrapper = mount(RSelect, { props: { items, modelValue: undefined } });
+
+    expect(wrapper.get(".r-select__value").text()).not.toContain("No limit");
+  });
+});
+
+describe("RSelect stacked label", () => {
+  it("names the field after its label, then its value", () => {
+    const wrapper = mount(RSelect, {
+      props: {
+        items: ["Kids", "Adults"],
+        modelValue: "Kids",
+        label: "Permission group",
+        prefixLabel: "stacked",
+      },
+    });
+    const field = wrapper.get(".r-select__field");
+    const [labelId, fieldId] = (
+      field.attributes("aria-labelledby") ?? ""
+    ).split(" ");
+
+    expect(wrapper.get(`#${labelId}`).text()).toBe("Permission group");
+    expect(fieldId).toBe(field.attributes("id"));
   });
 });

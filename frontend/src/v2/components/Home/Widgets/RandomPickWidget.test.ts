@@ -1,8 +1,9 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import RandomPickWidget from "./RandomPickWidget.vue";
 
 const { getRandomRom, snackbarError } = vi.hoisted(() => ({
@@ -10,9 +11,7 @@ const { getRandomRom, snackbarError } = vi.hoisted(() => ({
   snackbarError: vi.fn(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/plugins/router", () => ({
   ROUTES: { ROM: "rom" },
@@ -51,7 +50,7 @@ vi.mock("./WidgetCard.vue", () => ({
 }));
 
 function rom(overrides: Partial<SimpleRom> = {}): SimpleRom {
-  return {
+  return romFixture({
     id: 42,
     name: "Chrono Trigger",
     fs_name: "chrono-trigger.sfc",
@@ -60,7 +59,7 @@ function rom(overrides: Partial<SimpleRom> = {}): SimpleRom {
     regions: ["USA"],
     is_identified: true,
     ...overrides,
-  } as SimpleRom;
+  });
 }
 
 function mountWidget() {
@@ -70,10 +69,6 @@ function mountWidget() {
 }
 
 describe("RandomPickWidget", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("resolves a pick with a single request", async () => {
     // Issue #4066: the pick used to cost a count request plus a fetch at a
     // random offset, which got slower the bigger the library was.

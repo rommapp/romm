@@ -1,17 +1,17 @@
 <script setup lang="ts" generic="T">
-// RCarousel — slide-through viewer for an array of items.
+// RCarousel: slide-through viewer for an array of items.
 //
 // Two modes:
-//   * inline      — renders the active item in-place with prev/next chrome.
-//   * fullscreen  — teleports a viewport-filling overlay with scrim, close
+//   * inline      - renders the active item in-place with prev/next chrome.
+//   * fullscreen  - teleports a viewport-filling overlay with scrim, close
 //                   button, and centred item. Drives its own enter/leave
 //                   animation; mount/unmount with v-if to play it.
 //
 // The default slot owns item rendering, so the same primitive serves
-// images, video frames, charts — anything indexed by an array.
+// images, video frames, charts: anything indexed by an array.
 //
 // Navigation
-//   * Arrow keys (←/→ on key/pad — gamepad arrows are rewritten to
+//   * Arrow keys (←/→ on key/pad: gamepad arrows are rewritten to
 //     keyboard events by `useGamepad`).
 //   * Home / End jump to first / last.
 //   * Escape closes when fullscreen.
@@ -20,19 +20,14 @@
 // Transitions
 //   * Active item swap uses a directional slide+fade (`r-carousel-next`
 //     vs `r-carousel-prev`), so going forward and going back read
-//     differently — no ambiguous crossfade.
+//     differently: no ambiguous crossfade.
 //   * On fullscreen mount the panel scale-pops with spring easing.
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from "vue";
+import { useEventListener } from "@vueuse/core";
+import { computed, nextTick, ref, watch } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { isEditable } from "@/v2/utils/editable";
 import type { RCarouselProps } from "./types";
 
 defineOptions({ inheritAttrs: false });
@@ -130,9 +125,7 @@ function close() {
 
 function onKeydown(event: KeyboardEvent) {
   // Don't hijack typing in inputs that may live inside slots.
-  const target = event.target as HTMLElement | null;
-  const tag = target?.tagName;
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+  if (isEditable(event.target)) return;
 
   switch (event.key) {
     case "ArrowRight":
@@ -164,13 +157,11 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
-  if (props.fullscreen) window.addEventListener("keydown", onKeydown);
-});
-
-onBeforeUnmount(() => {
-  if (props.fullscreen) window.removeEventListener("keydown", onKeydown);
-});
+useEventListener(
+  () => (props.fullscreen ? window : null),
+  "keydown",
+  onKeydown,
+);
 
 // ---- Thumbnail scroll-into-view -------------------------------------------
 
@@ -201,8 +192,8 @@ function onBackdropClick(event: MouseEvent) {
   <!-- Fullscreen mode: teleport an overlay to <body> so it escapes any
        transformed ancestor. Scoped class lookup still works because the
        teleported root keeps its data-v attribute.
-       — Backdrop click dismisses; keyboard equivalent is the window-level
-         Escape listener wired in onMounted. The `role="dialog"` makes the
+       Backdrop click dismisses; keyboard equivalent is the window-level
+         Escape listener. The `role="dialog"` makes the
          element semantically interactive but the lint rule only recognises
          button/link-shaped roles, hence the disables. -->
   <Teleport v-if="fullscreen" to="body">
@@ -308,7 +299,7 @@ function onBackdropClick(event: MouseEvent) {
   </Teleport>
 
   <!-- Inline mode: renders in place. Same transition logic, no scrim.
-       Keydown is best-effort — gamepad arrows reach this only if focus
+       Keydown is best-effort: gamepad arrows reach this only if focus
        lands inside the carousel; for global key/pad handling, prefer
        fullscreen mode where the listener is on `window`. -->
   <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -->
@@ -421,9 +412,10 @@ function onBackdropClick(event: MouseEvent) {
      stays visible. CSS named "black" is allowed by the token policy. */
   background: color-mix(in srgb, black 92%, transparent);
   backdrop-filter: blur(6px);
+  padding: var(--r-safe-t) var(--r-safe-r) var(--r-safe-b) var(--r-safe-l);
   display: grid;
   grid-template-rows: 1fr auto;
-  /* `minmax(0, 1fr)` — WITHOUT an explicit column the single implicit track
+  /* `minmax(0, 1fr)`: WITHOUT an explicit column the single implicit track
      sizes to its content (the natural-width image, or the full thumbnail
      strip) and blows past the viewport, so the image overflowed to the right
      and the thumb strip + counter couldn't be constrained or scrolled. The
@@ -450,7 +442,7 @@ function onBackdropClick(event: MouseEvent) {
   justify-content: center;
 }
 
-/* Pop the active item on first mount with spring easing — the backdrop fade
+/* Pop the active item on first mount with spring easing: the backdrop fade
    is half a beat slower so the item lands on top of an already-darkening
    stage instead of fighting it. */
 .r-carousel--fullscreen .r-carousel__item--fullscreen {
@@ -469,10 +461,11 @@ function onBackdropClick(event: MouseEvent) {
 }
 
 /* Close button ------------------------------------------------------------- */
+/* Absolute children sit on the root's padding box, so they add the insets. */
 .r-carousel__close {
   position: absolute;
-  top: 18px;
-  right: 22px;
+  top: calc(18px + var(--r-safe-t));
+  right: calc(22px + var(--r-safe-r));
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -527,15 +520,15 @@ function onBackdropClick(event: MouseEvent) {
   cursor: not-allowed;
 }
 .r-carousel--fullscreen .r-carousel__nav--prev {
-  left: 22px;
+  left: calc(22px + var(--r-safe-l));
   transform: translateY(-50%);
 }
 .r-carousel--fullscreen .r-carousel__nav--next {
-  right: 22px;
+  right: calc(22px + var(--r-safe-r));
   transform: translateY(-50%);
 }
 
-/* Inline arrows live above the stage — RBtn handles theming, we only
+/* Inline arrows live above the stage: RBtn handles theming, we only
    need to position them. */
 .r-carousel--inline .r-carousel__nav {
   position: absolute;
@@ -587,14 +580,14 @@ function onBackdropClick(event: MouseEvent) {
 }
 .r-carousel--fullscreen .r-carousel__thumbs-wrap {
   /* When both thumbs and the footer counter are visible, drop the bottom
-     padding — the counter brings its own bottom margin. */
+     padding: the counter brings its own bottom margin. */
   padding-bottom: 6px;
 }
 
 .r-carousel__thumbs {
   display: flex;
   /* `safe center` centres the strip when it fits but falls back to
-     flex-start when it overflows — plain `center` on an overflowing flex
+     flex-start when it overflows: plain `center` on an overflowing flex
      container makes the leading items unreachable (can't scroll to them). */
   justify-content: safe center;
   gap: 8px;
@@ -670,7 +663,7 @@ function onBackdropClick(event: MouseEvent) {
 }
 
 /* Direction-aware slide+fade swap. `mode="out-in"` keeps the stack to one
-   item at a time — the leaving image animates first, then the arrival
+   item at a time: the leaving image animates first, then the arrival
    slides in from the opposite edge. */
 .r-carousel-next-leave-active,
 .r-carousel-prev-leave-active {
@@ -736,10 +729,10 @@ html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav {
   height: 44px;
 }
 html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav--prev {
-  left: 8px;
+  left: calc(8px + var(--r-safe-l));
 }
 html[data-bp~="sm-and-down"] .r-carousel--fullscreen .r-carousel__nav--next {
-  right: 8px;
+  right: calc(8px + var(--r-safe-r));
 }
 html[data-bp~="sm-and-down"] .r-carousel__thumb {
   width: 72px;

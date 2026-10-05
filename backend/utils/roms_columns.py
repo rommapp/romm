@@ -22,6 +22,11 @@ from sqlalchemy.schema import CreateColumn
 from models.rom import FULL_PATH_HASH_LENGTH, TITLE_ID_MAX_LENGTH
 from utils.database import (
     HLTB_MAIN_STORY_COLUMN,
+    MIN_AGE_COLUMN,
+    ROMS_SEARCH_FULLTEXT_COLUMNS,
+    ROMS_SEARCH_FULLTEXT_INDEX,
+    ROMS_SEARCH_TITLES_TRGM_INDEX,
+    SEARCH_TITLES_COLUMN,
     SORTABLE_NULLABLE_ROM_COLUMNS,
     CustomJSON,
     column_names,
@@ -205,11 +210,16 @@ class GeneratedColumn:
 # ---------------------------------------------------------------------------
 
 
+def _maria_char(expression: str) -> str:
+    """A JSON function's text result, comparable with a string literal."""
+    # JSON functions take the connection collation and a literal the table's,
+    # an illegal mix on a table that is not `general_ci` unless CAST re-derives it.
+    return f"CAST({expression} AS CHAR)"
+
+
 def _maria_text(source: str, path: str) -> str:
     """Unquoted JSON text carrying the surrounding expression's collation."""
-    # JSON_UNQUOTE takes the connection collation and a literal the table's, an
-    # illegal mix on a table that is not `general_ci` unless CAST re-derives it.
-    return f"CAST(JSON_UNQUOTE(JSON_EXTRACT({source}, '{path}')) AS CHAR)"
+    return _maria_char(f"JSON_UNQUOTE(JSON_EXTRACT({source}, '{path}'))")
 
 
 def _maria_array_expr(key: str, sources: list[str]) -> str:
@@ -492,7 +502,7 @@ def drop_save_target_layout_type(conn: sa.Connection) -> None:
 
 
 # The stored columns in the catalog, minus `full_path_hash`.
-PLAIN_COLUMNS = [
+PLAIN_COLUMNS: list[sa.Column[Any]] = [
     sa.Column("is_physical", sa.Boolean(), nullable=False, server_default=sa.false()),
     sa.Column("upc", sa.String(length=64)),
     sa.Column("locked_fields", CustomJSON()),
@@ -510,6 +520,8 @@ PLAIN_COLUMNS = [
         SAVE_TARGET_LAYOUT_COLUMN,
         sa.Enum(*SAVE_TARGET_LAYOUT_VALUES, name=SAVE_TARGET_LAYOUT_ENUM),
     ),
+    sa.Column(SEARCH_TITLES_COLUMN, sa.Text()),
+    sa.Column(MIN_AGE_COLUMN, sa.Integer()),
 ]
 
 
@@ -552,15 +564,22 @@ def roms_metadata_view_sql(pg: bool, columns: list[tuple[str, str]]) -> str:
     )
 
 
+def _index(
+    name: str, columns: list[str], expression: str
+) -> tuple[str, list[str], str]:
+    return name, columns, f"CREATE INDEX {name} ON {TABLE} ({expression})"
+
+
 def _generated_column_indexes(conn: sa.Connection) -> list[tuple[str, list[str], str]]:
-    """(name, columns read, indexed expression) for every generated-column index."""
-    indexes = [(f"idx_{TABLE}_{c}", [c], c) for c in INDEXED_GENERATED_COLUMNS]
+    """(name, columns read, CREATE statement) for every generated-column index."""
+    pg = is_postgresql(conn)
+    indexes = [_index(f"idx_{TABLE}_{c}", [c], c) for c in INDEXED_GENERATED_COLUMNS]
     for column in SORTABLE_NULLABLE_ROM_COLUMNS:
         flag = rom_unset_flag_column(column)
         # Each spans through to `id`, the gallery's tiebreak: without it
         # PostgreSQL sorts every tie, and unset roms are one tie of everything.
         indexes.append(
-            (
+            _index(
                 rom_sort_index_name(column),
                 [flag, column, "id"],
                 f"{flag}, {column}, id",
@@ -568,14 +587,32 @@ def _generated_column_indexes(conn: sa.Connection) -> list[tuple[str, list[str],
         )
         # MariaDB and MySQL place NULLs last on DESC already, and an index
         # there is ordered the same way. PostgreSQL needs both spelled out.
-        if is_postgresql(conn):
+        if pg:
             indexes.append(
-                (
+                _index(
                     rom_desc_index_name(column),
                     [column, "id"],
                     f"{column} DESC NULLS LAST, id DESC",
                 )
             )
+    if pg:
+        indexes.append(
+            (
+                ROMS_SEARCH_TITLES_TRGM_INDEX,
+                [SEARCH_TITLES_COLUMN],
+                f"CREATE INDEX {ROMS_SEARCH_TITLES_TRGM_INDEX} ON {TABLE} "
+                f"USING gin ({SEARCH_TITLES_COLUMN} gin_trgm_ops)",
+            )
+        )
+    else:
+        indexes.append(
+            (
+                ROMS_SEARCH_FULLTEXT_INDEX,
+                list(ROMS_SEARCH_FULLTEXT_COLUMNS),
+                f"CREATE FULLTEXT INDEX {ROMS_SEARCH_FULLTEXT_INDEX} ON {TABLE} "
+                f"({', '.join(ROMS_SEARCH_FULLTEXT_COLUMNS)})",
+            )
+        )
     return indexes
 
 
@@ -595,12 +632,12 @@ def _restore_generated_indexes(conn: sa.Connection) -> None:
         for index in sa.inspect(conn).get_indexes(TABLE)
     }
     present = column_names(conn, TABLE)
-    for name, columns, expression in _generated_column_indexes(conn):
+    for name, columns, create in _generated_column_indexes(conn):
         if not set(columns) <= present or existing.get(name) == tuple(columns):
             continue
         if name in existing:
             conn.execute(sa.text(_drop_index_sql(conn, name)))
-        conn.execute(sa.text(f"CREATE INDEX {name} ON {TABLE} ({expression})"))
+        conn.execute(sa.text(create))
 
 
 def _drop_indexes_spanning(conn: sa.Connection, columns: set[str]) -> None:

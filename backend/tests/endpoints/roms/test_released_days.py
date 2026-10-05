@@ -11,8 +11,9 @@ from datetime import date, datetime, timezone
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_platform, make_rom
 
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
@@ -26,18 +27,7 @@ def _dated_rom(platform: Platform, name: str, released: date) -> Rom:
     The generated column is derived from the provider blobs, and IGDB reports
     seconds, so that is what goes in (0098 multiplies it up to milliseconds).
     """
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=name,
-            fs_name=f"{name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    rom = make_rom(platform, name)
     seconds = int(
         datetime(
             released.year, released.month, released.day, tzinfo=timezone.utc
@@ -50,13 +40,7 @@ def _dated_rom(platform: Platform, name: str, released: date) -> Rom:
 
 @pytest.fixture
 def other_platform() -> Platform:
-    return db_platform_handler.add_platform(
-        Platform(
-            name="other_platform",
-            slug="other_platform_slug",
-            fs_slug="other_platform_slug",
-        )
-    )
+    return make_platform("other_platform_slug", name="other_platform")
 
 
 def _get(client: TestClient, token: str, **params):

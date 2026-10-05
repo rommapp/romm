@@ -159,6 +159,7 @@ const syntheticRom = computed<SimpleRom>(() => ({
   has_simple_single_file: false,
   has_nested_single_file: false,
   has_multiple_files: false,
+  is_easyrpg_game: false,
   full_path: "",
   created_at: "",
   updated_at: "",

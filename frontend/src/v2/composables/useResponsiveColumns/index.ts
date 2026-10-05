@@ -1,21 +1,15 @@
-// useResponsiveColumns — measures the bound element via ResizeObserver and
+// useResponsiveColumns: measures the bound element via ResizeObserver and
 // returns a reactive column count derived from `floor((w + gap) / (card + gap))`.
 //
 // Used by gallery views to chunk a flat ROM list into rows for the
 // virtualiser. The breakpoint logic mirrors the existing CSS grid
 // (`grid-template-columns: repeat(auto-fill, var(--r-card-art-w))`) so the
 // virtual rows visually match what the non-virtualised CSS grid would draw.
-import {
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-  type Ref,
-  type ShallowRef,
-} from "vue";
+import { useResizeObserver } from "@vueuse/core";
+import { onMounted, ref, watch, type Ref, type ShallowRef } from "vue";
 
 /** A value that may be a constant or a reactive getter. Getters let the
- *  caller vary card width / inset by breakpoint and have the column count
+ *  caller vary card width by breakpoint and have the column count
  *  recompute automatically (e.g. smaller cards + tighter gutters on xs). */
 type Dynamic = number | (() => number);
 
@@ -32,10 +26,6 @@ interface Options {
   gap?: Dynamic;
   /** Minimum column count (default 1). */
   min?: number;
-  /** Pixels to subtract from the observed width before computing columns
-   * (e.g., the container's left+right padding, or sibling chrome that
-   * shares the bounding rect). Default 0. May be a getter. */
-  inset?: Dynamic;
 }
 
 export function useResponsiveColumns(
@@ -45,12 +35,11 @@ export function useResponsiveColumns(
   const min = options.min ?? 1;
 
   const columns = ref<number>(min);
-  // Observed content width minus `inset` — px available to a row of cards,
+  // Observed content width: px available to a row of cards,
   // for consumers that flow-pack by width rather than a fixed column count.
   const usableWidth = ref<number>(0);
-  let observer: ResizeObserver | null = null;
-  // Last observed width — kept so a change in a reactive option (card
-  // width / inset flipping at a breakpoint) can recompute without waiting
+  // Last observed width: kept so a change in a reactive option (card
+  // width flipping at a breakpoint) can recompute without waiting
   // for the next resize event.
   let lastWidth = 0;
 
@@ -58,52 +47,37 @@ export function useResponsiveColumns(
     lastWidth = width;
     const cardWidth = resolve(options.cardWidth, 158);
     const gap = resolve(options.gap, 12);
-    const inset = resolve(options.inset, 0);
-    const usable = width - inset;
-    if (usable <= 0) return;
-    if (usable !== usableWidth.value) usableWidth.value = usable;
+    if (width <= 0) return;
+    if (width !== usableWidth.value) usableWidth.value = width;
     // CSS auto-fill semantics: floor((containerWidth + gap) / (cardWidth + gap))
-    const next = Math.max(min, Math.floor((usable + gap) / (cardWidth + gap)));
+    const next = Math.max(min, Math.floor((width + gap) / (cardWidth + gap)));
     if (next !== columns.value) columns.value = next;
   }
 
   // Recompute when a reactive option changes (breakpoint flip) using the
   // last observed width. Tracks the getters by evaluating them here.
   watch(
-    () => [
-      resolve(options.cardWidth, 158),
-      resolve(options.gap, 12),
-      resolve(options.inset, 0),
-    ],
+    () => [resolve(options.cardWidth, 158), resolve(options.gap, 12)],
     () => {
       if (lastWidth > 0) compute(lastWidth);
     },
   );
 
-  function attach(el: HTMLElement) {
-    compute(el.clientWidth);
-    observer = new ResizeObserver((entries) => {
-      for (const entry of entries) compute(entry.contentRect.width);
-    });
-    observer.observe(el);
-  }
+  // Re-observes on its own if the bound ref swaps.
+  useResizeObserver(containerRef, (entries) => {
+    for (const entry of entries) compute(entry.contentRect.width);
+  });
 
-  function detach() {
-    observer?.disconnect();
-    observer = null;
-  }
-
+  // Measure the content box now, as the observer does, so the first render has
+  // a column count before its first callback.
   onMounted(() => {
-    if (containerRef.value) attach(containerRef.value);
+    const el = containerRef.value;
+    if (!el) return;
+    const { paddingLeft, paddingRight } = getComputedStyle(el);
+    const padX =
+      (parseFloat(paddingLeft) || 0) + (parseFloat(paddingRight) || 0);
+    compute(el.clientWidth - padX);
   });
-
-  // Re-attach if the bound ref swaps (rare, but safe).
-  watch(containerRef, (next, prev) => {
-    if (prev) detach();
-    if (next) attach(next);
-  });
-
-  onBeforeUnmount(detach);
 
   return { columns, usableWidth };
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// LiveSessionCard — a multiplayer streaming session another user is hosting
+// LiveSessionCard: a multiplayer streaming session another user is hosting
 // right now, shown on the Home row. Clicking asks to join and then opens
 // the stream as a viewer.
 import { RChip, RIcon } from "@v2/lib";
@@ -12,7 +12,7 @@ import { useJoinStreamConfirm } from "@/v2/composables/useJoinStreamConfirm";
 
 interface Props {
   session: JoinableSession;
-  webp?: boolean;
+  webp?: boolean | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -29,6 +29,7 @@ const title = computed(() => props.session.rom_name ?? "");
 const coverRom = computed<CoverArtRom>(() => ({
   ss_metadata: null,
   gamelist_metadata: null,
+  launchbox_metadata: null,
   path_cover_large: props.session.path_cover_large ?? "",
   path_cover_small: props.session.path_cover_small ?? "",
   url_cover: props.session.url_cover ?? "",
@@ -78,8 +79,8 @@ async function join(): Promise<void> {
         variant="flat"
         color="danger"
         label
+        prepend-icon="mdi-access-point"
       >
-        <RIcon icon="mdi-access-point" size="14" />
         {{ t("home.live-session-live") }}
       </RChip>
       <div class="r-live-card__join">

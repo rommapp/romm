@@ -1,27 +1,24 @@
 <script setup lang="ts">
-// v2 AboutDialog — emitter-driven. Replaces the v1 AboutDialog in the v2
+// v2 AboutDialog: emitter-driven. Replaces the v1 AboutDialog in the v2
 // GlobalDialogs stack so the "About" entry in UserMenu renders the v2 glass
 // panel instead of the legacy card.
 import { RDialog, RIcon, RImg, RTooltip } from "@v2/lib";
 import { useResizeObserver } from "@vueuse/core";
-import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import type { Events } from "@/types/emitter";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useVersionDisplay } from "@/v2/composables/useVersionDisplay";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const { version, href: versionHref } = useVersionDisplay();
-const emitter = inject<Emitter<Events>>("emitter");
 const show = ref(false);
 
 const openHandler = () => {
   show.value = true;
 };
-emitter?.on("showAboutDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showAboutDialog", openHandler));
+useEmitterEvent("showAboutDialog", openHandler);
 
 function closeDialog() {
   show.value = false;

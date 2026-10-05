@@ -1,17 +1,17 @@
 <script setup lang="ts">
-// RDropzone — file drag-and-drop target with the shared v2 upload vocabulary
+// RDropzone: file drag-and-drop target with the shared v2 upload vocabulary
 // (dashed brand border, cloud icon, click-to-browse). Two modes:
 //
-//   * CTA (default): renders an empty-state call-to-action — icon, title,
+//   * CTA (default): renders an empty-state call-to-action, icon, title,
 //     hint, and click/keyboard to browse. The whole surface is the drop
 //     target and brightens while dragging over it.
 //     `compact` lays it out as a single row for tight panels.
 //   * Overlay (`overlay` prop): renders the default slot (the consumer's
-//     filled content — a file list, a grid, a card) and floats a "release to
+//     filled content: a file list, a grid, a card) and floats a "release to
 //     upload" overlay over it while dragging. Use the exposed `open()` to wire
 //     an explicit add/replace button.
 //
-// Emits `files` on drop or pick. Primitive: no stores/i18n — all copy comes
+// Emits `files` on drop or pick. Primitive: no stores/i18n, all copy comes
 // from props so consumers pass translated strings.
 import { useDropZone } from "@vueuse/core";
 import { ref } from "vue";
@@ -25,9 +25,9 @@ interface Props {
   /** Allow selecting / dropping more than one file. */
   multiple?: boolean;
   /** `accept` attribute for the underlying file input (e.g. "image/*"). */
-  accept?: string;
+  accept?: string | undefined;
   /** MIME types passed to the drop filter; omit to accept anything. */
-  dataTypes?: string[];
+  dataTypes?: string[] | undefined;
   disabled?: boolean;
   /** Overlay mode: render the default slot + a drag-over overlay. */
   overlay?: boolean;
@@ -37,16 +37,16 @@ interface Props {
    *  Works where `height: 100%` can't, e.g. a parent sized by min-height. */
   fill?: boolean;
   // CTA copy / icons (ignored in overlay mode except `activeIcon`).
-  title?: string;
-  hint?: string;
+  title?: string | undefined;
+  hint?: string | undefined;
   icon?: string;
   activeIcon?: string;
   /** Title swapped in while dragging over the CTA (falls back to `title`). */
-  activeTitle?: string;
+  activeTitle?: string | undefined;
   /** Overlay caption shown while dragging over filled content. */
-  releaseLabel?: string;
+  releaseLabel?: string | undefined;
   /** Accessible label for the underlying (visually hidden) file input. */
-  inputLabel?: string;
+  inputLabel?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -79,7 +79,7 @@ const { isOverDropZone } = useDropZone(rootRef, {
     if (props.disabled || !files || files.length === 0) return;
     emit("files", props.multiple ? files : files.slice(0, 1));
   },
-  dataTypes: props.dataTypes,
+  ...(props.dataTypes ? { dataTypes: props.dataTypes } : {}),
   multiple: props.multiple,
   preventDefaultForUnhandled: true,
 });
@@ -179,7 +179,7 @@ defineExpose({ open, isOver: isOverDropZone });
   flex: 1 1 auto;
   min-height: 0;
 }
-/* Disabled dims / blocks only the CTA — in overlay mode the slotted content
+/* Disabled dims / blocks only the CTA: in overlay mode the slotted content
    stays fully interactive (drops are no-ops, the overlay never shows). */
 .r-dropzone--disabled .r-dropzone__cta {
   opacity: 0.6;

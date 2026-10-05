@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RListItem — semantic `<li>` wrapping a polymorphic
+// RListItem: semantic `<li>` wrapping a polymorphic
 // interactive inner element:
 //
 //   • `to` → RouterLink (router-aware)
@@ -12,7 +12,7 @@
 // disabled styling so a display-only RListItem doesn't react to mouse
 // movement (no false affordance).
 //
-// `prepend-icon` + `prepend-avatar` are mutually exclusive — avatar
+// `prepend-icon` + `prepend-avatar` are mutually exclusive: avatar
 // wins if both are set (it's the more specific affordance). The
 // `prepend` / `append` slots win over the props.
 //
@@ -27,25 +27,23 @@ import RIcon from "../../primitives/RIcon/RIcon.vue";
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  title?: string;
-  subtitle?: string;
-  value?: unknown;
-  prependIcon?: string;
-  appendIcon?: string;
-  prependAvatar?: string;
+  title?: string | undefined;
+  subtitle?: string | undefined;
+  prependIcon?: string | undefined;
+  appendIcon?: string | undefined;
+  prependAvatar?: string | undefined;
   /** Highlights the item with the list's `--r-list-active-color`. */
   active?: boolean;
   disabled?: boolean;
-  to?: RouteLocationRaw;
-  href?: string;
-  target?: string;
-  rounded?: string | number | boolean;
+  to?: RouteLocationRaw | undefined;
+  href?: string | undefined;
+  target?: string | undefined;
+  rounded?: string | number | boolean | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   title: undefined,
   subtitle: undefined,
-  value: undefined,
   prependIcon: undefined,
   appendIcon: undefined,
   prependAvatar: undefined,
@@ -62,7 +60,7 @@ const attrs = useAttrs();
 
 // Interactive if any of: `to` / `href` / `@click` (any onXxx listener).
 // We can't observe individual handler types so we check for the click
-// attr explicitly — anything else (focus, mouseenter…) doesn't promote
+// attr explicitly: anything else (focus, mouseenter…) doesn't promote
 // the item to a button.
 const hasClickHandler = computed(() => "onClick" in attrs);
 
@@ -115,7 +113,7 @@ const isInteractive = computed(
   () => elementType.value !== "div" && !props.disabled,
 );
 
-// Avatar wins over icon when both are set — kept as a separate
+// Avatar wins over icon when both are set: kept as a separate
 // computed so the template stays readable.
 const showAvatar = computed(() => !!props.prependAvatar);
 const showPrependIcon = computed(
@@ -136,7 +134,7 @@ const showPrependIcon = computed(
       }"
       :style="{ borderRadius: resolvedRounded }"
     >
-      <!-- Prepend zone — slot wins; otherwise avatar wins over icon. -->
+      <!-- Prepend zone: slot wins; otherwise avatar wins over icon. -->
       <span
         v-if="slots.prepend || showAvatar || showPrependIcon"
         class="r-list-item__prepend"
@@ -151,7 +149,7 @@ const showPrependIcon = computed(
         </slot>
       </span>
 
-      <!-- Body — title + subtitle stacked. The default slot lives on
+      <!-- Body: title + subtitle stacked. The default slot lives on
            top so consumers can drop arbitrary content (forms, chips,
            etc.) instead of just text. -->
       <span class="r-list-item__body">
@@ -164,7 +162,7 @@ const showPrependIcon = computed(
         <slot />
       </span>
 
-      <!-- Append zone — slot wins over `appendIcon` prop. -->
+      <!-- Append zone: slot wins over `appendIcon` prop. -->
       <span v-if="slots.append || appendIcon" class="r-list-item__append">
         <slot name="append">
           <RIcon
@@ -179,7 +177,7 @@ const showPrependIcon = computed(
 </template>
 
 <style scoped>
-/* The outer <li> is invisible — it's a semantic shell. All of the
+/* The outer <li> is invisible: it's a semantic shell. All of the
    visual styling lives on the inner `.r-list-item`. */
 .r-list-item-wrap {
   list-style: none;
@@ -209,7 +207,7 @@ const showPrependIcon = computed(
     border-color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
-/* button reset — when interactive, the inner element is a <button>;
+/* button reset: when interactive, the inner element is a <button>;
    strip its native defaults so it reads as a list row, not a button. */
 button.r-list-item,
 a.r-list-item {
@@ -220,7 +218,7 @@ a.r-list-item {
   cursor: pointer;
 }
 
-/* Hover overlay — single `::before` painted in currentColor.
+/* Hover overlay: single `::before` painted in currentColor.
    Composes cleanly with any list background. Only kicks in on
    interactive items so display-only rows don't react. */
 .r-list-item::before {
@@ -240,7 +238,7 @@ a.r-list-item {
   opacity: 0.14;
 }
 
-/* ── Active state — tinted with the list's active colour ──────── */
+/* ── Active state: tinted with the list's active colour ──────── */
 .r-list-item--active {
   background: color-mix(
     in srgb,

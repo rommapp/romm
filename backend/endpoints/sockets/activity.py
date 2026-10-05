@@ -11,7 +11,7 @@ the authenticated socket session (stored on connect, see ``endpoints.sockets``)
 so a client cannot broadcast a "now playing" session on behalf of another user.
 Only ``rom_id`` / ``device_id`` come from the client.
 
-All events broadcast to every connected client on the main `/ws` namespace.
+Events reach the `user:{id}` rooms of the users who can see the ROM.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ScanPlatformDialog — kicks off a scan for a single platform with
+// ScanPlatformDialog: kicks off a scan for a single platform with
 // the user's choice of providers, hash-matchers, and scan type.
 //
 // Visual + interaction language mirrors `RefreshMetadataDialog`
@@ -7,25 +7,24 @@
 // proxies as switch pills, scan-type select), but the identity row
 // at the top shows the platform instead of a ROM, and the scan-type
 // list mirrors the Scan view's per-platform options (no "new
-// platforms" — that's a discovery scan against the whole library,
+// platforms": that's a discovery scan against the whole library,
 // not a single platform).
-import {
-  RAlert,
-  RAvatar,
-  RBtn,
-  RDialog,
-  RSelect,
-  RSwitch,
-  RTooltip,
-} from "@v2/lib";
+import { RAlert, RBtn, RDialog } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
+import ScanHashMatcherSwitches from "@/v2/components/Scan/ScanHashMatcherSwitches.vue";
+import ScanProviderSelect from "@/v2/components/Scan/ScanProviderSelect.vue";
+import ScanTypeSelect from "@/v2/components/Scan/ScanTypeSelect.vue";
 import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
+import { useScanTypeOptions } from "@/v2/composables/useScanTypeOptions";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { type ScanType as SharedScanType } from "@/v2/types/scan";
+import {
+  type ScanType as SharedScanType,
+  type ScanTypeOption,
+} from "@/v2/types/scan";
 
 defineOptions({ inheritAttrs: false });
 
@@ -55,44 +54,21 @@ const {
   hashMatchers,
   setHashMatcher,
   isHashMatcherOn,
-  buildScanPayload,
+  buildScanSourceOptions,
   persistSelection,
 } = useScanProviders();
 
-// Per-platform scan types — the full Scan-view list minus
+// Per-platform scan types: the full Scan-view list minus
 // `new_platforms` (a discovery scan against fs_slugs not yet in the
 // DB, which can't be scoped to a known platform).
 type ScanType = Exclude<SharedScanType, "new_platforms">;
 
-const scanOptions = computed<
-  { title: string; subtitle: string; value: ScanType }[]
->(() => [
-  {
-    title: t("scan.quick-scan"),
-    subtitle: t("scan.quick-scan-desc"),
-    value: "quick",
-  },
-  {
-    title: t("scan.unmatched-games"),
-    subtitle: t("scan.unmatched-games-desc"),
-    value: "unmatched",
-  },
-  {
-    title: t("scan.update-metadata"),
-    subtitle: t("scan.update-metadata-desc"),
-    value: "update",
-  },
-  {
-    title: t("scan.hashes"),
-    subtitle: t("scan.hashes-desc"),
-    value: "hashes",
-  },
-  {
-    title: t("scan.complete-rescan"),
-    subtitle: t("scan.complete-rescan-desc"),
-    value: "complete",
-  },
-]);
+const allScanOptions = useScanTypeOptions();
+const scanOptions = computed(() =>
+  allScanOptions.value.filter(
+    (o): o is ScanTypeOption<ScanType> => o.value !== "new_platforms",
+  ),
+);
 const scanType = ref<ScanType>("quick");
 
 function closeDialog() {
@@ -104,7 +80,7 @@ function onScan() {
     {
       platforms: [props.platform.id],
       type: scanType.value,
-      ...buildScanPayload(),
+      ...buildScanSourceOptions(),
     },
   ]);
   if (!started) return;
@@ -135,7 +111,7 @@ function onScan() {
 
     <template #content>
       <div class="r-v2-scan-plat">
-        <!-- Platform identity row — icon + name. Mirrors the
+        <!-- Platform identity row: icon + name. Mirrors the
              ROM-identity row in RefreshMetadataDialog so the two
              scan-launching surfaces read as siblings. -->
         <div class="r-v2-scan-plat__head">
@@ -157,233 +133,50 @@ function onScan() {
           </div>
         </div>
 
-        <!-- 1. Providers — General + Specific RSelects. -->
+        <!-- 1. Providers: General + Specific RSelects. -->
         <section class="r-v2-scan-plat__section">
           <h3 class="r-v2-scan-plat__section-title">
             {{ t("scan.section-providers") }}
           </h3>
 
-          <div class="r-v2-scan-plat__providers-group">
-            <span class="r-v2-scan-plat__providers-group-label">
-              {{ t("scan.section-providers-general") }}
-            </span>
-            <RSelect
-              v-model="metadataSources"
-              :items="generalProviders"
-              :label="t('scan.section-providers-general')"
-              item-title="name"
-              prepend-inner-icon="mdi-database-search"
-              variant="outlined"
-              density="comfortable"
-              multiple
-              return-object
-              clearable
-              hide-details
-              chips
-              chip-tone="plain"
-              show-all-option
-              @update:all-selected="generalAllSelected = $event"
-            >
-              <template #chip="{ item }">
-                <RTooltip :text="item.raw.name" location="bottom">
-                  <template #activator="{ props: tipProps }">
-                    <span
-                      v-bind="tipProps"
-                      class="r-v2-scan-plat__provider-chip"
-                      :aria-label="item.raw.name"
-                    >
-                      <RAvatar
-                        :image="item.raw.logo_path"
-                        size="18"
-                        rounded="sm"
-                      />
-                    </span>
-                  </template>
-                </RTooltip>
-              </template>
-              <template #item="{ props: itemProps, item }">
-                <li v-bind="itemProps">
-                  <RAvatar :image="item.raw.logo_path" size="22" rounded="sm" />
-                  <div class="r-select__item-stack">
-                    <div class="r-select__item-title">
-                      {{ item.raw.name }}
-                    </div>
-                    <div
-                      v-if="item.raw.disabled"
-                      class="r-select__item-subtitle"
-                    >
-                      {{ item.raw.disabled }}
-                    </div>
-                  </div>
-
-                  <div
-                    v-if="item.raw.value === 'launchbox'"
-                    class="r-v2-scan-plat__lb-toggle"
-                    @click.stop
-                    @mousedown.stop
-                  >
-                    <span
-                      class="r-v2-scan-plat__lb-label"
-                      :class="{
-                        'r-v2-scan-plat__lb-inactive': launchboxRemoteEnabled,
-                      }"
-                    >
-                      {{ t("platform.local-source") }}
-                    </span>
-                    <RSwitch
-                      v-model="launchboxRemoteEnabled"
-                      :disabled="!isLaunchboxSelected"
-                    />
-                    <span
-                      class="r-v2-scan-plat__lb-label"
-                      :class="{
-                        'r-v2-scan-plat__lb-inactive': !launchboxRemoteEnabled,
-                      }"
-                    >
-                      {{ t("platform.cloud-source") }}
-                    </span>
-                  </div>
-                </li>
-              </template>
-            </RSelect>
-          </div>
-
-          <div
+          <ScanProviderSelect
+            v-model="metadataSources"
+            v-model:launchbox-remote="launchboxRemoteEnabled"
+            :items="generalProviders"
+            :label="t('scan.section-providers-general')"
+            icon="mdi-database-search"
+            :launchbox-selected="isLaunchboxSelected"
+            @update:all-selected="generalAllSelected = $event"
+          />
+          <ScanProviderSelect
             v-if="specificProviders.length"
-            class="r-v2-scan-plat__providers-group"
-          >
-            <span class="r-v2-scan-plat__providers-group-label">
-              {{ t("scan.section-providers-specific") }}
-            </span>
-            <RSelect
-              v-model="metadataSources"
-              :items="specificProviders"
-              :label="t('scan.section-providers-specific')"
-              item-title="name"
-              prepend-inner-icon="mdi-trophy-outline"
-              variant="outlined"
-              density="comfortable"
-              multiple
-              return-object
-              clearable
-              hide-details
-              chips
-              chip-tone="plain"
-              show-all-option
-              @update:all-selected="specificAllSelected = $event"
-            >
-              <template #chip="{ item }">
-                <RTooltip :text="item.raw.name" location="bottom">
-                  <template #activator="{ props: tipProps }">
-                    <span
-                      v-bind="tipProps"
-                      class="r-v2-scan-plat__provider-chip"
-                      :aria-label="item.raw.name"
-                    >
-                      <RAvatar
-                        :image="item.raw.logo_path"
-                        size="18"
-                        rounded="sm"
-                      />
-                    </span>
-                  </template>
-                </RTooltip>
-              </template>
-              <template #item="{ props: itemProps, item }">
-                <li v-bind="itemProps">
-                  <RAvatar :image="item.raw.logo_path" size="22" rounded="sm" />
-                  <div class="r-select__item-stack">
-                    <div class="r-select__item-title">
-                      {{ item.raw.name }}
-                    </div>
-                    <div
-                      v-if="item.raw.disabled"
-                      class="r-select__item-subtitle"
-                    >
-                      {{ item.raw.disabled }}
-                    </div>
-                  </div>
-                </li>
-              </template>
-            </RSelect>
-          </div>
+            v-model="metadataSources"
+            :items="specificProviders"
+            :label="t('scan.section-providers-specific')"
+            icon="mdi-trophy-outline"
+            @update:all-selected="specificAllSelected = $event"
+          />
         </section>
 
-        <!-- 2. Hash-matcher proxies — same compact switch pills as
-             RefreshMetadataDialog. -->
+        <!-- 2. Hash-matcher proxies. -->
         <section class="r-v2-scan-plat__section">
           <h3 class="r-v2-scan-plat__section-title">
             {{ t("scan.section-proxies") }}
           </h3>
-          <div
-            class="r-v2-scan-plat__matchers"
-            role="group"
-            :aria-label="t('rom.hash-matchers')"
-          >
-            <RTooltip
-              v-for="matcher in hashMatchers"
-              :key="matcher.value"
-              :text="
-                matcher.blockedReason
-                  ? `${matcher.name}: ${matcher.blockedReason}`
-                  : matcher.name
-              "
-              location="bottom"
-            >
-              <template #activator="{ props: tipProps }">
-                <div
-                  v-bind="tipProps"
-                  class="r-v2-scan-plat__matcher"
-                  :class="{
-                    'r-v2-scan-plat__matcher--off': !matcher.switchEnabled,
-                  }"
-                >
-                  <RAvatar
-                    :image="matcher.logo"
-                    size="16"
-                    rounded="sm"
-                    class="r-v2-scan-plat__matcher-logo"
-                  />
-                  <RSwitch
-                    :model-value="isHashMatcherOn(matcher)"
-                    :disabled="!matcher.switchEnabled"
-                    :aria-label="matcher.name"
-                    @update:model-value="
-                      (v) => setHashMatcher(matcher.value, v)
-                    "
-                  />
-                </div>
-              </template>
-            </RTooltip>
-          </div>
+          <ScanHashMatcherSwitches
+            :matchers="hashMatchers"
+            :is-on="isHashMatcherOn"
+            @toggle="setHashMatcher"
+          />
         </section>
 
-        <!-- 3. Scan type — full per-platform option list (no "new
-             platforms" — that's a library-wide discovery scan). -->
+        <!-- 3. Scan type, full per-platform option list (no "new
+             platforms", that's a library-wide discovery scan). -->
         <section class="r-v2-scan-plat__section">
           <h3 class="r-v2-scan-plat__section-title">
             {{ t("scan.section-scan-type") }}
           </h3>
-          <RSelect
-            v-model="scanType"
-            :items="scanOptions"
-            :label="t('scan.scan-options')"
-            prepend-inner-icon="mdi-magnify-scan"
-            hide-details
-            variant="outlined"
-            density="comfortable"
-          >
-            <template #item="{ props: itemProps, item }">
-              <li v-bind="itemProps">
-                <div class="r-select__item-stack">
-                  <div class="r-select__item-title">{{ item.title }}</div>
-                  <div v-if="item.raw.subtitle" class="r-select__item-subtitle">
-                    {{ item.raw.subtitle }}
-                  </div>
-                </div>
-              </li>
-            </template>
-          </RSelect>
+          <ScanTypeSelect v-model="scanType" :items="scanOptions" />
         </section>
 
         <RAlert
@@ -421,7 +214,7 @@ function onScan() {
   gap: 16px;
 }
 
-/* Platform identity row — sibling of `.r-v2-refresh__rom` in
+/* Platform identity row: sibling of `.r-v2-refresh__rom` in
    RefreshMetadataDialog. */
 .r-v2-scan-plat__head {
   display: flex;
@@ -476,67 +269,6 @@ function onScan() {
   font-weight: var(--r-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--r-color-fg-muted);
-}
-
-.r-v2-scan-plat__providers-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.r-v2-scan-plat__providers-group + .r-v2-scan-plat__providers-group {
-  margin-top: 8px;
-}
-.r-v2-scan-plat__providers-group-label {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-medium);
-  letter-spacing: 0.04em;
-  color: var(--r-color-fg-faint);
-}
-
-.r-v2-scan-plat__provider-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.r-v2-scan-plat__matchers {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-self: flex-start;
-}
-.r-v2-scan-plat__matcher {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: var(--r-radius-pill);
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-}
-.r-v2-scan-plat__matcher--off {
-  opacity: 0.55;
-}
-.r-v2-scan-plat__matcher-logo {
-  background: var(--r-color-bg-elevated);
-  flex-shrink: 0;
-}
-
-.r-v2-scan-plat__lb-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-}
-.r-v2-scan-plat__lb-label {
-  font-size: 11px;
-  color: var(--r-color-fg);
-  white-space: nowrap;
-}
-.r-v2-scan-plat__lb-inactive {
   color: var(--r-color-fg-muted);
 }
 

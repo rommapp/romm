@@ -1,13 +1,11 @@
-import asyncio
-import http
 import json
 from typing import Final
 
 import aiohttp
 import yarl
 from aiohttp.client import ClientTimeout
-from fastapi import HTTPException, status
 
+from adapters.services.provider_http import send_with_retries
 from adapters.services.response_validation import parse_response
 from adapters.services.steam_types import (
     SteamAppDetails,
@@ -56,58 +54,42 @@ class SteamService:
     ) -> T | None:
         aiohttp_session = ctx_aiohttp_session.get()
 
-        for attempt in range(STEAM_MAX_REQUEST_ATTEMPTS):
+        async def send() -> T | None:
             await _rate_limiter.acquire()
-
             log.debug(
                 "Steam API request: URL=%s, Timeout=%s",
                 url,
                 request_timeout,
             )
-
-            try:
-                res = await aiohttp_session.get(
-                    url,
-                    headers={"user-agent": f"RomM/{get_version()}"},
-                    timeout=ClientTimeout(total=request_timeout),
-                )
-                res.raise_for_status()
-                body = await res.read()
-                # A throttled storefront answers 200 with a bare `null`.
-                if body.strip() == b"null":
-                    return None
-                return parse_response(tp, body, source=f"Steam {yarl.URL(url).name}")
-            # A `total` timeout surfaces as a bare asyncio.TimeoutError, not as
-            # aiohttp's ServerTimeoutError, so catch the base class.
-            except TimeoutError:
-                log.debug("Request to URL=%s timed out. Retrying...", url)
-                continue
-            except aiohttp.ClientConnectionError as exc:
-                log.critical("Connection error: can't connect to Steam", exc_info=True)
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Can't connect to Steam, check your internet connection",
-                ) from exc
-            except aiohttp.ClientResponseError as exc:
-                is_last_attempt = attempt == STEAM_MAX_REQUEST_ATTEMPTS - 1
-                if (
-                    exc.status == http.HTTPStatus.TOO_MANY_REQUESTS
-                    and not is_last_attempt
-                ):
-                    log.warning(
-                        "Steam rate limit hit, retrying after %ss",
-                        STEAM_RATE_LIMIT_BACKOFF_SECONDS,
-                    )
-                    await asyncio.sleep(STEAM_RATE_LIMIT_BACKOFF_SECONDS)
-                    continue
-
-                log.error(exc)
+            res = await aiohttp_session.get(
+                url,
+                headers={"user-agent": f"RomM/{get_version()}"},
+                timeout=ClientTimeout(total=request_timeout),
+            )
+            res.raise_for_status()
+            body = await res.read()
+            # A throttled storefront answers 200 with a bare `null`.
+            if body.strip() == b"null":
                 return None
-            except json.JSONDecodeError as exc:
-                log.error("Error decoding JSON response from Steam: %s", exc)
-                return None
+            return parse_response(tp, body, source=f"Steam {yarl.URL(url).name}")
 
-        return None
+        try:
+            return await send_with_retries(
+                send,
+                provider="Steam",
+                url=url,
+                attempts=STEAM_MAX_REQUEST_ATTEMPTS,
+                backoff=STEAM_RATE_LIMIT_BACKOFF_SECONDS,
+            )
+        except TimeoutError:
+            log.debug("Request to URL=%s timed out on every attempt", url)
+            return None
+        except aiohttp.ClientResponseError as exc:
+            log.error(exc)
+            return None
+        except json.JSONDecodeError as exc:
+            log.error("Error decoding JSON response from Steam: %s", exc)
+            return None
 
     async def search_apps(
         self,

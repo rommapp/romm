@@ -3,7 +3,10 @@
 import { useTimeoutFn } from "@vueuse/core";
 import { nextTick, toValue, watch, type MaybeRefOrGetter } from "vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
-import { shouldClaimFocusOnModality } from "@/v2/utils/autofocus";
+import {
+  focusFromInput,
+  shouldClaimFocusOnModality,
+} from "@/v2/utils/autofocus";
 
 export function usePlayFocus(
   /** CSS selector for the CTA. A query survives the button's lazy render
@@ -15,9 +18,9 @@ export function usePlayFocus(
   const { modality } = useInputModality();
 
   function focusPlay() {
-    document
-      .querySelector<HTMLElement>(selector)
-      ?.focus({ preventScroll: true });
+    focusFromInput(document.querySelector<HTMLElement>(selector), {
+      preventScroll: true,
+    });
   }
 
   // A task rather than a tick, so the key that switched modality finishes its

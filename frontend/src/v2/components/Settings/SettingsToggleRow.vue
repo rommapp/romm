@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// SettingsToggleRow — a clickable row used inside a settings section's
+// SettingsToggleRow: a clickable row used inside a settings section's
 // toggle grid. Displays a label + description on the left and an
 // `RSwitch` on the right. The whole row is the click target so users
 // don't have to aim at the switch itself.
 //
-// The visual switch is `<RSwitch static>` — purely presentational, no
+// The visual switch is `<RSwitch static>`: purely presentational, no
 // nested button. The row's outer `<button role="switch">` owns the
 // interaction (click, keyboard, aria-checked).
 import { RSwitch } from "@v2/lib";
@@ -15,7 +15,7 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   modelValue: boolean;
   title: string;
-  description?: string;
+  description?: string | undefined;
   disabled?: boolean;
 }
 
@@ -57,7 +57,7 @@ function toggle() {
         {{ description }}
       </span>
     </span>
-    <!-- Optional inline control slot — for per-row secondary widgets
+    <!-- Optional inline control slot: for per-row secondary widgets
          (e.g. a "Compact / Extended" segmented control for the
          Library Snapshot widget toggle). Click events stop here so
          nested interactive controls don't bubble up and flip the row
@@ -87,7 +87,7 @@ function toggle() {
 .r-v2-toggle-row {
   display: flex;
   /* Centre the switch (and any `#append` control) against the row's
-     full height instead of the label's baseline — when the row has
+     full height instead of the label's baseline: when the row has
      both a label and a description, the trailing control should sit
      at the visual midpoint of the two-line block, not next to the
      label. */

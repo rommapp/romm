@@ -1,17 +1,15 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createMemoryHistory, createRouter, type Router } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import GameCard from "./GameCard.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 function rom(id: number): SimpleRom {
-  return { id, name: `Game ${id}`, platform_slug: "snes" } as SimpleRom;
+  return romFixture({ id, name: `Game ${id}`, platform_slug: "snes" });
 }
 
 function makeRouter(): Router {
@@ -32,10 +30,6 @@ async function mountCard(romId: number, router: Router) {
     global: { plugins: [router] },
   });
 }
-
-beforeEach(() => {
-  setActivePinia(createPinia());
-});
 
 describe("GameCard selection", () => {
   it("navigates on a plain click when nothing is selected", async () => {
@@ -87,6 +81,33 @@ describe("GameCard selection", () => {
     expect(selection.ids).toEqual([2, 1]);
   });
 
+  it("is a plain link with a decorative checkbox", async () => {
+    const wrapper = await mountCard(1, makeRouter());
+    const card = wrapper.find(".r-gc");
+
+    expect(card.attributes("role")).toBeUndefined();
+    expect(card.attributes("aria-pressed")).toBeUndefined();
+    expect(wrapper.find(".r-gc__check input").exists()).toBe(false);
+  });
+
+  it("selects on Space, even before anything is selected", async () => {
+    const wrapper = await mountCard(1, makeRouter());
+
+    await wrapper.find(".r-gc").trigger("keydown", { key: " " });
+
+    expect(storeGallerySelection().ids).toEqual([1]);
+  });
+
+  it("leaves Space on its own buttons to them", async () => {
+    const wrapper = await mountCard(1, makeRouter());
+    const card = wrapper.find(".r-gc");
+    const button = card.find("button");
+
+    await button.trigger("keydown", { key: " " });
+
+    expect(storeGallerySelection().ids).toEqual([]);
+  });
+
   it("consumes a modifier click on the checkbox", async () => {
     const router = makeRouter();
     const wrapper = await mountCard(1, router);
@@ -96,5 +117,17 @@ describe("GameCard selection", () => {
 
     expect(router.currentRoute.value.fullPath).toBe("/");
     expect(storeGallerySelection().ids).toEqual([1]);
+  });
+});
+
+describe("GameCard static", () => {
+  it("is a plain button unless the consumer passes selected", () => {
+    const plain = mount(GameCard, { props: { rom: rom(1), static: true } });
+    expect(plain.find(".r-gc").attributes("aria-pressed")).toBeUndefined();
+
+    const toggle = mount(GameCard, {
+      props: { rom: rom(1), static: true, selected: false },
+    });
+    expect(toggle.find(".r-gc").attributes("aria-pressed")).toBe("false");
   });
 });

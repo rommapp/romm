@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RDialog — teleports to <body>, paints a scrim + glass panel, and
+// RDialog: teleports to <body>, paints a scrim + glass panel, and
 // locks page scroll while open. Slot layout: header / toolbar /
 // content / append / footer-start + footer. `cancelable` adds a Cancel
 // button at the footer's start that closes like Escape.
@@ -14,12 +14,13 @@
 //
 // The primitive owns surface + chrome only. Loading spinners, empty
 // states, "no results" messaging and any other app-driven content
-// belong inside the consumer's `#content` slot — composed from
+// belong inside the consumer's `#content` slot: composed from
 // REmptyState / RProgressCircular / RSpinner as needed.
 import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { createBodyScrollLock, overlayCount } from "../bodyScrollLock";
 import {
   type EscapableEntry,
@@ -39,7 +40,7 @@ const props = withDefaults(
     /** Block close-on-scrim-click / close-on-Escape. */
     persistent?: boolean;
     /** On `sm-and-down`, dock the panel as a full-width bottom sheet
-     *  instead of a centred card. Default on — opt out for surfaces that
+     *  instead of a centred card. Default on: opt out for surfaces that
      *  must stay a compact floating card on phones. */
     fullscreenOnMobile?: boolean;
     /** With the mobile sheet, always fill the full height below the top
@@ -57,7 +58,7 @@ const props = withDefaults(
     cancelable?: boolean;
     cancelDisabled?: boolean;
     /** Replaces the Cancel label (defaults to the chrome `cancel` label). */
-    cancelText?: string;
+    cancelText?: string | undefined;
   }>(),
   {
     scrollContent: false,
@@ -84,7 +85,7 @@ const slots = useSlots();
 const labels = useChromeLabels();
 
 const panelRef = ref<HTMLElement | null>(null);
-// Element that had focus before the dialog opened — focus returns here
+// Element that had focus before the dialog opened: focus returns here
 // when the dialog closes so keyboard users don't lose their place.
 let previouslyFocused: HTMLElement | null = null;
 
@@ -115,7 +116,7 @@ function onScrimClick() {
   closeDialog();
 }
 
-// Per-instance entry on the shared escape stack — registered when
+// Per-instance entry on the shared escape stack: registered when
 // `modelValue` flips to true, removed when it flips to false (or on
 // unmount). `persistent` is read via the getter so the global listener
 // always sees the current value (the user could toggle it while the
@@ -149,26 +150,26 @@ watch(
           panelRef.value?.querySelector<HTMLElement>(
             "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
           );
-        focusTarget?.focus();
+        focusFromInput(focusTarget);
       });
     } else {
       unlockBodyScroll();
       popEscapable(stackEntry);
       stackDepth.value = 0;
       // Restore focus to the element that opened the dialog.
-      previouslyFocused?.focus?.();
+      focusFromInput(previouslyFocused);
       previouslyFocused = null;
     }
   },
   // `immediate: true` so dialogs that mount already open (e.g. when a
   // consumer wraps RDialog in `v-if="entity"` and flips both `entity`
-  // and `show` in the same tick — EditRomDialog, ManageCollectionsDialog,
+  // and `show` in the same tick: EditRomDialog, ManageCollectionsDialog,
   // …) still register on the escape stack. Without this the watch
   // never sees the initial `true` and Esc silently does nothing.
   { immediate: true },
 );
 
-// Safety net — if the component unmounts while still open (parent
+// Safety net: if the component unmounts while still open (parent
 // teardown, route change, or a consumer nulling its `v-if` entity in the
 // same tick as `show`), drop our stack entry so the global listener never
 // tries to close a destroyed instance, and release the body scroll lock
@@ -204,7 +205,7 @@ const panelStyle = computed(() => {
          that transitionend fires. The panel scales alongside via its
          own always-on transform transition.
          `appear` makes the enter animation fire on the dialog's first
-         mount too — consumers that gate RDialog with `v-if="entity"`
+         mount too: consumers that gate RDialog with `v-if="entity"`
          outside (EditRomDialog, EditUserDialog) flip the entity ref
          AND `show` in the same tick, so without `appear` the dialog
          mounts already-open and Vue sees no v-if transition. With it,
@@ -222,11 +223,11 @@ const panelStyle = computed(() => {
         role="presentation"
         :style="dialogStyle"
       >
-        <!-- Scrim — fades in/out behind the panel. -->
+        <!-- Scrim: fades in/out behind the panel. -->
         <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/no-static-element-interactions -- scrim is a pointer-only convenience; keyboard closes via Escape through the dialog scope -->
         <div class="r-dialog__scrim" @click="onScrimClick" />
 
-        <!-- Panel — receives focus on open. -->
+        <!-- Panel: receives focus on open. -->
         <div
           ref="panelRef"
           class="r-dialog__panel"
@@ -261,7 +262,7 @@ const panelStyle = computed(() => {
             <slot name="toolbar" />
           </div>
 
-          <!-- Body — content is the consumer's responsibility (loading,
+          <!-- Body: content is the consumer's responsibility (loading,
                empty, results, forms, …). The primitive just provides the
                padded, optionally-scrollable region. -->
           <div
@@ -306,7 +307,7 @@ const panelStyle = computed(() => {
 </template>
 
 <style scoped>
-/* Full-viewport container — flexbox centres the panel. No always-on
+/* Full-viewport container: flexbox centres the panel. No always-on
    transition: the opacity animation is scoped to `enter-active` only,
    so Vue's `<Transition>` doesn't wait for a phantom transitionend on
    close. */
@@ -317,7 +318,8 @@ const panelStyle = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: max(16px, var(--r-safe-t)) max(16px, var(--r-safe-r))
+    max(16px, var(--r-safe-b)) max(16px, var(--r-safe-l));
 }
 
 .r-dialog__scrim {
@@ -342,8 +344,8 @@ const panelStyle = computed(() => {
     0 4px 20px color-mix(in srgb, black 40%, transparent);
   overflow: hidden;
   color: var(--r-color-fg);
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 32px);
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* ── Mobile bottom sheet (sm-and-down) ──────────────────────────────
@@ -363,15 +365,15 @@ html[data-bp~="sm-and-down"] .r-dialog--fs-mobile .r-dialog__panel {
   max-width: 100vw !important;
   min-height: 0 !important;
   /* Cap at the space below the top navbar so a tall sheet (Match / Edit ROM)
-     never rides up over it — same ceiling the full-height user-menu sheet
+     never rides up over it: same ceiling the full-height user-menu sheet
      uses. Short dialogs stay content-height; tall ones scroll internally. */
   max-height: calc(100dvh - var(--r-nav-h)) !important;
   border-radius: var(--r-radius-xl) var(--r-radius-xl) 0 0 !important;
   border-bottom: 0 !important;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: 0 var(--r-safe-r) var(--r-safe-b) var(--r-safe-l);
 }
 
-/* Full-height variant — pin the sheet to that same ceiling as a fixed height
+/* Full-height variant: pin the sheet to that same ceiling as a fixed height
    (not just a cap) so it fills the screen below the navbar regardless of
    content, overriding any inline `height` the consumer set for desktop. The
    body (with `scrollContent`) scrolls internally. */
@@ -472,7 +474,7 @@ html[data-bp~="sm-and-down"]
 
 /* ── Open motion only ────────────────────────────────────────
    The dialog blooms in (root fades from 0, panel springs from 0.94
-   scale). Close is intentionally instant — no `leave-*` rules and no
+   scale). Close is intentionally instant: no `leave-*` rules and no
    always-on transition means Vue unmounts on the same frame. */
 .r-dialog-fade-enter-from {
   opacity: 0;

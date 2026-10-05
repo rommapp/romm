@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h } from "vue";
+import { defineComponent, h, onMounted } from "vue";
 
 const push = vi.fn();
 const playingStore = { playing: false };
@@ -22,17 +22,21 @@ vi.mock("@/plugins/router", () => ({
 }));
 
 // `installed` is module state, so each test gets a fresh module and a fresh
-// window listener via a throwaway host component.
-async function install() {
+// window listener via a throwaway host component. The host installs from
+// `onMounted`, as AppLayout does.
+async function loadHost() {
   vi.resetModules();
   const { useGlobalHotkeys } = await import("./index");
-  const Host = defineComponent({
+  return defineComponent({
     setup() {
-      useGlobalHotkeys().install();
+      onMounted(() => useGlobalHotkeys().install());
       return () => h("div");
     },
   });
-  return mount(Host);
+}
+
+async function install() {
+  return mount(await loadHost());
 }
 
 function press(key: string, target: EventTarget = document.body) {
@@ -42,7 +46,6 @@ function press(key: string, target: EventTarget = document.body) {
 }
 
 beforeEach(() => {
-  push.mockClear();
   playingStore.playing = false;
   document.body.innerHTML = "";
 });
@@ -99,6 +102,18 @@ describe("useGlobalHotkeys", () => {
     press("g");
     press("h");
     expect(push).toHaveBeenCalledWith({ name: "home" });
+    host.unmount();
+  });
+
+  it("stops listening on unmount and installs once on the next mount", async () => {
+    const Host = await loadHost();
+    mount(Host).unmount();
+    press("/");
+    expect(push).not.toHaveBeenCalled();
+
+    const host = mount(Host);
+    press("/");
+    expect(push).toHaveBeenCalledOnce();
     host.unmount();
   });
 });

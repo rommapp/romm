@@ -1,5 +1,6 @@
 """Finding and pruning the RQ jobs that run a library scan."""
 
+from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 from itertools import chain
 from typing import Final
@@ -7,6 +8,7 @@ from typing import Final
 from rq import Worker
 from rq.job import Job, JobStatus
 from rq.registry import ScheduledJobRegistry
+from rq.worker import BaseWorker
 
 from handler.redis_handler import (
     cancel_job,
@@ -53,13 +55,18 @@ def is_scoped_scan_job(job: Job) -> bool:
     return bool(kwargs and kwargs.get("roms_ids"))
 
 
-def get_running_scan_job() -> Job | None:
+def get_running_scan_job(workers: Iterable[BaseWorker] | None = None) -> Job | None:
     """The scan currently executing on a worker, if any.
 
     A started job is no longer in the queue, so it can only be found by asking
     the workers what they are holding.
+
+    Args:
+        workers: Every registered worker, when the caller has already listed them
     """
-    for worker in Worker.all(connection=redis_client):
+    if workers is None:
+        workers = Worker.all(connection=redis_client)
+    for worker in workers:
         job = get_worker_current_job(worker)
         if job is not None and is_scan_job(job):
             return job
@@ -116,13 +123,18 @@ def get_scheduled_scan_jobs() -> list[Job]:
     return [job for job in jobs if job is not None and is_scan_job(job)]
 
 
-def get_blocking_library_scans() -> tuple[Job | None, list[Job]]:
+def get_blocking_library_scans(
+    workers: Iterable[BaseWorker] | None = None,
+) -> tuple[Job | None, list[Job]]:
     """The library scans a second one has to wait for: one running, any queued.
 
     A scan of named roms is not one of them. It resolves its work from the
     database and is done in seconds, so nothing has to queue behind it.
+
+    Args:
+        workers: Every registered worker, when the caller has already listed them
     """
-    running = get_running_scan_job()
+    running = get_running_scan_job(workers)
     if running is not None and is_scoped_scan_job(running):
         running = None
 

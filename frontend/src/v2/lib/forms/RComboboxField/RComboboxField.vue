@@ -27,19 +27,12 @@ import {
   useFloating,
 } from "@floating-ui/vue";
 import type { Placement } from "@floating-ui/vue";
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  useId,
-  useSlots,
-  watch,
-} from "vue";
+import { computed, nextTick, ref, useId, useSlots, watch } from "vue";
+import { usePopoverDismiss } from "@/v2/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTag from "@/v2/lib/primitives/RTag/RTag.vue";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { useRFormRegistration } from "../RForm/context";
 
 defineOptions({ inheritAttrs: false });
@@ -51,16 +44,16 @@ interface Props {
   /** Optional suggestion list. Typed values that don't match are still
    *  committed: this is autocomplete, not enforcement. */
   items?: string[];
-  label?: string;
-  placeholder?: string;
+  label?: string | undefined;
+  placeholder?: string | undefined;
   /** `stacked` → label above the field. `inline` → label as a left
    *  prefix on the field. Mirrors RTextField. */
   prefixLabel?: "stacked" | "inline" | null;
   variant?: "outlined" | "filled" | "underlined" | "plain";
   density?: "default" | "comfortable" | "compact";
   hideDetails?: boolean;
-  hint?: string;
-  errorMessages?: string | string[];
+  hint?: string | undefined;
+  errorMessages?: string | string[] | undefined;
   /** Checked against the committed chips, like RSelect's rules; the field
    *  reports to an enclosing RForm. */
   rules?: Rule[];
@@ -69,6 +62,9 @@ interface Props {
   closableChips?: boolean;
   /** Drop the autocomplete dropdown entirely. Pure free-text input. */
   noSuggestions?: boolean;
+  /** Keep commas inside a value instead of committing and splitting on
+   *  them, for values like titles that can hold one. */
+  allowCommas?: boolean;
   /** Render a field-level X that wipes every committed chip in one
    *  click. Sits next to the input on the right edge of the field, so
    *  the affordance reads identically to RTextField's clearable. */
@@ -90,6 +86,7 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   closableChips: true,
   noSuggestions: false,
+  allowCommas: false,
   clearable: false,
 });
 
@@ -161,12 +158,14 @@ const { floatingStyles } = useFloating(fieldRef, panelRef, {
 function commit(raw: string) {
   const trimmed = raw.trim();
   if (!trimmed) return;
-  // Allow comma-separated paste (`tag1, tag2, tag3`), split, dedupe
-  // against the current set, and commit them in one update.
-  const parts = trimmed
-    .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean);
+  // Unless `allowCommas`, split a comma-separated paste (`tag1, tag2`),
+  // dedupe against the current set, and commit them in one update.
+  const parts = props.allowCommas
+    ? [trimmed]
+    : trimmed
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean);
   if (!parts.length) return;
   const taken = new Set(chips.value.map((c) => c.toLowerCase()));
   const next = [...chips.value];
@@ -199,7 +198,7 @@ function clearAll() {
   if (!chips.value.length && !query.value) return;
   query.value = "";
   emit("update:modelValue", []);
-  nextTick(() => inputRef.value?.focus());
+  nextTick(() => focusFromInput(inputRef.value));
 }
 
 // ── Input wiring ───────────────────────────────────────────────
@@ -235,8 +234,9 @@ function onKeyDown(e: KeyboardEvent) {
   switch (e.key) {
     case "Enter": {
       e.preventDefault();
-      if (activeIndex.value >= 0 && suggestions.value[activeIndex.value]) {
-        commit(suggestions.value[activeIndex.value]);
+      const suggestion = suggestions.value[activeIndex.value];
+      if (activeIndex.value >= 0 && suggestion) {
+        commit(suggestion);
       } else if (query.value.trim()) {
         commit(query.value);
       }
@@ -244,6 +244,7 @@ function onKeyDown(e: KeyboardEvent) {
     }
     case ",": {
       // Comma also commits: matches the paste-friendly contract.
+      if (props.allowCommas) break;
       e.preventDefault();
       commit(query.value);
       break;
@@ -269,35 +270,19 @@ function onKeyDown(e: KeyboardEvent) {
       openPanel();
       break;
     }
-    case "Escape": {
-      e.preventDefault();
-      closePanel();
-      break;
-    }
   }
 }
 
 function pickSuggestion(item: string) {
   commit(item);
-  nextTick(() => inputRef.value?.focus());
+  nextTick(() => focusFromInput(inputRef.value));
 }
 
-// Outside-click closes the panel: mirrors RMenu / RSelect.
-function onDocPointerDown(evt: PointerEvent) {
-  if (!isOpen.value) return;
-  const target = evt.target as Node | null;
-  if (!target) return;
-  if (fieldRef.value?.contains(target as Node)) return;
-  if (panelRef.value?.contains(target as Node)) return;
-  closePanel();
-}
-
-onMounted(() => {
-  document.addEventListener("pointerdown", onDocPointerDown, true);
-});
-onBeforeUnmount(() => {
-  document.removeEventListener("pointerdown", onDocPointerDown, true);
-});
+usePopoverDismiss(
+  computed(() => isOpen.value && hasSuggestions.value),
+  closePanel,
+  { reference: () => fieldRef.value, panel: () => panelRef.value },
+);
 
 // Reset active highlight when the suggestion set changes.
 watch(suggestions, () => {
@@ -491,7 +476,7 @@ const showDetails = computed(
 .r-combobox-field {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   width: 100%;
   --r-cf-h: 40px;
   --r-cf-pad-x: 12px;
@@ -527,7 +512,7 @@ const showDetails = computed(
 .r-combobox-field__label--stacked {
   align-self: flex-start;
   padding-inline-start: 2px;
-  margin-bottom: 4px;
+  margin-bottom: var(--r-space-1);
 }
 .r-combobox-field:not(.r-combobox-field--disabled):focus-within
   .r-combobox-field__label--stacked {

@@ -1,15 +1,13 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
-import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import GameActionBtn from "./GameActionBtn.vue";
 
 const play = vi.fn();
 const needsLaunchConfirm = { value: false };
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/composables/useBreakpoint", () => ({
   useBreakpoint: () => ({ smAndDown: ref(false) }),
@@ -32,7 +30,7 @@ type Props = InstanceType<typeof GameActionBtn>["$props"];
 
 function mountBtn(props: Partial<Props> = {}) {
   return mount(GameActionBtn, {
-    props: { rom: { id: 1 } as SimpleRom, action: "play", ...props },
+    props: { rom: romFixture({ id: 1 }), action: "play", ...props },
     global: { stubs: { RIcon: true, RTooltip: true } },
   });
 }
@@ -56,7 +54,6 @@ function click(el: Element, init: MouseEventInit = {}): boolean {
 }
 
 beforeEach(() => {
-  play.mockClear();
   needsLaunchConfirm.value = false;
 });
 

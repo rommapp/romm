@@ -1,8 +1,8 @@
-import { useLocalStorage } from "@vueuse/core";
 import type { RemovableRef } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { effectScope, watch, ref } from "vue";
 import type { UserSchema } from "@/__generated__";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 
@@ -59,7 +59,7 @@ export const UI_SETTINGS_KEYS = {
     key: "settings.libraryStatsMode",
     default: "compact",
   },
-  // Widget render order — comma-separated list of widget IDs.
+  // Widget render order: comma-separated list of widget IDs.
   // Persisted as a string in localStorage (the useUISettings helper
   // only handles primitives; consumers parse/serialize at the edges).
   // Unknown IDs are filtered out on read so removing a widget from
@@ -98,6 +98,9 @@ export const UI_SETTINGS_KEYS = {
     key: "settings.boxartStylePlayer",
     default: "cover_path",
   },
+
+  // Jukebox
+  resumeMusic: { key: "settings.resumeMusic", default: false },
 
   // Gameplay
   confirmProtectedLaunch: {
@@ -141,7 +144,7 @@ function createUISettings() {
   const localStorageRefs = Object.fromEntries(
     Object.entries(UI_SETTINGS_KEYS).map(([name, config]) => [
       name,
-      useLocalStorage(config.key, config.default),
+      useUserLocalStorage(config.key, config.default),
     ]),
   ) as UISettingsRefs;
 

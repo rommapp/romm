@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// AgeRatingBadges — renders the ROM's age ratings as visual badges.
+// AgeRatingBadges: renders the ROM's age ratings as visual badges.
 // Mirrors v1's matching logic (Details/Info/GameInfo.vue): the merged
 // list of rating strings on `metadatum.age_ratings` is cross-referenced
 // with `igdb_metadata.age_ratings` and `ss_metadata.age_ratings` to
@@ -13,7 +13,7 @@ import { computed, reactive } from "vue";
 import type { DetailedRom } from "@/stores/roms";
 
 // IGDB hosts every rating icon at a conventional URL, but not every
-// `category_rating` combo is actually populated — old/regional ratings
+// `category_rating` combo is actually populated: old/regional ratings
 // 404 even though `igdbIconUrl` can build the URL. We track every URL
 // that 404s in this Set so the matching badge swaps to the text chip
 // fallback on the next paint, matching GameCard's "load image →
@@ -40,7 +40,7 @@ const CATEGORY_SLUG: Record<string, string> = {
 type Badge = {
   rating: string;
   category: string;
-  rating_cover_url?: string;
+  rating_cover_url?: string | undefined;
 };
 
 // IGDB icon URLs use lowercased rating codes with "+" stripped
@@ -68,7 +68,7 @@ const badges = computed<Badge[]>(() => {
   );
 
   return ratings.map<Badge>((entry) => {
-    // Manually entered "CATEGORY:RATING" — reconstruct the icon URL
+    // Manually entered "CATEGORY:RATING": reconstruct the icon URL
     // by convention since there's no provider object to look up.
     if (entry.includes(":")) {
       const [categoryRaw, ratingRaw] = entry.split(":");

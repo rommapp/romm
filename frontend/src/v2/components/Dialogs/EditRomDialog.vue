@@ -17,8 +17,9 @@
 // remain deep domain composites pulled from the EditRom feature folder.
 import { RBtn, RDialog, RIcon, RTabNav, RTextField } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib/primitives/RTabNav/types";
+import { useObjectUrl } from "@vueuse/core";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -31,6 +32,7 @@ import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import DangerZone from "@/v2/components/shared/DangerZone.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { getMissingCoverImage } from "@/v2/utils/covers";
@@ -46,7 +48,12 @@ const show = ref(false);
 // their payloads. Widen at edit/emit boundaries.
 type EditableRom = DetailedRom & UpdateRom;
 const rom = ref<EditableRom | null>(null);
-const imagePreviewUrl = ref<string | undefined>("");
+const artworkUrl = useObjectUrl(() => rom.value?.artwork);
+// A picked SteamGridDB URL or the missing-cover image, shown over the upload.
+const coverOverride = ref("");
+const imagePreviewUrl = computed(
+  () => coverOverride.value || artworkUrl.value || "",
+);
 const removeCover = ref(false);
 const coverFileInput = ref<HTMLInputElement | null>(null);
 // In-flight flag for the PUT: drives the footer button's spinner so
@@ -69,7 +76,7 @@ const openHandler = async (romToEdit: SimpleRom) => {
   // have real data to render.
   rom.value = romToEdit as EditableRom;
   removeCover.value = false;
-  imagePreviewUrl.value = "";
+  coverOverride.value = "";
   activeTab.value = "details";
   try {
     const { data } = await romApi.getRom({ romId: romToEdit.id });
@@ -78,15 +85,10 @@ const openHandler = async (romToEdit: SimpleRom) => {
     console.error("Failed to fetch detailed rom", error);
   }
 };
-emitter?.on("showEditRomDialog", openHandler);
+useEmitterEvent("showEditRomDialog", openHandler);
 
 const urlCoverHandler = (url_cover: string) => setUrlCover(url_cover);
-emitter?.on("updateUrlCover", urlCoverHandler);
-
-onBeforeUnmount(() => {
-  emitter?.off("showEditRomDialog", openHandler);
-  emitter?.off("updateUrlCover", urlCoverHandler);
-});
+useEmitterEvent("updateUrlCover", urlCoverHandler);
 
 const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
@@ -222,23 +224,19 @@ function previewImage(event: Event) {
   if (!input.files || !input.files[0]) return;
 
   rom.value.artwork = input.files[0];
-  const reader = new FileReader();
-  reader.onload = () => {
-    imagePreviewUrl.value = reader.result?.toString() || "";
-    removeCover.value = false;
-  };
-  reader.readAsDataURL(input.files[0]);
+  coverOverride.value = "";
+  removeCover.value = false;
 }
 
 function setUrlCover(coverUrl: string) {
   if (!coverUrl || !rom.value) return;
   rom.value.url_cover = coverUrl;
-  imagePreviewUrl.value = coverUrl;
+  coverOverride.value = coverUrl;
   removeCover.value = false;
 }
 
 function removeArtwork() {
-  imagePreviewUrl.value = missingCoverImage.value;
+  coverOverride.value = missingCoverImage.value;
   removeCover.value = true;
 }
 
@@ -293,7 +291,7 @@ async function updateRom() {
 function closeDialog() {
   show.value = false;
   rom.value = null;
-  imagePreviewUrl.value = "";
+  coverOverride.value = "";
 }
 
 function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {

@@ -1,36 +1,33 @@
 # End-to-end tests (Playwright)
 
-The real app, in a real browser, against a real backend. Use these for behaviour that only shows up once everything is assembled; Vitest covers components in isolation.
+These tests drive the app in a real browser against a real backend, for behaviour that only shows up once everything is assembled. Vitest covers components in isolation.
 
 ## Run it
 
-You need one running RomM site to point at, with games in its library and two accounts: an admin, and a non-admin in the Viewer group. The suite starts no server; it tests whatever `E2E_BASE_URL` serves.
-
-From `frontend/`, with the site up (for example `npm run dev`, which serves on 3000 and proxies to the backend named by `DEV_PORT` or `DEV_PROXY_TARGET` in `.env`):
+You need a backend with games in its library and two accounts: an admin, and a non-admin in the Viewer group. On a throwaway dev backend, the seed script creates both (run it from the repo root). Never run it against a real server; it resets those accounts' passwords.
 
 ```bash
-cp e2e/.env.example e2e/.env
+uv run python .github/scripts/seed_e2e_users.py
+```
+
+Then, from `frontend/`:
+
+```bash
 npm run test:e2e
 ```
 
 Every `test:e2e*` script passes whatever follows `--` to Playwright, so `-g` (short for `--grep`) narrows any run to the tests whose title or tag matches a regex:
 
 ```bash
-npm run test:e2e:smoke                  # quick test: only @smoke tests, the merge gate
-npm run test:e2e -- -g "@page:home\b"   # one page; \b stops @page:home matching a longer id
-npm run test:e2e -- -g "@page:(home|search)\b"   # several pages
-npm run test:e2e                        # everything
+npm run test:e2e:smoke                          # only @smoke tests, the merge gate
+npm run test:e2e -- -g "@page:home( |$)"        # one page; ( |$) stops @page:scan matching @page:scan-settings
+npm run test:e2e -- -g "@page:(home|search)( |$)"   # several pages
+npm run test:e2e                                # every functional test
 ```
 
-Running everything takes a long time, so filtering is worth learning :) The recipes below use it throughout; [Tags](#tags) lists what you can filter on.
+[Tags](#tags) lists what you can filter on.
 
-The example works as-is against `npm run dev` with the seeded accounts below. For any other site, change `E2E_BASE_URL` and the accounts. If anything in `e2e/.env` is missing or malformed, the run stops before starting anything and lists every problem at once.
-
-On a throwaway dev backend, the seed script creates the two accounts from `.env.example` (run it from the repo root). Never run it against a real server; it resets those accounts' passwords.
-
-```bash
-uv run python .github/scripts/seed_e2e_users.py
-```
+That starts `npm run dev` (or reuses the one already running on 3000), which proxies to the backend named by `DEV_PORT` or `DEV_PROXY_TARGET` in `.env`. To point the suite at another site or other accounts, set the variables from `e2e/.env.example` in your shell or in `e2e/.env`. For more or fewer parallel workers than the default 2, pass `--workers N`.
 
 Install the recommended VS Code extension, **Playwright Test for VS Code**. Most recipes below start from its panel in the Testing sidebar.
 
@@ -41,15 +38,17 @@ Install the recommended VS Code extension, **Playwright Test for VS Code**. Most
 Create the file, leave the cursor inside the test, and click **Record at cursor** in the Playwright panel:
 
 ```ts
-// e2e/specs/favorite-a-game.spec.ts
-import { STORAGE_STATE } from "../support/auth";
-import { expect, test } from "../support/test";
+// e2e/specs/home/favorite-a-game.spec.ts
+import { STORAGE_STATE } from "../../support/auth";
+import { expect, test } from "../../support/test";
 
-test.use({ storageState: STORAGE_STATE.admin });
+test.describe("Favorites", { tag: "@page:home" }, () => {
+  test.use({ storageState: STORAGE_STATE.admin });
 
-test("favorites a game", async ({ page }) => {
-  await page.goto("/");
-  // cursor here
+  test("favorites a game", async ({ page }) => {
+    await page.goto("/");
+    // cursor here
+  });
 });
 ```
 
@@ -83,7 +82,7 @@ await page.pause();
 ```
 
 ```bash
-npx playwright test --debug e2e/specs/game-details/actions-menu.spec.ts
+npx playwright test --debug e2e/specs/rom/actions-menu.spec.ts
 ```
 
 The Inspector steps one action at a time, tries locators live, and records more steps. ESLint refuses a committed `page.pause()`.
@@ -102,17 +101,15 @@ Run headed, press F12 in the test browser, and put `debugger;` in any `.vue` fil
 test.use({ storageState: STORAGE_STATE.viewer });
 ```
 
-Need the credentials themselves? Take them from the test arguments:
+Need the credentials themselves? Take them from `ACCOUNTS`:
 
 ```ts
-test("rejects a wrong password", async ({ page, e2eEnv }) => {
-  const { username } = accountFor(e2eEnv, "viewer");
-});
+const { username } = ACCOUNTS.viewer;
 ```
 
 ### Test Explorer shows no tests
 
-The extension lists tests by loading `playwright.config.ts`, which validates `e2e/.env` first. If that fails, the panel stays empty. See why:
+The extension lists tests by loading `playwright.config.ts`. If that fails, the panel stays empty. See why:
 
 ```bash
 npx playwright test --list
@@ -125,123 +122,83 @@ Fix what it reports, then click **Refresh Tests** in the Testing sidebar.
 ```bash
 npm run test:e2e -- e2e/specs/auth/login.spec.ts
 npm run test:e2e -- -g "rejects a wrong password"   # -g matches titles too
-npm run test:e2e -- -g "@page:gameDetails\b"        # every test for one page
-npm run test:e2e -- -gv "@page:gameDetails\b"       # everything except that page
+npm run test:e2e -- -g "@page:rom( |$)"             # every test for one page, by its route name
+npm run test:e2e -- -gv "@page:rom( |$)"            # everything except that page
 ```
 
 ### Test another site
 
-Change `E2E_BASE_URL` in `e2e/.env`, and use accounts that exist there:
+Set `E2E_BASE_URL` (in the shell or `e2e/.env`), and use accounts that exist there:
 
 ```ini
 E2E_BASE_URL=https://romm.example.com
 ```
 
-The specs follow this branch's UI, so a site on another version fails where the two differ. A released site (5.3.1, say) lacks endpoints added on master since, and `loads.spec.ts` reports each as a 404; the preflight prints the site's version so this is easy to spot. For a full pass, run a backend from this checkout (`uv run main.py`) behind `npm run dev`.
+The specs follow this branch's UI, so a site on another version fails where the two differ. A released site (5.3.1, say) lacks endpoints added on master since, and `loads.spec.ts` reports each as a 404. For a full pass, run a backend from this checkout (`uv run main.py`) and leave `E2E_BASE_URL` unset.
 
-To test a production build of this branch, serve it first: `npm run build && npm run preview`, then set `E2E_BASE_URL=http://localhost:4173`.
+To test a production build of this branch, serve it first: `npm run build && npm run preview` (preview also serves `frontend/assets`, as the Docker image does), then set `E2E_BASE_URL=http://localhost:4173`.
 
 ### Run Lighthouse audits
 
 Lighthouse measures performance on a simulated slow desktop (real LAN network, 6x CPU slowdown). Compare against DevTools' Lighthouse in **Desktop** mode; its mobile default scores far lower. Which categories run and per-page thresholds are configured in `e2e/lighthouse/lighthouse.spec.ts`. Each page writes a full Lighthouse HTML report to `e2e/.output/lighthouse/`.
 
 ```bash
-# All pages
-npm run test:e2e:lighthouse
-
-# One page
-npm run test:e2e:lighthouse -- -g "@page:home\b"
-
-# A few pages, for a quick look
-npm run test:e2e:lighthouse -- -g "@page:(home|platforms|collections|administration)\b"
+npm run test:e2e:lighthouse                                   # all pages
+npm run test:e2e:lighthouse -- -g "@page:home( |$)"           # one page
+npm run test:e2e:lighthouse -- -g "@page:(home|platforms-index|administration)( |$)"
 ```
 
-After a run, open the per-page HTML report for the full Lighthouse UI: waterfall, opportunities, diagnostics:
+After a run, open a page's HTML report (`open e2e/.output/lighthouse/home.html`, or `start` on Windows) for the full Lighthouse UI, or `npm run test:e2e:report` for the Playwright report. Each page gets one test with its Lighthouse report attached. A red test names each category under its threshold, with the top three audits to fix first, by estimated savings.
 
-```bash
-# macOS / Linux
-open e2e/.output/lighthouse/home.html
-
-# Windows
-start e2e/.output/lighthouse/home.html
-```
-
-Or open the Playwright run report:
-
-```bash
-npm run test:e2e:report
-```
-
-Each page gets one test with its Lighthouse report attached. A red test names each category under its threshold, with the top three audits to fix first, by estimated savings. Serve `npm run build:e2e && npm run preview` instead of `build` and the report attributes JavaScript to source modules; the maps don't change what the page runs, so scores stay comparable.
+Audit a production build for scores that mean something: `npm run build:e2e && npm run preview`, then set `E2E_BASE_URL=http://localhost:4173`. `build:e2e` adds source maps, so the report attributes JavaScript to source modules without changing what the page runs.
 
 Lighthouse occupies a fixed CDP port (9222), so only one audit runs at a time.
 
 ### Run axe a11y audits
 
-axe-core injects into Playwright's browser and scans the live DOM after the app hydrates. Which impact levels block the run is configured per page in `e2e/axe/axe.spec.ts` (defaults: critical and serious). All violations, including non-blocking ones, are written to `e2e/.output/axe/<page>.json`.
-
-Every run logs `critical=N serious=N moderate=N minor=N` for each page, so CI action logs carry a parseable paper trail even when all tests pass.
+axe-core scans the live DOM after the app hydrates. Which impact levels block the run is configured per page in `e2e/axe/axe.spec.ts` (defaults: critical and serious). All violations, including non-blocking ones, are written to `e2e/.output/axe/<page>.json`, and every run logs `critical=N serious=N moderate=N minor=N` for each page.
 
 ```bash
-# All pages
-npm run test:e2e:axe
-
-# One page
-npm run test:e2e:axe -- -g "@page:home\b"
+npm run test:e2e:axe                              # all pages
+npm run test:e2e:axe -- -g "@page:home( |$)"      # one page
 ```
 
-A page with blocking violations also gets a screenshot per impact level, with each offending element outlined in that level's colour (`e2e/axe/highlight.ts`).
-
-> **Fixing a violation?** Install the [axe DevTools](https://www.deque.com/axe/devtools/) browser extension. It runs the same axe-core rules on the page you're looking at, highlights each element, and re-checks as you edit, which is faster than rerunning the suite.
-
-Open the Playwright run report, which shows the violation count and blocking list inline on each failing test:
-
-```bash
-npm run test:e2e:report
-```
-
-### Sign in again
-
-Sessions are saved in `e2e/.output/auth/` and reused, after a check that each still signs the right account in. One that doesn't (expired, another site, another account) is replaced automatically. To force a fresh sign-in anyway:
-
-```bash
-rm -r e2e/.output/auth    # PowerShell: Remove-Item -Recurse e2e/.output/auth
-```
+A page with blocking violations also gets a screenshot per impact level, with each offending element outlined in that level's colour (`e2e/axe/highlight.ts`). To fix one, the [axe DevTools](https://www.deque.com/axe/devtools/) browser extension runs the same rules on the page you're looking at and re-checks as you edit.
 
 ## How it's wired
 
 ```text
 e2e/
-  specs/      the tests, one folder per page
+  specs/      the functional tests, one folder per page
     loads.spec.ts   every page opens with every response 2xx
-  lighthouse/ Lighthouse performance audits, one describe per page
   axe/        axe-core a11y audits, one describe per page
-  setup/      preflight and sign-in, run before the specs
-  support/    fixtures, helpers, the page sitemap, environment and output paths
+  lighthouse/ Lighthouse performance audits, one describe per page
+  setup/      sign-in and the first game, run before the specs
+  support/    fixtures, helpers, the page sitemap, and output paths
   .output/    generated and gitignored; delete it to reset
-    auth/           saved sessions
-    specs/          results/ (traces, screenshots) and report/ (HTML)
-    lighthouse/     one HTML + JSON report per audited page
-    axe/            one JSON violation report per audited page
+    auth/         saved sessions
+    specs/        results/ (traces, screenshots) and report/ (HTML)
+    axe/          one JSON violation report per audited page
+    lighthouse/   one HTML and JSON report per audited page
 ```
 
-- **`e2e/.env`:** required locally, and the only source of `E2E_*` variables. CI sets the same variables in `.github/workflows/e2e.yml`.
-- **Server:** the suite starts none. It tests `E2E_BASE_URL` as served; CI serves the static build with `vite preview` and points the suite at it.
-- **Preflight:** `setup/global-setup.ts` runs first and checks, in about a second, that the backend answers, both accounts sign in and can read ROMs, and the library has a game. One error lists every problem.
-- **Sign-in:** `setup/auth.setup.ts` signs each account in once and saves the session. `login.spec.ts` is the only spec that drives the login form.
-- **Timeouts:** 10s per test locally, so failures are fast; CI keeps longer ones. They switch off while debugging.
+- **Environment:** every `E2E_*` variable comes from the shell, then `e2e/.env`, then a default that matches the seed script. CI uses the defaults.
+- **Server:** with `E2E_BASE_URL` unset, the config's `webServer` starts one: `npm run dev` locally (reusing one already running), the static build under `vite preview` in CI. Otherwise it tests that URL as served.
+- **Sign-in:** `setup/auth.setup.ts` signs each account in at the start of every run and saves the session for the specs. `login.spec.ts` is the only spec that drives the login form.
+- **Library:** `setup/library.setup.ts` then finds the first game once, and specs open it by URL with `gotoFirstRom()`.
+- **Timeouts:** the same locally and in CI (45s per test), so a test passes or fails the same way in both. They switch off while debugging.
 - **App errors:** if an `/api` call returns 5xx or the app throws, the test fails at once and names the request (for example `GET /api/roms returned 500`) instead of timing out on an element.
 - **Output:** everything the suite writes goes under `.output/`, through the paths in `support/output.ts`.
-- **Checks:** `npm run typecheck:e2e` for the specs, `npm run typecheck:scripts` for `playwright.config.ts`, and lint rules in `eslint.e2e.config.js`.
+- **Checks:** `npm run typecheck` covers the suite through `tsconfig.node.json` (`typecheck:scripts` checks just that project), and lint rules live in `eslint.e2e.config.js`.
 - **Changing the suite itself:** see [AGENTS.md](AGENTS.md).
 
 ## Tags
 
-Filter on any of these with `-g`. Pages in `support/sitemap.ts` carry their tags there, and loads, axe and lighthouse spread them into each `describe`; other specs tag their top-level `describe` by hand.
+Filter on any of these with `-g`.
 
-| Tag          | Where it comes from                                                                                                                                         | Use                                                     |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `@smoke`     | `SMOKE` in `support/sitemap.ts`, spread in where a test belongs in the gate (find its references); never on a sitemap entry, so axe and lighthouse stay out | The merge gate: `npm run test:e2e:smoke`                |
-| `@page:<id>` | Every sitemap entry, `CLICK_THROUGH_PAGES` in `specs/loads.spec.ts`, and each page's own specs                                                              | One page across every suite: `-g "@page:gameDetails\b"` |
+| Tag                  | Where it comes from                                                                                                                | Use                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `@smoke`             | `SMOKE` in `support/sitemap.ts`, added to the tests that belong in the gate; never on a sitemap entry, so the audits stay out      | The merge gate: `npm run test:e2e:smoke`            |
+| `@page:<route name>` | `pageTag()` in `support/sitemap.ts`, for `loads.spec.ts`, axe and Lighthouse; each page's own specs tag their top-level `describe` | One page across every suite: `-g "@page:rom( \|$)"` |
 
-Adding a tag shape? Add it to `E2eTag` in `support/sitemap.ts` (if the sitemap uses it) and a row here in the same change.
+Adding a tag shape? Add it to `E2eTag` in `support/sitemap.ts` and a row here in the same change.

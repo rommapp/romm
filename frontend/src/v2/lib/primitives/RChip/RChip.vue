@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// RChip — inline-flex pill / square label with prepend +
+// RChip: inline-flex pill / square label with prepend +
 // append icons, optional close button, six variants, and the v2 size
 // ladder.
 //
 // Visual vocabulary matches the rest of the lib: TONE_MAP for colours,
 // translucent fills via `color-mix`, hover lift via opacity + scale.
-// Clickable behaviour comes naturally — pass an `@click` listener via
+// Clickable behaviour comes naturally: pass an `@click` listener via
 // `$attrs` and the chip becomes a hit target (the hover transition
 // already makes it feel interactive).
 //
@@ -24,19 +24,19 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   variant?: "flat" | "text" | "elevated" | "translucent" | "outlined" | "plain";
-  color?: string;
+  color?: string | undefined;
   size?: "x-small" | "small" | "default" | "large" | "x-large";
-  /** Square corners (small radius) — typical of inline metadata tags. */
+  /** Square corners (small radius): typical of inline metadata tags. */
   label?: boolean;
   /** Renders a trailing × button that emits `click:close`. */
   closable?: boolean;
-  prependIcon?: string;
-  appendIcon?: string;
+  prependIcon?: string | undefined;
+  appendIcon?: string | undefined;
   disabled?: boolean;
   /** Overrides the chip's default radius. `false`/`"0"` → square,
    *  `"full"`/`true` → pill (999px), `"sm"`/`"md"`/`"lg"`/`"xl"` →
    *  token radii, number → px. */
-  rounded?: string | number | boolean;
+  rounded?: string | number | boolean | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -178,7 +178,7 @@ function onClose(evt: MouseEvent) {
   line-height: 1;
   border: 1px solid transparent;
   user-select: none;
-  /* Subtle rest-state mute that brightens on hover — same idiom RBtn
+  /* Subtle rest-state mute that brightens on hover: same idiom RBtn
      uses so chips and buttons share the rest-→-hover feel. Applied to
      every variant so non-interactive tag chips also feel "alive" when
      the cursor crosses them. */
@@ -212,7 +212,7 @@ function onClose(evt: MouseEvent) {
   flex-shrink: 0;
 }
 
-/* ── Size ladder — height + horizontal padding + font-size ─────── */
+/* ── Size ladder: height + horizontal padding + font-size ─────── */
 .r-chip--x-small {
   height: 20px;
   padding: 0 8px;
@@ -351,7 +351,7 @@ function onClose(evt: MouseEvent) {
   border-radius: 50%;
   width: 1.4em;
   height: 1.4em;
-  /* The X grows + brightens on hover — micro feedback so the user
+  /* The X grows + brightens on hover: micro feedback so the user
      knows the close button is interactive on its own, separately from
      the chip body. */
   opacity: 0.6;

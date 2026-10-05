@@ -1,3 +1,4 @@
+import { flushPromises } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { MusicTrackSchema } from "@/__generated__";
 import { TRACK_PAGE_SIZE, useTrackPager } from "./index";
@@ -56,7 +57,7 @@ describe("useTrackPager", () => {
     expect(calls).toEqual([0]);
 
     pager.loadMoreIfNear(TRACK_PAGE_SIZE - 1);
-    await new Promise((r) => setTimeout(r, 0));
+    await flushPromises();
     expect(calls).toEqual([0, TRACK_PAGE_SIZE]);
   });
 
@@ -96,7 +97,7 @@ describe("useTrackPager", () => {
     await pager.loadMore();
 
     expect(seen).toHaveBeenCalledTimes(2);
-    expect(seen.mock.calls[1][0]).toHaveLength(TRACK_PAGE_SIZE);
+    expect(seen.mock.calls[1]![0]).toHaveLength(TRACK_PAGE_SIZE);
   });
 
   it("leaves the list empty when the first page fails", async () => {

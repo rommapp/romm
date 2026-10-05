@@ -1,13 +1,14 @@
 import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
-import { URL, fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
+import { appAliases } from "./scripts/aliases";
 import { platformIconManifest } from "./scripts/platformIconManifest";
 import { playerIsolationHeaders } from "./scripts/playerIsolationHeaders";
 import { precompress } from "./scripts/precompress";
+import { previewAssets } from "./scripts/previewAssets";
 
 // Vuetify components to preoptimize for faster dev startup
 const VUETIFY_COMPONENTS = [
@@ -82,6 +83,15 @@ export default defineConfig(({ mode }) => {
     "/api": upstream,
     "^/(?:ws|netplay)": { ...upstream, ws: true },
     "/openapi.json": upstream,
+    // The EasyRPG web player fetches each game file from games/<rom id>-<user id>/ beside itself.
+    "^/assets/easyrpg/games/": {
+      ...upstream,
+      rewrite: (/** @type {string} */ path) =>
+        path.replace(
+          /^\/assets\/easyrpg\/games\/(\d+)-\d+\//,
+          "/api/roms/$1/easyrpg/",
+        ),
+    },
     // Local dev serves covers from the frontend/assets symlink.
     ...(remote ? { "/assets/romm": upstream } : {}),
   };
@@ -123,6 +133,7 @@ export default defineConfig(({ mode }) => {
       }),
       precompress(),
       playerIsolationHeaders(),
+      previewAssets(),
       platformIconManifest(),
       httpsMode &&
         mkcert({
@@ -140,10 +151,7 @@ export default defineConfig(({ mode }) => {
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: true,
     },
     resolve: {
-      alias: {
-        "@": fileURLToPath(new URL("./src", import.meta.url)),
-        "@v2": fileURLToPath(new URL("./src/v2", import.meta.url)),
-      },
+      alias: appAliases,
       extensions: [".js", ".json", ".jsx", ".mjs", ".ts", ".tsx", ".vue"],
     },
     server: {
@@ -158,6 +166,8 @@ export default defineConfig(({ mode }) => {
           "**/assets/ruffle/**",
           "**/assets/jsdos/**",
           "**/assets/pico8/**",
+          "**/assets/gme/**",
+          "**/assets/easyrpg/**",
         ],
       },
       proxy,

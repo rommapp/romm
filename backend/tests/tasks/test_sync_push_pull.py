@@ -1,26 +1,35 @@
 """Tests for SyncPushPullTask initialization and configuration."""
 
+from dataclasses import replace
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from tests.factories import make_save
 
+from endpoints.sockets import sync as sync_sockets
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
+    db_sync_session_handler,
 )
 from handler.sync.ssh_handler import RemoteSaveInfo
 from models.assets import Save
 from models.device import Device, SyncMode
 from models.platform import Platform
 from models.rom import Rom
+from models.sync_session import SyncSessionStatus
 from models.user import User
+from tasks import sync_push_pull_task as push_pull
+from tasks.registry import SYNC_PUSH_PULL_SPEC
 from tasks.sync_push_pull_task import (
     SyncPushPullTask,
     _process_remote_save,
     _push_missing_saves,
+    _sync_device,
+    run_push_pull_sync,
     sync_push_pull_task,
 )
 from tasks.tasks import PeriodicTask, TaskType
@@ -32,9 +41,9 @@ class TestSyncPushPullTaskInit:
         return SyncPushPullTask()
 
     def test_init(self, task: SyncPushPullTask):
-        assert task.title == "Push-Pull Sync"
-        assert task.description == "Sync saves with devices via SSH/SFTP"
-        assert task.task_type == TaskType.SYNC
+        assert task.spec.title == "Push-Pull Sync"
+        assert task.spec.description == "Sync saves with devices via SSH/SFTP"
+        assert task.spec.task_type == TaskType.SYNC
 
     def test_is_periodic_task(self, task: SyncPushPullTask):
         assert isinstance(task, PeriodicTask)
@@ -44,18 +53,24 @@ class TestSyncPushPullTaskInit:
         assert isinstance(sync_push_pull_task, SyncPushPullTask)
 
     def test_cron_string_set(self, task: SyncPushPullTask):
-        assert task.cron_string is not None
+        assert task.spec.cron_string is not None
 
 
 class TestRunPushPullSync:
-    @patch("tasks.sync_push_pull_task.ENABLE_SYNC_PUSH_PULL", False)
+    @patch(
+        "tasks.sync_push_pull_task.SYNC_PUSH_PULL_SPEC",
+        replace(SYNC_PUSH_PULL_SPEC, enabled=False),
+    )
     async def test_run_disabled_returns_disabled(self):
         from tasks.sync_push_pull_task import run_push_pull_sync
 
         result = await run_push_pull_sync()
         assert result["status"] == "disabled"
 
-    @patch("tasks.sync_push_pull_task.ENABLE_SYNC_PUSH_PULL", True)
+    @patch(
+        "tasks.sync_push_pull_task.SYNC_PUSH_PULL_SPEC",
+        replace(SYNC_PUSH_PULL_SPEC, enabled=True),
+    )
     @patch("tasks.sync_push_pull_task.db_device_handler")
     async def test_run_no_devices(self, mock_device_handler):
         from tasks.sync_push_pull_task import run_push_pull_sync
@@ -65,7 +80,10 @@ class TestRunPushPullSync:
         result = await run_push_pull_sync()
         assert result["status"] == "no_devices"
 
-    @patch("tasks.sync_push_pull_task.ENABLE_SYNC_PUSH_PULL", True)
+    @patch(
+        "tasks.sync_push_pull_task.SYNC_PUSH_PULL_SPEC",
+        replace(SYNC_PUSH_PULL_SPEC, enabled=True),
+    )
     @patch("tasks.sync_push_pull_task.db_device_handler")
     async def test_run_device_not_found(self, mock_device_handler):
         from tasks.sync_push_pull_task import run_push_pull_sync
@@ -76,7 +94,10 @@ class TestRunPushPullSync:
         assert result["status"] == "error"
         assert "not found" in result["message"]
 
-    @patch("tasks.sync_push_pull_task.ENABLE_SYNC_PUSH_PULL", False)
+    @patch(
+        "tasks.sync_push_pull_task.SYNC_PUSH_PULL_SPEC",
+        replace(SYNC_PUSH_PULL_SPEC, enabled=False),
+    )
     async def test_run_force_override(self):
         from tasks.sync_push_pull_task import run_push_pull_sync
 
@@ -161,20 +182,15 @@ class TestNullSlotLeakInProcessRemoteSave:
         # Create an additional archival (null-slot) save with the same filename
         # as the slotted `save` fixture (test_save.sav). Insert it FIRST so the
         # unfiltered iteration order favours it under the current bug.
-        archival = db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name=save.file_name,
-                file_name_no_tags=save.file_name_no_tags,
-                file_name_no_ext=save.file_name_no_ext,
-                file_extension=save.file_extension,
-                emulator=save.emulator,
-                slot=None,
-                file_path=save.file_path,
-                file_size_bytes=42,
-                content_hash="archival_hash_unique",
-            )
+        archival = make_save(
+            rom,
+            admin_user,
+            save.file_name,
+            emulator=save.emulator,
+            slot=None,
+            file_path=save.file_path,
+            file_size_bytes=42,
+            content_hash="archival_hash_unique",
         )
 
         remote_save = RemoteSaveInfo(
@@ -358,7 +374,7 @@ class TestNullSlotLeakInPushMissingSaves:
             save.file_name in p for p in uploaded_local_paths
         ), f"slotted save was not pushed: {uploaded_local_paths}"
         # And the upload count should reflect slotted-only.
-        assert pushed == 1
+        assert pushed == (1, 0)
 
 
 class TestBaselineInProcessRemoteSave:
@@ -386,20 +402,15 @@ class TestBaselineInProcessRemoteSave:
     def _save(
         admin_user: User, rom: Rom, platform: Platform, content_hash: str
     ) -> Save:
-        return db_save_handler.add_save(
-            Save(
-                rom_id=rom.id,
-                user_id=admin_user.id,
-                file_name="pp_baseline.sav",
-                file_name_no_tags="pp_baseline",
-                file_name_no_ext="pp_baseline",
-                file_extension="sav",
-                emulator="test_emulator",
-                slot="autosave",
-                file_path=f"{platform.slug}/saves/test_emulator",
-                file_size_bytes=100,
-                content_hash=content_hash,
-            )
+        return make_save(
+            rom,
+            admin_user,
+            "pp_baseline.sav",
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=f"{platform.slug}/saves/test_emulator",
+            file_size_bytes=100,
+            content_hash=content_hash,
         )
 
     @staticmethod
@@ -608,9 +619,282 @@ class TestBaselineInProcessRemoteSave:
                 ],
             )
 
-        assert pushed == 1
+        assert pushed == (1, 0)
 
         sync = db_device_save_sync_handler.get_sync(device.id, save.id)
         assert sync is not None
         assert sync.last_sync_hash == "server_hash"
         assert sync.last_sync_server_hash == "server_hash"
+
+    async def test_push_missing_saves_counts_a_failed_upload(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+    ):
+        self._save(admin_user, rom, platform, "server_hash")
+        ssh = self._ssh("/tmp/unused.sav", "unused")
+        ssh.upload_save = AsyncMock(side_effect=OSError("device full"))
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler", return_value=ssh),
+            patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets,
+        ):
+            mock_assets.validate_path.side_effect = lambda p: f"/server/{p}"
+            result = await _push_missing_saves(
+                device,
+                conn=MagicMock(),
+                remote_saves=[],
+                save_directories=[
+                    {"platform_slug": platform.fs_slug, "path": "/remote/saves"}
+                ],
+            )
+
+        assert result == (0, 1)
+
+
+def _remote(file_name: str) -> RemoteSaveInfo:
+    return RemoteSaveInfo(
+        path=f"/saves/gba/{file_name}",
+        file_name=file_name,
+        platform_slug="gba",
+        file_size=1,
+        mtime=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+
+
+class TestSyncDevice:
+    SAVE_DIRECTORIES = [{"platform_slug": "gba", "path": "/saves/gba"}]
+
+    @pytest.fixture
+    def device(self, admin_user: User) -> Device:
+        return db_device_handler.add_device(
+            Device(
+                id="push-pull-deck",
+                user_id=admin_user.id,
+                sync_mode=SyncMode.PUSH_PULL,
+                sync_enabled=True,
+                sync_config={
+                    "ssh_host": "deck.local",
+                    "save_directories": self.SAVE_DIRECTORIES,
+                },
+            )
+        )
+
+    @pytest.fixture
+    def conn(self) -> MagicMock:
+        return MagicMock()
+
+    @pytest.fixture
+    def ssh(self, mocker, conn: MagicMock) -> MagicMock:
+        handler = MagicMock()
+        handler.connect = AsyncMock(return_value=conn)
+        handler.list_remote_saves = AsyncMock(return_value=[])
+        mocker.patch.object(push_pull, "get_ssh_sync_handler", return_value=handler)
+        return handler
+
+    @pytest.fixture
+    def emitted(self, mocker) -> dict[str, AsyncMock]:
+        return {
+            name: mocker.patch.object(sync_sockets, f"emit_sync_{name}", AsyncMock())
+            for name in ("started", "progress", "completed", "error")
+        }
+
+    @pytest.fixture
+    def process(self, mocker):
+        return mocker.patch.object(
+            push_pull, "_process_remote_save", AsyncMock(return_value="pulled")
+        )
+
+    @pytest.fixture
+    def push_missing(self, mocker):
+        return mocker.patch.object(
+            push_pull, "_push_missing_saves", AsyncMock(return_value=(0, 0))
+        )
+
+    @staticmethod
+    def _sessions(device: Device):
+        return db_sync_session_handler.get_sessions(
+            user_id=device.user_id, device_id=device.id
+        )
+
+    async def test_syncs_each_remote_save_and_pushes_the_missing_ones(
+        self, device, ssh, conn, emitted, process, push_missing
+    ):
+        ssh.list_remote_saves.return_value = [_remote("a.srm"), _remote("b.srm")]
+        process.side_effect = ["pulled", "pushed"]
+        push_missing.return_value = (1, 0)
+
+        result = await _sync_device(device)
+
+        assert result == {
+            "device_id": device.id,
+            "status": "completed",
+            "completed": 3,
+            "failed": 0,
+        }
+        ssh.connect.assert_awaited_once_with(device.sync_config, device_id=device.id)
+        ssh.list_remote_saves.assert_awaited_once_with(conn, self.SAVE_DIRECTORIES)
+        [session] = self._sessions(device)
+        assert session.status == SyncSessionStatus.COMPLETED
+        assert (session.operations_planned, session.operations_completed) == (3, 3)
+        assert emitted["progress"].await_count == 2
+        emitted["completed"].assert_awaited_once()
+        emitted["error"].assert_not_awaited()
+        conn.close.assert_called_once()
+        refreshed = db_device_handler.get_device_by_id(device.id)
+        assert refreshed and refreshed.last_seen is not None
+
+    async def test_a_failing_save_is_counted_and_the_rest_still_sync(
+        self, device, ssh, conn, emitted, process, push_missing
+    ):
+        ssh.list_remote_saves.return_value = [_remote("bad.srm"), _remote("ok.srm")]
+        process.side_effect = [OSError("disk full"), "pushed"]
+
+        result = await _sync_device(device)
+
+        assert (result["completed"], result["failed"]) == (1, 1)
+        assert process.await_count == 2
+        [session] = self._sessions(device)
+        assert session.status == SyncSessionStatus.COMPLETED
+        assert session.operations_failed == 1
+
+    async def test_a_failed_push_of_a_missing_save_is_counted(
+        self, device, ssh, emitted, process, push_missing
+    ):
+        ssh.list_remote_saves.return_value = [_remote("a.srm")]
+        push_missing.return_value = (1, 2)
+
+        result = await _sync_device(device)
+
+        assert (result["completed"], result["failed"]) == (2, 2)
+        [session] = self._sessions(device)
+        assert session.operations_planned == 4
+        assert (session.operations_completed, session.operations_failed) == (2, 2)
+
+    async def test_a_connection_failure_fails_the_session(
+        self, device, ssh, emitted, process
+    ):
+        ssh.connect.side_effect = OSError("host unreachable")
+
+        result = await _sync_device(device)
+
+        assert result == {
+            "device_id": device.id,
+            "status": "connection_failed",
+            "error": "host unreachable",
+        }
+        [session] = self._sessions(device)
+        assert session.status == SyncSessionStatus.FAILED
+        assert session.error_message == "host unreachable"
+        emitted["error"].assert_awaited_once()
+        process.assert_not_awaited()
+
+    async def test_a_listing_failure_fails_the_session_and_closes_the_connection(
+        self, device, ssh, conn, emitted
+    ):
+        ssh.list_remote_saves.side_effect = OSError("sftp subsystem missing")
+
+        result = await _sync_device(device)
+
+        assert result["status"] == "failed"
+        [session] = self._sessions(device)
+        assert session.status == SyncSessionStatus.FAILED
+        emitted["error"].assert_awaited_once()
+        emitted["completed"].assert_not_awaited()
+        conn.close.assert_called_once()
+
+    async def test_without_save_directories_there_is_nothing_to_do(
+        self, device, ssh, conn, emitted
+    ):
+        db_device_handler.update_device(
+            device_id=device.id,
+            user_id=device.user_id,
+            data={"sync_config": {"ssh_host": "deck.local"}},
+        )
+        bare = db_device_handler.get_device_by_id(device.id)
+        assert bare
+
+        result = await _sync_device(bare)
+
+        assert result == {"device_id": device.id, "status": "no_directories"}
+        ssh.list_remote_saves.assert_not_awaited()
+        [session] = self._sessions(device)
+        assert session.status == SyncSessionStatus.COMPLETED
+        conn.close.assert_called_once()
+
+    async def test_without_a_host_nothing_is_attempted(self, device, ssh, emitted):
+        db_device_handler.update_device(
+            device_id=device.id, user_id=device.user_id, data={"sync_config": {}}
+        )
+        hostless = db_device_handler.get_device_by_id(device.id)
+        assert hostless
+
+        result = await _sync_device(hostless)
+
+        assert result["status"] == "error"
+        ssh.connect.assert_not_awaited()
+        assert self._sessions(device) == []
+
+    async def test_reuses_the_session_the_trigger_created(
+        self, device, ssh, emitted, process, push_missing
+    ):
+        queued = db_sync_session_handler.create_session(
+            device_id=device.id, user_id=device.user_id
+        )
+
+        await _sync_device(device, session_id=queued.id)
+
+        [session] = self._sessions(device)
+        assert session.id == queued.id
+        assert session.status == SyncSessionStatus.COMPLETED
+
+    async def test_an_unknown_session_gets_a_new_one(
+        self, device, ssh, emitted, process, push_missing
+    ):
+        await _sync_device(device, session_id=999_999)
+
+        [session] = self._sessions(device)
+        assert session.id != 999_999
+        assert session.status == SyncSessionStatus.COMPLETED
+
+
+class TestRunPushPullSyncDevices:
+    @pytest.fixture
+    def sync_device(self, mocker):
+        return mocker.patch.object(
+            push_pull, "_sync_device", AsyncMock(return_value={"status": "completed"})
+        )
+
+    def _device(self, user: User, device_id: str, enabled: bool) -> Device:
+        return db_device_handler.add_device(
+            Device(
+                id=device_id,
+                user_id=user.id,
+                sync_mode=SyncMode.PUSH_PULL,
+                sync_enabled=enabled,
+            )
+        )
+
+    async def test_syncs_only_enabled_push_pull_devices(
+        self, admin_user: User, sync_device: AsyncMock
+    ):
+        self._device(admin_user, "on", enabled=True)
+        self._device(admin_user, "off", enabled=False)
+
+        result = await run_push_pull_sync(force=True)
+
+        assert result["status"] == "completed"
+        assert [c.args[0].id for c in sync_device.await_args_list] == ["on"]
+
+    async def test_a_named_device_passes_its_session_along(
+        self, admin_user: User, sync_device: AsyncMock
+    ):
+        self._device(admin_user, "deck", enabled=True)
+
+        await run_push_pull_sync(device_id="deck", session_id=7, force=True)
+
+        call = sync_device.await_args
+        assert call is not None
+        assert (call.args[0].id, call.kwargs["session_id"]) == ("deck", 7)

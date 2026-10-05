@@ -1,10 +1,10 @@
-// usePlatformPlayable — reactive "can any ROM on this platform run
+// usePlatformPlayable: reactive "can any ROM on this platform run
 // in-browser?" check. Companion to useCanPlay (which takes a rom);
 // platform-level surfaces (PlatformTile, PlatformListRow) only know the
 // slug, so they read this instead. Reuses the same engine-support utils
 // so the marker on the tile and the Play button on the ROM agree.
 //
-// `usePlatformPlayableChecker` is the batch sibling — returns a plain
+// `usePlatformPlayableChecker` is the batch sibling: returns a plain
 // function (no per-call computed) for surfaces that need to test many
 // slugs at once (sort comparators, group-by buckets in PlatformsIndex).
 //
@@ -27,6 +27,7 @@ import { useNativeStore } from "@/stores/native";
 import { useStreamingStore } from "@/stores/streaming";
 import {
   getSupportedEJSCores,
+  isEasyRpgEmulationSupported,
   isEJSEmulationSupported,
   isJsDosEmulationSupported,
   isPico8EmulationSupported,
@@ -35,7 +36,7 @@ import {
 } from "@/utils";
 
 export type PlatformEmulator =
-  "emulatorjs" | "ruffle" | "jsdos" | "pico8" | "dosbox" | null;
+  "emulatorjs" | "ruffle" | "jsdos" | "pico8" | "easyrpg" | "dosbox" | null;
 
 export type PlatformPlayMode = "browser" | "stream" | "both" | null;
 
@@ -46,7 +47,7 @@ function resolveMode(playable: boolean, streamable: boolean): PlatformPlayMode {
   return null;
 }
 
-/** Pure helper — picks the engine that would actually run a platform.
+/** Pure helper: picks the engine that would actually run a platform.
  * Shared between the reactive and the batch composables so both surface
  * the same label for the same slug. */
 function resolveEmulator(
@@ -58,6 +59,7 @@ function resolveEmulator(
   if (isRuffleEmulationSupported(slug, heartbeat, config)) return "ruffle";
   if (isJsDosEmulationSupported(slug, heartbeat, config)) return "jsdos";
   if (isPico8EmulationSupported(slug, heartbeat, config)) return "pico8";
+  if (isEasyRpgEmulationSupported(slug, heartbeat, config)) return "easyrpg";
   if (!isEJSEmulationSupported(slug, heartbeat, config)) return null;
   const cores = getSupportedEJSCores(resolvePlatformSlug(slug, config));
   if (cores.includes("dosbox_pure")) return "dosbox";
@@ -170,6 +172,8 @@ export function playTooltip(
           return t("platform.playable-browser-jsdos");
         case "pico8":
           return t("platform.playable-browser-pico8");
+        case "easyrpg":
+          return t("platform.playable-browser-easyrpg");
         case "dosbox":
           return t("platform.playable-browser-dosbox");
         default:

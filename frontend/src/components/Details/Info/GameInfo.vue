@@ -7,6 +7,7 @@ import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import MediaCarousel from "@/components/Details/Info/MediaCarousel.vue";
 import RDialog from "@/components/common/RDialog.vue";
+import "@/plugins/mdeditor";
 import { ROUTES } from "@/plugins/router";
 import { type FilterType } from "@/stores/galleryFilter";
 import type { DetailedRom } from "@/stores/roms";
@@ -149,9 +150,9 @@ const ageRatingBadges = computed(() => {
   return ratings.map((entry) => {
     // Handle manually entered ratings
     if (entry.includes(":")) {
-      const [categoryRaw, ratingRaw] = entry.split(":");
-      const category = categoryRaw?.trim();
-      const rating = ratingRaw?.trim();
+      const [categoryRaw = "", ratingRaw = ""] = entry.split(":");
+      const category = categoryRaw.trim();
+      const rating = ratingRaw.trim();
       const slug = categorySlug[category];
       const rating_cover_url =
         slug && rating

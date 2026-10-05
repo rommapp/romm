@@ -4,7 +4,7 @@ import { notFoundComponent, v2RouteComponents } from "./routes";
 
 function leafRouteFor(path: string) {
   const matched = router.resolve(path).matched;
-  return matched[matched.length - 1];
+  return matched[matched.length - 1]!;
 }
 
 describe("v2 route resolution", () => {
@@ -20,5 +20,13 @@ describe("v2 route resolution", () => {
 
     expect(leaf.name).toBe(ROUTES.ADMINISTRATION);
     expect(leaf.components?.v2).toBe(v2RouteComponents[ROUTES.ADMINISTRATION]);
+  });
+
+  it("renders the v2 pair shell for /pair", () => {
+    const leaf = leafRouteFor("/pair?code=ABC123");
+
+    expect(leaf.name).toBe(ROUTES.PAIR);
+    expect(v2RouteComponents[ROUTES.PAIR]).toBeDefined();
+    expect(leaf.components?.v2).toBe(v2RouteComponents[ROUTES.PAIR]);
   });
 });

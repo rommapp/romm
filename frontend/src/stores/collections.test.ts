@@ -1,5 +1,4 @@
 import { AxiosError } from "axios";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeAuth from "@/stores/auth";
 import storeCollections, {
@@ -45,7 +44,6 @@ function deferred() {
 
 describe("collections store virtual refresh", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getVirtualCollection.mockReset();
     getVirtualCollections.mockReset();
   });
@@ -66,7 +64,7 @@ describe("collections store virtual refresh", () => {
     first.settle({ data: [virtualCollection(8)] });
     await initial;
     await vi.waitFor(() =>
-      expect(collections.virtualCollections[0].rom_count).toBe(9),
+      expect(collections.virtualCollections[0]?.rom_count).toBe(9),
     );
     expect(getVirtualCollections).toHaveBeenCalledTimes(2);
   });
@@ -82,7 +80,7 @@ describe("collections store virtual refresh", () => {
     // Resolves rather than rejects: every caller fires this in the background,
     // so a rejection would surface as an unhandled one.
     await expect(collections.refreshVirtualCollections()).resolves.toEqual([]);
-    expect(collections.virtualCollections[0].rom_count).toBe(8);
+    expect(collections.virtualCollections[0]?.rom_count).toBe(8);
   });
 
   it("does nothing until a slice has been fetched", async () => {
@@ -128,7 +126,6 @@ function favoriteCollection(id: number, userId: number): Collection {
 
 describe("collections store favorites", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getCollections.mockReset();
     storeAuth().setCurrentUser(userFixture({ id: 7 }));
   });

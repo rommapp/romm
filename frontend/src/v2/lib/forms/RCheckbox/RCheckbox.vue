@@ -34,25 +34,25 @@ import type { RCheckboxState } from "./types";
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  modelValue?: boolean | null;
-  label?: string;
+  modelValue?: boolean | null | undefined;
+  label?: string | undefined;
   /** Secondary line under the label, most useful in `variant="card"`. */
-  subtitle?: string;
+  subtitle?: string | undefined;
   disabled?: boolean;
   indeterminate?: boolean;
   /** Opt into N-state cycling. Ordered list, first entry = empty state.
    *  The current value is driven by `stateValue`. */
-  states?: RCheckboxState[];
+  states?: RCheckboxState[] | undefined;
   /** Current multi-state value (only read when `states` is set). */
-  stateValue?: string;
+  stateValue?: string | undefined;
   /** Accessible name for a labelless checkbox (e.g. matrix cells). */
-  ariaLabel?: string;
+  ariaLabel?: string | undefined;
   /** Reserve vertical space for error messages. */
   hideDetails?: boolean | "auto";
   size?: "xs" | "sm" | "md" | "lg";
-  shape?: "square" | "rounded" | "circle";
+  shape?: "square" | "rounded" | "circle" | undefined;
   /** Tone for the check fill + active border. */
-  color?: string;
+  color?: string | undefined;
   variant?: "box" | "card";
   /** Box-only mode: drops the row's vertical breathing padding (4px
    *  top/bottom) and the box↔label gap so the checkbox can be
@@ -64,6 +64,9 @@ interface Props {
   /** Error tone: red box + red label. */
   error?: boolean;
   errorMessages?: string | string[];
+  /** Draw the box only, with no input, for a mirror of state that an
+   *  enclosing control already exposes. Hidden from assistive tech. */
+  decorative?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -83,6 +86,7 @@ const props = withDefaults(defineProps<Props>(), {
   bare: false,
   error: false,
   errorMessages: () => [],
+  decorative: false,
 });
 
 const emit = defineEmits<{
@@ -122,7 +126,7 @@ watch([() => props.indeterminate, showMultiIcon], syncIndeterminate);
 
 function onChange(evt: Event) {
   if (isMulti.value && props.states) {
-    const next = props.states[(currentIndex.value + 1) % props.states.length];
+    const next = props.states[(currentIndex.value + 1) % props.states.length]!;
     emit("update:stateValue", next.value);
     return;
   }
@@ -204,11 +208,15 @@ const hasLabel = computed(
       '--r-cb-fill': fillColor,
     }"
   >
-    <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- the native checkbox input is nested inside this label, a valid control association -->
-    <label class="r-checkbox">
+    <component
+      :is="decorative ? 'span' : 'label'"
+      class="r-checkbox"
+      :aria-hidden="decorative || undefined"
+    >
       <!-- Native input: visually hidden but kept in the layout for
            form submission, keyboard, and screen reader support. -->
       <input
+        v-if="!decorative"
         ref="inputRef"
         type="checkbox"
         class="r-checkbox__input"
@@ -267,7 +275,7 @@ const hasLabel = computed(
           <slot name="subtitle">{{ subtitle }}</slot>
         </span>
       </span>
-    </label>
+    </component>
 
     <div v-if="showDetailsRow" class="r-checkbox__details">
       <span v-for="(m, i) in messages" :key="i" class="r-checkbox__message">

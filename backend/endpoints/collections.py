@@ -22,7 +22,7 @@ from exceptions.endpoint_exceptions import (
 )
 from handler.audit_handler import AuditTarget, changed_fields, record
 from handler.auth.constants import Scope
-from handler.auth.dependencies import get_permissions
+from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_collection_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.assets_handler import validate_image_upload
@@ -32,6 +32,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.audit_event import AuditAction
 from models.collection import (
+    COLLECTION_NAME_MAX_LENGTH,
     Collection,
     SmartCollection,
     VirtualCollection,
@@ -57,30 +58,23 @@ CollectionSchemaT = TypeVar(
 def _hide_collection_roms(
     schemas: list[CollectionSchemaT], request: Request
 ) -> list[CollectionSchemaT]:
-    """Drop hidden roms from each collection's `rom_ids`/`rom_count` for the caller.
+    """Drop hidden roms from each collection's `rom_ids` for the caller.
 
     Without this a collection leaks the ids (and inflated count) of roms hidden
     from the user via the opt-out visibility model.
     """
-    if not request.user.is_authenticated or not schemas:
+    if not schemas:
         return schemas
-    perms = get_permissions(request)
-    if perms.is_admin or (not perms.hidden_platform_ids and not perms.hidden_rom_ids):
+    visibility = get_rom_visibility_filter(request)
+    if visibility.is_unrestricted:
         return schemas
 
     all_ids = {rid for s in schemas for rid in s.rom_ids}
-    hidden = db_rom_handler.get_hidden_rom_ids_among(
-        list(all_ids),
-        list(perms.hidden_platform_ids),
-        list(perms.hidden_rom_ids),
-    )
+    hidden = db_rom_handler.get_hidden_rom_ids_among(list(all_ids), visibility)
     if not hidden:
         return schemas
     for s in schemas:
-        visible = set(s.rom_ids) - hidden
-        if len(visible) != len(s.rom_ids):
-            s.rom_ids = visible
-            s.rom_count = len(visible)
+        s.rom_ids = set(s.rom_ids) - hidden
     return schemas
 
 
@@ -102,7 +96,7 @@ async def add_collection(
     is_public: bool | None = None,
     is_favorite: bool | None = None,
     artwork: UploadFile | None = COLLECTION_ARTWORK_FILE,
-    name: str = Form(default=""),
+    name: str = Form(default="", max_length=COLLECTION_NAME_MAX_LENGTH),
     description: str = Form(default=""),
     url_cover: str = Form(
         default="", description="Remote URL to fetch and use as cover artwork."
@@ -174,7 +168,7 @@ async def add_collection(
 async def add_smart_collection(
     request: Request,
     is_public: bool | None = None,
-    name: str = Form(default=""),
+    name: str = Form(default="", max_length=COLLECTION_NAME_MAX_LENGTH),
     description: str = Form(default=""),
     filter_criteria: str = Form(
         default="{}",
@@ -442,7 +436,7 @@ async def update_collection(
         ...,
         description="Collection ROM IDs as a JSON array string (e.g. [1,2,3]).",
     ),
-    name: str | None = Form(default=None),
+    name: str | None = Form(default=None, max_length=COLLECTION_NAME_MAX_LENGTH),
     description: str | None = Form(default=None),
     url_cover: str | None = Form(default=None, description="Updated remote cover URL."),
 ) -> CollectionSchema:
@@ -461,8 +455,10 @@ async def update_collection(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
+    if name is not None:
+        namesake = db_collection_handler.get_collection_by_name(name, request.user.id)
+        if namesake and namesake.id != collection.id:
+            raise CollectionAlreadyExistsException(name)
 
     try:
         parsed_rom_ids = json.loads(rom_ids)
@@ -665,7 +661,7 @@ async def update_smart_collection(
     request: Request,
     id: int,
     is_public: bool | None = None,
-    name: str | None = Form(default=None),
+    name: str | None = Form(default=None, max_length=COLLECTION_NAME_MAX_LENGTH),
     description: str | None = Form(default=None),
     filter_criteria: str | None = Form(
         default=None,
@@ -687,6 +683,13 @@ async def update_smart_collection(
 
     if smart_collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
+
+    if name is not None:
+        namesake = db_collection_handler.get_smart_collection_by_name(
+            name, request.user.id
+        )
+        if namesake and namesake.id != smart_collection.id:
+            raise CollectionAlreadyExistsException(name)
 
     # Parse filter criteria if provided
     parsed_filter_criteria = smart_collection.filter_criteria

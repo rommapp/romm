@@ -16,10 +16,10 @@ const modulesByLocale = new Map<
   Map<string, () => Promise<LocaleModule>>
 >();
 for (const [path, load] of Object.entries(localeModules)) {
-  const matched = path.match(/\.\/([A-Za-z0-9-_]+)\/([A-Za-z0-9-_]+)\.json$/i);
-  if (!matched) continue;
+  const [, locale, namespace] =
+    path.match(/\.\/([A-Za-z0-9-_]+)\/([A-Za-z0-9-_]+)\.json$/i) ?? [];
+  if (!locale || !namespace) continue;
 
-  const [, locale, namespace] = matched;
   if (!modulesByLocale.has(locale)) modulesByLocale.set(locale, new Map());
   modulesByLocale.get(locale)?.set(namespace, load);
 }
@@ -37,6 +37,25 @@ const i18n = createI18n({
     },
   },
 });
+
+// Picks the first available locale matching the browser's preferences, exact
+// region first ("en-GB" -> "en_GB"), then language only ("fr" -> "fr_FR").
+export function matchPreferredLocale(
+  preferred: readonly string[],
+  available: readonly string[],
+): string | undefined {
+  for (const pref of preferred) {
+    const normalized = pref.replaceAll("-", "_").toLowerCase();
+    const exact = available.find((l) => l.toLowerCase() === normalized);
+    if (exact) return exact;
+    const base = normalized.split("_")[0];
+    const partial = available.find(
+      (l) => l.toLowerCase().split("_")[0] === base,
+    );
+    if (partial) return partial;
+  }
+  return undefined;
+}
 
 const pendingLocales = new Map<string, Promise<void>>();
 
@@ -83,7 +102,13 @@ export function loadLocale(locale: string): Promise<void> {
 // write the raw key to the tab. Other languages load when switched to.
 export const localesReady = Promise.all([
   loadLocale(FALLBACK_LOCALE),
-  loadLocale(localStorage.getItem(STORED_LOCALE_KEY) ?? FALLBACK_LOCALE),
+  loadLocale(
+    // Read at module load, before anyone is signed in.
+    // eslint-disable-next-line romm/no-unscoped-local-storage
+    localStorage.getItem(STORED_LOCALE_KEY) ||
+      matchPreferredLocale(navigator.languages, [...modulesByLocale.keys()]) ||
+      FALLBACK_LOCALE,
+  ),
 ]);
 
 watch(i18n.global.locale, (locale) => {

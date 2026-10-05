@@ -3,6 +3,7 @@ import mitt, { type Emitter } from "mitt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { romFixture } from "@/utils/rom.fixtures";
 import RefreshMetadataDialog from "./RefreshMetadataDialog.vue";
 
 const { startScan, persistSelection, snackbarInfo, sources } = vi.hoisted(
@@ -14,9 +15,7 @@ const { startScan, persistSelection, snackbarInfo, sources } = vi.hoisted(
   }),
 );
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/v2/composables/useScanTrigger", () => ({
   useScanTrigger: () => ({ startScan }),
 }));
@@ -44,7 +43,7 @@ vi.mock("@/v2/composables/useScanProviders", async () => {
       hashMatchers: ref([]),
       setHashMatcher: vi.fn(),
       isHashMatcherOn: () => false,
-      buildScanPayload: () => ({
+      buildScanSourceOptions: () => ({
         apis: sources.value.map((s) => s.value),
         launchbox_remote_enabled: false,
       }),
@@ -69,12 +68,12 @@ const RBtn = {
 };
 
 function rom(): SimpleRom {
-  return {
+  return romFixture({
     id: 5,
     platform_id: 2,
     name: "Game",
     fs_name: "Game.zip",
-  } as SimpleRom;
+  });
 }
 
 async function openDialog() {
@@ -109,7 +108,6 @@ function scanButton(wrapper: Awaited<ReturnType<typeof openDialog>>) {
 
 describe("RefreshMetadataDialog", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     startScan.mockReturnValue(true);
     sources.value = [];
   });
@@ -136,7 +134,7 @@ describe("RefreshMetadataDialog", () => {
     ]);
     expect(persistSelection).toHaveBeenCalled();
     expect(snackbarInfo).toHaveBeenCalledWith(
-      "rom.refreshing-files",
+      'rom.refreshing-files:{"name":"Game"}',
       expect.anything(),
     );
   });

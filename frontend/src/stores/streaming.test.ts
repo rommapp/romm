@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import streamingApi, { type JoinableSession } from "@/services/api/streaming";
 import { useStreamingStore } from "@/stores/streaming";
@@ -12,8 +11,6 @@ vi.mock("@/services/api/streaming", () => ({
 }));
 
 describe("platformCapabilities disc flags", () => {
-  beforeEach(() => setActivePinia(createPinia()));
-
   it("maps the backend disc flags to camelCase", () => {
     const store = useStreamingStore();
     store.config = {
@@ -51,8 +48,6 @@ describe("platformCapabilities disc flags", () => {
 });
 
 describe("emulator labels", () => {
-  beforeEach(() => setActivePinia(createPinia()));
-
   it("names an emulator by the label the backend ships", () => {
     const store = useStreamingStore();
     store.config = {
@@ -108,7 +103,6 @@ describe("joinable sessions", () => {
   }
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     listJoinableSessions.mockReset();
     listJoinableSessions.mockResolvedValue(sessions(7));
   });
@@ -165,7 +159,6 @@ describe("save-and-exit", () => {
     streamingApi.saveAndExitKeepalive as unknown as Mock;
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     saveAndExit.mockReset();
     saveAndExitKeepalive.mockReset();
   });

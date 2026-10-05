@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PlatformListRow — single row of the Platforms list-mode index.
+// PlatformListRow: single row of the Platforms list-mode index.
 //
 // Anatomy mirrors GameListRow: thumb (PlatformIcon) + name stack on the
 // left, game count column on the right. Click navigates to /platform/<id>
@@ -29,10 +29,10 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   id: number | string;
   slug: string;
-  fsSlug?: string;
+  fsSlug?: string | undefined;
   displayName: string;
   romCount?: number | null;
-  /** Optional metadata — same axes the toolbar can group by. Each
+  /** Optional metadata: same axes the toolbar can group by. Each
    *  renders an em-dash when missing so columns line up regardless. */
   familyName?: string | null;
   category?: string | null;

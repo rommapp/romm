@@ -5,11 +5,16 @@ const FALLBACK_ATTR = "data-fullscreen-fallback";
 const FULLSCREEN_STYLE = `
   [${FALLBACK_ATTR}] {
     position: fixed !important;
-    inset: 0 !important;
-    width: 100vw !important;
-    height: 100svh !important;
+    top: var(--r-safe-t) !important;
+    left: var(--r-safe-l) !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: calc(100vw - var(--r-safe-l) - var(--r-safe-r)) !important;
+    height: calc(100svh - var(--r-safe-t) - var(--r-safe-b)) !important;
     z-index: 99999 !important;
     background: var(--r-color-canvas-bg, black) !important;
+    /* Paints the safe-area strips around the stage, which stays clear of them. */
+    box-shadow: 0 0 0 100vmax var(--r-color-canvas-bg, black) !important;
   }
 `;
 
@@ -37,7 +42,7 @@ export function installFullscreenFallback(): () => void {
   const overrides: Array<{
     target: object;
     key: PropertyKey;
-    prev?: PropertyDescriptor;
+    prev?: PropertyDescriptor | undefined;
   }> = [];
   const override = (
     target: object,
@@ -119,4 +124,23 @@ export function installFullscreenFallback(): () => void {
       else Reflect.deleteProperty(target, key);
     }
   };
+}
+
+// Caps the wait so an exit that never settles cannot strand the user.
+const LEAVE_FULLSCREEN_TIMEOUT_MS = 1000;
+
+/**
+ * Exits fullscreen and waits for it, since Safari crashes when a reload or
+ * document replace lands mid-transition (#3726).
+ */
+export async function leaveFullscreen(): Promise<void> {
+  if (!document.fullscreenElement) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    document.exitFullscreen().catch(() => undefined),
+    new Promise((resolve) => {
+      timer = setTimeout(resolve, LEAVE_FULLSCREEN_TIMEOUT_MS);
+    }),
+  ]);
+  clearTimeout(timer);
 }

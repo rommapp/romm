@@ -2,12 +2,10 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import Annotated
-from urllib.parse import quote
 
 from fastapi import File, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, UploadFile, status
-from pydantic import BaseModel
 from starlette.background import BackgroundTask
 from starlette.responses import FileResponse
 
@@ -21,6 +19,7 @@ from handler.filesystem import fs_rom_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.nginx import content_disposition
 from utils.rom_patcher import (
     SUPPORTED_PATCH_EXTENSIONS,
     PatcherError,
@@ -34,12 +33,6 @@ router = APIRouter()
 # Read the uploaded patch in bounded chunks so a large upload can't be held
 # fully in memory before the size check kicks in.
 _UPLOAD_CHUNK_SIZE = 1024 * 1024
-
-
-class PatchResponse(BaseModel):
-    message: str
-    output_file_name: str
-    output_file_size: int
 
 
 @protected_route(
@@ -104,7 +97,7 @@ async def patch_rom(
         )
     # 404-mask file bytes of roms hidden from the caller.
     base_rom = db_rom_handler.get_rom(rom_file.rom_id)
-    if not base_rom or not perms.can_see_rom(base_rom.id, base_rom.platform_id):
+    if not base_rom or not perms.can_see_rom(base_rom):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"ROM file with id {id} not found",
@@ -204,7 +197,7 @@ async def patch_rom(
         filename=resolved_output_name,
         media_type="application/octet-stream",
         headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(resolved_output_name)}; filename=\"{quote(resolved_output_name)}\"",
+            "Content-Disposition": content_disposition(resolved_output_name),
             "Content-Length": str(output_size),
             # Lets callers warn when the patch's source checksum didn't match the ROM.
             "X-Patch-Validated": "true" if validated else "false",
@@ -225,9 +218,7 @@ def _resolve_library_patch(
         )
     # The patch file's bytes are read too; mask it if its rom is hidden.
     patch_rom_parent = db_rom_handler.get_rom(patch_file.rom_id)
-    if not patch_rom_parent or not perms.can_see_rom(
-        patch_rom_parent.id, patch_rom_parent.platform_id
-    ):
+    if not patch_rom_parent or not perms.can_see_rom(patch_rom_parent):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Patch file with id {patch_file_id} not found",

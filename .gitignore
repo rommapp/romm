@@ -54,6 +54,8 @@ frontend/assets/ruffle/*
 !frontend/assets/ruffle/*.png
 frontend/assets/jsdos
 frontend/assets/pico8
+frontend/assets/gme
+frontend/assets/easyrpg
 
 # virtualenv
 .venv
@@ -91,17 +93,11 @@ switch_product_ids.json
 # Local dev scripts
 /dev.sh
 
-# Playwright (e2e): everything the suites write, and local settings
+# Playwright (e2e) artifacts and local settings
 frontend/e2e/.output/
 frontend/e2e/.env
-# Sessions saved by older versions of the suite (live cookies)
-frontend/e2e/.auth/
-frontend/playwright/.auth/
-# Output from older versions of the suite
-frontend/e2e/test-results/
-frontend/e2e/playwright-report/
-frontend/test-results/
-frontend/playwright-report/
+frontend/blob-report/
+frontend/.last-run.json
 
 # mypy
 .mypy_cache

@@ -1,6 +1,7 @@
 // Saves and states the server has not taken yet, held in the browser with the
 // frame captured when the game wrote them, until a later pass hands them over.
 import axios from "axios";
+import type { SaveSchema } from "@/__generated__";
 import { isCsrfFailure } from "@/services/api";
 import romApi from "@/services/api/rom";
 import saveApi, {
@@ -14,6 +15,8 @@ import stateApi, {
 } from "@/services/api/state";
 import storeAuth from "@/stores/auth";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { openDb } from "@/v2/utils/idb";
+import { saveContentHash } from "@/v2/utils/saveSync/hash";
 
 const DB_NAME = "romm-player";
 const DB_VERSION = 6;
@@ -37,12 +40,12 @@ export interface PendingAsset {
   fsNameNoExt?: string;
   cover?: string | null;
   bytes: ArrayBuffer;
-  screenshotBytes?: ArrayBuffer;
+  screenshotBytes?: ArrayBuffer | undefined;
   /** Saves only: the slot the session was writing to. */
-  slot?: string;
+  slot?: string | undefined;
   emulator?: string;
   /** Saves only: the device the session was playing on. */
-  deviceId?: string;
+  deviceId?: string | undefined;
   capturedAt: number;
 }
 
@@ -54,7 +57,7 @@ interface HeldKey {
 
 // `crypto.randomUUID` needs a secure context, which plain http on a LAN address
 // is not. The id only has to be unique within a browser.
-function randomToken(): string {
+export function randomToken(): string {
   const webCrypto = globalThis.crypto;
   if (typeof webCrypto?.randomUUID === "function")
     return webCrypto.randomUUID();
@@ -66,47 +69,27 @@ export function pendingAssetId(romId: number): string {
   return `${romId}:${randomToken()}`;
 }
 
+// The rows are the player's unsynced progress, so an upgrade keeps them: it
+// only drops the stores this version has stopped using.
+function upgradeDatabase(request: IDBOpenDBRequest) {
+  const db = request.result;
+  const names = Array.from(db.objectStoreNames);
+  for (const name of names) {
+    if (name !== STORE_NAME) db.deleteObjectStore(name);
+  }
+  const store = names.includes(STORE_NAME)
+    ? request.transaction!.objectStore(STORE_NAME)
+    : db.createObjectStore(STORE_NAME, { keyPath: "id" });
+  for (const name of Array.from(store.indexNames)) {
+    if (name !== OWNER_INDEX) store.deleteIndex(name);
+  }
+  if (!store.indexNames.contains(OWNER_INDEX)) {
+    store.createIndex(OWNER_INDEX, ["userId", "kind", "romId", "capturedAt"]);
+  }
+}
+
 function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    let abandoned = false;
-    // The rows are the player's unsynced progress, so an upgrade keeps them:
-    // it only drops the stores this version has stopped using.
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      const names = Array.from(db.objectStoreNames);
-      for (const name of names) {
-        if (name !== STORE_NAME) db.deleteObjectStore(name);
-      }
-      const store = names.includes(STORE_NAME)
-        ? request.transaction!.objectStore(STORE_NAME)
-        : db.createObjectStore(STORE_NAME, { keyPath: "id" });
-      for (const name of Array.from(store.indexNames)) {
-        if (name !== OWNER_INDEX) store.deleteIndex(name);
-      }
-      if (!store.indexNames.contains(OWNER_INDEX)) {
-        store.createIndex(OWNER_INDEX, [
-          "userId",
-          "kind",
-          "romId",
-          "capturedAt",
-        ]);
-      }
-    };
-    request.onsuccess = () => {
-      // The open landed after the wait was given up on; nothing holds the
-      // connection now, and leaving it open blocks every other tab's upgrade.
-      if (abandoned) return request.result.close();
-      resolve(request.result);
-    };
-    request.onerror = () => reject(request.error);
-    // Another tab on an older version holds the upgrade off, and none of the
-    // handlers above fires meanwhile: without this the caller waits forever.
-    request.onblocked = () => {
-      abandoned = true;
-      reject(new Error("Pending asset storage is open in another tab"));
-    };
-  });
+  return openDb(DB_NAME, DB_VERSION, upgradeDatabase, "Pending asset storage");
 }
 
 // Storage is a best effort: a private window, a blocked origin or a failed
@@ -222,7 +205,9 @@ async function uploadTarget(
 }
 
 // A slot already holding newer progress from another device.
-function isSlotConflict(result?: PromiseSettledResult<unknown>): boolean {
+export function isSlotConflict(
+  result?: PromiseSettledResult<unknown>,
+): boolean {
   return (
     result?.status === "rejected" &&
     axios.isAxiosError(result.reason) &&
@@ -232,21 +217,36 @@ function isSlotConflict(result?: PromiseSettledResult<unknown>): boolean {
 
 // An archived save sits outside every slot, so it replaces nothing; it takes
 // the stem a state does, the rom and the moment of the capture.
-async function archiveSave(
-  entry: PendingAsset,
-  rom: { id: number; fs_name_no_ext: string },
-): Promise<PromiseSettledResult<unknown> | undefined> {
-  const name = sessionStateName(rom, new Date(entry.capturedAt));
+export async function uploadArchivedSave({
+  rom,
+  emulator,
+  deviceId,
+  capturedAt,
+  bytes,
+  extension = ".srm",
+  screenshotBytes,
+}: {
+  rom: { id: number; fs_name_no_ext: string };
+  emulator?: string | undefined;
+  deviceId?: string | undefined;
+  capturedAt: Date;
+  bytes: ArrayBuffer | Uint8Array;
+  extension?: string;
+  screenshotBytes?: ArrayBuffer | undefined;
+}): Promise<PromiseSettledResult<SaveSchema> | undefined> {
+  const name = sessionStateName(rom, capturedAt);
   const type = "application/octet-stream";
   const [uploaded] = await saveApi.uploadSaves({
     rom,
-    emulator: entry.emulator,
-    deviceId: entry.deviceId,
+    emulator,
+    deviceId,
     savesToUpload: [
       {
-        saveFile: new File([entry.bytes], `${name}.srm`, { type }),
-        screenshotFile: entry.screenshotBytes
-          ? new File([entry.screenshotBytes], `${name}.png`, { type })
+        saveFile: new File([bytes as BlobPart], `${name}${extension}`, {
+          type,
+        }),
+        screenshotFile: screenshotBytes
+          ? new File([screenshotBytes], `${name}.png`, { type })
           : undefined,
       },
     ],
@@ -254,10 +254,27 @@ async function archiveSave(
   return uploaded;
 }
 
+function archiveSave(
+  entry: PendingAsset,
+  rom: { id: number; fs_name_no_ext: string },
+): Promise<PromiseSettledResult<SaveSchema> | undefined> {
+  return uploadArchivedSave({
+    rom,
+    emulator: entry.emulator,
+    deviceId: entry.deviceId,
+    capturedAt: new Date(entry.capturedAt),
+    bytes: entry.bytes,
+    screenshotBytes: entry.screenshotBytes,
+  });
+}
+
 async function uploadSave(
   entry: PendingAsset,
   rom: { id: number; fs_name_no_ext: string },
-): Promise<{ upload?: PromiseSettledResult<unknown>; archived?: true }> {
+): Promise<{
+  upload?: PromiseSettledResult<unknown> | undefined;
+  archived?: true;
+}> {
   const slot = entry.slot ?? AUTOSAVE_SLOT;
   const [uploaded] = await saveApi.uploadSaves({
     rom,
@@ -268,6 +285,7 @@ async function uploadSave(
     // The dedupe is the point: a retry of bytes the server already has must
     // return that version, not mint another one.
     overwrite: false,
+    contentHash: saveContentHash(new Uint8Array(entry.bytes)),
     savesToUpload: [
       {
         saveFile: sessionSaveFile(rom, null, entry.bytes),
@@ -368,7 +386,7 @@ export interface SyncedAsset {
   kind: PendingAssetKind;
   romId: number;
   name: string;
-  cover?: string | null;
+  cover?: string | null | undefined;
   /** Kept as a separate save, its slot holding newer progress from another device. */
   archived?: true;
 }

@@ -77,7 +77,7 @@ watch(
   () => {
     if (!selectedCharacter.value) return;
     romsStore.resetPagination();
-    romsStore.fetchOffset = characterIndex.value[selectedCharacter.value];
+    romsStore.fetchOffset = characterIndex.value[selectedCharacter.value]!;
     fetchRoms();
   },
   { immediate: true },

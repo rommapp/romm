@@ -1,7 +1,6 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import mitt from "mitt";
-import { createPinia, setActivePinia } from "pinia";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import type { ScanStats } from "@/__generated__";
 import platformApi from "@/services/api/platform";
@@ -11,6 +10,8 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
+import { platformFixture } from "@/utils/platform.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import { installScanLifecycle } from "./index";
 
 // Minimal socket stand-in: records handlers so tests can fire events, and
@@ -55,37 +56,20 @@ vi.mock("@/stores/auth", () => ({
 
 const getTaskStatus = vi.mocked(taskApi.getTaskStatus);
 
-/** Drain pending microtasks so the reconcile's promise chain has settled. */
-const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
-
 /** Outlast the handler's 100ms batching debounce for `scan:scanning_rom`. */
 const drainRomBatch = () => new Promise((resolve) => setTimeout(resolve, 150));
 
 function platform(overrides: Partial<Platform> = {}): Platform {
-  return {
-    id: 1,
+  return platformFixture({
     slug: "n64",
-    fs_slug: "n64",
-    rom_count: 2,
     name: "Nintendo 64",
-    igdb_slug: null,
-    moby_slug: null,
-    hltb_slug: null,
-    libretro_slug: null,
-    created_at: "",
-    updated_at: "",
-    fs_size_bytes: 0,
-    is_unidentified: false,
-    is_identified: true,
-    missing_from_fs: false,
-    display_name: "Nintendo 64",
-    firmware_count: 0,
+    rom_count: 2,
     ...overrides,
-  };
+  });
 }
 
 function simpleRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
-  return { id: 1, name: "Game", platform_id: 1, ...overrides } as SimpleRom;
+  return romFixture({ id: 1, name: "Game", platform_id: 1, ...overrides });
 }
 
 function scanningRom(
@@ -136,15 +120,12 @@ function runningScanTask(stats: ScanStats | null) {
 }
 
 // The lifecycle uses `inject` and `onScopeDispose`, so it needs a host
-// component instance. Tracked so `afterEach` can unmount it: the auth state
-// is reactive and shared, so a leaked host would keep watching it and
-// reconcile again during later tests.
-let host: ReturnType<typeof mount> | null = null;
+// component instance.
 
 const emitter = mitt<Events>();
 
 function install() {
-  host = mount(
+  mount(
     defineComponent({
       setup() {
         installScanLifecycle();
@@ -161,16 +142,10 @@ function fire(event: string, payload: unknown) {
 
 describe("installScanLifecycle", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     handlers.clear();
     getTaskStatus.mockReset();
     getTaskStatus.mockResolvedValue({ data: [] } as never);
     authState.user = { id: 1, oauth_scopes: ["tasks.run"] };
-  });
-
-  afterEach(() => {
-    host?.unmount();
-    host = null;
   });
 
   it("treats a stats event as proof a scan is running", () => {
@@ -295,7 +270,7 @@ describe("installScanLifecycle", () => {
     await drainRomBatch();
 
     expect(roms.recentRoms.map((r) => r.id)).toEqual([3, 1]);
-    expect(roms.recentRoms[1].name).toBe("Rescanned");
+    expect(roms.recentRoms[1]?.name).toBe("Rescanned");
   });
 
   it("reconciles with a running scan job on install", async () => {

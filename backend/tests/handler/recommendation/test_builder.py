@@ -9,9 +9,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pytest
+from tests import factories
 
 from handler.database import (
-    db_platform_handler,
     db_recommendation_handler,
     db_rom_handler,
 )
@@ -64,21 +64,14 @@ def make_rom(
 
     # Set on insert rather than updated afterwards: the generated columns (and
     # the roms_facets triggers) derive from this blob, so one write is enough.
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=name.lower().replace(" ", "-"),
-            fs_name=f"{name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            igdb_id=igdb_id,
-            steam_id=steam_id,
-            moby_id=moby_id,
-            **{source: metadata},
-        )
+    columns: dict[str, Any] = {source: metadata}
+    return factories.make_rom(
+        platform,
+        name,
+        igdb_id=igdb_id,
+        steam_id=steam_id,
+        moby_id=moby_id,
+        **columns,
     )
 
 
@@ -312,9 +305,7 @@ def test_ports_of_one_game_take_a_single_slot(platform: Platform):
     igdb_id check and, sharing no title with the source, both took a slot.
     A section of six then spent two of them naming the same game.
     """
-    other_platform = db_platform_handler.add_platform(
-        Platform(name="other", slug="other_slug", fs_slug="other_slug")
-    )
+    other_platform = factories.make_platform("other_slug", name="other")
     source = make_rom(
         platform,
         "100 Classic Games",
@@ -680,7 +671,7 @@ class TestTopUpPolicy:
         enqueued: list[tuple[str, dict[str, Any]]] = []
         monkeypatch.setattr(builder, "MAX_TOP_UP_ROMS", 2)
         monkeypatch.setattr(
-            "tasks.registry.enqueue_task",
+            "handler.recommendation.builder.enqueue_task",
             lambda name, **kwargs: enqueued.append((name, kwargs)),
         )
         monkeypatch.setattr(

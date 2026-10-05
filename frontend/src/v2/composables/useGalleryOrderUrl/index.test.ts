@@ -1,6 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createApp, h, nextTick } from "vue";
 import {
   createMemoryHistory,
@@ -8,21 +7,27 @@ import {
   type Router,
   RouterView,
 } from "vue-router";
-import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGalleryRoms, {
+  DEFAULT_ORDER_BY,
+  type GalleryOrderKey,
+} from "@/v2/stores/galleryRoms";
 import { useGalleryOrderUrl } from "./index";
 
 const Blank = { template: "<div />" };
 
-const Host = {
-  setup() {
-    useGalleryOrderUrl();
-  },
-  template: "<div />",
-};
-
-async function mountAt(router: Router, path: string) {
+async function mountAt(
+  router: Router,
+  path: string,
+  defaultOrderBy: GalleryOrderKey | null = DEFAULT_ORDER_BY,
+) {
   await router.push(path);
   await router.isReady();
+  const Host = {
+    setup() {
+      useGalleryOrderUrl(defaultOrderBy);
+    },
+    template: "<div />",
+  };
   const wrapper = mount(Host, { global: { plugins: [router] } });
   await nextTick();
   return wrapper;
@@ -33,6 +38,7 @@ function makeRouter() {
     history: createMemoryHistory(),
     routes: [
       { path: "/platform/:platform", name: "platform", component: Blank },
+      { path: "/search", name: "search", component: Blank },
     ],
   });
 }
@@ -45,10 +51,6 @@ async function flushQueryWrite() {
 }
 
 describe("useGalleryOrderUrl", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("hydrates the store from the URL before the first fetch", async () => {
     const router = makeRouter();
     await mountAt(router, "/platform/1?orderBy=fs_size_bytes&orderDir=desc");
@@ -143,19 +145,53 @@ describe("useGalleryOrderUrl", () => {
   });
 });
 
+describe("useGalleryOrderUrl with a relevance default", () => {
+  const mountSearch = (router: Router, path: string) =>
+    mountAt(router, path, null);
+
+  it("leaves the sort unset when the URL names none", async () => {
+    const gallery = storeGalleryRoms();
+    gallery.setOrderBy("created_at");
+
+    const router = makeRouter();
+    await mountSearch(router, "/search?search=final+fantasy+7");
+
+    expect(gallery.orderBy).toBeNull();
+  });
+
+  it("keeps a picked title sort in the query", async () => {
+    const router = makeRouter();
+    await mountSearch(router, "/search?search=zelda");
+    const gallery = storeGalleryRoms();
+
+    gallery.setOrderBy("name");
+    await flushQueryWrite();
+
+    expect(router.currentRoute.value.query.orderBy).toBe("name");
+  });
+
+  it("drops the param when the sort returns to relevance", async () => {
+    const router = makeRouter();
+    await mountSearch(router, "/search?search=zelda&orderBy=name");
+    const gallery = storeGalleryRoms();
+    expect(gallery.orderBy).toBe("name");
+
+    gallery.setOrderBy(null);
+    await flushQueryWrite();
+
+    expect(router.currentRoute.value.query.orderBy).toBeUndefined();
+  });
+});
+
 // `main.ts` mounts without awaiting `router.isReady()`, so setup-only
 // hydration holds solely because RouterView withholds the matched component
 // until the initial navigation resolves.
 describe("useGalleryOrderUrl on a cold load", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("sees the URL in setup() without awaiting router.isReady", async () => {
-    const seenAtSetup: string[] = [];
+    const seenAtSetup: (string | null)[] = [];
     const GalleryView = {
       setup() {
-        useGalleryOrderUrl();
+        useGalleryOrderUrl(DEFAULT_ORDER_BY);
         seenAtSetup.push(storeGalleryRoms().orderBy);
         return () => h("div");
       },

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// RToolbar — horizontal flex bar with four ordered
+// RToolbar: horizontal flex bar with four ordered
 // regions: `prepend → title → default → append`. Designed for app
-// bars, gallery headers, dialog title rows — anywhere you want a
+// bars, gallery headers, dialog title rows: anywhere you want a
 // header strip that holds a label on the left and actions on the
 // right.
 //
@@ -17,16 +17,16 @@ import { computed, useSlots } from "vue";
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  /** Background tone — keyword / `romm-*` / any CSS colour. */
-  color?: string;
+  /** Background tone: keyword / `romm-*` / any CSS colour. */
+  color?: string | undefined;
   density?: "default" | "comfortable" | "compact";
   /** Drops the bottom border. */
   flat?: boolean;
-  /** Auto-rendered title text — slot `#title` overrides. */
-  title?: string;
+  /** Auto-rendered title text: slot `#title` overrides. */
+  title?: string | undefined;
   /** Explicit height override (number → px / any CSS length). */
-  height?: number | string;
-  rounded?: string | number | boolean;
+  height?: number | string | undefined;
+  rounded?: string | number | boolean | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -111,14 +111,14 @@ const resolvedHeight = computed<string | undefined>(() => {
       <slot name="prepend" />
     </span>
 
-    <!-- Title — slot wins over prop. Title is given a min-width: 0 so
+    <!-- Title: slot wins over prop. Title is given a min-width: 0 so
          long labels can ellipsis instead of pushing the action row off
          screen. -->
     <span v-if="title || slots.title" class="r-toolbar__title">
       <slot name="title">{{ title }}</slot>
     </span>
 
-    <!-- Default slot — the "body". A horizontal spacer is appended
+    <!-- Default slot: the "body". A horizontal spacer is appended
          after it so anything in `#append` floats to the right edge
          even when the default slot is empty. -->
     <span class="r-toolbar__body">
@@ -158,7 +158,7 @@ const resolvedHeight = computed<string | undefined>(() => {
   border-bottom-color: transparent;
 }
 
-/* ── Density — drives height + padding ───────────────────────── */
+/* ── Density: drives height + padding ───────────────────────── */
 .r-toolbar--density-default {
   height: 64px;
   padding: 0 16px;

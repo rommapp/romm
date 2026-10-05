@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// CoverArtPip — a small 2D box-art thumbnail floated in the bottom-right
+// CoverArtPip: a small 2D box-art thumbnail floated in the bottom-right
 // corner of a cover box, used when the main image is a screenshot (the
 // continue-playing rail, the live-activity board) so the game stays
 // identifiable. Renders the canonical GameCover forced to `cover_path`, so it
 // resolves the rom's real cover (by `rom`) or an explicit cover URL (by
-// `coverSrc`) — never 3D / physical / miximage.
+// `coverSrc`): never 3D / physical / miximage.
 //
 // Positioning is `absolute`, so the host must give it a positioned ancestor:
 // drop it into the GameCover default slot (GameCover's root is relative). The
@@ -16,11 +16,11 @@ interface Props {
   /** The rom whose cover to resolve (gallery cards have the full rom). */
   rom?: CoverArtRom | null;
   /** Explicit cover URL, for surfaces that only have the path (activity). */
-  coverSrc?: string | null;
+  coverSrc?: string | null | undefined;
   /** Alt / placeholder text for the inner cover. */
   title?: string;
   /** Webp override, forwarded to GameCover. */
-  webp?: boolean;
+  webp?: boolean | undefined;
 }
 
 withDefaults(defineProps<Props>(), {

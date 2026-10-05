@@ -1,35 +1,48 @@
 <script setup lang="ts">
 // Plays PICO-8 carts through the FAKE-08 WebAssembly runtime.
 import { RBtn, RSpinner, RSwitch } from "@v2/lib";
-import { useEventListener } from "@vueuse/core";
-import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
+import { useEventListener, useRafFn } from "@vueuse/core";
+import {
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
+import { onBeforeRouteLeave } from "vue-router";
 import romApi from "@/services/api/rom";
-import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
 import { getDownloadPath } from "@/utils";
 import PlayerShell from "@/v2/components/Player/PlayerShell.vue";
+import { useDeviceSaveSync } from "@/v2/composables/useDeviceSaveSync";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { usePlaySession } from "@/v2/composables/usePlaySession";
+import { usePlayerExit } from "@/v2/composables/usePlayerExit";
 import { usePlayerFullscreen } from "@/v2/composables/usePlayerFullscreen";
 import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { usePlayingWhile } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import { createPico8Audio, type Pico8Audio } from "@/v2/utils/pico8Audio";
 import { createPico8Input } from "@/v2/utils/pico8Input";
 import { createPico8Pacer, type Pico8Pacer } from "@/v2/utils/pico8Pacer";
 import {
+  cartDataFileName,
   createPico8Runtime,
   PICO8_FRAME_RATE,
   PICO8_HEIGHT,
   PICO8_INPUT_BITS,
   PICO8_WIDTH,
+  type Pico8CartData,
   type Pico8Runtime,
 } from "@/v2/utils/pico8Runtime";
+import type { PlayerSaveFile } from "@/v2/utils/saveSync";
 
 const { t } = useI18n();
-const playingStore = storePlaying();
+const exit = usePlayerExit();
 const playSession = usePlaySession();
 const snackbar = useSnackbar();
 const { fullscreenOnPlay } = useFullscreenPref();
@@ -37,7 +50,9 @@ const alive = useIsAlive();
 
 const rom = shallowRef<DetailedRom | null>(null);
 const gameRunning = ref(false);
+usePlayingWhile(gameRunning);
 const loading = ref(false);
+const quitting = ref(false);
 const stage = ref<HTMLDivElement | null>(null);
 const canvas = ref<HTMLCanvasElement | null>(null);
 
@@ -51,7 +66,7 @@ const {
 let runtime: Pico8Runtime | null = null;
 let audio: Pico8Audio | null = null;
 let pacer: Pico8Pacer | null = null;
-let animationFrame = 0;
+let cartBytes: Uint8Array | null = null;
 
 const input = createPico8Input();
 const { touchMask } = input;
@@ -165,28 +180,34 @@ function runFrame(timestamp: number) {
     if (steps > 0) active.render();
   } catch (error) {
     showPlayError(error);
-    return;
   }
-  animationFrame = requestAnimationFrame(runFrame);
 }
+
+const looping = ref(false);
+const frameLoop = useRafFn(({ timestamp }) => runFrame(timestamp), {
+  immediate: false,
+});
+// A failed frame releases the game from inside the loop, which would leave its
+// next frame queued, so the loop follows `looping` once the frame has returned.
+watch(looping, (on) => (on ? frameLoop.resume() : frameLoop.pause()));
 
 function startLoop() {
   pacer = createPico8Pacer(runtime?.frameRate || PICO8_FRAME_RATE);
   pacer.reset(performance.now());
-  animationFrame = requestAnimationFrame(runFrame);
+  looping.value = true;
 }
 
 function releaseGame() {
-  cancelAnimationFrame(animationFrame);
-  animationFrame = 0;
+  looping.value = false;
   runtime?.dispose();
   runtime = null;
+  saveSync.stop();
+  cartBytes = null;
   pacer = null;
   audio?.close();
   audio = null;
   input.reset();
   playSession.flush();
-  playingStore.setPlaying(false);
   gameRunning.value = false;
   loading.value = false;
 }
@@ -205,13 +226,83 @@ async function fetchCartBytes(target: DetailedRom) {
   return new Uint8Array(await response.arrayBuffer());
 }
 
+// Cart data syncs like any save; a browser that cannot reach the server keeps
+// playing with what it last held.
+async function prepareCartData(target: DetailedRom): Promise<Pico8CartData[]> {
+  try {
+    const saves = (await saveSync.prepare(target)) ?? [];
+    saveSync.start();
+    return saves.map((save) => ({ key: save.slot, bytes: save.bytes }));
+  } catch (error) {
+    console.error("[PICO-8] Saves are unavailable", error);
+    return [];
+  }
+}
+
+function cartDataSaves(files: Pico8CartData[]): PlayerSaveFile[] {
+  const now = Date.now();
+  return files.map((file) => ({
+    slot: file.key,
+    fileName: cartDataFileName(file.key),
+    bytes: file.bytes,
+    updatedAt: now,
+  }));
+}
+
+// FAKE-08 writes cart data only when a cart unloads, so it is captured on the
+// way out.
+const saveSync = useDeviceSaveSync({
+  emulator: "pico8",
+  readOnUnload: () => (runtime ? cartDataSaves(runtime.flushCartData()) : []),
+});
+
+async function saveCartData(): Promise<boolean> {
+  const active = runtime;
+  if (!saveSync.isActive() || !active) return true;
+  looping.value = false;
+  try {
+    await saveSync.capture(cartDataSaves(active.flushCartData()));
+  } catch (error) {
+    console.error("[PICO-8] Saving cart data failed", error);
+    return false;
+  }
+  return saveSync.push();
+}
+
+// Flushing swapped in a blank cart, so staying restarts the game's own.
+function resumeCart() {
+  if (!runtime || !cartBytes) return;
+  try {
+    runtime.loadCart(cartBytes);
+    startLoop();
+  } catch (error) {
+    showPlayError(error);
+  }
+}
+
+async function leavePlayer(leave: () => void) {
+  if (quitting.value) return;
+  quitting.value = true;
+
+  if (!(await saveCartData())) {
+    if (!(await saveSync.confirmDiscard())) {
+      resumeCart();
+      quitting.value = false;
+      return;
+    }
+  }
+
+  releaseGame();
+  quitting.value = false;
+  leave();
+}
+
 async function onPlay() {
   const currentRom = rom.value;
   if (!currentRom || gameRunning.value) return;
 
   gameRunning.value = true;
   loading.value = true;
-  playingStore.setPlaying(true);
   await nextTick();
 
   if (!gameRunning.value) return;
@@ -223,9 +314,10 @@ async function onPlay() {
 
   let nextRuntime: Pico8Runtime | null = null;
   try {
-    const [runtimeResult, bytes] = await Promise.all([
+    const [runtimeResult, bytes, cartData] = await Promise.all([
       createPico8Runtime(canvasElement),
       fetchCartBytes(currentRom),
+      prepareCartData(currentRom),
     ]);
     nextRuntime = runtimeResult;
     if (!gameRunning.value) {
@@ -233,7 +325,9 @@ async function onPlay() {
       nextRuntime = null;
       return;
     }
+    nextRuntime.writeCartData(cartData);
     nextRuntime.loadCart(bytes);
+    cartBytes = bytes;
     runtime = nextRuntime;
     nextRuntime = null;
 
@@ -264,9 +358,14 @@ async function onPlay() {
 }
 
 function onlyQuit() {
-  releaseGame();
-  window.history.back();
+  void leavePlayer(() => window.history.back());
 }
+
+onBeforeRouteLeave((to) => {
+  if (!runtime) return exit.guard(to);
+  void leavePlayer(() => exit.leave(to.fullPath));
+  return false;
+});
 
 useEventListener(window, "keydown", onKeyDown);
 useEventListener(window, "keyup", onKeyUp);
@@ -431,14 +530,16 @@ onBeforeUnmount(releaseGame);
 /* The bottom tab bar overlays the stage on sm-and-down, so keep the on-screen
    controls clear of it. */
 html[data-bp~="sm-and-down"] .r-v2-pico8__stage {
-  padding-bottom: calc(
-    var(--r-pico8-stage-pad) + var(--r-bottom-nav-h) +
-      env(safe-area-inset-bottom)
-  );
+  padding-bottom: calc(var(--r-pico8-stage-pad) + var(--r-bottom-nav-h));
 }
 
 .r-v2-pico8__stage:fullscreen {
   background: var(--r-color-canvas-bg);
+}
+/* Native fullscreen reaches the screen edge, so the stage clears the home
+   indicator itself; the windowed frame and the iPhone fallback already do. */
+html[data-bp~="sm-and-down"] .r-v2-pico8__stage:fullscreen {
+  padding-bottom: calc(var(--r-pico8-stage-pad) + var(--r-safe-b));
 }
 
 .r-v2-pico8__viewport {
@@ -481,7 +582,7 @@ html[data-bp~="sm-and-down"] .r-v2-pico8__stage {
 
 /* Clear the bottom tab bar, which overlays this corner on sm-and-down. */
 html[data-bp~="sm-and-down"] .r-v2-pico8__actions {
-  bottom: calc(16px + var(--r-bottom-nav-h) + env(safe-area-inset-bottom));
+  bottom: calc(16px + var(--r-bottom-nav-h));
 }
 
 .r-v2-pico8__loading {

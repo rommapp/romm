@@ -9,6 +9,8 @@ February onto 28 February) lives in the client, so nothing here reads a clock.
 from collections.abc import Sequence
 from datetime import date, datetime, timezone
 
+from tests.factories import make_rom
+
 from handler.database import db_rom_handler
 from models.platform import Platform
 from models.rom import Rom
@@ -20,18 +22,7 @@ def _dated_rom(platform: Platform, name: str, released: date | None) -> Rom:
     The generated column is derived from the provider blobs, and IGDB reports
     seconds, so that is what goes in (0098 multiplies it up to milliseconds).
     """
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=name,
-            fs_name=f"{name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    rom = make_rom(platform, name)
     if released is None:
         return rom
 

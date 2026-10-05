@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// LibraryStatsWidget — counts overview of what's in RomM.
+// LibraryStatsWidget: counts overview of what's in RomM.
 //
 // Two display modes (driven by `libraryStatsMode` UI setting):
-//   • compact  — games / platforms / favorites (3 rows, mock parity)
-//   • extended — adds saves / states / screenshots / disk size, the
+//   • compact  - games / platforms / favorites (3 rows, mock parity)
+//   • extended - adds saves / states / screenshots / disk size, the
 //                full v1 "Home/Stats" surface, condensed into the
 //                widget vocabulary. The card grows wider (not taller)
 //                and renders the rows in a 2-column grid so every
@@ -13,11 +13,12 @@
 // length (already loaded by the collections store on app boot).
 import { RIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/services/api";
 import storeCollections from "@/stores/collections";
 import { formatBytes } from "@/utils";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import WidgetCard from "./WidgetCard.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -42,8 +43,10 @@ interface Stats {
   TOTAL_FILESIZE_BYTES: number;
 }
 
-const stats = ref<Stats | null>(null);
-const loading = ref(true);
+const { state: stats, isLoading: loading } = useFetchState<Stats | null>(
+  () => api.get<Stats>("/stats").then(({ data }) => data),
+  null,
+);
 
 const favoritesCount = computed(
   () => favoriteCollection.value?.rom_ids?.length ?? 0,
@@ -100,17 +103,6 @@ const allRows = computed<Row[]>(() => {
     },
   ];
 });
-
-onMounted(async () => {
-  try {
-    const { data } = await api.get<Stats>("/stats");
-    stats.value = data;
-  } catch {
-    stats.value = null;
-  } finally {
-    loading.value = false;
-  }
-});
 </script>
 
 <template>
@@ -143,7 +135,7 @@ onMounted(async () => {
   min-width: 0;
 }
 
-/* Extended mode — same card height as compact, but the card itself
+/* Extended mode: same card height as compact, but the card itself
    grows wider and the rows lay out in a 3-column grid so all 7 stats
    (3 base + 4 extended) fit in 3 rows inside the shared rail height.
    Columns size to their content (`auto`, paired with the card's

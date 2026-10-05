@@ -1,6 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { NotificationSchema } from "@/__generated__";
@@ -20,9 +19,7 @@ const { api, confirm } = vi.hoisted(() => ({
 
 vi.mock("@/services/api/notification", () => ({ default: api }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/v2/utils/notifications", () => ({
   describeNotification: (n: NotificationSchema) => ({
@@ -78,7 +75,6 @@ function mountWith(notifications: NotificationSchema[]) {
 
 describe("NotificationInbox", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
     api.markRead.mockResolvedValue({});
     api.dismiss.mockResolvedValue({});
@@ -95,8 +91,8 @@ describe("NotificationInbox", () => {
     expect(api.markRead).toHaveBeenCalledWith([2]);
     expect(inbox.unreadCount).toBe(0);
     const rows = wrapper.findAll(".r-v2-notification");
-    expect(rows[0].classes()).toContain("r-v2-notification--unread");
-    expect(rows[1].classes()).not.toContain("r-v2-notification--unread");
+    expect(rows[0]?.classes()).toContain("r-v2-notification--unread");
+    expect(rows[1]?.classes()).not.toContain("r-v2-notification--unread");
   });
 
   it("tries a refused mark once a visit rather than in a loop", async () => {
@@ -112,7 +108,7 @@ describe("NotificationInbox", () => {
   it("dismisses one row for good", async () => {
     const { wrapper } = mountWith([notification(2), notification(1)]);
 
-    await wrapper.findAll(".r-v2-notification button")[0].trigger("click");
+    await wrapper.findAll(".r-v2-notification button")[0]!.trigger("click");
     await flushPromises();
 
     expect(api.dismiss).toHaveBeenCalledWith(2);

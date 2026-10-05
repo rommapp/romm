@@ -1,14 +1,14 @@
-// useServerConnection — single orchestrator for backend reachability in v2.
+// useServerConnection: single orchestrator for backend reachability in v2.
 //
 // Three signals keep `heartbeat.connected` (the shared source of truth) fresh:
-//   * Passive — the axios interceptor dispatches `backend-online` /
+//   * Passive: the axios interceptor dispatches `backend-online` /
 //     `backend-offline` / `backend-suspect` DOM events on every response; we
 //     mirror them onto the store so the offline notice reacts the instant a
 //     request fails.
-//   * Active — a self-rescheduling `/heartbeat` poll (short per-call timeout,
+//   * Active: a self-rescheduling `/heartbeat` poll (short per-call timeout,
 //     not the global 120s) detects breakage while idle and, crucially,
 //     reconnection. Polls faster while offline.
-//   * Recovery — on a false→true transition we do a full page refresh. A fresh
+//   * Recovery: on a false→true transition we do a full page refresh. A fresh
 //     boot re-runs initializeData() + the router guard from scratch, so the
 //     user lands on the correct destination (setup / login / home) with clean
 //     state instead of a half-recovered SPA. While a game is running the
@@ -23,7 +23,7 @@ import { computed, effectScope, watch } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlaying from "@/stores/playing";
 
-// While online, probe only occasionally — a network blip shouldn't rush to
+// While online, probe only occasionally: a network blip shouldn't rush to
 // flag the backend as down. Passive interceptor events still flip us offline
 // the instant a real request fails, so this slow poll is just a safety net.
 const POLL_ONLINE_MS = 5 * 60_000;
@@ -48,7 +48,7 @@ function install() {
   const heartbeat = storeHeartbeat();
   const playing = storePlaying();
 
-  // Passive detection — the interceptor classifies each response:
+  // Passive detection: the interceptor classifies each response:
   //   * backend-online  → a request succeeded; the backend is up.
   //   * backend-offline → a network-level failure (no response); down.
   //   * backend-suspect → a 5xx from some endpoint; confirm authoritatively
@@ -65,7 +65,7 @@ function install() {
   }, 300);
   document.addEventListener("backend-suspect", () => confirmHealth());
 
-  // Recovery — refresh the page on a real reconnect. Run in a detached effect
+  // Recovery: refresh the page on a real reconnect. Run in a detached effect
   // scope so the watcher lives for the app's lifetime rather than the banner's
   // (the banner unmounts on a live v1↔v2 UI switch, yet `install()` only ever
   // runs once, so a scope-bound watcher would silently die on the way back).
@@ -83,7 +83,7 @@ function install() {
     // A refresh held back during play lands once the player is left. Leaving
     // fires teardown requests (stream save + release, play-session flush,
     // presence stop) that a reload would abort, so wait for the network to go
-    // quiet — the api layer already announces that — rather than guessing at a
+    // quiet, the api layer already announces that, rather than guessing at a
     // delay. `network-quiesced` needs a settling request to fire at all, hence
     // the cap for an app that has gone silent.
     watch(
@@ -108,7 +108,7 @@ function install() {
     );
   });
 
-  // Active poll — self-reschedules, faster while offline for snappy recovery.
+  // Active poll: self-reschedules, faster while offline for snappy recovery.
   function scheduleNext() {
     const delay = heartbeat.connected ? POLL_ONLINE_MS : POLL_OFFLINE_MS;
     setTimeout(async () => {

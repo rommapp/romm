@@ -11,13 +11,16 @@ import saveApi, {
 } from "@/services/api/save";
 import stateApi, { sessionStateFiles } from "@/services/api/state";
 import pendingAssetStore, {
+  isSlotConflict,
   pendingAssetId,
+  uploadArchivedSave,
   type PendingAsset,
 } from "@/services/pending-asset";
 import storeHeartbeat from "@/stores/heartbeat";
 import { type DetailedRom } from "@/stores/roms";
 import { buildFormInput } from "@/utils/formData";
 import { keepArcadeBiosWhole } from "@/v2/utils/playerFirmware";
+import { bytesEqual, saveContentHash } from "@/v2/utils/saveSync/hash";
 
 /** Tears the emulator down once, however many owners ask. */
 export function exitEmulatorOnce() {
@@ -140,7 +143,7 @@ export async function saveState({
 }: {
   rom: DetailedRom;
   stateFile: ArrayBuffer;
-  screenshotFile?: ArrayBuffer;
+  screenshotFile?: ArrayBuffer | undefined;
 }): Promise<StateUpload> {
   // A zero-length buffer means the core failed to serialize its state (a torn
   // read from a running threaded core). Refuse to upload it so a broken
@@ -179,7 +182,7 @@ export async function saveState({
       ],
     });
 
-    const uploadedState = uploadedStates[0];
+    const uploadedState = uploadedStates[0]!;
     if (uploadedState.status == "fulfilled") {
       await pendingAssetStore.clear(pendingId);
       if (rom) rom.user_states.unshift(uploadedState.value);
@@ -192,8 +195,8 @@ export async function saveState({
   return { state: null, kept };
 }
 
-// `save` is the version this session already created: it is updated in place,
-// while a null `save` opens a new version in `slot`.
+// A non-null `save` is updated in place; otherwise a version opens in `slot`,
+// archived instead when `guarded` and another device moved the slot on.
 export async function saveSave({
   rom,
   save,
@@ -201,13 +204,15 @@ export async function saveSave({
   screenshotFile,
   deviceId,
   slot = AUTOSAVE_SLOT,
+  guarded = false,
 }: {
   rom: DetailedRom;
   save: SaveSchema | null;
   saveFile: ArrayBuffer;
-  screenshotFile?: ArrayBuffer;
-  deviceId?: string;
-  slot?: string;
+  screenshotFile?: ArrayBuffer | undefined;
+  deviceId?: string | undefined;
+  slot?: string | undefined;
+  guarded?: boolean;
 }): Promise<SaveSchema | null> {
   if (save) {
     try {
@@ -218,6 +223,7 @@ export async function saveSave({
           ? sessionScreenshotFile(rom, save, screenshotFile)
           : undefined,
         deviceId,
+        contentHash: saveContentHash(new Uint8Array(saveFile)),
       });
 
       const index = rom.user_saves.findIndex((s) => s.id === updatedSave.id);
@@ -241,9 +247,10 @@ export async function saveSave({
       // Like Argosy: the autosave slot keeps a capped history, named slots
       // keep every version.
       autocleanup: slot === AUTOSAVE_SLOT,
-      // The boot source is an explicit choice on the launch screen, so neither
-      // the stale-device guard nor the hash dedupe applies (callers skip dupes).
-      overwrite: true,
+      // Booting anything but the slot's current version is an explicit choice
+      // on the launch screen, which neither the guard nor the dedupe second-guess.
+      overwrite: !guarded,
+      contentHash: saveContentHash(new Uint8Array(saveFile)),
       savesToUpload: [
         {
           saveFile: sessionSaveFile(rom, null, saveFile),
@@ -254,7 +261,20 @@ export async function saveSave({
       ],
     });
 
-    const uploadedSave = uploadedSaves[0];
+    let uploadedSave = uploadedSaves[0]!;
+    if (isSlotConflict(uploadedSave)) {
+      // Later writes update the archive in place, leaving the slot to the
+      // other device's newer version.
+      uploadedSave =
+        (await uploadArchivedSave({
+          rom,
+          emulator: window.EJS_core,
+          deviceId,
+          capturedAt: new Date(),
+          bytes: saveFile,
+          screenshotBytes: screenshotFile,
+        })) ?? uploadedSave;
+    }
     if (uploadedSave.status == "fulfilled") {
       if (rom) rom.user_saves.unshift(uploadedSave.value);
       return uploadedSave.value;
@@ -278,8 +298,8 @@ export function saveSaveOnUnload({
   rom: DetailedRom;
   save: SaveSchema | null;
   saveFile: ArrayBuffer;
-  deviceId?: string;
-  slot?: string;
+  deviceId?: string | undefined;
+  slot?: string | undefined;
 }): boolean {
   return saveApi.sendSaveOnUnload({
     rom,
@@ -289,6 +309,7 @@ export function saveSaveOnUnload({
     deviceId,
     slot,
     autocleanup: slot === AUTOSAVE_SLOT,
+    contentHash: saveContentHash(new Uint8Array(saveFile)),
   });
 }
 
@@ -334,43 +355,6 @@ export function createSaveSyncTracker() {
       return bytesEqual(save, lastUploaded);
     },
   };
-}
-
-// The tick re-offers a failed upload every second, which only hammers a server
-// that is refusing it or on its way down.
-export const RETRY_BACKOFF_MIN_MS = 2_000;
-export const RETRY_BACKOFF_MAX_MS = 30_000;
-
-/** Spaces out the retries of a failing upload, doubling the wait up to a cap. */
-export function createRetryBackoff(now: () => number = Date.now) {
-  let delay = 0;
-  let retryAt = 0;
-  return {
-    ready: (): boolean => now() >= retryAt,
-    failed() {
-      delay = Math.min(
-        Math.max(delay * 2, RETRY_BACKOFF_MIN_MS),
-        RETRY_BACKOFF_MAX_MS,
-      );
-      retryAt = now() + delay;
-    },
-    reset() {
-      delay = 0;
-      retryAt = 0;
-    },
-  };
-}
-
-// EmulatorJS reads each tick off the FS into a fresh buffer, so the tracker can
-// hold on to one rather than fingerprint it.
-export function bytesEqual(
-  a: Uint8Array | null,
-  b: Uint8Array | null,
-): boolean {
-  if (!a || !b) return a === b;
-  if (a.byteLength !== b.byteLength) return false;
-  for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
-  return true;
 }
 
 // The core exposes no write hook for its SRAM and EmulatorJS flushes it only on
@@ -528,6 +512,32 @@ function installDefaultOptionsFallback(emulator: any) {
   }
 }
 
+// EmulatorJS 4.2.3 indexes its compact pad list by browser gamepad index, which
+// throws and stops polling when Chromium puts a lone pad at index 1.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function lookUpGamepadsByBrowserIndex(emulator: any) {
+  const handler = emulator.gamepad;
+  if (
+    emulator.__rommGamepadLookupPatched ||
+    // Builds with this method already look pads up by browser index.
+    typeof emulator.getGamepadSelectionValue === "function" ||
+    !handler?.listeners
+  )
+    return;
+  emulator.__rommGamepadLookupPatched = true;
+  for (const name of ["connected", "axischanged", "buttondown", "buttonup"]) {
+    const listener = handler.listeners[name];
+    if (typeof listener !== "function") continue;
+    handler.listeners[name] = (event: { gamepadIndex: number }) => {
+      const position = (handler.gamepads ?? []).findIndex(
+        (pad: { index: number } | null) => pad?.index === event.gamepadIndex,
+      );
+      if (position === -1) return;
+      listener({ ...event, gamepadIndex: position });
+    };
+  }
+}
+
 // GamepadHandler polls before EmulatorJS registers its "connected" listener,
 // so pads it already saw (e.g. the one that pressed Play) get no player.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -570,6 +580,20 @@ function applyOnlyEnabledCheats(emulator: any) {
   };
 }
 
+// Building the disks menu re-selects the current disk before boot, which 4.2.3
+// crashes on (no allSettings yet) and PUAE traps on (EmulatorJS#1260).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function skipDiskSelectionBeforeStart(emulator: any) {
+  if (emulator.__rommDiskPatched) return;
+  emulator.__rommDiskPatched = true;
+
+  const originalMenuOptionChanged = emulator.menuOptionChanged.bind(emulator);
+  emulator.menuOptionChanged = (option: string, value: unknown) => {
+    if (option === "disk" && !emulator.started) return;
+    originalMenuOptionChanged(option, value);
+  };
+}
+
 // Trap the window.EJS_emulator assignment so the instance is patched right
 // after the constructor returns, before the async core download and boot
 // consume any of the patched values. Patching later (e.g. in EJS_onGameStart)
@@ -585,9 +609,11 @@ export function installEJSDefaultOptionsTrap() {
       instance = value;
       if (!value) return;
       installDefaultOptionsFallback(value);
+      lookUpGamepadsByBrowserIndex(value);
       replayConnectedGamepads(value);
       keepArcadeBiosWhole(value);
       applyOnlyEnabledCheats(value);
+      skipDiskSelectionBeforeStart(value);
     },
   });
 }
@@ -606,6 +632,76 @@ export function patchNetplaySocketIo() {
     })) as NonNullable<Window["io"]>;
   patchedIo.__rommNetplayPatched = true;
   window.io = patchedIo;
+}
+
+interface NetplayHostAudio {
+  _captureHostAudio: () => MediaStream | null;
+  _hostAudioDest: MediaStreamAudioDestinationNode | null;
+  _audioBoostFactor?: number;
+}
+
+interface AudioCapture {
+  boost: GainNode;
+  output: MediaStreamAudioDestinationNode;
+}
+
+type PatchNetplayHostAudio = (netplay: NetplayHostAudio) => void;
+
+let hostAudioTap: {
+  connect: AudioNode["connect"];
+  patch: PatchNetplayHostAudio;
+} | null = null;
+
+// Netplay only captures OpenAL nodes, but nightly cores' rwebaudio driver
+// connects each buffer straight to `destination`. Install before the core boots.
+/** Tees audio bound for any destination into a stream netplay sends guests. */
+export function installNetplayHostAudioTap(): PatchNetplayHostAudio {
+  // A second tee would double the captured volume.
+  if (hostAudioTap?.connect === AudioNode.prototype.connect) {
+    return hostAudioTap.patch;
+  }
+  const captures = new WeakMap<AudioContext, AudioCapture>();
+  let lastContext: AudioContext | null = null;
+  const nativeConnect = AudioNode.prototype.connect;
+  const nativeConnectNode = (node: AudioNode, target: AudioNode) =>
+    Reflect.apply(nativeConnect, node, [target]);
+
+  const captureFor = (context: AudioContext) => {
+    let capture = captures.get(context);
+    if (!capture) {
+      capture = {
+        boost: context.createGain(),
+        output: context.createMediaStreamDestination(),
+      };
+      nativeConnectNode(capture.boost, capture.output);
+      captures.set(context, capture);
+    }
+    return capture;
+  };
+
+  const connect = function (this: AudioNode, ...args: unknown[]) {
+    const result = Reflect.apply(nativeConnect, this, args);
+    const context = this.context as AudioContext;
+    if (args[0] === context.destination) {
+      nativeConnectNode(this, captureFor(context).boost);
+      lastContext = context;
+    }
+    return result;
+  } as AudioNode["connect"];
+  AudioNode.prototype.connect = connect;
+
+  const patch: PatchNetplayHostAudio = (netplay) => {
+    const captureHostAudio = netplay._captureHostAudio.bind(netplay);
+    netplay._captureHostAudio = () => {
+      if (!lastContext) return captureHostAudio();
+      const capture = captureFor(lastContext);
+      capture.boost.gain.value = netplay._audioBoostFactor ?? 1;
+      netplay._hostAudioDest = capture.output;
+      return capture.output.stream;
+    };
+  };
+  hostAudioTap = { connect, patch };
+  return patch;
 }
 
 const IOS_FULLSCREEN_NAV_SELECTOR =
@@ -640,7 +736,7 @@ export function installIOSFullscreenShim() {
   const overrides: Array<{
     target: object;
     key: PropertyKey;
-    prev?: PropertyDescriptor;
+    prev?: PropertyDescriptor | undefined;
   }> = [];
   const override = (
     target: object,

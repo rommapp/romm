@@ -35,7 +35,7 @@ export type { LaunchState, PlatformSupport } from "@/types/rommNative";
 export interface NativeLaunchChoice {
   /** The core to try first. A name the shell cannot find is one it installs, so
    *  this is honoured even for a core the machine has never had. */
-  core?: string | null;
+  core?: string | null | undefined;
   /** Whether to start the emulator fullscreen. Undefined asks for nothing,
    *  leaving the emulator's own configuration to decide. */
   fullscreen?: boolean;
@@ -309,7 +309,7 @@ export const useNativeStore = defineStore("native", () => {
         // The page's core first: the shell installs the first candidate it
         // cannot find, so the rest are there for a core that is not published.
         cores: coresFor(rom, choice.core),
-        name: rom.name ?? undefined,
+        ...(rom.name == null ? {} : { name: rom.name }),
         // Sent whatever the shell advertises: an older one drops an unknown
         // field and starts the emulator as its own config says, which is
         // where it was before the page could ask.

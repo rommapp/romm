@@ -1,11 +1,9 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { makeRom } from "@/utils/rom.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import ScanPlatformRow from "./ScanPlatformRow.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/v2/composables/useWebpSupport", () => ({
   useWebpSupport: () => ({ toWebp: (src: string) => src }),
 }));
@@ -19,7 +17,7 @@ describe("ScanPlatformRow", () => {
   it("names each provider match in a RomM tooltip, not a native title", () => {
     const wrapper = mount(ScanPlatformRow, {
       props: {
-        rom: makeRom({ id: 1, is_identified: true, igdb_id: 1, ss_id: 2 }),
+        rom: romFixture({ id: 1, is_identified: true, igdb_id: 1, ss_id: 2 }),
       },
       global: {
         stubs: {

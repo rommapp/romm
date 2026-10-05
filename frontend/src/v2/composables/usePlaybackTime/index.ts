@@ -1,7 +1,8 @@
-// usePlaybackTime — the playing track's position, advanced every frame from
+// usePlaybackTime: the playing track's position, advanced every frame from
 // the audio's coarse time reports so progress UI moves continuously.
+import { useRafFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { onScopeDispose, ref, watch, type Ref } from "vue";
+import { ref, watch, type Ref } from "vue";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 
 export function usePlaybackTime(): Ref<number> {
@@ -12,19 +13,15 @@ export function usePlaybackTime(): Ref<number> {
   const time = ref(currentTime.value);
   let anchorTime = currentTime.value;
   let anchorStamp = performance.now();
-  let frame = 0;
 
-  function tick(now: number) {
-    const elapsed = (now - anchorStamp) / 1000;
-    const end = duration.value || Number.POSITIVE_INFINITY;
-    time.value = Math.min(end, anchorTime + elapsed);
-    frame = requestAnimationFrame(tick);
-  }
-
-  function stop() {
-    cancelAnimationFrame(frame);
-    frame = 0;
-  }
+  const frames = useRafFn(
+    ({ timestamp }) => {
+      const elapsed = (timestamp - anchorStamp) / 1000;
+      const end = duration.value || Number.POSITIVE_INFINITY;
+      time.value = Math.min(end, anchorTime + elapsed);
+    },
+    { immediate: false },
+  );
 
   watch(currentTime, (reported) => {
     anchorTime = reported;
@@ -35,16 +32,14 @@ export function usePlaybackTime(): Ref<number> {
   watch(
     [isPlaying, isBuffering],
     ([playing, buffering]) => {
-      stop();
+      frames.pause();
       if (!playing || buffering) return;
       anchorTime = time.value;
       anchorStamp = performance.now();
-      frame = requestAnimationFrame(tick);
+      frames.resume();
     },
     { immediate: true },
   );
-
-  onScopeDispose(stop);
 
   return time;
 }

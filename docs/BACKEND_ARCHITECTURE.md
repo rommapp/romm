@@ -32,7 +32,7 @@ Comprehensive documentation of the RomM backend: a FastAPI-based server powering
 | ------------------ | -------------------------------- |
 | **Framework**      | FastAPI 0.121.1                  |
 | **Language**       | Python 3.14+                     |
-| **ORM**            | SQLAlchemy 2.0                   |
+| **ORM**            | SQLAlchemy 2.1                   |
 | **Migrations**     | Alembic                          |
 | **Databases**      | MariaDB, MySQL, PostgreSQL       |
 | **Cache/Queue**    | Redis (via RQ)                   |
@@ -224,7 +224,7 @@ backend/
 │   ├── fs_exceptions.py       # Filesystem errors
 │   ├── config_exceptions.py   # Config write errors
 │   ├── task_exceptions.py     # Scheduler errors
-│   └── socket_exceptions.py   # Scan stopped
+│   └── socket_exceptions.py   # Scan stopped or refused
 │
 ├── handler/                   # Business logic layer
 │   ├── scan_handler.py        # Library scan orchestration
@@ -308,8 +308,8 @@ backend/
 │       └── known_bios_files.json    # Verified BIOS hashes
 │
 ├── tasks/                     # Background job system
-│   ├── tasks.py               # Base Task, PeriodicTask, run_task_by_name
-│   ├── registry.py            # Name -> task catalog, the API and cron address
+│   ├── tasks.py               # TaskSpec, base Task, PeriodicTask, run_task_by_name
+│   ├── registry.py            # Name -> TaskSpec catalog, the API and cron address
 │   ├── cron_config.py         # Schedule the `rq cron` process loads
 │   ├── scheduled/             # Cron-scheduled tasks
 │   │   ├── scan_library.py                    # Nightly library rescan
@@ -321,6 +321,7 @@ backend/
 │   │   └── reap_streaming_sessions.py         # Stop abandoned streaming sessions
 │   └── manual/                # On-demand tasks
 │       ├── cleanup_missing_roms.py       # Drop DB entries for missing files
+│       ├── convert_library.py            # Store matched ROMs in each platform's library format
 │       ├── cleanup_orphaned_resources.py # Remove unreferenced artwork
 │       └── sync_folder_scan.py           # Scan sync folder for new saves
 │
@@ -348,6 +349,7 @@ backend/
 │
 ├── tests/                     # Test suite
 │   ├── conftest.py            # Pytest fixtures
+│   ├── factories.py           # make_* factories that persist test rows
 │   └── ...                    # Mirrors backend structure
 │
 └── romm_test/                 # Test fixtures & data
@@ -437,6 +439,10 @@ collation default. MySQL has no CI coverage.
 Query SQL that differs between engines lives in `utils/sql_dialect.py`
 (`DialectCase` and the helpers built on it), which picks each engine's spelling
 when the statement compiles. Handlers don't branch on `ROMM_DB_DRIVER`.
+
+`utils/fulltext.py` reads InnoDB's full-text token sizes and stopwords from the
+server and splits search words the way its parser does, so a search can require
+the words a FULLTEXT index holds and check the rest with `LIKE`.
 
 ### Engine & Session Setup
 
@@ -592,15 +598,17 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 
 Tracks individual files within a ROM (archives can contain multiple files).
 
-| Column                                         | Type        | Notes                                                                                                                              |
-| ---------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                                           | Integer     | PK                                                                                                                                 |
-| `rom_id`                                       | Integer     | FK → roms                                                                                                                          |
-| `file_name`, `file_path`                       | String      | File identity                                                                                                                      |
-| `file_size_bytes`                              | BigInteger  | Size                                                                                                                               |
-| `crc_hash`, `md5_hash`, `sha1_hash`, `ra_hash` | String(100) | Hashes                                                                                                                             |
-| `category`                                     | Enum        | `GAME`, `DLC`, `HACK`, `MANUAL`, `PATCH`, `UPDATE`, `MOD`, `DEMO`, `TRANSLATION`, `PROTOTYPE`, `CHEAT`, `SOUNDTRACK`, `SCREENSHOT` |
-| `missing_from_fs`                              | Boolean     | Sync state                                                                                                                         |
+| Column                                         | Type                    | Notes                                                                                                                              |
+| ---------------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                           | Integer                 | PK                                                                                                                                 |
+| `rom_id`                                       | Integer                 | FK → roms                                                                                                                          |
+| `file_name`, `file_path`                       | String                  | File identity                                                                                                                      |
+| `file_size_bytes`                              | BigInteger              | Size                                                                                                                               |
+| `crc_hash`, `md5_hash`, `sha1_hash`, `ra_hash` | String(100)             | Hashes                                                                                                                             |
+| `category`                                     | Enum                    | `GAME`, `DLC`, `HACK`, `MANUAL`, `PATCH`, `UPDATE`, `MOD`, `DEMO`, `TRANSLATION`, `PROTOTYPE`, `CHEAT`, `SOUNDTRACK`, `SCREENSHOT` |
+| `title_id`, `title_version`                    | String(100), BigInteger | Platform-native id and numeric version read from the binary (rom-converto or sigil)                                                |
+| `converto_read_at`                             | Timestamp               | Last time rom-converto read the file; NULL queues it on the next scan                                                              |
+| `missing_from_fs`                              | Boolean                 | Sync state                                                                                                                         |
 
 **Relationships:** rom (M:1), track_meta (1:1, `SOUNDTRACK` files only)
 
@@ -903,7 +911,10 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 | DELETE | `/{id}`                      | ROMS_WRITE | Delete ROM                                       |
 | POST   | `/delete`                    | ROMS_WRITE | Bulk delete                                      |
 | POST   | `/download/{id}/{file_name}` | ROMS_READ  | Download ROM                                     |
+| GET    | `/{id}/content/{file_name}`  | ROMS_READ  | Download ROM, in a listed `?format=` when asked  |
 | POST   | `/unidentified`              | ROMS_READ  | Get unidentified ROMs                            |
+
+With rom-converto enabled (`ROM_CONVERTO_ENABLED`, `converto.download_conversion_enabled`), `?format=zso,iso` lists the formats a client can read. A single-file download whose stored format is listed is served as-is. Otherwise the first listed format with a copy cached under `/romm/cache/converts` is served, then the first one rom-converto can produce: answered by the same request if it converts within a few seconds, else `202` with `Retry-After` while it finishes. `406` means no listed format can be served, and `HEAD` reports the same without starting a conversion. Only signed-in, non-kiosk users start conversions. A rom's detail response lists the formats its single file can be converted to in `download_formats`, empty when the caller can't start a conversion.
 
 #### ROM Upload (Chunked)
 
@@ -917,10 +928,11 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 
 #### ROM Files
 
-| Method | Path                         | Scope     | Description                             |
-| ------ | ---------------------------- | --------- | --------------------------------------- |
-| GET    | `/{id}/files`                | ROMS_READ | Get ROM file metadata                   |
-| GET    | `/{id}/files/content/{name}` | ROMS_READ | Download file (nginx X-Accel or direct) |
+| Method | Path                         | Scope     | Description                                                            |
+| ------ | ---------------------------- | --------- | ---------------------------------------------------------------------- |
+| GET    | `/{id}/files`                | ROMS_READ | Get ROM file metadata                                                  |
+| GET    | `/{id}/files/content/{name}` | ROMS_READ | Download file (nginx X-Accel or direct)                                |
+| GET    | `/{id}/easyrpg/{path}`       | ROMS_READ | RPG Maker game files and generated `index.json` for the EasyRPG player |
 
 #### ROM Installs
 
@@ -1102,6 +1114,13 @@ Register and update take `capabilities`, boolean flags such as `{"remote_install
 | GET    | `/status`     | TASKS_RUN | Status of all tasks      |
 | GET    | `/{id}`       | TASKS_RUN | Status of specific task  |
 | POST   | `/run/{name}` | TASKS_RUN | Trigger task execution   |
+| POST   | `/scan`       | TASKS_RUN | Queue a scan             |
+
+`POST /scan` takes the options of the `scan` socket event and answers 202 with the queued job.
+`GET /{id}` follows it, with the counts so far in `meta.scan_stats`.
+A missing body means a quick scan of the whole library, a missing `apis` every enabled metadata source, and an unknown key answers 422.
+A scan of named `roms_ids` goes ahead of a queued library scan, any other scan answers 409 while a library scan is queued or running.
+It answers 503 when no worker listens on the scan queue.
 
 ### 6.16 Notifications (`/api/notifications`)
 
@@ -1440,7 +1459,7 @@ await notify_admins("custom", NotificationLevel.WARNING, title="Disk almost full
 
 A `NotificationKind` is translated by the client from `data`; a new one needs a describer in `frontend/src/v2/utils/notifications.ts` and locale keys. Until then, or for a one-off, pass any other kind with `title`/`body`/`link`/`icon`. Both helpers log and swallow failures, so a job never fails over reporting itself.
 
-A task reports its success from `run_task_by_name`. Its failure is reported by `report_task_failure`, an exception handler `RomMWorker` installs, so a timeout, a killed work horse or a dead worker notifies too, for cron runs as well as manual ones.
+A task reports its success from `run_task_by_name`. Its failure is reported by `report_task_failure`, an exception handler `RomMWorker` installs, so a timeout, a killed work horse or a dead worker notifies too, for cron runs as well as manual ones. The handler can run in the worker parent, so it enqueues `notify_task_failure` on the default queue rather than loading the notification stack there.
 
 ---
 
@@ -1659,7 +1678,11 @@ the device's live requests.
 ### Scheduled Tasks
 
 Declared in `tasks/registry.py` and registered with RQ's cron scheduler by
-`tasks/cron_config.py`, which the `rq cron` process loads at start. A task is
+`tasks/cron_config.py`, which the `rq cron` process loads at start. The registry
+holds each task's `TaskSpec` (title, schedule, queue, timeout) and the dotted
+path to the `Task` that runs it, which `get_task` imports only when a job runs.
+The scheduler, the tasks API and the worker's failure reporting read specs
+alone, so they never load task code. A task is
 registered only when it is enabled and has a cron string, so turning one off is
 a restart rather than an unschedule. Delayed jobs, which is how the filesystem
 watcher defers a rescan, are released by the worker itself (`--with-scheduler`).
@@ -1670,26 +1693,35 @@ failure callback and a scan needs one to report a worker that died mid-scan.
 
 Toggled via environment variables:
 
-| Task                              | Env Toggle                                         | Default Cron       | Description            |
-| --------------------------------- | -------------------------------------------------- | ------------------ | ---------------------- |
-| `scan_library`                    | `ENABLE_SCHEDULED_RESCAN`                          | `0 3 * * *` (3 AM) | Full library rescan    |
-| `update_switch_titledb`           | `ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB`           | `0 4 * * *`        | Update Switch game DB  |
-| `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`       | `0 4 * * *`        | Refresh LaunchBox data |
-| `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`          | `0 4 * * *`        | Image optimization     |
-| `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC` | `0 4 * * *`        | Sync RA user progress  |
-| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`      | `0 5 * * *`        | Remove unused artwork  |
-| `cleanup_netplay`                 | Always enabled                                     | Periodic           | Clean stale rooms      |
-| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup     | `* * * * *`        | Stop abandoned streams |
-| `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)    | `30 4 * * *`       | Prune old audit events |
+| Task                              | Env Toggle                                            | Default Cron       | Description                    |
+| --------------------------------- | ----------------------------------------------------- | ------------------ | ------------------------------ |
+| `scan_library`                    | `ENABLE_SCHEDULED_RESCAN`                             | `0 3 * * *` (3 AM) | Full library rescan            |
+| `update_switch_titledb`           | `ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB`              | `0 4 * * *`        | Update Switch game DB          |
+| `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`          | `0 4 * * *`        | Refresh LaunchBox data         |
+| `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`             | `0 4 * * *`        | Image optimization             |
+| `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC`    | `0 4 * * *`        | Sync RA user progress          |
+| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`         | `0 5 * * *`        | Remove unused artwork          |
+| `cleanup_netplay`                 | `ENABLE_SCHEDULED_CLEANUP_NETPLAY` (default on)       | `*/30 * * * *`     | Clean empty rooms              |
+| `cleanup_upload_tmp`              | `ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP` (default on)    | `0 * * * *`        | Drop stale uploads             |
+| `cleanup_zip_cache`               | `ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE` (default on)     | `0 4 * * *`        | Drop stale cached ZIPs         |
+| `cleanup_conversion_cache`        | Always on                                             | `0 4 * * *`        | Drop stale converted downloads |
+| `cleanup_sync_sessions`           | `ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS` (default on) | `23 * * * *`       | Fail abandoned syncs           |
+| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup        | `* * * * *`        | Stop abandoned streams         |
+| `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)       | `30 4 * * *`       | Prune old audit events         |
 
 ### Manual Tasks
 
 Triggered via `POST /api/tasks/run/{task_name}`, which enqueues on `low_prio_queue` and answers 503 when no live worker is listening on it:
 
-| Task                   | Description                                   |
-| ---------------------- | --------------------------------------------- |
-| `cleanup_missing_roms` | Remove DB entries for files no longer on disk |
-| `sync_folder_scan`     | Scan sync folder for new device saves         |
+| Task                   | Description                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| `cleanup_missing_roms` | Remove DB entries for files no longer on disk                                         |
+| `sync_folder_scan`     | Scan sync folder for new device saves                                                 |
+| `convert_library`      | Convert matched ROMs to `converto.platform_formats` in place, replacing the originals |
+
+A spec marked `destructive` asks for a typed confirmation before the UI runs it, and one marked `single_instance` answers 409 while a job of it is queued or running. `convert_library` is both, and runs only with `ROM_CONVERTO_ENABLED` set.
+
+`convert_library` only converts losslessly (no xiso) and only identified ROMs, since a converted file no longer hash-matches a DAT. It stages each output under a `.romm_tmp_` directory beside the ROM, deletes the originals (and a cue's tracks) once the output is in place, rewrites `.m3u` entries in folder ROMs, and refreshes the ROM's files, so the ROM keeps its id, saves and collections.
 
 `cleanup_orphaned_resources` is also runnable this way; it is listed under
 Scheduled Tasks because it additionally supports an opt-in cron schedule. It
@@ -1910,6 +1942,7 @@ Falls back to `FakeRedis` in test mode.
 | `DISABLE_RUFFLE_RS`      | `false` | Hide Ruffle Flash player |
 | `DISABLE_JSDOS`          | `false` | Hide js-dos player       |
 | `DISABLE_PICO8`          | `false` | Hide PICO-8 player       |
+| `DISABLE_EASYRPG`        | `false` | Hide EasyRPG player      |
 
 #### Task Scheduling
 
@@ -2020,11 +2053,9 @@ Exception
 ├── CollectionNotFoundInDatabaseException  # 404
 ├── CollectionPermissionError              # 403
 ├── CollectionAlreadyExistsException       # 500
-├── RomNotFoundInRetroAchievementsException # 404
 ├── SGDBInvalidAPIKeyException             # 401
 │
 ├── FolderStructureNotMatchException  # Invalid library layout
-├── PlatformNotFoundException         # Platform not found in FS
 ├── PlatformAlreadyExistsException    # Duplicate platform
 ├── RomsNotFoundException             # No ROMs for platform
 ├── RomAlreadyExistsException         # Duplicate ROM

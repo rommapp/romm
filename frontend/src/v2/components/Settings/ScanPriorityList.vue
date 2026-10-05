@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// ScanPriorityList — orders a list of scan entries by priority. The model
+// ScanPriorityList: orders a list of scan entries by priority. The model
 // is the ordered list of *enabled* values (first = highest priority);
 // values absent from it are shown in an "add" tray below.
 //
@@ -30,7 +30,7 @@ const props = withDefaults(
     /** Accept typed values outside `sources`, which become suggestions. */
     allowCustom?: boolean;
     /** Placeholder for the free-text input shown with `allow-custom`. */
-    inputPlaceholder?: string;
+    inputPlaceholder?: string | undefined;
   }>(),
   { disabled: false, allowCustom: false, inputPlaceholder: undefined },
 );
@@ -64,7 +64,7 @@ function move(index: number, delta: number) {
   const target = index + delta;
   if (target < 0 || target >= enabled.value.length) return;
   const next = [...enabled.value];
-  [next[index], next[target]] = [next[target], next[index]];
+  [next[index], next[target]] = [next[target]!, next[index]!];
   emitNext(next);
 }
 
@@ -129,8 +129,7 @@ function onDrop(e: DragEvent, index: number) {
   overIndex.value = null;
   if (from === null || from === index) return;
   const next = [...enabled.value];
-  const [moved] = next.splice(from, 1);
-  next.splice(index, 0, moved);
+  next.splice(index, 0, ...next.splice(from, 1));
   emitNext(next);
 }
 

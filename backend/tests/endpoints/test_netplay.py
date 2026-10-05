@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.auth import oauth_handler
+from handler.auth.base_handler import oauth_handler
 from handler.auth.constants import Scope
 from handler.database.base_handler import sync_session
 from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom, netplay_handler

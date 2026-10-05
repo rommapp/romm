@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RDrawer — edge-anchored panel that slides in from a side of the
+// RDrawer: edge-anchored panel that slides in from a side of the
 // viewport. Same chrome vocabulary as RDialog (scrim, scroll-lock,
 // focus capture, Escape / scrim-click to close) but full-height,
 // width-driven, and animated from the side instead of centred.
@@ -20,6 +20,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import {
   type EscapableEntry,
   popEscapable,
@@ -67,7 +68,7 @@ const slots = useSlots();
 const labels = useChromeLabels();
 
 const panelRef = ref<HTMLElement | null>(null);
-// Element that had focus before the drawer opened — focus returns here
+// Element that had focus before the drawer opened: focus returns here
 // when the drawer closes so keyboard users don't lose their place.
 let previouslyFocused: HTMLElement | null = null;
 
@@ -86,7 +87,7 @@ function onScrimClick() {
   closeDrawer();
 }
 
-// Shared escape-stack entry — register on open so a single global
+// Shared escape-stack entry: register on open so a single global
 // listener handles Esc across menus, dialogs, drawers, and so
 // `useGamepad`'s B-back closes the topmost overlay first. `persistent`
 // is read via the getter so toggles while the drawer is open are
@@ -110,19 +111,19 @@ watch(
         const focusTarget = panelRef.value?.querySelector<HTMLElement>(
           "[autofocus], button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
         );
-        focusTarget?.focus();
+        focusFromInput(focusTarget);
       });
     } else {
       unlockBodyScroll();
       popEscapable(escEntry);
-      previouslyFocused?.focus?.();
+      focusFromInput(previouslyFocused);
       previouslyFocused = null;
     }
   },
   { immediate: false },
 );
 
-// Safety net — drop the stack entry if we tear down while open (route
+// Safety net: drop the stack entry if we tear down while open (route
 // change with the drawer still visible) and release the body scroll lock
 // the watcher's close branch never got to run.
 onBeforeUnmount(() => {
@@ -158,13 +159,13 @@ const transitionName = computed(() =>
         :class="[`r-drawer--${side}`]"
         role="presentation"
       >
-        <!-- Scrim — fades in/out behind the panel. Click closes; the
+        <!-- Scrim: fades in/out behind the panel. Click closes; the
              keyboard path is the Escape handler on the root, so the
              scrim itself doesn't need a key listener. -->
         <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/no-static-element-interactions -->
         <div class="r-drawer__scrim" @click="onScrimClick" />
 
-        <!-- Panel — receives focus on open. -->
+        <!-- Panel: receives focus on open. -->
         <div
           ref="panelRef"
           class="r-drawer__panel"
@@ -174,7 +175,7 @@ const transitionName = computed(() =>
           :style="panelStyle"
         >
           <!-- Header bar (header slot + optional close button). Hidden
-               entirely when no header slot AND `hideClose` is true — a
+               entirely when no header slot AND `hideClose` is true: a
                drawer with no chrome is sometimes wanted. -->
           <header v-if="slots.header || !hideClose" class="r-drawer__header">
             <RIcon
@@ -197,7 +198,7 @@ const transitionName = computed(() =>
             </button>
           </header>
 
-          <!-- Body — consumer-owned content. -->
+          <!-- Body: consumer-owned content. -->
           <div
             class="r-drawer__body"
             :class="{ 'r-drawer__body--scroll': scrollContent }"
@@ -253,20 +254,23 @@ const transitionName = computed(() =>
   color: var(--r-color-fg);
   font-family: var(--r-font-family-sans);
   pointer-events: auto;
+  padding-block: var(--r-safe-t) var(--r-safe-b);
   /* Only the edge that meets the screen gets a border; the screen-edge
      side carries the shadow instead. */
 }
 .r-drawer--left .r-drawer__panel {
   border-inline-start: 0;
+  padding-inline-start: var(--r-safe-l);
 }
 .r-drawer--right .r-drawer__panel {
   border-inline-end: 0;
+  padding-inline-end: var(--r-safe-r);
 }
 
-/* On phones the drawer goes full-screen — there's a close button in the
+/* On phones the drawer goes full-screen: there's a close button in the
    header, so the slim tap-to-dismiss scrim strip isn't needed and the
    extra width is more useful. `!important` beats the inline `panelStyle`
-   width the consumer set for desktop. Selector hangs off `<html>` —
+   width the consumer set for desktop. Selector hangs off `<html>`:
    RDrawer teleports outside the app root but `data-bp` lives there. */
 html[data-bp~="xs"] .r-drawer__panel {
   width: 100vw !important;

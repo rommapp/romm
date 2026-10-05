@@ -24,9 +24,7 @@ const heartbeat = {
 };
 const config = ref({ SKIP_HASH_CALCULATION: false });
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("pinia", () => ({
   storeToRefs: () => ({ config }),
 }));
@@ -54,7 +52,7 @@ describe("useScanProviders effective sources", () => {
     const { metadataSources, generalAllSelected, effectiveMetadataSources } =
       useScanProviders();
     generalAllSelected.value = false;
-    metadataSources.value = [OPTIONS[1]];
+    metadataSources.value = [OPTIONS[1]!];
     expect(effectiveMetadataSources.value.map((s) => s.value)).toEqual([
       "ss",
       "ra",
@@ -71,7 +69,7 @@ describe("useScanProviders effective sources", () => {
   it("keeps in-progress picks when only the option list changes", async () => {
     const { metadataSources, generalAllSelected } = useScanProviders();
     generalAllSelected.value = false;
-    metadataSources.value = [OPTIONS[1]];
+    metadataSources.value = [OPTIONS[1]!];
     // A heartbeat refresh re-emits the option list with fresh identities.
     config.value.SKIP_HASH_CALCULATION = true;
     await nextTick();
@@ -102,7 +100,7 @@ describe("useScanProviders Playmatch gate", () => {
     const { metadataSources, generalAllSelected, hashMatchers } =
       useScanProviders();
     generalAllSelected.value = false;
-    metadataSources.value = [OPTIONS[0]];
+    metadataSources.value = [OPTIONS[0]!];
     expect(playmatch(hashMatchers.value).switchEnabled).toBe(true);
   });
 
@@ -110,7 +108,7 @@ describe("useScanProviders Playmatch gate", () => {
     const { metadataSources, generalAllSelected, hashMatchers } =
       useScanProviders();
     generalAllSelected.value = false;
-    metadataSources.value = [OPTIONS[1]];
+    metadataSources.value = [OPTIONS[1]!];
     const matcher = playmatch(hashMatchers.value);
     expect(matcher.switchEnabled).toBe(false);
     expect(matcher.blockedReason).toBe("scan.playmatch-requires-igdb");
@@ -121,14 +119,16 @@ describe("useScanProviders Playmatch gate", () => {
     const { hashMatchers } = useScanProviders();
     const matcher = playmatch(hashMatchers.value);
     expect(matcher.switchEnabled).toBe(false);
-    expect(matcher.blockedReason).toBe("scan.requires-hashes");
+    expect(matcher.blockedReason).toBe(
+      'scan.requires-hashes:{"source":"Playmatch"}',
+    );
   });
 });
 
 describe("useScanProviders scan payload", () => {
   it("sends the expanded provider list and both hash matchers", () => {
-    const { buildScanPayload } = useScanProviders();
-    expect(buildScanPayload()).toEqual({
+    const { buildScanSourceOptions } = useScanProviders();
+    expect(buildScanSourceOptions()).toEqual({
       apis: ["igdb", "ss", "moby", "ra", "hasheous", "playmatch"],
       launchbox_remote_enabled: true,
     });
@@ -136,8 +136,8 @@ describe("useScanProviders scan payload", () => {
 
   it("drops both hash matchers when hashing is disabled", () => {
     config.value.SKIP_HASH_CALCULATION = true;
-    const { buildScanPayload } = useScanProviders();
-    const payload = buildScanPayload();
+    const { buildScanSourceOptions } = useScanProviders();
+    const payload = buildScanSourceOptions();
     expect(payload.apis).not.toContain("hasheous");
     expect(payload.apis).not.toContain("playmatch");
   });
@@ -146,7 +146,7 @@ describe("useScanProviders scan payload", () => {
     const { metadataSources, generalAllSelected, persistSelection } =
       useScanProviders();
     generalAllSelected.value = false;
-    metadataSources.value = [OPTIONS[0]];
+    metadataSources.value = [OPTIONS[0]!];
     persistSelection();
     await nextTick();
     expect(

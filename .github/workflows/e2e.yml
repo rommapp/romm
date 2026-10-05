@@ -6,6 +6,7 @@ on:
       - "frontend/**"
       - "backend/**"
       - ".github/workflows/e2e.yml"
+      - ".github/actions/setup-frontend/**"
       - ".github/scripts/**"
       - pyproject.toml
       - uv.lock
@@ -17,6 +18,7 @@ on:
       - "frontend/**"
       - "backend/**"
       - ".github/workflows/e2e.yml"
+      - ".github/actions/setup-frontend/**"
       - ".github/scripts/**"
       - pyproject.toml
       - uv.lock
@@ -62,6 +64,8 @@ jobs:
       REDIS_HOST: 127.0.0.1
       # Throwaway signing key for an ephemeral runner
       ROMM_AUTH_SECRET_KEY: "e2e0000000000000000000000000000000000000000000000000000000000000"
+      # Fixture-user password, shared by the seeder and the specs
+      E2E_PASSWORD: e2e-Passw0rd!
 
     steps:
       - name: Checkout repository
@@ -74,6 +78,16 @@ jobs:
 
       - name: Set up the frontend
         uses: ./.github/actions/setup-frontend
+
+      # Builds while the backend is set up; "Wait for the frontend build" checks it.
+      - name: Start the frontend build
+        run: |
+          (
+            npm run build > "$RUNNER_TEMP/frontend-build.log" 2>&1
+            echo $? > "$RUNNER_TEMP/frontend-build.tmp"
+            mv "$RUNNER_TEMP/frontend-build.tmp" "$RUNNER_TEMP/frontend-build.exit"
+          ) &
+        working-directory: frontend
 
       # Headless runs use only the headless shell, so skip the full Chrome build.
       - name: Install Playwright browser
@@ -105,12 +119,9 @@ jobs:
       - name: Seed the library
         run: uv run python .github/scripts/seed_e2e_library.py
 
-      # Seed users and clear the setup wizard. The Playwright step below is
-      # given the same accounts.
+      # Seed user and clear the setup wizard
       - name: Seed the e2e fixture users
         run: uv run python .github/scripts/seed_e2e_users.py
-        env:
-          E2E_PASSWORD: e2e-Passw0rd!
 
       - name: Start the backend
         run: |
@@ -128,38 +139,16 @@ jobs:
           exit 1
         working-directory: backend
 
-      - name: Build frontend
-        run: npm run build
-        working-directory: frontend
-
-      # The site under test: the static build, proxying /api and /ws to the
-      # backend on DEV_PORT. Not the dev server, which force-reloads on newly
-      # discovered dependencies and wipes a test mid-way.
-      - name: Serve the frontend
+      - name: Wait for the frontend build
         run: |
-          npm run preview -- --port 4173 --strictPort --host 127.0.0.1 > "$RUNNER_TEMP/frontend.log" 2>&1 &
-          echo "Waiting for the site to answer..."
-          for i in $(seq 1 60); do
-            if curl -sf "http://127.0.0.1:4173/api/heartbeat" > /dev/null; then
-              echo "Site up after ${i}s"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "Site did not come up; last 100 log lines:"
-          tail -100 "$RUNNER_TEMP/frontend.log"
-          exit 1
-        working-directory: frontend
+          while [ ! -f "$RUNNER_TEMP/frontend-build.exit" ]; do sleep 2; done
+          cat "$RUNNER_TEMP/frontend-build.log"
+          exit "$(cat "$RUNNER_TEMP/frontend-build.exit")"
 
+      # Serves that build through playwright.config.ts's webServer.
       - name: Run Playwright tests
         run: npm run test:e2e
         working-directory: frontend
-        env:
-          E2E_ADMIN_USERNAME: e2e_admin
-          E2E_ADMIN_PASSWORD: e2e-Passw0rd!
-          E2E_VIEWER_USERNAME: e2e_viewer
-          E2E_VIEWER_PASSWORD: e2e-Passw0rd!
-          E2E_BASE_URL: http://127.0.0.1:4173
 
       - name: Upload Playwright report
         if: failure()
@@ -174,15 +163,9 @@ jobs:
         if: failure()
         run: tail -200 "$RUNNER_TEMP/backend.log" || true
 
-      - name: Dump frontend log
-        if: failure()
-        run: tail -100 "$RUNNER_TEMP/frontend.log" || true
-
       # `uv run` holds the uv cache lock for as long as it lives, so leaving the
       # backend up makes setup-uv's post-job `uv cache prune` block until the
       # runner kills cleanup after 5 minutes, failing an otherwise green job.
-      - name: Stop the servers
+      - name: Stop the backend
         if: always()
-        run: |
-          pkill -f "vite preview" || true
-          pkill -f "main.py" || true
+        run: pkill -f "main.py" || true

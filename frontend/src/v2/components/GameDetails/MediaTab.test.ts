@@ -1,14 +1,12 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import { createMemoryHistory, createRouter, type Router } from "vue-router";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
+import { tabId, tabPanelId } from "@/v2/utils/tabIds";
 import MediaTab from "./MediaTab.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/v2/composables/useRomSync", () => ({
   useRomSync: () => ({ refetchRom: vi.fn() }),
 }));
@@ -60,7 +58,7 @@ async function mountTab(subtab?: string) {
   });
   const wrapper = mount(MediaTab, {
     props: {
-      rom: makeDetailedRom({ has_soundtrack: false }),
+      rom: detailedRomFixture({ has_soundtrack: false }),
     },
     global: {
       plugins: [router],
@@ -86,10 +84,6 @@ async function selectSubtab(subtab: string) {
 }
 
 describe("MediaTab PDF viewer ownership", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("lets only the visited PDF subtab mount a viewer", async () => {
     const wrapper = await mountTab();
     expect(pdfActive(wrapper)).toEqual({ manual: true, walkthrough: false });
@@ -107,5 +101,20 @@ describe("MediaTab PDF viewer ownership", () => {
   it("mounts no viewer until a PDF subtab is shown", async () => {
     const wrapper = await mountTab("artwork");
     expect(pdfActive(wrapper)).toEqual({ manual: false, walkthrough: false });
+  });
+});
+
+describe("MediaTab panels", () => {
+  it("labels each panel by the rail tab that controls it", async () => {
+    const wrapper = await mountTab();
+    const prefix: string = wrapper
+      .findComponent({ name: "SubtabNav" })
+      .props("idPrefix");
+    const panel = wrapper.findComponent({ name: "ManualSubtab" }).element
+      .parentElement!;
+
+    expect(panel.getAttribute("role")).toBe("tabpanel");
+    expect(panel.id).toBe(tabPanelId(prefix, "manual"));
+    expect(panel.getAttribute("aria-labelledby")).toBe(tabId(prefix, "manual"));
   });
 });

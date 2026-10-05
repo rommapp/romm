@@ -183,21 +183,21 @@ onUnmounted(() => {
               <v-list-item
                 v-bind="props"
                 class="py-4"
-                :title="item.raw.name ?? ''"
-                :subtitle="item.raw.fs_slug"
+                :title="item.name ?? ''"
+                :subtitle="item.fs_slug"
               >
                 <template #prepend>
                   <PlatformIcon
-                    :key="item.raw.slug"
+                    :key="item.slug"
                     :size="35"
-                    :slug="item.raw.slug"
-                    :name="item.raw.name"
-                    :fs-slug="item.raw.fs_slug"
+                    :slug="item.slug"
+                    :name="item.name"
+                    :fs-slug="item.fs_slug"
                   />
                 </template>
                 <template #append>
                   <MissingFromFSIcon
-                    v-if="item.raw.missing_from_fs"
+                    v-if="item.missing_from_fs"
                     :text="t('settings.missing-platform-from-fs')"
                     chip
                     chip-label
@@ -205,21 +205,21 @@ onUnmounted(() => {
                     class="ml-2"
                   />
                   <v-chip class="ml-2" size="x-small" label>
-                    {{ item.raw.rom_count }}
+                    {{ item.rom_count }}
                   </v-chip>
                 </template>
               </v-list-item>
             </template>
             <template #chip="{ item }">
               <PlatformIcon
-                :key="item.raw.slug"
-                :slug="item.raw.slug"
-                :name="item.raw.name"
-                :fs-slug="item.raw.fs_slug"
+                :key="item.slug"
+                :slug="item.slug"
+                :name="item.name"
+                :fs-slug="item.fs_slug"
                 :size="20"
                 class="mx-2"
               />
-              {{ item.raw.name }}
+              {{ item.name }}
             </template>
           </v-select>
         </v-col>

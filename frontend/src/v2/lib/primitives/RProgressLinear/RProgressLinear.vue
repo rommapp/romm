@@ -1,22 +1,22 @@
 <script setup lang="ts">
-// RProgressLinear — horizontal progress bar primitive. Pairs with
+// RProgressLinear: horizontal progress bar primitive. Pairs with
 // RProgressCircular: same tone vocabulary, same `indeterminate` /
 // `modelValue` split, same colour/size knobs scaled to a horizontal
 // surface.
 //
-//   • Determinate — `modelValue` is a 0–100 percent. The fill grows
+//   • Determinate: `modelValue` is a 0–100 percent. The fill grows
 //     left-to-right with a smooth width transition so consumers can
 //     stream updates without a frame-jump.
-//   • Indeterminate — a single slim block slides across the track in
+//   • Indeterminate: a single slim block slides across the track in
 //     a loop. Simpler than Material's two-bar pattern; reads as a clear
 //     "working on it" without dragging the eye.
 //
-// `bufferValue` paints a softer secondary fill behind the primary —
+// `bufferValue` paints a softer secondary fill behind the primary:
 // useful for upload/download streams where bytes ahead of the visible
 // progress have already been flushed. `striped` adds a slow diagonal
 // sheen for "active" emphasis (busy uploads, ongoing scans).
 //
-// No label slot — at the typical 4–8px height there's no room to render
+// No label slot: at the typical 4–8px height there's no room to render
 // text inside the bar. Consumers compose the percentage / status text
 // as a sibling element.
 import { computed } from "vue";
@@ -30,23 +30,23 @@ interface Props {
   indeterminate?: boolean;
   /** Secondary buffer fill (0–100). Painted behind the primary fill at
    *  reduced opacity. */
-  bufferValue?: number;
+  bufferValue?: number | undefined;
   /** Track height. Number → px, string → CSS length. Default 4. */
   height?: number | string;
   /** Fill colour. Resolves the lib's TONE_MAP keys or any CSS colour. */
   color?: string;
   /** Track background colour override. Defaults to `--r-color-border`. */
-  bgColor?: string;
+  bgColor?: string | undefined;
   /** Pill ends. Default true. */
   rounded?: boolean;
-  /** Diagonal stripe overlay — keeps the bar feeling active even when
+  /** Diagonal stripe overlay: keeps the bar feeling active even when
    *  `modelValue` isn't changing. Ignored when `indeterminate`. */
   striped?: boolean;
   /** A glow sweeping the unfilled track, for work that is still running
    *  between value updates. Ignored when `indeterminate`. */
   stream?: boolean;
   /** Accessible label. Defaults to "Progress". */
-  ariaLabel?: string;
+  ariaLabel?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -62,7 +62,7 @@ const props = withDefaults(defineProps<Props>(), {
   ariaLabel: undefined,
 });
 
-// Shared with the rest of the lib — single source of truth so `color`
+// Shared with the rest of the lib: single source of truth so `color`
 // is interchangeable between RBtn, RTag, RProgressCircular, etc.
 const TONE_MAP: Record<string, string> = {
   primary: "var(--r-color-brand-primary)",
@@ -100,7 +100,7 @@ const fillStyle = computed(() =>
 );
 
 const ariaValueNow = computed(() =>
-  props.indeterminate ? undefined : clampedValue.value,
+  props.indeterminate ? undefined : Math.floor(clampedValue.value),
 );
 
 const wrapperStyle = computed(() => {
@@ -156,7 +156,7 @@ const wrapperStyle = computed(() => {
   border-radius: 999px;
 }
 
-/* Buffer — sits behind the primary fill, painted in a translucent
+/* Buffer: sits behind the primary fill, painted in a translucent
    shade of the fill colour so the eye reads "ahead of the bar". */
 .r-progress-linear__buffer {
   position: absolute;
@@ -175,7 +175,7 @@ const wrapperStyle = computed(() => {
   transition: width var(--r-motion-med) var(--r-motion-ease-out);
 }
 
-/* Striped — slow diagonal sheen drifting along the fill. Uses
+/* Striped: slow diagonal sheen drifting along the fill. Uses
    `white X%` so the same overlay works against any tone. */
 .r-progress-linear--striped .r-progress-linear__fill {
   background-image: linear-gradient(
@@ -235,7 +235,7 @@ html.r-v2-reduced-motion .r-progress-linear__stream::after {
   display: none;
 }
 
-/* Indeterminate — single block slides across the track on a loop.
+/* Indeterminate: single block slides across the track on a loop.
    `inset-inline-*` so RTL flips the direction automatically without
    a separate keyframe set. */
 .r-progress-linear--indeterminate .r-progress-linear__fill {

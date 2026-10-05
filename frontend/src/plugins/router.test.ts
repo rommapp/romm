@@ -1,12 +1,14 @@
-import { createPinia, setActivePinia } from "pinia";
+import { flushPromises, mount } from "@vue/test-utils";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { RouteLocationNormalized } from "vue-router";
+import { defineComponent, h } from "vue";
+import { RouterView, type RouteLocationNormalized } from "vue-router";
+import { useUiVersion } from "@/composables/useUiVersion";
 import i18n, { localesReady } from "@/locales";
 import router, { applyRouteTitle, ROUTES } from "@/plugins/router";
 import storeAuth from "@/stores/auth";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
-import type { User } from "@/stores/users";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import storeRoms from "@/stores/roms";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
+import { userFixture } from "@/utils/user.fixtures";
 
 const { getRom, stubView } = vi.hoisted(() => ({
   getRom: vi.fn(),
@@ -24,13 +26,8 @@ vi.mock("@/views/GameDetails.vue", stubView);
 vi.mock("@/v2/layouts/AppLayout.vue", stubView);
 vi.mock("@/v2/views/GameDetails.vue", stubView);
 
-function makeRom(overrides: Partial<DetailedRom> = {}): DetailedRom {
-  return makeDetailedRom({ name: "Chrono Trigger", ...overrides });
-}
-
 describe("route titles", () => {
   beforeAll(async () => {
-    setActivePinia(createPinia());
     await localesReady;
   });
 
@@ -93,7 +90,6 @@ describe("applyRouteTitle", () => {
 
 describe("the rom route", () => {
   beforeAll(async () => {
-    setActivePinia(createPinia());
     await localesReady;
   });
 
@@ -101,10 +97,12 @@ describe("the rom route", () => {
   // matching the route is not proof the store's copy is current.
   it("re-reads a rom the store already holds", async () => {
     const roms = storeRoms();
-    storeAuth().setCurrentUser({ id: 1 } as User);
-    roms.setCurrentRom(makeRom({ id: 9, name: "before the session" }));
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
+    roms.setCurrentRom(
+      detailedRomFixture({ id: 9, name: "before the session" }),
+    );
     getRom.mockResolvedValue({
-      data: makeRom({ id: 9, name: "after the session" }),
+      data: detailedRomFixture({ id: 9, name: "after the session" }),
     });
 
     await router.push({ name: ROUTES.ROM, params: { rom: 9 } });
@@ -112,5 +110,95 @@ describe("the rom route", () => {
     expect(getRom).toHaveBeenCalledWith({ romId: 9 });
     expect(roms.currentRom?.name).toBe("after the session");
     expect(roms.getDetailedRom(9)?.name).toBe("after the session");
+  });
+});
+
+describe("the inactive UI's views", () => {
+  const uiVersion = useUiVersion();
+  const v1View = { name: "V1View", render: () => h("p", "v1 view") };
+  const loadV1 = vi.fn(async () => v1View);
+  const loadV2 = vi.fn(async () => ({ render: () => null }));
+
+  router.addRoute({
+    path: "/deferred-views",
+    name: "deferred-views",
+    components: { default: loadV1, v2: loadV2 },
+  });
+  router.addRoute({
+    path: "/deferred-views-elsewhere",
+    name: "deferred-views-elsewhere",
+    component: { render: () => null },
+  });
+  const loadLayoutV1 = vi.fn(async () => ({ render: () => h(RouterView) }));
+  const loadChildV1 = vi.fn(async () => v1View);
+  router.addRoute({
+    path: "/deferred-chain",
+    components: { default: loadLayoutV1, v2: { render: () => null } },
+    children: [
+      {
+        path: "",
+        name: "deferred-chain",
+        components: { default: loadChildV1, v2: { render: () => null } },
+      },
+    ],
+  });
+  const views = () =>
+    router.getRoutes().find((r) => r.name === "deferred-views")?.components;
+
+  beforeEach(() => {
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
+    uiVersion.value = "v2";
+  });
+
+  it("are left unfetched, without vue-router's async-view warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await router.push({ name: "deferred-views" });
+
+    expect(loadV2).toHaveBeenCalledOnce();
+    expect(loadV1).not.toHaveBeenCalled();
+    expect(views()?.default).toMatchObject({ name: "DeferredView" });
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("defineAsyncComponent"),
+    );
+  });
+
+  it("render in place when the UI switches without navigating", async () => {
+    await router.push({ name: "deferred-views-elsewhere" });
+    await router.push({ name: "deferred-views" });
+    const Shell = defineComponent({
+      render: () =>
+        h(RouterView, { name: uiVersion.value === "v2" ? "v2" : "default" }),
+    });
+    const wrapper = mount(Shell, { global: { plugins: [router] } });
+
+    uiVersion.value = "v1";
+    await flushPromises();
+
+    expect(wrapper.text()).toBe("v1 view");
+  });
+
+  it("start loading every nested view as soon as the UI switches", async () => {
+    await router.push({ name: "deferred-chain" });
+
+    uiVersion.value = "v1";
+    await flushPromises();
+
+    expect(loadLayoutV1).toHaveBeenCalledOnce();
+    expect(loadChildV1).toHaveBeenCalledOnce();
+  });
+
+  // After an in-place switch, entering the route again must await the view
+  // like any lazy route, so a stale chunk reaches router.onError.
+  it("are fetched with the navigation once their UI is active", async () => {
+    await router.push({ name: "deferred-views" });
+    await router.push({ name: "deferred-views-elsewhere" });
+    expect(views()?.default).toMatchObject({ name: "DeferredView" });
+    uiVersion.value = "v1";
+
+    await router.push({ name: "deferred-views" });
+
+    expect(loadV1).toHaveBeenCalledOnce();
+    expect(views()?.default).toBe(v1View);
   });
 });

@@ -1,6 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Platform } from "@/stores/platforms";
+import { platformFixture } from "@/utils/platform.fixtures";
 import SettingsTab from "./SettingsTab.vue";
 
 const { updatePlatform } = vi.hoisted(() => ({
@@ -32,31 +33,16 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 function platform(overrides: Partial<Platform> = {}): Platform {
-  return {
-    id: 1,
+  return platformFixture({
     slug: "fds",
-    fs_slug: "fds",
-    rom_count: 0,
     name: "Family Computer Disk System",
-    igdb_slug: null,
-    moby_slug: null,
-    hltb_slug: null,
-    libretro_slug: null,
     custom_name: "",
     description: null,
-    created_at: "",
-    updated_at: "",
-    fs_size_bytes: 0,
-    is_unidentified: false,
-    is_identified: true,
-    missing_from_fs: false,
-    display_name: "Family Computer Disk System",
-    firmware_count: 0,
     ...overrides,
-  } as Platform;
+  });
 }
 
-function mountTab(p: Platform) {
+function mountTab(p: Platform, valid = true) {
   return mount(SettingsTab, {
     props: { platform: p },
     global: {
@@ -64,7 +50,7 @@ function mountTab(p: Platform) {
         RForm: {
           template: "<form><slot /></form>",
           methods: {
-            validate: () => Promise.resolve(true),
+            validate: () => Promise.resolve({ valid }),
           },
         },
         RIcon: true,
@@ -81,10 +67,6 @@ function mountTab(p: Platform) {
 }
 
 describe("SettingsTab platform save", () => {
-  beforeEach(() => {
-    updatePlatform.mockClear();
-  });
-
   it("does not stamp custom_name when only the description changed", async () => {
     updatePlatform.mockResolvedValue({ data: platform() });
     const p = platform();
@@ -92,12 +74,12 @@ describe("SettingsTab platform save", () => {
 
     // Second field is the description.
     const inputs = wrapper.findAll("input");
-    await inputs[1].setValue("Aftermarket dumps only");
-    await (wrapper.vm as unknown as { save: () => Promise<void> }).save();
+    await inputs[1]!.setValue("Aftermarket dumps only");
+    await wrapper.get("form").trigger("submit");
     await flushPromises();
 
     expect(updatePlatform).toHaveBeenCalledTimes(1);
-    const arg = updatePlatform.mock.calls[0][0];
+    const arg = updatePlatform.mock.calls[0]![0];
     // The untouched name must go back as the stored value (""), not as the
     // display_name fallback, or the platform gains a custom name it never had.
     expect(arg.platform.custom_name).toBe("");
@@ -110,12 +92,22 @@ describe("SettingsTab platform save", () => {
     const wrapper = mountTab(p);
 
     const inputs = wrapper.findAll("input");
-    await inputs[0].setValue("FDS (JP only)");
-    await (wrapper.vm as unknown as { save: () => Promise<void> }).save();
+    await inputs[0]!.setValue("FDS (JP only)");
+    await wrapper.get("form").trigger("submit");
     await flushPromises();
 
-    const arg = updatePlatform.mock.calls[0][0];
+    const arg = updatePlatform.mock.calls[0]![0];
     expect(arg.platform.custom_name).toBe("FDS (JP only)");
     expect(arg.description).toBeUndefined();
+  });
+
+  it("does not save when the form is invalid", async () => {
+    const wrapper = mountTab(platform(), false);
+
+    await wrapper.findAll("input")[0]!.setValue("");
+    await wrapper.get("form").trigger("submit");
+    await flushPromises();
+
+    expect(updatePlatform).not.toHaveBeenCalled();
   });
 });

@@ -1,9 +1,9 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 import ManualUploadTargetDialog from "./ManualUploadTargetDialog.vue";
 
 type UploadArgs = { romId: number; filesToUpload: File[] };
@@ -16,9 +16,7 @@ const { uploadManuals, uploadFiles, getRom } = vi.hoisted(() => ({
   getRom: vi.fn(() => Promise.resolve({ data: {} })),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/services/api/rom", () => ({
   default: { uploadManuals, getRom },
@@ -45,13 +43,13 @@ vi.mock("@/v2/composables/useRomSync", () => ({
 }));
 
 function rom(overrides: Partial<DetailedRom> = {}): DetailedRom {
-  return {
+  return detailedRomFixture({
     id: 7,
     name: "Game",
     has_simple_single_file: false,
     files: [],
     ...overrides,
-  } as DetailedRom;
+  });
 }
 
 function manualFile(): NonNullable<DetailedRom["files"]>[number] {
@@ -105,11 +103,6 @@ async function upload(target: DetailedRom): Promise<VueWrapper> {
 }
 
 describe("ManualUploadTargetDialog", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
-  });
-
   it("sends a single-file ROM's manual to resources without asking", async () => {
     const wrapper = await upload(rom({ has_simple_single_file: true }));
 

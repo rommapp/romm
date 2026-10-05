@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// UserProfile — v2-native rewrite. Layout:
+// UserProfile: v2-native rewrite. Layout:
 //   • page title
 //   • flush identity row (96px bordered avatar + username + role chip
 //     + secondary metadata: joined + last active)
@@ -15,9 +15,10 @@
 // change their own role, so an editable picker would only ever silently
 // revert. Admins change other users' roles from Settings → Administration.
 import { RBtn, RIcon, RSkeletonBlock, RTag, RTextField } from "@v2/lib";
+import { useObjectUrl } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, onMounted, onUnmounted, ref } from "vue";
+import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -38,7 +39,7 @@ const { user } = storeToRefs(auth);
 const userToEdit = ref<UserItem | null>(null);
 const originalSnapshot = ref<Pick<UserItem, "username" | "email"> | null>(null);
 const usersStore = storeUsers();
-const imagePreviewUrl = ref<string | undefined>("");
+const imagePreviewUrl = useObjectUrl(() => userToEdit.value?.avatar);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const fileInputRef = ref<HTMLInputElement | null>(null);
@@ -51,12 +52,11 @@ const ROLE_TONE: Record<string, RoleTone> = {
   user: "info",
 };
 function roleToneFor(role: string | undefined): RoleTone {
-  if (role && role in ROLE_TONE) return ROLE_TONE[role];
-  return "info";
+  return ROLE_TONE[role ?? ""] ?? "info";
 }
 
 // Header reflects the SAVED user (auth store), not the in-progress
-// edits — typing in the form fields shouldn't redraw the identity row
+// edits: typing in the form fields shouldn't redraw the identity row
 // in real time; it only refreshes after Apply succeeds and
 // `auth.setCurrentUser(data)` rehydrates `user`.
 const avatarSrc = computed(() => {
@@ -87,7 +87,6 @@ function snapshot(item: UserItem) {
 function reset() {
   if (!user.value) return;
   userToEdit.value = { ...user.value, password: "", avatar: undefined };
-  imagePreviewUrl.value = "";
   if (userToEdit.value) snapshot(userToEdit.value);
 }
 
@@ -98,13 +97,7 @@ function triggerFileInput() {
 function previewImage(event: Event) {
   const input = event.target as HTMLInputElement;
   if (!input.files || !input.files[0] || !userToEdit.value) return;
-  const file = input.files[0];
-  userToEdit.value.avatar = file;
-  const reader = new FileReader();
-  reader.onload = () => {
-    imagePreviewUrl.value = reader.result?.toString();
-  };
-  reader.readAsDataURL(file);
+  userToEdit.value.avatar = input.files[0];
 }
 
 async function applyChanges() {
@@ -157,16 +150,12 @@ const lastActiveLabel = computed(() =>
 usePageTitle(() => t("common.profile"));
 
 onMounted(reset);
-
-onUnmounted(() => {
-  imagePreviewUrl.value = "";
-});
 </script>
 
 <template>
   <div class="r-v2-section-stack">
     <template v-if="userToEdit">
-      <!-- Identity row — flush (no card chrome). -->
+      <!-- Identity row: flush (no card chrome). -->
       <div class="r-v2-profile__identity-row">
         <button
           type="button"
@@ -266,7 +255,7 @@ onUnmounted(() => {
           </RTextField>
         </div>
 
-        <!-- Password — visually identical to the other prefix-label
+        <!-- Password: visually identical to the other prefix-label
              rows, but the value is a fixed mask and the change flow is
              driven by the dialog (opened from the append-inner button).
              readonly + type=password keeps the field non-editable while
@@ -315,7 +304,7 @@ onUnmounted(() => {
       <RetroAchievementsSection />
     </template>
 
-    <!-- Skeleton — shown until userToEdit is hydrated from auth.user. -->
+    <!-- Skeleton: shown until userToEdit is hydrated from auth.user. -->
     <template v-else>
       <div class="r-v2-profile__identity-row">
         <RSkeletonBlock
@@ -343,7 +332,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Identity row — flush, taller (96px avatar). */
+/* Identity row: flush, taller (96px avatar). */
 .r-v2-profile__identity-row {
   display: flex;
   align-items: center;
@@ -426,7 +415,7 @@ onUnmounted(() => {
   letter-spacing: -0.01em;
 }
 
-/* Role tag — RTag handles the base look + tone-based tint. `capitalize`
+/* Role tag: RTag handles the base look + tone-based tint. `capitalize`
    only uppercases the first letter (e.g. "admin" → "Admin"); the prior
    `uppercase` rendering read as a shout next to the username. */
 .r-v2-profile__role-tag {
@@ -436,7 +425,7 @@ onUnmounted(() => {
 
 /* Secondary metadata under the username. Email sits on its own row;
    joined + last active share the row below so the eye reads identity
-   first, history second. Each item is an `<RTag tone="plain">` — the
+   first, history second. Each item is an `<RTag tone="plain">`: the
    tag inherits the row's font-size and muted colour, so the metadata
    blends into a single sentence-style block. */
 .r-v2-profile__meta {
@@ -452,7 +441,7 @@ onUnmounted(() => {
   gap: 14px;
 }
 
-/* Field rows — hairline-divided, padding mirrors the mock. */
+/* Field rows: hairline-divided, padding mirrors the mock. */
 .r-v2-profile__field {
   padding: 14px 16px;
   border-bottom: 1px solid var(--r-color-border);
@@ -462,7 +451,7 @@ onUnmounted(() => {
 }
 
 /* Change-password button lives inside the password field's append-inner
-   area — keep it compact so it doesn't blow out the row height. */
+   area: keep it compact so it doesn't blow out the row height. */
 .r-v2-profile__pwd-btn {
   margin-right: 4px;
 }

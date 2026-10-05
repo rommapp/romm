@@ -1,16 +1,13 @@
 import { RTooltip } from "@v2/lib";
 import { mount } from "@vue/test-utils";
 import mitt from "mitt";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import AboutDialog from "./AboutDialog.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 // happy-dom has no ResizeObserver that fires, so the test lays the grid out.
 const resize = vi.hoisted(() => ({ layout: () => {} }));
@@ -61,8 +58,6 @@ async function layOut(
 }
 
 describe("AboutDialog", () => {
-  beforeEach(() => setActivePinia(createPinia()));
-
   // Ready before any hover, as RTooltip decides on the pointer's arrival.
   it("shows a value cut off by its tile in a tooltip", async () => {
     const wrapper = await open();

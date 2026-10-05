@@ -30,7 +30,7 @@ html.r-v2 {
     var(--r-color-bg);
 }
 
-/* Responsive page padding — `--r-row-pad` is consumed everywhere as the
+/* Responsive page padding: `--r-row-pad` is consumed everywhere as the
    horizontal gutter for page rows / toolbars / nav / widgets. Shrinking
    it here tightens every consumer at once on narrower viewports, so
    individual components don't each re-declare a smaller `xs` padding.
@@ -46,21 +46,35 @@ html[data-bp~="xs"].r-v2 {
   --r-list-select-w: 24px;
 }
 
+/* Safe-area insets (the page draws under them with `viewport-fit=cover`), and
+   each side's gutter: the row padding plus the inset outside it. */
+.r-v2 {
+  --r-safe-t: env(safe-area-inset-top, 0px);
+  --r-safe-r: env(safe-area-inset-right, 0px);
+  --r-safe-b: env(safe-area-inset-bottom, 0px);
+  --r-safe-l: env(safe-area-inset-left, 0px);
+  --r-gutter-l: calc(var(--r-row-pad) + var(--r-safe-l));
+  --r-gutter-r: calc(var(--r-row-pad) + var(--r-safe-r));
+  /* A player stage's box: below the top bar, clear of the other insets. */
+  --r-stage-inset: var(--r-nav-h) var(--r-safe-r) var(--r-safe-b)
+    var(--r-safe-l);
+}
+
 /* The nav chrome unmounts while a player stage owns the viewport, so its
-   height tokens collapse for everything that offsets by them. */
+   height tokens collapse to the status-bar inset. */
 html.r-v2.r-v2-stage-active {
-  --r-nav-h: 0px;
+  --r-nav-h: var(--r-safe-t);
   --r-bottom-nav-h: 0px;
 }
 
-/* Focus rings are modality-gated — invisible for mouse/touch so we don't
+/* Focus rings are modality-gated: invisible for mouse/touch so we don't
    dog-pile the hover states, visible and prominent for keyboard/pad so
    the user always knows where they are.
    Form controls (text fields, textareas, selects, combobox inputs) are
-   excluded from the generic rule — they paint their own focus treatment,
+   excluded from the generic rule: they paint their own focus treatment,
    and stacking our outline on top reads as a grey rectangle around the
    raw <input>. The generic rules are wrapped in `:where()` so they
-   evaluate at the lowest specificity — any component that paints its
+   evaluate at the lowest specificity: any component that paints its
    own focus state (GameCard, PlatformTile, CollectionTile, …) can
    override with a plain class selector and its rule will win. */
 html[data-input="mouse"] :where(.r-v2 *:focus-visible),
@@ -129,7 +143,7 @@ html:not([data-input])
   color: var(--r-color-overlay-fg);
 }
 
-/* Hide the mouse cursor when the user is driving the UI with a gamepad —
+/* Hide the mouse cursor when the user is driving the UI with a gamepad:
    the cursor parked over a tile would otherwise compete visually with
    the focused-tile selection state. The cursor reappears as soon as the
    user clicks (useInputModality flips back to "mouse" on mousedown;
@@ -206,7 +220,7 @@ html[data-input="pad"] .r-v2 * {
 
 /* Reduced-motion mode (Settings, per device; defaults to the OS
    `prefers-reduced-motion`): the backdrop art is authored to be read only
-   through the 28px blur — unblurred it shows hard seams and a bright diagonal
+   through the 28px blur: unblurred it shows hard seams and a bright diagonal
    wedge. And a full-viewport blur(28px) is one of the heaviest things we ask
    of the GPU (see the Firefox note above). So drop the whole fixed art +
    overlay stack and let the solid page background (`.r-v2` bg) show through:
@@ -239,7 +253,7 @@ html.r-v2-reduced-motion *::after {
 
 .r-v2-bg__overlay {
   position: fixed;
-  /* Match .r-v2-bg — cover the large viewport so the dark overlay reaches the
+  /* Match .r-v2-bg: cover the large viewport so the dark overlay reaches the
      bottom while the mobile address bar animates out during a scroll. */
   inset: 0 0 auto 0;
   height: 100vh;
@@ -262,7 +276,7 @@ html.r-v2-reduced-motion *::after {
     );
 }
 
-/* Light theme overlay — a stronger, near-even light wash so content always
+/* Light theme overlay: a stronger, near-even light wash so content always
    sits on a calm off-white field. The dark default dips to 0-30% bg in the
    centre (right where the home rows live), which on light reads as the muddy
    bleed-through. Here the field never drops below ~74% bg: a faint cover
@@ -292,7 +306,7 @@ html.r-v2-reduced-motion *::after {
   display: none;
 }
 
-/* Section stack — vertical flow with breathing room between sibling
+/* Section stack: vertical flow with breathing room between sibling
    cards. Applied to view roots that host multiple stacked sections
    (Settings views, Library Tools views). The fixed 14px gap matches
    the bare-mode rhythm SettingsLayout uses for its own direct
@@ -337,7 +351,9 @@ html.r-v2-reduced-motion {
 .r-pinned-toolbar::before {
   content: "";
   position: absolute;
-  inset: calc(-1 * var(--r-nav-h)) calc(-1 * var(--r-row-pad)) 0;
+  /* Out through the gutter and the shell's safe-area padding to the screen edges. */
+  inset: calc(-1 * var(--r-nav-h)) calc(-1 * var(--r-gutter-r)) 0
+    calc(-1 * var(--r-gutter-l));
   z-index: -1;
   background: var(--r-glass-bar-bg);
   backdrop-filter: var(--r-glass-bar-filter);
@@ -357,7 +373,7 @@ html.r-v2-reduced-motion {
 .r-pinned-list-header::before {
   content: "";
   position: absolute;
-  inset: 0 calc(-1 * var(--r-row-pad));
+  inset: 0 calc(-1 * var(--r-gutter-r)) 0 calc(-1 * var(--r-gutter-l));
   z-index: -1;
   background: var(--r-glass-bar-bg);
   backdrop-filter: var(--r-glass-bar-filter);
@@ -424,11 +440,11 @@ html.r-v2-reduced-motion {
   color: var(--r-color-fg-muted);
 }
 
-/* Chevron rotation — single source of truth for the spring-curve flip
+/* Chevron rotation: single source of truth for the spring-curve flip
    used on every disclosure / dropdown / collapsible trigger. Drop the
    class onto the chevron icon; it rotates 180° when either:
    • an ancestor declares `aria-expanded="true"` (covers menus, selects,
-     collapsibles — already required for a11y), or
+     collapsibles: already required for a11y), or
    • the icon (or any ancestor) carries the explicit
      `.r-chevron-toggle--open` modifier (escape hatch for callers
      without an aria-expanded surface).
@@ -449,13 +465,13 @@ html.r-v2-reduced-motion {
   }
 }
 
-/* Card reveal — the whole card (cover box + title) pops in with a
+/* Card reveal: the whole card (cover box + title) pops in with a
    scale-up + rise and a gentle overshoot, staggered across the row via
    --card-fade-i so a freshly fetched window cascades in instead of
    snapping. Shared between the gallery grid (re-fires every time the
    virtualiser recycles a card on scroll) and the Home dashboard rows.
    Kept to transform + opacity (compositor-cheap): a filter/blur here
-   would risk jank on long lists — the blur-up flourish lives on the
+   would risk jank on long lists: the blur-up flourish lives on the
    <img> inside GameCover instead, layering on top of this pop. */
 .r-v2-card-fade {
   animation: r-v2-card-fade 380ms cubic-bezier(0.34, 1.28, 0.64, 1) both;
@@ -476,7 +492,7 @@ html.r-v2-reduced-motion {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  /* No pop/rise — just a quick, flat fade. */
+  /* No pop/rise: just a quick, flat fade. */
   .r-v2-card-fade {
     animation: r-v2-card-fade-reduced 200ms ease-out both;
     animation-delay: 0ms;
@@ -491,7 +507,7 @@ html.r-v2-reduced-motion {
   }
 }
 
-/* Asset reveal — the list/strip variant of the card pop. Saves,
+/* Asset reveal: the list/strip variant of the card pop. Saves,
    states, file rows, screenshot thumbs and soundtrack tracks are
    dense info content, so the pop+overshoot of `.r-v2-card-fade`
    reads as too "showy"; this variant keeps the same direction (rise
@@ -528,7 +544,7 @@ html.r-v2-reduced-motion {
   }
 }
 
-/* Shimmer loading — matches the mockup's card skeleton. */
+/* Shimmer loading: matches the mockup's card skeleton. */
 .r-v2-shimmer {
   animation: r-v2-shimmer 1.4s ease-in-out infinite;
 }

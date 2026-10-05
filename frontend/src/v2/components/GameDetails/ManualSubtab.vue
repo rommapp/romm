@@ -109,9 +109,9 @@ watch(
       // lands on the manual they just uploaded.
       const added = entries.filter((e) => !previousManualIds.has(e.id));
       if (added.length > 0 && previousManualIds.size > 0) {
-        selectedManualId.value = added[added.length - 1].id;
+        selectedManualId.value = added[added.length - 1]!.id;
       } else if (!entries.some((e) => e.id === selectedManualId.value)) {
-        selectedManualId.value = entries[0].id;
+        selectedManualId.value = entries[0]!.id;
       }
     }
     previousManualIds = currentIds;

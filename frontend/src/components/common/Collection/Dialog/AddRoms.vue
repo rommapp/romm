@@ -18,7 +18,7 @@ const { mdAndUp } = useDisplay();
 const show = ref(false);
 const romsStore = storeRoms();
 const collectionsStore = storeCollections();
-const selectedCollection = ref<CollectionSchema>();
+const selectedCollection = ref<CollectionSchema | null>(null);
 const roms = ref<SimpleRom[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showAddToCollectionDialog", (romsToAdd) => {
@@ -68,7 +68,7 @@ async function addRomsToCollection() {
 function closeDialog() {
   roms.value = [];
   show.value = false;
-  selectedCollection.value = undefined;
+  selectedCollection.value = null;
 }
 </script>
 
@@ -100,15 +100,15 @@ function closeDialog() {
       >
         <template #item="{ props, item }">
           <CollectionListItem
-            :collection="item.raw"
+            :collection="item"
             v-bind="props"
             :with-title="false"
           />
         </template>
         <template #chip="{ item }">
           <v-chip class="pl-0" label>
-            <RAvatarCollection :collection="item.raw" :size="35" class="mr-2" />
-            {{ item.raw.name }}
+            <RAvatarCollection :collection="item" :size="35" class="mr-2" />
+            {{ item.name }}
           </v-chip>
         </template>
       </v-autocomplete>

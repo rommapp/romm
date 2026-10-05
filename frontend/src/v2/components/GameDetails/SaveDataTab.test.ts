@@ -1,14 +1,12 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DetailedRomSchema, UserStateSchema } from "@/__generated__";
+import type { UserStateSchema } from "@/__generated__";
 import storeAuth from "@/stores/auth";
-import type { User } from "@/stores/users";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
+import { userFixture } from "@/utils/user.fixtures";
 import SaveDataTab from "./SaveDataTab.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => ({ query: {}, path: "/rom/1", params: {} }),
@@ -40,12 +38,12 @@ function state(id: number, emulator: string): UserStateSchema {
 function mountTab(states: UserStateSchema[]) {
   return mount(SaveDataTab, {
     props: {
-      rom: {
+      rom: detailedRomFixture({
         id: 1,
         platform_slug: "ps2",
         all_user_saves: [],
         all_user_states: states,
-      } as unknown as DetailedRomSchema,
+      }),
     },
     global: {
       stubs: {
@@ -62,8 +60,7 @@ function mountTab(states: UserStateSchema[]) {
 
 describe("SaveDataTab upload cores", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    storeAuth().setCurrentUser({ id: 1 } as User);
+    storeAuth().setCurrentUser(userFixture({ id: 1 }));
   });
 
   it("offers an emulator configured in another case once", () => {

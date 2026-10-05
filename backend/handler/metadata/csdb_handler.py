@@ -8,23 +8,27 @@ https://csdb.dk/webservice/
 
 from __future__ import annotations
 
-import re
 from typing import Final, NotRequired, TypedDict
 from urllib.parse import parse_qs, urlparse
 from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
 
-import httpx2
 from defusedxml import ElementTree as ET
 
 from config import CSDB_API_ENABLED
 from logger.logger import log
-from utils import get_version, int_or_none
+from utils import int_or_none
+from utils.datetime import parse_utc_timestamp
 from utils.rate_limiter import RateLimiter
 
-from .base_handler import BaseRom, MetadataHandler, unavailable
+from .base_handler import (
+    BaseRom,
+    MetadataHandler,
+    provider_tag_regex,
+    tag_id_from_filename,
+)
 from .demozoo_handler import build_scene_summary, http_url
 
-CSDB_TAG_REGEX = re.compile(r"\(csdb-(\d+)\)", re.IGNORECASE)
+CSDB_TAG_REGEX = provider_tag_regex("csdb")
 CSDB_WEBSERVICE: Final[str] = "https://csdb.dk/webservice/"
 CSDB_RELEASE_PAGE: Final[str] = "https://csdb.dk/release/?id={id}"
 _rate_limiter = RateLimiter(1.5)
@@ -53,10 +57,7 @@ class CsdbRom(BaseRom):
 
 
 def extract_csdb_id_from_filename(fs_name: str) -> int | None:
-    match = CSDB_TAG_REGEX.search(fs_name)
-    if match:
-        return int_or_none(match.group(1))
-    return None
+    return tag_id_from_filename(CSDB_TAG_REGEX, fs_name)
 
 
 def csdb_id_from_url(url: str) -> int | None:
@@ -67,12 +68,14 @@ def csdb_id_from_url(url: str) -> int | None:
     host = (parsed.netloc or "").lower().removeprefix("www.")
     if host != "csdb.dk":
         return None
-    query = parse_qs(parsed.query)
-    raw = (query.get("id") or [""])[0]
+    parts = [p for p in parsed.path.split("/") if p]
+    # Groups, sceners and events carry an ?id= too, so only a release page counts.
+    if not parts or parts[0] != "release":
+        return None
+    raw = (parse_qs(parsed.query).get("id") or [""])[0]
     if raw.isdigit():
         return int_or_none(raw)
-    parts = [p for p in parsed.path.split("/") if p]
-    if len(parts) >= 2 and parts[0] == "release" and parts[1].isdigit():
+    if len(parts) >= 2 and parts[1].isdigit():
         return int_or_none(parts[1])
     return None
 
@@ -88,10 +91,7 @@ def _text(node: Element | None, tag: str) -> str:
 
 def _year_unix(year: str) -> int | None:
     if len(year) == 4 and year.isdigit():
-        # 1 Jan UTC, same convention as other handlers' date fields.
-        from datetime import datetime, timezone
-
-        return int(datetime(int(year), 1, 1, tzinfo=timezone.utc).timestamp())
+        return parse_utc_timestamp(year, ("%Y",))
     return None
 
 
@@ -170,32 +170,24 @@ class CsdbHandler(MetadataHandler):
 
     async def _request(self, url: str) -> str:
         await _rate_limiter.acquire()
-        headers = {
-            "User-Agent": f"RomM/{get_version()}",
-            "Accept": "application/xml, text/xml, */*",
-        }
-        try:
-            body = await self._fetch_capped(url, headers=headers)
-        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
-            log.warning(
-                "Can't connect to CSDb webservice", extra={"exception": str(exc)}
-            )
-            raise unavailable("CSDb") from exc
+        body = await self._get_capped(
+            url,
+            provider="CSDb",
+            accept="application/xml, text/xml, */*",
+            missing_ok=True,
+        )
         if body is None:
             return ""
         return body.decode("utf-8", errors="replace")
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
-        try:
+        async def probe() -> bool:
             xml = await self._request(
                 f"{CSDB_WEBSERVICE}?type=release&id=75330&depth=1"
             )
-        except Exception as exc:
-            log.error("Error checking CSDb API: %s", exc)
-            return False
-        return "<Release>" in xml and "<ID>75330</ID>" in xml
+            return "<Release>" in xml and "<ID>75330</ID>" in xml
+
+        return await self._heartbeat("CSDb API", probe)
 
     async def get_rom_by_id(self, csdb_id: int) -> CsdbRom:
         if not self.is_enabled() or not csdb_id:

@@ -52,6 +52,7 @@ def test_heartbeat(client):
     assert isinstance(emulation["DISABLE_RUFFLE_RS"], bool)
     assert isinstance(emulation["DISABLE_JSDOS"], bool)
     assert isinstance(emulation["DISABLE_PICO8"], bool)
+    assert isinstance(emulation["DISABLE_EASYRPG"], bool)
 
     assert "FRONTEND" in heartbeat
     frontend = heartbeat["FRONTEND"]
@@ -62,6 +63,8 @@ def test_heartbeat(client):
     assert isinstance(oidc["ENABLED"], bool)
     assert isinstance(oidc["PROVIDER"], str)
     assert isinstance(oidc["RP_INITIATED_LOGOUT"], bool)
+
+    assert isinstance(heartbeat["CONVERTO"]["ENABLED"], bool)
 
 
 @pytest.mark.parametrize(

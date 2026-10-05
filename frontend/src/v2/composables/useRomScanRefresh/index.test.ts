@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
@@ -48,9 +47,7 @@ async function install(path: string) {
 
 describe("useRomScanRefresh", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     handlers.clear();
-    refetchRom.mockClear();
   });
 
   it("refetches the open rom when a scan finishes", async () => {

@@ -10,6 +10,7 @@ from unittest import mock
 
 import pytest
 from fastapi import status
+from tests.factories import make_save
 
 from handler.database import (
     db_deleted_asset_handler,
@@ -550,6 +551,39 @@ class TestSyncSessions:
         assert len(data) == 1
         assert data[0]["device_id"] == dev_a.id
 
+    def test_list_sessions_paginates(self, client, access_token: str, admin_user: User):
+        device = db_device_handler.add_device(
+            Device(id="session-dev-page", user_id=admin_user.id)
+        )
+        created = [
+            db_sync_session_handler.create_session(
+                device_id=device.id, user_id=admin_user.id
+            )
+            for _ in range(3)
+        ]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        first = client.get("/api/sync/sessions?limit=2&offset=0", headers=headers)
+        rest = client.get("/api/sync/sessions?limit=2&offset=2", headers=headers)
+
+        assert first.status_code == status.HTTP_200_OK
+        assert rest.status_code == status.HTTP_200_OK
+        ids = [s["id"] for s in first.json() + rest.json()]
+        assert sorted(ids) == sorted(s.id for s in created)
+
+    @pytest.mark.parametrize(
+        "params", [{"limit": 0}, {"limit": 10_001}, {"offset": -1}]
+    )
+    def test_list_sessions_rejects_invalid_paging(
+        self, client, access_token: str, params: dict[str, int]
+    ):
+        response = client.get(
+            "/api/sync/sessions",
+            params=params,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
     def test_get_session(self, client, access_token: str, admin_user: User):
         device = db_device_handler.add_device(
             Device(id="session-dev-get", user_id=admin_user.id)
@@ -746,19 +780,13 @@ def _negotiate(client, access_token, device_id, saves):
 def _slot_version(
     user: User, rom: Rom, stem: str, content_hash: str, updated_at: datetime
 ) -> Save:
-    save = db_save_handler.add_save(
-        Save(
-            rom_id=rom.id,
-            user_id=user.id,
-            file_name=f"{stem}.sav",
-            file_name_no_tags=stem,
-            file_name_no_ext=stem,
-            file_extension="sav",
-            file_path=f"{rom.platform_slug}/saves",
-            file_size_bytes=100,
-            slot="autosave",
-            content_hash=content_hash,
-        )
+    save = make_save(
+        rom,
+        user,
+        f"{stem}.sav",
+        file_size_bytes=100,
+        slot="autosave",
+        content_hash=content_hash,
     )
     return db_save_handler.update_save(save.id, {"updated_at": updated_at})
 
@@ -1004,6 +1032,86 @@ class TestNegotiateAdvanced:
         ops_for_save = [op for op in data["operations"] if op.get("save_id") == save.id]
         assert len(ops_for_save) == 0
 
+    def test_negotiate_restores_a_synced_save_the_client_lost(
+        self, client, access_token: str, admin_user: User, save: Save
+    ):
+        device = db_device_handler.add_device(
+            Device(id="neg-restore-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+        db_device_save_sync_handler.upsert_sync(
+            device_id=device.id,
+            save_id=save.id,
+            synced_at=datetime.now(timezone.utc),
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={"device_id": device.id, "saves": [], "restore_unlisted": True},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        ops_for_save = [
+            op for op in response.json()["operations"] if op.get("save_id") == save.id
+        ]
+        assert [op["action"] for op in ops_for_save] == ["download"]
+
+    def test_negotiate_scopes_server_saves_to_the_listed_emulators(
+        self, client, access_token: str, admin_user: User, rom: Rom, platform
+    ):
+        db_device_handler.add_device(
+            Device(id="neg-emu-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+        native = make_save(
+            rom,
+            admin_user,
+            "native.sav",
+            emulator="retroarch",
+            slot="autosave",
+            content_hash="NATIVE",
+            file_path=f"{platform.slug}/saves/retroarch",
+            file_size_bytes=1.0,
+        )
+        browser = make_save(
+            rom,
+            admin_user,
+            "browser.sav",
+            emulator="jsdos",
+            slot="quicksave",
+            content_hash="BROWSER",
+            file_path=f"{platform.slug}/saves/jsdos",
+            file_size_bytes=1.0,
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={
+                "device_id": "neg-emu-dev",
+                "rom_ids": [rom.id],
+                "emulators": ["jsdos"],
+                "saves": [
+                    {
+                        "rom_id": rom.id,
+                        "file_name": "autosave.changes",
+                        "slot": "autosave",
+                        "emulator": "jsdos",
+                        "content_hash": "LOCAL",
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                        "file_size_bytes": 1,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        operations = response.json()["operations"]
+        assert native.id not in {op.get("save_id") for op in operations}
+        actions = {(op["slot"], op["action"]) for op in operations}
+        assert ("autosave", "upload") in actions
+        assert ("quicksave", "download") in actions
+        assert browser.id in {op.get("save_id") for op in operations}
+
     def test_negotiate_matches_untagged_client_to_tagged_server_saves(
         self, client, access_token: str, admin_user: User, rom: Rom, platform
     ):
@@ -1012,20 +1120,15 @@ class TestNegotiateAdvanced:
             Device(id="neg-tagged-dev", user_id=admin_user.id, sync_enabled=True)
         )
         for tag in ("2026-01-01_00-00-00", "2026-02-02_00-00-00"):
-            db_save_handler.add_save(
-                Save(
-                    rom_id=rom.id,
-                    user_id=admin_user.id,
-                    file_name=f"test_save [{tag}].sav",
-                    file_name_no_tags="test_save",
-                    file_name_no_ext=f"test_save [{tag}]",
-                    file_extension="sav",
-                    emulator="test_emulator",
-                    slot="autosave",
-                    content_hash="HASH_MATCH",
-                    file_path=f"{platform.slug}/saves/test_emulator",
-                    file_size_bytes=1.0,
-                )
+            make_save(
+                rom,
+                admin_user,
+                f"test_save [{tag}].sav",
+                emulator="test_emulator",
+                slot="autosave",
+                content_hash="HASH_MATCH",
+                file_path=f"{platform.slug}/saves/test_emulator",
+                file_size_bytes=1.0,
             )
 
         response = client.post(
@@ -1449,19 +1552,14 @@ class TestNegotiateConflictEvents:
         platform: Platform,
     ):
         saves = [
-            db_save_handler.add_save(
-                Save(
-                    rom_id=rom.id,
-                    user_id=admin_user.id,
-                    file_name=f"wide_{index}.sav",
-                    file_name_no_tags=f"wide_{index}",
-                    file_name_no_ext=f"wide_{index}",
-                    file_extension="sav",
-                    emulator="test_emulator",
-                    slot=f"slot-{index}",
-                    file_path=f"{platform.slug}/saves/test_emulator",
-                    file_size_bytes=1.0,
-                )
+            make_save(
+                rom,
+                admin_user,
+                f"wide_{index}.sav",
+                emulator="test_emulator",
+                slot=f"slot-{index}",
+                file_path=f"{platform.slug}/saves/test_emulator",
+                file_size_bytes=1.0,
             )
             for index in range(3)
         ]

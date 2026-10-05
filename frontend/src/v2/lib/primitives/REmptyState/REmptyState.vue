@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// REmptyState — generic "nothing here yet" placeholder.
+// REmptyState: generic "nothing here yet" placeholder.
 // Used wherever a list / panel can have zero items: media subtabs,
 // save data subtabs, empty filters. Icon + title + optional hint +
 // optional `actions` slot for CTAs (primitive contract: text via
@@ -10,8 +10,8 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   icon?: string;
-  title?: string;
-  hint?: string;
+  title?: string | undefined;
+  hint?: string | undefined;
   iconSize?: string | number;
   /** Size ladder shared with RBtn / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
@@ -78,7 +78,7 @@ withDefaults(defineProps<Props>(), {
   }
 }
 
-/* Size ladder — same vocabulary as RBtn/RChip/RTag/RTabNav. Ramps both
+/* Size ladder: same vocabulary as RBtn/RChip/RTag/RTabNav. Ramps both
    the box padding and the title typography step. */
 .r-empty-state--x-small {
   padding: var(--r-space-4) var(--r-space-3);

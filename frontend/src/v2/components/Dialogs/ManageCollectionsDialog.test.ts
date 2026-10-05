@@ -1,13 +1,13 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import storeAuth from "@/stores/auth";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
-import type { User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
+import { collectionFixture } from "@/utils/collection.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import { userFixture } from "@/utils/user.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -25,9 +25,7 @@ const {
   snackbarError: vi.fn(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/services/api/collection", () => ({
   default: {
@@ -57,17 +55,17 @@ vi.mock("@/v2/composables/useWebpSupport", () => ({
 const USER_ID = 3;
 
 function rom(id: number): SimpleRom {
-  return { id, name: `Game ${id}`, platform_id: 1 } as SimpleRom;
+  return romFixture({ id, name: `Game ${id}`, platform_id: 1 });
 }
 
 function collection(romIds: number[]): Collection {
-  return {
+  return collectionFixture({
     id: 12,
     name: "Shooters",
     user_id: USER_ID,
     rom_ids: romIds,
     rom_count: romIds.length,
-  } as Collection;
+  });
 }
 
 /** Mount the dialog, open it over `roms`, and click the one collection row. */
@@ -120,9 +118,7 @@ function mountDialog(
 
 describe("ManageCollectionsDialog gallery reconcile", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
-    storeAuth().setCurrentUser({ id: USER_ID } as User);
+    storeAuth().setCurrentUser(userFixture({ id: USER_ID }));
   });
 
   it("drops the roms from the gallery when removing them from the collection on screen", async () => {
@@ -142,7 +138,7 @@ describe("ManageCollectionsDialog gallery reconcile", () => {
 
     expect(removeRomsFromCollection).toHaveBeenCalledWith(12, [1, 2]);
     expect(galleryRemove).toHaveBeenCalledTimes(1);
-    expect(galleryRemove.mock.calls[0][0].map((r) => r.id)).toEqual([1, 2]);
+    expect(galleryRemove.mock.calls[0]![0].map((r) => r.id)).toEqual([1, 2]);
     expect(romsRemove).toHaveBeenCalledTimes(1);
     expect(selection.count).toBe(0);
   });
@@ -152,7 +148,7 @@ describe("ManageCollectionsDialog gallery reconcile", () => {
     collections.setCollections([collection([1, 2])]);
     removeRomsFromCollection.mockResolvedValue({ data: collection([]) });
     const gallery = storeGalleryRoms();
-    gallery.setCurrentCollection({ ...collection([]), id: 99 } as Collection);
+    gallery.setCurrentCollection({ ...collection([]), id: 99 });
     const galleryRemove = vi.spyOn(gallery, "remove");
 
     await toggleRow([rom(1), rom(2)]);
@@ -220,8 +216,6 @@ describe("ManageCollectionsDialog gallery reconcile", () => {
 
 describe("ManageCollectionsDialog create", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     storeAuth().setCurrentUser(userFixture({ id: USER_ID }));
   });
 

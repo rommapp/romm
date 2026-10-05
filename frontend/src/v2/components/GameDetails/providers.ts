@@ -8,7 +8,7 @@ export type Provider = {
   /** Field on DetailedRom that holds the provider's external ID. */
   key: keyof DetailedRom;
   name: string;
-  /** CSS color value (token reference) — kept inline because tokens
+  /** CSS color value (token reference): kept inline because tokens
    *  resolve at the consumer's CSS context, not at this file. */
   color: string;
   /** Optional favicon for the provider's identity. */

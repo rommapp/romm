@@ -21,7 +21,7 @@ const supportedPlatforms = ref<Platform[]>();
 const heartbeat = storeHeartbeat();
 
 const fsSlugToCreate = ref<string>("");
-const selectedPlatform = ref<Platform>();
+const selectedPlatform = ref<Platform | null>(null);
 const mappingType = ref<"alias" | "variant">("alias");
 const isEditing = ref(false);
 const originalFsSlug = ref<string>("");
@@ -73,16 +73,15 @@ emitter?.on(
       originalMappingType.value = payload.type;
       fsSlugToCreate.value = payload.fsSlug;
       mappingType.value = payload.type;
-      selectedPlatform.value = supportedPlatforms.value?.find(
-        (p) => p.slug === payload.slug,
-      );
+      selectedPlatform.value =
+        supportedPlatforms.value?.find((p) => p.slug === payload.slug) ?? null;
     } else {
       // Create mode
       isEditing.value = false;
       originalFsSlug.value = "";
       originalMappingType.value = "alias";
       fsSlugToCreate.value = "";
-      selectedPlatform.value = undefined;
+      selectedPlatform.value = null;
       mappingType.value = "alias";
     }
 
@@ -181,7 +180,7 @@ function closeDialog() {
   show.value = false;
   originalFsSlug.value = "";
   fsSlugToCreate.value = "";
-  selectedPlatform.value = undefined;
+  selectedPlatform.value = null;
 }
 
 function getMappingTypeDescription(type: "alias" | "variant"): string {
@@ -218,7 +217,11 @@ function getMappingTypeDescription(type: "alias" | "variant"): string {
             <p class="text-romm-gray mb-3">
               {{ t("settings.add-mapping-type") }}
             </p>
-            <v-radio-group v-model="mappingType" class="mt-2">
+            <v-radio-group
+              :model-value="mappingType"
+              class="mt-2"
+              @update:model-value="$event && (mappingType = $event)"
+            >
               <v-radio value="alias" class="mb-2">
                 <template #label>
                   <div class="ml-2">
@@ -275,7 +278,7 @@ function getMappingTypeDescription(type: "alias" | "variant"): string {
                 ? t('settings.romm-platform')
                 : t('settings.parent-platform')
             "
-            :items="supportedPlatforms"
+            :items="supportedPlatforms!"
             color="primary"
             base-color="primary"
             variant="outlined"
@@ -285,31 +288,27 @@ function getMappingTypeDescription(type: "alias" | "variant"): string {
             hide-details
           >
             <template #item="{ props, item }">
-              <v-list-item
-                class="py-2"
-                v-bind="props"
-                :title="item.raw.name ?? ''"
-              >
+              <v-list-item class="py-2" v-bind="props" :title="item.name ?? ''">
                 <template #prepend>
                   <PlatformIcon
-                    :key="item.raw.slug"
+                    :key="item.slug"
                     :size="35"
-                    :slug="item.raw.slug"
-                    :name="item.raw.name"
-                    :fs-slug="item.raw.fs_slug"
+                    :slug="item.slug"
+                    :name="item.name"
+                    :fs-slug="item.fs_slug"
                   />
                 </template>
               </v-list-item>
             </template>
             <template #selection="{ item }">
-              <v-list-item class="px-0" :title="item.raw.name ?? ''">
+              <v-list-item class="px-0" :title="item.name ?? ''">
                 <template #prepend>
                   <PlatformIcon
-                    :key="item.raw.slug"
+                    :key="item.slug"
                     :size="35"
-                    :slug="item.raw.slug"
-                    :name="item.raw.name"
-                    :fs-slug="item.raw.fs_slug"
+                    :slug="item.slug"
+                    :name="item.name"
+                    :fs-slug="item.fs_slug"
                   />
                 </template>
               </v-list-item>

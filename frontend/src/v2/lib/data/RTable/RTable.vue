@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T">
-// RTable — generic CSS-grid sortable table primitive.
+// RTable: generic CSS-grid sortable table primitive.
 //
 // Visual + interaction language extracted from the gallery list view
 // (`GameListHeader` / `GameListRow`) so every "table" surface in the
@@ -23,10 +23,11 @@
 //     <template #cell.actions="{ row }">…</template>
 //   </RTable>
 //
-// Sort emits the new (key, dir) — toggling direction on the active
+// Sort emits the new (key, dir): toggling direction on the active
 // column or starting at "asc" on a new column. The store/composable
 // owns the actual sort state; RTable is pure UI.
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { useTimeoutFn } from "@vueuse/core";
+import { computed, ref, watch } from "vue";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import REmptyState from "../../primitives/REmptyState/REmptyState.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
@@ -71,7 +72,7 @@ const gridStyle = computed(() => ({ gridTemplateColumns: gridTemplate.value }));
 
 // Optional horizontal-scroll floor. Without it columns shrink + ellipsis
 // to fit (current behaviour). With it, header + body keep this min-width
-// and the table scrolls horizontally below it — useful for many-column
+// and the table scrolls horizontally below it: useful for many-column
 // tables on narrow / mobile viewports. Set e.g. `min-width="640px"`.
 const resolvedMinWidth = computed<string | undefined>(() => {
   const w = props.minWidth;
@@ -86,7 +87,7 @@ const scrollStyle = computed(() =>
 
 // On phones a multi-column grid squashes every cell to an ellipsis. When no
 // horizontal-scroll floor is set, each row instead reflows into a stacked
-// card on `xs` (the column label becomes a per-cell caption — see <style>).
+// card on `xs` (the column label becomes a per-cell caption: see <style>).
 // Setting `minWidth` opts back into the scrollable table for genuinely
 // tabular data (e.g. log lines) where the card treatment would hurt.
 const mobileStack = computed(() => resolvedMinWidth.value === undefined);
@@ -124,26 +125,21 @@ const rowStyle = computed(() =>
 );
 
 // Entrance animation plays once: rows fade + rise in on first paint. After
-// it finishes we drop the `--enter` class so re-sorting (which moves — i.e.
-// re-inserts — the keyed DOM nodes, restarting CSS animations) doesn't
+// it finishes we drop the `--enter` class so re-sorting (which moves, i.e.
+// re-inserts, the keyed DOM nodes, restarting CSS animations) doesn't
 // replay it. New rows added later simply appear without the flourish.
 const hasEntered = ref(false);
-let enterTimer: ReturnType<typeof setTimeout> | undefined;
+// Animation (≈320ms) + max stagger (12 × 24ms) with headroom.
+const enter = useTimeoutFn(() => (hasEntered.value = true), 700, {
+  immediate: false,
+});
 watch(
   () => phase.value === "content",
   (showing) => {
-    if (showing && !hasEntered.value && enterTimer === undefined) {
-      // animation (≈320ms) + max stagger (12 × 24ms) with headroom.
-      enterTimer = setTimeout(() => {
-        hasEntered.value = true;
-      }, 700);
-    }
+    if (showing && !hasEntered.value && !enter.isPending.value) enter.start();
   },
   { immediate: true },
 );
-onBeforeUnmount(() => {
-  if (enterTimer !== undefined) clearTimeout(enterTimer);
-});
 </script>
 
 <template>
@@ -153,7 +149,7 @@ onBeforeUnmount(() => {
     role="table"
     v-bind="$attrs"
   >
-    <!-- Header row — each column header is a cell `<div>` containing
+    <!-- Header row: each column header is a cell `<div>` containing
          either a sort `<button>` (sortable cols) or a plain label, plus
          an optional `header.<key>` slot for adornments (e.g. a help
          icon next to "Type"). The sort button is the only interactive
@@ -207,7 +203,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Body — skeletons / real rows / empty state, in that order. -->
+      <!-- Body: skeletons / real rows / empty state, in that order. -->
       <div class="r-table__body" role="presentation">
         <template v-if="phase === 'skeleton'">
           <div
@@ -280,7 +276,7 @@ onBeforeUnmount(() => {
               }"
               role="cell"
             >
-              <!-- Caption — hidden on desktop (the header row labels the
+              <!-- Caption: hidden on desktop (the header row labels the
                    columns), shown only in the mobile card-stack so each
                    value keeps its context. -->
               <span v-if="col.label" class="r-table__cell-label">
@@ -312,7 +308,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
-/* Horizontal-scroll viewport — header + body scroll together so their
+/* Horizontal-scroll viewport: header + body scroll together so their
    columns stay aligned. Inert until a `minWidth` is set (the var defaults
    to 0, so the grids just fill the width as before). */
 .r-table__scroll {
@@ -339,7 +335,7 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(10px);
 }
 
-/* Outer cell — flex container holding the sort button (or static
+/* Outer cell: flex container holding the sort button (or static
    label) and any consumer adornment from the `header.<key>` slot. */
 .r-table__header-cell {
   display: inline-flex;
@@ -362,7 +358,7 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-/* Inner sort button — the only interactive piece in the header. The
+/* Inner sort button: the only interactive piece in the header. The
    tint flips to fg on hover/focus/active so the affordance still reads
    exactly like the previous all-cell button. */
 .r-table__header-sort {
@@ -428,7 +424,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-/* Entrance — rows fade + rise in on mount, lightly staggered top-to-bottom.
+/* Entrance: rows fade + rise in on mount, lightly staggered top-to-bottom.
    Keyed rows mean re-sorting moves existing nodes (no replay); only freshly
    mounted rows (initial load, search results) animate. */
 .r-table__row--enter {
@@ -469,7 +465,7 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-/* Per-cell caption — carries the column label into the mobile card-stack.
+/* Per-cell caption: carries the column label into the mobile card-stack.
    Hidden on desktop where the header row already labels each column (and so
    removed from the a11y tree, leaving the header as the single label
    source); the stacked card flips this on and hides the header instead. */
@@ -480,7 +476,7 @@ onBeforeUnmount(() => {
 /* ------------------- Mobile card-stack (xs) ------------------
    A multi-column grid squashes every cell to an ellipsis on a phone. With no
    `minWidth` floor set (`.r-table--mobile-stack`), each row reflows into a
-   stacked card: the header hides, every cell becomes a `caption — value`
+   stacked card: the header hides, every cell becomes a caption/value
    line, and action columns (no label) align their controls to the end.
    Consumers that need the real table keep it by setting `minWidth` (then the
    `__scroll` viewport scrolls horizontally instead). */
@@ -493,7 +489,7 @@ html[data-bp~="xs"] .r-table--mobile-stack .r-table__row {
   align-items: stretch;
   gap: 6px;
   /* Beat the inline `row-height` (set via the `rowHeight` prop for the
-     dense desktop table) — a fixed height crushes the stacked cells into
+     dense desktop table): a fixed height crushes the stacked cells into
      each other, so the card must always grow to fit its content. */
   height: auto !important;
   padding: 12px var(--r-space-3);
@@ -506,7 +502,7 @@ html[data-bp~="xs"] .r-table--mobile-stack .r-table__cell {
   white-space: normal;
   overflow: visible;
 }
-/* Action / icon-only columns carry no caption — push their controls to the
+/* Action / icon-only columns carry no caption: push their controls to the
    end so they read as the card's row of actions. */
 html[data-bp~="xs"] .r-table--mobile-stack .r-table__cell--no-label {
   justify-content: flex-end;

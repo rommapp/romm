@@ -2,6 +2,8 @@
 import axios from "axios";
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
+import { isCustomScheme } from "@/utils/pairCallback";
+import { errorMessage as apiErrorMessage } from "@/v2/utils/errorMessage";
 
 const route = useRoute();
 
@@ -10,15 +12,6 @@ const callback = computed(() => (route.query.callback as string) || "");
 
 const status = ref<"idle" | "exchanging" | "error">("idle");
 const errorMessage = ref("");
-
-function isCustomScheme(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol !== "http:" && parsed.protocol !== "https:";
-  } catch {
-    return false;
-  }
-}
 
 async function exchange(pairCode: string): Promise<string> {
   const resp = await axios.post<{ raw_token: string }>(
@@ -48,10 +41,12 @@ onMounted(async () => {
       const token = await exchange(code.value);
       const separator = callback.value.includes("?") ? "&" : "?";
       window.location.href = `${callback.value}${separator}token=${encodeURIComponent(token)}`;
-    } catch (err: any) {
+    } catch (err: unknown) {
       status.value = "error";
-      errorMessage.value =
-        err.response?.data?.detail || "Failed to exchange pairing code.";
+      errorMessage.value = apiErrorMessage(
+        err,
+        "Failed to exchange pairing code.",
+      );
     }
     return;
   }

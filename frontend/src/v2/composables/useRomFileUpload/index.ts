@@ -97,7 +97,7 @@ export function useRomFileUpload() {
           filesToUpload: batch,
           ...(overwrite && { overwrite }),
         });
-        return batch.map((file, i) => ({ file, result: results[i] }));
+        return batch.map((file, i) => ({ file, result: results[i]! }));
       };
 
       let attempts = await send(files);

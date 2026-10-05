@@ -1,5 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { ref } from "vue";
+import RMenu from "@/v2/lib/menus/RMenu/RMenu.vue";
+import RMenuItem from "@/v2/lib/menus/RMenuItem/RMenuItem.vue";
+import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RSelect from "./RSelect.vue";
 
@@ -24,9 +28,11 @@ const PLATFORMS = [
   { title: "PC", value: "pc" },
 ];
 
-const meta: Meta<typeof RSelect> = {
+// Generic components can't fill Storybook's `component` slot, so it's cast;
+// the instantiation types the stories' args.
+const meta: Meta<typeof RSelect<unknown, unknown>> = {
   title: "Forms/RSelect",
-  component: RSelect,
+  component: RSelect as never,
   argTypes: {
     variant: {
       control: "inline-radio",
@@ -82,7 +88,7 @@ const meta: Meta<typeof RSelect> = {
 
 export default meta;
 
-type Story = StoryObj<typeof RSelect>;
+type Story = StoryObj<typeof RSelect<unknown, unknown>>;
 
 // ── Defaults ────────────────────────────────────────────────────────
 
@@ -234,7 +240,7 @@ export const Multiple: Story = {
 };
 
 // Without `chips` the selections render as one run of text. The comma
-// separator must read "A, B" — a space on both sides means the separator
+// separator must read "A, B": a space on both sides means the separator
 // picked up the value row's flex gap.
 export const MultipleText: Story = {
   name: "Multiple (no chips)",
@@ -350,7 +356,7 @@ export const ChipTones: Story = {
 
 // ── Chip slot ──────────────────────────────────────────────────────
 
-// Use the `#chip` slot to fully control chip content — replace the
+// Use the `#chip` slot to fully control chip content: replace the
 // default label/title with a custom layout (icon, avatar, mini-card).
 // The slot receives the active item; styling falls back to chipTone.
 export const ChipSlotIconOnly: Story = {
@@ -512,4 +518,68 @@ export const FormRow: Story = {
       </div>
     `,
   }),
+};
+
+// A menu opened from inside the panel teleports outside it; using that
+// menu must not count as a press outside the select.
+export const NestedMenu: Story = {
+  name: "Menu inside the panel",
+  render: () => ({
+    components: { RSelect, RMenu, RMenuItem, RBtn },
+    setup: () => {
+      const value = ref<string | null>(null);
+      const items = ref<{ title: string; value: string }[]>([]);
+      function add(title: string) {
+        items.value.push({ title, value: title.toLowerCase() });
+      }
+      return { value, items, add };
+    },
+    template: `
+      <div style="width:340px">
+        <RSelect v-model="value" :items="items" placeholder="Pick a collection">
+          <template #no-data>
+            <RMenu>
+              <template #activator="{ props }">
+                <RBtn v-bind="props" size="small" variant="translucent" append-icon="mdi-chevron-down">
+                  Add a collection
+                </RBtn>
+              </template>
+              <RMenuItem label="Favourites" @click="add('Favourites')" />
+              <RMenuItem label="Backlog" @click="add('Backlog')" />
+            </RMenu>
+          </template>
+        </RSelect>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    // The panel and the menu teleport to <body>, outside the story canvas.
+    const body = within(document.body);
+    const field = canvasElement.querySelector<HTMLElement>(".r-select__field");
+
+    await step(
+      "Open the select, then the menu in its empty state",
+      async () => {
+        await userEvent.click(field!);
+        await userEvent.click(
+          await body.findByRole("button", { name: "Add a collection" }),
+        );
+      },
+    );
+
+    await step("Picking from the menu keeps the select open", async () => {
+      await userEvent.click(await body.findByText("Backlog"));
+      await waitFor(() =>
+        expect(body.getByRole("option", { name: "Backlog" })).toBeTruthy(),
+      );
+      expect(document.querySelector(".r-select__panel")).not.toBeNull();
+    });
+
+    await step("A press outside both closes the select", async () => {
+      await userEvent.click(document.body);
+      await waitFor(() =>
+        expect(document.querySelector(".r-select__panel")).toBeNull(),
+      );
+    });
+  },
 };

@@ -2,9 +2,7 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import AssetTimestamp from "./AssetTimestamp.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ locale: "en_US" }),
-}));
+vi.mock("vue-i18n");
 
 describe("AssetTimestamp", () => {
   it("shows the relative time and the exact moment", () => {

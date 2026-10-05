@@ -100,13 +100,20 @@ def nulls_last[T](sort_key: SQLColumnExpression[T], descending: bool) -> Dialect
     )
 
 
-def force_index_on_mysql[S: Select[Any]](
+def force_index_on_mysql[S: Select[*tuple[Any, ...]]](
     statement: S, table: FromClause | type[Any], index_name: str
 ) -> S:
     """Make MySQL and MariaDB read `table` through `index_name`; PostgreSQL plans freely."""
     hint = f"FORCE INDEX ({index_name})"
     for dialect_name in _MYSQL_FAMILY:
         statement = statement.with_hint(table, hint, dialect_name)
+    return statement
+
+
+def optimizer_hint_on_mysql[S: Select[*tuple[Any, ...]]](statement: S, hint: str) -> S:
+    """Prefix the SELECT with an optimizer `hint` on MySQL and MariaDB only."""
+    for dialect_name in _MYSQL_FAMILY:
+        statement = statement.prefix_with(f"/*+ {hint} */", dialect=dialect_name)
     return statement
 
 

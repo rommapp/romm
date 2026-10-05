@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// SetupStepAdmin — Step 2 of the setup wizard. Creates the first admin
+// SetupStepAdmin: Step 2 of the setup wizard. Creates the first admin
 // account that owns the library and manages other users.
 //
 // Two-column layout: left side carries the avatar picker + context (what
@@ -13,7 +13,8 @@
 // to Step 1 and back preserves what the user typed). This component is
 // pure UI: bind props in, emit input/validity out.
 import { RBtn, RForm, RIcon, RTextField, RTooltip } from "@v2/lib";
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { useObjectUrl } from "@vueuse/core";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { defaultAvatarPath } from "@/utils";
 import PasswordField from "@/v2/components/shared/PasswordField.vue";
@@ -31,7 +32,7 @@ export interface AdminUserDraft {
   email: string;
   password: string;
   repeatPassword: string;
-  avatar?: File;
+  avatar?: File | undefined;
 }
 
 defineOptions({ inheritAttrs: false });
@@ -56,31 +57,8 @@ const repeatPasswordRules = computed(() => [
 ]);
 
 // ── Avatar picker ──────────────────────────────────────────────────
-//
-// Hold the preview URL alongside the File so the user can see what they
-// picked even after they navigate away from this step and back. We use
-// an object URL (cheaper than a base64 reader) and revoke it whenever
-// the file changes or the component unmounts.
 const fileInputRef = ref<HTMLInputElement | null>(null);
-const previewUrl = ref<string>("");
-
-watch(
-  () => draft.value.avatar,
-  (file, prev) => {
-    if (previewUrl.value) {
-      URL.revokeObjectURL(previewUrl.value);
-      previewUrl.value = "";
-    }
-    if (file && file !== prev) {
-      previewUrl.value = URL.createObjectURL(file);
-    }
-  },
-  { immediate: true },
-);
-
-onBeforeUnmount(() => {
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
-});
+const previewUrl = useObjectUrl(() => draft.value.avatar);
 
 const avatarSrc = computed(() => previewUrl.value || defaultAvatarPath);
 
@@ -233,7 +211,7 @@ html[data-bp~="sm-and-down"] .r-setup-admin {
   grid-template-columns: 1fr;
   gap: var(--r-space-5);
   /* The body clips (overflow: hidden) so this step scrolls its own content,
-     like the other steps — otherwise the stacked intro + form overflow and
+     like the other steps: otherwise the stacked intro + form overflow and
      the last field (with its bottom margin) gets cut off. Align to the top so
      the scroll starts at the first row; the layer promotion keeps the region
      from collapsing when the form re-renders on input. */
@@ -258,7 +236,7 @@ html[data-bp~="sm-and-down"] .r-setup-admin__intro {
   text-align: center;
 }
 
-/* Avatar — clickable round button sits next to a small trash icon that
+/* Avatar: clickable round button sits next to a small trash icon that
    removes the picked photo. The trash button stays disabled until a
    photo is picked so the affordance is discoverable without inviting a
    no-op click. It bottom-aligns next to the avatar so the danger glyph

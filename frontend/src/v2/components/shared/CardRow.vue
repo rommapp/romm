@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CardRow — horizontal-scrolling section grouping a row of cards under a
+// CardRow: horizontal-scrolling section grouping a row of cards under a
 // heading. Shared composite: the Home dashboard groups "Continue playing /
 // Recently added / Favorites / Platforms / Collections" with it, and the
 // Jukebox groups its launch tiles.
@@ -8,11 +8,12 @@
 // horizontal track, and gradient left/right arrow buttons that appear
 // only when the track actually overflows in that direction.
 //
-// The icon slot sizes to its content — whatever size the caller's inner
+// The icon slot sizes to its content: whatever size the caller's inner
 // RIcon renders at drives the layout, and the title always stays
 // vertically centred with it (flex align-items:center on the head).
 import { RBtn, RTag } from "@v2/lib";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useMutationObserver, useResizeObserver } from "@vueuse/core";
+import { computed, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
@@ -20,20 +21,20 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 
 interface Props {
-  title?: string;
-  count?: number | string;
+  title?: string | undefined;
+  count?: number | string | undefined;
   /** Horizontal gap between children in the scroll track. */
   gap?: string;
-  /** Title font size — defaults to 14.5px. Accepts any CSS length. */
+  /** Title font size: defaults to 14.5px. Accepts any CSS length. */
   titleSize?: string | number;
   /**
-   * Title font weight — defaults to semibold. Accepts the named weights
+   * Title font weight: defaults to semibold. Accepts the named weights
    * used elsewhere (regular / medium / semibold / bold) or a raw number.
    */
   titleWeight?: "regular" | "medium" | "semibold" | "bold" | number;
   /** Space between icon and title. Grows naturally as icons get bigger. */
   iconGap?: string;
-  /** Icon opacity — default 0.6 keeps it subdued against the title. Set
+  /** Icon opacity: default 0.6 keeps it subdued against the title. Set
    *  to 1 when you want the icon to read as prominent as the title. */
   iconOpacity?: number;
 }
@@ -84,53 +85,30 @@ function scrollBy(dir: -1 | 1) {
   el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
 }
 
-// Observe both the track and its children for size changes — covers:
-//   * initial mount (track measured before children paint)
-//   * skeleton → real card swap (different widths)
-//   * window resize collapsing/widening the track
-//   * font-load / image-load shifts that change scrollWidth
-// Without this, `canRight` is decided once and never reconsidered, so
-// rows that overflow only after async data arrives never show the
-// right-arrow until the user scrolls manually.
-let trackObserver: ResizeObserver | null = null;
-let childObserver: MutationObserver | null = null;
+// The cards are observed too: a card resize can change the track's
+// scrollWidth without resizing the track itself.
+const observedEls = shallowRef<HTMLElement[]>([]);
 
-function bindObservers() {
+function collectObserved() {
   const el = scrollEl.value;
   if (!el) return;
-  trackObserver = new ResizeObserver(() => updateScroll());
-  trackObserver.observe(el);
-  // Observe each child's size too — when a 158px skeleton is replaced
-  // by a same-width real card the ResizeObserver on the track itself
-  // doesn't always fire (scrollWidth changed but clientWidth didn't),
-  // and on the first paint the children may not be present yet.
-  for (const child of Array.from(el.children)) {
-    trackObserver.observe(child as Element);
-  }
-  // Re-bind child observation as DOM mutates (skeletons added/removed,
-  // real cards inserted).
-  childObserver = new MutationObserver(() => {
-    if (!trackObserver || !scrollEl.value) return;
-    trackObserver.disconnect();
-    trackObserver.observe(scrollEl.value);
-    for (const child of Array.from(scrollEl.value.children)) {
-      trackObserver.observe(child as Element);
-    }
-    updateScroll();
-  });
-  childObserver.observe(el, { childList: true });
+  const cards = Array.from(el.children).filter((c) => c instanceof HTMLElement);
+  observedEls.value = [el, ...cards];
 }
+
+useResizeObserver(observedEls, () => updateScroll());
+useMutationObserver(
+  scrollEl,
+  () => {
+    collectObserved();
+    updateScroll();
+  },
+  { childList: true },
+);
 
 onMounted(() => {
   requestAnimationFrame(updateScroll);
-  bindObservers();
-});
-
-onBeforeUnmount(() => {
-  trackObserver?.disconnect();
-  trackObserver = null;
-  childObserver?.disconnect();
-  childObserver = null;
+  collectObserved();
 });
 </script>
 
@@ -202,7 +180,7 @@ onBeforeUnmount(() => {
   color: var(--r-color-fg-secondary);
 }
 
-/* Icon slot — sizes to its content so the caller's RIcon `size` drives
+/* Icon slot: sizes to its content so the caller's RIcon `size` drives
    the layout. Flex align-items:center on the head keeps it vertically
    centred with the title at any icon size. */
 .card-row__icon {
@@ -235,7 +213,7 @@ onBeforeUnmount(() => {
 }
 
 /* Vertically centred, anchored to the row edges. The RBtn surface gets
-   a dark scrim so the arrow has contrast over busy cover thumbnails —
+   a dark scrim so the arrow has contrast over busy cover thumbnails:
    translucent alone reads too faint without a brand color. Override
    RBtn's at-rest opacity (0.7) so the 85% reading comes purely from
    the white-secondary token applied to the icon. */

@@ -4,14 +4,7 @@ import type { SaveSchema } from "@/__generated__";
 import { saveFixture } from "@/utils/assets.fixtures";
 import AssetList from "./AssetList.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({
-    // Keeps the pluralisation count, so a wrong one fails the assertion.
-    t: (key: string, count?: number) =>
-      typeof count === "number" ? `${key}:${count}` : key,
-    locale: "en_US",
-  }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
 const RBtn = {
@@ -103,7 +96,7 @@ describe("AssetList slot grouping", () => {
 
     const folds = wrapper.findAll(".fold");
     expect(folds).toHaveLength(2);
-    await folds[1].trigger("click");
+    await folds[1]!.trigger("click");
 
     expect(names(wrapper)).toEqual([
       "save_3.srm",
@@ -126,7 +119,7 @@ describe("AssetList slot grouping", () => {
   it("emits the picked version", async () => {
     const wrapper = mountList({});
 
-    await wrapper.findAll(".r-asset-list__row")[1].trigger("click");
+    await wrapper.findAll(".r-asset-list__row")[1]!.trigger("click");
 
     expect(wrapper.emitted("select")?.[0]?.[0]).toMatchObject({ id: 4 });
   });

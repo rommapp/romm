@@ -24,7 +24,7 @@ class LogStreamHandler(logging.Handler):
     covers the whole backend.
 
     Failures are swallowed **silently** — stdout is the source-of-truth log, so
-    a Redis hiccup (or the metadata package not being importable yet during the
+    a Redis hiccup (or the Redis client not being importable yet during the
     first few boot lines) must neither raise into the app nor spam tracebacks
     via ``handleError``.
     """

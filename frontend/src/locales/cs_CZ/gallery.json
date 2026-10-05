@@ -1,5 +1,8 @@
 {
   "all-loaded": "Všechny hry byly načteny",
+  "back-to-top": "Zpět nahoru",
+  "column-actions": "Akce",
+  "column-cover": "Obal",
   "filters": "Filtry",
   "firmware-files-count": "{count} souborů",
   "firmware-selected-count": "{count} vybráno",
@@ -29,6 +32,7 @@
   "sort-ascending": "Seřadit vzestupně",
   "sort-by": "Seřadit podle",
   "sort-descending": "Seřadit sestupně",
+  "sort-relevance": "Relevance",
   "view-flat": "Plochý pohled",
   "view-grid": "Mřížka",
   "view-grouped": "Seskupit podle písmene",

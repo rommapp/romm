@@ -1,12 +1,4 @@
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 // Re-imported per case below, but the bases are the same strings either way.
 import { CDN_BASE as CDN, LOCAL_BASE as LOCAL } from "./jsDosRuntime";
 
@@ -29,12 +21,8 @@ async function loadFresh() {
 
 // Intercepted rather than inserted: a real <link> would have the test
 // environment go out and fetch the stylesheet.
-beforeAll(() => {
+beforeEach(() => {
   vi.spyOn(document.head, "appendChild").mockImplementation((node) => node);
-});
-
-afterAll(() => {
-  vi.restoreAllMocks();
 });
 
 function stylesheets(): string[] {
@@ -44,7 +32,6 @@ function stylesheets(): string[] {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
   mocks.isJsResource.mockResolvedValue(true);
   mocks.loadScript.mockResolvedValue(undefined);
 });

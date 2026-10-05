@@ -7,7 +7,7 @@ import type {
   UserStateSchema,
 } from "@/__generated__";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 
 // Relative to the real clock, since AssetTimestamp formats against Date.now().
 const STORY_NOW = Date.now();
@@ -154,8 +154,8 @@ export function manyStates(n: number): StateSchema[] {
     180 * 24,
   ];
   return Array.from({ length: n }).map((_, i) => {
-    const shot = stateShots[i % stateShots.length];
-    const at = hoursAgo(ages[i % ages.length]);
+    const shot = stateShots[i % stateShots.length]!;
+    const at = hoursAgo(ages[i % ages.length]!);
     return makeState({
       id: i + 1,
       file_name: `${shot.label.replace("+", " ").toLowerCase()}_${i + 1}.state`,
@@ -245,7 +245,7 @@ export function mixedCommunityStates(): UserStateSchema[] {
 export function storyDetailedRom(
   overrides: Partial<DetailedRomSchema> = {},
 ): DetailedRomSchema {
-  return makeDetailedRom({
+  return detailedRomFixture({
     platform_slug: "snes",
     all_user_saves: mixedCommunitySaves(),
     all_user_states: mixedCommunityStates(),

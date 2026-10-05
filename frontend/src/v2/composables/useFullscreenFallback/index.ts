@@ -1,4 +1,4 @@
-// useFullscreenFallback — installs the emulated Fullscreen API for this scope
+// useFullscreenFallback: installs the emulated Fullscreen API for this scope
 // on platforms that have none for elements.
 import { onScopeDispose } from "vue";
 import { installFullscreenFallback } from "@/v2/utils/playerFullscreen";

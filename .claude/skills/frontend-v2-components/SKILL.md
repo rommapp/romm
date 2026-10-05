@@ -44,7 +44,7 @@ If any fails: **shared composite** if generic across features, **feature composi
 
 ### Primitive boundaries
 
-- **Can use**: tokens, other primitives, Vue, generic composables (`useInput*`, `useFocus*`).
+- **Can use**: tokens, other primitives, Vue, generic composables (`useInputModality`, `useGridNav`, `useEscapable`).
 - **Cannot use**: Pinia stores, API services, `emitter`, `router` (a `RouterLink` may be accepted as a prop), `i18n` directly. **No `$t()` in primitives**: text comes via props or slots. ESLint enforces the import side for `src/v2/lib` (`no-restricted-imports` for packages, `import-x/no-restricted-paths` for app modules). Domain knowledge that is not an import (a hardcoded `/assets/...` path, domain-named props) still needs review.
 - **Chrome labels** are the exception to "via props": the accessible name
   of a control the primitive renders for itself (a dialog's close button, a

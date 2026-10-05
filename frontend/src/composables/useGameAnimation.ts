@@ -2,10 +2,10 @@
  * This composable is used to animate the game card and play button.
  * It will spin CD based games on hover and load cartridge based games on play.
  */
-import { useLocalStorage } from "@vueuse/core";
 import { computed, ref, watch, type Ref, type ShallowRef } from "vue";
 import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
 import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom, SearchRom } from "@/stores/roms";
 import { isCDBasedSystem } from "@/utils";
@@ -47,18 +47,18 @@ export function useGameAnimation({
   isHovering = ref(false),
 }: {
   rom: SimpleRom | SearchRom;
-  coverSrc?: string;
+  coverSrc?: string | undefined;
   coverRef?: Readonly<ShallowRef<VImg | null>>;
   videoRef?: Readonly<ShallowRef<HTMLVideoElement | null>>;
-  forceBoxart?: BoxartStyleOption;
+  forceBoxart?: BoxartStyleOption | undefined;
   isHovering?: Ref<boolean>;
 }) {
   const romsStore = storeRoms();
-  const _boxartStyle = useLocalStorage<BoxartStyleOption>(
+  const _boxartStyle = useUserLocalStorage<BoxartStyleOption>(
     "settings.boxartStyle",
     "cover_path",
   );
-  const disableAnimations = useLocalStorage(
+  const disableAnimations = useUserLocalStorage(
     "settings.disableAnimations",
     false,
   );

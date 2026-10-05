@@ -11,7 +11,6 @@ import asyncssh
 from anyio import Path as AnyioPath
 from anyio import open_file
 
-from config import ENABLE_SYNC_PUSH_PULL, SYNC_PUSH_PULL_CRON
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
@@ -27,7 +26,8 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.device import Device, SyncMode
 from models.sync_session import SyncSessionStatus
-from tasks.tasks import PeriodicTask, TaskType
+from tasks.registry import SYNC_PUSH_PULL_SPEC
+from tasks.tasks import PeriodicTask
 
 
 async def run_push_pull_sync(
@@ -36,7 +36,7 @@ async def run_push_pull_sync(
     force: bool = False,
 ) -> dict[str, Any]:
     """Execute push-pull sync for one or all push_pull devices."""
-    if not ENABLE_SYNC_PUSH_PULL and not force:
+    if not SYNC_PUSH_PULL_SPEC.enabled and not force:
         log.info("Push-pull sync not enabled, skipping")
         return {"status": "disabled"}
 
@@ -168,10 +168,16 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict[st
                 current_file=remote_save.file_name,
             )
 
-        push_count = await _push_missing_saves(
+        pushed, push_failed = await _push_missing_saves(
             device, conn, remote_saves, save_directories
         )
-        completed += push_count
+        completed += pushed
+        failed += push_failed
+        if pushed or push_failed:
+            db_sync_session_handler.update_session(
+                session_id=sync_session.id,
+                data={"operations_planned": operations_planned + pushed + push_failed},
+            )
 
     except Exception as e:
         log.error(f"Push-pull sync failed for device {device.id}: {e}", exc_info=True)
@@ -372,10 +378,11 @@ async def _push_missing_saves(
     conn: asyncssh.SSHClientConnection,
     remote_saves: list[RemoteSaveInfo],
     save_directories: list[dict[str, Any]],
-) -> int:
-    """Push server saves that are missing from the device."""
+) -> tuple[int, int]:
+    """Push server saves that are missing from the device; returns (pushed, failed)."""
     ssh_sync_handler = get_ssh_sync_handler()
     pushed = 0
+    failed = 0
 
     # Build set of remote filenames per platform
     remote_files: dict[str, set[str]] = {}
@@ -440,21 +447,16 @@ async def _push_missing_saves(
                         f"Push-pull: failed to push {save.file_name} to device {device.id}",
                         exc_info=True,
                     )
+                    failed += 1
 
-    return pushed
+    return pushed, failed
 
 
 class SyncPushPullTask(PeriodicTask):
     """Periodic task to run push-pull sync for all configured devices."""
 
     def __init__(self) -> None:
-        super().__init__(
-            title="Push-Pull Sync",
-            description="Sync saves with devices via SSH/SFTP",
-            task_type=TaskType.SYNC,
-            enabled=ENABLE_SYNC_PUSH_PULL,
-            cron_string=SYNC_PUSH_PULL_CRON,
-        )
+        super().__init__(SYNC_PUSH_PULL_SPEC)
 
     async def run(self, *args: Any, **kwargs: Any) -> Any:
         return await run_push_pull_sync(**kwargs)

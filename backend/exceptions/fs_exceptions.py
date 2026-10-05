@@ -13,15 +13,6 @@ class FolderStructureNotMatchException(Exception):
         return self.message
 
 
-class PlatformNotFoundException(Exception):
-    def __init__(self, platform: str) -> None:
-        self.message = f"Platform {platform} not found"
-        super().__init__(self.message)
-
-    def __repr__(self) -> str:
-        return self.message
-
-
 class PlatformAlreadyExistsException(Exception):
     def __init__(self, fs_slug: str) -> None:
         self.message = f"Platform {fs_slug} already exists"
@@ -43,6 +34,18 @@ class RomsNotFoundException(Exception):
 class RomAlreadyExistsException(Exception):
     def __init__(self, rom_name: str) -> None:
         self.message = f"Can't rename: {hl(rom_name)} already exists"
+        super().__init__(self.message)
+
+    def __repr__(self) -> str:
+        return self.message
+
+
+class RomListedByPlaylistException(Exception):
+    def __init__(self, playlist: str) -> None:
+        self.message = (
+            f"{playlist} lists this disc, so moving it into a folder would break "
+            "the playlist. Move the set into a folder of its own first"
+        )
         super().__init__(self.message)
 
     def __repr__(self) -> str:

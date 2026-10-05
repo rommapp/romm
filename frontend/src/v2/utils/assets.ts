@@ -77,5 +77,5 @@ export function emulatorLabelFrom(
 ): string {
   if (!emulator) return "";
   const key = emulatorKey(emulator);
-  return Object.hasOwn(labels, key) ? labels[key] : emulator;
+  return Object.hasOwn(labels, key) ? labels[key]! : emulator;
 }

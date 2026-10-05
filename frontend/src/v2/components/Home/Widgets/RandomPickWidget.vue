@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RandomPickWidget — picks a random ROM from the library and surfaces
+// RandomPickWidget: picks a random ROM from the library and surfaces
 // it on the Home dashboard. Body: cover + name + platform + release
 // year / region, the whole thing a link to the rom. Reroll lives in
 // the card's top-right action slot and reshuffles in place without
@@ -17,6 +17,7 @@ import type { SimpleRom } from "@/stores/roms";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import WidgetCard from "./WidgetCard.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -85,7 +86,7 @@ async function reroll({ notify }: { notify: boolean }) {
     loading.value = false;
     if (hadFocus) {
       await nextTick();
-      rerollEl()?.focus();
+      focusFromInput(rerollEl());
     }
   }
 }
@@ -165,7 +166,7 @@ onMounted(() => reroll({ notify: false }));
   border-radius: var(--r-radius-sm);
 }
 
-/* Fixed height, natural width — the cover renders at its image's true
+/* Fixed height, natural width: the cover renders at its image's true
    aspect (GameCover measures it), matching the gallery. The descendant
    selector outweighs GameCover's base `width: 100%` so width can follow
    the ratio. */
@@ -190,7 +191,7 @@ onMounted(() => reroll({ notify: false }));
   font-weight: var(--r-font-weight-semibold);
   line-height: 1.2;
   color: var(--r-color-fg);
-  /* Clamp at 2 lines — random covers + 70px height keep the card from
+  /* Clamp at 2 lines: random covers + 70px height keep the card from
      growing when the picked title is long. */
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -233,7 +234,7 @@ html:not([data-input="pad"])
   font-variant-numeric: tabular-nums;
 }
 
-/* The die reads as a die only above the button's default 1.25em glyph. */
+/* The die reads as a die only above the button's default glyph size. */
 .r-v2-widget-pick__reroll :deep(.r-btn__icon) {
   font-size: 19px;
 }

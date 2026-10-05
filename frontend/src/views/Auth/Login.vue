@@ -31,7 +31,7 @@ const {
 const forgotMode = ref(false);
 const forgotUser = ref("");
 const sendingReset = ref(false);
-const validForm = ref(false);
+const validForm = ref<boolean | null>(false);
 
 async function login() {
   loggingIn.value = true;

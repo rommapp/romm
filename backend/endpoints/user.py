@@ -10,6 +10,7 @@ from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.permissions import emit_permissions_changed
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
+from exceptions.database_exceptions import LastAdminError
 from handler.audit_handler import (
     AuditActor,
     AuditTarget,
@@ -18,7 +19,7 @@ from handler.audit_handler import (
     client_ip,
     record,
 )
-from handler.auth import auth_handler
+from handler.auth.base_handler import auth_handler
 from handler.auth.constants import Scope
 from handler.database import (
     db_client_token_handler,
@@ -482,18 +483,7 @@ async def update_user(
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
-        new_role = Role.coerce(form_data.role)
-        # You can't demote the last admin (mirrors the delete guard).
-        if (
-            db_user.role == Role.ADMIN
-            and new_role != Role.ADMIN
-            and len(db_user_handler.get_admin_users()) == 1
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="You cannot demote the last admin user",
-            )
-        cleaned_data["role"] = new_role
+        cleaned_data["role"] = Role.coerce(form_data.role)
 
     # You can't disable yourself
     if form_data.enabled is not None and request.user.id != id:
@@ -541,11 +531,18 @@ async def update_user(
             "hashed_password"
         )
 
-        await auth_handler.apply_user_update(
-            id,
-            cleaned_data,
-            revoke_sessions_for=previous_username if creds_updated else None,
-        )
+        try:
+            await auth_handler.apply_user_update(
+                id,
+                cleaned_data,
+                revoke_sessions_for=previous_username if creds_updated else None,
+                keep_an_admin=True,
+            )
+        except LastAdminError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot demote the last admin user",
+            ) from exc
 
         if creds_updated and request.user.id == id:
             request.session.clear()
@@ -607,15 +604,14 @@ async def delete_user(
     if request.user.id == id:
         raise HTTPException(status_code=400, detail="You cannot delete yourself")
 
-    # You can't delete the last admin user
-    if user.role == Role.ADMIN and len(db_user_handler.get_admin_users()) == 1:
-        raise HTTPException(
-            status_code=400, detail="You cannot delete the last admin user"
-        )
-
     token_ids = db_client_token_handler.get_token_ids_by_users([id])
     device_ids = [device.id for device in db_device_handler.get_devices(user_id=id)]
-    db_user_handler.delete_user(id)
+    try:
+        db_user_handler.delete_user(id, keep_an_admin=True)
+    except LastAdminError as exc:
+        raise HTTPException(
+            status_code=400, detail="You cannot delete the last admin user"
+        ) from exc
     await close_client_token_sockets(token_ids)
     for device_id in device_ids:
         await device_install_handler.discard_for_device(device_id)

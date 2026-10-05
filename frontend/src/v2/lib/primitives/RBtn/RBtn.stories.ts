@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import RBtn from "./RBtn.vue";
 
@@ -373,7 +374,7 @@ export const FormActions: Story = {
   }),
 };
 
-// Surface modifier — pairs an outlined icon-only RBtn with an
+// Surface modifier: pairs an outlined icon-only RBtn with an
 // `RSliderBtnGroup` segmented cluster so both share the same tinted
 // chrome. Used in `GalleryToolbar` for filter / kebab buttons.
 export const SurfaceWithSlider: Story = {
@@ -394,4 +395,44 @@ export const SurfaceWithSlider: Story = {
       </p>
     `,
   }),
+};
+
+// Toggle state: `active` drives `aria-pressed` and, while on, paints the
+// translucent tint of `color` (primary when no colour is given).
+export const Active: Story = {
+  name: "Active (toggle)",
+  render: () => ({
+    components: { RBtn },
+    setup: () => ({ shuffle: ref(false), mute: ref(true) }),
+    template: `
+      <div style="display:flex;gap:8px;align-items:center">
+        <RBtn variant="text" icon="mdi-shuffle" aria-label="Shuffle" :active="shuffle" @click="shuffle = !shuffle" />
+        <RBtn variant="text" color="danger" prepend-icon="mdi-volume-off" :active="mute" @click="mute = !mute">Mute</RBtn>
+        <RBtn variant="outlined" active>Always on</RBtn>
+        <RBtn variant="outlined">Not a toggle</RBtn>
+        <RBtn variant="outlined" aria-pressed="true">Manual pressed</RBtn>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const shuffle = canvas.getByRole("button", { name: "Shuffle" });
+
+    await step("starts unpressed and toggles on click", async () => {
+      await expect(shuffle).toHaveAttribute("aria-pressed", "false");
+      await userEvent.click(shuffle);
+      await expect(shuffle).toHaveAttribute("aria-pressed", "true");
+      await expect(shuffle).toHaveClass("r-btn--translucent");
+    });
+
+    await step("leaves aria-pressed off buttons without active", async () => {
+      const plain = canvas.getByRole("button", { name: "Not a toggle" });
+      await expect(plain).not.toHaveAttribute("aria-pressed");
+    });
+
+    await step("keeps a caller's own aria-pressed", async () => {
+      const manual = canvas.getByRole("button", { name: "Manual pressed" });
+      await expect(manual).toHaveAttribute("aria-pressed", "true");
+    });
+  },
 };

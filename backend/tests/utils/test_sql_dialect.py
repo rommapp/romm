@@ -10,6 +10,7 @@ from tests.sql_dialects import (
 )
 
 from handler.database.base_handler import sync_engine
+from handler.database.roms_handler import _fulltext_match
 from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
 from models.rom import Rom
 from utils.database import CustomJSON
@@ -23,6 +24,7 @@ from utils.sql_dialect import (
     json_array_contains_any,
     json_array_contains_value,
     nulls_last,
+    optimizer_hint_on_mysql,
 )
 
 _T = sa.table(
@@ -273,6 +275,29 @@ class TestForceIndexOnMysql:
             connection.execute(statement)
 
 
+class TestOptimizerHintOnMysql:
+    @pytest.mark.parametrize(
+        ("dialect", "expected"),
+        [
+            (MARIADB_DIALECT, "t.v IN (SELECT /*+ NO_SEMIJOIN() */ t.v"),
+            (mysql.dialect(), "t.v IN (SELECT /*+ NO_SEMIJOIN() */ t.v"),
+            (POSTGRESQL_DIALECT, "t.v IN (SELECT t.v"),
+        ],
+    )
+    def test_only_the_mysql_family_gets_the_hint_once(
+        self, dialect: sa.Dialect, expected: str
+    ):
+        members = optimizer_hint_on_mysql(sa.select(_T.c.v), "NO_SEMIJOIN()")
+
+        assert _where_sql(_T.c.v.in_(members), dialect).startswith(expected)
+
+    def test_runs_on_the_running_engine(self):
+        members = optimizer_hint_on_mysql(sa.select(Rom.id), "NO_SEMIJOIN()")
+
+        with sync_engine.begin() as connection:
+            connection.execute(sa.select(Rom.id).where(Rom.id.in_(members)))
+
+
 class TestFulltextMatch:
     def test_matches_in_boolean_mode(self):
         match = fulltext_match(_T.c.name, boolean_query="+zelda*")
@@ -285,9 +310,7 @@ class TestFulltextMatch:
         """MySQL and MariaDB refuse a column list no FULLTEXT index spans exactly."""
         condition = DialectCase(
             postgresql=sa.true(),
-            mysql=fulltext_match(
-                Rom.name.expression, Rom.fs_name.expression, boolean_query="+zelda*"
-            ),
+            mysql=_fulltext_match("+zelda*"),
         )
 
         with sync_engine.connect() as connection:

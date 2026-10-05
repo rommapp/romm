@@ -1,17 +1,14 @@
 from typing import Any, cast
 
 from adapters.services.retroachievements_types import RAUserCompletionProgressKind
-from config import (
-    ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
-    SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON,
-)
 from handler.database import db_rom_handler, db_user_handler
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from logger.logger import log
 from models.rom import RomUserStatus
 from models.user import User
-from tasks.tasks import PeriodicTask, TaskType
+from tasks.registry import SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC
+from tasks.tasks import PeriodicTask
 from utils.context import initialize_context
 
 from . import UpdateStats
@@ -87,14 +84,7 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
 
 class SyncRetroAchievementsProgressTask(PeriodicTask):
     def __init__(self) -> None:
-        super().__init__(
-            title="Scheduled RetroAchievements progress sync",
-            task_type=TaskType.UPDATE,
-            description="Updates RetroAchievements progress for all users",
-            enabled=ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
-            cron_string=SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON,
-            manual_run=False,
-        )
+        super().__init__(SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC)
 
     @initialize_context()
     async def run(self) -> dict[str, Any]:

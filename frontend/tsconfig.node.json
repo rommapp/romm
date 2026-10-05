@@ -4,11 +4,23 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
     "noEmit": true,
     "skipLibCheck": true,
     "allowJs": true,
     "checkJs": true,
-    "types": ["node"]
+    "types": ["node"],
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo"
   },
-  "include": ["scripts/**/*.ts", "eslint-plugin-romm", "playwright.config.ts"]
+  "include": [
+    "scripts/**/*.ts",
+    "eslint-plugin-romm",
+    "vite.config.*",
+    "vitest.config.*",
+    "playwright.config.*",
+    "e2e/**/*.ts",
+    "eslint.config.*"
+  ]
 }

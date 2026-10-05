@@ -1,14 +1,13 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import GalleryToolbar from "./GalleryToolbar.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
+const smAndUp = ref(true);
 vi.mock("@/v2/composables/useBreakpoint", () => ({
-  useBreakpoint: () => ({ smAndUp: ref(true) }),
+  useBreakpoint: () => ({ smAndUp }),
 }));
 
 const modality = ref<"mouse" | "pad">("mouse");
@@ -88,6 +87,10 @@ describe("GalleryToolbar search autofocus", () => {
 });
 
 describe("GalleryToolbar sort axis", () => {
+  afterEach(() => {
+    smAndUp.value = true;
+  });
+
   it("emits the picked axis so grid mode can change the sort key", async () => {
     const wrapper = mountWithSortOptions();
 
@@ -101,17 +104,24 @@ describe("GalleryToolbar sort axis", () => {
     wrapper.unmount();
   });
 
-  it("marks the active axis", () => {
+  it.each([
+    ["the toolbar menu", true],
+    ["the phone-width menu", false],
+  ])("marks the active axis with a check in %s", (_, wide) => {
+    smAndUp.value = wide;
     const wrapper = mountWithSortOptions({ sortKey: "fs_size_bytes" });
 
-    const variants = Object.fromEntries(
+    const marks = Object.fromEntries(
       sortItems(wrapper).map((item) => [
         item.props("label"),
-        item.props("variant"),
+        [item.props("variant"), item.props("icon")],
       ]),
     );
 
-    expect(variants).toMatchObject({ Size: "active", Title: "default" });
+    expect(marks).toEqual({
+      Size: ["active", "mdi-check"],
+      Title: ["default", undefined],
+    });
     wrapper.unmount();
   });
 
@@ -128,6 +138,76 @@ describe("GalleryToolbar sort axis", () => {
       menusWithAxes - 1,
     );
     expect(sortItems(wrapper)).toHaveLength(0);
+    wrapper.unmount();
+  });
+
+  it("offers the unsorted order and emits a null key for it", async () => {
+    const wrapper = mountWithSortOptions({ unsortedLabel: "Relevance" });
+
+    const relevance = wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .find((item) => item.props("label") === "Relevance");
+    expect(relevance?.props("variant")).toBe("default");
+    await relevance!.trigger("click");
+
+    expect(wrapper.emitted("update:sortKey")).toEqual([[null]]);
+    wrapper.unmount();
+  });
+
+  // Relevance has no direction, so the toggle would claim one it can't apply.
+  it("hides the direction toggle while the unsorted order is active", () => {
+    const sorted = mountWithSortOptions({ unsortedLabel: "Relevance" });
+    const togglesWhenSorted = sorted.findAllComponents({
+      name: "RSliderBtnGroup",
+    }).length;
+    sorted.unmount();
+
+    const wrapper = mountWithSortOptions({
+      unsortedLabel: "Relevance",
+      sortKey: null,
+      unsorted: true,
+    });
+
+    expect(wrapper.findAllComponents({ name: "RSliderBtnGroup" })).toHaveLength(
+      togglesWhenSorted - 1,
+    );
+    const relevance = wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .find((item) => item.props("label") === "Relevance");
+    expect(relevance?.props("variant")).toBe("active");
+    expect(relevance?.props("icon")).toBe("mdi-check");
+    wrapper.unmount();
+  });
+
+  // A sort the selector doesn't offer (`last_played`) leaves no axis key, but
+  // it is still a sort.
+  it("ticks nothing and keeps the toggle for a sort it doesn't offer", () => {
+    const sorted = mountWithSortOptions({ unsortedLabel: "Relevance" });
+    const togglesWhenSorted = sorted.findAllComponents({
+      name: "RSliderBtnGroup",
+    }).length;
+    sorted.unmount();
+
+    const wrapper = mountWithSortOptions({
+      unsortedLabel: "Relevance",
+      sortKey: null,
+      unsorted: false,
+    });
+
+    expect(wrapper.findAllComponents({ name: "RSliderBtnGroup" })).toHaveLength(
+      togglesWhenSorted,
+    );
+    const ticked = wrapper
+      .findAllComponents({ name: "RMenuItem" })
+      .filter(
+        (item) =>
+          item.props("variant") === "active" &&
+          (item.props("label") === "Relevance" ||
+            SORT_OPTIONS.some(
+              (option) => option.label === item.props("label"),
+            )),
+      );
+    expect(ticked).toHaveLength(0);
     wrapper.unmount();
   });
 

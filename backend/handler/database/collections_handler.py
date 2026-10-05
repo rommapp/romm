@@ -20,7 +20,7 @@ from sqlalchemy.orm import (
     QueryableAttribute,
     Session,
     load_only,
-    noload,
+    raiseload,
     selectinload,
 )
 
@@ -54,12 +54,12 @@ def _roms_load_options() -> list[Any]:
             Rom.path_cover_s,
             Rom.path_cover_l,
         )
-        .options(noload(Rom.platform), noload(Rom.metadatum))
+        .options(raiseload(Rom.platform), raiseload(Rom.metadatum))
     ]
 
 
 # Default for a `query` parameter that with_roms fills before the body runs.
-INJECTED_COLLECTION_QUERY = cast(Select[tuple[Collection]], None)
+INJECTED_COLLECTION_QUERY = cast(Select[Collection], None)
 
 
 def with_roms[**P, R](func: Callable[P, R]) -> Callable[P, R]:
@@ -77,7 +77,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def add_collection(
         self,
         collection: Collection,
-        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        query: Select[Collection] = INJECTED_COLLECTION_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Collection:
         collection = session.merge(collection)
@@ -90,7 +90,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def get_collection(
         self,
         id: int,
-        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        query: Select[Collection] = INJECTED_COLLECTION_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Collection | None:
         return session.scalar(query.filter_by(id=id).limit(1))
@@ -101,7 +101,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         name: str,
         user_id: int,
-        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        query: Select[Collection] = INJECTED_COLLECTION_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Collection | None:
         return session.scalar(query.filter_by(name=name, user_id=user_id).limit(1))
@@ -111,7 +111,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def get_favorite_collection(
         self,
         user_id: int,
-        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        query: Select[Collection] = INJECTED_COLLECTION_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Collection | None:
         return session.scalar(
@@ -121,7 +121,7 @@ class DBCollectionsHandler(DBBaseHandler):
     def _collections_query(
         self,
         updated_after: datetime | None = None,
-    ) -> Select[tuple[Collection]]:
+    ) -> Select[Collection]:
         query = select(Collection)
 
         if updated_after:
@@ -143,7 +143,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         updated_after: datetime | None = None,
         session: Session = INJECTED_SESSION,
-    ) -> list[Row[tuple[int, int, bool]]]:
+    ) -> list[Row[int, int, bool]]:
         """Id, owner and visibility only, so neither eager load fires."""
         query = self._collections_query(updated_after=updated_after)
         return list(
@@ -161,7 +161,7 @@ class DBCollectionsHandler(DBBaseHandler):
         id: int,
         data: dict[str, Any],
         rom_ids: list[int] | None = None,
-        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        query: Select[Collection] = INJECTED_COLLECTION_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Collection:
         session.execute(
@@ -200,7 +200,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         id: int,
         rom_ids: list[int],
-        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        query: Select[Collection] = INJECTED_COLLECTION_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Collection:
         if rom_ids:
@@ -243,7 +243,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         id: int,
         rom_ids: list[int],
-        query: Select[tuple[Collection]] = INJECTED_COLLECTION_QUERY,
+        query: Select[Collection] = INJECTED_COLLECTION_QUERY,
         session: Session = INJECTED_SESSION,
     ) -> Collection:
         if rom_ids:
@@ -294,7 +294,7 @@ class DBCollectionsHandler(DBBaseHandler):
         if not collections:
             return
 
-        def covers_select(collection: VirtualCollection) -> Select[Any]:
+        def covers_select(collection: VirtualCollection) -> Select[*tuple[Any, ...]]:
             return (
                 select(
                     VirtualCollectionRom.type,
@@ -372,7 +372,7 @@ class DBCollectionsHandler(DBBaseHandler):
 
         return collections
 
-    def get_virtual_collection_rom_ids(self, id: str) -> Select[tuple[int]]:
+    def get_virtual_collection_rom_ids(self, id: str) -> Select[int]:
         """Select the rom ids of a virtual collection, as an indexed subquery."""
         name, type = VirtualCollection.from_id(id)
         return select(VirtualCollectionRom.rom_id).where(
@@ -416,7 +416,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         user_id: int | None = None,
         updated_after: datetime | None = None,
-    ) -> Select[tuple[SmartCollection]]:
+    ) -> Select[SmartCollection]:
         query = select(SmartCollection).order_by(SmartCollection.name.asc())
 
         if user_id is not None:
@@ -516,7 +516,7 @@ class DBCollectionsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-    def build_smart_collection_query[S: Select[Any]](
+    def build_smart_collection_query[S: Select[*tuple[Any, ...]]](
         self,
         *,
         query: S,
@@ -556,7 +556,7 @@ class DBCollectionsHandler(DBBaseHandler):
         smart_collection: SmartCollection,
         user_id: int | None = None,
         session: Session = INJECTED_SESSION,
-    ) -> Sequence[Row[tuple[int, str | None, str | None]]]:
+    ) -> Sequence[Row[int, str | None, str | None]]:
         """Every member's id and cover paths, in the collection's own order.
 
         Only the columns the cached membership needs, so refreshing never
@@ -630,7 +630,6 @@ class DBCollectionsHandler(DBBaseHandler):
         return self.update_smart_collection(
             id,
             {
-                "rom_count": len(rom_ids),
                 "rom_ids": rom_ids,
                 "path_covers_small": [f"{c}?ts={timestamp}" for c in covers_small],
                 "path_covers_large": [f"{c}?ts={timestamp}" for c in covers_large],

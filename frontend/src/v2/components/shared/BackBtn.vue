@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// BackBtn — pill-style "go back" button shared by gallery + detail
+// BackBtn: pill-style "go back" button shared by gallery + detail
 // topbars. Composes RIcon; not a design-system primitive (RBtn is), just a
 // recurring feature pattern that three views use verbatim.
 import { RIcon } from "@v2/lib";
@@ -10,7 +10,7 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   label?: string;
-  to?: string | object;
+  to?: string | object | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CollectionSettingsTab — collection-scoped settings rendered as the
+// CollectionSettingsTab: collection-scoped settings rendered as the
 // `Settings` tab inside Collection.vue. Same content surface as the
 // previous `CollectionSettingsDrawer`, now lives inline in the
 // collection view. One component, two branches (drawer-era split):
@@ -8,12 +8,12 @@
 //     (SteamGridDB search · file upload · remove), filter_criteria
 //     not applicable.
 //   * smart   → name / description / public, filter_criteria displayed
-//     read-only (editing the criteria isn't surfaced here — happens
+//     read-only (editing the criteria isn't surfaced here: happens
 //     via the create-smart-collection flow).
 //
 // Delete moved into this tab's danger zone (was a kebab menu item in
 // the pre-tabs design). The destructive flow is still owned by the
-// parent view — `@delete` emit triggers the confirm + router
+// parent view: `@delete` emit triggers the confirm + router
 // navigation in `Collection.vue`.
 //
 // Cover artwork flow:
@@ -21,16 +21,17 @@
 //     handles it). On selection it emits `updateUrlCover` which we
 //     stash as the pending `url_cover` (the preview swaps to the SGDB
 //     grid URL).
-//   • Upload → native file picker, FileReader for preview, sets
-//     `pendingArtwork` (File).
+//   • Upload → native file picker, sets `pendingArtwork` (File),
+//     previewed through an object URL.
 //   • Remove → marks `removeCover = true`, preview drops to the
 //     placeholder mosaic.
 //   • Save → PUT /collections/:id with `artwork` and/or `url_cover` and
 //     `remove_cover` flag; on success patches the local store.
 import { RBtn, RChip, RIcon, RTag, RTextField } from "@v2/lib";
+import { useObjectUrl } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import collectionApi, {
   type UpdatedCollection,
@@ -47,6 +48,7 @@ import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import type { Kind as CollectionKind } from "@/v2/components/Collections/CollectionTile.vue";
 import DangerZone from "@/v2/components/shared/DangerZone.vue";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -93,7 +95,7 @@ const isPublic = ref(false);
 const savingVisibility = ref(false);
 const pendingArtwork = ref<File | null>(null);
 const pendingUrlCover = ref<string | null>(null);
-const previewDataUrl = ref<string | null>(null);
+const artworkUrl = useObjectUrl(pendingArtwork);
 const removeCover = ref(false);
 const saving = ref(false);
 
@@ -127,7 +129,7 @@ const dirty = computed(() => {
 // changes (route swap, socket-driven backend update). Keeps the form
 // in sync with the canonical record without trampling in-flight edits
 // while a save is running. Accepts an explicit source so `save()` can
-// re-sync from the update response — `props.collection` only receives
+// re-sync from the update response: `props.collection` only receives
 // the fresh value asynchronously (store swap + parent reassign), so it
 // still holds the pre-save object at the moment `save()` snapshots.
 function snapshot(source: Collection | SmartCollection = props.collection) {
@@ -139,7 +141,6 @@ function snapshot(source: Collection | SmartCollection = props.collection) {
   isPublic.value = c.is_public ?? false;
   pendingArtwork.value = null;
   pendingUrlCover.value = null;
-  previewDataUrl.value = null;
   removeCover.value = false;
 }
 
@@ -155,22 +156,16 @@ watch(
 const onUrlCover = (url: string) => {
   pendingUrlCover.value = url;
   pendingArtwork.value = null;
-  previewDataUrl.value = url;
   removeCover.value = false;
 };
 
-onMounted(() => {
-  snapshot();
-  emitter?.on("updateUrlCover", onUrlCover);
-});
-onBeforeUnmount(() => {
-  emitter?.off("updateUrlCover", onUrlCover);
-});
+onMounted(() => snapshot());
+useEmitterEvent("updateUrlCover", onUrlCover);
 
 // ── Cover preview ───────────────────────────────────────────────
 const coverSrc = computed<string | null>(() => {
   if (removeCover.value) return null;
-  if (previewDataUrl.value) return previewDataUrl.value;
+  if (artworkUrl.value) return artworkUrl.value;
   if (pendingUrlCover.value) return pendingUrlCover.value;
   const c = props.collection as { path_cover_small?: string | null };
   return c.path_cover_small ? toWebp(c.path_cover_small) : null;
@@ -180,7 +175,7 @@ const mosaicFallback = computed<string[]>(() => {
   return (c.path_covers_small ?? []).slice(0, 4).map(toWebp);
 });
 
-// Smart-collection filter criteria — read-only display. The summary
+// Smart-collection filter criteria: read-only display. The summary
 // helper translates the raw JSON into a structured list of rows.
 function platformLookup(id: number): string | null {
   return allPlatforms.value.find((p) => p.id === id)?.display_name ?? null;
@@ -230,12 +225,6 @@ function onFilePicked(evt: Event) {
   pendingUrlCover.value = null;
   removeCover.value = false;
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    previewDataUrl.value = reader.result?.toString() ?? null;
-  };
-  reader.readAsDataURL(file);
-
   // Reset the input so re-picking the same file fires `change` again.
   input.value = "";
 }
@@ -243,7 +232,6 @@ function onFilePicked(evt: Event) {
 function clearArtwork() {
   pendingArtwork.value = null;
   pendingUrlCover.value = null;
-  previewDataUrl.value = null;
   removeCover.value = true;
 }
 
@@ -283,7 +271,7 @@ async function save() {
     snackbar.success(t("collection.updated", "Collection updated"), {
       icon: "mdi-check-bold",
     });
-    // Re-sync from the response, not the prop — the prop hasn't been
+    // Re-sync from the response, not the prop: the prop hasn't been
     // updated yet (see `snapshot` note), so snapshotting it would revert
     // the form to the pre-save values and keep `dirty` true.
     if (syncSaved(saved, target)) snapshot(saved);
@@ -375,7 +363,7 @@ async function setVisibility(next: boolean) {
 
 <template>
   <div class="r-settings-column">
-    <!-- Cover artwork — regular collections only. Smart collections
+    <!-- Cover artwork: regular collections only. Smart collections
          derive their cover from the contained ROMs at runtime, so an
          upload UI here would be misleading. -->
     <section v-if="kind === 'regular'" class="r-v2-coll-set__section">
@@ -432,7 +420,7 @@ async function setVisibility(next: boolean) {
       </div>
     </section>
 
-    <!-- Details (edit form) — both kinds. -->
+    <!-- Details (edit form): both kinds. -->
     <section class="r-v2-coll-set__section">
       <header class="r-section-head">
         <RIcon icon="mdi-information-outline" size="14" />

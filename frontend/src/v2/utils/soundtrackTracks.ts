@@ -7,23 +7,34 @@ import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { romFileUrl } from "@/v2/utils/romFiles";
 
 export interface PanelTrack {
-  /** `rom_file_id` — unique across the catalog. */
+  /** `rom_file_id`: unique across the catalog. */
   id: number;
   romId: number;
   fileName: string;
   /** Display title, already resolved from metadata or the file name. */
   title: string;
-  /** Artist · album · (game · platform) — whatever the source could supply. */
+  /** Artist · album · (game · platform): whatever the source could supply. */
   subtitle: string;
   url: string;
-  durationSeconds?: number;
-  fileSizeBytes?: number;
-  coverUrl?: string;
-  gameArtworkUrl?: string;
-  meta?: TrackMetaSchema;
+  durationSeconds?: number | undefined;
+  fileSizeBytes?: number | undefined;
+  coverUrl?: string | undefined;
+  gameArtworkUrl?: string | undefined;
+  meta?: TrackMetaSchema | undefined;
 }
 
-const AUDIO_EXTS = new Set(["mp3", "ogg", "oga", "wav", "flac", "m4a", "opus"]);
+const AUDIO_EXTS = new Set([
+  "mp3",
+  "ogg",
+  "oga",
+  "wav",
+  "flac",
+  "m4a",
+  "aac",
+  "opus",
+]);
+// Console sound formats, played through game-music-emu instead of `<audio>`.
+const CHIPTUNE_EXTS = new Set(["gym", "spc", "vgm", "vgz"]);
 const COVER_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 
 export function getExt(name: string): string {
@@ -31,8 +42,19 @@ export function getExt(name: string): string {
   return dot === -1 ? "" : name.slice(dot + 1).toLowerCase();
 }
 
+/** The file picker filter for soundtrack uploads. */
+export const SOUNDTRACK_ACCEPT = [
+  "audio/*",
+  ...[...AUDIO_EXTS, ...CHIPTUNE_EXTS].map((ext) => `.${ext}`),
+].join(",");
+
 export function isAudioFile(name: string): boolean {
-  return AUDIO_EXTS.has(getExt(name));
+  const ext = getExt(name);
+  return AUDIO_EXTS.has(ext) || CHIPTUNE_EXTS.has(ext);
+}
+
+export function isChiptuneFile(name: string): boolean {
+  return CHIPTUNE_EXTS.has(getExt(name));
 }
 
 export function isCoverFile(name: string): boolean {
@@ -86,11 +108,11 @@ export function panelTracksFromCatalog(
   tracks: MusicTrackSchema[],
 ): PanelTrack[] {
   return tracks.map((track) => {
-    const title = track.title || stripExtension(track.game_name ?? "");
+    const title = track.title || stripExtension(track.file_name);
     return {
       id: track.rom_file_id,
       romId: track.rom_id,
-      fileName: track.title || track.game_name || String(track.rom_file_id),
+      fileName: track.file_name,
       title,
       // The game name is context only when it says something new: untagged
       // rips often reuse it as the title, and tagged ones as the album.
@@ -122,12 +144,10 @@ export function romFolderCoverUrl(rom: DetailedRom): string | undefined {
 }
 
 /** The audio tags the now-playing surfaces show, from either track source. */
-export type NowPlayingTags = Partial<
-  Pick<
-    TrackMetaSchema,
-    "artist" | "album" | "genre" | "year" | "track" | "disc"
-  >
->;
+export type NowPlayingTags = {
+  [K in "artist" | "album" | "genre" | "year" | "track" | "disc"]?:
+    TrackMetaSchema[K] | undefined;
+};
 
 /** The line under a now-playing title: the album, else the artist. */
 export function nowPlayingCaption(tags: NowPlayingTags | undefined): string {

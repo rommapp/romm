@@ -144,7 +144,7 @@ uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-sc
 
 ```sh
 cd backend
-uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-scheduler streaming
+uv run rq worker -c config --worker-class handler.rq_worker.PreloadingWorker --with-scheduler streaming
 ```
 
 `--with-scheduler` releases delayed jobs, such as the rescans the filesystem watcher waits out, so each worker needs it. The recurring schedule is registered by the RQ cron process, which the workers then execute:
@@ -236,7 +236,8 @@ _Migrations will be run automatically when running the tests._
 cd backend
 # path or test file can be passed as argument to test only a subset
 uv run pytest [path/file]
-# or run the following command to run all tests
-# the -vv switch increases the verbosity of the output, providing more detailed information during test execution.
-uv run pytest -vv
+# or run the following command to run all tests, one worker per CPU core
+uv run pytest -n auto
 ```
+
+_Each `-n` worker gets its own database (`romm_test_gw0`, `romm_test_gw1`, ...), created on demand; `setup.sql` grants the test user the rights to create them. On MariaDB, a new worker database is copied from `romm_test_template_<digest>`, which the run migrates once and keeps for later runs. The digest covers `alembic/`, `models/` and `utils/`, so editing any of them builds a new template. To migrate from scratch, drop both the worker databases and the template. On a machine with many cores, cap the workers with `--maxprocesses 4` (CI's count) to keep the load on the database down. A serial run of the whole suite takes 20+ minutes. Drop `-n auto` when debugging with `--pdb` or `-s`, which don't work under parallel workers._

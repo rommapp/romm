@@ -185,33 +185,33 @@ async function stopScan() {
               <v-list-item v-bind="props" class="py-4">
                 <template #prepend>
                   <PlatformIcon
-                    :key="item.raw.slug"
+                    :key="item.slug"
                     :size="35"
-                    :slug="item.raw.slug"
-                    :name="item.raw.name"
-                    :fs-slug="item.raw.fs_slug"
+                    :slug="item.slug"
+                    :name="item.name"
+                    :fs-slug="item.fs_slug"
                   />
                 </template>
                 <v-row no-gutters>
                   <v-col>
                     <v-chip size="x-small" label class="text-grey">{{
-                      item.raw.fs_slug
+                      item.fs_slug
                     }}</v-chip>
                     <v-icon
-                      :icon="platformCategoryToIcon(item.raw.category || '')"
+                      :icon="platformCategoryToIcon(item.category || '')"
                       class="ml-2 text-caption text-grey"
-                      :title="item.raw.category"
+                      :title="item.category"
                     />
                     <span
-                      v-if="item.raw.family_name"
+                      v-if="item.family_name"
                       class="ml-1 text-caption text-grey"
-                      >{{ item.raw.family_name }}</span
+                      >{{ item.family_name }}</span
                     >
                   </v-col>
                 </v-row>
                 <template #append>
                   <MissingFromFSIcon
-                    v-if="item.raw.missing_from_fs"
+                    v-if="item.missing_from_fs"
                     text="Missing platform from filesystem"
                     chip
                     chip-label
@@ -219,13 +219,13 @@ async function stopScan() {
                     class="ml-2"
                   />
                   <v-row
-                    v-if="item.raw.is_identified"
+                    v-if="item.is_identified"
                     class="text-center"
                     no-gutters
                   >
                     <v-col cols="12">
                       <v-avatar
-                        v-if="item.raw.igdb_id"
+                        v-if="item.igdb_id"
                         variant="text"
                         size="25"
                         rounded
@@ -235,7 +235,7 @@ async function stopScan() {
                       </v-avatar>
 
                       <v-avatar
-                        v-if="item.raw.ss_id"
+                        v-if="item.ss_id"
                         variant="text"
                         size="25"
                         rounded
@@ -245,7 +245,7 @@ async function stopScan() {
                       </v-avatar>
 
                       <v-avatar
-                        v-if="item.raw.moby_slug"
+                        v-if="item.moby_slug"
                         variant="text"
                         size="25"
                         rounded
@@ -255,7 +255,7 @@ async function stopScan() {
                       </v-avatar>
 
                       <v-avatar
-                        v-if="item.raw.ra_id"
+                        v-if="item.ra_id"
                         variant="text"
                         size="25"
                         rounded
@@ -265,7 +265,7 @@ async function stopScan() {
                       </v-avatar>
 
                       <v-avatar
-                        v-if="item.raw.launchbox_id"
+                        v-if="item.launchbox_id"
                         variant="text"
                         size="25"
                         rounded
@@ -276,7 +276,7 @@ async function stopScan() {
                       </v-avatar>
 
                       <v-avatar
-                        v-if="item.raw.hasheous_id"
+                        v-if="item.hasheous_id"
                         variant="text"
                         size="25"
                         rounded
@@ -286,7 +286,7 @@ async function stopScan() {
                       </v-avatar>
 
                       <v-avatar
-                        v-if="item.raw.flashpoint_id"
+                        v-if="item.flashpoint_id"
                         variant="text"
                         size="25"
                         rounded
@@ -296,7 +296,7 @@ async function stopScan() {
                       </v-avatar>
 
                       <v-avatar
-                        v-if="item.raw.hltb_slug"
+                        v-if="item.hltb_slug"
                         class="bg-surface mr-1"
                         variant="text"
                         size="25"
@@ -306,7 +306,7 @@ async function stopScan() {
                       </v-avatar>
 
                       <v-avatar
-                        v-if="item.raw.libretro_slug"
+                        v-if="item.libretro_slug"
                         class="bg-surface"
                         variant="text"
                         size="25"
@@ -323,7 +323,7 @@ async function stopScan() {
                     </v-chip>
                   </v-row>
                   <v-chip class="ml-1" size="small" label>
-                    {{ item.raw.rom_count }}
+                    {{ item.rom_count }}
                   </v-chip>
                 </template>
               </v-list-item>
@@ -331,14 +331,14 @@ async function stopScan() {
             <template #chip="{ item }">
               <v-chip>
                 <PlatformIcon
-                  :key="item.raw.slug"
-                  :slug="item.raw.slug"
-                  :name="item.raw.name"
-                  :fs-slug="item.raw.fs_slug"
+                  :key="item.slug"
+                  :slug="item.slug"
+                  :name="item.name"
+                  :fs-slug="item.fs_slug"
                   :size="20"
                 />
                 <div class="ml-1">
-                  {{ item.raw.display_name }}
+                  {{ item.display_name }}
                 </div>
               </v-chip>
             </template>
@@ -370,17 +370,17 @@ async function stopScan() {
             <template #item="{ props, item }">
               <v-list-item
                 v-bind="props"
-                :title="item.raw.name"
-                :subtitle="item.raw.disabled"
-                :disabled="Boolean(item.raw.disabled)"
+                :title="item.name"
+                :subtitle="item.disabled"
+                :disabled="Boolean(item.disabled)"
               >
                 <template #prepend>
                   <v-avatar size="25" rounded="1">
-                    <v-img :src="item.raw.logo_path" />
+                    <v-img :src="item.logo_path" />
                   </v-avatar>
                 </template>
 
-                <template #append v-if="item.raw.value === 'launchbox'">
+                <template #append v-if="item.value === 'launchbox'">
                   <div class="d-flex align-center">
                     <span
                       class="text-caption text-primary text-medium-emphasis mr-4"
@@ -389,7 +389,8 @@ async function stopScan() {
                       Local
                     </span>
                     <v-switch
-                      v-model="launchboxRemoteEnabled"
+                      :model-value="launchboxRemoteEnabled"
+                      @update:model-value="launchboxRemoteEnabled = !!$event"
                       color="primary"
                       density="compact"
                       hide-details
@@ -409,7 +410,7 @@ async function stopScan() {
             </template>
             <template #chip="{ item }">
               <v-avatar class="mx-1" size="24" rounded="1">
-                <v-img :src="item.raw.logo_path" />
+                <v-img :src="item.logo_path" />
               </v-avatar>
             </template>
           </v-select>
@@ -432,7 +433,7 @@ async function stopScan() {
             variant="outlined"
           >
             <template #item="{ props, item }">
-              <v-list-item v-bind="props" :subtitle="item.raw.subtitle" />
+              <v-list-item v-bind="props" :subtitle="item.subtitle" />
             </template>
             <template #append-inner>
               <v-menu open-on-hover location="bottom start">

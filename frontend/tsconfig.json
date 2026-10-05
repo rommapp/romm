@@ -1,22 +1,7 @@
 {
-  "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts"],
-  "exclude": ["node_modules"],
-  "types": ["node", "lodash", "js-cookie", "vue-router", "vue"],
-  "compilerOptions": {
-    "composite": true,
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "lib": ["dom", "esnext"],
-    "erasableSyntaxOnly": true,
-    "noImplicitAny": true,
-    "paths": {
-      "@/*": ["./src/*"],
-      "@v2/*": ["./src/v2/*"]
-    },
-    "types": [
-      "./src/plugins/pinia.d.ts",
-      "./src/types/main.d.ts",
-      "vite/client"
-    ]
-  }
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.node.json" },
+    { "path": "./tsconfig.app.json" }
+  ]
 }

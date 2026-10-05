@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Final
 
@@ -11,7 +10,8 @@ from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
 from models.platform import Platform
 from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
-from utils.filesystem import join_rel_path, link_or_copy_file, rel_platform_folder
+from utils.datetime import format_utc
+from utils.filesystem import join_rel_path, place_export_asset, rel_platform_folder
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # Map RomM platform slugs to canonical Pegasus (collection name, shortname) pairs.
@@ -300,7 +300,7 @@ class PegasusExporter:
 
     def _format_release_date(self, timestamp: int) -> str:
         """Format release date to YYYY-MM-DD format"""
-        return datetime.fromtimestamp(timestamp / 1000, tz=UTC).strftime("%Y-%m-%d")
+        return format_utc(timestamp, "%Y-%m-%d")
 
     def _format_rating(self, average_rating: float) -> str:
         """Format rating as percentage (0-100%). Input is on 0-10 scale."""
@@ -336,13 +336,22 @@ class PegasusExporter:
         if rom.path_video:
             assets["video"] = fs_resource_handler.validate_path(rom.path_video)
 
-        # Extended media from screenscraper / gamelist metadata
+        # Extended media from screenscraper / gamelist / launchbox metadata
         ss = rom.ss_metadata or {}
         gl = rom.gamelist_metadata or {}
+        lb = rom.launchbox_metadata or {}
 
         extended: dict[str, list[str]] = {
-            "box_full": [ss.get("box3d_path", ""), gl.get("box3d_path", "")],
-            "box_back": [ss.get("box2d_back_path", ""), gl.get("box2d_back_path", "")],
+            "box_full": [
+                ss.get("box3d_path", ""),
+                gl.get("box3d_path", ""),
+                lb.get("box3d_path", ""),
+            ],
+            "box_back": [
+                ss.get("box2d_back_path", ""),
+                gl.get("box2d_back_path", ""),
+                lb.get("box2d_back_path", ""),
+            ],
             "logo": [ss.get("logo_path", "")],
             "marquee": [gl.get("marquee_path", "")],
             "cartridge": [ss.get("physical_path", ""), gl.get("physical_path", "")],
@@ -445,27 +454,6 @@ class PegasusExporter:
 
         return "\n".join(lines)
 
-    def _copy_asset(self, source: Path, dest: Path) -> bool:
-        """Place ``source`` at ``dest`` via hardlink (same filesystem) or copy
-        (otherwise). Returns True on success."""
-        if dest.exists():
-            return True
-
-        # Metadata scanned before unfetched media paths were cleared can still
-        # point at files that were never downloaded.
-        if not source.is_file():
-            log.debug(f"Skipping asset {source}: source file is missing")
-            return False
-
-        dest.parent.mkdir(parents=True, exist_ok=True)
-
-        try:
-            link_or_copy_file(source, dest)
-            return True
-        except OSError as e:
-            log.warning(f"Failed to copy {source} -> {dest}: {e}")
-            return False
-
     def _build_pegasus(
         self,
         platform_id: int,
@@ -529,7 +517,7 @@ class PegasusExporter:
                         dest_path = platform_dir / rel_dest
                     claimed[dest_path] = source_path
 
-                    if self._copy_asset(source_path, dest_path):
+                    if place_export_asset(source_path, dest_path):
                         exported_assets[asset_key] = rel_dest
 
             entry = self._create_game_entry(

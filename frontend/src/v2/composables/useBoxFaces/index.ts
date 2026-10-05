@@ -1,14 +1,17 @@
-// useBoxFaces — resolves the three flat scans an interactive 3D box needs
+// useBoxFaces: resolves the three flat scans an interactive 3D box needs
 // (front / back / spine) for a rom, and reports whether the full set is
 // available.
 //
-//   * front  — ss_metadata.box2d_path, falling back to the rom's own cover
-//              chain (webp-rewritten like everywhere else). The stored SS
-//              front comes from the same scan set as the back and spine, so
-//              preferring it keeps the three faces visually consistent even
-//              when another provider won the cover.
-//   * back   — ss_metadata.box2d_back_path
-//   * spine  — ss_metadata.box2d_side_path
+//   * front  - box2d_path, falling back to the rom's own cover chain
+//              (webp-rewritten like everywhere else). The stored front comes
+//              from the same scan set as the back and spine, so preferring
+//              it keeps the three faces visually consistent even when
+//              another provider won the cover.
+//   * back   - box2d_back_path
+//   * spine  - box2d_side_path
+//
+// Each path comes from ss_metadata, else launchbox_metadata. Both providers
+// store a face at the same resource path, so either one names the same file.
 //
 // Each face is persisted locally only when the user enabled the matching
 // `box2d` / `box2d_back` / `box2d_side` media type in `scan.media`, so
@@ -25,11 +28,11 @@ import type { SimpleRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import { toWebpUrl, useWebpSupport } from "@/v2/composables/useWebpSupport";
 
-/** The face-relevant slice of a rom — satisfied by both `SimpleRom` and
+/** The face-relevant slice of a rom: satisfied by both `SimpleRom` and
  *  `DetailedRom`. */
 export type BoxFacesRom = Pick<
   SimpleRom,
-  "ss_metadata" | "path_cover_large" | "path_cover_small"
+  "ss_metadata" | "launchbox_metadata" | "path_cover_large" | "path_cover_small"
 >;
 
 export interface BoxFaces {
@@ -44,7 +47,7 @@ function resourceUrl(path: string | null | undefined): string | null {
   return path ? `${FRONTEND_RESOURCES_PATH}/${path}` : null;
 }
 
-/** Pure resolution core — no Vue, exported for unit tests. */
+/** Pure resolution core: no Vue, exported for unit tests. */
 export function computeBoxFaces(
   rom: BoxFacesRom,
   supportsWebp: boolean,
@@ -52,9 +55,11 @@ export function computeBoxFaces(
   const localCover = rom.path_cover_large ?? rom.path_cover_small ?? null;
   const cover = localCover ? toWebpUrl(localCover, supportsWebp) : localCover;
 
-  const front = resourceUrl(rom.ss_metadata?.box2d_path) ?? cover;
-  const back = resourceUrl(rom.ss_metadata?.box2d_back_path);
-  const spine = resourceUrl(rom.ss_metadata?.box2d_side_path);
+  const ss = rom.ss_metadata;
+  const lb = rom.launchbox_metadata;
+  const front = resourceUrl(ss?.box2d_path ?? lb?.box2d_path) ?? cover;
+  const back = resourceUrl(ss?.box2d_back_path ?? lb?.box2d_back_path);
+  const spine = resourceUrl(ss?.box2d_side_path ?? lb?.box2d_side_path);
 
   return {
     front,

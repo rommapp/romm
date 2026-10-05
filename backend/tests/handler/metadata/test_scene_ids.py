@@ -38,6 +38,15 @@ def test_production_url_is_parsed(value: str, kind: str, expected: int) -> None:
     assert scene_id_or_none(value, kind) == expected
 
 
+@pytest.mark.parametrize(
+    "value",
+    ["https://csdb.dk/group/?id=901", "https://csdb.dk/scener/?id=1180"],
+)
+def test_a_csdb_page_that_is_not_a_release_is_none(value: str) -> None:
+    """A pasted group or scener link must not become some release's id."""
+    assert scene_id_or_none(value, "csdb") is None
+
+
 @pytest.mark.parametrize("kind", KINDS)
 def test_non_ascii_digit_is_none(kind: str) -> None:
     """str.isdigit() accepts a superscript that int() rejects."""

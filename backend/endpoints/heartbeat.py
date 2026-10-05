@@ -6,10 +6,12 @@ from typing import Final
 from anyio import Path as AnyioPath
 from fastapi import HTTPException, Request, status
 
+from adapters.services.rom_converto import rom_converto_service
 from adapters.services.sigil import SigilService
 from config import (
     DEVICE_INSTALL_ENABLED,
     DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS,
+    DISABLE_EASYRPG,
     DISABLE_EMULATOR_JS,
     DISABLE_JSDOS,
     DISABLE_LOGS_VIEWER,
@@ -170,6 +172,7 @@ async def heartbeat() -> HeartbeatResponse:
             "DISABLE_RUFFLE_RS": DISABLE_RUFFLE_RS,
             "DISABLE_JSDOS": DISABLE_JSDOS,
             "DISABLE_PICO8": DISABLE_PICO8,
+            "DISABLE_EASYRPG": DISABLE_EASYRPG,
         },
         "FRONTEND": {
             "DISABLE_USERPASS_LOGIN": DISABLE_USERPASS_LOGIN,
@@ -190,6 +193,7 @@ async def heartbeat() -> HeartbeatResponse:
             "ENABLED": DEVICE_INSTALL_ENABLED,
             "EXCLUDED_PLATFORM_SLUGS": sorted(DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS),
         },
+        "CONVERTO": {"ENABLED": await rom_converto_service.is_enabled()},
         "TASKS": {
             "ENABLE_SCHEDULED_RESCAN": ENABLE_SCHEDULED_RESCAN,
             "SCHEDULED_RESCAN_CRON": SCHEDULED_RESCAN_CRON,

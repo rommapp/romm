@@ -1,5 +1,4 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
@@ -9,9 +8,7 @@ import CollectionSettingsTab from "./CollectionSettingsTab.vue";
 
 const { snackbarError } = vi.hoisted(() => ({ snackbarError: vi.fn() }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en_US" } }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/services/api/collection", () => ({
   default: {
     updateCollection: vi.fn(),
@@ -58,8 +55,6 @@ function mountTab() {
 
 describe("CollectionSettingsTab visibility", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     storeAuth().setCurrentUser(
       userFixture({ id: 1, oauth_scopes: ["collections.write"] }),
     );
@@ -112,5 +107,51 @@ describe("CollectionSettingsTab visibility", () => {
 
     expect(wrapper.get(".visibility").attributes("data-on")).toBe("false");
     expect(snackbarError).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("CollectionSettingsTab cover preview", () => {
+  let urls = 0;
+
+  beforeEach(() => {
+    urls = 0;
+    vi.spyOn(URL, "createObjectURL").mockImplementation(() => `blob:${++urls}`);
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    storeAuth().setCurrentUser(
+      userFixture({ id: 1, oauth_scopes: ["collections.write"] }),
+    );
+  });
+
+  async function pick(wrapper: ReturnType<typeof mountTab>, file: File) {
+    const input = wrapper.get<HTMLInputElement>("input[type='file']");
+    Object.defineProperty(input.element, "files", {
+      value: [file],
+      configurable: true,
+    });
+    await input.trigger("change");
+  }
+
+  it("previews a picked file and revokes it when the cover is removed", async () => {
+    const wrapper = mountTab();
+
+    await pick(wrapper, new File(["a"], "a.png"));
+    expect(wrapper.get("img").attributes("src")).toBe("blob:1");
+
+    const [, , remove] = wrapper.findAll(
+      ".r-v2-coll-set__cover-actions button",
+    );
+    await remove!.trigger("click");
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:1");
+    expect(wrapper.find("img").exists()).toBe(false);
+  });
+
+  it("revokes the preview on unmount", async () => {
+    const wrapper = mountTab();
+    await pick(wrapper, new File(["a"], "a.png"));
+
+    wrapper.unmount();
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:1");
   });
 });

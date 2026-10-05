@@ -2,7 +2,7 @@
 import { useRouter } from "vue-router";
 
 const props = defineProps<{
-  text?: string;
+  text?: string | undefined;
   onBack?: () => void;
 }>();
 

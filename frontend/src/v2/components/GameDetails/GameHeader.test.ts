@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 import GameHeader from "./GameHeader.vue";
 
 const { showLogoTitle, xs } = vi.hoisted(() => ({
@@ -9,9 +9,7 @@ const { showLogoTitle, xs } = vi.hoisted(() => ({
   xs: { value: false },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 vi.mock("@/composables/useUISettings", () => ({
   useUISettings: () => ({ showLogoTitle }),
@@ -25,8 +23,11 @@ vi.mock("@/v2/composables/useGameActions", () => ({
   useGameActions: () => ({ platformPath: ref(null) }),
 }));
 
-function makeRom(logoPath: string | null, updatedAt = "2024-01-01T00:00:00") {
-  return makeDetailedRom({
+function romWithLogo(
+  logoPath: string | null,
+  updatedAt = "2024-01-01T00:00:00",
+) {
+  return detailedRomFixture({
     id: 1,
     ss_metadata: { logo_path: logoPath },
     sibling_roms: [],
@@ -35,7 +36,7 @@ function makeRom(logoPath: string | null, updatedAt = "2024-01-01T00:00:00") {
 }
 
 function mountHeader(logoPath: string | null) {
-  const rom = makeRom(logoPath);
+  const rom = romWithLogo(logoPath);
   return mount(GameHeader, {
     props: {
       rom,
@@ -99,7 +100,7 @@ describe("GameHeader", () => {
     const wrapper = mountHeader("roms/1/1/logo/logo.png");
     await wrapper.find("h1 img").trigger("error");
     await wrapper.setProps({
-      rom: makeRom("roms/1/1/logo/logo.png", "2024-02-01T00:00:00"),
+      rom: romWithLogo("roms/1/1/logo/logo.png", "2024-02-01T00:00:00"),
     });
     expect(wrapper.find("h1 img").exists()).toBe(true);
   });

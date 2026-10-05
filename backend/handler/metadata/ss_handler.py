@@ -1,7 +1,6 @@
 import html
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Final, NotRequired, TypedDict, cast
 
 import pydash
@@ -42,16 +41,17 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import LookupHashes, Rom, RomFile
 from utils.database import safe_int
+from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from .base_handler import (
-    PS2_OPL_REGEX,
-    SONY_SERIAL_REGEX,
-    SWITCH_TITLEDB_REGEX,
     BaseRom,
+    IndexedFormatPlatforms,
     MetadataHandler,
+    provider_tag_regex,
     restore_sensitive_query_params,
     strip_sensitive_query_params,
+    tag_id_from_filename,
 )
 
 SENSITIVE_KEYS = {"ssid", "sspassword"}
@@ -237,7 +237,7 @@ CPS3_SS_ID: Final = 8
 ARCADES_SS_IDS: Final = [ARCADE_SS_ID, CPS1_SS_ID, CPS2_SS_ID, CPS3_SS_ID]
 
 # Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
-SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
+SS_TAG_REGEX = provider_tag_regex("ssfr")
 
 
 # ScreenScraper buckets that name no place, so they must not become facet values.
@@ -619,17 +619,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             return ""
 
     def _parse_date(date_text: str) -> int | None:
-        # Release dates are date-only, so pin them to UTC midnight; a naive
-        # `.timestamp()` would read them as local time and shift by the host's
-        # UTC offset.
-        try:
-            dt = datetime.strptime(date_text, "%Y-%m-%d")
-        except ValueError:
-            try:
-                dt = datetime.strptime(date_text, "%Y")
-            except ValueError:
-                return None
-        return int(dt.replace(tzinfo=timezone.utc).timestamp())
+        return parse_utc_timestamp(date_text, ("%Y-%m-%d", "%Y"))
 
     def _get_lowest_date(dates: list[SSGameDate]) -> int | None:
         if not dates:
@@ -911,24 +901,16 @@ class SSHandler(MetadataHandler):
         return bool(SCREENSCRAPER_DEV_ID and SCREENSCRAPER_DEV_PASSWORD)
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
-
-        try:
+        async def probe() -> bool:
             response = await self.ss_service.get_infra_info()
-        except Exception as e:
-            log.error("Error checking ScreenScraper API: %s", e)
-            return False
+            return bool(response and response.get("response"))
 
-        return bool(response and response.get("response"))
+        return await self._heartbeat("ScreenScraper API", probe)
 
     @staticmethod
     def extract_ss_id_from_filename(fs_name: str) -> int | None:
-        """Extract ScreenScraper ID from filename tag like (ss-12345)."""
-        match = SS_TAG_REGEX.search(fs_name)
-        if match:
-            return int(match.group(1))
-        return None
+        """Extract ScreenScraper ID from filename tag like (ssfr-12345)."""
+        return tag_id_from_filename(SS_TAG_REGEX, fs_name)
 
     async def _search_rom(
         self, search_term: str, platform_ss_id: int, split_game_name: bool = False
@@ -1077,65 +1059,14 @@ class SSHandler(MetadataHandler):
         if not search_term:
             return fallback_rom
 
-        # Support for PS2 OPL filename format
-        match = PS2_OPL_REGEX.match(file_name)
-        if platform_ss_id == PS2_SS_ID and match:
-            search_term = await self._ps2_opl_format(match, search_term)
-            fallback_rom = SSRom(ss_id=None, name=search_term)
-
-        # Support for sony serial filename format (PS, PS3, PS3)
-        match = SONY_SERIAL_REGEX.search(file_name)
-        if platform_ss_id == PS1_SS_ID and match:
-            search_term = await self._ps1_serial_format(match, search_term)
-            fallback_rom = SSRom(ss_id=None, name=search_term)
-
-        if platform_ss_id == PS2_SS_ID and match:
-            search_term = await self._ps2_serial_format(match, search_term)
-            fallback_rom = SSRom(ss_id=None, name=search_term)
-
-        if platform_ss_id == PSP_SS_ID and match:
-            search_term = await self._psp_serial_format(match, search_term)
-            fallback_rom = SSRom(ss_id=None, name=search_term)
-
-        # Support for switch titleID filename format
-        match = SWITCH_TITLEDB_REGEX.search(file_name)
-        if platform_ss_id == SWITCH_SS_ID and match:
-            search_term, index_entry = await self._switch_titledb_format(
-                match, search_term
-            )
-            if index_entry:
-                fallback_rom = SSRom(
-                    ss_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
-                )
-
-        # Support for switch productID filename format
-        if platform_ss_id == SWITCH_SS_ID:
-            search_term, index_entry = await self._switch_productid_format(
-                rom, file_name, search_term
-            )
-            if index_entry:
-                fallback_rom = SSRom(
-                    ss_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
-                )
-
-        # Support for MAME arcade filename format
-        if platform_ss_id in ARCADES_SS_IDS:
-            search_term = await self._mame_format(search_term)
-            fallback_rom = SSRom(ss_id=None, name=search_term)
-
-        # Support for ScummVM filename format
-        scummvm_platform = self.get_platform(UPS.SCUMMVM)
-        if platform_ss_id == scummvm_platform.get("ss_id"):
-            search_term = await self._scummvm_format(search_term)
-            fallback_rom = SSRom(ss_id=None, name=search_term)
+        search_term = await self._resolve_indexed_title(
+            rom,
+            file_name,
+            search_term,
+            platform_ss_id,
+            SS_INDEXED_FORMAT_PLATFORMS,
+            fallback_rom,
+        )
 
         ## SS API requires punctuation to match
         normalized_search_term = self.normalize_search_term(
@@ -1430,6 +1361,15 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.ZXS: {"id": 76, "name": "ZX Spectrum"},
     UPS.ZX81: {"id": 77, "name": "ZX81"},
 }
+
+SS_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
+    ps1=PS1_SS_ID,
+    ps2=PS2_SS_ID,
+    psp=PSP_SS_ID,
+    switch=SWITCH_SS_ID,
+    arcade=ARCADES_SS_IDS,
+    scummvm=SCREENSAVER_PLATFORM_LIST[UPS.SCUMMVM]["id"],
+)
 
 # Reverse lookup
 SS_ID_TO_SLUG = {v["id"]: k for k, v in SCREENSAVER_PLATFORM_LIST.items()}

@@ -29,6 +29,7 @@ import {
   watchEffect,
 } from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
 import RTooltip from "../../structural/RTooltip/RTooltip.vue";
@@ -44,33 +45,33 @@ defineOptions({ inheritAttrs: false });
 type Rule = (value: any) => true | string;
 
 interface Props {
-  modelValue?: string | number | null;
-  label?: string;
-  placeholder?: string;
+  modelValue?: string | number | null | undefined;
+  label?: string | undefined;
+  placeholder?: string | undefined;
   type?: string;
   /** Native input length cap. */
-  maxlength?: number;
+  maxlength?: number | undefined;
   variant?: "outlined" | "filled" | "underlined" | "plain";
   density?: "default" | "comfortable" | "compact";
-  prependInnerIcon?: string;
-  appendInnerIcon?: string;
+  prependInnerIcon?: string | undefined;
+  appendInnerIcon?: string | undefined;
   /** Tooltip text shown on hover/focus over the prepend-inner
    *  adornment. Useful for clickable adornments (copy buttons, etc.)
    *  to label their action. */
-  prependInnerTooltip?: string;
+  prependInnerTooltip?: string | undefined;
   /** Tooltip text shown on hover/focus over the append-inner
    *  adornment. The canonical use is the password-reveal eye icon. */
-  appendInnerTooltip?: string;
+  appendInnerTooltip?: string | undefined;
   /** Accessible name for the interactive prepend-inner adornment button.
    *  Falls back to `prependInnerTooltip`. */
-  prependInnerLabel?: string;
+  prependInnerLabel?: string | undefined;
   /** Accessible name for the interactive append-inner adornment button.
    *  Falls back to `appendInnerTooltip`. */
-  appendInnerLabel?: string;
-  autocomplete?: string;
-  name?: string;
-  rules?: Rule[];
-  hint?: string;
+  appendInnerLabel?: string | undefined;
+  autocomplete?: string | undefined;
+  name?: string | undefined;
+  rules?: Rule[] | undefined;
+  hint?: string | undefined;
   hideDetails?: boolean | "auto";
   required?: boolean;
   disabled?: boolean;
@@ -79,16 +80,16 @@ interface Props {
   clearable?: boolean;
   autofocus?: boolean;
   error?: boolean;
-  errorMessages?: string | string[];
+  errorMessages?: string | string[] | undefined;
   /** "stacked": label above; "inline": label as a left well. */
-  prefixLabel?: "stacked" | "inline";
+  prefixLabel?: "stacked" | "inline" | undefined;
   /** Accent for focus + clearable hover. Defaults to brand-primary. */
   color?: string;
   /** Force the focused appearance regardless of the input's own focus
    *  state. Used by wrappers (RDateField, popover activators) that move
    *  real focus into a teleported panel but still want the field to read
    *  as active. Additive: internal focus also triggers the look. */
-  focused?: boolean;
+  focused?: boolean | undefined;
   /** Render as a `<textarea>` instead of `<input>`. Drops the fixed
    *  height in favour of a `rows`-driven min-height; everything else
    *  (variants, density, validation, clearable, labels) keeps working. */
@@ -106,18 +107,20 @@ interface Props {
    *  hashes, or any "this is where the value resolves to" hint that
    *  pairs with the field's value. The `#subtitle` slot wins over the
    *  prop when both are provided; use the slot to drop in an icon. */
-  subtitle?: string;
+  subtitle?: string | undefined;
   /** Wires the native input as a combobox owning a popup, putting the role
    *  on the input rather than the outer element (a `<label>` when this field
    *  owns its visible label). Single-line only: `role="combobox"` is not
    *  valid on a `<textarea>`. */
-  popup?: {
-    /** `id` of the popup element. Omit while it is unmounted, so
-     *  `aria-controls` never points at an element that is not there. */
-    controls?: string;
-    expanded: boolean;
-    kind: "dialog" | "listbox" | "grid";
-  };
+  popup?:
+    | {
+        /** `id` of the popup element. Omit while it is unmounted, so
+         *  `aria-controls` never points at an element that is not there. */
+        controls?: string | undefined;
+        expanded: boolean;
+        kind: "dialog" | "listbox" | "grid";
+      }
+    | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -253,7 +256,7 @@ function validate(): boolean {
 function reset() {
   dirty.value = false;
 }
-defineExpose({ validate, reset, focus: () => inputRef.value?.focus() });
+defineExpose({ validate, reset, focus: () => focusFromInput(inputRef.value) });
 
 // Auto-enrol with an ancestor RForm so `form.validate()` reaches us.
 // No-op when used outside a form.
@@ -312,14 +315,14 @@ function clear() {
   emit("update:modelValue", "");
   emit("clear");
   // Keep focus on the input so the user can keep typing.
-  nextTick(() => inputRef.value?.focus());
+  nextTick(() => focusFromInput(inputRef.value));
 }
 
 onMounted(() => {
   // `preventScroll` because an autofocused field often lives in a panel
   // that a positioner (floating-ui) only places after mount, letting the
   // UA scroll to its pre-placement box would yank the page.
-  if (props.autofocus) inputRef.value?.focus({ preventScroll: true });
+  if (props.autofocus) focusFromInput(inputRef.value, { preventScroll: true });
 });
 
 // Slot shape helpers: drives whether to render the prepend / append
@@ -363,20 +366,16 @@ const instance = getCurrentInstance();
 function hasListener(name: string): boolean {
   const props = instance?.vnode.props as Record<string, unknown> | null;
   if (!props) return false;
+  const head = `on${name.charAt(0).toUpperCase()}`;
+  const tail = name.slice(1);
   // verbatim → onClick:append-inner (Vue's actual template output)
-  const verbatim = `on${name[0].toUpperCase()}${name.slice(1)}`;
+  const verbatim = `${head}${tail}`;
   // kebab→camel inside the arg → onClick:appendInner
-  const argCamel = `on${name[0].toUpperCase()}${name
-    .slice(1)
-    .replace(/-(\w)/g, (_, c) => c.toUpperCase())}`;
+  const argCamel = `${head}${tail.replace(/-(\w)/g, (_, c) => c.toUpperCase())}`;
   // capitalised after the colon → onClick:Append-inner
-  const colonCap = `on${name[0].toUpperCase()}${name
-    .slice(1)
-    .replace(/:(\w)/g, (_, c) => `:${c.toUpperCase()}`)}`;
+  const colonCap = `${head}${tail.replace(/:(\w)/g, (_, c) => `:${c.toUpperCase()}`)}`;
   // no colon, camelCase tail → onClickAppend-inner
-  const flat = `on${name[0].toUpperCase()}${name
-    .slice(1)
-    .replace(/:(\w)/g, (_, c) => c.toUpperCase())}`;
+  const flat = `${head}${tail.replace(/:(\w)/g, (_, c) => c.toUpperCase())}`;
   return (
     !!props[verbatim] || !!props[argCamel] || !!props[colonCap] || !!props[flat]
   );
@@ -639,7 +638,7 @@ function onAppendInnerClick(evt: MouseEvent) {
 .r-text-field {
   display: inline-flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--r-space-1);
   width: 100%;
   /* Density-driven field height. Padding hugs the input, adornments
      adjust per-side. */
@@ -1005,7 +1004,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   line-height: 1.2;
   align-self: flex-start;
   padding-inline-start: 2px;
-  margin-bottom: 4px;
+  margin-bottom: var(--r-space-1);
 }
 
 /* ── Inline label: embedded left well ─────────────────────────── */

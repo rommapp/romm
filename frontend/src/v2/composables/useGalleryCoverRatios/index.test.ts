@@ -1,15 +1,14 @@
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import { getCoverRatio, setCoverRatio, useGalleryCoverRatios } from "./index";
 
-// Run the composable inside a real component so its `onBeforeUnmount`
-// cleanup has a host instance. Returns the composable's result.
-function withComposable<T>(fn: () => T): T {
+// Run the composable inside a real component so its timer has a scope to
+// stop with.
+function withComposable<T>(fn: () => T): { result: T; unmount: () => void } {
   let result!: T;
-  mount(
+  const wrapper = mount(
     defineComponent({
       setup() {
         result = fn();
@@ -17,19 +16,15 @@ function withComposable<T>(fn: () => T): T {
       },
     }),
   );
-  return result;
+  return { result, unmount: () => wrapper.unmount() };
 }
 
 describe("useGalleryCoverRatios", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("ratioAt maps position → rom id → measured ratio, else 0", () => {
     storeGalleryRoms().romIdIndex = [101, 102, 103];
-    const { ratioAt, onCardRatio } = withComposable(() =>
-      useGalleryCoverRatios(),
-    );
+    const {
+      result: { ratioAt, onCardRatio },
+    } = withComposable(() => useGalleryCoverRatios());
 
     expect(ratioAt(1)).toBe(0); // not yet measured
     expect(ratioAt(99)).toBe(0); // position outside the index
@@ -39,15 +34,13 @@ describe("useGalleryCoverRatios", () => {
     expect(ratioAt(0)).toBe(0); // rom 101 still unmeasured
   });
 
-  // Distinct rom ids per test — the ratio store is module-level (shared),
-  // so reusing ids across tests would collide. (The `ratioVersion`
-  // debounce isn't asserted here: its `setTimeout` doesn't fire under this
-  // test harness; the storage / dedup it gates is covered directly below.)
+  // Distinct rom ids per test: the ratio store is module-level (shared),
+  // so reusing ids across tests would collide.
   it("dedups sub-epsilon changes, keeps the first value, updates past it", () => {
     storeGalleryRoms().romIdIndex = [301];
-    const { ratioAt, onCardRatio } = withComposable(() =>
-      useGalleryCoverRatios(),
-    );
+    const {
+      result: { ratioAt, onCardRatio },
+    } = withComposable(() => useGalleryCoverRatios());
 
     onCardRatio({ romId: 301, ratio: 0.7 });
     expect(ratioAt(0)).toBeCloseTo(0.7);
@@ -65,22 +58,51 @@ describe("useGalleryCoverRatios", () => {
   // never reflowed off its default ratio and wide covers overflowed the row.
   it("schedules a re-pack when the shared store was pre-seeded by the cover", () => {
     vi.useFakeTimers();
-    try {
-      storeGalleryRoms().romIdIndex = [501];
-      const { ratioVersion, onCardRatio } = withComposable(() =>
-        useGalleryCoverRatios(),
-      );
+    storeGalleryRoms().romIdIndex = [501];
+    const {
+      result: { ratioVersion, onCardRatio },
+    } = withComposable(() => useGalleryCoverRatios());
 
-      // Cover paints first: seed the shared map, then emit the same ratio.
-      setCoverRatio({ romId: 501 }, 1.0);
-      const before = ratioVersion.value;
-      onCardRatio({ romId: 501, ratio: 1.0 });
+    // Cover paints first: seed the shared map, then emit the same ratio.
+    setCoverRatio({ romId: 501 }, 1.0);
+    const before = ratioVersion.value;
+    onCardRatio({ romId: 501, ratio: 1.0 });
 
-      vi.advanceTimersByTime(400);
-      expect(ratioVersion.value).toBe(before + 1);
-    } finally {
-      vi.useRealTimers();
-    }
+    vi.advanceTimersByTime(400);
+    expect(ratioVersion.value).toBe(before + 1);
+  });
+
+  it("folds a burst of ratios into one re-pack", () => {
+    vi.useFakeTimers();
+    storeGalleryRoms().romIdIndex = [601, 602, 603];
+    const {
+      result: { ratioVersion, onCardRatio },
+    } = withComposable(() => useGalleryCoverRatios());
+    const before = ratioVersion.value;
+
+    onCardRatio({ romId: 601, ratio: 0.7 });
+    onCardRatio({ romId: 602, ratio: 1.4 });
+    vi.advanceTimersByTime(400);
+    onCardRatio({ romId: 603, ratio: 1.1 });
+    vi.advanceTimersByTime(400);
+
+    expect(ratioVersion.value).toBe(before + 2);
+  });
+
+  it("drops a pending re-pack on unmount", () => {
+    vi.useFakeTimers();
+    storeGalleryRoms().romIdIndex = [701];
+    const {
+      result: { ratioVersion, onCardRatio },
+      unmount,
+    } = withComposable(() => useGalleryCoverRatios());
+    const before = ratioVersion.value;
+
+    onCardRatio({ romId: 701, ratio: 0.8 });
+    unmount();
+    vi.advanceTimersByTime(400);
+
+    expect(ratioVersion.value).toBe(before);
   });
 });
 

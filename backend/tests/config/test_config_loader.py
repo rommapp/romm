@@ -11,6 +11,7 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
     DEFAULT_EXCLUDED_PLATFORM_DIRS,
     ConfigManager,
+    ConvertoConfig,
     parse_firmware_template,
     parse_platform_templates,
     parse_structure_template,
@@ -188,6 +189,10 @@ def test_empty_config_loader():
     assert loader.config.SCAN_REGION_MODE == "prefer_rom_tags"
     assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box2d"
     assert loader.config.GAMELIST_MEDIA_IMAGE == "screenshot"
+    assert not loader.config.CONVERTO.download_conversion_enabled
+    assert loader.config.CONVERTO.scan_metadata
+    assert loader.config.CONVERTO.cache_ttl_hours == 24
+    assert loader.config.CONVERTO.platform_formats == {}
     assert loader.config.STRUCTURE_TEMPLATES == {}
 
 
@@ -677,6 +682,75 @@ def test_reparenting_a_folder_replaces_the_existing_version(tmp_path):
     assert reloaded.config.PLATFORMS_VERSIONS == {"naomi": "dc"}
 
 
+def test_converto_config_from_yaml(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "converto:\n"
+        "  download_conversion_enabled: true\n"
+        "  scan_metadata: false\n"
+        "  cache_ttl_hours: 48\n"
+        "  cache_max_size_gb: 0\n"
+        "  platform_formats:\n"
+        "    PSP: iso\n"
+        "    ngc: rvz\n"
+    )
+    loader = ConfigManager(str(config_file))
+
+    # Slugs and targets are normalized to lowercase.
+    assert loader.config.CONVERTO == ConvertoConfig(
+        download_conversion_enabled=True,
+        scan_metadata=False,
+        cache_ttl_hours=48,
+        cache_max_size_gb=0,
+        platform_formats={"psp": "iso", "ngc": "rvz"},
+    )
+
+
+def test_null_converto_platform_formats_means_empty(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("converto:\n  platform_formats:\n")
+
+    assert ConfigManager(str(config_file)).config.CONVERTO.platform_formats == {}
+
+
+def test_update_converto_settings_round_trip(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("converto:\n  cache_ttl_hours: 12\n")
+    loader = ConfigManager(str(config_file))
+    converto = ConvertoConfig(
+        download_conversion_enabled=True,
+        scan_metadata=True,
+        cache_ttl_hours=72,
+        cache_max_size_gb=50,
+        platform_formats={"psp": "iso", "ngc": "rvz"},
+    )
+
+    loader.update_converto_settings(converto)
+
+    assert ConfigManager(str(config_file)).config.CONVERTO == converto
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        "  platform_formats:\n    psvita: iso\n",
+        "  platform_formats:\n    psp: rvz\n",
+        "  platform_formats:\n    xbox: xiso\n",
+        "  cache_ttl_hours: 0\n",
+        "  cache_max_size_gb: -1\n",
+        "  cache_max_size_gb: true\n",
+    ],
+)
+def test_invalid_converto_setting_exits(tmp_path, block):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(f"converto:\n{block}")
+
+    with pytest.raises(SystemExit) as excinfo:
+        ConfigManager(str(config_file))
+
+    assert excinfo.value.code == 3
+
+
 def _write_emulatorjs_config(tmp_path: Path, emulatorjs_block: str) -> ConfigManager:
     config_file = tmp_path / "config.yml"
     config_file.write_text(f"emulatorjs:\n{emulatorjs_block}")
@@ -702,6 +776,52 @@ def critical(mocker):
     """The last message the config manager logged before exiting."""
     spy = mocker.patch("config.config_manager.log.critical")
     return lambda: str(spy.call_args[0][0])
+
+
+EXCLUDE_LIST_PATHS = (
+    "exclude.platforms",
+    "exclude.roms.single_file.extensions",
+    "exclude.roms.single_file.names",
+    "exclude.roms.multi_file.names",
+    "exclude.roms.multi_file.parts.extensions",
+    "exclude.roms.multi_file.parts.names",
+)
+
+
+def _write_exclude_config(tmp_path: Path, path: str, value: str) -> ConfigManager:
+    """Write `value` at the dotted `path`, nesting one YAML level per segment."""
+    lines = [f"{'  ' * depth}{key}:" for depth, key in enumerate(path.split("."))]
+    lines[-1] += f" {value}"
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("\n".join(lines) + "\n")
+    return ConfigManager(str(config_file))
+
+
+@pytest.mark.parametrize("path", EXCLUDE_LIST_PATHS)
+@pytest.mark.parametrize("value", ["ps2", "5", "{ps2: true}"])
+def test_exclude_list_rejects_a_non_list(tmp_path, critical, path, value):
+    """A bare string would otherwise be split into one exclusion per character."""
+    with pytest.raises(SystemExit) as excinfo:
+        _write_exclude_config(tmp_path, path, value)
+
+    assert excinfo.value.code == 3
+    assert critical() == f"Invalid config.yml: {path} must be a list"
+
+
+@pytest.mark.parametrize("path", EXCLUDE_LIST_PATHS)
+@pytest.mark.parametrize("value", ["[7z, 001]", "[ps2, ~]"])
+def test_exclude_list_rejects_a_non_string_entry(tmp_path, critical, path, value):
+    with pytest.raises(SystemExit) as excinfo:
+        _write_exclude_config(tmp_path, path, value)
+
+    assert excinfo.value.code == 3
+    assert critical().startswith(f"Invalid config.yml: {path} must only hold strings")
+
+
+def test_empty_exclude_list_keeps_the_defaults(tmp_path):
+    loader = _write_exclude_config(tmp_path, "exclude.platforms", "")
+
+    assert loader.config.EXCLUDED_PLATFORMS == sorted(DEFAULT_EXCLUDED_PLATFORM_DIRS)
 
 
 def _write_filesystem_config(tmp_path: Path, block: str) -> ConfigManager:

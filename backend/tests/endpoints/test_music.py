@@ -3,10 +3,12 @@ from typing import cast
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_platform, make_rom
 
 from config import FRONTEND_RESOURCES_PATH
 from endpoints.responses.music import MusicTrackSchema
-from handler.database import db_platform_handler, db_rom_handler
+from handler.auth.rom_visibility import RomVisibilityFilter
+from handler.database import db_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
 from models.user import User
@@ -14,12 +16,6 @@ from models.user import User
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
-
-
-def _make_platform(slug: str) -> Platform:
-    return db_platform_handler.add_platform(
-        Platform(name=slug, slug=slug, fs_slug=slug)
-    )
 
 
 def _make_track(
@@ -36,19 +32,7 @@ def _make_track(
     cover_path: str | None = None,
     path_cover_l: str | None = None,
 ) -> Rom:
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=f"{name}-slug",
-            fs_name=f"{name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            path_cover_l=path_cover_l,
-        )
-    )
+    rom = make_rom(platform, name, path_cover_l=path_cover_l)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_id)
     db_rom_handler.add_rom_file(
         RomFile(
@@ -73,10 +57,26 @@ def _make_track(
     return rom
 
 
+def _make_untagged_track(admin_id: int, platform: Platform, file_name: str) -> None:
+    """A soundtrack file with an empty track row, as the scanner gives a chiptune."""
+    rom = make_rom(platform, "Plok")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_id)
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=file_name,
+            file_path=f"{rom.fs_path}/Plok/soundtrack",
+            file_size_bytes=66048,
+            category=RomFileCategory.SOUNDTRACK,
+            track_meta=TrackMeta(rom_id=rom.id),
+        )
+    )
+
+
 @pytest.fixture
 def music_library(admin_user: User):
-    pa = _make_platform("genesis")
-    pb = _make_platform("nes")
+    pa = make_platform("genesis")
+    pb = make_platform("nes")
     sonic = _make_track(
         admin_user.id,
         pa,
@@ -113,18 +113,7 @@ def music_library(admin_user: User):
         duration=90.0,
     )
     # A rom with no soundtrack, to exercise the has_soundtrack filter.
-    no_st = db_rom_handler.add_rom(
-        Rom(
-            platform_id=pb.id,
-            name="Tetris",
-            slug="tetris-slug",
-            fs_name="Tetris.gb",
-            fs_name_no_tags="Tetris",
-            fs_name_no_ext="Tetris",
-            fs_extension="gb",
-            fs_path=f"{pb.slug}/roms",
-        )
-    )
+    no_st = make_rom(pb, "Tetris", fs_extension="gb")
     db_rom_handler.add_rom_user(rom_id=no_st.id, user_id=admin_user.id)
     return {"platform_a": pa, "platform_b": pb, "sonic": sonic, "no_soundtrack": no_st}
 
@@ -173,6 +162,36 @@ def test_tracks_artist_exact_case_insensitive(
 def test_tracks_search_substring(client: TestClient, access_token: str, music_library):
     r = client.get("/api/music/tracks?search=hill", headers=_auth(access_token))
     assert [i["title"] for i in r.json()["items"]] == ["Green Hill"]
+
+
+def test_tracks_search_matches_an_untagged_file_by_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "05 Beach.spc")
+
+    r = client.get("/api/music/tracks?search=beach", headers=_auth(access_token))
+
+    [item] = r.json()["items"]
+    assert item["title"] is None
+    assert item["file_name"] == "05 Beach.spc"
+    assert item["stream_url"].endswith("/files/content/05%20Beach.spc")
+
+
+def test_tracks_sort_an_untagged_file_by_its_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "Ice.spc")
+
+    r = client.get(
+        "/api/music/tracks?order_by=title&order_dir=asc", headers=_auth(access_token)
+    )
+
+    assert [i["file_name"] for i in r.json()["items"]] == [
+        "Green Hill.mp3",
+        "Ice.spc",
+        "Jingle.mp3",
+        "Overworld.mp3",
+    ]
 
 
 def test_tracks_search_escapes_like_wildcards(
@@ -252,18 +271,7 @@ def test_tracks_sort_null_keys_last(
 ):
     """An untagged track (NULL duration) trails both sort directions."""
     pa = music_library["platform_a"]
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=pa.id,
-            name="Untagged",
-            slug="untagged-slug",
-            fs_name="Untagged.zip",
-            fs_name_no_tags="Untagged",
-            fs_name_no_ext="Untagged",
-            fs_extension="zip",
-            fs_path=f"{pa.slug}/roms",
-        )
-    )
+    rom = make_rom(pa, "Untagged")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     db_rom_handler.add_rom_file(
         RomFile(
@@ -330,6 +338,31 @@ def test_facet_years_typeahead(client: TestClient, access_token: str, music_libr
 
 
 @pytest.mark.parametrize(
+    ("path", "key", "wildcard", "literal", "expected"),
+    [
+        ("/api/music/artists", "value", "k_shiro", "oshi", {"Koshiro"}),
+        ("/api/music/years", "value", "19_1", "991", {1991}),
+        ("/api/music/platforms", "name", "g_nesis", "enes", {"Genesis"}),
+        ("/api/music/games", "name", "s_nic", "oni", {"Sonic"}),
+    ],
+)
+def test_facet_search_matches_wildcards_literally(
+    client: TestClient,
+    access_token: str,
+    music_library: dict[str, Platform | Rom],
+    path: str,
+    key: str,
+    wildcard: str,
+    literal: str,
+    expected: set[str | int],
+):
+    wild = client.get(path, params={"search": wildcard}, headers=_auth(access_token))
+    assert wild.json()["total"] == 0
+    found = client.get(path, params={"search": literal}, headers=_auth(access_token))
+    assert {i[key] for i in found.json()["items"]} == expected
+
+
+@pytest.mark.parametrize(
     "path", ["/api/roms", "/api/music/tracks", "/api/music/artists"]
 )
 @pytest.mark.parametrize("query", ["limit=0", "limit=10001", "offset=-1"])
@@ -357,7 +390,9 @@ def test_facet_page_applies_limit_and_offset(
 
 def test_tracks_excludes_hidden_platform(music_library):
     pb = music_library["platform_b"].id
-    rows, total = db_rom_handler.get_music_tracks(hidden_platform_ids=[pb])
+    rows, total = db_rom_handler.get_music_tracks(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pb}))
+    )
     assert total == 2
     assert all(r.platform_id != pb for r in rows)
 
@@ -365,7 +400,8 @@ def test_tracks_excludes_hidden_platform(music_library):
 def test_facet_excludes_hidden_platform(music_library):
     pb = music_library["platform_b"].id
     rows, total = db_rom_handler.get_music_facet(
-        field="artists", hidden_platform_ids=[pb]
+        field="artists",
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pb})),
     )
     assert total == 2
     assert "Kondo" not in {r.value for r in rows}
@@ -622,16 +658,32 @@ def test_games_facet_search_matches_game_and_track_fields(
     assert [i["name"] for i in by_artist["items"]] == ["Streets"]
 
 
+def test_games_facet_search_matches_an_untagged_file_by_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "05 Beach.spc")
+
+    r = client.get(
+        "/api/music/games", params={"search": "beach"}, headers=_auth(access_token)
+    )
+
+    assert [i["name"] for i in r.json()["items"]] == ["Plok"]
+
+
 def test_games_facet_excludes_hidden_platform(music_library):
     pa = music_library["platform_a"].id
-    rows, total = db_rom_handler.get_music_game_facet(hidden_platform_ids=[pa])
+    rows, total = db_rom_handler.get_music_game_facet(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pa}))
+    )
     assert total == 1
     assert [r.name for r in rows] == ["Mario"]
 
 
 def test_platform_facet_excludes_hidden_platform(music_library):
     pa = music_library["platform_a"].id
-    rows, total = db_rom_handler.get_music_platform_facet(hidden_platform_ids=[pa])
+    rows, total = db_rom_handler.get_music_platform_facet(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pa}))
+    )
     assert total == 1
     assert [r.slug for r in rows] == ["nes"]
 
@@ -646,6 +698,8 @@ def test_stats_reports_totals(client: TestClient, access_token: str, music_libra
 
 def test_stats_excludes_hidden_platform(music_library):
     pa = music_library["platform_a"].id
-    total, duration = db_rom_handler.get_music_stats(hidden_platform_ids=[pa])
+    total, duration = db_rom_handler.get_music_stats(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pa}))
+    )
     assert total == 1
     assert duration == pytest.approx(90.0)

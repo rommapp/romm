@@ -1,4 +1,4 @@
-// usePlayerNav — the two back links every v2 player view carries. The route id
+// usePlayerNav: the two back links every v2 player view carries. The route id
 // is used rather than the hero's, so the links work during the seed window.
 import { computed, type ComputedRef } from "vue";
 import type { RouteLocationRaw } from "vue-router";

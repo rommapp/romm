@@ -1,11 +1,11 @@
 import re
 import unicodedata
-from datetime import datetime
 from pathlib import Path
 
 from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from models.base import compute_file_name_no_ext, compute_file_name_no_tags
 from models.rom import ARTICLES
+from utils.datetime import parse_utc_timestamp
 
 from .types import LAUNCHBOX_LOCAL_DIR
 
@@ -163,22 +163,7 @@ def dedupe_words(values: list[str | None]) -> list[str]:
 
 
 def parse_release_date(value: str | None) -> int | None:
-    if not value:
-        return None
-
-    try:
-        iso = value.replace("Z", "+00:00")
-        return int(datetime.fromisoformat(iso).timestamp())
-    except ValueError:
-        pass
-
-    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d"):
-        try:
-            return int(datetime.strptime(value, fmt).timestamp())
-        except ValueError:
-            continue
-
-    return None
+    return parse_utc_timestamp(value, ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d"), iso=True)
 
 
 def parse_playmode(play_mode: str | None) -> bool:

@@ -1,9 +1,9 @@
-// permissions — Pinia store holding the current user's effective grants.
+// permissions: Pinia store holding the current user's effective grants.
 //
 // Hydrated from the backend's `/permissions/me` (the source of truth) via
 // `installPermissionsHydration()` in AppLayout, and refreshed live on the
 // `permissions:changed` socket event. v2 features consume this store via
-// `useCan(action, scope?)`. v1 does not import from here — its existing inline
+// `useCan(action, scope?)`. v1 does not import from here: its existing inline
 // scope checks keep working.
 import { defineStore } from "pinia";
 import type {

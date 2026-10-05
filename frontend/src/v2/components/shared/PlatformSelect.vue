@@ -1,5 +1,9 @@
-<script setup lang="ts">
-// PlatformSelect — shared composite that wraps RSelect with the
+<script
+  setup
+  lang="ts"
+  generic="Model extends number | string | number[] | string[] | null"
+>
+// PlatformSelect: shared composite that wraps RSelect with the
 // platform-row visual language used across v2 (icon + display name,
 // optional category / family / missing-fs / rom-count meta).
 //
@@ -30,7 +34,7 @@ import {
   promotePlatformsWithGamesFirst,
 } from "./platformSelect";
 
-// Per-platform scrapper match indicators — mini avatar per metadata
+// Per-platform scrapper match indicators: mini avatar per metadata
 // source the platform has an ID for. Mixed `_id` / `_slug` fields
 // because the PlatformSchema only exposes one of the two per source
 // (e.g. moby is keyed by slug, igdb by both). Keep in sync with v1's
@@ -81,16 +85,26 @@ defineOptions({ inheritAttrs: false });
 
 type PlatformKey = "id" | "slug" | "fs_slug";
 
+// Same model checks as RSelect, which these props pass through to.
+type IsArrayModel = [NonNullable<Model>] extends [readonly unknown[]]
+  ? true
+  : false;
+type ClearableAllowed = null extends Model
+  ? unknown
+  : IsArrayModel extends true
+    ? unknown
+    : false;
+
 interface Props {
-  modelValue?: number | string | number[] | string[] | null;
+  modelValue?: Model | undefined;
   items: Platform[];
   /** Which Platform field the v-model binds to. Default `id`.
    *  `slug` is used by FolderMapping (the table works in slug space)
    *  `fs_slug` is used by Scan (mixes database platforms and folders) */
   itemKey?: PlatformKey;
-  multiple?: boolean;
+  multiple?: boolean & (IsArrayModel extends true ? unknown : false);
   searchable?: boolean;
-  clearable?: boolean;
+  clearable?: boolean & ClearableAllowed;
   /** When `multiple`, render each selection as a small icon-only RTag
    *  with an automatic "+N" overflow pill. Defaults to `true` so the
    *  visual is consistent across every multi-platform picker; pass
@@ -99,28 +113,28 @@ interface Props {
   closableChips?: boolean;
   disabled?: boolean;
   loading?: boolean;
-  label?: string;
-  placeholder?: string;
+  label?: string | undefined;
+  placeholder?: string | undefined;
   /** Games-first menu + divider until the user types in panel search. Default false. */
   promoteFilled?: boolean;
-  searchPlaceholder?: string;
+  searchPlaceholder?: string | undefined;
   variant?: "outlined" | "filled" | "underlined" | "plain";
   density?: "default" | "comfortable" | "compact";
   hideDetails?: boolean | "auto";
-  prefixLabel?: "stacked" | "inline";
-  prependInnerIcon?: string;
-  /** Scan-style rich row — category icon, family, missing-fs, rom-count. */
+  prefixLabel?: "stacked" | "inline" | undefined;
+  prependInnerIcon?: string | undefined;
+  /** Scan-style rich row: category icon, family, missing-fs, rom-count. */
   showMeta?: boolean;
   /** Never-scanned folders. */
   markUnscanned?: boolean;
   /** Label for the never-scanned marker */
-  unscannedLabel?: string;
+  unscannedLabel?: string | undefined;
   /** Icon size inside list rows. Defaults to 28 (Scan uses 32, dialogs 22-24). */
   iconSize?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  modelValue: null,
+  modelValue: undefined,
   itemKey: "id",
   multiple: false,
   searchable: true,
@@ -145,10 +159,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  (
-    e: "update:modelValue",
-    value: number | string | number[] | string[] | null,
-  ): void;
+  (e: "update:modelValue", value: Model): void;
 }>();
 
 const { t } = useI18n();
@@ -202,7 +213,7 @@ function platformForValue(value: unknown): Platform | undefined {
 }
 
 function onUpdate(v: unknown) {
-  emit("update:modelValue", v as number | string | number[] | string[] | null);
+  emit("update:modelValue", v as Model);
 }
 
 function onPanelSearch(query: string) {
@@ -220,9 +231,10 @@ function showPromoteRomBadge(platform: Platform): boolean {
 </script>
 
 <template>
+  <!-- Model checks happen on this component's props; RSelect sees unknown. -->
   <RSelect
     v-bind="$attrs"
-    :model-value="modelValue"
+    :model-value="modelValue as unknown"
     :items="listItems"
     item-title="display_name"
     :item-value="itemKey"
@@ -246,7 +258,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
     @update:model-value="onUpdate"
     @update:search="onPanelSearch"
   >
-    <!-- Selection — consumer slot wins; otherwise icon + name. -->
+    <!-- Selection: consumer slot wins; otherwise icon + name. -->
     <template #selection="slotProps">
       <slot name="selection" v-bind="slotProps">
         <span class="r-v2-platsel__selection">
@@ -263,7 +275,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
       </slot>
     </template>
 
-    <!-- Chip — when `chips` is on (multi-select) the activator
+    <!-- Chip: when `chips` is on (multi-select) the activator
          collapses each selection into a small RTag. PlatformSelect
          renders just the platform icon inside the chip; RSelect
          keeps providing the "+N" overflow pill automatically. The
@@ -284,7 +296,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
       </slot>
     </template>
 
-    <!-- Item — consumer slot wins; otherwise icon + name (+ meta). -->
+    <!-- Item: consumer slot wins; otherwise icon + name (+ meta). -->
     <template #item="slotProps">
       <slot name="item" v-bind="slotProps">
         <li v-bind="slotProps.props" class="r-v2-platsel__row">
@@ -348,7 +360,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
               :text="t('rom.missing-platform')"
               class="r-v2-platsel__missing"
             />
-            <!-- Scrapper match indicators — one mini avatar per
+            <!-- Scrapper match indicators: one mini avatar per
                  source the platform has an ID for. Mirrors v1's
                  right-side avatar strip so the user sees at a glance
                  which catalogs already know this platform. When the
@@ -393,7 +405,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
 
     <!-- Forward any other slot the caller passes (prefix-label,
          no-data, details, prepend-inner, append-inner, …). The two
-         special slots above are excluded — they have built-in
+         special slots above are excluded: they have built-in
          defaults and already fall through to the consumer's template
          via the inner `<slot name="…">`. -->
     <template

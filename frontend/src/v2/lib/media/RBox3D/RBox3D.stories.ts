@@ -58,7 +58,7 @@ type Story = StoryObj<typeof RBox3D>;
 // ── Default: gentle idle drift, drag / arrows / right-stick to rotate ──
 export const Default: Story = {};
 
-// ── Static (no auto-spin) — easier to read the faces ──
+// ── Static (no auto-spin): easier to read the faces ──
 export const Static: Story = {
   name: "No auto-spin",
   args: { autoSpin: false, initialYaw: 36, initialPitch: -8 },

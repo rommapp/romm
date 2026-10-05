@@ -1,14 +1,12 @@
 /* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import { platformFixture } from "@/utils/platform.fixtures";
 import PlatformsIndex from "./PlatformsIndex.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 // Plain object rather than a reactive route: every test sets the query
 // before mounting, which is when the view reads it.
@@ -122,8 +120,8 @@ vi.mock("@/v2/composables/useTileSearchUrl", () => ({
   useTileSearchUrl: () => ref(searchState.term),
 }));
 
-vi.mock("@/v2/composables/useWrapGridNav", () => ({
-  useWrapGridNav: vi.fn(),
+vi.mock("@/v2/composables/useGridNav", () => ({
+  useGridNav: vi.fn(),
 }));
 
 function platform(
@@ -132,20 +130,17 @@ function platform(
   romCount: number,
   overrides: Partial<Platform> = {},
 ): Platform {
-  return {
+  return platformFixture({
     id,
-    display_name: displayName,
     name: displayName,
     slug: displayName.toLowerCase().replaceAll(" ", "-"),
-    fs_slug: displayName.toLowerCase().replaceAll(" ", "-"),
     rom_count: romCount,
     ...overrides,
-  } as Platform;
+  });
 }
 
 describe("PlatformsIndex", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     routeState.query = {};
     galleryModeState.groupBy = "none";
     galleryModeState.layout = "grid";

@@ -11,7 +11,7 @@ import {
   nextTick,
 } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute, useRouter } from "vue-router";
+import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import type { FirmwareSchema } from "@/__generated__";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
@@ -33,6 +33,7 @@ import {
   getDownloadPath,
 } from "@/utils";
 import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
+import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
 import {
   buildStateFormData,
   resolveScreenshot,
@@ -186,7 +187,7 @@ function handleExitAction(action: string) {
     return true;
   }
   if (action === "confirm") {
-    activateExitOption(exitOptions.value[focusedExitIndex.value].id);
+    activateExitOption(exitOptions.value[focusedExitIndex.value]!.id);
     return true;
   }
   if (action === "back") {
@@ -251,7 +252,7 @@ async function uploadState(
       ],
     });
 
-    const uploadedState = uploadedStates[0];
+    const uploadedState = uploadedStates[0]!;
     if (uploadedState.status == "fulfilled") {
       if (romRef.value) romRef.value.user_states.unshift(uploadedState.value);
       return uploadedState.value;
@@ -355,7 +356,7 @@ function attachGamepadExit(options?: { windowMs?: number }) {
         }
       } else {
         if (edge(BTN.A))
-          activateExitOption(exitOptions.value[focusedExitIndex.value].id);
+          activateExitOption(exitOptions.value[focusedExitIndex.value]!.id);
         if (edge(BTN.B)) cancelExit();
       }
       for (let i = 0; i < pad.buttons.length; i++) {
@@ -415,7 +416,7 @@ async function boot() {
   const core =
     [playerStorage.gameCore.value, playerStorage.core.value].find(
       (c): c is string => !!c && supported.includes(c),
-    ) ?? supported[0];
+    ) ?? supported[0]!;
 
   const coreOptions = configStore.getEJSCoreOptions(core);
   window.EJS_core = core;
@@ -750,6 +751,9 @@ onMounted(async () => {
   detachKey = attachKeyboardExit();
   detachPad = attachGamepadExit();
 });
+
+// The unmount below reloads the page.
+onBeforeRouteLeave(leaveFullscreen);
 
 onBeforeUnmount(() => {
   window.EJS_emulator?.callEvent?.("exit");

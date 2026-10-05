@@ -1,4 +1,4 @@
-// useThemeMode — reactive `isLight` / `isDark` driven by the same source
+// useThemeMode: reactive `isLight` / `isDark` driven by the same source
 // of truth RomM.vue uses for the global theme: the `settings.theme`
 // localStorage key (`"auto" | "dark" | "light"`) combined with the
 // system `prefers-color-scheme: dark` media query when `"auto"`.
@@ -7,12 +7,13 @@
 // dark surface (md-editor, PDF viewer, …) read from here instead of
 // reaching into any specific theming framework's runtime.
 //
-// Module-level singleton refs — every consumer shares the same
+// Module-level singleton refs: every consumer shares the same
 // localStorage and media-query listeners.
-import { useLocalStorage, usePreferredDark } from "@vueuse/core";
+import { usePreferredDark } from "@vueuse/core";
 import { computed, type ComputedRef } from "vue";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 
-const themeSetting = useLocalStorage<"auto" | "dark" | "light">(
+const themeSetting = useUserLocalStorage<"auto" | "dark" | "light">(
   "settings.theme",
   "dark",
 );

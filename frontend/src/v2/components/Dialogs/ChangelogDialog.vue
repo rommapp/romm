@@ -1,16 +1,18 @@
 <script setup lang="ts">
-// v2 ChangelogDialog — emitter-driven. Fetches the latest releases from
+// v2 ChangelogDialog: emitter-driven. Fetches the latest releases from
 // the public GitHub API on first open and reuses the cached payload on
 // subsequent opens within the same session. Each release renders as a
 // glass-panel block (tag + date) with the release body rendered through
 // MdPreview, the same markdown surface NotesTab uses.
 import { RBtn, RDialog, REmptyState, RIcon, RSpinner } from "@v2/lib";
-import { MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
-import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { Events } from "@/types/emitter";
+import {
+  AsyncMdPreview as MdPreview,
+  loadMdPreview,
+} from "@/v2/components/shared/asyncMarkdown";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 import { shortenGithubLinks } from "@/v2/utils/githubLinks";
 
@@ -31,16 +33,39 @@ const RELEASES_URL = `https://api.github.com/repos/${REPO}/releases?per_page=10`
 const RELEASES_PAGE_URL = `https://github.com/${REPO}/releases`;
 
 const { t, locale } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
 const { isLight: isLightTheme } = useThemeMode();
 
 const show = ref(false);
-const loading = ref(false);
-const error = ref(false);
 // Module-level cache would share across instances, but the dialog is
 // mounted once in GlobalDialogs, so an instance ref is enough and keeps
 // teardown trivial.
-const releases = ref<Release[]>([]);
+const {
+  state: releases,
+  isLoading: loading,
+  error: fetchError,
+  execute: fetchReleases,
+} = useFetchState(
+  async () => {
+    // The renderer downloads alongside the releases, so the spinner covers both.
+    const [res] = await Promise.all([
+      fetch(RELEASES_URL, {
+        headers: { Accept: "application/vnd.github+json" },
+      }),
+      loadMdPreview(),
+    ]);
+    if (!res.ok) throw new Error(`GitHub ${res.status}`);
+    const data: Release[] = await res.json();
+    return data
+      .filter((r) => !r.draft && !r.prerelease)
+      .map((r) => ({ ...r, body: shortenGithubLinks(r.body ?? "", REPO) }));
+  },
+  [],
+  {
+    immediate: false,
+    onError: (e) => console.error("Changelog fetch failed", e),
+  },
+);
+const error = computed(() => fetchError.value !== undefined);
 
 const mdTheme = computed<"light" | "dark">(() =>
   isLightTheme.value ? "light" : "dark",
@@ -61,34 +86,13 @@ function fmtDate(iso: string): string {
   return dateFormatter.value.format(d);
 }
 
-async function fetchReleases() {
-  loading.value = true;
-  error.value = false;
-  try {
-    const res = await fetch(RELEASES_URL, {
-      headers: { Accept: "application/vnd.github+json" },
-    });
-    if (!res.ok) throw new Error(`GitHub ${res.status}`);
-    const data: Release[] = await res.json();
-    releases.value = data
-      .filter((r) => !r.draft && !r.prerelease)
-      .map((r) => ({ ...r, body: shortenGithubLinks(r.body ?? "", REPO) }));
-  } catch (e) {
-    console.error("Changelog fetch failed", e);
-    error.value = true;
-  } finally {
-    loading.value = false;
-  }
-}
-
 const openHandler = () => {
   show.value = true;
   // Refetch only when we have nothing yet (or a previous attempt
   // errored). Keeps the dialog snappy on subsequent opens.
   if (releases.value.length === 0 && !loading.value) fetchReleases();
 };
-emitter?.on("showChangelogDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showChangelogDialog", openHandler));
+useEmitterEvent("showChangelogDialog", openHandler);
 
 function closeDialog() {
   show.value = false;
@@ -162,9 +166,6 @@ function closeDialog() {
             }}</span>
           </header>
           <MdPreview
-            no-highlight
-            no-katex
-            no-mermaid
             :model-value="r.body"
             :theme="mdTheme"
             language="en-US"
@@ -269,7 +270,7 @@ function closeDialog() {
   min-width: 0;
   overflow: hidden;
 }
-/* md-editor surface tweaks — the preview ships its own white card; we
+/* md-editor surface tweaks: the preview ships its own white card; we
    strip it and let the tinted body wrapper provide the surface. Same
    approach NotesTab uses. */
 .r-v2-changelog__body :deep(.md-editor),

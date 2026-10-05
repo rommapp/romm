@@ -53,18 +53,23 @@ These live in `.claude/skills/` and carry the detailed rules. Invoke the one tha
 
 ## Never run the full backend test suite locally
 
-A bare `uv run pytest` (or `pytest -vv`) over `backend/` takes 20+ minutes and burns a
-huge number of tokens on output. Don't do it, even to "double check" at the end.
+A bare `uv run pytest` (or `pytest -vv`) over `backend/` runs serially, takes 20+ minutes, and
+burns a huge number of tokens on output. Don't do it, even to "double check" at the end.
 
-Instead, select the tests affected by the change and run only those:
+Instead, select the tests affected by the change and run only those. Add `-n auto` when the
+selection spans a directory or more: the suite is set up for `pytest-xdist` (one database per
+worker).
 
 ```bash
 cd backend
 uv run pytest tests/path/to/test_file.py                # one file
 uv run pytest tests/path/to/test_file.py::test_name     # one test
-uv run pytest tests/handler/ tests/endpoints/           # affected areas
+uv run pytest -n auto tests/handler/ tests/endpoints/   # affected areas, in parallel
 uv run pytest -k "scan or queue"                        # by name pattern
 ```
+
+It gains nothing on a single file or test, and `--pdb` and `-s` don't work under it, so drop it
+when debugging.
 
 Pick the targets from the diff: the test file mirroring each changed module
 (`backend/<area>/x.py` → `backend/tests/<area>/test_x.py`), plus the tests of the
@@ -72,6 +77,16 @@ callers of anything whose signature or behavior you changed (`grep` for the symb
 
 CI runs the whole suite on the PR (`pytest.yml`, MariaDB + PostgreSQL). That is the
 place for full-suite coverage; local runs stay scoped.
+
+**In a git worktree, run tests against a temporary database.** Every checkout shares
+`romm_test`, and one on another branch can migrate it to a revision yours lacks, so
+every test errors in setup with `Can't locate revision`. Set `ROMM_TEST_DB_TAG` to a
+tag unique to the worktree: the run creates and migrates `romm_test_tmp_<tag>` (one per
+xdist worker), then drops it at the end. Never `stamp` or downgrade the shared `romm_test`.
+
+```bash
+ROMM_TEST_DB_TAG=my_worktree uv run pytest -n auto tests/handler/
+```
 
 ---
 

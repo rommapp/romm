@@ -20,7 +20,8 @@
 // (GameCard's size tiers / hero) just sets an explicit `height` on this
 // element via its own class, that wins over `aspect-ratio`. Radius is a
 // `--r-cover-radius` var (defaults to the gallery card radius).
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useElementHover } from "@vueuse/core";
+import { computed, onMounted, ref, watch } from "vue";
 import CoverPlaceholder from "@/v2/components/shared/CoverPlaceholder.vue";
 import { revealedCoverSrcs } from "@/v2/components/shared/coverReveal";
 import { useCoverAnimation } from "@/v2/composables/useCoverAnimation";
@@ -51,14 +52,14 @@ interface Props {
   identified?: boolean;
   /** Explicit cover URL override (preview blobs, external provider art).
    *  Renders as plain box art regardless of the gallery style. */
-  coverSrc?: string | null;
+  coverSrc?: string | null | undefined;
   /** Force a specific boxart style (defaults to the gallery preference). */
-  forceStyle?: BoxartStyle;
+  forceStyle?: BoxartStyle | undefined;
   /** The surface this cover renders on, picks up the per-context
    *  boxart-style override (details / play pages). */
-  styleContext?: BoxartContext;
+  styleContext?: BoxartContext | undefined;
   /** Webp override; falls back to `useWebpSupport`. */
-  webp?: boolean;
+  webp?: boolean | undefined;
   /** External hover/focus state → drives spin + hover video. The surface
    *  that owns interactivity (GameCard) passes this. */
   active?: boolean;
@@ -185,7 +186,9 @@ const onCoverLoad = () => {
 // True ratio once known, else the style ratio as a first guess.
 const boxRatio = computed(() => naturalRatio.value ?? art.ratio.value);
 
-const selfHover = ref(false);
+const selfHover = useElementHover(() =>
+  props.hoverMotion ? rootEl.value : null,
+);
 const coverActive = computed(
   () => props.active || (props.hoverMotion && selfHover.value),
 );
@@ -213,12 +216,6 @@ const morphStyle = computed(() => {
     : undefined;
 });
 
-const onEnter = () => {
-  selfHover.value = true;
-};
-const onLeave = () => {
-  selfHover.value = false;
-};
 onMounted(() => {
   // Already bloomed this URL once this session → skip the reveal on this
   // (recycled) mount, regardless of whether the <img> reports `complete` yet.
@@ -233,13 +230,6 @@ onMounted(() => {
     if (activeSrc.value) revealedCoverSrcs.add(activeSrc.value);
     measureNaturalRatio();
   }
-  if (!props.hoverMotion) return;
-  rootEl.value?.addEventListener("mouseenter", onEnter);
-  rootEl.value?.addEventListener("mouseleave", onLeave);
-});
-onBeforeUnmount(() => {
-  rootEl.value?.removeEventListener("mouseenter", onEnter);
-  rootEl.value?.removeEventListener("mouseleave", onLeave);
 });
 
 defineExpose({

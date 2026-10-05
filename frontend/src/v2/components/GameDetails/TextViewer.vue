@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// TextViewer (v2) — renders a plain-text (.txt) or HTML (.html/.htm) document
+// TextViewer (v2): renders a plain-text (.txt) or HTML (.html/.htm) document
 // with the same v2 chrome as MarkdownViewer/PdfViewer. Used for manuals and
 // walkthroughs. Plain text is fetched and shown in a <pre> (so reading
 // progress can track its scroll); HTML is shown in a sandboxed iframe (the
@@ -14,6 +14,7 @@ import {
 } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useReadingProgress } from "@/v2/composables/useReadingProgress";
 
 const props = defineProps<{
@@ -21,7 +22,7 @@ const props = defineProps<{
   /** ROM id + file id persist the reading position; without them the progress
    *  bar still tracks the session's scroll. */
   romId?: number;
-  fileId?: number;
+  fileId?: number | undefined;
   /** Show a danger-tinted delete button at the end of the toolbar. */
   deletable?: boolean;
 }>();
@@ -33,7 +34,7 @@ const { t } = useI18n();
 const isHtml = computed(() => /\.html?(\?|$)/i.test(props.url));
 
 const fileName = computed(() => {
-  const path = props.url.split("?")[0];
+  const [path = ""] = props.url.split("?");
   const last = path.substring(path.lastIndexOf("/") + 1);
   try {
     return decodeURIComponent(last) || "document.txt";
@@ -42,9 +43,6 @@ const fileName = computed(() => {
   }
 });
 
-const content = ref("");
-const loading = ref(false);
-const failed = ref(false);
 const scrollEl = ref<HTMLElement | null>(null);
 
 const romIdRef = computed(() => props.romId ?? 0);
@@ -57,25 +55,35 @@ const { progress, restore, onScroll } = useReadingProgress(
   scrollEl,
 );
 
-async function load() {
-  if (isHtml.value) return; // iframe loads itself
-  loading.value = true;
-  failed.value = false;
-  try {
+const {
+  state: content,
+  isLoading: loading,
+  error,
+  execute: load,
+} = useFetchState(
+  async () => {
     const res = await fetch(props.url, { credentials: "include" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    content.value = await res.text();
+    return res.text();
+  },
+  "",
+  {
+    immediate: false,
     // Restore scroll after the <pre> has painted its content.
-    requestAnimationFrame(() => void restore());
-  } catch (err) {
-    console.error("Failed to load text document", err);
-    failed.value = true;
-  } finally {
-    loading.value = false;
-  }
-}
+    onSuccess: () => requestAnimationFrame(() => void restore()),
+    onError: (err) => console.error("Failed to load text document", err),
+  },
+);
+const failed = computed(() => error.value !== undefined);
 
-watch(() => props.url, load, { immediate: true });
+watch(
+  () => props.url,
+  () => {
+    if (isHtml.value) return; // iframe loads itself
+    void load();
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -141,7 +149,7 @@ watch(() => props.url, load, { immediate: true });
           :title="t('rom.manual-load-failed')"
         >
           <template #actions>
-            <RBtn variant="outlined" size="small" @click="load">
+            <RBtn variant="outlined" size="small" @click="load()">
               {{ t("common.try-again") }}
             </RBtn>
           </template>

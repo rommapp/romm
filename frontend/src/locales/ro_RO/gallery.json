@@ -1,5 +1,8 @@
 {
   "all-loaded": "Toate jocurile au fost încărcate",
+  "back-to-top": "Înapoi sus",
+  "column-actions": "Acțiuni",
+  "column-cover": "Copertă",
   "filters": "Filtre",
   "firmware-files-count": "{count} fișiere",
   "firmware-selected-count": "{count} selectate",
@@ -29,6 +32,7 @@
   "sort-ascending": "Sortează crescător",
   "sort-by": "Sortează după",
   "sort-descending": "Sortează descrescător",
+  "sort-relevance": "Relevanță",
   "view-flat": "Vizualizare plată",
   "view-grid": "Grilă",
   "view-grouped": "Grupare după literă",

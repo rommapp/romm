@@ -1,6 +1,5 @@
 import { flushPromises } from "@vue/test-utils";
 import mitt from "mitt";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Events } from "@/types/emitter";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -30,7 +29,6 @@ describe("useSnackbar persist", () => {
   const shown = vi.fn();
 
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
     emitter.current = mitt<Events>();
     emitter.current.on("snackbarShow", shown);
@@ -52,7 +50,7 @@ describe("useSnackbar persist", () => {
     });
     expect(storeNotificationInbox().notifications).toEqual([stored]);
     expect(shown).toHaveBeenCalledOnce();
-    expect(shown.mock.calls[0][0]).not.toHaveProperty("persist");
+    expect(shown.mock.calls[0]![0]).not.toHaveProperty("persist");
   });
 
   it("shows the toast without waiting for the request", () => {

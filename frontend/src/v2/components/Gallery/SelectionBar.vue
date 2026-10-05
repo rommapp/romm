@@ -45,8 +45,9 @@ import {
   RTooltip,
   RDivider,
 } from "@v2/lib";
+import { useElementSize } from "@vueuse/core";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
@@ -70,6 +71,7 @@ import {
   type StatusFlagKey,
   VISIBILITY_FLAG_KEYS,
 } from "@/v2/utils/romStatus";
+import { settleWithLimit } from "@/v2/utils/settleWithLimit";
 import {
   FILLET_PX,
   NOTCH_RADIUS_PX,
@@ -188,7 +190,9 @@ async function bulkFavorite() {
 // ROM is missing it) sets it on all. The per-rom `updateUserRomProps` is
 // the only endpoint (no bulk variant), so we fan out one request per ROM,
 // optimistically write the store, and revert only the ROMs whose request
-// failed.
+// failed. The fan-out is bounded so a whole-library selection doesn't queue
+// thousands of requests on a single-worker backend.
+const STATUS_CONCURRENCY = 4;
 //
 // `enumAllActive` / `flagAllActive` mirror `allFavorited`: keyed by
 // status so each menu row can paint its active state and decide its
@@ -218,10 +222,24 @@ const hasAnyStatus = computed(() => {
   );
 });
 
+// One batch at a time, so a slower earlier batch can't land after a newer choice.
+const applyingStatus = ref(false);
+
 async function applyStatus(data: Partial<RomUserData>) {
   const roms = selection.roms;
-  if (roms.length === 0) return;
+  if (roms.length === 0 || applyingStatus.value) return;
+  applyingStatus.value = true;
+  try {
+    await applyStatusTo(roms, data);
+  } finally {
+    applyingStatus.value = false;
+  }
+}
 
+async function applyStatusTo(
+  roms: typeof selection.roms,
+  data: Partial<RomUserData>,
+) {
   const before = new Map<number, RomUserData>();
   for (const rom of roms) {
     if (!rom.rom_user) continue;
@@ -230,10 +248,10 @@ async function applyStatus(data: Partial<RomUserData>) {
     syncCachedRom(rom);
   }
 
-  const results = await Promise.allSettled(
-    roms.map((rom) => romApi.updateUserRomProps({ romId: rom.id, data })),
+  const results = await settleWithLimit(roms, STATUS_CONCURRENCY, (rom) =>
+    romApi.updateUserRomProps({ romId: rom.id, data }),
   );
-  const failed = roms.filter((_, i) => results[i].status === "rejected");
+  const failed = roms.filter((_, i) => results[i]!.status === "rejected");
   for (const rom of failed) {
     const snapshot = before.get(rom.id);
     if (rom.rom_user && snapshot) {
@@ -283,7 +301,7 @@ function bulkDownload() {
   const roms = selection.roms;
   if (roms.length === 0) return;
   if (roms.length === 1) {
-    void romApi.downloadRom({ rom: roms[0] });
+    void romApi.downloadRom({ rom: roms[0]! });
     return;
   }
   // Bundle multi-selections into a single zip server-side; firing one
@@ -315,26 +333,15 @@ const notchStyle = {
 
 const barEl = ref<HTMLElement | null>(null);
 const notchEl = ref<HTMLElement | null>(null);
-const barSize = ref({ w: 0, h: 0 });
-const notchSize = ref({ w: 0, h: 0 });
-
-function measure() {
-  const bar = barEl.value;
-  const notch = notchEl.value;
-  if (bar) barSize.value = { w: bar.offsetWidth, h: bar.offsetHeight };
-  if (notch) notchSize.value = { w: notch.offsetWidth, h: notch.offsetHeight };
-}
-
 // The bar's width follows its buttons and the hill's follows the digit count,
 // so both are watched rather than measured once.
-let sizeObserver: ResizeObserver | null = null;
-onMounted(() => {
-  measure();
-  sizeObserver = new ResizeObserver(measure);
-  if (barEl.value) sizeObserver.observe(barEl.value);
-  if (notchEl.value) sizeObserver.observe(notchEl.value);
-});
-onBeforeUnmount(() => sizeObserver?.disconnect());
+const bar = useElementSize(barEl, undefined, { box: "border-box" });
+const notch = useElementSize(notchEl, undefined, { box: "border-box" });
+const barSize = computed(() => ({ w: bar.width.value, h: bar.height.value }));
+const notchSize = computed(() => ({
+  w: notch.width.value,
+  h: notch.height.value,
+}));
 
 const outline = computed(() =>
   selectionBarOutline(barSize.value, notchSize.value),
@@ -350,7 +357,7 @@ function clear() {
     ref="barEl"
     class="selection-bar"
     :class="{ 'selection-bar--visible': selection.enabled }"
-    :aria-hidden="!selection.enabled"
+    :inert="!selection.enabled"
   >
     <!-- One stroke around bar, hill and fillets, since three boxes cannot
          share a border without seams where their edges meet. -->
@@ -469,6 +476,7 @@ function clear() {
           :key="key"
           :icon="STATUS_ICONS[key]"
           :variant="enumAllActive[key] ? 'active' : 'default'"
+          :disabled="applyingStatus"
           @click="toggleEnumStatus(key)"
         >
           {{ t(romStatusMap[key].i18nKey) }}
@@ -485,6 +493,7 @@ function clear() {
           :icon="STATUS_ICONS[key]"
           :text-color="flagAllActive[key] ? 'brand-primary' : undefined"
           :icon-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          :disabled="applyingStatus"
           @click="toggleFlagStatus(key)"
         >
           {{ t(romStatusMap[key].i18nKey) }}
@@ -503,6 +512,7 @@ function clear() {
           :icon="STATUS_ICONS[key]"
           :text-color="flagAllActive[key] ? 'brand-primary' : undefined"
           :icon-color="flagAllActive[key] ? 'brand-primary' : undefined"
+          :disabled="applyingStatus"
           @click="toggleFlagStatus(key)"
         >
           {{ t(romStatusMap[key].i18nKey) }}
@@ -516,6 +526,7 @@ function clear() {
           <RMenuItem
             icon="mdi-close-circle-outline"
             variant="danger"
+            :disabled="applyingStatus"
             @click="clearStatus"
           >
             {{ t("rom.clear-all") }}
@@ -588,7 +599,7 @@ function clear() {
   --r-color-selection-edge: var(--r-color-brand-primary);
   position: fixed;
   left: 50%;
-  bottom: max(24px, env(safe-area-inset-bottom, 0));
+  bottom: max(24px, var(--r-safe-b));
   transform: translateX(-50%);
   /* Above the bottom tab bar (z 100) so the multi-select bar floats over
      it on mobile instead of being painted behind it; still below dialogs
@@ -627,7 +638,7 @@ function clear() {
 /* On sm-and-down sit just above the bottom tab bar (8px gap) so the two
    read as stacked, not overlapping. */
 html[data-bp~="sm-and-down"] .selection-bar {
-  bottom: calc(var(--r-bottom-nav-h) + 8px + env(safe-area-inset-bottom));
+  bottom: calc(var(--r-bottom-nav-h) + 8px + var(--r-safe-b));
 }
 
 /* RToolbar's default surface (`--r-color-bg-elevated`) is overridden

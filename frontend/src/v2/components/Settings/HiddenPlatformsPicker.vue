@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// HiddenPlatformsPicker — pick platforms to hide from a user or group. Model
+// HiddenPlatformsPicker: pick platforms to hide from a user or group. Model
 // is the list of hidden platform ids. The dropdown is the shared
 // PlatformSelect (the same icon + name rows used by Scan), in multi-select
 // mode so several platforms can be toggled without the menu closing each
@@ -14,7 +14,12 @@ import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{ modelValue: number[]; platforms: Platform[] }>();
+const props = defineProps<{
+  modelValue: number[];
+  platforms: Platform[];
+  hint?: string;
+}>();
+defineSlots<{ "prefix-label"?: () => unknown }>();
 const emit = defineEmits<{ "update:modelValue": [number[]] }>();
 
 const { t } = useI18n();
@@ -58,10 +63,15 @@ function remove(id: number) {
       prepend-inner-icon="mdi-controller"
       searchable
       show-meta
-      hide-details
+      :prefix-label="$slots['prefix-label'] ? 'stacked' : undefined"
+      :hint="hint"
+      :hide-details="!hint"
       :placeholder="t('settings.hidden-platforms-placeholder')"
       @update:model-value="onUpdate"
     >
+      <template v-if="$slots['prefix-label']" #prefix-label>
+        <slot name="prefix-label" />
+      </template>
       <!-- One count summary for the whole selection; an empty node for the
            rest suppresses RSelect's per-item default (which would otherwise
            reprint every platform's icon + name next to the count). -->

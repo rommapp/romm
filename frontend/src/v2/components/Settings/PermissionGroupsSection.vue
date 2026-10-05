@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PermissionGroupsSection — v2 admin table of permission groups. Mirrors
+// PermissionGroupsSection: v2 admin table of permission groups. Mirrors
 // UsersSection's layout (table + bottom action button). Reads the shared
 // permissionGroups store; create/edit go through GroupFormDialog (which
 // refetches the store), delete removes from the store via useConfirm.
@@ -177,6 +177,17 @@ onMounted(fetchGroups);
             v-if="(row as PermissionGroupSchema).is_default"
             tone="brand"
             :text="t('settings.group-default-tag')"
+            size="x-small"
+          />
+          <RTag
+            v-if="(row as PermissionGroupSchema).age_limit != null"
+            tone="warning"
+            prepend-icon="mdi-account-child-outline"
+            :text="
+              t('settings.age-limit-option', {
+                age: (row as PermissionGroupSchema).age_limit,
+              })
+            "
             size="x-small"
           />
           <RTag

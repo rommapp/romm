@@ -1,15 +1,15 @@
 <script setup lang="ts">
-// RProgressCircular — pure SVG ring with two modes:
+// RProgressCircular: pure SVG ring with two modes:
 //
-//   • Indeterminate (default) — Material-style spinner. The SVG rotates
+//   • Indeterminate (default): Material-style spinner. The SVG rotates
 //     continuously while the arc's `stroke-dasharray` cycles through a
 //     short→long→short pattern, creating the classic "snake chasing
 //     its tail" loop. Two animations compose on one DOM element so we
 //     don't need a wrapper rotation.
 //
-//   • Determinate (`indeterminate=false` + `modelValue`) — the arc fills
+//   • Determinate (`indeterminate=false` + `modelValue`): the arc fills
 //     clockwise from 12 o'clock. `pathLength="100"` normalises the
-//     circle so `stroke-dashoffset = 100 - value` works at any radius —
+//     circle so `stroke-dashoffset = 100 - value` works at any radius:
 //     no per-size maths.
 //
 // `size` and `width` are numeric pixels (number or numeric string).
@@ -17,14 +17,14 @@
 // shared TONE_MAP so `"primary"`, status tones, and legacy `romm-*`
 // names resolve consistently with the rest of the lib.
 //
-// Default slot — overlay content centred over the ring (percentage
+// Default slot: overlay content centred over the ring (percentage
 // text, status icon). Lives outside the SVG so it isn't rotated.
 import { computed, getCurrentInstance, useSlots } from "vue";
 
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  /** Spinner mode. Default `true` — Material-style continuous loop. */
+  /** Spinner mode. Default `true`: Material-style continuous loop. */
   indeterminate?: boolean;
   /** Diameter in px. */
   size?: number | string;
@@ -33,10 +33,10 @@ interface Props {
   /** Tone keyword / legacy `romm-*` / any CSS colour. */
   color?: string;
   /** 0–100. Only consulted when `indeterminate` is false. */
-  modelValue?: number;
+  modelValue?: number | undefined;
   /** Accessible name for the progressbar. Without it (and without slot
    *  content), an indeterminate ring is treated as decorative. */
-  label?: string;
+  label?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -121,11 +121,13 @@ const dashOffset = computed(() => 100 - progressValue.value);
     "
     :aria-valuemin="decorative ? undefined : 0"
     :aria-valuemax="decorative ? undefined : 100"
-    :aria-valuenow="!decorative && !indeterminate ? progressValue : undefined"
+    :aria-valuenow="
+      !decorative && !indeterminate ? Math.floor(progressValue) : undefined
+    "
     :aria-busy="!decorative && indeterminate ? true : undefined"
   >
     <svg class="r-pc__svg" :viewBox="`0 0 ${diameter} ${diameter}`">
-      <!-- Track — faint underlay so the empty portion still reads
+      <!-- Track: faint underlay so the empty portion still reads
            against complex backgrounds. Hidden under indeterminate. -->
       <circle
         class="r-pc__track"
@@ -135,7 +137,7 @@ const dashOffset = computed(() => 100 - progressValue.value);
         :stroke-width="strokeWidth"
         fill="none"
       />
-      <!-- Arc — the visible progress / spinner snake. -->
+      <!-- Arc: the visible progress / spinner snake. -->
       <circle
         class="r-pc__arc"
         :cx="diameter / 2"
@@ -161,7 +163,7 @@ const dashOffset = computed(() => 100 - progressValue.value);
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  /* `color` is the fallback for the arc — `--r-pc-color` overrides it
+  /* `color` is the fallback for the arc: `--r-pc-color` overrides it
      so consumers can hand-roll a custom tone via inline style without
      touching the prop. */
   color: var(--r-pc-color);
@@ -172,7 +174,7 @@ const dashOffset = computed(() => 100 - progressValue.value);
   width: 100%;
   height: 100%;
   display: block;
-  /* Start the arc at 12 o'clock — determinate progress reads as
+  /* Start the arc at 12 o'clock: determinate progress reads as
      "fills clockwise from top" instead of "from 3 o'clock". */
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
@@ -187,7 +189,7 @@ const dashOffset = computed(() => 100 - progressValue.value);
   stroke-linecap: round;
   /* Smooth the value swap so a determinate `modelValue` change reads
      as a fluid fill instead of jumping. The indeterminate path below
-     disables this — two animation systems on the same property smear. */
+     disables this: two animation systems on the same property smear. */
   transition: stroke-dashoffset 320ms var(--r-motion-ease-out);
 }
 
@@ -195,7 +197,7 @@ const dashOffset = computed(() => 100 - progressValue.value);
 
 /* Two animations compose on the same SVG: the parent rotates linearly
    while the arc's dash cycles long→short→long. The combination is the
-   Material-classic spinner — recognisable, smooth, GPU-friendly. */
+   Material-classic spinner: recognisable, smooth, GPU-friendly. */
 .r-pc--indeterminate .r-pc__svg {
   animation: r-pc-rotate 1.6s linear infinite;
 }
@@ -204,7 +206,7 @@ const dashOffset = computed(() => 100 - progressValue.value);
   transition: none;
 }
 .r-pc--indeterminate .r-pc__track {
-  /* Hide the track for indeterminate — Material convention. The track
+  /* Hide the track for indeterminate: Material convention. The track
      only reads as "remaining capacity", which is meaningless during
      an unbounded loop. */
   display: none;
@@ -225,7 +227,7 @@ const dashOffset = computed(() => 100 - progressValue.value);
   /* pathLength=100 → dash values are percentages of the circle.
      Three-phase grow → slide → shrink loop. The trick that makes the
      loop seamless: at 100% the arc collapses back to a 1-unit dot at
-     offset -100 — visually the same spot (and same length) as the
+     offset -100: visually the same spot (and same length) as the
      0% keyframe's dot at offset 0. Without this matched start/end the
      dash would jump abruptly when the iteration restarts. */
   0% {
@@ -242,7 +244,7 @@ const dashOffset = computed(() => 100 - progressValue.value);
   }
 }
 
-/* ── Content overlay — slot content centred over the ring ──────── */
+/* ── Content overlay: slot content centred over the ring ──────── */
 .r-pc__content {
   position: absolute;
   inset: 0;
@@ -253,13 +255,13 @@ const dashOffset = computed(() => 100 - progressValue.value);
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-pc-color);
   line-height: 1;
-  /* Scale the slot text with the ring — `cqi` (container-inline-size)
+  /* Scale the slot text with the ring: `cqi` (container-inline-size)
      would be ideal but isn't universally supported on SVG-adjacent
      containers; the static 11px works for most uses. Consumers can
      override via inline font-size. */
 }
 
-/* ── Reduced motion — drop the spinner animations ─────────────── */
+/* ── Reduced motion: drop the spinner animations ─────────────── */
 @media (prefers-reduced-motion: reduce) {
   .r-pc--indeterminate .r-pc__svg,
   .r-pc--indeterminate .r-pc__arc {

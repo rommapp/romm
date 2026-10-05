@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CreateSmartCollectionDialog — captures the current galleryFilter state
+// CreateSmartCollectionDialog: captures the current galleryFilter state
 // as a smart collection. v2 replacement for v1's
 // `components/common/Collection/Dialog/CreateSmartCollection.vue`.
 //
@@ -7,7 +7,7 @@
 //   • Emitter fires `showCreateSmartCollectionDialog` (typically from
 //     the FilterDrawer footer CTA).
 //   • If no filters are active we refuse to open and surface a snackbar
-//     hint — same guard v1 had, just routed through the v2 channel.
+//     hint: same guard v1 had, just routed through the v2 channel.
 //   • The dialog snapshots `galleryFilter` once on open (so further
 //     toggles in the gallery don't leak into the preview) and lets the
 //     user name / describe / mark public.
@@ -18,9 +18,8 @@
 // so the read-only display inside CollectionSettingsDrawer renders from
 // the same rules.
 import { RBtn, RChip, RDialog, RForm, RIcon, RTextField, RTag } from "@v2/lib";
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -28,10 +27,10 @@ import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
-import type { Events } from "@/types/emitter";
 import { toBrowserLocale } from "@/utils";
 import VisibilitySwitch from "@/v2/components/shared/VisibilitySwitch.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import {
@@ -48,7 +47,6 @@ const { t, locale } = useI18n();
 const { mdAndUp } = useBreakpoint();
 const router = useRouter();
 const snackbar = useSnackbar();
-const emitter = inject<Emitter<Events>>("emitter");
 
 const galleryFilter = storeGalleryFilter();
 const galleryRoms = storeGalleryRoms();
@@ -65,14 +63,14 @@ const isPublic = ref(false);
 
 // Snapshot the criteria once when the dialog opens. We don't want the
 // preview to keep updating as the user toggles filters in the gallery
-// behind the dialog — what the user saw at the moment they clicked the
+// behind the dialog: what the user saw at the moment they clicked the
 // CTA is what gets saved.
 const snapshot = ref<SmartFilterCriteria>({});
 
 const nameRules = [required(t("common.required"))];
 
 const openHandler = () => {
-  // v1 guarded with a snackbar warning here — keep that behaviour so
+  // v1 guarded with a snackbar warning here: keep that behaviour so
   // the user gets a hint instead of an empty preview.
   const next = buildSmartFilterCriteria(
     {
@@ -140,10 +138,7 @@ const openHandler = () => {
   isPublic.value = false;
   show.value = true;
 };
-emitter?.on("showCreateSmartCollectionDialog", openHandler);
-onBeforeUnmount(() =>
-  emitter?.off("showCreateSmartCollectionDialog", openHandler),
-);
+useEmitterEvent("showCreateSmartCollectionDialog", openHandler);
 
 // Platform / collection lookups so the summary renders human-readable
 // names ("SNES", "Castlevania") instead of `#1`. Each returns null when
@@ -190,10 +185,11 @@ async function submit() {
 
   submitting.value = true;
   try {
+    const trimmedDescription = description.value.trim();
     const data = await collectionApi.createSmartCollection({
       smartCollection: {
         name: name.value.trim(),
-        description: description.value.trim() || undefined,
+        ...(trimmedDescription ? { description: trimmedDescription } : {}),
         filter_criteria: snapshot.value,
         is_public: isPublic.value,
       },
@@ -361,7 +357,7 @@ html[data-bp~="sm-and-up"] .r-v2-csc__grid {
   border-radius: var(--r-radius-md);
   min-height: 200px;
   /* Bound the panel so a filter-heavy snapshot can't stretch the dialog
-     past the viewport — the head stays pinned, the list scrolls. */
+     past the viewport: the head stays pinned, the list scrolls. */
   max-height: clamp(200px, 48vh, 420px);
 }
 

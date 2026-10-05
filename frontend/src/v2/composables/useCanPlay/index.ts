@@ -1,17 +1,17 @@
-// useCanPlay — reactive "can this ROM be played in the browser?" check.
+// useCanPlay: reactive "can this ROM be played in the browser?" check.
 // v1 duplicated this logic across GameCard, GameDetails and the play menu
 // inside PlayBtn.vue; v2 lifts it to a composable so the card overlay
 // and the menu item agree with the details-header CTA.
 //
-// "Playable" means EJS, js-dos, PICO-8, or Ruffle can run the platform on this
+// "Playable" means EJS, js-dos, PICO-8, EasyRPG, or Ruffle can run the platform on this
 // server (admin toggles + platform support + WebGL availability) and there
 // is a file to boot, or a streaming container is configured for the
 // platform, or the desktop shell has a locally installed emulator for it.
 // A physical game or one missing from the filesystem has nothing
-// to hand the emulator, and js-dos additionally needs the file to be one of
-// its own bundles. The individual flags are exposed so the play action can
-// pick the right route (EJS vs js-dos vs PICO-8 vs Ruffle vs Stream vs
-// Native).
+// to hand the emulator, js-dos additionally needs the file to be one of its
+// own bundles, and EasyRPG an extracted game folder. The individual flags are
+// exposed so the play action can pick the right route (EJS vs js-dos vs
+// PICO-8 vs EasyRPG vs Ruffle vs Stream vs Native).
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
 import storeConfig from "@/stores/config";
@@ -20,6 +20,8 @@ import { useNativeStore } from "@/stores/native";
 import type { SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import {
+  isEasyRpgEmulationSupported,
+  isEasyRpgGame,
   isEJSEmulationSupported,
   isJsDosBundle,
   isJsDosEmulationSupported,
@@ -33,6 +35,7 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
   canPlayEJS: ComputedRef<boolean>;
   canPlayJsDos: ComputedRef<boolean>;
   canPlayPico8: ComputedRef<boolean>;
+  canPlayEasyRpg: ComputedRef<boolean>;
   canPlayRuffle: ComputedRef<boolean>;
   canPlayStream: ComputedRef<boolean>;
   canPlayNative: ComputedRef<boolean>;
@@ -65,6 +68,11 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
     () => onPico8Platform.value && isPico8Rom(getRom()),
   );
 
+  const onEasyRpgPlatform = supportedBy(isEasyRpgEmulationSupported);
+  const canPlayEasyRpg = computed(
+    () => onEasyRpgPlatform.value && isEasyRpgGame(getRom()),
+  );
+
   // The broker is handed the ROM file, so a physical game or one missing
   // from the filesystem has nothing to stream any more than it has to boot.
   const canPlayStream = computed(() => {
@@ -86,6 +94,7 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
       canPlayEJS.value ||
       canPlayJsDos.value ||
       canPlayPico8.value ||
+      canPlayEasyRpg.value ||
       canPlayRuffle.value ||
       canPlayStream.value ||
       canPlayNative.value,
@@ -96,6 +105,7 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
     canPlayEJS,
     canPlayJsDos,
     canPlayPico8,
+    canPlayEasyRpg,
     canPlayRuffle,
     canPlayStream,
     canPlayNative,

@@ -234,7 +234,7 @@ function selectTrack(fileId: number) {
   }
   player.loadPlaylistForRom(props.rom.id, playerTracks, metas);
   const target = playerTracks.find((p) => p.fileId === fileId)!;
-  player.play(target, metas[fileId]);
+  player.play(target, metas[fileId]!);
 }
 
 function onDelete(fileId: number) {

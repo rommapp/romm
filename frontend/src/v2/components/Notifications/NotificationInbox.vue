@@ -13,6 +13,7 @@ import { useGridNav } from "@/v2/composables/useGridNav";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeNotificationInbox from "@/v2/stores/notificationInbox";
+import { focusFromInput } from "@/v2/utils/autofocus";
 import { describeNotification } from "@/v2/utils/notifications";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
@@ -71,7 +72,7 @@ function focusDismissAt(index: number) {
     ".r-v2-notification__dismiss",
   );
   if (!buttons?.length) return;
-  buttons[Math.min(index, buttons.length - 1)].focus();
+  focusFromInput(buttons[Math.min(index, buttons.length - 1)]);
 }
 
 async function dismiss(id: number, index: number) {

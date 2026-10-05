@@ -23,7 +23,7 @@ const props = withDefaults(
     initialName?: string;
     initialPublic?: boolean;
     icon?: string;
-    confirmIcon?: string;
+    confirmIcon?: string | undefined;
     busy?: boolean;
   }>(),
   {

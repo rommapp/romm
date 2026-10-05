@@ -1,11 +1,14 @@
 import { RBtn, RSelect } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
+import mitt from "mitt";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { DetailedRom } from "@/stores/roms";
+import { propOf } from "@/test-utils/propOf";
+import type { Events } from "@/types/emitter";
 import type { LaunchState, SaveSyncOutcome } from "@/types/rommNative";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
 import EmulatorJS from "./EmulatorJS.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -108,6 +111,7 @@ vi.mock("@/v2/composables/useActivityPresence", () => ({
     start: vi.fn(),
     stopHeartbeat: vi.fn(),
     emitStop: vi.fn(),
+    stop: vi.fn(),
   }),
 }));
 
@@ -165,11 +169,14 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
   }),
 }));
 
-vi.mock("@/v2/composables/useStageActive", () => ({ useStageActive: vi.fn() }));
+vi.mock("@/v2/composables/useStageActive", () => ({
+  useStageActive: vi.fn(),
+  usePlayingWhile: vi.fn(),
+}));
 
 vi.mock("@/v2/composables/useUnloadGuard", () => ({ useUnloadGuard: vi.fn() }));
 
-const ROM = makeDetailedRom({
+const ROM = detailedRomFixture({
   id: 7,
   name: "Shadow of the Colossus",
   platform_id: 4,
@@ -182,20 +189,18 @@ const ROM = makeDetailedRom({
 
 // Two discs, so the panel renders its disc selector and there is a pick to
 // carry. Ids rather than names: a pick is a rom file's id.
-const DISC_SET = makeDetailedRom({
+const DISC_SET = detailedRomFixture({
   ...ROM,
   files: [
-    { id: 101, file_name: "Game (Disc 1).chd" },
-    { id: 102, file_name: "Game (Disc 2).chd" },
-  ] as DetailedRom["files"],
+    romFileFixture({ id: 101, file_name: "Game (Disc 1).chd" }),
+    romFileFixture({ id: 102, file_name: "Game (Disc 2).chd" }),
+  ],
 });
 
 // A scraped bezel, which is what puts the panel's bezel switch on screen.
-const BEZELED_ROM = makeDetailedRom({
+const BEZELED_ROM = detailedRomFixture({
   ...ROM,
-  ss_metadata: {
-    bezel_path: "roms/7/bezel/bezel.png",
-  } as DetailedRom["ss_metadata"],
+  ss_metadata: { bezel_path: "roms/7/bezel/bezel.png" },
 });
 
 // One BIOS file for the platform, which is what puts the firmware picker on
@@ -317,7 +322,7 @@ describe("EmulatorJS launch screen — play routes", () => {
     mocks.canPlayNative = true;
     const wrapper = await launchScreen();
 
-    await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
+    await wrapper.findAll(".r-v2-ejs__play")[0]!.trigger("click");
 
     // No core map for the platform is no core to ask for, which leaves the
     // shell to resolve one from the candidates it is given.
@@ -338,7 +343,7 @@ describe("EmulatorJS launch screen — play routes", () => {
     mocks.fullscreen.value = true;
     const wrapper = await launchScreen();
 
-    await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
+    await wrapper.findAll(".r-v2-ejs__play")[0]!.trigger("click");
 
     expect(mocks.launch).toHaveBeenCalledWith(ROM, {
       core: "mgba",
@@ -356,9 +361,9 @@ describe("EmulatorJS launch screen — play routes", () => {
 
     const discs = wrapper
       .findAllComponents(RSelect)
-      .filter((select) => select.props("label") === "rom.file");
-    await discs[0].setValue(102);
-    await wrapper.findAll(".r-v2-ejs__play")[0].trigger("click");
+      .filter((select) => propOf(select, "label") === "rom.file");
+    await discs[0]!.setValue(102);
+    await wrapper.findAll(".r-v2-ejs__play")[0]!.trigger("click");
 
     expect(mocks.launch).toHaveBeenCalledWith(DISC_SET, {
       core: undefined,
@@ -570,8 +575,8 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
   function slotItems(wrapper: VueWrapper): unknown[] {
     const select = wrapper
       .findAllComponents(RSelect)
-      .find((c) => c.props("info") === "play.slot-tooltip");
-    return (select?.props("items") as unknown[]) ?? [];
+      .find((c) => propOf(c, "info") === "play.slot-tooltip");
+    return select ? (propOf(select, "items") as unknown[]) : [];
   }
 
   // Not the call count: earlier wrappers' watchers are still live on the same
@@ -595,7 +600,7 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
     const wrapper = await launchScreen();
     const slot = wrapper
       .findAllComponents(RSelect)
-      .find((c) => c.props("info") === "play.slot-tooltip");
+      .find((c) => propOf(c, "info") === "play.slot-tooltip");
     await slot?.setValue({ kind: "existing", slot: "slots/2" });
     await flushPromises();
 
@@ -606,7 +611,7 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
     await flushPromises();
 
     expect(slotItems(wrapper)).toHaveLength(2);
-    expect(slot?.props("modelValue")).toEqual({
+    expect(slot && propOf(slot, "modelValue")).toEqual({
       kind: "existing",
       slot: "slots/2",
     });
@@ -640,5 +645,52 @@ describe("the native affordances' icons", () => {
     // Matched on the rule the font actually declares, not the bare name, or
     // "mdi-play" would be satisfied by "mdi-playlist-play".
     expect(MDI_CSS).toMatch(new RegExp(`\\.${name}::?before`));
+  });
+});
+
+describe("EmulatorJS window listeners", () => {
+  it("drops the keyboard-lock listener when the player closes", async () => {
+    const keyboard = { lock: vi.fn(), unlock: vi.fn() };
+    Object.defineProperty(navigator, "keyboard", {
+      value: keyboard,
+      configurable: true,
+    });
+    try {
+      const wrapper = await launchScreen();
+      document.dispatchEvent(new Event("fullscreenchange"));
+      expect(keyboard.unlock).toHaveBeenCalledOnce();
+
+      wrapper.unmount();
+      document.dispatchEvent(new Event("fullscreenchange"));
+      expect(keyboard.unlock).toHaveBeenCalledOnce();
+    } finally {
+      Reflect.deleteProperty(navigator, "keyboard");
+    }
+  });
+});
+
+describe("EmulatorJS emitter listeners", () => {
+  it("leaves no save or state listener behind when closed mid-load", async () => {
+    const emitter = mitt<Events>();
+    let resolveRom: (value: { data: DetailedRom }) => void = () => {};
+    mocks.getRom.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRom = resolve;
+      }),
+    );
+    const wrapper = mount(EmulatorJS, {
+      shallow: true,
+      global: {
+        provide: { emitter },
+        stubs: { GameCover: GameCoverStub },
+      },
+    });
+
+    wrapper.unmount();
+    resolveRom({ data: ROM });
+    await flushPromises();
+
+    expect(emitter.all.get("saveSelected") ?? []).toHaveLength(0);
+    expect(emitter.all.get("stateSelected") ?? []).toHaveLength(0);
   });
 });

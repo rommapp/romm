@@ -3,6 +3,7 @@
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.factories import make_rom
 
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
@@ -13,15 +14,18 @@ from models.user import User
 
 # Truncated at the bind placeholder: MariaDB renders `?` and psycopg
 # `%(id_1)s::INTEGER`, and CI runs both.
-VISIBILITY_LOOKUP = "SELECT roms.id, roms.platform_id FROM roms WHERE roms.id ="
+VISIBILITY_LOOKUP = (
+    "SELECT roms.id, roms.platform_id, roms.min_age FROM roms WHERE roms.id ="
+)
 LABEL_LOOKUP = (
-    "SELECT roms.id, roms.platform_id, roms.name, roms.fs_name "
+    "SELECT roms.id, roms.platform_id, roms.min_age, roms.name, roms.fs_name "
     "FROM roms WHERE roms.id ="
 )
 # Stops at the first platform column; the rest are not needed to tell the
 # projection apart.
 DELETE_TARGET_LOOKUP = (
-    "SELECT roms.id, roms.platform_id, roms.name, roms.fs_name, roms.fs_path, "
+    "SELECT roms.id, roms.platform_id, roms.min_age, roms.name, roms.fs_name, "
+    "roms.fs_path, "
     "platforms.slug AS platform_slug"
 )
 
@@ -52,21 +56,6 @@ def _rom_lookup(statements: list[str], prefix: str, count: int = 1) -> None:
     matches = [s for s in flat if s.startswith(prefix)]
 
     assert len(matches) == count, flat
-
-
-def _add_rom(platform: Platform, name: str) -> Rom:
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=name,
-            fs_name=f"{name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
 
 
 def _add_file(rom: Rom, category: RomFileCategory) -> RomFile:
@@ -181,7 +170,7 @@ def test_bulk_delete_resolves_each_rom_without_the_related_load(
 ) -> None:
     targets = []
     for n in range(3):
-        target = _add_rom(platform, f"bulk_{n}")
+        target = make_rom(platform, f"bulk_{n}")
         db_rom_handler.add_rom_user(rom_id=target.id, user_id=admin_user.id)
         targets.append(target)
 

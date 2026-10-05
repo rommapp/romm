@@ -4,8 +4,6 @@ import re
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
 
-import alembic.config
-import sentry_sdk
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,7 +26,6 @@ from config import (
     ROMM_AUTH_SECRET_KEY,
     ROMM_CORS_ALLOWED_ORIGINS,
     ROMM_SESSION_SECURE_COOKIE,
-    SENTRY_DSN,
     cors_allow_credentials,
 )
 from endpoints.activity import router as activity_router
@@ -65,6 +62,7 @@ from endpoints.streaming import router as streaming_router
 from endpoints.sync import router as sync_router
 from endpoints.tasks import router as tasks_router
 from endpoints.user import router as user_router
+from handler.activity_handler import activity_handler
 from handler.auth.constants import SESSION_COOKIE_NAME
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
@@ -82,6 +80,7 @@ from utils.context import (
 )
 from utils.memory_cards import MEMORY_CARD_MAX_BYTES
 from utils.openapi import publish_socket_payloads
+from utils.sentry import init_sentry
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -103,6 +102,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         try:
             yield
         finally:
+            await activity_handler.flush_refresh()
             if log_forwarder_task is not None:
                 log_forwarder_task.cancel()
                 # Await the cancellation so the forwarder's cleanup (pubsub
@@ -111,10 +111,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
                     await log_forwarder_task
 
 
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    release="romm@" + get_version(),
-)
+init_sentry()
 
 app = FastAPI(
     title="RomM API",
@@ -231,6 +228,8 @@ publish_socket_payloads(app, STREAMING_SOCKET_PAYLOADS)
 # NOTE: This code is only executed when running the application directly,
 # not by deployments using gunicorn.
 if __name__ == "__main__":
+    import alembic.config
+
     # Run migrations
     alembic.config.main(argv=["upgrade", "head"])
 

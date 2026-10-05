@@ -2,15 +2,16 @@
 /**
  * Device authorization approval target (RFC 8628 style). A signed-in user
  * lands here from a pairing link (`/pair/device?user_code=…`), reviews the
- * requesting device, then approves it — granting a scoped, device-bound
- * client token — or denies the request.
+ * requesting device, then approves it, granting a scoped, device-bound
+ * client token, or denies the request.
  *
  * v2-only: rendered inside {@link DevicePairShell}, which owns the
  * AuthLayout-style chrome and the `.r-v2` token scope.
  */
 import { RBtn, RChip, RIcon, RSelect, RSpinner, RTextField } from "@v2/lib";
+import { useCountdown } from "@vueuse/core";
 import type { AxiosError } from "axios";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import deviceAuthApi, {
@@ -86,29 +87,10 @@ onMounted(async () => {
 });
 
 const AUTO_CLOSE_SECONDS = 3;
-const closeCountdown = ref<number>(AUTO_CLOSE_SECONDS);
-const closeIntervalId = ref<number | null>(null);
-
-function scheduleAutoClose() {
-  closeCountdown.value = AUTO_CLOSE_SECONDS;
-  closeIntervalId.value = window.setInterval(() => {
-    closeCountdown.value -= 1;
-    if (closeCountdown.value <= 0) {
-      if (closeIntervalId.value !== null) {
-        window.clearInterval(closeIntervalId.value);
-        closeIntervalId.value = null;
-      }
-      window.close();
-    }
-  }, 1000);
-}
-
-onBeforeUnmount(() => {
-  if (closeIntervalId.value !== null) {
-    window.clearInterval(closeIntervalId.value);
-    closeIntervalId.value = null;
-  }
-});
+const { remaining: closeCountdown, start: scheduleAutoClose } = useCountdown(
+  AUTO_CLOSE_SECONDS,
+  { onComplete: () => window.close() },
+);
 
 async function approve() {
   if (!pending.value || selectedScopes.value.length === 0) return;

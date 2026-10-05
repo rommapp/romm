@@ -1,6 +1,5 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import {
@@ -12,6 +11,9 @@ import storeCollections, { type Collection } from "@/stores/collections";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { useStreamingStore, type JoinableSession } from "@/stores/streaming";
+import { collectionFixture } from "@/utils/collection.fixtures";
+import { platformFixture } from "@/utils/platform.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import { SKELETON_DELAY_MS } from "@/v2/composables/useLoadingPhase";
 import Home from "./Home.vue";
 
@@ -109,27 +111,20 @@ vi.mock("@/composables/useUISettings", () => ({
 }));
 
 function platform(id: number): Platform {
-  return {
+  return platformFixture({
     id,
-    display_name: `Platform ${id}`,
     name: `Platform ${id}`,
     slug: `platform-${id}`,
-    fs_slug: `platform-${id}`,
     rom_count: 12,
-  } as Platform;
+  });
 }
 
 function collection(id: number): Collection {
-  return {
-    id,
-    name: `Collection ${id}`,
-    rom_count: 3,
-    rom_ids: [],
-  } as unknown as Collection;
+  return collectionFixture({ id, name: `Collection ${id}`, rom_count: 3 });
 }
 
 function rom(id: number): SimpleRom {
-  return { id, name: `Rom ${id}` } as SimpleRom;
+  return romFixture({ id, name: `Rom ${id}` });
 }
 
 /**
@@ -247,7 +242,6 @@ function findRow(wrapper: ReturnType<typeof mountHome>, title: string) {
 
 describe("Home", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     getLibraryInfo.mockReset();
     getLibraryInfo.mockResolvedValue({
       data: { library_ready: true, existing_platforms: [] },
@@ -284,19 +278,15 @@ describe("Home", () => {
   it("paints neither the sections nor the empty library while a load is still quick", async () => {
     holdRowsLoading();
     vi.useFakeTimers();
-    try {
-      const wrapper = mountHome();
-      await vi.advanceTimersByTimeAsync(SKELETON_DELAY_MS - 1);
+    const wrapper = mountHome();
+    await vi.advanceTimersByTimeAsync(SKELETON_DELAY_MS - 1);
 
-      expect(findRow(wrapper, "home.recently-added")).toBeUndefined();
-      expect(wrapper.text()).not.toContain("home.empty-headline");
+    expect(findRow(wrapper, "home.recently-added")).toBeUndefined();
+    expect(wrapper.text()).not.toContain("home.empty-headline");
 
-      await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(1);
 
-      expect(findRow(wrapper, "home.recently-added")).toBeDefined();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(findRow(wrapper, "home.recently-added")).toBeDefined();
   });
 
   it("renders the recommendations row with its per-card reason", async () => {
@@ -394,6 +384,35 @@ describe("Home", () => {
     // the dashboard from rendering.
     expect(wrapper.text()).not.toContain("recommendations.for-you");
     expect(wrapper.text()).not.toContain("home.empty-headline");
+  });
+
+  it("polls live sessions only while the tab is visible and streaming is on", async () => {
+    stubHomeFetches(true);
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("hidden");
+    const streaming = useStreamingStore();
+    const fetchJoinable = vi
+      .spyOn(streaming, "fetchJoinableSessions")
+      .mockResolvedValue(undefined);
+    streaming.config.enabled = true;
+    mountHome();
+    await flushPromises();
+    fetchJoinable.mockClear();
+
+    vi.advanceTimersByTime(60_000);
+    expect(fetchJoinable).not.toHaveBeenCalled();
+
+    visibility.mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await flushPromises();
+    expect(fetchJoinable).toHaveBeenCalledTimes(1);
+
+    streaming.config.enabled = false;
+    await flushPromises();
+    vi.advanceTimersByTime(60_000);
+    expect(fetchJoinable).toHaveBeenCalledTimes(1);
   });
 
   it("shows the live row only while someone hosts a multiplayer session", async () => {

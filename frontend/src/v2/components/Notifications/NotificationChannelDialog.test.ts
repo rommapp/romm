@@ -1,10 +1,10 @@
 import { RCheckbox, RComboboxField, RSelect } from "@v2/lib";
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import type { NotificationChannelSchema } from "@/__generated__";
 import storePermissions from "@/stores/permissions";
+import { propOf } from "@/test-utils/propOf";
 import {
   makeAppriseService,
   makeChannel,
@@ -19,9 +19,7 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock("@/services/api/notificationChannel", () => ({ default: api }));
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: { value: "en_US" } }),
-}));
+vi.mock("vue-i18n");
 
 function channel(
   overrides: Partial<NotificationChannelSchema> = {},
@@ -74,7 +72,7 @@ function input(wrapper: Wrapper, selector: string) {
 }
 
 async function pick(wrapper: Wrapper, kind: string) {
-  wrapper.findAllComponents(RSelect)[0].vm.$emit("update:modelValue", kind);
+  wrapper.findAllComponents(RSelect)[0]!.vm.$emit("update:modelValue", kind);
   await nextTick();
 }
 
@@ -95,7 +93,6 @@ async function save(wrapper: Wrapper) {
 
 describe("NotificationChannelDialog", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     vi.resetAllMocks();
     api.getAppriseServices.mockResolvedValue({ data: [makeAppriseService()] });
   });
@@ -104,7 +101,7 @@ describe("NotificationChannelDialog", () => {
     api.create.mockResolvedValue({ data: channel() });
     const wrapper = await open();
 
-    await wrapper.findAll("input.r-text-field__input")[0].setValue(" Hook ");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue(" Hook ");
     await input(wrapper, WEBHOOK_PLACEHOLDER).setValue(
       " https://hooks.example.com/romm ",
     );
@@ -127,7 +124,7 @@ describe("NotificationChannelDialog", () => {
   it("sends nothing for a URL that isn't http", async () => {
     const wrapper = await open();
 
-    await wrapper.findAll("input.r-text-field__input")[0].setValue("Hook");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Hook");
     await input(wrapper, WEBHOOK_PLACEHOLDER).setValue("ftp://example.com");
     await save(wrapper);
 
@@ -140,7 +137,7 @@ describe("NotificationChannelDialog", () => {
     const wrapper = await open(null, { admin: true });
 
     await pick(wrapper, "apprise:ntfy");
-    await wrapper.findAll("input.r-text-field__input")[0].setValue("Phone");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Phone");
     await textField(wrapper, "notifications.channel-field-host")?.setValue(
       "ntfy.example.com",
     );
@@ -171,12 +168,58 @@ describe("NotificationChannelDialog", () => {
     const wrapper = await open(null, { admin: true });
 
     await pick(wrapper, "apprise:ntfy");
-    await wrapper.findAll("input.r-text-field__input")[0].setValue("Phone");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Phone");
     await save(wrapper);
 
     expect(api.create).not.toHaveBeenCalled();
     expect(wrapper.find(".r-combobox-field").text()).toContain(
       "common.required",
+    );
+    wrapper.unmount();
+  });
+
+  it("takes an address in an email field and checks it", async () => {
+    const sendgrid = makeAppriseService({
+      id: "sendgrid",
+      name: "SendGrid",
+      fields: [
+        {
+          ...makeAppriseService().fields[3]!,
+          key: "apikey",
+          label: "API Key",
+          required: true,
+        },
+        {
+          ...makeAppriseService().fields[1]!,
+          key: "from_email",
+          label: "From Email",
+          type: "email",
+          required: true,
+        },
+      ],
+    });
+    api.getAppriseServices.mockResolvedValue({ data: [sendgrid] });
+    api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:sendgrid");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Mail");
+    await input(wrapper, '[type="password"]').setValue("abc123");
+    const address = input(wrapper, '[type="email"]');
+    await address.setValue("romm");
+    await save(wrapper);
+
+    expect(api.create).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain("Invalid email");
+
+    await address.setValue("romm@example.com");
+    await save(wrapper);
+
+    expect(api.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        service: "sendgrid",
+        fields: { apikey: "abc123", from_email: "romm@example.com" },
+      }),
     );
     wrapper.unmount();
   });
@@ -208,7 +251,7 @@ describe("NotificationChannelDialog", () => {
     const wrapper = await open(null, { admin: true });
 
     await pick(wrapper, "apprise:ntfy");
-    await wrapper.findAll("input.r-text-field__input")[0].setValue("Phone");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Phone");
     await paste(wrapper, "ntfys://ntfy.example.com:8080/romm");
 
     const pasted = textField(wrapper, "notifications.channel-paste-url");
@@ -220,7 +263,7 @@ describe("NotificationChannelDialog", () => {
     expect(api.parseAppriseUrl).toHaveBeenCalledWith(
       "ntfys://ntfy.example.com:8080/romm",
     );
-    expect(api.create.mock.calls[0][0].fields).toMatchObject({
+    expect(api.create.mock.calls[0]![0].fields).toMatchObject({
       host: "ntfy.example.com",
       port: 8080,
       targets: ["romm"],
@@ -259,7 +302,7 @@ describe("NotificationChannelDialog", () => {
     await pick(wrapper, "apprise:ntfy");
     await paste(wrapper, "https://discord.com/api/webhooks/1/token");
 
-    expect(wrapper.findAllComponents(RSelect)[0].props("modelValue")).toBe(
+    expect(propOf(wrapper.findAllComponents(RSelect)[0]!, "modelValue")).toBe(
       "apprise:discord",
     );
     wrapper.unmount();
@@ -329,7 +372,7 @@ describe("NotificationChannelDialog", () => {
 
     await pick(wrapper, "apprise:discord");
     expect(textField(wrapper, "Webhook ID")).toBeUndefined();
-    await wrapper.findAll("input.r-text-field__input")[0].setValue("Alerts");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Alerts");
     await textField(wrapper, "notifications.channel-field-botname")?.setValue(
       "RomM",
     );
@@ -342,7 +385,7 @@ describe("NotificationChannelDialog", () => {
     expect(api.parseAppriseUrl).toHaveBeenCalledWith(
       "https://discord.com/api/webhooks/1/t",
     );
-    expect(api.create.mock.calls[0][0]).toMatchObject({
+    expect(api.create.mock.calls[0]![0]).toMatchObject({
       service: "discord",
       fields: { botname: "RomM", webhook_id: "1", webhook_token: "t" },
     });
@@ -359,7 +402,7 @@ describe("NotificationChannelDialog", () => {
     const wrapper = await open(null, { admin: true });
 
     await pick(wrapper, "apprise:discord");
-    await wrapper.findAll("input.r-text-field__input")[0].setValue("Alerts");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Alerts");
     await textField(wrapper, "notifications.channel-service-url")?.setValue(
       "https://discord.com/api/webhooks/1/t",
     );
@@ -375,7 +418,7 @@ describe("NotificationChannelDialog", () => {
     await flushPromises();
 
     expect(api.parseAppriseUrl).toHaveBeenCalledTimes(1);
-    expect(api.create.mock.calls[0][0].fields).toMatchObject({
+    expect(api.create.mock.calls[0]![0].fields).toMatchObject({
       webhook_id: "1",
       webhook_token: "t",
     });
@@ -387,7 +430,7 @@ describe("NotificationChannelDialog", () => {
     const wrapper = await open(null, { admin: true });
 
     await pick(wrapper, "apprise:discord");
-    await wrapper.findAll("input.r-text-field__input")[0].setValue("Alerts");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Alerts");
     await save(wrapper);
 
     expect(api.create).not.toHaveBeenCalled();
@@ -397,7 +440,7 @@ describe("NotificationChannelDialog", () => {
   it("offers Apprise's services to admins only", async () => {
     const kinds = async (admin: boolean) => {
       const wrapper = await open(null, { admin });
-      const items = wrapper.findAllComponents(RSelect)[0].props("items") as {
+      const items = propOf(wrapper.findAllComponents(RSelect)[0]!, "items") as {
         value: string;
       }[];
       wrapper.unmount();
@@ -462,7 +505,7 @@ describe("NotificationChannelDialog", () => {
       ?.vm.$emit("update:modelValue", true);
     await save(wrapper);
 
-    expect(api.update.mock.calls[0][1].fields).toMatchObject({ token: "" });
+    expect(api.update.mock.calls[0]![1].fields).toMatchObject({ token: "" });
     wrapper.unmount();
   });
 
@@ -473,7 +516,7 @@ describe("NotificationChannelDialog", () => {
     await wrapper.find('input[type="checkbox"]').setValue(true);
     await save(wrapper);
 
-    expect(api.update.mock.calls[0][1]).toMatchObject({ secret: "" });
+    expect(api.update.mock.calls[0]![1]).toMatchObject({ secret: "" });
     wrapper.unmount();
   });
 

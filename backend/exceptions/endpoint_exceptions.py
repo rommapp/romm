@@ -47,10 +47,8 @@ class CollectionAlreadyExistsException(Exception):
     def __init__(self, name: str) -> None:
         self.message = f"Collection with name '{name}' already exists"
         super().__init__(self.message)
-        log.critical(self.message)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=self.message
-        )
+        log.warning(self.message)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=self.message)
 
     def __repr__(self) -> str:
         return self.message
@@ -96,13 +94,6 @@ class DeviceInstallDisabledException(Exception):
 
     def __repr__(self) -> str:
         return self.message
-
-
-class RomNotFoundInRetroAchievementsException(Exception):
-    def __init__(self, id: int) -> None:
-        self.message = f"Rom with id '{id}' does not exist on RetroAchievements"
-        super().__init__(self.message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=self.message)
 
 
 class SGDBInvalidAPIKeyException(Exception):

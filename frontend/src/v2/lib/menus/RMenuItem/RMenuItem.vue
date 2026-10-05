@@ -1,14 +1,14 @@
 <script setup lang="ts">
-// RMenuItem — clickable row used inside RMenuPanel.
+// RMenuItem: clickable row used inside RMenuPanel.
 //
 // Renders either a `<button>` (default) or `<router-link>` when `to` is set,
 // or an `<a>` when `href` is set. Stays visually consistent across all use
 // cases: 15px leading-icon slot (left), label, 9px rounded hover bg.
 //
 // Variants:
-//   * default — fg-secondary text, hover background var(--r-color-surface)
-//   * active  — filled brand accent (radio-like "current" pick)
-//   * danger  — red text, red-tinted hover (destructive actions)
+//   * default - fg-secondary text, hover background var(--r-color-surface)
+//   * active  - filled brand accent (radio-like "current" pick)
+//   * danger  - red text, red-tinted hover (destructive actions)
 //
 // `textColor` / `iconColor` accept a token suffix (e.g. "brand-primary",
 // "warning", "fav") and override the variant's defaults, so consumers can
@@ -24,26 +24,27 @@ defineOptions({ inheritAttrs: false });
 type Variant = "default" | "active" | "danger";
 
 interface Props {
-  label?: string;
-  icon?: string; // optional mdi class — falls back to the slot
+  label?: string | undefined;
+  icon?: string | undefined; // optional mdi class: falls back to the slot
   variant?: Variant;
-  disabled?: boolean;
-  // Routing — mutually exclusive; if neither is set we render a button.
-  to?: string | object;
-  href?: string;
+  disabled?: boolean | undefined;
+  // Routing: mutually exclusive; if neither is set we render a button.
+  to?: string | object | undefined;
+  href?: string | undefined;
   // `closeOnClick` makes the menu parent close when true (default). Handled
   // by the parent (RMenu auto-closes); this prop is mainly documentation
   // for consumers that wire their own open state.
   closeOnClick?: boolean;
-  // Token-suffix overrides — `"brand-primary"` → `var(--r-color-brand-primary)`.
-  textColor?: string;
-  iconColor?: string;
+  // Token-suffix overrides: `"brand-primary"` → `var(--r-color-brand-primary)`.
+  textColor?: string | undefined;
+  iconColor?: string | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   label: undefined,
   icon: undefined,
   variant: "default",
+  disabled: false,
   to: undefined,
   href: undefined,
   closeOnClick: true,
@@ -64,7 +65,7 @@ const elementType = computed(() => {
   return "button";
 });
 
-// Per-element attrs. CRITICAL: never spread `href` onto RouterLink — a
+// Per-element attrs. CRITICAL: never spread `href` onto RouterLink, a
 // fallthrough `href` attribute (even `undefined`) clobbers the href
 // RouterLink computes from `to`, leaving an <a> with NO href. Such an
 // anchor isn't a real link: the browser offers no "open in new tab"
@@ -86,12 +87,12 @@ const dynamicAttrs = computed<Record<string, unknown>>(() => {
       "aria-disabled": props.disabled ? "true" : undefined,
     };
   }
-  return { type: "button", disabled: props.disabled };
+  return { type: "button", role: "menuitem", disabled: props.disabled };
 });
 
 // When the item is a link (`to`/`href`) opened with a new-tab / new-window
 // gesture (Ctrl/⌘/Shift/Alt-click), let the browser handle it natively and
-// suppress the `click` emit — otherwise a consumer's "close the menu"
+// suppress the `click` emit: otherwise a consumer's "close the menu"
 // handler tears the <a> out of the DOM (RMenu teleports its panel) before
 // the new tab opens, swallowing the gesture. RouterLink already declines
 // to navigate in-app for these, so the default <a> action does the work.
@@ -211,7 +212,7 @@ const styleVars = computed(() => {
   text-overflow: ellipsis;
 }
 
-/* Active — single radio-like "current" pick. */
+/* Active: single radio-like "current" pick. */
 .r-menu-item--active,
 .r-menu-item--active:hover:not(.r-menu-item--disabled) {
   --rmi-text: var(--r-color-brand-primary);
@@ -222,7 +223,7 @@ const styleVars = computed(() => {
   stroke: currentColor;
 }
 
-/* Danger — destructive actions. */
+/* Danger: destructive actions. */
 .r-menu-item--danger,
 .r-menu-item--danger:hover:not(.r-menu-item--disabled) {
   --rmi-text: var(--r-color-danger);
@@ -235,7 +236,7 @@ const styleVars = computed(() => {
   opacity: 1;
 }
 
-/* Disabled — `pointer-events: none` also blocks native navigation on a
+/* Disabled: `pointer-events: none` also blocks native navigation on a
    disabled link item (anchors ignore the `disabled` attribute). */
 .r-menu-item--disabled {
   opacity: 0.45;

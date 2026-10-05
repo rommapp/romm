@@ -219,38 +219,34 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
             v-model="selectedPlatform"
             :label="t('common.platform')"
             item-title="name"
-            :items="supportedPlatforms"
+            :items="supportedPlatforms!"
             return-object
             clearable
             single-line
             hide-details
           >
             <template #item="{ props, item }">
-              <v-list-item
-                class="py-2"
-                v-bind="props"
-                :title="item.raw.name ?? ''"
-              >
+              <v-list-item class="py-2" v-bind="props" :title="item.name ?? ''">
                 <template #prepend>
                   <PlatformIcon
-                    :key="item.raw.slug"
+                    :key="item.slug"
                     :size="35"
-                    :name="item.raw.name"
-                    :slug="item.raw.slug"
-                    :fs-slug="item.raw.fs_slug"
+                    :name="item.name"
+                    :slug="item.slug"
+                    :fs-slug="item.fs_slug"
                   />
                 </template>
               </v-list-item>
             </template>
             <template #selection="{ item }">
-              <v-list-item class="px-0" :title="item.raw.name ?? ''">
+              <v-list-item class="px-0" :title="item.name ?? ''">
                 <template #prepend>
                   <PlatformIcon
-                    :key="item.raw.slug"
+                    :key="item.slug"
                     :size="35"
-                    :slug="item.raw.slug"
-                    :name="item.raw.name"
-                    :fs-slug="item.raw.fs_slug"
+                    :slug="item.slug"
+                    :name="item.name"
+                    :fs-slug="item.fs_slug"
                   />
                 </template>
               </v-list-item>

@@ -15,6 +15,7 @@ import musicApi, { type MusicTrackFilters } from "@/services/api/music";
 import useMusicFavorites from "@/stores/musicFavorites";
 import SoundtrackPanel from "@/v2/components/Soundtrack/Panel.vue";
 import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
+import { useDebouncedSearch } from "@/v2/composables/useDebouncedSearch";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useTrackPager } from "@/v2/composables/useTrackPager";
 import { panelTracksFromCatalog } from "@/v2/utils/soundtrackTracks";
@@ -24,9 +25,9 @@ export interface BrowseEntry {
   label: string;
   count: number;
   /** Platform rows show the console badge instead of a generic glyph. */
-  platformSlug?: string;
-  coverUrl?: string;
-  subtitle?: string;
+  platformSlug?: string | undefined;
+  coverUrl?: string | undefined;
+  subtitle?: string | undefined;
 }
 
 const props = defineProps<{
@@ -38,8 +39,8 @@ const props = defineProps<{
   selected: string;
   /** Bumped by the host to force a refetch (e.g. after a delete). */
   refreshToken?: number;
-  searchable?: boolean;
-  startShuffled?: boolean;
+  searchable?: boolean | undefined;
+  startShuffled?: boolean | undefined;
   deletable?: boolean;
 }>();
 const emit = defineEmits<{
@@ -53,7 +54,12 @@ const favorites = useMusicFavorites();
 const entries = ref<BrowseEntry[]>([]);
 const loadingEntries = ref(true);
 const entriesFailed = ref(false);
-const search = ref("");
+const searchTerm = ref<string | null>(null);
+const {
+  input: search,
+  setSearch,
+  flush: flushSearch,
+} = useDebouncedSearch(searchTerm, 250);
 const entriesPhase = useLoadingPhase(
   loadingEntries,
   () => entriesFailed.value || !entries.value.length,
@@ -62,7 +68,6 @@ const entriesPhase = useLoadingPhase(
 const pager = useTrackPager((items) => favorites.merge(items));
 
 let entriesToken = 0;
-let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 async function fetchEntries(term: string) {
   const token = ++entriesToken;
@@ -91,10 +96,7 @@ function loadTracks(key: string) {
   });
 }
 
-watch(search, (term) => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => void fetchEntries(term.trim()), 250);
-});
+watch(searchTerm, (term) => void fetchEntries(term ?? ""));
 
 watch(
   [() => props.selected, () => props.refreshToken],
@@ -102,11 +104,13 @@ watch(
   { immediate: true },
 );
 
-// A delete also changes the sidebar's counts, and may empty the picked
-// entry entirely (fetchEntries then falls back to the first one).
+// A delete changes the sidebar's counts and may empty the picked entry. The
+// reload uses the text in the box, so a pending keystroke can't be undone.
 watch(
   () => props.refreshToken,
-  () => void fetchEntries(search.value.trim()),
+  () => {
+    if (!flushSearch()) void fetchEntries(searchTerm.value ?? "");
+  },
 );
 
 void fetchEntries("");
@@ -122,12 +126,13 @@ function onDelete(fileId: number, romId: number) {
   <aside class="jukebox__sidebar">
     <div v-if="searchable" class="jukebox__sidebar-head">
       <RTextField
-        v-model="search"
+        :model-value="search"
         prepend-inner-icon="mdi-magnify"
         :placeholder="t('common.search')"
         clearable
         hide-details
         density="compact"
+        @update:model-value="setSearch"
       />
     </div>
 
@@ -179,7 +184,7 @@ function onDelete(fileId: number, romId: number) {
     </div>
   </aside>
 
-  <main class="jukebox__main">
+  <div class="jukebox__main">
     <SoundtrackPanel
       :key="selected"
       :tracks="panelTracks"
@@ -194,7 +199,7 @@ function onDelete(fileId: number, romId: number) {
       @reached="pager.loadMoreIfNear"
       @delete-track="onDelete"
     />
-  </main>
+  </div>
 </template>
 
 <style scoped>

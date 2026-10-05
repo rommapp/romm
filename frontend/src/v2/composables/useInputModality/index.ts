@@ -2,7 +2,7 @@
 //
 // Tracks the user's last-used input device and exposes it as a reactive ref.
 // Writes `data-input` on <html> so CSS can adapt focus rings, hit targets,
-// and hint visibility per modality. A single shared instance is enough —
+// and hint visibility per modality. A single shared instance is enough:
 // install() from the root layout mounts listeners once.
 import { readonly, ref } from "vue";
 
@@ -16,6 +16,23 @@ let lastTouchAt = 0;
 let installed = false;
 let teardown: (() => void) | null = null;
 let pinned: InputModality | null = null;
+
+const NAVIGATION_KEYS = new Set([
+  "Tab",
+  "Enter",
+  " ",
+  "Escape",
+  "Home",
+  "End",
+  "PageUp",
+  "PageDown",
+]);
+
+// Modifier-only presses and typing don't count: only keys that move focus or
+// act on it switch the modality to keyboard.
+export function isNavigationKey(key: string): boolean {
+  return key.startsWith("Arrow") || NAVIGATION_KEYS.has(key);
+}
 
 function applyAttribute(next: InputModality) {
   if (typeof document === "undefined") return;
@@ -44,7 +61,7 @@ export function useInputModality() {
 
     applyAttribute(modality.value);
 
-    // Mouse handlers — split because, once the user is on a gamepad,
+    // Mouse handlers: split because, once the user is on a gamepad,
     // we want the mouse to "disappear": tiny accidental nudges of a
     // couch-side mouse shouldn't paint hover states on top of the
     // focused tile. Only a deliberate click (mousedown) flips the
@@ -71,25 +88,13 @@ export function useInputModality() {
     const onKey = (e: KeyboardEvent) => {
       // useGamepad's synthetic arrows are pad input, not keyboard.
       if (!e.isTrusted) return;
-      // Ignore modifier-only presses and clicks that happen to be keyboard-
-      // triggered — what we care about is real navigational keys.
-      if (
-        e.key === "Tab" ||
-        e.key.startsWith("Arrow") ||
-        e.key === "Enter" ||
-        e.key === " " ||
-        e.key === "Escape"
-      ) {
-        setModality("key");
-      }
+      if (isNavigationKey(e.key)) setModality("key");
     };
-    // A gamepad connection is a strong signal the user is on a pad. Real
-    // per-button detection happens when we port the console input bus; until
-    // then we flip to "pad" on connect and stay there until another input
-    // type takes over.
+    // Covers the auth layout, which doesn't install useGamepad: a pad that
+    // connects there still switches the modality.
     const onGamepad = () => setModality("pad");
 
-    // App-lifetime singleton listeners — installed from whichever top-level
+    // App-lifetime singleton listeners: installed from whichever top-level
     // layout mounts first (AppLayout or AuthLayout) and intentionally never
     // removed, so the modality keeps tracking across a layout swap. Tearing
     // them down on the first installer's unmount would drop `data-input`
@@ -98,18 +103,19 @@ export function useInputModality() {
     window.addEventListener("mousedown", onMouseDown, { passive: true });
     window.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("touchstart", onTouch, { passive: true });
-    window.addEventListener("keydown", onKey);
+    // Capture, so navigation handlers further down already see "key".
+    window.addEventListener("keydown", onKey, { capture: true });
     window.addEventListener("gamepadconnected", onGamepad);
 
     // Retained only so HMR can drop the listeners on a hot update instead of
-    // stacking a second set. In production this is never invoked — the
+    // stacking a second set. In production this is never invoked: the
     // listeners are app-lifetime by design (see the note above).
     teardown = () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("touchstart", onTouch);
-      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onKey, { capture: true });
       window.removeEventListener("gamepadconnected", onGamepad);
       installed = false;
       teardown = null;

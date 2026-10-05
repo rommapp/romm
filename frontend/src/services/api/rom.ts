@@ -49,11 +49,11 @@ async function uploadRomChunked({
   platformId: number;
   file: File;
   /** Upload into this ROM's folder instead of the platform folder. */
-  romId?: number;
+  romId?: number | undefined;
   /** Subfolder inside the ROM folder; empty or omitted for the root. */
-  folder?: string;
+  folder?: string | undefined;
   /** Replace a file of the same name in the ROM folder. */
-  overwrite?: boolean;
+  overwrite?: boolean | undefined;
 }): Promise<void> {
   const uploadStore = storeUpload();
   const totalChunks = Math.ceil(file.size / UPLOAD_CHUNK_SIZE);
@@ -236,7 +236,8 @@ export interface GetRomsParams {
   signal?: AbortSignal;
 }
 
-async function getRoms({
+/** The `/roms` query string for `params`, shared with the cached client. */
+export function buildGetRomsQuery({
   platformIds = null,
   collectionId = null,
   virtualCollectionId = null,
@@ -293,9 +294,8 @@ async function getRoms({
   withFilterValues = undefined,
   withRomIdIndex = undefined,
   withTotal = undefined,
-  signal = undefined,
-}: GetRomsParams) {
-  const params = {
+}: Omit<GetRomsParams, "signal">) {
+  return {
     platform_ids:
       platformIds && platformIds.length > 0 ? platformIds : undefined,
     collection_id: collectionId,
@@ -436,10 +436,12 @@ async function getRoms({
       : {}),
     ...(withTotal !== undefined ? { with_total: withTotal } : {}),
   };
+}
 
+async function getRoms({ signal, ...params }: GetRomsParams) {
   return api.get<GetRomsResponse>(`/roms`, {
-    params,
-    signal,
+    params: buildGetRomsQuery(params),
+    ...(signal ? { signal } : {}),
   });
 }
 
@@ -484,7 +486,7 @@ export const RECOMMENDED_ROMS_LIMIT = 15;
 async function getSimilarRoms({
   romId,
   limit = SIMILAR_ROMS_LIMIT,
-  signal,
+  ...config
 }: {
   romId: number;
   limit?: number;
@@ -492,7 +494,7 @@ async function getSimilarRoms({
 }) {
   return api.get<SimilarRomSchema[]>(`/roms/${romId}/similar`, {
     params: { limit },
-    signal,
+    ...config,
   });
 }
 
@@ -500,7 +502,7 @@ async function getSimilarRoms({
 async function getRecommendedRoms({
   limit = RECOMMENDED_ROMS_LIMIT,
   refresh = false,
-  signal,
+  ...config
 }: {
   limit?: number;
   refresh?: boolean;
@@ -508,32 +510,32 @@ async function getRecommendedRoms({
 } = {}) {
   return api.get<RecommendedRomSchema[]>("/recommendations", {
     params: { limit, ...(refresh ? { refresh: true } : {}) },
-    signal,
+    ...config,
   });
 }
 
 async function getRom({
   romId,
-  signal,
+  ...config
 }: {
   romId: number;
   signal?: AbortSignal;
 }) {
-  return api.get<DetailedRom>(`/roms/${romId}`, { signal });
+  return api.get<DetailedRom>(`/roms/${romId}`, config);
 }
 
 async function getRomSimple({
   romId,
-  signal,
+  ...config
 }: {
   romId: number;
   signal?: AbortSignal;
 }) {
-  // `/roms/{id}/simple` — returns `SimpleRomSchema` with no eager-loaded
+  // `/roms/{id}/simple`: returns `SimpleRomSchema` with no eager-loaded
   // notes / saves / states / screenshots / collections arrays. Designed
   // for the v2 gallery card's per-card fetch path. Detail-level data is
   // pulled on demand (game details page, quick-note dialog open).
-  return api.get<SimpleRom>(`/roms/${romId}/simple`, { signal });
+  return api.get<SimpleRom>(`/roms/${romId}/simple`, config);
 }
 
 async function getRandomRom({
@@ -594,8 +596,8 @@ async function createPhysicalRom({
   upc,
 }: {
   platformId: number;
-  name?: string;
-  upc?: string;
+  name?: string | undefined;
+  upc?: string | undefined;
 }) {
   const payload: PhysicalRomCreateForm = {
     platform_id: platformId,
@@ -624,11 +626,31 @@ function triggerFileDownload(href: string) {
 async function downloadRom({
   rom,
   fileIDs = [],
+  format,
 }: {
   rom: SimpleRom;
   fileIDs?: number[];
+  format?: string;
 }) {
-  return triggerFileDownload(getDownloadPath({ rom, fileIDs }));
+  return triggerFileDownload(getDownloadPath({ rom, fileIDs, format }));
+}
+
+/** Ask for one byte of a `?format=` download, which starts its conversion.
+ *  206/200 once it can be served, 202 while it converts, 406 when it can't be. */
+async function probeFormatDownload(href: string) {
+  const response = await api.get(href, {
+    // `href` is a full `/api` path.
+    baseURL: "",
+    headers: { Range: "bytes=0-0" },
+    responseType: "blob",
+    validateStatus: (status) => status < 500,
+  });
+  const retryAfter = Number(response.headers["retry-after"]);
+  return {
+    status: response.status,
+    retryAfterSeconds:
+      Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
+  };
 }
 
 // A platform/collection selector is expanded server-side into the full ROM
@@ -643,12 +665,12 @@ async function bulkDownloadRoms({
   smartCollectionId,
   filename,
 }: {
-  romIDs?: number[];
-  platformId?: number;
-  collectionId?: number;
-  virtualCollectionId?: string;
-  smartCollectionId?: number;
-  filename?: string;
+  romIDs?: number[] | undefined;
+  platformId?: number | undefined;
+  collectionId?: number | undefined;
+  virtualCollectionId?: string | undefined;
+  smartCollectionId?: number | undefined;
+  filename?: string | undefined;
 }) {
   const queryParams = new URLSearchParams();
   if (platformId != null) {
@@ -670,7 +692,7 @@ async function bulkDownloadRoms({
 }
 
 export type UpdateRom = SimpleRom & {
-  artwork?: File;
+  artwork?: File | undefined;
   manual_metadata?: ManualMetadata | null;
   raw_metadata?: {
     igdb_metadata?: string;
@@ -848,16 +870,14 @@ async function removeScreenshot({
 
 async function getSoundtrackMetadata({
   romId,
-  signal,
+  ...config
 }: {
   romId: number;
   signal?: AbortSignal;
 }) {
   return api.get<SoundtrackTrackMetaSchema[]>(
     `/roms/${romId}/soundtracks/metadata`,
-    {
-      signal,
-    },
+    config,
   );
 }
 
@@ -1080,6 +1100,7 @@ export default {
   getRandomRom,
   getRomByMetadataProvider,
   downloadRom,
+  probeFormatDownload,
   bulkDownloadRoms,
   searchRom,
   createPhysicalRom,

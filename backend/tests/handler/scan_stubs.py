@@ -1,8 +1,10 @@
 """Scaffolding shared by the tests that drive `scan_rom` end to end."""
 
+import os
 from typing import Any
 
-from handler.database import db_platform_handler, db_rom_handler
+from tests.factories import make_platform, make_rom
+
 from handler.scan_handler import ScanType, scan_rom
 from models.platform import Platform
 from models.rom import Rom
@@ -11,26 +13,25 @@ from utils.context import initialize_context
 
 def add_n64_platform(**overrides: Any) -> Platform:
     """Persist the N64 platform the scan tests match against."""
-    return db_platform_handler.add_platform(
-        Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", **overrides)
-    )
+    return make_platform("n64", id=1, name="Nintendo 64", **overrides)
 
 
 def add_rom(platform: Platform, fs_name: str, title: str, **overrides: Any) -> Rom:
     """Persist a single-file ROM whose filename tags are already split out."""
-    stem, _, extension = fs_name.rpartition(".")
+    stem, extension = os.path.splitext(fs_name)
     attrs: dict[str, Any] = {
-        "platform_id": platform.id,
-        "fs_name": fs_name,
         "fs_name_no_tags": title,
-        "fs_name_no_ext": stem,
-        "fs_extension": extension,
         "fs_path": platform.fs_slug,
-        "name": title,
         "fs_size_bytes": 1024,
         "tags": [],
     }
-    return db_rom_handler.add_rom(Rom(**{**attrs, **overrides}))
+    return make_rom(
+        platform,
+        title,
+        fs_stem=stem,
+        fs_extension=extension.removeprefix("."),
+        **(attrs | overrides),
+    )
 
 
 async def run_scan(

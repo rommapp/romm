@@ -18,7 +18,15 @@ export type RomLaunchboxMetadata = {
     publishers?: Array<string>;
     developers?: Array<string>;
     images?: Array<LaunchboxImage>;
+    box2d_url?: string;
+    box2d_back_url?: string;
+    box2d_side_url?: string;
+    box3d_url?: string;
     video_url?: string;
-    video_path?: string;
+    box2d_path?: (string | null);
+    box2d_back_path?: (string | null);
+    box2d_side_path?: (string | null);
+    box3d_path?: (string | null);
+    video_path?: (string | null);
 };
 

@@ -9,6 +9,7 @@ from tests.endpoints.test_music import (  # noqa: F401
     music_library,
 )
 
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_music_playlist_handler, db_rom_handler
 from models.rom import RomFile, RomFileCategory, TrackMeta
 from models.user import User
@@ -340,7 +341,8 @@ def test_playlist_tracks_respect_viewer_hidden_platforms(
 
     pb = music_library["platform_b"].id
     rows, total = db_rom_handler.get_music_tracks(
-        playlist_id=playlist_id, hidden_platform_ids=[pb]
+        playlist_id=playlist_id,
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pb})),
     )
     assert total == 1
     assert rows[0].title == "Green Hill"
@@ -405,7 +407,7 @@ def test_playlists_require_scopes(
     from datetime import timedelta
 
     from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-    from handler.auth import oauth_handler
+    from handler.auth.base_handler import oauth_handler
 
     read_only = oauth_handler.create_access_token(
         data={

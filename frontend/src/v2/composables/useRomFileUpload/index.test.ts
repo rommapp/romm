@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeUpload from "@/stores/upload";
 import { ROM_UPLOAD_FOLDERS, useRomFileUpload } from "./index";
@@ -15,9 +14,7 @@ const { uploadRoms, refetchRom, confirmFn, snackbar } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/services/api/rom", () => ({
   default: { uploadRoms },
 }));
@@ -38,8 +35,6 @@ const exists = { isAxiosError: true, response: { status: 409 } };
 
 describe("useRomFileUpload", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     uploadRoms.mockResolvedValue([{ status: "fulfilled", value: null }]);
     confirmFn.mockResolvedValue(true);
   });
@@ -62,7 +57,7 @@ describe("useRomFileUpload", () => {
     });
     expect(confirmFn).not.toHaveBeenCalled();
     expect(snackbar.success).toHaveBeenCalledWith(
-      "rom.files-uploaded-n",
+      'rom.files-uploaded-n:1:{"named":{"n":1}}',
       expect.anything(),
     );
     expect(refetchRom).toHaveBeenCalledWith(1);
@@ -96,7 +91,7 @@ describe("useRomFileUpload", () => {
     expect(outcome).toEqual({ uploaded: 2, failed: 0 });
     expect(confirmFn).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: "rom.upload-overwrite-title",
+        title: 'rom.upload-overwrite-title:1:{"named":{"n":1}}',
         confirmText: "common.overwrite",
         tone: "danger",
       }),
@@ -136,7 +131,9 @@ describe("useRomFileUpload", () => {
     const outcome = await uploadFiles(folderRom, "soundtrack", files);
 
     expect(outcome).toEqual({ uploaded: 0, failed: 1 });
-    expect(snackbar.error).toHaveBeenCalledWith("rom.upload-file-rejected");
+    expect(snackbar.error).toHaveBeenCalledWith(
+      'rom.upload-file-rejected:{"name":"track.mp3"}',
+    );
     expect(snackbar.warning).toHaveBeenCalledWith(
       "rom.no-files-uploaded",
       expect.anything(),

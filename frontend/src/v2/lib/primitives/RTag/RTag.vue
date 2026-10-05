@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// RTag — small inline pill used for header tags (region / language /
+// RTag: small inline pill used for header tags (region / language /
 // custom tags), hash chips (label + mono value), verification badges
-// (icon + label, tone-coloured by status). Lighter than RChip — no
-// imposed min-height — and tone variants are a single prop, not
+// (icon + label, tone-coloured by status). Lighter than RChip (no
+// imposed min-height), and tone variants are a single prop, not
 // parallel CSS classes.
 //
 // Layout:  [icon]  [LABEL]  [text/slot]
@@ -16,17 +16,17 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   /** Optional MDI icon shown before the eyebrow label / text. */
-  prependIcon?: string;
+  prependIcon?: string | undefined;
   /** Optional MDI icon shown after the primary text. */
-  appendIcon?: string;
+  appendIcon?: string | undefined;
   /** Tiny uppercase eyebrow label (e.g. "CRC", "MD5"). */
-  label?: string;
+  label?: string | undefined;
   /** Primary text. Falls back to the default slot when not set. */
-  text?: string | number;
+  text?: string | number | undefined;
   /** Render the primary text in monospace (hash values etc.). */
   mono?: boolean;
   /** Colour preset. `plain` strips the chip chrome (border, background,
-   *  padding) and inherits the parent's text colour — use it for inline
+   *  padding) and inherits the parent's text colour: use it for inline
    *  meta rows (icon + label, no badge surface) where the surrounding
    *  text style should win. */
   tone?:
@@ -81,7 +81,7 @@ withDefaults(defineProps<Props>(), {
   border-radius: var(--r-radius-chip);
   font-weight: var(--r-font-weight-medium);
   /* Match the icon's line-height (1) so glyph baselines align with the
-     icon's visual centre — otherwise the inherited 1.4 from .r-v2
+     icon's visual centre: otherwise the inherited 1.4 from .r-v2
      leaves descender room that pushes text visually above the icon. */
   line-height: 1;
   white-space: nowrap;
@@ -96,7 +96,7 @@ withDefaults(defineProps<Props>(), {
   border-color: var(--r-tag-border);
 }
 
-/* Size ladder — matches RBtn/RChip vocabulary so a single mental model
+/* Size ladder: matches RBtn/RChip vocabulary so a single mental model
    carries across primitives. Steps mirror the typography token scale. */
 .r-tag--x-small {
   padding: 1px 7px;
@@ -148,7 +148,7 @@ withDefaults(defineProps<Props>(), {
   color: var(--r-color-fg-secondary);
 }
 
-/* Tones — set the three CSS vars; the .r-tag rule does the painting. */
+/* Tones: set the three CSS vars; the .r-tag rule does the painting. */
 .r-tag--brand {
   --r-tag-fg: color-mix(in srgb, var(--r-color-brand-primary) 90%, transparent);
   --r-tag-border: color-mix(
@@ -188,10 +188,10 @@ withDefaults(defineProps<Props>(), {
   --r-tag-bg: color-mix(in srgb, var(--r-color-info) 12%, transparent);
 }
 
-/* Plain — no chrome. Inherits the surrounding text colour + font
+/* Plain: no chrome. Inherits the surrounding text colour + font
    weight so a tag dropped into a muted meta row reads as part of the
    sentence. The icon margin is reset so the row is exactly font-size
-   tall — anything else would push the icon out of the flow. */
+   tall: anything else would push the icon out of the flow. */
 .r-tag--plain {
   --r-tag-fg: inherit;
   --r-tag-border: transparent;

@@ -1,4 +1,4 @@
-// useBreakpoint — reactive responsive breakpoints with the same names
+// useBreakpoint: reactive responsive breakpoints with the same names
 // used at call sites (`xs`, `smAndUp`, `mdAndUp`, `lgAndUp`, `xlAndUp`).
 // Backed by `useMediaQuery` so each ref flips on viewport change without
 // a manual resize listener.
@@ -7,12 +7,12 @@
 // sm 600-959, md 960-1279, lg 1280-1919, xl ≥1920) so a swap from any
 // previous library reads identically.
 //
-// Module-level singletons — the media query listeners attach once and
+// Module-level singletons: the media query listeners attach once and
 // every consumer shares them. Composable returns the refs by name.
 //
 // `installBreakpointAttribute()` (called from the root layouts)
 // mirrors the active breakpoints onto `data-bp` on `<html>` as a
-// space-separated list — e.g. `data-bp="sm-and-up md-and-up"` at a
+// space-separated list: e.g. `data-bp="sm-and-up md-and-up"` at a
 // 1024px viewport. CSS consumes the attribute with `~=` selectors:
 //   html[data-bp~="xs"] .my-class { … }   // mobile only
 //   html[data-bp~="sm-and-up"] .x { … }   // tablet+ (≥ 600)
@@ -59,7 +59,7 @@ export function useBreakpoint(): {
 }
 
 // Kebab tokens written into `data-bp`. Order is ascending threshold (xs
-// → xl) so the attribute reads predictably in devtools — e.g. an xl
+// → xl) so the attribute reads predictably in devtools: e.g. an xl
 // viewport always shows the same token order, not a randomly-shuffled
 // list. The `*-and-down` siblings live alongside their `*-and-up` peers
 // so both directions of a viewport range are addressable with one
@@ -88,7 +88,7 @@ function applyAttribute() {
 /** Install once. Mirrors the active breakpoints onto `<html data-bp="…">`.
  *  Called from every top-level layout (AppLayout AND AuthLayout) so the
  *  attribute is present across the whole app, including the auth / setup
- *  flow — otherwise the `html[data-bp~="…"]` rules silently no-op there.
+ *  flow: otherwise the `html[data-bp~="…"]` rules silently no-op there.
  *
  *  The watcher runs in a DETACHED effect scope, not bound to the calling
  *  component, so it survives a layout swap (AuthLayout ↔ AppLayout) instead

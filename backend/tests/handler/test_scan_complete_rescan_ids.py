@@ -35,7 +35,7 @@ MATCH = IGDBRom(igdb_id=9999, name="A Real Game")
 UNREACHABLE = HTTPException(status_code=503, detail="provider is down")
 SS_MISS = SSRom(ss_id=None)
 SS_SHORT_CIRCUITED = ScreenScraperExhaustedError(SS_MISS)
-HASHEOUS_MISS = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+HASHEOUS_MISS = HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None)
 
 
 def _lookup(result: Any) -> AsyncMock:
@@ -106,16 +106,12 @@ async def _rescan(
             "handler.scan_handler.meta_hasheous_handler.get_igdb_game",
             new=_lookup(HASHEOUS_MISS),
         ),
-        patch(
-            "handler.scan_handler.meta_hasheous_handler.get_ra_game",
-            new=_lookup(HASHEOUS_MISS),
-        ),
     ):
         scanned = await run_scan(
             platform, rom, scan_type=scan_type, metadata_sources=sources
         )
 
-    return db_rom_handler.add_rom(scanned)
+    return db_rom_handler.add_rom(scanned)  # noqa: TID251
 
 
 async def test_a_searched_source_that_misses_drops_its_stale_id():

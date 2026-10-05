@@ -15,13 +15,11 @@ import {
   RSpinner,
   RTextField,
 } from "@v2/lib";
-import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom, SearchRom } from "@/stores/roms";
-import type { Events } from "@/types/emitter";
 import MatchRomBodyGrid from "@/v2/components/MatchRom/MatchRomBodyGrid.vue";
 import MatchRomBodyList from "@/v2/components/MatchRom/MatchRomBodyList.vue";
 import MatchRomProviderFilter from "@/v2/components/MatchRom/MatchRomProviderFilter.vue";
@@ -30,6 +28,7 @@ import type {
   MatchVariant,
 } from "@/v2/components/MatchRom/types";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -68,7 +67,6 @@ const searchText = ref("");
 const searchBy = ref<"Name" | "ID">("Name");
 const searched = ref(false);
 const matchedRoms = ref<SearchRom[]>([]);
-const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const heartbeat = storeHeartbeat();
 const { applyRomWrite } = useRomSync();
@@ -201,8 +199,7 @@ const openHandler = (romToSearch: SimpleRom) => {
     ? (romToSearch.name ?? "")
     : romToSearch.fs_name_no_tags;
 };
-emitter?.on("showMatchRomDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showMatchRomDialog", openHandler));
+useEmitterEvent("showMatchRomDialog", openHandler);
 
 // Only the latest search of the open session may apply its response.
 let searchSeq = 0;

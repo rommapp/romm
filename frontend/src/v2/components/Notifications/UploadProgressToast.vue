@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// UploadProgressToast — persistent bottom-right panel tracking every
+// UploadProgressToast: persistent bottom-right panel tracking every
 // active upload in the shared `storeUpload`. Shows filename, progress bar
 // + speed + bytes for in-flight files, a check for completed files, and
 // the failure reason for failed files. Collapses to a pill when nothing
@@ -172,8 +172,8 @@ function clearFinished() {
 <style scoped>
 .r-v2-upload {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  right: calc(16px + var(--r-safe-r));
+  bottom: calc(16px + var(--r-safe-b));
   z-index: 8900;
   width: min(360px, calc(100vw - 32px));
   background: var(--r-color-toast-bg);
@@ -345,6 +345,6 @@ html[data-bp~="xs"] .r-v2-upload {
   left: 12px;
   right: 12px;
   width: auto;
-  bottom: 12px;
+  bottom: calc(12px + var(--r-safe-b));
 }
 </style>

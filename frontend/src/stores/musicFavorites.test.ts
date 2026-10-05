@@ -1,4 +1,3 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import useMusicFavorites from "@/stores/musicFavorites";
 
@@ -14,7 +13,6 @@ vi.mock("@/services/api/music", () => ({
 
 describe("music favorites store", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     addFavorites.mockReset().mockResolvedValue({ data: { added: 1 } });
     removeFavorites.mockReset().mockResolvedValue({ data: { removed: 1 } });
   });

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// PageHeader — the top-of-page h1 + optional trailing count.
+// PageHeader: the top-of-page h1 + optional trailing count.
 // Used by every index view (PlatformsIndex, CollectionsIndex, Search,
-// Settings — future). Pass `count` for the default RTag pill; use the
+// Settings: future). Pass `count` for the default RTag pill; use the
 // `#count` slot when you want richer content (icon, custom tone, etc).
 // The `#prepend` slot sits left of the title (back button, icon);
 // default slot sits at the end of the header (filters, actions, etc.).
 //
-// No divider here — when used as a gallery hero (Search), the gallery
+// No divider here: when used as a gallery hero (Search), the gallery
 // shell paints the divider between hero and toolbar so the three
 // gallery views (Platform / Collection / Search) share one separator
 // regardless of which header sits above it.
@@ -49,7 +49,7 @@ const countText = useAnimatedNumber(() => props.count);
   align-items: baseline;
   gap: var(--r-space-3);
   /* Breathing below the title is `padding-bottom` (not margin) so it
-     counts in `getBoundingClientRect().height` — the gallery shell
+     counts in `getBoundingClientRect().height`: the gallery shell
      auto-measures the hero slot to position the toolbar's divider, and
      a margin-bottom would collapse out of that measurement. Visually
      identical for non-gallery consumers (PlatformsIndex etc). */
@@ -60,7 +60,7 @@ const countText = useAnimatedNumber(() => props.count);
   display: flex;
   /* Center-align so non-text counts (e.g. RChip in Search) sit on the
      h1's optical centre instead of having their synthesized baseline
-     dragged to the title baseline — that misalignment also grew the
+     dragged to the title baseline: that misalignment also grew the
      wrap taller than the h1 line-box and shifted the gallery down on
      first paint of the chip. */
   align-items: center;

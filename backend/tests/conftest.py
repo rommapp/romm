@@ -1,56 +1,66 @@
 import errno
 import functools
+import hashlib
 import os
 import re
 import socket
-import uuid
-from collections.abc import Iterator
+import subprocess
+import sys
+import warnings
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from pathlib import Path
+from typing import Any, Unpack
 from unittest.mock import MagicMock
 
 import alembic.config
 import pytest
+from alembic.script import ScriptDirectory
 from hypothesis import settings
 from joserfc import jwt
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import (
+    Connection,
+    Engine,
+    Select,
+    Table,
+    create_engine,
+    event,
+    exists,
+    inspect,
+    select,
+    text,
+)
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import sessionmaker
+from tests.factories import (
+    make_firmware,
+    make_platform,
+    make_rom,
+    make_save,
+    make_screenshot,
+    make_state,
+)
 
 from adapters.services import response_validation
 from config import ROMM_DB_DRIVER
 from config.config_manager import ConfigManager
-from handler.auth import auth_handler
-from handler.auth.base_handler import oct_key
+from handler.auth.base_handler import auth_handler, oct_key
 from handler.auth.constants import ALGORITHM
 from handler.database import (
-    db_client_token_handler,
-    db_firmware_handler,
     db_memory_card_handler,
     db_permission_handler,
-    db_platform_handler,
     db_rom_handler,
-    db_save_handler,
-    db_screenshot_handler,
-    db_state_handler,
     db_user_handler,
 )
 from handler.database.base_handler import sync_engine
-from handler.metadata.base_handler import SENSITIVE_KEYS
-from models.assets import MemoryCard, MemoryCardVersion, Save, Screenshot, State
-from models.audit_event import AuditEvent
-from models.client_token import ClientToken
-from models.container_adoption import StreamingContainerAdoption
-from models.deleted_asset import DeletedAsset
-from models.device import Device
-from models.device_save_sync import DeviceSaveSync
-from models.firmware import Firmware
-from models.notification import Notification
-from models.notification_channel import NotificationChannel
-from models.permission import SystemGroupKey
+from logger.formatter import SENSITIVE_KEYS
+from models import load_all_models
+from models.assets import MemoryCard, MemoryCardVersion
+from models.base import BaseModel
+from models.permission import PermissionGroup, PermissionGroupGrant, SystemGroupKey
 from models.platform import Platform
-from models.play_session import PlaySession
 from models.rom import Rom, RomFile
-from models.sync_session import SyncSession
 from models.user import Role, User
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
@@ -124,13 +134,37 @@ def _ensure_database_exists() -> None:
             url.set(database="postgres"), isolation_level="AUTOCOMMIT"
         )
         with admin_engine.connect() as conn:
-            exists = conn.execute(
+            found = conn.execute(
                 text("SELECT 1 FROM pg_database WHERE datname = :name"),
                 {"name": db_name},
             ).scalar()
-            if not exists:
+            if not found:
                 conn.execute(text(f'CREATE DATABASE "{db_name}"'))
         admin_engine.dispose()
+
+
+def _drop_database() -> None:
+    """Drop the temporary database a ROMM_TEST_DB_TAG run created."""
+    url = ConfigManager.get_db_engine()
+    db_name = url.database
+    if not db_name or not re.fullmatch(r"[A-Za-z0-9_]+", db_name):
+        return
+
+    engine.dispose()
+    sync_engine.dispose()
+    if ROMM_DB_DRIVER in ("mariadb", "mysql"):
+        admin_engine = create_engine(url.set(database="information_schema"))
+        with admin_engine.begin() as conn:
+            conn.execute(text(f"DROP DATABASE IF EXISTS `{db_name}`"))
+    elif ROMM_DB_DRIVER == "postgresql":
+        admin_engine = create_engine(
+            url.set(database="postgres"), isolation_level="AUTOCOMMIT"
+        )
+        with admin_engine.connect() as conn:
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{db_name}" WITH (FORCE)'))
+    else:
+        return
+    admin_engine.dispose()
 
 
 @pytest.fixture(autouse=True)
@@ -148,43 +182,278 @@ def lenient(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     return log
 
 
+_DEFINER_RE = re.compile(r"\s+DEFINER=\S+")
+
+
+def _schema_names(conn: Connection, query: str, schema: str) -> Sequence[str]:
+    """The first column of `query`, run with `schema` bound to `:s`."""
+    return conn.execute(text(query), {"s": schema}).scalars().all()
+
+
+def _copy_schema(conn: Connection, source: str, target: str) -> None:
+    """Copy every table, row, view and trigger of `source` into `target`."""
+    objects = conn.execute(
+        text(
+            "SELECT TABLE_NAME, TABLE_TYPE FROM information_schema.TABLES"
+            " WHERE TABLE_SCHEMA = :s"
+        ),
+        {"s": source},
+    ).all()
+    tables = [name for name, kind in objects if kind == "BASE TABLE"]
+    views = [name for name, kind in objects if kind == "VIEW"]
+    triggers = _schema_names(
+        conn,
+        "SELECT TRIGGER_NAME FROM information_schema.TRIGGERS"
+        " WHERE TRIGGER_SCHEMA = :s ORDER BY EVENT_OBJECT_TABLE, ACTION_ORDER",
+        source,
+    )
+    columns: dict[str, list[str]] = {}
+    for table, column in conn.execute(
+        text(
+            "SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS"
+            " WHERE TABLE_SCHEMA = :s AND COALESCE(GENERATION_EXPRESSION, '') = ''"
+            " ORDER BY ORDINAL_POSITION"
+        ),
+        {"s": source},
+    ):
+        columns.setdefault(table, []).append(f"`{column}`")
+
+    # Read the DDL from inside `source`, so views print unqualified table names.
+    conn.exec_driver_sql(f"USE `{source}`")
+    table_ddl = {
+        t: conn.exec_driver_sql(f"SHOW CREATE TABLE `{t}`").one()[1] for t in tables
+    }
+    view_ddl = [
+        _DEFINER_RE.sub(
+            "", conn.exec_driver_sql(f"SHOW CREATE VIEW `{v}`").one()[1], count=1
+        )
+        for v in views
+    ]
+    trigger_ddl = [
+        _DEFINER_RE.sub(
+            "", conn.exec_driver_sql(f"SHOW CREATE TRIGGER `{t}`").one()[2], count=1
+        )
+        for t in triggers
+    ]
+    conn.exec_driver_sql(f"USE `{target}`")
+
+    def copy_table(table: str, ddl: str) -> None:
+        conn.exec_driver_sql(ddl)
+        cols = ", ".join(columns[table])
+        conn.exec_driver_sql(
+            f"INSERT INTO `{table}` ({cols}) SELECT {cols} FROM `{source}`.`{table}`"
+        )
+
+    # The version row goes in last, so a copy cut short reads as unmigrated.
+    version_ddl = table_ddl.pop("alembic_version")
+    conn.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 0")
+    for table, ddl in table_ddl.items():
+        copy_table(table, ddl)
+    conn.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 1")
+    # A view can select from another view, so retry until each finds its sources.
+    pending = view_ddl
+    while pending:
+        failed = []
+        for ddl in pending:
+            try:
+                conn.exec_driver_sql(ddl)
+            except DBAPIError:
+                failed.append(ddl)
+        if len(failed) == len(pending):
+            conn.exec_driver_sql(failed[0])
+        pending = failed
+    for ddl in trigger_ddl:
+        conn.exec_driver_sql(ddl)
+    copy_table("alembic_version", version_ddl)
+    conn.commit()
+
+
+def _alembic_version(conn: Connection, schema: str) -> str | None:
+    if not inspect(conn).has_table("alembic_version", schema=schema):
+        return None
+    return conn.exec_driver_sql(
+        f"SELECT version_num FROM `{schema}`.alembic_version"
+    ).scalar()
+
+
+def _recreate_database(conn: Connection, name: str) -> None:
+    conn.exec_driver_sql(f"DROP DATABASE IF EXISTS `{name}`")
+    conn.exec_driver_sql(f"CREATE DATABASE `{name}`")
+
+
+def _migrations_digest() -> str:
+    """Hash the migrations and the models and utils they import, so an edit rebuilds the template."""
+    digest = hashlib.sha256()
+    for path in sorted(
+        path
+        for root in ("alembic", "models", "utils")
+        for path in Path(root).rglob("*.py")
+    ):
+        digest.update(str(path).encode() + b"\0" + path.read_bytes())
+    return digest.hexdigest()[:12]
+
+
+@contextmanager
+def _server_lock(conn: Connection, name: str) -> Iterator[bool]:
+    """Hold the MariaDB named lock `name`, yielding whether it was acquired."""
+    lock = {"name": name}
+    acquired = conn.execute(text("SELECT GET_LOCK(:name, 1800)"), lock).scalar() == 1
+    try:
+        yield acquired
+    finally:
+        if acquired:
+            conn.execute(text("SELECT RELEASE_LOCK(:name)"), lock)
+
+
+def _build_template(conn: Connection, prefix: str, template: str) -> None:
+    """Migrate `template` from scratch, dropping every other `prefix` template first."""
+    schemas: Sequence[str] = (
+        conn.execute(text("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA"))
+        .scalars()
+        .all()
+    )
+    for name in schemas:
+        if name == prefix or name.startswith(f"{prefix}_"):
+            conn.exec_driver_sql(f"DROP DATABASE `{name}`")
+    _recreate_database(conn, template)
+    # The app's engine binds DB_NAME at import, hence a subprocess.
+    subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        env=os.environ | {"DB_NAME": template},
+        check=True,
+    )
+
+
+@contextmanager
+def _admin_connection() -> Iterator[Connection]:
+    admin_engine = create_engine(
+        ConfigManager.get_db_engine().set(database="information_schema")
+    )
+    try:
+        with admin_engine.connect() as conn:
+            yield conn
+    finally:
+        admin_engine.dispose()
+
+
+@functools.cache
+def _migrated_template() -> str | None:
+    """Name a template database at the migration head, building it if needed."""
+    # Shared by every checkout and ROMM_TEST_DB_TAG run, since the digest pins its schema.
+    prefix = "romm_test_template"
+    template = f"{prefix}_{_migrations_digest()}"
+    head = ScriptDirectory.from_config(
+        alembic.config.Config("alembic.ini")
+    ).get_current_head()
+    # The lock keeps concurrent sessions from building the same template at once.
+    with _admin_connection() as conn, _server_lock(conn, prefix) as acquired:
+        if not acquired:
+            return None
+        if _alembic_version(conn, template) != head:
+            _build_template(conn, prefix, template)
+    return template
+
+
+_TEMPLATE_INPUT = "romm_db_template"
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_configure_node(node: Any) -> None:
+    """On the xdist controller, hand each unmigrated worker the template to clone."""
+    url = ConfigManager.get_db_engine()
+    if ROMM_DB_DRIVER not in ("mariadb", "mysql") or not url.database:
+        return
+    # The worker database name the rootdir conftest gives this worker.
+    worker_db = f"{url.database}_{node.workerinput['workerid']}"
+    with _admin_connection() as conn:
+        if _alembic_version(conn, worker_db):
+            return
+    template = _migrated_template()
+    if template:
+        node.workerinput[_TEMPLATE_INPUT] = template
+
+
+def _clone_template(template: str) -> None:
+    """Replace this worker's database with a copy of `template`."""
+    url = ConfigManager.get_db_engine()
+    assert url.database
+    worker_engine = create_engine(url)
+    try:
+        with worker_engine.connect() as conn:
+            _recreate_database(conn, url.database)
+            try:
+                _copy_schema(conn, template, url.database)
+            except DBAPIError as exc:
+                warnings.warn(
+                    f"Template clone failed, migrating from scratch: {exc}",
+                    stacklevel=1,
+                )
+                # Leave alembic an empty database to migrate.
+                _recreate_database(conn, url.database)
+    finally:
+        worker_engine.dispose()
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    # The slow migration tests go first so they overlap the rest of the suite.
+    items.sort(key=lambda item: item.path.name != "test_migrations.py")
+
+
 @pytest.fixture(scope="session", autouse=True)
-def setup_database():
+def setup_database(request: pytest.FixtureRequest):
     _ensure_database_exists()
-    alembic.config.main(argv=["upgrade", "head"])
+    template = getattr(request.config, "workerinput", {}).get(_TEMPLATE_INPUT)
+    try:
+        if template:
+            _clone_template(template)
+        alembic.config.main(argv=["upgrade", "head"])
+        yield
+    finally:
+        if os.environ.get("ROMM_TEST_DB_TAG"):
+            _drop_database()
+
+
+# Rows the migrations seed, which tests expect to find.
+_SEEDED_TABLES = frozenset(
+    {PermissionGroup.__tablename__, PermissionGroupGrant.__tablename__}
+)
+
+
+@functools.cache
+def _cleared_tables() -> tuple[tuple[Table, ...], Select[Unpack[tuple[Any, ...]]]]:
+    """Every model table but views and seeded ones, children first, plus a row probe."""
+    load_all_models()
+    # Read once the database is migrated, as the views exist only then.
+    skipped = _SEEDED_TABLES | set(inspect(engine).get_view_names())
+    tables = tuple(
+        table
+        for table in reversed(BaseModel.metadata.sorted_tables)
+        if table.name not in skipped
+    )
+    # One round trip finds the tables holding rows, so empty ones skip their DELETE.
+    has_rows = select(*(exists().select_from(t).label(t.name) for t in tables))
+    return tables, has_rows
+
+
+def _clear_tables() -> None:
+    tables, has_rows = _cleared_tables()
+    with session.begin() as s:
+        dirty = s.execute(has_rows).one()
+        for table, has_any in zip(tables, dirty, strict=True):
+            if has_any:
+                s.execute(table.delete())
 
 
 @pytest.fixture(autouse=True)
 def clear_database():
-    with session.begin() as s:
-        s.query(AuditEvent).delete(synchronize_session="evaluate")
-        s.query(Notification).delete(synchronize_session="evaluate")
-        s.query(NotificationChannel).delete(synchronize_session="evaluate")
-        s.query(PlaySession).delete(synchronize_session="evaluate")
-        s.query(ClientToken).delete(synchronize_session="evaluate")
-        s.query(SyncSession).delete(synchronize_session="evaluate")
-        s.query(DeviceSaveSync).delete(synchronize_session="evaluate")
-        s.query(Device).delete(synchronize_session="evaluate")
-        s.query(MemoryCardVersion).delete(synchronize_session="evaluate")
-        s.query(MemoryCard).delete(synchronize_session="evaluate")
-        s.query(StreamingContainerAdoption).delete(synchronize_session="evaluate")
-        s.query(DeletedAsset).delete(synchronize_session="evaluate")
-        s.query(Save).delete(synchronize_session="evaluate")
-        s.query(State).delete(synchronize_session="evaluate")
-        s.query(Screenshot).delete(synchronize_session="evaluate")
-        s.query(RomFile).delete(synchronize_session="evaluate")
-        s.query(Rom).delete(synchronize_session="evaluate")
-        s.query(Firmware).delete(synchronize_session="evaluate")
-        s.query(Platform).delete(synchronize_session="evaluate")
-        s.query(User).delete(synchronize_session="evaluate")
-
+    _clear_tables()
     # Drop any cached gallery filter values to keep tests isolated.
     db_rom_handler.invalidate_filter_values_cache()
 
 
-@pytest.fixture
-def executed_statements() -> Iterator[list[str]]:
-    """Every statement the sync engine runs while the fixture is active."""
+@contextmanager
+def _capture_statements(target: Engine) -> Iterator[list[str]]:
+    """Every statement `target` runs inside the block."""
     statements: list[str] = []
 
     def before_execute(
@@ -197,11 +466,18 @@ def executed_statements() -> Iterator[list[str]]:
     ) -> None:
         statements.append(statement)
 
-    event.listen(sync_engine, "before_cursor_execute", before_execute)
+    event.listen(target, "before_cursor_execute", before_execute)
     try:
         yield statements
     finally:
-        event.remove(sync_engine, "before_cursor_execute", before_execute)
+        event.remove(target, "before_cursor_execute", before_execute)
+
+
+@pytest.fixture
+def executed_statements() -> Iterator[list[str]]:
+    """Every statement the sync engine runs while the fixture is active."""
+    with _capture_statements(sync_engine) as statements:
+        yield statements
 
 
 _VCR_REDACTED = "x" * 30
@@ -239,65 +515,29 @@ def vcr_config():
 
 @pytest.fixture
 def platform():
-    platform = Platform(
-        name="test_platform", slug="test_platform_slug", fs_slug="test_platform_slug"
-    )
-    return db_platform_handler.add_platform(platform)
+    return make_platform("test_platform_slug", name="test_platform")
 
 
 @pytest.fixture
 def other_platform():
-    platform = Platform(name="other", slug="other_slug", fs_slug="other_slug")
-    return db_platform_handler.add_platform(platform)
+    return make_platform("other_slug", name="other")
 
 
 @pytest.fixture
-def add_firmware():
-    """Factory for firmware rows, defaulting to a file still on disk."""
-
-    def _add(platform: Platform, file_name: str, missing: bool = False) -> Firmware:
-        return db_firmware_handler.add_firmware(
-            Firmware(
-                platform_id=platform.id,
-                file_name=file_name,
-                file_path=f"{platform.fs_slug}/bios",
-                file_size_bytes=1024,
-                crc_hash="crc",
-                md5_hash="md5",
-                sha1_hash="sha1",
-                missing_from_fs=missing,
-            )
-        )
-
-    return _add
-
-
-@pytest.fixture
-def firmware(platform: Platform, add_firmware):
+def firmware(platform: Platform):
     """Firmware whose file is still on disk."""
-    return add_firmware(platform, "present.bin")
+    return make_firmware(platform, "present.bin")
 
 
 @pytest.fixture
-def missing_firmware(platform: Platform, add_firmware):
+def missing_firmware(platform: Platform):
     """Firmware flagged by a scan as gone from the filesystem."""
-    return add_firmware(platform, "gone.bin", missing=True)
+    return make_firmware(platform, "gone.bin", missing=True)
 
 
 @pytest.fixture
 def rom(admin_user: User, platform: Platform):
-    rom = Rom(
-        platform_id=platform.id,
-        name="test_rom",
-        slug="test_rom_slug",
-        fs_name="test_rom.zip",
-        fs_name_no_tags="test_rom",
-        fs_name_no_ext="test_rom",
-        fs_extension="zip",
-        fs_path=f"{platform.slug}/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
-
+    rom = make_rom(platform, "test_rom", slug="test_rom_slug")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     return rom
@@ -306,18 +546,7 @@ def rom(admin_user: User, platform: Platform):
 @pytest.fixture
 def second_rom(admin_user: User, platform: Platform):
     """A second ROM on the same platform, for tests that scope by ROM."""
-    rom = Rom(
-        platform_id=platform.id,
-        name="test_rom_2",
-        slug="test_rom_slug_2",
-        fs_name="test_rom_2.zip",
-        fs_name_no_tags="test_rom_2",
-        fs_name_no_ext="test_rom_2",
-        fs_extension="zip",
-        fs_path=f"{platform.slug}/roms",
-    )
-    rom = db_rom_handler.add_rom(rom)
-
+    rom = make_rom(platform, "test_rom_2", slug="test_rom_slug_2")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     return rom
@@ -343,17 +572,12 @@ def multi_file_rom(admin_user: User, platform: Platform):
     derived from `file.rom.full_path` — the back-reference that must remain
     usable after the handler session closes.
     """
-    rom = Rom(
-        platform_id=platform.id,
-        name="test_multi_file_rom",
-        slug="test_multi_file_rom_slug",
-        fs_name="test_multi_file_rom",
-        fs_name_no_tags="test_multi_file_rom",
-        fs_name_no_ext="test_multi_file_rom",
+    rom = make_rom(
+        platform,
+        "test_multi_file_rom",
         fs_extension="",
-        fs_path=f"{platform.slug}/roms",
+        slug="test_multi_file_rom_slug",
     )
-    rom = db_rom_handler.add_rom(rom)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     folder_path = f"{rom.fs_path}/{rom.fs_name}"
@@ -378,37 +602,29 @@ def save(rom: Rom, platform: Platform, admin_user: User):
     saves are treated as web-UI / archival backups. Tests that need to
     represent an archival save should use the `archival_save` fixture.
     """
-    save = Save(
-        rom_id=rom.id,
-        user_id=admin_user.id,
-        file_name="test_save.sav",
-        file_name_no_tags="test_save",
-        file_name_no_ext="test_save",
-        file_extension="sav",
+    return make_save(
+        rom,
+        admin_user,
+        "test_save.sav",
         emulator="test_emulator",
         slot="autosave",
         file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )
-    return db_save_handler.add_save(save)
 
 
 @pytest.fixture
 def second_save(second_rom: Rom, platform: Platform, admin_user: User):
     """Slot-bound save on `second_rom`, to check ROM-scoped queries exclude it."""
-    save = Save(
-        rom_id=second_rom.id,
-        user_id=admin_user.id,
-        file_name="test_save_2.sav",
-        file_name_no_tags="test_save_2",
-        file_name_no_ext="test_save_2",
-        file_extension="sav",
+    return make_save(
+        second_rom,
+        admin_user,
+        "test_save_2.sav",
         emulator="test_emulator",
         slot="autosave",
         file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )
-    return db_save_handler.add_save(save)
 
 
 @pytest.fixture
@@ -417,67 +633,50 @@ def archival_save(rom: Rom, platform: Platform, admin_user: User):
 
     These should never appear in negotiate plans.
     """
-    save = Save(
-        rom_id=rom.id,
-        user_id=admin_user.id,
-        file_name="archival.sav",
-        file_name_no_tags="archival",
-        file_name_no_ext="archival",
-        file_extension="sav",
+    return make_save(
+        rom,
+        admin_user,
+        "archival.sav",
         emulator="test_emulator",
         slot=None,
         file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )
-    return db_save_handler.add_save(save)
 
 
 @pytest.fixture
 def state(rom: Rom, platform: Platform, admin_user: User):
-    state = State(
-        rom_id=rom.id,
-        user_id=admin_user.id,
-        file_name="test_state.state",
-        file_name_no_tags="test_state",
-        file_name_no_ext="test_state",
-        file_extension="state",
+    return make_state(
+        rom,
+        admin_user,
+        "test_state.state",
         emulator="test_emulator",
         file_path=f"{platform.slug}/states/test_emulator",
         file_size_bytes=2.0,
     )
-    return db_state_handler.add_state(state)
 
 
 @pytest.fixture
 def second_state(second_rom: Rom, platform: Platform, admin_user: User):
     """State on `second_rom`, to check ROM-scoped queries exclude it."""
-    state = State(
-        rom_id=second_rom.id,
-        user_id=admin_user.id,
-        file_name="test_state_2.state",
-        file_name_no_tags="test_state_2",
-        file_name_no_ext="test_state_2",
-        file_extension="state",
+    return make_state(
+        second_rom,
+        admin_user,
+        "test_state_2.state",
         emulator="test_emulator",
         file_path=f"{platform.slug}/states/test_emulator",
         file_size_bytes=2.0,
     )
-    return db_state_handler.add_state(state)
 
 
 @pytest.fixture
 def screenshot(rom: Rom, platform: Platform, admin_user: User):
-    screenshot = Screenshot(
-        rom_id=rom.id,
-        user_id=admin_user.id,
-        file_name="test_screenshot.png",
-        file_name_no_tags="test_screenshot",
-        file_name_no_ext="test_screenshot",
-        file_extension="png",
-        file_path=f"{platform.slug}/screenshots",
+    return make_screenshot(
+        rom,
+        admin_user,
+        "test_screenshot.png",
         file_size_bytes=3.0,
     )
-    return db_screenshot_handler.add_screenshot(screenshot)
 
 
 @pytest.fixture
@@ -550,36 +749,6 @@ def viewer_user():
         permission_group_id=group.id if group else None,
     )
     return db_user_handler.add_user(user)
-
-
-@pytest.fixture
-def add_device_token():
-    """Factory for a client token, bound to ``device_id`` unless it is None.
-
-    Returns the stored token and the raw ``rmm_`` credential a client sends.
-    """
-
-    def _add(
-        user: User,
-        device_id: str | None,
-        *,
-        scopes: str = "devices.read devices.write roms.read",
-        expires_at: datetime | None = None,
-    ) -> tuple[ClientToken, str]:
-        raw_token = f"rmm_test_{uuid.uuid4().hex}"
-        token = db_client_token_handler.add_token(
-            ClientToken(
-                user_id=user.id,
-                name="Handheld",
-                hashed_token=auth_handler.hash_client_token(raw_token),
-                scopes=scopes,
-                expires_at=expires_at,
-                device_id=device_id,
-            )
-        )
-        return token, raw_token
-
-    return _add
 
 
 @pytest.fixture

@@ -34,6 +34,7 @@ import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -48,6 +49,7 @@ const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const { user, scopes } = storeToRefs(authStore);
+const heartbeat = storeHeartbeat();
 const { unreadCount } = storeToRefs(storeNotificationInbox());
 
 const open = ref(false);
@@ -76,7 +78,11 @@ const canSeeLibraryMgmt = computed(() =>
 const canSeeScanSettings = computed(() =>
   scopes.value.includes("platforms.write"),
 );
+const canSeeConversionSettings = computed(
+  () => canSeeScanSettings.value && heartbeat.value.CONVERTO.ENABLED,
+);
 const canSeeApiTokens = computed(() => scopes.value.includes("me.write"));
+const canSeeDevices = computed(() => scopes.value.includes("devices.read"));
 const canSeeAdmin = computed(() => scopes.value.includes("users.write"));
 
 function showAbout() {
@@ -239,6 +245,13 @@ async function onLogout() {
         @click="open = false"
       />
       <RMenuItem
+        v-if="canSeeConversionSettings"
+        :to="{ name: ROUTES.CONVERSION_SETTINGS }"
+        icon="mdi-swap-horizontal"
+        :label="t('settings.conversion-settings')"
+        @click="open = false"
+      />
+      <RMenuItem
         v-if="isAdmin"
         :to="{ name: ROUTES.METADATA_SOURCES }"
         icon="mdi-database-cog-outline"
@@ -250,6 +263,13 @@ async function onLogout() {
         :to="{ name: ROUTES.CLIENT_API_TOKENS }"
         icon="mdi-key-variant"
         :label="t('settings.client-api-tokens')"
+        @click="open = false"
+      />
+      <RMenuItem
+        v-if="canSeeDevices"
+        :to="{ name: ROUTES.DEVICES }"
+        icon="mdi-devices"
+        :label="t('settings.devices')"
         @click="open = false"
       />
     </div>

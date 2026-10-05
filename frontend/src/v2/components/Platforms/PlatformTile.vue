@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PlatformTile — platform card used by the Home dashboard row (variant="row",
+// PlatformTile: platform card used by the Home dashboard row (variant="row",
 // 150px fixed) and the /platforms grid (variant="grid"). Feature composite
 // around PlatformIcon and the shared Tile chrome; not a primitive.
 import { computed, ref } from "vue";
@@ -22,12 +22,12 @@ interface Props {
   /** Platform slug used to pick the shipped icon. */
   slug: string;
   /** Filesystem slug, used when no icon ships for `slug`. */
-  fsSlug?: string;
+  fsSlug?: string | undefined;
   displayName: string;
   romCount?: number | null;
   /** Override destination; otherwise derived from `id`. */
-  to?: string | object;
-  id?: number | string;
+  to?: string | object | undefined;
+  id?: number | string | undefined;
   variant?: Variant;
 }
 

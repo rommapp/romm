@@ -1,21 +1,18 @@
 import vue from "@vitejs/plugin-vue";
-import { URL, fileURLToPath } from "node:url";
 import vuetify from "vite-plugin-vuetify";
 import { defineConfig } from "vitest/config";
+import { appAliases } from "./scripts/aliases";
 import { platformIconManifest } from "./scripts/platformIconManifest";
 
 export default defineConfig({
   plugins: [vue(), vuetify({ autoImport: true }), platformIconManifest()],
   resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-      "@v2": fileURLToPath(new URL("./src/v2", import.meta.url)),
-    },
+    alias: appAliases,
   },
   test: {
     server: {
       deps: {
-        inline: ["vuetify"],
+        inline: ["vuetify", "@vueuse/integrations"],
       },
     },
     projects: [
@@ -26,6 +23,12 @@ export default defineConfig({
           environment: "happy-dom",
           globals: true,
           setupFiles: ["./vitest.setup.ts"],
+          // Each test starts with fresh mock call history, original `vi.spyOn`
+          // targets, globals and env.
+          clearMocks: true,
+          restoreMocks: true,
+          unstubGlobals: true,
+          unstubEnvs: true,
           include: ["src/**/*.{test,spec}.ts", "test/**/*.{test,spec}.ts"],
         },
       },

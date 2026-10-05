@@ -5,30 +5,25 @@ filesystem events are missed (e.g., server restart, NFS mounts).
 Triggered on demand, not scheduled automatically.
 """
 
+import asyncio
 from typing import Any
 
-from config import ENABLE_SYNC_FOLDER_WATCHER
 from handler.database import db_device_handler
 from handler.filesystem import get_fs_sync_handler
 from logger.logger import log
 from models.device import SyncMode
-from tasks.tasks import Task, TaskType
+from tasks.registry import SYNC_FOLDER_SCAN_SPEC
+from tasks.tasks import Task
 
 
 class SyncFolderScanTask(Task):
     """Scan device sync folders for unprocessed incoming files."""
 
     def __init__(self) -> None:
-        super().__init__(
-            title="Sync Folder Scan",
-            description="Scan device sync folders for new save files",
-            task_type=TaskType.SYNC,
-            enabled=ENABLE_SYNC_FOLDER_WATCHER,
-            manual_run=True,
-        )
+        super().__init__(SYNC_FOLDER_SCAN_SPEC)
 
     async def run(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        if not self.enabled:
+        if not self.spec.enabled:
             log.info("Sync folder scan not enabled, skipping")
             return {"status": "disabled"}
 
@@ -57,7 +52,11 @@ class SyncFolderScanTask(Task):
                     (f["platform_slug"], f["file_name"], f["full_path"])
                     for f in incoming_files
                 ]
-                _process_device_incoming(device.id, file_tuples)
+                # It drives its own event loops with asyncio.run, which cannot
+                # nest in the loop running this task, so it gets a thread.
+                await asyncio.to_thread(
+                    _process_device_incoming, device.id, file_tuples
+                )
                 total_files += len(incoming_files)
 
         return {"status": "completed", "files_processed": total_files}

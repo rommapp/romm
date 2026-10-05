@@ -28,9 +28,8 @@ import {
   RSwitch,
   RTextField,
 } from "@v2/lib";
-import { useEventListener, useLocalStorage } from "@vueuse/core";
+import { useEventListener } from "@vueuse/core";
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
 import {
   computed,
   defineAsyncComponent,
@@ -44,12 +43,15 @@ import {
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteLeave } from "vue-router";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import {
+  userStorage,
+  useUserLocalStorage,
+} from "@/composables/useUserLocalStorage";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
 import storeConfig from "@/stores/config";
 import { useNativeStore } from "@/stores/native";
-import storePlaying from "@/stores/playing";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
@@ -64,6 +66,7 @@ import GameCover from "@/v2/components/shared/GameCover.vue";
 import { useActivityPresence } from "@/v2/composables/useActivityPresence";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useFullscreenFallback } from "@/v2/composables/useFullscreenFallback";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import {
@@ -77,7 +80,10 @@ import { usePlayerHero } from "@/v2/composables/usePlayerHero";
 import { usePlayerNav } from "@/v2/composables/usePlayerNav";
 import { useSaveStateTabs } from "@/v2/composables/useSaveStateTabs";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import { useStageActive } from "@/v2/composables/useStageActive";
+import {
+  usePlayingWhile,
+  useStageActive,
+} from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
 import type { AssetType } from "@/v2/utils/assets";
 import { joinNames } from "@/v2/utils/lists";
@@ -135,10 +141,8 @@ const Player = defineAsyncComponent(
 const { t, locale } = useI18n();
 const snackbar = useSnackbar();
 const emitter = inject<Emitter<Events>>("emitter");
-const playingStore = storePlaying();
 const configStore = storeConfig();
 const nativeStore = useNativeStore();
-const { playing } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
 const playSession = usePlaySession();
@@ -199,6 +203,7 @@ const exit = usePlayerExit(
 // quiet for the full navigation it turns into.
 useUnloadGuard(() => gameRunning.value && !exit.departing.value);
 useStageActive(gameRunning);
+usePlayingWhile(gameRunning);
 onBeforeRouteLeave(exit.guard);
 
 // Stage-scoped so the non-passive listener never taxes touches elsewhere.
@@ -273,7 +278,7 @@ const bezelUrl = computed(() =>
 // the route param so it binds before `rom` resolves; stored as the compact "0"
 // hidden / "1" shown marker (anything else fails safe to shown), and defaults
 // are not written so merely opening a game leaves storage untouched.
-const showBezel = useLocalStorage(`player:${romId}:bezel`, true, {
+const showBezel = useUserLocalStorage(`player:${romId}:bezel`, true, {
   writeDefaults: false,
   serializer: {
     read: resolveStoredBezelVisible,
@@ -412,7 +417,8 @@ async function onPlayNative() {
   rememberCore(romId, rom.value.platform_slug, selectedCore.value);
   rememberDisc(romId, selectedDisc.value);
   const refusal = await nativeStore.launch(rom.value, {
-    core: selectedCore.value,
+    // No core leaves the shell to pick one from the platform's candidates.
+    core: selectedCore.value ?? undefined,
     fullscreen: fullscreenOnPlay.value,
     disc: selectedDisc.value,
   });
@@ -471,7 +477,6 @@ async function onPlay() {
 
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullscreenOnPlay.value;
-  playing.value = true;
 
   const { EJS_NETPLAY_ENABLED } = configStore.config;
   const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
@@ -500,7 +505,6 @@ async function onPlay() {
     // No emulator booted, so drop back to the config screen instead of
     // leaving the unload guard and the input mute armed.
     gameRunning.value = false;
-    playing.value = false;
   }
 }
 
@@ -547,6 +551,9 @@ function selectState(state: StateSchema) {
 function unselectState() {
   resume.value = { ...resume.value, state: null };
 }
+
+useEmitterEvent("saveSelected", selectSave);
+useEmitterEvent("stateSelected", selectState);
 
 watch(selectedCore, (newSelectedCore) => {
   const armed = resume.value.state;
@@ -598,22 +605,6 @@ onMounted(async () => {
 
   const platformSlug = rom.value.platform_slug;
 
-  emitter?.on("saveSelected", selectSave);
-  emitter?.on("stateSelected", selectState);
-  window.addEventListener("gamepad:buttondown", onGamepadButton);
-
-  if ("keyboard" in navigator) {
-    useEventListener(document, "fullscreenchange", () => {
-      if (document.fullscreenElement) {
-        navigator.keyboard
-          .lock(["Escape", "Tab", "AltLeft", "ControlLeft", "MetaLeft"])
-          .catch(() => {});
-      } else {
-        navigator.keyboard.unlock();
-      }
-    });
-  }
-
   // compatibleStates filters on selectedCore, so resolve the core first.
   selectedCore.value = resolveRememberedCore(
     rom.value.id,
@@ -635,7 +626,7 @@ onMounted(async () => {
   );
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
-  const storedBiosID = localStorage.getItem(`player:${platformSlug}:bios_id`);
+  const storedBiosID = userStorage.getItem(`player:${platformSlug}:bios_id`);
 
   selectedFirmware.value = resolveInitialFirmware({
     options: firmwareOptions.value,
@@ -668,19 +659,26 @@ function onGamepadButton(e: CustomEvent<{ name?: string }>) {
   if (gameRunning.value) return;
   setAssetTab(activeAssetTab.value === "save" ? "state" : "save");
 }
+useEventListener(window, "gamepad:buttondown", onGamepadButton);
+
+if ("keyboard" in navigator) {
+  useEventListener(document, "fullscreenchange", () => {
+    if (document.fullscreenElement) {
+      navigator.keyboard
+        .lock(["Escape", "Tab", "AltLeft", "ControlLeft", "MetaLeft"])
+        .catch(() => {});
+    } else {
+      navigator.keyboard.unlock();
+    }
+  });
+}
 
 onBeforeUnmount(() => {
   // Leaving the player (back nav / route change) ends the session even if
   // the user never exited the game to the config screen first. flush() is
   // idempotent, so an exit that already flushed via the watch is a no-op.
   endSession();
-  // Hand the keyboard and gamepad back to the UI; the flag otherwise
-  // stays true and pad/hotkey navigation is dead until a reload.
-  playing.value = false;
   exitEmulatorOnce();
-  emitter?.off("saveSelected", selectSave);
-  emitter?.off("stateSelected", selectState);
-  window.removeEventListener("gamepad:buttondown", onGamepadButton);
 });
 
 function openCacheDialog() {
@@ -1424,7 +1422,7 @@ html[data-bp~="md-and-up"]
 /* ── Running state ───────────────────────────────────────── */
 .r-v2-ejs__stage {
   position: fixed;
-  inset: var(--r-nav-h) 0 0 0;
+  inset: var(--r-stage-inset);
   background: var(--r-color-canvas-bg);
   z-index: 1;
 }

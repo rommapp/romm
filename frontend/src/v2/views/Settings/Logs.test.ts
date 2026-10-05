@@ -1,12 +1,11 @@
 /* eslint-disable vue/one-component-per-file */
 import { mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive } from "vue";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePermissions from "@/stores/permissions";
-import type { User } from "@/stores/users";
+import { userFixture } from "@/utils/user.fixtures";
 import Logs from "./Logs.vue";
 
 const route = reactive<{ query: Record<string, string> }>({ query: {} });
@@ -17,9 +16,7 @@ vi.mock("vue-router", async (importOriginal) => ({
   useRouter: () => ({ replace: vi.fn() }),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const stub = (name: string) =>
   defineComponent({ name, template: `<div data-testid="${name}" />` });
@@ -53,13 +50,12 @@ function signIn({
   const permissions = storePermissions();
   permissions.isAdmin = admin;
   permissions.hydrated = true;
-  storeAuth().setCurrentUser({ oauth_scopes: ["logs.read"] } as User);
+  storeAuth().setCurrentUser(userFixture({ oauth_scopes: ["logs.read"] }));
   storeHeartbeat().value.FRONTEND.DISABLE_LOGS_VIEWER = !viewer;
 }
 
 describe("Logs view", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
     route.query = {};
   });
 

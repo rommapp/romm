@@ -1,5 +1,20 @@
-import { enableAutoUnmount, mount } from "@vue/test-utils";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { mount } from "@vue/test-utils";
+import {
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
+import { nextTick } from "vue";
+import { useInputModality } from "@/v2/composables/useInputModality";
+import {
+  type EscapableEntry,
+  popEscapable,
+  pushEscapable,
+} from "@/v2/lib/overlays/RDialog/escapeStack";
 import RDateField from "./RDateField.vue";
 
 // Runs in a timezone west of UTC on purpose: the picker emits UTC midnight,
@@ -9,11 +24,9 @@ process.env.TZ = "America/New_York";
 
 // The calendar teleports to <body>, so a wrapper left mounted by a failing
 // assertion would leak its panel into the next test's queries.
-enableAutoUnmount(afterEach);
-
-async function openPicker() {
+async function openPicker(props: Record<string, unknown> = {}) {
   const wrapper = mount(RDateField, {
-    props: { modelValue: Date.UTC(2024, 2, 15) },
+    props: { modelValue: Date.UTC(2024, 2, 15), ...props },
     attachTo: document.body,
   });
   await wrapper.get("input").trigger("click");
@@ -102,6 +115,85 @@ describe("RDateField", () => {
     expect(focusedKey()).toBe("2024-2-23");
   });
 
+  it("asks for a visible focus ring on the day it opens on and moves to", async () => {
+    const { setModality } = useInputModality();
+    setModality("key");
+    onTestFinished(() => setModality("mouse"));
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    const wrapper = await openPicker();
+    const panel = document.querySelector(".r-date-cal") as HTMLElement;
+    panel.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    await wrapper.vm.$nextTick();
+
+    for (const day of [15, 16]) {
+      const call = focus.mock.contexts.indexOf(dayCell(day)!);
+      expect(call).toBeGreaterThanOrEqual(0);
+      expect(focus.mock.calls[call]?.[0]).toEqual(
+        expect.objectContaining({ focusVisible: true }),
+      );
+    }
+  });
+
+  async function press(key: string, init: KeyboardEventInit = {}) {
+    document
+      .querySelector(".r-date-cal")!
+      .dispatchEvent(
+        new KeyboardEvent("keydown", { key, bubbles: true, ...init }),
+      );
+    await nextTick();
+    await nextTick();
+  }
+
+  it("moves the cursor and focus a month or a year on PageDown and PageUp", async () => {
+    await openPicker();
+
+    await press("PageDown");
+    expect(focusedKey()).toBe("2024-3-15");
+    expect(document.activeElement?.getAttribute("data-day-key")).toBe(
+      "2024-3-15",
+    );
+
+    await press("PageUp", { shiftKey: true });
+    expect(focusedKey()).toBe("2023-3-15");
+  });
+
+  it("keeps the day of month on PageDown, capped at the month's end", async () => {
+    await openPicker({ modelValue: Date.UTC(2024, 0, 31) });
+
+    await press("PageDown");
+
+    expect(focusedKey()).toBe("2024-1-29");
+  });
+
+  it("stops the cursor at max instead of stepping onto a disabled day", async () => {
+    await openPicker({
+      modelValue: Date.UTC(2024, 2, 15),
+      max: Date.UTC(2024, 2, 16),
+    });
+
+    await press("ArrowRight");
+    await press("ArrowRight");
+    await press("PageDown");
+
+    expect(focusedKey()).toBe("2024-2-16");
+    expect(document.activeElement?.getAttribute("data-day-key")).toBe(
+      "2024-2-16",
+    );
+  });
+
+  it("stops the cursor at min on PageUp", async () => {
+    await openPicker({
+      modelValue: Date.UTC(2024, 2, 15),
+      min: Date.UTC(2024, 2, 10),
+    });
+
+    await press("PageUp");
+
+    expect(focusedKey()).toBe("2024-2-10");
+  });
+
   it("keeps the label and the emitted value on the same day", async () => {
     const wrapper = await openPicker();
     dayCell(1)?.click();
@@ -136,5 +228,54 @@ describe("RDateField", () => {
       "role",
       "dialog",
     );
+  });
+});
+
+describe("RDateField inside an overlay", () => {
+  const dialog: EscapableEntry = { close: vi.fn(), persistent: false };
+
+  afterEach(() => popEscapable(dialog));
+
+  it("closes the calendar on Escape and refocuses the field, leaving the dialog open", async () => {
+    pushEscapable(dialog);
+    const wrapper = await openPicker();
+    expect(dayCell(15)).not.toBeNull();
+
+    dayCell(15)!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    await nextTick();
+    await nextTick();
+
+    expect(dayCell(15)).toBeNull();
+    expect(dialog.close).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(wrapper.get("input").element);
+  });
+
+  it("stays open for a press inside an overlay opened above it", async () => {
+    const wrapper = await openPicker();
+    expect(document.querySelector(".r-date-cal")).not.toBeNull();
+
+    const nested = document.createElement("div");
+    document.body.append(nested);
+    const menu: EscapableEntry = {
+      close: vi.fn(),
+      persistent: false,
+      panel: () => nested,
+    };
+    pushEscapable(menu);
+
+    nested.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    await nextTick();
+    expect(document.querySelector(".r-date-cal")).not.toBeNull();
+
+    popEscapable(menu);
+    nested.remove();
+    document.body.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }),
+    );
+    await nextTick();
+    expect(document.querySelector(".r-date-cal")).toBeNull();
+    wrapper.unmount();
   });
 });

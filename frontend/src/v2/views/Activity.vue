@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// Activity — live "who's playing what right now" board. Reads the
+// Activity: live "who's playing what right now" board. Reads the
 // activity store (hydrated once via REST, then kept current by the
 // `activity:update` / `activity:clear` socket events the store binds in
 // `initSocket`) and renders a responsive grid of ActivityCards.
 //
 // Elapsed-time labels are recomputed off a `now` ref that ticks every
 // 30s, so "5m ago" advances without a full refetch. The grid is wired
-// to `useWrapGridNav` so arrow keys / gamepad move across the cards.
+// to `useGridNav` so arrow keys / gamepad move across the cards.
 import {
   RBtn,
   RDialog,
@@ -16,7 +16,6 @@ import {
   RTextField,
   RTooltip,
 } from "@v2/lib";
-import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -29,10 +28,11 @@ import storeActivity from "@/stores/activity";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import ActivityCard from "@/v2/components/Activity/ActivityCard.vue";
 import { useCan } from "@/v2/composables/useCan";
+import { useGridNav } from "@/v2/composables/useGridNav";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useVisiblePoll } from "@/v2/composables/useVisiblePoll";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import { userAvatarUrl } from "@/v2/utils/userAvatar";
 
 const { t } = useI18n();
@@ -45,7 +45,7 @@ const { activities: rawActivities, initialized } = storeToRefs(activityStore);
 const now = ref(Date.now());
 
 const gridRoot = ref<HTMLElement | null>(null);
-useWrapGridNav(gridRoot, { cellSelector: ".activity-card" });
+useGridNav(gridRoot, { cellSelector: ".activity-card" });
 
 // Emulator streaming sessions live in Redis, not the activity presence
 // board, so a session survives the player closing their tab. This panel
@@ -55,10 +55,6 @@ const releasingContainer = ref<string | null>(null);
 
 async function refreshStreamingSessions() {
   if (!isAdmin.value) return;
-  // A backgrounded tab is showing nobody the board, and this request costs a
-  // Redis scan plus a user lookup per session. The visibility handler below
-  // catches up on the way back.
-  if (document.hidden) return;
   try {
     const { data } = await streamingApi.adminListSessions();
     streamingSessions.value = data.sessions ?? [];
@@ -73,15 +69,12 @@ onMounted(async () => {
 });
 
 // Refresh the elapsed-time labels every 30 seconds. Streaming sessions have no
-// socket events, so they piggyback on the same tick.
-useIntervalFn(() => {
+// socket events, so they piggyback on the same tick, which costs a Redis scan
+// plus a user lookup per session.
+useVisiblePoll(() => {
   now.value = Date.now();
   void refreshStreamingSessions();
 }, 30_000);
-
-useEventListener(document, "visibilitychange", () => {
-  if (!document.hidden) void refreshStreamingSessions();
-});
 
 // Oldest session first so the longest-running players lead the board.
 const activities = computed(() =>
@@ -151,7 +144,7 @@ function romRoute(entry: ActivityEntry) {
   return { name: ROUTES.ROM, params: { rom: entry.rom_id } };
 }
 
-// Cover art URL, or null when the rom has no cover — GameCover then paints
+// Cover art URL, or null when the rom has no cover: GameCover then paints
 // its own canonical placeholder (title initial).
 function coverArtSrc(entry: ActivityEntry): string | null {
   if (!entry.rom_cover_path) return null;
@@ -164,7 +157,7 @@ function coverSrc(entry: ActivityEntry): string | null {
   return entry.screenshot_path || coverArtSrc(entry);
 }
 
-// PIP cover-art thumbnail — only when a screenshot is the main image, so the
+// PIP cover-art thumbnail: only when a screenshot is the main image, so the
 // game stays identifiable.
 function pipCoverSrc(entry: ActivityEntry): string | null {
   return entry.screenshot_path ? coverArtSrc(entry) : null;
@@ -258,7 +251,7 @@ function elapsedLabel(startedAt: string): string {
 
 <template>
   <div class="r-v2-activity">
-    <!-- Counter top-left — keeps the live session total visible without the
+    <!-- Counter top-left: keeps the live session total visible without the
          page-level header the other Settings sections don't carry. The label
          lives in a tooltip so the chip itself stays a compact icon + count;
          the dot pulses while at least one session is live. -->
@@ -399,7 +392,7 @@ function elapsedLabel(startedAt: string): string {
 </template>
 
 <style scoped>
-/* Bare Settings route (no outer glass panel) — the SettingsLayout content
+/* Bare Settings route (no outer glass panel): the SettingsLayout content
    column already owns the page gutters, so the view itself adds none. */
 .r-v2-activity {
   display: flex;
@@ -411,7 +404,7 @@ function elapsedLabel(startedAt: string): string {
   color: var(--r-color-fg-muted);
 }
 
-/* Counter row — left-aligned stat replacing the page header. */
+/* Counter row: left-aligned stat replacing the page header. */
 .r-v2-activity__head {
   display: flex;
   justify-content: flex-start;
@@ -435,7 +428,7 @@ function elapsedLabel(startedAt: string): string {
 }
 .r-v2-activity__total--live .r-v2-activity__total-icon {
   color: var(--r-color-success);
-  /* Soft pulse while sessions are live — echoes the cards' LIVE chip. */
+  /* Soft pulse while sessions are live: echoes the cards' LIVE chip. */
   animation: r-v2-activity-pulse 2s ease-in-out infinite;
 }
 

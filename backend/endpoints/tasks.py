@@ -24,6 +24,8 @@ from endpoints.responses import (
     WatcherTaskStatusResponse,
 )
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
+from endpoints.sockets.scan import ScanPayload, queue_scan
+from exceptions.socket_exceptions import NoScanWorkerException, ScanInFlightException
 from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.redis_handler import (
@@ -36,8 +38,13 @@ from handler.redis_handler import (
     redis_client,
 )
 from models.audit_event import AuditAction, AuditTargetType
-from tasks.registry import MANUAL_TASKS, SCHEDULED_TASKS, enqueue_task
-from tasks.tasks import Task, TaskType
+from tasks.registry import (
+    MANUAL_TASKS,
+    SCHEDULED_TASKS,
+    enqueue_task,
+    get_active_task_job,
+)
+from tasks.tasks import TaskSpec, TaskType
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -47,7 +54,7 @@ router = APIRouter(
 
 # Scheduled tasks an admin can see and trigger. The rest of the catalog runs on
 # its schedule without being surfaced.
-VISIBLE_SCHEDULED_TASKS: Final[dict[str, Task]] = {
+VISIBLE_SCHEDULED_TASKS: Final[dict[str, TaskSpec]] = {
     name: SCHEDULED_TASKS[name]
     for name in (
         "scan_library",
@@ -56,14 +63,18 @@ VISIBLE_SCHEDULED_TASKS: Final[dict[str, Task]] = {
         "build_recommendations",
         "convert_images_to_webp",
         "cleanup_zip_cache",
+        "cleanup_conversion_cache",
         "cleanup_orphaned_resources",
     )
 }
 
-RUNNABLE_TASKS: Final[dict[str, Task]] = {**MANUAL_TASKS, **VISIBLE_SCHEDULED_TASKS}
+SINGLE_INSTANCE_LOCK_PREFIX: Final = "romm:task-run-lock:"
+SINGLE_INSTANCE_LOCK_SECONDS: Final = 5
+
+RUNNABLE_TASKS: Final[dict[str, TaskSpec]] = {**MANUAL_TASKS, **VISIBLE_SCHEDULED_TASKS}
 
 
-def _build_task_info(name: str, task: Task) -> TaskInfo:
+def _build_task_info(name: str, task: TaskSpec) -> TaskInfo:
     """Builds a TaskInfo object from task details."""
     return TaskInfo(
         name=name,
@@ -72,6 +83,7 @@ def _build_task_info(name: str, task: Task) -> TaskInfo:
         description=task.description,
         enabled=task.enabled,
         manual_run=task.can_run_manually,
+        destructive=task.destructive,
         cron_string=task.cron_string or "",
     )
 
@@ -104,6 +116,24 @@ def _fill_cleanup_stats(stats: Mapping[str, Any] | None) -> CleanupStats | None:
     platform_id = legacy.pop("platform_id")
     legacy["platform_ids"] = [platform_id] if platform_id is not None else None
     return cast(CleanupStats, legacy)
+
+
+def _build_task_execution_response(
+    job: Job, task_key: str | None, task_name: str
+) -> TaskExecutionResponse:
+    """Describe a job that was just queued."""
+    return {
+        "task_key": task_key,
+        "task_name": task_name,
+        "task_id": job.id,
+        "status": job.get_status(refresh=False) or JobStatus.QUEUED,
+        "created_at": (
+            job.created_at.isoformat()
+            if job.created_at
+            else datetime.now(timezone.utc).isoformat()
+        ),
+        "enqueued_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
+    }
 
 
 def _build_task_status_response(
@@ -218,6 +248,7 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
             description=f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minute delay",
             enabled=ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
             manual_run=False,
+            destructive=False,
             cron_string="",
         )
     )
@@ -330,6 +361,21 @@ async def run_single_task(
             detail="No task worker is listening, so the task cannot be queued",
         )
 
+    # The lock covers two requests landing before either job is queued.
+    if task_instance.single_instance and (
+        not redis_client.set(
+            f"{SINGLE_INSTANCE_LOCK_PREFIX}{task_name}",
+            1,
+            nx=True,
+            ex=SINGLE_INSTANCE_LOCK_SECONDS,
+        )
+        or get_active_task_job(task_name) is not None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{task_instance.title} is already queued or running",
+        )
+
     # The caller's arguments are nested rather than spread, so a body cannot
     # name a different task than the one this route just authorized.
     job = enqueue_task(
@@ -345,15 +391,37 @@ async def run_single_task(
         {"job_id": job.id, "kwargs": task_kwargs or {}},
     )
 
-    return {
-        "task_key": task_name,
-        "task_name": task_instance.title,
-        "task_id": job.id,
-        "status": job.get_status() or JobStatus.QUEUED,
-        "created_at": (
-            job.created_at.isoformat()
-            if job.created_at
-            else datetime.now(timezone.utc).isoformat()
-        ),
-        "enqueued_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
-    }
+    return _build_task_execution_response(job, task_name, task_instance.title)
+
+
+SCAN_PAYLOAD = Body(default_factory=ScanPayload)
+
+
+@protected_route(
+    router.post,
+    "/scan",
+    [Scope.TASKS_RUN],
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def start_scan(
+    request: Request, payload: ScanPayload = SCAN_PAYLOAD
+) -> TaskExecutionResponse:
+    """Queue a scan, for clients that authenticate without a session cookie.
+
+    Args:
+        request (Request): FastAPI Request object
+        payload (ScanPayload): What to scan and which metadata sources to use,
+            a quick scan of the whole library when the body is left out
+    Returns:
+        TaskExecutionResponse: The queued scan, to follow on `GET /api/tasks/{task_id}`
+    """
+    try:
+        job = await queue_scan(payload, started_by_user_id=request.user.id)
+    except NoScanWorkerException as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        ) from e
+    except ScanInFlightException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+
+    return _build_task_execution_response(job, None, job.meta["task_name"])

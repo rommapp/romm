@@ -1,10 +1,9 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
+import { tabId, tabPanelId } from "@/v2/utils/tabIds";
 import SubtabNav, { type SubtabNavItem } from "./SubtabNav.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const RMenu = {
   props: { searchable: { type: Boolean, default: false } },
@@ -27,7 +26,7 @@ const stubs = {
 
 function nav(items: SubtabNavItem[], props: Record<string, unknown> = {}) {
   return mount(SubtabNav, {
-    props: { modelValue: items[0].id, items, ...props },
+    props: { modelValue: items[0]!.id, items, ...props },
     global: { stubs },
   });
 }
@@ -58,9 +57,9 @@ describe("SubtabNav", () => {
     ]);
     const buttons = wrapper.findAll(".r-v2-subtab-nav__btn");
 
-    await buttons[0].trigger("click");
+    await buttons[0]!.trigger("click");
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
-    await buttons[1].trigger("click");
+    await buttons[1]!.trigger("click");
     expect(wrapper.emitted("update:modelValue")).toEqual([["b"]]);
   });
 
@@ -78,5 +77,17 @@ describe("SubtabNav", () => {
     expect(wrapper.findAll(".option").map((o) => o.text())).toEqual([
       "Speedrun Route",
     ]);
+  });
+
+  it("ties each tab to its panel only when given an id prefix", () => {
+    const items = [{ id: "manual", label: "Manual" }];
+
+    const tab = nav(items, { idPrefix: "m" }).get('[role="tab"]');
+    expect(tab.attributes("id")).toBe(tabId("m", "manual"));
+    expect(tab.attributes("aria-controls")).toBe(tabPanelId("m", "manual"));
+
+    const bare = nav(items).get('[role="tab"]');
+    expect(bare.attributes("id")).toBeUndefined();
+    expect(bare.attributes("aria-controls")).toBeUndefined();
   });
 });

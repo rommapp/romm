@@ -58,7 +58,7 @@ watchEffect(() => {
   }
 
   const shuffledSmall = [...smallCoverUrls].sort(() => Math.random() - 0.5);
-  memoizedCovers.value = [shuffledSmall[0], shuffledSmall[1]];
+  memoizedCovers.value = [shuffledSmall[0]!, shuffledSmall[1]!];
 });
 
 const firstCover = computed(() => memoizedCovers.value[0]);
@@ -70,7 +70,7 @@ const secondCover = computed(() => memoizedCovers.value[1]);
     <div class="image-container" :style="{ aspectRatio: 1 / 1 }">
       <template v-if="collection.is_virtual || !collection.path_cover_small">
         <div class="split-image first-image">
-          <v-img cover :src="firstCover" :aspect-ratio="1 / 1">
+          <v-img cover :src="firstCover!" :aspect-ratio="1 / 1">
             <template #placeholder>
               <Skeleton :aspect-ratio="1 / 1" type="image" />
             </template>
@@ -80,7 +80,7 @@ const secondCover = computed(() => memoizedCovers.value[1]);
           </v-img>
         </div>
         <div class="split-image second-image">
-          <v-img cover :src="secondCover" :aspect-ratio="1 / 1">
+          <v-img cover :src="secondCover!" :aspect-ratio="1 / 1">
             <template #placeholder>
               <Skeleton :aspect-ratio="1 / 1" type="image" />
             </template>
@@ -92,7 +92,7 @@ const secondCover = computed(() => memoizedCovers.value[1]);
       </template>
       <template v-else>
         <div class="split-image">
-          <v-img cover :src="firstCover" :aspect-ratio="1 / 1">
+          <v-img cover :src="firstCover!" :aspect-ratio="1 / 1">
             <template #placeholder>
               <Skeleton :aspect-ratio="1 / 1" type="image" />
             </template>

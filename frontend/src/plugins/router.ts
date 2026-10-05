@@ -1,14 +1,22 @@
 import { storeToRefs } from "pinia";
-import { watch } from "vue";
+import {
+  type Component,
+  defineAsyncComponent,
+  defineComponent,
+  h,
+  watch,
+} from "vue";
 import {
   createRouter,
   createWebHistory,
   type NavigationGuardWithThis,
   type RouteLocationNormalized,
 } from "vue-router";
+import { useUiVersion } from "@/composables/useUiVersion";
 import i18n, { loadLocale } from "@/locales";
 import {
   isAuthExemptRoute,
+  ROUTE_SCOPES,
   ROUTES,
   type RouteName,
 } from "@/plugins/routeNames";
@@ -18,6 +26,7 @@ import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import type { User } from "@/stores/users";
+import { DEFAULT_TITLE } from "@/v2/composables/usePageTitle";
 import {
   notFoundComponent,
   v2Layouts,
@@ -242,6 +251,14 @@ const routes = [
         },
       },
       {
+        path: "rom/:rom/easyrpg",
+        name: ROUTES.EASYRPG,
+        components: {
+          default: () => import("@/views/Home.vue"),
+          v2: v2For(ROUTES.EASYRPG),
+        },
+      },
+      {
         path: "rom/:rom/ruffle",
         name: ROUTES.RUFFLE,
         components: {
@@ -275,7 +292,7 @@ const routes = [
           v2: v2For(ROUTES.STREAM_DESKTOP),
         },
       },
-      // Settings group — every settings route shares the same v2
+      // Settings group: every settings route shares the same v2
       // sub-layout (sidebar + content panel). Library Tools (Scan /
       // Upload / Patcher) live here too so they share the settings
       // sidebar shell. v1 keeps its existing per-view structure via the
@@ -387,6 +404,18 @@ const routes = [
             },
           },
           {
+            path: "conversion-settings",
+            name: ROUTES.CONVERSION_SETTINGS,
+            meta: {
+              title: "settings.conversion-settings",
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.CONVERSION_SETTINGS),
+            },
+          },
+          {
             path: "metadata-sources",
             name: ROUTES.METADATA_SOURCES,
             meta: {
@@ -408,6 +437,18 @@ const routes = [
             components: {
               default: () => import("@/views/Settings/ClientApiTokens.vue"),
               v2: v2For(ROUTES.CLIENT_API_TOKENS),
+            },
+          },
+          {
+            path: "devices",
+            name: ROUTES.DEVICES,
+            meta: {
+              title: "settings.devices",
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.DEVICES),
             },
           },
           {
@@ -441,7 +482,7 @@ const routes = [
               title: "common.logs",
               bare: true,
               // The log panel fills the viewport and scrolls internally
-              // instead of growing the document — see SettingsLayout `fill`.
+              // instead of growing the document: see SettingsLayout `fill`.
               fill: true,
             },
             components: {
@@ -508,9 +549,12 @@ const routes = [
   {
     path: "/pair",
     name: ROUTES.PAIR,
-    component: () => import("@/v2/views/PairDispatcher.vue"),
+    components: {
+      default: () => import("@/views/Pair.vue"),
+      v2: v2For(ROUTES.PAIR),
+    },
   },
-  // Console mode (separate UI namespace under /console) — v1 only; v2 merges
+  // Console mode (separate UI namespace under /console): v1 only; v2 merges
   // console behavior into the main UI via the universal input system.
   {
     path: "/console",
@@ -555,36 +599,21 @@ const routes = [
   },
 ];
 
-interface RoutePermissions {
-  path: string;
-  requiredScopes: string[];
-}
-
 const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),
   routes,
   scrollBehavior(to, from, savedPosition) {
-    // popstate (back/forward) — restore the saved offset.
+    // popstate (back/forward): restore the saved offset.
     if (savedPosition) return savedPosition;
     // Same path → only query/hash changed (e.g., the v2 GameDetails
     // tab/subtab params, gallery filter syncs). The user's view should
     // stay where it is; scrolling to top would make the URL update
     // visible as a UX jump.
     if (to.path === from.path) return false;
-    // Genuine route change — start fresh from the top.
+    // Genuine route change: start fresh from the top.
     return { left: 0, top: 0 };
   },
 });
-
-const routePermissions: RoutePermissions[] = [
-  { path: ROUTES.CLIENT_API_TOKENS, requiredScopes: ["me.write"] },
-  { path: ROUTES.SCAN, requiredScopes: ["platforms.write"] },
-  { path: ROUTES.UPLOAD, requiredScopes: ["roms.write"] },
-  { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },
-  { path: ROUTES.SCAN_SETTINGS, requiredScopes: ["platforms.write"] },
-  { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
-  { path: ROUTES.LOGS, requiredScopes: ["logs.read"] },
-];
 
 function checkRoutePermissions(route: string, user: User | null): boolean {
   // No checks needed for login and setup pages
@@ -595,14 +624,8 @@ function checkRoutePermissions(route: string, user: User | null): boolean {
   // No user, no access
   if (!user) return false;
 
-  // Check if route has permissions requirements
-  const routeConfig = routePermissions.find((config) => config.path === route);
-  if (!routeConfig) return true;
-
-  // Check if user has required scopes
-  return routeConfig.requiredScopes.every((scope) =>
-    user.oauth_scopes.includes(scope),
-  );
+  const requiredScopes = ROUTE_SCOPES[route as RouteName] ?? [];
+  return requiredScopes.every((scope) => user.oauth_scopes.includes(scope));
 }
 
 // `meta.title` holds an i18n key, translated per navigation rather than when
@@ -619,8 +642,61 @@ export function applyRouteTitle(
   // A query/hash-only navigation leaves the view mounted, so `usePageTitle`
   // won't refire and the fallback would drop the title it already set.
   if (from && route.path === from.path) return;
-  document.title = "RomM";
+  document.title = DEFAULT_TITLE;
 }
+
+// vue-router fetches every named view before entering a route, so the
+// inactive UI's view is deferred until an in-place switch renders it.
+type ViewLoader = () => Promise<Component>;
+const deferredLoaders = new WeakMap<object, ViewLoader>();
+
+// vue-router warns on defineAsyncComponent route views, so wrap it in a plain one.
+function deferView(load: ViewLoader): Component {
+  const view = defineAsyncComponent(load);
+  const shell = defineComponent({
+    name: "DeferredView",
+    setup: () => () => h(view),
+  });
+  deferredLoaders.set(shell, load);
+  return shell;
+}
+
+const uiVersion = useUiVersion();
+const viewNames = () =>
+  uiVersion.value === "v2"
+    ? (["v2", "default"] as const)
+    : (["default", "v2"] as const);
+
+// Fetch the switched-to views together: a nested view would otherwise start
+// loading only once its parent layout has loaded and rendered.
+watch(uiVersion, () => {
+  const [active] = viewNames();
+  for (const record of router.currentRoute.value.matched) {
+    const view = record.components?.[active];
+    const load = view && deferredLoaders.get(view);
+    load?.().catch(() => {});
+  }
+});
+
+router.beforeEach((to, from) => {
+  const [active, inactive] = viewNames();
+  for (const record of to.matched) {
+    const views = record.components;
+    if (!views) continue;
+    const load = views[active] && deferredLoaders.get(views[active]);
+    // Hand the loader back once its UI is active and the route is entered,
+    // so vue-router awaits the view again and a stale chunk reaches onError.
+    if (
+      load &&
+      !from.matched.some((r) => (r.aliasOf ?? r) === (record.aliasOf ?? record))
+    )
+      views[active] = load;
+    // Every route view is a `() => import()` loader until it is deferred.
+    const view = views[inactive];
+    if (typeof view === "function")
+      views[inactive] = deferView(view as ViewLoader);
+  }
+});
 
 router.beforeEach(async (to, from, next) => {
   const heartbeat = storeHeartbeat();
@@ -629,7 +705,7 @@ router.beforeEach(async (to, from, next) => {
   const currentRoute = to.name?.toString();
 
   try {
-    // Backend unreachable/broken — we can't trust the setup/auth state, and
+    // Backend unreachable/broken: we can't trust the setup/auth state, and
     // bouncing to /login would just strand the user on a page that can't work
     // either. Let them stay on (and navigate within) whatever the cached state
     // allows; the offline notice explains it and the connection layer
@@ -644,7 +720,7 @@ router.beforeEach(async (to, from, next) => {
       return currentRoute !== "setup" ? next({ name: ROUTES.SETUP }) : next();
     }
 
-    // Handle authentication — unauth'd users visiting a non-exempt route
+    // Handle authentication: unauth'd users visiting a non-exempt route
     // land on /login. Without this branch, they fall through to the
     // permission check below, fail it, get redirected to the catch-all 404
     // (which matches /), and the guard re-runs forever.
@@ -657,7 +733,7 @@ router.beforeEach(async (to, from, next) => {
       });
     }
 
-    // SHOW_SETUP_WIZARD is false here, so setup is already done — nobody
+    // SHOW_SETUP_WIZARD is false here, so setup is already done: nobody
     // belongs on /setup anymore. `/setup` is auth-exempt (so the block above
     // won't bounce an unauthenticated visitor), so redirect both cases:
     // authenticated users go home, everyone else to login. Without covering
@@ -686,7 +762,7 @@ router.beforeEach(async (to, from, next) => {
     next();
   } catch (error) {
     console.error("Navigation guard error:", error);
-    document.title = "RomM";
+    document.title = DEFAULT_TITLE;
     next({ name: ROUTES.LOGIN });
   }
 });
@@ -701,11 +777,11 @@ watch(i18n.global.locale, async (locale) => {
 });
 
 router.beforeResolve(async (to, from) => {
-  // Query/hash-only changes (same path — e.g. the v2 GameDetails `?tab=`
+  // Query/hash-only changes (same path: e.g. the v2 GameDetails `?tab=`
   // param) aren't a real view change. Running a view transition would
   // snapshot every `view-transition-name` element (like the details cover)
   // into the browser's top layer for the crossfade, briefly floating it over
-  // the fixed navbar. Skip them — matching `scrollBehavior` above.
+  // the fixed navbar. Skip them: matching `scrollBehavior` above.
   if (to.path === from.path) return;
   const viewTransition = startViewTransition();
   await viewTransition.captured;

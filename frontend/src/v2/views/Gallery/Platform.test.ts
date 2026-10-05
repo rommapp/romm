@@ -1,10 +1,11 @@
 /* eslint-disable vue/one-component-per-file */
 import { flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
+import { platformFixture } from "@/utils/platform.fixtures";
+import { romFixture } from "@/utils/rom.fixtures";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import PlatformView from "./Platform.vue";
 
@@ -39,9 +40,7 @@ const {
   snackbarInfo: vi.fn(),
 }));
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const { routeState } = vi.hoisted(() => ({
   routeState: {
@@ -122,18 +121,16 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 function platform(id: number, name = "Super Nintendo"): Platform {
-  return {
+  return platformFixture({
     id,
     name,
-    display_name: name,
     slug: `platform-${id}`,
-    fs_slug: `platform-${id}`,
     rom_count: 83000,
-  } as Platform;
+  });
 }
 
 function rom(id: number): SimpleRom {
-  return { id, name: "Chrono Trigger" } as SimpleRom;
+  return romFixture({ id, name: "Chrono Trigger" });
 }
 
 /** Resolves the promise the next `getRandomRom` call returns, on demand. */
@@ -206,8 +203,6 @@ async function mountView() {
 
 describe("Platform view random rom", () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.clearAllMocks();
     routeState.name = "platform";
     routeState.path = "/platform/1";
     routeState.params = { platform: "1" };

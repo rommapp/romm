@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Stages:
 #   - python-runtime: Patch the Python image's libraries before they ship
 #   - frontend-build: Build frontend
@@ -5,6 +6,8 @@
 #   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
 #   - rahasher-build: Build RAHasher
 #   - sigil-build: Build sigil Python bindings (title ID extraction)
+#   - gme-build: Build libgme to WebAssembly (chiptune soundtracks)
+#   - rom-converto-fetch: Fetch the rom-converto CLI (ROM conversion and metadata)
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
@@ -26,6 +29,11 @@ ARG NGINX_VERSION=1.30.5
 ARG NGINX_SHA256=a5f2157a0302eb0c5e300415effb63a9e70ed1eb9c107283819bf6d149ab607c
 ARG UV_VERSION=0.12.19
 ARG UV_SHA256=b165481b747c340b4b3b820f6e453c3aea939c8b583cbfc01c4e99ec61181bc2
+ARG EMSDK_VERSION=4.0.12
+ARG EMSDK_AMD64_SHA256=744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54b0585c6
+ARG EMSDK_ARM64_SHA256=369a4cb655aa1066e6e450dde774243c502d999b1d93fb4890a9d1428daa9280
+ARG GME_VERSION=0.6.5
+ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
@@ -144,7 +152,45 @@ RUN git clone --filter=blob:none https://github.com/rommapp/argosy-sigil.git && 
     cp ./sigil/*.py ./sigil/_sigil.*.so /sigil-pkg/
 
 
-# FETCH EMULATORJS, RUFFLE, JS-DOS AND FAKE-08
+# LIBGME (LGPL-2.1+) FOR CHIPTUNE SOUNDTRACKS
+# The wasm is the same on every platform, so it builds with the builder's own
+# emsdk image. Keep the pins in sync with the dev image's copies in ../Dockerfile.
+# trunk-ignore(hadolint/DL3029)
+FROM --platform=linux/amd64 emscripten/emsdk:${EMSDK_VERSION}@sha256:${EMSDK_AMD64_SHA256} AS emsdk-amd64
+# trunk-ignore(hadolint/DL3029)
+FROM --platform=linux/arm64 emscripten/emsdk:${EMSDK_VERSION}-arm64@sha256:${EMSDK_ARM64_SHA256} AS emsdk-arm64
+
+# trunk-ignore(hadolint/DL3006,checkov/CKV_DOCKER_7)
+FROM emsdk-${BUILDARCH} AS gme-build
+
+ARG GME_VERSION
+ARG GME_COMMIT
+
+# checkov:skip=CKV_DOCKER_4:the ADD below is a Git URL pinned to a commit by --checksum
+ADD --checksum=${GME_COMMIT} \
+    "https://github.com/libgme/game-music-emu.git#${GME_VERSION}" \
+    /libgme
+COPY ./docker/gme /romm-gme
+RUN /romm-gme/build.sh /libgme /gme
+
+
+# ROM-CONVERTO CLI
+# Keep the version and both sums in sync with the dev image's copy in ../Dockerfile.
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rom-converto-fetch
+ARG TARGETARCH
+ARG ROM_CONVERTO_VERSION=v0.23.2
+RUN case "${TARGETARCH}" in \
+        amd64) rc="linux-x64-musl"; sum="734ecccfa77d425c01dc3ba621261389c1c23d23f0e5d6b8e3346fda1879d687" ;; \
+        arm64) rc="linux-arm64-musl"; sum="e90cca392b08b859b79bab13fcd47300ffc613d5dca7da1b4d1e38e3a4bbc297" ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    wget -qO /rom-converto \
+        "https://github.com/DevYukine/rom-converto/releases/download/${ROM_CONVERTO_VERSION}/rom-converto-cli-${rc}" && \
+    echo "${sum}  /rom-converto" | sha256sum -c - && \
+    chmod 0755 /rom-converto
+
+
+# FETCH EMULATORJS, RUFFLE, JS-DOS, FAKE-08 AND EASYRPG
 # Keep the pins below in sync with the dev image's copies in ../Dockerfile.
 # checkov:skip=CKV_DOCKER_4:every ADD below is a remote URL pinned by --checksum
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
@@ -195,6 +241,28 @@ ADD --checksum=sha256:${FAKE08_JS_SHA256} --chmod=644 \
 ADD --checksum=sha256:${FAKE08_WASM_SHA256} --chmod=644 \
     "https://raw.githubusercontent.com/fabkury/p3a/${FAKE08_P3A_COMMIT}/webui/pico8/fake08.wasm" \
     /fake08/fake08.wasm
+
+ARG EASYRPG_VERSION=0.8.1.1
+ARG EASYRPG_SHA256=99b6963c943bb355e1b1221125cb4536ca2f627c329d8a89cee5a928cdd6a14f
+
+ADD --checksum=sha256:${EASYRPG_SHA256} \
+    "https://easyrpg.org/downloads/player/${EASYRPG_VERSION}/easyrpg-player-${EASYRPG_VERSION}-js.tar.gz" \
+    /downloads/easyrpg.tar.gz
+# games/ is where the player looks for games, which the server routes to the backend.
+RUN mkdir /easyrpg && \
+    tar -xzf /downloads/easyrpg.tar.gz -C /easyrpg --strip-components=1 && \
+    rm -rf /easyrpg/games
+
+# The free RTP (CC-BY-4.0) has no releases, so it is pinned by commit.
+ARG EASYRPG_RTP_COMMIT=993d88cbc78c658d348bbfa74a3b424d393d27e5
+ARG EASYRPG_RTP_SHA256=7e42abebbec94989f4ff214fc082511eef749114e76e3a342cb62d07c03d56e7
+
+ADD --checksum=sha256:${EASYRPG_RTP_SHA256} \
+    "https://github.com/EasyRPG/RTP/archive/${EASYRPG_RTP_COMMIT}.tar.gz" \
+    /downloads/easyrpg-rtp.tar.gz
+RUN mkdir /easyrpg/rtp && \
+    tar -xzf /downloads/easyrpg-rtp.tar.gz -C /easyrpg/rtp --strip-components=1 && \
+    find /easyrpg/rtp \( -name '.git*' -o -name Makefile \) -exec rm -f {} +
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
@@ -258,11 +326,13 @@ COPY --from=python-runtime /usr/local/lib/libpython* /usr/local/lib/
 COPY --from=python-runtime /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
+COPY --from=rom-converto-fetch /rom-converto /usr/bin/rom-converto
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 COPY --from=backend-node-build /backend-node/rom_patcher/node_modules/rom-patcher/rom-patcher-js /backend/utils/rom_patcher/rom-patcher-js
 
 COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
+COPY --from=gme-build /gme ${WEBSERVER_FOLDER}/assets/gme
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 COPY ./backend /backend
@@ -331,6 +401,7 @@ COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
 COPY --from=emulator-stage /jsdos/dist ${WEBSERVER_FOLDER}/assets/jsdos
 COPY --from=emulator-stage /fake08 ${WEBSERVER_FOLDER}/assets/pico8
+COPY --from=emulator-stage /easyrpg ${WEBSERVER_FOLDER}/assets/easyrpg
 
 
 FROM slim-image AS dev-slim

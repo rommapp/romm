@@ -6,13 +6,11 @@ import { AxeBuilder } from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import type { ImpactValue, Result as AxeViolation } from "axe-core";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { gotoHydrated, SIGNED_OUT } from "../support/auth";
+import type { RouteName } from "../../src/plugins/routeNames";
+import { loginButton, SIGNED_OUT } from "../support/auth";
+import { gotoHydrated } from "../support/navigation";
 import { AXE_DIR } from "../support/output";
-import {
-  E2E_SITEMAP,
-  type E2eSitemapEntry,
-  type E2eSitemapId,
-} from "../support/sitemap";
+import { E2E_SITEMAP, type E2eSitemapEntry } from "../support/sitemap";
 import { expect, test } from "../support/test";
 import { attachViolationScreenshots } from "./highlight";
 
@@ -35,9 +33,8 @@ const DEFAULT_BLOCKING_IMPACTS: PageBlockingImpacts = ["critical", "serious"];
 type AxePage = E2eSitemapEntry & { blockingImpacts: PageBlockingImpacts };
 
 // Pages that hold a different bar than DEFAULT_BLOCKING_IMPACTS.
-const PAGE_BLOCKING_IMPACTS: Partial<
-  Record<E2eSitemapId, PageBlockingImpacts>
-> = {};
+const PAGE_BLOCKING_IMPACTS: Partial<Record<RouteName, PageBlockingImpacts>> =
+  {};
 
 const AXE_PAGES: Record<string, AxePage> = Object.fromEntries(
   E2E_SITEMAP.map((entry) => [
@@ -103,7 +100,7 @@ for (const [
       page,
     }) => {
       await page.goto(path);
-      await page.locator("form.r-v2-login-form").waitFor();
+      await loginButton(page).waitFor();
 
       const { blocking, message } = await runAxe(
         page,

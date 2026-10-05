@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// AlphaStrip — A-Z-# jump sidebar for letter-grouped grids (Platform and
-// Collection gallery). Feature composite — not a design-system primitive.
+// AlphaStrip: A-Z-# jump sidebar for letter-grouped grids (Platform and
+// Collection gallery). Feature composite: not a design-system primitive.
 //
 // Two highlight signals are supported:
-//   * `current` — single letter used to mark a deliberate jump (e.g. the
+//   * `current`: single letter used to mark a deliberate jump (e.g. the
 //     user clicked "F"). One active at a time.
-//   * `visible` — a Set of every letter whose section currently intersects
+//   * `visible`: a Set of every letter whose section currently intersects
 //     the viewport. Multiple letters light up together when the first row
 //     of the grid spans several groups (A, B, C, …).
 //
@@ -22,9 +22,9 @@ defineOptions({ inheritAttrs: false });
 const { t } = useI18n();
 
 // Two non-alphabetic buckets bookend the alphabet:
-//   * `#` — digits (0-9) — sits BEFORE A
-//   * `@` — any other non-alphanumeric first character — sits AFTER Z
-// Order in asc: `# A B … Z @` — `#` at the top, `@` at the bottom.
+//   * `#`, digits (0-9), sits BEFORE A
+//   * `@`, any other non-alphanumeric first character, sits AFTER Z
+// Order in asc: `# A B … Z @`, `#` at the top, `@` at the bottom.
 // When the gallery sorts desc the whole array reverses (`@` to the top,
 // `#` to the bottom) so the strip's visual order tracks the data's
 // order and the scroll-spy highlight follows the scroll direction.
@@ -34,7 +34,7 @@ interface Props {
   available?: Set<string> | string[];
   current?: string;
   visible?: Set<string> | string[];
-  /** Render order — reversed when the gallery sorts descending. */
+  /** Render order: reversed when the gallery sorts descending. */
   direction?: "asc" | "desc";
   /** Lay the letters out as a wrapping grid instead of a column. */
   grid?: boolean;
@@ -83,8 +83,8 @@ watch(
     if (!active || !root || root.scrollHeight <= root.clientHeight) return;
     const btnRect = (letter: string) =>
       root.querySelector(`[data-letter="${letter}"]`)?.getBoundingClientRect();
-    const first = btnRect(active[0]);
-    const last = btnRect(active[active.length - 1]);
+    const first = btnRect(active.charAt(0));
+    const last = btnRect(active.charAt(active.length - 1));
     if (!first || !last) return;
     const style = getComputedStyle(root);
     const box = root.getBoundingClientRect();
@@ -140,7 +140,7 @@ watch(
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 8px 0;
-  /* Breathe away from the viewport edge — the strip shouldn't touch the
+  /* Breathe away from the viewport edge: the strip shouldn't touch the
      right border of the gallery section. */
   margin-right: var(--r-alpha-strip-gap, 12px);
   user-select: none;
@@ -175,7 +175,7 @@ watch(
   background: var(--r-color-surface);
 }
 
-/* Scroll-spied letter — primary brand colour to stand out against the
+/* Scroll-spied letter: primary brand colour to stand out against the
    plain-white `--has` letters. */
 .alpha-strip__btn--current,
 .alpha-strip__btn--has.alpha-strip__btn--current {

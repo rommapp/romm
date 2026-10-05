@@ -140,9 +140,9 @@ watch(
   () => props.rom,
   () => {
     selectedRomFile.value =
-      baseFiles.value.length === 1 ? baseFiles.value[0] : null;
+      baseFiles.value.length === 1 ? baseFiles.value[0]! : null;
     selectedPatchFile.value =
-      patchFiles.value.length === 1 ? patchFiles.value[0] : null;
+      patchFiles.value.length === 1 ? patchFiles.value[0]! : null;
     uploadedPatch.value = null;
     // Preselect the ROM's own platform as the upload target.
     selectedPlatformId.value = props.rom.platform_id;
@@ -154,7 +154,7 @@ watch(
   archiveMembers,
   (members) => {
     selectedArchiveMemberName.value =
-      members.length === 1 ? members[0].name : null;
+      members.length === 1 ? members[0]!.name : null;
   },
   { immediate: true },
 );

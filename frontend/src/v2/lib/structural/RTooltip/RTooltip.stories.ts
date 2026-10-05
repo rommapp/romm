@@ -7,7 +7,7 @@ import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RTooltip from "./RTooltip.vue";
 
-// Dispatch a pointerenter with an explicit `pointerType` — `userEvent.hover`
+// Dispatch a pointerenter with an explicit `pointerType`: `userEvent.hover`
 // can't set it, and the touch-gating branch keys off exactly that.
 function firePointerEnter(el: Element, pointerType: "mouse" | "touch") {
   let ev: Event;
@@ -94,18 +94,37 @@ export const Default: Story = {
   }),
 };
 
+// An RBtn with a string `icon` drops its default slot, so icon buttons use
+// RBtn's own `tooltip` prop; parent-attach is for plain elements like this.
 export const ParentAttach: Story = {
   name: "Parent attach (no slot)",
   render: () => ({
-    components: { RTooltip, RBtn },
+    components: { RTooltip, RIcon },
     template: `
       <div style="padding:48px;display:flex;justify-content:center">
-        <RBtn icon="mdi-delete" variant="translucent" aria-label="Delete this item">
-          <RTooltip activator="parent" text="Delete this item" location="top" />
-        </RBtn>
+        <span
+          tabindex="0"
+          style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--r-color-border);border-radius:999px;font:12px sans-serif;color:var(--r-color-fg-muted)"
+        >
+          <RIcon icon="mdi-cloud-check" size="x-small" />
+          Synced
+          <RTooltip activator="parent" text="Saves synced 2 minutes ago" location="top" />
+        </span>
       </div>
     `,
   }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const body = within(document.body);
+    const badge = canvas.getByText("Synced");
+
+    await step("hovering the parent reveals the tooltip", async () => {
+      firePointerEnter(badge, "mouse");
+      expect(await body.findByRole("tooltip")).toHaveTextContent(
+        "Saves synced 2 minutes ago",
+      );
+    });
+  },
 };
 
 // ── Placements ──────────────────────────────────────────────────────
@@ -424,7 +443,7 @@ export const TouchGating: Story = {
   },
 };
 
-// `open-on-tap` — a standalone info affordance that must reveal on touch too
+// `open-on-tap`: a standalone info affordance that must reveal on touch too
 // (tap toggles; a mouse click opens rather than closing a hover-revealed tip).
 export const OpenOnTap: Story = {
   name: "Open on tap (play)",
@@ -553,7 +572,7 @@ export const DismissedByOverlay: Story = {
 
     await step("a tooltip inside the menu still opens", async () => {
       const menu = within(await body.findByRole("menu"));
-      firePointerEnter(menu.getByRole("button", { name: /edit/i }), "mouse");
+      firePointerEnter(menu.getByRole("menuitem", { name: /edit/i }), "mouse");
       expect(await body.findByRole("tooltip")).toHaveTextContent(
         "Rename this game",
       );

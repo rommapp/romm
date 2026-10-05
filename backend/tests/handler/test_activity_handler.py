@@ -1,14 +1,18 @@
 import asyncio
 import json
+from collections.abc import Iterator
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from handler.activity_handler import activity_handler
-from handler.redis_handler import async_cache, sync_cache
+from handler.activity_handler import ActivityEntry, ActivityHandler, activity_handler
+from handler.database import db_rom_handler, db_user_handler
+from handler.database.base_handler import sync_session
+from handler.redis_handler import as_text, async_cache, sync_cache
 from handler.socket_handler import socket_handler
-from models.rom import Rom
+from models.permission import HiddenEntity, PermEntity
+from models.rom import Rom, RomVisibility
 from models.user import User
 
 
@@ -103,6 +107,7 @@ def test_publishing_stores_the_entry_and_broadcasts_it(admin_user: User, rom: Ro
         with _captured_emits() as emit:
             asyncio.run(activity_handler.publish_active(entry))
         assert emit.await_args[0] == ("activity:update", dict(entry))
+        assert emit.await_args.kwargs == {"to": [f"user:{admin_user.id}"]}
         assert (
             asyncio.run(activity_handler.get_active(admin_user.id, "container-1"))
             == entry
@@ -215,3 +220,328 @@ def test_active_for_rom_spares_a_member_a_heartbeat_revived(clean_cache):
         assert asyncio.run(activity_handler.get_active_for_rom(7)) == []
 
     assert asyncio.run(async_cache.smembers("activity:rom:7")) == {b"1:dev"}
+
+
+class TestAudience:
+    """Who an activity update reaches: never sockets with no user."""
+
+    @pytest.fixture
+    def entry(self, admin_user: User, rom: Rom) -> Iterator[ActivityEntry]:
+        entry = asyncio.run(
+            activity_handler.build_entry(
+                user_id=admin_user.id,
+                device_id="deck",
+                rom_id=rom.id,
+                preserve_started_at=False,
+            )
+        )
+        assert entry is not None
+        yield entry
+        _clear(admin_user, "deck")
+
+    @staticmethod
+    def _rooms(emit: AsyncMock) -> set[str]:
+        call = emit.await_args
+        assert call is not None
+        return set(call.kwargs["to"])
+
+    async def test_an_update_goes_to_each_user_who_can_see_the_rom(
+        self,
+        entry: ActivityEntry,
+        admin_user: User,
+        editor_user: User,
+        viewer_user: User,
+    ):
+        with _captured_emits() as emit:
+            await activity_handler.publish_active(entry)
+
+        assert self._rooms(emit) == {
+            f"user:{admin_user.id}",
+            f"user:{editor_user.id}",
+            f"user:{viewer_user.id}",
+        }
+
+    @pytest.mark.parametrize("hidden", ["rom", "platform", "age"])
+    async def test_a_user_the_rom_is_hidden_from_is_left_out(
+        self,
+        entry: ActivityEntry,
+        admin_user: User,
+        viewer_user: User,
+        rom: Rom,
+        hidden: str,
+    ):
+        if hidden == "age":
+            db_rom_handler.update_rom(rom.id, {"min_age": 18})
+            db_user_handler.update_user(viewer_user.id, {"age_limit": 12})
+        else:
+            entity, entity_id = (
+                (PermEntity.ROMS, rom.id)
+                if hidden == "rom"
+                else (PermEntity.PLATFORMS, rom.platform_id)
+            )
+            with sync_session.begin() as session:
+                session.add(
+                    HiddenEntity(
+                        entity=entity, entity_id=entity_id, user_id=viewer_user.id
+                    )
+                )
+
+        with _captured_emits() as emit:
+            await activity_handler.publish_active(entry)
+
+        assert self._rooms(emit) == {f"user:{admin_user.id}"}
+
+    async def test_a_disabled_user_is_left_out(
+        self, entry: ActivityEntry, admin_user: User, viewer_user: User
+    ):
+        db_user_handler.update_user(viewer_user.id, {"enabled": False})
+
+        with _captured_emits() as emit:
+            await activity_handler.publish_active(entry)
+
+        assert self._rooms(emit) == {f"user:{admin_user.id}"}
+
+    async def test_a_clear_goes_to_the_same_users(
+        self, entry: ActivityEntry, admin_user: User, viewer_user: User, rom: Rom
+    ):
+        await activity_handler.set_active(entry)
+        with sync_session.begin() as session:
+            session.add(
+                HiddenEntity(
+                    entity=PermEntity.ROMS, entity_id=rom.id, user_id=viewer_user.id
+                )
+            )
+
+        with _captured_emits() as emit:
+            await activity_handler.publish_clear(admin_user.id, "deck")
+
+        assert self._rooms(emit) == {f"user:{admin_user.id}"}
+
+    async def test_nothing_is_sent_when_no_one_can_see_the_rom(
+        self, entry: ActivityEntry, admin_user: User, rom: Rom
+    ):
+        db_user_handler.update_user(admin_user.id, {"enabled": False})
+
+        with _captured_emits() as emit:
+            await activity_handler.publish_active(entry)
+
+        emit.assert_not_awaited()
+        assert await activity_handler.get_active(admin_user.id, "deck") == entry
+
+    async def test_switching_to_a_rom_someone_cannot_see_clears_their_card(
+        self,
+        entry: ActivityEntry,
+        admin_user: User,
+        viewer_user: User,
+        second_rom: Rom,
+    ):
+        await activity_handler.publish_active(entry)
+        with sync_session.begin() as session:
+            session.add(
+                HiddenEntity(
+                    entity=PermEntity.ROMS,
+                    entity_id=second_rom.id,
+                    user_id=viewer_user.id,
+                )
+            )
+        switched = await activity_handler.build_entry(
+            user_id=admin_user.id,
+            device_id="deck",
+            rom_id=second_rom.id,
+            preserve_started_at=False,
+        )
+        assert switched is not None
+
+        with _captured_emits() as emit:
+            await activity_handler.publish_active(switched)
+
+        assert [(c.args, c.kwargs) for c in emit.await_args_list] == [
+            (("activity:update", dict(switched)), {"to": [f"user:{admin_user.id}"]}),
+            (
+                (
+                    "activity:clear",
+                    {
+                        "user_id": admin_user.id,
+                        "device_id": "deck",
+                        "rom_id": entry["rom_id"],
+                    },
+                ),
+                {"to": [f"user:{viewer_user.id}"]},
+            ),
+        ]
+
+    async def test_switching_to_a_rom_everyone_can_see_sends_no_clear(
+        self,
+        entry: ActivityEntry,
+        admin_user: User,
+        viewer_user: User,
+        second_rom: Rom,
+    ):
+        await activity_handler.publish_active(entry)
+        switched = await activity_handler.build_entry(
+            user_id=admin_user.id,
+            device_id="deck",
+            rom_id=second_rom.id,
+            preserve_started_at=False,
+        )
+        assert switched is not None
+
+        with _captured_emits() as emit:
+            await activity_handler.publish_active(switched)
+
+        assert [c.args[0] for c in emit.await_args_list] == ["activity:update"]
+
+    @pytest.fixture
+    def held_refresh(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+        """Holds a queued refresh until the test flushes it."""
+        monkeypatch.setattr(ActivityHandler, "REFRESH_DELAY", 3600)
+        yield
+        sync_cache.delete(ActivityHandler.REFRESH_KEY)
+
+    async def test_failed_audience_lookups_share_one_refresh(
+        self, entry: ActivityEntry, admin_user: User, held_refresh: None
+    ):
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits() as emit,
+        ):
+            await activity_handler.publish_active(entry)
+            assert await activity_handler.publish_clear(admin_user.id, "deck") == (
+                entry["rom_id"]
+            )
+            emit.assert_not_awaited()
+            await activity_handler.flush_refresh()
+
+        # Nothing about the session itself goes out to an unknown audience.
+        assert [(c.args, c.kwargs) for c in emit.await_args_list] == [
+            (("activity:refresh", {}), {}),
+        ]
+        assert await activity_handler.get_active(admin_user.id, "deck") is None
+
+    async def test_a_failure_after_a_refresh_queues_another(
+        self, entry: ActivityEntry, held_refresh: None
+    ):
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits() as emit,
+        ):
+            await activity_handler.publish_active(entry)
+            await activity_handler.flush_refresh()
+            await activity_handler.publish_active(entry)
+            await activity_handler.flush_refresh()
+
+        assert [c.args[0] for c in emit.await_args_list] == ["activity:refresh"] * 2
+
+    async def test_workers_share_one_refresh(
+        self, entry: ActivityEntry, held_refresh: None
+    ):
+        other_worker = ActivityHandler()
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits() as emit,
+        ):
+            await activity_handler.publish_active(entry)
+            await other_worker.publish_active(entry)
+            assert other_worker._refresh is None
+            await activity_handler.flush_refresh()
+
+        assert [c.args[0] for c in emit.await_args_list] == ["activity:refresh"]
+
+    async def test_a_queued_refresh_goes_out_after_the_delay(
+        self, entry: ActivityEntry, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(ActivityHandler, "REFRESH_DELAY", 0.01)
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits() as emit,
+        ):
+            await activity_handler.publish_active(entry)
+            assert activity_handler._refresh is not None
+            await activity_handler._refresh
+
+        assert [c.args[0] for c in emit.await_args_list] == ["activity:refresh"]
+        assert await async_cache.get(ActivityHandler.REFRESH_KEY) is None
+
+    async def test_a_flush_during_the_send_does_not_send_again(
+        self, entry: ActivityEntry, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(ActivityHandler, "REFRESH_DELAY", 0)
+        sending, finish = asyncio.Event(), asyncio.Event()
+
+        async def slow_emit(*_: object) -> None:
+            sending.set()
+            await finish.wait()
+
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits() as emit,
+        ):
+            emit.side_effect = slow_emit
+            await activity_handler.publish_active(entry)
+            await sending.wait()
+            flushed = asyncio.create_task(activity_handler.flush_refresh())
+            finish.set()
+            await flushed
+
+        assert emit.await_count == 1
+
+    async def test_a_late_sender_leaves_another_workers_claim(
+        self, entry: ActivityEntry, held_refresh: None
+    ):
+        with (
+            patch.object(
+                db_rom_handler, "get_rom_visibility", side_effect=OSError("db down")
+            ),
+            _captured_emits(),
+        ):
+            await activity_handler.publish_active(entry)
+            # The claim expired and another worker took it.
+            await async_cache.set(ActivityHandler.REFRESH_KEY, "other")
+            await activity_handler.flush_refresh()
+
+        held = await async_cache.get(ActivityHandler.REFRESH_KEY)
+        assert held is not None and as_text(held) == "other"
+
+    async def test_a_failed_lookup_of_the_last_game_asks_everyone_to_refresh(
+        self,
+        entry: ActivityEntry,
+        admin_user: User,
+        second_rom: Rom,
+        held_refresh: None,
+    ):
+        await activity_handler.publish_active(entry)
+        switched = await activity_handler.build_entry(
+            user_id=admin_user.id,
+            device_id="deck",
+            rom_id=second_rom.id,
+            preserve_started_at=False,
+        )
+        assert switched is not None
+        visibility = db_rom_handler.get_rom_visibility
+
+        def fail_for_the_last_game(rom_id: int) -> RomVisibility | None:
+            if rom_id == entry["rom_id"]:
+                raise OSError("db down")
+            return visibility(rom_id)
+
+        with (
+            patch.object(db_rom_handler, "get_rom_visibility", fail_for_the_last_game),
+            _captured_emits() as emit,
+        ):
+            await activity_handler.publish_active(switched)
+            await activity_handler.flush_refresh()
+
+        assert [(c.args[0], c.kwargs.get("to")) for c in emit.await_args_list] == [
+            ("activity:update", [f"user:{admin_user.id}"]),
+            ("activity:refresh", None),
+        ]

@@ -1,40 +1,33 @@
 <script setup lang="ts">
-// RefreshMetadataDialog — kicks off a per-ROM (or bulk) metadata
+// RefreshMetadataDialog: kicks off a per-ROM (or bulk) metadata
 // re-scan. Shares the visual vocabulary of the Scan view config card:
 // provider selects split into General / Specific, hash-matcher proxies
 // rendered as switch pills, and a scan-type select with two per-ROM-
 // friendly options. Emits the same `scan` socket event as the main Scan
 // view (lifecycle handlers live globally in AppLayout).
-import {
-  RAvatar,
-  RAlert,
-  RBtn,
-  RDialog,
-  RIcon,
-  RSelect,
-  RSwitch,
-  RTooltip,
-} from "@v2/lib";
-import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
+import { RAlert, RBtn, RDialog, RIcon } from "@v2/lib";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { type SimpleRom } from "@/stores/roms";
-import type { Events } from "@/types/emitter";
+import ScanHashMatcherSwitches from "@/v2/components/Scan/ScanHashMatcherSwitches.vue";
+import ScanProviderSelect from "@/v2/components/Scan/ScanProviderSelect.vue";
+import ScanTypeSelect from "@/v2/components/Scan/ScanTypeSelect.vue";
+import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useScanProviders } from "@/v2/composables/useScanProviders";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import {
   scanNeedsMetadataSource,
   type ScanType as SharedScanType,
+  type ScanTypeOption,
 } from "@/v2/types/scan";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const show = ref(false);
-// Accept either a single rom or an array — the SelectionBar passes
+// Accept either a single rom or an array: the SelectionBar passes
 // many at once, individual menus pass one. Internally we always
 // normalise to an array so the scan emit groups by platform without
 // branching on the input shape.
@@ -54,7 +47,7 @@ const {
   hashMatchers,
   setHashMatcher,
   isHashMatcherOn,
-  buildScanPayload,
+  buildScanSourceOptions,
   persistSelection,
 } = useScanProviders();
 
@@ -68,14 +61,7 @@ type ScanType = Extract<
 
 const isBulk = computed(() => roms.value.length > 1);
 
-interface ScanOption {
-  title: string;
-  subtitle: string;
-  value: ScanType;
-  disabled?: string;
-}
-
-const scanOptions = computed<ScanOption[]>(() => [
+const scanOptions = computed<ScanTypeOption<ScanType>[]>(() => [
   {
     title: t("scan.update-metadata"),
     subtitle: isBulk.value
@@ -124,15 +110,11 @@ const openBulk = (payload: SimpleRom[]) => {
   roms.value = payload;
   show.value = true;
 };
-emitter?.on("showRefreshMetadataDialog", openSingle);
-emitter?.on("showRefreshMetadataDialogBulk", openBulk);
-onBeforeUnmount(() => {
-  emitter?.off("showRefreshMetadataDialog", openSingle);
-  emitter?.off("showRefreshMetadataDialogBulk", openBulk);
-});
+useEmitterEvent("showRefreshMetadataDialog", openSingle);
+useEmitterEvent("showRefreshMetadataDialogBulk", openBulk);
 
 const singleRom = computed<SimpleRom | null>(() =>
-  roms.value.length === 1 ? roms.value[0] : null,
+  roms.value.length === 1 ? roms.value[0]! : null,
 );
 const singleRomCover = computed<string | null>(() => {
   const r = singleRom.value;
@@ -147,7 +129,7 @@ const singleRomTitle = computed(() => {
 function onScan() {
   if (roms.value.length === 0) return;
 
-  // Group rom ids by platform — the scan socket event accepts one
+  // Group rom ids by platform: the scan socket event accepts one
   // platform list + one rom-id list, so a selection that spans
   // multiple platforms is fanned into N events, one per platform.
   const byPlatform = new Map<number, number[]>();
@@ -157,7 +139,7 @@ function onScan() {
     byPlatform.set(r.platform_id, list);
   }
 
-  const payload = buildScanPayload();
+  const payload = buildScanSourceOptions();
   const started = startScan(
     [...byPlatform].map(([platformId, romIds]) => ({
       platforms: [platformId],
@@ -205,7 +187,7 @@ function closeDialog() {
     </template>
     <template #content>
       <div class="r-v2-refresh">
-        <!-- ROM identity row — cover + name for the single-ROM case
+        <!-- ROM identity row: cover + name for the single-ROM case
              (visual consistency with EditRomDialog / DeleteRomDialog),
              count chip for bulk. -->
         <div v-if="singleRom" class="r-v2-refresh__rom">
@@ -237,7 +219,7 @@ function closeDialog() {
           <span>{{ t("rom.selection-count", { n: roms.length }) }}</span>
         </div>
 
-        <!-- 1. Providers section — General + Specific RSelects, sharing
+        <!-- 1. Providers section: General + Specific RSelects, sharing
              one `metadataSources` model. Both render icon-only chips so
              a multi-select stays visually quiet in the activator. -->
         <section class="r-v2-refresh__section">
@@ -245,232 +227,43 @@ function closeDialog() {
             {{ t("scan.section-providers") }}
           </h3>
 
-          <div class="r-v2-refresh__providers-group">
-            <span class="r-v2-refresh__providers-group-label">
-              {{ t("scan.section-providers-general") }}
-            </span>
-            <RSelect
-              v-model="metadataSources"
-              :items="generalProviders"
-              :label="t('scan.section-providers-general')"
-              item-title="name"
-              prepend-inner-icon="mdi-database-search"
-              variant="outlined"
-              density="comfortable"
-              multiple
-              return-object
-              clearable
-              hide-details
-              chips
-              chip-tone="plain"
-              show-all-option
-              @update:all-selected="generalAllSelected = $event"
-            >
-              <template #chip="{ item }">
-                <RTooltip :text="item.raw.name" location="bottom">
-                  <template #activator="{ props: tipProps }">
-                    <span
-                      v-bind="tipProps"
-                      class="r-v2-refresh__provider-chip"
-                      :aria-label="item.raw.name"
-                    >
-                      <RAvatar
-                        :image="item.raw.logo_path"
-                        size="18"
-                        rounded="sm"
-                      />
-                    </span>
-                  </template>
-                </RTooltip>
-              </template>
-              <template #item="{ props: itemProps, item }">
-                <li v-bind="itemProps">
-                  <RAvatar :image="item.raw.logo_path" size="22" rounded="sm" />
-                  <div class="r-select__item-stack">
-                    <div class="r-select__item-title">
-                      {{ item.raw.name }}
-                    </div>
-                    <div
-                      v-if="item.raw.disabled"
-                      class="r-select__item-subtitle"
-                    >
-                      {{ item.raw.disabled }}
-                    </div>
-                  </div>
-
-                  <!-- LaunchBox Local/Cloud toggle — inline inside its
-                       dropdown row, disabled until LaunchBox itself is
-                       selected. Same pattern as Scan.vue. -->
-                  <div
-                    v-if="item.raw.value === 'launchbox'"
-                    class="r-v2-refresh__lb-toggle"
-                    @click.stop
-                    @mousedown.stop
-                  >
-                    <span
-                      class="r-v2-refresh__lb-label"
-                      :class="{
-                        'r-v2-refresh__lb-inactive': launchboxRemoteEnabled,
-                      }"
-                    >
-                      {{ t("rom.launchbox-local") }}
-                    </span>
-                    <RSwitch
-                      v-model="launchboxRemoteEnabled"
-                      :disabled="!isLaunchboxSelected"
-                    />
-                    <span
-                      class="r-v2-refresh__lb-label"
-                      :class="{
-                        'r-v2-refresh__lb-inactive': !launchboxRemoteEnabled,
-                      }"
-                    >
-                      {{ t("rom.launchbox-cloud") }}
-                    </span>
-                  </div>
-                </li>
-              </template>
-            </RSelect>
-          </div>
-
-          <div
+          <ScanProviderSelect
+            v-model="metadataSources"
+            v-model:launchbox-remote="launchboxRemoteEnabled"
+            :items="generalProviders"
+            :label="t('scan.section-providers-general')"
+            icon="mdi-database-search"
+            :launchbox-selected="isLaunchboxSelected"
+            @update:all-selected="generalAllSelected = $event"
+          />
+          <ScanProviderSelect
             v-if="specificProviders.length"
-            class="r-v2-refresh__providers-group"
-          >
-            <span class="r-v2-refresh__providers-group-label">
-              {{ t("scan.section-providers-specific") }}
-            </span>
-            <RSelect
-              v-model="metadataSources"
-              :items="specificProviders"
-              :label="t('scan.section-providers-specific')"
-              item-title="name"
-              prepend-inner-icon="mdi-trophy-outline"
-              variant="outlined"
-              density="comfortable"
-              multiple
-              return-object
-              clearable
-              hide-details
-              chips
-              chip-tone="plain"
-              show-all-option
-              @update:all-selected="specificAllSelected = $event"
-            >
-              <template #chip="{ item }">
-                <RTooltip :text="item.raw.name" location="bottom">
-                  <template #activator="{ props: tipProps }">
-                    <span
-                      v-bind="tipProps"
-                      class="r-v2-refresh__provider-chip"
-                      :aria-label="item.raw.name"
-                    >
-                      <RAvatar
-                        :image="item.raw.logo_path"
-                        size="18"
-                        rounded="sm"
-                      />
-                    </span>
-                  </template>
-                </RTooltip>
-              </template>
-              <template #item="{ props: itemProps, item }">
-                <li v-bind="itemProps">
-                  <RAvatar :image="item.raw.logo_path" size="22" rounded="sm" />
-                  <div class="r-select__item-stack">
-                    <div class="r-select__item-title">
-                      {{ item.raw.name }}
-                    </div>
-                    <div
-                      v-if="item.raw.disabled"
-                      class="r-select__item-subtitle"
-                    >
-                      {{ item.raw.disabled }}
-                    </div>
-                  </div>
-                </li>
-              </template>
-            </RSelect>
-          </div>
+            v-model="metadataSources"
+            :items="specificProviders"
+            :label="t('scan.section-providers-specific')"
+            icon="mdi-trophy-outline"
+            @update:all-selected="specificAllSelected = $event"
+          />
         </section>
 
-        <!-- 2. Proxies (hash matchers) — compact switch pills, same as
-             the Scan view. -->
+        <!-- 2. Proxies (hash matchers). -->
         <section class="r-v2-refresh__section">
           <h3 class="r-v2-refresh__section-title">
             {{ t("scan.section-proxies") }}
           </h3>
-          <div
-            class="r-v2-refresh__matchers"
-            role="group"
-            :aria-label="t('scan.hash-matchers')"
-          >
-            <RTooltip
-              v-for="matcher in hashMatchers"
-              :key="matcher.value"
-              :text="
-                matcher.blockedReason
-                  ? `${matcher.name}: ${matcher.blockedReason}`
-                  : matcher.name
-              "
-              location="bottom"
-            >
-              <template #activator="{ props: tipProps }">
-                <div
-                  v-bind="tipProps"
-                  class="r-v2-refresh__matcher"
-                  :class="{
-                    'r-v2-refresh__matcher--off': !matcher.switchEnabled,
-                  }"
-                >
-                  <RAvatar
-                    :image="matcher.logo"
-                    size="16"
-                    rounded="sm"
-                    class="r-v2-refresh__matcher-logo"
-                  />
-                  <RSwitch
-                    :model-value="isHashMatcherOn(matcher)"
-                    :disabled="!matcher.switchEnabled"
-                    :aria-label="matcher.name"
-                    @update:model-value="
-                      (v) => setHashMatcher(matcher.value, v)
-                    "
-                  />
-                </div>
-              </template>
-            </RTooltip>
-          </div>
+          <ScanHashMatcherSwitches
+            :matchers="hashMatchers"
+            :is-on="isHashMatcherOn"
+            @toggle="setHashMatcher"
+          />
         </section>
 
-        <!-- 3. Scan type — per-ROM friendly options. -->
+        <!-- 3. Scan type: per-ROM friendly options. -->
         <section class="r-v2-refresh__section">
           <h3 class="r-v2-refresh__section-title">
             {{ t("scan.section-scan-type") }}
           </h3>
-          <RSelect
-            v-model="scanType"
-            :items="scanOptions"
-            :label="t('scan.scan-options')"
-            prepend-inner-icon="mdi-magnify-scan"
-            hide-details
-            variant="outlined"
-            density="comfortable"
-          >
-            <template #item="{ props: itemProps, item }">
-              <li v-bind="itemProps">
-                <div class="r-select__item-stack">
-                  <div class="r-select__item-title">{{ item.title }}</div>
-                  <div
-                    v-if="item.raw.disabled || item.raw.subtitle"
-                    class="r-select__item-subtitle"
-                  >
-                    {{ item.raw.disabled || item.raw.subtitle }}
-                  </div>
-                </div>
-              </li>
-            </template>
-          </RSelect>
+          <ScanTypeSelect v-model="scanType" :items="scanOptions" />
         </section>
 
         <RAlert
@@ -508,7 +301,7 @@ function closeDialog() {
   gap: 16px;
 }
 
-/* ROM identity row — cover + name + filename. Mirrors the row layout
+/* ROM identity row: cover + name + filename. Mirrors the row layout
    in DeleteRomDialog so the two "do-something-with-this-ROM" dialogs
    read as siblings. */
 .r-v2-refresh__rom {
@@ -576,7 +369,7 @@ function closeDialog() {
   align-self: flex-start;
 }
 
-/* Section vocabulary — small uppercase label above the controls,
+/* Section vocabulary: small uppercase label above the controls,
    hairline divider between sections. Same rhythm as Scan.vue. */
 .r-v2-refresh__section {
   display: flex;
@@ -595,74 +388,6 @@ function closeDialog() {
   font-weight: var(--r-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--r-color-fg-muted);
-}
-
-/* Provider groups (General / Specific) — same layout as Scan.vue: a
-   small caption above each RSelect, two groups stacked with a tight
-   inter-group margin. */
-.r-v2-refresh__providers-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.r-v2-refresh__providers-group + .r-v2-refresh__providers-group {
-  margin-top: 8px;
-}
-.r-v2-refresh__providers-group-label {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-medium);
-  letter-spacing: 0.04em;
-  color: var(--r-color-fg-faint);
-}
-
-/* Icon-only chip rendered in the activator — keeps the multi-select
-   visually quiet when many providers are picked. */
-.r-v2-refresh__provider-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Hash matcher pills — same compact icon + switch rows as Scan.vue. */
-.r-v2-refresh__matchers {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-self: flex-start;
-}
-.r-v2-refresh__matcher {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: var(--r-radius-pill);
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-}
-.r-v2-refresh__matcher--off {
-  opacity: 0.55;
-}
-.r-v2-refresh__matcher-logo {
-  background: var(--r-color-bg-elevated);
-  flex-shrink: 0;
-}
-
-/* LaunchBox Local/Cloud inline toggle inside its dropdown row. */
-.r-v2-refresh__lb-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-}
-.r-v2-refresh__lb-label {
-  font-size: 11px;
-  color: var(--r-color-fg);
-  white-space: nowrap;
-}
-.r-v2-refresh__lb-inactive {
   color: var(--r-color-fg-muted);
 }
 

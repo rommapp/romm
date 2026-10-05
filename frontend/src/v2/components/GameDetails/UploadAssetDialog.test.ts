@@ -5,9 +5,7 @@ import UploadAssetDialog, {
   type UploadAssetPayload,
 } from "./UploadAssetDialog.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 vi.mock("@/locales", () => ({
   default: { global: { t: (key: string) => key } },
 }));
@@ -114,9 +112,9 @@ async function choose(
   select: number,
   index: number,
 ) {
-  const el = wrapper.findAll("select")[select].element;
+  const el = wrapper.findAll("select")[select]!.element;
   el.selectedIndex = index;
-  await wrapper.findAll("select")[select].trigger("change");
+  await wrapper.findAll("select")[select]!.trigger("change");
 }
 
 async function submitted(wrapper: ReturnType<typeof mountDialog>) {
@@ -150,7 +148,7 @@ describe("UploadAssetDialog", () => {
 
   it("offers a new slot first, then autosave, the slots in use and no slot", async () => {
     const wrapper = mountDialog("save", [new File(["x"], "a.srm")]);
-    const options = wrapper.findAll("select")[0].findAll("option");
+    const options = wrapper.findAll("select")[0]!.findAll("option");
 
     expect(options.map((o) => o.text())).toEqual([
       "play.new-slot",

@@ -2,13 +2,11 @@ import { shallowMount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import type { IGDBRelatedGame, SimilarRomSchema } from "@/__generated__";
-import type { DetailedRom } from "@/stores/roms";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 import type { MediaShelfItem } from "./MediaShelf.vue";
 import OverviewTab from "./OverviewTab.vue";
 
-vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+vi.mock("vue-i18n");
 
 const showRecommendations = ref(true);
 
@@ -64,7 +62,7 @@ function similar(id: number): SimilarRomSchema {
 function mount(props: Record<string, unknown> = {}) {
   return shallowMount(OverviewTab, {
     props: {
-      rom: { id: 1, metadatum: {} } as DetailedRom,
+      rom: detailedRomFixture({ id: 1 }),
       summary: null,
       sections: [],
       playerCount: null,
