@@ -29,6 +29,7 @@ from handler.metadata.igdb_handler import (
     IGDBHandler,
     IGDBMetadata,
     IGDBMetadataMultiplayerMode,
+    IGDBMetadataPlatform,
     TwitchAuth,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
@@ -1260,8 +1261,28 @@ class TestGetPlatform:
         }
 
 
-def _mode(**fields: Any) -> IGDBMetadataMultiplayerMode:
-    return cast(IGDBMetadataMultiplayerMode, fields)
+def _mode(
+    *,
+    onlinecoop: bool = False,
+    offlinemax: int = 0,
+    onlinemax: int = 0,
+    onlinecoopmax: int = 0,
+    platform_igdb_id: int = 0,
+) -> IGDBMetadataMultiplayerMode:
+    return IGDBMetadataMultiplayerMode(
+        campaigncoop=False,
+        dropin=False,
+        lancoop=False,
+        offlinecoop=False,
+        offlinecoopmax=0,
+        offlinemax=offlinemax,
+        onlinecoop=onlinecoop,
+        onlinecoopmax=onlinecoopmax,
+        onlinemax=onlinemax,
+        splitscreen=False,
+        splitscreenonline=False,
+        platform=IGDBMetadataPlatform(igdb_id=platform_igdb_id, name=""),
+    )
 
 
 class TestDerivePlayerCount:
@@ -1278,14 +1299,14 @@ class TestDerivePlayerCount:
 
     def test_only_modes_for_the_platform_count(self):
         modes = [
-            _mode(platform={"igdb_id": 19}, offlinemax=4),
-            _mode(platform={"igdb_id": 4}, offlinemax=2),
+            _mode(platform_igdb_id=19, offlinemax=4),
+            _mode(platform_igdb_id=4, offlinemax=2),
         ]
 
         assert derive_player_count(modes, platform_igdb_id=4) == "1-2"
 
     def test_no_mode_for_the_platform_is_one_player(self):
-        modes = [_mode(platform={"igdb_id": 19}, offlinemax=4)]
+        modes = [_mode(platform_igdb_id=19, offlinemax=4)]
 
         assert derive_player_count(modes, platform_igdb_id=4) == "1"
 
