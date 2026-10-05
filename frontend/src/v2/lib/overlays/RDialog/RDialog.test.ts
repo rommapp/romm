@@ -18,4 +18,18 @@ describe("RDialog", () => {
     expect(wrapper.get(`[id="${labelId}"]`).text()).toBe("Edit game");
     wrapper.unmount();
   });
+
+  it("takes its name from ariaLabel when it has no header", async () => {
+    const wrapper = mount(RDialog, {
+      props: { modelValue: true, ariaLabel: "Filters" },
+      slots: { content: "<p>Body</p>" },
+      global: { stubs: { teleport: true } },
+    });
+    await nextTick();
+
+    const panel = wrapper.get("[role=dialog]");
+    expect(panel.attributes("aria-label")).toBe("Filters");
+    expect(panel.attributes("aria-labelledby")).toBeUndefined();
+    wrapper.unmount();
+  });
 });

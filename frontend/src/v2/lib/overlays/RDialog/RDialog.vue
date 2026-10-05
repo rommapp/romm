@@ -67,6 +67,8 @@ const props = withDefaults(
     cancelDisabled?: boolean;
     /** Replaces the Cancel label (defaults to the chrome `cancel` label). */
     cancelText?: string | undefined;
+    /** Names the panel when it has no header to take its name from. */
+    ariaLabel?: string | undefined;
   }>(),
   {
     scrollContent: false,
@@ -80,6 +82,7 @@ const props = withDefaults(
     cancelable: false,
     cancelDisabled: false,
     cancelText: undefined,
+    ariaLabel: undefined,
   },
 );
 
@@ -242,7 +245,8 @@ const panelStyle = computed(() => {
           class="r-dialog__panel"
           role="dialog"
           aria-modal="true"
-          :aria-labelledby="slots.header ? headerId : undefined"
+          :aria-label="ariaLabel"
+          :aria-labelledby="!ariaLabel && slots.header ? headerId : undefined"
           tabindex="-1"
           :style="panelStyle"
         >

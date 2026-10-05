@@ -55,6 +55,8 @@ const props = withDefaults(
     /** Hide the close button in the header. Use when the drawer is
      *  the only escape (rare). */
     hideClose?: boolean;
+    /** Names the panel when it has no header to take its name from. */
+    ariaLabel?: string | undefined;
   }>(),
   {
     side: "right",
@@ -62,6 +64,7 @@ const props = withDefaults(
     persistent: false,
     icon: null,
     scrollContent: true,
+    ariaLabel: undefined,
     hideClose: false,
   },
 );
@@ -180,7 +183,8 @@ const transitionName = computed(() =>
           class="r-drawer__panel"
           role="dialog"
           aria-modal="true"
-          :aria-labelledby="slots.header ? headerId : undefined"
+          :aria-label="ariaLabel"
+          :aria-labelledby="!ariaLabel && slots.header ? headerId : undefined"
           tabindex="-1"
           :style="panelStyle"
         >
