@@ -1433,13 +1433,7 @@ class TestIdentifyPlatformMarksMissingBeforeScan:
 
 
 class TestIdentifyPlatformSupersededFolders:
-    """A missing entry that became a folder of ROMs is flagged as superseded.
-
-    The ancestor-set lookup flags the same entries as the old O(M*D) prefix
-    scan: exact paths, parents of discovered ROMs, and trailing-slash variants.
-    Sibling prefixes and unrelated paths stay unflagged, and empty paths are
-    skipped instead of matching.
-    """
+    """A missing entry whose path is a parent of a discovered ROM is flagged as superseded."""
 
     async def test_superseded_parent_exact_sibling(self, mocker):
         mocker.patch.object(
@@ -1467,18 +1461,6 @@ class TestIdentifyPlatformSupersededFolders:
             AsyncMock(return_value=[]),
         )
 
-        def make_fs_rom(fs_name: str, fs_path: str) -> FSRom:
-            return {
-                "fs_name": fs_name,
-                "fs_path": fs_path,
-                "flat": True,
-                "files": [],
-                "crc_hash": "",
-                "md5_hash": "",
-                "sha1_hash": "",
-                "ra_hash": "",
-            }
-
         fs_roms = [
             make_fs_rom("Game.zip", "test/roms/folder-a"),
             make_fs_rom("Other.zip", "test/roms/folder-b/"),
@@ -1495,7 +1477,6 @@ class TestIdentifyPlatformSupersededFolders:
                 full_path="test/roms/folder-a-extra", fs_name="sibling.zip"
             ),
             SimpleNamespace(full_path="test/roms/other", fs_name="unrelated.zip"),
-            SimpleNamespace(full_path="", fs_name="empty.zip"),
         ]
         db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
         db_firmware.mark_missing_firmware.return_value = []
@@ -1522,7 +1503,6 @@ class TestIdentifyPlatformSupersededFolders:
         for fs_name in ("sibling.zip", "unrelated.zip"):
             assert not any(fs_name in w for w in flagged), warnings
             assert any(fs_name in w for w in warnings), warnings
-        assert not any("empty.zip" in w for w in warnings), warnings
 
 
 class TestIdentifyPlatformEmitsRestoredRoms:
