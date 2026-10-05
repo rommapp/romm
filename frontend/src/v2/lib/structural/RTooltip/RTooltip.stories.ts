@@ -97,7 +97,6 @@ export const Default: Story = {
 export const Light: Story = {
   ...Default,
   name: "Light",
-  args: { ...Default.args, modelValue: true },
   globals: { theme: "light" },
 };
 

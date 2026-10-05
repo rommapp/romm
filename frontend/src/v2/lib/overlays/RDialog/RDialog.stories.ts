@@ -81,38 +81,14 @@ export const Basic: Story = {
   },
 };
 
+export const Light: Story = {
+  ...Basic,
+  globals: { theme: "light" },
+};
+
 // Loading and empty states aren't built into the primitive any more:
 // the consumer renders them inside `#content` from REmptyState /
 // RProgressCircular. These stories demonstrate the recipe.
-// Opens on load: the light theme has to cover the dialog, not the trigger.
-export const Light: Story = {
-  args: { ...Basic.args },
-  globals: { theme: "light" },
-  render: (args) => ({
-    components: { RDialog, RBtn },
-    setup() {
-      const open = ref(true);
-      return { args, open };
-    },
-    template: `
-      <div style="padding: 48px; min-height: 300px;">
-        <RBtn @click="open = true">Open dialog</RBtn>
-        <RDialog v-bind="args" v-model="open" cancelable>
-          <template #header>
-            <span>Dialog title</span>
-          </template>
-          <template #content>
-            <p>This is the dialog body. Keep content concise and actionable.</p>
-          </template>
-          <template #footer>
-            <RBtn color="primary" @click="open = false">Confirm</RBtn>
-          </template>
-        </RDialog>
-      </div>
-    `,
-  }),
-};
-
 export const Loading: Story = {
   name: "Loading (composed)",
   args: { width: "420", height: "240", icon: "mdi-loading" },
