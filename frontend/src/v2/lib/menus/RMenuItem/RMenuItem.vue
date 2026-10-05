@@ -87,7 +87,7 @@ const dynamicAttrs = computed<Record<string, unknown>>(() => {
       "aria-disabled": props.disabled ? "true" : undefined,
     };
   }
-  return { type: "button", disabled: props.disabled };
+  return { type: "button", role: "menuitem", disabled: props.disabled };
 });
 
 // When the item is a link (`to`/`href`) opened with a new-tab / new-window

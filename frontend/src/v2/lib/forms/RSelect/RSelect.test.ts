@@ -158,6 +158,53 @@ describe("RSelect dividerAfter", () => {
   });
 });
 
+describe("RSelect itemSearchTerms", () => {
+  const items = [
+    { title: "PlayStation 2", value: "ps2" },
+    { title: "Nintendo 64", value: "n64" },
+  ];
+
+  async function searchFor(
+    search: string,
+    itemSearchTerms?: (item: { value: string }) => string[],
+  ) {
+    const wrapper = mount(RSelect, {
+      props: {
+        items,
+        modelValue: null,
+        searchable: true,
+        search,
+        itemSearchTerms: itemSearchTerms as
+          ((item: unknown) => string[]) | undefined,
+      },
+      attachTo: document.body,
+    });
+    await wrapper.get(".r-select__field").trigger("click");
+    await nextTick();
+    const rows = Array.from(
+      document.querySelectorAll("[data-r-select-index]"),
+    ).map((li) => li.textContent?.trim());
+    wrapper.unmount();
+    return rows;
+  }
+
+  it("matches only the title without extra terms", async () => {
+    expect(await searchFor("PS2")).toEqual([]);
+  });
+
+  it("matches an extra term case-insensitively", async () => {
+    expect(await searchFor("PS2", (item) => [item.value])).toEqual([
+      "PlayStation 2",
+    ]);
+  });
+
+  it("still matches the title alongside extra terms", async () => {
+    expect(await searchFor("nintendo", (item) => [item.value])).toEqual([
+      "Nintendo 64",
+    ]);
+  });
+});
+
 // Regression guard: `.r-select__value` is a flex row with a 6px gap (it
 // spaces chips apart). A multi-select without chips renders its titles and
 // the "," separator as plain spans, so hoisting them into that row put the

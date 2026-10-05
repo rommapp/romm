@@ -227,6 +227,8 @@ describe("PlatformsIndex", () => {
           fs_slug: "nintendo-64",
           category: "console",
           family_name: "Nintendo",
+          abbreviation: "N64",
+          alternative_names: ["Ultra 64"],
         }),
         platform(3, "Game Boy Advance", 5, {
           slug: "gba",
@@ -302,6 +304,35 @@ describe("PlatformsIndex", () => {
 
       expect(wrapper.text()).toContain("Game Boy Advance 5");
       expect(wrapper.text()).toContain("Nintendo 64 12");
+      expect(wrapper.text()).not.toContain("PlayStation 30");
+    });
+
+    it("matches on an alternative name", () => {
+      seed();
+      searchState.term = "ultra";
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("Nintendo 64 12");
+      expect(wrapper.text()).not.toContain("PlayStation 30");
+      expect(wrapper.text()).not.toContain("Game Boy Advance 5");
+    });
+
+    it("matches a renamed platform on its original name", () => {
+      storePlatforms().set([
+        platform(1, "Game Boy Advance", 7, {
+          custom_name: "My Handhelds",
+          display_name: "My Handhelds",
+          slug: "gba",
+          fs_slug: "gba",
+        }),
+        platform(2, "PlayStation", 30, { slug: "ps", fs_slug: "psx" }),
+      ]);
+      searchState.term = "advance";
+
+      const wrapper = mount(PlatformsIndex);
+
+      expect(wrapper.text()).toContain("My Handhelds 7");
       expect(wrapper.text()).not.toContain("PlayStation 30");
     });
 

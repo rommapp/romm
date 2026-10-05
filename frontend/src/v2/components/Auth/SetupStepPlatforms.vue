@@ -31,6 +31,7 @@ import { useI18n } from "vue-i18n";
 import type { SetupLibraryResponse } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
 import PlatformIcon from "@/v2/components/shared/PlatformIcon.vue";
+import { platformMatchesSearch } from "@/v2/utils/platformSearch";
 
 defineOptions({ inheritAttrs: false });
 
@@ -218,13 +219,7 @@ const searchResults = computed<Platform[]>(() => {
   const q = search.value.trim().toLowerCase();
   if (!q) return [];
   return supportedAvailable.value
-    .filter(
-      (p) =>
-        p.name?.toLowerCase().includes(q) ||
-        p.fs_slug.toLowerCase().includes(q) ||
-        p.slug?.toLowerCase().includes(q) ||
-        p.family_name?.toLowerCase().includes(q),
-    )
+    .filter((p) => platformMatchesSearch(p, q))
     .slice(0, SEARCH_LIMIT);
 });
 

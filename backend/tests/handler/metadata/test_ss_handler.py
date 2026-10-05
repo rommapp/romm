@@ -21,6 +21,7 @@ from handler.metadata import ss_handler
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.ss_handler import (
     PS1_SS_ID,
+    SCREENSAVER_PLATFORM_LIST,
     SWITCH_SS_ID,
     ScreenScraperExhaustedError,
     SSHandler,
@@ -47,6 +48,7 @@ from handler.metadata.ss_handler import (
 from handler.redis_handler import async_cache
 from models.rom import LookupHashes, Rom
 from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 def _make_config(
@@ -1236,6 +1238,14 @@ class TestGetPlatform:
 
         assert platform["ss_id"] == handler.get_platform("win")["ss_id"] == 138
         assert platform["name"] == "PC Win9X"
+
+    def test_alternative_names_come_from_the_platform_list(self):
+        entry = {**SCREENSAVER_PLATFORM_LIST[UPS.GENESIS], "alternative_names": ["MD"]}
+        with patch.dict(SCREENSAVER_PLATFORM_LIST, {UPS.GENESIS: entry}):
+            assert SSHandler().get_platform_alternative_names("genesis") == ["MD"]
+
+    def test_unmapped_platform_has_no_alternative_names(self):
+        assert SSHandler().get_platform_alternative_names("not-a-real-platform") == []
 
 
 class TestGetRomType:

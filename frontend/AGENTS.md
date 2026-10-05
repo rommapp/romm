@@ -12,10 +12,10 @@ v2 has a detailed constitution, split across the `frontend-v2-*` skills in `.cla
 ```bash
 npm install                         # install (Node 24)
 npm run dev                         # dev server :3000
-npm run typecheck                   # vue-tsc --build: the app and the Node tooling
-npm run typecheck:scripts           # Node tooling only: scripts/, eslint-plugin-romm/, tool configs
+npm run typecheck                   # vue-tsc --build: the app, the Node tooling and the e2e suite
+npm run typecheck:scripts           # Node only: scripts/, eslint-plugin-romm/, tool configs, the e2e suite
 npm run test                        # vitest (+ Storybook play() tests)
-npm run test:e2e                    # playwright (needs a running app + seeded e2e users)
+npm run test:e2e                    # playwright, see e2e/README.md
 npm run build                       # production build
 npm run generate                    # regenerate types from backend OpenAPI (backend must be running)
 npm run build:tokens                # regenerate v2 tokens.css (auto on predev/prebuild)

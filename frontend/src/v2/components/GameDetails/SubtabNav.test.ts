@@ -1,5 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
+import { tabId, tabPanelId } from "@/v2/utils/tabIds";
 import SubtabNav, { type SubtabNavItem } from "./SubtabNav.vue";
 
 vi.mock("vue-i18n");
@@ -76,5 +77,17 @@ describe("SubtabNav", () => {
     expect(wrapper.findAll(".option").map((o) => o.text())).toEqual([
       "Speedrun Route",
     ]);
+  });
+
+  it("ties each tab to its panel only when given an id prefix", () => {
+    const items = [{ id: "manual", label: "Manual" }];
+
+    const tab = nav(items, { idPrefix: "m" }).get('[role="tab"]');
+    expect(tab.attributes("id")).toBe(tabId("m", "manual"));
+    expect(tab.attributes("aria-controls")).toBe(tabPanelId("m", "manual"));
+
+    const bare = nav(items).get('[role="tab"]');
+    expect(bare.attributes("id")).toBeUndefined();
+    expect(bare.attributes("aria-controls")).toBeUndefined();
   });
 });

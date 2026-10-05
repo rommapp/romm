@@ -10,7 +10,7 @@ import pytest
 import pytest_asyncio
 
 import config
-from adapters.services.igdb import IGDBService
+from adapters.services.igdb import IGDB_PLATFORM_LIST, IGDBService
 from adapters.services.igdb_types import (
     AlternativeName,
     ExpandableField,
@@ -40,6 +40,7 @@ from handler.metadata.igdb_handler import (
 )
 from handler.redis_handler import as_text, async_cache
 from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 GENESIS_IGDB_ID = 29
 
@@ -91,6 +92,48 @@ def _make_game(
         "multiplayer_modes": [],
         "game_localizations": localizations,
     }
+
+
+class TestGetPlatformAliases:
+    @pytest.fixture
+    def named_atari_st(self) -> Any:
+        entry = {
+            **IGDB_PLATFORM_LIST[UPS.ATARI_ST],
+            "abbreviation": "ST",
+            "alternative_name": "Atari ST/STE",
+        }
+        with patch.dict(IGDB_PLATFORM_LIST, {UPS.ATARI_ST: entry}):
+            yield
+
+    @pytest.mark.usefixtures("named_atari_st")
+    def test_platform_carries_abbreviation_and_alternative_name(self) -> None:
+        assert IGDBHandler().get_platform_aliases(UPS.ATARI_ST) == (
+            "ST",
+            ["Atari ST/STE"],
+        )
+
+    @pytest.mark.usefixtures("named_atari_st")
+    def test_platform_version_shares_main_platform_aliases(self) -> None:
+        assert IGDBHandler().get_platform_aliases("520-st") == ("ST", ["Atari ST/STE"])
+
+    def test_comma_separated_alternative_name_splits(self) -> None:
+        entry = {
+            **IGDB_PLATFORM_LIST[UPS.PSX],
+            "abbreviation": "PS1",
+            "alternative_name": "PSX, PSOne,  PS ,",
+        }
+        with patch.dict(IGDB_PLATFORM_LIST, {UPS.PSX: entry}):
+            assert IGDBHandler().get_platform_aliases(UPS.PSX) == (
+                "PS1",
+                ["PSX", "PSOne", "PS"],
+            )
+
+    def test_platform_without_aliases(self) -> None:
+        entry = IGDB_PLATFORM_LIST[UPS.ATARI_ST].copy()
+        entry.pop("abbreviation", None)
+        entry.pop("alternative_name", None)
+        with patch.dict(IGDB_PLATFORM_LIST, {UPS.ATARI_ST: entry}):
+            assert IGDBHandler().get_platform_aliases(UPS.ATARI_ST) == ("", [])
 
 
 class TestGetIGDBPreferredLocale:

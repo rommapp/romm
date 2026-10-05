@@ -316,6 +316,21 @@ export const SearchableExternal: Story = {
   }),
 };
 
+// `itemSearchTerms` lets the search match strings beyond the title, so
+// "ps2" finds "PlayStation 2" through its value.
+export const SearchableExtraTerms: Story = {
+  name: "Searchable · extra search terms",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({
+      value: ref<string | null>(null),
+      items: PLATFORMS,
+      searchTerms: (item: (typeof PLATFORMS)[number]) => [item.value],
+    }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" :item-search-terms="searchTerms" searchable search-placeholder="Try ps2 or gba" placeholder="Pick a platform" /></div>`,
+  }),
+};
+
 // ── Chip tone ──────────────────────────────────────────────────────
 
 // `chipTone` controls how the selection chips render in multi mode.

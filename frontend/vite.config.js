@@ -8,6 +8,7 @@ import { appAliases } from "./scripts/aliases";
 import { platformIconManifest } from "./scripts/platformIconManifest";
 import { playerIsolationHeaders } from "./scripts/playerIsolationHeaders";
 import { precompress } from "./scripts/precompress";
+import { previewAssets } from "./scripts/previewAssets";
 
 // Vuetify components to preoptimize for faster dev startup
 const VUETIFY_COMPONENTS = [
@@ -132,6 +133,7 @@ export default defineConfig(({ mode }) => {
       }),
       precompress(),
       playerIsolationHeaders(),
+      previewAssets(),
       platformIconManifest(),
       httpsMode &&
         mkcert({

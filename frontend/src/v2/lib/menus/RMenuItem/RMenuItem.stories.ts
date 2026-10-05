@@ -3,7 +3,7 @@ import { expect, fn, within } from "storybook/test";
 import RMenuItem from "./RMenuItem.vue";
 
 // Glass-panel mock so the items render against the same surface they'd
-// have inside an RMenu (without needing to mount the floating menu).
+// have inside an RMenu. Items are menuitems, so the panel carries role="menu".
 const PANEL_STYLE = [
   "width: 240px",
   "padding: 6px",
@@ -33,7 +33,7 @@ const meta: Meta<typeof RMenuItem> = {
     setup: () => ({ args, panelStyle: PANEL_STYLE }),
     template: `
       <div style="padding:40px">
-        <div :style="panelStyle">
+        <div :style="panelStyle" role="menu" aria-label="Actions">
           <RMenuItem v-bind="args" />
         </div>
       </div>
@@ -67,7 +67,7 @@ export const Variants: Story = {
     setup: () => ({ panelStyle: PANEL_STYLE }),
     template: `
       <div style="padding:40px">
-        <div :style="panelStyle">
+        <div :style="panelStyle" role="menu" aria-label="Variants">
           <RMenuItem label="Default" icon="mdi-play" />
           <RMenuItem label="With subtitle" icon="mdi-download-outline" />
           <RMenuItem label="Active (favorited)" icon="mdi-heart" variant="active" />
@@ -83,7 +83,6 @@ export const WithNavigation: Story = {
   render: () => ({
     components: { RMenuItem },
     setup: () => ({ panelStyle: PANEL_STYLE }),
-    // Link items get role="menuitem", which needs a role="menu" parent.
     template: `
       <div style="padding:40px">
         <div :style="panelStyle" role="menu" aria-label="Navigation">
