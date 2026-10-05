@@ -7,6 +7,7 @@ import storeCollections, {
   type SmartCollection,
   type VirtualCollection,
 } from "@/stores/collections";
+import { collectionFixture } from "@/utils/collection.fixtures";
 import CollectionsIndex from "./CollectionsIndex.vue";
 
 vi.mock("vue-i18n");
@@ -127,7 +128,7 @@ vi.mock("@/composables/useUISettings", () => ({
 }));
 
 function collection(id: number, name: string): Collection {
-  return { id, name, rom_count: 3, is_public: true } as Collection;
+  return collectionFixture({ id, name, rom_count: 3, is_public: true });
 }
 
 function smart(id: number, name: string): SmartCollection {

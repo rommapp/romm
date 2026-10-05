@@ -1,18 +1,18 @@
-import datetime
 import json
 from typing import Any, Final, NotRequired, TypedDict
 
-import httpx2
 import pydash
 import yarl
 
+from adapters.services.provider_http import unavailable
 from config import FLASHPOINT_API_ENABLED
 from logger.logger import log
 from utils import get_version, is_valid_uuid
 from utils.context import ctx_httpx_client
+from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-from .base_handler import MetadataHandler, unavailable
+from .base_handler import HTTPX_REQUEST_ERRORS, MetadataHandler
 
 
 class FlashpointPlatform(TypedDict):
@@ -67,14 +67,8 @@ class FlashpointRom(TypedDict):
 
 
 def extract_flashpoint_metadata(game: FlashpointGame) -> FlashpointMetadata:
-    # Convert from "2003-08-30" format to unix timestamp
-    first_release_date = ""
-    if game.get("release_date"):
-        try:
-            date_obj = datetime.datetime.strptime(game["release_date"], "%Y-%m-%d")
-            first_release_date = str(int(date_obj.timestamp()))
-        except ValueError, TypeError:
-            first_release_date = ""
+    released = parse_utc_timestamp(game.get("release_date"), ("%Y-%m-%d",))
+    first_release_date = str(released) if released is not None else ""
 
     publishers = pydash.compact([game["publisher"]])
     developers = pydash.compact([game["developer"]])
@@ -142,7 +136,7 @@ class FlashpointHandler(MetadataHandler):
             res = await httpx_client.get(url, headers=headers, timeout=60)
             res.raise_for_status()
             return res.json()
-        except (httpx2.HTTPStatusError, httpx2.ConnectError, httpx2.ReadTimeout) as exc:
+        except HTTPX_REQUEST_ERRORS as exc:
             log.warning(
                 "Connection error: can't connect to Flashpoint API", exc_info=True
             )
@@ -152,16 +146,10 @@ class FlashpointHandler(MetadataHandler):
             return {}
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
+        async def probe() -> bool:
+            return bool(await self._request(self.platforms_url, {}))
 
-        try:
-            response = await self._request(self.platforms_url, {})
-        except Exception as e:
-            log.error("Error checking Flashpoint API: %s", e)
-            return False
-
-        return bool(response)
+        return await self._heartbeat("Flashpoint API", probe)
 
     async def search_games(self, search_term: str) -> list[FlashpointGame]:
         """

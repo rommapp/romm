@@ -130,7 +130,7 @@ jobs:
 
       # Best-effort while GitHub code coverage is in preview; errors still show as annotations.
       - name: Upload coverage to GitHub
-        uses: actions/upload-code-coverage@bfa741d815a28cb064a8e3a0837e577457a017d5 # v1.4.3
+        uses: actions/upload-code-coverage@2b21a77928be8d5168c2b9581a67f2adbebacc52 # v1.4.4
         with:
           file: coverage.xml
           language: Python

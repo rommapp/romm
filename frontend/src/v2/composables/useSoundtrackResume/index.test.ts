@@ -1,6 +1,15 @@
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { defineComponent, ref } from "vue";
+import { setStorageUser } from "@/composables/useUserLocalStorage";
 import storeAuth from "@/stores/auth";
 import useSoundtrackPlayer, {
   type SoundtrackSession,
@@ -43,8 +52,23 @@ const session: SoundtrackSession = {
   wasPlaying: true,
 };
 
+// Storage follows the user first, as main.ts wires it.
 function signIn(id: number) {
+  setStorageUser(id);
   storeAuth().setCurrentUser(userFixture({ id }));
+}
+
+function signOut() {
+  setStorageUser(null);
+  storeAuth().reset();
+}
+
+function keyFor(userId: number) {
+  return `user:${userId}:${SOUNDTRACK_SESSION_KEY}`;
+}
+
+function seed(userId: number, saved: SoundtrackSession) {
+  localStorage.setItem(keyFor(userId), JSON.stringify(saved));
 }
 
 function mountResume() {
@@ -53,29 +77,33 @@ function mountResume() {
   );
 }
 
-function stored() {
-  const raw = localStorage.getItem(SOUNDTRACK_SESSION_KEY);
+function stored(userId: number) {
+  const raw = localStorage.getItem(keyFor(userId));
   return raw === null ? null : readStoredSession(raw);
 }
 
 beforeEach(() => {
   localStorage.clear();
+  setStorageUser(null);
   resumeMusic.value = true;
+});
+
+afterEach(() => {
+  setStorageUser(null);
 });
 
 describe("readStoredSession", () => {
   it("reads a saved session", () => {
-    const raw = JSON.stringify({ userId: 1, session });
-    expect(readStoredSession(raw)).toEqual({ userId: 1, session });
+    expect(readStoredSession(JSON.stringify(session))).toEqual(session);
   });
 
   it.each([
     "not json",
     "null",
-    JSON.stringify({ userId: 1, session: {} }),
-    JSON.stringify({ userId: 1, session: { ...session, meta: undefined } }),
-    JSON.stringify({ userId: 1, session: { ...session, playlist: [{}] } }),
-    JSON.stringify({ userId: 1, session: { ...session, isShuffled: "no" } }),
+    JSON.stringify({}),
+    JSON.stringify({ ...session, meta: undefined }),
+    JSON.stringify({ ...session, playlist: [{}] }),
+    JSON.stringify({ ...session, isShuffled: "no" }),
   ])("fails safe on %s", (raw) => {
     expect(readStoredSession(raw)).toBeNull();
   });
@@ -104,10 +132,7 @@ describe("useSoundtrackResume", () => {
   }
 
   it("restores the signed-in user's session", async () => {
-    localStorage.setItem(
-      SOUNDTRACK_SESSION_KEY,
-      JSON.stringify({ userId: 1, session }),
-    );
+    seed(1, session);
     signIn(1);
     mountResume();
     await settle();
@@ -117,10 +142,7 @@ describe("useSoundtrackResume", () => {
 
   it("autoplays a session no other tab is playing", async () => {
     otherTab(false);
-    localStorage.setItem(
-      SOUNDTRACK_SESSION_KEY,
-      JSON.stringify({ userId: 1, session }),
-    );
+    seed(1, session);
     signIn(1);
     mountResume();
     await settle();
@@ -133,10 +155,7 @@ describe("useSoundtrackResume", () => {
 
   it("loads paused while another tab is playing", async () => {
     otherTab(true);
-    localStorage.setItem(
-      SOUNDTRACK_SESSION_KEY,
-      JSON.stringify({ userId: 1, session }),
-    );
+    seed(1, session);
     signIn(1);
     mountResume();
 
@@ -162,10 +181,7 @@ describe("useSoundtrackResume", () => {
   });
 
   it("waits for the user before restoring", async () => {
-    localStorage.setItem(
-      SOUNDTRACK_SESSION_KEY,
-      JSON.stringify({ userId: 1, session }),
-    );
+    seed(1, session);
     mountResume();
     await settle();
     expect(useSoundtrackPlayer().track).toBeNull();
@@ -176,10 +192,7 @@ describe("useSoundtrackResume", () => {
   });
 
   it("never restores another user's session", async () => {
-    localStorage.setItem(
-      SOUNDTRACK_SESSION_KEY,
-      JSON.stringify({ userId: 2, session }),
-    );
+    seed(2, session);
     signIn(1);
     mountResume();
     await settle();
@@ -189,10 +202,7 @@ describe("useSoundtrackResume", () => {
 
   it("restores nothing while the setting is off", async () => {
     resumeMusic.value = false;
-    localStorage.setItem(
-      SOUNDTRACK_SESSION_KEY,
-      JSON.stringify({ userId: 1, session }),
-    );
+    seed(1, session);
     signIn(1);
     mountResume();
     await settle();
@@ -201,25 +211,21 @@ describe("useSoundtrackResume", () => {
   });
 
   it("restores the next user's session after a sign-out", async () => {
-    localStorage.setItem(
-      SOUNDTRACK_SESSION_KEY,
-      JSON.stringify({ userId: 2, session: { ...session, track: other } }),
-    );
+    seed(2, { ...session, track: other });
     signIn(1);
     mountResume();
     const player = useSoundtrackPlayer();
     player.play(track, {});
 
     player.reset();
-    storeAuth().reset();
+    signOut();
     await settle();
     signIn(2);
     await settle();
 
     expect(player.track).toEqual(other);
     window.dispatchEvent(new Event("pagehide"));
-    expect(stored()?.userId).toBe(2);
-    expect(stored()?.session.track).toEqual(other);
+    expect(stored(2)?.track).toEqual(other);
   });
 
   it("saves the session when the page is hidden", () => {
@@ -229,33 +235,27 @@ describe("useSoundtrackResume", () => {
 
     window.dispatchEvent(new Event("pagehide"));
 
-    expect(stored()).toEqual({
-      userId: 1,
-      session: {
-        ...session,
-        playlist: [],
-        originalPlaylist: [],
-        position: 0,
-        wasPlaying: false,
-      },
+    expect(stored(1)).toEqual({
+      ...session,
+      playlist: [],
+      originalPlaylist: [],
+      position: 0,
+      wasPlaying: false,
     });
   });
 
   it("leaves the saved session alone while a restored one hasn't started", async () => {
-    localStorage.setItem(
-      SOUNDTRACK_SESSION_KEY,
-      JSON.stringify({ userId: 1, session }),
-    );
+    seed(1, session);
     signIn(1);
     mountResume();
     await settle();
-    const fromOtherTab = { userId: 1, session: { ...session, track: other } };
-    localStorage.setItem(SOUNDTRACK_SESSION_KEY, JSON.stringify(fromOtherTab));
+    const fromOtherTab = { ...session, track: other };
+    seed(1, fromOtherTab);
 
     await vi.advanceTimersByTimeAsync(5000);
     window.dispatchEvent(new Event("pagehide"));
 
-    expect(stored()).toEqual(fromOtherTab);
+    expect(stored(1)).toEqual(fromOtherTab);
   });
 
   it("doesn't save over another tab once its own changes are saved", () => {
@@ -263,25 +263,22 @@ describe("useSoundtrackResume", () => {
     mountResume();
     useSoundtrackPlayer().play(track, {});
     window.dispatchEvent(new Event("pagehide"));
-    const fromOtherTab = { userId: 1, session: { ...session, track: other } };
-    localStorage.setItem(SOUNDTRACK_SESSION_KEY, JSON.stringify(fromOtherTab));
+    const fromOtherTab = { ...session, track: other };
+    seed(1, fromOtherTab);
 
     window.dispatchEvent(new Event("pagehide"));
 
-    expect(stored()).toEqual(fromOtherTab);
+    expect(stored(1)).toEqual(fromOtherTab);
   });
 
   it("forgets the saved session when the setting is turned off", async () => {
-    localStorage.setItem(
-      SOUNDTRACK_SESSION_KEY,
-      JSON.stringify({ userId: 1, session }),
-    );
+    seed(1, session);
     signIn(1);
     mountResume();
 
     resumeMusic.value = false;
     await settle();
 
-    expect(localStorage.getItem(SOUNDTRACK_SESSION_KEY)).toBeNull();
+    expect(localStorage.getItem(keyFor(1))).toBeNull();
   });
 });

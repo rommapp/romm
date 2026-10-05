@@ -53,6 +53,12 @@
       "rangeStrategy": "update-lockfile"
     },
     {
+      "description": "rom-patcher is pinned to a git tag, and its lockfile entry carries the version from upstream's package.json, stuck at 3.0.0. Compare the tag itself, or Renovate keeps proposing the tag already pinned.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["rom-patcher"],
+      "rangeStrategy": "replace"
+    },
+    {
       "description": "One weekly PR per ecosystem for minor and patch updates, so app dependencies don't open a PR each.",
       "matchManagers": ["npm"],
       "matchFileNames": ["frontend/package.json"],

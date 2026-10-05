@@ -178,6 +178,52 @@ describe("NotificationChannelDialog", () => {
     wrapper.unmount();
   });
 
+  it("takes an address in an email field and checks it", async () => {
+    const sendgrid = makeAppriseService({
+      id: "sendgrid",
+      name: "SendGrid",
+      fields: [
+        {
+          ...makeAppriseService().fields[3]!,
+          key: "apikey",
+          label: "API Key",
+          required: true,
+        },
+        {
+          ...makeAppriseService().fields[1]!,
+          key: "from_email",
+          label: "From Email",
+          type: "email",
+          required: true,
+        },
+      ],
+    });
+    api.getAppriseServices.mockResolvedValue({ data: [sendgrid] });
+    api.create.mockResolvedValue({ data: channel({ type: "apprise" }) });
+    const wrapper = await open(null, { admin: true });
+
+    await pick(wrapper, "apprise:sendgrid");
+    await wrapper.findAll("input.r-text-field__input")[0]!.setValue("Mail");
+    await input(wrapper, '[type="password"]').setValue("abc123");
+    const address = input(wrapper, '[type="email"]');
+    await address.setValue("romm");
+    await save(wrapper);
+
+    expect(api.create).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain("Invalid email");
+
+    await address.setValue("romm@example.com");
+    await save(wrapper);
+
+    expect(api.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        service: "sendgrid",
+        fields: { apikey: "abc123", from_email: "romm@example.com" },
+      }),
+    );
+    wrapper.unmount();
+  });
+
   const ntfyChannel = () =>
     channel({
       type: "apprise",

@@ -7,6 +7,7 @@ import vuea11y from "eslint-plugin-vuejs-accessibility";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import romm from "./eslint-plugin-romm/index.js";
+import e2eConfig from "./eslint.e2e.config.js";
 
 // Heavy modules that belong in a lazy chunk; add the next one here.
 const heavyImports = [
@@ -28,6 +29,28 @@ const heavyImports = [
       "This module bundles md-editor-v3; import it only from a lazy chunk.",
   },
 ];
+
+const romCastRule = {
+  selector:
+    "TSAsExpression:matches([typeAnnotation.typeName.name=/^(SimpleRom|DetailedRom|SimpleRomSchema|DetailedRomSchema|RomFileSchema|RomUserSchema|RomMetadataSchema)$/], [typeAnnotation.elementType.typeName.name=/^(SimpleRom|DetailedRom|SimpleRomSchema|DetailedRomSchema|RomFileSchema)$/], [typeAnnotation.objectType.typeName.name=/^(SimpleRom|DetailedRom|SimpleRomSchema|DetailedRomSchema)$/])",
+  message:
+    "Build ROM fixtures with romFixture or detailedRomFixture from @/utils/rom.fixtures instead of a cast.",
+};
+
+const platformCastRule = {
+  selector:
+    "TSAsExpression[typeAnnotation.typeName.name=/^(Platform|PlatformSchema)$/]",
+  message:
+    "Build platform fixtures with platformFixture from @/utils/platform.fixtures instead of a cast.",
+};
+
+// Only object literals: reading a value back as one of these types is fine.
+const modelCastRule = {
+  selector:
+    ":matches(TSAsExpression[expression.type='ObjectExpression'], TSAsExpression[expression.expression.type='ObjectExpression'])[typeAnnotation.typeName.name=/^(User|UserSchema|Collection|CollectionSchema|SaveSchema|StateSchema|AuditEventSchema)$/]",
+  message:
+    "Build users, collections, saves, states and audit events with their fixtures (userFixture, collectionFixture, saveFixture, stateFixture, makeAuditEvent) instead of casting an object literal.",
+};
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -60,6 +83,7 @@ export default tseslint.config(
       "dev-dist/**",
       "storybook-static/**",
       "coverage/**",
+      "e2e/.output/**",
     ],
   },
   {
@@ -284,6 +308,21 @@ export default tseslint.config(
       "romm/no-safe-area-env": "error",
     },
   },
+  // Stored preferences follow the signed-in user; frozen v1 keeps its keys.
+  {
+    files: ["src/**/*.ts", "src/**/*.vue"],
+    ignores: [
+      "src/views/**",
+      "src/components/**",
+      "src/console/**",
+      "src/layouts/**",
+      "**/*.stories.ts",
+      "**/*.test.ts",
+      "src/composables/useUserLocalStorage.ts",
+    ],
+    plugins: { romm },
+    rules: { "romm/no-unscoped-local-storage": "error" },
+  },
   {
     files: ["src/v2/**/*.ts", "src/v2/**/*.vue"],
     ignores: ["**/*.stories.ts", "**/*.test.ts", "src/v2/utils/autofocus.ts"],
@@ -315,15 +354,25 @@ export default tseslint.config(
     rules: {
       "no-restricted-syntax": [
         "error",
-        {
-          selector:
-            "TSAsExpression[expression.type='TSAsExpression'][expression.typeAnnotation.type='TSUnknownKeyword'][typeAnnotation.typeName.name=/^(DetailedRom|SimpleRom)$/]",
-          message:
-            "Build ROM fixtures with makeRom or makeDetailedRom from @/utils/rom.fixtures instead of `as unknown as`.",
-        },
+        romCastRule,
+        platformCastRule,
+        modelCastRule,
       ],
     },
   },
+  {
+    files: ["src/v2/**/*.stories.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        romCastRule,
+        platformCastRule,
+        modelCastRule,
+      ],
+    },
+  },
+  // After the base configs, so its exceptions win.
+  ...e2eConfig,
   // Keep last: Prettier owns formatting, so this switches off every
   // stylistic rule the two tools would otherwise fight over.
   prettierConfig,

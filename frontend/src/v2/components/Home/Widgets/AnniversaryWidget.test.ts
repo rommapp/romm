@@ -3,7 +3,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { SimpleRom } from "@/stores/roms";
-import { makeRom } from "@/utils/rom.fixtures";
+import { romFixture, romMetadataFixture } from "@/utils/rom.fixtures";
 import AnniversaryWidget from "./AnniversaryWidget.vue";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
@@ -54,14 +54,14 @@ function releasedOn(year: number, month: number, day: number): number {
 }
 
 function rom(id: number, name: string, released: number): SimpleRom {
-  return makeRom({
+  return romFixture({
     id,
     name,
     fs_name: `${name}.sfc`,
     platform_slug: "snes",
     platform_display_name: "Super Nintendo",
     is_identified: true,
-    metadatum: { first_release_date: released } as SimpleRom["metadatum"],
+    metadatum: romMetadataFixture({ first_release_date: released }),
   });
 }
 

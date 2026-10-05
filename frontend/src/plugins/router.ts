@@ -16,6 +16,7 @@ import { useUiVersion } from "@/composables/useUiVersion";
 import i18n, { loadLocale } from "@/locales";
 import {
   isAuthExemptRoute,
+  ROUTE_SCOPES,
   ROUTES,
   type RouteName,
 } from "@/plugins/routeNames";
@@ -439,6 +440,18 @@ const routes = [
             },
           },
           {
+            path: "devices",
+            name: ROUTES.DEVICES,
+            meta: {
+              title: "settings.devices",
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.DEVICES),
+            },
+          },
+          {
             path: "administration",
             name: ROUTES.ADMINISTRATION,
             meta: {
@@ -586,11 +599,6 @@ const routes = [
   },
 ];
 
-interface RoutePermissions {
-  path: string;
-  requiredScopes: string[];
-}
-
 const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),
   routes,
@@ -607,17 +615,6 @@ const router = createRouter({
   },
 });
 
-const routePermissions: RoutePermissions[] = [
-  { path: ROUTES.CLIENT_API_TOKENS, requiredScopes: ["me.write"] },
-  { path: ROUTES.SCAN, requiredScopes: ["platforms.write"] },
-  { path: ROUTES.UPLOAD, requiredScopes: ["roms.write"] },
-  { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },
-  { path: ROUTES.SCAN_SETTINGS, requiredScopes: ["platforms.write"] },
-  { path: ROUTES.CONVERSION_SETTINGS, requiredScopes: ["platforms.write"] },
-  { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
-  { path: ROUTES.LOGS, requiredScopes: ["logs.read"] },
-];
-
 function checkRoutePermissions(route: string, user: User | null): boolean {
   // No checks needed for login and setup pages
   if (isAuthExemptRoute(route)) {
@@ -627,14 +624,8 @@ function checkRoutePermissions(route: string, user: User | null): boolean {
   // No user, no access
   if (!user) return false;
 
-  // Check if route has permissions requirements
-  const routeConfig = routePermissions.find((config) => config.path === route);
-  if (!routeConfig) return true;
-
-  // Check if user has required scopes
-  return routeConfig.requiredScopes.every((scope) =>
-    user.oauth_scopes.includes(scope),
-  );
+  const requiredScopes = ROUTE_SCOPES[route as RouteName] ?? [];
+  return requiredScopes.every((scope) => user.oauth_scopes.includes(scope));
 }
 
 // `meta.title` holds an i18n key, translated per navigation rather than when

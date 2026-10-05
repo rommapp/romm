@@ -3,6 +3,7 @@ import mitt, { type Emitter } from "mitt";
 import { describe, expect, it, vi } from "vitest";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 import ManualUploadTargetDialog from "./ManualUploadTargetDialog.vue";
 
 type UploadArgs = { romId: number; filesToUpload: File[] };
@@ -42,13 +43,13 @@ vi.mock("@/v2/composables/useRomSync", () => ({
 }));
 
 function rom(overrides: Partial<DetailedRom> = {}): DetailedRom {
-  return {
+  return detailedRomFixture({
     id: 7,
     name: "Game",
     has_simple_single_file: false,
     files: [],
     ...overrides,
-  } as DetailedRom;
+  });
 }
 
 function manualFile(): NonNullable<DetailedRom["files"]>[number] {

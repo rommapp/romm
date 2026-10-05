@@ -1,11 +1,20 @@
+import asyncio
 import json
-from typing import cast
+from collections.abc import AsyncIterator
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
+import pytest_asyncio
 import yarl
 from fastapi import HTTPException, status
+from tests.adapters.services.scripted_server import (
+    DISCONNECT,
+    Reply,
+    ScriptedServer,
+    scripted_server,
+)
 
 from adapters.services import retroachievements
 from adapters.services.retroachievements import (
@@ -420,3 +429,178 @@ class TestRetroAchievementsServiceIntegration:
                 # This should handle the error gracefully
                 result = await service.get_game_extended_details(INVALID_GAME_ID)
                 assert result is None
+
+
+def _progress(game_id: int) -> dict[str, object]:
+    return {
+        "GameID": game_id,
+        "Title": f"Game {game_id}",
+        "ImageIcon": "",
+        "ConsoleID": 1,
+        "ConsoleName": "Genesis/Mega Drive",
+        "MaxPossible": 10,
+        "NumAwarded": 1,
+        "NumAwardedHardcore": 0,
+        "MostRecentAwardedDate": "2026-01-01T00:00:00+00:00",
+        "HighestAwardKind": None,
+        "HighestAwardDate": None,
+    }
+
+
+@pytest_asyncio.fixture
+async def ra_server() -> AsyncIterator[tuple[ScriptedServer, RetroAchievementsService]]:
+    async with scripted_server("/API") as (fake, url):
+        yield fake, RetroAchievementsService(base_url=url)
+
+
+@pytest.fixture
+def no_backoff(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+    sleep = AsyncMock()
+    # Swap only this module's reference, so the test server and aiohttp still sleep.
+    monkeypatch.setattr(
+        "adapters.services.provider_http.asyncio",
+        MagicMock(wraps=asyncio, sleep=sleep),
+    )
+    return sleep
+
+
+class TestAgainstAServer:
+    async def test_sends_the_api_key_and_a_romm_user_agent(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        fake, service = ra_server
+        monkeypatch.setattr(retroachievements, "RETROACHIEVEMENTS_API_KEY", "key")
+        fake.replies["API_GetGameList.php"] = [(200, [])]
+
+        assert await service.get_game_list(1, include_hashes=True) == []
+
+        [request] = fake.requests
+        assert dict(request.query) == {"i": "1", "h": "1", "y": "key"}
+        assert request.headers["User-Agent"].startswith("RomM/")
+
+    async def test_a_timed_out_request_is_retried_once(
+        self, ra_server: tuple[ScriptedServer, RetroAchievementsService]
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [5.0, (200, {"ok": 1})]
+
+        result = await service._request(
+            f"{service.url}/API_GetAchievementOfTheWeek.php",
+            dict[str, Any],
+            request_timeout=0.2,
+        )
+
+        assert result == {"ok": 1}
+        assert len(fake.requests) == 2
+
+    async def test_two_timeouts_are_unavailable(
+        self, ra_server: tuple[ScriptedServer, RetroAchievementsService]
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [5.0, 5.0]
+
+        with pytest.raises(HTTPException) as exc:
+            await service._request(
+                f"{service.url}/API_GetAchievementOfTheWeek.php",
+                dict[str, Any],
+                request_timeout=0.2,
+            )
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    async def test_a_rate_limited_request_backs_off_and_retries(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [
+            (429, {}),
+            (200, {"ok": 1}),
+        ]
+
+        assert await service.get_achievement_of_the_week() == {"ok": 1}
+        no_backoff.assert_awaited_once_with(2)
+
+    async def test_a_failed_retry_is_unavailable(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [(429, {}), (500, {})]
+
+        with pytest.raises(HTTPException) as exc:
+            await service.get_achievement_of_the_week()
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    @pytest.mark.parametrize("first", [5.0, (429, {})], ids=["timeout", "rate_limited"])
+    async def test_a_dropped_retry_is_unavailable(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+        first: Reply,
+    ):
+        fake, service = ra_server
+        # aiohttp itself resends an idempotent request once on a dropped connection.
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [
+            first,
+            DISCONNECT,
+            DISCONNECT,
+        ]
+
+        with pytest.raises(HTTPException) as exc:
+            await service._request(
+                f"{service.url}/API_GetAchievementOfTheWeek.php",
+                dict[str, Any],
+                request_timeout=0.2,
+            )
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "connect" in exc.value.detail
+        assert len(fake.requests) == 3
+
+    @pytest.mark.parametrize("retried", [False, True], ids=["first", "retry"])
+    async def test_a_reply_that_is_not_json_is_unavailable(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+        retried: bool,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = (
+            [(429, {}), (200, b"<html>")] if retried else [(200, b"<html>")]
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await service.get_achievement_of_the_week()
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    async def test_completion_progress_is_read_page_by_page(
+        self, ra_server: tuple[ScriptedServer, RetroAchievementsService]
+    ):
+        fake, service = ra_server
+        first = [_progress(i) for i in range(500)]
+        fake.replies["API_GetUserCompletionProgress.php"] = [
+            (200, {"Count": 500, "Total": 501, "Results": first}),
+            (200, {"Count": 1, "Total": 501, "Results": [_progress(500)]}),
+        ]
+
+        games = [r["GameID"] async for r in service.iter_user_completion_progress("me")]
+
+        assert games == list(range(501))
+        assert [
+            {k: v for k, v in r.query.items() if k != "y"} for r in fake.requests
+        ] == [{"u": "me", "c": "500"}, {"u": "me", "c": "500", "o": "500"}]
+
+    async def test_an_unknown_user_ends_the_progress(
+        self, ra_server: tuple[ScriptedServer, RetroAchievementsService]
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetUserCompletionProgress.php"] = [(200, b"[]")]
+
+        assert [r async for r in service.iter_user_completion_progress("nobody")] == []

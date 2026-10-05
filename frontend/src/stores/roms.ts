@@ -1,4 +1,3 @@
-import { useLocalStorage } from "@vueuse/core";
 import { isNull, isUndefined } from "lodash";
 import { defineStore } from "pinia";
 import type {
@@ -7,6 +6,10 @@ import type {
   SearchRomSchema,
 } from "@/__generated__/";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
+import {
+  userStorage,
+  useUserLocalStorage,
+} from "@/composables/useUserLocalStorage";
 import cachedApiService from "@/services/cache/api";
 import {
   type Collection,
@@ -29,8 +32,8 @@ export type DetailedRom = DetailedRomSchema;
 // the player view that picks up the details page's record.
 export const DETAILED_ROM_CACHE_SIZE = 3;
 
-const orderByStorage = useLocalStorage<string>("roms.orderBy", "");
-const orderDirStorage = useLocalStorage("roms.orderDir", "asc");
+const orderByStorage = useUserLocalStorage<string>("roms.orderBy", "");
+const orderDirStorage = useUserLocalStorage("roms.orderDir", "asc");
 
 // NOTE on deprecation: the gallery-list responsibility (currentPlatform /
 // Collection / Virtual / Smart, _allRoms, fetchOffset, fetchTotalRoms,
@@ -106,9 +109,9 @@ export default defineStore("roms", {
 
   actions: {
     _shouldGroupRoms(): boolean {
-      return isNull(localStorage.getItem("settings.groupRoms"))
+      return isNull(userStorage.getItem("settings.groupRoms"))
         ? true
-        : localStorage.getItem("settings.groupRoms") === "true";
+        : userStorage.getItem("settings.groupRoms") === "true";
     },
     /** @deprecated v2: use `useGalleryRoms().setCurrentPlatform`. */
     setCurrentPlatform(platform: Platform | null) {

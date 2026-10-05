@@ -62,6 +62,9 @@ interface Props {
   closableChips?: boolean;
   /** Drop the autocomplete dropdown entirely. Pure free-text input. */
   noSuggestions?: boolean;
+  /** Keep commas inside a value instead of committing and splitting on
+   *  them, for values like titles that can hold one. */
+  allowCommas?: boolean;
   /** Render a field-level X that wipes every committed chip in one
    *  click. Sits next to the input on the right edge of the field, so
    *  the affordance reads identically to RTextField's clearable. */
@@ -83,6 +86,7 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   closableChips: true,
   noSuggestions: false,
+  allowCommas: false,
   clearable: false,
 });
 
@@ -154,12 +158,14 @@ const { floatingStyles } = useFloating(fieldRef, panelRef, {
 function commit(raw: string) {
   const trimmed = raw.trim();
   if (!trimmed) return;
-  // Allow comma-separated paste (`tag1, tag2, tag3`), split, dedupe
-  // against the current set, and commit them in one update.
-  const parts = trimmed
-    .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean);
+  // Unless `allowCommas`, split a comma-separated paste (`tag1, tag2`),
+  // dedupe against the current set, and commit them in one update.
+  const parts = props.allowCommas
+    ? [trimmed]
+    : trimmed
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean);
   if (!parts.length) return;
   const taken = new Set(chips.value.map((c) => c.toLowerCase()));
   const next = [...chips.value];
@@ -238,6 +244,7 @@ function onKeyDown(e: KeyboardEvent) {
     }
     case ",": {
       // Comma also commits: matches the paste-friendly contract.
+      if (props.allowCommas) break;
       e.preventDefault();
       commit(query.value);
       break;

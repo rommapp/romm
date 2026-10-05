@@ -23,6 +23,7 @@ from handler.dump_cache import _ZSTD_MAGIC, encode
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.local_source import LocalSource
 from handler.metadata.launchbox_handler.media import (
+    _get_box_art,
     _get_cover,
     _get_video,
     _select_remote_cover,
@@ -1184,7 +1185,7 @@ class TestPopulateRomSpecificPaths:
 
             mock_preferred.return_value = [MetadataMediaType.VIDEO]
             populate_rom_specific_paths(metadata, self._rom())
-        path = metadata.get("video_path", "")
+        path = metadata.get("video_path") or ""
         assert path.endswith("/video.mp4")
         assert "7" in path and "42" in path
 
@@ -1206,7 +1207,7 @@ class TestPopulateRomSpecificPaths:
             ) as mock_preferred:
                 mock_preferred.return_value = [MetadataMediaType.VIDEO]
                 populate_rom_specific_paths(metadata, self._rom())
-            assert metadata.get("video_path", "").endswith(expected)
+            assert (metadata.get("video_path") or "").endswith(expected)
 
     def test_video_not_in_preferred_media_skips(self):
         metadata: LaunchboxMetadata = {
@@ -1220,6 +1221,197 @@ class TestPopulateRomSpecificPaths:
             mock_preferred.return_value = []
             populate_rom_specific_paths(metadata, self._rom())
         assert "video_path" not in metadata
+
+    def test_box_art_urls_populate_paths(self):
+        from config.config_manager import MetadataMediaType
+
+        metadata: LaunchboxMetadata = {
+            "first_release_date": None,
+            "images": [],
+            "box2d_back_url": "https://images.launchbox-app.com/back.png",
+            "box2d_side_url": "launchbox-file://Images/NES/Box - Spine/Mario-01.png",
+            "box3d_url": "https://images.launchbox-app.com/3d.png",
+        }
+        with patch(
+            "handler.metadata.launchbox_handler.media.get_preferred_media_types"
+        ) as mock_preferred:
+            mock_preferred.return_value = [
+                MetadataMediaType.BOX2D,
+                MetadataMediaType.BOX2D_BACK,
+                MetadataMediaType.BOX2D_SIDE,
+            ]
+            populate_rom_specific_paths(metadata, self._rom())
+
+        # The same paths ScreenScraper stores each face at.
+        assert metadata.get("box2d_back_path") == (
+            "roms/7/42/box2d_back/box2d_back.png"
+        )
+        assert metadata.get("box2d_side_path") == (
+            "roms/7/42/box2d_side/box2d_side.png"
+        )
+        # No URL for the front, and the 3D box isn't a preferred media type.
+        assert "box2d_path" not in metadata
+        assert "box3d_path" not in metadata
+
+
+class TestBoxArt:
+    def _image(self, file_name: str, type_: str, region: str = "") -> dict[str, Any]:
+        return {"FileName": file_name, "Type": type_, "Region": region}
+
+    def _req(
+        self,
+        images: list[dict[str, Any]],
+        shortcodes: tuple[str, ...] = (),
+        *,
+        platform_name: str | None = None,
+        fs_name: str = "",
+    ) -> MediaRequest:
+        return MediaRequest(
+            platform_name=platform_name,
+            fs_name=fs_name,
+            title="",
+            region_hint=None,
+            remote_images=images,
+            remote_enabled=True,
+            region_shortcodes=shortcodes,
+        )
+
+    def test_remote_faces_follow_rom_region(self):
+        images = [
+            self._image("front-eu.png", "Box - Front", "Europe"),
+            self._image("front-us.png", "Box - Front", "North America"),
+            self._image("back-eu.png", "Box - Back", "Europe"),
+            self._image("back-us.png", "Box - Back", "North America"),
+            self._image("spine.png", "Box - Spine"),
+            self._image("3d.png", "Box - 3D"),
+            self._image("screen.png", "Screenshot - Gameplay"),
+        ]
+        rom = build_rom(
+            local=None,
+            remote=REMOTE_ENTRY,
+            launchbox_id=1,
+            media_req=self._req(images, ("us", "eu")),
+        )
+        metadata = rom.get("launchbox_metadata")
+        assert metadata is not None
+        base = "https://images.launchbox-app.com"
+        assert metadata.get("box2d_url") == f"{base}/front-us.png"
+        assert metadata.get("box2d_back_url") == f"{base}/back-us.png"
+        assert metadata.get("box2d_side_url") == f"{base}/spine.png"
+        assert metadata.get("box3d_url") == f"{base}/3d.png"
+
+    def test_faces_follow_the_front_region(self):
+        images = [
+            self._image("front-eu.png", "Box - Front", "Europe"),
+            self._image("back-us.png", "Box - Back", "North America"),
+            self._image("back-eu.png", "Box - Back", "Europe"),
+            self._image("spine-us.png", "Box - Spine", "North America"),
+        ]
+        # A "(USA)" ROM whose only front is European gets the European back,
+        # and the spine falls back to the US one the ROM prefers.
+        urls = {
+            art.url_key: url
+            for art, url in _get_box_art(self._req(images, ("us",))).items()
+        }
+        base = "https://images.launchbox-app.com"
+        assert urls == {
+            "box2d_url": f"{base}/front-eu.png",
+            "box2d_back_url": f"{base}/back-eu.png",
+            "box2d_side_url": f"{base}/spine-us.png",
+        }
+
+    def test_faces_follow_a_local_front_region(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        lb_root = tmp_path / "launchbox"
+        platform_root = lb_root / "Images" / "NES"
+        for category, region in (
+            ("Box - Front", "North America"),
+            ("Box - Back", "Europe"),
+            ("Box - Back", "North America"),
+        ):
+            folder = platform_root / category / region
+            folder.mkdir(parents=True)
+            (folder / "Mario-01.png").write_bytes(b"")
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.media.LAUNCHBOX_IMAGES_DIR",
+            lb_root / "Images",
+        )
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.utils.LAUNCHBOX_LOCAL_DIR",
+            lb_root,
+        )
+
+        req = self._req(
+            [
+                self._image("spine-eu.png", "Box - Spine", "Europe"),
+                self._image("spine-us.png", "Box - Spine", "North America"),
+            ],
+            ("eu",),
+            platform_name="NES",
+            fs_name="Mario.nes",
+        )
+        urls = {art.url_key: url for art, url in _get_box_art(req).items()}
+        assert urls == {
+            "box2d_url": (
+                "launchbox-file://Images/NES/Box - Front/North America/Mario-01.png"
+            ),
+            "box2d_back_url": (
+                "launchbox-file://Images/NES/Box - Back/North America/Mario-01.png"
+            ),
+            "box2d_side_url": "https://images.launchbox-app.com/spine-us.png",
+        }
+
+    def test_reconstructed_back_is_a_fallback(self):
+        images = [self._image("back-rec.png", "Box - Back - Reconstructed")]
+        urls = {
+            art.url_key: url for art, url in _get_box_art(self._req(images)).items()
+        }
+        assert urls == {
+            "box2d_back_url": "https://images.launchbox-app.com/back-rec.png"
+        }
+
+    def test_remote_disabled_yields_nothing(self):
+        req = MediaRequest(
+            platform_name=None,
+            fs_name="",
+            title="",
+            region_hint=None,
+            remote_images=[self._image("back.png", "Box - Back")],
+            remote_enabled=False,
+        )
+        assert _get_box_art(req) == {}
+
+    def test_local_image_overrides_remote(self, tmp_path: Path, monkeypatch) -> None:
+        lb_root = tmp_path / "launchbox"
+        images_root = lb_root / "Images"
+        back_dir = images_root / "NES" / "Box - Back" / "North America"
+        back_dir.mkdir(parents=True)
+        (back_dir / "Mario-01.png").write_bytes(b"")
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.media.LAUNCHBOX_IMAGES_DIR",
+            images_root,
+        )
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.utils.LAUNCHBOX_LOCAL_DIR",
+            lb_root,
+        )
+
+        req = self._req(
+            [
+                self._image("back.png", "Box - Back"),
+                self._image("3d.png", "Box - 3D"),
+            ],
+            platform_name="NES",
+            fs_name="Mario.nes",
+        )
+        urls = {art.url_key: url for art, url in _get_box_art(req).items()}
+        assert urls == {
+            "box2d_back_url": (
+                "launchbox-file://Images/NES/Box - Back/North America/Mario-01.png"
+            ),
+            "box3d_url": "https://images.launchbox-app.com/3d.png",
+        }
 
 
 class TestRemoteMediaReq:

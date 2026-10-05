@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DetailedRomSchema } from "@/__generated__";
 import saveApi, { UNLOAD_SAVE_MAX_BYTES } from "@/services/api/save";
 import { saveFixture } from "@/utils/assets.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 
 vi.mock("@/services/api", () => ({
   default: {
@@ -24,7 +24,7 @@ vi.mock("@/services/api", () => ({
   },
 }));
 
-const rom = { id: 1 } as DetailedRomSchema;
+const rom = detailedRomFixture({ id: 1 });
 const saveOf = (size: number) => new File([new Uint8Array(size)], "game.srm");
 
 describe("sendSaveOnUnload", () => {
@@ -58,6 +58,22 @@ describe("sendSaveOnUnload", () => {
       headers: { "x-csrftoken": "token" },
     });
     expect((init?.body as FormData).get("saveFile")).toBeInstanceOf(File);
+  });
+
+  it("keeps the stale-device guard when the caller asks for it", () => {
+    saveApi.sendSaveOnUnload({
+      rom,
+      save: null,
+      saveFile: saveOf(16),
+      deviceId: "dev",
+      slot: "Save01",
+      overwrite: false,
+    });
+
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      "/api/saves?rom_id=1&device_id=dev&slot=Save01&overwrite=false",
+    );
   });
 
   it("updates the session's version in place", () => {

@@ -5,6 +5,7 @@ from handler.auth.base_handler import auth_handler
 from handler.database import (
     db_client_token_handler,
     db_firmware_handler,
+    db_platform_handler,
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
@@ -16,6 +17,16 @@ from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+
+
+def make_platform(slug: str, /, **overrides: Any) -> Platform:
+    """Persist a platform whose folder and display name derive from `slug`."""
+    fields: dict[str, Any] = {
+        "slug": slug,
+        "fs_slug": slug,
+        "name": slug.replace("-", " ").title(),
+    }
+    return db_platform_handler.add_platform(Platform(**(fields | overrides)))
 
 
 def make_rom(

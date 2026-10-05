@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
-from tests.factories import make_rom
+from tests.factories import make_platform, make_rom
 
 from adapters.services.rom_converto import (
     RomConvertoOperationError,
@@ -12,7 +12,7 @@ from adapters.services.rom_converto import (
 )
 from config.config_manager import ConvertoConfig
 from config.config_manager import config_manager as cm
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
@@ -52,12 +52,6 @@ def converted(mocker) -> list[tuple[str, Path]]:
     )
     mocker.patch.object(rom_converto_service, "convert", AsyncMock(side_effect=convert))
     return calls
-
-
-def _platform(slug: str) -> Platform:
-    return db_platform_handler.add_platform(
-        Platform(name=slug, slug=slug, fs_slug=slug)
-    )
 
 
 def _rom(
@@ -111,7 +105,7 @@ async def _run(platform: Platform | None = None) -> dict[str, int]:
 async def test_a_single_file_rom_is_replaced_and_keeps_its_id(
     library: Path, admin_user: User, converto, converted
 ):
-    psp = _platform("psp")
+    psp = make_platform("psp")
     rom = _rom(library, admin_user, psp, {"game.iso": b"x" * 100})
     folder = library / rom.fs_path
 
@@ -129,7 +123,7 @@ async def test_a_single_file_rom_is_replaced_and_keeps_its_id(
 async def test_a_cue_folder_becomes_one_chd_and_its_playlist_follows(
     library: Path, admin_user: User, converto, converted
 ):
-    psx = _platform("psx")
+    psx = make_platform("psx")
     cue = 'FILE "game (Track 1).bin" BINARY\nFILE "game (Track 2).bin" BINARY\n'
     rom = _rom(
         library,
@@ -162,7 +156,7 @@ async def test_a_bom_cue_and_playlist_still_follow_the_conversion(
     rom = _rom(
         library,
         admin_user,
-        _platform("psx"),
+        make_platform("psx"),
         {
             "game.cue": bom + b'FILE "game.bin" BINARY\n',
             "game.bin": b"x" * 50,
@@ -183,8 +177,8 @@ async def test_a_bom_cue_and_playlist_still_follow_the_conversion(
 async def test_one_roms_failure_does_not_stop_the_run(
     library: Path, admin_user: User, converto, converted, mocker
 ):
-    _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
-    _rom(library, admin_user, _platform("psx"), {"game.cue": b""}, folder=True)
+    _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x"})
+    _rom(library, admin_user, make_platform("psx"), {"game.cue": b""}, folder=True)
     mocker.patch(
         "tasks.manual.convert_library.refresh_rom_files",
         AsyncMock(side_effect=[RuntimeError("lock timeout"), None]),
@@ -199,7 +193,7 @@ async def test_one_roms_failure_does_not_stop_the_run(
 async def test_a_file_already_in_the_library_format_is_left_alone(
     library: Path, admin_user: User, converto, converted
 ):
-    _rom(library, admin_user, _platform("psp"), {"game.chd": b"x"})
+    _rom(library, admin_user, make_platform("psp"), {"game.chd": b"x"})
 
     stats = await _run()
 
@@ -210,7 +204,9 @@ async def test_a_file_already_in_the_library_format_is_left_alone(
 async def test_an_unmatched_rom_is_not_converted(
     library: Path, admin_user: User, converto, converted
 ):
-    rom = _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"}, matched=False)
+    rom = _rom(
+        library, admin_user, make_platform("psp"), {"game.iso": b"x"}, matched=False
+    )
 
     stats = await _run()
 
@@ -223,7 +219,7 @@ async def test_a_platform_without_a_library_format_is_skipped(
     library: Path, admin_user: User, converto, converted
 ):
     converto.platform_formats = {}
-    _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
+    _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x"})
 
     stats = await _run()
 
@@ -234,9 +230,9 @@ async def test_a_platform_without_a_library_format_is_skipped(
 async def test_only_the_requested_platform_is_converted(
     library: Path, admin_user: User, converto, converted
 ):
-    psp = _platform("psp")
+    psp = make_platform("psp")
     _rom(library, admin_user, psp, {"game.iso": b"x" * 10})
-    _rom(library, admin_user, _platform("psx"), {"game.cue": b""}, folder=True)
+    _rom(library, admin_user, make_platform("psx"), {"game.cue": b""}, folder=True)
 
     await _run(psp)
 
@@ -246,7 +242,7 @@ async def test_only_the_requested_platform_is_converted(
 async def test_a_failed_conversion_leaves_the_original_and_no_staged_output(
     library: Path, admin_user: User, converto, converted, mocker
 ):
-    rom = _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
+    rom = _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x"})
     mocker.patch.object(
         rom_converto_service,
         "convert",
@@ -263,7 +259,7 @@ async def test_a_failed_conversion_leaves_the_original_and_no_staged_output(
 async def test_an_existing_output_is_never_overwritten(
     library: Path, admin_user: User, converto, converted
 ):
-    rom = _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
+    rom = _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x"})
     (library / rom.fs_path / "game.chd").write_bytes(b"theirs")
 
     stats = await _run()
@@ -277,7 +273,7 @@ async def test_an_existing_output_is_never_overwritten(
 async def test_an_output_appearing_during_conversion_is_never_overwritten(
     library: Path, admin_user: User, converto, converted, mocker
 ):
-    rom = _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
+    rom = _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x"})
     theirs = library / rom.fs_path / "game.chd"
 
     def convert(operation, src: Path, out: Path) -> None:
@@ -296,7 +292,7 @@ async def test_an_output_appearing_during_conversion_is_never_overwritten(
 async def test_a_failed_rom_update_keeps_the_original(
     library: Path, admin_user: User, converto, converted, mocker
 ):
-    rom = _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
+    rom = _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x"})
     mocker.patch.object(
         db_rom_handler, "update_rom", side_effect=SQLAlchemyError("conflict")
     )
@@ -310,7 +306,7 @@ async def test_a_failed_rom_update_keeps_the_original(
 async def test_a_cue_track_held_by_another_rom_is_not_deleted(
     library: Path, admin_user: User, converto, converted
 ):
-    psx = _platform("psx")
+    psx = make_platform("psx")
     rom = _rom(library, admin_user, psx, {"game.cue": b'FILE "game.bin" BINARY\n'})
     (library / rom.fs_path / "game.bin").write_bytes(b"x")
     make_rom(psx, "track", fs_stem="game", fs_extension="bin")
@@ -329,7 +325,7 @@ async def test_a_track_another_cue_shares_is_refused(
     rom = _rom(
         library,
         admin_user,
-        _platform("psx"),
+        make_platform("psx"),
         {"disc 1.cue": track, "disc 2.cue": track, "game.bin": b"x"},
         folder=True,
     )
@@ -344,7 +340,7 @@ async def test_a_track_another_cue_shares_is_refused(
 async def test_a_stage_left_by_a_killed_conversion_is_removed(
     library: Path, admin_user: User, converto, converted
 ):
-    rom = _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
+    rom = _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x"})
     stale = library / rom.fs_path / ".romm_tmp_convert_old"
     stale.mkdir()
     os.utime(stale, (0, 0))
@@ -357,7 +353,7 @@ async def test_a_stage_left_by_a_killed_conversion_is_removed(
 async def test_a_rom_row_already_holding_the_output_name_is_left_alone(
     library: Path, admin_user: User, converto, converted
 ):
-    psp = _platform("psp")
+    psp = make_platform("psp")
     rom = _rom(library, admin_user, psp, {"game.iso": b"x"})
     make_rom(psp, "other", fs_stem="game", fs_extension="chd")
 
@@ -374,7 +370,7 @@ async def test_a_cue_pointing_outside_its_folder_is_refused(
     rom = _rom(
         library,
         admin_user,
-        _platform("psx"),
+        make_platform("psx"),
         {"game.cue": b'FILE "../other.bin" BINARY\n'},
         folder=True,
     )
@@ -392,7 +388,7 @@ async def test_nothing_runs_without_rom_converto(
     mocker.patch.object(
         rom_converto_service, "is_enabled", AsyncMock(return_value=False)
     )
-    _rom(library, admin_user, _platform("psp"), {"game.iso": b"x"})
+    _rom(library, admin_user, make_platform("psp"), {"game.iso": b"x"})
 
     stats = await _run()
 

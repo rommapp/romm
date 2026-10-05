@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { MusicTrackSchema, TrackMetaSchema } from "@/__generated__";
+import type {
+  MusicTrackSchema,
+  RomFileCategory,
+  RomFileSchema,
+  TrackMetaSchema,
+} from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
 import {
   isAudioFile,
   nowPlayingCaption,
@@ -11,12 +16,21 @@ import {
   romFolderCoverUrl,
 } from "./soundtrackTracks";
 
-function romFile(id: number, fileName: string, category = "soundtrack") {
-  return { id, file_name: fileName, category, file_size_bytes: 1024 };
+function romFile(
+  id: number,
+  fileName: string,
+  category: RomFileCategory = "soundtrack",
+): RomFileSchema {
+  return romFileFixture({
+    id,
+    file_name: fileName,
+    category,
+    file_size_bytes: 1024,
+  });
 }
 
-function rom(files: unknown[]): DetailedRom {
-  return makeDetailedRom({ id: 7, files: files as DetailedRom["files"] });
+function rom(files: RomFileSchema[]): DetailedRom {
+  return detailedRomFixture({ id: 7, files });
 }
 
 describe("isAudioFile", () => {

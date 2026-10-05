@@ -1,6 +1,7 @@
-import { useLocalStorage, usePreferredLanguages } from "@vueuse/core";
+import { usePreferredLanguages } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, watch } from "vue";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import i18n, { loadLocale } from "@/locales";
 import storeLanguage from "@/stores/language";
 
@@ -18,7 +19,7 @@ export function useDetectedLanguage() {
 export function useBrowserLocale() {
   const languageStore = storeLanguage();
   const { languages } = storeToRefs(languageStore);
-  const storedLocale = useLocalStorage("settings.locale", "");
+  const storedLocale = useUserLocalStorage("settings.locale", "");
   const detectedLanguage = useDetectedLanguage();
 
   const language = computed(

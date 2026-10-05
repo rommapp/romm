@@ -9,6 +9,7 @@ import { useDisplay } from "vuetify";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import AssetCard from "@/components/common/Game/AssetCard.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
+import { userStorage } from "@/composables/useUserLocalStorage";
 import { ROUTES } from "@/plugins/router";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
@@ -228,16 +229,16 @@ onMounted(async () => {
     selectedState.value = null;
   }
 
-  const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
+  const storedDisc = userStorage.getItem(`player:${rom.value.id}:disc`);
   const storedDiscId = storedDisc ? parseInt(storedDisc) : null;
   if (storedDiscId && rom.value.files.some((f) => f.id === storedDiscId)) {
     selectedDisc.value = storedDiscId;
   } else {
-    if (storedDisc) localStorage.removeItem(`player:${rom.value.id}:disc`);
+    if (storedDisc) userStorage.removeItem(`player:${rom.value.id}:disc`);
     selectedDisc.value = rom.value.files[0]?.id ?? null;
   }
 
-  const storedCore = localStorage.getItem(
+  const storedCore = userStorage.getItem(
     `player:${rom.value.platform_slug}:core`,
   );
   if (storedCore) {
@@ -248,7 +249,7 @@ onMounted(async () => {
   }
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
-  const storedBiosID = localStorage.getItem(
+  const storedBiosID = userStorage.getItem(
     `player:${rom.value.platform_slug}:bios_id`,
   );
 

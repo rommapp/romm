@@ -1,6 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetailedRomSchema, RomArchiveMember } from "@/__generated__";
+import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
 import PatcherTab from "./PatcherTab.vue";
 
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
@@ -71,7 +72,7 @@ const archiveMembers: RomArchiveMember[] = [
 ];
 
 function rom(): DetailedRomSchema {
-  return {
+  return detailedRomFixture({
     id: 1,
     name: "Super Metroid",
     fs_name: "Super Metroid.zip",
@@ -81,22 +82,22 @@ function rom(): DetailedRomSchema {
     platform_display_name: "Super Nintendo Entertainment System",
     missing_from_fs: false,
     files: [
-      {
+      romFileFixture({
         id: 10,
         category: "game",
         file_name: "Super Metroid.zip",
         file_size_bytes: 100,
         archive_members: archiveMembers,
-      },
-      {
+      }),
+      romFileFixture({
         id: 11,
         category: "patch",
         file_name: "translation.bps",
         file_size_bytes: 10,
         archive_members: null,
-      },
+      }),
     ],
-  } as DetailedRomSchema;
+  });
 }
 
 describe("PatcherTab", () => {

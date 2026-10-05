@@ -1745,6 +1745,15 @@ async def scan_rom(
     return Rom(**rom_attrs)
 
 
+# The provider columns that store media, highest priority first: the order
+# their files land in shared paths.
+MEDIA_PROVIDERS: Final[tuple[tuple[str, str, Callable[[str], str] | None], ...]] = (
+    ("ss_metadata", MetadataSource.SS, add_ss_auth_to_url),
+    ("gamelist_metadata", MetadataSource.GAMELIST, None),
+    ("launchbox_metadata", MetadataSource.LAUNCHBOX, None),
+)
+
+
 async def download_rom_resources(
     added_rom: Rom,
     previous_url_cover: str | None,
@@ -1767,12 +1776,7 @@ async def download_rom_resources(
     screenshots_changed = url_screenshots != (previous_url_screenshots or [])
 
     preferred_media_types = get_preferred_media_types()
-    # Highest priority first, the order their files land in shared paths.
-    providers: tuple[tuple[str, str, Callable[[str], str] | None], ...] = (
-        ("ss_metadata", MetadataSource.SS, add_ss_auth_to_url),
-        ("gamelist_metadata", MetadataSource.GAMELIST, None),
-        ("launchbox_metadata", MetadataSource.LAUNCHBOX, None),
-    )
+    providers = MEDIA_PROVIDERS
     provider_media: list[tuple[str, dict[str, Any], Callable[[str], str] | None]] = [
         (column, metadata, url_transform)
         for column, source, url_transform in providers
@@ -1851,6 +1855,41 @@ async def download_rom_resources(
     for outcome in outcomes:
         if isinstance(outcome, BaseException):
             raise outcome
+
+
+async def refresh_provider_media(
+    rom: Rom, pending: Mapping[str, dict[str, Any] | None]
+) -> dict[str, dict[str, Any]]:
+    """Bring a rom's provider media in line with re-matched metadata.
+
+    Args:
+        rom: The rom, still holding each provider's stored metadata.
+        pending: The metadata about to be stored, keyed like ``ss_metadata``;
+            a provider left out keeps what the rom holds.
+
+    Returns:
+        The dicts whose paths were cleared because their media didn't land.
+    """
+    preferred_media_types = get_preferred_media_types()
+    current = [
+        pending[column] if column in pending else getattr(rom, column)
+        for column, *_ in MEDIA_PROVIDERS
+    ]
+    await fs_resource_handler.remove_stale_media(
+        [getattr(rom, column) for column, *_ in MEDIA_PROVIDERS],
+        current,
+        preferred_media_types,
+    )
+
+    updates: dict[str, dict[str, Any]] = {}
+    for (column, _source, url_transform), metadata in zip(
+        MEDIA_PROVIDERS, current, strict=True
+    ):
+        if metadata and await fs_resource_handler.store_metadata_media(
+            metadata, preferred_media_types, url_transform
+        ):
+            updates[column] = metadata
+    return updates
 
 
 class ScannedAsset(TypedDict):

@@ -55,6 +55,7 @@ from models.rom import (
     RomFileCategory,
 )
 from utils.archives import is_compressed_file
+from utils.datetime import format_utc
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.router import APIRouter
 
@@ -252,7 +253,7 @@ async def tinfoil_index_feed(
             )
             for rom in roms
             for rom_file in rom.files
-            if rom_file.file_extension in ["xci", "nsp", "nsz", "xcz", "nro"]
+            if rom_file.file_extension.lower() in ["xci", "nsp", "nsz", "xcz", "nro"]
         ],
         directories=[],
         success=TINFOIL_WELCOME_MESSAGE,
@@ -558,7 +559,7 @@ def format_release_date(timestamp: int | None) -> str | None:
     if not timestamp:
         return None
 
-    return datetime.fromtimestamp(timestamp / 1000).strftime("%m-%d-%Y")
+    return format_utc(timestamp, "%m-%d-%Y")
 
 
 FPKGI_CATEGORY_LABELS: dict[RomFileCategory, str] = {

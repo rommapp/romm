@@ -3,6 +3,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import RandomPickWidget from "./RandomPickWidget.vue";
 
 const { getRandomRom, snackbarError } = vi.hoisted(() => ({
@@ -49,7 +50,7 @@ vi.mock("./WidgetCard.vue", () => ({
 }));
 
 function rom(overrides: Partial<SimpleRom> = {}): SimpleRom {
-  return {
+  return romFixture({
     id: 42,
     name: "Chrono Trigger",
     fs_name: "chrono-trigger.sfc",
@@ -58,7 +59,7 @@ function rom(overrides: Partial<SimpleRom> = {}): SimpleRom {
     regions: ["USA"],
     is_identified: true,
     ...overrides,
-  } as SimpleRom;
+  });
 }
 
 function mountWidget() {

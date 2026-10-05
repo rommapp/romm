@@ -19,11 +19,11 @@
 //   * miximage_path → 1/1   mix image     (contain; hover video overlay)
 //   * miximage_v2_path → 1/1   mix image v2  (contain; hover video overlay)
 //
-// Alt-art paths come from `ss_metadata` (preferred) or `gamelist_metadata`
-// and are relative to `FRONTEND_RESOURCES_PATH`. The local cover chain
-// (`path_cover_large` → `path_cover_small`) gets a webp rewrite when the
-// server serves webp; alt-art / explicit override URLs are treated as
-// final.
+// Alt-art paths come from `ss_metadata` (preferred), `gamelist_metadata` or,
+// for the 3D box, `launchbox_metadata`, and are relative to
+// `FRONTEND_RESOURCES_PATH`. The local cover chain (`path_cover_large` →
+// `path_cover_small`) gets a webp rewrite when the server serves webp;
+// alt-art / explicit override URLs are treated as final.
 //
 //   const art = useCoverArt(() => props.rom);
 //   <img :src="art.coverUrl.value" :style="{ objectFit: art.objectFit.value }" />
@@ -66,6 +66,7 @@ export type CoverArtRom = Pick<
   SimpleRom,
   | "ss_metadata"
   | "gamelist_metadata"
+  | "launchbox_metadata"
   | "path_cover_large"
   | "path_cover_small"
   | "url_cover"
@@ -132,16 +133,21 @@ export function useBoxartStyle(
   );
 }
 
-/** Relative metadata path for an alt-art style, preferring ScreenScraper
- *  over the gamelist source. Returns null for `cover_path` (no alt art)
- *  or when neither provider has the asset. */
+/** Relative metadata path for an alt-art style, preferring ScreenScraper,
+ *  then gamelist, then LaunchBox. Returns null for `cover_path` (no alt art)
+ *  or when no provider has the asset. */
 export function altArtPath(
   rom: CoverArtRom,
   style: BoxartStyle,
 ): string | null {
   if (style === "cover_path") return null;
   const key = style satisfies AltBoxartStyle;
-  return rom.ss_metadata?.[key] ?? rom.gamelist_metadata?.[key] ?? null;
+  return (
+    rom.ss_metadata?.[key] ??
+    rom.gamelist_metadata?.[key] ??
+    (key === "box3d_path" ? rom.launchbox_metadata?.box3d_path : null) ??
+    null
+  );
 }
 
 export interface CoverArtDescriptor {

@@ -1,6 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { Platform } from "@/stores/platforms";
+import { platformFixture } from "@/utils/platform.fixtures";
 import SettingsTab from "./SettingsTab.vue";
 
 const { updatePlatform } = vi.hoisted(() => ({
@@ -32,28 +33,13 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 }));
 
 function platform(overrides: Partial<Platform> = {}): Platform {
-  return {
-    id: 1,
+  return platformFixture({
     slug: "fds",
-    fs_slug: "fds",
-    rom_count: 0,
     name: "Family Computer Disk System",
-    igdb_slug: null,
-    moby_slug: null,
-    hltb_slug: null,
-    libretro_slug: null,
     custom_name: "",
     description: null,
-    created_at: "",
-    updated_at: "",
-    fs_size_bytes: 0,
-    is_unidentified: false,
-    is_identified: true,
-    missing_from_fs: false,
-    display_name: "Family Computer Disk System",
-    firmware_count: 0,
     ...overrides,
-  } as Platform;
+  });
 }
 
 function mountTab(p: Platform, valid = true) {

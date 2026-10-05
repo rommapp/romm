@@ -3,10 +3,10 @@ import storeRoms, {
   DETAILED_ROM_CACHE_SIZE,
   type DetailedRom,
 } from "@/stores/roms";
-import { makeDetailedRom, makeRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture, romFixture } from "@/utils/rom.fixtures";
 
 function detailed(id: number, extra: Partial<DetailedRom> = {}) {
-  return makeDetailedRom({ id, name: `Game ${id}`, ...extra });
+  return detailedRomFixture({ id, name: `Game ${id}`, ...extra });
 }
 
 describe("detailed rom cache", () => {
@@ -48,20 +48,20 @@ describe("detailed rom cache", () => {
 
   it("merges a SimpleRom write over the detailed record", () => {
     const roms = storeRoms();
-    roms.cacheDetailedRom(detailed(5, { summary: "detailed" }));
+    roms.cacheDetailedRom(detailed(5, { download_formats: ["iso"] }));
 
-    roms.update(makeRom({ id: 5, name: "Renamed" }));
+    roms.update(romFixture({ id: 5, name: "Renamed" }));
 
     expect(roms.getDetailedRom(5)).toMatchObject({
       name: "Renamed",
-      summary: "detailed",
+      download_formats: ["iso"],
     });
   });
 
   it("caches nothing for a write to a game it doesn't hold", () => {
     const roms = storeRoms();
 
-    roms.mergeIntoDetailedRom(makeRom({ id: 6, name: "Elsewhere" }));
+    roms.mergeIntoDetailedRom(romFixture({ id: 6, name: "Elsewhere" }));
 
     expect(roms.getDetailedRom(6)).toBeNull();
   });

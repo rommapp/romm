@@ -7,7 +7,7 @@ import type {
   PlatformSupport,
   PlatformSupportQuery,
 } from "@/types/rommNative";
-import { makeRom as baseRom } from "@/utils/rom.fixtures";
+import { romFileFixture, romFixture } from "@/utils/rom.fixtures";
 
 const shellPresent = { value: true };
 const fetchPlatformSupport = vi.fn(
@@ -73,8 +73,8 @@ vi.mock("@/utils", () => ({
 
 const { useNativeStore } = await import("@/stores/native");
 
-function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
-  return baseRom({
+function downloadedRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
+  return romFixture({
     name: "Chrono Trigger",
     fs_name: "Chrono Trigger.sfc",
     fs_name_no_ext: "Chrono Trigger",
@@ -84,8 +84,8 @@ function makeRom(overrides: Partial<SimpleRom> = {}): SimpleRom {
     has_file_on_disk: true,
     // As a single-rom endpoint answers. A gallery card passes `files: []`.
     files: [
-      { full_path: "snes/game.sfc", file_size_bytes: 4194304 },
-    ] as SimpleRom["files"],
+      romFileFixture({ full_path: "snes/game.sfc", file_size_bytes: 4194304 }),
+    ],
     ...overrides,
   });
 }
@@ -236,7 +236,7 @@ describe("useNativeStore.launch", () => {
   it("names the game, its cores and where the server keeps it", async () => {
     const store = useNativeStore();
 
-    await store.launch(makeRom());
+    await store.launch(downloadedRom());
 
     expect(launchNative).toHaveBeenCalledWith({
       romId: 1,
@@ -255,7 +255,7 @@ describe("useNativeStore.launch", () => {
   it("puts the chosen core first and keeps the rest behind it", async () => {
     const store = useNativeStore();
 
-    await store.launch(makeRom(), { core: "bsnes" });
+    await store.launch(downloadedRom(), { core: "bsnes" });
 
     expect(launchNative.mock.calls[0]?.[0].cores).toEqual(["bsnes", "snes9x"]);
   });
@@ -263,7 +263,7 @@ describe("useNativeStore.launch", () => {
   it("names a chosen core once, however the platform lists it", async () => {
     const store = useNativeStore();
 
-    await store.launch(makeRom(), { core: "snes9x" });
+    await store.launch(downloadedRom(), { core: "snes9x" });
 
     expect(launchNative.mock.calls[0]?.[0].cores).toEqual(["snes9x"]);
   });
@@ -271,10 +271,10 @@ describe("useNativeStore.launch", () => {
   it("asks for a display mode only when the page answered", async () => {
     const store = useNativeStore();
 
-    await store.launch(makeRom(), { fullscreen: true });
+    await store.launch(downloadedRom(), { fullscreen: true });
     expect(launchNative.mock.calls[0]?.[0].fullscreen).toBe(true);
 
-    await store.launch(makeRom());
+    await store.launch(downloadedRom());
     // Absent rather than false: a launch with nothing to say leaves the
     // emulator's own configuration to decide.
     expect(launchNative.mock.calls[1]?.[0]).not.toHaveProperty("fullscreen");
@@ -283,18 +283,18 @@ describe("useNativeStore.launch", () => {
   it("asks for a disc only when the page picked one", async () => {
     const store = useNativeStore();
 
-    await store.launch(makeRom(), { disc: 102 });
+    await store.launch(downloadedRom(), { disc: 102 });
     expect(launchNative.mock.calls[0]?.[0].disc).toBe(102);
 
-    await store.launch(makeRom(), { disc: "all" });
+    await store.launch(downloadedRom(), { disc: "all" });
     expect(launchNative.mock.calls[1]?.[0].disc).toBe("all");
 
     // A rom with one file has no disc to pick, and the shell looking for a set
     // it does not have is the launch it performs anyway.
-    await store.launch(makeRom(), { disc: null });
+    await store.launch(downloadedRom(), { disc: null });
     expect(launchNative.mock.calls[2]?.[0]).not.toHaveProperty("disc");
 
-    await store.launch(makeRom());
+    await store.launch(downloadedRom());
     expect(launchNative.mock.calls[3]?.[0]).not.toHaveProperty("disc");
   });
 
@@ -303,7 +303,7 @@ describe("useNativeStore.launch", () => {
   it("sends the name the endpoint will serve, not the rom's own", async () => {
     const store = useNativeStore();
 
-    await store.launch(makeRom({ fs_name: "Art Of Fighting" }));
+    await store.launch(downloadedRom({ fs_name: "Art Of Fighting" }));
 
     expect(launchNative.mock.calls[0]?.[0].fileName).toBe("served-name.sfc");
   });
@@ -313,7 +313,7 @@ describe("useNativeStore.launch", () => {
   it("builds the download path from the rom it fetched the files for", async () => {
     const store = useNativeStore();
 
-    await store.launch(makeRom({ files: [] }));
+    await store.launch(downloadedRom({ files: [] }));
 
     expect(launchNative.mock.calls[0]?.[0].downloadPath).toBe(
       "/api/roms/1/content/inner.sfc",
@@ -327,10 +327,10 @@ describe("useNativeStore.launch", () => {
     const store = useNativeStore();
 
     const refusal = await store.launch(
-      makeRom({
+      downloadedRom({
         files: [],
         has_nested_single_file: true,
-      } as Partial<SimpleRom>),
+      }),
     );
 
     expect(refusal).toBeTruthy();
@@ -342,7 +342,7 @@ describe("useNativeStore.launch", () => {
     getRom.mockRejectedValueOnce(new Error("offline"));
     const store = useNativeStore();
 
-    const refusal = await store.launch(makeRom({ files: [] }));
+    const refusal = await store.launch(downloadedRom({ files: [] }));
 
     expect(refusal).toBeNull();
     expect(launchNative).toHaveBeenCalledTimes(1);
@@ -354,7 +354,7 @@ describe("useNativeStore.launch", () => {
     soleFile.value = null;
     const store = useNativeStore();
 
-    await store.launch(makeRom());
+    await store.launch(downloadedRom());
 
     const request = launchNative.mock.calls[0]?.[0];
     expect(request?.serverPath).toBeUndefined();
@@ -366,7 +366,7 @@ describe("useNativeStore.launch", () => {
   it("fetches the file entries a gallery card's rom does not carry", async () => {
     const store = useNativeStore();
 
-    await store.launch(makeRom({ files: [] }));
+    await store.launch(downloadedRom({ files: [] }));
 
     expect(getRom).toHaveBeenCalledWith({ romId: 1 });
     // The fetched entries are what passthrough is then built from.
@@ -376,7 +376,7 @@ describe("useNativeStore.launch", () => {
   it("asks for nothing when the rom already carries its files", async () => {
     const store = useNativeStore();
 
-    await store.launch(makeRom());
+    await store.launch(downloadedRom());
 
     expect(getRom).not.toHaveBeenCalled();
     expect(launchNative.mock.calls[0]?.[0].serverPath).toBe("snes/game.sfc");
@@ -388,7 +388,7 @@ describe("useNativeStore.launch", () => {
     getRom.mockRejectedValue(new Error("offline"));
     const store = useNativeStore();
 
-    expect(await store.launch(makeRom({ files: [] }))).toBeNull();
+    expect(await store.launch(downloadedRom({ files: [] }))).toBeNull();
     expect(launchNative).toHaveBeenCalledTimes(1);
     expect(launchNative.mock.calls[0]?.[0].serverPath).toBeUndefined();
   });
@@ -396,7 +396,7 @@ describe("useNativeStore.launch", () => {
   it("resolves with nothing to report when the shell takes the launch", async () => {
     const store = useNativeStore();
 
-    expect(await store.launch(makeRom())).toBeNull();
+    expect(await store.launch(downloadedRom())).toBeNull();
   });
 
   // No bridge, a malformed request, or a game already running: the shell
@@ -405,7 +405,9 @@ describe("useNativeStore.launch", () => {
     launchNative.mockRejectedValue(new Error("Chrono Trigger is running."));
     const store = useNativeStore();
 
-    expect(await store.launch(makeRom())).toBe("Chrono Trigger is running.");
+    expect(await store.launch(downloadedRom())).toBe(
+      "Chrono Trigger is running.",
+    );
   });
 
   it("reads the message off a LaunchFailure, which is not an Error", async () => {
@@ -418,7 +420,7 @@ describe("useNativeStore.launch", () => {
     });
     const store = useNativeStore();
 
-    expect(await store.launch(makeRom())).toBe(
+    expect(await store.launch(downloadedRom())).toBe(
       "Chrono Trigger is already running.",
     );
   });
@@ -437,7 +439,7 @@ describe("useNativeStore.launch", () => {
       throw new Error("No RetroArch here.");
     });
 
-    expect(await store.launch(makeRom())).toBeNull();
+    expect(await store.launch(downloadedRom())).toBeNull();
     expect(store.launchStateFor(1)?.error?.code).toBe("emulator-not-found");
   });
 });
@@ -612,7 +614,7 @@ describe("useNativeStore save sync", () => {
       sync: { action: "archived", slot: null },
     });
 
-    await store.launch(makeRom());
+    await store.launch(downloadedRom());
 
     expect(store.syncFor(1)).toBeNull();
   });

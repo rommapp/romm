@@ -5,7 +5,7 @@ import { defineComponent, nextTick, type Slots, type VNodeChild } from "vue";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/v2/components/Player/SaveDataPanel.vue";
 import AssetList from "@/v2/components/shared/AssetList.vue";
@@ -221,7 +221,7 @@ const ARCHIVES = [
 ];
 
 function romWith(saves: SaveSchema[], states: StateSchema[] = []): DetailedRom {
-  return makeDetailedRom({
+  return detailedRomFixture({
     id: 3,
     name: "Archer Maclean's 3D Pool (USA)",
     platform_slug: "gba",
@@ -231,7 +231,6 @@ function romWith(saves: SaveSchema[], states: StateSchema[] = []): DetailedRom {
     user_saves: saves,
     all_user_states: states.map((state) => ({ ...state, username: "admin" })),
     user_screenshots: [],
-    metadatum: {} as DetailedRom["metadatum"],
   });
 }
 

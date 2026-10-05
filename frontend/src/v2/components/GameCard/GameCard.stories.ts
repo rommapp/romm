@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import type { SimpleRom } from "@/stores/roms";
+import { romFixture } from "@/utils/rom.fixtures";
 import GameCard from "./GameCard.vue";
 
-const sampleRom = {
+const sampleRom = romFixture({
   id: 1,
   name: "Super Mario World",
   fs_name_no_ext: "Super Mario World (USA)",
@@ -14,7 +15,7 @@ const sampleRom = {
   url_cover: null,
   regions: ["US"],
   languages: ["en"],
-} as unknown as SimpleRom;
+});
 
 const meta: Meta<typeof GameCard> = {
   title: "Media/GameCard",
@@ -56,16 +57,16 @@ export const Grid: Story = {
     components: { GameCard },
     setup: () => {
       const roms: SimpleRom[] = [
-        { ...sampleRom, id: 1, name: "Super Mario World" } as SimpleRom,
-        { ...sampleRom, id: 2, name: "Chrono Trigger" } as SimpleRom,
+        { ...sampleRom, id: 1, name: "Super Mario World" },
+        { ...sampleRom, id: 2, name: "Chrono Trigger" },
         {
           ...sampleRom,
           id: 3,
           name: "Legend of Zelda: A Link to the Past",
-        } as SimpleRom,
-        { ...sampleRom, id: 4, name: "Earthbound" } as SimpleRom,
-        { ...sampleRom, id: 5, name: "Super Metroid" } as SimpleRom,
-        { ...sampleRom, id: 6, name: "F-Zero" } as SimpleRom,
+        },
+        { ...sampleRom, id: 4, name: "Earthbound" },
+        { ...sampleRom, id: 5, name: "Super Metroid" },
+        { ...sampleRom, id: 6, name: "F-Zero" },
       ];
       return { roms };
     },

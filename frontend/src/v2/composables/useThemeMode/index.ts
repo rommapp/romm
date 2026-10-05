@@ -9,10 +9,11 @@
 //
 // Module-level singleton refs: every consumer shares the same
 // localStorage and media-query listeners.
-import { useLocalStorage, usePreferredDark } from "@vueuse/core";
+import { usePreferredDark } from "@vueuse/core";
 import { computed, type ComputedRef } from "vue";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 
-const themeSetting = useLocalStorage<"auto" | "dark" | "light">(
+const themeSetting = useUserLocalStorage<"auto" | "dark" | "light">(
   "settings.theme",
   "dark",
 );

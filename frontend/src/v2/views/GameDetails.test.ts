@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { defineComponent, type Ref, ref } from "vue";
 import type { RAGameRomAchievement } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
-import { makeDetailedRom } from "@/utils/rom.fixtures";
+import { detailedRomFixture } from "@/utils/rom.fixtures";
 import GameDetails from "./GameDetails.vue";
 
 const { route, routeRom, panel } = vi.hoisted(() => ({
@@ -116,7 +116,7 @@ const achievement: RAGameRomAchievement = {
 };
 
 function romWith(achievements: RAGameRomAchievement[] | null): DetailedRom {
-  return makeDetailedRom({
+  return detailedRomFixture({
     ra_id: achievements ? 10210 : null,
     merged_ra_metadata: achievements ? { achievements } : null,
   });
