@@ -36,7 +36,6 @@ from sqlalchemy.orm import (
     Session,
     joinedload,
     load_only,
-    noload,
     raiseload,
     selectinload,
     undefer,
@@ -978,10 +977,10 @@ class DBRomsHandler(DBBaseHandler):
         """Get multiple ROMs by their RetroAchievements IDs in a single query."""
         if not ra_ids:
             return []
-        # The sync only reads `id`/`ra_id`, so skip joined `platform`/`metadatum`.
+        # The sync only reads `id`/`ra_id`, so block joined `platform`/`metadatum`.
         return session.scalars(
             select(Rom)
-            .options(noload(Rom.platform), noload(Rom.metadatum))
+            .options(raiseload(Rom.platform), raiseload(Rom.metadatum))
             .filter(Rom.ra_id.in_(ra_ids))
         ).all()
 
@@ -996,11 +995,11 @@ class DBRomsHandler(DBBaseHandler):
         """Get `{rom_id: RomUser}` for one user over many ROMs in a single query."""
         if not rom_ids:
             return {}
-        # Callers only read `rom_id`/`status`/`id`, so skip joined `rom`/`user`
+        # Callers only read `rom_id`/`status`/`id`, so block joined `rom`/`user`
         # (`rom` would pull `platform`/`metadatum` per row otherwise).
         rows = session.scalars(
             select(RomUser)
-            .options(noload(RomUser.rom), noload(RomUser.user))
+            .options(raiseload(RomUser.rom), raiseload(RomUser.user))
             .filter(RomUser.user_id == user_id, RomUser.rom_id.in_(rom_ids))
         ).all()
         return {row.rom_id: row for row in rows}

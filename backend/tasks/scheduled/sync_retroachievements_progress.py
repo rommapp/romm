@@ -71,6 +71,9 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
     # match and sync each of them below.
     roms_by_ra_id: dict[int, list[Rom]] = {}
     for rom in db_rom_handler.get_roms_by_ra_ids(list(desired)):
+        # `IN` already excludes NULLs; this also narrows the type for mypy.
+        if rom.ra_id is None:
+            continue
         roms_by_ra_id.setdefault(rom.ra_id, []).append(rom)
 
     if not roms_by_ra_id:

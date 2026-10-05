@@ -1140,15 +1140,11 @@ class TestRaBatchReads:
     def test_get_roms_by_ra_ids_empty_input_short_circuits(self):
         assert db_rom_handler.get_roms_by_ra_ids([]) == []
 
-    def test_get_rom_users_by_rom_ids_scopes_to_user(
-        self, rom: Rom, admin_user: User, editor_user: User
-    ):
-        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    def test_get_rom_users_by_rom_ids_scopes_to_user(self, rom: Rom, editor_user: User):
+        # The `rom` fixture already links this ROM to the admin user.
         db_rom_handler.add_rom_user(rom_id=rom.id, user_id=editor_user.id)
 
-        rows = db_rom_handler.get_rom_users_by_rom_ids(
-            editor_user.id, [rom.id]
-        )
+        rows = db_rom_handler.get_rom_users_by_rom_ids(editor_user.id, [rom.id])
 
         assert set(rows) == {rom.id}
         assert rows[rom.id].user_id == editor_user.id
@@ -1161,12 +1157,11 @@ class TestRaBatchReads:
     def test_batched_rows_readable_after_session_close(
         self, rom: Rom, admin_user: User
     ):
-        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-
+        # The `rom` fixture already links this ROM to the admin user.
         rows = db_rom_handler.get_rom_users_by_rom_ids(admin_user.id, [rom.id])
 
         # The getter's session is closed on return and relations are
-        # `noload`ed, so only column reads may be touched here.
+        # `raiseload`-blocked, so only column reads may be touched here.
         assert rows[rom.id].id is not None
         assert rows[rom.id].rom_id == rom.id
         assert rows[rom.id].user_id == admin_user.id

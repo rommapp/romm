@@ -423,9 +423,7 @@ class TestSyncRetroAchievementsProgressTask:
             mock_rom.id = rom.id + i
             mock_rom.ra_id = ra_id
             mock_roms.append(mock_rom)
-        mocker.patch.object(
-            DBRomsHandler, "get_roms_by_ra_ids", return_value=mock_roms
-        )
+        mocker.patch.object(DBRomsHandler, "get_roms_by_ra_ids", return_value=mock_roms)
         mock_rom_users = []
         for mock_rom in mock_roms:
             mock_rom_user = MagicMock(spec=RomUser)
