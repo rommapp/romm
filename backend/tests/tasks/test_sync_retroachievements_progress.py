@@ -163,13 +163,18 @@ class TestSyncRetroAchievementsProgressTask:
         )
         mock_rom = MagicMock()
         mock_rom.id = rom.id
+        mock_rom.ra_id = ra_id
         mocker.patch.object(
-            DBRomsHandler, "get_rom_by_metadata_id", return_value=mock_rom
+            DBRomsHandler, "get_roms_by_ra_ids", return_value=[mock_rom]
         )
         mock_rom_user = MagicMock(spec=RomUser)
         mock_rom_user.id = 1
         mock_rom_user.status = None
-        mocker.patch.object(DBRomsHandler, "get_rom_user", return_value=mock_rom_user)
+        mocker.patch.object(
+            DBRomsHandler,
+            "get_rom_users_by_rom_ids",
+            return_value={mock_rom.id: mock_rom_user},
+        )
         mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
 
         await task.run()
@@ -203,14 +208,19 @@ class TestSyncRetroAchievementsProgressTask:
         )
         mock_rom = MagicMock()
         mock_rom.id = rom.id
+        mock_rom.ra_id = ra_id
         mocker.patch.object(
-            DBRomsHandler, "get_rom_by_metadata_id", return_value=mock_rom
+            DBRomsHandler, "get_roms_by_ra_ids", return_value=[mock_rom]
         )
         mock_rom_user = MagicMock(spec=RomUser)
         mock_rom_user.id = 1
         # Previously INCOMPLETE (set by an earlier sync), now mastered in RA
         mock_rom_user.status = RomUserStatus.INCOMPLETE
-        mocker.patch.object(DBRomsHandler, "get_rom_user", return_value=mock_rom_user)
+        mocker.patch.object(
+            DBRomsHandler,
+            "get_rom_users_by_rom_ids",
+            return_value={mock_rom.id: mock_rom_user},
+        )
         mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
 
         await task.run()
@@ -244,13 +254,18 @@ class TestSyncRetroAchievementsProgressTask:
         )
         mock_rom = MagicMock()
         mock_rom.id = rom.id
+        mock_rom.ra_id = ra_id
         mocker.patch.object(
-            DBRomsHandler, "get_rom_by_metadata_id", return_value=mock_rom
+            DBRomsHandler, "get_roms_by_ra_ids", return_value=[mock_rom]
         )
         mock_rom_user = MagicMock(spec=RomUser)
         mock_rom_user.id = 1
         mock_rom_user.status = RomUserStatus.COMPLETED_100  # Already up-to-date
-        mocker.patch.object(DBRomsHandler, "get_rom_user", return_value=mock_rom_user)
+        mocker.patch.object(
+            DBRomsHandler,
+            "get_rom_users_by_rom_ids",
+            return_value={mock_rom.id: mock_rom_user},
+        )
         mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
 
         await task.run()
@@ -282,13 +297,18 @@ class TestSyncRetroAchievementsProgressTask:
         )
         mock_rom = MagicMock()
         mock_rom.id = rom.id
+        mock_rom.ra_id = ra_id
         mocker.patch.object(
-            DBRomsHandler, "get_rom_by_metadata_id", return_value=mock_rom
+            DBRomsHandler, "get_roms_by_ra_ids", return_value=[mock_rom]
         )
         mock_rom_user = MagicMock(spec=RomUser)
         mock_rom_user.id = 1
         mock_rom_user.status = None
-        mocker.patch.object(DBRomsHandler, "get_rom_user", return_value=mock_rom_user)
+        mocker.patch.object(
+            DBRomsHandler,
+            "get_rom_users_by_rom_ids",
+            return_value={mock_rom.id: mock_rom_user},
+        )
         mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
 
         await task.run()
@@ -316,9 +336,215 @@ class TestSyncRetroAchievementsProgressTask:
         mocker.patch.object(
             RAHandler, "get_user_progression", return_value=user_progression
         )
-        mocker.patch.object(DBRomsHandler, "get_rom_by_metadata_id", return_value=None)
+        mocker.patch.object(DBRomsHandler, "get_roms_by_ra_ids", return_value=[])
+        mock_rom_users = mocker.patch.object(DBRomsHandler, "get_rom_users_by_rom_ids")
         mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
 
         await task.run()
 
         mock_update_rom_user.assert_not_called()
+        mock_rom_users.assert_not_called()
+
+    async def test_run_batches_reads_to_single_calls_per_user(
+        self, task, viewer_user, rom, mocker
+    ):
+        """Two games in one feed issue one batched ROM read and one rom_user read."""
+        ra_ids = [12345, 67890]
+        mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
+        mocker.patch.object(DBUsersHandler, "update_user")
+        user_progression = {
+            "total": 2,
+            "results": [
+                {
+                    "rom_ra_id": ra_id,
+                    "highest_award_kind": RAUserCompletionProgressKind.MASTERED,
+                }
+                for ra_id in ra_ids
+            ],
+        }
+        mocker.patch.object(
+            RAHandler, "get_user_progression", return_value=user_progression
+        )
+        mock_roms = []
+        for i, ra_id in enumerate(ra_ids):
+            mock_rom = MagicMock()
+            mock_rom.id = rom.id + i
+            mock_rom.ra_id = ra_id
+            mock_roms.append(mock_rom)
+        mock_get_roms = mocker.patch.object(
+            DBRomsHandler, "get_roms_by_ra_ids", return_value=mock_roms
+        )
+        mock_rom_user = MagicMock(spec=RomUser)
+        mock_rom_user.id = 1
+        mock_rom_user.status = None
+        mock_get_rom_users = mocker.patch.object(
+            DBRomsHandler,
+            "get_rom_users_by_rom_ids",
+            return_value={mock_roms[0].id: mock_rom_user},
+        )
+        mock_add_rom_user = mocker.patch.object(
+            DBRomsHandler, "add_rom_user", return_value=mock_rom_user
+        )
+        mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
+
+        await task.run()
+
+        mock_get_roms.assert_called_once_with(ra_ids)
+        mock_get_rom_users.assert_called_once()
+        assert mock_get_rom_users.call_args[0][0] == viewer_user.id
+        assert sorted(mock_get_rom_users.call_args[0][1]) == sorted(
+            [mock_rom.id for mock_rom in mock_roms]
+        )
+        mock_add_rom_user.assert_called_once_with(mock_roms[1].id, viewer_user.id)
+        assert mock_update_rom_user.call_count == 2
+
+    async def test_run_dupe_ra_ids_issue_single_write(
+        self, task, viewer_user, rom, mocker
+    ):
+        """Dupe feed entries for one ra_id converge last-wins with one write."""
+        ra_id = 12345
+        mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
+        mocker.patch.object(DBUsersHandler, "update_user")
+        user_progression = {
+            "total": 2,
+            "results": [
+                {
+                    "rom_ra_id": ra_id,
+                    "highest_award_kind": RAUserCompletionProgressKind.MASTERED,
+                },
+                {
+                    "rom_ra_id": ra_id,
+                    "highest_award_kind": RAUserCompletionProgressKind.BEATEN_SOFTCORE,
+                },
+            ],
+        }
+        mocker.patch.object(
+            RAHandler, "get_user_progression", return_value=user_progression
+        )
+        mock_rom = MagicMock()
+        mock_rom.id = rom.id
+        mock_rom.ra_id = ra_id
+        mocker.patch.object(
+            DBRomsHandler, "get_roms_by_ra_ids", return_value=[mock_rom]
+        )
+        mock_rom_user = MagicMock(spec=RomUser)
+        mock_rom_user.id = 1
+        mock_rom_user.status = None
+        mocker.patch.object(
+            DBRomsHandler,
+            "get_rom_users_by_rom_ids",
+            return_value={mock_rom.id: mock_rom_user},
+        )
+        mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
+
+        await task.run()
+
+        mock_update_rom_user.assert_called_once_with(
+            mock_rom_user.id, {"status": RomUserStatus.FINISHED}
+        )
+
+    async def test_run_unknown_award_issues_no_db_calls(
+        self, task, viewer_user, mocker
+    ):
+        """An unrecognised award kind skips the DB entirely."""
+        mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
+        mocker.patch.object(DBUsersHandler, "update_user")
+        user_progression = {
+            "total": 1,
+            "results": [
+                {
+                    "rom_ra_id": 12345,
+                    "highest_award_kind": "unknown_award",
+                }
+            ],
+        }
+        mocker.patch.object(
+            RAHandler, "get_user_progression", return_value=user_progression
+        )
+        mock_get_roms = mocker.patch.object(DBRomsHandler, "get_roms_by_ra_ids")
+        mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
+
+        await task.run()
+
+        mock_get_roms.assert_not_called()
+        mock_update_rom_user.assert_not_called()
+
+    async def test_run_skips_update_for_retired_status(
+        self, task, viewer_user, rom, mocker
+    ):
+        """RETIRED rom_user rows are never overwritten by the sync."""
+        ra_id = 12345
+        mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
+        mocker.patch.object(DBUsersHandler, "update_user")
+        user_progression = {
+            "total": 1,
+            "results": [
+                {
+                    "rom_ra_id": ra_id,
+                    "highest_award_kind": RAUserCompletionProgressKind.MASTERED,
+                }
+            ],
+        }
+        mocker.patch.object(
+            RAHandler, "get_user_progression", return_value=user_progression
+        )
+        mock_rom = MagicMock()
+        mock_rom.id = rom.id
+        mock_rom.ra_id = ra_id
+        mocker.patch.object(
+            DBRomsHandler, "get_roms_by_ra_ids", return_value=[mock_rom]
+        )
+        mock_rom_user = MagicMock(spec=RomUser)
+        mock_rom_user.id = 1
+        mock_rom_user.status = RomUserStatus.RETIRED
+        mocker.patch.object(
+            DBRomsHandler,
+            "get_rom_users_by_rom_ids",
+            return_value={mock_rom.id: mock_rom_user},
+        )
+        mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
+
+        await task.run()
+
+        mock_update_rom_user.assert_not_called()
+
+    async def test_run_creates_missing_rom_user_then_updates(
+        self, task, viewer_user, rom, mocker
+    ):
+        """A missing rom_user row is created with defaults, then updated."""
+        ra_id = 12345
+        mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
+        mocker.patch.object(DBUsersHandler, "update_user")
+        user_progression = {
+            "total": 1,
+            "results": [
+                {
+                    "rom_ra_id": ra_id,
+                    "highest_award_kind": RAUserCompletionProgressKind.MASTERED,
+                }
+            ],
+        }
+        mocker.patch.object(
+            RAHandler, "get_user_progression", return_value=user_progression
+        )
+        mock_rom = MagicMock()
+        mock_rom.id = rom.id
+        mock_rom.ra_id = ra_id
+        mocker.patch.object(
+            DBRomsHandler, "get_roms_by_ra_ids", return_value=[mock_rom]
+        )
+        mocker.patch.object(DBRomsHandler, "get_rom_users_by_rom_ids", return_value={})
+        mock_rom_user = MagicMock(spec=RomUser)
+        mock_rom_user.id = 1
+        mock_rom_user.status = None
+        mock_add_rom_user = mocker.patch.object(
+            DBRomsHandler, "add_rom_user", return_value=mock_rom_user
+        )
+        mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
+
+        await task.run()
+
+        mock_add_rom_user.assert_called_once_with(rom.id, viewer_user.id)
+        mock_update_rom_user.assert_called_once_with(
+            mock_rom_user.id, {"status": RomUserStatus.COMPLETED_100}
+        )

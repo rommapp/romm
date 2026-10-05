@@ -50,6 +50,7 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
     changes (e.g. beating a previously-incomplete game) are reflected on every
     sync run.
     """
+    desired: dict[int, RomUserStatus] = {}
     for game_progression in user_progression.get("results", []):
         rom_ra_id = game_progression.get("rom_ra_id")
         if not rom_ra_id:
@@ -61,11 +62,26 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
         if new_status is None:
             continue
 
-        rom = db_rom_handler.get_rom_by_metadata_id(ra_id=rom_ra_id)
-        if not rom:
+        desired[rom_ra_id] = new_status
+
+    if not desired:
+        return
+
+    roms_by_ra_id = {
+        rom.ra_id: rom
+        for rom in db_rom_handler.get_roms_by_ra_ids(list(desired))
+        if rom.ra_id is not None
+    }
+    rom_users = db_rom_handler.get_rom_users_by_rom_ids(
+        user.id, [rom.id for rom in roms_by_ra_id.values()]
+    )
+
+    for rom_ra_id, new_status in desired.items():
+        rom = roms_by_ra_id.get(rom_ra_id)
+        if rom is None:
             continue
 
-        rom_user = db_rom_handler.get_rom_user(rom.id, user.id)
+        rom_user = rom_users.get(rom.id)
         if rom_user is None:
             rom_user = db_rom_handler.add_rom_user(rom.id, user.id)
 

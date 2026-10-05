@@ -967,6 +967,36 @@ class DBRomsHandler(DBBaseHandler):
             return []
         return session.scalars(query.filter(Rom.id.in_(ids))).all()
 
+    @begin_session
+    def get_roms_by_ra_ids(
+        self,
+        ra_ids: Sequence[int],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[Rom]:
+        """Get multiple ROMs by their RetroAchievements IDs in a single query."""
+        if not ra_ids:
+            return []
+        return session.scalars(select(Rom).filter(Rom.ra_id.in_(ra_ids))).all()
+
+    @begin_session
+    def get_rom_users_by_rom_ids(
+        self,
+        user_id: int,
+        rom_ids: Sequence[int],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> dict[int, RomUser]:
+        """Get `{rom_id: RomUser}` for one user over many ROMs in a single query."""
+        if not rom_ids:
+            return {}
+        rows = session.scalars(
+            select(RomUser).filter(
+                RomUser.user_id == user_id, RomUser.rom_id.in_(rom_ids)
+            )
+        ).all()
+        return {row.rom_id: row for row in rows}
+
     def get_files_for_roms(
         self,
         rom_ids: list[int],
