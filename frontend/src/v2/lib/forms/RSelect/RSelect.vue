@@ -1199,8 +1199,6 @@ const describedBy = computed(() => {
             <!-- eslint-enable vuejs-accessibility/no-autofocus -->
           </div>
 
-          <!-- The list is the listbox, so its options are its own children
-               and the search field stays outside it. -->
           <ul
             class="r-select__list"
             role="listbox"

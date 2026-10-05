@@ -89,7 +89,6 @@ const emit = defineEmits<{
 }>();
 
 const slots = useSlots();
-// The header names the panel for screen readers.
 const headerId = useId();
 
 const labels = useChromeLabels();
