@@ -1,5 +1,10 @@
 from pydantic import ConfigDict, Field, computed_field, field_validator
 
+from handler.metadata.platform_names import (
+    platform_abbreviation,
+    platform_alternative_names,
+)
+
 from .base import BaseModel, UTCDatetime
 from .firmware import FirmwareSchema
 
@@ -45,6 +50,16 @@ class PlatformSchema(BaseModel):
     @property
     def display_name(self) -> str:
         return self.custom_name or self.name
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def abbreviation(self) -> str:
+        return platform_abbreviation(self.slug)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def alternative_names(self) -> list[str]:
+        return list(platform_alternative_names(self.slug))
 
     # Counts every row like `rom_count` does; callers wanting only usable
     # BIOS filter the `firmware` list that ships alongside it.

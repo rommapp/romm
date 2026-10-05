@@ -15,6 +15,7 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
+from handler.metadata.platform_names import resolve_platform_name
 from models.platform import Platform
 from utils.platform_aliases import resolve_platform_slug
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -64,16 +65,7 @@ def _build_unmatched_platform(slug: str, fs_slug: str, now: datetime) -> Platfor
             or hasheous_platform.get("tgdb_id")
             or tgdb_platform.get("tgdb_id")
             or None,
-            "name": igdb_platform.get("name")
-            or ss_platform.get("name")
-            or moby_platform.get("name")
-            or ra_platform.get("name")
-            or launchbox_platform.get("name")
-            or hasheous_platform.get("name")
-            or tgdb_platform.get("name")
-            or flashpoint_platform.get("name")
-            or hltb_platform.get("name")
-            or slug.replace("-", " ").title(),
+            "name": resolve_platform_name(slug),
             "url_logo": igdb_platform.get("url_logo")
             or tgdb_platform.get("url_logo")
             or "",

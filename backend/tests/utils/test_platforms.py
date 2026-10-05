@@ -56,3 +56,12 @@ def test_supported_platform_sharing_ss_id_keeps_its_own_name():
 
     assert supported["c128"].name == "Commodore 128"
     assert supported["videopac-g7400"].name == "Videopac+ G7400"
+
+
+def test_scanned_platform_carries_other_providers_names():
+    make_platform("genesis", name="Sega Mega Drive/Genesis")
+
+    genesis = next(p for p in get_supported_platforms() if p.slug == "genesis")
+
+    assert genesis.id != -1
+    assert "Megadrive" in genesis.alternative_names

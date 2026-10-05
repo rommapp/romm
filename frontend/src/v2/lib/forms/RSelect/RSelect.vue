@@ -111,8 +111,10 @@ interface Props {
   /** Accent for focus + selected items. Defaults to brand-primary. */
   color?: string;
   /** Adds a sticky search input at the top of the panel that filters
-   *  items locally by title. */
+   *  items locally by title and `itemSearchTerms`. */
   searchable?: boolean;
+  /** Extra strings the search matches an item by, besides its title. */
+  itemSearchTerms?: ((item: Item) => readonly string[]) | undefined;
   /** v-model:search: current query string. */
   search?: string;
   searchPlaceholder?: string | undefined;
@@ -182,6 +184,7 @@ const props = withDefaults(defineProps<Props>(), {
   prefixLabel: undefined,
   color: "primary",
   searchable: false,
+  itemSearchTerms: undefined,
   search: "",
   searchPlaceholder: "",
   menuLocation: "bottom",
@@ -272,6 +275,15 @@ const normalisedItems = computed<NormalisedItem[]>(() => {
   }));
 });
 
+// Lowercased title plus `itemSearchTerms` per item, built on the first search.
+const itemSearchIndex = computed<string[][]>(() =>
+  normalisedItems.value.map((it) =>
+    [it.title, ...(props.itemSearchTerms?.(it.raw) ?? [])].map((term) =>
+      term.toLowerCase(),
+    ),
+  ),
+);
+
 // Internal search buffer: RSelect filters from this. The `search`
 // prop is treated as an *optional* controlled source: if the parent
 // binds `v-model:search`, we mirror the prop into internal state on
@@ -296,8 +308,9 @@ const filteredItems = computed<NormalisedItem[]>(() => {
   if (!props.searchable) return normalisedItems.value;
   const q = internalSearch.value.trim().toLowerCase();
   if (!q) return normalisedItems.value;
-  return normalisedItems.value.filter((it) =>
-    it.title.toLowerCase().includes(q),
+  const index = itemSearchIndex.value;
+  return normalisedItems.value.filter((_, i) =>
+    index[i]!.some((term) => term.includes(q)),
   );
 });
 

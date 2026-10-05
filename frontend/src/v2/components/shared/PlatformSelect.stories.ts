@@ -237,10 +237,11 @@ export const PromotedTypingInSearch: Story = {
       await waitFor(() => {
         const rows = menuRowTitles();
         expect(rows).not.toContain("---");
-        const expected = MIXED_PLATFORM_CATALOG.filter((p) =>
-          p.display_name.toLowerCase().includes(searchCharacter),
-        ).map((p) => p.display_name);
-        expect(rows).toEqual(expected);
+        expect(rows).toEqual([
+          "Adventure Game Studio",
+          "Amiga",
+          "Game Boy Advance",
+        ]);
         expect(
           document.querySelectorAll(".r-v2-platsel__rom-badge"),
         ).toHaveLength(0);

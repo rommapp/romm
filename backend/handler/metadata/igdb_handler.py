@@ -9,6 +9,7 @@ from adapters.services.igdb import (
     IGDB_PLATFORM_LIST,
     IGDB_PLATFORM_VERSIONS,
     IGDBService,
+    SlugToIGDB,
 )
 from adapters.services.igdb_types import (
     Game,
@@ -810,6 +811,22 @@ class IGDBHandler(MetadataHandler):
             )
 
         return IGDBPlatform(igdb_id=None, slug=slug)
+
+    def get_platform_aliases(self, slug: str) -> tuple[str, list[str]]:
+        """The platform's abbreviation and alternative names; a version shares its main platform's."""
+        platform: SlugToIGDB
+        if slug in IGDB_PLATFORM_LIST:
+            platform = IGDB_PLATFORM_LIST[UPS(slug)]
+        elif slug in IGDB_PLATFORM_VERSIONS:
+            platform = IGDB_PLATFORM_LIST[IGDB_PLATFORM_VERSIONS[slug]["platform_slug"]]
+        else:
+            return "", []
+
+        # IGDB packs several names into one, as in "PSX, PSOne, PS".
+        alternative_names = platform.get("alternative_name", "").split(",")
+        return platform.get("abbreviation", ""), [
+            name for name in map(str.strip, alternative_names) if name
+        ]
 
     async def get_rom(self, rom: Rom, fs_name: str, platform_igdb_id: int) -> IGDBRom:
         from handler.filesystem import fs_rom_handler
