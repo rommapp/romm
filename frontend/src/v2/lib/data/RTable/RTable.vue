@@ -30,14 +30,9 @@ import { useTimeoutFn } from "@vueuse/core";
 import { computed, ref, watch } from "vue";
 import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import REmptyState from "../../primitives/REmptyState/REmptyState.vue";
-import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RSkeletonBlock from "../../primitives/RSkeletonBlock/RSkeletonBlock.vue";
-import type {
-  RTableColumn,
-  RTableProps,
-  RTableSortDir,
-  RTableSortPayload,
-} from "./types";
+import RSortHeader from "../RSortHeader/RSortHeader.vue";
+import type { RTableProps, RTableSortPayload } from "./types";
 
 defineOptions({ inheritAttrs: false });
 
@@ -111,15 +106,6 @@ function cellValue(row: T, key: string): unknown {
   return (row as Record<string, unknown>)[key] ?? "";
 }
 
-function handleSort(col: RTableColumn) {
-  if (!col.sortable) return;
-  // Toggle direction when re-clicking the active column; new column
-  // starts at ascending (mirrors VDataTable behaviour).
-  const nextDir: RTableSortDir =
-    props.sortKey === col.key && props.sortDir === "asc" ? "desc" : "asc";
-  emit("update:sort", { key: col.key, dir: nextDir });
-}
-
 const rowStyle = computed(() =>
   props.rowHeight ? { height: props.rowHeight } : undefined,
 );
@@ -149,58 +135,27 @@ watch(
     role="table"
     v-bind="$attrs"
   >
-    <!-- Header row: each column header is a cell `<div>` containing
-         either a sort `<button>` (sortable cols) or a plain label, plus
-         an optional `header.<key>` slot for adornments (e.g. a help
-         icon next to "Type"). The sort button is the only interactive
-         element so adornments stay focusable / clickable on their own
-         without nesting buttons. -->
     <!-- Presentational so rows resolve their role="table" parent (the
          scroll/body divs are layout-only). -->
     <div class="r-table__scroll" :style="scrollStyle" role="presentation">
       <div class="r-table__header" :style="gridStyle" role="row">
-        <div
+        <!-- `header.<key>` adorns a column (e.g. a help button next to
+             "Type") beside the sort button rather than inside it. -->
+        <RSortHeader
           v-for="col in columns"
           :key="col.key"
           class="r-table__header-cell"
-          :class="{
-            'r-table__header-cell--end': col.align === 'end',
-            'r-table__header-cell--center': col.align === 'center',
-          }"
-          role="columnheader"
-          :aria-sort="
-            col.sortable && sortKey === col.key
-              ? sortDir === 'asc'
-                ? 'ascending'
-                : 'descending'
-              : col.sortable
-                ? 'none'
-                : undefined
-          "
+          :label="col.label"
+          :sortable="col.sortable"
+          :active="sortKey === col.key"
+          :dir="sortDir"
+          :align="col.align"
+          @sort="emit('update:sort', { key: col.key, dir: $event })"
         >
-          <button
-            v-if="col.sortable"
-            type="button"
-            class="r-table__header-sort"
-            :class="{
-              'r-table__header-sort--active': sortKey === col.key,
-            }"
-            @click="handleSort(col)"
-          >
-            <span class="r-table__header-label">{{ col.label }}</span>
-            <RIcon
-              v-if="sortKey === col.key"
-              :icon="
-                sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
-              "
-              size="14"
-              class="r-table__header-icon"
-            />
-          </button>
-          <span v-else class="r-table__header-label">{{ col.label }}</span>
-
-          <slot :name="`header.${col.key}`" :column="col" />
-        </div>
+          <template v-if="$slots[`header.${col.key}`]" #append>
+            <slot :name="`header.${col.key}`" :column="col" />
+          </template>
+        </RSortHeader>
       </div>
 
       <!-- Body: skeletons / real rows / empty state, in that order. -->
@@ -333,68 +288,6 @@ watch(
   background: var(--r-color-surface);
   border-bottom: 1px solid var(--r-color-border);
   backdrop-filter: blur(10px);
-}
-
-/* Outer cell: flex container holding the sort button (or static
-   label) and any consumer adornment from the `header.<key>` slot. */
-.r-table__header-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--r-space-1, 4px);
-  min-width: 0;
-  height: 100%;
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs, 10px);
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-.r-table__header-cell--end {
-  justify-content: flex-end;
-  text-align: end;
-}
-.r-table__header-cell--center {
-  justify-content: center;
-  text-align: center;
-}
-
-/* Inner sort button: the only interactive piece in the header. The
-   tint flips to fg on hover/focus/active so the affordance still reads
-   exactly like the previous all-cell button. */
-.r-table__header-sort {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  color: inherit;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--r-space-1, 4px);
-  min-width: 0;
-  cursor: pointer;
-  text-align: inherit;
-  text-transform: inherit;
-  letter-spacing: inherit;
-  border-radius: var(--r-radius-sm);
-  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-table__header-sort:hover,
-.r-table__header-sort:focus-visible {
-  color: var(--r-color-fg);
-}
-.r-table__header-sort--active {
-  color: var(--r-color-fg);
-}
-
-.r-table__header-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-table__header-icon {
-  flex-shrink: 0;
-  color: var(--r-color-brand-primary);
 }
 
 /* ------------------------- Body --------------------------- */

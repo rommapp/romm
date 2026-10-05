@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { ref } from "vue";
+import type { RSortDir } from "../RSortHeader/types";
 import RTable from "./RTable.vue";
-import type { RTableColumn, RTableSortDir, RTableSortPayload } from "./types";
+import type { RTableColumn, RTableSortPayload } from "./types";
 
 // Cast through `Meta` because RTable is a generic component (`<T>`):
 // Vue's compiled type narrows T to `unknown` here, which Storybook's
@@ -196,7 +197,7 @@ export const SortAndRowActivation: Story = {
     components: { RTable },
     setup: () => {
       const sortKey = ref<string | null>("name");
-      const sortDir = ref<RTableSortDir>("asc");
+      const sortDir = ref<RSortDir>("asc");
       function onSort(payload: RTableSortPayload) {
         sortKey.value = payload.key;
         sortDir.value = payload.dir;
