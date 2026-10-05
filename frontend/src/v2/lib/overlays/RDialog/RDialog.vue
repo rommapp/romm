@@ -245,8 +245,8 @@ const panelStyle = computed(() => {
           class="r-dialog__panel"
           role="dialog"
           aria-modal="true"
-          :aria-label="ariaLabel"
-          :aria-labelledby="!ariaLabel && slots.header ? headerId : undefined"
+          :aria-labelledby="slots.header ? headerId : undefined"
+          :aria-label="slots.header ? undefined : ariaLabel"
           tabindex="-1"
           :style="panelStyle"
         >
