@@ -99,4 +99,18 @@ export async function openPage(page: Page, open: Opener) {
   await expect(
     page.getByRole("main").locator(":scope > *").first(),
   ).toBeVisible();
+  // Data-backed views draw RSkeletonBlock placeholders (aria-hidden, so the
+  // class is the only handle) until their content arrives. Virtualized grids
+  // keep them below the fold, so only the viewport has to be clear.
+  await expect
+    .poll(() =>
+      page.locator(".r-skeleton").evaluateAll(
+        (skeletons) =>
+          skeletons.filter((el) => {
+            const { top, bottom } = el.getBoundingClientRect();
+            return bottom > 0 && top < window.innerHeight;
+          }).length,
+      ),
+    )
+    .toBe(0);
 }
