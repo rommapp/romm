@@ -247,6 +247,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/yfdqsudagw0av25dawjr.jpg",
     },
     UPS._3DO: {
+        "abbreviation": "3DO",
+        "alternative_name": "3DO",
         "category": "Console",
         "family_name": "",
         "family_slug": "",
@@ -258,6 +260,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7u.jpg",
     },
     UPS.N3DS: {
+        "abbreviation": "3DS",
+        "alternative_name": "3DS",
         "category": "Portable Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -269,6 +273,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln6.jpg",
     },
     UPS.N64DD: {
+        "abbreviation": "64DD",
+        "alternative_name": "Nintendo 64DD",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -280,6 +286,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj8.jpg",
     },
     UPS.ACORN_ARCHIMEDES: {
+        "abbreviation": "Acorn Archimedes",
         "category": "Computer",
         "family_name": "Acorn",
         "family_slug": "acorn",
@@ -291,6 +298,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plas.jpg",
     },
     UPS.ACORN_ELECTRON: {
+        "abbreviation": "Acorn Electron",
         "category": "Computer",
         "family_name": "Acorn",
         "family_slug": "acorn",
@@ -302,6 +310,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8d.jpg",
     },
     UPS.ACPC: {
+        "abbreviation": "ACPC",
+        "alternative_name": "Colour Personal Computer",
         "category": "Computer",
         "family_name": "Amstrad",
         "family_slug": "amstrad",
@@ -313,6 +323,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnh.jpg",
     },
     UPS.ADVANCED_PICO_BEENA: {
+        "alternative_name": "BeenaLite",
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -335,6 +346,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkq.jpg",
     },
     UPS.AMAZON_FIRE_TV: {
+        "abbreviation": "FireTV",
         "category": "Platform",
         "family_name": "Amazon",
         "family_slug": "amazon",
@@ -346,6 +358,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl91.jpg",
     },
     UPS.AMIGA: {
+        "abbreviation": "Amiga",
+        "alternative_name": "Commodore Amiga",
         "category": "Computer",
         "family_name": "Amiga",
         "family_slug": "amiga",
@@ -357,6 +371,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.AMIGA_CD32: {
+        "abbreviation": "Amiga CD32",
         "category": "Console",
         "family_name": "Amiga",
         "family_slug": "amiga",
@@ -368,6 +383,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7v.jpg",
     },
     UPS.AMSTRAD_GX4000: {
+        "abbreviation": "GX4000",
         "category": "Console",
         "family_name": "Amstrad",
         "family_slug": "amstrad",
@@ -379,6 +395,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plot.jpg",
     },
     UPS.AMSTRAD_PCW: {
+        "abbreviation": "APCW",
         "category": "Computer",
         "family_name": "Amstrad",
         "family_slug": "amstrad",
@@ -390,6 +407,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf7.jpg",
     },
     UPS.ANALOGUEELECTRONICS: {
+        "abbreviation": "analogueelectronics",
         "category": "Console",
         "family_name": "",
         "family_slug": "",
@@ -401,6 +419,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.ANDROID: {
+        "abbreviation": "Android",
+        "alternative_name": "Infocusa3",
         "category": "Operating System",
         "family_name": "",
         "family_slug": "",
@@ -423,6 +443,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl87.jpg",
     },
     UPS.APPLE_PIPPIN: {
+        "alternative_name": "PiPP!N",
         "category": "Console",
         "family_name": "Apple",
         "family_slug": "apple",
@@ -434,6 +455,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnn.jpg",
     },
     UPS.APPLEII: {
+        "abbreviation": "Apple][",
+        "alternative_name": "apple ][",
         "category": "Computer",
         "family_name": "Apple",
         "family_slug": "apple",
@@ -445,6 +468,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8r.jpg",
     },
     UPS.ARCADE: {
+        "abbreviation": "Arcade",
         "category": "Arcade",
         "family_name": "",
         "family_slug": "",
@@ -467,6 +491,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnk.jpg",
     },
     UPS.ARDUBOY: {
+        "abbreviation": "Arduboy",
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
@@ -478,6 +503,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plk6.jpg",
     },
     UPS.ASTROCADE: {
+        "abbreviation": "astrocade",
+        "alternative_name": "Bally Arcade",
         "category": "Console",
         "family_name": "Bally",
         "family_slug": "bally",
@@ -489,6 +516,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.ATARI_JAGUAR_CD: {
+        "alternative_name": "Jag CD",
         "category": "Console",
         "family_name": "Atari",
         "family_slug": "atari",
@@ -500,6 +528,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj4.jpg",
     },
     UPS.ATARI_ST: {
+        "abbreviation": "Atari-ST",
         "category": "Computer",
         "family_name": "Atari",
         "family_slug": "atari",
@@ -511,6 +540,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla7.jpg",
     },
     UPS.ATARI2600: {
+        "abbreviation": "Atari2600",
+        "alternative_name": "Atari VCS",
         "category": "Console",
         "family_name": "Atari",
         "family_slug": "atari",
@@ -522,6 +553,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln4.jpg",
     },
     UPS.ATARI5200: {
+        "abbreviation": "Atari5200",
+        "alternative_name": "Atari 5200 SuperSystem",
         "category": "Console",
         "family_name": "Atari",
         "family_slug": "atari",
@@ -533,6 +566,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8g.jpg",
     },
     UPS.ATARI7800: {
+        "abbreviation": "Atari7800",
+        "alternative_name": "Atari 7800 ProSystem",
         "category": "Console",
         "family_name": "Atari",
         "family_slug": "atari",
@@ -544,6 +579,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8f.jpg",
     },
     UPS.ATARI8BIT: {
+        "abbreviation": "Atari8bit",
         "category": "Computer",
         "family_name": "Atari",
         "family_slug": "atari",
@@ -643,6 +679,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.BBCMICRO: {
+        "abbreviation": "bbcmicro",
+        "alternative_name": "BBC Micro",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -654,6 +692,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl86.jpg",
     },
     UPS.BLACKBERRY: {
+        "abbreviation": "blackberry",
         "category": "Operating System",
         "family_name": "",
         "family_slug": "",
@@ -676,6 +715,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plbv.jpg",
     },
     UPS.BROWSER: {
+        "abbreviation": "browser",
+        "alternative_name": "Internet",
         "category": "Platform",
         "family_name": "",
         "family_slug": "",
@@ -687,6 +728,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmx.jpg",
     },
     UPS.C_PLUS_4: {
+        "abbreviation": "C+4",
         "category": "Computer",
         "family_name": "Commodore",
         "family_slug": "commodore",
@@ -698,6 +740,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8m.jpg",
     },
     UPS.C16: {
+        "abbreviation": "C16",
+        "alternative_name": "C16",
         "category": "Computer",
         "family_name": "Commodore",
         "family_slug": "commodore",
@@ -709,6 +753,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf4.jpg",
     },
     UPS.C64: {
+        "abbreviation": "C64",
+        "alternative_name": "C64/C128/MAX",
         "category": "Computer",
         "family_name": "Commodore",
         "family_slug": "commodore",
@@ -720,6 +766,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll3.jpg",
     },
     UPS.CALL_A_COMPUTER: {
+        "abbreviation": "call-a-computer",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -731,6 +778,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.CASIO_LOOPY: {
+        "alternative_name": "Loopy",
         "category": "Console",
         "family_name": "Casio",
         "family_slug": "casio",
@@ -742,6 +790,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkm.jpg",
     },
     UPS.CDCCYBER70: {
+        "abbreviation": "cdccyber70",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -753,6 +802,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plae.jpg",
     },
     UPS.COLECOVISION: {
+        "abbreviation": "colecovision",
+        "alternative_name": "Coleco",
         "category": "Console",
         "family_name": "Coleco",
         "family_slug": "coleco",
@@ -764,6 +815,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8n.jpg",
     },
     UPS.COMMODORE_CDTV: {
+        "alternative_name": "Commodore Dynamic Total Vision",
         "category": "Computer",
         "family_name": "Commodore",
         "family_slug": "commodore",
@@ -775,6 +827,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl84.jpg",
     },
     UPS.CPET: {
+        "abbreviation": "cpet",
         "category": "Computer",
         "family_name": "Commodore",
         "family_slug": "commodore",
@@ -797,6 +850,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/lwbdsvaveyxmuwnsga7g.jpg",
     },
     UPS.DC: {
+        "abbreviation": "DC",
+        "alternative_name": "DC",
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -819,6 +874,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo2.jpg",
     },
     UPS.DONNER30: {
+        "abbreviation": "donner30",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -830,6 +886,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.DOS: {
+        "abbreviation": "DOS",
+        "alternative_name": "PC DOS",
         "category": "Operating System",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
@@ -852,6 +910,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8e.jpg",
     },
     UPS.DVD_PLAYER: {
+        "alternative_name": "Digital Versatile Disc Player",
         "category": "Console",
         "family_name": "",
         "family_slug": "",
@@ -863,6 +922,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plbu.jpg",
     },
     UPS.E_READER_SLASH_CARD_E_READER: {
+        "alternative_name": "Game Boy Advance e-Reader",
         "category": "Portable Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -874,6 +934,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ploy.jpg",
     },
     UPS.EDSAC: {
+        "abbreviation": "edsac",
+        "alternative_name": "Electronic Delay Storage Automatic Calculator",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -885,6 +947,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plat.jpg",
     },
     UPS.ELEKTOR: {
+        "alternative_name": "TVGC",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -907,6 +970,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plko.jpg",
     },
     UPS.EPOCH_SUPER_CASSETTE_VISION: {
+        "alternative_name": "YENO Super Cassette Vision",
         "category": "Console",
         "family_name": "Epoch",
         "family_slug": "epoch",
@@ -918,6 +982,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkn.jpg",
     },
     UPS.EVERCADE: {
+        "abbreviation": "Evercade",
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
@@ -951,6 +1016,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8s.jpg",
     },
     UPS.FAMICOM: {
+        "abbreviation": "famicom",
+        "alternative_name": "Famicom",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -962,6 +1029,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnf.jpg",
     },
     UPS.FDS: {
+        "abbreviation": "fds",
+        "alternative_name": "Famicom Disk System, FDS",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -973,6 +1042,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8b.jpg",
     },
     UPS.FM_7: {
+        "alternative_name": "Fujitsu Micro 7",
         "category": "Computer",
         "family_name": "Fujitsu",
         "family_slug": "fujitsu",
@@ -995,6 +1065,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.G_AND_W: {
+        "abbreviation": "G&W",
+        "alternative_name": "Tricotronic, GW, G&W",
         "category": "Portable Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -1006,6 +1078,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pler.jpg",
     },
     UPS.GAMATE: {
+        "abbreviation": "Gamate",
+        "alternative_name": "Super Boy",
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
@@ -1017,6 +1091,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plhf.jpg",
     },
     UPS.GAME_DOT_COM: {
+        "alternative_name": "Tiger Game.com",
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
@@ -1028,6 +1103,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgk.jpg",
     },
     UPS.GAMEGEAR: {
+        "abbreviation": "Game Gear",
+        "alternative_name": "GG",
         "category": "Portable Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -1039,6 +1116,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7z.jpg",
     },
     UPS.GB: {
+        "abbreviation": "Game Boy",
+        "alternative_name": "GB",
         "category": "Portable Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -1050,6 +1129,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7m.jpg",
     },
     UPS.GBA: {
+        "abbreviation": "GBA",
+        "alternative_name": "GBA",
         "category": "Portable Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -1061,6 +1142,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl74.jpg",
     },
     UPS.GBC: {
+        "abbreviation": "GBC",
+        "alternative_name": "GBC",
         "category": "Portable Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -1072,6 +1155,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7l.jpg",
     },
     UPS.GEAR_VR: {
+        "abbreviation": "Gear VR",
+        "alternative_name": "Samsung Gear VR",
         "category": "Console",
         "family_name": "Samsung",
         "family_slug": "samsung",
@@ -1083,6 +1168,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkj.jpg",
     },
     UPS.GENESIS: {
+        "abbreviation": "Genesis/MegaDrive",
+        "alternative_name": "Sega Genesis",
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -1094,6 +1181,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.GIZMONDO: {
+        "alternative_name": "Gametraq",
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
@@ -1105,6 +1193,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnl.jpg",
     },
     UPS.GT40: {
+        "abbreviation": "gt40",
         "category": "Computer",
         "family_name": "DEC",
         "family_slug": "dec",
@@ -1116,6 +1205,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.HANDHELD_ELECTRONIC_LCD: {
+        "abbreviation": "Handheld",
+        "alternative_name": "Handheld LCD Game",
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
@@ -1127,6 +1218,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.HP2100: {
+        "abbreviation": "hp2100",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -1138,6 +1230,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.HP3000: {
+        "abbreviation": "hp3000",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -1171,6 +1264,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj2.jpg",
     },
     UPS.IMLAC_PDS1: {
+        "abbreviation": "imlac-pds1",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -1182,6 +1276,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.INTELLIVISION: {
+        "abbreviation": "intellivision",
         "category": "Console",
         "family_name": "Mattel",
         "family_slug": "mattel",
@@ -1204,6 +1299,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkp.jpg",
     },
     UPS.IOS: {
+        "abbreviation": "iOS",
         "category": "Operating System",
         "family_name": "Apple",
         "family_slug": "apple",
@@ -1215,6 +1311,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6w.jpg",
     },
     UPS.JAGUAR: {
+        "abbreviation": "Jaguar",
         "category": "Console",
         "family_name": "Atari",
         "family_slug": "atari",
@@ -1237,6 +1334,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo4.jpg",
     },
     UPS.LEAPSTER: {
+        "alternative_name": "Leapster Learning Game System",
         "category": "Portable Console",
         "family_name": "Leapster",
         "family_slug": "leapster",
@@ -1259,6 +1357,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plna.jpg",
     },
     UPS.LEAPTV: {
+        "alternative_name": "LeapTV VCD",
         "category": "Console",
         "family_name": "Leapster",
         "family_slug": "leapster",
@@ -1281,6 +1380,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.LINUX: {
+        "abbreviation": "Linux",
+        "alternative_name": "GNU/Linux",
         "category": "Operating System",
         "family_name": "Linux",
         "family_slug": "linux",
@@ -1292,6 +1393,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plak.jpg",
     },
     UPS.LYNX: {
+        "abbreviation": "Lynx",
         "category": "Portable Console",
         "family_name": "Atari",
         "family_slug": "atari",
@@ -1303,6 +1405,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl82.jpg",
     },
     UPS.MAC: {
+        "abbreviation": "Mac",
+        "alternative_name": "Mac OS",
         "category": "Operating System",
         "family_name": "Apple",
         "family_slug": "apple",
@@ -1314,6 +1418,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo3.jpg",
     },
     UPS.MEGA_DUCK_SLASH_COUGAR_BOY: {
+        "alternative_name": "WG-108",
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
@@ -1325,6 +1430,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj3.jpg",
     },
     UPS.META_QUEST_2: {
+        "abbreviation": "Meta Quest 2",
+        "alternative_name": "Quest 2",
         "category": "Console",
         "family_name": "Meta",
         "family_slug": "meta",
@@ -1336,6 +1443,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll0.jpg",
     },
     UPS.META_QUEST_3: {
+        "abbreviation": "Meta Quest 3",
         "category": "Console",
         "family_name": "Meta",
         "family_slug": "meta",
@@ -1347,6 +1455,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnb.jpg",
     },
     UPS.MICROCOMPUTER: {
+        "abbreviation": "microcomputer",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -1358,6 +1467,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.MICROVISION: {
+        "abbreviation": "microvision",
         "category": "Portable Console",
         "family_name": "Milton Bradley",
         "family_slug": "milton-bradley",
@@ -1369,6 +1479,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8q.jpg",
     },
     UPS.MOBILE: {
+        "abbreviation": "Mobile",
+        "alternative_name": "Legacy Cellphone",
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
@@ -1380,6 +1492,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnd.jpg",
     },
     UPS.MSX: {
+        "abbreviation": "MSX",
         "category": "Computer",
         "family_name": "ASCII",
         "family_slug": "ascii",
@@ -1391,6 +1504,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8j.jpg",
     },
     UPS.MSX2: {
+        "abbreviation": "MSX2",
         "category": "Computer",
         "family_name": "ASCII",
         "family_slug": "ascii",
@@ -1402,6 +1516,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8k.jpg",
     },
     UPS.N64: {
+        "abbreviation": "N64",
+        "alternative_name": "N64",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -1413,6 +1529,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl78.jpg",
     },
     UPS.NDS: {
+        "abbreviation": "NDS",
+        "alternative_name": "NDS",
         "category": "Portable Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -1435,6 +1553,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plaa.jpg",
     },
     UPS.NEO_GEO_CD: {
+        "alternative_name": "NGCD",
         "category": "Console",
         "family_name": "SNK",
         "family_slug": "snk",
@@ -1446,6 +1565,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7t.jpg",
     },
     UPS.NEO_GEO_POCKET: {
+        "alternative_name": "NGP",
         "category": "Portable Console",
         "family_name": "SNK",
         "family_slug": "snk",
@@ -1457,6 +1577,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plau.jpg",
     },
     UPS.NEO_GEO_POCKET_COLOR: {
+        "alternative_name": "NGPC",
         "category": "Portable Console",
         "family_name": "SNK",
         "family_slug": "snk",
@@ -1468,6 +1589,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7h.jpg",
     },
     UPS.NEOGEOAES: {
+        "abbreviation": "neogeoaes",
+        "alternative_name": "AES",
         "category": "Console",
         "family_name": "SNK",
         "family_slug": "snk",
@@ -1479,6 +1602,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/hamfdrgnhenxb2d9g8mh.jpg",
     },
     UPS.NEOGEOMVS: {
+        "abbreviation": "neogeomvs",
+        "alternative_name": "Neo Geo Multi Video System",
         "category": "Arcade",
         "family_name": "SNK",
         "family_slug": "snk",
@@ -1490,6 +1615,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/cbhfilmhdgwdql8nzsy0.jpg",
     },
     UPS.NES: {
+        "abbreviation": "NES",
+        "alternative_name": "NES",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -1501,6 +1628,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmo.jpg",
     },
     UPS.NEW_NINTENDON3DS: {
+        "abbreviation": "New 3DS",
+        "alternative_name": "n3DS",
         "category": "Portable Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -1512,6 +1641,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6j.jpg",
     },
     UPS.NGAGE: {
+        "abbreviation": "NGage",
+        "alternative_name": "NGage",
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
@@ -1523,6 +1654,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl76.jpg",
     },
     UPS.NGC: {
+        "abbreviation": "NGC",
+        "alternative_name": "GCN",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -1534,6 +1667,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7a.jpg",
     },
     UPS.NIMROD: {
+        "abbreviation": "nimrod",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -1567,6 +1701,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7g.jpg",
     },
     UPS.OCULUS_GO: {
+        "alternative_name": "Go",
         "category": "Console",
         "family_name": "Meta",
         "family_slug": "meta",
@@ -1578,6 +1713,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkk.jpg",
     },
     UPS.OCULUS_QUEST: {
+        "alternative_name": "Quest",
         "category": "Console",
         "family_name": "Meta",
         "family_slug": "meta",
@@ -1589,6 +1725,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plh7.jpg",
     },
     UPS.OCULUS_RIFT: {
+        "alternative_name": "Rift",
         "category": "Console",
         "family_name": "Meta",
         "family_slug": "meta",
@@ -1600,6 +1737,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln8.jpg",
     },
     UPS.OCULUS_VR: {
+        "abbreviation": "Oculus VR",
         "category": "Console",
         "family_name": "Meta",
         "family_slug": "meta",
@@ -1611,6 +1749,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pivaofe9ll2b8cqfvvbu.jpg",
     },
     UPS.ODYSSEY: {
+        "abbreviation": "odyssey",
+        "alternative_name": "Magnavox Odyssey; Odysee; Odisea; Odissea",
         "category": "Console",
         "family_name": "Magnavox",
         "family_slug": "magnavox",
@@ -1622,6 +1762,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.ODYSSEY_2: {
+        "alternative_name": "Magnavox Odyssey²",
         "category": "Computer",
         "family_name": "Magnavox",
         "family_slug": "magnavox",
@@ -1633,6 +1774,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/fqwnmmpanb5se6ebccm3.jpg",
     },
     UPS.ONLIVE_GAME_SYSTEM: {
+        "abbreviation": "OnLive",
         "category": "Platform",
         "family_name": "",
         "family_slug": "",
@@ -1655,6 +1797,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgi.jpg",
     },
     UPS.OUYA: {
+        "abbreviation": "Ouya",
         "category": "Console",
         "family_name": "",
         "family_slug": "",
@@ -1666,6 +1809,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6k.jpg",
     },
     UPS.PALM_OS: {
+        "alternative_name": "Garnet OS",
         "category": "Operating System",
         "family_name": "",
         "family_slug": "",
@@ -1721,6 +1865,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf2.jpg",
     },
     UPS.PC_9800_SERIES: {
+        "alternative_name": "PC-98",
         "category": "Computer",
         "family_name": "NEC",
         "family_slug": "nec",
@@ -1743,6 +1888,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf8.jpg",
     },
     UPS.PDP_7: {
+        "abbreviation": "pdp-7",
         "category": "Computer",
         "family_name": "DEC",
         "family_slug": "dec",
@@ -1754,6 +1900,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.PDP_8: {
+        "abbreviation": "pdp-8",
         "category": "Computer",
         "family_name": "DEC",
         "family_slug": "dec",
@@ -1765,6 +1912,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.PDP1: {
+        "abbreviation": "pdp1",
+        "alternative_name": "Programmed Data Processor-1",
         "category": "Computer",
         "family_name": "DEC",
         "family_slug": "dec",
@@ -1776,6 +1925,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.PDP10: {
+        "abbreviation": "pdp10",
         "category": "Computer",
         "family_name": "DEC",
         "family_slug": "dec",
@@ -1787,6 +1937,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.PDP11: {
+        "abbreviation": "pdp11",
         "category": "Computer",
         "family_name": "DEC",
         "family_slug": "dec",
@@ -1798,6 +1949,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.PHILIPS_CD_I: {
+        "abbreviation": "Philips CDI",
         "category": "Console",
         "family_name": "Philips",
         "family_slug": "philips",
@@ -1809,6 +1961,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl80.jpg",
     },
     UPS.PLATO: {
+        "abbreviation": "plato",
+        "alternative_name": "Programmed Logic for Automatic Teaching Operations",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -1820,6 +1974,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plaf.jpg",
     },
     UPS.PLAYDATE: {
+        "abbreviation": "Playdate",
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
@@ -1842,6 +1997,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ples.jpg",
     },
     UPS.PLUG_AND_PLAY: {
+        "alternative_name": "TV Game",
         "category": "Platform",
         "family_name": "",
         "family_slug": "",
@@ -1875,6 +2031,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7f.jpg",
     },
     UPS.POLYMEGA: {
+        "alternative_name": "RetroBlox",
         "category": "Console",
         "family_name": "",
         "family_slug": "",
@@ -1886,6 +2043,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plox.jpg",
     },
     UPS.PSX: {
+        "abbreviation": "PS1",
+        "alternative_name": "PSX, PSOne, PS",
         "category": "Console",
         "family_name": "Sony",
         "family_slug": "sony",
@@ -1897,6 +2056,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmb.jpg",
     },
     UPS.PS2: {
+        "abbreviation": "PS2",
+        "alternative_name": "PS2",
         "category": "Console",
         "family_name": "Sony",
         "family_slug": "sony",
@@ -1908,6 +2069,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl72.jpg",
     },
     UPS.PS3: {
+        "abbreviation": "PS3",
+        "alternative_name": "PS3",
         "category": "Console",
         "family_name": "Sony",
         "family_slug": "sony",
@@ -1919,6 +2082,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/tuyy1nrqodtmbqajp4jg.jpg",
     },
     UPS.PS4: {
+        "abbreviation": "PS4",
+        "alternative_name": "PS4",
         "category": "Console",
         "family_name": "Sony",
         "family_slug": "sony",
@@ -1930,6 +2095,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6f.jpg",
     },
     UPS.PS5: {
+        "abbreviation": "PS5",
+        "alternative_name": "PS5",
         "category": "Console",
         "family_name": "Sony",
         "family_slug": "sony",
@@ -1941,6 +2108,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plos.jpg",
     },
     UPS.PSP: {
+        "abbreviation": "PSP",
+        "alternative_name": "PSP",
         "category": "Portable Console",
         "family_name": "Sony",
         "family_slug": "sony",
@@ -1952,6 +2121,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl5y.jpg",
     },
     UPS.PSVITA: {
+        "abbreviation": "Vita",
+        "alternative_name": "PS Vita",
         "category": "Portable Console",
         "family_name": "Sony",
         "family_slug": "sony",
@@ -1963,6 +2134,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6g.jpg",
     },
     UPS.PSVR: {
+        "abbreviation": "PSVR",
+        "alternative_name": "PSVR",
         "category": "Console",
         "family_name": "Sony",
         "family_slug": "sony",
@@ -1974,6 +2147,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnc.jpg",
     },
     UPS.PSVR2: {
+        "abbreviation": "PSVR2",
+        "alternative_name": "PSVR2",
         "category": "Console",
         "family_name": "Sony",
         "family_slug": "sony",
@@ -2007,6 +2182,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgj.jpg",
     },
     UPS.SATURN: {
+        "abbreviation": "Saturn",
+        "alternative_name": "JVC Saturn, Hi-Saturn, Samsung Saturn, V-Saturn",
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -2030,6 +2207,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.SDSSIGMA7: {
+        "abbreviation": "sdssigma7",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -2041,6 +2219,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.SEGACD: {
+        "abbreviation": "Sega CD",
+        "alternative_name": "Mega CD",
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -2052,6 +2232,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7w.jpg",
     },
     UPS.SEGACD32: {
+        "alternative_name": "Sega Mega-CD 32X",
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -2063,6 +2244,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnu.jpg",
     },
     UPS.SEGA_PICO: {
+        "alternative_name": "Kids Computer Pico",
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -2074,6 +2256,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgo.jpg",
     },
     UPS.SEGA32: {
+        "abbreviation": "Sega32",
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -2085,6 +2268,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7r.jpg",
     },
     UPS.SERIES_X_S: {
+        "abbreviation": "Series X|S",
+        "alternative_name": "XSX",
         "category": "Console",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
@@ -2096,6 +2281,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plfl.jpg",
     },
     UPS.SFAM: {
+        "abbreviation": "SFAM",
+        "alternative_name": "SFC",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -2107,6 +2294,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/a9x7xjy4p9sqynrvomcf.jpg",
     },
     UPS.SG1000: {
+        "abbreviation": "sg1000",
+        "alternative_name": "Sega Game 1000",
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -2140,6 +2329,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8i.jpg",
     },
     UPS.SINCLAIR_QL: {
+        "alternative_name": "Sinclair Quantum Leap",
         "category": "Computer",
         "family_name": "Sinclair",
         "family_slug": "sinclair",
@@ -2151,6 +2341,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plih.jpg",
     },
     UPS.ZX81: {
+        "alternative_name": "ZX81",
         "category": "Computer",
         "family_name": "Sinclair",
         "family_slug": "sinclair",
@@ -2162,6 +2353,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgr.jpg",
     },
     UPS.SMS: {
+        "abbreviation": "SMS",
+        "alternative_name": "SMS, Mark III",
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -2173,6 +2366,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.SNES: {
+        "abbreviation": "SNES",
+        "alternative_name": "SNES, Super Nintendo",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -2195,6 +2390,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.STADIA: {
+        "abbreviation": "Stadia",
+        "alternative_name": "Stadia",
         "category": "Platform",
         "family_name": "Linux",
         "family_slug": "linux",
@@ -2206,6 +2403,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl94.jpg",
     },
     UPS.STEAM_VR: {
+        "abbreviation": "Steam VR",
         "category": "Platform",
         "family_name": "Valve",
         "family_slug": "valve",
@@ -2228,6 +2426,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plns.jpg",
     },
     UPS.SUPER_NES_CD_ROM_SYSTEM: {
+        "alternative_name": "SNES-CD",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -2239,6 +2438,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plep.jpg",
     },
     UPS.SUPERGRAFX: {
+        "abbreviation": "supergrafx",
+        "alternative_name": "SuperGrafx",
         "category": "Console",
         "family_name": "NEC",
         "family_slug": "nec",
@@ -2261,6 +2462,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8v.jpg",
     },
     UPS.SWITCH: {
+        "abbreviation": "Switch",
+        "alternative_name": "NX",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -2272,6 +2475,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgu.jpg",
     },
     UPS.SWITCH_2: {
+        "abbreviation": "Switch 2",
+        "alternative_name": "Switch 2",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -2316,6 +2521,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plex.jpg",
     },
     UPS.TI_99: {
+        "abbreviation": "ti-99",
+        "alternative_name": "Texas Instruments TI-99/4A",
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -2349,6 +2556,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plac.jpg",
     },
     UPS.TRS_80_COLOR_COMPUTER: {
+        "alternative_name": "Tandy Color Computer",
         "category": "Computer",
         "family_name": "Tandy",
         "family_slug": "tandy",
@@ -2360,6 +2568,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf1.jpg",
     },
     UPS.TURBOGRAFX_CD: {
+        "alternative_name": "TG-16CD/PCECD",
         "category": "Console",
         "family_name": "NEC",
         "family_slug": "nec",
@@ -2371,6 +2580,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl83.jpg",
     },
     UPS.TG16: {
+        "abbreviation": "turbografx16",
+        "alternative_name": "TG16",
         "category": "Console",
         "family_name": "NEC",
         "family_slug": "nec",
@@ -2382,6 +2593,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl88.jpg",
     },
     UPS.UZEBOX: {
+        "alternative_name": "EUzebox",
         "category": "Console",
         "family_name": "",
         "family_slug": "",
@@ -2393,6 +2605,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plor.jpg",
     },
     UPS.VC: {
+        "abbreviation": "VC",
+        "alternative_name": "VC",
         "category": "Platform",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -2415,6 +2629,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/phikgyfmv1fevj2jhzr5.jpg",
     },
     UPS.VECTREX: {
+        "abbreviation": "vectrex",
         "category": "Console",
         "family_name": "Milton Bradley",
         "family_slug": "milton-bradley",
@@ -2426,6 +2641,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8h.jpg",
     },
     UPS.VIC_20: {
+        "abbreviation": "vic-20",
         "category": "Computer",
         "family_name": "Commodore",
         "family_slug": "commodore",
@@ -2437,6 +2653,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8p.jpg",
     },
     UPS.VIRTUALBOY: {
+        "abbreviation": "virtualboy",
+        "alternative_name": "VB",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -2459,6 +2677,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnj.jpg",
     },
     UPS.VISUAL_MEMORY_UNIT_SLASH_VISUAL_MEMORY_SYSTEM: {
+        "alternative_name": "VMU / VMS",
         "category": "Portable Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -2470,6 +2689,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plk8.jpg",
     },
     UPS.VSMILE: {
+        "alternative_name": "V.SMILE TV LEARNING SYSTEM",
         "category": "Console",
         "family_name": "",
         "family_slug": "",
@@ -2492,6 +2712,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj7.jpg",
     },
     UPS.WII: {
+        "abbreviation": "Wii",
+        "alternative_name": "Revolution",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -2503,6 +2725,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl92.jpg",
     },
     UPS.WIIU: {
+        "abbreviation": "WiiU",
+        "alternative_name": "Project Cafe",
         "category": "Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
@@ -2514,6 +2738,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6n.jpg",
     },
     UPS.WIN: {
+        "abbreviation": "PC",
+        "alternative_name": "mswin",
         "category": "Operating System",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
@@ -2525,6 +2751,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plim.jpg",
     },
     UPS.WINDOWS_MIXED_REALITY: {
+        "alternative_name": "WMR",
         "category": "Platform",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
@@ -2536,6 +2763,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm4.jpg",
     },
     UPS.WINDOWS_MOBILE: {
+        "alternative_name": "Pocket PC",
         "category": "Operating System",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
@@ -2547,6 +2775,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkl.jpg",
     },
     UPS.WINPHONE: {
+        "abbreviation": "Win Phone",
+        "alternative_name": "WP",
         "category": "Operating System",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
@@ -2558,6 +2788,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla3.jpg",
     },
     UPS.WONDERSWAN: {
+        "abbreviation": "WonderSwan",
+        "alternative_name": "WS",
         "category": "Portable Console",
         "family_name": "Bandai",
         "family_slug": "bandai",
@@ -2569,6 +2801,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7b.jpg",
     },
     UPS.WONDERSWAN_COLOR: {
+        "alternative_name": "WSC",
         "category": "Portable Console",
         "family_name": "Bandai",
         "family_slug": "bandai",
@@ -2580,6 +2813,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl79.jpg",
     },
     UPS.X1: {
+        "abbreviation": "x1",
         "category": "Computer",
         "family_name": "Sharp",
         "family_slug": "sharp",
@@ -2591,6 +2825,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl89.jpg",
     },
     UPS.XBOX: {
+        "abbreviation": "XBOX",
         "category": "Console",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
@@ -2602,6 +2837,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7e.jpg",
     },
     UPS.XBOX360: {
+        "abbreviation": "X360",
+        "alternative_name": "X360",
         "category": "Console",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
@@ -2613,6 +2850,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plha.jpg",
     },
     UPS.XBOXONE: {
+        "abbreviation": "XONE",
+        "alternative_name": "XONE",
         "category": "Console",
         "family_name": "",
         "family_slug": "",
@@ -2635,6 +2874,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plbx.jpg",
     },
     UPS.ZOD: {
+        "abbreviation": "zod",
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
@@ -2646,6 +2886,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/lfsdnlko80ftakbugceu.jpg",
     },
     UPS.ZXS: {
+        "abbreviation": "ZXS",
         "category": "Computer",
         "family_name": "Sinclair",
         "family_slug": "sinclair",
