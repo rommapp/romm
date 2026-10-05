@@ -118,10 +118,8 @@ describe("useFetchState", () => {
     const onSuccess = vi.fn();
     const onError = vi.fn();
     const fetch = setup(() =>
-      useFetchState(() => Promise.reject(new Error("failed")), "kept", {
-        onSuccess,
-        onError,
-      }),
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the empty reason is the case under test
+      useFetchState(() => Promise.reject(), "kept", { onSuccess, onError }),
     );
     await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
 
