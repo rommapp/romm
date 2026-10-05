@@ -48,7 +48,6 @@ const meta: Meta<typeof RTooltip> = {
   title: "Structural/RTooltip",
   component: RTooltip,
   argTypes: {
-    text: { control: "text" },
     location: {
       control: "select",
       options: [
@@ -65,8 +64,6 @@ const meta: Meta<typeof RTooltip> = {
     openDelay: { control: "number" },
     closeDelay: { control: "number" },
     offset: { control: "number" },
-    contentClass: { control: "text" },
-    disabled: { control: "boolean" },
   },
 };
 
@@ -100,8 +97,10 @@ export const Light: Story = {
   globals: { theme: "light" },
 };
 
-// An RBtn with a string `icon` drops its default slot, so icon buttons use
-// RBtn's own `tooltip` prop; parent-attach is for plain elements like this.
+/**
+ * An RBtn with a string `icon` drops its default slot, so icon buttons use
+ * RBtn's own `tooltip` prop; parent-attach is for plain elements like this.
+ */
 export const ParentAttach: Story = {
   name: "Parent attach (no slot)",
   render: () => ({
@@ -405,9 +404,11 @@ export const IconBarRealWorld: Story = {
 };
 
 // ── Touch gating (behavioral) ───────────────────────────────────────
-// A touch "hover" is really a tap that fires the underlying action, so a
-// tooltip there would linger over whatever the tap opened. The tooltip must
-// reveal for mouse/pen hover only, and a click must always dismiss it.
+/**
+ * A touch "hover" is really a tap that fires the underlying action, so a
+ * tooltip there would linger over whatever the tap opened. The tooltip must
+ * reveal for mouse/pen hover only, and a click must always dismiss it.
+ */
 export const TouchGating: Story = {
   name: "Touch gating (play)",
   args: { text: "Tooltip body text", location: "top", openDelay: 0 },
@@ -449,8 +450,10 @@ export const TouchGating: Story = {
   },
 };
 
-// `open-on-tap`: a standalone info affordance that must reveal on touch too
-// (tap toggles; a mouse click opens rather than closing a hover-revealed tip).
+/**
+ * `open-on-tap`: a standalone info affordance that must reveal on touch too
+ * (tap toggles; a mouse click opens rather than closing a hover-revealed tip).
+ */
 export const OpenOnTap: Story = {
   name: "Open on tap (play)",
   args: {

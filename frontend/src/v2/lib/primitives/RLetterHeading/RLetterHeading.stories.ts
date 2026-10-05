@@ -4,9 +4,6 @@ import RLetterHeading from "./RLetterHeading.vue";
 const meta: Meta<typeof RLetterHeading> = {
   title: "Primitives/RLetterHeading",
   component: RLetterHeading,
-  argTypes: {
-    label: { control: "text" },
-  },
   render: (args) => ({
     components: { RLetterHeading },
     setup: () => ({ args }),
@@ -25,8 +22,10 @@ export const Digits: Story = {
   args: { label: "#" },
 };
 
-// Default slot wins over the prop: useful when the label needs custom
-// content (extra spacing, a count, etc.).
+/**
+ * Default slot wins over the prop: useful when the label needs custom
+ * content (extra spacing, a count, etc.).
+ */
 export const SlotContent: Story = {
   render: (args) => ({
     components: { RLetterHeading },

@@ -7,13 +7,6 @@ const meta: Meta<typeof RListItem> = {
   title: "Structural/RListItem",
   component: RListItem,
   argTypes: {
-    title: { control: "text" },
-    subtitle: { control: "text" },
-    prependIcon: { control: "text" },
-    appendIcon: { control: "text" },
-    prependAvatar: { control: "text" },
-    active: { control: "boolean" },
-    disabled: { control: "boolean" },
     rounded: { control: "text" },
   },
   render: (args) => ({

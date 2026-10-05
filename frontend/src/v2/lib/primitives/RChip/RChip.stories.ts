@@ -19,20 +19,11 @@ const meta: Meta<typeof RChip> = {
   title: "Primitives/RChip",
   component: RChip,
   argTypes: {
-    variant: {
-      control: "select",
-      options: ["flat", "text", "elevated", "translucent", "outlined", "plain"],
-    },
     size: {
       control: "select",
       options: CHIP_SIZES,
     },
     color: { control: "text" },
-    label: { control: "boolean" },
-    closable: { control: "boolean" },
-    prependIcon: { control: "text" },
-    appendIcon: { control: "text" },
-    disabled: { control: "boolean" },
     rounded: { control: "text" },
   },
 };

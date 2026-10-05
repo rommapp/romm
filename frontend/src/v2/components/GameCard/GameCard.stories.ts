@@ -23,11 +23,6 @@ const meta: Meta<typeof GameCard> = {
   // Rendered as in the gallery: a link card with the multi-select checkbox,
   // so the a11y check covers both.
   args: { selectable: true, position: 0 },
-  argTypes: {
-    hero: { control: "boolean" },
-    focused: { control: "boolean" },
-    showPlatformIcon: { control: "boolean" },
-  },
 };
 
 export default meta;

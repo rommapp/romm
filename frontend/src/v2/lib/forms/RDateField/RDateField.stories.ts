@@ -10,8 +10,6 @@ const meta: Meta<typeof RDateField> = {
       control: "inline-radio",
       options: [0, 1, 2, 3, 4, 5, 6],
     },
-    hideFooter: { control: "boolean" },
-    disabled: { control: "boolean" },
   },
 };
 

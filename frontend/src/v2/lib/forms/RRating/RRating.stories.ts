@@ -11,16 +11,10 @@ const meta: Meta<typeof RRating> = {
     size: { control: "text" },
     color: { control: "text" },
     activeColor: { control: "text" },
-    emptyIcon: { control: "text" },
-    fullIcon: { control: "text" },
     density: {
       control: "select",
       options: ["default", "comfortable", "compact"],
     },
-    readonly: { control: "boolean" },
-    halfIncrements: { control: "boolean" },
-    hover: { control: "boolean" },
-    clearable: { control: "boolean" },
   },
   render: (args) => ({
     components: { RRating },
@@ -40,7 +34,7 @@ export const Default: Story = { args: { halfIncrements: true, hover: true } };
 export const Readonly: Story = { args: { readonly: true } };
 export const Large: Story = { args: { size: "large" } };
 
-// Keyboard: Tab across the star buttons, Enter/Space commits the rating.
+/** Keyboard: Tab across the star buttons, Enter/Space commits the rating. */
 export const KeyboardNav: Story = {
   name: "Keyboard navigation (play)",
   args: { ariaLabel: "Rating" },
@@ -72,9 +66,11 @@ export const KeyboardNav: Story = {
   },
 };
 
-// Difficulty preset: same primitive driven by props. Exercises the
-// new emptyIcon/fullIcon/activeColor pass-through used by the
-// score-picker on GameDetails.
+/**
+ * Difficulty preset: same primitive driven by props. Exercises the
+ * emptyIcon/fullIcon/activeColor pass-through used by the
+ * score-picker on GameDetails.
+ */
 export const Difficulty: Story = {
   args: {
     length: 10,
@@ -88,8 +84,10 @@ export const Difficulty: Story = {
   },
 };
 
-// Rating preset: 10 stars, gold accent, the shape consumed by the
-// score-picker for "Your Rating".
+/**
+ * Rating preset: 10 stars, gold accent, the shape consumed by the
+ * score-picker for "Your Rating".
+ */
 export const RatingTen: Story = {
   args: {
     length: 10,

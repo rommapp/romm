@@ -5,10 +5,6 @@ import RMarquee from "./RMarquee.vue";
 const meta: Meta<typeof RMarquee> = {
   title: "Primitives/RMarquee",
   component: RMarquee,
-  argTypes: {
-    speed: { control: { type: "number", min: 5, max: 200 } },
-    gap: { control: { type: "number", min: 0, max: 120 } },
-  },
   args: { speed: 30, gap: 32 },
 };
 

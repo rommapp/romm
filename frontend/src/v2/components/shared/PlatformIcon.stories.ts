@@ -5,11 +5,7 @@ const meta: Meta<typeof PlatformIcon> = {
   title: "Media/PlatformIcon",
   component: PlatformIcon,
   argTypes: {
-    name: { control: "text" },
-    src: { control: "text" },
     size: { control: "number" },
-    title: { control: "text" },
-    showTooltip: { control: "boolean" },
   },
 };
 
@@ -34,12 +30,11 @@ export const Row: Story = {
   }),
 };
 
-// Size ladder: `size` binds directly to width/height inline so the
-// icon honours the requested dimension even inside indefinite flex
-// parents (e.g. RBtn's icon slot). Previously the icon was clamped
-// by `max-width: 100% / max-height: 100%` to whatever the parent
-// gave it, which silently shrunk it when the parent had no defined
-// extent. The badge in GameCard relies on this fix.
+/**
+ * Size ladder: `size` binds directly to width/height inline so the
+ * icon honours the requested dimension even inside indefinite flex
+ * parents (e.g. RBtn's icon slot, GameCard's platform badge).
+ */
 export const SizeLadder: Story = {
   name: "Size ladder",
   render: () => ({
@@ -75,9 +70,10 @@ export const SizeLadder: Story = {
   },
 };
 
-// Inside an indefinite flex container: proves the size prop is
-// honoured even when the parent has no defined cross-axis extent.
-// Regression guard for the GameCard platform badge.
+/**
+ * Inside an indefinite flex container: proves the size prop is
+ * honoured even when the parent has no defined cross-axis extent.
+ */
 export const InsideFlexParent: Story = {
   name: "Inside indefinite-extent flex parent",
   render: () => ({

@@ -7,9 +7,7 @@ const meta: Meta<typeof RSwitch> = {
   title: "Forms/RSwitch",
   component: RSwitch,
   argTypes: {
-    label: { control: "text" },
     size: { control: "inline-radio", options: ["default", "small"] },
-    disabled: { control: "boolean" },
   },
   render: (args) => ({
     components: { RSwitch },
@@ -80,7 +78,7 @@ export const Disabled: Story = {
   args: { label: "Disabled", disabled: true },
 };
 
-// Keyboard: Tab focuses the switch, Space/Enter toggle it.
+/** Keyboard: Tab focuses the switch, Space/Enter toggle it. */
 export const KeyboardToggle: Story = {
   name: "Keyboard toggle (play)",
   args: { label: "Notifications" },

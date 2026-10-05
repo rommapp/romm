@@ -63,8 +63,10 @@ export const Subtabs: Story = {
   },
 };
 
-// Vertical pill variant: stacked menu items with optional leading
-// icon. Used by SaveDataTab for the left-rail subtab nav.
+/**
+ * Vertical pill variant: stacked menu items with optional leading
+ * icon. Used by SaveDataTab for the left-rail subtab nav.
+ */
 export const VerticalPill: Story = {
   args: {
     variant: "pill",
@@ -97,8 +99,10 @@ export const VerticalPill: Story = {
   }),
 };
 
-// A phone-width strip: the clipped edge fades and grows a chevron, and the
-// active tab is scrolled into view on mount.
+/**
+ * A phone-width strip: the clipped edge fades and grows a chevron, and the
+ * active tab is scrolled into view on mount.
+ */
 export const Overflowing: Story = {
   args: {
     modelValue: "save-data",
@@ -136,10 +140,12 @@ export const HiddenItems: Story = {
   },
 };
 
-// Image variant: items can carry a logo / brand mark via the `image`
-// field instead of an MDI icon. Mirrors the per-provider raw-metadata
-// tabs in EditRomDialog (IGDB / MobyGames / etc).
-// Keyboard: Tab across the tabs, Enter/Space activates the focused one.
+/**
+ * Image variant: items can carry a logo / brand mark via the `image`
+ * field instead of an MDI icon. Mirrors the per-provider raw-metadata
+ * tabs in EditRomDialog (IGDB / MobyGames / etc).
+ * Keyboard: Tab across the tabs, Enter/Space activates the focused one.
+ */
 export const KeyboardNav: Story = {
   name: "Keyboard navigation (play)",
   args: {

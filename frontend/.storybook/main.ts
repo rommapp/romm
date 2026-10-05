@@ -10,9 +10,13 @@ const config: StorybookConfig = {
   ],
   framework: {
     name: "@storybook/vue3-vite",
-    options: {},
+    // The root tsconfig.json is solution-style (no files), so the checker
+    // has to read the app project to find any components.
+    options: {
+      docgen: { plugin: "vue-component-meta", tsconfig: "tsconfig.app.json" },
+    },
   },
-  async viteFinal(cfg) {
+  viteFinal(cfg) {
     // Path aliases (@, @v2, md-editor-v3) come with the app's vite.config.js,
     // which the builder merges in before this hook.
     // The main app's Vite config registers VitePWA; this is an
@@ -33,7 +37,9 @@ const config: StorybookConfig = {
       const name = (plugin as { name?: string }).name ?? "";
       return isBlocked(name) ? [] : [plugin];
     }
-    cfg.plugins = (cfg.plugins ?? []).flatMap(keep) as typeof cfg.plugins;
+    cfg.plugins = (cfg.plugins ?? []).flatMap(keep) as NonNullable<
+      typeof cfg.plugins
+    >;
     // The runtime ROM library lives under `frontend/assets/romm/resources/`
     // (cover art, RetroAchievement badges, …). Watching it exhausts the
     // system's inotify handles (ENOSPC) and is irrelevant to Storybook.

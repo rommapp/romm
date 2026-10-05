@@ -7,10 +7,6 @@ const meta: Meta<typeof RBtn> = {
   title: "Primitives/RBtn",
   component: RBtn,
   argTypes: {
-    variant: {
-      control: "select",
-      options: ["flat", "text", "elevated", "translucent", "outlined", "plain"],
-    },
     color: { control: "text" },
     size: {
       control: "select",
@@ -26,13 +22,6 @@ const meta: Meta<typeof RBtn> = {
       options: ["button", "submit", "reset"],
     },
     icon: { control: "text" },
-    loading: { control: "boolean" },
-    disabled: { control: "boolean" },
-    block: { control: "boolean" },
-    border: { control: "boolean" },
-    surface: { control: "boolean" },
-    prependIcon: { control: "text" },
-    appendIcon: { control: "text" },
   },
 };
 
@@ -197,11 +186,13 @@ export const IconSizeLadder: Story = {
   }),
 };
 
-// Icon-mode button with custom default-slot content. When `icon` is
-// set as a flag (boolean / empty / `true`) and a default slot is
-// provided, the slot replaces the icon glyph. Used for composite icon
-// content like GameCard's platform badge, where the "icon" is an
-// PlatformIcon SVG rather than an MDI codepoint.
+/**
+ * Icon-mode button with custom default-slot content. When `icon` is
+ * set as a flag (boolean / empty / `true`) and a default slot is
+ * provided, the slot replaces the icon glyph. Used for composite icon
+ * content like GameCard's platform badge, where the "icon" is an
+ * PlatformIcon SVG rather than an MDI codepoint.
+ */
 export const IconSlotCustom: Story = {
   name: "Icon-mode · custom slot content",
   render: () => ({
@@ -374,9 +365,11 @@ export const FormActions: Story = {
   }),
 };
 
-// Surface modifier: pairs an outlined icon-only RBtn with an
-// `RSliderBtnGroup` segmented cluster so both share the same tinted
-// chrome. Used in `GalleryToolbar` for filter / kebab buttons.
+/**
+ * Surface modifier: pairs an outlined icon-only RBtn with an
+ * `RSliderBtnGroup` segmented cluster so both share the same tinted
+ * chrome. Used in `GalleryToolbar` for filter / kebab buttons.
+ */
 export const SurfaceWithSlider: Story = {
   name: "Surface modifier (icon button next to slider)",
   render: () => ({
@@ -397,8 +390,10 @@ export const SurfaceWithSlider: Story = {
   }),
 };
 
-// Toggle state: `active` drives `aria-pressed` and, while on, paints the
-// translucent tint of `color` (primary when no colour is given).
+/**
+ * Toggle state: `active` drives `aria-pressed` and, while on, paints the
+ * translucent tint of `color` (primary when no colour is given).
+ */
 export const Active: Story = {
   name: "Active (toggle)",
   render: () => ({

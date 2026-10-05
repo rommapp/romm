@@ -21,9 +21,6 @@ const meta: Meta<typeof RAlert> = {
       options: ["default", "comfortable", "compact"],
     },
     rounded: { control: "text" },
-    closable: { control: "boolean" },
-    title: { control: "text" },
-    text: { control: "text" },
     icon: { control: "text" },
   },
   render: (args) => ({

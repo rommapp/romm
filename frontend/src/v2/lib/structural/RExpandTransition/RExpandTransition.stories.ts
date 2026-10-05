@@ -8,10 +8,6 @@ import RExpandTransition from "./RExpandTransition.vue";
 const meta: Meta<typeof RExpandTransition> = {
   title: "Structural/RExpandTransition",
   component: RExpandTransition,
-  argTypes: {
-    appear: { control: "boolean" },
-    duration: { control: "text" },
-  },
 };
 
 export default meta;

@@ -8,10 +8,6 @@ import RForm from "./RForm.vue";
 const meta: Meta<typeof RForm> = {
   title: "Forms/RForm",
   component: RForm,
-  argTypes: {
-    disableEnterSubmit: { control: "boolean" },
-    disableScrollToError: { control: "boolean" },
-  },
 };
 
 export default meta;

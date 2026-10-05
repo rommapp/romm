@@ -13,16 +13,10 @@ const meta: Meta<typeof RDialog> = {
     icon: { control: "text" },
     width: { control: "text" },
     height: { control: "text" },
-    scrollContent: { control: "boolean" },
-    persistent: { control: "boolean" },
-    fullscreenOnMobile: { control: "boolean" },
     bodyPadding: {
       control: "inline-radio",
       options: ["default", "compact", "flush"],
     },
-    cancelable: { control: "boolean" },
-    cancelDisabled: { control: "boolean" },
-    cancelText: { control: "text" },
   },
 };
 
@@ -86,9 +80,11 @@ export const Light: Story = {
   globals: { theme: "light" },
 };
 
-// Loading and empty states aren't built into the primitive any more:
-// the consumer renders them inside `#content` from REmptyState /
-// RProgressCircular. These stories demonstrate the recipe.
+/**
+ * Loading and empty states aren't built into the primitive:
+ * the consumer renders them inside `#content` from REmptyState /
+ * RProgressCircular. These stories demonstrate the recipe.
+ */
 export const Loading: Story = {
   name: "Loading (composed)",
   args: { width: "420", height: "240", icon: "mdi-loading" },

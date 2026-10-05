@@ -11,7 +11,6 @@ const meta: Meta<typeof RSkeletonBlock> = {
       control: "select",
       options: ["sm", "md", "lg", "xl", "full"],
     },
-    circle: { control: "boolean" },
   },
 };
 

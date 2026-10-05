@@ -7,12 +7,8 @@ const meta: Meta<typeof RImg> = {
   title: "Primitives/RImg",
   component: RImg,
   argTypes: {
-    src: { control: "text" },
-    alt: { control: "text" },
     width: { control: "text" },
     height: { control: "text" },
-    cover: { control: "boolean" },
-    contain: { control: "boolean" },
     aspectRatio: { control: "text" },
   },
 };

@@ -5,16 +5,9 @@ const meta: Meta<typeof RCard> = {
   title: "Primitives/RCard",
   component: RCard,
   argTypes: {
-    variant: {
-      control: "select",
-      options: ["flat", "elevated", "translucent", "outlined", "text", "plain"],
-    },
     color: { control: "text" },
     elevation: { control: "number" },
     rounded: { control: "text" },
-    title: { control: "text" },
-    subtitle: { control: "text" },
-    loading: { control: "boolean" },
   },
 };
 

@@ -22,8 +22,6 @@ const meta: Meta<typeof RCheckbox> = {
   title: "Forms/RCheckbox",
   component: RCheckbox,
   argTypes: {
-    label: { control: "text" },
-    subtitle: { control: "text" },
     size: {
       control: "inline-radio",
       options: ["xs", "sm", "md", "lg"],
@@ -37,10 +35,6 @@ const meta: Meta<typeof RCheckbox> = {
       control: "inline-radio",
       options: ["box", "card"],
     },
-    disabled: { control: "boolean" },
-    indeterminate: { control: "boolean" },
-    bare: { control: "boolean" },
-    error: { control: "boolean" },
     errorMessages: { control: "text" },
   },
   render: (args) => ({
@@ -89,10 +83,12 @@ export const NoLabel: Story = {
 
 // ── Multi-state ─────────────────────────────────────────────────────
 
-// `states` opts into an N-value control on its own `stateValue` model,
-// leaving the boolean `modelValue` path untouched. Clicking cycles through
-// the ordered list (first = empty); a state with a `color` fills the box
-// and with an `icon` shows that glyph (else the check tick).
+/**
+ * `states` opts into an N-value control on its own `stateValue` model,
+ * leaving the boolean `modelValue` path untouched. Clicking cycles through
+ * the ordered list (first = empty); a state with a `color` fills the box
+ * and with an `icon` shows that glyph (else the check tick).
+ */
 export const MultiState: Story = {
   name: "Multi-state (none / full / own)",
   render: () => ({
@@ -141,8 +137,10 @@ export const MultiState: Story = {
   },
 };
 
-// The override flavour cycles through four states: inherit, grant
-// (primary), grant-own (accent), revoke (danger).
+/**
+ * The override flavour cycles through four states: inherit, grant
+ * (primary), grant-own (accent), revoke (danger).
+ */
 export const MultiStateLadder: Story = {
   name: "Multi-state ladder (4-state override)",
   render: () => ({
@@ -361,10 +359,12 @@ export const CardVariantColored: Story = {
 
 // ── Bare ────────────────────────────────────────────────────────────
 
-// `bare` strips the row's vertical breathing padding and the box↔label
-// gap. The box stays the same; only the surrounding chrome is removed.
-// Used when the consumer owns the layout (overlay corners, list-row
-// columns, dense table cells) and wants the checkbox to sit flush.
+/**
+ * `bare` strips the row's vertical breathing padding and the box↔label
+ * gap. The box stays the same; only the surrounding chrome is removed.
+ * Used when the consumer owns the layout (overlay corners, list-row
+ * columns, dense table cells) and wants the checkbox to sit flush.
+ */
 export const Bare: Story = {
   name: "Bare (no breathing padding)",
   render: () => ({

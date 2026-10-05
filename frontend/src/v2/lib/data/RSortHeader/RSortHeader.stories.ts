@@ -33,7 +33,7 @@ export const Default: Story = {
   args: { label: "Title", sortable: true, active: true, dir: "asc" },
 };
 
-// The toolbar switches every story's theme; this one pins light.
+/** The toolbar switches every story's theme; this one pins light. */
 export const Light: Story = {
   args: { label: "Title", sortable: true, active: true, dir: "asc" },
   globals: { theme: "light" },
@@ -88,8 +88,10 @@ const COLUMNS = [
   { key: "tags", label: "Tags" },
 ];
 
-// A full header row, with the sort state held by the parent the way a list
-// header does.
+/**
+ * A full header row, with the sort state held by the parent the way a list
+ * header does.
+ */
 export const KeyboardSort: Story = {
   name: "Header row, keyboard sort (play)",
   render: () => ({
