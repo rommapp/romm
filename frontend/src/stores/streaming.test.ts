@@ -4,6 +4,7 @@ import { useStreamingStore } from "@/stores/streaming";
 
 vi.mock("@/services/api/streaming", () => ({
   default: {
+    fetchConfig: vi.fn(),
     listJoinableSessions: vi.fn(),
     saveAndExit: vi.fn(),
     saveAndExitKeepalive: vi.fn(),
@@ -199,5 +200,47 @@ describe("save-and-exit", () => {
       "ps2-1",
       "2026-01-01T00:00:00Z",
     );
+  });
+});
+
+describe("config", () => {
+  const fetchConfig = streamingApi.fetchConfig as unknown as Mock;
+
+  beforeEach(() => {
+    fetchConfig.mockReset();
+    fetchConfig.mockResolvedValue({
+      data: { enabled: true, containers: [], emulator_labels: {} },
+    });
+  });
+
+  it("collapses concurrent callers into one request", async () => {
+    // App load and the Stream page both ask; two requests could land out of
+    // order and leave the older answer in place.
+    const store = useStreamingStore();
+
+    await Promise.all([store.fetchConfig(), store.fetchConfig()]);
+
+    expect(fetchConfig).toHaveBeenCalledTimes(1);
+    expect(store.config.enabled).toBe(true);
+  });
+
+  it("asks again once the earlier request has settled", async () => {
+    const store = useStreamingStore();
+
+    await store.fetchConfig();
+    await store.fetchConfig();
+
+    expect(fetchConfig).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks again after a failed request", async () => {
+    const store = useStreamingStore();
+    fetchConfig.mockRejectedValueOnce(new Error("offline"));
+
+    await store.fetchConfig();
+    await store.fetchConfig();
+
+    expect(fetchConfig).toHaveBeenCalledTimes(2);
+    expect(store.config.enabled).toBe(true);
   });
 });

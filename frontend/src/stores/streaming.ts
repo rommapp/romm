@@ -112,23 +112,32 @@ export const useStreamingStore = defineStore("streaming", () => {
     };
   }
 
+  let configRequest: Promise<void> | null = null;
+
   /**
-   * Fetch streaming config from the backend once on app load.
-   * If it fails, streaming stays disabled and no buttons appear.
+   * Fetch streaming config from the backend, on app load and again when the
+   * Stream page mounts. Concurrent callers share the one in-flight request, so
+   * an older answer can't land last. If it fails, streaming stays disabled and
+   * no buttons appear.
    */
   async function fetchConfig(): Promise<void> {
-    try {
-      const { data } = await streamingApi.fetchConfig();
-      config.value = {
-        enabled: data.enabled ?? false,
-        containers: data.containers ?? [],
-        emulator_labels: data.emulator_labels ?? {},
-      };
-    } catch (err) {
-      console.warn("[streaming] Could not fetch config:", err);
-    } finally {
-      configLoaded.value = true;
-    }
+    if (configRequest) return configRequest;
+    configRequest = (async () => {
+      try {
+        const { data } = await streamingApi.fetchConfig();
+        config.value = {
+          enabled: data.enabled ?? false,
+          containers: data.containers ?? [],
+          emulator_labels: data.emulator_labels ?? {},
+        };
+      } catch (err) {
+        console.warn("[streaming] Could not fetch config:", err);
+      } finally {
+        configLoaded.value = true;
+        configRequest = null;
+      }
+    })();
+    return configRequest;
   }
 
   /**
