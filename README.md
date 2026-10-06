@@ -102,6 +102,7 @@ Here are some cool projects maintained by members of our community. Please note 
 
 - [DeckyRommSync][decky-romm-sync]: SteamOS downloader and syncer by [@danielcopper](https://github.com/danielcopper)
 - [SwitchRomM][switch-romm]: Homebrew NRO for Switch by [@Shalasere](https://github.com/Shalasere)
+- [mister-romm][mister-romm]: MiSTer FPGA downloader and catalog browser by [@tvdu29](https://github.com/tvdu29)
 
 ### Other
 
@@ -171,6 +172,7 @@ These companies support us by providing their tools for free:
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [decky-romm-sync]: https://github.com/danielcopper/decky-romm-sync
 [switch-romm]: https://github.com/Shalasere/SwitchRomM
+[mister-romm]: https://github.com/tvdu29/mister-romm
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
 [syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
