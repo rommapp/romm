@@ -46,6 +46,7 @@ from models.assets import State
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length, sanitize_filename
+from utils.memory_cards import content_hash_of_bytes
 
 # Slot number encoded in each emulator's state filename, e.g. PCSX2 writes
 # "SERIAL (CRC).03.p2s" for slot 3 and Dolphin writes "GAMEID.s03". Resuming
@@ -351,15 +352,22 @@ def user_states_for_emulator(
     return states
 
 
-async def _is_duplicate_of_latest(latest: State | None, content: bytes) -> bool:
-    """Whether ``content`` matches the most recent stored state byte for byte.
+async def _is_duplicate_of_latest(
+    latest: State | None, content: bytes, content_hash: str | None = None
+) -> bool:
+    """Whether ``content`` matches the most recent stored state.
 
     Saving twice without playing in between is common (the exit autosave right
     after a manual save), and those captures are identical. Only the newest is
-    compared: an older match is a genuine revisit of the same point.
+    compared: an older match is a genuine revisit of the same point. A state
+    stored before states were hashed is compared byte for byte.
     """
     if latest is None or latest.file_size_bytes != len(content):
         return False
+    if latest.content_hash is not None:
+        if content_hash is None:
+            content_hash = content_hash_of_bytes(content)
+        return latest.content_hash == content_hash
     try:
         existing = await fs_asset_handler.read_file(
             f"{latest.file_path}/{latest.file_name}"
@@ -371,8 +379,9 @@ async def _is_duplicate_of_latest(latest: State | None, content: bytes) -> bool:
 
 async def is_stored(user_id: int, rom_id: int, emulator: str, content: bytes) -> bool:
     """Whether any of this emulator's stored states holds exactly ``content``."""
+    content_hash = content_hash_of_bytes(content)
     for state in user_states_for_emulator(user_id, rom_id, emulator):
-        if await _is_duplicate_of_latest(state, content):
+        if await _is_duplicate_of_latest(state, content, content_hash):
             return True
     return False
 

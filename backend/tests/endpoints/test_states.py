@@ -1177,3 +1177,24 @@ def test_update_state_rejects_a_screenshot_name_over_255_bytes_before_writing(
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     mock_write.assert_not_awaited()
+
+
+@mock.patch(
+    "endpoints.states.fs_asset_handler.compute_content_hash",
+    new_callable=mock.AsyncMock,
+    return_value="a" * 32,
+)
+@mock.patch("endpoints.states.fs_asset_handler.write_file", new_callable=mock.AsyncMock)
+def test_update_state_records_the_new_bytes_hash(
+    _mock_write, _mock_hash, client, access_token: str, admin_user, state: State
+):
+    response = client.put(
+        f"/api/states/{state.id}",
+        files={"stateFile": (state.file_name, b"STATE!", "application/octet-stream")},
+        headers=_auth(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    updated = db_state_handler.get_state(user_id=admin_user.id, id=state.id)
+    assert updated is not None
+    assert updated.content_hash == "a" * 32

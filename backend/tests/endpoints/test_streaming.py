@@ -33,6 +33,7 @@ from endpoints import streaming
 from endpoints.responses.assets import StateSchema
 from endpoints.responses.streaming import ImportRefusalSchema
 from endpoints.streaming import platform_capabilities
+from handler import asset_store
 from handler.activity_handler import activity_handler
 from handler.auth.base_handler import oauth_handler
 from handler.database import (
@@ -5258,6 +5259,61 @@ def test_pull_state_skips_capture_identical_to_previous(rom: Rom, admin_user: Us
         )
     assert ok is True
     wf.assert_not_awaited()
+
+
+def test_a_hashed_state_is_matched_without_reading_its_file(rom: Rom, admin_user: User):
+    content = b"state-bytes"
+    _add_state(
+        rom,
+        admin_user,
+        "Game.state",
+        "retroarch",
+        file_size_bytes=len(content),
+        content_hash=content_hash_of_bytes(content),
+    )
+    read = AsyncMock(side_effect=AssertionError("read a hashed state"))
+    with patch("handler.filesystem.fs_asset_handler.read_file", new=read):
+        assert asyncio.run(
+            states.is_stored(admin_user.id, rom.id, "retroarch", content)
+        )
+        assert not asyncio.run(
+            states.is_stored(admin_user.id, rom.id, "retroarch", b"other-bytes")
+        )
+    read.assert_not_awaited()
+
+
+def test_an_unhashed_state_is_still_matched_by_its_bytes(rom: Rom, admin_user: User):
+    """A state stored before states were hashed has no hash to compare."""
+    content = b"state-bytes"
+    _add_state(rom, admin_user, "Game.state", "retroarch", file_size_bytes=len(content))
+    with patch(
+        "handler.filesystem.fs_asset_handler.read_file",
+        new=AsyncMock(return_value=content),
+    ):
+        assert asyncio.run(
+            states.is_stored(admin_user.id, rom.id, "retroarch", content)
+        )
+
+
+def test_a_stored_state_records_its_content_hash(rom: Rom, admin_user: User):
+    content = b"state-bytes"
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.compute_content_hash",
+            new=AsyncMock(return_value=content_hash_of_bytes(content)),
+        ),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+        patch(
+            "handler.scan_handler.fs_asset_handler.get_file_size",
+            return_value=len(content),
+        ),
+    ):
+        stored = asyncio.run(
+            asset_store.store_state_file(
+                admin_user, rom, "retroarch", content, "Game.state"
+            )
+        )
+    assert stored.content_hash == content_hash_of_bytes(content)
 
 
 def test_prune_state_history_drops_oldest_past_limit(rom: Rom, admin_user: User):

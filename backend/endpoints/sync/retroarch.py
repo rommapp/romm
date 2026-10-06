@@ -597,13 +597,12 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         fields = {
             "file_size_bytes": scanned.file_size_bytes,
             "file_path": scanned.file_path,
+            "content_hash": scanned.content_hash,
             "missing_from_fs": False,
         }
         if isinstance(scanned, Save):
             db_save_handler.update_save(
-                existing.id,
-                {**fields, "content_hash": scanned.content_hash},
-                replaced_hash=replaced_hash,
+                existing.id, fields, replaced_hash=replaced_hash
             )
         else:
             db_state_handler.update_state(existing.id, fields)

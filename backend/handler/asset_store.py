@@ -83,6 +83,7 @@ async def store_state_file(
         {
             "file_size_bytes": scanned.file_size_bytes,
             "file_path": scanned.file_path,
+            "content_hash": scanned.content_hash,
             "emulator": emulator,
             **(fields or {}),
         },

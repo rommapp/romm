@@ -171,6 +171,10 @@ class State(RomAsset):
     core: Mapped[str | None] = mapped_column(
         String(length=EMULATOR_MAX_LENGTH), nullable=True, default=None
     )
+    # NULL on states stored before they were hashed.
+    content_hash: Mapped[str | None] = mapped_column(
+        String(length=CONTENT_HASH_MAX_LENGTH), nullable=True, default=None
+    )
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="states")
     user: Mapped[User] = relationship(lazy="joined", back_populates="states")
