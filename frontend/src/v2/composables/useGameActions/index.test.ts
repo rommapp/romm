@@ -7,6 +7,7 @@ import {
   romFixture,
   romUserFixture,
 } from "@/utils/rom.fixtures";
+import storeFormatConversions from "@/v2/stores/formatConversions";
 import { useGameActions } from "./index";
 
 // Controllable stubs shared with the mocked modules below.
@@ -688,6 +689,7 @@ describe("useGameActions.downloadAs", () => {
       format: "iso",
     });
     expect(snackbarInfo).not.toHaveBeenCalled();
+    expect(storeFormatConversions().active).toBe(false);
   });
 
   it("polls while it converts, then downloads", async () => {
@@ -697,10 +699,21 @@ describe("useGameActions.downloadAs", () => {
       .mockResolvedValueOnce({ status: 206, retryAfterSeconds: null });
     const rom = pspRom([{ id: 7, file_name: "game.chd" }]);
 
+    const conversions = storeFormatConversions();
+
     const pending = useGameActions(() => rom).downloadAs("iso");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(conversions.conversions).toEqual([
+      expect.objectContaining({
+        romId: rom.id,
+        romName: "Game",
+        format: "ISO",
+      }),
+    ]);
     await vi.advanceTimersByTimeAsync(5000);
     await pending;
 
+    expect(conversions.active).toBe(false);
     expect(snackbarInfo).toHaveBeenCalledWith(
       'rom.download-as-preparing:{"format":"ISO"}',
     );

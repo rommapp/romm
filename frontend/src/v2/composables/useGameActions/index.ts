@@ -28,6 +28,7 @@ import { useRomSync } from "@/v2/composables/useRomSync";
 import { useScanTrigger } from "@/v2/composables/useScanTrigger";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
+import storeFormatConversions from "@/v2/stores/formatConversions";
 
 export interface GameActionsOptions {
   /** Resolver for the cover element to morph from when `play()` navigates to
@@ -71,6 +72,7 @@ export function useGameActions(
     useRomSync();
   const auth = storeAuth();
   const heartbeat = storeHeartbeat();
+  const formatConversions = storeFormatConversions();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
   // Write/destructive gates, mirroring the backend grants. Surfaces that
@@ -450,6 +452,12 @@ export function useGameActions(
       let probe = await romApi.probeFormatDownload(href);
       if (probe.status === 202) {
         snackbar.info(t("rom.download-as-preparing", { format: label }));
+        formatConversions.add({
+          href,
+          romId: rom.id,
+          romName: rom.name ?? rom.fs_name,
+          format: label,
+        });
       }
       let polls = 0;
       while (probe.status === 202 && polls++ < FORMAT_POLL_LIMIT) {
@@ -465,6 +473,7 @@ export function useGameActions(
       // A failed probe is reported like a format that can't be served.
     } finally {
       pendingFormatDownloads.delete(href);
+      formatConversions.remove(href);
     }
     snackbar.error(t("rom.download-as-unavailable", { format: label }), {
       persist: { body: rom.name ?? rom.fs_name, link: `/rom/${rom.id}` },
