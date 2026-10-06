@@ -31,6 +31,7 @@ import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
 import { playerPath } from "@/v2/utils/playerPath";
+import { isHardcoreRefusal } from "@/v2/utils/saveSync/snapshotSession";
 import {
   saveOverManifest,
   copySaveManifest,
@@ -148,13 +149,13 @@ watch(view, (next) => {
 
 async function refresh() {
   await refetchRom(props.rom.id);
-  const open = expanded.value;
-  if (open?.current) await loadHistory(open);
-  if (view.value === "timeline") {
-    await Promise.all(
-      props.channels.filter((c) => c.current).map((c) => loadHistory(c)),
-    );
-  }
+  const shown =
+    view.value === "timeline"
+      ? props.channels
+      : expanded.value
+        ? [expanded.value]
+        : [];
+  await Promise.all(shown.filter((c) => c.current).map((c) => loadHistory(c)));
 }
 
 const viewerTarget = ref<ViewerTarget | null>(null);
@@ -208,7 +209,7 @@ async function push(manifest: SnapshotManifest | null, done: string) {
       await snapshotApi.pushSnapshot({ manifest });
     } catch (error) {
       if (!isAxiosError(error) || error.response?.status !== 409) throw error;
-      if (!error.response.data?.hardcore_downgrade) {
+      if (!isHardcoreRefusal(error)) {
         snackbar.warning(t("channels.stale"), { icon: "mdi-sync-alert" });
         await refresh();
         return;

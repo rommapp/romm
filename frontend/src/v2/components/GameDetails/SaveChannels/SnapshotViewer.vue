@@ -10,6 +10,7 @@ import type {
 import { formatRelativeDate } from "@/utils";
 import { useDeviceLabel } from "@/v2/composables/useDeviceLabel";
 import { emulatorKey } from "@/v2/utils/assets";
+import { AUTO_STATE_SLOT } from "@/v2/utils/snapshots";
 
 /** What the drawer shows: a snapshot, or a save an older client filed without one. */
 export type ViewerTarget =
@@ -97,7 +98,11 @@ const details = computed<[string, string, boolean?][]>(() => {
 /** Auto first, then numbered slots by number, then any other name. */
 function slotOrder(a: string, b: string): number {
   const rank = (slot: string) =>
-    slot === "auto" ? -1 : /^\d+$/.test(slot) ? Number(slot) : Infinity;
+    slot === AUTO_STATE_SLOT
+      ? -1
+      : /^\d+$/.test(slot)
+        ? Number(slot)
+        : Infinity;
   return rank(a) - rank(b) || a.localeCompare(b);
 }
 
@@ -132,7 +137,7 @@ const canPlay = computed(() => {
 });
 
 function slotLabel(slot: string): string {
-  return slot === "auto"
+  return slot === AUTO_STATE_SLOT
     ? t("channels.slot-auto")
     : t("channels.slot-n", { slot });
 }

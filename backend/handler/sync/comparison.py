@@ -14,6 +14,19 @@ class SyncComparisonResult(NamedTuple):
     reason: str
 
 
+HELD_SAVE_REASON = "the save belongs to a sync channel"
+
+
+def for_held_save(result: SyncComparisonResult, save_id: int) -> SyncComparisonResult:
+    """`result` for a file-transfer device, where a save a sync channel holds
+    never changes in place: the device's newer copy waits as a conflict."""
+    from handler.database import db_snapshot_handler
+
+    if result.action == "upload" and db_snapshot_handler.is_frozen(save_id=save_id):
+        return SyncComparisonResult("conflict", HELD_SAVE_REASON)
+    return result
+
+
 def compare_save_state(
     *,
     client_hash: str | None,

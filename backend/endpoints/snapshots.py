@@ -24,7 +24,6 @@ from endpoints.responses.snapshots import (
     SnapshotSchema,
     build_snapshot_schema,
     build_snapshot_schemas,
-    can_read,
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_rom_visibility_filter
@@ -179,8 +178,16 @@ def rom_hidden(request: Request, rom_id: int | None) -> bool:
     which hides the channel and its snapshots too."""
     if rom_id is None:
         return False
-    rom = db_rom_handler.get_rom(rom_id)
-    return rom is not None and not get_rom_visibility_filter(request).allows(rom)
+    # Channels of one file share their ROM, so a listing asks once per ROM.
+    known: dict[int, bool] | None = getattr(request.state, "rom_hidden", None)
+    if known is None:
+        known = request.state.rom_hidden = {}
+    if rom_id not in known:
+        rom = db_rom_handler.get_rom_visibility(rom_id)
+        known[rom_id] = rom is not None and not get_rom_visibility_filter(
+            request
+        ).allows(rom)
+    return known[rom_id]
 
 
 def readable_channel(request: Request, channel: Channel) -> bool:
@@ -198,7 +205,7 @@ def _readable(request: Request, id: int) -> tuple[Snapshot, Channel | None]:
         if snapshot.channel_id
         else None
     )
-    if not can_read(snapshot, channel, request.user) or rom_hidden(
+    if not snapshot.readable_by(request.user.id, channel) or rom_hidden(
         request, snapshot.rom_id
     ):
         raise _not_found()
@@ -217,10 +224,14 @@ def visible_rom_file(request: Request, rom_file_id: int) -> tuple[RomFile, Rom]:
     return rom_file, rom
 
 
-def _own_device(device_id: str | None, user: User) -> Device | None:
+def _own_device(request: Request, device_id: str | None) -> Device | None:
+    """The caller's device a write is attributed to. Attributing one takes
+    `devices.write`, as the legacy save upload requires."""
     if device_id is None:
         return None
-    device = db_device_handler.get_device(device_id=device_id, user_id=user.id)
+    if Scope.DEVICES_WRITE not in request.auth.scopes:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if device is None:
         raise _not_found("Device")
     return device
@@ -478,7 +489,7 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
     A screenshot part may come alone, for content the server holds without one.
     """
     viewer = request.user
-    device = _own_device(device_id, viewer)
+    device = _own_device(request, device_id)
     payload, parts, save_members = await _read_push(request)
     check_emulator_folder_name(payload.emulator)
     rom_file, rom = visible_rom_file(request, payload.rom_file_id)
@@ -581,7 +592,7 @@ def update_snapshot(
         content = db_snapshot_handler.get_stored_content(snapshot)
         db_snapshot_handler.sync_content_visibility(
             [content.save.id] if content.save else [],
-            [state.id for slots in content.states.values() for state in slots.values()],
+            [state.id for state in content.state_rows],
         )
     return build_snapshot_schema(snapshot, channel, viewer)
 
@@ -594,7 +605,7 @@ def update_snapshot(
 )
 def report_applied(request: Request, id: int, device_id: str) -> None:
     """Record the snapshot a device applied after a download, for attribution."""
-    device = _own_device(device_id, request.user)
+    device = _own_device(request, device_id)
     snapshot, channel = _readable(request, id)
     if device is None or channel is None:
         raise _not_found()

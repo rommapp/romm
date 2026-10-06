@@ -23,7 +23,12 @@ from typing import Literal
 from redis.exceptions import RedisError
 
 from config import SYNC_RETROARCH_PSP_PENDING_PATH, SYNC_RETROARCH_PSP_SERIAL_MAP
-from handler.database import db_platform_handler, db_rom_handler, db_save_handler
+from handler.database import (
+    db_platform_handler,
+    db_rom_handler,
+    db_save_handler,
+    db_snapshot_handler,
+)
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.base_handler import FSHandler
 from handler.redis_handler import async_cache
@@ -34,6 +39,7 @@ from models.assets import Save
 from models.rom import Rom
 from models.user import User
 from utils.memory_cards import content_hash_of_bytes
+from utils.uploads import apply_datetime_tag
 from utils.zip_cache import ensure_zipfile_writable
 
 _IGNORED_CATEGORY = "SYSTEM"
@@ -367,8 +373,18 @@ async def _resolve_folder_rom(
 
 
 async def _add_bundle(
-    user: User, info: PspFilePath, rom: Rom, entries: dict[str, bytes]
+    user: User,
+    info: PspFilePath,
+    rom: Rom,
+    entries: dict[str, bytes],
+    beside_held: bool = False,
 ) -> None:
+    """Write a new bundle for the folder.
+
+    Args:
+        beside_held: a sync channel holds the folder's bundle, so this one takes
+            a tagged name and never lands on that bundle's file.
+    """
     bundle_path = fs_asset_handler.build_saves_file_path(
         user=user,
         platform_fs_slug=rom.platform.fs_slug,
@@ -376,6 +392,8 @@ async def _add_bundle(
         emulator=info.emulator,
     )
     bundle_name = _bundle_base_name(info.save_folder)
+    if beside_held:
+        bundle_name = apply_datetime_tag(bundle_name)
     zip_bytes = await asyncio.to_thread(_write_bundle, entries)
     await fs_asset_handler.write_file(
         file=zip_bytes, path=bundle_path, filename=bundle_name
@@ -433,10 +451,16 @@ async def put_psp_file(
         if _exceeds_bundle_limits([len(data) for data in merged.values()]):
             raise PspBundleInvalid(info.save_folder)
 
-        if existing:
-            await _rewrite_bundle(existing, merged)
-        else:
+        if existing is None:
             await _add_bundle(user, info, rom, merged)
+        elif db_snapshot_handler.is_frozen(save_id=existing.id):
+            # A sync channel holds the bundle, so the merge becomes a bundle of
+            # its own beside it, as RetroArch's other writes do.
+            await _add_bundle(
+                user, info, existing.attached_rom, merged, beside_held=True
+            )
+        else:
+            await _rewrite_bundle(existing, merged)
 
         for name in pending_names:
             with suppress(FileNotFoundError):
@@ -505,6 +529,12 @@ async def delete_psp_file(
             return
 
         del entries[info.file_name]
+        if db_snapshot_handler.is_frozen(save_id=bundle.id):
+            if entries:
+                await _add_bundle(
+                    user, info, bundle.attached_rom, entries, beside_held=True
+                )
+            return
         if entries:
             await _rewrite_bundle(bundle, entries)
             return

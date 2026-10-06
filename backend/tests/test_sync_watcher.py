@@ -880,7 +880,7 @@ class TestProcessIncomingFileOutcomes:
 
         with (
             patch("sync_watcher.compare_save_state") as compare,
-            patch("sync_watcher.db_snapshot_handler.is_frozen", return_value=True),
+            patch("handler.database.db_snapshot_handler.is_frozen", return_value=True),
             patch("sync_watcher.fs_asset_handler.write_file") as write_file,
             patch("endpoints.sockets.sync.emit_sync_conflict") as emit_conflict,
         ):

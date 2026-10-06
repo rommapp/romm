@@ -89,6 +89,15 @@ class Snapshot(BaseModel):
         lazy="raise",
     )
 
+    def readable_by(self, user_id: int, channel: Channel | None) -> bool:
+        """Whether a user may read this snapshot: their own, one in a shared
+        channel, or a shared archival one. `channel` is the snapshot's own."""
+        if self.user_id == user_id:
+            return True
+        if channel is not None:
+            return channel.is_public
+        return self.kind == SnapshotKind.ARCHIVAL and self.is_public
+
 
 class SnapshotState(BaseModel):
     """One filled slot of a snapshot's bank."""

@@ -401,7 +401,8 @@ async def prune_state_history(
         else user_states_for_emulator(user.id, rom.id, emulator)
     )
     # A state a channel snapshot holds belongs to that channel's retention.
-    states = [s for s in states if not db_snapshot_handler.is_frozen(state_id=s.id)]
+    frozen = db_snapshot_handler.get_frozen_state_ids([s.id for s in states])
+    states = [s for s in states if s.id not in frozen]
     stale = states[limit:]
     for state in stale:
         screenshot = state.screenshot

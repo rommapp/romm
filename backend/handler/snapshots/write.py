@@ -215,18 +215,10 @@ def _parent_id(write: SnapshotWrite) -> int | None:
     return write.parent_snapshot_id
 
 
-def _can_read(snapshot: Snapshot, user: User, channel: Channel | None) -> bool:
-    if snapshot.user_id == user.id:
-        return True
-    if channel is not None:
-        return channel.is_public
-    return snapshot.kind == SnapshotKind.ARCHIVAL and snapshot.is_public
-
-
 async def _hash_unhashed(content: StoredContent) -> None:
     """Fill content hashes older rows never recorded, so a digest can cover them."""
     rows: list[Save | State] = [content.save] if content.save else []
-    rows += [state for slots in content.states.values() for state in slots.values()]
+    rows += content.state_rows
     for row in rows:
         if row.content_hash:
             continue
@@ -276,7 +268,7 @@ async def _plan(write: SnapshotWrite, match_current: bool = True) -> _Plan:
             if parent and parent.channel_id
             else None
         )
-        if parent is None or not _can_read(parent, write.author, parent_channel):
+        if parent is None or not parent.readable_by(write.author.id, parent_channel):
             raise NotVisible("parent snapshot")
         parent_content = db_snapshot_handler.get_stored_content(parent)
         await _hash_unhashed(parent_content)
@@ -635,15 +627,13 @@ def _lock_or_create_channel(write: SnapshotWrite, session: Session) -> Channel |
         if channel is not None:
             return channel
     assert write.rom_file is not None and target.label
-    channel = Channel(
-        user_id=write.author.id,
-        rom_id=write.rom.id,
-        platform_id=write.rom.platform_id,
-        label=target.label,
-        **FileKey.of_file(write.rom_file).channel_columns(),
+    channel = FileKey.of_file(write.rom_file).new_channel(
+        write.author.id,
+        write.rom.id,
+        write.rom.platform_id,
+        target.label,
+        id=target.id,
     )
-    if target.id is not None:
-        channel.id = target.id
     session.add(channel)
     session.flush()
     return channel

@@ -391,6 +391,23 @@ def test_a_save_whose_bytes_do_not_fit_its_shape_is_unprocessable(
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
+def test_a_parent_retention_removed_is_named_in_the_refusal(
+    client: TestClient, headers: dict[str, str], game_file: RomFile
+):
+    response = post(
+        client,
+        headers,
+        manifest(
+            game_file, label="default", parent_snapshot_id=987654, save=save_entry()
+        ),
+        {"save": ("game.srm", SRAM)},
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    # The v2 player matches this detail to retry without the parent.
+    assert response.json()["detail"] == "Parent snapshot not found"
+
+
 def test_a_device_must_be_the_callers_own(
     client: TestClient,
     editor_headers: dict[str, str],
@@ -1258,6 +1275,30 @@ def test_restoring_from_the_web_keeps_the_source_device(
     assert restored["parent_snapshot_id"] == first["id"]
     assert restored["device"]["id"] == device.id
     assert restored["held_by"] == []
+
+
+def test_attributing_a_push_to_a_device_takes_devices_write(
+    client: TestClient, game_file: RomFile, device: Device, admin_user: User
+):
+    from handler.auth.base_handler import oauth_handler
+
+    token = oauth_handler.create_access_token(
+        data={
+            "sub": admin_user.username,
+            "iss": "romm:oauth",
+            "scopes": "roms.read assets.read assets.write",
+        }
+    )
+
+    response = post(
+        client,
+        {"Authorization": f"Bearer {token}"},
+        manifest(game_file, label="default", save=save_entry()),
+        {"save": ("game.srm", SRAM)},
+        device_id=device.id,
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 def _share(client: TestClient, headers: dict[str, str], body: dict[str, Any]) -> None:

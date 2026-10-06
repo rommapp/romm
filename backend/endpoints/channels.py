@@ -104,15 +104,9 @@ def create_channel(request: Request, payload: ChannelCreatePayload) -> ChannelSc
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="That channel id is taken"
         )
-    channel = Channel(
-        user_id=viewer.id,
-        rom_id=rom.id,
-        platform_id=rom.platform_id,
-        label=payload.label,
-        **FileKey.of_file(rom_file).channel_columns(),
+    channel = FileKey.of_file(rom_file).new_channel(
+        viewer.id, rom.id, rom.platform_id, payload.label, id=payload.id
     )
-    if payload.id is not None:
-        channel.id = payload.id
     return build_channel_schema(db_snapshot_handler.add_channel(channel), viewer)
 
 

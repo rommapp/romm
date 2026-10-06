@@ -12,7 +12,7 @@ from pathlib import PurePosixPath
 
 from handler.database import db_memory_card_handler
 from handler.filesystem import fs_asset_handler
-from handler.filesystem.assets_handler import hash_zip_contents
+from handler.filesystem.assets_handler import hash_zip_contents, is_symlink_entry
 from handler.scan_handler import scan_memory_card_version
 from logger.logger import log
 from models.assets import MemoryCard, MemoryCardVersion
@@ -44,12 +44,6 @@ def content_hash_of_bytes(content: bytes) -> str | None:
 class UnsafeCardArchive(ValueError):
     """A card archive the broker must not be asked to unpack."""
 
-
-# The unix mode a zip entry carries in the top half of its external attributes,
-# and the bits that mark it a symlink.
-_ZIP_MODE_SHIFT = 16
-_S_IFMT = 0o170000
-_S_IFLNK = 0o120000
 
 # Enough that a card-sized entry is a handful of reads, small enough that the
 # check never holds much more than this per entry.
@@ -102,11 +96,7 @@ def assert_card_archive_safe(content: bytes) -> None:
                     or ".." in parts
                 ):
                     raise UnsafeCardArchive(f"unsafe path: {name}")
-                # A symlink's own name is harmless; its target is not, and an
-                # unpacker that follows it writes wherever the target points on
-                # the next entry.
-                mode = entry.external_attr >> _ZIP_MODE_SHIFT
-                if mode & _S_IFMT == _S_IFLNK:
+                if is_symlink_entry(entry):
                     raise UnsafeCardArchive(f"symlink entry: {name}")
                 if not name.endswith("/"):
                     budget -= _assert_entry_fits(zf, entry, budget)

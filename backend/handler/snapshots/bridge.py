@@ -1,14 +1,12 @@
 """Keeps legacy slot uploads and snapshot pushes on one line per channel."""
 
-import zipfile
-
 from handler.database import (
     db_save_handler,
     db_screenshot_handler,
     db_snapshot_handler,
 )
 from handler.filesystem import fs_asset_handler
-from handler.snapshots.file_key import FileKey
+from handler.filesystem.assets_handler import save_shape_of
 from handler.snapshots.hashing import identity_hash_of_file
 from handler.snapshots.legacy import may_load
 from handler.snapshots.manifest import Manifest, SaveEntry
@@ -19,7 +17,7 @@ from handler.snapshots.write import (
     write_snapshot,
 )
 from logger.logger import log
-from models.assets import Save, SaveFormat, SaveShape
+from models.assets import Save, SaveFormat
 from models.rom import Rom
 from models.user import User
 
@@ -49,19 +47,15 @@ async def hold_legacy_upload(
         or not may_load(held, [save.emulator], [save.core])
     ):
         return
-    channel_key = FileKey.of_channel(channel)
-    rom_file = next(
-        (f for f in rom.files if channel_key.matches(FileKey.of_file(f))), None
-    )
+    rom_file = db_snapshot_handler.get_channel_file(channel)
     if rom_file is None:
         return
 
     path = fs_asset_handler.validate_path(save.full_path)
-    shape = SaveShape.MULTI if zipfile.is_zipfile(path) else SaveShape.SINGLE
     save = db_save_handler.update_save(
         save.id,
         {
-            "shape": shape,
+            "shape": save_shape_of(path),
             "format": SaveFormat.NATIVE,
             "identity_hash": await identity_hash_of_file(path),
         },
@@ -80,7 +74,7 @@ async def hold_legacy_upload(
                 manifest=Manifest(
                     save=SaveEntry(
                         hash=save.content_hash or "",
-                        shape=shape,
+                        shape=save.shape or save_shape_of(path),
                         format=SaveFormat.NATIVE,
                     ),
                     emulator=save.emulator,

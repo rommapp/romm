@@ -1,6 +1,7 @@
 import hashlib
 import os
 import re
+import stat
 import threading
 import zipfile
 from mimetypes import guess_type
@@ -13,6 +14,7 @@ from fastapi.responses import FileResponse
 
 from config import ASSETS_BASE_PATH
 from logger.logger import log
+from models.assets import SaveShape
 from models.user import User
 from utils.media_types import IMAGE_EXT_BY_MIME_TYPE
 
@@ -44,6 +46,12 @@ class UnsafeArchive(ValueError):
     """An uploaded archive a client restoring it could not unpack safely."""
 
 
+def is_symlink_entry(info: zipfile.ZipInfo) -> bool:
+    """Whether a zip entry is a Unix symlink, whose target an unpacker that
+    follows it writes through on the next entry."""
+    return stat.S_ISLNK(info.external_attr >> 16)
+
+
 def check_zip(zf: zipfile.ZipFile) -> list[str]:
     """The file entries of an uploaded archive, once every entry stays inside
     the save folder and the whole expands within the limits.
@@ -65,6 +73,7 @@ def check_zip(zf: zipfile.ZipFile) -> list[str]:
             or name.startswith("/")
             or _DRIVE_PREFIX.match(name)
             or ".." in name.split("/")
+            or is_symlink_entry(info)
         ):
             raise UnsafeArchive(f"entry {name!r} leaves the save folder")
         expanded += info.file_size
@@ -88,6 +97,11 @@ def check_upload(stream: BinaryIO) -> list[str] | None:
             raise UnsafeArchive("the archive can't be read") from exc
     finally:
         stream.seek(position)
+
+
+def save_shape_of(path: Path) -> SaveShape:
+    """A stored save's shape: an archive holds several members, a raw file one."""
+    return SaveShape.MULTI if zipfile.is_zipfile(path) else SaveShape.SINGLE
 
 
 def check_upload_archive(upload: UploadFile | None, label: str) -> None:

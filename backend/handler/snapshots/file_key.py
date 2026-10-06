@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass
 from typing import Self
 
@@ -41,3 +42,27 @@ class FileKey:
             "target_file_name": self.name,
             "target_file_size": self.size,
         }
+
+    def new_channel(
+        self,
+        user_id: int,
+        rom_id: int,
+        platform_id: int,
+        label: str,
+        id: uuid.UUID | None = None,
+    ) -> Channel:
+        """A channel keyed to this file, not yet added to a session.
+
+        Args:
+            id: the id a client chose for it, else a generated one.
+        """
+        channel = Channel(
+            user_id=user_id,
+            rom_id=rom_id,
+            platform_id=platform_id,
+            label=label,
+            **self.channel_columns(),
+        )
+        if id is not None:
+            channel.id = id
+        return channel

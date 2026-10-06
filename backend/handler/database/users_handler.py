@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from typing import Any
 
 from sqlalchemy import Result, and_, delete, func, not_, select, update
@@ -18,11 +18,14 @@ class DBUsersHandler(DBBaseHandler):
         self,
         query: QueryT,
         *,
+        ids: Collection[int] = (),
         usernames: Sequence[str] = (),
         emails: Sequence[str] = (),
         roles: Sequence[Role] = (),
         has_ra_username: bool | None = None,
     ) -> QueryT:
+        if ids:
+            query = query.filter(User.id.in_(ids))
         if usernames:
             query = query.filter(
                 func.lower(User.username).in_([u.lower() for u in usernames])
@@ -128,6 +131,7 @@ class DBUsersHandler(DBBaseHandler):
     def get_users(
         self,
         *,
+        ids: Collection[int] = (),
         usernames: Sequence[str] = (),
         emails: Sequence[str] = (),
         roles: Sequence[Role] = (),
@@ -137,6 +141,7 @@ class DBUsersHandler(DBBaseHandler):
     ) -> Sequence[User]:
         query = self.filter(
             select(User),
+            ids=ids,
             usernames=usernames,
             emails=emails,
             roles=roles,

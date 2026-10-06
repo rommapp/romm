@@ -1247,6 +1247,30 @@ class TestRetroArchSyncPsp:
         assert get_data.status_code == status.HTTP_200_OK
         assert get_data.content == b"the actual save data"
 
+    def test_a_held_bundle_is_never_rewritten(self, client, admin_user: User, rom: Rom):
+        save_path = "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0"
+        client.put(f"{save_path}/PARAM.SFO", content=b"sfo", auth=ADMIN_AUTH)
+        client.put(f"{save_path}/SAVE.BIN", content=b"first", auth=ADMIN_AUTH)
+        (held,) = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        held_hash = held.content_hash
+
+        with mock.patch(
+            "handler.database.db_snapshot_handler.is_frozen",
+            side_effect=lambda **kw: kw.get("save_id") == held.id,
+        ):
+            response = client.put(
+                f"{save_path}/SAVE.BIN", content=b"second", auth=ADMIN_AUTH
+            )
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        get_data = client.get(f"{save_path}/SAVE.BIN", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert len(saves) == 2
+        kept = next(s for s in saves if s.id == held.id)
+        assert kept.content_hash == held_hash
+        assert fs_asset_handler.validate_path(kept.full_path).is_file()
+        assert get_data.content == b"second"
+
     def test_manifest_lists_each_bundle_member_separately(
         self, client, admin_user: User
     ):

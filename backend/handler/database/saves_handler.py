@@ -10,12 +10,11 @@ from decorators.database import INJECTED_SESSION, begin_session
 from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
 from models.base import with_file_name_parts
 from models.rom import Rom
-from models.snapshot import Snapshot
 from utils.sql_dialect import force_index_on_mysql
 
 from .base_handler import DBBaseHandler, affected_rows
 from .deleted_assets_handler import DBDeletedAssetsHandler
-from .snapshots_handler import channel_for_slot
+from .snapshots_handler import channel_for_slot, held_save_ids
 
 _deleted_assets = DBDeletedAssetsHandler()
 # What identifies a version in its slot, for recording it when it leaves.
@@ -437,13 +436,7 @@ class DBSavesHandler(DBBaseHandler):
         ).all()
         # Snapshot retention owns a version a snapshot holds. Read apart from
         # the locking read, which MariaDB refuses to mix with an unlocked table.
-        held = set(
-            session.scalars(
-                select(Snapshot.save_id).where(
-                    Snapshot.save_id.in_([row.id for row in rows])
-                )
-            )
-        )
+        held = held_save_ids(session, [row.id for row in rows])
         rows = [row for row in rows if row.id not in held]
         fallback_hashes = fallback_hashes or {}
         unhashed = [

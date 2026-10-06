@@ -1,9 +1,9 @@
 """Copying an existing save into a snapshot, without the client sending its bytes."""
 
 import asyncio
-import zipfile
 
 from handler.filesystem import fs_asset_handler
+from handler.filesystem.assets_handler import save_shape_of
 from handler.snapshots.manifest import SaveEntry
 from handler.snapshots.write import UploadPart, copied_part
 from models.assets import Save, SaveFormat, SaveShape
@@ -21,10 +21,9 @@ async def copy_part(
     if content_hash is None:
         raise FileNotFoundError(save.full_path)
     path = fs_asset_handler.validate_path(save.full_path)
-    is_zip = await asyncio.to_thread(zipfile.is_zipfile, path)
     entry = SaveEntry(
         hash=content_hash,
-        shape=shape or (SaveShape.MULTI if is_zip else SaveShape.SINGLE),
+        shape=shape or await asyncio.to_thread(save_shape_of, path),
         format=format or SaveFormat.NATIVE,
     )
     return entry, await copied_part(save)

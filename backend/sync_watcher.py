@@ -24,11 +24,10 @@ from handler.database import (
     db_device_save_sync_handler,
     db_platform_handler,
     db_save_handler,
-    db_snapshot_handler,
     db_sync_session_handler,
 )
 from handler.filesystem import fs_asset_handler, get_fs_sync_handler
-from handler.sync.comparison import compare_save_state
+from handler.sync.comparison import compare_save_state, for_held_save
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.device import Device, SyncMode
@@ -264,13 +263,8 @@ def _process_incoming_file(
             ),
         )
 
+        result = for_held_save(result, matched_save.id)
         action, reason = result.action, result.reason
-        # A sync channel holds the save, so its bytes never change in place:
-        # the device's newer copy waits as a conflict instead.
-        if action == "upload" and db_snapshot_handler.is_frozen(
-            save_id=matched_save.id
-        ):
-            action, reason = "conflict", "the save belongs to a sync channel"
 
         if action == "no_op":
             log.debug(f"Sync watcher: {filename} is already in sync, skipping")

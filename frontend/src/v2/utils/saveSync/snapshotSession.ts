@@ -113,27 +113,22 @@ export function sessionTarget({
   };
 }
 
-/** A file a push sends, kept as bytes so a held push survives a reload. */
-export interface PushFile {
-  key: string;
+/** A file a session wrote, kept as bytes so a held push survives a reload. */
+export interface SessionFile {
   bytes: ArrayBuffer;
   fileName: string;
   screenshot?: ArrayBuffer | undefined;
   screenshotName?: string | undefined;
 }
+
+/** A file a push sends, under its part key. */
+export type PushFile = SessionFile & { key: string };
 
 /** Everything one push sends, ready to send now or to hold for later. */
 export interface SnapshotPush {
   manifest: SnapshotManifest;
   files: PushFile[];
   deviceId?: string | undefined;
-}
-
-export interface SessionFile {
-  bytes: ArrayBuffer;
-  fileName: string;
-  screenshot?: ArrayBuffer | undefined;
-  screenshotName?: string | undefined;
 }
 
 export type SnapshotContent =
@@ -224,7 +219,8 @@ function conflictOf(error: unknown): SnapshotConflictSchema | null {
 
 const PARENT_GONE = "Parent snapshot not found";
 
-function isHardcoreRefusal(error: unknown): boolean {
+/** Whether the server refused a softcore push onto a hardcore current. */
+export function isHardcoreRefusal(error: unknown): boolean {
   if (!isAxiosError(error) || error.response?.status !== 409) return false;
   const body = error.response.data as { hardcore_downgrade?: unknown } | null;
   return body?.hardcore_downgrade === true;

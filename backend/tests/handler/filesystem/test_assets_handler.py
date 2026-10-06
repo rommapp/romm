@@ -599,6 +599,17 @@ class TestCheckZip:
         with pytest.raises(assets_handler.UnsafeArchive):
             assets_handler.check_zip(_zip({name: b"x"}))
 
+    def test_a_symlink_entry_is_refused(self):
+        reload_zipfile()
+        link = zipfile.ZipInfo("SAVE01/link")
+        link.external_attr = 0o120777 << 16
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr(link, "/etc/passwd")
+
+        with pytest.raises(assets_handler.UnsafeArchive):
+            assets_handler.check_zip(zipfile.ZipFile(io.BytesIO(buffer.getvalue())))
+
     def test_too_many_entries_is_refused(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(assets_handler, "MAX_ARCHIVE_ENTRIES", 2)
 
