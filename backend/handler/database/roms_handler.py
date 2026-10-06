@@ -118,6 +118,7 @@ from utils.sql_dialect import (
 )
 
 from .base_handler import DBBaseHandler, affected_rows, sync_engine
+from .snapshots_handler import link_channels_to_files
 
 type RomSelect = Select[Rom]
 
@@ -2765,6 +2766,9 @@ class DBRomsHandler(DBBaseHandler):
             )
 
         session.flush()
+        platform_id = session.scalar(select(Rom.platform_id).where(Rom.id == rom_id))
+        if platform_id is not None:
+            link_channels_to_files(session, rom_id, platform_id, saved)
         return SyncedRomFiles(files=saved, orphaned_cover_paths=orphaned_cover_paths)
 
     @begin_session

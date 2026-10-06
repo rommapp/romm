@@ -1,3 +1,4 @@
+import uuid
 from typing import Any
 
 from pydantic import ConfigDict, field_validator, model_validator
@@ -63,7 +64,12 @@ class UserScreenshotSchema(ScreenshotSchema):
     user_updated_at: UTCDatetime | None = None
 
 
-class SaveSchema(BaseAsset, AssetAnnotations):
+class ManagedAsset(BaseModel):
+    # The sync channel the row was pushed into. Null is a backup the user manages.
+    channel_id: uuid.UUID | None = None
+
+
+class SaveSchema(BaseAsset, AssetAnnotations, ManagedAsset):
     emulator: str | None
     slot: str | None = None
     content_hash: str | None = None
@@ -113,7 +119,7 @@ class SaveSummarySchema(BaseModel):
     slots: list[SlotSummarySchema]
 
 
-class StateSchema(BaseAsset, AssetAnnotations):
+class StateSchema(BaseAsset, AssetAnnotations, ManagedAsset):
     emulator: str | None
     core: str | None = None
     is_public: bool = False

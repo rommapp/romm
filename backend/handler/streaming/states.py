@@ -34,6 +34,7 @@ from config import STREAMING_STATE_HISTORY_LIMIT
 from handler.asset_store import release_thumbnail, store_screenshot, store_state_file
 from handler.database import (
     db_rom_handler,
+    db_snapshot_handler,
     db_state_handler,
     db_user_handler,
 )
@@ -398,9 +399,12 @@ async def prune_state_history(
         if history is not None
         else user_states_for_emulator(user.id, rom.id, emulator)
     )
+    # A state a channel snapshot holds belongs to that channel's retention.
+    states = [s for s in states if not db_snapshot_handler.is_frozen(state_id=s.id)]
     stale = states[limit:]
     for state in stale:
         screenshot = state.screenshot
+        db_snapshot_handler.release_backup(state_id=state.id)
         db_state_handler.delete_state(state.id)
         await _remove_pruned_file(f"{state.file_path}/{state.file_name}")
         try:

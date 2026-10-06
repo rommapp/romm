@@ -27,6 +27,7 @@ from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
+    db_snapshot_handler,
     db_sync_session_handler,
 )
 from handler.play_session_handler import ingest_play_sessions
@@ -126,6 +127,14 @@ class SyncNegotiatePayload(BaseModel):
             "save from another emulator in the same slot is left alone."
         ),
     )
+    cores: list[str] | None = Field(
+        default=None,
+        description=(
+            "Libretro cores whose saves this client can load. A save from a "
+            "snapshot client that names its core is offered only to a client "
+            "listing that core, and is matched by emulator otherwise."
+        ),
+    )
 
 
 # Its own class so the OpenAPI schema keeps the name clients generate from.
@@ -190,6 +199,10 @@ def negotiate_sync(
     file (same content_hash) already exists on the server under a slot. This is
     intentional, since saves can be cloned across slots and null slots overlap
     with manual uploads.
+
+    Once a snapshot client keeps a slot's channel, the slot's server save is
+    the save of the channel's current snapshot, unless that save is in sigil's
+    neutral form.
     """
     device_id: str | None = payload.device_id or token_device_id(request)
     if not device_id:
@@ -239,10 +252,18 @@ def negotiate_sync(
         server_saves = [s for s in server_saves if s.emulator in payload.emulators]
     server_save_map: dict[tuple[int, str | None], Save] = {}
     for save in server_saves:
-        key = (save.rom_id, save.slot)
+        key = (save.attached_rom_id, save.slot)
         current = server_save_map.get(key)
         if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
             server_save_map[key] = save
+    # Once a snapshot client keeps a slot's channel, its current save is the slot's save.
+    slot_keys = {(rom_id, slot) for rom_id, slot in server_save_map if slot}
+    slot_keys |= {(s.rom_id, s.slot) for s in payload.saves if s.slot}
+    heads = db_snapshot_handler.current_saves_for_slots(
+        request.user.id, slot_keys, payload.emulators, payload.cores
+    )
+    for key, head in heads.items():
+        server_save_map[key] = head
 
     deleted_map: dict[tuple[int, str | None], DeletedAsset] = {
         (record.rom_id, record.slot): record
@@ -296,10 +317,10 @@ def negotiate_sync(
             operations.append(
                 SyncOperationSchema(
                     action="no_op",
-                    rom_id=server_save.rom_id,
+                    rom_id=server_save.attached_rom_id,
                     save_id=server_save.id,
                     file_name=server_save.file_name,
-                    slot=server_save.slot,
+                    slot=client_save.slot,
                     emulator=server_save.emulator,
                     reason="Save is untracked on this device",
                 )
@@ -332,10 +353,10 @@ def negotiate_sync(
         operations.append(
             SyncOperationSchema(
                 action=result.action,
-                rom_id=server_save.rom_id,
+                rom_id=server_save.attached_rom_id,
                 save_id=server_save.id,
                 file_name=server_save.file_name,
-                slot=server_save.slot,
+                slot=client_save.slot,
                 emulator=server_save.emulator,
                 reason=result.reason,
                 server_updated_at=server_save.updated_at,
@@ -344,7 +365,7 @@ def negotiate_sync(
         )
 
     # Check for current saves the client didn't mention (superseded older rows per slot are history, not downloads)
-    for save in server_save_map.values():
+    for (_, slot), save in server_save_map.items():
         if save.id in matched_server_save_ids:
             continue
 
@@ -367,10 +388,10 @@ def negotiate_sync(
             operations.append(
                 SyncOperationSchema(
                     action="download",
-                    rom_id=save.rom_id,
+                    rom_id=save.attached_rom_id,
                     save_id=save.id,
                     file_name=save.file_name,
-                    slot=save.slot,
+                    slot=slot,
                     emulator=save.emulator,
                     reason="Server save updated since last sync, not present on client",
                     server_updated_at=save.updated_at,
@@ -382,10 +403,10 @@ def negotiate_sync(
             operations.append(
                 SyncOperationSchema(
                     action="download",
-                    rom_id=save.rom_id,
+                    rom_id=save.attached_rom_id,
                     save_id=save.id,
                     file_name=save.file_name,
-                    slot=save.slot,
+                    slot=slot,
                     emulator=save.emulator,
                     reason="Save exists on server but not on client",
                     server_updated_at=save.updated_at,
@@ -425,7 +446,8 @@ def negotiate_sync(
             session_id=sync_session.id,
             conflict_ops=conflict_ops,
             rom_names={
-                save.rom_id: save.rom.name or save.rom.fs_name
+                save.attached_rom_id: save.attached_rom.name
+                or save.attached_rom.fs_name
                 for save in server_save_map.values()
             },
         )

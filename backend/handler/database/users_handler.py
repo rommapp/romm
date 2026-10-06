@@ -7,6 +7,7 @@ from sqlalchemy.sql import Delete, Select, Update
 
 from decorators.database import INJECTED_SESSION, begin_session
 from exceptions.database_exceptions import LastAdminError
+from models.snapshot import Snapshot
 from models.user import Role, User
 
 from .base_handler import DBBaseHandler
@@ -157,6 +158,13 @@ class DBUsersHandler(DBBaseHandler):
     ) -> Result[*tuple[Any, ...]]:
         if keep_an_admin:
             self.refuse_removing_the_last_admin(id, session=session)
+        # PostgreSQL checks the snapshots' RESTRICT keys inside the cascade, before
+        # it reaches the snapshots, so they go first.
+        session.execute(
+            delete(Snapshot)
+            .where(Snapshot.user_id == id)
+            .execution_options(synchronize_session=False)
+        )
         return session.execute(
             delete(User)
             .where(User.id == id)

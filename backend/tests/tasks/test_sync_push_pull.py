@@ -241,7 +241,7 @@ class TestNullSlotLeakInProcessRemoteSave:
             save.id, {"updated_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}
         )
         db_deleted_asset_handler.record_deletion(
-            admin_user.id, save.rom_id, save.slot, "removed_here"
+            admin_user.id, save.attached_rom_id, save.slot, "removed_here"
         )
         remote_save = RemoteSaveInfo(
             path=f"/remote/{platform.fs_slug}/{save.file_name}",

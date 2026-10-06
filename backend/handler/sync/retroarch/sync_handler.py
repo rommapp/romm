@@ -144,7 +144,11 @@ def group_states_by_slot(
     """The newest state in each (rom, emulator, slot) bucket."""
     latest: dict[tuple[int, str | None, str], State] = {}
     for state in states:
-        key = (state.rom_id, state.emulator, state_slot_suffix(state.file_name))
+        key = (
+            state.attached_rom_id,
+            state.emulator,
+            state_slot_suffix(state.file_name),
+        )
         current = latest.get(key)
         if current is None or recency_key(state) > recency_key(current):
             latest[key] = state
@@ -179,8 +183,8 @@ def state_screenshot_dir(user: User, rom: Rom, emulator: str | None) -> str:
 def _match_state_screenshot(
     user: User, state: State, screenshots: Iterable[Screenshot]
 ) -> Screenshot | None:
-    own_dir = state_screenshot_dir(user, state.rom, state.emulator)
-    rom_dir = state_screenshot_dir(user, state.rom, None)
+    own_dir = state_screenshot_dir(user, state.attached_rom, state.emulator)
+    rom_dir = state_screenshot_dir(user, state.attached_rom, None)
     candidates = [
         s
         for s in screenshots
@@ -193,7 +197,7 @@ def _match_state_screenshot(
 
     # `State.screenshot` matches on the name stem, which a RetroArch slot name
     # (`<rom>.state1`) shares with every other slot's and gallery shot.
-    if state.file_name_no_ext == state.rom.fs_name_no_ext:
+    if state.file_name_no_ext == state.attached_rom.fs_name_no_ext:
         return None
 
     names = {state.file_name, state.file_name_no_ext}
@@ -215,12 +219,12 @@ def state_screenshots(user: User, states: Collection[State]) -> dict[int, Screen
 
     by_rom: defaultdict[int, list[Screenshot]] = defaultdict(list)
     for screenshot in db_screenshot_handler.get_screenshots(
-        user_id=user.id, rom_ids={state.rom_id for state in states}
+        user_id=user.id, rom_ids={state.attached_rom_id for state in states}
     ):
         by_rom[screenshot.rom_id].append(screenshot)
 
     matches = {
-        state.id: _match_state_screenshot(user, state, by_rom[state.rom_id])
+        state.id: _match_state_screenshot(user, state, by_rom[state.attached_rom_id])
         for state in states
     }
     return {state_id: shot for state_id, shot in matches.items() if shot}
@@ -419,16 +423,20 @@ def _manifest_assets(
         save
         for save in saves
         if not save.missing_from_fs
-        and can_see(save.rom)
+        and can_see(save.attached_rom)
         and not psp.is_psp_bundle_file_name(save.file_name)
     ]
     listed_states = (
         [
-            (emulator, canonical_state_file_name(state.rom, slot_suffix), state)
+            (
+                emulator,
+                canonical_state_file_name(state.attached_rom, slot_suffix),
+                state,
+            )
             for (_rom_id, emulator, slot_suffix), state in group_states_by_slot(
                 db_state_handler.get_states(user_id=user.id)
             ).items()
-            if not state.missing_from_fs and can_see(state.rom)
+            if not state.missing_from_fs and can_see(state.attached_rom)
         ]
         if tree != "saves"
         else []
@@ -451,13 +459,13 @@ def _manifest_assets(
             build_retroarch_sync_path("saves", save.emulator, save.file_name), save
         )
         for save in listed_saves
-        if is_addressable(save.rom, "saves", save.file_name)
+        if is_addressable(save.attached_rom, "saves", save.file_name)
     ]
 
     addressable_states = [
         (emulator, file_name, state)
         for emulator, file_name, state in listed_states
-        if is_addressable(state.rom, "states", file_name)
+        if is_addressable(state.attached_rom, "states", file_name)
     ]
     screenshots = state_screenshots(user, [state for _, _, state in addressable_states])
     for emulator, file_name, state in addressable_states:

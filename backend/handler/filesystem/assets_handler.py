@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import os
 import threading
@@ -48,16 +49,22 @@ def hash_zip_entry(zf: zipfile.ZipFile, name: str) -> str:
     return hash_obj.hexdigest()
 
 
-def hash_zip_contents(zf: zipfile.ZipFile) -> str:
+def hash_zip_contents(
+    zf: zipfile.ZipFile, exclude: frozenset[str] = frozenset()
+) -> str:
     """md5 of a zip archive's contents, keyed by sorted entry name and each
     entry's own hash. Shared by disk-path and in-memory hashing so both agree
-    on a card or save archive's dedup hash."""
-    file_hashes = []
-    for name in sorted(zf.namelist()):
-        if not name.endswith("/"):
-            file_hash = hash_zip_entry(zf, name)
-            file_hashes.append(f"{name}:{file_hash}")
-    combined = "\n".join(file_hashes)
+    on a card or save archive's dedup hash. Entries named in `exclude` are skipped;
+    when exactly one entry remains, the result is that entry's own hash, as sigil
+    computes a unit's identity hash."""
+    names = [
+        name
+        for name in sorted(zf.namelist())
+        if not name.endswith("/") and name not in exclude
+    ]
+    if exclude and len(names) == 1:
+        return hash_zip_entry(zf, names[0])
+    combined = "\n".join(f"{name}:{hash_zip_entry(zf, name)}" for name in names)
     return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
 
 
@@ -221,6 +228,24 @@ class FSAssetsHandler(FSHandler):
             return await self._compute_file_hash(file_path)
         except Exception as e:
             log.debug(f"Failed to compute content hash for {file_path}: {e}")
+            return None
+
+    async def compute_identity_hash(
+        self, file_path: str, clock_members: frozenset[str]
+    ) -> str | None:
+        """`compute_content_hash` with the clock members left out of an archive."""
+        full_path = self.base_path / file_path
+        if not zipfile.is_zipfile(full_path):
+            return await self.compute_content_hash(file_path)
+
+        def digest() -> str:
+            with zipfile.ZipFile(full_path, "r") as zf:
+                return hash_zip_contents(zf, exclude=clock_members)
+
+        try:
+            return await asyncio.to_thread(digest)
+        except Exception as e:
+            log.debug(f"Failed to compute identity hash for {file_path}: {e}")
             return None
 
     async def unrecorded_hash(self, save: "Save") -> str | None:

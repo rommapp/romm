@@ -17,6 +17,7 @@ from handler.database import (
     db_platform_handler,
     db_save_handler,
     db_screenshot_handler,
+    db_snapshot_handler,
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
@@ -127,6 +128,19 @@ def _rom_visibility(request: Request) -> Callable[[Rom], bool]:
 def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | None:
     game_name = sync_handler.game_name_from_file_name(kind, file_name)
     return sync_handler.resolve_rom(game_name, _rom_visibility(request))
+
+
+def _get_writable_asset(
+    user: User, rom: Rom, parsed: RetroArchSyncPath
+) -> Save | State | Screenshot | None:
+    """The row a write to this path replaces or deletes, or None for one a sync
+    channel holds: RetroArch reads a row a snapshot owns but never changes it."""
+    asset = _get_asset(user, rom, parsed)
+    if isinstance(asset, Save) and db_snapshot_handler.is_frozen(save_id=asset.id):
+        return None
+    if isinstance(asset, State) and db_snapshot_handler.is_frozen(state_id=asset.id):
+        return None
+    return asset
 
 
 def _get_asset(
@@ -570,7 +584,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
 
     # A state resolved by slot may have its own file name; writing to it keeps
     # the row pointing at the fresh bytes instead of orphaning them.
-    existing = _get_asset(request.user, rom, parsed)
+    existing = _get_writable_asset(request.user, rom, parsed)
     write_file_name = existing.file_name if existing else file_name
     replaced_hash = (
         await fs_asset_handler.unrecorded_hash(existing)
@@ -660,7 +674,7 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
 
-    asset = _get_asset(request.user, rom, parsed)
+    asset = _get_writable_asset(request.user, rom, parsed)
     if not asset:
         return _empty(status.HTTP_404_NOT_FOUND)
 
@@ -669,10 +683,12 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     if isinstance(asset, Screenshot):
         db_screenshot_handler.delete_screenshot(asset.id)
     elif isinstance(asset, Save):
+        db_snapshot_handler.release_backup(save_id=asset.id)
         db_save_handler.delete_save(
             asset.id, content_hash=await fs_asset_handler.unrecorded_hash(asset)
         )
     else:
+        db_snapshot_handler.release_backup(state_id=asset.id)
         db_state_handler.delete_state(asset.id)
 
     with suppress(FileNotFoundError):

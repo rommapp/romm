@@ -33,6 +33,7 @@ import AssetEditDialog, {
 } from "@/v2/components/GameDetails/AssetEditDialog.vue";
 import AssetLabelsDialog from "@/v2/components/GameDetails/AssetLabelsDialog.vue";
 import AssetSelectionToolbar from "@/v2/components/GameDetails/AssetSelectionToolbar.vue";
+import ChannelsPanel from "@/v2/components/GameDetails/SaveChannels/ChannelsPanel.vue";
 import SubtabNav, {
   type SubtabNavItem,
 } from "@/v2/components/GameDetails/SubtabNav.vue";
@@ -50,6 +51,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
 import { emulatorKey, type AssetType } from "@/v2/utils/assets";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { isBackup } from "@/v2/utils/snapshots";
 
 // Slot payload from AssetList/AssetStrip is the full save|state union; these
 // narrow it back to the concrete schema the section's handlers expect.
@@ -91,16 +93,33 @@ const allStates = computed<UserStateSchema[]>(
   () => props.rom.all_user_states ?? [],
 );
 
-const mySaves = computed(() => allSaves.value.filter(isOwn));
-const communitySaves = computed(() => allSaves.value.filter((s) => !isOwn(s)));
-const myStates = computed(() => allStates.value.filter(isOwn));
+const ownSaves = computed(() => allSaves.value.filter(isOwn));
+const mySaves = computed(() => ownSaves.value.filter(isBackup));
+const communitySaves = computed(() =>
+  allSaves.value.filter((s) => !isOwn(s) && isBackup(s)),
+);
+const myStates = computed(() => allStates.value.filter(isOwn).filter(isBackup));
 const communityStates = computed(() =>
-  allStates.value.filter((s) => !isOwn(s)),
+  allStates.value.filter((s) => !isOwn(s) && isBackup(s)),
+);
+
+const myChannels = computed(() =>
+  (props.rom.user_channels ?? []).filter((c) => c.is_own),
+);
+const communityChannels = computed(() =>
+  (props.rom.user_channels ?? []).filter((c) => !c.is_own),
 );
 
 // Badge = total visible items in the subtab (own + community).
-const savesCount = computed(() => allSaves.value.length);
-const statesCount = computed(() => allStates.value.length);
+const savesCount = computed(
+  () =>
+    mySaves.value.length +
+    communitySaves.value.length +
+    (props.rom.user_channels ?? []).length,
+);
+const statesCount = computed(
+  () => myStates.value.length + communityStates.value.length,
+);
 
 // ---------- Subtab nav definitions ----------
 const subtabDefs = computed<SubtabNavItem<Subtab>[]>(() => [
@@ -595,11 +614,24 @@ const labelSuggestions = computed(() =>
       <section v-show="subTab === 'saves'" class="r-v2-saves__panel">
         <!-- Mine -->
         <div class="r-v2-saves__section">
+          <h3 class="r-v2-saves__section-title">
+            {{ t("rom.saves-section-mine") }}
+          </h3>
+          <ChannelsPanel
+            :rom="rom"
+            :channels="myChannels"
+            :saves="ownSaves"
+            own
+            @download="
+              (path, name) =>
+                downloadAsset({ download_path: path, file_name: name })
+            "
+          />
           <header class="r-v2-saves__section-head">
             <div class="r-v2-saves__section-head-text">
-              <h3 class="r-v2-saves__section-title">
-                {{ t("rom.saves-section-mine") }}
-              </h3>
+              <h4 class="r-v2-saves__group-title">
+                {{ t("channels.backups") }}
+              </h4>
             </div>
             <RBtn
               v-if="mySaves.length > 0 && !smAndDown"
@@ -673,7 +705,10 @@ const labelSuggestions = computed(() =>
         </div>
 
         <!-- Community -->
-        <div v-if="communitySaves.length > 0" class="r-v2-saves__section">
+        <div
+          v-if="communitySaves.length > 0 || communityChannels.length > 0"
+          class="r-v2-saves__section"
+        >
           <header class="r-v2-saves__section-head">
             <div class="r-v2-saves__section-head-text">
               <h3 class="r-v2-saves__section-title">
@@ -681,7 +716,18 @@ const labelSuggestions = computed(() =>
               </h3>
             </div>
           </header>
+          <ChannelsPanel
+            v-if="communityChannels.length > 0"
+            :rom="rom"
+            :channels="communityChannels"
+            :saves="[]"
+            @download="
+              (path, name) =>
+                downloadAsset({ download_path: path, file_name: name })
+            "
+          />
           <AssetList
+            v-if="communitySaves.length > 0"
             :assets="communitySaves"
             type="save"
             :selectable="false"
@@ -892,6 +938,14 @@ const labelSuggestions = computed(() =>
   font-size: 14px;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg);
+}
+.r-v2-saves__group-title {
+  margin: 0;
+  font-size: var(--r-font-size-sm);
+  font-weight: var(--r-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--r-color-fg-muted);
 }
 
 html[data-bp~="sm-and-down"] .r-v2-saves {

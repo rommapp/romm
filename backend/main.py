@@ -31,6 +31,7 @@ from config import (
 from endpoints.activity import router as activity_router
 from endpoints.audit_events import router as audit_events_router
 from endpoints.auth import router as auth_router
+from endpoints.channels import router as channels_router
 from endpoints.client_tokens import router as client_tokens_router
 from endpoints.collections import router as collections_router
 from endpoints.configs import router as configs_router
@@ -56,6 +57,7 @@ from endpoints.roms import router as rom_router
 from endpoints.saves import router as saves_router
 from endpoints.screenshots import router as screenshots_router
 from endpoints.search import router as search_router
+from endpoints.snapshots import router as snapshots_router
 from endpoints.states import router as states_router
 from endpoints.stats import router as stats_router
 from endpoints.streaming import router as streaming_router
@@ -204,6 +206,8 @@ app.include_router(music_playlists_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
 app.include_router(saves_router, prefix="/api")
 app.include_router(states_router, prefix="/api")
+app.include_router(snapshots_router, prefix="/api")
+app.include_router(channels_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
 app.include_router(feeds_router, prefix="/api")

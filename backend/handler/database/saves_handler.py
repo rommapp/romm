@@ -10,10 +10,12 @@ from decorators.database import INJECTED_SESSION, begin_session
 from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
 from models.base import with_file_name_parts
 from models.rom import Rom
+from models.snapshot import Snapshot
 from utils.sql_dialect import force_index_on_mysql
 
 from .base_handler import DBBaseHandler, affected_rows
 from .deleted_assets_handler import DBDeletedAssetsHandler
+from .snapshots_handler import channel_for_slot
 
 _deleted_assets = DBDeletedAssetsHandler()
 # What identifies a version in its slot, for recording it when it leaves.
@@ -57,6 +59,11 @@ class DBSavesHandler(DBBaseHandler):
         save: Save,
         session: Session = INJECTED_SESSION,
     ) -> Save:
+        # A slotted upload is a client's save, filed under the slot's channel.
+        if save.slot and save.channel_id is None and save.rom_id is not None:
+            save.channel_id = channel_for_slot(
+                session, save.user_id, save.rom_id, save.slot
+            )
         return session.merge(save)
 
     @begin_session
@@ -66,7 +73,12 @@ class DBSavesHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> Save | None:
-        return session.scalar(select(Save).filter_by(user_id=user_id, id=id).limit(1))
+        return session.scalar(
+            select(Save)
+            .filter_by(user_id=user_id, id=id)
+            .where(Save.rom_id.is_not(None))
+            .limit(1)
+        )
 
     @begin_session
     def get_save_by_filename(
@@ -131,7 +143,8 @@ class DBSavesHandler(DBBaseHandler):
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
     ) -> Select[Save]:
-        query = select(Save).filter_by(user_id=user_id)
+        # A save whose ROM was deleted waits to be reattached; no legacy flow reads it.
+        query = select(Save).filter_by(user_id=user_id).where(Save.rom_id.is_not(None))
 
         # An empty collection is an explicit empty scope, not an absent filter.
         if rom_ids is not None:
@@ -271,7 +284,7 @@ class DBSavesHandler(DBBaseHandler):
         latest: dict[int, Save] = {}
         for save in saves:
             # Saves come newest-first, so the first one seen per ROM wins.
-            latest.setdefault(save.rom_id, save)
+            latest.setdefault(save.attached_rom_id, save)
         return latest
 
     @begin_session
@@ -320,6 +333,15 @@ class DBSavesHandler(DBBaseHandler):
             current = self._lock_for_removal(id, session)
             if current and _loses_version(current, data):
                 _record_loss(current, session, replaced_hash)
+        if "slot" in data and "channel_id" not in data:
+            owner = session.execute(
+                select(Save.user_id, Save.rom_id).where(Save.id == id)
+            ).one()
+            data["channel_id"] = (
+                channel_for_slot(session, owner.user_id, owner.rom_id, data["slot"])
+                if data["slot"] and owner.rom_id is not None
+                else None
+            )
         return self._write(id, data, touch, session)
 
     @begin_session
@@ -410,6 +432,16 @@ class DBSavesHandler(DBBaseHandler):
                 past_keep, Save, SAVE_SLOT_VERSIONS_INDEX
             ).with_for_update()
         ).all()
+        # Snapshot retention owns a version a snapshot holds. Read apart from
+        # the locking read, which MariaDB refuses to mix with an unlocked table.
+        held = set(
+            session.scalars(
+                select(Snapshot.save_id).where(
+                    Snapshot.save_id.in_([row.id for row in rows])
+                )
+            )
+        )
+        rows = [row for row in rows if row.id not in held]
         fallback_hashes = fallback_hashes or {}
         unhashed = [
             row

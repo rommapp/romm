@@ -1,5 +1,4 @@
 import os
-import re
 import time
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
@@ -13,7 +12,6 @@ from sqlalchemy import update
 from tests.factories import make_save, make_screenshot, make_state
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from endpoints.saves import _apply_datetime_tag
 from handler.auth.base_handler import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import (
@@ -40,6 +38,7 @@ from models.rom import Rom
 from models.user import User
 from utils import uploads
 from utils.datetime import to_utc
+from utils.uploads import DATETIME_TAG_PATTERN, apply_datetime_tag
 from utils.validation import MAX_ROM_IDS_PER_QUERY
 
 
@@ -1547,7 +1546,6 @@ class TestDatetimeTagging:
         platform: Platform,
         admin_user: User,
     ):
-        import re
 
         mock_save = Save(
             file_name="test [2026-01-31_12-00-00].sav",
@@ -1573,7 +1571,7 @@ class TestDatetimeTagging:
         mock_write.assert_called_once()
         call_args = mock_write.call_args
         written_filename = call_args[1].get("filename") or call_args[0][2]
-        assert re.search(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]", written_filename)
+        assert DATETIME_TAG_PATTERN.search(written_filename)
 
     @mock.patch("endpoints.saves.scan_screenshot", new_callable=mock.AsyncMock)
     @mock.patch(
@@ -1630,7 +1628,8 @@ class TestDatetimeTagging:
         save_stem, _ = os.path.splitext(written[0])
         screenshot_stem, _ = os.path.splitext(written[1])
         assert save_stem == screenshot_stem
-        assert re.search(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]$", save_stem)
+        assert DATETIME_TAG_PATTERN.search(save_stem)
+        assert save_stem.endswith("]")
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -1727,7 +1726,6 @@ class TestDatetimeTagging:
         platform: Platform,
         admin_user: User,
     ):
-        import re
 
         mock_save = Save(
             file_name="test [2026-01-31_12-00-00].sav",
@@ -1759,9 +1757,7 @@ class TestDatetimeTagging:
         mock_write.assert_called_once()
         call_args = mock_write.call_args
         written_filename = call_args[1].get("filename") or call_args[0][2]
-        datetime_matches = re.findall(
-            r"\[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]", written_filename
-        )
+        datetime_matches = DATETIME_TAG_PATTERN.findall(written_filename)
         assert len(datetime_matches) == 1
         assert "2020-01-01" not in written_filename
 
@@ -4221,10 +4217,16 @@ class TestApplyDatetimeTag:
             def now(cls, tz=None):
                 return datetime.fromtimestamp(captured_at.timestamp(), tz)
 
-        with mock.patch("endpoints.saves.datetime", FrozenDatetime):
-            tagged = _apply_datetime_tag("suikoden [2020-01-01_00-00-00].srm")
+        with mock.patch("utils.uploads.datetime", FrozenDatetime):
+            tagged = apply_datetime_tag("suikoden [2020-01-01_00-00-00].srm")
 
-        assert tagged == "suikoden [2026-09-22_19-10-13].srm"
+        assert tagged == "suikoden [2026-09-22_19-10-13-000].srm"
+
+    def test_replaces_a_millisecond_tag(self):
+        tagged = apply_datetime_tag("suikoden [2020-01-01_00-00-00-123].srm")
+
+        assert tagged.count("[") == 1
+        assert "2020-01-01" not in tagged
 
 
 class TestSyncBaselineWriteSites:

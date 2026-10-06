@@ -129,20 +129,22 @@ def _held_since_removal(
     return removed is not None and client_ts <= to_utc(removed)
 
 
-class _SlotVersion(Protocol):
+class _Hashed(Protocol):
+    @property
+    def content_hash(self) -> str | None: ...
+
+
+class _SlotVersion(_Hashed, Protocol):
     @property
     def rom_id(self) -> int: ...
 
     @property
     def slot(self) -> str | None: ...
 
-    @property
-    def content_hash(self) -> str | None: ...
-
 
 def roms_to_check_for_removals(
     client_saves: Iterable[_SlotVersion],
-    current: Mapping[tuple[int, str | None], _SlotVersion],
+    current: Mapping[tuple[int, str | None], _Hashed],
 ) -> set[int]:
     """ROMs whose slotted client saves differ from the current version, so may hold a lost one."""
     return {

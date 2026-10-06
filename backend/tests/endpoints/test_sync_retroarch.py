@@ -18,6 +18,7 @@ from handler.database import (
     db_screenshot_handler,
     db_state_handler,
 )
+from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.redis_handler import async_cache
@@ -31,6 +32,7 @@ from models.assets import Save, Screenshot, State
 from models.device import SyncMode
 from models.platform import Platform
 from models.rom import Rom
+from models.snapshot import Snapshot, SnapshotKind, SnapshotState
 from models.user import User
 
 ADMIN_AUTH = ("test_admin", "test_admin_password")
@@ -990,6 +992,78 @@ class TestRetroArchSyncDownload:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.content == b""
+
+
+def _hold(state: State) -> None:
+    """Hold `state` in a snapshot's bank, as a sync channel would."""
+    with sync_session.begin() as session:
+        snapshot = Snapshot(
+            user_id=state.user_id,
+            rom_id=state.rom_id,
+            kind=SnapshotKind.BRANCH,
+            digest="0" * 64,
+        )
+        snapshot.states = [SnapshotState(core="snes9x", slot="0", state_id=state.id)]
+        session.add(snapshot)
+
+
+class TestRetroArchSyncHeldState:
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    @mock.patch("endpoints.sync.retroarch.scan_state", new_callable=mock.AsyncMock)
+    def test_an_upload_files_a_new_state_beside_a_held_one(
+        self,
+        mock_scan_state: mock.AsyncMock,
+        mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        states_path: str,
+        make_state,
+    ):
+        held = make_state("test_rom [2026-07-24 12-04-52-733].state")
+        _hold(held)
+        mock_scan_state.return_value = State(
+            file_name="test_rom.state", file_path=states_path, file_size_bytes=8
+        )
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            content=b"statedat",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        mock_write_file.assert_awaited_once()
+        assert mock_write_file.call_args.kwargs["filename"] == "test_rom.state"
+        kept = db_state_handler.get_state(user_id=admin_user.id, id=held.id)
+        assert kept is not None and kept.file_size_bytes == 4
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.remove_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_a_delete_leaves_a_held_state(
+        self,
+        mock_remove_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        make_state,
+    ):
+        held = make_state("test_rom.state")
+        _hold(held)
+
+        response = client.request(
+            "DELETE",
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        mock_remove_file.assert_not_awaited()
+        assert db_state_handler.get_state(user_id=admin_user.id, id=held.id)
 
 
 class TestRetroArchSyncDelete:

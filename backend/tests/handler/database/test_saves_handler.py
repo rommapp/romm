@@ -228,7 +228,7 @@ class TestDBSavesHandlerPlatformFiltering:
         assert retrieved_save.file_name == "test_save.sav"
 
         # Verify the save is associated with the correct platform through ROM
-        assert retrieved_save.rom.platform_id == platform.id
+        assert retrieved_save.attached_rom.platform_id == platform.id
 
 
 class TestDBSavesHandlerSlotFiltering:

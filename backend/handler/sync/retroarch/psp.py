@@ -119,7 +119,7 @@ def _latest_bundles_by_folder(
     latest: dict[str, Save] = {}
     for save in saves:
         save_folder = _bundle_folder(save.file_name)
-        if save_folder is None or not can_see(save.rom):
+        if save_folder is None or not can_see(save.attached_rom):
             continue
         current = latest.get(save_folder)
         if current is None or sync_handler.recency_key(save) > sync_handler.recency_key(

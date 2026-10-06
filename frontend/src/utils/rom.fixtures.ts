@@ -180,6 +180,7 @@ export function detailedRomFixture(
     user_screenshots: [],
     all_user_screenshots: [],
     user_collections: [],
+    user_channels: [],
     all_user_notes: [],
     download_formats: [],
     ...overrides,

@@ -9,6 +9,7 @@ from endpoints.responses.assets import StateSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
+    assert_backup,
     release_thumbnail,
     remove_asset_file,
     rename_asset,
@@ -17,13 +18,18 @@ from handler.asset_store import (
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
-from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
+from handler.database import (
+    db_rom_handler,
+    db_screenshot_handler,
+    db_snapshot_handler,
+    db_state_handler,
+)
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import build_asset_file_response
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import EMULATOR_MAX_LENGTH, State
+from models.assets import EMULATOR_MAX_LENGTH, EMULATOR_VERSION_MAX_LENGTH, State
 from models.base import FILE_NAME_MAX_LENGTH
 from utils.assets import normalize_asset_labels
 from utils.router import APIRouter
@@ -37,14 +43,15 @@ from utils.validation import RomIdScope, narrow_rom_id_scope
 
 async def _delete_state(state: State) -> None:
     """Drop a state row with its file and screenshot."""
+    db_snapshot_handler.release_backup(state_id=state.id)
     db_state_handler.delete_state(state.id)
     await remove_asset_file(state.full_path, "State file")
     await release_thumbnail(state.screenshot)
 
 
 def _owned_state_or_404(id: int, user_id: int) -> State:
-    state = db_state_handler.get_state_by_id(id)
-    if not state or state.user_id != user_id:
+    state = db_state_handler.get_state(user_id=user_id, id=id)
+    if not state:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"State with ID {id} not found",
@@ -71,6 +78,19 @@ async def add_state(
     request: Request,
     rom_id: int,
     emulator: Annotated[str | None, Query(max_length=EMULATOR_MAX_LENGTH)] = None,
+    emulator_version: Annotated[
+        str | None, Query(max_length=EMULATOR_VERSION_MAX_LENGTH)
+    ] = None,
+    core: Annotated[
+        str | None,
+        Query(
+            max_length=EMULATOR_MAX_LENGTH,
+            description="The libretro core that wrote the state, when one did.",
+        ),
+    ] = None,
+    core_version: Annotated[
+        str | None, Query(max_length=EMULATOR_VERSION_MAX_LENGTH)
+    ] = None,
     stateFile: UploadFile = STATE_FILE_UPLOAD,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPLOAD,
 ) -> StateSchema:
@@ -102,8 +122,18 @@ async def add_state(
         f"Uploading state {hl(sanitized_state_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
+    reported = {
+        "emulator_version": emulator_version,
+        "core": core,
+        "core_version": core_version,
+    }
     db_state = await store_state_file(
-        request.user, rom, emulator, stateFile, sanitized_state_filename
+        request.user,
+        rom,
+        emulator,
+        stateFile,
+        sanitized_state_filename,
+        {key: value for key, value in reported.items() if value is not None},
     )
 
     if screenshotFile and sanitized_screenshot_filename:
@@ -195,9 +225,10 @@ def download_state(request: Request, id: int) -> FileResponse:
 
     # Sharing must not override the hidden-ROM/platform policy: a state on a ROM
     # hidden from the caller stays 404-masked, just like the ROM itself.
-    assert_rom_visible(
-        request, state.rom, not_found_detail=f"State with ID {id} not found"
-    )
+    if state.rom is not None:
+        assert_rom_visible(
+            request, state.rom, not_found_detail=f"State with ID {id} not found"
+        )
 
     try:
         file_path = fs_asset_handler.validate_path(state.full_path)
@@ -231,6 +262,8 @@ async def update_state(
         error = f"State with ID {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+    if stateFile:
+        assert_backup(db_state)
 
     sanitized_screenshot_filename = (
         sanitize_asset_filename(screenshotFile.filename, "screenshot")
@@ -243,20 +276,28 @@ async def update_state(
             file=stateFile, path=db_state.file_path, filename=db_state.file_name
         )
         db_state = db_state_handler.update_state(
-            db_state.id, {"file_size_bytes": stateFile.size}
+            db_state.id,
+            {
+                "file_size_bytes": stateFile.size,
+                "content_hash": await fs_asset_handler.compute_content_hash(
+                    db_state.full_path
+                ),
+            },
         )
+        db_snapshot_handler.refresh_backup_digests(state_id=db_state.id)
     if screenshotFile and sanitized_screenshot_filename:
         await store_screenshot(
             request.user,
-            db_state.rom,
+            db_state.attached_rom,
             screenshotFile,
             sanitized_screenshot_filename,
         )
 
     # Set the last played time for the current user
-    rom_user = db_rom_handler.get_rom_user(db_state.rom_id, request.user.id)
+    rom_id = db_state.attached_rom_id
+    rom_user = db_rom_handler.get_rom_user(rom_id, request.user.id)
     if not rom_user:
-        rom_user = db_rom_handler.add_rom_user(db_state.rom_id, request.user.id)
+        rom_user = db_rom_handler.add_rom_user(rom_id, request.user.id)
     db_rom_handler.update_rom_user(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
@@ -289,7 +330,8 @@ def update_state_visibility(
         )
 
     # Sharing a state exposes it to every other user's `has_states` filter.
-    refresh_affected_smart_collections([state.rom_id], membership_only=True)
+    if state.rom_id is not None:
+        refresh_affected_smart_collections([state.rom_id], membership_only=True)
 
     return StateSchema.model_validate(updated)
 
@@ -388,10 +430,11 @@ async def delete_states(
             error = f"State with ID {state_id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        assert_backup(state)
 
-        affected_rom_ids.add(state.rom_id)
+        affected_rom_ids.add(state.attached_rom_id)
         log.info(
-            f"Deleting state {hl(state.file_name)} [{state.rom.platform_slug}] from filesystem"
+            f"Deleting state {hl(state.file_name)} [{state.attached_rom.platform_slug}] from filesystem"
         )
         await _delete_state(state)
 

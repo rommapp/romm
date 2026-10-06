@@ -1,7 +1,24 @@
-from fastapi import HTTPException, UploadFile, status
+import os
+import re
+from datetime import datetime
+
+from fastapi import HTTPException, status
+from starlette.datastructures import UploadFile
 
 from config import MAX_ASSET_UPLOAD_SIZE_BYTES
 from utils.filesystem import check_filename_length, sanitize_filename
+
+# Matches tags written before milliseconds were added, too.
+DATETIME_TAG_PATTERN = re.compile(
+    r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:-\d{3})?\]"
+)
+
+
+def apply_datetime_tag(filename: str) -> str:
+    """`filename` with its datetime tag replaced by the server's local time now."""
+    name, ext = os.path.splitext(filename)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")[:-3]
+    return f"{DATETIME_TAG_PATTERN.sub('', name)} [{timestamp}]{ext}"
 
 
 def sanitize_asset_filename(filename: str, label: str) -> str:

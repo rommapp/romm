@@ -66,6 +66,12 @@ def test_heartbeat(client):
 
     assert isinstance(heartbeat["CONVERTO"]["ENABLED"], bool)
 
+    assert heartbeat["SAVE_SYNC"] == {
+        "SNAPSHOTS": True,
+        "SNAPSHOT_RETENTION": 10,
+        "SNAPSHOT_BRANCH_LIFETIME_DAYS": 30,
+    }
+
 
 @pytest.mark.parametrize(
     "authorization_header",

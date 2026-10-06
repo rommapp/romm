@@ -18,7 +18,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy import DefaultClause, FetchedValue, Table, UniqueConstraint
 from sqlalchemy.sql.schema import NULL_UNSPECIFIED
-from tests.factories import make_platform, make_rom
+from tests.factories import make_platform, make_rom, make_save
 
 import models
 from handler.database import db_collection_handler, db_rom_handler
@@ -26,7 +26,7 @@ from handler.database.base_handler import sync_engine
 from models.base import BaseModel
 from models.collection import SmartCollection
 from models.platform import Platform
-from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
+from models.rom import FULL_PATH_HASH_LENGTH, Rom, RomFile, compute_full_path_hash
 from models.user import User
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
@@ -257,6 +257,13 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0148_rom_age_limits.py", "roms_facets"),
         ("0148_rom_age_limits.py", "permission_groups"),
         ("0148_rom_age_limits.py", "users"),
+        ("0149_save_channels.py", "channels"),
+        ("0149_save_channels.py", "snapshots"),
+        ("0149_save_channels.py", "snapshot_states"),
+        ("0149_save_channels.py", "device_channel_sync"),
+        ("0149_save_channels.py", "saves"),
+        ("0149_save_channels.py", "states"),
+        ("0149_save_channels.py", "screenshots"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -433,6 +440,76 @@ def test_the_rom_file_title_ids_revision_reverses_and_replays():
             migration.upgrade()
 
         assert _schema_of(connection, "rom_files") == before
+
+
+def test_the_save_channels_revision_reverses_and_replays():
+    migration = _load_migration("0149_save_channels.py")
+    tables = ("saves", "states", "screenshots")
+    created = ("channels", "snapshots", "snapshot_states", "device_channel_sync")
+
+    with sync_engine.begin() as connection:
+        before = {table: _schema_of(connection, table) for table in tables + created}
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            inspector = sa.inspect(connection)
+            assert not any(inspector.has_table(table) for table in created)
+            assert not has_column(connection, "saves", "identity_hash")
+            assert not has_column(connection, "states", "content_hash")
+            assert not has_column(connection, "screenshots", "save_id")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        after = {table: _schema_of(connection, table) for table in tables + created}
+
+    assert after == before
+
+
+def test_the_slot_link_revision_files_slotted_saves_under_channels(
+    rom: Rom, admin_user: User
+):
+    migration = _load_migration("0150_link_slots_to_channels.py")
+    db_rom_handler.add_rom_file(
+        RomFile(rom_id=rom.id, file_name="game.sfc", file_path="p", file_size_bytes=8)
+    )
+    autosave = make_save(rom, admin_user, "a.srm", slot="autosave")
+    tagged = make_save(rom, admin_user, "b.srm", slot="Run [2026-01-01_00-00-00]")
+    recased = make_save(rom, admin_user, "d.srm", slot="run [2026-02-01_00-00-00]")
+    backup = make_save(rom, admin_user, "c.srm", slot=None)
+    with sync_engine.begin() as connection:
+        connection.execute(sa.text("UPDATE saves SET channel_id = NULL"))
+        connection.execute(sa.text("DELETE FROM channels"))
+
+    def links(connection: sa.Connection) -> dict[int, str | None]:
+        rows = connection.execute(
+            sa.text(
+                "SELECT s.id, c.label FROM saves s "
+                "LEFT JOIN channels c ON c.id = s.channel_id"
+            )
+        )
+        return dict(rows.all())
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+            first = links(connection)
+            migration.upgrade()
+            channels: int = connection.execute(
+                sa.text("SELECT COUNT(*) FROM channels")
+            ).scalar_one()
+
+        assert links(connection) == first
+
+    run_label = first[tagged.id]
+    assert run_label is not None and run_label.lower() == "run"
+    assert first == {
+        autosave.id: "default",
+        tagged.id: run_label,
+        recased.id: run_label,
+        backup.id: None,
+    }
+    assert channels == 2
 
 
 def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):

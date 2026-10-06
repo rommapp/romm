@@ -16,6 +16,7 @@ from fastapi import HTTPException, UploadFile, status
 from handler.database import (
     db_save_handler,
     db_screenshot_handler,
+    db_snapshot_handler,
     db_state_handler,
 )
 from handler.database.base_handler import sync_session
@@ -51,6 +52,11 @@ async def store_state_file(
     the file left at the old location goes. `fields` carries columns only one
     caller owns, so a caller that does not set them never clears them.
     """
+    existing = db_state_handler.get_state_by_filename(
+        user_id=user.id, rom_id=rom.id, file_name=filename
+    )
+    if existing is not None:
+        assert_backup(existing)
     states_path = fs_asset_handler.build_states_file_path(
         user=user,
         platform_fs_slug=rom.platform.fs_slug,
@@ -65,9 +71,6 @@ async def store_state_file(
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom.id,
         emulator=emulator,
-    )
-    existing = db_state_handler.get_state_by_filename(
-        user_id=user.id, rom_id=rom.id, file_name=filename
     )
     if existing is None:
         scanned.rom_id = rom.id
@@ -156,8 +159,23 @@ async def release_thumbnail(screenshot: Screenshot | None) -> None:
     await remove_asset_file(path, "Screenshot file")
 
 
+def assert_backup(asset: Save | State) -> None:
+    """409 when sync manages the row: only a new snapshot changes or drops it."""
+    frozen = (
+        db_snapshot_handler.is_frozen(save_id=asset.id)
+        if isinstance(asset, Save)
+        else db_snapshot_handler.is_frozen(state_id=asset.id)
+    )
+    if frozen:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{asset.file_name} belongs to a sync channel and can't be changed directly",
+        )
+
+
 async def remove_save(save: Save) -> None:
     """Drop a save row with its file and screenshot."""
+    db_snapshot_handler.release_backup(save_id=save.id)
     db_save_handler.delete_save(
         save.id, content_hash=await fs_asset_handler.unrecorded_hash(save)
     )
@@ -289,11 +307,17 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
             detail="Invalid filename: it needs a name before the extension",
         )
 
+    rom_id = asset.rom_id
+    if rom_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{asset.file_name} has no ROM to rename it under",
+        )
     saves: Sequence[Save] = db_save_handler.get_saves(
-        user_id=asset.user_id, rom_ids=[asset.rom_id]
+        user_id=asset.user_id, rom_ids=[rom_id]
     )
     states: Sequence[State] = db_state_handler.get_states(
-        user_id=asset.user_id, rom_ids=[asset.rom_id]
+        user_id=asset.user_id, rom_ids=[rom_id]
     )
     everything: list[Save | State] = [*saves, *states]
     others = [a for a in everything if not _is_same(a, asset)]
@@ -309,7 +333,7 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
     # show that one, and delete it along with the asset.
     thumbnail = asset.screenshot
     bound = db_screenshot_handler.get_screenshot(
-        rom_id=asset.rom_id,
+        rom_id=rom_id,
         user_id=asset.user_id,
         file_name=new_name,
         file_name_no_ext=new_stem,
@@ -368,7 +392,7 @@ async def rename_asset[AssetT: (Save, State)](asset: AssetT, file_name: str) -> 
             if thumbnail and copy_thumbnail:
                 db_screenshot_handler.add_screenshot(
                     Screenshot(
-                        rom_id=asset.rom_id,
+                        rom_id=rom_id,
                         user_id=asset.user_id,
                         file_name=thumbnail_name,
                         file_path=thumbnail.file_path,

@@ -1,5 +1,4 @@
 import os
-import re
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Annotated, Any
@@ -14,6 +13,7 @@ from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
+    assert_backup,
     prune_save_slot,
     remove_save,
     rename_asset,
@@ -26,14 +26,21 @@ from handler.database import (
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
+    db_snapshot_handler,
     db_sync_session_handler,
 )
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save, scan_screenshot
+from handler.snapshots.bridge import hold_legacy_upload
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import EMULATOR_MAX_LENGTH, SAVE_SLOT_MAX_LENGTH, Save
+from models.assets import (
+    EMULATOR_MAX_LENGTH,
+    EMULATOR_VERSION_MAX_LENGTH,
+    SAVE_SLOT_MAX_LENGTH,
+    Save,
+)
 from models.base import FILE_NAME_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
@@ -41,6 +48,7 @@ from utils.assets import normalize_asset_labels
 from utils.datetime import to_utc
 from utils.router import APIRouter
 from utils.uploads import (
+    apply_datetime_tag,
     check_asset_upload_size,
     check_emulator_folder_name,
     sanitize_asset_filename,
@@ -110,25 +118,12 @@ def _syncs_for_save(
     return db_device_save_sync_handler.get_syncs_for_saves([save_id]).get(save_id, [])
 
 
-DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
-
-
 def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
     """Versions to keep in a slot: the tighter of the client's ask and the server cap."""
     limits = [MAX_SAVES_PER_SLOT] if MAX_SAVES_PER_SLOT else []
     if autocleanup:
         limits.append(autocleanup_limit)
     return min(limits, default=None)
-
-
-def _apply_datetime_tag(filename: str) -> str:
-    name, ext = os.path.splitext(filename)
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
-    if DATETIME_TAG_PATTERN.search(name):
-        name = DATETIME_TAG_PATTERN.sub("", name)
-
-    return f"{name} [{timestamp}]{ext}"
 
 
 def _resolve_device(
@@ -177,8 +172,8 @@ def _increment_session_counter(session_id: int, user_id: int) -> None:
 
 
 def _owned_save_or_404(id: int, user_id: int) -> Save:
-    save = db_save_handler.get_save_by_id(id)
-    if not save or save.user_id != user_id:
+    save = db_save_handler.get_save(user_id=user_id, id=id)
+    if not save:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Save with ID {id} not found",
@@ -205,6 +200,19 @@ async def add_save(
     request: Request,
     rom_id: int,
     emulator: Annotated[str | None, Query(max_length=EMULATOR_MAX_LENGTH)] = None,
+    emulator_version: Annotated[
+        str | None, Query(max_length=EMULATOR_VERSION_MAX_LENGTH)
+    ] = None,
+    core: Annotated[
+        str | None,
+        Query(
+            max_length=EMULATOR_MAX_LENGTH,
+            description="The libretro core that wrote the save, when one did.",
+        ),
+    ] = None,
+    core_version: Annotated[
+        str | None, Query(max_length=EMULATOR_VERSION_MAX_LENGTH)
+    ] = None,
     slot: Annotated[str | None, Query(max_length=SAVE_SLOT_MAX_LENGTH)] = None,
     device_id: str | None = None,
     # Over-long hashes are stored as unknown by upsert_sync.
@@ -242,9 +250,9 @@ async def add_save(
 
     actual_filename = sanitize_asset_filename(saveFile.filename, "save")
     if slot:
-        # Checked again because the tag adds 22 bytes.
+        # Checked again because the tag adds 26 bytes.
         actual_filename = sanitize_asset_filename(
-            _apply_datetime_tag(actual_filename), "save"
+            apply_datetime_tag(actual_filename), "save"
         )
 
     sanitized_screenshot_filename = ""
@@ -281,8 +289,10 @@ async def add_save(
             slot=slot,
             order_by="updated_at",
         )
-        if slot_saves:
-            latest_in_slot = slot_saves[0]
+        latest_in_slot = db_snapshot_handler.current_saves_for_slots(
+            request.user.id, {(rom.id, slot)}, [emulator], [core]
+        ).get((rom.id, slot)) or (slot_saves[0] if slot_saves else None)
+        if latest_in_slot:
             sync = db_device_save_sync_handler.get_sync(
                 device_id=device.id, save_id=latest_in_slot.id
             )
@@ -319,6 +329,8 @@ async def add_save(
         )
     )
     replaced = db_save or colliding_save
+    if replaced:
+        assert_backup(replaced)
     replaced_hash = (
         await fs_asset_handler.unrecorded_hash(replaced) if replaced else None
     )
@@ -373,6 +385,12 @@ async def add_save(
             "file_path": scanned_save.file_path,
             "emulator": emulator,
         }
+        reported = {
+            "emulator_version": emulator_version,
+            "core": core,
+            "core_version": core_version,
+        }
+        update_data |= {k: v for k, v in reported.items() if v is not None}
         if slot is not None:
             update_data["slot"] = slot
         db_save = db_save_handler.update_save(
@@ -396,6 +414,9 @@ async def add_save(
         scanned_save.rom_id = rom.id
         scanned_save.user_id = request.user.id
         scanned_save.emulator = emulator
+        scanned_save.emulator_version = emulator_version
+        scanned_save.core = core
+        scanned_save.core_version = core_version
         scanned_save.slot = slot
         scanned_save.origin_device_id = device.id if device else None
         db_save = db_save_handler.add_save(save=scanned_save)
@@ -405,9 +426,6 @@ async def add_save(
 
     if session_id:
         _increment_session_counter(session_id, request.user.id)
-
-    if slot and keep is not None:
-        await prune_save_slot(request.user.id, rom.id, slot, keep)
 
     if screenshotFile and sanitized_screenshot_filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
@@ -440,6 +458,18 @@ async def add_save(
             scanned_screenshot.rom_id = rom.id
             scanned_screenshot.user_id = request.user.id
             db_screenshot_handler.add_screenshot(screenshot=scanned_screenshot)
+
+    # After the screenshot, so the snapshot it may write can show it.
+    if slot:
+        await hold_legacy_upload(
+            db_save, request.user, rom, device.id if device else None
+        )
+        db_save = db_save_handler.get_save(user_id=request.user.id, id=db_save.id)
+        assert db_save is not None
+
+    # Last, so a version the bridge just made a snapshot hold is never pruned.
+    if slot and keep is not None:
+        await prune_save_slot(request.user.id, rom.id, slot, keep)
 
     rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=request.user.id)
     if not rom_user:
@@ -561,9 +591,10 @@ def download_save(
 
     # Sharing must not override the hidden-ROM/platform policy: a save on a ROM
     # hidden from the caller stays 404-masked, just like the ROM itself.
-    assert_rom_visible(
-        request, save.rom, not_found_detail=f"Save with ID {id} not found"
-    )
+    if save.rom is not None:
+        assert_rom_visible(
+            request, save.rom, not_found_detail=f"Save with ID {id} not found"
+        )
 
     is_owner = save.user_id == request.user.id
 
@@ -658,7 +689,9 @@ async def update_save(
         else ""
     )
 
+    rom = db_save.attached_rom
     if saveFile:
+        assert_backup(db_save)
         replaced_hash = await fs_asset_handler.unrecorded_hash(db_save)
         await fs_asset_handler.write_file(
             file=saveFile, path=db_save.file_path, filename=db_save.file_name
@@ -666,8 +699,8 @@ async def update_save(
         scanned_save = await scan_save(
             file_name=db_save.file_name,
             user=request.user,
-            platform_fs_slug=db_save.rom.platform_fs_slug,
-            rom_id=db_save.rom_id,
+            platform_fs_slug=rom.platform_fs_slug,
+            rom_id=rom.id,
             emulator=db_save.emulator,
         )
         db_save = db_save_handler.update_save(
@@ -678,12 +711,13 @@ async def update_save(
             },
             replaced_hash=replaced_hash,
         )
+        db_snapshot_handler.refresh_backup_digests(save_id=db_save.id)
 
     if screenshotFile and sanitized_screenshot_filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user,
-            platform_fs_slug=db_save.rom.platform_slug,
-            rom_id=db_save.rom.id,
+            platform_fs_slug=rom.platform_slug,
+            rom_id=rom.id,
         )
 
         await fs_asset_handler.write_file(
@@ -696,12 +730,12 @@ async def update_save(
         scanned_screenshot = await scan_screenshot(
             file_name=sanitized_screenshot_filename,
             user=request.user,
-            platform_fs_slug=db_save.rom.platform_slug,
-            rom_id=db_save.rom.id,
+            platform_fs_slug=rom.platform_slug,
+            rom_id=rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
             file_name=sanitized_screenshot_filename,
-            rom_id=db_save.rom.id,
+            rom_id=rom.id,
             user_id=request.user.id,
         )
         if db_screenshot:
@@ -710,14 +744,14 @@ async def update_save(
                 {"file_size_bytes": scanned_screenshot.file_size_bytes},
             )
         else:
-            scanned_screenshot.rom_id = db_save.rom.id
+            scanned_screenshot.rom_id = rom.id
             scanned_screenshot.user_id = request.user.id
             db_screenshot_handler.add_screenshot(screenshot=scanned_screenshot)
 
     # Set the last played time for the current user
-    rom_user = db_rom_handler.get_rom_user(db_save.rom_id, request.user.id)
+    rom_user = db_rom_handler.get_rom_user(rom.id, request.user.id)
     if not rom_user:
-        rom_user = db_rom_handler.add_rom_user(db_save.rom_id, request.user.id)
+        rom_user = db_rom_handler.add_rom_user(rom.id, request.user.id)
     db_rom_handler.update_rom_user(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
@@ -754,7 +788,8 @@ def update_save_visibility(
         )
 
     # Sharing a save exposes it to every other user's `has_saves` filter.
-    refresh_affected_smart_collections([save.rom_id], membership_only=True)
+    if save.rom_id is not None:
+        refresh_affected_smart_collections([save.rom_id], membership_only=True)
 
     return _build_save_schema(updated)
 
@@ -853,10 +888,11 @@ async def delete_saves(
             error = f"Save with ID {save_id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        assert_backup(save)
 
-        affected_rom_ids.add(save.rom_id)
+        affected_rom_ids.add(save.attached_rom_id)
         log.info(
-            f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
+            f"Deleting save {hl(save.file_name)} [{save.attached_rom.platform_slug}] from filesystem"
         )
         await remove_save(save)
 

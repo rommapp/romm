@@ -17,6 +17,7 @@ from endpoints.responses.assets import (
     UserScreenshotSchema,
     UserStateSchema,
 )
+from endpoints.responses.snapshots import ChannelSchema, build_channel_schema
 from handler.metadata.csdb_handler import CsdbMetadata
 from handler.metadata.demozoo_handler import DemozooMetadata
 from handler.metadata.flashpoint_handler import FlashpointMetadata
@@ -627,6 +628,8 @@ class DetailedRomSchema(RomSchema):
     user_states: list[StateSchema]
     all_user_saves: list[UserSaveSchema]
     all_user_states: list[UserStateSchema]
+    # The caller's save channels on this ROM, then other users' public ones.
+    user_channels: list[ChannelSchema]
     user_screenshots: list[ScreenshotSchema]
     all_user_screenshots: list[UserScreenshotSchema]
     user_collections: list[UserCollectionSchema]
@@ -753,6 +756,13 @@ class DetailedRomSchema(RomSchema):
                 }
             )
             for s in shared_states
+        ]
+
+        from handler.database import db_snapshot_handler
+
+        db_rom.user_channels = [  # type: ignore[attr-defined]
+            build_channel_schema(channel, request.user)
+            for channel in db_snapshot_handler.get_channels_for_rom(db_rom.id, user_id)
         ]
 
         return cls.model_validate(db_rom)

@@ -280,7 +280,7 @@ async def _process_remote_save(
             # Identical content is a no_op, which never reads removals.
             removed_at=(
                 db_deleted_asset_handler.removal_times(
-                    device.user_id, matched_save.rom_id, matched_save.slot
+                    device.user_id, matched_save.attached_rom_id, matched_save.slot
                 )
                 if remote_hash != matched_save.content_hash
                 else None
@@ -360,8 +360,9 @@ async def _process_remote_save(
                 device_id=device.id,
                 session_id=session_id,
                 file_name=remote_save.file_name,
-                rom_id=matched_save.rom_id,
-                rom_name=matched_save.rom.name or matched_save.rom.fs_name,
+                rom_id=matched_save.attached_rom_id,
+                rom_name=matched_save.attached_rom.name
+                or matched_save.attached_rom.fs_name,
                 reason=result.reason,
             )
             return "conflict"
