@@ -62,3 +62,18 @@ export function newerThanPick(
     ? candidate
     : null;
 }
+
+/**
+ * The newest zipped save when it postdates what boots. The browser can't load
+ * one, so the user is told where that progress is instead of offered it.
+ */
+export function newerZippedSave(
+  saves: readonly SaveSchema[],
+  selection: ResumeSelection,
+): SaveSchema | null {
+  const zipped = newest(saves.filter((save) => save.is_zipped));
+  const picked = selection.state ?? selection.save;
+  return zipped && (!picked || zipped.updated_at > picked.updated_at)
+    ? zipped
+    : null;
+}

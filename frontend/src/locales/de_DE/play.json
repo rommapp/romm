@@ -151,6 +151,7 @@
   "new-slot": "+ Neuer Slot",
   "newer-save-warning": "Ein Spielstand von {time} ist neuer als deine Auswahl. Damit fortzusetzen kann deinen Fortschritt zurücksetzen.",
   "newer-state-warning": "Ein Zustand von {time} ist neuer als deine Auswahl. Damit fortzusetzen kann deinen Fortschritt zurücksetzen.",
+  "newer-zipped-save-notice": "Dein neuester Fortschritt von {time} steckt in einem Streaming-Spielstand, den der Browser-Player nicht laden kann. Streame das Spiel, um damit weiterzuspielen, oder lade den Spielstand herunter und lade die darin enthaltene Speicherdatei hoch.",
   "no-memory-cards": "Noch keine Speicherkarten",
   "no-save-selected": "Kein Speicherstand ausgewählt",
   "no-saves-available": "Keine Speicherstände verfügbar",

@@ -127,6 +127,7 @@ import {
 import {
   defaultResumeSelection,
   newerThanPick,
+  newerZippedSave,
   pickSave,
   pickState,
   type ResumeSelection,
@@ -736,6 +737,10 @@ const previewTitle = computed(() => {
 const newerAsset = computed(() =>
   newerThanPick(bootableSaves.value, compatibleStates.value, resume.value),
 );
+// A zipped save never boots here, so newer progress in one is only pointed at.
+const newerZipped = computed(() =>
+  newerZippedSave(rom.value?.user_saves ?? [], resume.value),
+);
 function bootFromNewer() {
   if (!newerAsset.value) return;
   if (newerAsset.value.kind === "save") selectSave(newerAsset.value.asset);
@@ -912,6 +917,17 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
                   </RBtn>
                 </template>
               </RAlert>
+              <RAlert
+                v-if="newerZipped"
+                class="r-v2-ejs__zipped-notice"
+                type="info"
+                density="compact"
+                :text="
+                  t('play.newer-zipped-save-notice', {
+                    time: formatRelativeDate(newerZipped.updated_at),
+                  })
+                "
+              />
 
               <div v-if="isSavesTabSelected" class="r-v2-ejs__slot">
                 <RSelect

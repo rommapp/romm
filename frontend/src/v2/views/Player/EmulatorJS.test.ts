@@ -663,6 +663,24 @@ describe("EmulatorJS launch screen, a save the browser can't boot", () => {
 
     expect(propOf(list, "assets")).toEqual([RAW]);
   });
+
+  it("says where the newer progress went", async () => {
+    const wrapper = await launchScreen();
+
+    expect(wrapper.find(".r-v2-ejs__zipped-notice").exists()).toBe(true);
+  });
+
+  it("says nothing when the archive is older", async () => {
+    mocks.getRom.mockResolvedValue({
+      data: {
+        ...ROM,
+        user_saves: [RAW, { ...ARCHIVE, updated_at: "2026-09-30T12:00:00Z" }],
+      },
+    });
+    const wrapper = await launchScreen();
+
+    expect(wrapper.find(".r-v2-ejs__zipped-notice").exists()).toBe(false);
+  });
 });
 
 // An icon class the font does not define renders as an empty circle rather

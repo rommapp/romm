@@ -151,6 +151,7 @@
   "new-slot": "+ New slot",
   "newer-save-warning": "A save from {time} is newer than your pick. Resuming it may roll your progress back.",
   "newer-state-warning": "A state from {time} is newer than your pick. Resuming it may roll your progress back.",
+  "newer-zipped-save-notice": "Your latest progress, from {time}, is in a streaming save the browser player can't load. Stream the game to continue from it, or download that save and upload the save file inside it.",
   "no-memory-cards": "No memory cards yet",
   "no-save-selected": "No save selected",
   "no-saves-available": "No saves available",

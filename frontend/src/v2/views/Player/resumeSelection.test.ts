@@ -3,6 +3,7 @@ import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import {
   defaultResumeSelection,
   newerThanPick,
+  newerZippedSave,
   pickSave,
   pickState,
 } from "./resumeSelection";
@@ -121,5 +122,45 @@ describe("newerThanPick", () => {
     expect(newerThanPick(saves, states, { save: null, state: null })).toBe(
       null,
     );
+  });
+});
+
+describe("newerZippedSave", () => {
+  const zipped = (id: number, updated_at: string) =>
+    saveFixture({ id, file_name: `${id}.saves.zip`, updated_at });
+
+  it("names a zipped save newer than the pick", () => {
+    const zip = zipped(9, "2026-09-03T10:00:00Z");
+    const pick = pickSave(save(1, "2026-09-02T10:00:00Z"));
+
+    expect(newerZippedSave([save(1), zip], pick)).toBe(zip);
+  });
+
+  it("weighs a picked state too", () => {
+    const zip = zipped(9, "2026-09-02T10:00:00Z");
+    const pick = pickState(state(2, "2026-09-03T10:00:00Z"));
+
+    expect(newerZippedSave([zip], pick)).toBeNull();
+  });
+
+  it("stays quiet when the zipped save is older", () => {
+    const zip = zipped(9, "2026-09-01T10:00:00Z");
+    const pick = pickSave(save(1, "2026-09-02T10:00:00Z"));
+
+    expect(newerZippedSave([zip], pick)).toBeNull();
+  });
+
+  it("names it when nothing else boots", () => {
+    const zip = zipped(9, "2026-09-01T10:00:00Z");
+
+    expect(newerZippedSave([zip], { save: null, state: null })).toBe(zip);
+  });
+
+  it("names the newest of several", () => {
+    const older = zipped(8, "2026-09-03T10:00:00Z");
+    const newer = zipped(9, "2026-09-04T10:00:00Z");
+    const pick = pickSave(save(1, "2026-09-02T10:00:00Z"));
+
+    expect(newerZippedSave([older, newer], pick)).toBe(newer);
   });
 });

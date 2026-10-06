@@ -151,6 +151,7 @@
   "new-slot": "+ Nouvel emplacement",
   "newer-save-warning": "Une sauvegarde de {time} est plus récente que votre choix. Reprendre avec ce choix peut vous faire perdre de la progression.",
   "newer-state-warning": "Un état de {time} est plus récent que votre choix. Reprendre avec ce choix peut vous faire perdre de la progression.",
+  "newer-zipped-save-notice": "Votre progression la plus récente, du {time}, se trouve dans une sauvegarde de streaming que le lecteur du navigateur ne peut pas charger. Lancez le jeu en streaming pour la reprendre, ou téléchargez cette sauvegarde et importez le fichier de sauvegarde qu'elle contient.",
   "no-memory-cards": "Aucune carte mémoire pour le moment",
   "no-save-selected": "Aucune sauvegarde sélectionnée",
   "no-saves-available": "Aucune sauvegarde disponible",

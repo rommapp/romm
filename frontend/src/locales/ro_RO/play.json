@@ -151,6 +151,7 @@
   "new-slot": "+ Slot nou",
   "newer-save-warning": "O salvare de {time} este mai nouă decât alegerea ta. Reluarea ei îți poate da progresul înapoi.",
   "newer-state-warning": "O stare de {time} este mai nouă decât alegerea ta. Reluarea ei îți poate da progresul înapoi.",
+  "newer-zipped-save-notice": "Cel mai recent progres, din {time}, este într-o salvare din streaming pe care playerul din browser nu o poate încărca. Pornește jocul prin streaming pentru a continua de acolo sau descarcă salvarea și încarcă fișierul de salvare din ea.",
   "no-memory-cards": "Încă niciun card de memorie",
   "no-save-selected": "Nicio salvare selectată",
   "no-saves-available": "Nicio salvare disponibilă",

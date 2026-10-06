@@ -151,6 +151,7 @@
   "new-slot": "+ 新建存档位",
   "newer-save-warning": "{time}的存档比你选择的更新。继续当前选择可能会回退你的进度。",
   "newer-state-warning": "{time}的状态比你选择的更新。继续当前选择可能会回退你的进度。",
+  "newer-zipped-save-notice": "你最新的进度（{time}）在一个浏览器播放器无法加载的串流存档中。请通过串流启动游戏以继续，或下载该存档并上传其中的存档文件。",
   "no-memory-cards": "尚无记忆卡",
   "no-save-selected": "未选择存档",
   "no-saves-available": "无可用存档",
