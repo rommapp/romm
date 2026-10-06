@@ -8269,11 +8269,11 @@ def test_an_older_save_with_the_newest_state_imports_the_picked_state(
     assert _launch_ready(sent)["resume"] is True
 
 
-def test_an_older_save_with_the_newest_state_still_launches_when_the_broker_is_silent(
+def test_an_older_save_with_the_newest_state_asks_for_a_retry_when_the_broker_is_silent(
     client, access_token, rom: Rom, admin_user: User
 ):
-    """Every pick here is native, so an unanswered import check must not turn
-    a launch that never needed it into a 503."""
+    """Only an import resumes the picked state over the older archive, so an
+    unanswered check asks for a retry rather than resuming another state."""
     older, _, state = _duckstation_pairing(rom, admin_user)
     run_launch_mock = AsyncMock()
     with _streaming(_clearing_duckstation(rom)):
@@ -8291,8 +8291,9 @@ def test_an_older_save_with_the_newest_state_still_launches_when_the_broker_is_s
             r = _claim(
                 client, access_token, rom.id, state_id=state.id, save_id=older.id
             )
-    assert r.status_code == 202
-    run_launch_mock.assert_called_once()
+        assert _session_raw(_clearing_duckstation(rom)) is None
+    assert r.status_code == 503
+    run_launch_mock.assert_not_called()
 
 
 def test_an_older_save_with_the_newest_state_reports_the_resume_lost_without_imports(
