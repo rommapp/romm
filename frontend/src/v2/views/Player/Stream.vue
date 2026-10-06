@@ -341,14 +341,12 @@ const newestSave = computed<SaveSchema | null>(() => {
     !container.value?.import_kinds.includes("save")
   )
     return native;
-  const raw = allSaves.value.find((s) =>
-    s.file_name.toLowerCase().endsWith(".srm"),
+  // allSaves is newest first, so the first match is the newer of the two.
+  return (
+    allSaves.value.find(
+      (s) => s === native || s.file_name.toLowerCase().endsWith(".srm"),
+    ) ?? null
   );
-  // allSaves is newest first, so whichever comes first is newer.
-  if (!raw || !native) return raw ?? native;
-  return allSaves.value.indexOf(raw) < allSaves.value.indexOf(native)
-    ? raw
-    : native;
 });
 
 // A pick only lands where the broker empties the save tree first; elsewhere

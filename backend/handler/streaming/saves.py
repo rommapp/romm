@@ -440,9 +440,7 @@ def default_save(
     if container.emulator.lower() != "retroarch":
         return native, False
     raw = _newest([s for s in stored if s.file_name.lower().endswith(".srm")])
-    if raw is None or (
-        native is not None and (native.created_at, native.id) > (raw.created_at, raw.id)
-    ):
+    if raw is None or _newest([s for s in (raw, native) if s]) is not raw:
         return native, False
     spec = webstation.require_import_spec(
         container, container.emulator, container.platform
