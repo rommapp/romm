@@ -435,8 +435,14 @@ type ResumeTab = "state" | "save";
 
 const resumeTab = ref<ResumeTab>("state");
 
+// What the broker imports decides what's on offer, and the app-load copy can
+// predate its answer. Until the page's own refetch lands, a pick could vanish
+// or a Saves tab appear under the player's cursor, so the panel waits for it.
+const configFresh = ref(false);
+
 const showResumeTabs = computed(
-  () => supportsStates.value && pickableSaves.value.length > 0,
+  () =>
+    configFresh.value && supportsStates.value && pickableSaves.value.length > 0,
 );
 
 // The pick only counts when there is something to pick between.
@@ -1322,7 +1328,9 @@ useEventListener(window, "pagehide", onPageHide);
 onMounted(async () => {
   // The app-load copy can predate a broker that hadn't answered yet, and what
   // it imports decides which saves the picker offers, so ask again here.
-  const freshConfig = streamingStore.fetchConfig();
+  const freshConfig = streamingStore.fetchConfig().finally(() => {
+    configFresh.value = true;
+  });
   try {
     const { data } = await romApi.getRom({
       romId: parseInt(route.params.rom as string),
@@ -1479,7 +1487,11 @@ onBeforeUnmount(() => {
           </template>
         </div>
         <div class="r-v2-stream__resume-body">
-          <template v-if="activeResumeTab === 'state'">
+          <div v-if="!configFresh" class="r-v2-stream__resume-loading">
+            <RSpinner :size="24" :aria-label="t('common.loading')" />
+          </div>
+
+          <template v-else-if="activeResumeTab === 'state'">
             <AssetPreview
               :asset="selectedState"
               type="state"
@@ -2063,6 +2075,12 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 14px;
   flex: 1;
+}
+.r-v2-stream__resume-loading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
 }
 .r-v2-stream__strip-label {
   display: flex;
