@@ -9166,6 +9166,25 @@ def test_import_spec_keeps_the_last_answer_through_a_failed_check(rom: Rom):
     assert second == first
 
 
+def test_import_spec_holds_the_fallback_for_the_rest_of_a_claim(rom: Rom):
+    """A claim checks the pool's reference and then the won container, which
+    must not wait out the same broker timeout twice."""
+    container = _resolved(_webstation_for(rom))
+    later = time.monotonic() + webstation._IMPORT_SPEC_TTL + 1
+    with patch(
+        "handler.streaming.broker.request",
+        side_effect=[_SAVE_SPEC_BODY, OSError("timed out")],
+    ) as request:
+        first = webstation.import_spec(container, "retroarch", rom.platform_slug)
+        with patch("handler.streaming.webstation.time.monotonic", return_value=later):
+            webstation.require_import_spec(container, "retroarch", rom.platform_slug)
+            again = webstation.require_import_spec(
+                container, "retroarch", rom.platform_slug
+            )
+    assert again == first
+    assert request.call_count == 2
+
+
 def test_import_spec_last_answer_reaches_every_worker(rom: Rom):
     """Each web worker has its own process, so an answer one of them got must
     stand in for a failed check on another, or the picker flickers by worker."""

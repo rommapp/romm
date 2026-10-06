@@ -72,10 +72,11 @@ class ImportSpec:
 # Per container and core. An answer or a refused core holds for one claim's
 # checks; a 404, or a 422 for an emulator the broker doesn't know, a little
 # longer, since the broker upgrade that fixes either must not need a RomM
-# restart to be seen. A failure is not cached; it falls back to the last
-# answer instead, so one slow reply doesn't hide the picker.
+# restart to be seen. A failure falls back to the last answer, held briefly so
+# one claim's checks don't each wait out the same timeout.
 _IMPORT_SPEC_TTL = 30.0
 _IMPORT_SPEC_MISSING_TTL = 300.0
+_IMPORT_SPEC_FALLBACK_TTL = 10.0
 _ImportSpecKey = tuple[str, str, str, str | None, bool]
 _import_spec_cache: dict[_ImportSpecKey, tuple[float, ImportSpec | None]] = {}
 
@@ -168,7 +169,8 @@ def require_import_spec(
         code = exc.code
         exc.close()
         if code in (404, 422):
-            if code == 404:
+            # Once per worker, not at every expiry of the cached answer.
+            if code == 404 and (cached is None or cached[1] is not None):
                 log.warning(
                     "import-spec not found on %s, the broker predates imports",
                     container.key,
@@ -205,9 +207,10 @@ def _last_good_key(cache_key: _ImportSpecKey) -> str:
 
 
 def _remember_last_good(cache_key: _ImportSpecKey, spec: ImportSpec) -> None:
+    # The broker's own shape, so reading it back runs the same checks.
     value = json.dumps(
         {
-            "kinds": sorted(spec.kinds),
+            "kinds": [{"kind": kind} for kind in sorted(spec.kinds)],
             "state_channel": spec.state_channel,
             "state_slot": spec.state_slot,
         }
@@ -235,15 +238,17 @@ def _last_good_import_spec(cache_key: _ImportSpecKey) -> ImportSpec:
         raise ImportSpecUnavailable
     try:
         body = json.loads(raw)
-        spec = ImportSpec(
-            kinds=frozenset(body["kinds"]),
-            state_channel=body["state_channel"],
-            state_slot=body["state_slot"],
-        )
-    except ValueError, KeyError, TypeError:
+    except ValueError:
+        body = None
+    spec = _parse_import_spec(body) if isinstance(body, dict) else None
+    if spec is None:
         # Written by another RomM version, or cut short: no answer at all.
-        raise ImportSpecUnavailable from None
+        raise ImportSpecUnavailable
     log.info("import-spec check failed, using the broker's last answer")
+    _import_spec_cache[cache_key] = (
+        time.monotonic() + _IMPORT_SPEC_FALLBACK_TTL,
+        spec,
+    )
     return spec
 
 
