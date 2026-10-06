@@ -32,6 +32,22 @@ export function isCoreCompatible(
   return !asset.emulator || emulatorKey(asset.emulator) === emulatorKey(core);
 }
 
+/**
+ * A zipped save bundles a whole save directory: a streaming exit, a memory
+ * card, a PSP save folder. A browser core reads raw SRAM and would boot the
+ * zip itself as its save, so the in-browser players never offer one.
+ */
+export function isSaveArchive(save: { file_name: string }): boolean {
+  return save.file_name.toLowerCase().endsWith(".zip");
+}
+
+/** The saves an in-browser core can boot from. */
+export function browserSaves<T extends { file_name: string }>(
+  saves: readonly T[],
+): T[] {
+  return saves.filter((save) => !isSaveArchive(save));
+}
+
 /** ISO timestamps sort lexically. */
 export function byUpdatedDesc(a: Asset, b: Asset): number {
   return b.updated_at.localeCompare(a.updated_at);

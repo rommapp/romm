@@ -8,7 +8,9 @@ import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
 import type { Events } from "@/types/emitter";
 import type { LaunchState, SaveSyncOutcome } from "@/types/rommNative";
+import { saveFixture } from "@/utils/assets.fixtures";
 import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
+import AssetList from "@/v2/components/shared/AssetList.vue";
 import EmulatorJS from "./EmulatorJS.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -586,7 +588,7 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
     expect(slotItems(wrapper)).toHaveLength(2);
 
     mocks.getRom.mockResolvedValue({
-      data: { ...ROM, user_saves: [{ slot: "slots/2" }] },
+      data: { ...ROM, user_saves: [saveFixture({ slot: "slots/2" })] },
     });
     mocks.syncOutcome.value = { action: "uploaded" };
     await flushPromises();
@@ -605,7 +607,7 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
     await flushPromises();
 
     mocks.getRom.mockResolvedValue({
-      data: { ...ROM, user_saves: [{ slot: "slots/2" }] },
+      data: { ...ROM, user_saves: [saveFixture({ slot: "slots/2" })] },
     });
     mocks.syncOutcome.value = { action: "downloaded" };
     await flushPromises();
@@ -628,6 +630,43 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
 
 // An icon class the font does not define renders as an empty circle rather
 // than failing, so the name alone is never evidence that a glyph exists.
+describe("EmulatorJS launch screen — a save the browser can't boot", () => {
+  // A streaming exit files the whole save directory as one zip, which the
+  // browser core would take for its SRAM.
+  const RAW = saveFixture({
+    id: 1,
+    file_name: "game.srm",
+    updated_at: "2026-10-01T12:00:00Z",
+  });
+  const ARCHIVE = saveFixture({
+    id: 2,
+    file_name: "game [retroarch 2026-10-02 12-00-00].saves.zip",
+    file_extension: "zip",
+    emulator: "retroarch",
+    updated_at: "2026-10-02T12:00:00Z",
+  });
+
+  beforeEach(() => {
+    mocks.getRom.mockResolvedValue({
+      data: { ...ROM, user_saves: [RAW, ARCHIVE] },
+    });
+  });
+
+  it("boots the newest save it can read, not a newer archive", async () => {
+    const wrapper = await launchScreen();
+    const list = wrapper.findComponent(AssetList);
+
+    expect(propOf(list, "selectedId")).toBe(RAW.id);
+  });
+
+  it("leaves the archive off the list", async () => {
+    const wrapper = await launchScreen();
+    const list = wrapper.findComponent(AssetList);
+
+    expect(propOf(list, "assets")).toEqual([RAW]);
+  });
+});
+
 describe("the native affordances' icons", () => {
   const MDI_CSS = readFileSync(
     "node_modules/@mdi/font/css/materialdesignicons.css",

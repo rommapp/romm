@@ -14,7 +14,7 @@ import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useEmitterEvent } from "@/v2/composables/useEmitterEvent";
 import { useSaveStateTabs } from "@/v2/composables/useSaveStateTabs";
-import type { Asset, AssetType } from "@/v2/utils/assets";
+import { type Asset, type AssetType, browserSaves } from "@/v2/utils/assets";
 
 defineOptions({ inheritAttrs: false });
 
@@ -26,7 +26,7 @@ const rom = ref<DetailedRom | null>(null);
 // States apply on the fly, so they are what the button reaches for first.
 const tab = ref<AssetType>("state");
 
-const saves = computed(() => rom.value?.user_saves ?? []);
+const saves = computed(() => browserSaves(rom.value?.user_saves ?? []));
 const states = computed(() => rom.value?.user_states ?? []);
 const { tabs, stateDisabledReason } = useSaveStateTabs(
   saves,

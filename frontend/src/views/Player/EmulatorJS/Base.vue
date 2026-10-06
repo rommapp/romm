@@ -19,6 +19,7 @@ import storePlaying from "@/stores/playing";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
+import { browserSaves } from "@/v2/utils/assets";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { exitEmulatorOnce, installIOSFullscreenShim } from "./utils";
@@ -33,6 +34,8 @@ const configStore = storeConfig();
 const { playing, fullScreen } = storeToRefs(playingStore);
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
+// A zipped save bundle is never bootable here (see browserSaves).
+const bootableSaves = computed(() => browserSaves(rom.value?.user_saves ?? []));
 const selectedSave = ref<SaveSchema | null>(null);
 const isSavesTabSelected = ref(true);
 const selectedState = ref<StateSchema | null>(null);
@@ -217,10 +220,10 @@ onMounted(async () => {
     isSavesTabSelected.value = false;
     selectedState.value = compatibleStates[0]!;
     selectedSave.value = null;
-  } else if (rom.value.user_saves.length > 0) {
+  } else if (bootableSaves.value.length > 0) {
     // If no states but there are saves, default to saves tab with first save
     isSavesTabSelected.value = true;
-    selectedSave.value = rom.value.user_saves[0]!;
+    selectedSave.value = bootableSaves.value[0]!;
     selectedState.value = null;
   } else {
     // No saves or states, default to saves tab
@@ -333,8 +336,8 @@ function openCacheDialog() {
                 <v-icon start>mdi-content-save</v-icon>
                 {{ t("common.saves") }}
                 <v-badge
-                  v-if="rom.user_saves.length > 0"
-                  :content="rom.user_saves.length"
+                  v-if="bootableSaves.length > 0"
+                  :content="bootableSaves.length"
                   color="primary"
                   inline
                   class="ml-2"
@@ -388,11 +391,11 @@ function openCacheDialog() {
                   :prepend-icon="
                     selectedSave ? 'mdi-swap-horizontal' : 'mdi-plus'
                   "
-                  :disabled="rom.user_saves.length == 0"
+                  :disabled="bootableSaves.length == 0"
                   @click="openSaveDialog"
                 >
                   {{
-                    rom.user_saves.length == 0
+                    bootableSaves.length == 0
                       ? t("play.no-saves-available")
                       : selectedSave
                         ? t("play.change-save")

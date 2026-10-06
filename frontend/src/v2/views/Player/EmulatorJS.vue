@@ -85,7 +85,7 @@ import {
   useStageActive,
 } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
-import type { AssetType } from "@/v2/utils/assets";
+import { type AssetType, browserSaves } from "@/v2/utils/assets";
 import { joinNames } from "@/v2/utils/lists";
 import {
   resolveBezelHost,
@@ -232,6 +232,9 @@ declare global {
   }
 }
 
+// The saves this player can boot; a zipped bundle is never one (see browserSaves).
+const bootableSaves = computed(() => browserSaves(rom.value?.user_saves ?? []));
+
 const {
   tabs: assetTabs,
   stateCount,
@@ -239,7 +242,7 @@ const {
   allStatesCompatible,
   stateDisabledReason,
 } = useSaveStateTabs(
-  () => rom.value?.user_saves ?? [],
+  () => bootableSaves.value,
   () => rom.value?.user_states ?? [],
   selectedCore,
 );
@@ -520,7 +523,7 @@ function currentIntent(): LaunchIntent {
 // What the view had selected before the reload, re-applied over the defaults.
 function applyLaunchIntent(intent: LaunchIntent) {
   const selection = resolveLaunchIntent(intent, {
-    saves: rom.value?.user_saves ?? [],
+    saves: bootableSaves.value,
     states: compatibleStates.value,
     firmware: firmwareOptions.value,
   });
@@ -567,10 +570,10 @@ async function refreshRomAfterSync(): Promise<void> {
     const { data } = await romApi.getRom({ romId });
     rom.value = data;
     resume.value = defaultResumeSelection(
-      data.user_saves,
+      bootableSaves.value,
       compatibleStates.value,
     );
-    slotChoice.value = existingSlot(preferredSlot(data.user_saves));
+    slotChoice.value = existingSlot(preferredSlot(bootableSaves.value));
     isSavesTabSelected.value = !resume.value.state;
   } catch (error) {
     // The old list is kept: a save list that is a launch out of date is not
@@ -614,10 +617,10 @@ onMounted(async () => {
   );
 
   resume.value = defaultResumeSelection(
-    rom.value.user_saves,
+    bootableSaves.value,
     compatibleStates.value,
   );
-  slotChoice.value = existingSlot(preferredSlot(rom.value.user_saves));
+  slotChoice.value = existingSlot(preferredSlot(bootableSaves.value));
   isSavesTabSelected.value = !resume.value.state;
 
   selectedDisc.value = resolveRememberedDisc(
@@ -705,7 +708,7 @@ function clearSelectedAsset() {
 
 const activeAssets = computed<(SaveSchema | StateSchema)[]>(() =>
   isSavesTabSelected.value
-    ? (rom.value?.user_saves ?? [])
+    ? bootableSaves.value
     : (rom.value?.user_states ?? []),
 );
 const stripCount = computed(() => {
@@ -732,11 +735,7 @@ const previewTitle = computed(() => {
 
 // Booting anything but the latest progress would roll it back (#4278).
 const newerAsset = computed(() =>
-  newerThanPick(
-    rom.value?.user_saves ?? [],
-    compatibleStates.value,
-    resume.value,
-  ),
+  newerThanPick(bootableSaves.value, compatibleStates.value, resume.value),
 );
 function bootFromNewer() {
   if (!newerAsset.value) return;
@@ -749,7 +748,7 @@ function bootFromNewer() {
 const slotChoice = ref<SlotChoice>(existingSlot(AUTOSAVE_SLOT));
 const customSlot = ref("");
 const boundSlot = computed(() => resume.value.save?.slot || null);
-const slotItems = computed(() => slotChoices(rom.value?.user_saves ?? []));
+const slotItems = computed(() => slotChoices(bootableSaves.value));
 function onSlotChoice(value: unknown) {
   if (isSlotChoice(value)) slotChoice.value = value;
 }

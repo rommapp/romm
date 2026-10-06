@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import type { SaveSchema } from "@/__generated__";
@@ -8,11 +8,13 @@ import AssetCard from "@/components/common/Game/AssetCard.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { browserSaves } from "@/v2/utils/assets";
 
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<DetailedRom | null>(null);
+const saves = computed(() => browserSaves(rom.value?.user_saves ?? []));
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("selectSaveDialog", (selectedRom) => {
@@ -49,12 +51,13 @@ function closeDialog() {
     </template>
     <template #content>
       <v-row
-        v-if="rom && rom.user_saves.length > 0"
+        v-if="rom && saves.length > 0"
         class="align-content-start pa-2"
         no-gutters
       >
         <v-col
-          v-for="save in rom.user_saves"
+          v-for="save in saves"
+          :key="save.id"
           class="pa-1 align-self-end"
           cols="6"
           md="4"
