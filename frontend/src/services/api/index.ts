@@ -33,6 +33,8 @@ const api = axios.create({
 const inflightRequests = new Set();
 
 const networkQuiesced = debounce(() => {
+  // The trailing call can outlive the DOM (test teardown), so don't assume it.
+  if (typeof document === "undefined") return;
   document.dispatchEvent(new CustomEvent("network-quiesced"));
 }, 250);
 
