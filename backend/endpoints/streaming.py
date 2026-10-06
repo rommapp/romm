@@ -914,8 +914,8 @@ async def claim_session(
                     container.platform,
                 )
             except webstation.ImportSpecUnavailable:
-                # A native state still launches without the answer; only a
-                # foreign pick hangs on it, and that is a retry, not a refusal.
+                # A native state still launches without the answer; a foreign
+                # pick needs it, so the player is asked to retry.
                 if resume_foreign or save_foreign:
                     raise
         import_slot = spec.resume_slot() if spec is not None else None

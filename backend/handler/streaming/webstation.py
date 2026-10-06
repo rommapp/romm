@@ -83,7 +83,7 @@ _LAST_GOOD_TTL_SECONDS = 7 * 24 * 60 * 60
 
 
 class ImportSpecUnavailable(HTTPException):
-    """The broker can't be asked and no earlier answer stands in: a retry, not a no."""
+    """The broker can't be asked and no earlier answer stands in, so retry later."""
 
     def __init__(self) -> None:
         detail = "Couldn't reach the streaming container to check this pick, try again"

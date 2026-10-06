@@ -5789,8 +5789,7 @@ def test_resolve_save_archive_rejects_a_bare_save_file(rom: Rom, admin_user: Use
 def test_resolve_save_archive_asks_for_a_retry_when_the_broker_did_not_answer(
     rom: Rom, admin_user: User
 ):
-    """A bare save the broker would import is not "unrestorable" just because
-    the check timed out: the player is told to try again."""
+    """A bare save whose import check timed out asks the player to try again."""
     loose = _add_save(rom, admin_user, "Game.srm", "mgba", "h1")
     with patch(
         "handler.streaming.saves.webstation.require_import_spec",
@@ -5856,8 +5855,7 @@ def test_resolve_save_archive_still_refuses_when_the_broker_has_no_import_spec(
 def test_resolve_resume_state_asks_for_a_retry_when_the_broker_did_not_answer(
     rom: Rom, admin_user: User
 ):
-    """A foreign state isn't "from a different emulator" just because the
-    import check timed out."""
+    """A foreign state whose import check timed out asks the player to try again."""
     state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
     with patch(
         "handler.streaming.states.webstation.require_import_spec",
@@ -6630,8 +6628,8 @@ def test_claim_refuses_a_foreign_save_the_won_container_will_not_import(
 def test_claim_asks_for_a_retry_when_the_won_container_did_not_answer(
     client, access_token, rom: Rom, admin_user: User
 ):
-    """A foreign pick the won container couldn't be asked about is a retry, and
-    the claim is released rather than launched without the pick."""
+    """A foreign pick the won container couldn't be asked about releases the
+    claim and asks for a retry."""
     foreign = _add_save(rom, admin_user, "Game.srm", "mgba", "h1")
     spec = webstation.ImportSpec(
         kinds=frozenset({"save"}), state_channel="push", state_slot=10
@@ -9210,7 +9208,7 @@ def test_import_spec_last_answer_reaches_every_worker(rom: Rom):
 
 
 def test_import_spec_treats_an_unreadable_last_answer_as_none(rom: Rom):
-    """A cached answer in a shape this RomM doesn't read is no answer, not a 500."""
+    """A cached answer in a shape this RomM doesn't read counts as no answer."""
     container = _resolved(_webstation_for(rom))
     with patch("handler.streaming.broker.request", return_value=_SAVE_SPEC_BODY):
         webstation.import_spec(container, "retroarch", rom.platform_slug)
@@ -9226,7 +9224,7 @@ def test_import_spec_treats_an_unreadable_last_answer_as_none(rom: Rom):
 
 
 def test_import_spec_forgets_the_last_answer_on_a_404(rom: Rom):
-    """A broker downgraded to one without imports really can't take them."""
+    """A broker downgraded to one without imports can't take them."""
     container = _resolved(_webstation_for(rom))
     later = time.monotonic() + webstation._IMPORT_SPEC_TTL + 1
     much_later = later + webstation._IMPORT_SPEC_MISSING_TTL + 1
