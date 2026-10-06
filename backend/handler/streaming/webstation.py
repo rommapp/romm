@@ -160,37 +160,54 @@ def require_import_spec(
     except urllib.error.HTTPError as exc:
         code = exc.code
         exc.close()
-        if code in (404, 422):
+        if code == 404:
+            # A broker that answered before is likelier restarting behind a
+            # proxy than downgraded, so its last answer stands in.
+            try:
+                return _last_good_import_spec(cache_key)
+            except ImportSpecUnavailable:
+                pass
             # Once per worker, not at every expiry of the cached answer.
-            if code == 404 and (cached is None or cached[1] is not None):
+            if cached is None or cached[1] is not None:
                 log.warning(
                     "import-spec not found on %s, the broker predates imports",
                     container.key,
                 )
-            # A refused core is fixed by upgrading the broker, so that answer
-            # expires sooner than a missing route.
-            refused_core = code == 422 and container.core is not None
-            ttl = _IMPORT_SPEC_TTL if refused_core else _IMPORT_SPEC_MISSING_TTL
-            _import_spec_cache[cache_key] = (time.monotonic() + ttl, None)
-            _forget_last_good(cache_key)
+            _no_imports(cache_key, _IMPORT_SPEC_MISSING_TTL)
             return None
-        log.warning("import-spec check failed with HTTP %d", code)
-        return _last_good_import_spec(cache_key)
+        if code == 422:
+            # A refused core is fixed by upgrading the broker, so that answer
+            # expires sooner than an emulator the broker doesn't know.
+            ttl = _IMPORT_SPEC_TTL if container.core else _IMPORT_SPEC_MISSING_TTL
+            _forget_last_good(cache_key)
+            _no_imports(cache_key, ttl)
+            return None
+        if code >= 500 or code == 429:
+            log.warning("import-spec check failed with HTTP %d", code)
+            return _last_good_import_spec(cache_key)
+        log.error("import-spec check on %s refused with HTTP %d", container.key, code)
+        _no_imports(cache_key, _IMPORT_SPEC_TTL)
+        return None
     except urllib.error.URLError, OSError, http.client.HTTPException:
         log.warning("import-spec check unreachable on %s", container.key)
         return _last_good_import_spec(cache_key)
     except ValueError as exc:
-        log.warning("import-spec response was not valid JSON, %s", exc)
-        return _last_good_import_spec(cache_key)
-    if not isinstance(resp, dict):
-        log.warning("import-spec response was not a JSON object")
-        return _last_good_import_spec(cache_key)
-    spec = _parse_import_spec(resp)
+        log.error("import-spec response from %s was not JSON, %s", container.key, exc)
+        _no_imports(cache_key, _IMPORT_SPEC_TTL)
+        return None
+    spec = _parse_import_spec(resp) if isinstance(resp, dict) else None
     if spec is None:
-        return _last_good_import_spec(cache_key)
+        log.error("import-spec response from %s was unreadable", container.key)
+        _no_imports(cache_key, _IMPORT_SPEC_TTL)
+        return None
     _import_spec_cache[cache_key] = (time.monotonic() + _IMPORT_SPEC_TTL, spec)
     _remember_last_good(cache_key, resp)
     return spec
+
+
+def _no_imports(cache_key: _ImportSpecKey, ttl: float) -> None:
+    # Retrying can't change this answer, so it is cached, not a 503.
+    _import_spec_cache[cache_key] = (time.monotonic() + ttl, None)
 
 
 def _last_good_key(cache_key: _ImportSpecKey) -> str:

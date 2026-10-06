@@ -9223,28 +9223,98 @@ def test_import_spec_treats_an_unreadable_last_answer_as_none(rom: Rom):
             webstation.require_import_spec(container, "retroarch", rom.platform_slug)
 
 
-def test_import_spec_forgets_the_last_answer_on_a_404(rom: Rom):
-    """A broker downgraded to one without imports can't take them."""
+def test_import_spec_keeps_the_last_answer_through_a_404(rom: Rom):
+    """A broker that answered before and 404s now is most likely restarting
+    behind a proxy, so the picker keeps its imports and asks again soon."""
     container = _resolved(_webstation_for(rom))
     later = time.monotonic() + webstation._IMPORT_SPEC_TTL + 1
-    much_later = later + webstation._IMPORT_SPEC_MISSING_TTL + 1
+    soon_after = later + webstation._IMPORT_SPEC_FALLBACK_TTL + 1
     with patch(
         "handler.streaming.broker.request",
-        side_effect=[_SAVE_SPEC_BODY, _http_error(404), OSError("timed out")],
+        side_effect=[_SAVE_SPEC_BODY, _http_error(404), _http_error(404)],
+    ) as request:
+        first = webstation.import_spec(container, "retroarch", rom.platform_slug)
+        with patch("handler.streaming.webstation.time.monotonic", return_value=later):
+            second = webstation.require_import_spec(
+                container, "retroarch", rom.platform_slug
+            )
+        with patch(
+            "handler.streaming.webstation.time.monotonic", return_value=soon_after
+        ):
+            third = webstation.require_import_spec(
+                container, "retroarch", rom.platform_slug
+            )
+    assert second == first
+    assert third == first
+    assert request.call_count == 3
+
+
+def test_import_spec_falls_back_on_a_server_error(rom: Rom):
+    """A 5xx is the broker or its proxy failing for now, not an answer."""
+    container = _resolved(_webstation_for(rom))
+    later = time.monotonic() + webstation._IMPORT_SPEC_TTL + 1
+    with patch(
+        "handler.streaming.broker.request",
+        side_effect=[_SAVE_SPEC_BODY, _http_error(502)],
+    ):
+        first = webstation.import_spec(container, "retroarch", rom.platform_slug)
+        with patch("handler.streaming.webstation.time.monotonic", return_value=later):
+            second = webstation.require_import_spec(
+                container, "retroarch", rom.platform_slug
+            )
+    assert second == first
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param(_http_error(401), id="refused-secret"),
+        pytest.param(_http_error(400), id="bad-request"),
+        pytest.param(ValueError("not json"), id="not-json"),
+        pytest.param({"kinds": "save"}, id="unparsable"),
+        pytest.param(["save"], id="not-an-object"),
+    ],
+)
+def test_import_spec_reads_a_lasting_failure_as_no_imports(rom: Rom, answer):
+    """Retrying can't fix a refused secret or a reply RomM can't read, so a pick
+    gets an honest refusal rather than an endless "try again"."""
+    container = _resolved(_webstation_for(rom))
+    later = time.monotonic() + webstation._IMPORT_SPEC_TTL + 1
+    with patch(
+        "handler.streaming.broker.request", side_effect=[_SAVE_SPEC_BODY, answer]
     ):
         webstation.import_spec(container, "retroarch", rom.platform_slug)
         with patch("handler.streaming.webstation.time.monotonic", return_value=later):
             assert (
-                webstation.import_spec(container, "retroarch", rom.platform_slug)
-                is None
-            )
-        with patch(
-            "handler.streaming.webstation.time.monotonic", return_value=much_later
-        ):
-            with pytest.raises(webstation.ImportSpecUnavailable):
                 webstation.require_import_spec(
                     container, "retroarch", rom.platform_slug
                 )
+                is None
+            )
+    # The stored answer survives, so fixing the config brings imports back.
+    much_later = later + webstation._IMPORT_SPEC_TTL + 1
+    with (
+        patch("handler.streaming.broker.request", side_effect=OSError("timed out")),
+        patch("handler.streaming.webstation.time.monotonic", return_value=much_later),
+    ):
+        assert (
+            webstation.require_import_spec(container, "retroarch", rom.platform_slug)
+            is not None
+        )
+
+
+def test_import_spec_caches_a_lasting_failure_briefly(rom: Rom):
+    """A misconfigured broker is asked again soon, not on every check."""
+    container = _resolved(_webstation_for(rom))
+    later = time.monotonic() + webstation._IMPORT_SPEC_TTL + 1
+    with patch(
+        "handler.streaming.broker.request", side_effect=_http_error(401)
+    ) as request:
+        webstation.import_spec(container, "retroarch", rom.platform_slug)
+        webstation.import_spec(container, "retroarch", rom.platform_slug)
+        with patch("handler.streaming.webstation.time.monotonic", return_value=later):
+            webstation.import_spec(container, "retroarch", rom.platform_slug)
+    assert request.call_count == 2
 
 
 def test_require_import_spec_raises_when_the_broker_never_answered(rom: Rom):
