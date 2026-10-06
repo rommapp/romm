@@ -45,7 +45,7 @@ from handler.database import (
     db_user_handler,
 )
 from handler.database.base_handler import sync_session
-from handler.redis_handler import async_cache
+from handler.redis_handler import async_cache, sync_cache
 from handler.streaming import (
     access,
     broker,
@@ -394,7 +394,9 @@ def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_t
 def test_config_ships_the_state_core_rule(client, access_token):
     with _streaming(_webstation(platforms={"snes": "retroarch:bsnes"})):
         with (
-            patch("handler.streaming.webstation.import_spec", return_value=None),
+            patch(
+                "handler.streaming.webstation.require_import_spec", return_value=None
+            ),
             patch("handler.streaming.webstation.default_core", return_value="snes9x"),
         ):
             body = client.get(
@@ -414,7 +416,7 @@ def test_config_asks_a_broker_its_spec_and_core_at_once(client, access_token):
 
     with _streaming(_webstation(platforms={"snes": "retroarch"})):
         with (
-            patch("handler.streaming.webstation.import_spec", side_effect=meet),
+            patch("handler.streaming.webstation.require_import_spec", side_effect=meet),
             patch(
                 "handler.streaming.webstation.default_core",
                 side_effect=lambda c: meet(value="snes9x"),
@@ -426,7 +428,9 @@ def test_config_asks_a_broker_its_spec_and_core_at_once(client, access_token):
 
 def test_config_has_no_state_core_outside_retroarch(client, access_token):
     with _streaming(_webstation()):
-        with patch("handler.streaming.webstation.import_spec", return_value=None):
+        with patch(
+            "handler.streaming.webstation.require_import_spec", return_value=None
+        ):
             body = client.get(
                 "/api/streaming/config", headers=_auth(access_token)
             ).json()
@@ -771,7 +775,9 @@ def test_get_config_reports_the_foreign_picks_each_broker_imports(
         return spec if container.platform == rom.platform_slug else None
 
     with _streaming(importing, silent):
-        with patch("handler.streaming.webstation.import_spec", side_effect=answer):
+        with patch(
+            "handler.streaming.webstation.require_import_spec", side_effect=answer
+        ):
             response = client.get("/api/streaming/config", headers=_auth(access_token))
     assert response.status_code == 200
     kinds = {c["platform"]: c["import_kinds"] for c in response.json()["containers"]}
@@ -5755,7 +5761,9 @@ def test_resolve_save_archive_rejects_another_emulators_archive(
     """Another emulator's archive lays its members out where this one never
     reads, so the restore would write files the game never opens."""
     other = _add_save(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
-    with patch("handler.streaming.saves.webstation.import_spec", return_value=None):
+    with patch(
+        "handler.streaming.saves.webstation.require_import_spec", return_value=None
+    ):
         with pytest.raises(HTTPException) as exc:
             saves.resolve_save_archive(
                 admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
@@ -5767,13 +5775,32 @@ def test_resolve_save_archive_rejects_another_emulators_archive(
 def test_resolve_save_archive_rejects_a_bare_save_file(rom: Rom, admin_user: User):
     """A loose save carries no layout the broker could restore it from."""
     loose = _add_save(rom, admin_user, "Game.srm", "retroarch", "h1")
-    with patch("handler.streaming.saves.webstation.import_spec", return_value=None):
+    with patch(
+        "handler.streaming.saves.webstation.require_import_spec", return_value=None
+    ):
         with pytest.raises(HTTPException) as exc:
             saves.resolve_save_archive(
                 admin_user.id, rom, _resolved(_clearing_webstation(rom)), loose.id
             )
     assert exc.value.status_code == 400
     assert exc.value.detail == "Save is not a restorable archive"
+
+
+def test_resolve_save_archive_asks_for_a_retry_when_the_broker_did_not_answer(
+    rom: Rom, admin_user: User
+):
+    """A bare save the broker would import is not "unrestorable" just because
+    the check timed out: the player is told to try again."""
+    loose = _add_save(rom, admin_user, "Game.srm", "mgba", "h1")
+    with patch(
+        "handler.streaming.saves.webstation.require_import_spec",
+        side_effect=webstation.ImportSpecUnavailable,
+    ):
+        with pytest.raises(HTTPException) as exc:
+            saves.resolve_save_archive(
+                admin_user.id, rom, _resolved(_clearing_webstation(rom)), loose.id
+            )
+    assert exc.value.status_code == 503
 
 
 def test_resolve_save_archive_rejects_a_pick_where_it_would_not_land(
@@ -5801,7 +5828,9 @@ def test_resolve_save_archive_accepts_a_foreign_pick_the_broker_will_import(
         state_channel="archive",
         state_slot=0,
     )
-    with patch("handler.streaming.saves.webstation.import_spec", return_value=spec):
+    with patch(
+        "handler.streaming.saves.webstation.require_import_spec", return_value=spec
+    ):
         save, is_foreign = saves.resolve_save_archive(
             admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
         )
@@ -5813,13 +5842,32 @@ def test_resolve_save_archive_still_refuses_when_the_broker_has_no_import_spec(
     rom: Rom, admin_user: User
 ):
     other = _add_save(rom, admin_user, "Game [pcsx2 a].saves.zip", "pcsx2", "h1")
-    with patch("handler.streaming.saves.webstation.import_spec", return_value=None):
+    with patch(
+        "handler.streaming.saves.webstation.require_import_spec", return_value=None
+    ):
         with pytest.raises(HTTPException) as exc:
             saves.resolve_save_archive(
                 admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
             )
     assert exc.value.status_code == 400
     assert exc.value.detail == "Save was made by a different emulator"
+
+
+def test_resolve_resume_state_asks_for_a_retry_when_the_broker_did_not_answer(
+    rom: Rom, admin_user: User
+):
+    """A foreign state isn't "from a different emulator" just because the
+    import check timed out."""
+    state = _add_state(rom, admin_user, "Game.00.dolphin", "dolphin")
+    with patch(
+        "handler.streaming.states.webstation.require_import_spec",
+        side_effect=webstation.ImportSpecUnavailable,
+    ):
+        with pytest.raises(HTTPException) as exc:
+            states.resolve_resume_state(
+                admin_user.id, rom, _resolved(_webstation_for(rom)), state.id
+            )
+    assert exc.value.status_code == 503
 
 
 def test_resolve_resume_state_accepts_the_players_own_state(rom: Rom, admin_user: User):
@@ -5854,7 +5902,9 @@ def test_resolve_resume_state_accepts_a_foreign_pick_on_an_archive_channel(
         state_channel="archive",
         state_slot=2,
     )
-    with patch("handler.streaming.states.webstation.import_spec", return_value=spec):
+    with patch(
+        "handler.streaming.states.webstation.require_import_spec", return_value=spec
+    ):
         resolved, slot, is_foreign = states.resolve_resume_state(
             admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
         )
@@ -5872,7 +5922,9 @@ def test_resolve_resume_state_accepts_a_foreign_pick_on_a_push_channel(
         state_channel="push",
         state_slot=1,
     )
-    with patch("handler.streaming.states.webstation.import_spec", return_value=spec):
+    with patch(
+        "handler.streaming.states.webstation.require_import_spec", return_value=spec
+    ):
         resolved, slot, is_foreign = states.resolve_resume_state(
             admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
         )
@@ -5887,7 +5939,9 @@ def test_resolve_resume_state_refuses_a_foreign_pick_when_the_channel_is_none(
     spec = webstation.ImportSpec(
         kinds=frozenset(), state_channel="none", state_slot=None
     )
-    with patch("handler.streaming.states.webstation.import_spec", return_value=spec):
+    with patch(
+        "handler.streaming.states.webstation.require_import_spec", return_value=spec
+    ):
         with pytest.raises(HTTPException) as exc:
             states.resolve_resume_state(
                 admin_user.id, rom, _resolved(_clearing_webstation(rom)), other.id
@@ -5902,7 +5956,9 @@ def test_resolve_resume_state_rejects_an_unrecognized_slot_when_no_import_spec(
     """A same-emulator state whose filename carries no slot, and no broker
     import-spec to fall back on, is refused for its slot."""
     weird = _add_state(rom, admin_user, "Game.state", "pcsx2")
-    with patch("handler.streaming.states.webstation.import_spec", return_value=None):
+    with patch(
+        "handler.streaming.states.webstation.require_import_spec", return_value=None
+    ):
         with pytest.raises(HTTPException) as exc:
             states.resolve_resume_state(
                 admin_user.id, rom, _resolved(_webstation_for(rom)), weird.id
@@ -6439,8 +6495,13 @@ def test_claim_hydrates_a_foreign_save_through_the_import_path(
     with _streaming(_clearing_webstation(rom)):
         with (
             patch("handler.streaming.webstation.activate", activate),
-            patch("handler.streaming.saves.webstation.import_spec", return_value=spec),
-            patch("endpoints.streaming.webstation.import_spec", return_value=spec),
+            patch(
+                "handler.streaming.saves.webstation.require_import_spec",
+                return_value=spec,
+            ),
+            patch(
+                "endpoints.streaming.webstation.require_import_spec", return_value=spec
+            ),
             patch("handler.streaming.imports.hydrate_import_archive", hydrate_import),
             patch("handler.streaming.background.spawn_sync_task"),
             patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
@@ -6470,8 +6531,13 @@ def test_claim_hydrates_a_foreign_resume_state_through_the_import_path(
     with _streaming(_clearing_webstation(rom)):
         with (
             patch("handler.streaming.webstation.activate", activate),
-            patch("handler.streaming.states.webstation.import_spec", return_value=spec),
-            patch("endpoints.streaming.webstation.import_spec", return_value=spec),
+            patch(
+                "handler.streaming.states.webstation.require_import_spec",
+                return_value=spec,
+            ),
+            patch(
+                "endpoints.streaming.webstation.require_import_spec", return_value=spec
+            ),
             patch(
                 "handler.streaming.imports.fs_asset_handler.read_file",
                 new=AsyncMock(side_effect=lambda path: path.encode()),
@@ -6507,8 +6573,13 @@ def test_a_missing_foreign_state_does_not_falsely_claim_resume_via_import(
     run_launch_mock = AsyncMock()
     with _streaming(_clearing_webstation(rom)):
         with (
-            patch("handler.streaming.states.webstation.import_spec", return_value=spec),
-            patch("endpoints.streaming.webstation.import_spec", return_value=spec),
+            patch(
+                "handler.streaming.states.webstation.require_import_spec",
+                return_value=spec,
+            ),
+            patch(
+                "endpoints.streaming.webstation.require_import_spec", return_value=spec
+            ),
             patch(
                 "handler.streaming.imports.fs_asset_handler.read_file",
                 new=AsyncMock(side_effect=FileNotFoundError),
@@ -6540,7 +6611,10 @@ def test_claim_refuses_a_foreign_save_the_won_container_will_not_import(
     run_launch_mock = AsyncMock()
     with _streaming(_clearing_webstation(rom)):
         with (
-            patch("handler.streaming.webstation.import_spec", side_effect=[spec, None]),
+            patch(
+                "handler.streaming.webstation.require_import_spec",
+                side_effect=[spec, None],
+            ),
             patch(
                 "handler.streaming.saves.hydrate_saves_to_webstation", native_hydrate
             ),
@@ -6550,6 +6624,30 @@ def test_claim_refuses_a_foreign_save_the_won_container_will_not_import(
         assert _session_raw(_clearing_webstation(rom)) is None
     assert r.status_code == 400
     native_hydrate.assert_not_called()
+    run_launch_mock.assert_not_called()
+
+
+def test_claim_asks_for_a_retry_when_the_won_container_did_not_answer(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """A foreign pick the won container couldn't be asked about is a retry, and
+    the claim is released rather than launched without the pick."""
+    foreign = _add_save(rom, admin_user, "Game.srm", "mgba", "h1")
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"save"}), state_channel="push", state_slot=10
+    )
+    run_launch_mock = AsyncMock()
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch(
+                "handler.streaming.webstation.require_import_spec",
+                side_effect=[spec, webstation.ImportSpecUnavailable],
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(client, access_token, rom.id, save_id=foreign.id)
+        assert _session_raw(_clearing_webstation(rom)) is None
+    assert r.status_code == 503
     run_launch_mock.assert_not_called()
 
 
@@ -6568,7 +6666,10 @@ def test_claim_refuses_a_foreign_state_the_won_container_will_not_import(
     run_launch_mock = AsyncMock()
     with _streaming(_clearing_webstation(rom)):
         with (
-            patch("handler.streaming.webstation.import_spec", side_effect=[spec, None]),
+            patch(
+                "handler.streaming.webstation.require_import_spec",
+                side_effect=[spec, None],
+            ),
             patch("handler.streaming.states.push_resume_state", push),
             patch("handler.streaming.launch.run_launch", run_launch_mock),
         ):
@@ -6589,7 +6690,10 @@ def test_claim_with_an_unrestorable_pick_never_reserves_a_container(
     with _streaming(_clearing_webstation(rom)):
         with (
             patch("handler.streaming.webstation.activate", activate),
-            patch("handler.streaming.saves.webstation.import_spec", return_value=None),
+            patch(
+                "handler.streaming.saves.webstation.require_import_spec",
+                return_value=None,
+            ),
             _spawns_nothing(),
         ):
             refused = _claim(client, access_token, rom.id, save_id=loose.id)
@@ -7641,7 +7745,9 @@ def test_claim_with_wrong_emulator_state_400(
     client, access_token, rom: Rom, admin_user: User
 ):
     state = _add_state(rom, admin_user, "Game.state", "retroarch")
-    with patch("handler.streaming.states.webstation.import_spec", return_value=None):
+    with patch(
+        "handler.streaming.states.webstation.require_import_spec", return_value=None
+    ):
         r = _resume_claim(client, access_token, rom, state.id).response
     assert r.status_code == 400
 
@@ -7650,7 +7756,9 @@ def test_claim_with_unparseable_slot_400(
     client, access_token, rom: Rom, admin_user: User
 ):
     state = _add_state(rom, admin_user, "Game.p2s", "pcsx2")
-    with patch("handler.streaming.states.webstation.import_spec", return_value=None):
+    with patch(
+        "handler.streaming.states.webstation.require_import_spec", return_value=None
+    ):
         r = _resume_claim(client, access_token, rom, state.id).response
     assert r.status_code == 400
 
@@ -8017,7 +8125,9 @@ def test_an_older_exit_state_resume_rides_the_import_archive(
     with _streaming({**_webstation_for(rom), "emulator": emulator}):
         with (
             patch("handler.streaming.webstation.activate", activate),
-            patch("handler.streaming.webstation.import_spec", return_value=spec),
+            patch(
+                "handler.streaming.webstation.require_import_spec", return_value=spec
+            ),
             patch(
                 "handler.streaming.imports.fs_asset_handler.read_file",
                 new=AsyncMock(side_effect=lambda path: path.encode()),
@@ -8057,7 +8167,9 @@ def test_an_older_exit_state_stays_off_the_import_path_without_broker_support(
     run_launch_mock = AsyncMock()
     with _streaming({**_webstation_for(rom), "emulator": "duckstation"}):
         with (
-            patch("handler.streaming.webstation.import_spec", return_value=None),
+            patch(
+                "handler.streaming.webstation.require_import_spec", return_value=None
+            ),
             patch("handler.streaming.imports.hydrate_import_archive", hydrate_import),
             patch(
                 "handler.streaming.saves.hydrate_saves_to_webstation",
@@ -8093,7 +8205,9 @@ def test_a_rewritten_older_state_is_still_not_the_archives_capture(
     run_launch_mock = AsyncMock()
     with _streaming({**_webstation_for(rom), "emulator": "duckstation"}):
         with (
-            patch("handler.streaming.webstation.import_spec", return_value=None),
+            patch(
+                "handler.streaming.webstation.require_import_spec", return_value=None
+            ),
             patch(
                 "handler.streaming.saves.hydrate_saves_to_webstation",
                 new=AsyncMock(return_value="/romm/saves/archive.zip"),
@@ -8137,7 +8251,9 @@ def test_an_older_save_with_the_newest_state_imports_the_picked_state(
     with _streaming(_clearing_duckstation(rom)):
         with (
             patch("handler.streaming.webstation.activate", activate),
-            patch("handler.streaming.webstation.import_spec", return_value=spec),
+            patch(
+                "handler.streaming.webstation.require_import_spec", return_value=spec
+            ),
             patch(
                 "handler.streaming.imports.fs_asset_handler.read_file",
                 new=AsyncMock(side_effect=lambda path: path.encode()),
@@ -8155,6 +8271,32 @@ def test_an_older_save_with_the_newest_state_imports_the_picked_state(
     assert _launch_ready(sent)["resume"] is True
 
 
+def test_an_older_save_with_the_newest_state_still_launches_when_the_broker_is_silent(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """Every pick here is native, so an unanswered import check must not turn
+    a launch that never needed it into a 503."""
+    older, _, state = _duckstation_pairing(rom, admin_user)
+    run_launch_mock = AsyncMock()
+    with _streaming(_clearing_duckstation(rom)):
+        with (
+            patch(
+                "handler.streaming.webstation.require_import_spec",
+                side_effect=webstation.ImportSpecUnavailable,
+            ),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation",
+                new=AsyncMock(return_value="/romm/saves/archive.zip"),
+            ),
+            patch("handler.streaming.launch.run_launch", run_launch_mock),
+        ):
+            r = _claim(
+                client, access_token, rom.id, state_id=state.id, save_id=older.id
+            )
+    assert r.status_code == 202
+    run_launch_mock.assert_called_once()
+
+
 def test_an_older_save_with_the_newest_state_reports_the_resume_lost_without_imports(
     client, access_token, rom: Rom, admin_user: User
 ):
@@ -8164,7 +8306,9 @@ def test_an_older_save_with_the_newest_state_reports_the_resume_lost_without_imp
     run_launch_mock = AsyncMock()
     with _streaming(_clearing_duckstation(rom)):
         with (
-            patch("handler.streaming.webstation.import_spec", return_value=None),
+            patch(
+                "handler.streaming.webstation.require_import_spec", return_value=None
+            ),
             patch(
                 "handler.streaming.saves.hydrate_saves_to_webstation",
                 new=AsyncMock(return_value="/romm/saves/archive.zip"),
@@ -8188,7 +8332,7 @@ def test_the_newest_save_with_the_newest_state_resumes_from_the_archive(
     run_launch_mock = AsyncMock()
     with _streaming(_clearing_duckstation(rom)):
         with (
-            patch("handler.streaming.webstation.import_spec") as spec,
+            patch("handler.streaming.webstation.require_import_spec") as spec,
             patch("handler.streaming.imports.hydrate_import_archive", hydrate_import),
             patch(
                 "handler.streaming.saves.hydrate_saves_to_webstation",
@@ -8888,8 +9032,8 @@ def test_import_spec_parses_the_brokers_discovery_response(rom: Rom):
 
 
 def test_import_spec_returns_none_and_caches_on_404(rom: Rom):
-    """A broker that predates imports answers 404; that answer is stable for
-    the worker's life, so it is cached rather than re-checked every claim."""
+    """A broker that predates imports answers 404; that answer is stable
+    enough to cache rather than re-check every claim."""
     container = _resolved(_webstation_for(rom))
     with patch(
         "handler.streaming.broker.urllib.request.urlopen",
@@ -8930,8 +9074,8 @@ def test_import_spec_query_is_unchanged_without_a_core():
 
 
 def test_import_spec_asks_again_when_the_core_changes():
-    """A 404/422 is cached for the worker's life, so a key
-    without the core would keep the old core's answer after a config edit."""
+    """A 404/422 is cached, so a key without the core would keep the old
+    core's answer after a config edit."""
     with patch(
         "handler.streaming.broker.request", side_effect=_http_error(404)
     ) as request:
@@ -8981,6 +9125,121 @@ def test_import_spec_returns_none_uncached_on_a_transient_failure(rom: Rom):
     assert first is None
     assert second is None
     assert urlopen.call_count == 2
+
+
+def test_import_spec_asks_again_once_a_404_expires(rom: Rom):
+    """Upgrading the broker adds the route, which must not take a RomM restart
+    to notice."""
+    container = _resolved(_webstation_for(rom))
+    later = time.monotonic() + webstation._IMPORT_SPEC_MISSING_TTL + 1
+    with patch(
+        "handler.streaming.broker.request", side_effect=_http_error(404)
+    ) as request:
+        webstation.import_spec(container, "dolphin", rom.platform_slug)
+        with patch("handler.streaming.webstation.time.monotonic", return_value=later):
+            webstation.import_spec(container, "dolphin", rom.platform_slug)
+    assert request.call_count == 2
+
+
+_SAVE_SPEC_BODY = {
+    "kinds": [{"kind": "save", "shapes": ["<name>.srm"], "max_members": 1}],
+    "state_channel": "push",
+    "state_slot": 10,
+}
+
+
+def test_import_spec_keeps_the_last_answer_through_a_failed_check(rom: Rom):
+    """One slow reply must not hide the save picker or refuse a foreign pick
+    the broker took a moment ago."""
+    container = _resolved(_webstation_for(rom))
+    later = time.monotonic() + webstation._IMPORT_SPEC_TTL + 1
+    with patch(
+        "handler.streaming.broker.request",
+        side_effect=[_SAVE_SPEC_BODY, OSError("timed out")],
+    ):
+        first = webstation.import_spec(container, "retroarch", rom.platform_slug)
+        with patch("handler.streaming.webstation.time.monotonic", return_value=later):
+            second = webstation.require_import_spec(
+                container, "retroarch", rom.platform_slug
+            )
+    assert first is not None and first.accepts("save")
+    assert second == first
+
+
+def test_import_spec_last_answer_reaches_every_worker(rom: Rom):
+    """Each web worker has its own process, so an answer one of them got must
+    stand in for a failed check on another, or the picker flickers by worker."""
+    container = _resolved(_webstation_for(rom))
+    later = time.monotonic() + webstation._IMPORT_SPEC_TTL + 1
+    with patch("handler.streaming.broker.request", return_value=_SAVE_SPEC_BODY):
+        first = webstation.import_spec(container, "retroarch", rom.platform_slug)
+    # A fresh worker: nothing of the first one's process memory.
+    fresh_worker = {
+        name: {}
+        for name in vars(webstation)
+        if name.startswith("_import_spec_") and isinstance(vars(webstation)[name], dict)
+    }
+    with (
+        patch.multiple(webstation, **fresh_worker),
+        patch("handler.streaming.broker.request", side_effect=OSError("timed out")),
+        patch("handler.streaming.webstation.time.monotonic", return_value=later),
+    ):
+        second = webstation.require_import_spec(
+            container, "retroarch", rom.platform_slug
+        )
+    assert second == first
+
+
+def test_import_spec_treats_an_unreadable_last_answer_as_none(rom: Rom):
+    """A cached answer in a shape this RomM doesn't read is no answer, not a 500."""
+    container = _resolved(_webstation_for(rom))
+    with patch("handler.streaming.broker.request", return_value=_SAVE_SPEC_BODY):
+        webstation.import_spec(container, "retroarch", rom.platform_slug)
+    for key in sync_cache.scan_iter(f"{webstation._LAST_GOOD_KEY_PREFIX}*"):
+        sync_cache.set(key, '{"kinds": "save"')
+    later = time.monotonic() + webstation._IMPORT_SPEC_TTL + 1
+    with (
+        patch("handler.streaming.broker.request", side_effect=OSError("timed out")),
+        patch("handler.streaming.webstation.time.monotonic", return_value=later),
+    ):
+        with pytest.raises(webstation.ImportSpecUnavailable):
+            webstation.require_import_spec(container, "retroarch", rom.platform_slug)
+
+
+def test_import_spec_forgets_the_last_answer_on_a_404(rom: Rom):
+    """A broker downgraded to one without imports really can't take them."""
+    container = _resolved(_webstation_for(rom))
+    later = time.monotonic() + webstation._IMPORT_SPEC_TTL + 1
+    much_later = later + webstation._IMPORT_SPEC_MISSING_TTL + 1
+    with patch(
+        "handler.streaming.broker.request",
+        side_effect=[_SAVE_SPEC_BODY, _http_error(404), OSError("timed out")],
+    ):
+        webstation.import_spec(container, "retroarch", rom.platform_slug)
+        with patch("handler.streaming.webstation.time.monotonic", return_value=later):
+            assert (
+                webstation.import_spec(container, "retroarch", rom.platform_slug)
+                is None
+            )
+        with patch(
+            "handler.streaming.webstation.time.monotonic", return_value=much_later
+        ):
+            with pytest.raises(webstation.ImportSpecUnavailable):
+                webstation.require_import_spec(
+                    container, "retroarch", rom.platform_slug
+                )
+
+
+def test_require_import_spec_raises_when_the_broker_never_answered(rom: Rom):
+    """A launch has to tell "try again" from "this broker can't", which the
+    picker's None doesn't."""
+    container = _resolved(_webstation_for(rom))
+    with patch(
+        "handler.streaming.broker.urllib.request.urlopen",
+        side_effect=OSError("unreachable"),
+    ):
+        with pytest.raises(webstation.ImportSpecUnavailable):
+            webstation.require_import_spec(container, "dolphin", rom.platform_slug)
 
 
 def test_claim_hydrates_memory_card_before_launch(client, access_token, rom: Rom):

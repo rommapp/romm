@@ -1320,6 +1320,9 @@ useEventListener(document, "visibilitychange", () => void onVisibilityChange());
 useEventListener(window, "pagehide", onPageHide);
 
 onMounted(async () => {
+  // The app-load copy can predate a broker that hadn't answered yet, and what
+  // it imports decides which saves the picker offers, so ask again here.
+  const freshConfig = streamingStore.fetchConfig();
   try {
     const { data } = await romApi.getRom({
       romId: parseInt(route.params.rom as string),
@@ -1338,7 +1341,7 @@ onMounted(async () => {
   if (isJoining) {
     // Reaching this URL directly can beat the app-level config fetch, and
     // onPlay reads the container out of it.
-    if (!container.value) await streamingStore.fetchConfig();
+    if (!container.value) await freshConfig;
     void onPlay();
     return;
   }

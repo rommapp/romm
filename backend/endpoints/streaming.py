@@ -906,12 +906,18 @@ async def claim_session(
         # import-spec is what decides, and one answer covers both picks.
         spec = None
         if resume_foreign or state_off_archive or save_foreign:
-            spec = await asyncio.to_thread(
-                webstation.import_spec,
-                container,
-                container.emulator,
-                container.platform,
-            )
+            try:
+                spec = await asyncio.to_thread(
+                    webstation.require_import_spec,
+                    container,
+                    container.emulator,
+                    container.platform,
+                )
+            except webstation.ImportSpecUnavailable:
+                # A native state still launches without the answer; only a
+                # foreign pick hangs on it, and that is a retry, not a refusal.
+                if resume_foreign or save_foreign:
+                    raise webstation.import_spec_unavailable() from None
         import_slot = spec.resume_slot() if spec is not None else None
         refusal = None
         if resume_foreign and import_slot is None:

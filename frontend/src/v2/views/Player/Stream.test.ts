@@ -349,6 +349,24 @@ describe("Stream save picker", () => {
     expect(mocks.claimSession.mock.calls[0]![2]).toBe(1);
   });
 
+  it("asks for the config afresh, so a broker that answered late still offers its imports", async () => {
+    // The app-load copy said nothing imports, and there's no archive of
+    // this emulator's own, so without the refetch the picker stays hidden.
+    mocks.fetchConfig.mockImplementationOnce(() => {
+      mocks.container = { ...mocks.container, import_kinds: ["save"] };
+      return Promise.resolve();
+    });
+    const wrapper = await launch({
+      picker: true,
+      saves: [save(9, "Pool.srm", { emulator: "mgba" })],
+    });
+
+    expect(mocks.fetchConfig).toHaveBeenCalled();
+    expect(
+      (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
+    ).toEqual([9]);
+  });
+
   it("includes bare (non-archive) save files where the broker imports saves", async () => {
     const wrapper = await launch({
       picker: true,
