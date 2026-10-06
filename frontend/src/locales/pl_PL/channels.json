@@ -1,4 +1,6 @@
 {
+  "attach": "Podłącz tutaj",
+  "attached": "Kanał podłączony",
   "backups": "Kopie zapasowe",
   "branch": "Gałąź",
   "by-owner": "od {owner}",
@@ -14,6 +16,8 @@
   "delete-body": "Bieżący zapis i przypięte migawki ({pinned}) zostaną jako kopie zapasowe, a zapisy ze starszych klientów ({legacy}) staną się kopiami zapasowymi. Starsze migawki zostaną usunięte.",
   "delete-title": "Usunąć {label}?",
   "deleted": "Usunięto kanał",
+  "detached": "Z usuniętych gier",
+  "detached-hint": "Te kanały należały do gry usuniętej z biblioteki. Podłącz kanał, aby zachować jego zapisy w tej grze.",
   "device": "Urządzenie",
   "download": "Pobierz zapis",
   "empty": "Brak zapisów",

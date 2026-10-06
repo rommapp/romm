@@ -1,4 +1,6 @@
 {
+  "attach": "Rattacher ici",
+  "attached": "Canal rattaché",
   "backups": "Copies de secours",
   "branch": "Branche",
   "by-owner": "par {owner}",
@@ -14,6 +16,8 @@
   "delete-body": "La sauvegarde actuelle et {pinned} instantanés épinglés sont conservés comme copies de secours, et {legacy} sauvegardes d'anciens clients deviennent des copies de secours. Les instantanés plus anciens sont supprimés.",
   "delete-title": "Supprimer {label} ?",
   "deleted": "Canal supprimé",
+  "detached": "Jeux supprimés",
+  "detached-hint": "Ces canaux appartenaient à un jeu retiré de la bibliothèque. Rattachez-en un pour garder ses sauvegardes sur ce jeu.",
   "device": "Appareil",
   "download": "Télécharger la sauvegarde",
   "empty": "Aucune sauvegarde pour l'instant",

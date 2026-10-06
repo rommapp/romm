@@ -32,6 +32,10 @@ class ChannelUpdatePayload(BaseModel):
     is_public: bool | None = None
 
 
+class ChannelAttachPayload(BaseModel):
+    rom_file_id: int
+
+
 def _not_found() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found"
@@ -55,11 +59,20 @@ def get_channels(
     request: Request,
     rom_file_id: Annotated[list[int] | None, Query()] = None,
     channel_id: Annotated[list[uuid.UUID] | None, Query()] = None,
+    detached_platform_id: Annotated[
+        int | None,
+        Query(description="Your channels on this platform whose ROM was removed."),
+    ] = None,
 ) -> list[ChannelSchema]:
     """Your channels on the named files, empty ones included, plus any public
     channels you name by id. Each carries its current snapshot, or null."""
     viewer = request.user
     channels: dict[uuid.UUID, Channel] = {}
+    if detached_platform_id is not None:
+        for channel in db_snapshot_handler.get_detached_channels(
+            viewer.id, detached_platform_id
+        ):
+            channels[channel.id] = channel
     for file_id in rom_file_id or []:
         rom_file, rom = visible_rom_file(request, file_id)
         for channel in db_snapshot_handler.get_channels_for_file(
@@ -110,6 +123,28 @@ def update_channel(
     if "is_public" in changes:
         _sync_visibility(channel.id)
     return build_channel_schema(channel, request.user)
+
+
+@protected_route(router.post, "/{id}/attach", [Scope.ASSETS_WRITE])
+def attach_channel(
+    request: Request, id: uuid.UUID, payload: ChannelAttachPayload
+) -> ChannelSchema:
+    """Attach a channel whose ROM was removed to a file of the same platform.
+    Owner only."""
+    channel = _owned_or_404(id, request.user)
+    if channel.rom_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The channel is already attached to a ROM",
+        )
+    rom_file, rom = visible_rom_file(request, payload.rom_file_id)
+    if rom.platform_id != channel.platform_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="The file is on another platform than the channel",
+        )
+    attached = db_snapshot_handler.attach_channel(channel.id, rom_file)
+    return build_channel_schema(attached, request.user)
 
 
 @protected_route(

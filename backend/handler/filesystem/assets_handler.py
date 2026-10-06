@@ -1,11 +1,11 @@
-import asyncio
 import hashlib
 import os
+import re
 import threading
 import zipfile
 from mimetypes import guess_type
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, BinaryIO
 
 import magic
 from fastapi import HTTPException, UploadFile, status
@@ -32,6 +32,75 @@ _MIME_DETECTOR_LOCK = threading.Lock()
 # chunks against this ceiling rather than read whole. Sized well above any real
 # memory card or save archive.
 MAX_DECOMPRESSED_ENTRY_BYTES = 512 * 1024 * 1024
+# What an uploaded save archive may expand to in all, and hold, by its own
+# declaration; a lying entry still hits the per-entry ceiling while hashing.
+MAX_ARCHIVE_EXPANDED_BYTES = 4 * 1024 * 1024 * 1024
+MAX_ARCHIVE_ENTRIES = 65536
+
+_DRIVE_PREFIX = re.compile(r"^[A-Za-z]:")
+
+
+class UnsafeArchive(ValueError):
+    """An uploaded archive a client restoring it could not unpack safely."""
+
+
+def check_zip(zf: zipfile.ZipFile) -> list[str]:
+    """The file entries of an uploaded archive, once every entry stays inside
+    the save folder and the whole expands within the limits.
+
+    Raises:
+        UnsafeArchive: an entry escapes, or the archive is too large.
+    """
+    infos = zf.infolist()
+    if len(infos) > MAX_ARCHIVE_ENTRIES:
+        raise UnsafeArchive(
+            f"the archive holds more than {MAX_ARCHIVE_ENTRIES} entries"
+        )
+    expanded = 0
+    for info in infos:
+        name = info.filename
+        if (
+            "\x00" in name
+            or "\\" in name
+            or name.startswith("/")
+            or _DRIVE_PREFIX.match(name)
+            or ".." in name.split("/")
+        ):
+            raise UnsafeArchive(f"entry {name!r} leaves the save folder")
+        expanded += info.file_size
+        if expanded > MAX_ARCHIVE_EXPANDED_BYTES:
+            raise UnsafeArchive("the archive expands past the size limit")
+    return [info.filename for info in infos if not info.is_dir()]
+
+
+def check_upload(stream: BinaryIO) -> list[str] | None:
+    """`check_zip` for an upload that is an archive, or None for a raw file.
+    Leaves the stream where it was."""
+    position = stream.tell()
+    try:
+        if not zipfile.is_zipfile(stream):
+            return None
+        stream.seek(position)
+        try:
+            with zipfile.ZipFile(stream) as zf:
+                return check_zip(zf)
+        except zipfile.BadZipFile as exc:
+            raise UnsafeArchive("the archive can't be read") from exc
+    finally:
+        stream.seek(position)
+
+
+def check_upload_archive(upload: UploadFile | None, label: str) -> None:
+    """422 for an uploaded archive `check_upload` refuses."""
+    if upload is None:
+        return
+    try:
+        check_upload(upload.file)
+    except UnsafeArchive as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"{label}: {exc}",
+        ) from exc
 
 
 def hash_zip_entry(zf: zipfile.ZipFile, name: str) -> str:
@@ -49,23 +118,34 @@ def hash_zip_entry(zf: zipfile.ZipFile, name: str) -> str:
     return hash_obj.hexdigest()
 
 
-def hash_zip_contents(
-    zf: zipfile.ZipFile, exclude: frozenset[str] = frozenset()
-) -> str:
-    """md5 of a zip archive's contents, keyed by sorted entry name and each
-    entry's own hash. Shared by disk-path and in-memory hashing so both agree
-    on a card or save archive's dedup hash. Entries named in `exclude` are skipped;
-    when exactly one entry remains, the result is that entry's own hash, as sigil
-    computes a unit's identity hash."""
-    names = [
-        name
-        for name in sorted(zf.namelist())
-        if not name.endswith("/") and name not in exclude
-    ]
-    if exclude and len(names) == 1:
-        return hash_zip_entry(zf, names[0])
+def _combined_hash(zf: zipfile.ZipFile, names: list[str]) -> str:
     combined = "\n".join(f"{name}:{hash_zip_entry(zf, name)}" for name in names)
     return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
+
+
+def _file_entries(zf: zipfile.ZipFile) -> list[str]:
+    return [name for name in sorted(zf.namelist()) if not name.endswith("/")]
+
+
+def hash_zip_contents(zf: zipfile.ZipFile) -> str:
+    """md5 of a zip archive's contents, keyed by sorted entry name and each
+    entry's own hash. Shared by disk-path and in-memory hashing so both agree
+    on a card or save archive's dedup hash."""
+    return _combined_hash(zf, _file_entries(zf))
+
+
+def is_clock_member(name: str) -> bool:
+    """Whether sigil gives an entry the RTC role: `{stem}.rtc` or `clock.rtc`."""
+    return name.endswith(".rtc")
+
+
+def zip_identity_hash(zf: zipfile.ZipFile) -> str:
+    """Sigil's identity hash of a unit archive: its content hash without the
+    clock members, or the one remaining member's own hash."""
+    names = [name for name in _file_entries(zf) if not is_clock_member(name)]
+    if len(names) == 1:
+        return hash_zip_entry(zf, names[0])
+    return _combined_hash(zf, names)
 
 
 def hash_save_file(path: str | os.PathLike[str]) -> str | None:
@@ -228,24 +308,6 @@ class FSAssetsHandler(FSHandler):
             return await self._compute_file_hash(file_path)
         except Exception as e:
             log.debug(f"Failed to compute content hash for {file_path}: {e}")
-            return None
-
-    async def compute_identity_hash(
-        self, file_path: str, clock_members: frozenset[str]
-    ) -> str | None:
-        """`compute_content_hash` with the clock members left out of an archive."""
-        full_path = self.base_path / file_path
-        if not zipfile.is_zipfile(full_path):
-            return await self.compute_content_hash(file_path)
-
-        def digest() -> str:
-            with zipfile.ZipFile(full_path, "r") as zf:
-                return hash_zip_contents(zf, exclude=clock_members)
-
-        try:
-            return await asyncio.to_thread(digest)
-        except Exception as e:
-            log.debug(f"Failed to compute identity hash for {file_path}: {e}")
             return None
 
     async def unrecorded_hash(self, save: "Save") -> str | None:

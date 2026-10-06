@@ -1,4 +1,6 @@
 {
+  "attach": "關聯到此處",
+  "attached": "已關聯頻道",
   "backups": "備份",
   "branch": "分支",
   "by-owner": "來自 {owner}",
@@ -14,6 +16,8 @@
   "delete-body": "目前的存檔和 {pinned} 個已釘選的快照會保留為備份，來自舊版用戶端的 {legacy} 個存檔也會成為備份。較舊的快照將被刪除。",
   "delete-title": "刪除 {label}?",
   "deleted": "已刪除頻道",
+  "detached": "來自已移除的遊戲",
+  "detached-hint": "這些頻道屬於已從遊戲庫移除的遊戲。關聯後即可在此遊戲中繼續使用其存檔。",
   "device": "裝置",
   "download": "下載存檔",
   "empty": "尚無存檔",

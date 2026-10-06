@@ -64,6 +64,25 @@ async function deleteChannel({ id }: { id: string }) {
   return api.delete<void>(`/channels/${id}`);
 }
 
+/** The caller's channels on a platform whose ROM was removed. */
+async function getDetachedChannels({ platformId }: { platformId: number }) {
+  return api.get<ChannelSchema[]>("/channels", {
+    params: { detached_platform_id: platformId },
+  });
+}
+
+async function attachChannel({
+  id,
+  romFileId,
+}: {
+  id: string;
+  romFileId: number;
+}) {
+  return api.post<ChannelSchema>(`/channels/${id}/attach`, {
+    rom_file_id: romFileId,
+  });
+}
+
 async function getChannelHistory({
   channelId,
   limit,
@@ -99,6 +118,8 @@ export default {
   createChannel,
   updateChannel,
   deleteChannel,
+  getDetachedChannels,
+  attachChannel,
   getChannelHistory,
   pushSnapshot,
   setSnapshotPinned,

@@ -640,3 +640,4 @@ async def test_a_legacy_state_upload_records_its_core(
         "mgba",
         "0.10",
     )
+    assert state.content_hash == md5(b"state")

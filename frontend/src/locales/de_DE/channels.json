@@ -1,4 +1,6 @@
 {
+  "attach": "Hier anhängen",
+  "attached": "Kanal angehängt",
   "backups": "Sicherungen",
   "branch": "Zweig",
   "by-owner": "von {owner}",
@@ -14,6 +16,8 @@
   "delete-body": "Der aktuelle Spielstand und {pinned} angeheftete Snapshots bleiben als Sicherungen erhalten, und {legacy} Spielstände von älteren Clients werden zu Sicherungen. Ältere Snapshots werden gelöscht.",
   "delete-title": "{label} löschen?",
   "deleted": "Kanal gelöscht",
+  "detached": "Aus entfernten Spielen",
+  "detached-hint": "Diese Kanäle gehörten zu einem Spiel, das aus der Bibliothek entfernt wurde. Hänge einen an, um seine Spielstände für dieses Spiel zu behalten.",
   "device": "Gerät",
   "download": "Spielstand herunterladen",
   "empty": "Noch keine Spielstände",

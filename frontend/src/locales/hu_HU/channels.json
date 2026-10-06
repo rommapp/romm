@@ -1,4 +1,6 @@
 {
+  "attach": "Csatolás ide",
+  "attached": "Csatorna csatolva",
   "backups": "Biztonsági mentések",
   "branch": "Ág",
   "by-owner": "{owner} csatornája",
@@ -14,6 +16,8 @@
   "delete-body": "Az aktuális mentés és {pinned} rögzített pillanatkép biztonsági mentésként megmarad, és {legacy} régebbi klienstől származó mentés biztonsági mentés lesz. A régebbi pillanatképek törlődnek.",
   "delete-title": "Törlöd ezt: {label}?",
   "deleted": "Csatorna törölve",
+  "detached": "Eltávolított játékokból",
+  "detached-hint": "Ezek a csatornák egy könyvtárból eltávolított játékhoz tartoztak. Csatolj egyet, hogy a mentései ennél a játéknál maradjanak.",
   "device": "Eszköz",
   "download": "Mentés letöltése",
   "empty": "Még nincsenek mentések",

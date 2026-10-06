@@ -1,4 +1,5 @@
 import hashlib
+import io
 import os
 import shutil
 import tempfile
@@ -574,3 +575,77 @@ class TestHashSaveFile:
         monkeypatch.setattr(assets_handler, "hash_zip_contents", fail)
 
         assert hash_save_file(path) is None
+
+
+def _md5(data: bytes) -> str:
+    return hashlib.md5(data, usedforsecurity=False).hexdigest()
+
+
+def _zip(members: dict[str, bytes]) -> zipfile.ZipFile:
+    reload_zipfile()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        for name, data in members.items():
+            zf.writestr(name, data)
+    return zipfile.ZipFile(io.BytesIO(buffer.getvalue()))
+
+
+class TestCheckZip:
+    @pytest.mark.parametrize(
+        "name",
+        ["../escape.sav", "/abs.sav", "C:/drive.sav", "dir\\back.sav", "a/../../b.sav"],
+    )
+    def test_an_entry_leaving_the_folder_is_refused(self, name: str):
+        with pytest.raises(assets_handler.UnsafeArchive):
+            assets_handler.check_zip(_zip({name: b"x"}))
+
+    def test_too_many_entries_is_refused(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(assets_handler, "MAX_ARCHIVE_ENTRIES", 2)
+
+        with pytest.raises(assets_handler.UnsafeArchive):
+            assets_handler.check_zip(_zip({"a": b"1", "b": b"2", "c": b"3"}))
+
+    def test_expanding_past_the_limit_is_refused(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(assets_handler, "MAX_ARCHIVE_EXPANDED_BYTES", 5)
+
+        with pytest.raises(assets_handler.UnsafeArchive):
+            assets_handler.check_zip(_zip({"a": b"123", "b": b"456"}))
+
+    def test_a_safe_archive_lists_its_files(self):
+        archive = _zip({"SAVE01/": b"", "SAVE01/data.bin": b"d", "icon.png": b"i"})
+
+        assert assets_handler.check_zip(archive) == ["SAVE01/data.bin", "icon.png"]
+
+    def test_a_raw_upload_is_no_archive_and_keeps_its_position(self):
+        stream = io.BytesIO(b"raw sram")
+        stream.seek(3)
+
+        assert assets_handler.check_upload(stream) is None
+        assert stream.tell() == 3
+
+
+class TestZipIdentityHash:
+    """Sigil's identity hash: content without RTC members, one member left hashing raw."""
+
+    @pytest.mark.parametrize(
+        "members",
+        [
+            {"game.srm": b"sram", "game.rtc": b"tick"},
+            {"save.sram": b"sram", "clock.rtc": b"tick"},
+        ],
+    )
+    def test_a_clock_member_is_left_out(self, members: dict[str, bytes]):
+        assert assets_handler.zip_identity_hash(_zip(members)) == _md5(b"sram")
+
+    def test_one_member_hashes_as_itself(self):
+        with_folder = _zip({"SAVE01/data.bin": b"data"})
+
+        assert assets_handler.zip_identity_hash(with_folder) == _md5(b"data")
+
+    def test_several_members_hash_as_the_content_does(self):
+        archive = _zip({"eeprom": b"e", "pak1": b"p", "game.rtc": b"tick"})
+        without_clock = _zip({"eeprom": b"e", "pak1": b"p"})
+
+        assert assets_handler.zip_identity_hash(
+            archive
+        ) == assets_handler.hash_zip_contents(without_clock)

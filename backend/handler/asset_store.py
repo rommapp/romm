@@ -72,10 +72,14 @@ async def store_state_file(
         rom_id=rom.id,
         emulator=emulator,
     )
+    content_hash = await fs_asset_handler.compute_content_hash(
+        f"{states_path}/{filename}"
+    )
     if existing is None:
         scanned.rom_id = rom.id
         scanned.user_id = user.id
         scanned.emulator = emulator
+        scanned.content_hash = content_hash
         for key, value in (fields or {}).items():
             setattr(scanned, key, value)
         return db_state_handler.add_state(state=scanned)
@@ -87,6 +91,7 @@ async def store_state_file(
             "file_size_bytes": scanned.file_size_bytes,
             "file_path": scanned.file_path,
             "emulator": emulator,
+            "content_hash": content_hash,
             **(fields or {}),
         },
     )

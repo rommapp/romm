@@ -347,6 +347,45 @@ class DBSnapshotsHandler(DBBaseHandler):
         ).all()
 
     @begin_session
+    def get_detached_channels(
+        self, user_id: int, platform_id: int, session: Session = INJECTED_SESSION
+    ) -> Sequence[Channel]:
+        """The user's channels on a platform whose ROM was removed and no scan
+        has found again."""
+        return session.scalars(
+            select(Channel)
+            .where(
+                Channel.user_id == user_id,
+                Channel.platform_id == platform_id,
+                Channel.rom_id.is_(None),
+            )
+            .order_by(Channel.updated_at.desc())
+        ).all()
+
+    @begin_session
+    def attach_channel(
+        self,
+        channel_id: uuid.UUID,
+        rom_file: RomFile,
+        session: Session = INJECTED_SESSION,
+    ) -> Channel:
+        """Key a detached channel to `rom_file` and bring its content back to
+        that file's ROM."""
+        channel = session.get_one(Channel, channel_id)
+        channel.rom_id = rom_file.rom_id
+        for column, value in FileKey.of_file(rom_file).channel_columns().items():
+            setattr(channel, column, value)
+        for model in (Snapshot, Save, State):
+            session.execute(
+                update(model)
+                .where(model.channel_id == channel_id, model.rom_id.is_(None))
+                .values(rom_id=rom_file.rom_id)
+                .execution_options(synchronize_session=False)
+            )
+        session.flush()
+        return channel
+
+    @begin_session
     def count_snapshots(
         self, channel_id: uuid.UUID, session: Session = INJECTED_SESSION
     ) -> int:

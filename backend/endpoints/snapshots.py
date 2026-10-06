@@ -33,9 +33,11 @@ from handler.database import (
     db_save_handler,
     db_snapshot_handler,
 )
+from handler.filesystem.assets_handler import UnsafeArchive, check_upload
 from handler.snapshots.clone import copy_part
 from handler.snapshots.file_key import FileKey
 from handler.snapshots.manifest import CARRY, Manifest, SaveEntry
+from handler.snapshots.neutral import NeutralUnitRejected, check_neutral_unit
 from handler.snapshots.write import (
     SAVE_PART,
     ChannelTarget,
@@ -283,7 +285,25 @@ def _assert_shape(upload: UploadFile, shape: SaveShape) -> None:
         )
 
 
-async def _read_push(request: Request) -> tuple[ManifestPayload, dict[str, UploadPart]]:
+def _unprocessable(key: str, reason: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail={key: reason}
+    )
+
+
+def _members(key: str, upload: UploadFile) -> list[str]:
+    """The upload's archive entries, or its own name for a raw file."""
+    try:
+        names = check_upload(upload.file)
+    except UnsafeArchive as exc:
+        raise _unprocessable(key, str(exc)) from exc
+    return names if names is not None else [upload.filename or key]
+
+
+async def _read_push(
+    request: Request,
+) -> tuple[ManifestPayload, dict[str, UploadPart], list[str]]:
+    """The push's manifest, its content parts, and the save part's members."""
     form = await request.form()
     raw = form.get("manifest")
     if not isinstance(raw, str):
@@ -311,6 +331,7 @@ async def _read_push(request: Request) -> tuple[ManifestPayload, dict[str, Uploa
         uploads[key] = value
 
     parts: dict[str, UploadPart] = {}
+    save_members: list[str] = []
     for key, upload in uploads.items():
         if key.endswith(SCREENSHOT_SUFFIX) or key == SAVE_SCREENSHOT_PART:
             continue
@@ -318,6 +339,9 @@ async def _read_push(request: Request) -> tuple[ManifestPayload, dict[str, Uploa
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown part {key}"
             )
+        members = _members(key, upload)
+        if key == SAVE_PART:
+            save_members = members
         screenshot = uploads.get(
             SAVE_SCREENSHOT_PART if key == SAVE_PART else f"{key}{SCREENSHOT_SUFFIX}"
         )
@@ -329,7 +353,7 @@ async def _read_push(request: Request) -> tuple[ManifestPayload, dict[str, Uploa
         )
     if payload.save and payload.save.shape and SAVE_PART in uploads:
         _assert_shape(uploads[SAVE_PART], payload.save.shape)
-    return payload, parts
+    return payload, parts, save_members
 
 
 def _clone_origin(
@@ -409,9 +433,19 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
     """
     viewer = request.user
     device = _own_device(device_id, viewer)
-    payload, parts = await _read_push(request)
+    payload, parts, save_members = await _read_push(request)
     check_emulator_folder_name(payload.emulator)
     rom_file, rom = visible_rom_file(request, payload.rom_file_id)
+    if (
+        payload.save
+        and payload.save.format == SaveFormat.NEUTRAL
+        and payload.save.shape
+        and SAVE_PART in parts
+    ):
+        try:
+            check_neutral_unit(rom.platform_slug, payload.save.shape, save_members)
+        except NeutralUnitRejected as exc:
+            raise _unprocessable("save", str(exc)) from exc
 
     copied: SaveEntry | None = None
     copied_from: str | None = None

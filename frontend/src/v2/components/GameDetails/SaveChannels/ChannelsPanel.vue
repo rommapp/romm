@@ -22,6 +22,7 @@ import SnapshotViewer, {
   type ViewerTarget,
 } from "@/v2/components/GameDetails/SaveChannels/SnapshotViewer.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
+import { useFetchState } from "@/v2/composables/useFetchState";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
@@ -312,6 +313,40 @@ const defaultRomFileId = computed(
     null,
 );
 
+const { state: detached, execute: loadDetached } = useFetchState(
+  (platformId: number) =>
+    snapshotApi.getDetachedChannels({ platformId }).then(({ data }) => data),
+  [] as ChannelSchema[],
+  { immediate: false },
+);
+watch(
+  () => (props.own ? props.rom.platform_id : null),
+  (platformId) => {
+    if (platformId != null) void loadDetached(platformId);
+  },
+  { immediate: true },
+);
+
+const attaching = ref<string | null>(null);
+
+async function attach(channel: ChannelSchema) {
+  const romFileId = defaultRomFileId.value;
+  if (romFileId == null || attaching.value) return;
+  attaching.value = channel.id;
+  try {
+    await snapshotApi.attachChannel({ id: channel.id, romFileId });
+    snackbar.success(t("channels.attached"), { icon: "mdi-check-bold" });
+    await refetchRom(props.rom.id);
+    await loadDetached(props.rom.platform_id);
+  } catch (error) {
+    snackbar.error(t("channels.failed", { error: errorMessage(error) }), {
+      icon: "mdi-close-circle",
+    });
+  } finally {
+    attaching.value = null;
+  }
+}
+
 function startFork() {
   const target = viewerTarget.value;
   const romFileId = target?.channel.rom_file_id ?? defaultRomFileId.value;
@@ -481,6 +516,33 @@ async function deleteChannel(channel: ChannelSchema) {
       @open-save="openSave"
     />
 
+    <section v-if="own && detached.length > 0" class="r-channels__detached">
+      <h5 class="r-channels__detached-title">{{ t("channels.detached") }}</h5>
+      <p class="r-channels__empty">{{ t("channels.detached-hint") }}</p>
+      <div
+        v-for="channel in detached"
+        :key="channel.id"
+        class="r-channels__detached-row"
+      >
+        <span class="r-channels__detached-label">{{ channel.label }}</span>
+        <span class="r-channels__detached-count">{{
+          t("channels.snapshots-n", channel.snapshot_count, {
+            named: { n: channel.snapshot_count },
+          })
+        }}</span>
+        <RBtn
+          variant="outlined"
+          size="small"
+          prepend-icon="mdi-link-variant"
+          :loading="attaching === channel.id"
+          :disabled="attaching !== null || defaultRomFileId == null"
+          @click="attach(channel)"
+        >
+          {{ t("channels.attach") }}
+        </RBtn>
+      </div>
+    </section>
+
     <SnapshotViewer
       :target="viewerTarget"
       :copy-targets="viewerCopyTargets"
@@ -537,6 +599,38 @@ async function deleteChannel(channel: ChannelSchema) {
 }
 .r-channels__empty {
   margin: 0;
+  color: var(--r-color-fg-muted);
+  font-size: var(--r-font-size-sm);
+}
+.r-channels__detached {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-2);
+}
+.r-channels__detached-title {
+  margin: 0;
+  font-size: var(--r-font-size-sm);
+  font-weight: var(--r-font-weight-semibold);
+}
+.r-channels__detached-row {
+  display: flex;
+  align-items: center;
+  gap: var(--r-space-3);
+  padding: var(--r-space-2) var(--r-space-3);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-md);
+}
+.r-channels__detached-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: var(--r-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.r-channels__detached-count {
+  flex: none;
   color: var(--r-color-fg-muted);
   font-size: var(--r-font-size-sm);
 }

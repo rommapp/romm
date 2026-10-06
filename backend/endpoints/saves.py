@@ -30,6 +30,7 @@ from handler.database import (
     db_sync_session_handler,
 )
 from handler.filesystem import fs_asset_handler
+from handler.filesystem.assets_handler import check_upload_archive
 from handler.scan_handler import scan_save, scan_screenshot
 from handler.snapshots.bridge import hold_legacy_upload
 from logger.formatter import BLUE
@@ -227,6 +228,7 @@ async def add_save(
     """Upload a save file for a ROM."""
     check_asset_upload_size(saveFile, "Save file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
+    check_upload_archive(saveFile, "Save file")
 
     # Keep at least the save just uploaded, and cap what a client can retain
     autocleanup_limit = max(1, min(autocleanup_limit, MAX_AUTOCLEANUP_LIMIT))
@@ -672,6 +674,7 @@ async def update_save(
 
     check_asset_upload_size(saveFile, "Save file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
+    check_upload_archive(saveFile, "Save file")
 
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE

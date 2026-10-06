@@ -1054,21 +1054,31 @@ Once a channel has a current snapshot, legacy clients join it
 snapshot's save, and a slotted upload becomes a new current that carries the
 parent's states. Hardcore channels and neutral current saves stay out.
 
-| Method | Path                                  | Scope         | Description                                                    |
-| ------ | ------------------------------------- | ------------- | -------------------------------------------------------------- |
-| GET    | `/snapshots`                          | ASSETS_READ   | Each channel's current on `rom_file_id`s, or a channel history |
-| GET    | `/snapshots/{id}`                     | ASSETS_READ   | One snapshot with its save, bank and screenshots               |
-| POST   | `/snapshots`                          | ASSETS_WRITE  | Push: `manifest` part plus content parts the server lacks      |
-| PATCH  | `/snapshots/{id}`                     | ASSETS_WRITE  | Pin, or share an archival snapshot                             |
-| PUT    | `/snapshots/{id}/devices/{device_id}` | DEVICES_WRITE | Record the snapshot a device applied                           |
-| GET    | `/channels`                           | ASSETS_READ   | Channels on `rom_file_id`s, empty ones included, with current  |
-| POST   | `/channels`                           | ASSETS_WRITE  | Create an empty channel on a ROM file                          |
-| PATCH  | `/channels/{id}`                      | ASSETS_WRITE  | Rename or share a channel (owner only)                         |
-| DELETE | `/channels/{id}`                      | ASSETS_WRITE  | Delete; current and pinned snapshots stay as archival          |
+| Method | Path                                  | Scope         | Description                                                                                                                             |
+| ------ | ------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/snapshots`                          | ASSETS_READ   | Each channel's current on `rom_file_id`s, or a channel history                                                                          |
+| GET    | `/snapshots/{id}`                     | ASSETS_READ   | One snapshot with its save, bank and screenshots                                                                                        |
+| POST   | `/snapshots`                          | ASSETS_WRITE  | Push: `manifest` part plus content parts the server lacks                                                                               |
+| PATCH  | `/snapshots/{id}`                     | ASSETS_WRITE  | Pin, or share an archival snapshot                                                                                                      |
+| PUT    | `/snapshots/{id}/devices/{device_id}` | DEVICES_WRITE | Record the snapshot a device applied                                                                                                    |
+| GET    | `/channels`                           | ASSETS_READ   | Channels on `rom_file_id`s, empty ones included, with current; `detached_platform_id` lists the caller's channels whose ROM was removed |
+| POST   | `/channels`                           | ASSETS_WRITE  | Create an empty channel on a ROM file                                                                                                   |
+| PATCH  | `/channels/{id}`                      | ASSETS_WRITE  | Rename or share a channel (owner only)                                                                                                  |
+| POST   | `/channels/{id}/attach`               | ASSETS_WRITE  | Attach a detached channel to a file on its platform (owner only)                                                                        |
+| DELETE | `/channels/{id}`                      | ASSETS_WRITE  | Delete; current and pinned snapshots stay as archival                                                                                   |
 
 - **Writes:** every snapshot goes through `handler.snapshots.write.write_snapshot`,
   which locks the channel row, checks `expected_current_id` (a stale push is kept as a
-  branch and answered 409) and applies the hardcore-downgrade guard.
+  branch and answered 409) and applies the hardcore-downgrade guard. A push that adds
+  no progress, the same content or a save whose clock alone moved, answers unchanged;
+  screenshots it carries attach to rows that have none.
+- **Uploads:** every uploaded zip passes `assets_handler.check_zip` (no escaping entry
+  names, entry count and expanded size capped); a `neutral` save also passes
+  `handler.snapshots.neutral.check_neutral_unit`. Both answer 422.
+- **Hashes:** `handler.snapshots.hashing` computes `identity_hash`: the content hash
+  without `.rtc` members, or the one remaining member's hash. With the sigil binding
+  it unpacks the unit to a temporary folder and calls `sigil.hash_saves`; without it,
+  `assets_handler.zip_identity_hash` applies the same rule.
 - **Copies and attribution:** a manifest `save` may name `copy_of`, a save of the
   caller's that the server copies into a new row (`handler.snapshots.clone`). A push
   with no device that reuses content keeps its source's `origin_device_id`; bytes the

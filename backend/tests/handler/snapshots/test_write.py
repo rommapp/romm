@@ -4,6 +4,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from fastapi import UploadFile as StarletteUploadFile
 from sqlalchemy import select
 from tests._zipfile_shim import reload_zipfile
 from tests.handler.snapshots.pushes import (
@@ -15,6 +16,7 @@ from tests.handler.snapshots.pushes import (
     md5,
     part,
     push,
+    push_save,
     save_entry,
     stored_bytes,
     stored_files,
@@ -23,6 +25,7 @@ from tests.handler.snapshots.pushes import (
 from handler.database import db_snapshot_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem.assets_handler import hash_zip_contents
+from handler.snapshots import write as write_module
 from handler.snapshots.manifest import Manifest, SaveEntry
 from handler.snapshots.write import (
     SAVE_PART,
@@ -35,6 +38,7 @@ from handler.snapshots.write import (
     Outcome,
     SnapshotWrite,
     UploadPart,
+    WriteResult,
     state_part,
     write_snapshot,
 )
@@ -497,6 +501,236 @@ async def test_a_neutral_identity_hash_leaves_out_the_clock(
         save = session.get_one(Save, result.snapshot.save_id)
     assert save.content_hash == content_hash
     assert save.identity_hash == md5(SRAM)
+
+
+async def test_a_screenshot_for_stored_content_attaches_only_where_none_exists(
+    admin_user: User, rom: Rom, hashed_file: RomFile
+):
+    first = await first_push(admin_user, rom, hashed_file)
+
+    def repeat(shot: bytes) -> SnapshotWrite:
+        return push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=save_entry(), states={"snes9x": {"auto": md5(STATE_A)}}),
+            expected=first.snapshot.id,
+            channel_id=first.snapshot.channel_id,
+            parts={
+                SAVE_PART: UploadPart(
+                    content=SRAM,
+                    file_name="game.srm",
+                    screenshot=shot,
+                    screenshot_name="s.png",
+                ),
+                state_part("snes9x", "auto"): UploadPart(
+                    content=STATE_A,
+                    file_name="game.state",
+                    screenshot=shot,
+                    screenshot_name="a.png",
+                ),
+            },
+        )
+
+    first_repeat = await write_snapshot(repeat(b"first shot"))
+    second_repeat = await write_snapshot(repeat(b"second shot"))
+
+    content = db_snapshot_handler.get_stored_content(first.snapshot)
+    assert content.save is not None
+    [state] = content.states["snes9x"].values()
+    save_shots, state_shots = db_snapshot_handler.get_thumbnails(
+        [content.save.id], [state.id]
+    )
+    assert first_repeat.outcome == second_repeat.outcome == Outcome.UNCHANGED
+    assert stored_bytes(save_shots[content.save.id].full_path) == b"first shot"
+    assert stored_bytes(state_shots[state.id].full_path) == b"first shot"
+
+
+def neutral_unit(
+    sram: bytes,
+    clock: bytes,
+    names: tuple[str, str] = ("save.sram", "clock.rtc"),
+    fmt: SaveFormat = SaveFormat.NEUTRAL,
+) -> tuple[bytes, SaveEntry]:
+    reload_zipfile()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr(names[0], sram)
+        zf.writestr(names[1], clock)
+    archive = buffer.getvalue()
+    with zipfile.ZipFile(io.BytesIO(archive)) as zf:
+        content_hash = hash_zip_contents(zf)
+    entry = SaveEntry(hash=content_hash, shape=SaveShape.MULTI, format=fmt)
+    return archive, entry
+
+
+async def test_a_native_clock_only_change_is_no_new_snapshot(
+    admin_user: User, rom: Rom, hashed_file: RomFile
+):
+    names = ("game.srm", "game.rtc")
+    archive, entry = neutral_unit(SRAM, b"tick", names, SaveFormat.NATIVE)
+    first = await push_unit(admin_user, rom, hashed_file, archive, entry, None)
+    archive, entry = neutral_unit(SRAM, b"tock", names, SaveFormat.NATIVE)
+
+    result = await push_unit(
+        admin_user,
+        rom,
+        hashed_file,
+        archive,
+        entry,
+        first.snapshot.id,
+        first.snapshot.channel_id,
+    )
+
+    assert result.outcome == Outcome.UNCHANGED
+
+
+async def push_unit(
+    user: User,
+    rom: Rom,
+    rom_file: RomFile,
+    archive: bytes,
+    entry: SaveEntry,
+    expected: int | None,
+    channel_id: uuid.UUID | None = None,
+    states: dict[str, dict[str, str]] | None = None,
+) -> WriteResult:
+    state_parts = (
+        {state_part("snes9x", "auto"): part(STATE_A, "game.state")} if states else {}
+    )
+    return await write_snapshot(
+        push(
+            user,
+            rom,
+            rom_file,
+            Manifest(save=entry, states=states or {}),
+            expected=expected,
+            channel_id=channel_id,
+            parts={SAVE_PART: part(archive, "save.sram.zip"), **state_parts},
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "sram,states,outcome",
+    [
+        (SRAM, None, Outcome.UNCHANGED),
+        (b"more-progress", None, Outcome.CREATED),
+        (SRAM, {"snes9x": {"auto": md5(STATE_A)}}, Outcome.CREATED),
+    ],
+)
+async def test_a_clock_only_change_is_no_new_snapshot(
+    admin_user: User,
+    rom: Rom,
+    hashed_file: RomFile,
+    _assets_dir: Path,
+    sram: bytes,
+    states: dict[str, dict[str, str]] | None,
+    outcome: Outcome,
+):
+    first_archive, first_entry = neutral_unit(SRAM, b"tick")
+    first = await push_unit(
+        admin_user, rom, hashed_file, first_archive, first_entry, None
+    )
+    files_before = stored_files(_assets_dir)
+    archive, entry = neutral_unit(sram, b"tock")
+
+    result = await push_unit(
+        admin_user,
+        rom,
+        hashed_file,
+        archive,
+        entry,
+        first.snapshot.id,
+        first.snapshot.channel_id,
+        states,
+    )
+
+    assert result.outcome == outcome
+    if outcome == Outcome.UNCHANGED:
+        assert result.snapshot.id == first.snapshot.id
+        assert stored_files(_assets_dir) == files_before
+
+
+async def test_checking_for_a_clock_only_change_leaves_an_upload_readable(
+    admin_user: User, rom: Rom, hashed_file: RomFile
+):
+    first_archive, first_entry = neutral_unit(SRAM, b"tick")
+    first = await push_unit(
+        admin_user, rom, hashed_file, first_archive, first_entry, None
+    )
+    archive, entry = neutral_unit(b"more-progress", b"tock")
+    upload = StarletteUploadFile(file=io.BytesIO(archive), filename="save.sram.zip")
+
+    result = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=entry),
+            expected=first.snapshot.id,
+            channel_id=first.snapshot.channel_id,
+            parts={SAVE_PART: UploadPart(content=upload, file_name="save.sram.zip")},
+        )
+    )
+
+    with sync_session() as session:
+        save = session.get_one(Save, result.snapshot.save_id)
+    assert stored_bytes(save.full_path) == archive
+
+
+async def test_a_native_save_whose_bytes_change_is_a_new_snapshot(
+    admin_user: User, rom: Rom, hashed_file: RomFile
+):
+    first = await first_push(admin_user, rom, hashed_file)
+
+    result = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=save_entry(b"native tick", SaveFormat.NATIVE)),
+            expected=first.snapshot.id,
+            channel_id=first.snapshot.channel_id,
+            parts={SAVE_PART: part(b"native tick")},
+        )
+    )
+
+    assert result.outcome == Outcome.CREATED
+
+
+async def test_a_repeat_whose_current_moves_before_commit_is_planned_again(
+    admin_user: User, rom: Rom, hashed_file: RomFile, monkeypatch
+):
+    first = await first_push(admin_user, rom, hashed_file)
+    planned = write_module._plan
+    moved: list[WriteResult] = []
+    racing: list[bool] = []
+
+    async def plan_then_move(write: SnapshotWrite, match_current: bool = True):
+        plan = await planned(write, match_current)
+        if not racing:
+            racing.append(True)
+            moved.append(await push_save(admin_user, rom, hashed_file, first, b"race"))
+        return plan
+
+    monkeypatch.setattr(write_module, "_plan", plan_then_move)
+
+    repeat = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=save_entry(), states={"snes9x": {"auto": md5(STATE_A)}}),
+            expected=first.snapshot.id,
+            channel_id=first.snapshot.channel_id,
+            parts={SAVE_PART: part(SRAM)},
+        )
+    )
+
+    [winner] = moved
+    assert repeat.outcome == Outcome.BRANCHED
+    assert repeat.current is not None and repeat.current.id == winner.snapshot.id
 
 
 async def test_a_screenshot_part_is_linked_to_its_row(

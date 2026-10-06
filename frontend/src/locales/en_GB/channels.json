@@ -1,4 +1,6 @@
 {
+  "attach": "Attach here",
+  "attached": "Channel attached",
   "backups": "Backups",
   "branch": "Branch",
   "by-owner": "by {owner}",
@@ -14,6 +16,8 @@
   "delete-body": "The current save and {pinned} pinned snapshots stay as backups, and {legacy} saves from older clients become backups. Older snapshots are deleted.",
   "delete-title": "Delete {label}?",
   "deleted": "Channel deleted",
+  "detached": "From removed games",
+  "detached-hint": "These channels belonged to a game that was removed from the library. Attach one to keep its saves on this game.",
   "device": "Device",
   "download": "Download save",
   "empty": "No saves yet",

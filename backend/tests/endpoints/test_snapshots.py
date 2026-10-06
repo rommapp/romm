@@ -250,6 +250,117 @@ def test_a_push_from_another_file_is_unprocessable(
     assert "rom_file_id" in response.json()["detail"]
 
 
+def _neutral_unit(sram: bytes, clock: bytes) -> tuple[bytes, str]:
+    reload_zipfile()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr("save.sram", sram)
+        zf.writestr("clock.rtc", clock)
+    archive = buffer.getvalue()
+    with zipfile.ZipFile(io.BytesIO(archive)) as zf:
+        from handler.filesystem.assets_handler import hash_zip_contents
+
+        return archive, hash_zip_contents(zf)
+
+
+def test_a_clock_only_push_is_unchanged_and_progress_keeps_its_bytes(
+    client: TestClient, headers: dict[str, str], game_file: RomFile
+):
+    def push_unit(archive: bytes, content_hash: str, expected: int | None, **extra):
+        return post(
+            client,
+            headers,
+            manifest(
+                game_file,
+                label="default",
+                expected_current_id=expected,
+                save={"hash": content_hash, "shape": "MULTI", "format": "neutral"},
+                **extra,
+            ),
+            {"save": ("save.zip", archive)},
+        )
+
+    first = push_unit(*_neutral_unit(SRAM, b"tick"), None).json()
+    extra = {"channel_id": first["channel"]["id"]}
+    clock_only = push_unit(*_neutral_unit(SRAM, b"tock"), first["id"], **extra)
+    progress_archive, progress_hash = _neutral_unit(b"more", b"tock")
+    progress = push_unit(progress_archive, progress_hash, first["id"], **extra)
+    stored = client.get(progress.json()["save"]["download_path"], headers=headers)
+
+    assert clock_only.status_code == status.HTTP_200_OK
+    assert clock_only.json()["id"] == first["id"]
+    assert progress.status_code == status.HTTP_201_CREATED
+    assert stored.content == progress_archive
+
+
+def test_a_neutral_save_with_foreign_member_names_is_unprocessable(
+    client: TestClient,
+    headers: dict[str, str],
+    game_file: RomFile,
+    rom: Rom,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from handler.snapshots import neutral
+
+    monkeypatch.setitem(
+        neutral.NEUTRAL_FORMS, rom.platform_slug, neutral.NEUTRAL_FORMS["gb"]
+    )
+    reload_zipfile()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr("Pokemon Red.srm", SRAM)
+        zf.writestr("clock.rtc", b"tick")
+
+    response = post(
+        client,
+        headers,
+        manifest(
+            game_file,
+            label="default",
+            save={"hash": "0" * 32, "shape": "MULTI", "format": "neutral"},
+        ),
+        {"save": ("save.zip", buffer.getvalue())},
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert "Pokemon Red.srm" in response.json()["detail"]["save"]
+
+
+def test_an_archive_escaping_its_folder_is_unprocessable(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, rom: Rom
+):
+    reload_zipfile()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr("../../escape.sav", SRAM)
+    archive = buffer.getvalue()
+
+    pushed = post(
+        client,
+        headers,
+        manifest(
+            game_file,
+            label="default",
+            save={"hash": "0" * 32, "shape": "MULTI", "format": "native"},
+        ),
+        {"save": ("save.zip", archive)},
+    )
+    uploaded = client.post(
+        "/api/saves",
+        params={"rom_id": rom.id},
+        files={"saveFile": ("save.zip", archive)},
+        headers=headers,
+    )
+
+    assert pushed.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert "leaves the save folder" in pushed.json()["detail"]["save"]
+    assert uploaded.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert (
+        client.get("/api/saves", params={"rom_id": rom.id}, headers=headers).json()
+        == []
+    )
+
+
 def test_a_save_whose_bytes_do_not_fit_its_shape_is_unprocessable(
     client: TestClient, headers: dict[str, str], game_file: RomFile
 ):
@@ -565,6 +676,69 @@ def test_deleting_the_rom_detaches_its_channel_and_keeps_the_saves(
     assert [item["id"] for item in history.json()] == [body["id"]]
     assert content.content == SRAM
     assert legacy.json() == []
+
+
+def test_a_detached_channel_is_listed_and_attached_to_a_file_by_hand(
+    client: TestClient,
+    headers: dict[str, str],
+    editor_headers: dict[str, str],
+    game_file: RomFile,
+    rom: Rom,
+):
+    from tests.factories import make_platform, make_rom
+
+    body = first_push(client, headers, game_file)
+    channel_id = body["channel"]["id"]
+    platform_id = rom.platform_id
+    db_rom_handler.delete_rom(rom.id)
+    readded = make_rom(rom.platform, "Game (Rev 1)")
+    new_file = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=readded.id,
+            file_name="game (rev 1).sfc",
+            file_path=readded.fs_path,
+            file_size_bytes=2048,
+            sha1_hash="d" * 40,
+        )
+    )
+    other_platform = make_rom(make_platform("other-platform"), "Other")
+    other_file = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=other_platform.id,
+            file_name="other.bin",
+            file_path=other_platform.fs_path,
+            file_size_bytes=8,
+        )
+    )
+    attach_url = f"/api/channels/{channel_id}/attach"
+
+    listed = client.get(
+        "/api/channels", params={"detached_platform_id": platform_id}, headers=headers
+    ).json()
+    elsewhere = client.post(
+        attach_url, json={"rom_file_id": other_file.id}, headers=headers
+    )
+    not_theirs = client.post(
+        attach_url, json={"rom_file_id": new_file.id}, headers=editor_headers
+    )
+    attached = client.post(
+        attach_url, json={"rom_file_id": new_file.id}, headers=headers
+    )
+    again = client.post(attach_url, json={"rom_file_id": new_file.id}, headers=headers)
+    detail = client.get(f"/api/roms/{readded.id}", headers=headers).json()
+    saves = client.get(
+        "/api/saves", params={"rom_id": readded.id}, headers=headers
+    ).json()
+
+    assert [channel["id"] for channel in listed] == [channel_id]
+    assert [save["id"] for save in saves] == [body["save"]["id"]]
+    assert elsewhere.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert not_theirs.status_code == status.HTTP_404_NOT_FOUND
+    assert attached.status_code == status.HTTP_200_OK
+    assert attached.json()["rom_file_id"] == new_file.id
+    assert again.status_code == status.HTTP_409_CONFLICT
+    assert [channel["id"] for channel in detail["user_channels"]] == [channel_id]
+    assert detail["user_channels"][0]["current"]["id"] == body["id"]
 
 
 def test_a_device_reports_the_snapshot_it_applied(

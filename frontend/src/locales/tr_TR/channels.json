@@ -1,4 +1,6 @@
 {
+  "attach": "Buraya bağla",
+  "attached": "Kanal bağlandı",
   "backups": "Yedekler",
   "branch": "Dal",
   "by-owner": "{owner} tarafından",
@@ -14,6 +16,8 @@
   "delete-body": "Güncel kayıt ve {pinned} sabitlenmiş anlık görüntü yedek olarak kalır, eski istemcilerden gelen {legacy} kayıt da yedeğe dönüşür. Daha eski anlık görüntüler silinir.",
   "delete-title": "{label} silinsin mi?",
   "deleted": "Kanal silindi",
+  "detached": "Kaldırılan oyunlardan",
+  "detached-hint": "Bu kanallar kitaplıktan kaldırılan bir oyuna aitti. Kayıtlarını bu oyunda tutmak için birini bağla.",
   "device": "Cihaz",
   "download": "Kaydı indir",
   "empty": "Henüz kayıt yok",

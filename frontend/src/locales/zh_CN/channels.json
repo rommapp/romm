@@ -1,4 +1,6 @@
 {
+  "attach": "关联到此处",
+  "attached": "已关联频道",
   "backups": "备份",
   "branch": "分支",
   "by-owner": "来自 {owner}",
@@ -14,6 +16,8 @@
   "delete-body": "当前存档和 {pinned} 个已固定的快照会保留为备份，来自旧版客户端的 {legacy} 个存档也会成为备份。更早的快照将被删除。",
   "delete-title": "删除 {label}？",
   "deleted": "频道已删除",
+  "detached": "来自已移除的游戏",
+  "detached-hint": "这些频道属于已从游戏库移除的游戏。关联后即可在此游戏中继续使用其存档。",
   "device": "设备",
   "download": "下载存档",
   "empty": "暂无存档",

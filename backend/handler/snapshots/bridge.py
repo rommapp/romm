@@ -9,6 +9,7 @@ from handler.database import (
 )
 from handler.filesystem import fs_asset_handler
 from handler.snapshots.file_key import FileKey
+from handler.snapshots.hashing import identity_hash_of_file
 from handler.snapshots.legacy import may_load
 from handler.snapshots.manifest import Manifest, SaveEntry
 from handler.snapshots.write import (
@@ -62,7 +63,7 @@ async def hold_legacy_upload(
         {
             "shape": shape,
             "format": SaveFormat.NATIVE,
-            "identity_hash": save.content_hash,
+            "identity_hash": await identity_hash_of_file(path),
         },
         touch=False,
     )

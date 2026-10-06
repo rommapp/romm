@@ -7,9 +7,6 @@ from typing import Final, Literal
 
 from models.assets import SaveFormat, SaveShape
 
-# The neutral form names a unit's clock member this way on every platform.
-NEUTRAL_CLOCK_MEMBERS: Final = frozenset({"clock.rtc"})
-
 
 class Carry(Enum):
     """A manifest field left out, so the snapshot takes its parent's value."""

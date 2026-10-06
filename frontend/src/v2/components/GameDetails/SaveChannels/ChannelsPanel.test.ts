@@ -26,6 +26,8 @@ vi.mock("@/services/api/snapshot", async (importOriginal) => {
       createChannel: vi.fn(),
       updateChannel: vi.fn(),
       deleteChannel: vi.fn(),
+      getDetachedChannels: vi.fn(),
+      attachChannel: vi.fn(),
       getChannelHistory: vi.fn(),
       pushSnapshot: vi.fn(),
       setSnapshotPinned: vi.fn(),
@@ -78,6 +80,7 @@ describe("ChannelsPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     api.getChannelHistory.mockResolvedValue({ data: [] } as never);
+    api.getDetachedChannels.mockResolvedValue({ data: [] } as never);
   });
 
   it("restores a snapshot as the channel's new current", async () => {
@@ -277,5 +280,37 @@ describe("ChannelsPanel", () => {
     await flushPromises();
 
     expect(api.deleteChannel).not.toHaveBeenCalled();
+  });
+
+  it("attaches a channel from a removed game to this game's file", async () => {
+    const channel = channelFixture();
+    const orphan = channelFixture({
+      id: "0192f1c4-0000-7000-8000-000000000005",
+      label: "Old run",
+      rom_id: null,
+      rom_file_id: null,
+    });
+    api.getDetachedChannels.mockResolvedValue({ data: [orphan] } as never);
+    api.attachChannel.mockResolvedValue({ data: orphan } as never);
+    const wrapper = mountPanel([channel]);
+    await flushPromises();
+
+    expect(api.getDetachedChannels).toHaveBeenCalledWith({ platformId: 0 });
+    expect(wrapper.find(".r-channels__detached").text()).toContain("Old run");
+    await wrapper
+      .find(".r-channels__detached")
+      .findComponent({ name: "RBtn" })
+      .trigger("click");
+    await flushPromises();
+
+    expect(api.attachChannel).toHaveBeenCalledWith({
+      id: orphan.id,
+      romFileId: channel.rom_file_id,
+    });
+    expect(refetchRom).toHaveBeenCalledWith(1);
+    expect(snackbar.success).toHaveBeenCalledWith(
+      "channels.attached",
+      expect.anything(),
+    );
   });
 });

@@ -2,7 +2,7 @@
 
 Bytes land on disk first, then one transaction inserts the content rows and the
 snapshot and moves the channel's pointer under a row lock. A failed write
-leaves files the orphan sweep removes.
+removes the files it wrote.
 """
 
 import enum
@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Literal
 
+from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from handler.asset_store import AssetContent, remove_asset_file
@@ -20,15 +21,15 @@ from handler.database.snapshots_handler import StoredContent
 from handler.filesystem import fs_asset_handler
 from handler.snapshots import retention
 from handler.snapshots.file_key import FileKey
+from handler.snapshots.hashing import identity_hash, identity_hash_of_file
 from handler.snapshots.manifest import (
     CARRY,
-    NEUTRAL_CLOCK_MEMBERS,
     Carry,
     Manifest,
     Resolved,
     resolve,
 )
-from models.assets import Save, SaveFormat, Screenshot, State
+from models.assets import Save, Screenshot, State
 from models.channel import Channel
 from models.rom import Rom, RomFile
 from models.snapshot import Snapshot, SnapshotKind, SnapshotState
@@ -137,11 +138,49 @@ class _Plan:
     channel: Channel | None
     parent: Snapshot | None
     resolved: Resolved
-    # The channel's current already holds exactly this content.
-    unchanged: bool = False
+    # The current snapshot this push adds no progress to: the same content, or
+    # a save whose clock alone moved.
+    same_as: int | None = None
     saves: dict[str, Save] = field(default_factory=dict)
     states: dict[str, State] = field(default_factory=dict)
     written_paths: list[str] = field(default_factory=list)
+    # Screenshots for rows already stored, kept even when the push changes nothing.
+    shot_paths: list[str] = field(default_factory=list)
+
+    @property
+    def unchanged(self) -> bool:
+        return self.same_as is not None
+
+
+class _CurrentMoved(Exception):
+    """The current a plan matched moved before the commit's lock."""
+
+
+def _part_bytes(content: AssetContent) -> bytes:
+    if isinstance(content, bytes):
+        return content
+    stream = content.file if isinstance(content, UploadFile) else content
+    position = stream.tell()
+    data: bytes = stream.read()
+    stream.seek(position)
+    return data
+
+
+async def _clock_only(
+    write: SnapshotWrite, current: Snapshot, resolved: Resolved
+) -> bool:
+    """Whether the push differs from `current` only in its save's clock."""
+    if resolved.save is None or SAVE_PART not in write.parts:
+        return False
+    held = db_snapshot_handler.get_stored_content(current)
+    if (
+        held.save is None
+        or not held.save.identity_hash
+        or held.resolved().bank != resolved.bank
+    ):
+        return False
+    content = _part_bytes(write.parts[SAVE_PART].content)
+    return await identity_hash(content) == held.save.identity_hash
 
 
 def _parent_id(write: SnapshotWrite) -> int | None:
@@ -189,7 +228,7 @@ def _target_channel(write: SnapshotWrite) -> Channel | None:
     return channel
 
 
-async def _plan(write: SnapshotWrite) -> _Plan:
+async def _plan(write: SnapshotWrite, match_current: bool = True) -> _Plan:
     channel = _target_channel(write)
     owner = write.author
     if channel is not None and channel.user_id != owner.id:
@@ -215,14 +254,16 @@ async def _plan(write: SnapshotWrite) -> _Plan:
         if channel and channel.current_snapshot_id
         else None
     )
-    plan = _Plan(
-        owner=owner,
-        channel=channel,
-        parent=parent,
-        resolved=resolved,
-        unchanged=current is not None and current.digest == resolved.digest,
-    )
-    if plan.unchanged:
+    plan = _Plan(owner=owner, channel=channel, parent=parent, resolved=resolved)
+    if (
+        match_current
+        and current is not None
+        and (
+            current.digest == resolved.digest
+            or await _clock_only(write, current, resolved)
+        )
+    ):
+        plan.same_as = current.id
         return plan
 
     if parent_content.save and parent_content.save.content_hash:
@@ -316,12 +357,11 @@ async def _store_part(
     if is_save:
         entry = plan.resolved.save
         assert entry is not None
-        clock = (
-            NEUTRAL_CLOCK_MEMBERS if entry.format == SaveFormat.NEUTRAL else frozenset()
-        )
         row = Save(
             **common,
-            identity_hash=await fs_asset_handler.compute_identity_hash(path, clock),
+            identity_hash=await identity_hash_of_file(
+                fs_asset_handler.validate_path(path)
+            ),
             shape=entry.shape,
             format=entry.format,
             origin_device_id=write.origin_device_id or write.device_id,
@@ -344,27 +384,101 @@ async def _store_part(
     stored = _StoredFile(row=row)
 
     if part.screenshot is not None:
-        stem = file_name.rsplit(".", 1)[0]
-        extension = (part.screenshot_name or "screenshot.png").rsplit(".", 1)[-1]
-        shot_name = sanitize_asset_filename(f"{stem}.{extension}", "screenshot")
-        shot_folder = fs_asset_handler.build_screenshots_file_path(
-            user=plan.owner,
-            platform_fs_slug=write.rom.platform_slug,
-            rom_id=write.rom.id,
-        )
-        await fs_asset_handler.write_file(
-            file=part.screenshot, path=shot_folder, filename=shot_name
-        )
-        shot_path = f"{shot_folder}/{shot_name}"
-        plan.written_paths.append(shot_path)
-        stored.screenshot = Screenshot(
-            file_name=shot_name,
-            file_path=shot_folder,
-            file_size_bytes=await fs_asset_handler.get_file_size(shot_path),
-            rom_id=write.rom.id,
-            user_id=plan.owner.id,
+        stored.screenshot = await _store_screenshot(
+            write,
+            plan,
+            file_name,
+            part.screenshot,
+            part.screenshot_name,
+            plan.written_paths,
         )
     return stored
+
+
+async def _store_screenshot(
+    write: SnapshotWrite,
+    plan: _Plan,
+    file_name: str,
+    content: AssetContent,
+    upload_name: str | None,
+    written: list[str],
+) -> Screenshot:
+    """Write a screenshot named after the content row it belongs to."""
+    stem = file_name.rsplit(".", 1)[0]
+    extension = (upload_name or "screenshot.png").rsplit(".", 1)[-1]
+    shot_name = sanitize_asset_filename(f"{stem}.{extension}", "screenshot")
+    shot_folder = fs_asset_handler.build_screenshots_file_path(
+        user=plan.owner,
+        platform_fs_slug=write.rom.platform_slug,
+        rom_id=write.rom.id,
+    )
+    await fs_asset_handler.write_file(
+        file=content, path=shot_folder, filename=shot_name
+    )
+    shot_path = f"{shot_folder}/{shot_name}"
+    written.append(shot_path)
+    return Screenshot(
+        file_name=shot_name,
+        file_path=shot_folder,
+        file_size_bytes=await fs_asset_handler.get_file_size(shot_path),
+        rom_id=write.rom.id,
+        user_id=plan.owner.id,
+    )
+
+
+async def _attach_screenshots(
+    write: SnapshotWrite, plan: _Plan, stored: list[_StoredFile]
+) -> list[Screenshot]:
+    """Screenshots sent beside content the server already holds, for the rows
+    that have none yet."""
+    new_hashes = {file.row.content_hash for file in stored}
+    wanted: list[tuple[str, bool, UploadPart]] = []
+    for key, part in write.parts.items():
+        if part.screenshot is None:
+            continue
+        if key == SAVE_PART:
+            content_hash = plan.resolved.save.hash if plan.resolved.save else None
+        else:
+            _, core, slot = key.split(":", 2)
+            content_hash = plan.resolved.bank.get(core, {}).get(slot)
+        if content_hash and content_hash not in new_hashes:
+            wanted.append((content_hash, key == SAVE_PART, part))
+    if not wanted:
+        return []
+
+    saves = db_snapshot_handler.get_saves_by_hash(
+        plan.owner.id, write.rom.id, {h for h, is_save, _ in wanted if is_save}
+    )
+    states = db_snapshot_handler.get_states_by_hash(
+        plan.owner.id, write.rom.id, {h for h, is_save, _ in wanted if not is_save}
+    )
+    save_shots, state_shots = db_snapshot_handler.get_thumbnails(
+        [row.id for row in saves.values()], [row.id for row in states.values()]
+    )
+    shots: list[Screenshot] = []
+    attached: set[tuple[bool, int]] = set()
+    for content_hash, is_save, part in wanted:
+        row: Save | State | None = (saves if is_save else states).get(content_hash)
+        if row is None or (is_save, row.id) in attached:
+            continue
+        if row.id in (save_shots if is_save else state_shots):
+            continue
+        assert part.screenshot is not None
+        shot = await _store_screenshot(
+            write,
+            plan,
+            row.file_name,
+            part.screenshot,
+            part.screenshot_name,
+            plan.shot_paths,
+        )
+        if is_save:
+            shot.save_id = row.id
+        else:
+            shot.state_id = row.id
+        shots.append(shot)
+        attached.add((is_save, row.id))
+    return shots
 
 
 async def _store_parts(write: SnapshotWrite, plan: _Plan) -> list[_StoredFile]:
@@ -403,8 +517,13 @@ def _lock_or_create_channel(write: SnapshotWrite, session: Session) -> Channel |
 
 
 def _commit(
-    write: SnapshotWrite, plan: _Plan, stored: list[_StoredFile], session: Session
+    write: SnapshotWrite,
+    plan: _Plan,
+    stored: list[_StoredFile],
+    shots: list[Screenshot],
+    session: Session,
 ) -> WriteResult:
+    session.add_all(shots)
     channel = _lock_or_create_channel(write, session)
     digest = plan.resolved.digest
     current = (
@@ -413,7 +532,13 @@ def _commit(
         else None
     )
 
-    if channel is not None and current is not None and current.digest == digest:
+    if plan.unchanged and (current is None or current.id != plan.same_as):
+        raise _CurrentMoved
+    if (
+        channel is not None
+        and current is not None
+        and (plan.unchanged or current.digest == digest)
+    ):
         if write.device_id:
             db_snapshot_handler.record_device_base(
                 write.device_id, channel.id, current.id, session=session
@@ -505,13 +630,21 @@ async def write_snapshot(write: SnapshotWrite) -> WriteResult:
     Raises:
         SnapshotWriteError: the push is refused; see its subclasses.
     """
-    plan = await _plan(write)
+    try:
+        return await _write(write, match_current=True)
+    except _CurrentMoved:
+        return await _write(write, match_current=False)
+
+
+async def _write(write: SnapshotWrite, match_current: bool) -> WriteResult:
+    plan = await _plan(write, match_current)
     try:
         stored = [] if plan.unchanged else await _store_parts(write, plan)
+        shots = await _attach_screenshots(write, plan, stored)
         with sync_session.begin() as session:
-            result = _commit(write, plan, stored, session)
+            result = _commit(write, plan, stored, shots, session)
     except BaseException:
-        for path in plan.written_paths:
+        for path in [*plan.written_paths, *plan.shot_paths]:
             await remove_asset_file(path, "Snapshot content")
         raise
     # Another push landed the same content between the plan and the lock.

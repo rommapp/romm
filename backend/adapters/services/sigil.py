@@ -42,6 +42,14 @@ ROUTINE_SIGIL_ERROR_CODES: Final = frozenset(
 
 
 @dataclass(frozen=True)
+class SigilUnitMember:
+    """One file of an unpacked save unit, as sigil hashes it."""
+
+    name: str
+    is_clock: bool
+
+
+@dataclass(frozen=True)
 class SigilExtractionResult:
     title_id: str
     save_target: str
@@ -62,6 +70,42 @@ class SigilService:
         no title id.
         """
         return sigil is not None
+
+    def unit_hashes(
+        self, root: Path, members: list[SigilUnitMember], archived: bool
+    ) -> tuple[str, str] | None:
+        """Sigil's content and identity hash of a save unit unpacked under
+        `root`, or None without the binding or when sigil can't read it.
+
+        Args:
+            archived: whether the unit travels as a zip; a lone raw file doesn't.
+        """
+        if sigil is None or not members:
+            return None
+        unit = sigil.SigilSaveUnit(
+            key=root.name,
+            shape="multi" if archived else "single",
+            members=tuple(
+                sigil.SigilSaveMember(
+                    path=member.name,
+                    entry=member.name,
+                    role="rtc" if member.is_clock else "primary",
+                    present=True,
+                )
+                for member in sorted(members, key=lambda m: m.name)
+            ),
+            expected=(),
+            unkeyed=(),
+            artifact=root.name,
+            content_hash="",
+            identity_hash="",
+        )
+        try:
+            hashed = sigil.hash_saves(unit, root)
+        except Exception as exc:
+            log.error(f"Sigil could not hash the save unit under {root}: {exc}")
+            return None
+        return hashed.content_hash, hashed.identity_hash
 
     async def extract_title_id(
         self,

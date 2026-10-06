@@ -1,4 +1,6 @@
 {
+  "attach": "Připojit sem",
+  "attached": "Kanál připojen",
   "backups": "Zálohy",
   "branch": "Větev",
   "by-owner": "od {owner}",
@@ -14,6 +16,8 @@
   "delete-body": "Aktuální uložená pozice a připnuté snímky ({pinned}) zůstanou jako zálohy a uložené pozice ze starších klientů ({legacy}) se stanou zálohami. Starší snímky budou smazány.",
   "delete-title": "Smazat {label}?",
   "deleted": "Kanál smazán",
+  "detached": "Z odebraných her",
+  "detached-hint": "Tyto kanály patřily hře, která byla odebrána z knihovny. Připojte kanál, aby jeho uložené pozice zůstaly u této hry.",
   "device": "Zařízení",
   "download": "Stáhnout uloženou pozici",
   "empty": "Zatím žádné uložené pozice",

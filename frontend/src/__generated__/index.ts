@@ -64,6 +64,7 @@ export type { Body_update_state_labels_api_states__id__labels_put } from './mode
 export type { Body_update_state_visibility_api_states__id__visibility_put } from './models/Body_update_state_visibility_api_states__id__visibility_put';
 export type { Body_upload_memory_card_version_api_memory_cards__id__versions_post } from './models/Body_upload_memory_card_version_api_memory_cards__id__versions_post';
 export type { BulkOperationResponse } from './models/BulkOperationResponse';
+export type { ChannelAttachPayload } from './models/ChannelAttachPayload';
 export type { ChannelCreatePayload } from './models/ChannelCreatePayload';
 export type { ChannelRefSchema } from './models/ChannelRefSchema';
 export type { ChannelSchema } from './models/ChannelSchema';

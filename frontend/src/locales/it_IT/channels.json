@@ -1,4 +1,6 @@
 {
+  "attach": "Collega qui",
+  "attached": "Canale collegato",
   "backups": "Backup",
   "branch": "Ramo",
   "by-owner": "di {owner}",
@@ -14,6 +16,8 @@
   "delete-body": "Il salvataggio attuale e {pinned} snapshot fissati restano come backup, e {legacy} salvataggi da client meno recenti diventano backup. Gli snapshot più vecchi vengono eliminati.",
   "delete-title": "Eliminare {label}?",
   "deleted": "Canale eliminato",
+  "detached": "Da giochi rimossi",
+  "detached-hint": "Questi canali appartenevano a un gioco rimosso dalla libreria. Collegane uno per tenere i suoi salvataggi su questo gioco.",
   "device": "Dispositivo",
   "download": "Scarica salvataggio",
   "empty": "Ancora nessun salvataggio",

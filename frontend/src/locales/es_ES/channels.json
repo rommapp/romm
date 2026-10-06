@@ -1,4 +1,6 @@
 {
+  "attach": "Vincular aquí",
+  "attached": "Canal vinculado",
   "backups": "Copias de seguridad",
   "branch": "Rama",
   "by-owner": "de {owner}",
@@ -14,6 +16,8 @@
   "delete-body": "El guardado actual y {pinned} instantáneas fijadas se conservan como copias de seguridad, y {legacy} guardados de clientes antiguos pasan a ser copias de seguridad. Las instantáneas más antiguas se eliminan.",
   "delete-title": "¿Eliminar {label}?",
   "deleted": "Canal eliminado",
+  "detached": "De juegos eliminados",
+  "detached-hint": "Estos canales pertenecían a un juego que se eliminó de la biblioteca. Vincula uno para conservar sus partidas en este juego.",
   "device": "Dispositivo",
   "download": "Descargar guardado",
   "empty": "Aún no hay guardados",

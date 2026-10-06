@@ -1,4 +1,6 @@
 {
+  "attach": "Vincular aqui",
+  "attached": "Canal vinculado",
   "backups": "Backups",
   "branch": "Ramificação",
   "by-owner": "de {owner}",
@@ -14,6 +16,8 @@
   "delete-body": "O save atual e {pinned} snapshots fixados ficam como backups, e {legacy} saves de clientes antigos viram backups. Snapshots mais antigos são excluídos.",
   "delete-title": "Excluir {label}?",
   "deleted": "Canal excluído",
+  "detached": "De jogos removidos",
+  "detached-hint": "Estes canais pertenciam a um jogo removido da biblioteca. Vincule um para manter os saves dele neste jogo.",
   "device": "Dispositivo",
   "download": "Baixar save",
   "empty": "Nenhum save ainda",

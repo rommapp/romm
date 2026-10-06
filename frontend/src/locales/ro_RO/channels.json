@@ -1,4 +1,6 @@
 {
+  "attach": "Atașează aici",
+  "attached": "Canal atașat",
   "backups": "Copii de rezervă",
   "branch": "Ramură",
   "by-owner": "de {owner}",
@@ -14,6 +16,8 @@
   "delete-body": "Salvarea curentă și {pinned} instantanee fixate rămân ca copii de rezervă, iar {legacy} salvări de la clienți mai vechi devin copii de rezervă. Instantaneele mai vechi sunt șterse.",
   "delete-title": "Ștergi {label}?",
   "deleted": "Canal șters",
+  "detached": "Din jocuri eliminate",
+  "detached-hint": "Aceste canale aparțineau unui joc eliminat din bibliotecă. Atașează unul pentru a-i păstra salvările pentru acest joc.",
   "device": "Dispozitiv",
   "download": "Descarcă salvarea",
   "empty": "Încă nu există salvări",

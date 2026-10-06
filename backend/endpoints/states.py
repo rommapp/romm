@@ -25,7 +25,10 @@ from handler.database import (
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler
-from handler.filesystem.assets_handler import build_asset_file_response
+from handler.filesystem.assets_handler import (
+    build_asset_file_response,
+    check_upload_archive,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -96,6 +99,7 @@ async def add_state(
 ) -> StateSchema:
     check_asset_upload_size(stateFile, "State file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
+    check_upload_archive(stateFile, "State file")
 
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
@@ -256,6 +260,7 @@ async def update_state(
 ) -> StateSchema:
     check_asset_upload_size(stateFile, "State file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
+    check_upload_archive(stateFile, "State file")
 
     db_state = db_state_handler.get_state(user_id=request.user.id, id=id)
     if not db_state:
