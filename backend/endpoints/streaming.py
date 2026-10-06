@@ -935,7 +935,7 @@ async def claim_session(
                 rom.id,
                 container.emulator,
             )
-            # Capture order, like the archive pick: replacing a state's bytes bumps updated_at.
+            # Capture order, since replacing a state's bytes bumps updated_at.
             newest_state = max(
                 own_states, key=lambda s: (s.created_at, s.id), default=None
             )

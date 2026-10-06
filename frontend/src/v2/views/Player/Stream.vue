@@ -305,13 +305,13 @@ const showManualDiscHint = computed(
 // all_user_states carries), newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
 
-// Every save, whichever emulator wrote it, newest capture first: created_at,
-// since the updated_at user_saves arrives on moves with a rehash.
+// Every save, whichever emulator wrote it, newest write first: updated_at,
+// since the web player writes into its existing row.
 const allSaves = computed<SaveSchema[]>(() => {
   if (!rom.value) return [];
   return [...(rom.value.user_saves ?? [])].sort(
     (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
+      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime() ||
       b.id - a.id,
   );
 });
@@ -321,7 +321,9 @@ const nativeRestorableSaves = computed<SaveSchema[]>(() => {
   const emulator = emulatorKey(container.value?.emulator);
   if (!emulator) return [];
   return allSaves.value.filter(
-    (s) => emulatorKey(s.emulator) === emulator && s.file_name.endsWith(".zip"),
+    (s) =>
+      emulatorKey(s.emulator) === emulator &&
+      s.file_name.toLowerCase().endsWith(".zip"),
   );
 });
 
@@ -1549,7 +1551,6 @@ onBeforeUnmount(() => {
               type="save"
               :show-heading="false"
               :clearable="false"
-              timestamp="created"
             />
             <div class="r-v2-stream__strip-label">
               <span aria-hidden="true">{{ t("play.all-saves") }}</span>
@@ -1561,7 +1562,6 @@ onBeforeUnmount(() => {
               :assets="pickableSaves"
               type="save"
               :selected-id="selectedSave?.id ?? null"
-              timestamp="created"
               :group-by-slot="false"
               @select="savePickId = ($event as SaveSchema).id"
             />

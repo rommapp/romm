@@ -18,6 +18,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from main import app
+from sqlalchemy import update
 from tests.factories import (
     make_platform,
     make_rom,
@@ -6071,6 +6072,58 @@ def test_a_launch_with_no_pick_restores_an_archive_newer_than_the_raw_save(
     assert resp.status_code == 202
     hydrate_import.assert_not_awaited()
     hydrate_native.assert_awaited_once()
+
+
+def _stamp(save: Save, created_at: datetime, updated_at: datetime) -> None:
+    with sync_session.begin() as session:
+        session.execute(
+            update(Save)
+            .where(Save.id == save.id)
+            .values(created_at=created_at, updated_at=updated_at)
+        )
+
+
+def test_a_launch_with_no_pick_imports_a_raw_save_written_since_the_archive(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The web player writes into its row, so only updated_at shows the play."""
+    raw = _add_save(rom, admin_user, "Game.srm", "mgba", "h1")
+    zipped = _add_save(
+        rom, admin_user, "Game [retroarch b].saves.zip", "retroarch", "h2"
+    )
+    _stamp(
+        raw,
+        datetime(2026, 10, 1, tzinfo=timezone.utc),
+        datetime(2026, 10, 3, tzinfo=timezone.utc),
+    )
+    _stamp(
+        zipped,
+        datetime(2026, 10, 2, tzinfo=timezone.utc),
+        datetime(2026, 10, 2, tzinfo=timezone.utc),
+    )
+
+    resp, hydrate_import, hydrate_native, _session = _claim_without_a_pick(
+        client, access_token, rom, _SAVE_IMPORT
+    )
+
+    assert resp.status_code == 202
+    hydrate_import.assert_awaited_once()
+    assert hydrate_import.call_args.kwargs["save"].id == raw.id
+    hydrate_native.assert_not_awaited()
+
+
+def test_a_launch_with_no_pick_reads_an_upper_case_zip_as_an_archive(
+    client, access_token, rom: Rom, admin_user: User
+):
+    zipped = _add_save(rom, admin_user, "GAME.ZIP", "retroarch", "h1")
+
+    resp, hydrate_import, hydrate_native, _session = _claim_without_a_pick(
+        client, access_token, rom, None
+    )
+
+    assert resp.status_code == 202
+    hydrate_native.assert_awaited_once()
+    assert hydrate_native.call_args.args[3].id == zipped.id
 
 
 def test_a_launch_with_no_pick_restores_the_archive_where_saves_cannot_import(

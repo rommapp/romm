@@ -399,7 +399,7 @@ def _written_by(save: Save, emulator: str) -> bool:
 
 def _is_archive(save: Save) -> bool:
     """A bare save file carries no layout the broker could restore it from."""
-    return save.file_name.endswith(".zip")
+    return save.file_name.lower().endswith(".zip")
 
 
 def _is_restorable(save: Save, emulator: str) -> bool:
@@ -408,9 +408,9 @@ def _is_restorable(save: Save, emulator: str) -> bool:
 
 
 def _newest(saves: list[Save]) -> Save | None:
-    # Ties on id, because created_at only has second resolution: two saves
-    # written in the same second would otherwise pick arbitrarily.
-    return max(saves, key=lambda s: (s.created_at, s.id), default=None)
+    # updated_at, since the web player writes into its existing row. Ties on
+    # id, because the timestamp only has second resolution.
+    return max(saves, key=lambda s: (s.updated_at, s.id), default=None)
 
 
 def newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
