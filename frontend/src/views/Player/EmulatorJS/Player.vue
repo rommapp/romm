@@ -40,7 +40,7 @@ import {
   getDownloadPath,
 } from "@/utils";
 import { useSnackbar, type SnackbarTone } from "@/v2/composables/useSnackbar";
-import { newest } from "@/v2/utils/assets";
+import { browserSaves, newest } from "@/v2/utils/assets";
 import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
 import { browserDeviceId } from "@/v2/utils/saveSync/browserDevice";
@@ -118,7 +118,7 @@ function continuesSlotHead(): boolean {
   const slot = loadedSave?.slot;
   if (!slot) return false;
   const head = newest(
-    romRef.value.user_saves.filter((save) => save.slot === slot),
+    browserSaves(romRef.value.user_saves).filter((save) => save.slot === slot),
   );
   return head?.id === loadedSave?.id;
 }

@@ -628,9 +628,7 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
   });
 });
 
-// An icon class the font does not define renders as an empty circle rather
-// than failing, so the name alone is never evidence that a glyph exists.
-describe("EmulatorJS launch screen — a save the browser can't boot", () => {
+describe("EmulatorJS launch screen, a save the browser can't boot", () => {
   // A streaming exit files the whole save directory as one zip, which the
   // browser core would take for its SRAM.
   const RAW = saveFixture({
@@ -667,6 +665,8 @@ describe("EmulatorJS launch screen — a save the browser can't boot", () => {
   });
 });
 
+// An icon class the font does not define renders as an empty circle rather
+// than failing, so the name alone is never evidence that a glyph exists.
 describe("the native affordances' icons", () => {
   const MDI_CSS = readFileSync(
     "node_modules/@mdi/font/css/materialdesignicons.css",

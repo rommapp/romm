@@ -32,6 +32,7 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
+import { browserSaves } from "@/v2/utils/assets";
 import { firmwareExternalFiles } from "@/v2/utils/playerFirmware";
 import { leaveFullscreen } from "@/v2/utils/playerFullscreen";
 import {
@@ -395,7 +396,7 @@ async function boot() {
   const playerStorage = createPlayerStorage(rom.id, rom.platform_slug);
 
   const selectedInitialSave = initialSaveId
-    ? rom.user_saves?.find((s) => s.id === initialSaveId)
+    ? browserSaves(rom.user_saves ?? []).find((s) => s.id === initialSaveId)
     : null;
 
   const selectedInitialState = initialStateId

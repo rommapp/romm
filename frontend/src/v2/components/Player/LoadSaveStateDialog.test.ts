@@ -55,7 +55,7 @@ function makeState(overrides: Partial<StateSchema> = {}): StateSchema {
   });
 }
 
-function openDialog() {
+function openDialog(userSaves: SaveSchema[] = [makeSave()]) {
   const emitter: Emitter<Events> = mitt<Events>();
   const saveSelected = vi.fn();
   const stateSelected = vi.fn();
@@ -72,7 +72,7 @@ function openDialog() {
       "selectStateDialog",
       detailedRomFixture({
         id: 3,
-        user_saves: [makeSave()],
+        user_saves: userSaves,
         user_states: [makeState()],
       }),
     );
@@ -110,6 +110,18 @@ describe("LoadSaveStateDialog", () => {
     );
     expect(saveSelected).toHaveBeenCalledWith(makeSave());
     expect(stateSelected).not.toHaveBeenCalled();
+  });
+
+  it("never offers a zipped save, newest or not", async () => {
+    const archive = makeSave({ id: 9, file_name: "1 [retroarch].saves.zip" });
+    const { wrapper, open, saveSelected } = openDialog([archive, makeSave()]);
+    await open();
+
+    await wrapper.find(".tab-save").trigger("click");
+    await wrapper.find(".pick-save").trigger("click");
+    await flushPromises();
+
+    expect(saveSelected).toHaveBeenCalledWith(makeSave());
   });
 
   it("stays open and loads nothing when the load is canceled", async () => {

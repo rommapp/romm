@@ -242,7 +242,7 @@ const {
   allStatesCompatible,
   stateDisabledReason,
 } = useSaveStateTabs(
-  () => bootableSaves.value,
+  bootableSaves,
   () => rom.value?.user_states ?? [],
   selectedCore,
 );
