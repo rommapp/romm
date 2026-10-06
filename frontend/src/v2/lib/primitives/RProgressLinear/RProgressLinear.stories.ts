@@ -10,10 +10,6 @@ const meta: Meta<typeof RProgressLinear> = {
     bufferValue: { control: { type: "range", min: 0, max: 100, step: 1 } },
     height: { control: "text" },
     color: { control: "text" },
-    indeterminate: { control: "boolean" },
-    rounded: { control: "boolean" },
-    striped: { control: "boolean" },
-    stream: { control: "boolean" },
   },
 };
 

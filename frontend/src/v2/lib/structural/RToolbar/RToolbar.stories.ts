@@ -7,13 +7,11 @@ const meta: Meta<typeof RToolbar> = {
   title: "Structural/RToolbar",
   component: RToolbar,
   argTypes: {
-    title: { control: "text" },
     color: { control: "text" },
     density: {
       control: "select",
       options: ["default", "comfortable", "compact"],
     },
-    flat: { control: "boolean" },
     height: { control: "text" },
     rounded: { control: "text" },
   },

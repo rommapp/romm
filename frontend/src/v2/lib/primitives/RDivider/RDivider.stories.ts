@@ -5,8 +5,6 @@ const meta: Meta<typeof RDivider> = {
   title: "Primitives/RDivider",
   component: RDivider,
   argTypes: {
-    vertical: { control: "boolean" },
-    inset: { control: "boolean" },
     thickness: { control: "text" },
   },
   render: (args) => ({

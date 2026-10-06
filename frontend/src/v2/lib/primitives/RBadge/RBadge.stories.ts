@@ -10,26 +10,6 @@ const meta: Meta<typeof RBadge> = {
   argTypes: {
     content: { control: "text" },
     color: { control: "text" },
-    icon: { control: "text" },
-    location: {
-      control: "select",
-      options: [
-        "top",
-        "bottom",
-        "start",
-        "end",
-        "top start",
-        "top end",
-        "bottom start",
-        "bottom end",
-      ],
-    },
-    dot: { control: "boolean" },
-    inline: { control: "boolean" },
-    bordered: { control: "boolean" },
-    inset: { control: "number" },
-    modelValue: { control: "boolean" },
-    max: { control: "number" },
   },
 };
 

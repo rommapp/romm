@@ -49,7 +49,7 @@ const meta: Meta<typeof AssetPreview> = {
 export default meta;
 type Story = StoryObj<typeof AssetPreview>;
 
-// State with a screenshot, the headline case.
+/** State with a screenshot, the headline case. */
 export const StateWithScreenshot: Story = {
   name: "State · with screenshot",
   args: {
@@ -61,13 +61,13 @@ export const StateWithScreenshot: Story = {
   },
 };
 
-// A state that never had a screenshot falls back to a placeholder icon.
+/** A state that never had a screenshot falls back to a placeholder icon. */
 export const StateNoScreenshot: Story = {
   name: "State · no screenshot",
   args: { asset: namedState("forgot_screenshot.state", null), type: "state" },
 };
 
-// Saves rarely carry a screenshot, so the preview leans on metadata.
+/** Saves rarely carry a screenshot, so the preview leans on metadata. */
 export const SaveSelected: Story = {
   name: "Save · selected",
   args: { asset: save(), type: "save" },
@@ -86,7 +86,7 @@ export const SaveWithScreenshot: Story = {
   },
 };
 
-// A state is armed, so the save is the write-back target, not what boots.
+/** A state is armed, so the save is the write-back target, not what boots. */
 export const SaveAsWriteTarget: Story = {
   name: "Save · write-back target",
   args: { asset: save(), type: "save", stateArmed: true },
@@ -97,7 +97,7 @@ export const EmptySaveWithStateArmed: Story = {
   args: { asset: null, type: "save", stateArmed: true },
 };
 
-// Long filename should ellipsis cleanly.
+/** Long filename should ellipsis cleanly. */
 export const LongFilename: Story = {
   name: "Long filename",
   args: {
@@ -109,7 +109,7 @@ export const LongFilename: Story = {
   },
 };
 
-// No state selected: the empty state with the start-fresh hint.
+/** No state selected: the empty state with the start-fresh hint. */
 export const EmptyNoState: Story = {
   name: "Empty · no state selected",
   args: { asset: null, type: "state" },

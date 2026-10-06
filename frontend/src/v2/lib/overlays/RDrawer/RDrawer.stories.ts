@@ -10,9 +10,6 @@ const meta: Meta<typeof RDrawer> = {
   argTypes: {
     side: { control: "inline-radio", options: ["left", "right"] },
     width: { control: "text" },
-    persistent: { control: "boolean" },
-    hideClose: { control: "boolean" },
-    scrollContent: { control: "boolean" },
     icon: { control: "text" },
   },
 };
@@ -77,6 +74,9 @@ export const LeftSide: Story = {
 export const TallContent: Story = {
   name: "Tall content (scrolling body)",
   args: { side: "right", width: 380, icon: "mdi-format-list-bulleted" },
+  // Opens on mount, so the docs page renders it in its own iframe to keep
+  // the fixed drawer from covering the page.
+  parameters: { docs: { story: { inline: false, height: "560px" } } },
   render: (args) => ({
     components: { RDrawer, RBtn, RTextField },
     setup: () => ({

@@ -8,18 +8,11 @@ const meta: Meta<typeof RSlider> = {
   // RSlider has no visible label, so every instance needs `ariaLabel`.
   args: { ariaLabel: "Value" },
   argTypes: {
-    min: { control: "number" },
-    max: { control: "number" },
-    step: { control: "number" },
     color: { control: "text" },
     valuePosition: {
       control: "inline-radio",
       options: ["none", "left", "right", "thumb"],
     },
-    valueSuffix: { control: "text" },
-    showTicks: { control: "boolean" },
-    disabled: { control: "boolean" },
-    readonly: { control: "boolean" },
   },
   render: (args) => ({
     components: { RSlider },
