@@ -287,12 +287,9 @@ def resolve_save_archive(
     if _is_restorable(save, container.emulator):
         return save, False
 
-    try:
-        spec = webstation.require_import_spec(
-            container, container.emulator, container.platform
-        )
-    except webstation.ImportSpecUnavailable:
-        raise webstation.import_spec_unavailable() from None
+    spec = webstation.require_import_spec(
+        container, container.emulator, container.platform
+    )
     if spec is not None and spec.accepts("save"):
         return save, True
 

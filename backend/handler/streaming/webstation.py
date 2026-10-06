@@ -86,16 +86,17 @@ _LAST_GOOD_KEY_PREFIX = "romm:streaming:import-spec:"
 _LAST_GOOD_TTL_SECONDS = 7 * 24 * 60 * 60
 
 
-class ImportSpecUnavailable(Exception):
-    """The broker could not be asked, and no worker has an earlier answer to use."""
+class ImportSpecUnavailable(HTTPException):
+    """The broker could not be asked, and no worker has an earlier answer to use.
 
+    A launch pick that hangs on it is a retry, not a no, hence the 503.
+    """
 
-def import_spec_unavailable() -> HTTPException:
-    """A launch pick that hangs on a broker that didn't answer: a retry, not a no."""
-    return HTTPException(
-        status_code=503,
-        detail="Couldn't reach the streaming container to check this pick, try again",
-    )
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=503,
+            detail="Couldn't reach the streaming container to check this pick, try again",
+        )
 
 
 def _parse_import_spec(body: dict[str, Any]) -> ImportSpec | None:
@@ -197,7 +198,7 @@ def require_import_spec(
     if spec is None:
         return _last_good_import_spec(cache_key)
     _import_spec_cache[cache_key] = (time.monotonic() + _IMPORT_SPEC_TTL, spec)
-    _remember_last_good(cache_key, spec)
+    _remember_last_good(cache_key, resp)
     return spec
 
 
@@ -206,17 +207,12 @@ def _last_good_key(cache_key: _ImportSpecKey) -> str:
     return f"{_LAST_GOOD_KEY_PREFIX}{digest}"
 
 
-def _remember_last_good(cache_key: _ImportSpecKey, spec: ImportSpec) -> None:
-    # The broker's own shape, so reading it back runs the same checks.
-    value = json.dumps(
-        {
-            "kinds": [{"kind": kind} for kind in sorted(spec.kinds)],
-            "state_channel": spec.state_channel,
-            "state_slot": spec.state_slot,
-        }
-    )
+def _remember_last_good(cache_key: _ImportSpecKey, body: dict[str, Any]) -> None:
+    # The broker's own body, so reading it back runs the same checks.
     try:
-        sync_cache.set(_last_good_key(cache_key), value, ex=_LAST_GOOD_TTL_SECONDS)
+        sync_cache.set(
+            _last_good_key(cache_key), json.dumps(body), ex=_LAST_GOOD_TTL_SECONDS
+        )
     except RedisError:
         log.warning("import-spec answer could not be cached")
 

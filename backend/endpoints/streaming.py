@@ -917,7 +917,7 @@ async def claim_session(
                 # A native state still launches without the answer; only a
                 # foreign pick hangs on it, and that is a retry, not a refusal.
                 if resume_foreign or save_foreign:
-                    raise webstation.import_spec_unavailable() from None
+                    raise
         import_slot = spec.resume_slot() if spec is not None else None
         refusal = None
         if resume_foreign and import_slot is None:

@@ -150,10 +150,7 @@ def resolve_resume_state(
         if slot is not None:
             return state, slot, False
 
-    try:
-        spec = webstation.require_import_spec(container, emulator, container.platform)
-    except webstation.ImportSpecUnavailable:
-        raise webstation.import_spec_unavailable() from None
+    spec = webstation.require_import_spec(container, emulator, container.platform)
     import_slot = spec.resume_slot() if spec is not None else None
     if import_slot is not None:
         return state, import_slot, True
