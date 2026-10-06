@@ -1073,7 +1073,7 @@ parent's states. Hardcore channels and neutral current saves stay out.
   no progress, the same content or a save whose clock alone moved, answers unchanged;
   screenshots it carries attach to rows that have none.
 - **Uploads:** every uploaded zip passes `assets_handler.check_zip` (no escaping entry
-  names, entry count and expanded size capped); a `neutral` save also passes
+  names or symlinks, entry count and expanded size capped); a `neutral` save also passes
   `handler.snapshots.neutral.check_neutral_unit`. Both answer 422.
 - **Hashes:** `handler.snapshots.hashing` computes `identity_hash`: the content hash
   without `.rtc` members, or the one remaining member's hash. With the sigil binding
