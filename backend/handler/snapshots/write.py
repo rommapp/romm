@@ -86,7 +86,10 @@ class Outcome(enum.StrEnum):
 
 @dataclass(frozen=True)
 class UploadPart:
-    content: AssetContent
+    """One part of a push. A part with no `content` carries only a screenshot
+    for content the server already holds."""
+
+    content: AssetContent | None
     file_name: str
     screenshot: AssetContent | None = None
     screenshot_name: str | None = None
@@ -166,11 +169,18 @@ def _part_bytes(content: AssetContent) -> bytes:
     return data
 
 
+def _content(write: SnapshotWrite, key: str) -> AssetContent | None:
+    """The bytes the push sends for `key`, None when it sends none or only a screenshot."""
+    part = write.parts.get(key)
+    return part.content if part else None
+
+
 async def _clock_only(
     write: SnapshotWrite, current: Snapshot, resolved: Resolved
 ) -> bool:
     """Whether the push differs from `current` only in its save's clock."""
-    if resolved.save is None or SAVE_PART not in write.parts:
+    sent = _content(write, SAVE_PART)
+    if resolved.save is None or sent is None:
         return False
     held = db_snapshot_handler.get_stored_content(current)
     if (
@@ -179,8 +189,7 @@ async def _clock_only(
         or held.resolved().bank != resolved.bank
     ):
         return False
-    content = _part_bytes(write.parts[SAVE_PART].content)
-    return await identity_hash(content) == held.save.identity_hash
+    return await identity_hash(_part_bytes(sent)) == held.save.identity_hash
 
 
 def _parent_id(write: SnapshotWrite) -> int | None:
@@ -290,7 +299,7 @@ async def _plan(write: SnapshotWrite, match_current: bool = True) -> _Plan:
 
     missing = []
     if resolved.save and resolved.save.hash not in plan.saves:
-        if SAVE_PART not in write.parts:
+        if _content(write, SAVE_PART) is None:
             missing.append(SAVE_PART)
     uploaded = set(_state_parts(write, resolved))
     for core, bank_slots in resolved.bank.items():
@@ -308,7 +317,7 @@ def _state_parts(write: SnapshotWrite, resolved: Resolved) -> dict[str, str]:
     for core, slots in resolved.bank.items():
         for slot, state_hash in slots.items():
             key = state_part(core, slot)
-            if key in write.parts:
+            if _content(write, key) is not None:
                 found.setdefault(state_hash, key)
     return found
 
@@ -317,6 +326,7 @@ async def _store_part(
     write: SnapshotWrite, plan: _Plan, key: str, expected_hash: str
 ) -> _StoredFile:
     part = write.parts[key]
+    assert part.content is not None, "only parts that carry bytes are stored"
     is_save = key == SAVE_PART
     build_path = (
         fs_asset_handler.build_saves_file_path
@@ -476,6 +486,7 @@ async def _attach_screenshots(
             shot.save_id = row.id
         else:
             shot.state_id = row.id
+        shot.is_public = row.is_public
         shots.append(shot)
         attached.add((is_save, row.id))
     return shots

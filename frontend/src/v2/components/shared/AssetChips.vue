@@ -6,7 +6,7 @@ import { RTag } from "@v2/lib";
 import { useI18n } from "vue-i18n";
 import { useStreamingStore } from "@/stores/streaming";
 import { formatBytes } from "@/utils";
-import type { Asset } from "@/v2/utils/assets";
+import { coreOf, type Asset } from "@/v2/utils/assets";
 
 defineOptions({ inheritAttrs: false });
 
@@ -35,10 +35,10 @@ const { emulatorLabel } = useStreamingStore();
       :text="t('play.latest-version')"
     />
     <RTag
-      v-if="showEmulator && asset.emulator"
+      v-if="showEmulator && coreOf(asset)"
       tone="warning"
       size="x-small"
-      :text="emulatorLabel(asset.emulator)"
+      :text="emulatorLabel(coreOf(asset))"
     />
     <span class="r-asset-chips__size">
       {{ formatBytes(asset.file_size_bytes) }}

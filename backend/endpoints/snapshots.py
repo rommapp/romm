@@ -333,7 +333,26 @@ async def _read_push(
     parts: dict[str, UploadPart] = {}
     save_members: list[str] = []
     for key, upload in uploads.items():
-        if key.endswith(SCREENSHOT_SUFFIX) or key == SAVE_SCREENSHOT_PART:
+        if key == SAVE_SCREENSHOT_PART or key.endswith(SCREENSHOT_SUFFIX):
+            content_key = (
+                SAVE_PART
+                if key == SAVE_SCREENSHOT_PART
+                else key.removesuffix(SCREENSHOT_SUFFIX)
+            )
+            if content_key not in uploads:
+                if content_key != SAVE_PART and not STATE_PART_PATTERN.match(
+                    content_key
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Unknown part {key}",
+                    )
+                parts[content_key] = UploadPart(
+                    content=None,
+                    file_name=content_key.rsplit(":", 1)[-1],
+                    screenshot=upload.file,
+                    screenshot_name=upload.filename,
+                )
             continue
         if key != SAVE_PART and not STATE_PART_PATTERN.match(key):
             raise HTTPException(
@@ -372,7 +391,7 @@ def _clone_origin(
     if copied is not None:
         if copied_from:
             return copied_from
-    elif not parts:
+    elif all(part.content is None for part in parts.values()):
         parent_id = (
             payload.parent_snapshot_id
             if "parent_snapshot_id" in payload.model_fields_set
@@ -430,6 +449,7 @@ def _respond(result: WriteResult, viewer: User) -> JSONResponse:
 async def push_snapshot(request: Request, device_id: str | None = None) -> JSONResponse:
     """Write a snapshot into a channel. Multipart: a `manifest` JSON part, plus
     `save`, `state:<core>:<slot>` and their screenshot parts for hashes the server lacks.
+    A screenshot part may come alone, for content the server holds without one.
     """
     viewer = request.user
     device = _own_device(device_id, viewer)

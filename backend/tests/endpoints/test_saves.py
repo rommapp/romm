@@ -1573,7 +1573,7 @@ class TestDatetimeTagging:
         written_filename = call_args[1].get("filename") or call_args[0][2]
         assert DATETIME_TAG_PATTERN.search(written_filename)
 
-    @mock.patch("endpoints.saves.scan_screenshot", new_callable=mock.AsyncMock)
+    @mock.patch("handler.asset_store.scan_screenshot", new_callable=mock.AsyncMock)
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
     )
@@ -3815,6 +3815,43 @@ class TestSaveVisibilityPropagation:
         )
         refreshed = db_screenshot_handler.get_screenshot_by_id(thumb.id)
         assert refreshed is not None and refreshed.is_public is False
+
+    def test_a_screenshot_sent_with_a_shared_save_is_shared(
+        self,
+        client,
+        access_token: str,
+        editor_access_token: str,
+        rom: Rom,
+        _isolated_assets_dir,
+    ):
+        owner = {"Authorization": f"Bearer {access_token}"}
+        created = client.post(
+            f"/api/saves?rom_id={rom.id}",
+            files={
+                "saveFile": ("game.sav", BytesIO(b"SAVE"), "application/octet-stream")
+            },
+            headers=owner,
+        ).json()
+        client.put(
+            f"/api/saves/{created['id']}/visibility",
+            json={"is_public": True},
+            headers=owner,
+        )
+
+        updated = client.put(
+            f"/api/saves/{created['id']}",
+            files={
+                "saveFile": ("game.sav", BytesIO(b"SAVE2"), "application/octet-stream"),
+                "screenshotFile": ("game.png", BytesIO(b"png"), "image/png"),
+            },
+            headers=owner,
+        ).json()
+        shot = client.get(
+            updated["screenshot"]["download_path"],
+            headers={"Authorization": f"Bearer {editor_access_token}"},
+        )
+
+        assert shot.status_code == status.HTTP_200_OK
 
 
 class TestSaveFavoritesAndLabels:

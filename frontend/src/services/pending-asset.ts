@@ -17,6 +17,10 @@ import storeAuth from "@/stores/auth";
 import { errorMessage } from "@/v2/utils/errorMessage";
 import { openDb } from "@/v2/utils/idb";
 import { saveContentHash } from "@/v2/utils/saveSync/hash";
+import {
+  sendPush,
+  type SnapshotPush,
+} from "@/v2/utils/saveSync/snapshotSession";
 
 const DB_NAME = "romm-player";
 const DB_VERSION = 6;
@@ -46,6 +50,8 @@ export interface PendingAsset {
   emulator?: string;
   /** Saves only: the device the session was playing on. */
   deviceId?: string | undefined;
+  /** The snapshot push the capture makes, sent as recorded on a retry. */
+  push?: SnapshotPush | undefined;
   capturedAt: number;
 }
 
@@ -362,6 +368,10 @@ async function uploadPendingAsset(
   }
 
   try {
+    if (entry.push) {
+      await sendPush(entry.push);
+      return await settle(entry);
+    }
     const rom = await uploadTarget(entry);
     const { upload, archived } =
       entry.kind === "state"

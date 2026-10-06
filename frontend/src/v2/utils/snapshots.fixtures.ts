@@ -1,4 +1,5 @@
 import type {
+  ChannelRefSchema,
   ChannelSchema,
   DeviceRefSchema,
   SnapshotSchema,
@@ -76,6 +77,12 @@ export function snapshotFixture(
     thumbnail: null,
     ...over,
   };
+}
+
+/** A channel as a snapshot names it. */
+export function channelRefFixture(channel: ChannelSchema): ChannelRefSchema {
+  const { current: _current, snapshot_count: _count, ...ref } = channel;
+  return ref;
 }
 
 export function channelFixture(

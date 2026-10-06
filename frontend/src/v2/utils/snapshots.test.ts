@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { ChannelSchema } from "@/__generated__";
 import {
   bankOf,
-  copyOverManifest,
+  saveOverManifest,
   copySaveManifest,
-  copyTargets,
+  saveOverTargets,
   forkManifest,
   restoreManifest,
   withoutStateManifest,
@@ -65,10 +65,10 @@ describe("snapshot manifests", () => {
     expect(manifest?.states).toEqual({ bsnes: {} });
   });
 
-  it("copies over a channel expecting that channel's current", () => {
+  it("saves over a channel expecting that channel's current", () => {
     const target = channel({ id: "ch-2", current_snapshot_id: 9 });
 
-    expect(copyOverManifest(snapshot, target)).toMatchObject({
+    expect(saveOverManifest(snapshot, target)).toMatchObject({
       channel_id: "ch-2",
       expected_current_id: 9,
       parent_snapshot_id: 40,
@@ -106,6 +106,6 @@ describe("snapshot manifests", () => {
       channel({ id: "not-mine", is_own: false }),
     ];
 
-    expect(copyTargets(all, from).map((c) => c.id)).toEqual(["same-file"]);
+    expect(saveOverTargets(all, from).map((c) => c.id)).toEqual(["same-file"]);
   });
 });

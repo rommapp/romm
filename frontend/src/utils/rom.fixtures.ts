@@ -181,6 +181,7 @@ export function detailedRomFixture(
     all_user_screenshots: [],
     user_collections: [],
     user_channels: [],
+    channel_file_id: null,
     all_user_notes: [],
     download_formats: [],
     ...overrides,

@@ -49,7 +49,7 @@ import { useIdSelection } from "@/v2/composables/useIdSelection";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
-import { emulatorKey, type AssetType } from "@/v2/utils/assets";
+import { coreOf, emulatorKey, type AssetType } from "@/v2/utils/assets";
 import { errorMessage } from "@/v2/utils/errorMessage";
 import { isBackup } from "@/v2/utils/snapshots";
 
@@ -155,7 +155,7 @@ const uploadCores = computed(() => {
     props.rom.platform_slug,
     configStore.config.EJS_NETPLAY_ENABLED,
   );
-  const carried = myStates.value.map((state) => state.emulator);
+  const carried = myStates.value.map(coreOf);
   for (const core of [...offered, ...carried]) {
     if (!core || cores.has(emulatorKey(core))) continue;
     cores.set(emulatorKey(core), core);

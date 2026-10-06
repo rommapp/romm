@@ -1,3 +1,4 @@
+import { default as Cookies } from "js-cookie";
 import type {
   ChannelSchema,
   SaveFormat,
@@ -5,6 +6,7 @@ import type {
   SnapshotSchema,
 } from "@/__generated__";
 import api from "@/services/api";
+import { UNLOAD_SAVE_MAX_BYTES } from "@/services/api/save";
 
 /** The backend's `CHANNEL_LABEL_MAX_LENGTH`, so the field stops at the limit. */
 export const CHANNEL_LABEL_MAX_LENGTH = 255;
@@ -30,6 +32,41 @@ export interface SnapshotManifest {
   save?: ManifestSave | null;
   states?: Bank;
   approve_hardcore_downgrade?: boolean;
+  emulator?: string;
+  emulator_version?: string;
+  core?: string;
+}
+
+/** A file a push carries, under the part name the manifest's hash maps to. */
+export interface SnapshotPart {
+  /** `save`, or `state:<core>:<slot>`. */
+  key: string;
+  file: File;
+  screenshot?: File | undefined;
+}
+
+export const SAVE_PART = "save";
+
+export function statePart(core: string, slot: string): string {
+  return `state:${core}:${slot}`;
+}
+
+function screenshotPart(key: string): string {
+  return key === SAVE_PART ? "save_screenshot" : `${key}:screenshot`;
+}
+
+function pushFormData(
+  manifest: SnapshotManifest,
+  parts: readonly SnapshotPart[],
+): FormData {
+  const formData = new FormData();
+  formData.append("manifest", JSON.stringify(manifest));
+  for (const part of parts) {
+    formData.append(part.key, part.file);
+    if (part.screenshot)
+      formData.append(screenshotPart(part.key), part.screenshot);
+  }
+  return formData;
 }
 
 async function createChannel({
@@ -97,11 +134,62 @@ async function getChannelHistory({
   });
 }
 
-/** A push whose content the server already holds, so it carries no file parts. */
-async function pushSnapshot({ manifest }: { manifest: SnapshotManifest }) {
-  const formData = new FormData();
-  formData.append("manifest", JSON.stringify(manifest));
-  return api.post<SnapshotSchema>("/snapshots", formData);
+async function getSnapshot({ id }: { id: number }) {
+  return api.get<SnapshotSchema>(`/snapshots/${id}`);
+}
+
+/**
+ * Writes a snapshot. `parts` carry the files for hashes the server lacks; a
+ * push that only names held content sends none. A 409 rejects with a
+ * `SnapshotConflictSchema` body when the channel moved on and the push was
+ * kept as a branch.
+ */
+async function pushSnapshot({
+  manifest,
+  parts = [],
+  deviceId,
+}: {
+  manifest: SnapshotManifest;
+  parts?: readonly SnapshotPart[];
+  deviceId?: string | undefined;
+}) {
+  return api.post<SnapshotSchema>("/snapshots", pushFormData(manifest, parts), {
+    params: { device_id: deviceId },
+  });
+}
+
+/**
+ * `pushSnapshot` while the page unloads, which nothing outlives to await.
+ *
+ * Returns:
+ *   False when the files are too big for a keepalive body.
+ */
+function sendSnapshotOnUnload({
+  manifest,
+  parts,
+  deviceId,
+}: {
+  manifest: SnapshotManifest;
+  parts: readonly SnapshotPart[];
+  deviceId?: string | undefined;
+}): boolean {
+  const size = parts.reduce(
+    (total, part) => total + part.file.size + (part.screenshot?.size ?? 0),
+    0,
+  );
+  if (size > UNLOAD_SAVE_MAX_BYTES) return false;
+  const csrfToken = Cookies.get("romm_csrftoken");
+  void fetch(
+    api.getUri({ url: "/snapshots", params: { device_id: deviceId } }),
+    {
+      method: "POST",
+      body: pushFormData(manifest, parts),
+      keepalive: true,
+      credentials: "same-origin",
+      ...(csrfToken ? { headers: { "x-csrftoken": csrfToken } } : {}),
+    },
+  ).catch(() => undefined);
+  return true;
 }
 
 async function setSnapshotPinned({
@@ -121,6 +209,8 @@ export default {
   getDetachedChannels,
   attachChannel,
   getChannelHistory,
+  getSnapshot,
   pushSnapshot,
+  sendSnapshotOnUnload,
   setSnapshotPinned,
 };

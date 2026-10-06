@@ -1085,6 +1085,7 @@ parent's states. Hardcore channels and neutral current saves stay out.
   browser uploads, or a source with none, belong to the caller's web device.
 - **ROM detail:** `user_channels` lists the caller's channels on the ROM, then other
   users' public ones, each with its current snapshot and `thumbnail`.
+  `channel_file_id` is the file a new channel on the ROM keys to (`legacy.sync_file`).
 - **Retention:** each push keeps the channel's newest `SNAPSHOT_RETENTION`; the
   `prune_snapshots` task drops branches after `SNAPSHOT_BRANCH_LIFETIME_DAYS` (30). Pruning deletes the content
   rows only the pruned snapshots held, so a legacy save is never removed by it.

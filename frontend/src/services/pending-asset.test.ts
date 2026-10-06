@@ -25,6 +25,11 @@ vi.mock("@/services/api/state", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/api/state")>()),
   default: stateApiMocks,
 }));
+const snapshotApiMocks = vi.hoisted(() => ({ pushSnapshot: vi.fn() }));
+vi.mock("@/services/api/snapshot", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/api/snapshot")>()),
+  default: snapshotApiMocks,
+}));
 
 // happy-dom ships no IndexedDB, which is also what a locked-down origin or a
 // private window looks like. Losing the frame must never cost the player a save.
@@ -272,6 +277,43 @@ describe("syncPendingAssets", () => {
       "game [2024-05-06 12-38-09-010].png",
     );
     expect(rows.size).toBe(0);
+  });
+
+  it("sends a held snapshot push as it was recorded", async () => {
+    const push = {
+      manifest: { rom_file_id: 7, expected_current_id: 42, label: "default" },
+      files: [{ key: "state:mgba:0", bytes, fileName: "game.state" }],
+      deviceId: "device-1",
+    };
+    snapshotApiMocks.pushSnapshot.mockResolvedValue({ data: {} });
+    queue({ id: "push:taken", kind: "state", push });
+
+    await expect(syncPendingAssets()).resolves.toMatchObject({
+      synced: [{ kind: "state", romId: 1 }],
+      dropped: [],
+    });
+
+    const request = snapshotApiMocks.pushSnapshot.mock.calls[0]![0];
+    expect(request.manifest).toEqual(push.manifest);
+    expect(request.deviceId).toBe("device-1");
+    expect(request.parts[0].file.name).toBe("game.state");
+    expect(stateApiMocks.uploadStates).not.toHaveBeenCalled();
+    expect(rows.size).toBe(0);
+  });
+
+  it("holds on to a snapshot push the server could not take", async () => {
+    snapshotApiMocks.pushSnapshot.mockRejectedValue(refusal(500));
+    queue({
+      id: "push:kept",
+      push: {
+        manifest: { rom_file_id: 7, expected_current_id: 42 },
+        files: [],
+      },
+    });
+
+    await syncPendingAssets();
+
+    expect(rows.size).toBe(1);
   });
 
   // A server that is down or failing has not judged the asset, so it keeps it.

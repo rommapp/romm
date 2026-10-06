@@ -9,6 +9,7 @@ import type {
 } from "@/__generated__";
 import { formatRelativeDate } from "@/utils";
 import { useDeviceLabel } from "@/v2/composables/useDeviceLabel";
+import { emulatorKey } from "@/v2/utils/assets";
 
 /** What the drawer shows: a snapshot, or a save an older client filed without one. */
 export type ViewerTarget =
@@ -21,18 +22,22 @@ const props = withDefaults(
   defineProps<{
     target: ViewerTarget | null;
     /** The user's other channels on the same file. */
-    copyTargets?: ChannelSchema[];
+    saveOverTargets?: ChannelSchema[];
+    /** The in-browser player's cores for this ROM; empty when it cannot run it. */
+    playableCores?: string[];
     busy?: boolean;
   }>(),
-  { copyTargets: () => [], busy: false },
+  { saveOverTargets: () => [], playableCores: () => [], busy: false },
 );
 
 const emit = defineEmits<{
   close: [];
+  /** Boot the snapshot, from one of its states when given. */
+  play: [stateId: number | null];
   restore: [];
   removeState: [core: string, slot: string];
   fork: [];
-  copyOver: [target: ChannelSchema];
+  saveOver: [target: ChannelSchema];
   togglePin: [];
   makeSnapshot: [];
   download: [path: string, name: string];
@@ -108,6 +113,24 @@ const cores = computed(() =>
     ),
 );
 
+function isPlayableCore(core: string): boolean {
+  return (
+    own.value &&
+    props.playableCores.some((c) => emulatorKey(c) === emulatorKey(core))
+  );
+}
+
+/** The snapshot boots in the browser from a state a core there runs, or from its native save. */
+const canPlay = computed(() => {
+  if (!own.value || !snapshot.value || props.playableCores.length === 0) {
+    return false;
+  }
+  return (
+    snapshot.value.save?.format !== "neutral" ||
+    Object.keys(snapshot.value.states).some(isPlayableCore)
+  );
+});
+
 function slotLabel(slot: string): string {
   return slot === "auto"
     ? t("channels.slot-auto")
@@ -152,6 +175,15 @@ const actions = computed<Action[]>(() => {
     return list;
   }
   if (!snapshot.value) return list;
+  if (canPlay.value) {
+    list.push({
+      key: "play",
+      label: t("channels.play-from-here"),
+      icon: "mdi-play",
+      writes: false,
+      run: () => emit("play", null),
+    });
+  }
   if (!isCurrent.value && canWrite.value) {
     list.push({
       key: "restore",
@@ -169,13 +201,13 @@ const actions = computed<Action[]>(() => {
     writes: true,
     run: () => emit("fork"),
   });
-  for (const other of props.copyTargets) {
+  for (const other of props.saveOverTargets) {
     list.push({
-      key: `copy-${other.id}`,
-      label: t("channels.copy-over-named", { label: other.label }),
-      icon: "mdi-content-copy",
+      key: `save-over-${other.id}`,
+      label: t("channels.save-over-named", { label: other.label }),
+      icon: "mdi-source-merge",
       writes: true,
-      run: () => emit("copyOver", other),
+      run: () => emit("saveOver", other),
     });
   }
   return list;
@@ -270,6 +302,21 @@ const overflow = computed(() => actions.value.slice(1));
                   state.content_hash?.slice(0, 8)
                 }}</span>
               </figcaption>
+              <RBtn
+                v-if="isPlayableCore(core)"
+                class="r-snapshot-viewer__slot-play"
+                icon="mdi-play"
+                variant="flat"
+                size="x-small"
+                :tooltip="t('channels.play-state')"
+                :aria-label="
+                  t('channels.play-state-named', {
+                    core,
+                    slot: slotLabel(slot),
+                  })
+                "
+                @click="emit('play', state.id)"
+              />
               <RBtn
                 v-if="canWrite"
                 class="r-snapshot-viewer__slot-remove"
@@ -458,6 +505,11 @@ const overflow = computed(() => actions.value.slice(1));
   position: absolute;
   top: var(--r-space-1);
   right: var(--r-space-1);
+}
+.r-snapshot-viewer__slot-play {
+  position: absolute;
+  top: var(--r-space-1);
+  left: var(--r-space-1);
 }
 .r-snapshot-viewer__actions {
   display: flex;

@@ -17,6 +17,7 @@ from handler.asset_store import (
     prune_save_slot,
     remove_save,
     rename_asset,
+    store_screenshot,
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
@@ -31,7 +32,7 @@ from handler.database import (
 )
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import check_upload_archive
-from handler.scan_handler import scan_save, scan_screenshot
+from handler.scan_handler import scan_save
 from handler.snapshots.bridge import hold_legacy_upload
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -430,36 +431,13 @@ async def add_save(
         _increment_session_counter(session_id, request.user.id)
 
     if screenshotFile and sanitized_screenshot_filename:
-        screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
+        await store_screenshot(
+            request.user,
+            rom,
+            screenshotFile,
+            sanitized_screenshot_filename,
+            is_public=db_save.is_public,
         )
-
-        await fs_asset_handler.write_file(
-            file=screenshotFile,
-            path=screenshots_path,
-            filename=sanitized_screenshot_filename,
-        )
-
-        scanned_screenshot = await scan_screenshot(
-            file_name=sanitized_screenshot_filename,
-            user=request.user,
-            platform_fs_slug=rom.platform_slug,
-            rom_id=rom.id,
-        )
-        db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=sanitized_screenshot_filename,
-            rom_id=rom.id,
-            user_id=request.user.id,
-        )
-        if db_screenshot:
-            db_screenshot = db_screenshot_handler.update_screenshot(
-                db_screenshot.id,
-                {"file_size_bytes": scanned_screenshot.file_size_bytes},
-            )
-        else:
-            scanned_screenshot.rom_id = rom.id
-            scanned_screenshot.user_id = request.user.id
-            db_screenshot_handler.add_screenshot(screenshot=scanned_screenshot)
 
     # After the screenshot, so the snapshot it may write can show it.
     if slot:
@@ -717,39 +695,13 @@ async def update_save(
         db_snapshot_handler.refresh_backup_digests(save_id=db_save.id)
 
     if screenshotFile and sanitized_screenshot_filename:
-        screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user,
-            platform_fs_slug=rom.platform_slug,
-            rom_id=rom.id,
+        await store_screenshot(
+            request.user,
+            rom,
+            screenshotFile,
+            sanitized_screenshot_filename,
+            is_public=db_save.is_public,
         )
-
-        await fs_asset_handler.write_file(
-            file=screenshotFile,
-            path=screenshots_path,
-            filename=sanitized_screenshot_filename,
-        )
-
-        # Scan or update screenshot
-        scanned_screenshot = await scan_screenshot(
-            file_name=sanitized_screenshot_filename,
-            user=request.user,
-            platform_fs_slug=rom.platform_slug,
-            rom_id=rom.id,
-        )
-        db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=sanitized_screenshot_filename,
-            rom_id=rom.id,
-            user_id=request.user.id,
-        )
-        if db_screenshot:
-            db_screenshot = db_screenshot_handler.update_screenshot(
-                db_screenshot.id,
-                {"file_size_bytes": scanned_screenshot.file_size_bytes},
-            )
-        else:
-            scanned_screenshot.rom_id = rom.id
-            scanned_screenshot.user_id = request.user.id
-            db_screenshot_handler.add_screenshot(screenshot=scanned_screenshot)
 
     # Set the last played time for the current user
     rom_user = db_rom_handler.get_rom_user(rom.id, request.user.id)
@@ -778,8 +730,10 @@ def update_save_visibility(
     id: int,
     is_public: Annotated[bool, Body(embed=True)],
 ) -> SaveSchema:
-    """Toggle a save's public/private visibility (owner only)."""
+    """Toggle a save's public/private visibility (owner only). A save a channel
+    holds is shared with the channel."""
     save = _owned_save_or_404(id, request.user.id)
+    assert_backup(save)
 
     updated = db_save_handler.update_save(id, {"is_public": is_public}, touch=False)
 

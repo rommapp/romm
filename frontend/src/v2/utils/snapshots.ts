@@ -5,6 +5,35 @@ import type {
 } from "@/__generated__";
 import type { Bank, SnapshotManifest } from "@/services/api/snapshot";
 
+/** The backend's `DEFAULT_CHANNEL_LABEL`. */
+export const DEFAULT_CHANNEL_LABEL = "default";
+
+/** The backend's `legacy.DEFAULT_SLOTS`. */
+const DEFAULT_SLOTS = new Set(["autosave", "default"]);
+
+/** The channel a save slot files into, as the backend's `channel_label` maps it. */
+export function channelLabelForSlot(slot: string): string {
+  const label = slot.trim();
+  return !label || DEFAULT_SLOTS.has(label.toLowerCase())
+    ? DEFAULT_CHANNEL_LABEL
+    : label;
+}
+
+/** The state slot a snapshot client boots from by default. */
+export const AUTO_STATE_SLOT = "auto";
+
+/** RetroArch's default slot, where a client with a single manual slot files its captures. */
+export const MANUAL_STATE_SLOT = "0";
+
+/** The labels of the user's own channels, by id. */
+export function ownChannelLabels(
+  channels: readonly Pick<ChannelSchema, "id" | "label" | "is_own">[],
+): Record<string, string> {
+  return Object.fromEntries(
+    channels.filter((c) => c.is_own).map((c) => [c.id, c.label]),
+  );
+}
+
 /** A save or state no channel holds, which the user manages freely. */
 export function isBackup(asset: { channel_id?: string | null }): boolean {
   return !asset.channel_id;
@@ -71,8 +100,8 @@ export function withoutStateManifest(
   });
 }
 
-/** `snapshot` copied on top of another channel on the same file. */
-export function copyOverManifest(
+/** `snapshot` saved over another channel on the same file, as its new current. */
+export function saveOverManifest(
   snapshot: SnapshotSchema,
   target: ChannelTarget,
 ): SnapshotManifest | null {
@@ -103,8 +132,8 @@ export function copySaveManifest(
   return intoChannel(channel, { save: { copy_of: save.id } });
 }
 
-/** Channels a snapshot can be copied over: the user's own on the same file. */
-export function copyTargets(
+/** Channels a snapshot can be saved over: the user's own on the same file. */
+export function saveOverTargets(
   channels: ChannelSchema[],
   from: Pick<ChannelSchema, "id" | "rom_file_id">,
 ): ChannelSchema[] {

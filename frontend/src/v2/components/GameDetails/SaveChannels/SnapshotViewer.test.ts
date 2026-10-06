@@ -18,9 +18,13 @@ const RMenu = {
   template: `<div class="menu"><slot name="activator" :props="{}" /><slot /></div>`,
 };
 
-function mountViewer(target: ViewerTarget, copyTargets: ChannelSchema[] = []) {
+function mountViewer(
+  target: ViewerTarget,
+  saveOverTargets: ChannelSchema[] = [],
+  playableCores: string[] = [],
+) {
   return mount(SnapshotViewer, {
-    props: { target, copyTargets },
+    props: { target, saveOverTargets, playableCores },
     global: { stubs: { RDrawer, RMenu, RImg: true, RTooltip: true } },
   });
 }
@@ -51,6 +55,68 @@ describe("SnapshotViewer", () => {
 
     expect(wrapper.emitted("restore")).toHaveLength(1);
     expect(wrapper.emitted("togglePin")).toHaveLength(1);
+  });
+
+  it("leads with play when the browser can run the snapshot", async () => {
+    const wrapper = mountViewer(
+      { kind: "snapshot", channel: channelFixture(), snapshot: older },
+      [],
+      ["snes9x"],
+    );
+
+    await wrapper.find(".r-snapshot-viewer__primary").trigger("click");
+
+    expect(primaryLabel(wrapper)).toBe("channels.play-from-here");
+    expect(wrapper.emitted("play")).toEqual([[null]]);
+  });
+
+  it("plays a bank state only in a core the browser runs", async () => {
+    const snapshot = snapshotFixture({
+      states: {
+        snes9x: { auto: stateFixture("a1b2", { id: 7 }) },
+        bsnes: { auto: stateFixture("c3d4", { id: 8 }) },
+      },
+    });
+    const wrapper = mountViewer(
+      { kind: "snapshot", channel: channelFixture(), snapshot },
+      [],
+      ["snes9x"],
+    );
+
+    const plays = wrapper.findAll(".r-snapshot-viewer__slot-play");
+    await plays[0]?.trigger("click");
+
+    expect(plays).toHaveLength(1);
+    expect(wrapper.emitted("play")).toEqual([[7]]);
+  });
+
+  it("offers no play for a neutral save without a state the browser runs", () => {
+    const snapshot = snapshotFixture({
+      save: { ...snapshotFixture().save!, format: "neutral" },
+      states: {},
+    });
+    const wrapper = mountViewer(
+      { kind: "snapshot", channel: channelFixture(), snapshot },
+      [],
+      ["snes9x"],
+    );
+
+    expect(button(wrapper, "channels.play-from-here")).toBeUndefined();
+  });
+
+  it("offers no play on another user's channel", () => {
+    const wrapper = mountViewer(
+      {
+        kind: "snapshot",
+        channel: channelFixture({ is_own: false, is_public: true }),
+        snapshot: older,
+      },
+      [],
+      ["snes9x"],
+    );
+
+    expect(button(wrapper, "channels.play-from-here")).toBeUndefined();
+    expect(wrapper.find(".r-snapshot-viewer__slot-play").exists()).toBe(false);
   });
 
   it("leads with restore on an older snapshot", () => {
@@ -148,20 +214,20 @@ describe("SnapshotViewer", () => {
     expect(button(wrapper, "channels.restore")).toBeDefined();
   });
 
-  it("offers copy-over only when another channel shares the file", async () => {
+  it("offers save-over only when another channel shares the file", async () => {
     const target: ViewerTarget = {
       kind: "snapshot",
       channel: channelFixture(),
       snapshot: older,
     };
-    const copyOver = 'channels.copy-over-named:{"label":"Speedrun"}';
-    expect(button(mountViewer(target), copyOver)).toBeUndefined();
+    const saveOver = 'channels.save-over-named:{"label":"Speedrun"}';
+    expect(button(mountViewer(target), saveOver)).toBeUndefined();
 
     const other = channelFixture({ id: "other", label: "Speedrun" });
     const wrapper = mountViewer(target, [other]);
-    await button(wrapper, copyOver)?.trigger("click");
+    await button(wrapper, saveOver)?.trigger("click");
 
-    expect(wrapper.emitted("copyOver")?.[0]).toEqual([other]);
+    expect(wrapper.emitted("saveOver")?.[0]).toEqual([other]);
   });
 
   it("explains an empty hardcore bank", () => {

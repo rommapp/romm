@@ -142,7 +142,11 @@ async def add_state(
 
     if screenshotFile and sanitized_screenshot_filename:
         await store_screenshot(
-            request.user, rom, screenshotFile, sanitized_screenshot_filename
+            request.user,
+            rom,
+            screenshotFile,
+            sanitized_screenshot_filename,
+            is_public=db_state.is_public,
         )
 
     # Set the last played time for the current user
@@ -296,6 +300,7 @@ async def update_state(
             db_state.attached_rom,
             screenshotFile,
             sanitized_screenshot_filename,
+            is_public=db_state.is_public,
         )
 
     # Set the last played time for the current user
@@ -322,8 +327,10 @@ def update_state_visibility(
     id: int,
     is_public: Annotated[bool, Body(embed=True)],
 ) -> StateSchema:
-    """Toggle a state's public/private visibility (owner only)."""
+    """Toggle a state's public/private visibility (owner only). A state a
+    channel holds is shared with the channel."""
     state = _owned_state_or_404(id, request.user.id)
+    assert_backup(state)
 
     updated = db_state_handler.update_state(id, {"is_public": is_public}, touch=False)
 

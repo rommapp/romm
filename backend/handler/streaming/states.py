@@ -274,7 +274,7 @@ def fetch_state_screenshot(container: ResolvedContainer, slot: int) -> bytes | N
 
 
 async def store_state_screenshot(
-    user: User, rom: Rom, state_filename: str, image: bytes
+    user: User, rom: Rom, state_filename: str, image: bytes, is_public: bool = False
 ) -> None:
     """Bind a thumbnail to a state so the resume picker shows the right frame.
 
@@ -293,6 +293,7 @@ async def store_state_screenshot(
         rom,
         image,
         sanitize_filename(f"{os.path.splitext(state_filename)[0]}.png"),
+        is_public=is_public,
     )
 
 
@@ -464,7 +465,9 @@ async def store_state_asset(
     # Best-effort: a missing or unreadable screenshot must not fail the sync.
     if screenshot is not None:
         try:
-            await store_state_screenshot(user, rom, stamped, screenshot)
+            await store_state_screenshot(
+                user, rom, stamped, screenshot, is_public=stored.is_public
+            )
         except Exception:
             log.exception("failed to store state screenshot for %s", stamped)
 

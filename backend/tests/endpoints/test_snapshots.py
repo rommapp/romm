@@ -517,6 +517,79 @@ def test_sharing_a_channel_serves_its_thumbnails_until_it_is_unshared(
     assert unshared.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_a_screenshot_added_to_shared_content_is_served_to_others(
+    client: TestClient,
+    headers: dict[str, str],
+    editor_headers: dict[str, str],
+    game_file: RomFile,
+):
+    body = first_push(client, headers, game_file)
+    client.patch(
+        f"/api/channels/{body['channel']['id']}",
+        json={"is_public": True},
+        headers=headers,
+    )
+
+    again = post(
+        client,
+        headers,
+        manifest(
+            game_file,
+            channel_id=body["channel"]["id"],
+            expected_current_id=body["id"],
+            save=save_entry(),
+        ),
+        {"save_screenshot": ("game.png", b"png")},
+    )
+    screenshot = again.json()["save"]["screenshot"]
+    shared = client.get(screenshot["download_path"], headers=editor_headers)
+
+    assert again.status_code == status.HTTP_200_OK
+    assert shared.status_code == status.HTTP_200_OK
+
+
+def test_a_push_that_expects_nothing_of_a_channel_lands_as_a_branch(
+    client: TestClient, headers: dict[str, str], game_file: RomFile
+):
+    body = first_push(client, headers, game_file)
+    other = b"other sram"
+
+    response = post(
+        client,
+        headers,
+        manifest(
+            game_file,
+            channel_id=body["channel"]["id"],
+            save=save_entry(other),
+        ),
+        {"save": ("game.srm", other)},
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    branch = response.json()["branch"]
+    assert branch["kind"] == "branch"
+    assert branch["parent_snapshot_id"] is None
+    assert branch["save"]["content_hash"] == md5(other)
+
+
+@pytest.mark.parametrize("kind", ["saves", "states"])
+def test_a_row_a_channel_holds_is_shared_with_the_channel(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, kind: str
+):
+    body = first_push(client, headers, game_file)
+    row_id = (
+        body["save"]["id"]
+        if kind == "saves"
+        else body["states"]["snes9x"]["auto"]["id"]
+    )
+
+    response = client.put(
+        f"/api/{kind}/{row_id}/visibility", json={"is_public": True}, headers=headers
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+
+
 def test_only_the_owner_renames_or_shares_a_channel(
     client: TestClient,
     headers: dict[str, str],
@@ -739,6 +812,27 @@ def test_a_detached_channel_is_listed_and_attached_to_a_file_by_hand(
     assert again.status_code == status.HTTP_409_CONFLICT
     assert [channel["id"] for channel in detail["user_channels"]] == [channel_id]
     assert detail["user_channels"][0]["current"]["id"] == body["id"]
+
+
+def test_the_rom_names_the_file_its_channels_key_to(
+    client: TestClient, headers: dict[str, str], rom: Rom
+):
+    added = {
+        name: db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name=name,
+                file_path=rom.fs_path,
+                file_size_bytes=8,
+            )
+        )
+        for name in ("game (track 1).bin", "game.cue", "game (track 2).bin")
+    }
+    cue = added["game.cue"]
+
+    detail = client.get(f"/api/roms/{rom.id}", headers=headers).json()
+
+    assert detail["channel_file_id"] == cue.id
 
 
 def test_a_device_reports_the_snapshot_it_applied(

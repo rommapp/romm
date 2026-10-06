@@ -104,12 +104,20 @@ async def store_state_file(
 
 
 async def store_screenshot(
-    user: User, rom: Rom, content: AssetContent, filename: str
+    user: User,
+    rom: Rom,
+    content: AssetContent,
+    filename: str,
+    is_public: bool = False,
 ) -> Screenshot:
     """Write a screenshot and file its row, updating one already at that name.
 
     `State.screenshot` matches by filename stem, so a state thumbnail binds
     itself by reusing the state's stem with a .png extension.
+
+    Args:
+        is_public: the visibility of the save or state it pictures, which the
+            screenshot route checks on its own row.
     """
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
         user=user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
@@ -130,10 +138,12 @@ async def store_screenshot(
     if existing is None:
         scanned.rom_id = rom.id
         scanned.user_id = user.id
+        scanned.is_public = is_public
         return db_screenshot_handler.add_screenshot(screenshot=scanned)
 
     return db_screenshot_handler.update_screenshot(
-        existing.id, {"file_size_bytes": scanned.file_size_bytes}
+        existing.id,
+        {"file_size_bytes": scanned.file_size_bytes, "is_public": is_public},
     )
 
 

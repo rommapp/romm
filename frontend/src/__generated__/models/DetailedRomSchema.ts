@@ -123,6 +123,7 @@ export type DetailedRomSchema = {
     all_user_saves: Array<UserSaveSchema>;
     all_user_states: Array<UserStateSchema>;
     user_channels: Array<ChannelSchema>;
+    channel_file_id: (number | null);
     user_screenshots: Array<ScreenshotSchema>;
     all_user_screenshots: Array<UserScreenshotSchema>;
     user_collections: Array<UserCollectionSchema>;

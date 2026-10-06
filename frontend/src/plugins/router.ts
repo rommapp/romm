@@ -27,6 +27,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import type { User } from "@/stores/users";
 import { DEFAULT_TITLE } from "@/v2/composables/usePageTitle";
+import { v2RouteForConsole } from "@/v2/router/consoleRedirect";
 import {
   notFoundComponent,
   v2Layouts,
@@ -677,6 +678,10 @@ watch(uiVersion, () => {
     load?.().catch(() => {});
   }
 });
+
+router.beforeEach((to) =>
+  uiVersion.value === "v2" ? (v2RouteForConsole(to) ?? true) : true,
+);
 
 router.beforeEach((to, from) => {
   const [active, inactive] = viewNames();

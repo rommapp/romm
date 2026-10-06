@@ -50,11 +50,21 @@ describe("slotChoices", () => {
     ]);
   });
 
-  it("matches slot names exactly, like the backend", () => {
-    expect(slotChoices([save(1, "Autosave")])).toEqual([
+  it("folds names into one channel as the backend does, ignoring case", () => {
+    expect(
+      slotChoices([save(1, "Autosave"), save(2, "Speedrun")], ["speedrun"]),
+    ).toEqual([
       NEW_SLOT_CHOICE,
       existingSlot("autosave"),
-      existingSlot("Autosave"),
+      existingSlot("Speedrun"),
+    ]);
+  });
+
+  it("offers the channels snapshot clients created", () => {
+    expect(slotChoices([], ["default", "Hard mode"])).toEqual([
+      NEW_SLOT_CHOICE,
+      existingSlot("autosave"),
+      existingSlot("Hard mode"),
     ]);
   });
 });
@@ -96,5 +106,14 @@ describe("slotForSave", () => {
       existingSlot("main"),
     );
     expect(slotForSave(save(2), NEW_SLOT_CHOICE)).toBe(NEW_SLOT_CHOICE);
+  });
+
+  it("follows the channel that holds a save with no slot", () => {
+    expect(slotForSave(save(3), NEW_SLOT_CHOICE, "Hard mode")).toEqual(
+      existingSlot("Hard mode"),
+    );
+    expect(slotForSave(save(4), NEW_SLOT_CHOICE, "default")).toEqual(
+      existingSlot("autosave"),
+    );
   });
 });

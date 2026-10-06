@@ -1,14 +1,23 @@
-import { RBtn, RSelect } from "@v2/lib";
+import { RAlert, RBtn, RSelect, RSliderBtnGroup } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt from "mitt";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
+import type { SnapshotSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
 import type { Events } from "@/types/emitter";
 import type { LaunchState, SaveSyncOutcome } from "@/types/rommNative";
+import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import { detailedRomFixture, romFileFixture } from "@/utils/rom.fixtures";
+import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
+import {
+  channelFixture,
+  channelRefFixture,
+  snapshotFixture,
+  stateFixture as bankState,
+} from "@/v2/utils/snapshots.fixtures";
 import EmulatorJS from "./EmulatorJS.vue";
 
 const mocks = vi.hoisted(() => ({
@@ -34,6 +43,18 @@ const mocks = vi.hoisted(() => ({
   // A box rather than the value: the store's getter has to read something the
   // watcher can track, so the mock swaps this for a reactive object.
   syncOutcome: { value: null as SaveSyncOutcome | null },
+  route: { query: {} as Record<string, string> },
+  getSnapshot: vi.fn(),
+  snackbarError: vi.fn(),
+}));
+
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRoute: () => mocks.route,
+}));
+
+vi.mock("@/services/api/snapshot", () => ({
+  default: { getSnapshot: mocks.getSnapshot },
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -164,7 +185,7 @@ vi.mock("@/v2/composables/usePlayerNav", () => ({
 vi.mock("@/v2/composables/useSnackbar", () => ({
   useSnackbar: () => ({
     success: vi.fn(),
-    error: vi.fn(),
+    error: mocks.snackbarError,
     info: vi.fn(),
   }),
 }));
@@ -271,6 +292,9 @@ beforeEach(() => {
   mocks.honoursFullscreen = false;
   mocks.honoursDisc = false;
   mocks.fullscreen.value = false;
+  mocks.route.query = {};
+  mocks.getSnapshot.mockReset();
+  mocks.snackbarError.mockReset();
 });
 
 describe("EmulatorJS launch screen — play routes", () => {
@@ -623,6 +647,122 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
     await flushPromises();
 
     expect(slotItems(wrapper)).toHaveLength(2);
+  });
+});
+
+describe("EmulatorJS launch screen — booting a snapshot", () => {
+  const channel = channelFixture({
+    id: "chan",
+    label: "Hard mode",
+    current_snapshot_id: 50,
+  });
+  const save = saveFixture({ id: 1911, channel_id: "chan" });
+  const auto = stateFixture({ id: 7, emulator: "snes9x", core: "snes9x" });
+  const zero = stateFixture({ id: 8, emulator: "snes9x", core: "snes9x" });
+  const SNAPSHOT_ROM = detailedRomFixture({
+    ...ROM,
+    user_channels: [channel],
+    user_saves: [save],
+    user_states: [auto, zero],
+  });
+
+  function snapshot(over: Partial<SnapshotSchema> = {}): SnapshotSchema {
+    return snapshotFixture({
+      id: 30,
+      channel: channelRefFixture(channel),
+      states: {
+        snes9x: {
+          auto: bankState("a1b2", { id: 7 }),
+          "0": bankState("c3d4", { id: 8 }),
+        },
+      },
+      ...over,
+    });
+  }
+
+  function previewed(wrapper: VueWrapper): unknown {
+    return propOf(wrapper.findComponent(AssetPreview), "asset");
+  }
+
+  function alerts(wrapper: VueWrapper): unknown[] {
+    return wrapper
+      .findAllComponents(RAlert)
+      .map((alert) => propOf(alert, "text"));
+  }
+
+  beforeEach(() => {
+    mocks.getRom.mockResolvedValue({ data: SNAPSHOT_ROM });
+    mocks.cores = ["snes9x"];
+    mocks.route.query = { snapshot: "30" };
+  });
+
+  it("files a session booted from a state under the snapshot's channel", async () => {
+    mocks.getSnapshot.mockResolvedValue({ data: snapshot() });
+    mocks.getRom.mockResolvedValue({
+      data: { ...SNAPSHOT_ROM, user_saves: [] },
+    });
+
+    const wrapper = await launchScreen();
+    await wrapper
+      .findComponent(RSliderBtnGroup)
+      .vm.$emit("update:modelValue", "save");
+    const slot = wrapper
+      .findAllComponents(RSelect)
+      .find((c) => propOf(c, "info") === "play.slot-tooltip");
+
+    expect(slot && propOf(slot, "modelValue")).toEqual({
+      kind: "existing",
+      slot: "Hard mode",
+    });
+  });
+
+  it("boots the snapshot's auto state over its raw save", async () => {
+    mocks.getSnapshot.mockResolvedValue({ data: snapshot() });
+
+    const wrapper = await launchScreen();
+
+    expect(previewed(wrapper)).toEqual(auto);
+  });
+
+  it("boots the state the link names", async () => {
+    mocks.route.query = { snapshot: "30", state: "8" };
+    mocks.getSnapshot.mockResolvedValue({ data: snapshot() });
+
+    const wrapper = await launchScreen();
+
+    expect(previewed(wrapper)).toEqual(zero);
+  });
+
+  it("falls back to the save without a state this player runs", async () => {
+    mocks.getSnapshot.mockResolvedValue({
+      data: snapshot({ states: { bsnes: { auto: bankState("e5f6") } } }),
+    });
+
+    const wrapper = await launchScreen();
+
+    expect(previewed(wrapper)).toEqual(save);
+  });
+
+  it("says saving rewinds the channel when the snapshot is not its current", async () => {
+    mocks.getSnapshot.mockResolvedValue({ data: snapshot() });
+
+    const wrapper = await launchScreen();
+
+    expect(alerts(wrapper)).toContain("play.snapshot-rewinds:Hard mode");
+  });
+
+  it("refuses a snapshot from a channel that is not the user's", async () => {
+    mocks.getSnapshot.mockResolvedValue({
+      data: snapshot({
+        channel: channelRefFixture(channelFixture({ id: "theirs" })),
+      }),
+    });
+
+    await launchScreen();
+
+    expect(mocks.snackbarError).toHaveBeenCalledWith(
+      "play.snapshot-unavailable",
+    );
   });
 });
 

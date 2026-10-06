@@ -842,18 +842,24 @@ All synthesized with sine/noise blend, exponential envelopes, low-pass filter, a
 
 ### EmulatorJS
 
-**Location:** `views/Player/EmulatorJS/`
+**Location:** `v2/views/Player/EmulatorJS.vue` (launch screen), `v2/views/Player/EmulatorJSPlayer.vue` and `ejsRuntime.ts` (the running emulator). The v1 player keeps its own copy in `views/Player/EmulatorJS/`, which writes saves through the legacy slot API.
 
-| Feature         | Details                                        |
-| --------------- | ---------------------------------------------- |
-| Core selection  | Platform-specific core mapping (40+ platforms) |
-| BIOS/firmware   | Selectable from uploaded firmware              |
-| Save management | Upload, download, delete saves & states        |
-| Multi-disc      | Disc selection for multi-file games            |
-| Cache           | IndexedDB cache for game data                  |
-| Fullscreen      | With keyboard lock                             |
-| Netplay         | Socket.IO-based multiplayer                    |
-| Controls        | Per-core configurable via config.yml           |
+| Feature         | Details                                                     |
+| --------------- | ----------------------------------------------------------- |
+| Core selection  | Platform-specific core mapping (40+ platforms)              |
+| BIOS/firmware   | Selectable from uploaded firmware                           |
+| Save management | Snapshot pushes into the session's save channel (see below) |
+| Multi-disc      | Disc selection for multi-file games                         |
+| Cache           | IndexedDB cache for game data                               |
+| Fullscreen      | With keyboard lock                                          |
+| Netplay         | Socket.IO-based multiplayer                                 |
+| Controls        | Per-core configurable via config.yml                        |
+
+The player is a snapshot client (`v2/utils/saveSync/snapshotSession.ts`). `sessionTarget` picks the channel: the booted snapshot's, else the booted save's, else the one the slot names (`autosave` files into `default`), created by the first push. Every SRAM write and state capture is a push onto the snapshot the last one made: a manual Save State fills slot `0` of the session's core, Save and Quit fills `auto` with the SRAM beside it. A session that booted an older snapshot rewinds the channel on its first push. Once another device moves the channel on, the server keeps the session's pushes as a branch and the player says so. A push the server cannot take yet waits in `pendingAssetStore` as the push it was, and replays as recorded. When retention removed its parent or a carried bank slot, `sendPush` retries with `fallbackPush` instead of dropping it.
+
+Under v2 the v1 `/console` routes redirect to their main-UI pages (`v2/router/consoleRedirect.ts`), so a console play link opens the v2 player.
+
+"Play from here" in the snapshot drawer opens `/rom/:id/ejs?snapshot=<id>[&state=<id>]`. The launch screen boots the snapshot's `auto` state for a core it runs (the selected core first), else its save; `snapshotId` rides the launch intent across the isolation reload.
 
 ### Ruffle (Flash)
 
@@ -870,7 +876,7 @@ Threaded EmulatorJS cores need `SharedArrayBuffer`, which browsers expose only i
 A v2 player view is reached by SPA navigation, so it is not isolated on arrival. Two composables cover that:
 
 - `useIsolatedLaunch(player, romId, isIntent)` reloads the view into an isolated document when a launch needs it. The view defines the `Intent` the reload cannot carry in the URL, calls `relaunch(intent)` when `hasSharedArrayBuffer()` is false, and boots from `intent` on mount. `relaunch()` returns false, and the view reports the context instead, when the reload would not help: outside a secure context (the headers alone never expose `SharedArrayBuffer`), where storage refused to keep the selection, or from a view that already came from such a reload.
-- `usePlayerExit(runtimeBound, settle)` leaves the view by a full navigation when the document is isolated, or when the player's runtime cannot be injected twice (EmulatorJS declares top-level classes), so the app resumes in a fresh document. Otherwise leaving is an SPA navigation. `guard` is the `onBeforeRouteLeave` form, `leave(path)` the programmatic one, and `departing` tells an unload prompt that this exit is the view's own. A full navigation aborts the route change, so the leave guards of the components below never run: `settle` is where their work goes (EmulatorJS awaits the v1 `Player`'s save flush there).
+- `usePlayerExit(runtimeBound, settle)` leaves the view by a full navigation when the document is isolated, or when the player's runtime cannot be injected twice (EmulatorJS declares top-level classes), so the app resumes in a fresh document. Otherwise leaving is an SPA navigation. `guard` is the `onBeforeRouteLeave` form, `leave(path)` the programmatic one, and `departing` tells an unload prompt that this exit is the view's own. A full navigation aborts the route change, so the leave guards of the components below never run: `settle` is where their work goes (EmulatorJS awaits `EmulatorJSPlayer`'s save flush there).
 
 To add an EmulatorJS core that needs threads, add it to `areThreadsRequiredForEJSCore` in `utils/index.ts`; nothing else changes. To add a player that needs isolation, use both composables the way `v2/views/Player/EmulatorJS.vue` does, and track `runtimeBound` from the moment the runtime is injected rather than from the global it eventually defines. js-dos needs isolation unconditionally (the DOSBox-X backend is a threaded build), so `JsDos.vue` relaunches on every launch that did not arrive isolated and carries no intent beyond a marker.
 

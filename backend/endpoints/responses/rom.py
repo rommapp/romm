@@ -31,6 +31,7 @@ from handler.metadata.pouet_handler import PouetMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from handler.metadata.steam_handler import SteamMetadata
+from handler.snapshots.legacy import sync_file
 from models.collection import Collection, SmartCollection
 from models.rom import (
     DocSource,
@@ -630,6 +631,8 @@ class DetailedRomSchema(RomSchema):
     all_user_states: list[UserStateSchema]
     # The caller's save channels on this ROM, then other users' public ones.
     user_channels: list[ChannelSchema]
+    # The file a new save channel on this ROM keys to.
+    channel_file_id: int | None
     user_screenshots: list[ScreenshotSchema]
     all_user_screenshots: list[UserScreenshotSchema]
     user_collections: list[UserCollectionSchema]
@@ -764,6 +767,8 @@ class DetailedRomSchema(RomSchema):
             build_channel_schema(channel, request.user)
             for channel in db_snapshot_handler.get_channels_for_rom(db_rom.id, user_id)
         ]
+        channel_file = sync_file(db_rom.files)
+        db_rom.channel_file_id = channel_file.id if channel_file else None  # type: ignore[attr-defined]
 
         return cls.model_validate(db_rom)
 

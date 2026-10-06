@@ -4,6 +4,7 @@ import type { SliderBtnGroupItem } from "@v2/lib";
 import { isAxiosError } from "axios";
 import { computed, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import type {
   ChannelSchema,
   DetailedRomSchema,
@@ -11,6 +12,8 @@ import type {
   SnapshotSchema,
 } from "@/__generated__";
 import snapshotApi, { type SnapshotManifest } from "@/services/api/snapshot";
+import storeConfig from "@/stores/config";
+import { getSupportedEJSCores } from "@/utils";
 import ChannelFan from "@/v2/components/GameDetails/SaveChannels/ChannelFan.vue";
 import ChannelLabelDialog, {
   type ChannelLabelSubmit,
@@ -21,15 +24,17 @@ import ChannelTimeline from "@/v2/components/GameDetails/SaveChannels/ChannelTim
 import SnapshotViewer, {
   type ViewerTarget,
 } from "@/v2/components/GameDetails/SaveChannels/SnapshotViewer.vue";
+import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFetchState } from "@/v2/composables/useFetchState";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { playerPath } from "@/v2/utils/playerPath";
 import {
-  copyOverManifest,
+  saveOverManifest,
   copySaveManifest,
-  copyTargets,
+  saveOverTargets,
   forkManifest,
   isBackup,
   restoreManifest,
@@ -62,6 +67,8 @@ const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const { refetchRom } = useRomSync();
+const router = useRouter();
+const configStore = storeConfig();
 
 const view = ref<View>("tiles");
 const viewItems = computed<SliderBtnGroupItem<View>[]>(() => [
@@ -158,11 +165,35 @@ function openSnapshot(channel: ChannelSchema, snapshot: SnapshotSchema) {
 function openSave(channel: ChannelSchema, save: SaveSchema) {
   viewerTarget.value = { kind: "save", channel, save };
 }
-const viewerCopyTargets = computed(() =>
+const viewerSaveOverTargets = computed(() =>
   viewerTarget.value
-    ? copyTargets(props.channels, viewerTarget.value.channel)
+    ? saveOverTargets(props.channels, viewerTarget.value.channel)
     : [],
 );
+
+const { canPlayEJS } = useCanPlay(() => props.rom);
+const playableCores = computed(() =>
+  canPlayEJS.value
+    ? [
+        ...getSupportedEJSCores(
+          props.rom.platform_slug,
+          configStore.config.EJS_NETPLAY_ENABLED,
+        ),
+      ]
+    : [],
+);
+
+function play(stateId: number | null) {
+  const target = viewerTarget.value;
+  if (target?.kind !== "snapshot") return;
+  void router.push({
+    path: playerPath(props.rom.id, "ejs"),
+    query: {
+      snapshot: String(target.snapshot.id),
+      ...(stateId != null ? { state: String(stateId) } : {}),
+    },
+  });
+}
 
 /**
  * Pushes `manifest`, asking first when it would replace a hardcore save.
@@ -222,10 +253,13 @@ function removeState(core: string, slot: string) {
   );
 }
 
-function copyOver(other: ChannelSchema) {
+function saveOver(other: ChannelSchema) {
   const target = viewerTarget.value;
   if (target?.kind !== "snapshot") return;
-  void push(copyOverManifest(target.snapshot, other), t("channels.copied"));
+  void push(
+    saveOverManifest(target.snapshot, other),
+    t("channels.saved-over", { label: other.label }),
+  );
 }
 
 function makeSnapshot() {
@@ -304,12 +338,12 @@ const startOptions = computed<StartOption[]>(() =>
     : [],
 );
 
-/** The ROM's file a new channel keys to: the one existing channels use, else the first. */
+/** The ROM's file a new channel keys to: the one existing channels use, else the server's pick. */
 const defaultRomFileId = computed(
   () =>
     props.channels.find((c) => c.is_own && c.rom_file_id != null)
       ?.rom_file_id ??
-    props.rom.files[0]?.id ??
+    props.rom.channel_file_id ??
     null,
 );
 
@@ -545,13 +579,15 @@ async function deleteChannel(channel: ChannelSchema) {
 
     <SnapshotViewer
       :target="viewerTarget"
-      :copy-targets="viewerCopyTargets"
+      :save-over-targets="viewerSaveOverTargets"
       :busy="busy"
+      :playable-cores="playableCores"
       @close="viewerTarget = null"
+      @play="play"
       @restore="restore"
       @remove-state="removeState"
       @fork="startFork"
-      @copy-over="copyOver"
+      @save-over="saveOver"
       @toggle-pin="togglePin"
       @make-snapshot="makeSnapshot"
       @download="(path, name) => emit('download', path, name)"
