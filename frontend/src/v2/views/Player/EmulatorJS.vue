@@ -232,7 +232,6 @@ declare global {
   }
 }
 
-// The saves this player can boot; a zipped bundle is never one (see browserSaves).
 const bootableSaves = computed(() => browserSaves(rom.value?.user_saves ?? []));
 
 const {

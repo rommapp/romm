@@ -34,7 +34,6 @@ const configStore = storeConfig();
 const { playing, fullScreen } = storeToRefs(playingStore);
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
-// A zipped save bundle is never bootable here (see browserSaves).
 const bootableSaves = computed(() => browserSaves(rom.value?.user_saves ?? []));
 const selectedSave = ref<SaveSchema | null>(null);
 const isSavesTabSelected = ref(true);
