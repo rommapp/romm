@@ -240,9 +240,8 @@ function withoutMissing(states: Bank, missing: ReadonlySet<string>): Bank {
 }
 
 /**
- * The push to try instead, so the content this one sends still lands; null
- * when the refusal is final. Retention may have removed what it builds on, and
- * a hardcore current refuses a softcore push, which lands as a branch instead.
+ * The push to retry with when retention removed what this one builds on or a
+ * hardcore current refused it; null when the refusal is final.
  */
 export function fallbackPush(
   push: SnapshotPush,
@@ -332,9 +331,8 @@ export function sendPushOnUnload(push: SnapshotPush): boolean {
 }
 
 /**
- * One play session's writes into a channel, sent one after another so each
- * builds on the snapshot the last one made. Once another device moves the
- * channel on, the session's pushes chain as a branch beside it.
+ * One play session's writes into a channel, sent in order so each builds on
+ * the last. Once another device moves the channel on, they chain as a branch.
  */
 export class SnapshotSession {
   private target: SnapshotTarget;

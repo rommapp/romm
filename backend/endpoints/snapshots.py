@@ -419,12 +419,8 @@ def _clone_origin(
     copied: SaveEntry | None,
     copied_from: str | None,
 ) -> str:
-    """The device a push with no device attributes its snapshot to.
-
-    A copy keeps the device that wrote the source bytes, and a push that sends
-    no bytes reuses its parent's content, so it keeps the parent's device. Bytes
-    the browser uploads, or a source with no device, belong to the web UI.
-    """
+    """The device a push with no device attributes its snapshot to: the one
+    that wrote the bytes it copies or reuses, else the web UI."""
     if copied is not None:
         if copied_from:
             return copied_from

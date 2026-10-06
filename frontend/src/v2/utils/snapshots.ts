@@ -83,9 +83,8 @@ function intoChannel(
 }
 
 /**
- * Makes `snapshot` the channel's current again, as a new snapshot on top of
- * what is there now, so history is never rewritten. Like every builder here,
- * it names only hashes the server holds, so no file travels.
+ * Makes `snapshot` the channel's current again as a new snapshot on top, so
+ * history is never rewritten. It names only held hashes, so no file travels.
  */
 export function restoreManifest(
   snapshot: SnapshotSchema,

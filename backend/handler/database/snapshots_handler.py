@@ -189,10 +189,8 @@ class DBSnapshotsHandler(DBBaseHandler):
         cores: Collection[str | None] | None = None,
         session: Session = INJECTED_SESSION,
     ) -> dict[tuple[int, str], Save]:
-        """The current snapshot's save of each legacy slot's channel, keyed by
-        (rom_id, slot), for channels a snapshot client keeps. Neutral saves are
-        left out, since a legacy client cannot load them, and so is a save the
-        client's `cores` or `emulators` rule out (see `may_load`)."""
+        """The current save of each legacy slot's channel by (rom_id, slot),
+        leaving out neutral saves and any `may_load` rules out for the client."""
         rom_ids = {rom_id for rom_id, _ in slots}
         if not rom_ids:
             return {}

@@ -140,10 +140,8 @@ async function getSnapshot({ id }: { id: number }) {
 }
 
 /**
- * Writes a snapshot. `parts` carry the files for hashes the server lacks; a
- * push that only names held content sends none. A 409 rejects with a
- * `SnapshotConflictSchema` body when the channel moved on and the push was
- * kept as a branch.
+ * Writes a snapshot, sending `parts` only for hashes the server lacks. A 409
+ * carries a `SnapshotConflictSchema` when the push was kept as a branch.
  */
 async function pushSnapshot({
   manifest,
