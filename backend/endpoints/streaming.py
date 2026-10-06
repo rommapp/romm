@@ -10,9 +10,13 @@ each other's save states.
 """
 
 import asyncio
+import contextvars
+import functools
 import json
 import secrets
 import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal, NamedTuple
@@ -293,6 +297,18 @@ def _joinable_container_label(
     return entries[0].container_label or entries[0].label
 
 
+# Two checks per platform; past this many, a config waits a second timeout.
+_CONFIG_CHECK_THREADS = 64
+
+
+def _in_pool[T](
+    pool: ThreadPoolExecutor, fn: Callable[..., T], *args: Any
+) -> asyncio.Future[T]:
+    """`asyncio.to_thread` on `pool`, with the caller's context like it."""
+    call = functools.partial(contextvars.copy_context().run, fn, *args)
+    return asyncio.get_running_loop().run_in_executor(pool, call)
+
+
 @protected_route(router.get, "/config", [Scope.ROMS_READ])
 async def get_config(request: Request) -> StreamingConfigSchema:
     """Return streaming configuration to the frontend"""
@@ -306,15 +322,24 @@ async def get_config(request: Request) -> StreamingConfigSchema:
         if access.platform_is_visible(request, c.platform)
     ]
     # Concurrently, so one unreachable broker costs one timeout, not one each.
-    specs, cores = await asyncio.gather(
-        asyncio.gather(
-            *(
-                asyncio.to_thread(webstation.import_spec, c, c.emulator, c.platform)
-                for c in visible
-            )
-        ),
-        asyncio.gather(*(asyncio.to_thread(states.state_core_for, c) for c in visible)),
-    )
+    # The default pool holds cpu+4 threads, and a broker serving more platforms
+    # than that would cost one timeout per wave, so these get a pool of their own.
+    pool = ThreadPoolExecutor(min(2 * len(visible), _CONFIG_CHECK_THREADS) or 1)
+    try:
+        specs, cores = await asyncio.gather(
+            asyncio.gather(
+                *(
+                    _in_pool(pool, webstation.import_spec, c, c.emulator, c.platform)
+                    for c in visible
+                )
+            ),
+            asyncio.gather(
+                *(_in_pool(pool, states.state_core_for, c) for c in visible)
+            ),
+        )
+    finally:
+        # Not waited on: a cancelled request mustn't block the loop on a timeout.
+        pool.shutdown(wait=False)
     safe_containers: list[StreamingContainerSchema] = []
     for c, spec, core in zip(visible, specs, cores, strict=True):
         safe_containers.append(

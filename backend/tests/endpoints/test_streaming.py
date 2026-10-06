@@ -426,6 +426,32 @@ def test_config_asks_a_broker_its_spec_and_core_at_once(client, access_token):
     assert r.status_code == 200
 
 
+def test_config_asks_every_platform_at_once(client, access_token):
+    """More checks than the default thread pool holds (at most 32), so a silent
+    broker still costs the play screen one timeout rather than one per wave."""
+    platforms = (
+        "nes snes n64 gb gbc gba genesis atari2600 pokemon-mini psp psx sms "
+        "gamegear tg16 ngp wonderswan lynx"
+    ).split()
+    everyone = threading.Barrier(2 * len(platforms), timeout=5)
+
+    def meet(*_args, value=None):
+        everyone.wait()
+        return value
+
+    with _streaming(_webstation(platforms=dict.fromkeys(platforms, "retroarch"))):
+        with (
+            patch("handler.streaming.webstation.require_import_spec", side_effect=meet),
+            patch(
+                "handler.streaming.webstation.default_core",
+                side_effect=lambda c: meet(value="snes9x"),
+            ),
+        ):
+            r = client.get("/api/streaming/config", headers=_auth(access_token))
+    assert r.status_code == 200
+    assert len(r.json()["containers"]) == len(platforms)
+
+
 def test_config_has_no_state_core_outside_retroarch(client, access_token):
     with _streaming(_webstation()):
         with patch(
