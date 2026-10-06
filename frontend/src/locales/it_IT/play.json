@@ -200,6 +200,7 @@
   "select-save": "Seleziona Salvataggio",
   "select-state": "Seleziona Stato",
   "session-branched": "Un altro dispositivo ha salvato in questo canale durante la tua sessione. I tuoi progressi restano come ramo per {days} giorni.",
+  "session-branched-hardcore": "Questo canale contiene un salvataggio hardcore, quindi i tuoi progressi restano come ramo per {days} giorni.",
   "session-ended": "La tua sessione di streaming è stata terminata.",
   "session-ended-by": "Un amministratore ({user}) ha terminato la tua sessione di streaming.",
   "session-ended-reason-label": "Motivazione fornita",

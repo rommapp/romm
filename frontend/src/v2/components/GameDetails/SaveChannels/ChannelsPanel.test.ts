@@ -54,10 +54,14 @@ function conflict(data: object): AxiosError {
   });
 }
 
-function mountPanel(channels: ChannelSchema[], saves: SaveSchema[] = []) {
+function mountPanel(
+  channels: ChannelSchema[],
+  saves: SaveSchema[] = [],
+  heldSaveIds: number[] = [],
+) {
   return shallowMount(ChannelsPanel, {
     props: {
-      rom: detailedRomFixture({ id: 1 }),
+      rom: detailedRomFixture({ id: 1, snapshot_save_ids: heldSaveIds }),
       channels,
       saves,
       own: true,
@@ -267,6 +271,29 @@ describe("ChannelsPanel", () => {
       }),
     );
     expect(api.deleteChannel).toHaveBeenCalledWith({ id: channel.id });
+  });
+
+  it("counts no slotted upload a snapshot already holds as legacy", async () => {
+    const channel = channelFixture({ label: "Main" });
+    const adopted = saveFixture({
+      id: 7,
+      channel_id: channel.id,
+      slot: "autosave",
+    });
+    confirm.mockResolvedValue(false);
+    const wrapper = mountPanel([channel], [adopted], [adopted.id]);
+
+    wrapper.findComponent(ChannelTile).vm.$emit("open");
+    await flushPromises();
+    wrapper.findComponent(ChannelFan).vm.$emit("delete");
+    await flushPromises();
+
+    expect(wrapper.findComponent(ChannelFan).props("legacySaves")).toEqual([]);
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: 'channels.delete-body:{"pinned":0,"legacy":0}',
+      }),
+    );
   });
 
   it("leaves the channel when the delete is canceled", async () => {

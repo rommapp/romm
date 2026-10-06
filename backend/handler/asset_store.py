@@ -190,12 +190,14 @@ def assert_backup(asset: Save | State) -> None:
 
 async def remove_save(save: Save) -> None:
     """Drop a save row with its file and screenshot."""
+    # Read first: a screenshot linked by `save_id` goes with the row.
+    screenshot = save.screenshot
     db_snapshot_handler.release_backup(save_id=save.id)
     db_save_handler.delete_save(
         save.id, content_hash=await fs_asset_handler.unrecorded_hash(save)
     )
     await remove_asset_file(save.full_path, "Save file")
-    await release_thumbnail(save.screenshot)
+    await release_thumbnail(screenshot)
 
 
 async def prune_save_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:

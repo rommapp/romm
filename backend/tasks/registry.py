@@ -38,6 +38,7 @@ from config import (
     SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+    SNAPSHOT_BRANCH_LIFETIME_DAYS,
     SYNC_PUSH_PULL_CRON,
     TASK_TIMEOUT,
 )
@@ -188,7 +189,10 @@ CLEANUP_SYNC_SESSIONS_SPEC: Final = TaskSpec(
 PRUNE_SNAPSHOTS_SPEC: Final = TaskSpec(
     implementation="tasks.scheduled.prune_snapshots.prune_snapshots_task",
     title="Scheduled snapshot pruning",
-    description="Drops save sync branches older than 30 days, with the files only they held",
+    description=(
+        f"Drops save sync branches older than {SNAPSHOT_BRANCH_LIFETIME_DAYS} days, "
+        "with the files only they held"
+    ),
     task_type=TaskType.CLEANUP,
     enabled=ENABLE_SCHEDULED_PRUNE_SNAPSHOTS,
     cron_string=SCHEDULED_PRUNE_SNAPSHOTS_CRON,

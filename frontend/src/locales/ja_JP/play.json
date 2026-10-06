@@ -200,6 +200,7 @@
   "select-save": "セーブデータを選択",
   "select-state": "ステートを選択",
   "session-branched": "プレイ中に別のデバイスがこのチャンネルにセーブしました。あなたの進行状況はブランチとして {days} 日間保持されます。",
+  "session-branched-hardcore": "このチャンネルにはハードコアのセーブがあるため、あなたの進行状況はブランチとして {days} 日間保持されます。",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

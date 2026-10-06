@@ -46,10 +46,12 @@ from utils.validation import RomIdScope, narrow_rom_id_scope
 
 async def _delete_state(state: State) -> None:
     """Drop a state row with its file and screenshot."""
+    # Read first: a screenshot linked by `state_id` goes with the row.
+    screenshot = state.screenshot
     db_snapshot_handler.release_backup(state_id=state.id)
     db_state_handler.delete_state(state.id)
     await remove_asset_file(state.full_path, "State file")
-    await release_thumbnail(state.screenshot)
+    await release_thumbnail(screenshot)
 
 
 def _owned_state_or_404(id: int, user_id: int) -> State:

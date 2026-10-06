@@ -200,6 +200,7 @@
   "select-save": "選擇存檔",
   "select-state": "選擇即時存檔",
   "session-branched": "在你遊玩期間，另一台裝置向此頻道儲存了進度。你的進度將作為分支保留 {days} 天。",
+  "session-branched-hardcore": "此頻道包含硬核模式存檔，因此你的進度將作為分支保留 {days} 天。",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

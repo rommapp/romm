@@ -200,6 +200,7 @@
   "select-save": "세이브 선택",
   "select-state": "상태 선택",
   "session-branched": "세션 중에 다른 기기가 이 채널에 저장했습니다. 진행 상황은 분기로 {days}일 동안 보관됩니다.",
+  "session-branched-hardcore": "이 채널에는 하드코어 저장이 있어 진행 상황은 분기로 {days}일 동안 보관됩니다.",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

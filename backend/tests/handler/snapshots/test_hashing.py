@@ -7,6 +7,7 @@ import pytest
 from tests._zipfile_shim import reload_zipfile
 
 from adapters.services import sigil as sigil_service
+from adapters.services.sigil import SigilService
 from handler.snapshots import hashing
 
 UNITS: dict[str, dict[str, bytes]] = {
@@ -59,6 +60,21 @@ async def test_sigil_hashes_a_raw_file_as_itself():
     pytest.importorskip("sigil")
 
     assert await hashing.identity_hash(b"only") == _md5(b"only")
+
+
+async def test_a_unit_past_the_unpack_limit_never_reaches_disk():
+    content = _zip(UNITS["neutral clock"])
+    with (
+        patch.object(hashing, "SIGIL_UNPACK_MAX_BYTES", 2),
+        patch.object(SigilService, "is_enabled", return_value=True),
+        patch.object(hashing._sigil, "unit_hashes") as unit_hashes,
+        patch.object(zipfile.ZipFile, "extract") as extract,
+    ):
+        identity = await hashing.identity_hash(content)
+
+    unit_hashes.assert_not_called()
+    extract.assert_not_called()
+    assert identity == _md5(b"sram")
 
 
 async def test_without_the_binding_the_clock_is_left_out():

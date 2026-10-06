@@ -1,11 +1,12 @@
 import io
 import uuid
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 from fastapi import UploadFile as StarletteUploadFile
-from sqlalchemy import select
+from sqlalchemy import select, update
 from tests._zipfile_shim import reload_zipfile
 from tests.handler.snapshots.pushes import (
     SRAM,
@@ -49,6 +50,7 @@ from models.device_channel_sync import DeviceChannelSync
 from models.rom import Rom, RomFile
 from models.snapshot import SnapshotKind
 from models.user import User
+from utils.datetime import to_utc
 
 
 async def test_the_first_push_creates_the_channel_and_points_it_at_the_snapshot(
@@ -224,6 +226,39 @@ async def test_pushing_the_current_content_again_writes_nothing(
     assert again.outcome == Outcome.UNCHANGED
     assert again.snapshot.id == first.snapshot.id
     assert stored_files(_assets_dir) == files_before
+
+
+async def test_hashing_a_parents_unhashed_save_keeps_its_updated_at(
+    admin_user: User, rom: Rom, hashed_file: RomFile
+):
+    first = await first_push(admin_user, rom, hashed_file)
+    save_id = first.snapshot.save_id
+    stamp = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    with sync_session.begin() as session:
+        session.execute(
+            update(Save)
+            .where(Save.id == save_id)
+            .values(content_hash=None, updated_at=stamp)
+        )
+
+    result = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(states={"snes9x": {"auto": md5(STATE_B)}}),
+            expected=first.snapshot.id,
+            channel_id=first.snapshot.channel_id,
+            parts={state_part("snes9x", "auto"): part(STATE_B, "game.state")},
+        )
+    )
+
+    with sync_session() as session:
+        save = session.get_one(Save, save_id)
+    assert result.outcome == Outcome.CREATED
+    assert result.snapshot.save_id == save_id
+    assert save.content_hash == md5(SRAM)
+    assert to_utc(save.updated_at) == stamp
 
 
 async def test_unknown_content_without_a_part_is_reported_and_nothing_is_stored(

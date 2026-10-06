@@ -24,6 +24,7 @@ from handler.database import (
     db_device_save_sync_handler,
     db_platform_handler,
     db_save_handler,
+    db_snapshot_handler,
     db_sync_session_handler,
 )
 from handler.filesystem import fs_asset_handler, get_fs_sync_handler
@@ -263,7 +264,15 @@ def _process_incoming_file(
             ),
         )
 
-        if result.action == "no_op":
+        action, reason = result.action, result.reason
+        # A sync channel holds the save, so its bytes never change in place:
+        # the device's newer copy waits as a conflict instead.
+        if action == "upload" and db_snapshot_handler.is_frozen(
+            save_id=matched_save.id
+        ):
+            action, reason = "conflict", "the save belongs to a sync channel"
+
+        if action == "no_op":
             log.debug(f"Sync watcher: {filename} is already in sync, skipping")
             if file_hash == matched_save.content_hash:
                 db_device_save_sync_handler.record_identical_content(
@@ -272,7 +281,7 @@ def _process_incoming_file(
             fs_sync_handler.remove_incoming_file(full_path)
             return
 
-        if result.action == "upload":
+        if action == "upload":
             # Client file is newer - update server save
             log.info(
                 f"Sync watcher: updating save {hl(filename)} from device {device.id}"
@@ -304,10 +313,10 @@ def _process_incoming_file(
             )
             fs_sync_handler.remove_incoming_file(full_path)
 
-        elif result.action == "conflict":
+        elif action == "conflict":
             log.warning(
                 f"Sync watcher: conflict detected for {filename} "
-                f"on device {device.id}: {result.reason}"
+                f"on device {device.id}: {reason}"
             )
             # Move conflicting file to conflicts directory
             conflicts_dir = _ensure_conflicts_dir(device.id, platform_slug)
@@ -325,11 +334,11 @@ def _process_incoming_file(
                     rom_id=matched_save.attached_rom_id,
                     rom_name=matched_save.attached_rom.name
                     or matched_save.attached_rom.fs_name,
-                    reason=result.reason,
+                    reason=reason,
                 )
             )
 
-        elif result.action == "download":
+        elif action == "download":
             # Server is newer - write server save to device's outgoing directory
             log.info(
                 f"Sync watcher: server save is newer for {filename}, "

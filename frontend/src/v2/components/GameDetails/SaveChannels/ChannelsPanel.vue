@@ -88,9 +88,10 @@ const viewItems = computed<SliderBtnGroupItem<View>[]>(() => [
 
 /** Saves an older client filed under a channel by slot, with no snapshot. */
 const legacySaves = computed(() => {
+  const held = new Set(props.rom.snapshot_save_ids);
   const byChannel: Record<string, SaveSchema[]> = {};
   for (const save of props.saves) {
-    if (!save.channel_id || !save.slot) continue;
+    if (!save.channel_id || !save.slot || held.has(save.id)) continue;
     (byChannel[save.channel_id] ??= []).push(save);
   }
   for (const list of Object.values(byChannel)) {

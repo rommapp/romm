@@ -17,6 +17,7 @@ from handler.database import (
     db_device_save_sync_handler,
     db_platform_handler,
     db_save_handler,
+    db_snapshot_handler,
     db_sync_session_handler,
 )
 from handler.filesystem import fs_asset_handler
@@ -287,7 +288,15 @@ async def _process_remote_save(
             ),
         )
 
-        if result.action == "no_op":
+        action, reason = result.action, result.reason
+        # A sync channel holds the save, so its bytes never change in place:
+        # the device's newer copy waits as a conflict instead.
+        if action == "upload" and db_snapshot_handler.is_frozen(
+            save_id=matched_save.id
+        ):
+            action, reason = "conflict", "the save belongs to a sync channel"
+
+        if action == "no_op":
             # A timestamp-only no-op can leave the two sides different, so only
             # identical content is recorded as the baseline.
             identical = (
@@ -301,7 +310,7 @@ async def _process_remote_save(
             )
             return "no_op"
 
-        if result.action == "upload":
+        if action == "upload":
             # Remote is newer - pull to server
             log.info(
                 f"Push-pull: pulling {hl(remote_save.file_name)} from device {device.id}"
@@ -331,7 +340,7 @@ async def _process_remote_save(
             )
             return "pulled"
 
-        if result.action == "download":
+        if action == "download":
             # Server is newer - push to device
             log.info(
                 f"Push-pull: pushing {hl(matched_save.file_name)} to device {device.id}"
@@ -350,10 +359,10 @@ async def _process_remote_save(
             )
             return "pushed"
 
-        if result.action == "conflict":
+        if action == "conflict":
             log.warning(
                 f"Push-pull: conflict for {remote_save.file_name} "
-                f"on device {device.id}: {result.reason}"
+                f"on device {device.id}: {reason}"
             )
             await emit_sync_conflict(
                 user_id=device.user_id,
@@ -363,7 +372,7 @@ async def _process_remote_save(
                 rom_id=matched_save.attached_rom_id,
                 rom_name=matched_save.attached_rom.name
                 or matched_save.attached_rom.fs_name,
-                reason=result.reason,
+                reason=reason,
             )
             return "conflict"
 

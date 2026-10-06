@@ -5,6 +5,7 @@ snapshot and moves the channel's pointer under a row lock. A failed write
 removes the files it wrote.
 """
 
+import asyncio
 import enum
 import uuid
 from collections.abc import Mapping
@@ -15,7 +16,12 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from handler.asset_store import AssetContent, remove_asset_file
-from handler.database import db_snapshot_handler, db_user_handler
+from handler.database import (
+    db_save_handler,
+    db_snapshot_handler,
+    db_state_handler,
+    db_user_handler,
+)
 from handler.database.base_handler import sync_session
 from handler.database.snapshots_handler import StoredContent
 from handler.filesystem import fs_asset_handler
@@ -34,7 +40,11 @@ from models.channel import Channel
 from models.rom import Rom, RomFile
 from models.snapshot import Snapshot, SnapshotKind, SnapshotState
 from models.user import User
-from utils.uploads import apply_datetime_tag, sanitize_asset_filename
+from utils.uploads import (
+    DATETIME_TAG_PATTERN,
+    apply_datetime_tag,
+    sanitize_asset_filename,
+)
 
 SAVE_PART = "save"
 
@@ -146,6 +156,13 @@ class _Plan:
     same_as: int | None = None
     saves: dict[str, Save] = field(default_factory=dict)
     states: dict[str, State] = field(default_factory=dict)
+    # Another user's rows a parent holds: the owner gets copies, never references,
+    # so their sharing and deletion stay theirs.
+    copy_saves: dict[str, Save] = field(default_factory=dict)
+    copy_states: dict[str, State] = field(default_factory=dict)
+    # Set when someone other than the owner pushes into the owner's shared
+    # channel: content by hash comes only from rows that channel already holds.
+    lookup_channel: uuid.UUID | None = None
     written_paths: list[str] = field(default_factory=list)
     # Screenshots for rows already stored, kept even when the push changes nothing.
     shot_paths: list[str] = field(default_factory=list)
@@ -213,9 +230,16 @@ async def _hash_unhashed(content: StoredContent) -> None:
     for row in rows:
         if row.content_hash:
             continue
-        row.content_hash = await fs_asset_handler.compute_content_hash(row.full_path)
-        with sync_session.begin() as session:
-            session.merge(row)
+        content_hash = await fs_asset_handler.compute_content_hash(row.full_path)
+        if content_hash is None:
+            continue
+        row.content_hash = content_hash
+        if isinstance(row, Save):
+            db_save_handler.rehash_save(row.id, content_hash, replacing=None)
+        else:
+            db_state_handler.update_state(
+                row.id, {"content_hash": content_hash}, touch=False
+            )
 
 
 def _target_channel(write: SnapshotWrite) -> Channel | None:
@@ -263,7 +287,17 @@ async def _plan(write: SnapshotWrite, match_current: bool = True) -> _Plan:
         if channel and channel.current_snapshot_id
         else None
     )
-    plan = _Plan(owner=owner, channel=channel, parent=parent, resolved=resolved)
+    plan = _Plan(
+        owner=owner,
+        channel=channel,
+        parent=parent,
+        resolved=resolved,
+        lookup_channel=(
+            channel.id
+            if channel is not None and channel.user_id != write.author.id
+            else None
+        ),
+    )
     if (
         match_current
         and current is not None
@@ -275,36 +309,55 @@ async def _plan(write: SnapshotWrite, match_current: bool = True) -> _Plan:
         plan.same_as = current.id
         return plan
 
-    if parent_content.save and parent_content.save.content_hash:
-        plan.saves[parent_content.save.content_hash] = parent_content.save
+    parent_save = parent_content.save
+    if parent_save and parent_save.content_hash:
+        held_saves = plan.saves if parent_save.user_id == owner.id else plan.copy_saves
+        held_saves[parent_save.content_hash] = parent_save
     if write.adopt_save is not None and write.adopt_save.content_hash:
         plan.saves[write.adopt_save.content_hash] = write.adopt_save
     for slots in parent_content.states.values():
         for state in slots.values():
             if state.content_hash:
-                plan.states[state.content_hash] = state
+                held_states = (
+                    plan.states if state.user_id == owner.id else plan.copy_states
+                )
+                held_states[state.content_hash] = state
 
     save_hashes = {resolved.save.hash} if resolved.save else set()
     plan.saves.update(
         db_snapshot_handler.get_saves_by_hash(
-            owner.id, write.rom.id, save_hashes - plan.saves.keys()
+            owner.id,
+            write.rom.id,
+            save_hashes - plan.saves.keys(),
+            channel_id=plan.lookup_channel,
         )
     )
     state_hashes = {h for slots in resolved.bank.values() for h in slots.values()}
     plan.states.update(
         db_snapshot_handler.get_states_by_hash(
-            owner.id, write.rom.id, state_hashes - plan.states.keys()
+            owner.id,
+            write.rom.id,
+            state_hashes - plan.states.keys(),
+            channel_id=plan.lookup_channel,
         )
     )
 
     missing = []
-    if resolved.save and resolved.save.hash not in plan.saves:
-        if _content(write, SAVE_PART) is None:
-            missing.append(SAVE_PART)
+    if (
+        resolved.save
+        and resolved.save.hash not in plan.saves
+        and resolved.save.hash not in plan.copy_saves
+        and _content(write, SAVE_PART) is None
+    ):
+        missing.append(SAVE_PART)
     uploaded = set(_state_parts(write, resolved))
     for core, bank_slots in resolved.bank.items():
         for slot, state_hash in bank_slots.items():
-            if state_hash not in plan.states and state_hash not in uploaded:
+            if (
+                state_hash not in plan.states
+                and state_hash not in plan.copy_states
+                and state_hash not in uploaded
+            ):
                 missing.append(state_part(core, slot))
     if missing:
         raise ContentMissing(missing)
@@ -322,10 +375,44 @@ def _state_parts(write: SnapshotWrite, resolved: Resolved) -> dict[str, str]:
     return found
 
 
+def _untagged(file_name: str) -> str:
+    """The name a file carried before the server tagged it with its upload time."""
+    stem, dot, extension = file_name.rpartition(".")
+    if not dot:
+        return DATETIME_TAG_PATTERN.sub("", file_name)
+    return f"{DATETIME_TAG_PATTERN.sub('', stem)}.{extension}"
+
+
+async def copied_part(row: Save | State) -> UploadPart:
+    """A part holding a copy of a stored row's bytes and screenshot, so the copy
+    becomes a row of its own."""
+    path = fs_asset_handler.validate_path(row.full_path)
+    content = await asyncio.to_thread(path.read_bytes)
+    screenshot = row.screenshot
+    shot_bytes = None
+    shot_name = None
+    if screenshot is not None:
+        shot_path = fs_asset_handler.validate_path(screenshot.full_path)
+        if shot_path.is_file():
+            shot_bytes = await asyncio.to_thread(shot_path.read_bytes)
+            shot_name = screenshot.file_name
+    return UploadPart(
+        content=content,
+        file_name=_untagged(row.file_name),
+        screenshot=shot_bytes,
+        screenshot_name=shot_name,
+    )
+
+
 async def _store_part(
-    write: SnapshotWrite, plan: _Plan, key: str, expected_hash: str
+    write: SnapshotWrite,
+    plan: _Plan,
+    key: str,
+    expected_hash: str,
+    part: UploadPart | None = None,
 ) -> _StoredFile:
-    part = write.parts[key]
+    """Store the bytes for `key`: the push's own part, or `part` when given."""
+    part = part or write.parts[key]
     assert part.content is not None, "only parts that carry bytes are stored"
     is_save = key == SAVE_PART
     build_path = (
@@ -457,10 +544,16 @@ async def _attach_screenshots(
         return []
 
     saves = db_snapshot_handler.get_saves_by_hash(
-        plan.owner.id, write.rom.id, {h for h, is_save, _ in wanted if is_save}
+        plan.owner.id,
+        write.rom.id,
+        {h for h, is_save, _ in wanted if is_save},
+        channel_id=plan.lookup_channel,
     )
     states = db_snapshot_handler.get_states_by_hash(
-        plan.owner.id, write.rom.id, {h for h, is_save, _ in wanted if not is_save}
+        plan.owner.id,
+        write.rom.id,
+        {h for h, is_save, _ in wanted if not is_save},
+        channel_id=plan.lookup_channel,
     )
     save_shots, state_shots = db_snapshot_handler.get_thumbnails(
         [row.id for row in saves.values()], [row.id for row in states.values()]
@@ -497,10 +590,39 @@ async def _store_parts(write: SnapshotWrite, plan: _Plan) -> list[_StoredFile]:
     stored: list[_StoredFile] = []
     resolved = plan.resolved
     if resolved.save and resolved.save.hash not in plan.saves:
-        stored.append(await _store_part(write, plan, SAVE_PART, resolved.save.hash))
-    for state_hash, key in _state_parts(write, resolved).items():
+        source = plan.copy_saves.get(resolved.save.hash)
+        copy = (
+            await copied_part(source)
+            if source is not None and _content(write, SAVE_PART) is None
+            else None
+        )
+        stored.append(
+            await _store_part(write, plan, SAVE_PART, resolved.save.hash, copy)
+        )
+    uploaded = _state_parts(write, resolved)
+    for state_hash, key in uploaded.items():
         if state_hash not in plan.states:
             stored.append(await _store_part(write, plan, key, state_hash))
+    copied: set[str] = set()
+    for core, slots in resolved.bank.items():
+        for slot, state_hash in slots.items():
+            if (
+                state_hash in plan.states
+                or state_hash in uploaded
+                or state_hash in copied
+            ):
+                continue
+            source_state = plan.copy_states[state_hash]
+            stored.append(
+                await _store_part(
+                    write,
+                    plan,
+                    state_part(core, slot),
+                    state_hash,
+                    await copied_part(source_state),
+                )
+            )
+            copied.add(state_hash)
     return stored
 
 

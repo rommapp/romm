@@ -329,6 +329,9 @@ class DBSavesHandler(DBBaseHandler):
             replaced_hash: What the version held, for a row that never hashed it.
         """
         data = with_file_name_parts(data)
+        if "content_hash" in data:
+            # Derived from the bytes, so new bytes leave it unknown until recomputed.
+            data = {"identity_hash": None, **data}
         if "content_hash" in data or "slot" in data:
             current = self._lock_for_removal(id, session)
             if current and _loses_version(current, data):

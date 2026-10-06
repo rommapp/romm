@@ -1167,6 +1167,17 @@ def _writes_save_rows(node: ast.Call) -> bool:
     return isinstance(func, ast.Attribute) and "query(Save)" in ast.unparse(func.value)
 
 
+def test_new_bytes_leave_the_identity_hash_unknown(admin_user: User, rom: Rom):
+    save = make_save(rom, admin_user, "game.sav", content_hash="old")
+    db_save_handler.update_save(save.id, {"identity_hash": "old-identity"})
+
+    relabelled = db_save_handler.update_save(save.id, {"emulator": "mgba"})
+    rewritten = db_save_handler.update_save(save.id, {"content_hash": "new"})
+
+    assert relabelled.identity_hash == "old-identity"
+    assert rewritten.identity_hash is None
+
+
 def test_only_the_saves_handler_writes_save_rows():
     """The handler records every version leaving a slot, so nothing may go around it."""
     offenders = []

@@ -200,6 +200,7 @@
   "select-save": "选择存档",
   "select-state": "选择状态",
   "session-branched": "在你游玩期间，另一台设备向此频道保存了进度。你的进度将作为分支保留 {days} 天。",
+  "session-branched-hardcore": "此频道包含硬核模式存档，因此你的进度将作为分支保留 {days} 天。",
   "session-ended": "您的串流会话已结束。",
   "session-ended-by": "管理员（{user}）结束了您的串流会话。",
   "session-ended-reason-label": "给出的原因",

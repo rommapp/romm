@@ -56,6 +56,7 @@ import {
   sendPushOnUnload,
   sessionTarget,
   SnapshotSession,
+  type PushOutcome,
   type SessionFile,
   type SnapshotContent,
 } from "@/v2/utils/saveSync/snapshotSession";
@@ -183,13 +184,16 @@ function refreshRomAssets(): Promise<void> {
   });
   return refreshingAssets;
 }
-function announceBranch(branched: boolean) {
-  if (!branched || announcedBranch) return;
+function announceBranch(outcome: PushOutcome) {
+  if (outcome.kind !== "branched" || announcedBranch) return;
   announcedBranch = true;
   snackbar.warning(
-    t("play.session-branched", {
-      days: heartbeatStore.value.SAVE_SYNC.SNAPSHOT_BRANCH_LIFETIME_DAYS,
-    }),
+    t(
+      outcome.reason === "hardcore"
+        ? "play.session-branched-hardcore"
+        : "play.session-branched",
+      { days: heartbeatStore.value.SAVE_SYNC.SNAPSHOT_BRANCH_LIFETIME_DAYS },
+    ),
     { persist: true },
   );
 }
@@ -204,7 +208,7 @@ async function sendContent(content: SnapshotContent): Promise<boolean> {
   if (!writer || !heartbeatStore.connected) return false;
   try {
     const outcome = await writer.push(content);
-    announceBranch(outcome.kind === "branched");
+    announceBranch(outcome);
     void refreshRomAssets();
     return true;
   } catch (error) {

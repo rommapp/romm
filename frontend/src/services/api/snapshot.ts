@@ -31,6 +31,7 @@ export interface SnapshotManifest {
   parent_snapshot_id?: number;
   save?: ManifestSave | null;
   states?: Bank;
+  is_hardcore?: boolean;
   approve_hardcore_downgrade?: boolean;
   emulator?: string;
   emulator_version?: string;

@@ -200,6 +200,7 @@
   "select-save": "Sélectionner la sauvegarde",
   "select-state": "Sélectionner l'état",
   "session-branched": "Un autre appareil a sauvegardé dans ce canal pendant votre session. Votre progression est conservée comme branche pendant {days} jours.",
+  "session-branched-hardcore": "Ce canal contient une sauvegarde en mode hardcore, votre progression est donc conservée comme branche pendant {days} jours.",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

@@ -650,7 +650,7 @@ describe("EmulatorJS launch screen — a save the shell moved", () => {
   });
 });
 
-describe("EmulatorJS launch screen — booting a snapshot", () => {
+describe("EmulatorJS launch screen, booting a snapshot", () => {
   const channel = channelFixture({
     id: "chan",
     label: "Hard mode",

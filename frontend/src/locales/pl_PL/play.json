@@ -200,6 +200,7 @@
   "select-save": "Wybierz zapis",
   "select-state": "Wybierz stan",
   "session-branched": "Inne urządzenie zapisało do tego kanału podczas Twojej sesji. Twoje postępy zostaną zachowane jako gałąź przez {days} dni.",
+  "session-branched-hardcore": "Ten kanał zawiera zapis w trybie hardcore, więc Twoje postępy zostaną zachowane jako gałąź przez {days} dni.",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

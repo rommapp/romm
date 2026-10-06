@@ -200,6 +200,7 @@
   "select-save": "Speicherstand auswählen",
   "select-state": "Speicherstand auswählen",
   "session-branched": "Ein anderes Gerät hat während deiner Sitzung in diesen Kanal gespeichert. Dein Fortschritt bleibt {days} Tage als Zweig erhalten.",
+  "session-branched-hardcore": "Dieser Kanal enthält einen Hardcore-Spielstand, daher bleibt dein Fortschritt {days} Tage als Zweig erhalten.",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

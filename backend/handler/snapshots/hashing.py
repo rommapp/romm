@@ -22,9 +22,13 @@ from logger.logger import log
 
 _sigil = SigilService()
 
+# The most a unit may expand to on disk for sigil to hash it. Larger units are
+# hashed in Python by the same rule, which streams each entry instead.
+SIGIL_UNPACK_MAX_BYTES = 256 * 1024 * 1024
+
 
 def _sigil_identity(content: bytes) -> str | None:
-    if not SigilService.is_enabled():
+    if not SigilService.is_enabled() or len(content) > SIGIL_UNPACK_MAX_BYTES:
         return None
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
@@ -32,6 +36,9 @@ def _sigil_identity(content: bytes) -> str | None:
         if archived:
             with zipfile.ZipFile(io.BytesIO(content)) as zf:
                 names = check_zip(zf)
+                expanded = sum(zf.getinfo(name).file_size for name in names)
+                if expanded > SIGIL_UNPACK_MAX_BYTES:
+                    return None
                 for name in names:
                     zf.extract(name, root)
         else:

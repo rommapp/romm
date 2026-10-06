@@ -200,6 +200,7 @@
   "select-save": "Select save",
   "select-state": "Select state",
   "session-branched": "Another device saved to this channel during your session. Your progress is kept as a branch for {days} days.",
+  "session-branched-hardcore": "This channel holds a hardcore save, so your progress is kept as a branch for {days} days.",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

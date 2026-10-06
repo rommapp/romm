@@ -148,7 +148,12 @@ export type SnapshotContent =
 
 export type PushOutcome =
   | { kind: "current"; snapshot: SnapshotSchema }
-  | { kind: "branched"; snapshot: SnapshotSchema };
+  | {
+      kind: "branched";
+      snapshot: SnapshotSchema;
+      /** Another device moved the channel on, or its current is hardcore. */
+      reason: "moved" | "hardcore";
+    };
 
 function pushFile(key: string, file: SessionFile): PushFile {
   return { key, ...file };
@@ -179,9 +184,8 @@ export function buildPush(
   const manifest: SnapshotManifest = {
     rom_file_id: target.romFileId,
     expected_current_id: target.expectedCurrentId,
-    ...(target.channelId
-      ? { channel_id: target.channelId }
-      : { label: target.label }),
+    ...(target.channelId ? { channel_id: target.channelId } : {}),
+    label: target.label,
     ...(target.parentSnapshotId != null
       ? { parent_snapshot_id: target.parentSnapshotId }
       : {}),
@@ -220,6 +224,12 @@ function conflictOf(error: unknown): SnapshotConflictSchema | null {
 
 const PARENT_GONE = "Parent snapshot not found";
 
+function isHardcoreRefusal(error: unknown): boolean {
+  if (!isAxiosError(error) || error.response?.status !== 409) return false;
+  const body = error.response.data as { hardcore_downgrade?: unknown } | null;
+  return body?.hardcore_downgrade === true;
+}
+
 function withoutMissing(states: Bank, missing: ReadonlySet<string>): Bank {
   return Object.fromEntries(
     Object.entries(states).map(([core, slots]) => [
@@ -234,8 +244,9 @@ function withoutMissing(states: Bank, missing: ReadonlySet<string>): Bank {
 }
 
 /**
- * The push to try instead when retention removed what this one builds on, so
- * the content it sends still lands; null when the refusal is final.
+ * The push to try instead, so the content this one sends still lands; null
+ * when the refusal is final. Retention may have removed what it builds on, and
+ * a hardcore current refuses a softcore push, which lands as a branch instead.
  */
 export function fallbackPush(
   push: SnapshotPush,
@@ -245,6 +256,19 @@ export function fallbackPush(
   const status = error.response?.status;
   const body = error.response?.data as
     { detail?: unknown; missing?: unknown } | undefined;
+  if (isHardcoreRefusal(error)) {
+    const { manifest } = push;
+    if (manifest.expected_current_id === null) return null;
+    return {
+      ...push,
+      manifest: {
+        ...manifest,
+        expected_current_id: null,
+        parent_snapshot_id:
+          manifest.parent_snapshot_id ?? manifest.expected_current_id,
+      },
+    };
+  }
   if (status === 404 && body?.detail === PARENT_GONE) {
     const { parent_snapshot_id, ...manifest } = push.manifest;
     if (parent_snapshot_id !== undefined) return { ...push, manifest };
@@ -279,6 +303,7 @@ const MAX_FALLBACKS = 3;
  */
 export async function sendPush(push: SnapshotPush): Promise<PushOutcome> {
   let attempt = push;
+  let reason: "moved" | "hardcore" = "moved";
   for (let fallbacks = 0; ; fallbacks++) {
     try {
       const { data } = await snapshotApi.pushSnapshot({
@@ -289,10 +314,13 @@ export async function sendPush(push: SnapshotPush): Promise<PushOutcome> {
       return { kind: "current", snapshot: data };
     } catch (error) {
       const conflict = conflictOf(error);
-      if (conflict) return { kind: "branched", snapshot: conflict.branch };
+      if (conflict) {
+        return { kind: "branched", snapshot: conflict.branch, reason };
+      }
       const next =
         fallbacks < MAX_FALLBACKS ? fallbackPush(attempt, error) : null;
       if (!next) throw error;
+      if (isHardcoreRefusal(error)) reason = "hardcore";
       attempt = next;
     }
   }

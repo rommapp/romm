@@ -83,16 +83,23 @@ def link_channels_to_files(
 ) -> None:
     """After a scan: reattach detached channels whose file is back, and rekey
     the ROM's name-keyed channels to a hash the scan just computed."""
-    for rom_file in files:
-        key = FileKey.of_file(rom_file)
-        detached = session.scalars(
-            select(Channel).where(
-                Channel.rom_id.is_(None),
-                Channel.platform_id == platform_id,
-                _keyed_to(key),
+    keys = [FileKey.of_file(rom_file) for rom_file in files]
+    if not keys:
+        return
+    candidates = session.scalars(
+        select(Channel).where(
+            or_(
+                and_(Channel.rom_id.is_(None), Channel.platform_id == platform_id),
+                and_(Channel.rom_id == rom_id, Channel.target_file_hash.is_(None)),
             )
-        ).all()
-        for channel in detached:
+        )
+    ).all()
+    for channel in candidates:
+        channel_key = FileKey.of_channel(channel)
+        matches = [key for key in keys if channel_key.matches(key)]
+        if not matches:
+            continue
+        if channel.rom_id is None:
             channel.rom_id = rom_id
             for model in (Snapshot, Save, State):
                 session.execute(
@@ -101,18 +108,10 @@ def link_channels_to_files(
                     .values(rom_id=rom_id)
                     .execution_options(synchronize_session=False)
                 )
-        if key.sha1:
-            session.execute(
-                update(Channel)
-                .where(
-                    Channel.rom_id == rom_id,
-                    Channel.target_file_hash.is_(None),
-                    Channel.target_file_name == key.name,
-                    Channel.target_file_size == key.size,
-                )
-                .values(target_file_hash=key.sha1)
-                .execution_options(synchronize_session=False)
-            )
+        if channel.target_file_hash is None:
+            hashed = next((key.sha1 for key in matches if key.sha1), None)
+            if hashed:
+                channel.target_file_hash = hashed
 
 
 def channel_for_slot(
@@ -248,17 +247,38 @@ class DBSnapshotsHandler(DBBaseHandler):
     def get_stored_content(
         self, snapshot: Snapshot, session: Session = INJECTED_SESSION
     ) -> StoredContent:
-        content = StoredContent(
-            save=session.get(Save, snapshot.save_id) if snapshot.save_id else None
+        return self.get_stored_contents([snapshot], session=session)[snapshot.id]
+
+    @begin_session
+    def get_stored_contents(
+        self, snapshots: Sequence[Snapshot], session: Session = INJECTED_SESSION
+    ) -> dict[int, StoredContent]:
+        """Each snapshot's content rows, in two queries however many there are."""
+        save_ids = {s.save_id for s in snapshots if s.save_id is not None}
+        saves = (
+            {
+                save.id: save
+                for save in session.scalars(select(Save).where(Save.id.in_(save_ids)))
+            }
+            if save_ids
+            else {}
         )
+        contents = {
+            s.id: StoredContent(save=saves.get(s.save_id) if s.save_id else None)
+            for s in snapshots
+        }
+        if not contents:
+            return contents
         rows = session.execute(
             select(SnapshotState, State)
             .join(State, SnapshotState.state_id == State.id)
-            .where(SnapshotState.snapshot_id == snapshot.id)
+            .where(SnapshotState.snapshot_id.in_(contents.keys()))
         ).all()
         for entry, state in rows:
-            content.states.setdefault(entry.core, {})[entry.slot] = state
-        return content
+            contents[entry.snapshot_id].states.setdefault(entry.core, {})[
+                entry.slot
+            ] = state
+        return contents
 
     @begin_session
     def get_saves_by_hash(
@@ -266,18 +286,24 @@ class DBSnapshotsHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         hashes: Collection[str],
+        channel_id: uuid.UUID | None = None,
         session: Session = INJECTED_SESSION,
     ) -> dict[str, Save]:
+        """The user's snapshot-held saves on a ROM by content hash, only those
+        `channel_id`'s snapshots hold when given."""
         if not hashes:
             return {}
+        # A row no snapshot holds may still be overwritten by a legacy writer.
+        held = exists().where(Snapshot.save_id == Save.id)
+        if channel_id is not None:
+            held = held.where(Snapshot.channel_id == channel_id)
         rows = session.scalars(
             select(Save)
             .where(
                 Save.user_id == user_id,
                 Save.rom_id == rom_id,
                 Save.content_hash.in_(hashes),
-                # A row no snapshot holds may still be overwritten by a legacy writer.
-                exists().where(Snapshot.save_id == Save.id),
+                held,
             )
             .order_by(Save.id)
         )
@@ -293,17 +319,27 @@ class DBSnapshotsHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         hashes: Collection[str],
+        channel_id: uuid.UUID | None = None,
         session: Session = INJECTED_SESSION,
     ) -> dict[str, State]:
+        """The user's snapshot-held states on a ROM by content hash, only those
+        `channel_id`'s snapshots hold when given."""
         if not hashes:
             return {}
+        held = exists().where(SnapshotState.state_id == State.id)
+        if channel_id is not None:
+            held = held.where(
+                SnapshotState.snapshot_id.in_(
+                    select(Snapshot.id).where(Snapshot.channel_id == channel_id)
+                )
+            )
         rows = session.scalars(
             select(State)
             .where(
                 State.user_id == user_id,
                 State.rom_id == rom_id,
                 State.content_hash.in_(hashes),
-                exists().where(SnapshotState.state_id == State.id),
+                held,
             )
             .order_by(State.id)
         )
@@ -389,12 +425,46 @@ class DBSnapshotsHandler(DBBaseHandler):
     def count_snapshots(
         self, channel_id: uuid.UUID, session: Session = INJECTED_SESSION
     ) -> int:
-        return (
-            session.scalar(
-                select(func.count(Snapshot.id)).where(Snapshot.channel_id == channel_id)
-            )
-            or 0
+        return self.count_snapshots_by_channel([channel_id], session=session).get(
+            channel_id, 0
         )
+
+    @begin_session
+    def count_snapshots_by_channel(
+        self, channel_ids: Collection[uuid.UUID], session: Session = INJECTED_SESSION
+    ) -> dict[uuid.UUID, int]:
+        if not channel_ids:
+            return {}
+        rows = session.execute(
+            select(Snapshot.channel_id, func.count(Snapshot.id))
+            .where(Snapshot.channel_id.in_(channel_ids))
+            .group_by(Snapshot.channel_id)
+        ).all()
+        return {channel_id: count for channel_id, count in rows if channel_id}
+
+    @begin_session
+    def get_snapshots(
+        self, ids: Collection[int], session: Session = INJECTED_SESSION
+    ) -> dict[int, Snapshot]:
+        if not ids:
+            return {}
+        return {
+            snapshot.id: snapshot
+            for snapshot in session.scalars(
+                select(Snapshot).where(Snapshot.id.in_(ids))
+            )
+        }
+
+    @begin_session
+    def get_devices(
+        self, ids: Collection[str], session: Session = INJECTED_SESSION
+    ) -> dict[str, Device]:
+        if not ids:
+            return {}
+        return {
+            device.id: device
+            for device in session.scalars(select(Device).where(Device.id.in_(ids)))
+        }
 
     @begin_session
     def add_channel(
@@ -428,16 +498,34 @@ class DBSnapshotsHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> Sequence[tuple[DeviceChannelSync, Device]]:
         """The user's own devices whose last sync in the channel was this snapshot."""
+        return self.get_holders_by_snapshot(
+            [snapshot_id], user_id, session=session
+        ).get(snapshot_id, [])
+
+    @begin_session
+    def get_holders_by_snapshot(
+        self,
+        snapshot_ids: Collection[int],
+        user_id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> dict[int, list[tuple[DeviceChannelSync, Device]]]:
+        """`get_holders` for many snapshots in one query."""
+        if not snapshot_ids:
+            return {}
         rows = session.execute(
             select(DeviceChannelSync, Device)
             .join(Device, DeviceChannelSync.device_id == Device.id)
             .where(
-                DeviceChannelSync.base_snapshot_id == snapshot_id,
+                DeviceChannelSync.base_snapshot_id.in_(snapshot_ids),
                 Device.user_id == user_id,
             )
             .order_by(DeviceChannelSync.synced_at.desc())
         ).all()
-        return [(sync, device) for sync, device in rows]
+        holders: dict[int, list[tuple[DeviceChannelSync, Device]]] = {}
+        for sync, device in rows:
+            if sync.base_snapshot_id is not None:
+                holders.setdefault(sync.base_snapshot_id, []).append((sync, device))
+        return holders
 
     @begin_session
     def get_thumbnails(
@@ -606,7 +694,8 @@ class DBSnapshotsHandler(DBBaseHandler):
         self, session: Session, ids: Sequence[int]
     ) -> ReleasedContent:
         """Delete snapshots, then the content rows only they held, with their
-        screenshots. A legacy row is never held by a snapshot, so never taken."""
+        screenshots. A legacy upload the bridge made a current goes with its
+        snapshot; a legacy row no snapshot holds is never taken."""
         if not ids:
             return ReleasedContent()
         save_ids = set(
@@ -720,17 +809,22 @@ class DBSnapshotsHandler(DBBaseHandler):
         self, id: uuid.UUID, session: Session = INJECTED_SESSION
     ) -> ReleasedContent:
         """Delete a channel, keeping its current and pinned snapshots as archival.
-        Legacy saves filed under it lose the link and become backups."""
+        Legacy saves filed under it lose the link and become backups. A detached
+        channel keeps nothing: with its ROM gone, no view could reach a backup."""
         channel = session.get_one(Channel, id, with_for_update=True)
-        kept = session.scalars(
-            select(Snapshot).where(
-                Snapshot.channel_id == id,
-                or_(
-                    Snapshot.id == channel.current_snapshot_id,
-                    Snapshot.is_pinned.is_(True),
-                ),
-            )
-        ).all()
+        kept = (
+            session.scalars(
+                select(Snapshot).where(
+                    Snapshot.channel_id == id,
+                    or_(
+                        Snapshot.id == channel.current_snapshot_id,
+                        Snapshot.is_pinned.is_(True),
+                    ),
+                )
+            ).all()
+            if channel.rom_id is not None
+            else []
+        )
         for snapshot in kept:
             snapshot.channel_id = None
             snapshot.kind = SnapshotKind.ARCHIVAL
@@ -775,6 +869,21 @@ class DBSnapshotsHandler(DBBaseHandler):
         sync.synced_at = now
         session.flush()
         return sync
+
+    @begin_session
+    def get_held_save_ids(
+        self, save_ids: Collection[int], session: Session = INJECTED_SESSION
+    ) -> set[int]:
+        """Which of these saves a snapshot holds."""
+        if not save_ids:
+            return set()
+        return set(
+            session.scalars(
+                select(Snapshot.save_id)
+                .where(Snapshot.save_id.in_(save_ids))
+                .distinct()
+            )
+        )
 
     @begin_session
     def is_frozen(

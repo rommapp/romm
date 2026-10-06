@@ -1088,7 +1088,9 @@ parent's states. Hardcore channels and neutral current saves stay out.
   `channel_file_id` is the file a new channel on the ROM keys to (`legacy.sync_file`).
 - **Retention:** each push keeps the channel's newest `SNAPSHOT_RETENTION`; the
   `prune_snapshots` task drops branches after `SNAPSHOT_BRANCH_LIFETIME_DAYS` (30). Pruning deletes the content
-  rows only the pruned snapshots held, so a legacy save is never removed by it.
+  rows only the pruned snapshots held. A slotted upload the bridge made a current
+  is one of them and goes with its snapshot; a legacy save no snapshot holds is
+  never removed by it.
 
 ### 6.9b RetroArch Cloud Sync (`/api/sync/retroarch`)
 

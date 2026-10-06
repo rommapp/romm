@@ -5,8 +5,12 @@ from fastapi import HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from decorators.auth import protected_route
-from endpoints.responses.snapshots import ChannelSchema, build_channel_schema
-from endpoints.snapshots import visible_rom_file
+from endpoints.responses.snapshots import (
+    ChannelSchema,
+    build_channel_schema,
+    build_channel_schemas,
+)
+from endpoints.snapshots import readable_channel, visible_rom_file
 from handler.auth.constants import Scope
 from handler.database import db_snapshot_handler
 from handler.snapshots import retention
@@ -78,13 +82,14 @@ def get_channels(
         for channel in db_snapshot_handler.get_channels_for_file(
             viewer.id, rom.platform_id, FileKey.of_file(rom_file)
         ):
-            channels[channel.id] = channel
+            if readable_channel(request, channel):
+                channels[channel.id] = channel
     for id in channel_id or []:
         extra = db_snapshot_handler.get_channel(id)
-        if extra is None or (extra.user_id != viewer.id and not extra.is_public):
+        if extra is None or not readable_channel(request, extra):
             raise _not_found()
         channels[extra.id] = extra
-    return [build_channel_schema(channel, viewer) for channel in channels.values()]
+    return build_channel_schemas(list(channels.values()), viewer)
 
 
 @protected_route(
@@ -151,7 +156,8 @@ def attach_channel(
     router.delete, "/{id}", [Scope.ASSETS_WRITE], status_code=status.HTTP_204_NO_CONTENT
 )
 async def delete_channel(request: Request, id: uuid.UUID) -> None:
-    """Delete a channel. Its current and pinned snapshots stay as archival backups."""
+    """Delete a channel. Its current and pinned snapshots stay as archival backups,
+    except on a detached channel, whose ROM is gone, which keeps nothing."""
     channel = _owned_or_404(id, request.user)
     save_ids, state_ids = db_snapshot_handler.get_content_ids(channel.id)
     released = db_snapshot_handler.delete_channel(channel.id)

@@ -359,7 +359,7 @@ const overflow = computed(() => actions.value.slice(1));
         </RBtn>
         <div class="r-snapshot-viewer__tools">
           <RBtn
-            v-if="snapshot && canWrite"
+            v-if="snapshot && own"
             :icon="
               snapshot.is_pinned ? 'mdi-pin-off-outline' : 'mdi-pin-outline'
             "

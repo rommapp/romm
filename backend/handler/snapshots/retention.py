@@ -5,15 +5,31 @@ from datetime import datetime, timedelta, timezone
 
 from config import SNAPSHOT_BRANCH_LIFETIME_DAYS, SNAPSHOT_RETENTION
 from handler.asset_store import remove_asset_file
-from handler.database import db_snapshot_handler
+from handler.database import db_deleted_asset_handler, db_snapshot_handler
 from handler.database.snapshots_handler import ReleasedContent
 from logger.logger import log
 
 BRANCH_LIFETIME = timedelta(days=SNAPSHOT_BRANCH_LIFETIME_DAYS)
 
 
+def _record_slot_losses(released: ReleasedContent) -> None:
+    """Record the slotted versions the deletion took, as the saves handler does
+    for its own removals, so negotiate never offers them back. Each slot's
+    record is written in its own transaction, after the rows went."""
+    losses: dict[tuple[int, int, str], list[str]] = {}
+    for save in sorted(released.saves, key=lambda s: s.id):
+        if save.slot and save.content_hash and save.rom_id is not None:
+            losses.setdefault((save.user_id, save.rom_id, save.slot), []).append(
+                save.content_hash
+            )
+    for (user_id, rom_id, slot), hashes in sorted(losses.items()):
+        db_deleted_asset_handler.record_deletions(user_id, rom_id, slot, hashes)
+
+
 async def discard_content(released: ReleasedContent) -> None:
-    """Remove the files of rows already deleted, logging each one."""
+    """Record the slot losses of rows already deleted, then remove their files,
+    logging each one."""
+    _record_slot_losses(released)
     for row in [*released.saves, *released.states]:
         log.info(
             f"Removed {type(row).__name__.lower()} {row.id} "

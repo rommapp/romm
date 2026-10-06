@@ -200,6 +200,7 @@
   "select-save": "Выбрать сохранение",
   "select-state": "Выбрать состояние",
   "session-branched": "Во время вашей сессии другое устройство сохранило игру в этот канал. Ваш прогресс сохранится как ветка на {days} дн.",
+  "session-branched-hardcore": "В этом канале хардкорное сохранение, поэтому ваш прогресс сохранится как ветка на {days} дн.",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

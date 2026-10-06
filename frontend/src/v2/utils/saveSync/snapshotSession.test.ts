@@ -163,6 +163,7 @@ describe("buildPush", () => {
       rom_file_id: 7,
       expected_current_id: 42,
       channel_id: "chan",
+      label: "default",
       emulator: "mgba",
       core: "mgba",
       emulator_version: "4.2.3",
@@ -268,7 +269,11 @@ describe("SnapshotSession", () => {
     const outcome = await session.push({ kind: "save", save: file(SRAM) });
     await session.push({ kind: "save", save: file(SRAM) });
 
-    expect(outcome).toEqual({ kind: "branched", snapshot: branch });
+    expect(outcome).toEqual({
+      kind: "branched",
+      snapshot: branch,
+      reason: "moved",
+    });
     expect(session.isBranched).toBe(true);
     expect(api.pushSnapshot.mock.calls[1]![0].manifest).toMatchObject({
       expected_current_id: 42,
@@ -350,6 +355,27 @@ describe("sendPush", () => {
 
     const states = api.pushSnapshot.mock.calls[1]![0].manifest.states;
     expect(Object.keys(states.mgba).sort()).toEqual(["0", "auto"]);
+  });
+
+  it("lands as a branch on the current when a hardcore channel refuses it", async () => {
+    const branch = snapshotFixture({ id: 52, kind: "branch" });
+    api.pushSnapshot
+      .mockRejectedValueOnce(refusal(409, { hardcore_downgrade: true }))
+      .mockRejectedValueOnce(conflict({ current: { id: 42 }, branch }));
+
+    const outcome = await sendPush(
+      buildPush(target, { kind: "save", save: file(SRAM) }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "branched",
+      snapshot: branch,
+      reason: "hardcore",
+    });
+    expect(api.pushSnapshot.mock.calls[1]![0].manifest).toMatchObject({
+      expected_current_id: null,
+      parent_snapshot_id: 42,
+    });
   });
 
   it("gives up when content it sends itself is called missing", async () => {

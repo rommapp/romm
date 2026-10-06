@@ -200,6 +200,7 @@
   "select-save": "Mentés kiválasztása",
   "select-state": "Állás kiválasztása",
   "session-branched": "Egy másik eszköz mentett ebbe a csatornába a munkameneted alatt. A haladásod ágként {days} napig megmarad.",
+  "session-branched-hardcore": "Ez a csatorna hardcore mentést tartalmaz, ezért a haladásod ágként {days} napig megmarad.",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

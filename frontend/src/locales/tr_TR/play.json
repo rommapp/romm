@@ -200,6 +200,7 @@
   "select-save": "Kayıt seç",
   "select-state": "Durum kaydı seç",
   "session-branched": "Oturumunuz sırasında başka bir cihaz bu kanala kaydetti. İlerlemeniz {days} gün boyunca dal olarak saklanır.",
+  "session-branched-hardcore": "Bu kanalda hardcore bir kayıt var, bu yüzden ilerlemeniz {days} gün boyunca dal olarak saklanır.",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

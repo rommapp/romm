@@ -11,9 +11,13 @@ export const DEFAULT_CHANNEL_LABEL = "default";
 /** The backend's `legacy.DEFAULT_SLOTS`. */
 const DEFAULT_SLOTS = new Set(["autosave", "default"]);
 
+/** The backend's `utils.uploads.DATETIME_TAG_PATTERN`. */
+const DATETIME_TAG_PATTERN =
+  / \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:-\d{3})?\]/g;
+
 /** The channel a save slot files into, as the backend's `channel_label` maps it. */
 export function channelLabelForSlot(slot: string): string {
-  const label = slot.trim();
+  const label = slot.replace(DATETIME_TAG_PATTERN, "").trim();
   return !label || DEFAULT_SLOTS.has(label.toLowerCase())
     ? DEFAULT_CHANNEL_LABEL
     : label;
@@ -60,6 +64,11 @@ export function bankOf(snapshot: SnapshotSchema): Bank {
   );
 }
 
+/** A manifest that builds on `snapshot` keeps it hardcore when it was. */
+function hardcoreOf(snapshot: SnapshotSchema): Partial<SnapshotManifest> {
+  return snapshot.is_hardcore ? { is_hardcore: true } : {};
+}
+
 function intoChannel(
   channel: ChannelTarget,
   rest: Partial<SnapshotManifest>,
@@ -82,7 +91,10 @@ export function restoreManifest(
   snapshot: SnapshotSchema,
   channel: ChannelTarget,
 ): SnapshotManifest | null {
-  return intoChannel(channel, { parent_snapshot_id: snapshot.id });
+  return intoChannel(channel, {
+    parent_snapshot_id: snapshot.id,
+    ...hardcoreOf(snapshot),
+  });
 }
 
 /** `snapshot` without one bank slot, pushed as the channel's new current. */
@@ -97,6 +109,7 @@ export function withoutStateManifest(
   return intoChannel(channel, {
     parent_snapshot_id: snapshot.id,
     states: { [core]: slots },
+    ...hardcoreOf(snapshot),
   });
 }
 
@@ -105,7 +118,10 @@ export function saveOverManifest(
   snapshot: SnapshotSchema,
   target: ChannelTarget,
 ): SnapshotManifest | null {
-  return intoChannel(target, { parent_snapshot_id: snapshot.id });
+  return intoChannel(target, {
+    parent_snapshot_id: snapshot.id,
+    ...hardcoreOf(snapshot),
+  });
 }
 
 /** A new channel that starts from `snapshot`. */
@@ -119,6 +135,7 @@ export function forkManifest(
     label,
     expected_current_id: null,
     parent_snapshot_id: snapshot.id,
+    ...hardcoreOf(snapshot),
   };
 }
 

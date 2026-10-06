@@ -200,6 +200,7 @@
   "select-save": "Vybrat uloženou pozici",
   "select-state": "Vybrat stav",
   "session-branched": "Během vaší relace uložilo do tohoto kanálu jiné zařízení. Váš postup se uchová jako větev po dobu {days} dní.",
+  "session-branched-hardcore": "Tento kanál obsahuje uloženou pozici v režimu hardcore, takže se váš postup uchová jako větev po dobu {days} dní.",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

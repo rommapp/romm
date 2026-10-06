@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ChannelSchema } from "@/__generated__";
 import {
   bankOf,
+  channelLabelForSlot,
   saveOverManifest,
   copySaveManifest,
   saveOverTargets,
@@ -84,6 +85,15 @@ describe("snapshot manifests", () => {
     });
   });
 
+  it("keeps a hardcore snapshot hardcore wherever it is restored or copied", () => {
+    const hardcore = snapshotFixture({ id: 40, is_hardcore: true });
+
+    expect(restoreManifest(hardcore, channel())?.is_hardcore).toBe(true);
+    expect(saveOverManifest(hardcore, channel())?.is_hardcore).toBe(true);
+    expect(forkManifest(hardcore, 7, "Speedrun").is_hardcore).toBe(true);
+    expect(restoreManifest(snapshot, channel())?.is_hardcore).toBeUndefined();
+  });
+
   it("copies a loose save in by id", () => {
     expect(copySaveManifest({ id: 1907 }, channel())).toMatchObject({
       save: { copy_of: 1907 },
@@ -107,5 +117,16 @@ describe("snapshot manifests", () => {
     ];
 
     expect(saveOverTargets(all, from).map((c) => c.id)).toEqual(["same-file"]);
+  });
+});
+
+describe("channelLabelForSlot", () => {
+  it("files a tagged slot under its untagged channel", () => {
+    expect(channelLabelForSlot("Run [2026-01-01_00-00-00]")).toBe("Run");
+    expect(channelLabelForSlot("Run [2026-01-01_00-00-00-123]")).toBe("Run");
+  });
+
+  it("files autosave under the default channel", () => {
+    expect(channelLabelForSlot("Autosave")).toBe("default");
   });
 });

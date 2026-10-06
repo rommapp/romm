@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Sequence
 from typing import Any
 
 from models.assets import SaveFormat, SaveShape
@@ -161,45 +162,91 @@ def can_read(snapshot: Snapshot, channel: Channel | None, viewer: User) -> bool:
     return snapshot.kind == SnapshotKind.ARCHIVAL and snapshot.is_public
 
 
+def _shot(screenshot: Any) -> ScreenshotRefSchema | None:
+    if screenshot is None:
+        return None
+    return ScreenshotRefSchema(id=screenshot.id, download_path=screenshot.download_path)
+
+
 def build_snapshot_schema(
     snapshot: Snapshot, channel: Channel | None, viewer: User
 ) -> SnapshotSchema:
-    from handler.database import db_device_handler, db_snapshot_handler
+    return build_snapshot_schemas([(snapshot, channel)], viewer)[0]
 
-    content = db_snapshot_handler.get_stored_content(snapshot)
-    state_rows = [
-        state for slots in content.states.values() for state in slots.values()
-    ]
+
+def build_snapshot_schemas(
+    snapshots: Sequence[tuple[Snapshot, Channel | None]],
+    viewer: User,
+    refs: dict[uuid.UUID, ChannelRefSchema] | None = None,
+) -> list[SnapshotSchema]:
+    """Each snapshot's schema, with its channel, in a fixed number of queries
+    however many snapshots there are.
+
+    Args:
+        refs: channel refs the caller already built, by channel id.
+    """
+    from handler.database import db_snapshot_handler
+
+    refs = dict(refs or {})
+
+    contents = db_snapshot_handler.get_stored_contents([s for s, _ in snapshots])
     save_shots, state_shots = db_snapshot_handler.get_thumbnails(
-        [content.save.id] if content.save else [], [state.id for state in state_rows]
+        [c.save.id for c in contents.values() if c.save],
+        [
+            state.id
+            for c in contents.values()
+            for slots in c.states.values()
+            for state in slots.values()
+        ],
     )
-
-    def shot(screenshot: Any) -> ScreenshotRefSchema | None:
-        if screenshot is None:
-            return None
-        return ScreenshotRefSchema(
-            id=screenshot.id, download_path=screenshot.download_path
+    devices = db_snapshot_handler.get_devices(
+        {s.origin_device_id for s, _ in snapshots if s.origin_device_id}
+    )
+    holders = db_snapshot_handler.get_holders_by_snapshot(
+        [s.id for s, _ in snapshots], viewer.id
+    )
+    for _, channel in snapshots:
+        if channel is not None and channel.id not in refs:
+            refs[channel.id] = channel_ref(channel, viewer)
+    return [
+        _snapshot_schema(
+            snapshot,
+            refs[channel.id] if channel else None,
+            contents[snapshot.id],
+            save_shots,
+            state_shots,
+            devices.get(snapshot.origin_device_id or ""),
+            holders.get(snapshot.id, []),
+            viewer,
         )
+        for snapshot, channel in snapshots
+    ]
 
+
+def _snapshot_schema(
+    snapshot: Snapshot,
+    channel: ChannelRefSchema | None,
+    content: Any,
+    save_shots: dict[int, Any],
+    state_shots: dict[int, Any],
+    origin: Device | None,
+    holders: Sequence[tuple[Any, Device]],
+    viewer: User,
+) -> SnapshotSchema:
     save = content.save
-    save_shot = shot(save_shots.get(save.id)) if save else None
+    save_shot = _shot(save_shots.get(save.id)) if save else None
     auto_shots = [
-        shot(state_shots.get(slots[THUMBNAIL_FALLBACK_SLOT].id))
+        _shot(state_shots.get(slots[THUMBNAIL_FALLBACK_SLOT].id))
         for _, slots in sorted(content.states.items())
         if THUMBNAIL_FALLBACK_SLOT in slots
     ]
     thumbnail = save_shot or next((s for s in auto_shots if s), None)
-    origin = (
-        db_device_handler.get_device_by_id(snapshot.origin_device_id)
-        if snapshot.origin_device_id
-        else None
-    )
     return SnapshotSchema(
         id=snapshot.id,
         digest=f"{DIGEST_PREFIX}{snapshot.digest}",
         kind=snapshot.kind,
         parent_snapshot_id=snapshot.parent_snapshot_id,
-        channel=channel_ref(channel, viewer) if channel else None,
+        channel=channel,
         author_user_id=snapshot.author_user_id,
         device=device_ref(origin, viewer),
         emulator=snapshot.emulator,
@@ -217,7 +264,7 @@ def build_snapshot_schema(
                 ),
                 synced_at=sync.synced_at,
             )
-            for sync, device in db_snapshot_handler.get_holders(snapshot.id, viewer.id)
+            for sync, device in holders
         ],
         save=(
             SnapshotSaveSchema(
@@ -248,7 +295,7 @@ def build_snapshot_schema(
                     emulator_version=state.emulator_version,
                     core_version=state.core_version,
                     download_path=state.download_path,
-                    screenshot=shot(state_shots.get(state.id)),
+                    screenshot=_shot(state_shots.get(state.id)),
                 )
                 for slot, state in slots.items()
             }
@@ -259,15 +306,41 @@ def build_snapshot_schema(
 
 
 def build_channel_schema(channel: Channel, viewer: User) -> ChannelSchema:
+    return build_channel_schemas([channel], viewer)[0]
+
+
+def build_channel_schemas(
+    channels: Sequence[Channel], viewer: User
+) -> list[ChannelSchema]:
+    """Each channel's schema with its current snapshot, batched like
+    `build_snapshot_schemas`."""
     from handler.database import db_snapshot_handler
 
-    current = (
-        db_snapshot_handler.get_snapshot(channel.current_snapshot_id)
-        if channel.current_snapshot_id
-        else None
+    currents = db_snapshot_handler.get_snapshots(
+        {c.current_snapshot_id for c in channels if c.current_snapshot_id}
     )
-    return ChannelSchema(
-        **channel_ref(channel, viewer).model_dump(),
-        current=build_snapshot_schema(current, channel, viewer) if current else None,
-        snapshot_count=db_snapshot_handler.count_snapshots(channel.id),
-    )
+    counts = db_snapshot_handler.count_snapshots_by_channel([c.id for c in channels])
+    refs = {c.id: channel_ref(c, viewer) for c in channels}
+    with_current = [
+        (currents[c.current_snapshot_id], c)
+        for c in channels
+        if c.current_snapshot_id in currents
+    ]
+    schemas = {
+        snapshot.id: schema
+        for (snapshot, _), schema in zip(
+            with_current,
+            build_snapshot_schemas(with_current, viewer, refs),
+            strict=True,
+        )
+    }
+    return [
+        ChannelSchema(
+            **refs[c.id].model_dump(),
+            current=(
+                schemas.get(c.current_snapshot_id) if c.current_snapshot_id else None
+            ),
+            snapshot_count=counts.get(c.id, 0),
+        )
+        for c in channels
+    ]

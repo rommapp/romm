@@ -200,6 +200,7 @@
   "select-save": "Seleccionar guardado",
   "select-state": "Seleccionar estado",
   "session-branched": "Otro dispositivo guardó en este canal durante tu sesión. Tu progreso se conserva como rama durante {days} días.",
+  "session-branched-hardcore": "Este canal tiene una partida en modo hardcore, así que tu progreso se conserva como rama durante {days} días.",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

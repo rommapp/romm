@@ -23,6 +23,7 @@ from endpoints.responses.snapshots import (
     SnapshotConflictSchema,
     SnapshotSchema,
     build_snapshot_schema,
+    build_snapshot_schemas,
     can_read,
 )
 from handler.auth.constants import Scope
@@ -173,7 +174,22 @@ def _not_found(what: str = "Snapshot") -> HTTPException:
     )
 
 
-def _readable(id: int, viewer: User) -> tuple[Snapshot, Channel | None]:
+def rom_hidden(request: Request, rom_id: int | None) -> bool:
+    """Whether the ROM a channel or snapshot is on is hidden from the caller,
+    which hides the channel and its snapshots too."""
+    if rom_id is None:
+        return False
+    rom = db_rom_handler.get_rom(rom_id)
+    return rom is not None and not get_rom_visibility_filter(request).allows(rom)
+
+
+def readable_channel(request: Request, channel: Channel) -> bool:
+    return (channel.user_id == request.user.id or channel.is_public) and not rom_hidden(
+        request, channel.rom_id
+    )
+
+
+def _readable(request: Request, id: int) -> tuple[Snapshot, Channel | None]:
     snapshot = db_snapshot_handler.get_snapshot(id)
     if snapshot is None:
         raise _not_found()
@@ -182,7 +198,9 @@ def _readable(id: int, viewer: User) -> tuple[Snapshot, Channel | None]:
         if snapshot.channel_id
         else None
     )
-    if not can_read(snapshot, channel, viewer):
+    if not can_read(snapshot, channel, request.user) or rom_hidden(
+        request, snapshot.rom_id
+    ):
         raise _not_found()
     return snapshot, channel
 
@@ -227,23 +245,28 @@ def get_snapshots(
             for channel in db_snapshot_handler.get_channels_for_file(
                 viewer.id, rom.platform_id, FileKey.of_file(rom_file)
             ):
-                channels[channel.id] = channel
+                if readable_channel(request, channel):
+                    channels[channel.id] = channel
         if channel_id is not None:
             extra = db_snapshot_handler.get_channel(channel_id)
-            if extra is None or (extra.user_id != viewer.id and not extra.is_public):
+            if extra is None or not readable_channel(request, extra):
                 raise _not_found("Channel")
             channels[extra.id] = extra
-        results = []
-        for channel in channels.values():
-            if channel.current_snapshot_id is None:
-                continue
-            snapshot = db_snapshot_handler.get_snapshot(channel.current_snapshot_id)
-            if snapshot is None or (
-                save_target is not None and snapshot.save_target != save_target
-            ):
-                continue
-            results.append(build_snapshot_schema(snapshot, channel, viewer))
-        return results
+        currents = db_snapshot_handler.get_snapshots(
+            {c.current_snapshot_id for c in channels.values() if c.current_snapshot_id}
+        )
+        return build_snapshot_schemas(
+            [
+                (currents[c.current_snapshot_id], c)
+                for c in channels.values()
+                if c.current_snapshot_id in currents
+                and (
+                    save_target is None
+                    or currents[c.current_snapshot_id].save_target == save_target
+                )
+            ],
+            viewer,
+        )
 
     if channel_id is None:
         raise HTTPException(
@@ -251,7 +274,7 @@ def get_snapshots(
             detail="History needs a channel_id",
         )
     history = db_snapshot_handler.get_channel(channel_id)
-    if history is None or (history.user_id != viewer.id and not history.is_public):
+    if history is None or not readable_channel(request, history):
         raise _not_found("Channel")
     try:
         before_id = int(cursor) if cursor else None
@@ -259,17 +282,20 @@ def get_snapshots(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid cursor"
         ) from None
-    return [
-        build_snapshot_schema(snapshot, history, viewer)
-        for snapshot in db_snapshot_handler.get_channel_history(
-            history.id, limit, before_id=before_id, save_target=save_target
-        )
-    ]
+    return build_snapshot_schemas(
+        [
+            (snapshot, history)
+            for snapshot in db_snapshot_handler.get_channel_history(
+                history.id, limit, before_id=before_id, save_target=save_target
+            )
+        ],
+        viewer,
+    )
 
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
 def get_snapshot(request: Request, id: int) -> SnapshotSchema:
-    snapshot, channel = _readable(id, request.user)
+    snapshot, channel = _readable(request, id)
     return build_snapshot_schema(snapshot, channel, request.user)
 
 
@@ -456,11 +482,13 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
     payload, parts, save_members = await _read_push(request)
     check_emulator_folder_name(payload.emulator)
     rom_file, rom = visible_rom_file(request, payload.rom_file_id)
+    save_part = parts.get(SAVE_PART)
     if (
         payload.save
         and payload.save.format == SaveFormat.NEUTRAL
         and payload.save.shape
-        and SAVE_PART in parts
+        and save_part is not None
+        and save_part.content is not None
     ):
         try:
             check_neutral_unit(rom.platform_slug, payload.save.shape, save_members)
@@ -527,17 +555,24 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
 def update_snapshot(
     request: Request, id: int, payload: SnapshotUpdatePayload
 ) -> SnapshotSchema:
-    """Pin a snapshot, or share an archival one."""
+    """Pin a snapshot, or share an archival one. Only its owner does either:
+    pinning is what keeps history from retention, which other users pushing
+    into a shared channel set off."""
     viewer = request.user
-    snapshot, channel = _readable(id, viewer)
+    snapshot, channel = _readable(request, id)
+    if snapshot.user_id != viewer.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the owner of a snapshot pins or shares it",
+        )
     changes: dict[str, Any] = {}
     if payload.is_pinned is not None:
         changes["is_pinned"] = payload.is_pinned
     if payload.is_public is not None:
-        if snapshot.kind != SnapshotKind.ARCHIVAL or snapshot.user_id != viewer.id:
+        if snapshot.kind != SnapshotKind.ARCHIVAL:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only the owner of an archival snapshot shares it",
+                detail="Only an archival snapshot is shared on its own",
             )
         changes["is_public"] = payload.is_public
     if changes:
@@ -560,7 +595,7 @@ def update_snapshot(
 def report_applied(request: Request, id: int, device_id: str) -> None:
     """Record the snapshot a device applied after a download, for attribution."""
     device = _own_device(device_id, request.user)
-    snapshot, channel = _readable(id, request.user)
+    snapshot, channel = _readable(request, id)
     if device is None or channel is None:
         raise _not_found()
     db_snapshot_handler.record_device_base(device.id, channel.id, snapshot.id)

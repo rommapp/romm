@@ -200,6 +200,7 @@
   "select-save": "Selectează salvare",
   "select-state": "Selectează stare",
   "session-branched": "Un alt dispozitiv a salvat în acest canal în timpul sesiunii tale. Progresul tău e păstrat ca ramură timp de {days} zile.",
+  "session-branched-hardcore": "Acest canal conține o salvare hardcore, așa că progresul tău e păstrat ca ramură timp de {days} zile.",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

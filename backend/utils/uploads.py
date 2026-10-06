@@ -8,7 +8,7 @@ from starlette.datastructures import UploadFile
 from config import MAX_ASSET_UPLOAD_SIZE_BYTES
 from utils.filesystem import check_filename_length, sanitize_filename
 
-# Matches tags written before milliseconds were added, too.
+# Milliseconds are optional: files already on disk carry tags without them.
 DATETIME_TAG_PATTERN = re.compile(
     r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:-\d{3})?\]"
 )

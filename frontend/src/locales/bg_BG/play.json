@@ -200,6 +200,7 @@
   "select-save": "Избери запис",
   "select-state": "Избери бърз запис",
   "session-branched": "Друго устройство записа в този канал по време на сесията ви. Напредъкът ви се пази като разклонение {days} дни.",
+  "session-branched-hardcore": "Този канал съдържа хардкор запис, затова напредъкът ви се пази като разклонение {days} дни.",
   "session-ended": "Your streaming session has ended.",
   "session-ended-by": "An administrator ({user}) ended your streaming session.",
   "session-ended-reason-label": "Reason given",

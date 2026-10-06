@@ -86,6 +86,28 @@ async def test_a_legacy_save_in_the_channel_survives_pruning(
         assert session.get(Save, save.id) is not None
 
 
+async def test_pruning_an_adopted_slot_upload_records_the_slots_loss(
+    admin_user: User, rom: Rom, hashed_file: RomFile
+):
+    from handler.database import db_deleted_asset_handler
+
+    first = await first_push(admin_user, rom, hashed_file)
+    with sync_session.begin() as session:
+        adopted = session.get_one(Save, first.snapshot.save_id)
+        adopted.slot = "autosave"
+        adopted_hash = adopted.content_hash
+    results = [first]
+    for n in range(3):
+        results.append(
+            await push_save(admin_user, rom, hashed_file, results[-1], f"a{n}".encode())
+        )
+
+    lost = db_deleted_asset_handler.removal_times(admin_user.id, rom.id, "autosave")
+
+    assert alive(first) == [False]
+    assert adopted_hash in lost
+
+
 async def test_a_detached_channel_keeps_everything(
     admin_user: User, rom: Rom, hashed_file: RomFile
 ):
@@ -152,6 +174,24 @@ async def test_the_branch_lifetime_setting_moves_the_cutoff(
 
     assert kept == [True]
     assert alive(branch) == [False]
+
+
+async def test_deleting_a_detached_channel_keeps_nothing_unreachable(
+    admin_user: User, rom: Rom, hashed_file: RomFile, _assets_dir: Path
+):
+    results = await five_pushes(admin_user, rom, hashed_file)
+    channel_id = results[0].snapshot.channel_id
+    assert channel_id is not None
+    db_snapshot_handler.update_snapshot(results[-2].snapshot.id, {"is_pinned": True})
+    db_rom_handler.delete_rom(rom.id)
+
+    await retention.discard_content(db_snapshot_handler.delete_channel(channel_id))
+
+    with sync_session() as session:
+        assert session.query(Snapshot).count() == 0
+        assert session.query(Save).count() == 0
+        assert session.query(State).count() == 0
+    assert stored_files(_assets_dir) == []
 
 
 async def test_deleting_a_channel_keeps_its_current_and_frees_its_legacy_saves(

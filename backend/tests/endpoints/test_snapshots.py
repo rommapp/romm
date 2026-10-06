@@ -11,8 +11,15 @@ from fastapi.testclient import TestClient
 from tests._zipfile_shim import reload_zipfile
 
 from handler.database import db_device_handler, db_rom_handler, db_snapshot_handler
+from handler.filesystem import fs_asset_handler
 from handler.snapshots.manifest import Manifest, SaveEntry
-from handler.snapshots.write import SAVE_PART, SnapshotWrite, UploadPart, write_snapshot
+from handler.snapshots.write import (
+    SAVE_PART,
+    SnapshotWrite,
+    UploadPart,
+    state_part,
+    write_snapshot,
+)
 from models.assets import SaveFormat, SaveShape
 from models.device import Device
 from models.rom import Rom, RomFile
@@ -548,6 +555,43 @@ def test_a_screenshot_added_to_shared_content_is_served_to_others(
     assert shared.status_code == status.HTTP_200_OK
 
 
+def test_a_screenshot_alone_attaches_to_a_held_neutral_save(
+    client: TestClient,
+    headers: dict[str, str],
+    game_file: RomFile,
+    rom: Rom,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from handler.snapshots import neutral
+
+    monkeypatch.setitem(
+        neutral.NEUTRAL_FORMS, rom.platform_slug, neutral.NEUTRAL_FORMS["gb"]
+    )
+    first = post(
+        client,
+        headers,
+        manifest(game_file, label="default", save=save_entry()),
+        {"save": ("save.sram", SRAM)},
+    )
+    assert first.status_code == status.HTTP_201_CREATED, first.text
+    body = first.json()
+
+    again = post(
+        client,
+        headers,
+        manifest(
+            game_file,
+            channel_id=body["channel"]["id"],
+            expected_current_id=body["id"],
+            save=save_entry(),
+        ),
+        {"save_screenshot": ("game.png", b"png")},
+    )
+
+    assert again.status_code == status.HTTP_200_OK, again.text
+    assert again.json()["save"]["screenshot"] is not None
+
+
 def test_a_push_that_expects_nothing_of_a_channel_lands_as_a_branch(
     client: TestClient, headers: dict[str, str], game_file: RomFile
 ):
@@ -731,6 +775,80 @@ async def test_a_backup_is_replaced_and_deleted_with_its_archival_snapshot(
     assert db_snapshot_handler.get_snapshot(archived.snapshot.id) is None
 
 
+async def test_deleting_a_backup_removes_its_linked_screenshot(
+    client: TestClient, headers: dict[str, str], admin_user: User, rom: Rom
+):
+    archived = await write_snapshot(
+        SnapshotWrite(
+            author=admin_user,
+            rom=rom,
+            manifest=Manifest(
+                save=SaveEntry(
+                    hash=md5(SRAM), shape=SaveShape.SINGLE, format=SaveFormat.NATIVE
+                )
+            ),
+            channel=None,
+            parts={
+                SAVE_PART: UploadPart(
+                    content=SRAM,
+                    file_name="backup.srm",
+                    screenshot=b"png",
+                    screenshot_name="backup.png",
+                )
+            },
+        )
+    )
+    save_id = archived.snapshot.save_id
+    assert save_id is not None
+    shots, _ = db_snapshot_handler.get_thumbnails([save_id], [])
+    shot_path = fs_asset_handler.validate_path(shots[save_id].full_path)
+    assert shot_path.exists()
+
+    deleted = client.post(
+        "/api/saves/delete", json={"saves": [save_id]}, headers=headers
+    )
+
+    assert deleted.status_code == status.HTTP_200_OK
+    assert not shot_path.exists()
+
+
+async def test_deleting_a_backup_state_removes_its_linked_screenshot(
+    client: TestClient, headers: dict[str, str], admin_user: User, rom: Rom
+):
+    part = state_part("snes9x", "0")
+    archived = await write_snapshot(
+        SnapshotWrite(
+            author=admin_user,
+            rom=rom,
+            manifest=Manifest(save=None, states={"snes9x": {"0": md5(STATE)}}),
+            channel=None,
+            parts={
+                part: UploadPart(
+                    content=STATE,
+                    file_name="backup.state",
+                    screenshot=b"png",
+                    screenshot_name="backup.png",
+                )
+            },
+        )
+    )
+    [entry] = (
+        db_snapshot_handler.get_stored_content(archived.snapshot)
+        .states["snes9x"]
+        .values()
+    )
+    _, shots = db_snapshot_handler.get_thumbnails([], [entry.id])
+    shot_path = fs_asset_handler.validate_path(shots[entry.id].full_path)
+    assert shot_path.exists()
+
+    deleted = client.post(
+        "/api/states/delete", json={"states": [entry.id]}, headers=headers
+    )
+
+    assert deleted.status_code == status.HTTP_200_OK
+    assert not shot_path.exists()
+
+
 def test_deleting_the_rom_detaches_its_channel_and_keeps_the_saves(
     client: TestClient, headers: dict[str, str], game_file: RomFile, rom: Rom
 ):
@@ -833,6 +951,17 @@ def test_the_rom_names_the_file_its_channels_key_to(
     detail = client.get(f"/api/roms/{rom.id}", headers=headers).json()
 
     assert detail["channel_file_id"] == cue.id
+
+
+@pytest.mark.usefixtures("save")
+def test_the_rom_names_the_saves_its_snapshots_hold(
+    client: TestClient, headers: dict[str, str], game_file: RomFile
+):
+    body = first_push(client, headers, game_file)
+
+    detail = client.get(f"/api/roms/{game_file.rom_id}", headers=headers).json()
+
+    assert detail["snapshot_save_ids"] == [body["save"]["id"]]
 
 
 def test_a_device_reports_the_snapshot_it_applied(
@@ -1129,6 +1258,122 @@ def test_restoring_from_the_web_keeps_the_source_device(
     assert restored["parent_snapshot_id"] == first["id"]
     assert restored["device"]["id"] == device.id
     assert restored["held_by"] == []
+
+
+def _share(client: TestClient, headers: dict[str, str], body: dict[str, Any]) -> None:
+    client.patch(
+        f"/api/channels/{body['channel']['id']}",
+        json={"is_public": True},
+        headers=headers,
+    )
+
+
+def test_a_fork_of_another_users_snapshot_holds_copies(
+    client: TestClient,
+    headers: dict[str, str],
+    editor_headers: dict[str, str],
+    game_file: RomFile,
+    admin_user: User,
+):
+    from handler.database import db_user_handler
+
+    shared = first_push(client, headers, game_file)
+    _share(client, headers, shared)
+
+    fork = post(
+        client,
+        editor_headers,
+        manifest(game_file, label="mine", parent_snapshot_id=shared["id"]),
+    )
+    body = fork.json()
+    db_user_handler.delete_user(admin_user.id)
+    content = client.get(body["save"]["download_path"], headers=editor_headers)
+
+    assert fork.status_code == status.HTTP_201_CREATED, fork.text
+    assert body["save"]["id"] != shared["save"]["id"]
+    assert body["save"]["content_hash"] == md5(SRAM)
+    state = body["states"]["snes9x"]["auto"]
+    assert state["id"] != shared["states"]["snes9x"]["auto"]["id"]
+    assert content.content == SRAM
+
+
+def test_only_the_owner_pins_a_snapshot(
+    client: TestClient,
+    headers: dict[str, str],
+    editor_headers: dict[str, str],
+    game_file: RomFile,
+):
+    body = first_push(client, headers, game_file)
+    _share(client, headers, body)
+    path = f"/api/snapshots/{body['id']}"
+
+    foreign = client.patch(path, json={"is_pinned": True}, headers=editor_headers)
+    own = client.patch(path, json={"is_pinned": True}, headers=headers)
+
+    assert foreign.status_code == status.HTTP_403_FORBIDDEN
+    assert own.json()["is_pinned"] is True
+
+
+def test_a_push_into_a_shared_channel_cannot_name_the_owners_private_content(
+    client: TestClient,
+    headers: dict[str, str],
+    editor_headers: dict[str, str],
+    game_file: RomFile,
+):
+    secret = b"private sram"
+    post(
+        client,
+        headers,
+        manifest(game_file, label="private", save=save_entry(secret)),
+        {"save": ("game.srm", secret)},
+    )
+    shared = first_push(client, headers, game_file)
+    _share(client, headers, shared)
+
+    response = post(
+        client,
+        editor_headers,
+        manifest(
+            game_file,
+            channel_id=shared["channel"]["id"],
+            expected_current_id=shared["id"],
+            save=save_entry(secret),
+        ),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["missing"] == ["save"]
+
+
+def test_a_shared_channel_on_a_hidden_rom_stays_hidden(
+    client: TestClient,
+    headers: dict[str, str],
+    editor_headers: dict[str, str],
+    game_file: RomFile,
+    rom: Rom,
+    editor_user: User,
+):
+    from handler.database.base_handler import sync_session
+    from models.permission import HiddenEntity, PermEntity
+
+    body = first_push(client, headers, game_file)
+    _share(client, headers, body)
+    with sync_session.begin() as session:
+        session.add(
+            HiddenEntity(
+                entity=PermEntity.ROMS, entity_id=rom.id, user_id=editor_user.id
+            )
+        )
+
+    snapshot = client.get(f"/api/snapshots/{body['id']}", headers=editor_headers)
+    history = client.get(
+        "/api/snapshots",
+        params={"channel_id": body["channel"]["id"]},
+        headers=editor_headers,
+    )
+
+    assert snapshot.status_code == status.HTTP_404_NOT_FOUND
+    assert history.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_a_save_names_exactly_one_source(
