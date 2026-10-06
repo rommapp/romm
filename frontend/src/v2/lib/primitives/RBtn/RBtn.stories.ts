@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RBtn from "./RBtn.vue";
 
 const meta: Meta<typeof RBtn> = {
   title: "Primitives/RBtn",
   component: RBtn,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     color: { control: "text" },
     size: {

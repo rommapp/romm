@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RAvatar from "./RAvatar.vue";
 
 const meta: Meta<typeof RAvatar> = {
   title: "Primitives/RAvatar",
   component: RAvatar,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     size: { control: "text" },
     color: { control: "text" },

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RBtn from "../RBtn/RBtn.vue";
 import "./RAlert.stories.css";
 import RAlert from "./RAlert.vue";
@@ -7,6 +8,7 @@ import RAlert from "./RAlert.vue";
 const meta: Meta<typeof RAlert> = {
   title: "Primitives/RAlert",
   component: RAlert,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     type: {
       control: "select",

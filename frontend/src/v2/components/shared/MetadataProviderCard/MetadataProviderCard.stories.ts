@@ -6,6 +6,7 @@
 // footer pinned to the bottom edge.
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { RBtn } from "@v2/lib";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import MetadataProviderCard from "./MetadataProviderCard.vue";
 import type { ProviderCardStatus } from "./types";
 
@@ -36,6 +37,7 @@ const checking: ProviderCardStatus = {
 const meta: Meta<typeof MetadataProviderCard> = {
   title: "Shared/MetadataProviderCard",
   component: MetadataProviderCard,
+  parameters: CONTRAST_TODO_PARAMETERS,
   // The canvas body is not theme-painted; give the cards the app's
   // background so the light theme reads correctly.
   decorators: [

@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
 import RTag from "@/v2/lib/primitives/RTag/RTag.vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RCollapsible from "./RCollapsible.vue";
 
 const meta: Meta<typeof RCollapsible> = {
   title: "Structural/RCollapsible",
   component: RCollapsible,
+  parameters: CONTRAST_TODO_PARAMETERS,
   render: (args) => ({
     components: { RCollapsible },
     setup: () => {

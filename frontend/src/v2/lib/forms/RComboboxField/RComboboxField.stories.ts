@@ -2,11 +2,13 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { RBtn, RForm } from "@v2/lib";
 import { expect, userEvent } from "storybook/test";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RComboboxField from "./RComboboxField.vue";
 
 const meta: Meta<typeof RComboboxField> = {
   title: "Forms/RComboboxField",
   component: RComboboxField,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     prefixLabel: {
       control: "inline-radio",

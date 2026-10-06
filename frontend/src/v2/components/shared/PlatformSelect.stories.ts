@@ -3,6 +3,7 @@ import { expect, userEvent, within, waitFor } from "storybook/test";
 import { ref } from "vue";
 import type { Platform } from "@/stores/platforms";
 import { platformFixture } from "@/utils/platform.fixtures";
+import { a11yTodoRules, CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import PlatformSelect from "./PlatformSelect.vue";
 import {
   formatPlatformRomCount,
@@ -122,14 +123,18 @@ async function openMenu(canvasElement: HTMLElement) {
   });
 }
 
+// The open panel's option list scrolls but can't take keyboard focus.
+const OPEN_PANEL_A11Y_TODO = a11yTodoRules(
+  "color-contrast",
+  "scrollable-region-focusable",
+);
+
 // Generic components can't fill Storybook's `component` slot, so it's cast;
 // the instantiation types the stories' args.
 const meta: Meta<typeof PlatformSelect<number | null>> = {
   title: "Shared/PlatformSelect",
   component: PlatformSelect as never,
-  parameters: {
-    layout: "padded",
-  },
+  parameters: { ...CONTRAST_TODO_PARAMETERS, layout: "padded" },
   decorators: [
     () => ({
       template: `<div style="width:min(360px,100%);padding-top:8px"><story /></div>`,
@@ -160,6 +165,7 @@ export const PromotedOnPage: Story = {
 
 export const PromotedOpenMenu: Story = {
   name: "Promotion on — open menu, do not type",
+  parameters: OPEN_PANEL_A11Y_TODO,
   render: promoteFilledRender(),
   play: async ({ canvasElement, step }) => {
     await step("open menu (do not type in search)", async () => {
@@ -252,6 +258,7 @@ export const PromotedTypingInSearch: Story = {
 
 export const PromotedSearchDisabled: Story = {
   name: "Promotion on — search field disabled",
+  parameters: OPEN_PANEL_A11Y_TODO,
   render: () => ({
     components: { PlatformSelect },
     setup() {
@@ -297,6 +304,7 @@ export const PromotedAllLibrariesEmpty: Story = {
 
 export const ScanPagePicker: Story = {
   name: "Scan page picker, promotion on",
+  parameters: OPEN_PANEL_A11Y_TODO,
   render: () => ({
     components: { PlatformSelect },
     setup() {

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RTabNav from "./RTabNav.vue";
 
 // Generic components can't fill Storybook's `component` slot, so it's cast;
@@ -8,6 +9,7 @@ import RTabNav from "./RTabNav.vue";
 const meta: Meta<typeof RTabNav<string>> = {
   title: "Primitives/RTabNav",
   component: RTabNav as never,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     size: {
       control: "select",

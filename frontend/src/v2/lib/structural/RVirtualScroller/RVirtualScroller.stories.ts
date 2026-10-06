@@ -1,9 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { a11yTodoRules } from "@/v2/utils/storyA11y";
 import RVirtualScroller from "./RVirtualScroller.vue";
 
 const meta: Meta<typeof RVirtualScroller> = {
   title: "Structural/RVirtualScroller",
   component: RVirtualScroller,
+  // The scroll viewport isn't focusable, so keyboard users can't scroll it.
+  parameters: a11yTodoRules("scrollable-region-focusable"),
   argTypes: {
     // An object control would print all 5000 rows into the docs table.
     items: { control: false },

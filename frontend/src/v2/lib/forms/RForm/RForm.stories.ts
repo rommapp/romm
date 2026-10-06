@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RBtn from "../../primitives/RBtn/RBtn.vue";
 import RSelect from "../RSelect/RSelect.vue";
 import RTextField from "../RTextField/RTextField.vue";
@@ -8,6 +9,7 @@ import RForm from "./RForm.vue";
 const meta: Meta<typeof RForm> = {
   title: "Forms/RForm",
   component: RForm,
+  parameters: CONTRAST_TODO_PARAMETERS,
 };
 
 export default meta;

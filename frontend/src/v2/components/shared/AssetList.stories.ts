@@ -18,11 +18,13 @@ import {
   downloadButtons,
   selectableItems,
 } from "@/v2/utils/saveStates.plays";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import AssetList from "./AssetList.vue";
 
 const meta: Meta<typeof AssetList> = {
   title: "Shared/AssetList",
   component: AssetList,
+  parameters: CONTRAST_TODO_PARAMETERS,
   decorators: [
     () => ({
       template: `

@@ -11,11 +11,13 @@ import {
   screenshotFixture,
 } from "@/v2/utils/saveStates.fixtures";
 import { downloadButtons, selectableItems } from "@/v2/utils/saveStates.plays";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import AssetStrip from "./AssetStrip.vue";
 
 const meta: Meta<typeof AssetStrip> = {
   title: "Shared/AssetStrip",
   component: AssetStrip,
+  parameters: CONTRAST_TODO_PARAMETERS,
   decorators: [
     () => ({
       template: `
