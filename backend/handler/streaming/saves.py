@@ -223,9 +223,8 @@ _RAW_EXIT_KINDS = {"save", "state", "state_screenshot"}
 def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
     """The one `.srm` and the states of a RetroArch exit, or None to keep the zip.
 
-    RetroArch's save import takes a single `.srm`, so an archive holding
-    anything else (another save, a memory card, a member the manifest doesn't
-    label) only restores as the whole archive.
+    RetroArch's save import takes a single `.srm`, so anything else in the
+    archive only restores as the whole archive.
     """
     if emulator.lower() != "retroarch":
         return None
@@ -430,10 +429,8 @@ def default_save(
 ) -> tuple[Save | None, bool]:
     """The save a launch with no pick restores, and whether it is foreign.
 
-    On RetroArch that is the newest of its own archives and the bare `.srm`
-    saves any device files, the latter through the import. Asks the broker
-    when a bare save is newest, so this blocks, and raises the 503 when it
-    can't be asked: booting the older archive would roll the game back.
+    On RetroArch a newer bare `.srm` wins, through the import. Blocks on the
+    broker then, and raises the 503 rather than boot an older archive.
     """
     stored = db_save_handler.get_saves(user_id=user_id, rom_ids=[rom_id])
     native = _newest([s for s in stored if _is_restorable(s, container.emulator)])
