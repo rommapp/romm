@@ -3,12 +3,17 @@
 Parallel to the state sync, but for the emulator's own in-game saves (memory
 cards / NAND / battery saves). The broker ships them as a single zip archive
 via GET/PUT /save-file; RomM stores each pulled archive as one Save asset with
-a .zip extension so the whole card set travels as a unit.
+a .zip extension so the whole card set travels as a unit. A RetroArch exit
+holding one battery save is the exception, filed as the bare file instead.
 """
 
 import asyncio
+import io
+import os
+import posixpath
 import secrets
 import time
+import zipfile
 from datetime import datetime
 from typing import NamedTuple
 
@@ -19,7 +24,7 @@ from handler.database import db_rom_handler, db_save_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save
-from handler.streaming import broker, webstation
+from handler.streaming import archive, broker, states, webstation
 from handler.streaming.config import ResolvedContainer
 from logger.logger import log
 from models.assets import Save
@@ -144,18 +149,11 @@ def push_save_archive(container: ResolvedContainer, content: bytes) -> bool:
     )
 
 
-async def store_save_asset(user: User, rom: Rom, emulator: str, content: bytes) -> bool:
-    """Store a pulled save archive as a new Save asset.
-
-    Each pull creates a fresh row (timestamped filename), so the user keeps a
-    history of save snapshots rather than overwriting. Identical content is
-    deduplicated by hash so idle exits do not pile up copies.
-    """
-    ts = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
-    filename = sanitize_filename(
-        fit_filename(rom.fs_name_no_ext, f" [{emulator} {ts}].saves.zip")
-    )
-
+async def _store_save_file(
+    user: User, rom: Rom, emulator: str, filename: str, content: bytes
+) -> bool:
+    """Store one pulled save file as a new Save asset, unless identical content
+    is already stored for this ROM, so idle exits do not pile up copies."""
     saves_path = fs_asset_handler.build_saves_file_path(
         user=user,
         platform_fs_slug=rom.platform.fs_slug,
@@ -172,7 +170,6 @@ async def store_save_asset(user: User, rom: Rom, emulator: str, content: bytes) 
         emulator=emulator,
     )
 
-    # Drop the write if an identical archive is already stored for this ROM.
     if scanned_save.content_hash:
         existing = db_save_handler.get_save_by_content_hash(
             user_id=user.id, rom_id=rom.id, content_hash=scanned_save.content_hash
@@ -189,6 +186,130 @@ async def store_save_asset(user: User, rom: Rom, emulator: str, content: bytes) 
     scanned_save.emulator = emulator
     db_save_handler.add_save(save=scanned_save)
     return True
+
+
+async def store_save_asset(user: User, rom: Rom, emulator: str, content: bytes) -> bool:
+    """Store a pulled save archive as a new Save asset.
+
+    Each pull creates a fresh row (timestamped filename), so the user keeps a
+    history of save snapshots rather than overwriting.
+    """
+    ts = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+    filename = sanitize_filename(
+        fit_filename(rom.fs_name_no_ext, f" [{emulator} {ts}].saves.zip")
+    )
+    return await _store_save_file(user, rom, emulator, filename, content)
+
+
+class _ExitState(NamedTuple):
+    name: str
+    content: bytes
+    screenshot: bytes | None
+
+
+class RawExit(NamedTuple):
+    """A RetroArch exit archive unpacked into the files the library keeps bare."""
+
+    core: str
+    save_name: str
+    save: bytes
+    states: list[_ExitState]
+
+
+_RAW_EXIT_KINDS = {"save", "state", "state_screenshot"}
+
+
+def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
+    """The one `.srm` and the states of a RetroArch exit, or None to keep the zip.
+
+    RetroArch's save import takes a single `.srm`, so an archive holding
+    anything else (another save, a memory card, a member the manifest doesn't
+    label) only restores as the whole archive.
+    """
+    if emulator.lower() != "retroarch":
+        return None
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(content))
+    except zipfile.BadZipFile:
+        return None
+    with zf:
+        try:
+            manifest = archive.read_manifest(zf)
+        except ValueError:
+            return None
+        session = manifest.get("session")
+        core = session.get("core") if isinstance(session, dict) else None
+        if not isinstance(core, str) or not core:
+            return None
+        labelled = archive.manifest_files(manifest)
+        members = [
+            info
+            for info in zf.infolist()
+            if not info.is_dir() and info.filename != archive.MANIFEST_NAME
+        ]
+        kinds = {
+            info.filename: labelled.get(info.filename, {}).get("kind")
+            for info in members
+        }
+        if any(kind not in _RAW_EXIT_KINDS for kind in kinds.values()):
+            return None
+        save_members = [info for info in members if kinds[info.filename] == "save"]
+        if len(save_members) != 1 or not save_members[0].filename.lower().endswith(
+            ".srm"
+        ):
+            return None
+        if sum(info.file_size for info in members) > broker.SAVE_FILE_MAX_BYTES:
+            return None
+
+        by_name = {info.filename: info for info in members}
+        exit_states = []
+        for info in members:
+            if kinds[info.filename] != "state":
+                continue
+            shot = by_name.get(f"{info.filename}.png")
+            exit_states.append(
+                _ExitState(
+                    posixpath.basename(info.filename),
+                    archive.read_member(zf, info),
+                    archive.read_member(zf, shot) if shot is not None else None,
+                )
+            )
+        return RawExit(
+            core,
+            posixpath.basename(save_members[0].filename),
+            archive.read_member(zf, save_members[0]),
+            exit_states,
+        )
+
+
+async def _store_raw_exit(user: User, rom: Rom, emulator: str, raw: RawExit) -> bool:
+    """File the exit's save under its core, named like the web player's own,
+    and each state it carries into the state history."""
+    ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    extension = os.path.splitext(raw.save_name)[1]
+    filename = sanitize_filename(
+        fit_filename(rom.fs_name_no_ext, f" [{ts}]{extension}")
+    )
+    stored = await _store_save_file(user, rom, raw.core, filename, raw.save)
+
+    for state in raw.states:
+        # A state the session already filed (the exit's own, or one saved from
+        # RomM mid-session) is in the history under a stamped name.
+        if await states.is_stored(user.id, rom.id, emulator, state.content):
+            continue
+        try:
+            await states.store_state_asset(
+                user,
+                rom,
+                emulator,
+                sanitize_filename(state.name),
+                state.content,
+                screenshot=state.screenshot,
+                core=raw.core,
+            )
+        except Exception:
+            log.exception("failed to store exit state %s", state.name)
+    return stored
 
 
 async def pull_saves_to_library(
@@ -223,7 +344,12 @@ async def pull_saves_to_library(
         if content is None:
             continue
         try:
-            stored = await store_save_asset(user, rom, emulator, content)
+            raw = await asyncio.to_thread(unpack_raw_exit, emulator, content)
+            stored = (
+                await _store_raw_exit(user, rom, emulator, raw)
+                if raw is not None
+                else await store_save_asset(user, rom, emulator, content)
+            )
         except Exception:
             log.exception("failed to store pulled saves, rom=%s", rom.name)
             return False
@@ -253,16 +379,48 @@ def _is_restorable(save: Save, emulator: str) -> bool:
     return _written_by(save, emulator) and _is_archive(save)
 
 
+def _newest(saves: list[Save]) -> Save | None:
+    # Ties on id, because created_at only has second resolution: two saves
+    # written in the same second would otherwise pick arbitrarily.
+    return max(saves, key=lambda s: (s.created_at, s.id), default=None)
+
+
 def newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:
     """The user's most recent restorable archive for this emulator."""
-    archives = [
-        save
-        for save in db_save_handler.get_saves(user_id=user_id, rom_ids=[rom_id])
-        if _is_restorable(save, emulator)
-    ]
-    # Ties on id, because created_at only has second resolution: two archives
-    # written in the same second would otherwise pick arbitrarily.
-    return max(archives, key=lambda s: (s.created_at, s.id), default=None)
+    return _newest(
+        [
+            save
+            for save in db_save_handler.get_saves(user_id=user_id, rom_ids=[rom_id])
+            if _is_restorable(save, emulator)
+        ]
+    )
+
+
+def default_save(
+    user_id: int, rom_id: int, container: ResolvedContainer
+) -> tuple[Save | None, bool]:
+    """The save a launch with no pick restores, and whether it is foreign.
+
+    On RetroArch that is the newest of its own archives and the bare `.srm`
+    saves any device files, the latter through the import. Asks the broker
+    when a bare save is newest, so this blocks, and raises the 503 when it
+    can't be asked: booting the older archive would roll the game back.
+    """
+    stored = db_save_handler.get_saves(user_id=user_id, rom_ids=[rom_id])
+    native = _newest([s for s in stored if _is_restorable(s, container.emulator)])
+    if container.emulator.lower() != "retroarch":
+        return native, False
+    raw = _newest([s for s in stored if s.file_name.lower().endswith(".srm")])
+    if raw is None or (
+        native is not None and (native.created_at, native.id) > (raw.created_at, raw.id)
+    ):
+        return native, False
+    spec = webstation.require_import_spec(
+        container, container.emulator, container.platform
+    )
+    if spec is None or not spec.accepts("save"):
+        return native, False
+    return raw, True
 
 
 def resolve_save_archive(

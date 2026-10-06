@@ -742,6 +742,10 @@ async def _hydrate_saves(
             )
 
     if container.is_webstation:
+        if save is None:
+            save, save_foreign = await asyncio.to_thread(
+                saves.default_save, request.user.id, rom.id, container
+            )
         if save_foreign or import_state is not None:
             # A synced memory card is not special-cased: the broker refuses it
             # with memcard_synced_separately.

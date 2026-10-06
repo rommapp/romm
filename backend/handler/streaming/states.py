@@ -369,6 +369,14 @@ async def _is_duplicate_of_latest(latest: State | None, content: bytes) -> bool:
     return existing == content
 
 
+async def is_stored(user_id: int, rom_id: int, emulator: str, content: bytes) -> bool:
+    """Whether any of this emulator's stored states holds exactly ``content``."""
+    for state in user_states_for_emulator(user_id, rom_id, emulator):
+        if await _is_duplicate_of_latest(state, content):
+            return True
+    return False
+
+
 async def _remove_pruned_file(path: str) -> None:
     """Drop a pruned asset's file. A file that will not go leaves the prune
     running: the rows are already gone, and stopping here would leave the rest

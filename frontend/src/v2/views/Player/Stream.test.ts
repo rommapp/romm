@@ -404,7 +404,42 @@ describe("Stream save picker", () => {
     expect(
       (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
     ).toEqual([9, 3, 2, 1]);
+  });
+
+  it("defaults to a newer bare .srm where the broker imports saves", async () => {
+    // A streaming exit or another device files the battery save bare.
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(9, "Pool [2026-09-14_09-00-00].srm", { emulator: "mgba" }),
+        ...ARCHIVES,
+      ],
+      imports: ["save"],
+    });
+
+    expect(saveList(wrapper)!.props("selectedId")).toBe(9);
+    await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
+    expect(mocks.claimSession.mock.calls[0]![2]).toBe(9);
+  });
+
+  it("keeps the newer archive over an older bare .srm", async () => {
+    const wrapper = await launch({
+      picker: true,
+      saves: [...ARCHIVES, save(0, "Pool.srm")],
+      imports: ["save"],
+    });
+
     expect(saveList(wrapper)!.props("selectedId")).toBe(3);
+  });
+
+  it("reports a newer bare .srm where the container takes no pick", async () => {
+    const wrapper = await launch({
+      picker: false,
+      saves: [save(9, "Pool.srm"), ...ARCHIVES],
+      imports: ["save"],
+    });
+
+    expect(wrapper.findComponent(SaveDataPanel).props("save")?.id).toBe(9);
   });
 
   it("offers another emulator's archives too, still defaulting to this one's newest", async () => {

@@ -332,11 +332,24 @@ const pickableSaves = computed<SaveSchema[]>(() =>
     : nativeRestorableSaves.value,
 );
 
-// The one the broker restores before boot when the claim names none: this
-// emulator's own, so the fallback restore always succeeds.
-const newestSave = computed<SaveSchema | null>(
-  () => nativeRestorableSaves.value[0] ?? null,
-);
+// The one the claim restores when it names none: this emulator's own newest,
+// unless RetroArch can import a newer bare .srm, as the backend picks too.
+const newestSave = computed<SaveSchema | null>(() => {
+  const native = nativeRestorableSaves.value[0] ?? null;
+  if (
+    emulatorKey(container.value?.emulator) !== "retroarch" ||
+    !container.value?.import_kinds.includes("save")
+  )
+    return native;
+  const raw = allSaves.value.find((s) =>
+    s.file_name.toLowerCase().endsWith(".srm"),
+  );
+  // allSaves is newest first, so whichever comes first is newer.
+  if (!raw || !native) return raw ?? native;
+  return allSaves.value.indexOf(raw) < allSaves.value.indexOf(native)
+    ? raw
+    : native;
+});
 
 // A pick only lands where the broker empties the save tree first; elsewhere
 // the container's newer files survive the restore and the pick does nothing.
