@@ -3,6 +3,7 @@ import type { SaveSchema, StateSchema } from "@/__generated__";
 const WRITTEN_AT = "2026-09-16T12:00:00Z";
 
 export function saveFixture(overrides: Partial<SaveSchema> = {}): SaveSchema {
+  const file_name = overrides.file_name ?? "game.srm";
   return {
     id: 1,
     rom_id: 1,
@@ -21,6 +22,8 @@ export function saveFixture(overrides: Partial<SaveSchema> = {}): SaveSchema {
     emulator: null,
     slot: null,
     screenshot: null,
+    // Derived server-side from the file name.
+    is_zipped: file_name.toLowerCase().endsWith(".zip"),
     ...overrides,
   };
 }

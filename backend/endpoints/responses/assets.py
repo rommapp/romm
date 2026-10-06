@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import ConfigDict, field_validator, model_validator
+from pydantic import ConfigDict, computed_field, field_validator, model_validator
 from sqlalchemy import inspect
 from sqlalchemy.exc import InvalidRequestError
 
@@ -71,6 +71,12 @@ class SaveSchema(BaseAsset, AssetAnnotations):
     screenshot: ScreenshotSchema | None
     origin_device_id: str | None = None
     device_syncs: list[DeviceSyncSchema] = []
+
+    # A zipped save directory, which a browser core would boot as raw SRAM.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_zipped(self) -> bool:
+        return self.file_name.lower().endswith(".zip")
 
     @model_validator(mode="before")
     @classmethod

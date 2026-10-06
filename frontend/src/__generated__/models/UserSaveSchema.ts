@@ -35,5 +35,5 @@ export type UserSaveSchema = {
     username: string;
     user_avatar_path?: string;
     user_updated_at?: (string | null);
+    readonly is_zipped: boolean;
 };
-

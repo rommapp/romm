@@ -1,21 +1,32 @@
 import { describe, expect, it } from "vitest";
 import { saveFixture } from "@/utils/assets.fixtures";
-import { isSaveArchive } from "./assets";
+import { browserSaves } from "./assets";
 
-describe("isSaveArchive", () => {
-  it.each([
-    "game [retroarch 2026-10-02 12-00-00].saves.zip",
-    "card [2026-10-02 12-00-00].card.zip",
-    "PSP-ULUS10041.zip",
-    "GAME.ZIP",
-  ])("takes %s for an archive", (file_name) => {
-    expect(isSaveArchive(saveFixture({ file_name }))).toBe(true);
+describe("browserSaves", () => {
+  it("drops the saves the server flags as zipped", () => {
+    const raw = saveFixture({ id: 1, file_name: "game.srm" });
+    const zipped = saveFixture({
+      id: 2,
+      file_name: "game.bin",
+      is_zipped: true,
+    });
+
+    expect(browserSaves([raw, zipped])).toEqual([raw]);
   });
 
-  it.each(["game.srm", "game.sav", "game.zip.srm"])(
-    "takes %s for a raw save",
-    (file_name) => {
-      expect(isSaveArchive(saveFixture({ file_name }))).toBe(false);
-    },
-  );
+  it("goes by the flag, not the file name", () => {
+    const save = saveFixture({ file_name: "game.zip", is_zipped: false });
+
+    expect(browserSaves([save])).toEqual([save]);
+  });
+});
+
+describe("saveFixture", () => {
+  it.each([
+    ["game [retroarch 2026-10-02 12-00-00].saves.zip", true],
+    ["GAME.ZIP", true],
+    ["game.srm", false],
+  ])("flags %s as the server would", (file_name, zipped) => {
+    expect(saveFixture({ file_name }).is_zipped).toBe(zipped);
+  });
 });

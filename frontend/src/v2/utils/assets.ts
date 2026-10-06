@@ -32,16 +32,11 @@ export function isCoreCompatible(
   return !asset.emulator || emulatorKey(asset.emulator) === emulatorKey(core);
 }
 
-/** A zipped save directory, which a browser core would boot as raw SRAM. */
-export function isSaveArchive(save: { file_name: string }): boolean {
-  return save.file_name.toLowerCase().endsWith(".zip");
-}
-
-/** The saves an in-browser core can boot from. */
-export function browserSaves<T extends { file_name: string }>(
+/** The saves an in-browser core can boot from: a zipped one would boot as raw SRAM. */
+export function browserSaves<T extends { is_zipped: boolean }>(
   saves: readonly T[],
 ): T[] {
-  return saves.filter((save) => !isSaveArchive(save));
+  return saves.filter((save) => !save.is_zipped);
 }
 
 /** ISO timestamps sort lexically. */

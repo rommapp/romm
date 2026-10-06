@@ -28,5 +28,5 @@ export type SaveSchema = {
     screenshot: (ScreenshotSchema | null);
     origin_device_id?: (string | null);
     device_syncs?: Array<DeviceSyncSchema>;
+    readonly is_zipped: boolean;
 };
-

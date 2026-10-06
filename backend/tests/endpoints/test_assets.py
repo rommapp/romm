@@ -185,3 +185,32 @@ def test_get_saves_prefers_exact_matching_screenshot_filename(
     saves_by_id = {item["id"]: item for item in response.json()}
     assert saves_by_id[save_1.id]["screenshot"]["file_name"] == "test_game.state1.png"
     assert saves_by_id[save_2.id]["screenshot"]["file_name"] == "test_game.state2.png"
+
+
+def test_get_saves_flags_zipped_saves(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    platform: Platform,
+    admin_user: User,
+):
+    names = ("game [retroarch a].saves.zip", "GAME.ZIP", "game.srm")
+    for file_name in names:
+        make_save(
+            rom,
+            admin_user,
+            file_name,
+            emulator="retroarch",
+            file_path=f"{platform.slug}/saves/retroarch",
+            file_size_bytes=1,
+        )
+
+    response = client.get(
+        "/api/saves",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"rom_id": rom.id},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    zipped = {item["file_name"]: item["is_zipped"] for item in response.json()}
+    assert zipped == {names[0]: True, names[1]: True, names[2]: False}
