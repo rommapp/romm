@@ -9,12 +9,8 @@ const meta: Meta<typeof RImg> = {
   component: RImg,
   parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
-    src: { control: "text" },
-    alt: { control: "text" },
     width: { control: "text" },
     height: { control: "text" },
-    cover: { control: "boolean" },
-    contain: { control: "boolean" },
     aspectRatio: { control: "text" },
   },
 };

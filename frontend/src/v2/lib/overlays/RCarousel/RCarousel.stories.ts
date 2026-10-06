@@ -28,17 +28,6 @@ const meta: Meta = {
   title: "Overlays/RCarousel",
   component: RCarousel as never,
   parameters: CONTRAST_TODO_PARAMETERS,
-  argTypes: {
-    fullscreen: { control: "boolean" },
-    loop: { control: "boolean" },
-    showCounter: { control: "boolean" },
-    showArrows: { control: "boolean" },
-    showThumbnails: { control: "boolean" },
-    closeLabel: { control: "text" },
-    prevLabel: { control: "text" },
-    nextLabel: { control: "text" },
-    ariaLabel: { control: "text" },
-  },
 };
 
 export default meta;

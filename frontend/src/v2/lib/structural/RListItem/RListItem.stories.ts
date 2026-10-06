@@ -9,13 +9,6 @@ const meta: Meta<typeof RListItem> = {
   component: RListItem,
   parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
-    title: { control: "text" },
-    subtitle: { control: "text" },
-    prependIcon: { control: "text" },
-    appendIcon: { control: "text" },
-    prependAvatar: { control: "text" },
-    active: { control: "boolean" },
-    disabled: { control: "boolean" },
     rounded: { control: "text" },
   },
   render: (args) => ({

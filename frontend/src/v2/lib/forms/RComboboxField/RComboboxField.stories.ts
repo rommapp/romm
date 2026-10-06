@@ -10,8 +10,6 @@ const meta: Meta<typeof RComboboxField> = {
   component: RComboboxField,
   parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
-    label: { control: "text" },
-    placeholder: { control: "text" },
     prefixLabel: {
       control: "inline-radio",
       options: [null, "stacked", "inline"],
@@ -24,10 +22,6 @@ const meta: Meta<typeof RComboboxField> = {
       control: "inline-radio",
       options: ["default", "comfortable", "compact"],
     },
-    disabled: { control: "boolean" },
-    closableChips: { control: "boolean" },
-    noSuggestions: { control: "boolean" },
-    allowCommas: { control: "boolean" },
   },
 };
 

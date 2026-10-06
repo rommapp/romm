@@ -74,7 +74,7 @@ interface Props {
   contentClass?: string | undefined;
   /** Px gap between activator and tooltip body. */
   offset?: number | string;
-  /** "parent": attach to the immediate parent element of <RTooltip>. */
+  /** "parent": attach to the immediate parent element of `<RTooltip>`. */
   activator?: "parent" | undefined;
   /** Hide entirely (useful with `v-if` style guards on conditional tooltips). */
   disabled?: boolean;

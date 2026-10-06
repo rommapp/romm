@@ -67,8 +67,10 @@ function selectableStrip(
   };
 }
 
-// Five states with screenshots, the headline case. The selected tile
-// carries the brand ring and check badge.
+/**
+ * Five states with screenshots, the headline case. The selected tile
+ * carries the brand ring and check badge.
+ */
 export const FewStatesScreenshots: Story = {
   name: "States · 5 with screenshots",
   render: () => {
@@ -92,7 +94,7 @@ export const FewStatesScreenshots: Story = {
   },
 };
 
-// Twelve states overflow; tiles scroll horizontally with snap.
+/** Twelve states overflow; tiles scroll horizontally with snap. */
 export const ManyStatesOverflow: Story = {
   name: "States · 12 (horizontal scroll)",
   render: () => {
@@ -101,8 +103,10 @@ export const ManyStatesOverflow: Story = {
   },
 };
 
-// Grid and list: a long history, where the horizontal strip buries the
-// older entries behind a scroll.
+/**
+ * Grid and list: a long history, where the horizontal strip buries the
+ * older entries behind a scroll.
+ */
 export const ManyStatesGrid: Story = {
   name: "States · 30 (grid layout)",
   render: () => {
@@ -119,7 +123,7 @@ export const ManyStatesList: Story = {
   },
 };
 
-// States without a screenshot fall back to a gradient with the file icon.
+/** States without a screenshot fall back to a gradient with the file icon. */
 export const StatesNoScreenshots: Story = {
   name: "States · 6 without screenshots",
   render: () => {
@@ -128,7 +132,7 @@ export const StatesNoScreenshots: Story = {
   },
 };
 
-// Long filenames should ellipsis cleanly without breaking the row.
+/** Long filenames should ellipsis cleanly without breaking the row. */
 export const LongFilenames: Story = {
   name: "Long filenames (ellipsis)",
   render: () => {
@@ -160,13 +164,13 @@ export const LongFilenames: Story = {
   },
 };
 
-// Nothing selected yet; the strip is still clickable.
+/** Nothing selected yet; the strip is still clickable. */
 export const NoneSelected: Story = {
   name: "States · none selected",
   render: () => selectableStrip(manyStates(4), null),
 };
 
-// Empty, distinct from "no asset selected".
+/** Empty, distinct from "no asset selected". */
 export const EmptyStates: Story = {
   name: "Empty (no states)",
   render: () => ({
@@ -184,7 +188,7 @@ export const EmptyStates: Story = {
   },
 };
 
-// States from another emulator stay listed, dimmed, but cannot be picked.
+/** States from another emulator stay listed, dimmed, but cannot be picked. */
 export const IncompatibleStates: Story = {
   name: "States · 6, half from another emulator",
   render: () => {
@@ -200,8 +204,10 @@ export const IncompatibleStates: Story = {
   },
 };
 
-// One collapsible mini grid per core. The core that cannot load starts
-// closed and its tiles are greyed out when opened.
+/**
+ * One collapsible mini grid per core. The core that cannot load starts
+ * closed and its tiles are greyed out when opened.
+ */
 export const GroupedByCore: Story = {
   name: "States · grouped by core",
   render: () => {
@@ -221,7 +227,9 @@ export const GroupedByCore: Story = {
   },
 };
 
-// Save data management: static tiles grouped by core, hosting the actions slot.
+/**
+ * Save data management: static tiles grouped by core, hosting the actions slot.
+ */
 export const ManageFlowGrouped: Story = {
   name: "Manage · flow + grouped (Save data)",
   render: () => ({
@@ -256,7 +264,7 @@ export const ManageFlowGrouped: Story = {
   },
 };
 
-// Other users' public states show an owner chip and only a download action.
+/** Other users' public states show an owner chip and only a download action. */
 export const ManageCommunity: Story = {
   name: "Manage · community + show owner",
   render: () => ({

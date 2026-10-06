@@ -25,11 +25,6 @@ const meta: Meta<typeof RBox3D> = {
   title: "Media/RBox3D",
   component: RBox3D,
   argTypes: {
-    front: { control: "text" },
-    back: { control: "text" },
-    spine: { control: "text" },
-    alt: { control: "text" },
-    autoSpin: { control: "boolean" },
     initialYaw: { control: { type: "range", min: -180, max: 180, step: 1 } },
     initialPitch: { control: { type: "range", min: -32, max: 32, step: 1 } },
   },

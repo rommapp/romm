@@ -9,13 +9,11 @@ const meta: Meta<typeof RToolbar> = {
   component: RToolbar,
   parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
-    title: { control: "text" },
     color: { control: "text" },
     density: {
       control: "select",
       options: ["default", "comfortable", "compact"],
     },
-    flat: { control: "boolean" },
     height: { control: "text" },
     rounded: { control: "text" },
   },

@@ -55,9 +55,10 @@ export default meta;
 
 type Story = StoryObj<typeof MetadataProviderCard>;
 
-// The settings grid: card 3 carries a subtitle, so the row is taller
-// than cards 1 and 2 need. Their footers must still sit on the bottom
-// edge with the spare space absorbed above them, not below.
+/**
+ * The settings grid: card 3's subtitle makes the row taller, and every footer
+ * still sits on the bottom edge.
+ */
 export const TileGrid: Story = {
   name: "Tile · settings grid",
   render: () => ({
@@ -93,8 +94,10 @@ export const TileGrid: Story = {
   }),
 };
 
-// The setup wizard rows: description, mono setup pill, warning caveat
-// pill and a status chip in the pill row.
+/**
+ * The setup wizard rows: description, mono setup pill, warning caveat
+ * pill and a status chip in the pill row.
+ */
 export const RowList: Story = {
   name: "Row · wizard list",
   render: () => ({
@@ -143,8 +146,10 @@ export const RowList: Story = {
   }),
 };
 
-// The scan reference dialog rows: same row layout without a status
-// chip, so the pills close the card.
+/**
+ * The scan reference dialog rows: same row layout without a status
+ * chip, so the pills close the card.
+ */
 export const RowReference: Story = {
   name: "Row · reference (no status)",
   render: () => ({

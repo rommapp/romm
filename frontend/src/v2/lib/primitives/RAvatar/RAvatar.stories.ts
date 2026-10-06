@@ -9,13 +9,7 @@ const meta: Meta<typeof RAvatar> = {
   argTypes: {
     size: { control: "text" },
     color: { control: "text" },
-    image: { control: "text" },
-    icon: { control: "text" },
     rounded: { control: "text" },
-    variant: {
-      control: "select",
-      options: ["flat", "elevated", "translucent", "outlined", "text", "plain"],
-    },
   },
 };
 

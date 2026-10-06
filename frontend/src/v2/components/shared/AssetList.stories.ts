@@ -98,7 +98,7 @@ export const SlotLibrary: Story = {
   },
 };
 
-// Selecting an older version unfolds its slot so the pick stays visible.
+/** Selecting an older version unfolds its slot so the pick stays visible. */
 export const OlderVersionSelected: Story = {
   name: "Saves · older version selected",
   render: () => {
@@ -108,7 +108,7 @@ export const OlderVersionSelected: Story = {
   },
 };
 
-// Only manual uploads, no screenshots: the pre-slot shape of a library.
+/** Only manual uploads, no screenshots: the pre-slot shape of a library. */
 export const ArchiveOnly: Story = {
   name: "Saves · archive only",
   render: () => {
@@ -124,7 +124,7 @@ export const ArchiveOnly: Story = {
   },
 };
 
-// Flat list ordered by upload time, as the player's stream picker shows it.
+/** Flat list ordered by upload time, as the player's stream picker shows it. */
 export const StreamArchives: Story = {
   name: "Saves · stream (created, flat)",
   render: () => {
@@ -140,7 +140,7 @@ export const StreamArchives: Story = {
   },
 };
 
-// One slot, one version, the most common case for new players.
+/** One slot, one version, the most common case for new players. */
 export const SingleSave: Story = {
   name: "Saves · single",
   render: () => {
@@ -174,7 +174,7 @@ export const IdenticalPrefixStates: Story = {
   },
 };
 
-// Management mode: static rows hosting the actions slot.
+/** Management mode: static rows hosting the actions slot. */
 export const ManageSaves: Story = {
   name: "Saves · manage + actions",
   render: () => ({
@@ -228,7 +228,7 @@ export const ManageStates: Story = {
   }),
 };
 
-// Other users' public saves show an owner chip and only a download action.
+/** Other users' public saves show an owner chip and only a download action. */
 export const CommunitySaves: Story = {
   name: "Saves · community (show owner)",
   play: async ({ canvasElement, step }) => {
@@ -271,7 +271,7 @@ export const CommunitySaves: Story = {
   }),
 };
 
-// Empty, distinct from "no save selected".
+/** Empty, distinct from "no save selected". */
 export const EmptySaves: Story = {
   name: "Empty · saves",
   render: () => ({

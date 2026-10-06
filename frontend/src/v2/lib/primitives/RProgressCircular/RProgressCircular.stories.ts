@@ -6,11 +6,9 @@ const meta: Meta<typeof RProgressCircular> = {
   title: "Primitives/RProgressCircular",
   component: RProgressCircular,
   argTypes: {
-    indeterminate: { control: "boolean" },
     size: { control: "number" },
     width: { control: "number" },
     color: { control: "text" },
-    label: { control: "text" },
     modelValue: { control: { type: "range", min: 0, max: 100 } },
   },
 };

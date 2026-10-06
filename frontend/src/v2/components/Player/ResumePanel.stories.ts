@@ -205,13 +205,13 @@ function renderPanel(
   };
 }
 
-// 8 states and 3 saves, the rich case. The state tab opens by default.
+/** 8 states and 3 saves, the rich case. The state tab opens by default. */
 export const RichLibrary: Story = {
   name: "Rich · 8 states + 3 saves",
   render: () => renderPanel(slotSaves(3), manyStates(8), "state"),
 };
 
-// 15 states overflow the strip, which scrolls horizontally.
+/** 15 states overflow the strip, which scrolls horizontally. */
 export const ManyStates: Story = {
   name: "Many states · 15 (overflow)",
   render: () => renderPanel([], manyStates(15), "state"),
@@ -227,7 +227,7 @@ export const MixedScreenshots: Story = {
   },
 };
 
-// Three save slots and no states yet.
+/** Three save slots and no states yet. */
 export const SavesOnly: Story = {
   name: "Saves only · 3 slots",
   render: () => renderPanel(slotSaves(3), [], "save"),
@@ -238,13 +238,13 @@ export const SingleSave: Story = {
   render: () => renderPanel(slotSaves(1), [], "save"),
 };
 
-// First launch: no saves, no states.
+/** First launch: no saves, no states. */
 export const FreshGame: Story = {
   name: "Fresh game · no saves, no states",
   render: () => renderPanel([], [], "state"),
 };
 
-// The state tab after a core swap left no compatible states.
+/** The state tab after a core swap left no compatible states. */
 export const StatesEmptyAfterCoreChange: Story = {
   name: "States · empty after core swap",
   render: () => renderPanel(slotSaves(4), [], "state"),

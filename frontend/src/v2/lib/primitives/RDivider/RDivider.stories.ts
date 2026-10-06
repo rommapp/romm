@@ -7,8 +7,6 @@ const meta: Meta<typeof RDivider> = {
   component: RDivider,
   parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
-    vertical: { control: "boolean" },
-    inset: { control: "boolean" },
     thickness: { control: "text" },
   },
   render: (args) => ({
