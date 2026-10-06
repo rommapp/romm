@@ -942,7 +942,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         rom.value.id,
         selectedState.value?.id,
         // Left off where the container would refuse it, so the backend
-        // restores the newest archive instead.
+        // restores the newest save instead.
         showSavePicker.value
           ? (selectedSave.value?.id ?? undefined)
           : undefined,

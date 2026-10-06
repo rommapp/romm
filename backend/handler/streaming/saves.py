@@ -27,10 +27,11 @@ from handler.scan_handler import scan_save
 from handler.streaming import archive, broker, states, webstation
 from handler.streaming.config import ResolvedContainer
 from logger.logger import log
-from models.assets import Save
+from models.assets import EMULATOR_MAX_LENGTH, Save
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import fit_filename, sanitize_filename
+from utils.uploads import is_emulator_folder_name
 
 # An exit files its archive in the background, so a claim landing behind it would
 # hydrate from the archive before last. The exit leaves a marker a claim waits out.
@@ -239,7 +240,12 @@ def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
             return None
         session = manifest.get("session")
         core = session.get("core") if isinstance(session, dict) else None
-        if not isinstance(core, str) or not core:
+        # The core names the save's folder and fills its emulator column.
+        if (
+            not isinstance(core, str)
+            or len(core) > EMULATOR_MAX_LENGTH
+            or not is_emulator_folder_name(core)
+        ):
             return None
         labelled = archive.manifest_files(manifest)
         members = [
@@ -251,7 +257,10 @@ def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
             info.filename: labelled.get(info.filename, {}).get("kind")
             for info in members
         }
-        if any(kind not in _RAW_EXIT_KINDS for kind in kinds.values()):
+        if any(
+            not isinstance(kind, str) or kind not in _RAW_EXIT_KINDS
+            for kind in kinds.values()
+        ):
             return None
         save_members = [info for info in members if kinds[info.filename] == "save"]
         if len(save_members) != 1 or not save_members[0].filename.lower().endswith(
@@ -263,7 +272,8 @@ def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
 
         by_name = {info.filename: info for info in members}
         exit_states = []
-        for info in members:
+        # Oldest first, so the state written last heads the history.
+        for info in sorted(members, key=lambda i: i.date_time):
             if kinds[info.filename] != "state":
                 continue
             shot = by_name.get(f"{info.filename}.png")
@@ -282,6 +292,25 @@ def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
         )
 
 
+def _importable_raw_exit(
+    container: ResolvedContainer, content: bytes
+) -> RawExit | None:
+    """The exit unpacked, where its bare save can come back, or None to keep the zip.
+
+    A bare save only returns through the broker's save import, and an archive
+    that won't unpack is still a save, so both keep the archive whole.
+    """
+    try:
+        raw = unpack_raw_exit(container.emulator, content)
+    except Exception:
+        log.exception("could not unpack the exit archive, keeping it whole")
+        return None
+    if raw is None:
+        return None
+    spec = webstation.import_spec(container, container.emulator, container.platform)
+    return raw if spec is not None and spec.accepts("save") else None
+
+
 async def _store_raw_exit(user: User, rom: Rom, emulator: str, raw: RawExit) -> bool:
     """File the exit's save under its core, named like the web player's own,
     and each state it carries into the state history."""
@@ -293,11 +322,11 @@ async def _store_raw_exit(user: User, rom: Rom, emulator: str, raw: RawExit) -> 
     stored = await _store_save_file(user, rom, raw.core, filename, raw.save)
 
     for state in raw.states:
-        # A state the session already filed (the exit's own, or one saved from
-        # RomM mid-session) is in the history under a stamped name.
-        if await states.is_stored(user.id, rom.id, emulator, state.content):
-            continue
         try:
+            # A state the session already filed (the exit's own, or one saved
+            # from RomM mid-session) is in the history under a stamped name.
+            if await states.is_stored(user.id, rom.id, emulator, state.content):
+                continue
             await states.store_state_asset(
                 user,
                 rom,
@@ -344,7 +373,7 @@ async def pull_saves_to_library(
         if content is None:
             continue
         try:
-            raw = await asyncio.to_thread(unpack_raw_exit, emulator, content)
+            raw = await asyncio.to_thread(_importable_raw_exit, container, content)
             stored = (
                 await _store_raw_exit(user, rom, emulator, raw)
                 if raw is not None
@@ -486,10 +515,10 @@ async def hydrate_saves_to_broker(
     newest = newest_restorable(user_id, rom_id, container.emulator)
     if newest is None:
         return False
-    archive = await read_restorable_archive(newest)
-    if archive is None:
+    stored = await read_restorable_archive(newest)
+    if stored is None:
         return False
-    file_name, content = archive
+    file_name, content = stored
 
     ok = await asyncio.to_thread(push_save_archive, container, content)
     if ok:
@@ -508,10 +537,10 @@ async def hydrate_saves_to_webstation(
     picked = save or newest_restorable(user_id, rom_id, container.emulator)
     if picked is None:
         return None
-    archive = await read_restorable_archive(picked)
-    if archive is None:
+    stored = await read_restorable_archive(picked)
+    if stored is None:
         return None
-    file_name, content = archive
+    file_name, content = stored
 
     path = await asyncio.to_thread(
         webstation.upload_archive, container, f"rom-{rom_id}.zip", content

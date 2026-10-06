@@ -60,6 +60,7 @@ from handler.streaming import (
     states,
     webstation,
 )
+from handler.streaming.archive import read_member
 from handler.streaming.capabilities import (
     DEFAULT_STATE_TRANSFER,
     NO_CAPABILITIES,
@@ -5662,15 +5663,26 @@ def test_pull_saves_no_changes_returns_false(rom: Rom, admin_user: User):
 # ── A RetroArch exit filed as raw files ───────────────────────────────────────
 
 
+_SAVE_IMPORT = webstation.ImportSpec(
+    kinds=frozenset({"save"}), state_channel="push", state_slot=None
+)
+
+
 def _exit_archive(
-    members: dict[str, tuple[str, bytes]], core: str | None = "mgba"
+    members: dict[str, tuple[Any, bytes]],
+    core: str | None = "mgba",
+    written: dict[str, tuple[int, int, int, int, int, int]] | None = None,
 ) -> bytes:
-    """A webstation exit archive whose manifest labels each member with its kind."""
+    """A webstation exit archive whose manifest labels each member with its kind,
+    each member stamped with its `written` time when one is given."""
     ensure_zipfile_writable()
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         for path, (_kind, content) in members.items():
-            zf.writestr(path, content)
+            stamp = (written or {}).get(path)
+            zf.writestr(
+                zipfile.ZipInfo(path, date_time=stamp) if stamp else path, content
+            )
         session: dict[str, Any] = {"emulator": "retroarch", "platform": "gba"}
         if core is not None:
             session["core"] = core
@@ -5691,9 +5703,14 @@ def _exit_archive(
 
 
 def _pull_exit(
-    rom: Rom, user: User, content: bytes, emulator: str = "retroarch"
+    rom: Rom,
+    user: User,
+    content: bytes,
+    emulator: str = "retroarch",
+    spec: webstation.ImportSpec | None = _SAVE_IMPORT,
 ) -> tuple[MagicMock, AsyncMock]:
-    """Run an exit pull of `content`, returning the file write and state store mocks."""
+    """Run an exit pull of `content` against a broker declaring `spec`,
+    returning the file write and state store mocks."""
     container = {**_clearing_webstation(rom), "emulator": emulator}
 
     async def scanned(**kwargs: Any) -> Save:
@@ -5703,6 +5720,7 @@ def _pull_exit(
     store_state = AsyncMock()
     with (
         patch("handler.streaming.saves.fetch_save_archive", return_value=content),
+        patch("handler.streaming.saves.webstation.import_spec", return_value=spec),
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()) as wf,
         patch("handler.streaming.saves.scan_save", new=AsyncMock(side_effect=scanned)),
         patch("handler.streaming.saves.states.store_state_asset", store_state),
@@ -5714,7 +5732,7 @@ def _pull_exit(
 
 
 def _stored_saves(rom: Rom, user: User) -> list[Save]:
-    return db_save_handler.get_saves(user_id=user.id, rom_ids=[rom.id])
+    return list(db_save_handler.get_saves(user_id=user.id, rom_ids=[rom.id]))
 
 
 def test_a_retroarch_exit_files_its_one_save_raw_and_its_state_apart(
@@ -5805,12 +5823,30 @@ def test_a_retroarch_exit_files_every_state_slot_it_carries(rom: Rom, admin_user
         pytest.param(
             {"saves/mGBA/Game.srm": ("save", b"a")}, "mgba", "duckstation", id="no-ra"
         ),
+        pytest.param(
+            {"saves/mGBA/Game.srm": ("save", b"a")}, "../x", "retroarch", id="up-core"
+        ),
+        pytest.param(
+            {"saves/mGBA/Game.srm": ("save", b"a")}, "a/b", "retroarch", id="path-core"
+        ),
+        pytest.param(
+            {"saves/mGBA/Game.srm": ("save", b"a")},
+            "c" * 51,
+            "retroarch",
+            id="long-core",
+        ),
+        pytest.param(
+            {"saves/mGBA/Game.srm": (["save"], b"a")},
+            "mgba",
+            "retroarch",
+            id="list-kind",
+        ),
     ],
 )
 def test_an_exit_the_import_cannot_take_back_stays_a_zip(
     rom: Rom,
     admin_user: User,
-    members: dict[str, tuple[str, bytes]],
+    members: dict[str, tuple[Any, bytes]],
     core: str | None,
     emulator: str,
 ):
@@ -5846,6 +5882,86 @@ def test_an_exit_archive_that_is_not_a_zip_is_still_filed(rom: Rom, admin_user: 
     assert stored.file_name.endswith(".saves.zip")
 
 
+@pytest.mark.parametrize(
+    "spec",
+    [
+        pytest.param(None, id="no-imports"),
+        pytest.param(
+            webstation.ImportSpec(
+                kinds=frozenset({"state"}), state_channel="push", state_slot=None
+            ),
+            id="states-only",
+        ),
+    ],
+)
+def test_a_retroarch_exit_stays_a_zip_where_the_broker_takes_no_save_import(
+    rom: Rom, admin_user: User, spec: webstation.ImportSpec | None
+):
+    """A bare save only comes back through the import, so the archive is kept."""
+    content = _exit_archive({"saves/mGBA/Game.srm": ("save", b"eeprom")})
+    write, _store_state = _pull_exit(rom, admin_user, content, spec=spec)
+
+    [stored] = _stored_saves(rom, admin_user)
+    assert stored.file_name.endswith(".saves.zip")
+    assert write.call_args.kwargs["file"] == content
+
+
+def test_an_exit_archive_that_fails_to_unpack_is_still_filed(
+    rom: Rom, admin_user: User
+):
+    content = _exit_archive({"saves/mGBA/Game.srm": ("save", b"eeprom")})
+
+    def corrupt_save(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
+        if info.filename.endswith(".srm"):
+            raise zipfile.BadZipFile("Bad CRC-32")
+        return read_member(zf, info)
+
+    with patch("handler.streaming.archive.read_member", corrupt_save):
+        write, _store_state = _pull_exit(rom, admin_user, content)
+
+    [stored] = _stored_saves(rom, admin_user)
+    assert stored.file_name.endswith(".saves.zip")
+    assert write.call_args.kwargs["file"] == content
+
+
+def test_a_retroarch_exit_files_its_states_oldest_first(rom: Rom, admin_user: User):
+    """The state written last heads the history, whatever the archive order."""
+    content = _exit_archive(
+        {
+            "saves/mGBA/Game.srm": ("save", b"eeprom"),
+            "states/mGBA/Game.state": ("state", b"newer"),
+            "states/mGBA/Game.state3": ("state", b"older"),
+        },
+        written={
+            "states/mGBA/Game.state": (2026, 10, 6, 12, 0, 0),
+            "states/mGBA/Game.state3": (2026, 10, 6, 11, 0, 0),
+        },
+    )
+    _write, store_state = _pull_exit(rom, admin_user, content)
+
+    assert [call.args[4] for call in store_state.await_args_list] == [
+        b"older",
+        b"newer",
+    ]
+
+
+def test_a_state_check_failure_skips_only_that_state(rom: Rom, admin_user: User):
+    content = _exit_archive(
+        {
+            "saves/mGBA/Game.srm": ("save", b"eeprom"),
+            "states/mGBA/Game.state": ("state", b"slot-0"),
+            "states/mGBA/Game.state3": ("state", b"slot-3"),
+        }
+    )
+    checked = AsyncMock(side_effect=[OSError("unreadable"), False])
+    with patch("handler.streaming.saves.states.is_stored", checked):
+        _write, store_state = _pull_exit(rom, admin_user, content)
+
+    [stored] = _stored_saves(rom, admin_user)
+    assert stored.file_name.endswith(".srm")
+    store_state.assert_awaited_once()
+
+
 def test_an_unchanged_raw_save_is_not_filed_twice(rom: Rom, admin_user: User):
     content = _exit_archive({"saves/mGBA/Game.srm": ("save", b"eeprom")})
     _add_save(rom, admin_user, "Game [old].srm", "mgba", "same")
@@ -5855,6 +5971,9 @@ def test_an_unchanged_raw_save_is_not_filed_twice(rom: Rom, admin_user: User):
 
     with (
         patch("handler.streaming.saves.fetch_save_archive", return_value=content),
+        patch(
+            "handler.streaming.saves.webstation.import_spec", return_value=_SAVE_IMPORT
+        ),
         patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
         patch("handler.streaming.saves.scan_save", new=AsyncMock(side_effect=scanned)),
         patch("handler.filesystem.fs_asset_handler.remove_file", new=AsyncMock()) as rm,
@@ -5871,17 +5990,18 @@ def test_an_unchanged_raw_save_is_not_filed_twice(rom: Rom, admin_user: User):
 # ── A launch with no pick boots the newest save, raw or zipped ────────────────
 
 
-_SAVE_IMPORT = webstation.ImportSpec(
-    kinds=frozenset({"save"}), state_channel="push", state_slot=None
-)
-
-
 def _claim_without_a_pick(
-    client, token, rom: Rom, spec: Any
+    client,
+    token,
+    rom: Rom,
+    spec: Any,
+    imported: imports.ImportHydration | None = None,
 ) -> tuple[Any, AsyncMock, AsyncMock, Any]:
     """Claim with no save pick, returning the response, both hydration mocks,
     and the session record the claim left behind."""
-    hydrate_import = AsyncMock(return_value=imports.ImportHydration("rom-1.zip", False))
+    hydrate_import = AsyncMock(
+        return_value=imported or imports.ImportHydration("rom-1.zip", False)
+    )
     hydrate_native = AsyncMock(return_value="/config/native.zip")
     require = (
         MagicMock(side_effect=spec)
@@ -5919,6 +6039,23 @@ def test_a_launch_with_no_pick_imports_a_raw_save_newer_than_the_archive(
     assert hydrate_import.call_args.kwargs["save"].id == raw.id
     assert hydrate_import.call_args.kwargs["save_is_foreign"] is True
     hydrate_native.assert_not_awaited()
+
+
+def test_a_launch_with_no_pick_restores_the_archive_when_the_raw_save_fails_to_import(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The raw save was only the default, so the newest archive still boots."""
+    _add_save(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    _add_save(rom, admin_user, "Game [2026-10-06_10-00-00].srm", "mgba", "h2")
+
+    resp, hydrate_import, hydrate_native, _session = _claim_without_a_pick(
+        client, access_token, rom, _SAVE_IMPORT, imported=imports.ImportHydration()
+    )
+
+    assert resp.status_code == 202
+    hydrate_import.assert_awaited_once()
+    hydrate_native.assert_awaited_once()
+    assert hydrate_native.call_args.args[3] is None
 
 
 def test_a_launch_with_no_pick_restores_an_archive_newer_than_the_raw_save(

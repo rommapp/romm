@@ -742,7 +742,8 @@ async def _hydrate_saves(
             )
 
     if container.is_webstation:
-        if save is None:
+        defaulted = save is None
+        if defaulted:
             save, save_foreign = await asyncio.to_thread(
                 saves.default_save, request.user.id, rom.id, container
             )
@@ -763,10 +764,13 @@ async def _hydrate_saves(
                 result = imports.ImportHydration()
             if result.path is not None:
                 return result
-            if save_foreign:
-                # A foreign save has no native side to fall back to.
+            if save_foreign and not defaulted:
+                # A picked foreign save has no native side to fall back to.
                 return imports.ImportHydration()
-            # Only the foreign state failed, so any native save still hydrates.
+            if save_foreign:
+                # The newest save didn't make it in, so the newest archive boots.
+                save = None
+            # Only the foreign part failed, so any native save still hydrates.
         # Restore runs inside activate on this protocol, so hydration only gets
         # the bytes onto the container and names the path activate restores.
         # Still runs under whole-card sync: the archive carries the state the

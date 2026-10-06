@@ -38,17 +38,20 @@ def check_asset_upload_size(file: UploadFile | None, label: str) -> None:
         )
 
 
+def is_emulator_folder_name(emulator: str) -> bool:
+    """Whether `emulator` is usable verbatim as one folder name."""
+    try:
+        return sanitize_filename(emulator) == emulator
+    except ValueError:
+        return False
+
+
 def check_emulator_folder_name(emulator: str | None) -> None:
     """Reject an asset's emulator unless it is usable verbatim as one folder name."""
     if not emulator:
         return
 
-    try:
-        is_segment = sanitize_filename(emulator) == emulator
-    except ValueError:
-        is_segment = False
-
-    if not is_segment:
+    if not is_emulator_folder_name(emulator):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid emulator name: {emulator}",
