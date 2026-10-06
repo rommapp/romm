@@ -69,34 +69,25 @@ class ImportSpec:
         return kinds
 
 
-# Per container and core. An answer or a refused core holds for one claim's
-# checks; a 404, or a 422 for an emulator the broker doesn't know, a little
-# longer, since the broker upgrade that fixes either must not need a RomM
-# restart to be seen. A failure falls back to the last answer, held briefly so
-# one claim's checks don't each wait out the same timeout.
+# Per container and core. A 404 or 422 expires so a broker upgrade is seen
+# without a RomM restart; a fallback answer only spans one claim's checks.
 _IMPORT_SPEC_TTL = 30.0
 _IMPORT_SPEC_MISSING_TTL = 300.0
 _IMPORT_SPEC_FALLBACK_TTL = 10.0
 _ImportSpecKey = tuple[str, str, str, str | None, bool]
 _import_spec_cache: dict[_ImportSpecKey, tuple[float, ImportSpec | None]] = {}
 
-# The last answer lives in the shared cache, since every web worker is its own
-# process and one that never reached the broker would otherwise have none.
+# Shared across web workers, so one that never reached the broker still has it.
 _LAST_GOOD_KEY_PREFIX = "romm:streaming:import-spec:"
 _LAST_GOOD_TTL_SECONDS = 7 * 24 * 60 * 60
 
 
 class ImportSpecUnavailable(HTTPException):
-    """The broker could not be asked, and no worker has an earlier answer to use.
-
-    A launch pick that hangs on it is a retry, not a no, hence the 503.
-    """
+    """The broker can't be asked and no earlier answer stands in: a retry, not a no."""
 
     def __init__(self) -> None:
-        super().__init__(
-            status_code=503,
-            detail="Couldn't reach the streaming container to check this pick, try again",
-        )
+        detail = "Couldn't reach the streaming container to check this pick, try again"
+        super().__init__(status_code=503, detail=detail)
 
 
 def _parse_import_spec(body: dict[str, Any]) -> ImportSpec | None:

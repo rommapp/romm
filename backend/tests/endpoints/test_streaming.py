@@ -9193,7 +9193,7 @@ def test_import_spec_last_answer_reaches_every_worker(rom: Rom):
     with patch("handler.streaming.broker.request", return_value=_SAVE_SPEC_BODY):
         first = webstation.import_spec(container, "retroarch", rom.platform_slug)
     # A fresh worker: nothing of the first one's process memory.
-    fresh_worker = {
+    fresh_worker: dict[str, Any] = {
         name: {}
         for name in vars(webstation)
         if name.startswith("_import_spec_") and isinstance(vars(webstation)[name], dict)
