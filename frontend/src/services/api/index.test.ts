@@ -2,7 +2,7 @@ import type { InternalAxiosRequestConfig } from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import api from "@/services/api";
 
-const originalAdapter = api.defaults.adapter;
+const originalAdapter = api.defaults.adapter!;
 
 describe("network-quiesced", () => {
   beforeEach(() => {
