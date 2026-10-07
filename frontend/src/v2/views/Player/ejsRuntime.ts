@@ -289,8 +289,7 @@ function installDefaultOptionsFallback(emulator: any) {
     const merged = { ...defaults, ...saved };
     let output = "";
     for (const key in merged) {
-      const value = merged[key];
-      // Match upstream formatting: numeric values unquoted, strings quoted.
+      const value = String(merged[key]);
       const formatted = Number.isNaN(Number(value)) ? `"${value}"` : value;
       output += `${key} = ${formatted}\n`;
     }
@@ -466,6 +465,7 @@ export function installNetplayHostAudioTap(): PatchNetplayHostAudio {
   }
   const captures = new WeakMap<AudioContext, AudioCapture>();
   let lastContext: AudioContext | null = null;
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- applied with an explicit receiver below
   const nativeConnect = AudioNode.prototype.connect;
   const nativeConnectNode = (node: AudioNode, target: AudioNode) =>
     Reflect.apply(nativeConnect, node, [target]);

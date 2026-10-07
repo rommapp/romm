@@ -145,10 +145,7 @@ function retargetSession(save: SaveSchema) {
   bootedSnapshot = null;
   session = null;
 }
-function saveFileOf(
-  bytes: ArrayBuffer,
-  screenshot?: ArrayBuffer | undefined,
-): SessionFile {
+function saveFileOf(bytes: ArrayBuffer, screenshot?: ArrayBuffer): SessionFile {
   return {
     bytes,
     fileName: sessionSaveFile(romRef.value, null, bytes).name,
@@ -620,10 +617,10 @@ onMounted(() => {
     userStorage.removeItem(`player:${romRef.value.id}:disc`);
   }
 });
-useEmitterEvent("saveSelected", switchSave);
-useEmitterEvent("stateSelected", loadState);
+useEmitterEvent("saveSelected", (save) => void switchSave(save));
+useEmitterEvent("stateSelected", (state) => void loadState(state));
 
-onBeforeUnmount(async () => {
+onBeforeUnmount(() => {
   disposed = true;
   window.removeEventListener("beforeunload", onBeforeUnload);
   window.removeEventListener("pagehide", onPageHide);
@@ -888,9 +885,12 @@ async function switchSave(save: SaveSchema) {
 }
 
 // Sync save, offered when auto-sync is off: the tick's upload, on demand.
-window.EJS_onSaveSave = async function ({
+async function syncSaveOnDemand({
   save: saveFile,
   screenshot: emulatorScreenshot,
+}: {
+  save: ArrayBuffer;
+  screenshot: ArrayBuffer;
 }) {
   if (!saveFile?.byteLength) {
     displayMessage(t("play.save-data-none"), { duration: 3000 });
@@ -907,7 +907,8 @@ window.EJS_onSaveSave = async function ({
   } else if (heldFor(pendingSave, new Uint8Array(saveFile))) {
     announceHeldBack("save", pendingSaveKept);
   }
-};
+}
+window.EJS_onSaveSave = (args) => void syncSaveOnDemand(args);
 
 // States management
 // Every way a state arrives goes through here: the SRAM it restores becomes the
@@ -941,15 +942,18 @@ async function loadState(state: StateSchema) {
 }
 
 // v2 answers with its save/state picker, v1 with its states-only one.
-window.EJS_onLoadState = async function () {
+window.EJS_onLoadState = function () {
   window.EJS_emulator.pause();
   window.EJS_emulator.toggleFullscreen(false);
   emitter?.emit("selectStateDialog", romRef.value);
 };
 
-window.EJS_onSaveState = async function ({
+async function saveStateFromMenu({
   state: stateFile,
   screenshot: emulatorScreenshot,
+}: {
+  state: ArrayBuffer;
+  screenshot?: ArrayBuffer;
 }) {
   const screenshotFile = await resolveScreenshot(emulatorScreenshot);
   const { written, kept } = await writeState({
@@ -972,9 +976,10 @@ window.EJS_onSaveState = async function ({
   } else {
     announceHeldBack("state", kept);
   }
-};
+}
+window.EJS_onSaveState = (args) => void saveStateFromMenu(args);
 
-window.EJS_onGameStart = async () => {
+window.EJS_onGameStart = () => {
   // EmulatorJS' own notices (its browser save-state slots) go through the
   // same host, so nothing of ours is overwritten by one of theirs.
   const emulator = window.EJS_emulator;
@@ -1072,41 +1077,45 @@ window.EJS_onGameStart = async () => {
   });
 
   const exitEmulation = createExitEmulationButton(t("play.quit"));
-  exitEmulation.addEventListener("click", async () => {
-    if (!romRef.value || !window.EJS_emulator) return immediateExit();
-    await flushPendingSave();
-    romsStore.update(romRef.value);
-    immediateExit();
-  });
+  exitEmulation.addEventListener("click", () => void quitAfterFlush());
 
-  const saveAndQuit = createSaveQuitButton(t("play.save-and-quit"));
-  saveAndQuit.addEventListener("click", async () => {
-    uninstallAutoSaveSync();
-    if (!romRef.value || !window.EJS_emulator) return immediateExit();
-
-    // Capture first (EmulatorJS reads the live canvas), then pause: a running
-    // threaded core (SNES, N64) tears the state it serializes.
-    const screenshotFile = await captureScreenshot();
-    window.EJS_emulator.pause();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const stateFile = window.EJS_emulator.gameManager.getState();
-    // Null for a game without SRAM, which has no save to write at all.
-    const saveFile: Uint8Array | null =
-      window.EJS_emulator.gameManager.getSaveFile();
-
-    const { written } = await writeState({
-      slot: AUTO_STATE_SLOT,
-      stateFile,
-      screenshotFile,
-      saveFile,
-    });
-    if (written && saveFile?.byteLength) await forgetPendingSave();
-
-    await refreshingAssets;
-    immediateExit();
-  });
+  const saveAndQuitButton = createSaveQuitButton(t("play.save-and-quit"));
+  saveAndQuitButton.addEventListener("click", () => void saveAndQuit());
 };
+
+async function quitAfterFlush() {
+  if (!romRef.value || !window.EJS_emulator) return immediateExit();
+  await flushPendingSave();
+  romsStore.update(romRef.value);
+  immediateExit();
+}
+
+async function saveAndQuit() {
+  uninstallAutoSaveSync();
+  if (!romRef.value || !window.EJS_emulator) return immediateExit();
+
+  // Capture first (EmulatorJS reads the live canvas), then pause: a running
+  // threaded core (SNES, N64) tears the state it serializes.
+  const screenshotFile = await captureScreenshot();
+  window.EJS_emulator.pause();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const stateFile = window.EJS_emulator.gameManager.getState();
+  // Null for a game without SRAM, which has no save to write at all.
+  const saveFile: Uint8Array | null =
+    window.EJS_emulator.gameManager.getSaveFile();
+
+  const { written } = await writeState({
+    slot: AUTO_STATE_SLOT,
+    stateFile,
+    screenshotFile,
+    saveFile,
+  });
+  if (written && saveFile?.byteLength) await forgetPendingSave();
+
+  await refreshingAssets;
+  immediateExit();
+}
 
 function immediateExit() {
   // Play-session recording is owned by the v2 player shell (usePlaySession);

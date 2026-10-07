@@ -649,7 +649,7 @@ describe("captureScreenshot", () => {
   it("reads the live canvas through the game manager", async () => {
     const shot = new ArrayBuffer(8);
     (window as any).EJS_emulator = {
-      gameManager: { screenshot: async () => shot },
+      gameManager: { screenshot: () => Promise.resolve(shot) },
     };
 
     await expect(captureScreenshot()).resolves.toBe(shot);
@@ -665,9 +665,7 @@ describe("captureScreenshot", () => {
   it("swallows a capture that throws", async () => {
     (window as any).EJS_emulator = {
       gameManager: {
-        screenshot: async () => {
-          throw new Error("canvas is gone");
-        },
+        screenshot: () => Promise.reject(new Error("canvas is gone")),
       },
     };
 
@@ -676,7 +674,7 @@ describe("captureScreenshot", () => {
 
   it("treats an empty readback as no picture", async () => {
     (window as any).EJS_emulator = {
-      gameManager: { screenshot: async () => new ArrayBuffer(0) },
+      gameManager: { screenshot: () => Promise.resolve(new ArrayBuffer(0)) },
     };
 
     await expect(captureScreenshot()).resolves.toBeUndefined();
@@ -696,9 +694,9 @@ describe("captureScreenshot", () => {
         order.push("first");
         return first;
       })
-      .mockImplementationOnce(async () => {
+      .mockImplementationOnce(() => {
         order.push("second");
-        return new ArrayBuffer(4);
+        return Promise.resolve(new ArrayBuffer(4));
       });
     (window as any).EJS_emulator = { gameManager: { screenshot } };
 
@@ -829,7 +827,7 @@ describe("resolveScreenshot", () => {
   it("prefers the live canvas over what EmulatorJS passed", async () => {
     const live = new ArrayBuffer(8);
     (window as any).EJS_emulator = {
-      gameManager: { screenshot: async () => live },
+      gameManager: { screenshot: () => Promise.resolve(live) },
     };
 
     await expect(resolveScreenshot(new ArrayBuffer(4))).resolves.toBe(live);
