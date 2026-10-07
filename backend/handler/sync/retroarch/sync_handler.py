@@ -34,6 +34,7 @@ from logger.logger import log
 from models.assets import AUTOSAVE_SLOT, EMULATOR_MAX_LENGTH, Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
+from utils.filesystem import check_filename_length
 
 AssetKind = Literal["saves", "states"]
 
@@ -142,18 +143,30 @@ def recency_key(asset: Save | State) -> tuple[datetime, int]:
     return (asset.updated_at, asset.id)
 
 
+def _newest_by[A: (Save, State), K](
+    assets: Iterable[A], key: Callable[[A], K]
+) -> dict[K, A]:
+    latest: dict[K, A] = {}
+    for asset in assets:
+        current = latest.get(key(asset))
+        if current is None or recency_key(asset) > recency_key(current):
+            latest[key(asset)] = asset
+
+    return latest
+
+
 def group_states_by_slot(
     states: Iterable[State],
 ) -> dict[tuple[int, str | None, str], State]:
     """The newest state in each (rom, emulator, slot) bucket."""
-    latest: dict[tuple[int, str | None, str], State] = {}
-    for state in states:
-        key = (state.rom_id, state.emulator, state_slot_suffix(state.file_name))
-        current = latest.get(key)
-        if current is None or recency_key(state) > recency_key(current):
-            latest[key] = state
-
-    return latest
+    return _newest_by(
+        states,
+        lambda state: (
+            state.rom_id,
+            state.emulator,
+            state_slot_suffix(state.file_name),
+        ),
+    )
 
 
 def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
@@ -189,16 +202,15 @@ def is_slot_version(save: Save) -> bool:
 
 def group_slot_versions(saves: Iterable[Save]) -> dict[SaveKey, Save]:
     """The newest slotted save on disk for each RetroArch path, across every slot."""
-    latest: dict[SaveKey, Save] = {}
-    for save in saves:
-        if not is_slot_version(save) or save.missing_from_fs:
-            continue
-        key = save_key(save)
-        current = latest.get(key)
-        if current is None or recency_key(save) > recency_key(current):
-            latest[key] = save
+    return _newest_by(
+        (save for save in saves if is_slot_version(save) and not save.missing_from_fs),
+        save_key,
+    )
 
-    return latest
+
+def canonical_save_file_name(rom: Rom, file_name: str) -> str:
+    """The name RetroArch gives a save, which the manifest advertises."""
+    return f"{rom.fs_name_no_ext}{os.path.splitext(file_name)[1]}"
 
 
 def _unslotted_save_at(
@@ -231,11 +243,26 @@ def resolve_save_by_slot(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> Save | None:
     """The save a RetroArch path serves: the newest slot version, else the unslotted save there."""
-    versions = _slot_versions_at(user, rom, emulator, requested_file_name)
-    on_disk = [save for save in versions if not save.missing_from_fs]
-    return max(on_disk, key=recency_key, default=None) or _unslotted_save_at(
-        user, rom, emulator, requested_file_name
+    return _newest_at(
+        user,
+        rom,
+        emulator,
+        requested_file_name,
+        _slot_versions_at(user, rom, emulator, requested_file_name),
     )
+
+
+def _newest_at(
+    user: User,
+    rom: Rom,
+    emulator: str | None,
+    requested_file_name: str,
+    versions: Sequence[Save],
+) -> Save | None:
+    newest = group_slot_versions(versions).get(
+        (rom.id, emulator, save_extension(requested_file_name))
+    )
+    return newest or _unslotted_save_at(user, rom, emulator, requested_file_name)
 
 
 def saves_at_path(
@@ -261,12 +288,12 @@ async def store_save_version(
     """File an upload as a new version of the slot its path serves, or of autosave.
 
     Raises:
+        ValueError: The timestamped version name is too long.
         TimeoutError: Another upload to the same path held it too long.
     """
-    extension = save_extension(requested_file_name)
     # Same-second uploads would otherwise file two rows over one tagged file.
     async with redis_lock(
-        f"retroarch_save:{user.id}:{rom.id}:{emulator}:{extension}",
+        f"retroarch_save:{user.id}:{rom.id}:{emulator}:{save_extension(requested_file_name)}",
         timeout_seconds=SAVE_LOCK_TIMEOUT_SECONDS,
     ):
         return await _store_save_version(user, rom, emulator, requested_file_name, body)
@@ -279,16 +306,20 @@ async def _store_save_version(
     requested_file_name: str,
     body: AssetContent,
 ) -> SaveUpload:
-    latest = resolve_save_by_slot(user, rom, emulator, requested_file_name)
-    asset_path = build_asset_file_path(user, rom, "saves", emulator)
     version_name = apply_datetime_tag(requested_file_name)
+    check_filename_length(version_name)
+    asset_path = build_asset_file_path(user, rom, "saves", emulator)
+    versions = _slot_versions_at(user, rom, emulator, requested_file_name)
+    latest = _newest_at(user, rom, emulator, requested_file_name, versions)
 
     # An upload within the same second as the last lands on that version's name.
-    same_name = db_save_handler.get_save_by_path(
-        user_id=user.id,
-        rom_id=rom.id,
-        file_path=asset_path,
-        file_name=version_name,
+    same_name = next(
+        (
+            save
+            for save in versions
+            if save.file_path == asset_path and save.file_name == version_name
+        ),
+        None,
     )
     replaced_hash = (
         await fs_asset_handler.unrecorded_hash(same_name) if same_name else None
@@ -329,7 +360,7 @@ async def _store_save_version(
     scanned.user_id = user.id
     scanned.emulator = emulator
     scanned.slot = slot
-    db_save_handler.add_save(save=scanned)
+    added = db_save_handler.add_save(save=scanned)
     if MAX_SAVES_PER_SLOT:
         # Other cores and extensions share the slot, so each keeps its own history.
         await prune_save_slot(
@@ -337,7 +368,7 @@ async def _store_save_version(
             rom.id,
             slot,
             MAX_SAVES_PER_SLOT,
-            emulator_and_extension=(emulator, save_extension(requested_file_name)),
+            among=[added.id, *(save.id for save in versions)],
         )
 
     return "created"
@@ -591,7 +622,7 @@ def _manifest_assets(
     slot_versions = group_slot_versions(all_saves)
     # A slot version goes by RetroArch's name for the game, not its own tagged one.
     listed_saves = [
-        (f"{save.rom.fs_name_no_ext}{os.path.splitext(save.file_name)[1]}", save)
+        (canonical_save_file_name(save.rom, save.file_name), save)
         for save in slot_versions.values()
         if can_see(save.rom)
     ] + [

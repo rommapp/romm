@@ -10,7 +10,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Request, Response, UploadFile, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from handler.asset_store import apply_datetime_tag, remove_save
+from handler.asset_store import remove_save
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
@@ -612,16 +612,13 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
 async def _put_save_version(
     request: Request, rom: Rom, parsed: RetroArchSyncPath
 ) -> Response:
-    try:
-        check_filename_length(apply_datetime_tag(parsed.file_name))
-    except ValueError:
-        return _empty(status.HTTP_409_CONFLICT)
-
     async with _request_body(request) as body:
         try:
             stored = await sync_handler.store_save_version(
                 request.user, rom, parsed.emulator, parsed.file_name, body
             )
+        except ValueError:
+            return _empty(status.HTTP_409_CONFLICT)
         except TimeoutError:
             return _empty(status.HTTP_503_SERVICE_UNAVAILABLE)
 

@@ -7,7 +7,7 @@ renaming a save or state, which takes its thumbnail along.
 
 import os
 import re
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 from io import BytesIO
 from tempfile import SpooledTemporaryFile
@@ -186,13 +186,12 @@ async def prune_save_slot(
     rom_id: int,
     slot: str,
     keep: int,
-    emulator_and_extension: tuple[str | None, str] | None = None,
+    among: Collection[int] | None = None,
 ) -> None:
     """Drop every version of ``slot`` past the ``keep`` newest, files included.
 
     Args:
-        emulator_and_extension: Count and prune only this emulator's versions
-            with this extension.
+        among: Count and prune only these saves of the slot, by id.
     """
     # Hashed outside the slot's lock, recorded by the prune that deletes them.
     # Each pass hashes only what the last one lacked.
@@ -205,7 +204,7 @@ async def prune_save_slot(
                 slot=slot,
                 keep=keep,
                 fallback_hashes=file_hashes,
-                emulator_and_extension=emulator_and_extension,
+                among=among,
             )
             break
         except UnhashedVersions as unhashed:

@@ -368,7 +368,7 @@ class DBSavesHandler(DBBaseHandler):
         slot: str,
         keep: int,
         fallback_hashes: Mapping[int, str | None] | None = None,
-        emulator_and_extension: tuple[str | None, str] | None = None,
+        among: Collection[int] | None = None,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[Row[*tuple[Any, ...]]]:
         """Delete every version of a slot past the ``keep`` newest.
@@ -379,8 +379,7 @@ class DBSavesHandler(DBBaseHandler):
         Args:
             fallback_hashes: What versions never hashed held, by save id, or
                 None for a file that couldn't be read.
-            emulator_and_extension: Count and prune only the versions of this
-                emulator whose file name ends in this extension.
+            among: Count and prune only these saves of the slot, by id.
 
         Returns:
             Each deleted version's hash and ``file_path``, ``file_name`` and
@@ -402,18 +401,8 @@ class DBSavesHandler(DBBaseHandler):
             .order_by(desc(Save.updated_at), desc(Save.id))
             .offset(keep)
         )
-        if emulator_and_extension:
-            emulator, extension = emulator_and_extension
-            file_name = func.lower(Save.file_name)
-            # Every name ends in "", so an extensionless file matches dotless names.
-            same_extension = (
-                file_name.endswith(extension.lower(), autoescape=True)
-                if extension
-                else ~file_name.contains(".", autoescape=True)
-            )
-            past_keep = past_keep.where(
-                Save.emulator.is_not_distinct_from(emulator), same_extension
-            )
+        if among is not None:
+            past_keep = past_keep.where(Save.id.in_(among))
         # Before this session holds a connection, since ensuring takes its own.
         if not self._any(past_keep):
             return []
