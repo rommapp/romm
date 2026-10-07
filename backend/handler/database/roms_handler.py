@@ -29,6 +29,8 @@ from sqlalchemy import (
 )
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import literal, not_, or_, select, true, union, update
+from sqlalchemy.dialects import mysql as sa_mysql
+from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     ColumnProperty,
@@ -99,6 +101,7 @@ from utils.database import (
     SORTABLE_NULLABLE_ROM_COLUMNS,
     epoch_ms_in_ranges,
     is_non_blank,
+    is_postgresql,
     release_day_ranges,
     rom_unset_flag_column,
 )
@@ -2546,9 +2549,7 @@ class DBRomsHandler(DBBaseHandler):
         *,
         session: Session = INJECTED_SESSION,
     ) -> int:
-        """Set one user's status on many ROMs in a single transaction.
-
-        Missing RomUser rows are created; RETIRED and NEVER_PLAYING are kept.
+        """Set one user's status on many ROMs, creating missing rows and keeping RETIRED and NEVER_PLAYING.
 
         Returns:
             How many rows had their status changed.
@@ -2556,25 +2557,17 @@ class DBRomsHandler(DBBaseHandler):
         if not statuses:
             return 0
 
-        existing = set(
-            session.scalars(
-                select(RomUser.rom_id).where(
-                    RomUser.user_id == user_id, RomUser.rom_id.in_(statuses)
-                )
-            )
+        # Skipping duplicates in the INSERT takes no prior read, whose MariaDB
+        # snapshot would hide (and then refuse) a row another writer commits.
+        rows = [{"rom_id": rom_id, "user_id": user_id} for rom_id in statuses]
+        insert_missing = (
+            sa_pg.insert(RomUser)
+            .values(rows)
+            .on_conflict_do_nothing(index_elements=["rom_id", "user_id"])
+            if is_postgresql(session.get_bind())
+            else sa_mysql.insert(RomUser).values(rows).prefix_with("IGNORE")
         )
-        missing = [rom_id for rom_id in statuses if rom_id not in existing]
-        if missing:
-            try:
-                with session.begin_nested():
-                    session.add_all(
-                        [RomUser(rom_id=rom_id, user_id=user_id) for rom_id in missing]
-                    )
-                    session.flush()
-            except IntegrityError:
-                # A concurrent writer created some of these rows first.
-                for rom_id in missing:
-                    self._insert_rom_user(rom_id, user_id, session)
+        inserted = affected_rows(session.execute(insert_missing))
 
         rom_ids_by_status: dict[RomUserStatus, list[int]] = {}
         for rom_id, status in statuses.items():
@@ -2606,8 +2599,7 @@ class DBRomsHandler(DBBaseHandler):
                 )
             )
 
-        # Queued last: a rolled-back savepoint above drops earlier queued bumps.
-        if missing or updated:
+        if inserted or updated:
             _queue_user_cache_bumps(
                 session,
                 user_id,

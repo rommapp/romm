@@ -42,6 +42,7 @@ from models.rom import (
     Rom,
     RomFile,
     RomFileCategory,
+    RomUser,
     RomUserStatus,
     TrackMeta,
     compute_full_path_hash,
@@ -1218,27 +1219,39 @@ class TestRomUserStatusWrites:
         assert db_rom_handler.set_rom_user_statuses(viewer_user.id, {}) == 0
 
     def test_set_rom_user_statuses_survives_a_concurrent_insert(
-        self, rom: Rom, platform: Platform, admin_user: User, mocker
+        self, platform: Platform, admin_user: User
     ):
         new_rom = make_rom(platform, "Fresh Game", ra_id=12345)
         before = int(user_sort_cache_version(admin_user.id))
+        raced = False
 
-        with sync_session.begin() as session:
-            # Hide the admin's existing row from the lookup, as if another
-            # writer inserted it after the read.
-            mocker.patch.object(session, "scalars", return_value=iter([]))
+        def commit_competing_row(
+            _conn: Any, _cursor: Any, statement: str, *_args: Any
+        ) -> None:
+            nonlocal raced
+            if (
+                raced
+                or not statement.startswith("INSERT")
+                or "rom_user" not in statement
+            ):
+                return
+            raced = True
+            with sync_session.begin() as other:
+                other.add(RomUser(rom_id=new_rom.id, user_id=admin_user.id))
+
+        event.listen(sync_engine, "before_cursor_execute", commit_competing_row)
+        try:
             updated = db_rom_handler.set_rom_user_statuses(
-                admin_user.id,
-                {rom.id: RomUserStatus.FINISHED, new_rom.id: RomUserStatus.FINISHED},
-                session=session,
+                admin_user.id, {new_rom.id: RomUserStatus.FINISHED}
             )
+        finally:
+            event.remove(sync_engine, "before_cursor_execute", commit_competing_row)
 
-        assert updated == 2
-        for rom_id in (rom.id, new_rom.id):
-            rom_user = db_rom_handler.get_rom_user(rom_id, admin_user.id)
-            assert rom_user is not None
-            assert rom_user.status == RomUserStatus.FINISHED
-        # The bump is queued after the rolled-back savepoint, so it survives.
+        assert raced
+        assert updated == 1
+        rom_user = db_rom_handler.get_rom_user(new_rom.id, admin_user.id)
+        assert rom_user is not None
+        assert rom_user.status == RomUserStatus.FINISHED
         assert int(user_sort_cache_version(admin_user.id)) == before + 1
 
     def test_add_rom_user_returns_the_existing_row(self, rom: Rom, admin_user: User):
