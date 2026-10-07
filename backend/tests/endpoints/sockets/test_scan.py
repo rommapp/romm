@@ -1581,8 +1581,8 @@ class TestIdentifyPlatformEmitsRestoredRoms:
             f"test/roms/{rom.fs_name}": rom for rom in roms
         }
         patched.get_missing_rom_ids.return_value = {rom.id for rom in roms}
-        # One restored ROM drops out of the batch read; it emits nothing.
-        patched.get_roms_simple_by_ids.return_value = roms[:2]
+        # Rows come back out of visit order, and the middle ROM drops out.
+        patched.get_roms_simple_by_ids.return_value = [roms[2], roms[0]]
         socket_manager = AsyncMock()
 
         await self._run(socket_manager)
@@ -1593,8 +1593,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
             for call in socket_manager.emit.call_args_list
             if call.args[0] == "scan:scanning_rom"
         ]
-        assert len(emits) == 2
-        assert [call.args[1]["id"] for call in emits] == [11, 12]
+        assert [call.args[1]["id"] for call in emits] == [11, 13]
 
 
 class TestIdentifyPlatformFirmwareReporting:

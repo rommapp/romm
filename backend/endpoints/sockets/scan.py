@@ -921,6 +921,30 @@ async def _scan_selected_roms(
     return scan_stats
 
 
+async def _emit_restored_roms(
+    socket_manager: socketio.AsyncRedisManager, restored_roms: list[Rom]
+) -> None:
+    """Emit each ROM whose file came back, from one batched hydration read."""
+    if not restored_roms:
+        return
+
+    # Reload since the scan-loop lookup only eager-loads the platform.
+    hydrated_by_id = {
+        hydrated.id: hydrated
+        for hydrated in db_rom_handler.get_roms_simple_by_ids(
+            [restored.id for restored in restored_roms]
+        )
+    }
+    for restored_rom in restored_roms:
+        log.info(
+            f"{hl(restored_rom.fs_name)} is back in the filesystem, "
+            f"no longer {hl('missing', color=LIGHTYELLOW)}"
+        )
+        hydrated_rom = hydrated_by_id.get(restored_rom.id)
+        if hydrated_rom is not None:
+            await emit_scanning_rom(socket_manager, hydrated_rom, is_new=False)
+
+
 async def _identify_platform(
     platform_slug: str,
     scan_type: ScanType,
@@ -1086,28 +1110,8 @@ async def _identify_platform(
 
         # A ROM whose file came back would otherwise keep its stale "missing"
         # badge in an open gallery: a skipped one emits nothing, and a scanned
-        # one only emits when its files changed. Reload since the scan-loop
-        # lookup only eager-loads the platform.
-        hydrated_by_id = (
-            {
-                rom.id: rom
-                for rom in db_rom_handler.get_roms_simple_by_ids(
-                    [rom.id for rom in restored_roms]
-                )
-            }
-            if restored_roms
-            else {}
-        )
-        for restored_rom in restored_roms:
-            log.info(
-                f"{hl(restored_rom.fs_name)} is back in the filesystem, "
-                f"no longer {hl('missing', color=LIGHTYELLOW)}"
-            )
-            hydrated_rom = hydrated_by_id.get(restored_rom.id)
-            if hydrated_rom is None:
-                continue
-
-            await emit_scanning_rom(socket_manager, hydrated_rom, is_new=False)
+        # one only emits when its files changed.
+        await _emit_restored_roms(socket_manager, restored_roms)
 
         # Process only ROMs that actually need scanning
         scan_tasks = [
