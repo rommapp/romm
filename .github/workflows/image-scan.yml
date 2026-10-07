@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   resolve:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       images: ${{ steps.resolve.outputs.images }}
@@ -51,7 +51,7 @@ jobs:
       fail-fast: false
       matrix:
         image: ${{ fromJSON(needs.resolve.outputs.images) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -143,7 +143,7 @@ jobs:
       fail-fast: false
       matrix:
         image: ${{ fromJSON(needs.resolve.outputs.images) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
