@@ -14,17 +14,41 @@ inputs:
 runs:
   using: composite
   steps:
+    # Cached .debs install without touching an Ubuntu mirror, which can stall a job until its time limit.
+    - name: Restore apt packages
+      id: apt-debs
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/apt-debs
+        key: apt-debs-${{ env.ImageOS }}-${{ runner.arch }}-libmariadb-${{ inputs.apt-packages }}
+
     # The mariadb package ships only an sdist on Linux, so uv builds it against these.
     - name: Install the MariaDB connector
       shell: bash
       env:
         APT_PACKAGES: ${{ inputs.apt-packages }}
+        DEB_DIR: ${{ runner.temp }}/apt-debs
+        DEBS_CACHED: ${{ steps.apt-debs.outputs.cache-hit }}
       run: |
         read -ra extra <<<"$APT_PACKAGES"
-        # apt has no network timeout by default, so a stalled mirror hangs until the job limit.
-        apt_opts=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
-        sudo apt-get "${apt_opts[@]}" update
-        sudo apt-get "${apt_opts[@]}" install -y libmariadb3 libmariadb-dev "${extra[@]}"
+        if [[ "$DEBS_CACHED" != true ]]; then
+          apt_opts=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+          sudo apt-get "${apt_opts[@]}" update
+          mkdir -p "$DEB_DIR/partial"
+          sudo apt-get "${apt_opts[@]}" install -y --download-only -o Dir::Cache::archives="$DEB_DIR" \
+            libmariadb3 libmariadb-dev "${extra[@]}"
+          # apt leaves a root-only lock file the cache save can't read.
+          sudo rm -rf "$DEB_DIR/lock" "$DEB_DIR/partial"
+        fi
+        sudo apt-get install -y "$DEB_DIR"/*.deb
+
+    # Only master writes it, so a PR can't evict or seed it.
+    - name: Save apt packages
+      if: steps.apt-debs.outputs.cache-hit != 'true' && github.ref == 'refs/heads/master'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/apt-debs
+        key: ${{ steps.apt-debs.outputs.cache-primary-key }}
 
     - name: Install uv
       uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
