@@ -341,6 +341,20 @@ class TestRomUserCacheVersion:
 
         assert user_sort_cache_version(admin_user.id) == before
 
+    def test_rolled_back_savepoint_keeps_earlier_bumps(
+        self, rom: Rom, admin_user: User
+    ):
+        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert rom_user is not None
+        before = int(user_sort_cache_version(admin_user.id))
+
+        with session_factory.begin() as session:
+            db_rom_handler.update_rom_user(rom_user.id, {"rating": 4}, session=session)
+            # The row exists, so the insert's savepoint rolls back.
+            db_rom_handler.add_rom_user(rom.id, admin_user.id, session=session)
+
+        assert int(user_sort_cache_version(admin_user.id)) == before + 1
+
 
 class TestInvalidateFilterValuesCache:
     def test_deletes_prior_version_keys_and_set(self, rom_with_metadata: Rom):
