@@ -64,14 +64,8 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
 
         desired[rom_ra_id] = new_status
 
-    if not desired:
-        return
-
     # One `ra_id` routinely covers several regional ROM rows; each gets synced.
     roms = db_rom_handler.get_roms_by_ra_ids(list(desired))
-    if not roms:
-        return
-
     rom_users = db_rom_handler.get_rom_users_by_rom_ids(
         user.id, [rom.id for rom in roms]
     )

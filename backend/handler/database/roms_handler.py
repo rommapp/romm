@@ -15,6 +15,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     Integer,
+    Row,
     SQLColumnExpression,
     String,
     Text,
@@ -973,19 +974,12 @@ class DBRomsHandler(DBBaseHandler):
         ra_ids: Sequence[int],
         *,
         session: Session = INJECTED_SESSION,
-    ) -> Sequence[Rom]:
-        """Get the ROMs matching any of `ra_ids`, loading only `id` and `ra_id`."""
+    ) -> Sequence[Row[int, int | None]]:
+        """Get `(id, ra_id)` for every ROM matching any of `ra_ids`."""
         if not ra_ids:
             return []
-        # Skips the provider metadata blobs and the joined `platform`/`metadatum`.
-        return session.scalars(
-            select(Rom)
-            .options(
-                load_only(Rom.id, Rom.ra_id),
-                raiseload(Rom.platform),
-                raiseload(Rom.metadatum),
-            )
-            .filter(Rom.ra_id.in_(ra_ids))
+        return session.execute(
+            select(Rom.id, Rom.ra_id).where(Rom.ra_id.in_(ra_ids))
         ).all()
 
     def get_files_for_roms(
