@@ -534,7 +534,7 @@
   "upload-overwrite-title": "Презаписване на {n} съществуващ файл? | Презаписване на {n} съществуващи файла?",
   "upload-saves": "Качи записи",
   "upload-screenshots": "Качи екранни снимки",
-  "upload-slot-hint": "Записите в слот се синхронизират с устройствата; без слот файлът остава ръчен архив.",
+  "upload-slot-hint": "Записите в слот се синхронизират с устройствата; RetroArch Cloud Sync вижда само записи без слот.",
   "upload-soundtrack": "Upload soundtrack",
   "upload-states": "Качи бързи записи",
   "upload-to-folder": "Качи в папка",

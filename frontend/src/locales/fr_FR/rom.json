@@ -534,7 +534,7 @@
   "upload-overwrite-title": "Écraser {n} fichier existant ? | Écraser {n} fichiers existants ?",
   "upload-saves": "Téléverser des sauvegardes",
   "upload-screenshots": "Téléverser des captures d'écran",
-  "upload-slot-hint": "Les sauvegardes dans un emplacement rejoignent la synchronisation des appareils ; sans emplacement, le fichier reste une archive manuelle.",
+  "upload-slot-hint": "Les sauvegardes dans un emplacement rejoignent la synchronisation des appareils ; RetroArch Cloud Sync ne voit que les sauvegardes sans emplacement.",
   "upload-soundtrack": "Upload soundtrack",
   "upload-states": "Téléverser des états",
   "upload-to-folder": "Téléverser dans un dossier",

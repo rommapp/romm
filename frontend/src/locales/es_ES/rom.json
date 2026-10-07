@@ -534,7 +534,7 @@
   "upload-overwrite-title": "¿Sobrescribir {n} archivo existente? | ¿Sobrescribir {n} archivos existentes?",
   "upload-saves": "Subir partidas",
   "upload-screenshots": "Subir capturas",
-  "upload-slot-hint": "Las partidas con ranura entran en la sincronización de dispositivos; sin ranura el archivo queda como copia manual.",
+  "upload-slot-hint": "Las partidas con ranura entran en la sincronización de dispositivos; RetroArch Cloud Sync solo ve las partidas sin ranura.",
   "upload-soundtrack": "Upload soundtrack",
   "upload-states": "Subir estados",
   "upload-to-folder": "Subir a carpeta",

@@ -534,7 +534,7 @@
   "upload-overwrite-title": "Přepsat {n} existující soubor? | Přepsat {n} existující soubory?",
   "upload-saves": "Nahrát uložené pozice",
   "upload-screenshots": "Nahrát screenshoty",
-  "upload-slot-hint": "Uložené pozice ve slotu se synchronizují se zařízeními; bez slotu zůstává soubor ručním archivem.",
+  "upload-slot-hint": "Uložené pozice ve slotu se synchronizují se zařízeními; RetroArch Cloud Sync vidí jen uložené pozice bez slotu.",
   "upload-soundtrack": "Upload soundtrack",
   "upload-states": "Nahrát stavy",
   "upload-to-folder": "Nahrát do složky",

@@ -168,15 +168,26 @@ describe("UploadAssetDialog", () => {
     expect(await submitted(wrapper)).toMatchObject({ slot: null });
   });
 
-  it("names a new slot and asks saves for nothing else", async () => {
+  it("names a new slot", async () => {
     const wrapper = mountDialog("save", [new File(["x"], "a.srm")]);
-    expect(wrapper.findAll("select")).toHaveLength(1);
     await choose(wrapper, 0, 0);
     await wrapper.get("input.slot-name").setValue("  speedrun ");
 
     expect(await submitted(wrapper)).toMatchObject({
       slot: "speedrun",
       emulator: null,
+    });
+  });
+
+  it("files a save under the picked core", async () => {
+    const wrapper = mountDialog("save", [new File(["x"], "a.srm")]);
+    expect(wrapper.findAll("select")).toHaveLength(2);
+    await choose(wrapper, 1, 1);
+
+    expect(await submitted(wrapper)).toMatchObject({
+      type: "save",
+      slot: "autosave",
+      emulator: "mgba",
     });
   });
 

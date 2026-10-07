@@ -1,3 +1,4 @@
+import threading
 from base64 import b64encode
 from datetime import timedelta
 from typing import Any
@@ -225,6 +226,31 @@ async def test_hybrid_auth_backend_basic_auth_header(editor_user: User):
     assert user.id == editor_user.id
     assert creds.scopes == EDIT_SCOPES
     assert set(creds.scopes).issubset(editor_user.oauth_scopes)
+
+
+async def test_hybrid_auth_backend_basic_auth_checks_password_off_event_loop(
+    editor_user: User, monkeypatch: pytest.MonkeyPatch
+):
+    token = b64encode(b"test_editor:test_editor_password").decode()
+    loop_thread = threading.get_ident()
+    check_threads: list[int] = []
+    verify_password = auth_handler.verify_password
+
+    def recording_verify_password(*args: Any) -> bool:
+        check_threads.append(threading.get_ident())
+        return verify_password(*args)
+
+    monkeypatch.setattr(auth_handler, "verify_password", recording_verify_password)
+
+    class MockConnection(HTTPConnection):
+        def __init__(self):
+            self.scope: dict[str, dict[str, Any]] = {"session": {}}
+            self._headers = Headers({"Authorization": f"Basic {token}"})
+
+    result = await HybridAuthBackend().authenticate(MockConnection())
+
+    assert result is not None
+    assert check_threads and loop_thread not in check_threads
 
 
 async def test_hybrid_auth_backend_basic_auth_header_unencoded(editor_user: User):

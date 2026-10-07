@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from typing import NamedTuple
 
@@ -77,8 +78,12 @@ class HybridAuthBackend(AuthenticationBackend):
                 if not credentials:
                     return None
 
-                user = auth_handler.authenticate_user(
-                    credentials.username, credentials.password
+                # bcrypt takes ~250ms, which would stall every request on the
+                # event loop; WebDAV clients send Basic auth on each request.
+                user = await asyncio.to_thread(
+                    auth_handler.authenticate_user,
+                    credentials.username,
+                    credentials.password,
                 )
                 if user is None or not user.enabled:
                     return None

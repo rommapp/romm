@@ -534,7 +534,7 @@
   "upload-overwrite-title": "Overwrite {n} existing file? | Overwrite {n} existing files?",
   "upload-saves": "Upload saves",
   "upload-screenshots": "Upload screenshots",
-  "upload-slot-hint": "Slotted saves join device sync; without a slot the file stays a manual archive.",
+  "upload-slot-hint": "Slotted saves join device sync; RetroArch Cloud Sync only sees saves without a slot.",
   "upload-soundtrack": "Upload soundtrack",
   "upload-states": "Upload states",
   "upload-to-folder": "Upload to folder",
