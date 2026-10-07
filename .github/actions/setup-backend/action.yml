@@ -14,19 +14,13 @@ inputs:
 runs:
   using: composite
   steps:
-    # ImageOS (e.g. ubuntu24) is a runner shell variable, not part of the `env` context.
-    - name: Read the runner image OS
-      id: image
-      shell: bash
-      run: echo "os=$ImageOS" >>"$GITHUB_OUTPUT"
-
     # Cached .debs install without touching an Ubuntu mirror, which can stall a job until its time limit.
     - name: Restore apt packages
       id: apt-debs
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ runner.temp }}/apt-debs
-        key: apt-debs-${{ steps.image.outputs.os }}-${{ runner.arch }}-libmariadb-${{ inputs.apt-packages }}
+        key: apt-debs-ubuntu24-${{ runner.arch }}-libmariadb-${{ inputs.apt-packages }}
 
     # The mariadb package ships only an sdist on Linux, so uv builds it against these.
     - name: Install the MariaDB connector
