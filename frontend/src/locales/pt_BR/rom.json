@@ -534,7 +534,7 @@
   "upload-overwrite-title": "Sobrescrever {n} arquivo existente? | Sobrescrever {n} arquivos existentes?",
   "upload-saves": "Enviar saves",
   "upload-screenshots": "Enviar capturas de tela",
-  "upload-slot-hint": "Saves em um slot entram na sincronização de dispositivos; o RetroArch Cloud Sync só vê saves sem slot.",
+  "upload-slot-hint": "Saves em um slot entram na sincronização de dispositivos; sem slot o arquivo fica como cópia manual.",
   "upload-soundtrack": "Enviar trilha sonora",
   "upload-states": "Enviar states",
   "upload-to-folder": "Enviar para pasta",

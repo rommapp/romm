@@ -534,7 +534,7 @@
   "upload-overwrite-title": "{n} mevcut dosyanın üzerine yazılsın mı? | {n} mevcut dosyanın üzerine yazılsın mı?",
   "upload-saves": "Kayıt yükle",
   "upload-screenshots": "Ekran görüntüsü yükle",
-  "upload-slot-hint": "Yuvadaki kayıtlar cihaz eşitlemesine katılır; RetroArch Cloud Sync yalnızca yuvası olmayan kayıtları görür.",
+  "upload-slot-hint": "Yuvadaki kayıtlar cihaz eşitlemesine katılır; yuva yoksa dosya elle alınmış bir arşiv olarak kalır.",
   "upload-soundtrack": "Müzik paketi yükle",
   "upload-states": "Durum kaydı yükle",
   "upload-to-folder": "Klasöre yükle",

@@ -534,7 +534,7 @@
   "upload-overwrite-title": "Sovrascrivere {n} file esistente? | Sovrascrivere {n} file esistenti?",
   "upload-saves": "Carica salvataggi",
   "upload-screenshots": "Carica screenshot",
-  "upload-slot-hint": "I salvataggi in uno slot entrano nella sincronizzazione dei dispositivi; RetroArch Cloud Sync vede solo i salvataggi senza slot.",
+  "upload-slot-hint": "I salvataggi in uno slot entrano nella sincronizzazione dei dispositivi; senza slot il file resta un archivio manuale.",
   "upload-soundtrack": "Carica soundtrack",
   "upload-states": "Carica stati",
   "upload-to-folder": "Carica in cartella",

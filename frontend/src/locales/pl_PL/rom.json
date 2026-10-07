@@ -534,7 +534,7 @@
   "upload-overwrite-title": "Nadpisać {n} istniejący plik? | Nadpisać {n} istniejące pliki?",
   "upload-saves": "Prześlij zapisy",
   "upload-screenshots": "Prześlij zrzuty ekranu",
-  "upload-slot-hint": "Zapisy w slocie biorą udział w synchronizacji urządzeń; RetroArch Cloud Sync widzi tylko zapisy bez slotu.",
+  "upload-slot-hint": "Zapisy w slocie biorą udział w synchronizacji urządzeń; bez slotu plik pozostaje ręcznym archiwum.",
   "upload-soundtrack": "Upload soundtrack",
   "upload-states": "Prześlij stany",
   "upload-to-folder": "Prześlij do folderu",

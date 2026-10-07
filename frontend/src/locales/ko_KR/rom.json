@@ -534,7 +534,7 @@
   "upload-overwrite-title": "기존 파일 {n}개를 덮어쓸까요? | 기존 파일 {n}개를 덮어쓸까요?",
   "upload-saves": "세이브 업로드",
   "upload-screenshots": "스크린샷 업로드",
-  "upload-slot-hint": "슬롯이 있는 세이브는 기기 동기화에 포함됩니다. RetroArch Cloud Sync는 슬롯이 없는 세이브만 봅니다.",
+  "upload-slot-hint": "슬롯이 있는 세이브는 기기 동기화에 포함됩니다. 슬롯이 없으면 파일은 수동 보관본으로 남습니다.",
   "upload-soundtrack": "Upload soundtrack",
   "upload-states": "상태 업로드",
   "upload-to-folder": "폴더에 업로드",
