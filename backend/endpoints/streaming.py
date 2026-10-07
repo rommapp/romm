@@ -15,7 +15,7 @@ import functools
 import json
 import secrets
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Hashable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -299,14 +299,34 @@ def _joinable_container_label(
 
 # Two checks per platform; past this many, a config waits a second timeout.
 _CONFIG_CHECK_THREADS = 64
+# Shared by every request, so overlapping page loads hold no more threads than one.
+_config_pool = ThreadPoolExecutor(
+    _CONFIG_CHECK_THREADS, thread_name_prefix="streaming-config"
+)
+_config_checks: dict[Hashable, asyncio.Future[Any]] = {}
 
 
-def _in_pool[T](
-    pool: ThreadPoolExecutor, fn: Callable[..., T], *args: Any
-) -> asyncio.Future[T]:
-    """`asyncio.to_thread` on `pool`, with the caller's context like it."""
-    call = functools.partial(contextvars.copy_context().run, fn, *args)
-    return asyncio.get_running_loop().run_in_executor(pool, call)
+def _shared_check[T](key: Hashable, fn: Callable[..., T], *args: Any) -> Awaitable[T]:
+    """Run `fn` in the config pool, or join the run already asking the same."""
+    loop = asyncio.get_running_loop()
+    pending = _config_checks.get(key)
+    # A run on another loop (a closed test client's) can't be awaited here.
+    if pending is None or pending.get_loop() is not loop:
+        call = functools.partial(contextvars.copy_context().run, fn, *args)
+        pending = loop.run_in_executor(_config_pool, call)
+        _config_checks[key] = pending
+        pending.add_done_callback(functools.partial(_forget_check, key))
+    # So a caller that leaves doesn't cancel the run the others wait on.
+    return asyncio.shield(pending)
+
+
+def _forget_check(key: Hashable, done: asyncio.Future[Any]) -> None:
+    if _config_checks.get(key) is done:
+        del _config_checks[key]
+
+
+def _check_key(kind: str, c: ResolvedContainer) -> Hashable:
+    return (kind, c.key, c.platform, c.emulator, c.core, c.experimental_cores)
 
 
 @protected_route(router.get, "/config", [Scope.ROMS_READ])
@@ -321,23 +341,27 @@ async def get_config(request: Request) -> StreamingConfigSchema:
         for c in first_claim_targets()
         if access.platform_is_visible(request, c.platform)
     ]
-    # One pool sized to every check, so a silent broker costs one timeout.
-    pool = ThreadPoolExecutor(min(2 * len(visible), _CONFIG_CHECK_THREADS) or 1)
-    try:
-        specs, cores = await asyncio.gather(
-            asyncio.gather(
-                *(
-                    _in_pool(pool, webstation.import_spec, c, c.emulator, c.platform)
-                    for c in visible
+    # All at once, so a silent broker costs one timeout.
+    specs, cores = await asyncio.gather(
+        asyncio.gather(
+            *(
+                _shared_check(
+                    _check_key("spec", c),
+                    webstation.import_spec,
+                    c,
+                    c.emulator,
+                    c.platform,
                 )
-            ),
-            asyncio.gather(
-                *(_in_pool(pool, states.state_core_for, c) for c in visible)
-            ),
-        )
-    finally:
-        # Not waited on: a cancelled request mustn't block the loop on a timeout.
-        pool.shutdown(wait=False)
+                for c in visible
+            )
+        ),
+        asyncio.gather(
+            *(
+                _shared_check(_check_key("core", c), states.state_core_for, c)
+                for c in visible
+            )
+        ),
+    )
     safe_containers: list[StreamingContainerSchema] = []
     for c, spec, core in zip(visible, specs, cores, strict=True):
         safe_containers.append(

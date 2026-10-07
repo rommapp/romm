@@ -7,6 +7,7 @@ import threading
 import time
 import zipfile
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any, NamedTuple, cast
@@ -450,6 +451,47 @@ def test_config_asks_every_platform_at_once(client, access_token):
             r = client.get("/api/streaming/config", headers=_auth(access_token))
     assert r.status_code == 200
     assert len(r.json()["containers"]) == len(platforms)
+
+
+def test_overlapping_configs_share_each_broker_check(client, access_token):
+    """So page loads piling up on a silent broker hold no extra threads."""
+    shared_check = streaming._shared_check
+    both_joined = threading.Event()
+    joins: list[object] = []
+    asked: list[str] = []
+
+    def join(*args):
+        joins.append(args[0])
+        if len(joins) == 4:
+            both_joined.set()
+        return shared_check(*args)
+
+    def stall(*_args, value=None):
+        asked.append(value or "spec")
+        assert both_joined.wait(timeout=5)
+        return value
+
+    with _streaming(_webstation(platforms={"snes": "retroarch"})):
+        with (
+            patch.object(streaming, "_shared_check", side_effect=join),
+            patch(
+                "handler.streaming.webstation.require_import_spec", side_effect=stall
+            ),
+            patch(
+                "handler.streaming.webstation.default_core",
+                side_effect=lambda c: stall(value="snes9x"),
+            ),
+            ThreadPoolExecutor(2) as pages,
+        ):
+            loads = [
+                pages.submit(
+                    client.get, "/api/streaming/config", headers=_auth(access_token)
+                )
+                for _ in range(2)
+            ]
+            responses = [load.result(timeout=10) for load in loads]
+    assert [r.status_code for r in responses] == [200, 200]
+    assert sorted(asked) == ["snes9x", "spec"]
 
 
 def test_config_has_no_state_core_outside_retroarch(client, access_token):
