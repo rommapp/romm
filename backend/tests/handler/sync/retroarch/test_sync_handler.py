@@ -2,7 +2,7 @@ import os
 import threading
 from collections.abc import Iterator
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from unittest import mock
 
 import pytest
@@ -67,7 +67,7 @@ class TestManifestQueriesOffEventLoop:
         threads: list[int] = []
         get_saves = db_save_handler.get_saves
 
-        def recording_get_saves(*args: object, **kwargs: object) -> object:
+        def recording_get_saves(*args: Any, **kwargs: Any) -> Any:
             threads.append(threading.get_ident())
             return get_saves(*args, **kwargs)
 
