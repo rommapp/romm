@@ -65,7 +65,7 @@ const platformsToScan = ref<string[]>([]);
 
 // Never-scanned folders are fetched on demand.
 onMounted(() => {
-  platformsStore.fetchFilesystemPlatforms();
+  void platformsStore.fetchFilesystemPlatforms();
 });
 // IDs of platforms whose ScanPlatform panel is currently open.
 const openPlatforms = ref<Set<number>>(new Set());

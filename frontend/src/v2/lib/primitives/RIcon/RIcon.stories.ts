@@ -6,7 +6,6 @@ const meta: Meta<typeof RIcon> = {
   title: "Primitives/RIcon",
   component: RIcon,
   argTypes: {
-    icon: { control: "text" },
     size: { control: "text" },
     color: { control: "text" },
   },

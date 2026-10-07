@@ -46,7 +46,7 @@ import { pendingMorphName } from "@/v2/composables/useViewTransition";
 interface Props {
   /** The rom whose cover to show (nullable for pre-fetch states). */
   rom: CoverArtRom | null;
-  /** Title: used as the <img> alt and the placeholder text. */
+  /** Title: used as the `<img>` alt and the placeholder text. */
   title: string;
   /** Identified rom (grid placeholder) vs unmatched (question mark). */
   identified?: boolean;

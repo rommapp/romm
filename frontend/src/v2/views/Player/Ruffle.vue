@@ -131,7 +131,8 @@ function changedSaveFiles(leaving: boolean): PlayerSaveFile[] {
 // every second, as EmulatorJS polls its SRAM.
 const saveSync = useDeviceSaveSync({
   emulator: "ruffle",
-  read: async (leaving) => changedSaveFiles(leaving),
+  read: (leaving) =>
+    new Promise((resolve) => resolve(changedSaveFiles(leaving))),
   readOnUnload: () => changedSaveFiles(true),
   pollMs: 1000,
 });
@@ -167,7 +168,7 @@ function mountPlayer(): boolean {
 
   const created = ruffle.createPlayer();
   container.appendChild(created);
-  created.load({
+  void created.load({
     allowFullScreen: true,
     autoplay: "on",
     backgroundColor: backgroundColor.value,

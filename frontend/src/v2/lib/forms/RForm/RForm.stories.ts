@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RBtn from "../../primitives/RBtn/RBtn.vue";
 import RSelect from "../RSelect/RSelect.vue";
 import RTextField from "../RTextField/RTextField.vue";
@@ -8,10 +9,7 @@ import RForm from "./RForm.vue";
 const meta: Meta<typeof RForm> = {
   title: "Forms/RForm",
   component: RForm,
-  argTypes: {
-    disableEnterSubmit: { control: "boolean" },
-    disableScrollToError: { control: "boolean" },
-  },
+  parameters: CONTRAST_TODO_PARAMETERS,
 };
 
 export default meta;
@@ -186,7 +184,7 @@ export const ResetForm: Story = {
       const email = ref("");
       const formRef = ref<{ reset?: () => void } | null>(null);
       const rules = [(v: unknown) => !!v || "Required"];
-      async function clearAll() {
+      function clearAll() {
         formRef.value?.reset?.();
       }
       return { valid, name, email, rules, clearAll, formRef };

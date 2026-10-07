@@ -2,14 +2,14 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { RBtn, RForm } from "@v2/lib";
 import { expect, userEvent } from "storybook/test";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RComboboxField from "./RComboboxField.vue";
 
 const meta: Meta<typeof RComboboxField> = {
   title: "Forms/RComboboxField",
   component: RComboboxField,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
-    label: { control: "text" },
-    placeholder: { control: "text" },
     prefixLabel: {
       control: "inline-radio",
       options: [null, "stacked", "inline"],
@@ -22,10 +22,6 @@ const meta: Meta<typeof RComboboxField> = {
       control: "inline-radio",
       options: ["default", "comfortable", "compact"],
     },
-    disabled: { control: "boolean" },
-    closableChips: { control: "boolean" },
-    noSuggestions: { control: "boolean" },
-    allowCommas: { control: "boolean" },
   },
 };
 

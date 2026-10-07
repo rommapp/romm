@@ -15,11 +15,6 @@ export default [
   {
     name: "e2e/rules",
     files: TEST_FILES,
-    languageOptions: {
-      // Type info for no-floating-promises. Resolves to tsconfig.node.json, so
-      // the app's lint stays untyped.
-      parserOptions: { projectService: true },
-    },
     rules: {
       // An `expectSomething()` helper asserts on the test's behalf.
       "playwright/expect-expect": [

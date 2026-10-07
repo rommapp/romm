@@ -7,6 +7,7 @@ import {
   romFixture,
   romUserFixture,
 } from "@/utils/rom.fixtures";
+import storeFormatConversions from "@/v2/stores/formatConversions";
 import { useGameActions } from "./index";
 
 // Controllable stubs shared with the mocked modules below.
@@ -679,6 +680,7 @@ describe("useGameActions.downloadAs", () => {
       retryAfterSeconds: null,
     });
     const rom = pspRom([{ id: 7, file_name: "game.chd" }]);
+    const addConversion = vi.spyOn(storeFormatConversions(), "add");
 
     await useGameActions(() => rom).downloadAs("iso");
 
@@ -688,6 +690,7 @@ describe("useGameActions.downloadAs", () => {
       format: "iso",
     });
     expect(snackbarInfo).not.toHaveBeenCalled();
+    expect(addConversion).not.toHaveBeenCalled();
   });
 
   it("polls while it converts, then downloads", async () => {
@@ -697,10 +700,21 @@ describe("useGameActions.downloadAs", () => {
       .mockResolvedValueOnce({ status: 206, retryAfterSeconds: null });
     const rom = pspRom([{ id: 7, file_name: "game.chd" }]);
 
+    const conversions = storeFormatConversions();
+
     const pending = useGameActions(() => rom).downloadAs("iso");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(conversions.conversions).toEqual([
+      expect.objectContaining({
+        romId: rom.id,
+        romName: "Game",
+        format: "ISO",
+      }),
+    ]);
     await vi.advanceTimersByTimeAsync(5000);
     await pending;
 
+    expect(conversions.conversions).toEqual([]);
     expect(snackbarInfo).toHaveBeenCalledWith(
       'rom.download-as-preparing:{"format":"ISO"}',
     );
@@ -760,9 +774,9 @@ describe("useGameActions.copyDownloadLink", () => {
 
   it("opens the manual-copy dialog when the copy fails", async () => {
     clipboardCopy.mockImplementation(
-      async (_text: string, opts: { fallback?: () => void }) => {
+      (_text: string, opts: { fallback?: () => void }) => {
         opts.fallback?.();
-        return false;
+        return Promise.resolve(false);
       },
     );
 

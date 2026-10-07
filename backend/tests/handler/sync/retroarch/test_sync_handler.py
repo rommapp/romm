@@ -1,14 +1,24 @@
 import os
+import threading
 from collections.abc import Iterator
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from unittest import mock
 
 import pytest
 
+from handler.database import db_save_handler
+from handler.filesystem import fs_asset_handler
 from handler.filesystem.retroarch_sync_handler import BlobFile, FSRetroArchSyncHandler
 from handler.redis_handler import async_cache, sync_cache
-from handler.sync.retroarch.sync_handler import HASH_CACHE_TTL_SECONDS, cached_hashes
+from handler.sync.retroarch.sync_handler import (
+    HASH_CACHE_TTL_SECONDS,
+    build_manifest,
+    cached_hashes,
+    list_manifest_paths,
+    user_blob_path,
+)
+from models.user import User
 
 
 @pytest.fixture(autouse=True)
@@ -49,6 +59,41 @@ class TestCachedMd5s:
             await cached_hashes(jobs)
 
         mget.assert_called_once()
+
+
+class TestManifestQueriesOffEventLoop:
+    @pytest.fixture
+    def query_threads(self) -> Iterator[list[int]]:
+        threads: list[int] = []
+        get_saves = db_save_handler.get_saves
+
+        def recording_get_saves(*args: Any, **kwargs: Any) -> Any:
+            threads.append(threading.get_ident())
+            return get_saves(*args, **kwargs)
+
+        with mock.patch.object(db_save_handler, "get_saves", recording_get_saves):
+            yield threads
+
+    async def test_build_manifest(self, admin_user: User, query_threads: list[int]):
+        await build_manifest(admin_user, lambda _rom: True)
+
+        assert query_threads and threading.get_ident() not in query_threads
+
+    async def test_list_manifest_paths(
+        self, admin_user: User, query_threads: list[int]
+    ):
+        await list_manifest_paths(admin_user, lambda _rom: True, "saves")
+
+        assert query_threads and threading.get_ident() not in query_threads
+
+
+class TestBlobStorageLocation:
+    def test_blobs_live_in_the_users_assets_folder(self, admin_user: User):
+        # The assets root is a documented volume; anything outside it is lost on container recreate.
+        assert FSRetroArchSyncHandler().base_path == fs_asset_handler.base_path
+        assert user_blob_path(admin_user, "config/retroarch.cfg") == (
+            f"{fs_asset_handler.user_folder_path(admin_user)}/retroarch/config/retroarch.cfg"
+        )
 
 
 @pytest.fixture

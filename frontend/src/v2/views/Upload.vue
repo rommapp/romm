@@ -93,7 +93,7 @@ function applyPreselectFromQuery() {
 }
 
 onMounted(() => {
-  loadPlatforms();
+  void loadPlatforms();
 });
 
 watch(() => route.query.platform, applyPreselectFromQuery);

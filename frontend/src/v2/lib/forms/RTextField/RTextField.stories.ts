@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RTextField from "./RTextField.vue";
 
 const meta: Meta<typeof RTextField> = {
   title: "Forms/RTextField",
   component: RTextField,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     variant: {
       control: "inline-radio",
@@ -19,19 +21,7 @@ const meta: Meta<typeof RTextField> = {
       control: "inline-radio",
       options: [undefined, "stacked", "inline"],
     },
-    type: { control: "text" },
-    label: { control: "text" },
-    placeholder: { control: "text" },
     color: { control: "text" },
-    prependInnerIcon: { control: "text" },
-    appendInnerIcon: { control: "text" },
-    clearable: { control: "boolean" },
-    disabled: { control: "boolean" },
-    readonly: { control: "boolean" },
-    loading: { control: "boolean" },
-    hint: { control: "text" },
-    subtitle: { control: "text" },
-    error: { control: "boolean" },
     errorMessages: { control: "text" },
   },
   render: (args) => ({
@@ -187,12 +177,13 @@ export const Validation: Story = {
     components: { RTextField },
     setup: () => {
       const value = ref("");
+      type FieldValue = string | number | null | undefined;
       const rules = [
-        (v: unknown) =>
+        (v: FieldValue) =>
           !!v && String(v).length > 0 ? true : "Field is required",
-        (v: unknown) =>
+        (v: FieldValue) =>
           String(v).length >= 3 ? true : "Must be at least 3 characters",
-        (v: unknown) =>
+        (v: FieldValue) =>
           /^[a-z0-9_]+$/.test(String(v)) || !v
             ? true
             : "Lowercase letters, digits and underscore only",

@@ -17,12 +17,12 @@ vi.mock("vue-router", async (importOriginal) => ({
 type Entry = { id: string; romId: number; kind: PendingAssetKind };
 const queue = { entries: [] as Entry[] };
 // The server takes everything unless a test says otherwise.
-async function acceptAll(
+function acceptAll(
   kinds: readonly PendingAssetKind[] = ["save", "state"],
 ): Promise<PendingSyncResult> {
   const taken = queue.entries.filter((entry) => kinds.includes(entry.kind));
   queue.entries = queue.entries.filter((entry) => !kinds.includes(entry.kind));
-  return {
+  return Promise.resolve({
     synced: taken.map((entry) => ({
       kind: entry.kind,
       romId: entry.romId,
@@ -30,15 +30,14 @@ async function acceptAll(
       cover: null,
     })),
     dropped: [],
-  };
+  });
 }
 const syncPendingAssets = vi.fn(acceptAll);
 
 vi.mock("@/services/pending-asset", () => ({
   syncPendingAssets: (kinds?: PendingAssetKind[]) => syncPendingAssets(kinds),
-  hasPendingAssets: async (
-    kinds: readonly PendingAssetKind[] = ["save", "state"],
-  ) => queue.entries.some((entry) => kinds.includes(entry.kind)),
+  hasPendingAssets: (kinds: readonly PendingAssetKind[] = ["save", "state"]) =>
+    Promise.resolve(queue.entries.some((entry) => kinds.includes(entry.kind))),
 }));
 
 const success = vi.fn();
@@ -55,7 +54,7 @@ vi.mock("@/v2/composables/useSnackbar", () => ({
 
 vi.mock("vue-i18n");
 
-const refetchRom = vi.fn(async () => null);
+const refetchRom = vi.fn(() => Promise.resolve(null));
 vi.mock("@/v2/composables/useRomSync", () => ({
   useRomSync: () => ({ refetchRom }),
 }));
@@ -114,10 +113,7 @@ describe("installPendingAssetSync", () => {
 
   it("keeps retrying while a save is still owed", async () => {
     // Refused by the server, so the entry outlives the attempt.
-    syncPendingAssets.mockImplementation(async () => ({
-      synced: [],
-      dropped: [],
-    }));
+    syncPendingAssets.mockResolvedValue({ synced: [], dropped: [] });
     queue.entries = [{ id: "1:a", romId: 1, kind: "save" as const }];
 
     install();
@@ -131,10 +127,7 @@ describe("installPendingAssetSync", () => {
   });
 
   it("stops retrying once the shell is gone", async () => {
-    syncPendingAssets.mockImplementation(async () => ({
-      synced: [],
-      dropped: [],
-    }));
+    syncPendingAssets.mockResolvedValue({ synced: [], dropped: [] });
     queue.entries = [{ id: "1:a", romId: 1, kind: "save" as const }];
 
     const shell = install();
@@ -204,9 +197,9 @@ describe("installPendingAssetSync", () => {
 
   // The progress is gone from the browser, so the reason is all the player has.
   it("says why the server refused what it dropped", async () => {
-    syncPendingAssets.mockImplementation(async () => {
+    syncPendingAssets.mockImplementation(() => {
       queue.entries = [];
-      return {
+      return Promise.resolve({
         synced: [],
         dropped: [
           {
@@ -217,7 +210,7 @@ describe("installPendingAssetSync", () => {
             reason: "Slot has a newer save",
           },
         ],
-      };
+      });
     });
     queue.entries = [{ id: "1:a", romId: 1, kind: "save" as const }];
 
@@ -233,9 +226,9 @@ describe("installPendingAssetSync", () => {
 
   // Another device's newer progress holds the slot, so the copy went aside.
   it("says a save was kept apart from its slot", async () => {
-    syncPendingAssets.mockImplementation(async () => {
+    syncPendingAssets.mockImplementation(() => {
       queue.entries = [];
-      return {
+      return Promise.resolve({
         synced: [
           {
             kind: "save" as const,
@@ -246,7 +239,7 @@ describe("installPendingAssetSync", () => {
           },
         ],
         dropped: [],
-      };
+      });
     });
     queue.entries = [{ id: "1:a", romId: 1, kind: "save" as const }];
 

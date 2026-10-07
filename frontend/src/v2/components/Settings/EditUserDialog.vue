@@ -113,7 +113,7 @@ const sortedPlatforms = computed(() =>
 
 let openToken = 0;
 
-useEmitterEvent("showEditUserDialog", async (toEdit) => {
+async function open(toEdit: Events["showEditUserDialog"]) {
   const token = ++openToken;
   user.value = { ...toEdit, password: "", avatar: undefined };
   confirmPassword.value = "";
@@ -167,7 +167,9 @@ useEmitterEvent("showEditUserDialog", async (toEdit) => {
     accessError.value = true;
     console.error("Failed to load user permissions", err);
   }
-});
+}
+
+useEmitterEvent("showEditUserDialog", (toEdit) => void open(toEdit));
 
 const avatarSrc = computed(() => {
   if (imagePreviewUrl.value) return imagePreviewUrl.value;

@@ -25,6 +25,7 @@ import socket from "@/services/socket";
 import storeUpload from "@/stores/upload";
 import { getDownloadPath } from "@/utils/downloadPath";
 import { buildFormInput, type FormInputField } from "@/utils/formData";
+import { toError } from "@/utils/toError";
 
 export const romApi = api;
 type DetailedRom = DetailedRomSchema;
@@ -164,7 +165,7 @@ async function uploadRoms({
           file.name,
           error.response?.data?.detail ?? error.message,
         );
-        return Promise.reject(error);
+        return Promise.reject(toError(error));
       });
   });
 
@@ -795,7 +796,7 @@ async function uploadManuals({
         .then(resolve)
         .catch((error) => {
           uploadStore.fail(file.name, error.response?.data?.detail);
-          reject(error);
+          reject(toError(error));
         });
     });
   });
@@ -840,7 +841,7 @@ async function uploadSoundtracks({
         .then(resolve)
         .catch((error) => {
           uploadStore.fail(file.name, error.response?.data?.detail);
-          reject(error);
+          reject(toError(error));
         });
     });
   });
@@ -910,7 +911,7 @@ async function uploadManualFiles({
         .then(resolve)
         .catch((error) => {
           uploadStore.fail(file.name, error.response?.data?.detail);
-          reject(error);
+          reject(toError(error));
         });
     });
   });

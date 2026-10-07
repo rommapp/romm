@@ -254,6 +254,30 @@ class TestSyncRetroAchievementsProgressTask:
             },
         )
 
+    async def test_run_continues_after_status_sync_error(
+        self, task, viewer_user, editor_user, mocker
+    ):
+        """A status-sync failure for one user still syncs the next user."""
+        mock_get_roms, mock_set_statuses = _mock_sync(
+            mocker,
+            viewer_user,
+            _progression((12345, RAUserCompletionProgressKind.MASTERED)),
+            roms=[],
+        )
+        mocker.patch.object(
+            DBUsersHandler, "get_users", return_value=[viewer_user, editor_user]
+        )
+        mock_get_roms.side_effect = [
+            Exception("DB error"),
+            [SimpleNamespace(id=1, ra_id=12345)],
+        ]
+
+        await task.run()
+
+        mock_set_statuses.assert_called_once_with(
+            editor_user.id, {1: RomUserStatus.COMPLETED_100}
+        )
+
     async def test_run_syncs_real_rows(self, task, viewer_user, platform, mocker):
         """Unmocked getters: every regional ROM is synced and RETIRED is kept."""
         usa_rom = make_rom(platform, "Game USA", ra_id=12345)

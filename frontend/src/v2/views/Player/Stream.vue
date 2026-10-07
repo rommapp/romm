@@ -74,6 +74,7 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useMultiplayerPref } from "@/v2/composables/useMultiplayerPref";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlayFocus } from "@/v2/composables/usePlayFocus";
@@ -101,6 +102,7 @@ const route = useRoute();
 const router = useRouter();
 const auth = storeAuth();
 const streamingStore = useStreamingStore();
+const alive = useIsAlive();
 const snackbar = useSnackbar();
 const { fullscreenOnPlay } = useFullscreenPref();
 const { multiplayerOnPlay } = useMultiplayerPref();
@@ -435,8 +437,13 @@ type ResumeTab = "state" | "save";
 
 const resumeTab = ref<ResumeTab>("state");
 
+// The app-load config can predate the broker's import answer, so the picker
+// waits for the page's own refetch.
+const configFresh = ref(false);
+
 const showResumeTabs = computed(
-  () => supportsStates.value && pickableSaves.value.length > 0,
+  () =>
+    configFresh.value && supportsStates.value && pickableSaves.value.length > 0,
 );
 
 // The pick only counts when there is something to pick between.
@@ -498,8 +505,9 @@ const emulatorLabel = computed(
   () => container.value?.label ?? platformLabel.value,
 );
 
+// Held with the resume picker, so Play never sends a pick the player can't see.
 const playReady = computed(
-  () => !!rom.value && playerState.value !== "loading",
+  () => !!rom.value && configFresh.value && playerState.value !== "loading",
 );
 usePlayFocus(".r-v2-stream__play", playReady, gameRunning);
 
@@ -674,9 +682,13 @@ async function pollSessionStatus(): Promise<void> {
   }
 }
 
-const sessionPoll = useIntervalFn(pollSessionStatus, SESSION_POLL_MS, {
-  immediate: false,
-});
+const sessionPoll = useIntervalFn(
+  () => void pollSessionStatus(),
+  SESSION_POLL_MS,
+  {
+    immediate: false,
+  },
+);
 
 function startSessionPoll() {
   // The status route belongs to the claim holder; a joiner would only
@@ -733,7 +745,7 @@ useSocketEvent<LaunchPhase>("streaming:launch-phase", (payload) => {
   launchPhase.value = payload.phase ?? null;
 });
 
-useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
+async function onLaunchReady(payload: LaunchReady): Promise<void> {
   if (!isOurClaim(payload)) return;
   launchPhase.value = null;
   if (playerState.value === "exited") {
@@ -746,7 +758,12 @@ useSocketEvent<LaunchReady>("streaming:launch-ready", async (payload) => {
   if (playerState.value === "playing") return;
   warnOfCore(payload.core, payload.core_tier);
   await enterStream(payload.host);
-});
+}
+
+useSocketEvent<LaunchReady>(
+  "streaming:launch-ready",
+  (payload) => void onLaunchReady(payload),
+);
 
 useSocketEvent<LaunchFailed>("streaming:launch-failed", (payload) => {
   if (!isOurClaim(payload)) return;
@@ -792,7 +809,7 @@ watch(gameRunning, (running, prev) => {
   if (running && !prev) {
     presence.start();
     if (rom.value && isJoining) playSession.start(rom.value);
-    nextTick(focusStream);
+    void nextTick(focusStream);
   }
   if (prev && !running) {
     presence.stop();
@@ -1205,7 +1222,7 @@ const { romRoute, platformRoute } = usePlayerNav(
   () => heroRom.value?.platform_id,
 );
 function backToRom() {
-  router.push(romRoute);
+  void router.push(romRoute);
 }
 
 // ── Exit guard (big-picture safety) ────────────────────────────────
@@ -1228,13 +1245,13 @@ async function openExitDialog(): Promise<void> {
 watch(exitDialogOpen, (open) => {
   if (!open) {
     pendingLeave = null;
-    if (gameRunning.value) nextTick(focusStream);
+    if (gameRunning.value) void nextTick(focusStream);
   }
 });
 
 onBeforeRouteLeave((to) => {
   if (!sessionActive.value) return true;
-  pendingLeave = () => router.push(to.fullPath);
+  pendingLeave = () => void router.push(to.fullPath);
   void openExitDialog();
   return false;
 });
@@ -1307,10 +1324,15 @@ function onPageHide(): void {
   playerState.value = "exited";
 }
 
-useEventListener(document, "visibilitychange", onVisibilityChange);
+useEventListener(document, "visibilitychange", () => void onVisibilityChange());
 useEventListener(window, "pagehide", onPageHide);
 
 onMounted(async () => {
+  // The app-load copy can predate a broker that hadn't answered yet, and what
+  // it imports decides which saves the picker offers, so ask again here.
+  const freshConfig = streamingStore.fetchConfig().finally(() => {
+    if (alive.value) configFresh.value = true;
+  });
   try {
     const { data } = await romApi.getRom({
       romId: parseInt(route.params.rom as string),
@@ -1329,7 +1351,7 @@ onMounted(async () => {
   if (isJoining) {
     // Reaching this URL directly can beat the app-level config fetch, and
     // onPlay reads the container out of it.
-    if (!container.value) await streamingStore.fetchConfig();
+    if (!container.value) await freshConfig;
     void onPlay();
     return;
   }
@@ -1467,7 +1489,11 @@ onBeforeUnmount(() => {
           </template>
         </div>
         <div class="r-v2-stream__resume-body">
-          <template v-if="activeResumeTab === 'state'">
+          <div v-if="!configFresh" class="r-v2-stream__resume-loading">
+            <RSpinner :size="24" :aria-label="t('common.loading')" />
+          </div>
+
+          <template v-else-if="activeResumeTab === 'state'">
             <AssetPreview
               :asset="selectedState"
               type="state"
@@ -2051,6 +2077,12 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 14px;
   flex: 1;
+}
+.r-v2-stream__resume-loading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
 }
 .r-v2-stream__strip-label {
   display: flex;

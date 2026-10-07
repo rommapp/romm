@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   trunk_check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       checks: write # For trunk to post annotations

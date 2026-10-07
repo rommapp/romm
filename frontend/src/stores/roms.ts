@@ -20,6 +20,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
+import { toError } from "@/utils/toError";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 type PlatformsStore = ExtractPiniaStoreType<typeof storePlatforms>;
@@ -302,7 +303,7 @@ export default defineStore("roms", {
             resolve(response.data.items);
           })
           .catch((error) => {
-            reject(error);
+            reject(toError(error));
           })
           .finally(() => {
             this.fetchingRoms = false;
@@ -332,21 +333,21 @@ export default defineStore("roms", {
     },
     addToRecent(rom: SimpleRom) {
       this.recentRoms = [rom, ...this.recentRoms];
-      cachedApiService.clearRecentRomsCache();
+      void cachedApiService.clearRecentRomsCache();
     },
     removeFromRecent(rom: SimpleRom) {
       this.recentRoms = this.recentRoms.filter((value) => value.id !== rom.id);
-      cachedApiService.clearRecentRomsCache();
+      void cachedApiService.clearRecentRomsCache();
     },
     addToContinuePlaying(rom: SimpleRom) {
       this.continuePlayingRoms = [rom, ...this.continuePlayingRoms];
-      cachedApiService.clearRecentPlayedRomsCache();
+      void cachedApiService.clearRecentPlayedRomsCache();
     },
     removeFromContinuePlaying(rom: SimpleRom) {
       this.continuePlayingRoms = this.continuePlayingRoms.filter(
         (value) => value.id !== rom.id,
       );
-      cachedApiService.clearRecentPlayedRomsCache();
+      void cachedApiService.clearRecentPlayedRomsCache();
     },
     update(rom: SimpleRom) {
       this._allRoms = this._allRoms.map((value) =>

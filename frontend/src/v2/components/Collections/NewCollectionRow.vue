@@ -56,7 +56,7 @@ const formId = useId();
 watch(
   () => props.expanded,
   (expanded) => {
-    if (expanded) nextTick(() => focusFromInput(input.value));
+    if (expanded) void nextTick(() => focusFromInput(input.value));
   },
 );
 

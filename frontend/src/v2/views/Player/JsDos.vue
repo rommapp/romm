@@ -171,8 +171,8 @@ async function onPlay() {
     // The changes live in RomM's synced copy, never in js-dos's own storage.
     fsChanges: {
       local: false,
-      urlToKey: async () => key,
-      pull: async () => changes,
+      urlToKey: () => Promise.resolve(key),
+      pull: () => Promise.resolve(changes),
       push: async (_key, bytes) => {
         changes = bytes;
         await saveSync.capture([

@@ -16,9 +16,6 @@ export interface PlatformColumn {
   label: string;
   sortable: boolean;
   align?: "start" | "end" | "center";
-  /** Drop this column on `xs` viewports (mirrors the row's compact
-   * layout: see PlatformListRow / PlatformListHeader CSS). */
-  meta?: boolean;
 }
 
 export const PLATFORM_COLUMNS: readonly PlatformColumn[] = [
@@ -28,28 +25,24 @@ export const PLATFORM_COLUMNS: readonly PlatformColumn[] = [
     label: "Family",
     sortable: true,
     align: "start",
-    meta: true,
   },
   {
     key: "category",
     label: "Category",
     sortable: true,
     align: "start",
-    meta: true,
   },
   {
     key: "generation",
     label: "Generation",
     sortable: true,
     align: "start",
-    meta: true,
   },
   {
     key: "playable",
     label: "Playable",
     sortable: true,
     align: "center",
-    meta: true,
   },
   { key: "rom_count", label: "Games", sortable: true, align: "end" },
 ];

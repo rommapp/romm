@@ -110,11 +110,11 @@ beforeEach(() => {
 
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (url: string) => {
+    vi.fn((url: string) => {
       const body = bodies.get(url);
-      return body
-        ? new Response(body.slice())
-        : new Response(null, { status: 404 });
+      return Promise.resolve(
+        body ? new Response(body.slice()) : new Response(null, { status: 404 }),
+      );
     }),
   );
   vi.spyOn(WebAssembly, "compile").mockResolvedValue({} as WebAssembly.Module);

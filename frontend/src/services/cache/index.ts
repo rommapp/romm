@@ -94,7 +94,7 @@ class CacheService {
       this.backgroundCallbacks.set(cacheKey, onBackgroundUpdate);
 
       // Trigger background update
-      this.makeRequest<T>(cacheKey, config);
+      void this.makeRequest<T>(cacheKey, config);
       return {
         data: cachedEntry.data,
         status: 200,
@@ -180,6 +180,6 @@ class CacheService {
 
 const cacheService = new CacheService();
 
-cacheService.init();
+void cacheService.init();
 
 export default cacheService;

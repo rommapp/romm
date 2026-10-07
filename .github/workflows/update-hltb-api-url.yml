@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   update-hltb-api-url:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write # For create-pull-request to push the branch
@@ -40,10 +40,10 @@ jobs:
         with:
           add-paths: |
             backend/handler/metadata/fixtures/hltb_api_url
-          commit-message: "Update HLTB API URL [skip CI]"
+          commit-message: "chore(hltb): update HLTB API URL [skip CI]"
           branch: update-hltb-api-url
           sign-commits: true
-          title: "Update HLTB API URL [skip CI]"
+          title: "chore(hltb): update HLTB API URL [skip CI]"
           reviewers: |
             gantoine
 

@@ -8,12 +8,14 @@ const { copy } = vi.hoisted(() => ({ copy: vi.fn() }));
 
 vi.mock("@/services/api", () => ({
   default: {
-    get: vi.fn(async () => ({
-      data: [
-        { ts: 0, level: "INFO", module: "scan", message: "first" },
-        { ts: 1000, level: "ERROR", module: "rq", message: "second" },
-      ],
-    })),
+    get: vi.fn(() =>
+      Promise.resolve({
+        data: [
+          { ts: 0, level: "INFO", module: "scan", message: "first" },
+          { ts: 1000, level: "ERROR", module: "rq", message: "second" },
+        ],
+      }),
+    ),
   },
 }));
 vi.mock("@/v2/composables/useSocketEvent", () => ({

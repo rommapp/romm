@@ -16,7 +16,15 @@
 // states, "no results" messaging and any other app-driven content
 // belong inside the consumer's `#content` slot: composed from
 // REmptyState / RProgressCircular / RSpinner as needed.
-import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  ref,
+  useId,
+  useSlots,
+  watch,
+} from "vue";
 import { useChromeLabels } from "@/v2/lib/a11y/chromeLabels";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
@@ -59,6 +67,8 @@ const props = withDefaults(
     cancelDisabled?: boolean;
     /** Replaces the Cancel label (defaults to the chrome `cancel` label). */
     cancelText?: string | undefined;
+    /** Names the panel when it has no header to take its name from. */
+    ariaLabel?: string | undefined;
   }>(),
   {
     scrollContent: false,
@@ -72,6 +82,7 @@ const props = withDefaults(
     cancelable: false,
     cancelDisabled: false,
     cancelText: undefined,
+    ariaLabel: undefined,
   },
 );
 
@@ -81,6 +92,7 @@ const emit = defineEmits<{
 }>();
 
 const slots = useSlots();
+const headerId = useId();
 
 const labels = useChromeLabels();
 
@@ -144,7 +156,7 @@ watch(
       // try to move focus into it. An explicit [autofocus] wins over
       // DOM order; a combined selector list would resolve in document
       // order and always land on the header close button.
-      nextTick(() => {
+      void nextTick(() => {
         const focusTarget =
           panelRef.value?.querySelector<HTMLElement>("[autofocus]") ??
           panelRef.value?.querySelector<HTMLElement>(
@@ -233,6 +245,8 @@ const panelStyle = computed(() => {
           class="r-dialog__panel"
           role="dialog"
           aria-modal="true"
+          :aria-labelledby="slots.header ? headerId : undefined"
+          :aria-label="slots.header ? undefined : ariaLabel"
           tabindex="-1"
           :style="panelStyle"
         >
@@ -244,7 +258,7 @@ const panelStyle = computed(() => {
               size="18"
               class="r-dialog__lead-icon"
             />
-            <div class="r-dialog__header-slot">
+            <div :id="headerId" class="r-dialog__header-slot">
               <slot name="header" />
             </div>
             <button

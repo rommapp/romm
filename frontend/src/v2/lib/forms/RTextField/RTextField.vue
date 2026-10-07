@@ -315,7 +315,7 @@ function clear() {
   emit("update:modelValue", "");
   emit("clear");
   // Keep focus on the input so the user can keep typing.
-  nextTick(() => focusFromInput(inputRef.value));
+  void nextTick(() => focusFromInput(inputRef.value));
 }
 
 onMounted(() => {

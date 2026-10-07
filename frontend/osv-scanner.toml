@@ -1,0 +1,6 @@
+# Only reached through @vue/eslint-config-typescript > fast-glob > micromatch,
+# which globs fixed `**/*.vue` patterns at lint time. No patched braces exists.
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2027-04-05
+reason = "Dev-only lint dependency with fixed glob patterns; no fixed braces release."

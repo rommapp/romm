@@ -119,19 +119,16 @@ watch(
 // No trailing call: a refocus inside the window would queue a second forced
 // probe of every platform.
 const NATIVE_REPROBE_THROTTLE_MS = 10_000;
-useEventListener(
-  window,
-  "focus",
-  useThrottleFn(
-    () => {
-      const slugs = platformsStore.allPlatforms.map((p) => p.slug);
-      if (slugs.length === 0) return;
-      void nativeStore.probe(slugs, { force: true });
-    },
-    NATIVE_REPROBE_THROTTLE_MS,
-    false,
-  ),
+const reprobeNative = useThrottleFn(
+  () => {
+    const slugs = platformsStore.allPlatforms.map((p) => p.slug);
+    if (slugs.length === 0) return;
+    void nativeStore.probe(slugs, { force: true });
+  },
+  NATIVE_REPROBE_THROTTLE_MS,
+  false,
 );
+useEventListener(window, "focus", () => void reprobeNative());
 
 // Developer debug overlay: opt-in via Settings → Developer (per-device).
 // Lazily loaded so its chunk (and the vueuse perf hooks it pulls in) is only
