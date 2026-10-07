@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import storeFormatConversions from "@/v2/stores/formatConversions";
 import ConvertingIndicator from "./ConvertingIndicator.vue";
 
@@ -26,11 +26,6 @@ function mountIndicator() {
 }
 
 describe("ConvertingIndicator", () => {
-  beforeEach(() => {
-    const store = storeFormatConversions();
-    store.conversions = [];
-  });
-
   it("stays hidden with nothing converting", () => {
     expect(mountIndicator().find(".r-nav-status-pill").exists()).toBe(false);
   });

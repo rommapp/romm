@@ -57,22 +57,20 @@ const counterLabel = computed(() => {
 
 <template>
   <Transition name="r-nav-status-pill">
-    <RTooltip
-      v-if="visible"
-      :text="t('scan.scanning-library')"
-      location="bottom"
-    >
-      <template #activator="{ props: tooltipProps }">
-        <NavStatusPill
-          v-bind="tooltipProps"
-          :to="{ name: ROUTES.SCAN }"
-          :label="t('scan.scanning')"
-          icon="mdi-radar"
-          :counter="counterLabel"
-          :progress="hasTotal ? progress : null"
-          :aria-label="t('scan.scanning-library')"
-        />
-      </template>
-    </RTooltip>
+    <div v-if="visible" class="r-nav-status-pill-host">
+      <RTooltip :text="t('scan.scanning-library')" location="bottom">
+        <template #activator="{ props: tooltipProps }">
+          <NavStatusPill
+            v-bind="tooltipProps"
+            :to="{ name: ROUTES.SCAN }"
+            :label="t('scan.scanning')"
+            icon="mdi-radar"
+            :counter="counterLabel"
+            :progress="hasTotal ? progress : null"
+            :aria-label="t('scan.scanning-library')"
+          />
+        </template>
+      </RTooltip>
+    </div>
   </Transition>
 </template>

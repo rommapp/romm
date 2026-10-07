@@ -1,5 +1,4 @@
-// Format downloads waiting on the server to convert, keyed by download path
-// so a second click on the same format dedupes.
+// Format downloads waiting on the server to convert, keyed by download path.
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 
@@ -15,18 +14,15 @@ export default defineStore("v2FormatConversions", () => {
 
   const active = computed(() => conversions.value.length > 0);
 
-  function has(href: string) {
-    return conversions.value.some((c) => c.href === href);
-  }
-
   function add(conversion: FormatConversion) {
-    if (has(conversion.href)) return;
+    if (conversions.value.some((c) => c.href === conversion.href)) return;
     conversions.value = [...conversions.value, conversion];
   }
 
   function remove(href: string) {
+    if (!conversions.value.some((c) => c.href === href)) return;
     conversions.value = conversions.value.filter((c) => c.href !== href);
   }
 
-  return { conversions, active, has, add, remove };
+  return { conversions, active, add, remove };
 });

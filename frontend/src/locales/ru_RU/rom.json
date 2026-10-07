@@ -85,7 +85,7 @@
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "converting": "Конвертация",
-  "converting-downloads": "Конвертируется {n} загрузка | Конвертируются {n} загрузки",
+  "converting-downloads": "Конвертация загрузок: {n}",
   "converting-note": "Каждая загрузка начнётся после завершения конвертации. До тех пор не закрывайте эту вкладку.",
   "copy-download-link-title": "Копировать ссылку для скачивания",
   "copy-link": "Скопировать ссылку для скачивания",

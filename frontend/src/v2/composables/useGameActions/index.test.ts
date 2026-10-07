@@ -680,6 +680,7 @@ describe("useGameActions.downloadAs", () => {
       retryAfterSeconds: null,
     });
     const rom = pspRom([{ id: 7, file_name: "game.chd" }]);
+    const addConversion = vi.spyOn(storeFormatConversions(), "add");
 
     await useGameActions(() => rom).downloadAs("iso");
 
@@ -689,7 +690,7 @@ describe("useGameActions.downloadAs", () => {
       format: "iso",
     });
     expect(snackbarInfo).not.toHaveBeenCalled();
-    expect(storeFormatConversions().active).toBe(false);
+    expect(addConversion).not.toHaveBeenCalled();
   });
 
   it("polls while it converts, then downloads", async () => {

@@ -9,8 +9,6 @@ import { ROUTES } from "@/plugins/router";
 import NavStatusPill from "@/v2/components/AppShell/NavStatusPill.vue";
 import storeFormatConversions from "@/v2/stores/formatConversions";
 
-defineOptions({ inheritAttrs: false });
-
 const { t } = useI18n();
 const { conversions, active } = storeToRefs(storeFormatConversions());
 
@@ -21,37 +19,39 @@ const counter = computed(() =>
 
 <template>
   <Transition name="r-nav-status-pill">
-    <RMenu v-if="active" location="bottom end" width="280px" sheet-on-mobile>
-      <template #activator="{ props: menuProps }">
-        <NavStatusPill
-          v-bind="menuProps"
-          :label="t('rom.converting')"
-          icon="mdi-file-sync-outline"
-          :counter="counter"
-          :aria-label="
-            t('rom.converting-downloads', conversions.length, {
-              named: { n: conversions.length },
-            })
-          "
-        />
-      </template>
-
-      <p class="r-v2-converting__note">
-        {{ t("rom.converting-note") }}
-      </p>
-      <RDivider />
-      <RMenuItem
-        v-for="conversion in conversions"
-        :key="conversion.href"
-        :to="{ name: ROUTES.ROM, params: { rom: conversion.romId } }"
-        icon="mdi-file-sync-outline"
-        :label="conversion.romName"
-      >
-        <template #append>
-          <span class="r-v2-converting__format">{{ conversion.format }}</span>
+    <div v-if="active" class="r-nav-status-pill-host">
+      <RMenu location="bottom end" width="280px" sheet-on-mobile>
+        <template #activator="{ props: menuProps }">
+          <NavStatusPill
+            v-bind="menuProps"
+            :label="t('rom.converting')"
+            icon="mdi-file-sync-outline"
+            :counter="counter"
+            :aria-label="
+              t('rom.converting-downloads', conversions.length, {
+                named: { n: conversions.length },
+              })
+            "
+          />
         </template>
-      </RMenuItem>
-    </RMenu>
+
+        <p class="r-v2-converting__note">
+          {{ t("rom.converting-note") }}
+        </p>
+        <RDivider />
+        <RMenuItem
+          v-for="conversion in conversions"
+          :key="conversion.href"
+          :to="{ name: ROUTES.ROM, params: { rom: conversion.romId } }"
+          icon="mdi-file-sync-outline"
+          :label="conversion.romName"
+        >
+          <template #append>
+            <span class="r-v2-converting__format">{{ conversion.format }}</span>
+          </template>
+        </RMenuItem>
+      </RMenu>
+    </div>
   </Transition>
 </template>
 

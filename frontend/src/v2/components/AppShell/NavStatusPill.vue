@@ -55,10 +55,8 @@ const tag = computed(() => (props.to ? RouterLink : "button"));
 </template>
 
 <style scoped>
-/* Brand-tinted pill matching v2's nav vocabulary (same palette as the
-   tab nav sub-pill). `isolation: isolate` keeps the inner bar from
-   leaking into any ancestor backdrop-filter layer; `overflow: hidden`
-   trims the progress bar's corners against the rounded pill. */
+/* `isolation` keeps the bar out of any ancestor backdrop-filter layer;
+   `overflow` trims its corners against the rounded pill. */
 .r-nav-status-pill {
   position: relative;
   display: inline-flex;
@@ -127,8 +125,12 @@ html[data-bp~="xs"] .r-nav-status-pill__icon {
 }
 </style>
 
-<!-- Unscoped so a host's `<Transition name="r-nav-status-pill">` can use it. -->
+<!-- Unscoped for the host's `<Transition name="r-nav-status-pill">`. Its child
+     is a host element, since RMenu and RTooltip render fragments. -->
 <style>
+.r-nav-status-pill-host {
+  display: flex;
+}
 .r-nav-status-pill-enter-active {
   transition:
     opacity var(--r-motion-med) var(--r-motion-ease-out),

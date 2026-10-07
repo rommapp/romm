@@ -85,7 +85,7 @@
   "convert-to-folder-body": "This action will convert the ROM to a multi-file ROM. This action is not reversible.",
   "convert-to-folder-title": "Convert to folder ROM?",
   "converting": "Převádění",
-  "converting-downloads": "Převádí se {n} stahování | Převádí se {n} stahování",
+  "converting-downloads": "Převádí se {n} stahování | Převádí se {n} stahování | Převádějí se {n} stahování | Převádí se {n} stahování",
   "converting-note": "Každé stahování začne po dokončení převodu. Do té doby nechte tuto kartu otevřenou.",
   "copy-download-link-title": "Kopírovat odkaz ke stažení",
   "copy-link": "Kopírovat odkaz ke stažení",
