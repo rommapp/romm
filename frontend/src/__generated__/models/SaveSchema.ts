@@ -30,3 +30,4 @@ export type SaveSchema = {
     device_syncs?: Array<DeviceSyncSchema>;
     readonly is_zipped: boolean;
 };
+
