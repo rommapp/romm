@@ -117,8 +117,8 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
                 log.debug(
                     f"Updated RetroAchievements progress for user: {user.username}"
                 )
-                # A concurrent rom_user write (e.g. a play session) can fail this
-                # user's batch; the remaining users still sync.
+                # A failed status write (e.g. a ROM deleted mid-sync) skips only
+                # this user.
                 try:
                     _sync_rom_user_statuses(user, user_progression)
                 except Exception as e:

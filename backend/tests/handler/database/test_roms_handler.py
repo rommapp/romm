@@ -1215,6 +1215,31 @@ class TestRomUserStatusWrites:
         assert admin_row is not None
         assert admin_row.status is None
 
+    def test_set_rom_user_statuses_writes_in_batches(
+        self, platform: Platform, viewer_user: User, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            "handler.database.roms_handler._ROM_USER_WRITE_BATCH_SIZE", 1
+        )
+        first = make_rom(platform, "First Game", ra_id=12345)
+        second = make_rom(platform, "Second Game", ra_id=67890)
+
+        assert (
+            db_rom_handler.set_rom_user_statuses(
+                viewer_user.id,
+                {first.id: RomUserStatus.FINISHED, second.id: RomUserStatus.INCOMPLETE},
+            )
+            == 2
+        )
+
+        for synced, status in (
+            (first, RomUserStatus.FINISHED),
+            (second, RomUserStatus.INCOMPLETE),
+        ):
+            rom_user = db_rom_handler.get_rom_user(synced.id, viewer_user.id)
+            assert rom_user is not None
+            assert rom_user.status == status
+
     def test_set_rom_user_statuses_empty_input(self, viewer_user: User):
         assert db_rom_handler.set_rom_user_statuses(viewer_user.id, {}) == 0
 

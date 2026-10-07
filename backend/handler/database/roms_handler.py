@@ -5,6 +5,7 @@ import secrets
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime
+from itertools import batched
 from types import SimpleNamespace
 from typing import Any, Literal, NamedTuple
 from typing import cast as typing_cast
@@ -336,6 +337,10 @@ _FILTER_VALUES_SELECT = select(
 
 # Filter rows stream in batches of this size; MySQL's driver still buffers them.
 _FILTER_VALUES_BATCH_SIZE = 5000
+
+# A `rom_user` INSERT binds a parameter per column per row, and PostgreSQL
+# refuses a statement with more than 65535.
+_ROM_USER_WRITE_BATCH_SIZE = 1000
 
 
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
@@ -750,8 +755,8 @@ def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
 
 
 # The fields the recommendation feed scores on. Every writer of `rom_user`
-# goes through `update_rom_user`, so the cached feed is dropped there rather
-# than at each of the call sites that move these.
+# goes through `update_rom_user` or `set_rom_user_statuses`, so the cached
+# feed is dropped there rather than at each of the call sites that move these.
 RECOMMENDATION_SEED_FIELDS = frozenset(
     {"rating", "status", "last_played", "now_playing", "hidden"}
 )
@@ -774,6 +779,10 @@ def _bump_filter_values_after_commit(session: Session) -> None:
 
 @event.listens_for(Session, "after_rollback")
 def _drop_filter_values_bump(session: Session) -> None:
+    # A rolled-back savepoint fires this too, and the bumps queued before it
+    # must survive; the outer rollback still drops them.
+    if session.in_nested_transaction():
+        return
     session.info.pop(FILTER_VALUES_BUMP_KEY, None)
 
 
@@ -807,6 +816,8 @@ def _bump_user_caches_after_commit(session: Session) -> None:
 
 @event.listens_for(Session, "after_rollback")
 def _drop_user_cache_bumps(session: Session) -> None:
+    if session.in_nested_transaction():
+        return
     session.info.pop(USER_CACHE_BUMPS_KEY, None)
 
 
@@ -2494,28 +2505,6 @@ class DBRomsHandler(DBBaseHandler):
             .all()
         )
 
-    def _insert_rom_user(
-        self, rom_id: int, user_id: int, session: Session
-    ) -> tuple[RomUser, bool]:
-        """Insert a RomUser, or fetch the one a concurrent writer inserted first.
-
-        Returns:
-            The row, and whether this call inserted it.
-        """
-        rom_user = RomUser(rom_id=rom_id, user_id=user_id)
-        try:
-            with session.begin_nested():
-                session.add(rom_user)
-                session.flush()
-        except IntegrityError:
-            existing = session.scalar(
-                select(RomUser).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
-            )
-            if existing is None:
-                raise
-            return existing, False
-        return rom_user, True
-
     @begin_session
     def add_rom_user(
         self,
@@ -2523,11 +2512,20 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int,
         session: Session = INJECTED_SESSION,
     ) -> RomUser:
-        rom_user, inserted = self._insert_rom_user(rom_id, user_id, session)
-        if inserted:
-            # A fresh row's zero defaults replace NULL sort keys, which moves
-            # this user's RomUser-sorted order.
-            _queue_user_cache_bumps(session, user_id, sort_keys=True)
+        """Insert a RomUser, or return the one a concurrent writer inserted first."""
+        rom_user = RomUser(rom_id=rom_id, user_id=user_id)
+        try:
+            with session.begin_nested():
+                session.add(rom_user)
+                session.flush()
+        except IntegrityError:
+            existing = self.get_rom_user(rom_id, user_id, session=session)
+            if existing is None:
+                raise
+            return existing
+        # A fresh row's zero defaults replace NULL sort keys, which moves
+        # this user's RomUser-sorted order.
+        _queue_user_cache_bumps(session, user_id, sort_keys=True)
         return rom_user
 
     @begin_session
@@ -2554,58 +2552,54 @@ class DBRomsHandler(DBBaseHandler):
         Returns:
             How many rows had their status changed.
         """
-        if not statuses:
-            return 0
-
-        # Skipping duplicates in the INSERT takes no prior read, whose MariaDB
-        # snapshot would hide (and then refuse) a row another writer commits.
-        rows = [{"rom_id": rom_id, "user_id": user_id} for rom_id in statuses]
-        insert_missing = (
-            sa_pg.insert(RomUser)
-            .values(rows)
-            .on_conflict_do_nothing(index_elements=["rom_id", "user_id"])
-            if is_postgresql(session.get_bind())
-            else sa_mysql.insert(RomUser).values(rows).prefix_with("IGNORE")
-        )
-        inserted = affected_rows(session.execute(insert_missing))
-
-        rom_ids_by_status: dict[RomUserStatus, list[int]] = {}
-        for rom_id, status in statuses.items():
-            rom_ids_by_status.setdefault(status, []).append(rom_id)
-
-        # The guard is in the WHERE clause, so a status the user sets while
-        # this runs is never overwritten.
+        postgresql = is_postgresql(session.get_bind())
         updated = 0
-        for status, rom_ids in rom_ids_by_status.items():
-            updated += affected_rows(
-                session.execute(
-                    update(RomUser)
-                    .where(
-                        RomUser.user_id == user_id,
-                        RomUser.rom_id.in_(rom_ids),
-                        or_(
-                            RomUser.status.is_(None),
-                            RomUser.status.not_in(
-                                (
-                                    status,
-                                    RomUserStatus.RETIRED,
-                                    RomUserStatus.NEVER_PLAYING,
-                                )
-                            ),
-                        ),
-                    )
-                    .values(status=status)
-                    .execution_options(synchronize_session=False)
-                )
+        for chunk in batched(
+            statuses.items(), _ROM_USER_WRITE_BATCH_SIZE, strict=False
+        ):
+            # Skipping duplicates in the INSERT takes no prior read, whose MariaDB
+            # snapshot would hide (and then refuse) a row another writer commits.
+            rows = [{"rom_id": rom_id, "user_id": user_id} for rom_id, _ in chunk]
+            session.execute(
+                sa_pg.insert(RomUser)
+                .values(rows)
+                .on_conflict_do_nothing(index_elements=["rom_id", "user_id"])
+                if postgresql
+                else sa_mysql.insert(RomUser).values(rows).prefix_with("IGNORE")
             )
 
-        if inserted or updated:
-            _queue_user_cache_bumps(
-                session,
-                user_id,
-                sort_keys=True,
-                feed=bool(updated),
-            )
+            rom_ids_by_status: dict[RomUserStatus, list[int]] = {}
+            for rom_id, status in chunk:
+                rom_ids_by_status.setdefault(status, []).append(rom_id)
+
+            # The guard is in the WHERE clause, so a status the user sets while
+            # this runs is never overwritten.
+            for status, rom_ids in rom_ids_by_status.items():
+                updated += affected_rows(
+                    session.execute(
+                        update(RomUser)
+                        .where(
+                            RomUser.user_id == user_id,
+                            RomUser.rom_id.in_(rom_ids),
+                            or_(
+                                RomUser.status.is_(None),
+                                RomUser.status.not_in(
+                                    (
+                                        status,
+                                        RomUserStatus.RETIRED,
+                                        RomUserStatus.NEVER_PLAYING,
+                                    )
+                                ),
+                            ),
+                        )
+                        .values(status=status)
+                        .execution_options(synchronize_session=False)
+                    )
+                )
+
+        # A freshly inserted row has no status, so the UPDATE counts it too.
+        if updated:
+            _queue_user_cache_bumps(session, user_id, sort_keys=True, feed=True)
         return updated
 
     @begin_session
