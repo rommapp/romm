@@ -28,7 +28,6 @@ const meta: Meta<typeof RIcon> = {
   title: "Primitives/RIcon",
   component: RIcon,
   argTypes: {
-    icon: { control: "text" },
     size: { control: "text" },
     color: { control: "text" },
   },
@@ -310,11 +309,7 @@ export const Gallery: Story = {
 
 export const AllIcons: Story = {
   name: "All icons (mdi)",
-  // Dev-facing catalogue: axe over ~700 icon cells takes seconds in happy-dom.
-  parameters: {
-    layout: "fullscreen",
-    a11y: { context: { exclude: [".r-icon-story-grid"] } },
-  },
+  parameters: { layout: "fullscreen" },
   render: () => ({
     components: { RIcon, RTextField },
     setup: () => {

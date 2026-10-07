@@ -1,39 +1,34 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { hasIconGlyph } from "@/v2/utils/iconGlyph";
-
-function contentIs(content: string) {
-  return vi
-    .spyOn(globalThis, "getComputedStyle")
-    .mockReturnValue({ content } as CSSStyleDeclaration);
-}
+import { mockPseudoContent } from "@/v2/utils/iconGlyph.fixtures";
 
 describe("hasIconGlyph", () => {
   it("is true when the css gives the icon a glyph", () => {
-    contentIs('"\\F0156"');
+    mockPseudoContent('"\\F0156"');
 
     expect(hasIconGlyph("mdi-glyph-drawn")).toBe(true);
   });
 
   it("is false when the css has no rule for the icon", () => {
-    contentIs("none");
+    mockPseudoContent("none");
 
     expect(hasIconGlyph("mdi-glyph-none")).toBe(false);
   });
 
   it("is false for the normal content value too", () => {
-    contentIs("normal");
+    mockPseudoContent("normal");
 
     expect(hasIconGlyph("mdi-glyph-normal")).toBe(false);
   });
 
   it("keeps the icon when the environment cannot read pseudo-elements", () => {
-    contentIs("");
+    mockPseudoContent("");
 
     expect(hasIconGlyph("mdi-glyph-unreadable")).toBe(true);
   });
 
   it("asks the browser once per name", () => {
-    const spy = contentIs("none");
+    const spy = mockPseudoContent("none");
 
     hasIconGlyph("mdi-glyph-cached");
     hasIconGlyph("mdi-glyph-cached");
@@ -42,7 +37,7 @@ describe("hasIconGlyph", () => {
   });
 
   it("leaves nothing behind in the document", () => {
-    contentIs('"\\F0156"');
+    mockPseudoContent('"\\F0156"');
 
     hasIconGlyph("mdi-glyph-clean");
 
@@ -55,7 +50,7 @@ describe("hasIconGlyph", () => {
     ["uppercase", "mdi-Home"],
     ["empty", ""],
   ])("is false for %s without touching the document", (_label, name) => {
-    const spy = contentIs('"\\F0156"');
+    const spy = mockPseudoContent('"\\F0156"');
 
     expect(hasIconGlyph(name)).toBe(false);
     expect(spy).not.toHaveBeenCalled();

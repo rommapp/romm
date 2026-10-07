@@ -24,14 +24,8 @@ const meta: Meta<typeof RMenu> = {
         "bottom end",
       ],
     },
-    offset: { control: "number" },
     width: { control: "text" },
     maxHeight: { control: "text" },
-    closeOnContentClick: { control: "boolean" },
-    openOnHover: { control: "boolean" },
-    searchable: { control: "boolean" },
-    searchPlaceholder: { control: "text" },
-    disabled: { control: "boolean" },
   },
 };
 

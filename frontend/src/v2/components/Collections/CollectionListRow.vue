@@ -119,28 +119,33 @@ function onRowClick(e: MouseEvent) {
     </div>
   </a>
 
-  <a
+  <div
     v-else
     ref="rowEl"
+    role="row"
     class="coll-list-row coll-list-row--columns"
     :class="entranceClass"
     :style="[gridStyle, entranceStyle]"
-    :href="to"
-    :aria-label="t('rom.open-game', { name })"
-    @click="onRowClick"
     @animationend.self="endEntrance"
   >
-    <div class="coll-list-row__cell coll-list-row__title">
+    <div role="cell" class="coll-list-row__cell coll-list-row__title">
       <div ref="coverEl" class="coll-list-row__thumb" :style="morphStyle">
         <CollectionMosaic :covers="covers" />
         <PublicBadge v-if="isPublic" class="coll-list-row__public" />
       </div>
       <div class="coll-list-row__meta">
-        <div class="coll-list-row__name">{{ name }}</div>
+        <a
+          class="coll-list-row__name coll-list-row__link"
+          :href="to"
+          :aria-label="t('rom.open-game', { name })"
+          @click="onRowClick"
+        >
+          {{ name }}
+        </a>
       </div>
     </div>
 
-    <div class="coll-list-row__cell">
+    <div role="cell" class="coll-list-row__cell">
       <RTooltip :text="kindBadge.label" location="top">
         <template #activator="{ props: tip }">
           <span
@@ -159,10 +164,10 @@ function onRowClick(e: MouseEvent) {
       </RTooltip>
     </div>
 
-    <div class="coll-list-row__cell coll-list-row__cell--end">
+    <div role="cell" class="coll-list-row__cell coll-list-row__cell--end">
       {{ t("collection.games-count", romCount, { named: { n: romCount } }) }}
     </div>
-  </a>
+  </div>
 </template>
 
 <style scoped>
@@ -179,21 +184,41 @@ function onRowClick(e: MouseEvent) {
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
+.coll-list-row:last-child {
+  border-bottom: 0;
+}
+
 .coll-list-row:hover {
   background: var(--r-color-bg-elevated);
 }
 
 /* Kept off the compact row, whose shared flex layout this would outrank. */
 .coll-list-row--columns {
+  position: relative;
   display: grid;
   gap: 0 var(--r-space-3);
   padding: 0 max(var(--r-space-3), var(--r-list-bleed, 0px));
 }
 
-.coll-list-row:focus-visible {
+/* The title link stretches over the row, so the whole row opens it. */
+.coll-list-row__link {
+  display: block;
+  text-decoration: none;
+}
+.coll-list-row__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.coll-list-row:focus-visible,
+.coll-list-row:has(.coll-list-row__link:focus-visible) {
   outline: none;
   background: var(--r-color-bg-elevated);
   box-shadow: inset 0 0 0 2px var(--r-color-brand-primary);
+}
+.coll-list-row__link:focus-visible {
+  outline: none;
 }
 
 .coll-list-row__cell {
@@ -254,7 +279,10 @@ function onRowClick(e: MouseEvent) {
 
 /* The icon holds its size, the label shrinks and ellipsises within the
    column. */
+/* Above the stretched link, so its tooltip still answers to hover. */
 .coll-list-row__kind {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: var(--r-space-1);

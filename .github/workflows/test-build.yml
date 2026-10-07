@@ -33,7 +33,7 @@ jobs:
     if: |
       github.event_name == 'pull_request' &&
       contains(github.event.pull_request.labels.*.name, 'build-preview')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       pull-requests: write
@@ -143,7 +143,7 @@ jobs:
 
   merge:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -224,7 +224,7 @@ jobs:
       !cancelled() &&
       github.event_name == 'pull_request' &&
       contains(github.event.pull_request.labels.*.name, 'build-preview')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       pull-requests: write

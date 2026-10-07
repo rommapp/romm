@@ -74,12 +74,19 @@ class DBSavesHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         file_name: str,
+        emulator: str | None,
         slot: str | None = None,
         session: Session = INJECTED_SESSION,
     ) -> Save | None:
         query = select(Save).filter_by(
             rom_id=rom_id, user_id=user_id, file_name=file_name
         )
+        # Another core's save lives in its own folder, so it is a different save.
+        # Clients that send no core keep matching any, preferring an unfiled one.
+        if emulator is not None:
+            query = query.filter(Save.emulator == emulator)
+        else:
+            query = query.order_by(Save.emulator.is_(None).desc())
         if slot is not None:
             query = query.filter(Save.slot == slot)
         else:

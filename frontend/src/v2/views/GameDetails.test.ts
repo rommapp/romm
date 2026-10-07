@@ -42,7 +42,7 @@ vi.mock("@/services/api/rom", () => ({
   default: { getSimilarRoms: vi.fn(() => new Promise(() => {})) },
 }));
 vi.mock("@/services/pending-asset", () => ({
-  pendingAssetKinds: vi.fn(async () => new Set()),
+  pendingAssetKinds: vi.fn(() => Promise.resolve(new Set())),
 }));
 vi.mock("@/stores/streaming", () => ({
   useStreamingStore: () => ({ fetchJoinableSessions: vi.fn() }),

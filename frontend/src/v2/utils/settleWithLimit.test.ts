@@ -25,10 +25,9 @@ describe("settleWithLimit", () => {
   });
 
   it("keeps each rejection at its item's index", async () => {
-    const results = await settleWithLimit([1, 2, 3], 2, async (n) => {
-      if (n === 2) throw new Error("boom");
-      return n;
-    });
+    const results = await settleWithLimit([1, 2, 3], 2, (n) =>
+      n === 2 ? Promise.reject(new Error("boom")) : Promise.resolve(n),
+    );
 
     expect(results.map((r) => r.status)).toEqual([
       "fulfilled",
@@ -38,6 +37,6 @@ describe("settleWithLimit", () => {
   });
 
   it("resolves an empty list", async () => {
-    expect(await settleWithLimit([], 4, async () => 1)).toEqual([]);
+    expect(await settleWithLimit([], 4, () => Promise.resolve(1))).toEqual([]);
   });
 });

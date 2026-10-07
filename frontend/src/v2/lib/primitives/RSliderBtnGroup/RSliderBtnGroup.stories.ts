@@ -7,7 +7,6 @@ import RSliderBtnGroup from "./RSliderBtnGroup.vue";
 const meta: Meta<typeof RSliderBtnGroup<string>> = {
   title: "Primitives/RSliderBtnGroup",
   component: RSliderBtnGroup as never,
-  tags: ["autodocs"],
   argTypes: {
     variant: {
       control: "select",
@@ -17,8 +16,6 @@ const meta: Meta<typeof RSliderBtnGroup<string>> = {
       control: "select",
       options: ["horizontal", "vertical"],
     },
-    disabled: { control: "boolean" },
-    ariaLabel: { control: "text" },
   },
   parameters: {
     docs: {
@@ -78,8 +75,10 @@ export const Tab: Story = {
   }),
 };
 
-// Vertical tab pill: same aesthetic and sliding indicator as the
-// horizontal tab variant, just stacked.
+/**
+ * Vertical tab pill: same aesthetic and sliding indicator as the
+ * horizontal tab variant, just stacked.
+ */
 export const VerticalTab: Story = {
   args: { variant: "tab", orientation: "vertical" },
   render: (args) => ({
@@ -114,8 +113,10 @@ export const VerticalTab: Story = {
   },
 };
 
-// Vertical segmented: icon-only column with the indicator following
-// the active item. Useful as a side rail for view switchers.
+/**
+ * Vertical segmented: icon-only column with the indicator following
+ * the active item. Useful as a side rail for view switchers.
+ */
 export const VerticalSegmented: Story = {
   args: { variant: "segmented", orientation: "vertical" },
   render: (args) => ({

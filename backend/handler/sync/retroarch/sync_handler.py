@@ -273,8 +273,8 @@ def parse_retroarch_sync_blob_path(path: str) -> str | None:
 
 
 def user_blob_path(user: User, blob_path: str) -> str:
-    """Where a parsed blob path lives on disk, namespaced by user."""
-    return f"{fs_asset_handler.user_folder_path(user)}/{blob_path}"
+    """Where a parsed blob path lives under the assets root, namespaced by user."""
+    return f"{fs_asset_handler.user_folder_path(user)}/retroarch/{blob_path}"
 
 
 def _decoded(value: str | bytes | None) -> str | None:
@@ -475,7 +475,7 @@ async def list_manifest_paths(
     user: User, can_see: Callable[[Rom], bool], tree: AssetKind
 ) -> list[str]:
     """`tree`'s manifest paths, sorted, without hashing or listing blobs."""
-    assets, saves = _manifest_assets(user, can_see, tree)
+    assets, saves = await asyncio.to_thread(_manifest_assets, user, can_see, tree)
     paths = [entry.path for entry in assets]
     paths += await psp.list_psp_member_paths(saves, can_see)
     return sorted(paths)
@@ -485,7 +485,9 @@ async def build_manifest(
     user: User, can_see: Callable[[Rom], bool]
 ) -> list[dict[str, str]]:
     """The server manifest RetroArch diffs against, sorted by path."""
-    assets, saves = _manifest_assets(user, can_see)
+    # Off the event loop: on a large library the queries run for seconds and
+    # would stall every other request the worker is serving.
+    assets, saves = await asyncio.to_thread(_manifest_assets, user, can_see)
     digests = await asset_md5s([entry.asset for entry in assets])
     hashed = [
         (entry, digest) for entry, digest in zip(assets, digests, strict=True) if digest

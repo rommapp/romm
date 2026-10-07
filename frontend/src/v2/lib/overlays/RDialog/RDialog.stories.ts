@@ -13,16 +13,10 @@ const meta: Meta<typeof RDialog> = {
     icon: { control: "text" },
     width: { control: "text" },
     height: { control: "text" },
-    scrollContent: { control: "boolean" },
-    persistent: { control: "boolean" },
-    fullscreenOnMobile: { control: "boolean" },
     bodyPadding: {
       control: "inline-radio",
       options: ["default", "compact", "flush"],
     },
-    cancelable: { control: "boolean" },
-    cancelDisabled: { control: "boolean" },
-    cancelText: { control: "text" },
   },
 };
 
@@ -39,7 +33,7 @@ export const Basic: Story = {
       return { args, open };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
+      <div style="padding: 48px; min-height: 300px;">
         <RBtn @click="open = true">Open dialog</RBtn>
         <RDialog v-bind="args" v-model="open" cancelable>
           <template #header>
@@ -71,7 +65,7 @@ export const Basic: Story = {
           ? "spacer"
           : el.textContent?.trim(),
       );
-      expect(items).toEqual(["Cancel", "spacer", "Confirm"]);
+      await expect(items).toEqual(["Cancel", "spacer", "Confirm"]);
     });
 
     await step("Cancel closes the dialog", async () => {
@@ -81,9 +75,15 @@ export const Basic: Story = {
   },
 };
 
-// Loading and empty states aren't built into the primitive any more:
-// the consumer renders them inside `#content` from REmptyState /
-// RProgressCircular. These stories demonstrate the recipe.
+export const Light: Story = {
+  ...Basic,
+  globals: { theme: "light" },
+};
+
+/**
+ * Loading and empty states are composed by the consumer inside `#content` from
+ * REmptyState / RProgressCircular.
+ */
 export const Loading: Story = {
   name: "Loading (composed)",
   args: { width: "420", height: "240", icon: "mdi-loading" },
@@ -94,7 +94,7 @@ export const Loading: Story = {
       return { args, open };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
+      <div style="padding: 48px; min-height: 300px;">
         <RBtn @click="open = true">Open loading dialog</RBtn>
         <RDialog v-bind="args" v-model="open">
           <template #header>
@@ -121,7 +121,7 @@ export const EmptyState: Story = {
       return { args, open };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
+      <div style="padding: 48px; min-height: 300px;">
         <RBtn @click="open = true">Open empty dialog</RBtn>
         <RDialog v-bind="args" v-model="open">
           <template #header>
@@ -150,7 +150,7 @@ export const WithToolbarAndFooter: Story = {
       return { args, open };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
+      <div style="padding: 48px; min-height: 300px;">
         <RBtn @click="open = true">Open full dialog</RBtn>
         <RDialog v-bind="args" v-model="open" cancelable>
           <template #header><span>Edit ROM</span></template>

@@ -99,6 +99,7 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies
+# trunk-ignore(hadolint/DL3008)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     make \

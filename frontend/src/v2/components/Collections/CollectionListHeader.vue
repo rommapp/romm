@@ -3,7 +3,7 @@
 // list-mode view. Mirrors GameListHeader's anatomy: each sortable
 // column is a button that toggles asc → desc → asc on the parent's
 // sort state via the `sort` event.
-import { RIcon } from "@v2/lib";
+import { RSortHeader, type RSortDir } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import ListSortMenu from "@/v2/components/shared/ListSortMenu.vue";
@@ -11,7 +11,6 @@ import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import {
   COLLECTION_LIST_COLUMNS,
   COLLECTION_LIST_GRID_TEMPLATE,
-  type CollectionListColumn,
   type CollectionListSortKey,
 } from "./collectionListColumns";
 
@@ -19,16 +18,13 @@ interface Props {
   /** Currently-sorted column key. */
   sortKey: CollectionListSortKey;
   /** Sort direction for the active key. */
-  sortDir: "asc" | "desc";
+  sortDir: RSortDir;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 
 const emit = defineEmits<{
-  (
-    e: "sort",
-    payload: { key: CollectionListSortKey; dir: "asc" | "desc" },
-  ): void;
+  (e: "sort", payload: { key: CollectionListSortKey; dir: RSortDir }): void;
 }>();
 
 const { t } = useI18n();
@@ -42,23 +38,10 @@ const sortOptions = computed(() =>
     col.sortKey ? [{ key: col.sortKey, label: t(col.labelKey) }] : [],
   ),
 );
-
-function handleClick(col: CollectionListColumn) {
-  if (!col.sortKey) return;
-  // Toggle direction when re-clicking the active column; otherwise
-  // start the new column at ascending: same rule as GameListHeader.
-  const nextDir: "asc" | "desc" =
-    props.sortKey === col.sortKey && props.sortDir === "asc" ? "desc" : "asc";
-  emit("sort", { key: col.sortKey, dir: nextDir });
-}
 </script>
 
 <template>
-  <div
-    v-if="smAndDown"
-    class="coll-list-header coll-list-header--compact"
-    role="row"
-  >
+  <div v-if="smAndDown" class="coll-list-header coll-list-header--compact">
     <ListSortMenu
       :options="sortOptions"
       :sort-key="sortKey"
@@ -68,36 +51,16 @@ function handleClick(col: CollectionListColumn) {
   </div>
 
   <div v-else class="coll-list-header" :style="gridStyle" role="row">
-    <button
+    <RSortHeader
       v-for="col in COLLECTION_LIST_COLUMNS"
       :key="col.key"
-      type="button"
-      class="coll-list-header__cell"
-      :class="{
-        'coll-list-header__cell--sortable': !!col.sortKey,
-        'coll-list-header__cell--end': col.align === 'end',
-        'coll-list-header__cell--active':
-          col.sortKey && sortKey === col.sortKey,
-      }"
-      :aria-sort="
-        col.sortKey && sortKey === col.sortKey
-          ? sortDir === 'asc'
-            ? 'ascending'
-            : 'descending'
-          : 'none'
-      "
-      :tabindex="col.sortKey ? 0 : -1"
-      :disabled="!col.sortKey"
-      @click="handleClick(col)"
-    >
-      <span class="coll-list-header__label">{{ t(col.labelKey) }}</span>
-      <RIcon
-        v-if="col.sortKey && sortKey === col.sortKey"
-        :icon="sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'"
-        size="14"
-        class="coll-list-header__icon"
-      />
-    </button>
+      :label="t(col.labelKey)"
+      :sortable="!!col.sortKey"
+      :active="!!col.sortKey && sortKey === col.sortKey"
+      :dir="sortDir"
+      :align="col.align"
+      @sort="col.sortKey && emit('sort', { key: col.sortKey, dir: $event })"
+    />
   </div>
 </template>
 
@@ -117,56 +80,5 @@ function handleClick(col: CollectionListColumn) {
   display: flex;
   align-items: center;
   padding: 0 var(--r-row-pad);
-}
-
-.coll-list-header__cell {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  color: var(--r-color-fg-secondary);
-  font-size: var(--r-font-size-xs);
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--r-space-1);
-  min-width: 0;
-  height: 100%;
-  cursor: default;
-  text-align: start;
-  border-radius: var(--r-radius-sm);
-  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-
-.coll-list-header__cell--end {
-  justify-content: flex-end;
-  text-align: end;
-}
-
-.coll-list-header__cell--sortable {
-  cursor: pointer;
-}
-
-.coll-list-header__cell--sortable:hover,
-.coll-list-header__cell--sortable:focus-visible {
-  color: var(--r-color-fg);
-}
-
-.coll-list-header__cell--active {
-  color: var(--r-color-fg);
-}
-
-.coll-list-header__label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.coll-list-header__icon {
-  flex-shrink: 0;
-  color: var(--r-color-brand-primary);
 }
 </style>

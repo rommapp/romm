@@ -61,7 +61,7 @@ describe("useReadingProgress", () => {
     });
   });
 
-  it("saves a pending position on unmount", async () => {
+  it("saves a pending position on unmount", () => {
     const { api, wrapper } = withComposable(
       ref(3),
       ref<number | null>(20),
@@ -78,7 +78,7 @@ describe("useReadingProgress", () => {
     });
   });
 
-  it("derives progress from the page for paginated documents", async () => {
+  it("derives progress from the page for paginated documents", () => {
     const { api } = withComposable(ref(2), ref<number | null>(30));
 
     api.setPage(3, 12);
@@ -92,7 +92,7 @@ describe("useReadingProgress", () => {
     });
   });
 
-  it("tracks progress without saving when no file backs the document", async () => {
+  it("tracks progress without saving when no file backs the document", () => {
     const { api } = withComposable(
       ref(1),
       ref<number | null>(null),
@@ -106,7 +106,7 @@ describe("useReadingProgress", () => {
     expect(updateFileProgress).not.toHaveBeenCalled();
   });
 
-  it("does not re-send a position that was already saved", async () => {
+  it("does not re-send a position that was already saved", () => {
     const { api } = withComposable(
       ref(1),
       ref<number | null>(10),
@@ -122,7 +122,7 @@ describe("useReadingProgress", () => {
     expect(updateFileProgress).toHaveBeenCalledTimes(1);
   });
 
-  it("saves once scrolling has paused", async () => {
+  it("saves once scrolling has paused", () => {
     const el = makeScrollEl(100);
     const { api } = withComposable(ref(1), ref<number | null>(10), ref(el));
 

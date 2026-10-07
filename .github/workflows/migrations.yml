@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   migrate-postgres:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
       postgres:
@@ -62,7 +62,7 @@ jobs:
     # and the JSON_TABLE columns utf8mb3, which breaks collation-sensitive
     # migration SQL that a default utf8mb4 server accepts (issue #4350).
     name: migrate-mariadb (${{ matrix.mariadb }}, ${{ matrix.collation }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false

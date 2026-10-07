@@ -40,6 +40,7 @@ import { useLoadingPhase } from "@/v2/composables/useLoadingPhase";
 import { usePlatformPlayableChecker } from "@/v2/composables/usePlatformPlayable";
 import { useRouteQueryParam } from "@/v2/composables/useRouteQueryParam";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
+import { platformMatchesSearch } from "@/v2/utils/platformSearch";
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();
@@ -260,26 +261,14 @@ function onSegmentFilter({ key, value }: { key: string; value: string }) {
 
 onMounted(() => {
   if (platformsStore.allPlatforms.length === 0) {
-    platformsStore.fetchPlatforms();
+    void platformsStore.fetchPlatforms();
   }
 });
-
-// Category contributes both the raw IGDB value and the prettified label, since
-// the label is what the UI shows ("Portable console") while the raw
-// value is what the rest of the app stores ("portable_console").
-function searchFields(p: Platform): string[] {
-  const fields = [p.display_name, p.slug, p.fs_slug];
-  if (p.category) fields.push(p.category, prettifyPlatformCategory(p.category));
-  if (p.family_name) fields.push(p.family_name);
-  return fields;
-}
 
 const filtered = computed<Platform[]>(() => {
   const term = searchTerm.value.trim().toLowerCase();
   if (!term) return visiblePlatforms.value;
-  return visiblePlatforms.value.filter((p) =>
-    searchFields(p).some((field) => field.toLowerCase().includes(term)),
-  );
+  return visiblePlatforms.value.filter((p) => platformMatchesSearch(p, term));
 });
 
 // Per-mode sorted views. Grid uses the toolbar asc/desc + groupBy axis;
@@ -461,7 +450,10 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
 </script>
 
 <template>
-  <IndexShell :list-mode="layout === 'list'">
+  <IndexShell
+    :list-mode="layout === 'list'"
+    :list-label="t('common.platforms')"
+  >
     <template #header>
       <PageHeader :title="t('common.platforms')" :count="totalCount" />
       <RDivider class="r-v2-pidx__header-divider" />
@@ -493,6 +485,23 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
       />
     </template>
 
+    <!-- Rows show the axes the toolbar groups by, so a flat list still
+         shows what would have separated them. -->
+    <template #listRows>
+      <PlatformListRow
+        v-for="p in sortedForList"
+        :id="p.id"
+        :key="p.id"
+        :slug="p.slug"
+        :fs-slug="p.fs_slug"
+        :display-name="p.display_name"
+        :rom-count="p.rom_count"
+        :family-name="p.family_name ?? null"
+        :category="p.category ?? null"
+        :generation="p.generation ?? null"
+      />
+    </template>
+
     <div ref="gridRoot">
       <div v-if="phase === 'skeleton'" class="r-v2-pidx__grid">
         <RSkeletonBlock
@@ -516,25 +525,8 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         :title="noResultsMessage"
       />
 
-      <!-- List mode: rows underneath the sticky column header (rendered
-           by IndexShell via the `#listHeader` slot above). Rows surface
-           the same family / category / generation axes the toolbar can
-           group by, so the user reading the flat list still sees what
-           would have separated them. -->
-      <div v-else-if="layout === 'list'" class="r-v2-pidx__list">
-        <PlatformListRow
-          v-for="p in sortedForList"
-          :id="p.id"
-          :key="p.id"
-          :slug="p.slug"
-          :fs-slug="p.fs_slug"
-          :display-name="p.display_name"
-          :rom-count="p.rom_count"
-          :family-name="p.family_name ?? null"
-          :category="p.category ?? null"
-          :generation="p.generation ?? null"
-        />
-      </div>
+      <!-- List mode: IndexShell renders the rows with the header. -->
+      <template v-else-if="layout === 'list'" />
 
       <!-- Grid mode, grouped: letter uses RLetterHeading (large
            single-character glyph); family / category / generation use
@@ -590,10 +582,6 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 16px;
-}
-
-.r-v2-pidx__list :deep(.plat-list-row:last-child) {
-  border-bottom: 0;
 }
 
 /* Section heading used by family / category / generation grouping:

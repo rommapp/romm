@@ -114,11 +114,11 @@ export default defineStore("activity", {
       });
       // A newly hidden ROM's session gets no clear here, so re-list what's visible.
       socket.on("permissions:changed", (data: { user_id: number }) => {
-        if (data.user_id === storeAuth().user?.id) this.fetchAll();
+        if (data.user_id === storeAuth().user?.id) void this.fetchAll();
       });
       // Sent to every socket when the server couldn't tell who may see a session.
       socket.on("activity:refresh", () => {
-        if (storeAuth().user) this.fetchAll();
+        if (storeAuth().user) void this.fetchAll();
       });
 
       this.socketBound = true;

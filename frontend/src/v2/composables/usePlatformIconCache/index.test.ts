@@ -1,12 +1,13 @@
 import { flushPromises } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 class FakeURL extends URL {
   static override createObjectURL = vi.fn(() => "blob:cached");
   static override revokeObjectURL = vi.fn();
 }
 
-let fetchMock: ReturnType<typeof vi.fn>;
+type FakeResponse = { ok: boolean; blob: () => Promise<Blob> };
+let fetchMock: Mock<(url: string) => Promise<FakeResponse>>;
 
 async function load() {
   vi.resetModules();
@@ -26,18 +27,18 @@ function urls() {
 }
 
 function respondWith(available: Record<string, string>) {
-  fetchMock.mockImplementation(async (url: string) => {
+  fetchMock.mockImplementation((url: string) => {
     const type = available[url];
-    return {
+    return Promise.resolve({
       ok: Boolean(type),
-      blob: async () => new Blob([type ?? ""], { type: type ?? "" }),
-    };
+      blob: () => Promise.resolve(new Blob([type ?? ""], { type: type ?? "" })),
+    });
   });
 }
 
 beforeEach(() => {
   vi.stubGlobal("URL", FakeURL);
-  fetchMock = vi.fn();
+  fetchMock = vi.fn<(url: string) => Promise<FakeResponse>>();
   vi.stubGlobal("fetch", fetchMock);
 });
 

@@ -1,8 +1,9 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import type { NotificationKind, NotificationSchema } from "@/__generated__";
 import { loadLocale } from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
 import { describeNotification } from "@/v2/utils/notifications";
+import { mockPseudoContent } from "@/v2/utils/iconGlyph.fixtures";
 import { makeNotification } from "@/v2/utils/notifications.fixtures";
 
 function notification(
@@ -152,9 +153,7 @@ describe("describeNotification", () => {
   });
 
   it("keeps a custom icon the app draws", () => {
-    vi.spyOn(globalThis, "getComputedStyle").mockReturnValue({
-      content: '"\\F0156"',
-    } as CSSStyleDeclaration);
+    mockPseudoContent('"\\F0156"');
 
     const view = describeNotification({
       ...notification("custom", {}),
@@ -166,9 +165,7 @@ describe("describeNotification", () => {
   });
 
   it("uses the level icon for a custom icon the app does not draw", () => {
-    vi.spyOn(globalThis, "getComputedStyle").mockReturnValue({
-      content: "none",
-    } as CSSStyleDeclaration);
+    mockPseudoContent("none");
 
     const view = describeNotification({
       ...notification("custom", {}),

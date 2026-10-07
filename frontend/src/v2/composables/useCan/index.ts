@@ -42,7 +42,7 @@ export function installPermissionsHydration() {
   watch(
     user,
     (u) => {
-      if (u) refresh();
+      if (u) void refresh();
       else permissions.reset();
     },
     { immediate: true },
@@ -50,7 +50,7 @@ export function installPermissionsHydration() {
 
   // The backend broadcasts on any permission change; refresh when it's ours.
   useSocketEvent<{ user_id: number }>("permissions:changed", (payload) => {
-    if (user.value && payload.user_id === user.value.id) refresh();
+    if (user.value && payload.user_id === user.value.id) void refresh();
   });
 }
 

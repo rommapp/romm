@@ -88,7 +88,7 @@ describe("StreamStage controls bar", () => {
     expect(barShown(wrapper)).toBe(false);
   });
 
-  it("drops a pending hide when it unmounts", async () => {
+  it("drops a pending hide when it unmounts", () => {
     const wrapper = mountStage("http://box:3010/room");
 
     wrapper.unmount();

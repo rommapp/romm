@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, fn, userEvent, within } from "storybook/test";
+import { ref } from "vue";
+import type { RSortDir } from "@/v2/lib/data/RSortHeader/types";
 import RTable from "./RTable.vue";
-import type { RTableColumn } from "./types";
+import type { RTableColumn, RTableSortPayload } from "./types";
 
 // Cast through `Meta` because RTable is a generic component (`<T>`):
 // Vue's compiled type narrows T to `unknown` here, which Storybook's
@@ -11,13 +14,11 @@ const meta: Meta = {
   // Storybook's `component` slot. The cast is narrow + intentional.
   component: RTable as never,
   argTypes: {
-    loading: { control: "boolean" },
     sortKey: { control: "text" },
     sortDir: {
       control: "select",
       options: ["asc", "desc"],
     },
-    clickableRows: { control: "boolean" },
   },
 };
 
@@ -107,11 +108,16 @@ export const Default: Story = {
     components: { RTable },
     setup: () => ({ args }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
+      <div style="padding: 32px;">
         <RTable v-bind="args" />
       </div>
     `,
   }),
+};
+
+export const Light: Story = {
+  ...Default,
+  globals: { theme: "light" },
 };
 
 export const Loading: Story = {
@@ -125,7 +131,7 @@ export const Loading: Story = {
     components: { RTable },
     setup: () => ({ args }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
+      <div style="padding: 32px;">
         <RTable v-bind="args" />
       </div>
     `,
@@ -144,16 +150,17 @@ export const Empty: Story = {
     components: { RTable },
     setup: () => ({ args }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
+      <div style="padding: 32px;">
         <RTable v-bind="args" />
       </div>
     `,
   }),
 };
 
-// Mobile card-stack: on `xs` each row reflows into a stacked card with the
-// column label as a per-cell caption. The reflow keys off `html[data-bp~="xs"]`,
-// so the story opens on the phone viewport preset.
+/**
+ * On `xs` each row reflows into a card with the column labels as captions; the
+ * story opens on the phone viewport.
+ */
 export const MobileCardStack: Story = {
   globals: { viewport: { value: "rommPhoneXs" } },
   parameters: { layout: "fullscreen" },
@@ -168,9 +175,82 @@ export const MobileCardStack: Story = {
     components: { RTable },
     setup: () => ({ args }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 24px; background: #07070f;">
+      <div style="padding: 24px;">
         <RTable v-bind="args" />
       </div>
     `,
   }),
+};
+
+const onRowClick = fn();
+
+/**
+ * Sort state lives with the consumer, so the story wires `update:sort` back
+ * into the props the way a real call site does.
+ */
+export const SortAndRowActivation: Story = {
+  name: "Sort and row activation (play)",
+  args: {
+    columns: COLUMNS,
+    items: ITEMS,
+    itemKey: "id",
+    clickableRows: true,
+  },
+  render: (args) => ({
+    components: { RTable },
+    setup: () => {
+      const sortKey = ref<string | null>("name");
+      const sortDir = ref<RSortDir>("asc");
+      function onSort(payload: RTableSortPayload) {
+        sortKey.value = payload.key;
+        sortDir.value = payload.dir;
+      }
+      return { args, sortKey, sortDir, onSort, onRowClick };
+    },
+    template: `
+      <div style="padding: 32px;">
+        <RTable
+          v-bind="args"
+          :sort-key="sortKey"
+          :sort-dir="sortDir"
+          @update:sort="onSort"
+          @row:click="onRowClick"
+        />
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const header = (name: string) => canvas.getByRole("columnheader", { name });
+
+    // Toggle rules and aria-sort belong to RSortHeader; this checks the
+    // header's event reaches `update:sort` with its column's key.
+    await step("clicking a header sorts by that column", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Size" }));
+      await expect(header("Size")).toHaveAttribute("aria-sort", "ascending");
+      await expect(header("Title")).toHaveAttribute("aria-sort", "none");
+    });
+
+    const row = canvas.getByText("Chrono Trigger").closest('[role="row"]');
+    if (!(row instanceof HTMLElement)) throw new Error("expected a row");
+
+    await step("clicking a row emits it", async () => {
+      await userEvent.click(row);
+      await expect(onRowClick).toHaveBeenCalledTimes(1);
+      await expect(onRowClick).toHaveBeenLastCalledWith(ITEMS[2]);
+    });
+
+    await step("Enter activates the focused row", async () => {
+      row.focus();
+      await userEvent.keyboard("{Enter}");
+      await expect(onRowClick).toHaveBeenCalledTimes(2);
+      await expect(onRowClick).toHaveBeenLastCalledWith(ITEMS[2]);
+    });
+
+    await step("Space activates the focused row", async () => {
+      await userEvent.keyboard(" ");
+      await expect(onRowClick).toHaveBeenCalledTimes(3);
+      await expect(onRowClick).toHaveBeenLastCalledWith(ITEMS[2]);
+    });
+  },
 };

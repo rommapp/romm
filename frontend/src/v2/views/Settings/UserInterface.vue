@@ -220,9 +220,9 @@ const virtualCollectionTypeItems = computed(() => [
 ]);
 
 function onVirtualCollectionTypeChange(value: unknown) {
-  const next = typeof value === "string" ? value : String(value ?? "");
+  const next = typeof value === "string" ? value : "";
   virtualCollectionType.value = next;
-  collectionsStore.fetchVirtualCollections(next);
+  void collectionsStore.fetchVirtualCollections(next);
 }
 </script>
 

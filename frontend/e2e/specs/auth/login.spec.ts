@@ -1,3 +1,4 @@
+import { expectNoA11yViolations } from "../../support/a11y";
 import {
   ACCOUNTS,
   accountMenu,
@@ -47,5 +48,12 @@ test.describe("Login", () => {
 
     await expect(page).toHaveURL(/\/login/);
     await expect(loginButton(page)).toBeVisible();
+  });
+
+  test("has no critical a11y violations", async ({ page }) => {
+    await page.goto("/login");
+    await expect(loginButton(page)).toBeVisible();
+
+    await expectNoA11yViolations(page);
   });
 });

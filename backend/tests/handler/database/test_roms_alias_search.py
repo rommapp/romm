@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 from tests.conftest import session as session_factory
+from tests.factories import make_rom
 from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
 from handler.database import db_rom_handler
@@ -12,21 +13,8 @@ from models.platform import Platform
 from models.rom import Rom
 
 
-def _add_rom(platform: Platform, name: str, **metadata: dict[str, Any]) -> Rom:
-    fs_name = f"{name.replace(' ', '_')}.zip"
-    return db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=name.lower().replace(" ", "-"),
-            fs_name=fs_name,
-            fs_name_no_tags=fs_name.removesuffix(".zip"),
-            fs_name_no_ext=fs_name.removesuffix(".zip"),
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            **metadata,
-        )
-    )
+def _add_rom(platform: Platform, name: str, **metadata: Any) -> Rom:
+    return make_rom(platform, name, fs_stem=name.replace(" ", "_"), **metadata)
 
 
 def _search_ids(term: str) -> list[int]:

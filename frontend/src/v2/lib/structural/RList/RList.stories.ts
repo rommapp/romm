@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RListItem from "../RListItem/RListItem.vue";
 import RList from "./RList.vue";
 
 const meta: Meta<typeof RList> = {
   title: "Structural/RList",
   component: RList,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     density: {
       control: "select",

@@ -17,16 +17,11 @@ const meta: Meta<typeof RMenuItem> = {
   title: "Menus/RMenuItem",
   component: RMenuItem,
   argTypes: {
-    label: { control: "text" },
-    icon: { control: "text" },
     variant: {
       control: "select",
       options: ["default", "active", "danger"],
     },
-    disabled: { control: "boolean" },
     to: { control: "text" },
-    href: { control: "text" },
-    closeOnClick: { control: "boolean" },
   },
   render: (args) => ({
     components: { RMenuItem },
@@ -94,10 +89,10 @@ export const WithNavigation: Story = {
   }),
 };
 
-// A new-tab / new-window gesture (Ctrl/⌘/Shift/Alt-click) on a link item
-// must NOT fire the `click` emit: consumers wire that to "close the menu",
-// and closing would unmount the <a> before the browser opens the new tab.
-// A plain click still activates the item normally.
+/**
+ * A new-tab gesture (Ctrl/⌘/Shift/Alt-click) on a link item must not emit
+ * `click`, which would close the menu and unmount the `<a>` first.
+ */
 export const NewTabGesture: Story = {
   name: "New-tab gesture (Ctrl/⌘-click)",
   args: {
@@ -121,6 +116,9 @@ export const NewTabGesture: Story = {
     const canvas = within(canvasElement);
     const link = canvas.getByText("Open in new tab").closest("a");
     if (!link) throw new Error("expected the item to render as an <a>");
+    // In a real browser the Ctrl-click would open the link and tear down the
+    // test page; cancel it after the item's own handler has seen the event.
+    canvasElement.addEventListener("click", (event) => event.preventDefault());
 
     await step("plain click activates the item", async () => {
       link.dispatchEvent(

@@ -39,7 +39,7 @@ async function register() {
       icon: "mdi-check-circle",
       timeout: 5000,
     });
-    router.push("/login");
+    void router.push("/login");
   } catch (error: unknown) {
     snackbar.error(t("login.register-failed", { error: errorMessage(error) }), {
       icon: "mdi-close-circle",
@@ -52,7 +52,7 @@ async function register() {
 
 // Redirect if no invite token is present.
 onBeforeMount(() => {
-  if (!token) router.push("/");
+  if (!token) void router.push("/");
 });
 </script>
 

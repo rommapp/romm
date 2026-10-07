@@ -47,7 +47,7 @@ export function useGlobalHotkeys() {
 
       // Slash / ?: jump to search.
       if ((e.key === "/" || e.key === "?") && !pendingPrefix) {
-        router.push({ name: ROUTES.SEARCH });
+        void router.push({ name: ROUTES.SEARCH });
         e.preventDefault();
         return;
       }
@@ -61,13 +61,13 @@ export function useGlobalHotkeys() {
       if (pendingPrefix === "g") {
         pendingPrefix = null;
         if (e.key === "h") {
-          router.push({ name: ROUTES.HOME });
+          void router.push({ name: ROUTES.HOME });
           e.preventDefault();
         } else if (e.key === "p") {
-          router.push({ name: ROUTES.PLATFORMS_INDEX });
+          void router.push({ name: ROUTES.PLATFORMS_INDEX });
           e.preventDefault();
         } else if (e.key === "c") {
-          router.push({ name: ROUTES.COLLECTIONS_INDEX });
+          void router.push({ name: ROUTES.COLLECTIONS_INDEX });
           e.preventDefault();
         }
       }

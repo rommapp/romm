@@ -40,7 +40,7 @@ async function submit() {
       console.error("Error loading user: ", userError);
     }
     const params = new URLSearchParams(window.location.search);
-    router.push(params.get("next") ?? "/");
+    void router.push(params.get("next") ?? "/");
   } catch (err: unknown) {
     const { response, message } = err as {
       response?: {

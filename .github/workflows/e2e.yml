@@ -34,7 +34,7 @@ permissions:
 
 jobs:
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       mariadb:
@@ -89,9 +89,10 @@ jobs:
           ) &
         working-directory: frontend
 
-      # Headless runs use only the headless shell, so skip the full Chrome build.
+      # Headless runs use only the headless shell, so skip the full Chrome build. The runner
+      # image already has its system libraries, and --with-deps can hang on a stalled apt mirror.
       - name: Install Playwright browser
-        run: npx playwright install --with-deps --only-shell chromium
+        run: npx playwright install --only-shell chromium
         working-directory: frontend
 
       # ROMM_BASE_PATH must be writable (the app creates config/, resources/ and

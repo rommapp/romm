@@ -3,6 +3,13 @@
 version: 0.1
 cli:
   version: 1.25.0
+  sha256:
+    darwin_arm64: 2cff4f1cc63916db290359a058b88167beeac07a496682d9307a1804b498f225
+    darwin_x86_64: d0153b87a7eba4cd7d09a048b97bd60ac3ac15352def2bc3599d548875823ed3
+    linux_x86_64: 3845ff76a70cebb10e61a267ff719ffdccfa3ef6d877d51870a2c62b79603ab9
+    linux_arm64: cc210d2185cf95bedbec06384be6ef342bdb7dcf3ff72dd08fe0e69859516887
+    windows_x86_64: d883930b487d12a47e2c42fb83391417db4c4254c7346720c11e6a947c305a2c
+    mingw_x86_64: 739f6aabc91d9ba4bce894314e01ab56d2c11b573c921b6f8caed6393c66c5f1
 # Trunk provides extensibility via plugins. (https://docs.trunk.io/plugins)
 plugins:
   sources:
@@ -30,23 +37,23 @@ lint:
     - dotenv-linter@4.0.0
     - hadolint@2.15.1
     - markdownlint@0.49.1
-    - eslint@10.11.0
+    - eslint@10.12.0
     - actionlint@1.7.12
     - bandit@1.9.4
-    - black@26.5.1
-    - checkov@3.3.20
+    - black@26.10.0
+    - checkov@3.3.23
     - git-diff-check
-    - isort@9.0.1
+    - isort@9.0.2
     - osv-scanner@2.6.0
     - prettier@3.9.9:
         packages:
           - "@trivago/prettier-plugin-sort-imports@6.0.2"
           - "@vue/compiler-sfc@3.5.43"
-    - ruff@0.16.9
+    - ruff@0.16.10
     - shellcheck@0.11.0
     - shfmt@3.14.1
     - taplo@0.10.0
-    - trivy@0.74.0
+    - trivy@0.75.0
     - trufflehog@3.97.9
     - yamllint@1.38.0
   ignore:

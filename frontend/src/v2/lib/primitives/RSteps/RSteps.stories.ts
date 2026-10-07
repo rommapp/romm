@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RBtn from "../RBtn/RBtn.vue";
 import RSteps from "./RSteps.vue";
 
 const meta: Meta<typeof RSteps> = {
   title: "Primitives/RSteps",
   component: RSteps,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     current: { control: { type: "number", min: 1, max: 5 } },
     total: { control: { type: "number", min: 2, max: 6 } },

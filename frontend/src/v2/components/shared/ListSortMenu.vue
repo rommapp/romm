@@ -2,7 +2,7 @@
 // ListSortMenu: the sort control a list header shows once its columns are
 // gone (phones and tablets). Shared by the gallery, platforms and collections
 // headers, so the three can't answer "what is this sorted by" three ways.
-import { RIcon, RMenu, RMenuItem } from "@v2/lib";
+import { nextSortDir, RIcon, RMenu, RMenuItem, type RSortDir } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 
@@ -10,7 +10,7 @@ const props = defineProps<{
   options: readonly { key: K; label: string }[];
   /** Null when the list's order is one the columns don't carry. */
   sortKey: K | null;
-  sortDir: "asc" | "desc";
+  sortDir: RSortDir;
   /** Offers the list's order without a sort key (Search's relevance) under this name. */
   unsortedLabel?: string | undefined;
   /** Whether that order is the one applied. */
@@ -18,7 +18,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: "sort", payload: { key: K; dir: "asc" | "desc" }): void;
+  (e: "sort", payload: { key: K; dir: RSortDir }): void;
   (e: "unsort"): void;
 }>();
 
@@ -36,11 +36,7 @@ const label = computed(
 );
 
 function pick(key: K) {
-  // Toggle direction when re-picking the active key; otherwise start the new
-  // one ascending, like every other sortable table in the app.
-  const dir: "asc" | "desc" =
-    props.sortKey === key && props.sortDir === "asc" ? "desc" : "asc";
-  emit("sort", { key, dir });
+  emit("sort", { key, dir: nextSortDir(props.sortKey === key, props.sortDir) });
 }
 </script>
 

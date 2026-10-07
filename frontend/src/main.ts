@@ -102,4 +102,4 @@ async function initializeApp() {
   app.mount("#app");
 }
 
-initializeApp();
+void initializeApp();

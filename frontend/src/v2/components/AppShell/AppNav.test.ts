@@ -16,6 +16,9 @@ vi.mock("@/v2/composables/useBreakpoint", () => ({
   useBreakpoint: () => ({ smAndDown: ref(false) }),
 }));
 
+vi.mock("@/v2/components/AppShell/ConvertingIndicator.vue", () => ({
+  default: { template: "<div />" },
+}));
 vi.mock("@/v2/components/AppShell/ScanningIndicator.vue", () => ({
   default: { template: "<div />" },
 }));

@@ -1,6 +1,8 @@
+import asyncio
 import hashlib
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -695,6 +697,58 @@ class TestRetroArchSyncUpload:
         assert saves[0].file_name == "test_rom.srm"
         assert saves[0].emulator == "snes9x"
         assert saves[0].slot is None
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    @mock.patch("endpoints.sync.retroarch.scan_save", new_callable=mock.AsyncMock)
+    def test_queries_and_writes_off_the_event_loop(
+        self,
+        mock_scan_save: mock.AsyncMock,
+        _mock_write_file: mock.AsyncMock,
+        client,
+        rom: Rom,
+        saves_path: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        mock_scan_save.return_value = Save(
+            file_name="test_rom.srm",
+            file_path=saves_path,
+            file_size_bytes=4,
+            content_hash="8d777f385d3dfec8815d20f7496026dc",
+        )
+        on_loop: dict[str, bool] = {}
+
+        def spy(owner: object, name: str) -> None:
+            original = getattr(owner, name)
+
+            def recording(*args: Any, **kwargs: Any) -> Any:
+                try:
+                    asyncio.get_running_loop()
+                    on_loop[name] = True
+                except RuntimeError:
+                    on_loop[name] = False
+                return original(*args, **kwargs)
+
+            monkeypatch.setattr(owner, name, recording)
+
+        spy(sync_handler, "resolve_rom")
+        spy(db_save_handler, "get_save_by_path")
+        spy(db_save_handler, "add_save")
+
+        response = client.put(
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert on_loop == {
+            "resolve_rom": False,
+            "get_save_by_path": False,
+            "add_save": False,
+        }
 
     @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.write_file",

@@ -10,13 +10,13 @@ function track(id: number): MusicTrackSchema {
 /** A fetcher over a synthetic catalog, recording the offsets it was asked for. */
 function catalog(total: number) {
   const calls: number[] = [];
-  const fetcher = async (offset: number, limit: number) => {
+  const fetcher = (offset: number, limit: number) => {
     calls.push(offset);
     const items = Array.from(
       { length: Math.max(0, Math.min(limit, total - offset)) },
       (_, i) => track(offset + i),
     );
-    return { items, total };
+    return Promise.resolve({ items, total });
   };
   return { calls, fetcher };
 }
@@ -82,7 +82,7 @@ describe("useTrackPager", () => {
     const pager = useTrackPager();
 
     const first = pager.reset(slow);
-    await pager.reset(async () => ({ items: [track(99)], total: 1 }));
+    await pager.reset(() => Promise.resolve({ items: [track(99)], total: 1 }));
     release();
     await first;
 
@@ -102,9 +102,7 @@ describe("useTrackPager", () => {
 
   it("leaves the list empty when the first page fails", async () => {
     const pager = useTrackPager();
-    await pager.reset(async () => {
-      throw new Error("boom");
-    });
+    await pager.reset(() => Promise.reject(new Error("boom")));
     expect(pager.tracks.value).toEqual([]);
     expect(pager.loading.value).toBe(false);
   });

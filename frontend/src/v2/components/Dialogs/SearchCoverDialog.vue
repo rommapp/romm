@@ -163,7 +163,7 @@ function openHandler({ term, rom }: Events["showSearchCoverDialog"]) {
   searchText.value = term;
   sourceRom.value = rom ?? null;
   show.value = true;
-  if (searchText.value) doSearch();
+  if (searchText.value) void doSearch();
 }
 useEmitterEvent("showSearchCoverDialog", openHandler);
 

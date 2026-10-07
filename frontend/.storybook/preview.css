@@ -1,0 +1,6 @@
+/* Docs pages keep Storybook's light chrome, so each story canvas paints the
+   active v2 theme itself, as the canvas view's body does. */
+html.r-v2 .docs-story {
+  background: var(--r-color-bg);
+  color: var(--r-color-fg);
+}
