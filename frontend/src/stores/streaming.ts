@@ -113,6 +113,8 @@ export const useStreamingStore = defineStore("streaming", () => {
   }
 
   let configRequest: Promise<void> | null = null;
+  // Bumped by reset(), so a reply asked for as the last account is dropped.
+  let configGeneration = 0;
 
   /**
    * Fetch streaming config from the backend, on app load and again when the
@@ -122,9 +124,11 @@ export const useStreamingStore = defineStore("streaming", () => {
    */
   async function fetchConfig(): Promise<void> {
     if (configRequest) return configRequest;
-    configRequest = (async () => {
+    const generation = configGeneration;
+    const request = (async () => {
       try {
         const { data } = await streamingApi.fetchConfig();
+        if (generation !== configGeneration) return;
         config.value = {
           enabled: data.enabled ?? false,
           containers: data.containers ?? [],
@@ -133,11 +137,22 @@ export const useStreamingStore = defineStore("streaming", () => {
       } catch (err) {
         console.warn("[streaming] Could not fetch config:", err);
       } finally {
-        configLoaded.value = true;
-        configRequest = null;
+        if (generation === configGeneration) {
+          configLoaded.value = true;
+          configRequest = null;
+        }
       }
     })();
-    return configRequest;
+    configRequest = request;
+    return request;
+  }
+
+  /** Forget the config on logout; the next account asks for its own. */
+  function reset(): void {
+    configGeneration++;
+    configRequest = null;
+    config.value = { enabled: false, containers: [], emulator_labels: {} };
+    configLoaded.value = false;
   }
 
   /**
@@ -408,6 +423,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     emulatorLabel,
     platformCapabilities,
     fetchConfig,
+    reset,
     claimSession,
     joinableSessions,
     fetchJoinableSessions,

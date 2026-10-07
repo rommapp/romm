@@ -131,8 +131,8 @@ def require_import_spec(
 ) -> ImportSpec | None:
     """What this broker accepts as a declared import, or None when nothing.
 
-    Raises ImportSpecUnavailable when the broker can't be asked and no earlier
-    answer stands in, so a launch can tell "try again" from "never".
+    Raises:
+        ImportSpecUnavailable: The broker can't be asked and has no earlier answer.
     """
     if not container.is_webstation:
         return None

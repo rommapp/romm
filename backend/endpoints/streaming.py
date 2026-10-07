@@ -321,9 +321,7 @@ async def get_config(request: Request) -> StreamingConfigSchema:
         for c in first_claim_targets()
         if access.platform_is_visible(request, c.platform)
     ]
-    # Concurrently, so one unreachable broker costs one timeout, not one each.
-    # The default pool holds cpu+4 threads, and a broker serving more platforms
-    # than that would cost one timeout per wave, so these get a pool of their own.
+    # One pool sized to every check, so a silent broker costs one timeout.
     pool = ThreadPoolExecutor(min(2 * len(visible), _CONFIG_CHECK_THREADS) or 1)
     try:
         specs, cores = await asyncio.gather(

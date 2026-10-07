@@ -243,4 +243,28 @@ describe("config", () => {
     expect(fetchConfig).toHaveBeenCalledTimes(2);
     expect(store.config.enabled).toBe(true);
   });
+
+  it("drops a reply asked for before a logout", async () => {
+    // The old account's platforms must not land in the next account's config.
+    const store = useStreamingStore();
+    let answer!: (value: unknown) => void;
+    fetchConfig.mockImplementationOnce(
+      () => new Promise((resolve) => (answer = resolve)),
+    );
+    const stale = store.fetchConfig();
+
+    store.reset();
+    const fresh = store.fetchConfig();
+    answer({
+      data: {
+        enabled: true,
+        containers: [{ platform: "n64" }],
+        emulator_labels: {},
+      },
+    });
+    await Promise.all([stale, fresh]);
+
+    expect(fetchConfig).toHaveBeenCalledTimes(2);
+    expect(store.config.containers).toEqual([]);
+  });
 });

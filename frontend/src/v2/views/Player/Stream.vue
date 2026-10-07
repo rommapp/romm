@@ -74,6 +74,7 @@ import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useCoverArt } from "@/v2/composables/useCoverArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useMultiplayerPref } from "@/v2/composables/useMultiplayerPref";
 import { usePageTitle } from "@/v2/composables/usePageTitle";
 import { usePlayFocus } from "@/v2/composables/usePlayFocus";
@@ -101,6 +102,7 @@ const route = useRoute();
 const router = useRouter();
 const auth = storeAuth();
 const streamingStore = useStreamingStore();
+const alive = useIsAlive();
 const snackbar = useSnackbar();
 const { fullscreenOnPlay } = useFullscreenPref();
 const { multiplayerOnPlay } = useMultiplayerPref();
@@ -435,9 +437,8 @@ type ResumeTab = "state" | "save";
 
 const resumeTab = ref<ResumeTab>("state");
 
-// What the broker imports decides what's on offer, and the app-load copy can
-// predate its answer. Until the page's own refetch lands, a pick could vanish
-// or a Saves tab appear under the player's cursor, so the panel waits for it.
+// The app-load config can predate the broker's import answer, so the picker
+// waits for the page's own refetch.
 const configFresh = ref(false);
 
 const showResumeTabs = computed(
@@ -504,8 +505,9 @@ const emulatorLabel = computed(
   () => container.value?.label ?? platformLabel.value,
 );
 
+// Held with the resume picker, so Play never sends a pick the player can't see.
 const playReady = computed(
-  () => !!rom.value && playerState.value !== "loading",
+  () => !!rom.value && configFresh.value && playerState.value !== "loading",
 );
 usePlayFocus(".r-v2-stream__play", playReady, gameRunning);
 
@@ -1329,7 +1331,7 @@ onMounted(async () => {
   // The app-load copy can predate a broker that hadn't answered yet, and what
   // it imports decides which saves the picker offers, so ask again here.
   const freshConfig = streamingStore.fetchConfig().finally(() => {
-    configFresh.value = true;
+    if (alive.value) configFresh.value = true;
   });
   try {
     const { data } = await romApi.getRom({

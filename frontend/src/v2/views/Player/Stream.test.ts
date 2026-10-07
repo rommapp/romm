@@ -379,12 +379,19 @@ describe("Stream save picker", () => {
     expect(saveList(wrapper)).toBeUndefined();
     expect(wrapper.findComponent(SaveDataPanel).exists()).toBe(false);
     expect(wrapper.find(".r-v2-stream__resume-loading").exists()).toBe(true);
+    // Play would send the preselected state the player can't see yet.
+    expect(wrapper.find(".r-v2-stream__play").attributes("disabled")).toBe(
+      "true",
+    );
 
     answer();
     await flushPromises();
 
     expect(wrapper.find(".r-v2-stream__resume-loading").exists()).toBe(false);
     expect(saveList(wrapper)).toBeDefined();
+    expect(wrapper.find(".r-v2-stream__play").attributes("disabled")).toBe(
+      "false",
+    );
   });
 
   it("includes bare (non-archive) save files where the broker imports saves", async () => {
