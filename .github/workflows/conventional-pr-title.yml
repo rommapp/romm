@@ -1,0 +1,41 @@
+name: Conventional PR Title
+
+# The PR title becomes the squash commit and the release notes line, so it
+# has to follow Conventional Commits: `type(scope)!: description`.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  check-title:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the PR title
+        env:
+          # Read from env, never interpolated into the script, since the title is untrusted.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          types="feat|fix|perf|refactor|revert|docs|style|test|build|ci|chore"
+          pattern="^(${types})(\([a-z0-9][a-z0-9._/, -]*\))?!?: [^ ].*$"
+
+          if [[ "$PR_TITLE" =~ $pattern ]]; then
+            echo "PR title follows Conventional Commits."
+            exit 0
+          fi
+
+          echo "::error::PR title must follow Conventional Commits: type(scope)!: description"
+          # Line breaks would let the title start a workflow command line.
+          echo "Got: ${PR_TITLE//[$'\r\n']/ }"
+          echo "Allowed types: ${types//|/, }"
+          echo "Examples:"
+          echo "  feat(saves): favorite and label saves and states"
+          echo "  fix: serialize single-file ROM promotion across gunicorn workers"
+          exit 1
