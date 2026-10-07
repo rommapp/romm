@@ -242,7 +242,7 @@ class TestSyncRetroAchievementsProgressTask:
         mock_update_rom_user.assert_not_called()
 
     async def test_run_skips_unknown_award(self, task, viewer_user, mocker):
-        """An unrecognised award kind is never looked up or written."""
+        """An unrecognised award kind is skipped without a write."""
         mock_get_roms, _, mock_update_rom_user = _mock_sync(
             mocker,
             viewer_user,
