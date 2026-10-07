@@ -4,15 +4,15 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - ".github/workflows/frontend.yml"
       - ".github/actions/setup-frontend/**"
-      - ".github/actions/bound-apt-timeouts/**"
   push:
     branches:
       - "master"
     paths:
       - "frontend/**"
+      - ".github/workflows/frontend.yml"
       - ".github/actions/setup-frontend/**"
-      - ".github/actions/bound-apt-timeouts/**"
 
 # A new push cancels a PR's superseded run; each master commit keeps its own.
 concurrency:
@@ -35,12 +35,10 @@ jobs:
       - name: Set up the frontend
         uses: ./.github/actions/setup-frontend
 
-      - name: Bound apt network timeouts
-        uses: ./.github/actions/bound-apt-timeouts
-
-      # Stories run in browser mode, which needs only the headless shell.
+      # Stories run in browser mode, which needs only the headless shell. The runner image
+      # already has its system libraries, and --with-deps can hang on a stalled apt mirror.
       - name: Install Playwright browser
-        run: npx playwright install --with-deps --only-shell chromium
+        run: npx playwright install --only-shell chromium
         working-directory: frontend
 
       - name: Run tests (vitest, includes Storybook play() and a11y tests)

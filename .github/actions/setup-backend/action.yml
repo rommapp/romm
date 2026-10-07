@@ -14,9 +14,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Bound apt network timeouts
-      uses: ./.github/actions/bound-apt-timeouts
-
     # The mariadb package ships only an sdist on Linux, so uv builds it against these.
     - name: Install the MariaDB connector
       shell: bash
@@ -24,8 +21,10 @@ runs:
         APT_PACKAGES: ${{ inputs.apt-packages }}
       run: |
         read -ra extra <<<"$APT_PACKAGES"
-        sudo apt-get update
-        sudo apt-get install -y libmariadb3 libmariadb-dev "${extra[@]}"
+        # apt has no network timeout by default, so a stalled mirror hangs until the job limit.
+        apt_opts=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+        sudo apt-get "${apt_opts[@]}" update
+        sudo apt-get "${apt_opts[@]}" install -y libmariadb3 libmariadb-dev "${extra[@]}"
 
     - name: Install uv
       uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
