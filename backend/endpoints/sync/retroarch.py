@@ -138,9 +138,7 @@ def _get_asset(
         )
 
     if parsed.kind == "saves":
-        return sync_handler.resolve_save_by_slot(
-            user, rom, parsed.emulator, parsed.file_name
-        )
+        return sync_handler.resolve_save(user, rom, parsed.emulator, parsed.file_name)
 
     # The requested name is the canonical slot name, which a web-player state's
     # own file name won't match, so the slot is resolved instead.
@@ -559,7 +557,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         return _empty(status.HTTP_201_CREATED)
 
     if parsed.kind == "saves":
-        return await _put_save_version(request, rom, parsed)
+        return await _put_save(request, rom, parsed)
 
     asset_path = sync_handler.build_asset_file_path(
         request.user, rom, parsed.kind, parsed.emulator
@@ -609,18 +607,14 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     return _empty(status.HTTP_204_NO_CONTENT if existing else status.HTTP_201_CREATED)
 
 
-async def _put_save_version(
-    request: Request, rom: Rom, parsed: RetroArchSyncPath
-) -> Response:
+async def _put_save(request: Request, rom: Rom, parsed: RetroArchSyncPath) -> Response:
     async with _request_body(request) as body:
         try:
-            stored = await sync_handler.store_save_version(
+            stored = await sync_handler.store_save(
                 request.user, rom, parsed.emulator, parsed.file_name, body
             )
         except ValueError:
             return _empty(status.HTTP_409_CONFLICT)
-        except TimeoutError:
-            return _empty(status.HTTP_503_SERVICE_UNAVAILABLE)
 
     return _empty(
         status.HTTP_201_CREATED if stored == "created" else status.HTTP_204_NO_CONTENT

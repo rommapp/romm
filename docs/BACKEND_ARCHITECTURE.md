@@ -1017,14 +1017,17 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
   mapped to and from the asset's `emulator` through
   `sync.retroarch.emulator_names`, so web player saves stay visible. Unknown
   cores round-trip unchanged.
-- **Save slots:** a save path serves the newest slotted version for its ROM,
-  core and extension, from any slot, under RetroArch's own name for the file.
-  An unslotted save at that path serves only until one exists. A PUT adds a
-  version to the slot it served (or `autosave`), unless the bytes are unchanged,
-  and prunes that core and extension's versions in the slot to
-  `MAX_SAVES_PER_SLOT`. Uploads to one path take a Redis lock, so concurrent
-  ones never share a version file. A DELETE removes every save the path covers.
-  PSP bundles stay unslotted.
+- **Save slots:** a `.srm` path maps to the `autosave` versions of its ROM and
+  core, and serves the newest under the client's spelling of the game (or the
+  ROM's name). An unslotted save at that path serves only until one exists. A
+  PUT whose bytes differ from the newest adds a version and prunes that lineage
+  (emulator and extension) to `MAX_SAVES_PER_SLOT`. A DELETE removes every
+  `autosave` version of it plus the unslotted save. Named slots are never
+  touched. Other files (`.rtc`, core-specific saves) and PSP bundles stay single
+  unslotted saves, overwritten in place.
+- **Version names:** `reserve_version_name` moves a taken tag on a second and
+  claims it in Redis, so concurrent or same-second uploads from any endpoint
+  never share a file. Every slot prune is scoped to the uploaded save's lineage.
 - **Manifest:** assets whose file is gone are flagged `missing_from_fs`. Hashes
   are MD5s of the bytes on disk, Redis-cached by path, size and mtime.
 - **PSP:** PPSSPP's `PSP/SAVEDATA/<folder>/` files are stored as one zipped

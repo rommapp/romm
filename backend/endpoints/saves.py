@@ -13,10 +13,10 @@ from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
-    apply_datetime_tag,
     prune_save_slot,
     remove_save,
     rename_asset,
+    reserve_version_name,
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
@@ -33,7 +33,7 @@ from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import EMULATOR_MAX_LENGTH, SAVE_SLOT_MAX_LENGTH, Save
+from models.assets import EMULATOR_MAX_LENGTH, SAVE_SLOT_MAX_LENGTH, Save, SaveLineage
 from models.base import FILE_NAME_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
@@ -227,11 +227,24 @@ async def add_save(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Save file has no filename"
         )
 
+    check_emulator_folder_name(emulator)
+
+    saves_path = fs_asset_handler.build_saves_file_path(
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
+    )
+
     actual_filename = sanitize_asset_filename(saveFile.filename, "save")
+    lineage = SaveLineage.of(emulator, actual_filename)
     if slot:
         # Checked again because the tag adds 22 bytes.
         actual_filename = sanitize_asset_filename(
-            apply_datetime_tag(actual_filename), "save"
+            await reserve_version_name(
+                request.user.id, rom.id, saves_path, actual_filename
+            ),
+            "save",
         )
 
     sanitized_screenshot_filename = ""
@@ -247,15 +260,6 @@ async def add_save(
             sanitized_screenshot_filename = sanitize_asset_filename(
                 f"{save_stem}{screenshot_ext}", "screenshot"
             )
-
-    check_emulator_folder_name(emulator)
-
-    saves_path = fs_asset_handler.build_saves_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=emulator,
-    )
 
     db_save = db_save_handler.get_save_by_filename(
         user_id=request.user.id, rom_id=rom.id, file_name=actual_filename, slot=slot
@@ -335,7 +339,9 @@ async def add_save(
                 pass
             # A retry still counts as an upload to the slot, so the cap applies.
             if keep is not None:
-                await prune_save_slot(request.user.id, rom.id, slot, keep)
+                await prune_save_slot(
+                    request.user.id, rom.id, slot, keep, lineage=lineage
+                )
             # Pruning can drop the matched version when it is not among the newest.
             if device and db_save_handler.get_save(
                 user_id=request.user.id, id=existing_by_hash.id
@@ -394,7 +400,7 @@ async def add_save(
         _increment_session_counter(session_id, request.user.id)
 
     if slot and keep is not None:
-        await prune_save_slot(request.user.id, rom.id, slot, keep)
+        await prune_save_slot(request.user.id, rom.id, slot, keep, lineage=lineage)
 
     if screenshotFile and sanitized_screenshot_filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
