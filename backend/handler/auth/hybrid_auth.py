@@ -50,6 +50,16 @@ def resolve_client_token(raw_token: str) -> ClientTokenIdentity | None:
     )
 
 
+def _basic_auth_user(username: str, password: str) -> User | None:
+    """The enabled user these credentials belong to, marked active."""
+    user = auth_handler.authenticate_user(username, password)
+    if user is None or not user.enabled:
+        return None
+
+    user.set_last_active()
+    return user
+
+
 class HybridAuthBackend(AuthenticationBackend):
     async def authenticate(
         self, conn: HTTPConnection
@@ -81,14 +91,11 @@ class HybridAuthBackend(AuthenticationBackend):
                 # bcrypt takes ~250ms, which would stall every request on the
                 # event loop; WebDAV clients send Basic auth on each request.
                 user = await asyncio.to_thread(
-                    auth_handler.authenticate_user,
-                    credentials.username,
-                    credentials.password,
+                    _basic_auth_user, credentials.username, credentials.password
                 )
-                if user is None or not user.enabled:
+                if user is None:
                     return None
 
-                user.set_last_active()
                 return (AuthCredentials(user.oauth_scopes), user)
 
             # Check if bearer auth header is valid
