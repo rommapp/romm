@@ -72,7 +72,8 @@ class SaveSchema(BaseAsset, AssetAnnotations):
     origin_device_id: str | None = None
     device_syncs: list[DeviceSyncSchema] = []
 
-    # A zipped save directory, which a browser core would boot as raw SRAM.
+    # The file is a .zip. EmulatorJS cores would boot one as raw SRAM; Ruffle's
+    # .sol.zip saves are zips too, so each player decides what it can load.
     @computed_field  # type: ignore[prop-decorator]
     @property
     def is_zipped(self) -> bool:
