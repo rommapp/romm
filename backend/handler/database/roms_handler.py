@@ -15,6 +15,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     Integer,
+    Row,
     SQLColumnExpression,
     String,
     Text,
@@ -966,6 +967,20 @@ class DBRomsHandler(DBBaseHandler):
         if not ids:
             return []
         return session.scalars(query.filter(Rom.id.in_(ids))).all()
+
+    @begin_session
+    def get_roms_by_ra_ids(
+        self,
+        ra_ids: Sequence[int],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[Row[int, int | None]]:
+        """Get `(id, ra_id)` for every ROM matching any of `ra_ids`."""
+        if not ra_ids:
+            return []
+        return session.execute(
+            select(Rom.id, Rom.ra_id).where(Rom.ra_id.in_(ra_ids))
+        ).all()
 
     def get_files_for_roms(
         self,
@@ -2499,6 +2514,25 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(
             select(RomUser).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
         )
+
+    @begin_session
+    def get_rom_users_by_rom_ids(
+        self,
+        user_id: int,
+        rom_ids: Sequence[int],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> dict[int, RomUser]:
+        """Get `{rom_id: RomUser}` for one user over many ROMs in a single query."""
+        if not rom_ids:
+            return {}
+        # Skips the joined `rom` (with its `platform`/`metadatum`) and `user` loads.
+        rows = session.scalars(
+            select(RomUser)
+            .options(raiseload(RomUser.rom), raiseload(RomUser.user))
+            .filter(RomUser.user_id == user_id, RomUser.rom_id.in_(rom_ids))
+        ).all()
+        return {row.rom_id: row for row in rows}
 
     @begin_session
     def update_rom_user(

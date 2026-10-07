@@ -1122,3 +1122,35 @@ class TestRomFileSizeLocking:
             for call in session.execute.call_args_list
         ]
         assert locked == sorted({rom.id, second_rom.id})
+
+
+class TestRaBatchReads:
+    """Direct coverage for the RetroAchievements sync's batched getters."""
+
+    def test_get_roms_by_ra_ids_returns_every_match(self, platform: Platform):
+        usa_rom = make_rom(platform, "Game USA", ra_id=12345)
+        eur_rom = make_rom(platform, "Game Europe", ra_id=12345)
+        make_rom(platform, "Other Game", ra_id=67890)
+
+        rows = db_rom_handler.get_roms_by_ra_ids([12345])
+
+        assert {row.id for row in rows} == {usa_rom.id, eur_rom.id}
+
+    def test_get_roms_by_ra_ids_empty_input_short_circuits(self):
+        assert db_rom_handler.get_roms_by_ra_ids([]) == []
+
+    def test_get_rom_users_by_rom_ids_scopes_to_user(self, rom: Rom, editor_user: User):
+        # The `rom` fixture already links this ROM to the admin user.
+        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=editor_user.id)
+
+        rows = db_rom_handler.get_rom_users_by_rom_ids(editor_user.id, [rom.id])
+
+        # The session is closed and relations raise, so only columns are read.
+        assert set(rows) == {rom.id}
+        assert rows[rom.id].user_id == editor_user.id
+        assert rows[rom.id].status is None
+
+    def test_get_rom_users_by_rom_ids_empty_input_short_circuits(
+        self, viewer_user: User
+    ):
+        assert db_rom_handler.get_rom_users_by_rom_ids(viewer_user.id, []) == {}
