@@ -620,7 +620,6 @@ def _manifest_assets(
     all_saves = db_save_handler.get_saves(user_id=user.id) if tree != "states" else []
     saves = [save for save in all_saves if save.slot is None]
     slot_versions = group_slot_versions(all_saves)
-    # A slot version goes by RetroArch's name for the game, not its own tagged one.
     listed_saves = [
         (canonical_save_file_name(save.rom, save.file_name), save)
         for save in slot_versions.values()
