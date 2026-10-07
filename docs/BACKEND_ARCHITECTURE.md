@@ -783,10 +783,12 @@ Saves additionally link to `device_save_sync` for cross-device tracking. On save
 | `kind`                                                              | Enum       | `channel`, `archival`, `branch`                 |
 | `save_id`                                                           | FK → saves | `RESTRICT`                                      |
 | `digest`                                                            | String(64) | sha256 of the resolved manifest                 |
-| `is_pinned`, `is_public`, `is_hardcore`                             | Boolean    | Pinned snapshots are never pruned               |
+| `is_public`, `is_hardcore`                                          | Boolean    | `is_public` opens an archival snapshot          |
 | `rom_id`, `rom_sha1`, `save_target`, `emulator`, `origin_device_id` |            | Provenance                                      |
 
 **Table:** `snapshot_states` (PK `snapshot_id`, `core`, `slot`; `state_id` `RESTRICT`. Deleting a user removes their snapshots first, since PostgreSQL checks `RESTRICT` inside the cascade.)
+
+**Table:** `snapshot_pins` (PK `snapshot_id`, `user_id`, both cascade). A snapshot anyone pinned is never pruned. Unsharing a channel or an archival snapshot deletes every pin but the owner's.
 
 **Table:** `device_channel_sync` (PK `device_id`, `channel_id`; `base_snapshot_id`, `synced_at`), attribution only
 
@@ -1058,14 +1060,14 @@ parent's states. Hardcore channels and neutral current saves stay out.
 | ------ | ------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/snapshots`                          | ASSETS_READ   | Each channel's current on `rom_file_id`s, or a channel history                                                                          |
 | GET    | `/snapshots/{id}`                     | ASSETS_READ   | One snapshot with its save, bank and screenshots                                                                                        |
-| POST   | `/snapshots`                          | ASSETS_WRITE  | Push: `manifest` part plus content parts the server lacks                                                                               |
-| PATCH  | `/snapshots/{id}`                     | ASSETS_WRITE  | Pin, or share an archival snapshot                                                                                                      |
+| POST   | `/snapshots`                          | ASSETS_WRITE  | Push: `manifest` part plus content parts the server lacks; naming `device_id` also takes DEVICES_WRITE                                  |
+| PATCH  | `/snapshots/{id}`                     | ASSETS_WRITE  | Pin for the caller (any reader), or share an archival snapshot (owner only)                                                             |
 | PUT    | `/snapshots/{id}/devices/{device_id}` | DEVICES_WRITE | Record the snapshot a device applied                                                                                                    |
 | GET    | `/channels`                           | ASSETS_READ   | Channels on `rom_file_id`s, empty ones included, with current; `detached_platform_id` lists the caller's channels whose ROM was removed |
 | POST   | `/channels`                           | ASSETS_WRITE  | Create an empty channel on a ROM file                                                                                                   |
 | PATCH  | `/channels/{id}`                      | ASSETS_WRITE  | Rename or share a channel (owner only)                                                                                                  |
 | POST   | `/channels/{id}/attach`               | ASSETS_WRITE  | Attach a detached channel to a file on its platform (owner only)                                                                        |
-| DELETE | `/channels/{id}`                      | ASSETS_WRITE  | Delete; current and pinned snapshots stay as archival                                                                                   |
+| DELETE | `/channels/{id}`                      | ASSETS_WRITE  | Delete; current and owner-pinned snapshots stay as archival                                                                             |
 
 - **Writes:** every snapshot goes through `handler.snapshots.write.write_snapshot`,
   which locks the channel row, checks `expected_current_id` (a stale push is kept as a

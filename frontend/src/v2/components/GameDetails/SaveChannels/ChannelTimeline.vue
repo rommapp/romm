@@ -126,7 +126,7 @@ function headline(node: Node): string {
   const parts = [node.channel.label];
   if (isCurrent(node)) parts.push(t("channels.current"));
   if (node.snapshot?.kind === "branch") parts.push(t("channels.branch"));
-  if (node.snapshot?.is_pinned) parts.push(t("channels.pinned"));
+  if (node.snapshot?.pin_count) parts.push(t("channels.pinned"));
   if (node.save) parts.push(t("channels.legacy-save"));
   return parts.join(" · ");
 }
@@ -203,7 +203,7 @@ function onKey(event: KeyboardEvent, node: Node) {
           stroke-width="2"
         />
         <circle
-          v-if="node.snapshot?.is_pinned"
+          v-if="node.snapshot?.pin_count"
           :cx="node.x + 7"
           :cy="node.y - 7"
           r="3"

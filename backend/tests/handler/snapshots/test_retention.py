@@ -49,7 +49,7 @@ async def test_a_pinned_snapshot_stays_and_is_not_counted(
     admin_user: User, rom: Rom, hashed_file: RomFile
 ):
     first = await first_push(admin_user, rom, hashed_file)
-    db_snapshot_handler.update_snapshot(first.snapshot.id, {"is_pinned": True})
+    db_snapshot_handler.set_pin(first.snapshot.id, admin_user.id, True)
     results = [first]
     for n in range(4):
         results.append(
@@ -57,6 +57,42 @@ async def test_a_pinned_snapshot_stays_and_is_not_counted(
         )
 
     assert alive(*results) == [True, False, False, True, True]
+
+
+async def test_another_users_pin_keeps_a_snapshot_too(
+    admin_user: User, editor_user: User, rom: Rom, hashed_file: RomFile
+):
+    first = await first_push(admin_user, rom, hashed_file)
+    db_snapshot_handler.set_pin(first.snapshot.id, editor_user.id, True)
+    results = [first]
+    for n in range(4):
+        results.append(
+            await push_save(admin_user, rom, hashed_file, results[-1], f"s{n}".encode())
+        )
+
+    assert alive(*results) == [True, False, False, True, True]
+
+
+async def test_deleting_a_channel_archives_only_what_its_owner_pinned(
+    admin_user: User, editor_user: User, rom: Rom, hashed_file: RomFile
+):
+    results = [await first_push(admin_user, rom, hashed_file)]
+    db_snapshot_handler.set_pin(results[0].snapshot.id, admin_user.id, True)
+    results.append(
+        await push_save(admin_user, rom, hashed_file, results[-1], b"second")
+    )
+    db_snapshot_handler.set_pin(results[1].snapshot.id, editor_user.id, True)
+    for n in range(3):
+        results.append(
+            await push_save(admin_user, rom, hashed_file, results[-1], f"s{n}".encode())
+        )
+    channel_id = results[0].snapshot.channel_id
+    assert channel_id is not None
+    assert alive(*results) == [True, True, False, True, True]
+
+    await retention.discard_content(db_snapshot_handler.delete_channel(channel_id))
+
+    assert alive(*results) == [True, False, False, False, True]
 
 
 async def test_pruning_removes_the_files_only_pruned_snapshots_held(
@@ -182,7 +218,7 @@ async def test_deleting_a_detached_channel_keeps_nothing_unreachable(
     results = await five_pushes(admin_user, rom, hashed_file)
     channel_id = results[0].snapshot.channel_id
     assert channel_id is not None
-    db_snapshot_handler.update_snapshot(results[-2].snapshot.id, {"is_pinned": True})
+    db_snapshot_handler.set_pin(results[-2].snapshot.id, admin_user.id, True)
     db_rom_handler.delete_rom(rom.id)
 
     await retention.discard_content(db_snapshot_handler.delete_channel(channel_id))

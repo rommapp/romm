@@ -25,7 +25,7 @@ from models.channel import Channel
 from models.device import Device
 from models.device_channel_sync import DeviceChannelSync
 from models.rom import Rom, RomFile
-from models.snapshot import Snapshot, SnapshotKind, SnapshotState
+from models.snapshot import Snapshot, SnapshotKind, SnapshotPin, SnapshotState
 
 from .base_handler import DBBaseHandler
 
@@ -167,6 +167,7 @@ def channel_for_slot(
 
 
 _FREEZING_KINDS = (SnapshotKind.CHANNEL, SnapshotKind.BRANCH)
+_PINNED = exists().where(SnapshotPin.snapshot_id == Snapshot.id)
 
 
 def held_save_ids(session: Session, save_ids: Collection[int]) -> set[int]:
@@ -509,6 +510,65 @@ class DBSnapshotsHandler(DBBaseHandler):
         return holders
 
     @begin_session
+    def get_pins(
+        self,
+        snapshot_ids: Collection[int],
+        user_id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> tuple[dict[int, int], set[int]]:
+        """How many users pinned each snapshot, and which of them `user_id` pinned."""
+        if not snapshot_ids:
+            return {}, set()
+        rows = session.execute(
+            select(SnapshotPin.snapshot_id, SnapshotPin.user_id).where(
+                SnapshotPin.snapshot_id.in_(snapshot_ids)
+            )
+        ).all()
+        counts: dict[int, int] = {}
+        mine: set[int] = set()
+        for snapshot_id, pinner in rows:
+            counts[snapshot_id] = counts.get(snapshot_id, 0) + 1
+            if pinner == user_id:
+                mine.add(snapshot_id)
+        return counts, mine
+
+    @begin_session
+    def set_pin(
+        self,
+        snapshot_id: int,
+        user_id: int,
+        pinned: bool,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        pin = session.get(SnapshotPin, (snapshot_id, user_id))
+        if pinned and pin is None:
+            session.add(SnapshotPin(snapshot_id=snapshot_id, user_id=user_id))
+        elif not pinned and pin is not None:
+            session.delete(pin)
+        session.flush()
+
+    @begin_session
+    def drop_foreign_pins(
+        self,
+        owner_id: int,
+        channel_id: uuid.UUID | None = None,
+        snapshot_id: int | None = None,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Delete every pin but the owner's on a channel's snapshots, or on one
+        snapshot, once other users can no longer read them."""
+        held = (
+            select(Snapshot.id).where(Snapshot.channel_id == channel_id)
+            if channel_id is not None
+            else select(Snapshot.id).where(Snapshot.id == snapshot_id)
+        )
+        session.execute(
+            delete(SnapshotPin)
+            .where(SnapshotPin.snapshot_id.in_(held), SnapshotPin.user_id != owner_id)
+            .execution_options(synchronize_session=False)
+        )
+
+    @begin_session
     def get_thumbnails(
         self,
         save_ids: Collection[int],
@@ -765,7 +825,7 @@ class DBSnapshotsHandler(DBBaseHandler):
             .where(
                 Snapshot.channel_id == channel_id,
                 Snapshot.kind == SnapshotKind.CHANNEL,
-                Snapshot.is_pinned.is_(False),
+                ~_PINNED,
             )
             .order_by(Snapshot.id.desc())
         ).all()
@@ -782,7 +842,7 @@ class DBSnapshotsHandler(DBBaseHandler):
             .join(Channel, Snapshot.channel_id == Channel.id)
             .where(
                 Snapshot.kind == SnapshotKind.BRANCH,
-                Snapshot.is_pinned.is_(False),
+                ~_PINNED,
                 Snapshot.created_at < older_than,
                 Channel.rom_id.is_not(None),
             )
@@ -806,18 +866,20 @@ class DBSnapshotsHandler(DBBaseHandler):
     def delete_channel(
         self, id: uuid.UUID, session: Session = INJECTED_SESSION
     ) -> ReleasedContent:
-        """Delete a channel, keeping its current and pinned snapshots as archival.
-        Legacy saves filed under it lose the link and become backups. A detached
-        channel keeps nothing: with its ROM gone, no view could reach a backup."""
+        """Delete a channel, keeping its current and the owner's pinned snapshots
+        as archival. Legacy saves filed under it lose the link and become backups.
+        A detached channel keeps nothing: with its ROM gone, no view could reach a
+        backup."""
         channel = session.get_one(Channel, id, with_for_update=True)
+        owner_pinned = exists().where(
+            SnapshotPin.snapshot_id == Snapshot.id,
+            SnapshotPin.user_id == channel.user_id,
+        )
         kept = (
             session.scalars(
                 select(Snapshot).where(
                     Snapshot.channel_id == id,
-                    or_(
-                        Snapshot.id == channel.current_snapshot_id,
-                        Snapshot.is_pinned.is_(True),
-                    ),
+                    or_(Snapshot.id == channel.current_snapshot_id, owner_pinned),
                 )
             ).all()
             if channel.rom_id is not None

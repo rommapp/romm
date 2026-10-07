@@ -143,7 +143,6 @@ def upgrade() -> None:
         sa.Column("channel_id", sa.Uuid(), nullable=True),
         sa.Column("parent_snapshot_id", sa.Integer(), nullable=True),
         sa.Column("kind", _enum("snapshotkind"), nullable=False),
-        _flag("is_pinned"),
         _flag("is_public"),
         sa.Column("save_id", sa.Integer(), nullable=True),
         sa.Column("digest", sa.String(length=64), nullable=False),
@@ -205,6 +204,21 @@ def upgrade() -> None:
     with op.batch_alter_table("snapshot_states") as batch_op:
         batch_op.create_index(
             "ix_snapshot_states_state_id", ["state_id"], if_not_exists=True
+        )
+
+    op.create_table(
+        "snapshot_pins",
+        sa.Column("snapshot_id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        *_timestamps(),
+        sa.ForeignKeyConstraint(["snapshot_id"], ["snapshots.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("snapshot_id", "user_id"),
+        if_not_exists=True,
+    )
+    with op.batch_alter_table("snapshot_pins") as batch_op:
+        batch_op.create_index(
+            "ix_snapshot_pins_user_id", ["user_id"], if_not_exists=True
         )
 
     op.create_table(
@@ -352,7 +366,13 @@ def downgrade() -> None:
         "channels"
     ):
         op.drop_constraint(CURRENT_SNAPSHOT_FK, "channels", type_="foreignkey")
-    for table in ("device_channel_sync", "snapshot_states", "snapshots", "channels"):
+    for table in (
+        "device_channel_sync",
+        "snapshot_pins",
+        "snapshot_states",
+        "snapshots",
+        "channels",
+    ):
         op.drop_table(table, if_exists=True)
 
     for table in CHANNEL_CONTENT:

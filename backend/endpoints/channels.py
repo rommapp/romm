@@ -121,6 +121,10 @@ def update_channel(
         channel = db_snapshot_handler.update_channel(channel.id, changes)
     if "is_public" in changes:
         _sync_visibility(channel.id)
+        if not channel.is_public:
+            db_snapshot_handler.drop_foreign_pins(
+                channel.user_id, channel_id=channel.id
+            )
     return build_channel_schema(channel, request.user)
 
 

@@ -247,7 +247,7 @@ const overflow = computed(() => actions.value.slice(1));
         >
           {{ t("channels.branch") }}
         </RChip>
-        <RChip v-if="snapshot?.is_pinned" size="small" color="accent">
+        <RChip v-if="snapshot?.pin_count" size="small" color="accent">
           {{ t("channels.pinned") }}
         </RChip>
         <RChip v-if="snapshot?.is_hardcore" size="small" color="warning">
@@ -364,7 +364,7 @@ const overflow = computed(() => actions.value.slice(1));
         </RBtn>
         <div class="r-snapshot-viewer__tools">
           <RBtn
-            v-if="snapshot && own"
+            v-if="snapshot && canWrite"
             :icon="
               snapshot.is_pinned ? 'mdi-pin-off-outline' : 'mdi-pin-outline'
             "

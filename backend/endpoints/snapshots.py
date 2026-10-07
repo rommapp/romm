@@ -476,6 +476,7 @@ def _respond(result: WriteResult, viewer: User) -> JSONResponse:
     responses={
         status.HTTP_200_OK: {"model": SnapshotSchema},
         status.HTTP_400_BAD_REQUEST: {"model": MissingContentSchema},
+        status.HTTP_403_FORBIDDEN: {},
         status.HTTP_409_CONFLICT: {"model": SnapshotConflictSchema},
     },
 )
@@ -483,6 +484,8 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
     """Write a snapshot into a channel. Multipart: a `manifest` JSON part, plus
     `save`, `state:<core>:<slot>` and their screenshot parts for hashes the server lacks.
     A screenshot part may come alone, for content the server holds without one.
+    Naming `device_id` also takes `devices.write`, and the device must be the
+    caller's own.
     """
     viewer = request.user
     device = _own_device(request, device_id)
@@ -562,29 +565,31 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
 def update_snapshot(
     request: Request, id: int, payload: SnapshotUpdatePayload
 ) -> SnapshotSchema:
-    """Pin a snapshot, or share an archival one. Only its owner does either:
-    pinning is what keeps history from retention, which other users pushing
-    into a shared channel set off."""
+    """Pin or unpin a snapshot for the caller, which any reader may do, or share
+    an archival one, which only its owner may do."""
     viewer = request.user
     snapshot, channel = _readable(request, id)
-    if snapshot.user_id != viewer.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the owner of a snapshot pins or shares it",
-        )
-    changes: dict[str, Any] = {}
-    if payload.is_pinned is not None:
-        changes["is_pinned"] = payload.is_pinned
     if payload.is_public is not None:
+        if snapshot.user_id != viewer.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the owner of a snapshot shares it",
+            )
         if snapshot.kind != SnapshotKind.ARCHIVAL:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only an archival snapshot is shared on its own",
             )
-        changes["is_public"] = payload.is_public
-    if changes:
-        snapshot = db_snapshot_handler.update_snapshot(snapshot.id, changes)
-    if "is_public" in changes:
+    if payload.is_pinned is not None:
+        db_snapshot_handler.set_pin(snapshot.id, viewer.id, payload.is_pinned)
+    if payload.is_public is not None:
+        snapshot = db_snapshot_handler.update_snapshot(
+            snapshot.id, {"is_public": payload.is_public}
+        )
+        if not payload.is_public:
+            db_snapshot_handler.drop_foreign_pins(
+                snapshot.user_id, snapshot_id=snapshot.id
+            )
         content = db_snapshot_handler.get_stored_content(snapshot)
         db_snapshot_handler.sync_content_visibility(
             [content.save.id] if content.save else [],

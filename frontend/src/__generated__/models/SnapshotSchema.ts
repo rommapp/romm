@@ -23,6 +23,7 @@ export type SnapshotSchema = {
     save_target: (string | null);
     is_hardcore: boolean;
     is_pinned: boolean;
+    pin_count: number;
     is_public: boolean;
     created_at: string;
     held_by: Array<HeldBySchema>;

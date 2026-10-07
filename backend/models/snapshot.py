@@ -57,7 +57,6 @@ class Snapshot(BaseModel):
         ForeignKey("snapshots.id", ondelete="SET NULL"), default=None
     )
     kind: Mapped[SnapshotKind] = mapped_column(Enum(SnapshotKind))
-    is_pinned: Mapped[bool] = mapped_column(default=False)
     is_public: Mapped[bool] = mapped_column(default=False)
     save_id: Mapped[int | None] = mapped_column(
         ForeignKey("saves.id", ondelete="RESTRICT"), default=None
@@ -121,3 +120,21 @@ class SnapshotState(BaseModel):
 
     snapshot: Mapped[Snapshot] = relationship(back_populates="states", lazy="raise")
     state: Mapped[State] = relationship(lazy="raise")
+
+
+class SnapshotPin(BaseModel):
+    """One user's pin on a snapshot, which keeps it from pruning while that
+    user can read it."""
+
+    __tablename__ = "snapshot_pins"
+    __table_args__ = (
+        Index("ix_snapshot_pins_user_id", "user_id"),
+        {"extend_existing": True},
+    )
+
+    snapshot_id: Mapped[int] = mapped_column(
+        ForeignKey("snapshots.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )

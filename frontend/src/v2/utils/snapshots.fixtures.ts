@@ -55,6 +55,7 @@ export function snapshotFixture(
     save_target: null,
     is_hardcore: false,
     is_pinned: false,
+    pin_count: 0,
     is_public: false,
     created_at: hoursAgo(2),
     held_by: [],

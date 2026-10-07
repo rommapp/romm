@@ -89,7 +89,9 @@ class SnapshotSchema(BaseModel):
     rom_sha1: str | None
     save_target: str | None
     is_hardcore: bool
+    # Whether the viewer pinned it; `pin_count` counts every user's pin.
     is_pinned: bool
+    pin_count: int
     is_public: bool
     created_at: UTCDatetime
     held_by: list[HeldBySchema]
@@ -202,6 +204,9 @@ def build_snapshot_schemas(
     holders = db_snapshot_handler.get_holders_by_snapshot(
         [s.id for s, _ in snapshots], viewer.id
     )
+    pin_counts, my_pins = db_snapshot_handler.get_pins(
+        [s.id for s, _ in snapshots], viewer.id
+    )
     unbuilt = {c.id: c for _, c in snapshots if c is not None and c.id not in refs}
     refs.update(channel_refs(unbuilt.values(), viewer))
     return [
@@ -213,6 +218,7 @@ def build_snapshot_schemas(
             state_shots,
             devices.get(snapshot.origin_device_id or ""),
             holders.get(snapshot.id, []),
+            (snapshot.id in my_pins, pin_counts.get(snapshot.id, 0)),
             viewer,
         )
         for snapshot, channel in snapshots
@@ -227,6 +233,7 @@ def _snapshot_schema(
     state_shots: dict[int, Any],
     origin: Device | None,
     holders: Sequence[tuple[Any, Device]],
+    pins: tuple[bool, int],
     viewer: User,
 ) -> SnapshotSchema:
     save = content.save
@@ -250,7 +257,8 @@ def _snapshot_schema(
         rom_sha1=snapshot.rom_sha1,
         save_target=snapshot.save_target,
         is_hardcore=snapshot.is_hardcore,
-        is_pinned=snapshot.is_pinned,
+        is_pinned=pins[0],
+        pin_count=pins[1],
         is_public=snapshot.is_public,
         created_at=snapshot.created_at,
         held_by=[

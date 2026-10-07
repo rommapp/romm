@@ -204,7 +204,7 @@ describe("SnapshotViewer", () => {
     expect(button(wrapper, "channels.download")).toBeDefined();
   });
 
-  it("lets anyone restore into a shared channel", () => {
+  it("lets anyone restore into or pin from a shared channel", () => {
     const wrapper = mountViewer({
       kind: "snapshot",
       channel: channelFixture({ is_own: false, is_public: true }),
@@ -212,6 +212,18 @@ describe("SnapshotViewer", () => {
     });
 
     expect(button(wrapper, "channels.restore")).toBeDefined();
+    expect(button(wrapper, "channels.pin")).toBeDefined();
+  });
+
+  it("marks a snapshot another user pinned as pinned", () => {
+    const wrapper = mountViewer({
+      kind: "snapshot",
+      channel: channelFixture({ is_own: false, is_public: true }),
+      snapshot: { ...older, is_pinned: false, pin_count: 1 },
+    });
+
+    expect(wrapper.text()).toContain("channels.pinned");
+    expect(button(wrapper, "channels.pin")).toBeDefined();
   });
 
   it("offers save-over only when another channel shares the file", async () => {

@@ -1338,7 +1338,7 @@ def test_a_fork_of_another_users_snapshot_holds_copies(
     assert content.content == SRAM
 
 
-def test_only_the_owner_pins_a_snapshot(
+def test_each_reader_pins_a_shared_snapshot_for_themselves(
     client: TestClient,
     headers: dict[str, str],
     editor_headers: dict[str, str],
@@ -1348,11 +1348,88 @@ def test_only_the_owner_pins_a_snapshot(
     _share(client, headers, body)
     path = f"/api/snapshots/{body['id']}"
 
-    foreign = client.patch(path, json={"is_pinned": True}, headers=editor_headers)
-    own = client.patch(path, json={"is_pinned": True}, headers=headers)
+    theirs = client.patch(path, json={"is_pinned": True}, headers=editor_headers)
+    owners_view = client.get(path, headers=headers).json()
 
-    assert foreign.status_code == status.HTTP_403_FORBIDDEN
-    assert own.json()["is_pinned"] is True
+    assert theirs.status_code == status.HTTP_200_OK
+    assert (theirs.json()["is_pinned"], theirs.json()["pin_count"]) == (True, 1)
+    assert (owners_view["is_pinned"], owners_view["pin_count"]) == (False, 1)
+
+
+def test_only_the_owner_shares_an_archival_snapshot(
+    client: TestClient,
+    headers: dict[str, str],
+    editor_headers: dict[str, str],
+    game_file: RomFile,
+):
+    body = first_push(client, headers, game_file)
+    _share(client, headers, body)
+    client.delete(f"/api/channels/{body['channel']['id']}", headers=headers)
+    path = f"/api/snapshots/{body['id']}"
+
+    response = client.patch(path, json={"is_public": False}, headers=editor_headers)
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_unsharing_a_channel_drops_every_pin_but_the_owners(
+    client: TestClient,
+    headers: dict[str, str],
+    editor_headers: dict[str, str],
+    game_file: RomFile,
+):
+    body = first_push(client, headers, game_file)
+    _share(client, headers, body)
+    path = f"/api/snapshots/{body['id']}"
+    client.patch(path, json={"is_pinned": True}, headers=editor_headers)
+    client.patch(path, json={"is_pinned": True}, headers=headers)
+
+    client.patch(
+        f"/api/channels/{body['channel']['id']}",
+        json={"is_public": False},
+        headers=headers,
+    )
+    _share(client, headers, body)
+    owners_view = client.get(path, headers=headers).json()
+    editors_view = client.get(path, headers=editor_headers).json()
+
+    assert (owners_view["is_pinned"], owners_view["pin_count"]) == (True, 1)
+    assert editors_view["is_pinned"] is False
+
+
+def test_unsharing_a_channel_cuts_off_what_another_user_pushed_into_it(
+    client: TestClient,
+    headers: dict[str, str],
+    editor_headers: dict[str, str],
+    game_file: RomFile,
+    rom: Rom,
+):
+    shared = first_push(client, headers, game_file)
+    _share(client, headers, shared)
+    pushed = post(
+        client,
+        editor_headers,
+        manifest(
+            game_file,
+            channel_id=shared["channel"]["id"],
+            expected_current_id=shared["id"],
+            save=save_entry(b"editor progress"),
+        ),
+        {"save": ("game.srm", b"editor progress")},
+    ).json()
+
+    client.patch(
+        f"/api/channels/{shared['channel']['id']}",
+        json={"is_public": False},
+        headers=headers,
+    )
+    snapshot = client.get(f"/api/snapshots/{pushed['id']}", headers=editor_headers)
+    content = client.get(pushed["save"]["download_path"], headers=editor_headers)
+    detail = client.get(f"/api/roms/{rom.id}", headers=editor_headers).json()
+
+    assert snapshot.status_code == status.HTTP_404_NOT_FOUND
+    assert content.status_code == status.HTTP_404_NOT_FOUND
+    assert detail["user_channels"] == []
 
 
 def test_a_push_into_a_shared_channel_cannot_name_the_owners_private_content(

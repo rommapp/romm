@@ -51,7 +51,7 @@ function badgesFor(snapshot: SnapshotSchema): CardBadge[] {
   if (snapshot.kind === "branch") {
     badges.push({ label: t("channels.branch"), outlined: true });
   }
-  if (snapshot.is_pinned) {
+  if (snapshot.pin_count > 0) {
     badges.push({ label: t("channels.pinned"), color: "accent" });
   }
   if (snapshot.is_hardcore) {
