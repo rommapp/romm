@@ -377,7 +377,20 @@ async def _is_duplicate_of_latest(
         )
     except FileNotFoundError:
         return False
+    await _backfill_hash(latest, existing)
     return existing == content
+
+
+async def _backfill_hash(state: State, content: bytes) -> None:
+    """Store a legacy state's hash so later checks skip the read. Best effort."""
+    try:
+        content_hash = await asyncio.to_thread(content_hash_of_bytes, content)
+        if content_hash is not None:
+            await asyncio.to_thread(
+                db_state_handler.backfill_content_hash, state.id, content_hash
+            )
+    except Exception as exc:
+        log.warning("could not record the hash of state %s: %s", state.id, exc)
 
 
 async def is_stored(user_id: int, rom_id: int, emulator: str, content: bytes) -> bool:

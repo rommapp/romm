@@ -5321,6 +5321,48 @@ def test_an_unhashed_state_is_still_matched_by_its_bytes(rom: Rom, admin_user: U
         )
 
 
+def test_an_unhashed_state_gets_its_hash_once_read(rom: Rom, admin_user: User):
+    """The next dedupe check then compares hashes rather than reading the file."""
+    content = b"state-bytes"
+    state = _add_state(
+        rom, admin_user, "Game.state", "retroarch", file_size_bytes=len(content)
+    )
+    before = db_state_handler.get_state_by_id(state.id)
+    assert before is not None
+    with patch(
+        "handler.filesystem.fs_asset_handler.read_file",
+        new=AsyncMock(return_value=content),
+    ):
+        asyncio.run(
+            states.is_stored(admin_user.id, rom.id, "retroarch", b"other-bytes")
+        )
+    row = db_state_handler.get_state(user_id=admin_user.id, id=state.id)
+    assert row is not None
+    assert row.content_hash == content_hash_of_bytes(content)
+    assert row.updated_at == before.updated_at
+
+
+def test_a_failed_hash_write_back_still_matches_the_state(
+    rom: Rom, admin_user: User, caplog
+):
+    content = b"state-bytes"
+    _add_state(rom, admin_user, "Game.state", "retroarch", file_size_bytes=len(content))
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(return_value=content),
+        ),
+        patch(
+            "handler.streaming.states.db_state_handler.backfill_content_hash",
+            side_effect=RuntimeError("db down"),
+        ),
+    ):
+        assert asyncio.run(
+            states.is_stored(admin_user.id, rom.id, "retroarch", content)
+        )
+    assert "db down" in caplog.text
+
+
 def test_a_stored_state_records_its_content_hash(rom: Rom, admin_user: User):
     content = b"state-bytes"
     with (
