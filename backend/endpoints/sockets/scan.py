@@ -540,6 +540,17 @@ def _should_hash_firmware(
     )
 
 
+def _ancestor_paths(fs_roms: Sequence[FSRom]) -> set[str]:
+    """Return every discovered rom's fs_path along with all of its parent paths."""
+    ancestors: set[str] = set()
+    for fs_rom in fs_roms:
+        path = fs_rom["fs_path"]
+        while path and path not in ancestors:
+            ancestors.add(path)
+            path = path.rpartition("/")[0]
+    return ancestors
+
+
 async def _rebuild_rom_files(
     rom: Rom,
     fs_rom: FSRom,
@@ -1131,14 +1142,10 @@ async def _identify_platform(
         # A folder a custom structure now descends into used to be a single
         # multi-file rom; that old entry shows up here as missing. Flag those so
         # it's clear the "missing" is expected and the stale entry can be
-        # deleted. A superseded folder's path is a parent of a discovered rom.
-        descended_paths = {rom["fs_path"] for rom in fs_roms}
+        # deleted. A superseded folder's path is an ancestor of a discovered rom.
+        ancestors = _ancestor_paths(fs_roms)
         for r in missing_roms:
-            superseded = any(
-                p == r.full_path or p.startswith(f"{r.full_path}/")
-                for p in descended_paths
-            )
-            if superseded:
+            if r.full_path in ancestors:
                 log.warning(
                     f" - {r.fs_name} (now scanned as a folder of roms, "
                     "delete this stale entry to clean up)"
