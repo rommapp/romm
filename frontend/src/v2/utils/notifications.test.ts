@@ -2,8 +2,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { NotificationKind, NotificationSchema } from "@/__generated__";
 import { loadLocale } from "@/locales";
 import { ROUTES } from "@/plugins/routeNames";
-import { describeNotification } from "@/v2/utils/notifications";
 import { mockPseudoContent } from "@/v2/utils/iconGlyph.fixtures";
+import { describeNotification } from "@/v2/utils/notifications";
 import { makeNotification } from "@/v2/utils/notifications.fixtures";
 
 function notification(
