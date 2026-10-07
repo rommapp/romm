@@ -88,8 +88,6 @@ const tag = computed(() => (props.to ? RouterLink : "button"));
   );
 }
 
-/* The row sits above the bottom-pinned bar, with a sliver of room
-   between them. */
 .r-nav-status-pill__row {
   display: inline-flex;
   align-items: center;
@@ -103,7 +101,6 @@ const tag = computed(() => (props.to ? RouterLink : "button"));
   white-space: nowrap;
 }
 
-/* The glyph replaces the label on phones. */
 .r-nav-status-pill__icon {
   display: none;
 }

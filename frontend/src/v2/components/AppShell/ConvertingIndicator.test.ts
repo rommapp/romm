@@ -9,13 +9,16 @@ vi.mock("@v2/lib", () => ({
   RDivider: { template: "<hr />" },
   RIcon: { template: "<i />" },
   RProgressLinear: { template: "<div />" },
-  RTag: { props: ["text"], template: "<span>{{ text }}</span>" },
+  RTag: {
+    props: { text: { type: String, default: "" } },
+    template: "<span>{{ text }}</span>",
+  },
   RMenu: {
     template:
       "<div><slot name='activator' :props='{}' /><div class='menu'><slot /></div></div>",
   },
   RMenuItem: {
-    props: ["label", "to", "icon"],
+    props: { label: { type: String, default: "" } },
     template: "<a class='menu-item'>{{ label }}<slot name='append' /></a>",
   },
 }));
