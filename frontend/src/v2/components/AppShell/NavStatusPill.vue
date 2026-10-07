@@ -1,5 +1,4 @@
 <script setup lang="ts">
-// Top-bar pill for a background job, with a progress bar on its bottom edge.
 // A link with `to`, a button otherwise; attrs land on that element so a
 // tooltip or menu activator can bind to it.
 import { RIcon, RProgressLinear } from "@v2/lib";

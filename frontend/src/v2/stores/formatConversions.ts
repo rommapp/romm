@@ -1,6 +1,5 @@
-// Format downloads waiting on the server to convert, so the top bar can show
-// them until each download starts. Keyed by the download path, which a second
-// click on the same format resolves to.
+// Format downloads waiting on the server to convert, keyed by download path
+// so a second click on the same format dedupes.
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 
