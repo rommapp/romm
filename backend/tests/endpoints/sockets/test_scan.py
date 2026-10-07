@@ -1487,7 +1487,6 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         db_rom = mocker.patch.object(scan_module, "db_rom_handler")
         db_rom.get_roms_by_fs_name.return_value = {"test/roms/Game.zip": rom}
         db_rom.mark_missing_roms.return_value = []
-        db_rom.get_rom.return_value = rom
         db_rom.get_roms_simple_by_ids.return_value = [rom]
 
         db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
@@ -1558,25 +1557,12 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         self, patched, mocker
     ):
         """Three restored ROMs issue one batched hydration read, in visit order."""
-        fs_roms: list[FSRom] = [
-            {
-                "fs_name": f"Game{i}.zip",
-                "fs_path": "test/roms",
-                "flat": True,
-                "files": [],
-                "crc_hash": "",
-                "md5_hash": "",
-                "sha1_hash": "",
-                "ra_hash": "",
-            }
-            for i in range(3)
-        ]
+        fs_roms = [make_fs_rom(f"Game{i}.zip") for i in range(3)]
         mocker.patch.object(fs_rom_handler, "get_roms", AsyncMock(return_value=fs_roms))
-        roms = []
-        for i, fs_rom in enumerate(fs_roms):
-            rom = Rom(fs_name=fs_rom["fs_name"], platform_id=1)
-            rom.id = 11 + i
-            roms.append(rom)
+        roms = [
+            Rom(id=11 + i, fs_name=fs_rom["fs_name"], platform_id=1)
+            for i, fs_rom in enumerate(fs_roms)
+        ]
         patched.get_roms_by_fs_name.return_value = {
             f"test/roms/{rom.fs_name}": rom for rom in roms
         }
