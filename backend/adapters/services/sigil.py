@@ -1,9 +1,11 @@
 import asyncio
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
 from logger.logger import log
+from models.rom import Rom, RomFile, RomFileCategory
 from utils.filesystem import COMPRESSED_FILE_SUFFIXES
 from utils.m3u import first_playlist_entry
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -34,11 +36,18 @@ SIGIL_PLATFORM_SLUGS: Final[dict[str, str]] = {
 # and it is the only family whose files may carry their title id in the filename.
 SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
 
-# Errors that are expected for arbitrary library files (no title id present,
-# format sigil can't parse, missing decryption keys). Logged at debug level.
-ROUTINE_SIGIL_ERROR_CODES: Final = frozenset(
-    {"NOT_FOUND", "UNSUPPORTED", "UNSUPPORTED_FORMAT", "NEEDS_KEY"}
-)
+
+def _is_routine_error(exc: Exception) -> bool:
+    """Whether the error is expected for an arbitrary library file: no title id,
+    a format sigil can't parse, or missing decryption keys."""
+    return sigil is not None and isinstance(
+        exc,
+        (
+            sigil.SigilNotFoundError,
+            sigil.SigilUnsupportedFormatError,
+            sigil.SigilNeedsKeyError,
+        ),
+    )
 
 
 @dataclass(frozen=True)
@@ -56,6 +65,17 @@ class SigilExtractionResult:
     usage: str
     content_type: str | None = None
     version: int | None = None
+    raw_serial: str = ""
+    features: int = 0
+
+
+@dataclass(frozen=True)
+class SigilGame:
+    """A ROM's game as sigil's collect and restore take it."""
+
+    result: "sigil.SigilResult"
+    # Every id the game's saves may carry: each disc's title id, disc 1 first.
+    game_ids: tuple[str, ...]
 
 
 class SigilService:
@@ -135,9 +155,8 @@ class SigilService:
                 sigil.extract, file_path, platform=sigil_slug, filename_fallback=False
             )
         except Exception as exc:
-            code = getattr(exc, "code", None)
-            if code in ROUTINE_SIGIL_ERROR_CODES:
-                log.debug(f"Sigil found no title id for {file_path}: {code}")
+            if _is_routine_error(exc):
+                log.debug(f"Sigil found no title id for {file_path}: {exc}")
             else:
                 log.error(f"Sigil extraction failed for {file_path}: {exc}")
             return None
@@ -156,4 +175,47 @@ class SigilService:
             # Version 0 is a valid base-game version, so keep the int as-is;
             # a missing field (non-Switch, older binding) maps to None.
             version=getattr(result, "title_version", None),
+            raw_serial=result.raw_serial,
+            features=result.features,
+        )
+
+    @staticmethod
+    def stored_game(rom: Rom, rom_files: Iterable[RomFile]) -> SigilGame | None:
+        """Rebuild the game sigil identified at scan time from the stored columns.
+
+        The serial and features come from the file sigil read the ROM's title id
+        from, defaulting as a fresh extraction would until a rescan reads one.
+
+        Returns:
+            None when the binding is absent, sigil has no such platform, or the
+            ROM has no title id.
+        """
+        sigil_slug = SIGIL_PLATFORM_SLUGS.get(rom.platform_slug)
+        if sigil is None or sigil_slug is None or not rom.title_id:
+            return None
+
+        own_files = sorted(
+            (f for f in rom_files if f.category in (None, RomFileCategory.GAME)),
+            key=lambda f: f.listing_order,
+        )
+        source = next(
+            (
+                f
+                for f in own_files
+                if f.title_id == rom.title_id and f.sigil_features is not None
+            ),
+            None,
+        )
+        game_ids = dict.fromkeys(
+            [rom.title_id, *(f.title_id for f in own_files if f.title_id)]
+        )
+        return SigilGame(
+            result=sigil.SigilResult.persisted(
+                platform=sigil_slug,
+                title_id=rom.title_id,
+                save_id=rom.save_target or "",
+                features=source.sigil_features if source else 0,
+                raw_serial=(source.raw_serial or "") if source else "",
+            ),
+            game_ids=tuple(game_ids),
         )

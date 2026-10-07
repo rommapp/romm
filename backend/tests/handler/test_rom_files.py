@@ -338,6 +338,26 @@ async def test_a_title_id_read_off_a_reused_row_is_persisted(
     assert (stored.title_id, stored.title_version) == ("ULUS-10041", 1)
 
 
+async def test_a_serial_read_off_a_reused_row_is_persisted(
+    platform, admin_user, library
+):
+    """A rescan fills the serial onto rows written before sigil's was stored."""
+    rom = _folder_rom(platform, admin_user, library, {"game.bin": b"game"})
+
+    async def read_serial(*_args, **_kwargs) -> ParsedRomFiles:
+        parsed = _unchanged_parse(rom, RomIdentity())
+        parsed.rom_files[0].raw_serial = "SLUS_200.01"
+        parsed.rom_files[0].sigil_features = 0
+        return parsed
+
+    with patch.object(fs_rom_handler, "get_rom_files", read_serial):
+        result = await refresh_rom_files(rom)
+
+    stored = _files_by_name(rom.id)["game.bin"]
+    assert result.updated_files == 1
+    assert (stored.raw_serial, stored.sigil_features) == ("SLUS_200.01", 0)
+
+
 async def test_a_read_that_confirms_a_reused_rows_title_id_is_persisted(
     platform, admin_user, library
 ):

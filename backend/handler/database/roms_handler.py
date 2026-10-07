@@ -354,6 +354,8 @@ ROM_FILE_SCANNED_COLUMNS = (
     "title_id",
     "title_version",
     "converto_read_at",
+    "raw_serial",
+    "sigil_features",
     "archive_members",
     "category",
 )
@@ -2632,19 +2634,20 @@ class DBRomsHandler(DBBaseHandler):
 
         Returns the cover path this update orphaned, if any.
         """
-        # Title ids rom-converto didn't read this pass are reusable only when
+        # Ids rom-converto or sigil didn't read this pass are reusable only when
         # they still describe the same content.
-        keep_converto = scanned.converto_read_at is None and _same_content(row, scanned)
+        same_content = _same_content(row, scanned)
+        keep_when_unset: frozenset[str] = frozenset()
+        if same_content:
+            keep_when_unset |= {"raw_serial", "sigil_features"}
+            if scanned.converto_read_at is None:
+                keep_when_unset |= {"title_id", "title_version", "converto_read_at"}
         _copy_scanned_columns(
             scanned,
             row,
             ROM_FILE_SCANNED_COLUMNS,
             RomFile,
-            keep_when_unset=(
-                frozenset({"title_id", "title_version", "converto_read_at"})
-                if keep_converto
-                else frozenset()
-            ),
+            keep_when_unset=keep_when_unset,
         )
 
         if row.missing_from_fs:

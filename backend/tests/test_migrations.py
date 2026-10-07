@@ -260,10 +260,12 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0149_save_channels.py", "channels"),
         ("0149_save_channels.py", "snapshots"),
         ("0149_save_channels.py", "snapshot_states"),
+        ("0149_save_channels.py", "snapshot_pins"),
         ("0149_save_channels.py", "device_channel_sync"),
         ("0149_save_channels.py", "saves"),
         ("0149_save_channels.py", "states"),
         ("0149_save_channels.py", "screenshots"),
+        ("0151_rom_file_sigil_identity.py", "rom_files"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -445,7 +447,13 @@ def test_the_rom_file_title_ids_revision_reverses_and_replays():
 def test_the_save_channels_revision_reverses_and_replays():
     migration = _load_migration("0149_save_channels.py")
     tables = ("saves", "states", "screenshots")
-    created = ("channels", "snapshots", "snapshot_states", "device_channel_sync")
+    created = (
+        "channels",
+        "snapshots",
+        "snapshot_states",
+        "snapshot_pins",
+        "device_channel_sync",
+    )
 
     with sync_engine.begin() as connection:
         before = {table: _schema_of(connection, table) for table in tables + created}
@@ -510,6 +518,23 @@ def test_the_slot_link_revision_files_slotted_saves_under_channels(
         backup.id: None,
     }
     assert channels == 2
+
+
+def test_the_rom_file_sigil_identity_revision_reverses_and_replays():
+    migration = _load_migration("0151_rom_file_sigil_identity.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "rom_files")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "rom_files", "raw_serial")
+            assert not has_column(connection, "rom_files", "sigil_features")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "rom_files") == before
 
 
 def test_the_age_limits_revision_reverses_replays_and_fills(platform: Platform):

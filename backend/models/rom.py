@@ -9,6 +9,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Final, NamedTuple, TypedDict
 
 from sqlalchemy import (
@@ -405,6 +406,13 @@ class RomFile(BaseModel):
     converto_read_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), default=None
     )
+    raw_serial: Mapped[str | None] = mapped_column(
+        String(length=TITLE_ID_MAX_LENGTH),
+        default=None,
+        doc="The serial as the binary spells it (SLUS_201.52), which some emulators name saves after",
+    )
+    # NULL until sigil reads the file. BigInteger: a u32 bitmask.
+    sigil_features: Mapped[int | None] = mapped_column(BigInteger, default=None)
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
     )
@@ -473,6 +481,16 @@ class RomFile(BaseModel):
             )
 
         return LookupHashes(crc=self.crc_hash, md5=self.md5_hash, sha1=self.sha1_hash)
+
+    @property
+    def listing_order(self) -> tuple[PurePosixPath, str, str]:
+        """A folder's own files before its subfolders', each in natural name order.
+
+        A multi-disc ROM lists disc 1 first. The exact name settles two names
+        differing only in case.
+        """
+        name = self.file_name
+        return PurePosixPath(self.file_path), compute_name_sort_key(name), name
 
     @cached_property
     def is_top_level(self) -> bool:
