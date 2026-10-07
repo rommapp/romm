@@ -21,8 +21,9 @@ RomM can only come back for it once the teardown has answered. What is still
 missing here is volume, mute and whole-card sync.
 """
 
+import hashlib
 import http.client
-import math
+import json
 import time
 import urllib.error
 from dataclasses import dataclass
@@ -30,8 +31,10 @@ from typing import Any, Literal
 from urllib.parse import quote, urlencode
 
 from fastapi import HTTPException
+from redis.exceptions import RedisError
 
 from config import STREAMING_LAUNCH_TIMEOUT, STREAMING_SAVE_TIMEOUT
+from handler.redis_handler import sync_cache
 from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.protocol import ACK_TIMEOUT, WebstationProtocol
@@ -66,12 +69,25 @@ class ImportSpec:
         return kinds
 
 
-# Per container and core. A 404 or 422 holds for the worker's life, an answer
-# or a refused core for one claim's checks, a failure not at all.
+# Per container and core. A 404 or 422 expires so a broker upgrade is seen
+# without a RomM restart; a fallback answer only spans one claim's checks.
 _IMPORT_SPEC_TTL = 30.0
-_import_spec_cache: dict[
-    tuple[str, str, str, str | None, bool], tuple[float, ImportSpec | None]
-] = {}
+_IMPORT_SPEC_MISSING_TTL = 300.0
+_IMPORT_SPEC_FALLBACK_TTL = 10.0
+_ImportSpecKey = tuple[str, str, str, str | None, bool]
+_import_spec_cache: dict[_ImportSpecKey, tuple[float, ImportSpec | None]] = {}
+
+# Shared across web workers, so one that never reached the broker still has it.
+_LAST_GOOD_KEY_PREFIX = "romm:streaming:import-spec:"
+_LAST_GOOD_TTL_SECONDS = 7 * 24 * 60 * 60
+
+
+class ImportSpecUnavailable(HTTPException):
+    """The broker can't be asked and no earlier answer stands in, so retry later."""
+
+    def __init__(self) -> None:
+        detail = "Couldn't reach the streaming container to check this pick, try again"
+        super().__init__(status_code=503, detail=detail)
 
 
 def _parse_import_spec(body: dict[str, Any]) -> ImportSpec | None:
@@ -104,6 +120,20 @@ def import_spec(
     container: ResolvedContainer, emulator: str, platform: str
 ) -> ImportSpec | None:
     """What this broker accepts as a declared import, or None when nothing or unknown."""
+    try:
+        return require_import_spec(container, emulator, platform)
+    except ImportSpecUnavailable:
+        return None
+
+
+def require_import_spec(
+    container: ResolvedContainer, emulator: str, platform: str
+) -> ImportSpec | None:
+    """What this broker accepts as a declared import, or None when nothing.
+
+    Raises:
+        ImportSpecUnavailable: The broker can't be asked and has no earlier answer.
+    """
     if not container.is_webstation:
         return None
     # The core is part of the key, so a config edit that changes the core is
@@ -130,27 +160,99 @@ def import_spec(
     except urllib.error.HTTPError as exc:
         code = exc.code
         exc.close()
-        if code in (404, 422):
-            # A refused core is fixed by upgrading the broker, so that answer
-            # expires like any other rather than lasting until a restart.
-            refused_core = code == 422 and container.core is not None
-            expires = time.monotonic() + _IMPORT_SPEC_TTL if refused_core else math.inf
-            _import_spec_cache[cache_key] = (expires, None)
+        if code == 404:
+            # A broker that answered before is likelier restarting behind a
+            # proxy than downgraded, so its last answer stands in.
+            try:
+                return _last_good_import_spec(cache_key)
+            except ImportSpecUnavailable:
+                pass
+            # Once per worker, not at every expiry of the cached answer.
+            if cached is None or cached[1] is not None:
+                log.warning(
+                    "import-spec not found on %s, the broker predates imports",
+                    container.key,
+                )
+            _no_imports(cache_key, _IMPORT_SPEC_MISSING_TTL)
             return None
-        log.warning("import-spec check failed with HTTP %d, treating as unknown", code)
+        if code == 422:
+            # A refused core is fixed by upgrading the broker, so that answer
+            # expires sooner than an emulator the broker doesn't know.
+            ttl = _IMPORT_SPEC_TTL if container.core else _IMPORT_SPEC_MISSING_TTL
+            _forget_last_good(cache_key)
+            _no_imports(cache_key, ttl)
+            return None
+        if code >= 500 or code == 429:
+            log.warning("import-spec check failed with HTTP %d", code)
+            return _last_good_import_spec(cache_key)
+        log.error("import-spec check on %s refused with HTTP %d", container.key, code)
+        _no_imports(cache_key, _IMPORT_SPEC_TTL)
         return None
-    except (urllib.error.URLError, OSError, http.client.HTTPException):
-        log.warning("import-spec check unreachable, treating as unknown")
-        return None
+    except urllib.error.URLError, OSError, http.client.HTTPException:
+        log.warning("import-spec check unreachable on %s", container.key)
+        return _last_good_import_spec(cache_key)
     except ValueError as exc:
-        log.warning("import-spec response was not valid JSON, %s", exc)
+        log.error("import-spec response from %s was not JSON, %s", container.key, exc)
+        _no_imports(cache_key, _IMPORT_SPEC_TTL)
         return None
-    if not isinstance(resp, dict):
-        log.warning("import-spec response was not a JSON object, treating as unknown")
+    spec = _parse_import_spec(resp) if isinstance(resp, dict) else None
+    if spec is None:
+        log.error("import-spec response from %s was unreadable", container.key)
+        _no_imports(cache_key, _IMPORT_SPEC_TTL)
         return None
-    spec = _parse_import_spec(resp)
-    if spec is not None:
-        _import_spec_cache[cache_key] = (time.monotonic() + _IMPORT_SPEC_TTL, spec)
+    _import_spec_cache[cache_key] = (time.monotonic() + _IMPORT_SPEC_TTL, spec)
+    _remember_last_good(cache_key, resp)
+    return spec
+
+
+def _no_imports(cache_key: _ImportSpecKey, ttl: float) -> None:
+    # Retrying can't change this answer, so it is cached, not a 503.
+    _import_spec_cache[cache_key] = (time.monotonic() + ttl, None)
+
+
+def _last_good_key(cache_key: _ImportSpecKey) -> str:
+    digest = hashlib.sha256(json.dumps(cache_key).encode()).hexdigest()
+    return f"{_LAST_GOOD_KEY_PREFIX}{digest}"
+
+
+def _remember_last_good(cache_key: _ImportSpecKey, body: dict[str, Any]) -> None:
+    # The broker's own body, so reading it back runs the same checks.
+    try:
+        sync_cache.set(
+            _last_good_key(cache_key), json.dumps(body), ex=_LAST_GOOD_TTL_SECONDS
+        )
+    except RedisError:
+        log.warning("import-spec answer could not be cached")
+
+
+def _forget_last_good(cache_key: _ImportSpecKey) -> None:
+    try:
+        sync_cache.delete(_last_good_key(cache_key))
+    except RedisError:
+        log.warning("import-spec answer could not be forgotten")
+
+
+def _last_good_import_spec(cache_key: _ImportSpecKey) -> ImportSpec:
+    """The broker's last answer, which a failed check doesn't overturn."""
+    try:
+        raw = sync_cache.get(_last_good_key(cache_key))
+    except RedisError:
+        raw = None
+    if raw is None:
+        raise ImportSpecUnavailable
+    try:
+        body = json.loads(raw)
+    except ValueError:
+        body = None
+    spec = _parse_import_spec(body) if isinstance(body, dict) else None
+    if spec is None:
+        # Written by another RomM version, or cut short: no answer at all.
+        raise ImportSpecUnavailable
+    log.info("import-spec check failed, using the broker's last answer")
+    _import_spec_cache[cache_key] = (
+        time.monotonic() + _IMPORT_SPEC_FALLBACK_TTL,
+        spec,
+    )
     return spec
 
 
@@ -187,7 +289,7 @@ def default_core(container: ResolvedContainer) -> str | None:
         if code != 404:
             log.warning("retroarch cores check failed with HTTP %d", code)
             return None
-    except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError):
+    except urllib.error.URLError, OSError, http.client.HTTPException, ValueError:
         log.warning("retroarch cores check unreachable, not filtering states by core")
         return None
     else:
