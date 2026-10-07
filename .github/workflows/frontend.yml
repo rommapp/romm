@@ -5,12 +5,14 @@ on:
     paths:
       - "frontend/**"
       - ".github/actions/setup-frontend/**"
+      - ".github/actions/bound-apt-timeouts/**"
   push:
     branches:
       - "master"
     paths:
       - "frontend/**"
       - ".github/actions/setup-frontend/**"
+      - ".github/actions/bound-apt-timeouts/**"
 
 # A new push cancels a PR's superseded run; each master commit keeps its own.
 concurrency:
@@ -32,6 +34,9 @@ jobs:
 
       - name: Set up the frontend
         uses: ./.github/actions/setup-frontend
+
+      - name: Bound apt network timeouts
+        uses: ./.github/actions/bound-apt-timeouts
 
       # Stories run in browser mode, which needs only the headless shell.
       - name: Install Playwright browser
