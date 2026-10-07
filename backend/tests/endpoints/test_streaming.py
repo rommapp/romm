@@ -5023,6 +5023,23 @@ def test_hydrate_skips_a_newer_state_from_another_core(rom: Rom, admin_user: Use
     assert push.call_args.args[1:] == ("Old.state", b"state-bytes", "bsnes")
 
 
+def test_hydrate_skips_a_newer_auto_state(rom: Rom, admin_user: User):
+    """The auto state only loads at content start, so it never goes to a slot."""
+    _core_state(rom, admin_user, "Game.20260101-000000000000.state", None)
+    _core_state(rom, admin_user, "Game.20260202-000000000000.state.auto", None)
+    push = _hydrate_core(rom, admin_user, "retroarch", states.StateCore("snes9x", True))
+    push.assert_called_once()
+    assert push.call_args.args[1] == "Game.state"
+
+
+def test_hydrate_pushes_nothing_when_only_an_auto_state_is_stored(
+    rom: Rom, admin_user: User
+):
+    _core_state(rom, admin_user, "Game.20260202-000000000000.state.auto", None)
+    push = _hydrate_core(rom, admin_user, "retroarch", states.StateCore("snes9x", True))
+    push.assert_not_called()
+
+
 def test_hydrate_pushes_nothing_when_no_state_matches(rom: Rom, admin_user: User):
     _core_state(rom, admin_user, "Game.state", None)
     push = _hydrate_core(
@@ -6110,22 +6127,14 @@ def test_a_retroarch_exit_files_its_states_oldest_first(rom: Rom, admin_user: Us
     ]
 
 
-@pytest.mark.parametrize(
-    "state_name",
-    [
-        # The capture stamp would push it past the filesystem's name limit.
-        f"states/mGBA/{'G' * 240}.state1",
-        # No slot, so it can't be stamped or resumed from the history.
-        "states/mGBA/Game.state.auto",
-    ],
-)
 def test_an_exit_state_the_history_cannot_file_keeps_the_zip(
-    rom: Rom, admin_user: User, state_name: str
+    rom: Rom, admin_user: User
 ):
+    """The capture stamp would push this one past the filesystem's name limit."""
     content = _exit_archive(
         {
             "saves/mGBA/Game.srm": ("save", b"eeprom"),
-            state_name: ("state", b"state-bytes"),
+            f"states/mGBA/{'G' * 240}.state1": ("state", b"state-bytes"),
         }
     )
     _write, store_state = _pull_exit(rom, admin_user, content)
@@ -6133,6 +6142,79 @@ def test_an_exit_state_the_history_cannot_file_keeps_the_zip(
     [stored] = _stored_saves(rom, admin_user)
     assert stored.file_name.endswith(".saves.zip")
     store_state.assert_not_awaited()
+
+
+def _pull_exit_into_history(
+    rom: Rom, user: User, content: bytes, disc_file_id: int | None = None
+) -> None:
+    """Run an exit pull that files its states through the real state history."""
+
+    async def scanned(**kwargs: Any) -> State:
+        return _state_for(rom, user, kwargs["file_name"], kwargs["emulator"])
+
+    with patch("handler.asset_store.scan_state", new=AsyncMock(side_effect=scanned)):
+        _pull_exit(
+            rom,
+            user,
+            content,
+            disc_file_id=disc_file_id,
+            store_state=AsyncMock(side_effect=states.store_state_asset),
+        )
+
+
+def _auto_exit(auto: bytes) -> bytes:
+    return _exit_archive(
+        {
+            "saves/mGBA/Game.srm": ("save", b"eeprom"),
+            "states/mGBA/Game.state": ("state", b"slot-0"),
+            "states/mGBA/Game.state.auto": ("state", auto),
+        }
+    )
+
+
+def test_a_retroarch_exit_files_its_auto_state_with_the_rest(
+    rom: Rom, admin_user: User
+):
+    """The auto state goes into the history, so the zip isn't kept for it."""
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    _pull_exit_into_history(rom, admin_user, _auto_exit(b"auto"), disc_file_id=disc.id)
+
+    [stored] = _stored_saves(rom, admin_user)
+    assert stored.file_name.endswith(".srm")
+    history = states.user_states_for_emulator(admin_user.id, rom.id, "retroarch")
+    auto = [s for s in history if s.file_name.endswith(".state.auto")]
+    numbered = [s for s in history if s.file_name.endswith(".state")]
+    assert len(auto) == len(numbered) == 1
+    assert re.fullmatch(r"Game\.\d{8}-\d{12}\.state\.auto", auto[0].file_name)
+    assert auto[0].core == "mgba"
+    assert auto[0].disc_file_id == disc.id
+
+
+def test_two_exits_keep_both_auto_states(rom: Rom, admin_user: User):
+    _pull_exit_into_history(rom, admin_user, _auto_exit(b"first"))
+    _pull_exit_into_history(rom, admin_user, _auto_exit(b"second"))
+
+    history = states.user_states_for_emulator(admin_user.id, rom.id, "retroarch")
+    autos = {s.file_name for s in history if s.file_name.endswith(".state.auto")}
+    assert len(autos) == 2
+
+
+def test_an_exit_with_an_auto_state_does_not_leave_the_zip_to_boot(
+    rom: Rom, admin_user: User
+):
+    """The next launch with no pick takes the exit's .srm over an older zip."""
+    _add_save(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    _pull_exit_into_history(rom, admin_user, _auto_exit(b"auto"))
+
+    with patch(
+        "handler.streaming.saves.webstation.require_import_spec",
+        return_value=_SAVE_IMPORT,
+    ):
+        save, foreign = saves.default_save(
+            admin_user.id, rom.id, _resolved(_clearing_webstation(rom))
+        )
+    assert save is not None and save.file_name.endswith(".srm")
+    assert foreign is True
 
 
 def test_a_state_check_failure_skips_only_that_state(rom: Rom, admin_user: User):
@@ -6678,6 +6760,29 @@ def test_resolve_resume_state_accepts_the_players_own_state(rom: Rom, admin_user
     assert resolved.id == state.id
     assert slot == 1
     assert is_foreign is False
+
+
+def test_resolve_resume_state_refuses_an_auto_state_whatever_the_import_spec(
+    rom: Rom, admin_user: User
+):
+    """The broker files any pushed state into its working slot, so the import
+    spec's slot would resume an auto state as a numbered one."""
+    auto = _core_state(rom, admin_user, "Game.20260202-000000000000.state.auto", None)
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"state"}), state_channel="push", state_slot=0
+    )
+    with (
+        patch("handler.streaming.webstation.default_core", return_value=None),
+        patch(
+            "handler.streaming.states.webstation.require_import_spec",
+            return_value=spec,
+        ) as require,
+    ):
+        with pytest.raises(HTTPException) as exc:
+            states.resolve_resume_state(admin_user.id, rom, _snes("retroarch"), auto.id)
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "An automatic state can't be resumed from"
+    require.assert_not_called()
 
 
 def test_resolve_resume_state_rejects_a_state_that_is_not_visible(
@@ -8543,6 +8648,19 @@ def test_stamped_exit_state_filename_round_trips(emulator, name, shape):
     assert re.fullmatch(shape, stamped)
     assert states.container_state_filename(stamped) == name
     assert states.slot_from_state_filename(emulator, stamped) == 0
+
+
+def test_stamped_auto_state_filename_keeps_its_container_name():
+    """Each auto capture gets its own name, and it is never a numbered slot."""
+    first = datetime(2026, 7, 21, 4, 56, 45, 123456, tzinfo=timezone.utc)
+    second = datetime(2026, 7, 21, 4, 56, 45, 123457, tzinfo=timezone.utc)
+    stamped = states.stamped_state_filename("retroarch", "Game.state.auto", first)
+    assert re.fullmatch(r"Game\.\d{8}-\d{12}\.state\.auto", stamped)
+    assert stamped != states.stamped_state_filename(
+        "retroarch", "Game.state.auto", second
+    )
+    assert states.container_state_filename(stamped) == "Game.state.auto"
+    assert states.slot_from_state_filename("retroarch", stamped) is None
 
 
 class _ResumeClaim(NamedTuple):

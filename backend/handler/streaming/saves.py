@@ -222,7 +222,7 @@ _RAW_EXIT_KINDS = {"save", "state", "state_screenshot"}
 
 def _fileable_state(name: str) -> bool:
     """Whether the state history takes a RetroArch state under this name: a
-    slot to resume it from, and room for the capture stamp."""
+    slot or the auto state, and room for the capture stamp."""
     try:
         name = sanitize_filename(name)
         check_filename_length(
@@ -230,7 +230,9 @@ def _fileable_state(name: str) -> bool:
         )
     except ValueError:
         return False
-    return states.slot_from_state_filename("retroarch", name) is not None
+    return states.slot_from_state_filename(
+        "retroarch", name
+    ) is not None or states.is_auto_state("retroarch", name)
 
 
 def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:

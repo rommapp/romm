@@ -67,6 +67,16 @@ _SLOT_PATTERNS = {
 }
 
 
+# RetroArch's auto state, written on exit and read only at content start. It
+# has no slot, so it is kept in the history but never pushed or resumed.
+_AUTO_STATE_PATTERNS = {"retroarch": re.compile(r"\.state\.auto$")}
+
+
+def is_auto_state(emulator: str, filename: str) -> bool:
+    pattern = _AUTO_STATE_PATTERNS.get(emulator)
+    return pattern is not None and pattern.search(filename) is not None
+
+
 # Lowest slot each emulator's broker addresses. The rest count from 1, so a "0"
 # in one of their names is a filename that looks like a state, not a slot.
 _MIN_SLOT = {"duckstation": 0, "retroarch": 0, "rpcs3": 0}
@@ -99,10 +109,17 @@ def stamped_state_filename(emulator: str, filename: str, when: datetime) -> str:
     history: each capture lands on the same name and updates its row in place,
     the pre-history behavior. No streaming emulator is in that position now.
     """
-    pattern = _SLOT_PATTERNS.get(emulator)
-    if pattern is None:
-        return filename
-    match = pattern.search(filename)
+    match = next(
+        (
+            m
+            for pattern in (
+                _SLOT_PATTERNS.get(emulator),
+                _AUTO_STATE_PATTERNS.get(emulator),
+            )
+            if pattern is not None and (m := pattern.search(filename)) is not None
+        ),
+        None,
+    )
     if match is None:
         return filename
     stamp = when.strftime(_STAMP_FORMAT)
@@ -139,6 +156,11 @@ def resolve_resume_state(
 
     emulator = container.emulator
     native = (state.emulator or "").lower() == emulator
+    # The broker would file it into its working slot like any pushed state.
+    if native and is_auto_state(emulator, state.file_name):
+        raise HTTPException(
+            status_code=400, detail="An automatic state can't be resumed from"
+        )
     if native:
         # Another core's file would land where this one's quick-load reads it.
         core = state_core_for(container)
@@ -631,11 +653,16 @@ async def hydrate_states_to_broker(
         return 0
     emulator = container.emulator
 
-    states = user_states_for_emulator(user_id, rom_id, emulator, state_core)
-    if not states:
+    newest = next(
+        (
+            s
+            for s in user_states_for_emulator(user_id, rom_id, emulator, state_core)
+            if not is_auto_state(emulator, s.file_name)
+        ),
+        None,
+    )
+    if newest is None:
         return 0
-
-    newest = states[0]
     # A broker that can't name its core doesn't refuse another core's state.
     if state_core is None and newest.core is not None:
         log.info("not hydrating a %s state into an unnamed core", newest.core)
