@@ -758,6 +758,7 @@ async def _hydrate_saves(
                     save=save,
                     save_is_foreign=save_foreign,
                     state=import_state,
+                    native_fallback=defaulted,
                 )
             except Exception:
                 log.exception("import archive hydration failed, continuing launch")

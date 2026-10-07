@@ -14,7 +14,7 @@ import posixpath
 import secrets
 import time
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import NamedTuple
 
 from fastapi import HTTPException
@@ -30,7 +30,7 @@ from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, Save
 from models.rom import Rom
 from models.user import User
-from utils.filesystem import fit_filename, sanitize_filename
+from utils.filesystem import check_filename_length, fit_filename, sanitize_filename
 from utils.uploads import is_emulator_folder_name
 
 # An exit files its archive in the background, so a claim landing behind it would
@@ -220,6 +220,19 @@ class RawExit(NamedTuple):
 _RAW_EXIT_KINDS = {"save", "state", "state_screenshot"}
 
 
+def _fileable_state(name: str) -> bool:
+    """Whether the state history takes a RetroArch state under this name: a
+    slot to resume it from, and room for the capture stamp."""
+    try:
+        name = sanitize_filename(name)
+        check_filename_length(
+            states.stamped_state_filename("retroarch", name, datetime.now(timezone.utc))
+        )
+    except ValueError:
+        return False
+    return states.slot_from_state_filename("retroarch", name) is not None
+
+
 def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
     """The one `.srm` and the states of a RetroArch exit, or None to keep the zip.
 
@@ -283,6 +296,9 @@ def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
                     archive.read_member(zf, shot) if shot is not None else None,
                 )
             )
+        # Once the zip is dropped, a state the history can't file is gone.
+        if not all(_fileable_state(state.name) for state in exit_states):
+            return None
         return RawExit(
             core,
             posixpath.basename(save_members[0].filename),
@@ -312,7 +328,7 @@ def _importable_raw_exit(
 
 async def _store_raw_exit(user: User, rom: Rom, emulator: str, raw: RawExit) -> bool:
     """File the exit's save under its core, named like the web player's own,
-    and each state it carries into the state history."""
+    and each state it carries into the state history. True when any was new."""
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     extension = os.path.splitext(raw.save_name)[1]
     filename = sanitize_filename(
@@ -335,6 +351,7 @@ async def _store_raw_exit(user: User, rom: Rom, emulator: str, raw: RawExit) -> 
                 screenshot=state.screenshot,
                 core=raw.core,
             )
+            stored = True
         except Exception:
             log.exception("failed to store exit state %s", state.name)
     return stored

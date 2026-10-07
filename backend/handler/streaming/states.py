@@ -366,8 +366,11 @@ async def _is_duplicate_of_latest(
         return False
     if latest.content_hash is not None:
         if content_hash is None:
-            content_hash = content_hash_of_bytes(content)
-        return latest.content_hash == content_hash
+            content_hash = await asyncio.to_thread(content_hash_of_bytes, content)
+        # A row whose file is gone holds nothing to skip the capture for.
+        return latest.content_hash == content_hash and (
+            await fs_asset_handler.file_exists(latest.full_path)
+        )
     try:
         existing = await fs_asset_handler.read_file(
             f"{latest.file_path}/{latest.file_name}"
@@ -379,7 +382,7 @@ async def _is_duplicate_of_latest(
 
 async def is_stored(user_id: int, rom_id: int, emulator: str, content: bytes) -> bool:
     """Whether any of this emulator's stored states holds exactly ``content``."""
-    content_hash = content_hash_of_bytes(content)
+    content_hash = await asyncio.to_thread(content_hash_of_bytes, content)
     for state in user_states_for_emulator(user_id, rom_id, emulator):
         if await _is_duplicate_of_latest(state, content, content_hash):
             return True

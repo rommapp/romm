@@ -5272,7 +5272,13 @@ def test_a_hashed_state_is_matched_without_reading_its_file(rom: Rom, admin_user
         content_hash=content_hash_of_bytes(content),
     )
     read = AsyncMock(side_effect=AssertionError("read a hashed state"))
-    with patch("handler.filesystem.fs_asset_handler.read_file", new=read):
+    with (
+        patch("handler.filesystem.fs_asset_handler.read_file", new=read),
+        patch(
+            "handler.filesystem.fs_asset_handler.file_exists",
+            new=AsyncMock(return_value=True),
+        ),
+    ):
         assert asyncio.run(
             states.is_stored(admin_user.id, rom.id, "retroarch", content)
         )
@@ -5280,6 +5286,26 @@ def test_a_hashed_state_is_matched_without_reading_its_file(rom: Rom, admin_user
             states.is_stored(admin_user.id, rom.id, "retroarch", b"other-bytes")
         )
     read.assert_not_awaited()
+
+
+def test_a_hashed_state_whose_file_is_gone_is_not_a_match(rom: Rom, admin_user: User):
+    """The capture is the only copy left, so it must not be skipped."""
+    content = b"state-bytes"
+    _add_state(
+        rom,
+        admin_user,
+        "Game.state",
+        "retroarch",
+        file_size_bytes=len(content),
+        content_hash=content_hash_of_bytes(content),
+    )
+    with patch(
+        "handler.filesystem.fs_asset_handler.file_exists",
+        new=AsyncMock(return_value=False),
+    ):
+        assert not asyncio.run(
+            states.is_stored(admin_user.id, rom.id, "retroarch", content)
+        )
 
 
 def test_an_unhashed_state_is_still_matched_by_its_bytes(rom: Rom, admin_user: User):
@@ -6000,6 +6026,31 @@ def test_a_retroarch_exit_files_its_states_oldest_first(rom: Rom, admin_user: Us
         b"older",
         b"newer",
     ]
+
+
+@pytest.mark.parametrize(
+    "state_name",
+    [
+        # The capture stamp would push it past the filesystem's name limit.
+        f"states/mGBA/{'G' * 240}.state1",
+        # No slot, so it can't be stamped or resumed from the history.
+        "states/mGBA/Game.state.auto",
+    ],
+)
+def test_an_exit_state_the_history_cannot_file_keeps_the_zip(
+    rom: Rom, admin_user: User, state_name: str
+):
+    content = _exit_archive(
+        {
+            "saves/mGBA/Game.srm": ("save", b"eeprom"),
+            state_name: ("state", b"state-bytes"),
+        }
+    )
+    _write, store_state = _pull_exit(rom, admin_user, content)
+
+    [stored] = _stored_saves(rom, admin_user)
+    assert stored.file_name.endswith(".saves.zip")
+    store_state.assert_not_awaited()
 
 
 def test_a_state_check_failure_skips_only_that_state(rom: Rom, admin_user: User):
@@ -7068,6 +7119,51 @@ def test_hydrate_import_archive_falls_back_to_the_newest_native_save_as_base(
     uploaded_bytes = upload.call_args.args[2]
     with zipfile.ZipFile(io.BytesIO(uploaded_bytes)) as zf:
         assert ".import/state/Game.00.pcsx2" in zf.namelist()
+
+
+def test_a_defaulted_foreign_save_that_fails_to_read_leaves_the_native_base(
+    rom: Rom, admin_user: User
+):
+    """The launch defaulted to a newer bare .srm whose file is gone, so the
+    state import carries the newest archive rather than no save at all."""
+    native = _add_save(
+        rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1"
+    )
+    raw = _add_save(rom, admin_user, "Game [b].srm", "mgba", "h2")
+    state = _add_state(rom, admin_user, "Game.00.pcsx2", "pcsx2")
+
+    async def read(path: str) -> bytes:
+        if path == raw.full_path:
+            raise FileNotFoundError(path)
+        return path.encode()
+
+    build = MagicMock(wraps=imports.build_import_archive)
+    with (
+        patch(
+            "handler.filesystem.fs_asset_handler.read_file",
+            new=AsyncMock(side_effect=read),
+        ),
+        patch("handler.streaming.imports.build_import_archive", build),
+        patch(
+            "handler.streaming.imports.webstation.upload_archive",
+            return_value="rom-1.zip",
+        ),
+    ):
+        result = asyncio.run(
+            imports.hydrate_import_archive(
+                admin_user.id,
+                rom,
+                _resolved(_clearing_webstation(rom)),
+                save=raw,
+                save_is_foreign=True,
+                state=state,
+                native_fallback=True,
+            )
+        )
+    assert result.path == "rom-1.zip"
+    _rom_id, base, members = build.call_args.args
+    assert base == (native.file_name, native.full_path.encode())
+    assert [m.kind for m in members] == ["state"]
 
 
 def test_hydrate_import_archive_falls_through_when_the_only_foreign_read_fails(

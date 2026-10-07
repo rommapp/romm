@@ -226,8 +226,13 @@ async def hydrate_import_archive(
     save: Save | None,
     save_is_foreign: bool,
     state: State | None,
+    native_fallback: bool = False,
 ) -> ImportHydration:
     """Build this launch's one archive (native base plus `.import/` members) and upload it.
+
+    Args:
+        native_fallback: a foreign save that doesn't make it in leaves the
+            newest native save as the base, as a launch that picked none gets.
 
     Returns:
         The container path `activate`'s `save.archive` wants (None when
@@ -264,8 +269,9 @@ async def hydrate_import_archive(
         return ImportHydration()
 
     base: tuple[str, bytes] | None = None
-    if not save_is_foreign:
-        native = save or await asyncio.to_thread(
+    save_lost = save_is_foreign and not any(m.kind == "save" for m in members)
+    if not save_is_foreign or (native_fallback and save_lost):
+        native = (None if save_is_foreign else save) or await asyncio.to_thread(
             saves.newest_restorable, user_id, rom.id, container.emulator
         )
         if native is not None:

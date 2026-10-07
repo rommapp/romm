@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import os
 import threading
@@ -210,8 +211,12 @@ class FSAssetsHandler(FSHandler):
         )
 
     async def _compute_zip_hash(self, zip_path: str) -> str:
-        with zipfile.ZipFile(self.base_path / zip_path, "r") as zf:
-            return hash_zip_contents(zf)
+        def digest() -> str:
+            with zipfile.ZipFile(self.base_path / zip_path, "r") as zf:
+                return hash_zip_contents(zf)
+
+        # Off the loop, as _compute_file_hash is: a state archive runs to tens of MB.
+        return await asyncio.to_thread(digest)
 
     async def compute_content_hash(self, file_path: str) -> str | None:
         try:
