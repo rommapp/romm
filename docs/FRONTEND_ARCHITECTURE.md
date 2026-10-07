@@ -842,7 +842,7 @@ All synthesized with sine/noise blend, exponential envelopes, low-pass filter, a
 
 ### EmulatorJS
 
-**Location:** `v2/views/Player/EmulatorJS.vue` (launch screen), `v2/views/Player/EmulatorJSPlayer.vue` and `ejsRuntime.ts` (the running emulator). The v1 player keeps its own copy in `views/Player/EmulatorJS/`, which writes saves through the legacy slot API.
+**Location:** `v2/views/Player/EmulatorJS.vue` (launch screen), `v2/views/Player/EmulatorJSPlayer.vue` and `ejsRuntime.ts` (the running emulator). The v1 player page mounts the same `EmulatorJSPlayer.vue`, so every EmulatorJS session writes snapshots.
 
 | Feature         | Details                                                     |
 | --------------- | ----------------------------------------------------------- |
