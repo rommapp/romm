@@ -213,15 +213,27 @@ def _unslotted_save_at(
     return save if save and not save.slot else None
 
 
+def _slot_versions_at(
+    user: User, rom: Rom, emulator: str | None, file_name: str
+) -> list[Save]:
+    """Every slot version a RetroArch path covers, from any slot."""
+    key = (rom.id, emulator, save_extension(file_name))
+    return [
+        save
+        for save in db_save_handler.get_saves(
+            user_id=user.id, rom_ids=[rom.id], slot_not_null=True
+        )
+        if is_slot_version(save) and save_key(save) == key
+    ]
+
+
 def resolve_save_by_slot(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> Save | None:
     """The save a RetroArch path serves: the newest slot version, else the unslotted save there."""
-    versions = db_save_handler.get_saves(
-        user_id=user.id, rom_ids=[rom.id], slot_not_null=True
-    )
-    key = (rom.id, emulator, save_extension(requested_file_name))
-    return group_slot_versions(versions).get(key) or _unslotted_save_at(
+    versions = _slot_versions_at(user, rom, emulator, requested_file_name)
+    on_disk = [save for save in versions if not save.missing_from_fs]
+    return max(on_disk, key=recency_key, default=None) or _unslotted_save_at(
         user, rom, emulator, requested_file_name
     )
 
@@ -230,14 +242,7 @@ def saves_at_path(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> list[Save]:
     """Every save a RetroArch path covers, so deleting it leaves nothing to resurface."""
-    key = (rom.id, emulator, save_extension(requested_file_name))
-    covered = [
-        save
-        for save in db_save_handler.get_saves(
-            user_id=user.id, rom_ids=[rom.id], slot_not_null=True
-        )
-        if is_slot_version(save) and save_key(save) == key
-    ]
+    covered = _slot_versions_at(user, rom, emulator, requested_file_name)
     unslotted = _unslotted_save_at(user, rom, emulator, requested_file_name)
     return covered + [unslotted] if unslotted else covered
 
@@ -582,7 +587,7 @@ def _manifest_assets(
 ) -> tuple[list[ManifestAsset], Sequence[Save]]:
     """The manifest's saves and states (only `tree`'s when given), plus the unslotted saves its PSP bundles come from."""
     all_saves = db_save_handler.get_saves(user_id=user.id) if tree != "states" else []
-    saves = [save for save in all_saves if not save.slot]
+    saves = [save for save in all_saves if save.slot is None]
     slot_versions = group_slot_versions(all_saves)
     # A slot version goes by RetroArch's name for the game, not its own tagged one.
     listed_saves = [

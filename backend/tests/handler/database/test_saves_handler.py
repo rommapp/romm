@@ -300,6 +300,42 @@ class TestDBSavesHandlerSlotFiltering:
         [kept] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
         assert kept.slot == sibling
 
+    @pytest.mark.parametrize(
+        "extension,pruned",
+        [(".srm", "scoped.srm"), ("", "scoped")],
+        ids=["extension", "extensionless"],
+    )
+    def test_a_prune_can_be_scoped_to_an_emulator_and_extension(
+        self, admin_user: User, rom: Rom, extension: str, pruned: str
+    ):
+        versions = {
+            "scoped.srm": "snes9x",
+            "scoped.rtc": "snes9x",
+            "scoped": "snes9x",
+            "other.srm": "mgba",
+        }
+        for index, (file_name, emulator) in enumerate(versions.items()):
+            make_save(
+                rom,
+                admin_user,
+                file_name,
+                emulator=emulator,
+                file_size_bytes=100,
+                slot="autosave",
+                content_hash=f"scoped_{index}",
+            )
+
+        db_save_handler.prune_slot(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="autosave",
+            keep=0,
+            emulator_and_extension=("snes9x", extension),
+        )
+
+        kept = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        assert {save.file_name for save in kept} == set(versions) - {pruned}
+
     def test_get_saves_with_null_slot_filter(self, admin_user: User, rom: Rom):
         make_save(
             rom,

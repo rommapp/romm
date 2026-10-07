@@ -404,9 +404,15 @@ class DBSavesHandler(DBBaseHandler):
         )
         if emulator_and_extension:
             emulator, extension = emulator_and_extension
+            file_name = func.lower(Save.file_name)
+            # Every name ends in "", so an extensionless file matches dotless names.
+            same_extension = (
+                file_name.endswith(extension.lower(), autoescape=True)
+                if extension
+                else ~file_name.contains(".", autoescape=True)
+            )
             past_keep = past_keep.where(
-                Save.emulator.is_not_distinct_from(emulator),
-                func.lower(Save.file_name).endswith(extension.lower(), autoescape=True),
+                Save.emulator.is_not_distinct_from(emulator), same_extension
             )
         # Before this session holds a connection, since ensuring takes its own.
         if not self._any(past_keep):
