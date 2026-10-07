@@ -531,7 +531,7 @@ def resolve_roms(
     """The ROM each game name belongs to, the first visible one by id when ambiguous."""
     names = set(game_names)
     exact: dict[str, Rom] = {}
-    # MariaDB's default collation matches case-insensitively; PostgreSQL doesn't.
+    # The lookup ignores case, so the client's exact spelling wins a tie.
     folded: dict[str, Rom] = {}
     for rom in db_rom_handler.get_roms_by_fs_names_no_ext(names):
         if can_see(rom):

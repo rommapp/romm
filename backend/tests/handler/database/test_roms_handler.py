@@ -26,6 +26,7 @@ from tests.factories import (
 )
 from tests.sql_dialects import MARIADB_DIALECT, POSTGRESQL_DIALECT, compile_sql
 
+from config import ROMM_DB_DRIVER
 from decorators.database import INJECTED_SESSION
 from exceptions.database_exceptions import RomFileOwnerChangedError
 from handler.auth.rom_visibility import RomVisibilityFilter
@@ -43,6 +44,7 @@ from models.rom import (
     compute_full_path_hash,
 )
 from models.user import User
+from utils.database import ROMS_FS_NAME_NO_EXT_LOWER_INDEX
 
 
 class TestUpdateRomDerivedColumns:
@@ -225,6 +227,21 @@ class TestUniquePlatformFullPath:
         second = make_rom(other, "Patched Game", fs_extension="gba")
 
         assert first.id != second.id
+
+
+class TestGetRomsByFsNamesNoExt:
+    def test_matches_a_name_in_another_case(self, rom: Rom):
+        assert [
+            r.id for r in db_rom_handler.get_roms_by_fs_names_no_ext(["TEST_ROM"])
+        ] == [rom.id]
+
+    def test_lowercased_index_exists_only_on_postgresql(self):
+        """The drift check exempts it, so nothing else would notice it missing."""
+        with sync_engine.connect() as connection:
+            names = {i["name"] for i in sa_inspect(connection).get_indexes("roms")}
+        assert (ROMS_FS_NAME_NO_EXT_LOWER_INDEX in names) == (
+            ROMM_DB_DRIVER == "postgresql"
+        )
 
 
 class TestHasSavesStatesFilter:

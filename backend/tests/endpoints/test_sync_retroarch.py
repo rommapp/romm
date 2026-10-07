@@ -881,14 +881,9 @@ class TestRetroArchSyncSaveSlots:
         )
 
     def _other_client_save(
-        self,
-        admin_user: User,
-        rom: Rom,
-        saves_path: str,
-        content: bytes,
-        file_name: str = "test_rom [2025-12-31_23-59-59].srm",
-        **fields,
+        self, admin_user: User, rom: Rom, saves_path: str, content: bytes, **fields
     ) -> Save:
+        file_name = "test_rom [2025-12-31_23-59-59].srm"
         disk_path = fs_asset_handler.validate_path(f"{saves_path}/{file_name}")
         disk_path.parent.mkdir(parents=True, exist_ok=True)
         disk_path.write_bytes(content)
@@ -957,21 +952,10 @@ class TestRetroArchSyncSaveSlots:
 
     @_mock_asset_md5()
     def test_manifest_keeps_the_clients_spelling_of_the_game(
-        self,
-        _asset_md5: mock.AsyncMock,
-        client,
-        admin_user: User,
-        rom: Rom,
-        saves_path: str,
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
     ):
-        # Seeded directly: resolving TEST_ROM to test_rom depends on the collation.
-        self._other_client_save(
-            admin_user,
-            rom,
-            saves_path,
-            b"data",
-            file_name="TEST_ROM [2025-12-31_23-59-59].srm",
-        )
+        url = "/api/sync/retroarch/saves/Snes9x/TEST_ROM.srm"
+        assert self._put(client, b"data", url) == status.HTTP_201_CREATED
 
         response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 

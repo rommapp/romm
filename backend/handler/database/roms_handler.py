@@ -2253,14 +2253,21 @@ class DBRomsHandler(DBBaseHandler):
         fs_names_no_ext: Iterable[str],
         session: Session = INJECTED_SESSION,
     ) -> list[Rom]:
-        """ROMs on any platform with one of these extensionless file names."""
+        """ROMs on any platform with one of these extensionless file names, in any case."""
         names = list(dict.fromkeys(fs_names_no_ext))
         roms: list[Rom] = []
         for i in range(0, len(names), 1000):
+            batch = names[i : i + 1000]
+            # MariaDB's collation already ignores case; PostgreSQL reads the
+            # lowercased index instead.
+            matches_name = DialectCase(
+                postgresql=func.lower(Rom.fs_name_no_ext).in_(
+                    {name.lower() for name in batch}
+                ),
+                mysql=Rom.fs_name_no_ext.in_(batch),
+            )
             roms += session.scalars(
-                select(Rom)
-                .options(selectinload(Rom.platform))
-                .where(Rom.fs_name_no_ext.in_(names[i : i + 1000]))
+                select(Rom).options(selectinload(Rom.platform)).where(matches_name)
             ).all()
 
         # Id order keeps an ambiguous name resolving the same way on every sync.
