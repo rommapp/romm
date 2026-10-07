@@ -5792,6 +5792,7 @@ def _pull_exit(
     emulator: str = "retroarch",
     spec: webstation.ImportSpec | None = _SAVE_IMPORT,
     disc_file_id: int | None = None,
+    store_state: AsyncMock | None = None,
 ) -> tuple[MagicMock, AsyncMock]:
     """Run an exit pull of `content` against a broker declaring `spec`,
     returning the file write and state store mocks."""
@@ -5801,7 +5802,7 @@ def _pull_exit(
         name = kwargs["file_name"]
         return _save_for(rom, user, name, kwargs["emulator"], f"h{len(name)}")
 
-    store_state = AsyncMock()
+    store_state = store_state or AsyncMock()
     with (
         patch("handler.streaming.saves.fetch_save_archive", return_value=content),
         patch("handler.streaming.saves.webstation.import_spec", return_value=spec),
@@ -5866,6 +5867,26 @@ def test_a_retroarch_exit_files_its_states_on_the_swapped_disc(
     _write, store_state = _pull_exit(rom, admin_user, content, disc_file_id=42)
 
     assert store_state.call_args.kwargs["disc_file_id"] == 42
+
+
+def test_a_retroarch_exit_keeps_the_zip_when_a_state_fails_to_store(
+    rom: Rom, admin_user: User
+):
+    """The zip is the only other copy of the state, so a failed store keeps it."""
+    content = _exit_archive(
+        {
+            "saves/mGBA/Game.srm": ("save", b"eeprom"),
+            "states/mGBA/Game.state": ("state", b"state-bytes"),
+        }
+    )
+    _pull_exit(
+        rom, admin_user, content, store_state=AsyncMock(side_effect=OSError("full"))
+    )
+
+    names = [s.file_name for s in _stored_saves(rom, admin_user)]
+    assert len(names) == 2
+    assert any(name.endswith(".saves.zip") for name in names)
+    assert any(name.endswith(".srm") for name in names)
 
 
 def test_a_retroarch_exit_with_a_save_and_no_state_files_the_save(
@@ -6073,6 +6094,7 @@ def test_an_exit_state_the_history_cannot_file_keeps_the_zip(
 
 
 def test_a_state_check_failure_skips_only_that_state(rom: Rom, admin_user: User):
+    """The unchecked state is not filed, so the zip stays as its copy."""
     content = _exit_archive(
         {
             "saves/mGBA/Game.srm": ("save", b"eeprom"),
@@ -6084,8 +6106,9 @@ def test_a_state_check_failure_skips_only_that_state(rom: Rom, admin_user: User)
     with patch("handler.streaming.saves.states.is_stored", checked):
         _write, store_state = _pull_exit(rom, admin_user, content)
 
-    [stored] = _stored_saves(rom, admin_user)
-    assert stored.file_name.endswith(".srm")
+    names = [s.file_name for s in _stored_saves(rom, admin_user)]
+    assert sorted(name.endswith(".srm") for name in names) == [False, True]
+    assert any(name.endswith(".saves.zip") for name in names)
     store_state.assert_awaited_once()
 
 

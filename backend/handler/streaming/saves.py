@@ -327,7 +327,12 @@ def _importable_raw_exit(
 
 
 async def _store_raw_exit(
-    user: User, rom: Rom, emulator: str, raw: RawExit, disc_file_id: int | None
+    user: User,
+    rom: Rom,
+    emulator: str,
+    raw: RawExit,
+    content: bytes,
+    disc_file_id: int | None,
 ) -> bool:
     """File the exit's save under its core, named like the web player's own,
     and each state it carries into the state history. True when any was new."""
@@ -338,6 +343,7 @@ async def _store_raw_exit(
     )
     stored = await _store_save_file(user, rom, raw.core, filename, raw.save)
 
+    lost_state = False
     for state in raw.states:
         try:
             # A state the session already filed (the exit's own, or one saved
@@ -357,6 +363,10 @@ async def _store_raw_exit(
             stored = True
         except Exception:
             log.exception("failed to store exit state %s", state.name)
+            lost_state = True
+    # The zip is the state's only other copy, so it stays when one didn't file.
+    if lost_state:
+        stored = await store_save_asset(user, rom, emulator, content) or stored
     return stored
 
 
@@ -396,7 +406,7 @@ async def pull_saves_to_library(
         try:
             raw = await asyncio.to_thread(_importable_raw_exit, container, content)
             stored = (
-                await _store_raw_exit(user, rom, emulator, raw, disc_file_id)
+                await _store_raw_exit(user, rom, emulator, raw, content, disc_file_id)
                 if raw is not None
                 else await store_save_asset(user, rom, emulator, content)
             )
