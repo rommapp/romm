@@ -1487,7 +1487,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         db_rom = mocker.patch.object(scan_module, "db_rom_handler")
         db_rom.get_roms_by_fs_name.return_value = {"test/roms/Game.zip": rom}
         db_rom.mark_missing_roms.return_value = []
-        db_rom.get_rom.return_value = rom
+        db_rom.get_roms_simple_by_ids.return_value = [rom]
 
         db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
         db_firmware.mark_missing_firmware.return_value = []
@@ -1495,7 +1495,9 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         mocker.patch.object(
             SimpleRomSchema,
             "from_orm_with_factory",
-            return_value=Mock(model_dump=Mock(return_value={"id": rom.id})),
+            side_effect=lambda r, *a, **k: Mock(
+                model_dump=Mock(return_value={"id": r.id})
+            ),
         )
         mocker.patch.object(scan_module, "_identify_rom", AsyncMock())
 
@@ -1521,7 +1523,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         await self._run(socket_manager)
 
         patched.bulk_mark_present.assert_called_once_with(1, [42])
-        patched.get_rom_simple.assert_called_once_with(42)
+        patched.get_roms_simple_by_ids.assert_called_once_with([42])
         assert any(
             call.args[0] == "scan:scanning_rom"
             for call in socket_manager.emit.call_args_list
@@ -1545,11 +1547,39 @@ class TestIdentifyPlatformEmitsRestoredRoms:
 
         await self._run(socket_manager)
 
-        patched.get_rom_simple.assert_not_called()
+        patched.get_roms_simple_by_ids.assert_not_called()
         assert not any(
             call.args[0] == "scan:scanning_rom"
             for call in socket_manager.emit.call_args_list
         )
+
+    async def test_restored_roms_hydrated_with_single_batched_call(
+        self, patched, mocker
+    ):
+        """Three restored ROMs issue one batched hydration read, in visit order."""
+        fs_roms = [make_fs_rom(f"Game{i}.zip") for i in range(3)]
+        mocker.patch.object(fs_rom_handler, "get_roms", AsyncMock(return_value=fs_roms))
+        roms = [
+            Rom(id=11 + i, fs_name=fs_rom["fs_name"], platform_id=1)
+            for i, fs_rom in enumerate(fs_roms)
+        ]
+        patched.get_roms_by_fs_name.return_value = {
+            f"test/roms/{rom.fs_name}": rom for rom in roms
+        }
+        patched.get_missing_rom_ids.return_value = {rom.id for rom in roms}
+        # Rows come back out of visit order, and the middle ROM drops out.
+        patched.get_roms_simple_by_ids.return_value = [roms[2], roms[0]]
+        socket_manager = AsyncMock()
+
+        await self._run(socket_manager)
+
+        patched.get_roms_simple_by_ids.assert_called_once_with([11, 12, 13])
+        emits = [
+            call
+            for call in socket_manager.emit.call_args_list
+            if call.args[0] == "scan:scanning_rom"
+        ]
+        assert [call.args[1]["id"] for call in emits] == [11, 13]
 
 
 class TestIdentifyPlatformFirmwareReporting:
