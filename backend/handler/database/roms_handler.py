@@ -342,6 +342,9 @@ _FILTER_VALUES_BATCH_SIZE = 5000
 # refuses a statement with more than 65535.
 _ROM_USER_WRITE_BATCH_SIZE = 1000
 
+# Statuses only the user sets, which the RetroAchievements sync never replaces.
+_USER_OWNED_ROM_USER_STATUSES = (RomUserStatus.RETIRED, RomUserStatus.NEVER_PLAYING)
+
 
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
 # recomputed on every call to /api/roms
@@ -2547,55 +2550,52 @@ class DBRomsHandler(DBBaseHandler):
         *,
         session: Session = INJECTED_SESSION,
     ) -> int:
-        """Set one user's status on many ROMs, creating missing rows and keeping RETIRED and NEVER_PLAYING.
+        """Set one user's status on many ROMs, creating missing rows and sparing user-owned statuses.
 
         Returns:
             How many rows had their status changed.
         """
+        rom_ids_by_status: dict[RomUserStatus, list[int]] = {}
+        for rom_id, status in statuses.items():
+            rom_ids_by_status.setdefault(status, []).append(rom_id)
+
         postgresql = is_postgresql(session.get_bind())
         updated = 0
-        for chunk in batched(
-            statuses.items(), _ROM_USER_WRITE_BATCH_SIZE, strict=False
-        ):
-            # Skipping duplicates in the INSERT takes no prior read, whose MariaDB
-            # snapshot would hide (and then refuse) a row another writer commits.
-            rows = [{"rom_id": rom_id, "user_id": user_id} for rom_id, _ in chunk]
-            session.execute(
-                sa_pg.insert(RomUser)
-                .values(rows)
-                .on_conflict_do_nothing(index_elements=["rom_id", "user_id"])
-                if postgresql
-                else sa_mysql.insert(RomUser).values(rows).prefix_with("IGNORE")
-            )
-
-            rom_ids_by_status: dict[RomUserStatus, list[int]] = {}
-            for rom_id, status in chunk:
-                rom_ids_by_status.setdefault(status, []).append(rom_id)
-
-            # The guard is in the WHERE clause, so a status the user sets while
-            # this runs is never overwritten.
-            for status, rom_ids in rom_ids_by_status.items():
-                updated += affected_rows(
-                    session.execute(
-                        update(RomUser)
-                        .where(
-                            RomUser.user_id == user_id,
-                            RomUser.rom_id.in_(rom_ids),
-                            or_(
-                                RomUser.status.is_(None),
-                                RomUser.status.not_in(
-                                    (
-                                        status,
-                                        RomUserStatus.RETIRED,
-                                        RomUserStatus.NEVER_PLAYING,
-                                    )
-                                ),
-                            ),
-                        )
-                        .values(status=status)
-                        .execution_options(synchronize_session=False)
+        for status, rom_ids in rom_ids_by_status.items():
+            for chunk in batched(rom_ids, _ROM_USER_WRITE_BATCH_SIZE, strict=False):
+                # Skipping duplicates in the INSERT takes no prior read, whose MariaDB
+                # snapshot would hide (and then refuse) a row another writer commits.
+                rows = [{"rom_id": rom_id, "user_id": user_id} for rom_id in chunk]
+                if postgresql:
+                    insert_missing = (
+                        sa_pg.insert(RomUser)
+                        .values(rows)
+                        .on_conflict_do_nothing(index_elements=["rom_id", "user_id"])
                     )
+                else:
+                    insert_missing = (
+                        sa_mysql.insert(RomUser).values(rows).prefix_with("IGNORE")
+                    )
+                session.execute(insert_missing)
+
+                # The guard is in the WHERE clause, so a status the user sets
+                # while this runs is never overwritten.
+                set_status = (
+                    update(RomUser)
+                    .where(
+                        RomUser.user_id == user_id,
+                        RomUser.rom_id.in_(chunk),
+                        or_(
+                            RomUser.status.is_(None),
+                            RomUser.status.not_in(
+                                (status, *_USER_OWNED_ROM_USER_STATUSES)
+                            ),
+                        ),
+                    )
+                    .values(status=status)
+                    .execution_options(synchronize_session=False)
                 )
+                updated += affected_rows(session.execute(set_status))
 
         # A freshly inserted row has no status, so the UPDATE counts it too.
         if updated:

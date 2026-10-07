@@ -1145,6 +1145,12 @@ class TestRaBatchReads:
         assert db_rom_handler.get_roms_by_ra_ids([]) == []
 
 
+def _rom_user_status(rom_id: int, user_id: int) -> RomUserStatus | None:
+    rom_user = db_rom_handler.get_rom_user(rom_id, user_id)
+    assert rom_user is not None
+    return rom_user.status
+
+
 class TestRomUserStatusWrites:
     @pytest.mark.parametrize(
         ("current", "new", "expected", "changed"),
@@ -1184,9 +1190,7 @@ class TestRomUserStatusWrites:
             changed
         )
 
-        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
-        assert rom_user is not None
-        assert rom_user.status == expected
+        assert _rom_user_status(rom.id, admin_user.id) == expected
 
     def test_set_rom_user_statuses_creates_missing_rows(
         self, platform: Platform, viewer_user: User
@@ -1200,9 +1204,7 @@ class TestRomUserStatusWrites:
             == 1
         )
 
-        rom_user = db_rom_handler.get_rom_user(new_rom.id, viewer_user.id)
-        assert rom_user is not None
-        assert rom_user.status == RomUserStatus.FINISHED
+        assert _rom_user_status(new_rom.id, viewer_user.id) == RomUserStatus.FINISHED
 
     def test_set_rom_user_statuses_scopes_to_user(
         self, rom: Rom, admin_user: User, editor_user: User
@@ -1211,9 +1213,7 @@ class TestRomUserStatusWrites:
             editor_user.id, {rom.id: RomUserStatus.FINISHED}
         )
 
-        admin_row = db_rom_handler.get_rom_user(rom.id, admin_user.id)
-        assert admin_row is not None
-        assert admin_row.status is None
+        assert _rom_user_status(rom.id, admin_user.id) is None
 
     def test_set_rom_user_statuses_writes_in_batches(
         self, platform: Platform, viewer_user: User, monkeypatch: pytest.MonkeyPatch
@@ -1236,9 +1236,7 @@ class TestRomUserStatusWrites:
             (first, RomUserStatus.FINISHED),
             (second, RomUserStatus.INCOMPLETE),
         ):
-            rom_user = db_rom_handler.get_rom_user(synced.id, viewer_user.id)
-            assert rom_user is not None
-            assert rom_user.status == status
+            assert _rom_user_status(synced.id, viewer_user.id) == status
 
     def test_set_rom_user_statuses_empty_input(self, viewer_user: User):
         assert db_rom_handler.set_rom_user_statuses(viewer_user.id, {}) == 0
@@ -1274,9 +1272,7 @@ class TestRomUserStatusWrites:
 
         assert raced
         assert updated == 1
-        rom_user = db_rom_handler.get_rom_user(new_rom.id, admin_user.id)
-        assert rom_user is not None
-        assert rom_user.status == RomUserStatus.FINISHED
+        assert _rom_user_status(new_rom.id, admin_user.id) == RomUserStatus.FINISHED
         assert int(user_sort_cache_version(admin_user.id)) == before + 1
 
     def test_add_rom_user_returns_the_existing_row(self, rom: Rom, admin_user: User):
