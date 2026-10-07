@@ -5791,6 +5791,7 @@ def _pull_exit(
     content: bytes,
     emulator: str = "retroarch",
     spec: webstation.ImportSpec | None = _SAVE_IMPORT,
+    disc_file_id: int | None = None,
 ) -> tuple[MagicMock, AsyncMock]:
     """Run an exit pull of `content` against a broker declaring `spec`,
     returning the file write and state store mocks."""
@@ -5809,7 +5810,9 @@ def _pull_exit(
         patch("handler.streaming.saves.states.store_state_asset", store_state),
     ):
         assert asyncio.run(
-            saves.pull_saves_to_library(user.id, rom.id, _resolved(container))
+            saves.pull_saves_to_library(
+                user.id, rom.id, _resolved(container), disc_file_id=disc_file_id
+            )
         )
     return wf, store_state
 
@@ -5847,6 +5850,22 @@ def test_a_retroarch_exit_files_its_one_save_raw_and_its_state_apart(
     assert args.args[2:5] == ("retroarch", "Game.state", b"state-bytes")
     assert args.kwargs["screenshot"] == b"png-bytes"
     assert args.kwargs["core"] == "mgba"
+
+
+def test_a_retroarch_exit_files_its_states_on_the_swapped_disc(
+    rom: Rom, admin_user: User
+):
+    """The background pull files the exit's states too, so it must bind them to
+    the disc the session swapped to, as the exit-state pull does."""
+    content = _exit_archive(
+        {
+            "saves/mGBA/Game.srm": ("save", b"eeprom"),
+            "states/mGBA/Game.state": ("state", b"state-bytes"),
+        }
+    )
+    _write, store_state = _pull_exit(rom, admin_user, content, disc_file_id=42)
+
+    assert store_state.call_args.kwargs["disc_file_id"] == 42
 
 
 def test_a_retroarch_exit_with_a_save_and_no_state_files_the_save(
@@ -8282,7 +8301,12 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
 ):
     """A web restart would otherwise cut a pull short and park the next claim."""
     container = _resolved(_container_for(rom))
-    session = {"user_id": admin_user.id, "rom_id": rom.id, "broker_session_id": "b1"}
+    session = {
+        "user_id": admin_user.id,
+        "rom_id": rom.id,
+        "broker_session_id": "b1",
+        "disc_file_id": 42,
+    }
     exit_pull_queue.enqueue.side_effect = None
 
     async def scenario() -> saves.SavePullMark | None:
@@ -8303,8 +8327,38 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
         "platform": container.platform,
         "broker_session": "b1",
         "settled": True,
+        "disc_file_id": 42,
     }
     assert kwargs["job_timeout"] == saves.SAVE_PULL_TTL_SECONDS
+
+
+def test_a_queued_exit_save_pull_hands_on_the_disc(admin_user: User, rom: Rom):
+    session = {"user_id": admin_user.id, "rom_id": rom.id}
+
+    async def scenario() -> AsyncMock:
+        container = _resolved(_container_for(rom))
+        mark = await lifecycle.mark_exit_saves_pending(container, session)
+        assert mark is not None
+        with (
+            _streaming(_container_for(rom)),
+            patch(
+                "handler.streaming.saves.pull_saves_to_library", new=AsyncMock()
+            ) as pull,
+        ):
+            await lifecycle.pull_exit_saves(
+                user_id=mark.user_id,
+                rom_id=mark.rom_id,
+                token=mark.token,
+                container_key=container.key,
+                platform=container.platform,
+                broker_session=None,
+                settled=True,
+                disc_file_id=42,
+            )
+        return pull
+
+    pull = asyncio.run(scenario())
+    assert pull.call_args.kwargs["disc_file_id"] == 42
 
 
 def test_a_pull_that_cannot_be_queued_lets_the_next_claim_through(

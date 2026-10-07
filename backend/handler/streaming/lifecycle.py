@@ -135,6 +135,7 @@ async def pull_exit_saves(
     platform: str,
     broker_session: str | None,
     settled: bool,
+    disc_file_id: int | None = None,
 ) -> None:
     """The RQ job behind `collect_exit_saves`, which lets the next claim through
     however the pull ended."""
@@ -144,7 +145,12 @@ async def pull_exit_saves(
             log.warning("skipping the exit save pull, %s is gone", container_key)
             return
         await saves.pull_saves_to_library(
-            user_id, rom_id, container, broker_session, settled=settled
+            user_id,
+            rom_id,
+            container,
+            broker_session,
+            settled=settled,
+            disc_file_id=disc_file_id,
         )
     finally:
         await saves.clear_save_pull_pending(saves.SavePullMark(user_id, rom_id, token))
@@ -200,6 +206,7 @@ async def collect_exit_saves(
                 "platform": container.platform,
                 "broker_session": broker_session_id(session),
                 "settled": settled,
+                "disc_file_id": session_disc_id(session),
             },
             job_timeout=saves.SAVE_PULL_TTL_SECONDS,
             result_ttl=0,

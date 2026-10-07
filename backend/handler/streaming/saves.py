@@ -326,7 +326,9 @@ def _importable_raw_exit(
     return raw if spec is not None and spec.accepts("save") else None
 
 
-async def _store_raw_exit(user: User, rom: Rom, emulator: str, raw: RawExit) -> bool:
+async def _store_raw_exit(
+    user: User, rom: Rom, emulator: str, raw: RawExit, disc_file_id: int | None
+) -> bool:
     """File the exit's save under its core, named like the web player's own,
     and each state it carries into the state history. True when any was new."""
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -349,6 +351,7 @@ async def _store_raw_exit(user: User, rom: Rom, emulator: str, raw: RawExit) -> 
                 sanitize_filename(state.name),
                 state.content,
                 screenshot=state.screenshot,
+                disc_file_id=disc_file_id,
                 core=raw.core,
             )
             stored = True
@@ -364,6 +367,7 @@ async def pull_saves_to_library(
     broker_session_id: str | None = None,
     *,
     settled: bool = False,
+    disc_file_id: int | None = None,
 ) -> bool:
     """Background task: pull in-game saves from the broker and store them.
 
@@ -373,6 +377,7 @@ async def pull_saves_to_library(
     Args:
         settled: the emulator is done writing, so one attempt is final where the
             retries would wait out one still writing.
+        disc_file_id: the disc the session swapped to, for the states it files.
     """
     user = db_user_handler.get_user(user_id)
     rom = db_rom_handler.get_rom(rom_id)
@@ -391,7 +396,7 @@ async def pull_saves_to_library(
         try:
             raw = await asyncio.to_thread(_importable_raw_exit, container, content)
             stored = (
-                await _store_raw_exit(user, rom, emulator, raw)
+                await _store_raw_exit(user, rom, emulator, raw, disc_file_id)
                 if raw is not None
                 else await store_save_asset(user, rom, emulator, content)
             )
