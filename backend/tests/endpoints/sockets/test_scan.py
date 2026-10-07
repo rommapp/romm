@@ -30,6 +30,7 @@ from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
     ScanPayload,
     ScanStats,
+    _ancestor_paths,
     _identify_rom,
     _scan_selected_roms,
     _should_extract_title_ids,
@@ -1495,12 +1496,35 @@ class TestIdentifyPlatformSupersededFolders:
             scanned_rom_ids=set(),
         )
 
-        warnings = [str(call.args[0]) for call in mock_log.warning.call_args_list]
-        entries = [w.removeprefix(" - ") for w in warnings if w.startswith(" - ")]
-        flagged = {e.split(" (", 1)[0] for e in entries if "stale entry" in e}
-        plain = {e for e in entries if "stale entry" not in e}
-        assert flagged == {"Collection", "roms", "Bundle"}, warnings
-        assert plain == {"Saga", "Other"}, warnings
+        stale = (
+            " (now scanned as a folder of roms, delete this stale entry to clean up)"
+        )
+        warnings = {str(call.args[0]) for call in mock_log.warning.call_args_list}
+        assert {
+            *(f" - {name}{stale}" for name in ("Collection", "roms", "Bundle")),
+            " - Saga",
+            " - Other",
+        } <= warnings, warnings
+
+
+class TestAncestorPaths:
+    def test_includes_each_path_and_its_parents(self):
+        fs_roms = [
+            make_fs_rom("a.zip", "test/roms/Saga Deluxe/Disc 1"),
+            make_fs_rom("b.zip", "test/roms/Bundle/"),
+        ]
+
+        assert _ancestor_paths(fs_roms) == {
+            "test",
+            "test/roms",
+            "test/roms/Saga Deluxe",
+            "test/roms/Saga Deluxe/Disc 1",
+            "test/roms/Bundle",
+            "test/roms/Bundle/",
+        }
+
+    def test_empty_input(self):
+        assert _ancestor_paths([]) == set()
 
 
 class TestIdentifyPlatformEmitsRestoredRoms:
