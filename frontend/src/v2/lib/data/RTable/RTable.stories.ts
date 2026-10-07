@@ -14,13 +14,11 @@ const meta: Meta = {
   // Storybook's `component` slot. The cast is narrow + intentional.
   component: RTable as never,
   argTypes: {
-    loading: { control: "boolean" },
     sortKey: { control: "text" },
     sortDir: {
       control: "select",
       options: ["asc", "desc"],
     },
-    clickableRows: { control: "boolean" },
   },
 };
 
@@ -159,9 +157,10 @@ export const Empty: Story = {
   }),
 };
 
-// Mobile card-stack: on `xs` each row reflows into a stacked card with the
-// column label as a per-cell caption. The reflow keys off `html[data-bp~="xs"]`,
-// so the story opens on the phone viewport preset.
+/**
+ * On `xs` each row reflows into a card with the column labels as captions; the
+ * story opens on the phone viewport.
+ */
 export const MobileCardStack: Story = {
   globals: { viewport: { value: "rommPhoneXs" } },
   parameters: { layout: "fullscreen" },
@@ -185,8 +184,10 @@ export const MobileCardStack: Story = {
 
 const onRowClick = fn();
 
-// Sort state lives with the consumer, so the story wires `update:sort` back
-// into the props the way a real call site does.
+/**
+ * Sort state lives with the consumer, so the story wires `update:sort` back
+ * into the props the way a real call site does.
+ */
 export const SortAndRowActivation: Story = {
   name: "Sort and row activation (play)",
   args: {

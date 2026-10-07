@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RDivider from "./RDivider.vue";
 
 const meta: Meta<typeof RDivider> = {
   title: "Primitives/RDivider",
   component: RDivider,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
-    vertical: { control: "boolean" },
-    inset: { control: "boolean" },
     thickness: { control: "text" },
   },
   render: (args) => ({

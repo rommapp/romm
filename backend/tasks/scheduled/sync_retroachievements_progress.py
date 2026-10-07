@@ -50,6 +50,7 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
     changes (e.g. beating a previously-incomplete game) are reflected on every
     sync run.
     """
+    desired: dict[int, RomUserStatus] = {}
     for game_progression in user_progression.get("results", []):
         rom_ra_id = game_progression.get("rom_ra_id")
         if not rom_ra_id:
@@ -61,25 +62,17 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
         if new_status is None:
             continue
 
-        rom = db_rom_handler.get_rom_by_metadata_id(ra_id=rom_ra_id)
-        if not rom:
-            continue
+        desired[rom_ra_id] = new_status
 
-        rom_user = db_rom_handler.get_rom_user(rom.id, user.id)
-        if rom_user is None:
-            rom_user = db_rom_handler.add_rom_user(rom.id, user.id)
-
-        if rom_user.status == new_status:
-            continue
-
-        if rom_user.status in {RomUserStatus.RETIRED, RomUserStatus.NEVER_PLAYING}:
-            continue
-
-        db_rom_handler.update_rom_user(rom_user.id, {"status": new_status})
-        log.debug(
-            f"Set rom_user status to '{new_status}' for user '{user.username}' "
-            f"and ROM with RA ID {rom_ra_id}"
-        )
+    # One `ra_id` routinely covers several regional ROM rows; each gets synced.
+    # `IN` never matches a NULL `ra_id`.
+    statuses = {
+        rom.id: desired[cast(int, rom.ra_id)]
+        for rom in db_rom_handler.get_roms_by_ra_ids(list(desired))
+    }
+    updated = db_rom_handler.set_rom_user_statuses(user.id, statuses)
+    if updated:
+        log.debug(f"Set {updated} rom_user statuses for user '{user.username}'")
 
 
 class SyncRetroAchievementsProgressTask(PeriodicTask):
@@ -124,7 +117,14 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
                 log.debug(
                     f"Updated RetroAchievements progress for user: {user.username}"
                 )
-                _sync_rom_user_statuses(user, user_progression)
+                # A failed status write (e.g. a ROM deleted mid-sync) skips only
+                # this user.
+                try:
+                    _sync_rom_user_statuses(user, user_progression)
+                except Exception as e:
+                    log.error(
+                        f"Failed to sync RetroAchievements statuses for user: {user.username}, error: {e}"
+                    )
 
             processed_users += 1
             update_stats.update(processed=processed_users)

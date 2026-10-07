@@ -1,28 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RTag from "./RTag.vue";
 
 const meta: Meta<typeof RTag> = {
   title: "Primitives/RTag",
   component: RTag,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
-    prependIcon: { control: "text" },
-    appendIcon: { control: "text" },
-    label: { control: "text" },
     text: { control: "text" },
-    mono: { control: "boolean" },
-    tone: {
-      control: "select",
-      options: [
-        "neutral",
-        "brand",
-        "accent",
-        "success",
-        "danger",
-        "warning",
-        "info",
-        "plain",
-      ],
-    },
     size: {
       control: "select",
       options: ["x-small", "small", "default", "large", "x-large"],
@@ -38,7 +23,7 @@ const meta: Meta<typeof RTag> = {
 export default meta;
 type Story = StoryObj<typeof RTag>;
 
-// Header tags: the "regions / languages / custom tags" row.
+/** Header tags: the "regions / languages / custom tags" row. */
 export const HeaderRegion: Story = {
   args: { text: "USA", tone: "info", size: "small" },
 };
@@ -49,12 +34,12 @@ export const HeaderCustom: Story = {
   args: { text: "v4.1", size: "small" },
 };
 
-// Hash chip: eyebrow label + monospace value.
+/** Hash chip: eyebrow label + monospace value. */
 export const Hash: Story = {
   args: { label: "MD5", text: "5d41402abc4b2a76b9719d911017c592", mono: true },
 };
 
-// Verification badges: match uses success tone, miss stays neutral.
+/** Verification badges: match uses success tone, miss stays neutral. */
 export const VerificationMatch: Story = {
   args: {
     prependIcon: "mdi-check-circle",
@@ -69,7 +54,7 @@ export const VerificationMiss: Story = {
   },
 };
 
-// Slot fallback when text isn't enough.
+/** Slot fallback when text isn't enough. */
 export const SlotContent: Story = {
   render: (args) => ({
     components: { RTag },
@@ -79,9 +64,10 @@ export const SlotContent: Story = {
   args: { tone: "warning" },
 };
 
-// `plain` tone: chrome stripped, used as inline meta rows (icon + text,
-// no chip surface). Inherits parent text colour so it blends into muted
-// metadata blocks.
+/**
+ * `plain` tone strips the chip surface for inline meta rows and inherits the
+ * parent's text colour.
+ */
 export const Plain: Story = {
   name: "Plain (no chrome)",
   render: () => ({

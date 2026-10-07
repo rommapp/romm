@@ -57,6 +57,7 @@ If you would like to translate the project into another language, create a new f
 - Update the documentation if necessary.
 - Ensure all existing tests pass, and add new tests for new functionality.
 - Use clear and descriptive titles and descriptions for your pull requests.
+- Write the PR title as a [Conventional Commit](https://www.conventionalcommits.org/), such as `fix(scan): keep partial bytes out of the fallback hash`. Allowed types are `feat`, `fix`, `perf`, `refactor`, `revert`, `docs`, `style`, `test`, `build`, `ci` and `chore`, and CI checks the title.
 
 ## Code Style
 

@@ -1,5 +1,4 @@
 import os
-import re
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Annotated, Any
@@ -17,6 +16,7 @@ from handler.asset_store import (
     prune_save_slot,
     remove_save,
     rename_asset,
+    reserve_version_name,
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
@@ -33,7 +33,7 @@ from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import EMULATOR_MAX_LENGTH, SAVE_SLOT_MAX_LENGTH, Save
+from models.assets import EMULATOR_MAX_LENGTH, SAVE_SLOT_MAX_LENGTH, Save, SaveLineage
 from models.base import FILE_NAME_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
@@ -110,25 +110,12 @@ def _syncs_for_save(
     return db_device_save_sync_handler.get_syncs_for_saves([save_id]).get(save_id, [])
 
 
-DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
-
-
 def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
     """Versions to keep in a slot: the tighter of the client's ask and the server cap."""
     limits = [MAX_SAVES_PER_SLOT] if MAX_SAVES_PER_SLOT else []
     if autocleanup:
         limits.append(autocleanup_limit)
     return min(limits, default=None)
-
-
-def _apply_datetime_tag(filename: str) -> str:
-    name, ext = os.path.splitext(filename)
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
-    if DATETIME_TAG_PATTERN.search(name):
-        name = DATETIME_TAG_PATTERN.sub("", name)
-
-    return f"{name} [{timestamp}]{ext}"
 
 
 def _resolve_device(
@@ -240,12 +227,26 @@ async def add_save(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Save file has no filename"
         )
 
+    check_emulator_folder_name(emulator)
+
+    saves_path = fs_asset_handler.build_saves_file_path(
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
+    )
+
     actual_filename = sanitize_asset_filename(saveFile.filename, "save")
     if slot:
         # Checked again because the tag adds 22 bytes.
         actual_filename = sanitize_asset_filename(
-            _apply_datetime_tag(actual_filename), "save"
+            await reserve_version_name(
+                request.user.id, rom.id, saves_path, actual_filename
+            ),
+            "save",
         )
+    # From the stored name: the tag moves a dotted name's inner suffix into the stem.
+    lineage = SaveLineage.of(emulator, actual_filename)
 
     sanitized_screenshot_filename = ""
     if screenshotFile and screenshotFile.filename:
@@ -261,17 +262,12 @@ async def add_save(
                 f"{save_stem}{screenshot_ext}", "screenshot"
             )
 
-    check_emulator_folder_name(emulator)
-
-    saves_path = fs_asset_handler.build_saves_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=emulator,
-    )
-
     db_save = db_save_handler.get_save_by_filename(
-        user_id=request.user.id, rom_id=rom.id, file_name=actual_filename, slot=slot
+        user_id=request.user.id,
+        rom_id=rom.id,
+        file_name=actual_filename,
+        emulator=emulator,
+        slot=slot,
     )
 
     if device and slot and not overwrite:
@@ -348,7 +344,9 @@ async def add_save(
                 pass
             # A retry still counts as an upload to the slot, so the cap applies.
             if keep is not None:
-                await prune_save_slot(request.user.id, rom.id, slot, keep)
+                await prune_save_slot(
+                    request.user.id, rom.id, slot, keep, lineage=lineage
+                )
             # Pruning can drop the matched version when it is not among the newest.
             if device and db_save_handler.get_save(
                 user_id=request.user.id, id=existing_by_hash.id
@@ -407,7 +405,7 @@ async def add_save(
         _increment_session_counter(session_id, request.user.id)
 
     if slot and keep is not None:
-        await prune_save_slot(request.user.id, rom.id, slot, keep)
+        await prune_save_slot(request.user.id, rom.id, slot, keep, lineage=lineage)
 
     if screenshotFile and sanitized_screenshot_filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(

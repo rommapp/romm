@@ -6,9 +6,6 @@ const meta: Meta<typeof REmptyState> = {
   title: "Primitives/REmptyState",
   component: REmptyState,
   argTypes: {
-    icon: { control: "text" },
-    title: { control: "text" },
-    hint: { control: "text" },
     iconSize: { control: "text" },
     size: {
       control: "select",

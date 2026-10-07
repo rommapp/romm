@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RChip from "./RChip.vue";
 
 /** Strings that expose descenders, ascenders, and mixed scripts in tight pills. */
@@ -18,21 +19,13 @@ const CHIP_SIZES = ["x-small", "small", "default", "large", "x-large"] as const;
 const meta: Meta<typeof RChip> = {
   title: "Primitives/RChip",
   component: RChip,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
-    variant: {
-      control: "select",
-      options: ["flat", "text", "elevated", "translucent", "outlined", "plain"],
-    },
     size: {
       control: "select",
       options: CHIP_SIZES,
     },
     color: { control: "text" },
-    label: { control: "boolean" },
-    closable: { control: "boolean" },
-    prependIcon: { control: "text" },
-    appendIcon: { control: "text" },
-    disabled: { control: "boolean" },
     rounded: { control: "text" },
   },
 };

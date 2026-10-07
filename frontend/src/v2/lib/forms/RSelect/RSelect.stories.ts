@@ -5,6 +5,7 @@ import RMenu from "@/v2/lib/menus/RMenu/RMenu.vue";
 import RMenuItem from "@/v2/lib/menus/RMenuItem/RMenuItem.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RSelect from "./RSelect.vue";
 
 const ROLES = [
@@ -33,6 +34,7 @@ const PLATFORMS = [
 const meta: Meta<typeof RSelect<unknown, unknown>> = {
   title: "Forms/RSelect",
   component: RSelect as never,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     variant: {
       control: "inline-radio",
@@ -46,30 +48,8 @@ const meta: Meta<typeof RSelect<unknown, unknown>> = {
       control: "inline-radio",
       options: [undefined, "stacked", "inline"],
     },
-    label: { control: "text" },
-    placeholder: { control: "text" },
     multiple: { control: "boolean" },
-    chips: { control: "boolean" },
-    closableChips: { control: "boolean" },
-    chipTone: {
-      control: "select",
-      options: [
-        "neutral",
-        "brand",
-        "accent",
-        "success",
-        "danger",
-        "warning",
-        "info",
-        "plain",
-      ],
-    },
     clearable: { control: "boolean" },
-    disabled: { control: "boolean" },
-    readonly: { control: "boolean" },
-    loading: { control: "boolean" },
-    searchable: { control: "boolean" },
-    error: { control: "boolean" },
     errorMessages: { control: "text" },
   },
   render: (args) => ({
@@ -239,9 +219,10 @@ export const Multiple: Story = {
   }),
 };
 
-// Without `chips` the selections render as one run of text. The comma
-// separator must read "A, B": a space on both sides means the separator
-// picked up the value row's flex gap.
+/**
+ * Without `chips` the selections render as one run of text, separated as "A, B"
+ * with no space before the comma.
+ */
 export const MultipleText: Story = {
   name: "Multiple (no chips)",
   render: () => ({
@@ -278,10 +259,10 @@ export const MultipleOverflow: Story = {
 
 // ── Searchable ─────────────────────────────────────────────────────
 
-// `searchable` filters items internally without any v-model:search
-// binding. Drop in the prop and the menu gets a search field that
-// filters the list as you type. (Previously this required the parent
-// to wire v-model:search to a ref + manually filter `items`.)
+/**
+ * `searchable` adds a search field that filters the items internally, with no
+ * `v-model:search` binding.
+ */
 export const Searchable: Story = {
   render: () => ({
     components: { RSelect },
@@ -316,8 +297,10 @@ export const SearchableExternal: Story = {
   }),
 };
 
-// `itemSearchTerms` lets the search match strings beyond the title, so
-// "ps2" finds "PlayStation 2" through its value.
+/**
+ * `itemSearchTerms` lets the search match strings beyond the title, so
+ * "ps2" finds "PlayStation 2" through its value.
+ */
 export const SearchableExtraTerms: Story = {
   name: "Searchable · extra search terms",
   render: () => ({
@@ -333,10 +316,10 @@ export const SearchableExtraTerms: Story = {
 
 // ── Chip tone ──────────────────────────────────────────────────────
 
-// `chipTone` controls how the selection chips render in multi mode.
-// Default `brand` paints a brand-coloured pill; `plain` strips the
-// pill background entirely (used by PlatformSelect to let icons read
-// without surrounding colour); the rest pick a semantic tone.
+/**
+ * `chipTone` sets how multi-mode selection chips render: a `brand` pill,
+ * `plain` with no background, or a semantic tone.
+ */
 export const ChipTones: Story = {
   name: "Chip tones (multiple)",
   render: () => ({
@@ -371,9 +354,10 @@ export const ChipTones: Story = {
 
 // ── Chip slot ──────────────────────────────────────────────────────
 
-// Use the `#chip` slot to fully control chip content: replace the
-// default label/title with a custom layout (icon, avatar, mini-card).
-// The slot receives the active item; styling falls back to chipTone.
+/**
+ * The `#chip` slot replaces the chip content with a custom layout; its styling
+ * still follows `chipTone`.
+ */
 export const ChipSlotIconOnly: Story = {
   name: "#chip slot — icon-only chips",
   render: () => ({
@@ -535,8 +519,10 @@ export const FormRow: Story = {
   }),
 };
 
-// A menu opened from inside the panel teleports outside it; using that
-// menu must not count as a press outside the select.
+/**
+ * A menu opened from inside the panel teleports outside it; using that
+ * menu must not count as a press outside the select.
+ */
 export const NestedMenu: Story = {
   name: "Menu inside the panel",
   render: () => ({

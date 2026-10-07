@@ -185,8 +185,10 @@ Component docs and visual QA for `frontend/src/v2/` (port 6006):
 
 ```sh
 npm run storybook
-npm run storybook:test   # composeStories + play() + a11y (every v2 story)
+npm run storybook:test   # play() + axe on every v2 story, in headless Chromium
 ```
+
+`storybook:test` (and `npm run test`, which includes it) needs Playwright's Chromium: run `npx playwright install chromium` once.
 
 For responsive layouts, use the viewport toolbar presets from `.storybook/rommViewports.ts`.
 

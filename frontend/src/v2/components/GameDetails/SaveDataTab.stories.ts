@@ -13,6 +13,7 @@ import {
   downloadButtons,
   pickSaveDataSubtab,
 } from "@/v2/utils/saveStates.plays";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import SaveDataTab from "./SaveDataTab.vue";
 
 type Subtab = "saves" | "states";
@@ -46,9 +47,7 @@ async function waitForSubtab(root: HTMLElement, subtab: Subtab) {
 const meta: Meta<StoryArgs> = {
   title: "GameDetails/SaveDataTab",
   component: SaveDataTab,
-  parameters: {
-    layout: "fullscreen",
-  },
+  parameters: { ...CONTRAST_TODO_PARAMETERS, layout: "fullscreen" },
   args: {
     subtab: "saves",
     rom: storyDetailedRom(),

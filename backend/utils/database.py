@@ -72,6 +72,9 @@ ROMS_SEARCH_FULLTEXT_INDEX = "idx_roms_search_fulltext"
 ROMS_SEARCH_FULLTEXT_COLUMNS = ("name", "fs_name", SEARCH_TITLES_COLUMN)
 ROMS_SEARCH_TITLES_TRGM_INDEX = "idx_roms_search_titles_trgm"
 
+# PostgreSQL-only, for RetroArch Cloud Sync's case-insensitive ROM lookup.
+ROMS_FS_NAME_NO_EXT_LOWER_INDEX = "idx_roms_fs_name_no_ext_lower"
+
 # Indexes that exist in some databases but cannot be declared on a model.
 AUTOGENERATE_EXEMPT_INDEX_NAMES = (
     frozenset(
@@ -88,6 +91,8 @@ AUTOGENERATE_EXEMPT_INDEX_NAMES = (
     # `DESC NULLS LAST` is the only spelling that matches what the descending
     # gallery sort asks for, and no other engine parses it.
     | frozenset(rom_desc_index_name(c) for c in SORTABLE_NULLABLE_ROM_COLUMNS)
+    # An expression index, which MariaDB has no use for: its collation ignores case.
+    | {ROMS_FS_NAME_NO_EXT_LOWER_INDEX}
 )
 
 

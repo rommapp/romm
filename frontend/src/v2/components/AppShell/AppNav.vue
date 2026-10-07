@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // AppNav: the top navigation. Logo on the left, centred tab pill of
 // content destinations (Home / Platforms / Collections / Search), and
-// a right cluster of utility chrome (scanning indicator, the mini player on
-// phones, user menu).
+// a right cluster of utility chrome (scan and conversion indicators, the
+// mini player on phones, user menu).
 // Highlighting is derived from `route.path`
 // rather than route names so gallery subroutes (e.g. /rom/:id) still
 // light up the Home tab.
@@ -14,6 +14,7 @@ import { RSliderBtnGroup, RImg } from "@v2/lib";
 import { useWindowScroll } from "@vueuse/core";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import ConvertingIndicator from "@/v2/components/AppShell/ConvertingIndicator.vue";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
 import NowPlayingPill from "@/v2/components/Soundtrack/NowPlayingPill.vue";
@@ -80,6 +81,7 @@ const scrolled = computed(
 
       <div class="r-v2-nav__right">
         <ScanningIndicator />
+        <ConvertingIndicator />
         <NowPlayingPill v-if="smAndDown" />
         <UserMenu />
       </div>

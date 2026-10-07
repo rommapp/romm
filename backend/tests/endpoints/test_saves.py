@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import uuid
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
@@ -13,7 +14,7 @@ from sqlalchemy import update
 from tests.factories import make_save, make_screenshot, make_state
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from endpoints.saves import _apply_datetime_tag
+from handler.asset_store import apply_datetime_tag, reserve_version_name
 from handler.auth.base_handler import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import (
@@ -420,7 +421,7 @@ class TestSaveUploadWithSync:
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
     )
     @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
-    def test_reupload_updates_file_path_and_emulator(
+    def test_reupload_under_another_emulator_keeps_both_saves(
         self,
         mock_scan,
         _mock_write,
@@ -431,9 +432,8 @@ class TestSaveUploadWithSync:
         platform: Platform,
         admin_user: User,
     ):
-        """Re-uploading the same filename under a different emulator must move
-        the row's file_path/emulator to where the new bytes landed, so the
-        stored hash never disagrees with the served content."""
+        """A same-named upload for another core is a separate save in that
+        core's folder, so the first core's save is left untouched."""
         existing = make_save(
             rom,
             admin_user,
@@ -470,17 +470,16 @@ class TestSaveUploadWithSync:
         )
 
         assert response.status_code == status.HTTP_200_OK
+        assert response.json()["id"] != existing.id
+        assert response.json()["emulator"] == "new_emu"
+        assert response.json()["file_path"] == new_path
 
-        updated = db_save_handler.get_save(user_id=admin_user.id, id=existing.id)
-        assert updated is not None
-        assert updated.file_path == new_path
-        assert updated.emulator == "new_emu"
-        assert updated.content_hash == "f" * 32
-        assert updated.file_size_bytes == 200
-        # full_path now points at the freshly written bytes, not the stale ones.
-        assert updated.full_path == f"{new_path}/test.sav"
-        # The orphaned bytes at the old location are cleaned up.
-        mock_remove.assert_awaited_once_with(f"{platform.slug}/saves/old_emu/test.sav")
+        kept = db_save_handler.get_save(user_id=admin_user.id, id=existing.id)
+        assert kept is not None
+        assert kept.emulator == "old_emu"
+        assert kept.file_path == f"{platform.slug}/saves/old_emu"
+        assert kept.content_hash == "0" * 32
+        mock_remove.assert_not_awaited()
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -2192,6 +2191,98 @@ class TestSlotRetention:
         assert "main_quest_new" in remaining
         assert {"main_quest_0", "main_quest_1", "main_quest_2"}.isdisjoint(remaining)
         assert mock_remove.call_count == 3
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_pruning_leaves_other_emulators_and_formats_alone(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        platform: Platform,
+        admin_user: User,
+        named_slot_saves: list[Save],
+    ):
+        make_save(
+            rom, admin_user, "main_quest.srm", emulator="mesen", slot="main_quest"
+        )
+        make_save(rom, admin_user, "main_quest.rtc", slot="main_quest")
+        mock_scan.return_value = _slot_save(
+            admin_user, rom, platform, "main_quest_new", "main_quest"
+        )
+
+        with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 1):
+            response = self._upload(client, access_token, rom, "&slot=main_quest")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert {
+            save.file_name
+            for save in db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], slot="main_quest"
+            )
+        } == {"main_quest.srm", "main_quest.rtc", "main_quest_new.sav"}
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_pruning_counts_a_dotted_name_by_its_stored_extension(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        admin_user: User,
+    ):
+        for second in (1, 2):
+            make_save(
+                rom,
+                admin_user,
+                f"quest.rev [2025-01-01_00-00-0{second}].srm",
+                slot="side_quest",
+            )
+        mock_scan.side_effect = lambda file_name, **_: Save(
+            file_name=file_name,
+            file_path=f"{rom.platform.fs_slug}/saves",
+            file_size_bytes=8,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            slot="side_quest",
+        )
+
+        with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 1):
+            response = client.post(
+                f"/api/saves?rom_id={rom.id}&slot=side_quest",
+                files={
+                    "saveFile": (
+                        "quest.rev.srm",
+                        BytesIO(b"new save"),
+                        "application/octet-stream",
+                    )
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [
+            save.id
+            for save in db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], slot="side_quest"
+            )
+        ] == [response.json()["id"]]
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -4221,10 +4312,37 @@ class TestApplyDatetimeTag:
             def now(cls, tz=None):
                 return datetime.fromtimestamp(captured_at.timestamp(), tz)
 
-        with mock.patch("endpoints.saves.datetime", FrozenDatetime):
-            tagged = _apply_datetime_tag("suikoden [2020-01-01_00-00-00].srm")
+        with mock.patch("handler.asset_store.datetime", FrozenDatetime):
+            tagged = apply_datetime_tag("suikoden [2020-01-01_00-00-00].srm")
 
         assert tagged == "suikoden [2026-09-22_19-10-13].srm"
+
+    async def test_a_taken_or_claimed_name_moves_on_a_second(
+        self, admin_user: User, rom: Rom
+    ):
+        saves_path = f"reserve-test-{uuid.uuid4().hex}"
+        frozen = datetime(2026, 1, 1, 12, 0, 0)
+        make_save(
+            rom,
+            admin_user,
+            "game [2026-01-01_12-00-00].srm",
+            file_path=saves_path,
+            slot="autosave",
+        )
+
+        with mock.patch("handler.asset_store.datetime") as clock:
+            clock.now.return_value = frozen
+            first = await reserve_version_name(
+                admin_user.id, rom.id, saves_path, "game.srm"
+            )
+            second = await reserve_version_name(
+                admin_user.id, rom.id, saves_path, "game.srm"
+            )
+
+        assert (first, second) == (
+            "game [2026-01-01_12-00-01].srm",
+            "game [2026-01-01_12-00-02].srm",
+        )
 
 
 class TestSyncBaselineWriteSites:

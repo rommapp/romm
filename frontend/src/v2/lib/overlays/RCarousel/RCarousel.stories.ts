@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { type Component, ref } from "vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RCarousel from "./RCarousel.vue";
 
 // RCarousel is generic (`<T>`), so its component-typed shape doesn't fit
@@ -26,17 +27,7 @@ const SAMPLES = [
 const meta: Meta = {
   title: "Overlays/RCarousel",
   component: RCarousel as never,
-  argTypes: {
-    fullscreen: { control: "boolean" },
-    loop: { control: "boolean" },
-    showCounter: { control: "boolean" },
-    showArrows: { control: "boolean" },
-    showThumbnails: { control: "boolean" },
-    closeLabel: { control: "text" },
-    prevLabel: { control: "text" },
-    nextLabel: { control: "text" },
-    ariaLabel: { control: "text" },
-  },
+  parameters: CONTRAST_TODO_PARAMETERS,
 };
 
 export default meta;

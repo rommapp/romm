@@ -158,7 +158,7 @@ Run from `frontend/`:
 
 1. `npm run typecheck`: zero errors (`vue-tsc --build`, the app and the Node tooling).
 2. `trunk check`: ESLint clean on the changed files.
-3. `npm run test`: zero failures (Vitest + happy-dom; runs unit tests **and** story `play()` functions via `composeStories`).
+3. `npm run test`: zero failures (unit tests in happy-dom, and every story's `play()` and axe check in headless Chromium; needs `npx playwright install chromium` once).
 4. `npm run build`: zero failures (CI sanity check).
 
 **If you touched the backend API:** start the backend, run `npm run generate`, then re-`typecheck`.
