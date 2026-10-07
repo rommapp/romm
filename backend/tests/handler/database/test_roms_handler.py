@@ -31,7 +31,10 @@ from exceptions.database_exceptions import RomFileOwnerChangedError
 from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_engine, sync_session
-from handler.database.roms_handler import _filter_values_cache_version
+from handler.database.roms_handler import (
+    _filter_values_cache_version,
+    user_sort_cache_version,
+)
 from models.assets import Save, State
 from models.platform import Platform
 from models.rom import (
@@ -39,6 +42,7 @@ from models.rom import (
     Rom,
     RomFile,
     RomFileCategory,
+    RomUserStatus,
     TrackMeta,
     compute_full_path_hash,
 )
@@ -1139,18 +1143,108 @@ class TestRaBatchReads:
     def test_get_roms_by_ra_ids_empty_input_short_circuits(self):
         assert db_rom_handler.get_roms_by_ra_ids([]) == []
 
-    def test_get_rom_users_by_rom_ids_scopes_to_user(self, rom: Rom, editor_user: User):
-        # The `rom` fixture already links this ROM to the admin user.
-        db_rom_handler.add_rom_user(rom_id=rom.id, user_id=editor_user.id)
 
-        rows = db_rom_handler.get_rom_users_by_rom_ids(editor_user.id, [rom.id])
-
-        # The session is closed and relations raise, so only columns are read.
-        assert set(rows) == {rom.id}
-        assert rows[rom.id].user_id == editor_user.id
-        assert rows[rom.id].status is None
-
-    def test_get_rom_users_by_rom_ids_empty_input_short_circuits(
-        self, viewer_user: User
+class TestRomUserStatusWrites:
+    @pytest.mark.parametrize(
+        ("current", "new", "expected", "changed"),
+        [
+            (None, RomUserStatus.COMPLETED_100, RomUserStatus.COMPLETED_100, 1),
+            (
+                RomUserStatus.INCOMPLETE,
+                RomUserStatus.COMPLETED_100,
+                RomUserStatus.COMPLETED_100,
+                1,
+            ),
+            (RomUserStatus.FINISHED, RomUserStatus.FINISHED, RomUserStatus.FINISHED, 0),
+            (RomUserStatus.RETIRED, RomUserStatus.FINISHED, RomUserStatus.RETIRED, 0),
+            (
+                RomUserStatus.NEVER_PLAYING,
+                RomUserStatus.FINISHED,
+                RomUserStatus.NEVER_PLAYING,
+                0,
+            ),
+        ],
+    )
+    def test_set_rom_user_statuses_transitions(
+        self,
+        rom: Rom,
+        admin_user: User,
+        current: RomUserStatus | None,
+        new: RomUserStatus,
+        expected: RomUserStatus,
+        changed: int,
     ):
-        assert db_rom_handler.get_rom_users_by_rom_ids(viewer_user.id, []) == {}
+        # The `rom` fixture already links this ROM to the admin user.
+        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert rom_user is not None
+        db_rom_handler.update_rom_user(rom_user.id, {"status": current})
+
+        assert db_rom_handler.set_rom_user_statuses(admin_user.id, {rom.id: new}) == (
+            changed
+        )
+
+        rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert rom_user is not None
+        assert rom_user.status == expected
+
+    def test_set_rom_user_statuses_creates_missing_rows(
+        self, platform: Platform, viewer_user: User
+    ):
+        new_rom = make_rom(platform, "Fresh Game", ra_id=12345)
+
+        assert (
+            db_rom_handler.set_rom_user_statuses(
+                viewer_user.id, {new_rom.id: RomUserStatus.FINISHED}
+            )
+            == 1
+        )
+
+        rom_user = db_rom_handler.get_rom_user(new_rom.id, viewer_user.id)
+        assert rom_user is not None
+        assert rom_user.status == RomUserStatus.FINISHED
+
+    def test_set_rom_user_statuses_scopes_to_user(
+        self, rom: Rom, admin_user: User, editor_user: User
+    ):
+        db_rom_handler.set_rom_user_statuses(
+            editor_user.id, {rom.id: RomUserStatus.FINISHED}
+        )
+
+        admin_row = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert admin_row is not None
+        assert admin_row.status is None
+
+    def test_set_rom_user_statuses_empty_input(self, viewer_user: User):
+        assert db_rom_handler.set_rom_user_statuses(viewer_user.id, {}) == 0
+
+    def test_set_rom_user_statuses_survives_a_concurrent_insert(
+        self, rom: Rom, platform: Platform, admin_user: User, mocker
+    ):
+        new_rom = make_rom(platform, "Fresh Game", ra_id=12345)
+        before = int(user_sort_cache_version(admin_user.id))
+
+        with sync_session.begin() as session:
+            # Hide the admin's existing row from the lookup, as if another
+            # writer inserted it after the read.
+            mocker.patch.object(session, "scalars", return_value=iter([]))
+            updated = db_rom_handler.set_rom_user_statuses(
+                admin_user.id,
+                {rom.id: RomUserStatus.FINISHED, new_rom.id: RomUserStatus.FINISHED},
+                session=session,
+            )
+
+        assert updated == 2
+        for rom_id in (rom.id, new_rom.id):
+            rom_user = db_rom_handler.get_rom_user(rom_id, admin_user.id)
+            assert rom_user is not None
+            assert rom_user.status == RomUserStatus.FINISHED
+        # The bump is queued after the rolled-back savepoint, so it survives.
+        assert int(user_sort_cache_version(admin_user.id)) == before + 1
+
+    def test_add_rom_user_returns_the_existing_row(self, rom: Rom, admin_user: User):
+        existing = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+        assert existing is not None
+
+        rom_user = db_rom_handler.add_rom_user(rom.id, admin_user.id)
+
+        assert rom_user.id == existing.id

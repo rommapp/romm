@@ -3,7 +3,7 @@ import json
 import re
 import secrets
 from collections import Counter
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime
 from types import SimpleNamespace
 from typing import Any, Literal, NamedTuple
@@ -82,6 +82,7 @@ from models.rom import (
     RomMetadata,
     RomNote,
     RomUser,
+    RomUserStatus,
     RomVisibility,
     RomVisibilityLabel,
     SiblingRom,
@@ -2490,6 +2491,28 @@ class DBRomsHandler(DBBaseHandler):
             .all()
         )
 
+    def _insert_rom_user(
+        self, rom_id: int, user_id: int, session: Session
+    ) -> tuple[RomUser, bool]:
+        """Insert a RomUser, or fetch the one a concurrent writer inserted first.
+
+        Returns:
+            The row, and whether this call inserted it.
+        """
+        rom_user = RomUser(rom_id=rom_id, user_id=user_id)
+        try:
+            with session.begin_nested():
+                session.add(rom_user)
+                session.flush()
+        except IntegrityError:
+            existing = session.scalar(
+                select(RomUser).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
+            )
+            if existing is None:
+                raise
+            return existing, False
+        return rom_user, True
+
     @begin_session
     def add_rom_user(
         self,
@@ -2497,11 +2520,11 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int,
         session: Session = INJECTED_SESSION,
     ) -> RomUser:
-        rom_user = session.merge(RomUser(rom_id=rom_id, user_id=user_id))
-        session.flush()
-        # A fresh row's zero defaults replace NULL sort keys, which moves
-        # this user's RomUser-sorted order.
-        _queue_user_cache_bumps(session, user_id, sort_keys=True)
+        rom_user, inserted = self._insert_rom_user(rom_id, user_id, session)
+        if inserted:
+            # A fresh row's zero defaults replace NULL sort keys, which moves
+            # this user's RomUser-sorted order.
+            _queue_user_cache_bumps(session, user_id, sort_keys=True)
         return rom_user
 
     @begin_session
@@ -2516,23 +2539,82 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_rom_users_by_rom_ids(
+    def set_rom_user_statuses(
         self,
         user_id: int,
-        rom_ids: Sequence[int],
+        statuses: Mapping[int, RomUserStatus],
         *,
         session: Session = INJECTED_SESSION,
-    ) -> dict[int, RomUser]:
-        """Get `{rom_id: RomUser}` for one user over many ROMs in a single query."""
-        if not rom_ids:
-            return {}
-        # Skips the joined `rom` (with its `platform`/`metadatum`) and `user` loads.
-        rows = session.scalars(
-            select(RomUser)
-            .options(raiseload(RomUser.rom), raiseload(RomUser.user))
-            .filter(RomUser.user_id == user_id, RomUser.rom_id.in_(rom_ids))
-        ).all()
-        return {row.rom_id: row for row in rows}
+    ) -> int:
+        """Set one user's status on many ROMs in a single transaction.
+
+        Missing RomUser rows are created; RETIRED and NEVER_PLAYING are kept.
+
+        Returns:
+            How many rows had their status changed.
+        """
+        if not statuses:
+            return 0
+
+        existing = set(
+            session.scalars(
+                select(RomUser.rom_id).where(
+                    RomUser.user_id == user_id, RomUser.rom_id.in_(statuses)
+                )
+            )
+        )
+        missing = [rom_id for rom_id in statuses if rom_id not in existing]
+        if missing:
+            try:
+                with session.begin_nested():
+                    session.add_all(
+                        [RomUser(rom_id=rom_id, user_id=user_id) for rom_id in missing]
+                    )
+                    session.flush()
+            except IntegrityError:
+                # A concurrent writer created some of these rows first.
+                for rom_id in missing:
+                    self._insert_rom_user(rom_id, user_id, session)
+
+        rom_ids_by_status: dict[RomUserStatus, list[int]] = {}
+        for rom_id, status in statuses.items():
+            rom_ids_by_status.setdefault(status, []).append(rom_id)
+
+        # The guard is in the WHERE clause, so a status the user sets while
+        # this runs is never overwritten.
+        updated = 0
+        for status, rom_ids in rom_ids_by_status.items():
+            updated += affected_rows(
+                session.execute(
+                    update(RomUser)
+                    .where(
+                        RomUser.user_id == user_id,
+                        RomUser.rom_id.in_(rom_ids),
+                        or_(
+                            RomUser.status.is_(None),
+                            RomUser.status.not_in(
+                                (
+                                    status,
+                                    RomUserStatus.RETIRED,
+                                    RomUserStatus.NEVER_PLAYING,
+                                )
+                            ),
+                        ),
+                    )
+                    .values(status=status)
+                    .execution_options(synchronize_session=False)
+                )
+            )
+
+        # Queued last: a rolled-back savepoint above drops earlier queued bumps.
+        if missing or updated:
+            _queue_user_cache_bumps(
+                session,
+                user_id,
+                sort_keys=True,
+                feed=bool(updated),
+            )
+        return updated
 
     @begin_session
     def update_rom_user(
