@@ -5023,13 +5023,14 @@ def test_hydrate_skips_a_newer_state_from_another_core(rom: Rom, admin_user: Use
     assert push.call_args.args[1:] == ("Old.state", b"state-bytes", "bsnes")
 
 
-def test_hydrate_skips_a_newer_auto_state(rom: Rom, admin_user: User):
-    """The auto state only loads at content start, so it never goes to a slot."""
+def test_hydrate_pushes_a_newer_auto_state(rom: Rom, admin_user: User):
+    """The broker files any pushed state into its working slot, so the auto
+    state resumes like the rest."""
     _core_state(rom, admin_user, "Game.20260101-000000000000.state", None)
     _core_state(rom, admin_user, "Game.20260202-000000000000.state.auto", None)
     push = _hydrate_core(rom, admin_user, "retroarch", states.StateCore("snes9x", True))
     push.assert_called_once()
-    assert push.call_args.args[1] == "Game.state"
+    assert push.call_args.args[1] == "Game.state.auto"
 
 
 def test_hydrate_skips_a_newer_state_flagged_missing(rom: Rom, admin_user: User):
@@ -5046,14 +5047,6 @@ def test_hydrate_skips_a_newer_state_flagged_missing(rom: Rom, admin_user: User)
     push = _hydrate_core(rom, admin_user, "retroarch", states.StateCore("snes9x", True))
     push.assert_called_once()
     assert push.call_args.args[1] == "Old.state"
-
-
-def test_hydrate_pushes_nothing_when_only_an_auto_state_is_stored(
-    rom: Rom, admin_user: User
-):
-    _core_state(rom, admin_user, "Game.20260202-000000000000.state.auto", None)
-    push = _hydrate_core(rom, admin_user, "retroarch", states.StateCore("snes9x", True))
-    push.assert_not_called()
 
 
 def test_hydrate_pushes_nothing_when_no_state_matches(rom: Rom, admin_user: User):
@@ -6778,26 +6771,20 @@ def test_resolve_resume_state_accepts_the_players_own_state(rom: Rom, admin_user
     assert is_foreign is False
 
 
-def test_resolve_resume_state_refuses_an_auto_state_whatever_the_import_spec(
+def test_resolve_resume_state_resumes_an_auto_state_from_the_working_slot(
     rom: Rom, admin_user: User
 ):
-    """The broker files any pushed state into its working slot, so the import
-    spec's slot would resume an auto state as a numbered one."""
+    """The broker files any pushed state into its working slot, so a native
+    auto state needs no import check."""
     auto = _core_state(rom, admin_user, "Game.20260202-000000000000.state.auto", None)
-    spec = webstation.ImportSpec(
-        kinds=frozenset({"state"}), state_channel="push", state_slot=0
-    )
     with (
         patch("handler.streaming.webstation.default_core", return_value=None),
-        patch(
-            "handler.streaming.states.webstation.require_import_spec",
-            return_value=spec,
-        ) as require,
+        patch("handler.streaming.states.webstation.require_import_spec") as require,
     ):
-        with pytest.raises(HTTPException) as exc:
-            states.resolve_resume_state(admin_user.id, rom, _snes("retroarch"), auto.id)
-    assert exc.value.status_code == 400
-    assert exc.value.detail == "An automatic state can't be resumed from"
+        resolved, slot, is_foreign = states.resolve_resume_state(
+            admin_user.id, rom, _snes("retroarch"), auto.id
+        )
+    assert (resolved.id, slot, is_foreign) == (auto.id, 0, False)
     require.assert_not_called()
 
 
@@ -8667,7 +8654,7 @@ def test_stamped_exit_state_filename_round_trips(emulator, name, shape):
 
 
 def test_stamped_auto_state_filename_keeps_its_container_name():
-    """Each auto capture gets its own name, and it is never a numbered slot."""
+    """Each auto capture gets its own name and resumes from the working slot."""
     first = datetime(2026, 7, 21, 4, 56, 45, 123456, tzinfo=timezone.utc)
     second = datetime(2026, 7, 21, 4, 56, 45, 123457, tzinfo=timezone.utc)
     stamped = states.stamped_state_filename("retroarch", "Game.state.auto", first)
@@ -8676,7 +8663,7 @@ def test_stamped_auto_state_filename_keeps_its_container_name():
         "retroarch", "Game.state.auto", second
     )
     assert states.container_state_filename(stamped) == "Game.state.auto"
-    assert states.slot_from_state_filename("retroarch", stamped) is None
+    assert states.slot_from_state_filename("retroarch", stamped) == 0
 
 
 class _ResumeClaim(NamedTuple):

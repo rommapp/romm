@@ -58,23 +58,14 @@ _SLOT_PATTERNS = {
     "dolphin": re.compile(r"\.s(\d{2})$"),
     "xemu": re.compile(r"\.x(\d{2})$"),
     # RetroArch leaves the number off its default slot: "GAME.state" is slot 0
-    # and "GAME.state3" is slot 3.
-    "retroarch": re.compile(r"\.state(\d{0,2})$"),
+    # and "GAME.state3" is slot 3. The broker files any pushed state into its
+    # working slot, so the auto state "GAME.state.auto" resumes from 0 too.
+    "retroarch": re.compile(r"\.state(?:(\d{1,2})|\.auto)?$"),
     # DuckStation and RPCS3 write one exit state per game with no slot in the
     # name, so the empty group reads as the working slot 0.
     "duckstation": re.compile(r"()\.sav$"),
     "rpcs3": re.compile(r"()\.SAVESTAT(?:\.zst|\.gz)?$"),
 }
-
-
-# RetroArch's auto state, written on exit and read only at content start. It
-# has no slot, so it is kept in the history but never pushed or resumed.
-_AUTO_STATE_PATTERNS = {"retroarch": re.compile(r"\.state\.auto$")}
-
-
-def is_auto_state(emulator: str, filename: str) -> bool:
-    pattern = _AUTO_STATE_PATTERNS.get(emulator)
-    return pattern is not None and pattern.search(filename) is not None
 
 
 # Lowest slot each emulator's broker addresses. The rest count from 1, so a "0"
@@ -109,17 +100,10 @@ def stamped_state_filename(emulator: str, filename: str, when: datetime) -> str:
     history: each capture lands on the same name and updates its row in place,
     the pre-history behavior. No streaming emulator is in that position now.
     """
-    match = next(
-        (
-            m
-            for pattern in (
-                _SLOT_PATTERNS.get(emulator),
-                _AUTO_STATE_PATTERNS.get(emulator),
-            )
-            if pattern is not None and (m := pattern.search(filename)) is not None
-        ),
-        None,
-    )
+    pattern = _SLOT_PATTERNS.get(emulator)
+    if pattern is None:
+        return filename
+    match = pattern.search(filename)
     if match is None:
         return filename
     stamp = when.strftime(_STAMP_FORMAT)
@@ -138,8 +122,8 @@ def resolve_resume_state(
 
     Visibility follows the same rule as the state list the picker was built
     from: the claiming user's own states plus other users' public ones.
-    Raises 404 for anything invisible, 400 for an auto state or a foreign
-    state the broker will not import, and 503 when the broker couldn't be asked.
+    Raises 404 for anything invisible, 400 for a foreign state the broker
+    will not import, and 503 when the broker couldn't be asked.
     """
     state = next(
         (
@@ -156,11 +140,6 @@ def resolve_resume_state(
 
     emulator = container.emulator
     native = (state.emulator or "").lower() == emulator
-    # The broker would file it into its working slot like any pushed state.
-    if native and is_auto_state(emulator, state.file_name):
-        raise HTTPException(
-            status_code=400, detail="An automatic state can't be resumed from"
-        )
     if native:
         # Another core's file would land where this one's quick-load reads it.
         core = state_core_for(container)
@@ -658,7 +637,7 @@ async def hydrate_states_to_broker(
         (
             s
             for s in user_states_for_emulator(user_id, rom_id, emulator, state_core)
-            if not s.missing_from_fs and not is_auto_state(emulator, s.file_name)
+            if not s.missing_from_fs
         ),
         None,
     )
