@@ -44,6 +44,7 @@ from sqlalchemy.orm import (
     selectinload,
     undefer,
 )
+from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
 
@@ -2566,6 +2567,7 @@ class DBRomsHandler(DBBaseHandler):
                 # Skipping duplicates in the INSERT takes no prior read, whose MariaDB
                 # snapshot would hide (and then refuse) a row another writer commits.
                 rows = [{"rom_id": rom_id, "user_id": user_id} for rom_id in chunk]
+                insert_missing: Insert
                 if postgresql:
                     insert_missing = (
                         sa_pg.insert(RomUser)
