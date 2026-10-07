@@ -1117,16 +1117,15 @@ async def _identify_platform(
         # A folder a custom structure now descends into used to be a single
         # multi-file rom; that old entry shows up here as missing. Flag those so
         # it's clear the "missing" is expected and the stale entry can be
-        # deleted. A superseded folder's path is a parent of a discovered rom.
+        # deleted. A superseded folder's path is an ancestor of a discovered rom.
         ancestors: set[str] = set()
         for fs_rom in fs_roms:
-            path = fs_rom["fs_path"].rstrip("/")
+            path = fs_rom["fs_path"]
             while path and path not in ancestors:
                 ancestors.add(path)
                 path = path.rpartition("/")[0]
         for r in missing_roms:
-            superseded = r.full_path in ancestors
-            if superseded:
+            if r.full_path in ancestors:
                 log.warning(
                     f" - {r.fs_name} (now scanned as a folder of roms, "
                     "delete this stale entry to clean up)"
