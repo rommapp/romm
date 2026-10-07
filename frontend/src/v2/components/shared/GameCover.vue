@@ -258,6 +258,7 @@ defineExpose({
           ? (art.fallbackUrl.value ?? undefined)
           : (art.coverUrl.value ?? undefined)
       "
+      :srcset="showFallback ? undefined : (art.coverSrcset.value ?? undefined)"
       :alt="title"
       :style="{ objectFit: art.objectFit.value }"
       class="game-cover__img"
