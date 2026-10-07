@@ -360,8 +360,7 @@ async def _is_duplicate_of_latest(
 
     Saving twice without playing in between is common (the exit autosave right
     after a manual save), and those captures are identical. Only the newest is
-    compared: an older match is a genuine revisit of the same point. A state
-    stored before states were hashed is compared byte for byte.
+    compared: an older match is a genuine revisit of the same point.
     """
     if latest is None or latest.file_size_bytes != len(content):
         return False
@@ -394,13 +393,15 @@ async def _backfill_hash(state: State, content: bytes) -> None:
         log.warning("could not record the hash of state %s: %s", state.id, exc)
 
 
-async def is_stored(user_id: int, rom_id: int, emulator: str, content: bytes) -> bool:
-    """Whether any of this emulator's stored states holds exactly ``content``."""
+async def stored_copy(
+    user_id: int, rom_id: int, emulator: str, content: bytes
+) -> State | None:
+    """The stored state of this emulator's that holds exactly ``content``, if any."""
     content_hash = await asyncio.to_thread(content_hash_of_bytes, content)
     for state in user_states_for_emulator(user_id, rom_id, emulator):
         if await _is_duplicate_of_latest(state, content, content_hash):
-            return True
-    return False
+            return state
+    return None
 
 
 async def _remove_pruned_file(path: str) -> None:
@@ -464,29 +465,37 @@ async def store_state_asset(
     screenshot: bytes | None = None,
     disc_file_id: int | None = None,
     core: str | None = None,
+    captured_at: datetime | None = None,
 ) -> None:
     """Store a pulled state file as a new entry in the ROM's state history.
 
     Each capture is kept rather than overwriting the slot it came from, so the
     player can resume from any earlier point. An unchanged capture is dropped
     and the oldest entries are pruned once the retention limit is reached.
+
+    Args:
+        captured_at: when the state was written, for one filed after a newer
+            capture; defaults to now.
     """
     history = user_states_for_emulator(user.id, rom.id, emulator)
     if await _is_duplicate_of_latest(history[0] if history else None, content):
         log.info("state identical to the last capture, skipping, rom=%s", rom.name)
         return
 
-    stamped = stamped_state_filename(emulator, filename, datetime.now(timezone.utc))
-    existing_names = {state.file_name for state in history}
-    stored = await store_state_file(
-        user,
-        rom,
-        emulator,
-        content,
-        stamped,
-        fields={"disc_file_id": disc_file_id, "core": core},
+    stamped = stamped_state_filename(
+        emulator, filename, captured_at or datetime.now(timezone.utc)
     )
-    if stamped not in existing_names:
+    existing_names = {state.file_name for state in history}
+    fields: dict[str, Any] = {"disc_file_id": disc_file_id, "core": core}
+    if captured_at is not None:
+        fields |= {"created_at": captured_at, "updated_at": captured_at}
+    stored = await store_state_file(
+        user, rom, emulator, content, stamped, fields=fields
+    )
+    if captured_at is not None:
+        # Filed under newer captures, so the prune reads the history afresh.
+        history = user_states_for_emulator(user.id, rom.id, emulator)
+    elif stamped not in existing_names:
         # The capture is the newest, so it heads the list the prune below reads.
         history.insert(0, stored)
 

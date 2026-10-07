@@ -764,7 +764,9 @@ async def _hydrate_saves(
                 log.exception("import archive hydration failed, continuing launch")
                 result = imports.ImportHydration()
             if result.path is not None:
-                return result
+                return result._replace(
+                    native_fallback=defaulted and save_foreign and import_state is None
+                )
             if save_foreign and not defaulted:
                 # A picked foreign save has no native side to fall back to.
                 return imports.ImportHydration()
@@ -1027,7 +1029,7 @@ async def claim_session(
             # The last exit's detached save pull may still be filing the archive to hydrate.
             await saves.wait_for_save_pull(request.user.id, rom.id)
 
-            archive_path, state_imported = await _hydrate_saves(
+            hydrated = await _hydrate_saves(
                 request,
                 container,
                 rom,
@@ -1043,7 +1045,7 @@ async def claim_session(
         raise
     resume_import: launch.ResumeImport = "none"
     if resume_via_import:
-        resume_import = "imported" if state_imported else "lost"
+        resume_import = "imported" if hydrated.state_imported else "lost"
     elif state_off_archive:
         # The archive would resume a state the player did not pick.
         resume_import = "lost"
@@ -1062,7 +1064,8 @@ async def claim_session(
         rom_path=rom_path,
         rom_language=rom_language,
         gui_language=gui_language,
-        archive_path=archive_path,
+        archive_path=hydrated.path,
+        native_fallback=hydrated.native_fallback,
         resume_state=resume_state,
         resume_slot=resume_slot,
         resume_pushed=resume_pushed,

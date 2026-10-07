@@ -153,10 +153,8 @@ class DBStatesHandler(DBBaseHandler):
         content_hash: str,
         session: Session = INJECTED_SESSION,
     ) -> None:
-        """Record a legacy state's hash, unless a rewrite stored one meanwhile.
-
-        Keeps `updated_at`, as `touch=False` does: the bytes are unchanged.
-        """
+        """Record a legacy state's hash, unless a rewrite stored one meanwhile."""
+        # Keeps updated_at, as the bytes are unchanged.
         session.execute(
             update(State)
             .where(State.id == id, State.content_hash.is_(None))

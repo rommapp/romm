@@ -216,6 +216,8 @@ class ImportHydration(NamedTuple):
 
     path: str | None = None
     state_imported: bool = False
+    # The archive is a default save alone, so a refused import boots the newest archive.
+    native_fallback: bool = False
 
 
 async def hydrate_import_archive(

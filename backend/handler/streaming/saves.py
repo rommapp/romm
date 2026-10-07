@@ -14,7 +14,8 @@ import posixpath
 import secrets
 import time
 import zipfile
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
 from fastapi import HTTPException
@@ -27,7 +28,7 @@ from handler.scan_handler import scan_save
 from handler.streaming import archive, broker, states, webstation
 from handler.streaming.config import ResolvedContainer
 from logger.logger import log
-from models.assets import EMULATOR_MAX_LENGTH, Save
+from models.assets import EMULATOR_MAX_LENGTH, Save, State
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length, fit_filename, sanitize_filename
@@ -151,10 +152,21 @@ def push_save_archive(container: ResolvedContainer, content: bytes) -> bool:
 
 
 async def _store_save_file(
-    user: User, rom: Rom, emulator: str, filename: str, content: bytes
+    user: User,
+    rom: Rom,
+    emulator: str,
+    filename: str,
+    content: bytes,
+    *,
+    newest_only: bool = False,
 ) -> bool:
     """Store one pulled save file as a new Save asset, unless identical content
-    is already stored for this ROM, so idle exits do not pile up copies."""
+    is already stored for this ROM, so idle exits do not pile up copies.
+
+    Args:
+        newest_only: skip only a copy of the newest save, so a return to an
+            older one still records the latest play.
+    """
     saves_path = fs_asset_handler.build_saves_file_path(
         user=user,
         platform_fs_slug=rom.platform.fs_slug,
@@ -172,9 +184,19 @@ async def _store_save_file(
     )
 
     if scanned_save.content_hash:
-        existing = db_save_handler.get_save_by_content_hash(
-            user_id=user.id, rom_id=rom.id, content_hash=scanned_save.content_hash
-        )
+        if newest_only:
+            newest = _newest(
+                db_save_handler.get_saves(user_id=user.id, rom_ids=[rom.id])
+            )
+            existing = (
+                newest
+                if newest and newest.content_hash == scanned_save.content_hash
+                else None
+            )
+        else:
+            existing = db_save_handler.get_save_by_content_hash(
+                user_id=user.id, rom_id=rom.id, content_hash=scanned_save.content_hash
+            )
         if existing is not None:
             try:
                 await fs_asset_handler.remove_file(f"{saves_path}/{filename}")
@@ -234,11 +256,7 @@ def _fileable_state(name: str) -> bool:
 
 
 def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
-    """The one `.srm` and the states of a RetroArch exit, or None to keep the zip.
-
-    RetroArch's save import takes a single `.srm`, so anything else in the
-    archive only restores as the whole archive.
-    """
+    """The one `.srm` and the states of a RetroArch exit, or None to keep the zip."""
     if emulator.lower() != "retroarch":
         return None
     try:
@@ -274,6 +292,7 @@ def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
             for kind in kinds.values()
         ):
             return None
+        # RetroArch's save import takes a single `.srm`.
         save_members = [info for info in members if kinds[info.filename] == "save"]
         if len(save_members) != 1 or not save_members[0].filename.lower().endswith(
             ".srm"
@@ -310,20 +329,32 @@ def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
 def _importable_raw_exit(
     container: ResolvedContainer, content: bytes
 ) -> RawExit | None:
-    """The exit unpacked, where its bare save can come back, or None to keep the zip.
-
-    A bare save only returns through the broker's save import, and an archive
-    that won't unpack is still a save, so both keep the archive whole.
-    """
+    """The exit unpacked, where the save import can take it back, or None to keep it."""
     try:
         raw = unpack_raw_exit(container.emulator, content)
     except Exception:
+        # An archive that won't unpack is still a save.
         log.exception("could not unpack the exit archive, keeping it whole")
         return None
     if raw is None:
         return None
     spec = webstation.import_spec(container, container.emulator, container.platform)
     return raw if spec is not None and spec.accepts("save") else None
+
+
+def _capture_times(copies: list[State | None]) -> list[datetime | None]:
+    """When to file each new exit state: under the next one stored, or now (None)."""
+    times: list[datetime | None] = []
+    ceiling: datetime | None = None
+    for copy in reversed(copies):
+        if copy is not None:
+            ceiling = copy.created_at
+            if ceiling.tzinfo is None:
+                ceiling = ceiling.replace(tzinfo=timezone.utc)
+        elif ceiling is not None:
+            ceiling -= timedelta(seconds=1)
+        times.append(ceiling if copy is None else None)
+    return times[::-1]
 
 
 async def _store_raw_exit(
@@ -334,22 +365,37 @@ async def _store_raw_exit(
     content: bytes,
     disc_file_id: int | None,
 ) -> bool:
-    """File the exit's save under its core, named like the web player's own,
-    and each state it carries into the state history. True when any was new."""
+    """File the exit's save under its core, as the web player names one, and its states.
+
+    Returns:
+        Whether any of them was new.
+    """
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     extension = os.path.splitext(raw.save_name)[1]
     filename = sanitize_filename(
         fit_filename(rom.fs_name_no_ext, f" [{ts}]{extension}")
     )
-    stored = await _store_save_file(user, rom, raw.core, filename, raw.save)
+    stored = await _store_save_file(
+        user, rom, raw.core, filename, raw.save, newest_only=True
+    )
 
     lost_state = False
+    # A state the session already filed (the exit's own, or one saved from
+    # RomM mid-session) is in the history under a stamped name.
+    checked: list[tuple[_ExitState, State | None]] = []
     for state in raw.states:
         try:
-            # A state the session already filed (the exit's own, or one saved
-            # from RomM mid-session) is in the history under a stamped name.
-            if await states.is_stored(user.id, rom.id, emulator, state.content):
-                continue
+            copy = await states.stored_copy(user.id, rom.id, emulator, state.content)
+        except Exception:
+            log.exception("failed to check exit state %s", state.name)
+            lost_state = True
+            continue
+        checked.append((state, copy))
+    captured = _capture_times([copy for _state, copy in checked])
+    for (state, copy), when in zip(checked, captured, strict=True):
+        if copy is not None:
+            continue
+        try:
             await states.store_state_asset(
                 user,
                 rom,
@@ -359,6 +405,7 @@ async def _store_raw_exit(
                 screenshot=state.screenshot,
                 disc_file_id=disc_file_id,
                 core=raw.core,
+                captured_at=when,
             )
             stored = True
         except Exception:
@@ -439,7 +486,7 @@ def _is_restorable(save: Save, emulator: str) -> bool:
     return _written_by(save, emulator) and _is_archive(save)
 
 
-def _newest(saves: list[Save]) -> Save | None:
+def _newest(saves: Iterable[Save]) -> Save | None:
     # updated_at, as the web player writes into its existing row; id breaks
     # same-second ties. A row whose file vanished can't boot.
     return max(
@@ -465,8 +512,8 @@ def default_save(
 ) -> tuple[Save | None, bool]:
     """The save a launch with no pick restores, and whether it is foreign.
 
-    On RetroArch a newer bare `.srm` wins, through the import. Blocks on the
-    broker then, and raises the 503 rather than boot an older archive.
+    Raises:
+        HTTPException: 503 when the broker can't say whether a newer `.srm` imports.
     """
     stored = db_save_handler.get_saves(user_id=user_id, rom_ids=[rom_id])
     native = _newest([s for s in stored if _is_restorable(s, container.emulator)])

@@ -452,7 +452,9 @@ describe("Stream save picker", () => {
       imports: ["save"],
     });
 
-    await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
+    await wrapper.find(".r-v2-stream__play").trigger("click");
+    await flushPromises();
+    expect(mocks.claimSession).toHaveBeenCalledOnce();
     expect(mocks.claimSession.mock.calls[0]![2]).toBeUndefined();
   });
 

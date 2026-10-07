@@ -5306,10 +5306,10 @@ def test_a_hashed_state_is_matched_without_reading_its_file(rom: Rom, admin_user
         ),
     ):
         assert asyncio.run(
-            states.is_stored(admin_user.id, rom.id, "retroarch", content)
+            states.stored_copy(admin_user.id, rom.id, "retroarch", content)
         )
         assert not asyncio.run(
-            states.is_stored(admin_user.id, rom.id, "retroarch", b"other-bytes")
+            states.stored_copy(admin_user.id, rom.id, "retroarch", b"other-bytes")
         )
     read.assert_not_awaited()
 
@@ -5330,7 +5330,7 @@ def test_a_hashed_state_whose_file_is_gone_is_not_a_match(rom: Rom, admin_user: 
         new=AsyncMock(return_value=False),
     ):
         assert not asyncio.run(
-            states.is_stored(admin_user.id, rom.id, "retroarch", content)
+            states.stored_copy(admin_user.id, rom.id, "retroarch", content)
         )
 
 
@@ -5343,7 +5343,7 @@ def test_an_unhashed_state_is_still_matched_by_its_bytes(rom: Rom, admin_user: U
         new=AsyncMock(return_value=content),
     ):
         assert asyncio.run(
-            states.is_stored(admin_user.id, rom.id, "retroarch", content)
+            states.stored_copy(admin_user.id, rom.id, "retroarch", content)
         )
 
 
@@ -5360,7 +5360,7 @@ def test_an_unhashed_state_gets_its_hash_once_read(rom: Rom, admin_user: User):
         new=AsyncMock(return_value=content),
     ):
         asyncio.run(
-            states.is_stored(admin_user.id, rom.id, "retroarch", b"other-bytes")
+            states.stored_copy(admin_user.id, rom.id, "retroarch", b"other-bytes")
         )
     row = db_state_handler.get_state(user_id=admin_user.id, id=state.id)
     assert row is not None
@@ -5384,7 +5384,7 @@ def test_a_failed_hash_write_back_still_matches_the_state(
         ),
     ):
         assert asyncio.run(
-            states.is_stored(admin_user.id, rom.id, "retroarch", content)
+            states.stored_copy(admin_user.id, rom.id, "retroarch", content)
         )
     assert "db down" in caplog.text
 
@@ -6235,8 +6235,8 @@ def test_a_state_check_failure_skips_only_that_state(rom: Rom, admin_user: User)
             "states/mGBA/Game.state3": ("state", b"slot-3"),
         }
     )
-    checked = AsyncMock(side_effect=[OSError("unreadable"), False])
-    with patch("handler.streaming.saves.states.is_stored", checked):
+    checked = AsyncMock(side_effect=[OSError("unreadable"), None])
+    with patch("handler.streaming.saves.states.stored_copy", checked):
         _write, store_state = _pull_exit(rom, admin_user, content)
 
     names = [s.file_name for s in _stored_saves(rom, admin_user)]
@@ -6268,6 +6268,106 @@ def test_an_unchanged_raw_save_is_not_filed_twice(rom: Rom, admin_user: User):
         )
     rm.assert_awaited_once()
     assert [s.file_name for s in _stored_saves(rom, admin_user)] == ["Game [old].srm"]
+
+
+def test_an_older_slot_from_the_exit_files_under_the_exit_capture(
+    rom: Rom, admin_user: User
+):
+    """Teardown filed the exit's own state first, so it still heads the history."""
+    exit_capture = _add_state(
+        rom, admin_user, "Game.20261006-120000000000.state.auto", "retroarch"
+    )
+    content = _exit_archive(
+        {
+            "saves/mGBA/Game.srm": ("save", b"eeprom"),
+            "states/mGBA/Game.state3": ("state", b"slot-3"),
+            "states/mGBA/Game.state.auto": ("state", b"auto"),
+        },
+        written={
+            "states/mGBA/Game.state3": (2026, 10, 6, 11, 0, 0),
+            "states/mGBA/Game.state.auto": (2026, 10, 6, 12, 0, 0),
+        },
+    )
+
+    async def stored(_user: int, _rom: int, _emulator: str, data: bytes) -> Any:
+        return exit_capture if data == b"auto" else None
+
+    with patch("handler.streaming.saves.states.stored_copy", side_effect=stored):
+        _pull_exit_into_history(rom, admin_user, content)
+
+    history = states.user_states_for_emulator(admin_user.id, rom.id, "retroarch")
+    assert [s.id for s in history][0] == exit_capture.id
+    assert len(history) == 2
+    assert history[1].file_name.endswith(".state3")
+
+
+def _pull_raw_exit_save(rom: Rom, user: User, content_hash: str) -> AsyncMock:
+    """Pull a one-`.srm` exit whose save hashes to `content_hash`."""
+    content = _exit_archive({"saves/mGBA/Game.srm": ("save", b"eeprom")})
+
+    async def scanned(**kwargs: Any) -> Save:
+        return _save_for(rom, user, kwargs["file_name"], "mgba", content_hash)
+
+    with (
+        patch("handler.streaming.saves.fetch_save_archive", return_value=content),
+        patch(
+            "handler.streaming.saves.webstation.import_spec", return_value=_SAVE_IMPORT
+        ),
+        patch("handler.asset_store.fs_asset_handler.write_file", new=AsyncMock()),
+        patch("handler.streaming.saves.scan_save", new=AsyncMock(side_effect=scanned)),
+        patch("handler.filesystem.fs_asset_handler.remove_file", new=AsyncMock()) as rm,
+    ):
+        assert asyncio.run(
+            saves.pull_saves_to_library(
+                user.id, rom.id, _resolved(_clearing_webstation(rom))
+            )
+        )
+    return rm
+
+
+def test_an_exit_back_on_an_older_save_boots_that_save_next(rom: Rom, admin_user: User):
+    """The player loaded A after B and quit with A's bytes unchanged."""
+    older = _add_save(rom, admin_user, "Game [a].srm", "mgba", "same")
+    newer = _add_save(rom, admin_user, "Game [b].srm", "mgba", "other")
+    _stamp(
+        older,
+        datetime(2026, 10, 1, tzinfo=timezone.utc),
+        datetime(2026, 10, 1, tzinfo=timezone.utc),
+    )
+    _stamp(
+        newer,
+        datetime(2026, 10, 2, tzinfo=timezone.utc),
+        datetime(2026, 10, 2, tzinfo=timezone.utc),
+    )
+
+    rm = _pull_raw_exit_save(rom, admin_user, "same")
+
+    rm.assert_not_awaited()
+    with patch(
+        "handler.streaming.saves.webstation.require_import_spec",
+        return_value=_SAVE_IMPORT,
+    ):
+        save, _foreign = saves.default_save(
+            admin_user.id, rom.id, _resolved(_clearing_webstation(rom))
+        )
+    assert save is not None
+    assert save.id not in (older.id, newer.id)
+    assert save.content_hash == "same"
+
+
+def test_an_exit_matching_only_a_missing_save_keeps_its_copy(
+    rom: Rom, admin_user: User
+):
+    gone = _add_save(rom, admin_user, "Game [a].srm", "mgba", "same")
+    with sync_session.begin() as session:
+        session.execute(
+            update(Save).where(Save.id == gone.id).values(missing_from_fs=True)
+        )
+
+    rm = _pull_raw_exit_save(rom, admin_user, "same")
+
+    rm.assert_not_awaited()
+    assert len(_stored_saves(rom, admin_user)) == 2
 
 
 # ── A launch with no pick boots the newest save, raw or zipped ────────────────
@@ -6339,6 +6439,86 @@ def test_a_launch_with_no_pick_restores_the_archive_when_the_raw_save_fails_to_i
     hydrate_import.assert_awaited_once()
     hydrate_native.assert_awaited_once()
     assert hydrate_native.call_args.args[3] is None
+
+
+def _refused_save(member: str) -> broker.ImportRefusedError:
+    return broker.ImportRefusedError(
+        [
+            ImportRefusalSchema(
+                reason="destination_conflict",
+                member=member,
+                expected=None,
+                detail=None,
+                suggest_emulator=None,
+                docs=None,
+            )
+        ],
+        0,
+    )
+
+
+def _claim_refused_once(
+    client, token, rom: Rom, refused: broker.ImportRefusedError, save_id: int | None
+) -> tuple[Any, MagicMock, AsyncMock, list[tuple[str, dict[str, Any]]]]:
+    """Claim against a broker that refuses the first activate's import."""
+    activate = MagicMock(side_effect=[refused, {"url": "/r"}])
+    hydrate_native = AsyncMock(return_value="/config/native.zip")
+    with _streaming(_clearing_webstation(rom)):
+        with (
+            patch("handler.streaming.webstation.activate", activate),
+            patch(
+                "handler.streaming.webstation.require_import_spec",
+                return_value=_SAVE_IMPORT,
+            ),
+            patch(
+                "handler.streaming.imports.hydrate_import_archive",
+                new=AsyncMock(return_value=imports.ImportHydration("rom-1.zip")),
+            ),
+            patch(
+                "handler.streaming.saves.hydrate_saves_to_webstation", hydrate_native
+            ),
+            _spawns_nothing(),
+            patch("handler.streaming.states.hydrate_states_to_broker", new=MagicMock()),
+        ):
+            with _pushes() as sent:
+                resp = _claim(client, token, rom.id, save_id=save_id)
+    return resp, activate, hydrate_native, sent
+
+
+def test_a_launch_with_no_pick_boots_the_archive_when_the_broker_refuses_the_raw_save(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """The broker refuses an import at activate, after the upload went through."""
+    _add_save(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    _add_save(rom, admin_user, "Game [2026-10-06_10-00-00].srm", "mgba", "h2")
+
+    resp, activate, hydrate_native, sent = _claim_refused_once(
+        client, access_token, rom, _refused_save(".import/save/Game.srm"), None
+    )
+
+    assert resp.status_code == 202
+    assert [event for event, _ in sent] == ["streaming:launch-ready"]
+    assert [c.kwargs["archive_path"] for c in activate.call_args_list] == [
+        "rom-1.zip",
+        "/config/native.zip",
+    ]
+    hydrate_native.assert_awaited_once()
+
+
+def test_a_refused_raw_save_the_player_picked_still_fails_the_launch(
+    client, access_token, rom: Rom, admin_user: User
+):
+    _add_save(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    raw = _add_save(rom, admin_user, "Game [2026-10-06_10-00-00].srm", "mgba", "h2")
+
+    resp, activate, hydrate_native, sent = _claim_refused_once(
+        client, access_token, rom, _refused_save(".import/save/Game.srm"), raw.id
+    )
+
+    assert resp.status_code == 202
+    assert [event for event, _ in sent] == ["streaming:launch-failed"]
+    activate.assert_called_once()
+    hydrate_native.assert_not_awaited()
 
 
 def test_a_launch_with_no_pick_restores_an_archive_newer_than_the_raw_save(
