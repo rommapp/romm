@@ -243,7 +243,7 @@ async def test_hybrid_auth_backend_basic_auth_checks_password_off_event_loop(
     monkeypatch.setattr(auth_handler, "verify_password", recording_verify_password)
 
     class MockConnection(HTTPConnection):
-        def __init__(self):
+        def __init__(self) -> None:
             self.scope: dict[str, dict[str, Any]] = {"session": {}}
             self._headers = Headers({"Authorization": f"Basic {token}"})
 

@@ -1,9 +1,5 @@
 """Index `roms.fs_name_no_ext` for RetroArch Cloud Sync's ROM lookup
 
-Cloud Sync resolves every uploaded, fetched or deleted save and state to a ROM
-by its extensionless file name, and the manifest does the same for a user's
-whole save list. No index led with the column, so each lookup scanned roms.
-
 Revision ID: 0149_roms_fs_name_no_ext_index
 Revises: 0148_rom_age_limits
 Create Date: 2026-10-06 00:00:00.000000
