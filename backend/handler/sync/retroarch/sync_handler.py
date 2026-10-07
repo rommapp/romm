@@ -8,11 +8,14 @@ import os
 import re
 from collections import defaultdict
 from collections.abc import Awaitable, Callable, Collection, Iterable, Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
 from typing import Literal, NamedTuple
 
+from config import MAX_SAVES_PER_SLOT
+from handler.asset_store import AssetContent, apply_datetime_tag, prune_save_slot
 from handler.database import (
     db_rom_handler,
     db_save_handler,
@@ -20,14 +23,15 @@ from handler.database import (
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
-from handler.redis_handler import async_cache
+from handler.redis_handler import async_cache, redis_lock
+from handler.scan_handler import scan_save
 from handler.sync.retroarch import psp
 from handler.sync.retroarch.emulator_names import (
     to_retroarch_dir_name,
     to_romm_emulator,
 )
 from logger.logger import log
-from models.assets import EMULATOR_MAX_LENGTH, Save, Screenshot, State
+from models.assets import AUTOSAVE_SLOT, EMULATOR_MAX_LENGTH, Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
 
@@ -236,6 +240,102 @@ def saves_at_path(
     ]
     unslotted = _unslotted_save_at(user, rom, emulator, requested_file_name)
     return covered + [unslotted] if unslotted else covered
+
+
+SAVE_LOCK_TIMEOUT_SECONDS = 60
+SaveUpload = Literal["created", "updated", "unchanged"]
+
+
+async def store_save_version(
+    user: User,
+    rom: Rom,
+    emulator: str | None,
+    requested_file_name: str,
+    body: AssetContent,
+) -> SaveUpload:
+    """File an upload as a new version of the slot its path serves, or of autosave.
+
+    Raises:
+        TimeoutError: Another upload to the same path held it too long.
+    """
+    extension = save_extension(requested_file_name)
+    # Same-second uploads would otherwise file two rows over one tagged file.
+    async with redis_lock(
+        f"retroarch_save:{user.id}:{rom.id}:{emulator}:{extension}",
+        timeout_seconds=SAVE_LOCK_TIMEOUT_SECONDS,
+    ):
+        return await _store_save_version(user, rom, emulator, requested_file_name, body)
+
+
+async def _store_save_version(
+    user: User,
+    rom: Rom,
+    emulator: str | None,
+    requested_file_name: str,
+    body: AssetContent,
+) -> SaveUpload:
+    latest = resolve_save_by_slot(user, rom, emulator, requested_file_name)
+    asset_path = build_asset_file_path(user, rom, "saves", emulator)
+    version_name = apply_datetime_tag(requested_file_name)
+
+    # An upload within the same second as the last lands on that version's name.
+    same_name = db_save_handler.get_save_by_path(
+        user_id=user.id,
+        rom_id=rom.id,
+        file_path=asset_path,
+        file_name=version_name,
+    )
+    replaced_hash = (
+        await fs_asset_handler.unrecorded_hash(same_name) if same_name else None
+    )
+    await fs_asset_handler.write_file(file=body, path=asset_path, filename=version_name)
+    scanned = await scan_save(
+        file_name=version_name,
+        user=user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
+    )
+    if same_name:
+        db_save_handler.update_save(
+            same_name.id,
+            {
+                "file_size_bytes": scanned.file_size_bytes,
+                "content_hash": scanned.content_hash,
+                "missing_from_fs": False,
+            },
+            replaced_hash=replaced_hash,
+        )
+        return "updated"
+
+    # A re-sent file adds no version, so it can't push real history past the cap.
+    if (
+        latest
+        and not latest.missing_from_fs
+        and scanned.content_hash
+        and scanned.content_hash == latest.content_hash
+    ):
+        with suppress(FileNotFoundError):
+            await fs_asset_handler.remove_file(file_path=f"{asset_path}/{version_name}")
+        return "unchanged"
+
+    slot = latest.slot if latest and latest.slot else AUTOSAVE_SLOT
+    scanned.rom_id = rom.id
+    scanned.user_id = user.id
+    scanned.emulator = emulator
+    scanned.slot = slot
+    db_save_handler.add_save(save=scanned)
+    if MAX_SAVES_PER_SLOT:
+        # Other cores and extensions share the slot, so each keeps its own history.
+        await prune_save_slot(
+            user.id,
+            rom.id,
+            slot,
+            MAX_SAVES_PER_SLOT,
+            emulator_and_extension=(emulator, save_extension(requested_file_name)),
+        )
+
+    return "created"
 
 
 def state_screenshot_dir(user: User, rom: Rom, emulator: str | None) -> str:

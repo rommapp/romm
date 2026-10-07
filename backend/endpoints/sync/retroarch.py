@@ -10,21 +10,19 @@ from urllib.parse import quote
 from fastapi import APIRouter, Request, Response, UploadFile, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from config import MAX_SAVES_PER_SLOT
-from handler.asset_store import apply_datetime_tag, prune_save_slot, remove_save
+from handler.asset_store import apply_datetime_tag, remove_save
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
 from handler.database import (
     db_platform_handler,
-    db_save_handler,
     db_screenshot_handler,
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.filesystem.assets_handler import build_asset_file_response
 from handler.filesystem.base_handler import FSHandler
-from handler.scan_handler import scan_save, scan_screenshot, scan_state
+from handler.scan_handler import scan_screenshot, scan_state
 from handler.sync.retroarch import browser, psp, sync_handler
 from handler.sync.retroarch.device import touch_retroarch_device
 from handler.sync.retroarch.sync_handler import (
@@ -35,7 +33,7 @@ from handler.sync.retroarch.sync_handler import (
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import AUTOSAVE_SLOT, Save, Screenshot, State
+from models.assets import Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length, sanitize_filename
@@ -560,12 +558,12 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         db_screenshot_handler.add_screenshot(screenshot=scanned_screenshot)
         return _empty(status.HTTP_201_CREATED)
 
+    if parsed.kind == "saves":
+        return await _put_save_version(request, rom, parsed)
+
     asset_path = sync_handler.build_asset_file_path(
         request.user, rom, parsed.kind, parsed.emulator
     )
-
-    if parsed.kind == "saves":
-        return await _put_save_version(request, rom, parsed, asset_path)
 
     # A state resolved by slot may have its own file name; writing to it keeps
     # the row pointing at the fresh bytes instead of orphaning them.
@@ -612,74 +610,24 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
 
 
 async def _put_save_version(
-    request: Request, rom: Rom, parsed: RetroArchSyncPath, asset_path: str
+    request: Request, rom: Rom, parsed: RetroArchSyncPath
 ) -> Response:
-    """File an upload as a new version of the slot the path serves, or of autosave."""
-    latest = sync_handler.resolve_save_by_slot(
-        request.user, rom, parsed.emulator, parsed.file_name
-    )
-    version_name = apply_datetime_tag(parsed.file_name)
     try:
-        check_filename_length(version_name)
+        check_filename_length(apply_datetime_tag(parsed.file_name))
     except ValueError:
         return _empty(status.HTTP_409_CONFLICT)
 
-    # An upload within the same second as the last lands on that version's name.
-    same_name = db_save_handler.get_save_by_path(
-        user_id=request.user.id,
-        rom_id=rom.id,
-        file_path=asset_path,
-        file_name=version_name,
-    )
-    replaced_hash = (
-        await fs_asset_handler.unrecorded_hash(same_name) if same_name else None
-    )
-
     async with _request_body(request) as body:
-        await fs_asset_handler.write_file(
-            file=body, path=asset_path, filename=version_name
-        )
+        try:
+            stored = await sync_handler.store_save_version(
+                request.user, rom, parsed.emulator, parsed.file_name, body
+            )
+        except TimeoutError:
+            return _empty(status.HTTP_503_SERVICE_UNAVAILABLE)
 
-    scanned = await scan_save(
-        file_name=version_name,
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=parsed.emulator,
+    return _empty(
+        status.HTTP_201_CREATED if stored == "created" else status.HTTP_204_NO_CONTENT
     )
-    if same_name:
-        db_save_handler.update_save(
-            same_name.id,
-            {
-                "file_size_bytes": scanned.file_size_bytes,
-                "content_hash": scanned.content_hash,
-                "missing_from_fs": False,
-            },
-            replaced_hash=replaced_hash,
-        )
-        return _empty(status.HTTP_204_NO_CONTENT)
-
-    # A re-sent file adds no version, so it can't push real history past the cap.
-    if (
-        latest
-        and not latest.missing_from_fs
-        and scanned.content_hash
-        and scanned.content_hash == latest.content_hash
-    ):
-        with suppress(FileNotFoundError):
-            await fs_asset_handler.remove_file(file_path=f"{asset_path}/{version_name}")
-        return _empty(status.HTTP_204_NO_CONTENT)
-
-    slot = latest.slot if latest and latest.slot else AUTOSAVE_SLOT
-    scanned.rom_id = rom.id
-    scanned.user_id = request.user.id
-    scanned.emulator = parsed.emulator
-    scanned.slot = slot
-    db_save_handler.add_save(save=scanned)
-    if MAX_SAVES_PER_SLOT:
-        await prune_save_slot(request.user.id, rom.id, slot, MAX_SAVES_PER_SLOT)
-
-    return _empty(status.HTTP_201_CREATED)
 
 
 @router.api_route(

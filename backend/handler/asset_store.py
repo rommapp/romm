@@ -181,8 +181,19 @@ async def remove_save(save: Save) -> None:
     await release_thumbnail(save.screenshot)
 
 
-async def prune_save_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
-    """Drop every version of ``slot`` past the ``keep`` newest, files included."""
+async def prune_save_slot(
+    user_id: int,
+    rom_id: int,
+    slot: str,
+    keep: int,
+    emulator_and_extension: tuple[str | None, str] | None = None,
+) -> None:
+    """Drop every version of ``slot`` past the ``keep`` newest, files included.
+
+    Args:
+        emulator_and_extension: Count and prune only this emulator's versions
+            with this extension.
+    """
     # Hashed outside the slot's lock, recorded by the prune that deletes them.
     # Each pass hashes only what the last one lacked.
     file_hashes: dict[int, str | None] = {}
@@ -194,6 +205,7 @@ async def prune_save_slot(user_id: int, rom_id: int, slot: str, keep: int) -> No
                 slot=slot,
                 keep=keep,
                 fallback_hashes=file_hashes,
+                emulator_and_extension=emulator_and_extension,
             )
             break
         except UnhashedVersions as unhashed:

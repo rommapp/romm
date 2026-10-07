@@ -838,7 +838,9 @@ def version_names():
         name, ext = os.path.splitext(file_name)
         return f"{name} [2026-01-01_00-00-{next(counter):02d}]{ext}"
 
-    with mock.patch("endpoints.sync.retroarch.apply_datetime_tag", side_effect=tag):
+    with mock.patch(
+        "handler.sync.retroarch.sync_handler.apply_datetime_tag", side_effect=tag
+    ):
         yield
 
 
@@ -927,7 +929,7 @@ class TestRetroArchSyncSaveSlots:
         self, client, admin_user: User, rom: Rom
     ):
         with mock.patch(
-            "endpoints.sync.retroarch.apply_datetime_tag",
+            "handler.sync.retroarch.sync_handler.apply_datetime_tag",
             return_value="test_rom [2026-01-01_00-00-00].srm",
         ):
             self._put(client, b"old")
@@ -985,7 +987,7 @@ class TestRetroArchSyncSaveSlots:
     def test_prunes_versions_past_the_slot_cap(
         self, client, admin_user: User, rom: Rom
     ):
-        with mock.patch("endpoints.sync.retroarch.MAX_SAVES_PER_SLOT", 2):
+        with mock.patch("handler.sync.retroarch.sync_handler.MAX_SAVES_PER_SLOT", 2):
             for content in (b"one", b"two", b"three"):
                 self._put(client, content)
 
@@ -993,6 +995,37 @@ class TestRetroArchSyncSaveSlots:
             len(b"three"),
             len(b"two"),
         ]
+
+    def test_pruning_keeps_other_cores_and_extensions(
+        self, client, admin_user: User, rom: Rom
+    ):
+        mgba_save = make_save(
+            rom, admin_user, "test_rom.srm", emulator="mgba", slot="autosave"
+        )
+        rtc_save = make_save(
+            rom, admin_user, "test_rom.rtc", emulator="snes9x", slot="autosave"
+        )
+
+        with mock.patch("handler.sync.retroarch.sync_handler.MAX_SAVES_PER_SLOT", 1):
+            for content in (b"one", b"two"):
+                self._put(client, content)
+
+        assert {save.id for save in self._versions(admin_user, rom)} >= {
+            mgba_save.id,
+            rtc_save.id,
+        }
+        assert len(self._versions(admin_user, rom)) == 3
+        assert self._get(client) == b"two"
+
+    def test_a_held_upload_lock_is_unavailable(
+        self, client, admin_user: User, rom: Rom
+    ):
+        with mock.patch(
+            "handler.sync.retroarch.sync_handler.redis_lock", side_effect=TimeoutError
+        ):
+            assert self._put(client, b"data") == status.HTTP_503_SERVICE_UNAVAILABLE
+
+        assert self._versions(admin_user, rom) == []
 
     def test_delete_removes_everything_the_path_serves(
         self, client, admin_user: User, rom: Rom, saves_path: str, synced_save: Save
