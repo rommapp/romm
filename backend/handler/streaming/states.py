@@ -653,11 +653,12 @@ async def hydrate_states_to_broker(
         return 0
     emulator = container.emulator
 
+    # A row whose file vanished can't be pushed, so the next one down goes.
     newest = next(
         (
             s
             for s in user_states_for_emulator(user_id, rom_id, emulator, state_core)
-            if not is_auto_state(emulator, s.file_name)
+            if not s.missing_from_fs and not is_auto_state(emulator, s.file_name)
         ),
         None,
     )

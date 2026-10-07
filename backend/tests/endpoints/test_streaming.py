@@ -5032,6 +5032,22 @@ def test_hydrate_skips_a_newer_auto_state(rom: Rom, admin_user: User):
     assert push.call_args.args[1] == "Game.state"
 
 
+def test_hydrate_skips_a_newer_state_flagged_missing(rom: Rom, admin_user: User):
+    """A row sync flagged as gone from disk can't hydrate, so the newest one
+    still there goes instead of nothing."""
+    _core_state(rom, admin_user, "Old.20260101-000000000000.state", None)
+    _add_state(
+        rom,
+        admin_user,
+        "New.20260202-000000000000.state",
+        "retroarch",
+        missing_from_fs=True,
+    )
+    push = _hydrate_core(rom, admin_user, "retroarch", states.StateCore("snes9x", True))
+    push.assert_called_once()
+    assert push.call_args.args[1] == "Old.state"
+
+
 def test_hydrate_pushes_nothing_when_only_an_auto_state_is_stored(
     rom: Rom, admin_user: User
 ):
