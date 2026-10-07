@@ -140,18 +140,16 @@ function onRowClick(e: MouseEvent) {
     />
   </a>
 
-  <a
+  <div
     v-else
     ref="rowEl"
+    role="row"
     class="plat-list-row plat-list-row--columns"
     :class="entranceClass"
     :style="entranceStyle"
-    :href="href"
-    :aria-label="t('common.open-item', { name: displayName })"
-    @click="onRowClick"
     @animationend.self="endEntrance"
   >
-    <div class="plat-list-row__cell plat-list-row__title">
+    <div role="cell" class="plat-list-row__cell plat-list-row__title">
       <div ref="iconEl" class="plat-list-row__thumb" :style="morphStyle">
         <PlatformIcon
           :slug="slug"
@@ -162,24 +160,32 @@ function onRowClick(e: MouseEvent) {
         />
       </div>
       <div class="plat-list-row__meta">
-        <div class="plat-list-row__name">{{ displayName }}</div>
+        <a
+          class="plat-list-row__name plat-list-row__link"
+          :href="href"
+          :aria-label="t('common.open-item', { name: displayName })"
+          @click="onRowClick"
+        >
+          {{ displayName }}
+        </a>
         <div class="plat-list-row__slug">{{ slug }}</div>
       </div>
     </div>
 
-    <div class="plat-list-row__cell plat-list-row__cell--meta">
+    <div role="cell" class="plat-list-row__cell plat-list-row__cell--meta">
       <span v-if="familyName">{{ familyName }}</span>
       <span v-else class="plat-list-row__placeholder">—</span>
     </div>
-    <div class="plat-list-row__cell plat-list-row__cell--meta">
+    <div role="cell" class="plat-list-row__cell plat-list-row__cell--meta">
       <span v-if="categoryLabel">{{ categoryLabel }}</span>
       <span v-else class="plat-list-row__placeholder">—</span>
     </div>
-    <div class="plat-list-row__cell plat-list-row__cell--meta">
+    <div role="cell" class="plat-list-row__cell plat-list-row__cell--meta">
       <span v-if="generationLabel">{{ generationLabel }}</span>
       <span v-else class="plat-list-row__placeholder">—</span>
     </div>
     <div
+      role="cell"
       class="plat-list-row__cell plat-list-row__cell--meta plat-list-row__cell--center"
     >
       <PlayModeBadge
@@ -205,13 +211,13 @@ function onRowClick(e: MouseEvent) {
       </span>
     </div>
 
-    <div class="plat-list-row__cell plat-list-row__cell--end">
+    <div role="cell" class="plat-list-row__cell plat-list-row__cell--end">
       <span v-if="romCount != null">{{
         t("collection.games-count", romCount, { named: { n: romCount } })
       }}</span>
       <span v-else class="plat-list-row__count-unit">—</span>
     </div>
-  </a>
+  </div>
 </template>
 
 <style scoped>
@@ -232,16 +238,32 @@ function onRowClick(e: MouseEvent) {
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
+.plat-list-row:last-child {
+  border-bottom: 0;
+}
+
 .plat-list-row:hover {
   background: var(--r-color-bg-elevated);
 }
 
 /* Kept off the compact row, whose shared flex layout this would outrank. */
 .plat-list-row--columns {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 160px 130px 110px 88px 96px;
   gap: 0 var(--r-space-3);
   padding: 0 max(var(--r-space-3), var(--r-list-bleed, 0px));
+}
+
+/* The title link stretches over the row, so the whole row opens it. */
+.plat-list-row__link {
+  display: block;
+  text-decoration: none;
+}
+.plat-list-row__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
 /* Clear of the screen edge, which the row itself runs to. */
@@ -249,10 +271,14 @@ function onRowClick(e: MouseEvent) {
   margin-inline-end: var(--r-space-2);
 }
 
-.plat-list-row:focus-visible {
+.plat-list-row:focus-visible,
+.plat-list-row:has(.plat-list-row__link:focus-visible) {
   outline: none;
   background: var(--r-color-bg-elevated);
   box-shadow: inset 0 0 0 2px var(--r-color-brand-primary);
+}
+.plat-list-row__link:focus-visible {
+  outline: none;
 }
 
 .plat-list-row__cell {
@@ -295,7 +321,10 @@ function onRowClick(e: MouseEvent) {
   opacity: 0.9;
 }
 
+/* Above the stretched link, so its tooltip still answers to hover. */
 .plat-list-row__playable {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;

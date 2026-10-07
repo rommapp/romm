@@ -79,7 +79,7 @@ const FIELDS = computed<IdField[]>(() => [
 
 function modelFor(field: IdField): string {
   const v = props.rom[field.key];
-  return v == null ? "" : String(v);
+  return typeof v === "string" || typeof v === "number" ? String(v) : "";
 }
 
 function onUpdate(field: IdField, raw: string | number | null) {

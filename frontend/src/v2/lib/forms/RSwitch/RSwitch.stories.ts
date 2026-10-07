@@ -7,9 +7,7 @@ const meta: Meta<typeof RSwitch> = {
   title: "Forms/RSwitch",
   component: RSwitch,
   argTypes: {
-    label: { control: "text" },
     size: { control: "inline-radio", options: ["default", "small"] },
-    disabled: { control: "boolean" },
   },
   render: (args) => ({
     components: { RSwitch },
@@ -18,7 +16,7 @@ const meta: Meta<typeof RSwitch> = {
       return { args, value };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
+      <div style="padding: 32px;">
         <RSwitch v-model="value" v-bind="args" />
       </div>
     `,
@@ -33,6 +31,11 @@ export const Default: Story = {
   args: { ariaLabel: "Toggle setting" },
 };
 
+export const Light: Story = {
+  ...Default,
+  globals: { theme: "light" },
+};
+
 export const WithLabel: Story = {
   args: { label: "Notifications" },
 };
@@ -42,7 +45,7 @@ export const LabelSlot: Story = {
     components: { RSwitch },
     setup: () => ({ value: ref(false) }),
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: var(--r-color-bg);">
+      <div style="padding: 32px;">
         <RSwitch v-model="value" aria-label="Notifications">
           <template #label><strong>Notifications</strong> (email)</template>
         </RSwitch>
@@ -59,7 +62,7 @@ export const Checked: Story = {
       return { args, value };
     },
     template: `
-      <div class="r-v2 r-v2-dark" style="padding: 32px; background: #07070f;">
+      <div style="padding: 32px;">
         <RSwitch v-model="value" v-bind="args" />
       </div>
     `,
@@ -75,7 +78,7 @@ export const Disabled: Story = {
   args: { label: "Disabled", disabled: true },
 };
 
-// Keyboard: Tab focuses the switch, Space/Enter toggle it.
+/** Keyboard: Tab focuses the switch, Space/Enter toggle it. */
 export const KeyboardToggle: Story = {
   name: "Keyboard toggle (play)",
   args: { label: "Notifications" },
@@ -85,18 +88,18 @@ export const KeyboardToggle: Story = {
 
     await step("Tab moves focus onto the switch", async () => {
       await userEvent.tab();
-      expect(sw).toHaveFocus();
-      expect(sw).toHaveAttribute("aria-checked", "false");
+      await expect(sw).toHaveFocus();
+      await expect(sw).toHaveAttribute("aria-checked", "false");
     });
 
     await step("Space toggles it on", async () => {
       await userEvent.keyboard(" ");
-      expect(sw).toHaveAttribute("aria-checked", "true");
+      await expect(sw).toHaveAttribute("aria-checked", "true");
     });
 
     await step("Enter toggles it back off", async () => {
       await userEvent.keyboard("{Enter}");
-      expect(sw).toHaveAttribute("aria-checked", "false");
+      await expect(sw).toHaveAttribute("aria-checked", "false");
     });
   },
 };

@@ -698,7 +698,7 @@ router.beforeEach((to, from) => {
   }
 });
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach((to, from, next) => {
   const heartbeat = storeHeartbeat();
   const auth = storeAuth();
   const { user } = storeToRefs(auth);

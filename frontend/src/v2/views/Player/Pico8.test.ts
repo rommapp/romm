@@ -60,7 +60,7 @@ vi.mock("@/v2/utils/pico8Runtime", () => ({
     pause: 64,
   },
   cartDataFileName: (key: string) => `${key}.p8d.txt`,
-  createPico8Runtime: async () => mocks.runtime,
+  createPico8Runtime: () => Promise.resolve(mocks.runtime),
 }));
 vi.mock("@/v2/utils/pico8Audio", () => ({
   createPico8Audio: () => Promise.reject(new Error("no audio")),
@@ -131,7 +131,7 @@ describe("Pico8 frame loop", () => {
     vi.spyOn(performance, "now").mockImplementation(() => now);
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response(new Uint8Array([1, 2, 3]))),
+      vi.fn(() => Promise.resolve(new Response(new Uint8Array([1, 2, 3])))),
     );
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     mocks.getRom.mockResolvedValue({ data: { id: 1, name: "Celeste" } });
@@ -212,7 +212,7 @@ describe("Pico8 cart data", () => {
     vi.stubGlobal("cancelAnimationFrame", () => undefined);
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response(new Uint8Array([1, 2, 3]))),
+      vi.fn(() => Promise.resolve(new Response(new Uint8Array([1, 2, 3])))),
     );
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.spyOn(window.history, "back").mockImplementation(back);

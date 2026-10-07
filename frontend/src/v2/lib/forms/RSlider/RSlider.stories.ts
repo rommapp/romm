@@ -1,25 +1,20 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RSlider from "./RSlider.vue";
 
 const meta: Meta<typeof RSlider> = {
   title: "Forms/RSlider",
   component: RSlider,
+  parameters: CONTRAST_TODO_PARAMETERS,
   // RSlider has no visible label, so every instance needs `ariaLabel`.
   args: { ariaLabel: "Value" },
   argTypes: {
-    min: { control: "number" },
-    max: { control: "number" },
-    step: { control: "number" },
     color: { control: "text" },
     valuePosition: {
       control: "inline-radio",
       options: ["none", "left", "right", "thumb"],
     },
-    valueSuffix: { control: "text" },
-    showTicks: { control: "boolean" },
-    disabled: { control: "boolean" },
-    readonly: { control: "boolean" },
   },
   render: (args) => ({
     components: { RSlider },

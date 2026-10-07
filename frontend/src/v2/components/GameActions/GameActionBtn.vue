@@ -177,7 +177,7 @@ const preset = computed<Preset>(() => {
       icon: "mdi-play",
       label: t("rom.play"),
       activeIcon: null,
-      onClick: () => actions.play("local"),
+      onClick: () => void actions.play("local"),
       active: false,
     };
   }
@@ -186,7 +186,7 @@ const preset = computed<Preset>(() => {
       icon: "mdi-play-network",
       label: actions.streamActionLabel.value,
       activeIcon: null,
-      onClick: () => actions.play("stream"),
+      onClick: () => void actions.play("stream"),
       active: false,
     };
   }
@@ -213,7 +213,7 @@ const preset = computed<Preset>(() => {
       icon: "mdi-share-variant-outline",
       label: t("rom.copy-link"),
       activeIcon: null,
-      onClick: actions.copyDownloadLink,
+      onClick: () => void actions.copyDownloadLink(),
       active: false,
     };
   }
@@ -243,7 +243,7 @@ const preset = computed<Preset>(() => {
       label: actions.isFavorited.value
         ? t("rom.remove-favorite")
         : t("rom.favorite"),
-      onClick: actions.favorite,
+      onClick: () => void actions.favorite(),
       active: actions.isFavorited.value,
     };
   }

@@ -70,7 +70,7 @@ const emptyState = computed<{ icon: string; title: string } | null>(() => {
 });
 
 function openDesktop(container: AdminStreamingContainer): void {
-  router.push({
+  void router.push({
     name: ROUTES.STREAM_DESKTOP,
     query: { container: container.name || container.container },
   });

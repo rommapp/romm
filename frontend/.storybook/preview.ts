@@ -16,6 +16,7 @@ import { installBreakpointAttribute } from "../src/v2/composables/useBreakpoint"
 import { ChromeLabelsKey } from "../src/v2/lib/a11y/chromeLabels";
 import "../src/v2/styles/global.css";
 import { createChromeLabels } from "../src/v2/utils/chromeLabels";
+import "./preview.css";
 import { ROMM_STORYBOOK_VIEWPORTS } from "./rommViewports";
 import {
   INPUT_DEFAULT,
@@ -72,6 +73,7 @@ setup((app) => {
 });
 
 const preview: Preview = {
+  tags: ["autodocs"],
   globalTypes: {
     [INPUT_GLOBAL]: INPUT_TOOLBAR,
   },

@@ -2,7 +2,8 @@
 export function settle<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror = () =>
+      reject(request.error ?? new Error("IndexedDB request failed"));
   });
 }
 
@@ -27,7 +28,8 @@ export function openDb(
       if (abandoned) return request.result.close();
       resolve(request.result);
     };
-    request.onerror = () => reject(request.error);
+    request.onerror = () =>
+      reject(request.error ?? new Error(`Could not open ${label}`));
     // Another tab on an older version holds the upgrade off, and no other
     // handler fires meanwhile, so without this the caller waits forever.
     request.onblocked = () => {
@@ -48,8 +50,10 @@ export async function inTransaction<T>(
     const transaction = db.transaction(storeName, mode);
     const committed = new Promise<void>((resolve, reject) => {
       transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error);
+      transaction.onerror = () =>
+        reject(transaction.error ?? new Error("IndexedDB transaction failed"));
+      transaction.onabort = () =>
+        reject(transaction.error ?? new Error("IndexedDB transaction aborted"));
     });
     const [result] = await Promise.all([
       run(transaction.objectStore(storeName)),

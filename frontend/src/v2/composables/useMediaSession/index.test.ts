@@ -68,8 +68,9 @@ function fakeAudio() {
       state.currentTime = t;
     },
   });
-  const play = vi.spyOn(el, "play").mockImplementation(async () => {
+  const play = vi.spyOn(el, "play").mockImplementation(() => {
     state.paused = false;
+    return Promise.resolve();
   });
   const pause = vi.spyOn(el, "pause").mockImplementation(() => {
     state.paused = true;

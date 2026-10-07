@@ -22,12 +22,12 @@ function actions(props: Record<string, unknown> = {}) {
 }
 
 describe("AssetActions", () => {
-  it("offers only the download for community items", () => {
+  it("offers only the download for community items", async () => {
     const wrapper = actions();
 
     expect(wrapper.findAll(".btn")).toHaveLength(1);
     expect(wrapper.emitted("download")).toBeUndefined();
-    wrapper.get(".btn").trigger("click");
+    await wrapper.get(".btn").trigger("click");
     expect(wrapper.emitted("download")).toHaveLength(1);
   });
 

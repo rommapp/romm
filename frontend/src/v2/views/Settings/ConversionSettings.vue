@@ -178,7 +178,10 @@ async function onConvertLibrary() {
 }
 
 function setCacheMaxSize(value: unknown) {
-  const raw = String(value ?? "").trim();
+  const raw =
+    typeof value === "string" || typeof value === "number"
+      ? String(value).trim()
+      : "";
   const parsed = Number(raw);
   form.cacheMaxSizeGb = raw === "" || Number.isNaN(parsed) ? null : parsed;
 }

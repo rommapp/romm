@@ -13,6 +13,7 @@ import {
   downloadButtons,
   pickSaveDataSubtab,
 } from "@/v2/utils/saveStates.plays";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import SaveDataTab from "./SaveDataTab.vue";
 
 type Subtab = "saves" | "states";
@@ -36,8 +37,8 @@ const MINE_HEADING: Record<Subtab, string> = {
 // Both panels stay mounted behind v-show, so only the role query, which skips
 // hidden nodes, tells which subtab is on screen.
 async function waitForSubtab(root: HTMLElement, subtab: Subtab) {
-  await waitFor(() => {
-    expect(
+  await waitFor(async () => {
+    await expect(
       within(root).getByRole("heading", { name: MINE_HEADING[subtab] }),
     ).toBeTruthy();
   });
@@ -46,9 +47,7 @@ async function waitForSubtab(root: HTMLElement, subtab: Subtab) {
 const meta: Meta<StoryArgs> = {
   title: "GameDetails/SaveDataTab",
   component: SaveDataTab,
-  parameters: {
-    layout: "fullscreen",
-  },
+  parameters: { ...CONTRAST_TODO_PARAMETERS, layout: "fullscreen" },
   args: {
     subtab: "saves",
     rom: storyDetailedRom(),
@@ -89,13 +88,13 @@ export const SavesFull: Story = {
     const ui = within(canvasElement);
     await step("saves subtab shows mine and community sections", async () => {
       await waitForSubtab(canvasElement, "saves");
-      expect(ui.getByRole("heading", { name: "Community" })).toBeTruthy();
-      expect(downloadButtons(canvasElement).length).toBeGreaterThan(0);
+      await expect(ui.getByRole("heading", { name: "Community" })).toBeTruthy();
+      await expect(downloadButtons(canvasElement).length).toBeGreaterThan(0);
     });
     await step("switching to states subtab", async () => {
       await pickSaveDataSubtab(canvasElement, /^States/i);
       await waitForSubtab(canvasElement, "states");
-      expect(ui.queryByRole("heading", { name: "My saves" })).toBeNull();
+      await expect(ui.queryByRole("heading", { name: "My saves" })).toBeNull();
     });
   },
 };
@@ -115,7 +114,9 @@ export const SavesEmptyMine: Story = {
   play: async ({ canvasElement, step }) => {
     await step("empty mine promotes upload dropzone", async () => {
       await waitForSubtab(canvasElement, "saves");
-      expect(within(canvasElement).getByText("No saves yet")).toBeTruthy();
+      await expect(
+        within(canvasElement).getByText("No saves yet"),
+      ).toBeTruthy();
     });
   },
 };

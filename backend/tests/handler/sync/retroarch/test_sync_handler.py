@@ -6,9 +6,15 @@ from unittest import mock
 
 import pytest
 
+from handler.filesystem import fs_asset_handler
 from handler.filesystem.retroarch_sync_handler import BlobFile, FSRetroArchSyncHandler
 from handler.redis_handler import async_cache, sync_cache
-from handler.sync.retroarch.sync_handler import HASH_CACHE_TTL_SECONDS, cached_hashes
+from handler.sync.retroarch.sync_handler import (
+    HASH_CACHE_TTL_SECONDS,
+    cached_hashes,
+    user_blob_path,
+)
+from models.user import User
 
 
 @pytest.fixture(autouse=True)
@@ -49,6 +55,15 @@ class TestCachedMd5s:
             await cached_hashes(jobs)
 
         mget.assert_called_once()
+
+
+class TestBlobStorageLocation:
+    def test_blobs_live_in_the_users_assets_folder(self, admin_user: User):
+        # The assets root is a documented volume; anything outside it is lost on container recreate.
+        assert FSRetroArchSyncHandler().base_path == fs_asset_handler.base_path
+        assert user_blob_path(admin_user, "config/retroarch.cfg") == (
+            f"{fs_asset_handler.user_folder_path(admin_user)}/retroarch/config/retroarch.cfg"
+        )
 
 
 @pytest.fixture

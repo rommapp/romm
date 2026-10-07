@@ -218,7 +218,9 @@ const uploading = ref(false);
 const uploadInput = ref<HTMLInputElement | null>(null);
 
 function filenameFromResponse(disposition: unknown, fallback: string): string {
-  const match = /filename="?([^";]+)"?/.exec(String(disposition ?? ""));
+  const match = /filename="?([^";]+)"?/.exec(
+    typeof disposition === "string" ? disposition : "",
+  );
   return match?.[1] ?? fallback;
 }
 

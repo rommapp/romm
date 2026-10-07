@@ -67,7 +67,7 @@ vi.mock("@/v2/components/Platforms/PlatformTile.vue", () => ({
 vi.mock("@/v2/components/shared/IndexShell.vue", () => ({
   default: defineComponent({
     template:
-      '<main><slot name="header" /><slot name="toolbar" /><slot name="listHeader" /><slot /></main>',
+      '<main><slot name="header" /><slot name="toolbar" /><slot name="listHeader" /><slot name="listRows" /><slot /></main>',
   }),
 }));
 

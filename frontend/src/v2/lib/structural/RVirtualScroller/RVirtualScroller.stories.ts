@@ -1,11 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { a11yTodoRules } from "@/v2/utils/storyA11y";
 import RVirtualScroller from "./RVirtualScroller.vue";
 
 const meta: Meta<typeof RVirtualScroller> = {
   title: "Structural/RVirtualScroller",
   component: RVirtualScroller,
+  // The scroll viewport isn't focusable, so keyboard users can't scroll it.
+  parameters: a11yTodoRules("scrollable-region-focusable"),
   argTypes: {
-    overscan: { control: "number" },
+    // An object control would print all 5000 rows into the docs table.
+    items: { control: false },
     height: { control: "text" },
   },
 };
@@ -44,10 +48,10 @@ export const FiveThousandRows: Story = {
   }),
 };
 
-// Prepend + sticky, verifying the two layout slots: a hero block that
-// scrolls naturally with the list, and a toolbar that pins to the top
-// once the user scrolls past the hero. Native CSS sticky drives the
-// pin: no JS scroll tracking.
+/**
+ * Prepend + sticky slots: the hero scrolls with the list and the toolbar pins
+ * to the top through native CSS sticky.
+ */
 export const PrependAndStickyToolbar: Story = {
   args: {
     items: longList,

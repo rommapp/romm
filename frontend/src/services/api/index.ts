@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { type AxiosError } from "axios";
 import { default as Cookies } from "js-cookie";
 import { debounce } from "lodash";
 import { isAuthExemptRoute, ROUTES } from "@/plugins/routeNames";
@@ -33,6 +33,8 @@ const api = axios.create({
 const inflightRequests = new Set();
 
 const networkQuiesced = debounce(() => {
+  // The trailing call can outlive the DOM (test teardown), so don't assume it.
+  if (typeof document === "undefined") return;
   document.dispatchEvent(new CustomEvent("network-quiesced"));
 }, 250);
 
@@ -65,7 +67,7 @@ api.interceptors.response.use(
 
     return response;
   },
-  async (error) => {
+  async (error: AxiosError) => {
     // Mirror the success path's bookkeeping: a settled request, even a failed
     // or canceled one, leaves the inflight set so `network-quiesced` can still
     // fire once the network goes quiet.
@@ -89,7 +91,7 @@ api.interceptors.response.use(
     //     itself never re-triggers this, which would loop).
     //   * 4xx → backend is alive; emit backend-online so a stale offline banner
     //     clears immediately instead of waiting for the next heartbeat poll.
-    const status = error.response?.status as number | undefined;
+    const status = error.response?.status;
     const url: string = error.config?.url ?? "";
 
     // Ignore intentionally canceled requests (AbortController / signal). They do
@@ -150,7 +152,7 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
 
-      router.push({
+      void router.push({
         name: ROUTES.LOGIN,
         query: {
           next: params.get("next") ?? (pathname !== "/login" ? fullPath : "/"),

@@ -1,3 +1,5 @@
+import type { RSortDir } from "@/v2/lib/data/RSortHeader/types";
+
 // RTable column descriptor: drives both the header and the row body.
 // Widths are CSS grid track values (px, fr, minmax(...)) so consumers
 // can mix fixed-width metrics with flexible title columns the same way
@@ -16,7 +18,7 @@ export interface RTableProps<TItem> {
   /** Currently-sorted column key. `null` when no sort is active. */
   sortKey?: string | null;
   /** Sort direction for the active key. */
-  sortDir?: RTableSortDir;
+  sortDir?: RSortDir;
   /** Empty-state icon when `items` is empty and not loading. */
   emptyIcon?: string;
   /** Empty-state message. */
@@ -51,9 +53,7 @@ export interface RTableColumn {
   skeletonWidth?: number;
 }
 
-export type RTableSortDir = "asc" | "desc";
-
 export interface RTableSortPayload {
   key: string;
-  dir: RTableSortDir;
+  dir: RSortDir;
 }

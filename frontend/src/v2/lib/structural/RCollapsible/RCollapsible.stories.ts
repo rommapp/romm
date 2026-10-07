@@ -1,18 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
 import RTag from "@/v2/lib/primitives/RTag/RTag.vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RCollapsible from "./RCollapsible.vue";
 
 const meta: Meta<typeof RCollapsible> = {
   title: "Structural/RCollapsible",
   component: RCollapsible,
-  argTypes: {
-    title: { control: "text" },
-    icon: { control: "text" },
-    defaultOpen: { control: "boolean" },
-    disabled: { control: "boolean" },
-    attached: { control: "boolean" },
-  },
+  parameters: CONTRAST_TODO_PARAMETERS,
   render: (args) => ({
     components: { RCollapsible },
     setup: () => {
@@ -43,9 +38,10 @@ export const WithIcon: Story = {
   args: { title: "With leading icon", icon: "mdi-information-outline" },
 };
 
-// `#header-append` slot: content between the title and the chevron.
-// Used by ScanPlatform for ROM-count / firmware / "not identified"
-// chips, but generic enough for any badge / counter use.
+/**
+ * `#header-append` slot: content between the title and the chevron, such as
+ * count or status chips.
+ */
 export const WithHeaderAppend: Story = {
   name: "Header append (chips)",
   render: () => ({
@@ -72,8 +68,10 @@ export const Disabled: Story = {
   args: { title: "Locked", disabled: true },
 };
 
-// Headless mode: no internal header, panel driven entirely by an
-// external trigger (here a button rendered alongside).
+/**
+ * Headless mode: no internal header, panel driven entirely by an
+ * external trigger (here a button rendered alongside).
+ */
 export const Headless: Story = {
   render: () => ({
     components: { RCollapsible },
@@ -108,8 +106,10 @@ export const Headless: Story = {
   }),
 };
 
-// Attached mode: drops the top radius/border so the panel sits flush
-// with the trigger above it.
+/**
+ * Attached mode: drops the top radius/border so the panel sits flush
+ * with the trigger above it.
+ */
 export const Attached: Story = {
   render: () => ({
     components: { RCollapsible },

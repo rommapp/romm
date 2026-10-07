@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RAvatar from "../RAvatar/RAvatar.vue";
 import RIcon from "../RIcon/RIcon.vue";
 import RBadge from "./RBadge.vue";
@@ -7,29 +8,10 @@ import RBadge from "./RBadge.vue";
 const meta: Meta<typeof RBadge> = {
   title: "Primitives/RBadge",
   component: RBadge,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     content: { control: "text" },
     color: { control: "text" },
-    icon: { control: "text" },
-    location: {
-      control: "select",
-      options: [
-        "top",
-        "bottom",
-        "start",
-        "end",
-        "top start",
-        "top end",
-        "bottom start",
-        "bottom end",
-      ],
-    },
-    dot: { control: "boolean" },
-    inline: { control: "boolean" },
-    bordered: { control: "boolean" },
-    inset: { control: "number" },
-    modelValue: { control: "boolean" },
-    max: { control: "number" },
   },
 };
 

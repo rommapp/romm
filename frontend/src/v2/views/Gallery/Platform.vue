@@ -315,7 +315,7 @@ async function loadForId(platformId: number) {
 }
 
 onMounted(() => {
-  loadForId(Number(route.params.platform));
+  void loadForId(Number(route.params.platform));
 });
 
 onBeforeRouteUpdate((to, from) => {
@@ -324,13 +324,13 @@ onBeforeRouteUpdate((to, from) => {
   // the new platform's load. A query-only change (sort, filters,
   // search) stays on this platform and must not reload it.
   if (to.path === from.path) return;
-  if (to.name === "platform") loadForId(Number(to.params.platform));
+  if (to.name === "platform") void loadForId(Number(to.params.platform));
 });
 
 watch(
   () => route.params.platform,
   (next) => {
-    if (next != null) loadForId(Number(next));
+    if (next != null) void loadForId(Number(next));
   },
 );
 
@@ -338,7 +338,7 @@ watch(
 function onUploadRoms() {
   const p = currentPlatform.value;
   if (!p) return;
-  router.push({ name: ROUTES.UPLOAD, query: { platform: String(p.id) } });
+  void router.push({ name: ROUTES.UPLOAD, query: { platform: String(p.id) } });
 }
 
 function onScan() {
@@ -375,7 +375,7 @@ async function onRandomGame() {
       snackbar.info(t("platform.random-rom-empty"));
       return;
     }
-    router.push({ name: ROUTES.ROM, params: { rom: data.id } });
+    void router.push({ name: ROUTES.ROM, params: { rom: data.id } });
   } catch {
     if (!stale()) snackbar.error(t("platform.random-rom-error"));
   } finally {
@@ -416,7 +416,7 @@ async function onDelete() {
     snackbar.success(t("platform.platform-deleted", { name: p.display_name }), {
       icon: "mdi-check-bold",
     });
-    router.push({ name: ROUTES.PLATFORMS_INDEX });
+    void router.push({ name: ROUTES.PLATFORMS_INDEX });
   } catch (err) {
     const e = err as {
       response?: { data?: { msg?: string } };

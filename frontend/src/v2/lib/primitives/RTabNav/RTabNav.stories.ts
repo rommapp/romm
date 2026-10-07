@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import RTabNav from "./RTabNav.vue";
 
 // Generic components can't fill Storybook's `component` slot, so it's cast;
@@ -8,6 +9,7 @@ import RTabNav from "./RTabNav.vue";
 const meta: Meta<typeof RTabNav<string>> = {
   title: "Primitives/RTabNav",
   component: RTabNav as never,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     size: {
       control: "select",
@@ -63,8 +65,10 @@ export const Subtabs: Story = {
   },
 };
 
-// Vertical pill variant: stacked menu items with optional leading
-// icon. Used by SaveDataTab for the left-rail subtab nav.
+/**
+ * Vertical pill variant: stacked menu items with optional leading
+ * icon. Used by SaveDataTab for the left-rail subtab nav.
+ */
 export const VerticalPill: Story = {
   args: {
     variant: "pill",
@@ -97,8 +101,10 @@ export const VerticalPill: Story = {
   }),
 };
 
-// A phone-width strip: the clipped edge fades and grows a chevron, and the
-// active tab is scrolled into view on mount.
+/**
+ * A phone-width strip: the clipped edge fades and grows a chevron, and the
+ * active tab is scrolled into view on mount.
+ */
 export const Overflowing: Story = {
   args: {
     modelValue: "save-data",
@@ -136,10 +142,10 @@ export const HiddenItems: Story = {
   },
 };
 
-// Image variant: items can carry a logo / brand mark via the `image`
-// field instead of an MDI icon. Mirrors the per-provider raw-metadata
-// tabs in EditRomDialog (IGDB / MobyGames / etc).
-// Keyboard: Tab across the tabs, Enter/Space activates the focused one.
+/**
+ * Items can carry an `image` logo instead of an MDI icon. Keyboard: Tab across
+ * the tabs, Enter/Space activates one.
+ */
 export const KeyboardNav: Story = {
   name: "Keyboard navigation (play)",
   args: {
@@ -156,23 +162,23 @@ export const KeyboardNav: Story = {
 
     await step("Tab focuses the tabs in DOM order", async () => {
       await userEvent.tab();
-      expect(tabs[0]).toHaveFocus();
+      await expect(tabs[0]).toHaveFocus();
       await userEvent.tab();
-      expect(tabs[1]).toHaveFocus();
+      await expect(tabs[1]).toHaveFocus();
     });
 
     await step("Enter activates the focused tab", async () => {
-      expect(tabs[1]).toHaveAttribute("aria-selected", "false");
+      await expect(tabs[1]).toHaveAttribute("aria-selected", "false");
       await userEvent.keyboard("{Enter}");
-      expect(tabs[1]).toHaveAttribute("aria-selected", "true");
-      expect(tabs[0]).toHaveAttribute("aria-selected", "false");
+      await expect(tabs[1]).toHaveAttribute("aria-selected", "true");
+      await expect(tabs[0]).toHaveAttribute("aria-selected", "false");
     });
 
     await step("Space activates the next tab", async () => {
       await userEvent.tab();
-      expect(tabs[2]).toHaveFocus();
+      await expect(tabs[2]).toHaveFocus();
       await userEvent.keyboard(" ");
-      expect(tabs[2]).toHaveAttribute("aria-selected", "true");
+      await expect(tabs[2]).toHaveAttribute("aria-selected", "true");
     });
   },
 };

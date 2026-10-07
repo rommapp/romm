@@ -77,9 +77,11 @@ describe("installNotificationInbox", () => {
   });
 
   it("doesn't toast again what this tab sent itself", async () => {
-    create.mockImplementation(async (payload) => ({
-      data: [{ ...notification(5), data: payload.data }],
-    }));
+    create.mockImplementation((payload) =>
+      Promise.resolve({
+        data: [{ ...notification(5), data: payload.data }],
+      }),
+    );
     signIn(1);
     scope.run(installNotificationInbox);
     await flushPromises();

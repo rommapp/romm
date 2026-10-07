@@ -155,7 +155,7 @@ function noteSessionEnded(notice?: SessionTermination | null): void {
   endedReason.value = notice?.reason ?? "";
 }
 
-useIntervalFn(async () => {
+async function heartbeat(): Promise<void> {
   if (!holdsClaim.value) return;
   const status = await streamingStore.heartbeatSession(
     platform.value,
@@ -165,7 +165,9 @@ useIntervalFn(async () => {
   // A release that landed while this beat was in flight already said how it ended.
   if (!holdsClaim.value || status?.status !== "ended") return;
   noteSessionEnded(status.termination);
-}, HEARTBEAT_MS);
+}
+
+useIntervalFn(() => void heartbeat(), HEARTBEAT_MS);
 
 // Pushed when someone else ends this claim, sooner than the next heartbeat.
 // The user's room carries all their claims, so the container and stamp name ours.
@@ -180,7 +182,10 @@ useSocketEvent<SessionTermination>("streaming:session-ended", (notice) => {
 });
 
 function backToAdministration(): void {
-  router.push({ name: ROUTES.ADMINISTRATION, query: { tab: "streaming" } });
+  void router.push({
+    name: ROUTES.ADMINISTRATION,
+    query: { tab: "streaming" },
+  });
 }
 
 // Returns whether the session is done with and the view may be left. The
@@ -225,7 +230,7 @@ function onPageHide(): void {
   if (!holdsClaim.value) return;
   holdsClaim.value = false;
   state.value = "exited";
-  streamingApi.releaseSessionKeepalive(
+  void streamingApi.releaseSessionKeepalive(
     platform.value,
     containerKey.value,
     claimedAt.value,

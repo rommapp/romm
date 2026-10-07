@@ -70,7 +70,7 @@ ruleTester.run("no-color-literal", rule, {
       errors: [{ ...error("#fff"), line: 6 }],
     },
     {
-      code: `${sfc(".a { color: var(--r-color-fg); }")}<style>\n.b { color: #123456; }\n</style>\n`,
+      code: `${sfc(".a { color: var(--r-color-fg); }").code}<style>\n.b { color: #123456; }\n</style>\n`,
       filename: "A.vue",
       errors: [error("#123456")],
     },

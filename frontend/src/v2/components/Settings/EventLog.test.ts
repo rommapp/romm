@@ -18,7 +18,7 @@ vi.mock("@/services/api/audit", () => ({
   default: { getAuditEvents: vi.fn() },
 }));
 vi.mock("@/services/api/user", () => ({
-  default: { fetchUsers: vi.fn(async () => ({ data: [] })) },
+  default: { fetchUsers: vi.fn(() => Promise.resolve({ data: [] })) },
 }));
 
 const getAuditEvents = vi.mocked(auditApi.getAuditEvents);

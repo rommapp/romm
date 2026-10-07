@@ -11,19 +11,21 @@ import { romFileFixture, romFixture } from "@/utils/rom.fixtures";
 
 const shellPresent = { value: true };
 const fetchPlatformSupport = vi.fn(
-  async (
+  (
     _queries: PlatformSupportQuery[],
-  ): Promise<Record<string, PlatformSupport>> => ({}),
+  ): Promise<Record<string, PlatformSupport>> => Promise.resolve({}),
 );
-const launchNative = vi.fn(
-  async (_request: LaunchRequest): Promise<LaunchResult> => ({
+const launchNative = vi.fn((_request: LaunchRequest): Promise<LaunchResult> =>
+  Promise.resolve({
     romId: 1,
     emulator: "RetroArch",
   }),
 );
 // Resolves true by default: the shell taking the cancel is the ordinary case,
 // and a test that wants a refusal says so.
-const cancelNative = vi.fn(async (_romId: number): Promise<boolean> => true);
+const cancelNative = vi.fn((_romId: number): Promise<boolean> =>
+  Promise.resolve(true),
+);
 const unsubscribe = vi.fn();
 // The shell's own launch-state stream, so a test can play back what it would
 // send. Captured on install rather than passed in, exactly as the bridge does.
@@ -45,9 +47,11 @@ vi.mock("@/services/native", async (importOriginal) => ({
 }));
 vi.mock("@/stores/config", () => ({ default: () => ({ config: {} }) }));
 // A gallery card's rom carries no file entries, so the store fetches them.
-const getRom = vi.fn(async (_args: { romId: number }) => ({
-  data: { files: [{ full_path: "psx/disc.chd", file_size_bytes: 700 }] },
-}));
+const getRom = vi.fn((_args: { romId: number }) =>
+  Promise.resolve({
+    data: { files: [{ full_path: "psx/disc.chd", file_size_bytes: 700 }] },
+  }),
+);
 vi.mock("@/services/api/rom", () => ({ default: { getRom } }));
 // The two rom-shape helpers are stubbed rather than reimplemented: what they
 // answer is `utils`' own test. `soleFile` is the knob for "one file on disk".
@@ -430,13 +434,13 @@ describe("useNativeStore.launch", () => {
   it("stays quiet when the shell explained the failure itself", async () => {
     const store = useNativeStore();
     store.install();
-    launchNative.mockImplementation(async () => {
+    launchNative.mockImplementation(() => {
       emit?.({
         romId: 1,
         status: "failed",
         error: { code: "emulator-not-found", message: "No RetroArch here." },
       });
-      throw new Error("No RetroArch here.");
+      return Promise.reject(new Error("No RetroArch here."));
     });
 
     expect(await store.launch(downloadedRom())).toBeNull();

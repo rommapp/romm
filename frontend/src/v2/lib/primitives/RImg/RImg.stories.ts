@@ -1,18 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { onMounted, onUnmounted, ref } from "vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/v2/utils/storyA11y";
 import "./RImg.stories.css";
 import RImg from "./RImg.vue";
 
 const meta: Meta<typeof RImg> = {
   title: "Primitives/RImg",
   component: RImg,
+  parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
-    src: { control: "text" },
-    alt: { control: "text" },
     width: { control: "text" },
     height: { control: "text" },
-    cover: { control: "boolean" },
-    contain: { control: "boolean" },
     aspectRatio: { control: "text" },
   },
 };

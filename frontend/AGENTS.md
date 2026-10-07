@@ -14,7 +14,7 @@ npm install                         # install (Node 24)
 npm run dev                         # dev server :3000
 npm run typecheck                   # vue-tsc --build: the app, the Node tooling and the e2e suite
 npm run typecheck:scripts           # Node only: scripts/, eslint-plugin-romm/, tool configs, the e2e suite
-npm run test                        # vitest (+ Storybook play() tests)
+npm run test                        # vitest (+ Storybook play() and a11y tests in Chromium)
 npm run test:e2e                    # playwright, see e2e/README.md
 npm run build                       # production build
 npm run generate                    # regenerate types from backend OpenAPI (backend must be running)
