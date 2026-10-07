@@ -53,6 +53,7 @@ import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
 import storeConfig from "@/stores/config";
 import { useNativeStore } from "@/stores/native";
 import type { DetailedRom } from "@/stores/roms";
+import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import {
   areThreadsRequiredForEJSCore,
@@ -85,7 +86,7 @@ import {
   useStageActive,
 } from "@/v2/composables/useStageActive";
 import { useUnloadGuard } from "@/v2/composables/useUnloadGuard";
-import { type AssetType, browserSaves } from "@/v2/utils/assets";
+import { type AssetType, browserSaves, emulatorKey } from "@/v2/utils/assets";
 import { joinNames } from "@/v2/utils/lists";
 import {
   resolveBezelHost,
@@ -144,6 +145,7 @@ const snackbar = useSnackbar();
 const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
 const nativeStore = useNativeStore();
+const streamingStore = useStreamingStore();
 const { fullscreenOnPlay } = useFullscreenPref();
 useFullscreenFallback();
 const playSession = usePlaySession();
@@ -741,6 +743,18 @@ const newerAsset = computed(() =>
 const newerZipped = computed(() =>
   newerZippedSave(rom.value?.user_saves ?? [], resume.value),
 );
+// Streaming is only worth naming where this platform's container restores it.
+const zippedStreams = computed(() => {
+  const zipped = newerZipped.value;
+  const container = streamingStore.containerForPlatform(
+    rom.value?.platform_slug,
+  );
+  return (
+    !!zipped &&
+    !!container &&
+    emulatorKey(container.emulator) === emulatorKey(zipped.emulator)
+  );
+});
 function bootFromNewer() {
   if (!newerAsset.value) return;
   if (newerAsset.value.kind === "save") selectSave(newerAsset.value.asset);
@@ -923,9 +937,14 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
                 type="info"
                 density="compact"
                 :text="
-                  t('play.newer-zipped-save-notice', {
-                    time: formatRelativeDate(newerZipped.updated_at),
-                  })
+                  t(
+                    zippedStreams
+                      ? 'play.newer-zipped-save-notice-streaming'
+                      : 'play.newer-zipped-save-notice',
+                    {
+                      time: formatRelativeDate(newerZipped.updated_at),
+                    },
+                  )
                 "
               />
 

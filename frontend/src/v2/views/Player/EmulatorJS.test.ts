@@ -2,10 +2,11 @@ import { RBtn, RSelect } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt from "mitt";
 import { readFileSync } from "node:fs";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
+import { streamingContainers } from "@/test-utils/streamingStore";
 import type { Events } from "@/types/emitter";
 import type { LaunchState, SaveSyncOutcome } from "@/types/rommNative";
 import { saveFixture } from "@/utils/assets.fixtures";
@@ -664,10 +665,34 @@ describe("EmulatorJS launch screen, a save the browser can't boot", () => {
     expect(propOf(list, "assets")).toEqual([RAW]);
   });
 
+  afterEach(() => {
+    delete streamingContainers.ps2;
+  });
+
+  function zippedNotice(wrapper: VueWrapper): string | undefined {
+    return wrapper.find(".r-v2-ejs__zipped-notice").attributes("text");
+  }
+
   it("says where the newer progress went", async () => {
     const wrapper = await launchScreen();
 
-    expect(wrapper.find(".r-v2-ejs__zipped-notice").exists()).toBe(true);
+    expect(zippedNotice(wrapper)).toMatch(/^play\.newer-zipped-save-notice:/);
+  });
+
+  it("points at streaming where the platform's container restores the zip", async () => {
+    streamingContainers.ps2 = { emulator: "RetroArch" };
+    const wrapper = await launchScreen();
+
+    expect(zippedNotice(wrapper)).toMatch(
+      /^play\.newer-zipped-save-notice-streaming:/,
+    );
+  });
+
+  it("leaves streaming out where the container runs another emulator", async () => {
+    streamingContainers.ps2 = { emulator: "pcsx2" };
+    const wrapper = await launchScreen();
+
+    expect(zippedNotice(wrapper)).toMatch(/^play\.newer-zipped-save-notice:/);
   });
 
   it("says nothing when the archive is older", async () => {
