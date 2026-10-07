@@ -272,8 +272,12 @@ async def store_save(
             user, rom, emulator, requested_file_name, body
         )
 
-    head = db_save_handler.get_lineage_head(
-        user_id=user.id, rom_id=rom.id, slot=AUTOSAVE_SLOT, lineage=lineage
+    head = await asyncio.to_thread(
+        db_save_handler.get_lineage_head,
+        user_id=user.id,
+        rom_id=rom.id,
+        slot=AUTOSAVE_SLOT,
+        lineage=lineage,
     )
     # A re-sent file adds no version, so it can't push real history past the cap.
     content_hash = hash_save_content(body.file)
@@ -297,7 +301,7 @@ async def store_save(
     scanned.user_id = user.id
     scanned.emulator = emulator
     scanned.slot = AUTOSAVE_SLOT
-    db_save_handler.add_save(save=scanned)
+    await asyncio.to_thread(db_save_handler.add_save, save=scanned)
     if MAX_SAVES_PER_SLOT:
         await prune_save_slot(
             user.id, rom.id, AUTOSAVE_SLOT, MAX_SAVES_PER_SLOT, lineage=lineage
@@ -313,7 +317,9 @@ async def _store_unslotted_save(
     file_name: str,
     body: UploadFile,
 ) -> SaveUpload:
-    existing = _unslotted_save_at(user, rom, emulator, file_name)
+    existing = await asyncio.to_thread(
+        _unslotted_save_at, user, rom, emulator, file_name
+    )
     asset_path = build_asset_file_path(user, rom, "saves", emulator)
     await fs_asset_handler.write_file(file=body, path=asset_path, filename=file_name)
     scanned = await scan_save(
@@ -324,7 +330,8 @@ async def _store_unslotted_save(
         emulator=emulator,
     )
     if existing:
-        db_save_handler.update_save(
+        await asyncio.to_thread(
+            db_save_handler.update_save,
             existing.id,
             {
                 "file_size_bytes": scanned.file_size_bytes,
@@ -337,7 +344,7 @@ async def _store_unslotted_save(
     scanned.rom_id = rom.id
     scanned.user_id = user.id
     scanned.emulator = emulator
-    db_save_handler.add_save(save=scanned)
+    await asyncio.to_thread(db_save_handler.add_save, save=scanned)
     return "created"
 
 
@@ -656,7 +663,7 @@ async def list_manifest_paths(
     user: User, can_see: Callable[[Rom], bool], tree: AssetKind
 ) -> list[str]:
     """`tree`'s manifest paths, sorted, without hashing or listing blobs."""
-    assets, saves = _manifest_assets(user, can_see, tree)
+    assets, saves = await asyncio.to_thread(_manifest_assets, user, can_see, tree)
     paths = [entry.path for entry in assets]
     paths += await psp.list_psp_member_paths(saves, can_see)
     return sorted(paths)
@@ -666,7 +673,9 @@ async def build_manifest(
     user: User, can_see: Callable[[Rom], bool]
 ) -> list[dict[str, str]]:
     """The server manifest RetroArch diffs against, sorted by path."""
-    assets, saves = _manifest_assets(user, can_see)
+    # Off the event loop: on a large library the queries run for seconds and
+    # would stall every other request the worker is serving.
+    assets, saves = await asyncio.to_thread(_manifest_assets, user, can_see)
     digests = await asset_md5s([entry.asset for entry in assets])
     hashed = [
         (entry, digest) for entry, digest in zip(assets, digests, strict=True) if digest

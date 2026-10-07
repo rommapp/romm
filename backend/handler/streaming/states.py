@@ -121,7 +121,7 @@ def resolve_resume_state(
     Visibility follows the same rule as the state list the picker was built
     from: the claiming user's own states plus other users' public ones.
     Raises 404 for anything invisible, 400 for a foreign state the broker
-    will not import.
+    will not import, and 503 when the broker couldn't be asked.
     """
     state = next(
         (
@@ -150,7 +150,7 @@ def resolve_resume_state(
         if slot is not None:
             return state, slot, False
 
-    spec = webstation.import_spec(container, emulator, container.platform)
+    spec = webstation.require_import_spec(container, emulator, container.platform)
     import_slot = spec.resume_slot() if spec is not None else None
     if import_slot is not None:
         return state, import_slot, True

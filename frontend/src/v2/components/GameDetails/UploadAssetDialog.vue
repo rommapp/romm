@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// UploadAssetDialog: the slot for saves, or the core for states, plus the
-// files to send. The Save data tab owns the upload.
+// UploadAssetDialog: the slot for saves and the core for both, plus the files
+// to send. The Save data tab owns the upload.
 import { RBtn, RDialog, RForm, RIcon, RSelect, RTextField } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -37,7 +37,7 @@ const props = defineProps<{
   type: AssetType;
   /** Own saves, whose slots the picker offers. */
   saves: Pick<SaveSchema, "slot">[];
-  /** Cores the states may have been made with. */
+  /** Cores the files may have been made with. */
   cores: string[];
   /** Files dropped on the tab, already picked when the dialog opens. */
   initialFiles: File[];
@@ -52,6 +52,7 @@ const { t } = useI18n();
 const { emulatorLabel } = useStreamingStore();
 
 const slot = ref<UploadSlot>(existingSlot(AUTOSAVE_SLOT));
+const slotPicked = ref(false);
 const newSlotName = ref("");
 const core = ref("");
 const files = ref<File[]>([]);
@@ -75,7 +76,9 @@ function isUploadSlot(value: unknown): value is UploadSlot {
   );
 }
 function onSlot(value: unknown) {
-  if (isUploadSlot(value)) slot.value = value;
+  if (!isUploadSlot(value)) return;
+  slot.value = value;
+  slotPicked.value = true;
 }
 
 const coreItems = computed(() => [
@@ -88,6 +91,7 @@ watch(
   (open) => {
     if (!open) return;
     slot.value = existingSlot(AUTOSAVE_SLOT);
+    slotPicked.value = false;
     newSlotName.value = "";
     core.value = "";
     files.value = [];
@@ -95,6 +99,13 @@ watch(
   },
   { immediate: true },
 );
+
+// RetroArch Cloud Sync only lists unslotted saves, so a save filed under a core
+// leaves the slots unless one was picked on purpose.
+watch(core, (picked) => {
+  if (props.type !== "save" || slotPicked.value) return;
+  slot.value = picked ? NO_SLOT : existingSlot(AUTOSAVE_SLOT);
+});
 
 function addFiles(picked: File[]) {
   const seen = new Set(files.value.map((f) => f.name));
@@ -113,7 +124,7 @@ async function submit() {
       props.type === "save" && picked.kind !== "none"
         ? chosenSlot(picked, newSlotName.value)
         : null,
-    emulator: props.type === "state" ? core.value || null : null,
+    emulator: core.value || null,
   });
 }
 </script>
@@ -159,7 +170,6 @@ async function submit() {
           autocomplete="off"
         />
         <RSelect
-          v-if="type === 'state'"
           v-model="core"
           :items="coreItems"
           prefix-label="inline"

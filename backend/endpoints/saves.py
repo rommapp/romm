@@ -262,7 +262,11 @@ async def add_save(
             )
 
     db_save = db_save_handler.get_save_by_filename(
-        user_id=request.user.id, rom_id=rom.id, file_name=actual_filename, slot=slot
+        user_id=request.user.id,
+        rom_id=rom.id,
+        file_name=actual_filename,
+        emulator=emulator,
+        slot=slot,
     )
 
     if device and slot and not overwrite:

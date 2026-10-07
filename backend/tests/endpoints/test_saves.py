@@ -421,7 +421,7 @@ class TestSaveUploadWithSync:
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
     )
     @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
-    def test_reupload_updates_file_path_and_emulator(
+    def test_reupload_under_another_emulator_keeps_both_saves(
         self,
         mock_scan,
         _mock_write,
@@ -432,9 +432,8 @@ class TestSaveUploadWithSync:
         platform: Platform,
         admin_user: User,
     ):
-        """Re-uploading the same filename under a different emulator must move
-        the row's file_path/emulator to where the new bytes landed, so the
-        stored hash never disagrees with the served content."""
+        """A same-named upload for another core is a separate save in that
+        core's folder, so the first core's save is left untouched."""
         existing = make_save(
             rom,
             admin_user,
@@ -471,17 +470,16 @@ class TestSaveUploadWithSync:
         )
 
         assert response.status_code == status.HTTP_200_OK
+        assert response.json()["id"] != existing.id
+        assert response.json()["emulator"] == "new_emu"
+        assert response.json()["file_path"] == new_path
 
-        updated = db_save_handler.get_save(user_id=admin_user.id, id=existing.id)
-        assert updated is not None
-        assert updated.file_path == new_path
-        assert updated.emulator == "new_emu"
-        assert updated.content_hash == "f" * 32
-        assert updated.file_size_bytes == 200
-        # full_path now points at the freshly written bytes, not the stale ones.
-        assert updated.full_path == f"{new_path}/test.sav"
-        # The orphaned bytes at the old location are cleaned up.
-        mock_remove.assert_awaited_once_with(f"{platform.slug}/saves/old_emu/test.sav")
+        kept = db_save_handler.get_save(user_id=admin_user.id, id=existing.id)
+        assert kept is not None
+        assert kept.emulator == "old_emu"
+        assert kept.file_path == f"{platform.slug}/saves/old_emu"
+        assert kept.content_hash == "0" * 32
+        mock_remove.assert_not_awaited()
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock

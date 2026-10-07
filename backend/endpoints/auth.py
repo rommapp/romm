@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Final, Literal, Optional, cast
 from urllib.parse import urlencode
@@ -264,7 +265,9 @@ async def token(
                 detail="Missing username or password",
             )
 
-        user = auth_handler.authenticate_user(form_data.username, form_data.password)
+        user = await asyncio.to_thread(
+            auth_handler.authenticate_user, form_data.username, form_data.password
+        )
         if not user:
             _record_login_failure(request, form_data.username, "token", "credentials")
             raise HTTPException(

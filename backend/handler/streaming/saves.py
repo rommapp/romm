@@ -270,8 +270,9 @@ def resolve_save_archive(
 ) -> tuple[Save, bool]:
     """Validate a launch-screen save pick and return (save, is_foreign).
 
-    Raises 404 for a save that is not the claiming user's own on this ROM, and
-    400 for one neither restorable here nor accepted as an import.
+    Raises 404 for a save that is not the claiming user's own on this ROM,
+    400 for one neither restorable here nor accepted as an import, and 503
+    when the broker couldn't be asked whether it imports one.
     """
     save = db_save_handler.get_save(user_id=user_id, id=save_id)
     # Same 404 for another user's save and another ROM's, so neither leaks.
@@ -286,7 +287,9 @@ def resolve_save_archive(
     if _is_restorable(save, container.emulator):
         return save, False
 
-    spec = webstation.import_spec(container, container.emulator, container.platform)
+    spec = webstation.require_import_spec(
+        container, container.emulator, container.platform
+    )
     if spec is not None and spec.accepts("save"):
         return save, True
 

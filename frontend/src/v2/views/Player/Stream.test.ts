@@ -13,7 +13,7 @@ import Stream from "./Stream.vue";
 
 const mocks = vi.hoisted(() => ({
   claimSession: vi.fn(),
-  fetchConfig: vi.fn(),
+  fetchConfig: vi.fn(() => Promise.resolve()),
   getRom: vi.fn(),
   fetchSessionStatus: vi.fn(),
   heartbeatSession: vi.fn(),
@@ -347,6 +347,51 @@ describe("Stream save picker", () => {
 
     await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
     expect(mocks.claimSession.mock.calls[0]![2]).toBe(1);
+  });
+
+  it("asks for the config afresh, so a broker that answered late still offers its imports", async () => {
+    // The app-load copy said nothing imports, and there's no archive of
+    // this emulator's own, so without the refetch the picker stays hidden.
+    mocks.fetchConfig.mockImplementationOnce(() => {
+      mocks.container = { ...mocks.container, import_kinds: ["save"] };
+      return Promise.resolve();
+    });
+    const wrapper = await launch({
+      picker: true,
+      saves: [save(9, "Pool.srm", { emulator: "mgba" })],
+    });
+
+    expect(mocks.fetchConfig).toHaveBeenCalled();
+    expect(
+      (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
+    ).toEqual([9]);
+  });
+
+  it("holds the picker until the fresh config lands", async () => {
+    // Picks made off the app-load copy could vanish once the refetch says
+    // what the broker imports, so nothing is offered before then.
+    let answer!: () => void;
+    mocks.fetchConfig.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (answer = resolve)),
+    );
+    const wrapper = await launch({ picker: true });
+
+    expect(saveList(wrapper)).toBeUndefined();
+    expect(wrapper.findComponent(SaveDataPanel).exists()).toBe(false);
+    expect(wrapper.find(".r-v2-stream__resume-loading").exists()).toBe(true);
+    // Play would send the preselected state the player can't see yet.
+    expect(wrapper.find(".r-v2-stream__play").attributes("disabled")).toBe(
+      "true",
+    );
+
+    answer();
+    await flushPromises();
+
+    expect(wrapper.find(".r-v2-stream__resume-loading").exists()).toBe(false);
+    expect(saveList(wrapper)).toBeDefined();
+    expect(wrapper.find(".r-v2-stream__play").attributes("disabled")).toBe(
+      "false",
+    );
   });
 
   it("includes bare (non-archive) save files where the broker imports saves", async () => {

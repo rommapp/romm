@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import itertools
 import os
@@ -5,6 +6,7 @@ import re
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -904,6 +906,35 @@ class TestRetroArchSyncSaveSlots:
         assert re.fullmatch(r"test_rom \[2026-01-01_00-00-\d{2}\]\.srm", save.file_name)
         assert (save.slot, save.emulator) == ("autosave", "snes9x")
         assert self._get(client) == b"data"
+
+    def test_upload_queries_and_writes_off_the_event_loop(
+        self, client, rom: Rom, monkeypatch: pytest.MonkeyPatch
+    ):
+        on_loop: dict[str, bool] = {}
+
+        def spy(owner: object, name: str) -> None:
+            original = getattr(owner, name)
+
+            def recording(*args: Any, **kwargs: Any) -> Any:
+                try:
+                    asyncio.get_running_loop()
+                    on_loop[name] = True
+                except RuntimeError:
+                    on_loop[name] = False
+                return original(*args, **kwargs)
+
+            monkeypatch.setattr(owner, name, recording)
+
+        spy(sync_handler, "resolve_rom")
+        spy(db_save_handler, "get_lineage_head")
+        spy(db_save_handler, "add_save")
+
+        assert self._put(client, b"data") == status.HTTP_201_CREATED
+        assert on_loop == {
+            "resolve_rom": False,
+            "get_lineage_head": False,
+            "add_save": False,
+        }
 
     @_mock_asset_md5()
     def test_manifest_lists_the_newest_version_under_retroarchs_name(
