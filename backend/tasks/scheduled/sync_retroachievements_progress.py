@@ -5,7 +5,7 @@ from handler.database import db_rom_handler, db_user_handler
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from logger.logger import log
-from models.rom import Rom, RomUserStatus
+from models.rom import RomUserStatus
 from models.user import User
 from tasks.registry import SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC
 from tasks.tasks import PeriodicTask
@@ -67,39 +67,34 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
     if not desired:
         return
 
-    # One `ra_id` routinely covers several regional ROM rows, so keep every
-    # match and sync each of them below.
-    roms_by_ra_id: dict[int, list[Rom]] = {}
-    for rom in db_rom_handler.get_roms_by_ra_ids(list(desired)):
-        # `IN` already excludes NULLs; this also narrows the type for mypy.
-        if rom.ra_id is None:
-            continue
-        roms_by_ra_id.setdefault(rom.ra_id, []).append(rom)
-
-    if not roms_by_ra_id:
+    # One `ra_id` routinely covers several regional ROM rows; each gets synced.
+    roms = db_rom_handler.get_roms_by_ra_ids(list(desired))
+    if not roms:
         return
 
     rom_users = db_rom_handler.get_rom_users_by_rom_ids(
-        user.id, [rom.id for roms in roms_by_ra_id.values() for rom in roms]
+        user.id, [rom.id for rom in roms]
     )
 
-    for rom_ra_id, new_status in desired.items():
-        for rom in roms_by_ra_id.get(rom_ra_id, []):
-            rom_user = rom_users.get(rom.id)
-            if rom_user is None:
-                rom_user = db_rom_handler.add_rom_user(rom.id, user.id)
+    for rom in roms:
+        # `IN` never matches a NULL `ra_id`.
+        new_status = desired[cast(int, rom.ra_id)]
 
-            if rom_user.status == new_status:
-                continue
+        rom_user = rom_users.get(rom.id)
+        if rom_user is None:
+            rom_user = db_rom_handler.add_rom_user(rom.id, user.id)
 
-            if rom_user.status in {RomUserStatus.RETIRED, RomUserStatus.NEVER_PLAYING}:
-                continue
+        if rom_user.status == new_status:
+            continue
 
-            db_rom_handler.update_rom_user(rom_user.id, {"status": new_status})
-            log.debug(
-                f"Set rom_user status to '{new_status}' for user '{user.username}' "
-                f"and ROM with RA ID {rom_ra_id}"
-            )
+        if rom_user.status in {RomUserStatus.RETIRED, RomUserStatus.NEVER_PLAYING}:
+            continue
+
+        db_rom_handler.update_rom_user(rom_user.id, {"status": new_status})
+        log.debug(
+            f"Set rom_user status to '{new_status}' for user '{user.username}' "
+            f"and ROM {rom.id} (RA ID {rom.ra_id})"
+        )
 
 
 class SyncRetroAchievementsProgressTask(PeriodicTask):
@@ -144,7 +139,14 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
                 log.debug(
                     f"Updated RetroAchievements progress for user: {user.username}"
                 )
-                _sync_rom_user_statuses(user, user_progression)
+                # A concurrent rom_user write (e.g. a play session) can fail this
+                # user's batch; the remaining users still sync.
+                try:
+                    _sync_rom_user_statuses(user, user_progression)
+                except Exception as e:
+                    log.error(
+                        f"Failed to sync RetroAchievements statuses for user: {user.username}, error: {e}"
+                    )
 
             processed_users += 1
             update_stats.update(processed=processed_users)

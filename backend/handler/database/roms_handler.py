@@ -974,35 +974,19 @@ class DBRomsHandler(DBBaseHandler):
         *,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[Rom]:
-        """Get multiple ROMs by their RetroAchievements IDs in a single query."""
+        """Get the ROMs matching any of `ra_ids`, loading only `id` and `ra_id`."""
         if not ra_ids:
             return []
-        # The sync only reads `id`/`ra_id`, so block joined `platform`/`metadatum`.
+        # Skips the provider metadata blobs and the joined `platform`/`metadatum`.
         return session.scalars(
             select(Rom)
-            .options(raiseload(Rom.platform), raiseload(Rom.metadatum))
+            .options(
+                load_only(Rom.id, Rom.ra_id),
+                raiseload(Rom.platform),
+                raiseload(Rom.metadatum),
+            )
             .filter(Rom.ra_id.in_(ra_ids))
         ).all()
-
-    @begin_session
-    def get_rom_users_by_rom_ids(
-        self,
-        user_id: int,
-        rom_ids: Sequence[int],
-        *,
-        session: Session = INJECTED_SESSION,
-    ) -> dict[int, RomUser]:
-        """Get `{rom_id: RomUser}` for one user over many ROMs in a single query."""
-        if not rom_ids:
-            return {}
-        # Callers only read `rom_id`/`status`/`id`, so block joined `rom`/`user`
-        # (`rom` would pull `platform`/`metadatum` per row otherwise).
-        rows = session.scalars(
-            select(RomUser)
-            .options(raiseload(RomUser.rom), raiseload(RomUser.user))
-            .filter(RomUser.user_id == user_id, RomUser.rom_id.in_(rom_ids))
-        ).all()
-        return {row.rom_id: row for row in rows}
 
     def get_files_for_roms(
         self,
@@ -2536,6 +2520,26 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(
             select(RomUser).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
         )
+
+    @begin_session
+    def get_rom_users_by_rom_ids(
+        self,
+        user_id: int,
+        rom_ids: Sequence[int],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> dict[int, RomUser]:
+        """Get `{rom_id: RomUser}` for one user over many ROMs in a single query."""
+        if not rom_ids:
+            return {}
+        # Callers only read `rom_id`/`status`/`id`, so block joined `rom`/`user`
+        # (`rom` would pull `platform`/`metadatum` per row otherwise).
+        rows = session.scalars(
+            select(RomUser)
+            .options(raiseload(RomUser.rom), raiseload(RomUser.user))
+            .filter(RomUser.user_id == user_id, RomUser.rom_id.in_(rom_ids))
+        ).all()
+        return {row.rom_id: row for row in rows}
 
     @begin_session
     def update_rom_user(
