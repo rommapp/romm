@@ -540,6 +540,17 @@ def _should_hash_firmware(
     )
 
 
+def _ancestor_paths(fs_roms: Sequence[FSRom]) -> set[str]:
+    """Return every discovered rom's fs_path along with all of its parent paths."""
+    ancestors: set[str] = set()
+    for fs_rom in fs_roms:
+        path = fs_rom["fs_path"]
+        while path and path not in ancestors:
+            ancestors.add(path)
+            path = path.rpartition("/")[0]
+    return ancestors
+
+
 async def _rebuild_rom_files(
     rom: Rom,
     fs_rom: FSRom,
@@ -921,6 +932,30 @@ async def _scan_selected_roms(
     return scan_stats
 
 
+async def _emit_restored_roms(
+    socket_manager: socketio.AsyncRedisManager, restored_roms: list[Rom]
+) -> None:
+    """Emit each ROM whose file came back, from one batched hydration read."""
+    if not restored_roms:
+        return
+
+    # Reload since the scan-loop lookup only eager-loads the platform.
+    hydrated_by_id = {
+        hydrated.id: hydrated
+        for hydrated in db_rom_handler.get_roms_simple_by_ids(
+            [restored.id for restored in restored_roms]
+        )
+    }
+    for restored_rom in restored_roms:
+        log.info(
+            f"{hl(restored_rom.fs_name)} is back in the filesystem, "
+            f"no longer {hl('missing', color=LIGHTYELLOW)}"
+        )
+        hydrated_rom = hydrated_by_id.get(restored_rom.id)
+        if hydrated_rom is not None:
+            await emit_scanning_rom(socket_manager, hydrated_rom, is_new=False)
+
+
 async def _identify_platform(
     platform_slug: str,
     scan_type: ScanType,
@@ -1086,18 +1121,8 @@ async def _identify_platform(
 
         # A ROM whose file came back would otherwise keep its stale "missing"
         # badge in an open gallery: a skipped one emits nothing, and a scanned
-        # one only emits when its files changed. Reload since the scan-loop
-        # lookup only eager-loads the platform.
-        for restored_rom in restored_roms:
-            log.info(
-                f"{hl(restored_rom.fs_name)} is back in the filesystem, "
-                f"no longer {hl('missing', color=LIGHTYELLOW)}"
-            )
-            hydrated_rom = db_rom_handler.get_rom_simple(restored_rom.id)
-            if hydrated_rom is None:
-                continue
-
-            await emit_scanning_rom(socket_manager, hydrated_rom, is_new=False)
+        # one only emits when its files changed.
+        await _emit_restored_roms(socket_manager, restored_roms)
 
         # Process only ROMs that actually need scanning
         scan_tasks = [
@@ -1117,14 +1142,10 @@ async def _identify_platform(
         # A folder a custom structure now descends into used to be a single
         # multi-file rom; that old entry shows up here as missing. Flag those so
         # it's clear the "missing" is expected and the stale entry can be
-        # deleted. A superseded folder's path is a parent of a discovered rom.
-        descended_paths = {rom["fs_path"] for rom in fs_roms}
+        # deleted. A superseded folder's path is an ancestor of a discovered rom.
+        ancestors = _ancestor_paths(fs_roms)
         for r in missing_roms:
-            superseded = any(
-                p == r.full_path or p.startswith(f"{r.full_path}/")
-                for p in descended_paths
-            )
-            if superseded:
+            if r.full_path in ancestors:
                 log.warning(
                     f" - {r.fs_name} (now scanned as a folder of roms, "
                     "delete this stale entry to clean up)"

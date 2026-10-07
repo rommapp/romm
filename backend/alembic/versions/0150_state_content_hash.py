@@ -1,7 +1,7 @@
 """add content_hash to states
 
-Revision ID: 0149_state_content_hash
-Revises: 0148_rom_age_limits
+Revision ID: 0150_state_content_hash
+Revises: 0149_roms_fs_name_no_ext_index
 Create Date: 2026-10-06 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0149_state_content_hash"
-down_revision = "0148_rom_age_limits"
+revision = "0150_state_content_hash"
+down_revision = "0149_roms_fs_name_no_ext_index"
 branch_labels = None
 depends_on = None
 

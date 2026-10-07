@@ -1,8 +1,9 @@
 import os
+import threading
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from unittest import mock
 
 import pytest
@@ -14,7 +15,9 @@ from handler.redis_handler import async_cache, sync_cache
 from handler.sync.retroarch.sync_handler import (
     HASH_CACHE_TTL_SECONDS,
     asset_md5s,
+    build_manifest,
     cached_hashes,
+    list_manifest_paths,
     user_blob_path,
 )
 from models.assets import Save, State
@@ -79,6 +82,32 @@ class TestMarkMissing:
             assert row is not None
             assert row.missing_from_fs
             assert row.updated_at == stamp
+
+
+class TestManifestQueriesOffEventLoop:
+    @pytest.fixture
+    def query_threads(self) -> Iterator[list[int]]:
+        threads: list[int] = []
+        get_saves = db_save_handler.get_saves
+
+        def recording_get_saves(*args: Any, **kwargs: Any) -> Any:
+            threads.append(threading.get_ident())
+            return get_saves(*args, **kwargs)
+
+        with mock.patch.object(db_save_handler, "get_saves", recording_get_saves):
+            yield threads
+
+    async def test_build_manifest(self, admin_user: User, query_threads: list[int]):
+        await build_manifest(admin_user, lambda _rom: True)
+
+        assert query_threads and threading.get_ident() not in query_threads
+
+    async def test_list_manifest_paths(
+        self, admin_user: User, query_threads: list[int]
+    ):
+        await list_manifest_paths(admin_user, lambda _rom: True, "saves")
+
+        assert query_threads and threading.get_ident() not in query_threads
 
 
 class TestBlobStorageLocation:
