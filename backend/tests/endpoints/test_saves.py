@@ -2237,6 +2237,60 @@ class TestSlotRetention:
         "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
     )
     @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
+    def test_pruning_counts_a_dotted_name_by_its_stored_extension(
+        self,
+        mock_scan,
+        mock_remove,
+        mock_write,
+        client,
+        access_token: str,
+        rom: Rom,
+        admin_user: User,
+    ):
+        for second in (1, 2):
+            make_save(
+                rom,
+                admin_user,
+                f"quest.rev [2025-01-01_00-00-0{second}].srm",
+                slot="side_quest",
+            )
+        mock_scan.side_effect = lambda file_name, **_: Save(
+            file_name=file_name,
+            file_path=f"{rom.platform.fs_slug}/saves",
+            file_size_bytes=8,
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            slot="side_quest",
+        )
+
+        with mock.patch("endpoints.saves.MAX_SAVES_PER_SLOT", 1):
+            response = client.post(
+                f"/api/saves?rom_id={rom.id}&slot=side_quest",
+                files={
+                    "saveFile": (
+                        "quest.rev.srm",
+                        BytesIO(b"new save"),
+                        "application/octet-stream",
+                    )
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [
+            save.id
+            for save in db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], slot="side_quest"
+            )
+        ] == [response.json()["id"]]
+
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch(
+        "endpoints.saves.fs_asset_handler.remove_file", new_callable=mock.AsyncMock
+    )
+    @mock.patch("endpoints.saves.scan_save", new_callable=mock.AsyncMock)
     def test_tighter_client_autocleanup_wins_over_server_cap(
         self,
         mock_scan,

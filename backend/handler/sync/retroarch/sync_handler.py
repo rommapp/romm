@@ -238,17 +238,24 @@ def saves_at_path(
 ) -> list[Save]:
     """Every save a RetroArch path covers, so deleting it leaves nothing to resurface."""
     lineage = save_lineage(emulator, requested_file_name)
-    versions = (
-        list(
-            db_save_handler.get_saves(
-                user_id=user.id, rom_ids=[rom.id], slot=AUTOSAVE_SLOT, lineage=lineage
-            )
-        )
-        if lineage
-        else []
+    if not lineage:
+        unslotted = _unslotted_save_at(user, rom, emulator, requested_file_name)
+        return [unslotted] if unslotted else []
+
+    versions = db_save_handler.get_saves(
+        user_id=user.id, rom_ids=[rom.id], slot=AUTOSAVE_SLOT, lineage=lineage
     )
-    unslotted = _unslotted_save_at(user, rom, emulator, requested_file_name)
-    return versions + [unslotted] if unslotted else versions
+    # The manifest hides these behind the head, so whatever their case they
+    # would resurface once the versions go.
+    folded = requested_file_name.casefold()
+    hidden = [
+        save
+        for save in db_save_handler.get_saves(
+            user_id=user.id, rom_ids=[rom.id], slot_is_null=True, lineage=lineage
+        )
+        if save.file_name.casefold() == folded
+    ]
+    return [*versions, *hidden]
 
 
 SaveUpload = Literal["created", "updated", "unchanged"]

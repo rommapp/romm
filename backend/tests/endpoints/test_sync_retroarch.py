@@ -927,12 +927,14 @@ class TestRetroArchSyncSaveSlots:
 
         spy(sync_handler, "resolve_rom")
         spy(db_save_handler, "get_lineage_head")
+        spy(db_save_handler, "get_save_by_path")
         spy(db_save_handler, "add_save")
 
         assert self._put(client, b"data") == status.HTTP_201_CREATED
         assert on_loop == {
             "resolve_rom": False,
             "get_lineage_head": False,
+            "get_save_by_path": False,
             "add_save": False,
         }
 
@@ -1108,6 +1110,24 @@ class TestRetroArchSyncSaveSlots:
         assert client.get(self.SAVE_URL, auth=ADMIN_AUTH).status_code == (
             status.HTTP_404_NOT_FOUND
         )
+
+    def test_delete_removes_an_unslotted_save_spelled_in_another_case(
+        self, client, admin_user: User, rom: Rom, saves_path: str
+    ):
+        make_save(
+            rom,
+            admin_user,
+            "TEST_ROM.srm",
+            file_path=saves_path,
+            emulator="snes9x",
+            slot=None,
+        )
+        self._put(client, b"retroarch")
+
+        response = client.request("DELETE", self.SAVE_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert self._versions(admin_user, rom) == []
 
 
 def test_uploads_in_the_same_second_keep_both_versions(

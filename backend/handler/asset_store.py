@@ -5,6 +5,7 @@ Shared by the upload routes and the streaming sync. What differs between them
 renaming a save or state, which takes its thumbnail along.
 """
 
+import asyncio
 import os
 import re
 from collections.abc import Sequence
@@ -74,8 +75,12 @@ async def reserve_version_name(
         name = apply_datetime_tag(file_name, start + timedelta(seconds=offset))
         if await fs_asset_handler.file_exists(f"{saves_path}/{name}"):
             continue
-        if db_save_handler.get_save_by_path(
-            user_id=user_id, rom_id=rom_id, file_path=saves_path, file_name=name
+        if await asyncio.to_thread(
+            db_save_handler.get_save_by_path,
+            user_id=user_id,
+            rom_id=rom_id,
+            file_path=saves_path,
+            file_name=name,
         ):
             continue
         if await async_cache.set(

@@ -237,7 +237,6 @@ async def add_save(
     )
 
     actual_filename = sanitize_asset_filename(saveFile.filename, "save")
-    lineage = SaveLineage.of(emulator, actual_filename)
     if slot:
         # Checked again because the tag adds 22 bytes.
         actual_filename = sanitize_asset_filename(
@@ -246,6 +245,8 @@ async def add_save(
             ),
             "save",
         )
+    # From the stored name: the tag moves a dotted name's inner suffix into the stem.
+    lineage = SaveLineage.of(emulator, actual_filename)
 
     sanitized_screenshot_filename = ""
     if screenshotFile and screenshotFile.filename:
