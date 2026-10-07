@@ -6168,6 +6168,47 @@ def test_a_launch_with_no_pick_imports_a_raw_save_written_since_the_archive(
     hydrate_native.assert_not_awaited()
 
 
+def _mark_missing(save: Save, updated_at: datetime) -> None:
+    """What RetroArch sync leaves on a row whose file vanished."""
+    with sync_session.begin() as session:
+        session.execute(
+            update(Save)
+            .where(Save.id == save.id)
+            .values(missing_from_fs=True, updated_at=updated_at)
+        )
+
+
+def test_a_launch_with_no_pick_skips_a_raw_save_whose_file_is_missing(
+    client, access_token, rom: Rom, admin_user: User
+):
+    zipped = _add_save(
+        rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1"
+    )
+    raw = _add_save(rom, admin_user, "Game.srm", "mgba", "h2")
+    _mark_missing(raw, datetime(2030, 1, 1, tzinfo=timezone.utc))
+
+    resp, hydrate_import, hydrate_native, _session = _claim_without_a_pick(
+        client, access_token, rom, _SAVE_IMPORT
+    )
+
+    assert resp.status_code == 202
+    hydrate_import.assert_not_awaited()
+    hydrate_native.assert_awaited_once()
+    assert hydrate_native.call_args.args[3].id == zipped.id
+
+
+def test_newest_restorable_skips_an_archive_whose_file_is_missing(
+    rom: Rom, admin_user: User
+):
+    kept = _add_save(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    gone = _add_save(rom, admin_user, "Game [retroarch b].saves.zip", "retroarch", "h2")
+    _mark_missing(gone, datetime(2030, 1, 1, tzinfo=timezone.utc))
+
+    newest = saves.newest_restorable(admin_user.id, rom.id, "retroarch")
+
+    assert newest is not None and newest.id == kept.id
+
+
 def test_a_launch_with_no_pick_reads_an_upper_case_zip_as_an_archive(
     client, access_token, rom: Rom, admin_user: User
 ):

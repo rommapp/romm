@@ -409,8 +409,13 @@ def _is_restorable(save: Save, emulator: str) -> bool:
 
 def _newest(saves: list[Save]) -> Save | None:
     # updated_at, since the web player writes into its existing row. Ties on
-    # id, because the timestamp only has second resolution.
-    return max(saves, key=lambda s: (s.updated_at, s.id), default=None)
+    # id, because the timestamp only has second resolution. A row whose file
+    # vanished can't boot, however recently sync touched it.
+    return max(
+        (s for s in saves if not s.missing_from_fs),
+        key=lambda s: (s.updated_at, s.id),
+        default=None,
+    )
 
 
 def newest_restorable(user_id: int, rom_id: int, emulator: str) -> Save | None:

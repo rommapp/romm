@@ -439,8 +439,34 @@ describe("Stream save picker", () => {
     });
 
     expect(saveList(wrapper)!.props("selectedId")).toBe(9);
+  });
+
+  it("leaves an untouched default off the claim, so the backend can fall back", async () => {
+    // Named, a bare .srm the broker then refused would boot with no save.
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(9, "Pool [2026-09-14_09-00-00].srm", { emulator: "mgba" }),
+        ...ARCHIVES,
+      ],
+      imports: ["save"],
+    });
+
     await (wrapper.vm as unknown as { onPlay: () => Promise<void> }).onPlay();
-    expect(mocks.claimSession.mock.calls[0]![2]).toBe(9);
+    expect(mocks.claimSession.mock.calls[0]![2]).toBeUndefined();
+  });
+
+  it("skips a save whose file is missing when defaulting", async () => {
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(9, "Pool.srm", { emulator: "mgba", missing_from_fs: true }),
+        ...ARCHIVES,
+      ],
+      imports: ["save"],
+    });
+
+    expect(saveList(wrapper)!.props("selectedId")).toBe(3);
   });
 
   it("keeps the newer archive over an older bare .srm", async () => {
