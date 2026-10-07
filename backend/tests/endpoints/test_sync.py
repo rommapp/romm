@@ -1160,7 +1160,7 @@ class TestNegotiateAdvanced:
     def _upload_autosave(
         self, client, access_token, rom, *, filename, content_hash, device_id
     ):
-        """Upload through the real add_save so _apply_datetime_tag runs; scan_save is mocked to echo the server-computed (tagged) file_name, never a hand-authored one."""
+        """Upload through the real add_save so apply_datetime_tag runs; scan_save is mocked to echo the server-computed (tagged) file_name, never a hand-authored one."""
 
         def make_scanned(*, file_name, user, platform_fs_slug, rom_id, emulator):
             return Save(
