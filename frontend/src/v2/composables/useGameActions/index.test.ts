@@ -714,7 +714,7 @@ describe("useGameActions.downloadAs", () => {
     await vi.advanceTimersByTimeAsync(5000);
     await pending;
 
-    expect(conversions.active).toBe(false);
+    expect(conversions.conversions).toEqual([]);
     expect(snackbarInfo).toHaveBeenCalledWith(
       'rom.download-as-preparing:{"format":"ISO"}',
     );

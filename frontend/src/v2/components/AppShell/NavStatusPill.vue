@@ -7,18 +7,15 @@ import { RouterLink, type RouteLocationRaw } from "vue-router";
 
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    label: string;
-    /** Stands in for the label on phones. */
-    icon: string;
-    counter?: string | null;
-    /** Percent done; null runs the bar indeterminate. */
-    progress?: number | null;
-    to?: RouteLocationRaw | undefined;
-  }>(),
-  { counter: null, progress: null, to: undefined },
-);
+const props = defineProps<{
+  label: string;
+  /** Stands in for the label on phones. */
+  icon: string;
+  counter?: string | null;
+  /** Percent done; null or unset runs the bar indeterminate. */
+  progress?: number | null;
+  to?: RouteLocationRaw;
+}>();
 
 const tag = computed(() => (props.to ? RouterLink : "button"));
 </script>
@@ -44,7 +41,7 @@ const tag = computed(() => (props.to ? RouterLink : "button"));
 
     <RProgressLinear
       class="r-nav-status-pill__progress"
-      :indeterminate="progress === null"
+      :indeterminate="progress == null"
       :model-value="progress ?? 0"
       :height="2"
       color="primary"
@@ -122,28 +119,5 @@ html[data-bp~="xs"] .r-nav-status-pill__icon {
   left: 0;
   right: 0;
   bottom: 0;
-}
-</style>
-
-<!-- Unscoped for the host's `<Transition name="r-nav-status-pill">`. Its child
-     is a host element, since RMenu and RTooltip render fragments. -->
-<style>
-.r-nav-status-pill-host {
-  display: flex;
-}
-.r-nav-status-pill-enter-active {
-  transition:
-    opacity var(--r-motion-med) var(--r-motion-ease-out),
-    transform var(--r-motion-med) var(--r-motion-ease-back);
-}
-.r-nav-status-pill-leave-active {
-  transition:
-    opacity var(--r-motion-fast) var(--r-motion-ease-out),
-    transform var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-nav-status-pill-enter-from,
-.r-nav-status-pill-leave-to {
-  opacity: 0;
-  transform: translateX(10px) scale(0.9);
 }
 </style>

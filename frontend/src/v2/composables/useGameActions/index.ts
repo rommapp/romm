@@ -72,7 +72,6 @@ export function useGameActions(
     useRomSync();
   const auth = storeAuth();
   const heartbeat = storeHeartbeat();
-  const formatConversions = storeFormatConversions();
   const canCreateCollection = useCan("collection.create");
   const canEditCollection = useCan("collection.edit");
   // Write/destructive gates, mirroring the backend grants. Surfaces that
@@ -448,6 +447,7 @@ export function useGameActions(
     const href = getDownloadPath({ rom, fileIDs: [file.id], format });
     if (pendingFormatDownloads.has(href)) return;
     pendingFormatDownloads.add(href);
+    const formatConversions = storeFormatConversions();
     try {
       let probe = await romApi.probeFormatDownload(href);
       if (probe.status === 202) {

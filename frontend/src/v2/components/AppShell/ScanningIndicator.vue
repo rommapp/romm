@@ -10,6 +10,7 @@ import { ROUTES } from "@/plugins/router";
 import storeScanning from "@/stores/scanning";
 import { toBrowserLocale } from "@/utils";
 import NavStatusPill from "@/v2/components/AppShell/NavStatusPill.vue";
+import NavStatusTransition from "@/v2/components/AppShell/NavStatusTransition.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 
 defineOptions({ inheritAttrs: false });
@@ -34,7 +35,7 @@ const total = computed(() =>
 // affordance still reads as "active".
 const hasTotal = computed(() => total.value > 0);
 const progress = computed(() =>
-  hasTotal.value ? Math.min(100, (scanned.value / total.value) * 100) : 0,
+  hasTotal.value ? Math.min(100, (scanned.value / total.value) * 100) : null,
 );
 
 // Phones shorten large counts (1.8K / 4.6K) so the pill always fits beside
@@ -56,21 +57,19 @@ const counterLabel = computed(() => {
 </script>
 
 <template>
-  <Transition name="r-nav-status-pill">
-    <div v-if="visible" class="r-nav-status-pill-host">
-      <RTooltip :text="t('scan.scanning-library')" location="bottom">
-        <template #activator="{ props: tooltipProps }">
-          <NavStatusPill
-            v-bind="tooltipProps"
-            :to="{ name: ROUTES.SCAN }"
-            :label="t('scan.scanning')"
-            icon="mdi-radar"
-            :counter="counterLabel"
-            :progress="hasTotal ? progress : null"
-            :aria-label="t('scan.scanning-library')"
-          />
-        </template>
-      </RTooltip>
-    </div>
-  </Transition>
+  <NavStatusTransition :show="visible">
+    <RTooltip :text="t('scan.scanning-library')" location="bottom">
+      <template #activator="{ props: tooltipProps }">
+        <NavStatusPill
+          v-bind="tooltipProps"
+          :to="{ name: ROUTES.SCAN }"
+          :label="t('scan.scanning')"
+          icon="mdi-radar"
+          :counter="counterLabel"
+          :progress="progress"
+          :aria-label="t('scan.scanning-library')"
+        />
+      </template>
+    </RTooltip>
+  </NavStatusTransition>
 </template>
