@@ -14,13 +14,19 @@ inputs:
 runs:
   using: composite
   steps:
+    # ImageOS (e.g. ubuntu24) is a runner shell variable, not part of the `env` context.
+    - name: Read the runner image OS
+      id: image
+      shell: bash
+      run: echo "os=$ImageOS" >>"$GITHUB_OUTPUT"
+
     # Cached .debs install without touching an Ubuntu mirror, which can stall a job until its time limit.
     - name: Restore apt packages
       id: apt-debs
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ runner.temp }}/apt-debs
-        key: apt-debs-${{ env.ImageOS }}-${{ runner.arch }}-libmariadb-${{ inputs.apt-packages }}
+        key: apt-debs-${{ steps.image.outputs.os }}-${{ runner.arch }}-libmariadb-${{ inputs.apt-packages }}
 
     # The mariadb package ships only an sdist on Linux, so uv builds it against these.
     - name: Install the MariaDB connector
@@ -37,10 +43,12 @@ runs:
           mkdir -p "$DEB_DIR/partial"
           sudo apt-get "${apt_opts[@]}" install -y --download-only -o Dir::Cache::archives="$DEB_DIR" \
             libmariadb3 libmariadb-dev "${extra[@]}"
-          # apt leaves a root-only lock file the cache save can't read.
-          sudo rm -rf "$DEB_DIR/lock" "$DEB_DIR/partial"
         fi
-        sudo apt-get install -y "$DEB_DIR"/*.deb
+        mkdir -p "$DEB_DIR/partial"
+        # With package lists present, apt prefers the mirror's copy of a local .deb unless it finds it in its archives dir.
+        sudo apt-get install -y --no-download -o Dir::Cache::archives="$DEB_DIR" "$DEB_DIR"/*.deb
+        # apt leaves a root-only lock file the cache save can't read.
+        sudo rm -rf "$DEB_DIR/lock" "$DEB_DIR/partial"
 
     # Only master writes it, so a PR can't evict or seed it.
     - name: Save apt packages
