@@ -6,7 +6,9 @@ renaming a save or state, which takes its thumbnail along.
 """
 
 import os
+import re
 from collections.abc import Sequence
+from datetime import datetime
 from io import BytesIO
 from tempfile import SpooledTemporaryFile
 from typing import Any, BinaryIO, TypeAlias, cast
@@ -35,6 +37,20 @@ from utils.filesystem import check_filename_length, sanitize_filename
 AssetContent: TypeAlias = (
     UploadFile | BinaryIO | BytesIO | bytes | SpooledTemporaryFile[bytes]
 )
+
+
+DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
+
+
+def apply_datetime_tag(filename: str) -> str:
+    """The name a new slot version is stored under, replacing any earlier tag."""
+    name, ext = os.path.splitext(filename)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    if DATETIME_TAG_PATTERN.search(name):
+        name = DATETIME_TAG_PATTERN.sub("", name)
+
+    return f"{name} [{timestamp}]{ext}"
 
 
 async def store_state_file(

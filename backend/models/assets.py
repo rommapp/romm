@@ -24,6 +24,8 @@ if TYPE_CHECKING:
 
 
 SAVE_SLOT_MAX_LENGTH = 255
+# Where a client with no slot of its own files new progress.
+AUTOSAVE_SLOT = "autosave"
 # A slot's versions, newest last: pruning locks exactly these rows through it.
 SAVE_SLOT_VERSIONS_INDEX = "ix_saves_rom_user_slot_updated"
 EMULATOR_MAX_LENGTH = 50

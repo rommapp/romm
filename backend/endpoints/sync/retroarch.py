@@ -10,6 +10,8 @@ from urllib.parse import quote
 from fastapi import APIRouter, Request, Response, UploadFile, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
+from config import MAX_SAVES_PER_SLOT
+from handler.asset_store import apply_datetime_tag, prune_save_slot, remove_save
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
 from handler.auth.permissions import ResolvedPermissions
@@ -33,7 +35,7 @@ from handler.sync.retroarch.sync_handler import (
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import Save, Screenshot, State
+from models.assets import AUTOSAVE_SLOT, Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length, sanitize_filename
@@ -138,14 +140,8 @@ def _get_asset(
         )
 
     if parsed.kind == "saves":
-        file_path = sync_handler.build_asset_file_path(
-            user, rom, parsed.kind, parsed.emulator
-        )
-        return db_save_handler.get_save_by_path(
-            user_id=user.id,
-            rom_id=rom.id,
-            file_path=file_path,
-            file_name=parsed.file_name,
+        return sync_handler.resolve_save_by_slot(
+            user, rom, parsed.emulator, parsed.file_name
         )
 
     # The requested name is the canonical slot name, which a web-player state's
@@ -568,23 +564,22 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         request.user, rom, parsed.kind, parsed.emulator
     )
 
+    if parsed.kind == "saves":
+        return await _put_save_version(request, rom, parsed, asset_path)
+
     # A state resolved by slot may have its own file name; writing to it keeps
     # the row pointing at the fresh bytes instead of orphaning them.
-    existing = _get_asset(request.user, rom, parsed)
-    write_file_name = existing.file_name if existing else file_name
-    replaced_hash = (
-        await fs_asset_handler.unrecorded_hash(existing)
-        if isinstance(existing, Save)
-        else None
+    existing = sync_handler.resolve_state_by_slot(
+        request.user, rom, parsed.emulator, file_name
     )
+    write_file_name = existing.file_name if existing else file_name
 
     async with _request_body(request) as body:
         await fs_asset_handler.write_file(
             file=body, path=asset_path, filename=write_file_name
         )
 
-    scan = scan_save if parsed.kind == "saves" else scan_state
-    scanned = await scan(
+    scanned = await scan_state(
         file_name=write_file_name,
         user=request.user,
         platform_fs_slug=rom.platform.fs_slug,
@@ -594,19 +589,14 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     if existing:
         # The row moves with the bytes when it was filed elsewhere, e.g. under
         # the ROM's previous platform folder.
-        fields = {
-            "file_size_bytes": scanned.file_size_bytes,
-            "file_path": scanned.file_path,
-            "missing_from_fs": False,
-        }
-        if isinstance(scanned, Save):
-            db_save_handler.update_save(
-                existing.id,
-                {**fields, "content_hash": scanned.content_hash},
-                replaced_hash=replaced_hash,
-            )
-        else:
-            db_state_handler.update_state(existing.id, fields)
+        db_state_handler.update_state(
+            existing.id,
+            {
+                "file_size_bytes": scanned.file_size_bytes,
+                "file_path": scanned.file_path,
+                "missing_from_fs": False,
+            },
+        )
         if existing.file_path != scanned.file_path:
             with suppress(FileNotFoundError):
                 await fs_asset_handler.remove_file(file_path=existing.full_path)
@@ -614,14 +604,82 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         scanned.rom_id = rom.id
         scanned.user_id = request.user.id
         scanned.emulator = parsed.emulator
-        if isinstance(scanned, Save):
-            db_save_handler.add_save(save=scanned)
-        else:
-            db_state_handler.add_state(state=scanned)
+        db_state_handler.add_state(state=scanned)
 
     # `last_played` is left alone on purpose: a first sync uploads the whole
     # backlog at once, which would stamp every game as just-played.
     return _empty(status.HTTP_204_NO_CONTENT if existing else status.HTTP_201_CREATED)
+
+
+async def _put_save_version(
+    request: Request, rom: Rom, parsed: RetroArchSyncPath, asset_path: str
+) -> Response:
+    """File an upload as a new version of the slot the path serves, or of autosave."""
+    latest = sync_handler.resolve_save_by_slot(
+        request.user, rom, parsed.emulator, parsed.file_name
+    )
+    version_name = apply_datetime_tag(parsed.file_name)
+    try:
+        check_filename_length(version_name)
+    except ValueError:
+        return _empty(status.HTTP_409_CONFLICT)
+
+    # An upload within the same second as the last lands on that version's name.
+    same_name = db_save_handler.get_save_by_path(
+        user_id=request.user.id,
+        rom_id=rom.id,
+        file_path=asset_path,
+        file_name=version_name,
+    )
+    replaced_hash = (
+        await fs_asset_handler.unrecorded_hash(same_name) if same_name else None
+    )
+
+    async with _request_body(request) as body:
+        await fs_asset_handler.write_file(
+            file=body, path=asset_path, filename=version_name
+        )
+
+    scanned = await scan_save(
+        file_name=version_name,
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=parsed.emulator,
+    )
+    if same_name:
+        db_save_handler.update_save(
+            same_name.id,
+            {
+                "file_size_bytes": scanned.file_size_bytes,
+                "content_hash": scanned.content_hash,
+                "missing_from_fs": False,
+            },
+            replaced_hash=replaced_hash,
+        )
+        return _empty(status.HTTP_204_NO_CONTENT)
+
+    # A re-sent file adds no version, so it can't push real history past the cap.
+    if (
+        latest
+        and not latest.missing_from_fs
+        and scanned.content_hash
+        and scanned.content_hash == latest.content_hash
+    ):
+        with suppress(FileNotFoundError):
+            await fs_asset_handler.remove_file(file_path=f"{asset_path}/{version_name}")
+        return _empty(status.HTTP_204_NO_CONTENT)
+
+    slot = latest.slot if latest and latest.slot else AUTOSAVE_SLOT
+    scanned.rom_id = rom.id
+    scanned.user_id = request.user.id
+    scanned.emulator = parsed.emulator
+    scanned.slot = slot
+    db_save_handler.add_save(save=scanned)
+    if MAX_SAVES_PER_SLOT:
+        await prune_save_slot(request.user.id, rom.id, slot, MAX_SAVES_PER_SLOT)
+
+    return _empty(status.HTTP_201_CREATED)
 
 
 @router.api_route(
@@ -660,6 +718,18 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
 
+    if parsed.kind == "saves":
+        saves = sync_handler.saves_at_path(
+            request.user, rom, parsed.emulator, parsed.file_name
+        )
+        if not saves:
+            return _empty(status.HTTP_404_NOT_FOUND)
+
+        log.info(f"Cloud sync delete {hl(parsed.file_name)} [{rom.platform_slug}]")
+        for save in saves:
+            await remove_save(save)
+        return _empty(status.HTTP_204_NO_CONTENT)
+
     asset = _get_asset(request.user, rom, parsed)
     if not asset:
         return _empty(status.HTTP_404_NOT_FOUND)
@@ -668,10 +738,6 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
 
     if isinstance(asset, Screenshot):
         db_screenshot_handler.delete_screenshot(asset.id)
-    elif isinstance(asset, Save):
-        db_save_handler.delete_save(
-            asset.id, content_hash=await fs_asset_handler.unrecorded_hash(asset)
-        )
     else:
         db_state_handler.delete_state(asset.id)
 

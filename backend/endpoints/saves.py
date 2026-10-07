@@ -1,5 +1,4 @@
 import os
-import re
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Annotated, Any
@@ -14,6 +13,7 @@ from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
+    apply_datetime_tag,
     prune_save_slot,
     remove_save,
     rename_asset,
@@ -110,25 +110,12 @@ def _syncs_for_save(
     return db_device_save_sync_handler.get_syncs_for_saves([save_id]).get(save_id, [])
 
 
-DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
-
-
 def _slot_retention(autocleanup: bool, autocleanup_limit: int) -> int | None:
     """Versions to keep in a slot: the tighter of the client's ask and the server cap."""
     limits = [MAX_SAVES_PER_SLOT] if MAX_SAVES_PER_SLOT else []
     if autocleanup:
         limits.append(autocleanup_limit)
     return min(limits, default=None)
-
-
-def _apply_datetime_tag(filename: str) -> str:
-    name, ext = os.path.splitext(filename)
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
-    if DATETIME_TAG_PATTERN.search(name):
-        name = DATETIME_TAG_PATTERN.sub("", name)
-
-    return f"{name} [{timestamp}]{ext}"
 
 
 def _resolve_device(
@@ -244,7 +231,7 @@ async def add_save(
     if slot:
         # Checked again because the tag adds 22 bytes.
         actual_filename = sanitize_asset_filename(
-            _apply_datetime_tag(actual_filename), "save"
+            apply_datetime_tag(actual_filename), "save"
         )
 
     sanitized_screenshot_filename = ""

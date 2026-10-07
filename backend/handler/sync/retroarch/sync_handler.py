@@ -166,6 +166,78 @@ def resolve_state_by_slot(
     return group_states_by_slot(states).get(key)
 
 
+def save_extension(file_name: str) -> str:
+    return os.path.splitext(file_name)[1].lower()
+
+
+SaveKey = tuple[int, str | None, str]
+
+
+def save_key(save: Save) -> SaveKey:
+    """The RetroArch path a save answers to, as (rom, emulator, extension)."""
+    return (save.rom_id, save.emulator, save_extension(save.file_name))
+
+
+def is_slot_version(save: Save) -> bool:
+    """A slotted save RetroArch can sync; PSP bundles stay with `psp`."""
+    return bool(save.slot) and not psp.is_psp_bundle_file_name(save.file_name)
+
+
+def group_slot_versions(saves: Iterable[Save]) -> dict[SaveKey, Save]:
+    """The newest slotted save on disk for each RetroArch path, across every slot."""
+    latest: dict[SaveKey, Save] = {}
+    for save in saves:
+        if not is_slot_version(save) or save.missing_from_fs:
+            continue
+        key = save_key(save)
+        current = latest.get(key)
+        if current is None or recency_key(save) > recency_key(current):
+            latest[key] = save
+
+    return latest
+
+
+def _unslotted_save_at(
+    user: User, rom: Rom, emulator: str | None, file_name: str
+) -> Save | None:
+    save = db_save_handler.get_save_by_path(
+        user_id=user.id,
+        rom_id=rom.id,
+        file_path=build_asset_file_path(user, rom, "saves", emulator),
+        file_name=file_name,
+    )
+    return save if save and not save.slot else None
+
+
+def resolve_save_by_slot(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> Save | None:
+    """The save a RetroArch path serves: the newest slot version, else the unslotted save there."""
+    versions = db_save_handler.get_saves(
+        user_id=user.id, rom_ids=[rom.id], slot_not_null=True
+    )
+    key = (rom.id, emulator, save_extension(requested_file_name))
+    return group_slot_versions(versions).get(key) or _unslotted_save_at(
+        user, rom, emulator, requested_file_name
+    )
+
+
+def saves_at_path(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> list[Save]:
+    """Every save a RetroArch path covers, so deleting it leaves nothing to resurface."""
+    key = (rom.id, emulator, save_extension(requested_file_name))
+    covered = [
+        save
+        for save in db_save_handler.get_saves(
+            user_id=user.id, rom_ids=[rom.id], slot_not_null=True
+        )
+        if is_slot_version(save) and save_key(save) == key
+    ]
+    unslotted = _unslotted_save_at(user, rom, emulator, requested_file_name)
+    return covered + [unslotted] if unslotted else covered
+
+
 def state_screenshot_dir(user: User, rom: Rom, emulator: str | None) -> str:
     """Per core, so same-named states under two cores keep separate screenshots."""
     return fs_asset_handler.build_screenshots_file_path(
@@ -409,18 +481,21 @@ def _manifest_assets(
     user: User, can_see: Callable[[Rom], bool], tree: AssetKind | None = None
 ) -> tuple[list[ManifestAsset], Sequence[Save]]:
     """The manifest's saves and states (only `tree`'s when given), plus the unslotted saves its PSP bundles come from."""
-    # Slotted saves are RomM's timestamped history, which no core would load.
-    saves = (
-        db_save_handler.get_saves(user_id=user.id, slot_is_null=True)
-        if tree != "states"
-        else []
-    )
+    all_saves = db_save_handler.get_saves(user_id=user.id) if tree != "states" else []
+    saves = [save for save in all_saves if not save.slot]
+    slot_versions = group_slot_versions(all_saves)
+    # A slot version goes by RetroArch's name for the game, not its own tagged one.
     listed_saves = [
-        save
+        (f"{save.rom.fs_name_no_ext}{os.path.splitext(save.file_name)[1]}", save)
+        for save in slot_versions.values()
+        if can_see(save.rom)
+    ] + [
+        (save.file_name, save)
         for save in saves
         if not save.missing_from_fs
         and can_see(save.rom)
         and not psp.is_psp_bundle_file_name(save.file_name)
+        and save_key(save) not in slot_versions
     ]
     listed_states = (
         [
@@ -437,7 +512,7 @@ def _manifest_assets(
     # A path carries no platform, so only the ROM that GET/PUT/DELETE would
     # resolve it to may claim it; a same-named ROM elsewhere would shadow it.
     owners = resolve_roms(
-        [game_name_from_file_name("saves", save.file_name) for save in listed_saves]
+        [game_name_from_file_name("saves", name) for name, _ in listed_saves]
         + [game_name_from_file_name("states", name) for _, name, _ in listed_states],
         can_see,
     )
@@ -447,11 +522,9 @@ def _manifest_assets(
         return owner is not None and owner.id == rom.id
 
     assets = [
-        ManifestAsset(
-            build_retroarch_sync_path("saves", save.emulator, save.file_name), save
-        )
-        for save in listed_saves
-        if is_addressable(save.rom, "saves", save.file_name)
+        ManifestAsset(build_retroarch_sync_path("saves", save.emulator, name), save)
+        for name, save in listed_saves
+        if is_addressable(save.rom, "saves", name)
     ]
 
     addressable_states = [

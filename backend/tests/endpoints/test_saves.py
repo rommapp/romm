@@ -13,7 +13,7 @@ from sqlalchemy import update
 from tests.factories import make_save, make_screenshot, make_state
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from endpoints.saves import _apply_datetime_tag
+from handler.asset_store import apply_datetime_tag
 from handler.auth.base_handler import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import (
@@ -4221,8 +4221,8 @@ class TestApplyDatetimeTag:
             def now(cls, tz=None):
                 return datetime.fromtimestamp(captured_at.timestamp(), tz)
 
-        with mock.patch("endpoints.saves.datetime", FrozenDatetime):
-            tagged = _apply_datetime_tag("suikoden [2020-01-01_00-00-00].srm")
+        with mock.patch("handler.asset_store.datetime", FrozenDatetime):
+            tagged = apply_datetime_tag("suikoden [2020-01-01_00-00-00].srm")
 
         assert tagged == "suikoden [2026-09-22_19-10-13].srm"
 

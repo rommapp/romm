@@ -1017,9 +1017,14 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
   mapped to and from the asset's `emulator` through
   `sync.retroarch.emulator_names`, so web player saves stay visible. Unknown
   cores round-trip unchanged.
-- **Manifest:** slotted saves are left out, since no core loads them. Assets
-  whose file is gone are flagged `missing_from_fs`. Hashes are MD5s of the
-  bytes on disk, Redis-cached by path, size and mtime.
+- **Save slots:** a save path serves the newest slotted version for its ROM,
+  core and extension, from any slot, under RetroArch's own name for the file.
+  An unslotted save at that path serves only until one exists. A PUT adds a
+  version to the slot it served (or `autosave`), unless the bytes are unchanged,
+  and prunes it to `MAX_SAVES_PER_SLOT`. A DELETE removes every save the path
+  covers. PSP bundles stay unslotted.
+- **Manifest:** assets whose file is gone are flagged `missing_from_fs`. Hashes
+  are MD5s of the bytes on disk, Redis-cached by path, size and mtime.
 - **PSP:** PPSSPP's `PSP/SAVEDATA/<folder>/` files are stored as one zipped
   `Save` per folder. A folder whose title matches no ROM is buffered under
   `SYNC_RETROARCH_PSP_PENDING_PATH`, or mapped through `SYNC_RETROARCH_PSP_SERIAL_MAP`.
