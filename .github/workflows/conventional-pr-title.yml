@@ -32,7 +32,8 @@ jobs:
           fi
 
           echo "::error::PR title must follow Conventional Commits: type(scope)!: description"
-          echo "Got: $PR_TITLE"
+          # Line breaks would let the title start a workflow command line.
+          echo "Got: ${PR_TITLE//[$'\r\n']/ }"
           echo "Allowed types: ${types//|/, }"
           echo "Examples:"
           echo "  feat(saves): favorite and label saves and states"
