@@ -2526,8 +2526,7 @@ class DBRomsHandler(DBBaseHandler):
         """Get `{rom_id: RomUser}` for one user over many ROMs in a single query."""
         if not rom_ids:
             return {}
-        # Callers only read `rom_id`/`status`/`id`, so block joined `rom`/`user`
-        # (`rom` would pull `platform`/`metadatum` per row otherwise).
+        # Skips the joined `rom` (with its `platform`/`metadatum`) and `user` loads.
         rows = session.scalars(
             select(RomUser)
             .options(raiseload(RomUser.rom), raiseload(RomUser.user))
