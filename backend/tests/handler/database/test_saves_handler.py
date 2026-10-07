@@ -119,6 +119,7 @@ class TestDBSavesHandlerPlatformFiltering:
             user_id=admin_user.id,
             rom_id=rom.id,
             file_name=save.file_name,
+            emulator=save.emulator,
             slot=save.slot,
         )
 
@@ -142,7 +143,11 @@ class TestDBSavesHandlerPlatformFiltering:
         # No null-slot save exists, so a slot-less lookup should find nothing.
         assert (
             db_save_handler.get_save_by_filename(
-                user_id=admin_user.id, rom_id=rom.id, file_name="shared.sav", slot=None
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                file_name="shared.sav",
+                emulator="test_emu",
+                slot=None,
             )
             is None
         )
@@ -152,6 +157,7 @@ class TestDBSavesHandlerPlatformFiltering:
             user_id=admin_user.id,
             rom_id=rom.id,
             file_name="shared.sav",
+            emulator="test_emu",
             slot="Slot A",
         )
         assert found is not None
@@ -175,16 +181,73 @@ class TestDBSavesHandlerPlatformFiltering:
                 user_id=admin_user.id,
                 rom_id=rom.id,
                 file_name="shared.sav",
+                emulator="test_emu",
                 slot="Slot A",
             )
             is None
         )
 
         found = db_save_handler.get_save_by_filename(
-            user_id=admin_user.id, rom_id=rom.id, file_name="shared.sav", slot=None
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            file_name="shared.sav",
+            emulator="test_emu",
+            slot=None,
         )
         assert found is not None
         assert found.id == slotless.id
+
+    def test_get_save_by_filename_ignores_another_emulators_save(
+        self, admin_user: User, rom: Rom
+    ):
+        mgba = make_save(
+            rom, admin_user, "shared.sav", emulator="mgba", file_size_bytes=100
+        )
+
+        assert (
+            db_save_handler.get_save_by_filename(
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                file_name="shared.sav",
+                emulator="snes9x",
+            )
+            is None
+        )
+
+        found = db_save_handler.get_save_by_filename(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            file_name="shared.sav",
+            emulator="mgba",
+        )
+        assert found is not None
+        assert found.id == mgba.id
+
+    def test_get_save_by_filename_without_emulator_prefers_unfiled_save(
+        self, admin_user: User, rom: Rom
+    ):
+        mgba = make_save(
+            rom, admin_user, "shared.sav", emulator="mgba", file_size_bytes=100
+        )
+
+        def lookup() -> Save | None:
+            return db_save_handler.get_save_by_filename(
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                file_name="shared.sav",
+                emulator=None,
+            )
+
+        found = lookup()
+        assert found is not None
+        assert found.id == mgba.id
+
+        unfiled = make_save(
+            rom, admin_user, "shared.sav", emulator=None, file_size_bytes=100
+        )
+        found = lookup()
+        assert found is not None
+        assert found.id == unfiled.id
 
     def test_platform_filtering_with_different_emulators(
         self, admin_user: User, platform: Platform, rom: Rom

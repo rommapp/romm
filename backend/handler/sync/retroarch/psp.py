@@ -351,7 +351,7 @@ async def _resolve_folder_rom(
         else:
             sfo_title = title if isinstance(title, str) else None
 
-    rom = _resolve_rom(info.save_folder, sfo_title, can_see)
+    rom = await asyncio.to_thread(_resolve_rom, info.save_folder, sfo_title, can_see)
     if rom:
         return rom
 
@@ -380,7 +380,8 @@ async def _add_bundle(
     await fs_asset_handler.write_file(
         file=zip_bytes, path=bundle_path, filename=bundle_name
     )
-    bundle = db_save_handler.add_save(
+    bundle = await asyncio.to_thread(
+        db_save_handler.add_save,
         Save(
             rom_id=rom.id,
             user_id=user.id,
@@ -390,7 +391,7 @@ async def _add_bundle(
             content_hash=content_hash_of_bytes(zip_bytes),
             emulator=info.emulator,
             slot=None,
-        )
+        ),
     )
     await _cache_member_md5s(bundle, entries)
 
@@ -408,7 +409,9 @@ async def put_psp_file(
     # place rather than keeping each partial merge as save history.
     async with _folder_locks[f"{user.id}:{info.save_folder}"]:
         pending_dir = f"{user.id}/{info.save_folder}"
-        existing = _find_bundle_by_folder(user, info.save_folder, can_see)
+        existing = await asyncio.to_thread(
+            _find_bundle_by_folder, user, info.save_folder, can_see
+        )
 
         merged: dict[str, bytes] = {}
         if existing:
@@ -449,7 +452,8 @@ async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:
     await fs_asset_handler.write_file(
         file=zip_bytes, path=bundle.file_path, filename=bundle.file_name
     )
-    updated = db_save_handler.update_save(
+    updated = await asyncio.to_thread(
+        db_save_handler.update_save,
         bundle.id,
         {
             "file_size_bytes": len(zip_bytes),
@@ -482,7 +486,9 @@ async def _read_bundle_names(bundle: Save) -> list[str] | None:
 async def get_psp_file(
     user: User, info: PspFilePath, can_see: Callable[[Rom], bool]
 ) -> bytes | None:
-    bundle = _find_bundle_by_folder(user, info.save_folder, can_see)
+    bundle = await asyncio.to_thread(
+        _find_bundle_by_folder, user, info.save_folder, can_see
+    )
     if not bundle:
         return None
     entries = await _read_bundle(bundle, {info.file_name})
@@ -494,7 +500,9 @@ async def delete_psp_file(
 ) -> None:
     """Drop one member from its folder's bundle, and the bundle once empty."""
     async with _folder_locks[f"{user.id}:{info.save_folder}"]:
-        bundle = _find_bundle_by_folder(user, info.save_folder, can_see)
+        bundle = await asyncio.to_thread(
+            _find_bundle_by_folder, user, info.save_folder, can_see
+        )
         if not bundle:
             return
 
@@ -509,7 +517,7 @@ async def delete_psp_file(
             await _rewrite_bundle(bundle, entries)
             return
 
-        db_save_handler.delete_save(bundle.id)
+        await asyncio.to_thread(db_save_handler.delete_save, bundle.id)
         with suppress(FileNotFoundError):
             await fs_asset_handler.remove_file(file_path=bundle.full_path)
 

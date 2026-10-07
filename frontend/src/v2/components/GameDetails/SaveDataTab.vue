@@ -119,8 +119,8 @@ const subtabDefs = computed<SubtabNavItem<Subtab>[]>(() => [
 ]);
 
 // ---------- Upload / refresh plumbing ----------
-// Every upload goes through the dialog, which asks saves for a slot and
-// states for a core; dropped files land in it pre-picked.
+// Every upload goes through the dialog, which asks saves for a slot and both
+// for a core; dropped files land in it pre-picked.
 const uploadDialog = ref<{ type: AssetType; files: File[] } | null>(null);
 function openUpload(type: AssetType, files: File[] = []) {
   uploadDialog.value = { type, files };
@@ -128,7 +128,7 @@ function openUpload(type: AssetType, files: File[] = []) {
 function closeUpload() {
   uploadDialog.value = null;
 }
-// The cores the player offers plus whatever the existing states carry, keyed
+// The cores the player offers plus whatever the existing files carry, keyed
 // case-insensitively as the backend matches them.
 const uploadCores = computed(() => {
   const cores = new Map<string, string>();
@@ -136,7 +136,9 @@ const uploadCores = computed(() => {
     props.rom.platform_slug,
     configStore.config.EJS_NETPLAY_ENABLED,
   );
-  const carried = myStates.value.map((state) => state.emulator);
+  const carried = [...mySaves.value, ...myStates.value].map(
+    (asset) => asset.emulator,
+  );
   for (const core of [...offered, ...carried]) {
     if (!core || cores.has(emulatorKey(core))) continue;
     cores.set(emulatorKey(core), core);
@@ -150,7 +152,7 @@ async function onUploadSubmit({
   emulator,
 }: UploadAssetPayload) {
   uploadDialog.value = null;
-  if (type === "save") await onSaveUpload(files, slot);
+  if (type === "save") await onSaveUpload(files, slot, emulator);
   else await onStateUpload(files, emulator);
 }
 const uploadingSaves = ref(false);
@@ -174,7 +176,11 @@ async function refreshRom() {
   await refetchRom(props.rom.id);
 }
 
-async function onSaveUpload(files: File[], slot: string | null) {
+async function onSaveUpload(
+  files: File[],
+  slot: string | null,
+  emulator: string | null,
+) {
   if (files.length === 0 || uploadingSaves.value) return;
 
   uploadingSaves.value = true;
@@ -184,6 +190,7 @@ async function onSaveUpload(files: File[], slot: string | null) {
       rom: props.rom,
       savesToUpload: files.map((saveFile) => ({ saveFile })),
       slot: slot ?? undefined,
+      emulator: emulator ?? undefined,
       overwrite: slot !== null,
     });
     const successful = results.filter((r) => r.status === "fulfilled").length;
