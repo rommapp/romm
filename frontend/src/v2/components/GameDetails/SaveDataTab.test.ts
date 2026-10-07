@@ -2,8 +2,10 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserSaveSchema, UserStateSchema } from "@/__generated__";
 import storeAuth from "@/stores/auth";
+import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
 import { userFixture } from "@/utils/user.fixtures";
+import { toUserSave, toUserState } from "@/v2/utils/saveStates.fixtures";
 import SaveDataTab from "./SaveDataTab.vue";
 
 vi.mock("vue-i18n");
@@ -31,23 +33,11 @@ const UploadAssetDialog = {
 };
 
 function state(id: number, emulator: string): UserStateSchema {
-  return {
-    id,
-    user_id: 1,
-    file_name: `state_${id}.state`,
-    updated_at: "2026-09-16T10:00:00Z",
-    emulator,
-  } as UserStateSchema;
+  return toUserState(stateFixture({ id, emulator }), "player");
 }
 
 function save(id: number, emulator: string): UserSaveSchema {
-  return {
-    id,
-    user_id: 1,
-    file_name: `save_${id}.srm`,
-    updated_at: "2026-09-16T10:00:00Z",
-    emulator,
-  } as UserSaveSchema;
+  return toUserSave(saveFixture({ id, emulator }), "player");
 }
 
 function mountTab(states: UserStateSchema[], saves: UserSaveSchema[] = []) {
