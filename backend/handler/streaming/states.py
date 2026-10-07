@@ -138,8 +138,8 @@ def resolve_resume_state(
 
     Visibility follows the same rule as the state list the picker was built
     from: the claiming user's own states plus other users' public ones.
-    Raises 404 for anything invisible, 400 for a foreign state the broker
-    will not import, and 503 when the broker couldn't be asked.
+    Raises 404 for anything invisible, 400 for an auto state or a foreign
+    state the broker will not import, and 503 when the broker couldn't be asked.
     """
     state = next(
         (
