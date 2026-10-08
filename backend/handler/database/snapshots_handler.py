@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy import (
     ColumnElement,
+    Exists,
     and_,
     delete,
     exists,
@@ -225,6 +226,35 @@ def held_save_ids(session: Session, save_ids: Collection[int]) -> set[int]:
     return {save_id for save_id in held if save_id is not None}
 
 
+def _held_by_hash[ContentT: (Save, State)](
+    session: Session,
+    model: type[ContentT],
+    held: Exists,
+    user_id: int,
+    rom_id: int,
+    hashes: Collection[str],
+) -> dict[str, ContentT]:
+    """The oldest of the user's `held` rows on a ROM for each content hash."""
+    if not hashes:
+        return {}
+    # A row no snapshot holds may still be overwritten by a legacy writer.
+    rows = session.scalars(
+        select(model)
+        .where(
+            model.user_id == user_id,
+            model.rom_id == rom_id,
+            model.content_hash.in_(hashes),
+            held,
+        )
+        .order_by(model.id)
+    ).all()
+    found: dict[str, ContentT] = {}
+    for row in rows:
+        if row.content_hash:
+            found.setdefault(row.content_hash, row)
+    return found
+
+
 class DBSnapshotsHandler(DBBaseHandler):
     @begin_session
     def current_saves_for_slots(
@@ -339,27 +369,10 @@ class DBSnapshotsHandler(DBBaseHandler):
     ) -> dict[str, Save]:
         """The user's snapshot-held saves on a ROM by content hash, only those
         `channel_id`'s snapshots hold when given."""
-        if not hashes:
-            return {}
-        # A row no snapshot holds may still be overwritten by a legacy writer.
         held = exists().where(Snapshot.save_id == Save.id)
         if channel_id is not None:
             held = held.where(Snapshot.channel_id == channel_id)
-        rows = session.scalars(
-            select(Save)
-            .where(
-                Save.user_id == user_id,
-                Save.rom_id == rom_id,
-                Save.content_hash.in_(hashes),
-                held,
-            )
-            .order_by(Save.id)
-        ).all()
-        found: dict[str, Save] = {}
-        for save in rows:
-            if save.content_hash:
-                found.setdefault(save.content_hash, save)
-        return found
+        return _held_by_hash(session, Save, held, user_id, rom_id, hashes)
 
     @begin_session
     def get_states_by_hash(
@@ -372,8 +385,6 @@ class DBSnapshotsHandler(DBBaseHandler):
     ) -> dict[str, State]:
         """The user's snapshot-held states on a ROM by content hash, only those
         `channel_id`'s snapshots hold when given."""
-        if not hashes:
-            return {}
         held = exists().where(SnapshotState.state_id == State.id)
         if channel_id is not None:
             held = held.where(
@@ -381,21 +392,7 @@ class DBSnapshotsHandler(DBBaseHandler):
                     select(Snapshot.id).where(Snapshot.channel_id == channel_id)
                 )
             )
-        rows = session.scalars(
-            select(State)
-            .where(
-                State.user_id == user_id,
-                State.rom_id == rom_id,
-                State.content_hash.in_(hashes),
-                held,
-            )
-            .order_by(State.id)
-        ).all()
-        found: dict[str, State] = {}
-        for state in rows:
-            if state.content_hash:
-                found.setdefault(state.content_hash, state)
-        return found
+        return _held_by_hash(session, State, held, user_id, rom_id, hashes)
 
     @begin_session
     def get_channels_for_file(
@@ -796,10 +793,8 @@ class DBSnapshotsHandler(DBBaseHandler):
     def _delete_snapshots(
         self, session: Session, ids: Sequence[int]
     ) -> ReleasedContent:
-        """Delete snapshots, then the content rows only they held, with their
-        screenshots. A legacy upload the bridge made a current goes with its
-        snapshot; a legacy row no snapshot holds is never taken. A row another
-        snapshot still holds stays public only while a shared one does."""
+        """Delete snapshots, then the content rows and screenshots only they held.
+        A row another snapshot still holds stays public only while a shared one does."""
         if not ids:
             return ReleasedContent()
         save_ids = set(
@@ -928,10 +923,18 @@ class DBSnapshotsHandler(DBBaseHandler):
         data: dict[str, Any],
         session: Session = INJECTED_SESSION,
     ) -> Channel:
+        """Write `data` onto a channel, carrying a visibility change to its
+        content rows and to other users' pins."""
         channel = session.get_one(Channel, id)
         for key, value in data.items():
             setattr(channel, key, value)
         session.flush()
+        if "is_public" in data:
+            self.sync_content_visibility(
+                *self.get_content_ids(id, session=session), session=session
+            )
+            if not channel.is_public:
+                self.drop_foreign_pins(channel.user_id, channel_id=id, session=session)
         return channel
 
     @begin_session
@@ -939,9 +942,8 @@ class DBSnapshotsHandler(DBBaseHandler):
         self, id: uuid.UUID, session: Session = INJECTED_SESSION
     ) -> ReleasedContent:
         """Delete a channel, keeping its current and the owner's pinned snapshots
-        as archival. Legacy saves filed under it lose the link and become backups.
-        A detached channel keeps nothing: it is its own way back, so deleting it
-        means the saves go."""
+        as archival unless it is detached. Legacy saves filed under it become backups.
+        """
         channel = session.get_one(Channel, id, with_for_update=True)
         owner_pinned = exists().where(
             SnapshotPin.snapshot_id == Snapshot.id,
@@ -981,10 +983,23 @@ class DBSnapshotsHandler(DBBaseHandler):
         data: dict[str, Any],
         session: Session = INJECTED_SESSION,
     ) -> Snapshot:
+        """Write `data` onto a snapshot, carrying a visibility change to its
+        content rows and to other users' pins."""
         snapshot = session.get_one(Snapshot, id)
         for key, value in data.items():
             setattr(snapshot, key, value)
         session.flush()
+        if "is_public" in data:
+            if not snapshot.is_public:
+                self.drop_foreign_pins(
+                    snapshot.user_id, snapshot_id=id, session=session
+                )
+            content = self.get_stored_content(snapshot, session=session)
+            self.sync_content_visibility(
+                [content.save.id] if content.save else [],
+                [state.id for state in content.state_rows],
+                session=session,
+            )
         return snapshot
 
     @begin_session
@@ -996,8 +1011,7 @@ class DBSnapshotsHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> None:
         """Record the snapshot the device holds in the channel, and the
-        channel's current as the one it knows: every way of holding a snapshot
-        shows the device the current."""
+        channel's current as the one it knows."""
         now = datetime.now(timezone.utc)
         channel = session.get(Channel, channel_id)
         current = channel.current_snapshot_id if channel is not None else None
@@ -1099,6 +1113,29 @@ class DBSnapshotsHandler(DBBaseHandler):
             Snapshot.kind.in_(_FREEZING_KINDS), Snapshot.save_id == save_id
         )
         return session.scalar(query.limit(1)) is not None
+
+    def is_asset_frozen(self, asset: Save | State) -> bool:
+        """`is_frozen` for a save or state row."""
+        if isinstance(asset, Save):
+            return self.is_frozen(save_id=asset.id)
+        return self.is_frozen(state_id=asset.id)
+
+    @begin_session
+    def get_frozen_save_ids(
+        self, save_ids: Collection[int], session: Session = INJECTED_SESSION
+    ) -> set[int]:
+        """Which of these saves a channel or branch snapshot holds."""
+        if not save_ids:
+            return set()
+        frozen = session.scalars(
+            select(Snapshot.save_id)
+            .where(
+                Snapshot.kind.in_(_FREEZING_KINDS),
+                Snapshot.save_id.in_(save_ids),
+            )
+            .distinct()
+        ).all()
+        return {save_id for save_id in frozen if save_id is not None}
 
     @begin_session
     def get_frozen_state_ids(

@@ -1,16 +1,20 @@
 import uuid
 from collections.abc import Collection, Sequence
-from typing import Any
+from typing import TYPE_CHECKING
 
 from pydantic import Field
 
-from models.assets import SaveFormat, SaveShape
+from models.assets import SaveFormat, SaveShape, Screenshot
 from models.channel import Channel
 from models.device import Device
+from models.device_channel_sync import DeviceChannelSync
 from models.snapshot import ConflictReason, Snapshot, SnapshotKind
 from models.user import User
 
 from .base import BaseModel, UTCDatetime
+
+if TYPE_CHECKING:
+    from handler.database.snapshots_handler import StoredContent
 
 DIGEST_PREFIX = "sha256:"
 # The bank slot whose screenshot stands in for a snapshot whose save has none.
@@ -175,7 +179,7 @@ def channel_refs(
     }
 
 
-def _shot(screenshot: Any) -> ScreenshotRefSchema | None:
+def _shot(screenshot: Screenshot | None) -> ScreenshotRefSchema | None:
     if screenshot is None:
         return None
     return ScreenshotRefSchema(id=screenshot.id, download_path=screenshot.download_path)
@@ -237,11 +241,11 @@ def build_snapshot_schemas(
 def _snapshot_schema(
     snapshot: Snapshot,
     channel: ChannelRefSchema | None,
-    content: Any,
-    save_shots: dict[int, Any],
-    state_shots: dict[int, Any],
+    content: "StoredContent",
+    save_shots: dict[int, Screenshot],
+    state_shots: dict[int, Screenshot],
     origin: Device | None,
-    holders: Sequence[tuple[Any, Device]],
+    holders: Sequence[tuple[DeviceChannelSync, Device]],
     pins: tuple[bool, int],
     viewer: User,
 ) -> SnapshotSchema:

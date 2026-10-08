@@ -406,7 +406,6 @@ async def prune_state_history(
     stale = states[limit:]
     for state in stale:
         screenshot = state.screenshot
-        db_snapshot_handler.release_backup(state_id=state.id)
         db_state_handler.delete_state(state.id)
         await _remove_pruned_file(f"{state.file_path}/{state.file_name}")
         try:

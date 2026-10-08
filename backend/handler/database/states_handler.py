@@ -165,6 +165,8 @@ class DBStatesHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
+        """Delete a state, releasing it from archival snapshots."""
+        _snapshots.release_backup(state_id=id, session=session)
         session.execute(
             delete(State)
             .where(State.id == id)

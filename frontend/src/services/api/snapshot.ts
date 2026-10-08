@@ -1,11 +1,10 @@
-import { default as Cookies } from "js-cookie";
 import type {
   ChannelSchema,
   SaveFormat,
   SaveShape,
   SnapshotSchema,
 } from "@/__generated__";
-import api from "@/services/api";
+import api, { keepaliveFormHeaders } from "@/services/api";
 import { UNLOAD_SAVE_MAX_BYTES } from "@/services/api/save";
 
 /** The backend's `CHANNEL_LABEL_MAX_LENGTH`, so the field stops at the limit. */
@@ -177,7 +176,6 @@ function sendSnapshotOnUnload({
     0,
   );
   if (size > UNLOAD_SAVE_MAX_BYTES) return false;
-  const csrfToken = Cookies.get("romm_csrftoken");
   void fetch(
     api.getUri({ url: "/snapshots", params: { device_id: deviceId } }),
     {
@@ -185,7 +183,7 @@ function sendSnapshotOnUnload({
       body: pushFormData(manifest, parts),
       keepalive: true,
       credentials: "same-origin",
-      ...(csrfToken ? { headers: { "x-csrftoken": csrfToken } } : {}),
+      headers: keepaliveFormHeaders(),
     },
   ).catch(() => undefined);
   return true;

@@ -4,15 +4,16 @@ the user, so both agree on how a version is hashed, named and deduplicated."""
 
 import hashlib
 import io
-import ntpath
-import re
 import zipfile
 from datetime import datetime, timezone
-from pathlib import PurePosixPath
 
 from handler.database import db_memory_card_handler
 from handler.filesystem import fs_asset_handler
-from handler.filesystem.assets_handler import hash_zip_contents, is_symlink_entry
+from handler.filesystem.assets_handler import (
+    hash_zip_contents,
+    is_symlink_entry,
+    leaves_save_folder,
+)
 from handler.scan_handler import scan_memory_card_version
 from logger.logger import log
 from models.assets import MemoryCard, MemoryCardVersion
@@ -85,16 +86,7 @@ def assert_card_archive_safe(content: bytes) -> None:
             budget = MEMORY_CARD_MAX_BYTES
             for entry in zf.infolist():
                 name = entry.filename
-                # Zip names are meant to be slash-separated, so a hand-written
-                # entry can hide `..\..\evil` in what PurePosixPath reads as one
-                # opaque part. Both separators are split before the parts are
-                # judged.
-                parts = re.split(r"[\\/]", name)
-                if (
-                    PurePosixPath(name).is_absolute()
-                    or ntpath.isabs(name)
-                    or ".." in parts
-                ):
+                if leaves_save_folder(name):
                     raise UnsafeCardArchive(f"unsafe path: {name}")
                 if is_symlink_entry(entry):
                     raise UnsafeCardArchive(f"symlink entry: {name}")

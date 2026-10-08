@@ -53,11 +53,9 @@ async def prune_branches() -> int:
     Returns:
         How many content rows went with them.
     """
-    released = db_snapshot_handler.prune_branches(
-        datetime.now(timezone.utc) - BRANCH_LIFETIME
+    return await _discard_counted(
+        db_snapshot_handler.prune_branches(datetime.now(timezone.utc) - BRANCH_LIFETIME)
     )
-    await discard_content(released)
-    return len(released.saves) + len(released.states)
 
 
 async def prune_unreachable() -> int:
@@ -66,6 +64,9 @@ async def prune_unreachable() -> int:
     Returns:
         How many content rows went with them.
     """
-    released = db_snapshot_handler.prune_unreachable_archival()
+    return await _discard_counted(db_snapshot_handler.prune_unreachable_archival())
+
+
+async def _discard_counted(released: ReleasedContent) -> int:
     await discard_content(released)
     return len(released.saves) + len(released.states)

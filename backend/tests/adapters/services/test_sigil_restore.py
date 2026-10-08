@@ -548,4 +548,4 @@ def test_a_zip_unit_skips_a_volume_over_the_card_cap(
     assert sigil_restore._unit_save_names(buffer.getvalue(), tmp_path) == [
         "FIRST_SAVE1"
     ]
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["volume-0"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["a.brm"]

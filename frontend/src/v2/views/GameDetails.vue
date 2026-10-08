@@ -41,7 +41,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { isRomVerified } from "@/v2/utils/romVerification";
 import { patchQuery } from "@/v2/utils/routeQuery";
-import { isBackup } from "@/v2/utils/snapshots";
+import { saveDataCounts } from "@/v2/utils/snapshots";
 
 const route = useRoute();
 const router = useRouter();
@@ -304,15 +304,14 @@ const expansions = computed<IGDBRelatedGame[]>(
 const dlcs = computed<IGDBRelatedGame[]>(() => igdb.value?.dlcs ?? []);
 const ports = computed<IGDBRelatedGame[]>(() => igdb.value?.ports ?? []);
 
-const savesCount = computed(
-  () =>
-    (currentRom.value?.user_saves ?? []).filter(isBackup).length +
-    (currentRom.value?.user_channels ?? []).filter((c) => c.is_own).length,
-);
-const statesCount = computed(
-  () => (currentRom.value?.user_states ?? []).filter(isBackup).length,
-);
-const saveDataCount = computed(() => savesCount.value + statesCount.value);
+const saveDataCount = computed(() => {
+  const { saves, states } = saveDataCounts({
+    saves: currentRom.value?.user_saves ?? [],
+    states: currentRom.value?.user_states ?? [],
+    channels: (currentRom.value?.user_channels ?? []).filter((c) => c.is_own),
+  });
+  return saves + states;
+});
 
 const filesCount = computed(() => currentRom.value?.files?.length ?? 0);
 

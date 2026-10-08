@@ -10,7 +10,7 @@ import type {
 import { formatRelativeDate } from "@/utils";
 import { useDeviceLabel } from "@/v2/composables/useDeviceLabel";
 import { emulatorKey } from "@/v2/utils/assets";
-import { AUTO_STATE_SLOT } from "@/v2/utils/snapshots";
+import { AUTO_STATE_SLOT, snapshotBadges } from "@/v2/utils/snapshots";
 
 /** What the drawer shows: a snapshot, or a save an older client filed without one. */
 export type ViewerTarget =
@@ -61,6 +61,11 @@ const isCurrent = computed(
     snapshot.value.id === channel.value?.current_snapshot_id,
 );
 const canWrite = computed(() => own.value || !!channel.value?.is_public);
+const badges = computed(() =>
+  snapshot.value && channel.value
+    ? snapshotBadges(snapshot.value, channel.value, t)
+    : [],
+);
 
 const title = computed(() => {
   if (snapshot.value) {
@@ -237,21 +242,14 @@ const overflow = computed(() => actions.value.slice(1));
       <RImg v-if="heroSrc" class="r-snapshot-viewer__hero" :src="heroSrc" />
 
       <div class="r-snapshot-viewer__badges">
-        <RChip v-if="isCurrent" size="small" color="primary">
-          {{ t("channels.current") }}
-        </RChip>
         <RChip
-          v-if="snapshot?.kind === 'branch'"
+          v-for="badge in badges"
+          :key="badge.label"
           size="small"
-          variant="outlined"
+          :color="badge.color"
+          :variant="badge.outlined ? 'outlined' : 'translucent'"
         >
-          {{ t("channels.branch") }}
-        </RChip>
-        <RChip v-if="snapshot?.pin_count" size="small" color="accent">
-          {{ t("channels.pinned") }}
-        </RChip>
-        <RChip v-if="snapshot?.is_hardcore" size="small" color="warning">
-          {{ t("channels.hardcore") }}
+          {{ badge.label }}
         </RChip>
         <RChip v-if="save" size="small" variant="outlined">
           {{ t("channels.legacy-save") }}

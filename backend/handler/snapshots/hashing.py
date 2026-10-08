@@ -14,8 +14,8 @@ from pathlib import Path
 from adapters.services.sigil import SigilService, SigilUnitMember
 from handler.filesystem.assets_handler import (
     UnsafeArchive,
-    check_zip,
     is_clock_member,
+    unpack_save_unit,
     zip_identity_hash,
 )
 from logger.logger import log
@@ -32,21 +32,13 @@ def _sigil_identity(content: bytes) -> str | None:
         return None
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
-        archived = zipfile.is_zipfile(io.BytesIO(content))
-        if archived:
-            with zipfile.ZipFile(io.BytesIO(content)) as zf:
-                names = check_zip(zf)
-                expanded = sum(zf.getinfo(name).file_size for name in names)
-                if expanded > SIGIL_UNPACK_MAX_BYTES:
-                    return None
-                for name in names:
-                    zf.extract(name, root)
-        else:
-            names = ["unit"]
-            (root / "unit").write_bytes(content)
-        members = [SigilUnitMember(name, is_clock_member(name)) for name in names]
-        hashed = _sigil.unit_hashes(root, members, archived)
-    return hashed[1] if hashed else None
+        unpacked = unpack_save_unit(
+            content, root, max_total_bytes=SIGIL_UNPACK_MAX_BYTES
+        )
+        members = [
+            SigilUnitMember(name, is_clock_member(name)) for name in unpacked.names
+        ]
+        return _sigil.unit_identity_hash(root, members, unpacked.archived)
 
 
 def _identity(content: bytes) -> str:

@@ -43,6 +43,7 @@ from sqlalchemy.orm import (
 from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
 
+from adapters.services.sigil import SIGIL_FILE_COLUMNS
 from config.config_manager import config_manager as cm
 from decorators.database import INJECTED_SESSION, begin_session
 from exceptions.database_exceptions import RomFileOwnerChangedError
@@ -341,16 +342,7 @@ ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
 ROM_FILTERS_CACHE_SCHEMA_VERSION = get_version().replace(".", "_")
 
 # What sigil reads off a file; a pass that didn't read it keeps the stored value.
-SIGIL_READ_COLUMNS: Final = frozenset(
-    {
-        "raw_serial",
-        "sigil_features",
-        "n64_header",
-        "n64_md5",
-        "n64_md5_n64",
-        "playlist_title_ids",
-    }
-)
+SIGIL_READ_COLUMNS: Final = frozenset(SIGIL_FILE_COLUMNS)
 
 # Columns copied from a scanned (transient) RomFile onto its database row.
 ROM_FILE_SCANNED_COLUMNS = (
@@ -366,12 +358,7 @@ ROM_FILE_SCANNED_COLUMNS = (
     "title_id",
     "title_version",
     "converto_read_at",
-    "raw_serial",
-    "sigil_features",
-    "n64_header",
-    "n64_md5",
-    "n64_md5_n64",
-    "playlist_title_ids",
+    *SIGIL_FILE_COLUMNS,
     "archive_members",
     "category",
 )

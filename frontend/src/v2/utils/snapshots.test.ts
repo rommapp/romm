@@ -3,11 +3,12 @@ import type { ChannelSchema } from "@/__generated__";
 import {
   bankOf,
   channelLabelForSlot,
-  saveOverManifest,
   copySaveManifest,
   saveOverTargets,
   forkManifest,
   restoreManifest,
+  saveDataCounts,
+  snapshotBadges,
   withoutStateManifest,
 } from "@/v2/utils/snapshots";
 import {
@@ -69,7 +70,7 @@ describe("snapshot manifests", () => {
   it("saves over a channel expecting that channel's current", () => {
     const target = channel({ id: "ch-2", current_snapshot_id: 9 });
 
-    expect(saveOverManifest(snapshot, target)).toMatchObject({
+    expect(restoreManifest(snapshot, target)).toMatchObject({
       channel_id: "ch-2",
       expected_current_id: 9,
       parent_snapshot_id: 40,
@@ -89,7 +90,6 @@ describe("snapshot manifests", () => {
     const hardcore = snapshotFixture({ id: 40, is_hardcore: true });
 
     expect(restoreManifest(hardcore, channel())?.is_hardcore).toBe(true);
-    expect(saveOverManifest(hardcore, channel())?.is_hardcore).toBe(true);
     expect(forkManifest(hardcore, 7, "Speedrun").is_hardcore).toBe(true);
     expect(restoreManifest(snapshot, channel())?.is_hardcore).toBeUndefined();
   });
@@ -117,6 +117,42 @@ describe("snapshot manifests", () => {
     ];
 
     expect(saveOverTargets(all, from).map((c) => c.id)).toEqual(["same-file"]);
+  });
+});
+
+describe("snapshotBadges", () => {
+  const t = (key: string) => key;
+
+  it("marks the current, a branch, a pin and hardcore in that order", () => {
+    const marked = snapshotFixture({
+      id: 42,
+      kind: "branch",
+      pin_count: 1,
+      is_hardcore: true,
+    });
+
+    expect(snapshotBadges(marked, channel(), t)).toEqual([
+      { label: "channels.current", color: "primary" },
+      { label: "channels.branch", outlined: true },
+      { label: "channels.pinned", color: "accent" },
+      { label: "channels.hardcore", color: "warning" },
+    ]);
+  });
+
+  it("gives a plain past snapshot no badge", () => {
+    expect(snapshotBadges(snapshot, channel(), t)).toEqual([]);
+  });
+});
+
+describe("saveDataCounts", () => {
+  it("counts backups and channels, not the rows channels hold", () => {
+    expect(
+      saveDataCounts({
+        saves: [{ channel_id: null }, { channel_id: "ch-1" }],
+        states: [{ channel_id: null }, { channel_id: "ch-1" }],
+        channels: [channel()],
+      }),
+    ).toEqual({ saves: 2, states: 1 });
   });
 });
 

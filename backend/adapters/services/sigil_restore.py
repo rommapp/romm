@@ -1,10 +1,8 @@
 """Restore a stored save unit as the files an emulator reads, through sigil."""
 
 import asyncio
-import io
 import os
 import tempfile
-import zipfile
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -12,6 +10,7 @@ from pathlib import Path
 from typing import Any, Final, Literal
 
 from adapters.services.sigil import SigilGame, sigil_binding
+from handler.filesystem.assets_handler import UnsafeArchive, unpack_save_unit
 from utils.memory_cards import MEMORY_CARD_MAX_BYTES
 
 # Saves on these carry no game id, so a merge claims the unit's save names.
@@ -245,23 +244,16 @@ def _restore_per_game(
 def _unit_save_names(unit: bytes, scratch: Path) -> list[str]:
     """The save names on each volume a unit holds, which a merge claims for its game."""
     binding = _binding()
-    paths: list[Path] = []
-    if zipfile.is_zipfile(io.BytesIO(unit)):
-        with zipfile.ZipFile(io.BytesIO(unit)) as zf:
-            for index, info in enumerate(zf.infolist()):
-                if info.is_dir() or info.file_size > MEMORY_CARD_MAX_BYTES:
-                    continue
-                path = scratch / f"volume-{index}"
-                path.write_bytes(zf.read(info))
-                paths.append(path)
-    else:
-        path = scratch / "volume-0"
-        path.write_bytes(unit)
-        paths.append(path)
+    try:
+        unpacked = unpack_save_unit(
+            unit, scratch, max_entry_bytes=MEMORY_CARD_MAX_BYTES
+        )
+    except UnsafeArchive as exc:
+        raise SaveRestoreError(f"The save can't be unpacked: {exc}") from exc
     names: list[str] = []
-    for path in paths:
+    for volume in unpacked.names:
         try:
-            listing = binding.list_card(path)
+            listing = binding.list_card(scratch / volume)
         except binding.SigilError:
             continue
         names.extend(entry.name for entry in listing.entries)

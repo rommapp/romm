@@ -157,6 +157,7 @@ function saveFileOf(bytes: ArrayBuffer, screenshot?: ArrayBuffer): SessionFile {
 }
 let refreshingAssets: Promise<void> | null = null;
 let refreshAgain = false;
+let romAssetsStale = false;
 /** Re-reads the rom's saves and states for the picker, once more for writes that land mid-read. */
 function refreshRomAssets(): Promise<void> {
   if (refreshingAssets) {
@@ -166,6 +167,7 @@ function refreshRomAssets(): Promise<void> {
   refreshingAssets = (async () => {
     do {
       refreshAgain = false;
+      romAssetsStale = false;
       try {
         const { data } = await romApi.getRom({ romId: romRef.value.id });
         romRef.value.user_saves = data.user_saves;
@@ -173,6 +175,7 @@ function refreshRomAssets(): Promise<void> {
         romRef.value.user_channels = data.user_channels;
         romsStore.update(romRef.value);
       } catch (error) {
+        romAssetsStale = true;
         console.error("Re-reading the rom's saves failed", error);
       }
     } while (refreshAgain && !disposed);
@@ -180,6 +183,10 @@ function refreshRomAssets(): Promise<void> {
     refreshingAssets = null;
   });
   return refreshingAssets;
+}
+/** Pushes only mark the assets stale, so the SRAM poll does not refetch the rom on every write. */
+function refreshStaleRomAssets() {
+  if (romAssetsStale) void refreshRomAssets();
 }
 function announceBranch(outcome: PushOutcome) {
   if (outcome.kind !== "branched" || announcedBranch) return;
@@ -206,7 +213,7 @@ async function sendContent(content: SnapshotContent): Promise<boolean> {
   try {
     const outcome = await writer.push(content);
     announceBranch(outcome);
-    void refreshRomAssets();
+    romAssetsStale = true;
     return true;
   } catch (error) {
     console.error("Snapshot push failed", error);
@@ -625,6 +632,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("beforeunload", onBeforeUnload);
   window.removeEventListener("pagehide", onPageHide);
   uninstallAutoSaveSync();
+  refreshStaleRomAssets();
   exitEmulatorOnce();
   fullScreen.value = false;
   playing.value = false;
@@ -647,10 +655,7 @@ function displayMessage(
   snackbar.show(tone, message, { icon, timeout: duration });
 }
 
-// Poll until EmulatorJS' gameManager is ready to accept save/state
-// injection. A fixed delay is unreliable: heavier/threaded cores (SNES with
-// enhancement chips, N64, DS) need longer than a few ms to boot, and applying
-// a state before the core is ready leaves it broken (black screen).
+/** Polls rather than waits a fixed delay: heavy cores boot slowly, and a state applied too early leaves a black screen. */
 async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -665,9 +670,7 @@ async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
 // before loadState takes cleanly, and RetroArch applies it off its task queue.
 const STATE_APPLY_SETTLE_MS = 500;
 
-// Periodic save upload on the "saveSaveFiles" tick that pollSaveFiles fires
-// (see createSaveSyncTracker). EmulatorJS has no `off`: the handler stays
-// subscribed and this slot is what tells it the component still owns it.
+/** EmulatorJS has no `off`, so this tells the still-subscribed tick handler the component owns it. */
 let autoSaveSyncEmulator: object | null = null;
 let stopSavePolling: (() => void) | null = null;
 // The boot path awaits before installing, so it may land after unmount.
@@ -742,23 +745,38 @@ function uninstallAutoSaveSync() {
 }
 // A save written right before Quit or a back navigation has not had its two
 // ticks yet, so leaving the player uploads whatever the server lacks.
-async function flushPendingSave() {
+/** The emulator auto-sync watches, when it is still the running one. */
+function autoSyncedEmulator() {
   const emulator = window.EJS_emulator;
-  if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
+  return autoSaveSyncEmulator && autoSaveSyncEmulator === emulator
+    ? emulator
+    : null;
+}
+/** The core's SRAM when it holds bytes the server lacks. */
+function unsyncedSave(
+  emulator: typeof window.EJS_emulator,
+  flush?: boolean,
+): Uint8Array | null {
+  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile(flush);
+  return saveFile?.byteLength && saveTracker.hasChanges(saveFile)
+    ? saveFile
+    : null;
+}
+async function flushPendingSave() {
+  const emulator = autoSyncedEmulator();
+  if (!emulator) return;
   uninstallAutoSaveSync();
   // A save the tick has not held yet takes its frame now, while the game still
   // runs; bytes the tick already held keep the one taken when it wrote them.
-  const unsynced: Uint8Array | null = emulator.gameManager.getSaveFile(false);
+  const unsynced = unsyncedSave(emulator, false);
   const screenshotFile =
-    unsynced?.byteLength &&
-    saveTracker.hasChanges(unsynced) &&
-    !heldFor(pendingSave, unsynced)
+    unsynced && !heldFor(pendingSave, unsynced)
       ? await captureScreenshot()
       : undefined;
   emulator.pause();
   await new Promise((resolve) => setTimeout(resolve, 50));
-  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
-  if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
+  const saveFile = unsyncedSave(emulator);
+  if (!saveFile) return;
   try {
     await writeSave({ saveFile: toArrayBuffer(saveFile), screenshotFile });
   } catch (error) {
@@ -773,19 +791,15 @@ onBeforeRouteLeave(async () => {
 // A v2 shell that leaves by replacing the document aborts the navigation, so
 // the guard above never runs and the flush has to be asked for. Idempotent.
 defineExpose({ flushPendingSave });
-// Closing the tab cancels requests in flight, so a save the tick has not
-// uploaded goes out on `pagehide` with fetch keepalive, which the browser caps
-// at 64 KB. `beforeunload` asks first while one is pending: for a bigger save
-// that prompt is the only way to keep it.
+/** An unsynced save goes out on `pagehide` via keepalive (64 KB cap); `beforeunload` prompts first, the only way to keep a bigger one. */
 let unloadSave: Uint8Array | null = null;
 function onBeforeUnload(event: BeforeUnloadEvent) {
   // A close cancelled earlier leaves the bytes it captured behind.
   unloadSave = null;
-  const emulator = window.EJS_emulator;
-  if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
-  if (saveLoading) return;
-  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
-  if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
+  const emulator = autoSyncedEmulator();
+  if (!emulator || saveLoading) return;
+  const saveFile = unsyncedSave(emulator);
+  if (!saveFile) return;
   unloadSave = saveFile;
   // EmulatorJS tears the core down on this event, and a cancelled close has
   // to keep the game running.
@@ -853,10 +867,9 @@ async function loadSave(
 // Progress the tick has not taken yet belongs to the save being left, so it
 // goes out (or is held) before a switch replaces the SRAM.
 async function uploadUnsyncedSave() {
-  const emulator = window.EJS_emulator;
-  if (!autoSaveSyncEmulator || autoSaveSyncEmulator !== emulator) return;
-  const saveFile: Uint8Array | null = emulator.gameManager.getSaveFile();
-  if (!saveFile?.byteLength || !saveTracker.hasChanges(saveFile)) return;
+  const emulator = autoSyncedEmulator();
+  const saveFile = emulator ? unsyncedSave(emulator) : null;
+  if (!saveFile) return;
   const screenshotFile = heldFor(pendingSave, saveFile)
     ? undefined
     : await captureScreenshot();
@@ -945,6 +958,7 @@ async function loadState(state: StateSchema) {
 window.EJS_onLoadState = function () {
   window.EJS_emulator.pause();
   window.EJS_emulator.toggleFullscreen(false);
+  refreshStaleRomAssets();
   emitter?.emit("selectStateDialog", romRef.value);
 };
 
@@ -989,10 +1003,7 @@ window.EJS_onGameStart = () => {
   }
 
   if (props.state) holdBackUntilStateApplied();
-  // The emulator now owns the keyboard: every key, "/" included, belongs to
-  // the game (a DOS prompt typing "mount A / -t floppy" must not reach the
-  // global hotkeys). Callers flag this at launch too, but taking it from the
-  // emulator's own start hook keeps the flag true for any entry point.
+  /** Every key belongs to the game now, "/" included; set here so any entry point keeps global hotkeys off. */
   playing.value = true;
 
   // Install netplay overrides synchronously, before any await below, so they

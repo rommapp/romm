@@ -28,7 +28,6 @@ export interface SnapshotTarget {
   bank: Bank;
   /** The hash of the parent's save, so an unchanged SRAM is not sent again. */
   saveHash: string | null;
-  emulator: string;
   core: string;
   emulatorVersion: string | null;
 }
@@ -70,7 +69,7 @@ export function sessionTarget({
   save,
   slot,
 }: SessionTargetInput): SnapshotTarget | null {
-  const ran = { emulator: core, core, emulatorVersion };
+  const ran = { core, emulatorVersion };
   const booted = snapshot?.channel
     ? ownChannel(rom.user_channels, (c) => c.id === snapshot.channel?.id)
     : undefined;
@@ -166,8 +165,16 @@ function partsOf(files: readonly PushFile[]): SnapshotPart[] {
   }));
 }
 
+/** Hashes by buffer, since holding a push and then sending it builds it twice. */
+const hashes = new WeakMap<ArrayBuffer, string>();
+
 function hashOf(file: SessionFile): string {
-  return saveContentHash(new Uint8Array(file.bytes));
+  let hash = hashes.get(file.bytes);
+  if (hash === undefined) {
+    hash = saveContentHash(new Uint8Array(file.bytes));
+    hashes.set(file.bytes, hash);
+  }
+  return hash;
 }
 
 /** The push `content` makes on top of `target`. */
@@ -184,7 +191,7 @@ export function buildPush(
     ...(target.parentSnapshotId != null
       ? { parent_snapshot_id: target.parentSnapshotId }
       : {}),
-    emulator: target.emulator,
+    emulator: target.core,
     core: target.core,
     ...(target.emulatorVersion
       ? { emulator_version: target.emulatorVersion }
@@ -289,9 +296,8 @@ export function fallbackPush(
 const MAX_FALLBACKS = 3;
 
 /**
- * Sends a push. A channel another device moved on keeps it as a branch, and
- * a push whose parent or carried content retention removed is sent again
- * without it rather than lost.
+ * Sends a push, kept as a branch when another device moved the channel on and
+ * resent without whatever retention removed from under it.
  *
  * Raises:
  *   The request's error for any other refusal or failure.
@@ -338,16 +344,10 @@ export class SnapshotSession {
   private target: SnapshotTarget;
   private readonly deviceId: string | undefined;
   private queue: Promise<unknown> = Promise.resolve();
-  private branched = false;
 
   constructor(target: SnapshotTarget, deviceId?: string) {
     this.target = target;
     this.deviceId = deviceId;
-  }
-
-  /** Whether the session's pushes now land on a branch. */
-  get isBranched(): boolean {
-    return this.branched;
   }
 
   /** The push `content` would make now, to hold before it is sent. */
@@ -374,7 +374,6 @@ export class SnapshotSession {
       saveHash: snapshot.save?.content_hash ?? null,
     };
     if (kind === "branched") {
-      this.branched = true;
       next.parentSnapshotId = snapshot.id;
     } else {
       next.expectedCurrentId = snapshot.id;

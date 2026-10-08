@@ -2,7 +2,7 @@ import asyncio
 import io
 import os
 import zipfile
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Final
@@ -54,6 +54,7 @@ from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
     assert_backup,
+    frozen_conflict,
     prune_save_slot,
     remove_save,
     rename_asset,
@@ -800,6 +801,47 @@ def _restore_error(exc: SaveRestoreError) -> HTTPException:
     )
 
 
+def _convertible_rom(save: Save) -> Rom | None:
+    """The save's ROM when a core needs it converted; None when it serves as stored."""
+    rom = save.rom
+    if rom is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Save {save.id} has no ROM to convert it for",
+        )
+    return None if rom.platform_slug in NATIVE_SAVE_PLATFORM_SLUGS else rom
+
+
+async def _converted(
+    request: Request,
+    save: Save,
+    rom: Rom,
+    file_path: Path,
+    core: str,
+    options: Mapping[str, str],
+    profile: str | None,
+    companion_ids: Sequence[int],
+    restore: Callable[
+        [bytes, SigilGame, RestoreTarget, list[RestoreCompanion]],
+        Awaitable[RestoredSave],
+    ],
+) -> RestoredSave:
+    """The save restored for `core` by `restore`, sigil's refusals as HTTP errors."""
+    game, rom_files = _stored_game_or_error(rom)
+    companions = await _companions(request, companion_ids)
+    target = RestoreTarget(
+        core=core,
+        options=options,
+        profile=profile,
+        content_path=_content_path(save, rom, rom_files),
+    )
+    unit = await asyncio.to_thread(file_path.read_bytes)
+    try:
+        return await restore(unit, game, target, companions)
+    except SaveRestoreError as exc:
+        raise _restore_error(exc) from exc
+
+
 def _restored_response(restored: RestoredSave, save: Save) -> Response:
     """One file raw, named by `X-Save-Path`; several as a zip of save-root paths."""
     if len(restored.files) == 1:
@@ -888,30 +930,23 @@ async def download_save(
     save = _readable_save_or_404(request, id)
     file_path = _stored_save_path(save)
 
+    rom = _convertible_rom(save) if core is not None else None
     response: Response
-    rom = save.rom
-    if core is None or (rom and rom.platform_slug in NATIVE_SAVE_PLATFORM_SLUGS):
+    if core is None or rom is None:
         response = FileResponse(path=str(file_path), filename=save.file_name)
     else:
-        if rom is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Save {id} has no ROM to convert it for",
-            )
         options = _parse_options(option or [])
-        game, rom_files = _stored_game_or_error(rom)
-        companions = await _companions(request, companion or [])
-        target = RestoreTarget(
-            core=core,
-            options=options,
-            profile=profile,
-            content_path=_content_path(save, rom, rom_files),
+        restored = await _converted(
+            request,
+            save,
+            rom,
+            file_path,
+            core,
+            options,
+            profile,
+            companion or [],
+            restore_per_game,
         )
-        unit = await asyncio.to_thread(file_path.read_bytes)
-        try:
-            restored = await restore_per_game(unit, game, target, companions)
-        except SaveRestoreError as exc:
-            raise _restore_error(exc) from exc
         response = _restored_response(restored, save)
 
     _record_download(request, save, device, session_id, optimistic)
@@ -989,30 +1024,32 @@ async def merge_save_into_container(
     )
     save = _readable_save_or_404(request, id)
     file_path = _stored_save_path(save)
-    rom = save.rom
+    rom = _convertible_rom(save)
     if rom is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Save {id} has no ROM to convert it for",
-        )
-    if rom.platform_slug in NATIVE_SAVE_PLATFORM_SLUGS:
         _record_download(request, save, device, session_id, optimistic)
         return FileResponse(path=str(file_path), filename=save.file_name)
-    game, rom_files = _stored_game_or_error(rom)
-    companions = await _companions(request, conversion.companions)
-    target = RestoreTarget(
-        core=conversion.core,
-        options=conversion.options,
-        profile=conversion.profile,
-        content_path=_content_path(save, rom, rom_files),
-    )
-    unit = await asyncio.to_thread(file_path.read_bytes)
-    try:
-        restored = await merge_into_container(
+
+    async def merge(
+        unit: bytes,
+        game: SigilGame,
+        target: RestoreTarget,
+        companions: list[RestoreCompanion],
+    ) -> RestoredSave:
+        return await merge_into_container(
             unit, game, target, container_path, content, companions
         )
-    except SaveRestoreError as exc:
-        raise _restore_error(exc) from exc
+
+    restored = await _converted(
+        request,
+        save,
+        rom,
+        file_path,
+        conversion.core,
+        conversion.options,
+        conversion.profile,
+        conversion.companions,
+        merge,
+    )
 
     _record_download(request, save, device, session_id, optimistic)
     return _restored_response(restored, save)
@@ -1252,6 +1289,7 @@ async def delete_saves(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     affected_rom_ids: set[int] = set()
+    frozen = db_snapshot_handler.get_frozen_save_ids(saves)
 
     for save_id in saves:
         save = db_save_handler.get_save(user_id=request.user.id, id=save_id)
@@ -1259,7 +1297,8 @@ async def delete_saves(
             error = f"Save with ID {save_id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-        assert_backup(save)
+        if save.id in frozen:
+            raise frozen_conflict(save)
 
         affected_rom_ids.add(save.attached_rom_id)
         log.info(

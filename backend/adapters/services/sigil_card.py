@@ -2,16 +2,19 @@
 
 import asyncio
 import enum
-import io
 import os
 import tempfile
-import zipfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, Literal
 
 from adapters.services.sigil import SigilGame, sigil_binding
+from handler.filesystem.assets_handler import (
+    RAW_UNIT_NAME,
+    UnsafeArchive,
+    unpack_save_unit,
+)
 
 
 @dataclass(frozen=True)
@@ -69,13 +72,16 @@ def splits_cards(sigil_platform: str | None) -> bool:
 
 
 def _saves_in_unit(binding: Any, unit: bytes, scratch: Path) -> int:
-    if zipfile.is_zipfile(io.BytesIO(unit)):
-        with zipfile.ZipFile(io.BytesIO(unit)) as zf:
-            return sum(1 for info in zf.infolist() if not info.is_dir())
-    path = scratch / "unit"
-    path.write_bytes(unit)
+    root = scratch / "unit"
+    root.mkdir()
     try:
-        return len(binding.list_card(path).entries)
+        unpacked = unpack_save_unit(unit, root)
+    except UnsafeArchive as exc:
+        raise CardSplitError(f"sigil collected an unsafe unit: {exc}") from exc
+    if unpacked.archived:
+        return len(unpacked.names)
+    try:
+        return len(binding.list_card(root / RAW_UNIT_NAME).entries)
     except binding.SigilUnsupportedFormatError:
         # A lone GameCube save file, which isn't a card.
         return 1

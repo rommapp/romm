@@ -539,7 +539,6 @@ async def delete_psp_file(
             await _rewrite_bundle(bundle, entries)
             return
 
-        db_snapshot_handler.release_backup(save_id=bundle.id)
         db_save_handler.delete_save(bundle.id)
         with suppress(FileNotFoundError):
             await fs_asset_handler.remove_file(file_path=bundle.full_path)

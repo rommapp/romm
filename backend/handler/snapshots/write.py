@@ -41,9 +41,9 @@ from models.rom import Rom, RomFile
 from models.snapshot import ConflictReason, Snapshot, SnapshotKind, SnapshotState
 from models.user import User
 from utils.uploads import (
-    DATETIME_TAG_PATTERN,
     apply_datetime_tag,
     sanitize_asset_filename,
+    strip_datetime_tag,
 )
 
 SAVE_PART = "save"
@@ -175,6 +175,11 @@ class _Plan:
     # Set when someone other than the owner pushes into the owner's shared
     # channel: content by hash comes only from rows that channel already holds.
     lookup_channel: uuid.UUID | None = None
+    # Bank hashes to store, each with the part key it is stored under.
+    uploaded_states: dict[str, str] = field(default_factory=dict)
+    copied_states: dict[str, str] = field(default_factory=dict)
+    # The sent save part's identity hash, once `_clock_only` has computed it.
+    sent_save_identity: str | None = None
     written_paths: list[str] = field(default_factory=list)
     # Screenshots for rows already stored, kept even when the push changes nothing.
     shot_paths: list[str] = field(default_factory=list)
@@ -205,21 +210,20 @@ def _content(write: SnapshotWrite, key: str) -> AssetContent | None:
     return part.content if part else None
 
 
-async def _clock_only(
-    write: SnapshotWrite, current: Snapshot, resolved: Resolved
-) -> bool:
+async def _clock_only(write: SnapshotWrite, plan: _Plan, current: Snapshot) -> bool:
     """Whether the push differs from `current` only in its save's clock."""
     sent = _content(write, SAVE_PART)
-    if resolved.save is None or sent is None:
+    if plan.resolved.save is None or sent is None:
         return False
     held = db_snapshot_handler.get_stored_content(current)
     if (
         held.save is None
         or not held.save.identity_hash
-        or held.resolved().bank != resolved.bank
+        or held.resolved().bank != plan.resolved.bank
     ):
         return False
-    return await identity_hash(part_bytes(sent)) == held.save.identity_hash
+    plan.sent_save_identity = await identity_hash(part_bytes(sent))
+    return plan.sent_save_identity == held.save.identity_hash
 
 
 def _expected_and_parent(
@@ -328,8 +332,7 @@ async def _plan(write: SnapshotWrite, match_current: bool = True) -> _Plan:
         match_current
         and current is not None
         and (
-            current.digest == resolved.digest
-            or await _clock_only(write, current, resolved)
+            current.digest == resolved.digest or await _clock_only(write, plan, current)
         )
     ):
         plan.same_as = current.id
@@ -376,14 +379,19 @@ async def _plan(write: SnapshotWrite, match_current: bool = True) -> _Plan:
         and _content(write, SAVE_PART) is None
     ):
         missing.append(SAVE_PART)
-    uploaded = set(_state_parts(write, resolved))
+    uploaded = _state_parts(write, resolved)
+    plan.uploaded_states = {
+        state_hash: key
+        for state_hash, key in uploaded.items()
+        if state_hash not in plan.states
+    }
     for core, bank_slots in resolved.bank.items():
         for slot, state_hash in bank_slots.items():
-            if (
-                state_hash not in plan.states
-                and state_hash not in plan.copy_states
-                and state_hash not in uploaded
-            ):
+            if state_hash in plan.states or state_hash in uploaded:
+                continue
+            if state_hash in plan.copy_states:
+                plan.copied_states.setdefault(state_hash, state_part(core, slot))
+            else:
                 missing.append(state_part(core, slot))
     if missing:
         raise ContentMissing(missing)
@@ -401,14 +409,6 @@ def _state_parts(write: SnapshotWrite, resolved: Resolved) -> dict[str, str]:
     return found
 
 
-def _untagged(file_name: str) -> str:
-    """The name a file carried before the server tagged it with its upload time."""
-    stem, dot, extension = file_name.rpartition(".")
-    if not dot:
-        return DATETIME_TAG_PATTERN.sub("", file_name)
-    return f"{DATETIME_TAG_PATTERN.sub('', stem)}.{extension}"
-
-
 async def copied_part(row: Save | State) -> UploadPart:
     """A part holding a copy of a stored row's bytes and screenshot, so the copy
     becomes a row of its own."""
@@ -424,7 +424,7 @@ async def copied_part(row: Save | State) -> UploadPart:
             shot_name = screenshot.file_name
     return UploadPart(
         content=content,
-        file_name=_untagged(row.file_name),
+        file_name=strip_datetime_tag(row.file_name),
         screenshot=shot_bytes,
         screenshot_name=shot_name,
     )
@@ -447,6 +447,7 @@ async def _store_part(
     part: UploadPart | None = None,
 ) -> _StoredFile:
     """Store the bytes for `key`: the push's own part, or `part` when given."""
+    sent = part is None
     part = part or write.parts[key]
     assert part.content is not None, "only parts that carry bytes are stored"
     is_save = key == SAVE_PART
@@ -490,8 +491,10 @@ async def _store_part(
         assert entry is not None
         row = Save(
             **common,
-            identity_hash=await identity_hash_of_file(
-                fs_asset_handler.validate_path(path)
+            identity_hash=(
+                plan.sent_save_identity
+                if sent and plan.sent_save_identity
+                else await identity_hash_of_file(fs_asset_handler.validate_path(path))
             ),
             shape=entry.shape,
             format=entry.format,
@@ -633,30 +636,11 @@ async def _store_parts(write: SnapshotWrite, plan: _Plan) -> list[_StoredFile]:
         stored.append(
             await _store_part(write, plan, SAVE_PART, resolved.save.hash, copy)
         )
-    uploaded = _state_parts(write, resolved)
-    for state_hash, key in uploaded.items():
-        if state_hash not in plan.states:
-            stored.append(await _store_part(write, plan, key, state_hash))
-    copied: set[str] = set()
-    for core, slots in resolved.bank.items():
-        for slot, state_hash in slots.items():
-            if (
-                state_hash in plan.states
-                or state_hash in uploaded
-                or state_hash in copied
-            ):
-                continue
-            source_state = plan.copy_states[state_hash]
-            stored.append(
-                await _store_part(
-                    write,
-                    plan,
-                    state_part(core, slot),
-                    state_hash,
-                    await copied_part(source_state),
-                )
-            )
-            copied.add(state_hash)
+    for state_hash, key in plan.uploaded_states.items():
+        stored.append(await _store_part(write, plan, key, state_hash))
+    for state_hash, key in plan.copied_states.items():
+        copy = await copied_part(plan.copy_states[state_hash])
+        stored.append(await _store_part(write, plan, key, state_hash, copy))
     return stored
 
 

@@ -485,7 +485,8 @@ class DBSavesHandler(DBBaseHandler):
         content_hash: str | None = None,
         session: Session = INJECTED_SESSION,
     ) -> None:
-        """Delete a save, recording the version its slot loses.
+        """Delete a save, releasing it from archival snapshots and recording the
+        version its slot loses.
 
         Args:
             content_hash: What the version held, for a row that never hashed it.
@@ -493,6 +494,7 @@ class DBSavesHandler(DBBaseHandler):
         current = self._lock_for_removal(id, session)
         if current:
             _record_loss(current, session, content_hash)
+        _snapshots.release_backup(save_id=id, session=session)
         session.execute(
             delete(Save)
             .where(Save.id == id)

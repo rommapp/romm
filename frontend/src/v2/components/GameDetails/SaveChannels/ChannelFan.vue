@@ -8,10 +8,9 @@ import type {
   SnapshotSchema,
 } from "@/__generated__";
 import { formatRelativeDate } from "@/utils";
-import SnapshotCard, {
-  type CardBadge,
-} from "@/v2/components/GameDetails/SaveChannels/SnapshotCard.vue";
+import SnapshotCard from "@/v2/components/GameDetails/SaveChannels/SnapshotCard.vue";
 import { useDeviceLabel } from "@/v2/composables/useDeviceLabel";
+import { snapshotBadges } from "@/v2/utils/snapshots";
 
 defineOptions({ inheritAttrs: false });
 
@@ -42,23 +41,6 @@ const deviceLabel = useDeviceLabel();
 
 const spread = ref(false);
 onMounted(() => requestAnimationFrame(() => (spread.value = true)));
-
-function badgesFor(snapshot: SnapshotSchema): CardBadge[] {
-  const badges: CardBadge[] = [];
-  if (snapshot.id === props.channel.current_snapshot_id) {
-    badges.push({ label: t("channels.current"), color: "primary" });
-  }
-  if (snapshot.kind === "branch") {
-    badges.push({ label: t("channels.branch"), outlined: true });
-  }
-  if (snapshot.pin_count > 0) {
-    badges.push({ label: t("channels.pinned"), color: "accent" });
-  }
-  if (snapshot.is_hardcore) {
-    badges.push({ label: t("channels.hardcore"), color: "warning" });
-  }
-  return badges;
-}
 
 const cardCount = computed(
   () => (props.history?.length ?? 0) + props.legacySaves.length,
@@ -144,7 +126,7 @@ const cardCount = computed(
         :subtitle="deviceLabel(snapshot.device)"
         :caption="`#${snapshot.id}`"
         :thumbnail="snapshot.thumbnail?.download_path"
-        :badges="badgesFor(snapshot)"
+        :badges="snapshotBadges(snapshot, channel, t)"
         :current="snapshot.id === channel.current_snapshot_id"
         :muted="snapshot.kind === 'branch'"
         @open="emit('openSnapshot', snapshot)"

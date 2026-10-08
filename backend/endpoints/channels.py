@@ -59,11 +59,6 @@ def _owned_or_404(id: uuid.UUID, user: User) -> Channel:
     return channel
 
 
-def _sync_visibility(channel_id: uuid.UUID) -> None:
-    save_ids, state_ids = db_snapshot_handler.get_content_ids(channel_id)
-    db_snapshot_handler.sync_content_visibility(save_ids, state_ids)
-
-
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_channels(
     request: Request,
@@ -136,12 +131,6 @@ def update_channel(
     changes = payload.model_dump(exclude_none=True)
     if changes:
         channel = db_snapshot_handler.update_channel(channel.id, changes)
-    if "is_public" in changes:
-        _sync_visibility(channel.id)
-        if not channel.is_public:
-            db_snapshot_handler.drop_foreign_pins(
-                channel.user_id, channel_id=channel.id
-            )
     return build_channel_schema(channel, request.user)
 
 

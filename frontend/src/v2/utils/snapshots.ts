@@ -3,13 +3,15 @@ import type {
   SaveSchema,
   SnapshotSchema,
 } from "@/__generated__";
+import { AUTOSAVE_SLOT } from "@/services/api/save";
 import type { Bank, SnapshotManifest } from "@/services/api/snapshot";
+import type { CardBadge } from "@/v2/components/GameDetails/SaveChannels/SnapshotCard.vue";
 
 /** The backend's `DEFAULT_CHANNEL_LABEL`. */
 export const DEFAULT_CHANNEL_LABEL = "default";
 
 /** The backend's `legacy.DEFAULT_SLOTS`. */
-const DEFAULT_SLOTS = new Set(["autosave", "default"]);
+const DEFAULT_SLOTS = new Set([AUTOSAVE_SLOT, "default"]);
 
 /** The backend's `utils.uploads.DATETIME_TAG_PATTERN`. */
 const DATETIME_TAG_PATTERN =
@@ -83,8 +85,8 @@ function intoChannel(
 }
 
 /**
- * Makes `snapshot` the channel's current again as a new snapshot on top, so
- * history is never rewritten. It names only held hashes, so no file travels.
+ * Makes `snapshot` the current of `channel` (its own or another on the same
+ * file) as a new snapshot on top. It names only held hashes, so no file travels.
  */
 export function restoreManifest(
   snapshot: SnapshotSchema,
@@ -112,17 +114,6 @@ export function withoutStateManifest(
   });
 }
 
-/** `snapshot` saved over another channel on the same file, as its new current. */
-export function saveOverManifest(
-  snapshot: SnapshotSchema,
-  target: ChannelTarget,
-): SnapshotManifest | null {
-  return intoChannel(target, {
-    parent_snapshot_id: snapshot.id,
-    ...hardcoreOf(snapshot),
-  });
-}
-
 /** A new channel that starts from `snapshot`. */
 export function forkManifest(
   snapshot: SnapshotSchema,
@@ -138,14 +129,50 @@ export function forkManifest(
   };
 }
 
-/** A save outside any snapshot (a backup or an older client's), copied in as
- *  the channel's new current. The server copies the file, so the original
- *  stays as it is. */
+/** A save outside any snapshot, copied in as the channel's new current; the original stays as it is. */
 export function copySaveManifest(
   save: Pick<SaveSchema, "id">,
   channel: ChannelTarget,
 ): SnapshotManifest | null {
   return intoChannel(channel, { save: { copy_of: save.id } });
+}
+
+/** The badges a snapshot carries wherever it is listed or opened. */
+export function snapshotBadges(
+  snapshot: SnapshotSchema,
+  channel: Pick<ChannelSchema, "current_snapshot_id">,
+  t: (key: string) => string,
+): CardBadge[] {
+  const badges: CardBadge[] = [];
+  if (snapshot.id === channel.current_snapshot_id) {
+    badges.push({ label: t("channels.current"), color: "primary" });
+  }
+  if (snapshot.kind === "branch") {
+    badges.push({ label: t("channels.branch"), outlined: true });
+  }
+  if (snapshot.pin_count > 0) {
+    badges.push({ label: t("channels.pinned"), color: "accent" });
+  }
+  if (snapshot.is_hardcore) {
+    badges.push({ label: t("channels.hardcore"), color: "warning" });
+  }
+  return badges;
+}
+
+/** Saves-tab items: backups and channels, not the rows channels hold. */
+export function saveDataCounts({
+  saves,
+  states,
+  channels,
+}: {
+  saves: readonly { channel_id?: string | null }[];
+  states: readonly { channel_id?: string | null }[];
+  channels: readonly ChannelSchema[];
+}): { saves: number; states: number } {
+  return {
+    saves: saves.filter(isBackup).length + channels.length,
+    states: states.filter(isBackup).length,
+  };
 }
 
 /** Channels a snapshot can be saved over: the user's own on the same file. */

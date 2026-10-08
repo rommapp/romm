@@ -1,9 +1,11 @@
 import hashlib
+import io
 import os
 import re
 import stat
 import threading
 import zipfile
+from dataclasses import dataclass
 from mimetypes import guess_type
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO
@@ -84,6 +86,47 @@ def check_zip(zf: zipfile.ZipFile) -> list[str]:
         if expanded > MAX_ARCHIVE_EXPANDED_BYTES:
             raise UnsafeArchive("the archive expands past the size limit")
     return [info.filename for info in infos if not info.is_dir()]
+
+
+RAW_UNIT_NAME = "unit"
+
+
+@dataclass(frozen=True)
+class UnpackedUnit:
+    names: list[str]
+    archived: bool
+
+
+def unpack_save_unit(
+    unit: bytes,
+    root: Path,
+    *,
+    max_total_bytes: int | None = None,
+    max_entry_bytes: int | None = None,
+) -> UnpackedUnit:
+    """Write a save unit's files under `root`: a zip's `check_zip` entries by
+    name, skipping any declared over `max_entry_bytes`, else the raw unit as
+    `RAW_UNIT_NAME`.
+
+    Raises:
+        UnsafeArchive: `check_zip` refuses the zip, or its entries declare more
+            than `max_total_bytes` in all.
+    """
+    if not zipfile.is_zipfile(io.BytesIO(unit)):
+        (root / RAW_UNIT_NAME).write_bytes(unit)
+        return UnpackedUnit([RAW_UNIT_NAME], archived=False)
+    with zipfile.ZipFile(io.BytesIO(unit)) as zf:
+        names = [
+            name
+            for name in check_zip(zf)
+            if max_entry_bytes is None or zf.getinfo(name).file_size <= max_entry_bytes
+        ]
+        expanded = sum(zf.getinfo(name).file_size for name in names)
+        if max_total_bytes is not None and expanded > max_total_bytes:
+            raise UnsafeArchive(f"the unit expands past {max_total_bytes} bytes")
+        for name in names:
+            zf.extract(name, root)
+    return UnpackedUnit(names, archived=True)
 
 
 def check_upload(stream: BinaryIO) -> list[str] | None:

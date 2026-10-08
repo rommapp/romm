@@ -1,7 +1,6 @@
 import json
 import re
 import uuid
-import zipfile
 from typing import Annotated, Any, Self
 
 from fastapi import HTTPException, Query, Request, status
@@ -26,7 +25,7 @@ from endpoints.responses.snapshots import (
     build_snapshot_schemas,
 )
 from handler.auth.constants import Scope
-from handler.auth.dependencies import get_rom_visibility_filter
+from handler.auth.dependencies import assert_rom_visible, get_rom_visibility_filter
 from handler.database import (
     db_device_handler,
     db_rom_handler,
@@ -229,12 +228,15 @@ def _readable(request: Request, id: int) -> tuple[Snapshot, Channel | None]:
 def visible_rom_file(request: Request, rom_file_id: int) -> tuple[RomFile, Rom]:
     rom_file = db_rom_handler.get_rom_file_by_id(rom_file_id)
     rom = db_rom_handler.get_rom(rom_file.rom_id) if rom_file else None
-    if (
-        rom_file is None
-        or rom is None
-        or not get_rom_visibility_filter(request).allows(rom)
-    ):
+    return _visible(request, rom_file, rom)
+
+
+def _visible(
+    request: Request, rom_file: RomFile | None, rom: Rom | None
+) -> tuple[RomFile, Rom]:
+    if rom_file is None or rom is None:
         raise _not_found("ROM file")
+    assert_rom_visible(request, rom, not_found_detail="ROM file not found")
     return rom_file, rom
 
 
@@ -300,8 +302,11 @@ def get_snapshots(
     device = request_device(request, device_id)
     if current:
         channels: dict[uuid.UUID, Channel] = {}
-        for file_id in rom_file_id or []:
-            rom_file, rom = visible_rom_file(request, file_id)
+        file_ids = list(dict.fromkeys(rom_file_id or []))
+        files = {f.id: f for f in db_rom_handler.get_rom_files_by_ids(file_ids)}
+        for file_id in file_ids:
+            found = files.get(file_id)
+            rom_file, rom = _visible(request, found, found.rom if found else None)
             for channel in db_snapshot_handler.get_channels_for_file(
                 viewer.id, rom.platform_id, FileKey.of_file(rom_file)
             ):
@@ -388,11 +393,8 @@ def get_snapshot(
     return build_snapshot_schema(snapshot, channel, request.user)
 
 
-def _assert_shape(upload: UploadFile, shape: SaveShape) -> None:
+def _assert_shape(is_zip: bool, shape: SaveShape) -> None:
     """A SINGLE save travels raw; MULTI and FOLDER travel as a zip."""
-    upload.file.seek(0)
-    is_zip = zipfile.is_zipfile(upload.file)
-    upload.file.seek(0)
     if is_zip != (shape != SaveShape.SINGLE):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -406,13 +408,16 @@ def _unprocessable(key: str, reason: str) -> HTTPException:
     )
 
 
-def _members(key: str, upload: UploadFile) -> list[str]:
-    """The upload's archive entries, or its own name for a raw file."""
+def _members(key: str, upload: UploadFile) -> tuple[list[str], bool]:
+    """The upload's archive entries, or its own name for a raw file, and
+    whether it is an archive."""
     try:
         names = check_upload(upload.file)
     except UnsafeArchive as exc:
         raise _unprocessable(key, str(exc)) from exc
-    return names if names is not None else [upload.filename or key]
+    if names is None:
+        return [upload.filename or key], False
+    return names, True
 
 
 async def _read_push(
@@ -447,6 +452,7 @@ async def _read_push(
 
     parts: dict[str, UploadPart] = {}
     save_members: list[str] = []
+    save_archived = False
     for key, upload in uploads.items():
         if key == SAVE_SCREENSHOT_PART or key.endswith(SCREENSHOT_SUFFIX):
             content_key = (
@@ -473,9 +479,9 @@ async def _read_push(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown part {key}"
             )
-        members = _members(key, upload)
+        members, archived = _members(key, upload)
         if key == SAVE_PART:
-            save_members = members
+            save_members, save_archived = members, archived
         screenshot = uploads.get(
             SAVE_SCREENSHOT_PART if key == SAVE_PART else f"{key}{SCREENSHOT_SUFFIX}"
         )
@@ -486,7 +492,7 @@ async def _read_push(
             screenshot_name=screenshot.filename if screenshot else None,
         )
     if payload.save and payload.save.shape and SAVE_PART in uploads:
-        _assert_shape(uploads[SAVE_PART], payload.save.shape)
+        _assert_shape(save_archived, payload.save.shape)
     return payload, parts, save_members
 
 
@@ -699,15 +705,6 @@ def update_snapshot(
     if payload.is_public is not None:
         snapshot = db_snapshot_handler.update_snapshot(
             snapshot.id, {"is_public": payload.is_public}
-        )
-        if not payload.is_public:
-            db_snapshot_handler.drop_foreign_pins(
-                snapshot.user_id, snapshot_id=snapshot.id
-            )
-        content = db_snapshot_handler.get_stored_content(snapshot)
-        db_snapshot_handler.sync_content_visibility(
-            [content.save.id] if content.save else [],
-            [state.id for state in content.state_rows],
         )
     return build_snapshot_schema(snapshot, channel, viewer)
 

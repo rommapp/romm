@@ -53,7 +53,6 @@ const target: SnapshotTarget = {
   parentSnapshotId: null,
   bank: { mgba: { auto: "a1b2", "1": "c3d4" } },
   saveHash: saveContentHash(new Uint8Array(SRAM)),
-  emulator: "mgba",
   core: "mgba",
   emulatorVersion: "4.2.3",
 };
@@ -256,7 +255,6 @@ describe("SnapshotSession", () => {
       expected_current_id: 43,
       states: { mgba: { auto: "e5f6", "0": expect.any(String) } },
     });
-    expect(session.isBranched).toBe(false);
   });
 
   it("chains later pushes on the branch once the channel moved on", async () => {
@@ -274,7 +272,6 @@ describe("SnapshotSession", () => {
       snapshot: branch,
       reason: "moved",
     });
-    expect(session.isBranched).toBe(true);
     expect(api.pushSnapshot.mock.calls[1]![0].manifest).toMatchObject({
       expected_current_id: 42,
       parent_snapshot_id: 60,

@@ -33,7 +33,6 @@ import { errorMessage } from "@/v2/utils/errorMessage";
 import { playerPath } from "@/v2/utils/playerPath";
 import { isHardcoreRefusal } from "@/v2/utils/saveSync/snapshotSession";
 import {
-  saveOverManifest,
   copySaveManifest,
   saveOverTargets,
   forkManifest,
@@ -161,6 +160,12 @@ async function refresh() {
 const viewerTarget = ref<ViewerTarget | null>(null);
 const busy = ref(false);
 
+function reportFailure(error: unknown) {
+  snackbar.error(t("channels.failed", { error: errorMessage(error) }), {
+    icon: "mdi-close-circle",
+  });
+}
+
 function openSnapshot(channel: ChannelSchema, snapshot: SnapshotSchema) {
   viewerTarget.value = { kind: "snapshot", channel, snapshot };
 }
@@ -229,9 +234,7 @@ async function push(manifest: SnapshotManifest | null, done: string) {
     viewerTarget.value = null;
     await refresh();
   } catch (error) {
-    snackbar.error(t("channels.failed", { error: errorMessage(error) }), {
-      icon: "mdi-close-circle",
-    });
+    reportFailure(error);
   } finally {
     busy.value = false;
   }
@@ -259,7 +262,7 @@ function saveOver(other: ChannelSchema) {
   const target = viewerTarget.value;
   if (target?.kind !== "snapshot") return;
   void push(
-    saveOverManifest(target.snapshot, other),
+    restoreManifest(target.snapshot, other),
     t("channels.saved-over", { label: other.label }),
   );
 }
@@ -291,9 +294,7 @@ async function togglePin() {
       );
     }
   } catch (error) {
-    snackbar.error(t("channels.failed", { error: errorMessage(error) }), {
-      icon: "mdi-close-circle",
-    });
+    reportFailure(error);
   } finally {
     busy.value = false;
   }
@@ -375,9 +376,7 @@ async function attach(channel: ChannelSchema) {
     await refetchRom(props.rom.id);
     await loadDetached(props.rom.platform_id);
   } catch (error) {
-    snackbar.error(t("channels.failed", { error: errorMessage(error) }), {
-      icon: "mdi-close-circle",
-    });
+    reportFailure(error);
   } finally {
     attaching.value = null;
   }
@@ -428,9 +427,7 @@ async function submitLabel({ label, startFrom }: ChannelLabelSubmit) {
     snackbar.success(t("channels.created"), { icon: "mdi-check-bold" });
     await refresh();
   } catch (error) {
-    snackbar.error(t("channels.failed", { error: errorMessage(error) }), {
-      icon: "mdi-close-circle",
-    });
+    reportFailure(error);
   } finally {
     busy.value = false;
   }
@@ -457,9 +454,7 @@ async function toggleShare(channel: ChannelSchema) {
     );
     await refresh();
   } catch (error) {
-    snackbar.error(t("channels.failed", { error: errorMessage(error) }), {
-      icon: "mdi-close-circle",
-    });
+    reportFailure(error);
   }
 }
 
@@ -484,9 +479,7 @@ async function deleteChannel(channel: ChannelSchema) {
     snackbar.success(t("channels.deleted"), { icon: "mdi-check-bold" });
     await refresh();
   } catch (error) {
-    snackbar.error(t("channels.failed", { error: errorMessage(error) }), {
-      icon: "mdi-close-circle",
-    });
+    reportFailure(error);
   }
 }
 </script>

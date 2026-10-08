@@ -176,23 +176,21 @@ async def release_thumbnail(screenshot: Screenshot | None) -> None:
 
 def assert_backup(asset: Save | State) -> None:
     """409 when sync manages the row: only a new snapshot changes or drops it."""
-    frozen = (
-        db_snapshot_handler.is_frozen(save_id=asset.id)
-        if isinstance(asset, Save)
-        else db_snapshot_handler.is_frozen(state_id=asset.id)
+    if db_snapshot_handler.is_asset_frozen(asset):
+        raise frozen_conflict(asset)
+
+
+def frozen_conflict(asset: Save | State) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=f"{asset.file_name} belongs to a sync channel and can't be changed directly",
     )
-    if frozen:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"{asset.file_name} belongs to a sync channel and can't be changed directly",
-        )
 
 
 async def remove_save(save: Save) -> None:
     """Drop a save row with its file and screenshot."""
     # Read first: a screenshot linked by `save_id` goes with the row.
     screenshot = save.screenshot
-    db_snapshot_handler.release_backup(save_id=save.id)
     db_save_handler.delete_save(
         save.id, content_hash=await fs_asset_handler.unrecorded_hash(save)
     )

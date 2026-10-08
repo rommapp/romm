@@ -744,16 +744,8 @@ class FSRomsHandler(FSHandler):
             )
             if extraction is None:
                 return False
-            source.rom_file.raw_serial = extraction.raw_serial or None
-            source.rom_file.sigil_features = extraction.features
-            source.rom_file.n64_header = extraction.n64_header or None
-            source.rom_file.n64_md5 = extraction.n64_md5 or None
-            source.rom_file.n64_md5_n64 = extraction.n64_md5_n64 or None
-            source.rom_file.playlist_title_ids = (
-                list(extraction.playlist_title_ids)
-                if extraction.playlist_title_ids is not None
-                else None
-            )
+            for column, value in extraction.file_columns().items():
+                setattr(source.rom_file, column, value)
             if source.rom_file.title_id and source.rom_file.converto_read_at:
                 # rom-converto's id wins; sigil keeps its save target and content type.
                 extraction = replace(

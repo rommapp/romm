@@ -73,6 +73,18 @@ NATIVE_SAVE_PLATFORM_SLUGS: Final = frozenset(
 SWITCH_PLATFORM_SLUGS: Final = frozenset({UPS.SWITCH, UPS.SWITCH_2})
 
 
+# The SigilResult fields a scan stores on each RomFile, by column.
+_SIGIL_RESULT_COLUMNS: Final[dict[str, str]] = {
+    "raw_serial": "raw_serial",
+    "sigil_features": "features",
+    "n64_header": "n64_header",
+    "n64_md5": "n64_md5",
+    "n64_md5_n64": "n64_md5_n64",
+}
+# Every RomFile column a sigil read sets.
+SIGIL_FILE_COLUMNS: Final = (*_SIGIL_RESULT_COLUMNS, "playlist_title_ids")
+
+
 def sigil_binding() -> Any:
     """The `sigil` module, or None when this build has no binding."""
     return sigil
@@ -114,6 +126,21 @@ class SigilExtractionResult:
     # Each listed disc's title id, disc 1 first, when the file read is a playlist.
     playlist_title_ids: tuple[str, ...] | None = None
 
+    def file_columns(self) -> dict[str, Any]:
+        """The `SIGIL_FILE_COLUMNS` values this read stores, None where it read nothing."""
+        columns: dict[str, Any] = {
+            column: getattr(self, field) or None
+            for column, field in _SIGIL_RESULT_COLUMNS.items()
+        }
+        # Features 0 is a read that found none, which a stored game tells from no read.
+        columns["sigil_features"] = self.features
+        columns["playlist_title_ids"] = (
+            list(self.playlist_title_ids)
+            if self.playlist_title_ids is not None
+            else None
+        )
+        return columns
+
 
 @dataclass(frozen=True)
 class SigilGame:
@@ -137,11 +164,11 @@ class SigilService:
         """
         return sigil is not None
 
-    def unit_hashes(
+    def unit_identity_hash(
         self, root: Path, members: list[SigilUnitMember], archived: bool
-    ) -> tuple[str, str] | None:
-        """Sigil's content and identity hash of a save unit unpacked under
-        `root`, or None without the binding or when sigil can't read it.
+    ) -> str | None:
+        """Sigil's identity hash of a save unit unpacked under `root`, or None
+        without the binding or when sigil can't read it.
 
         Args:
             archived: whether the unit travels as a zip; a lone raw file doesn't.
@@ -171,7 +198,8 @@ class SigilService:
         except Exception as exc:
             log.error(f"Sigil could not hash the save unit under {root}: {exc}")
             return None
-        return hashed.content_hash, hashed.identity_hash
+        identity: str = hashed.identity_hash
+        return identity
 
     async def extract_title_id(
         self,
@@ -238,24 +266,16 @@ class SigilService:
             # Version 0 is a valid base-game version, so keep the int as-is;
             # a missing field (non-Switch, older binding) maps to None.
             version=getattr(result, "title_version", None),
-            raw_serial=result.raw_serial,
-            features=result.features,
-            n64_header=result.n64_header,
-            n64_md5=result.n64_md5,
-            n64_md5_n64=result.n64_md5_n64,
+            **{
+                field: getattr(result, field)
+                for field in _SIGIL_RESULT_COLUMNS.values()
+            },
         )
 
     @staticmethod
     def stored_game(rom: Rom, rom_files: Iterable[RomFile]) -> SigilGame | None:
-        """Rebuild the game sigil identified at scan time from the stored columns.
-
-        The identity sigil read per file comes from the file holding the ROM's
-        title id (any read file on a platform without one), defaulting as a
-        fresh extraction would until a rescan reads one.
-
-        Returns:
-            None when the binding is absent or sigil restores no saves for the
-            ROM's platform.
+        """The game sigil identified at scan time, from the columns of the file
+        holding the ROM's title id; None without the binding or a restorable platform.
         """
         sigil_slug = SIGIL_RESTORE_PLATFORM_SLUGS.get(rom.platform_slug)
         if sigil is None or sigil_slug is None:
@@ -283,16 +303,16 @@ class SigilService:
             )
             if title_id
         )
+        stored = {
+            field: (getattr(source, column) if source else None) or ""
+            for column, field in _SIGIL_RESULT_COLUMNS.items()
+        }
         return SigilGame(
             result=sigil.SigilResult.persisted(
                 platform=sigil_slug,
                 title_id=rom.title_id or "",
                 save_id=rom.save_target or "",
-                features=source.sigil_features if source else 0,
-                raw_serial=(source.raw_serial or "") if source else "",
-                n64_header=(source.n64_header or "") if source else "",
-                n64_md5=(source.n64_md5 or "") if source else "",
-                n64_md5_n64=(source.n64_md5_n64 or "") if source else "",
+                **{**stored, "features": stored["features"] or 0},
             ),
             game_ids=tuple(game_ids),
         )

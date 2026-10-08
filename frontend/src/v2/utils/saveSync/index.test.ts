@@ -29,6 +29,7 @@ vi.mock("@/services/api/sync", () => ({
 }));
 
 vi.mock("@/services/api/save", () => ({
+  AUTOSAVE_SLOT: "autosave",
   default: {
     uploadSaves: mocks.uploadSaves,
     updateSave: mocks.updateSave,

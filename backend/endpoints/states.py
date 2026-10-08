@@ -10,6 +10,7 @@ from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
     assert_backup,
+    frozen_conflict,
     release_thumbnail,
     remove_asset_file,
     rename_asset,
@@ -48,7 +49,6 @@ async def _delete_state(state: State) -> None:
     """Drop a state row with its file and screenshot."""
     # Read first: a screenshot linked by `state_id` goes with the row.
     screenshot = state.screenshot
-    db_snapshot_handler.release_backup(state_id=state.id)
     db_state_handler.delete_state(state.id)
     await remove_asset_file(state.full_path, "State file")
     await release_thumbnail(screenshot)
@@ -436,6 +436,7 @@ async def delete_states(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     affected_rom_ids: set[int] = set()
+    frozen = db_snapshot_handler.get_frozen_state_ids(states)
 
     for state_id in states:
         state = db_state_handler.get_state(user_id=request.user.id, id=state_id)
@@ -443,7 +444,8 @@ async def delete_states(
             error = f"State with ID {state_id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-        assert_backup(state)
+        if state.id in frozen:
+            raise frozen_conflict(state)
 
         affected_rom_ids.add(state.attached_rom_id)
         log.info(

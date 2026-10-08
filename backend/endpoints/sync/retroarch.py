@@ -133,20 +133,9 @@ def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | Non
 
 def _is_held(asset: Save | State | Screenshot | None) -> bool:
     """Whether a sync channel holds the row: RetroArch reads it but never changes it."""
-    if isinstance(asset, Save):
-        return db_snapshot_handler.is_frozen(save_id=asset.id)
-    if isinstance(asset, State):
-        return db_snapshot_handler.is_frozen(state_id=asset.id)
+    if isinstance(asset, (Save, State)):
+        return db_snapshot_handler.is_asset_frozen(asset)
     return False
-
-
-def _get_writable_asset(
-    user: User, rom: Rom, parsed: RetroArchSyncPath
-) -> Save | State | Screenshot | None:
-    """The row a write to this path replaces or deletes, or None for one a sync
-    channel holds."""
-    asset = _get_asset(user, rom, parsed)
-    return None if _is_held(asset) else asset
 
 
 def _get_asset(
@@ -695,8 +684,8 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
 
-    asset = _get_writable_asset(request.user, rom, parsed)
-    if not asset:
+    asset = _get_asset(request.user, rom, parsed)
+    if not asset or _is_held(asset):
         return _empty(status.HTTP_404_NOT_FOUND)
 
     log.info(f"Cloud sync delete {hl(asset.file_name)} [{rom.platform_slug}]")
@@ -704,12 +693,10 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     if isinstance(asset, Screenshot):
         db_screenshot_handler.delete_screenshot(asset.id)
     elif isinstance(asset, Save):
-        db_snapshot_handler.release_backup(save_id=asset.id)
         db_save_handler.delete_save(
             asset.id, content_hash=await fs_asset_handler.unrecorded_hash(asset)
         )
     else:
-        db_snapshot_handler.release_backup(state_id=asset.id)
         db_state_handler.delete_state(asset.id)
 
     with suppress(FileNotFoundError):

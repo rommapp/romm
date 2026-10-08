@@ -14,11 +14,22 @@ DATETIME_TAG_PATTERN = re.compile(
 )
 
 
+def _untagged_parts(filename: str) -> tuple[str, str]:
+    name, ext = os.path.splitext(filename)
+    return DATETIME_TAG_PATTERN.sub("", name), ext
+
+
+def strip_datetime_tag(filename: str) -> str:
+    """`filename` without the datetime tag `apply_datetime_tag` gave it."""
+    name, ext = _untagged_parts(filename)
+    return f"{name}{ext}"
+
+
 def apply_datetime_tag(filename: str) -> str:
     """`filename` with its datetime tag replaced by the server's local time now."""
-    name, ext = os.path.splitext(filename)
+    name, ext = _untagged_parts(filename)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")[:-3]
-    return f"{DATETIME_TAG_PATTERN.sub('', name)} [{timestamp}]{ext}"
+    return f"{name} [{timestamp}]{ext}"
 
 
 def sanitize_asset_filename(filename: str, label: str) -> str:

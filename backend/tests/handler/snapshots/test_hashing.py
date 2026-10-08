@@ -40,14 +40,14 @@ def _without_binding():
 async def test_sigil_and_the_fallback_agree(members: dict[str, bytes]):
     pytest.importorskip("sigil")
     content = _zip(members)
-    answers: list[tuple[str, str] | None] = []
-    real = hashing._sigil.unit_hashes
+    answers: list[str | None] = []
+    real = hashing._sigil.unit_identity_hash
 
     def record(*args, **kwargs):
         answers.append(real(*args, **kwargs))
         return answers[-1]
 
-    with patch.object(hashing._sigil, "unit_hashes", side_effect=record):
+    with patch.object(hashing._sigil, "unit_identity_hash", side_effect=record):
         by_sigil = await hashing.identity_hash(content)
     with _without_binding():
         by_fallback = await hashing.identity_hash(content)
@@ -67,12 +67,12 @@ async def test_a_unit_past_the_unpack_limit_never_reaches_disk():
     with (
         patch.object(hashing, "SIGIL_UNPACK_MAX_BYTES", 2),
         patch.object(SigilService, "is_enabled", return_value=True),
-        patch.object(hashing._sigil, "unit_hashes") as unit_hashes,
+        patch.object(hashing._sigil, "unit_identity_hash") as unit_identity_hash,
         patch.object(zipfile.ZipFile, "extract") as extract,
     ):
         identity = await hashing.identity_hash(content)
 
-    unit_hashes.assert_not_called()
+    unit_identity_hash.assert_not_called()
     extract.assert_not_called()
     assert identity == _md5(b"sram")
 

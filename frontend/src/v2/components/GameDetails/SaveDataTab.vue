@@ -51,7 +51,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
 import { coreOf, emulatorKey, type AssetType } from "@/v2/utils/assets";
 import { errorMessage } from "@/v2/utils/errorMessage";
-import { isBackup } from "@/v2/utils/snapshots";
+import { isBackup, saveDataCounts } from "@/v2/utils/snapshots";
 
 // Slot payload from AssetList/AssetStrip is the full save|state union; these
 // narrow it back to the concrete schema the section's handlers expect.
@@ -110,15 +110,13 @@ const communityChannels = computed(() =>
   (props.rom.user_channels ?? []).filter((c) => !c.is_own),
 );
 
-// Badge = total visible items in the subtab (own + community).
-const savesCount = computed(
-  () =>
-    mySaves.value.length +
-    communitySaves.value.length +
-    (props.rom.user_channels ?? []).length,
-);
-const statesCount = computed(
-  () => myStates.value.length + communityStates.value.length,
+/** Each subtab's badge counts everything it shows, own and community. */
+const counts = computed(() =>
+  saveDataCounts({
+    saves: allSaves.value,
+    states: allStates.value,
+    channels: props.rom.user_channels ?? [],
+  }),
 );
 
 // ---------- Subtab nav definitions ----------
@@ -127,13 +125,13 @@ const subtabDefs = computed<SubtabNavItem<Subtab>[]>(() => [
     id: "saves",
     label: t("rom.saves-tab"),
     icon: "mdi-content-save-outline",
-    badge: savesCount.value,
+    badge: counts.value.saves,
   },
   {
     id: "states",
     label: t("rom.states-tab"),
     icon: "mdi-camera-outline",
-    badge: statesCount.value,
+    badge: counts.value.states,
   },
 ]);
 
