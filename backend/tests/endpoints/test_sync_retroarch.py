@@ -72,11 +72,10 @@ def _retroarch_upload_cap(client: TestClient, max_size: int):
 
 @pytest.fixture(autouse=True)
 def _isolated_sync_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Keep assets, blobs and pending PSP files per test, since user ids repeat across test databases."""
+    """Keep assets and sync files per test, since user ids repeat across test databases."""
     for handler, name in (
         (fs_asset_handler, "assets"),
         (fs_retroarch_sync_handler, "retroarch_sync"),
-        (psp.fs_psp_pending_handler, "psp_pending"),
     ):
         base = (tmp_path / name).resolve()
         base.mkdir()
@@ -1350,6 +1349,30 @@ class TestRetroArchSyncCoreAliases:
         assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"newer"
 
     @_mock_asset_md5()
+    def test_a_state_on_disk_wins_over_a_newer_missing_alias(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"argosy")
+        missing = self._state(admin_user, rom, "mednafen_psx_hw", b"gone")
+        db_state_handler.update_state(missing.id, {"missing_from_fs": True})
+
+        assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"argosy"
+
+    @_mock_asset_md5()
+    def test_delete_removes_states_under_every_alias_in_the_slot(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        self._state(admin_user, rom, "mednafen_psx_hw", b"newer")
+
+        response = client.request("DELETE", self.STATE_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert db_state_handler.get_states(user_id=admin_user.id) == []
+        assert self._manifest_paths(client) == []
+
+    @_mock_asset_md5()
     def test_a_screenshot_for_an_aliased_state_is_filed_beside_it(
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
     ):
@@ -1495,6 +1518,15 @@ class TestRetroArchSyncDelete:
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+UNKNOWN_FOLDER_URL = "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0"
+
+
+def _unknown_folder_pending_dir(user: User) -> Path:
+    return fs_retroarch_sync_handler.validate_path(
+        psp._pending_dir(user, "UNKNOWN99999DATA0")
+    )
 
 
 class TestRetroArchSyncPsp:
@@ -1761,18 +1793,98 @@ class TestRetroArchSyncPsp:
             "saves/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN"
         ]
 
-    def test_unresolved_folder_is_buffered_and_conflicts(
-        self, client, admin_user: User, monkeypatch: pytest.MonkeyPatch
+    def test_unresolved_folder_is_buffered_until_it_resolves(
+        self, client, admin_user: User, rom: Rom, monkeypatch: pytest.MonkeyPatch
     ):
         monkeypatch.setattr(psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {})
 
         response = client.put(
-            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
             content=b"orphaned save data",
             auth=ADMIN_AUTH,
         )
 
         assert response.status_code == status.HTTP_409_CONFLICT
+        pending_file = _unknown_folder_pending_dir(admin_user) / "SAVE.BIN"
+        assert pending_file.read_bytes() == b"orphaned save data"
+
+        response = client.get(
+            "/api/sync/retroarch/psp_pending/UNKNOWN99999DATA0/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        monkeypatch.setattr(
+            psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {"UNKNOWN99999": rom.fs_name_no_ext}
+        )
+        response = client.put(
+            f"{UNKNOWN_FOLDER_URL}/PARAM.SFO",
+            content=b"sfo",
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        assert not pending_file.parent.exists()
+
+        response = client.get(
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.content == b"orphaned save data"
+
+    def test_buffer_past_the_bundle_limits_conflicts(
+        self, client, admin_user: User, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {})
+        monkeypatch.setattr(psp, "_BUNDLE_MAX_MEMBERS", 1)
+        client.put(
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        response = client.put(
+            f"{UNKNOWN_FOLDER_URL}/ICON0.PNG",
+            content=b"icon",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        pending_dir = _unknown_folder_pending_dir(admin_user)
+        assert [path.name for path in pending_dir.iterdir()] == ["SAVE.BIN"]
+
+    def test_delete_drops_the_buffered_copy(
+        self, client, admin_user: User, rom: Rom, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {})
+        client.put(
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
+            content=b"deleted save data",
+            auth=ADMIN_AUTH,
+        )
+
+        response = client.delete(
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        pending_dir = _unknown_folder_pending_dir(admin_user)
+        assert not pending_dir.exists()
+
+        monkeypatch.setattr(
+            psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {"UNKNOWN99999": rom.fs_name_no_ext}
+        )
+        client.put(
+            f"{UNKNOWN_FOLDER_URL}/PARAM.SFO",
+            content=b"sfo",
+            auth=ADMIN_AUTH,
+        )
+        response = client.get(
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_delete_keeps_the_rest_of_the_bundle(
         self, client, admin_user: User, rom: Rom

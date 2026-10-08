@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from config import ASSETS_BASE_PATH
-from utils.filesystem import iter_files
+from utils.filesystem import TEMP_FILE_PREFIX, iter_files
 
 from .base_handler import FSHandler
 
@@ -25,6 +25,9 @@ def _walk_files(root: Path) -> list[BlobFile]:
     """Every file under `root`, without descending into symlinked directories."""
     files: list[BlobFile] = []
     for directory, name in iter_files(str(root), recursive=True):
+        # A write interrupted by a crash leaves its temp file behind.
+        if name.startswith(TEMP_FILE_PREFIX):
+            continue
         path = directory / name
         try:
             file_stat = path.stat()

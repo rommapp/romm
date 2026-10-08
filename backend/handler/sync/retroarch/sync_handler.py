@@ -169,30 +169,38 @@ def recency_key(asset: Save | State) -> tuple[datetime, int]:
     return (asset.updated_at, asset.id)
 
 
+def on_disk_recency_key(asset: Save | State) -> tuple[bool, datetime, int]:
+    """Recency order that ranks a file on disk above any missing one."""
+    return (not asset.missing_from_fs, *recency_key(asset))
+
+
 def newest_per_key[A: (Save, State), K: Hashable](
-    assets: Iterable[A], key: Callable[[A], K]
+    assets: Iterable[A],
+    key: Callable[[A], K],
+    rank: Callable[[A], tuple[object, ...]] = recency_key,
 ) -> dict[K, A]:
-    """The newest of the assets sharing each ``key``, by key."""
+    """The highest ranked of the assets sharing each ``key``, by key."""
     latest: dict[K, A] = {}
     for asset in assets:
         current = latest.get(asset_key := key(asset))
-        if current is None or recency_key(asset) > recency_key(current):
+        if current is None or rank(asset) > rank(current):
             latest[asset_key] = asset
     return latest
+
+
+def _state_slot_key(state: State) -> tuple[int, str | None, str]:
+    return (
+        state.rom_id,
+        retroarch_folder(state.emulator),
+        state_slot_suffix(state.file_name),
+    )
 
 
 def group_states_by_slot(
     states: Iterable[State],
 ) -> dict[tuple[int, str | None, str], State]:
-    """The newest state in each (rom, core folder, slot) bucket."""
-    return newest_per_key(
-        states,
-        lambda state: (
-            state.rom_id,
-            retroarch_folder(state.emulator),
-            state_slot_suffix(state.file_name),
-        ),
-    )
+    """The newest state in each (rom, core folder, slot) bucket, preferring one on disk."""
+    return newest_per_key(states, _state_slot_key, rank=on_disk_recency_key)
 
 
 def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
@@ -200,13 +208,27 @@ def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
     return f"{rom.fs_name_no_ext}.{slot_suffix}"
 
 
+def states_in_slot(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> list[State]:
+    """Every state, under any alias, in the slot a canonical name points at."""
+    key = (rom.id, retroarch_folder(emulator), state_slot_suffix(requested_file_name))
+    return [
+        state
+        for state in db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
+        if _state_slot_key(state) == key
+    ]
+
+
 def resolve_state_by_slot(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> State | None:
-    """The newest state in the slot a canonical name points at, whatever its name."""
-    states = db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
-    key = (rom.id, retroarch_folder(emulator), state_slot_suffix(requested_file_name))
-    return group_states_by_slot(states).get(key)
+    """The state the slot a canonical name points at serves, whatever its name."""
+    return max(
+        states_in_slot(user, rom, emulator, requested_file_name),
+        key=on_disk_recency_key,
+        default=None,
+    )
 
 
 # RetroArch's save RAM, the one save file that goes through slots. Companions
@@ -253,7 +275,7 @@ def _unslotted_save_at(
     # Prefers a file on disk, which is the one the manifest lists.
     return max(
         _unslotted_saves_at(user, rom, emulator, file_name),
-        key=lambda save: (not save.missing_from_fs, recency_key(save)),
+        key=on_disk_recency_key,
         default=None,
     )
 
