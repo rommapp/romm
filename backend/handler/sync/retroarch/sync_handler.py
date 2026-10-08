@@ -253,25 +253,20 @@ def advertised_save_name(save: Save) -> str:
     return f"{save.rom.fs_name_no_ext}{os.path.splitext(name)[1]}"
 
 
-def _distinct(saves: Iterable[Save]) -> list[Save]:
-    """``saves`` without repeats, which a case-insensitive collation returns per alias."""
-    return list({save.id: save for save in saves}.values())
-
-
 def _unslotted_saves_at(
     user: User, rom: Rom, emulator: str | None, file_name: str
 ) -> list[Save]:
     """The unslotted saves at a RetroArch path, under any of ``emulator``'s aliases."""
-    saves = [
-        db_save_handler.get_save_by_path(
-            user_id=user.id,
-            rom_id=rom.id,
-            file_path=build_asset_file_path(user, rom, "saves", alias),
-            file_name=file_name,
-        )
-        for alias in retroarch_aliases(emulator)
-    ]
-    return _distinct([save for save in saves if save and save.slot is None])
+    saves = db_save_handler.get_saves_at_paths(
+        user_id=user.id,
+        rom_id=rom.id,
+        file_paths=[
+            build_asset_file_path(user, rom, "saves", alias)
+            for alias in retroarch_aliases(emulator)
+        ],
+        file_name=file_name,
+    )
+    return [save for save in saves if save.slot is None]
 
 
 def _unslotted_save_at(
@@ -295,13 +290,12 @@ def _alias_lineages(lineage: SaveLineage) -> list[SaveLineage]:
 
 def _lineage_head(user: User, rom: Rom, lineage: SaveLineage) -> Save | None:
     """The newest `autosave` version across ``lineage``'s aliases."""
-    heads = [
-        db_save_handler.get_lineage_head(
-            user_id=user.id, rom_id=rom.id, slot=AUTOSAVE_SLOT, lineage=alias
-        )
-        for alias in _alias_lineages(lineage)
-    ]
-    return max((head for head in heads if head), key=recency_key, default=None)
+    return db_save_handler.get_lineage_head(
+        user_id=user.id,
+        rom_id=rom.id,
+        slot=AUTOSAVE_SLOT,
+        lineages=_alias_lineages(lineage),
+    )
 
 
 def resolve_save(
@@ -321,22 +315,20 @@ def saves_at_path(
     if not lineage:
         return _unslotted_saves_at(user, rom, emulator, requested_file_name)
 
-    saves: list[Save] = []
     folded = requested_file_name.casefold()
-    for alias in _alias_lineages(lineage):
-        saves += db_save_handler.get_saves(
-            user_id=user.id, rom_ids=[rom.id], slot=AUTOSAVE_SLOT, lineage=alias
+    return [
+        save
+        for save in db_save_handler.get_saves(
+            user_id=user.id,
+            rom_ids=[rom.id],
+            slot=AUTOSAVE_SLOT,
+            with_unslotted=True,
+            lineages=_alias_lineages(lineage),
         )
-        # The manifest hides these behind the head, so whatever their case they
-        # would resurface once the versions go.
-        saves += [
-            save
-            for save in db_save_handler.get_saves(
-                user_id=user.id, rom_ids=[rom.id], slot_is_null=True, lineage=alias
-            )
-            if save.file_name.casefold() == folded
-        ]
-    return _distinct(saves)
+        # The manifest hides unslotted ones behind the head, so whatever their
+        # case they would resurface once the versions go.
+        if save.slot is not None or save.file_name.casefold() == folded
+    ]
 
 
 SaveUpload = Literal["created", "updated", "unchanged"]
