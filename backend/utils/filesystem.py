@@ -20,6 +20,10 @@ COMPRESSED_FILE_SUFFIXES: tuple[str, ...] = tuple(COMPRESSED_FILE_EXTENSIONS)
 # tempfile.mkstemp creates files 0600, too narrow for the nginx user to read.
 SERVED_FILE_MODE = 0o644
 
+# Prefix of in-progress writes and staged conversions, renamed into place once
+# complete. Scans skip dot-prefixed names, so these stay unseen.
+TEMP_FILE_PREFIX = ".romm_tmp_"
+
 
 def iter_files(path: str, recursive: bool = False) -> Iterator[tuple[Path, str]]:
     """List files in a directory.
