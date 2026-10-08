@@ -1,8 +1,4 @@
-"""Streaming permission: grant streaming to every existing group
-
-Emulator streaming was open to every user. It is now a grant, READ to see and
-join sessions and WRITE to start them, so each group that exists at upgrade
-receives both and nobody loses access. Groups created later start without it.
+"""Grant streaming read and write to every existing permission group
 
 Revision ID: 0152_streaming_permission
 Revises: 0151_state_content_hash
