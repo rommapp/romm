@@ -24,6 +24,7 @@ from handler.streaming.config import (
 )
 from handler.streaming.session_store import (
     DRAIN_MARKER_TTL,
+    DiscSwap,
     StreamingSessionContended,
     broker_session_id,
     claim_drain_marker,
@@ -37,6 +38,7 @@ from handler.streaming.session_store import (
     restore_drained_session,
     same_claim,
     session_disc_id,
+    session_disc_swaps,
     session_is_stale,
 )
 from logger.logger import log
@@ -136,6 +138,7 @@ async def pull_exit_saves(
     broker_session: str | None,
     settled: bool,
     disc_file_id: int | None = None,
+    disc_swaps: list[DiscSwap] | None = None,
 ) -> None:
     """The RQ job behind `collect_exit_saves`, which lets the next claim through
     however the pull ended."""
@@ -151,6 +154,7 @@ async def pull_exit_saves(
             broker_session,
             settled=settled,
             disc_file_id=disc_file_id,
+            disc_swaps=disc_swaps or [],
         )
     finally:
         await saves.clear_save_pull_pending(saves.SavePullMark(user_id, rom_id, token))
@@ -207,6 +211,7 @@ async def collect_exit_saves(
                 "broker_session": broker_session_id(session),
                 "settled": settled,
                 "disc_file_id": session_disc_id(session),
+                "disc_swaps": session_disc_swaps(session),
             },
             job_timeout=saves.SAVE_PULL_TTL_SECONDS,
             result_ttl=0,

@@ -3474,6 +3474,25 @@ def test_heartbeat_keeps_a_disc_swap_that_landed_first(client, access_token, rom
     assert not session_store.session_is_stale(session)
 
 
+def test_each_disc_swap_is_kept_in_the_session_history(rom: Rom):
+    container = _container_for(rom)
+    session_key = _key_of(container)
+    key = session_store.session_redis_key(session_key)
+    sync_cache.set(key, json.dumps({"rom_id": rom.id}))
+
+    async def swap_twice() -> None:
+        await session_store.set_session_disc(session_key, 41)
+        await session_store.set_session_disc(session_key, 42)
+
+    asyncio.run(swap_twice())
+    session = _load_session(key)
+
+    assert session["disc_file_id"] == 42
+    swaps = session_store.session_disc_swaps(session)
+    assert [swap.file_id for swap in swaps] == [41, 42]
+    assert swaps[0].at <= swaps[1].at
+
+
 def test_heartbeat_without_session_reports_ended(client, access_token, rom: Rom):
     """No session at all still answers 200/ended: the poll is how a player
     learns their stream is gone, so it must not look like a route error."""
@@ -5862,6 +5881,7 @@ def _pull_exit(
     spec: webstation.ImportSpec | None = _SAVE_IMPORT,
     disc_file_id: int | None = None,
     store_state: AsyncMock | None = None,
+    disc_swaps: list[session_store.DiscSwap] | None = None,
 ) -> tuple[MagicMock, AsyncMock]:
     """Run an exit pull of `content` against a broker declaring `spec`,
     returning the file write and state store mocks."""
@@ -5881,7 +5901,11 @@ def _pull_exit(
     ):
         assert asyncio.run(
             saves.pull_saves_to_library(
-                user.id, rom.id, _resolved(container), disc_file_id=disc_file_id
+                user.id,
+                rom.id,
+                _resolved(container),
+                disc_file_id=disc_file_id,
+                disc_swaps=disc_swaps or [],
             )
         )
     return wf, store_state
@@ -5961,6 +5985,54 @@ def test_a_retroarch_exit_files_its_states_on_the_swapped_disc(
         }
     )
     _write, store_state = _pull_exit(rom, admin_user, content, disc_file_id=42)
+
+    assert store_state.call_args.kwargs["disc_file_id"] == 42
+
+
+def test_a_retroarch_exit_files_each_state_on_the_disc_it_was_saved_on(
+    rom: Rom, admin_user: User
+):
+    """A hotkey slot only reaches RomM in the exit archive, after later swaps."""
+    content = _exit_archive(
+        {
+            "saves/mGBA/Game.srm": ("save", b"eeprom"),
+            "states/mGBA/Game.state1": ("state", b"before"),
+            "states/mGBA/Game.state2": ("state", b"disc-1"),
+            "states/mGBA/Game.state3": ("state", b"disc-2"),
+        },
+        written={
+            "states/mGBA/Game.state1": (2026, 10, 7, 11, 0, 0),
+            "states/mGBA/Game.state2": (2026, 10, 7, 12, 30, 0),
+            "states/mGBA/Game.state3": (2026, 10, 7, 13, 30, 0),
+        },
+    )
+    swaps = [
+        session_store.DiscSwap(41, datetime(2026, 10, 7, 12, tzinfo=timezone.utc)),
+        session_store.DiscSwap(42, datetime(2026, 10, 7, 13, tzinfo=timezone.utc)),
+    ]
+    _write, store_state = _pull_exit(
+        rom, admin_user, content, disc_file_id=42, disc_swaps=swaps
+    )
+
+    discs = {c.args[4]: c.kwargs["disc_file_id"] for c in store_state.call_args_list}
+    assert discs == {b"before": None, b"disc-1": 41, b"disc-2": 42}
+
+
+def test_a_one_disc_session_files_every_state_on_it_whatever_the_clock(
+    rom: Rom, admin_user: User
+):
+    """A resume restores its disc once; a broker clock behind ours must not undo it."""
+    content = _exit_archive(
+        {
+            "saves/mGBA/Game.srm": ("save", b"eeprom"),
+            "states/mGBA/Game.state1": ("state", b"slot"),
+        },
+        written={"states/mGBA/Game.state1": (2026, 10, 7, 11, 0, 0)},
+    )
+    swaps = [session_store.DiscSwap(42, datetime(2026, 10, 7, 12, tzinfo=timezone.utc))]
+    _write, store_state = _pull_exit(
+        rom, admin_user, content, disc_file_id=42, disc_swaps=swaps
+    )
 
     assert store_state.call_args.kwargs["disc_file_id"] == 42
 
@@ -8687,6 +8759,7 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
         "rom_id": rom.id,
         "broker_session_id": "b1",
         "disc_file_id": 42,
+        "disc_swaps": [{"file_id": 42, "at": "2026-10-07T12:00:00+00:00"}],
     }
     exit_pull_queue.enqueue.side_effect = None
 
@@ -8709,6 +8782,9 @@ def test_an_exit_save_pull_runs_on_the_streaming_worker(
         "broker_session": "b1",
         "settled": True,
         "disc_file_id": 42,
+        "disc_swaps": [
+            session_store.DiscSwap(42, datetime(2026, 10, 7, 12, tzinfo=timezone.utc))
+        ],
     }
     assert kwargs["job_timeout"] == saves.SAVE_PULL_TTL_SECONDS
 
@@ -8735,11 +8811,14 @@ def test_a_queued_exit_save_pull_hands_on_the_disc(admin_user: User, rom: Rom):
                 broker_session=None,
                 settled=True,
                 disc_file_id=42,
+                disc_swaps=[swap],
             )
         return pull
 
+    swap = session_store.DiscSwap(42, datetime(2026, 10, 7, 12, tzinfo=timezone.utc))
     pull = asyncio.run(scenario())
     assert pull.call_args.kwargs["disc_file_id"] == 42
+    assert pull.call_args.kwargs["disc_swaps"] == [swap]
 
 
 def test_a_pull_that_cannot_be_queued_lets_the_next_claim_through(

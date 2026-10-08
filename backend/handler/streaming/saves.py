@@ -14,7 +14,7 @@ import posixpath
 import secrets
 import time
 import zipfile
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
@@ -28,6 +28,7 @@ from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save
 from handler.streaming import archive, broker, states, webstation
 from handler.streaming.config import ResolvedContainer
+from handler.streaming.session_store import DiscSwap
 from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, Save, State
 from models.rom import Rom
@@ -229,6 +230,8 @@ class _ExitState(NamedTuple):
     name: str
     content: bytes
     screenshot: bytes | None
+    # The broker's clock, read as UTC.
+    written: datetime
 
 
 class RawExit(NamedTuple):
@@ -314,6 +317,7 @@ def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
                     posixpath.basename(info.filename),
                     archive.read_member(zf, info),
                     archive.read_member(zf, shot) if shot is not None else None,
+                    datetime(*info.date_time, tzinfo=timezone.utc),
                 )
             )
         # Once the zip is dropped, a state the history can't file is gone.
@@ -358,6 +362,21 @@ def _capture_times(copies: list[State | None]) -> list[datetime | None]:
     return times[::-1]
 
 
+def _capture_disc(
+    written: datetime, swaps: Sequence[DiscSwap], disc_file_id: int | None
+) -> int | None:
+    """The disc in the tray when a state was written, None for the playlist's first."""
+    # One disc all session needs no clock, so a skewed broker can't misfile it.
+    if len({swap.file_id for swap in swaps}) <= 1:
+        return disc_file_id
+    mounted = None
+    for swap in swaps:
+        if swap.at > written:
+            break
+        mounted = swap.file_id
+    return mounted
+
+
 # Stands in for the version tag, so the stem leaves it room.
 _VERSION_TAG_ROOM = " [0000-00-00_00-00-00]"
 
@@ -369,6 +388,7 @@ async def _store_raw_exit(
     raw: RawExit,
     content: bytes,
     disc_file_id: int | None,
+    disc_swaps: Sequence[DiscSwap],
 ) -> bool:
     """File the exit's save under its core, as the web player names one, and its states.
 
@@ -415,7 +435,7 @@ async def _store_raw_exit(
                 sanitize_filename(state.name),
                 state.content,
                 screenshot=state.screenshot,
-                disc_file_id=disc_file_id,
+                disc_file_id=_capture_disc(state.written, disc_swaps, disc_file_id),
                 core=raw.core,
                 captured_at=when,
             )
@@ -437,6 +457,7 @@ async def pull_saves_to_library(
     *,
     settled: bool = False,
     disc_file_id: int | None = None,
+    disc_swaps: Sequence[DiscSwap] = (),
 ) -> bool:
     """Background task: pull in-game saves from the broker and store them.
 
@@ -447,6 +468,7 @@ async def pull_saves_to_library(
         settled: the emulator is done writing, so one attempt is final where the
             retries would wait out one still writing.
         disc_file_id: the disc the session swapped to, for the states it files.
+        disc_swaps: the session's swaps, to file each state on its own disc.
     """
     user = db_user_handler.get_user(user_id)
     rom = db_rom_handler.get_rom(rom_id)
@@ -465,7 +487,9 @@ async def pull_saves_to_library(
         try:
             raw = await asyncio.to_thread(_importable_raw_exit, container, content)
             stored = (
-                await _store_raw_exit(user, rom, emulator, raw, content, disc_file_id)
+                await _store_raw_exit(
+                    user, rom, emulator, raw, content, disc_file_id, disc_swaps
+                )
                 if raw is not None
                 else await store_save_asset(user, rom, emulator, content)
             )

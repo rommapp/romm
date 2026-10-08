@@ -250,11 +250,12 @@ async def cas_session(
 
 async def mutate_session(
     session_key: str,
-    changes: dict[str, Any],
+    changes: dict[str, Any] | Callable[[dict[str, Any]], dict[str, Any]],
     *,
     require: Callable[[dict[str, Any]], bool] | None = None,
 ) -> dict[str, Any] | None:
-    """Merge `changes` into a live session, atomically.
+    """Merge `changes` into a live session, atomically. A callable builds them
+    from the session as it stands, so they can extend what is stored.
 
     Returns the stored session, or None when the key is gone, corrupt, or
     `require` rejected it. Raises `StreamingSessionContended` when the write
@@ -264,7 +265,7 @@ async def mutate_session(
     def plan(session: dict[str, Any]) -> _SessionWrite | None:
         if require is not None and not require(session):
             return None
-        session.update(changes)
+        session.update(changes(session) if callable(changes) else changes)
         return _SessionWrite(json.dumps(session), STREAMING_SESSION_TTL_SECONDS)
 
     outcome, session = await cas_session(session_key, plan)
@@ -537,9 +538,19 @@ async def set_session_disc(
             or session.get("broker_session_id") == broker_session_id
         )
 
+    at = datetime.now(timezone.utc).isoformat()
+
+    def _swapped(session: dict[str, Any]) -> dict[str, Any]:
+        swaps = session.get("disc_swaps")
+        history = swaps if isinstance(swaps, list) else []
+        return {
+            "disc_file_id": file_id,
+            "disc_swaps": [*history, {"file_id": file_id, "at": at}],
+        }
+
     try:
         written = await mutate_session(
-            session_key, {"disc_file_id": file_id}, require=_still_the_same_claim
+            session_key, _swapped, require=_still_the_same_claim
         )
     except StreamingSessionContended:
         written = None
@@ -557,6 +568,25 @@ def session_disc_id(session: dict[str, Any]) -> int | None:
     """The disc a swap put this session on, if any."""
     value = session.get("disc_file_id")
     return value if isinstance(value, int) else None
+
+
+class DiscSwap(NamedTuple):
+    file_id: int
+    at: datetime
+
+
+def session_disc_swaps(session: dict[str, Any]) -> list[DiscSwap]:
+    """The discs this session's swaps put in the tray, oldest first."""
+    swaps = session.get("disc_swaps")
+    history: list[DiscSwap] = []
+    for swap in swaps if isinstance(swaps, list) else []:
+        try:
+            history.append(
+                DiscSwap(int(swap["file_id"]), datetime.fromisoformat(swap["at"]))
+            )
+        except KeyError, TypeError, ValueError:
+            continue
+    return history
 
 
 def session_is_stale(session: dict[str, Any]) -> bool:
