@@ -38,8 +38,6 @@ ROMM_TMP_PATH: Final[str | None] = _get_env("ROMM_TMP_PATH")
 LIBRARY_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/library"
 RESOURCES_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/assets"
-# Outside ROMM_BASE_PATH, which a container running as a non-default UID cannot
-# write. The entrypoint derives nginx's internal /cache/ alias the same way.
 CACHE_BASE_PATH: Final[str] = (
     f"{ROMM_TMP_PATH or '/tmp/romm'}/cache"  # trunk-ignore(bandit/B108)
 )
