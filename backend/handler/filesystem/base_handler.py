@@ -27,6 +27,7 @@ from models.base import (
 from utils.filesystem import (
     LINK_FALLBACK_ERRNOS,
     SERVED_FILE_MODE,
+    TEMP_FILE_PREFIX,
     check_filename_length,
     iter_directories,
     iter_files,
@@ -375,7 +376,6 @@ class FSHandler:
         self.base_path = Path(base_path).resolve()
         self._locks: dict[str, asyncio.Lock] = {}
         self._lock_mutex = asyncio.Lock()
-        self.base_path.mkdir(parents=True, exist_ok=True)
 
     async def _get_file_lock(self, file_path: str) -> asyncio.Lock:
         """Get or create a lock for a specific file path."""
@@ -497,7 +497,7 @@ class FSHandler:
         final os.replace() occurs on the same filesystem.
         """
         fd, temp_path_str = tempfile.mkstemp(
-            dir=str(target_path.parent), prefix=".romm_tmp_"
+            dir=str(target_path.parent), prefix=TEMP_FILE_PREFIX
         )
         temp_path = Path(temp_path_str)
         os.close(fd)

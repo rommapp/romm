@@ -169,30 +169,38 @@ def recency_key(asset: Save | State) -> tuple[datetime, int]:
     return (asset.updated_at, asset.id)
 
 
+def on_disk_recency_key(asset: Save | State) -> tuple[bool, datetime, int]:
+    """Recency order that ranks a file on disk above any missing one."""
+    return (not asset.missing_from_fs, *recency_key(asset))
+
+
 def newest_per_key[A: (Save, State), K: Hashable](
-    assets: Iterable[A], key: Callable[[A], K]
+    assets: Iterable[A],
+    key: Callable[[A], K],
+    rank: Callable[[A], tuple[object, ...]] = recency_key,
 ) -> dict[K, A]:
-    """The newest of the assets sharing each ``key``, by key."""
+    """The highest ranked of the assets sharing each ``key``, by key."""
     latest: dict[K, A] = {}
     for asset in assets:
         current = latest.get(asset_key := key(asset))
-        if current is None or recency_key(asset) > recency_key(current):
+        if current is None or rank(asset) > rank(current):
             latest[asset_key] = asset
     return latest
+
+
+def _state_slot_key(state: State) -> tuple[int, str | None, str]:
+    return (
+        state.rom_id,
+        retroarch_folder(state.emulator),
+        state_slot_suffix(state.file_name),
+    )
 
 
 def group_states_by_slot(
     states: Iterable[State],
 ) -> dict[tuple[int, str | None, str], State]:
-    """The newest state in each (rom, core folder, slot) bucket."""
-    return newest_per_key(
-        states,
-        lambda state: (
-            state.rom_id,
-            retroarch_folder(state.emulator),
-            state_slot_suffix(state.file_name),
-        ),
-    )
+    """The newest state in each (rom, core folder, slot) bucket, preferring one on disk."""
+    return newest_per_key(states, _state_slot_key, rank=on_disk_recency_key)
 
 
 def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
@@ -200,26 +208,36 @@ def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
     return f"{rom.fs_name_no_ext}.{slot_suffix}"
 
 
+def states_in_slot(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> list[State]:
+    """Every state, under any alias, in the slot a canonical name points at."""
+    key = (rom.id, retroarch_folder(emulator), state_slot_suffix(requested_file_name))
+    return [
+        state
+        for state in db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
+        if _state_slot_key(state) == key
+    ]
+
+
 def resolve_state_by_slot(
     user: User,
     rom: Rom,
     emulator: str | None,
     requested_file_name: str,
-    include_missing: bool = False,
+    prefer_on_disk: bool = True,
 ) -> State | None:
-    """The newest state in the slot a canonical name points at, whatever its name.
+    """The state the slot a canonical name points at serves, whatever its name.
 
     Args:
-        include_missing: Also match a `missing_from_fs` row, so an upload revives
-            it in place. Reads skip them to serve the newest bytes on disk.
+        prefer_on_disk: False ranks a `missing_from_fs` row by recency alone, so
+            an upload revives the newest state in place.
     """
-    states = [
-        state
-        for state in db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
-        if include_missing or not state.missing_from_fs
-    ]
-    key = (rom.id, retroarch_folder(emulator), state_slot_suffix(requested_file_name))
-    return group_states_by_slot(states).get(key)
+    return max(
+        states_in_slot(user, rom, emulator, requested_file_name),
+        key=on_disk_recency_key if prefer_on_disk else recency_key,
+        default=None,
+    )
 
 
 # RetroArch's save RAM, the one save file that goes through slots. Companions
@@ -244,25 +262,20 @@ def advertised_save_name(save: Save) -> str:
     return f"{save.rom.fs_name_no_ext}{os.path.splitext(name)[1]}"
 
 
-def _distinct(saves: Iterable[Save]) -> list[Save]:
-    """``saves`` without repeats, which a case-insensitive collation returns per alias."""
-    return list({save.id: save for save in saves}.values())
-
-
 def _unslotted_saves_at(
     user: User, rom: Rom, emulator: str | None, file_name: str
 ) -> list[Save]:
     """The unslotted saves at a RetroArch path, under any of ``emulator``'s aliases."""
-    saves = [
-        db_save_handler.get_save_by_path(
-            user_id=user.id,
-            rom_id=rom.id,
-            file_path=build_asset_file_path(user, rom, "saves", alias),
-            file_name=file_name,
-        )
-        for alias in retroarch_aliases(emulator)
-    ]
-    return _distinct([save for save in saves if save and save.slot is None])
+    saves = db_save_handler.get_saves_at_paths(
+        user_id=user.id,
+        rom_id=rom.id,
+        file_paths=[
+            build_asset_file_path(user, rom, "saves", alias)
+            for alias in retroarch_aliases(emulator)
+        ],
+        file_name=file_name,
+    )
+    return [save for save in saves if save.slot is None]
 
 
 def _unslotted_save_at(
@@ -271,7 +284,7 @@ def _unslotted_save_at(
     # Prefers a file on disk, which is the one the manifest lists.
     return max(
         _unslotted_saves_at(user, rom, emulator, file_name),
-        key=lambda save: (not save.missing_from_fs, recency_key(save)),
+        key=on_disk_recency_key,
         default=None,
     )
 
@@ -286,13 +299,12 @@ def _alias_lineages(lineage: SaveLineage) -> list[SaveLineage]:
 
 def _lineage_head(user: User, rom: Rom, lineage: SaveLineage) -> Save | None:
     """The newest `autosave` version across ``lineage``'s aliases."""
-    heads = [
-        db_save_handler.get_lineage_head(
-            user_id=user.id, rom_id=rom.id, slot=AUTOSAVE_SLOT, lineage=alias
-        )
-        for alias in _alias_lineages(lineage)
-    ]
-    return max((head for head in heads if head), key=recency_key, default=None)
+    return db_save_handler.get_lineage_head(
+        user_id=user.id,
+        rom_id=rom.id,
+        slot=AUTOSAVE_SLOT,
+        lineages=_alias_lineages(lineage),
+    )
 
 
 def resolve_save(
@@ -312,22 +324,20 @@ def saves_at_path(
     if not lineage:
         return _unslotted_saves_at(user, rom, emulator, requested_file_name)
 
-    saves: list[Save] = []
     folded = requested_file_name.casefold()
-    for alias in _alias_lineages(lineage):
-        saves += db_save_handler.get_saves(
-            user_id=user.id, rom_ids=[rom.id], slot=AUTOSAVE_SLOT, lineage=alias
+    return [
+        save
+        for save in db_save_handler.get_saves(
+            user_id=user.id,
+            rom_ids=[rom.id],
+            slot=AUTOSAVE_SLOT,
+            with_unslotted=True,
+            lineages=_alias_lineages(lineage),
         )
-        # The manifest hides these behind the head, so whatever their case they
-        # would resurface once the versions go.
-        saves += [
-            save
-            for save in db_save_handler.get_saves(
-                user_id=user.id, rom_ids=[rom.id], slot_is_null=True, lineage=alias
-            )
-            if save.file_name.casefold() == folded
-        ]
-    return _distinct(saves)
+        # The manifest hides unslotted ones behind the head, so whatever their
+        # case they would resurface once the versions go.
+        if save.slot is not None or save.file_name.casefold() == folded
+    ]
 
 
 SaveUpload = Literal["created", "updated", "unchanged"]
@@ -700,11 +710,9 @@ def _manifest_assets(
         [
             (state.emulator, canonical_state_file_name(state.rom, slot_suffix), state)
             for (_rom_id, _folder, slot_suffix), state in group_states_by_slot(
-                state
-                for state in db_state_handler.get_states(user_id=user.id)
-                if not state.missing_from_fs
+                db_state_handler.get_states(user_id=user.id)
             ).items()
-            if can_see(state.rom)
+            if not state.missing_from_fs and can_see(state.rom)
         ]
         if tree != "saves"
         else []

@@ -25,7 +25,6 @@ from adapters.services.rom_converto import (
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
-from handler.rom_conversion import STAGE_PREFIX
 from handler.rom_files import refresh_rom_files
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -34,10 +33,10 @@ from tasks.registry import CONVERT_LIBRARY_SPEC
 from tasks.scheduled.convert_images_to_webp import ConversionStats
 from tasks.tasks import Task
 from utils.context import initialize_context
-from utils.filesystem import LINK_FALLBACK_ERRNOS
+from utils.filesystem import LINK_FALLBACK_ERRNOS, TEMP_FILE_PREFIX
 
 _PLAYLIST_EXT: Final = ".m3u"
-_CONVERT_STAGE_PREFIX: Final = f"{STAGE_PREFIX}convert_"
+_CONVERT_STAGE_PREFIX: Final = f"{TEMP_FILE_PREFIX}convert_"
 
 
 @dataclass

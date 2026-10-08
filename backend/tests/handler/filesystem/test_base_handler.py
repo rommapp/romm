@@ -52,15 +52,15 @@ class TestFSHandler:
         mock_file.file = BytesIO(sample_file_content)
         return mock_file
 
-    def test_init_creates_base_directory(self, temp_dir):
-        """Test that FSHandler creates base directory on initialization"""
-        # Remove the directory to test creation
+    async def test_base_directory_is_created_on_first_write(self, temp_dir):
         shutil.rmtree(temp_dir)
 
         handler = FSHandler(temp_dir)
+        assert not handler.base_path.exists()
 
-        assert handler.base_path.exists()
-        assert handler.base_path.is_dir()
+        await handler.write_file(b"data", path="", filename="test.txt")
+
+        assert (handler.base_path / "test.txt").read_bytes() == b"data"
 
     def test_init_resolves_path(self, temp_dir):
         """Test that FSHandler resolves the base path"""
@@ -770,15 +770,14 @@ class TestFSHandler:
 
 
 class TestFSHandlerInit:
-    def test_raises_on_mkdir_failure(self):
-        """OSError from mkdir propagates, so misconfigured paths fail loudly
-        at construction time. Optional features should defer construction
-        (e.g. via a lazy factory) rather than swallow the error."""
+    def test_does_not_touch_an_unwritable_base_path(self):
+        """Handlers are built at import, so an unmounted base path can't block boot."""
         with patch.object(
             Path, "mkdir", side_effect=PermissionError(errno.EACCES, "denied")
-        ):
-            with pytest.raises(PermissionError):
-                FSHandler("/some/unwritable/path")
+        ) as mkdir:
+            FSHandler("/some/unwritable/path")
+
+        mkdir.assert_not_called()
 
 
 class TestRegionRanksForPriority:

@@ -25,6 +25,7 @@ from handler.scan_jobs import get_pending_scan_jobs
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.filesystem import TEMP_FILE_PREFIX
 from utils.sentry import init_sentry
 
 init_sentry()
@@ -120,7 +121,7 @@ def process_changes(changes: Sequence[Change]) -> None:
     def _is_excluded(path: str) -> bool:
         parts = path.strip("/").split("/")
         for part in parts:
-            if part.startswith(".romm_tmp_"):
+            if part.startswith(TEMP_FILE_PREFIX):
                 return True
             if any(
                 part == pat or fnmatch.fnmatch(part, pat) for pat in excluded_patterns

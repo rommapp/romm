@@ -11,9 +11,5 @@ class FSLaunchboxHandler(FSHandler):
 
 @functools.cache
 def get_fs_launchbox_handler() -> FSLaunchboxHandler:
-    """Lazily instantiate the LaunchBox handler on first use.
-
-    Deferred so that startup doesn't fail when the LaunchBox feature is
-    unconfigured or its base path is not writable.
-    """
+    """Lazily instantiate the LaunchBox handler on first use."""
     return FSLaunchboxHandler()
