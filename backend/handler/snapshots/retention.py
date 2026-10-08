@@ -58,3 +58,14 @@ async def prune_branches() -> int:
     )
     await discard_content(released)
     return len(released.saves) + len(released.states)
+
+
+async def prune_unreachable() -> int:
+    """Drop archival snapshots that lost their ROM and carry no hash to find it by.
+
+    Returns:
+        How many content rows went with them.
+    """
+    released = db_snapshot_handler.prune_unreachable_archival()
+    await discard_content(released)
+    return len(released.saves) + len(released.states)

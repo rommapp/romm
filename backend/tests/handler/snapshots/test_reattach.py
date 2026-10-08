@@ -40,6 +40,28 @@ async def test_a_rescanned_file_reattaches_its_detached_channel(
     assert save.rom_id == returned.id
 
 
+async def test_a_rescanned_file_brings_back_an_archived_save_whose_game_was_removed(
+    admin_user: User, rom: Rom, hashed_file: RomFile, platform: Platform
+):
+    result = await first_push(admin_user, rom, hashed_file)
+    channel_id = result.snapshot.channel_id
+    assert channel_id is not None
+    db_snapshot_handler.delete_channel(channel_id)
+    db_rom_handler.delete_rom(rom.id)
+    returned = make_rom(platform, "test_rom_again", slug="test_rom_again")
+
+    db_rom_handler.sync_rom_files(
+        returned.id, [scanned(hashed_file, hashed_file.sha1_hash)]
+    )
+
+    snapshot = db_snapshot_handler.get_snapshot(result.snapshot.id)
+    with sync_session() as session:
+        save = session.get_one(Save, result.snapshot.save_id)
+    assert snapshot is not None and snapshot.rom_id == returned.id
+    assert snapshot.channel_id is None
+    assert save.rom_id == returned.id
+
+
 async def test_a_file_on_another_platform_leaves_the_channel_detached(
     admin_user: User,
     rom: Rom,

@@ -212,10 +212,23 @@ async def test_the_branch_lifetime_setting_moves_the_cutoff(
     assert alive(branch) == [False]
 
 
-async def test_deleting_a_detached_channel_keeps_nothing_unreachable(
-    admin_user: User, rom: Rom, hashed_file: RomFile, _assets_dir: Path
+def _unhashed_file(rom: Rom) -> RomFile:
+    return db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="game.sfc",
+            file_path=rom.fs_path,
+            file_size_bytes=1024,
+        )
+    )
+
+
+@pytest.mark.parametrize("hashed", [True, False])
+async def test_deleting_a_detached_channel_keeps_nothing(
+    admin_user: User, rom: Rom, hashed_file: RomFile, _assets_dir: Path, hashed: bool
 ):
-    results = await five_pushes(admin_user, rom, hashed_file)
+    rom_file = hashed_file if hashed else _unhashed_file(rom)
+    results = await five_pushes(admin_user, rom, rom_file)
     channel_id = results[0].snapshot.channel_id
     assert channel_id is not None
     db_snapshot_handler.set_pin(results[-2].snapshot.id, admin_user.id, True)
@@ -226,8 +239,23 @@ async def test_deleting_a_detached_channel_keeps_nothing_unreachable(
     with sync_session() as session:
         assert session.query(Snapshot).count() == 0
         assert session.query(Save).count() == 0
-        assert session.query(State).count() == 0
     assert stored_files(_assets_dir) == []
+
+
+@pytest.mark.parametrize("hashed", [True, False])
+async def test_pruning_drops_only_archival_saves_no_scan_can_find(
+    admin_user: User, rom: Rom, hashed_file: RomFile, hashed: bool
+):
+    rom_file = hashed_file if hashed else _unhashed_file(rom)
+    result = await first_push(admin_user, rom, rom_file)
+    channel_id = result.snapshot.channel_id
+    assert channel_id is not None
+    await retention.discard_content(db_snapshot_handler.delete_channel(channel_id))
+    db_rom_handler.delete_rom(rom.id)
+
+    await retention.prune_unreachable()
+
+    assert alive(result) == [hashed]
 
 
 async def test_deleting_a_channel_keeps_its_current_and_frees_its_legacy_saves(

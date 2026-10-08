@@ -15,6 +15,9 @@ class PruneSnapshotsTask(PeriodicTask):
         removed = await retention.prune_branches()
         if removed:
             log.info(f"Pruned expired sync branches and {removed} content row(s)")
+        orphaned = await retention.prune_unreachable()
+        if orphaned:
+            log.info(f"Pruned unreachable archival saves and {orphaned} content row(s)")
 
 
 prune_snapshots_task = PruneSnapshotsTask()
