@@ -324,7 +324,6 @@ start_bin_watcher() {
 
 start_bin_sync_watcher() {
 	info_log "Starting sync folder watcher"
-	mkdir -p "${sync_base_path}"
 	local -a wrap=()
 	otel_prefix wrap sync_watcher
 	watchfiles \

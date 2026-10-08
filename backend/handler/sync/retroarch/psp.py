@@ -442,12 +442,9 @@ async def put_psp_file(
         else:
             await _add_bundle(user, info, rom, merged)
 
-        for name in pending_names:
-            with suppress(FileNotFoundError):
-                await fs_retroarch_sync_handler.remove_file(f"{pending_dir}/{name}")
         if pending_names:
-            with suppress(OSError):
-                fs_retroarch_sync_handler.validate_path(pending_dir).rmdir()
+            with suppress(FileNotFoundError):
+                await fs_retroarch_sync_handler.remove_directory(pending_dir)
 
 
 async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:

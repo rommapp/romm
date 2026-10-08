@@ -71,7 +71,7 @@ def _retroarch_upload_cap(client: TestClient, max_size: int):
 
 @pytest.fixture(autouse=True)
 def _isolated_sync_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Keep blobs and pending PSP files per test, since user ids repeat across test databases."""
+    """Keep sync files per test, since user ids repeat across test databases."""
     base = (tmp_path / "retroarch_sync").resolve()
     base.mkdir()
     monkeypatch.setattr(fs_retroarch_sync_handler, "base_path", base)
