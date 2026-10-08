@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, waitFor } from "storybook/test";
 import { romFixture } from "@/utils/rom.fixtures";
+import { colorCoverArt } from "@/v2/tokens";
 import GameCover from "./GameCover.vue";
 
 // Two real images, so the browser makes a real srcset pick at this screen's density.
@@ -14,8 +15,8 @@ const image = (fill: string) =>
     ),
   );
 
-const small = image("#3b82f6");
-const large = image("#f97316");
+const small = image(colorCoverArt.base);
+const large = image(colorCoverArt.warm);
 
 const rom = romFixture({
   path_cover_small: small,
@@ -33,23 +34,45 @@ export default meta;
 
 type Story = StoryObj<typeof GameCover>;
 
-/** At 1x or below the browser takes the small cover, not the large `src`. */
-export const SmallCoverAtLowDensity: Story = {
-  name: "Small cover at low density",
+const coverImg = (canvasElement: HTMLElement) =>
+  canvasElement.querySelector<HTMLImageElement>("img.game-cover__img");
+
+/** The browser takes the small cover at 1x or below and the large one above. */
+export const CoverForScreenDensity: Story = {
+  name: "Cover for screen density",
   render: () => ({
     components: { GameCover },
     setup: () => ({ rom }),
     template: `<div style="width:160px"><GameCover :rom="rom" title="Chrono Trigger" :webp="false" responsive /></div>`,
   }),
   play: async ({ canvasElement }) => {
-    const img = () =>
-      canvasElement.querySelector<HTMLImageElement>("img.game-cover__img");
-    await waitFor(() => expect(img()?.currentSrc).toBeTruthy());
+    await waitFor(() =>
+      expect(coverImg(canvasElement)?.currentSrc).toBeTruthy(),
+    );
 
-    await expect(window.devicePixelRatio).toBeLessThanOrEqual(1);
-    await expect(img()?.currentSrc).toBe(small);
-    await expect(img()?.getAttribute("srcset")).toBe(
+    await expect(coverImg(canvasElement)?.currentSrc).toBe(
+      window.devicePixelRatio <= 1 ? small : large,
+    );
+    await expect(coverImg(canvasElement)?.getAttribute("srcset")).toBe(
       `${small} 1x, ${large} 2x`,
     );
+  },
+};
+
+/** Without `responsive` the slot always loads the large cover. */
+export const LargeCoverByDefault: Story = {
+  name: "Large cover by default",
+  render: () => ({
+    components: { GameCover },
+    setup: () => ({ rom }),
+    template: `<div style="width:160px"><GameCover :rom="rom" title="Chrono Trigger" :webp="false" /></div>`,
+  }),
+  play: async ({ canvasElement }) => {
+    await waitFor(() =>
+      expect(coverImg(canvasElement)?.currentSrc).toBeTruthy(),
+    );
+
+    await expect(coverImg(canvasElement)?.hasAttribute("srcset")).toBe(false);
+    await expect(coverImg(canvasElement)?.currentSrc).toBe(large);
   },
 };
