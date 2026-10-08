@@ -419,6 +419,15 @@ fi
 # Startup process requires database and cache to be already available
 run_startup
 
+# The image's /romm is only writable by UID 1000, so the sync folder needs its own mount.
+if [[ ${ENABLE_SYNC_FOLDER_WATCHER} == "true" ]]; then
+	sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
+	if ! mkdir -p "${sync_base_path}" 2>/dev/null || [[ ! -w ${sync_base_path} ]]; then
+		warn_log "${sync_base_path} is not writable, so the sync folder watcher is disabled. Mount a host folder there to use it."
+		ENABLE_SYNC_FOLDER_WATCHER="false"
+	fi
+fi
+
 # main loop
 while ! ((exited)); do
 	watchdog_process_pid gunicorn
