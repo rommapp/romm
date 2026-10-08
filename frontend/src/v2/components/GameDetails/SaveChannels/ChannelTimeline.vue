@@ -26,7 +26,7 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const deviceLabel = useDeviceLabel();
 
-const LANE_COLORS = [
+const CHANNEL_COLORS = [
   "var(--r-color-brand-primary)",
   "var(--r-color-brand-accent)",
   "var(--r-color-success)",
@@ -34,12 +34,14 @@ const LANE_COLORS = [
 ];
 const LANE_W = 34;
 const ROW_H = 46;
-const LEFT = 20;
+const LEFT = 30;
+const ARC_REACH = LANE_W * 0.7;
 const TOP = 22;
 
 interface Node {
   key: string;
   lane: number;
+  color: string;
   channel: ChannelSchema;
   snapshot: SnapshotSchema | null;
   save: SaveSchema | null;
@@ -48,11 +50,28 @@ interface Node {
   y: number;
 }
 
+const colorByChannel = computed(
+  () =>
+    new Map(
+      [...props.channels]
+        .sort(
+          (a, b) =>
+            Date.parse(a.created_at) - Date.parse(b.created_at) ||
+            a.id.localeCompare(b.id),
+        )
+        .map((channel, age) => [
+          channel.id,
+          CHANNEL_COLORS[age % CHANNEL_COLORS.length]!,
+        ]),
+    ),
+);
+
 const nodes = computed<Node[]>(() => {
   const unplaced = props.channels.flatMap((channel, lane) => [
     ...(props.histories[channel.id] ?? []).map((snapshot) => ({
       key: `s-${snapshot.id}`,
       lane,
+      color: colorByChannel.value.get(channel.id)!,
       channel,
       snapshot,
       save: null,
@@ -61,6 +80,7 @@ const nodes = computed<Node[]>(() => {
     ...(props.legacySaves[channel.id] ?? []).map((save) => ({
       key: `l-${save.id}`,
       lane,
+      color: colorByChannel.value.get(channel.id)!,
       channel,
       snapshot: null,
       save,
@@ -86,45 +106,59 @@ const bySnapshotId = computed(
     ),
 );
 
-const rails = computed(() =>
-  props.channels.map((channel, lane) => {
-    const ys = nodes.value.filter((n) => n.lane === lane).map((n) => n.y);
-    return {
-      key: channel.id,
-      x: LEFT + lane * LANE_W,
-      y1: Math.min(...ys),
-      y2: Math.max(...ys),
-      color: LANE_COLORS[lane % LANE_COLORS.length],
-      dashed: !channel.current,
-      visible: ys.length > 0,
-    };
-  }),
-);
-
-const edges = computed(() =>
-  nodes.value.flatMap((node) => {
-    const parentId = node.snapshot?.parent_snapshot_id;
-    const parent = parentId ? bySnapshotId.value.get(parentId) : undefined;
-    if (!parent || !node.snapshot) return [];
-    const midY = (parent.y + node.y) / 2;
-    return [
-      {
-        key: `${parent.key}-${node.key}`,
-        d: `M${parent.x},${parent.y} C${parent.x},${midY} ${node.x},${midY} ${node.x},${node.y}`,
-        color: LANE_COLORS[node.lane % LANE_COLORS.length],
-        branch: node.snapshot.kind === "branch",
-      },
-    ];
-  }),
+const parentIds = computed(
+  () => new Set(nodes.value.map((n) => n.snapshot?.parent_snapshot_id)),
 );
 
 function isCurrent(node: Node): boolean {
   return node.snapshot?.id === node.channel.current_snapshot_id;
 }
 
+function isAbandoned(node: Node): boolean {
+  return (
+    node.snapshot?.kind === "channel" &&
+    !isCurrent(node) &&
+    !parentIds.value.has(node.snapshot.id)
+  );
+}
+
+function skipsOver(parent: Node, node: Node): boolean {
+  return (
+    parent.lane === node.lane &&
+    nodes.value.some(
+      (n) => n.lane === node.lane && n.y > node.y && n.y < parent.y,
+    )
+  );
+}
+
+function edgePath(parent: Node, node: Node): string {
+  if (skipsOver(parent, node)) {
+    const arcX = node.x - ARC_REACH;
+    return `M${parent.x},${parent.y} C${arcX},${parent.y} ${arcX},${node.y} ${node.x},${node.y}`;
+  }
+  const midY = (parent.y + node.y) / 2;
+  return `M${parent.x},${parent.y} C${parent.x},${midY} ${node.x},${midY} ${node.x},${node.y}`;
+}
+
+const edges = computed(() =>
+  nodes.value.flatMap((node) => {
+    const parentId = node.snapshot?.parent_snapshot_id;
+    const parent = parentId ? bySnapshotId.value.get(parentId) : undefined;
+    if (!parent || !node.snapshot) return [];
+    return [
+      {
+        key: `${parent.key}-${node.key}`,
+        d: edgePath(parent, node),
+        color: node.color,
+        branch: node.snapshot.kind === "branch",
+        abandoned: isAbandoned(node),
+      },
+    ];
+  }),
+);
+
 function headline(node: Node): string {
   const parts = [node.channel.label];
-  if (isCurrent(node)) parts.push(t("channels.current"));
   if (node.snapshot?.kind === "branch") parts.push(t("channels.branch"));
   if (node.snapshot?.pin_count) parts.push(t("channels.pinned"));
   if (node.save) parts.push(t("channels.legacy-save"));
@@ -158,32 +192,21 @@ function onKey(event: KeyboardEvent, node: Node) {
       role="group"
       :aria-label="t('channels.timeline-label')"
     >
-      <line
-        v-for="rail in rails.filter((r) => r.visible)"
-        :key="rail.key"
-        :x1="rail.x"
-        :x2="rail.x"
-        :y1="rail.y1"
-        :y2="rail.y2"
-        :stroke="rail.color"
-        stroke-opacity="0.35"
-        stroke-width="2"
-        :stroke-dasharray="rail.dashed ? '3 4' : undefined"
-      />
       <path
         v-for="edge in edges"
         :key="edge.key"
         :d="edge.d"
         fill="none"
-        :stroke="edge.color"
+        :stroke="edge.abandoned ? 'var(--r-color-fg-muted)' : edge.color"
         stroke-width="2"
         :stroke-dasharray="edge.branch ? '4 4' : undefined"
-        :stroke-opacity="edge.branch ? 0.6 : 1"
+        :stroke-opacity="edge.branch || edge.abandoned ? 0.6 : 1"
       />
       <g
         v-for="node in nodes"
         :key="node.key"
         class="r-channel-timeline__node"
+        :class="{ 'r-channel-timeline__node--abandoned': isAbandoned(node) }"
         role="button"
         tabindex="0"
         :aria-label="`${headline(node)}, ${detail(node)}`"
@@ -197,9 +220,9 @@ function onKey(event: KeyboardEvent, node: Node) {
           :fill="
             node.save || node.snapshot?.kind === 'branch'
               ? 'var(--r-color-bg)'
-              : LANE_COLORS[node.lane % LANE_COLORS.length]
+              : node.color
           "
-          :stroke="LANE_COLORS[node.lane % LANE_COLORS.length]"
+          :stroke="node.color"
           stroke-width="2"
         />
         <circle
@@ -234,6 +257,13 @@ function onKey(event: KeyboardEvent, node: Node) {
 .r-channel-timeline__node {
   cursor: pointer;
   outline: none;
+}
+.r-channel-timeline__node--abandoned {
+  opacity: 0.5;
+}
+.r-channel-timeline__node--abandoned circle:first-child {
+  fill: var(--r-color-fg-muted);
+  stroke: var(--r-color-fg-muted);
 }
 .r-channel-timeline__headline {
   fill: var(--r-color-fg);
