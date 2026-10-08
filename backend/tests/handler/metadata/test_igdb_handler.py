@@ -1289,13 +1289,19 @@ class TestGetPlatform:
             "family_slug": "texas-instruments",
         }
 
-    def test_every_unlisted_platform_mapping_is_consistent(self):
-        assert not IGDB_SIBLING_PLATFORMS.keys() & IGDB_PLATFORM_LIST.keys()
-        assert not IGDB_PLATFORM_FAMILIES.keys() & IGDB_PLATFORM_LIST.keys()
-        assert all(
-            family["family_name"] and family["family_slug"]
-            for family in IGDB_PLATFORM_FAMILIES.values()
-        )
+    @pytest.mark.parametrize(
+        "slug", sorted(IGDB_SIBLING_PLATFORMS.keys() | IGDB_PLATFORM_FAMILIES.keys())
+    )
+    def test_every_unlisted_platform_gets_a_family(
+        self, handler: IGDBHandler, slug: UPS
+    ):
+        assert slug not in IGDB_PLATFORM_LIST
+
+        platform = handler.get_platform(slug)
+
+        assert (platform["igdb_id"], platform["slug"]) == (None, slug)
+        assert platform.get("family_name")
+        assert platform.get("family_slug")
 
     def test_an_unknown_platform(self, handler: IGDBHandler):
         assert handler.get_platform("not-a-platform") == {
