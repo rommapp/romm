@@ -914,7 +914,7 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 | GET    | `/{id}/content/{file_name}`  | ROMS_READ  | Download ROM, in a listed `?format=` when asked  |
 | POST   | `/unidentified`              | ROMS_READ  | Get unidentified ROMs                            |
 
-With rom-converto enabled (`ROM_CONVERTO_ENABLED`, `converto.download_conversion_enabled`), `?format=zso,iso` lists the formats a client can read. A single-file download whose stored format is listed is served as-is. Otherwise the first listed format with a copy cached under `/romm/cache/converts` is served, then the first one rom-converto can produce: answered by the same request if it converts within a few seconds, else `202` with `Retry-After` while it finishes. `406` means no listed format can be served, and `HEAD` reports the same without starting a conversion. Only signed-in, non-kiosk users start conversions. A rom's detail response lists the formats its single file can be converted to in `download_formats`, empty when the caller can't start a conversion.
+With rom-converto enabled (`ROM_CONVERTO_ENABLED`, `converto.download_conversion_enabled`), `?format=zso,iso` lists the formats a client can read. A single-file download whose stored format is listed is served as-is. Otherwise the first listed format with a copy cached under `/tmp/romm/cache/converts` (`$ROMM_TMP_PATH/cache/converts` when set) is served, then the first one rom-converto can produce: answered by the same request if it converts within a few seconds, else `202` with `Retry-After` while it finishes. `406` means no listed format can be served, and `HEAD` reports the same without starting a conversion. Only signed-in, non-kiosk users start conversions. A rom's detail response lists the formats its single file can be converted to in `download_formats`, empty when the caller can't start a conversion.
 
 #### ROM Upload (Chunked)
 
@@ -1031,10 +1031,11 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 - **Manifest:** assets whose file is gone are flagged `missing_from_fs`. Hashes
   are MD5s of the bytes on disk, Redis-cached by path, size and mtime.
 - **PSP:** PPSSPP's `PSP/SAVEDATA/<folder>/` files are stored as one zipped
-  `Save` per folder. A folder whose title matches no ROM is buffered under
-  `SYNC_RETROARCH_PSP_PENDING_PATH`, or mapped through `SYNC_RETROARCH_PSP_SERIAL_MAP`.
+  `Save` per folder. A folder whose title matches no ROM is buffered in the
+  user's `retroarch/psp_pending/` folder until it resolves, or mapped through
+  `SYNC_RETROARCH_PSP_SERIAL_MAP`. Clients can't reach `psp_pending/`.
 - **Blobs:** `config/`, `thumbnails/` and `system/` belong to no ROM, so they
-  are stored per user under `SYNC_RETROARCH_BASE_PATH` (`FSRetroArchSyncHandler`).
+  are stored per user under `assets/users/<user>/retroarch/` (`FSRetroArchSyncHandler`).
 - **Auth:** the router gates itself so it can answer a 401 Basic challenge,
   and sends body-less errors, which RetroArch's client needs. The kiosk guest
   may browse `roms/` but is challenged everywhere else. Uploads are capped at

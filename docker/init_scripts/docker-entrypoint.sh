@@ -38,6 +38,8 @@ done
 # support the default value syntax `${VAR:-default}`.
 export ROMM_BASE_PATH=${ROMM_BASE_PATH:-/romm}
 export ROMM_PORT=${ROMM_PORT:-8080}
+# Matches CACHE_BASE_PATH in the backend config, for nginx's /cache/ alias.
+export ROMM_CACHE_BASE_PATH="${ROMM_TMP_PATH:-/tmp/romm}/cache"
 # Keep the nginx upstream port in sync with the port gunicorn binds to.
 export DEV_PORT=${DEV_PORT:-5000}
 
