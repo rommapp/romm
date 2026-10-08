@@ -731,19 +731,39 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
             await remove_save(save)
         return _empty(status.HTTP_204_NO_CONTENT)
 
-    asset = await _get_asset(request.user, rom, parsed)
-    if not asset:
+    if parsed.is_state_screenshot:
+        screenshot = await asyncio.to_thread(
+            sync_handler.resolve_state_screenshot_by_slot,
+            request.user,
+            rom,
+            parsed.emulator,
+            parsed.file_name,
+        )
+        if not screenshot:
+            return _empty(status.HTTP_404_NOT_FOUND)
+
+        log.info(f"Cloud sync delete {hl(screenshot.file_name)} [{rom.platform_slug}]")
+        await asyncio.to_thread(db_screenshot_handler.delete_screenshot, screenshot.id)
+        with suppress(FileNotFoundError):
+            await fs_asset_handler.remove_file(file_path=screenshot.full_path)
+        return _empty(status.HTTP_204_NO_CONTENT)
+
+    # Every alias in the slot goes, or an older one would resurface at this path.
+    states = await asyncio.to_thread(
+        sync_handler.states_in_slot,
+        request.user,
+        rom,
+        parsed.emulator,
+        parsed.file_name,
+    )
+    if not states:
         return _empty(status.HTTP_404_NOT_FOUND)
 
-    log.info(f"Cloud sync delete {hl(asset.file_name)} [{rom.platform_slug}]")
-
-    if isinstance(asset, Screenshot):
-        await asyncio.to_thread(db_screenshot_handler.delete_screenshot, asset.id)
-    else:
-        await asyncio.to_thread(db_state_handler.delete_state, asset.id)
-
-    with suppress(FileNotFoundError):
-        await fs_asset_handler.remove_file(file_path=asset.full_path)
+    log.info(f"Cloud sync delete {hl(parsed.file_name)} [{rom.platform_slug}]")
+    for state in states:
+        await asyncio.to_thread(db_state_handler.delete_state, state.id)
+        with suppress(FileNotFoundError):
+            await fs_asset_handler.remove_file(file_path=state.full_path)
 
     return _empty(status.HTTP_204_NO_CONTENT)
 

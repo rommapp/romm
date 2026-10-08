@@ -1349,6 +1349,30 @@ class TestRetroArchSyncCoreAliases:
         assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"newer"
 
     @_mock_asset_md5()
+    def test_a_state_on_disk_wins_over_a_newer_missing_alias(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"argosy")
+        missing = self._state(admin_user, rom, "mednafen_psx_hw", b"gone")
+        db_state_handler.update_state(missing.id, {"missing_from_fs": True})
+
+        assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"argosy"
+
+    @_mock_asset_md5()
+    def test_delete_removes_states_under_every_alias_in_the_slot(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        self._state(admin_user, rom, "mednafen_psx_hw", b"newer")
+
+        response = client.request("DELETE", self.STATE_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert db_state_handler.get_states(user_id=admin_user.id) == []
+        assert self._manifest_paths(client) == []
+
+    @_mock_asset_md5()
     def test_a_screenshot_for_an_aliased_state_is_filed_beside_it(
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
     ):
