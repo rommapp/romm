@@ -104,6 +104,7 @@ Here are some cool projects maintained by members of our community. Please note 
 - [Gameflow Deck][gameflow-deck]: Controller-first frontend for handhelds by [@simeonradivoev](https://github.com/simeonradivoev)
 - [RomMix][rommix]: Big Picture-style frontend for Linux and Steam Deck by [@leclercb](https://github.com/leclercb)
 - [Tender][romm-tender]: Decky Loader plugin with library and save sync for Steam Deck by [@danielcopper](https://github.com/danielcopper)
+- [Vita RomM][vita-romm]: PS Vita homebrew client for browsing and downloading games by [@denkacn](https://github.com/denkacn)
 
 ### Sync
 
@@ -187,6 +188,7 @@ These companies support us by providing their tools for free:
 [retrovault]: https://github.com/kennethreitz/RetroVault
 [gameflow-deck]: https://github.com/simeonradivoev/gameflow-deck
 [rommix]: https://github.com/leclercb/rommix
+[vita-romm]: https://github.com/denkacn/vita-romm
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher
