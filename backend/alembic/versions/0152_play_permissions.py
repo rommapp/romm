@@ -1,6 +1,6 @@
-"""Grant streaming read and write to every existing permission group
+"""Grant streaming and emulation read and write to every existing permission group
 
-Revision ID: 0152_streaming_permission
+Revision ID: 0152_play_permissions
 Revises: 0151_state_content_hash
 Create Date: 2026-10-07 00:00:00.000000
 
@@ -10,12 +10,12 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0152_streaming_permission"
+revision = "0152_play_permissions"
 down_revision = "0151_state_content_hash"
 branch_labels = None
 depends_on = None
 
-STREAMING = "streaming"
+ENTITIES = ("streaming", "emulation")
 ACTIONS = ("read", "write")
 
 
@@ -42,19 +42,20 @@ def upgrade() -> None:
     grants_t = _grants_t()
 
     existing = {
-        (row.group_id, row.action)
+        (row.group_id, row.entity, row.action)
         for row in conn.execute(
-            sa.select(grants_t.c.group_id, grants_t.c.action).where(
-                grants_t.c.entity == STREAMING
+            sa.select(grants_t.c.group_id, grants_t.c.entity, grants_t.c.action).where(
+                grants_t.c.entity.in_(ENTITIES)
             )
         )
     }
     group_ids: list[int] = list(conn.execute(sa.select(_groups_t().c.id)).scalars())
     rows = [
-        {"group_id": group_id, "entity": STREAMING, "action": action, "own_only": False}
+        {"group_id": group_id, "entity": entity, "action": action, "own_only": False}
         for group_id in group_ids
+        for entity in ENTITIES
         for action in ACTIONS
-        if (group_id, action) not in existing
+        if (group_id, entity, action) not in existing
     ]
     if rows:
         conn.execute(grants_t.insert(), rows)
@@ -65,5 +66,5 @@ def downgrade() -> None:
     conn = op.get_bind()
     grants_t = _grants_t()
     overrides_t = _overrides_t()
-    conn.execute(sa.delete(grants_t).where(grants_t.c.entity == STREAMING))
-    conn.execute(sa.delete(overrides_t).where(overrides_t.c.entity == STREAMING))
+    conn.execute(sa.delete(grants_t).where(grants_t.c.entity.in_(ENTITIES)))
+    conn.execute(sa.delete(overrides_t).where(overrides_t.c.entity.in_(ENTITIES)))

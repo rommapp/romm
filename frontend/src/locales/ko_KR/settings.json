@@ -334,6 +334,7 @@
     "assets": "Saves & states",
     "collections": "Collections",
     "devices": "Devices",
+    "emulation": "브라우저에서 플레이",
     "firmware": "Firmware",
     "logs": "Logs",
     "platforms": "Platforms",

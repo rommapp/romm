@@ -38,8 +38,10 @@ vi.mock("@/stores/streaming", () => ({
   }),
 }));
 const canStartStream = ref(true);
+const canPlayInBrowser = ref(true);
 vi.mock("@/v2/composables/useCan", () => ({
-  useCan: () => canStartStream,
+  useCan: (action: string) =>
+    action === "rom.play" ? canPlayInBrowser : canStartStream,
 }));
 vi.mock("@/stores/native", () => ({
   useNativeStore: () => ({
@@ -77,6 +79,7 @@ beforeEach(() => {
   support.jsDosBundle.mockReturnValue(true);
   streamContainer.value = null;
   canStartStream.value = true;
+  canPlayInBrowser.value = true;
   nativeSupported.value = false;
 });
 
@@ -165,6 +168,34 @@ describe("useCanPlay", () => {
 
     expect(canPlayStream.value).toBe(false);
     expect(canPlay.value).toBe(false);
+  });
+
+  it.each([
+    ["EJS", "ejs", "canPlayEJS", []],
+    ["js-dos", "jsDos", "canPlayJsDos", []],
+    ["PICO-8", "pico8", "canPlayPico8", ["pico8Rom"]],
+    ["EasyRPG", "easyRpg", "canPlayEasyRpg", ["easyRpgGame"]],
+    ["Ruffle", "ruffle", "canPlayRuffle", []],
+  ] as const)(
+    "withholds %s without the in-browser play grant",
+    (_label, stub, flag, alsoRequires) => {
+      support[stub].mockReturnValue(true);
+      for (const extra of alsoRequires) support[extra].mockReturnValue(true);
+      canPlayInBrowser.value = false;
+      const result = useCanPlay(() => playableRom());
+
+      expect(result[flag].value).toBe(false);
+      expect(result.canPlay.value).toBe(false);
+    },
+  );
+
+  it("still streams without the in-browser play grant", () => {
+    streamContainer.value = {};
+    canPlayInBrowser.value = false;
+    const { canPlay, canPlayStream } = useCanPlay(() => playableRom());
+
+    expect(canPlayStream.value).toBe(true);
+    expect(canPlay.value).toBe(true);
   });
 
   it("reaches a stream it may not start", () => {

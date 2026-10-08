@@ -7,7 +7,12 @@ from endpoints.roms import easyrpg
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.easyrpg import easyrpg_handler
-from models.permission import HiddenEntity, PermEntity
+from models.permission import (
+    HiddenEntity,
+    PermAction,
+    PermEntity,
+    UserPermissionOverride,
+)
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from models.user import User
@@ -106,6 +111,33 @@ def test_a_hidden_game_is_not_found(
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.parametrize(
+    "own_only, expected",
+    [(False, status.HTTP_403_FORBIDDEN), (True, status.HTTP_200_OK)],
+    ids=["revoked", "own-only"],
+)
+def test_needs_the_emulation_read_grant(
+    client: TestClient, editor_headers, editor_user: User, game: Rom, own_only, expected
+):
+    """The player is the only reader, and a game it runs counts as the user's own."""
+    with sync_session.begin() as s:
+        s.add(
+            UserPermissionOverride(
+                user_id=editor_user.id,
+                entity=PermEntity.EMULATION,
+                action=PermAction.READ,
+                granted=own_only,
+                own_only=own_only,
+            )
+        )
+
+    response = client.get(
+        f"/api/roms/{game.id}/easyrpg/index.json", headers=editor_headers
+    )
+
+    assert response.status_code == expected
 
 
 def test_is_not_found_while_disabled(mocker, client: TestClient, headers, game: Rom):

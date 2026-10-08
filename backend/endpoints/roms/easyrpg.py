@@ -11,10 +11,11 @@ from config import DEV_MODE, DISABLE_EASYRPG
 from decorators.auth import protected_route
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import assert_rom_visible, get_permissions
 from handler.database import db_rom_handler
 from handler.easyrpg import INDEX_FILE, RTP_WEB_PATH, easyrpg_handler
 from handler.filesystem import fs_rom_handler
+from models.permission import PermAction, PermEntity
 from utils.nginx import FileRedirectResponse
 from utils.router import APIRouter
 
@@ -48,6 +49,13 @@ async def get_easyrpg_file(
     """Serve a generated `index.json`, or a game or RTP file it names, to the EasyRPG web player."""
     if DISABLE_EASYRPG:
         raise _not_found("EasyRPG is disabled")
+
+    # Only the in-browser player reads these, and a game it runs is the user's own.
+    perms = get_permissions(request)
+    if not perms.allows(PermEntity.EMULATION, PermAction.READ, owned=True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
 
     # The player fetches every asset through here, so the full rom is never loaded.
     rom = db_rom_handler.get_rom_visibility(id)

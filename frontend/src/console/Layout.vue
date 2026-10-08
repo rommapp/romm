@@ -11,6 +11,7 @@ import { ROUTES } from "@/plugins/router";
 import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
+import { installPermissionsHydration } from "@/v2/composables/useCan";
 
 const router = useRouter();
 const bus = new InputBus();
@@ -20,6 +21,9 @@ provide(InputBusSymbol, bus);
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
+
+// Play reads the in-browser play grant from the permissions store.
+installPermissionsHydration();
 
 const showVirtualCollections = useLocalStorage(
   "settings.showVirtualCollections",

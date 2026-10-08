@@ -1,5 +1,7 @@
 """`/permissions/me` returns backend-enforced grants in the UI action vocabulary."""
 
+import pytest
+
 from handler.database.base_handler import sync_session
 from models.permission import (
     HiddenEntity,
@@ -20,6 +22,7 @@ VIEWER_ACTIONS = {
     "collection.delete",
     "playlist.edit",
     "stream.start",
+    "netplay.host",
 }
 
 
@@ -119,3 +122,28 @@ def test_revoking_streaming_write_drops_stream_start(
         headers={"Authorization": f"Bearer {viewer_access_token}"},
     ).json()
     assert "stream.start" not in _actions(body)
+
+
+@pytest.mark.parametrize(
+    "action, dropped",
+    [(PermAction.READ, "rom.play"), (PermAction.WRITE, "netplay.host")],
+)
+def test_revoking_emulation_drops_its_key(
+    client, viewer_user, viewer_access_token, action, dropped
+):
+    with sync_session.begin() as s:
+        s.add(
+            UserPermissionOverride(
+                user_id=viewer_user.id,
+                entity=PermEntity.EMULATION,
+                action=action,
+                granted=False,
+            )
+        )
+    body = client.get(
+        "/api/permissions/me",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+    ).json()
+    actions = _actions(body)
+    assert dropped not in actions
+    assert "rom.view" in actions

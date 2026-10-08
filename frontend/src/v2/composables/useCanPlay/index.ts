@@ -48,10 +48,12 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
   const nativeStore = useNativeStore();
   const { value: heartbeat } = storeToRefs(heartbeatStore);
 
+  // The emulation read grant covers every in-browser engine.
+  const canPlayInBrowser = useCan("rom.play");
   const supportedBy = (check: typeof isEJSEmulationSupported) =>
     computed(() => {
       const rom = getRom();
-      if (!rom?.has_file_on_disk) return false;
+      if (!canPlayInBrowser.value || !rom?.has_file_on_disk) return false;
       return check(rom.platform_slug, heartbeat.value, configStore.config);
     });
 

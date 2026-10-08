@@ -1106,30 +1106,36 @@ _OVERRIDES = sa.table(
 )
 
 
-def _streaming_grants(connection: sa.Connection) -> set[tuple[int, str, bool]]:
+_PLAY_ENTITIES = ("streaming", "emulation")
+
+
+def _play_grants(connection: sa.Connection) -> set[tuple[int, str, str, bool]]:
     return {
-        (row.group_id, row.action, bool(row.own_only))
+        (row.group_id, row.entity, row.action, bool(row.own_only))
         for row in connection.execute(
-            sa.select(_GRANTS.c.group_id, _GRANTS.c.action, _GRANTS.c.own_only).where(
-                _GRANTS.c.entity == "streaming"
-            )
+            sa.select(
+                _GRANTS.c.group_id,
+                _GRANTS.c.entity,
+                _GRANTS.c.action,
+                _GRANTS.c.own_only,
+            ).where(_GRANTS.c.entity.in_(_PLAY_ENTITIES))
         )
     }
 
 
-def _streaming_overrides(connection: sa.Connection) -> int:
+def _play_overrides(connection: sa.Connection) -> int:
     return connection.execute(
         sa.select(sa.func.count())
         .select_from(_OVERRIDES)
-        .where(_OVERRIDES.c.entity == "streaming")
+        .where(_OVERRIDES.c.entity.in_(_PLAY_ENTITIES))
     ).scalar_one()
 
 
-def test_the_streaming_permission_revision_backfills_reverses_and_replays(
+def test_the_play_permissions_revision_backfills_reverses_and_replays(
     admin_user: User,
 ):
-    """0152 grants streaming to every existing group and downgrades cleanly."""
-    migration = _load_migration("0152_streaming_permission.py")
+    """0152 grants streaming and emulation to every existing group and downgrades cleanly."""
+    migration = _load_migration("0152_play_permissions.py")
 
     with sync_engine.begin() as connection:
         connection.execute(
@@ -1141,29 +1147,33 @@ def test_the_streaming_permission_revision_backfills_reverses_and_replays(
             )
         )
         connection.execute(
-            _OVERRIDES.insert().values(
-                user_id=admin_user.id,
-                entity="streaming",
-                action="write",
-                granted=False,
-                own_only=False,
-            )
+            _OVERRIDES.insert(),
+            [
+                {
+                    "user_id": admin_user.id,
+                    "entity": entity,
+                    "action": "write",
+                    "granted": False,
+                    "own_only": False,
+                }
+                for entity in _PLAY_ENTITIES
+            ],
         )
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
             migration.downgrade()
-            assert _streaming_grants(connection) == set()
-            assert _streaming_overrides(connection) == 0
+            assert _play_grants(connection) == set()
+            assert _play_overrides(connection) == 0
 
             migration.upgrade()
             migration.upgrade()
 
         group_ids: set[int] = set(connection.execute(sa.select(_GROUPS.c.id)).scalars())
         assert len(group_ids) >= 3
-        assert _streaming_grants(connection) == {
-            (group_id, action, False)
+        assert _play_grants(connection) == {
+            (group_id, entity, action, False)
             for group_id in group_ids
+            for entity in _PLAY_ENTITIES
             for action in ("read", "write")
         }
-        # The block commits, and conftest never clears the permission tables.
         connection.execute(_GROUPS.delete().where(_GROUPS.c.name == "Locked down"))

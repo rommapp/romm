@@ -13,6 +13,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
+import { useCan } from "@/v2/composables/useCan";
 
 const props = defineProps<{ rom: SimpleRom; iconEmbedded?: boolean }>();
 const attrs = useAttrs();
@@ -29,7 +30,9 @@ const isAprilFools = computed(() => {
   return today.getMonth() === 3 && today.getDate() === 1;
 });
 
+const canPlayInBrowser = useCan("rom.play");
 const isEmulationSupported = computed(() => {
+  if (!canPlayInBrowser.value) return false;
   return (
     isEJSEmulationSupported(
       props.rom.platform_slug,
