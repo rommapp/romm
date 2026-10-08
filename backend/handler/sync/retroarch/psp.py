@@ -334,11 +334,21 @@ def _pending_dir(user: User, save_folder: str) -> str:
     return sync_handler.user_blob_path(user, f"{_PENDING_CATEGORY}/{save_folder}")
 
 
-async def _list_pending(pending_dir: str) -> list[str]:
-    try:
-        return await fs_retroarch_sync_handler.list_files(pending_dir)
-    except FileNotFoundError:
-        return []
+async def _list_pending(pending_dir: str) -> dict[str, int]:
+    """Each buffered file's size, by name."""
+    return {
+        blob.relative_path: blob.size
+        for blob in await fs_retroarch_sync_handler.list_blob_files(pending_dir)
+    }
+
+
+async def _drop_pending(pending_dir: str, names: Iterable[str]) -> None:
+    for name in names:
+        with suppress(FileNotFoundError):
+            await fs_retroarch_sync_handler.remove_file(f"{pending_dir}/{name}")
+    # rmdir keeps a folder another worker buffered a file into meanwhile.
+    with suppress(OSError):
+        fs_retroarch_sync_handler.validate_path(pending_dir).rmdir()
 
 
 async def _resolve_folder_rom(
@@ -365,10 +375,7 @@ async def _resolve_folder_rom(
     if rom:
         return rom
 
-    pending_sizes = {
-        name: await fs_retroarch_sync_handler.get_file_size(f"{pending_dir}/{name}")
-        for name in await _list_pending(pending_dir)
-    }
+    pending_sizes = await _list_pending(pending_dir)
     pending_sizes[info.file_name] = len(content)
     if _exceeds_bundle_limits(pending_sizes.values()):
         raise PspBundleInvalid(info.save_folder)
@@ -457,8 +464,7 @@ async def put_psp_file(
             await _add_bundle(user, info, rom, merged)
 
         if pending_names:
-            with suppress(FileNotFoundError):
-                await fs_retroarch_sync_handler.remove_directory(pending_dir)
+            await _drop_pending(pending_dir, pending_names)
 
 
 async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:
@@ -515,16 +521,7 @@ async def delete_psp_file(
 ) -> None:
     """Drop one member from its folder's bundle and buffer, and either once empty."""
     async with _folder_locks[f"{user.id}:{info.save_folder}"]:
-        pending_dir = _pending_dir(user, info.save_folder)
-        try:
-            await fs_retroarch_sync_handler.remove_file(
-                f"{pending_dir}/{info.file_name}"
-            )
-        except FileNotFoundError:
-            pass
-        else:
-            if not await _list_pending(pending_dir):
-                await fs_retroarch_sync_handler.remove_directory(pending_dir)
+        await _drop_pending(_pending_dir(user, info.save_folder), [info.file_name])
 
         bundle = await asyncio.to_thread(
             _find_bundle_by_folder, user, info.save_folder, can_see

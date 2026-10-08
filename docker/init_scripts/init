@@ -419,13 +419,22 @@ fi
 # Startup process requires database and cache to be already available
 run_startup
 
+# The values the backend's safe_str_to_bool reads as true.
+truthy='^(1|true|yes|on)$'
+
 # The image's /romm is only writable by UID 1000, so the sync folder needs its own mount.
-if [[ ${ENABLE_SYNC_FOLDER_WATCHER} == "true" || ${ENABLE_SYNC_PUSH_PULL} == "true" ]]; then
+if [[ ${ENABLE_SYNC_FOLDER_WATCHER,,} =~ ${truthy} ]]; then
 	if ! mkdir -p "${sync_base_path}" 2>/dev/null || [[ ! -w ${sync_base_path} ]]; then
-		warn_log "${sync_base_path} is not writable, so the sync folder watcher, sync folder scan and push-pull sync are disabled. Mount a host folder there to use them."
+		warn_log "${sync_base_path} is not writable, so the sync folder watcher and sync folder scan are disabled. Mount a host folder there to use them."
 		ENABLE_SYNC_FOLDER_WATCHER="false"
-		ENABLE_SYNC_PUSH_PULL="false"
 	fi
+fi
+
+# Push-pull only reads its SSH keys, so a read-only mount is enough.
+sync_ssh_keys_path="${SYNC_SSH_KEYS_PATH:-${sync_base_path}/keys}"
+if [[ ${ENABLE_SYNC_PUSH_PULL,,} =~ ${truthy} ]] && ! mkdir -p "${sync_ssh_keys_path}" 2>/dev/null; then
+	warn_log "${sync_ssh_keys_path} doesn't exist and can't be created, so push-pull sync is disabled. Mount your SSH keys there, or set SYNC_SSH_KEYS_PATH."
+	ENABLE_SYNC_PUSH_PULL="false"
 fi
 
 # main loop
