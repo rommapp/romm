@@ -581,6 +581,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         rom,
         parsed.emulator,
         file_name,
+        include_missing=True,
     )
     write_file_name = existing.file_name if existing else file_name
     emulator = existing.emulator if existing else parsed.emulator

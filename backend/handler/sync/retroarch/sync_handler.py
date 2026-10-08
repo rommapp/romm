@@ -201,10 +201,23 @@ def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
 
 
 def resolve_state_by_slot(
-    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+    user: User,
+    rom: Rom,
+    emulator: str | None,
+    requested_file_name: str,
+    include_missing: bool = False,
 ) -> State | None:
-    """The newest state in the slot a canonical name points at, whatever its name."""
-    states = db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
+    """The newest state in the slot a canonical name points at, whatever its name.
+
+    Args:
+        include_missing: Also match a `missing_from_fs` row, so an upload revives
+            it in place. Reads skip them to serve the newest bytes on disk.
+    """
+    states = [
+        state
+        for state in db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
+        if include_missing or not state.missing_from_fs
+    ]
     key = (rom.id, retroarch_folder(emulator), state_slot_suffix(requested_file_name))
     return group_states_by_slot(states).get(key)
 
@@ -687,9 +700,11 @@ def _manifest_assets(
         [
             (state.emulator, canonical_state_file_name(state.rom, slot_suffix), state)
             for (_rom_id, _folder, slot_suffix), state in group_states_by_slot(
-                db_state_handler.get_states(user_id=user.id)
+                state
+                for state in db_state_handler.get_states(user_id=user.id)
+                if not state.missing_from_fs
             ).items()
-            if not state.missing_from_fs and can_see(state.rom)
+            if can_see(state.rom)
         ]
         if tree != "saves"
         else []
