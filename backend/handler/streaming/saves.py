@@ -21,6 +21,7 @@ from typing import NamedTuple
 from fastapi import HTTPException
 from redis.exceptions import WatchError
 
+from handler.asset_store import reserve_version_name
 from handler.database import db_rom_handler, db_save_handler, db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.redis_handler import async_cache
@@ -357,6 +358,10 @@ def _capture_times(copies: list[State | None]) -> list[datetime | None]:
     return times[::-1]
 
 
+# Stands in for the version tag, so the stem leaves it room.
+_VERSION_TAG_ROOM = " [0000-00-00_00-00-00]"
+
+
 async def _store_raw_exit(
     user: User,
     rom: Rom,
@@ -370,10 +375,17 @@ async def _store_raw_exit(
     Returns:
         Whether any of them was new.
     """
-    ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     extension = os.path.splitext(raw.save_name)[1]
-    filename = sanitize_filename(
-        fit_filename(rom.fs_name_no_ext, f" [{ts}]{extension}")
+    tail = f"{_VERSION_TAG_ROOM}{extension}"
+    stem = fit_filename(rom.fs_name_no_ext, tail).removesuffix(tail)
+    saves_path = fs_asset_handler.build_saves_file_path(
+        user=user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=raw.core,
+    )
+    filename = await reserve_version_name(
+        user.id, rom.id, saves_path, sanitize_filename(f"{stem}{extension}")
     )
     stored = await _store_save_file(
         user, rom, raw.core, filename, raw.save, newest_only=True

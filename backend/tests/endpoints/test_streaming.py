@@ -48,6 +48,7 @@ from handler.database import (
     db_user_handler,
 )
 from handler.database.base_handler import sync_session
+from handler.filesystem import fs_asset_handler
 from handler.redis_handler import async_cache, sync_cache
 from handler.streaming import (
     access,
@@ -5919,6 +5920,33 @@ def test_a_retroarch_exit_files_its_one_save_raw_and_its_state_apart(
     assert args.args[2:5] == ("retroarch", "Game.state", b"state-bytes")
     assert args.kwargs["screenshot"] == b"png-bytes"
     assert args.kwargs["core"] == "mgba"
+
+
+def test_a_raw_exit_save_skips_a_version_name_already_taken(rom: Rom, admin_user: User):
+    now = datetime(2026, 10, 7, 12, 0, 0)
+    taken = asset_store.apply_datetime_tag(f"{rom.fs_name_no_ext}.srm", now)
+    saves_path = fs_asset_handler.build_saves_file_path(
+        user=admin_user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator="mgba",
+    )
+    make_save(
+        rom,
+        admin_user,
+        taken,
+        **{**_save_fields(rom, taken, "mgba", "older"), "file_path": saves_path},
+    )
+    content = _exit_archive({"saves/mGBA/Game.srm": ("save", b"eeprom")})
+
+    with patch("handler.asset_store.datetime", wraps=datetime) as clock:
+        clock.now.return_value = now
+        write, _store_state = _pull_exit(rom, admin_user, content)
+
+    written = write.call_args.kwargs["filename"]
+    assert written == asset_store.apply_datetime_tag(
+        f"{rom.fs_name_no_ext}.srm", now + timedelta(seconds=1)
+    )
 
 
 def test_a_retroarch_exit_files_its_states_on_the_swapped_disc(

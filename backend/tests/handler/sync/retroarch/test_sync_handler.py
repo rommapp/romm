@@ -81,7 +81,8 @@ class TestMarkMissing:
         ):
             assert row is not None
             assert row.missing_from_fs
-            assert row.updated_at == stamp
+            # PostgreSQL hands the column back as UTC-aware.
+            assert row.updated_at.replace(tzinfo=None) == stamp
 
 
 class TestManifestQueriesOffEventLoop:
