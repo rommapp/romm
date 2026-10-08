@@ -6,8 +6,10 @@ import pydash
 from fastapi import status
 
 from adapters.services.igdb import (
+    IGDB_PLATFORM_FAMILIES,
     IGDB_PLATFORM_LIST,
     IGDB_PLATFORM_VERSIONS,
+    IGDB_SIBLING_PLATFORMS,
     IGDBService,
     SlugToIGDB,
 )
@@ -810,7 +812,16 @@ class IGDBHandler(MetadataHandler):
                 ),
             )
 
-        return IGDBPlatform(igdb_id=None, slug=slug)
+        unlisted_platform = IGDBPlatform(igdb_id=None, slug=slug)
+        if slug in IGDB_SIBLING_PLATFORMS:
+            sibling = IGDB_PLATFORM_LIST[IGDB_SIBLING_PLATFORMS[UPS(slug)]]
+            unlisted_platform["category"] = sibling["category"]
+            unlisted_platform["family_name"] = sibling["family_name"]
+            unlisted_platform["family_slug"] = sibling["family_slug"]
+        if slug in IGDB_PLATFORM_FAMILIES:
+            unlisted_platform.update(IGDB_PLATFORM_FAMILIES[UPS(slug)])
+
+        return unlisted_platform
 
     def get_platform_aliases(self, slug: str) -> tuple[str, list[str]]:
         """The platform's abbreviation and alternative names; a version shares its main platform's."""

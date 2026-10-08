@@ -10,7 +10,12 @@ import pytest
 import pytest_asyncio
 
 import config
-from adapters.services.igdb import IGDB_PLATFORM_LIST, IGDBService
+from adapters.services.igdb import (
+    IGDB_PLATFORM_FAMILIES,
+    IGDB_PLATFORM_LIST,
+    IGDB_SIBLING_PLATFORMS,
+    IGDBService,
+)
 from adapters.services.igdb_types import (
     AlternativeName,
     ExpandableField,
@@ -1252,6 +1257,44 @@ class TestGetPlatform:
         assert platform.get("name") == "10"
         assert platform.get("url_logo") == handler.get_platform("android").get(
             "url_logo"
+        )
+
+    def test_an_unlisted_platform_takes_its_siblings_family_and_category(
+        self, handler: IGDBHandler
+    ):
+        assert handler.get_platform("win9x") == {
+            "igdb_id": None,
+            "slug": "win9x",
+            "category": "Operating System",
+            "family_name": "Microsoft",
+            "family_slug": "microsoft",
+        }
+
+    def test_an_unlisted_platform_family_overrides_its_siblings(
+        self, handler: IGDBHandler
+    ):
+        assert handler.get_platform("model2") == {
+            "igdb_id": None,
+            "slug": "model2",
+            "category": "Arcade",
+            "family_name": "Sega",
+            "family_slug": "sega",
+        }
+
+    def test_an_unlisted_platform_with_only_a_family(self, handler: IGDBHandler):
+        assert handler.get_platform("ti-994a") == {
+            "igdb_id": None,
+            "slug": "ti-994a",
+            "family_name": "Texas Instruments",
+            "family_slug": "texas-instruments",
+        }
+
+    def test_every_unlisted_platform_mapping_is_consistent(self):
+        assert not IGDB_SIBLING_PLATFORMS.keys() & IGDB_PLATFORM_LIST.keys()
+        assert not IGDB_PLATFORM_FAMILIES.keys() & IGDB_PLATFORM_LIST.keys()
+        assert all(
+            family["family_name"] and family["family_slug"]
+            for family in IGDB_PLATFORM_FAMILIES.values()
         )
 
     def test_an_unknown_platform(self, handler: IGDBHandler):
