@@ -154,12 +154,7 @@ export function altArtPath(
 const escapeSrcsetUrl = (url: string) =>
   url.replace(/[\s,]/g, (c) => encodeURIComponent(c));
 
-// The browser compares window.devicePixelRatio to each descriptor and takes the
-// smallest candidate that covers it:
-//   DPR 1 (standard screen)    -> `1x` -> small file
-//   DPR 2+ (Retina, most phones) -> `2x` -> large file
-
-/** Null when there is no distinct small and large pair. */
+/** Small cover at 1x, large at 2x; null when there is no distinct pair. */
 function coverSrcset(
   small: string | null | undefined,
   large: string | null | undefined,
