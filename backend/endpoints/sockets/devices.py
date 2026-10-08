@@ -25,7 +25,8 @@ CLIENT_TOKEN_ID_KEY: Final = "client_token_id"
 DEVICE_ID_KEY: Final = "device_id"
 # Clears entries a crashed worker left behind.
 SOCKET_TRACKING_TTL_SECONDS: Final = SESSION_MAX_AGE_SECONDS
-# A device is online while one of its sockets refreshed its presence within the TTL.
+# A device is online while one of its sockets, or its last claim, refreshed its
+# presence within the TTL.
 PRESENCE_TTL_SECONDS: Final = 90
 PRESENCE_REFRESH_SECONDS: Final = 30
 
@@ -36,6 +37,10 @@ def device_room(device_id: str) -> str:
 
 def _presence_key(device_id: str) -> str:
     return f"device_presence:{device_id}"
+
+
+def _claim_presence_key(device_id: str) -> str:
+    return f"device_claim_presence:{device_id}"
 
 
 def _raw_client_token(environ: dict[str, Any], auth: Any) -> str | None:
@@ -145,13 +150,23 @@ async def disconnect(sid: str) -> None:
         await socket_handler.untrack(_presence_key(device_id), sid)
 
 
+async def mark_claimed(device_id: str) -> None:
+    """Count a device that polls claim instead of holding a socket as online for a while."""
+    try:
+        await async_cache.set(
+            _claim_presence_key(device_id), "1", ex=PRESENCE_TTL_SECONDS
+        )
+    except Exception:  # noqa: BLE001
+        log.warning(f"Failed to record the claim of device {device_id}", exc_info=True)
+
+
 async def online_device_ids(device_ids: Sequence[str]) -> list[str]:
-    """The devices among ``device_ids`` with a socket that refreshed its presence lately."""
+    """The devices among ``device_ids`` with a socket or a claim that refreshed its presence lately."""
     if not device_ids:
         return []
     async with async_cache.pipeline(transaction=False) as pipe:
         for device_id in device_ids:
-            pipe.exists(_presence_key(device_id))
+            pipe.exists(_presence_key(device_id), _claim_presence_key(device_id))
         counts = await pipe.execute()
     return [
         device_id for device_id, count in zip(device_ids, counts, strict=True) if count
