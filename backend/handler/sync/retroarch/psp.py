@@ -463,8 +463,7 @@ async def put_psp_file(
         else:
             await _add_bundle(user, info, rom, merged)
 
-        if pending_names:
-            await _drop_pending(pending_dir, pending_names)
+        await _drop_pending(pending_dir, pending_names)
 
 
 async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:

@@ -40,7 +40,6 @@ def conversion(tmp_path: Path, mocker):
     lookup = mocker.patch.object(
         conversion_cache, "_lookup", return_value=(resolved[0], final)
     )
-    mocker.patch.object(conversion_cache, "CACHE_BASE_PATH", str(tmp_path))
     mocker.patch.object(
         conversion_cache, "ROM_CONVERTO_CACHE_PATH", str(final.parent.parent)
     )

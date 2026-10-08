@@ -26,7 +26,6 @@ from adapters.services.rom_converto import (
     rom_converto_service,
 )
 from config import (
-    CACHE_BASE_PATH,
     LIBRARY_BASE_PATH,
     ROM_CONVERTO_CACHE_PATH,
     ROM_CONVERTO_ENABLED,
@@ -76,7 +75,7 @@ def converted_file_path(
 
 def get_redirect_path(converted_path: Path) -> Path:
     """The nginx-internal path for a converted file (`/cache/` aliases CACHE_BASE_PATH)."""
-    return Path("/cache") / converted_path.relative_to(CACHE_BASE_PATH)
+    return Path("/cache/converts") / converted_path.relative_to(ROM_CONVERTO_CACHE_PATH)
 
 
 def _dir_size(path: Path) -> int:

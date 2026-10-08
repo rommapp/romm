@@ -1285,6 +1285,15 @@ class TestRetroArchSyncDelete:
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
+UNKNOWN_FOLDER_URL = "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0"
+
+
+def _unknown_folder_pending_dir(user: User) -> Path:
+    return fs_retroarch_sync_handler.validate_path(
+        psp._pending_dir(user, "UNKNOWN99999DATA0")
+    )
+
+
 class TestRetroArchSyncPsp:
     """PSP save-folder bundling, with roms resolved via the serial map rather than search."""
 
@@ -1555,17 +1564,13 @@ class TestRetroArchSyncPsp:
         monkeypatch.setattr(psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {})
 
         response = client.put(
-            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
             content=b"orphaned save data",
             auth=ADMIN_AUTH,
         )
 
         assert response.status_code == status.HTTP_409_CONFLICT
-        pending_file = (
-            fs_retroarch_sync_handler.base_path
-            / fs_asset_handler.user_folder_path(admin_user)
-            / "retroarch/psp_pending/UNKNOWN99999DATA0/SAVE.BIN"
-        )
+        pending_file = _unknown_folder_pending_dir(admin_user) / "SAVE.BIN"
         assert pending_file.read_bytes() == b"orphaned save data"
 
         response = client.get(
@@ -1578,7 +1583,7 @@ class TestRetroArchSyncPsp:
             psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {"UNKNOWN99999": rom.fs_name_no_ext}
         )
         response = client.put(
-            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/PARAM.SFO",
+            f"{UNKNOWN_FOLDER_URL}/PARAM.SFO",
             content=b"sfo",
             auth=ADMIN_AUTH,
         )
@@ -1586,7 +1591,7 @@ class TestRetroArchSyncPsp:
         assert not pending_file.parent.exists()
 
         response = client.get(
-            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
             auth=ADMIN_AUTH,
         )
         assert response.status_code == status.HTTP_200_OK
@@ -1598,23 +1603,19 @@ class TestRetroArchSyncPsp:
         monkeypatch.setattr(psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {})
         monkeypatch.setattr(psp, "_BUNDLE_MAX_MEMBERS", 1)
         client.put(
-            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
             content=b"data",
             auth=ADMIN_AUTH,
         )
 
         response = client.put(
-            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/ICON0.PNG",
+            f"{UNKNOWN_FOLDER_URL}/ICON0.PNG",
             content=b"icon",
             auth=ADMIN_AUTH,
         )
 
         assert response.status_code == status.HTTP_409_CONFLICT
-        pending_dir = (
-            fs_retroarch_sync_handler.base_path
-            / fs_asset_handler.user_folder_path(admin_user)
-            / "retroarch/psp_pending/UNKNOWN99999DATA0"
-        )
+        pending_dir = _unknown_folder_pending_dir(admin_user)
         assert [path.name for path in pending_dir.iterdir()] == ["SAVE.BIN"]
 
     def test_delete_drops_the_buffered_copy(
@@ -1622,34 +1623,30 @@ class TestRetroArchSyncPsp:
     ):
         monkeypatch.setattr(psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {})
         client.put(
-            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
             content=b"deleted save data",
             auth=ADMIN_AUTH,
         )
 
         response = client.delete(
-            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
             auth=ADMIN_AUTH,
         )
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        pending_dir = (
-            fs_retroarch_sync_handler.base_path
-            / fs_asset_handler.user_folder_path(admin_user)
-            / "retroarch/psp_pending/UNKNOWN99999DATA0"
-        )
+        pending_dir = _unknown_folder_pending_dir(admin_user)
         assert not pending_dir.exists()
 
         monkeypatch.setattr(
             psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {"UNKNOWN99999": rom.fs_name_no_ext}
         )
         client.put(
-            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/PARAM.SFO",
+            f"{UNKNOWN_FOLDER_URL}/PARAM.SFO",
             content=b"sfo",
             auth=ADMIN_AUTH,
         )
         response = client.get(
-            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
             auth=ADMIN_AUTH,
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
