@@ -13,6 +13,7 @@ import { useEventListener, useThrottleFn } from "@vueuse/core";
 import { defineAsyncComponent, onBeforeUnmount, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import socket from "@/services/socket";
+import storeAuth from "@/stores/auth";
 import storeCollections from "@/stores/collections";
 import { useNativeStore } from "@/stores/native";
 import storePlatforms from "@/stores/platforms";
@@ -39,6 +40,7 @@ import { installPendingAssetSync } from "@/v2/composables/usePendingAssetSync";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useReducedMotion } from "@/v2/composables/useReducedMotion";
 import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
+import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 import { useSpatialNav } from "@/v2/composables/useSpatialNav";
 import { installStageActiveClass } from "@/v2/composables/useStageActive";
 import { installSyncConflictToast } from "@/v2/composables/useSyncConflictToast";
@@ -85,6 +87,11 @@ watch(
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();
 const streamingStore = useStreamingStore();
+const authStore = storeAuth();
+// The streaming config follows the user's streaming grant.
+useSocketEvent<{ user_id: number }>("permissions:changed", (payload) => {
+  if (payload.user_id === authStore.user?.id) void streamingStore.fetchConfig();
+});
 const nativeStore = useNativeStore();
 
 const playingStore = storePlaying();

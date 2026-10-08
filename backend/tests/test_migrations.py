@@ -1166,3 +1166,5 @@ def test_the_streaming_permission_revision_backfills_reverses_and_replays(
             for group_id in group_ids
             for action in ("read", "write")
         }
+        # The block commits, and conftest never clears the permission tables.
+        connection.execute(_GROUPS.delete().where(_GROUPS.c.name == "Locked down"))

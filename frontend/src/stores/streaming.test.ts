@@ -143,6 +143,15 @@ describe("joinable sessions", () => {
     expect(store.joinableForRom(7)).toBeNull();
   });
 
+  it("asks for nothing once the config says streaming is off", async () => {
+    const store = useStreamingStore();
+    store.configLoaded = true;
+
+    await store.fetchJoinableSessions(true);
+
+    expect(listJoinableSessions).not.toHaveBeenCalled();
+  });
+
   it("keeps the last known list when a refresh fails", async () => {
     const store = useStreamingStore();
     await store.fetchJoinableSessions();

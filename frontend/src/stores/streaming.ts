@@ -214,6 +214,8 @@ export const useStreamingStore = defineStore("streaming", () => {
    * the user is about to act on.
    */
   async function fetchJoinableSessions(force = false): Promise<void> {
+    // A user without the streaming grant is refused the list.
+    if (configLoaded.value && !config.value.enabled) return;
     if (joinableRequest) return joinableRequest;
     if (!force && Date.now() - joinableFetchedAt < JOINABLE_MAX_AGE_MS) return;
 

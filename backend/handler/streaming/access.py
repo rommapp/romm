@@ -44,19 +44,32 @@ def assert_session_owner(session: dict[str, Any], request: Request) -> None:
     raise HTTPException(status_code=403, detail="Session is claimed by another user")
 
 
-def _allows_streaming(request: Request, action: PermAction) -> bool:
-    # A session is always the caller's own, so an "own items only" grant counts.
-    return get_permissions(request).allows(PermEntity.STREAMING, action, owned=True)
+def _allows_streaming(
+    request: Request, action: PermAction, *, owned: bool = True
+) -> bool:
+    return get_permissions(request).allows(PermEntity.STREAMING, action, owned=owned)
 
 
 def can_see_streaming(request: Request) -> bool:
-    """Whether the caller may see streaming and join someone else's session."""
+    """Whether the caller may see streaming and play their own sessions."""
     return _allows_streaming(request, PermAction.READ)
+
+
+def can_join_streaming(request: Request) -> bool:
+    """Whether the caller may see and join someone else's session, which an
+    "own items only" grant does not cover."""
+    return _allows_streaming(request, PermAction.READ, owned=False)
 
 
 def assert_can_see_streaming(request: Request) -> None:
     """Raise 403 unless the caller may see streaming."""
     if not can_see_streaming(request):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+
+def assert_can_join_streaming(request: Request) -> None:
+    """Raise 403 unless the caller may join someone else's session."""
+    if not can_join_streaming(request):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
 

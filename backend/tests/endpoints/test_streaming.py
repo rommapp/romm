@@ -12895,8 +12895,10 @@ def test_get_config_is_disabled_without_streaming_read(
     assert response.json()["containers"] == []
 
 
-def test_get_config_is_disabled_for_a_group_without_streaming(client, rom: Rom):
-    """A group an admin creates starts with no streaming grant."""
+@pytest.fixture
+def guests_group() -> Iterator[int]:
+    """A group with no streaming grant, removed afterwards since conftest keeps
+    the permission tables between tests."""
     with sync_session.begin() as s:
         group = PermissionGroup(
             name="Guests",
@@ -12907,8 +12909,17 @@ def test_get_config_is_disabled_for_a_group_without_streaming(client, rom: Rom):
         s.add(group)
         s.flush()
         group_id = group.id
+    yield group_id
+    with sync_session.begin() as s:
+        s.query(PermissionGroup).filter_by(id=group_id).delete()
+
+
+def test_get_config_is_disabled_for_a_group_without_streaming(
+    client, rom: Rom, guests_group: int
+):
+    """A group an admin creates starts with no streaming grant."""
     guest = db_user_handler.add_user(
-        User(username="guest", role=Role.USER, permission_group_id=group_id)
+        User(username="guest", role=Role.USER, permission_group_id=guests_group)
     )
     with _streaming(_container_for(rom)):
         response = client.get(
@@ -12941,8 +12952,8 @@ def test_claim_without_streaming_grant_is_forbidden(
 def test_an_own_only_streaming_grant_counts(
     client, viewer_access_token, viewer_user: User, rom: Rom
 ):
-    """The matrix lets an admin pick "own items only"; every session is the
-    player's own, so that state must not read as no grant."""
+    """The matrix lets an admin pick "own items only"; a session the player
+    starts is their own, so that state must not read as no grant."""
     with sync_session.begin() as s:
         for action in (PermAction.READ, PermAction.WRITE):
             s.add(
@@ -12989,7 +13000,36 @@ def test_joining_needs_only_streaming_read(
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
         body = _joinable(client, viewer_access_token).json()
+        with _joined_room():
+            joined = _join(client, viewer_access_token, rom.platform_slug)
     assert len(body["sessions"]) == 1
+    assert joined.status_code == 200
+
+
+def test_an_own_only_streaming_read_cannot_join_someone_elses_session(
+    client, access_token, viewer_access_token, viewer_user: User, rom: Rom
+):
+    """Another player's session is not the caller's own, so "own items only"
+    keeps it out of the list and the join."""
+    with sync_session.begin() as s:
+        s.add(
+            UserPermissionOverride(
+                user_id=viewer_user.id,
+                entity=PermEntity.STREAMING,
+                action=PermAction.READ,
+                granted=True,
+                own_only=True,
+            )
+        )
+    with _streaming(_ws_for(rom)):
+        _claim_multiplayer(client, access_token, rom.id)
+        listed = _joinable(client, viewer_access_token)
+        with patch("handler.streaming.webstation.join") as join_broker:
+            joined = _join(client, viewer_access_token, rom.platform_slug)
+    assert listed.status_code == 200
+    assert listed.json()["sessions"] == []
+    assert joined.status_code == 403
+    join_broker.assert_not_called()
 
 
 def test_joinable_without_streaming_read_is_forbidden(

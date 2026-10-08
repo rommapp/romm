@@ -7,6 +7,9 @@ is absent from READ_SCOPES -- which is all KIOSK_MODE hands an anonymous
 visitor. Without it, kiosk visitors (who all share one synthetic user, so
 session ownership cannot separate them) could claim sessions and overwrite
 each other's save states.
+
+On top of the scopes, the `streaming` permission grant decides who sees
+streaming, joins a session (read) and starts one (read and write).
 """
 
 import asyncio
@@ -1315,7 +1318,7 @@ async def join_session(
     through access.assert_session_owner, so a joiner cannot change the volume, write
     states, or release the container.
     """
-    access.assert_can_see_streaming(request)
+    access.assert_can_join_streaming(request)
 
     if container is not None:
         candidate, _, session = await access.resolve_named_container(
@@ -1743,6 +1746,8 @@ async def list_joinable_sessions(
     a Join button needs. Sessions the caller is already hosting are left out.
     """
     access.assert_can_see_streaming(request)
+    if not access.can_join_streaming(request):
+        return JoinableSessionsResponse(sessions=[])
 
     grouped = containers_by_key()
 
