@@ -72,8 +72,9 @@ def _retroarch_upload_cap(client: TestClient, max_size: int):
 
 @pytest.fixture(autouse=True)
 def _isolated_sync_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Keep blobs and pending PSP files per test, since user ids repeat across test databases."""
+    """Keep assets, blobs and pending PSP files per test, since user ids repeat across test databases."""
     for handler, name in (
+        (fs_asset_handler, "assets"),
         (fs_retroarch_sync_handler, "retroarch_sync"),
         (psp.fs_psp_pending_handler, "psp_pending"),
     ):
