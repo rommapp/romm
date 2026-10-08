@@ -33,8 +33,8 @@ for var_name in $(printenv | cut -d= -f1 | grep "_FILE$" || true); do
 	unset "${var_name}"
 done
 
-# The backend strips whitespace from every variable it reads, so the init script
-# and nginx templates must see the same values.
+# The backend's config strips whitespace from what it reads (`_get_env`), so the
+# init script and nginx templates get the same trimmed values.
 for var_name in $(compgen -e); do
 	value="${!var_name}"
 	trimmed="${value#"${value%%[![:space:]]*}"}"
