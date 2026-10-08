@@ -1592,6 +1592,68 @@ class TestRetroArchSyncPsp:
         assert response.status_code == status.HTTP_200_OK
         assert response.content == b"orphaned save data"
 
+    def test_buffer_past_the_bundle_limits_conflicts(
+        self, client, admin_user: User, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {})
+        monkeypatch.setattr(psp, "_BUNDLE_MAX_MEMBERS", 1)
+        client.put(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        response = client.put(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/ICON0.PNG",
+            content=b"icon",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        pending_dir = (
+            fs_retroarch_sync_handler.base_path
+            / fs_asset_handler.user_folder_path(admin_user)
+            / "retroarch/psp_pending/UNKNOWN99999DATA0"
+        )
+        assert [path.name for path in pending_dir.iterdir()] == ["SAVE.BIN"]
+
+    def test_delete_drops_the_buffered_copy(
+        self, client, admin_user: User, rom: Rom, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {})
+        client.put(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            content=b"deleted save data",
+            auth=ADMIN_AUTH,
+        )
+
+        response = client.delete(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        pending_dir = (
+            fs_retroarch_sync_handler.base_path
+            / fs_asset_handler.user_folder_path(admin_user)
+            / "retroarch/psp_pending/UNKNOWN99999DATA0"
+        )
+        assert not pending_dir.exists()
+
+        monkeypatch.setattr(
+            psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {"UNKNOWN99999": rom.fs_name_no_ext}
+        )
+        client.put(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/PARAM.SFO",
+            content=b"sfo",
+            auth=ADMIN_AUTH,
+        )
+        response = client.get(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
     def test_delete_keeps_the_rest_of_the_bundle(
         self, client, admin_user: User, rom: Rom
     ):
