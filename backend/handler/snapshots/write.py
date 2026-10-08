@@ -10,7 +10,7 @@ import enum
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Final, Literal
 
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
@@ -38,7 +38,7 @@ from handler.snapshots.manifest import (
 from models.assets import Save, Screenshot, State
 from models.channel import Channel
 from models.rom import Rom, RomFile
-from models.snapshot import Snapshot, SnapshotKind, SnapshotState
+from models.snapshot import ConflictReason, Snapshot, SnapshotKind, SnapshotState
 from models.user import User
 from utils.uploads import (
     DATETIME_TAG_PATTERN,
@@ -105,9 +105,19 @@ class UploadPart:
     screenshot_name: str | None = None
 
 
+class Infer(enum.Enum):
+    """An expected current the client left out, so the write works it out."""
+
+    CURRENT = "current"
+
+
+INFER: Final = Infer.CURRENT
+
+
 @dataclass(frozen=True)
 class ChannelTarget:
-    expected_current_id: int | None
+    # INFER takes the latest current the device knows, else the parent.
+    expected_current_id: int | None | Literal[Infer.CURRENT]
     id: uuid.UUID | None = None
     label: str | None = None
 
@@ -137,6 +147,7 @@ class WriteResult:
     snapshot: Snapshot
     outcome: Outcome
     current: Snapshot | None
+    conflict: ConflictReason | None = None
 
 
 @dataclass
@@ -151,6 +162,7 @@ class _Plan:
     channel: Channel | None
     parent: Snapshot | None
     resolved: Resolved
+    expected_current_id: int | None = None
     # The current snapshot this push adds no progress to: the same content, or
     # a save whose clock alone moved.
     same_as: int | None = None
@@ -176,7 +188,8 @@ class _CurrentMoved(Exception):
     """The current a plan matched moved before the commit's lock."""
 
 
-def _part_bytes(content: AssetContent) -> bytes:
+def part_bytes(content: AssetContent) -> bytes:
+    """A part's bytes, leaving a stream where it was."""
     if isinstance(content, bytes):
         return content
     stream = content.file if isinstance(content, UploadFile) else content
@@ -206,13 +219,38 @@ async def _clock_only(
         or held.resolved().bank != resolved.bank
     ):
         return False
-    return await identity_hash(_part_bytes(sent)) == held.save.identity_hash
+    return await identity_hash(part_bytes(sent)) == held.save.identity_hash
 
 
-def _parent_id(write: SnapshotWrite) -> int | None:
-    if isinstance(write.parent_snapshot_id, Carry):
-        return write.channel.expected_current_id if write.channel else None
-    return write.parent_snapshot_id
+def _expected_and_parent(
+    write: SnapshotWrite, channel: Channel | None
+) -> tuple[int | None, int | None]:
+    """The current the push expects and the parent it builds on.
+
+    A push that sends its expected current builds on the parent it names, else
+    on that current. Otherwise it builds on the parent it names, else the
+    snapshot its device holds, else the latest current its device knows, and
+    expects that latest current, else its parent, which matches only when it
+    is the current.
+    """
+    expected = write.channel.expected_current_id if write.channel else None
+    named = write.parent_snapshot_id
+    if not isinstance(expected, Infer):
+        return expected, expected if isinstance(named, Carry) else named
+    sync = (
+        db_snapshot_handler.get_device_sync(write.device_id, channel.id)
+        if write.device_id and channel is not None
+        else None
+    )
+    known = sync.latest_known_id if sync else None
+    held = sync.base_snapshot_id if sync else None
+    if isinstance(named, Carry):
+        parent = held if held is not None else known
+    else:
+        parent = named
+    if channel is None:
+        return None, parent
+    return (known if known is not None else parent), parent
 
 
 async def _hash_unhashed(content: StoredContent) -> None:
@@ -259,9 +297,15 @@ async def _plan(write: SnapshotWrite, match_current: bool = True) -> _Plan:
     if channel is not None and channel.user_id != owner.id:
         owner = db_user_handler.get_user(channel.user_id) or owner
 
+    current = (
+        db_snapshot_handler.get_snapshot(channel.current_snapshot_id)
+        if channel and channel.current_snapshot_id
+        else None
+    )
+    expected, parent_id = _expected_and_parent(write, channel)
     parent: Snapshot | None = None
     parent_content = StoredContent()
-    if (parent_id := _parent_id(write)) is not None:
+    if parent_id is not None:
         parent = db_snapshot_handler.get_snapshot(parent_id)
         parent_channel = (
             db_snapshot_handler.get_channel(parent.channel_id)
@@ -274,16 +318,12 @@ async def _plan(write: SnapshotWrite, match_current: bool = True) -> _Plan:
         await _hash_unhashed(parent_content)
 
     resolved = resolve(write.manifest, parent_content.resolved() if parent else None)
-    current = (
-        db_snapshot_handler.get_snapshot(channel.current_snapshot_id)
-        if channel and channel.current_snapshot_id
-        else None
-    )
     plan = _Plan(
         owner=owner,
         channel=channel,
         parent=parent,
         resolved=resolved,
+        expected_current_id=expected,
         lookup_channel=(
             channel.id
             if channel is not None and channel.user_id != write.author.id
@@ -670,8 +710,7 @@ def _commit(
 
     kind = SnapshotKind.ARCHIVAL
     if channel is not None:
-        assert write.channel is not None
-        stale = channel.current_snapshot_id != write.channel.expected_current_id
+        stale = channel.current_snapshot_id != plan.expected_current_id
         kind = SnapshotKind.BRANCH if stale else SnapshotKind.CHANNEL
         if (
             kind == SnapshotKind.CHANNEL
@@ -736,7 +775,25 @@ def _commit(
     if channel is None:
         return WriteResult(snapshot=snapshot, outcome=Outcome.CREATED, current=None)
     if kind == SnapshotKind.BRANCH:
-        return WriteResult(snapshot=snapshot, outcome=Outcome.BRANCHED, current=current)
+        # The device plays on from its branch, and the 409 tells it the current it missed.
+        if write.device_id:
+            db_snapshot_handler.record_device_base(
+                write.device_id, channel.id, snapshot.id, session=session
+            )
+        parent_id = plan.parent.id if plan.parent else None
+        from_older = (
+            parent_id is not None
+            and plan.expected_current_id is not None
+            and parent_id != plan.expected_current_id
+        )
+        return WriteResult(
+            snapshot=snapshot,
+            outcome=Outcome.BRANCHED,
+            current=current,
+            conflict=(
+                ConflictReason.MOVED_FROM_OLDER if from_older else ConflictReason.MOVED
+            ),
+        )
 
     channel.current_snapshot_id = snapshot.id
     channel.is_hardcore = write.manifest.is_hardcore

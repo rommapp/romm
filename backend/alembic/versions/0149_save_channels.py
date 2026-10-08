@@ -227,11 +227,15 @@ def upgrade() -> None:
         sa.Column("channel_id", sa.Uuid(), nullable=False),
         sa.Column("base_snapshot_id", sa.Integer(), nullable=True),
         sa.Column("synced_at", sa.TIMESTAMP(timezone=True), nullable=False),
+        sa.Column("latest_known_id", sa.Integer(), nullable=True),
         *_timestamps(),
         sa.ForeignKeyConstraint(["device_id"], ["devices.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["channel_id"], ["channels.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["base_snapshot_id"], ["snapshots.id"], ondelete="SET NULL"
+        ),
+        sa.ForeignKeyConstraint(
+            ["latest_known_id"], ["snapshots.id"], ondelete="SET NULL"
         ),
         sa.PrimaryKeyConstraint("device_id", "channel_id"),
         if_not_exists=True,
@@ -243,6 +247,11 @@ def upgrade() -> None:
         batch_op.create_index(
             "ix_device_channel_sync_base_snapshot_id",
             ["base_snapshot_id"],
+            if_not_exists=True,
+        )
+        batch_op.create_index(
+            "ix_device_channel_sync_latest_known_id",
+            ["latest_known_id"],
             if_not_exists=True,
         )
 

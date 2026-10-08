@@ -10,7 +10,13 @@ from endpoints.responses.snapshots import (
     build_channel_schema,
     build_channel_schemas,
 )
-from endpoints.snapshots import readable_channel, visible_rom_file
+from endpoints.snapshots import (
+    FEED_DEVICE_DESCRIPTION,
+    readable_channel,
+    request_device,
+    required_device,
+    visible_rom_file,
+)
 from handler.auth.constants import Scope
 from handler.database import db_snapshot_handler
 from handler.snapshots import retention
@@ -67,28 +73,39 @@ def get_channels(
         int | None,
         Query(description="Your channels on this platform whose ROM was removed."),
     ] = None,
+    device_id: Annotated[str | None, Query(description=FEED_DEVICE_DESCRIPTION)] = None,
 ) -> list[ChannelSchema]:
     """Your channels on the named files, empty ones included, plus any public
-    channels you name by id. Each carries its current snapshot, or null."""
+    channels you name by id. Each carries its current snapshot, or null.
+
+    Records each current listed by file or by id as the one the device knows.
+    """
     viewer = request.user
+    device = request_device(request, device_id)
     channels: dict[uuid.UUID, Channel] = {}
-    if detached_platform_id is not None:
-        for channel in db_snapshot_handler.get_detached_channels(
-            viewer.id, detached_platform_id
-        ):
-            channels[channel.id] = channel
+    fed: dict[uuid.UUID, Channel] = {}
     for file_id in rom_file_id or []:
         rom_file, rom = visible_rom_file(request, file_id)
         for channel in db_snapshot_handler.get_channels_for_file(
             viewer.id, rom.platform_id, FileKey.of_file(rom_file)
         ):
             if readable_channel(request, channel):
-                channels[channel.id] = channel
+                fed[channel.id] = channel
     for id in channel_id or []:
         extra = db_snapshot_handler.get_channel(id)
         if extra is None or not readable_channel(request, extra):
             raise _not_found()
-        channels[extra.id] = extra
+        fed[extra.id] = extra
+    if detached_platform_id is not None:
+        for channel in db_snapshot_handler.get_detached_channels(
+            viewer.id, detached_platform_id
+        ):
+            channels[channel.id] = channel
+    channels.update(fed)
+    if device is not None:
+        db_snapshot_handler.record_device_seen(
+            device.id, {c.id: c.current_snapshot_id for c in fed.values()}
+        )
     return build_channel_schemas(list(channels.values()), viewer)
 
 
@@ -148,6 +165,31 @@ def attach_channel(
         )
     attached = db_snapshot_handler.attach_channel(channel.id, rom_file)
     return build_channel_schema(attached, request.user)
+
+
+@protected_route(
+    router.delete,
+    "/{id}/held",
+    [Scope.ASSETS_READ],
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def clear_held(
+    request: Request,
+    id: uuid.UUID,
+    device_id: Annotated[
+        str | None,
+        Query(
+            description="The device to clear, else the client token's; takes `devices.write`."
+        ),
+    ] = None,
+) -> None:
+    """Forget what the device holds in the channel and the current it knows,
+    so its next push without `expected_current_id` expects its parent."""
+    device = required_device(request, device_id)
+    channel = db_snapshot_handler.get_channel(id)
+    if channel is None or not readable_channel(request, channel):
+        raise _not_found()
+    db_snapshot_handler.clear_device_sync(device.id, channel.id)
 
 
 @protected_route(

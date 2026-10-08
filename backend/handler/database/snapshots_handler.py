@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -26,6 +26,7 @@ from models.device import Device
 from models.device_channel_sync import DeviceChannelSync
 from models.rom import Rom, RomFile
 from models.snapshot import Snapshot, SnapshotKind, SnapshotPin, SnapshotState
+from utils.sql_dialect import Upsert
 
 from .base_handler import DBBaseHandler
 
@@ -117,6 +118,51 @@ def link_channels_to_files(
             hashed = next((key.sha1 for key in matches if key.sha1), None)
             if hashed:
                 channel.target_file_hash = hashed
+    reattach_archival_snapshots(session, rom_id, [key.sha1 for key in keys if key.sha1])
+
+
+def reattach_archival_snapshots(
+    session: Session, rom_id: int, hashes: Sequence[str]
+) -> None:
+    """Bring archival snapshots of a removed ROM back to `rom_id` once a scan
+    finds a file with the hash they were written with, content included."""
+    if not hashes:
+        return
+    ids = session.scalars(
+        select(Snapshot.id).where(
+            Snapshot.channel_id.is_(None),
+            Snapshot.rom_id.is_(None),
+            Snapshot.rom_sha1.in_(hashes),
+        )
+    ).all()
+    if not ids:
+        return
+    session.execute(
+        update(Snapshot)
+        .where(Snapshot.id.in_(ids))
+        .values(rom_id=rom_id)
+        .execution_options(synchronize_session=False)
+    )
+    session.execute(
+        update(Save)
+        .where(
+            Save.id.in_(select(Snapshot.save_id).where(Snapshot.id.in_(ids))),
+            Save.rom_id.is_(None),
+        )
+        .values(rom_id=rom_id)
+        .execution_options(synchronize_session=False)
+    )
+    session.execute(
+        update(State)
+        .where(
+            State.id.in_(
+                select(SnapshotState.state_id).where(SnapshotState.snapshot_id.in_(ids))
+            ),
+            State.rom_id.is_(None),
+        )
+        .values(rom_id=rom_id)
+        .execution_options(synchronize_session=False)
+    )
 
 
 def channel_for_slot(
@@ -850,6 +896,21 @@ class DBSnapshotsHandler(DBBaseHandler):
         return self._delete_snapshots(session, doomed)
 
     @begin_session
+    def prune_unreachable_archival(
+        self, session: Session = INJECTED_SESSION
+    ) -> ReleasedContent:
+        """Delete archival snapshots with no ROM and no file hash: no view lists
+        them and no scan can bring them back."""
+        doomed = session.scalars(
+            select(Snapshot.id).where(
+                Snapshot.kind == SnapshotKind.ARCHIVAL,
+                Snapshot.rom_id.is_(None),
+                Snapshot.rom_sha1.is_(None),
+            )
+        ).all()
+        return self._delete_snapshots(session, doomed)
+
+    @begin_session
     def update_channel(
         self,
         id: uuid.UUID,
@@ -868,13 +929,14 @@ class DBSnapshotsHandler(DBBaseHandler):
     ) -> ReleasedContent:
         """Delete a channel, keeping its current and the owner's pinned snapshots
         as archival. Legacy saves filed under it lose the link and become backups.
-        A detached channel keeps nothing: with its ROM gone, no view could reach a
-        backup."""
+        A detached channel keeps nothing: it is its own way back, so deleting it
+        means the saves go."""
         channel = session.get_one(Channel, id, with_for_update=True)
         owner_pinned = exists().where(
             SnapshotPin.snapshot_id == Snapshot.id,
             SnapshotPin.user_id == channel.user_id,
         )
+        reachable = channel.rom_id is not None
         kept = (
             session.scalars(
                 select(Snapshot).where(
@@ -882,13 +944,15 @@ class DBSnapshotsHandler(DBBaseHandler):
                     or_(Snapshot.id == channel.current_snapshot_id, owner_pinned),
                 )
             ).all()
-            if channel.rom_id is not None
+            if reachable
             else []
         )
         for snapshot in kept:
             snapshot.channel_id = None
             snapshot.kind = SnapshotKind.ARCHIVAL
             snapshot.is_public = channel.is_public
+            # A snapshot written before a scan hashed the file carries no hash to reattach by.
+            snapshot.rom_sha1 = snapshot.rom_sha1 or channel.target_file_hash
         channel.current_snapshot_id = None
         session.flush()
         released = self._delete_snapshots(
@@ -919,16 +983,86 @@ class DBSnapshotsHandler(DBBaseHandler):
         channel_id: uuid.UUID,
         snapshot_id: int,
         session: Session = INJECTED_SESSION,
-    ) -> DeviceChannelSync:
+    ) -> None:
+        """Record the snapshot the device holds in the channel, and the
+        channel's current as the one it knows: every way of holding a snapshot
+        shows the device the current."""
         now = datetime.now(timezone.utc)
-        sync = session.get(DeviceChannelSync, (device_id, channel_id))
-        if sync is None:
-            sync = DeviceChannelSync(device_id=device_id, channel_id=channel_id)
-            session.add(sync)
-        sync.base_snapshot_id = snapshot_id
-        sync.synced_at = now
-        session.flush()
-        return sync
+        channel = session.get(Channel, channel_id)
+        current = channel.current_snapshot_id if channel is not None else None
+        session.execute(
+            Upsert(
+                DeviceChannelSync,
+                ["base_snapshot_id", "synced_at", "latest_known_id", "updated_at"],
+            ).values(
+                device_id=device_id,
+                channel_id=channel_id,
+                base_snapshot_id=snapshot_id,
+                synced_at=now,
+                latest_known_id=current,
+            )
+        )
+        self._touch_device(session, device_id, now)
+
+    @begin_session
+    def record_device_seen(
+        self,
+        device_id: str,
+        currents: Mapping[uuid.UUID, int | None],
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Record each channel's current, by channel id, as the one the device
+        knows, leaving what it holds, and since when, as it was."""
+        if not currents:
+            return
+        now = datetime.now(timezone.utc)
+        session.execute(
+            Upsert(DeviceChannelSync, ["latest_known_id", "updated_at"]).values(
+                [
+                    {
+                        "device_id": device_id,
+                        "channel_id": channel_id,
+                        # A new row holds nothing; synced_at only needs a value.
+                        "synced_at": now,
+                        "latest_known_id": current_id,
+                    }
+                    for channel_id, current_id in currents.items()
+                ]
+            )
+        )
+        self._touch_device(session, device_id, now)
+
+    @staticmethod
+    def _touch_device(session: Session, device_id: str, now: datetime) -> None:
+        session.execute(
+            update(Device)
+            .where(Device.id == device_id)
+            .values(last_seen=now)
+            .execution_options(synchronize_session=False)
+        )
+
+    @begin_session
+    def get_device_sync(
+        self,
+        device_id: str,
+        channel_id: uuid.UUID,
+        session: Session = INJECTED_SESSION,
+    ) -> DeviceChannelSync | None:
+        return session.get(DeviceChannelSync, (device_id, channel_id))
+
+    @begin_session
+    def clear_device_sync(
+        self,
+        device_id: str,
+        channel_id: uuid.UUID,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        session.execute(
+            delete(DeviceChannelSync).where(
+                DeviceChannelSync.device_id == device_id,
+                DeviceChannelSync.channel_id == channel_id,
+            )
+        )
 
     @begin_session
     def get_held_save_ids(

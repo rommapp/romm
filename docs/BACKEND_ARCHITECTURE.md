@@ -239,6 +239,7 @@ backend/
 │   │   ├── manifest.py        # Manifest, carry rules, snapshot_digest
 │   │   ├── file_key.py        # The ROM file a channel belongs to
 │   │   ├── write.py           # write_snapshot, the one channel write path
+│   │   ├── shared_card.py     # A pushed shared card cut to the game's saves
 │   │   ├── legacy.py          # Slot labels and the file a ROM's channels key to
 │   │   └── retention.py       # Pruning snapshots and the rows only they held
 │   ├── auth/                  # Authentication subsystem
@@ -629,6 +630,8 @@ Tracks individual files within a ROM (archives can contain multiple files).
 | `title_id`, `title_version`                    | String(100), BigInteger | Platform-native id and numeric version read from the binary (rom-converto or sigil)                                                |
 | `converto_read_at`                             | Timestamp               | Last time rom-converto read the file; NULL queues it on the next scan                                                              |
 | `raw_serial`, `sigil_features`                 | String(100), BigInteger | Serial as the binary spells it and sigil's feature flags, which a save restore takes back; NULL until sigil reads the file         |
+| `n64_header`, `n64_md5`, `n64_md5_n64`         | String(100)             | The N64 cart's internal name and MD5 in both byte orders, which standalone N64 emulators name saves after; read once per file      |
+| `playlist_title_ids`                           | JSON                    | An `.m3u` file's discs' title ids in playlist order, which a save restore takes as the game's ids                                  |
 | `missing_from_fs`                              | Boolean                 | Sync state                                                                                                                         |
 
 **Relationships:** rom (M:1), track_meta (1:1, `SOUNDTRACK` files only)
@@ -791,7 +794,7 @@ Saves additionally link to `device_save_sync` for cross-device tracking. On save
 
 **Table:** `snapshot_pins` (PK `snapshot_id`, `user_id`, both cascade). A snapshot anyone pinned is never pruned. Unsharing a channel or an archival snapshot deletes every pin but the owner's.
 
-**Table:** `device_channel_sync` (PK `device_id`, `channel_id`; `base_snapshot_id`, `synced_at`), attribution only
+**Table:** `device_channel_sync` (PK `device_id`, `channel_id`; `base_snapshot_id`, `synced_at`, `latest_known_id`), attribution and the inferred expected current
 
 ---
 
@@ -1018,20 +1021,23 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 
 ### 6.8 Saves (`/api/saves`)
 
-| Method | Path               | Scope         | Description                             |
-| ------ | ------------------ | ------------- | --------------------------------------- |
-| POST   | `/`                | ASSETS_WRITE  | Upload save (with optional device sync) |
-| GET    | `/`                | ASSETS_READ   | List saves (with device_id filter)      |
-| GET    | `/identifiers`     | ASSETS_READ   | Get save IDs                            |
-| GET    | `/summary`         | ASSETS_READ   | Saves grouped by slot                   |
-| GET    | `/{id}`            | ASSETS_READ   | Get save                                |
-| GET    | `/{id}/content`    | ASSETS_READ   | Download save file                      |
-| POST   | `/{id}/downloaded` | DEVICES_WRITE | Confirm download (device sync)          |
-| PUT    | `/{id}`            | ASSETS_WRITE  | Update save                             |
-| PUT    | `/{id}/file-name`  | ASSETS_WRITE  | Rename save file and its screenshot     |
-| POST   | `/delete`          | ASSETS_WRITE  | Bulk delete                             |
-| POST   | `/{id}/track`      | DEVICES_WRITE | Re-enable sync tracking                 |
-| POST   | `/{id}/untrack`    | DEVICES_WRITE | Disable sync tracking                   |
+| Method | Path                  | Scope         | Description                                                                                       |
+| ------ | --------------------- | ------------- | ------------------------------------------------------------------------------------------------- |
+| POST   | `/`                   | ASSETS_WRITE  | Upload save (with optional device sync)                                                           |
+| GET    | `/`                   | ASSETS_READ   | List saves (with device_id filter)                                                                |
+| GET    | `/identifiers`        | ASSETS_READ   | Get save IDs                                                                                      |
+| GET    | `/summary`            | ASSETS_READ   | Saves grouped by slot                                                                             |
+| GET    | `/layouts?platform=`  | ASSETS_READ   | Sigil's layouts for a platform, each a `core` with its options and region option                  |
+| GET    | `/{id}`               | ASSETS_READ   | Get save                                                                                          |
+| GET    | `/{id}/content`       | ASSETS_READ   | Download save file                                                                                |
+| GET    | `/{id}/content?core=` | ASSETS_READ   | Save as `core` reads it, restored by sigil; 400 with `container_path` for a shared card or volume |
+| POST   | `/{id}/content`       | ASSETS_READ   | Merge the save into the card or volume the client sends; 400 if the restore writes any other file |
+| POST   | `/{id}/downloaded`    | DEVICES_WRITE | Confirm download (device sync)                                                                    |
+| PUT    | `/{id}`               | ASSETS_WRITE  | Update save                                                                                       |
+| PUT    | `/{id}/file-name`     | ASSETS_WRITE  | Rename save file and its screenshot                                                               |
+| POST   | `/delete`             | ASSETS_WRITE  | Bulk delete                                                                                       |
+| POST   | `/{id}/track`         | DEVICES_WRITE | Re-enable sync tracking                                                                           |
+| POST   | `/{id}/untrack`       | DEVICES_WRITE | Disable sync tracking                                                                             |
 
 ### 6.9 States (`/api/states`)
 
@@ -1057,24 +1063,44 @@ Once a channel has a current snapshot, legacy clients join it
 snapshot's save, and a slotted upload becomes a new current that carries the
 parent's states. Hardcore channels and neutral current saves stay out.
 
-| Method | Path                                  | Scope         | Description                                                                                                                             |
-| ------ | ------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/snapshots`                          | ASSETS_READ   | Each channel's current on `rom_file_id`s, or a channel history                                                                          |
-| GET    | `/snapshots/{id}`                     | ASSETS_READ   | One snapshot with its save, bank and screenshots                                                                                        |
-| POST   | `/snapshots`                          | ASSETS_WRITE  | Push: `manifest` part plus content parts the server lacks; naming `device_id` also takes DEVICES_WRITE                                  |
-| PATCH  | `/snapshots/{id}`                     | ASSETS_WRITE  | Pin for the caller (any reader), or share an archival snapshot (owner only)                                                             |
-| PUT    | `/snapshots/{id}/devices/{device_id}` | DEVICES_WRITE | Record the snapshot a device applied                                                                                                    |
-| GET    | `/channels`                           | ASSETS_READ   | Channels on `rom_file_id`s, empty ones included, with current; `detached_platform_id` lists the caller's channels whose ROM was removed |
-| POST   | `/channels`                           | ASSETS_WRITE  | Create an empty channel on a ROM file                                                                                                   |
-| PATCH  | `/channels/{id}`                      | ASSETS_WRITE  | Rename or share a channel (owner only)                                                                                                  |
-| POST   | `/channels/{id}/attach`               | ASSETS_WRITE  | Attach a detached channel to a file on its platform (owner only)                                                                        |
-| DELETE | `/channels/{id}`                      | ASSETS_WRITE  | Delete; current and owner-pinned snapshots stay as archival                                                                             |
+| Method | Path                                  | Scope        | Description                                                                                                                             |
+| ------ | ------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/snapshots`                          | ASSETS_READ  | Each channel's current on `rom_file_id`s, or a channel history                                                                          |
+| GET    | `/snapshots/{id}`                     | ASSETS_READ  | One snapshot with its save, bank and screenshots; `hold=true` records it as the device's held snapshot                                  |
+| POST   | `/snapshots`                          | ASSETS_WRITE | Push: `manifest` part plus content parts the server lacks; a `device_id` other than the token's also takes DEVICES_WRITE                |
+| PATCH  | `/snapshots/{id}`                     | ASSETS_WRITE | Pin for the caller (owner, or anyone while public), or share an archival snapshot (owner only)                                          |
+| PUT    | `/snapshots/{id}/devices/{device_id}` | ASSETS_READ  | Record the snapshot a device applied, as `hold=true` does; a device other than the token's takes DEVICES_WRITE                          |
+| GET    | `/channels`                           | ASSETS_READ  | Channels on `rom_file_id`s, empty ones included, with current; `detached_platform_id` lists the caller's channels whose ROM was removed |
+| POST   | `/channels`                           | ASSETS_WRITE | Create an empty channel on a ROM file                                                                                                   |
+| PATCH  | `/channels/{id}`                      | ASSETS_WRITE | Rename or share a channel (owner only)                                                                                                  |
+| POST   | `/channels/{id}/attach`               | ASSETS_WRITE | Attach a detached channel to a file on its platform (owner only)                                                                        |
+| DELETE | `/channels/{id}/held`                 | ASSETS_READ  | Clear the device's held snapshot and known current in the channel                                                                       |
+| DELETE | `/channels/{id}`                      | ASSETS_WRITE | Delete; current and owner-pinned snapshots stay as archival, except on a detached channel, which keeps nothing                          |
 
 - **Writes:** every snapshot goes through `handler.snapshots.write.write_snapshot`,
   which locks the channel row, checks `expected_current_id` (a stale push is kept as a
   branch and answered 409) and applies the hardcore-downgrade guard. A push that adds
   no progress, the same content or a save whose clock alone moved, answers unchanged;
   screenshots it carries attach to rows that have none.
+- **Push device and sync state:** a request's device is `device_id`, else the device
+  its client token is bound to. In `device_channel_sync`, `base_snapshot_id` and
+  `synced_at` are what the device holds and since when (moved by a push, a
+  `GET /snapshots/{id}?hold=true` and the PUT report). `latest_known_id` is the
+  channel's current the device last learned: from those writes when they hold the
+  current, from a 409, and from listing the feed (`GET /snapshots?current=true`, an
+  uncursored history page holding the current, `GET /channels` by file or id), which
+  moves nothing else. `DELETE /channels/{id}/held` drops the row. Both writes upsert.
+- **Inferred expected current:** a push without `expected_current_id` builds on its
+  `parent_snapshot_id`, else the snapshot its device holds, else `latest_known_id`. It
+  expects `latest_known_id`, else its parent, which matches only when it is the
+  current. A mismatch is a 409 whose `reason` is `moved_from_older` when the parent
+  is older than the expected current, else `moved`.
+- **Shared cards:** before the write, `handler.snapshots.shared_card.own_saves_only`
+  swaps a `native` `SINGLE` PS1, PS2 or GameCube card holding other games' saves,
+  once it matches the declared hash, for the game's `neutral` unit
+  (`adapters.services.sigil_card`). Hashes, the digest, content reuse and the
+  unchanged check all use that unit. Only `POST /snapshots` does this; legacy
+  uploads are stored as sent.
 - **Uploads:** every uploaded zip passes `assets_handler.check_zip` (no escaping entry
   names or symlinks, entry count and expanded size capped); a `neutral` save also passes
   `handler.snapshots.neutral.check_neutral_unit`. Both answer 422.
@@ -1093,7 +1119,8 @@ parent's states. Hardcore channels and neutral current saves stay out.
   `prune_snapshots` task drops branches after `SNAPSHOT_BRANCH_LIFETIME_DAYS` (30). Pruning deletes the content
   rows only the pruned snapshots held. A slotted upload the bridge made a current
   is one of them and goes with its snapshot; a legacy save no snapshot holds is
-  never removed by it.
+  never removed by it. An archival snapshot whose ROM was removed returns when a
+  scan finds a file with its `rom_sha1`; the task prunes one with no hash.
 
 ### 6.9b RetroArch Cloud Sync (`/api/sync/retroarch`)
 
@@ -1798,22 +1825,22 @@ failure callback and a scan needs one to report a worker that died mid-scan.
 
 Toggled via environment variables:
 
-| Task                              | Env Toggle                                            | Default Cron       | Description                    |
-| --------------------------------- | ----------------------------------------------------- | ------------------ | ------------------------------ |
-| `scan_library`                    | `ENABLE_SCHEDULED_RESCAN`                             | `0 3 * * *` (3 AM) | Full library rescan            |
-| `update_switch_titledb`           | `ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB`              | `0 4 * * *`        | Update Switch game DB          |
-| `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`          | `0 4 * * *`        | Refresh LaunchBox data         |
-| `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`             | `0 4 * * *`        | Image optimization             |
-| `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC`    | `0 4 * * *`        | Sync RA user progress          |
-| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`         | `0 5 * * *`        | Remove unused artwork          |
-| `cleanup_netplay`                 | `ENABLE_SCHEDULED_CLEANUP_NETPLAY` (default on)       | `*/30 * * * *`     | Clean empty rooms              |
-| `cleanup_upload_tmp`              | `ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP` (default on)    | `0 * * * *`        | Drop stale uploads             |
-| `cleanup_zip_cache`               | `ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE` (default on)     | `0 4 * * *`        | Drop stale cached ZIPs         |
-| `cleanup_conversion_cache`        | Always on                                             | `0 4 * * *`        | Drop stale converted downloads |
-| `cleanup_sync_sessions`           | `ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS` (default on) | `23 * * * *`       | Fail abandoned syncs           |
-| `prune_snapshots`                 | `ENABLE_SCHEDULED_PRUNE_SNAPSHOTS` (default on)       | `41 * * * *`       | Drop expired sync branches     |
-| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup        | `* * * * *`        | Stop abandoned streams         |
-| `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)       | `30 4 * * *`       | Prune old audit events         |
+| Task                              | Env Toggle                                            | Default Cron       | Description                                               |
+| --------------------------------- | ----------------------------------------------------- | ------------------ | --------------------------------------------------------- |
+| `scan_library`                    | `ENABLE_SCHEDULED_RESCAN`                             | `0 3 * * *` (3 AM) | Full library rescan                                       |
+| `update_switch_titledb`           | `ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB`              | `0 4 * * *`        | Update Switch game DB                                     |
+| `update_launchbox_metadata`       | `ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA`          | `0 4 * * *`        | Refresh LaunchBox data                                    |
+| `convert_images_to_webp`          | `ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP`             | `0 4 * * *`        | Image optimization                                        |
+| `sync_retroachievements_progress` | `ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC`    | `0 4 * * *`        | Sync RA user progress                                     |
+| `cleanup_orphaned_resources`      | `ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES`         | `0 5 * * *`        | Remove unused artwork                                     |
+| `cleanup_netplay`                 | `ENABLE_SCHEDULED_CLEANUP_NETPLAY` (default on)       | `*/30 * * * *`     | Clean empty rooms                                         |
+| `cleanup_upload_tmp`              | `ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP` (default on)    | `0 * * * *`        | Drop stale uploads                                        |
+| `cleanup_zip_cache`               | `ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE` (default on)     | `0 4 * * *`        | Drop stale cached ZIPs                                    |
+| `cleanup_conversion_cache`        | Always on                                             | `0 4 * * *`        | Drop stale converted downloads                            |
+| `cleanup_sync_sessions`           | `ENABLE_SCHEDULED_CLEANUP_SYNC_SESSIONS` (default on) | `23 * * * *`       | Fail abandoned syncs                                      |
+| `prune_snapshots`                 | `ENABLE_SCHEDULED_PRUNE_SNAPSHOTS` (default on)       | `41 * * * *`       | Drop expired sync branches and unreachable archival saves |
+| `reap_streaming_sessions`         | `streaming.enabled` in config, read at startup        | `* * * * *`        | Stop abandoned streams                                    |
+| `cleanup_audit_log`               | `AUDIT_LOG_RETENTION_DAYS` above 0 (default 90)       | `30 4 * * *`       | Prune old audit events                                    |
 
 ### Manual Tasks
 

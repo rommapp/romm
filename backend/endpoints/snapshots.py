@@ -38,7 +38,9 @@ from handler.snapshots.clone import copy_part
 from handler.snapshots.file_key import FileKey
 from handler.snapshots.manifest import CARRY, Manifest, SaveEntry
 from handler.snapshots.neutral import NeutralUnitRejected, check_neutral_unit
+from handler.snapshots.shared_card import own_saves_only
 from handler.snapshots.write import (
+    INFER,
     SAVE_PART,
     ChannelTarget,
     ContentMismatch,
@@ -65,13 +67,18 @@ from models.device import Device
 from models.rom import Rom, RomFile
 from models.snapshot import STATE_SLOT_MAX_LENGTH, Snapshot, SnapshotKind
 from models.user import User
-from utils.auth import create_or_find_web_device
+from utils.auth import create_or_find_web_device, token_device_id
 from utils.router import APIRouter
 from utils.uploads import check_asset_upload_size, check_emulator_folder_name
 
 router = APIRouter(prefix="/snapshots", tags=["snapshots"])
 
 HISTORY_PAGE_MAX = 100
+FEED_DEVICE_DESCRIPTION = (
+    "The device fetching the feed, else the client token's. Listing a channel's "
+    "current for a device records it as the current the device knows, which a "
+    "push without `expected_current_id` expects. Naming one takes `devices.write`."
+)
 SCREENSHOT_SUFFIX = ":screenshot"
 SAVE_SCREENSHOT_PART = "save_screenshot"
 STATE_PART_PATTERN = re.compile(r"^state:([^:]+):([^:]+)$")
@@ -110,7 +117,14 @@ class ManifestPayload(BaseModel):
     label: str | None = Field(
         default=None, min_length=1, max_length=CHANNEL_LABEL_MAX_LENGTH
     )
-    expected_current_id: int | None
+    expected_current_id: int | None = Field(
+        default=None,
+        description=(
+            "The current snapshot the push builds on; null expects an empty channel. "
+            "Left out, the push expects the latest current its device knows from a "
+            "feed, push or download, else its parent, else an empty channel."
+        ),
+    )
     parent_snapshot_id: int | None = None
     save: SaveEntryPayload | None = None
     states: dict[CoreName, dict[SlotName, ContentHash]] = {}
@@ -225,15 +239,43 @@ def visible_rom_file(request: Request, rom_file_id: int) -> tuple[RomFile, Rom]:
 
 
 def _own_device(request: Request, device_id: str | None) -> Device | None:
-    """The caller's device a write is attributed to. Attributing one takes
-    `devices.write`, as the legacy save upload requires."""
+    """The caller's device a write is attributed to. Naming one takes
+    `devices.write`, as the legacy save upload requires, unless it is the
+    device the client token is bound to."""
     if device_id is None:
         return None
-    if Scope.DEVICES_WRITE not in request.auth.scopes:
+    if Scope.DEVICES_WRITE not in request.auth.scopes and device_id != token_device_id(
+        request
+    ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if device is None:
         raise _not_found("Device")
+    return device
+
+
+def request_device(request: Request, device_id: str | None) -> Device | None:
+    """The device a request acts for: `device_id`, on `_own_device`'s terms,
+    else the device its client token is bound to, which needs no `devices.write`."""
+    if device_id is not None:
+        return _own_device(request, device_id)
+    bound = token_device_id(request)
+    if bound is None:
+        return None
+    return db_device_handler.get_device(device_id=bound, user_id=request.user.id)
+
+
+def required_device(request: Request, device_id: str | None) -> Device:
+    """`request_device`, which a request that acts on a device's state needs.
+
+    Raises:
+        HTTPException: 400 when the request names no device and its token has none.
+    """
+    device = request_device(request, device_id)
+    if device is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="A device is required"
+        )
     return device
 
 
@@ -246,9 +288,16 @@ def get_snapshots(
     save_target: str | None = None,
     limit: Annotated[int, Query(ge=1, le=HISTORY_PAGE_MAX)] = 50,
     cursor: str | None = None,
+    device_id: Annotated[str | None, Query(description=FEED_DEVICE_DESCRIPTION)] = None,
 ) -> list[SnapshotSchema]:
-    """Each channel's current snapshot on the named files, or one channel's history, newest first."""
+    """Each channel's current snapshot on the named files, or one channel's history, newest first.
+
+    Records each current it lists as the one the device knows: every channel
+    of a `current` listing, and a history page holding the channel's current
+    without a `cursor`.
+    """
     viewer = request.user
+    device = request_device(request, device_id)
     if current:
         channels: dict[uuid.UUID, Channel] = {}
         for file_id in rom_file_id or []:
@@ -266,18 +315,20 @@ def get_snapshots(
         currents = db_snapshot_handler.get_snapshots(
             {c.current_snapshot_id for c in channels.values() if c.current_snapshot_id}
         )
-        return build_snapshot_schemas(
-            [
-                (currents[c.current_snapshot_id], c)
-                for c in channels.values()
-                if c.current_snapshot_id in currents
-                and (
-                    save_target is None
-                    or currents[c.current_snapshot_id].save_target == save_target
-                )
-            ],
-            viewer,
-        )
+        listed = [
+            (currents[c.current_snapshot_id], c)
+            for c in channels.values()
+            if c.current_snapshot_id in currents
+            and (
+                save_target is None
+                or currents[c.current_snapshot_id].save_target == save_target
+            )
+        ]
+        if device is not None:
+            db_snapshot_handler.record_device_seen(
+                device.id, {c.id: snapshot.id for snapshot, c in listed}
+            )
+        return build_snapshot_schemas(listed, viewer)
 
     if channel_id is None:
         raise HTTPException(
@@ -293,20 +344,47 @@ def get_snapshots(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid cursor"
         ) from None
-    return build_snapshot_schemas(
-        [
-            (snapshot, history)
-            for snapshot in db_snapshot_handler.get_channel_history(
-                history.id, limit, before_id=before_id, save_target=save_target
-            )
-        ],
-        viewer,
+    page = db_snapshot_handler.get_channel_history(
+        history.id, limit, before_id=before_id, save_target=save_target
     )
+    if (
+        device is not None
+        and cursor is None
+        and (
+            history.current_snapshot_id is None
+            or any(snapshot.id == history.current_snapshot_id for snapshot in page)
+        )
+    ):
+        db_snapshot_handler.record_device_seen(
+            device.id, {history.id: history.current_snapshot_id}
+        )
+    return build_snapshot_schemas([(snapshot, history) for snapshot in page], viewer)
 
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
-def get_snapshot(request: Request, id: int) -> SnapshotSchema:
+def get_snapshot(
+    request: Request,
+    id: int,
+    device_id: Annotated[
+        str | None,
+        Query(
+            description="The device `hold` records for, else the client token's; takes `devices.write`."
+        ),
+    ] = None,
+    hold: Annotated[
+        bool,
+        Query(
+            description="Records the snapshot as the one the device holds, as a download it applies."
+        ),
+    ] = False,
+) -> SnapshotSchema:
+    """One snapshot. With `hold`, records it as the snapshot the device holds
+    in its channel, and as the current the device knows when it is the
+    channel's current. `hold` without a device is a 400."""
+    device = required_device(request, device_id) if hold else None
     snapshot, channel = _readable(request, id)
+    if device is not None and channel is not None:
+        db_snapshot_handler.record_device_base(device.id, channel.id, snapshot.id)
     return build_snapshot_schema(snapshot, channel, request.user)
 
 
@@ -444,6 +522,7 @@ def _respond(result: WriteResult, viewer: User) -> JSONResponse:
     )
     body = build_snapshot_schema(result.snapshot, channel, viewer)
     if result.outcome == Outcome.BRANCHED:
+        assert result.conflict is not None, "a branched write names its conflict"
         current = result.current
         conflict = SnapshotConflictSchema(
             current=(
@@ -454,6 +533,7 @@ def _respond(result: WriteResult, viewer: User) -> JSONResponse:
                 else None
             ),
             branch=body,
+            reason=result.conflict,
         )
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
@@ -484,11 +564,13 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
     """Write a snapshot into a channel. Multipart: a `manifest` JSON part, plus
     `save`, `state:<core>:<slot>` and their screenshot parts for hashes the server lacks.
     A screenshot part may come alone, for content the server holds without one.
-    Naming `device_id` also takes `devices.write`, and the device must be the
-    caller's own.
+    A native PS1, PS2 or GameCube card holding other games' saves is stored as
+    this game's per-game unit, in neutral form. Naming `device_id` also takes
+    `devices.write`, and the device must be the caller's own. Without it, a
+    device-bound client token's device is the push's.
     """
     viewer = request.user
-    device = _own_device(request, device_id)
+    device = request_device(request, device_id)
     payload, parts, save_members = await _read_push(request)
     check_emulator_folder_name(payload.emulator)
     rom_file, rom = visible_rom_file(request, payload.rom_file_id)
@@ -523,7 +605,11 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
         rom_file=rom_file,
         manifest=payload.to_manifest(copied, source),
         channel=ChannelTarget(
-            expected_current_id=payload.expected_current_id,
+            expected_current_id=(
+                payload.expected_current_id
+                if "expected_current_id" in payload.model_fields_set
+                else INFER
+            ),
             id=payload.channel_id,
             label=payload.label,
         ),
@@ -541,7 +627,7 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
         parts=parts,
     )
     try:
-        result = await write_snapshot(write)
+        result = await write_snapshot(await own_saves_only(write))
     except ContentMissing as exc:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -601,11 +687,13 @@ def update_snapshot(
 @protected_route(
     router.put,
     "/{id}/devices/{device_id}",
-    [Scope.DEVICES_WRITE],
+    [Scope.ASSETS_READ],
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def report_applied(request: Request, id: int, device_id: str) -> None:
-    """Record the snapshot a device applied after a download, for attribution."""
+    """Record the snapshot a device applied after a download, as
+    `GET /snapshots/{id}?hold=true` does. Naming a device takes `devices.write`
+    unless it is the one the client token is bound to."""
     device = _own_device(request, device_id)
     snapshot, channel = _readable(request, id)
     if device is None or channel is None:

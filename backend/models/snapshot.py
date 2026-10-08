@@ -26,6 +26,15 @@ class SnapshotKind(enum.StrEnum):
     BRANCH = "branch"
 
 
+class ConflictReason(enum.StrEnum):
+    """Why a push into a channel was kept as a branch."""
+
+    # The push built on the current it expected, which another write replaced.
+    MOVED = "moved"
+    # The push built on a snapshot older than the current it expected, which moved too.
+    MOVED_FROM_OLDER = "moved_from_older"
+
+
 class Snapshot(BaseModel):
     """A fixed checkpoint: an optional save plus a bank of states."""
 

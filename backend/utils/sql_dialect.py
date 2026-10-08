@@ -87,6 +87,55 @@ def _dialect_case_mysql(
     return compiler.process(element.mysql, **kw)
 
 
+class Upsert(sa.Insert):
+    """An INSERT that, on a row whose primary key exists, sets `update` from
+    the row it would have inserted instead."""
+
+    inherit_cache = False
+
+    def __init__(self, entity: type[Any], update: Sequence[str]) -> None:
+        super().__init__(entity)
+        unknown = set(update) - set(self.table.columns.keys())
+        if unknown:
+            raise ValueError(f"not columns of {self.table}: {sorted(unknown)}")
+        self.update_columns = tuple(update)
+
+
+def _insert_and_assignments(
+    element: Upsert,
+    compiler: SQLCompiler,
+    inserted: Callable[[str], str],
+    **kw: Any,
+) -> tuple[str, str]:
+    """The plain INSERT, and the `SET` list taking each update column from the row."""
+    insert: str = compiler.visit_insert(element, **kw)  # type: ignore[no-untyped-call]
+    quote = compiler.preparer.quote
+    sets = ", ".join(
+        f"{quote(name)} = {inserted(quote(name))}" for name in element.update_columns
+    )
+    return insert, sets
+
+
+@compiles(Upsert)
+def _upsert_default(element: Upsert, compiler: SQLCompiler, **kw: Any) -> str:
+    key = ", ".join(
+        compiler.preparer.quote(column.name) for column in element.table.primary_key
+    )
+    insert, sets = _insert_and_assignments(
+        element, compiler, lambda name: f"excluded.{name}", **kw
+    )
+    # Every name is a column of the table, quoted by the dialect's preparer.
+    return f"{insert} ON CONFLICT ({key}) DO UPDATE SET {sets}"  # nosec B608
+
+
+@_compiles_on_mysql_family(Upsert)
+def _upsert_mysql(element: Upsert, compiler: SQLCompiler, **kw: Any) -> str:
+    insert, sets = _insert_and_assignments(
+        element, compiler, lambda name: f"VALUES({name})", **kw
+    )
+    return f"{insert} ON DUPLICATE KEY UPDATE {sets}"
+
+
 def nulls_last[T](sort_key: SQLColumnExpression[T], descending: bool) -> DialectCase[T]:
     """An ORDER BY term that sorts NULL values of `sort_key` after every other value."""
     directed = sort_key.desc() if descending else sort_key.asc()

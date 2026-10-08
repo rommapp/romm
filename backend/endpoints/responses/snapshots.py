@@ -2,10 +2,12 @@ import uuid
 from collections.abc import Collection, Sequence
 from typing import Any
 
+from pydantic import Field
+
 from models.assets import SaveFormat, SaveShape
 from models.channel import Channel
 from models.device import Device
-from models.snapshot import Snapshot, SnapshotKind
+from models.snapshot import ConflictReason, Snapshot, SnapshotKind
 from models.user import User
 
 from .base import BaseModel, UTCDatetime
@@ -120,6 +122,13 @@ class CurrentRefSchema(BaseModel):
 class SnapshotConflictSchema(BaseModel):
     current: CurrentRefSchema | None
     branch: SnapshotSchema
+    reason: ConflictReason = Field(
+        description=(
+            "`moved`: the channel moved on from the current the push built on. "
+            "`moved_from_older`: the push built on a snapshot older than the "
+            "current it expected, and the channel moved on from that current too."
+        )
+    )
 
 
 def device_ref(device: Device | None, viewer: User) -> DeviceRefSchema | None:

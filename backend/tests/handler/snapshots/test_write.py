@@ -345,6 +345,41 @@ async def test_a_softcore_save_over_a_hardcore_current_needs_approval(
     assert older is not None and older.is_hardcore
 
 
+async def test_a_stale_softcore_push_over_a_hardcore_current_lands_as_a_branch(
+    admin_user: User, rom: Rom, hashed_file: RomFile
+):
+    first = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=save_entry(), is_hardcore=True),
+            expected=None,
+            parts={SAVE_PART: part(SRAM)},
+        )
+    )
+    softcore = b"softcore"
+
+    result = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=save_entry(softcore)),
+            expected=None,
+            channel_id=first.snapshot.channel_id,
+            parts={SAVE_PART: part(softcore)},
+        )
+    )
+
+    assert result.outcome == Outcome.BRANCHED
+    channel_id = first.snapshot.channel_id
+    assert channel_id is not None
+    channel = db_snapshot_handler.get_channel(channel_id)
+    assert channel is not None and channel.is_hardcore
+    assert channel.current_snapshot_id == first.snapshot.id
+
+
 async def test_a_hardcore_snapshot_holds_no_states(
     admin_user: User, rom: Rom, hashed_file: RomFile
 ):

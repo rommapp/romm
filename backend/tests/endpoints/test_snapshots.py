@@ -3,14 +3,18 @@ import io
 import json
 import uuid
 import zipfile
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 from tests._zipfile_shim import reload_zipfile
+from tests.factories import make_device_token
 
 from handler.database import db_device_handler, db_rom_handler, db_snapshot_handler
+from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler
 from handler.snapshots.manifest import Manifest, SaveEntry
 from handler.snapshots.write import (
@@ -22,6 +26,7 @@ from handler.snapshots.write import (
 )
 from models.assets import SaveFormat, SaveShape
 from models.device import Device
+from models.device_channel_sync import DeviceChannelSync
 from models.rom import Rom, RomFile
 from models.user import User
 
@@ -386,6 +391,23 @@ def test_a_save_whose_bytes_do_not_fit_its_shape_is_unprocessable(
             save={"hash": md5(archive), "shape": "SINGLE", "format": "neutral"},
         ),
         {"save": ("save.zip", archive)},
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_a_shape_outside_the_three_is_refused(
+    client: TestClient, headers: dict[str, str], game_file: RomFile
+):
+    response = post(
+        client,
+        headers,
+        manifest(
+            game_file,
+            label="default",
+            save={"hash": md5(SRAM), "shape": "FOLDERS", "format": "native"},
+        ),
+        {"save": ("game.srm", SRAM)},
     )
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -995,6 +1017,46 @@ def test_a_device_reports_the_snapshot_it_applied(
     assert [held["device"]["id"] for held in seen["held_by"]] == [device.id]
 
 
+@pytest.mark.parametrize(("hold", "recorded"), [(True, True), (False, False)])
+def test_fetching_a_snapshot_for_a_device_records_it_only_to_hold(
+    client: TestClient,
+    headers: dict[str, str],
+    game_file: RomFile,
+    device: Device,
+    hold: bool,
+    recorded: bool,
+):
+    body = first_push(client, headers, game_file)
+
+    fetched = client.get(
+        f"/api/snapshots/{body['id']}",
+        params={"device_id": device.id, "hold": hold},
+        headers=headers,
+    )
+    seen = client.get(f"/api/snapshots/{body['id']}", headers=headers).json()
+    stored = db_device_handler.get_device(device_id=device.id, user_id=device.user_id)
+
+    assert fetched.status_code == status.HTTP_200_OK
+    assert [held["device"]["id"] for held in seen["held_by"]] == (
+        [device.id] if recorded else []
+    )
+    assert stored is not None and (stored.last_seen is not None) == recorded
+
+
+def test_a_push_or_report_for_a_device_marks_it_seen(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
+):
+    body = first_push(client, headers, game_file, device_id=device.id)
+    pushed = db_device_handler.get_device(device_id=device.id, user_id=device.user_id)
+    assert pushed is not None and pushed.last_seen is not None
+
+    client.put(f"/api/snapshots/{body['id']}/devices/{device.id}", headers=headers)
+    reported = db_device_handler.get_device(device_id=device.id, user_id=device.user_id)
+
+    assert reported is not None and reported.last_seen is not None
+    assert reported.last_seen >= pushed.last_seen
+
+
 def test_an_empty_channel_is_created_and_listed(
     client: TestClient, headers: dict[str, str], game_file: RomFile
 ):
@@ -1513,3 +1575,642 @@ def test_a_save_names_exactly_one_source(
     )
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+@pytest.fixture
+def device_token_headers(admin_user: User, device: Device) -> dict[str, str]:
+    _, raw = make_device_token(
+        admin_user, device.id, scopes="roms.read assets.read assets.write"
+    )
+    return {"Authorization": f"Bearer {raw}"}
+
+
+def push_save(
+    client: TestClient,
+    headers: dict[str, str],
+    game_file: RomFile,
+    data: bytes,
+    device_id: str | None = None,
+    **fields: Any,
+):
+    """A save push that leaves `expected_current_id` out unless `fields` names it."""
+    return post(
+        client,
+        headers,
+        {"rom_file_id": game_file.id, "save": save_entry(data), **fields},
+        {"save": ("game.srm", data)},
+        device_id=device_id,
+    )
+
+
+def feed(
+    client: TestClient,
+    headers: dict[str, str],
+    channel_id: str,
+    device_id: str | None = None,
+    **params: Any,
+):
+    return client.get(
+        "/api/snapshots",
+        params={"channel_id": channel_id, **params}
+        | ({"device_id": device_id} if device_id else {}),
+        headers=headers,
+    )
+
+
+def device_sync(device_id: str, channel_id: str) -> DeviceChannelSync | None:
+    return db_snapshot_handler.get_device_sync(device_id, uuid.UUID(channel_id))
+
+
+def backdate_sync(device_id: str, channel_id: str) -> None:
+    """Move the device's held-since time a minute back, so a rewrite would show."""
+    with sync_session.begin() as session:
+        session.execute(
+            update(DeviceChannelSync)
+            .where(
+                DeviceChannelSync.device_id == device_id,
+                DeviceChannelSync.channel_id == uuid.UUID(channel_id),
+            )
+            .values(synced_at=datetime.now(timezone.utc) - timedelta(minutes=1))
+        )
+
+
+def held_by(client: TestClient, headers: dict[str, str], id: int) -> list[str]:
+    body = client.get(f"/api/snapshots/{id}", headers=headers).json()
+    return [held["device"]["id"] for held in body["held_by"]]
+
+
+def test_a_push_without_expected_on_the_current_lands_on_top(
+    client: TestClient, headers: dict[str, str], game_file: RomFile
+):
+    first = first_push(client, headers, game_file)
+
+    response = push_save(
+        client,
+        headers,
+        game_file,
+        b"next",
+        channel_id=first["channel"]["id"],
+        parent_snapshot_id=first["id"],
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.text
+    assert response.json()["kind"] == "channel"
+    assert response.json()["parent_snapshot_id"] == first["id"]
+
+
+def test_a_push_without_expected_parent_or_device_branches(
+    client: TestClient, headers: dict[str, str], game_file: RomFile
+):
+    first = first_push(client, headers, game_file)
+
+    response = push_save(
+        client, headers, game_file, b"next", channel_id=first["channel"]["id"]
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["current"]["id"] == first["id"]
+
+
+def test_a_device_fed_since_the_current_pushes_on_top(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
+):
+    first = first_push(client, headers, game_file)
+    channel_id = first["channel"]["id"]
+    feed(client, headers, channel_id, device.id)
+
+    response = push_save(
+        client, headers, game_file, b"next", device_id=device.id, channel_id=channel_id
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.text
+    assert response.json()["parent_snapshot_id"] == first["id"]
+
+
+def test_a_push_after_another_devices_unseen_push_branches(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
+):
+    first = first_push(client, headers, game_file, device_id=device.id)
+    channel_id = first["channel"]["id"]
+    feed(client, headers, channel_id, device.id)
+    elsewhere = push_save(
+        client,
+        headers,
+        game_file,
+        b"elsewhere",
+        channel_id=channel_id,
+        expected_current_id=first["id"],
+    ).json()
+
+    response = push_save(
+        client, headers, game_file, b"mine", device_id=device.id, channel_id=channel_id
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    conflict = response.json()
+    assert conflict["current"]["id"] == elsewhere["id"]
+    assert conflict["branch"]["parent_snapshot_id"] == first["id"]
+    assert conflict["reason"] == "moved"
+
+
+def chain(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, length: int
+) -> list[dict[str, Any]]:
+    """A channel of `length` snapshots pushed with no device, oldest first."""
+    pushed = [first_push(client, headers, game_file)]
+    for step in range(1, length):
+        pushed.append(
+            push_save(
+                client,
+                headers,
+                game_file,
+                f"step-{step}".encode(),
+                channel_id=pushed[0]["channel"]["id"],
+                expected_current_id=pushed[-1]["id"],
+            ).json()
+        )
+    return pushed
+
+
+def hold(client: TestClient, headers: dict[str, str], id: int, device_id: str) -> None:
+    response = client.get(
+        f"/api/snapshots/{id}",
+        params={"device_id": device_id, "hold": True},
+        headers=headers,
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+
+def test_the_parent_defaults_to_the_held_snapshot(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
+):
+    first = first_push(client, headers, game_file, device_id=device.id)
+
+    response = push_save(
+        client,
+        headers,
+        game_file,
+        b"next",
+        device_id=device.id,
+        channel_id=first["channel"]["id"],
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.text
+    assert response.json()["parent_snapshot_id"] == first["id"]
+
+
+def test_an_older_held_snapshot_overrides_the_known_current(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
+):
+    first, second = chain(client, headers, game_file, 2)
+    channel_id = first["channel"]["id"]
+    feed(client, headers, channel_id, device.id)
+    hold(client, headers, first["id"], device.id)
+
+    response = push_save(
+        client, headers, game_file, b"older", device_id=device.id, channel_id=channel_id
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.text
+    body = response.json()
+    assert body["parent_snapshot_id"] == first["id"]
+    assert body["channel"]["current_snapshot_id"] == body["id"]
+    history = feed(client, headers, channel_id).json()
+    assert second["id"] in [snapshot["id"] for snapshot in history]
+
+
+def test_an_older_held_snapshot_after_the_channel_moved_branches_from_older(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
+):
+    first, second = chain(client, headers, game_file, 2)
+    channel_id = first["channel"]["id"]
+    feed(client, headers, channel_id, device.id)
+    hold(client, headers, first["id"], device.id)
+    push_save(
+        client,
+        headers,
+        game_file,
+        b"elsewhere",
+        channel_id=channel_id,
+        expected_current_id=second["id"],
+    )
+
+    response = push_save(
+        client, headers, game_file, b"older", device_id=device.id, channel_id=channel_id
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["reason"] == "moved_from_older"
+    assert response.json()["branch"]["parent_snapshot_id"] == first["id"]
+
+
+def test_an_explicit_expected_with_an_older_parent_after_a_move_branches_from_older(
+    client: TestClient, headers: dict[str, str], game_file: RomFile
+):
+    first, second, _ = chain(client, headers, game_file, 3)
+
+    response = push_save(
+        client,
+        headers,
+        game_file,
+        b"older",
+        channel_id=first["channel"]["id"],
+        expected_current_id=second["id"],
+        parent_snapshot_id=first["id"],
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["reason"] == "moved_from_older"
+
+
+def test_after_a_conflict_the_next_inferred_push_lands_on_top(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
+):
+    first = first_push(client, headers, game_file, device_id=device.id)
+    channel_id = first["channel"]["id"]
+    elsewhere = push_save(
+        client,
+        headers,
+        game_file,
+        b"elsewhere",
+        channel_id=channel_id,
+        expected_current_id=first["id"],
+    ).json()
+    branched = push_save(
+        client, headers, game_file, b"mine", device_id=device.id, channel_id=channel_id
+    ).json()["branch"]
+
+    response = push_save(
+        client,
+        headers,
+        game_file,
+        b"merged",
+        device_id=device.id,
+        channel_id=channel_id,
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.text
+    assert response.json()["parent_snapshot_id"] == branched["id"]
+    assert response.json()["channel"]["current_snapshot_id"] != elsewhere["id"]
+
+
+@pytest.mark.parametrize("current", [True, False], ids=["current", "history"])
+def test_a_feed_fetch_records_the_known_current_and_keeps_what_is_held(
+    client: TestClient,
+    headers: dict[str, str],
+    game_file: RomFile,
+    device: Device,
+    current: bool,
+):
+    first = first_push(client, headers, game_file, device_id=device.id)
+    channel_id = first["channel"]["id"]
+    backdate_sync(device.id, channel_id)
+    before = device_sync(device.id, channel_id)
+    held_since = client.get(f"/api/snapshots/{first['id']}", headers=headers).json()[
+        "held_by"
+    ][0]["synced_at"]
+    second = push_save(
+        client,
+        headers,
+        game_file,
+        b"elsewhere",
+        channel_id=channel_id,
+        expected_current_id=first["id"],
+    ).json()
+
+    fetched = client.get(
+        "/api/snapshots",
+        params=(
+            {"rom_file_id": game_file.id, "current": True}
+            if current
+            else {"channel_id": channel_id}
+        )
+        | {"device_id": device.id},
+        headers=headers,
+    )
+    after = device_sync(device.id, channel_id)
+
+    held = client.get(f"/api/snapshots/{first['id']}", headers=headers).json()
+    assert fetched.status_code == status.HTTP_200_OK
+    assert before is not None and after is not None
+    assert after.latest_known_id == second["id"]
+    assert after.synced_at == before.synced_at
+    assert after.base_snapshot_id == first["id"]
+    assert [entry["synced_at"] for entry in held["held_by"]] == [held_since]
+    assert held_by(client, headers, second["id"]) == []
+
+
+def test_a_history_page_after_a_cursor_records_no_sync(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
+):
+    first = first_push(client, headers, game_file)
+    channel_id = first["channel"]["id"]
+    branch = push_save(
+        client,
+        headers,
+        game_file,
+        b"next",
+        channel_id=channel_id,
+        expected_current_id=None,
+    ).json()["branch"]
+
+    response = feed(client, headers, channel_id, device.id, cursor=str(branch["id"]))
+
+    assert [snapshot["id"] for snapshot in response.json()] == [first["id"]]
+    assert device_sync(device.id, channel_id) is None
+
+
+def test_listing_channels_for_a_device_records_a_sync(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
+):
+    first = first_push(client, headers, game_file)
+
+    response = client.get(
+        "/api/channels",
+        params={"rom_file_id": game_file.id, "device_id": device.id},
+        headers=headers,
+    )
+    sync = device_sync(device.id, first["channel"]["id"])
+
+    assert response.status_code == status.HTTP_200_OK
+    assert sync is not None
+    assert sync.latest_known_id == first["id"]
+    assert sync.base_snapshot_id is None
+
+
+def test_a_bound_token_feeds_and_pushes_on_top_as_its_device(
+    client: TestClient,
+    headers: dict[str, str],
+    device_token_headers: dict[str, str],
+    game_file: RomFile,
+    device: Device,
+):
+    first = first_push(client, headers, game_file)
+    channel_id = first["channel"]["id"]
+    feed(client, device_token_headers, channel_id)
+
+    response = push_save(
+        client, device_token_headers, game_file, b"next", channel_id=channel_id
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.text
+    body = response.json()
+    assert body["parent_snapshot_id"] == first["id"]
+    assert body["device"]["id"] == device.id
+    assert [held["device"]["id"] for held in body["held_by"]] == [device.id]
+
+
+def test_a_bound_token_push_after_an_unseen_push_branches(
+    client: TestClient,
+    headers: dict[str, str],
+    device_token_headers: dict[str, str],
+    game_file: RomFile,
+    device: Device,
+):
+    first = first_push(client, headers, game_file)
+    channel_id = first["channel"]["id"]
+    feed(client, device_token_headers, channel_id)
+    elsewhere = push_save(
+        client,
+        headers,
+        game_file,
+        b"elsewhere",
+        channel_id=channel_id,
+        expected_current_id=first["id"],
+    ).json()
+
+    response = push_save(
+        client, device_token_headers, game_file, b"mine", channel_id=channel_id
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["current"]["id"] == elsewhere["id"]
+
+
+def test_an_explicit_null_expected_on_a_channel_with_a_current_branches(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
+):
+    first = first_push(client, headers, game_file)
+    channel_id = first["channel"]["id"]
+    feed(client, headers, channel_id, device.id)
+
+    response = push_save(
+        client,
+        headers,
+        game_file,
+        b"next",
+        device_id=device.id,
+        channel_id=channel_id,
+        expected_current_id=None,
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+
+
+def test_an_explicit_stale_expected_beats_a_fresh_device_sync(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
+):
+    first = first_push(client, headers, game_file)
+    channel_id = first["channel"]["id"]
+    push_save(
+        client,
+        headers,
+        game_file,
+        b"next",
+        channel_id=channel_id,
+        expected_current_id=first["id"],
+    )
+    feed(client, headers, channel_id, device.id)
+
+    response = push_save(
+        client,
+        headers,
+        game_file,
+        b"mine",
+        device_id=device.id,
+        channel_id=channel_id,
+        expected_current_id=first["id"],
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+
+
+def test_an_explicit_expected_with_an_older_parent_lands_on_top(
+    client: TestClient, headers: dict[str, str], game_file: RomFile
+):
+    first = first_push(client, headers, game_file)
+    channel_id = first["channel"]["id"]
+    second = push_save(
+        client,
+        headers,
+        game_file,
+        b"next",
+        channel_id=channel_id,
+        expected_current_id=first["id"],
+    ).json()
+
+    response = push_save(
+        client,
+        headers,
+        game_file,
+        b"restored",
+        channel_id=channel_id,
+        expected_current_id=second["id"],
+        parent_snapshot_id=first["id"],
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.text
+    assert response.json()["parent_snapshot_id"] == first["id"]
+
+
+def test_a_push_without_expected_on_another_channels_parent_branches(
+    client: TestClient, headers: dict[str, str], game_file: RomFile
+):
+    first = first_push(client, headers, game_file)
+    other = push_save(
+        client, headers, game_file, b"other", label="other", expected_current_id=None
+    ).json()
+
+    response = push_save(
+        client,
+        headers,
+        game_file,
+        b"next",
+        channel_id=first["channel"]["id"],
+        parent_snapshot_id=other["id"],
+    )
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["current"]["id"] == first["id"]
+
+
+def test_fetching_a_snapshot_with_a_bound_token_records_nothing(
+    client: TestClient,
+    headers: dict[str, str],
+    device_token_headers: dict[str, str],
+    game_file: RomFile,
+    device: Device,
+):
+    first = first_push(client, headers, game_file)
+
+    response = client.get(f"/api/snapshots/{first['id']}", headers=device_token_headers)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["held_by"] == []
+    assert device_sync(device.id, first["channel"]["id"]) is None
+
+
+def test_holding_with_a_bound_token_records_its_device(
+    client: TestClient,
+    headers: dict[str, str],
+    device_token_headers: dict[str, str],
+    game_file: RomFile,
+    device: Device,
+):
+    first = first_push(client, headers, game_file)
+
+    response = client.get(
+        f"/api/snapshots/{first['id']}",
+        params={"hold": True},
+        headers=device_token_headers,
+    )
+    sync = device_sync(device.id, first["channel"]["id"])
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [held["device"]["id"] for held in response.json()["held_by"]] == [device.id]
+    assert sync is not None
+    assert sync.base_snapshot_id == first["id"]
+    assert sync.latest_known_id == first["id"]
+
+
+def test_holding_without_a_device_is_a_bad_request(
+    client: TestClient, headers: dict[str, str], game_file: RomFile
+):
+    first = first_push(client, headers, game_file)
+
+    response = client.get(
+        f"/api/snapshots/{first['id']}", params={"hold": True}, headers=headers
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_holding_the_current_then_an_older_one_overrides_on_top(
+    client: TestClient, headers: dict[str, str], game_file: RomFile, device: Device
+):
+    first, second = chain(client, headers, game_file, 2)
+    hold(client, headers, second["id"], device.id)
+    hold(client, headers, first["id"], device.id)
+
+    response = push_save(
+        client,
+        headers,
+        game_file,
+        b"older",
+        device_id=device.id,
+        channel_id=first["channel"]["id"],
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.text
+    assert response.json()["parent_snapshot_id"] == first["id"]
+
+
+def test_clearing_what_a_device_holds_falls_back_to_the_parent(
+    client: TestClient,
+    headers: dict[str, str],
+    device_token_headers: dict[str, str],
+    game_file: RomFile,
+    device: Device,
+):
+    first = first_push(client, headers, game_file, device_id=device.id)
+    channel_id = first["channel"]["id"]
+
+    cleared = client.delete(
+        f"/api/channels/{channel_id}/held", headers=device_token_headers
+    )
+    again = client.delete(
+        f"/api/channels/{channel_id}/held", headers=device_token_headers
+    )
+    response = push_save(
+        client, device_token_headers, game_file, b"next", channel_id=channel_id
+    )
+
+    assert cleared.status_code == status.HTTP_204_NO_CONTENT
+    assert again.status_code == status.HTTP_204_NO_CONTENT
+    assert held_by(client, headers, first["id"]) == []
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["branch"]["parent_snapshot_id"] is None
+
+
+def test_clearing_without_a_device_is_a_bad_request(
+    client: TestClient, headers: dict[str, str], game_file: RomFile
+):
+    first = first_push(client, headers, game_file)
+
+    response = client.delete(
+        f"/api/channels/{first['channel']['id']}/held", headers=headers
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_clearing_on_another_users_private_channel_is_not_found(
+    client: TestClient,
+    headers: dict[str, str],
+    game_file: RomFile,
+    editor_user: User,
+):
+    first = first_push(client, headers, game_file)
+    editor_device = db_device_handler.add_device(
+        Device(id="editor-handheld", user_id=editor_user.id, name="Handheld")
+    )
+    _, raw = make_device_token(
+        editor_user, editor_device.id, scopes="assets.read assets.write"
+    )
+
+    response = client.delete(
+        f"/api/channels/{first['channel']['id']}/held",
+        headers={"Authorization": f"Bearer {raw}"},
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND

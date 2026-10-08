@@ -21,6 +21,7 @@ class DeviceChannelSync(BaseModel):
     __table_args__ = (
         Index("ix_device_channel_sync_channel_id", "channel_id"),
         Index("ix_device_channel_sync_base_snapshot_id", "base_snapshot_id"),
+        Index("ix_device_channel_sync_latest_known_id", "latest_known_id"),
         {"extend_existing": True},
     )
 
@@ -38,6 +39,10 @@ class DeviceChannelSync(BaseModel):
         ForeignKey("snapshots.id", ondelete="SET NULL"), default=None
     )
     synced_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
+    # The channel's current when the device last listed it, pushed or downloaded.
+    latest_known_id: Mapped[int | None] = mapped_column(
+        ForeignKey("snapshots.id", ondelete="SET NULL"), default=None
+    )
 
     device: Mapped[Device] = relationship(lazy="raise")
     channel: Mapped[Channel] = relationship(lazy="raise")
