@@ -5,15 +5,9 @@ import vuetify from "vite-plugin-vuetify";
 import { defineConfig } from "vitest/config";
 import { appAliases } from "./scripts/aliases";
 import { platformIconManifest } from "./scripts/platformIconManifest";
-import { trimMdiIcons } from "./scripts/trimMdiIcons";
 
 export default defineConfig({
-  plugins: [
-    vue(),
-    vuetify({ autoImport: true }),
-    platformIconManifest(),
-    trimMdiIcons(),
-  ],
+  plugins: [vue(), vuetify({ autoImport: true }), platformIconManifest()],
   resolve: {
     alias: appAliases,
   },
@@ -38,8 +32,6 @@ export default defineConfig({
           unstubGlobals: true,
           unstubEnvs: true,
           include: ["src/**/*.{test,spec}.ts", "test/**/*.{test,spec}.ts"],
-          // Vitest empties CSS imports; `?raw` ones are plain text we read.
-          css: { include: [/\.css\?raw$/] },
         },
       },
       // Every story renders in real Chromium, where addon-a11y runs axe on it

@@ -1,106 +1,40 @@
-/** trimMdiIcons: ships only the @mdi/font icons the app names, in woff2 only. */
-import { readFileSync } from "node:fs";
+// Drops the @mdi/font icon rules nothing in src/ (or Vuetify itself) names.
+import { readdirSync, readFileSync } from "node:fs";
 import { extname, join } from "node:path";
 import type { Plugin } from "vite";
-import {
-  buildIconAllowList,
-  readSourceText,
-  trimIconCss,
-} from "./trim-mdi-fonts";
 
-const MDI_CSS = "@mdi/font/css/materialdesignicons.css";
-const VIRTUAL_ID = "virtual:mdi-icons";
-const RESOLVED_ID = `\0${VIRTUAL_ID}`;
-const WATCHED_EXTS = new Set([".vue", ".ts"]);
+const ICON_NAME = /mdi-[a-z0-9-]+/g;
+const ICON_RULE = /\.(mdi-[a-z0-9-]+)::before\s*\{[^}]*\}/g;
 
-// A query import (`?raw`) wants the file untouched.
-export const isMdiCss = (id: string) =>
-  !id.includes("?") && id.endsWith(MDI_CSS);
+export function usedIconNames(root: string): Set<string> {
+  const files = readdirSync(join(root, "src"), {
+    recursive: true,
+    encoding: "utf8",
+  })
+    .filter((path) => [".vue", ".ts"].includes(extname(path)))
+    .map((path) => join(root, "src", path));
+  files.push(join(root, "node_modules/vuetify/lib/iconsets/mdi.js"));
+  return new Set(
+    files.flatMap((file) => readFileSync(file, "utf8").match(ICON_NAME) ?? []),
+  );
+}
 
-const countIcons = (css: string) => css.split("content:").length - 1;
-
-/** The `mdi-*` names that still have a glyph rule in `css`, sorted. */
-export const listIconNames = (css: string) =>
-  [...css.matchAll(/\.(mdi-[a-z0-9-]+)::before\s*\{/g)]
-    .map((match) => match[1]!)
-    .sort();
+export function trimIconCss(css: string, used: Set<string>): string {
+  return css.replace(ICON_RULE, (rule, name) => (used.has(name) ? rule : ""));
+}
 
 export function trimMdiIcons(): Plugin {
-  let root = "";
-  let isBuild = false;
-  let summary = "";
-  let allowList: string[] = [];
-
-  const scan = () => buildIconAllowList(readSourceText(root));
-
+  let used = new Set<string>();
   return {
     name: "romm:trim-mdi-icons",
-    // vite:css turns the CSS into a JS module, so run before it.
+    apply: "build",
     enforce: "pre",
-
     configResolved(config) {
-      root = config.root;
-      isBuild = config.command === "build";
+      used = usedIconNames(config.root);
     },
-
-    buildStart() {
-      allowList = scan();
-    },
-
-    resolveId(id) {
-      return id === VIRTUAL_ID ? RESOLVED_ID : undefined;
-    },
-
-    // Vitest stubs CSS, so the shipped names can't be read from the page.
-    load(id) {
-      if (id !== RESOLVED_ID) return undefined;
-      const css = readFileSync(join(root, "node_modules", MDI_CSS), "utf8");
-      const names = listIconNames(trimIconCss(css, allowList));
-      return `export default ${JSON.stringify(names)};`;
-    },
-
     transform(code, id) {
-      if (!isMdiCss(id)) return null;
-
-      const trimmed = trimIconCss(code, allowList);
-      const icons = countIcons(trimmed);
-      if (icons === 0) {
-        this.error(
-          `No icon rules survived trimming ${id}: the allow list had ` +
-            `${allowList.length} names, scanned from ${root}/src.`,
-        );
-      }
-      const kb = (text: string) =>
-        `${Math.round(Buffer.byteLength(text) / 1024)} KB`;
-      summary = `${countIcons(code)} icons -> ${icons} | ${kb(code)} -> ${kb(trimmed)}`;
-      return { code: trimmed, map: null };
-    },
-
-    // Dev re-runs transform on every re-optimize, so only a build logs.
-    closeBundle() {
-      if (isBuild && summary) this.info(summary);
-    },
-
-    configureServer(server) {
-      const onSourceChange = (path: string) => {
-        if (!WATCHED_EXTS.has(extname(path))) return;
-        if (!path.replaceAll("\\", "/").includes("/src/")) return;
-
-        const next = scan();
-        if (next.join() === allowList.join()) return;
-        allowList = next;
-
-        for (const [id, mod] of server.moduleGraph.idToModuleMap) {
-          if (isMdiCss(id) || id === RESOLVED_ID) {
-            server.moduleGraph.invalidateModule(mod);
-          }
-        }
-        server.ws.send({ type: "full-reload" });
-      };
-
-      server.watcher.on("change", onSourceChange);
-      server.watcher.on("add", onSourceChange);
-      server.watcher.on("unlink", onSourceChange);
+      if (!id.endsWith("@mdi/font/css/materialdesignicons.css")) return null;
+      return { code: trimIconCss(code, used), map: null };
     },
   };
 }

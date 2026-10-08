@@ -227,14 +227,9 @@ const css = [
   ),
 ].join("\n");
 
-// The committed file is reformatted by Prettier (quotes, wrapping, blank
-// lines), so compare content and leave an unchanged token set alone.
-const squash = (text: string) =>
-  text.replaceAll("'", '"').replace(/\s+/g, " ").trim();
-
 async function main() {
   const existing = await readFile(OUTPUT, "utf-8").catch(() => "");
-  if (squash(existing) === squash(css)) {
+  if (existing === css) {
     process.stdout.write("tokens.css up-to-date\n");
     return;
   }

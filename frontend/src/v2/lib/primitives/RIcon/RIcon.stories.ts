@@ -1,28 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { expect } from "storybook/test";
-import iconNames from "virtual:mdi-icons";
-import { computed, ref } from "vue";
-import RTextField from "@/v2/lib/forms/RTextField/RTextField.vue";
-import fullIconCss from "../../../../../node_modules/@mdi/font/css/materialdesignicons.css?raw";
-import vuetifyIconset from "../../../../../node_modules/vuetify/lib/iconsets/mdi.js?raw";
 import "./RIcon.stories.css";
 import RIcon from "./RIcon.vue";
-
-const vuetifyIconNames = vuetifyIconset.match(/mdi-[a-z0-9-]+/g) ?? [];
-
-// Icons in the package that the build does not ship, with their glyph.
-const shippedNames = new Set(iconNames);
-const unshippedIcons = [
-  ...fullIconCss.matchAll(
-    /\.(mdi-[a-z0-9-]+)::before\s*\{\s*content:\s*"\\([0-9a-f]+)"/gi,
-  ),
-]
-  .filter((match) => !shippedNames.has(match[1]!))
-  .map((match) => ({
-    name: match[1]!,
-    glyph: String.fromCodePoint(parseInt(match[2]!, 16)),
-  }));
-const MAX_UNSHIPPED = 240;
 
 const meta: Meta<typeof RIcon> = {
   title: "Primitives/RIcon",
@@ -305,82 +283,4 @@ export const Gallery: Story = {
       </div>
     `,
   }),
-};
-
-export const AllIcons: Story = {
-  name: "All icons (mdi)",
-  parameters: { layout: "fullscreen" },
-  render: () => ({
-    components: { RIcon, RTextField },
-    setup: () => {
-      const query = ref("");
-      const needle = computed(() => query.value.trim().toLowerCase());
-      const shipped = computed(() =>
-        iconNames.filter((name) => name.includes(needle.value)),
-      );
-      const unshipped = computed(() =>
-        needle.value
-          ? unshippedIcons.filter((icon) => icon.name.includes(needle.value))
-          : [],
-      );
-      const unshippedShown = computed(() =>
-        unshipped.value.slice(0, MAX_UNSHIPPED),
-      );
-      return {
-        query,
-        needle,
-        shipped,
-        unshipped,
-        unshippedShown,
-        shippedTotal: iconNames.length,
-        unshippedTotal: unshippedIcons.length,
-        MAX_UNSHIPPED,
-      };
-    },
-    template: `
-      <div class="r-icon-story-page">
-        <div class="r-icon-story-search">
-          <div class="r-icon-story-search-field">
-            <RTextField
-              v-model="query"
-              label="Search icons"
-              placeholder="Search by name"
-              prepend-inner-icon="mdi-magnify"
-              density="compact"
-              clearable
-              hide-details
-            />
-          </div>
-          <h3 class="r-icon-story-heading">{{ needle ? shipped.length + " / " + shippedTotal : shippedTotal }} icons</h3>
-        </div>
-        <div class="r-icon-story-grid">
-          <div v-for="name in shipped" :key="name" class="r-icon-story-cell" data-shipped>
-            <RIcon :icon="name" size="18" />
-            <span>{{ name }}</span>
-          </div>
-        </div>
-        <h3 class="r-icon-story-heading">Available, not in the build: {{ needle ? unshippedShown.length + " / " + unshippedTotal : unshippedTotal }} icons</h3>
-        <p class="r-icon-story-note">
-          Use one in the source and the build ships it.
-          <template v-if="!unshipped.length">Search to browse them.</template>
-        </p>
-        <div v-if="unshipped.length" class="r-icon-story-grid">
-          <div v-for="icon in unshippedShown" :key="icon.name" class="r-icon-story-cell r-icon-story-cell--off">
-            <span class="r-icon-story-glyph" aria-hidden="true">{{ icon.glyph }}</span>
-            <span>{{ icon.name }}</span>
-          </div>
-        </div>
-        <p v-if="unshipped.length > MAX_UNSHIPPED" class="r-icon-story-note">
-          {{ unshipped.length - MAX_UNSHIPPED }} more. Keep typing to narrow.
-        </p>
-      </div>
-    `,
-  }),
-  play: async ({ canvasElement }) => {
-    const cells = canvasElement.querySelectorAll("[data-shipped]");
-    await expect(cells).toHaveLength(iconNames.length);
-    for (const name of vuetifyIconNames) {
-      await expect(iconNames).toContain(name);
-    }
-  },
 };
