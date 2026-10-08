@@ -209,14 +209,14 @@ class TestRetroArchSyncEmulatorNames:
         "emulator", ["mednafen_psx_hw", "beetle_psx_hw", "Beetle PSX HW"]
     )
     def test_aliases_cover_every_emulator_sharing_a_folder(self, emulator):
-        assert retroarch_aliases(emulator) == {
-            "mednafen_psx_hw",
-            "beetle_psx_hw",
+        assert retroarch_aliases(emulator) == (
             "Beetle PSX HW",
-        }
+            "beetle_psx_hw",
+            "mednafen_psx_hw",
+        )
 
     def test_a_core_outside_the_table_is_its_only_alias(self):
-        assert retroarch_aliases("retroarduous") == {"retroarduous"}
+        assert retroarch_aliases("retroarduous") == ("retroarduous",)
 
 
 class TestRetroArchSyncPathParsing:

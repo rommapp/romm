@@ -72,6 +72,16 @@ ROMM_EMULATOR_BY_RETROARCH_DIR: dict[str, str] = {
 }
 
 
+ROMM_EMULATORS_BY_RETROARCH_DIR: dict[str, frozenset[str]] = {
+    dir_name: frozenset(
+        emulator
+        for emulator, emulator_dir in RETROARCH_DIR_BY_ROMM_EMULATOR.items()
+        if emulator_dir == dir_name
+    )
+    for dir_name in ROMM_EMULATOR_BY_RETROARCH_DIR
+}
+
+
 def to_romm_emulator(retroarch_dir_name: str) -> str:
     """RomM's `emulator` for a RetroArch folder name, kept verbatim when unknown."""
     return ROMM_EMULATOR_BY_RETROARCH_DIR.get(retroarch_dir_name, retroarch_dir_name)
@@ -82,14 +92,14 @@ def to_retroarch_dir_name(romm_emulator: str) -> str:
     return RETROARCH_DIR_BY_ROMM_EMULATOR.get(romm_emulator, romm_emulator)
 
 
-def retroarch_aliases(romm_emulator: str) -> frozenset[str]:
+def retroarch_aliases(romm_emulator: str | None) -> tuple[str | None, ...]:
     """Every `emulator` that syncs through the same RetroArch folder as this one, itself included."""
+    if not romm_emulator:
+        return (romm_emulator,)
     dir_name = to_retroarch_dir_name(romm_emulator)
-    return frozenset(
-        {romm_emulator, dir_name}
-        | {
-            emulator
-            for emulator, emulator_dir in RETROARCH_DIR_BY_ROMM_EMULATOR.items()
-            if emulator_dir == dir_name
-        }
+    return tuple(
+        sorted(
+            {romm_emulator, dir_name}
+            | ROMM_EMULATORS_BY_RETROARCH_DIR.get(dir_name, frozenset())
+        )
     )

@@ -164,11 +164,6 @@ def retroarch_folder(emulator: str | None) -> str | None:
     return to_retroarch_dir_name(emulator) if emulator else None
 
 
-def emulator_aliases(emulator: str | None) -> tuple[str | None, ...]:
-    """The emulators sharing ``emulator``'s core folder, itself included."""
-    return tuple(sorted(retroarch_aliases(emulator))) if emulator else (emulator,)
-
-
 def recency_key(asset: Save | State) -> tuple[datetime, int]:
     """Recency order, with `id` breaking ties on a shared timestamp."""
     return (asset.updated_at, asset.id)
@@ -252,7 +247,7 @@ def _unslotted_saves_at(
             file_path=build_asset_file_path(user, rom, "saves", alias),
             file_name=file_name,
         )
-        for alias in emulator_aliases(emulator)
+        for alias in retroarch_aliases(emulator)
     ]
     return _distinct([save for save in saves if save and save.slot is None])
 
@@ -268,16 +263,21 @@ def _unslotted_save_at(
     )
 
 
-def _lineage_head(
-    user: User, rom: Rom, emulator: str | None, file_name: str
-) -> Save | None:
-    """The newest `autosave` version across ``emulator``'s aliases."""
+def _alias_lineages(lineage: SaveLineage) -> list[SaveLineage]:
+    """``lineage`` under each of its emulator's aliases."""
+    return [
+        lineage._replace(emulator=alias)
+        for alias in retroarch_aliases(lineage.emulator)
+    ]
+
+
+def _lineage_head(user: User, rom: Rom, lineage: SaveLineage) -> Save | None:
+    """The newest `autosave` version across ``lineage``'s aliases."""
     heads = [
         db_save_handler.get_lineage_head(
-            user_id=user.id, rom_id=rom.id, slot=AUTOSAVE_SLOT, lineage=lineage
+            user_id=user.id, rom_id=rom.id, slot=AUTOSAVE_SLOT, lineage=alias
         )
-        for alias in emulator_aliases(emulator)
-        if (lineage := save_lineage(alias, file_name))
+        for alias in _alias_lineages(lineage)
     ]
     return max((head for head in heads if head), key=recency_key, default=None)
 
@@ -286,31 +286,31 @@ def resolve_save(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> Save | None:
     """The save a RetroArch path serves: the newest `autosave` version, else the unslotted save there."""
-    return _lineage_head(
-        user, rom, emulator, requested_file_name
-    ) or _unslotted_save_at(user, rom, emulator, requested_file_name)
+    lineage = save_lineage(emulator, requested_file_name)
+    head = _lineage_head(user, rom, lineage) if lineage else None
+    return head or _unslotted_save_at(user, rom, emulator, requested_file_name)
 
 
 def saves_at_path(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> list[Save]:
     """Every save a RetroArch path covers, so deleting it leaves nothing to resurface."""
-    if not save_lineage(emulator, requested_file_name):
+    lineage = save_lineage(emulator, requested_file_name)
+    if not lineage:
         return _unslotted_saves_at(user, rom, emulator, requested_file_name)
 
     saves: list[Save] = []
     folded = requested_file_name.casefold()
-    for alias in emulator_aliases(emulator):
-        lineage = save_lineage(alias, requested_file_name)
+    for alias in _alias_lineages(lineage):
         saves += db_save_handler.get_saves(
-            user_id=user.id, rom_ids=[rom.id], slot=AUTOSAVE_SLOT, lineage=lineage
+            user_id=user.id, rom_ids=[rom.id], slot=AUTOSAVE_SLOT, lineage=alias
         )
         # The manifest hides these behind the head, so whatever their case they
         # would resurface once the versions go.
         saves += [
             save
             for save in db_save_handler.get_saves(
-                user_id=user.id, rom_ids=[rom.id], slot_is_null=True, lineage=lineage
+                user_id=user.id, rom_ids=[rom.id], slot_is_null=True, lineage=alias
             )
             if save.file_name.casefold() == folded
         ]
@@ -338,9 +338,7 @@ async def store_save(
             user, rom, emulator, requested_file_name, body
         )
 
-    head = await asyncio.to_thread(
-        _lineage_head, user, rom, emulator, requested_file_name
-    )
+    head = await asyncio.to_thread(_lineage_head, user, rom, lineage)
     # A re-sent file adds no version, so it can't push real history past the cap.
     content_hash = hash_save_content(body.file)
     if head and content_hash and content_hash == head.content_hash:
