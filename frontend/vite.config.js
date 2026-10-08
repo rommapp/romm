@@ -9,6 +9,7 @@ import { platformIconManifest } from "./scripts/platformIconManifest";
 import { playerIsolationHeaders } from "./scripts/playerIsolationHeaders";
 import { precompress } from "./scripts/precompress";
 import { previewAssets } from "./scripts/previewAssets";
+import { trimMdiIcons } from "./scripts/trimMdiIcons";
 
 // Vuetify components to preoptimize for faster dev startup
 const VUETIFY_COMPONENTS = [
@@ -135,6 +136,7 @@ export default defineConfig(({ mode }) => {
       playerIsolationHeaders(),
       previewAssets(),
       platformIconManifest(),
+      trimMdiIcons(),
       httpsMode &&
         mkcert({
           savePath: "/app/.vite-plugin-mkcert",
