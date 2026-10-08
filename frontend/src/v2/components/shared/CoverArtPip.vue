@@ -39,6 +39,7 @@ withDefaults(defineProps<Props>(), {
       :title="title"
       force-style="cover_path"
       :webp="webp"
+      responsive
     />
   </div>
 </template>

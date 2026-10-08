@@ -79,6 +79,9 @@ interface Props {
    *     which is the forward-morph DESTINATION (must already carry the
    *     name when the gallery card navigates in) and the back SOURCE. */
   morphStatic?: boolean;
+  /** Offer the small cover to 1x screens via `srcset`. Only for slots no
+   *  wider than a gallery card, as the small file can be ~140px wide. */
+  responsive?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -91,6 +94,7 @@ const props = withDefaults(defineProps<Props>(), {
   hoverMotion: false,
   morphId: null,
   morphStatic: false,
+  responsive: false,
 });
 
 const emit = defineEmits<{
@@ -258,7 +262,11 @@ defineExpose({
           ? (art.fallbackUrl.value ?? undefined)
           : (art.coverUrl.value ?? undefined)
       "
-      :srcset="showFallback ? undefined : (art.coverSrcset.value ?? undefined)"
+      :srcset="
+        responsive && !showFallback
+          ? (art.coverSrcset.value ?? undefined)
+          : undefined
+      "
       :alt="title"
       :style="{ objectFit: art.objectFit.value }"
       class="game-cover__img"

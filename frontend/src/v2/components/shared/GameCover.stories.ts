@@ -39,7 +39,7 @@ export const SmallCoverAtLowDensity: Story = {
   render: () => ({
     components: { GameCover },
     setup: () => ({ rom }),
-    template: `<div style="width:160px"><GameCover :rom="rom" title="Chrono Trigger" :webp="false" /></div>`,
+    template: `<div style="width:160px"><GameCover :rom="rom" title="Chrono Trigger" :webp="false" responsive /></div>`,
   }),
   play: async ({ canvasElement }) => {
     const img = () =>

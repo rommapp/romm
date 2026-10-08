@@ -69,7 +69,7 @@ describe("GameCover srcset", () => {
 
   it("offers the small cover at 1x and the large one at 2x", () => {
     const wrapper = mount(GameCover, {
-      props: { rom, title: "Chrono", webp: false },
+      props: { rom, title: "Chrono", webp: false, responsive: true },
     });
     const img = wrapper.get("img.game-cover__img");
     expect(img.attributes("srcset")).toBe(
@@ -78,9 +78,23 @@ describe("GameCover srcset", () => {
     expect(img.attributes("src")).toContain("big.png");
   });
 
+  it("leaves the srcset off unless the slot opts in", () => {
+    const wrapper = mount(GameCover, {
+      props: { rom, title: "Chrono", webp: false },
+    });
+    expect(
+      wrapper.get("img.game-cover__img").attributes("srcset"),
+    ).toBeUndefined();
+  });
+
   it("drops the srcset for an explicit cover override", () => {
     const wrapper = mount(GameCover, {
-      props: { rom, title: "Chrono", coverSrc: "blob:preview" },
+      props: {
+        rom,
+        title: "Chrono",
+        coverSrc: "blob:preview",
+        responsive: true,
+      },
     });
     expect(
       wrapper.get("img.game-cover__img").attributes("srcset"),
