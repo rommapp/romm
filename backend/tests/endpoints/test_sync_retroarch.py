@@ -1181,7 +1181,7 @@ class TestRetroArchSyncCoreAliases:
         self,
         admin_user: User,
         rom: Rom,
-        kind: str,
+        kind: sync_handler.AssetKind,
         emulator: str,
         file_name: str,
         content: bytes,
