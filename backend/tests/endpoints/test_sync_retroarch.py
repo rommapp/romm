@@ -1214,15 +1214,18 @@ class TestRetroArchSyncCoreAliases:
         )
 
     def _state(
-        self, admin_user: User, rom: Rom, emulator: str, content: bytes
+        self,
+        admin_user: User,
+        rom: Rom,
+        emulator: str,
+        content: bytes,
+        file_name: str = "test_rom.state",
     ) -> State:
-        path = self._write(
-            admin_user, rom, "states", emulator, "test_rom.state", content
-        )
+        path = self._write(admin_user, rom, "states", emulator, file_name, content)
         return factories.make_state(
             rom,
             admin_user,
-            "test_rom.state",
+            file_name,
             file_path=path,
             file_size_bytes=len(content),
             emulator=emulator,
@@ -1348,16 +1351,87 @@ class TestRetroArchSyncCoreAliases:
         assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
         assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"newer"
 
+    def _missing_state(
+        self, admin_user: User, rom: Rom, emulator: str, file_name: str
+    ) -> State:
+        state = self._state(admin_user, rom, emulator, b"gone", file_name)
+        return db_state_handler.update_state(
+            state.id, {"missing_from_fs": True}, touch=False
+        )
+
+    @_mock_asset_md5()
+    def test_a_state_on_disk_wins_over_a_newer_missing_one_in_its_slot(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        self._missing_state(
+            admin_user, rom, "beetle_psx_hw", "test_rom [2026-01-01 00-00-00].state"
+        )
+
+        assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"older"
+
     @_mock_asset_md5()
     def test_a_state_on_disk_wins_over_a_newer_missing_alias(
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
     ):
-        self._state(admin_user, rom, "beetle_psx_hw", b"argosy")
-        missing = self._state(admin_user, rom, "mednafen_psx_hw", b"gone")
-        db_state_handler.update_state(missing.id, {"missing_from_fs": True})
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        self._missing_state(admin_user, rom, "mednafen_psx_hw", "test_rom.state")
 
         assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
-        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"argosy"
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"older"
+
+    def _vanished_state(self, admin_user: User, rom: Rom, emulator: str) -> State:
+        state = self._state(admin_user, rom, emulator, b"gone")
+        fs_asset_handler.validate_path(state.full_path).unlink()
+        return state
+
+    def test_the_manifest_falls_back_when_the_newest_state_file_vanished(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        vanished = self._vanished_state(admin_user, rom, "mednafen_psx_hw")
+
+        assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
+        state = db_state_handler.get_state(user_id=admin_user.id, id=vanished.id)
+        assert state is not None and state.missing_from_fs
+
+    def test_get_falls_back_when_the_newest_state_file_vanished(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        vanished = self._vanished_state(admin_user, rom, "mednafen_psx_hw")
+
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"older"
+        state = db_state_handler.get_state(user_id=admin_user.id, id=vanished.id)
+        assert state is not None and state.missing_from_fs
+
+    def test_get_404s_when_every_state_file_in_the_slot_vanished(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._vanished_state(admin_user, rom, "beetle_psx_hw")
+        self._vanished_state(admin_user, rom, "mednafen_psx_hw")
+
+        response = client.get(self.STATE_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_uploading_to_a_slot_revives_its_newest_missing_state(
+        self, client, admin_user: User, rom: Rom
+    ):
+        older = self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        missing = self._missing_state(
+            admin_user, rom, "mednafen_psx_hw", "test_rom.state"
+        )
+
+        response = client.put(self.STATE_URL, content=b"fresh", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        states = {s.id: s for s in db_state_handler.get_states(user_id=admin_user.id)}
+        assert states.keys() == {older.id, missing.id}
+        assert not states[missing.id].missing_from_fs
+        assert states[missing.id].file_size_bytes == len(b"fresh")
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"fresh"
 
     @_mock_asset_md5()
     def test_delete_removes_states_under_every_alias_in_the_slot(
