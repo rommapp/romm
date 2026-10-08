@@ -1307,6 +1307,22 @@ class TestRetroArchSyncCoreAliases:
         assert client.get(url, auth=ADMIN_AUTH).content == b"ticked"
 
     @_mock_asset_md5()
+    def test_an_unslotted_file_on_disk_wins_over_a_newer_missing_alias(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._save(
+            admin_user, rom, "beetle_psx_hw", b"clock", "test_rom.rtc", slot=None
+        )
+        missing = self._save(
+            admin_user, rom, "mednafen_psx_hw", b"gone", "test_rom.rtc", slot=None
+        )
+        db_save_handler.update_save(missing.id, {"missing_from_fs": True}, touch=False)
+        url = "/api/sync/retroarch/saves/Beetle%20PSX%20HW/test_rom.rtc"
+
+        assert self._manifest_paths(client) == ["saves/Beetle PSX HW/test_rom.rtc"]
+        assert client.get(url, auth=ADMIN_AUTH).content == b"clock"
+
+    @_mock_asset_md5()
     def test_a_state_under_an_alias_is_listed_served_and_updated_in_place(
         self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
     ):

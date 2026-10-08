@@ -165,10 +165,8 @@ def retroarch_folder(emulator: str | None) -> str | None:
 
 
 def emulator_aliases(emulator: str | None) -> tuple[str | None, ...]:
-    """The emulators sharing ``emulator``'s core folder, ``emulator`` first."""
-    if not emulator:
-        return (emulator,)
-    return (emulator, *sorted(retroarch_aliases(emulator) - {emulator}))
+    """The emulators sharing ``emulator``'s core folder, itself included."""
+    return tuple(sorted(retroarch_aliases(emulator))) if emulator else (emulator,)
 
 
 def recency_key(asset: Save | State) -> tuple[datetime, int]:
@@ -176,34 +174,30 @@ def recency_key(asset: Save | State) -> tuple[datetime, int]:
     return (asset.updated_at, asset.id)
 
 
-def newest_per_key[A: (Save, State)](
-    assets: Iterable[A], key: Callable[[A], Hashable]
-) -> list[A]:
-    """The newest of the assets sharing each ``key``."""
-    latest: dict[Hashable, A] = {}
+def newest_per_key[A: (Save, State), K: Hashable](
+    assets: Iterable[A], key: Callable[[A], K]
+) -> dict[K, A]:
+    """The newest of the assets sharing each ``key``, by key."""
+    latest: dict[K, A] = {}
     for asset in assets:
         current = latest.get(asset_key := key(asset))
         if current is None or recency_key(asset) > recency_key(current):
             latest[asset_key] = asset
-    return list(latest.values())
+    return latest
 
 
 def group_states_by_slot(
     states: Iterable[State],
 ) -> dict[tuple[int, str | None, str], State]:
     """The newest state in each (rom, core folder, slot) bucket."""
-    latest: dict[tuple[int, str | None, str], State] = {}
-    for state in states:
-        key = (
+    return newest_per_key(
+        states,
+        lambda state: (
             state.rom_id,
             retroarch_folder(state.emulator),
             state_slot_suffix(state.file_name),
-        )
-        current = latest.get(key)
-        if current is None or recency_key(state) > recency_key(current):
-            latest[key] = state
-
-    return latest
+        ),
+    )
 
 
 def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
@@ -266,9 +260,10 @@ def _unslotted_saves_at(
 def _unslotted_save_at(
     user: User, rom: Rom, emulator: str | None, file_name: str
 ) -> Save | None:
+    # Prefers a file on disk, which is the one the manifest lists.
     return max(
         _unslotted_saves_at(user, rom, emulator, file_name),
-        key=recency_key,
+        key=lambda save: (not save.missing_from_fs, recency_key(save)),
         default=None,
     )
 
@@ -491,9 +486,8 @@ def resolve_state_screenshot_by_slot(
 def build_retroarch_sync_path(
     kind: AssetKind, emulator: str | None, file_name: str
 ) -> str:
-    if emulator:
-        return f"{kind}/{to_retroarch_dir_name(emulator)}/{file_name}"
-    return f"{kind}/{file_name}"
+    folder = retroarch_folder(emulator)
+    return f"{kind}/{folder}/{file_name}" if folder else f"{kind}/{file_name}"
 
 
 def build_asset_file_path(
@@ -670,10 +664,9 @@ def _manifest_assets(
             user_id=user.id, slot=AUTOSAVE_SLOT, file_extension=SLOTTED_SAVE_EXTENSION
         )
     # Aliases of one core share its folder, so only the newest of them is listed.
-    heads = newest_per_key(
+    head_by_folder = newest_per_key(
         heads, lambda head: (head.rom_id, retroarch_folder(head.emulator))
     )
-    served_by_head = {(head.rom_id, retroarch_folder(head.emulator)) for head in heads}
     unslotted = newest_per_key(
         (
             save
@@ -682,14 +675,16 @@ def _manifest_assets(
             and not psp.is_psp_bundle_file_name(save.file_name)
             and not (
                 save_lineage(save.emulator, save.file_name)
-                and (save.rom_id, retroarch_folder(save.emulator)) in served_by_head
+                and (save.rom_id, retroarch_folder(save.emulator)) in head_by_folder
             )
         ),
         lambda save: (save.rom_id, retroarch_folder(save.emulator), save.file_name),
     )
     listed_saves = [
-        (advertised_save_name(head), head) for head in heads if can_see(head.rom)
-    ] + [(save.file_name, save) for save in unslotted if can_see(save.rom)]
+        (advertised_save_name(head), head)
+        for head in head_by_folder.values()
+        if can_see(head.rom)
+    ] + [(save.file_name, save) for save in unslotted.values() if can_see(save.rom)]
     listed_states = (
         [
             (state.emulator, canonical_state_file_name(state.rom, slot_suffix), state)
