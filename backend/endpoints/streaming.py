@@ -742,6 +742,11 @@ async def _hydrate_saves(
             )
 
     if container.is_webstation:
+        defaulted = save is None
+        if defaulted:
+            save, save_foreign = await asyncio.to_thread(
+                saves.default_save, request.user.id, rom.id, container
+            )
         if save_foreign or import_state is not None:
             # A synced memory card is not special-cased: the broker refuses it
             # with memcard_synced_separately.
@@ -753,16 +758,22 @@ async def _hydrate_saves(
                     save=save,
                     save_is_foreign=save_foreign,
                     state=import_state,
+                    native_fallback=defaulted,
                 )
             except Exception:
                 log.exception("import archive hydration failed, continuing launch")
                 result = imports.ImportHydration()
             if result.path is not None:
-                return result
-            if save_foreign:
-                # A foreign save has no native side to fall back to.
+                return result._replace(
+                    native_fallback=defaulted and save_foreign and import_state is None
+                )
+            if save_foreign and not defaulted:
+                # A picked foreign save has no native side to fall back to.
                 return imports.ImportHydration()
-            # Only the foreign state failed, so any native save still hydrates.
+            if save_foreign:
+                # The newest save didn't make it in, so the newest archive boots.
+                save = None
+            # Only the foreign part failed, so any native save still hydrates.
         # Restore runs inside activate on this protocol, so hydration only gets
         # the bytes onto the container and names the path activate restores.
         # Still runs under whole-card sync: the archive carries the state the
@@ -927,7 +938,7 @@ async def claim_session(
                 rom.id,
                 container.emulator,
             )
-            # Capture order, like the archive pick: replacing a state's bytes bumps updated_at.
+            # Capture order, since replacing a state's bytes bumps updated_at.
             newest_state = max(
                 own_states, key=lambda s: (s.created_at, s.id), default=None
             )
@@ -1018,7 +1029,7 @@ async def claim_session(
             # The last exit's detached save pull may still be filing the archive to hydrate.
             await saves.wait_for_save_pull(request.user.id, rom.id)
 
-            archive_path, state_imported = await _hydrate_saves(
+            hydrated = await _hydrate_saves(
                 request,
                 container,
                 rom,
@@ -1034,7 +1045,7 @@ async def claim_session(
         raise
     resume_import: launch.ResumeImport = "none"
     if resume_via_import:
-        resume_import = "imported" if state_imported else "lost"
+        resume_import = "imported" if hydrated.state_imported else "lost"
     elif state_off_archive:
         # The archive would resume a state the player did not pick.
         resume_import = "lost"
@@ -1053,7 +1064,8 @@ async def claim_session(
         rom_path=rom_path,
         rom_language=rom_language,
         gui_language=gui_language,
-        archive_path=archive_path,
+        archive_path=hydrated.path,
+        native_fallback=hydrated.native_fallback,
         resume_state=resume_state,
         resume_slot=resume_slot,
         resume_pushed=resume_pushed,

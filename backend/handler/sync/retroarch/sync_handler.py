@@ -555,10 +555,11 @@ def resolve_rom(game_name: str, can_see: Callable[[Rom], bool]) -> Rom | None:
 
 def _mark_missing_from_fs(asset: Save | State | Screenshot) -> None:
     update = {"missing_from_fs": True}
+    # Not a write, so updated_at keeps ranking the asset.
     if isinstance(asset, Save):
-        db_save_handler.update_save(asset.id, update)
+        db_save_handler.update_save(asset.id, update, touch=False)
     elif isinstance(asset, State):
-        db_state_handler.update_state(asset.id, update)
+        db_state_handler.update_state(asset.id, update, touch=False)
     else:
         db_screenshot_handler.update_screenshot(asset.id, update)
 

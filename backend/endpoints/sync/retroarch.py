@@ -651,6 +651,7 @@ def _record_state(
             {
                 "file_size_bytes": scanned.file_size_bytes,
                 "file_path": scanned.file_path,
+                "content_hash": scanned.content_hash,
                 "missing_from_fs": False,
             },
         )

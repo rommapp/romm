@@ -305,13 +305,13 @@ const showManualDiscHint = computed(
 // all_user_states carries), newest-first from the backend.
 const selectedState = ref<UserStateSchema | null>(null);
 
-// Every save, whichever emulator wrote it, newest capture first: created_at,
-// since the updated_at user_saves arrives on moves with a rehash.
+// Every save, whichever emulator wrote it, newest write first: updated_at,
+// since the web player writes into its existing row.
 const allSaves = computed<SaveSchema[]>(() => {
   if (!rom.value) return [];
   return [...(rom.value.user_saves ?? [])].sort(
     (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime() ||
+      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime() ||
       b.id - a.id,
   );
 });
@@ -321,7 +321,9 @@ const nativeRestorableSaves = computed<SaveSchema[]>(() => {
   const emulator = emulatorKey(container.value?.emulator);
   if (!emulator) return [];
   return allSaves.value.filter(
-    (s) => emulatorKey(s.emulator) === emulator && s.file_name.endsWith(".zip"),
+    (s) =>
+      emulatorKey(s.emulator) === emulator &&
+      s.file_name.toLowerCase().endsWith(".zip"),
   );
 });
 
@@ -332,11 +334,26 @@ const pickableSaves = computed<SaveSchema[]>(() =>
     : nativeRestorableSaves.value,
 );
 
-// The one the broker restores before boot when the claim names none: this
-// emulator's own, so the fallback restore always succeeds.
-const newestSave = computed<SaveSchema | null>(
-  () => nativeRestorableSaves.value[0] ?? null,
-);
+// The one the claim restores when it names none: this emulator's own newest,
+// unless RetroArch can import a newer bare .srm, as the backend picks too.
+const newestSave = computed<SaveSchema | null>(() => {
+  // A row whose file vanished can't boot, however recently sync touched it.
+  const native =
+    nativeRestorableSaves.value.find((s) => !s.missing_from_fs) ?? null;
+  if (
+    emulatorKey(container.value?.emulator) !== "retroarch" ||
+    !container.value?.import_kinds.includes("save")
+  )
+    return native;
+  // allSaves is newest first, so the first match is the newer of the two.
+  return (
+    allSaves.value.find(
+      (s) =>
+        s === native ||
+        (!s.missing_from_fs && s.file_name.toLowerCase().endsWith(".srm")),
+    ) ?? null
+  );
+});
 
 // A pick only lands where the broker empties the save tree first; elsewhere
 // the container's newer files survive the restore and the pick does nothing.
@@ -928,10 +945,10 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       const launching = await streamingStore.claimSession(
         rom.value.id,
         selectedState.value?.id,
-        // Left off where the container would refuse it, so the backend
-        // restores the newest archive instead.
-        showSavePicker.value
-          ? (selectedSave.value?.id ?? undefined)
+        // Only a pick the player made. Left off, the backend boots its own
+        // default and can fall back to the archive if an import is refused.
+        showSavePicker.value && selectedSave.value?.id === savePickId.value
+          ? (savePickId.value ?? undefined)
           : undefined,
         container.value?.supports_memory_cards
           ? (selectedMemoryCardId.value ?? undefined)
@@ -1538,7 +1555,6 @@ onBeforeUnmount(() => {
               type="save"
               :show-heading="false"
               :clearable="false"
-              timestamp="created"
             />
             <div class="r-v2-stream__strip-label">
               <span aria-hidden="true">{{ t("play.all-saves") }}</span>
@@ -1550,7 +1566,6 @@ onBeforeUnmount(() => {
               :assets="pickableSaves"
               type="save"
               :selected-id="selectedSave?.id ?? null"
-              timestamp="created"
               :group-by-slot="false"
               @select="savePickId = ($event as SaveSchema).id"
             />

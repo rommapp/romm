@@ -147,6 +147,22 @@ class DBStatesHandler(DBBaseHandler):
         return session.scalars(select(State).filter_by(id=id)).one()
 
     @begin_session
+    def backfill_content_hash(
+        self,
+        id: int,
+        content_hash: str,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Record a legacy state's hash, unless a rewrite stored one meanwhile."""
+        # Keeps updated_at, as the bytes are unchanged.
+        session.execute(
+            update(State)
+            .where(State.id == id, State.content_hash.is_(None))
+            .values(content_hash=content_hash, updated_at=State.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+
+    @begin_session
     def delete_state(
         self,
         id: int,

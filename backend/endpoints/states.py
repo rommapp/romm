@@ -243,7 +243,13 @@ async def update_state(
             file=stateFile, path=db_state.file_path, filename=db_state.file_name
         )
         db_state = db_state_handler.update_state(
-            db_state.id, {"file_size_bytes": stateFile.size}
+            db_state.id,
+            {
+                "file_size_bytes": stateFile.size,
+                "content_hash": await fs_asset_handler.compute_content_hash(
+                    db_state.full_path
+                ),
+            },
         )
     if screenshotFile and sanitized_screenshot_filename:
         await store_screenshot(

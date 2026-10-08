@@ -46,6 +46,7 @@ from models.assets import State
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length, sanitize_filename
+from utils.memory_cards import content_hash_of_bytes
 
 # Slot number encoded in each emulator's state filename, e.g. PCSX2 writes
 # "SERIAL (CRC).03.p2s" for slot 3 and Dolphin writes "GAMEID.s03". Resuming
@@ -57,8 +58,9 @@ _SLOT_PATTERNS = {
     "dolphin": re.compile(r"\.s(\d{2})$"),
     "xemu": re.compile(r"\.x(\d{2})$"),
     # RetroArch leaves the number off its default slot: "GAME.state" is slot 0
-    # and "GAME.state3" is slot 3.
-    "retroarch": re.compile(r"\.state(\d{0,2})$"),
+    # and "GAME.state3" is slot 3. The broker files any pushed state into its
+    # working slot, so the auto state "GAME.state.auto" resumes from 0 too.
+    "retroarch": re.compile(r"\.state(?:(\d{1,2})|\.auto)?$"),
     # DuckStation and RPCS3 write one exit state per game with no slot in the
     # name, so the empty group reads as the working slot 0.
     "duckstation": re.compile(r"()\.sav$"),
@@ -351,8 +353,10 @@ def user_states_for_emulator(
     return states
 
 
-async def _is_duplicate_of_latest(latest: State | None, content: bytes) -> bool:
-    """Whether ``content`` matches the most recent stored state byte for byte.
+async def _is_duplicate_of_latest(
+    latest: State | None, content: bytes, content_hash: str | None = None
+) -> bool:
+    """Whether ``content`` matches the most recent stored state.
 
     Saving twice without playing in between is common (the exit autosave right
     after a manual save), and those captures are identical. Only the newest is
@@ -360,13 +364,44 @@ async def _is_duplicate_of_latest(latest: State | None, content: bytes) -> bool:
     """
     if latest is None or latest.file_size_bytes != len(content):
         return False
+    if latest.content_hash is not None:
+        if content_hash is None:
+            content_hash = await asyncio.to_thread(content_hash_of_bytes, content)
+        # A row whose file is gone holds nothing to skip the capture for.
+        return latest.content_hash == content_hash and (
+            await fs_asset_handler.file_exists(latest.full_path)
+        )
     try:
         existing = await fs_asset_handler.read_file(
             f"{latest.file_path}/{latest.file_name}"
         )
     except FileNotFoundError:
         return False
+    await _backfill_hash(latest, existing)
     return existing == content
+
+
+async def _backfill_hash(state: State, content: bytes) -> None:
+    """Store a legacy state's hash so later checks skip the read. Best effort."""
+    try:
+        content_hash = await asyncio.to_thread(content_hash_of_bytes, content)
+        if content_hash is not None:
+            await asyncio.to_thread(
+                db_state_handler.backfill_content_hash, state.id, content_hash
+            )
+    except Exception as exc:
+        log.warning("could not record the hash of state %s: %s", state.id, exc)
+
+
+async def stored_copy(
+    user_id: int, rom_id: int, emulator: str, content: bytes
+) -> State | None:
+    """The stored state of this emulator's that holds exactly ``content``, if any."""
+    content_hash = await asyncio.to_thread(content_hash_of_bytes, content)
+    for state in user_states_for_emulator(user_id, rom_id, emulator):
+        if await _is_duplicate_of_latest(state, content, content_hash):
+            return state
+    return None
 
 
 async def _remove_pruned_file(path: str) -> None:
@@ -430,29 +465,37 @@ async def store_state_asset(
     screenshot: bytes | None = None,
     disc_file_id: int | None = None,
     core: str | None = None,
+    captured_at: datetime | None = None,
 ) -> None:
     """Store a pulled state file as a new entry in the ROM's state history.
 
     Each capture is kept rather than overwriting the slot it came from, so the
     player can resume from any earlier point. An unchanged capture is dropped
     and the oldest entries are pruned once the retention limit is reached.
+
+    Args:
+        captured_at: when the state was written, for one filed after a newer
+            capture; defaults to now.
     """
     history = user_states_for_emulator(user.id, rom.id, emulator)
     if await _is_duplicate_of_latest(history[0] if history else None, content):
         log.info("state identical to the last capture, skipping, rom=%s", rom.name)
         return
 
-    stamped = stamped_state_filename(emulator, filename, datetime.now(timezone.utc))
-    existing_names = {state.file_name for state in history}
-    stored = await store_state_file(
-        user,
-        rom,
-        emulator,
-        content,
-        stamped,
-        fields={"disc_file_id": disc_file_id, "core": core},
+    stamped = stamped_state_filename(
+        emulator, filename, captured_at or datetime.now(timezone.utc)
     )
-    if stamped not in existing_names:
+    existing_names = {state.file_name for state in history}
+    fields: dict[str, Any] = {"disc_file_id": disc_file_id, "core": core}
+    if captured_at is not None:
+        fields |= {"created_at": captured_at, "updated_at": captured_at}
+    stored = await store_state_file(
+        user, rom, emulator, content, stamped, fields=fields
+    )
+    if captured_at is not None:
+        # Filed under newer captures, so the prune reads the history afresh.
+        history = user_states_for_emulator(user.id, rom.id, emulator)
+    elif stamped not in existing_names:
         # The capture is the newest, so it heads the list the prune below reads.
         history.insert(0, stored)
 
@@ -598,11 +641,17 @@ async def hydrate_states_to_broker(
         return 0
     emulator = container.emulator
 
-    states = user_states_for_emulator(user_id, rom_id, emulator, state_core)
-    if not states:
+    # A row whose file vanished can't be pushed, so the next one down goes.
+    newest = next(
+        (
+            s
+            for s in user_states_for_emulator(user_id, rom_id, emulator, state_core)
+            if not s.missing_from_fs
+        ),
+        None,
+    )
+    if newest is None:
         return 0
-
-    newest = states[0]
     # A broker that can't name its core doesn't refuse another core's state.
     if state_core is None and newest.core is not None:
         log.info("not hydrating a %s state into an unnamed core", newest.core)

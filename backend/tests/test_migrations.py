@@ -257,6 +257,7 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0148_rom_age_limits.py", "roms_facets"),
         ("0148_rom_age_limits.py", "permission_groups"),
         ("0148_rom_age_limits.py", "users"),
+        ("0151_state_content_hash.py", "states"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -316,6 +317,22 @@ def test_the_state_core_revision_reverses_and_replays():
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
             assert not has_column(connection, "states", "core")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "states") == before
+
+
+def test_the_state_content_hash_revision_reverses_and_replays():
+    migration = _load_migration("0151_state_content_hash.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "states")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "states", "content_hash")
 
             migration.downgrade()
             migration.upgrade()

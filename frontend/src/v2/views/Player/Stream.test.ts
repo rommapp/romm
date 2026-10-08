@@ -315,8 +315,7 @@ describe("Stream save picker", () => {
   });
 
   it("dates the rows by the timestamp it sorted them on", async () => {
-    // A content-hash rewrite moves updated_at without touching the save, so
-    // showing it would date the second row "now" in a newest-first list.
+    // The web player writes into its row, so updated_at is the last play.
     const wrapper = await launch({
       picker: true,
       saves: [
@@ -327,9 +326,31 @@ describe("Stream save picker", () => {
       ],
     });
 
-    expect((saveList(wrapper)!.props("assets") as SaveSchema[])[0]?.id).toBe(3);
-    expect(saveList(wrapper)!.props("timestamp")).toBe("created");
-    expect(preview(wrapper)!.props("timestamp")).toBe("created");
+    expect((saveList(wrapper)!.props("assets") as SaveSchema[])[0]?.id).toBe(1);
+    expect(saveList(wrapper)!.props("timestamp")).toBe("updated");
+    expect(preview(wrapper)!.props("timestamp")).toBe("updated");
+  });
+
+  it("defaults to a bare .srm the web player wrote since the newest archive", async () => {
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(0, "Pool.srm", { updated_at: "2026-09-15T00:00:00" }),
+        ...ARCHIVES,
+      ],
+      imports: ["save"],
+    });
+
+    expect(saveList(wrapper)!.props("selectedId")).toBe(0);
+  });
+
+  it("reads an upper-case .ZIP as this emulator's archive", async () => {
+    const wrapper = await launch({
+      picker: false,
+      saves: [save(4, "POOL.ZIP")],
+    });
+
+    expect(wrapper.findComponent(SaveDataPanel).props("save")?.id).toBe(4);
   });
 
   it("has no clear button: the claim always restores something", async () => {
@@ -404,7 +425,70 @@ describe("Stream save picker", () => {
     expect(
       (saveList(wrapper)!.props("assets") as SaveSchema[]).map((s) => s.id),
     ).toEqual([9, 3, 2, 1]);
+  });
+
+  it("defaults to a newer bare .srm where the broker imports saves", async () => {
+    // A streaming exit or another device files the battery save bare.
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(9, "Pool [2026-09-14_09-00-00].srm", { emulator: "mgba" }),
+        ...ARCHIVES,
+      ],
+      imports: ["save"],
+    });
+
+    expect(saveList(wrapper)!.props("selectedId")).toBe(9);
+  });
+
+  it("leaves an untouched default off the claim, so the backend can fall back", async () => {
+    // Named, a bare .srm the broker then refused would boot with no save.
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(9, "Pool [2026-09-14_09-00-00].srm", { emulator: "mgba" }),
+        ...ARCHIVES,
+      ],
+      imports: ["save"],
+    });
+
+    await wrapper.find(".r-v2-stream__play").trigger("click");
+    await flushPromises();
+    expect(mocks.claimSession).toHaveBeenCalledOnce();
+    expect(mocks.claimSession.mock.calls[0]![2]).toBeUndefined();
+  });
+
+  it("skips a save whose file is missing when defaulting", async () => {
+    const wrapper = await launch({
+      picker: true,
+      saves: [
+        save(9, "Pool.srm", { emulator: "mgba", missing_from_fs: true }),
+        ...ARCHIVES,
+      ],
+      imports: ["save"],
+    });
+
     expect(saveList(wrapper)!.props("selectedId")).toBe(3);
+  });
+
+  it("keeps the newer archive over an older bare .srm", async () => {
+    const wrapper = await launch({
+      picker: true,
+      saves: [...ARCHIVES, save(0, "Pool.srm")],
+      imports: ["save"],
+    });
+
+    expect(saveList(wrapper)!.props("selectedId")).toBe(3);
+  });
+
+  it("reports a newer bare .srm where the container takes no pick", async () => {
+    const wrapper = await launch({
+      picker: false,
+      saves: [save(9, "Pool.srm"), ...ARCHIVES],
+      imports: ["save"],
+    });
+
+    expect(wrapper.findComponent(SaveDataPanel).props("save")?.id).toBe(9);
   });
 
   it("offers another emulator's archives too, still defaulting to this one's newest", async () => {

@@ -1,23 +1,26 @@
 import os
 import threading
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 from unittest import mock
 
 import pytest
 
-from handler.database import db_save_handler
+from handler.database import db_save_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.retroarch_sync_handler import BlobFile, FSRetroArchSyncHandler
 from handler.redis_handler import async_cache, sync_cache
 from handler.sync.retroarch.sync_handler import (
     HASH_CACHE_TTL_SECONDS,
+    asset_md5s,
     build_manifest,
     cached_hashes,
     list_manifest_paths,
     user_blob_path,
 )
+from models.assets import Save, State
 from models.user import User
 
 
@@ -59,6 +62,27 @@ class TestCachedMd5s:
             await cached_hashes(jobs)
 
         mget.assert_called_once()
+
+
+class TestMarkMissing:
+    async def test_flagging_a_vanished_file_keeps_updated_at(
+        self, save: Save, state: State
+    ):
+        """Device sync and the newest-save pick read updated_at as a write."""
+        stamp = datetime(2026, 1, 1)
+        db_save_handler.update_save(save.id, {"updated_at": stamp})
+        db_state_handler.update_state(state.id, {"updated_at": stamp})
+
+        assert await asset_md5s([save, state]) == [None, None]
+
+        for row in (
+            db_save_handler.get_save(user_id=save.user_id, id=save.id),
+            db_state_handler.get_state(user_id=state.user_id, id=state.id),
+        ):
+            assert row is not None
+            assert row.missing_from_fs
+            # PostgreSQL hands the column back as UTC-aware.
+            assert row.updated_at.replace(tzinfo=None) == stamp
 
 
 class TestManifestQueriesOffEventLoop:
