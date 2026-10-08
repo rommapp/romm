@@ -97,6 +97,15 @@
         "- id: trunk\\s+ref: (?<currentValue>v[^\\s]+)\\s+uri: https://github\\.com/(?<depName>trunk-io/plugins)\\s"
       ],
       "datasourceTemplate": "github-tags"
+    },
+    {
+      "description": "MCP servers in .mcp.json run through npx, pinned to an exact version so a new release waits out minimumReleaseAge like any other dependency.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.mcp\\.json$/"],
+      "matchStrings": [
+        "\"(?<depName>(?:@[a-z0-9._~-]+/)?[a-z0-9._~-]+)@(?<currentValue>\\d[^\"\\s]*)\""
+      ],
+      "datasourceTemplate": "npm"
     }
   ]
 }

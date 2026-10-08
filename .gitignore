@@ -90,6 +90,7 @@ switch_product_ids.json
 !.claude/skills/
 !.claude/hooks/
 !.claude/settings.json
+.playwright-mcp/
 
 # Local dev scripts
 /dev.sh
