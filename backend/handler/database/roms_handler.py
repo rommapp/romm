@@ -6,7 +6,7 @@ from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime
 from types import SimpleNamespace
-from typing import Any, Literal, NamedTuple
+from typing import Any, Final, Literal, NamedTuple
 from typing import cast as typing_cast
 
 from redis.exceptions import WatchError
@@ -340,6 +340,18 @@ ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
 ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
 ROM_FILTERS_CACHE_SCHEMA_VERSION = get_version().replace(".", "_")
 
+# What sigil reads off a file; a pass that didn't read it keeps the stored value.
+SIGIL_READ_COLUMNS: Final = frozenset(
+    {
+        "raw_serial",
+        "sigil_features",
+        "n64_header",
+        "n64_md5",
+        "n64_md5_n64",
+        "playlist_title_ids",
+    }
+)
+
 # Columns copied from a scanned (transient) RomFile onto its database row.
 ROM_FILE_SCANNED_COLUMNS = (
     "file_name",
@@ -356,6 +368,10 @@ ROM_FILE_SCANNED_COLUMNS = (
     "converto_read_at",
     "raw_serial",
     "sigil_features",
+    "n64_header",
+    "n64_md5",
+    "n64_md5_n64",
+    "playlist_title_ids",
     "archive_members",
     "category",
 )
@@ -2639,7 +2655,7 @@ class DBRomsHandler(DBBaseHandler):
         same_content = _same_content(row, scanned)
         keep_when_unset: frozenset[str] = frozenset()
         if same_content:
-            keep_when_unset |= {"raw_serial", "sigil_features"}
+            keep_when_unset |= SIGIL_READ_COLUMNS
             if scanned.converto_read_at is None:
                 keep_when_unset |= {"title_id", "title_version", "converto_read_at"}
         _copy_scanned_columns(

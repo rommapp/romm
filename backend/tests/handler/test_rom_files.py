@@ -348,6 +348,8 @@ async def test_a_serial_read_off_a_reused_row_is_persisted(
         parsed = _unchanged_parse(rom, RomIdentity())
         parsed.rom_files[0].raw_serial = "SLUS_200.01"
         parsed.rom_files[0].sigil_features = 0
+        parsed.rom_files[0].n64_md5 = "FA27089C425DBAB99F19245C5C997613"
+        parsed.rom_files[0].playlist_title_ids = ["SLUS-20001"]
         return parsed
 
     with patch.object(fs_rom_handler, "get_rom_files", read_serial):
@@ -356,6 +358,8 @@ async def test_a_serial_read_off_a_reused_row_is_persisted(
     stored = _files_by_name(rom.id)["game.bin"]
     assert result.updated_files == 1
     assert (stored.raw_serial, stored.sigil_features) == ("SLUS_200.01", 0)
+    assert stored.n64_md5 == "FA27089C425DBAB99F19245C5C997613"
+    assert stored.playlist_title_ids == ["SLUS-20001"]
 
 
 async def test_a_read_that_confirms_a_reused_rows_title_id_is_persisted(

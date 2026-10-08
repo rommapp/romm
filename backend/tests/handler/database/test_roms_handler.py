@@ -645,6 +645,34 @@ class TestSyncRomFiles:
         assert stored is not None
         assert (stored.raw_serial, stored.sigil_features) == expected
 
+    @pytest.mark.parametrize(
+        ("size", "kept"), [(200, True), (300, False)], ids=["unchanged", "changed"]
+    )
+    def test_the_n64_and_playlist_reads_track_content(
+        self, rom: Rom, size: int, kept: bool
+    ):
+        read = {
+            "n64_header": "1080 SNOWBOARDING",
+            "n64_md5": "FA27089C425DBAB99F19245C5C997613",
+            "n64_md5_n64": "10C93DD78B695CD32B6938534ED0EDD5",
+            "playlist_title_ids": ["SLUS-00892", "SLUS-00908"],
+        }
+        scanned = _scanned_file(rom, "game.z64", size=200, sha1=None)
+        scanned.last_modified = 1000.0
+        for column, value in read.items():
+            setattr(scanned, column, value)
+        (first,) = _sync(rom, [scanned])
+
+        rescanned = _scanned_file(rom, "game.z64", size=size, sha1=None)
+        rescanned.last_modified = 1000.0
+        db_rom_handler.sync_rom_files(rom.id, [rescanned])
+
+        stored = db_rom_handler.get_rom_file_by_id(first.id)
+        assert stored is not None
+        assert {column: getattr(stored, column) for column in read} == (
+            read if kept else dict.fromkeys(read)
+        )
+
     def test_new_hashes_clear_unread_title_ids_despite_a_kept_mtime(self, rom: Rom):
         scanned = _scanned_file(rom, "game.chd")
         scanned.last_modified = 1000.0

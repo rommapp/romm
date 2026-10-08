@@ -527,8 +527,15 @@ def test_the_rom_file_sigil_identity_revision_reverses_and_replays():
         before = _schema_of(connection, "rom_files")
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
-            assert not has_column(connection, "rom_files", "raw_serial")
-            assert not has_column(connection, "rom_files", "sigil_features")
+            for column in (
+                "raw_serial",
+                "sigil_features",
+                "n64_header",
+                "n64_md5",
+                "n64_md5_n64",
+                "playlist_title_ids",
+            ):
+                assert not has_column(connection, "rom_files", column)
 
             migration.downgrade()
             migration.upgrade()

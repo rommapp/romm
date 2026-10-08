@@ -413,6 +413,18 @@ class RomFile(BaseModel):
     )
     # NULL until sigil reads the file. BigInteger: a u32 bitmask.
     sigil_features: Mapped[int | None] = mapped_column(BigInteger, default=None)
+    # Standalone N64 emulators name saves after these; reading them takes the whole ROM.
+    n64_header: Mapped[str | None] = mapped_column(
+        String(length=TITLE_ID_MAX_LENGTH), default=None
+    )
+    n64_md5: Mapped[str | None] = mapped_column(String(100), default=None)
+    n64_md5_n64: Mapped[str | None] = mapped_column(String(100), default=None)
+    playlist_title_ids: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(),
+        default=None,
+        nullable=True,
+        doc="Each listed disc's title id, in playlist order, when the file is an .m3u",
+    )
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
     )

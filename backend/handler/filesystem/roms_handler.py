@@ -17,7 +17,7 @@ from adapters.services.rom_converto import (
     rom_converto_service,
 )
 from adapters.services.sigil import (
-    SIGIL_PLATFORM_SLUGS,
+    SIGIL_EXTRACT_PLATFORM_SLUGS,
     SWITCH_PLATFORM_SLUGS,
     SigilExtractionResult,
     SigilService,
@@ -712,7 +712,9 @@ class FSRomsHandler(FSHandler):
 
         # Title id extraction is independent of hashing support: it covers
         # non-hashable platforms like Switch.
-        sigil_platform = extract_title_ids and rom.platform_slug in SIGIL_PLATFORM_SLUGS
+        sigil_platform = (
+            extract_title_ids and rom.platform_slug in SIGIL_EXTRACT_PLATFORM_SLUGS
+        )
         is_switch = rom.platform_slug in SWITCH_PLATFORM_SLUGS
         # rom-converto reads new or changed files' title ids even when sigil
         # extraction is skipped; sigil owns save targets.
@@ -724,8 +726,15 @@ class FSRomsHandler(FSHandler):
         sigil_service = SigilService()
 
         def _record_title_id_source(path: Path, rom_file: RomFile) -> None:
-            """Queue a file for extraction when sigil can read a title id from it."""
-            if sigil_platform and _may_hold_title_id(path, rom_file.category):
+            """Queue a file for extraction when sigil can read a title id from it.
+
+            An unchanged N64 file keeps its stored read, which took the whole ROM.
+            """
+            if (
+                sigil_platform
+                and _may_hold_title_id(path, rom_file.category)
+                and not rom_file.n64_md5
+            ):
                 title_id_sources.append(_TitleIdSource(path, rom_file))
 
         async def _extract_title_id(source: _TitleIdSource) -> bool:
@@ -737,6 +746,14 @@ class FSRomsHandler(FSHandler):
                 return False
             source.rom_file.raw_serial = extraction.raw_serial or None
             source.rom_file.sigil_features = extraction.features
+            source.rom_file.n64_header = extraction.n64_header or None
+            source.rom_file.n64_md5 = extraction.n64_md5 or None
+            source.rom_file.n64_md5_n64 = extraction.n64_md5_n64 or None
+            source.rom_file.playlist_title_ids = (
+                list(extraction.playlist_title_ids)
+                if extraction.playlist_title_ids is not None
+                else None
+            )
             if source.rom_file.title_id and source.rom_file.converto_read_at:
                 # rom-converto's id wins; sigil keeps its save target and content type.
                 extraction = replace(

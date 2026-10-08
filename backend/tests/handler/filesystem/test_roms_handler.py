@@ -2280,8 +2280,10 @@ class TestSigilTitleIdExtraction:
         [
             # Not a platform sigil covers.
             (
-                Platform(name="Nintendo 64", slug="n64", fs_slug="n64"),
-                "Game.z64",
+                Platform(
+                    name="Nintendo Entertainment System", slug="nes", fs_slug="nes"
+                ),
+                "Game.nes",
                 False,
                 True,
             ),

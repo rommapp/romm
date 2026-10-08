@@ -1,4 +1,4 @@
-"""Add the per-file serial and feature flags sigil reads, which a restore needs.
+"""Add the per-file identity sigil reads, which a restore needs.
 
 Revision ID: 0151_rom_file_sigil_identity
 Revises: 0150_link_slots_to_channels
@@ -8,6 +8,8 @@ Create Date: 2026-10-07 00:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op  # type: ignore[attr-defined]
+
+from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
 revision = "0151_rom_file_sigil_identity"
@@ -20,6 +22,10 @@ def _columns() -> list[sa.Column]:
     return [
         sa.Column("raw_serial", sa.String(length=100), nullable=True),
         sa.Column("sigil_features", sa.BigInteger(), nullable=True),
+        sa.Column("n64_header", sa.String(length=100), nullable=True),
+        sa.Column("n64_md5", sa.String(length=100), nullable=True),
+        sa.Column("n64_md5_n64", sa.String(length=100), nullable=True),
+        sa.Column("playlist_title_ids", CustomJSON(), nullable=True),
     ]
 
 

@@ -518,6 +518,100 @@ class TestGetRomFilesWithConverto:
         assert by_name["Game (Disc 2).iso"].converto_read_at is None
 
 
+class TestSigilIdentityOfAFlatFile:
+    """What sigil reads off a lone file: N64's whole-ROM identity, a playlist's discs."""
+
+    @pytest.fixture
+    def flat_env(self, tmp_path, mocker):
+        config = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=[],
+            EXCLUDED_MULTI_PARTS_EXT=[],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            STRUCTURE_TEMPLATES={"default": "{platform}/roms/{game}"},
+            CONVERTO=ConvertoConfig(scan_metadata=False),
+        )
+        mocker.patch(
+            "handler.filesystem.roms_handler.cm.get_config", return_value=config
+        )
+        mocker.patch.object(
+            rom_converto_service, "is_enabled", mocker.AsyncMock(return_value=False)
+        )
+        handler = FSRomsHandler()
+        handler.base_path = tmp_path
+
+        def flat_rom(slug: str, file_name: str) -> Rom:
+            (tmp_path / slug / "roms").mkdir(parents=True, exist_ok=True)
+            (tmp_path / slug / "roms" / file_name).write_bytes(b"rom-bytes")
+            stem, extension = file_name.rsplit(".", 1)
+            return Rom(
+                id=1,
+                fs_name=file_name,
+                fs_extension=extension,
+                fs_path=f"{slug}/roms",
+                platform=Platform(name=slug, slug=slug, fs_slug=slug),
+            )
+
+        return SimpleNamespace(handler=handler, flat_rom=flat_rom)
+
+    @pytest.mark.asyncio
+    async def test_an_n64_rom_is_read_once_while_unchanged(self, flat_env, mocker):
+        extract_title_id = mocker.patch(
+            "adapters.services.sigil.SigilService.extract_title_id",
+            mocker.AsyncMock(
+                return_value=SigilExtractionResult(
+                    title_id="NTEA",
+                    save_target="NTEA",
+                    usage="file-prefix",
+                    n64_header="1080 SNOWBOARDING",
+                    n64_md5="FA27089C425DBAB99F19245C5C997613",
+                    n64_md5_n64="10C93DD78B695CD32B6938534ED0EDD5",
+                )
+            ),
+        )
+        rom = flat_env.flat_rom("n64", "1080.z64")
+
+        first = await flat_env.handler.get_rom_files(rom, calculate_hashes=False)
+        rescan = await flat_env.handler.get_rom_files(
+            rom, calculate_hashes=False, existing_files=first.rom_files
+        )
+
+        (row,) = rescan.rom_files
+        assert (row.n64_header, row.n64_md5, row.n64_md5_n64) == (
+            "1080 SNOWBOARDING",
+            "FA27089C425DBAB99F19245C5C997613",
+            "10C93DD78B695CD32B6938534ED0EDD5",
+        )
+        assert extract_title_id.await_count == 1
+        assert first.identity.title_id == "NTEA"
+        # An empty identity leaves the stored one standing; see scan_handler.
+        assert rescan.identity.title_id is None
+
+    @pytest.mark.asyncio
+    async def test_a_playlist_stores_every_discs_title_id(self, flat_env, mocker):
+        mocker.patch(
+            "adapters.services.sigil.SigilService.extract_title_id",
+            mocker.AsyncMock(
+                return_value=SigilExtractionResult(
+                    title_id="SLUS-00892",
+                    save_target="SLUS-00892",
+                    usage="folder-prefix",
+                    playlist_title_ids=("SLUS-00892", "SLUS-00908"),
+                )
+            ),
+        )
+        rom = flat_env.flat_rom("psx", "FF8.m3u")
+
+        parsed = await flat_env.handler.get_rom_files(rom, calculate_hashes=False)
+
+        (row,) = parsed.rom_files
+        assert row.playlist_title_ids == ["SLUS-00892", "SLUS-00908"]
+
+
 @pytest.mark.parametrize(
     ("service_state", "expected"),
     [
