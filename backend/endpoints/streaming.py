@@ -336,7 +336,7 @@ def _check_key(kind: str, c: ResolvedContainer) -> Hashable:
 async def get_config(request: Request) -> StreamingConfigSchema:
     """Return streaming configuration to the frontend"""
     # The frontend hides every streaming surface on `enabled`.
-    if not access.can_see_streaming(request):
+    if streaming_enabled() and not access.can_see_streaming(request):
         return StreamingConfigSchema(
             enabled=False, containers=[], emulator_labels=emulator_labels()
         )
@@ -1745,7 +1745,6 @@ async def list_joinable_sessions(
     sessions whose host opted into multiplayer at launch, and only the fields
     a Join button needs. Sessions the caller is already hosting are left out.
     """
-    access.assert_can_see_streaming(request)
     if not access.can_join_streaming(request):
         return JoinableSessionsResponse(sessions=[])
 

@@ -1128,8 +1128,7 @@ def _streaming_overrides(connection: sa.Connection) -> int:
 def test_the_streaming_permission_revision_backfills_reverses_and_replays(
     admin_user: User,
 ):
-    """0152 grants streaming to every group that exists at upgrade, so nobody
-    loses it, and a downgrade leaves no value the older enum cannot load."""
+    """0152 grants streaming to every existing group and downgrades cleanly."""
     migration = _load_migration("0152_streaming_permission.py")
 
     with sync_engine.begin() as connection:

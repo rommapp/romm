@@ -1,7 +1,12 @@
 """`/permissions/me` returns backend-enforced grants in the UI action vocabulary."""
 
 from handler.database.base_handler import sync_session
-from models.permission import HiddenEntity, PermEntity
+from models.permission import (
+    HiddenEntity,
+    PermAction,
+    PermEntity,
+    UserPermissionOverride,
+)
 
 VIEWER_ACTIONS = {
     "rom.view",
@@ -14,6 +19,7 @@ VIEWER_ACTIONS = {
     "collection.edit",
     "collection.delete",
     "playlist.edit",
+    "stream.start",
 }
 
 
@@ -94,3 +100,22 @@ def test_grant_scopes_are_global(client, viewer_access_token):
         headers={"Authorization": f"Bearer {viewer_access_token}"},
     ).json()
     assert all(g["scope"]["kind"] == "global" for g in body["grants"])
+
+
+def test_revoking_streaming_write_drops_stream_start(
+    client, viewer_user, viewer_access_token
+):
+    with sync_session.begin() as s:
+        s.add(
+            UserPermissionOverride(
+                user_id=viewer_user.id,
+                entity=PermEntity.STREAMING,
+                action=PermAction.WRITE,
+                granted=False,
+            )
+        )
+    body = client.get(
+        "/api/permissions/me",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+    ).json()
+    assert "stream.start" not in _actions(body)

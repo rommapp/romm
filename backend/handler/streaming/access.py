@@ -4,7 +4,12 @@ from typing import Any
 
 from fastapi import HTTPException, Request
 
-from handler.auth.dependencies import get_permissions, get_rom_visibility_filter
+from handler.auth.dependencies import (
+    assert_can,
+    can_access,
+    get_permissions,
+    get_rom_visibility_filter,
+)
 from handler.database import db_platform_handler, db_rom_handler
 from handler.streaming.config import (
     ResolvedContainer,
@@ -44,10 +49,10 @@ def assert_session_owner(session: dict[str, Any], request: Request) -> None:
     raise HTTPException(status_code=403, detail="Session is claimed by another user")
 
 
-def _allows_streaming(
-    request: Request, action: PermAction, *, owned: bool = True
-) -> bool:
-    return get_permissions(request).allows(PermEntity.STREAMING, action, owned=owned)
+def _allows_streaming(request: Request, *actions: PermAction) -> bool:
+    # A session is always the caller's own, so an "own items only" grant counts.
+    perms = get_permissions(request)
+    return all(perms.allows(PermEntity.STREAMING, a, owned=True) for a in actions)
 
 
 def can_see_streaming(request: Request) -> bool:
@@ -56,32 +61,18 @@ def can_see_streaming(request: Request) -> bool:
 
 
 def can_join_streaming(request: Request) -> bool:
-    """Whether the caller may see and join someone else's session, which an
-    "own items only" grant does not cover."""
-    return _allows_streaming(request, PermAction.READ, owned=False)
-
-
-def assert_can_see_streaming(request: Request) -> None:
-    """Raise 403 unless the caller may see streaming."""
-    if not can_see_streaming(request):
-        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    """Whether the caller may join someone else's session."""
+    return can_access(get_permissions(request), PermEntity.STREAMING, PermAction.READ)
 
 
 def assert_can_join_streaming(request: Request) -> None:
     """Raise 403 unless the caller may join someone else's session."""
-    if not can_join_streaming(request):
-        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    assert_can(get_permissions(request), PermEntity.STREAMING, PermAction.READ)
 
 
 def assert_can_start_streaming(request: Request) -> None:
-    """Raise 403 unless the caller may start a session, which takes a container.
-
-    Sessions the caller already holds stay theirs to control and release, so a
-    revoked grant never strands a running game's save.
-    """
-    if not (
-        can_see_streaming(request) and _allows_streaming(request, PermAction.WRITE)
-    ):
+    """Raise 403 unless the caller may start a session, which takes a container."""
+    if not _allows_streaming(request, PermAction.READ, PermAction.WRITE):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
 

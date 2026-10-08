@@ -37,6 +37,10 @@ vi.mock("@/stores/streaming", () => ({
     containerForPlatform: () => streamContainer.value,
   }),
 }));
+const canStartStream = ref(true);
+vi.mock("@/v2/composables/useCan", () => ({
+  useCan: () => canStartStream,
+}));
 vi.mock("@/stores/native", () => ({
   useNativeStore: () => ({
     isSupportedPlatform: () => nativeSupported.value,
@@ -72,6 +76,7 @@ beforeEach(() => {
   support.ruffle.mockReturnValue(false);
   support.jsDosBundle.mockReturnValue(true);
   streamContainer.value = null;
+  canStartStream.value = true;
   nativeSupported.value = false;
 });
 
@@ -160,6 +165,15 @@ describe("useCanPlay", () => {
 
     expect(canPlayStream.value).toBe(false);
     expect(canPlay.value).toBe(false);
+  });
+
+  it("reaches a stream it may not start", () => {
+    streamContainer.value = {};
+    canStartStream.value = false;
+    const { canReachStream, canPlayStream } = useCanPlay(() => playableRom());
+
+    expect(canReachStream.value).toBe(true);
+    expect(canPlayStream.value).toBe(false);
   });
 
   // The desktop shell runs a locally installed emulator, so it makes a rom

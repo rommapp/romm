@@ -95,6 +95,7 @@ export function useGameActions(
     canPlayPico8,
     canPlayEasyRpg,
     canPlayRuffle,
+    canReachStream,
     canPlayStream,
     canPlayNative,
   } = useCanPlay(getRom);
@@ -142,7 +143,7 @@ export function useGameActions(
   // and holds the answer for a freshness window, so a gallery of cards costs
   // what a single card costs.
   watch(
-    canPlayStream,
+    canReachStream,
     (can) => {
       if (can) void streamingStore.fetchJoinableSessions();
     },
@@ -159,7 +160,7 @@ export function useGameActions(
   });
 
   const canJoinStream = computed(
-    () => canPlayStream.value && joinableSession.value !== null,
+    () => canReachStream.value && joinableSession.value !== null,
   );
 
   const joinHostLabel = computed(

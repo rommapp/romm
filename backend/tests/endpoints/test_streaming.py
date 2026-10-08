@@ -12867,7 +12867,9 @@ async def test_store_save_asset_fits_a_long_multibyte_rom_name(
 # ── streaming permission ──────────────────────────────────────────────────────
 
 
-def _revoke_streaming(user: User, *actions: PermAction) -> None:
+def _override_streaming(
+    user: User, *actions: PermAction, granted: bool = False, own_only: bool = False
+) -> None:
     with sync_session.begin() as s:
         for action in actions:
             s.add(
@@ -12875,7 +12877,8 @@ def _revoke_streaming(user: User, *actions: PermAction) -> None:
                     user_id=user.id,
                     entity=PermEntity.STREAMING,
                     action=action,
-                    granted=False,
+                    granted=granted,
+                    own_only=own_only,
                 )
             )
 
@@ -12883,9 +12886,8 @@ def _revoke_streaming(user: User, *actions: PermAction) -> None:
 def test_get_config_is_disabled_without_streaming_read(
     client, viewer_access_token, viewer_user: User, rom: Rom
 ):
-    """The frontend hides every streaming surface on `enabled`, so a user the
-    admin kept off streaming gets the same answer as a server without it."""
-    _revoke_streaming(viewer_user, PermAction.READ)
+    """A user kept off streaming gets the same answer as a server without it."""
+    _override_streaming(viewer_user, PermAction.READ)
     with _streaming(_container_for(rom)):
         response = client.get(
             "/api/streaming/config", headers=_auth(viewer_access_token)
@@ -12897,8 +12899,7 @@ def test_get_config_is_disabled_without_streaming_read(
 
 @pytest.fixture
 def guests_group() -> Iterator[int]:
-    """A group with no streaming grant, removed afterwards since conftest keeps
-    the permission tables between tests."""
+    """A group with no streaming grant; conftest keeps groups between tests."""
     with sync_session.begin() as s:
         group = PermissionGroup(
             name="Guests",
@@ -12941,7 +12942,7 @@ def test_claim_without_streaming_grant_is_forbidden(
     client, viewer_access_token, viewer_user: User, rom: Rom, action: PermAction
 ):
     """Starting a session takes a container, so it needs both grants."""
-    _revoke_streaming(viewer_user, action)
+    _override_streaming(viewer_user, action)
     with _streaming(_container_for(rom)):
         with patch("handler.streaming.commands.launch") as call_broker:
             r = _claim(client, viewer_access_token, rom.id)
@@ -12952,19 +12953,10 @@ def test_claim_without_streaming_grant_is_forbidden(
 def test_an_own_only_streaming_grant_counts(
     client, viewer_access_token, viewer_user: User, rom: Rom
 ):
-    """The matrix lets an admin pick "own items only"; a session the player
-    starts is their own, so that state must not read as no grant."""
-    with sync_session.begin() as s:
-        for action in (PermAction.READ, PermAction.WRITE):
-            s.add(
-                UserPermissionOverride(
-                    user_id=viewer_user.id,
-                    entity=PermEntity.STREAMING,
-                    action=action,
-                    granted=True,
-                    own_only=True,
-                )
-            )
+    """A session the player starts is their own, so "own items only" counts."""
+    _override_streaming(
+        viewer_user, PermAction.READ, PermAction.WRITE, granted=True, own_only=True
+    )
     with _streaming(_container_for(rom)):
         config = client.get("/api/streaming/config", headers=_auth(viewer_access_token))
         r = _claim_ok(client, viewer_access_token, rom.id)
@@ -12983,7 +12975,7 @@ def test_claim_with_streaming_grant_still_launches(
 def test_joining_without_streaming_read_is_forbidden(
     client, access_token, viewer_access_token, viewer_user: User, rom: Rom
 ):
-    _revoke_streaming(viewer_user, PermAction.READ)
+    _override_streaming(viewer_user, PermAction.READ)
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
         with patch("handler.streaming.webstation.join") as join_broker:
@@ -12996,7 +12988,7 @@ def test_joining_needs_only_streaming_read(
     client, access_token, viewer_access_token, viewer_user: User, rom: Rom
 ):
     """A guest seat runs on the host's container, so it costs no launch."""
-    _revoke_streaming(viewer_user, PermAction.WRITE)
+    _override_streaming(viewer_user, PermAction.WRITE)
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
         body = _joinable(client, viewer_access_token).json()
@@ -13009,18 +13001,8 @@ def test_joining_needs_only_streaming_read(
 def test_an_own_only_streaming_read_cannot_join_someone_elses_session(
     client, access_token, viewer_access_token, viewer_user: User, rom: Rom
 ):
-    """Another player's session is not the caller's own, so "own items only"
-    keeps it out of the list and the join."""
-    with sync_session.begin() as s:
-        s.add(
-            UserPermissionOverride(
-                user_id=viewer_user.id,
-                entity=PermEntity.STREAMING,
-                action=PermAction.READ,
-                granted=True,
-                own_only=True,
-            )
-        )
+    """Another player's session is not the caller's own."""
+    _override_streaming(viewer_user, PermAction.READ, granted=True, own_only=True)
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
         listed = _joinable(client, viewer_access_token)
@@ -13032,24 +13014,24 @@ def test_an_own_only_streaming_read_cannot_join_someone_elses_session(
     join_broker.assert_not_called()
 
 
-def test_joinable_without_streaming_read_is_forbidden(
+def test_joinable_is_empty_without_streaming_read(
     client, access_token, viewer_access_token, viewer_user: User, rom: Rom
 ):
-    _revoke_streaming(viewer_user, PermAction.READ)
+    _override_streaming(viewer_user, PermAction.READ)
     with _streaming(_ws_for(rom)):
         _claim_multiplayer(client, access_token, rom.id)
         response = _joinable(client, viewer_access_token)
-    assert response.status_code == 403
+    assert response.status_code == 200
+    assert response.json()["sessions"] == []
 
 
 def test_a_revoked_player_can_still_leave_their_session(
     client, viewer_access_token, viewer_user: User, rom: Rom
 ):
-    """Revoking streaming mid-game must not strand the player's save: releasing
-    the session they already hold stays open to them."""
+    """Revoking streaming mid-game must not strand the player's save."""
     with _streaming(_container_for(rom)):
         assert _claim_ok(client, viewer_access_token, rom.id).status_code == 202
-        _revoke_streaming(viewer_user, PermAction.READ, PermAction.WRITE)
+        _override_streaming(viewer_user, PermAction.READ, PermAction.WRITE)
         with _stub_stop():
             r = client.delete(
                 f"/api/streaming/sessions/{rom.platform_slug}",

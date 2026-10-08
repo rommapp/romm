@@ -47,6 +47,8 @@ class ActionKey(enum.StrEnum):
     PLAYLIST_EDIT = "playlist.edit"
     # Library
     LIBRARY_SCAN = "library.scan"
+    # Streaming: seeing it rides on the streaming config's `enabled`.
+    STREAM_START = "stream.start"
     # Users
     USER_VIEW = "user.view"
     USER_CREATE = "user.create"
@@ -88,6 +90,7 @@ _ENTITY_ACTION_KEYS: dict[tuple[PermEntity, PermAction], tuple[ActionKey, ...]] 
     ),
     (PermEntity.COLLECTIONS, PermAction.DELETE): (ActionKey.COLLECTION_DELETE,),
     (PermEntity.PLAYLISTS, PermAction.WRITE): (ActionKey.PLAYLIST_EDIT,),
+    (PermEntity.STREAMING, PermAction.WRITE): (ActionKey.STREAM_START,),
     (PermEntity.USERS, PermAction.READ): (ActionKey.USER_VIEW,),
     (PermEntity.USERS, PermAction.WRITE): (
         ActionKey.USER_CREATE,
