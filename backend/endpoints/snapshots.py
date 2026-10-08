@@ -490,27 +490,43 @@ async def _read_push(
     return payload, parts, save_members
 
 
+def _named_parent(payload: ManifestPayload) -> Snapshot | None:
+    """The parent the push names, else the expected current it carries from."""
+    parent_id = (
+        payload.parent_snapshot_id
+        if "parent_snapshot_id" in payload.model_fields_set
+        else payload.expected_current_id
+    )
+    return db_snapshot_handler.get_snapshot(parent_id) if parent_id else None
+
+
+def _assert_parent_visible(request: Request, parent: Snapshot | None) -> None:
+    """404 for a parent on a ROM hidden from the caller, as reading it would be."""
+    if parent is not None and rom_hidden(request, parent.rom_id):
+        raise _not_found("Parent snapshot")
+
+
 def _clone_origin(
     request: Request,
-    payload: ManifestPayload,
+    parent: Snapshot | None,
     parts: dict[str, UploadPart],
     copied: SaveEntry | None,
     copied_from: str | None,
 ) -> str:
-    """The device a push with no device attributes its snapshot to: the one
-    that wrote the bytes it copies or reuses, else the web UI."""
+    """The device a push with no device attributes its snapshot to: the
+    caller's device that wrote the bytes it copies or reuses, else the web UI."""
     if copied is not None:
         if copied_from:
             return copied_from
-    elif all(part.content is None for part in parts.values()):
-        parent_id = (
-            payload.parent_snapshot_id
-            if "parent_snapshot_id" in payload.model_fields_set
-            else payload.expected_current_id
+    elif (
+        all(part.content is None for part in parts.values())
+        and parent is not None
+        and parent.origin_device_id
+        and db_device_handler.get_device(
+            device_id=parent.origin_device_id, user_id=request.user.id
         )
-        parent = db_snapshot_handler.get_snapshot(parent_id) if parent_id else None
-        if parent is not None and parent.origin_device_id:
-            return parent.origin_device_id
+    ):
+        return parent.origin_device_id
     return create_or_find_web_device(request, request.user).id
 
 
@@ -574,6 +590,15 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
     payload, parts, save_members = await _read_push(request)
     check_emulator_folder_name(payload.emulator)
     rom_file, rom = visible_rom_file(request, payload.rom_file_id)
+    target = (
+        db_snapshot_handler.get_channel(payload.channel_id)
+        if payload.channel_id
+        else None
+    )
+    if target is not None and rom_hidden(request, target.rom_id):
+        raise _not_found("Channel")
+    parent = _named_parent(payload)
+    _assert_parent_visible(request, parent)
     save_part = parts.get(SAVE_PART)
     if (
         payload.save
@@ -594,9 +619,12 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
         source = db_save_handler.get_save(user_id=viewer.id, id=payload.save.copy_of)
         if source is None:
             raise _not_found("Save")
-        copied, parts[SAVE_PART] = await copy_part(
-            source, payload.save.shape, payload.save.format
-        )
+        try:
+            copied, parts[SAVE_PART] = await copy_part(
+                source, payload.save.shape, payload.save.format
+            )
+        except FileNotFoundError as exc:
+            raise _not_found("Save file") from exc
         copied_from = source.origin_device_id
 
     write = SnapshotWrite(
@@ -622,7 +650,7 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
         origin_device_id=(
             device.id
             if device
-            else _clone_origin(request, payload, parts, copied, copied_from)
+            else _clone_origin(request, parent, parts, copied, copied_from)
         ),
         parts=parts,
     )

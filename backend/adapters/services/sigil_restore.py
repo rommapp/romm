@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Final, Literal
 
 from adapters.services.sigil import SigilGame, sigil_binding
+from utils.memory_cards import MEMORY_CARD_MAX_BYTES
 
 # Saves on these carry no game id, so a merge claims the unit's save names.
 VOLUME_PLATFORMS: Final = frozenset({"saturn", "segacd", "dreamcast"})
@@ -244,16 +245,21 @@ def _restore_per_game(
 def _unit_save_names(unit: bytes, scratch: Path) -> list[str]:
     """The save names on each volume a unit holds, which a merge claims for its game."""
     binding = _binding()
-    volumes: Iterable[bytes]
+    paths: list[Path] = []
     if zipfile.is_zipfile(io.BytesIO(unit)):
         with zipfile.ZipFile(io.BytesIO(unit)) as zf:
-            volumes = [zf.read(info) for info in zf.infolist() if not info.is_dir()]
+            for index, info in enumerate(zf.infolist()):
+                if info.is_dir() or info.file_size > MEMORY_CARD_MAX_BYTES:
+                    continue
+                path = scratch / f"volume-{index}"
+                path.write_bytes(zf.read(info))
+                paths.append(path)
     else:
-        volumes = [unit]
+        path = scratch / "volume-0"
+        path.write_bytes(unit)
+        paths.append(path)
     names: list[str] = []
-    for index, volume in enumerate(volumes):
-        path = scratch / f"volume-{index}"
-        path.write_bytes(volume)
+    for path in paths:
         try:
             listing = binding.list_card(path)
         except binding.SigilError:

@@ -1107,7 +1107,6 @@ async def update_save(
             },
             replaced_hash=replaced_hash,
         )
-        db_snapshot_handler.refresh_backup_digests(save_id=db_save.id)
 
     if screenshotFile and sanitized_screenshot_filename:
         await store_screenshot(

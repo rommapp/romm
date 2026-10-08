@@ -10,6 +10,9 @@ from models.base import with_file_name_parts
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
+from .snapshots_handler import DBSnapshotsHandler
+
+_snapshots = DBSnapshotsHandler()
 
 
 class DBStatesHandler(DBBaseHandler):
@@ -152,6 +155,8 @@ class DBStatesHandler(DBBaseHandler):
             .values(**values)
             .execution_options(synchronize_session="evaluate")
         )
+        if "content_hash" in data:
+            _snapshots.refresh_backup_digests(state_id=id, session=session)
         return session.scalars(select(State).filter_by(id=id)).one()
 
     @begin_session

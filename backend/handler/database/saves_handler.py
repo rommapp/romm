@@ -14,9 +14,10 @@ from utils.sql_dialect import force_index_on_mysql
 
 from .base_handler import DBBaseHandler, affected_rows
 from .deleted_assets_handler import DBDeletedAssetsHandler
-from .snapshots_handler import channel_for_slot, held_save_ids
+from .snapshots_handler import DBSnapshotsHandler, channel_for_slot, held_save_ids
 
 _deleted_assets = DBDeletedAssetsHandler()
+_snapshots = DBSnapshotsHandler()
 # What identifies a version in its slot, for recording it when it leaves.
 _VERSION_COLUMNS = (Save.user_id, Save.rom_id, Save.slot, Save.content_hash)
 _SLOT_MOVE_ATTEMPTS = 3
@@ -344,7 +345,10 @@ class DBSavesHandler(DBBaseHandler):
                 if data["slot"] and owner.rom_id is not None
                 else None
             )
-        return self._write(id, data, touch, session)
+        save = self._write(id, data, touch, session)
+        if "content_hash" in data:
+            _snapshots.refresh_backup_digests(save_id=id, session=session)
+        return save
 
     @begin_session
     def rehash_save(

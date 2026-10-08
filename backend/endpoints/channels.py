@@ -199,10 +199,5 @@ async def delete_channel(request: Request, id: uuid.UUID) -> None:
     """Delete a channel. Its current and pinned snapshots stay as archival backups,
     except on a detached channel, whose ROM is gone, which keeps nothing."""
     channel = _owned_or_404(id, request.user)
-    save_ids, state_ids = db_snapshot_handler.get_content_ids(channel.id)
     released = db_snapshot_handler.delete_channel(channel.id)
     await retention.discard_content(released)
-    db_snapshot_handler.sync_content_visibility(
-        save_ids - {save.id for save in released.saves},
-        state_ids - {state.id for state in released.states},
-    )

@@ -1110,14 +1110,16 @@ parent's states. Hardcore channels and neutral current saves stay out.
   `assets_handler.zip_identity_hash` applies the same rule.
 - **Copies and attribution:** a manifest `save` may name `copy_of`, a save of the
   caller's that the server copies into a new row (`handler.snapshots.clone`). A push
-  with no device that reuses content keeps its source's `origin_device_id`; bytes the
-  browser uploads, or a source with none, belong to the caller's web device.
+  with no device that reuses content keeps its source's `origin_device_id` when that
+  device is the caller's; bytes the browser uploads, or any other source, belong to
+  the caller's web device.
 - **ROM detail:** `user_channels` lists the caller's channels on the ROM, then other
   users' public ones, each with its current snapshot and `thumbnail`.
   `channel_file_id` is the file a new channel on the ROM keys to (`legacy.sync_file`).
 - **Retention:** each push keeps the channel's newest `SNAPSHOT_RETENTION`; the
   `prune_snapshots` task drops branches after `SNAPSHOT_BRANCH_LIFETIME_DAYS` (30). Pruning deletes the content
-  rows only the pruned snapshots held. A slotted upload the bridge made a current
+  rows only the pruned snapshots held; a row another snapshot still holds stays
+  public only while a shared one does. A slotted upload the bridge made a current
   is one of them and goes with its snapshot; a legacy save no snapshot holds is
   never removed by it. An archival snapshot whose ROM was removed returns when a
   scan finds a file with its `rom_sha1`; the task prunes one with no hash.

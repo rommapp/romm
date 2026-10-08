@@ -3,12 +3,21 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import update
-from tests.handler.snapshots.pushes import first_push, push_save, stored_files
+from tests.handler.snapshots.pushes import (
+    SRAM,
+    first_push,
+    part,
+    push,
+    push_save,
+    save_entry,
+    stored_files,
+)
 
 from handler.database import db_rom_handler, db_snapshot_handler
 from handler.database.base_handler import sync_session
 from handler.snapshots import retention
-from handler.snapshots.write import WriteResult
+from handler.snapshots.manifest import Manifest
+from handler.snapshots.write import SAVE_PART, WriteResult, write_snapshot
 from models.assets import Save, State
 from models.rom import Rom, RomFile
 from models.snapshot import Snapshot, SnapshotKind
@@ -107,6 +116,39 @@ async def test_pruning_removes_the_files_only_pruned_snapshots_held(
         assert session.query(State).count() == 1
     # Two saves and one state on disk.
     assert len(stored_files(_assets_dir)) == 3
+
+
+async def test_a_row_a_private_channel_still_holds_turns_private_once_pruned(
+    admin_user: User, rom: Rom, hashed_file: RomFile
+):
+    shared = await first_push(admin_user, rom, hashed_file)
+    shared_id = shared.snapshot.channel_id
+    assert shared_id is not None
+    db_snapshot_handler.update_channel(shared_id, {"is_public": True})
+    db_snapshot_handler.sync_content_visibility(
+        *db_snapshot_handler.get_content_ids(shared_id)
+    )
+    await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=save_entry()),
+            expected=None,
+            label="Private run",
+            parts={SAVE_PART: part(SRAM)},
+        )
+    )
+
+    results = [shared]
+    for n in range(KEEP + 1):
+        results.append(
+            await push_save(admin_user, rom, hashed_file, results[-1], f"s{n}".encode())
+        )
+
+    assert alive(shared) == [False]
+    with sync_session() as session:
+        assert session.get_one(Save, shared.snapshot.save_id).is_public is False
 
 
 async def test_a_legacy_save_in_the_channel_survives_pruning(

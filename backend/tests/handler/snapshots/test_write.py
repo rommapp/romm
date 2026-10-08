@@ -502,6 +502,36 @@ async def test_the_same_bytes_in_another_channel_reuse_one_row(
     assert count(Save) == 1
 
 
+async def test_same_named_parts_tagged_on_one_millisecond_keep_their_own_bytes(
+    admin_user: User, rom: Rom, hashed_file: RomFile, monkeypatch
+):
+    calls = iter(range(100))
+
+    def one_tick_per_two_calls(file_name: str) -> str:
+        stem, extension = file_name.rsplit(".", 1)
+        return f"{stem} [2026-01-01_00-00-00-{next(calls) // 2:03d}].{extension}"
+
+    monkeypatch.setattr(write_module, "apply_datetime_tag", one_tick_per_two_calls)
+
+    await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(states={"snes9x": {"1": md5(STATE_A), "2": md5(STATE_B)}}),
+            expected=None,
+            parts={
+                state_part("snes9x", "1"): part(STATE_A, "game.state"),
+                state_part("snes9x", "2"): part(STATE_B, "game.state"),
+            },
+        )
+    )
+
+    with sync_session() as session:
+        states = session.scalars(select(State)).all()
+    assert {stored_bytes(state.full_path) for state in states} == {STATE_A, STATE_B}
+
+
 async def test_a_pushed_row_is_filed_under_its_channel(
     admin_user: User, rom: Rom, hashed_file: RomFile
 ):

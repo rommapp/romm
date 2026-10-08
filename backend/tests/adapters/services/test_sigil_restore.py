@@ -530,3 +530,22 @@ def test_a_zip_unit_lists_each_volume(binding, tmp_path: Path):
         "FIRST_SAVE1",
         "SECOND_SAV1",
     ]
+
+
+def test_a_zip_unit_skips_a_volume_over_the_card_cap(
+    binding, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    from adapters.services import sigil_restore
+
+    reload_zipfile()
+    small = segacd_volume([("FIRST_SAVE1", 1, 1)])
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("a.brm", small)
+        zf.writestr("bomb.brm", b"\0" * (len(small) * 4))
+    monkeypatch.setattr(sigil_restore, "MEMORY_CARD_MAX_BYTES", len(small))
+
+    assert sigil_restore._unit_save_names(buffer.getvalue(), tmp_path) == [
+        "FIRST_SAVE1"
+    ]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["volume-0"]

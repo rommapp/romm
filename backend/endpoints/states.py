@@ -295,7 +295,6 @@ async def update_state(
                 ),
             },
         )
-        db_snapshot_handler.refresh_backup_digests(state_id=db_state.id)
     if screenshotFile and sanitized_screenshot_filename:
         await store_screenshot(
             request.user,

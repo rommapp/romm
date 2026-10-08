@@ -11,9 +11,15 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 from tests._zipfile_shim import reload_zipfile
-from tests.factories import make_device_token
+from tests.factories import make_device_token, make_rom
 
-from handler.database import db_device_handler, db_rom_handler, db_snapshot_handler
+from handler.database import (
+    db_device_handler,
+    db_rom_handler,
+    db_save_handler,
+    db_snapshot_handler,
+    db_state_handler,
+)
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler
 from handler.snapshots.manifest import Manifest, SaveEntry
@@ -27,6 +33,7 @@ from handler.snapshots.write import (
 from models.assets import SaveFormat, SaveShape
 from models.device import Device
 from models.device_channel_sync import DeviceChannelSync
+from models.platform import Platform
 from models.rom import Rom, RomFile
 from models.user import User
 
@@ -814,6 +821,42 @@ async def test_a_backup_is_replaced_and_deleted_with_its_archival_snapshot(
     assert db_snapshot_handler.get_snapshot(archived.snapshot.id) is None
 
 
+async def test_any_writer_of_a_backups_bytes_refreshes_its_archival_digest(
+    admin_user: User, rom: Rom
+):
+    archived = await write_snapshot(
+        SnapshotWrite(
+            author=admin_user,
+            rom=rom,
+            manifest=Manifest(
+                save=SaveEntry(
+                    hash=md5(SRAM), shape=SaveShape.SINGLE, format=SaveFormat.NATIVE
+                ),
+                states={"snes9x": {"auto": md5(STATE)}},
+            ),
+            channel=None,
+            parts={
+                SAVE_PART: UploadPart(content=SRAM, file_name="backup.srm"),
+                state_part("snes9x", "auto"): UploadPart(
+                    content=STATE, file_name="backup.state"
+                ),
+            },
+        )
+    )
+    snapshot_id = archived.snapshot.id
+    save_id = archived.snapshot.save_id
+    assert save_id is not None
+    [state] = db_snapshot_handler.get_stored_content(archived.snapshot).state_rows
+
+    db_save_handler.update_save(save_id, {"content_hash": md5(b"synced save")})
+    after_save = db_snapshot_handler.get_snapshot(snapshot_id)
+    db_state_handler.update_state(state.id, {"content_hash": md5(b"synced state")})
+    after_state = db_snapshot_handler.get_snapshot(snapshot_id)
+
+    assert after_save is not None and after_save.digest != archived.snapshot.digest
+    assert after_state is not None and after_state.digest != after_save.digest
+
+
 async def test_deleting_a_backup_removes_its_linked_screenshot(
     client: TestClient, headers: dict[str, str], admin_user: User, rom: Rom
 ):
@@ -1554,6 +1597,91 @@ def test_a_shared_channel_on_a_hidden_rom_stays_hidden(
 
     assert snapshot.status_code == status.HTTP_404_NOT_FOUND
     assert history.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_a_fork_from_a_shared_snapshot_on_a_hidden_rom_is_not_found(
+    client: TestClient,
+    headers: dict[str, str],
+    editor_headers: dict[str, str],
+    game_file: RomFile,
+    rom: Rom,
+    editor_user: User,
+    platform: Platform,
+):
+    from models.permission import HiddenEntity, PermEntity
+
+    shared = first_push(client, headers, game_file)
+    _share(client, headers, shared)
+    with sync_session.begin() as session:
+        session.add(
+            HiddenEntity(
+                entity=PermEntity.ROMS, entity_id=rom.id, user_id=editor_user.id
+            )
+        )
+    visible = make_rom(platform, "visible_rom", slug="visible_rom")
+    visible_file = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=visible.id,
+            file_name="other.sfc",
+            file_path=visible.fs_path,
+            file_size_bytes=2048,
+            sha1_hash="c" * 40,
+        )
+    )
+
+    response = post(
+        client,
+        editor_headers,
+        manifest(visible_file, label="mine", parent_snapshot_id=shared["id"]),
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "Parent snapshot not found"
+
+
+def test_a_push_into_a_shared_channel_on_a_hidden_rom_is_not_found(
+    client: TestClient,
+    headers: dict[str, str],
+    editor_headers: dict[str, str],
+    game_file: RomFile,
+    rom: Rom,
+    editor_user: User,
+    platform: Platform,
+):
+    from models.permission import HiddenEntity, PermEntity
+
+    shared = first_push(client, headers, game_file)
+    _share(client, headers, shared)
+    with sync_session.begin() as session:
+        session.add(
+            HiddenEntity(
+                entity=PermEntity.ROMS, entity_id=rom.id, user_id=editor_user.id
+            )
+        )
+    visible = make_rom(platform, "same_dump", slug="same_dump")
+    same_dump = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=visible.id,
+            file_name="copy.sfc",
+            file_path=visible.fs_path,
+            file_size_bytes=1024,
+            sha1_hash=game_file.sha1_hash,
+        )
+    )
+
+    response = post(
+        client,
+        editor_headers,
+        manifest(
+            same_dump,
+            channel_id=shared["channel"]["id"],
+            parent_snapshot_id=None,
+            expected_current_id=None,
+        ),
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "Channel not found"
 
 
 def test_a_save_names_exactly_one_source(

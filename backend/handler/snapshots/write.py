@@ -225,14 +225,8 @@ async def _clock_only(
 def _expected_and_parent(
     write: SnapshotWrite, channel: Channel | None
 ) -> tuple[int | None, int | None]:
-    """The current the push expects and the parent it builds on.
-
-    A push that sends its expected current builds on the parent it names, else
-    on that current. Otherwise it builds on the parent it names, else the
-    snapshot its device holds, else the latest current its device knows, and
-    expects that latest current, else its parent, which matches only when it
-    is the current.
-    """
+    """The current the push expects and the parent it builds on, inferred from
+    the device's held and latest known snapshots when the push omits them."""
     expected = write.channel.expected_current_id if write.channel else None
     named = write.parent_snapshot_id
     if not isinstance(expected, Infer):
@@ -436,6 +430,15 @@ async def copied_part(row: Save | State) -> UploadPart:
     )
 
 
+async def _free_tagged_name(folder: str, file_name: str) -> str:
+    """`file_name` tagged with the time now, on a millisecond no file in `folder` holds."""
+    while True:
+        tagged = sanitize_asset_filename(apply_datetime_tag(file_name), "content")
+        if not await fs_asset_handler.file_exists(f"{folder}/{tagged}"):
+            return tagged
+        await asyncio.sleep(0.001)
+
+
 async def _store_part(
     write: SnapshotWrite,
     plan: _Plan,
@@ -458,9 +461,8 @@ async def _store_part(
         rom_id=write.rom.id,
         emulator=write.manifest.emulator,
     )
-    file_name = sanitize_asset_filename(
-        apply_datetime_tag(sanitize_asset_filename(part.file_name, "content")),
-        "content",
+    file_name = await _free_tagged_name(
+        folder, sanitize_asset_filename(part.file_name, "content")
     )
     await fs_asset_handler.write_file(
         file=part.content, path=folder, filename=file_name
@@ -658,7 +660,9 @@ async def _store_parts(write: SnapshotWrite, plan: _Plan) -> list[_StoredFile]:
     return stored
 
 
-def _lock_or_create_channel(write: SnapshotWrite, session: Session) -> Channel | None:
+def _lock_or_create_channel(
+    write: SnapshotWrite, plan: _Plan, session: Session
+) -> Channel | None:
     target = write.channel
     if target is None:
         return None
@@ -666,6 +670,9 @@ def _lock_or_create_channel(write: SnapshotWrite, session: Session) -> Channel |
         channel = db_snapshot_handler.lock_channel(target.id, session=session)
         if channel is not None:
             return channel
+    if plan.channel is not None:
+        # Deleted since the plan read it.
+        raise NotVisible("channel")
     assert write.rom_file is not None and target.label
     channel = FileKey.of_file(write.rom_file).new_channel(
         write.author.id,
@@ -687,7 +694,7 @@ def _commit(
     session: Session,
 ) -> WriteResult:
     session.add_all(shots)
-    channel = _lock_or_create_channel(write, session)
+    channel = _lock_or_create_channel(write, plan, session)
     digest = plan.resolved.digest
     current = (
         session.get(Snapshot, channel.current_snapshot_id)

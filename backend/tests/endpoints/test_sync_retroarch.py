@@ -1042,6 +1042,66 @@ class TestRetroArchSyncHeldState:
         assert kept is not None and kept.file_size_bytes == 4
 
     @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    @mock.patch("endpoints.sync.retroarch.scan_state", new_callable=mock.AsyncMock)
+    def test_an_upload_onto_a_held_states_own_name_lands_beside_it(
+        self,
+        mock_scan_state: mock.AsyncMock,
+        mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        states_path: str,
+        make_state,
+    ):
+        held = make_state("test_rom.state")
+        _hold(held)
+        mock_scan_state.return_value = State(
+            file_name="test_rom [2026-07-24_12-04-52-733].state",
+            file_path=states_path,
+            file_size_bytes=8,
+        )
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            content=b"statedat",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        written = mock_write_file.call_args.kwargs["filename"]
+        assert written != "test_rom.state"
+        assert written.startswith("test_rom [") and written.endswith("].state")
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_an_upload_onto_a_held_save_is_a_conflict(
+        self, mock_write_file: mock.AsyncMock, client, synced_save: Save
+    ):
+        with sync_session.begin() as session:
+            session.add(
+                Snapshot(
+                    user_id=synced_save.user_id,
+                    rom_id=synced_save.rom_id,
+                    kind=SnapshotKind.BRANCH,
+                    digest="0" * 64,
+                    save_id=synced_save.id,
+                )
+            )
+
+        response = client.put(
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
+            content=b"savedata",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        mock_write_file.assert_not_awaited()
+
+    @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.remove_file",
         new_callable=mock.AsyncMock,
     )
@@ -1270,6 +1330,28 @@ class TestRetroArchSyncPsp:
         assert kept.content_hash == held_hash
         assert fs_asset_handler.validate_path(kept.full_path).is_file()
         assert get_data.content == b"second"
+
+    def test_emptying_a_bundle_a_backup_snapshot_holds_deletes_it(
+        self, client, admin_user: User, rom: Rom
+    ):
+        save_path = "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0"
+        client.put(f"{save_path}/SAVE.BIN", content=b"only", auth=ADMIN_AUTH)
+        (bundle,) = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        with sync_session.begin() as session:
+            session.add(
+                Snapshot(
+                    user_id=admin_user.id,
+                    rom_id=rom.id,
+                    kind=SnapshotKind.ARCHIVAL,
+                    digest="0" * 64,
+                    save_id=bundle.id,
+                )
+            )
+
+        response = client.request("DELETE", f"{save_path}/SAVE.BIN", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
 
     def test_manifest_lists_each_bundle_member_separately(
         self, client, admin_user: User

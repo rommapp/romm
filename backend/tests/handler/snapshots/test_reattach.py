@@ -1,8 +1,10 @@
 from tests.factories import make_rom
-from tests.handler.snapshots.pushes import first_push
+from tests.handler.snapshots.pushes import SRAM, first_push, part, push, save_entry
 
 from handler.database import db_rom_handler, db_snapshot_handler
 from handler.database.base_handler import sync_session
+from handler.snapshots.manifest import Manifest
+from handler.snapshots.write import SAVE_PART, write_snapshot
 from models.assets import Save
 from models.platform import Platform
 from models.rom import Rom, RomFile
@@ -37,6 +39,37 @@ async def test_a_rescanned_file_reattaches_its_detached_channel(
         save = session.get_one(Save, result.snapshot.save_id)
     assert channel is not None and channel.rom_id == returned.id
     assert snapshot is not None and snapshot.rom_id == returned.id
+    assert save.rom_id == returned.id
+
+
+async def test_a_reattached_channel_brings_back_a_save_it_shares_with_a_deleted_one(
+    admin_user: User, rom: Rom, hashed_file: RomFile, platform: Platform
+):
+    first = await first_push(admin_user, rom, hashed_file)
+    sharing = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(save=save_entry()),
+            expected=None,
+            label="Second run",
+            parts={SAVE_PART: part(SRAM)},
+        )
+    )
+    assert sharing.snapshot.save_id == first.snapshot.save_id
+    assert first.snapshot.channel_id is not None
+    db_rom_handler.delete_rom(rom.id)
+    db_snapshot_handler.delete_channel(first.snapshot.channel_id)
+    returned = make_rom(platform, "test_rom_again", slug="test_rom_again")
+
+    db_rom_handler.sync_rom_files(
+        returned.id, [scanned(hashed_file, hashed_file.sha1_hash)]
+    )
+
+    with sync_session() as session:
+        save = session.get_one(Save, sharing.snapshot.save_id)
+    assert save.channel_id is None
     assert save.rom_id == returned.id
 
 

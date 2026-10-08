@@ -38,6 +38,7 @@ from models.assets import Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length, sanitize_filename
+from utils.uploads import apply_datetime_tag
 
 router = APIRouter(prefix="/retroarch")
 
@@ -130,17 +131,22 @@ def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom | Non
     return sync_handler.resolve_rom(game_name, _rom_visibility(request))
 
 
+def _is_held(asset: Save | State | Screenshot | None) -> bool:
+    """Whether a sync channel holds the row: RetroArch reads it but never changes it."""
+    if isinstance(asset, Save):
+        return db_snapshot_handler.is_frozen(save_id=asset.id)
+    if isinstance(asset, State):
+        return db_snapshot_handler.is_frozen(state_id=asset.id)
+    return False
+
+
 def _get_writable_asset(
     user: User, rom: Rom, parsed: RetroArchSyncPath
 ) -> Save | State | Screenshot | None:
     """The row a write to this path replaces or deletes, or None for one a sync
-    channel holds: RetroArch reads a row a snapshot owns but never changes it."""
+    channel holds."""
     asset = _get_asset(user, rom, parsed)
-    if isinstance(asset, Save) and db_snapshot_handler.is_frozen(save_id=asset.id):
-        return None
-    if isinstance(asset, State) and db_snapshot_handler.is_frozen(state_id=asset.id):
-        return None
-    return asset
+    return None if _is_held(asset) else asset
 
 
 def _get_asset(
@@ -584,8 +590,23 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
 
     # A state resolved by slot may have its own file name; writing to it keeps
     # the row pointing at the fresh bytes instead of orphaning them.
-    existing = _get_writable_asset(request.user, rom, parsed)
+    matched = _get_asset(request.user, rom, parsed)
+    held = _is_held(matched)
+    existing = None if held else matched
     write_file_name = existing.file_name if existing else file_name
+    if (
+        held
+        and matched is not None
+        and (matched.file_path, matched.file_name) == (asset_path, write_file_name)
+    ):
+        # The write would land on the held row's own file.
+        if isinstance(matched, Save):
+            return _empty(status.HTTP_409_CONFLICT)
+        write_file_name = apply_datetime_tag(file_name)
+        try:
+            check_filename_length(write_file_name)
+        except ValueError:
+            return _empty(status.HTTP_409_CONFLICT)
     replaced_hash = (
         await fs_asset_handler.unrecorded_hash(existing)
         if isinstance(existing, Save)

@@ -84,6 +84,38 @@ def _keyed_to(key: FileKey) -> ColumnElement[bool]:
     )
 
 
+def _reattach(
+    session: Session,
+    snapshots: ColumnElement[bool],
+    rom_id: int,
+    channel_id: uuid.UUID | None = None,
+) -> None:
+    """Bring the detached snapshots `snapshots` selects back to `rom_id`, with
+    the rows they hold and, given `channel_id`, the rows filed under it."""
+    held_saves = select(Snapshot.save_id).where(snapshots)
+    held_states = (
+        select(SnapshotState.state_id)
+        .join(Snapshot, SnapshotState.snapshot_id == Snapshot.id)
+        .where(snapshots)
+    )
+    for model, held in ((Save, held_saves), (State, held_states)):
+        owned: ColumnElement[bool] = model.id.in_(held)
+        if channel_id is not None:
+            owned = or_(owned, model.channel_id == channel_id)
+        session.execute(
+            update(model)
+            .where(model.rom_id.is_(None), owned)
+            .values(rom_id=rom_id)
+            .execution_options(synchronize_session=False)
+        )
+    session.execute(
+        update(Snapshot)
+        .where(snapshots, Snapshot.rom_id.is_(None))
+        .values(rom_id=rom_id)
+        .execution_options(synchronize_session=False)
+    )
+
+
 def link_channels_to_files(
     session: Session, rom_id: int, platform_id: int, files: Sequence[RomFile]
 ) -> None:
@@ -107,13 +139,7 @@ def link_channels_to_files(
             continue
         if channel.rom_id is None:
             channel.rom_id = rom_id
-            for model in (Snapshot, Save, State):
-                session.execute(
-                    update(model)
-                    .where(model.channel_id == channel.id, model.rom_id.is_(None))
-                    .values(rom_id=rom_id)
-                    .execution_options(synchronize_session=False)
-                )
+            _reattach(session, Snapshot.channel_id == channel.id, rom_id, channel.id)
         if channel.target_file_hash is None:
             hashed = next((key.sha1 for key in matches if key.sha1), None)
             if hashed:
@@ -135,34 +161,8 @@ def reattach_archival_snapshots(
             Snapshot.rom_sha1.in_(hashes),
         )
     ).all()
-    if not ids:
-        return
-    session.execute(
-        update(Snapshot)
-        .where(Snapshot.id.in_(ids))
-        .values(rom_id=rom_id)
-        .execution_options(synchronize_session=False)
-    )
-    session.execute(
-        update(Save)
-        .where(
-            Save.id.in_(select(Snapshot.save_id).where(Snapshot.id.in_(ids))),
-            Save.rom_id.is_(None),
-        )
-        .values(rom_id=rom_id)
-        .execution_options(synchronize_session=False)
-    )
-    session.execute(
-        update(State)
-        .where(
-            State.id.in_(
-                select(SnapshotState.state_id).where(SnapshotState.snapshot_id.in_(ids))
-            ),
-            State.rom_id.is_(None),
-        )
-        .values(rom_id=rom_id)
-        .execution_options(synchronize_session=False)
-    )
+    if ids:
+        _reattach(session, Snapshot.id.in_(ids), rom_id)
 
 
 def channel_for_slot(
@@ -219,11 +219,10 @@ _PINNED = exists().where(SnapshotPin.snapshot_id == Snapshot.id)
 def held_save_ids(session: Session, save_ids: Collection[int]) -> set[int]:
     if not save_ids:
         return set()
-    return set(
-        session.scalars(
-            select(Snapshot.save_id).where(Snapshot.save_id.in_(save_ids)).distinct()
-        )
-    )
+    held = session.scalars(
+        select(Snapshot.save_id).where(Snapshot.save_id.in_(save_ids)).distinct()
+    ).all()
+    return {save_id for save_id in held if save_id is not None}
 
 
 class DBSnapshotsHandler(DBBaseHandler):
@@ -248,7 +247,7 @@ class DBSnapshotsHandler(DBBaseHandler):
                     Channel.rom_id.in_(rom_ids),
                     Channel.current_snapshot_id.is_not(None),
                 )
-            )
+            ).all()
         )
         heads: dict[tuple[int, str], Save] = {}
         for rom_id, slot in slots:
@@ -305,7 +304,9 @@ class DBSnapshotsHandler(DBBaseHandler):
         saves = (
             {
                 save.id: save
-                for save in session.scalars(select(Save).where(Save.id.in_(save_ids)))
+                for save in session.scalars(
+                    select(Save).where(Save.id.in_(save_ids))
+                ).all()
             }
             if save_ids
             else {}
@@ -353,7 +354,7 @@ class DBSnapshotsHandler(DBBaseHandler):
                 held,
             )
             .order_by(Save.id)
-        )
+        ).all()
         found: dict[str, Save] = {}
         for save in rows:
             if save.content_hash:
@@ -389,7 +390,7 @@ class DBSnapshotsHandler(DBBaseHandler):
                 held,
             )
             .order_by(State.id)
-        )
+        ).all()
         found: dict[str, State] = {}
         for state in rows:
             if state.content_hash:
@@ -458,13 +459,9 @@ class DBSnapshotsHandler(DBBaseHandler):
         channel.rom_id = rom_file.rom_id
         for column, value in FileKey.of_file(rom_file).channel_columns().items():
             setattr(channel, column, value)
-        for model in (Snapshot, Save, State):
-            session.execute(
-                update(model)
-                .where(model.channel_id == channel_id, model.rom_id.is_(None))
-                .values(rom_id=rom_file.rom_id)
-                .execution_options(synchronize_session=False)
-            )
+        _reattach(
+            session, Snapshot.channel_id == channel_id, rom_file.rom_id, channel_id
+        )
         session.flush()
         return channel
 
@@ -491,7 +488,7 @@ class DBSnapshotsHandler(DBBaseHandler):
             snapshot.id: snapshot
             for snapshot in session.scalars(
                 select(Snapshot).where(Snapshot.id.in_(ids))
-            )
+            ).all()
         }
 
     @begin_session
@@ -502,7 +499,9 @@ class DBSnapshotsHandler(DBBaseHandler):
             return {}
         return {
             device.id: device
-            for device in session.scalars(select(Device).where(Device.id.in_(ids)))
+            for device in session.scalars(
+                select(Device).where(Device.id.in_(ids))
+            ).all()
         }
 
     @begin_session
@@ -633,7 +632,7 @@ class DBSnapshotsHandler(DBBaseHandler):
                     Screenshot.state_id.in_(state_ids),
                 )
             )
-        )
+        ).all()
         for shot in rows:
             if shot.save_id is not None:
                 by_save[shot.save_id] = shot
@@ -659,7 +658,7 @@ class DBSnapshotsHandler(DBBaseHandler):
         files_by_rom: dict[int, list[RomFile]] = {}
         for rom_file in session.scalars(
             select(RomFile).where(RomFile.rom_id.in_(rom_ids)).order_by(RomFile.id)
-        ):
+        ).all():
             files_by_rom.setdefault(rom_file.rom_id, []).append(rom_file)
         found: dict[uuid.UUID, RomFile] = {}
         for channel in channels:
@@ -695,7 +694,7 @@ class DBSnapshotsHandler(DBBaseHandler):
                 select(Snapshot.save_id)
                 .outerjoin(Channel, Snapshot.channel_id == Channel.id)
                 .where(Snapshot.save_id.in_(save_ids), shared)
-            )
+            ).all()
         )
         public_states = set(
             session.scalars(
@@ -703,7 +702,7 @@ class DBSnapshotsHandler(DBBaseHandler):
                 .join(Snapshot, SnapshotState.snapshot_id == Snapshot.id)
                 .outerjoin(Channel, Snapshot.channel_id == Channel.id)
                 .where(SnapshotState.state_id.in_(state_ids), shared)
-            )
+            ).all()
         )
         for model, column, ids, public in (
             (Save, Save.id, save_ids, public_saves),
@@ -729,14 +728,14 @@ class DBSnapshotsHandler(DBBaseHandler):
                 select(Snapshot.save_id).where(
                     Snapshot.channel_id == channel_id, Snapshot.save_id.is_not(None)
                 )
-            )
+            ).all()
         )
         state_ids = set(
             session.scalars(
                 select(SnapshotState.state_id)
                 .join(Snapshot, SnapshotState.snapshot_id == Snapshot.id)
                 .where(Snapshot.channel_id == channel_id)
-            )
+            ).all()
         )
         return {i for i in save_ids if i is not None}, state_ids
 
@@ -799,7 +798,8 @@ class DBSnapshotsHandler(DBBaseHandler):
     ) -> ReleasedContent:
         """Delete snapshots, then the content rows only they held, with their
         screenshots. A legacy upload the bridge made a current goes with its
-        snapshot; a legacy row no snapshot holds is never taken."""
+        snapshot; a legacy row no snapshot holds is never taken. A row another
+        snapshot still holds stays public only while a shared one does."""
         if not ids:
             return ReleasedContent()
         save_ids = set(
@@ -807,12 +807,12 @@ class DBSnapshotsHandler(DBBaseHandler):
                 select(Snapshot.save_id).where(
                     Snapshot.id.in_(ids), Snapshot.save_id.is_not(None)
                 )
-            )
+            ).all()
         )
         state_ids = set(
             session.scalars(
                 select(SnapshotState.state_id).where(SnapshotState.snapshot_id.in_(ids))
-            )
+            ).all()
         )
         session.execute(
             delete(Snapshot)
@@ -826,7 +826,7 @@ class DBSnapshotsHandler(DBBaseHandler):
                         Save.id.in_(save_ids),
                         ~exists().where(Snapshot.save_id == Save.id),
                     )
-                )
+                ).all()
             ),
             states=list(
                 session.scalars(
@@ -834,7 +834,7 @@ class DBSnapshotsHandler(DBBaseHandler):
                         State.id.in_(state_ids),
                         ~exists().where(SnapshotState.state_id == State.id),
                     )
-                )
+                ).all()
             ),
         )
         save_shots, state_shots = self.get_thumbnails(
@@ -854,6 +854,17 @@ class DBSnapshotsHandler(DBBaseHandler):
                     .where(model.id.in_([row.id for row in rows]))
                     .execution_options(synchronize_session=False)
                 )
+        gone_saves = {save.id for save in released.saves}
+        gone_states = {state.id for state in released.states}
+        self.sync_content_visibility(
+            {
+                save_id
+                for save_id in save_ids
+                if save_id is not None and save_id not in gone_saves
+            },
+            state_ids - gone_states,
+            session=session,
+        )
         return released
 
     @begin_session
@@ -1105,5 +1116,5 @@ class DBSnapshotsHandler(DBBaseHandler):
                     SnapshotState.state_id.in_(state_ids),
                 )
                 .distinct()
-            )
+            ).all()
         )
