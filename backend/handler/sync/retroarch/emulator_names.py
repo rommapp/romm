@@ -80,3 +80,16 @@ def to_romm_emulator(retroarch_dir_name: str) -> str:
 def to_retroarch_dir_name(romm_emulator: str) -> str:
     """RetroArch's folder name for a RomM `emulator`, unchanged when unknown."""
     return RETROARCH_DIR_BY_ROMM_EMULATOR.get(romm_emulator, romm_emulator)
+
+
+def retroarch_aliases(romm_emulator: str) -> frozenset[str]:
+    """Every `emulator` that syncs through the same RetroArch folder as this one, itself included."""
+    dir_name = to_retroarch_dir_name(romm_emulator)
+    return frozenset(
+        {romm_emulator, dir_name}
+        | {
+            emulator
+            for emulator, emulator_dir in RETROARCH_DIR_BY_ROMM_EMULATOR.items()
+            if emulator_dir == dir_name
+        }
+    )

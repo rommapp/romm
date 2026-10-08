@@ -536,13 +536,15 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         screenshot_file_name = (
             f"{owning_state.file_name}.png" if owning_state else file_name
         )
+        # The state may be filed under another emulator sharing this core folder.
+        screenshot_emulator = owning_state.emulator if owning_state else parsed.emulator
         try:
             check_filename_length(screenshot_file_name)
         except ValueError:
             return _empty(status.HTTP_409_CONFLICT)
 
         screenshot_path = sync_handler.state_screenshot_dir(
-            request.user, rom, parsed.emulator
+            request.user, rom, screenshot_emulator
         )
         async with _request_body(request) as body:
             await fs_asset_handler.write_file(
@@ -554,7 +556,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
             user=request.user,
             platform_fs_slug=rom.platform.fs_slug,
             rom_id=rom.id,
-            emulator=parsed.emulator,
+            emulator=screenshot_emulator,
         )
         created = await asyncio.to_thread(
             _record_screenshot,
@@ -571,12 +573,8 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     if parsed.kind == "saves":
         return await _put_save(request, rom, parsed)
 
-    asset_path = sync_handler.build_asset_file_path(
-        request.user, rom, parsed.kind, parsed.emulator
-    )
-
-    # A state resolved by slot may have its own file name; writing to it keeps
-    # the row pointing at the fresh bytes instead of orphaning them.
+    # A state resolved by slot may have its own file name and emulator; writing
+    # to them keeps the row pointing at the fresh bytes instead of orphaning them.
     existing = await asyncio.to_thread(
         sync_handler.resolve_state_by_slot,
         request.user,
@@ -585,6 +583,10 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         file_name,
     )
     write_file_name = existing.file_name if existing else file_name
+    emulator = existing.emulator if existing else parsed.emulator
+    asset_path = sync_handler.build_asset_file_path(
+        request.user, rom, parsed.kind, emulator
+    )
 
     async with _request_body(request) as body:
         await fs_asset_handler.write_file(
@@ -596,7 +598,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         user=request.user,
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom.id,
-        emulator=parsed.emulator,
+        emulator=emulator,
     )
     await asyncio.to_thread(_record_state, request.user, rom, parsed, existing, scanned)
     # The row moves with the bytes when it was filed elsewhere, e.g. under the

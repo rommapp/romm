@@ -30,6 +30,7 @@ from handler.redis_handler import async_cache
 from handler.sync.retroarch import psp, sync_handler
 from handler.sync.retroarch.device import CLIENT_DEVICE_IDENTIFIER
 from handler.sync.retroarch.emulator_names import (
+    retroarch_aliases,
     to_retroarch_dir_name,
     to_romm_emulator,
 )
@@ -203,6 +204,19 @@ class TestRetroArchSyncEmulatorNames:
     )
     def test_to_retroarch_dir_name(self, romm_emulator, retroarch_dir_name):
         assert to_retroarch_dir_name(romm_emulator) == retroarch_dir_name
+
+    @pytest.mark.parametrize(
+        "emulator", ["mednafen_psx_hw", "beetle_psx_hw", "Beetle PSX HW"]
+    )
+    def test_aliases_cover_every_emulator_sharing_a_folder(self, emulator):
+        assert retroarch_aliases(emulator) == {
+            "mednafen_psx_hw",
+            "beetle_psx_hw",
+            "Beetle PSX HW",
+        }
+
+    def test_a_core_outside_the_table_is_its_only_alias(self):
+        assert retroarch_aliases("retroarduous") == {"retroarduous"}
 
 
 class TestRetroArchSyncPathParsing:
@@ -1154,6 +1168,183 @@ def test_uploads_in_the_same_second_keep_both_versions(
     assert all(
         save.file_name.startswith("test_rom [2026-01-01_12-") for save in versions
     )
+
+
+@pytest.mark.usefixtures("version_names")
+class TestRetroArchSyncCoreAliases:
+    """Assets another client filed under a different id for a core folder RetroArch reads."""
+
+    SAVE_URL = "/api/sync/retroarch/saves/Beetle%20PSX%20HW/test_rom.srm"
+    STATE_URL = "/api/sync/retroarch/states/Beetle%20PSX%20HW/test_rom.state"
+
+    def _write(
+        self,
+        admin_user: User,
+        rom: Rom,
+        kind: str,
+        emulator: str,
+        file_name: str,
+        content: bytes,
+    ) -> str:
+        path = sync_handler.build_asset_file_path(admin_user, rom, kind, emulator)
+        disk_path = fs_asset_handler.validate_path(f"{path}/{file_name}")
+        disk_path.parent.mkdir(parents=True, exist_ok=True)
+        disk_path.write_bytes(content)
+        return path
+
+    def _save(
+        self,
+        admin_user: User,
+        rom: Rom,
+        emulator: str,
+        content: bytes,
+        file_name: str = "test_rom [2025-12-31_23-59-59].srm",
+        slot: str | None = "autosave",
+    ) -> Save:
+        path = self._write(admin_user, rom, "saves", emulator, file_name, content)
+        return make_save(
+            rom,
+            admin_user,
+            file_name,
+            file_path=path,
+            file_size_bytes=len(content),
+            content_hash=hashlib.md5(content).hexdigest(),
+            emulator=emulator,
+            slot=slot,
+        )
+
+    def _state(
+        self, admin_user: User, rom: Rom, emulator: str, content: bytes
+    ) -> State:
+        path = self._write(
+            admin_user, rom, "states", emulator, "test_rom.state", content
+        )
+        return factories.make_state(
+            rom,
+            admin_user,
+            "test_rom.state",
+            file_path=path,
+            file_size_bytes=len(content),
+            emulator=emulator,
+        )
+
+    def _manifest_paths(self, client: TestClient) -> list[str]:
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+        return [entry["path"] for entry in response.json()]
+
+    @_mock_asset_md5()
+    def test_a_version_under_an_alias_is_listed_and_served(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._save(admin_user, rom, "beetle_psx_hw", b"argosy")
+
+        assert self._manifest_paths(client) == ["saves/Beetle PSX HW/test_rom.srm"]
+        response = client.get(self.SAVE_URL, auth=ADMIN_AUTH)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.content == b"argosy"
+
+    @_mock_asset_md5()
+    def test_versions_under_two_aliases_list_once_and_serve_the_newest(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._save(admin_user, rom, "beetle_psx_hw", b"older")
+        self._save(
+            admin_user,
+            rom,
+            "mednafen_psx_hw",
+            b"newer",
+            file_name="test_rom [2026-01-01_00-00-00].srm",
+        )
+
+        assert self._manifest_paths(client) == ["saves/Beetle PSX HW/test_rom.srm"]
+        assert client.get(self.SAVE_URL, auth=ADMIN_AUTH).content == b"newer"
+
+    def test_reuploading_an_aliased_head_adds_no_version(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._save(admin_user, rom, "beetle_psx_hw", b"same")
+
+        response = client.put(self.SAVE_URL, content=b"same", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert len(db_save_handler.get_saves(user_id=admin_user.id)) == 1
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.remove_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_delete_removes_versions_under_every_alias(
+        self, _mock_remove_file: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._save(admin_user, rom, "beetle_psx_hw", b"argosy")
+        self._save(
+            admin_user,
+            rom,
+            "mednafen_psx_hw",
+            b"retroarch",
+            file_name="test_rom [2026-01-01_00-00-00].srm",
+        )
+
+        response = client.request("DELETE", self.SAVE_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert db_save_handler.get_saves(user_id=admin_user.id) == []
+
+    def test_an_unslotted_file_under_an_alias_is_served_and_updated_in_place(
+        self, client, admin_user: User, rom: Rom
+    ):
+        save = self._save(
+            admin_user, rom, "beetle_psx_hw", b"clock", "test_rom.rtc", slot=None
+        )
+        url = "/api/sync/retroarch/saves/Beetle%20PSX%20HW/test_rom.rtc"
+        assert client.get(url, auth=ADMIN_AUTH).content == b"clock"
+
+        response = client.put(url, content=b"ticked", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        [updated] = db_save_handler.get_saves(user_id=admin_user.id)
+        assert (updated.id, updated.file_path) == (save.id, save.file_path)
+        assert client.get(url, auth=ADMIN_AUTH).content == b"ticked"
+
+    @_mock_asset_md5()
+    def test_a_state_under_an_alias_is_listed_served_and_updated_in_place(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        state = self._state(admin_user, rom, "beetle_psx_hw", b"argosy")
+
+        assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"argosy"
+
+        response = client.put(self.STATE_URL, content=b"retroarch", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        [updated] = db_state_handler.get_states(user_id=admin_user.id)
+        assert (updated.id, updated.file_path) == (state.id, state.file_path)
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"retroarch"
+
+    @_mock_asset_md5()
+    def test_states_under_two_aliases_in_one_slot_list_once(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        self._state(admin_user, rom, "mednafen_psx_hw", b"newer")
+
+        assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"newer"
+
+    @_mock_asset_md5()
+    def test_a_screenshot_for_an_aliased_state_is_filed_beside_it(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"argosy")
+
+        response = client.put(f"{self.STATE_URL}.png", content=b"png", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert self._manifest_paths(client) == [
+            "states/Beetle PSX HW/test_rom.state",
+            "states/Beetle PSX HW/test_rom.state.png",
+        ]
 
 
 class TestRetroArchSyncDownload:

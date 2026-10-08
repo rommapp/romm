@@ -1016,7 +1016,11 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 - **Cores:** the `core` segment is RetroArch's directory name (e.g. `Snes9x`),
   mapped to and from the asset's `emulator` through
   `sync.retroarch.emulator_names`, so web player saves stay visible. Unknown
-  cores round-trip unchanged.
+  cores round-trip unchanged. Every `emulator` that maps to one folder (e.g.
+  `mednafen_psx_hw`, `beetle_psx_hw` and `Beetle PSX HW`) is an alias: the
+  manifest lists the newest asset across them, and GET, PUT and DELETE resolve
+  a path across them. A PUT stores new assets under the folder's canonical id
+  and rewrites an existing one under its own.
 - **Save slots:** a `.srm` path maps to the `autosave` versions of its ROM and
   core, and serves the newest under the client's spelling of the game (or the
   ROM's name). An unslotted save at that path serves only until one exists. A
