@@ -819,7 +819,9 @@ class IGDBHandler(MetadataHandler):
             unlisted_platform["family_name"] = sibling["family_name"]
             unlisted_platform["family_slug"] = sibling["family_slug"]
         if slug in IGDB_PLATFORM_FAMILIES:
-            unlisted_platform.update(IGDB_PLATFORM_FAMILIES[UPS(slug)])
+            family = IGDB_PLATFORM_FAMILIES[UPS(slug)]
+            unlisted_platform["family_name"] = family["family_name"]
+            unlisted_platform["family_slug"] = family["family_slug"]
 
         return unlisted_platform
 
