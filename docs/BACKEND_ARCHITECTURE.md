@@ -1060,7 +1060,7 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 | ------ | ------------------------- | ------------------------ | ------------------------------------------------------------- |
 | POST   | `/`                       | DEVICES_WRITE            | Register device (fingerprint dedup)                           |
 | GET    | `/`                       | DEVICES_READ             | List devices                                                  |
-| GET    | `/online`                 | DEVICES_READ             | Ids of devices with a live device socket                      |
+| GET    | `/online`                 | DEVICES_READ             | Ids of devices with a live device socket or a recent claim    |
 | GET    | `/{id}`                   | DEVICES_READ             | Get device                                                    |
 | PUT    | `/{id}`                   | DEVICES_WRITE            | Update device                                                 |
 | DELETE | `/{id}`                   | DEVICES_WRITE            | Delete device                                                 |
@@ -1617,8 +1617,10 @@ closed when its token is deleted, regenerated or re-paired, its device or
 owner is deleted, its owner is disabled, or its owner's permissions change,
 and within 30 seconds of the token's `expires_at`. Each open socket refreshes `device_presence:{device_id}` and its token's
 `device_token_sockets:{id}` every 30 seconds. The presence key lapses 90
-seconds after the last refresh and loses the socket on disconnect;
-`GET /api/devices/online` lists the caller's devices whose key is live (404
+seconds after the last refresh and loses the socket on disconnect. A device
+that polls claim instead sets `device_claim_presence:{device_id}` on each
+claim, which lapses after the same 90 seconds.
+`GET /api/devices/online` lists the caller's devices with either key live (404
 while `DEVICE_INSTALL_ENABLED` is off). The
 per-token socket sets exist only to close sockets on revocation and never
 answer presence.

@@ -21,6 +21,7 @@ from endpoints.sockets.devices import (
     emit_install_cancelled,
     emit_install_queued,
     emit_install_updated,
+    mark_claimed,
     online_device_ids,
 )
 from exceptions.endpoint_exceptions import (
@@ -149,7 +150,7 @@ async def _notify_outcome(install: InstallRequestSchema, device: Device) -> None
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
 async def get_online_devices(request: Request) -> list[str]:
-    """Ids of the caller's devices holding an open device socket."""
+    """Ids of the caller's devices holding an open device socket or that claimed lately."""
     if not DEVICE_INSTALL_ENABLED:
         raise DeviceInstallDisabledException()
     device_ids = [
@@ -273,6 +274,7 @@ async def claim_install_requests(
     with _install_errors():
         claim = await device_install_handler.claim(device_id)
 
+    await mark_claimed(device_id)
     await asyncio.gather(*(emit_install_updated(i) for i in claim.newly_taken))
     return claim.taken
 
