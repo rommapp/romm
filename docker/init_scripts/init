@@ -14,6 +14,7 @@ ENABLE_SCHEDULED_RESCAN="${ENABLE_SCHEDULED_RESCAN:="false"}"
 ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA="${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:="false"}"
 ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB="${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:="false"}"
 ENABLE_SYNC_FOLDER_WATCHER="${ENABLE_SYNC_FOLDER_WATCHER:="false"}"
+ENABLE_SYNC_PUSH_PULL="${ENABLE_SYNC_PUSH_PULL:="false"}"
 sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
 
 # if REDIS_HOST is set, we assume that an external redis is used
@@ -419,10 +420,11 @@ fi
 run_startup
 
 # The image's /romm is only writable by UID 1000, so the sync folder needs its own mount.
-if [[ ${ENABLE_SYNC_FOLDER_WATCHER} == "true" ]]; then
+if [[ ${ENABLE_SYNC_FOLDER_WATCHER} == "true" || ${ENABLE_SYNC_PUSH_PULL} == "true" ]]; then
 	if ! mkdir -p "${sync_base_path}" 2>/dev/null || [[ ! -w ${sync_base_path} ]]; then
-		warn_log "${sync_base_path} is not writable, so the sync folder watcher is disabled. Mount a host folder there to use it."
+		warn_log "${sync_base_path} is not writable, so the sync folder watcher, sync folder scan and push-pull sync are disabled. Mount a host folder there to use them."
 		ENABLE_SYNC_FOLDER_WATCHER="false"
+		ENABLE_SYNC_PUSH_PULL="false"
 	fi
 fi
 
