@@ -47,7 +47,7 @@ class ActionKey(enum.StrEnum):
     PLAYLIST_EDIT = "playlist.edit"
     # Library
     LIBRARY_SCAN = "library.scan"
-    # Streaming: seeing it rides on the streaming config's `enabled`.
+    # Streaming read has no key: the UI reads the streaming config's `enabled`.
     STREAM_START = "stream.start"
     # Users
     USER_VIEW = "user.view"
