@@ -1,14 +1,54 @@
+import asyncio
+import io
 import os
+import zipfile
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Annotated, Any
+from pathlib import Path, PurePosixPath
+from typing import Annotated, Any, Final
+from urllib.parse import quote
 
-from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import (
+    Body,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field, ValidationError
 
+from adapters.services.sigil import (
+    NATIVE_SAVE_PLATFORM_SLUGS,
+    SIGIL_RESTORE_PLATFORM_SLUGS,
+    SigilGame,
+    SigilService,
+)
+from adapters.services.sigil_restore import (
+    ContainerMismatch,
+    RefusalCode,
+    RestoreCompanion,
+    RestoredSave,
+    RestoreTarget,
+    SaveRestoreError,
+    SharedContainerRequired,
+    SigilRefusal,
+    merge_into_container,
+    restore_layouts,
+    restore_per_game,
+)
 from config import MAX_AUTOCLEANUP_LIMIT, MAX_SAVES_PER_SLOT
 from decorators.auth import protected_route
-from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummarySchema
+from endpoints.responses.assets import (
+    SaveLayoutSchema,
+    SaveSchema,
+    SaveSummarySchema,
+    SlotSummarySchema,
+)
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
@@ -31,9 +71,10 @@ from handler.database import (
     db_sync_session_handler,
 )
 from handler.filesystem import fs_asset_handler
-from handler.filesystem.assets_handler import check_upload_archive
+from handler.filesystem.assets_handler import check_upload_archive, leaves_save_folder
 from handler.scan_handler import scan_save
 from handler.snapshots.bridge import hold_legacy_upload
+from handler.snapshots.legacy import sync_file
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -43,11 +84,14 @@ from models.assets import (
     SAVE_SLOT_MAX_LENGTH,
     Save,
 )
-from models.base import FILE_NAME_MAX_LENGTH
+from models.base import FILE_NAME_MAX_LENGTH, FILE_PATH_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
+from models.rom import Rom, RomFile
 from utils.assets import normalize_asset_labels
 from utils.datetime import to_utc
+from utils.memory_cards import MEMORY_CARD_MAX_BYTES
+from utils.nginx import content_disposition
 from utils.router import APIRouter
 from utils.uploads import (
     apply_datetime_tag,
@@ -56,6 +100,7 @@ from utils.uploads import (
     sanitize_asset_filename,
 )
 from utils.validation import RomIdScope, narrow_rom_id_scope
+from utils.zip_cache import ensure_zipfile_writable
 
 
 def _build_save_schema(
@@ -194,6 +239,8 @@ SAVE_SCREENSHOT_UPLOAD = File(
     description="Screenshot file associated with this save.",
 )
 SAVE_FILE_UPDATE = File(default=None, description="Updated save file content.")
+# A converted save's path relative to the emulator's save root, percent-encoded.
+SAVE_PATH_HEADER: Final = "X-Save-Path"
 SAVE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file.")
 
 
@@ -531,6 +578,32 @@ def get_saves_summary(request: Request, rom_id: int) -> SaveSummarySchema:
     return SaveSummarySchema(total_count=summary_data["total_count"], slots=slots)
 
 
+@protected_route(
+    router.get,
+    "/layouts",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {},
+    },
+)
+def get_save_layouts(
+    request: Request,
+    platform: Annotated[str, Query(description="A RomM platform slug.")],
+) -> list[SaveLayoutSchema]:
+    """List the layouts a save converts to for a platform, as the content route's `core`.
+
+    The libretro default row comes first, then each row for the platform and
+    each row that applies to any platform.
+    """
+    sigil_platform = _sigil_platform_or_400(platform)
+    if not SigilService.is_enabled():
+        raise _sigil_missing()
+    return [
+        SaveLayoutSchema.model_validate(row) for row in restore_layouts(sigil_platform)
+    ]
+
+
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
 def get_save(request: Request, id: int, device_id: str | None = None) -> SaveSchema:
     """Retrieve a save by ID."""
@@ -548,20 +621,8 @@ def get_save(request: Request, id: int, device_id: str | None = None) -> SaveSch
     return _build_save_schema(save, _syncs_for_save(save.id, device), device)
 
 
-@protected_route(router.get, "/{id}/content", [Scope.ASSETS_READ])
-def download_save(
-    request: Request,
-    id: int,
-    device_id: str | None = None,
-    session_id: int | None = None,
-    optimistic: bool = True,
-) -> FileResponse:
-    """Download a save file."""
-    device = _resolve_device(
-        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_READ
-    )
-
-    # Owner can download any of their saves; everyone else only public ones.
+def _readable_save_or_404(request: Request, id: int) -> Save:
+    """The save, when the caller owns it or it is public and its ROM is visible."""
     save = db_save_handler.get_save_by_id(id)
     if not save or (save.user_id != request.user.id and not save.is_public):
         raise HTTPException(
@@ -575,9 +636,10 @@ def download_save(
         assert_rom_visible(
             request, save.rom, not_found_detail=f"Save with ID {id} not found"
         )
+    return save
 
-    is_owner = save.user_id == request.user.id
 
+def _stored_save_path(save: Save) -> Path:
     try:
         file_path = fs_asset_handler.validate_path(save.full_path)
     except ValueError:
@@ -591,16 +653,369 @@ def download_save(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Save file not found on disk",
         )
+    return file_path
 
+
+def _record_download(
+    request: Request,
+    save: Save,
+    device: Device | None,
+    session_id: int | None,
+    optimistic: bool,
+) -> None:
     # Sync bookkeeping only makes sense for the owner's own saves.
-    if device and optimistic and is_owner:
+    if device and optimistic and save.user_id == request.user.id:
         # The device has no bytes yet, so only the server half is known.
         _record_device_sync(device.id, save, request.user.id)
 
     if session_id:
         _increment_session_counter(session_id, request.user.id)
 
-    return FileResponse(path=str(file_path), filename=save.file_name)
+
+def _parse_options(option: Sequence[str]) -> dict[str, str]:
+    options: dict[str, str] = {}
+    for item in option:
+        key, separator, value = item.partition(":")
+        if not separator or not key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Option {item!r} isn't in the form key:value",
+            )
+        options[key] = value
+    return options
+
+
+def _content_path(save: Save, rom: Rom, rom_files: Sequence[RomFile]) -> str:
+    """The ROM file name a restore names files after: the save's channel file,
+    else the file the ROM's channels key to."""
+    channel = (
+        db_snapshot_handler.get_channel(save.channel_id) if save.channel_id else None
+    )
+    rom_file = (
+        db_snapshot_handler.get_channel_file(channel) if channel else None
+    ) or sync_file(rom_files)
+    return rom_file.file_name if rom_file else rom.fs_name
+
+
+def _sigil_platform_or_400(platform_slug: str) -> str:
+    sigil_platform = SIGIL_RESTORE_PLATFORM_SLUGS.get(platform_slug)
+    if sigil_platform is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Saves for {platform_slug} can't be converted for a core",
+        )
+    return sigil_platform
+
+
+def _sigil_missing() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Save conversion needs sigil, which this server lacks",
+    )
+
+
+def _stored_game_or_error(rom: Rom) -> tuple[SigilGame, list[RomFile]]:
+    _sigil_platform_or_400(rom.platform_slug)
+    rom_files = db_rom_handler.rom_files_for_rom_id(rom.id)
+    game = SigilService.stored_game(rom, rom_files)
+    if game is None:
+        raise _sigil_missing()
+    return game, rom_files
+
+
+async def _companions(
+    request: Request, companion_ids: Sequence[int]
+) -> list[RestoreCompanion]:
+    """Each companion save's game and unit, under the same read rules as a download."""
+    companions: list[RestoreCompanion] = []
+    for companion_id in companion_ids:
+        save = _readable_save_or_404(request, companion_id)
+        path = _stored_save_path(save)
+        if save.rom is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Companion save {companion_id} has no ROM",
+            )
+        game, _ = _stored_game_or_error(save.rom)
+        companions.append(
+            RestoreCompanion(
+                game_ids=game.game_ids, unit=await asyncio.to_thread(path.read_bytes)
+            )
+        )
+    return companions
+
+
+_REFUSAL_STATUS: Final[dict[RefusalCode, int]] = {
+    RefusalCode.CONFLICT: status.HTTP_409_CONFLICT,
+    RefusalCode.UNCOLLECTED: status.HTTP_409_CONFLICT,
+    RefusalCode.EXISTS: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RefusalCode.DAMAGED: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RefusalCode.REGION: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RefusalCode.NO_SPACE: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RefusalCode.NOT_FOUND: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RefusalCode.UNSUPPORTED_FORMAT: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RefusalCode.NO_TARGET: status.HTTP_400_BAD_REQUEST,
+    RefusalCode.AMBIGUOUS: status.HTTP_400_BAD_REQUEST,
+    RefusalCode.INVALID_ARG: status.HTTP_400_BAD_REQUEST,
+    RefusalCode.IO: status.HTTP_500_INTERNAL_SERVER_ERROR,
+    RefusalCode.OTHER: status.HTTP_500_INTERNAL_SERVER_ERROR,
+}
+
+
+def _restore_error(exc: SaveRestoreError) -> HTTPException:
+    if isinstance(exc, SigilRefusal):
+        return HTTPException(
+            status_code=_REFUSAL_STATUS[exc.code],
+            detail={
+                "error": exc.code.value,
+                "message": str(exc),
+                "problem": exc.problem,
+                "profiles": [
+                    {"id": profile.id, "name": profile.name} for profile in exc.profiles
+                ],
+            },
+        )
+    if isinstance(exc, SharedContainerRequired):
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "SHARED_CONTAINER",
+                "message": str(exc),
+                "container_path": exc.container_path,
+            },
+        )
+    if isinstance(exc, ContainerMismatch):
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "CONTAINER_MISMATCH",
+                "message": str(exc),
+                "container_path": exc.container_path,
+                "written": list(exc.written),
+                "options": exc.options,
+            },
+        )
+    return HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+    )
+
+
+def _restored_response(restored: RestoredSave, save: Save) -> Response:
+    """One file raw, named by `X-Save-Path`; several as a zip of save-root paths."""
+    if len(restored.files) == 1:
+        ((path, data),) = restored.files.items()
+        return Response(
+            content=data,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": content_disposition(PurePosixPath(path).name),
+                SAVE_PATH_HEADER: quote(path),
+            },
+        )
+    # `zipfile_inflate64`, imported for ROM archives, breaks `writestr()` until this runs.
+    ensure_zipfile_writable()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path, data in sorted(restored.files.items()):
+            zf.writestr(path, data)
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": content_disposition(
+                f"{PurePosixPath(save.file_name).stem}.zip"
+            )
+        },
+    )
+
+
+_DOWNLOAD_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_400_BAD_REQUEST: {},
+    status.HTTP_404_NOT_FOUND: {},
+    status.HTTP_409_CONFLICT: {},
+    status.HTTP_422_UNPROCESSABLE_CONTENT: {},
+    status.HTTP_503_SERVICE_UNAVAILABLE: {},
+}
+
+
+@protected_route(
+    router.get,
+    "/{id}/content",
+    [Scope.ASSETS_READ],
+    responses=_DOWNLOAD_RESPONSES,
+)
+async def download_save(
+    request: Request,
+    id: int,
+    device_id: str | None = None,
+    session_id: int | None = None,
+    optimistic: bool = True,
+    core: Annotated[
+        str | None,
+        Query(
+            max_length=EMULATOR_MAX_LENGTH,
+            description=(
+                "A sigil layout id (libretro core name or emulator id). The save "
+                "comes back as the files that emulator reads, for a per-game target."
+            ),
+        ),
+    ] = None,
+    option: Annotated[
+        list[str] | None,
+        Query(
+            description="An emulator option that changes the save's shape, as key:value. Repeatable."
+        ),
+    ] = None,
+    profile: Annotated[
+        str | None, Query(description="The user profile whose account save to write.")
+    ] = None,
+    companion: Annotated[
+        list[int] | None,
+        Query(description="A save whose game this game reads saves of. Repeatable."),
+    ] = None,
+) -> Response:
+    """Download a save file.
+
+    With `core`, the save is restored as that emulator reads it. One file comes
+    back raw with its save-root-relative path, percent-encoded, in `X-Save-Path`;
+    several come back as a zip of save-root-relative paths. A target that is a
+    card or volume every game shares is refused with the `container_path` to
+    POST instead.
+    """
+    device = _resolve_device(
+        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_READ
+    )
+    save = _readable_save_or_404(request, id)
+    file_path = _stored_save_path(save)
+
+    response: Response
+    rom = save.rom
+    if core is None or (rom and rom.platform_slug in NATIVE_SAVE_PLATFORM_SLUGS):
+        response = FileResponse(path=str(file_path), filename=save.file_name)
+    else:
+        if rom is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Save {id} has no ROM to convert it for",
+            )
+        options = _parse_options(option or [])
+        game, rom_files = _stored_game_or_error(rom)
+        companions = await _companions(request, companion or [])
+        target = RestoreTarget(
+            core=core,
+            options=options,
+            profile=profile,
+            content_path=_content_path(save, rom, rom_files),
+        )
+        unit = await asyncio.to_thread(file_path.read_bytes)
+        try:
+            restored = await restore_per_game(unit, game, target, companions)
+        except SaveRestoreError as exc:
+            raise _restore_error(exc) from exc
+        response = _restored_response(restored, save)
+
+    _record_download(request, save, device, session_id, optimistic)
+    return response
+
+
+class SaveConversionPayload(BaseModel):
+    """What a client's emulator reads, and where its container sits."""
+
+    core: str = Field(max_length=EMULATOR_MAX_LENGTH)
+    options: dict[str, str] = Field(default_factory=dict)
+    profile: str | None = None
+    container_path: str = Field(max_length=FILE_PATH_MAX_LENGTH)
+    companions: list[int] = Field(default_factory=list)
+
+
+@protected_route(
+    router.post,
+    "/{id}/content",
+    [Scope.ASSETS_READ],
+    responses={
+        **_DOWNLOAD_RESPONSES,
+        status.HTTP_413_CONTENT_TOO_LARGE: {},
+    },
+)
+async def merge_save_into_container(
+    request: Request,
+    id: int,
+    payload: Annotated[
+        str,
+        Form(
+            alias="request",
+            description=(
+                "JSON: core, options, profile, container_path (relative to the "
+                "save root) and companions (save ids)."
+            ),
+        ),
+    ],
+    container: Annotated[
+        UploadFile,
+        File(description="The client's current card or volume at container_path."),
+    ],
+    device_id: str | None = None,
+    session_id: int | None = None,
+    optimistic: bool = True,
+) -> Response:
+    """Merge a save into the card or volume the client sent, and return it.
+
+    Only the save's game's saves change; every other game's stay. The response
+    names the container in `X-Save-Path`. A restore that would write any other
+    file is refused, naming the option that selects the sent container.
+    """
+    try:
+        conversion = SaveConversionPayload.model_validate_json(payload)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=exc.errors(include_url=False, include_context=False),
+        ) from exc
+    container_path = conversion.container_path
+    if not container_path or leaves_save_folder(container_path):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"container_path {container_path!r} leaves the save root",
+        )
+    content = await container.read(MEMORY_CARD_MAX_BYTES + 1)
+    if len(content) > MEMORY_CARD_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=f"The container exceeds {MEMORY_CARD_MAX_BYTES} bytes",
+        )
+
+    device = _resolve_device(
+        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_READ
+    )
+    save = _readable_save_or_404(request, id)
+    file_path = _stored_save_path(save)
+    rom = save.rom
+    if rom is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Save {id} has no ROM to convert it for",
+        )
+    if rom.platform_slug in NATIVE_SAVE_PLATFORM_SLUGS:
+        _record_download(request, save, device, session_id, optimistic)
+        return FileResponse(path=str(file_path), filename=save.file_name)
+    game, rom_files = _stored_game_or_error(rom)
+    companions = await _companions(request, conversion.companions)
+    target = RestoreTarget(
+        core=conversion.core,
+        options=conversion.options,
+        profile=conversion.profile,
+        content_path=_content_path(save, rom, rom_files),
+    )
+    unit = await asyncio.to_thread(file_path.read_bytes)
+    try:
+        restored = await merge_into_container(
+            unit, game, target, container_path, content, companions
+        )
+    except SaveRestoreError as exc:
+        raise _restore_error(exc) from exc
+
+    _record_download(request, save, device, session_id, optimistic)
+    return _restored_response(restored, save)
 
 
 @protected_route(router.post, "/{id}/downloaded", [Scope.DEVICES_WRITE])

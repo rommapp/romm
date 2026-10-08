@@ -52,6 +52,17 @@ def is_symlink_entry(info: zipfile.ZipInfo) -> bool:
     return stat.S_ISLNK(info.external_attr >> 16)
 
 
+def leaves_save_folder(path: str) -> bool:
+    """Whether a relative path a client named would land outside the save folder."""
+    return (
+        "\x00" in path
+        or "\\" in path
+        or path.startswith("/")
+        or bool(_DRIVE_PREFIX.match(path))
+        or ".." in path.split("/")
+    )
+
+
 def check_zip(zf: zipfile.ZipFile) -> list[str]:
     """The file entries of an uploaded archive, once every entry stays inside
     the save folder and the whole expands within the limits.
@@ -67,14 +78,7 @@ def check_zip(zf: zipfile.ZipFile) -> list[str]:
     expanded = 0
     for info in infos:
         name = info.filename
-        if (
-            "\x00" in name
-            or "\\" in name
-            or name.startswith("/")
-            or _DRIVE_PREFIX.match(name)
-            or ".." in name.split("/")
-            or is_symlink_entry(info)
-        ):
+        if leaves_save_folder(name) or is_symlink_entry(info):
             raise UnsafeArchive(f"entry {name!r} leaves the save folder")
         expanded += info.file_size
         if expanded > MAX_ARCHIVE_EXPANDED_BYTES:

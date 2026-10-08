@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from pydantic import ConfigDict, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import inspect
 from sqlalchemy.exc import InvalidRequestError
 
@@ -117,6 +117,34 @@ class SlotSummarySchema(BaseModel):
 class SaveSummarySchema(BaseModel):
     total_count: int
     slots: list[SlotSummarySchema]
+
+
+class SaveLayoutOptionSchema(BaseModel):
+    """A core option a layout's files read. `values` is empty for a free-form
+    value; a `default` of "" means the files need the option set."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    key: str
+    values: list[str]
+    default: str
+
+
+class SaveLayoutSchema(BaseModel):
+    """One of sigil's save layouts: `id` is what the content route takes as `core`."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    platform: str = Field(description='Sigil\'s platform slug, "" for any platform')
+    options: list[SaveLayoutOptionSchema]
+    region_option: str = Field(
+        description='The option that picks a shared file by the disc\'s region, or ""'
+    )
+    profiles: bool = Field(description="An account save needs a user profile")
+    needs_existing: bool = Field(
+        description="Restore names a new file only once one of the game's files is there"
+    )
 
 
 class StateSchema(BaseAsset, AssetAnnotations, ManagedAsset):
