@@ -72,13 +72,9 @@ def _retroarch_upload_cap(client: TestClient, max_size: int):
 @pytest.fixture(autouse=True)
 def _isolated_sync_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Keep blobs and pending PSP files per test, since user ids repeat across test databases."""
-    for handler, name in (
-        (fs_retroarch_sync_handler, "retroarch_sync"),
-        (psp.fs_psp_pending_handler, "psp_pending"),
-    ):
-        base = (tmp_path / name).resolve()
-        base.mkdir()
-        monkeypatch.setattr(handler, "base_path", base)
+    base = (tmp_path / "retroarch_sync").resolve()
+    base.mkdir()
+    monkeypatch.setattr(fs_retroarch_sync_handler, "base_path", base)
 
 
 @pytest.fixture
@@ -1565,6 +1561,18 @@ class TestRetroArchSyncPsp:
         )
 
         assert response.status_code == status.HTTP_409_CONFLICT
+        pending_file = (
+            fs_retroarch_sync_handler.base_path
+            / fs_asset_handler.user_folder_path(admin_user)
+            / "retroarch/psp_pending/UNKNOWN99999DATA0/SAVE.BIN"
+        )
+        assert pending_file.read_bytes() == b"orphaned save data"
+
+        response = client.get(
+            "/api/sync/retroarch/psp_pending/UNKNOWN99999DATA0/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_delete_keeps_the_rest_of_the_bundle(
         self, client, admin_user: User, rom: Rom

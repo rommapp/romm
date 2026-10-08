@@ -18,7 +18,7 @@ from adapters.services.rom_converto import (
     RomConvertoTimeoutError,
     resolve_operation,
 )
-from config import ROMM_BASE_PATH
+from config import CACHE_BASE_PATH
 from config.config_manager import ConvertoConfig
 from models.rom import Rom, RomFile
 from utils import conversion_cache
@@ -689,8 +689,8 @@ class TestHasRoomFor:
 
 
 class TestGetRedirectPath:
-    def test_relative_to_romm_base_path(self):
-        converted_path = Path(ROMM_BASE_PATH) / "cache/converts/1-abc/Game.chd"
+    def test_relative_to_cache_base_path(self):
+        converted_path = Path(CACHE_BASE_PATH) / "converts/1-abc/Game.chd"
         assert get_redirect_path(converted_path) == Path(
             "/cache/converts/1-abc/Game.chd"
         )

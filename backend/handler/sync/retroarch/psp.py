@@ -22,10 +22,9 @@ from typing import Literal
 
 from redis.exceptions import RedisError
 
-from config import SYNC_RETROARCH_PSP_PENDING_PATH, SYNC_RETROARCH_PSP_SERIAL_MAP
+from config import SYNC_RETROARCH_PSP_SERIAL_MAP
 from handler.database import db_platform_handler, db_rom_handler, db_save_handler
-from handler.filesystem import fs_asset_handler
-from handler.filesystem.base_handler import FSHandler
+from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.redis_handler import async_cache
 from handler.sync.retroarch import sync_handler
 from logger.formatter import highlight as hl
@@ -38,6 +37,8 @@ from utils.zip_cache import ensure_zipfile_writable
 
 _IGNORED_CATEGORY = "SYSTEM"
 _SAVEDATA_CATEGORY = "SAVEDATA"
+# Outside BLOB_CATEGORIES, so clients can never read or write it.
+_PENDING_CATEGORY = "psp_pending"
 
 # Real PSP save folders hold a handful of small files; anything past these is
 # not one, and inflating it on every manifest build would exhaust memory.
@@ -45,8 +46,6 @@ _BUNDLE_MAX_MEMBERS = 64
 BUNDLE_MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
 
 _BUNDLE_FOLDER_PATTERN = re.compile(r"^PSP-(.+?)(?: \[.*])?\.zip$")
-
-fs_psp_pending_handler = FSHandler(base_path=SYNC_RETROARCH_PSP_PENDING_PATH)
 
 
 class PspFolderUnresolved(Exception):
@@ -355,7 +354,7 @@ async def _resolve_folder_rom(
     if rom:
         return rom
 
-    await fs_psp_pending_handler.write_file(
+    await fs_retroarch_sync_handler.write_file(
         file=content, path=pending_dir, filename=info.file_name
     )
     log.warning(
@@ -408,7 +407,9 @@ async def put_psp_file(
     # PPSSPP writes a folder as a burst of PUTs, so the bundle is rewritten in
     # place rather than keeping each partial merge as save history.
     async with _folder_locks[f"{user.id}:{info.save_folder}"]:
-        pending_dir = f"{user.id}/{info.save_folder}"
+        pending_dir = sync_handler.user_blob_path(
+            user, f"{_PENDING_CATEGORY}/{info.save_folder}"
+        )
         existing = await asyncio.to_thread(
             _find_bundle_by_folder, user, info.save_folder, can_see
         )
@@ -425,11 +426,11 @@ async def put_psp_file(
             rom = await _resolve_folder_rom(info, content, pending_dir, can_see)
 
         try:
-            pending_names = await fs_psp_pending_handler.list_files(pending_dir)
+            pending_names = await fs_retroarch_sync_handler.list_files(pending_dir)
         except FileNotFoundError:
             pending_names = []
         for name in pending_names:
-            merged[name] = await fs_psp_pending_handler.read_file(
+            merged[name] = await fs_retroarch_sync_handler.read_file(
                 f"{pending_dir}/{name}"
             )
         merged[info.file_name] = content
@@ -443,7 +444,7 @@ async def put_psp_file(
 
         for name in pending_names:
             with suppress(FileNotFoundError):
-                await fs_psp_pending_handler.remove_file(f"{pending_dir}/{name}")
+                await fs_retroarch_sync_handler.remove_file(f"{pending_dir}/{name}")
 
 
 async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:

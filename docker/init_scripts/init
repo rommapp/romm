@@ -138,6 +138,7 @@ start_bin_gunicorn() {
 	"${wrap[@]}" gunicorn \
 		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
 		--pid=/tmp/gunicorn.pid \
+		--control-socket=/tmp/gunicorn/gunicorn.ctl \
 		--forwarded-allow-ips="${FORWARDED_ALLOW_IPS:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,fc00::/7}" \
 		--worker-class uvicorn_worker.UvicornWorker \
 		--workers "${WEB_SERVER_CONCURRENCY:-4}" \
