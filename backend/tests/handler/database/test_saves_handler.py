@@ -422,11 +422,83 @@ class TestDBSavesHandlerSlotFiltering:
             user_id=admin_user.id,
             rom_id=rom.id,
             slot="autosave",
-            lineage=SaveLineage("snes9x", "srm"),
+            lineages=[SaveLineage("snes9x", "srm")],
         )
 
         assert sorted(save.file_name for save in heads) == ["new.SRM", "other.srm"]
         assert head is not None and head.file_name == "new.SRM"
+
+    def test_a_lineage_head_is_the_newest_across_lineages(
+        self, admin_user: User, rom: Rom
+    ):
+        self._lineage_versions(admin_user, rom)
+        make_save(
+            rom,
+            admin_user,
+            "unfiled.srm",
+            emulator=None,
+            slot="autosave",
+            updated_at=datetime(2030, 1, 1, tzinfo=UTC),
+        )
+
+        def head(*lineages: SaveLineage) -> str | None:
+            save = db_save_handler.get_lineage_head(
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                slot="autosave",
+                lineages=lineages,
+            )
+            return save.file_name if save else None
+
+        assert head(SaveLineage("snes9x", "srm"), SaveLineage(None, "srm")) == (
+            "unfiled.srm"
+        )
+        assert (
+            head(SaveLineage("snes9x", "srm"), SaveLineage("bsnes", "srm"))
+            == "other.srm"
+        )
+        assert head(SaveLineage(None, "rtc")) is None
+        assert head() is None
+
+    def test_get_saves_filters_on_a_set_of_lineages(self, admin_user: User, rom: Rom):
+        self._lineage_versions(admin_user, rom)
+        make_save(rom, admin_user, "unfiled.srm", emulator=None, slot="autosave")
+
+        def names(*lineages: SaveLineage) -> set[str]:
+            saves = db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], lineages=lineages
+            )
+            return {save.file_name for save in saves}
+
+        assert names(SaveLineage("bsnes", "srm"), SaveLineage(None, "srm")) == {
+            "other.srm",
+            "unfiled.srm",
+        }
+        assert names(SaveLineage("snes9x", "rtc"), SaveLineage("bsnes", "srm")) == {
+            "clock.rtc",
+            "other.srm",
+        }
+        assert names(SaveLineage(None, "srm")) == {"unfiled.srm"}
+        assert names() == set()
+
+    def test_get_saves_at_paths_matches_any_listed_folder(
+        self, admin_user: User, rom: Rom
+    ):
+        for file_path in ("saves/snes9x", "saves/bsnes", "saves/other"):
+            make_save(rom, admin_user, "game.srm", file_path=file_path)
+        make_save(rom, admin_user, "else.srm", file_path="saves/snes9x")
+
+        saves = db_save_handler.get_saves_at_paths(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            file_paths=["saves/snes9x", "saves/bsnes"],
+            file_name="game.srm",
+        )
+
+        assert sorted(save.file_path for save in saves) == [
+            "saves/bsnes",
+            "saves/snes9x",
+        ]
 
     def test_get_saves_with_null_slot_filter(self, admin_user: User, rom: Rom):
         make_save(
