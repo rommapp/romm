@@ -19,6 +19,7 @@ from handler.streaming.session_store import (
     session_platform_matches,
 )
 from logger.logger import log
+from models.permission import PermAction, PermEntity
 from models.rom import Rom
 from models.user import Role
 
@@ -41,6 +42,34 @@ def assert_session_owner(session: dict[str, Any], request: Request) -> None:
     if request.user.role == Role.ADMIN:
         return
     raise HTTPException(status_code=403, detail="Session is claimed by another user")
+
+
+def _allows_streaming(request: Request, action: PermAction) -> bool:
+    # A session is always the caller's own, so an "own items only" grant counts.
+    return get_permissions(request).allows(PermEntity.STREAMING, action, owned=True)
+
+
+def can_see_streaming(request: Request) -> bool:
+    """Whether the caller may see streaming and join someone else's session."""
+    return _allows_streaming(request, PermAction.READ)
+
+
+def assert_can_see_streaming(request: Request) -> None:
+    """Raise 403 unless the caller may see streaming."""
+    if not can_see_streaming(request):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+
+def assert_can_start_streaming(request: Request) -> None:
+    """Raise 403 unless the caller may start a session, which takes a container.
+
+    Sessions the caller already holds stay theirs to control and release, so a
+    revoked grant never strands a running game's save.
+    """
+    if not (
+        can_see_streaming(request) and _allows_streaming(request, PermAction.WRITE)
+    ):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
 
 
 def rom_is_visible(request: Request, rom: Rom | None) -> bool:

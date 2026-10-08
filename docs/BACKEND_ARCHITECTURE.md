@@ -1284,6 +1284,10 @@ users.read / users.write     : User management (admin)
 tasks.run                    : Task execution
 ```
 
+### Permission Groups
+
+Endpoints also check the caller's permission group (`handler/auth/permissions.py`): entity and action grants, plus per-user overrides. Most entities line up with a scope above. `streaming` has no scope. Its `read` grant shows streaming and allows joining a session, and `write` allows starting one. A user who loses the grant keeps control of a session they already hold.
+
 ### CSRF Protection
 
 - Cookie: `romm_csrftoken` (signed with `itsdangerous`)

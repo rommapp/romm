@@ -1079,3 +1079,90 @@ def test_the_sibling_platform_names_revision_renames_only_the_stale_name():
         ("c64", "Commodore 64"),
         ("c128-custom", "C128 (custom)"),
     }
+
+
+_GROUPS = sa.table(
+    "permission_groups",
+    sa.column("id", sa.Integer),
+    sa.column("name", sa.String),
+    sa.column("description", sa.String),
+    sa.column("is_default", sa.Boolean),
+    sa.column("hide_unrated_roms", sa.Boolean),
+)
+_GRANTS = sa.table(
+    "permission_group_grants",
+    sa.column("group_id", sa.Integer),
+    sa.column("entity", sa.String),
+    sa.column("action", sa.String),
+    sa.column("own_only", sa.Boolean),
+)
+_OVERRIDES = sa.table(
+    "user_permission_overrides",
+    sa.column("user_id", sa.Integer),
+    sa.column("entity", sa.String),
+    sa.column("action", sa.String),
+    sa.column("granted", sa.Boolean),
+    sa.column("own_only", sa.Boolean),
+)
+
+
+def _streaming_grants(connection: sa.Connection) -> set[tuple[int, str, bool]]:
+    return {
+        (row.group_id, row.action, bool(row.own_only))
+        for row in connection.execute(
+            sa.select(_GRANTS.c.group_id, _GRANTS.c.action, _GRANTS.c.own_only).where(
+                _GRANTS.c.entity == "streaming"
+            )
+        )
+    }
+
+
+def _streaming_overrides(connection: sa.Connection) -> int:
+    return connection.execute(
+        sa.select(sa.func.count())
+        .select_from(_OVERRIDES)
+        .where(_OVERRIDES.c.entity == "streaming")
+    ).scalar_one()
+
+
+def test_the_streaming_permission_revision_backfills_reverses_and_replays(
+    admin_user: User,
+):
+    """0152 grants streaming to every group that exists at upgrade, so nobody
+    loses it, and a downgrade leaves no value the older enum cannot load."""
+    migration = _load_migration("0152_streaming_permission.py")
+
+    with sync_engine.begin() as connection:
+        connection.execute(
+            _GROUPS.insert().values(
+                name="Locked down",
+                description="",
+                is_default=False,
+                hide_unrated_roms=False,
+            )
+        )
+        connection.execute(
+            _OVERRIDES.insert().values(
+                user_id=admin_user.id,
+                entity="streaming",
+                action="write",
+                granted=False,
+                own_only=False,
+            )
+        )
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            migration.downgrade()
+            assert _streaming_grants(connection) == set()
+            assert _streaming_overrides(connection) == 0
+
+            migration.upgrade()
+            migration.upgrade()
+
+        group_ids: set[int] = set(connection.execute(sa.select(_GROUPS.c.id)).scalars())
+        assert len(group_ids) >= 3
+        assert _streaming_grants(connection) == {
+            (group_id, action, False)
+            for group_id in group_ids
+            for action in ("read", "write")
+        }

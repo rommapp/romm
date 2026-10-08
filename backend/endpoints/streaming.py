@@ -332,6 +332,11 @@ def _check_key(kind: str, c: ResolvedContainer) -> Hashable:
 @protected_route(router.get, "/config", [Scope.ROMS_READ])
 async def get_config(request: Request) -> StreamingConfigSchema:
     """Return streaming configuration to the frontend"""
+    # The frontend hides every streaming surface on `enabled`.
+    if not access.can_see_streaming(request):
+        return StreamingConfigSchema(
+            enabled=False, containers=[], emulator_labels=emulator_labels()
+        )
     # One row per platform: a pool is a backend concern, the frontend picks a
     # platform and the claim decides which container serves it.
     # The record carries the platform's label and capabilities, so a
@@ -829,6 +834,8 @@ async def claim_session(
     Returns 409 if every container in the platform's first pool is occupied.
     Returns 428 if the container's pre-existing memory card needs a decision.
     """
+    access.assert_can_start_streaming(request)
+
     rom = db_rom_handler.get_rom(req.rom_id)
     if rom is None:
         raise HTTPException(status_code=404, detail="ROM not found")
@@ -1308,6 +1315,8 @@ async def join_session(
     through access.assert_session_owner, so a joiner cannot change the volume, write
     states, or release the container.
     """
+    access.assert_can_see_streaming(request)
+
     if container is not None:
         candidate, _, session = await access.resolve_named_container(
             platform, container
@@ -1733,6 +1742,8 @@ async def list_joinable_sessions(
     sessions whose host opted into multiplayer at launch, and only the fields
     a Join button needs. Sessions the caller is already hosting are left out.
     """
+    access.assert_can_see_streaming(request)
+
     grouped = containers_by_key()
 
     sessions: list[JoinableSessionSchema] = []
