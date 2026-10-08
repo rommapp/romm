@@ -1031,10 +1031,11 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 - **Manifest:** assets whose file is gone are flagged `missing_from_fs`. Hashes
   are MD5s of the bytes on disk, Redis-cached by path, size and mtime.
 - **PSP:** PPSSPP's `PSP/SAVEDATA/<folder>/` files are stored as one zipped
-  `Save` per folder. A folder whose title matches no ROM is buffered under
-  `SYNC_RETROARCH_PSP_PENDING_PATH`, or mapped through `SYNC_RETROARCH_PSP_SERIAL_MAP`.
+  `Save` per folder. A folder whose title matches no ROM is buffered in the
+  user's `retroarch/psp_pending/` folder until it resolves, or mapped through
+  `SYNC_RETROARCH_PSP_SERIAL_MAP`. Clients can't reach `psp_pending/`.
 - **Blobs:** `config/`, `thumbnails/` and `system/` belong to no ROM, so they
-  are stored per user under `SYNC_RETROARCH_BASE_PATH` (`FSRetroArchSyncHandler`).
+  are stored per user under `assets/users/<user>/retroarch/` (`FSRetroArchSyncHandler`).
 - **Auth:** the router gates itself so it can answer a 401 Basic challenge,
   and sends body-less errors, which RetroArch's client needs. The kiosk guest
   may browse `roms/` but is challenged everywhere else. Uploads are capped at

@@ -1583,7 +1583,7 @@ class TestRetroArchSyncPsp:
             auth=ADMIN_AUTH,
         )
         assert response.status_code == status.HTTP_201_CREATED
-        assert not pending_file.exists()
+        assert not pending_file.parent.exists()
 
         response = client.get(
             "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
