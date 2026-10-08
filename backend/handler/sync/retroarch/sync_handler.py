@@ -319,12 +319,15 @@ def saves_at_path(
     return [
         save
         for save in db_save_handler.get_saves(
-            user_id=user.id, rom_ids=[rom.id], lineages=_alias_lineages(lineage)
+            user_id=user.id,
+            rom_ids=[rom.id],
+            slot=AUTOSAVE_SLOT,
+            with_unslotted=True,
+            lineages=_alias_lineages(lineage),
         )
         # The manifest hides unslotted ones behind the head, so whatever their
         # case they would resurface once the versions go.
-        if save.slot == AUTOSAVE_SLOT
-        or (save.slot is None and save.file_name.casefold() == folded)
+        if save.slot is not None or save.file_name.casefold() == folded
     ]
 
 

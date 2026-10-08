@@ -521,6 +521,22 @@ class TestDBSavesHandlerSlotFiltering:
         all_saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
         assert len(all_saves) >= 2
 
+    def test_get_saves_with_unslotted_widens_the_slot_filter(
+        self, admin_user: User, rom: Rom
+    ):
+        make_save(rom, admin_user, "autosave.srm", slot="autosave")
+        make_save(rom, admin_user, "named.srm", slot="Main")
+        make_save(rom, admin_user, "unslotted.srm", slot=None)
+
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot="autosave",
+            with_unslotted=True,
+        )
+
+        assert {save.file_name for save in saves} == {"autosave.srm", "unslotted.srm"}
+
     def test_get_saves_order_by(self, admin_user: User, rom: Rom):
         from datetime import datetime, timedelta, timezone
 

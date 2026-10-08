@@ -219,6 +219,7 @@ class DBSavesHandler(DBBaseHandler):
         slot: str | None = None,
         slot_not_null: bool = False,
         slot_is_null: bool = False,
+        with_unslotted: bool = False,
         file_name_prefix: str | None = None,
         lineages: Collection[SaveLineage] | None = None,
         order_by: Literal["updated_at", "created_at"] | None = None,
@@ -236,7 +237,12 @@ class DBSavesHandler(DBBaseHandler):
             )
 
         if slot is not None:
-            query = query.filter(Save.slot == slot)
+            # `with_unslotted` widens `slot` to also keep saves outside any slot.
+            query = query.filter(
+                or_(Save.slot == slot, Save.slot.is_(None))
+                if with_unslotted
+                else Save.slot == slot
+            )
 
         if slot_not_null:
             query = query.filter(Save.slot.is_not(None))
@@ -269,6 +275,7 @@ class DBSavesHandler(DBBaseHandler):
         slot: str | None = None,
         slot_not_null: bool = False,
         slot_is_null: bool = False,
+        with_unslotted: bool = False,
         file_name_prefix: str | None = None,
         lineages: Collection[SaveLineage] | None = None,
         order_by: Literal["updated_at", "created_at"] | None = None,
@@ -282,6 +289,7 @@ class DBSavesHandler(DBBaseHandler):
             slot=slot,
             slot_not_null=slot_not_null,
             slot_is_null=slot_is_null,
+            with_unslotted=with_unslotted,
             file_name_prefix=file_name_prefix,
             lineages=lineages,
             order_by=order_by,
