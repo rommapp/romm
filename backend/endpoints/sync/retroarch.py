@@ -444,6 +444,13 @@ async def retroarch_sync_get(request: Request, file_path: str) -> Response:
         return _empty(status.HTTP_404_NOT_FOUND)
 
     asset = await _get_asset(request.user, rom, parsed)
+    # A file deleted outside RomM hides any older asset at this path until flagged.
+    while (
+        asset
+        and not asset.missing_from_fs
+        and await asyncio.to_thread(sync_handler.flag_if_missing, asset)
+    ):
+        asset = await _get_asset(request.user, rom, parsed)
     if not asset:
         return _empty(status.HTTP_404_NOT_FOUND)
 

@@ -1381,6 +1381,41 @@ class TestRetroArchSyncCoreAliases:
         assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
         assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"older"
 
+    def _vanished_state(self, admin_user: User, rom: Rom, emulator: str) -> State:
+        state = self._state(admin_user, rom, emulator, b"gone")
+        fs_asset_handler.validate_path(state.full_path).unlink()
+        return state
+
+    def test_the_manifest_falls_back_when_the_newest_state_file_vanished(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        vanished = self._vanished_state(admin_user, rom, "mednafen_psx_hw")
+
+        assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
+        state = db_state_handler.get_state(user_id=admin_user.id, id=vanished.id)
+        assert state is not None and state.missing_from_fs
+
+    def test_get_falls_back_when_the_newest_state_file_vanished(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        vanished = self._vanished_state(admin_user, rom, "mednafen_psx_hw")
+
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"older"
+        state = db_state_handler.get_state(user_id=admin_user.id, id=vanished.id)
+        assert state is not None and state.missing_from_fs
+
+    def test_get_404s_when_every_state_file_in_the_slot_vanished(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._vanished_state(admin_user, rom, "beetle_psx_hw")
+        self._vanished_state(admin_user, rom, "mednafen_psx_hw")
+
+        response = client.get(self.STATE_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
     def test_uploading_to_a_slot_revives_its_newest_missing_state(
         self, client, admin_user: User, rom: Rom
     ):

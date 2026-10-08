@@ -1035,7 +1035,8 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 - **Manifest:** assets whose file is gone are flagged `missing_from_fs`. Hashes
   are MD5s of the bytes on disk, Redis-cached by path, size and mtime. A state
   slot lists and serves its newest state on disk, and a PUT revives a newer
-  missing one in place.
+  missing one in place. A manifest or GET that finds a file gone flags it and
+  resolves again, so an older asset at that path takes its place.
 - **PSP:** PPSSPP's `PSP/SAVEDATA/<folder>/` files are stored as one zipped
   `Save` per folder. A folder whose title matches no ROM is buffered in the
   user's `retroarch/psp_pending/` folder until it resolves, or mapped through

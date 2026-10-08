@@ -640,6 +640,22 @@ def _mark_missing_from_fs(asset: Save | State | Screenshot) -> None:
         db_state_handler.update_state(asset.id, update, touch=False)
     else:
         db_screenshot_handler.update_screenshot(asset.id, update)
+    asset.missing_from_fs = True
+
+
+def flag_if_missing(asset: Save | State | Screenshot) -> bool:
+    """Flag ``asset`` `missing_from_fs` when its file is gone.
+
+    Returns:
+        Whether it was gone.
+    """
+    try:
+        if fs_asset_handler.validate_path(asset.full_path).is_file():
+            return False
+    except ValueError:
+        return False
+    _mark_missing_from_fs(asset)
+    return True
 
 
 async def _asset_md5(asset: Save | State | Screenshot) -> str | None:
@@ -769,8 +785,12 @@ async def build_manifest(
     """The server manifest RetroArch diffs against, sorted by path."""
     # Off the event loop: on a large library the queries run for seconds and
     # would stall every other request the worker is serving.
-    assets, saves = await asyncio.to_thread(_manifest_assets, user, can_see)
-    digests = await asset_md5s([entry.asset for entry in assets])
+    while True:
+        assets, saves = await asyncio.to_thread(_manifest_assets, user, can_see)
+        digests = await asset_md5s([entry.asset for entry in assets])
+        # Hashing flags a vanished file, which can unhide an older asset at its path.
+        if not any(entry.asset.missing_from_fs for entry in assets):
+            break
     hashed = [
         (entry, digest) for entry, digest in zip(assets, digests, strict=True) if digest
     ]
