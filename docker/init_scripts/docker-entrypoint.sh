@@ -33,6 +33,17 @@ for var_name in $(printenv | cut -d= -f1 | grep "_FILE$" || true); do
 	unset "${var_name}"
 done
 
+# The backend strips whitespace from every variable it reads, so the init script
+# and nginx templates must see the same values.
+for var_name in $(compgen -e); do
+	value="${!var_name}"
+	trimmed="${value#"${value%%[![:space:]]*}"}"
+	trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+	if [[ ${trimmed} != "${value}" ]]; then
+		export "${var_name}"="${trimmed}"
+	fi
+done
+
 # Set default values for environment variables used by nginx templates.
 # Nginx uses `envsubst` to load environment variables into configuration files, but it does not
 # support the default value syntax `${VAR:-default}`.
