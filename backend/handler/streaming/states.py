@@ -510,12 +510,14 @@ async def _remove_pruned_file(path: str) -> None:
 async def prune_state_history(
     user: User, rom: Rom, emulator: str, history: list[State] | None = None
 ) -> int:
-    """Delete the oldest states past the retention limit. Returns how many went.
-
-    A missing file still loses its row; a capture a Cloud Sync slot serves stays.
+    """Delete the oldest states past the retention limit, sparing a capture a
+    Cloud Sync slot serves; a missing file still loses its row.
 
     Args:
         history: the newest-first list a caller already holds, saving a refetch.
+
+    Returns:
+        How many went.
     """
     limit = STREAMING_STATE_HISTORY_LIMIT
     if limit <= 0:
