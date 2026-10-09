@@ -1023,6 +1023,90 @@ class TestRetroArchSyncStreamCaptures:
         disk_path.write_bytes(content)
         return shot
 
+    def test_a_screenshot_sent_ahead_of_its_state_lands_with_it(
+        self, client, admin_user: User, rom: Rom, states_path: str
+    ):
+        capture = self._capture(rom, admin_user, states_path, b"capt")
+
+        png = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state.png",
+            content=b"device-png",
+            auth=ADMIN_AUTH,
+        )
+        state = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            content=b"device-bytes",
+            auth=ADMIN_AUTH,
+        )
+
+        assert (png.status_code, state.status_code) == (
+            status.HTTP_201_CREATED,
+            status.HTTP_201_CREATED,
+        )
+        uploaded = next(
+            s
+            for s in db_state_handler.get_states(
+                user_id=admin_user.id, rom_ids=[rom.id]
+            )
+            if s.id != capture.id
+        )
+        shots = db_screenshot_handler.get_screenshots(
+            user_id=admin_user.id, rom_ids={rom.id}
+        )
+        assert [s.file_name for s in shots] == [f"{uploaded.file_name}.png"]
+        assert uploaded.file_name != capture.file_name
+
+    def test_a_screenshot_past_the_capture_goes_to_the_slot_s_own_state(
+        self, client, admin_user: User, rom: Rom, states_path: str
+    ):
+        self._capture(rom, admin_user, states_path, b"capt")
+        own = self._own(rom, admin_user, states_path)
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state.png",
+            content=b"device-png",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [shot] = db_screenshot_handler.get_screenshots(
+            user_id=admin_user.id, rom_ids={rom.id}
+        )
+        assert shot.file_name == f"{own.file_name}.png"
+        assert shot.file_path == sync_handler.state_screenshot_dir(
+            admin_user, rom, own.emulator
+        )
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_the_capture_s_screenshot_sent_back_is_left_alone(
+        self,
+        mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        states_path: str,
+    ):
+        capture = self._capture(rom, admin_user, states_path, b"capt")
+        shot = self._capture_screenshot(rom, admin_user, capture, b"capture-png")
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state.png",
+            content=b"capture-png",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_write_file.assert_not_awaited()
+        assert [
+            s.id
+            for s in db_screenshot_handler.get_screenshots(
+                user_id=admin_user.id, rom_ids={rom.id}
+            )
+        ] == [shot.id]
+
     @pytest.mark.parametrize(
         "unmatchable",
         [{"content_hash": None}, {"missing_from_fs": True}],
