@@ -537,7 +537,7 @@
   "upload-overwrite-title": "覆蓋 {n} 個現有檔案？ | 覆蓋 {n} 個現有檔案？",
   "upload-saves": "上傳存檔",
   "upload-screenshots": "上傳截圖",
-  "upload-slot-hint": "有存檔槽的存檔會參與裝置同步；沒有存檔槽的檔案將作為手動存檔保留。",
+  "upload-slot-hint": "有存檔槽的存檔會參與裝置同步，RetroArch Cloud Sync 讀取 autosave。沒有存檔槽的檔案將作為手動存檔保留。",
   "upload-soundtrack": "Upload soundtrack",
   "upload-states": "上傳即時存檔",
   "upload-to-folder": "上傳至資料夾",
