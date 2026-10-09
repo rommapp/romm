@@ -1122,8 +1122,8 @@ class DBRomsHandler(DBBaseHandler):
     def _filter_by_collection_id[S: Select[*tuple[Any, ...]]](
         self, query: S, collection_id: int, user_id: int | None
     ) -> S:
-        # An indexed subquery rather than ids fetched into Python. Another
-        # user's private collection matches nothing, like an unknown id.
+        # Membership stays an indexed subquery, so no ids are fetched into Python.
+        # Another user's private collection matches nothing, like an unknown id.
         return query.filter(
             Rom.id.in_(
                 select(CollectionRom.rom_id)
