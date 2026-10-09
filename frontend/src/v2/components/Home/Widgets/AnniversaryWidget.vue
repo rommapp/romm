@@ -227,6 +227,7 @@ useIntervalFn(() => {
         :title="title"
         :identified="current.is_identified"
         class="r-v2-widget-anniv__cover"
+        responsive
       />
       <div class="r-v2-widget-anniv__info">
         <div class="r-v2-widget-anniv__name">{{ title }}</div>

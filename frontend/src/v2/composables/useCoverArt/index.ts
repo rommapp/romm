@@ -150,10 +150,29 @@ export function altArtPath(
   );
 }
 
+// `?ts=` holds a space and srcset splits on whitespace and commas; escaping keeps the same URL as `src`.
+const escapeSrcsetUrl = (url: string) =>
+  url.replace(/[\s,]/g, (c) => encodeURIComponent(c));
+
+/** Small cover at 1x, large at 2x; null when there is no distinct pair. */
+function coverSrcset(
+  small: string | null | undefined,
+  large: string | null | undefined,
+  supportsWebp: boolean,
+): string | null {
+  if (!small || !large) return null;
+  const s = toWebpUrl(small, supportsWebp);
+  const l = toWebpUrl(large, supportsWebp);
+  if (s === l) return null;
+  return `${escapeSrcsetUrl(s)} 1x, ${escapeSrcsetUrl(l)} 2x`;
+}
+
 export interface CoverArtDescriptor {
   /** Primary image src: alt artwork, explicit override, or the local
    *  cover chain. Null when the rom has no usable image (→ placeholder). */
   coverUrl: string | null;
+  /** Local small and large covers as a `srcset`; null for alt art or an override. */
+  coverSrcset: string | null;
   /** Secondary src tried on `coverUrl` load error (external provider). */
   fallbackUrl: string | null;
   /** Any real image is available (so the card paints art, not a
@@ -201,6 +220,7 @@ export function computeCoverArt(
   const isAltArt = !override && altPath != null;
 
   let coverUrl: string | null;
+  let srcset: string | null = null;
   if (override != null) {
     coverUrl = override;
   } else if (altPath != null) {
@@ -208,6 +228,11 @@ export function computeCoverArt(
   } else {
     const local = rom.path_cover_large ?? rom.path_cover_small ?? null;
     coverUrl = local ? toWebpUrl(local, opts.supportsWebp) : local;
+    srcset = coverSrcset(
+      rom.path_cover_small,
+      rom.path_cover_large,
+      opts.supportsWebp,
+    );
   }
 
   const fallbackUrl = override != null ? null : (rom.url_cover ?? null);
@@ -225,6 +250,7 @@ export function computeCoverArt(
 
   return {
     coverUrl,
+    coverSrcset: srcset,
     fallbackUrl,
     hasArtwork,
     isAltArt,
@@ -258,6 +284,7 @@ export interface UseCoverArtOptions {
 export interface UseCoverArt {
   style: ComputedRef<BoxartStyle>;
   coverUrl: ComputedRef<string | null>;
+  coverSrcset: ComputedRef<string | null>;
   fallbackUrl: ComputedRef<string | null>;
   hasArtwork: ComputedRef<boolean>;
   isAltArt: ComputedRef<boolean>;
@@ -310,6 +337,7 @@ export function useCoverArt(
       const src = coverSrc.value ?? null;
       return {
         coverUrl: src,
+        coverSrcset: null,
         fallbackUrl: null,
         hasArtwork: !!src,
         isAltArt: false,
@@ -330,6 +358,7 @@ export function useCoverArt(
   return {
     style,
     coverUrl: computed(() => descriptor.value.coverUrl),
+    coverSrcset: computed(() => descriptor.value.coverSrcset),
     fallbackUrl: computed(() => descriptor.value.fallbackUrl),
     hasArtwork: computed(() => descriptor.value.hasArtwork),
     isAltArt: computed(() => descriptor.value.isAltArt),

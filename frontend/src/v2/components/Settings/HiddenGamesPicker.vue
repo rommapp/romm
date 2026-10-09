@@ -136,7 +136,7 @@ function remove(id: number) {
           @click="add(rom)"
         >
           <span class="r-v2-hgames__thumb">
-            <GameCover :rom="rom" :title="romName(rom)" />
+            <GameCover :rom="rom" :title="romName(rom)" responsive />
           </span>
           <span class="r-v2-hgames__name">{{ romName(rom) }}</span>
           <RIcon icon="mdi-plus" size="18" class="r-v2-hgames__add-icon" />
@@ -147,7 +147,7 @@ function remove(id: number) {
     <ul v-if="selected.length" class="r-v2-hgames__selected">
       <li v-for="s in selected" :key="s.id" class="r-v2-hgames__row">
         <span class="r-v2-hgames__thumb">
-          <GameCover :rom="s.rom" :title="s.name" />
+          <GameCover :rom="s.rom" :title="s.name" responsive />
         </span>
         <span class="r-v2-hgames__name">{{ s.name }}</span>
         <RBtn

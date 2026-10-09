@@ -125,6 +125,7 @@ onMounted(() => reroll({ notify: false }));
         :title="title"
         :identified="pick.is_identified"
         class="r-v2-widget-pick__cover"
+        responsive
       />
       <div class="r-v2-widget-pick__info">
         <div class="r-v2-widget-pick__name">{{ title }}</div>
