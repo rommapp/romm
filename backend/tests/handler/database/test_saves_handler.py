@@ -422,11 +422,83 @@ class TestDBSavesHandlerSlotFiltering:
             user_id=admin_user.id,
             rom_id=rom.id,
             slot="autosave",
-            lineage=SaveLineage("snes9x", "srm"),
+            lineages=[SaveLineage("snes9x", "srm")],
         )
 
         assert sorted(save.file_name for save in heads) == ["new.SRM", "other.srm"]
         assert head is not None and head.file_name == "new.SRM"
+
+    def test_a_lineage_head_is_the_newest_across_lineages(
+        self, admin_user: User, rom: Rom
+    ):
+        self._lineage_versions(admin_user, rom)
+        make_save(
+            rom,
+            admin_user,
+            "unfiled.srm",
+            emulator=None,
+            slot="autosave",
+            updated_at=datetime(2030, 1, 1, tzinfo=UTC),
+        )
+
+        def head(*lineages: SaveLineage) -> str | None:
+            save = db_save_handler.get_lineage_head(
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                slot="autosave",
+                lineages=lineages,
+            )
+            return save.file_name if save else None
+
+        assert head(SaveLineage("snes9x", "srm"), SaveLineage(None, "srm")) == (
+            "unfiled.srm"
+        )
+        assert (
+            head(SaveLineage("snes9x", "srm"), SaveLineage("bsnes", "srm"))
+            == "other.srm"
+        )
+        assert head(SaveLineage(None, "rtc")) is None
+        assert head() is None
+
+    def test_get_saves_filters_on_a_set_of_lineages(self, admin_user: User, rom: Rom):
+        self._lineage_versions(admin_user, rom)
+        make_save(rom, admin_user, "unfiled.srm", emulator=None, slot="autosave")
+
+        def names(*lineages: SaveLineage) -> set[str]:
+            saves = db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], lineages=lineages
+            )
+            return {save.file_name for save in saves}
+
+        assert names(SaveLineage("bsnes", "srm"), SaveLineage(None, "srm")) == {
+            "other.srm",
+            "unfiled.srm",
+        }
+        assert names(SaveLineage("snes9x", "rtc"), SaveLineage("bsnes", "srm")) == {
+            "clock.rtc",
+            "other.srm",
+        }
+        assert names(SaveLineage(None, "srm")) == {"unfiled.srm"}
+        assert names() == set()
+
+    def test_get_saves_at_paths_matches_any_listed_folder(
+        self, admin_user: User, rom: Rom
+    ):
+        for file_path in ("saves/snes9x", "saves/bsnes", "saves/other"):
+            make_save(rom, admin_user, "game.srm", file_path=file_path)
+        make_save(rom, admin_user, "else.srm", file_path="saves/snes9x")
+
+        saves = db_save_handler.get_saves_at_paths(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            file_paths=["saves/snes9x", "saves/bsnes"],
+            file_name="game.srm",
+        )
+
+        assert sorted(save.file_path for save in saves) == [
+            "saves/bsnes",
+            "saves/snes9x",
+        ]
 
     def test_get_saves_with_null_slot_filter(self, admin_user: User, rom: Rom):
         make_save(
@@ -448,6 +520,22 @@ class TestDBSavesHandlerSlotFiltering:
 
         all_saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
         assert len(all_saves) >= 2
+
+    def test_get_saves_with_unslotted_widens_the_slot_filter(
+        self, admin_user: User, rom: Rom
+    ):
+        make_save(rom, admin_user, "autosave.srm", slot="autosave")
+        make_save(rom, admin_user, "named.srm", slot="Main")
+        make_save(rom, admin_user, "unslotted.srm", slot=None)
+
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot="autosave",
+            with_unslotted=True,
+        )
+
+        assert {save.file_name for save in saves} == {"autosave.srm", "unslotted.srm"}
 
     def test_get_saves_order_by(self, admin_user: User, rom: Rom):
         from datetime import datetime, timedelta, timezone
@@ -500,6 +588,34 @@ class TestDBSavesHandlerSlotFiltering:
         assert len(ordered_saves_asc) == 2
         assert ordered_saves_asc[0].id == created1.id
         assert ordered_saves_asc[1].id == created2.id
+
+
+class TestDBSavesHandlerPromoteToSlotHead:
+    def test_outranks_a_head_from_the_same_second(self, admin_user: User, rom: Rom):
+        same_second = datetime.now(UTC).replace(microsecond=0)
+        older = make_save(rom, admin_user, "older.sav", slot="slot1")
+        head = make_save(rom, admin_user, "head.sav", slot="slot1")
+        db_save_handler.update_save(older.id, {"updated_at": same_second})
+        db_save_handler.update_save(head.id, {"updated_at": same_second})
+
+        promoted = db_save_handler.promote_to_slot_head(older)
+
+        assert to_utc(promoted.updated_at) > same_second
+        assert db_save_handler.get_save_ids(
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot="slot1",
+            order_by="updated_at",
+        ) == [older.id, head.id]
+
+    def test_leaves_the_head_as_is(self, admin_user: User, rom: Rom):
+        head = make_save(rom, admin_user, "head.sav", slot="slot1")
+        written_at = datetime(2024, 1, 1, tzinfo=UTC)
+        head = db_save_handler.update_save(head.id, {"updated_at": written_at})
+
+        promoted = db_save_handler.promote_to_slot_head(head)
+
+        assert to_utc(promoted.updated_at) == written_at
 
 
 class TestDBSavesHandlerGetSaveByContentHash:

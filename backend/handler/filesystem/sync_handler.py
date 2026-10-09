@@ -112,9 +112,5 @@ class FSSyncHandler(FSHandler):
 
 @functools.cache
 def get_fs_sync_handler() -> FSSyncHandler:
-    """Lazily instantiate the sync folder handler on first use.
-
-    Deferred so that startup doesn't fail when sync is unconfigured or its
-    base path is not writable.
-    """
+    """Lazily instantiate the sync folder handler on first use."""
     return FSSyncHandler()

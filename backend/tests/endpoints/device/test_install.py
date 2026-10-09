@@ -295,6 +295,15 @@ class TestOnline:
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == ["dev-online"]
 
+    def test_a_device_that_just_claimed_is_online_without_a_socket(
+        self, client, headers, device_headers, device
+    ):
+        _claim(client, device_headers)
+
+        response = client.get("/api/devices/online", headers=headers)
+
+        assert response.json() == ["dev-1"]
+
     def test_is_not_found_while_disabled(self, mocker, client, headers):
         mocker.patch.object(device_install, "DEVICE_INSTALL_ENABLED", False)
 

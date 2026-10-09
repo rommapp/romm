@@ -403,6 +403,7 @@ function onCardKeydown(e: KeyboardEvent) {
       :cover-src="coverSrc"
       :webp="webp"
       :active="coverActive"
+      :responsive="!hero && size !== 'lg' && size !== 'xl'"
       :morph-id="isSynthetic ? null : rom.id"
       @ratio="emit('ratio', { romId: rom.id, ratio: $event })"
     >

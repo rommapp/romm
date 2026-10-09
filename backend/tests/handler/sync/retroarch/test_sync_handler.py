@@ -22,6 +22,7 @@ from handler.sync.retroarch.sync_handler import (
 )
 from models.assets import Save, State
 from models.user import User
+from utils.filesystem import TEMP_FILE_PREFIX
 
 
 @pytest.fixture(autouse=True)
@@ -155,6 +156,14 @@ class TestListBlobFiles:
         (outside / "secret").write_bytes(b"secret")
         (tmp_path / "config").mkdir()
         os.symlink(outside, tmp_path / "config" / "linked")
+
+        assert await blob_handler.list_blob_files("config") == []
+
+    async def test_skips_interrupted_write_temp_files(
+        self, blob_handler: FSRetroArchSyncHandler, tmp_path: Path
+    ):
+        (tmp_path / "config").mkdir()
+        (tmp_path / "config" / f"{TEMP_FILE_PREFIX}ab12").write_bytes(b"partial")
 
         assert await blob_handler.list_blob_files("config") == []
 

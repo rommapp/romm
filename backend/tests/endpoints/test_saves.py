@@ -3659,7 +3659,42 @@ class TestSlotScopedDedupeMatrix:
         assert sync.last_sync_hash == "retry_hash"
         assert sync.last_sync_server_hash == first.json()["content_hash"]
 
-    def test_a_deduplicated_upload_of_a_pruned_version_records_no_sync(
+    def _device_upload(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        device: Device,
+        payload: bytes,
+        filename: str,
+        extra: str = "",
+    ):
+        return client.post(
+            f"/api/saves?rom_id={rom.id}&slot=slot1&emulator=test_emulator"
+            f"&device_id={device.id}&content_hash=client_hash{extra}",
+            files={
+                "saveFile": (filename, BytesIO(payload), "application/octet-stream")
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    def _upload_then_supersede(
+        self, client, access_token: str, rom: Rom, device: Device, payload: bytes
+    ) -> tuple[int, int]:
+        """Upload ``payload`` then newer bytes, both backdated so a bump is visible."""
+        old = self._device_upload(client, access_token, rom, device, payload, "old.sav")
+        new = self._device_upload(
+            client, access_token, rom, device, b"a newer save", "new.sav"
+        )
+        assert new.status_code == status.HTTP_200_OK
+        base_time = datetime.now(timezone.utc) - timedelta(hours=2)
+        db_save_handler.update_save(old.json()["id"], {"updated_at": base_time})
+        db_save_handler.update_save(
+            new.json()["id"], {"updated_at": base_time + timedelta(hours=1)}
+        )
+        return old.json()["id"], new.json()["id"]
+
+    def test_a_deduplicated_upload_of_an_older_version_makes_it_the_slot_head(
         self,
         client,
         access_token: str,
@@ -3667,28 +3702,81 @@ class TestSlotScopedDedupeMatrix:
         device: Device,
         _isolated_assets_dir,
     ):
-        """A retained slot can prune the matched older version before recording."""
-        old_payload = _build_fixture_a_zip()
+        payload = _build_fixture_a_zip()
+        old_id, _ = self._upload_then_supersede(
+            client, access_token, rom, device, payload
+        )
 
-        def upload(payload: bytes, filename: str, extra: str = ""):
-            return client.post(
-                f"/api/saves?rom_id={rom.id}&slot=slot1&emulator=test_emulator"
-                f"&device_id={device.id}&content_hash=client_hash{extra}",
-                files={
-                    "saveFile": (filename, BytesIO(payload), "application/octet-stream")
-                },
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-
-        old = upload(old_payload, "old.sav")
-        new = upload(b"a newer save", "new.sav")
-        assert new.status_code == status.HTTP_200_OK
-
-        retry = upload(old_payload, "old.sav", "&autocleanup=true&autocleanup_limit=1")
+        retry = self._device_upload(
+            client, access_token, rom, device, payload, "old.sav"
+        )
 
         assert retry.status_code == status.HTTP_200_OK
-        assert db_save_handler.get_save_by_id(old.json()["id"]) is None
-        assert db_device_save_sync_handler.get_sync(device.id, old.json()["id"]) is None
+        assert retry.json()["id"] == old_id
+        head_ids = db_save_handler.get_save_ids(
+            user_id=device.user_id,
+            rom_ids=[rom.id],
+            slot="slot1",
+            order_by="updated_at",
+        )
+        assert head_ids[0] == old_id
+        bumped = db_save_handler.get_save_by_id(old_id)
+        assert bumped is not None
+        sync = db_device_save_sync_handler.get_sync(device.id, old_id)
+        assert sync is not None
+        assert to_utc(sync.last_synced_at) == to_utc(bumped.updated_at)
+
+    def test_a_deduplicated_retry_of_the_slot_head_keeps_its_timestamp(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        device: Device,
+        _isolated_assets_dir,
+    ):
+        payload = _build_fixture_a_zip()
+        first = self._device_upload(
+            client, access_token, rom, device, payload, "head.sav"
+        )
+        backdated = datetime.now(timezone.utc) - timedelta(hours=1)
+        db_save_handler.update_save(first.json()["id"], {"updated_at": backdated})
+
+        retry = self._device_upload(
+            client, access_token, rom, device, payload, "head.sav"
+        )
+
+        assert retry.json()["id"] == first.json()["id"]
+        head = db_save_handler.get_save_by_id(first.json()["id"])
+        assert head is not None
+        assert to_utc(head.updated_at) <= backdated
+
+    def test_a_deduplicated_upload_survives_the_prune_it_triggers(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        device: Device,
+        _isolated_assets_dir,
+    ):
+        payload = _build_fixture_a_zip()
+        old_id, new_id = self._upload_then_supersede(
+            client, access_token, rom, device, payload
+        )
+
+        retry = self._device_upload(
+            client,
+            access_token,
+            rom,
+            device,
+            payload,
+            "old.sav",
+            "&autocleanup=true&autocleanup_limit=1",
+        )
+
+        assert retry.status_code == status.HTTP_200_OK
+        assert retry.json()["id"] == old_id
+        assert db_save_handler.get_save_by_id(new_id) is None
+        assert db_device_save_sync_handler.get_sync(device.id, old_id) is not None
 
     def test_same_bytes_different_slots_creates_distinct_records(
         self,
