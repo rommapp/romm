@@ -656,14 +656,15 @@ class DBCollectionsHandler(DBBaseHandler):
         collection_id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
-        """Refresh the smart collections whose criteria name `collection_id`,
-        since sharing or unsharing it changes what other owners' criteria match."""
-        for smart_collection in session.scalars(select(SmartCollection)).all():
-            filters = RomFilterParams.from_stored_criteria(
-                smart_collection.filter_criteria
-            )
+        """Refresh the smart collections whose criteria name `collection_id`, since
+        sharing, unsharing or deleting it changes what their criteria match."""
+        rows = session.execute(
+            select(SmartCollection.id, SmartCollection.filter_criteria)
+        ).all()
+        for smart_collection_id, criteria in rows:
+            filters = RomFilterParams.from_stored_criteria(criteria)
             if filters and filters.collection_id == collection_id:
-                self.refresh_smart_collection(smart_collection.id, session=session)
+                self.refresh_smart_collection(smart_collection_id, session=session)
 
     @begin_session
     def refresh_smart_collections_for_roms(

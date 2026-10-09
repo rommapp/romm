@@ -345,20 +345,29 @@ def test_the_cross_user_smart_scopes_revision_empties_only_those_caches(
     admin_user: User, editor_user: User
 ):
     migration = _load_migration("0152_cross_user_smart_scopes.py")
-    private = db_collection_handler.add_collection(
-        Collection(name="Secret", description="", user_id=admin_user.id)
+    private, public = (
+        db_collection_handler.add_collection(
+            Collection(
+                name=name, description="", user_id=admin_user.id, is_public=is_public
+            )
+        )
+        for name, is_public in (("Secret", False), ("Shared", True))
     )
-    borrowed, own = (
+    borrowed, own, borrowed_public = (
         db_collection_handler.add_smart_collection(
             SmartCollection(
                 name="Scoped",
                 user_id=owner.id,
                 rom_ids=[1, 2],
                 path_covers_small=["cover"],
-                filter_criteria={"collection_id": private.id},
+                filter_criteria={"collection_id": scope.id},
             )
         )
-        for owner in (editor_user, admin_user)
+        for owner, scope in (
+            (editor_user, private),
+            (admin_user, private),
+            (editor_user, public),
+        )
     )
 
     with sync_engine.begin() as connection:
@@ -366,10 +375,12 @@ def test_the_cross_user_smart_scopes_revision_empties_only_those_caches(
             migration.upgrade()
 
     cleared = db_collection_handler.get_smart_collection(borrowed.id)
-    kept = db_collection_handler.get_smart_collection(own.id)
-    assert cleared is not None and kept is not None
+    assert cleared is not None
     assert (cleared.rom_ids, cleared.path_covers_small) == ([], [])
-    assert (kept.rom_ids, kept.path_covers_small) == ([1, 2], ["cover"])
+    for kept_id in (own.id, borrowed_public.id):
+        kept = db_collection_handler.get_smart_collection(kept_id)
+        assert kept is not None
+        assert (kept.rom_ids, kept.path_covers_small) == ([1, 2], ["cover"])
 
 
 def test_the_user_oidc_sub_revision_reverses_and_replays():

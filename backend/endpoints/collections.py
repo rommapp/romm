@@ -91,17 +91,29 @@ def _record_collection(
     record(action, request, AuditTarget.of_collection(collection), data)
 
 
-def _check_criteria_collection(criteria: Any, user_id: int) -> None:
-    """Refuse smart collection criteria scoped to a collection the owner can't see."""
-    if not isinstance(criteria, dict):
-        return
+def _criteria_collection_id(criteria: object) -> int | None:
     filters = RomFilterParams.from_stored_criteria(criteria)
-    collection_id = filters.collection_id if filters else None
-    if not collection_id:
+    return filters.collection_id if filters else None
+
+
+def _check_criteria_collection(
+    criteria: object, user_id: int, kept_id: int | None = None
+) -> None:
+    """Refuse criteria newly scoped to a collection the owner can't see."""
+    collection_id = _criteria_collection_id(criteria)
+    if not collection_id or collection_id == kept_id:
         return
     collection = db_collection_handler.get_collection(collection_id)
     if not collection or (collection.user_id != user_id and not collection.is_public):
         raise CollectionNotFoundInDatabaseException(collection_id)
+
+
+def _refresh_scoped_smart_collections(collection_id: int) -> None:
+    # The change is already committed, so failing the request would misreport it.
+    try:
+        db_collection_handler.refresh_smart_collections_scoped_to(collection_id)
+    except Exception as e:
+        log.error(f"Couldn't refresh smart collections scoped to {collection_id}: {e}")
 
 
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
@@ -545,7 +557,7 @@ async def update_collection(
         collection, cleaned_data, ("name", "description", "is_public")
     )
     if "is_public" in changed:
-        db_collection_handler.refresh_smart_collections_scoped_to(id)
+        _refresh_scoped_smart_collections(id)
     new_artwork = artwork is not None and artwork.filename is not None
     if (
         remove_cover
@@ -554,6 +566,10 @@ async def update_collection(
     ):
         changed.append("cover")
     before_ids, after_ids = set(collection.rom_ids), set(updated_collection.rom_ids)
+    if before_ids != after_ids:
+        refresh_affected_smart_collections(
+            sorted(before_ids ^ after_ids), membership_only=True
+        )
     if changed or before_ids != after_ids:
         _record_collection(
             request,
@@ -592,7 +608,7 @@ def update_collection_visibility(
         id, {"is_public": is_public}
     )
     if collection.is_public != is_public:
-        db_collection_handler.refresh_smart_collections_scoped_to(id)
+        _refresh_scoped_smart_collections(id)
 
     return CollectionSchema.model_validate(updated_collection)
 
@@ -722,7 +738,13 @@ async def update_smart_collection(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid JSON for filter_criteria field",
             ) from e
-        _check_criteria_collection(parsed_filter_criteria, request.user.id)
+        # The form resends the stored scope on every edit; the ROM filters
+        # already match nothing for one the owner has since lost.
+        _check_criteria_collection(
+            parsed_filter_criteria,
+            request.user.id,
+            kept_id=_criteria_collection_id(smart_collection.filter_criteria),
+        )
 
     cleaned_data = {
         "name": name if name is not None else smart_collection.name,
@@ -790,6 +812,7 @@ async def delete_collection(
 
     log.info(f"Deleting {hl(collection.name, color=BLUE)} from database")
     db_collection_handler.delete_collection(id)
+    _refresh_scoped_smart_collections(id)
     _record_collection(request, AuditAction.COLLECTION_DELETE, collection)
 
     try:

@@ -1112,3 +1112,193 @@ class TestRomFiltersRespectCollectionPrivacy:
         refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
         assert refreshed is not None
         assert refreshed.rom_ids == []
+
+    def test_sharing_through_the_edit_form_fills_other_owners_smart_scopes(
+        self,
+        client,
+        access_token: str,
+        editor_user: User,
+        private_collection: Collection,
+        rom: Rom,
+    ):
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Borrowed",
+                description="",
+                user_id=editor_user.id,
+                filter_criteria={"collection_id": private_collection.id},
+            )
+        )
+
+        response = client.put(
+            f"/api/collections/{private_collection.id}",
+            params={"is_public": True},
+            data={"rom_ids": json.dumps([rom.id])},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert refreshed is not None
+        assert refreshed.rom_ids == [rom.id]
+
+    def test_replacing_a_collections_roms_refreshes_its_smart_scopes(
+        self,
+        client,
+        access_token: str,
+        admin_user: User,
+        private_collection: Collection,
+        rom: Rom,
+    ):
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Within secret",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria={"collection_id": private_collection.id},
+            )
+        )
+        before = db_collection_handler.refresh_smart_collection(smart_collection.id)
+
+        response = client.put(
+            f"/api/collections/{private_collection.id}",
+            data={"rom_ids": "[]"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert before is not None and before.rom_ids == [rom.id]
+        assert response.status_code == status.HTTP_200_OK
+        refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert refreshed is not None
+        assert refreshed.rom_ids == []
+
+    def test_deleting_a_collection_empties_its_smart_scopes(
+        self,
+        client,
+        access_token: str,
+        admin_user: User,
+        private_collection: Collection,
+    ):
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Within secret",
+                description="",
+                user_id=admin_user.id,
+                filter_criteria={"collection_id": private_collection.id},
+            )
+        )
+        before = db_collection_handler.refresh_smart_collection(smart_collection.id)
+
+        response = client.delete(
+            f"/api/collections/{private_collection.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert before is not None and before.rom_ids != []
+        assert response.status_code == status.HTTP_200_OK
+        refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert refreshed is not None
+        assert refreshed.rom_ids == []
+
+    def test_a_smart_collection_that_lost_its_scope_can_still_be_renamed(
+        self,
+        client,
+        access_token: str,
+        other_user_token: str,
+        editor_user: User,
+        private_collection: Collection,
+    ):
+        db_collection_handler.update_collection(
+            private_collection.id, {"is_public": True}
+        )
+        criteria = {"collection_id": private_collection.id}
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Borrowed",
+                description="",
+                user_id=editor_user.id,
+                filter_criteria=criteria,
+            )
+        )
+        unshared = client.put(
+            f"/api/collections/{private_collection.id}/visibility",
+            json={"is_public": False},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        response = client.put(
+            f"/api/collections/smart/{smart_collection.id}",
+            data={"name": "Renamed", "filter_criteria": json.dumps(criteria)},
+            headers={"Authorization": f"Bearer {other_user_token}"},
+        )
+
+        assert unshared.status_code == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["name"] == "Renamed"
+        assert response.json()["rom_ids"] == []
+
+    def test_smart_collection_cannot_be_rescoped_to_another_users_private_collection(
+        self,
+        client,
+        other_user_token: str,
+        editor_user: User,
+        private_collection: Collection,
+    ):
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Mine",
+                description="",
+                user_id=editor_user.id,
+                filter_criteria={"matched": True},
+            )
+        )
+
+        response = client.put(
+            f"/api/collections/smart/{smart_collection.id}",
+            data={
+                "filter_criteria": json.dumps({"collection_id": private_collection.id})
+            },
+            headers={"Authorization": f"Bearer {other_user_token}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_unusable_criteria_elsewhere_do_not_block_unsharing(
+        self,
+        client,
+        access_token: str,
+        editor_user: User,
+        private_collection: Collection,
+    ):
+        db_collection_handler.update_collection(
+            private_collection.id, {"is_public": True}
+        )
+        db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Broken",
+                description="",
+                user_id=editor_user.id,
+                filter_criteria=[1],
+            )
+        )
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Borrowed",
+                description="",
+                user_id=editor_user.id,
+                filter_criteria={"collection_id": private_collection.id},
+            )
+        )
+        shared = db_collection_handler.refresh_smart_collection(smart_collection.id)
+
+        response = client.put(
+            f"/api/collections/{private_collection.id}/visibility",
+            json={"is_public": False},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert shared is not None and shared.rom_ids != []
+        assert response.status_code == status.HTTP_200_OK
+        refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert refreshed is not None
+        assert refreshed.rom_ids == []
