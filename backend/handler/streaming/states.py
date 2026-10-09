@@ -42,7 +42,10 @@ from handler.streaming import broker, commands, webstation
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import set_session_disc
 from handler.sync.retroarch.emulator_names import retroarch_aliases
-from handler.sync.retroarch.sync_handler import emulator_from_dir_name
+from handler.sync.retroarch.sync_handler import (
+    emulator_from_dir_name,
+    group_states_by_slot,
+)
 from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, State
 from models.rom import Rom
@@ -509,7 +512,7 @@ async def prune_state_history(
 ) -> int:
     """Delete the oldest states past the retention limit. Returns how many went.
 
-    A missing file still loses its row.
+    A missing file still loses its row; a capture a Cloud Sync slot serves stays.
 
     Args:
         history: the newest-first list a caller already holds, saving a refetch.
@@ -523,6 +526,15 @@ async def prune_state_history(
         else user_states_for_emulator(user.id, rom.id, emulator)
     )
     stale = states[limit:]
+    if stale:
+        served = {
+            state.id
+            for state in group_states_by_slot(
+                db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
+            ).values()
+            if not state.missing_from_fs
+        }
+        stale = [state for state in stale if state.id not in served]
     for state in stale:
         screenshot = state.screenshot
         db_state_handler.delete_state(state.id)

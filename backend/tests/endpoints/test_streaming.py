@@ -5721,6 +5721,17 @@ def test_prune_state_history_drops_oldest_past_limit(rom: Rom, admin_user: User)
     }
 
 
+def _mgba_capture(
+    rom: Rom, user: User, file_name: str, day: int, **fields: Any
+) -> State:
+    stored = _add_state(rom, user, file_name, "mgba", core="mgba")
+    db_state_handler.update_state(
+        stored.id,
+        {"updated_at": datetime(2026, 1, day, tzinfo=timezone.utc)} | fields,
+    )
+    return stored
+
+
 def _prune_to_one(rom: Rom, user: User) -> set[int]:
     with (
         patch("handler.streaming.states.STREAMING_STATE_HISTORY_LIMIT", 1),
@@ -5730,6 +5741,43 @@ def _prune_to_one(rom: Rom, user: User) -> set[int]:
     return {
         s.id for s in db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
     }
+
+
+def test_a_prune_keeps_a_capture_cloud_sync_serves_from_its_slot(
+    rom: Rom, admin_user: User
+):
+    """A device holding the capture as its slot 1 would lose that slot."""
+    served = _mgba_capture(rom, admin_user, "Game.20260101-000000000000.state1", 1)
+    older = _mgba_capture(rom, admin_user, "Game.20260102-000000000000.state", 2)
+    newest = _mgba_capture(rom, admin_user, "Game.20260103-000000000000.state", 3)
+
+    remaining = _prune_to_one(rom, admin_user)
+
+    assert remaining == {served.id, newest.id}
+    assert older.id not in remaining
+
+
+def test_a_prune_drops_a_capture_once_a_newer_state_takes_its_slot(
+    rom: Rom, admin_user: User
+):
+    _mgba_capture(rom, admin_user, "Game.20260101-000000000000.state1", 1)
+    newest = _mgba_capture(rom, admin_user, "Game.20260103-000000000000.state", 3)
+    synced = _add_state(rom, admin_user, "Game.state1", "mgba")
+    db_state_handler.update_state(
+        synced.id, {"updated_at": datetime(2026, 1, 2, tzinfo=timezone.utc)}
+    )
+
+    assert _prune_to_one(rom, admin_user) == {newest.id, synced.id}
+
+
+def test_a_prune_drops_a_served_capture_whose_file_is_gone(rom: Rom, admin_user: User):
+    """Cloud Sync lists only states on disk, so a missing one serves nothing."""
+    _mgba_capture(
+        rom, admin_user, "Game.20260101-000000000000.state1", 1, missing_from_fs=True
+    )
+    newest = _mgba_capture(rom, admin_user, "Game.20260103-000000000000.state", 3)
+
+    assert _prune_to_one(rom, admin_user) == {newest.id}
 
 
 def test_prune_state_history_drops_the_pruned_thumbnail(rom: Rom, admin_user: User):
