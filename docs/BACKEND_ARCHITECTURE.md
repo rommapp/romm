@@ -1164,8 +1164,10 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 - **Save slots:** a `.srm` path maps to the `autosave` versions of its ROM and
   core, and serves the newest under the client's spelling of the game (or the
   ROM's name). An unslotted save at that path serves only until one exists. A
-  PUT whose bytes differ from the newest adds a version and prunes that lineage
-  (emulator and extension) to `MAX_SAVES_PER_SLOT`. A DELETE removes every
+  PUT whose bytes differ from the newest adds a version, which files under the
+  `default` channel and becomes its next snapshot through `hold_legacy_upload`,
+  then prunes that lineage (emulator and extension) to `MAX_SAVES_PER_SLOT`.
+  A DELETE removes every
   `autosave` version of it plus the unslotted save. Named slots are never
   touched. Other files (`.rtc`, core-specific saves) and PSP bundles stay single
   unslotted saves, overwritten in place.

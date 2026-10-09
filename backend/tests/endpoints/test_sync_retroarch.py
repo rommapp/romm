@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from redis.exceptions import RedisError
 from tests import factories
 from tests.factories import make_rom, make_save, make_screenshot
+from tests.handler.snapshots.pushes import SRAM, md5, part, push, save_entry
 
 from handler.database import (
     db_deleted_asset_handler,
@@ -22,12 +23,15 @@ from handler.database import (
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
+    db_snapshot_handler,
     db_state_handler,
 )
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.redis_handler import async_cache
+from handler.snapshots.manifest import Manifest
+from handler.snapshots.write import SAVE_PART, write_snapshot
 from handler.sync.retroarch import psp, sync_handler
 from handler.sync.retroarch.device import CLIENT_DEVICE_IDENTIFIER
 from handler.sync.retroarch.emulator_names import (
@@ -35,10 +39,11 @@ from handler.sync.retroarch.emulator_names import (
     to_retroarch_dir_name,
     to_romm_emulator,
 )
-from models.assets import Save, Screenshot, State
+from models.assets import Save, SaveFormat, Screenshot, State
+from models.channel import DEFAULT_CHANNEL_LABEL
 from models.device import SyncMode
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from models.snapshot import Snapshot, SnapshotKind, SnapshotState
 from models.user import User
 
@@ -922,6 +927,43 @@ class TestRetroArchSyncSaveSlots:
         assert re.fullmatch(r"test_rom \[2026-01-01_00-00-\d{2}\]\.srm", save.file_name)
         assert (save.slot, save.emulator) == ("autosave", "snes9x")
         assert self._get(client) == b"data"
+
+    def test_upload_becomes_the_default_channels_next_snapshot(
+        self, client, admin_user: User, rom: Rom
+    ):
+        rom_file = db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name="test_rom.sfc",
+                file_path=rom.fs_path,
+                file_size_bytes=1024,
+                sha1_hash="d" * 40,
+            )
+        )
+        first = asyncio.run(
+            write_snapshot(
+                push(
+                    admin_user,
+                    rom,
+                    rom_file,
+                    Manifest(save=save_entry(fmt=SaveFormat.NATIVE), emulator="snes9x"),
+                    expected=None,
+                    parts={SAVE_PART: part(SRAM)},
+                )
+            )
+        )
+
+        assert self._put(client, b"retroarch progress") == status.HTTP_201_CREATED
+
+        assert first.snapshot.channel_id is not None
+        channel = db_snapshot_handler.get_channel(first.snapshot.channel_id)
+        assert channel is not None and channel.label == DEFAULT_CHANNEL_LABEL
+        assert channel.current_snapshot_id is not None
+        current = db_snapshot_handler.get_snapshot(channel.current_snapshot_id)
+        assert current is not None and current.parent_snapshot_id == first.snapshot.id
+        held = db_snapshot_handler.get_stored_content(current).save
+        assert held is not None
+        assert held.content_hash == md5(b"retroarch progress")
 
     def test_upload_queries_and_writes_off_the_event_loop(
         self, client, rom: Rom, monkeypatch: pytest.MonkeyPatch

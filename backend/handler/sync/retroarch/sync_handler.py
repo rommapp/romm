@@ -35,6 +35,7 @@ from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.filesystem.assets_handler import hash_save_content
 from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save
+from handler.snapshots.bridge import hold_legacy_upload
 from handler.sync.retroarch import psp
 from handler.sync.retroarch.emulator_names import (
     retroarch_aliases,
@@ -385,7 +386,9 @@ async def store_save(
     scanned.user_id = user.id
     scanned.emulator = emulator
     scanned.slot = AUTOSAVE_SLOT
-    await asyncio.to_thread(db_save_handler.add_save, save=scanned)
+    db_save = await asyncio.to_thread(db_save_handler.add_save, save=scanned)
+    await hold_legacy_upload(db_save, user, rom, None)
+    # After the bridge, so a version it just made a snapshot hold is never pruned.
     if MAX_SAVES_PER_SLOT:
         await prune_save_slot(
             user.id, rom.id, AUTOSAVE_SLOT, MAX_SAVES_PER_SLOT, lineage=lineage
