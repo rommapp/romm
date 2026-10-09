@@ -1292,6 +1292,12 @@ users.read / users.write     : User management (admin)
 tasks.run                    : Task execution
 ```
 
+### Permission Groups
+
+Endpoints also check the caller's permission group (`handler/auth/permissions.py`), which holds entity and action grants plus per-user overrides. Most entities line up with a scope above; `streaming` and `emulation` have none. A `read` grant shows streaming and lets the user join someone else's session, while an "own items only" `read` shows it without the join. Starting a session takes `read` and `write`. A user who loses the grant keeps control of a session they already hold.
+
+`emulation` covers the in-browser players (EmulatorJS, Ruffle, js-dos, PICO-8, EasyRPG). A `read` grant lets the user play in the browser and join someone else's netplay room, and an "own items only" `read` plays without the join. Hosting a room takes `read` and `write`. A password room admits anyone with the password, so the invite stands in for the grant. ROM files are also served for downloads, so the grant hides the players in the UI and is enforced on the netplay sockets, the room list and the EasyRPG file route.
+
 ### CSRF Protection
 
 - Cookie: `romm_csrftoken` (signed with `itsdangerous`)

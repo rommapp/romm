@@ -1121,3 +1121,101 @@ def test_the_sibling_platform_names_revision_renames_only_the_stale_name():
         ("c64", "Commodore 64"),
         ("c128-custom", "C128 (custom)"),
     }
+
+
+_GROUPS = sa.table(
+    "permission_groups",
+    sa.column("id", sa.Integer),
+    sa.column("name", sa.String),
+    sa.column("description", sa.String),
+    sa.column("is_default", sa.Boolean),
+    sa.column("hide_unrated_roms", sa.Boolean),
+)
+_GRANTS = sa.table(
+    "permission_group_grants",
+    sa.column("group_id", sa.Integer),
+    sa.column("entity", sa.String),
+    sa.column("action", sa.String),
+    sa.column("own_only", sa.Boolean),
+)
+_OVERRIDES = sa.table(
+    "user_permission_overrides",
+    sa.column("user_id", sa.Integer),
+    sa.column("entity", sa.String),
+    sa.column("action", sa.String),
+    sa.column("granted", sa.Boolean),
+    sa.column("own_only", sa.Boolean),
+)
+
+
+_PLAY_ENTITIES = ("streaming", "emulation")
+
+
+def _play_grants(connection: sa.Connection) -> set[tuple[int, str, str, bool]]:
+    return {
+        (row.group_id, row.entity, row.action, bool(row.own_only))
+        for row in connection.execute(
+            sa.select(
+                _GRANTS.c.group_id,
+                _GRANTS.c.entity,
+                _GRANTS.c.action,
+                _GRANTS.c.own_only,
+            ).where(_GRANTS.c.entity.in_(_PLAY_ENTITIES))
+        )
+    }
+
+
+def _play_overrides(connection: sa.Connection) -> int:
+    return connection.execute(
+        sa.select(sa.func.count())
+        .select_from(_OVERRIDES)
+        .where(_OVERRIDES.c.entity.in_(_PLAY_ENTITIES))
+    ).scalar_one()
+
+
+def test_the_play_permissions_revision_backfills_reverses_and_replays(
+    admin_user: User,
+):
+    """0153 grants streaming and emulation to every existing group and downgrades cleanly."""
+    migration = _load_migration("0153_play_permissions.py")
+
+    with sync_engine.begin() as connection:
+        connection.execute(
+            _GROUPS.insert().values(
+                name="Locked down",
+                description="",
+                is_default=False,
+                hide_unrated_roms=False,
+            )
+        )
+        connection.execute(
+            _OVERRIDES.insert(),
+            [
+                {
+                    "user_id": admin_user.id,
+                    "entity": entity,
+                    "action": "write",
+                    "granted": False,
+                    "own_only": False,
+                }
+                for entity in _PLAY_ENTITIES
+            ],
+        )
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            migration.downgrade()
+            assert _play_grants(connection) == set()
+            assert _play_overrides(connection) == 0
+
+            migration.upgrade()
+            migration.upgrade()
+
+        group_ids: set[int] = set(connection.execute(sa.select(_GROUPS.c.id)).scalars())
+        assert len(group_ids) >= 3
+        assert _play_grants(connection) == {
+            (group_id, entity, action, False)
+            for group_id in group_ids
+            for entity in _PLAY_ENTITIES
+            for action in ("read", "write")
+        }
+        connection.execute(_GROUPS.delete().where(_GROUPS.c.name == "Locked down"))

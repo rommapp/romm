@@ -101,7 +101,14 @@ export const useStreamingStore = defineStore("streaming", () => {
     supportsDiscSwap: boolean;
     hasManualDiscSwap: boolean;
   } {
-    const caps = containerForPlatform(slug)?.capabilities;
+    return containerCapabilities(containerForPlatform(slug));
+  }
+
+  /** The same capability set for a container already in hand. */
+  function containerCapabilities(
+    container: StreamingContainer | null | undefined,
+  ): ReturnType<typeof platformCapabilities> {
+    const caps = container?.capabilities;
     if (!caps) return { ...NO_CAPABILITIES };
     return {
       maxSlots: caps.max_slots,
@@ -214,6 +221,8 @@ export const useStreamingStore = defineStore("streaming", () => {
    * the user is about to act on.
    */
   async function fetchJoinableSessions(force = false): Promise<void> {
+    // Streaming is off for this user, so there is nothing to join.
+    if (configLoaded.value && !isEnabled.value) return;
     if (joinableRequest) return joinableRequest;
     if (!force && Date.now() - joinableFetchedAt < JOINABLE_MAX_AGE_MS) return;
 
@@ -422,6 +431,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     containerLabelForPlatform,
     emulatorLabel,
     platformCapabilities,
+    containerCapabilities,
     fetchConfig,
     reset,
     claimSession,

@@ -334,11 +334,13 @@
     "assets": "Saves & states",
     "collections": "Collections",
     "devices": "Devices",
+    "emulation": "Játék a böngészőben",
     "firmware": "Firmware",
     "logs": "Logs",
     "platforms": "Platforms",
     "playlists": "Playlists",
     "roms": "Games",
+    "streaming": "Streaming",
     "tasks": "Tasks",
     "users": "Users"
   },

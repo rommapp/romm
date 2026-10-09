@@ -15,6 +15,7 @@ from handler.database import db_rom_handler, db_user_handler
 from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom, netplay_handler
 from handler.socket_handler import netplay_socket_handler
 from logger.logger import log
+from models.permission import PermAction, PermEntity
 
 if TYPE_CHECKING:
     from models.user import User
@@ -68,10 +69,21 @@ async def _authenticated_user(sid: str) -> User | None:
     return user
 
 
-async def _playable_rom_id(sid: str, game_id: Any) -> int | None:
-    """The ROM id if the socket's user passes the gate the ROM endpoints apply, else None."""
+async def _playable_rom_id(
+    sid: str, game_id: Any, *actions: PermAction, owned: bool
+) -> int | None:
+    """The ROM id if the socket's user may play it in the browser, else None.
+
+    Args:
+        actions: the emulation grants needed besides the ROM gate.
+        owned: whether the room is the user's own, where an "own items only" grant counts.
+    """
     user = await _authenticated_user(sid)
     if user is None or Scope.ROMS_READ not in user.oauth_scopes:
+        return None
+
+    perms = resolve_permissions(user)
+    if not all(perms.allows(PermEntity.EMULATION, a, owned=owned) for a in actions):
         return None
 
     try:
@@ -80,7 +92,7 @@ async def _playable_rom_id(sid: str, game_id: Any) -> int | None:
         return None
 
     rom = db_rom_handler.get_rom_visibility(rom_id)
-    if rom is None or not resolve_permissions(user).can_see_rom(rom):
+    if rom is None or not perms.can_see_rom(rom):
         return None
     return rom.id
 
@@ -146,7 +158,9 @@ async def open_room(sid: str, data: RoomData) -> str | None:
     if not session_id or not player_id:
         return "Invalid data: sessionId and playerId required"
 
-    rom_id = await _playable_rom_id(sid, extra_data.get("game_id"))
+    rom_id = await _playable_rom_id(
+        sid, extra_data.get("game_id"), PermAction.READ, PermAction.WRITE, owned=True
+    )
     if rom_id is None:
         log.warning("Netplay room creation rejected: not authorized for this rom")
         return "Not authorized to open a room for this game"
@@ -195,11 +209,17 @@ async def join_room(
     if not current_room:
         return "Room not found"
 
-    # A password room admits whoever has the password, any other needs the ROM.
+    # A password room admits whoever has the password, any other needs the ROM
+    # and a full emulation read, as the room is someone else's.
     if current_room["password"]:
         if not _password_matches(current_room["password"], _room_password(data)):
             return "Incorrect password"
-    elif await _playable_rom_id(sid, current_room["game_id"]) is None:
+    elif (
+        await _playable_rom_id(
+            sid, current_room["game_id"], PermAction.READ, owned=False
+        )
+        is None
+    ):
         log.warning("Netplay join rejected: not authorized for this rom")
         return "Not authorized to join this room"
 
