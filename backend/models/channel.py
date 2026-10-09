@@ -7,6 +7,7 @@ from sqlalchemy import BigInteger, ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import FILE_NAME_MAX_LENGTH, BaseModel
+from models.rom import ROM_SHA1_MAX_LENGTH
 
 if TYPE_CHECKING:
     from models.snapshot import Snapshot
@@ -14,8 +15,6 @@ if TYPE_CHECKING:
 
 CHANNEL_LABEL_MAX_LENGTH = 255
 DEFAULT_CHANNEL_LABEL = "default"
-# Matches `RomFile.sha1_hash`, the value this column copies.
-ROM_SHA1_MAX_LENGTH = 100
 
 
 class Channel(BaseModel):

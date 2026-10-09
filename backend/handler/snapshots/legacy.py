@@ -32,11 +32,7 @@ def may_load(
     emulators: Iterable[str | None] | None,
     cores: Iterable[str | None] | None,
 ) -> bool:
-    """Whether a client running one of `cores` or `emulators` might load `save`.
-
-    Cores decide when the save and the client both name one, else emulators do.
-    A side that names neither gets the benefit of the doubt.
-    """
+    """Whether a client running one of `cores` or `emulators` might load `save`."""
     named_cores = {c.lower() for c in cores or () if c}
     if save.core and named_cores:
         return save.core.lower() in named_cores
@@ -47,9 +43,8 @@ def may_load(
 
 
 def sync_file(files: Iterable[RomFile]) -> RomFile | None:
-    """The file a ROM's channels key to, as clients choose it: the one an
-    emulator loads, such as a `.cue`, else the first by name, which is disc 1
-    of a multi-disc set."""
+    """The file a ROM's channels key to: the one an emulator loads, such as a
+    `.cue`, else the first by name."""
     games = sorted(
         (
             f

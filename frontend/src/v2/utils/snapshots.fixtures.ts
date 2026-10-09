@@ -21,7 +21,7 @@ export const otherUsersDevice: DeviceRefSchema = {
   is_own: false,
 };
 
-export function stateFixture(
+export function bankStateFixture(
   hash: string,
   over: Partial<SnapshotStateSchema> = {},
 ): SnapshotStateSchema {
@@ -74,7 +74,7 @@ export function snapshotFixture(
       download_path: "/api/saves/1911/content",
       screenshot: null,
     },
-    states: { snes9x: { auto: stateFixture("a1b2") } },
+    states: { snes9x: { auto: bankStateFixture("a1b2") } },
     thumbnail: null,
     ...over,
   };

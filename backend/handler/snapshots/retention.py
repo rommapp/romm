@@ -13,9 +13,8 @@ BRANCH_LIFETIME = timedelta(days=SNAPSHOT_BRANCH_LIFETIME_DAYS)
 
 
 def _record_slot_losses(released: ReleasedContent) -> None:
-    """Record the slotted versions the deletion took, as the saves handler does
-    for its own removals, so negotiate never offers them back. Each slot's
-    record is written in its own transaction, after the rows went."""
+    """Record the slotted versions the deletion took, so negotiate never offers
+    them back."""
     losses: dict[tuple[int, int, str], list[str]] = {}
     for save in sorted(released.saves, key=lambda s: s.id):
         if save.slot and save.content_hash and save.rom_id is not None:
@@ -27,8 +26,7 @@ def _record_slot_losses(released: ReleasedContent) -> None:
 
 
 async def discard_content(released: ReleasedContent) -> None:
-    """Record the slot losses of rows already deleted, then remove their files,
-    logging each one."""
+    """Record the slot losses of rows already deleted, then remove their files."""
     _record_slot_losses(released)
     for row in [*released.saves, *released.states]:
         log.info(

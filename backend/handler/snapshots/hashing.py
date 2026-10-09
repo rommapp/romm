@@ -1,8 +1,5 @@
-"""A save unit's identity hash, computed by sigil when the binding is present.
-
-Sigil hashes a unit unpacked on disk, so the bytes go to a temporary folder
-first. Without the binding, `zip_identity_hash` applies the same rule.
-"""
+"""A save unit's identity hash, by sigil when the binding is present, else by
+`zip_identity_hash` under the same rule."""
 
 import asyncio
 import hashlib

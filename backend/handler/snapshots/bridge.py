@@ -25,9 +25,8 @@ from models.user import User
 async def hold_legacy_upload(
     save: Save, user: User, rom: Rom, device_id: str | None
 ) -> None:
-    """Make a legacy slot upload its channel's current, carrying the states
-    forward. A hardcore channel, a neutral current, or one `may_load` rules out
-    keeps the upload as a legacy save, since the legacy API cannot resolve them."""
+    """Make a legacy slot upload its channel's current, carrying the states forward.
+    A hardcore channel, a neutral current, or one `may_load` rules out stays legacy."""
     if save.channel_id is None or not save.content_hash:
         return
     channel = db_snapshot_handler.get_channel(save.channel_id)

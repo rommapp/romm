@@ -12,11 +12,8 @@ from models.assets import Save, SaveFormat, SaveShape
 async def copy_part(
     save: Save, shape: SaveShape | None, format: SaveFormat | None
 ) -> tuple[SaveEntry, UploadPart]:
-    """A push part holding a copy of `save`, with its screenshot.
-
-    The copy becomes a new row, so a legacy writer that overwrites `save` in
-    place never touches the snapshot's bytes.
-    """
+    """A push part holding a copy of `save` and its screenshot, so a legacy
+    writer overwriting `save` in place never touches the snapshot's bytes."""
     content_hash = await fs_asset_handler.compute_content_hash(save.full_path)
     if content_hash is None:
         raise FileNotFoundError(save.full_path)

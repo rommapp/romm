@@ -13,7 +13,9 @@ from unittest import mock
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from httpx2 import Response
 from tests.factories import make_platform, make_rom
+from tests.handler.snapshots.pushes import md5
 from tests.sigil_cards import (
     PS1_BLOCK,
     card_entries,
@@ -37,10 +39,6 @@ OTHER = "BASLUS-00067OTHER"
 THIRD = "BASLUS-00068THIRD"
 
 pytestmark = pytest.mark.usefixtures("_isolated_assets_dir")
-
-
-def md5(data: bytes) -> str:
-    return hashlib.md5(data, usedforsecurity=False).hexdigest()
 
 
 @pytest.fixture
@@ -101,7 +99,7 @@ def push(
     previous: dict[str, Any] | None = None,
     label: str = "default",
     file_name: str = "shared_card_1.mcd",
-):
+) -> Response:
     body: dict[str, Any] = {
         "rom_file_id": rom_file.id,
         "expected_current_id": previous["id"] if previous else None,
@@ -120,7 +118,7 @@ def push(
     )
 
 
-def created(response) -> dict[str, Any]:
+def created(response: Response) -> dict[str, Any]:
     assert response.status_code == status.HTTP_201_CREATED, response.text
     body: dict[str, Any] = response.json()
     return body

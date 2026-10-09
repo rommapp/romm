@@ -1,7 +1,6 @@
 """A whole memory card pushed as one game's save, cut down to that game's saves.
 
-A client without sigil may push the card every game shares. Stored as given,
-it would hand out every game's saves and change whenever any game writes.
+Stored whole, a shared card would hand out every game's saves.
 """
 
 from dataclasses import replace
@@ -30,8 +29,7 @@ async def own_saves_only(write: SnapshotWrite) -> SnapshotWrite:
     """The push with a native card holding other games' saves replaced by the
     game's per-game unit, in sigil's neutral form.
 
-    A card holding only the game's saves, or none of them, stays as sent, and so
-    does every save when sigil is absent or fails.
+    Every save stays as sent when sigil is absent or fails.
 
     Raises:
         ContentMismatch: the card sent doesn't hash to the manifest's value.

@@ -179,7 +179,7 @@ def channel_refs(
     }
 
 
-def _shot(screenshot: Screenshot | None) -> ScreenshotRefSchema | None:
+def _screenshot_ref(screenshot: Screenshot | None) -> ScreenshotRefSchema | None:
     if screenshot is None:
         return None
     return ScreenshotRefSchema(id=screenshot.id, download_path=screenshot.download_path)
@@ -250,9 +250,9 @@ def _snapshot_schema(
     viewer: User,
 ) -> SnapshotSchema:
     save = content.save
-    save_shot = _shot(save_shots.get(save.id)) if save else None
+    save_shot = _screenshot_ref(save_shots.get(save.id)) if save else None
     auto_shots = [
-        _shot(state_shots.get(slots[THUMBNAIL_FALLBACK_SLOT].id))
+        _screenshot_ref(state_shots.get(slots[THUMBNAIL_FALLBACK_SLOT].id))
         for _, slots in sorted(content.states.items())
         if THUMBNAIL_FALLBACK_SLOT in slots
     ]
@@ -312,7 +312,7 @@ def _snapshot_schema(
                     emulator_version=state.emulator_version,
                     core_version=state.core_version,
                     download_path=state.download_path,
-                    screenshot=_shot(state_shots.get(state.id)),
+                    screenshot=_screenshot_ref(state_shots.get(state.id)),
                 )
                 for slot, state in slots.items()
             }

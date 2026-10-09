@@ -16,7 +16,7 @@ import {
   channelFixture,
   channelRefFixture,
   snapshotFixture,
-  stateFixture as bankState,
+  bankStateFixture,
 } from "@/v2/utils/snapshots.fixtures";
 import EmulatorJS from "./EmulatorJS.vue";
 
@@ -672,8 +672,8 @@ describe("EmulatorJS launch screen, booting a snapshot", () => {
       channel: channelRefFixture(channel),
       states: {
         snes9x: {
-          auto: bankState("a1b2", { id: 7 }),
-          "0": bankState("c3d4", { id: 8 }),
+          auto: bankStateFixture("a1b2", { id: 7 }),
+          "0": bankStateFixture("c3d4", { id: 8 }),
         },
       },
       ...over,
@@ -735,7 +735,7 @@ describe("EmulatorJS launch screen, booting a snapshot", () => {
 
   it("falls back to the save without a state this player runs", async () => {
     mocks.getSnapshot.mockResolvedValue({
-      data: snapshot({ states: { bsnes: { auto: bankState("e5f6") } } }),
+      data: snapshot({ states: { bsnes: { auto: bankStateFixture("e5f6") } } }),
     });
 
     const wrapper = await launchScreen();

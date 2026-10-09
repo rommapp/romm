@@ -5,7 +5,7 @@ import { saveFixture } from "@/utils/assets.fixtures";
 import {
   channelFixture,
   snapshotFixture,
-  stateFixture,
+  bankStateFixture,
 } from "@/v2/utils/snapshots.fixtures";
 import SnapshotViewer, { type ViewerTarget } from "./SnapshotViewer.vue";
 
@@ -73,8 +73,8 @@ describe("SnapshotViewer", () => {
   it("plays a bank state only in a core the browser runs", async () => {
     const snapshot = snapshotFixture({
       states: {
-        snes9x: { auto: stateFixture("a1b2", { id: 7 }) },
-        bsnes: { auto: stateFixture("c3d4", { id: 8 }) },
+        snes9x: { auto: bankStateFixture("a1b2", { id: 7 }) },
+        bsnes: { auto: bankStateFixture("c3d4", { id: 8 }) },
       },
     });
     const wrapper = mountViewer(
@@ -148,7 +148,10 @@ describe("SnapshotViewer", () => {
       channel,
       snapshot: snapshotFixture({
         states: {
-          snes9x: { auto: stateFixture("a1"), "3": stateFixture("b22") },
+          snes9x: {
+            auto: bankStateFixture("a1"),
+            "3": bankStateFixture("b22"),
+          },
         },
       }),
     });
@@ -171,9 +174,9 @@ describe("SnapshotViewer", () => {
       snapshot: snapshotFixture({
         states: {
           snes9x: {
-            "10": stateFixture("a1"),
-            "2": stateFixture("b22"),
-            auto: stateFixture("c333"),
+            "10": bankStateFixture("a1"),
+            "2": bankStateFixture("b22"),
+            auto: bankStateFixture("c333"),
           },
         },
       }),

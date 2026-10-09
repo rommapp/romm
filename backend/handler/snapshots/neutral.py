@@ -1,9 +1,7 @@
 """The member names a neutral save unit may hold, per platform.
 
-Sigil builds neutral units on clients; RomM refuses one whose member names
-the platform's neutral form doesn't use. Platforms whose units are named
-after the game (cards, folders, title saves) are checked for structure only,
-by the archive check every upload passes.
+Units named after the game (cards, folders, title saves) get only the archive
+check every upload passes.
 """
 
 import re
@@ -73,8 +71,9 @@ def check_neutral_unit(
 ) -> None:
     """Refuse a neutral unit whose members aren't the platform's neutral names.
 
-    `members` is the archive's file entries, or the raw part's file name for a
-    `SINGLE` unit.
+    Args:
+        members: the archive's file entries, or the raw part's file name for a
+            `SINGLE` unit.
 
     Raises:
         NeutralUnitRejected: with the reason a client can show.

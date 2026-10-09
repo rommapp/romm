@@ -812,7 +812,7 @@ def _convertible_rom(save: Save) -> Rom | None:
     return None if rom.platform_slug in NATIVE_SAVE_PLATFORM_SLUGS else rom
 
 
-async def _converted(
+async def _restore_for_core(
     request: Request,
     save: Save,
     rom: Rom,
@@ -936,7 +936,7 @@ async def download_save(
         response = FileResponse(path=str(file_path), filename=save.file_name)
     else:
         options = _parse_options(option or [])
-        restored = await _converted(
+        restored = await _restore_for_core(
             request,
             save,
             rom,
@@ -1039,7 +1039,7 @@ async def merge_save_into_container(
             unit, game, target, container_path, content, companions
         )
 
-    restored = await _converted(
+    restored = await _restore_for_core(
         request,
         save,
         rom,

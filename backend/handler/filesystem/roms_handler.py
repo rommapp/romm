@@ -1071,9 +1071,8 @@ class FSRomsHandler(FSHandler):
         ]
         await self._read_converto_infos(converto_sources)
 
-        # Listings come in no fixed order; a ROM is identified by its first disc.
-        # Switch reads every file for its content type; elsewhere only the first
-        # disc's siblings are read, as the rest of its set.
+        # A ROM is identified by its first disc. Switch reads every file for its
+        # content type; elsewhere only the rest of the first disc's set is read.
         first_disc: _TitleIdSource | None = None
         for source in sorted(title_id_sources, key=_TitleIdSource.order):
             if first_disc is not None and not (

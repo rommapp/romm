@@ -1,11 +1,12 @@
-import { AxiosError, AxiosHeaders } from "axios";
+import { AxiosError } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { responseError } from "@/test-utils/serverError";
 import { saveContentHash } from "@/v2/utils/saveSync/hash";
 import {
   channelFixture,
   channelRefFixture,
   snapshotFixture,
-  stateFixture,
+  bankStateFixture,
 } from "@/v2/utils/snapshots.fixtures";
 import {
   buildPush,
@@ -29,21 +30,12 @@ function file(bytes: ArrayBuffer, fileName = "game.srm") {
   return { bytes, fileName };
 }
 
-function refusal(status: number, data: unknown): AxiosError {
-  return new AxiosError("refused", "ERR", undefined, undefined, {
-    status,
-    statusText: "",
-    data,
-    headers: {},
-    config: { headers: new AxiosHeaders() },
-  });
-}
-
 function conflict(data: unknown): AxiosError {
-  return refusal(409, data);
+  return responseError(409, data);
 }
 
-const parentGone = () => refusal(404, { detail: "Parent snapshot not found" });
+const parentGone = () =>
+  responseError(404, { detail: "Parent snapshot not found" });
 
 const target: SnapshotTarget = {
   romFileId: 7,
@@ -229,7 +221,7 @@ describe("SnapshotSession", () => {
   it("builds each push on the snapshot the last one made", async () => {
     const first = snapshotFixture({
       id: 43,
-      states: { mgba: { auto: stateFixture("e5f6") } },
+      states: { mgba: { auto: bankStateFixture("e5f6") } },
     });
     api.pushSnapshot
       .mockResolvedValueOnce({ data: first })
@@ -338,7 +330,7 @@ describe("sendPush", () => {
 
   it("drops carried states the server no longer holds, keeping its own", async () => {
     api.pushSnapshot
-      .mockRejectedValueOnce(refusal(400, { missing: ["state:mgba:1"] }))
+      .mockRejectedValueOnce(responseError(400, { missing: ["state:mgba:1"] }))
       .mockResolvedValueOnce({ data: snapshotFixture() });
 
     await sendPush(
@@ -357,7 +349,7 @@ describe("sendPush", () => {
   it("lands as a branch on the current when a hardcore channel refuses it", async () => {
     const branch = snapshotFixture({ id: 52, kind: "branch" });
     api.pushSnapshot
-      .mockRejectedValueOnce(refusal(409, { hardcore_downgrade: true }))
+      .mockRejectedValueOnce(responseError(409, { hardcore_downgrade: true }))
       .mockRejectedValueOnce(conflict({ current: { id: 42 }, branch }));
 
     const outcome = await sendPush(
@@ -377,7 +369,7 @@ describe("sendPush", () => {
 
   it("gives up when content it sends itself is called missing", async () => {
     api.pushSnapshot.mockRejectedValue(
-      refusal(400, { missing: ["state:mgba:0"] }),
+      responseError(400, { missing: ["state:mgba:0"] }),
     );
 
     await expect(

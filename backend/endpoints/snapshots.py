@@ -209,7 +209,9 @@ def readable_channel(request: Request, channel: Channel) -> bool:
     )
 
 
-def _readable(request: Request, id: int) -> tuple[Snapshot, Channel | None]:
+def _readable_snapshot_or_404(
+    request: Request, id: int
+) -> tuple[Snapshot, Channel | None]:
     snapshot = db_snapshot_handler.get_snapshot(id)
     if snapshot is None:
         raise _not_found()
@@ -228,10 +230,10 @@ def _readable(request: Request, id: int) -> tuple[Snapshot, Channel | None]:
 def visible_rom_file(request: Request, rom_file_id: int) -> tuple[RomFile, Rom]:
     rom_file = db_rom_handler.get_rom_file_by_id(rom_file_id)
     rom = db_rom_handler.get_rom(rom_file.rom_id) if rom_file else None
-    return _visible(request, rom_file, rom)
+    return _visible_rom_file_or_404(request, rom_file, rom)
 
 
-def _visible(
+def _visible_rom_file_or_404(
     request: Request, rom_file: RomFile | None, rom: Rom | None
 ) -> tuple[RomFile, Rom]:
     if rom_file is None or rom is None:
@@ -242,8 +244,7 @@ def _visible(
 
 def _own_device(request: Request, device_id: str | None) -> Device | None:
     """The caller's device a write is attributed to. Naming one takes
-    `devices.write`, as the legacy save upload requires, unless it is the
-    device the client token is bound to."""
+    `devices.write` unless it is the device the client token is bound to."""
     if device_id is None:
         return None
     if Scope.DEVICES_WRITE not in request.auth.scopes and device_id != token_device_id(
@@ -306,7 +307,9 @@ def get_snapshots(
         files = {f.id: f for f in db_rom_handler.get_rom_files_by_ids(file_ids)}
         for file_id in file_ids:
             found = files.get(file_id)
-            rom_file, rom = _visible(request, found, found.rom if found else None)
+            rom_file, rom = _visible_rom_file_or_404(
+                request, found, found.rom if found else None
+            )
             for channel in db_snapshot_handler.get_channels_for_file(
                 viewer.id, rom.platform_id, FileKey.of_file(rom_file)
             ):
@@ -387,7 +390,7 @@ def get_snapshot(
     in its channel, and as the current the device knows when it is the
     channel's current. `hold` without a device is a 400."""
     device = required_device(request, device_id) if hold else None
-    snapshot, channel = _readable(request, id)
+    snapshot, channel = _readable_snapshot_or_404(request, id)
     if device is not None and channel is not None:
         db_snapshot_handler.record_device_base(device.id, channel.id, snapshot.id)
     return build_snapshot_schema(snapshot, channel, request.user)
@@ -408,7 +411,7 @@ def _unprocessable(key: str, reason: str) -> HTTPException:
     )
 
 
-def _members(key: str, upload: UploadFile) -> tuple[list[str], bool]:
+def _upload_members(key: str, upload: UploadFile) -> tuple[list[str], bool]:
     """The upload's archive entries, or its own name for a raw file, and
     whether it is an archive."""
     try:
@@ -479,7 +482,7 @@ async def _read_push(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown part {key}"
             )
-        members, archived = _members(key, upload)
+        members, archived = _upload_members(key, upload)
         if key == SAVE_PART:
             save_members, save_archived = members, archived
         screenshot = uploads.get(
@@ -688,7 +691,7 @@ def update_snapshot(
     """Pin or unpin a snapshot for the caller, which any reader may do, or share
     an archival one, which only its owner may do."""
     viewer = request.user
-    snapshot, channel = _readable(request, id)
+    snapshot, channel = _readable_snapshot_or_404(request, id)
     if payload.is_public is not None:
         if snapshot.user_id != viewer.id:
             raise HTTPException(
@@ -720,7 +723,7 @@ def report_applied(request: Request, id: int, device_id: str) -> None:
     `GET /snapshots/{id}?hold=true` does. Naming a device takes `devices.write`
     unless it is the one the client token is bound to."""
     device = _own_device(request, device_id)
-    snapshot, channel = _readable(request, id)
+    snapshot, channel = _readable_snapshot_or_404(request, id)
     if device is None or channel is None:
         raise _not_found()
     db_snapshot_handler.record_device_base(device.id, channel.id, snapshot.id)

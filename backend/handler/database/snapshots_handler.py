@@ -170,8 +170,7 @@ def channel_for_slot(
     session: Session, user_id: int, rom_id: int, slot: str, create: bool = True
 ) -> uuid.UUID | None:
     """The channel a legacy upload to `slot` files its save under, created on
-    first use when `create` is set. A slot already linked keeps its channel,
-    renamed or not."""
+    first use when `create` is set. A linked slot keeps its channel."""
     label = channel_label(slot)
     if label is None:
         return None
@@ -680,8 +679,7 @@ class DBSnapshotsHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> None:
         """Set each row and its screenshot public exactly when a public channel or
-        public archival snapshot holds the row, so the content routes serve it
-        to other users."""
+        public archival snapshot holds the row."""
         shared = or_(
             Channel.is_public.is_(True),
             and_(Snapshot.kind == SnapshotKind.ARCHIVAL, Snapshot.is_public.is_(True)),
@@ -866,9 +864,8 @@ class DBSnapshotsHandler(DBBaseHandler):
     def prune_channel(
         self, channel_id: uuid.UUID, keep: int, session: Session = INJECTED_SESSION
     ) -> ReleasedContent:
-        """Delete the channel's snapshots past its newest `keep`. The current and
-        pinned snapshots always stay, pinned ones uncounted; a detached channel
-        keeps everything."""
+        """Delete the channel's unpinned snapshots past its newest `keep`, never the
+        current. A detached channel keeps everything."""
         channel = session.get(Channel, channel_id, with_for_update=True)
         if channel is None or channel.rom_id is None:
             return ReleasedContent()

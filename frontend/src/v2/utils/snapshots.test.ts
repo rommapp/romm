@@ -14,14 +14,14 @@ import {
 import {
   channelFixture,
   snapshotFixture,
-  stateFixture,
+  bankStateFixture,
 } from "@/v2/utils/snapshots.fixtures";
 
 const snapshot = snapshotFixture({
   id: 40,
   states: {
-    snes9x: { auto: stateFixture("a1"), "3": stateFixture("b2") },
-    bsnes: { auto: stateFixture("c3") },
+    snes9x: { auto: bankStateFixture("a1"), "3": bankStateFixture("b2") },
+    bsnes: { auto: bankStateFixture("c3") },
   },
 });
 

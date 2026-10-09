@@ -64,6 +64,7 @@ FULL_PATH_HASH_LENGTH = 64
 AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
+ROM_SHA1_MAX_LENGTH = 100
 
 # (metadata column, key) of each provider's alternative titles.
 PROVIDER_ALTERNATIVE_NAME_SOURCES = (
@@ -396,7 +397,7 @@ class RomFile(BaseModel):
     last_modified: Mapped[float | None] = mapped_column(default=None)
     crc_hash: Mapped[str | None] = mapped_column(String(100))
     md5_hash: Mapped[str | None] = mapped_column(String(100))
-    sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    sha1_hash: Mapped[str | None] = mapped_column(String(ROM_SHA1_MAX_LENGTH))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
     title_id: Mapped[str | None] = mapped_column(String(length=TITLE_ID_MAX_LENGTH))
@@ -496,11 +497,7 @@ class RomFile(BaseModel):
 
     @property
     def listing_order(self) -> tuple[PurePosixPath, str, str]:
-        """A folder's own files before its subfolders', each in natural name order.
-
-        A multi-disc ROM lists disc 1 first. The exact name settles two names
-        differing only in case.
-        """
+        """A folder's own files before its subfolders', each in natural name order."""
         name = self.file_name
         return PurePosixPath(self.file_path), compute_name_sort_key(name), name
 

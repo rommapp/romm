@@ -6,6 +6,7 @@ import zipfile
 from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -115,6 +116,12 @@ def merge() -> Iterator[mock.AsyncMock]:
         yield patched
 
 
+def _awaited_args(patched: mock.AsyncMock) -> tuple[Any, ...]:
+    awaited = patched.await_args
+    assert awaited is not None
+    return tuple(awaited.args)
+
+
 def _get(client: TestClient, save: Save, headers: dict[str, str], query: str = ""):
     return client.get(f"/api/saves/{save.id}/content?{query}", headers=headers)
 
@@ -162,7 +169,7 @@ class TestGetWithCore:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        unit, game, target, companions = restore.await_args.args
+        unit, game, target, companions = _awaited_args(restore)
         assert unit == UNIT
         assert game is GAME
         assert target.core == "duckstation"
@@ -195,7 +202,7 @@ class TestGetWithCore:
     ):
         _get(client, psx_save, headers, "core=duckstation")
 
-        assert restore.await_args.args[2].content_path == "Chrono Cross (USA).cue"
+        assert _awaited_args(restore)[2].content_path == "Chrono Cross (USA).cue"
 
     def test_the_content_path_is_the_saves_channel_file(
         self,
@@ -221,7 +228,7 @@ class TestGetWithCore:
 
         _get(client, psx_save, headers, "core=duckstation")
 
-        assert restore.await_args.args[2].content_path == "Chrono Cross (USA).bin"
+        assert _awaited_args(restore)[2].content_path == "Chrono Cross (USA).bin"
 
     @pytest.mark.parametrize("slug", ["nes", "snes", "genesis", "gba", "nds"])
     def test_a_platform_without_a_converter_serves_the_stored_file(
@@ -247,7 +254,7 @@ class TestGetWithCore:
         response = _get(client, save, headers, "core=dolphin")
 
         assert response.status_code == status.HTTP_200_OK
-        assert restore.await_args.args[2].core == "dolphin"
+        assert _awaited_args(restore)[2].core == "dolphin"
 
     @pytest.mark.parametrize("slug", ["neogeoaes", "turbografx-cd", "unknown"])
     def test_a_platform_sigil_does_not_sync_is_refused(
@@ -554,9 +561,7 @@ class TestPostContainer:
         assert response.status_code == status.HTTP_200_OK
         assert response.content == b"merged"
         assert response.headers["x-save-path"] == "pcsx-card1.mcd"
-        unit, game, target, container_path, container, companions = (
-            merge.await_args.args
-        )
+        unit, game, target, container_path, container, companions = _awaited_args(merge)
         assert (unit, game, container_path, container) == (
             UNIT,
             GAME,

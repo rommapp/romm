@@ -1,8 +1,7 @@
 """`write_snapshot`: the one path that stores a save, a state or a snapshot.
 
-Bytes land on disk first, then one transaction inserts the content rows and the
-snapshot and moves the channel's pointer under a row lock. A failed write
-removes the files it wrote.
+Bytes land on disk before the transaction that moves the channel's pointer, so a
+failed write removes the files it wrote.
 """
 
 import asyncio

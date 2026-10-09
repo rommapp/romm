@@ -1,6 +1,5 @@
 """The held, latest known and pinned contract, over HTTP with a device-bound token."""
 
-import hashlib
 import json
 import uuid
 from typing import Any
@@ -8,8 +7,9 @@ from typing import Any
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from httpx import Response
+from httpx2 import Response
 from tests.factories import make_device_token
+from tests.handler.snapshots.pushes import md5
 
 from handler.database import db_device_handler, db_rom_handler, db_snapshot_handler
 from handler.snapshots import retention
@@ -21,10 +21,6 @@ from models.user import User
 pytestmark = pytest.mark.usefixtures("_isolated_assets_dir")
 
 DEVICE_SCOPES = "roms.read assets.read assets.write"
-
-
-def md5(data: bytes) -> str:
-    return hashlib.md5(data, usedforsecurity=False).hexdigest()
 
 
 @pytest.fixture
@@ -59,7 +55,7 @@ def push(
     game_file: RomFile,
     data: bytes,
     **fields: Any,
-):
+) -> Response:
     """A save push that leaves `expected_current_id` out unless `fields` names it."""
     body = {
         "rom_file_id": game_file.id,
@@ -123,7 +119,7 @@ def chain(
     return pushed
 
 
-def hold(client: TestClient, headers: dict[str, str], id: int):
+def hold(client: TestClient, headers: dict[str, str], id: int) -> Response:
     return client.get(f"/api/snapshots/{id}", params={"hold": True}, headers=headers)
 
 

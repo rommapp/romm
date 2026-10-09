@@ -28,8 +28,8 @@ vi.mock("@/services/api/sync", () => ({
   },
 }));
 
-vi.mock("@/services/api/save", () => ({
-  AUTOSAVE_SLOT: "autosave",
+vi.mock("@/services/api/save", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/api/save")>()),
   default: {
     uploadSaves: mocks.uploadSaves,
     updateSave: mocks.updateSave,

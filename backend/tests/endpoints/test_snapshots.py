@@ -1,4 +1,3 @@
-import hashlib
 import io
 import json
 import uuid
@@ -9,9 +8,11 @@ from typing import Any
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from httpx2 import Response
 from sqlalchemy import update
 from tests._zipfile_shim import reload_zipfile
 from tests.factories import make_device_token, make_rom
+from tests.handler.snapshots.pushes import SRAM, md5
 
 from handler.database import (
     db_device_handler,
@@ -37,14 +38,9 @@ from models.platform import Platform
 from models.rom import Rom, RomFile
 from models.user import User
 
-SRAM = b"sram-bytes"
 STATE = b"state-bytes"
 
 pytestmark = pytest.mark.usefixtures("_isolated_assets_dir")
-
-
-def md5(data: bytes) -> str:
-    return hashlib.md5(data, usedforsecurity=False).hexdigest()
 
 
 @pytest.fixture
@@ -81,7 +77,7 @@ def post(
     body: dict[str, Any],
     files: dict[str, tuple[str, bytes]] | None = None,
     device_id: str | None = None,
-):
+) -> Response:
     return client.post(
         "/api/snapshots",
         params={"device_id": device_id} if device_id else None,
@@ -91,7 +87,12 @@ def post(
     )
 
 
-def first_push(client, headers, game_file, device_id=None):
+def first_push(
+    client: TestClient,
+    headers: dict[str, str],
+    game_file: RomFile,
+    device_id: str | None = None,
+) -> dict[str, Any]:
     response = post(
         client,
         headers,
@@ -110,7 +111,8 @@ def first_push(client, headers, game_file, device_id=None):
         device_id=device_id,
     )
     assert response.status_code == status.HTTP_201_CREATED, response.text
-    return response.json()
+    body: dict[str, Any] = response.json()
+    return body
 
 
 def test_a_push_creates_the_channel_and_returns_the_snapshot(
@@ -1720,7 +1722,7 @@ def push_save(
     data: bytes,
     device_id: str | None = None,
     **fields: Any,
-):
+) -> Response:
     """A save push that leaves `expected_current_id` out unless `fields` names it."""
     return post(
         client,
@@ -1737,7 +1739,7 @@ def feed(
     channel_id: str,
     device_id: str | None = None,
     **params: Any,
-):
+) -> Response:
     return client.get(
         "/api/snapshots",
         params={"channel_id": channel_id, **params}

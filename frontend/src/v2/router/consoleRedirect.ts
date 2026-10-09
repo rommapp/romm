@@ -2,9 +2,7 @@ import type { RouteLocationNormalized, RouteLocationRaw } from "vue-router";
 import { ROUTES } from "@/plugins/routeNames";
 
 /**
- * Where a v1 console route lands in the v2 UI, which has no console mode: the
- * same page in the main UI, so a bookmark or a console link never boots the v1
- * console player.
+ * The main-UI page for a v1 console route, since v2 has no console mode.
  *
  * Returns:
  *   The v2 location, or null for a route that is not a console one.

@@ -240,6 +240,10 @@ backend/
 │   │   ├── file_key.py        # The ROM file a channel belongs to
 │   │   ├── write.py           # write_snapshot, the one channel write path
 │   │   ├── shared_card.py     # A pushed shared card cut to the game's saves
+│   │   ├── bridge.py          # Legacy slot uploads onto their channel's line
+│   │   ├── clone.py           # Copying a stored save into a snapshot
+│   │   ├── hashing.py         # A save unit's identity hash
+│   │   ├── neutral.py         # Member names a neutral save unit may hold
 │   │   ├── legacy.py          # Slot labels and the file a ROM's channels key to
 │   │   └── retention.py       # Pruning snapshots and the rows only they held
 │   ├── auth/                  # Authentication subsystem
@@ -889,6 +893,7 @@ Token format: `rmm_` + 64 hex chars (32-byte random)
 | `0072`         | Client tokens table                       |
 | `0149`         | Save channels and snapshots               |
 | `0150`         | Slotted saves filed under channels        |
+| `0151`         | ROM file sigil identity                   |
 
 Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/PostgreSQL.
 
@@ -1053,9 +1058,8 @@ Facet endpoints (`/artists`, `/albums`, `/genres`, `/years`) return `{value, cou
 
 ### 6.9a Save channels (`/api/snapshots`, `/api/channels`)
 
-Channels replace save slots. A slotted upload through `/saves` files the save
-under the slot's channel with no snapshot (`channel_for_slot`); a client opts
-into snapshots by pushing here. `PUT` and delete on `/saves` or `/states` return
+A slotted upload through `/saves` files the save under the slot's channel with
+no snapshot (`channel_for_slot`); a client opts into snapshots by pushing here. `PUT` and delete on `/saves` or `/states` return
 409 for a row a channel snapshot holds.
 
 Once a channel has a current snapshot, legacy clients join it
@@ -1117,11 +1121,11 @@ parent's states. Hardcore channels and neutral current saves stay out.
   users' public ones, each with its current snapshot and `thumbnail`.
   `channel_file_id` is the file a new channel on the ROM keys to (`legacy.sync_file`).
 - **Retention:** each push keeps the channel's newest `SNAPSHOT_RETENTION`; the
-  `prune_snapshots` task drops branches after `SNAPSHOT_BRANCH_LIFETIME_DAYS` (30). Pruning deletes the content
-  rows only the pruned snapshots held; a row another snapshot still holds stays
-  public only while a shared one does. A slotted upload the bridge made a current
-  is one of them and goes with its snapshot; a legacy save no snapshot holds is
-  never removed by it. An archival snapshot whose ROM was removed returns when a
+  `prune_snapshots` task drops branches after `SNAPSHOT_BRANCH_LIFETIME_DAYS` (30).
+  Pruning deletes the content rows only the pruned snapshots held; a row another
+  snapshot still holds stays public only while a shared one does. A slotted upload
+  the bridge made a current goes with its snapshot; a legacy save no snapshot
+  holds stays. An archival snapshot whose ROM was removed returns when a
   scan finds a file with its `rom_sha1`; the task prunes one with no hash.
 
 ### 6.9b RetroArch Cloud Sync (`/api/sync/retroarch`)

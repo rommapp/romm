@@ -237,7 +237,9 @@ def negotiate(
     return operations
 
 
-def client_save(rom: Rom, data: bytes, updated_at: str = "2026-01-01T00:00:00Z"):
+def client_save(
+    rom: Rom, data: bytes, updated_at: str = "2026-01-01T00:00:00Z"
+) -> dict[str, Any]:
     return {
         "rom_id": rom.id,
         "file_name": "game.srm",
