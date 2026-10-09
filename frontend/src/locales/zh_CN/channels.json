@@ -49,6 +49,7 @@
   "play-state": "从此状态开始游玩",
   "play-state-named": "从 {core} {slot} 开始游玩",
   "remove-state": "从状态库中移除",
+  "remove-state-body": "频道的当前存档将变为不含该状态的此快照。包含该状态的快照会保留在历史记录中，直到被清理。",
   "remove-state-named": "从状态库中移除 {core} {slot}",
   "rename": "重命名",
   "rename-title": "重命名频道",

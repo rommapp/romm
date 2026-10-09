@@ -244,6 +244,7 @@ backend/
 │   │   ├── clone.py           # Copying a stored save into a snapshot
 │   │   ├── hashing.py         # A save unit's identity hash
 │   │   ├── neutral.py         # Member names a neutral save unit may hold
+│   │   ├── restore.py         # A stored save restored for one core via sigil
 │   │   ├── legacy.py          # Slot labels and the file a ROM's channels key to
 │   │   └── retention.py       # Pruning snapshots and the rows only they held
 │   ├── auth/                  # Authentication subsystem
@@ -1162,9 +1163,11 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
   a path across them. A PUT stores new assets under the folder's canonical id
   and rewrites an existing one under its own.
 - **Save slots:** a `.srm` path maps to the `autosave` versions of its ROM and
-  core, and serves the newest under the client's spelling of the game (or the
-  ROM's name). An unslotted save at that path serves only until one exists. A
-  PUT whose bytes differ from the newest adds a version, which files under the
+  core, listed under the client's spelling of the game (or the ROM's name).
+  Once a version exists, the path serves the `default` channel's current save
+  when it is native and `may_load` for that core, else the newest version. An
+  unslotted save at that path serves only until a version exists. A PUT whose
+  bytes differ from the save the path serves adds a version, which files under the
   `default` channel and becomes its next snapshot through `hold_legacy_upload`,
   then prunes that lineage (emulator and extension) to `MAX_SAVES_PER_SLOT`.
   A DELETE removes every

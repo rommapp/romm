@@ -14,12 +14,13 @@ import snapshotApi, {
 } from "@/services/api/snapshot";
 import { saveContentHash } from "@/v2/utils/saveSync/hash";
 import { bankOf, channelLabelForSlot } from "@/v2/utils/snapshots";
+import { uuidv7 } from "@/v2/utils/uuid";
 
 /** Where a session's pushes land, and the snapshot they build on. */
 export interface SnapshotTarget {
   romFileId: number;
-  /** Null until the first push creates the channel named `label`. */
-  channelId: string | null;
+  /** For a new channel, the id its first push creates it under. */
+  channelId: string;
   label: string;
   expectedCurrentId: number | null;
   /** Null carries the expected current. */
@@ -103,7 +104,7 @@ export function sessionTarget({
   return {
     ...ran,
     romFileId,
-    channelId: channel?.id ?? null,
+    channelId: channel?.id ?? uuidv7(),
     label: channel?.label ?? label,
     expectedCurrentId: channel?.current_snapshot_id ?? null,
     parentSnapshotId: null,
@@ -186,7 +187,7 @@ export function buildPush(
   const manifest: SnapshotManifest = {
     rom_file_id: target.romFileId,
     expected_current_id: target.expectedCurrentId,
-    ...(target.channelId ? { channel_id: target.channelId } : {}),
+    channel_id: target.channelId,
     label: target.label,
     ...(target.parentSnapshotId != null
       ? { parent_snapshot_id: target.parentSnapshotId }
@@ -325,6 +326,58 @@ export async function sendPush(push: SnapshotPush): Promise<PushOutcome> {
       attempt = next;
     }
   }
+}
+
+/** A held push the server took, and what it made of it. */
+export interface SentPush {
+  push: SnapshotPush;
+  outcome: PushOutcome;
+}
+
+function sameBase(a: SnapshotManifest, b: SnapshotManifest): boolean {
+  return (
+    a.channel_id === b.channel_id &&
+    a.expected_current_id === b.expected_current_id &&
+    a.parent_snapshot_id === b.parent_snapshot_id
+  );
+}
+
+/**
+ * A held push rebuilt on the snapshot the held push before it made, so pushes
+ * held while offline chain like a live session's instead of branching.
+ *
+ * Returns:
+ *   `push` unchanged when `previous` was built on another base.
+ */
+export function chainPush(
+  push: SnapshotPush,
+  previous: SentPush,
+): SnapshotPush {
+  if (!sameBase(push.manifest, previous.push.manifest)) return push;
+  const { kind, snapshot } = previous.outcome;
+  const { parent_snapshot_id: _, states, ...rest } = push.manifest;
+  const manifest: SnapshotManifest =
+    kind === "current"
+      ? { ...rest, expected_current_id: snapshot.id }
+      : { ...rest, parent_snapshot_id: snapshot.id };
+  if (states) {
+    const bank = bankOf(snapshot);
+    const written = new Set(push.files.map((file) => file.key));
+    manifest.states = Object.fromEntries(
+      Object.entries(states).map(([core, slots]) => [
+        core,
+        {
+          ...bank[core],
+          ...Object.fromEntries(
+            Object.entries(slots).filter(([slot]) =>
+              written.has(statePart(core, slot)),
+            ),
+          ),
+        },
+      ]),
+    );
+  }
+  return { ...push, manifest };
 }
 
 /** `sendPush` while the page unloads; false when it is too big to go. */

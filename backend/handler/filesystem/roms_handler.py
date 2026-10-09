@@ -726,10 +726,7 @@ class FSRomsHandler(FSHandler):
         sigil_service = SigilService()
 
         def _record_title_id_source(path: Path, rom_file: RomFile) -> None:
-            """Queue a file for extraction when sigil can read a title id from it.
-
-            An unchanged N64 file keeps its stored read, which took the whole ROM.
-            """
+            """Queue a file for extraction when sigil can read a title id from it."""
             if (
                 sigil_platform
                 and _may_hold_title_id(path, rom_file.category)

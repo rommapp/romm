@@ -49,6 +49,7 @@
   "play-state": "Graj od tego stanu",
   "play-state-named": "Graj od {core} {slot}",
   "remove-state": "Usuń z banku",
+  "remove-state-body": "Bieżący zapis kanału staje się tą migawką bez tego stanu. Migawki, które go zawierają, pozostają w historii, dopóki nie zostaną wyczyszczone.",
   "remove-state-named": "Usuń {core} {slot} z banku",
   "rename": "Zmień nazwę",
   "rename-title": "Zmień nazwę kanału",

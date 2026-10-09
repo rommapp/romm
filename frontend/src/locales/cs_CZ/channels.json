@@ -49,6 +49,7 @@
   "play-state": "Hrát z tohoto stavu",
   "play-state-named": "Hrát z {core} {slot}",
   "remove-state": "Odebrat z banky",
+  "remove-state-body": "Aktuální uložená pozice kanálu se stane tímto snímkem bez tohoto stavu. Snímky, které ho obsahují, zůstanou v historii, dokud nebudou pročištěny.",
   "remove-state-named": "Odebrat {core} {slot} z banky",
   "rename": "Přejmenovat",
   "rename-title": "Přejmenovat kanál",

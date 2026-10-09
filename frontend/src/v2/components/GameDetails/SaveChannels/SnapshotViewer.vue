@@ -10,7 +10,11 @@ import type {
 import { formatRelativeDate } from "@/utils";
 import { useDeviceLabel } from "@/v2/composables/useDeviceLabel";
 import { emulatorKey } from "@/v2/utils/assets";
-import { AUTO_STATE_SLOT, snapshotBadges } from "@/v2/utils/snapshots";
+import {
+  AUTO_STATE_SLOT,
+  snapshotBadges,
+  stateSlotLabel,
+} from "@/v2/utils/snapshots";
 
 /** What the drawer shows: a snapshot, or a save an older client filed without one. */
 export type ViewerTarget =
@@ -142,9 +146,7 @@ const canPlay = computed(() => {
 });
 
 function slotLabel(slot: string): string {
-  return slot === AUTO_STATE_SLOT
-    ? t("channels.slot-auto")
-    : t("channels.slot-n", { slot });
+  return stateSlotLabel(slot, t);
 }
 
 function downloadSave() {

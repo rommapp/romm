@@ -3,6 +3,7 @@ import hashlib
 import itertools
 import os
 import re
+import uuid
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
@@ -31,7 +32,7 @@ from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.redis_handler import async_cache
 from handler.snapshots.manifest import Manifest
-from handler.snapshots.write import SAVE_PART, write_snapshot
+from handler.snapshots.write import SAVE_PART, WriteResult, write_snapshot
 from handler.sync.retroarch import psp, sync_handler
 from handler.sync.retroarch.device import CLIENT_DEVICE_IDENTIFIER
 from handler.sync.retroarch.emulator_names import (
@@ -40,7 +41,7 @@ from handler.sync.retroarch.emulator_names import (
     to_romm_emulator,
 )
 from models.assets import Save, SaveFormat, Screenshot, State
-from models.channel import DEFAULT_CHANNEL_LABEL
+from models.channel import DEFAULT_CHANNEL_LABEL, Channel
 from models.device import SyncMode
 from models.platform import Platform
 from models.rom import Rom, RomFile
@@ -928,10 +929,9 @@ class TestRetroArchSyncSaveSlots:
         assert (save.slot, save.emulator) == ("autosave", "snes9x")
         assert self._get(client) == b"data"
 
-    def test_upload_becomes_the_default_channels_next_snapshot(
-        self, client, admin_user: User, rom: Rom
-    ):
-        rom_file = db_rom_handler.add_rom_file(
+    @pytest.fixture
+    def sync_file(self, rom: Rom) -> RomFile:
+        return db_rom_handler.add_rom_file(
             RomFile(
                 rom_id=rom.id,
                 file_name="test_rom.sfc",
@@ -940,18 +940,45 @@ class TestRetroArchSyncSaveSlots:
                 sha1_hash="d" * 40,
             )
         )
-        first = asyncio.run(
+
+    def _push_to_channel(
+        self,
+        admin_user: User,
+        rom: Rom,
+        rom_file: RomFile,
+        data: bytes,
+        channel_id: uuid.UUID | None = None,
+        fmt: SaveFormat = SaveFormat.NATIVE,
+        emulator: str = "snes9x",
+        with_part: bool = True,
+    ) -> WriteResult:
+        """Push `data` onto the default channel, starting it when `channel_id` is None."""
+        channel = db_snapshot_handler.get_channel(channel_id) if channel_id else None
+        return asyncio.run(
             write_snapshot(
                 push(
                     admin_user,
                     rom,
                     rom_file,
-                    Manifest(save=save_entry(fmt=SaveFormat.NATIVE), emulator="snes9x"),
-                    expected=None,
-                    parts={SAVE_PART: part(SRAM)},
+                    Manifest(save=save_entry(data, fmt), emulator=emulator),
+                    expected=channel.current_snapshot_id if channel else None,
+                    channel_id=channel_id,
+                    parts={SAVE_PART: part(data)} if with_part else None,
                 )
             )
         )
+
+    def _manifest_save_hash(self, client: TestClient) -> str:
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+        entries: list[dict[str, str]] = response.json()
+        [entry] = [e for e in entries if e["path"].startswith("saves/")]
+        assert entry["path"] == "saves/Snes9x/test_rom.srm"
+        return entry["hash"]
+
+    def test_upload_becomes_the_default_channels_next_snapshot(
+        self, client, admin_user: User, rom: Rom, sync_file: RomFile
+    ):
+        first = self._push_to_channel(admin_user, rom, sync_file, SRAM)
 
         assert self._put(client, b"retroarch progress") == status.HTTP_201_CREATED
 
@@ -964,6 +991,87 @@ class TestRetroArchSyncSaveSlots:
         held = db_snapshot_handler.get_stored_content(current).save
         assert held is not None
         assert held.content_hash == md5(b"retroarch progress")
+
+    def test_serves_newer_channel_progress_over_an_older_upload(
+        self, client, admin_user: User, rom: Rom, sync_file: RomFile
+    ):
+        first = self._push_to_channel(admin_user, rom, sync_file, SRAM)
+        self._put(client, b"retroarch progress")
+
+        self._push_to_channel(
+            admin_user, rom, sync_file, b"web progress", first.snapshot.channel_id
+        )
+
+        assert self._get(client) == b"web progress"
+        assert self._manifest_save_hash(client) == md5(b"web progress")
+        with mock.patch.object(fs_asset_handler, "write_file") as write_file:
+            assert self._put(client, b"web progress") == status.HTTP_204_NO_CONTENT
+        write_file.assert_not_called()
+
+    def test_restoring_an_older_snapshot_changes_what_it_serves(
+        self, client, admin_user: User, rom: Rom, sync_file: RomFile
+    ):
+        first = self._push_to_channel(admin_user, rom, sync_file, SRAM)
+        self._put(client, b"retroarch progress")
+
+        self._push_to_channel(
+            admin_user,
+            rom,
+            sync_file,
+            SRAM,
+            first.snapshot.channel_id,
+            with_part=False,
+        )
+
+        assert self._get(client) == SRAM
+        assert self._manifest_save_hash(client) == md5(SRAM)
+
+    @pytest.mark.parametrize(
+        ("fmt", "emulator"),
+        [(SaveFormat.NEUTRAL, "snes9x"), (SaveFormat.NATIVE, "mgba")],
+        ids=["neutral", "other_core"],
+    )
+    def test_an_unloadable_channel_current_falls_back_to_the_versions(
+        self,
+        client,
+        admin_user: User,
+        rom: Rom,
+        sync_file: RomFile,
+        fmt: SaveFormat,
+        emulator: str,
+    ):
+        first = self._push_to_channel(admin_user, rom, sync_file, SRAM)
+        self._put(client, b"retroarch progress")
+
+        self._push_to_channel(
+            admin_user,
+            rom,
+            sync_file,
+            b"elsewhere",
+            first.snapshot.channel_id,
+            fmt=fmt,
+            emulator=emulator,
+        )
+
+        assert self._get(client) == b"retroarch progress"
+        assert self._manifest_save_hash(client) == md5(b"retroarch progress")
+
+    def test_a_hardcore_channel_current_falls_back_to_the_versions(
+        self, client, admin_user: User, rom: Rom, sync_file: RomFile
+    ):
+        first = self._push_to_channel(admin_user, rom, sync_file, SRAM)
+        self._put(client, b"retroarch progress")
+        self._push_to_channel(
+            admin_user, rom, sync_file, b"hardcore run", first.snapshot.channel_id
+        )
+        assert first.snapshot.channel_id is not None
+        with sync_session.begin() as session:
+            channel = session.get(Channel, first.snapshot.channel_id)
+            assert channel is not None
+            channel.is_hardcore = True
+
+        assert self._get(client) == b"retroarch progress"
+        assert self._manifest_save_hash(client) == md5(b"retroarch progress")
 
     def test_upload_queries_and_writes_off_the_event_loop(
         self, client, rom: Rom, monkeypatch: pytest.MonkeyPatch

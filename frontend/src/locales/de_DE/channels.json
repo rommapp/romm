@@ -49,6 +49,7 @@
   "play-state": "Ab diesem Savestate spielen",
   "play-state-named": "Ab {core} {slot} spielen",
   "remove-state": "Aus der Sammlung entfernen",
+  "remove-state-body": "Der aktuelle Spielstand des Kanals wird zu diesem Snapshot ohne diesen Savestate. Snapshots, die ihn enthalten, bleiben im Verlauf, bis sie bereinigt werden.",
   "remove-state-named": "{core} {slot} aus der Sammlung entfernen",
   "rename": "Umbenennen",
   "rename-title": "Kanal umbenennen",

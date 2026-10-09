@@ -49,6 +49,7 @@
   "play-state": "이 저장 상태에서 실행",
   "play-state-named": "{core} {slot}에서 실행",
   "remove-state": "뱅크에서 제거",
+  "remove-state-body": "채널의 현재 세이브가 이 저장 상태를 뺀 이 스냅샷이 됩니다. 이 저장 상태를 가진 스냅샷은 정리될 때까지 기록에 남습니다.",
   "remove-state-named": "뱅크에서 {core} {slot} 제거",
   "rename": "이름 변경",
   "rename-title": "채널 이름 변경",

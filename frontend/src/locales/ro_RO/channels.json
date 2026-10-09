@@ -49,6 +49,7 @@
   "play-state": "Joacă din această stare",
   "play-state-named": "Joacă din {core} {slot}",
   "remove-state": "Elimină din bancă",
+  "remove-state-body": "Salvarea curentă a canalului devine acest instantaneu fără acea stare. Instantaneele care o conțin rămân în istoric până când sunt curățate.",
   "remove-state-named": "Elimină {core} {slot} din bancă",
   "rename": "Redenumește",
   "rename-title": "Redenumește canalul",

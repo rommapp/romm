@@ -49,6 +49,7 @@
   "play-state": "Jouer à partir de cet état",
   "play-state-named": "Jouer à partir de {core} {slot}",
   "remove-state": "Retirer de la banque",
+  "remove-state-body": "La sauvegarde actuelle du canal devient cet instantané sans cet état. Les instantanés qui le contiennent restent dans l'historique jusqu'à leur purge.",
   "remove-state-named": "Retirer {core} {slot} de la banque",
   "rename": "Renommer",
   "rename-title": "Renommer le canal",

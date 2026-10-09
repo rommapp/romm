@@ -262,6 +262,7 @@ class DBSnapshotsHandler(DBBaseHandler):
         slots: Collection[tuple[int, str]],
         emulators: Collection[str | None] | None = None,
         cores: Collection[str | None] | None = None,
+        include_hardcore: bool = True,
         session: Session = INJECTED_SESSION,
     ) -> dict[tuple[int, str], Save]:
         """The current save of each legacy slot's channel by (rom_id, slot),
@@ -285,7 +286,7 @@ class DBSnapshotsHandler(DBBaseHandler):
             channel_id = channel_for_slot(session, user_id, rom_id, slot, create=False)
             if channel_id is None:
                 continue
-            save = session.scalar(
+            query = (
                 select(Save)
                 .join(Snapshot, Snapshot.save_id == Save.id)
                 .join(Channel, Channel.current_snapshot_id == Snapshot.id)
@@ -294,6 +295,9 @@ class DBSnapshotsHandler(DBBaseHandler):
                     or_(Save.format.is_(None), Save.format == SaveFormat.NATIVE),
                 )
             )
+            if not include_hardcore:
+                query = query.where(Channel.is_hardcore.is_(False))
+            save = session.scalar(query)
             if save is None or not may_load(save, emulators, cores):
                 continue
             heads[(rom_id, slot)] = save

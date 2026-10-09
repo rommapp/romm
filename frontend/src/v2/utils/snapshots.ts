@@ -28,6 +28,16 @@ export function channelLabelForSlot(slot: string): string {
 /** The state slot a snapshot client boots from by default. */
 export const AUTO_STATE_SLOT = "auto";
 
+/** What a state slot is called on screen. */
+export function stateSlotLabel(
+  slot: string,
+  t: (key: string, named?: Record<string, unknown>) => string,
+): string {
+  return slot === AUTO_STATE_SLOT
+    ? t("channels.slot-auto")
+    : t("channels.slot-n", { slot });
+}
+
 /** RetroArch's default slot, where a client with a single manual slot files its captures. */
 export const MANUAL_STATE_SLOT = "0";
 

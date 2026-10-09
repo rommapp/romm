@@ -49,6 +49,7 @@
   "play-state": "Jogar a partir deste estado",
   "play-state-named": "Jogar a partir de {core} {slot}",
   "remove-state": "Remover do banco",
+  "remove-state-body": "O save atual do canal passa a ser este snapshot sem esse estado. Os snapshots que o contêm ficam no histórico até serem removidos.",
   "remove-state-named": "Remover {core} {slot} do banco",
   "rename": "Renomear",
   "rename-title": "Renomear canal",

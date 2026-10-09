@@ -1,7 +1,4 @@
-"""A whole memory card pushed as one game's save, cut down to that game's saves.
-
-Stored whole, a shared card would hand out every game's saves.
-"""
+"""A whole memory card pushed as one game's save, cut down to that game's saves."""
 
 from dataclasses import replace
 
@@ -26,14 +23,12 @@ from utils.memory_cards import content_hash_of_bytes
 
 
 async def own_saves_only(write: SnapshotWrite) -> SnapshotWrite:
-    """The push with a native card holding other games' saves replaced by the
-    game's per-game unit, in sigil's neutral form.
-
-    Every save stays as sent when sigil is absent or fails.
+    """The push with a native card holding other games' saves cut to the game's neutral unit.
 
     Raises:
         ContentMismatch: the card sent doesn't hash to the manifest's value.
     """
+    # Without sigil, or when it can't split the card, the card is stored as sent.
     entry = write.manifest.save
     part = write.parts.get(SAVE_PART)
     sigil_platform = SIGIL_RESTORE_PLATFORM_SLUGS.get(write.rom.platform_slug)

@@ -49,6 +49,7 @@
   "play-state": "このステートセーブからプレイ",
   "play-state-named": "{core} {slot} からプレイ",
   "remove-state": "バンクから削除",
+  "remove-state-body": "チャンネルの現在のセーブは、このステートセーブを除いたこのスナップショットになります。このステートセーブを含むスナップショットは、整理されるまで履歴に残ります。",
   "remove-state-named": "{core} {slot} をバンクから削除",
   "rename": "名前を変更",
   "rename-title": "チャンネル名を変更",

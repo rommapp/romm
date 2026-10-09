@@ -199,10 +199,6 @@ def negotiate_sync(
     file (same content_hash) already exists on the server under a slot. This is
     intentional, since saves can be cloned across slots and null slots overlap
     with manual uploads.
-
-    Once a snapshot client keeps a slot's channel, the slot's server save is
-    the save of the channel's current snapshot, unless that save is in sigil's
-    neutral form.
     """
     device_id: str | None = payload.device_id or token_device_id(request)
     if not device_id:

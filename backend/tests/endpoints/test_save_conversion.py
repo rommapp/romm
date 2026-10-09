@@ -33,11 +33,12 @@ from handler.database import (
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler
 from handler.snapshots.file_key import FileKey
-from models.assets import Save
+from models.assets import Save, SaveFormat, SaveShape
 from models.device import Device
 from models.permission import HiddenEntity, PermEntity
 from models.rom import Rom, RomFile
 from models.user import User
+from utils.zip_cache import ensure_zipfile_writable
 
 UNIT = b"stored unit"
 GAME = SigilGame(result=SimpleNamespace(platform="psx"), game_ids=("SLUS-01041",))
@@ -53,6 +54,15 @@ def _stored(save: Save, data: bytes = UNIT) -> Save:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     return save
+
+
+def _neutral_gba_unit() -> bytes:
+    ensure_zipfile_writable()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr("save.sram", b"battery")
+        zf.writestr("clock.rtc", b"clock")
+    return buffer.getvalue()
 
 
 def _rom_on(slug: str, name: str, user: User) -> Rom:
@@ -91,7 +101,7 @@ def device(admin_user: User) -> Device:
 @pytest.fixture
 def stored_game() -> Iterator[mock.Mock]:
     with mock.patch(
-        "endpoints.saves.SigilService.stored_game", return_value=GAME
+        "handler.snapshots.restore.SigilService.stored_game", return_value=GAME
     ) as patched:
         yield patched
 
@@ -244,6 +254,46 @@ class TestGetWithCore:
         assert response.content == UNIT
         restore.assert_not_awaited()
 
+    def test_a_neutral_single_unit_without_a_converter_serves_the_stored_file(
+        self, client, headers, admin_user: User, restore
+    ):
+        save = _stored(
+            make_save(
+                _rom_on("gba", "Game", admin_user),
+                admin_user,
+                "save.sram",
+                shape=SaveShape.SINGLE,
+                format=SaveFormat.NEUTRAL,
+            )
+        )
+
+        response = _get(client, save, headers, "core=mgba")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.content == UNIT
+        restore.assert_not_awaited()
+
+    @pytest.mark.parametrize("shape", [SaveShape.MULTI, SaveShape.FOLDER])
+    def test_a_unit_archive_without_a_converter_is_refused(
+        self, client, headers, admin_user: User, restore, shape: SaveShape
+    ):
+        save = _stored(
+            make_save(
+                _rom_on("gba", "Game", admin_user),
+                admin_user,
+                "save.zip",
+                shape=shape,
+                format=SaveFormat.NEUTRAL,
+            ),
+            _neutral_gba_unit(),
+        )
+
+        response = _get(client, save, headers, "core=mgba")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "gba" in response.json()["detail"]
+        restore.assert_not_awaited()
+
     def test_a_wii_save_converts_for_dolphin(
         self, client, headers, admin_user: User, stored_game, restore
     ):
@@ -273,7 +323,9 @@ class TestGetWithCore:
     def test_without_the_binding_conversion_is_unavailable(
         self, client, headers, psx_save: Save, restore
     ):
-        with mock.patch("endpoints.saves.SigilService.stored_game", return_value=None):
+        with mock.patch(
+            "handler.snapshots.restore.SigilService.stored_game", return_value=None
+        ):
             response = _get(client, psx_save, headers, "core=duckstation")
 
         assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
@@ -668,6 +720,25 @@ class TestPostContainer:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.content == UNIT
+        merge.assert_not_awaited()
+
+    def test_a_unit_archive_without_a_converter_is_refused(
+        self, client, headers, admin_user: User, merge
+    ):
+        save = _stored(
+            make_save(
+                _rom_on("gba", "Game", admin_user),
+                admin_user,
+                "save.zip",
+                shape=SaveShape.MULTI,
+                format=SaveFormat.NEUTRAL,
+            ),
+            _neutral_gba_unit(),
+        )
+
+        response = _post(client, save, headers)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
         merge.assert_not_awaited()
 
     def test_another_users_private_save_is_not_found(

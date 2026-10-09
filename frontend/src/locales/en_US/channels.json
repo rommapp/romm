@@ -49,6 +49,7 @@
   "play-state": "Play from this state",
   "play-state-named": "Play from {core} {slot}",
   "remove-state": "Remove from the bank",
+  "remove-state-body": "The channel's current save becomes this snapshot without that state. Snapshots that hold it stay in the history until they are pruned.",
   "remove-state-named": "Remove {core} {slot} from the bank",
   "rename": "Rename",
   "rename-title": "Rename channel",

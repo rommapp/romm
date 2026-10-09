@@ -105,9 +105,7 @@ def unpack_save_unit(
     max_total_bytes: int | None = None,
     max_entry_bytes: int | None = None,
 ) -> UnpackedUnit:
-    """Write a save unit's files under `root`: a zip's `check_zip` entries by
-    name, skipping any declared over `max_entry_bytes`, else the raw unit as
-    `RAW_UNIT_NAME`.
+    """Write a save unit's files under `root`: a zip's safe entries by name, else the raw unit.
 
     Raises:
         UnsafeArchive: `check_zip` refuses the zip, or its entries declare more

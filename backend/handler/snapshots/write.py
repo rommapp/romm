@@ -1,8 +1,4 @@
-"""`write_snapshot`: the one path that stores a save, a state or a snapshot.
-
-Bytes land on disk before the transaction that moves the channel's pointer, so a
-failed write removes the files it wrote.
-"""
+"""`write_snapshot`, the one path that stores a save, a state or a snapshot."""
 
 import asyncio
 import enum
@@ -269,6 +265,11 @@ async def _hash_unhashed(content: StoredContent) -> None:
             )
 
 
+def _check_visible(channel: Channel, author: User) -> None:
+    if channel.user_id != author.id and not channel.is_public:
+        raise NotVisible("channel")
+
+
 def _target_channel(write: SnapshotWrite) -> Channel | None:
     target = write.channel
     if target is None:
@@ -281,8 +282,7 @@ def _target_channel(write: SnapshotWrite) -> Channel | None:
         if not target.label:
             raise LabelRequired("a new channel needs a label")
         return None
-    if channel.user_id != write.author.id and not channel.is_public:
-        raise NotVisible("channel")
+    _check_visible(channel, write.author)
     if not FileKey.of_channel(channel).matches(FileKey.of_file(write.rom_file)):
         raise FileMismatch("the ROM file does not match the channel's")
     return channel
@@ -429,13 +429,20 @@ async def copied_part(row: Save | State) -> UploadPart:
     )
 
 
-async def _free_tagged_name(folder: str, file_name: str) -> str:
-    """`file_name` tagged with the time now, on a millisecond no file in `folder` holds."""
+async def _reserve_tagged_name(folder: str, file_name: str, plan: _Plan) -> str:
+    """`file_name` tagged with the time now, created empty in `folder` so no
+    concurrent push can take the same name."""
+    await fs_asset_handler.make_directory(folder)
     while True:
         tagged = sanitize_asset_filename(apply_datetime_tag(file_name), "content")
-        if not await fs_asset_handler.file_exists(f"{folder}/{tagged}"):
-            return tagged
-        await asyncio.sleep(0.001)
+        path = fs_asset_handler.validate_path(f"{folder}/{tagged}")
+        try:
+            await asyncio.to_thread(path.touch, exist_ok=False)
+        except FileExistsError:
+            await asyncio.sleep(0.001)
+            continue
+        plan.written_paths.append(f"{folder}/{tagged}")
+        return tagged
 
 
 async def _store_part(
@@ -461,14 +468,13 @@ async def _store_part(
         rom_id=write.rom.id,
         emulator=write.manifest.emulator,
     )
-    file_name = await _free_tagged_name(
-        folder, sanitize_asset_filename(part.file_name, "content")
+    file_name = await _reserve_tagged_name(
+        folder, sanitize_asset_filename(part.file_name, "content"), plan
     )
     await fs_asset_handler.write_file(
         file=part.content, path=folder, filename=file_name
     )
     path = f"{folder}/{file_name}"
-    plan.written_paths.append(path)
 
     content_hash = await fs_asset_handler.compute_content_hash(path)
     if content_hash != expected_hash:
@@ -652,6 +658,8 @@ def _lock_or_create_channel(
     if target.id is not None:
         channel = db_snapshot_handler.lock_channel(target.id, session=session)
         if channel is not None:
+            # The owner may have unshared the channel since the plan read it.
+            _check_visible(channel, write.author)
             return channel
     if plan.channel is not None:
         # Deleted since the plan read it.
@@ -667,6 +675,30 @@ def _lock_or_create_channel(
     session.add(channel)
     session.flush()
     return channel
+
+
+def _hold_planned_rows(plan: _Plan, session: Session) -> None:
+    """Lock the parent and the stored rows the plan reuses, refusing the push
+    when a prune removed one after the plan read it."""
+    shared = {"read": True}
+    if plan.parent is not None and (
+        session.get(Snapshot, plan.parent.id, with_for_update=shared) is None
+    ):
+        raise NotVisible("parent snapshot")
+    resolved = plan.resolved
+    missing: list[str] = []
+    save = plan.saves.get(resolved.save.hash) if resolved.save else None
+    if save is not None and session.get(Save, save.id, with_for_update=shared) is None:
+        missing.append(SAVE_PART)
+    for core, slots in resolved.bank.items():
+        for slot, state_hash in slots.items():
+            state = plan.states.get(state_hash)
+            if state is not None and (
+                session.get(State, state.id, with_for_update=shared) is None
+            ):
+                missing.append(state_part(core, slot))
+    if missing:
+        raise ContentMissing(missing)
 
 
 def _commit(
@@ -710,6 +742,7 @@ def _commit(
         ):
             raise HardcoreDowngrade("the channel's current save is hardcore")
 
+    _hold_planned_rows(plan, session)
     for file in stored:
         file.row.channel_id = channel.id if channel else None
         session.add(file.row)

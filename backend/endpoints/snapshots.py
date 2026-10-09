@@ -141,10 +141,7 @@ class ManifestPayload(BaseModel):
     def to_manifest(
         self, copied: SaveEntry | None = None, source: Save | None = None
     ) -> Manifest:
-        """The manifest, with `copied` standing for a save named by `copy_of`.
-
-        A push that names no emulator takes its copied `source`'s, which wrote the bytes.
-        """
+        """The manifest, with `copied` standing for `copy_of` and lending its emulator when the push names none."""
         ran = (self.emulator, self.emulator_version, self.core, self.core_version)
         if source is not None and not any(ran):
             ran = (
@@ -293,12 +290,7 @@ def get_snapshots(
     cursor: str | None = None,
     device_id: Annotated[str | None, Query(description=FEED_DEVICE_DESCRIPTION)] = None,
 ) -> list[SnapshotSchema]:
-    """Each channel's current snapshot on the named files, or one channel's history, newest first.
-
-    Records each current it lists as the one the device knows: every channel
-    of a `current` listing, and a history page holding the channel's current
-    without a `cursor`.
-    """
+    """Each channel's current on the named files, or one channel's history, recording each current listed as the device's latest known."""
     viewer = request.user
     device = request_device(request, device_id)
     if current:
@@ -386,9 +378,7 @@ def get_snapshot(
         ),
     ] = False,
 ) -> SnapshotSchema:
-    """One snapshot. With `hold`, records it as the snapshot the device holds
-    in its channel, and as the current the device knows when it is the
-    channel's current. `hold` without a device is a 400."""
+    """One snapshot; `hold=true` makes it the device's held snapshot in its channel."""
     device = required_device(request, device_id) if hold else None
     snapshot, channel = _readable_snapshot_or_404(request, id)
     if device is not None and channel is not None:
@@ -586,14 +576,7 @@ def _respond(result: WriteResult, viewer: User) -> JSONResponse:
     },
 )
 async def push_snapshot(request: Request, device_id: str | None = None) -> JSONResponse:
-    """Write a snapshot into a channel. Multipart: a `manifest` JSON part, plus
-    `save`, `state:<core>:<slot>` and their screenshot parts for hashes the server lacks.
-    A screenshot part may come alone, for content the server holds without one.
-    A native PS1, PS2 or GameCube card holding other games' saves is stored as
-    this game's per-game unit, in neutral form. Naming `device_id` also takes
-    `devices.write`, and the device must be the caller's own. Without it, a
-    device-bound client token's device is the push's.
-    """
+    """Write a snapshot into a channel: a `manifest` part plus `save`, `state:<core>:<slot>` and screenshot parts for hashes the server lacks."""
     viewer = request.user
     device = request_device(request, device_id)
     payload, parts, save_members = await _read_push(request)
@@ -719,9 +702,7 @@ def update_snapshot(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def report_applied(request: Request, id: int, device_id: str) -> None:
-    """Record the snapshot a device applied after a download, as
-    `GET /snapshots/{id}?hold=true` does. Naming a device takes `devices.write`
-    unless it is the one the client token is bound to."""
+    """Hold a snapshot the device already has, as `GET /snapshots/{id}?hold=true` does."""
     device = _own_device(request, device_id)
     snapshot, channel = _readable_snapshot_or_404(request, id)
     if device is None or channel is None:

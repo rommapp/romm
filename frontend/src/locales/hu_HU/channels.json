@@ -49,6 +49,7 @@
   "play-state": "Indítás ebből az állásból",
   "play-state-named": "Indítás innen: {core} {slot}",
   "remove-state": "Eltávolítás a készletből",
+  "remove-state-body": "A csatorna jelenlegi mentése ez a pillanatkép lesz, az adott állás nélkül. Az azt tartalmazó pillanatképek az előzményekben maradnak, amíg el nem távolítják őket.",
   "remove-state-named": "{core} {slot} eltávolítása a készletből",
   "rename": "Átnevezés",
   "rename-title": "Csatorna átnevezése",

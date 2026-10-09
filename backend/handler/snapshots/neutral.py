@@ -1,8 +1,4 @@
-"""The member names a neutral save unit may hold, per platform.
-
-Units named after the game (cards, folders, title saves) get only the archive
-check every upload passes.
-"""
+"""The member names a neutral save unit may hold, per platform."""
 
 import re
 from collections.abc import Collection

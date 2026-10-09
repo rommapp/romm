@@ -8,6 +8,7 @@ import { detailedRomFixture } from "@/utils/rom.fixtures";
 import ChannelFan from "@/v2/components/GameDetails/SaveChannels/ChannelFan.vue";
 import ChannelLabelDialog from "@/v2/components/GameDetails/SaveChannels/ChannelLabelDialog.vue";
 import ChannelTile from "@/v2/components/GameDetails/SaveChannels/ChannelTile.vue";
+import DeleteChannelDialog from "@/v2/components/GameDetails/SaveChannels/DeleteChannelDialog.vue";
 import SnapshotViewer from "@/v2/components/GameDetails/SaveChannels/SnapshotViewer.vue";
 import { channelFixture, snapshotFixture } from "@/v2/utils/snapshots.fixtures";
 import ChannelsPanel from "./ChannelsPanel.vue";
@@ -247,30 +248,54 @@ describe("ChannelsPanel", () => {
     );
   });
 
-  it("deletes a channel only after the typed confirmation", async () => {
+  /** Opens `channel`'s fan and asks to delete it. */
+  async function askToDelete(wrapper: ReturnType<typeof mountPanel>) {
+    wrapper.findComponent(ChannelTile).vm.$emit("open");
+    await flushPromises();
+    wrapper.findComponent(ChannelFan).vm.$emit("delete");
+    await flushPromises();
+    return wrapper.findComponent(DeleteChannelDialog);
+  }
+
+  it("deletes a channel from inside its confirmation", async () => {
     const channel = channelFixture({ label: "Main" });
     const legacy = saveFixture({
       id: 6,
       channel_id: channel.id,
       slot: "autosave",
     });
-    confirm.mockResolvedValue(true);
     api.deleteChannel.mockResolvedValue({} as never);
     const wrapper = mountPanel([channel], [legacy]);
 
-    wrapper.findComponent(ChannelTile).vm.$emit("open");
-    await flushPromises();
-    wrapper.findComponent(ChannelFan).vm.$emit("delete");
+    const dialog = await askToDelete(wrapper);
+
+    expect(dialog.props()).toMatchObject({
+      channel,
+      body: 'channels.delete-body:{"pinned":0,"legacy":1}',
+    });
+    expect(api.deleteChannel).not.toHaveBeenCalled();
+    await dialog.props("onConfirm")();
     await flushPromises();
 
-    expect(confirm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        requireTyped: "Main",
-        tone: "danger",
-        body: 'channels.delete-body:{"pinned":0,"legacy":1}',
-      }),
-    );
     expect(api.deleteChannel).toHaveBeenCalledWith({ id: channel.id });
+    expect(dialog.props("channel")).toBeNull();
+    expect(snackbar.success).toHaveBeenCalledWith(
+      "channels.deleted",
+      expect.anything(),
+    );
+  });
+
+  it("keeps the confirmation open when the delete fails", async () => {
+    const channel = channelFixture();
+    api.deleteChannel.mockRejectedValue(new Error("offline"));
+    const wrapper = mountPanel([channel]);
+
+    const dialog = await askToDelete(wrapper);
+    await expect(dialog.props("onConfirm")()).rejects.toThrow("offline");
+    await flushPromises();
+
+    expect(dialog.props("channel")).toEqual(channel);
+    expect(snackbar.error).toHaveBeenCalled();
   });
 
   it("counts no slotted upload a snapshot already holds as legacy", async () => {
@@ -280,33 +305,87 @@ describe("ChannelsPanel", () => {
       channel_id: channel.id,
       slot: "autosave",
     });
-    confirm.mockResolvedValue(false);
     const wrapper = mountPanel([channel], [adopted], [adopted.id]);
 
-    wrapper.findComponent(ChannelTile).vm.$emit("open");
-    await flushPromises();
-    wrapper.findComponent(ChannelFan).vm.$emit("delete");
-    await flushPromises();
+    const dialog = await askToDelete(wrapper);
 
     expect(wrapper.findComponent(ChannelFan).props("legacySaves")).toEqual([]);
-    expect(confirm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: 'channels.delete-body:{"pinned":0,"legacy":0}',
-      }),
+    expect(dialog.props("body")).toBe(
+      'channels.delete-body:{"pinned":0,"legacy":0}',
     );
   });
 
   it("leaves the channel when the delete is canceled", async () => {
     const channel = channelFixture();
-    confirm.mockResolvedValue(false);
     const wrapper = mountPanel([channel]);
 
-    wrapper.findComponent(ChannelTile).vm.$emit("open");
-    await flushPromises();
-    wrapper.findComponent(ChannelFan).vm.$emit("delete");
+    const dialog = await askToDelete(wrapper);
+    dialog.vm.$emit("close");
     await flushPromises();
 
+    expect(dialog.props("channel")).toBeNull();
     expect(api.deleteChannel).not.toHaveBeenCalled();
+  });
+
+  it("removes a state only once the removal is confirmed", async () => {
+    const channel = channelFixture();
+    api.pushSnapshot.mockResolvedValue({} as never);
+    confirm.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const wrapper = mountPanel([channel]);
+    await openCurrent(wrapper, channel);
+    const viewer = wrapper.findComponent(SnapshotViewer);
+
+    viewer.vm.$emit("removeState", "mgba", "auto");
+    await flushPromises();
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ tone: "danger" }),
+    );
+    expect(api.pushSnapshot).not.toHaveBeenCalled();
+
+    viewer.vm.$emit("removeState", "mgba", "auto");
+    await flushPromises();
+    expect(api.pushSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers the viewer's own channels to save a shared snapshot over", async () => {
+    const shared = channelFixture({
+      id: "0192f1c4-0000-7000-8000-000000000009",
+      is_own: false,
+      label: "Theirs",
+    });
+    const mine = channelFixture({ label: "Mine" });
+    const wrapper = shallowMount(ChannelsPanel, {
+      props: {
+        rom: detailedRomFixture({ id: 1, user_channels: [mine, shared] }),
+        channels: [shared],
+        saves: [],
+      },
+    });
+
+    await openCurrent(wrapper, shared);
+
+    expect(
+      wrapper.findComponent(SnapshotViewer).props("saveOverTargets"),
+    ).toEqual([mine]);
+  });
+
+  it("stays quiet when a history request fails after it is gone", async () => {
+    const channel = channelFixture();
+    let fail: (error: Error) => void = () => undefined;
+    api.getChannelHistory.mockReturnValue(
+      new Promise((_, reject) => {
+        fail = reject;
+      }) as never,
+    );
+    const wrapper = mountPanel([channel]);
+    wrapper.findComponent(ChannelTile).vm.$emit("open");
+    await flushPromises();
+
+    wrapper.unmount();
+    fail(new Error("offline"));
+    await flushPromises();
+
+    expect(snackbar.error).not.toHaveBeenCalled();
   });
 
   it("attaches a channel from a removed game to this game's file", async () => {

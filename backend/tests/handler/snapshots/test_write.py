@@ -25,6 +25,7 @@ from tests.handler.snapshots.pushes import (
 
 from handler.database import db_snapshot_handler
 from handler.database.base_handler import sync_session
+from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import hash_zip_contents
 from handler.snapshots import write as write_module
 from handler.snapshots.manifest import Manifest, SaveEntry
@@ -530,6 +531,135 @@ async def test_same_named_parts_tagged_on_one_millisecond_keep_their_own_bytes(
     with sync_session() as session:
         states = session.scalars(select(State)).all()
     assert {stored_bytes(state.full_path) for state in states} == {STATE_A, STATE_B}
+
+
+async def test_concurrent_pushes_tagged_on_one_millisecond_keep_their_own_files(
+    admin_user: User, rom: Rom, hashed_file: RomFile, monkeypatch
+):
+    calls = iter(range(100))
+
+    def one_tick_per_two_calls(file_name: str) -> str:
+        stem, extension = file_name.rsplit(".", 1)
+        return f"{stem} [2026-01-01_00-00-00-{next(calls) // 2:03d}].{extension}"
+
+    monkeypatch.setattr(write_module, "apply_datetime_tag", one_tick_per_two_calls)
+    write_file = fs_asset_handler.write_file
+    raced: list[bool] = []
+    rivals: list[WriteResult] = []
+
+    async def rival_writes_first(**kwargs):
+        if not raced:
+            raced.append(True)
+            rivals.append(
+                await write_snapshot(
+                    push(
+                        admin_user,
+                        rom,
+                        hashed_file,
+                        Manifest(save=save_entry(b"rival"), emulator="argosy"),
+                        expected=None,
+                        label="Rival",
+                        parts={SAVE_PART: part(b"rival")},
+                    )
+                )
+            )
+        await write_file(**kwargs)
+
+    monkeypatch.setattr(fs_asset_handler, "write_file", rival_writes_first)
+
+    mine = await first_push(admin_user, rom, hashed_file)
+
+    [rival] = rivals
+    with sync_session() as session:
+        mine_save = session.get_one(Save, mine.snapshot.save_id)
+        rival_save = session.get_one(Save, rival.snapshot.save_id)
+    assert mine_save.full_path != rival_save.full_path
+    assert stored_bytes(mine_save.full_path) == SRAM
+    assert stored_bytes(rival_save.full_path) == b"rival"
+
+
+def _race_store_parts(monkeypatch, rival) -> None:
+    """Run `rival` while the push writes its files, before the commit's lock."""
+    store_parts = write_module._store_parts
+    raced: list[bool] = []
+
+    async def store_then_race(write: SnapshotWrite, plan):
+        if not raced:
+            raced.append(True)
+            stored = await store_parts(write, plan)
+            await rival()
+            return stored
+        return await store_parts(write, plan)
+
+    monkeypatch.setattr(write_module, "_store_parts", store_then_race)
+
+
+async def test_a_parent_pruned_while_the_push_writes_is_not_visible(
+    admin_user: User, rom: Rom, hashed_file: RomFile, monkeypatch
+):
+    first = await first_push(admin_user, rom, hashed_file)
+    channel_id = first.snapshot.channel_id
+    assert channel_id is not None
+
+    async def move_on_and_prune():
+        await push_save(admin_user, rom, hashed_file, first, b"race")
+        db_snapshot_handler.prune_channel(channel_id, keep=0)
+
+    _race_store_parts(monkeypatch, move_on_and_prune)
+
+    with pytest.raises(NotVisible) as refused:
+        await push_save(admin_user, rom, hashed_file, first, b"mine")
+
+    assert refused.value.what == "parent snapshot"
+    assert count(Save) == 1
+
+
+async def test_content_pruned_while_the_push_writes_is_missing(
+    admin_user: User, rom: Rom, hashed_file: RomFile, monkeypatch
+):
+    first = await first_push(admin_user, rom, hashed_file)
+    channel_id = first.snapshot.channel_id
+    assert channel_id is not None
+
+    async def move_on_and_prune():
+        await push_save(admin_user, rom, hashed_file, first, b"race")
+        db_snapshot_handler.prune_channel(channel_id, keep=0)
+
+    _race_store_parts(monkeypatch, move_on_and_prune)
+
+    with pytest.raises(ContentMissing) as refused:
+        await write_snapshot(
+            push(
+                admin_user,
+                rom,
+                hashed_file,
+                Manifest(save=save_entry()),
+                expected=None,
+                label="Second run",
+            )
+        )
+
+    assert refused.value.keys == [SAVE_PART]
+
+
+async def test_a_channel_unshared_while_the_push_writes_is_not_visible(
+    admin_user: User, editor_user: User, rom: Rom, hashed_file: RomFile, monkeypatch
+):
+    first = await first_push(admin_user, rom, hashed_file)
+    with sync_session.begin() as session:
+        session.get_one(Channel, first.snapshot.channel_id).is_public = True
+
+    async def unshare():
+        with sync_session.begin() as session:
+            session.get_one(Channel, first.snapshot.channel_id).is_public = False
+
+    _race_store_parts(monkeypatch, unshare)
+
+    with pytest.raises(NotVisible) as refused:
+        await push_save(editor_user, rom, hashed_file, first, b"theirs")
+
+    assert refused.value.what == "channel"
+    assert count(Save) == 1
 
 
 async def test_a_pushed_row_is_filed_under_its_channel(

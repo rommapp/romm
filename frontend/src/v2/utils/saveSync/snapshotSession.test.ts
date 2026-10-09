@@ -10,6 +10,7 @@ import {
 } from "@/v2/utils/snapshots.fixtures";
 import {
   buildPush,
+  chainPush,
   sendPush,
   sessionTarget,
   SnapshotSession,
@@ -22,6 +23,9 @@ vi.mock("@/services/api/snapshot", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/api/snapshot")>()),
   default: api,
 }));
+
+const UUID_V7 =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 const SRAM = new Uint8Array([1, 2, 3]).buffer;
 const STATE = new Uint8Array([7, 7]).buffer;
@@ -105,7 +109,7 @@ describe("sessionTarget", () => {
     });
   });
 
-  it("names a channel the first push creates", () => {
+  it("mints the id of a channel the first push creates", () => {
     const result = sessionTarget({
       rom: rom(),
       core: "snes9x",
@@ -114,7 +118,7 @@ describe("sessionTarget", () => {
 
     expect(result).toMatchObject({
       romFileId: 7,
-      channelId: null,
+      channelId: expect.stringMatching(UUID_V7),
       label: "Speedrun",
       expectedCurrentId: null,
       bank: {},
@@ -132,7 +136,8 @@ describe("sessionTarget", () => {
       slot: "autosave",
     });
 
-    expect(result).toMatchObject({ channelId: null, label: "default" });
+    expect(result?.channelId).not.toBe(shared.id);
+    expect(result).toMatchObject({ label: "default" });
   });
 
   it("has nowhere to write without a channel file", () => {
@@ -201,15 +206,47 @@ describe("buildPush", () => {
 
   it("names the channel to create and the snapshot it starts from", () => {
     const push = buildPush(
-      { ...target, channelId: null, label: "speedrun", parentSnapshotId: 9 },
+      { ...target, channelId: "new", label: "speedrun", parentSnapshotId: 9 },
       { kind: "save", save: file(SRAM) },
     );
 
     expect(push.manifest).toMatchObject({
+      channel_id: "new",
       label: "speedrun",
       parent_snapshot_id: 9,
     });
-    expect(push.manifest.channel_id).toBeUndefined();
+  });
+});
+
+describe("chainPush", () => {
+  const held = buildPush(target, { kind: "save", save: file(SRAM) });
+
+  it("builds on the branch the push before it was kept as", () => {
+    const branch = snapshotFixture({ id: 60, kind: "branch" });
+
+    const chained = chainPush(held, {
+      push: held,
+      outcome: { kind: "branched", snapshot: branch, reason: "moved" },
+    });
+
+    expect(chained.manifest).toMatchObject({
+      expected_current_id: 42,
+      parent_snapshot_id: 60,
+    });
+  });
+
+  it("leaves a push held on another base as it was", () => {
+    const other = buildPush(
+      { ...target, expectedCurrentId: 50 },
+      { kind: "save", save: file(SRAM) },
+    );
+
+    const chained = chainPush(other, {
+      push: held,
+      outcome: { kind: "current", snapshot: snapshotFixture({ id: 43 }) },
+    });
+
+    expect(chained).toBe(other);
   });
 });
 
@@ -268,6 +305,24 @@ describe("SnapshotSession", () => {
       expected_current_id: 42,
       parent_snapshot_id: 60,
     });
+  });
+
+  it("files every push of a new channel under one channel id", async () => {
+    api.pushSnapshot.mockRejectedValue(new Error("offline"));
+    const fresh = sessionTarget({
+      rom: { channel_file_id: 7, user_channels: [] },
+      core: "mgba",
+      slot: "autosave",
+    })!;
+    const session = new SnapshotSession(fresh);
+    const content: SnapshotContent = { kind: "save", save: file(SRAM) };
+
+    const held = [session.build(content), session.build(content)];
+    await expect(session.push(content)).rejects.toThrow("offline");
+
+    const sent = api.pushSnapshot.mock.calls[0]![0].manifest.channel_id;
+    expect(sent).toMatch(UUID_V7);
+    expect(held.map((push) => push.manifest.channel_id)).toEqual([sent, sent]);
   });
 
   it("keeps building on its target after a failed push", async () => {

@@ -36,6 +36,7 @@ from handler.filesystem.assets_handler import hash_save_content
 from handler.redis_handler import async_cache
 from handler.scan_handler import scan_save
 from handler.snapshots.bridge import hold_legacy_upload
+from handler.snapshots.legacy import may_load
 from handler.sync.retroarch import psp
 from handler.sync.retroarch.emulator_names import (
     retroarch_aliases,
@@ -304,12 +305,39 @@ def _lineage_head(user: User, rom: Rom, lineage: SaveLineage) -> Save | None:
     )
 
 
+def _channel_currents(user: User, rom_ids: Collection[int]) -> dict[int, Save]:
+    """The native current save of each ROM's non-hardcore `autosave` channel, by ROM id."""
+    # The bridge keeps RetroArch uploads out of a hardcore channel, so serving its current would undo them.
+    currents = db_snapshot_handler.current_saves_for_slots(
+        user.id,
+        {(rom_id, AUTOSAVE_SLOT) for rom_id in rom_ids},
+        include_hardcore=False,
+    )
+    return {rom_id: save for (rom_id, _slot), save in currents.items()}
+
+
+def _served_version(head: Save, current: Save | None) -> Save:
+    """The channel's current when the core `head` was written by may load it, else `head`."""
+    if current is None or current.missing_from_fs:
+        return head
+    aliases = retroarch_aliases(head.emulator)
+    return current if may_load(current, aliases, aliases) else head
+
+
+def _served_head(user: User, rom: Rom, lineage: SaveLineage) -> Save | None:
+    head = _lineage_head(user, rom, lineage)
+    if head is None:
+        return None
+    return _served_version(head, _channel_currents(user, [rom.id]).get(rom.id))
+
+
 def resolve_save(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
 ) -> Save | None:
-    """The save a RetroArch path serves: the newest `autosave` version, else the unslotted save there."""
+    """The save a RetroArch path serves: its channel's current or newest `autosave`
+    version, else the unslotted save there."""
     lineage = save_lineage(emulator, requested_file_name)
-    head = _lineage_head(user, rom, lineage) if lineage else None
+    head = _served_head(user, rom, lineage) if lineage else None
     return head or _unslotted_save_at(user, rom, emulator, requested_file_name)
 
 
@@ -363,10 +391,10 @@ async def store_save(
             user, rom, emulator, requested_file_name, body
         )
 
-    head = await asyncio.to_thread(_lineage_head, user, rom, lineage)
+    served = await asyncio.to_thread(_served_head, user, rom, lineage)
     # A re-sent file adds no version, so it can't push real history past the cap.
     content_hash = hash_save_content(body.file)
-    if head and content_hash and content_hash == head.content_hash:
+    if served and content_hash and content_hash == served.content_hash:
         return "unchanged"
 
     asset_path = build_asset_file_path(user, rom, "saves", emulator)
@@ -731,12 +759,18 @@ def _manifest_assets(
             save.file_name,
         ),
     )
+    currents = _channel_currents(user, {rom_id for rom_id, _ in head_by_folder})
+    # A channel's current is listed under its head's path and core folder.
     listed_saves = [
-        (advertised_save_name(head), head)
+        (
+            advertised_save_name(head),
+            head.emulator,
+            _served_version(head, currents.get(head.attached_rom_id)),
+        )
         for head in head_by_folder.values()
         if can_see(head.attached_rom)
     ] + [
-        (save.file_name, save)
+        (save.file_name, save.emulator, save)
         for save in unslotted.values()
         if can_see(save.attached_rom)
     ]
@@ -759,7 +793,7 @@ def _manifest_assets(
     # A path carries no platform, so only the ROM that GET/PUT/DELETE would
     # resolve it to may claim it; a same-named ROM elsewhere would shadow it.
     owners = resolve_roms(
-        [game_name_from_file_name("saves", name) for name, _ in listed_saves]
+        [game_name_from_file_name("saves", name) for name, _, _ in listed_saves]
         + [game_name_from_file_name("states", name) for _, name, _ in listed_states],
         can_see,
     )
@@ -769,8 +803,8 @@ def _manifest_assets(
         return owner is not None and owner.id == rom.id
 
     assets = [
-        ManifestAsset(build_retroarch_sync_path("saves", save.emulator, name), save)
-        for name, save in listed_saves
+        ManifestAsset(build_retroarch_sync_path("saves", emulator, name), save)
+        for name, emulator, save in listed_saves
         if is_addressable(save.attached_rom, "saves", name)
     ]
 

@@ -70,11 +70,7 @@ def get_channels(
     ] = None,
     device_id: Annotated[str | None, Query(description=FEED_DEVICE_DESCRIPTION)] = None,
 ) -> list[ChannelSchema]:
-    """Your channels on the named files, empty ones included, plus any public
-    channels you name by id. Each carries its current snapshot, or null.
-
-    Records each current listed by file or by id as the one the device knows.
-    """
+    """List your channels on the named files, empty ones included, plus public channels named by id, each with its current snapshot or null."""
     viewer = request.user
     device = request_device(request, device_id)
     channels: dict[uuid.UUID, Channel] = {}

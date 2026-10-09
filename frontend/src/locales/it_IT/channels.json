@@ -49,6 +49,7 @@
   "play-state": "Gioca da questo stato",
   "play-state-named": "Gioca da {core} {slot}",
   "remove-state": "Rimuovi dalla raccolta",
+  "remove-state-body": "Il salvataggio attuale del canale diventa questa istantanea senza quello stato. Le istantanee che lo contengono restano nella cronologia finché non vengono eliminate.",
   "remove-state-named": "Rimuovi {core} {slot} dalla raccolta",
   "rename": "Rinomina",
   "rename-title": "Rinomina canale",

@@ -49,6 +49,7 @@
   "play-state": "從此即時存檔開始遊玩",
   "play-state-named": "從 {core} {slot} 開始遊玩",
   "remove-state": "從存檔庫中移除",
+  "remove-state-body": "頻道目前的存檔將變成不含該即時存檔的此快照。包含它的快照會保留在歷史記錄中，直到被清除。",
   "remove-state-named": "從存檔庫中移除 {core} {slot}",
   "rename": "重新命名",
   "rename-title": "重新命名頻道",

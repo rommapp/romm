@@ -21,12 +21,14 @@ import ChannelLabelDialog, {
 } from "@/v2/components/GameDetails/SaveChannels/ChannelLabelDialog.vue";
 import ChannelTile from "@/v2/components/GameDetails/SaveChannels/ChannelTile.vue";
 import ChannelTimeline from "@/v2/components/GameDetails/SaveChannels/ChannelTimeline.vue";
+import DeleteChannelDialog from "@/v2/components/GameDetails/SaveChannels/DeleteChannelDialog.vue";
 import SnapshotViewer, {
   type ViewerTarget,
 } from "@/v2/components/GameDetails/SaveChannels/SnapshotViewer.vue";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useFetchState } from "@/v2/composables/useFetchState";
+import { useIsAlive } from "@/v2/composables/useIsAlive";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { errorMessage } from "@/v2/utils/errorMessage";
@@ -38,6 +40,7 @@ import {
   forkManifest,
   isBackup,
   restoreManifest,
+  stateSlotLabel,
   withoutStateManifest,
 } from "@/v2/utils/snapshots";
 
@@ -69,6 +72,7 @@ const confirm = useConfirm();
 const { refetchRom } = useRomSync();
 const router = useRouter();
 const configStore = storeConfig();
+const alive = useIsAlive();
 
 const view = ref<View>("tiles");
 const viewItems = computed<SliderBtnGroupItem<View>[]>(() => [
@@ -115,9 +119,11 @@ async function loadHistory(channel: ChannelSchema, more = false) {
       limit: HISTORY_PAGE,
       cursor: more ? loaded[loaded.length - 1]?.id : undefined,
     });
+    if (!alive.value) return;
     histories[channel.id] = more ? [...loaded, ...data] : data;
     hasMore[channel.id] = data.length === HISTORY_PAGE;
   } catch (error) {
+    if (!alive.value) return;
     histories[channel.id] = loaded;
     snackbar.error(t("channels.cant-load", { error: errorMessage(error) }), {
       icon: "mdi-close-circle",
@@ -148,6 +154,7 @@ watch(view, (next) => {
 
 async function refresh() {
   await refetchRom(props.rom.id);
+  if (!alive.value) return;
   const shown =
     view.value === "timeline"
       ? props.channels
@@ -174,7 +181,7 @@ function openSave(channel: ChannelSchema, save: SaveSchema) {
 }
 const viewerSaveOverTargets = computed(() =>
   viewerTarget.value
-    ? saveOverTargets(props.channels, viewerTarget.value.channel)
+    ? saveOverTargets(props.rom.user_channels, viewerTarget.value.channel)
     : [],
 );
 
@@ -214,6 +221,7 @@ async function push(manifest: SnapshotManifest | null, done: string) {
       await snapshotApi.pushSnapshot({ manifest });
     } catch (error) {
       if (!isAxiosError(error) || error.response?.status !== 409) throw error;
+      if (!alive.value) return;
       if (!isHardcoreRefusal(error)) {
         snackbar.warning(t("channels.stale"), { icon: "mdi-sync-alert" });
         await refresh();
@@ -225,16 +233,17 @@ async function push(manifest: SnapshotManifest | null, done: string) {
         confirmText: t("channels.hardcore-confirm"),
         tone: "warning",
       });
-      if (!ok) return;
+      if (!ok || !alive.value) return;
       await snapshotApi.pushSnapshot({
         manifest: { ...manifest, approve_hardcore_downgrade: true },
       });
     }
+    if (!alive.value) return;
     snackbar.success(done, { icon: "mdi-check-bold" });
     viewerTarget.value = null;
     await refresh();
   } catch (error) {
-    reportFailure(error);
+    if (alive.value) reportFailure(error);
   } finally {
     busy.value = false;
   }
@@ -249,10 +258,23 @@ function restore() {
   );
 }
 
-function removeState(core: string, slot: string) {
+async function removeState(core: string, slot: string) {
   const target = viewerTarget.value;
-  if (target?.kind !== "snapshot") return;
-  void push(
+  if (target?.kind !== "snapshot" || busy.value) return;
+  const isCurrent = target.snapshot.id === target.channel.current_snapshot_id;
+  const ok = await confirm({
+    title: t("channels.remove-state-named", {
+      core,
+      slot: stateSlotLabel(slot, t),
+    }),
+    body: t("channels.remove-state-body"),
+    confirmText: isCurrent
+      ? t("channels.remove-state")
+      : t("channels.restore-without"),
+    tone: "danger",
+  });
+  if (!ok || !alive.value) return;
+  await push(
     withoutStateManifest(target.snapshot, target.channel, core, slot),
     t("channels.state-removed"),
   );
@@ -286,6 +308,7 @@ async function togglePin() {
       id: target.snapshot.id,
       isPinned,
     });
+    if (!alive.value) return;
     viewerTarget.value = { ...target, snapshot: data };
     const list = histories[target.channel.id];
     if (list) {
@@ -294,7 +317,7 @@ async function togglePin() {
       );
     }
   } catch (error) {
-    reportFailure(error);
+    if (alive.value) reportFailure(error);
   } finally {
     busy.value = false;
   }
@@ -372,11 +395,13 @@ async function attach(channel: ChannelSchema) {
   attaching.value = channel.id;
   try {
     await snapshotApi.attachChannel({ id: channel.id, romFileId });
+    if (!alive.value) return;
     snackbar.success(t("channels.attached"), { icon: "mdi-check-bold" });
     await refetchRom(props.rom.id);
+    if (!alive.value) return;
     await loadDetached(props.rom.platform_id);
   } catch (error) {
-    reportFailure(error);
+    if (alive.value) reportFailure(error);
   } finally {
     attaching.value = null;
   }
@@ -404,6 +429,7 @@ async function submitLabel({ label, startFrom }: ChannelLabelSubmit) {
   try {
     if (mode.kind === "rename") {
       await snapshotApi.updateChannel({ id: mode.channel.id, label });
+      if (!alive.value) return;
       snackbar.success(t("channels.renamed"), { icon: "mdi-check-bold" });
       labelMode.value = null;
       await refresh();
@@ -415,6 +441,7 @@ async function submitLabel({ label, startFrom }: ChannelLabelSubmit) {
       romFileId,
       label,
     });
+    if (!alive.value) return;
     labelMode.value = null;
     if (startFrom != null) {
       busy.value = false;
@@ -427,7 +454,7 @@ async function submitLabel({ label, startFrom }: ChannelLabelSubmit) {
     snackbar.success(t("channels.created"), { icon: "mdi-check-bold" });
     await refresh();
   } catch (error) {
-    reportFailure(error);
+    if (alive.value) reportFailure(error);
   } finally {
     busy.value = false;
   }
@@ -442,10 +469,11 @@ async function toggleShare(channel: ChannelSchema) {
       confirmText: t("channels.share"),
       tone: "warning",
     });
-    if (!ok) return;
+    if (!ok || !alive.value) return;
   }
   try {
     await snapshotApi.updateChannel({ id: channel.id, isPublic });
+    if (!alive.value) return;
     snackbar.success(
       isPublic ? t("channels.shared-done") : t("channels.unshared"),
       {
@@ -454,33 +482,34 @@ async function toggleShare(channel: ChannelSchema) {
     );
     await refresh();
   } catch (error) {
-    reportFailure(error);
+    if (alive.value) reportFailure(error);
   }
 }
 
-async function deleteChannel(channel: ChannelSchema) {
-  const pinned = (histories[channel.id] ?? []).filter(
-    (s) => s.is_pinned,
-  ).length;
-  const ok = await confirm({
-    title: t("channels.delete-title", { label: channel.label }),
-    body: t("channels.delete-body", {
-      pinned,
-      legacy: legacySaves.value[channel.id]?.length ?? 0,
-    }),
-    confirmText: t("channels.delete"),
-    tone: "danger",
-    requireTyped: channel.label,
+const deleting = ref<ChannelSchema | null>(null);
+const deleteBody = computed(() => {
+  const channel = deleting.value;
+  if (!channel) return "";
+  return t("channels.delete-body", {
+    pinned: (histories[channel.id] ?? []).filter((s) => s.is_pinned).length,
+    legacy: legacySaves.value[channel.id]?.length ?? 0,
   });
-  if (!ok) return;
+});
+
+async function deleteChannel() {
+  const channel = deleting.value;
+  if (!channel) return;
   try {
     await snapshotApi.deleteChannel({ id: channel.id });
-    expandedId.value = null;
-    snackbar.success(t("channels.deleted"), { icon: "mdi-check-bold" });
-    await refresh();
   } catch (error) {
-    reportFailure(error);
+    if (alive.value) reportFailure(error);
+    throw error;
   }
+  if (!alive.value) return;
+  deleting.value = null;
+  expandedId.value = null;
+  snackbar.success(t("channels.deleted"), { icon: "mdi-check-bold" });
+  await refresh();
 }
 </script>
 
@@ -524,7 +553,7 @@ async function deleteChannel(channel: ChannelSchema) {
           @open-save="openSave(channel, $event)"
           @rename="labelMode = { kind: 'rename', channel }"
           @toggle-share="toggleShare(channel)"
-          @delete="deleteChannel(channel)"
+          @delete="deleting = channel"
           @load-more="loadHistory(channel, true)"
         />
         <ChannelTile
@@ -597,6 +626,13 @@ async function deleteChannel(channel: ChannelSchema) {
       :busy="busy"
       @update:model-value="!$event && (labelMode = null)"
       @submit="submitLabel"
+    />
+
+    <DeleteChannelDialog
+      :channel="deleting"
+      :body="deleteBody"
+      :on-confirm="deleteChannel"
+      @close="deleting = null"
     />
   </div>
 </template>

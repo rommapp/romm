@@ -1,8 +1,7 @@
-import asyncio
 import io
 import os
 import zipfile
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Final
@@ -22,12 +21,7 @@ from fastapi import (
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, ValidationError
 
-from adapters.services.sigil import (
-    NATIVE_SAVE_PLATFORM_SLUGS,
-    SIGIL_RESTORE_PLATFORM_SLUGS,
-    SigilGame,
-    SigilService,
-)
+from adapters.services.sigil import SigilGame, SigilService
 from adapters.services.sigil_restore import (
     ContainerMismatch,
     RefusalCode,
@@ -76,7 +70,14 @@ from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import check_upload_archive, leaves_save_folder
 from handler.scan_handler import scan_save
 from handler.snapshots.bridge import hold_legacy_upload
-from handler.snapshots.legacy import sync_file
+from handler.snapshots.restore import (
+    ConversionUnavailable,
+    NotConvertible,
+    Restore,
+    convertible_rom,
+    restore_for_core,
+    restore_platform,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -90,7 +91,7 @@ from models.assets import (
 from models.base import FILE_NAME_MAX_LENGTH, FILE_PATH_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
-from models.rom import Rom, RomFile
+from models.rom import Rom
 from utils.assets import normalize_asset_labels
 from utils.datetime import to_utc
 from utils.memory_cards import MEMORY_CARD_MAX_BYTES
@@ -604,14 +605,13 @@ def get_save_layouts(
     request: Request,
     platform: Annotated[str, Query(description="A RomM platform slug.")],
 ) -> list[SaveLayoutSchema]:
-    """List the layouts a save converts to for a platform, as the content route's `core`.
-
-    The libretro default row comes first, then each row for the platform and
-    each row that applies to any platform.
-    """
-    sigil_platform = _sigil_platform_or_400(platform)
+    """List the layouts a save converts to for a platform, the libretro default first."""
+    try:
+        sigil_platform = restore_platform(platform)
+    except NotConvertible as exc:
+        raise _restore_error(exc) from exc
     if not SigilService.is_enabled():
-        raise _sigil_missing()
+        raise _restore_error(ConversionUnavailable())
     return [
         SaveLayoutSchema.model_validate(row) for row in restore_layouts(sigil_platform)
     ]
@@ -698,63 +698,14 @@ def _parse_options(option: Sequence[str]) -> dict[str, str]:
     return options
 
 
-def _content_path(save: Save, rom: Rom, rom_files: Sequence[RomFile]) -> str:
-    """The ROM file name a restore names files after: the save's channel file,
-    else the file the ROM's channels key to."""
-    channel = (
-        db_snapshot_handler.get_channel(save.channel_id) if save.channel_id else None
-    )
-    rom_file = (
-        db_snapshot_handler.get_channel_file(channel) if channel else None
-    ) or sync_file(rom_files)
-    return rom_file.file_name if rom_file else rom.fs_name
-
-
-def _sigil_platform_or_400(platform_slug: str) -> str:
-    sigil_platform = SIGIL_RESTORE_PLATFORM_SLUGS.get(platform_slug)
-    if sigil_platform is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Saves for {platform_slug} can't be converted for a core",
-        )
-    return sigil_platform
-
-
-def _sigil_missing() -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Save conversion needs sigil, which this server lacks",
-    )
-
-
-def _stored_game_or_error(rom: Rom) -> tuple[SigilGame, list[RomFile]]:
-    _sigil_platform_or_400(rom.platform_slug)
-    rom_files = db_rom_handler.rom_files_for_rom_id(rom.id)
-    game = SigilService.stored_game(rom, rom_files)
-    if game is None:
-        raise _sigil_missing()
-    return game, rom_files
-
-
-async def _companions(
+def _companions(
     request: Request, companion_ids: Sequence[int]
-) -> list[RestoreCompanion]:
-    """Each companion save's game and unit, under the same read rules as a download."""
-    companions: list[RestoreCompanion] = []
+) -> list[tuple[Save, Path]]:
+    """Each companion save with its stored file, under the same read rules as a download."""
+    companions: list[tuple[Save, Path]] = []
     for companion_id in companion_ids:
         save = _readable_save_or_404(request, companion_id)
-        path = _stored_save_path(save)
-        if save.rom is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Companion save {companion_id} has no ROM",
-            )
-        game, _ = _stored_game_or_error(save.rom)
-        companions.append(
-            RestoreCompanion(
-                game_ids=game.game_ids, unit=await asyncio.to_thread(path.read_bytes)
-            )
-        )
+        companions.append((save, _stored_save_path(save)))
     return companions
 
 
@@ -775,7 +726,13 @@ _REFUSAL_STATUS: Final[dict[RefusalCode, int]] = {
 }
 
 
-def _restore_error(exc: SaveRestoreError) -> HTTPException:
+def _restore_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, NotConvertible):
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    if isinstance(exc, ConversionUnavailable):
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        )
     if isinstance(exc, SigilRefusal):
         return HTTPException(
             status_code=_REFUSAL_STATUS[exc.code],
@@ -813,15 +770,11 @@ def _restore_error(exc: SaveRestoreError) -> HTTPException:
     )
 
 
-def _convertible_rom(save: Save) -> Rom | None:
-    """The save's ROM when a core needs it converted; None when it serves as stored."""
-    rom = save.rom
-    if rom is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Save {save.id} has no ROM to convert it for",
-        )
-    return None if rom.platform_slug in NATIVE_SAVE_PLATFORM_SLUGS else rom
+def _convertible_rom_or_400(save: Save) -> Rom | None:
+    try:
+        return convertible_rom(save)
+    except NotConvertible as exc:
+        raise _restore_error(exc) from exc
 
 
 async def _restore_for_core(
@@ -833,24 +786,21 @@ async def _restore_for_core(
     options: Mapping[str, str],
     profile: str | None,
     companion_ids: Sequence[int],
-    restore: Callable[
-        [bytes, SigilGame, RestoreTarget, list[RestoreCompanion]],
-        Awaitable[RestoredSave],
-    ],
+    restore: Restore,
 ) -> RestoredSave:
-    """The save restored for `core` by `restore`, sigil's refusals as HTTP errors."""
-    game, rom_files = _stored_game_or_error(rom)
-    companions = await _companions(request, companion_ids)
-    target = RestoreTarget(
-        core=core,
-        options=options,
-        profile=profile,
-        content_path=_content_path(save, rom, rom_files),
-    )
-    unit = await asyncio.to_thread(file_path.read_bytes)
+    companions = _companions(request, companion_ids)
     try:
-        return await restore(unit, game, target, companions)
-    except SaveRestoreError as exc:
+        return await restore_for_core(
+            save,
+            rom,
+            file_path,
+            core=core,
+            options=options,
+            profile=profile,
+            companions=companions,
+            restore=restore,
+        )
+    except (NotConvertible, ConversionUnavailable, SaveRestoreError) as exc:
         raise _restore_error(exc) from exc
 
 
@@ -928,21 +878,14 @@ async def download_save(
         Query(description="A save whose game this game reads saves of. Repeatable."),
     ] = None,
 ) -> Response:
-    """Download a save file.
-
-    With `core`, the save is restored as that emulator reads it. One file comes
-    back raw with its save-root-relative path, percent-encoded, in `X-Save-Path`;
-    several come back as a zip of save-root-relative paths. A target that is a
-    card or volume every game shares is refused with the `container_path` to
-    POST instead.
-    """
+    """Download a save, or with `core` the files that emulator reads, one raw with its path in `X-Save-Path` or several zipped."""
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_READ
     )
     save = _readable_save_or_404(request, id)
     file_path = _stored_save_path(save)
 
-    rom = _convertible_rom(save) if core is not None else None
+    rom = _convertible_rom_or_400(save) if core is not None else None
     response: Response
     if core is None or rom is None:
         response = FileResponse(path=str(file_path), filename=save.file_name)
@@ -1005,12 +948,7 @@ async def merge_save_into_container(
     session_id: int | None = None,
     optimistic: bool = True,
 ) -> Response:
-    """Merge a save into the card or volume the client sent, and return it.
-
-    Only the save's game's saves change; every other game's stay. The response
-    names the container in `X-Save-Path`. A restore that would write any other
-    file is refused, naming the option that selects the sent container.
-    """
+    """Merge a save into the card or volume the client sent, changing only that game's saves, and return it."""
     try:
         conversion = SaveConversionPayload.model_validate_json(payload)
     except ValidationError as exc:
@@ -1036,7 +974,7 @@ async def merge_save_into_container(
     )
     save = _readable_save_or_404(request, id)
     file_path = _stored_save_path(save)
-    rom = _convertible_rom(save)
+    rom = _convertible_rom_or_400(save)
     if rom is None:
         _record_download(request, save, device, session_id, optimistic)
         return FileResponse(path=str(file_path), filename=save.file_name)
