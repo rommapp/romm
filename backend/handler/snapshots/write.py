@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Final, Literal
 
 from fastapi import UploadFile
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from handler.asset_store import AssetContent, remove_asset_file
@@ -680,25 +681,37 @@ def _lock_or_create_channel(
 def _hold_planned_rows(plan: _Plan, session: Session) -> None:
     """Lock the parent and the stored rows the plan reuses, refusing the push
     when a prune removed one after the plan read it."""
-    shared = {"read": True}
-    if plan.parent is not None and (
-        session.get(Snapshot, plan.parent.id, with_for_update=shared) is None
-    ):
+    if plan.parent is not None and not _locked_ids(session, Snapshot, [plan.parent.id]):
         raise NotVisible("parent snapshot")
     resolved = plan.resolved
-    missing: list[str] = []
     save = plan.saves.get(resolved.save.hash) if resolved.save else None
-    if save is not None and session.get(Save, save.id, with_for_update=shared) is None:
-        missing.append(SAVE_PART)
-    for core, slots in resolved.bank.items():
-        for slot, state_hash in slots.items():
-            state = plan.states.get(state_hash)
-            if state is not None and (
-                session.get(State, state.id, with_for_update=shared) is None
-            ):
-                missing.append(state_part(core, slot))
+    held_states = {
+        state_part(core, slot): state
+        for core, slots in resolved.bank.items()
+        for slot, state_hash in slots.items()
+        if (state := plan.states.get(state_hash)) is not None
+    }
+    live_saves = _locked_ids(session, Save, [save.id] if save else [])
+    live_states = _locked_ids(session, State, [s.id for s in held_states.values()])
+    missing = [SAVE_PART] if save is not None and save.id not in live_saves else []
+    missing += [
+        key for key, state in held_states.items() if state.id not in live_states
+    ]
     if missing:
         raise ContentMissing(missing)
+
+
+def _locked_ids(
+    session: Session, model: type[Snapshot | Save | State], ids: list[int]
+) -> set[int]:
+    """The ids that still exist, share-locked against a concurrent delete."""
+    if not ids:
+        return set()
+    return set(
+        session.scalars(
+            select(model.id).where(model.id.in_(ids)).with_for_update(read=True)
+        ).all()
+    )
 
 
 def _commit(
