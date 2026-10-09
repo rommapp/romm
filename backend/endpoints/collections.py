@@ -24,6 +24,7 @@ from handler.audit_handler import AuditTarget, changed_fields, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_collection_handler, db_rom_handler
+from handler.database.rom_filters import RomFilterParams
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.assets_handler import validate_image_upload
 from handler.filesystem.base_handler import CoverSize
@@ -88,6 +89,19 @@ def _record_collection(
     if getattr(collection, "is_favorite", False):
         return
     record(action, request, AuditTarget.of_collection(collection), data)
+
+
+def _check_criteria_collection(criteria: Any, user_id: int) -> None:
+    """Refuse smart collection criteria scoped to a collection the owner can't see."""
+    if not isinstance(criteria, dict):
+        return
+    filters = RomFilterParams.from_stored_criteria(criteria)
+    collection_id = filters.collection_id if filters else None
+    if not collection_id:
+        return
+    collection = db_collection_handler.get_collection(collection_id)
+    if not collection or (collection.user_id != user_id and not collection.is_public):
+        raise CollectionNotFoundInDatabaseException(collection_id)
 
 
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
@@ -191,6 +205,7 @@ async def add_smart_collection(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid JSON for filter_criteria field",
         ) from e
+    _check_criteria_collection(parsed_filter_criteria, request.user.id)
 
     cleaned_data = {
         "name": name,
@@ -701,6 +716,7 @@ async def update_smart_collection(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid JSON for filter_criteria field",
             ) from e
+        _check_criteria_collection(parsed_filter_criteria, request.user.id)
 
     cleaned_data = {
         "name": name if name is not None else smart_collection.name,

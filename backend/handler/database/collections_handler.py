@@ -546,6 +546,7 @@ class DBCollectionsHandler(DBBaseHandler):
             query=query,
             filters=filters,
             user_id=user_id,
+            collection_user_id=smart_collection.user_id,
             include_related=False,
             session=session,
         )

@@ -916,7 +916,6 @@ def get_random_rom(
 
 
 def _bulk_download_target(
-    user_id: int,
     platform_id: int | None,
     collection_id: int | None,
     smart_collection_id: int | None,
@@ -940,11 +939,7 @@ def _bulk_download_target(
         return None
     if collection is None:
         return None
-    target = AuditTarget.of_collection(collection)
-    if collection.is_public or collection.user_id == user_id:
-        return target
-    # Someone else's private collection is kept by id; its name stays theirs.
-    return AuditTarget(target.type, target.id, None)
+    return AuditTarget.of_collection(collection)
 
 
 @protected_route(
@@ -1053,7 +1048,6 @@ async def download_roms(
         record_download(
             request,
             lambda: _bulk_download_target(
-                request.user.id,
                 platform_id,
                 collection_id,
                 smart_collection_id,
