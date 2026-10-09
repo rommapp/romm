@@ -23,6 +23,11 @@ def _get_env(var: str, fallback: str | None = None) -> str | None:
     return val.strip() if val else val
 
 
+def _get_env_set(var: str) -> frozenset[str]:
+    """Parse a comma-separated env var into its non-empty, stripped values."""
+    return frozenset(v.strip() for v in (_get_env(var) or "").split(",") if v.strip())
+
+
 ROMM_BASE_URL: Final[str] = _get_env("ROMM_BASE_URL", "http://0.0.0.0")
 ROMM_PORT: Final[int] = safe_int(_get_env("ROMM_PORT"), 8080)
 
@@ -254,9 +259,9 @@ OIDC_REDIRECT_URI: Final[str] = _get_env("OIDC_REDIRECT_URI", "")
 OIDC_SERVER_APPLICATION_URL: Final[str] = _get_env("OIDC_SERVER_APPLICATION_URL", "")
 OIDC_SERVER_METADATA_URL: Final[str | None] = _get_env("OIDC_SERVER_METADATA_URL")
 OIDC_CLAIM_ROLES: Final[str] = _get_env("OIDC_CLAIM_ROLES", "")
-OIDC_ROLE_VIEWER: Final[str | None] = _get_env("OIDC_ROLE_VIEWER")
-OIDC_ROLE_EDITOR: Final[str | None] = _get_env("OIDC_ROLE_EDITOR")
-OIDC_ROLE_ADMIN: Final[str | None] = _get_env("OIDC_ROLE_ADMIN")
+OIDC_ROLE_VIEWER: Final[frozenset[str]] = _get_env_set("OIDC_ROLE_VIEWER")
+OIDC_ROLE_EDITOR: Final[frozenset[str]] = _get_env_set("OIDC_ROLE_EDITOR")
+OIDC_ROLE_ADMIN: Final[frozenset[str]] = _get_env_set("OIDC_ROLE_ADMIN")
 OIDC_TLS_CACERTFILE: Final[str | None] = _get_env("OIDC_TLS_CACERTFILE")
 OIDC_USERNAME_ATTRIBUTE: Final[str] = _get_env(
     "OIDC_USERNAME_ATTRIBUTE", "preferred_username"

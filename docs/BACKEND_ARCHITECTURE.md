@@ -1932,7 +1932,7 @@ Falls back to `FakeRedis` in test mode.
 | `OIDC_REDIRECT_URI`             |                      | Redirect URI                    |
 | `OIDC_USERNAME_ATTRIBUTE`       | `preferred_username` | Username claim                  |
 | `OIDC_CLAIM_ROLES`              |                      | Roles claim name                |
-| `OIDC_ROLE_VIEWER/EDITOR/ADMIN` |                      | Role mappings                   |
+| `OIDC_ROLE_VIEWER/EDITOR/ADMIN` |                      | Comma-separated role values     |
 | `OIDC_TLS_CACERTFILE`           |                      | Custom CA bundle for OIDC calls |
 | `OIDC_RP_INITIATED_LOGOUT`      | `false`              | Send logout to OIDC provider    |
 | `OIDC_END_SESSION_ENDPOINT`     |                      | End-session URL override        |
