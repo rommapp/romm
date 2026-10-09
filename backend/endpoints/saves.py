@@ -34,7 +34,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, SAVE_SLOT_MAX_LENGTH, Save, SaveLineage
-from models.base import FILE_NAME_MAX_LENGTH
+from models.base import FILE_NAME_MAX_LENGTH, utc_now
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.assets import normalize_asset_labels
@@ -342,6 +342,18 @@ async def add_save(
                 await fs_asset_handler.remove_file(f"{saves_path}/{actual_filename}")
             except FileNotFoundError:
                 pass
+            # The device's upload is the slot's newest, so the match becomes the
+            # head; a retry of the head stays put so other devices don't go stale.
+            slot_ids = db_save_handler.get_save_ids(
+                user_id=request.user.id,
+                rom_ids=[rom.id],
+                slot=slot,
+                order_by="updated_at",
+            )
+            if slot_ids and slot_ids[0] != existing_by_hash.id:
+                existing_by_hash = db_save_handler.update_save(
+                    existing_by_hash.id, {"updated_at": utc_now()}
+                )
             # A retry still counts as an upload to the slot, so the cap applies.
             if keep is not None:
                 await prune_save_slot(
