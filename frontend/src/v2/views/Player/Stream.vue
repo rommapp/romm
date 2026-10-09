@@ -387,12 +387,14 @@ const statePicks = ref<StreamStatePicks | null>(null);
 // The rom whose picks have answered, which Play waits for.
 const statePicksRomId = ref<number | null>(null);
 let statePicksRequest = 0;
-// Keyed on what changes the answer, so a config or rom refresh that changes
-// nothing asks nothing.
+// Keyed on what changes the answer, a rename included, so a config or rom
+// refresh that changes nothing asks nothing.
 const statePicksKey = computed(() => {
   const current = container.value;
   if (!rom.value || !current) return null;
-  const ids = (rom.value.all_user_states ?? []).map((s) => s.id).join(",");
+  const ids = (rom.value.all_user_states ?? [])
+    .map((s) => `${s.id}:${s.file_name}`)
+    .join(",");
   const kinds = current.import_kinds.join(",");
   return `${rom.value.id}|${current.emulator}|${kinds}|${ids}`;
 });

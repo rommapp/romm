@@ -395,10 +395,8 @@ def _import_spec(c: ResolvedContainer) -> Awaitable[webstation.ImportSpec | None
 def _streamable_rom(
     request: Request, rom_id: int
 ) -> tuple[Rom, list[ResolvedContainer]]:
-    """The ROM and the containers serving its platform, else a 404.
-
-    A hidden ROM gets the same 404 as a missing one, so its id can't launch it.
-    """
+    """The ROM and the containers serving its platform, else a 404 (the same one
+    for a hidden ROM, so its id can't launch it)."""
     rom = db_rom_handler.get_rom(rom_id)
     if rom is None:
         raise HTTPException(status_code=404, detail="ROM not found")
@@ -415,10 +413,8 @@ def _streamable_rom(
 
 @protected_route(router.get, "/states/{rom_id}", [Scope.ROMS_READ, Scope.ASSETS_READ])
 async def get_state_picks(request: Request, rom_id: int) -> StreamStatePicksSchema:
-    """The ROM's states the resume picker offers, checked as the claim checks a pick.
-
-    Returns 404 if the ROM is hidden or missing, or no container serves it.
-    """
+    """The ROM's states the resume picker offers, checked as the claim checks a
+    pick; 404 when the ROM is hidden or missing, or no container serves it."""
     rom, candidates = _streamable_rom(request, rom_id)
     # The claim validates the pick against the pool's first container too.
     c = candidates[0]

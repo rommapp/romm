@@ -1494,6 +1494,21 @@ describe("Stream state picker", () => {
 
     expect(mocks.fetchStatePicks).toHaveBeenCalledOnce();
   });
+
+  it("asks again when a state is renamed", async () => {
+    const wrapper = await launch({ picker: false, states: STATES });
+    const vm = vmOf(wrapper);
+
+    vm.rom = {
+      ...vm.rom,
+      all_user_states: vm.rom.all_user_states.map((s) =>
+        s.id === 5 ? { ...s, file_name: "game.state100" } : s,
+      ),
+    };
+    await flushPromises();
+
+    expect(mocks.fetchStatePicks).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("Stream volume over the broker", () => {
