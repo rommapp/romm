@@ -391,9 +391,8 @@ function filedByStream(state: UserStateSchema): boolean {
   );
 }
 
-// A RetroArch state only loads in the core that wrote it. One stored before
-// cores were recorded has none, and was written by the platform's default.
-// Another client's state loads when it is filed in the core's folder.
+// A capture loads in its core (none recorded: the default's); another client's
+// state loads when it is filed in the core's folder.
 function loadsNatively(state: UserStateSchema): boolean {
   const core = container.value?.state_core;
   if (!core) return filedByStream(state);
@@ -409,9 +408,8 @@ const nativeStreamStates = computed<UserStateSchema[]>(() => {
   return (rom.value.all_user_states ?? []).filter(loadsNatively);
 });
 
-// Every other client's state too where the broker declares it can import one,
-// which routes a foreign pick through the import path. A capture another core
-// made never loads, which the import refuses as well.
+// Other clients' states too where the broker imports one, through the import
+// path; another core's capture never loads, which the import refuses as well.
 const pickableStates = computed<UserStateSchema[]>(() => {
   if (!rom.value) return [];
   if (!container.value?.import_kinds.includes("state"))

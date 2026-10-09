@@ -336,10 +336,8 @@ def default_core(container: ResolvedContainer) -> str | None:
 
 
 def core_library_name(container: ResolvedContainer, core: str) -> str | None:
-    """RetroArch's folder name for `core` on this platform, None when unknown.
-
-    Read only from the reply `default_core` cached, so a dead broker costs one timeout.
-    """
+    """RetroArch's folder name for `core`, from the reply `default_core` cached
+    so a dead broker costs one timeout; None when unknown."""
     cached = _cores_cache.get((container.key, container.platform))
     return cached[1].library_names.get(core) if cached is not None else None
 

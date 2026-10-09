@@ -21,10 +21,7 @@ from handler.database import (
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
-from handler.filesystem.assets_handler import (
-    build_asset_file_response,
-    hash_save_content,
-)
+from handler.filesystem.assets_handler import build_asset_file_response
 from handler.filesystem.base_handler import FSHandler
 from handler.scan_handler import scan_screenshot, scan_state
 from handler.sync.retroarch import browser, psp, sync_handler
@@ -552,7 +549,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
             request.user, rom, screenshot_emulator
         )
         async with _request_body(request) as body:
-            if served and await _holds_same_bytes(body, served):
+            if served and await sync_handler.screenshot_sent_back(served, body):
                 return _empty(status.HTTP_204_NO_CONTENT)
             await fs_asset_handler.write_file(
                 file=body, path=screenshot_path, filename=screenshot_file_name
@@ -589,20 +586,17 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         parsed.emulator,
         file_name,
     )
-    existing, capture = slot.own_head, slot.served_capture
+    existing = slot.own_head
     write_file_name = existing.file_name if existing else file_name
     emulator = existing.emulator if existing else parsed.emulator
     asset_path = sync_handler.build_asset_file_path(
         request.user, rom, parsed.kind, emulator
     )
 
-    content_hash = None
     async with _request_body(request) as body:
-        if capture and capture.content_hash and not capture.missing_from_fs:
-            # The client sending back the capture it was served adds nothing.
-            content_hash = await asyncio.to_thread(hash_save_content, body.file)
-            if content_hash == capture.content_hash:
-                return _empty(status.HTTP_204_NO_CONTENT)
+        content_hash, is_copy = await sync_handler.check_against_capture(slot, body)
+        if is_copy:
+            return _empty(status.HTTP_204_NO_CONTENT)
         await fs_asset_handler.write_file(
             file=body, path=asset_path, filename=write_file_name
         )
@@ -625,17 +619,6 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     # `last_played` is left alone on purpose: a first sync uploads the whole
     # backlog at once, which would stamp every game as just-played.
     return _empty(status.HTTP_204_NO_CONTENT if existing else status.HTTP_201_CREATED)
-
-
-async def _holds_same_bytes(body: UploadFile, screenshot: Screenshot) -> bool:
-    """Whether the upload is a copy of the screenshot RomM already holds."""
-    if screenshot.missing_from_fs:
-        return False
-    body_hash, stored_hash = await asyncio.gather(
-        asyncio.to_thread(hash_save_content, body.file),
-        fs_asset_handler.compute_content_hash(screenshot.full_path),
-    )
-    return body_hash is not None and body_hash == stored_hash
 
 
 def _record_screenshot(

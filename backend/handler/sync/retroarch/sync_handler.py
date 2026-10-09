@@ -257,6 +257,24 @@ def resolve_state_by_slot(
     return slot_states(user, rom, emulator, requested_file_name).served
 
 
+class CaptureCheck(NamedTuple):
+    """A state upload checked against the capture its slot serves."""
+
+    # The upload's hash when it had to be read, for the scan to skip a re-read.
+    content_hash: str | None
+    # The client sent back the capture it was served, which adds nothing.
+    is_copy: bool
+
+
+async def check_against_capture(slot: SlotStates, body: UploadFile) -> CaptureCheck:
+    """Hash the upload when the slot serves a capture on disk it could be a copy of."""
+    capture = slot.served_capture
+    if not (capture and capture.content_hash and not capture.missing_from_fs):
+        return CaptureCheck(None, False)
+    content_hash = await asyncio.to_thread(hash_save_content, body.file)
+    return CaptureCheck(content_hash, content_hash == capture.content_hash)
+
+
 # RetroArch's save RAM, the one save file that goes through slots. Companions
 # such as `.rtc` stay single unslotted files, since a slot holds one save.
 SLOTTED_SAVE_EXTENSION = "srm"
@@ -562,6 +580,17 @@ def screenshot_upload_target(
     if head is None:
         return ScreenshotUpload(requested_file_name, emulator, served)
     return ScreenshotUpload(f"{head.file_name}.png", head.emulator, served)
+
+
+async def screenshot_sent_back(served: Screenshot, body: UploadFile) -> bool:
+    """Whether the upload is a copy of the served capture's screenshot on disk."""
+    if served.missing_from_fs:
+        return False
+    body_hash, stored_hash = await asyncio.gather(
+        asyncio.to_thread(hash_save_content, body.file),
+        fs_asset_handler.compute_content_hash(served.full_path),
+    )
+    return body_hash is not None and body_hash == stored_hash
 
 
 def build_retroarch_sync_path(
