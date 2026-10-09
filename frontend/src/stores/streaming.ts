@@ -141,8 +141,6 @@ export const useStreamingStore = defineStore("streaming", () => {
           containers: data.containers ?? [],
           emulator_labels: data.emulator_labels ?? {},
         };
-        // A revoked grant turns streaming off mid-page, so no Join is valid.
-        if (!config.value.enabled) dropJoinableSessions();
       } catch (err) {
         console.warn("[streaming] Could not fetch config:", err);
       } finally {
@@ -209,8 +207,6 @@ export const useStreamingStore = defineStore("streaming", () => {
   const joinableSessions = ref<JoinableSession[]>([]);
   let joinableRequest: Promise<void> | null = null;
   let joinableFetchedAt = 0;
-  // Bumped by dropJoinableSessions, so a list already in flight is discarded.
-  let joinableGeneration = 0;
   // A host can end a session at any time, so the list is only trusted for as
   // long as a user takes to scan a page before acting on it.
   const JOINABLE_MAX_AGE_MS = 30_000;
@@ -230,34 +226,20 @@ export const useStreamingStore = defineStore("streaming", () => {
     if (joinableRequest) return joinableRequest;
     if (!force && Date.now() - joinableFetchedAt < JOINABLE_MAX_AGE_MS) return;
 
-    const generation = joinableGeneration;
-    const request = (async () => {
+    joinableRequest = (async () => {
       try {
         const { data } = await streamingApi.listJoinableSessions();
-        if (generation === joinableGeneration) {
-          joinableSessions.value = data.sessions;
-        }
+        joinableSessions.value = data.sessions;
       } catch {
         // Best effort, and the last known list stays: a failed refresh says
         // nothing about which sessions are still up, and wiping it would pull
         // the Join affordance off every card the user is looking at.
       } finally {
-        if (generation === joinableGeneration) {
-          joinableFetchedAt = Date.now();
-          joinableRequest = null;
-        }
+        joinableFetchedAt = Date.now();
+        joinableRequest = null;
       }
     })();
-    joinableRequest = request;
-    return request;
-  }
-
-  /** Empty the Join list and discard any refresh still in flight. */
-  function dropJoinableSessions(): void {
-    joinableGeneration++;
-    joinableRequest = null;
-    joinableFetchedAt = 0;
-    joinableSessions.value = [];
+    return joinableRequest;
   }
 
   /**

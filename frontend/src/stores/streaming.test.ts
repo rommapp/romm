@@ -108,11 +108,6 @@ describe("joinable sessions", () => {
     listJoinableSessions.mockResolvedValue(sessions(7));
   });
 
-  const configSays = (enabled: boolean) =>
-    (streamingApi.fetchConfig as unknown as Mock).mockResolvedValueOnce({
-      data: { enabled, containers: [], emulator_labels: {} },
-    });
-
   it("collapses concurrent callers into one request", async () => {
     // A virtualised gallery mounts many action surfaces at once; one request
     // each would be a storm, and the last response to land would win.
@@ -155,35 +150,6 @@ describe("joinable sessions", () => {
     await store.fetchJoinableSessions(true);
 
     expect(listJoinableSessions).not.toHaveBeenCalled();
-  });
-
-  it("empties the list when a refreshed config turns streaming off", async () => {
-    // A revoked grant arrives as a config refresh; Home renders the list as is.
-    const store = useStreamingStore();
-    await store.fetchJoinableSessions();
-    configSays(false);
-
-    await store.fetchConfig();
-
-    expect(store.joinableForRom(7)).toBeNull();
-  });
-
-  it("discards a list still in flight when streaming turns off", async () => {
-    const store = useStreamingStore();
-    let land = (_: unknown) => {};
-    listJoinableSessions.mockReturnValueOnce(
-      new Promise((resolve) => {
-        land = resolve;
-      }),
-    );
-    const listing = store.fetchJoinableSessions(true);
-    configSays(false);
-
-    await store.fetchConfig();
-    land(sessions(7));
-    await listing;
-
-    expect(store.joinableForRom(7)).toBeNull();
   });
 
   it("keeps the last known list when a refresh fails", async () => {
