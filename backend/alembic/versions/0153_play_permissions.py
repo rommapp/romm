@@ -1,7 +1,7 @@
 """Grant streaming and emulation read and write to every existing permission group
 
-Revision ID: 0152_play_permissions
-Revises: 0151_state_content_hash
+Revision ID: 0153_play_permissions
+Revises: 0152_cross_user_smart_scopes
 Create Date: 2026-10-07 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0152_play_permissions"
-down_revision = "0151_state_content_hash"
+revision = "0153_play_permissions"
+down_revision = "0152_cross_user_smart_scopes"
 branch_labels = None
 depends_on = None
 

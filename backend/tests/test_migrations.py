@@ -1176,8 +1176,8 @@ def _play_overrides(connection: sa.Connection) -> int:
 def test_the_play_permissions_revision_backfills_reverses_and_replays(
     admin_user: User,
 ):
-    """0152 grants streaming and emulation to every existing group and downgrades cleanly."""
-    migration = _load_migration("0152_play_permissions.py")
+    """0153 grants streaming and emulation to every existing group and downgrades cleanly."""
+    migration = _load_migration("0153_play_permissions.py")
 
     with sync_engine.begin() as connection:
         connection.execute(
