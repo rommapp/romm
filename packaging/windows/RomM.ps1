@@ -12,28 +12,37 @@ param(
     [ValidateSet('install', 'start', 'stop', 'restart', 'open', 'status', 'logs', 'upgrade', 'uninstall')]
     [string]$Command,
 
-    [string]$Rootfs = (Join-Path $PSScriptRoot 'romm-wsl.tar.gz'),
+    [string]$Rootfs,
     [string]$Library,
     [int]$Port = 8080,
     [switch]$KeepData
 )
 
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 leaves $PSScriptRoot empty in param() defaults.
+if (-not $Rootfs) { $Rootfs = Join-Path $PSScriptRoot 'romm-wsl.tar.gz' }
 $Distro = 'RomM'
 $DataDir = Join-Path $env:LOCALAPPDATA 'RomM'
 $SettingsFile = Join-Path $DataDir 'romm.env'
+
+# Windows PowerShell 5.1 turns a native command's stderr into a terminating
+# error under 'Stop', so wsl.exe runs with 'Continue' and callers check $LASTEXITCODE.
+function Invoke-Wsl([string[]]$WslArgs) {
+    $ErrorActionPreference = 'Continue'
+    & wsl.exe @WslArgs
+}
 
 function Test-Distro {
     # wsl.exe writes UTF-16 to a redirected stdout.
     $prev = [Console]::OutputEncoding
     [Console]::OutputEncoding = [Text.Encoding]::Unicode
-    try { $names = wsl.exe --list --quiet 2>$null } finally { [Console]::OutputEncoding = $prev }
+    try { $names = Invoke-Wsl @('--list', '--quiet') 2>$null } finally { [Console]::OutputEncoding = $prev }
     return [bool]($names | Where-Object { $_.Trim() -eq $Distro })
 }
 
 function Test-Running {
     if (-not (Test-Distro)) { return $false }
-    wsl.exe -d $Distro -u root -- sh -c 'test -f /run/romm-wsl.pid && kill -0 "$(cat /run/romm-wsl.pid)"' 2>$null
+    Invoke-Wsl @('-d', $Distro, '-u', 'root', '--', '/usr/local/bin/romm-wsl', '--running') 2>$null | Out-Null
     return $LASTEXITCODE -eq 0
 }
 
@@ -60,7 +69,7 @@ function Install-RomM {
     if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
         throw 'WSL is not available. Run "wsl --install --no-distribution" as administrator, reboot, then retry.'
     }
-    wsl.exe --status *> $null
+    Invoke-Wsl @('--status') *> $null
     if ($LASTEXITCODE -ne 0) {
         throw 'WSL is not set up. Run "wsl --install --no-distribution" as administrator, reboot, then retry.'
     }
@@ -70,7 +79,7 @@ function Install-RomM {
 
     New-Item -ItemType Directory -Force -Path (Join-Path $DataDir 'wsl') | Out-Null
     Write-Host "Importing $Distro distro (this takes a minute)..."
-    wsl.exe --import $Distro (Join-Path $DataDir 'wsl') $Rootfs --version 2
+    Invoke-Wsl @('--import', $Distro, (Join-Path $DataDir 'wsl'), $Rootfs, '--version', '2')
     if ($LASTEXITCODE -ne 0) { throw 'wsl --import failed' }
     Restore-State
 
@@ -107,8 +116,8 @@ function Start-RomM {
 function Stop-RomM {
     if (-not (Test-Running)) { Write-Host 'RomM is not running.'; return }
     Write-Host 'Stopping RomM...'
-    wsl.exe -d $Distro -u root -- sh -c 'kill -TERM "$(cat /run/romm-wsl.pid)"; while kill -0 "$(cat /run/romm-wsl.pid)" 2>/dev/null; do sleep 0.5; done'
-    wsl.exe --terminate $Distro | Out-Null
+    Invoke-Wsl @('-d', $Distro, '-u', 'root', '--', '/usr/local/bin/romm-wsl', '--stop')
+    Invoke-Wsl @('--terminate', $Distro) | Out-Null
     Write-Host 'Stopped.'
 }
 
@@ -117,22 +126,22 @@ $StatePaths = @('romm', 'var/lib/mysql', 'redis-data', 'etc/romm/secrets.env')
 $Backup = Join-Path $DataDir 'state-backup.tar'
 
 function Get-WslPath([string]$path) {
-    return (wsl.exe -d $Distro -u root -- wslpath -u "$path").Trim()
+    return (Invoke-Wsl @('-d', $Distro, '-u', 'root', '--', 'wslpath', '-u', $path)).Trim()
 }
 
 function Backup-State {
     Write-Host "Backing up RomM data to $Backup ..."
-    wsl.exe -d $Distro -u root -- tar -C / --exclude=romm/library -cf "$(Get-WslPath $Backup)" @StatePaths
+    Invoke-Wsl (@('-d', $Distro, '-u', 'root', '--', 'tar', '-C', '/', '--exclude=romm/library', '-cf', (Get-WslPath $Backup)) + $StatePaths)
     if ($LASTEXITCODE -ne 0) { throw "Backup failed, $Distro was left as is." }
-    wsl.exe --terminate $Distro | Out-Null
+    Invoke-Wsl @('--terminate', $Distro) | Out-Null
 }
 
 function Restore-State {
     if (-not (Test-Path $Backup)) { return }
     Write-Host 'Restoring RomM data...'
-    wsl.exe -d $Distro -u root -- tar -C / -xpf "$(Get-WslPath $Backup)"
+    Invoke-Wsl @('-d', $Distro, '-u', 'root', '--', 'tar', '-C', '/', '-xpf', (Get-WslPath $Backup))
     if ($LASTEXITCODE -ne 0) { throw "Restore failed. Your data is still in $Backup." }
-    wsl.exe --terminate $Distro | Out-Null
+    Invoke-Wsl @('--terminate', $Distro) | Out-Null
     Remove-Item $Backup
 }
 
@@ -140,7 +149,7 @@ function Uninstall-RomM {
     if (Test-Distro) {
         Stop-RomM
         if ($KeepData) { Backup-State }
-        wsl.exe --unregister $Distro | Out-Null
+        Invoke-Wsl @('--unregister', $Distro) | Out-Null
     }
     if (-not $KeepData) { Remove-Item -Recurse -Force $DataDir -ErrorAction SilentlyContinue }
 }
@@ -168,7 +177,7 @@ switch ($Command) {
         if (Test-Running) { Write-Host "Running on http://localhost:$(Get-Port)" } else { Write-Host 'Stopped' }
     }
     'upgrade' { Update-RomM }
-    'logs' { wsl.exe -d $Distro -u root -- tail -n 200 -f /var/log/romm/romm.log }
+    'logs' { Invoke-Wsl @('-d', $Distro, '-u', 'root', '--', 'tail', '-n', '200', '-f', '/var/log/romm/romm.log') }
     'uninstall' {
         Uninstall-RomM
         if ($KeepData) { Write-Host "Uninstalled. Your RomM data is kept in $DataDir and is restored on the next install." }

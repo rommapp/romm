@@ -9,6 +9,27 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+PID_FILE=/run/romm-wsl.pid
+
+# Status and stop live here so RomM.ps1 never passes quoted shell to wsl.exe,
+# which Windows PowerShell 5.1 mangles.
+case "${1:-}" in
+--running)
+	[[ -f ${PID_FILE} ]] || exit 1
+	pid=$(cat "${PID_FILE}")
+	kill -0 "${pid}" 2>/dev/null
+	exit
+	;;
+--stop)
+	[[ -f ${PID_FILE} ]] || exit 0
+	pid=$(cat "${PID_FILE}")
+	kill -TERM "${pid}" 2>/dev/null || exit 0
+	while kill -0 "${pid}" 2>/dev/null; do sleep 0.5; done
+	exit 0
+	;;
+*) ;;
+esac
+
 SETTINGS_FILE="${1:-}"
 SECRETS_FILE=/etc/romm/secrets.env
 DB_DATA_DIR=/var/lib/mysql
@@ -49,19 +70,19 @@ export DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=romm DB_USER=romm ROMM_DB_DRIVER=m
 
 mount_library() {
 	local win_path="${ROMM_LIBRARY_PATH:-}"
+	mkdir -p /romm/library
+	# A previous run's mount makes wslpath resolve the drive path to /romm/library itself.
+	while mountpoint -q /romm/library; do umount /romm/library; done
 	if [[ -z ${win_path} ]]; then
 		log "ROMM_LIBRARY_PATH is not set, using the empty library inside the distro"
-		mkdir -p /romm/library
 		return
 	fi
 	local src
 	src=$(wslpath -u "${win_path}")
-	if [[ ! -d ${src} ]]; then
+	if [[ ! -d ${src} || ${src} == /romm/library* ]]; then
 		log "Library folder ${win_path} (${src}) does not exist"
 		exit 1
 	fi
-	mkdir -p /romm/library
-	mountpoint -q /romm/library && umount /romm/library
 	mount --bind "${src}" /romm/library
 	log "Mounted ${win_path} at /romm/library"
 }
@@ -107,14 +128,14 @@ stop_all() {
 	log "Stopped"
 }
 
-echo $$ >/run/romm-wsl.pid
+echo $$ >"${PID_FILE}"
 trap 'stop_all; exit 0' SIGINT SIGTERM
 
 mount_library
 start_mariadb
 
 log "Starting RomM on port ${ROMM_PORT:-8080}"
-/docker-entrypoint.sh /init &
+/docker-entrypoint.sh /usr/local/bin/romm-init &
 INIT_PID=$!
 wait "${INIT_PID}" || true
 stop_all

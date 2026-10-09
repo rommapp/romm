@@ -14,7 +14,7 @@ flowchart LR
     end
     subgraph wsl["WSL2 distro: RomM"]
         launcher[romm-wsl] --> db[(MariaDB)]
-        launcher --> init["/init (nginx, gunicorn, valkey, rq)"]
+        launcher --> init["romm-init (nginx, gunicorn, valkey, rq)"]
         mount["/romm/library"]
     end
     ps -- "wsl --import / wsl -d RomM" --> launcher
@@ -24,7 +24,7 @@ flowchart LR
 ```
 
 - `Dockerfile` builds on `rommapp/romm` and adds MariaDB plus the `romm-wsl` launcher. `build-rootfs.sh` exports it as a tarball for `wsl --import`.
-- `rootfs/romm-wsl.sh` runs in the foreground inside the distro. It generates secrets on first boot, starts MariaDB on 127.0.0.1, bind-mounts the Windows library folder at `/romm/library`, and then runs the image's normal `/docker-entrypoint.sh /init`.
+- `rootfs/romm-wsl.sh` runs in the foreground inside the distro. It generates secrets on first boot, starts MariaDB on 127.0.0.1, bind-mounts the Windows library folder at `/romm/library`, and then runs the image's normal entrypoint with RomM's init script, copied to `/usr/local/bin/romm-init` because WSL mounts its own init binary over `/init`.
 - `RomM.ps1` is the Windows-side manager, with the commands `install`, `start`, `stop`, `restart`, `open`, `status`, `logs`, `upgrade` and `uninstall`. `start` keeps a hidden `wsl.exe` attached to the launcher, because WSL shuts a distro down once nothing is attached to it.
 - `romm.iss` is the Inno Setup installer. It checks for WSL, asks for the library folder and port, and adds Start menu entries and an optional sign-in shortcut. When an existing install is found, it runs `upgrade` instead of `install`.
 
@@ -54,6 +54,10 @@ wsl --install --no-distribution   # once, as administrator, then reboot
 ```
 
 ## Settings
+
+RomM listens on port 8080 by default, which other apps (qBittorrent's Web UI, for one) also use. Pick another with `.\RomM.ps1 install -Port 8090`, or change `ROMM_PORT` in `romm.env` and restart.
+
+`RomM.ps1` runs under both Windows PowerShell 5.1 (`powershell`) and PowerShell 7 (`pwsh`).
 
 `%LOCALAPPDATA%\RomM\romm.env` accepts any RomM [environment variable](https://docs.romm.app/latest/Getting-Started/Environment-Variables/) (metadata API keys, `SCAN_WORKERS`, and so on). Run `.\RomM.ps1 restart` after editing it. The launcher sets `DB_*` and the secrets itself.
 

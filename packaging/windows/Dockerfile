@@ -15,6 +15,8 @@ RUN apk add --no-cache mariadb mariadb-client
 COPY ./rootfs/wsl.conf /etc/wsl.conf
 COPY --chmod=755 ./rootfs/romm-wsl.sh /usr/local/bin/romm-wsl
 
+# WSL mounts its own init binary over /init, so RomM's init needs another path.
 # `docker export` drops ENV, so keep the image's environment for the launcher.
-RUN mkdir -p /etc/romm && \
+RUN cp /init /usr/local/bin/romm-init && \
+    mkdir -p /etc/romm && \
     bash -c 'export -p' | grep -vE ' (HOME|HOSTNAME|OLDPWD|PWD|SHLVL|_)(=|$)' >/etc/romm/image.env
