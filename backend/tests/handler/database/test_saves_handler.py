@@ -590,6 +590,34 @@ class TestDBSavesHandlerSlotFiltering:
         assert ordered_saves_asc[1].id == created2.id
 
 
+class TestDBSavesHandlerPromoteToSlotHead:
+    def test_outranks_a_head_from_the_same_second(self, admin_user: User, rom: Rom):
+        same_second = datetime.now(UTC).replace(microsecond=0)
+        older = make_save(rom, admin_user, "older.sav", slot="slot1")
+        head = make_save(rom, admin_user, "head.sav", slot="slot1")
+        db_save_handler.update_save(older.id, {"updated_at": same_second})
+        db_save_handler.update_save(head.id, {"updated_at": same_second})
+
+        promoted = db_save_handler.promote_to_slot_head(older)
+
+        assert to_utc(promoted.updated_at) > same_second
+        assert db_save_handler.get_save_ids(
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot="slot1",
+            order_by="updated_at",
+        ) == [older.id, head.id]
+
+    def test_leaves_the_head_as_is(self, admin_user: User, rom: Rom):
+        head = make_save(rom, admin_user, "head.sav", slot="slot1")
+        written_at = datetime(2024, 1, 1, tzinfo=UTC)
+        head = db_save_handler.update_save(head.id, {"updated_at": written_at})
+
+        promoted = db_save_handler.promote_to_slot_head(head)
+
+        assert to_utc(promoted.updated_at) == written_at
+
+
 class TestDBSavesHandlerGetSaveByContentHash:
     """Pin the slot filter behavior of get_save_by_content_hash (commit
     3d71ef3f6). Legacy callers still pass slot=None and expect cross-slot
