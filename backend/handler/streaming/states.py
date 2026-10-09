@@ -23,6 +23,7 @@ import os
 import re
 import zipfile
 import zlib
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, NamedTuple
@@ -421,6 +422,33 @@ def is_native_state(state: State, emulator: str, core: StateCore | None) -> bool
     if core is None:
         return _filed_by_stream(state, emulator)
     return _loads_in(state, emulator, core)
+
+
+class StatePicks(NamedTuple):
+    """The state ids the resume picker offers, in the order given."""
+
+    native: list[int]
+    pickable: list[int]
+
+
+def state_picks(
+    candidates: Iterable[State],
+    emulator: str,
+    core: StateCore | None,
+    imports_states: bool,
+) -> StatePicks:
+    """Split the states the resume claim takes: native ones with a slot resume as
+    they are; with `imports_states` the rest import, except another core's capture."""
+    native: list[int] = []
+    pickable: list[int] = []
+    for state in candidates:
+        loads = is_native_state(state, emulator, core)
+        if loads and slot_from_state_filename(emulator, state.file_name) is not None:
+            native.append(state.id)
+            pickable.append(state.id)
+        elif imports_states and (loads or not _filed_by_stream(state, emulator)):
+            pickable.append(state.id)
+    return StatePicks(native, pickable)
 
 
 def user_states_for_emulator(

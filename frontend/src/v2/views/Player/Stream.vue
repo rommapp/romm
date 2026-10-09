@@ -51,6 +51,7 @@ import streamingApi, {
   type LaunchReady,
   type MemoryCardImport,
   type MemoryCardImportDetail,
+  type StreamStatePicks,
   type StreamingContainer,
 } from "@/services/api/streaming";
 import storeAuth from "@/stores/auth";
@@ -380,44 +381,51 @@ const selectedSave = computed<SaveSchema | null>(
     newestSave.value,
 );
 
-// A stream files a state under its emulator or, for a RetroArch core, under
-// the core's folder with the core recorded, which only a stream records.
-function filedByStream(state: UserStateSchema): boolean {
-  const emulator = emulatorKey(container.value?.emulator);
-  if (!emulator) return false;
-  return (
-    emulatorKey(state.emulator) === emulator ||
-    (emulator === "retroarch" && state.core != null)
-  );
+// The backend picks the offered states by the claim's rules: native ones resume
+// as they are, the rest only through an import the broker declares.
+const statePicks = ref<StreamStatePicks | null>(null);
+// The rom whose picks have answered, which Play waits for.
+const statePicksRomId = ref<number | null>(null);
+let statePicksRequest = 0;
+// Keyed on what changes the answer, a rename included, so a config or rom
+// refresh that changes nothing asks nothing.
+const statePicksKey = computed(() => {
+  const current = container.value;
+  if (!rom.value || !current) return null;
+  const ids = (rom.value.all_user_states ?? [])
+    .map((s) => `${s.id}:${s.file_name}`)
+    .join(",");
+  const kinds = current.import_kinds.join(",");
+  return `${rom.value.id}|${current.emulator}|${kinds}|${ids}`;
+});
+watch(
+  statePicksKey,
+  async (key) => {
+    const romId = rom.value?.id;
+    if (key === null || romId === undefined || isJoining) return;
+    const request = ++statePicksRequest;
+    let picks: StreamStatePicks | null = null;
+    try {
+      ({ data: picks } = await streamingApi.fetchStatePicks(romId));
+    } catch {
+      // A failed refresh keeps the last answer, so the user's pick survives;
+      // with none yet, nothing is offered and Play boots fresh.
+    }
+    if (!alive.value || request !== statePicksRequest) return;
+    if (picks) statePicks.value = picks;
+    statePicksRomId.value = romId;
+  },
+  { immediate: true },
+);
+
+// In the order all_user_states carries them, newest first.
+function statesById(ids: number[] | undefined): UserStateSchema[] {
+  const wanted = new Set(ids);
+  return (rom.value?.all_user_states ?? []).filter((s) => wanted.has(s.id));
 }
 
-// A capture loads in its core (none recorded: the default's); another client's
-// state loads when it is filed in the core's folder.
-function loadsNatively(state: UserStateSchema): boolean {
-  const core = container.value?.state_core;
-  if (!core) return filedByStream(state);
-  if (filedByStream(state))
-    return (
-      state.core === core.expected || (!state.core && core.default_matches)
-    );
-  return core.folders.includes(emulatorKey(state.emulator));
-}
-
-const nativeStreamStates = computed<UserStateSchema[]>(() => {
-  if (!rom.value || !container.value) return [];
-  return (rom.value.all_user_states ?? []).filter(loadsNatively);
-});
-
-// Other clients' states too where the broker imports one, through the import
-// path; another core's capture never loads, which the import refuses as well.
-const pickableStates = computed<UserStateSchema[]>(() => {
-  if (!rom.value) return [];
-  if (!container.value?.import_kinds.includes("state"))
-    return nativeStreamStates.value;
-  return (rom.value.all_user_states ?? []).filter(
-    (s) => loadsNatively(s) || !filedByStream(s),
-  );
-});
+const nativeStreamStates = computed(() => statesById(statePicks.value?.native));
+const pickableStates = computed(() => statesById(statePicks.value?.pickable));
 
 // Every capture is kept, so a heavy save-stater ends up with a history the
 // horizontal strip buries. Grid and list trade thumbnail size for how many
@@ -539,9 +547,16 @@ const emulatorLabel = computed(
   () => container.value?.label ?? platformLabel.value,
 );
 
-// Held with the resume picker, so Play never sends a pick the player can't see.
+// Held with the resume picker and its picks, so Play never sends a pick the
+// player can't see or skips the state about to be preselected.
 const playReady = computed(
-  () => !!rom.value && configFresh.value && playerState.value !== "loading",
+  () =>
+    !!rom.value &&
+    configFresh.value &&
+    playerState.value !== "loading" &&
+    (isJoining ||
+      statePicksKey.value === null ||
+      statePicksRomId.value === rom.value.id),
 );
 usePlayFocus(".r-v2-stream__play", playReady, gameRunning);
 
