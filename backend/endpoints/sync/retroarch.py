@@ -21,10 +21,7 @@ from handler.database import (
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
-from handler.filesystem.assets_handler import (
-    build_asset_file_response,
-    hash_save_content,
-)
+from handler.filesystem.assets_handler import build_asset_file_response
 from handler.filesystem.base_handler import FSHandler
 from handler.scan_handler import scan_screenshot, scan_state
 from handler.sync.retroarch import browser, psp, sync_handler
@@ -534,20 +531,15 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     log.info(f"Cloud sync upload {hl(file_name)} for {hl(str(rom.name), color=BLUE)}")
 
     if parsed.is_state_screenshot:
-        # Written under the owning state's real name, which may differ from the
-        # canonical one, so an existing screenshot is updated rather than forked.
-        owning_state = await asyncio.to_thread(
-            sync_handler.resolve_state_by_slot,
+        # Written under the owning state's real name and emulator, which may
+        # differ from the canonical ones, so an existing screenshot is updated.
+        screenshot_file_name, screenshot_emulator, served = await asyncio.to_thread(
+            sync_handler.screenshot_upload_target,
             request.user,
             rom,
             parsed.emulator,
-            sync_handler.state_name_of_screenshot(file_name),
+            file_name,
         )
-        screenshot_file_name = (
-            f"{owning_state.file_name}.png" if owning_state else file_name
-        )
-        # The state may be filed under another emulator sharing this core folder.
-        screenshot_emulator = owning_state.emulator if owning_state else parsed.emulator
         try:
             check_filename_length(screenshot_file_name)
         except ValueError:
@@ -557,6 +549,8 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
             request.user, rom, screenshot_emulator
         )
         async with _request_body(request) as body:
+            if served and await sync_handler.screenshot_sent_back(served, body):
+                return _empty(status.HTTP_204_NO_CONTENT)
             await fs_asset_handler.write_file(
                 file=body, path=screenshot_path, filename=screenshot_file_name
             )
@@ -592,20 +586,17 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         parsed.emulator,
         file_name,
     )
-    existing, capture = slot.own_head, slot.served_capture
+    existing = slot.own_head
     write_file_name = existing.file_name if existing else file_name
     emulator = existing.emulator if existing else parsed.emulator
     asset_path = sync_handler.build_asset_file_path(
         request.user, rom, parsed.kind, emulator
     )
 
-    content_hash = None
     async with _request_body(request) as body:
-        if capture and capture.content_hash and not capture.missing_from_fs:
-            # The client sending back the capture it was served adds nothing.
-            content_hash = await asyncio.to_thread(hash_save_content, body.file)
-            if content_hash == capture.content_hash:
-                return _empty(status.HTTP_204_NO_CONTENT)
+        content_hash, is_copy = await sync_handler.check_against_capture(slot, body)
+        if is_copy:
+            return _empty(status.HTTP_204_NO_CONTENT)
         await fs_asset_handler.write_file(
             file=body, path=asset_path, filename=write_file_name
         )
