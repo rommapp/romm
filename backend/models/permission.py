@@ -27,8 +27,7 @@ class PermEntity(enum.StrEnum):
 
     Mirrors the coarse scope domains (see ``handler/auth/constants.py``) so the
     grant matrix can be projected back onto the legacy ``Scope`` set without
-    drift (see ``handler/auth/permissions_map.py``). ``STREAMING`` and
-    ``EMULATION`` have no scope and are enforced by the fine-grained checks alone.
+    drift (see ``handler/auth/permissions_map.py``).
     """
 
     PLATFORMS = "platforms"
@@ -41,9 +40,7 @@ class PermEntity(enum.StrEnum):
     USERS = "users"
     TASKS = "tasks"
     LOGS = "logs"
-    # READ sees and joins sessions, WRITE starts them.
     STREAMING = "streaming"
-    # READ plays in the browser and joins netplay rooms, WRITE hosts them.
     EMULATION = "emulation"
 
 

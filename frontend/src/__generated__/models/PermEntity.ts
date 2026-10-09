@@ -7,7 +7,6 @@
  *
  * Mirrors the coarse scope domains (see ``handler/auth/constants.py``) so the
  * grant matrix can be projected back onto the legacy ``Scope`` set without
- * drift (see ``handler/auth/permissions_map.py``). ``STREAMING`` and
- * ``EMULATION`` have no scope and are enforced by the fine-grained checks alone.
+ * drift (see ``handler/auth/permissions_map.py``).
  */
 export type PermEntity = 'platforms' | 'roms' | 'collections' | 'playlists' | 'firmware' | 'assets' | 'devices' | 'users' | 'tasks' | 'logs' | 'streaming' | 'emulation';
