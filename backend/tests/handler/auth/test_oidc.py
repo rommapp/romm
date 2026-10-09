@@ -176,9 +176,31 @@ async def test_oidc_valid_token_decoding(
         [{}, ["editor", "viewer"], Role.USER],
         [{}, ["viewer"], Role.USER],
         # OIDC viewer role fallback.
-        [{"OIDC_ROLE_VIEWER": "*"}, [], Role.USER],
+        [{"OIDC_ROLE_VIEWER": frozenset({"*"})}, [], Role.USER],
+        # Any one of several mapped groups grants the role.
+        [
+            {"OIDC_ROLE_ADMIN": frozenset({"romm-admin", "platform-admins"})},
+            ["users", "platform-admins"],
+            Role.ADMIN,
+        ],
+        [
+            {"OIDC_ROLE_VIEWER": frozenset({"romm-viewer", "family"})},
+            ["family"],
+            Role.USER,
+        ],
+        # A single-valued claim matches whole.
+        [{}, "admin", Role.ADMIN],
     ],
-    ids=["no-mapping", "admin-role", "editor-role", "viewer-role", "viewer-fallback"],
+    ids=[
+        "no-mapping",
+        "admin-role",
+        "editor-role",
+        "viewer-role",
+        "viewer-fallback",
+        "admin-any-of-groups",
+        "viewer-any-of-groups",
+        "string-claim",
+    ],
 )
 async def test_oidc_valid_add_user(
     mocker,
@@ -197,15 +219,15 @@ async def test_oidc_valid_add_user(
     )
     mocker.patch(
         "handler.auth.base_handler.OIDC_ROLE_ADMIN",
-        config_override.get("OIDC_ROLE_ADMIN", "admin"),
+        config_override.get("OIDC_ROLE_ADMIN", frozenset({"admin"})),
     )
     mocker.patch(
         "handler.auth.base_handler.OIDC_ROLE_EDITOR",
-        config_override.get("OIDC_ROLE_EDITOR", "editor"),
+        config_override.get("OIDC_ROLE_EDITOR", frozenset({"editor"})),
     )
     mocker.patch(
         "handler.auth.base_handler.OIDC_ROLE_VIEWER",
-        config_override.get("OIDC_ROLE_VIEWER", "viewer"),
+        config_override.get("OIDC_ROLE_VIEWER", frozenset({"viewer"})),
     )
     mock_token["userinfo"]["roles"] = token_roles
     mock_user = MagicMock(enabled=True, role=Role.USER)
@@ -449,7 +471,7 @@ async def test_oidc_valid_edit_user_role(
 ):
     """Test role change for existing user on login based on OIDC role mapping."""
     mocker.patch("handler.auth.base_handler.OIDC_CLAIM_ROLES", "roles")
-    mocker.patch("handler.auth.base_handler.OIDC_ROLE_ADMIN", "admin")
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_ADMIN", frozenset({"admin"}))
     mock_token["userinfo"]["roles"] = ["admin"]
     mock_user = MagicMock(enabled=True, role=Role.USER)
     mocker.patch(
@@ -499,15 +521,24 @@ async def test_oidc_valid_no_edit_user_role_if_mapping_disabled(
     mock_edit_user.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "token_roles",
+    [["not-mapped"], "superadmin"],
+    ids=["unmapped-group", "string-claim-substring"],
+)
 async def test_oidc_invalid_user_no_roles(
     mocker,
     mock_oidc_enabled,
     mock_token,
     mock_openid_configuration,
+    token_roles,
 ):
     """Test valid token response for user with no roles/access to this application."""
     mocker.patch("handler.auth.base_handler.OIDC_CLAIM_ROLES", "roles")
-    mock_token["userinfo"]["roles"] = ["not-mapped"]
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_ADMIN", frozenset({"admin"}))
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_EDITOR", frozenset({"editor"}))
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_VIEWER", frozenset({"viewer"}))
+    mock_token["userinfo"]["roles"] = token_roles
     mocker.patch.object(
         StarletteOAuth2App,
         "load_server_metadata",
@@ -581,7 +612,7 @@ async def test_oidc_valid_no_edit_user_role_if_claim_not_in_userinfo(
 ):
     """Test that role is not changed for existing user on login if OIDC role claim is configured but not provided by the OIDC provider."""
     mocker.patch("handler.auth.base_handler.OIDC_CLAIM_ROLES", "roles")
-    mocker.patch("handler.auth.base_handler.OIDC_ROLE_ADMIN", "admin")
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_ADMIN", frozenset({"admin"}))
     # The OIDC provider does NOT include the roles claim in userinfo
     mock_token["userinfo"].pop("roles", None)
     mock_user = MagicMock(enabled=True, role=Role.ADMIN)
@@ -637,7 +668,7 @@ async def test_oidc_fetches_missing_claims_from_userinfo_endpoint(
     mock_openid_configuration,
 ):
     mocker.patch("handler.auth.base_handler.OIDC_CLAIM_ROLES", "groups")
-    mocker.patch("handler.auth.base_handler.OIDC_ROLE_ADMIN", "admins")
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_ADMIN", frozenset({"admins"}))
     mocker.patch.object(
         StarletteOAuth2App,
         "load_server_metadata",
