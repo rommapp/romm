@@ -14,7 +14,10 @@ from endpoints.responses.collection import (
     SmartCollectionSchema,
     VirtualCollectionSchema,
 )
-from endpoints.roms import refresh_affected_smart_collections
+from endpoints.roms import (
+    refresh_affected_smart_collections,
+    refresh_scoped_smart_collections,
+)
 from exceptions.endpoint_exceptions import (
     CollectionAlreadyExistsException,
     CollectionNotFoundInDatabaseException,
@@ -106,14 +109,6 @@ def _check_criteria_collection(
     collection = db_collection_handler.get_collection(collection_id)
     if not collection or (collection.user_id != user_id and not collection.is_public):
         raise CollectionNotFoundInDatabaseException(collection_id)
-
-
-def _refresh_scoped_smart_collections(collection_id: int) -> None:
-    # The change is already committed, so failing the request would misreport it.
-    try:
-        db_collection_handler.refresh_smart_collections_scoped_to(collection_id)
-    except Exception as e:
-        log.error(f"Couldn't refresh smart collections scoped to {collection_id}: {e}")
 
 
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
@@ -557,7 +552,7 @@ async def update_collection(
         collection, cleaned_data, ("name", "description", "is_public")
     )
     if "is_public" in changed:
-        _refresh_scoped_smart_collections(id)
+        refresh_scoped_smart_collections(id)
     new_artwork = artwork is not None and artwork.filename is not None
     if (
         remove_cover
@@ -608,7 +603,7 @@ def update_collection_visibility(
         id, {"is_public": is_public}
     )
     if collection.is_public != is_public:
-        _refresh_scoped_smart_collections(id)
+        refresh_scoped_smart_collections(id)
 
     return CollectionSchema.model_validate(updated_collection)
 
@@ -812,7 +807,7 @@ async def delete_collection(
 
     log.info(f"Deleting {hl(collection.name, color=BLUE)} from database")
     db_collection_handler.delete_collection(id)
-    _refresh_scoped_smart_collections(id)
+    refresh_scoped_smart_collections(id)
     _record_collection(request, AuditAction.COLLECTION_DELETE, collection)
 
     try:

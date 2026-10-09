@@ -1,5 +1,5 @@
 import functools
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, cast
 
@@ -662,8 +662,10 @@ class DBCollectionsHandler(DBBaseHandler):
             select(SmartCollection.id, SmartCollection.filter_criteria)
         ).all()
         for smart_collection_id, criteria in rows:
-            filters = RomFilterParams.from_stored_criteria(criteria)
-            if filters and filters.collection_id == collection_id:
+            # A raw match, so rows with unrelated invalid criteria stay unparsed.
+            if isinstance(criteria, Mapping) and str(
+                criteria.get("collection_id")
+            ) == str(collection_id):
                 self.refresh_smart_collection(smart_collection_id, session=session)
 
     @begin_session

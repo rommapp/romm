@@ -50,6 +50,7 @@ def upgrade() -> None:
         )
     ).all()
 
+    stale_ids = []
     for smart_id, owner_id, criteria in rows:
         if not isinstance(criteria, dict):
             continue
@@ -61,12 +62,13 @@ def upgrade() -> None:
             continue
 
         user_id, is_public = visible.get(collection_id, (None, False))
-        if is_public or user_id == owner_id:
-            continue
+        if not is_public and user_id != owner_id:
+            stale_ids.append(smart_id)
 
+    if stale_ids:
         conn.execute(
             sa.update(smart_collections)
-            .where(smart_collections.c.id == smart_id)
+            .where(smart_collections.c.id.in_(stale_ids))
             .values(rom_ids=[], path_covers_small=[], path_covers_large=[])
         )
 

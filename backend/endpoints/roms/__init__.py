@@ -231,6 +231,15 @@ def refresh_affected_smart_collections(
         log.error(f"Couldn't refresh smart collections for {rom_ids}: {e}")
 
 
+def refresh_scoped_smart_collections(collection_id: int) -> None:
+    """Like `refresh_affected_smart_collections`, for the smart collections
+    scoped to a collection whose visibility or existence changed."""
+    try:
+        db_collection_handler.refresh_smart_collections_scoped_to(collection_id)
+    except Exception as e:
+        log.error(f"Couldn't refresh smart collections scoped to {collection_id}: {e}")
+
+
 def build_unscoped_sidecar_cache_key(
     user_id: int,
     order_by: str,
@@ -937,9 +946,7 @@ def _bulk_download_target(
         collection = db_collection_handler.get_smart_collection(smart_collection_id)
     else:
         return None
-    if collection is None:
-        return None
-    return AuditTarget.of_collection(collection)
+    return AuditTarget.of_collection(collection) if collection else None
 
 
 @protected_route(
