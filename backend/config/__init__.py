@@ -23,9 +23,14 @@ def _get_env(var: str, fallback: str | None = None) -> str | None:
     return val.strip() if val else val
 
 
-def _get_env_set(var: str) -> frozenset[str]:
-    """Parse a comma-separated env var into its non-empty, stripped values."""
-    return frozenset(v.strip() for v in (_get_env(var) or "").split(",") if v.strip())
+def _get_env_list(var: str, fallback: str | None = None) -> list[str]:
+    """Parse a comma-separated env var into its non-empty, stripped values, in order."""
+    return [v.strip() for v in (_get_env(var, fallback) or "").split(",") if v.strip()]
+
+
+def _get_env_set(var: str, fallback: str | None = None) -> frozenset[str]:
+    """Parse a comma-separated env var into its set of non-empty, stripped values."""
+    return frozenset(_get_env_list(var, fallback))
 
 
 ROMM_BASE_URL: Final[str] = _get_env("ROMM_BASE_URL", "http://0.0.0.0")
@@ -225,11 +230,7 @@ EMAIL_ENABLED: Final[bool] = bool(
     SMTP_HOST and SMTP_FROM and SMTP_SECURITY in SMTP_SECURITY_MODES
 )
 
-ROMM_CORS_ALLOWED_ORIGINS: Final[list[str]] = [
-    o.strip()
-    for o in (_get_env("ROMM_CORS_ALLOWED_ORIGINS") or "").split(",")
-    if o.strip()
-]
+ROMM_CORS_ALLOWED_ORIGINS: Final[list[str]] = _get_env_list("ROMM_CORS_ALLOWED_ORIGINS")
 
 
 def cors_allow_credentials(origins: list[str]) -> bool:
@@ -408,11 +409,10 @@ DEVICE_INSTALL_REQUEST_TTL_DAYS: Final[int] = safe_int(
 )
 # Platforms whose roms cannot be pushed to a device for install.
 DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS: Final[frozenset[str]] = frozenset(
-    slug.strip().lower()
-    for slug in _get_env(
+    slug.lower()
+    for slug in _get_env_set(
         "DEVICE_INSTALL_EXCLUDED_PLATFORM_SLUGS", "win,win3x,win9x,windows-apps"
-    ).split(",")
-    if slug.strip()
+    )
 )
 
 # EMULATION
