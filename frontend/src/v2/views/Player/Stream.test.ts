@@ -27,6 +27,8 @@ const mocks = vi.hoisted(() => ({
   setVolume: vi.fn(),
   container: null as Record<string, unknown> | null,
   capabilities: {} as Record<string, unknown>,
+  // Reactive once the store mock loads, so a test can turn streaming off.
+  streamingOff: { value: false },
   presenceTick: null as (() => Promise<void>) | null,
   playSession: { start: vi.fn(), flush: vi.fn() },
   socketHandlers: {} as Record<string, (payload: unknown) => unknown>,
@@ -78,24 +80,30 @@ vi.mock("@/v2/stores/galleryRoms", () => ({
   default: () => ({ getRomById: () => null }),
 }));
 
-vi.mock("@/stores/streaming", () => ({
-  useStreamingStore: () => ({
-    claimSession: mocks.claimSession,
-    containerForPlatform: () => mocks.container,
-    emulatorLabel: (emulator: string) =>
-      emulator === "duckstation" ? "DuckStation" : emulator,
-    platformCapabilities: () => mocks.capabilities,
-    fetchConfig: mocks.fetchConfig,
-    fetchSessionStatus: mocks.fetchSessionStatus,
-    forgetJoinableSession: vi.fn(),
-    heartbeatSession: mocks.heartbeatSession,
-    joinSession: mocks.joinSession,
-    releaseSession: mocks.releaseSession,
-    releaseSessionKeepalive: mocks.releaseSessionKeepalive,
-    saveAndExit: mocks.saveAndExit,
-    saveAndExitKeepalive: mocks.saveAndExitKeepalive,
-  }),
-}));
+vi.mock("@/stores/streaming", async () => {
+  const { ref } = await import("vue");
+  mocks.streamingOff = ref(false);
+  return {
+    useStreamingStore: () => ({
+      claimSession: mocks.claimSession,
+      containerForPlatform: () =>
+        mocks.streamingOff.value ? null : mocks.container,
+      containerCapabilities: (container: unknown) =>
+        container ? mocks.capabilities : {},
+      emulatorLabel: (emulator: string) =>
+        emulator === "duckstation" ? "DuckStation" : emulator,
+      fetchConfig: mocks.fetchConfig,
+      fetchSessionStatus: mocks.fetchSessionStatus,
+      forgetJoinableSession: vi.fn(),
+      heartbeatSession: mocks.heartbeatSession,
+      joinSession: mocks.joinSession,
+      releaseSession: mocks.releaseSession,
+      releaseSessionKeepalive: mocks.releaseSessionKeepalive,
+      saveAndExit: mocks.saveAndExit,
+      saveAndExitKeepalive: mocks.saveAndExitKeepalive,
+    }),
+  };
+});
 
 vi.mock("@/v2/composables/useActivityPresence", () => ({
   useActivityPresence: (_rom: unknown, tick: () => Promise<void>) => {
@@ -980,6 +988,7 @@ describe("Stream state controls", () => {
 
   afterEach(() => {
     mocks.capabilities = {};
+    mocks.streamingOff.value = false;
   });
 
   async function barIcons(liveStates: boolean): Promise<unknown[]> {
@@ -992,6 +1001,18 @@ describe("Stream state controls", () => {
 
   it("offers Save and Load where the broker takes a state mid-game", async () => {
     const icons = await barIcons(true);
+    expect(icons).toContain("mdi-content-save-outline");
+    expect(icons).toContain("mdi-restore");
+  });
+
+  it("keeps the controls when streaming is revoked mid-game", async () => {
+    const wrapper = await launch({ picker: false });
+    await vmOf(wrapper).onPlay();
+    await launchReady();
+    mocks.streamingOff.value = true;
+    await flushPromises();
+
+    const icons = wrapper.findAllComponents(RBtn).map((b) => b.props("icon"));
     expect(icons).toContain("mdi-content-save-outline");
     expect(icons).toContain("mdi-restore");
   });

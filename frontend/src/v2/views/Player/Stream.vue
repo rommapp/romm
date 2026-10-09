@@ -35,6 +35,7 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  shallowRef,
   watch,
 } from "vue";
 import { useI18n } from "vue-i18n";
@@ -50,6 +51,7 @@ import streamingApi, {
   type LaunchReady,
   type MemoryCardImport,
   type MemoryCardImportDetail,
+  type StreamingContainer,
 } from "@/services/api/streaming";
 import storeAuth from "@/stores/auth";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
@@ -239,14 +241,19 @@ watch(playerState, (state) =>
   setBgArt(state === "playing" ? null : bgCoverUrl.value),
 );
 
-const container = computed(() =>
-  rom.value
-    ? streamingStore.containerForPlatform(rom.value.platform_slug)
-    : null,
+// Pinned at claim, so a permission refresh that turns streaming off mid-game
+// leaves the session its controls until it ends.
+const heldContainer = shallowRef<StreamingContainer | null>(null);
+const container = computed(
+  () =>
+    heldContainer.value ??
+    (rom.value
+      ? streamingStore.containerForPlatform(rom.value.platform_slug)
+      : null),
 );
 
 const capabilities = computed(() =>
-  streamingStore.platformCapabilities(rom.value?.platform_slug),
+  streamingStore.containerCapabilities(container.value),
 );
 
 // Emulators that keep saves in the emulated filesystem rather than in
@@ -729,6 +736,7 @@ const claimedAt = ref<string | null>(null);
 
 function forgetClaim(): void {
   holdsClaim.value = false;
+  heldContainer.value = null;
   claimedContainer.value = null;
   claimedAt.value = null;
 }
@@ -957,6 +965,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
         multiplayerOnPlay.value,
       );
       claimedContainer.value = launching.container;
+      heldContainer.value = container.value;
       claimedAt.value = launching.claimed_at;
       holdsClaim.value = true;
       // Every exit path ran before there was a claim to hand back.
