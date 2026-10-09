@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
+import yaml
 
 from config.config_manager import (
     DEFAULT_EXCLUDED_EXTENSIONS,
@@ -830,23 +831,103 @@ def _write_filesystem_config(tmp_path: Path, block: str) -> ConfigManager:
     return ConfigManager(str(config_file))
 
 
+@pytest.fixture
+def library(tmp_path, mocker):
+    library = tmp_path / "library"
+    library.mkdir()
+    mocker.patch("config.config_manager.LIBRARY_BASE_PATH", str(library))
+    return library
+
+
 @pytest.mark.parametrize(
-    ("key", "folder", "expected"),
+    ("block", "folders", "expected"),
     [
-        ("roms_folder", "retro_games", 'default: "retro_games/{platform}/{game}"'),
-        ("firmware_folder", "fw", 'firmware: "fw/{platform}"'),
+        (
+            "  roms_folder: roms\n  firmware_folder: bios\n",
+            ["roms/n64"],
+            {"default": "roms/{platform}/{game}", "firmware": "bios/{platform}"},
+        ),
+        (
+            "  roms_folder: roms\n  firmware_folder: bios\n",
+            ["n64/roms"],
+            {"default": "{platform}/roms/{game}", "firmware": "{platform}/bios"},
+        ),
+        (
+            "  roms_folder: retro_games\n",
+            ["retro_games/n64"],
+            {"default": "retro_games/{platform}/{game}", "firmware": "bios/{platform}"},
+        ),
+        (
+            "  firmware_folder: fw\n",
+            ["n64/roms"],
+            {"default": "{platform}/roms/{game}", "firmware": "{platform}/fw"},
+        ),
+        (
+            "  roms_folder: roms\n",
+            [],
+            {"default": "roms/{platform}/{game}", "firmware": "bios/{platform}"},
+        ),
     ],
 )
-def test_retired_folder_keys_exit_with_the_replacement(
-    tmp_path, key, folder, expected, critical
+def test_retired_folder_keys_migrate_to_the_layout_5_2_resolved(
+    tmp_path, library, block, folders, expected
 ):
-    """Ignoring them would silently relocate the library, so refuse to start and
-    name the template that reproduces the layout."""
+    """5.2 wrote both keys on every settings save, so they have to keep meaning
+    the same layout rather than stop the app from starting."""
+    for folder in folders:
+        (library / folder).mkdir(parents=True)
+
+    loader = _write_filesystem_config(tmp_path, block)
+
+    assert loader.get_config().STRUCTURE_TEMPLATES == expected
+    saved = yaml.safe_load((tmp_path / "config.yml").read_text())
+    assert saved["filesystem"] == {"structure": expected}
+    loader.check_library_layout()
+
+
+def test_a_declared_structure_wins_over_a_retired_folder_key(tmp_path, library):
+    (library / "n64" / "roms").mkdir(parents=True)
+
+    loader = _write_filesystem_config(
+        tmp_path,
+        "  roms_folder: roms\n"
+        "  structure:\n"
+        '    default: "{platform}/roms/{game}"\n'
+        '    firmware: "{platform}/firmware"\n',
+    )
+
+    assert loader.get_config().STRUCTURE_TEMPLATES == {
+        "default": "{platform}/roms/{game}",
+        "firmware": "{platform}/firmware",
+    }
+
+
+def test_retired_folder_keys_migrate_in_memory_when_read_only(
+    tmp_path, library, mocker
+):
+    warning = mocker.patch("config.config_manager.log.warning")
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("filesystem:\n  roms_folder: games\n")
+    config_file.chmod(0o444)
+    try:
+        loader = ConfigManager(str(config_file))
+        loader.get_config()
+    finally:
+        config_file.chmod(0o644)
+
+    assert loader.config.STRUCTURE_TEMPLATES["default"] == "games/{platform}/{game}"
+    assert "roms_folder" in config_file.read_text()
+    assert warning.call_count == 1
+    assert 'default: "games/{platform}/{game}"' in warning.call_args[0][0]
+
+
+@pytest.mark.parametrize("value", ['""', "42"])
+def test_an_invalid_retired_folder_key_exits(tmp_path, library, value, critical):
     with pytest.raises(SystemExit) as excinfo:
-        _write_filesystem_config(tmp_path, f"  {key}: {folder}\n")
+        _write_filesystem_config(tmp_path, f"  roms_folder: {value}\n")
 
     assert excinfo.value.code == 3
-    assert expected in critical()
+    assert "filesystem.roms_folder" in critical()
 
 
 def test_an_override_may_not_move_the_platform_folder(tmp_path, critical):

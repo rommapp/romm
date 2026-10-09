@@ -1,3 +1,4 @@
+import contextlib
 import dataclasses
 import enum
 import functools
@@ -5,7 +6,6 @@ import glob
 import json
 import os
 import sys
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, NotRequired, Self, TextIO, TypedDict
@@ -46,6 +46,9 @@ STRUCTURE_FIRMWARE_KEY: Final = "firmware"
 RESERVED_STRUCTURE_KEYS: Final = frozenset(
     {STRUCTURE_DEFAULT_KEY, STRUCTURE_FIRMWARE_KEY}
 )
+
+# Folder-name keys 5.2 wrote to config.yml, with the default each one had.
+RETIRED_FOLDER_KEYS: Final = {"roms_folder": "roms", "firmware_folder": "bios"}
 
 STRUCTURE_DOCS_URL: Final = (
     "https://docs.romm.app/latest/getting-started/folder-structure/"
@@ -596,6 +599,7 @@ class ConfigManager:
     # Tests require custom config path
     def __init__(self, config_file: str = ROMM_USER_CONFIG_FILE) -> None:
         self.config_file = config_file
+        self._retired_keys_warned = False
 
         try:
             # Check if the config file is mounted
@@ -718,6 +722,7 @@ class ConfigManager:
 
     def _parse_config(self) -> None:
         """Parses each entry in the config.yml"""
+        self._migrate_retired_filesystem_keys()
 
         self.config = Config(
             CONFIG_FILE_MOUNTED=self._config_file_mounted,
@@ -972,34 +977,85 @@ class ConfigManager:
 
         return normalized
 
-    def _check_retired_filesystem_keys(self) -> None:
-        """Exit if config.yml still sets a folder name that a template replaced.
+    def _migrate_retired_filesystem_keys(self) -> None:
+        """Replace the folder-name keys 5.2 saved on every settings change with the
+        templates that reproduce the layout 5.2 resolved them to."""
+        filesystem = (
+            self._raw_config.get("filesystem")
+            if isinstance(self._raw_config, dict)
+            else None
+        )
+        if not isinstance(filesystem, dict) or not (
+            RETIRED_FOLDER_KEYS & filesystem.keys()
+        ):
+            return
 
-        Ignoring one would relocate the library under the user.
-        """
-        retired: dict[str, tuple[str, Callable[[str], str]]] = {
-            "filesystem.roms_folder": (
-                STRUCTURE_DEFAULT_KEY,
-                lambda folder: f"{folder}/{{platform}}/{{game}}",
-            ),
-            "filesystem.firmware_folder": (
-                STRUCTURE_FIRMWARE_KEY,
-                lambda folder: f"{folder}/{{platform}}",
-            ),
+        folders: dict[str, str] = {}
+        for key, default in RETIRED_FOLDER_KEYS.items():
+            folder = filesystem.get(key, default)
+            if not isinstance(folder, str) or not folder:
+                log.critical(
+                    f"Invalid config.yml: filesystem.{key} must be a non-empty string"
+                )
+                sys.exit(3)
+            folders[key] = folder
+
+        structure = filesystem.setdefault("structure", {})
+        if not isinstance(structure, dict):
+            return
+
+        roms_folder = folders["roms_folder"]
+        firmware_folder = folders["firmware_folder"]
+        # 5.2 picked `{platform}/<folder>` only when `<folder>` was missing at the
+        # library root and present under some platform folder.
+        platform_first = not os.path.isdir(
+            os.path.join(LIBRARY_BASE_PATH, roms_folder)
+        ) and any(
+            os.path.isdir(match)
+            for match in glob.iglob(
+                os.path.join(LIBRARY_BASE_PATH, "*", glob.escape(roms_folder))
+            )
+        )
+        templates = (
+            {
+                STRUCTURE_DEFAULT_KEY: f"{{platform}}/{roms_folder}/{{game}}",
+                STRUCTURE_FIRMWARE_KEY: f"{{platform}}/{firmware_folder}",
+            }
+            if platform_first
+            else {
+                STRUCTURE_DEFAULT_KEY: f"{roms_folder}/{{platform}}/{{game}}",
+                STRUCTURE_FIRMWARE_KEY: f"{firmware_folder}/{{platform}}",
+            }
+        )
+        for key in RETIRED_FOLDER_KEYS:
+            filesystem.pop(key, None)
+        migrated = {
+            key: structure.setdefault(key, template)
+            for key, template in templates.items()
         }
-        for key, (structure_key, to_template) in retired.items():
-            folder = get_nested(self._raw_config, key)
-            if folder is None:
-                continue
-            log.critical(
-                f"Invalid config.yml: {key} is no longer supported. Replace it "
-                f"with the equivalent layout:\n\n"
-                f"  filesystem:\n"
-                f"    structure:\n"
-                f'      {structure_key}: "{to_template(folder)}"\n\n'
+        layout = "\n".join(
+            f'      {key}: "{template}"' for key, template in migrated.items()
+        )
+
+        if self._config_file_writable:
+            with contextlib.suppress(ConfigNotWritableException):
+                self._write_raw_config()
+                log.info(
+                    "Migrated filesystem.roms_folder and filesystem.firmware_folder "
+                    f"in config.yml to the equivalent layout:\n\n"
+                    f"  filesystem:\n    structure:\n{layout}\n"
+                )
+                return
+
+        if not self._retired_keys_warned:
+            self._retired_keys_warned = True
+            log.warning(
+                "config.yml is read-only, so filesystem.roms_folder and "
+                "filesystem.firmware_folder are migrated in memory only. Replace "
+                f"them with the equivalent layout:\n\n"
+                f"  filesystem:\n    structure:\n{layout}\n\n"
                 f"See {STRUCTURE_DOCS_URL}."
             )
-            sys.exit(3)
 
     def check_library_layout(self) -> None:
         """Exit if the library is laid out as `{platform}/roms` with no template.
@@ -1029,8 +1085,6 @@ class ConfigManager:
 
     def _validate_config(self) -> None:
         """Validates the config.yml file"""
-        self._check_retired_filesystem_keys()
-
         if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
             log.critical("Invalid config.yml: scan.gamelist.export must be a boolean")
             sys.exit(3)
@@ -1433,6 +1487,9 @@ class ConfigManager:
                 "containers": self.config.STREAMING_CONTAINERS,
             }
 
+        self._write_raw_config()
+
+    def _write_raw_config(self) -> None:
         try:
             # Ensure the config directory exists
             os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
