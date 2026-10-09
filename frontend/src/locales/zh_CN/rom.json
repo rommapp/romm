@@ -537,7 +537,7 @@
   "upload-overwrite-title": "覆盖 {n} 个已有文件？ | 覆盖 {n} 个已有文件？",
   "upload-saves": "上传存档",
   "upload-screenshots": "上传截图",
-  "upload-slot-hint": "带存档位的存档会参与设备同步；没有存档位的文件将作为手动存档保留。",
+  "upload-slot-hint": "带存档位的存档会参与设备同步，RetroArch Cloud Sync 读取 autosave。没有存档位的文件将作为手动存档保留。",
   "upload-soundtrack": "上传原声音乐",
   "upload-states": "上传状态",
   "upload-to-folder": "上传到文件夹",
