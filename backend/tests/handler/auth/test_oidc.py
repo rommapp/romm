@@ -521,15 +521,24 @@ async def test_oidc_valid_no_edit_user_role_if_mapping_disabled(
     mock_edit_user.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "token_roles",
+    [["not-mapped"], "superadmin"],
+    ids=["unmapped-group", "string-claim-substring"],
+)
 async def test_oidc_invalid_user_no_roles(
     mocker,
     mock_oidc_enabled,
     mock_token,
     mock_openid_configuration,
+    token_roles,
 ):
     """Test valid token response for user with no roles/access to this application."""
     mocker.patch("handler.auth.base_handler.OIDC_CLAIM_ROLES", "roles")
-    mock_token["userinfo"]["roles"] = ["not-mapped"]
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_ADMIN", frozenset({"admin"}))
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_EDITOR", frozenset({"editor"}))
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_VIEWER", frozenset({"viewer"}))
+    mock_token["userinfo"]["roles"] = token_roles
     mocker.patch.object(
         StarletteOAuth2App,
         "load_server_metadata",
