@@ -4,7 +4,7 @@ import itertools
 import os
 import re
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -861,6 +861,246 @@ class TestRetroArchSyncUpload:
         assert state is not None
         assert state.file_path == states_path
         mock_remove_file.assert_awaited_once_with(file_path=legacy_state.full_path)
+
+
+class TestRetroArchSyncStreamCaptures:
+    """A streaming session's state capture shares Cloud Sync's slot but is never written over."""
+
+    HOUR = timedelta(hours=1)
+
+    def _capture(self, rom: Rom, user: User, states_path: str, content: bytes, **kw):
+        fields = {
+            "file_path": states_path,
+            "file_size_bytes": len(content),
+            "content_hash": hashlib.md5(content).hexdigest(),
+            "emulator": "snes9x",
+            "core": "snes9x",
+            "updated_at": datetime.now(timezone.utc) - self.HOUR,
+        }
+        return factories.make_state(
+            rom, user, "test_rom.2026-10-08_12-00-00.state", **(fields | kw)
+        )
+
+    def _own(self, rom: Rom, user: User, states_path: str):
+        """A state of the slot's own, older than the capture."""
+        return factories.make_state(
+            rom,
+            user,
+            "test_rom.state",
+            file_path=states_path,
+            file_size_bytes=4,
+            emulator="snes9x",
+            updated_at=datetime.now(timezone.utc) - 2 * self.HOUR,
+        )
+
+    def test_an_upload_files_a_new_state_beside_the_capture(
+        self, client, admin_user: User, rom: Rom, states_path: str
+    ):
+        capture = self._capture(rom, admin_user, states_path, b"capt")
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            content=b"device-bytes",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        kept = db_state_handler.get_state(user_id=admin_user.id, id=capture.id)
+        assert kept is not None
+        assert (kept.file_name, kept.file_size_bytes, kept.core) == (
+            capture.file_name,
+            4,
+            "snes9x",
+        )
+        added = [
+            s
+            for s in db_state_handler.get_states(
+                user_id=admin_user.id, rom_ids=[rom.id]
+            )
+            if s.id != capture.id
+        ]
+        assert [(s.file_name, s.core) for s in added] == [("test_rom.state", None)]
+        served = client.get(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state", auth=ADMIN_AUTH
+        )
+        assert served.content == b"device-bytes"
+
+    def test_an_upload_writes_the_slots_own_state_behind_the_capture(
+        self, client, admin_user: User, rom: Rom, states_path: str
+    ):
+        own = self._own(rom, admin_user, states_path)
+        capture = self._capture(rom, admin_user, states_path, b"capt")
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            content=b"device-bytes",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        states = {
+            s.id: s
+            for s in db_state_handler.get_states(
+                user_id=admin_user.id, rom_ids=[rom.id]
+            )
+        }
+        assert set(states) == {own.id, capture.id}
+        assert states[own.id].file_size_bytes == len(b"device-bytes")
+        assert states[capture.id].file_size_bytes == 4
+        served = client.get(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state", auth=ADMIN_AUTH
+        )
+        assert served.content == b"device-bytes"
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_sending_the_capture_back_adds_nothing(
+        self,
+        mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        states_path: str,
+    ):
+        capture = self._capture(rom, admin_user, states_path, b"capt")
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            content=b"capt",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_write_file.assert_not_awaited()
+        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        assert [s.id for s in states] == [capture.id]
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_sending_back_a_capture_served_past_a_missing_state_adds_nothing(
+        self,
+        mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        states_path: str,
+    ):
+        """The slot serves the capture on disk over a newer state gone from it."""
+        self._capture(rom, admin_user, states_path, b"capt")
+        factories.make_state(
+            rom,
+            admin_user,
+            "test_rom.state",
+            file_path=states_path,
+            emulator="snes9x",
+            missing_from_fs=True,
+            updated_at=datetime.now(timezone.utc) - self.HOUR / 2,
+        )
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            content=b"capt",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_write_file.assert_not_awaited()
+
+    def _capture_screenshot(self, rom: Rom, user: User, capture: State, content: bytes):
+        shot = make_screenshot(
+            rom,
+            user,
+            f"{capture.file_name}.png",
+            file_path=sync_handler.state_screenshot_dir(user, rom, "snes9x"),
+            file_size_bytes=len(content),
+        )
+        disk_path = fs_asset_handler.base_path / shot.full_path
+        disk_path.parent.mkdir(parents=True, exist_ok=True)
+        disk_path.write_bytes(content)
+        return shot
+
+    @pytest.mark.parametrize(
+        "unmatchable",
+        [{"content_hash": None}, {"missing_from_fs": True}],
+        ids=["no hash", "missing from disk"],
+    )
+    def test_a_capture_it_cannot_match_is_never_taken_as_sent_back(
+        self, client, admin_user: User, rom: Rom, states_path: str, unmatchable
+    ):
+        capture = self._capture(rom, admin_user, states_path, b"capt", **unmatchable)
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            content=b"capt",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        assert sorted((s.id == capture.id, s.core) for s in states) == [
+            (False, None),
+            (True, "snes9x"),
+        ]
+
+    @pytest.mark.parametrize("method", ["DELETE", "MOVE"])
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.remove_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_a_delete_keeps_the_slots_captures(
+        self,
+        mock_remove_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        states_path: str,
+        method: str,
+    ):
+        own = self._own(rom, admin_user, states_path)
+        capture = self._capture(rom, admin_user, states_path, b"capt")
+
+        response = client.request(
+            method, "/api/sync/retroarch/states/Snes9x/test_rom.state", auth=ADMIN_AUTH
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_remove_file.assert_awaited_once_with(file_path=own.full_path)
+        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        assert [s.id for s in states] == [capture.id]
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.remove_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_a_screenshot_delete_leaves_the_captures(
+        self,
+        mock_remove_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        states_path: str,
+    ):
+        capture = self._capture(rom, admin_user, states_path, b"capt")
+        shot = self._capture_screenshot(rom, admin_user, capture, b"png")
+
+        response = client.request(
+            "DELETE",
+            "/api/sync/retroarch/states/Snes9x/test_rom.state.png",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_remove_file.assert_not_awaited()
+        assert [
+            s.id
+            for s in db_screenshot_handler.get_screenshots(
+                user_id=admin_user.id, rom_ids={rom.id}
+            )
+        ] == [shot.id]
 
 
 @pytest.fixture

@@ -397,7 +397,9 @@ async def get_config(request: Request) -> StreamingConfigSchema:
                 # So the picker hides states another RetroArch core wrote.
                 state_core=(
                     StateCoreSchema(
-                        expected=core.expected, default_matches=core.default_matches
+                        expected=core.expected,
+                        default_matches=core.default_matches,
+                        folders=core.folders,
                     )
                     if core is not None
                     else None

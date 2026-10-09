@@ -2,7 +2,7 @@ import { RBtn, RSlider } from "@v2/lib";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick, type Slots, type VNodeChild } from "vue";
-import type { SaveSchema, StateSchema } from "@/__generated__";
+import type { SaveSchema, StateCoreSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
@@ -248,7 +248,7 @@ async function launch(opts: {
   states?: StateSchema[];
   liveStates?: boolean;
   imports?: ("save" | "state")[];
-  stateCore?: { expected: string; default_matches: boolean } | null;
+  stateCore?: StateCoreSchema | null;
 }): Promise<VueWrapper> {
   mocks.container = {
     name: "WEBSTATION-DEV",
@@ -1399,32 +1399,61 @@ describe("Stream state picker", () => {
     stateFixture({ id: 6, emulator: "retroarch", core: "snes9x" }),
     stateFixture({ id: 7, emulator: "retroarch", core: null }),
     stateFixture({ id: 8, emulator: "duckstation", core: null }),
+    // Other clients' states, filed under a core's RetroArch folder.
+    stateFixture({ id: 9, emulator: "bsnes", core: null }),
+    stateFixture({ id: 10, emulator: "Snes9x 2010", core: null }),
+    // A stream's capture, filed under the core's folder.
+    stateFixture({ id: 11, emulator: "bsnes", core: "bsnes" }),
+    stateFixture({ id: 12, emulator: "snes9x", core: "snes9x" }),
   ];
+  const BSNES: StateCoreSchema = {
+    expected: "bsnes",
+    default_matches: false,
+    folders: ["bsnes"],
+  };
 
   it("hides states another RetroArch core wrote", async () => {
     const wrapper = await launch({
       picker: false,
       states: CORE_STATES,
-      stateCore: { expected: "bsnes", default_matches: false },
+      stateCore: BSNES,
     });
 
-    expect(pickableStateIds(wrapper)).toEqual([5]);
+    expect(pickableStateIds(wrapper)).toEqual([5, 9, 11]);
   });
 
   it("treats a state with no core as the default's", async () => {
     const wrapper = await launch({
       picker: false,
       states: CORE_STATES,
-      stateCore: { expected: "snes9x", default_matches: true },
+      stateCore: {
+        expected: "snes9x",
+        default_matches: true,
+        folders: ["snes9x"],
+      },
     });
 
-    expect(pickableStateIds(wrapper)).toEqual([6, 7]);
+    expect(pickableStateIds(wrapper)).toEqual([6, 7, 12]);
   });
 
-  it("filters nothing when the core is unknown", async () => {
+  it("loads another client's state filed under an alias of the core's folder", async () => {
+    const wrapper = await launch({
+      picker: false,
+      states: CORE_STATES,
+      stateCore: {
+        expected: "snes9x2010",
+        default_matches: false,
+        folders: ["snes9x 2010", "snes9x2010"],
+      },
+    });
+
+    expect(pickableStateIds(wrapper)).toEqual([10]);
+  });
+
+  it("offers only the stream's own states when the core is unknown", async () => {
     const wrapper = await launch({ picker: false, states: CORE_STATES });
 
-    expect(pickableStateIds(wrapper)).toEqual([5, 6, 7]);
+    expect(pickableStateIds(wrapper)).toEqual([5, 6, 7, 11, 12]);
   });
 
   it("keeps foreign states for the import path but still hides other cores", async () => {
@@ -1432,10 +1461,10 @@ describe("Stream state picker", () => {
       picker: false,
       states: CORE_STATES,
       imports: ["state"],
-      stateCore: { expected: "bsnes", default_matches: false },
+      stateCore: BSNES,
     });
 
-    expect(pickableStateIds(wrapper)).toEqual([5, 8]);
+    expect(pickableStateIds(wrapper)).toEqual([5, 8, 9, 10, 11]);
   });
 });
 

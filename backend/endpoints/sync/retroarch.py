@@ -21,7 +21,10 @@ from handler.database import (
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
-from handler.filesystem.assets_handler import build_asset_file_response
+from handler.filesystem.assets_handler import (
+    build_asset_file_response,
+    hash_save_content,
+)
 from handler.filesystem.base_handler import FSHandler
 from handler.scan_handler import scan_screenshot, scan_state
 from handler.sync.retroarch import browser, psp, sync_handler
@@ -582,21 +585,27 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
 
     # A state resolved by slot may have its own file name and emulator; writing
     # to them keeps the row pointing at the fresh bytes instead of orphaning them.
-    existing = await asyncio.to_thread(
-        sync_handler.resolve_state_by_slot,
+    slot = await asyncio.to_thread(
+        sync_handler.slot_states,
         request.user,
         rom,
         parsed.emulator,
         file_name,
-        prefer_on_disk=False,
     )
+    existing, capture = slot.own_head, slot.served_capture
     write_file_name = existing.file_name if existing else file_name
     emulator = existing.emulator if existing else parsed.emulator
     asset_path = sync_handler.build_asset_file_path(
         request.user, rom, parsed.kind, emulator
     )
 
+    content_hash = None
     async with _request_body(request) as body:
+        if capture and capture.content_hash and not capture.missing_from_fs:
+            # The client sending back the capture it was served adds nothing.
+            content_hash = await asyncio.to_thread(hash_save_content, body.file)
+            if content_hash == capture.content_hash:
+                return _empty(status.HTTP_204_NO_CONTENT)
         await fs_asset_handler.write_file(
             file=body, path=asset_path, filename=write_file_name
         )
@@ -607,6 +616,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom.id,
         emulator=emulator,
+        content_hash=content_hash,
     )
     await asyncio.to_thread(_record_state, request.user, rom, parsed, existing, scanned)
     # The row moves with the bytes when it was filed elsewhere, e.g. under the
@@ -740,13 +750,18 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
         return _empty(status.HTTP_204_NO_CONTENT)
 
     if parsed.is_state_screenshot:
-        screenshot = await asyncio.to_thread(
-            sync_handler.resolve_state_screenshot_by_slot,
+        owning_state, screenshot = await asyncio.to_thread(
+            sync_handler.slot_screenshot,
             request.user,
             rom,
             parsed.emulator,
             parsed.file_name,
         )
+        if owning_state is None:
+            return _empty(status.HTTP_404_NOT_FOUND)
+        if owning_state.is_stream_capture:
+            # A capture is never deleted here, so its screenshot stays too.
+            return _empty(status.HTTP_204_NO_CONTENT)
         if not screenshot:
             return _empty(status.HTTP_404_NOT_FOUND)
 
@@ -757,18 +772,19 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
         return _empty(status.HTTP_204_NO_CONTENT)
 
     # Every alias in the slot goes, or an older one would resurface at this path.
-    states = await asyncio.to_thread(
-        sync_handler.states_in_slot,
+    # Captures stay, so the newest of them is served here next.
+    slot = await asyncio.to_thread(
+        sync_handler.slot_states,
         request.user,
         rom,
         parsed.emulator,
         parsed.file_name,
     )
-    if not states:
+    if slot.served is None:
         return _empty(status.HTTP_404_NOT_FOUND)
 
     log.info(f"Cloud sync delete {hl(parsed.file_name)} [{rom.platform_slug}]")
-    for state in states:
+    for state in slot.own:
         await asyncio.to_thread(db_state_handler.delete_state, state.id)
         with suppress(FileNotFoundError):
             await fs_asset_handler.remove_file(file_path=state.full_path)

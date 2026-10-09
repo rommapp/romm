@@ -27,7 +27,7 @@ import json
 import time
 import urllib.error
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 from urllib.parse import quote, urlencode
 
 from fastapi import HTTPException
@@ -258,14 +258,42 @@ def _last_good_import_spec(cache_key: _ImportSpecKey) -> ImportSpec:
 
 # Short-lived, 404s included: a broker upgrade adds the route and a restart can
 # change the default, and neither should need a RomM restart to be seen.
-_DEFAULT_CORE_TTL = 60.0
-_default_core_cache: dict[tuple[str, str], tuple[float, str | None]] = {}
+_CORES_TTL = 60.0
 
 
-def default_core(container: ResolvedContainer) -> str | None:
-    """The core this broker boots for the platform when config names none.
+class _CoresReply(NamedTuple):
+    """What a platform's cores route said: its default and each core's
+    library name, the folder RetroArch files the core's saves and states in."""
 
-    None when it can't say: not RetroArch, a broker too old, or unreachable.
+    default: str | None
+    library_names: dict[str, str]
+
+
+_cores_cache: dict[tuple[str, str], tuple[float, _CoresReply]] = {}
+
+
+def _parse_cores_reply(resp: Any) -> _CoresReply:
+    if not isinstance(resp, dict):
+        return _CoresReply(None, {})
+    value = resp.get("default")
+    rows = resp.get("cores")
+    library_names = {
+        row["core"]: row["library_name"]
+        for row in (rows if isinstance(rows, list) else [])
+        if isinstance(row, dict)
+        and isinstance(row.get("core"), str)
+        and isinstance(row.get("library_name"), str)
+        and row["library_name"]
+    }
+    return _CoresReply(
+        value if isinstance(value, str) and value else None, library_names
+    )
+
+
+def _cores_reply(container: ResolvedContainer) -> _CoresReply | None:
+    """What this broker's cores route says for the platform, cached briefly.
+
+    None when it can't say: not RetroArch, or the broker unreachable.
     """
     protocol = container.protocol
     if (
@@ -274,13 +302,13 @@ def default_core(container: ResolvedContainer) -> str | None:
     ):
         return None
     cache_key = (container.key, container.platform)
-    cached = _default_core_cache.get(cache_key)
+    cached = _cores_cache.get(cache_key)
     if cached is not None and cached[0] > time.monotonic():
         return cached[1]
     path = protocol.api_route(
         f"/retroarch/cores?platform={quote(container.platform, safe='')}"
     )
-    core: str | None = None
+    reply = _CoresReply(None, {})
     try:
         resp = broker.request(container, path, method="GET", timeout=ACK_TIMEOUT)
     except urllib.error.HTTPError as exc:
@@ -293,10 +321,27 @@ def default_core(container: ResolvedContainer) -> str | None:
         log.warning("retroarch cores check unreachable, not filtering states by core")
         return None
     else:
-        value = resp.get("default") if isinstance(resp, dict) else None
-        core = value if isinstance(value, str) and value else None
-    _default_core_cache[cache_key] = (time.monotonic() + _DEFAULT_CORE_TTL, core)
-    return core
+        reply = _parse_cores_reply(resp)
+    _cores_cache[cache_key] = (time.monotonic() + _CORES_TTL, reply)
+    return reply
+
+
+def default_core(container: ResolvedContainer) -> str | None:
+    """The core this broker boots for the platform when config names none.
+
+    None when it can't say: not RetroArch, a broker too old, or unreachable.
+    """
+    reply = _cores_reply(container)
+    return reply.default if reply is not None else None
+
+
+def core_library_name(container: ResolvedContainer, core: str) -> str | None:
+    """RetroArch's folder name for `core` on this platform, None when unknown.
+
+    Read only from the reply `default_core` cached, so a dead broker costs one timeout.
+    """
+    cached = _cores_cache.get((container.key, container.platform))
+    return cached[1].library_names.get(core) if cached is not None else None
 
 
 def activate(
