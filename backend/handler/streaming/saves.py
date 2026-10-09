@@ -29,12 +29,12 @@ from handler.scan_handler import scan_save
 from handler.streaming import archive, broker, states, webstation
 from handler.streaming.config import ResolvedContainer
 from handler.streaming.session_store import DiscSwap
+from handler.sync.retroarch.sync_handler import add_autosave_version, lineage_head
 from logger.logger import log
-from models.assets import EMULATOR_MAX_LENGTH, Save, State
+from models.assets import Save, SaveLineage, State
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length, fit_filename, sanitize_filename
-from utils.uploads import is_emulator_folder_name
 
 # An exit files its archive in the background, so a claim landing behind it would
 # hydrate from the archive before last. The exit leaves a marker a claim waits out.
@@ -160,14 +160,14 @@ async def _store_save_file(
     filename: str,
     content: bytes,
     *,
-    newest_only: bool = False,
+    autosave: bool = False,
 ) -> bool:
     """Store one pulled save file as a new Save asset, unless identical content
     is already stored for this ROM, so idle exits do not pile up copies.
 
     Args:
-        newest_only: skip only a copy of the newest save, so a return to an
-            older one still records the latest play.
+        autosave: file it as an `autosave` version, which keeps
+            `MAX_SAVES_PER_SLOT`, skipping only a copy of the slot's newest.
     """
     saves_path = fs_asset_handler.build_saves_file_path(
         user=user,
@@ -185,14 +185,14 @@ async def _store_save_file(
         emulator=emulator,
     )
 
+    lineage = SaveLineage.of(emulator, filename)
     if scanned_save.content_hash:
-        if newest_only:
-            newest = _newest(
-                db_save_handler.get_saves(user_id=user.id, rom_ids=[rom.id])
-            )
+        if autosave:
+            # Across the folder's aliases, as Cloud Sync reads the slot.
+            head = lineage_head(user, rom, lineage)
             existing = (
-                newest
-                if newest and newest.content_hash == scanned_save.content_hash
+                head
+                if head and head.content_hash == scanned_save.content_hash
                 else None
             )
         else:
@@ -206,6 +206,9 @@ async def _store_save_file(
                 pass
             return False
 
+    if autosave:
+        await add_autosave_version(user, rom, scanned_save, emulator, lineage)
+        return True
     scanned_save.rom_id = rom.id
     scanned_save.user_id = user.id
     scanned_save.emulator = emulator
@@ -241,6 +244,13 @@ class RawExit(NamedTuple):
     save_name: str
     save: bytes
     states: list[_ExitState]
+    # RetroArch's folder name for the core; None from a broker too old to say.
+    library_name: str | None = None
+
+    @property
+    def folder(self) -> str:
+        """The emulator the exit's save and states are filed under."""
+        return states.filed_emulator("retroarch", self.core, self.library_name)
 
 
 _RAW_EXIT_KINDS = {"save", "state", "state_screenshot"}
@@ -273,13 +283,13 @@ def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
         except ValueError:
             return None
         session = manifest.get("session")
-        core = session.get("core") if isinstance(session, dict) else None
-        # The core names the save's folder and fills its emulator column.
-        if (
-            not isinstance(core, str)
-            or len(core) > EMULATOR_MAX_LENGTH
-            or not is_emulator_folder_name(core)
-        ):
+        if not isinstance(session, dict):
+            return None
+        library_name = session.get("library_name")
+        # The core is what the save is filed under when the library name
+        # can't be, so it must be able to name a folder too.
+        core = states.folder_name(session.get("core"))
+        if core is None:
             return None
         labelled = archive.manifest_files(manifest)
         members = [
@@ -328,6 +338,7 @@ def unpack_raw_exit(emulator: str, content: bytes) -> RawExit | None:
             posixpath.basename(save_members[0].filename),
             archive.read_member(zf, save_members[0]),
             exit_states,
+            library_name if isinstance(library_name, str) else None,
         )
 
 
@@ -390,7 +401,8 @@ async def _store_raw_exit(
     disc_file_id: int | None,
     disc_swaps: Sequence[DiscSwap],
 ) -> bool:
-    """File the exit's save under its core, as the web player names one, and its states.
+    """File the exit's states, and its save as a new `autosave` version in the
+    core's folder, where every client reads it.
 
     Returns:
         Whether any of them was new.
@@ -402,13 +414,13 @@ async def _store_raw_exit(
         user=user,
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom.id,
-        emulator=raw.core,
+        emulator=raw.folder,
     )
     filename = await reserve_version_name(
         user.id, rom.id, saves_path, sanitize_filename(f"{stem}{extension}")
     )
     stored = await _store_save_file(
-        user, rom, raw.core, filename, raw.save, newest_only=True
+        user, rom, raw.folder, filename, raw.save, autosave=True
     )
 
     lost_state = False
@@ -438,6 +450,7 @@ async def _store_raw_exit(
                 disc_file_id=_capture_disc(state.written, disc_swaps, disc_file_id),
                 core=raw.core,
                 captured_at=when,
+                library_name=raw.library_name,
             )
             stored = True
         except Exception:

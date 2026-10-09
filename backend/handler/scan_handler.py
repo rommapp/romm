@@ -1929,11 +1929,17 @@ async def scan_state(
     platform_fs_slug: str,
     rom_id: int,
     emulator: str | None = None,
+    content_hash: str | None = None,
 ) -> State:
+    """`content_hash` skips the re-read, for a caller that hashed the bytes already."""
     states_path = fs_asset_handler.build_states_file_path(
         user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
-    scanned_asset = await _scan_asset(file_name, states_path, should_hash=True)
+    scanned_asset = await _scan_asset(
+        file_name, states_path, should_hash=content_hash is None
+    )
+    if content_hash is not None:
+        scanned_asset["content_hash"] = content_hash
     return State(**scanned_asset)
 
 

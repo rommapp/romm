@@ -197,6 +197,11 @@ class State(RomAsset):
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="states")
     user: Mapped[User] = relationship(lazy="joined", back_populates="states")
 
+    @property
+    def is_stream_capture(self) -> bool:
+        """Whether a streaming session captured this state: only a stream records its core."""
+        return self.core is not None
+
     @cached_property
     def screenshot(self) -> Screenshot | None:
         from handler.database import db_screenshot_handler

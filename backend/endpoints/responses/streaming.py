@@ -26,6 +26,9 @@ class StateCoreSchema(BaseModel):
     expected: str
     # Whether a state with no recorded core, the default's, matches too.
     default_matches: bool
+    # The emulators, lowercased, another client's state can be filed under and
+    # still load in this core: its RetroArch folder and that folder's aliases.
+    folders: list[str]
 
 
 class StreamingContainerSchema(BaseModel):

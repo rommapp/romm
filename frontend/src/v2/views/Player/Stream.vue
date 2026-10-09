@@ -373,32 +373,44 @@ const selectedSave = computed<SaveSchema | null>(
     newestSave.value,
 );
 
+// A stream files a state under its emulator or, for a RetroArch core, under
+// the core's folder with the core recorded, which only a stream records.
+function filedByStream(state: UserStateSchema): boolean {
+  const emulator = emulatorKey(container.value?.emulator);
+  if (!emulator) return false;
+  return (
+    emulatorKey(state.emulator) === emulator ||
+    (emulator === "retroarch" && state.core != null)
+  );
+}
+
 // A RetroArch state only loads in the core that wrote it. One stored before
 // cores were recorded has none, and was written by the platform's default.
-function coreMatches(state: UserStateSchema): boolean {
+// Another client's state loads when it is filed in the core's folder.
+function loadsNatively(state: UserStateSchema): boolean {
   const core = container.value?.state_core;
-  if (!core) return true;
-  return state.core === core.expected || (!state.core && core.default_matches);
+  if (!core) return filedByStream(state);
+  if (filedByStream(state))
+    return (
+      state.core === core.expected || (!state.core && core.default_matches)
+    );
+  return core.folders.includes(emulatorKey(state.emulator));
 }
 
 const nativeStreamStates = computed<UserStateSchema[]>(() => {
-  const emulator = emulatorKey(container.value?.emulator);
-  if (!rom.value || !emulator) return [];
-  return (rom.value.all_user_states ?? []).filter(
-    (s) => emulatorKey(s.emulator) === emulator && coreMatches(s),
-  );
+  if (!rom.value || !container.value) return [];
+  return (rom.value.all_user_states ?? []).filter(loadsNatively);
 });
 
-// Every state regardless of which emulator wrote it where the broker declares
-// it can import one, which routes a foreign pick through the import path. This
-// emulator's own states still have to match the core, which the import refuses.
+// Every other client's state too where the broker declares it can import one,
+// which routes a foreign pick through the import path. A capture another core
+// made never loads, which the import refuses as well.
 const pickableStates = computed<UserStateSchema[]>(() => {
   if (!rom.value) return [];
   if (!container.value?.import_kinds.includes("state"))
     return nativeStreamStates.value;
-  const emulator = emulatorKey(container.value?.emulator);
   return (rom.value.all_user_states ?? []).filter(
-    (s) => emulatorKey(s.emulator) !== emulator || coreMatches(s),
+    (s) => loadsNatively(s) || !filedByStream(s),
   );
 });
 

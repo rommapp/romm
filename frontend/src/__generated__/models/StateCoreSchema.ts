@@ -8,5 +8,6 @@
 export type StateCoreSchema = {
     expected: string;
     default_matches: boolean;
+    folders: Array<string>;
 };
 
