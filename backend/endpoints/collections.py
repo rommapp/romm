@@ -544,6 +544,8 @@ async def update_collection(
     changed = changed_fields(
         collection, cleaned_data, ("name", "description", "is_public")
     )
+    if "is_public" in changed:
+        db_collection_handler.refresh_smart_collections_scoped_to(id)
     new_artwork = artwork is not None and artwork.filename is not None
     if (
         remove_cover
@@ -586,9 +588,13 @@ def update_collection_visibility(
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
-    return CollectionSchema.model_validate(
-        db_collection_handler.update_collection(id, {"is_public": is_public})
+    updated_collection = db_collection_handler.update_collection(
+        id, {"is_public": is_public}
     )
+    if collection.is_public != is_public:
+        db_collection_handler.refresh_smart_collections_scoped_to(id)
+
+    return CollectionSchema.model_validate(updated_collection)
 
 
 class CollectionRomsPayload(PydanticBaseModel):

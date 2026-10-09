@@ -24,7 +24,7 @@ import models
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.base_handler import sync_engine
 from models.base import BaseModel
-from models.collection import SmartCollection
+from models.collection import Collection, SmartCollection
 from models.platform import Platform
 from models.rom import FULL_PATH_HASH_LENGTH, Rom, compute_full_path_hash
 from models.user import User
@@ -339,6 +339,37 @@ def test_the_state_content_hash_revision_reverses_and_replays():
             migration.upgrade()
 
         assert _schema_of(connection, "states") == before
+
+
+def test_the_cross_user_smart_scopes_revision_empties_only_those_caches(
+    admin_user: User, editor_user: User
+):
+    migration = _load_migration("0152_cross_user_smart_scopes.py")
+    private = db_collection_handler.add_collection(
+        Collection(name="Secret", description="", user_id=admin_user.id)
+    )
+    borrowed, own = (
+        db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Scoped",
+                user_id=owner.id,
+                rom_ids=[1, 2],
+                path_covers_small=["cover"],
+                filter_criteria={"collection_id": private.id},
+            )
+        )
+        for owner in (editor_user, admin_user)
+    )
+
+    with sync_engine.begin() as connection:
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+
+    cleared = db_collection_handler.get_smart_collection(borrowed.id)
+    kept = db_collection_handler.get_smart_collection(own.id)
+    assert cleared is not None and kept is not None
+    assert (cleared.rom_ids, cleared.path_covers_small) == ([], [])
+    assert (kept.rom_ids, kept.path_covers_small) == ([1, 2], ["cover"])
 
 
 def test_the_user_oidc_sub_revision_reverses_and_replays():

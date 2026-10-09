@@ -651,6 +651,21 @@ class DBCollectionsHandler(DBBaseHandler):
         return len(ids)
 
     @begin_session
+    def refresh_smart_collections_scoped_to(
+        self,
+        collection_id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Refresh the smart collections whose criteria name `collection_id`,
+        since sharing or unsharing it changes what other owners' criteria match."""
+        for smart_collection in session.scalars(select(SmartCollection)).all():
+            filters = RomFilterParams.from_stored_criteria(
+                smart_collection.filter_criteria
+            )
+            if filters and filters.collection_id == collection_id:
+                self.refresh_smart_collection(smart_collection.id, session=session)
+
+    @begin_session
     def refresh_smart_collections_for_roms(
         self,
         rom_ids: Sequence[int],

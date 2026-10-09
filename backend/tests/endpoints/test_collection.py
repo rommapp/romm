@@ -1053,3 +1053,62 @@ class TestRomFiltersRespectCollectionPrivacy:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["rom_ids"] == [rom.id]
+
+    def test_owners_public_smart_scope_to_their_private_collection_is_shared(
+        self,
+        client,
+        other_user_token: str,
+        admin_user: User,
+        private_collection: Collection,
+        rom: Rom,
+    ):
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Shared",
+                description="",
+                user_id=admin_user.id,
+                is_public=True,
+                filter_criteria={"collection_id": private_collection.id},
+            )
+        )
+
+        response = client.get(
+            f"/api/roms?smart_collection_id={smart_collection.id}",
+            headers={"Authorization": f"Bearer {other_user_token}"},
+        )
+
+        assert [item["id"] for item in response.json()["items"]] == [rom.id]
+
+    def test_unsharing_a_collection_empties_other_owners_smart_scopes(
+        self,
+        client,
+        access_token: str,
+        editor_user: User,
+        private_collection: Collection,
+    ):
+        db_collection_handler.update_collection(
+            private_collection.id, {"is_public": True}
+        )
+        smart_collection = db_collection_handler.add_smart_collection(
+            SmartCollection(
+                name="Borrowed",
+                description="",
+                user_id=editor_user.id,
+                is_public=True,
+                filter_criteria={"collection_id": private_collection.id},
+            )
+        )
+        shared = db_collection_handler.refresh_smart_collection(smart_collection.id)
+
+        response = client.put(
+            f"/api/collections/{private_collection.id}/visibility",
+            json={"is_public": False},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert shared is not None
+        assert shared.rom_ids != []
+        assert response.status_code == status.HTTP_200_OK
+        refreshed = db_collection_handler.get_smart_collection(smart_collection.id)
+        assert refreshed is not None
+        assert refreshed.rom_ids == []
