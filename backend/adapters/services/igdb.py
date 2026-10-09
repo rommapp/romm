@@ -4794,3 +4794,169 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plab.jpg",
     },
 }
+
+
+class PlatformFamily(TypedDict):
+    family_name: str
+    family_slug: str
+
+
+def _igdb_family(slug: UPS) -> PlatformFamily:
+    platform = IGDB_PLATFORM_LIST[slug]
+    return PlatformFamily(
+        family_name=platform["family_name"], family_slug=platform["family_slug"]
+    )
+
+
+# Platforms IGDB doesn't list, mapped to an IGDB platform they share a family
+# and category with.
+IGDB_SIBLING_PLATFORMS: dict[UPS, UPS] = {
+    UPS.PSP_MINIS: UPS.PSP,
+    UPS.SUFAMI_TURBO: UPS.SNES,
+    UPS.WIN3X: UPS.WIN,
+    UPS.WIN9X: UPS.WIN,
+    UPS.WINDOWS_APPS: UPS.WIN,
+    UPS.BEENA: UPS.ADVANCED_PICO_BEENA,
+    UPS.VMU: UPS.VISUAL_MEMORY_UNIT_SLASH_VISUAL_MEMORY_SYSTEM,
+    UPS.PIPPIN: UPS.APPLE_PIPPIN,
+    UPS.ATARI800: UPS.ATARI8BIT,
+    UPS.ATARI_XEGS: UPS.ATARI8BIT,
+    UPS.ATARI_VCS: UPS.ATARI2600,
+    UPS.AMIGA_CD: UPS.AMIGA,
+    UPS.MSX2PLUS: UPS.MSX2,
+    UPS.MSX_TURBO: UPS.MSX2,
+    UPS.PC_6001: UPS.NEC_PC_6000_SERIES,
+    UPS.PC_8000: UPS.PC_8800_SERIES,
+    UPS.LEAPFROG_EXPLORER: UPS.LEAPSTER_EXPLORER_SLASH_LEADPAD_EXPLORER,
+    UPS.C128: UPS.C64,
+    UPS.ATOM: UPS.ACORN_ELECTRON,
+    UPS.ZX80: UPS.ZX81,
+    UPS.TRS_80_MC_10: UPS.TRS_80_COLOR_COMPUTER,
+    UPS.TRS_80_MODEL_100: UPS.TRS_80,
+    UPS.SHARP_MZ_80B20002500: UPS.SHARP_MZ_2200,
+    UPS.SHARP_MZ_80K7008001500: UPS.SHARP_MZ_2200,
+    UPS.APPLE: UPS.APPLEII,
+    UPS.APPLEIII: UPS.APPLEII,
+    UPS.APPLE_LISA: UPS.APPLEII,
+    UPS.IPAD: UPS.IOS,
+    UPS.TVOS: UPS.IOS,
+    UPS.WATCHOS: UPS.IOS,
+    UPS.TELSTAR_ARCADE: UPS.COLECOVISION,
+    UPS.CASIO_PV_1000: UPS.CASIO_LOOPY,
+    UPS.MODEL1: UPS.ARCADE,
+    UPS.MODEL2: UPS.ARCADE,
+    UPS.MODEL3: UPS.ARCADE,
+    UPS.SYSTEM16: UPS.ARCADE,
+    UPS.SYSTEM32: UPS.ARCADE,
+    UPS.STV: UPS.ARCADE,
+    UPS.HIKARU: UPS.ARCADE,
+    UPS.CPS1: UPS.ARCADE,
+    UPS.CPS2: UPS.ARCADE,
+    UPS.CPS3: UPS.ARCADE,
+    UPS.TYPE_X: UPS.ARCADE,
+    UPS.TAITO_X_55: UPS.ARCADE,
+}
+
+
+# Families IGDB doesn't list, or that no IGDB platform of the same category has.
+_CAPCOM_FAMILY = PlatformFamily(family_name="Capcom", family_slug="capcom")
+_TAITO_FAMILY = PlatformFamily(family_name="Taito", family_slug="taito")
+_TEXAS_INSTRUMENTS_FAMILY = PlatformFamily(
+    family_name="Texas Instruments", family_slug="texas-instruments"
+)
+_HP_FAMILY = PlatformFamily(family_name="HP", family_slug="hp")
+_IBM_FAMILY = PlatformFamily(family_name="IBM", family_slug="ibm")
+_VTECH_FAMILY = PlatformFamily(family_name="VTech", family_slug="vtech")
+_BENESSE_FAMILY = PlatformFamily(family_name="Benesse", family_slug="benesse")
+_INTERTON_FAMILY = PlatformFamily(family_name="Interton", family_slug="interton")
+_ORIC_FAMILY = PlatformFamily(family_name="Oric", family_slug="oric")
+_COMPUCOLOR_FAMILY = PlatformFamily(family_name="Compucolor", family_slug="compucolor")
+_MITS_FAMILY = PlatformFamily(family_name="MITS", family_slug="mits")
+_MEMOTECH_FAMILY = PlatformFamily(family_name="Memotech", family_slug="memotech")
+_HEATHKIT_FAMILY = PlatformFamily(family_name="Heathkit", family_slug="heathkit")
+_INTEL_FAMILY = PlatformFamily(family_name="Intel", family_slug="intel")
+_MOTOROLA_FAMILY = PlatformFamily(family_name="Motorola", family_slug="motorola")
+_ZILOG_FAMILY = PlatformFamily(family_name="Zilog", family_slug="zilog")
+_MOS_TECHNOLOGY_FAMILY = PlatformFamily(
+    family_name="MOS Technology", family_slug="mos-technology"
+)
+
+# Platforms IGDB doesn't list, mapped to their family. Overrides a sibling's.
+IGDB_PLATFORM_FAMILIES: dict[UPS, PlatformFamily] = {
+    UPS.MODEL1: _igdb_family(UPS.DC),
+    UPS.MODEL2: _igdb_family(UPS.DC),
+    UPS.MODEL3: _igdb_family(UPS.DC),
+    UPS.SYSTEM16: _igdb_family(UPS.DC),
+    UPS.SYSTEM32: _igdb_family(UPS.DC),
+    UPS.STV: _igdb_family(UPS.DC),
+    UPS.HIKARU: _igdb_family(UPS.DC),
+    UPS.SC3000: _igdb_family(UPS.DC),
+    UPS.CPS1: _CAPCOM_FAMILY,
+    UPS.CPS2: _CAPCOM_FAMILY,
+    UPS.CPS3: _CAPCOM_FAMILY,
+    UPS.TYPE_X: _TAITO_FAMILY,
+    UPS.TAITO_X_55: _TAITO_FAMILY,
+    UPS.ZUNE: _igdb_family(UPS.WIN),
+    UPS.XBOXCLOUDGAMING: _igdb_family(UPS.WIN),
+    UPS.PLAYSTATION_NOW: _igdb_family(UPS.PSX),
+    UPS.SMC_777: _igdb_family(UPS.PSX),
+    UPS.IPOD_CLASSIC: _igdb_family(UPS.APPLEII),
+    UPS.NEWTON: _igdb_family(UPS.APPLEII),
+    UPS.AMAZON_ALEXA: _igdb_family(UPS.AMAZON_FIRE_TV),
+    UPS.KINDLE: _igdb_family(UPS.AMAZON_FIRE_TV),
+    UPS.LUNA: _igdb_family(UPS.AMAZON_FIRE_TV),
+    UPS.STEAM: _igdb_family(UPS.STEAM_VR),
+    UPS.BADA: _igdb_family(UPS.GEAR_VR),
+    UPS.COLECOADAM: _igdb_family(UPS.COLECOVISION),
+    UPS.AQUARIUS: _igdb_family(UPS.INTELLIVISION),
+    UPS.TELE_SPIEL: _igdb_family(UPS.PHILIPS_CD_I),
+    UPS.PHILIPS_VG_5000: _igdb_family(UPS.PHILIPS_CD_I),
+    UPS.VIDEOPAC_G7400: _igdb_family(UPS.PHILIPS_CD_I),
+    UPS.TANDY_VIS: _igdb_family(UPS.TRS_80),
+    UPS.VIS: _igdb_family(UPS.TRS_80),
+    UPS.SHARP_ZAURUS: _igdb_family(UPS.SHARP_X68000),
+    UPS.MATSUSHITAPANASONIC_JR: _igdb_family(UPS.PANASONIC_M2),
+    UPS.EPOCH_GAME_POCKET_COMPUTER: _igdb_family(UPS.EPOCH_CASSETTE_VISION),
+    UPS.CASIO_CFX_9850: _igdb_family(UPS.CASIO_LOOPY),
+    UPS.CASIO_FP_1000: _igdb_family(UPS.CASIO_LOOPY),
+    UPS.CASIO_PB_1000: _igdb_family(UPS.CASIO_LOOPY),
+    UPS.CASIO_PROGRAMMABLE_CALCULATOR: _igdb_family(UPS.CASIO_LOOPY),
+    UPS.CASIO_PV_2000: _igdb_family(UPS.CASIO_LOOPY),
+    UPS.DIDJ: _igdb_family(UPS.LEAPSTER),
+    UPS.CLICKSTART: _igdb_family(UPS.LEAPSTER),
+    UPS.TI_82: _TEXAS_INSTRUMENTS_FAMILY,
+    UPS.TI_83: _TEXAS_INSTRUMENTS_FAMILY,
+    UPS.TI_994A: _TEXAS_INSTRUMENTS_FAMILY,
+    UPS.TI_PROGRAMMABLE_CALCULATOR: _TEXAS_INSTRUMENTS_FAMILY,
+    UPS.HP_9800: _HP_FAMILY,
+    UPS.HP_PROGRAMMABLE_CALCULATOR: _HP_FAMILY,
+    UPS.IBM_5100: _IBM_FAMILY,
+    UPS.PC_JR: _IBM_FAMILY,
+    UPS.OS2: _IBM_FAMILY,
+    UPS.CREATIVISION: _VTECH_FAMILY,
+    UPS.SOCRATES: _VTECH_FAMILY,
+    UPS.VFLASH: _VTECH_FAMILY,
+    UPS.POCKET_CHALLENGE_V2: _BENESSE_FAMILY,
+    UPS.POCKET_CHALLENGE_W: _BENESSE_FAMILY,
+    UPS.INTERTON_VC_4000: _INTERTON_FAMILY,
+    UPS.INTERTON_VIDEO_2000: _INTERTON_FAMILY,
+    UPS.ORIC: _ORIC_FAMILY,
+    UPS.ATMOS: _ORIC_FAMILY,
+    UPS.COMPUCOLOR_I: _COMPUCOLOR_FAMILY,
+    UPS.COMPUCOLOR_II: _COMPUCOLOR_FAMILY,
+    UPS.ALTAIR_680: _MITS_FAMILY,
+    UPS.ALTAIR_8800: _MITS_FAMILY,
+    UPS.MEMOTECH_MTX: _MEMOTECH_FAMILY,
+    UPS.MTX512: _MEMOTECH_FAMILY,
+    UPS.HEATHKIT_H11: _HEATHKIT_FAMILY,
+    UPS.HEATHZENITH: _HEATHKIT_FAMILY,
+    UPS.INTEL_8008: _INTEL_FAMILY,
+    UPS.INTEL_8080: _INTEL_FAMILY,
+    UPS.INTEL_8086: _INTEL_FAMILY,
+    UPS.MOTOROLA_6800: _MOTOROLA_FAMILY,
+    UPS.MOTOROLA_68K: _MOTOROLA_FAMILY,
+    UPS.Z80: _ZILOG_FAMILY,
+    UPS.ZILOG_Z8000: _ZILOG_FAMILY,
+    UPS.KIM_1: _MOS_TECHNOLOGY_FAMILY,
+    UPS.MOS_TECHNOLOGY_6502: _MOS_TECHNOLOGY_FAMILY,
+}

@@ -891,9 +891,11 @@ Token format: `rmm_` + 64 hex chars (32-byte random)
 | `0064`         | Performance indexes on updated_at         |
 | `0068`         | Device + device_save_sync tables          |
 | `0072`         | Client tokens table                       |
-| `0149`         | Save channels and snapshots               |
-| `0150`         | Slotted saves filed under channels        |
-| `0151`         | ROM file sigil identity                   |
+| `0149`, `0150` | ROM fs_name lookup indexes                |
+| `0151`         | State content hash                        |
+| `0152`         | Save channels and snapshots               |
+| `0153`         | Slotted saves filed under channels        |
+| `0154`         | ROM file sigil identity                   |
 
 Migrations support batch mode for SQLite and DB-specific SQL for MariaDB/MySQL/PostgreSQL.
 
@@ -977,7 +979,7 @@ A reset link is emailed when SMTP is set up, the user has an address and `ROMM_B
 | GET    | `/{id}/content/{file_name}`  | ROMS_READ  | Download ROM, in a listed `?format=` when asked  |
 | POST   | `/unidentified`              | ROMS_READ  | Get unidentified ROMs                            |
 
-With rom-converto enabled (`ROM_CONVERTO_ENABLED`, `converto.download_conversion_enabled`), `?format=zso,iso` lists the formats a client can read. A single-file download whose stored format is listed is served as-is. Otherwise the first listed format with a copy cached under `/romm/cache/converts` is served, then the first one rom-converto can produce: answered by the same request if it converts within a few seconds, else `202` with `Retry-After` while it finishes. `406` means no listed format can be served, and `HEAD` reports the same without starting a conversion. Only signed-in, non-kiosk users start conversions. A rom's detail response lists the formats its single file can be converted to in `download_formats`, empty when the caller can't start a conversion.
+With rom-converto enabled (`ROM_CONVERTO_ENABLED`, `converto.download_conversion_enabled`), `?format=zso,iso` lists the formats a client can read. A single-file download whose stored format is listed is served as-is. Otherwise the first listed format with a copy cached under `/tmp/romm/cache/converts` (`$ROMM_TMP_PATH/cache/converts` when set) is served, then the first one rom-converto can produce: answered by the same request if it converts within a few seconds, else `202` with `Retry-After` while it finishes. `406` means no listed format can be served, and `HEAD` reports the same without starting a conversion. Only signed-in, non-kiosk users start conversions. A rom's detail response lists the formats its single file can be converted to in `download_formats`, empty when the caller can't start a conversion.
 
 #### ROM Upload (Chunked)
 
@@ -1154,15 +1156,36 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 - **Cores:** the `core` segment is RetroArch's directory name (e.g. `Snes9x`),
   mapped to and from the asset's `emulator` through
   `sync.retroarch.emulator_names`, so web player saves stay visible. Unknown
-  cores round-trip unchanged.
-- **Manifest:** slotted saves are left out, since no core loads them. Assets
-  whose file is gone are flagged `missing_from_fs`. Hashes are MD5s of the
-  bytes on disk, Redis-cached by path, size and mtime.
+  cores round-trip unchanged. Every `emulator` that maps to one folder (e.g.
+  `mednafen_psx_hw`, `beetle_psx_hw` and `Beetle PSX HW`) is an alias: the
+  manifest lists the newest asset across them, and GET, PUT and DELETE resolve
+  a path across them. A PUT stores new assets under the folder's canonical id
+  and rewrites an existing one under its own.
+- **Save slots:** a `.srm` path maps to the `autosave` versions of its ROM and
+  core, and serves the newest under the client's spelling of the game (or the
+  ROM's name). An unslotted save at that path serves only until one exists. A
+  PUT whose bytes differ from the newest adds a version and prunes that lineage
+  (emulator and extension) to `MAX_SAVES_PER_SLOT`. A DELETE removes every
+  `autosave` version of it plus the unslotted save. Named slots are never
+  touched. Other files (`.rtc`, core-specific saves) and PSP bundles stay single
+  unslotted saves, overwritten in place.
+- **Held rows:** a save or state a channel snapshot holds is never rewritten or
+  deleted. A PUT over a held unslotted save returns 409, a state or PSP bundle
+  upload writes a new copy beside it, and a DELETE skips it.
+- **Version names:** `reserve_version_name` moves a taken tag on a second and
+  claims it in Redis, so concurrent or same-second uploads from any endpoint
+  never share a file. Every slot prune is scoped to the uploaded save's lineage.
+- **Manifest:** assets whose file is gone are flagged `missing_from_fs`. Hashes
+  are MD5s of the bytes on disk, Redis-cached by path, size and mtime. A state
+  slot lists and serves its newest state on disk, and a PUT revives a newer
+  missing one in place. A manifest or GET that finds a file gone flags it and
+  resolves again, so an older asset at that path takes its place.
 - **PSP:** PPSSPP's `PSP/SAVEDATA/<folder>/` files are stored as one zipped
-  `Save` per folder. A folder whose title matches no ROM is buffered under
-  `SYNC_RETROARCH_PSP_PENDING_PATH`, or mapped through `SYNC_RETROARCH_PSP_SERIAL_MAP`.
+  `Save` per folder. A folder whose title matches no ROM is buffered in the
+  user's `retroarch/psp_pending/` folder until it resolves, or mapped through
+  `SYNC_RETROARCH_PSP_SERIAL_MAP`. Clients can't reach `psp_pending/`.
 - **Blobs:** `config/`, `thumbnails/` and `system/` belong to no ROM, so they
-  are stored per user under `SYNC_RETROARCH_BASE_PATH` (`FSRetroArchSyncHandler`).
+  are stored per user under `assets/users/<user>/retroarch/` (`FSRetroArchSyncHandler`).
 - **Auth:** the router gates itself so it can answer a 401 Basic challenge,
   and sends body-less errors, which RetroArch's client needs. The kiosk guest
   may browse `roms/` but is challenged everywhere else. Uploads are capped at
@@ -1188,7 +1211,7 @@ World`), so a name shared across platforms resolves to the lowest visible ROM id
 | ------ | ------------------------- | ------------------------ | ------------------------------------------------------------- |
 | POST   | `/`                       | DEVICES_WRITE            | Register device (fingerprint dedup)                           |
 | GET    | `/`                       | DEVICES_READ             | List devices                                                  |
-| GET    | `/online`                 | DEVICES_READ             | Ids of devices with a live device socket                      |
+| GET    | `/online`                 | DEVICES_READ             | Ids of devices with a live device socket or a recent claim    |
 | GET    | `/{id}`                   | DEVICES_READ             | Get device                                                    |
 | PUT    | `/{id}`                   | DEVICES_WRITE            | Update device                                                 |
 | DELETE | `/{id}`                   | DEVICES_WRITE            | Delete device                                                 |
@@ -1745,8 +1768,10 @@ closed when its token is deleted, regenerated or re-paired, its device or
 owner is deleted, its owner is disabled, or its owner's permissions change,
 and within 30 seconds of the token's `expires_at`. Each open socket refreshes `device_presence:{device_id}` and its token's
 `device_token_sockets:{id}` every 30 seconds. The presence key lapses 90
-seconds after the last refresh and loses the socket on disconnect;
-`GET /api/devices/online` lists the caller's devices whose key is live (404
+seconds after the last refresh and loses the socket on disconnect. A device
+that polls claim instead sets `device_claim_presence:{device_id}` on each
+claim, which lapses after the same 90 seconds.
+`GET /api/devices/online` lists the caller's devices with either key live (404
 while `DEVICE_INSTALL_ENABLED` is off). The
 per-token socket sets exist only to close sockets on revocation and never
 answer presence.

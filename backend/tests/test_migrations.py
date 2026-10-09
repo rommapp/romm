@@ -257,15 +257,16 @@ def _replay(connection: sa.Connection, filename: str) -> None:
         ("0148_rom_age_limits.py", "roms_facets"),
         ("0148_rom_age_limits.py", "permission_groups"),
         ("0148_rom_age_limits.py", "users"),
-        ("0149_save_channels.py", "channels"),
-        ("0149_save_channels.py", "snapshots"),
-        ("0149_save_channels.py", "snapshot_states"),
-        ("0149_save_channels.py", "snapshot_pins"),
-        ("0149_save_channels.py", "device_channel_sync"),
-        ("0149_save_channels.py", "saves"),
-        ("0149_save_channels.py", "states"),
-        ("0149_save_channels.py", "screenshots"),
-        ("0151_rom_file_sigil_identity.py", "rom_files"),
+        ("0151_state_content_hash.py", "states"),
+        ("0152_save_channels.py", "channels"),
+        ("0152_save_channels.py", "snapshots"),
+        ("0152_save_channels.py", "snapshot_states"),
+        ("0152_save_channels.py", "snapshot_pins"),
+        ("0152_save_channels.py", "device_channel_sync"),
+        ("0152_save_channels.py", "saves"),
+        ("0152_save_channels.py", "states"),
+        ("0152_save_channels.py", "screenshots"),
+        ("0154_rom_file_sigil_identity.py", "rom_files"),
     ],
 )
 def test_a_revision_replayed_over_the_migrated_schema_is_a_no_op(
@@ -325,6 +326,22 @@ def test_the_state_core_revision_reverses_and_replays():
         with Operations.context(MigrationContext.configure(connection)):
             migration.downgrade()
             assert not has_column(connection, "states", "core")
+
+            migration.downgrade()
+            migration.upgrade()
+            migration.upgrade()
+
+        assert _schema_of(connection, "states") == before
+
+
+def test_the_state_content_hash_revision_reverses_and_replays():
+    migration = _load_migration("0151_state_content_hash.py")
+
+    with sync_engine.begin() as connection:
+        before = _schema_of(connection, "states")
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.downgrade()
+            assert not has_column(connection, "states", "content_hash")
 
             migration.downgrade()
             migration.upgrade()
@@ -445,7 +462,7 @@ def test_the_rom_file_title_ids_revision_reverses_and_replays():
 
 
 def test_the_save_channels_revision_reverses_and_replays():
-    migration = _load_migration("0149_save_channels.py")
+    migration = _load_migration("0152_save_channels.py")
     tables = ("saves", "states", "screenshots")
     created = (
         "channels",
@@ -462,7 +479,7 @@ def test_the_save_channels_revision_reverses_and_replays():
             inspector = sa.inspect(connection)
             assert not any(inspector.has_table(table) for table in created)
             assert not has_column(connection, "saves", "identity_hash")
-            assert not has_column(connection, "states", "content_hash")
+            assert not has_column(connection, "states", "emulator_version")
             assert not has_column(connection, "screenshots", "save_id")
 
             migration.downgrade()
@@ -477,7 +494,7 @@ def test_the_save_channels_revision_reverses_and_replays():
 def test_the_slot_link_revision_files_slotted_saves_under_channels(
     rom: Rom, admin_user: User
 ):
-    migration = _load_migration("0150_link_slots_to_channels.py")
+    migration = _load_migration("0153_link_slots_to_channels.py")
     db_rom_handler.add_rom_file(
         RomFile(rom_id=rom.id, file_name="game.sfc", file_path="p", file_size_bytes=8)
     )
@@ -521,7 +538,7 @@ def test_the_slot_link_revision_files_slotted_saves_under_channels(
 
 
 def test_the_rom_file_sigil_identity_revision_reverses_and_replays():
-    migration = _load_migration("0151_rom_file_sigil_identity.py")
+    migration = _load_migration("0154_rom_file_sigil_identity.py")
 
     with sync_engine.begin() as connection:
         before = _schema_of(connection, "rom_files")

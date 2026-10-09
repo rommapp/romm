@@ -112,23 +112,47 @@ export const useStreamingStore = defineStore("streaming", () => {
     };
   }
 
+  let configRequest: Promise<void> | null = null;
+  // Bumped by reset(), so a reply asked for as the last account is dropped.
+  let configGeneration = 0;
+
   /**
-   * Fetch streaming config from the backend once on app load.
-   * If it fails, streaming stays disabled and no buttons appear.
+   * Fetch streaming config from the backend, on app load and again when the
+   * Stream page mounts. Concurrent callers share the one in-flight request, so
+   * an older answer can't land last. If it fails, streaming stays disabled and
+   * no buttons appear.
    */
   async function fetchConfig(): Promise<void> {
-    try {
-      const { data } = await streamingApi.fetchConfig();
-      config.value = {
-        enabled: data.enabled ?? false,
-        containers: data.containers ?? [],
-        emulator_labels: data.emulator_labels ?? {},
-      };
-    } catch (err) {
-      console.warn("[streaming] Could not fetch config:", err);
-    } finally {
-      configLoaded.value = true;
-    }
+    if (configRequest) return configRequest;
+    const generation = configGeneration;
+    const request = (async () => {
+      try {
+        const { data } = await streamingApi.fetchConfig();
+        if (generation !== configGeneration) return;
+        config.value = {
+          enabled: data.enabled ?? false,
+          containers: data.containers ?? [],
+          emulator_labels: data.emulator_labels ?? {},
+        };
+      } catch (err) {
+        console.warn("[streaming] Could not fetch config:", err);
+      } finally {
+        if (generation === configGeneration) {
+          configLoaded.value = true;
+          configRequest = null;
+        }
+      }
+    })();
+    configRequest = request;
+    return request;
+  }
+
+  /** Forget the config on logout; the next account asks for its own. */
+  function reset(): void {
+    configGeneration++;
+    configRequest = null;
+    config.value = { enabled: false, containers: [], emulator_labels: {} };
+    configLoaded.value = false;
   }
 
   /**
@@ -399,6 +423,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     emulatorLabel,
     platformCapabilities,
     fetchConfig,
+    reset,
     claimSession,
     joinableSessions,
     fetchJoinableSessions,

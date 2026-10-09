@@ -814,6 +814,7 @@ class Rom(BaseModel):
         # The digest is opaque to a range scan, so the scan loop's
         # (platform_id, fs_name) batch lookup needs an index of its own.
         Index("idx_roms_platform_id_fs_name", "platform_id", "fs_name"),
+        Index("idx_roms_fs_name_no_ext", "fs_name_no_ext"),
         # Covers the group_by_meta_id dedup window, which reads only these
         # columns, so the index has to carry every one of them: a single
         # missing column (flashpoint_id or fs_name_no_ext, the window's

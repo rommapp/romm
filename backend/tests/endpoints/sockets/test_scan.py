@@ -30,6 +30,7 @@ from endpoints.sockets import scan as scan_module
 from endpoints.sockets.scan import (
     ScanPayload,
     ScanStats,
+    _ancestor_paths,
     _identify_rom,
     _scan_selected_roms,
     _should_extract_title_ids,
@@ -1432,6 +1433,100 @@ class TestIdentifyPlatformMarksMissingBeforeScan:
         assert calls.index("mark_missing") < calls.index("identify")
 
 
+class TestIdentifyPlatformSupersededFolders:
+    """A missing entry whose path is an ancestor of a discovered ROM is flagged as superseded."""
+
+    async def test_flags_only_entries_holding_discovered_roms(self, mocker):
+        mocker.patch.object(
+            scan_module, "redis_client", Mock(get=Mock(return_value=None))
+        )
+
+        platform = Platform(name="Test", slug="test", fs_slug="test")
+        platform.id = 1
+        platform.missing_from_fs = False
+        db_platform = mocker.patch.object(scan_module, "db_platform_handler")
+        db_platform.get_platform_by_fs_slug.return_value = platform
+        db_platform.add_platform.return_value = platform
+
+        mocker.patch.object(
+            scan_module, "scan_platform", AsyncMock(return_value=platform)
+        )
+        mocker.patch.object(
+            PlatformSchema,
+            "model_validate",
+            return_value=Mock(model_dump=Mock(return_value={})),
+        )
+        mocker.patch.object(
+            fs_firmware_handler,
+            "get_firmware",
+            AsyncMock(return_value=[]),
+        )
+
+        fs_roms = [
+            make_fs_rom("Game.zip", "test/roms/Collection"),
+            make_fs_rom("Game.zip", "test/roms/Bundle/"),
+            make_fs_rom("Game.zip", "test/roms/Saga Deluxe"),
+        ]
+        mocker.patch.object(fs_rom_handler, "get_roms", AsyncMock(return_value=fs_roms))
+
+        db_rom = mocker.patch.object(scan_module, "db_rom_handler")
+        db_rom.get_roms_by_fs_name.return_value = {}
+        db_rom.mark_missing_roms.return_value = [
+            Rom(fs_path="test/roms", fs_name="Collection"),
+            Rom(fs_path="test", fs_name="roms"),
+            Rom(fs_path="test/roms", fs_name="Bundle"),
+            Rom(fs_path="test/roms", fs_name="Saga"),
+            Rom(fs_path="test/roms", fs_name="Other"),
+        ]
+        db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
+        db_firmware.mark_missing_firmware.return_value = []
+
+        mocker.patch.object(scan_module, "_identify_rom", AsyncMock())
+        mock_log = mocker.patch.object(scan_module, "log")
+
+        await scan_module._identify_platform(
+            platform_slug="test",
+            scan_type=ScanType.QUICK,
+            fs_platforms=["test"],
+            roms_ids=[],
+            metadata_sources=[],
+            launchbox_remote_enabled=False,
+            socket_manager=AsyncMock(),
+            scan_stats=AsyncMock(),
+            scanned_rom_ids=set(),
+        )
+
+        stale = (
+            " (now scanned as a folder of roms, delete this stale entry to clean up)"
+        )
+        warnings = {str(call.args[0]) for call in mock_log.warning.call_args_list}
+        assert {
+            *(f" - {name}{stale}" for name in ("Collection", "roms", "Bundle")),
+            " - Saga",
+            " - Other",
+        } <= warnings, warnings
+
+
+class TestAncestorPaths:
+    def test_includes_each_path_and_its_parents(self):
+        fs_roms = [
+            make_fs_rom("a.zip", "test/roms/Saga Deluxe/Disc 1"),
+            make_fs_rom("b.zip", "test/roms/Bundle/"),
+        ]
+
+        assert _ancestor_paths(fs_roms) == {
+            "test",
+            "test/roms",
+            "test/roms/Saga Deluxe",
+            "test/roms/Saga Deluxe/Disc 1",
+            "test/roms/Bundle",
+            "test/roms/Bundle/",
+        }
+
+    def test_empty_input(self):
+        assert _ancestor_paths([]) == set()
+
+
 class TestIdentifyPlatformEmitsRestoredRoms:
     """A platform scan tells the client about ROMs that came back.
 
@@ -1487,7 +1582,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         db_rom = mocker.patch.object(scan_module, "db_rom_handler")
         db_rom.get_roms_by_fs_name.return_value = {"test/roms/Game.zip": rom}
         db_rom.mark_missing_roms.return_value = []
-        db_rom.get_rom.return_value = rom
+        db_rom.get_roms_simple_by_ids.return_value = [rom]
 
         db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
         db_firmware.mark_missing_firmware.return_value = []
@@ -1495,7 +1590,9 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         mocker.patch.object(
             SimpleRomSchema,
             "from_orm_with_factory",
-            return_value=Mock(model_dump=Mock(return_value={"id": rom.id})),
+            side_effect=lambda r, *a, **k: Mock(
+                model_dump=Mock(return_value={"id": r.id})
+            ),
         )
         mocker.patch.object(scan_module, "_identify_rom", AsyncMock())
 
@@ -1521,7 +1618,7 @@ class TestIdentifyPlatformEmitsRestoredRoms:
         await self._run(socket_manager)
 
         patched.bulk_mark_present.assert_called_once_with(1, [42])
-        patched.get_rom_simple.assert_called_once_with(42)
+        patched.get_roms_simple_by_ids.assert_called_once_with([42])
         assert any(
             call.args[0] == "scan:scanning_rom"
             for call in socket_manager.emit.call_args_list
@@ -1545,11 +1642,39 @@ class TestIdentifyPlatformEmitsRestoredRoms:
 
         await self._run(socket_manager)
 
-        patched.get_rom_simple.assert_not_called()
+        patched.get_roms_simple_by_ids.assert_not_called()
         assert not any(
             call.args[0] == "scan:scanning_rom"
             for call in socket_manager.emit.call_args_list
         )
+
+    async def test_restored_roms_hydrated_with_single_batched_call(
+        self, patched, mocker
+    ):
+        """Three restored ROMs issue one batched hydration read, in visit order."""
+        fs_roms = [make_fs_rom(f"Game{i}.zip") for i in range(3)]
+        mocker.patch.object(fs_rom_handler, "get_roms", AsyncMock(return_value=fs_roms))
+        roms = [
+            Rom(id=11 + i, fs_name=fs_rom["fs_name"], platform_id=1)
+            for i, fs_rom in enumerate(fs_roms)
+        ]
+        patched.get_roms_by_fs_name.return_value = {
+            f"test/roms/{rom.fs_name}": rom for rom in roms
+        }
+        patched.get_missing_rom_ids.return_value = {rom.id for rom in roms}
+        # Rows come back out of visit order, and the middle ROM drops out.
+        patched.get_roms_simple_by_ids.return_value = [roms[2], roms[0]]
+        socket_manager = AsyncMock()
+
+        await self._run(socket_manager)
+
+        patched.get_roms_simple_by_ids.assert_called_once_with([11, 12, 13])
+        emits = [
+            call
+            for call in socket_manager.emit.call_args_list
+            if call.args[0] == "scan:scanning_rom"
+        ]
+        assert [call.args[1]["id"] for call in emits] == [11, 13]
 
 
 class TestIdentifyPlatformFirmwareReporting:

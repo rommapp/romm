@@ -1933,7 +1933,7 @@ async def scan_state(
     states_path = fs_asset_handler.build_states_file_path(
         user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
-    scanned_asset = await _scan_asset(file_name, states_path)
+    scanned_asset = await _scan_asset(file_name, states_path, should_hash=True)
     return State(**scanned_asset)
 
 

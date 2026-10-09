@@ -2,12 +2,13 @@ import functools
 from collections.abc import Callable, Collection, Mapping, Sequence
 from typing import Any, Literal
 
-from sqlalchemy import Select, asc, delete, desc, func, or_, select, update
+from sqlalchemy import Select, and_, asc, delete, desc, false, func, or_, select, update
 from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from decorators.database import INJECTED_SESSION, begin_session
-from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save
+from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save, SaveLineage
 from models.base import with_file_name_parts
 from models.rom import Rom
 from utils.sql_dialect import force_index_on_mysql
@@ -21,6 +22,31 @@ _snapshots = DBSnapshotsHandler()
 # What identifies a version in its slot, for recording it when it leaves.
 _VERSION_COLUMNS = (Save.user_id, Save.rom_id, Save.slot, Save.content_hash)
 _SLOT_MOVE_ATTEMPTS = 3
+
+
+def _emulator_in(emulators: Collection[str | None]) -> ColumnElement[bool]:
+    named = sorted({emulator for emulator in emulators if emulator is not None})
+    clauses = [Save.emulator.in_(named)] if named else []
+    if None in emulators:
+        clauses.append(Save.emulator.is_(None))
+    return or_(false(), *clauses)
+
+
+def _in_lineages(lineages: Collection[SaveLineage]) -> ColumnElement[bool]:
+    """Saves in any of ``lineages``."""
+    emulators_by_extension: dict[str, set[str | None]] = {}
+    for emulator, file_extension in lineages:
+        emulators_by_extension.setdefault(file_extension, set()).add(emulator)
+    return or_(
+        false(),
+        *(
+            and_(
+                func.lower(Save.file_extension) == file_extension,
+                _emulator_in(emulators),
+            )
+            for file_extension, emulators in emulators_by_extension.items()
+        ),
+    )
 
 
 class _SlotMoved(Exception):
@@ -86,12 +112,19 @@ class DBSavesHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         file_name: str,
+        emulator: str | None,
         slot: str | None = None,
         session: Session = INJECTED_SESSION,
     ) -> Save | None:
         query = select(Save).filter_by(
             rom_id=rom_id, user_id=user_id, file_name=file_name
         )
+        # Another core's save lives in its own folder, so it is a different save.
+        # Clients that send no core keep matching any, preferring an unfiled one.
+        if emulator is not None:
+            query = query.filter(Save.emulator == emulator)
+        else:
+            query = query.order_by(Save.emulator.is_(None).desc())
         if slot is not None:
             query = query.filter(Save.slot == slot)
         else:
@@ -108,12 +141,22 @@ class DBSavesHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> Save | None:
         return session.scalars(
-            select(Save)
-            .filter_by(
-                rom_id=rom_id, user_id=user_id, file_path=file_path, file_name=file_name
-            )
-            .limit(1)
+            _at_paths_query(user_id, rom_id, [file_path], file_name).limit(1)
         ).first()
+
+    @begin_session
+    def get_saves_at_paths(
+        self,
+        user_id: int,
+        rom_id: int,
+        file_paths: Collection[str],
+        file_name: str,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[Save]:
+        """Every save named ``file_name`` in any of ``file_paths``."""
+        return session.scalars(
+            _at_paths_query(user_id, rom_id, file_paths, file_name)
+        ).all()
 
     @begin_session
     def get_save_by_content_hash(
@@ -131,6 +174,55 @@ class DBSavesHandler(DBBaseHandler):
             query = query.filter(Save.slot == slot)
         return session.scalar(query.limit(1))
 
+    @begin_session
+    def get_lineage_head(
+        self,
+        user_id: int,
+        rom_id: int,
+        slot: str,
+        lineages: Collection[SaveLineage],
+        session: Session = INJECTED_SESSION,
+    ) -> Save | None:
+        """The newest version in ``slot`` across ``lineages`` whose file is on disk."""
+        return session.scalar(
+            select(Save)
+            .filter_by(user_id=user_id, rom_id=rom_id, slot=slot, missing_from_fs=False)
+            .where(_in_lineages(lineages))
+            .order_by(desc(Save.updated_at), desc(Save.id))
+            .limit(1)
+        )
+
+    @begin_session
+    def get_lineage_heads(
+        self,
+        user_id: int,
+        slot: str,
+        file_extension: str,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[Save]:
+        """The newest on-disk version in ``slot`` per ROM and emulator, for one extension."""
+        ranked = (
+            select(
+                Save.id,
+                func.row_number()
+                .over(
+                    partition_by=(Save.rom_id, Save.emulator),
+                    order_by=[Save.updated_at.desc(), Save.id.desc()],
+                )
+                .label("rank"),
+            )
+            .where(
+                Save.user_id == user_id,
+                Save.slot == slot,
+                Save.missing_from_fs.is_(False),
+                func.lower(Save.file_extension) == file_extension,
+            )
+            .subquery()
+        )
+        return session.scalars(
+            select(Save).join(ranked, ranked.c.id == Save.id).where(ranked.c.rank == 1)
+        ).all()
+
     def _saves_query(
         self,
         user_id: int,
@@ -139,7 +231,9 @@ class DBSavesHandler(DBBaseHandler):
         slot: str | None = None,
         slot_not_null: bool = False,
         slot_is_null: bool = False,
+        with_unslotted: bool = False,
         file_name_prefix: str | None = None,
+        lineages: Collection[SaveLineage] | None = None,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
     ) -> Select[Save]:
@@ -156,7 +250,12 @@ class DBSavesHandler(DBBaseHandler):
             )
 
         if slot is not None:
-            query = query.filter(Save.slot == slot)
+            # `with_unslotted` widens `slot` to also keep saves outside any slot.
+            query = query.filter(
+                or_(Save.slot == slot, Save.slot.is_(None))
+                if with_unslotted
+                else Save.slot == slot
+            )
 
         if slot_not_null:
             query = query.filter(Save.slot.is_not(None))
@@ -168,6 +267,9 @@ class DBSavesHandler(DBBaseHandler):
             query = query.filter(
                 Save.file_name.startswith(file_name_prefix, autoescape=True)
             )
+
+        if lineages is not None:
+            query = query.where(_in_lineages(lineages))
 
         if order_by:
             order_col = getattr(Save, order_by)
@@ -186,7 +288,9 @@ class DBSavesHandler(DBBaseHandler):
         slot: str | None = None,
         slot_not_null: bool = False,
         slot_is_null: bool = False,
+        with_unslotted: bool = False,
         file_name_prefix: str | None = None,
+        lineages: Collection[SaveLineage] | None = None,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
         session: Session = INJECTED_SESSION,
@@ -198,7 +302,9 @@ class DBSavesHandler(DBBaseHandler):
             slot=slot,
             slot_not_null=slot_not_null,
             slot_is_null=slot_is_null,
+            with_unslotted=with_unslotted,
             file_name_prefix=file_name_prefix,
+            lineages=lineages,
             order_by=order_by,
             order_dir=order_dir,
         )
@@ -396,6 +502,7 @@ class DBSavesHandler(DBBaseHandler):
         slot: str,
         keep: int,
         fallback_hashes: Mapping[int, str | None] | None = None,
+        lineage: SaveLineage | None = None,
         session: Session = INJECTED_SESSION,
     ) -> Sequence[Row[*tuple[Any, ...]]]:
         """Delete every version of a slot past the ``keep`` newest.
@@ -406,6 +513,8 @@ class DBSavesHandler(DBBaseHandler):
         Args:
             fallback_hashes: What versions never hashed held, by save id, or
                 None for a file that couldn't be read.
+            lineage: Count and prune only this lineage's versions, not the
+                whole slot's.
 
         Returns:
             Each deleted version's hash and ``file_path``, ``file_name`` and
@@ -427,6 +536,8 @@ class DBSavesHandler(DBBaseHandler):
             .order_by(desc(Save.updated_at), desc(Save.id))
             .offset(keep)
         )
+        if lineage is not None:
+            past_keep = past_keep.where(_in_lineages([lineage]))
         # Before this session holds a connection, since ensuring takes its own.
         if not self._any(past_keep):
             return []
@@ -556,6 +667,17 @@ class DBSavesHandler(DBBaseHandler):
         return session.scalars(
             select(Save).where(Save.id > after_id).order_by(asc(Save.id)).limit(limit)
         ).all()
+
+
+def _at_paths_query(
+    user_id: int, rom_id: int, file_paths: Collection[str], file_name: str
+) -> Select[Save]:
+    return select(Save).where(
+        Save.user_id == user_id,
+        Save.rom_id == rom_id,
+        Save.file_path.in_(file_paths),
+        Save.file_name == file_name,
+    )
 
 
 def _version_query(id: int) -> Select[*tuple[Any, ...]]:

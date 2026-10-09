@@ -58,6 +58,7 @@ from handler.asset_store import (
     prune_save_slot,
     remove_save,
     rename_asset,
+    reserve_version_name,
     store_screenshot,
 )
 from handler.auth.constants import Scope
@@ -84,6 +85,7 @@ from models.assets import (
     EMULATOR_VERSION_MAX_LENGTH,
     SAVE_SLOT_MAX_LENGTH,
     Save,
+    SaveLineage,
 )
 from models.base import FILE_NAME_MAX_LENGTH, FILE_PATH_MAX_LENGTH
 from models.device import Device
@@ -95,7 +97,6 @@ from utils.memory_cards import MEMORY_CARD_MAX_BYTES
 from utils.nginx import content_disposition
 from utils.router import APIRouter
 from utils.uploads import (
-    apply_datetime_tag,
     check_asset_upload_size,
     check_emulator_folder_name,
     sanitize_asset_filename,
@@ -299,12 +300,26 @@ async def add_save(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Save file has no filename"
         )
 
+    check_emulator_folder_name(emulator)
+
+    saves_path = fs_asset_handler.build_saves_file_path(
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
+    )
+
     actual_filename = sanitize_asset_filename(saveFile.filename, "save")
     if slot:
         # Checked again because the tag adds 26 bytes.
         actual_filename = sanitize_asset_filename(
-            apply_datetime_tag(actual_filename), "save"
+            await reserve_version_name(
+                request.user.id, rom.id, saves_path, actual_filename
+            ),
+            "save",
         )
+    # From the stored name: the tag moves a dotted name's inner suffix into the stem.
+    lineage = SaveLineage.of(emulator, actual_filename)
 
     sanitized_screenshot_filename = ""
     if screenshotFile and screenshotFile.filename:
@@ -320,17 +335,12 @@ async def add_save(
                 f"{save_stem}{screenshot_ext}", "screenshot"
             )
 
-    check_emulator_folder_name(emulator)
-
-    saves_path = fs_asset_handler.build_saves_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=emulator,
-    )
-
     db_save = db_save_handler.get_save_by_filename(
-        user_id=request.user.id, rom_id=rom.id, file_name=actual_filename, slot=slot
+        user_id=request.user.id,
+        rom_id=rom.id,
+        file_name=actual_filename,
+        emulator=emulator,
+        slot=slot,
     )
 
     if device and slot and not overwrite:
@@ -411,7 +421,9 @@ async def add_save(
                 pass
             # A retry still counts as an upload to the slot, so the cap applies.
             if keep is not None:
-                await prune_save_slot(request.user.id, rom.id, slot, keep)
+                await prune_save_slot(
+                    request.user.id, rom.id, slot, keep, lineage=lineage
+                )
             # Pruning can drop the matched version when it is not among the newest.
             if device and db_save_handler.get_save(
                 user_id=request.user.id, id=existing_by_hash.id
@@ -497,7 +509,7 @@ async def add_save(
 
     # Last, so a version the bridge just made a snapshot hold is never pruned.
     if slot and keep is not None:
-        await prune_save_slot(request.user.id, rom.id, slot, keep)
+        await prune_save_slot(request.user.id, rom.id, slot, keep, lineage=lineage)
 
     rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=request.user.id)
     if not rom_user:

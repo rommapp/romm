@@ -5,8 +5,10 @@ Shared by the upload routes and the streaming sync. What differs between them
 renaming a save or state, which takes its thumbnail along.
 """
 
+import asyncio
 import os
 from collections.abc import Sequence
+from datetime import datetime, timedelta
 from io import BytesIO
 from tempfile import SpooledTemporaryFile
 from typing import Any, BinaryIO, TypeAlias, cast
@@ -22,20 +24,60 @@ from handler.database import (
 from handler.database.base_handler import sync_session
 from handler.database.saves_handler import UnhashedVersions
 from handler.filesystem import fs_asset_handler
+from handler.redis_handler import async_cache
 from handler.scan_handler import scan_screenshot, scan_state
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import Save, Screenshot, State
+from models.assets import Save, SaveLineage, Screenshot, State
 from models.base import compute_file_name_no_ext
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length, sanitize_filename
+from utils.uploads import apply_datetime_tag
 
 # What `fs_asset_handler.write_file` accepts: an upload straight off a request,
 # or bytes a sync already holds.
 AssetContent: TypeAlias = (
     UploadFile | BinaryIO | BytesIO | bytes | SpooledTemporaryFile[bytes]
 )
+
+
+# Long enough to cover the write that follows, after which the file holds it.
+_VERSION_NAME_HOLD_SECONDS = 600
+_VERSION_NAME_ATTEMPTS = 60
+
+
+async def reserve_version_name(
+    user_id: int, rom_id: int, saves_path: str, file_name: str
+) -> str:
+    """A tagged name for a new version of ``file_name`` that no other version holds.
+
+    Raises:
+        RuntimeError: No free name within a minute of now.
+    """
+    # Tags resolve to the second and repeat when clocks go back, so a taken name
+    # moves on a second, and the Redis claim keeps concurrent uploads apart.
+    start = datetime.now()
+    for offset in range(_VERSION_NAME_ATTEMPTS):
+        name = apply_datetime_tag(file_name, start + timedelta(seconds=offset))
+        if await fs_asset_handler.file_exists(f"{saves_path}/{name}"):
+            continue
+        if await asyncio.to_thread(
+            db_save_handler.get_save_by_path,
+            user_id=user_id,
+            rom_id=rom_id,
+            file_path=saves_path,
+            file_name=name,
+        ):
+            continue
+        if await async_cache.set(
+            f"save_version_name:{saves_path}/{name}",
+            "1",
+            nx=True,
+            ex=_VERSION_NAME_HOLD_SECONDS,
+        ):
+            return name
+    raise RuntimeError(f"No free version name for {file_name} in {saves_path}")
 
 
 async def store_state_file(
@@ -72,14 +114,10 @@ async def store_state_file(
         rom_id=rom.id,
         emulator=emulator,
     )
-    content_hash = await fs_asset_handler.compute_content_hash(
-        f"{states_path}/{filename}"
-    )
     if existing is None:
         scanned.rom_id = rom.id
         scanned.user_id = user.id
         scanned.emulator = emulator
-        scanned.content_hash = content_hash
         for key, value in (fields or {}).items():
             setattr(scanned, key, value)
         return db_state_handler.add_state(state=scanned)
@@ -90,8 +128,8 @@ async def store_state_file(
         {
             "file_size_bytes": scanned.file_size_bytes,
             "file_path": scanned.file_path,
+            "content_hash": scanned.content_hash,
             "emulator": emulator,
-            "content_hash": content_hash,
             **(fields or {}),
         },
     )
@@ -198,8 +236,18 @@ async def remove_save(save: Save) -> None:
     await release_thumbnail(screenshot)
 
 
-async def prune_save_slot(user_id: int, rom_id: int, slot: str, keep: int) -> None:
-    """Drop every version of ``slot`` past the ``keep`` newest, files included."""
+async def prune_save_slot(
+    user_id: int,
+    rom_id: int,
+    slot: str,
+    keep: int,
+    lineage: SaveLineage | None = None,
+) -> None:
+    """Drop every version of ``slot`` past the ``keep`` newest, files included.
+
+    Args:
+        lineage: Count and prune only this lineage's versions, not the whole slot's.
+    """
     # Hashed outside the slot's lock, recorded by the prune that deletes them.
     # Each pass hashes only what the last one lacked.
     file_hashes: dict[int, str | None] = {}
@@ -211,6 +259,7 @@ async def prune_save_slot(user_id: int, rom_id: int, slot: str, keep: int) -> No
                 slot=slot,
                 keep=keep,
                 fallback_hashes=file_hashes,
+                lineage=lineage,
             )
             break
         except UnhashedVersions as unhashed:

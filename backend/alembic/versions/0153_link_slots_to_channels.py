@@ -1,7 +1,7 @@
 """File every slotted save under a channel named after its slot.
 
-Revision ID: 0150_link_slots_to_channels
-Revises: 0149_save_channels
+Revision ID: 0153_link_slots_to_channels
+Revises: 0152_save_channels
 Create Date: 2026-10-05 00:00:00.000000
 
 """
@@ -16,8 +16,8 @@ from handler.snapshots.legacy import channel_label, sync_file
 from models.rom import RomFile, RomFileCategory
 
 # revision identifiers, used by Alembic.
-revision = "0150_link_slots_to_channels"
-down_revision = "0149_save_channels"
+revision = "0153_link_slots_to_channels"
+down_revision = "0152_save_channels"
 branch_labels = None
 depends_on = None
 
@@ -124,5 +124,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # 0149's downgrade drops the column and the channels with it.
+    # 0152's downgrade drops the column and the channels with it.
     pass

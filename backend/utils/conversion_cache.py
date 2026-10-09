@@ -30,7 +30,6 @@ from config import (
     ROM_CONVERTO_CACHE_PATH,
     ROM_CONVERTO_ENABLED,
     ROM_CONVERTO_MAX_CONCURRENCY,
-    ROMM_BASE_PATH,
 )
 from config.config_manager import config_manager as cm
 from logger.formatter import highlight as hl
@@ -75,8 +74,8 @@ def converted_file_path(
 
 
 def get_redirect_path(converted_path: Path) -> Path:
-    """The nginx-internal path for a converted file (`/cache/` aliases `${ROMM_BASE_PATH}/cache/`)."""
-    return Path("/") / converted_path.relative_to(ROMM_BASE_PATH)
+    """The nginx-internal path for a converted file (`/cache/` aliases CACHE_BASE_PATH)."""
+    return Path("/cache/converts") / converted_path.relative_to(ROM_CONVERTO_CACHE_PATH)
 
 
 def _dir_size(path: Path) -> int:

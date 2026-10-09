@@ -10,9 +10,13 @@ each other's save states.
 """
 
 import asyncio
+import contextvars
+import functools
 import json
 import secrets
 import time
+from collections.abc import Awaitable, Callable, Hashable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal, NamedTuple
@@ -293,6 +297,38 @@ def _joinable_container_label(
     return entries[0].container_label or entries[0].label
 
 
+# Two checks per platform; past this many, a config waits a second timeout.
+_CONFIG_CHECK_THREADS = 64
+# Shared by every request, so overlapping page loads hold no more threads than one.
+_config_pool = ThreadPoolExecutor(
+    _CONFIG_CHECK_THREADS, thread_name_prefix="streaming-config"
+)
+_config_checks: dict[Hashable, asyncio.Future[Any]] = {}
+
+
+def _shared_check[T](key: Hashable, fn: Callable[..., T], *args: Any) -> Awaitable[T]:
+    """Run `fn` in the config pool, or join the run already asking the same."""
+    loop = asyncio.get_running_loop()
+    pending = _config_checks.get(key)
+    # A run on another loop (a closed test client's) can't be awaited here.
+    if pending is None or pending.get_loop() is not loop:
+        call = functools.partial(contextvars.copy_context().run, fn, *args)
+        pending = loop.run_in_executor(_config_pool, call)
+        _config_checks[key] = pending
+        pending.add_done_callback(functools.partial(_forget_check, key))
+    # So a caller that leaves doesn't cancel the run the others wait on.
+    return asyncio.shield(pending)
+
+
+def _forget_check(key: Hashable, done: asyncio.Future[Any]) -> None:
+    if _config_checks.get(key) is done:
+        del _config_checks[key]
+
+
+def _check_key(kind: str, c: ResolvedContainer) -> Hashable:
+    return (kind, c.key, c.platform, c.emulator, c.core, c.experimental_cores)
+
+
 @protected_route(router.get, "/config", [Scope.ROMS_READ])
 async def get_config(request: Request) -> StreamingConfigSchema:
     """Return streaming configuration to the frontend"""
@@ -305,15 +341,26 @@ async def get_config(request: Request) -> StreamingConfigSchema:
         for c in first_claim_targets()
         if access.platform_is_visible(request, c.platform)
     ]
-    # Concurrently, so one unreachable broker costs one timeout, not one each.
+    # All at once, so a silent broker costs one timeout.
     specs, cores = await asyncio.gather(
         asyncio.gather(
             *(
-                asyncio.to_thread(webstation.import_spec, c, c.emulator, c.platform)
+                _shared_check(
+                    _check_key("spec", c),
+                    webstation.import_spec,
+                    c,
+                    c.emulator,
+                    c.platform,
+                )
                 for c in visible
             )
         ),
-        asyncio.gather(*(asyncio.to_thread(states.state_core_for, c) for c in visible)),
+        asyncio.gather(
+            *(
+                _shared_check(_check_key("core", c), states.state_core_for, c)
+                for c in visible
+            )
+        ),
     )
     safe_containers: list[StreamingContainerSchema] = []
     for c, spec, core in zip(visible, specs, cores, strict=True):
@@ -695,6 +742,11 @@ async def _hydrate_saves(
             )
 
     if container.is_webstation:
+        defaulted = save is None
+        if defaulted:
+            save, save_foreign = await asyncio.to_thread(
+                saves.default_save, request.user.id, rom.id, container
+            )
         if save_foreign or import_state is not None:
             # A synced memory card is not special-cased: the broker refuses it
             # with memcard_synced_separately.
@@ -706,16 +758,22 @@ async def _hydrate_saves(
                     save=save,
                     save_is_foreign=save_foreign,
                     state=import_state,
+                    native_fallback=defaulted,
                 )
             except Exception:
                 log.exception("import archive hydration failed, continuing launch")
                 result = imports.ImportHydration()
             if result.path is not None:
-                return result
-            if save_foreign:
-                # A foreign save has no native side to fall back to.
+                return result._replace(
+                    native_fallback=defaulted and save_foreign and import_state is None
+                )
+            if save_foreign and not defaulted:
+                # A picked foreign save has no native side to fall back to.
                 return imports.ImportHydration()
-            # Only the foreign state failed, so any native save still hydrates.
+            if save_foreign:
+                # The newest save didn't make it in, so the newest archive boots.
+                save = None
+            # Only the foreign part failed, so any native save still hydrates.
         # Restore runs inside activate on this protocol, so hydration only gets
         # the bytes onto the container and names the path activate restores.
         # Still runs under whole-card sync: the archive carries the state the
@@ -880,7 +938,7 @@ async def claim_session(
                 rom.id,
                 container.emulator,
             )
-            # Capture order, like the archive pick: replacing a state's bytes bumps updated_at.
+            # Capture order, since replacing a state's bytes bumps updated_at.
             newest_state = max(
                 own_states, key=lambda s: (s.created_at, s.id), default=None
             )
@@ -906,8 +964,10 @@ async def claim_session(
         # import-spec is what decides, and one answer covers both picks.
         spec = None
         if resume_foreign or state_off_archive or save_foreign:
+            # Raises the 503 when it can't be asked: none of these launches as
+            # picked without the answer.
             spec = await asyncio.to_thread(
-                webstation.import_spec,
+                webstation.require_import_spec,
                 container,
                 container.emulator,
                 container.platform,
@@ -969,7 +1029,7 @@ async def claim_session(
             # The last exit's detached save pull may still be filing the archive to hydrate.
             await saves.wait_for_save_pull(request.user.id, rom.id)
 
-            archive_path, state_imported = await _hydrate_saves(
+            hydrated = await _hydrate_saves(
                 request,
                 container,
                 rom,
@@ -985,7 +1045,7 @@ async def claim_session(
         raise
     resume_import: launch.ResumeImport = "none"
     if resume_via_import:
-        resume_import = "imported" if state_imported else "lost"
+        resume_import = "imported" if hydrated.state_imported else "lost"
     elif state_off_archive:
         # The archive would resume a state the player did not pick.
         resume_import = "lost"
@@ -1004,7 +1064,8 @@ async def claim_session(
         rom_path=rom_path,
         rom_language=rom_language,
         gui_language=gui_language,
-        archive_path=archive_path,
+        archive_path=hydrated.path,
+        native_fallback=hydrated.native_fallback,
         resume_state=resume_state,
         resume_slot=resume_slot,
         resume_pushed=resume_pushed,

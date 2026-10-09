@@ -20,6 +20,7 @@ from handler.streaming import (
     broker,
     commands,
     lifecycle,
+    saves,
     states,
     webstation,
 )
@@ -59,11 +60,16 @@ async def run_launch(
     memory_card_synced: bool,
     multiplayer: bool,
     blank_card_id: int | None,
+    native_fallback: bool = False,
 ) -> None:
     """Start the game, then tell the player's tabs where to find it.
 
     The claim is already won, so the container stays reserved throughout and a
     failure here is what frees it again.
+
+    Args:
+        native_fallback: `archive_path` holds only a default save, so a refusal
+            of it boots the newest native archive instead.
     """
     # Nothing beats for the player until the stream is up, so without this the
     # next claimant reads the record as abandoned and tears the container down
@@ -79,31 +85,47 @@ async def run_launch(
         and resume_import != "lost"
         and not (container.resumes_from_archive and archive_path is None)
     )
+
+    def activate() -> Any:
+        return webstation.activate(
+            container,
+            session_id=str(session["broker_session_id"]),
+            user=user,
+            emulator=container.emulator,
+            rom={
+                "id": rom.id,
+                "name": rom_name,
+                "platform": platform,
+                "language": rom_language,
+                "path": rom_path,
+                "title_id": rom.title_id,
+                "save_target": rom.save_target,
+                "save_target_layout": rom.save_target_layout,
+            },
+            gui_language=gui_language,
+            archive_path=archive_path,
+            resume_slot=resume_slot if resume_on_activate else None,
+            memory_card_synced=memory_card_synced,
+            multiplayer=multiplayer,
+        )
+
     try:
         # Wrapped in asyncio.to_thread because urllib is synchronous.
         if container.is_webstation:
-            launch_result = await asyncio.to_thread(
-                webstation.activate,
-                container,
-                session_id=str(session["broker_session_id"]),
-                user=user,
-                emulator=container.emulator,
-                rom={
-                    "id": rom.id,
-                    "name": rom_name,
-                    "platform": platform,
-                    "language": rom_language,
-                    "path": rom_path,
-                    "title_id": rom.title_id,
-                    "save_target": rom.save_target,
-                    "save_target_layout": rom.save_target_layout,
-                },
-                gui_language=gui_language,
-                archive_path=archive_path,
-                resume_slot=resume_slot if resume_on_activate else None,
-                memory_card_synced=memory_card_synced,
-                multiplayer=multiplayer,
-            )
+            try:
+                launch_result = await asyncio.to_thread(activate)
+            except broker.ImportRefusedError as exc:
+                if not native_fallback:
+                    raise
+                # The broker checks an import at activate, after the upload took it.
+                log.warning("default save refused, booting the newest archive: %s", exc)
+                archive_path = await saves.hydrate_saves_to_webstation(
+                    user.id, rom.id, container
+                )
+                resume_on_activate = resume_on_activate and not (
+                    container.resumes_from_archive and archive_path is None
+                )
+                launch_result = await asyncio.to_thread(activate)
         else:
             launch_result = await asyncio.to_thread(
                 commands.launch,

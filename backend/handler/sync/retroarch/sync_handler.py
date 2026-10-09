@@ -7,29 +7,53 @@ import asyncio
 import os
 import re
 from collections import defaultdict
-from collections.abc import Awaitable, Callable, Collection, Iterable, Sequence
+from collections.abc import (
+    Awaitable,
+    Callable,
+    Collection,
+    Hashable,
+    Iterable,
+    Sequence,
+)
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
 from typing import Literal, NamedTuple
 
+from fastapi import UploadFile
+
+from config import MAX_SAVES_PER_SLOT
+from handler.asset_store import prune_save_slot, reserve_version_name
 from handler.database import (
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
+    db_snapshot_handler,
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
+from handler.filesystem.assets_handler import hash_save_content
 from handler.redis_handler import async_cache
+from handler.scan_handler import scan_save
 from handler.sync.retroarch import psp
 from handler.sync.retroarch.emulator_names import (
+    retroarch_aliases,
     to_retroarch_dir_name,
     to_romm_emulator,
 )
 from logger.logger import log
-from models.assets import EMULATOR_MAX_LENGTH, Save, Screenshot, State
+from models.assets import (
+    AUTOSAVE_SLOT,
+    EMULATOR_MAX_LENGTH,
+    Save,
+    SaveLineage,
+    Screenshot,
+    State,
+)
 from models.rom import Rom
 from models.user import User
+from utils.filesystem import check_filename_length
+from utils.uploads import strip_datetime_tag
 
 AssetKind = Literal["saves", "states"]
 
@@ -133,27 +157,48 @@ def state_slot_suffix(file_name: str) -> str:
     return os.path.splitext(file_name)[1][1:].lower()
 
 
+def retroarch_folder(emulator: str | None) -> str | None:
+    """The core folder an `emulator` syncs through, which its aliases share."""
+    return to_retroarch_dir_name(emulator) if emulator else None
+
+
 def recency_key(asset: Save | State) -> tuple[datetime, int]:
     """Recency order, with `id` breaking ties on a shared timestamp."""
     return (asset.updated_at, asset.id)
 
 
+def on_disk_recency_key(asset: Save | State) -> tuple[bool, datetime, int]:
+    """Recency order that ranks a file on disk above any missing one."""
+    return (not asset.missing_from_fs, *recency_key(asset))
+
+
+def newest_per_key[A: (Save, State), K: Hashable](
+    assets: Iterable[A],
+    key: Callable[[A], K],
+    rank: Callable[[A], tuple[object, ...]] = recency_key,
+) -> dict[K, A]:
+    """The highest ranked of the assets sharing each ``key``, by key."""
+    latest: dict[K, A] = {}
+    for asset in assets:
+        current = latest.get(asset_key := key(asset))
+        if current is None or rank(asset) > rank(current):
+            latest[asset_key] = asset
+    return latest
+
+
+def _state_slot_key(state: State) -> tuple[int, str | None, str]:
+    return (
+        state.attached_rom_id,
+        retroarch_folder(state.emulator),
+        state_slot_suffix(state.file_name),
+    )
+
+
 def group_states_by_slot(
     states: Iterable[State],
 ) -> dict[tuple[int, str | None, str], State]:
-    """The newest state in each (rom, emulator, slot) bucket."""
-    latest: dict[tuple[int, str | None, str], State] = {}
-    for state in states:
-        key = (
-            state.attached_rom_id,
-            state.emulator,
-            state_slot_suffix(state.file_name),
-        )
-        current = latest.get(key)
-        if current is None or recency_key(state) > recency_key(current):
-            latest[key] = state
-
-    return latest
+    """The newest state in each (rom, core folder, slot) bucket, preferring one on disk."""
+    return newest_per_key(states, _state_slot_key, rank=on_disk_recency_key)
 
 
 def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
@@ -161,13 +206,238 @@ def canonical_state_file_name(rom: Rom, slot_suffix: str) -> str:
     return f"{rom.fs_name_no_ext}.{slot_suffix}"
 
 
-def resolve_state_by_slot(
+def states_in_slot(
     user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> list[State]:
+    """Every state, under any alias, in the slot a canonical name points at."""
+    key = (rom.id, retroarch_folder(emulator), state_slot_suffix(requested_file_name))
+    return [
+        state
+        for state in db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
+        if _state_slot_key(state) == key
+    ]
+
+
+def resolve_state_by_slot(
+    user: User,
+    rom: Rom,
+    emulator: str | None,
+    requested_file_name: str,
+    prefer_on_disk: bool = True,
 ) -> State | None:
-    """The newest state in the slot a canonical name points at, whatever its name."""
-    states = db_state_handler.get_states(user_id=user.id, rom_ids=[rom.id])
-    key = (rom.id, emulator, state_slot_suffix(requested_file_name))
-    return group_states_by_slot(states).get(key)
+    """The state the slot a canonical name points at serves, whatever its name.
+
+    Args:
+        prefer_on_disk: False ranks a `missing_from_fs` row by recency alone, so
+            an upload revives the newest state in place.
+    """
+    return max(
+        states_in_slot(user, rom, emulator, requested_file_name),
+        key=on_disk_recency_key if prefer_on_disk else recency_key,
+        default=None,
+    )
+
+
+# RetroArch's save RAM, the one save file that goes through slots. Companions
+# such as `.rtc` stay single unslotted files, since a slot holds one save.
+SLOTTED_SAVE_EXTENSION = "srm"
+
+
+def save_lineage(emulator: str | None, file_name: str) -> SaveLineage | None:
+    """The `autosave` lineage a RetroArch save path maps to, or None for an unslotted file."""
+    lineage = SaveLineage.of(emulator, file_name)
+    return lineage if lineage.file_extension == SLOTTED_SAVE_EXTENSION else None
+
+
+def advertised_save_name(save: Save) -> str:
+    """A version's name without its tag when that still names its ROM, else RetroArch's name for it."""
+    name = strip_datetime_tag(save.file_name)
+    rom_name = save.attached_rom.fs_name_no_ext
+    if game_name_from_file_name("saves", name).lower() == rom_name.lower():
+        return name
+    return f"{rom_name}{os.path.splitext(name)[1]}"
+
+
+def _unslotted_saves_at(
+    user: User, rom: Rom, emulator: str | None, file_name: str
+) -> list[Save]:
+    """The unslotted saves at a RetroArch path, under any of ``emulator``'s aliases."""
+    saves = db_save_handler.get_saves_at_paths(
+        user_id=user.id,
+        rom_id=rom.id,
+        file_paths=[
+            build_asset_file_path(user, rom, "saves", alias)
+            for alias in retroarch_aliases(emulator)
+        ],
+        file_name=file_name,
+    )
+    return [save for save in saves if save.slot is None]
+
+
+def _unslotted_save_at(
+    user: User, rom: Rom, emulator: str | None, file_name: str
+) -> Save | None:
+    # Prefers a file on disk, which is the one the manifest lists.
+    return max(
+        _unslotted_saves_at(user, rom, emulator, file_name),
+        key=on_disk_recency_key,
+        default=None,
+    )
+
+
+def _alias_lineages(lineage: SaveLineage) -> list[SaveLineage]:
+    """``lineage`` under each of its emulator's aliases."""
+    return [
+        lineage._replace(emulator=alias)
+        for alias in retroarch_aliases(lineage.emulator)
+    ]
+
+
+def _lineage_head(user: User, rom: Rom, lineage: SaveLineage) -> Save | None:
+    """The newest `autosave` version across ``lineage``'s aliases."""
+    return db_save_handler.get_lineage_head(
+        user_id=user.id,
+        rom_id=rom.id,
+        slot=AUTOSAVE_SLOT,
+        lineages=_alias_lineages(lineage),
+    )
+
+
+def resolve_save(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> Save | None:
+    """The save a RetroArch path serves: the newest `autosave` version, else the unslotted save there."""
+    lineage = save_lineage(emulator, requested_file_name)
+    head = _lineage_head(user, rom, lineage) if lineage else None
+    return head or _unslotted_save_at(user, rom, emulator, requested_file_name)
+
+
+def saves_at_path(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> list[Save]:
+    """Every save a RetroArch path covers, so deleting it leaves nothing to resurface."""
+    lineage = save_lineage(emulator, requested_file_name)
+    if not lineage:
+        return _unslotted_saves_at(user, rom, emulator, requested_file_name)
+
+    folded = requested_file_name.casefold()
+    return [
+        save
+        for save in db_save_handler.get_saves(
+            user_id=user.id,
+            rom_ids=[rom.id],
+            slot=AUTOSAVE_SLOT,
+            with_unslotted=True,
+            lineages=_alias_lineages(lineage),
+        )
+        # The manifest hides unslotted ones behind the head, so whatever their
+        # case they would resurface once the versions go.
+        if save.slot is not None or save.file_name.casefold() == folded
+    ]
+
+
+SaveUpload = Literal["created", "updated", "unchanged"]
+
+
+class SaveHeld(Exception):
+    """The upload would rewrite a save a sync channel holds."""
+
+
+async def store_save(
+    user: User,
+    rom: Rom,
+    emulator: str | None,
+    requested_file_name: str,
+    body: UploadFile,
+) -> SaveUpload:
+    """File an upload as a new `autosave` version, or over the unslotted file it names.
+
+    Raises:
+        ValueError: The timestamped version name is too long.
+        SaveHeld: The unslotted file it names belongs to a sync channel.
+    """
+    lineage = save_lineage(emulator, requested_file_name)
+    if not lineage:
+        return await _store_unslotted_save(
+            user, rom, emulator, requested_file_name, body
+        )
+
+    head = await asyncio.to_thread(_lineage_head, user, rom, lineage)
+    # A re-sent file adds no version, so it can't push real history past the cap.
+    content_hash = hash_save_content(body.file)
+    if head and content_hash and content_hash == head.content_hash:
+        return "unchanged"
+
+    asset_path = build_asset_file_path(user, rom, "saves", emulator)
+    version_name = await reserve_version_name(
+        user.id, rom.id, asset_path, requested_file_name
+    )
+    check_filename_length(version_name)
+    await fs_asset_handler.write_file(file=body, path=asset_path, filename=version_name)
+    scanned = await scan_save(
+        file_name=version_name,
+        user=user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
+    )
+    scanned.rom_id = rom.id
+    scanned.user_id = user.id
+    scanned.emulator = emulator
+    scanned.slot = AUTOSAVE_SLOT
+    await asyncio.to_thread(db_save_handler.add_save, save=scanned)
+    if MAX_SAVES_PER_SLOT:
+        await prune_save_slot(
+            user.id, rom.id, AUTOSAVE_SLOT, MAX_SAVES_PER_SLOT, lineage=lineage
+        )
+
+    return "created"
+
+
+async def _store_unslotted_save(
+    user: User,
+    rom: Rom,
+    emulator: str | None,
+    file_name: str,
+    body: UploadFile,
+) -> SaveUpload:
+    existing = await asyncio.to_thread(
+        _unslotted_save_at, user, rom, emulator, file_name
+    )
+    replaced_hash = None
+    # Written where the existing row points, so it keeps tracking the bytes.
+    if existing:
+        if await asyncio.to_thread(db_snapshot_handler.is_asset_frozen, existing):
+            raise SaveHeld(existing.file_name)
+        emulator = existing.emulator
+        replaced_hash = await fs_asset_handler.unrecorded_hash(existing)
+    asset_path = build_asset_file_path(user, rom, "saves", emulator)
+    await fs_asset_handler.write_file(file=body, path=asset_path, filename=file_name)
+    scanned = await scan_save(
+        file_name=file_name,
+        user=user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
+    )
+    if existing:
+        await asyncio.to_thread(
+            db_save_handler.update_save,
+            existing.id,
+            {
+                "file_size_bytes": scanned.file_size_bytes,
+                "content_hash": scanned.content_hash,
+                "missing_from_fs": False,
+            },
+            replaced_hash=replaced_hash,
+        )
+        return "updated"
+
+    scanned.rom_id = rom.id
+    scanned.user_id = user.id
+    scanned.emulator = emulator
+    await asyncio.to_thread(db_save_handler.add_save, save=scanned)
+    return "created"
 
 
 def state_screenshot_dir(user: User, rom: Rom, emulator: str | None) -> str:
@@ -243,9 +513,8 @@ def resolve_state_screenshot_by_slot(
 def build_retroarch_sync_path(
     kind: AssetKind, emulator: str | None, file_name: str
 ) -> str:
-    if emulator:
-        return f"{kind}/{to_retroarch_dir_name(emulator)}/{file_name}"
-    return f"{kind}/{file_name}"
+    folder = retroarch_folder(emulator)
+    return f"{kind}/{folder}/{file_name}" if folder else f"{kind}/{file_name}"
 
 
 def build_asset_file_path(
@@ -353,7 +622,7 @@ def resolve_roms(
     """The ROM each game name belongs to, the first visible one by id when ambiguous."""
     names = set(game_names)
     exact: dict[str, Rom] = {}
-    # MariaDB's default collation matches case-insensitively; PostgreSQL doesn't.
+    # The lookup ignores case, so the client's exact spelling wins a tie.
     folded: dict[str, Rom] = {}
     for rom in db_rom_handler.get_roms_by_fs_names_no_ext(names):
         if can_see(rom):
@@ -370,12 +639,29 @@ def resolve_rom(game_name: str, can_see: Callable[[Rom], bool]) -> Rom | None:
 
 def _mark_missing_from_fs(asset: Save | State | Screenshot) -> None:
     update = {"missing_from_fs": True}
+    # Not a write, so updated_at keeps ranking the asset.
     if isinstance(asset, Save):
-        db_save_handler.update_save(asset.id, update)
+        db_save_handler.update_save(asset.id, update, touch=False)
     elif isinstance(asset, State):
-        db_state_handler.update_state(asset.id, update)
+        db_state_handler.update_state(asset.id, update, touch=False)
     else:
         db_screenshot_handler.update_screenshot(asset.id, update)
+    asset.missing_from_fs = True
+
+
+def flag_if_missing(asset: Save | State | Screenshot) -> bool:
+    """Flag ``asset`` `missing_from_fs` when its file is gone.
+
+    Returns:
+        Whether it was gone.
+    """
+    try:
+        if fs_asset_handler.validate_path(asset.full_path).is_file():
+            return False
+    except ValueError:
+        return False
+    _mark_missing_from_fs(asset)
+    return True
 
 
 async def _asset_md5(asset: Save | State | Screenshot) -> str | None:
@@ -413,27 +699,52 @@ def _manifest_assets(
     user: User, can_see: Callable[[Rom], bool], tree: AssetKind | None = None
 ) -> tuple[list[ManifestAsset], Sequence[Save]]:
     """The manifest's saves and states (only `tree`'s when given), plus the unslotted saves its PSP bundles come from."""
-    # Slotted saves are RomM's timestamped history, which no core would load.
-    saves = (
-        db_save_handler.get_saves(user_id=user.id, slot_is_null=True)
-        if tree != "states"
-        else []
+    saves: Sequence[Save] = []
+    heads: Sequence[Save] = []
+    if tree != "states":
+        saves = db_save_handler.get_saves(user_id=user.id, slot_is_null=True)
+        heads = db_save_handler.get_lineage_heads(
+            user_id=user.id, slot=AUTOSAVE_SLOT, file_extension=SLOTTED_SAVE_EXTENSION
+        )
+    # Aliases of one core share its folder, so only the newest of them is listed.
+    head_by_folder = newest_per_key(
+        heads, lambda head: (head.attached_rom_id, retroarch_folder(head.emulator))
+    )
+    unslotted = newest_per_key(
+        (
+            save
+            for save in saves
+            if not save.missing_from_fs
+            and not psp.is_psp_bundle_file_name(save.file_name)
+            and not (
+                save_lineage(save.emulator, save.file_name)
+                and (save.attached_rom_id, retroarch_folder(save.emulator))
+                in head_by_folder
+            )
+        ),
+        lambda save: (
+            save.attached_rom_id,
+            retroarch_folder(save.emulator),
+            save.file_name,
+        ),
     )
     listed_saves = [
-        save
-        for save in saves
-        if not save.missing_from_fs
-        and can_see(save.attached_rom)
-        and not psp.is_psp_bundle_file_name(save.file_name)
+        (advertised_save_name(head), head)
+        for head in head_by_folder.values()
+        if can_see(head.attached_rom)
+    ] + [
+        (save.file_name, save)
+        for save in unslotted.values()
+        if can_see(save.attached_rom)
     ]
     listed_states = (
         [
             (
-                emulator,
+                state.emulator,
                 canonical_state_file_name(state.attached_rom, slot_suffix),
                 state,
             )
-            for (_rom_id, emulator, slot_suffix), state in group_states_by_slot(
+            for (_rom_id, _folder, slot_suffix), state in group_states_by_slot(
                 db_state_handler.get_states(user_id=user.id)
             ).items()
             if not state.missing_from_fs and can_see(state.attached_rom)
@@ -445,7 +756,7 @@ def _manifest_assets(
     # A path carries no platform, so only the ROM that GET/PUT/DELETE would
     # resolve it to may claim it; a same-named ROM elsewhere would shadow it.
     owners = resolve_roms(
-        [game_name_from_file_name("saves", save.file_name) for save in listed_saves]
+        [game_name_from_file_name("saves", name) for name, _ in listed_saves]
         + [game_name_from_file_name("states", name) for _, name, _ in listed_states],
         can_see,
     )
@@ -455,11 +766,9 @@ def _manifest_assets(
         return owner is not None and owner.id == rom.id
 
     assets = [
-        ManifestAsset(
-            build_retroarch_sync_path("saves", save.emulator, save.file_name), save
-        )
-        for save in listed_saves
-        if is_addressable(save.attached_rom, "saves", save.file_name)
+        ManifestAsset(build_retroarch_sync_path("saves", save.emulator, name), save)
+        for name, save in listed_saves
+        if is_addressable(save.attached_rom, "saves", name)
     ]
 
     addressable_states = [
@@ -483,7 +792,7 @@ async def list_manifest_paths(
     user: User, can_see: Callable[[Rom], bool], tree: AssetKind
 ) -> list[str]:
     """`tree`'s manifest paths, sorted, without hashing or listing blobs."""
-    assets, saves = _manifest_assets(user, can_see, tree)
+    assets, saves = await asyncio.to_thread(_manifest_assets, user, can_see, tree)
     paths = [entry.path for entry in assets]
     paths += await psp.list_psp_member_paths(saves, can_see)
     return sorted(paths)
@@ -493,8 +802,14 @@ async def build_manifest(
     user: User, can_see: Callable[[Rom], bool]
 ) -> list[dict[str, str]]:
     """The server manifest RetroArch diffs against, sorted by path."""
-    assets, saves = _manifest_assets(user, can_see)
-    digests = await asset_md5s([entry.asset for entry in assets])
+    # Off the event loop: on a large library the queries run for seconds and
+    # would stall every other request the worker is serving.
+    while True:
+        assets, saves = await asyncio.to_thread(_manifest_assets, user, can_see)
+        digests = await asset_md5s([entry.asset for entry in assets])
+        # Hashing flags a vanished file, which can unhide an older asset at its path.
+        if not any(entry.asset.missing_from_fs for entry in assets):
+            break
     hashed = [
         (entry, digest) for entry, digest in zip(assets, digests, strict=True) if digest
     ]

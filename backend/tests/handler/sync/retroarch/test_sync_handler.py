@@ -1,20 +1,28 @@
 import os
+import threading
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from unittest import mock
 
 import pytest
 
+from handler.database import db_save_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.retroarch_sync_handler import BlobFile, FSRetroArchSyncHandler
 from handler.redis_handler import async_cache, sync_cache
 from handler.sync.retroarch.sync_handler import (
     HASH_CACHE_TTL_SECONDS,
+    asset_md5s,
+    build_manifest,
     cached_hashes,
+    list_manifest_paths,
     user_blob_path,
 )
+from models.assets import Save, State
 from models.user import User
+from utils.filesystem import TEMP_FILE_PREFIX
 
 
 @pytest.fixture(autouse=True)
@@ -55,6 +63,53 @@ class TestCachedMd5s:
             await cached_hashes(jobs)
 
         mget.assert_called_once()
+
+
+class TestMarkMissing:
+    async def test_flagging_a_vanished_file_keeps_updated_at(
+        self, save: Save, state: State
+    ):
+        """Device sync and the newest-save pick read updated_at as a write."""
+        stamp = datetime(2026, 1, 1)
+        db_save_handler.update_save(save.id, {"updated_at": stamp})
+        db_state_handler.update_state(state.id, {"updated_at": stamp})
+
+        assert await asset_md5s([save, state]) == [None, None]
+
+        for row in (
+            db_save_handler.get_save(user_id=save.user_id, id=save.id),
+            db_state_handler.get_state(user_id=state.user_id, id=state.id),
+        ):
+            assert row is not None
+            assert row.missing_from_fs
+            # PostgreSQL hands the column back as UTC-aware.
+            assert row.updated_at.replace(tzinfo=None) == stamp
+
+
+class TestManifestQueriesOffEventLoop:
+    @pytest.fixture
+    def query_threads(self) -> Iterator[list[int]]:
+        threads: list[int] = []
+        get_saves = db_save_handler.get_saves
+
+        def recording_get_saves(*args: Any, **kwargs: Any) -> Any:
+            threads.append(threading.get_ident())
+            return get_saves(*args, **kwargs)
+
+        with mock.patch.object(db_save_handler, "get_saves", recording_get_saves):
+            yield threads
+
+    async def test_build_manifest(self, admin_user: User, query_threads: list[int]):
+        await build_manifest(admin_user, lambda _rom: True)
+
+        assert query_threads and threading.get_ident() not in query_threads
+
+    async def test_list_manifest_paths(
+        self, admin_user: User, query_threads: list[int]
+    ):
+        await list_manifest_paths(admin_user, lambda _rom: True, "saves")
+
+        assert query_threads and threading.get_ident() not in query_threads
 
 
 class TestBlobStorageLocation:
@@ -101,6 +156,14 @@ class TestListBlobFiles:
         (outside / "secret").write_bytes(b"secret")
         (tmp_path / "config").mkdir()
         os.symlink(outside, tmp_path / "config" / "linked")
+
+        assert await blob_handler.list_blob_files("config") == []
+
+    async def test_skips_interrupted_write_temp_files(
+        self, blob_handler: FSRetroArchSyncHandler, tmp_path: Path
+    ):
+        (tmp_path / "config").mkdir()
+        (tmp_path / "config" / f"{TEMP_FILE_PREFIX}ab12").write_bytes(b"partial")
 
         assert await blob_handler.list_blob_files("config") == []
 

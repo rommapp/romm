@@ -13,21 +13,17 @@ from dataclasses import dataclass
 from typing import Any, Literal, NamedTuple
 
 from handler.filesystem import fs_asset_handler
-from handler.streaming import broker, saves, states, webstation
+from handler.streaming import archive, broker, saves, states, webstation
 from handler.streaming.config import ResolvedContainer, emulator_labels
 from logger.logger import log
 from models.assets import Save, State
 from models.rom import Rom
 from utils.zip_cache import ensure_zipfile_writable
 
-_MANIFEST_NAME = ".broker-manifest.json"
-
 # Charged on each entry's expanded size, so a small, highly compressible
 # upload cannot inflate past the ceiling any stored save archive has.
 _MAX_EXPANDED_BYTES = broker.SAVE_FILE_MAX_BYTES
 _MAX_MEMBERS = 2000
-_READ_CHUNK = 64 * 1024
-_MAX_MANIFEST_BYTES = 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -74,34 +70,9 @@ def _utf8_zipinfo(name: str, source: zipfile.ZipInfo | None) -> zipfile.ZipInfo:
     return info
 
 
-def _read_member(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
-    """An entry's bytes, inflated a chunk at a time so a size the header
-    understates fails the CRC check before it can exhaust memory."""
-    out = bytearray()
-    with zf.open(info) as f:
-        while chunk := f.read(_READ_CHUNK):
-            out += chunk
-    return bytes(out)
-
-
 def _manifest_files(zf: zipfile.ZipFile) -> dict[str, dict[str, Any]]:
     """A broker archive's manifest entries by path, empty when it has none."""
-    try:
-        info = zf.getinfo(_MANIFEST_NAME)
-    except KeyError:
-        return {}
-    if info.file_size > _MAX_MANIFEST_BYTES:
-        raise ValueError("broker manifest exceeds its size limit")
-    try:
-        manifest = json.loads(_read_member(zf, info))
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return {}
-    files = manifest.get("files") if isinstance(manifest, dict) else None
-    return {
-        f["path"]: f
-        for f in (files if isinstance(files, list) else [])
-        if isinstance(f, dict) and isinstance(f.get("path"), str)
-    }
+    return archive.manifest_files(archive.read_manifest(zf))
 
 
 _Staged = dict[str, tuple[bytes, dict[str, Any], zipfile.ZipInfo | None]]
@@ -146,7 +117,7 @@ def _stage_zip(
             continue
         budget.charge(info.file_size)
         path, manifest_entry = place(name, entry)
-        staged[path] = (_read_member(zf, info), manifest_entry, info)
+        staged[path] = (archive.read_member(zf, info), manifest_entry, info)
 
 
 def _write_member(
@@ -219,7 +190,7 @@ def build_import_archive(
         for path, (content, _entry, source) in staged.items():
             zf.writestr(_utf8_zipinfo(path, source), content)
         zf.writestr(
-            _MANIFEST_NAME,
+            archive.MANIFEST_NAME,
             json.dumps(
                 {
                     "version": 2,
@@ -245,6 +216,8 @@ class ImportHydration(NamedTuple):
 
     path: str | None = None
     state_imported: bool = False
+    # The archive is a default save alone, so a refused import boots the newest archive.
+    native_fallback: bool = False
 
 
 async def hydrate_import_archive(
@@ -255,8 +228,13 @@ async def hydrate_import_archive(
     save: Save | None,
     save_is_foreign: bool,
     state: State | None,
+    native_fallback: bool = False,
 ) -> ImportHydration:
     """Build this launch's one archive (native base plus `.import/` members) and upload it.
+
+    Args:
+        native_fallback: a foreign save that doesn't make it in leaves the
+            newest native save as the base, as a launch that picked none gets.
 
     Returns:
         The container path `activate`'s `save.archive` wants (None when
@@ -265,13 +243,13 @@ async def hydrate_import_archive(
     """
     members: list[ForeignMember] = []
     if save is not None and save_is_foreign:
-        archive = await saves.read_restorable_archive(save)
-        if archive is not None:
+        picked = await saves.read_restorable_archive(save)
+        if picked is not None:
             members.append(
                 ForeignMember(
                     kind="save",
                     name=save.file_name,
-                    content=archive[1],
+                    content=picked[1],
                     origin=origin_of(save.emulator, save.origin_device_id),
                 )
             )
@@ -293,8 +271,9 @@ async def hydrate_import_archive(
         return ImportHydration()
 
     base: tuple[str, bytes] | None = None
-    if not save_is_foreign:
-        native = save or await asyncio.to_thread(
+    save_lost = save_is_foreign and not any(m.kind == "save" for m in members)
+    if not save_is_foreign or (native_fallback and save_lost):
+        native = (None if save_is_foreign else save) or await asyncio.to_thread(
             saves.newest_restorable, user_id, rom.id, container.emulator
         )
         if native is not None:

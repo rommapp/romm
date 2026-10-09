@@ -22,15 +22,14 @@ from typing import Literal
 
 from redis.exceptions import RedisError
 
-from config import SYNC_RETROARCH_PSP_PENDING_PATH, SYNC_RETROARCH_PSP_SERIAL_MAP
+from config import SYNC_RETROARCH_PSP_SERIAL_MAP
 from handler.database import (
     db_platform_handler,
     db_rom_handler,
     db_save_handler,
     db_snapshot_handler,
 )
-from handler.filesystem import fs_asset_handler
-from handler.filesystem.base_handler import FSHandler
+from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.redis_handler import async_cache
 from handler.sync.retroarch import sync_handler
 from logger.formatter import highlight as hl
@@ -44,6 +43,8 @@ from utils.zip_cache import ensure_zipfile_writable
 
 _IGNORED_CATEGORY = "SYSTEM"
 _SAVEDATA_CATEGORY = "SAVEDATA"
+# Outside BLOB_CATEGORIES, so clients can never read or write it.
+_PENDING_CATEGORY = "psp_pending"
 
 # Real PSP save folders hold a handful of small files; anything past these is
 # not one, and inflating it on every manifest build would exhaust memory.
@@ -51,8 +52,6 @@ _BUNDLE_MAX_MEMBERS = 64
 BUNDLE_MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
 
 _BUNDLE_FOLDER_PATTERN = re.compile(r"^PSP-(.+?)(?: \[.*])?\.zip$")
-
-fs_psp_pending_handler = FSHandler(base_path=SYNC_RETROARCH_PSP_PENDING_PATH)
 
 
 class PspFolderUnresolved(Exception):
@@ -337,6 +336,27 @@ async def _load_bundle(
 _folder_locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
+def _pending_dir(user: User, save_folder: str) -> str:
+    return sync_handler.user_blob_path(user, f"{_PENDING_CATEGORY}/{save_folder}")
+
+
+async def _list_pending(pending_dir: str) -> dict[str, int]:
+    """Each buffered file's size, by name."""
+    return {
+        blob.relative_path: blob.size
+        for blob in await fs_retroarch_sync_handler.list_blob_files(pending_dir)
+    }
+
+
+async def _drop_pending(pending_dir: str, names: Iterable[str]) -> None:
+    for name in names:
+        with suppress(FileNotFoundError):
+            await fs_retroarch_sync_handler.remove_file(f"{pending_dir}/{name}")
+    # rmdir keeps a folder another worker buffered a file into meanwhile.
+    with suppress(OSError):
+        fs_retroarch_sync_handler.validate_path(pending_dir).rmdir()
+
+
 async def _resolve_folder_rom(
     info: PspFilePath,
     content: bytes,
@@ -357,11 +377,16 @@ async def _resolve_folder_rom(
         else:
             sfo_title = title if isinstance(title, str) else None
 
-    rom = _resolve_rom(info.save_folder, sfo_title, can_see)
+    rom = await asyncio.to_thread(_resolve_rom, info.save_folder, sfo_title, can_see)
     if rom:
         return rom
 
-    await fs_psp_pending_handler.write_file(
+    pending_sizes = await _list_pending(pending_dir)
+    pending_sizes[info.file_name] = len(content)
+    if _exceeds_bundle_limits(pending_sizes.values()):
+        raise PspBundleInvalid(info.save_folder)
+
+    await fs_retroarch_sync_handler.write_file(
         file=content, path=pending_dir, filename=info.file_name
     )
     log.warning(
@@ -398,7 +423,8 @@ async def _add_bundle(
     await fs_asset_handler.write_file(
         file=zip_bytes, path=bundle_path, filename=bundle_name
     )
-    bundle = db_save_handler.add_save(
+    bundle = await asyncio.to_thread(
+        db_save_handler.add_save,
         Save(
             rom_id=rom.id,
             user_id=user.id,
@@ -408,7 +434,7 @@ async def _add_bundle(
             content_hash=content_hash_of_bytes(zip_bytes),
             emulator=info.emulator,
             slot=None,
-        )
+        ),
     )
     await _cache_member_md5s(bundle, entries)
 
@@ -425,8 +451,10 @@ async def put_psp_file(
     # PPSSPP writes a folder as a burst of PUTs, so the bundle is rewritten in
     # place rather than keeping each partial merge as save history.
     async with _folder_locks[f"{user.id}:{info.save_folder}"]:
-        pending_dir = f"{user.id}/{info.save_folder}"
-        existing = _find_bundle_by_folder(user, info.save_folder, can_see)
+        pending_dir = _pending_dir(user, info.save_folder)
+        existing = await asyncio.to_thread(
+            _find_bundle_by_folder, user, info.save_folder, can_see
+        )
 
         merged: dict[str, bytes] = {}
         if existing:
@@ -439,12 +467,9 @@ async def put_psp_file(
         else:
             rom = await _resolve_folder_rom(info, content, pending_dir, can_see)
 
-        try:
-            pending_names = await fs_psp_pending_handler.list_files(pending_dir)
-        except FileNotFoundError:
-            pending_names = []
+        pending_names = await _list_pending(pending_dir)
         for name in pending_names:
-            merged[name] = await fs_psp_pending_handler.read_file(
+            merged[name] = await fs_retroarch_sync_handler.read_file(
                 f"{pending_dir}/{name}"
             )
         merged[info.file_name] = content
@@ -462,9 +487,7 @@ async def put_psp_file(
         else:
             await _rewrite_bundle(existing, merged)
 
-        for name in pending_names:
-            with suppress(FileNotFoundError):
-                await fs_psp_pending_handler.remove_file(f"{pending_dir}/{name}")
+        await _drop_pending(pending_dir, pending_names)
 
 
 async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:
@@ -473,7 +496,8 @@ async def _rewrite_bundle(bundle: Save, entries: dict[str, bytes]) -> None:
     await fs_asset_handler.write_file(
         file=zip_bytes, path=bundle.file_path, filename=bundle.file_name
     )
-    updated = db_save_handler.update_save(
+    updated = await asyncio.to_thread(
+        db_save_handler.update_save,
         bundle.id,
         {
             "file_size_bytes": len(zip_bytes),
@@ -506,7 +530,9 @@ async def _read_bundle_names(bundle: Save) -> list[str] | None:
 async def get_psp_file(
     user: User, info: PspFilePath, can_see: Callable[[Rom], bool]
 ) -> bytes | None:
-    bundle = _find_bundle_by_folder(user, info.save_folder, can_see)
+    bundle = await asyncio.to_thread(
+        _find_bundle_by_folder, user, info.save_folder, can_see
+    )
     if not bundle:
         return None
     entries = await _read_bundle(bundle, {info.file_name})
@@ -516,9 +542,13 @@ async def get_psp_file(
 async def delete_psp_file(
     user: User, info: PspFilePath, can_see: Callable[[Rom], bool]
 ) -> None:
-    """Drop one member from its folder's bundle, and the bundle once empty."""
+    """Drop one member from its folder's bundle and buffer, and either once empty."""
     async with _folder_locks[f"{user.id}:{info.save_folder}"]:
-        bundle = _find_bundle_by_folder(user, info.save_folder, can_see)
+        await _drop_pending(_pending_dir(user, info.save_folder), [info.file_name])
+
+        bundle = await asyncio.to_thread(
+            _find_bundle_by_folder, user, info.save_folder, can_see
+        )
         if not bundle:
             return
 
@@ -539,7 +569,7 @@ async def delete_psp_file(
             await _rewrite_bundle(bundle, entries)
             return
 
-        db_save_handler.delete_save(bundle.id)
+        await asyncio.to_thread(db_save_handler.delete_save, bundle.id)
         with suppress(FileNotFoundError):
             await fs_asset_handler.remove_file(file_path=bundle.full_path)
 

@@ -12,7 +12,11 @@ from tests._zipfile_shim import reload_zipfile
 
 from config import ASSETS_BASE_PATH
 from handler.filesystem import assets_handler
-from handler.filesystem.assets_handler import FSAssetsHandler, hash_save_file
+from handler.filesystem.assets_handler import (
+    FSAssetsHandler,
+    hash_save_content,
+    hash_save_file,
+)
 from models.user import User
 
 
@@ -530,6 +534,21 @@ class TestHashSaveFile:
         assert hash_save_file(temp_base / "save.zip") == (
             await handler.compute_content_hash("save.zip")
         )
+
+    @pytest.mark.parametrize("is_zip", [False, True], ids=["raw", "zip"])
+    def test_in_memory_content_hashes_like_the_file(
+        self, temp_base: Path, is_zip: bool
+    ):
+        path = temp_base / "save.bin"
+        if is_zip:
+            self._write_zip(path, zipfile.ZIP_DEFLATED)
+        else:
+            path.write_bytes(b"save ram" * 32)
+        content = io.BytesIO(path.read_bytes())
+        content.seek(5)
+
+        assert hash_save_content(content) == hash_save_file(path)
+        assert content.tell() == 0
 
     def test_repacked_zip_with_the_same_entries_hashes_the_same(self, temp_base: Path):
         stored = temp_base / "stored.zip"

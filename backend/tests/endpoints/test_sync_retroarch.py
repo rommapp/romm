@@ -1,6 +1,12 @@
+import asyncio
 import hashlib
+import itertools
+import os
+import re
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -25,6 +31,7 @@ from handler.redis_handler import async_cache
 from handler.sync.retroarch import psp, sync_handler
 from handler.sync.retroarch.device import CLIENT_DEVICE_IDENTIFIER
 from handler.sync.retroarch.emulator_names import (
+    retroarch_aliases,
     to_retroarch_dir_name,
     to_romm_emulator,
 )
@@ -67,10 +74,10 @@ def _retroarch_upload_cap(client: TestClient, max_size: int):
 
 @pytest.fixture(autouse=True)
 def _isolated_sync_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Keep blobs and pending PSP files per test, since user ids repeat across test databases."""
+    """Keep assets and sync files per test, since user ids repeat across test databases."""
     for handler, name in (
+        (fs_asset_handler, "assets"),
         (fs_retroarch_sync_handler, "retroarch_sync"),
-        (psp.fs_psp_pending_handler, "psp_pending"),
     ):
         base = (tmp_path / name).resolve()
         base.mkdir()
@@ -199,6 +206,19 @@ class TestRetroArchSyncEmulatorNames:
     )
     def test_to_retroarch_dir_name(self, romm_emulator, retroarch_dir_name):
         assert to_retroarch_dir_name(romm_emulator) == retroarch_dir_name
+
+    @pytest.mark.parametrize(
+        "emulator", ["mednafen_psx_hw", "beetle_psx_hw", "Beetle PSX HW"]
+    )
+    def test_aliases_cover_every_emulator_sharing_a_folder(self, emulator):
+        assert retroarch_aliases(emulator) == (
+            "Beetle PSX HW",
+            "beetle_psx_hw",
+            "mednafen_psx_hw",
+        )
+
+    def test_a_core_outside_the_table_is_its_only_alias(self):
+        assert retroarch_aliases("retroarduous") == ("retroarduous",)
 
 
 class TestRetroArchSyncPathParsing:
@@ -409,8 +429,26 @@ class TestRetroArchSyncManifest:
         ]
 
     @_mock_asset_md5()
-    def test_excludes_slotted_saves(
-        self, _asset_md5: mock.AsyncMock, client, admin_user: User, save: Save
+    def test_lists_an_autosave_srm_under_retroarchs_name(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        make_save(
+            rom,
+            admin_user,
+            "web name [2026-01-01_00-00-00].srm",
+            emulator="test_emulator",
+            slot="autosave",
+        )
+
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == [
+            {"path": "saves/test_emulator/test_rom.srm", "hash": EMPTY_MD5}
+        ]
+
+    def test_leaves_out_slotted_saves_retroarch_does_not_sync(
+        self, client, admin_user: User, save: Save
     ):
         response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
 
@@ -662,163 +700,6 @@ class TestRetroArchSyncStateScreenshots:
 
 
 class TestRetroArchSyncUpload:
-    @mock.patch(
-        "endpoints.sync.retroarch.fs_asset_handler.write_file",
-        new_callable=mock.AsyncMock,
-    )
-    @mock.patch("endpoints.sync.retroarch.scan_save", new_callable=mock.AsyncMock)
-    def test_creates_save_for_matching_rom(
-        self,
-        mock_scan_save: mock.AsyncMock,
-        mock_write_file: mock.AsyncMock,
-        client,
-        admin_user: User,
-        rom: Rom,
-        saves_path: str,
-    ):
-        mock_scan_save.return_value = Save(
-            file_name="test_rom.srm",
-            file_path=saves_path,
-            file_size_bytes=4,
-            content_hash="8d777f385d3dfec8815d20f7496026dc",
-        )
-
-        response = client.put(
-            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
-            content=b"data",
-            auth=ADMIN_AUTH,
-        )
-
-        assert response.status_code == status.HTTP_201_CREATED
-        mock_write_file.assert_awaited_once()
-
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
-        assert len(saves) == 1
-        assert saves[0].file_name == "test_rom.srm"
-        assert saves[0].emulator == "snes9x"
-        assert saves[0].slot is None
-
-    @mock.patch(
-        "endpoints.sync.retroarch.fs_asset_handler.write_file",
-        new_callable=mock.AsyncMock,
-    )
-    @mock.patch("endpoints.sync.retroarch.scan_save", new_callable=mock.AsyncMock)
-    def test_overwrites_existing_save_in_place(
-        self,
-        mock_scan_save: mock.AsyncMock,
-        _mock_write_file: mock.AsyncMock,
-        client,
-        admin_user: User,
-        rom: Rom,
-        saves_path: str,
-    ):
-        mock_scan_save.return_value = Save(
-            file_name="test_rom.srm",
-            file_path=saves_path,
-            file_size_bytes=4,
-            content_hash="8d777f385d3dfec8815d20f7496026dc",
-        )
-        client.put(
-            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
-            content=b"data",
-            auth=ADMIN_AUTH,
-        )
-
-        mock_scan_save.return_value = Save(
-            file_name="test_rom.srm",
-            file_path=saves_path,
-            file_size_bytes=7,
-            content_hash="9a0364b9e99bb480dd25e1f0284c8555",
-        )
-        response = client.put(
-            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
-            content=b"newdata",
-            auth=ADMIN_AUTH,
-        )
-
-        assert response.status_code == status.HTTP_204_NO_CONTENT
-
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
-        assert len(saves) == 1
-        assert saves[0].file_size_bytes == 7
-
-    @mock.patch(
-        "endpoints.sync.retroarch.fs_asset_handler.compute_content_hash",
-        new_callable=mock.AsyncMock,
-        return_value="hash_of_old_file",
-    )
-    @mock.patch(
-        "endpoints.sync.retroarch.fs_asset_handler.write_file",
-        new_callable=mock.AsyncMock,
-    )
-    @mock.patch("endpoints.sync.retroarch.scan_save", new_callable=mock.AsyncMock)
-    def test_overwriting_a_slotted_save_never_hashed_records_its_file_hash(
-        self,
-        mock_scan_save: mock.AsyncMock,
-        _mock_write_file: mock.AsyncMock,
-        _mock_hash: mock.AsyncMock,
-        client,
-        admin_user: User,
-        rom: Rom,
-        saves_path: str,
-        synced_save: Save,
-    ):
-        db_save_handler.update_save(synced_save.id, {"slot": "autosave"})
-        mock_scan_save.return_value = Save(
-            file_name=synced_save.file_name,
-            file_path=synced_save.file_path,
-            file_size_bytes=7,
-            content_hash="9a0364b9e99bb480dd25e1f0284c8555",
-        )
-
-        response = client.put(
-            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
-            content=b"newdata",
-            auth=ADMIN_AUTH,
-        )
-
-        assert response.status_code == status.HTTP_204_NO_CONTENT
-        [record] = db_deleted_asset_handler.get_deletions(
-            user_id=admin_user.id, rom_ids=[rom.id]
-        )
-        assert (record.slot, record.content_hashes) == (
-            "autosave",
-            ["hash_of_old_file"],
-        )
-
-    @mock.patch(
-        "endpoints.sync.retroarch.fs_asset_handler.write_file",
-        new_callable=mock.AsyncMock,
-    )
-    @mock.patch("endpoints.sync.retroarch.scan_save", new_callable=mock.AsyncMock)
-    def test_overwrite_clears_missing_from_fs(
-        self,
-        mock_scan_save: mock.AsyncMock,
-        _mock_write_file: mock.AsyncMock,
-        client,
-        admin_user: User,
-        synced_save: Save,
-        saves_path: str,
-    ):
-        db_save_handler.update_save(synced_save.id, {"missing_from_fs": True})
-        mock_scan_save.return_value = Save(
-            file_name="test_rom.srm",
-            file_path=saves_path,
-            file_size_bytes=4,
-            content_hash="8d777f385d3dfec8815d20f7496026dc",
-        )
-
-        response = client.put(
-            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
-            content=b"data",
-            auth=ADMIN_AUTH,
-        )
-
-        assert response.status_code == status.HTTP_204_NO_CONTENT
-        save = db_save_handler.get_save(user_id=admin_user.id, id=synced_save.id)
-        assert save is not None
-        assert not save.missing_from_fs
-
     def test_rejects_a_name_sanitizing_would_change(
         self, client, admin_user: User, rom: Rom
     ):
@@ -984,6 +865,604 @@ class TestRetroArchSyncUpload:
         mock_remove_file.assert_awaited_once_with(file_path=legacy_state.full_path)
 
 
+@pytest.fixture
+def version_names():
+    """Distinct version names, since real tags only change once a second."""
+    counter = itertools.count()
+
+    def tag(file_name: str, at: datetime | None = None) -> str:
+        name, ext = os.path.splitext(file_name)
+        return f"{name} [2026-01-01_00-00-{next(counter):02d}]{ext}"
+
+    with mock.patch("handler.asset_store.apply_datetime_tag", side_effect=tag):
+        yield
+
+
+@pytest.mark.usefixtures("version_names")
+class TestRetroArchSyncSaveSlots:
+    SAVE_URL = "/api/sync/retroarch/saves/Snes9x/test_rom.srm"
+    RTC_URL = "/api/sync/retroarch/saves/Snes9x/test_rom.rtc"
+
+    def _put(self, client: TestClient, content: bytes, url: str = SAVE_URL) -> int:
+        return client.put(url, content=content, auth=ADMIN_AUTH).status_code
+
+    def _get(self, client: TestClient, url: str = SAVE_URL) -> bytes:
+        response = client.get(url, auth=ADMIN_AUTH)
+        assert response.status_code == status.HTTP_200_OK
+        return response.content
+
+    def _versions(self, admin_user: User, rom: Rom) -> Sequence[Save]:
+        return db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], order_by="updated_at"
+        )
+
+    def _other_client_save(
+        self, admin_user: User, rom: Rom, saves_path: str, content: bytes, **fields
+    ) -> Save:
+        file_name = "test_rom [2025-12-31_23-59-59].srm"
+        disk_path = fs_asset_handler.validate_path(f"{saves_path}/{file_name}")
+        disk_path.parent.mkdir(parents=True, exist_ok=True)
+        disk_path.write_bytes(content)
+        return make_save(
+            rom,
+            admin_user,
+            file_name,
+            file_path=saves_path,
+            file_size_bytes=len(content),
+            content_hash=hashlib.md5(content).hexdigest(),
+            **({"emulator": "snes9x", "slot": "autosave"} | fields),
+        )
+
+    def test_upload_files_a_version_in_autosave(
+        self, client, admin_user: User, rom: Rom
+    ):
+        assert self._put(client, b"data") == status.HTTP_201_CREATED
+
+        [save] = self._versions(admin_user, rom)
+        assert re.fullmatch(r"test_rom \[2026-01-01_00-00-\d{2}\]\.srm", save.file_name)
+        assert (save.slot, save.emulator) == ("autosave", "snes9x")
+        assert self._get(client) == b"data"
+
+    def test_upload_queries_and_writes_off_the_event_loop(
+        self, client, rom: Rom, monkeypatch: pytest.MonkeyPatch
+    ):
+        on_loop: dict[str, bool] = {}
+
+        def spy(owner: object, name: str) -> None:
+            original = getattr(owner, name)
+
+            def recording(*args: Any, **kwargs: Any) -> Any:
+                try:
+                    asyncio.get_running_loop()
+                    on_loop[name] = True
+                except RuntimeError:
+                    on_loop[name] = False
+                return original(*args, **kwargs)
+
+            monkeypatch.setattr(owner, name, recording)
+
+        spy(sync_handler, "resolve_rom")
+        spy(db_save_handler, "get_lineage_head")
+        spy(db_save_handler, "get_save_by_path")
+        spy(db_save_handler, "add_save")
+
+        assert self._put(client, b"data") == status.HTTP_201_CREATED
+        assert on_loop == {
+            "resolve_rom": False,
+            "get_lineage_head": False,
+            "get_save_by_path": False,
+            "add_save": False,
+        }
+
+    @_mock_asset_md5()
+    def test_manifest_lists_the_newest_version_under_retroarchs_name(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._put(client, b"old")
+        self._put(client, b"new")
+
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.json() == [
+            {"path": "saves/Snes9x/test_rom.srm", "hash": EMPTY_MD5}
+        ]
+        assert self._get(client) == b"new"
+
+    @_mock_asset_md5()
+    def test_manifest_keeps_the_clients_spelling_of_the_game(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        url = "/api/sync/retroarch/saves/Snes9x/TEST_ROM.srm"
+        assert self._put(client, b"data", url) == status.HTTP_201_CREATED
+
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.json() == [
+            {"path": "saves/Snes9x/TEST_ROM.srm", "hash": EMPTY_MD5}
+        ]
+
+    def test_each_changed_upload_adds_a_version(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._put(client, b"old")
+        assert self._put(client, b"new") == status.HTTP_201_CREATED
+
+        assert len(self._versions(admin_user, rom)) == 2
+        assert self._get(client) == b"new"
+
+    def test_an_unchanged_upload_writes_nothing(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._put(client, b"data")
+
+        with mock.patch.object(fs_asset_handler, "write_file") as write_file:
+            assert self._put(client, b"data") == status.HTTP_204_NO_CONTENT
+
+        write_file.assert_not_called()
+        assert len(self._versions(admin_user, rom)) == 1
+
+    def test_serves_and_continues_another_clients_autosave(
+        self, client, admin_user: User, rom: Rom, saves_path: str
+    ):
+        self._other_client_save(admin_user, rom, saves_path, b"native")
+
+        assert self._get(client) == b"native"
+        self._put(client, b"retroarch")
+
+        assert [save.slot for save in self._versions(admin_user, rom)] == [
+            "autosave",
+            "autosave",
+        ]
+        assert self._get(client) == b"retroarch"
+
+    def test_leaves_named_slots_alone(
+        self, client, admin_user: User, rom: Rom, saves_path: str
+    ):
+        checkpoint = self._other_client_save(
+            admin_user, rom, saves_path, b"checkpoint", slot="speedrun"
+        )
+
+        assert client.get(self.SAVE_URL, auth=ADMIN_AUTH).status_code == (
+            status.HTTP_404_NOT_FOUND
+        )
+        self._put(client, b"retroarch")
+        client.request("DELETE", self.SAVE_URL, auth=ADMIN_AUTH)
+
+        assert [save.id for save in self._versions(admin_user, rom)] == [checkpoint.id]
+
+    def test_ignores_another_cores_versions(
+        self, client, admin_user: User, rom: Rom, platform: Platform
+    ):
+        mgba_path = fs_asset_handler.build_saves_file_path(
+            user=admin_user,
+            platform_fs_slug=platform.fs_slug,
+            rom_id=rom.id,
+            emulator="mgba",
+        )
+        self._other_client_save(admin_user, rom, mgba_path, b"gba", emulator="mgba")
+
+        response = client.get(self.SAVE_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_an_unslotted_save_serves_until_the_first_upload(
+        self, client, admin_user: User, rom: Rom, synced_save: Save
+    ):
+        disk_path = fs_asset_handler.validate_path(synced_save.full_path)
+        disk_path.parent.mkdir(parents=True, exist_ok=True)
+        disk_path.write_bytes(b"legacy")
+        assert self._get(client) == b"legacy"
+
+        self._put(client, b"slotted")
+
+        assert [save.slot for save in self._versions(admin_user, rom)] == [
+            "autosave",
+            None,
+        ]
+        assert self._get(client) == b"slotted"
+
+    @_mock_asset_md5()
+    def test_a_companion_file_stays_one_unslotted_save(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._put(client, b"save")
+        assert self._put(client, b"clock", self.RTC_URL) == status.HTTP_201_CREATED
+        assert self._put(client, b"ticked", self.RTC_URL) == (
+            status.HTTP_204_NO_CONTENT
+        )
+
+        rtc = [save for save in self._versions(admin_user, rom) if save.slot is None]
+        assert [(save.file_name, save.file_size_bytes) for save in rtc] == [
+            ("test_rom.rtc", len(b"ticked"))
+        ]
+        assert self._get(client, self.RTC_URL) == b"ticked"
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+        assert sorted(entry["path"] for entry in response.json()) == [
+            "saves/Snes9x/test_rom.rtc",
+            "saves/Snes9x/test_rom.srm",
+        ]
+
+    def test_prunes_versions_past_the_slot_cap(
+        self, client, admin_user: User, rom: Rom
+    ):
+        with mock.patch("handler.sync.retroarch.sync_handler.MAX_SAVES_PER_SLOT", 2):
+            for content in (b"one", b"two", b"three"):
+                self._put(client, content)
+
+        assert [save.file_size_bytes for save in self._versions(admin_user, rom)] == [
+            len(b"three"),
+            len(b"two"),
+        ]
+
+    def test_pruning_keeps_other_cores_versions(
+        self, client, admin_user: User, rom: Rom
+    ):
+        mgba_save = make_save(
+            rom, admin_user, "test_rom.srm", emulator="mgba", slot="autosave"
+        )
+
+        with mock.patch("handler.sync.retroarch.sync_handler.MAX_SAVES_PER_SLOT", 1):
+            for content in (b"one", b"two"):
+                self._put(client, content)
+
+        versions = self._versions(admin_user, rom)
+        assert mgba_save.id in {save.id for save in versions}
+        assert len(versions) == 2
+        assert self._get(client) == b"two"
+
+    def test_delete_removes_everything_the_path_serves(
+        self, client, admin_user: User, rom: Rom, saves_path: str, synced_save: Save
+    ):
+        self._other_client_save(admin_user, rom, saves_path, b"native")
+        self._put(client, b"retroarch")
+        mgba_save = make_save(
+            rom, admin_user, "test_rom.srm", emulator="mgba", slot="autosave"
+        )
+
+        response = client.request("DELETE", self.SAVE_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert [save.id for save in self._versions(admin_user, rom)] == [mgba_save.id]
+        assert client.get(self.SAVE_URL, auth=ADMIN_AUTH).status_code == (
+            status.HTTP_404_NOT_FOUND
+        )
+
+    def test_delete_removes_an_unslotted_save_spelled_in_another_case(
+        self, client, admin_user: User, rom: Rom, saves_path: str
+    ):
+        make_save(
+            rom,
+            admin_user,
+            "TEST_ROM.srm",
+            file_path=saves_path,
+            emulator="snes9x",
+            slot=None,
+        )
+        self._put(client, b"retroarch")
+
+        response = client.request("DELETE", self.SAVE_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert self._versions(admin_user, rom) == []
+
+
+def test_uploads_in_the_same_second_keep_both_versions(
+    client, admin_user: User, rom: Rom
+):
+    url = "/api/sync/retroarch/saves/Snes9x/test_rom.srm"
+    frozen = datetime(2026, 1, 1, 12, 0, 0)
+
+    with mock.patch("handler.asset_store.datetime") as clock:
+        clock.now.return_value = frozen
+        for content in (b"first", b"second"):
+            assert client.put(url, content=content, auth=ADMIN_AUTH).status_code == (
+                status.HTTP_201_CREATED
+            )
+
+    versions = db_save_handler.get_saves(
+        user_id=admin_user.id, rom_ids=[rom.id], order_by="updated_at", order_dir="asc"
+    )
+    assert [save.file_size_bytes for save in versions] == [
+        len(b"first"),
+        len(b"second"),
+    ]
+    assert len({save.file_name for save in versions}) == 2
+    assert all(
+        save.file_name.startswith("test_rom [2026-01-01_12-") for save in versions
+    )
+
+
+@pytest.mark.usefixtures("version_names")
+class TestRetroArchSyncCoreAliases:
+    """Assets another client filed under a different id for a core folder RetroArch reads."""
+
+    SAVE_URL = "/api/sync/retroarch/saves/Beetle%20PSX%20HW/test_rom.srm"
+    STATE_URL = "/api/sync/retroarch/states/Beetle%20PSX%20HW/test_rom.state"
+
+    def _write(
+        self,
+        admin_user: User,
+        rom: Rom,
+        kind: sync_handler.AssetKind,
+        emulator: str,
+        file_name: str,
+        content: bytes,
+    ) -> str:
+        path = sync_handler.build_asset_file_path(admin_user, rom, kind, emulator)
+        disk_path = fs_asset_handler.validate_path(f"{path}/{file_name}")
+        disk_path.parent.mkdir(parents=True, exist_ok=True)
+        disk_path.write_bytes(content)
+        return path
+
+    def _save(
+        self,
+        admin_user: User,
+        rom: Rom,
+        emulator: str,
+        content: bytes,
+        file_name: str = "test_rom [2025-12-31_23-59-59].srm",
+        slot: str | None = "autosave",
+    ) -> Save:
+        path = self._write(admin_user, rom, "saves", emulator, file_name, content)
+        return make_save(
+            rom,
+            admin_user,
+            file_name,
+            file_path=path,
+            file_size_bytes=len(content),
+            content_hash=hashlib.md5(content).hexdigest(),
+            emulator=emulator,
+            slot=slot,
+        )
+
+    def _state(
+        self,
+        admin_user: User,
+        rom: Rom,
+        emulator: str,
+        content: bytes,
+        file_name: str = "test_rom.state",
+    ) -> State:
+        path = self._write(admin_user, rom, "states", emulator, file_name, content)
+        return factories.make_state(
+            rom,
+            admin_user,
+            file_name,
+            file_path=path,
+            file_size_bytes=len(content),
+            emulator=emulator,
+        )
+
+    def _manifest_paths(self, client: TestClient) -> list[str]:
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+        return [entry["path"] for entry in response.json()]
+
+    @_mock_asset_md5()
+    def test_a_version_under_an_alias_is_listed_and_served(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._save(admin_user, rom, "beetle_psx_hw", b"argosy")
+
+        assert self._manifest_paths(client) == ["saves/Beetle PSX HW/test_rom.srm"]
+        response = client.get(self.SAVE_URL, auth=ADMIN_AUTH)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.content == b"argosy"
+
+    @_mock_asset_md5()
+    def test_versions_under_two_aliases_list_once_and_serve_the_newest(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._save(admin_user, rom, "beetle_psx_hw", b"older")
+        self._save(
+            admin_user,
+            rom,
+            "mednafen_psx_hw",
+            b"newer",
+            file_name="test_rom [2026-01-01_00-00-00].srm",
+        )
+
+        assert self._manifest_paths(client) == ["saves/Beetle PSX HW/test_rom.srm"]
+        assert client.get(self.SAVE_URL, auth=ADMIN_AUTH).content == b"newer"
+
+    def test_reuploading_an_aliased_head_adds_no_version(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._save(admin_user, rom, "beetle_psx_hw", b"same")
+
+        response = client.put(self.SAVE_URL, content=b"same", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert len(db_save_handler.get_saves(user_id=admin_user.id)) == 1
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.remove_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_delete_removes_versions_under_every_alias(
+        self, _mock_remove_file: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._save(admin_user, rom, "beetle_psx_hw", b"argosy")
+        self._save(
+            admin_user,
+            rom,
+            "mednafen_psx_hw",
+            b"retroarch",
+            file_name="test_rom [2026-01-01_00-00-00].srm",
+        )
+
+        response = client.request("DELETE", self.SAVE_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert db_save_handler.get_saves(user_id=admin_user.id) == []
+
+    def test_an_unslotted_file_under_an_alias_is_served_and_updated_in_place(
+        self, client, admin_user: User, rom: Rom
+    ):
+        save = self._save(
+            admin_user, rom, "beetle_psx_hw", b"clock", "test_rom.rtc", slot=None
+        )
+        url = "/api/sync/retroarch/saves/Beetle%20PSX%20HW/test_rom.rtc"
+        assert client.get(url, auth=ADMIN_AUTH).content == b"clock"
+
+        response = client.put(url, content=b"ticked", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        [updated] = db_save_handler.get_saves(user_id=admin_user.id)
+        assert (updated.id, updated.file_path) == (save.id, save.file_path)
+        assert client.get(url, auth=ADMIN_AUTH).content == b"ticked"
+
+    @_mock_asset_md5()
+    def test_an_unslotted_file_on_disk_wins_over_a_newer_missing_alias(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._save(
+            admin_user, rom, "beetle_psx_hw", b"clock", "test_rom.rtc", slot=None
+        )
+        missing = self._save(
+            admin_user, rom, "mednafen_psx_hw", b"gone", "test_rom.rtc", slot=None
+        )
+        db_save_handler.update_save(missing.id, {"missing_from_fs": True}, touch=False)
+        url = "/api/sync/retroarch/saves/Beetle%20PSX%20HW/test_rom.rtc"
+
+        assert self._manifest_paths(client) == ["saves/Beetle PSX HW/test_rom.rtc"]
+        assert client.get(url, auth=ADMIN_AUTH).content == b"clock"
+
+    @_mock_asset_md5()
+    def test_a_state_under_an_alias_is_listed_served_and_updated_in_place(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        state = self._state(admin_user, rom, "beetle_psx_hw", b"argosy")
+
+        assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"argosy"
+
+        response = client.put(self.STATE_URL, content=b"retroarch", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        [updated] = db_state_handler.get_states(user_id=admin_user.id)
+        assert (updated.id, updated.file_path) == (state.id, state.file_path)
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"retroarch"
+
+    @_mock_asset_md5()
+    def test_states_under_two_aliases_in_one_slot_list_once(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        self._state(admin_user, rom, "mednafen_psx_hw", b"newer")
+
+        assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"newer"
+
+    def _missing_state(
+        self, admin_user: User, rom: Rom, emulator: str, file_name: str
+    ) -> State:
+        state = self._state(admin_user, rom, emulator, b"gone", file_name)
+        return db_state_handler.update_state(
+            state.id, {"missing_from_fs": True}, touch=False
+        )
+
+    @_mock_asset_md5()
+    def test_a_state_on_disk_wins_over_a_newer_missing_one_in_its_slot(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        self._missing_state(
+            admin_user, rom, "beetle_psx_hw", "test_rom [2026-01-01 00-00-00].state"
+        )
+
+        assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"older"
+
+    @_mock_asset_md5()
+    def test_a_state_on_disk_wins_over_a_newer_missing_alias(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        self._missing_state(admin_user, rom, "mednafen_psx_hw", "test_rom.state")
+
+        assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"older"
+
+    def _vanished_state(self, admin_user: User, rom: Rom, emulator: str) -> State:
+        state = self._state(admin_user, rom, emulator, b"gone")
+        fs_asset_handler.validate_path(state.full_path).unlink()
+        return state
+
+    def test_the_manifest_falls_back_when_the_newest_state_file_vanished(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        vanished = self._vanished_state(admin_user, rom, "mednafen_psx_hw")
+
+        assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
+        state = db_state_handler.get_state(user_id=admin_user.id, id=vanished.id)
+        assert state is not None and state.missing_from_fs
+
+    def test_get_falls_back_when_the_newest_state_file_vanished(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        vanished = self._vanished_state(admin_user, rom, "mednafen_psx_hw")
+
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"older"
+        state = db_state_handler.get_state(user_id=admin_user.id, id=vanished.id)
+        assert state is not None and state.missing_from_fs
+
+    def test_get_404s_when_every_state_file_in_the_slot_vanished(
+        self, client, admin_user: User, rom: Rom
+    ):
+        self._vanished_state(admin_user, rom, "beetle_psx_hw")
+        self._vanished_state(admin_user, rom, "mednafen_psx_hw")
+
+        response = client.get(self.STATE_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_uploading_to_a_slot_revives_its_newest_missing_state(
+        self, client, admin_user: User, rom: Rom
+    ):
+        older = self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        missing = self._missing_state(
+            admin_user, rom, "mednafen_psx_hw", "test_rom.state"
+        )
+
+        response = client.put(self.STATE_URL, content=b"fresh", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        states = {s.id: s for s in db_state_handler.get_states(user_id=admin_user.id)}
+        assert states.keys() == {older.id, missing.id}
+        assert not states[missing.id].missing_from_fs
+        assert states[missing.id].file_size_bytes == len(b"fresh")
+        assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"fresh"
+
+    @_mock_asset_md5()
+    def test_delete_removes_states_under_every_alias_in_the_slot(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"older")
+        self._state(admin_user, rom, "mednafen_psx_hw", b"newer")
+
+        response = client.request("DELETE", self.STATE_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert db_state_handler.get_states(user_id=admin_user.id) == []
+        assert self._manifest_paths(client) == []
+
+    @_mock_asset_md5()
+    def test_a_screenshot_for_an_aliased_state_is_filed_beside_it(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, rom: Rom
+    ):
+        self._state(admin_user, rom, "beetle_psx_hw", b"argosy")
+
+        response = client.put(f"{self.STATE_URL}.png", content=b"png", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert self._manifest_paths(client) == [
+            "states/Beetle PSX HW/test_rom.state",
+            "states/Beetle PSX HW/test_rom.state.png",
+        ]
+
+
 class TestRetroArchSyncDownload:
     def test_missing_file_is_not_found(self, client, admin_user: User, rom: Rom):
         response = client.get(
@@ -1005,6 +1484,20 @@ def _hold(state: State) -> None:
         )
         snapshot.states = [SnapshotState(core="snes9x", slot="0", state_id=state.id)]
         session.add(snapshot)
+
+
+def _hold_save(save: Save) -> None:
+    """Hold `save` in a snapshot, as a sync channel would."""
+    with sync_session.begin() as session:
+        session.add(
+            Snapshot(
+                user_id=save.user_id,
+                rom_id=save.rom_id,
+                kind=SnapshotKind.BRANCH,
+                digest="0" * 64,
+                save_id=save.id,
+            )
+        )
 
 
 class TestRetroArchSyncHeldState:
@@ -1078,19 +1571,37 @@ class TestRetroArchSyncHeldState:
         "endpoints.sync.retroarch.fs_asset_handler.write_file",
         new_callable=mock.AsyncMock,
     )
-    def test_an_upload_onto_a_held_save_is_a_conflict(
-        self, mock_write_file: mock.AsyncMock, client, synced_save: Save
+    def test_an_upload_onto_a_held_unslotted_save_is_a_conflict(
+        self,
+        mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        saves_path: str,
     ):
-        with sync_session.begin() as session:
-            session.add(
-                Snapshot(
-                    user_id=synced_save.user_id,
-                    rom_id=synced_save.rom_id,
-                    kind=SnapshotKind.BRANCH,
-                    digest="0" * 64,
-                    save_id=synced_save.id,
-                )
-            )
+        held = make_save(
+            rom,
+            admin_user,
+            "test_rom.rtc",
+            file_path=saves_path,
+            emulator="snes9x",
+            slot=None,
+        )
+        _hold_save(held)
+
+        response = client.put(
+            "/api/sync/retroarch/saves/Snes9x/test_rom.rtc",
+            content=b"clock",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        mock_write_file.assert_not_awaited()
+
+    def test_an_upload_onto_a_held_save_ram_adds_a_version_beside_it(
+        self, client, admin_user: User, synced_save: Save
+    ):
+        _hold_save(synced_save)
 
         response = client.put(
             "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
@@ -1098,8 +1609,9 @@ class TestRetroArchSyncHeldState:
             auth=ADMIN_AUTH,
         )
 
-        assert response.status_code == status.HTTP_409_CONFLICT
-        mock_write_file.assert_not_awaited()
+        assert response.status_code == status.HTTP_201_CREATED
+        kept = db_save_handler.get_save(user_id=admin_user.id, id=synced_save.id)
+        assert kept is not None and kept.file_size_bytes == 4
 
     @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.remove_file",
@@ -1124,6 +1636,29 @@ class TestRetroArchSyncHeldState:
         assert response.status_code == status.HTTP_404_NOT_FOUND
         mock_remove_file.assert_not_awaited()
         assert db_state_handler.get_state(user_id=admin_user.id, id=held.id)
+
+    @mock.patch(
+        "handler.asset_store.fs_asset_handler.remove_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_a_delete_leaves_a_held_save(
+        self,
+        mock_remove_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        synced_save: Save,
+    ):
+        _hold_save(synced_save)
+
+        response = client.request(
+            "DELETE",
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        mock_remove_file.assert_not_awaited()
+        assert db_save_handler.get_save(user_id=admin_user.id, id=synced_save.id)
 
 
 class TestRetroArchSyncDelete:
@@ -1247,6 +1782,15 @@ class TestRetroArchSyncDelete:
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+UNKNOWN_FOLDER_URL = "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0"
+
+
+def _unknown_folder_pending_dir(user: User) -> Path:
+    return fs_retroarch_sync_handler.validate_path(
+        psp._pending_dir(user, "UNKNOWN99999DATA0")
+    )
 
 
 class TestRetroArchSyncPsp:
@@ -1559,18 +2103,98 @@ class TestRetroArchSyncPsp:
             "saves/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN"
         ]
 
-    def test_unresolved_folder_is_buffered_and_conflicts(
-        self, client, admin_user: User, monkeypatch: pytest.MonkeyPatch
+    def test_unresolved_folder_is_buffered_until_it_resolves(
+        self, client, admin_user: User, rom: Rom, monkeypatch: pytest.MonkeyPatch
     ):
         monkeypatch.setattr(psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {})
 
         response = client.put(
-            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/UNKNOWN99999DATA0/SAVE.BIN",
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
             content=b"orphaned save data",
             auth=ADMIN_AUTH,
         )
 
         assert response.status_code == status.HTTP_409_CONFLICT
+        pending_file = _unknown_folder_pending_dir(admin_user) / "SAVE.BIN"
+        assert pending_file.read_bytes() == b"orphaned save data"
+
+        response = client.get(
+            "/api/sync/retroarch/psp_pending/UNKNOWN99999DATA0/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        monkeypatch.setattr(
+            psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {"UNKNOWN99999": rom.fs_name_no_ext}
+        )
+        response = client.put(
+            f"{UNKNOWN_FOLDER_URL}/PARAM.SFO",
+            content=b"sfo",
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        assert not pending_file.parent.exists()
+
+        response = client.get(
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.content == b"orphaned save data"
+
+    def test_buffer_past_the_bundle_limits_conflicts(
+        self, client, admin_user: User, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {})
+        monkeypatch.setattr(psp, "_BUNDLE_MAX_MEMBERS", 1)
+        client.put(
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        response = client.put(
+            f"{UNKNOWN_FOLDER_URL}/ICON0.PNG",
+            content=b"icon",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        pending_dir = _unknown_folder_pending_dir(admin_user)
+        assert [path.name for path in pending_dir.iterdir()] == ["SAVE.BIN"]
+
+    def test_delete_drops_the_buffered_copy(
+        self, client, admin_user: User, rom: Rom, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {})
+        client.put(
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
+            content=b"deleted save data",
+            auth=ADMIN_AUTH,
+        )
+
+        response = client.delete(
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        pending_dir = _unknown_folder_pending_dir(admin_user)
+        assert not pending_dir.exists()
+
+        monkeypatch.setattr(
+            psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {"UNKNOWN99999": rom.fs_name_no_ext}
+        )
+        client.put(
+            f"{UNKNOWN_FOLDER_URL}/PARAM.SFO",
+            content=b"sfo",
+            auth=ADMIN_AUTH,
+        )
+        response = client.get(
+            f"{UNKNOWN_FOLDER_URL}/SAVE.BIN",
+            auth=ADMIN_AUTH,
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_delete_keeps_the_rest_of_the_bundle(
         self, client, admin_user: User, rom: Rom

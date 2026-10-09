@@ -87,27 +87,34 @@ A lightweight client for your favorite handheld custom firmwares*. Download game
 
 Here are some cool projects maintained by members of our community. Please note that our team does not regularly review their source code.
 
-### Mobile
+### Mobile and TV
 
 - [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
+- [RomMulus][rommulus]: Android TV app with built-in emulator cores and save sync by [@DEV-DUFORD](https://github.com/DEV-DUFORD)
 
 ### Desktop
 
-- [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
-- [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
+- [Freegosy][freegosy]: Cross-platform game manager with save sync by [@abduznik](https://github.com/abduznik)
+- [RetroVault][retrovault]: Native macOS library and player by [@kennethreitz](https://github.com/kennethreitz)
 - [romm-client][romm-client]: Desktop client by [@chaun14](https://github.com/chaun14)
-- [Freegosy][freegosy]: All-in-one game manager by [@abduznik](https://github.com/abduznik)
+- [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
 
-### Handhelds
+### Handhelds and Steam Deck
 
-- [DeckyRommSync][decky-romm-sync]: SteamOS downloader and syncer by [@danielcopper](https://github.com/danielcopper)
-- [SwitchRomM][switch-romm]: Homebrew NRO for Switch by [@Shalasere](https://github.com/Shalasere)
+- [Gameflow Deck][gameflow-deck]: Controller-first frontend for handhelds by [@simeonradivoev](https://github.com/simeonradivoev)
+- [RomMix][rommix]: Big Picture-style frontend for Linux and Steam Deck by [@leclercb](https://github.com/leclercb)
+- [Tender][romm-tender]: Decky Loader plugin with library and save sync for Steam Deck by [@danielcopper](https://github.com/danielcopper)
+- [Vita RomM][vita-romm]: PS Vita homebrew client for browsing and downloading games by [@denkacn](https://github.com/denkacn)
 
-### Other
+### Sync
 
-- [romm-comm][romm-comm-discord-bot]: Discord bot by [@idio-sync](https://github.com/idio-sync)
-- [GGRequestz][ggrequestz]: Game discovery and request tool by [@XTREEMMAK](https://github.com/XTREEMMAK)
+- [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
 - [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by [@amn-96](https://github.com/amn-96)
+
+### Integrations
+
+- [GGRequestz][ggrequestz]: Game discovery and request tool by [@XTREEMMAK](https://github.com/XTREEMMAK)
+- [romm-comm][romm-comm-discord-bot]: Discord bot by [@idio-sync](https://github.com/idio-sync)
 
 ## Support the project
 
@@ -169,8 +176,7 @@ These companies support us by providing their tools for free:
 [steamgriddb-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
 [retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
-[decky-romm-sync]: https://github.com/danielcopper/decky-romm-sync
-[switch-romm]: https://github.com/Shalasere/SwitchRomM
+[romm-tender]: https://github.com/danielcopper/romm-tender
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
 [syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
@@ -178,6 +184,11 @@ These companies support us by providing their tools for free:
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
 [freegosy]: https://github.com/abduznik/freegosy
+[rommulus]: https://github.com/DEV-DUFORD/rommulus
+[retrovault]: https://github.com/kennethreitz/RetroVault
+[gameflow-deck]: https://github.com/simeonradivoev/gameflow-deck
+[rommix]: https://github.com/leclercb/rommix
+[vita-romm]: https://github.com/denkacn/vita-romm
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher

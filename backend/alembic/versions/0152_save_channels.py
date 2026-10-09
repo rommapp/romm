@@ -1,7 +1,7 @@
 """Add channels, snapshots and their bank, and the content columns they need.
 
-Revision ID: 0149_save_channels
-Revises: 0148_rom_age_limits
+Revision ID: 0152_save_channels
+Revises: 0151_state_content_hash
 Create Date: 2026-10-05 00:00:00.000000
 
 """
@@ -15,8 +15,8 @@ from sqlalchemy.dialects.postgresql import ENUM
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0149_save_channels"
-down_revision = "0148_rom_age_limits"
+revision = "0152_save_channels"
+down_revision = "0151_state_content_hash"
 branch_labels = None
 depends_on = None
 
@@ -281,10 +281,6 @@ def upgrade() -> None:
 
     with op.batch_alter_table("states") as batch_op:
         batch_op.add_column(
-            sa.Column("content_hash", sa.String(length=32), nullable=True),
-            if_not_exists=True,
-        )
-        batch_op.add_column(
             sa.Column("emulator_version", sa.String(length=100), nullable=True),
             if_not_exists=True,
         )
@@ -360,7 +356,6 @@ def downgrade() -> None:
     with op.batch_alter_table("states") as batch_op:
         batch_op.drop_column("core_version", if_exists=True)
         batch_op.drop_column("emulator_version", if_exists=True)
-        batch_op.drop_column("content_hash", if_exists=True)
 
     with op.batch_alter_table("saves") as batch_op:
         batch_op.drop_column("core_version", if_exists=True)

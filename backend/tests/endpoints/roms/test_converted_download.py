@@ -33,14 +33,13 @@ def conversion(tmp_path: Path, mocker):
         "utils.conversion_cache.rom_converto_service.is_enabled",
         AsyncMock(return_value=True),
     )
-    final = tmp_path / "cache/converts/1-abc/test_rom.chd"
+    final = tmp_path / "converts/1-abc/test_rom.chd"
     final.parent.mkdir(parents=True)
     resolved = resolve_operation("psp", "chd", "test_rom.iso")
     assert resolved is not None
     lookup = mocker.patch.object(
         conversion_cache, "_lookup", return_value=(resolved[0], final)
     )
-    mocker.patch.object(conversion_cache, "ROMM_BASE_PATH", str(tmp_path))
     mocker.patch.object(
         conversion_cache, "ROM_CONVERTO_CACHE_PATH", str(final.parent.parent)
     )

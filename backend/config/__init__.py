@@ -38,7 +38,10 @@ ROMM_TMP_PATH: Final[str | None] = _get_env("ROMM_TMP_PATH")
 LIBRARY_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/library"
 RESOURCES_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/assets"
-ZIP_CACHE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/zips"
+CACHE_BASE_PATH: Final[str] = (
+    f"{ROMM_TMP_PATH or '/tmp/romm'}/cache"  # trunk-ignore(bandit/B108)
+)
+ZIP_CACHE_PATH: Final[str] = f"{CACHE_BASE_PATH}/zips"
 FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
 
 # ROM UPLOADS
@@ -76,7 +79,7 @@ ROM_CONVERTO_MAX_CONCURRENCY: Final[int] = max(
     1, safe_int(_get_env("ROM_CONVERTO_MAX_CONCURRENCY"), 2)
 )
 # Disk cache for converted downloads, under the tree nginx serves at /cache/.
-ROM_CONVERTO_CACHE_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/converts"
+ROM_CONVERTO_CACHE_PATH: Final[str] = f"{CACHE_BASE_PATH}/converts"
 
 # DATABASE
 DB_HOST: Final[str | None] = _get_env("DB_HOST")
@@ -391,8 +394,6 @@ SYNC_SSH_KEYS_PATH: Final[str] = _get_env(
 SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
     "SYNC_SSH_KNOWN_HOSTS_PATH", f"{SYNC_BASE_PATH}/known_hosts"
 )
-# PSP save folder files buffered until the folder resolves to a rom.
-SYNC_RETROARCH_PSP_PENDING_PATH: Final[str] = f"{ROMM_BASE_PATH}/cache/retroarch_sync"
 # JSON map of PSP serial to extensionless rom file name, for saves whose title
 # matches no rom, e.g. {"ULUS10336": "Crisis Core - Final Fantasy VII (USA)"}.
 SYNC_RETROARCH_PSP_SERIAL_MAP: Final[dict[str, str]] = json.loads(

@@ -23,7 +23,7 @@ from tests.factories import make_save
 import handler.database.saves_handler as saves_handler_module
 from handler.database import db_deleted_asset_handler, db_save_handler
 from handler.database.base_handler import sync_engine
-from models.assets import Save
+from models.assets import Save, SaveLineage
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -119,6 +119,7 @@ class TestDBSavesHandlerPlatformFiltering:
             user_id=admin_user.id,
             rom_id=rom.id,
             file_name=save.file_name,
+            emulator=save.emulator,
             slot=save.slot,
         )
 
@@ -142,7 +143,11 @@ class TestDBSavesHandlerPlatformFiltering:
         # No null-slot save exists, so a slot-less lookup should find nothing.
         assert (
             db_save_handler.get_save_by_filename(
-                user_id=admin_user.id, rom_id=rom.id, file_name="shared.sav", slot=None
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                file_name="shared.sav",
+                emulator="test_emu",
+                slot=None,
             )
             is None
         )
@@ -152,6 +157,7 @@ class TestDBSavesHandlerPlatformFiltering:
             user_id=admin_user.id,
             rom_id=rom.id,
             file_name="shared.sav",
+            emulator="test_emu",
             slot="Slot A",
         )
         assert found is not None
@@ -175,16 +181,73 @@ class TestDBSavesHandlerPlatformFiltering:
                 user_id=admin_user.id,
                 rom_id=rom.id,
                 file_name="shared.sav",
+                emulator="test_emu",
                 slot="Slot A",
             )
             is None
         )
 
         found = db_save_handler.get_save_by_filename(
-            user_id=admin_user.id, rom_id=rom.id, file_name="shared.sav", slot=None
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            file_name="shared.sav",
+            emulator="test_emu",
+            slot=None,
         )
         assert found is not None
         assert found.id == slotless.id
+
+    def test_get_save_by_filename_ignores_another_emulators_save(
+        self, admin_user: User, rom: Rom
+    ):
+        mgba = make_save(
+            rom, admin_user, "shared.sav", emulator="mgba", file_size_bytes=100
+        )
+
+        assert (
+            db_save_handler.get_save_by_filename(
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                file_name="shared.sav",
+                emulator="snes9x",
+            )
+            is None
+        )
+
+        found = db_save_handler.get_save_by_filename(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            file_name="shared.sav",
+            emulator="mgba",
+        )
+        assert found is not None
+        assert found.id == mgba.id
+
+    def test_get_save_by_filename_without_emulator_prefers_unfiled_save(
+        self, admin_user: User, rom: Rom
+    ):
+        mgba = make_save(
+            rom, admin_user, "shared.sav", emulator="mgba", file_size_bytes=100
+        )
+
+        def lookup() -> Save | None:
+            return db_save_handler.get_save_by_filename(
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                file_name="shared.sav",
+                emulator=None,
+            )
+
+        found = lookup()
+        assert found is not None
+        assert found.id == mgba.id
+
+        unfiled = make_save(
+            rom, admin_user, "shared.sav", emulator=None, file_size_bytes=100
+        )
+        found = lookup()
+        assert found is not None
+        assert found.id == unfiled.id
 
     def test_platform_filtering_with_different_emulators(
         self, admin_user: User, platform: Platform, rom: Rom
@@ -300,6 +363,143 @@ class TestDBSavesHandlerSlotFiltering:
         [kept] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
         assert kept.slot == sibling
 
+    def _lineage_versions(self, admin_user: User, rom: Rom, **overrides: Any) -> None:
+        for index, (file_name, emulator) in enumerate(
+            [
+                ("old.srm", "snes9x"),
+                ("new.SRM", "snes9x"),
+                ("clock.rtc", "snes9x"),
+                ("other.srm", "bsnes"),
+            ]
+        ):
+            make_save(
+                rom,
+                admin_user,
+                file_name,
+                emulator=emulator,
+                file_size_bytes=100,
+                slot="autosave",
+                content_hash=f"lineage_{index}",
+                **overrides,
+            )
+
+    def test_a_prune_can_be_scoped_to_a_lineage(self, admin_user: User, rom: Rom):
+        self._lineage_versions(admin_user, rom)
+
+        db_save_handler.prune_slot(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="autosave",
+            keep=1,
+            lineage=SaveLineage("snes9x", "srm"),
+        )
+
+        kept = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        assert {save.file_name for save in kept} == {
+            "new.SRM",
+            "clock.rtc",
+            "other.srm",
+        }
+
+    def test_lineage_heads_are_the_newest_on_disk_version_per_emulator(
+        self, admin_user: User, rom: Rom
+    ):
+        self._lineage_versions(admin_user, rom)
+        make_save(
+            rom,
+            admin_user,
+            "gone.srm",
+            emulator="snes9x",
+            slot="autosave",
+            missing_from_fs=True,
+        )
+        make_save(rom, admin_user, "named.srm", emulator="snes9x", slot="speedrun")
+
+        heads = db_save_handler.get_lineage_heads(
+            user_id=admin_user.id, slot="autosave", file_extension="srm"
+        )
+        head = db_save_handler.get_lineage_head(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="autosave",
+            lineages=[SaveLineage("snes9x", "srm")],
+        )
+
+        assert sorted(save.file_name for save in heads) == ["new.SRM", "other.srm"]
+        assert head is not None and head.file_name == "new.SRM"
+
+    def test_a_lineage_head_is_the_newest_across_lineages(
+        self, admin_user: User, rom: Rom
+    ):
+        self._lineage_versions(admin_user, rom)
+        make_save(
+            rom,
+            admin_user,
+            "unfiled.srm",
+            emulator=None,
+            slot="autosave",
+            updated_at=datetime(2030, 1, 1, tzinfo=UTC),
+        )
+
+        def head(*lineages: SaveLineage) -> str | None:
+            save = db_save_handler.get_lineage_head(
+                user_id=admin_user.id,
+                rom_id=rom.id,
+                slot="autosave",
+                lineages=lineages,
+            )
+            return save.file_name if save else None
+
+        assert head(SaveLineage("snes9x", "srm"), SaveLineage(None, "srm")) == (
+            "unfiled.srm"
+        )
+        assert (
+            head(SaveLineage("snes9x", "srm"), SaveLineage("bsnes", "srm"))
+            == "other.srm"
+        )
+        assert head(SaveLineage(None, "rtc")) is None
+        assert head() is None
+
+    def test_get_saves_filters_on_a_set_of_lineages(self, admin_user: User, rom: Rom):
+        self._lineage_versions(admin_user, rom)
+        make_save(rom, admin_user, "unfiled.srm", emulator=None, slot="autosave")
+
+        def names(*lineages: SaveLineage) -> set[str]:
+            saves = db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], lineages=lineages
+            )
+            return {save.file_name for save in saves}
+
+        assert names(SaveLineage("bsnes", "srm"), SaveLineage(None, "srm")) == {
+            "other.srm",
+            "unfiled.srm",
+        }
+        assert names(SaveLineage("snes9x", "rtc"), SaveLineage("bsnes", "srm")) == {
+            "clock.rtc",
+            "other.srm",
+        }
+        assert names(SaveLineage(None, "srm")) == {"unfiled.srm"}
+        assert names() == set()
+
+    def test_get_saves_at_paths_matches_any_listed_folder(
+        self, admin_user: User, rom: Rom
+    ):
+        for file_path in ("saves/snes9x", "saves/bsnes", "saves/other"):
+            make_save(rom, admin_user, "game.srm", file_path=file_path)
+        make_save(rom, admin_user, "else.srm", file_path="saves/snes9x")
+
+        saves = db_save_handler.get_saves_at_paths(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            file_paths=["saves/snes9x", "saves/bsnes"],
+            file_name="game.srm",
+        )
+
+        assert sorted(save.file_path for save in saves) == [
+            "saves/bsnes",
+            "saves/snes9x",
+        ]
+
     def test_get_saves_with_null_slot_filter(self, admin_user: User, rom: Rom):
         make_save(
             rom,
@@ -320,6 +520,22 @@ class TestDBSavesHandlerSlotFiltering:
 
         all_saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
         assert len(all_saves) >= 2
+
+    def test_get_saves_with_unslotted_widens_the_slot_filter(
+        self, admin_user: User, rom: Rom
+    ):
+        make_save(rom, admin_user, "autosave.srm", slot="autosave")
+        make_save(rom, admin_user, "named.srm", slot="Main")
+        make_save(rom, admin_user, "unslotted.srm", slot=None)
+
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            slot="autosave",
+            with_unslotted=True,
+        )
+
+        assert {save.file_name for save in saves} == {"autosave.srm", "unslotted.srm"}
 
     def test_get_saves_order_by(self, admin_user: User, rom: Rom):
         from datetime import datetime, timedelta, timezone

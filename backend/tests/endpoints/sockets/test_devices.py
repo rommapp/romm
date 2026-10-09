@@ -366,6 +366,20 @@ class TestPresence:
             "dev-1",
         ]
 
+    async def test_a_recent_claim_is_presence(self):
+        await devices.mark_claimed("dev-1")
+
+        assert await devices.online_device_ids(["dev-1", "dev-2"]) == ["dev-1"]
+        ttl = await async_cache.ttl("device_claim_presence:dev-1")
+        assert 0 < ttl <= devices.PRESENCE_TTL_SECONDS
+
+    async def test_a_failed_claim_record_is_only_logged(self, mocker):
+        mocker.patch.object(async_cache, "set", AsyncMock(side_effect=OSError))
+
+        await devices.mark_claimed("dev-1")
+
+        assert await devices.online_device_ids(["dev-1"]) == []
+
     async def test_a_revocation_entry_alone_is_not_presence(self):
         await async_cache.sadd("device_token_sockets:42", "sid-1")
 

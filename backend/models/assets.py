@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 import uuid
 from functools import cached_property
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 from urllib.parse import quote
 
 from sqlalchemy import BigInteger, Enum, ForeignKey, Index, String, Uuid
@@ -15,6 +15,7 @@ from models.base import (
     FILE_PATH_MAX_LENGTH,
     BaseModel,
     FileNamePartsMixin,
+    compute_file_extension,
 )
 from utils.database import CustomJSON, ExactString
 
@@ -26,6 +27,8 @@ if TYPE_CHECKING:
 
 
 SAVE_SLOT_MAX_LENGTH = 255
+# Where a client with no slot of its own files new progress.
+AUTOSAVE_SLOT = "autosave"
 # A slot's versions, newest last: pruning locks exactly these rows through it.
 SAVE_SLOT_VERSIONS_INDEX = "ix_saves_rom_user_slot_updated"
 EMULATOR_MAX_LENGTH = 50
@@ -47,6 +50,17 @@ class SaveShape(enum.StrEnum):
 class SaveFormat(enum.StrEnum):
     NEUTRAL = "neutral"
     NATIVE = "native"
+
+
+class SaveLineage(NamedTuple):
+    """One emulator's saves in one format, whose versions in a slot are pruned together."""
+
+    emulator: str | None
+    file_extension: str
+
+    @classmethod
+    def of(cls, emulator: str | None, file_name: str) -> SaveLineage:
+        return cls(emulator, compute_file_extension(file_name).lower())
 
 
 class BaseAsset(FileNamePartsMixin, BaseModel):
@@ -208,6 +222,10 @@ class Save(ChannelContent):
         cascade="all, delete-orphan",
         lazy="raise",
     )
+
+    @property
+    def lineage(self) -> SaveLineage:
+        return SaveLineage.of(self.emulator, self.file_name)
 
     @cached_property
     def screenshot(self) -> Screenshot | None:
