@@ -132,7 +132,8 @@ class SigilExtractionResult:
             column: getattr(self, field) or None
             for column, field in _SIGIL_RESULT_COLUMNS.items()
         }
-        # Features 0 is a read that found none, which a stored game tells from no read.
+        # 0 records a read that found no features, so a stored game can tell it
+        # apart from a file sigil never read.
         columns["sigil_features"] = self.features
         columns["playlist_title_ids"] = (
             list(self.playlist_title_ids)

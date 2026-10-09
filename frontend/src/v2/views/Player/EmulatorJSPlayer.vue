@@ -655,7 +655,7 @@ function displayMessage(
   snackbar.show(tone, message, { icon, timeout: duration });
 }
 
-/** Polls rather than waits a fixed delay: heavy cores boot slowly, and a state applied too early leaves a black screen. */
+/** Polls until the core is up, since heavy cores boot slowly and a state applied too early leaves a black screen. */
 async function waitForGameManager(timeoutMs = 5000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -1003,7 +1003,7 @@ window.EJS_onGameStart = () => {
   }
 
   if (props.state) holdBackUntilStateApplied();
-  /** Every key belongs to the game now, "/" included; set here so any entry point keeps global hotkeys off. */
+  /** While the game runs, every key goes to it, "/" included. Set here so every entry point turns global hotkeys off. */
   playing.value = true;
 
   // Install netplay overrides synchronously, before any await below, so they

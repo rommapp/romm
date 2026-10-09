@@ -798,7 +798,7 @@ Saves additionally link to `device_save_sync` for cross-device tracking. On save
 
 **Table:** `snapshot_pins` (PK `snapshot_id`, `user_id`, both cascade). A snapshot anyone pinned is never pruned. Unsharing a channel or an archival snapshot deletes every pin but the owner's.
 
-**Table:** `device_channel_sync` (PK `device_id`, `channel_id`; `base_snapshot_id`, `synced_at`, `latest_known_id`), attribution and the inferred expected current
+**Table:** `device_channel_sync` (PK `device_id`, `channel_id`; `base_snapshot_id`, `synced_at`, `latest_known_id`), the snapshot each device holds and the current it last learned of
 
 ---
 
@@ -1084,7 +1084,7 @@ parent's states. Hardcore channels and neutral current saves stay out.
 - **Writes:** every snapshot goes through `handler.snapshots.write.write_snapshot`,
   which locks the channel row, checks `expected_current_id` (a stale push is kept as a
   branch and answered 409) and applies the hardcore-downgrade guard. A push that adds
-  no progress, the same content or a save whose clock alone moved, answers unchanged;
+  no progress (the same content, or a save whose clock alone moved) answers unchanged;
   screenshots it carries attach to rows that have none.
 - **Push device and sync state:** a request's device is `device_id`, else the device
   its client token is bound to. In `device_channel_sync`, `base_snapshot_id` and
