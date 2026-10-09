@@ -534,20 +534,15 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     log.info(f"Cloud sync upload {hl(file_name)} for {hl(str(rom.name), color=BLUE)}")
 
     if parsed.is_state_screenshot:
-        # Written under the owning state's real name, which may differ from the
-        # canonical one, so an existing screenshot is updated rather than forked.
-        owning_state = await asyncio.to_thread(
-            sync_handler.resolve_state_by_slot,
+        # Written under the owning state's real name and emulator, which may
+        # differ from the canonical ones, so an existing screenshot is updated.
+        screenshot_file_name, screenshot_emulator, served = await asyncio.to_thread(
+            sync_handler.screenshot_upload_target,
             request.user,
             rom,
             parsed.emulator,
-            sync_handler.state_name_of_screenshot(file_name),
+            file_name,
         )
-        screenshot_file_name = (
-            f"{owning_state.file_name}.png" if owning_state else file_name
-        )
-        # The state may be filed under another emulator sharing this core folder.
-        screenshot_emulator = owning_state.emulator if owning_state else parsed.emulator
         try:
             check_filename_length(screenshot_file_name)
         except ValueError:
@@ -557,6 +552,8 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
             request.user, rom, screenshot_emulator
         )
         async with _request_body(request) as body:
+            if served and await _holds_same_bytes(body, served):
+                return _empty(status.HTTP_204_NO_CONTENT)
             await fs_asset_handler.write_file(
                 file=body, path=screenshot_path, filename=screenshot_file_name
             )
@@ -628,6 +625,17 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
     # `last_played` is left alone on purpose: a first sync uploads the whole
     # backlog at once, which would stamp every game as just-played.
     return _empty(status.HTTP_204_NO_CONTENT if existing else status.HTTP_201_CREATED)
+
+
+async def _holds_same_bytes(body: UploadFile, screenshot: Screenshot) -> bool:
+    """Whether the upload is a copy of the screenshot RomM already holds."""
+    if screenshot.missing_from_fs:
+        return False
+    body_hash, stored_hash = await asyncio.gather(
+        asyncio.to_thread(hash_save_content, body.file),
+        fs_asset_handler.compute_content_hash(screenshot.full_path),
+    )
+    return body_hash is not None and body_hash == stored_hash
 
 
 def _record_screenshot(

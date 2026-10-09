@@ -538,6 +538,32 @@ def resolve_state_screenshot_by_slot(
     return slot_screenshot(user, rom, emulator, requested_file_name)[1]
 
 
+class ScreenshotUpload(NamedTuple):
+    """Where a ``<slot>.png`` upload goes."""
+
+    file_name: str
+    emulator: str | None
+    # The screenshot of the capture the slot serves, which a re-sent copy of
+    # leaves alone.
+    served: Screenshot | None
+
+
+def screenshot_upload_target(
+    user: User, rom: Rom, emulator: str | None, requested_file_name: str
+) -> ScreenshotUpload:
+    """Files a ``<slot>.png`` with the state the slot's next state upload writes
+    to, so a screenshot sent ahead of its state lands with it."""
+    slot = slot_states(
+        user, rom, emulator, state_name_of_screenshot(requested_file_name)
+    )
+    capture = slot.served_capture
+    head = slot.own_head if capture else slot.served
+    served = _state_screenshot(user, capture)
+    if head is None:
+        return ScreenshotUpload(requested_file_name, emulator, served)
+    return ScreenshotUpload(f"{head.file_name}.png", head.emulator, served)
+
+
 def build_retroarch_sync_path(
     kind: AssetKind, emulator: str | None, file_name: str
 ) -> str:
