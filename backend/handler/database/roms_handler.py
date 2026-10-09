@@ -1120,14 +1120,17 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(Rom.platform_id.in_(platform_ids))
 
     def _filter_by_collection_id[S: Select[*tuple[Any, ...]]](
-        self, query: S, collection_id: int
+        self, query: S, collection_id: int, user_id: int | None
     ) -> S:
-        # `collections_roms` is keyed on (collection_id, rom_id), so membership
-        # is an indexed subquery rather than a list of ids fetched into Python.
+        # Membership stays an indexed subquery, so no ids are fetched into Python.
+        # Another user's private collection matches nothing, like an unknown id.
         return query.filter(
             Rom.id.in_(
-                select(CollectionRom.rom_id).where(
-                    CollectionRom.collection_id == collection_id
+                select(CollectionRom.rom_id)
+                .join(Collection, Collection.id == CollectionRom.collection_id)
+                .where(
+                    CollectionRom.collection_id == collection_id,
+                    or_(Collection.is_public, Collection.user_id == user_id),
                 )
             )
         )
@@ -1157,7 +1160,9 @@ class DBRomsHandler(DBBaseHandler):
         smart_collection = db_collection_handler.get_smart_collection(
             smart_collection_id, session=session
         )
-        if not smart_collection:
+        if not smart_collection or not (
+            smart_collection.is_public or smart_collection.user_id == user_id
+        ):
             return query.filter(false())
 
         # MariaDB's semi-join plan for this IN (subquery) rescans the whole
@@ -1541,6 +1546,9 @@ class DBRomsHandler(DBBaseHandler):
         order_by: str = "",
         order_dir: str = "asc",
         user_id: int | None = None,
+        # Whose access a `collection_id` filter is checked against, when not
+        # `user_id`: a smart collection's criteria answer for its owner.
+        collection_user_id: int | None = None,
         updated_after: datetime | None = None,
         released_days: Sequence[tuple[int, int]] | None = None,
         released_before_year: int | None = None,
@@ -1614,7 +1622,11 @@ class DBRomsHandler(DBBaseHandler):
             query = self._filter_by_platform_ids(query, filters.platform_ids)
 
         if filters.collection_id:
-            query = self._filter_by_collection_id(query, filters.collection_id)
+            query = self._filter_by_collection_id(
+                query,
+                filters.collection_id,
+                collection_user_id if collection_user_id is not None else user_id,
+            )
 
         if filters.virtual_collection_id:
             query = self._filter_by_virtual_collection_id(

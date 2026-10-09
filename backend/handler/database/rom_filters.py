@@ -372,15 +372,17 @@ class RomFilterParams(BaseModel):
     ] = None
 
     @classmethod
-    def from_stored_criteria(
-        cls, criteria: Mapping[str, Any]
-    ) -> "RomFilterParams | None":
+    def from_stored_criteria(cls, criteria: object) -> "RomFilterParams | None":
         """Build from a smart collection's stored `filter_criteria`, or None
         when a stored value cannot be honoured.
 
         `smart_collection_id` is dropped: the create dialog records the route it
         was opened from, so following it would nest (and could cycle).
         """
+        if not isinstance(criteria, Mapping):
+            log.warning("Smart collection criteria rejected: not an object")
+            return None
+
         values: dict[str, Any] = dict(criteria)
         values.pop("smart_collection_id", None)
 

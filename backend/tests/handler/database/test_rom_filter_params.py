@@ -149,6 +149,12 @@ class TestFromStoredCriteria:
             is None
         )
 
+    @pytest.mark.parametrize("not_an_object", [[1], "genres", 5, None])
+    def test_criteria_that_are_not_an_object_are_rejected_rather_than_raised(
+        self, not_an_object: object
+    ):
+        assert RomFilterParams.from_stored_criteria(not_an_object) is None
+
 
 class TestRegistryColumns:
     def test_every_filter_matches_against_the_facets_mirror(self):
