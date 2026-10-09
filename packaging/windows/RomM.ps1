@@ -3,9 +3,9 @@
     Manages the RomM WSL2 distro: install, start, stop, open, status, logs, uninstall.
 
 .EXAMPLE
-    .\RomM.ps1 install -Rootfs .\romm-wsl.tar.gz -Library 'D:\Games\ROMs'
-    .\RomM.ps1 start
-    .\RomM.ps1 upgrade -Rootfs .\romm-wsl-new.tar.gz
+    .\RomM-5.4.0.ps1 install -Library 'D:\Games\ROMs'
+    .\RomM-5.4.0.ps1 start
+    .\RomM-5.5.0.ps1 upgrade
 #>
 param(
     [Parameter(Position = 0, Mandatory = $true)]
@@ -19,8 +19,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Stamped by build-rootfs.sh; each script pairs with the rootfs of the same version.
+$RommVersion = 'dev'
 # Windows PowerShell 5.1 leaves $PSScriptRoot empty in param() defaults.
-if (-not $Rootfs) { $Rootfs = Join-Path $PSScriptRoot 'romm-wsl.tar.gz' }
+if (-not $Rootfs) { $Rootfs = Join-Path $PSScriptRoot "romm-wsl-$RommVersion.tar.gz" }
 $Distro = 'RomM'
 $DataDir = Join-Path $env:LOCALAPPDATA 'RomM'
 $SettingsFile = Join-Path $DataDir 'romm.env'
@@ -174,6 +176,9 @@ switch ($Command) {
         Start-Process "http://localhost:$(Get-Port)"
     }
     'status' {
+        if (-not (Test-Distro)) { Write-Host 'Not installed'; return }
+        $installed = (Invoke-Wsl @('-d', $Distro, '-u', 'root', '--', 'cat', '/etc/romm/version') 2>$null) -join ''
+        Write-Host "RomM $installed (script $RommVersion)"
         if (Test-Running) { Write-Host "Running on http://localhost:$(Get-Port)" } else { Write-Host 'Stopped' }
     }
     'upgrade' { Update-RomM }

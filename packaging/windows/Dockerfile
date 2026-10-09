@@ -5,6 +5,7 @@
 # launcher, since WSL has no compose to run the database next to RomM.
 ARG ROMM_IMAGE=rommapp/romm:5.3.1
 FROM ${ROMM_IMAGE}
+ARG ROMM_VERSION=dev
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -19,4 +20,5 @@ COPY --chmod=755 ./rootfs/romm-wsl.sh /usr/local/bin/romm-wsl
 # `docker export` drops ENV, so keep the image's environment for the launcher.
 RUN cp /init /usr/local/bin/romm-init && \
     mkdir -p /etc/romm && \
+    echo "${ROMM_VERSION}" >/etc/romm/version && \
     bash -c 'export -p' | grep -vE ' (HOME|HOSTNAME|OLDPWD|PWD|SHLVL|_)(=|$)' >/etc/romm/image.env

@@ -1,5 +1,5 @@
 ; Inno Setup script for the RomM Windows installer (WSL2 based).
-; Build: iscc /DAppVersion=5.0.0 romm.iss, with dist\romm-wsl.tar.gz from build-rootfs.sh.
+; Build: iscc /DAppVersion=5.4.0 romm.iss, with the dist\ files from `build-rootfs.sh <image> 5.4.0`.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0-dev"
@@ -25,8 +25,8 @@ DisableProgramGroupPage=yes
 UninstallDisplayName=RomM
 
 [Files]
-Source: "RomM.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\romm-wsl.tar.gz"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\RomM-{#AppVersion}.ps1"; DestDir: "{app}"; DestName: "RomM.ps1"; Flags: ignoreversion
+Source: "dist\romm-wsl-{#AppVersion}.tar.gz"; DestDir: "{app}"; DestName: "romm-wsl.tar.gz"; Flags: ignoreversion
 
 [Tasks]
 Name: "autostart"; Description: "Start RomM when I sign in"
