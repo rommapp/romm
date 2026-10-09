@@ -3,7 +3,7 @@
 import asyncio
 import os
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import asynccontextmanager, suppress
 from tempfile import SpooledTemporaryFile
 from urllib.parse import quote
@@ -18,6 +18,7 @@ from handler.auth.permissions import ResolvedPermissions
 from handler.database import (
     db_platform_handler,
     db_screenshot_handler,
+    db_snapshot_handler,
     db_state_handler,
 )
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
@@ -38,6 +39,7 @@ from models.assets import Save, Screenshot, State
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length, sanitize_filename
+from utils.uploads import apply_datetime_tag
 
 router = APIRouter(prefix="/retroarch")
 
@@ -131,6 +133,17 @@ async def _resolve_rom(request: Request, kind: AssetKind, file_name: str) -> Rom
     return await asyncio.to_thread(
         sync_handler.resolve_rom, game_name, _rom_visibility(request)
     )
+
+
+def _is_held(asset: Save | State | Screenshot | None) -> bool:
+    """Whether a sync channel holds the row: RetroArch reads it but never changes it."""
+    if isinstance(asset, (Save, State)):
+        return db_snapshot_handler.is_asset_frozen(asset)
+    return False
+
+
+def _unheld[A: (Save, State)](assets: Sequence[A]) -> list[A]:
+    return [asset for asset in assets if not _is_held(asset)]
 
 
 async def _get_asset(
@@ -582,7 +595,7 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
 
     # A state resolved by slot may have its own file name and emulator; writing
     # to them keeps the row pointing at the fresh bytes instead of orphaning them.
-    existing = await asyncio.to_thread(
+    matched = await asyncio.to_thread(
         sync_handler.resolve_state_by_slot,
         request.user,
         rom,
@@ -590,11 +603,24 @@ async def retroarch_sync_put(request: Request, file_path: str) -> Response:
         file_name,
         prefer_on_disk=False,
     )
+    held = await asyncio.to_thread(_is_held, matched)
+    existing = None if held else matched
     write_file_name = existing.file_name if existing else file_name
     emulator = existing.emulator if existing else parsed.emulator
     asset_path = sync_handler.build_asset_file_path(
         request.user, rom, parsed.kind, emulator
     )
+    if (
+        held
+        and matched is not None
+        and (matched.file_path, matched.file_name) == (asset_path, write_file_name)
+    ):
+        # The write would land on the held row's own file.
+        write_file_name = apply_datetime_tag(file_name)
+        try:
+            check_filename_length(write_file_name)
+        except ValueError:
+            return _empty(status.HTTP_409_CONFLICT)
 
     async with _request_body(request) as body:
         await fs_asset_handler.write_file(
@@ -679,7 +705,7 @@ async def _put_save(request: Request, rom: Rom, parsed: RetroArchSyncPath) -> Re
             stored = await sync_handler.store_save(
                 request.user, rom, parsed.emulator, parsed.file_name, body
             )
-        except ValueError:
+        except ValueError, sync_handler.SaveHeld:
             return _empty(status.HTTP_409_CONFLICT)
 
     return _empty(
@@ -723,13 +749,14 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
     if not rom:
         return _empty(status.HTTP_404_NOT_FOUND)
 
+    # A save or state a sync channel holds stays; RetroArch only reads it.
     if parsed.kind == "saves":
         saves = await asyncio.to_thread(
-            sync_handler.saves_at_path,
-            request.user,
-            rom,
-            parsed.emulator,
-            parsed.file_name,
+            lambda: _unheld(
+                sync_handler.saves_at_path(
+                    request.user, rom, parsed.emulator, parsed.file_name
+                )
+            )
         )
         if not saves:
             return _empty(status.HTTP_404_NOT_FOUND)
@@ -758,11 +785,11 @@ async def retroarch_sync_delete(request: Request, file_path: str) -> Response:
 
     # Every alias in the slot goes, or an older one would resurface at this path.
     states = await asyncio.to_thread(
-        sync_handler.states_in_slot,
-        request.user,
-        rom,
-        parsed.emulator,
-        parsed.file_name,
+        lambda: _unheld(
+            sync_handler.states_in_slot(
+                request.user, rom, parsed.emulator, parsed.file_name
+            )
+        )
     )
     if not states:
         return _empty(status.HTTP_404_NOT_FOUND)

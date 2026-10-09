@@ -27,7 +27,7 @@ from handler.database import (
     db_sync_session_handler,
 )
 from handler.filesystem import fs_asset_handler, get_fs_sync_handler
-from handler.sync.comparison import compare_save_state
+from handler.sync.comparison import compare_save_state, for_held_save
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.device import Device, SyncMode
@@ -256,14 +256,17 @@ def _process_incoming_file(
             # Identical content is a no_op, which never reads removals.
             removed_at=(
                 db_deleted_asset_handler.removal_times(
-                    device.user_id, matched_save.rom_id, matched_save.slot
+                    device.user_id, matched_save.attached_rom_id, matched_save.slot
                 )
                 if file_hash != matched_save.content_hash
                 else None
             ),
         )
 
-        if result.action == "no_op":
+        result = for_held_save(result, matched_save.id)
+        action, reason = result.action, result.reason
+
+        if action == "no_op":
             log.debug(f"Sync watcher: {filename} is already in sync, skipping")
             if file_hash == matched_save.content_hash:
                 db_device_save_sync_handler.record_identical_content(
@@ -272,7 +275,7 @@ def _process_incoming_file(
             fs_sync_handler.remove_incoming_file(full_path)
             return
 
-        if result.action == "upload":
+        if action == "upload":
             # Client file is newer - update server save
             log.info(
                 f"Sync watcher: updating save {hl(filename)} from device {device.id}"
@@ -304,10 +307,10 @@ def _process_incoming_file(
             )
             fs_sync_handler.remove_incoming_file(full_path)
 
-        elif result.action == "conflict":
+        elif action == "conflict":
             log.warning(
                 f"Sync watcher: conflict detected for {filename} "
-                f"on device {device.id}: {result.reason}"
+                f"on device {device.id}: {reason}"
             )
             # Move conflicting file to conflicts directory
             conflicts_dir = _ensure_conflicts_dir(device.id, platform_slug)
@@ -322,13 +325,14 @@ def _process_incoming_file(
                     device_id=device.id,
                     session_id=session_id,
                     file_name=filename,
-                    rom_id=matched_save.rom_id,
-                    rom_name=matched_save.rom.name or matched_save.rom.fs_name,
-                    reason=result.reason,
+                    rom_id=matched_save.attached_rom_id,
+                    rom_name=matched_save.attached_rom.name
+                    or matched_save.attached_rom.fs_name,
+                    reason=reason,
                 )
             )
 
-        elif result.action == "download":
+        elif action == "download":
             # Server is newer - write server save to device's outgoing directory
             log.info(
                 f"Sync watcher: server save is newer for {filename}, "

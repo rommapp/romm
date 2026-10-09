@@ -378,7 +378,7 @@ def _capture_disc(
 
 
 # Stands in for the version tag, so the stem leaves it room.
-_VERSION_TAG_ROOM = " [0000-00-00_00-00-00]"
+_VERSION_TAG_ROOM = " [0000-00-00_00-00-00-000]"
 
 
 async def _store_raw_exit(

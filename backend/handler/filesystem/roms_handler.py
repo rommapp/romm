@@ -17,7 +17,7 @@ from adapters.services.rom_converto import (
     rom_converto_service,
 )
 from adapters.services.sigil import (
-    SIGIL_PLATFORM_SLUGS,
+    SIGIL_EXTRACT_PLATFORM_SLUGS,
     SWITCH_PLATFORM_SLUGS,
     SigilExtractionResult,
     SigilService,
@@ -354,11 +354,12 @@ class _TitleIdSource:
         """
         return self.path.parent, compute_name_sort_key(self.path.name), self.path.name
 
-
-def _rom_file_order(rom_file: RomFile) -> tuple[Path, str, str]:
-    """`_TitleIdSource.order` for a row, so a multi-disc ROM falls back to its first disc."""
-    name = rom_file.file_name
-    return Path(rom_file.file_path), compute_name_sort_key(name), name
+    def is_disc_of_set(self, first_disc: "_TitleIdSource") -> bool:
+        """Whether this file sits beside the set's first disc in the same format."""
+        return (
+            self.path.parent == first_disc.path.parent
+            and self.path.suffix.lower() == first_disc.path.suffix.lower()
+        )
 
 
 # Exclusion patterns holding one of these need fnmatch; the rest match literally.
@@ -382,8 +383,13 @@ def _rom_level_identity(
     """The rom's identity: sigil's extraction (holding rom-converto's id where it read one), else rom-converto's file ids."""
     is_switch = platform_slug in SWITCH_PLATFORM_SLUGS
     if extractions:
+        # Off Switch every disc of a set is read, and disc 1 names the game.
         chosen = next(
-            (e for e in extractions if switch.is_base_title_id(e.title_id)),
+            (
+                e
+                for e in extractions
+                if is_switch and switch.is_base_title_id(e.title_id)
+            ),
             extractions[0],
         )
         return switch.normalize_identity(
@@ -396,7 +402,9 @@ def _rom_level_identity(
         )
 
     title_ids = [
-        f.title_id for f in sorted(rom_files, key=_rom_file_order) if f.title_id
+        f.title_id
+        for f in sorted(rom_files, key=lambda f: f.listing_order)
+        if f.title_id
     ]
     title_id = next(
         (t for t in title_ids if is_switch and switch.is_base_title_id(t)),
@@ -704,7 +712,9 @@ class FSRomsHandler(FSHandler):
 
         # Title id extraction is independent of hashing support: it covers
         # non-hashable platforms like Switch.
-        sigil_platform = extract_title_ids and rom.platform_slug in SIGIL_PLATFORM_SLUGS
+        sigil_platform = (
+            extract_title_ids and rom.platform_slug in SIGIL_EXTRACT_PLATFORM_SLUGS
+        )
         is_switch = rom.platform_slug in SWITCH_PLATFORM_SLUGS
         # rom-converto reads new or changed files' title ids even when sigil
         # extraction is skipped; sigil owns save targets.
@@ -717,16 +727,22 @@ class FSRomsHandler(FSHandler):
 
         def _record_title_id_source(path: Path, rom_file: RomFile) -> None:
             """Queue a file for extraction when sigil can read a title id from it."""
-            if sigil_platform and _may_hold_title_id(path, rom_file.category):
+            if (
+                sigil_platform
+                and _may_hold_title_id(path, rom_file.category)
+                and not rom_file.n64_md5
+            ):
                 title_id_sources.append(_TitleIdSource(path, rom_file))
 
-        async def _extract_title_id(source: _TitleIdSource) -> None:
+        async def _extract_title_id(source: _TitleIdSource) -> bool:
             """Read the source's title id, recording it and any category it settles."""
             extraction = await sigil_service.extract_title_id(
                 rom.platform_slug, str(source.path)
             )
             if extraction is None:
-                return
+                return False
+            for column, value in extraction.file_columns().items():
+                setattr(source.rom_file, column, value)
             if source.rom_file.title_id and source.rom_file.converto_read_at:
                 # rom-converto's id wins; sigil keeps its save target and content type.
                 extraction = replace(
@@ -756,6 +772,7 @@ class FSRomsHandler(FSHandler):
                         is_rom_level=not is_multi_part,
                     )
                 )
+            return True
 
         cnfg = cm.get_config()
         existing_by_key: Mapping[RomFileKey, RomFile] | None = (
@@ -1051,12 +1068,16 @@ class FSRomsHandler(FSHandler):
         ]
         await self._read_converto_infos(converto_sources)
 
-        # Listings come in no fixed order; a ROM is identified by its first disc,
-        # and only Switch reads past it for each file's content type.
+        # A ROM is identified by its first disc. Switch reads every file for its
+        # content type; elsewhere only the rest of the first disc's set is read.
+        first_disc: _TitleIdSource | None = None
         for source in sorted(title_id_sources, key=_TitleIdSource.order):
-            await _extract_title_id(source)
-            if sigil_extractions and not is_switch:
-                break
+            if first_disc is not None and not (
+                is_switch or source.is_disc_of_set(first_disc)
+            ):
+                continue
+            if await _extract_title_id(source) and first_disc is None:
+                first_disc = source
 
         if top_level_changed:
             crc_hash = crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else ""

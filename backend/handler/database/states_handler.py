@@ -10,6 +10,9 @@ from models.base import with_file_name_parts
 from models.rom import Rom
 
 from .base_handler import DBBaseHandler
+from .snapshots_handler import DBSnapshotsHandler
+
+_snapshots = DBSnapshotsHandler()
 
 
 class DBStatesHandler(DBBaseHandler):
@@ -28,7 +31,12 @@ class DBStatesHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> State | None:
-        return session.scalar(select(State).filter_by(user_id=user_id, id=id).limit(1))
+        return session.scalar(
+            select(State)
+            .filter_by(user_id=user_id, id=id)
+            .where(State.rom_id.is_not(None))
+            .limit(1)
+        )
 
     @begin_session
     def get_state_by_filename(
@@ -50,7 +58,10 @@ class DBStatesHandler(DBBaseHandler):
         rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
     ) -> Select[State]:
-        query = select(State).filter_by(user_id=user_id)
+        # A state whose ROM was deleted waits to be reattached; no legacy flow reads it.
+        query = (
+            select(State).filter_by(user_id=user_id).where(State.rom_id.is_not(None))
+        )
 
         # An empty collection is an explicit empty scope, not an absent filter.
         if rom_ids is not None:
@@ -144,6 +155,8 @@ class DBStatesHandler(DBBaseHandler):
             .values(**values)
             .execution_options(synchronize_session="evaluate")
         )
+        if "content_hash" in data:
+            _snapshots.refresh_backup_digests(state_id=id, session=session)
         return session.scalars(select(State).filter_by(id=id)).one()
 
     @begin_session
@@ -168,6 +181,8 @@ class DBStatesHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
+        """Delete a state, releasing it from archival snapshots."""
+        _snapshots.release_backup(state_id=id, session=session)
         session.execute(
             delete(State)
             .where(State.id == id)

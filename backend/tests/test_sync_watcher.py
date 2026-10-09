@@ -857,6 +857,51 @@ class TestProcessIncomingFileOutcomes:
         assert (kwargs["rom_id"], kwargs["reason"]) == (save.rom_id, "both changed")
         assert kwargs["rom_name"] == (rom.name or rom.fs_name)
 
+    def test_a_newer_device_copy_of_a_held_save_waits_as_a_conflict(
+        self,
+        sync_root: Path,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+    ):
+        from sync_watcher import _process_incoming_file
+
+        incoming = _incoming(sync_root, device.id, platform.fs_slug, "held.sav")
+        save = make_save(
+            rom,
+            admin_user,
+            "held.sav",
+            emulator="test_emulator",
+            slot="autosave",
+            file_path=f"{platform.slug}/saves/test_emulator",
+            content_hash="server_hash",
+        )
+
+        with (
+            patch("sync_watcher.compare_save_state") as compare,
+            patch("handler.database.db_snapshot_handler.is_frozen", return_value=True),
+            patch("sync_watcher.fs_asset_handler.write_file") as write_file,
+            patch("endpoints.sockets.sync.emit_sync_conflict") as emit_conflict,
+        ):
+            compare.return_value = MagicMock(action="upload", reason=None)
+            _process_incoming_file(
+                device=device,
+                session_id=1,
+                platform_slug=platform.fs_slug,
+                filename="held.sav",
+                full_path=incoming,
+            )
+
+        moved = sync_root / device.id / "conflicts" / platform.fs_slug / "held.sav"
+        assert moved.read_bytes() == b"device bytes"
+        write_file.assert_not_called()
+        kept = db_save_handler.get_save(admin_user.id, save.id)
+        assert kept is not None and kept.content_hash == "server_hash"
+        assert emit_conflict.call_args.kwargs["reason"] == (
+            "the save belongs to a sync channel"
+        )
+
     def test_an_unknown_platform_leaves_the_file_alone(
         self, sync_root: Path, device: Device
     ):

@@ -241,7 +241,7 @@ class TestNullSlotLeakInProcessRemoteSave:
             save.id, {"updated_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}
         )
         db_deleted_asset_handler.record_deletion(
-            admin_user.id, save.rom_id, save.slot, "removed_here"
+            admin_user.id, save.attached_rom_id, save.slot, "removed_here"
         )
         remote_save = RemoteSaveInfo(
             path=f"/remote/{platform.fs_slug}/{save.file_name}",
@@ -529,6 +529,44 @@ class TestBaselineInProcessRemoteSave:
         assert sync is not None
         assert sync.last_sync_hash == "remote_now"
         assert sync.last_sync_server_hash == "remote_now"
+
+    async def test_a_newer_remote_copy_of_a_held_save_is_a_conflict(
+        self,
+        device: Device,
+        admin_user: User,
+        rom: Rom,
+        platform: Platform,
+        local_save_file: str,
+    ):
+        self._save(admin_user, rom, platform, "server_old")
+
+        with (
+            patch("tasks.sync_push_pull_task.get_ssh_sync_handler") as mock_handler,
+            patch("tasks.sync_push_pull_task.compare_save_state") as mock_cmp,
+            patch("tasks.sync_push_pull_task.fs_asset_handler") as mock_assets,
+            patch(
+                "handler.database.db_snapshot_handler.is_frozen",
+                return_value=True,
+            ),
+            patch(
+                "endpoints.sockets.sync.emit_sync_conflict", new_callable=AsyncMock
+            ) as emit_conflict,
+        ):
+            mock_assets.write_file = AsyncMock()
+            mock_handler.return_value = self._ssh(local_save_file, "remote_now")
+            mock_cmp.return_value = MagicMock(action="upload", reason=None)
+            outcome = await _process_remote_save(
+                device,
+                conn=MagicMock(),
+                remote_save=self._remote(platform),
+                session_id=1,
+            )
+
+        assert outcome == "conflict"
+        mock_assets.write_file.assert_not_called()
+        assert emit_conflict.call_args.kwargs["reason"] == (
+            "the save belongs to a sync channel"
+        )
 
     async def test_download_records_the_pushed_file_as_both_halves(
         self,

@@ -47,6 +47,12 @@ def _extracted_state(rom_file: RomFile) -> tuple[Any, ...]:
         rom_file.title_id,
         rom_file.title_version,
         rom_file.converto_read_at,
+        rom_file.raw_serial,
+        rom_file.sigil_features,
+        rom_file.n64_header,
+        rom_file.n64_md5,
+        rom_file.n64_md5_n64,
+        rom_file.playlist_title_ids,
     )
 
 

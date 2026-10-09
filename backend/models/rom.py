@@ -9,6 +9,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Final, NamedTuple, TypedDict
 
 from sqlalchemy import (
@@ -63,6 +64,7 @@ FULL_PATH_HASH_LENGTH = 64
 AUDIO_TAG_MAX_LENGTH = 512
 # Max length for the binary identity columns (title id and save target).
 TITLE_ID_MAX_LENGTH = 100
+ROM_SHA1_MAX_LENGTH = 100
 
 # (metadata column, key) of each provider's alternative titles.
 PROVIDER_ALTERNATIVE_NAME_SOURCES = (
@@ -395,7 +397,7 @@ class RomFile(BaseModel):
     last_modified: Mapped[float | None] = mapped_column(default=None)
     crc_hash: Mapped[str | None] = mapped_column(String(100))
     md5_hash: Mapped[str | None] = mapped_column(String(100))
-    sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    sha1_hash: Mapped[str | None] = mapped_column(String(ROM_SHA1_MAX_LENGTH))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
     title_id: Mapped[str | None] = mapped_column(String(length=TITLE_ID_MAX_LENGTH))
@@ -404,6 +406,25 @@ class RomFile(BaseModel):
     # When rom-converto last recognized the file; NULL queues it on the next scan.
     converto_read_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), default=None
+    )
+    raw_serial: Mapped[str | None] = mapped_column(
+        String(length=TITLE_ID_MAX_LENGTH),
+        default=None,
+        doc="The serial as the binary spells it (SLUS_201.52), which some emulators name saves after",
+    )
+    # NULL until sigil reads the file. BigInteger: a u32 bitmask.
+    sigil_features: Mapped[int | None] = mapped_column(BigInteger, default=None)
+    # Standalone N64 emulators name saves after these; reading them takes the whole ROM.
+    n64_header: Mapped[str | None] = mapped_column(
+        String(length=TITLE_ID_MAX_LENGTH), default=None
+    )
+    n64_md5: Mapped[str | None] = mapped_column(String(100), default=None)
+    n64_md5_n64: Mapped[str | None] = mapped_column(String(100), default=None)
+    playlist_title_ids: Mapped[list[str] | None] = mapped_column(
+        CustomJSON(),
+        default=None,
+        nullable=True,
+        doc="Each listed disc's title id, in playlist order, when the file is an .m3u",
     )
     archive_members: Mapped[list[RomArchiveMember] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
@@ -473,6 +494,12 @@ class RomFile(BaseModel):
             )
 
         return LookupHashes(crc=self.crc_hash, md5=self.md5_hash, sha1=self.sha1_hash)
+
+    @property
+    def listing_order(self) -> tuple[PurePosixPath, str, str]:
+        """A folder's own files before its subfolders', each in natural name order."""
+        name = self.file_name
+        return PurePosixPath(self.file_path), compute_name_sort_key(name), name
 
     @cached_property
     def is_top_level(self) -> bool:

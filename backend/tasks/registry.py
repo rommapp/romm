@@ -16,6 +16,7 @@ from config import (
     ENABLE_SCHEDULED_CLEANUP_UPLOAD_TMP,
     ENABLE_SCHEDULED_CLEANUP_ZIP_CACHE,
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+    ENABLE_SCHEDULED_PRUNE_SNAPSHOTS,
     ENABLE_SCHEDULED_RESCAN,
     ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
@@ -32,10 +33,12 @@ from config import (
     SCHEDULED_CLEANUP_UPLOAD_TMP_CRON,
     SCHEDULED_CLEANUP_ZIP_CACHE_CRON,
     SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
+    SCHEDULED_PRUNE_SNAPSHOTS_CRON,
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+    SNAPSHOT_BRANCH_LIFETIME_DAYS,
     SYNC_PUSH_PULL_CRON,
     TASK_TIMEOUT,
 )
@@ -183,6 +186,18 @@ CLEANUP_SYNC_SESSIONS_SPEC: Final = TaskSpec(
     cron_string=SCHEDULED_CLEANUP_SYNC_SESSIONS_CRON,
 )
 
+PRUNE_SNAPSHOTS_SPEC: Final = TaskSpec(
+    implementation="tasks.scheduled.prune_snapshots.prune_snapshots_task",
+    title="Scheduled snapshot pruning",
+    description=(
+        f"Drops save sync branches older than {SNAPSHOT_BRANCH_LIFETIME_DAYS} days, "
+        "with the files only they held"
+    ),
+    task_type=TaskType.CLEANUP,
+    enabled=ENABLE_SCHEDULED_PRUNE_SNAPSHOTS,
+    cron_string=SCHEDULED_PRUNE_SNAPSHOTS_CRON,
+)
+
 CLEANUP_AUDIT_LOG_SPEC: Final = TaskSpec(
     implementation="tasks.scheduled.cleanup_audit_log.cleanup_audit_log_task",
     title="Scheduled audit log cleanup",
@@ -283,6 +298,7 @@ SCHEDULED_TASKS: Final[dict[str, TaskSpec]] = {
     "cleanup_upload_tmp": CLEANUP_UPLOAD_TMP_SPEC,
     "reap_streaming_sessions": REAP_STREAMING_SESSIONS_SPEC,
     "cleanup_sync_sessions": CLEANUP_SYNC_SESSIONS_SPEC,
+    "prune_snapshots": PRUNE_SNAPSHOTS_SPEC,
     "cleanup_audit_log": CLEANUP_AUDIT_LOG_SPEC,
     "sync_retroachievements_progress": SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC,
     "sync_push_pull": SYNC_PUSH_PULL_SPEC,

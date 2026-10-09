@@ -1,22 +1,59 @@
+import io
 import os
-from collections.abc import Sequence
+import zipfile
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Annotated, Any
+from pathlib import Path, PurePosixPath
+from typing import Annotated, Any, Final
+from urllib.parse import quote
 
-from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import (
+    Body,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field, ValidationError
 
+from adapters.services.sigil import SigilGame, SigilService
+from adapters.services.sigil_restore import (
+    ContainerMismatch,
+    RefusalCode,
+    RestoreCompanion,
+    RestoredSave,
+    RestoreTarget,
+    SaveRestoreError,
+    SharedContainerRequired,
+    SigilRefusal,
+    merge_into_container,
+    restore_layouts,
+    restore_per_game,
+)
 from config import MAX_AUTOCLEANUP_LIMIT, MAX_SAVES_PER_SLOT
 from decorators.auth import protected_route
-from endpoints.responses.assets import SaveSchema, SaveSummarySchema, SlotSummarySchema
+from endpoints.responses.assets import (
+    SaveLayoutSchema,
+    SaveSchema,
+    SaveSummarySchema,
+    SlotSummarySchema,
+)
 from endpoints.responses.device import DeviceSyncSchema
 from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.asset_store import (
+    assert_backup,
+    frozen_conflict,
     prune_save_slot,
     remove_save,
     rename_asset,
     reserve_version_name,
+    store_screenshot,
 )
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_rom_visible
@@ -26,19 +63,39 @@ from handler.database import (
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
+    db_snapshot_handler,
     db_sync_session_handler,
 )
 from handler.filesystem import fs_asset_handler
-from handler.scan_handler import scan_save, scan_screenshot
+from handler.filesystem.assets_handler import check_upload_archive, leaves_save_folder
+from handler.scan_handler import scan_save
+from handler.snapshots.bridge import hold_legacy_upload
+from handler.snapshots.restore import (
+    ConversionUnavailable,
+    NotConvertible,
+    Restore,
+    convertible_rom,
+    restore_for_core,
+    restore_platform,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import EMULATOR_MAX_LENGTH, SAVE_SLOT_MAX_LENGTH, Save, SaveLineage
-from models.base import FILE_NAME_MAX_LENGTH
+from models.assets import (
+    EMULATOR_MAX_LENGTH,
+    EMULATOR_VERSION_MAX_LENGTH,
+    SAVE_SLOT_MAX_LENGTH,
+    Save,
+    SaveLineage,
+)
+from models.base import FILE_NAME_MAX_LENGTH, FILE_PATH_MAX_LENGTH
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
+from models.rom import Rom
 from utils.assets import normalize_asset_labels
 from utils.datetime import to_utc
+from utils.memory_cards import MEMORY_CARD_MAX_BYTES
+from utils.nginx import content_disposition
 from utils.router import APIRouter
 from utils.uploads import (
     check_asset_upload_size,
@@ -46,6 +103,7 @@ from utils.uploads import (
     sanitize_asset_filename,
 )
 from utils.validation import RomIdScope, narrow_rom_id_scope
+from utils.zip_cache import ensure_zipfile_writable
 
 
 def _build_save_schema(
@@ -164,8 +222,8 @@ def _increment_session_counter(session_id: int, user_id: int) -> None:
 
 
 def _owned_save_or_404(id: int, user_id: int) -> Save:
-    save = db_save_handler.get_save_by_id(id)
-    if not save or save.user_id != user_id:
+    save = db_save_handler.get_save(user_id=user_id, id=id)
+    if not save:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Save with ID {id} not found",
@@ -184,6 +242,8 @@ SAVE_SCREENSHOT_UPLOAD = File(
     description="Screenshot file associated with this save.",
 )
 SAVE_FILE_UPDATE = File(default=None, description="Updated save file content.")
+# A converted save's path relative to the emulator's save root, percent-encoded.
+SAVE_PATH_HEADER: Final = "X-Save-Path"
 SAVE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file.")
 
 
@@ -192,6 +252,19 @@ async def add_save(
     request: Request,
     rom_id: int,
     emulator: Annotated[str | None, Query(max_length=EMULATOR_MAX_LENGTH)] = None,
+    emulator_version: Annotated[
+        str | None, Query(max_length=EMULATOR_VERSION_MAX_LENGTH)
+    ] = None,
+    core: Annotated[
+        str | None,
+        Query(
+            max_length=EMULATOR_MAX_LENGTH,
+            description="The libretro core that wrote the save, when one did.",
+        ),
+    ] = None,
+    core_version: Annotated[
+        str | None, Query(max_length=EMULATOR_VERSION_MAX_LENGTH)
+    ] = None,
     slot: Annotated[str | None, Query(max_length=SAVE_SLOT_MAX_LENGTH)] = None,
     device_id: str | None = None,
     # Over-long hashes are stored as unknown by upsert_sync.
@@ -206,6 +279,7 @@ async def add_save(
     """Upload a save file for a ROM."""
     check_asset_upload_size(saveFile, "Save file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
+    check_upload_archive(saveFile, "Save file")
 
     # Keep at least the save just uploaded, and cap what a client can retain
     autocleanup_limit = max(1, min(autocleanup_limit, MAX_AUTOCLEANUP_LIMIT))
@@ -238,7 +312,7 @@ async def add_save(
 
     actual_filename = sanitize_asset_filename(saveFile.filename, "save")
     if slot:
-        # Checked again because the tag adds 22 bytes.
+        # Checked again because the tag adds 26 bytes.
         actual_filename = sanitize_asset_filename(
             await reserve_version_name(
                 request.user.id, rom.id, saves_path, actual_filename
@@ -277,8 +351,10 @@ async def add_save(
             slot=slot,
             order_by="updated_at",
         )
-        if slot_saves:
-            latest_in_slot = slot_saves[0]
+        latest_in_slot = db_snapshot_handler.current_saves_for_slots(
+            request.user.id, {(rom.id, slot)}, [emulator], [core]
+        ).get((rom.id, slot)) or (slot_saves[0] if slot_saves else None)
+        if latest_in_slot:
             sync = db_device_save_sync_handler.get_sync(
                 device_id=device.id, save_id=latest_in_slot.id
             )
@@ -315,6 +391,8 @@ async def add_save(
         )
     )
     replaced = db_save or colliding_save
+    if replaced:
+        assert_backup(replaced)
     replaced_hash = (
         await fs_asset_handler.unrecorded_hash(replaced) if replaced else None
     )
@@ -371,6 +449,12 @@ async def add_save(
             "file_path": scanned_save.file_path,
             "emulator": emulator,
         }
+        reported = {
+            "emulator_version": emulator_version,
+            "core": core,
+            "core_version": core_version,
+        }
+        update_data |= {k: v for k, v in reported.items() if v is not None}
         if slot is not None:
             update_data["slot"] = slot
         db_save = db_save_handler.update_save(
@@ -394,6 +478,9 @@ async def add_save(
         scanned_save.rom_id = rom.id
         scanned_save.user_id = request.user.id
         scanned_save.emulator = emulator
+        scanned_save.emulator_version = emulator_version
+        scanned_save.core = core
+        scanned_save.core_version = core_version
         scanned_save.slot = slot
         scanned_save.origin_device_id = device.id if device else None
         db_save = db_save_handler.add_save(save=scanned_save)
@@ -404,40 +491,26 @@ async def add_save(
     if session_id:
         _increment_session_counter(session_id, request.user.id)
 
+    if screenshotFile and sanitized_screenshot_filename:
+        await store_screenshot(
+            request.user,
+            rom,
+            screenshotFile,
+            sanitized_screenshot_filename,
+            is_public=db_save.is_public,
+        )
+
+    # After the screenshot, so the snapshot it may write can show it.
+    if slot:
+        await hold_legacy_upload(
+            db_save, request.user, rom, device.id if device else None
+        )
+        db_save = db_save_handler.get_save(user_id=request.user.id, id=db_save.id)
+        assert db_save is not None
+
+    # Last, so a version the bridge just made a snapshot hold is never pruned.
     if slot and keep is not None:
         await prune_save_slot(request.user.id, rom.id, slot, keep, lineage=lineage)
-
-    if screenshotFile and sanitized_screenshot_filename:
-        screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
-        )
-
-        await fs_asset_handler.write_file(
-            file=screenshotFile,
-            path=screenshots_path,
-            filename=sanitized_screenshot_filename,
-        )
-
-        scanned_screenshot = await scan_screenshot(
-            file_name=sanitized_screenshot_filename,
-            user=request.user,
-            platform_fs_slug=rom.platform_slug,
-            rom_id=rom.id,
-        )
-        db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=sanitized_screenshot_filename,
-            rom_id=rom.id,
-            user_id=request.user.id,
-        )
-        if db_screenshot:
-            db_screenshot = db_screenshot_handler.update_screenshot(
-                db_screenshot.id,
-                {"file_size_bytes": scanned_screenshot.file_size_bytes},
-            )
-        else:
-            scanned_screenshot.rom_id = rom.id
-            scanned_screenshot.user_id = request.user.id
-            db_screenshot_handler.add_screenshot(screenshot=scanned_screenshot)
 
     rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=request.user.id)
     if not rom_user:
@@ -519,6 +592,31 @@ def get_saves_summary(request: Request, rom_id: int) -> SaveSummarySchema:
     return SaveSummarySchema(total_count=summary_data["total_count"], slots=slots)
 
 
+@protected_route(
+    router.get,
+    "/layouts",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {},
+    },
+)
+def get_save_layouts(
+    request: Request,
+    platform: Annotated[str, Query(description="A RomM platform slug.")],
+) -> list[SaveLayoutSchema]:
+    """List the layouts a save converts to for a platform, the libretro default first."""
+    try:
+        sigil_platform = restore_platform(platform)
+    except NotConvertible as exc:
+        raise _restore_error(exc) from exc
+    if not SigilService.is_enabled():
+        raise _restore_error(ConversionUnavailable())
+    return [
+        SaveLayoutSchema.model_validate(row) for row in restore_layouts(sigil_platform)
+    ]
+
+
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
 def get_save(request: Request, id: int, device_id: str | None = None) -> SaveSchema:
     """Retrieve a save by ID."""
@@ -536,20 +634,8 @@ def get_save(request: Request, id: int, device_id: str | None = None) -> SaveSch
     return _build_save_schema(save, _syncs_for_save(save.id, device), device)
 
 
-@protected_route(router.get, "/{id}/content", [Scope.ASSETS_READ])
-def download_save(
-    request: Request,
-    id: int,
-    device_id: str | None = None,
-    session_id: int | None = None,
-    optimistic: bool = True,
-) -> FileResponse:
-    """Download a save file."""
-    device = _resolve_device(
-        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_READ
-    )
-
-    # Owner can download any of their saves; everyone else only public ones.
+def _readable_save_or_404(request: Request, id: int) -> Save:
+    """The save, when the caller owns it or it is public and its ROM is visible."""
     save = db_save_handler.get_save_by_id(id)
     if not save or (save.user_id != request.user.id and not save.is_public):
         raise HTTPException(
@@ -559,12 +645,14 @@ def download_save(
 
     # Sharing must not override the hidden-ROM/platform policy: a save on a ROM
     # hidden from the caller stays 404-masked, just like the ROM itself.
-    assert_rom_visible(
-        request, save.rom, not_found_detail=f"Save with ID {id} not found"
-    )
+    if save.rom is not None:
+        assert_rom_visible(
+            request, save.rom, not_found_detail=f"Save with ID {id} not found"
+        )
+    return save
 
-    is_owner = save.user_id == request.user.id
 
+def _stored_save_path(save: Save) -> Path:
     try:
         file_path = fs_asset_handler.validate_path(save.full_path)
     except ValueError:
@@ -578,16 +666,343 @@ def download_save(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Save file not found on disk",
         )
+    return file_path
 
+
+def _record_download(
+    request: Request,
+    save: Save,
+    device: Device | None,
+    session_id: int | None,
+    optimistic: bool,
+) -> None:
     # Sync bookkeeping only makes sense for the owner's own saves.
-    if device and optimistic and is_owner:
+    if device and optimistic and save.user_id == request.user.id:
         # The device has no bytes yet, so only the server half is known.
         _record_device_sync(device.id, save, request.user.id)
 
     if session_id:
         _increment_session_counter(session_id, request.user.id)
 
-    return FileResponse(path=str(file_path), filename=save.file_name)
+
+def _parse_options(option: Sequence[str]) -> dict[str, str]:
+    options: dict[str, str] = {}
+    for item in option:
+        key, separator, value = item.partition(":")
+        if not separator or not key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Option {item!r} isn't in the form key:value",
+            )
+        options[key] = value
+    return options
+
+
+def _companions(
+    request: Request, companion_ids: Sequence[int]
+) -> list[tuple[Save, Path]]:
+    """Each companion save with its stored file, under the same read rules as a download."""
+    companions: list[tuple[Save, Path]] = []
+    for companion_id in companion_ids:
+        save = _readable_save_or_404(request, companion_id)
+        companions.append((save, _stored_save_path(save)))
+    return companions
+
+
+_REFUSAL_STATUS: Final[dict[RefusalCode, int]] = {
+    RefusalCode.CONFLICT: status.HTTP_409_CONFLICT,
+    RefusalCode.UNCOLLECTED: status.HTTP_409_CONFLICT,
+    RefusalCode.EXISTS: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RefusalCode.DAMAGED: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RefusalCode.REGION: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RefusalCode.NO_SPACE: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RefusalCode.NOT_FOUND: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RefusalCode.UNSUPPORTED_FORMAT: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RefusalCode.NO_TARGET: status.HTTP_400_BAD_REQUEST,
+    RefusalCode.AMBIGUOUS: status.HTTP_400_BAD_REQUEST,
+    RefusalCode.INVALID_ARG: status.HTTP_400_BAD_REQUEST,
+    RefusalCode.IO: status.HTTP_500_INTERNAL_SERVER_ERROR,
+    RefusalCode.OTHER: status.HTTP_500_INTERNAL_SERVER_ERROR,
+}
+
+
+def _restore_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, NotConvertible):
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    if isinstance(exc, ConversionUnavailable):
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        )
+    if isinstance(exc, SigilRefusal):
+        return HTTPException(
+            status_code=_REFUSAL_STATUS[exc.code],
+            detail={
+                "error": exc.code.value,
+                "message": str(exc),
+                "problem": exc.problem,
+                "profiles": [
+                    {"id": profile.id, "name": profile.name} for profile in exc.profiles
+                ],
+            },
+        )
+    if isinstance(exc, SharedContainerRequired):
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "SHARED_CONTAINER",
+                "message": str(exc),
+                "container_path": exc.container_path,
+            },
+        )
+    if isinstance(exc, ContainerMismatch):
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "CONTAINER_MISMATCH",
+                "message": str(exc),
+                "container_path": exc.container_path,
+                "written": list(exc.written),
+                "options": exc.options,
+            },
+        )
+    return HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+    )
+
+
+def _convertible_rom_or_400(save: Save) -> Rom | None:
+    try:
+        return convertible_rom(save)
+    except NotConvertible as exc:
+        raise _restore_error(exc) from exc
+
+
+async def _restore_for_core(
+    request: Request,
+    save: Save,
+    rom: Rom,
+    file_path: Path,
+    core: str,
+    options: Mapping[str, str],
+    profile: str | None,
+    companion_ids: Sequence[int],
+    restore: Restore,
+) -> RestoredSave:
+    companions = _companions(request, companion_ids)
+    try:
+        return await restore_for_core(
+            save,
+            rom,
+            file_path,
+            core=core,
+            options=options,
+            profile=profile,
+            companions=companions,
+            restore=restore,
+        )
+    except (NotConvertible, ConversionUnavailable, SaveRestoreError) as exc:
+        raise _restore_error(exc) from exc
+
+
+def _restored_response(restored: RestoredSave, save: Save) -> Response:
+    """One file raw, named by `X-Save-Path`; several as a zip of save-root paths."""
+    if len(restored.files) == 1:
+        ((path, data),) = restored.files.items()
+        return Response(
+            content=data,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": content_disposition(PurePosixPath(path).name),
+                SAVE_PATH_HEADER: quote(path),
+            },
+        )
+    # `zipfile_inflate64`, imported for ROM archives, breaks `writestr()` until this runs.
+    ensure_zipfile_writable()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path, data in sorted(restored.files.items()):
+            zf.writestr(path, data)
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": content_disposition(
+                f"{PurePosixPath(save.file_name).stem}.zip"
+            )
+        },
+    )
+
+
+_DOWNLOAD_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_400_BAD_REQUEST: {},
+    status.HTTP_404_NOT_FOUND: {},
+    status.HTTP_409_CONFLICT: {},
+    status.HTTP_422_UNPROCESSABLE_CONTENT: {},
+    status.HTTP_503_SERVICE_UNAVAILABLE: {},
+}
+
+
+@protected_route(
+    router.get,
+    "/{id}/content",
+    [Scope.ASSETS_READ],
+    responses=_DOWNLOAD_RESPONSES,
+)
+async def download_save(
+    request: Request,
+    id: int,
+    device_id: str | None = None,
+    session_id: int | None = None,
+    optimistic: bool = True,
+    core: Annotated[
+        str | None,
+        Query(
+            max_length=EMULATOR_MAX_LENGTH,
+            description=(
+                "A sigil layout id (libretro core name or emulator id). The save "
+                "comes back as the files that emulator reads, for a per-game target."
+            ),
+        ),
+    ] = None,
+    option: Annotated[
+        list[str] | None,
+        Query(
+            description="An emulator option that changes the save's shape, as key:value. Repeatable."
+        ),
+    ] = None,
+    profile: Annotated[
+        str | None, Query(description="The user profile whose account save to write.")
+    ] = None,
+    companion: Annotated[
+        list[int] | None,
+        Query(description="A save whose game this game reads saves of. Repeatable."),
+    ] = None,
+) -> Response:
+    """Download a save, or with `core` the files that emulator reads, one raw with its path in `X-Save-Path` or several zipped."""
+    device = _resolve_device(
+        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_READ
+    )
+    save = _readable_save_or_404(request, id)
+    file_path = _stored_save_path(save)
+
+    rom = _convertible_rom_or_400(save) if core is not None else None
+    response: Response
+    if core is None or rom is None:
+        response = FileResponse(path=str(file_path), filename=save.file_name)
+    else:
+        options = _parse_options(option or [])
+        restored = await _restore_for_core(
+            request,
+            save,
+            rom,
+            file_path,
+            core,
+            options,
+            profile,
+            companion or [],
+            restore_per_game,
+        )
+        response = _restored_response(restored, save)
+
+    _record_download(request, save, device, session_id, optimistic)
+    return response
+
+
+class SaveConversionPayload(BaseModel):
+    """What a client's emulator reads, and where its container sits."""
+
+    core: str = Field(max_length=EMULATOR_MAX_LENGTH)
+    options: dict[str, str] = Field(default_factory=dict)
+    profile: str | None = None
+    container_path: str = Field(max_length=FILE_PATH_MAX_LENGTH)
+    companions: list[int] = Field(default_factory=list)
+
+
+@protected_route(
+    router.post,
+    "/{id}/content",
+    [Scope.ASSETS_READ],
+    responses={
+        **_DOWNLOAD_RESPONSES,
+        status.HTTP_413_CONTENT_TOO_LARGE: {},
+    },
+)
+async def merge_save_into_container(
+    request: Request,
+    id: int,
+    payload: Annotated[
+        str,
+        Form(
+            alias="request",
+            description=(
+                "JSON: core, options, profile, container_path (relative to the "
+                "save root) and companions (save ids)."
+            ),
+        ),
+    ],
+    container: Annotated[
+        UploadFile,
+        File(description="The client's current card or volume at container_path."),
+    ],
+    device_id: str | None = None,
+    session_id: int | None = None,
+    optimistic: bool = True,
+) -> Response:
+    """Merge a save into the card or volume the client sent, changing only that game's saves, and return it."""
+    try:
+        conversion = SaveConversionPayload.model_validate_json(payload)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=exc.errors(include_url=False, include_context=False),
+        ) from exc
+    container_path = conversion.container_path
+    if not container_path or leaves_save_folder(container_path):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"container_path {container_path!r} leaves the save root",
+        )
+    content = await container.read(MEMORY_CARD_MAX_BYTES + 1)
+    if len(content) > MEMORY_CARD_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=f"The container exceeds {MEMORY_CARD_MAX_BYTES} bytes",
+        )
+
+    device = _resolve_device(
+        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_READ
+    )
+    save = _readable_save_or_404(request, id)
+    file_path = _stored_save_path(save)
+    rom = _convertible_rom_or_400(save)
+    if rom is None:
+        _record_download(request, save, device, session_id, optimistic)
+        return FileResponse(path=str(file_path), filename=save.file_name)
+
+    async def merge(
+        unit: bytes,
+        game: SigilGame,
+        target: RestoreTarget,
+        companions: list[RestoreCompanion],
+    ) -> RestoredSave:
+        return await merge_into_container(
+            unit, game, target, container_path, content, companions
+        )
+
+    restored = await _restore_for_core(
+        request,
+        save,
+        rom,
+        file_path,
+        conversion.core,
+        conversion.options,
+        conversion.profile,
+        conversion.companions,
+        merge,
+    )
+
+    _record_download(request, save, device, session_id, optimistic)
+    return _restored_response(restored, save)
 
 
 @protected_route(router.post, "/{id}/downloaded", [Scope.DEVICES_WRITE])
@@ -639,6 +1054,7 @@ async def update_save(
 
     check_asset_upload_size(saveFile, "Save file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
+    check_upload_archive(saveFile, "Save file")
 
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
@@ -656,7 +1072,9 @@ async def update_save(
         else ""
     )
 
+    rom = db_save.attached_rom
     if saveFile:
+        assert_backup(db_save)
         replaced_hash = await fs_asset_handler.unrecorded_hash(db_save)
         await fs_asset_handler.write_file(
             file=saveFile, path=db_save.file_path, filename=db_save.file_name
@@ -664,8 +1082,8 @@ async def update_save(
         scanned_save = await scan_save(
             file_name=db_save.file_name,
             user=request.user,
-            platform_fs_slug=db_save.rom.platform_fs_slug,
-            rom_id=db_save.rom_id,
+            platform_fs_slug=rom.platform_fs_slug,
+            rom_id=rom.id,
             emulator=db_save.emulator,
         )
         db_save = db_save_handler.update_save(
@@ -678,44 +1096,18 @@ async def update_save(
         )
 
     if screenshotFile and sanitized_screenshot_filename:
-        screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user,
-            platform_fs_slug=db_save.rom.platform_slug,
-            rom_id=db_save.rom.id,
+        await store_screenshot(
+            request.user,
+            rom,
+            screenshotFile,
+            sanitized_screenshot_filename,
+            is_public=db_save.is_public,
         )
-
-        await fs_asset_handler.write_file(
-            file=screenshotFile,
-            path=screenshots_path,
-            filename=sanitized_screenshot_filename,
-        )
-
-        # Scan or update screenshot
-        scanned_screenshot = await scan_screenshot(
-            file_name=sanitized_screenshot_filename,
-            user=request.user,
-            platform_fs_slug=db_save.rom.platform_slug,
-            rom_id=db_save.rom.id,
-        )
-        db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=sanitized_screenshot_filename,
-            rom_id=db_save.rom.id,
-            user_id=request.user.id,
-        )
-        if db_screenshot:
-            db_screenshot = db_screenshot_handler.update_screenshot(
-                db_screenshot.id,
-                {"file_size_bytes": scanned_screenshot.file_size_bytes},
-            )
-        else:
-            scanned_screenshot.rom_id = db_save.rom.id
-            scanned_screenshot.user_id = request.user.id
-            db_screenshot_handler.add_screenshot(screenshot=scanned_screenshot)
 
     # Set the last played time for the current user
-    rom_user = db_rom_handler.get_rom_user(db_save.rom_id, request.user.id)
+    rom_user = db_rom_handler.get_rom_user(rom.id, request.user.id)
     if not rom_user:
-        rom_user = db_rom_handler.add_rom_user(db_save.rom_id, request.user.id)
+        rom_user = db_rom_handler.add_rom_user(rom.id, request.user.id)
     db_rom_handler.update_rom_user(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
@@ -739,8 +1131,10 @@ def update_save_visibility(
     id: int,
     is_public: Annotated[bool, Body(embed=True)],
 ) -> SaveSchema:
-    """Toggle a save's public/private visibility (owner only)."""
+    """Toggle a save's public/private visibility (owner only). A save a channel
+    holds is shared with the channel."""
     save = _owned_save_or_404(id, request.user.id)
+    assert_backup(save)
 
     updated = db_save_handler.update_save(id, {"is_public": is_public}, touch=False)
 
@@ -752,7 +1146,8 @@ def update_save_visibility(
         )
 
     # Sharing a save exposes it to every other user's `has_saves` filter.
-    refresh_affected_smart_collections([save.rom_id], membership_only=True)
+    if save.rom_id is not None:
+        refresh_affected_smart_collections([save.rom_id], membership_only=True)
 
     return _build_save_schema(updated)
 
@@ -844,6 +1239,7 @@ async def delete_saves(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     affected_rom_ids: set[int] = set()
+    frozen = db_snapshot_handler.get_frozen_save_ids(saves)
 
     for save_id in saves:
         save = db_save_handler.get_save(user_id=request.user.id, id=save_id)
@@ -851,10 +1247,12 @@ async def delete_saves(
             error = f"Save with ID {save_id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        if save.id in frozen:
+            raise frozen_conflict(save)
 
-        affected_rom_ids.add(save.rom_id)
+        affected_rom_ids.add(save.attached_rom_id)
         log.info(
-            f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
+            f"Deleting save {hl(save.file_name)} [{save.attached_rom.platform_slug}] from filesystem"
         )
         await remove_save(save)
 

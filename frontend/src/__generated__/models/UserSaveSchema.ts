@@ -9,6 +9,7 @@ import type { ScreenshotSchema } from './ScreenshotSchema';
  * Community) view. Mirrors UserScreenshotSchema.
  */
 export type UserSaveSchema = {
+    channel_id?: (string | null);
     is_favorite?: boolean;
     labels?: Array<string>;
     id: number;

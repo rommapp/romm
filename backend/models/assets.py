@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import enum
+import uuid
 from functools import cached_property
 from typing import TYPE_CHECKING, NamedTuple
 from urllib.parse import quote
 
-from sqlalchemy import BigInteger, ForeignKey, Index, String
+from sqlalchemy import BigInteger, Enum, ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import (
@@ -34,6 +36,20 @@ MEMORY_CARD_NAME_MAX_LENGTH = 255
 ASSET_LABEL_MAX_LENGTH = 255
 ASSET_LABELS_MAX = 20
 CONTENT_HASH_MAX_LENGTH = 32
+EMULATOR_VERSION_MAX_LENGTH = 100
+
+
+class SaveShape(enum.StrEnum):
+    """How a save unit travels, as sigil packs it."""
+
+    SINGLE = "SINGLE"
+    MULTI = "MULTI"
+    FOLDER = "FOLDER"
+
+
+class SaveFormat(enum.StrEnum):
+    NEUTRAL = "neutral"
+    NATIVE = "native"
 
 
 class SaveLineage(NamedTuple):
@@ -83,12 +99,55 @@ class RomAsset(BaseAsset):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
 
+class DetachedContentError(LookupError):
+    """A save or state whose ROM was deleted reached a flow that needs the ROM."""
+
+    def __init__(self, asset: "ChannelContent"):
+        super().__init__(f"{asset.file_name} has no ROM")
+
+
+class ChannelContent(RomAsset):
+    """A save or state that sync files under a channel. Null is a backup the user manages."""
+
+    __abstract__ = True
+
+    # Deleting the ROM detaches the row; a rescan with the same file key reattaches it.
+    rom_id: Mapped[int | None] = mapped_column(  # type: ignore[assignment]
+        ForeignKey("roms.id", ondelete="SET NULL")
+    )
+
+    if TYPE_CHECKING:
+        rom: Mapped[Rom | None]
+
+    @property
+    def attached_rom(self) -> Rom:
+        """The ROM, for legacy flows, whose queries never load a detached row."""
+        if self.rom is None:
+            raise DetachedContentError(self)
+        return self.rom
+
+    @property
+    def attached_rom_id(self) -> int:
+        if self.rom_id is None:
+            raise DetachedContentError(self)
+        return self.rom_id
+
+    channel_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(), ForeignKey("channels.id", ondelete="SET NULL"), default=None
+    )
+    content_hash: Mapped[str | None] = mapped_column(
+        String(length=CONTENT_HASH_MAX_LENGTH), default=None
+    )
+
+
 class Screenshot(RomAsset):
     __tablename__ = "screenshots"
     __table_args__ = (
         # `Save.screenshot` / `State.screenshot` hit this once per rendered card.
         Index("ix_screenshots_rom_user", "rom_id", "user_id"),
         Index("idx_screenshots_public", "is_public"),
+        Index("ix_screenshots_save_id", "save_id", unique=True),
+        Index("ix_screenshots_state_id", "state_id", unique=True),
         {"extend_existing": True},
     )
 
@@ -99,17 +158,25 @@ class Screenshot(RomAsset):
     # defaults, only the gallery upload endpoint sets `is_gallery=True`.
     is_gallery: Mapped[bool] = mapped_column(default=False)
     is_public: Mapped[bool] = mapped_column(default=False)
+    # The content row a thumbnail belongs to; both null on a gallery screenshot.
+    save_id: Mapped[int | None] = mapped_column(
+        ForeignKey("saves.id", ondelete="CASCADE"), default=None
+    )
+    state_id: Mapped[int | None] = mapped_column(
+        ForeignKey("states.id", ondelete="CASCADE"), default=None
+    )
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="screenshots")
     user: Mapped[User] = relationship(lazy="joined", back_populates="screenshots")
 
 
-class Save(RomAsset):
+class Save(ChannelContent):
     __tablename__ = "saves"
     __table_args__ = (
         Index("ix_saves_rom_user_hash", "rom_id", "user_id", "content_hash"),
         Index("idx_saves_public", "is_public"),
         Index(SAVE_SLOT_VERSIONS_INDEX, "rom_id", "user_id", "slot", "updated_at"),
+        Index("ix_saves_channel_updated", "channel_id", "updated_at"),
         {"extend_existing": True},
     )
 
@@ -118,8 +185,21 @@ class Save(RomAsset):
     slot: Mapped[str | None] = mapped_column(
         ExactString(SAVE_SLOT_MAX_LENGTH), index=True
     )
-    content_hash: Mapped[str | None] = mapped_column(
-        String(length=CONTENT_HASH_MAX_LENGTH)
+    # `content_hash` without the clock member, so a clock tick alone reads as no change.
+    identity_hash: Mapped[str | None] = mapped_column(
+        String(length=CONTENT_HASH_MAX_LENGTH), default=None
+    )
+    shape: Mapped[SaveShape | None] = mapped_column(Enum(SaveShape), default=None)
+    format: Mapped[SaveFormat | None] = mapped_column(Enum(SaveFormat), default=None)
+    emulator_version: Mapped[str | None] = mapped_column(
+        String(length=EMULATOR_VERSION_MAX_LENGTH), default=None
+    )
+    # The libretro core that wrote the save; NULL for a standalone emulator or when unreported.
+    core: Mapped[str | None] = mapped_column(
+        String(length=EMULATOR_MAX_LENGTH), default=None
+    )
+    core_version: Mapped[str | None] = mapped_column(
+        String(length=EMULATOR_VERSION_MAX_LENGTH), default=None
     )
     origin_device_id: Mapped[str | None] = mapped_column(
         String(length=255),
@@ -135,7 +215,7 @@ class Save(RomAsset):
     is_favorite: Mapped[bool] = mapped_column(default=False)
     labels: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
 
-    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="saves")
+    rom: Mapped[Rom | None] = relationship(lazy="joined", back_populates="saves")
     user: Mapped[User] = relationship(lazy="joined", back_populates="saves")
     device_syncs: Mapped[list[DeviceSaveSync]] = relationship(
         back_populates="save",
@@ -151,6 +231,8 @@ class Save(RomAsset):
     def screenshot(self) -> Screenshot | None:
         from handler.database import db_screenshot_handler
 
+        if self.rom_id is None:
+            return None
         return db_screenshot_handler.get_screenshot(
             rom_id=self.rom_id,
             user_id=self.user_id,
@@ -159,11 +241,12 @@ class Save(RomAsset):
         )
 
 
-class State(RomAsset):
+class State(ChannelContent):
     __tablename__ = "states"
     __table_args__ = (
         Index("ix_states_rom_user", "rom_id", "user_id"),
         Index("idx_states_public", "is_public"),
+        Index("ix_states_channel_id", "channel_id"),
         {"extend_existing": True},
     )
 
@@ -189,18 +272,22 @@ class State(RomAsset):
     core: Mapped[str | None] = mapped_column(
         String(length=EMULATOR_MAX_LENGTH), nullable=True, default=None
     )
-    # NULL on states stored before they were hashed.
-    content_hash: Mapped[str | None] = mapped_column(
-        String(length=CONTENT_HASH_MAX_LENGTH), nullable=True, default=None
+    emulator_version: Mapped[str | None] = mapped_column(
+        String(length=EMULATOR_VERSION_MAX_LENGTH), default=None
+    )
+    core_version: Mapped[str | None] = mapped_column(
+        String(length=EMULATOR_VERSION_MAX_LENGTH), default=None
     )
 
-    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="states")
+    rom: Mapped[Rom | None] = relationship(lazy="joined", back_populates="states")
     user: Mapped[User] = relationship(lazy="joined", back_populates="states")
 
     @cached_property
     def screenshot(self) -> Screenshot | None:
         from handler.database import db_screenshot_handler
 
+        if self.rom_id is None:
+            return None
         return db_screenshot_handler.get_screenshot(
             rom_id=self.rom_id,
             user_id=self.user_id,

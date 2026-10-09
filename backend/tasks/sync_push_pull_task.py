@@ -20,7 +20,7 @@ from handler.database import (
     db_sync_session_handler,
 )
 from handler.filesystem import fs_asset_handler
-from handler.sync.comparison import compare_save_state
+from handler.sync.comparison import compare_save_state, for_held_save
 from handler.sync.ssh_handler import RemoteSaveInfo, get_ssh_sync_handler
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -280,14 +280,17 @@ async def _process_remote_save(
             # Identical content is a no_op, which never reads removals.
             removed_at=(
                 db_deleted_asset_handler.removal_times(
-                    device.user_id, matched_save.rom_id, matched_save.slot
+                    device.user_id, matched_save.attached_rom_id, matched_save.slot
                 )
                 if remote_hash != matched_save.content_hash
                 else None
             ),
         )
 
-        if result.action == "no_op":
+        result = for_held_save(result, matched_save.id)
+        action, reason = result.action, result.reason
+
+        if action == "no_op":
             # A timestamp-only no-op can leave the two sides different, so only
             # identical content is recorded as the baseline.
             identical = (
@@ -301,7 +304,7 @@ async def _process_remote_save(
             )
             return "no_op"
 
-        if result.action == "upload":
+        if action == "upload":
             # Remote is newer - pull to server
             log.info(
                 f"Push-pull: pulling {hl(remote_save.file_name)} from device {device.id}"
@@ -331,7 +334,7 @@ async def _process_remote_save(
             )
             return "pulled"
 
-        if result.action == "download":
+        if action == "download":
             # Server is newer - push to device
             log.info(
                 f"Push-pull: pushing {hl(matched_save.file_name)} to device {device.id}"
@@ -350,19 +353,20 @@ async def _process_remote_save(
             )
             return "pushed"
 
-        if result.action == "conflict":
+        if action == "conflict":
             log.warning(
                 f"Push-pull: conflict for {remote_save.file_name} "
-                f"on device {device.id}: {result.reason}"
+                f"on device {device.id}: {reason}"
             )
             await emit_sync_conflict(
                 user_id=device.user_id,
                 device_id=device.id,
                 session_id=session_id,
                 file_name=remote_save.file_name,
-                rom_id=matched_save.rom_id,
-                rom_name=matched_save.rom.name or matched_save.rom.fs_name,
-                reason=result.reason,
+                rom_id=matched_save.attached_rom_id,
+                rom_name=matched_save.attached_rom.name
+                or matched_save.attached_rom.fs_name,
+                reason=reason,
             )
             return "conflict"
 

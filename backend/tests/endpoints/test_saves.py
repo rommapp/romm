@@ -1,5 +1,4 @@
 import os
-import re
 import time
 import uuid
 from collections.abc import Iterator
@@ -14,7 +13,7 @@ from sqlalchemy import update
 from tests.factories import make_save, make_screenshot, make_state
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.asset_store import apply_datetime_tag, reserve_version_name
+from handler.asset_store import reserve_version_name
 from handler.auth.base_handler import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import (
@@ -41,6 +40,7 @@ from models.rom import Rom
 from models.user import User
 from utils import uploads
 from utils.datetime import to_utc
+from utils.uploads import DATETIME_TAG_PATTERN, apply_datetime_tag
 from utils.validation import MAX_ROM_IDS_PER_QUERY
 
 
@@ -1546,7 +1546,6 @@ class TestDatetimeTagging:
         platform: Platform,
         admin_user: User,
     ):
-        import re
 
         mock_save = Save(
             file_name="test [2026-01-31_12-00-00].sav",
@@ -1572,9 +1571,9 @@ class TestDatetimeTagging:
         mock_write.assert_called_once()
         call_args = mock_write.call_args
         written_filename = call_args[1].get("filename") or call_args[0][2]
-        assert re.search(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]", written_filename)
+        assert DATETIME_TAG_PATTERN.search(written_filename)
 
-    @mock.patch("endpoints.saves.scan_screenshot", new_callable=mock.AsyncMock)
+    @mock.patch("handler.asset_store.scan_screenshot", new_callable=mock.AsyncMock)
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
     )
@@ -1629,7 +1628,8 @@ class TestDatetimeTagging:
         save_stem, _ = os.path.splitext(written[0])
         screenshot_stem, _ = os.path.splitext(written[1])
         assert save_stem == screenshot_stem
-        assert re.search(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]$", save_stem)
+        assert DATETIME_TAG_PATTERN.search(save_stem)
+        assert save_stem.endswith("]")
 
     @mock.patch(
         "endpoints.saves.fs_asset_handler.write_file", new_callable=mock.AsyncMock
@@ -1726,7 +1726,6 @@ class TestDatetimeTagging:
         platform: Platform,
         admin_user: User,
     ):
-        import re
 
         mock_save = Save(
             file_name="test [2026-01-31_12-00-00].sav",
@@ -1758,9 +1757,7 @@ class TestDatetimeTagging:
         mock_write.assert_called_once()
         call_args = mock_write.call_args
         written_filename = call_args[1].get("filename") or call_args[0][2]
-        datetime_matches = re.findall(
-            r"\[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]", written_filename
-        )
+        datetime_matches = DATETIME_TAG_PATTERN.findall(written_filename)
         assert len(datetime_matches) == 1
         assert "2020-01-01" not in written_filename
 
@@ -3911,6 +3908,43 @@ class TestSaveVisibilityPropagation:
         refreshed = db_screenshot_handler.get_screenshot_by_id(thumb.id)
         assert refreshed is not None and refreshed.is_public is False
 
+    def test_a_screenshot_sent_with_a_shared_save_is_shared(
+        self,
+        client,
+        access_token: str,
+        editor_access_token: str,
+        rom: Rom,
+        _isolated_assets_dir,
+    ):
+        owner = {"Authorization": f"Bearer {access_token}"}
+        created = client.post(
+            f"/api/saves?rom_id={rom.id}",
+            files={
+                "saveFile": ("game.sav", BytesIO(b"SAVE"), "application/octet-stream")
+            },
+            headers=owner,
+        ).json()
+        client.put(
+            f"/api/saves/{created['id']}/visibility",
+            json={"is_public": True},
+            headers=owner,
+        )
+
+        updated = client.put(
+            f"/api/saves/{created['id']}",
+            files={
+                "saveFile": ("game.sav", BytesIO(b"SAVE2"), "application/octet-stream"),
+                "screenshotFile": ("game.png", BytesIO(b"png"), "image/png"),
+            },
+            headers=owner,
+        ).json()
+        shot = client.get(
+            updated["screenshot"]["download_path"],
+            headers={"Authorization": f"Bearer {editor_access_token}"},
+        )
+
+        assert shot.status_code == status.HTTP_200_OK
+
 
 class TestSaveFavoritesAndLabels:
     """Owner-only annotations on a save: the star and the free-text labels."""
@@ -4312,10 +4346,16 @@ class TestApplyDatetimeTag:
             def now(cls, tz=None):
                 return datetime.fromtimestamp(captured_at.timestamp(), tz)
 
-        with mock.patch("handler.asset_store.datetime", FrozenDatetime):
+        with mock.patch("utils.uploads.datetime", FrozenDatetime):
             tagged = apply_datetime_tag("suikoden [2020-01-01_00-00-00].srm")
 
-        assert tagged == "suikoden [2026-09-22_19-10-13].srm"
+        assert tagged == "suikoden [2026-09-22_19-10-13-000].srm"
+
+    def test_replaces_a_millisecond_tag(self):
+        tagged = apply_datetime_tag("suikoden [2020-01-01_00-00-00-123].srm")
+
+        assert tagged.count("[") == 1
+        assert "2020-01-01" not in tagged
 
     async def test_a_taken_or_claimed_name_moves_on_a_second(
         self, admin_user: User, rom: Rom
@@ -4325,7 +4365,7 @@ class TestApplyDatetimeTag:
         make_save(
             rom,
             admin_user,
-            "game [2026-01-01_12-00-00].srm",
+            "game [2026-01-01_12-00-00-000].srm",
             file_path=saves_path,
             slot="autosave",
         )
@@ -4340,8 +4380,8 @@ class TestApplyDatetimeTag:
             )
 
         assert (first, second) == (
-            "game [2026-01-01_12-00-01].srm",
-            "game [2026-01-01_12-00-02].srm",
+            "game [2026-01-01_12-00-01-000].srm",
+            "game [2026-01-01_12-00-02-000].srm",
         )
 
 

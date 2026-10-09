@@ -6,6 +6,10 @@ import pendingAssetStore, {
   syncPendingAssets,
   type PendingAsset,
 } from "@/services/pending-asset";
+import {
+  bankStateFixture,
+  snapshotFixture,
+} from "@/v2/utils/snapshots.fixtures";
 
 const auth = vi.hoisted(() => ({ userId: 1 as number | null }));
 vi.mock("@/stores/auth", () => ({
@@ -24,6 +28,11 @@ vi.mock("@/services/api/save", async (importOriginal) => ({
 vi.mock("@/services/api/state", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/api/state")>()),
   default: stateApiMocks,
+}));
+const snapshotApiMocks = vi.hoisted(() => ({ pushSnapshot: vi.fn() }));
+vi.mock("@/services/api/snapshot", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/api/snapshot")>()),
+  default: snapshotApiMocks,
 }));
 
 // happy-dom ships no IndexedDB, which is also what a locked-down origin or a
@@ -116,7 +125,7 @@ function installFakeIndexedDB(rows: Map<string, PendingAsset>) {
       const row = indexed[next++];
       request.result = row
         ? {
-            key: [row.userId, row.kind, row.romId],
+            key: [row.userId, row.kind, row.romId, row.capturedAt],
             primaryKey: row.id,
             continue: () => queueMicrotask(step),
           }
@@ -272,6 +281,92 @@ describe("syncPendingAssets", () => {
       "game [2024-05-06 12-38-09-010].png",
     );
     expect(rows.size).toBe(0);
+  });
+
+  it("sends a held snapshot push as it was recorded", async () => {
+    const push = {
+      manifest: { rom_file_id: 7, expected_current_id: 42, label: "default" },
+      files: [{ key: "state:mgba:0", bytes, fileName: "game.state" }],
+      deviceId: "device-1",
+    };
+    snapshotApiMocks.pushSnapshot.mockResolvedValue({ data: {} });
+    queue({ id: "push:taken", kind: "state", push });
+
+    await expect(syncPendingAssets()).resolves.toMatchObject({
+      synced: [{ kind: "state", romId: 1 }],
+      dropped: [],
+    });
+
+    const request = snapshotApiMocks.pushSnapshot.mock.calls[0]![0];
+    expect(request.manifest).toEqual(push.manifest);
+    expect(request.deviceId).toBe("device-1");
+    expect(request.parts[0].file.name).toBe("game.state");
+    expect(stateApiMocks.uploadStates).not.toHaveBeenCalled();
+    expect(rows.size).toBe(0);
+  });
+
+  it("chains pushes held on one base onto what the last one made", async () => {
+    const base = {
+      rom_file_id: 7,
+      channel_id: "chan",
+      expected_current_id: 42,
+    };
+    const statePush = (slot: string, hash: string) => ({
+      manifest: { ...base, states: { mgba: { auto: "a1", [slot]: hash } } },
+      files: [{ key: `state:mgba:${slot}`, bytes, fileName: "game.state" }],
+    });
+    const states = {
+      mgba: { auto: bankStateFixture("a1"), "1": bankStateFixture("h1") },
+    };
+    snapshotApiMocks.pushSnapshot
+      .mockResolvedValueOnce({ data: snapshotFixture({ id: 50, states }) })
+      .mockResolvedValueOnce({ data: snapshotFixture({ id: 51, states }) })
+      .mockResolvedValueOnce({ data: snapshotFixture({ id: 52 }) });
+    queue({
+      id: "chain:first",
+      kind: "state",
+      capturedAt: 1_000,
+      push: statePush("1", "h1"),
+    });
+    queue({
+      id: "chain:save",
+      capturedAt: 2_000,
+      push: { manifest: base, files: [] },
+    });
+    queue({
+      id: "chain:last",
+      kind: "state",
+      capturedAt: 3_000,
+      push: statePush("2", "h2"),
+    });
+
+    await syncPendingAssets();
+
+    const manifests = snapshotApiMocks.pushSnapshot.mock.calls.map(
+      ([request]) => request.manifest,
+    );
+    expect(manifests[0]).toEqual(statePush("1", "h1").manifest);
+    expect(manifests[1]).toEqual({ ...base, expected_current_id: 50 });
+    expect(manifests[2]).toEqual({
+      ...base,
+      expected_current_id: 51,
+      states: { mgba: { auto: "a1", "1": "h1", "2": "h2" } },
+    });
+  });
+
+  it("holds on to a snapshot push the server could not take", async () => {
+    snapshotApiMocks.pushSnapshot.mockRejectedValue(refusal(500));
+    queue({
+      id: "push:kept",
+      push: {
+        manifest: { rom_file_id: 7, expected_current_id: 42 },
+        files: [],
+      },
+    });
+
+    await syncPendingAssets();
+
+    expect(rows.size).toBe(1);
   });
 
   // A server that is down or failing has not judged the asset, so it keeps it.

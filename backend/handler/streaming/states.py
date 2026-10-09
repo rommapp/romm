@@ -34,6 +34,7 @@ from config import STREAMING_STATE_HISTORY_LIMIT
 from handler.asset_store import release_thumbnail, store_screenshot, store_state_file
 from handler.database import (
     db_rom_handler,
+    db_snapshot_handler,
     db_state_handler,
     db_user_handler,
 )
@@ -275,7 +276,7 @@ def fetch_state_screenshot(container: ResolvedContainer, slot: int) -> bytes | N
 
 
 async def store_state_screenshot(
-    user: User, rom: Rom, state_filename: str, image: bytes
+    user: User, rom: Rom, state_filename: str, image: bytes, is_public: bool = False
 ) -> None:
     """Bind a thumbnail to a state so the resume picker shows the right frame.
 
@@ -294,6 +295,7 @@ async def store_state_screenshot(
         rom,
         image,
         sanitize_filename(f"{os.path.splitext(state_filename)[0]}.png"),
+        is_public=is_public,
     )
 
 
@@ -433,6 +435,9 @@ async def prune_state_history(
         if history is not None
         else user_states_for_emulator(user.id, rom.id, emulator)
     )
+    # A state a channel snapshot holds belongs to that channel's retention.
+    frozen = db_snapshot_handler.get_frozen_state_ids([s.id for s in states])
+    states = [s for s in states if s.id not in frozen]
     stale = states[limit:]
     for state in stale:
         screenshot = state.screenshot
@@ -503,7 +508,9 @@ async def store_state_asset(
     # Best-effort: a missing or unreadable screenshot must not fail the sync.
     if screenshot is not None:
         try:
-            await store_state_screenshot(user, rom, stamped, screenshot)
+            await store_state_screenshot(
+                user, rom, stamped, screenshot, is_public=stored.is_public
+            )
         except Exception:
             log.exception("failed to store state screenshot for %s", stamped)
 

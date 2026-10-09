@@ -48,6 +48,7 @@ from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
 
+from adapters.services.sigil import SIGIL_FILE_COLUMNS
 from config.config_manager import config_manager as cm
 from decorators.database import INJECTED_SESSION, begin_session
 from exceptions.database_exceptions import RomFileOwnerChangedError
@@ -125,6 +126,7 @@ from utils.sql_dialect import (
 )
 
 from .base_handler import DBBaseHandler, affected_rows, sync_engine
+from .snapshots_handler import link_channels_to_files
 
 type RomSelect = Select[Rom]
 
@@ -367,6 +369,7 @@ ROM_FILE_SCANNED_COLUMNS = (
     "title_id",
     "title_version",
     "converto_read_at",
+    *SIGIL_FILE_COLUMNS,
     "archive_members",
     "category",
 )
@@ -2742,19 +2745,20 @@ class DBRomsHandler(DBBaseHandler):
 
         Returns the cover path this update orphaned, if any.
         """
-        # Title ids rom-converto didn't read this pass are reusable only when
+        # Ids rom-converto or sigil didn't read this pass are reusable only when
         # they still describe the same content.
-        keep_converto = scanned.converto_read_at is None and _same_content(row, scanned)
+        same_content = _same_content(row, scanned)
+        keep_when_unset: frozenset[str] = frozenset()
+        if same_content:
+            keep_when_unset |= frozenset(SIGIL_FILE_COLUMNS)
+            if scanned.converto_read_at is None:
+                keep_when_unset |= {"title_id", "title_version", "converto_read_at"}
         _copy_scanned_columns(
             scanned,
             row,
             ROM_FILE_SCANNED_COLUMNS,
             RomFile,
-            keep_when_unset=(
-                frozenset({"title_id", "title_version", "converto_read_at"})
-                if keep_converto
-                else frozenset()
-            ),
+            keep_when_unset=keep_when_unset,
         )
 
         if row.missing_from_fs:
@@ -2876,6 +2880,9 @@ class DBRomsHandler(DBBaseHandler):
             )
 
         session.flush()
+        platform_id = session.scalar(select(Rom.platform_id).where(Rom.id == rom_id))
+        if platform_id is not None:
+            link_channels_to_files(session, rom_id, platform_id, saved)
         return SyncedRomFiles(files=saved, orphaned_cover_paths=orphaned_cover_paths)
 
     @begin_session

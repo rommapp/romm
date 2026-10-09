@@ -1113,7 +1113,7 @@ def test_saves(save: Save, rom: Rom, platform: Platform, admin_user: User):
         file_size_bytes=1.0,
     )
 
-    refreshed = db_rom_handler.get_rom(save.rom_id)
+    refreshed = db_rom_handler.get_rom(save.attached_rom_id)
     assert refreshed is not None
     assert len(refreshed.saves) == 2
 
@@ -1128,7 +1128,7 @@ def test_saves(save: Save, rom: Rom, platform: Platform, admin_user: User):
 
     db_save_handler.delete_save(new_save.id)
 
-    refreshed = db_rom_handler.get_rom(save.rom_id)
+    refreshed = db_rom_handler.get_rom(save.attached_rom_id)
     assert refreshed is not None
     assert len(refreshed.saves) == 1
 
@@ -1136,7 +1136,7 @@ def test_saves(save: Save, rom: Rom, platform: Platform, admin_user: User):
 def test_states(state: State, rom: Rom, admin_user: User):
     make_state(rom, admin_user, "test_state_2.state", file_size_bytes=1.0)
 
-    refreshed = db_rom_handler.get_rom(id=state.rom_id)
+    refreshed = db_rom_handler.get_rom(id=state.attached_rom_id)
     assert refreshed is not None
     assert len(refreshed.states) == 2
 
@@ -1151,7 +1151,7 @@ def test_states(state: State, rom: Rom, admin_user: User):
 
     db_state_handler.delete_state(id=new_state.id)
 
-    refreshed = db_rom_handler.get_rom(id=state.rom_id)
+    refreshed = db_rom_handler.get_rom(id=state.attached_rom_id)
     assert refreshed is not None
     assert len(refreshed.states) == 1
 

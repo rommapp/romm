@@ -38,6 +38,7 @@ import {
   type AssetType,
 } from "@/v2/utils/assets";
 import { toCssUrl } from "@/v2/utils/css";
+import { slotNameForChannel } from "@/v2/utils/saveSlots";
 
 defineOptions({ inheritAttrs: false });
 
@@ -74,6 +75,8 @@ const props = withDefaults(
     timestamp?: AssetDateField;
     /** Off for lists whose saves are not slot versions (stream archives). */
     groupBySlot?: boolean;
+    /** Channel labels by id, so a save a channel holds groups under its slot. */
+    channelLabels?: Readonly<Record<string, string>>;
     /** Manage mode: lead each row with a checkbox for bulk actions. Distinct
      *  from `selectable`, which is the player's single-asset picker. */
     checkable?: boolean;
@@ -87,6 +90,7 @@ const props = withDefaults(
     scrollable: true,
     timestamp: "updated",
     groupBySlot: true,
+    channelLabels: () => ({}),
     checkable: false,
     checkedIds: () => new Set<number>(),
   },
@@ -111,7 +115,11 @@ const emptyLabel = computed(() =>
 );
 
 function slotOf(asset: Asset): string | null {
-  return "slot" in asset && asset.slot ? asset.slot : null;
+  if ("slot" in asset && asset.slot) return asset.slot;
+  const label = asset.channel_id
+    ? props.channelLabels[asset.channel_id]
+    : undefined;
+  return label ? slotNameForChannel(label) : null;
 }
 
 // Only saves have slots; states render as one flat, headerless group.

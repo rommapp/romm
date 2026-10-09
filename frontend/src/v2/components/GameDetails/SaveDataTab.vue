@@ -33,6 +33,7 @@ import AssetEditDialog, {
 } from "@/v2/components/GameDetails/AssetEditDialog.vue";
 import AssetLabelsDialog from "@/v2/components/GameDetails/AssetLabelsDialog.vue";
 import AssetSelectionToolbar from "@/v2/components/GameDetails/AssetSelectionToolbar.vue";
+import ChannelsPanel from "@/v2/components/GameDetails/SaveChannels/ChannelsPanel.vue";
 import SubtabNav, {
   type SubtabNavItem,
 } from "@/v2/components/GameDetails/SubtabNav.vue";
@@ -48,8 +49,9 @@ import { useIdSelection } from "@/v2/composables/useIdSelection";
 import { useRomSync } from "@/v2/composables/useRomSync";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useSubtabQuery } from "@/v2/composables/useSubtabQuery";
-import { emulatorKey, type AssetType } from "@/v2/utils/assets";
+import { coreOf, emulatorKey, type AssetType } from "@/v2/utils/assets";
 import { errorMessage } from "@/v2/utils/errorMessage";
+import { isBackup, saveDataCounts } from "@/v2/utils/snapshots";
 
 // Slot payload from AssetList/AssetStrip is the full save|state union; these
 // narrow it back to the concrete schema the section's handlers expect.
@@ -91,16 +93,33 @@ const allStates = computed<UserStateSchema[]>(
   () => props.rom.all_user_states ?? [],
 );
 
-const mySaves = computed(() => allSaves.value.filter(isOwn));
-const communitySaves = computed(() => allSaves.value.filter((s) => !isOwn(s)));
-const myStates = computed(() => allStates.value.filter(isOwn));
-const communityStates = computed(() =>
-  allStates.value.filter((s) => !isOwn(s)),
+const ownSaves = computed(() => allSaves.value.filter(isOwn));
+const myBackupSaves = computed(() => ownSaves.value.filter(isBackup));
+const communityBackupSaves = computed(() =>
+  allSaves.value.filter((s) => !isOwn(s) && isBackup(s)),
+);
+const myBackupStates = computed(() =>
+  allStates.value.filter(isOwn).filter(isBackup),
+);
+const communityBackupStates = computed(() =>
+  allStates.value.filter((s) => !isOwn(s) && isBackup(s)),
 );
 
-// Badge = total visible items in the subtab (own + community).
-const savesCount = computed(() => allSaves.value.length);
-const statesCount = computed(() => allStates.value.length);
+const myChannels = computed(() =>
+  (props.rom.user_channels ?? []).filter((c) => c.is_own),
+);
+const communityChannels = computed(() =>
+  (props.rom.user_channels ?? []).filter((c) => !c.is_own),
+);
+
+/** Each subtab's badge counts everything it shows, own and community. */
+const counts = computed(() =>
+  saveDataCounts({
+    saves: allSaves.value,
+    states: allStates.value,
+    channels: props.rom.user_channels ?? [],
+  }),
+);
 
 // ---------- Subtab nav definitions ----------
 const subtabDefs = computed<SubtabNavItem<Subtab>[]>(() => [
@@ -108,13 +127,13 @@ const subtabDefs = computed<SubtabNavItem<Subtab>[]>(() => [
     id: "saves",
     label: t("rom.saves-tab"),
     icon: "mdi-content-save-outline",
-    badge: savesCount.value,
+    badge: counts.value.saves,
   },
   {
     id: "states",
     label: t("rom.states-tab"),
     icon: "mdi-camera-outline",
-    badge: statesCount.value,
+    badge: counts.value.states,
   },
 ]);
 
@@ -136,8 +155,8 @@ const uploadCores = computed(() => {
     props.rom.platform_slug,
     configStore.config.EJS_NETPLAY_ENABLED,
   );
-  const carried = [...mySaves.value, ...myStates.value].map(
-    (asset) => asset.emulator,
+  const carried = [...ownSaves.value, ...allStates.value.filter(isOwn)].map(
+    coreOf,
   );
   for (const core of [...offered, ...carried]) {
     if (!core || cores.has(emulatorKey(core))) continue;
@@ -162,7 +181,7 @@ const uploadingStates = ref(false);
 // into the subtab picker's row.
 const pickerRowUpload = computed(() => {
   const saves = subTab.value === "saves";
-  if ((saves ? mySaves : myStates).value.length === 0) return null;
+  if ((saves ? myBackupSaves : myBackupStates).value.length === 0) return null;
   return saves
     ? { type: "save" as const, busy: uploadingSaves.value }
     : { type: "state" as const, busy: uploadingStates.value };
@@ -309,8 +328,8 @@ async function deleteState(state: StateSchema) {
 // ---------- Bulk selection (own items only) ----------
 // A save and a state can share an id and both panels stay mounted, so each
 // kind gets its own selection rather than one keyed by id alone.
-const saveSelection = useIdSelection(() => mySaves.value);
-const stateSelection = useIdSelection(() => myStates.value);
+const saveSelection = useIdSelection(() => myBackupSaves.value);
+const stateSelection = useIdSelection(() => myBackupStates.value);
 
 function selectionFor(type: AssetType) {
   return type === "save" ? saveSelection : stateSelection;
@@ -564,7 +583,9 @@ async function submitEdit({ fileName, labels, isPublic }: AssetEdit) {
 const labelSuggestions = computed(() =>
   [
     ...new Set(
-      [...mySaves.value, ...myStates.value].flatMap((a) => a.labels ?? []),
+      [...myBackupSaves.value, ...myBackupStates.value].flatMap(
+        (a) => a.labels ?? [],
+      ),
     ),
   ].sort((a, b) => a.localeCompare(b)),
 );
@@ -602,14 +623,27 @@ const labelSuggestions = computed(() =>
       <section v-show="subTab === 'saves'" class="r-v2-saves__panel">
         <!-- Mine -->
         <div class="r-v2-saves__section">
+          <h3 class="r-v2-saves__section-title">
+            {{ t("rom.saves-section-mine") }}
+          </h3>
+          <ChannelsPanel
+            :rom="rom"
+            :channels="myChannels"
+            :saves="ownSaves"
+            own
+            @download="
+              (path, name) =>
+                downloadAsset({ download_path: path, file_name: name })
+            "
+          />
           <header class="r-v2-saves__section-head">
             <div class="r-v2-saves__section-head-text">
-              <h3 class="r-v2-saves__section-title">
-                {{ t("rom.saves-section-mine") }}
-              </h3>
+              <h4 class="r-v2-saves__group-title">
+                {{ t("channels.backups") }}
+              </h4>
             </div>
             <RBtn
-              v-if="mySaves.length > 0 && !smAndDown"
+              v-if="myBackupSaves.length > 0 && !smAndDown"
               variant="outlined"
               size="small"
               prepend-icon="mdi-cloud-upload-outline"
@@ -622,7 +656,7 @@ const labelSuggestions = computed(() =>
           </header>
 
           <RDropzone
-            v-if="mySaves.length === 0"
+            v-if="myBackupSaves.length === 0"
             :title="t('rom.saves-empty')"
             :hint="t('common.dropzone-hint')"
             :active-title="t('common.dropzone-drag-over')"
@@ -643,7 +677,7 @@ const labelSuggestions = computed(() =>
           >
             <AssetSelectionToolbar
               :count="saveSelection.count.value"
-              :total="mySaves.length"
+              :total="myBackupSaves.length"
               :all-checked="saveSelection.allSelected.value"
               :some-checked="saveSelection.someSelected.value"
               :all-favorite="allCheckedFavorite('save')"
@@ -654,7 +688,7 @@ const labelSuggestions = computed(() =>
               @clear="saveSelection.clear()"
             />
             <AssetList
-              :assets="mySaves"
+              :assets="myBackupSaves"
               type="save"
               :selectable="false"
               :scrollable="false"
@@ -680,7 +714,10 @@ const labelSuggestions = computed(() =>
         </div>
 
         <!-- Community -->
-        <div v-if="communitySaves.length > 0" class="r-v2-saves__section">
+        <div
+          v-if="communityBackupSaves.length > 0 || communityChannels.length > 0"
+          class="r-v2-saves__section"
+        >
           <header class="r-v2-saves__section-head">
             <div class="r-v2-saves__section-head-text">
               <h3 class="r-v2-saves__section-title">
@@ -688,8 +725,19 @@ const labelSuggestions = computed(() =>
               </h3>
             </div>
           </header>
+          <ChannelsPanel
+            v-if="communityChannels.length > 0"
+            :rom="rom"
+            :channels="communityChannels"
+            :saves="[]"
+            @download="
+              (path, name) =>
+                downloadAsset({ download_path: path, file_name: name })
+            "
+          />
           <AssetList
-            :assets="communitySaves"
+            v-if="communityBackupSaves.length > 0"
+            :assets="communityBackupSaves"
             type="save"
             :selectable="false"
             :scrollable="false"
@@ -717,7 +765,7 @@ const labelSuggestions = computed(() =>
               </h3>
             </div>
             <RBtn
-              v-if="myStates.length > 0 && !smAndDown"
+              v-if="myBackupStates.length > 0 && !smAndDown"
               variant="outlined"
               size="small"
               prepend-icon="mdi-cloud-upload-outline"
@@ -730,7 +778,7 @@ const labelSuggestions = computed(() =>
           </header>
 
           <RDropzone
-            v-if="myStates.length === 0"
+            v-if="myBackupStates.length === 0"
             :title="t('rom.states-empty')"
             :hint="t('common.dropzone-hint')"
             :active-title="t('common.dropzone-drag-over')"
@@ -751,7 +799,7 @@ const labelSuggestions = computed(() =>
           >
             <AssetSelectionToolbar
               :count="stateSelection.count.value"
-              :total="myStates.length"
+              :total="myBackupStates.length"
               :all-checked="stateSelection.allSelected.value"
               :some-checked="stateSelection.someSelected.value"
               :all-favorite="allCheckedFavorite('state')"
@@ -762,7 +810,7 @@ const labelSuggestions = computed(() =>
               @clear="stateSelection.clear()"
             />
             <AssetStrip
-              :assets="myStates"
+              :assets="myBackupStates"
               type="state"
               :selectable="false"
               checkable
@@ -789,7 +837,10 @@ const labelSuggestions = computed(() =>
         </div>
 
         <!-- Community -->
-        <div v-if="communityStates.length > 0" class="r-v2-saves__section">
+        <div
+          v-if="communityBackupStates.length > 0"
+          class="r-v2-saves__section"
+        >
           <header class="r-v2-saves__section-head">
             <div class="r-v2-saves__section-head-text">
               <h3 class="r-v2-saves__section-title">
@@ -798,7 +849,7 @@ const labelSuggestions = computed(() =>
             </div>
           </header>
           <AssetStrip
-            :assets="communityStates"
+            :assets="communityBackupStates"
             type="state"
             :selectable="false"
             layout="flow"
@@ -820,7 +871,7 @@ const labelSuggestions = computed(() =>
     <UploadAssetDialog
       :model-value="uploadDialog !== null"
       :type="uploadDialog?.type ?? 'save'"
-      :saves="mySaves"
+      :saves="myBackupSaves"
       :cores="uploadCores"
       :initial-files="uploadDialog?.files ?? []"
       @update:model-value="!$event && closeUpload()"
@@ -899,6 +950,14 @@ const labelSuggestions = computed(() =>
   font-size: 14px;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg);
+}
+.r-v2-saves__group-title {
+  margin: 0;
+  font-size: var(--r-font-size-sm);
+  font-weight: var(--r-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--r-color-fg-muted);
 }
 
 html[data-bp~="sm-and-down"] .r-v2-saves {

@@ -3,7 +3,8 @@ import saveApi, { UNLOAD_SAVE_MAX_BYTES } from "@/services/api/save";
 import { saveFixture } from "@/utils/assets.fixtures";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
 
-vi.mock("@/services/api", () => ({
+vi.mock("@/services/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/api")>()),
   default: {
     getUri: ({
       url,
