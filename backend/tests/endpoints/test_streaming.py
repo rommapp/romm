@@ -412,26 +412,170 @@ def test_get_config_ships_capabilities_for_a_retroarch_platform(client, access_t
     assert caps["autosave_slot"] == 10
 
 
-def test_config_ships_the_state_core_rule(client, access_token):
-    with _streaming(_webstation(platforms={"snes": "retroarch:bsnes"})):
+def _picks(client, token, rom: Rom, platform: str, spec=None, core=None):
+    container = _webstation(platforms={rom.platform_slug: platform})
+    with _streaming(container):
         with (
             patch(
-                "handler.streaming.webstation.require_import_spec", return_value=None
+                "handler.streaming.webstation.require_import_spec", return_value=spec
             ),
-            patch("handler.streaming.webstation.default_core", return_value="snes9x"),
+            patch("handler.streaming.states.state_core_for", return_value=core),
         ):
-            body = client.get(
-                "/api/streaming/config", headers=_auth(access_token)
-            ).json()
-    (snes,) = [c for c in body["containers"] if c["platform"] == "snes"]
-    assert snes["state_core"] == {
-        "expected": "bsnes",
-        "default_matches": False,
-        "folders": ["bsnes"],
+            return client.get(f"/api/streaming/states/{rom.id}", headers=_auth(token))
+
+
+_STATE_IMPORT = webstation.ImportSpec(frozenset({"state"}), "push", 9)
+
+
+@pytest.mark.parametrize(
+    ("spec", "pickable"),
+    [(None, {"own", "synced"}), (_STATE_IMPORT, {"own", "synced", "foreign"})],
+)
+def test_state_picks_follow_the_resume_rules(
+    client, access_token, rom: Rom, admin_user: User, spec, pickable
+):
+    """The booted core's states resume natively, wherever they are filed; a
+    foreign one only through an import, and another core's capture never."""
+    made = {
+        "own": _core_state(rom, admin_user, "Game.state", "bsnes"),
+        "other_core": _core_state(rom, admin_user, "Game.state1", "snes9x"),
+        "synced": _add_state(rom, admin_user, "Game.state2", "bsnes"),
+        "foreign": _add_state(rom, admin_user, "Game.ss0", "snes9x"),
     }
+    names = {state.id: name for name, state in made.items()}
+
+    r = _picks(
+        client,
+        access_token,
+        rom,
+        "retroarch:bsnes",
+        spec=spec,
+        core=states.StateCore("bsnes", False),
+    )
+
+    assert r.status_code == 200
+    assert {names[i] for i in r.json()["native"]} == {"own", "synced"}
+    assert {names[i] for i in r.json()["pickable"]} == pickable
 
 
-def test_config_asks_a_broker_its_spec_and_core_at_once(client, access_token):
+_BSNES = states.StateCore("bsnes", False)
+_PICK_STATES = [
+    # (id, emulator, core)
+    (5, "retroarch", "bsnes"),
+    (6, "retroarch", "snes9x"),
+    (7, "retroarch", None),
+    (8, "duckstation", None),
+    (9, "bsnes", None),
+    (10, "bsnes", "bsnes"),
+    (11, "snes9x", None),
+    (12, "Snes9x 2010", None),
+    (13, "Snes9x 2010", "snes9x2010"),
+    (14, "snes9x2010", "snes9x2010"),
+    (15, "snes9x2010", None),
+    (16, "Snes9x 2010", "snes9x"),
+    (17, "snes9x", "snes9x"),
+]
+
+
+@pytest.mark.parametrize(
+    ("core", "imports_states", "native", "pickable"),
+    [
+        # Another core's capture never; Cloud Sync's under the core's folder too.
+        (_BSNES, False, [5, 9, 10], [5, 9, 10]),
+        # A state with no core recorded is the default's.
+        (
+            states.StateCore("snes9x", True),
+            False,
+            [6, 7, 11, 16, 17],
+            [6, 7, 11, 16, 17],
+        ),
+        (
+            states.StateCore("snes9x2010", False, folder="Snes9x 2010"),
+            False,
+            [12, 13, 14],
+            [12, 13, 14],
+        ),
+        # Unknown core: only the stream's own, wherever the core filed them.
+        (None, False, [5, 6, 7, 10, 13, 14, 16, 17], [5, 6, 7, 10, 13, 14, 16, 17]),
+        # An import takes any other client's state, never another core's capture.
+        (_BSNES, True, [5, 9, 10], [5, 8, 9, 10, 11, 12, 15]),
+    ],
+)
+def test_state_picks_split_native_from_importable(
+    core, imports_states, native, pickable
+):
+    made = [
+        State(id=i, emulator=e, core=c, file_name="Game.state")
+        for i, e, c in _PICK_STATES
+    ]
+
+    picks = states.state_picks(made, "retroarch", core, imports_states)
+
+    assert picks == states.StatePicks(native, pickable)
+
+
+@pytest.mark.parametrize(("imports_states", "pickable"), [(False, []), (True, [1, 2])])
+def test_state_picks_offer_a_state_with_no_slot_only_through_an_import(
+    imports_states, pickable
+):
+    """The claim cannot resume `.state100` as it is, so only an import takes it."""
+    made = [
+        State(id=1, emulator="bsnes", file_name="Game.state100"),
+        State(id=2, emulator="retroarch", core="bsnes", file_name="Game.state100"),
+    ]
+
+    picks = states.state_picks(made, "retroarch", _BSNES, imports_states)
+
+    assert picks == states.StatePicks([], pickable)
+
+
+def test_state_picks_without_a_known_core_take_the_streams_own(
+    client, access_token, rom: Rom, admin_user: User
+):
+    own = _core_state(rom, admin_user, "Game.state", "bsnes")
+    _add_state(rom, admin_user, "Game.state2", "bsnes")
+
+    r = _picks(client, access_token, rom, "retroarch")
+
+    assert r.json() == {"native": [own.id], "pickable": [own.id]}
+
+
+def test_state_picks_list_states_newest_first(
+    client, access_token, rom: Rom, admin_user: User
+):
+    """In the order the rom's state list carries them, so the first native one
+    is the newest the picker preselects."""
+    older = _add_state_at(rom, admin_user, "Game.01.p2s", 1)
+    newer = _add_state_at(rom, admin_user, "Game.02.p2s", 2)
+    shared = [
+        s.id
+        for s in db_state_handler.get_rom_shared_states(
+            rom_id=rom.id, user_id=admin_user.id
+        )
+    ]
+
+    r = _picks(client, access_token, rom, "pcsx2")
+
+    assert r.json()["native"] == shared
+    assert set(shared) == {older.id, newer.id}
+
+
+def test_state_picks_hide_a_hidden_rom(
+    client, viewer_access_token, viewer_user: User, rom: Rom
+):
+    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    assert _picks(client, viewer_access_token, rom, "pcsx2").status_code == 404
+
+
+def test_state_picks_404_without_a_container(client, access_token, rom: Rom):
+    with _streaming(_webstation(platforms={"snes": "retroarch"})):
+        r = client.get(f"/api/streaming/states/{rom.id}", headers=_auth(access_token))
+    assert r.status_code == 404
+
+
+def test_state_picks_ask_the_broker_its_spec_and_core_at_once(
+    client, access_token, rom: Rom
+):
     """So an unreachable broker costs the play screen one timeout, not two."""
     both = threading.Barrier(2, timeout=5)
 
@@ -439,7 +583,7 @@ def test_config_asks_a_broker_its_spec_and_core_at_once(client, access_token):
         both.wait()
         return value
 
-    with _streaming(_webstation(platforms={"snes": "retroarch"})):
+    with _streaming(_webstation(platforms={rom.platform_slug: "retroarch"})):
         with (
             patch("handler.streaming.webstation.require_import_spec", side_effect=meet),
             patch(
@@ -447,30 +591,40 @@ def test_config_asks_a_broker_its_spec_and_core_at_once(client, access_token):
                 side_effect=lambda c: meet(value="snes9x"),
             ),
         ):
-            r = client.get("/api/streaming/config", headers=_auth(access_token))
+            r = client.get(
+                f"/api/streaming/states/{rom.id}", headers=_auth(access_token)
+            )
     assert r.status_code == 200
+
+
+def test_config_leaves_the_state_rules_to_the_picks(client, access_token):
+    """The config asks the broker only its import spec; the core is the picks' call."""
+    with _streaming(_webstation(platforms={"snes": "retroarch"})):
+        with (
+            patch(
+                "handler.streaming.webstation.require_import_spec", return_value=None
+            ),
+            patch("handler.streaming.webstation.default_core") as default_core,
+        ):
+            body = client.get(
+                "/api/streaming/config", headers=_auth(access_token)
+            ).json()
+    default_core.assert_not_called()
+    assert "state_core" not in body["containers"][0]
 
 
 def test_config_asks_every_platform_at_once(client, access_token):
     """More checks than the default thread pool holds (at most 32), so a silent
     broker still costs the play screen one timeout rather than one per wave."""
-    platforms = (
-        "nes snes n64 gb gbc gba genesis atari2600 pokemon-mini psp psx sms "
-        "gamegear tg16 ngp wonderswan lynx"
-    ).split()
-    everyone = threading.Barrier(2 * len(platforms), timeout=5)
+    platforms = [f"platform-{n}" for n in range(34)]
+    everyone = threading.Barrier(len(platforms), timeout=5)
 
-    def meet(*_args, value=None):
+    def meet(*_args):
         everyone.wait()
-        return value
 
     with _streaming(_webstation(platforms=dict.fromkeys(platforms, "retroarch"))):
-        with (
-            patch("handler.streaming.webstation.require_import_spec", side_effect=meet),
-            patch(
-                "handler.streaming.webstation.default_core",
-                side_effect=lambda c: meet(value="snes9x"),
-            ),
+        with patch(
+            "handler.streaming.webstation.require_import_spec", side_effect=meet
         ):
             r = client.get("/api/streaming/config", headers=_auth(access_token))
     assert r.status_code == 200
@@ -486,24 +640,19 @@ def test_overlapping_configs_share_each_broker_check(client, access_token):
 
     def join(*args):
         joins.append(args[0])
-        if len(joins) == 4:
+        if len(joins) == 2:
             both_joined.set()
         return shared_check(*args)
 
-    def stall(*_args, value=None):
-        asked.append(value or "spec")
+    def stall(*_args):
+        asked.append("spec")
         assert both_joined.wait(timeout=5)
-        return value
 
     with _streaming(_webstation(platforms={"snes": "retroarch"})):
         with (
             patch.object(streaming, "_shared_check", side_effect=join),
             patch(
                 "handler.streaming.webstation.require_import_spec", side_effect=stall
-            ),
-            patch(
-                "handler.streaming.webstation.default_core",
-                side_effect=lambda c: stall(value="snes9x"),
             ),
             ThreadPoolExecutor(2) as pages,
         ):
@@ -515,18 +664,7 @@ def test_overlapping_configs_share_each_broker_check(client, access_token):
             ]
             responses = [load.result(timeout=10) for load in loads]
     assert [r.status_code for r in responses] == [200, 200]
-    assert sorted(asked) == ["snes9x", "spec"]
-
-
-def test_config_has_no_state_core_outside_retroarch(client, access_token):
-    with _streaming(_webstation()):
-        with patch(
-            "handler.streaming.webstation.require_import_spec", return_value=None
-        ):
-            body = client.get(
-                "/api/streaming/config", headers=_auth(access_token)
-            ).json()
-    assert all(c["state_core"] is None for c in body["containers"])
+    assert asked == ["spec"]
 
 
 def test_get_config_labels_each_platform_by_its_emulator(client, access_token):

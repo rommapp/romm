@@ -24,6 +24,7 @@ import type {
   SlotCapabilitiesSchema,
   StreamingConfigSchema,
   StreamingContainerSchema,
+  StreamStatePicksSchema,
   SwapDiscResponse,
   VolumeResponse,
 } from "@/__generated__";
@@ -39,6 +40,7 @@ import api, { keepaliveHeaders } from "@/services/api";
 export type PlatformCapabilities = SlotCapabilitiesSchema;
 export type StreamingContainer = StreamingContainerSchema;
 export type StreamingConfig = StreamingConfigSchema;
+export type StreamStatePicks = StreamStatePicksSchema;
 export type LaunchingSession = LaunchingSessionSchema;
 
 // Socket payloads reach no route, so the backend publishes them into the
@@ -95,6 +97,12 @@ async function fetchConfig() {
   return api.get<StreamingConfig>("/streaming/config", {
     headers: { "Cache-Control": "no-cache" },
   });
+}
+
+/** Which of the ROM's states the resume picker offers, decided by the same
+ *  rules the claim checks a pick against. */
+async function fetchStatePicks(romId: number) {
+  return api.get<StreamStatePicks>(`/streaming/states/${romId}`);
 }
 
 /** Answers 202 as soon as the container is reserved. The room URL arrives on
@@ -315,6 +323,7 @@ function releaseSessionKeepalive(
 
 export default {
   fetchConfig,
+  fetchStatePicks,
   claimSession,
   listJoinableSessions,
   joinSession,
