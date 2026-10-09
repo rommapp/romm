@@ -3882,39 +3882,43 @@ class DBRomsHandler(DBBaseHandler):
 
         Used during scanning to reassociate a renamed or moved file with its
         existing entry (preserving collections, notes, and assets) instead of
-        creating a duplicate. All three hashes must match; any missing hash
-        falls through to the binary title id, which non-hashable platforms
-        like Switch carry instead.
+        creating a duplicate. All three hashes must match; when they match no
+        entry, the binary title id decides, since moving a file into a folder
+        with extra files changes its hashes but not its title id.
 
         Returns:
             The single matching ROM, or None when there is no unambiguous one.
         """
-        identity: tuple[ColumnElement[bool], ...]
+        identities: list[tuple[ColumnElement[bool], ...]] = []
         if crc_hash and md5_hash and sha1_hash:
-            identity = (
-                Rom.crc_hash == crc_hash,
-                Rom.md5_hash == md5_hash,
-                Rom.sha1_hash == sha1_hash,
-            )
-        elif title_id:
-            identity = (Rom.title_id == title_id,)
-        else:
-            return None
-
-        matches = session.scalars(
-            select(Rom)
-            .where(
-                and_(
-                    Rom.platform_id == platform_id,
-                    Rom.missing_from_fs.is_(True),
-                    *identity,
+            identities.append(
+                (
+                    Rom.crc_hash == crc_hash,
+                    Rom.md5_hash == md5_hash,
+                    Rom.sha1_hash == sha1_hash,
                 )
             )
-            .limit(2)
-        ).all()
+        if title_id:
+            identities.append((Rom.title_id == title_id,))
 
-        # Return None when more than one match to avoid ambiguity.
-        return matches[0] if len(matches) == 1 else None
+        for identity in identities:
+            matches = session.scalars(
+                select(Rom)
+                .where(
+                    and_(
+                        Rom.platform_id == platform_id,
+                        Rom.missing_from_fs.is_(True),
+                        *identity,
+                    )
+                )
+                .limit(2)
+            ).all()
+            if matches:
+                # More than one match is ambiguous, and a weaker identity must
+                # not break the tie.
+                return matches[0] if len(matches) == 1 else None
+
+        return None
 
     def _collect_filter_values(
         self,
