@@ -35,8 +35,8 @@ smart_collections = sa.table(
 
 
 def upgrade() -> None:
-    # Their cached membership predates the ownership check and would match
-    # nothing now, so it is emptied rather than left readable until a refresh.
+    # A scope the owner can't see matches nothing, so its cached membership is
+    # emptied now rather than left readable until the next refresh.
     conn = op.get_bind()
     visible = {
         row.id: (row.user_id, bool(row.is_public))
