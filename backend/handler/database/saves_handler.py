@@ -1,5 +1,6 @@
 import functools
 from collections.abc import Callable, Collection, Mapping, Sequence
+from datetime import timedelta
 from typing import Any, Literal
 
 from sqlalchemy import Select, and_, asc, delete, desc, false, func, or_, select, update
@@ -9,8 +10,9 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from decorators.database import INJECTED_SESSION, begin_session
 from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save, SaveLineage
-from models.base import with_file_name_parts
+from models.base import utc_now, with_file_name_parts
 from models.rom import Rom
+from utils.datetime import to_utc
 from utils.sql_dialect import force_index_on_mysql
 
 from .base_handler import DBBaseHandler, affected_rows
@@ -427,6 +429,23 @@ class DBSavesHandler(DBBaseHandler):
             if current and _loses_version(current, data):
                 _record_loss(current, session, replaced_hash)
         return self._write(id, data, touch, session)
+
+    @begin_session
+    def promote_to_slot_head(
+        self, save: Save, session: Session = INJECTED_SESSION
+    ) -> Save:
+        """Make ``save`` its slot's newest version; the head itself is left as is."""
+        head = session.execute(
+            select(Save.id, Save.updated_at)
+            .filter_by(user_id=save.user_id, rom_id=save.rom_id, slot=save.slot)
+            .order_by(desc(Save.updated_at), desc(Save.id))
+            .limit(1)
+        ).one()
+        if head.id == save.id:
+            return save
+        # Timestamps tie at second resolution, and a tie goes to the higher id.
+        promoted_at = max(utc_now(), to_utc(head.updated_at) + timedelta(seconds=1))
+        return self._write(save.id, {"updated_at": promoted_at}, True, session)
 
     @begin_session
     def rehash_save(

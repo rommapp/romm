@@ -342,6 +342,9 @@ async def add_save(
                 await fs_asset_handler.remove_file(f"{saves_path}/{actual_filename}")
             except FileNotFoundError:
                 pass
+            # The device's upload is the slot's newest; a retry of the head
+            # keeps its timestamp so other devices don't go stale.
+            existing_by_hash = db_save_handler.promote_to_slot_head(existing_by_hash)
             # A retry still counts as an upload to the slot, so the cap applies.
             if keep is not None:
                 await prune_save_slot(
