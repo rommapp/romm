@@ -1,5 +1,3 @@
-import errno
-import io
 import logging
 import os
 from contextlib import contextmanager
@@ -971,54 +969,6 @@ def test_a_failed_migration_write_marks_the_config_read_only(tmp_path, library, 
     assert write.call_count == 1
     assert config.CONFIG_FILE_WRITABLE is False
     assert config.STRUCTURE_TEMPLATES["default"] == "roms/{platform}/{game}"
-
-
-class _FullDisk(io.StringIO):
-    def write(self, s: str) -> int:
-        raise OSError(errno.ENOSPC, "No space left on device")
-
-
-def test_a_failed_in_place_config_write_restores_the_previous_file(tmp_path, mocker):
-    config_file = tmp_path / "config.yml"
-    config_file.write_text("filesystem:\n  skip_hash_calculation: true\n")
-    original = config_file.read_text()
-    loader = ConfigManager(str(config_file))
-    mocker.patch(
-        "config.config_manager.os.replace",
-        side_effect=OSError(errno.EBUSY, "Device or resource busy"),
-    )
-    real_open = open
-
-    def full_disk_open(path, mode="r", *args, **kwargs):
-        if mode == "w":
-            real_open(path, "w").close()
-            return _FullDisk()
-        return real_open(path, mode, *args, **kwargs)
-
-    mocker.patch("config.config_manager.open", side_effect=full_disk_open, create=True)
-
-    with pytest.raises(ConfigNotWritableException):
-        loader._write_raw_config()
-
-    assert config_file.read_text() == original
-    assert [path.name for path in tmp_path.iterdir()] == ["config.yml"]
-
-
-def test_a_config_write_keeps_a_symlinked_config_and_its_mode(tmp_path):
-    target = tmp_path / "real" / "config.yml"
-    target.parent.mkdir()
-    target.write_text("filesystem:\n  skip_hash_calculation: true\n")
-    target.chmod(0o640)
-    link = tmp_path / "config.yml"
-    link.symlink_to(target)
-
-    ConfigManager(str(link))._write_raw_config()
-
-    assert link.is_symlink()
-    assert target.stat().st_mode & 0o777 == 0o640
-    assert [path.name for path in target.parent.iterdir()] == ["config.yml"]
-    saved = yaml.safe_load(target.read_text())
-    assert saved["filesystem"]["skip_hash_calculation"] is True
 
 
 def test_an_unmigratable_folder_exits_without_rewriting_the_config(

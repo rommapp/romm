@@ -1,4 +1,3 @@
-import contextlib
 import dataclasses
 import enum
 import functools
@@ -6,10 +5,7 @@ import glob
 import json
 import os
 import posixpath
-import shutil
 import sys
-import tempfile
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, NotRequired, Self, TextIO, TypedDict
@@ -263,41 +259,6 @@ def _platform_first_layout(folder: str) -> bool | None:
     if any(os.path.isdir(match) for match in glob.iglob(pattern)):
         return True
     return None
-
-
-def _replace_file(path: str, content: str) -> None:
-    """Write `content` to a sibling temp file, then rename it over `path`."""
-    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".config-")
-    try:
-        with os.fdopen(fd, "w") as tmp_file:
-            tmp_file.write(content)
-            tmp_file.flush()
-            os.fsync(tmp_file.fileno())
-        if os.path.exists(path):
-            shutil.copymode(path, tmp_path)
-        os.replace(tmp_path, path)
-    except BaseException:
-        with contextlib.suppress(OSError):
-            os.unlink(tmp_path)
-        raise
-
-
-def _overwrite_file(path: str, content: str) -> None:
-    """Rewrite `path` in place, putting the old content back if the write fails."""
-    try:
-        with open(path, "rb") as current:
-            original: bytes | None = current.read()
-    except FileNotFoundError:
-        original = None
-    try:
-        with open(path, "w") as target:
-            target.write(content)
-    except OSError:
-        # Truncating freed the old content's blocks, so this fits even on a full disk.
-        if original is not None:
-            with contextlib.suppress(OSError), open(path, "wb") as target:
-                target.write(original)
-        raise
 
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
@@ -1053,53 +1014,42 @@ class ConfigManager:
             RETIRED_FOLDER_KEYS & filesystem.keys()
         ):
             return None
+        structure = filesystem.setdefault("structure", {})
+        if not isinstance(structure, dict):
+            return None
 
-        folders: dict[str, str] = {}
-        for key, default in RETIRED_FOLDER_KEYS.items():
-            folder = filesystem.get(key, default)
+        roms_folder, firmware_folder = (
+            filesystem.pop(key, default) for key, default in RETIRED_FOLDER_KEYS.items()
+        )
+        for key, folder in zip(
+            RETIRED_FOLDER_KEYS, (roms_folder, firmware_folder), strict=False
+        ):
             if not isinstance(folder, str) or not folder:
                 log.critical(
                     f"Invalid config.yml: filesystem.{key} must be a non-empty string"
                 )
                 sys.exit(3)
-            folders[key] = folder
-
-        structure = filesystem.setdefault("structure", {})
-        if not isinstance(structure, dict):
-            return None
 
         # Validation folds structure keys to lowercase, so `Default` is declared too.
         undeclared = RESERVED_STRUCTURE_KEYS - {str(key).lower() for key in structure}
-        platform_first = (
-            self._detect_platform_first(folders["roms_folder"]) if undeclared else None
-        )
+        if not undeclared:
+            return True
+        platform_first = self._detect_platform_first(roms_folder)
 
         def place(folder: str) -> str:
-            # A `.` folder is the library root itself, which a template spells as
-            # no section at all.
+            # A `.` folder is the library root, which a template spells as no section.
             return posixpath.normpath(
                 f"{{platform}}/{folder}" if platform_first else f"{folder}/{{platform}}"
             )
 
-        candidates: dict[str, tuple[str, Callable[[str], object]]] = {
-            STRUCTURE_DEFAULT_KEY: (
-                f"{place(folders['roms_folder'])}/{{game}}",
-                parse_structure_template,
-            ),
-            STRUCTURE_FIRMWARE_KEY: (
-                place(folders["firmware_folder"]),
-                parse_firmware_template,
-            ),
-        }
         templates = {
-            key: template
-            for key, (template, _) in candidates.items()
-            if key in undeclared
+            STRUCTURE_DEFAULT_KEY: f"{place(roms_folder)}/{{game}}",
+            STRUCTURE_FIRMWARE_KEY: place(firmware_folder),
         }
         # Templates have no escape for braces, so some folder names can't migrate.
         try:
-            for key, template in templates.items():
-                candidates[key][1](template)
+            parse_structure_template(templates[STRUCTURE_DEFAULT_KEY])
+            parse_firmware_template(templates[STRUCTURE_FIRMWARE_KEY])
         except ValueError as exc:
             log.critical(
                 "Invalid config.yml: filesystem.roms_folder and "
@@ -1109,10 +1059,8 @@ class ConfigManager:
             )
             sys.exit(3)
 
-        for key in RETIRED_FOLDER_KEYS:
-            filesystem.pop(key, None)
-        structure.update(templates)
-        return not (undeclared and platform_first is None)
+        structure.update({key: templates[key] for key in undeclared})
+        return platform_first is not None
 
     def migrate_retired_filesystem_keys(self) -> None:
         """Write the layout that replaces the retired folder keys to config.yml."""
@@ -1133,25 +1081,25 @@ class ConfigManager:
             )
             return
 
-        if config.CONFIG_FILE_WRITABLE:
-            try:
-                self._write_raw_config()
-            except ConfigNotWritableException:
-                self._config_file_writable = False
-            else:
-                log.info(
-                    "Migrated filesystem.roms_folder and filesystem.firmware_folder "
-                    f"in config.yml to the equivalent layout:\n\n"
-                    f"  filesystem:\n    structure:\n{layout}\n"
-                )
-                return
+        try:
+            if not config.CONFIG_FILE_WRITABLE:
+                raise ConfigNotWritableException
+            self._write_raw_config()
+        except ConfigNotWritableException:
+            self._config_file_writable = False
+            log.warning(
+                "config.yml is read-only, so filesystem.roms_folder and "
+                "filesystem.firmware_folder are migrated in memory only. Replace "
+                f"them with the equivalent layout:\n\n"
+                f"  filesystem:\n    structure:\n{layout}\n\n"
+                f"See {STRUCTURE_DOCS_URL}."
+            )
+            return
 
-        log.warning(
-            "config.yml is read-only, so filesystem.roms_folder and "
-            "filesystem.firmware_folder are migrated in memory only. Replace "
-            f"them with the equivalent layout:\n\n"
-            f"  filesystem:\n    structure:\n{layout}\n\n"
-            f"See {STRUCTURE_DOCS_URL}."
+        log.info(
+            "Migrated filesystem.roms_folder and filesystem.firmware_folder "
+            f"in config.yml to the equivalent layout:\n\n"
+            f"  filesystem:\n    structure:\n{layout}\n"
         )
 
     def check_library_layout(self) -> None:
@@ -1583,18 +1531,14 @@ class ConfigManager:
         self._write_raw_config()
 
     def _write_raw_config(self) -> None:
-        content = yaml.dump(self._raw_config)
-        # Resolved so a symlinked config.yml keeps its link.
-        path = os.path.realpath(self.config_file)
         try:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            try:
-                _replace_file(path, content)
-            except OSError:
-                # A config.yml bind-mounted on its own can't be renamed over.
-                _overwrite_file(path, content)
-        except OSError as exc:
-            log.critical(f"Config file not writable ({exc}), skipping config update")
+            # Ensure the config directory exists
+            os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
+
+            with open(self.config_file, "w+") as config_file:
+                yaml.dump(self._raw_config, config_file)
+        except PermissionError as exc:
+            log.critical("Config file not writable, skipping config file update")
             raise ConfigNotWritableException from exc
 
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:
