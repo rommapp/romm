@@ -147,6 +147,7 @@ PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
     "x68000": UPS.SHARP_X68000,
     "xegs": UPS.ATARI_XEGS,
     "zc210": UPS.ZELDA_CLASSIC,
+    "zc250": UPS.ZELDA_CLASSIC,
     "zmachine": UPS.Z_MACHINE,
     "zxspectrum": UPS.ZXS,
 }

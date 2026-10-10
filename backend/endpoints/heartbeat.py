@@ -366,7 +366,7 @@ async def get_setup_library_info(request: Request) -> SetupLibraryResponse:
     supported_platforms = get_supported_platforms()
 
     # Setup UI matches folders by exact fs_slug against supported_platforms.fs_slug.
-    # FS aliases (e.g. zc210 -> zelda-classic) only appear under the canonical slug
+    # FS aliases (e.g. zc210/zc250 -> zelda-classic) only appear under the canonical slug
     # there, so merge resolved on-disk folders so aliases show as identified.
     supported_fs_slugs = {p.fs_slug for p in supported_platforms}
     for fs_platform in await get_filesystem_platforms():

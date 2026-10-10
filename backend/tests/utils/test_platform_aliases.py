@@ -51,10 +51,12 @@ def test_folder_without_alias_passes_through():
     assert resolve_platform_slug("my-custom-folder", config) == "my-custom-folder"
 
 
-def test_resolves_zc210_to_zelda_classic():
-    """Batocera and REG-Linux name the Zelda Classic folder after the libretro core."""
+def test_resolves_zc_folders_to_zelda_classic():
+    """zc210 (Batocera/libretro 2.10) and zc250 (2.50) both map to Zelda Classic."""
     assert resolve_platform_slug("zc210", _config()) == UPS.ZELDA_CLASSIC.value
-    assert resolve_fs_slug(UPS.ZELDA_CLASSIC.value, _config()) == "zc210"
+    assert resolve_platform_slug("zc250", _config()) == UPS.ZELDA_CLASSIC.value
+    # Two folder names map here, so no single reverse folder is canonical.
+    assert resolve_fs_slug(UPS.ZELDA_CLASSIC.value, _config()) is None
 
 
 def test_resolves_easyrpg_to_rpg_maker():
