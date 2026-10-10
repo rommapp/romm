@@ -6,6 +6,7 @@ import json
 import os
 import posixpath
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, NotRequired, Self, TextIO, TypedDict
@@ -614,6 +615,7 @@ class ConfigManager:
     def __init__(self, config_file: str = ROMM_USER_CONFIG_FILE) -> None:
         self.config_file = config_file
         self._retired_keys_warned = False
+        self._platform_first_layouts: dict[str, bool] = {}
 
         try:
             # Check if the config file is mounted
@@ -991,14 +993,19 @@ class ConfigManager:
 
         return normalized
 
+    def _detect_platform_first(self, folder: str) -> bool | None:
+        # get_config() reparses on every call, and a found layout doesn't flip.
+        if folder not in self._platform_first_layouts:
+            detected = _platform_first_layout(folder)
+            if detected is None:
+                return None
+            self._platform_first_layouts[folder] = detected
+        return self._platform_first_layouts[folder]
+
     def _migrate_retired_filesystem_keys(self) -> None:
         """Replace the folder-name keys 5.2 saved on every settings change with the
         templates that reproduce the layout 5.2 resolved them to."""
-        filesystem = (
-            self._raw_config.get("filesystem")
-            if isinstance(self._raw_config, dict)
-            else None
-        )
+        filesystem = get_nested(self._raw_config, "filesystem")
         if not isinstance(filesystem, dict) or not (
             RETIRED_FOLDER_KEYS & filesystem.keys()
         ):
@@ -1020,33 +1027,36 @@ class ConfigManager:
 
         # Validation folds structure keys to lowercase, so `Default` is declared too.
         undeclared = RESERVED_STRUCTURE_KEYS - {str(key).lower() for key in structure}
-        roms_folder = folders["roms_folder"]
-        firmware_folder = folders["firmware_folder"]
-        platform_first = _platform_first_layout(roms_folder) if undeclared else None
-        templates = (
-            {
-                STRUCTURE_DEFAULT_KEY: f"{{platform}}/{roms_folder}/{{game}}",
-                STRUCTURE_FIRMWARE_KEY: f"{{platform}}/{firmware_folder}",
-            }
-            if platform_first
-            else {
-                STRUCTURE_DEFAULT_KEY: f"{roms_folder}/{{platform}}/{{game}}",
-                STRUCTURE_FIRMWARE_KEY: f"{firmware_folder}/{{platform}}",
-            }
+        platform_first = (
+            self._detect_platform_first(folders["roms_folder"]) if undeclared else None
         )
-        # A `.` folder is the library root itself, which a template spells as no
-        # section at all.
+
+        def place(folder: str) -> str:
+            # A `.` folder is the library root itself, which a template spells as
+            # no section at all.
+            return posixpath.normpath(
+                f"{{platform}}/{folder}" if platform_first else f"{folder}/{{platform}}"
+            )
+
+        candidates: dict[str, tuple[str, Callable[[str], object]]] = {
+            STRUCTURE_DEFAULT_KEY: (
+                f"{place(folders['roms_folder'])}/{{game}}",
+                parse_structure_template,
+            ),
+            STRUCTURE_FIRMWARE_KEY: (
+                place(folders["firmware_folder"]),
+                parse_firmware_template,
+            ),
+        }
         templates = {
-            key: posixpath.normpath(template)
-            for key, template in templates.items()
+            key: template
+            for key, (template, _) in candidates.items()
             if key in undeclared
         }
         # Templates have no escape for braces, so some folder names can't migrate.
         try:
-            if STRUCTURE_DEFAULT_KEY in templates:
-                parse_structure_template(templates[STRUCTURE_DEFAULT_KEY])
-            if STRUCTURE_FIRMWARE_KEY in templates:
-                parse_firmware_template(templates[STRUCTURE_FIRMWARE_KEY])
+            for key, template in templates.items():
+                candidates[key][1](template)
         except ValueError as exc:
             log.critical(
                 "Invalid config.yml: filesystem.roms_folder and "
@@ -1059,16 +1069,17 @@ class ConfigManager:
         for key in RETIRED_FOLDER_KEYS:
             filesystem.pop(key, None)
         structure.update(templates)
-        effective = {str(key).lower(): value for key, value in structure.items()}
-        layout = "\n".join(
-            f'      {key}: "{effective[key]}"'
-            for key in (STRUCTURE_DEFAULT_KEY, STRUCTURE_FIRMWARE_KEY)
-        )
 
         # An empty or unmounted library can't tell the layouts apart, so the guess
         # stays in memory until a load that can.
         if undeclared and platform_first is None:
             return
+
+        effective = {str(key).lower(): value for key, value in structure.items()}
+        layout = "\n".join(
+            f'      {key}: "{effective[key]}"'
+            for key in (STRUCTURE_DEFAULT_KEY, STRUCTURE_FIRMWARE_KEY)
+        )
 
         if self._config_file_writable:
             try:

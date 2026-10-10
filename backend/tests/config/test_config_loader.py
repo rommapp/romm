@@ -1013,13 +1013,11 @@ def test_an_invalid_firmware_template_is_rejected(tmp_path):
 
 
 def test_the_retired_library_layout_check_names_the_template(
-    tmp_path, mocker, critical
+    tmp_path, library, critical
 ):
     """A `{platform}/roms` library used to be auto-detected; now it has to say so
     rather than scan as empty and mark every rom missing."""
-    library = tmp_path / "library"
     (library / "n64" / "roms").mkdir(parents=True)
-    mocker.patch("config.config_manager.LIBRARY_BASE_PATH", str(library))
 
     loader = _write_filesystem_config(tmp_path, "  skip_hash_calculation: false\n")
     with pytest.raises(SystemExit) as excinfo:
@@ -1029,10 +1027,8 @@ def test_the_retired_library_layout_check_names_the_template(
     assert 'default: "{platform}/roms/{game}"' in critical()
 
 
-def test_the_retired_library_layout_check_passes_once_declared(tmp_path, mocker):
-    library = tmp_path / "library"
+def test_the_retired_library_layout_check_passes_once_declared(tmp_path, library):
     (library / "n64" / "roms").mkdir(parents=True)
-    mocker.patch("config.config_manager.LIBRARY_BASE_PATH", str(library))
 
     loader = _write_filesystem_config(
         tmp_path, '  structure:\n    default: "{platform}/roms/{game}"\n'
