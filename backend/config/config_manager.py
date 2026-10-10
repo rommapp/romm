@@ -1,10 +1,10 @@
-import contextlib
 import dataclasses
 import enum
 import functools
 import glob
 import json
 import os
+import posixpath
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -245,6 +245,20 @@ def parse_platform_templates(
     return tuple(
         parse_structure_template(template, fs_slug=fs_slug) for template in templates
     )
+
+
+def _platform_first_layout(folder: str) -> bool | None:
+    """Whether the library keeps `folder` inside each platform folder.
+
+    `<folder>` at the library root wins when both layouts exist. Returns ``None``
+    when neither does, as in an empty or not yet mounted library.
+    """
+    if os.path.isdir(os.path.join(LIBRARY_BASE_PATH, folder)):
+        return False
+    pattern = os.path.join(LIBRARY_BASE_PATH, "*", glob.escape(folder))
+    if any(os.path.isdir(match) for match in glob.iglob(pattern)):
+        return True
+    return None
 
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
@@ -1004,18 +1018,11 @@ class ConfigManager:
         if not isinstance(structure, dict):
             return
 
+        # Validation folds structure keys to lowercase, so `Default` is declared too.
+        undeclared = RESERVED_STRUCTURE_KEYS - {str(key).lower() for key in structure}
         roms_folder = folders["roms_folder"]
         firmware_folder = folders["firmware_folder"]
-        # 5.2 picked `{platform}/<folder>` only when `<folder>` was missing at the
-        # library root and present under some platform folder.
-        platform_first = not os.path.isdir(
-            os.path.join(LIBRARY_BASE_PATH, roms_folder)
-        ) and any(
-            os.path.isdir(match)
-            for match in glob.iglob(
-                os.path.join(LIBRARY_BASE_PATH, "*", glob.escape(roms_folder))
-            )
-        )
+        platform_first = _platform_first_layout(roms_folder) if undeclared else None
         templates = (
             {
                 STRUCTURE_DEFAULT_KEY: f"{{platform}}/{roms_folder}/{{game}}",
@@ -1027,11 +1034,18 @@ class ConfigManager:
                 STRUCTURE_FIRMWARE_KEY: f"{firmware_folder}/{{platform}}",
             }
         )
+        # A `.` folder is the library root itself, which a template spells as no
+        # section at all.
+        templates = {
+            key: posixpath.normpath(template)
+            for key, template in templates.items()
+            if key in undeclared
+        }
         # Templates have no escape for braces, so some folder names can't migrate.
         try:
-            if STRUCTURE_DEFAULT_KEY not in structure:
+            if STRUCTURE_DEFAULT_KEY in templates:
                 parse_structure_template(templates[STRUCTURE_DEFAULT_KEY])
-            if STRUCTURE_FIRMWARE_KEY not in structure:
+            if STRUCTURE_FIRMWARE_KEY in templates:
                 parse_firmware_template(templates[STRUCTURE_FIRMWARE_KEY])
         except ValueError as exc:
             log.critical(
@@ -1044,17 +1058,24 @@ class ConfigManager:
 
         for key in RETIRED_FOLDER_KEYS:
             filesystem.pop(key, None)
-        migrated = {
-            key: structure.setdefault(key, template)
-            for key, template in templates.items()
-        }
+        structure.update(templates)
+        effective = {str(key).lower(): value for key, value in structure.items()}
         layout = "\n".join(
-            f'      {key}: "{template}"' for key, template in migrated.items()
+            f'      {key}: "{effective[key]}"'
+            for key in (STRUCTURE_DEFAULT_KEY, STRUCTURE_FIRMWARE_KEY)
         )
 
+        # An empty or unmounted library can't tell the layouts apart, so the guess
+        # stays in memory until a load that can.
+        if undeclared and platform_first is None:
+            return
+
         if self._config_file_writable:
-            with contextlib.suppress(ConfigNotWritableException):
+            try:
                 self._write_raw_config()
+            except ConfigNotWritableException:
+                self._config_file_writable = False
+            else:
                 log.info(
                     "Migrated filesystem.roms_folder and filesystem.firmware_folder "
                     f"in config.yml to the equivalent layout:\n\n"
@@ -1080,11 +1101,7 @@ class ConfigManager:
         """
         if STRUCTURE_DEFAULT_KEY in self.config.STRUCTURE_TEMPLATES:
             return
-        if os.path.isdir(os.path.join(LIBRARY_BASE_PATH, "roms")):
-            return
-
-        pattern = os.path.join(LIBRARY_BASE_PATH, "*", "roms")
-        if not any(os.path.isdir(match) for match in glob.iglob(pattern)):
+        if not _platform_first_layout("roms"):
             return
 
         log.critical(

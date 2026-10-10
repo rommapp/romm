@@ -17,6 +17,7 @@ from config.config_manager import (
     parse_platform_templates,
     parse_structure_template,
 )
+from exceptions.config_exceptions import ConfigNotWritableException
 
 
 @contextmanager
@@ -863,9 +864,9 @@ def library(tmp_path, mocker):
             {"default": "{platform}/roms/{game}", "firmware": "{platform}/fw"},
         ),
         (
-            "  roms_folder: roms\n",
-            [],
-            {"default": "roms/{platform}/{game}", "firmware": "bios/{platform}"},
+            "  roms_folder: .\n",
+            ["n64"],
+            {"default": "{platform}/{game}", "firmware": "bios/{platform}"},
         ),
     ],
 )
@@ -884,40 +885,74 @@ def test_retired_folder_keys_migrate_to_the_layout_5_2_resolved(
     loader.check_library_layout()
 
 
-def test_a_declared_structure_wins_over_a_retired_folder_key(tmp_path, library):
+@pytest.mark.parametrize("default_key", ["default", "Default"])
+def test_a_declared_structure_wins_over_a_retired_folder_key(
+    tmp_path, library, default_key
+):
     (library / "n64" / "roms").mkdir(parents=True)
 
     loader = _write_filesystem_config(
         tmp_path,
         "  roms_folder: roms\n"
         "  structure:\n"
-        '    default: "{platform}/roms/{game}"\n'
-        '    firmware: "{platform}/firmware"\n',
+        f'    {default_key}: "roms/{{platform}}/{{game}}"\n',
     )
 
     assert loader.get_config().STRUCTURE_TEMPLATES == {
-        "default": "{platform}/roms/{game}",
-        "firmware": "{platform}/firmware",
+        "default": "roms/{platform}/{game}",
+        "firmware": "{platform}/bios",
     }
+
+
+def test_an_undetectable_layout_migrates_in_memory_until_detected(tmp_path, library):
+    """An empty or unmounted library can't tell the layouts apart, so the guess
+    isn't written until the library shows which one it uses."""
+    loader = _write_filesystem_config(tmp_path, "  roms_folder: roms\n")
+
+    assert loader.get_config().STRUCTURE_TEMPLATES == {
+        "default": "roms/{platform}/{game}",
+        "firmware": "bios/{platform}",
+    }
+    assert "roms_folder" in (tmp_path / "config.yml").read_text()
+
+    (library / "n64" / "roms").mkdir(parents=True)
+
+    expected = {"default": "{platform}/roms/{game}", "firmware": "{platform}/bios"}
+    assert loader.get_config().STRUCTURE_TEMPLATES == expected
+    saved = yaml.safe_load((tmp_path / "config.yml").read_text())
+    assert saved["filesystem"] == {"structure": expected}
 
 
 def test_retired_folder_keys_migrate_in_memory_when_read_only(
     tmp_path, library, mocker
 ):
+    (library / "games").mkdir()
     warning = mocker.patch("config.config_manager.log.warning")
+    mocker.patch("config.config_manager.os.access", return_value=False)
     config_file = tmp_path / "config.yml"
     config_file.write_text("filesystem:\n  roms_folder: games\n")
-    config_file.chmod(0o444)
-    try:
-        loader = ConfigManager(str(config_file))
-        loader.get_config()
-    finally:
-        config_file.chmod(0o644)
+
+    loader = ConfigManager(str(config_file))
+    loader.get_config()
 
     assert loader.config.STRUCTURE_TEMPLATES["default"] == "games/{platform}/{game}"
     assert "roms_folder" in config_file.read_text()
     assert warning.call_count == 1
     assert 'default: "games/{platform}/{game}"' in warning.call_args[0][0]
+
+
+def test_a_failed_migration_write_is_not_retried(tmp_path, library, mocker):
+    (library / "roms").mkdir()
+    write = mocker.patch.object(
+        ConfigManager, "_write_raw_config", side_effect=ConfigNotWritableException
+    )
+
+    loader = _write_filesystem_config(tmp_path, "  roms_folder: roms\n")
+    config = loader.get_config()
+
+    assert write.call_count == 1
+    assert config.CONFIG_FILE_WRITABLE is False
+    assert config.STRUCTURE_TEMPLATES["default"] == "roms/{platform}/{game}"
 
 
 def test_an_unmigratable_folder_exits_without_rewriting_the_config(
