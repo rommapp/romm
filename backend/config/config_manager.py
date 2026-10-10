@@ -1,3 +1,4 @@
+import contextlib
 import dataclasses
 import enum
 import functools
@@ -5,7 +6,9 @@ import glob
 import json
 import os
 import posixpath
+import shutil
 import sys
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -260,6 +263,41 @@ def _platform_first_layout(folder: str) -> bool | None:
     if any(os.path.isdir(match) for match in glob.iglob(pattern)):
         return True
     return None
+
+
+def _replace_file(path: str, content: str) -> None:
+    """Write `content` to a sibling temp file, then rename it over `path`."""
+    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".config-")
+    try:
+        with os.fdopen(fd, "w") as tmp_file:
+            tmp_file.write(content)
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
+        if os.path.exists(path):
+            shutil.copymode(path, tmp_path)
+        os.replace(tmp_path, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_path)
+        raise
+
+
+def _overwrite_file(path: str, content: str) -> None:
+    """Rewrite `path` in place, putting the old content back if the write fails."""
+    try:
+        with open(path, "rb") as current:
+            original: bytes | None = current.read()
+    except FileNotFoundError:
+        original = None
+    try:
+        with open(path, "w") as target:
+            target.write(content)
+    except OSError:
+        # Truncating freed the old content's blocks, so this fits even on a full disk.
+        if original is not None:
+            with contextlib.suppress(OSError), open(path, "wb") as target:
+                target.write(original)
+        raise
 
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
@@ -614,7 +652,7 @@ class ConfigManager:
     # Tests require custom config path
     def __init__(self, config_file: str = ROMM_USER_CONFIG_FILE) -> None:
         self.config_file = config_file
-        self._retired_keys_warned = False
+        self._retired_layout_detected: bool | None = None
         self._platform_first_layouts: dict[str, bool] = {}
 
         try:
@@ -738,7 +776,7 @@ class ConfigManager:
 
     def _parse_config(self) -> None:
         """Parses each entry in the config.yml"""
-        self._migrate_retired_filesystem_keys()
+        self._retired_layout_detected = self._translate_retired_filesystem_keys()
 
         self.config = Config(
             CONFIG_FILE_MOUNTED=self._config_file_mounted,
@@ -1002,14 +1040,19 @@ class ConfigManager:
             self._platform_first_layouts[folder] = detected
         return self._platform_first_layouts[folder]
 
-    def _migrate_retired_filesystem_keys(self) -> None:
-        """Replace the folder-name keys 5.2 saved on every settings change with the
-        templates that reproduce the layout 5.2 resolved them to."""
+    def _translate_retired_filesystem_keys(self) -> bool | None:
+        """Replace, in memory, the folder-name keys 5.2 saved on every settings
+        change with the templates that reproduce the layout 5.2 resolved them to.
+
+        Returns:
+            ``None`` when there was nothing to translate, otherwise whether the
+            library showed which layout it uses.
+        """
         filesystem = get_nested(self._raw_config, "filesystem")
         if not isinstance(filesystem, dict) or not (
             RETIRED_FOLDER_KEYS & filesystem.keys()
         ):
-            return
+            return None
 
         folders: dict[str, str] = {}
         for key, default in RETIRED_FOLDER_KEYS.items():
@@ -1023,7 +1066,7 @@ class ConfigManager:
 
         structure = filesystem.setdefault("structure", {})
         if not isinstance(structure, dict):
-            return
+            return None
 
         # Validation folds structure keys to lowercase, so `Default` is declared too.
         undeclared = RESERVED_STRUCTURE_KEYS - {str(key).lower() for key in structure}
@@ -1069,19 +1112,28 @@ class ConfigManager:
         for key in RETIRED_FOLDER_KEYS:
             filesystem.pop(key, None)
         structure.update(templates)
+        return not (undeclared and platform_first is None)
 
-        # An empty or unmounted library can't tell the layouts apart, so the guess
-        # stays in memory until a load that can.
-        if undeclared and platform_first is None:
+    def migrate_retired_filesystem_keys(self) -> None:
+        """Write the layout that replaces the retired folder keys to config.yml."""
+        config = self.get_config()
+        if self._retired_layout_detected is None:
             return
 
-        effective = {str(key).lower(): value for key, value in structure.items()}
         layout = "\n".join(
-            f'      {key}: "{effective[key]}"'
+            f'      {key}: "{config.STRUCTURE_TEMPLATES[key]}"'
             for key in (STRUCTURE_DEFAULT_KEY, STRUCTURE_FIRMWARE_KEY)
         )
+        if not self._retired_layout_detected:
+            log.warning(
+                "The library is empty or not mounted, so filesystem.roms_folder and "
+                "filesystem.firmware_folder are migrated in memory only, as:\n\n"
+                f"  filesystem:\n    structure:\n{layout}\n\n"
+                "config.yml is updated on the first startup that finds the library."
+            )
+            return
 
-        if self._config_file_writable:
+        if config.CONFIG_FILE_WRITABLE:
             try:
                 self._write_raw_config()
             except ConfigNotWritableException:
@@ -1094,15 +1146,13 @@ class ConfigManager:
                 )
                 return
 
-        if not self._retired_keys_warned:
-            self._retired_keys_warned = True
-            log.warning(
-                "config.yml is read-only, so filesystem.roms_folder and "
-                "filesystem.firmware_folder are migrated in memory only. Replace "
-                f"them with the equivalent layout:\n\n"
-                f"  filesystem:\n    structure:\n{layout}\n\n"
-                f"See {STRUCTURE_DOCS_URL}."
-            )
+        log.warning(
+            "config.yml is read-only, so filesystem.roms_folder and "
+            "filesystem.firmware_folder are migrated in memory only. Replace "
+            f"them with the equivalent layout:\n\n"
+            f"  filesystem:\n    structure:\n{layout}\n\n"
+            f"See {STRUCTURE_DOCS_URL}."
+        )
 
     def check_library_layout(self) -> None:
         """Exit if the library is laid out as `{platform}/roms` with no template.
@@ -1533,14 +1583,18 @@ class ConfigManager:
         self._write_raw_config()
 
     def _write_raw_config(self) -> None:
+        content = yaml.dump(self._raw_config)
+        # Resolved so a symlinked config.yml keeps its link.
+        path = os.path.realpath(self.config_file)
         try:
-            # Ensure the config directory exists
-            os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
-
-            with open(self.config_file, "w+") as config_file:
-                yaml.dump(self._raw_config, config_file)
-        except PermissionError as exc:
-            log.critical("Config file not writable, skipping config file update")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            try:
+                _replace_file(path, content)
+            except OSError:
+                # A config.yml bind-mounted on its own can't be renamed over.
+                _overwrite_file(path, content)
+        except OSError as exc:
+            log.critical(f"Config file not writable ({exc}), skipping config update")
             raise ConfigNotWritableException from exc
 
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:

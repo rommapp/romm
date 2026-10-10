@@ -1,3 +1,5 @@
+import errno
+import io
 import logging
 import os
 from contextlib import contextmanager
@@ -877,11 +879,24 @@ def test_retired_folder_keys_migrate_to_the_layout_5_2_resolved(
         (library / folder).mkdir(parents=True)
 
     loader = _write_filesystem_config(tmp_path, block)
+    loader.migrate_retired_filesystem_keys()
 
     assert loader.get_config().STRUCTURE_TEMPLATES == expected
     saved = yaml.safe_load((tmp_path / "config.yml").read_text())
     assert saved["filesystem"] == {"structure": expected}
     loader.check_library_layout()
+
+
+def test_loading_a_config_with_retired_folder_keys_never_rewrites_it(tmp_path, library):
+    """Every process loads the config, so only startup writes the migration."""
+    (library / "roms").mkdir()
+
+    loader = _write_filesystem_config(tmp_path, "  roms_folder: roms\n")
+
+    assert loader.get_config().STRUCTURE_TEMPLATES["default"] == (
+        "roms/{platform}/{game}"
+    )
+    assert (tmp_path / "config.yml").read_text() == "filesystem:\n  roms_folder: roms\n"
 
 
 @pytest.mark.parametrize("default_key", ["default", "Default"])
@@ -907,6 +922,7 @@ def test_an_undetectable_layout_migrates_in_memory_until_detected(tmp_path, libr
     """An empty or unmounted library can't tell the layouts apart, so the guess
     isn't written until the library shows which one it uses."""
     loader = _write_filesystem_config(tmp_path, "  roms_folder: roms\n")
+    loader.migrate_retired_filesystem_keys()
 
     assert loader.get_config().STRUCTURE_TEMPLATES == {
         "default": "roms/{platform}/{game}",
@@ -915,6 +931,7 @@ def test_an_undetectable_layout_migrates_in_memory_until_detected(tmp_path, libr
     assert "roms_folder" in (tmp_path / "config.yml").read_text()
 
     (library / "n64" / "roms").mkdir(parents=True)
+    loader.migrate_retired_filesystem_keys()
 
     expected = {"default": "{platform}/roms/{game}", "firmware": "{platform}/bios"}
     assert loader.get_config().STRUCTURE_TEMPLATES == expected
@@ -932,6 +949,7 @@ def test_retired_folder_keys_migrate_in_memory_when_read_only(
     config_file.write_text("filesystem:\n  roms_folder: games\n")
 
     loader = ConfigManager(str(config_file))
+    loader.migrate_retired_filesystem_keys()
     loader.get_config()
 
     assert loader.config.STRUCTURE_TEMPLATES["default"] == "games/{platform}/{game}"
@@ -940,18 +958,67 @@ def test_retired_folder_keys_migrate_in_memory_when_read_only(
     assert 'default: "games/{platform}/{game}"' in warning.call_args[0][0]
 
 
-def test_a_failed_migration_write_is_not_retried(tmp_path, library, mocker):
+def test_a_failed_migration_write_marks_the_config_read_only(tmp_path, library, mocker):
     (library / "roms").mkdir()
     write = mocker.patch.object(
         ConfigManager, "_write_raw_config", side_effect=ConfigNotWritableException
     )
 
     loader = _write_filesystem_config(tmp_path, "  roms_folder: roms\n")
+    loader.migrate_retired_filesystem_keys()
     config = loader.get_config()
 
     assert write.call_count == 1
     assert config.CONFIG_FILE_WRITABLE is False
     assert config.STRUCTURE_TEMPLATES["default"] == "roms/{platform}/{game}"
+
+
+class _FullDisk(io.StringIO):
+    def write(self, s: str) -> int:
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+
+def test_a_failed_in_place_config_write_restores_the_previous_file(tmp_path, mocker):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("filesystem:\n  skip_hash_calculation: true\n")
+    original = config_file.read_text()
+    loader = ConfigManager(str(config_file))
+    mocker.patch(
+        "config.config_manager.os.replace",
+        side_effect=OSError(errno.EBUSY, "Device or resource busy"),
+    )
+    real_open = open
+
+    def full_disk_open(path, mode="r", *args, **kwargs):
+        if mode == "w":
+            real_open(path, "w").close()
+            return _FullDisk()
+        return real_open(path, mode, *args, **kwargs)
+
+    mocker.patch("config.config_manager.open", side_effect=full_disk_open, create=True)
+
+    with pytest.raises(ConfigNotWritableException):
+        loader._write_raw_config()
+
+    assert config_file.read_text() == original
+    assert [path.name for path in tmp_path.iterdir()] == ["config.yml"]
+
+
+def test_a_config_write_keeps_a_symlinked_config_and_its_mode(tmp_path):
+    target = tmp_path / "real" / "config.yml"
+    target.parent.mkdir()
+    target.write_text("filesystem:\n  skip_hash_calculation: true\n")
+    target.chmod(0o640)
+    link = tmp_path / "config.yml"
+    link.symlink_to(target)
+
+    ConfigManager(str(link))._write_raw_config()
+
+    assert link.is_symlink()
+    assert target.stat().st_mode & 0o777 == 0o640
+    assert [path.name for path in target.parent.iterdir()] == ["config.yml"]
+    saved = yaml.safe_load(target.read_text())
+    assert saved["filesystem"]["skip_hash_calculation"] is True
 
 
 def test_an_unmigratable_folder_exits_without_rewriting_the_config(
