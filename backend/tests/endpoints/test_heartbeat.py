@@ -298,27 +298,33 @@ def test_get_setup_library_info_no_library_yet(client, admin_user, access_token)
 
 def test_get_setup_library_info_handles_errors(client, admin_user, access_token):
     """Test get_setup_library_info handles filesystem errors gracefully"""
-    with patch(
-        "endpoints.heartbeat.fs_platform_handler.library_structure_exists"
-    ) as mock_detect:
-        mock_detect.return_value = True
-
-        with patch(
+    with (
+        patch(
+            "endpoints.heartbeat.fs_platform_handler.library_structure_exists"
+        ) as mock_detect,
+        patch(
             "endpoints.heartbeat.fs_platform_handler.get_platforms"
-        ) as mock_get_platforms:
-            # Simulate error retrieving platforms
-            mock_get_platforms.side_effect = Exception("Filesystem error")
+        ) as mock_get_platforms,
+        patch(
+            "utils.platforms.fs_platform_handler.get_platforms",
+            side_effect=Exception("Filesystem error"),
+        ),
+    ):
+        mock_detect.return_value = True
+        # Simulate error retrieving platforms
+        mock_get_platforms.side_effect = Exception("Filesystem error")
 
-            response = client.get(
-                "/api/setup/library",
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
+        response = client.get(
+            "/api/setup/library",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
 
-            assert response.status_code == status.HTTP_200_OK
-            data = response.json()
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
 
-            # Should return empty platforms list on error
-            assert data["existing_platforms"] == []
+        # Should return empty platforms list on error (no second walk escape)
+        assert data["existing_platforms"] == []
+        assert "supported_platforms" in data
 
 
 def test_get_setup_library_info_merges_fs_alias_platforms(client, access_token):
@@ -377,7 +383,7 @@ def test_get_setup_library_info_merges_fs_alias_platforms(client, access_token):
             "endpoints.heartbeat.get_filesystem_platforms",
             new_callable=AsyncMock,
             return_value=[alias],
-        ),
+        ) as mock_fs_platforms,
         patch("endpoints.heartbeat.AnyioPath") as mock_anyio_path,
     ):
         mock_detect.return_value = True
@@ -402,6 +408,8 @@ def test_get_setup_library_info_merges_fs_alias_platforms(client, access_token):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["existing_platforms"] == [{"fs_slug": "zc210", "rom_count": 1}]
+        # Reuse the folders already listed — do not walk the library again.
+        mock_fs_platforms.assert_awaited_once_with(["zc210"])
         supported_fs_slugs = {p["fs_slug"] for p in data["supported_platforms"]}
         assert "zc210" in supported_fs_slugs
         zc210 = next(p for p in data["supported_platforms"] if p["fs_slug"] == "zc210")

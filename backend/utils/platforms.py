@@ -111,10 +111,19 @@ def get_supported_platforms() -> list[PlatformSchema]:
     return supported_platforms
 
 
-async def get_filesystem_platforms() -> list[PlatformSchema]:
-    """Get platform folders that exist on disk but have no database row yet."""
+async def get_filesystem_platforms(
+    fs_slugs: list[str] | None = None,
+) -> list[PlatformSchema]:
+    """Get platform folders that exist on disk but have no database row yet.
+
+    Args:
+        fs_slugs: Folder names to resolve. When omitted, reads them from disk.
+            Pass a list already loaded by the caller to avoid a second walk
+            (and to keep a prior read's error handling in charge).
+    """
     cnfg = cm.get_config()
-    fs_slugs = await fs_platform_handler.get_platforms()
+    if fs_slugs is None:
+        fs_slugs = await fs_platform_handler.get_platforms()
     existing_fs_slugs = {p.fs_slug for p in db_platform_handler.get_platforms()}
 
     now = datetime.now(timezone.utc)
