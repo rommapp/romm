@@ -51,6 +51,12 @@ def test_folder_without_alias_passes_through():
     assert resolve_platform_slug("my-custom-folder", config) == "my-custom-folder"
 
 
+def test_resolves_zc210_to_zelda_classic():
+    """Batocera and REG-Linux name the Zelda Classic folder after the libretro core."""
+    assert resolve_platform_slug("zc210", _config()) == UPS.ZELDA_CLASSIC.value
+    assert resolve_fs_slug(UPS.ZELDA_CLASSIC.value, _config()) == "zc210"
+
+
 def test_resolves_easyrpg_to_rpg_maker():
     """Batocera, RetroBat and ES-DE all name the RPG Maker folder after the engine."""
     assert resolve_platform_slug("easyrpg", _config()) == UPS.RPG_MAKER.value
