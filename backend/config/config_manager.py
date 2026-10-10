@@ -1027,6 +1027,21 @@ class ConfigManager:
                 STRUCTURE_FIRMWARE_KEY: f"{firmware_folder}/{{platform}}",
             }
         )
+        # Templates have no escape for braces, so some folder names can't migrate.
+        try:
+            if STRUCTURE_DEFAULT_KEY not in structure:
+                parse_structure_template(templates[STRUCTURE_DEFAULT_KEY])
+            if STRUCTURE_FIRMWARE_KEY not in structure:
+                parse_firmware_template(templates[STRUCTURE_FIRMWARE_KEY])
+        except ValueError as exc:
+            log.critical(
+                "Invalid config.yml: filesystem.roms_folder and "
+                "filesystem.firmware_folder can't be migrated to a layout "
+                f"template ({exc}). Rename the folder or set filesystem.structure. "
+                f"See {STRUCTURE_DOCS_URL}."
+            )
+            sys.exit(3)
+
         for key in RETIRED_FOLDER_KEYS:
             filesystem.pop(key, None)
         migrated = {

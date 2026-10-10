@@ -872,8 +872,7 @@ def library(tmp_path, mocker):
 def test_retired_folder_keys_migrate_to_the_layout_5_2_resolved(
     tmp_path, library, block, folders, expected
 ):
-    """5.2 wrote both keys on every settings save, so they have to keep meaning
-    the same layout rather than stop the app from starting."""
+    """Retired folder keys migrate to templates matching the detected layout."""
     for folder in folders:
         (library / folder).mkdir(parents=True)
 
@@ -919,6 +918,18 @@ def test_retired_folder_keys_migrate_in_memory_when_read_only(
     assert "roms_folder" in config_file.read_text()
     assert warning.call_count == 1
     assert 'default: "games/{platform}/{game}"' in warning.call_args[0][0]
+
+
+def test_an_unmigratable_folder_exits_without_rewriting_the_config(
+    tmp_path, library, critical
+):
+    block = "  roms_folder: games{old}\n"
+    with pytest.raises(SystemExit) as excinfo:
+        _write_filesystem_config(tmp_path, block)
+
+    assert excinfo.value.code == 3
+    assert "games{old}" in critical()
+    assert (tmp_path / "config.yml").read_text() == f"filesystem:\n{block}"
 
 
 @pytest.mark.parametrize("value", ['""', "42"])
