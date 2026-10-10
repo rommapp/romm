@@ -873,7 +873,6 @@ def library(tmp_path, mocker):
 def test_retired_folder_keys_migrate_to_the_layout_5_2_resolved(
     tmp_path, library, block, folders, expected
 ):
-    """Retired folder keys migrate to templates matching the detected layout."""
     for folder in folders:
         (library / folder).mkdir(parents=True)
 
