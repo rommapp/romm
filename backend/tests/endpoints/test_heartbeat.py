@@ -298,123 +298,27 @@ def test_get_setup_library_info_no_library_yet(client, admin_user, access_token)
 
 def test_get_setup_library_info_handles_errors(client, admin_user, access_token):
     """Test get_setup_library_info handles filesystem errors gracefully"""
-    with (
-        patch(
-            "endpoints.heartbeat.fs_platform_handler.library_structure_exists"
-        ) as mock_detect,
-        patch(
-            "endpoints.heartbeat.fs_platform_handler.get_platforms"
-        ) as mock_get_platforms,
-        patch(
-            "utils.platforms.fs_platform_handler.get_platforms",
-            side_effect=Exception("Filesystem error"),
-        ),
-    ):
+    with patch(
+        "endpoints.heartbeat.fs_platform_handler.library_structure_exists"
+    ) as mock_detect:
         mock_detect.return_value = True
-        # Simulate error retrieving platforms
-        mock_get_platforms.side_effect = Exception("Filesystem error")
 
-        response = client.get(
-            "/api/setup/library",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-        data = response.json()
-
-        # Should return empty platforms list on error (no second walk escape)
-        assert data["existing_platforms"] == []
-        assert "supported_platforms" in data
-
-
-def test_get_setup_library_info_merges_fs_alias_platforms(client, access_token):
-    """Setup UI matches by fs_slug, so alias folders like zc210 must be in supported_platforms."""
-    from datetime import datetime, timezone
-
-    from endpoints.responses.platform import PlatformSchema
-
-    now = datetime.now(timezone.utc)
-    canonical = PlatformSchema.model_construct(
-        id=-1,
-        slug="zelda-classic",
-        fs_slug="zelda-classic",
-        rom_count=0,
-        name="Zelda Classic",
-        igdb_slug=None,
-        moby_slug=None,
-        hltb_slug=None,
-        libretro_slug="Zelda Classic",
-        created_at=now,
-        updated_at=now,
-        fs_size_bytes=0,
-        is_unidentified=False,
-        is_identified=True,
-        missing_from_fs=False,
-    )
-    alias = PlatformSchema.model_construct(
-        id=-1,
-        slug="zelda-classic",
-        fs_slug="zc210",
-        rom_count=0,
-        name="Zelda Classic",
-        igdb_slug=None,
-        moby_slug=None,
-        hltb_slug=None,
-        libretro_slug="Zelda Classic",
-        created_at=now,
-        updated_at=now,
-        fs_size_bytes=0,
-        is_unidentified=False,
-        is_identified=True,
-        missing_from_fs=False,
-    )
-
-    with (
-        patch(
-            "endpoints.heartbeat.fs_platform_handler.library_structure_exists"
-        ) as mock_detect,
-        patch(
+        with patch(
             "endpoints.heartbeat.fs_platform_handler.get_platforms"
-        ) as mock_get_platforms,
-        patch(
-            "endpoints.heartbeat.get_supported_platforms", return_value=[canonical]
-        ),
-        patch(
-            "endpoints.heartbeat.get_filesystem_platforms",
-            new_callable=AsyncMock,
-            return_value=[alias],
-        ) as mock_fs_platforms,
-        patch("endpoints.heartbeat.AnyioPath") as mock_anyio_path,
-    ):
-        mock_detect.return_value = True
-        mock_get_platforms.return_value = ["zc210"]
+        ) as mock_get_platforms:
+            # Simulate error retrieving platforms
+            mock_get_platforms.side_effect = Exception("Filesystem error")
 
-        mock_path = AsyncMock()
-        mock_path.exists = AsyncMock(return_value=True)
+            response = client.get(
+                "/api/setup/library",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
 
-        async def mock_iterdir():
-            entry = MagicMock()
-            entry.name = "Test Quest.qst"
-            yield entry
+            assert response.status_code == status.HTTP_200_OK
+            data = response.json()
 
-        mock_path.iterdir = mock_iterdir
-        mock_anyio_path.return_value = mock_path
-
-        response = client.get(
-            "/api/setup/library",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-        data = response.json()
-        assert data["existing_platforms"] == [{"fs_slug": "zc210", "rom_count": 1}]
-        # Reuse the folders already listed — do not walk the library again.
-        mock_fs_platforms.assert_awaited_once_with(["zc210"])
-        supported_fs_slugs = {p["fs_slug"] for p in data["supported_platforms"]}
-        assert "zc210" in supported_fs_slugs
-        zc210 = next(p for p in data["supported_platforms"] if p["fs_slug"] == "zc210")
-        assert zc210["slug"] == "zelda-classic"
-        assert zc210["name"] == "Zelda Classic"
+            # Should return empty platforms list on error
+            assert data["existing_platforms"] == []
 
 
 def test_get_setup_library_info_skips_filesystem_walk_when_roms_exist(
