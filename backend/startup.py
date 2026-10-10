@@ -175,6 +175,7 @@ async def main() -> None:
     async with initialize_context():
         log.info("Running startup tasks")
 
+        cm.migrate_retired_filesystem_keys()
         cm.check_library_layout()
 
         if SMTP_HOST and SMTP_SECURITY not in SMTP_SECURITY_MODES:
