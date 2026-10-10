@@ -104,6 +104,7 @@ SLUG_TO_PEGASUS: dict[UPS, tuple[str, str]] = {
     UPS.SAM_COUPE: ("SAM coupe", "samcoupe"),
     UPS.SCUMMVM: ("Scumm VM", "scummvm"),
     UPS.TIC_80: ("TIC80", "tic80"),
+    UPS.ZELDA_CLASSIC: ("Zelda Classic", "zc210"),
     UPS.DRAGON_32_SLASH_64: ("Dragon 32", "dragon32"),
     # PC-88 / PC-98
     UPS.PC_8800_SERIES: ("PC 88", "pc88"),

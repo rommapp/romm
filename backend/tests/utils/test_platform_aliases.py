@@ -51,6 +51,14 @@ def test_folder_without_alias_passes_through():
     assert resolve_platform_slug("my-custom-folder", config) == "my-custom-folder"
 
 
+def test_resolves_zc_folders_to_zelda_classic():
+    """zc210 (Batocera/libretro 2.10) and zc250 (2.50) both map to Zelda Classic."""
+    assert resolve_platform_slug("zc210", _config()) == UPS.ZELDA_CLASSIC.value
+    assert resolve_platform_slug("zc250", _config()) == UPS.ZELDA_CLASSIC.value
+    # Two folder names map here, so no single reverse folder is canonical.
+    assert resolve_fs_slug(UPS.ZELDA_CLASSIC.value, _config()) is None
+
+
 def test_resolves_easyrpg_to_rpg_maker():
     """Batocera, RetroBat and ES-DE all name the RPG Maker folder after the engine."""
     assert resolve_platform_slug("easyrpg", _config()) == UPS.RPG_MAKER.value
