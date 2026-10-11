@@ -126,6 +126,17 @@ Consider supporting this project on Open Collective. Funds cover hosting, develo
   </div>
 </div>
 
+## Corporate Sponsors
+
+These companies support us by providing their tools for free:
+
+<div align="center">
+  <div dir="auto">
+    <a href="https://www.greptile.com/?utm_source=oss_badge&amp;utm_medium=readme&amp;utm_campaign=greptile_for_open_source" target="_blank" rel="noopener noreferrer"><img src=".github/resources/greptile-badge.svg" alt="Greptile" width="250" height="58"/></a>
+    <a href="https://socket.dev/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/socket-badge.svg" alt="Socket" width="250" height="58"/></a>
+  </div>
+</div>
+
 ## Our Friends
 
 Here are a few projects that we think you might like:
@@ -143,17 +154,6 @@ Here are a few projects that we think you might like:
 - [MelonLoader](https://melonloader.co/): Universal mod loader for Unity games
 - [NextUI](https://nextui.loveretro.games/): MinUI-based custom firmware for TrimUI handhelds
 - [RetroAchievements](https://retroachievements.org/): Achievements for retro games
-
-## Supported By
-
-These companies support us by providing their tools for free:
-
-<div align="center">
-  <div dir="auto">
-    <a href="https://www.greptile.com/?utm_source=oss_badge&amp;utm_medium=readme&amp;utm_campaign=greptile_for_open_source" target="_blank" rel="noopener noreferrer"><img src=".github/resources/greptile-badge.svg" alt="Greptile" width="250" height="58"/></a>
-    <a href="https://socket.dev/" target="_blank" rel="noopener noreferrer"><img src=".github/resources/socket-badge.svg" alt="Socket" width="250" height="58"/></a>
-  </div>
-</div>
 
 <!-- docs links -->
 
